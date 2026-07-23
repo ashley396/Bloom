@@ -62,33 +62,57 @@ $$("[data-page]").forEach(b=>b.onclick=()=>showPage(b.dataset.page));
 $$("[data-open]").forEach(b=>b.onclick=()=>document.getElementById(b.dataset.open).showModal());
 $$(".close").forEach(b=>b.onclick=()=>b.closest("dialog").close());
 
-for(const [formId,path,dialogId,success] of [
-  ["customerForm","customers","customerDialog","Customer saved"],
-  ["orderForm","orders","orderDialog","Order created"],
-  ["inventoryForm","inventory","inventoryDialog","Inventory saved"],
-  ["expenseForm","expenses","expenseDialog","Expense saved"]
-]){
- $(`#${formId}`).onsubmit = async e => {
-  e.preventDefault();
+for (const [formId, path, dialogId, success] of [
+  ["customerForm", "customers", "customerDialog", "Customer saved"],
+  ["orderForm", "orders", "orderDialog", "Order created"],
+  ["inventoryForm", "inventory", "inventoryDialog", "Inventory saved"],
+  ["expenseForm", "expenses", "expenseDialog", "Expense saved"]
+]) {
+  const formElement = document.getElementById(formId);
+  const dialogElement = document.getElementById(dialogId);
 
-  const form = e.currentTarget;
-  const formData = Object.fromEntries(new FormData(form));
-
-  try {
-    await api(path, {
-      method: "POST",
-      body: JSON.stringify(formData)
-    });
-
-    form.reset();
-    $(`#${dialogId}`).close();
-    toast(success);
-    loadDashboard();
-  } catch (err) {
-    toast(err.message);
+  if (!formElement) {
+    console.error(`Bloom could not find form: ${formId}`);
+    continue;
   }
-};
 
+  formElement.onsubmit = async event => {
+    event.preventDefault();
+
+    const formData = Object.fromEntries(
+      new FormData(formElement).entries()
+    );
+
+    try {
+      await api(path, {
+        method: "POST",
+        body: JSON.stringify(formData)
+      });
+
+      formElement.reset();
+
+      if (dialogElement) {
+        dialogElement.close();
+      }
+
+      toast(success);
+      await loadPage(
+        formId === "customerForm"
+          ? "customersPage"
+          : formId === "orderForm"
+          ? "ordersPage"
+          : formId === "inventoryForm"
+          ? "inventoryPage"
+          : "expensesPage"
+      );
+
+      await loadDashboard();
+    } catch (error) {
+      console.error(error);
+      toast(error.message || "Could not save");
+    }
+  };
+}
 $("#checkout").onclick=async()=>{
   try{const d=await api("create-checkout",{method:"POST",body:JSON.stringify({amount:$("#paymentAmount").value,description:$("#paymentDescription").value})});location.href=d.url}catch(e){toast(e.message)}
 };
