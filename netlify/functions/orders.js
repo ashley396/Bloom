@@ -1,40 +1,29 @@
-import { json, methodNotAllowed, parseBody } from "./_shared/http.js";
-import { requireUser, handleError } from "./_shared/supabase.js";
-
-function orderNumber() {
-  const stamp = new Date().toISOString().slice(2,10).replaceAll("-", "");
-  return `BLM-${stamp}-${Math.floor(1000 + Math.random() * 9000)}`;
-}
-
-export async function handler(event) {
-  try {
-    const { supabase, user } = await requireUser(event);
-    if (event.httpMethod === "GET") {
-      const { data, error } = await supabase.from("orders").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-      if (error) throw error;
-      return json(200, { orders: data || [] });
+import { json,bodyOf,preflight,methodNotAllowed } from "./_shared/http.js";
+import { currentUser,fail } from "./_shared/supabase.js";
+function orderNumber(){ return `BLM-${Date.now().toString().slice(-8)}`; }
+export async function handler(event){
+  const ready=preflight(event); if(ready) return ready;
+  try{
+    const {client,shopId}=await currentUser(event);
+    if(event.httpMethod==="GET"){
+      const {data,error}=await client.from("orders").select("*").eq("shop_id",shopId).order("created_at",{ascending:false});
+      if(error) throw error; return json(200,{items:data||[]});
     }
-    if (event.httpMethod === "POST") {
-      const body = parseBody(event);
-      if (!body.customer_name?.trim()) return json(400, { error: "Customer name is required" });
-      const { data, error } = await supabase.from("orders").insert({
-        user_id: user.id, order_number: orderNumber(), customer_name: body.customer_name.trim(),
-        occasion: body.occasion || null, fulfillment: body.fulfillment === "DELIVERY" ? "DELIVERY" : "PICKUP",
-        delivery_address: body.delivery_address || null, delivery_date: body.delivery_date || null,
-        status: "NEW", total: Number(body.total || 0), notes: body.notes || null
-      }).select().single();
-      if (error) throw error;
-      return json(201, { order: data });
+    if(event.httpMethod==="POST"){
+      const body=bodyOf(event);
+      if(!body.customer_name) return json(400,{error:"Customer name is required"});
+      const subtotal=Number(body.subtotal||0), tax=Number(body.tax||0), deliveryFee=Number(body.delivery_fee||0);
+      const payload={shop_id:shopId,order_number:orderNumber(),customer_name:body.customer_name.trim(),occasion:body.occasion||null,
+        fulfillment:body.fulfillment==="DELIVERY"?"DELIVERY":"PICKUP",delivery_address:body.delivery_address||null,
+        delivery_date:body.delivery_date||null,status:"NEW",subtotal,tax,delivery_fee:deliveryFee,total:subtotal+tax+deliveryFee,notes:body.notes||null};
+      const {data,error}=await client.from("orders").insert(payload).select().single();
+      if(error) throw error; return json(201,{item:data});
     }
-    if (event.httpMethod === "PATCH") {
-      const body = parseBody(event);
-      const allowed = ["NEW","DESIGNING","READY","OUT_FOR_DELIVERY","COMPLETED","CANCELLED"];
-      if (!body.id || !allowed.includes(body.status)) return json(400, { error: "Valid order ID and status are required" });
-      const { data, error } = await supabase.from("orders").update({ status: body.status })
-        .eq("id", body.id).eq("user_id", user.id).select().single();
-      if (error) throw error;
-      return json(200, { order: data });
+    if(event.httpMethod==="PATCH"){
+      const body=bodyOf(event);
+      const {data,error}=await client.from("orders").update({status:body.status}).eq("id",body.id).eq("shop_id",shopId).select().single();
+      if(error) throw error; return json(200,{item:data});
     }
     return methodNotAllowed();
-  } catch (error) { return handleError(error); }
+  }catch(error){ return fail(error); }
 }

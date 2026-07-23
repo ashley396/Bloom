@@ -1,28 +1,27 @@
-import { json, methodNotAllowed } from "./_shared/http.js";
-import { requireUser, handleError } from "./_shared/supabase.js";
-
-export async function handler(event) {
-  if (event.httpMethod !== "GET") return methodNotAllowed();
-  try {
-    const { supabase, user } = await requireUser(event);
-    const today = new Date().toISOString().slice(0, 10);
-    const [ordersResult, inventoryResult] = await Promise.all([
-      supabase.from("orders").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("inventory").select("*").eq("user_id", user.id).order("name")
+import { json,preflight,methodNotAllowed } from "./_shared/http.js";
+import { currentUser,fail } from "./_shared/supabase.js";
+export async function handler(event){
+  const ready=preflight(event); if(ready) return ready;
+  if(event.httpMethod!=="GET") return methodNotAllowed();
+  try{
+    const {client,shopId}=await currentUser(event);
+    const [orders,inventory,customers,expenses]=await Promise.all([
+      client.from("orders").select("*").eq("shop_id",shopId).order("created_at",{ascending:false}),
+      client.from("inventory").select("*").eq("shop_id",shopId).order("name"),
+      client.from("customers").select("id").eq("shop_id",shopId),
+      client.from("expenses").select("*").eq("shop_id",shopId).order("expense_date",{ascending:false})
     ]);
-    if (ordersResult.error) throw ordersResult.error;
-    if (inventoryResult.error) throw inventoryResult.error;
-    const orders = ordersResult.data || [];
-    const inventory = inventoryResult.data || [];
-    const todayOrders = orders.filter((o) => o.created_at?.slice(0,10) === today);
-    const deliveries = orders.filter((o) => o.fulfillment === "DELIVERY" && !["COMPLETED","CANCELLED"].includes(o.status));
-    const lowStock = inventory.filter((i) => Number(i.quantity) <= Number(i.low_stock_level));
-    return json(200, {
-      ordersToday: todayOrders.length,
-      deliveries: deliveries.length,
-      salesToday: todayOrders.filter((o) => o.status !== "CANCELLED").reduce((sum,o) => sum + Number(o.total || 0), 0),
-      lowStock: lowStock.length,
-      queue: orders.filter((o) => !["COMPLETED","CANCELLED"].includes(o.status)).slice(0,10)
+    for(const r of [orders,inventory,customers,expenses]) if(r.error) throw r.error;
+    const allOrders=orders.data||[], allExpenses=expenses.data||[], today=new Date().toISOString().slice(0,10);
+    const sales=allOrders.filter(o=>o.status!=="CANCELLED").reduce((a,o)=>a+Number(o.total||0),0);
+    const expenseTotal=allExpenses.reduce((a,e)=>a+Number(e.amount||0),0);
+    return json(200,{
+      ordersToday:allOrders.filter(o=>String(o.created_at).slice(0,10)===today).length,
+      totalSales:sales,totalExpenses:expenseTotal,profit:sales-expenseTotal,
+      deliveries:allOrders.filter(o=>o.fulfillment==="DELIVERY"&&!["COMPLETED","CANCELLED"].includes(o.status)).length,
+      lowStock:(inventory.data||[]).filter(i=>Number(i.quantity)<=Number(i.low_stock_level)).length,
+      customers:(customers.data||[]).length,
+      queue:allOrders.filter(o=>!["COMPLETED","CANCELLED"].includes(o.status)).slice(0,10)
     });
-  } catch (error) { return handleError(error); }
+  }catch(error){ return fail(error); }
 }

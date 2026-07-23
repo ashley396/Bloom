@@ -1,17 +1,17 @@
 {
-  "name": "bloom-florist-pos",
-  "version": "2.0.0",
+  "name": "bloom-commercial",
+  "version": "4.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "netlify dev"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.4",
+    "@supabase/supabase-js": "^2.49.8",
     "stripe": "^17.7.0"
   },
   "devDependencies": {
-    "netlify-cli": "^19.0.0"
+    "netlify-cli": "^19.6.0"
   },
   "engines": {
     "node": ">=20"

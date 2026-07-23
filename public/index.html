@@ -1,77 +1,68 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#cf3f79">
-  <title>Bloom</title>
-  <link rel="stylesheet" href="/styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#c83d78">
+<title>Bloom Commercial</title>
+<link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div id="toast" class="toast" hidden></div>
-  <section id="boot" class="center-card"><div><div class="logo">Bloom</div><p>Starting your shop…</p></div></section>
+<div id="toast" class="toast" hidden></div>
 
-  <section id="auth" class="auth-shell" hidden>
-    <div class="auth-card">
-      <div class="logo">Bloom</div>
-      <h1>Florist business, made simple.</h1>
-      <p class="muted">Sign in or create your Bloom account.</p>
-      <form id="authForm">
-        <label>Email<input id="email" type="email" required></label>
-        <label>Password<input id="password" type="password" required minlength="6"></label>
-        <label id="nameLabel" hidden>Your name<input id="fullName"></label>
-        <button class="primary" type="submit" id="authSubmit">Sign in</button>
-      </form>
-      <button class="link-button" id="toggleAuth">Create an account</button>
-      <p id="authMessage" class="error"></p>
-    </div>
-  </section>
+<section id="auth" class="auth">
+  <div class="auth-card">
+    <div class="brand">Bloom</div>
+    <h1>Run your flower shop beautifully.</h1>
+    <p>Affordable tools for independent florists.</p>
+    <form id="authForm">
+      <label id="shopWrap" hidden>Shop name<input id="shopName"></label>
+      <label id="nameWrap" hidden>Your name<input id="fullName"></label>
+      <label>Email<input id="email" type="email" required></label>
+      <label>Password<input id="password" type="password" minlength="6" required></label>
+      <button class="primary wide" id="authButton">Sign in</button>
+    </form>
+    <button class="link" id="switchMode">Create a Bloom account</button>
+    <p id="authMessage" class="message"></p>
+    <small>Bloom Commercial v4</small>
+  </div>
+</section>
 
-  <main id="app" hidden>
-    <header class="topbar">
-      <div><div class="logo">Bloom</div><small>Cloud connected</small></div>
-      <button id="signOut" class="secondary">Sign out</button>
-    </header>
+<main id="app" hidden>
+<header><div><div class="brand">Bloom</div><small id="accountEmail"></small></div><button id="logout" class="secondary">Sign out</button></header>
 
-    <section id="todayPage" class="page active">
-      <h1>Today's Shop</h1>
-      <div class="stats">
-        <article><span>Orders today</span><strong id="ordersToday">0</strong></article>
-        <article><span>Deliveries</span><strong id="deliveries">0</strong></article>
-        <article><span>Sales</span><strong id="salesToday">$0.00</strong></article>
-        <article><span>Low stock</span><strong id="lowStock">0</strong></article>
-      </div>
-      <div class="actions"><button class="primary" data-open="orderModal">+ New Order</button><button class="secondary" data-page="ordersPage">Production Board</button></div>
-      <h2>Production queue</h2><div id="queue" class="list"></div>
-    </section>
+<section id="dashboardPage" class="page active">
+  <div class="heading"><div><p class="eyebrow">SHOP OVERVIEW</p><h1>Dashboard</h1></div><button class="primary" data-open="orderDialog">+ New order</button></div>
+  <div class="stats">
+    <article><span>Orders today</span><strong id="ordersToday">0</strong></article>
+    <article><span>Total sales</span><strong id="totalSales">$0</strong></article>
+    <article><span>Expenses</span><strong id="totalExpenses">$0</strong></article>
+    <article><span>Profit</span><strong id="profit">$0</strong></article>
+    <article><span>Deliveries</span><strong id="deliveries">0</strong></article>
+    <article><span>Low stock</span><strong id="lowStock">0</strong></article>
+  </div>
+  <h2>Production queue</h2><div id="queue" class="cards"></div>
+</section>
 
-    <section id="customersPage" class="page"><div class="page-title"><h1>Customers</h1><button class="primary" data-open="customerModal">+ Add</button></div><div id="customersList" class="list"></div></section>
-    <section id="ordersPage" class="page"><div class="page-title"><h1>Orders</h1><button class="primary" data-open="orderModal">+ New</button></div><div id="ordersList" class="list"></div></section>
-    <section id="inventoryPage" class="page"><div class="page-title"><h1>Inventory</h1><button class="primary" data-open="inventoryModal">+ Add</button></div><div id="inventoryList" class="list"></div></section>
+<section id="customersPage" class="page"><div class="heading"><h1>Customers</h1><button class="primary" data-open="customerDialog">+ Add</button></div><div id="customersList" class="cards"></div></section>
+<section id="ordersPage" class="page"><div class="heading"><h1>Orders</h1><button class="primary" data-open="orderDialog">+ New</button></div><div id="ordersList" class="cards"></div></section>
+<section id="inventoryPage" class="page"><div class="heading"><h1>Inventory</h1><button class="primary" data-open="inventoryDialog">+ Add</button></div><div id="inventoryList" class="cards"></div></section>
+<section id="expensesPage" class="page"><div class="heading"><h1>Expenses</h1><button class="primary" data-open="expenseDialog">+ Add</button></div><div id="expensesList" class="cards"></div></section>
+<section id="paymentsPage" class="page"><h1>Payments</h1><div class="panel"><label>Amount<input id="paymentAmount" type="number" step=".01" min=".50"></label><label>Description<input id="paymentDescription" placeholder="Floral order"></label><button id="checkout" class="primary">Open Stripe checkout</button></div></section>
 
-    <section id="morePage" class="page">
-      <h1>More</h1>
-      <div class="settings-card">
-        <h2>Take a test payment</h2>
-        <label>Amount<input id="paymentAmount" type="number" min=".50" step=".01" placeholder="50.00"></label>
-        <label>Description<input id="paymentDescription" placeholder="Floral order"></label>
-        <button id="checkoutButton" class="primary">Open Stripe checkout</button>
-      </div>
-    </section>
+<nav>
+<button class="active" data-page="dashboardPage">Dashboard</button><button data-page="customersPage">Customers</button><button data-page="ordersPage">Orders</button><button data-page="inventoryPage">Inventory</button><button data-page="expensesPage">Expenses</button><button data-page="paymentsPage">Payments</button>
+</nav>
+</main>
 
-    <nav class="bottom-nav">
-      <button class="active" data-page="todayPage">Today</button>
-      <button data-page="customersPage">Customers</button>
-      <button data-page="ordersPage">Orders</button>
-      <button data-page="inventoryPage">Inventory</button>
-      <button data-page="morePage">More</button>
-    </nav>
-  </main>
+<dialog id="customerDialog"><form id="customerForm"><h2>Add customer</h2><label>Name<input name="name" required></label><label>Phone<input name="phone"></label><label>Email<input name="email"></label><label>Address<textarea name="address"></textarea></label><label>Notes<textarea name="notes"></textarea></label><div class="actions"><button type="button" class="secondary close">Cancel</button><button class="primary">Save</button></div></form></dialog>
 
-  <dialog id="customerModal"><form id="customerForm" method="dialog"><h2>Add customer</h2><label>Name<input name="name" required></label><label>Phone<input name="phone"></label><label>Email<input name="email" type="email"></label><label>Address<textarea name="address"></textarea></label><div class="modal-actions"><button value="cancel" class="secondary">Cancel</button><button value="default" class="primary">Save</button></div></form></dialog>
-  <dialog id="orderModal"><form id="orderForm" method="dialog"><h2>New order</h2><label>Customer name<input name="customer_name" required></label><label>Occasion<input name="occasion"></label><label>Fulfillment<select name="fulfillment"><option>PICKUP</option><option>DELIVERY</option></select></label><label>Delivery date<input name="delivery_date" type="date"></label><label>Delivery address<textarea name="delivery_address"></textarea></label><label>Total<input name="total" type="number" step=".01" min="0" required></label><label>Notes<textarea name="notes"></textarea></label><div class="modal-actions"><button value="cancel" class="secondary">Cancel</button><button value="default" class="primary">Create</button></div></form></dialog>
-  <dialog id="inventoryModal"><form id="inventoryForm" method="dialog"><h2>Add inventory</h2><label>Item name<input name="name" required></label><label>Category<select name="category"><option>Flowers</option><option>Greenery</option><option>Vases</option><option>Supplies</option><option>Gifts</option></select></label><label>Quantity<input name="quantity" type="number" step=".01" value="0"></label><label>Low-stock level<input name="low_stock_level" type="number" step=".01" value="5"></label><label>Unit<input name="unit" value="stems"></label><label>Cost<input name="cost" type="number" step=".01" value="0"></label><label>Selling price<input name="price" type="number" step=".01" value="0"></label><div class="modal-actions"><button value="cancel" class="secondary">Cancel</button><button value="default" class="primary">Save</button></div></form></dialog>
+<dialog id="orderDialog"><form id="orderForm"><h2>New order</h2><label>Customer name<input name="customer_name" required></label><label>Occasion<input name="occasion"></label><label>Pickup or delivery<select name="fulfillment"><option value="PICKUP">Pickup</option><option value="DELIVERY">Delivery</option></select></label><label>Delivery date<input name="delivery_date" type="date"></label><label>Delivery address<textarea name="delivery_address"></textarea></label><label>Subtotal<input name="subtotal" type="number" step=".01" value="0"></label><label>Tax<input name="tax" type="number" step=".01" value="0"></label><label>Delivery fee<input name="delivery_fee" type="number" step=".01" value="0"></label><label>Notes<textarea name="notes"></textarea></label><div class="actions"><button type="button" class="secondary close">Cancel</button><button class="primary">Create</button></div></form></dialog>
 
-  <script type="module" src="/app.js"></script>
+<dialog id="inventoryDialog"><form id="inventoryForm"><h2>Add inventory</h2><label>Item name<input name="name" required></label><label>Category<select name="category"><option>Flowers</option><option>Greenery</option><option>Vases</option><option>Supplies</option><option>Gifts</option></select></label><label>Quantity<input name="quantity" type="number" step=".01" value="0"></label><label>Low stock level<input name="low_stock_level" type="number" step=".01" value="5"></label><label>Unit<input name="unit" value="stems"></label><label>Cost<input name="cost" type="number" step=".01" value="0"></label><label>Selling price<input name="price" type="number" step=".01" value="0"></label><div class="actions"><button type="button" class="secondary close">Cancel</button><button class="primary">Save</button></div></form></dialog>
+
+<dialog id="expenseDialog"><form id="expenseForm"><h2>Add expense</h2><label>Date<input name="expense_date" type="date"></label><label>Category<select name="category"><option>Flowers</option><option>Supplies</option><option>Rent</option><option>Utilities</option><option>Payroll</option><option>Marketing</option><option>Delivery</option><option>Other</option></select></label><label>Vendor<input name="vendor"></label><label>Amount<input name="amount" type="number" step=".01" required></label><label>Notes<textarea name="notes"></textarea></label><div class="actions"><button type="button" class="secondary close">Cancel</button><button class="primary">Save</button></div></form></dialog>
+
+<script src="/app.js" defer></script>
 </body>
 </html>
