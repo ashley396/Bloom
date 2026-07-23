@@ -1,56 +1,46 @@
-BLOOM COMMERCIAL v4 — CLEAN INSTALL
+BLOOM COMMERCIAL v4.1 — ONE-DEPLOY UPGRADE
 
-WHAT IS INCLUDED NOW
-- Account creation and login
-- Multi-shop database foundation
-- Customer management
-- Order management
-- Inventory management
-- Expense tracking
-- Profit dashboard
-- Delivery list
-- Stripe checkout
-- Employee and multi-location-ready database structure
-- Netlify + Supabase deployment files
-- Mobile and desktop responsive design
+NEW IN v4.1
+- Edit and delete customers
+- Customer search
+- Edit and delete inventory
+- Soft-delete recycle-bin protection
+- Professional printable receipts
+- Refreshed florist-style design
+- Improved mobile layout and dashboard cards
 
-WHAT IS PREPARED AS FUTURE MODULES
-- Square payments
-- AI photo pricing
-- Receipt-photo inventory
-- Hi Bloom voice assistant
-- Website builder
-- Wholesale marketplace
-- Native App Store and Google Play wrappers
+IMPORTANT: USE ONLY ONE NETLIFY BUILD
 
-INSTALL WITH ONE DEPLOY
+1. RUN THE SMALL DATABASE MIGRATION FIRST
+   In Supabase, open SQL Editor.
+   Open: supabase/migrations/v4.1.sql
+   Copy the complete file into SQL Editor and click Run.
+   This does not use Netlify credits.
 
-1. SUPABASE
-   Open Supabase > SQL Editor.
-   Open supabase/schema.sql from this project.
-   Copy all of it into SQL Editor and click Run once.
+2. REPLACE YOUR CURRENT PROJECT FILES
+   Copy the contents of this Bloom folder into the current GitHub Desktop Bloom repository.
+   Allow Windows to replace matching files.
 
-2. NETLIFY ENVIRONMENT VARIABLES
-   Confirm these variables exist:
-   SUPABASE_URL
-   SUPABASE_ANON_KEY
-   SUPABASE_SERVICE_ROLE_KEY
-   STRIPE_SECRET_KEY
-   SITE_URL
+3. COMMIT ONCE
+   Suggested summary:
+   Upgrade Bloom to v4.1
 
-3. GITHUB
-   Create or use one clean GitHub repository folder.
-   Copy EVERYTHING from this Bloom_Commercial_v4 folder into that repository.
-   Commit once and Push origin once.
+4. PUSH ONCE
+   Click Push origin in GitHub Desktop.
+   Netlify should perform one deployment containing the entire update.
 
-4. NETLIFY
-   Connect that repository.
-   Netlify will use netlify.toml automatically.
-   Do not manually change the publish folder.
+5. TEST AFTER NETLIFY SAYS PUBLISHED
+   - Sign in
+   - Search, edit and delete a test customer
+   - Edit and delete a test inventory item
+   - Open an order and select View receipt
+   - Print the receipt or choose Save as PDF in the print window
 
-5. OPEN BLOOM
-   Open the Netlify site and create your account.
+NOTES
+- Delete moves customers and inventory out of the active app instead of permanently destroying the database record.
+- Existing orders, customers and inventory remain intact.
+- No environment variables need to be changed for this update.
+- Do not upload the .git folder from another repository over your existing .git folder.
 
 SECURITY
 Never share SUPABASE_SERVICE_ROLE_KEY or STRIPE_SECRET_KEY.
-Rotate any secret key that has appeared in a screenshot.

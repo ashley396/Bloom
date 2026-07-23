@@ -7,8 +7,8 @@ export async function handler(event){
     const {client,shopId}=await currentUser(event);
     const [orders,inventory,customers,expenses]=await Promise.all([
       client.from("orders").select("*").eq("shop_id",shopId).order("created_at",{ascending:false}),
-      client.from("inventory").select("*").eq("shop_id",shopId).order("name"),
-      client.from("customers").select("id").eq("shop_id",shopId),
+      client.from("inventory").select("*").eq("shop_id",shopId).is("deleted_at",null).order("name"),
+      client.from("customers").select("id").eq("shop_id",shopId).is("deleted_at",null),
       client.from("expenses").select("*").eq("shop_id",shopId).order("expense_date",{ascending:false})
     ]);
     for(const r of [orders,inventory,customers,expenses]) if(r.error) throw r.error;
