@@ -68,11 +68,26 @@ for(const [formId,path,dialogId,success] of [
   ["inventoryForm","inventory","inventoryDialog","Inventory saved"],
   ["expenseForm","expenses","expenseDialog","Expense saved"]
 ]){
-  $(`#${formId}`).onsubmit=async e=>{
-    e.preventDefault();
-    try{await api(path,{method:"POST",body:JSON.stringify(Object.fromEntries(new FormData(e.currentTarget)))});e.currentTarget.reset();$(`#${dialogId}`).close();toast(success);loadDashboard()}catch(err){toast(err.message)}
-  };
-}
+ $(`#${formId}`).onsubmit = async e => {
+  e.preventDefault();
+
+  const form = e.currentTarget;
+  const formData = Object.fromEntries(new FormData(form));
+
+  try {
+    await api(path, {
+      method: "POST",
+      body: JSON.stringify(formData)
+    });
+
+    form.reset();
+    $(`#${dialogId}`).close();
+    toast(success);
+    loadDashboard();
+  } catch (err) {
+    toast(err.message);
+  }
+};
 
 $("#checkout").onclick=async()=>{
   try{const d=await api("create-checkout",{method:"POST",body:JSON.stringify({amount:$("#paymentAmount").value,description:$("#paymentDescription").value})});location.href=d.url}catch(e){toast(e.message)}
