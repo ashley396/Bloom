@@ -1,0 +1,14 @@
+{
+  "name": "bloom-florist-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bloom — connected commerce platform for independent florists.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/smoke.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
