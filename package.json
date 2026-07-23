@@ -1,14 +1,19 @@
 {
-  "name": "bloom-florist-platform",
-  "version": "0.1.0",
+  "name": "bloom-florist-pos",
+  "version": "2.0.0",
   "private": true,
-  "description": "Bloom — connected commerce platform for independent florists.",
-  "main": "server.js",
+  "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "test": "node tests/smoke.test.js"
+    "dev": "netlify dev"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
+    "stripe": "^17.7.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^19.0.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   }
 }

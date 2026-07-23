@@ -1,5 +1,6 @@
-data/*.json
-!data/seed.json
-.env
 node_modules/
+.netlify/
+.env
+.env.*
+!.env.example
 .DS_Store
