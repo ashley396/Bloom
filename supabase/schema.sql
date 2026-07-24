@@ -34,7 +34,6 @@ create table if not exists public.customers (
   email text,
   address text,
   notes text,
-  deleted_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -67,7 +66,6 @@ create table if not exists public.inventory (
   unit text default 'stems',
   cost numeric(12,2) not null default 0,
   price numeric(12,2) not null default 0,
-  deleted_at timestamptz,
   created_at timestamptz not null default now()
 );
 

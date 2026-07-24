@@ -1,25 +1,56 @@
-BLOOM v8.1 — LUXURY DASHBOARD
+BLOOM COMMERCIAL v4 — CLEAN INSTALL
 
-WHAT IS NEW
-- Florist command-center dashboard
-- Today's sales, orders due, deliveries, profit, low stock and outstanding totals
-- Seven-day paid-sales chart
-- Quick actions for orders, customers, inventory and Website Studio
-- Upcoming delivery list
-- Improved responsive mobile dashboard
-- Existing v8.0 Florist Order Builder preserved
+WHAT IS INCLUDED NOW
+- Account creation and login
+- Multi-shop database foundation
+- Customer management
+- Order management
+- Inventory management
+- Expense tracking
+- Profit dashboard
+- Delivery list
+- Stripe checkout
+- Employee and multi-location-ready database structure
+- Netlify + Supabase deployment files
+- Mobile and desktop responsive design
 
-DEPLOYMENT
-1. Replace the matching files in your GitHub Bloom repository with every file in this folder.
-2. Commit the update. Suggested summary: Bloom v8.1 - Luxury Dashboard
-3. Netlify will deploy automatically from GitHub.
-4. No new Supabase migration is required for v8.1.
+WHAT IS PREPARED AS FUTURE MODULES
+- Square payments
+- AI photo pricing
+- Receipt-photo inventory
+- Hi Bloom voice assistant
+- Website builder
+- Wholesale marketplace
+- Native App Store and Google Play wrappers
 
-TESTING
-- Sign in and confirm the dashboard loads.
-- Create or mark an order paid and confirm the dashboard totals refresh.
-- Check the dashboard on both phone and computer.
-- Open New Order, Website Studio, Customers and Inventory from Quick Actions.
+INSTALL WITH ONE DEPLOY
 
-IMPORTANT
-Keep all existing Netlify environment variables unchanged.
+1. SUPABASE
+   Open Supabase > SQL Editor.
+   Open supabase/schema.sql from this project.
+   Copy all of it into SQL Editor and click Run once.
+
+2. NETLIFY ENVIRONMENT VARIABLES
+   Confirm these variables exist:
+   SUPABASE_URL
+   SUPABASE_ANON_KEY
+   SUPABASE_SERVICE_ROLE_KEY
+   STRIPE_SECRET_KEY
+   SITE_URL
+
+3. GITHUB
+   Create or use one clean GitHub repository folder.
+   Copy EVERYTHING from this Bloom_Commercial_v4 folder into that repository.
+   Commit once and Push origin once.
+
+4. NETLIFY
+   Connect that repository.
+   Netlify will use netlify.toml automatically.
+   Do not manually change the publish folder.
+
+5. OPEN BLOOM
+   Open the Netlify site and create your account.
+
+SECURITY
+Never share SUPABASE_SERVICE_ROLE_KEY or STRIPE_SECRET_KEY.
+Rotate any secret key that has appeared in a screenshot.
