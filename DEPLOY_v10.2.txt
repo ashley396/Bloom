@@ -1,0 +1,9 @@
+Bloom X v10.2 deployment
+
+1. Replace the repository contents with this folder's contents.
+2. Commit and push to GitHub.
+3. Let Netlify deploy.
+4. Hard refresh Bloom with Ctrl+F5.
+
+No new Supabase migration is required if migration_v10.1_inventory_pro.sql was already run.
+OPENAI_API_KEY should remain configured in Netlify.
