@@ -31,7 +31,11 @@ export async function handler(event) {
         return json(400, { error: "Customer name is required" });
       }
 
-      const subtotal = Number(body.subtotal || 0);
+      const flowers = Number(body.subtotal || 0);
+      const labor = Number(body.labor_charge || 0);
+      const addons = Number(body.addon_total || 0);
+      const discount = Number(body.discount || 0);
+      const subtotal = Math.max(0, flowers + labor + addons - discount);
       const tax = Number(body.tax || 0);
       const deliveryFee = Number(body.delivery_fee || 0);
 
