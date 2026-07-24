@@ -55,6 +55,21 @@ export async function handler(event) {
         delivery_fee: deliveryFee,
         total: subtotal + tax + deliveryFee,
         notes: body.notes || null,
+        tax_rate: Number(body.tax_rate || 0),
+        amount_paid: Number(body.amount_paid || 0),
+        balance_due: Math.max(0, subtotal + tax + deliveryFee - Number(body.amount_paid || 0)),
+        payment_status: body.payment_status || (Number(body.amount_paid || 0) > 0 ? "PARTIAL" : "UNPAID"),
+        payment_method: body.payment_method || null,
+        customer_type: body.customer_type || "PERSONAL",
+        recipient_name: body.recipient_name || null,
+        recipient_phone: body.recipient_phone || null,
+        delivery_window: body.delivery_window || null,
+        delivery_instructions: body.delivery_instructions || null,
+        delivery_miles: Number(body.delivery_miles || 0),
+        drive_minutes: Number(body.drive_minutes || 0),
+        order_source: body.order_source || null,
+        card_message: body.card_message || null,
+        arrangement_description: body.arrangement_description || null,
       };
 
       const { data, error } = await client
@@ -70,17 +85,21 @@ export async function handler(event) {
 
     if (event.httpMethod === "PATCH") {
       const body = bodyOf(event);
-
-      const { data, error } = await client
-        .from("orders")
-        .update({ status: body.status })
-        .eq("id", body.id)
-        .eq("shop_id", shopId)
-        .select()
-        .single();
-
+      const payload = {};
+      if(body.action === "MARK_PAID"){
+        payload.payment_status="PAID";
+        payload.payment_method=body.payment_method||"Other";
+        payload.balance_due=0;
+      }else if(body.action === "MARK_UNPAID"){
+        payload.payment_status="UNPAID";
+        payload.amount_paid=0;
+      }else{
+        for(const field of ["status","payment_status","payment_method","amount_paid","balance_due","delivery_miles","drive_minutes"]){
+          if(field in body)payload[field]=body[field];
+        }
+      }
+      const { data, error } = await client.from("orders").update(payload).eq("id",body.id).eq("shop_id",shopId).select().single();
       if (error) throw error;
-
       return json(200, { item: data });
     }
 

@@ -1,6 +1,6 @@
 import { json,bodyOf,preflight,methodNotAllowed } from "./_shared/http.js";
 import { currentUser,fail } from "./_shared/supabase.js";
-const fields=["name","phone","email","address","notes","birthday","anniversary","favorite_flowers","favorite_colors","tags","vip"];
+const fields=["name","phone","email","address","notes","birthday","anniversary","favorite_flowers","favorite_colors","tags","vip","is_business"];
 export async function handler(event){
  const ready=preflight(event);if(ready)return ready;
  try{const {client,shopId}=await currentUser(event);
