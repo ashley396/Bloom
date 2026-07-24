@@ -1,76 +1,19 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#a83f69">
-<title>Bloom Commercial</title>
-<link rel="stylesheet" href="/styles.css">
-</head>
-<body>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#b93870"><title>Bloom Commercial</title><link rel="stylesheet" href="/styles.css"></head><body>
 <div id="toast" class="toast" hidden></div>
-<section id="auth" class="auth">
-  <div class="auth-card">
-    <div class="brand"><span>✿</span> Bloom</div>
-    <h1>Run your flower shop beautifully.</h1>
-    <p>Simple, affordable tools made for independent florists.</p>
-    <form id="authForm">
-      <label id="shopWrap" hidden>Shop name<input id="shopName"></label>
-      <label id="nameWrap" hidden>Your name<input id="fullName"></label>
-      <label>Email<input id="email" type="email" required></label>
-      <label>Password<input id="password" type="password" minlength="6" required></label>
-      <button class="primary wide" id="authButton">Sign in</button>
-    </form>
-    <button class="link" id="switchMode">Create a Bloom account</button>
-    <p id="authMessage" class="message"></p>
-    <small>Bloom Commercial v4.1</small>
-  </div>
-</section>
-
-<main id="app" hidden>
-<header>
-  <div><div class="brand"><span>✿</span> Bloom</div><small id="accountEmail"></small></div>
-  <button id="logout" class="secondary">Sign out</button>
-</header>
-
-<section id="dashboardPage" class="page active">
-  <div class="heading"><div><p class="eyebrow">SHOP OVERVIEW</p><h1>Good day, florist.</h1><p class="subtext">Everything that needs your attention, all in one place.</p></div><button class="primary" data-open="orderDialog">＋ New order</button></div>
-  <div class="stats">
-    <article><span>Orders today</span><strong id="ordersToday">0</strong></article>
-    <article><span>Total sales</span><strong id="totalSales">$0</strong></article>
-    <article><span>Expenses</span><strong id="totalExpenses">$0</strong></article>
-    <article><span>Profit</span><strong id="profit">$0</strong></article>
-    <article><span>Deliveries</span><strong id="deliveries">0</strong></article>
-    <article><span>Low stock</span><strong id="lowStock">0</strong></article>
-  </div>
-  <div class="section-title"><div><p class="eyebrow">TODAY'S WORK</p><h2>Production queue</h2></div></div>
-  <div id="queue" class="cards"></div>
-</section>
-
-<section id="customersPage" class="page">
-  <div class="heading"><div><p class="eyebrow">RELATIONSHIPS</p><h1>Customers</h1></div><button class="primary" data-open="customerDialog">＋ Add customer</button></div>
-  <div class="toolbar"><input id="customerSearch" type="search" placeholder="Search by name, phone, email or notes…"></div>
-  <div id="customersList" class="cards"></div>
-</section>
-<section id="ordersPage" class="page"><div class="heading"><div><p class="eyebrow">SALES</p><h1>Orders</h1></div><button class="primary" data-open="orderDialog">＋ New order</button></div><div id="ordersList" class="cards"></div></section>
-<section id="inventoryPage" class="page"><div class="heading"><div><p class="eyebrow">STOCK</p><h1>Inventory</h1></div><button class="primary" data-open="inventoryDialog">＋ Add item</button></div><div id="inventoryList" class="cards"></div></section>
-<section id="expensesPage" class="page"><div class="heading"><div><p class="eyebrow">BOOKKEEPING</p><h1>Expenses</h1></div><button class="primary" data-open="expenseDialog">＋ Add expense</button></div><div id="expensesList" class="cards"></div></section>
-<section id="paymentsPage" class="page"><div class="heading"><div><p class="eyebrow">CHECKOUT</p><h1>Payments</h1></div></div><div class="panel"><label>Amount<input id="paymentAmount" type="number" step=".01" min=".50"></label><label>Description<input id="paymentDescription" placeholder="Floral order"></label><button id="checkout" class="primary">Open secure Stripe checkout</button></div></section>
-
-<nav>
-<button class="active" data-page="dashboardPage"><span>⌂</span>Home</button><button data-page="customersPage"><span>♡</span>Customers</button><button data-page="ordersPage"><span>▤</span>Orders</button><button data-page="inventoryPage"><span>✿</span>Inventory</button><button data-page="expensesPage"><span>＄</span>Expenses</button><button data-page="paymentsPage"><span>✓</span>Payments</button>
-</nav>
-</main>
-
-<dialog id="customerDialog"><form id="customerForm"><input type="hidden" name="id"><div class="dialog-head"><div><p class="eyebrow">CUSTOMER DETAILS</p><h2 id="customerDialogTitle">Add customer</h2></div><button type="button" class="icon-button close" aria-label="Close">×</button></div><div class="form-grid"><label class="full">Name<input name="name" required></label><label>Phone<input name="phone"></label><label>Email<input name="email" type="email"></label><label class="full">Address<textarea name="address"></textarea></label><label class="full">Notes<textarea name="notes" placeholder="Favorite flowers, colors, important dates…"></textarea></label></div><div class="actions"><button type="button" class="secondary close">Cancel</button><button class="primary">Save customer</button></div></form></dialog>
-
-<dialog id="orderDialog"><form id="orderForm"><div class="dialog-head"><div><p class="eyebrow">NEW SALE</p><h2>New order</h2></div><button type="button" class="icon-button close">×</button></div><div class="form-grid"><label class="full">Customer name<input name="customer_name" required></label><label>Occasion<input name="occasion" placeholder="Birthday, sympathy…"></label><label>Pickup or delivery<select name="fulfillment"><option value="PICKUP">Pickup</option><option value="DELIVERY">Delivery</option></select></label><label>Delivery date<input name="delivery_date" type="date"></label><label class="full">Delivery address<textarea name="delivery_address"></textarea></label><label>Subtotal<input name="subtotal" type="number" step=".01" value="0"></label><label>Tax<input name="tax" type="number" step=".01" value="0"></label><label>Delivery fee<input name="delivery_fee" type="number" step=".01" value="0"></label><label class="full">Notes / card message<textarea name="notes"></textarea></label></div><div class="actions"><button type="button" class="secondary close">Cancel</button><button class="primary">Create order</button></div></form></dialog>
-
-<dialog id="inventoryDialog"><form id="inventoryForm"><input type="hidden" name="id"><div class="dialog-head"><div><p class="eyebrow">INVENTORY DETAILS</p><h2 id="inventoryDialogTitle">Add inventory</h2></div><button type="button" class="icon-button close">×</button></div><div class="form-grid"><label class="full">Item name<input name="name" required></label><label>Category<select name="category"><option>Flowers</option><option>Greenery</option><option>Vases</option><option>Supplies</option><option>Gifts</option></select></label><label>Unit<input name="unit" value="stems"></label><label>Quantity<input name="quantity" type="number" step=".01" value="0"></label><label>Low stock level<input name="low_stock_level" type="number" step=".01" value="5"></label><label>Cost<input name="cost" type="number" step=".01" value="0"></label><label>Selling price<input name="price" type="number" step=".01" value="0"></label></div><div class="actions"><button type="button" class="secondary close">Cancel</button><button class="primary">Save item</button></div></form></dialog>
-
-<dialog id="expenseDialog"><form id="expenseForm"><div class="dialog-head"><div><p class="eyebrow">EXPENSE DETAILS</p><h2>Add expense</h2></div><button type="button" class="icon-button close">×</button></div><div class="form-grid"><label>Date<input name="expense_date" type="date"></label><label>Category<select name="category"><option>Flowers</option><option>Supplies</option><option>Rent</option><option>Utilities</option><option>Payroll</option><option>Marketing</option><option>Delivery</option><option>Other</option></select></label><label class="full">Vendor<input name="vendor"></label><label class="full">Amount<input name="amount" type="number" step=".01" required></label><label class="full">Notes<textarea name="notes"></textarea></label></div><div class="actions"><button type="button" class="secondary close">Cancel</button><button class="primary">Save expense</button></div></form></dialog>
-
-<dialog id="receiptDialog" class="receipt-dialog"><div id="receiptContent"></div><div class="receipt-actions"><button id="closeReceipt" class="secondary">Close</button><button id="printReceipt" class="primary">Print receipt</button></div></dialog>
-<script src="/app.js" defer></script>
-</body>
-</html>
+<section id="auth" class="auth"><div class="auth-card"><div class="brand">Bloom</div><h1>Run your flower shop beautifully.</h1><p>Affordable tools for independent florists.</p><form id="authForm"><label id="shopWrap" hidden>Shop name<input id="shopName"></label><label id="nameWrap" hidden>Your name<input id="fullName"></label><label>Email<input id="email" type="email" required></label><label>Password<input id="password" type="password" minlength="6" required></label><button class="primary wide" id="authButton">Sign in</button></form><button class="link" id="switchMode">Create a Bloom account</button><p id="authMessage" class="message"></p><small>Bloom Commercial v4.2</small></div></section>
+<main id="app" hidden><header><div><div class="brand">Bloom</div><small id="accountEmail"></small></div><button id="logout" class="secondary">Sign out</button></header>
+<section id="dashboardPage" class="page active"><div class="heading"><div><p class="eyebrow">SHOP OVERVIEW</p><h1>Dashboard</h1></div><button class="primary" data-open="orderDialog">+ New order</button></div><div class="stats"><article><span>Sales today</span><strong id="todaySales">$0</strong></article><article><span>Paid sales</span><strong id="totalSales">$0</strong></article><article><span>Expenses</span><strong id="totalExpenses">$0</strong></article><article><span>Estimated profit</span><strong id="profit">$0</strong></article><article><span>Unpaid orders</span><strong id="unpaidTotal">$0</strong></article><article><span>Deliveries</span><strong id="deliveries">0</strong></article></div><h2>Production queue</h2><div id="queue" class="cards"></div></section>
+<section id="customersPage" class="page"><div class="heading"><h1>Customers</h1><button class="primary" data-open="customerDialog">+ Add</button></div><input id="customerSearch" class="search" placeholder="Search customers"><div id="customersList" class="cards"></div></section>
+<section id="ordersPage" class="page"><div class="heading"><h1>Orders</h1><button class="primary" data-open="orderDialog">+ New</button></div><div id="ordersList" class="cards"></div></section>
+<section id="inventoryPage" class="page"><div class="heading"><h1>Inventory</h1><button class="primary" data-open="inventoryDialog">+ Add</button></div><div id="inventoryList" class="cards"></div></section>
+<section id="expensesPage" class="page"><div class="heading"><div><h1>Expenses</h1><p class="subtle">Photograph or upload a receipt and save it with the expense.</p></div><button class="primary" data-open="expenseDialog">+ Add expense</button></div><div id="expensesList" class="cards"></div></section>
+<section id="reportsPage" class="page"><div class="heading"><div><p class="eyebrow">PROFIT REPORT</p><h1>Revenue & profit</h1></div></div><div id="financeList" class="report-table"></div></section>
+<section id="websitePage" class="page"><div class="heading"><div><p class="eyebrow">CUSTOM WEBSITE</p><h1>Website designer</h1></div><button id="saveWebsite" class="primary">Save design</button></div><div class="builder"><form id="websiteForm" class="panel"><label>Shop name<input name="name"></label><label>Phone<input name="phone"></label><label>Email<input name="email"></label><label>Address<textarea name="address"></textarea></label><label>Logo image URL<input name="logo_url" placeholder="https://..."></label><div class="two"><label>Main color<input name="primary_color" type="color"></label><label>Accent color<input name="accent_color" type="color"></label></div><label>Website style<select name="website_style"><option>Garden</option><option>Luxury</option><option>Farmhouse</option><option>Modern</option><option>Romantic</option></select></label><label>Font style<select name="website_font"><option>Modern</option><option>Elegant</option><option>Classic</option><option>Playful</option></select></label><label>Homepage headline<input name="hero_title"></label><label>Homepage message<textarea name="hero_text"></textarea></label><label class="check"><input name="website_published" type="checkbox"> Website ready to publish</label></form><div id="websitePreview" class="site-preview"></div></div></section>
+<section id="paymentsPage" class="page"><h1>Payments</h1><div class="panel"><label>Amount<input id="paymentAmount" type="number" step=".01" min=".50"></label><label>Description<input id="paymentDescription" placeholder="Floral order"></label><button id="checkout" class="primary">Open Stripe checkout</button></div></section>
+<nav><button class="active" data-page="dashboardPage">Home</button><button data-page="customersPage">Customers</button><button data-page="ordersPage">Orders</button><button data-page="inventoryPage">Inventory</button><button data-page="expensesPage">Expenses</button><button data-page="reportsPage">Reports</button><button data-page="websitePage">Website</button><button data-page="paymentsPage">Pay</button></nav></main>
+<dialog id="customerDialog"><form id="customerForm"><input name="id" type="hidden"><h2 id="customerDialogTitle">Add customer</h2><label>Name<input name="name" required></label><label>Phone<input name="phone"></label><label>Email<input name="email"></label><label>Address<textarea name="address"></textarea></label><label>Notes<textarea name="notes"></textarea></label><div class="actions"><button type="button" class="secondary close">Cancel</button><button class="primary">Save</button></div></form></dialog>
+<dialog id="orderDialog"><form id="orderForm"><h2>New order</h2><label>Customer name<input name="customer_name" required></label><label>Occasion<input name="occasion"></label><label>Pickup or delivery<select name="fulfillment"><option value="PICKUP">Pickup</option><option value="DELIVERY">Delivery</option></select></label><label>Delivery date<input name="delivery_date" type="date"></label><label>Delivery address<textarea name="delivery_address"></textarea></label><label>Subtotal<input name="subtotal" type="number" step=".01" value="0"></label><label>Tax<input name="tax" type="number" step=".01" value="0"></label><label>Delivery fee<input name="delivery_fee" type="number" step=".01" value="0"></label><label>Payment status<select name="payment_status"><option value="UNPAID">Unpaid</option><option value="PAID">Paid</option></select></label><label>Payment method<select name="payment_method"><option>Cash</option><option>Card</option><option>Stripe</option><option>Check</option><option>Other</option></select></label><label>Notes / card message<textarea name="notes"></textarea></label><div class="actions"><button type="button" class="secondary close">Cancel</button><button class="primary">Create</button></div></form></dialog>
+<dialog id="inventoryDialog"><form id="inventoryForm"><input name="id" type="hidden"><h2 id="inventoryDialogTitle">Add inventory</h2><label>Item name<input name="name" required></label><label>Category<select name="category"><option>Flowers</option><option>Greenery</option><option>Vases</option><option>Supplies</option><option>Gifts</option></select></label><label>Quantity<input name="quantity" type="number" step=".01" value="0"></label><label>Low stock level<input name="low_stock_level" type="number" step=".01" value="5"></label><label>Unit<input name="unit" value="stems"></label><label>Cost<input name="cost" type="number" step=".01" value="0"></label><label>Selling price<input name="price" type="number" step=".01" value="0"></label><div class="actions"><button type="button" class="secondary close">Cancel</button><button class="primary">Save</button></div></form></dialog>
+<dialog id="expenseDialog"><form id="expenseForm"><h2>Add expense</h2><label>Receipt photo<input id="receiptFile" type="file" accept="image/*,application/pdf" capture="environment"></label><img id="receiptPreview" class="receipt-preview" hidden><p class="subtle">Bloom saves the receipt image with this expense. Automatic text reading will be added when an AI scanning service is connected.</p><label>Date<input name="expense_date" type="date"></label><label>Category<select name="category"><option>Flowers</option><option>Supplies</option><option>Rent</option><option>Utilities</option><option>Payroll</option><option>Marketing</option><option>Delivery</option><option>Other</option></select></label><label>Vendor<input name="vendor"></label><label>Amount<input name="amount" type="number" step=".01" required></label><label>Notes<textarea name="notes"></textarea></label><div class="actions"><button type="button" class="secondary close">Cancel</button><button class="primary">Save</button></div></form></dialog>
+<dialog id="receiptDialog" class="receipt-dialog"><div id="receiptContent"></div><div class="dialog-tools"><button id="closeReceipt" class="secondary">Close</button><button id="printReceipt" class="primary">Print / Save PDF</button></div></dialog>
+<script src="/app.js" defer></script></body></html>
