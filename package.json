@@ -1,6 +1,6 @@
 {
   "name": "bloomos-florist-order-builder",
-  "version": "8.5.5",
+  "version": "8.5.4",
   "private": true,
   "type": "module",
   "dependencies": {
