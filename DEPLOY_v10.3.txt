@@ -1,0 +1,10 @@
+Bloom X v10.3 deployment
+
+1. Upload this project to GitHub.
+2. Let Netlify deploy the new commit.
+3. Refresh Bloom with Ctrl + F5.
+4. On the Dashboard, click “Turn on Hey Lily / Hey Rose.”
+5. Allow microphone access when the browser asks.
+6. Say “Hey Lily” or “Hey Rose.”
+
+No Supabase migration or new environment variable is required.
