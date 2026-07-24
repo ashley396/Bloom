@@ -1,0 +1,7 @@
+BLOOM X V11.0 DEPLOY
+1. Upload the entire project folder to GitHub/Netlify.
+2. No new Supabase SQL migration is required.
+3. Let Netlify finish deploying.
+4. Refresh Bloom with Ctrl + F5.
+5. Test Floral Library > View & edit > Add to Products & Recipe Builder.
+6. Test Expenses > Edit and Delete.
