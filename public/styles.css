@@ -88,3 +88,69 @@ aside{background:var(--sidebar-color)}
 .rose-character-row,.rose-speech-bubble{display:none!important}
 @media(max-width:980px){.dashboard-hero{flex-wrap:wrap}.rose-top-assistant{order:3;margin-left:0;width:100%}.hero-actions{margin-left:auto}}
 @media(max-width:600px){.rose-top-assistant{min-width:0}.rose-top-character{font-size:48px}.rose-top-controls strong{font-size:22px}}
+
+/* ================================================================
+   Bloom X v13.0 — Bright Pastel Florist POS Redesign
+   ================================================================ */
+:root{
+  --brand-primary:#f05686;
+  --brand-primary-soft:#ffdce7;
+  --brand-secondary:#93bd6b;
+  --brand-secondary-soft:#edf5e5;
+  --cream:#fffdfb;
+  --peach:#fff2ec;
+  --lavender:#f3efff;
+  --ink:#40343a;
+  --muted:#7c6d74;
+  --line:#eadfe2;
+  --app-background:#fff9f7;
+  --sidebar-color:#fffdfa;
+  --header-color:#fffdfb;
+  --shadow:0 10px 30px rgba(109,66,82,.09);
+  --shadow-soft:0 5px 16px rgba(109,66,82,.07);
+  --radius:18px;
+}
+*{scrollbar-color:#f4b6ca #fff7f4}
+body{color:var(--ink);background:
+  radial-gradient(circle at 8% 6%,rgba(255,214,227,.42),transparent 22rem),
+  radial-gradient(circle at 96% 12%,rgba(222,239,207,.48),transparent 25rem),
+  var(--app-background);font-family:"Segoe UI",Arial,sans-serif}
+body:before{content:"";position:fixed;inset:auto auto 0 0;width:180px;height:180px;pointer-events:none;opacity:.12;background:radial-gradient(ellipse at center,#f590b0 0 8%,transparent 9%),radial-gradient(ellipse at 35% 35%,#a9c989 0 7%,transparent 8%);z-index:0}
+header{height:72px;background:rgba(255,253,251,.96)!important;border-bottom:1px solid #f0e4e6;box-shadow:0 3px 18px rgba(115,72,88,.05);padding:0 22px;position:sticky;top:0;z-index:20;backdrop-filter:blur(12px)}
+.header-brand{min-width:0}.header-brand .brand{font-family:"Brush Script MT","Segoe Script",cursive;font-size:31px;color:#ef4f80;display:flex;align-items:center;gap:6px;white-space:nowrap}.header-brand .brand small{font:800 9px "Segoe UI",sans-serif;color:#5b5055;letter-spacing:.17em;margin-top:17px}.brand-flower{font-size:27px;color:#ef7ca0}.app-logo{width:48px;height:48px;border:none;border-radius:14px;background:#fff8fa;box-shadow:var(--shadow-soft)}
+#shopSwitcher{border:0;background:transparent;font-weight:700;max-width:190px}
+.shell{min-height:calc(100vh - 72px)}
+aside{width:205px;background:rgba(255,253,250,.97)!important;color:var(--ink);border-right:1px solid #eee1e4;padding:18px 10px 130px;box-shadow:5px 0 22px rgba(116,74,90,.04);position:relative}
+aside:after{content:"❀  ✿  ❀";position:absolute;bottom:28px;left:0;right:0;text-align:center;color:#e8a9bd;font-size:25px;letter-spacing:8px;opacity:.72}
+aside p{color:#b08c99;font-size:10px;letter-spacing:.18em;margin:18px 13px 7px;font-weight:800}
+aside button{color:#4b4045!important;background:transparent!important;border:0!important;border-radius:12px!important;padding:11px 12px!important;margin:2px 0!important;text-align:left;font-weight:650;transition:.16s ease}
+aside button:before{display:inline-grid;place-items:center;width:24px;margin-right:7px;color:#7a6a71;font-size:15px}
+aside button[data-page="dashboardPage"]:before{content:"🛒"}aside button[data-page="ordersPage"]:before{content:"▣"}aside button[data-page="deliveriesPage"]:before{content:"♧"}aside button[data-page="customersPage"]:before{content:"♙"}aside button[data-page="inventoryPage"]:before{content:"▢"}aside button[data-page="productsPage"]:before{content:"✿"}aside button[data-page="websitePage"]:before{content:"⌂"}aside button[data-page="libraryPage"]:before{content:"❀"}aside button[data-page="invoicesPage"]:before{content:"▤"}aside button[data-page="paymentsPage"]:before{content:"▭"}aside button[data-page="expensesPage"]:before{content:"$"}aside button[data-page="reportsPage"]:before{content:"▥"}aside button[data-page="staffPage"]:before{content:"♙"}aside button[data-page="marketplacePage"]:before{content:"♧"}aside button[data-page="storesPage"]:before{content:"⌂"}aside button[data-page="settingsPage"]:before{content:"⚙"}
+aside button:hover{background:#fff1f5!important;transform:translateX(2px)}aside button.active{background:linear-gradient(135deg,#ffdce7,#ffe9ef)!important;color:#ec3f74!important;box-shadow:inset 3px 0 #f05686;font-weight:800}
+.content{padding:14px 16px 36px;max-width:none;background:transparent}
+.page>.heading{background:rgba(255,255,255,.76);border:1px solid #f0e3e6;border-radius:20px;padding:18px 20px;margin-bottom:15px;box-shadow:var(--shadow-soft)}
+h1,h2,h3{color:#44363d}h1{font-weight:750}.eyebrow{color:#e34d79!important;letter-spacing:.15em!important}
+.panel,.card,.metric-box,.payment-panel,.studio-section,.product-card,.floral-library-card{background:rgba(255,255,255,.93)!important;border:1px solid #eee1e4!important;border-radius:var(--radius)!important;box-shadow:var(--shadow-soft)!important}
+button,.primary,.secondary,input,select,textarea{border-radius:11px!important}.primary{background:linear-gradient(135deg,#f36a94,#eb4c7d)!important;color:#fff!important;border:0!important;box-shadow:0 7px 16px rgba(232,70,121,.20)}.primary:hover{filter:brightness(.98);transform:translateY(-1px)}.secondary{background:#fff!important;color:#55464d!important;border:1px solid #eadde1!important}.secondary:hover{background:#fff5f7!important;border-color:#f0b8ca!important}
+input,select,textarea{background:#fff!important;border:1px solid #eadde1!important;color:#40343a!important;min-height:42px}.search{box-shadow:var(--shadow-soft)}
+/* Dashboard is now the pastel POS home */
+.dashboard-hero{min-height:174px;padding:18px 22px!important;background:
+ linear-gradient(100deg,rgba(255,255,255,.93),rgba(255,246,247,.92)),
+ radial-gradient(circle at 92% 12%,#ffd8e5 0 10%,transparent 11%)!important;border:1px solid #efdfe3!important;border-radius:20px!important;box-shadow:var(--shadow)!important;position:relative}
+.dashboard-hero:after{content:"✿  ❀";position:absolute;right:22px;top:10px;color:#ecc4ce;font-size:38px;letter-spacing:8px;opacity:.52;pointer-events:none}.dashboard-welcome-copy h1{font-family:"Brush Script MT","Segoe Script",cursive;color:#e83f75;font-size:40px;font-weight:500;margin:2px 0 2px}.welcome-subline{margin:3px 0;color:#74666c}.dashboard-welcome-photo{width:122px;height:124px;border-radius:18px;box-shadow:none;border:1px solid #f0dfe4}.rose-top-assistant{background:transparent!important;border:0!important;box-shadow:none!important;padding:5px 6px;min-width:205px;position:relative;z-index:2}.rose-top-character{font-size:72px}.rose-top-controls small{display:none}.rose-top-controls strong{font-size:23px;color:#df4d79}.rose-top-controls button{background:#f05686!important;color:#fff!important;border:0!important;box-shadow:0 7px 15px rgba(238,79,127,.2)}
+.dashboard-kpis{grid-template-columns:repeat(6,minmax(115px,1fr));gap:8px;margin-top:-53px;margin-left:145px;margin-right:254px;position:relative;z-index:3}.kpi-card{padding:13px 11px!important;border-radius:13px!important;background:#fff!important;box-shadow:0 4px 14px rgba(108,65,82,.08)!important}.kpi-card strong{font-size:21px!important}.kpi-card span{font-size:11px!important}.kpi-card small{font-size:10px!important}.kpi-card.featured{background:#fff7fa!important}.kpi-card.alert{background:#fff9ef!important}
+.morning-briefing{display:none}.dashboard-main-grid{grid-template-columns:minmax(0,1.8fr) minmax(300px,.72fr);gap:12px;margin-top:14px}.dashboard-panel{padding:16px!important}.sales-chart{background:linear-gradient(180deg,#fff8fa,#fff);border-radius:15px;padding:8px}.quick-action-grid button{background:linear-gradient(145deg,#fff,#fff6f8)!important;border:1px solid #f0e0e4!important;border-radius:15px!important;min-height:105px}.quick-action-grid button:nth-child(3){background:linear-gradient(145deg,#fff,#f3f8ed)!important}.quick-action-grid button span{color:#ee5481!important}
+.dashboard-lower-grid{grid-template-columns:1fr 1fr;gap:12px}.assistant-suite{grid-column:1/-1;grid-template-columns:1fr 1fr 1.2fr}.assistant-persona,.ai-card{border-radius:18px!important;box-shadow:var(--shadow-soft)!important}.lily-card{background:linear-gradient(145deg,#fff,#fff3f7)!important}.rose-card{background:linear-gradient(145deg,#fff,#fff8ef)!important}.bloom-assistant{background:linear-gradient(145deg,#fff,#f5f9ef)!important}
+/* Catalog and cards like visual product pads */
+.product-grid,.cards{gap:12px}.product-card,.floral-library-card{overflow:hidden;transition:.16s ease}.product-card:hover,.floral-library-card:hover{transform:translateY(-3px);box-shadow:var(--shadow)!important;border-color:#f0c2d0!important}.product-card img,.floral-library-card img{height:190px!important;background:linear-gradient(145deg,#fff5f5,#f7f5ec)!important}.card-actions{gap:7px}.card-actions button{font-size:12px}
+/* Order builder: commercial POS feel */
+.order-builder-dialog{max-width:1180px!important;width:min(96vw,1180px)!important;background:#fffaf9!important;border:1px solid #eadde1!important;border-radius:22px!important}.order-builder-head{background:linear-gradient(90deg,#f06591,#f38bab)!important;color:#fff!important;border-radius:19px 19px 0 0!important;padding:18px 22px!important}.order-builder-head h2,.order-builder-head .eyebrow,.order-builder-head .subtle{color:#fff!important}.order-live-total{background:#fff!important;color:#47383f!important;border-radius:15px!important}.order-builder-body{background:#fffdfc!important}.order-builder-summary{background:#fff8fa!important;border-left:1px solid #eddee2!important}.order-builder-summary:before{content:"Payment";display:block;color:#ed4f7c;font-weight:900;font-size:17px;border-bottom:2px solid #f4769b;padding-bottom:9px;margin-bottom:12px}.order-item-row{border:1px solid #eee0e4!important;border-radius:13px!important;background:#fff!important;margin-bottom:8px!important}.order-builder-footer{background:#fff!important;border-top:1px solid #eddee2!important}
+/* Branding is one place only */
+.shared-logo-notice{display:grid;grid-template-columns:42px 1fr auto;gap:12px;align-items:center;padding:14px;border-radius:15px;background:linear-gradient(135deg,#fff4f7,#f5faef);border:1px solid #ecdde2;margin:12px 0}.shared-logo-notice>span{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:#fff;color:#ec4f7c;font-size:24px;box-shadow:var(--shadow-soft)}.shared-logo-notice strong,.shared-logo-notice small{display:block}.shared-logo-notice small{color:#7d6e75;margin-top:3px}.branding-logo-title{margin-top:4px!important;color:#e34d79!important}.brand-settings{display:flex;flex-direction:column}.brand-settings .branding-logo-title{order:-4}.brand-settings .branding-logo-title+p{order:-3}.brand-settings .logo-upload-row{order:-2;margin-bottom:16px;padding:16px;background:#fff6f8;border:1px solid #efdee3;border-radius:17px}.brand-settings h2,.brand-settings>p:first-of-type{order:-5}.logo-preview{background:#fff!important;border:1px dashed #efb4c6!important}
+.theme-preview{background:linear-gradient(135deg,#fff3f7,#f3f8ec)!important;border:1px solid #eddae1!important;box-shadow:var(--shadow-soft)}
+/* Bottom mobile navigation */
+.mobile-nav{background:rgba(255,253,251,.97)!important;border-top:1px solid #eadde1!important}.mobile-nav button{color:#63555b!important}.mobile-nav button.active{background:#ffe1ea!important;color:#ed4f7c!important}
+@media(max-width:1200px){.dashboard-kpis{margin:12px 0 0;grid-template-columns:repeat(3,1fr)}.dashboard-main-grid{grid-template-columns:1fr}.dashboard-lower-grid{grid-template-columns:1fr}.assistant-suite{grid-template-columns:1fr}}
+@media(max-width:900px){aside{width:176px}.content{padding:10px}.dashboard-hero{flex-wrap:wrap}.dashboard-hero:after{display:none}.dashboard-welcome-copy h1{font-size:33px}.rose-top-assistant{width:auto!important}.dashboard-kpis{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){header{height:auto;min-height:65px;padding:8px 12px}.shell{min-height:0}aside{display:none}.content{padding:9px 8px 80px}.dashboard-hero{padding:14px!important}.dashboard-welcome-photo{width:82px;height:82px}.dashboard-welcome-copy h1{font-size:29px}.dashboard-kpis{grid-template-columns:1fr 1fr}.dashboard-main-grid,.dashboard-lower-grid{display:block}.dashboard-panel{margin-bottom:10px}.shared-logo-notice{grid-template-columns:38px 1fr}.shared-logo-notice button{grid-column:1/-1}.product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.product-card img,.floral-library-card img{height:140px!important}}
+@media print{header,aside,.mobile-nav,.hero-actions,.rose-top-assistant{display:none!important}.content{padding:0!important}.panel,.card{box-shadow:none!important}}
