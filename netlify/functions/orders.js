@@ -84,6 +84,7 @@ export async function handler(event) {
         addon_total: Number(body.addon_total || 0),
         discount: Number(body.discount || 0),
         estimated_cost: Number(body.estimated_cost || 0),
+        product_id: body.product_id || null,
       };
 
       const { data, error } = await client
@@ -117,7 +118,53 @@ export async function handler(event) {
         if (!deliveryError) delivery = deliveryData;
       }
 
-      return json(201, { item: data, delivery });
+      const inventoryAdjustments = [];
+      const inventoryWarnings = [];
+      if (body.product_id) {
+        const { data: recipeRows, error: recipeError } = await client
+          .from("product_recipes")
+          .select("ingredient_name,quantity,unit")
+          .eq("shop_id", shopId)
+          .eq("product_id", body.product_id);
+        if (!recipeError && Array.isArray(recipeRows)) {
+          const { data: stockRows, error: stockError } = await client
+            .from("inventory")
+            .select("id,name,color,quantity,unit")
+            .eq("shop_id", shopId)
+            .is("deleted_at", null);
+          if (!stockError && Array.isArray(stockRows)) {
+            const normalize = value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+            for (const recipe of recipeRows) {
+              const wanted = normalize(recipe.ingredient_name);
+              const stock = stockRows.find(row => {
+                const full = normalize(`${row.color || ""} ${row.name || ""}`);
+                const name = normalize(row.name);
+                return full === wanted || name === wanted || full.includes(wanted) || wanted.includes(name);
+              });
+              if (!stock) {
+                inventoryWarnings.push(`${recipe.ingredient_name}: not found in inventory`);
+                continue;
+              }
+              const used = Math.max(0, Number(recipe.quantity || 0));
+              const before = Number(stock.quantity || 0);
+              const after = Math.max(0, before - used);
+              const { error: updateError } = await client
+                .from("inventory")
+                .update({ quantity: after })
+                .eq("id", stock.id)
+                .eq("shop_id", shopId);
+              if (updateError) inventoryWarnings.push(`${stock.name}: ${updateError.message}`);
+              else {
+                stock.quantity = after;
+                inventoryAdjustments.push({ id: stock.id, name: stock.name, used, before, after, unit: stock.unit });
+                if (after === 0 && used > before) inventoryWarnings.push(`${stock.name}: recipe needed ${used}, but only ${before} was available`);
+              }
+            }
+          }
+        }
+      }
+
+      return json(201, { item: data, delivery, inventoryAdjustments, inventoryWarnings });
     }
 
     if (event.httpMethod === "PATCH") {
