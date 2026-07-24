@@ -1,5 +1,7 @@
 -- Bloom v9.0 integrated production-candidate migration
 alter table public.shops
+  add column if not exists address text,
+  add column if not exists default_delivery_fee numeric(10,2) not null default 10,
   add column if not exists tagline text,
   add column if not exists slug text,
   add column if not exists logo_url text,
