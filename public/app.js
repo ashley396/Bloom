@@ -1,175 +1,113 @@
-const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-let createMode=false, session=readSession();
 
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+let createMode=false,session=readSession(),customers=[],inventory=[],orders=[],products=[],deliveries=[],shopSettings=null,receiptDataUrl=null;
+const LIBRARY=[
+["Blush Garden","Birthday",74.99,"🌸","Soft blush blooms with airy seasonal texture.",[["Roses",6],["Carnations",5],["Greenery",6]]],
+["Sunshine Hello","Get Well",64.99,"🌻","Cheerful yellow flowers designed to brighten the room.",[["Sunflowers",5],["Daisies",7],["Greenery",5]]],
+["Classic Romance","Anniversary",89.99,"🌹","A timeless rose arrangement for love and anniversaries.",[["Red Roses",12],["Baby's Breath",3],["Leatherleaf",5]]],
+["Peaceful Grace","Sympathy",109.99,"🤍","Elegant white blooms offering comfort and peace.",[["White Lilies",5],["White Roses",8],["Greenery",7]]],
+["Wildflower Joy","Everyday",59.99,"💐","A colorful garden-style mix with a gathered feel.",[["Mixed Flowers",18],["Greenery",6]]],
+["Modern Orchid","Plants",79.99,"🌿","A sophisticated orchid presentation for home or office.",[["Orchid Plant",1],["Ceramic Pot",1]]],
+["New Baby Sweetness","New Baby",69.99,"🍼","Pastel blooms welcoming a beautiful new arrival.",[["Pastel Roses",5],["Hydrangea",2],["Greenery",5]]],
+["Celebration Brights","Congratulations",84.99,"🎉","Bold color and joyful flowers for big moments.",[["Gerbera Daisies",7],["Roses",6],["Greenery",6]]],
+["Elegant Tribute","Funeral",159.99,"🕊️","A graceful standing tribute with premium white flowers.",[["White Roses",12],["Lilies",8],["Snapdragons",8],["Greenery",12]]]
+];
 function readSession(){try{return JSON.parse(localStorage.getItem("bloom_session")||"null")}catch{return null}}
 function saveSession(d){session={accessToken:d.accessToken,refreshToken:d.refreshToken,user:d.user};localStorage.setItem("bloom_session",JSON.stringify(session))}
-function signOut(){session=null;localStorage.removeItem("bloom_session");showAuth()}
-function toast(m){const e=$("#toast");e.textContent=m;e.hidden=false;setTimeout(()=>e.hidden=true,3000)}
 function money(v){return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(v||0))}
-function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
-
-async function api(path,options={},retry=true){
-  const headers={"Content-Type":"application/json",...(options.headers||{})};
-  if(session?.accessToken) headers.Authorization=`Bearer ${session.accessToken}`;
-  const r=await fetch(`/api/${path}`,{...options,headers}), d=await r.json().catch(()=>({}));
-  if(r.status===401&&retry&&session?.refreshToken){
-    const rr=await fetch("/api/auth-refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refreshToken:session.refreshToken})});
-    const rd=await rr.json().catch(()=>({}));
-    if(rr.ok){saveSession(rd);return api(path,options,false)}
-    signOut();
-  }
-  if(!r.ok) throw new Error(d.error||"Request failed");
-  return d;
-}
-
-function showAuth(msg=""){$("#auth").hidden=false;$("#app").hidden=true;$("#authMessage").textContent=msg}
-function showApp(){$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||""}
-function showPage(id){$$(".page").forEach(p=>p.classList.toggle("active",p.id===id));$$("nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===id));loadPage(id)}
-
-async function loadPage(id){
-  if(id==="dashboardPage") return loadDashboard();
-  const map={customersPage:["customers","customersList",renderCustomer],ordersPage:["orders","ordersList",renderOrder],inventoryPage:["inventory","inventoryList",renderInventory],expensesPage:["expenses","expensesList",renderExpense]};
-  if(!map[id]) return;
-  const [path,target,render]=map[id];
-  try{const {items}=await api(path);$(`#${target}`).innerHTML=items.length?items.map(render).join(""):"<p>No records yet.</p>"}catch(e){toast(e.message)}
-}
-function renderCustomer(x){return `<article><strong>${esc(x.name)}</strong><p>${esc(x.phone)} ${x.email?"· "+esc(x.email):""}</p><small>${esc(x.address)}</small></article>`}
-function renderOrder(x){
-  const delivery=x.fulfillment==="DELIVERY"&&x.delivery_address
-    ? `<small class="delivery-summary">📍 ${esc(x.delivery_address)}${Number(x.delivery_miles)>0?` · ${Number(x.delivery_miles).toFixed(1)} round-trip mi`:""}</small>`
-    : "";
-  return `<article><div class="row"><div><strong>${esc(x.order_number)}</strong><p>${esc(x.customer_name)} · ${esc(x.fulfillment)} · ${money(x.total)}</p>${delivery}</div><span class="badge">${esc(x.status)}</span></div></article>`
-}
-function renderInventory(x){return `<article><div class="row"><div><strong>${esc(x.name)}</strong><p>${esc(x.category)} · ${x.quantity} ${esc(x.unit)}</p></div><span class="badge">${Number(x.quantity)<=Number(x.low_stock_level)?"LOW":"OK"}</span></div></article>`}
-function renderExpense(x){return `<article><strong>${esc(x.category)}</strong><p>${esc(x.vendor)} · ${money(x.amount)}</p><small>${esc(x.expense_date)}</small></article>`}
-
+function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function dateText(v){return v?new Date(v+"T12:00:00").toLocaleDateString():""}
+function toast(m){const e=$("#toast");e.textContent=m;e.hidden=false;clearTimeout(window.bt);window.bt=setTimeout(()=>e.hidden=true,3200)}
+function empty(t){return `<div class="card subtle">${esc(t)}</div>`}
+async function api(path,opt={},auth=true){const h={"Content-Type":"application/json",...(opt.headers||{})};if(auth&&session?.accessToken)h.Authorization=`Bearer ${session.accessToken}`;const r=await fetch(`/.netlify/functions/${path}`,{...opt,headers:h});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
+function showAuth(){$("#auth").hidden=false;$("#app").hidden=true}
+function showApp(){$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";loadStores()}
+function showPage(id){$$(".page").forEach(p=>p.classList.toggle("active",p.id===id));$$("[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));loadPage(id)}
+async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,websitePage:loadWebsite,libraryPage:renderLibrary,expensesPage:loadExpenses,reportsPage:loadReports,staffPage:loadStaff,marketplacePage:loadMarketplace,storesPage:loadStores};try{if(m[id])await m[id]()}catch(e){toast(e.message)}}
+function renderOrder(o){return `<article class="card"><div class="card-top"><div><h3>${esc(o.order_number)} · ${esc(o.customer_name)}</h3><div class="meta">${esc(o.occasion||"Floral order")} · ${esc(o.fulfillment)} ${dateText(o.delivery_date)}</div></div><span class="badge ${o.payment_status==="PAID"?"good":"warn"}">${esc(o.payment_status||"UNPAID")}</span></div><p><strong>${money(o.total)}</strong>${o.recipient_name?` · For ${esc(o.recipient_name)}`:""}</p><div class="card-actions"><button class="secondary" data-receipt="${o.id}">Receipt</button>${o.payment_status==="PAID"?`<button class="secondary" data-unpay="${o.id}">Mark unpaid</button>`:`<button class="primary" data-pay="${o.id}">Mark paid</button>`}</div></article>`}
 async function loadDashboard(){
-  try{
-    const d=await api("dashboard");
-    $("#ordersToday").textContent=d.ordersToday;$("#totalSales").textContent=money(d.totalSales);$("#totalExpenses").textContent=money(d.totalExpenses);$("#profit").textContent=money(d.profit);$("#deliveries").textContent=d.deliveries;$("#lowStock").textContent=d.lowStock;
-    $("#queue").innerHTML=d.queue.length?d.queue.map(renderOrder).join(""):"<p>No active orders yet.</p>";
-  }catch(e){toast(e.message)}
+  const d=await api("dashboard");
+  const date=new Date();
+  $("#dashboardDate").textContent=date.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+  $("#todaySales").textContent=money(d.todaySales);
+  $("#totalSales").textContent=money(d.totalSales);
+  $("#totalExpenses").textContent=money(d.totalExpenses);
+  $("#profit").textContent=money(d.profit);
+  $("#unpaidTotal").textContent=money(d.unpaidTotal);
+  $("#ordersDueToday").textContent=d.ordersDueToday||0;
+  $("#deliveriesToday").textContent=d.deliveriesToday||0;
+  $("#lowStock").textContent=d.lowStock||0;
+  $("#customerCount").textContent=d.customers||0;
+  $("#weekSales").textContent=money(d.weekSales);
+  $("#ordersTodayLabel").textContent=`${d.ordersToday||0} order${d.ordersToday===1?"":"s"} created today`;
+  $("#deliveriesStatus").textContent=`${d.deliveries||0} still active`;
+  $("#queue").innerHTML=d.queue?.length?d.queue.slice(0,5).map(renderOrder).join(""):empty("No active orders. Enjoy the breathing room!");
+  const chart=d.weeklySales||[];
+  const max=Math.max(...chart.map(x=>Number(x.total||0)),1);
+  $("#salesChart").innerHTML=chart.map(x=>`<div class="chart-day"><div class="chart-value">${money(x.total)}</div><div class="chart-bar-wrap"><div class="chart-bar" style="height:${Math.max(5,Math.round(Number(x.total||0)/max*100))}%"></div></div><small>${esc(x.label)}</small></div>`).join("");
+  $("#upcomingDeliveries").innerHTML=d.upcomingDeliveries?.length?d.upcomingDeliveries.map(o=>`<article><div><strong>${esc(o.recipient_name||o.customer_name||"Delivery")}</strong><small>${esc(o.order_number||"")} · ${dateText(o.delivery_date)}</small></div><span class="badge ${o.status==="COMPLETED"?"good":"warn"}">${esc(o.status||"PENDING")}</span></article>`).join(""):empty("No upcoming deliveries.");
 }
-
-$("#switchMode").onclick=()=>{createMode=!createMode;$("#shopWrap").hidden=!createMode;$("#nameWrap").hidden=!createMode;$("#authButton").textContent=createMode?"Create account":"Sign in";$("#switchMode").textContent=createMode?"Already have an account? Sign in":"Create a Bloom account";$("#authMessage").textContent=""};
-
-$("#authForm").onsubmit=async e=>{
-  e.preventDefault();$("#authButton").disabled=true;$("#authMessage").textContent="";
-  try{
-    const d=await api(createMode?"auth-signup":"auth-login",{method:"POST",body:JSON.stringify({shopName:$("#shopName").value,fullName:$("#fullName").value,email:$("#email").value,password:$("#password").value})},false);
-    if(d.confirmationRequired){$("#authMessage").textContent="Check your email to confirm your account, then sign in.";return}
-    saveSession(d);showApp();loadDashboard();
-  }catch(err){$("#authMessage").textContent=err.message}finally{$("#authButton").disabled=false}
-};
-
-
-function updateOrderTotals(){
-  const subtotal=Number($("#orderSubtotal")?.value||0);
-  const taxRate=Number($("#orderTaxRate")?.value||0);
-  const deliveryFee=Number($("#orderDeliveryFee")?.value||0);
-  const taxAmount=Math.round((subtotal*(taxRate/100)+Number.EPSILON)*100)/100;
-  const total=Math.round((subtotal+taxAmount+deliveryFee+Number.EPSILON)*100)/100;
-  if($("#orderTaxAmount")) $("#orderTaxAmount").textContent=money(taxAmount);
-  if($("#orderTotal")) $("#orderTotal").textContent=money(total);
-  return {taxAmount,total};
-}
-["orderSubtotal","orderTaxRate","orderDeliveryFee"].forEach(id=>{
-  document.getElementById(id)?.addEventListener("input",updateOrderTotals);
+async function loadStores(){const {items}=await api("stores");$("#shopSwitcher").innerHTML=items.map(s=>`<option value="${s.id}" ${s.active?"selected":""}>${esc(s.name)}</option>`).join("");const active=items.find(x=>x.active);$("#greeting").textContent=`Welcome to ${active?.name||"Bloom"}`;if($("#storesList"))$("#storesList").innerHTML=items.length?items.map(s=>`<article class="card"><div class="card-top"><div><h3>${esc(s.name)}</h3><div class="meta">${esc(s.address||"Address not set")} · ${esc(s.role)}</div></div>${s.active?'<span class="badge good">ACTIVE</span>':""}</div>${!s.active?`<div class="card-actions"><button class="primary" data-switch-shop="${s.id}">Open this shop</button></div>`:""}</article>`).join(""):empty("No stores.")}
+async function loadCustomers(){customers=(await api("customers")).items||[];renderCustomers();refreshOrderCustomerOptions()}
+function renderCustomers(){const q=$("#customerSearch").value.toLowerCase();const rows=customers.filter(x=>[x.name,x.phone,x.email,x.favorite_flowers,x.favorite_colors].join(" ").toLowerCase().includes(q));$("#customersList").innerHTML=rows.length?rows.map(c=>`<article class="card"><div class="card-top"><div><h3>${c.vip?"★ ":""}${esc(c.name)}</h3><div class="meta">${esc(c.phone||"")} ${c.email?`· ${esc(c.email)}`:""}</div></div>${c.vip?'<span class="badge">VIP</span>':""}</div>${c.favorite_flowers?`<p>Favorites: ${esc(c.favorite_flowers)} ${c.favorite_colors?`· ${esc(c.favorite_colors)}`:""}</p>`:""}<div class="card-actions"><button class="secondary" data-edit-customer="${c.id}">Edit</button><button class="secondary" data-delete-customer="${c.id}">Delete</button></div></article>`).join(""):empty("No customers found.")}
+async function loadOrders(){orders=(await api("orders")).items||[];$("#ordersList").innerHTML=orders.length?orders.map(renderOrder).join(""):empty("No orders.");$("#deliveryOrder").innerHTML=orders.map(o=>`<option value="${o.id}">${esc(o.order_number)} · ${esc(o.customer_name)}</option>`).join("")}
+async function loadInventory(){inventory=(await api("inventory")).items||[];$("#inventoryList").innerHTML=inventory.length?inventory.map(i=>`<article class="card"><div class="card-top"><div><h3>${esc(i.name)}</h3><div class="meta">${esc(i.category)} · ${i.quantity} ${esc(i.unit)}</div></div><span class="badge ${Number(i.quantity)<=Number(i.low_stock_level)?"warn":"good"}">${Number(i.quantity)<=Number(i.low_stock_level)?"LOW":"IN STOCK"}</span></div><p>Cost ${money(i.cost)} · Sell ${money(i.price)}</p><div class="card-actions"><button class="secondary" data-edit-inventory="${i.id}">Edit</button><button class="secondary" data-delete-inventory="${i.id}">Delete</button></div></article>`).join(""):empty("No inventory.")}
+async function loadProducts(){products=(await api("products")).items||[];$("#productsList").innerHTML=products.length?products.map(productCard).join(""):empty("Create your first product.");$("#orderProduct").innerHTML='<option value="">Custom arrangement</option>'+products.map(p=>`<option value="${p.id}" data-price="${p.price}" data-cost="${p.estimated_cost||p.labor_cost||0}">${esc(p.name)} · ${money(p.price)}</option>`).join("")}
+function productCard(p){return `<article class="product-card">${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}">`:`<div class="product-art">💐</div>`}<div class="body"><span class="badge">${esc(p.category)}</span><h3>${esc(p.name)}</h3><p class="meta">${esc(p.description||"")}</p><div class="price">${money(p.price)}</div><div class="card-actions"><button class="secondary" data-edit-product="${p.id}">Edit + recipe</button><button class="secondary" data-delete-product="${p.id}">Delete</button></div></div></article>`}
+function renderLibrary(){$("#libraryList").innerHTML=LIBRARY.map((p,i)=>`<article class="product-card"><div class="product-art">${p[3]}</div><div class="body"><span class="badge">${p[1]}</span><h3>${p[0]}</h3><p>${p[4]}</p><div class="price">${money(p[2])}</div><button class="primary wide" data-add-library="${i}">Add to my catalog</button></div></article>`).join("")}
+async function loadDeliveries(){deliveries=(await api("deliveries")).items||[];const st=["PENDING","ROUTED","OUT_FOR_DELIVERY","DELIVERED"];$("#deliveriesList").innerHTML=st.map(s=>`<div class="kanban-col"><h3>${s.replaceAll("_"," ")}</h3>${deliveries.filter(x=>x.status===s).map(x=>{const o=orders.find(o=>o.id===x.order_id);return `<article class="card"><strong>${esc(o?.order_number||"Delivery")}</strong><p>${esc(o?.recipient_name||o?.customer_name||"")}</p><div class="meta">${esc(x.driver||"Unassigned")}</div>${s!=="DELIVERED"?`<button class="secondary" data-advance-delivery="${x.id}" data-status="${s}">Advance</button>`:""}</article>`}).join("")||'<p class="subtle">No stops</p>'}</div>`).join("")}
+async function loadStaff(){const a=(await api("staff")).items||[];$("#staffList").innerHTML=a.length?a.map(x=>`<article class="card"><h3>${esc(x.name)}</h3><div class="meta">${esc(x.role)} · ${esc(x.email||"")}</div></article>`).join(""):empty("No staff.")}
+async function loadMarketplace(){const a=(await api("marketplace")).items||[];$("#marketplaceList").innerHTML=a.length?a.map(x=>`<article class="product-card">${x.image_url?`<img src="${esc(x.image_url)}">`:`<div class="product-art">🌹</div>`}<div class="body"><span class="badge">${esc(x.category)}</span><h3>${esc(x.product_name)}</h3><p>${esc(x.supplier_name)}</p><div class="price">${money(x.price)} / ${esc(x.unit)}</div><p class="meta">Minimum ${x.minimum_quantity}</p><button class="secondary wide" data-market-request="${x.id}">Create purchase request</button></div></article>`).join(""):empty("No wholesale listings.")}
+async function loadExpenses(){const a=(await api("expenses")).items||[];$("#expensesList").innerHTML=a.length?a.map(x=>`<article class="card"><div class="card-top"><div><h3>${esc(x.vendor||x.category)}</h3><div class="meta">${dateText(x.expense_date)} · ${esc(x.category)}</div></div><strong>${money(x.amount)}</strong></div>${x.receipt_data_url?`<p><a href="${x.receipt_data_url}" target="_blank">Open receipt</a></p>`:""}</article>`).join(""):empty("No expenses.")}
+async function loadReports(){const d=await api("finance"),a=d.months||d.items||[];$("#financeList").innerHTML=a.length?a.map(x=>`<div class="report-row"><strong>${esc(x.month||x.label||"Period")}</strong><span>Revenue ${money(x.revenue)}</span><span>Expenses ${money(x.expenses)}</span><span>Profit ${money(x.profit)}</span></div>`).join(""):empty("No report data.")}
+async function loadWebsite(){shopSettings=(await api("settings")).item;const f=$("#websiteForm");for(const[k,v]of Object.entries(shopSettings||{})){if(!f.elements[k])continue;if(f.elements[k].type==="checkbox")f.elements[k].checked=Boolean(v);else f.elements[k].value=v??""}renderWebsite()}
+function renderWebsite(){const f=$("#websiteForm"),d=Object.fromEntries(new FormData(f)),main=d.primary_color||"#a72f67",accent=d.accent_color||"#6f8f72",hero=d.hero_image_url?`url('${d.hero_image_url}')`:`linear-gradient(135deg,${main},${accent})`;const pv=$("#websitePreview");pv.style.setProperty("--site-main",main);pv.style.setProperty("--site-accent",accent);pv.style.setProperty("--hero-image",hero);const online=products.filter(p=>p.available_online).slice(0,3);pv.innerHTML=`<div class="preview-nav">${d.logo_url?`<img src="${esc(d.logo_url)}">`:""}<strong>${esc(d.name||"Your Flower Shop")}</strong><span>Shop · Weddings · Sympathy · About · Contact</span></div><div class="preview-hero"><p>${esc(d.tagline||d.website_style||"Local florist")}</p><h2>${esc(d.hero_title||"Flowers made beautifully for every moment")}</h2><div>${esc(d.hero_text||"Thoughtful floral designs, gifts, and local delivery.")}</div><button>Shop flowers</button></div><div class="preview-products">${(online.length?online:[{name:"Seasonal Favorites"},{name:"Birthday Flowers"},{name:"Sympathy Designs"}]).map(p=>`<div>${esc(p.name)}</div>`).join("")}</div><footer>${esc(d.phone||"Phone")} · ${esc(d.address||"Local delivery")} ${d.custom_domain?`· ${esc(d.custom_domain)}`:""}</footer>`}
+function openCustomer(x=null){const f=$("#customerForm");f.reset();for(const k of["id","name","phone","email","address","birthday","anniversary","favorite_flowers","favorite_colors","notes"])f.elements[k].value=x?.[k]||"";f.elements.vip.checked=Boolean(x?.vip);$("#customerDialogTitle").textContent=x?"Edit customer":"Add customer";$("#customerDialog").showModal()}
+function openInventory(x=null){const f=$("#inventoryForm");f.reset();for(const k of["id","name","category","quantity","low_stock_level","unit","cost","price"])f.elements[k].value=x?.[k]??"";$("#inventoryDialogTitle").textContent=x?"Edit inventory":"Add inventory";$("#inventoryDialog").showModal()}
+function addRecipeRow(x={}){const r=document.createElement("div");r.className="recipe-row";r.innerHTML=`<input placeholder="Ingredient" value="${esc(x.ingredient_name||"")}"><input type="number" step=".01" value="${x.quantity||1}"><input placeholder="Unit" value="${esc(x.unit||"stem")}"><input type="number" step=".01" value="${x.unit_cost||0}"><button type="button" class="secondary">×</button>`;r.lastChild.onclick=()=>r.remove();$("#recipeRows").append(r)}
+async function openProduct(x=null){const f=$("#productForm");f.reset();for(const k of["id","name","sku","category","price","description","image_url","labor_cost","seo_title","seo_description"])f.elements[k].value=x?.[k]??"";for(const k of["featured","available_online","active"])f.elements[k].checked=x?Boolean(x[k]):k==="active";$("#recipeRows").innerHTML="";if(x){const a=(await api(`recipes?product_id=${x.id}`)).items||[];a.forEach(addRecipeRow)}if(!$("#recipeRows").children.length)addRecipeRow();$("#productDialog").showModal()}
+function recipePayload(){return [...$("#recipeRows").children].map(r=>{const i=r.querySelectorAll("input");return{ingredient_name:i[0].value,quantity:i[1].value,unit:i[2].value,unit_cost:i[3].value}}).filter(x=>x.ingredient_name)}
+function openReceipt(o){if(!o)return;$("#receiptContent").innerHTML=`<div class="receipt"><div class="receipt-brand"><h1>✿ ${esc(shopSettings?.name||"Bloom")}</h1><p>${esc(shopSettings?.address||"Beautiful flowers, thoughtfully made")}</p></div><div class="receipt-head"><strong>${esc(o.order_number)}</strong><strong>${new Date(o.created_at).toLocaleDateString()}</strong></div><div class="receipt-grid"><div><div class="receipt-label">Customer</div><strong>${esc(o.customer_name)}</strong><p>${esc(o.recipient_name||"")}</p></div><div><div class="receipt-label">Fulfillment</div><strong>${esc(o.fulfillment)}</strong><p>${dateText(o.delivery_date)}</p></div></div><div class="receipt-line"><span>Floral order</span><span>${money(o.subtotal)}</span></div><div class="receipt-line"><span>Tax</span><span>${money(o.tax)}</span></div><div class="receipt-line"><span>Delivery</span><span>${money(o.delivery_fee)}</span></div><div class="receipt-total-row"><span>Total</span><span>${money(o.total)}</span></div><div class="payment-stamp">${esc(o.payment_status||"UNPAID")}</div><p>${esc(o.card_message||"")}</p><p style="text-align:center">Thank you for supporting a local flower shop.</p></div>`;$("#receiptDialog").showModal()}
+$("#switchMode").onclick=()=>{createMode=!createMode;$("#shopWrap").hidden=!createMode;$("#nameWrap").hidden=!createMode;$("#authButton").textContent=createMode?"Create account":"Sign in"};
+$("#authForm").onsubmit=async e=>{e.preventDefault();try{const d=await api(createMode?"auth-signup":"auth-login",{method:"POST",body:JSON.stringify({shopName:$("#shopName").value,fullName:$("#fullName").value,email:$("#email").value,password:$("#password").value})},false);if(d.confirmationRequired)return $("#authMessage").textContent="Check your email to confirm your account.";saveSession(d);showApp();await Promise.all([loadDashboard(),loadInventory(),loadOrders(),loadProducts()])}catch(err){$("#authMessage").textContent=err.message}};
+$("#logout").onclick=()=>{localStorage.removeItem("bloom_session");session=null;showAuth()};$$("[data-page]").forEach(b=>b.onclick=()=>showPage(b.dataset.page));$$("[data-open]").forEach(b=>b.onclick=async()=>{const dialog=document.getElementById(b.dataset.open);if(b.dataset.open==="orderDialog")await prepareOrderBuilder();dialog.showModal()});$$(".close").forEach(b=>b.onclick=()=>b.closest("dialog").close());$("#customerSearch").oninput=renderCustomers;$("#addRecipeRow").onclick=()=>addRecipeRow();
+$("#shopSwitcher").onchange=async e=>{await api("stores",{method:"PATCH",body:JSON.stringify({shop_id:e.target.value})});location.reload()};
+$("#customerForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));d.vip=f.elements.vip.checked;await api("customers",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)});f.reset();$("#customerDialog").close();toast("Customer saved");loadCustomers()};
+$("#inventoryForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));await api("inventory",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)});f.reset();$("#inventoryDialog").close();toast("Inventory saved");loadInventory()};
+function refreshOrderCustomerOptions(){const list=$("#customerOptions");if(list)list.innerHTML=customers.map(c=>`<option value="${esc(c.name)}" data-id="${c.id}">${esc(c.phone||c.email||"")}</option>`).join("")}
+function orderNumber(form,name){return Number(form.elements[name]?.value||0)}
+function updateOrderBuilder(){const f=$("#orderForm");if(!f)return;const subtotal=orderNumber(f,"subtotal"),labor=orderNumber(f,"labor_charge"),addons=orderNumber(f,"addon_total"),delivery=orderNumber(f,"delivery_fee"),discount=orderNumber(f,"discount"),tax=orderNumber(f,"tax"),cost=orderNumber(f,"estimated_cost");const total=Math.max(0,subtotal+labor+addons+delivery+tax-discount),profit=total-cost;$("#orderLiveTotal").textContent=money(total);$("#orderSummaryTotal").textContent=money(total);$("#orderSummaryProfit").textContent=money(profit);$("#orderProfitPreview").textContent=`Estimated profit ${money(profit)}`;const product=f.elements.product_id.selectedOptions[0];$("#orderSuggestion").textContent=product?.value?`${product.textContent} selected. Review recipe cost and add delivery or add-ons before saving.`:"Custom order: use the description, flower preferences, and estimated material cost so the designer has a complete worksheet."}
+async function prepareOrderBuilder(){const f=$("#orderForm");f.reset();f.elements.delivery_date.value=new Date().toISOString().slice(0,10);if(!customers.length)try{await loadCustomers()}catch{}if(!products.length)try{await loadProducts()}catch{}refreshOrderCustomerOptions();toggleDeliveryFields();updateOrderBuilder()}
+function toggleDeliveryFields(){const delivery=$("#orderFulfillment")?.value==="DELIVERY";$("#deliveryFields")?.classList.toggle("is-hidden",!delivery)}
+$("#orderCustomerName").onchange=e=>{const c=customers.find(x=>x.name.toLowerCase()===e.target.value.trim().toLowerCase());if(c)$("#orderForm").elements.customer_phone.value=c.phone||""};
+$("#orderFulfillment").onchange=()=>{toggleDeliveryFields();updateOrderBuilder()};
+$$(".order-money").forEach(i=>i.oninput=updateOrderBuilder);
+$("#orderProduct").onchange=e=>{const o=e.target.selectedOptions[0],f=$("#orderForm");if(o?.dataset.price)f.elements.subtotal.value=o.dataset.price;if(o?.dataset.cost)f.elements.estimated_cost.value=o.dataset.cost;updateOrderBuilder()};
+$("#orderForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));d.total_preview=Number(String($("#orderLiveTotal").textContent).replace(/[^0-9.-]/g,""));await api("orders",{method:"POST",body:JSON.stringify(d)});f.reset();$("#orderDialog").close();toast("Order created");loadOrders();loadDashboard()};
+$("#productForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));for(const k of["featured","available_online","active"])d[k]=f.elements[k].checked;const {item}=await api("products",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)});await api("recipes",{method:"POST",body:JSON.stringify({product_id:item.id,items:recipePayload()})});$("#productDialog").close();toast("Product and recipe saved");loadProducts()};
+$("#receiptFile").onchange=async e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>5*1024*1024)return toast("Receipt must be under 5 MB");receiptDataUrl=await new Promise((a,b)=>{const r=new FileReader();r.onload=()=>a(r.result);r.onerror=b;r.readAsDataURL(file)});if(file.type.startsWith("image/")){$("#receiptPreview").src=receiptDataUrl;$("#receiptPreview").hidden=false}};
+$("#expenseForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));d.receipt_data_url=receiptDataUrl;await api("expenses",{method:"POST",body:JSON.stringify(d)});f.reset();$("#receiptPreview").hidden=true;$("#expenseDialog").close();toast("Expense saved");loadExpenses();loadDashboard()};
+$("#staffForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget;await api("staff",{method:"POST",body:JSON.stringify(Object.fromEntries(new FormData(f)))});f.reset();$("#staffDialog").close();loadStaff()};
+$("#deliveryForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget;await api("deliveries",{method:"POST",body:JSON.stringify(Object.fromEntries(new FormData(f)))});f.reset();$("#deliveryDialog").close();loadDeliveries()};
+$("#marketplaceForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget;await api("marketplace",{method:"POST",body:JSON.stringify(Object.fromEntries(new FormData(f)))});f.reset();$("#marketplaceDialog").close();loadMarketplace()};
+$("#storeForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget;await api("stores",{method:"POST",body:JSON.stringify(Object.fromEntries(new FormData(f)))});f.reset();$("#storeDialog").close();loadStores()};
+$("#websiteForm").oninput=renderWebsite;$("#saveWebsite").onclick=async()=>{const f=$("#websiteForm"),d=Object.fromEntries(new FormData(f));d.website_published=f.elements.website_published.checked;shopSettings=(await api("settings",{method:"PATCH",body:JSON.stringify(d)})).item;toast("Website saved")};$$("[data-preview]").forEach(b=>b.onclick=()=>$("#websitePreview").classList.toggle("mobile",b.dataset.preview==="mobile"));
+$("#assistantRun").onclick=async()=>{const prompt=$("#assistantPrompt").value.trim();if(!prompt)return toast("Ask Bloom a question first");const out=$("#assistantAnswer");out.textContent="Bloom is thinking…";try{const d=await api("ai-assistant",{method:"POST",body:JSON.stringify({prompt})});out.textContent=d.answer}catch(e){out.textContent=e.message}};
+document.addEventListener("click",async e=>{let t;
+if(t=e.target.closest("[data-edit-customer]"))return openCustomer(customers.find(x=>x.id===t.dataset.editCustomer));
+if(t=e.target.closest("[data-delete-customer]")){if(confirm("Delete this customer?")){await api("customers",{method:"DELETE",body:JSON.stringify({id:t.dataset.deleteCustomer})});loadCustomers()}return}
+if(t=e.target.closest("[data-edit-inventory]"))return openInventory(inventory.find(x=>x.id===t.dataset.editInventory));
+if(t=e.target.closest("[data-delete-inventory]")){if(confirm("Delete this item?")){await api("inventory",{method:"DELETE",body:JSON.stringify({id:t.dataset.deleteInventory})});loadInventory()}return}
+if(t=e.target.closest("[data-edit-product]"))return openProduct(products.find(x=>x.id===t.dataset.editProduct));
+if(t=e.target.closest("[data-delete-product]")){if(confirm("Delete this product?")){await api("products",{method:"DELETE",body:JSON.stringify({id:t.dataset.deleteProduct})});loadProducts()}return}
+if(t=e.target.closest("[data-add-library]")){const p=LIBRARY[Number(t.dataset.addLibrary)];const {item}=await api("products",{method:"POST",body:JSON.stringify({name:p[0],category:p[1],price:p[2],description:p[4],available_online:true,active:true,featured:true})});await api("recipes",{method:"POST",body:JSON.stringify({product_id:item.id,items:p[5].map(r=>({ingredient_name:r[0],quantity:r[1],unit:"stem",unit_cost:0}))})});return toast("Added to your catalog")}
+if(t=e.target.closest("[data-receipt]")){if(!shopSettings)shopSettings=(await api("settings")).item;return openReceipt(orders.find(x=>x.id===t.dataset.receipt))}
+if(t=e.target.closest("[data-pay]")){const m=prompt("Payment method","Card");if(m){await api("orders",{method:"PATCH",body:JSON.stringify({id:t.dataset.pay,action:"MARK_PAID",payment_method:m})});loadOrders();loadDashboard()}return}
+if(t=e.target.closest("[data-unpay]")){await api("orders",{method:"PATCH",body:JSON.stringify({id:t.dataset.unpay,action:"MARK_UNPAID"})});loadOrders();loadDashboard();return}
+if(t=e.target.closest("[data-switch-shop]")){await api("stores",{method:"PATCH",body:JSON.stringify({shop_id:t.dataset.switchShop})});location.reload()}
+if(t=e.target.closest("[data-advance-delivery]")){const a=["PENDING","ROUTED","OUT_FOR_DELIVERY","DELIVERED"],n=a[Math.min(a.indexOf(t.dataset.status)+1,3)];await api("deliveries",{method:"PATCH",body:JSON.stringify({id:t.dataset.advanceDelivery,status:n,delivered_at:n==="DELIVERED"?new Date().toISOString():null})});loadDeliveries()}
+if(t=e.target.closest("[data-market-request]"))toast("Purchase request created. Live supplier checkout comes with Stripe Connect.");
 });
-document.querySelector('[data-open="orderDialog"]')?.addEventListener("click",()=>setTimeout(()=>{updateOrderTotals();updateDeliveryFields()},0));
-
-function updateDeliveryFields(){
-  const isDelivery=$("#orderFulfillment")?.value==="DELIVERY";
-  const details=$("#deliveryDetails");
-  if(details) details.hidden=!isDelivery;
-  const address=$("#orderDeliveryAddress");
-  if(address) address.required=isDelivery;
-  if(!isDelivery){
-    if(address) address.value="";
-    const miles=$("#orderDeliveryMiles");
-    if(miles) miles.value="";
-  }
-}
-$("#orderFulfillment")?.addEventListener("change",updateDeliveryFields);
-$("#openDeliveryRoute")?.addEventListener("click",()=>{
-  const address=$("#orderDeliveryAddress")?.value.trim();
-  if(!address){ toast("Enter the delivery address first"); return; }
-  window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`,"_blank","noopener");
-});
-
-
-$("#logout").onclick=signOut;
-$$("[data-page]").forEach(b=>b.onclick=()=>showPage(b.dataset.page));
-$$("[data-open]").forEach(b=>b.onclick=()=>document.getElementById(b.dataset.open).showModal());
-$$(".close").forEach(b=>b.onclick=()=>b.closest("dialog").close());
-
-for (const [formId, path, dialogId, success] of [
-  ["customerForm", "customers", "customerDialog", "Customer saved"],
-  ["orderForm", "orders", "orderDialog", "Order created"],
-  ["inventoryForm", "inventory", "inventoryDialog", "Inventory saved"],
-  ["expenseForm", "expenses", "expenseDialog", "Expense saved"]
-]) {
-  const formElement = document.getElementById(formId);
-  const dialogElement = document.getElementById(dialogId);
-
-  if (!formElement) {
-    console.error(`Bloom could not find form: ${formId}`);
-    continue;
-  }
-
-  formElement.onsubmit = async event => {
-    event.preventDefault();
-
-    const formData = Object.fromEntries(
-      new FormData(formElement).entries()
-    );
-
-    if (formId === "orderForm") {
-      const subtotal = Number(formData.subtotal || 0);
-      const taxRate = Number(formData.tax_rate || 0);
-      formData.tax = Math.round((subtotal * (taxRate / 100) + Number.EPSILON) * 100) / 100;
-      formData.delivery_miles = Number(formData.delivery_miles || 0);
-      delete formData.tax_rate;
-    }
-
-    try {
-      await api(path, {
-        method: "POST",
-        body: JSON.stringify(formData)
-      });
-
-      formElement.reset();
-      if (formId === "orderForm") {
-        const taxRateField = document.getElementById("orderTaxRate");
-        if (taxRateField) taxRateField.value = "6";
-        updateOrderTotals();
-        updateDeliveryFields();
-      }
-
-      if (dialogElement) {
-        dialogElement.close();
-      }
-
-      toast(success);
-      await loadPage(
-        formId === "customerForm"
-          ? "customersPage"
-          : formId === "orderForm"
-          ? "ordersPage"
-          : formId === "inventoryForm"
-          ? "inventoryPage"
-          : "expensesPage"
-      );
-
-      await loadDashboard();
-    } catch (error) {
-      console.error(error);
-      toast(error.message || "Could not save");
-    }
-  };
-}
-$("#checkout").onclick=async()=>{
-  try{const d=await api("create-checkout",{method:"POST",body:JSON.stringify({amount:$("#paymentAmount").value,description:$("#paymentDescription").value})});location.href=d.url}catch(e){toast(e.message)}
-};
-
-if(session?.accessToken){showApp();loadDashboard()}else{showAuth()}
+$("#closeReceipt").onclick=()=>$("#receiptDialog").close();$("#printReceipt").onclick=()=>window.print();$("#checkout").onclick=async()=>{const d=await api("create-checkout",{method:"POST",body:JSON.stringify({amount:$("#paymentAmount").value,description:$("#paymentDescription").value})});location.href=d.url};
+$("#moreMenu").onclick=()=>{const p=prompt("Open customers, inventory, expenses, reports, staff, delivery, wholesale or stores","customers"),m={customers:"customersPage",inventory:"inventoryPage",expenses:"expensesPage",reports:"reportsPage",staff:"staffPage",delivery:"deliveriesPage",wholesale:"marketplacePage",stores:"storesPage"};if(m[p?.toLowerCase()])showPage(m[p.toLowerCase()])};
+if(session?.accessToken){showApp();Promise.all([loadDashboard(),loadInventory(),loadOrders(),loadProducts()])}else showAuth();
