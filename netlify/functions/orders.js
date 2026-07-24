@@ -15,7 +15,7 @@ export async function handler(event){
       const subtotal=Number(body.subtotal||0), tax=Number(body.tax||0), deliveryFee=Number(body.delivery_fee||0);
       const payload={user_id:user.id,shop_id:shopId,order_number:orderNumber(),customer_name:body.customer_name.trim(),occasion:body.occasion||null,
         fulfillment:body.fulfillment==="DELIVERY"?"DELIVERY":"PICKUP",delivery_address:body.delivery_address||null,
-        delivery_date:body.delivery_date||null,status:"NEW",subtotal,tax,delivery_fee:deliveryFee,total:subtotal+tax+deliveryFee,notes:body.notes||null};
+        delivery_date:body.delivery_date||null,delivery_miles:Number(body.delivery_miles||0),status:"NEW",subtotal,tax,delivery_fee:deliveryFee,total:subtotal+tax+deliveryFee,notes:body.notes||null};
       const {data,error}=await client.from("orders").insert(payload).select().single();
       if(error) throw error; return json(201,{item:data});
     }

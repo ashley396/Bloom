@@ -47,6 +47,7 @@ create table if not exists public.orders (
   fulfillment text not null default 'PICKUP' check (fulfillment in ('PICKUP','DELIVERY')),
   delivery_address text,
   delivery_date date,
+  delivery_miles numeric(10,1) not null default 0,
   status text not null default 'NEW' check (status in ('NEW','DESIGNING','READY','OUT_FOR_DELIVERY','COMPLETED','CANCELLED')),
   subtotal numeric(12,2) not null default 0,
   tax numeric(12,2) not null default 0,

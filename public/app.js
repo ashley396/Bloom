@@ -34,7 +34,12 @@ async function loadPage(id){
   try{const {items}=await api(path);$(`#${target}`).innerHTML=items.length?items.map(render).join(""):"<p>No records yet.</p>"}catch(e){toast(e.message)}
 }
 function renderCustomer(x){return `<article><strong>${esc(x.name)}</strong><p>${esc(x.phone)} ${x.email?"· "+esc(x.email):""}</p><small>${esc(x.address)}</small></article>`}
-function renderOrder(x){return `<article><div class="row"><div><strong>${esc(x.order_number)}</strong><p>${esc(x.customer_name)} · ${esc(x.fulfillment)} · ${money(x.total)}</p></div><span class="badge">${esc(x.status)}</span></div></article>`}
+function renderOrder(x){
+  const delivery=x.fulfillment==="DELIVERY"&&x.delivery_address
+    ? `<small class="delivery-summary">📍 ${esc(x.delivery_address)}${Number(x.delivery_miles)>0?` · ${Number(x.delivery_miles).toFixed(1)} round-trip mi`:""}</small>`
+    : "";
+  return `<article><div class="row"><div><strong>${esc(x.order_number)}</strong><p>${esc(x.customer_name)} · ${esc(x.fulfillment)} · ${money(x.total)}</p>${delivery}</div><span class="badge">${esc(x.status)}</span></div></article>`
+}
 function renderInventory(x){return `<article><div class="row"><div><strong>${esc(x.name)}</strong><p>${esc(x.category)} · ${x.quantity} ${esc(x.unit)}</p></div><span class="badge">${Number(x.quantity)<=Number(x.low_stock_level)?"LOW":"OK"}</span></div></article>`}
 function renderExpense(x){return `<article><strong>${esc(x.category)}</strong><p>${esc(x.vendor)} · ${money(x.amount)}</p><small>${esc(x.expense_date)}</small></article>`}
 
@@ -56,6 +61,42 @@ $("#authForm").onsubmit=async e=>{
     saveSession(d);showApp();loadDashboard();
   }catch(err){$("#authMessage").textContent=err.message}finally{$("#authButton").disabled=false}
 };
+
+
+function updateOrderTotals(){
+  const subtotal=Number($("#orderSubtotal")?.value||0);
+  const taxRate=Number($("#orderTaxRate")?.value||0);
+  const deliveryFee=Number($("#orderDeliveryFee")?.value||0);
+  const taxAmount=Math.round((subtotal*(taxRate/100)+Number.EPSILON)*100)/100;
+  const total=Math.round((subtotal+taxAmount+deliveryFee+Number.EPSILON)*100)/100;
+  if($("#orderTaxAmount")) $("#orderTaxAmount").textContent=money(taxAmount);
+  if($("#orderTotal")) $("#orderTotal").textContent=money(total);
+  return {taxAmount,total};
+}
+["orderSubtotal","orderTaxRate","orderDeliveryFee"].forEach(id=>{
+  document.getElementById(id)?.addEventListener("input",updateOrderTotals);
+});
+document.querySelector('[data-open="orderDialog"]')?.addEventListener("click",()=>setTimeout(()=>{updateOrderTotals();updateDeliveryFields()},0));
+
+function updateDeliveryFields(){
+  const isDelivery=$("#orderFulfillment")?.value==="DELIVERY";
+  const details=$("#deliveryDetails");
+  if(details) details.hidden=!isDelivery;
+  const address=$("#orderDeliveryAddress");
+  if(address) address.required=isDelivery;
+  if(!isDelivery){
+    if(address) address.value="";
+    const miles=$("#orderDeliveryMiles");
+    if(miles) miles.value="";
+  }
+}
+$("#orderFulfillment")?.addEventListener("change",updateDeliveryFields);
+$("#openDeliveryRoute")?.addEventListener("click",()=>{
+  const address=$("#orderDeliveryAddress")?.value.trim();
+  if(!address){ toast("Enter the delivery address first"); return; }
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`,"_blank","noopener");
+});
+
 
 $("#logout").onclick=signOut;
 $$("[data-page]").forEach(b=>b.onclick=()=>showPage(b.dataset.page));
@@ -83,6 +124,14 @@ for (const [formId, path, dialogId, success] of [
       new FormData(formElement).entries()
     );
 
+    if (formId === "orderForm") {
+      const subtotal = Number(formData.subtotal || 0);
+      const taxRate = Number(formData.tax_rate || 0);
+      formData.tax = Math.round((subtotal * (taxRate / 100) + Number.EPSILON) * 100) / 100;
+      formData.delivery_miles = Number(formData.delivery_miles || 0);
+      delete formData.tax_rate;
+    }
+
     try {
       await api(path, {
         method: "POST",
@@ -90,6 +139,12 @@ for (const [formId, path, dialogId, success] of [
       });
 
       formElement.reset();
+      if (formId === "orderForm") {
+        const taxRateField = document.getElementById("orderTaxRate");
+        if (taxRateField) taxRateField.value = "6";
+        updateOrderTotals();
+        updateDeliveryFields();
+      }
 
       if (dialogElement) {
         dialogElement.close();
@@ -118,28 +173,3 @@ $("#checkout").onclick=async()=>{
 };
 
 if(session?.accessToken){showApp();loadDashboard()}else{showAuth()}
-
-// Bloom v8.5 interface enhancements
-const orderForm=document.getElementById("orderForm");
-function updateOrderTotal(){
-  const subtotal=Number(document.getElementById("subtotal")?.value||0);
-  const tax=Number(document.getElementById("tax")?.value||0);
-  const delivery=Number(document.getElementById("deliveryFee")?.value||0);
-  const total=document.getElementById("orderTotal");
-  if(total) total.textContent=money(subtotal+tax+delivery);
-}
-["subtotal","tax","deliveryFee"].forEach(id=>document.getElementById(id)?.addEventListener("input",updateOrderTotal));
-const fulfillment=document.getElementById("fulfillment");
-function updateFulfillment(){
-  const delivery=fulfillment?.value==="DELIVERY";
-  const wrap=document.getElementById("deliveryAddressWrap");
-  if(wrap) wrap.hidden=!delivery;
-  if(!delivery){const field=orderForm?.elements?.delivery_address;if(field) field.value="";}
-}
-fulfillment?.addEventListener("change",updateFulfillment);updateFulfillment();updateOrderTotal();
-orderForm?.addEventListener("reset",()=>setTimeout(()=>{updateFulfillment();updateOrderTotal()},0));
-function addClientFilter(inputId,listId){
-  const input=document.getElementById(inputId),list=document.getElementById(listId);
-  input?.addEventListener("input",()=>{const q=input.value.toLowerCase().trim();[...list.children].forEach(card=>card.hidden=q&&!card.textContent.toLowerCase().includes(q));});
-}
-addClientFilter("customerSearch","customersList");addClientFilter("inventorySearch","inventoryList");
