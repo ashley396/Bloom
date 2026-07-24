@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#a72f67"><title>Bloom POS</title><link rel="stylesheet" href="/styles.css"></head><body>
 <div id="toast" class="toast" hidden></div>
-<section id="auth" class="auth"><div class="auth-card"><div class="brand">Bloom</div><h1>Your complete florist operating system.</h1><p>POS, websites, recipes, delivery, staff, reports, multiple stores and wholesale.</p><form id="authForm"><label id="shopWrap" hidden>Shop name<input id="shopName"></label><label id="nameWrap" hidden>Your name<input id="fullName"></label><label>Email<input id="email" type="email" required></label><label>Password<input id="password" type="password" minlength="6" required></label><button class="primary wide" id="authButton">Sign in</button></form><button class="link" id="switchMode">Create a Bloom account</button><p id="authMessage"></p><small>Bloom X v13.1 True Pastel POS Redesign</small></div></section>
+<section id="auth" class="auth"><div class="auth-card"><div class="brand">Bloom</div><h1>Your complete florist operating system.</h1><p>POS, websites, recipes, delivery, staff, reports, multiple stores and wholesale.</p><form id="authForm"><label id="shopWrap" hidden>Shop name<input id="shopName"></label><label id="nameWrap" hidden>Your name<input id="fullName"></label><label>Email<input id="email" type="email" required></label><label>Password<input id="password" type="password" minlength="6" required></label><button class="primary wide" id="authButton">Sign in</button></form><button class="link" id="switchMode">Create a Bloom account</button><p id="authMessage"></p><small>Bloom X v13.2 All Pages Pastel POS</small></div></section>
 <main id="app" hidden><header><div class="header-brand"><img id="appLogo" class="app-logo" alt="Shop logo" hidden><div class="brand"><span class="brand-flower">✿</span> Bloom <small>POS</small></div><select id="shopSwitcher"></select></div><div><small id="accountEmail"></small><button id="logout" class="secondary">Sign out</button></div></header>
 <div class="shell"><aside>
 <p>SHOP</p><button class="active" data-page="dashboardPage">Point of Sale</button><button data-page="ordersPage">Orders</button><button data-page="deliveriesPage">Deliveries</button><button data-page="customersPage">Customers</button><button data-page="inventoryPage">Inventory</button>
@@ -44,21 +44,21 @@
       </div>
 
       <div class="product-pad-grid">
-        <button class="pad" data-open="orderDialog"><img src="/assets/fresh.png"><span>Fresh<br>Arrangements</span></button>
-        <button class="pad" data-open="orderDialog"><img src="/assets/basket.png"><span>Basket<br>Arrangements</span></button>
-        <button class="pad" data-open="orderDialog"><img src="/assets/rose-arr.png"><span>Rose<br>Arrangements</span></button>
-        <button class="pad" data-open="orderDialog"><img src="/assets/tulips.png"><span>Loose<br>Flowers</span></button>
-        <button class="pad" data-open="orderDialog"><img src="/assets/chocolates.png"><span>Chocolates<br>& Gifts</span></button>
-        <button class="pad" data-open="orderDialog"><img src="/assets/corsage.png"><span>Corsages</span></button>
-        <button class="pad" data-open="orderDialog"><img src="/assets/boutonniere.png"><span>Boutonnieres</span></button>
-        <button class="pad" data-open="orderDialog"><img src="/assets/sympathy.png"><span>Sympathy<br>Arrangements</span></button>
-        <button class="pad" data-open="orderDialog"><img src="/assets/spray.png"><span>Sympathy<br>Spray</span></button>
-        <button class="pad" data-open="orderDialog"><img src="/assets/basket2.png"><span>Sympathy<br>Basket</span></button>
-        <button class="pad" data-open="orderDialog"><img src="/assets/plant.png"><span>Blooming<br>Plants</span></button>
-        <button class="pad" data-open="orderDialog"><img src="/assets/orchid.png"><span>Orchid<br>Plants</span></button>
-        <button class="pad" data-open="orderDialog"><img src="/assets/green.png"><span>Green<br>Plants</span></button>
-        <button class="pad" data-open="orderDialog"><img src="/assets/dish.png"><span>Dish<br>Garden</span></button>
-        <button class="pad misc-pad" data-open="orderDialog"><span>🧺<br>Misc Items</span></button>
+        <button class="pad quick-sale-pad" data-sale-item="Fresh Arrangement" data-sale-price="65"><img src="/assets/fresh.png"><span>Fresh<br>Arrangements<small>$65.00</small></span></button>
+        <button class="pad quick-sale-pad" data-sale-item="Basket Arrangement" data-sale-price="70"><img src="/assets/basket.png"><span>Basket<br>Arrangements<small>$70.00</small></span></button>
+        <button class="pad quick-sale-pad" data-sale-item="Rose Arrangement" data-sale-price="79.99"><img src="/assets/rose-arr.png"><span>Rose<br>Arrangements<small>$79.99</small></span></button>
+        <button class="pad quick-sale-pad" data-sale-item="Loose Flowers" data-sale-price="25"><img src="/assets/tulips.png"><span>Loose<br>Flowers<small>$25.00</small></span></button>
+        <button class="pad quick-sale-pad" data-sale-item="Chocolates & Gifts" data-sale-price="18"><img src="/assets/chocolates.png"><span>Chocolates<br>& Gifts<small>$18.00</small></span></button>
+        <button class="pad quick-sale-pad" data-sale-item="Corsage" data-sale-price="19.99"><img src="/assets/corsage.png"><span>Corsages<small>$19.99</small></span></button>
+        <button class="pad quick-sale-pad" data-sale-item="Boutonniere" data-sale-price="12.99"><img src="/assets/boutonniere.png"><span>Boutonnieres<small>$12.99</small></span></button>
+        <button class="pad quick-sale-pad" data-sale-item="Sympathy Arrangement" data-sale-price="69.99"><img src="/assets/sympathy.png"><span>Sympathy<br>Arrangements<small>$69.99</small></span></button>
+        <button class="pad quick-sale-pad" data-sale-item="Sympathy Spray" data-sale-price="89.99"><img src="/assets/spray.png"><span>Sympathy<br>Spray<small>$89.99</small></span></button>
+        <button class="pad quick-sale-pad" data-sale-item="Sympathy Basket" data-sale-price="84.99"><img src="/assets/basket2.png"><span>Sympathy<br>Basket<small>$84.99</small></span></button>
+        <button class="pad quick-sale-pad" data-sale-item="Blooming Plant" data-sale-price="24.99"><img src="/assets/plant.png"><span>Blooming<br>Plants<small>$24.99</small></span></button>
+        <button class="pad quick-sale-pad" data-sale-item="Orchid Plant" data-sale-price="34.99"><img src="/assets/orchid.png"><span>Orchid<br>Plants<small>$34.99</small></span></button>
+        <button class="pad quick-sale-pad" data-sale-item="Green Plant" data-sale-price="19.99"><img src="/assets/green.png"><span>Green<br>Plants<small>$19.99</small></span></button>
+        <button class="pad quick-sale-pad" data-sale-item="Dish Garden" data-sale-price="49.99"><img src="/assets/dish.png"><span>Dish<br>Garden<small>$49.99</small></span></button>
+        <button class="pad misc-pad quick-sale-pad" data-sale-item="Misc Item" data-sale-price="0"><span>🧺<br>Misc Items<small>Enter price</small></span></button>
       </div>
 
       <section class="current-order-panel">

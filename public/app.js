@@ -105,6 +105,48 @@ function recipePayload(){return [...$("#recipeRows").children].map(r=>{const i=r
 function openReceipt(o){if(!o)return;$("#receiptContent").innerHTML=`<div class="receipt"><div class="receipt-brand">${shopSettings?.logo_url?`<img class="print-logo" src="${esc(shopSettings.logo_url)}" alt="">`:""}<h1>${shopSettings?.logo_url?"":"✿ "}${esc(shopSettings?.name||"Bloom")}</h1><p>${esc(shopSettings?.address||"Beautiful flowers, thoughtfully made")}</p></div><div class="receipt-head"><strong>${esc(o.order_number)}</strong><strong>${new Date(o.created_at).toLocaleDateString()}</strong></div><div class="receipt-grid"><div><div class="receipt-label">Customer</div><strong>${esc(o.customer_name)}</strong><p>${esc(o.recipient_name||"")}</p></div><div><div class="receipt-label">Fulfillment</div><strong>${esc(o.fulfillment)}</strong><p>${dateText(o.delivery_date)}</p></div></div><div class="receipt-line"><span>Floral order</span><span>${money(o.subtotal)}</span></div><div class="receipt-line"><span>Tax</span><span>${money(o.tax)}</span></div><div class="receipt-line"><span>Delivery</span><span>${money(o.delivery_fee)}</span></div><div class="receipt-total-row"><span>Total</span><span>${money(o.total)}</span></div><div class="payment-stamp">${esc(o.payment_status||"UNPAID")}</div><p>${esc(o.card_message||"")}</p><p style="text-align:center">Thank you for supporting a local flower shop.</p></div>`;$("#receiptDialog").showModal()}
 $("#switchMode").onclick=()=>{createMode=!createMode;$("#shopWrap").hidden=!createMode;$("#nameWrap").hidden=!createMode;$("#authButton").textContent=createMode?"Create account":"Sign in"};
 $("#authForm").onsubmit=async e=>{e.preventDefault();try{const d=await api(createMode?"auth-signup":"auth-login",{method:"POST",body:JSON.stringify({shopName:$("#shopName").value,fullName:$("#fullName").value,email:$("#email").value,password:$("#password").value})},false);if(d.confirmationRequired)return $("#authMessage").textContent="Check your email to confirm your account.";saveSession(d);showApp();await Promise.all([loadDashboard(),loadInventory(),loadOrders(),loadProducts()])}catch(err){$("#authMessage").textContent=err.message}};
+
+function addPastelPageFrames(){
+  const pageInfo={
+    customersPage:["Customer CRM","Keep every customer, favorite, and important detail close by."],
+    ordersPage:["Orders","Manage every order from first call through delivery."],
+    deliveriesPage:["Delivery Center","Plan routes, assign drivers, and finish every stop."],
+    inventoryPage:["Inventory","Track flowers, colors, supplies, and low-stock alerts."],
+    productsPage:["Products & Recipes","Build products, pricing, recipes, and website listings."],
+    websitePage:["Website Studio","Design your storefront with the same Bloom look."],
+    libraryPage:["Floral Library","Browse, customize, and save beautiful designs."],
+    invoicesPage:["Invoices","View balances, print invoices, and record payments."],
+    paymentsPage:["Payments","Collect deposits and complete customer payments."],
+    expensesPage:["Expenses","Keep receipts, costs, and profit information organized."],
+    reportsPage:["Reports","See sales, expenses, customers, and shop performance."],
+    staffPage:["Staff","Manage your designers, drivers, and shop team."],
+    marketplacePage:["Wholesale","Shop and manage florist wholesale listings."],
+    storesPage:["Stores","Manage every Bloom location in one place."],
+    settingsPage:["Settings & Branding","Control your logo, colors, fonts, voice, and shop details."]
+  };
+  Object.entries(pageInfo).forEach(([id,[title,copy]])=>{
+    const page=document.getElementById(id); if(!page||page.querySelector('.shared-page-hero')) return;
+    const hero=document.createElement('section'); hero.className='shared-page-hero';
+    hero.innerHTML=`<div class="shared-rose"><img src="/assets/rose.png" alt="Rose"><div><p class="eyebrow">BLOOM SHOP CENTER</p><h2>${title}</h2><p>${copy}</p></div></div><div class="shared-page-kpis"><span><b id="${id}HeroOrders">${orders.length||0}</b><small>Orders</small></span><span><b id="${id}HeroDeliveries">${deliveries.filter(d=>d.status!=="DELIVERED").length||0}</b><small>Active deliveries</small></span><span><b>${money(orders.filter(o=>(o.payment_status||"UNPAID")!=="PAID").reduce((s,o)=>s+Number(o.total||0),0))}</b><small>Outstanding</small></span></div><div class="shared-lily"><div><h3>Hi Ashley!</h3><p>Everything on this page now matches your pastel Bloom POS.</p></div><img src="/assets/lily.png" alt="Lily"><img class="shared-lily-floral" src="/assets/floral-top.png" alt=""></div>`;
+    page.prepend(hero); page.classList.add('pastel-matched-page');
+  });
+}
+async function openQuickSalePad(button){
+  await prepareOrderBuilder();
+  const form=document.getElementById('orderForm');
+  const item=button.dataset.saleItem||'Custom item';
+  const price=Number(button.dataset.salePrice||0);
+  form.elements.arrangement_description.value=item;
+  form.elements.subtotal.value=price?price.toFixed(2):"0.00";
+  if(item.toLowerCase().includes('sympathy')) form.elements.occasion.value='Sympathy';
+  updateOrderBuilder();
+  document.getElementById('orderDialog').showModal();
+  if(!price){form.elements.subtotal.focus();form.elements.subtotal.select();}
+  else form.elements.customer_name.focus();
+}
+addPastelPageFrames();
+document.addEventListener('click',e=>{const pad=e.target.closest('.quick-sale-pad');if(pad){e.preventDefault();openQuickSalePad(pad)}});
+
 $("#logout").onclick=()=>{localStorage.removeItem("bloom_session");session=null;showAuth()};$$("[data-page]").forEach(b=>b.onclick=()=>showPage(b.dataset.page));$$("[data-open]").forEach(b=>b.onclick=async()=>{if(b.dataset.open==="expenseDialog")return openExpense();const dialog=document.getElementById(b.dataset.open);if(b.dataset.open==="orderDialog")await prepareOrderBuilder();dialog.showModal()});$$(".close").forEach(b=>b.onclick=()=>b.closest("dialog").close());$("#customerSearch").oninput=renderCustomers;$("#addRecipeRow").onclick=()=>addRecipeRow();$("#refreshInvoices")?.addEventListener("click",loadInvoices);
 $("#shopSwitcher").onchange=async e=>{await api("stores",{method:"PATCH",body:JSON.stringify({shop_id:e.target.value})});location.reload()};
 $("#customerForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));d.vip=f.elements.vip.checked;await api("customers",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)});f.reset();$("#customerDialog").close();toast("Customer saved");loadCustomers()};
