@@ -25,7 +25,28 @@ function showApp(){$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmai
 function showPage(id){$$(".page").forEach(p=>p.classList.toggle("active",p.id===id));$$("[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));loadPage(id)}
 async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,websitePage:loadWebsite,libraryPage:renderLibrary,expensesPage:loadExpenses,reportsPage:loadReports,staffPage:loadStaff,marketplacePage:loadMarketplace,storesPage:loadStores};try{if(m[id])await m[id]()}catch(e){toast(e.message)}}
 function renderOrder(o){return `<article class="card"><div class="card-top"><div><h3>${esc(o.order_number)} · ${esc(o.customer_name)}</h3><div class="meta">${esc(o.occasion||"Floral order")} · ${esc(o.fulfillment)} ${dateText(o.delivery_date)}</div></div><span class="badge ${o.payment_status==="PAID"?"good":"warn"}">${esc(o.payment_status||"UNPAID")}</span></div><p><strong>${money(o.total)}</strong>${o.recipient_name?` · For ${esc(o.recipient_name)}`:""}</p><div class="card-actions"><button class="secondary" data-receipt="${o.id}">Receipt</button>${o.payment_status==="PAID"?`<button class="secondary" data-unpay="${o.id}">Mark unpaid</button>`:`<button class="primary" data-pay="${o.id}">Mark paid</button>`}</div></article>`}
-async function loadDashboard(){const d=await api("dashboard");$("#todaySales").textContent=money(d.todaySales);$("#totalSales").textContent=money(d.totalSales);$("#totalExpenses").textContent=money(d.totalExpenses);$("#profit").textContent=money(d.profit);$("#unpaidTotal").textContent=money(d.unpaidTotal);$("#deliveries").textContent=d.deliveries;$("#queue").innerHTML=d.queue?.length?d.queue.map(renderOrder).join(""):empty("No active orders.")}
+async function loadDashboard(){
+  const d=await api("dashboard");
+  const date=new Date();
+  $("#dashboardDate").textContent=date.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+  $("#todaySales").textContent=money(d.todaySales);
+  $("#totalSales").textContent=money(d.totalSales);
+  $("#totalExpenses").textContent=money(d.totalExpenses);
+  $("#profit").textContent=money(d.profit);
+  $("#unpaidTotal").textContent=money(d.unpaidTotal);
+  $("#ordersDueToday").textContent=d.ordersDueToday||0;
+  $("#deliveriesToday").textContent=d.deliveriesToday||0;
+  $("#lowStock").textContent=d.lowStock||0;
+  $("#customerCount").textContent=d.customers||0;
+  $("#weekSales").textContent=money(d.weekSales);
+  $("#ordersTodayLabel").textContent=`${d.ordersToday||0} order${d.ordersToday===1?"":"s"} created today`;
+  $("#deliveriesStatus").textContent=`${d.deliveries||0} still active`;
+  $("#queue").innerHTML=d.queue?.length?d.queue.slice(0,5).map(renderOrder).join(""):empty("No active orders. Enjoy the breathing room!");
+  const chart=d.weeklySales||[];
+  const max=Math.max(...chart.map(x=>Number(x.total||0)),1);
+  $("#salesChart").innerHTML=chart.map(x=>`<div class="chart-day"><div class="chart-value">${money(x.total)}</div><div class="chart-bar-wrap"><div class="chart-bar" style="height:${Math.max(5,Math.round(Number(x.total||0)/max*100))}%"></div></div><small>${esc(x.label)}</small></div>`).join("");
+  $("#upcomingDeliveries").innerHTML=d.upcomingDeliveries?.length?d.upcomingDeliveries.map(o=>`<article><div><strong>${esc(o.recipient_name||o.customer_name||"Delivery")}</strong><small>${esc(o.order_number||"")} · ${dateText(o.delivery_date)}</small></div><span class="badge ${o.status==="COMPLETED"?"good":"warn"}">${esc(o.status||"PENDING")}</span></article>`).join(""):empty("No upcoming deliveries.");
+}
 async function loadStores(){const {items}=await api("stores");$("#shopSwitcher").innerHTML=items.map(s=>`<option value="${s.id}" ${s.active?"selected":""}>${esc(s.name)}</option>`).join("");const active=items.find(x=>x.active);$("#greeting").textContent=`Welcome to ${active?.name||"Bloom"}`;if($("#storesList"))$("#storesList").innerHTML=items.length?items.map(s=>`<article class="card"><div class="card-top"><div><h3>${esc(s.name)}</h3><div class="meta">${esc(s.address||"Address not set")} · ${esc(s.role)}</div></div>${s.active?'<span class="badge good">ACTIVE</span>':""}</div>${!s.active?`<div class="card-actions"><button class="primary" data-switch-shop="${s.id}">Open this shop</button></div>`:""}</article>`).join(""):empty("No stores.")}
 async function loadCustomers(){customers=(await api("customers")).items||[];renderCustomers();refreshOrderCustomerOptions()}
 function renderCustomers(){const q=$("#customerSearch").value.toLowerCase();const rows=customers.filter(x=>[x.name,x.phone,x.email,x.favorite_flowers,x.favorite_colors].join(" ").toLowerCase().includes(q));$("#customersList").innerHTML=rows.length?rows.map(c=>`<article class="card"><div class="card-top"><div><h3>${c.vip?"★ ":""}${esc(c.name)}</h3><div class="meta">${esc(c.phone||"")} ${c.email?`· ${esc(c.email)}`:""}</div></div>${c.vip?'<span class="badge">VIP</span>':""}</div>${c.favorite_flowers?`<p>Favorites: ${esc(c.favorite_flowers)} ${c.favorite_colors?`· ${esc(c.favorite_colors)}`:""}</p>`:""}<div class="card-actions"><button class="secondary" data-edit-customer="${c.id}">Edit</button><button class="secondary" data-delete-customer="${c.id}">Delete</button></div></article>`).join(""):empty("No customers found.")}

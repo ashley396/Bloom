@@ -7,7 +7,52 @@
 <p>SELL</p><button data-page="productsPage">Products & Recipes</button><button data-page="websitePage">Website Studio</button><button data-page="libraryPage">Floral Library</button><button data-page="paymentsPage">Payments</button>
 <p>MANAGE</p><button data-page="expensesPage">Expenses</button><button data-page="reportsPage">Reports</button><button data-page="staffPage">Staff</button><button data-page="marketplacePage">Wholesale</button><button data-page="storesPage">Stores</button>
 </aside><div class="content">
-<section id="dashboardPage" class="page active"><div class="heading"><div><p class="eyebrow">TODAY AT A GLANCE</p><h1 id="greeting">Welcome to Bloom</h1></div><button class="primary" data-open="orderDialog">+ New order</button></div><div class="stats"><article><span>Sales today</span><strong id="todaySales">$0</strong></article><article><span>Paid sales</span><strong id="totalSales">$0</strong></article><article><span>Expenses</span><strong id="totalExpenses">$0</strong></article><article><span>Estimated profit</span><strong id="profit">$0</strong></article><article><span>Unpaid</span><strong id="unpaidTotal">$0</strong></article><article><span>Deliveries</span><strong id="deliveries">0</strong></article></div><div class="dashboard-grid"><div><h2>Production queue</h2><div id="queue" class="cards"></div></div><div class="ai-card"><span>HI BLOOM</span><h2>Shop assistant</h2><p>Ask about inventory, sales, deliveries, pricing, or marketing.</p><input id="assistantPrompt" placeholder="Show low inventory"><button id="assistantRun" class="secondary">Ask Bloom</button><p id="assistantAnswer"></p></div></div></section>
+<section id="dashboardPage" class="page active">
+  <div class="dashboard-hero">
+    <div>
+      <p class="eyebrow">BLOOM COMMAND CENTER</p>
+      <h1 id="greeting">Welcome to Bloom</h1>
+      <p id="dashboardDate" class="subtle"></p>
+    </div>
+    <div class="hero-actions">
+      <button class="secondary" data-page="deliveriesPage">View deliveries</button>
+      <button class="primary" data-open="orderDialog">+ New order</button>
+    </div>
+  </div>
+
+  <div class="dashboard-kpis">
+    <article class="kpi-card featured"><span>Sales today</span><strong id="todaySales">$0</strong><small id="ordersTodayLabel">0 orders today</small></article>
+    <article class="kpi-card"><span>Orders due today</span><strong id="ordersDueToday">0</strong><small>Design and pickup queue</small></article>
+    <article class="kpi-card"><span>Deliveries today</span><strong id="deliveriesToday">0</strong><small id="deliveriesStatus">0 still active</small></article>
+    <article class="kpi-card"><span>Estimated profit</span><strong id="profit">$0</strong><small>Paid sales less expenses</small></article>
+    <article class="kpi-card alert"><span>Low inventory</span><strong id="lowStock">0</strong><small>Items needing attention</small></article>
+    <article class="kpi-card"><span>Outstanding</span><strong id="unpaidTotal">$0</strong><small>Unpaid open orders</small></article>
+  </div>
+
+  <div class="dashboard-main-grid">
+    <section class="panel dashboard-panel">
+      <div class="panel-heading"><div><p class="eyebrow">7-DAY PERFORMANCE</p><h2>Sales trend</h2></div><strong id="weekSales">$0</strong></div>
+      <div id="salesChart" class="sales-chart" aria-label="Seven day sales chart"></div>
+      <div class="mini-metrics"><span><small>Paid sales</small><strong id="totalSales">$0</strong></span><span><small>Expenses</small><strong id="totalExpenses">$0</strong></span><span><small>Customers</small><strong id="customerCount">0</strong></span></div>
+    </section>
+
+    <section class="panel dashboard-panel">
+      <div class="panel-heading"><div><p class="eyebrow">QUICK ACTIONS</p><h2>Keep the shop moving</h2></div></div>
+      <div class="quick-action-grid">
+        <button data-open="orderDialog"><span>＋</span><b>New order</b><small>Start a florist order</small></button>
+        <button data-open="customerDialog"><span>♡</span><b>Add customer</b><small>Grow your CRM</small></button>
+        <button data-open="inventoryDialog"><span>✿</span><b>Add inventory</b><small>Update flower counts</small></button>
+        <button data-page="websitePage"><span>⌂</span><b>Website Studio</b><small>Edit your storefront</small></button>
+      </div>
+    </section>
+  </div>
+
+  <div class="dashboard-lower-grid">
+    <section class="panel dashboard-panel"><div class="panel-heading"><div><p class="eyebrow">PRODUCTION</p><h2>Orders requiring attention</h2></div><button class="text-button" data-page="ordersPage">View all</button></div><div id="queue" class="cards compact-cards"></div></section>
+    <section class="panel dashboard-panel"><div class="panel-heading"><div><p class="eyebrow">DELIVERY BOARD</p><h2>Upcoming stops</h2></div><button class="text-button" data-page="deliveriesPage">Open board</button></div><div id="upcomingDeliveries" class="dashboard-list"></div></section>
+    <section class="ai-card bloom-assistant"><span>HI BLOOM</span><h2>Shop assistant</h2><p>Ask about inventory, sales, deliveries, pricing, or marketing.</p><input id="assistantPrompt" placeholder="Show low inventory"><button id="assistantRun" class="secondary wide">Ask Bloom</button><p id="assistantAnswer"></p></section>
+  </div>
+</section>
 <section id="customersPage" class="page"><div class="heading"><h1>Customer CRM</h1><button class="primary" data-open="customerDialog">+ Add customer</button></div><input id="customerSearch" class="search" placeholder="Search customers"><div id="customersList" class="cards"></div></section>
 <section id="ordersPage" class="page"><div class="heading"><h1>Florist orders</h1><button class="primary" data-open="orderDialog">+ New order</button></div><div id="ordersList" class="cards"></div></section>
 <section id="deliveriesPage" class="page"><div class="heading"><h1>Delivery center</h1><button class="primary" data-open="deliveryDialog">+ Add stop</button></div><div id="deliveriesList" class="kanban"></div></section>
