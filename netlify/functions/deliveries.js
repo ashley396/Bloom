@@ -2,7 +2,7 @@ import { json,bodyOf,preflight,methodNotAllowed } from "./_shared/http.js";
 import { currentUser,fail } from "./_shared/supabase.js";
 
 const TABLE = "deliveries";
-const FIELDS = ["order_id", "driver", "route_order", "status", "delivered_at", "proof_url", "notes"];
+const FIELDS = ["order_id", "address", "driver", "route_order", "status", "delivered_at", "proof_url", "notes"];
 const ORDER = "created_at";
 
 export async function handler(event){
