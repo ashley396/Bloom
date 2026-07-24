@@ -19,6 +19,24 @@ const LIBRARY=[
 ["Modern Orchid Gift","Plants",84.99,"🌿","A sophisticated orchid presentation for a home, office, or special occasion.",[["Orchid Plant",1],["Ceramic Pot",1]],"https://images.pexels.com/photos/459335/pexels-photo-459335.jpeg?auto=compress&cs=tinysrgb&w=1000"],
 ["Celebration Brights","Congratulations",89.99,"🎉","Bold color and joyful flowers for graduations, promotions, and big moments.",[["Gerbera Daisies",7],["Roses",6],["Greenery",6]],"https://images.pexels.com/photos/462402/pexels-photo-462402.jpeg?auto=compress&cs=tinysrgb&w=1000"]
 ];
+const DEFAULT_POS_TILES=[
+ {id:"fresh",name:"Fresh Arrangement",label:"",category:"Everyday",image:"/assets/fresh.png"},
+ {id:"basket",name:"Basket Arrangement",label:"",category:"Everyday",image:"/assets/basket.png"},
+ {id:"rose-arr",name:"Rose Arrangement",label:"",category:"Everyday",image:"/assets/rose-arr.png"},
+ {id:"loose",name:"Loose Flowers",label:"",category:"Everyday",image:"/assets/tulips.png"},
+ {id:"chocolate",name:"Chocolates & Gifts",label:"",category:"Gifts",image:"/assets/chocolates.png"},
+ {id:"corsage",name:"Corsage",label:"",category:"Wedding",image:"/assets/corsage.png"},
+ {id:"boutonniere",name:"Boutonniere",label:"",category:"Wedding",image:"/assets/boutonniere.png"},
+ {id:"sympathy",name:"Sympathy Arrangement",label:"",category:"Sympathy",image:"/assets/sympathy.png"},
+ {id:"spray",name:"Sympathy Spray",label:"",category:"Sympathy",image:"/assets/spray.png"},
+ {id:"sympathy-basket",name:"Sympathy Basket",label:"",category:"Sympathy",image:"/assets/basket2.png"},
+ {id:"blooming",name:"Blooming Plant",label:"",category:"Plants",image:"/assets/plant.png"},
+ {id:"orchid",name:"Orchid Plant",label:"",category:"Plants",image:"/assets/orchid.png"},
+ {id:"green",name:"Green Plant",label:"",category:"Plants",image:"/assets/green.png"},
+ {id:"dish",name:"Dish Garden",label:"",category:"Plants",image:"/assets/dish.png"},
+ {id:"misc",name:"Misc Item",label:"Misc",category:"Other",image:""}
+];
+let posTiles=[];
 function readSession(){try{return JSON.parse(localStorage.getItem("bloom_session")||"null")}catch{return null}}
 function saveSession(d){session={accessToken:d.accessToken,refreshToken:d.refreshToken,user:d.user};localStorage.setItem("bloom_session",JSON.stringify(session))}
 function money(v){return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(v||0))}
@@ -62,7 +80,7 @@ async function loadDashboard(){
   $("#salesChart").innerHTML=chart.map(x=>`<div class="chart-day"><div class="chart-value">${money(x.total)}</div><div class="chart-bar-wrap"><div class="chart-bar" style="height:${Math.max(5,Math.round(Number(x.total||0)/max*100))}%"></div></div><small>${esc(x.label)}</small></div>`).join("");
   $("#upcomingDeliveries").innerHTML=d.upcomingDeliveries?.length?d.upcomingDeliveries.map(o=>`<article><div><strong>${esc(o.recipient_name||o.customer_name||"Delivery")}</strong><small>${esc(o.order_number||"")} · ${dateText(o.delivery_date)}</small></div><span class="badge ${o.status==="COMPLETED"?"good":"warn"}">${esc(o.status||"PENDING")}</span></article>`).join(""):empty("No upcoming deliveries.");
 }
-async function loadStores(){const {items}=await api("stores");try{shopSettings=(await api("settings")).item;applyBranding(shopSettings)}catch{};$("#shopSwitcher").innerHTML=items.map(s=>`<option value="${s.id}" ${s.active?"selected":""}>${esc(s.name)}</option>`).join("");const active=items.find(x=>x.active);$("#greeting").textContent=`Welcome to ${active?.name||"Bloom"}`;if($("#storesList"))$("#storesList").innerHTML=items.length?items.map(s=>`<article class="card"><div class="card-top"><div><h3>${esc(s.name)}</h3><div class="meta">${esc(s.address||"Address not set")} · ${esc(s.role)}</div></div>${s.active?'<span class="badge good">ACTIVE</span>':""}</div>${!s.active?`<div class="card-actions"><button class="primary" data-switch-shop="${s.id}">Open this shop</button></div>`:""}</article>`).join(""):empty("No stores.")}
+async function loadStores(){const {items}=await api("stores");try{shopSettings=(await api("settings")).item;applyBranding(shopSettings)}catch{};$("#shopSwitcher").innerHTML=items.map(s=>`<option value="${s.id}" ${s.active?"selected":""}>${esc(s.name)}</option>`).join("");const active=items.find(x=>x.active);const hour=new Date().getHours(),daypart=hour<12?"Good morning":hour<17?"Good afternoon":"Good evening";$("#greeting").textContent=`${daypart}, Ashley!`;if($("#storesList"))$("#storesList").innerHTML=items.length?items.map(s=>`<article class="card"><div class="card-top"><div><h3>${esc(s.name)}</h3><div class="meta">${esc(s.address||"Address not set")} · ${esc(s.role)}</div></div>${s.active?'<span class="badge good">ACTIVE</span>':""}</div>${!s.active?`<div class="card-actions"><button class="primary" data-switch-shop="${s.id}">Open this shop</button></div>`:""}</article>`).join(""):empty("No stores.")}
 async function loadCustomers(){customers=(await api("customers")).items||[];renderCustomers();refreshOrderCustomerOptions()}
 function renderCustomers(){const q=$("#customerSearch").value.toLowerCase();const rows=customers.filter(x=>[x.name,x.phone,x.email,x.favorite_flowers,x.favorite_colors].join(" ").toLowerCase().includes(q));$("#customersList").innerHTML=rows.length?rows.map(c=>`<article class="card"><div class="card-top"><div><h3>${c.vip?"★ ":""}${esc(c.name)}</h3><div class="meta">${esc(c.phone||"")} ${c.email?`· ${esc(c.email)}`:""}</div></div>${c.vip?'<span class="badge">VIP</span>':""}${c.is_business?'<span class="badge good">BUSINESS</span>':""}</div>${c.favorite_flowers?`<p>Favorites: ${esc(c.favorite_flowers)} ${c.favorite_colors?`· ${esc(c.favorite_colors)}`:""}</p>`:""}<div class="card-actions"><button class="secondary" data-edit-customer="${c.id}">Edit</button><button class="secondary" data-delete-customer="${c.id}">Delete</button></div></article>`).join(""):empty("No customers found.")}
 async function loadOrders(){orders=(await api("orders")).items||[];$("#ordersList").innerHTML=orders.length?orders.map(renderOrder).join(""):empty("No orders.");$("#deliveryOrder").innerHTML=orders.map(o=>`<option value="${o.id}" data-address="${esc(o.delivery_address||"")}">${esc(o.order_number)} · ${esc(o.customer_name)}</option>`).join("");syncDeliveryStopAddress()}
@@ -106,6 +124,15 @@ function openReceipt(o){if(!o)return;$("#receiptContent").innerHTML=`<div class=
 $("#switchMode").onclick=()=>{createMode=!createMode;$("#shopWrap").hidden=!createMode;$("#nameWrap").hidden=!createMode;$("#authButton").textContent=createMode?"Create account":"Sign in"};
 $("#authForm").onsubmit=async e=>{e.preventDefault();try{const d=await api(createMode?"auth-signup":"auth-login",{method:"POST",body:JSON.stringify({shopName:$("#shopName").value,fullName:$("#fullName").value,email:$("#email").value,password:$("#password").value})},false);if(d.confirmationRequired)return $("#authMessage").textContent="Check your email to confirm your account.";saveSession(d);showApp();await Promise.all([loadDashboard(),loadInventory(),loadOrders(),loadProducts()])}catch(err){$("#authMessage").textContent=err.message}};
 
+
+function loadPosTiles(){try{const saved=JSON.parse(localStorage.getItem("bloom_pos_tiles")||"null");posTiles=Array.isArray(saved)&&saved.length?saved:structuredClone(DEFAULT_POS_TILES)}catch{posTiles=structuredClone(DEFAULT_POS_TILES)}renderPosTiles()}
+function savePosTiles(){localStorage.setItem("bloom_pos_tiles",JSON.stringify(posTiles));renderPosTiles();renderTileEditor();toast("Product tiles saved")}
+function renderPosTiles(){const grid=$("#productPadGrid");if(!grid)return;grid.innerHTML=posTiles.map(tile=>{const hasLabel=Boolean((tile.label||"").trim());const image=tile.image?`<img src="${esc(tile.image)}" alt="${esc(tile.name)}">`:`<span class="tile-fallback">🧺</span>`;return `<button class="pad quick-sale-pad ${hasLabel?"":"no-label"}" type="button" data-sale-item="${esc(tile.name)}" title="${esc(tile.name)}">${image}${hasLabel?`<span class="tile-label">${esc(tile.label)}</span>`:""}</button>`}).join("")+`<button class="pad pad-add" id="addTileFromGrid" type="button">＋<br>Add tile</button>`}
+function renderTileEditor(){const box=$("#tileEditorList");if(!box)return;box.innerHTML=posTiles.map((tile,index)=>`<div class="tile-editor-row" data-tile-row="${esc(tile.id)}">${tile.image?`<img src="${esc(tile.image)}" alt="">`:`<div class="tile-fallback">🧺</div>`}<div><strong>${esc(tile.name)}</strong><small>${esc(tile.category||"Everyday")}${tile.label?` · Label: ${esc(tile.label)}`:" · Picture only"}</small></div><div class="tile-editor-actions"><button class="secondary" type="button" data-tile-up="${index}">↑</button><button class="secondary" type="button" data-tile-down="${index}">↓</button><button class="secondary" type="button" data-edit-tile="${esc(tile.id)}">Edit</button><button class="secondary" type="button" data-delete-tile="${esc(tile.id)}">Delete</button></div></div>`).join("")}
+function openTileEditor(tile=null){const f=$("#tileEditForm");f.reset();f.elements.tile_id.value=tile?.id||"";f.elements.name.value=tile?.name||"";f.elements.label.value=tile?.label||"";f.elements.category.value=tile?.category||"Everyday";f.elements.image.value=tile?.image||"";$("#tileEditTitle").textContent=tile?"Edit tile":"Add tile";$("#tileImagePreview").src=tile?.image||"";$("#tileImagePreview").style.visibility=tile?.image?"visible":"hidden";$("#tileEditDialog").showModal()}
+function initShiftButton(){const button=$("#shiftButton");if(!button)return;const clockedIn=localStorage.getItem("bloom_shift_active")==="1";button.classList.toggle("clocked-in",clockedIn);button.textContent=clockedIn?"⇥ Clock Out":"⇥ Clock In"}
+function toggleShift(){const active=localStorage.getItem("bloom_shift_active")==="1";const now=new Date();if(active){const start=localStorage.getItem("bloom_shift_started");localStorage.setItem("bloom_last_shift",JSON.stringify({started:start,ended:now.toISOString()}));localStorage.removeItem("bloom_shift_active");localStorage.removeItem("bloom_shift_started");toast("Clocked out successfully") }else{localStorage.setItem("bloom_shift_active","1");localStorage.setItem("bloom_shift_started",now.toISOString());toast("Clocked in successfully")}initShiftButton()}
+function removeDuplicateControls(){const roseButtons=$$("#speakRoseBriefing");roseButtons.slice(1).forEach(x=>x.remove());const clocks=$$("#shiftButton,.shift-button");clocks.slice(1).forEach(x=>x.remove())}
 function addPastelPageFrames(){
   const pageInfo={
     customersPage:["Customer CRM","Keep every customer, favorite, and important detail close by."],
@@ -127,7 +154,7 @@ function addPastelPageFrames(){
   Object.entries(pageInfo).forEach(([id,[title,copy]])=>{
     const page=document.getElementById(id); if(!page||page.querySelector('.shared-page-hero')) return;
     const hero=document.createElement('section'); hero.className='shared-page-hero';
-    hero.innerHTML=`<div class="shared-rose"><img src="/assets/rose.png" alt="Rose"><div><p class="eyebrow">BLOOM SHOP CENTER</p><h2>${title}</h2><p>${copy}</p></div></div><div class="shared-page-kpis"><span><b id="${id}HeroOrders">${orders.length||0}</b><small>Orders</small></span><span><b id="${id}HeroDeliveries">${deliveries.filter(d=>d.status!=="DELIVERED").length||0}</b><small>Active deliveries</small></span><span><b>${money(orders.filter(o=>(o.payment_status||"UNPAID")!=="PAID").reduce((s,o)=>s+Number(o.total||0),0))}</b><small>Outstanding</small></span></div><div class="shared-lily"><div><h3>Hi Ashley!</h3><p>Everything on this page now matches your pastel Bloom POS.</p></div><img src="/assets/lily.png" alt="Lily"><img class="shared-lily-floral" src="/assets/floral-top.png" alt=""></div>`;
+    hero.innerHTML=`<div class="shared-rose"><img src="/assets/rose.png" alt="Rose"><div><p class="eyebrow">BLOOM SHOP CENTER</p><h2>${title}</h2><p>${copy}</p></div></div><div class="shared-page-kpis"><span><b id="${id}HeroOrders">${orders.length||0}</b><small>Orders</small></span><span><b id="${id}HeroDeliveries">${deliveries.filter(d=>d.status!=="DELIVERED").length||0}</b><small>Active deliveries</small></span><span><b>${money(orders.filter(o=>(o.payment_status||"UNPAID")!=="PAID").reduce((s,o)=>s+Number(o.total||0),0))}</b><small>Outstanding</small></span></div><div class="shared-lily"><div><h3>Hi Ashley!</h3><p>You’ve got this—one beautiful order at a time.</p></div><img src="/assets/lily.png" alt="Lily"><img class="shared-lily-floral" src="/assets/floral-top.png" alt=""></div>`;
     page.prepend(hero); page.classList.add('pastel-matched-page');
   });
 }
@@ -135,17 +162,21 @@ async function openQuickSalePad(button){
   await prepareOrderBuilder();
   const form=document.getElementById('orderForm');
   const item=button.dataset.saleItem||'Custom item';
-  const price=Number(button.dataset.salePrice||0);
   form.elements.arrangement_description.value=item;
-  form.elements.subtotal.value=price?price.toFixed(2):"0.00";
+  form.elements.subtotal.value="0.00";
   if(item.toLowerCase().includes('sympathy')) form.elements.occasion.value='Sympathy';
   updateOrderBuilder();
   document.getElementById('orderDialog').showModal();
-  if(!price){form.elements.subtotal.focus();form.elements.subtotal.select();}
-  else form.elements.customer_name.focus();
+  form.elements.subtotal.focus();form.elements.subtotal.select();
 }
 addPastelPageFrames();
 document.addEventListener('click',e=>{const pad=e.target.closest('.quick-sale-pad');if(pad){e.preventDefault();openQuickSalePad(pad)}});
+document.addEventListener("click",e=>{let t;if(t=e.target.closest("#manageTilesBtn,#addTileFromGrid")){renderTileEditor();$("#tileManagerDialog").showModal();return}if(t=e.target.closest("#addTileBtn")){openTileEditor();return}if(t=e.target.closest("[data-edit-tile]")){openTileEditor(posTiles.find(x=>x.id===t.dataset.editTile));return}if(t=e.target.closest("[data-delete-tile]")){if(confirm("Delete this product tile?")){posTiles=posTiles.filter(x=>x.id!==t.dataset.deleteTile);renderTileEditor()}return}if(t=e.target.closest("[data-tile-up]")){const i=Number(t.dataset.tileUp);if(i>0)[posTiles[i-1],posTiles[i]]=[posTiles[i],posTiles[i-1]];renderTileEditor();return}if(t=e.target.closest("[data-tile-down]")){const i=Number(t.dataset.tileDown);if(i<posTiles.length-1)[posTiles[i+1],posTiles[i]]=[posTiles[i],posTiles[i+1]];renderTileEditor();return}});
+$("#saveTilesBtn")?.addEventListener("click",()=>{$("#tileManagerDialog").close();savePosTiles()});
+$("#tileEditForm")?.addEventListener("submit",e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f)),id=d.tile_id||`tile-${Date.now()}`,tile={id,name:d.name.trim(),label:d.label.trim(),category:d.category,image:d.image};const i=posTiles.findIndex(x=>x.id===id);if(i>=0)posTiles[i]=tile;else posTiles.push(tile);$("#tileEditDialog").close();renderTileEditor()});
+$("#tileImageUpload")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>1500000){toast("Please choose an image smaller than 1.5 MB");e.target.value="";return}const r=new FileReader();r.onload=()=>{$("#tileEditForm").elements.image.value=r.result;$("#tileImagePreview").src=r.result;$("#tileImagePreview").style.visibility="visible"};r.readAsDataURL(file)});
+$("#shiftButton")?.addEventListener("click",toggleShift);
+
 
 $("#logout").onclick=()=>{localStorage.removeItem("bloom_session");session=null;showAuth()};$$("[data-page]").forEach(b=>b.onclick=()=>showPage(b.dataset.page));$$("[data-open]").forEach(b=>b.onclick=async()=>{if(b.dataset.open==="expenseDialog")return openExpense();const dialog=document.getElementById(b.dataset.open);if(b.dataset.open==="orderDialog")await prepareOrderBuilder();dialog.showModal()});$$(".close").forEach(b=>b.onclick=()=>b.closest("dialog").close());$("#customerSearch").oninput=renderCustomers;$("#addRecipeRow").onclick=()=>addRecipeRow();$("#refreshInvoices")?.addEventListener("click",loadInvoices);
 $("#shopSwitcher").onchange=async e=>{await api("stores",{method:"PATCH",body:JSON.stringify({shop_id:e.target.value})});location.reload()};
@@ -254,6 +285,7 @@ $("#dashboardImageUpload")?.addEventListener("change",e=>readBrandImage(e.target
 $("#removeDashboardImage")?.addEventListener("click",()=>{$("#dashboardImageUrl").value="";$("#dashboardImageUpload").value="";previewBrandingForm()});
 $("#speakRoseBriefing")?.addEventListener("click",()=>{const text=$("#roseBriefingText")?.dataset.spoken||$("#roseBriefingText")?.textContent||"";if(!window.speechSynthesis)return toast("Voice playback is not supported in this browser.");speakAssistant(text,"Rose",true)});
 $("#moreMenu").onclick=()=>{const p=prompt("Open customers, inventory, expenses, reports, staff, delivery, wholesale or stores","customers"),m={customers:"customersPage",inventory:"inventoryPage",expenses:"expensesPage",reports:"reportsPage",staff:"staffPage",delivery:"deliveriesPage",wholesale:"marketplacePage",stores:"storesPage",settings:"settingsPage"};if(m[p?.toLowerCase()])showPage(m[p.toLowerCase()])};
+loadPosTiles();initShiftButton();removeDuplicateControls();
 if(session?.accessToken){showApp();Promise.all([loadDashboard(),loadInventory(),loadOrders(),loadProducts()])}else showAuth();
 
 function populateRoseVoices(){const select=$("#roseVoiceSelect");if(!select||!window.speechSynthesis)return;const voices=availableEnglishVoices();const saved=localStorage.getItem("bloomRoseVoice")||"";select.innerHTML='<option value="">Best available female voice</option>'+voices.map(v=>`<option value="${esc(v.name)}" ${v.name===saved?"selected":""}>${esc(v.name)}${v.lang?` (${esc(v.lang)})`:""}</option>`).join("");const rate=$("#roseVoiceRate"),pitch=$("#roseVoicePitch");if(rate)rate.value=String(roseVoiceRate());if(pitch)pitch.value=String(roseVoicePitch())}

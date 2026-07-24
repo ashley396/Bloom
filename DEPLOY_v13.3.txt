@@ -1,0 +1,8 @@
+BLOOM X v13.3 DEPLOY
+
+1. Upload this complete folder/ZIP to Netlify.
+2. Wait for the deploy to finish.
+3. Open Bloom and press Ctrl + F5.
+4. Use Edit tiles on the Point of Sale page to customize the product buttons.
+
+No Supabase migration is required.
