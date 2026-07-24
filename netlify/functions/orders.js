@@ -44,6 +44,7 @@ export async function handler(event) {
         shop_id: shopId,
         order_number: orderNumber(),
         customer_name: body.customer_name.trim(),
+        customer_phone: body.customer_phone || null,
         occasion: body.occasion || null,
         fulfillment:
           body.fulfillment === "DELIVERY" ? "DELIVERY" : "PICKUP",
@@ -70,6 +71,19 @@ export async function handler(event) {
         order_source: body.order_source || null,
         card_message: body.card_message || null,
         arrangement_description: body.arrangement_description || null,
+        location_type: body.location_type || null,
+        driver: body.driver || null,
+        designer: body.designer || null,
+        priority: body.priority || "NORMAL",
+        design_style: body.design_style || null,
+        color_palette: body.color_palette || null,
+        preferred_flowers: body.preferred_flowers || null,
+        flower_restrictions: body.flower_restrictions || null,
+        addons: body.addons || null,
+        labor_charge: Number(body.labor_charge || 0),
+        addon_total: Number(body.addon_total || 0),
+        discount: Number(body.discount || 0),
+        estimated_cost: Number(body.estimated_cost || 0),
       };
 
       const { data, error } = await client
@@ -80,7 +94,30 @@ export async function handler(event) {
 
       if (error) throw error;
 
-      return json(201, { item: data });
+      let delivery = null;
+      if (data.fulfillment === "DELIVERY" && data.delivery_address) {
+        const { data: deliveryData, error: deliveryError } = await client
+          .from("deliveries")
+          .insert({
+            shop_id: shopId,
+            order_id: data.id,
+            address: data.delivery_address,
+            driver: body.driver || null,
+            status: "PENDING",
+            notes: body.delivery_instructions || null,
+            round_trip_miles: Number(body.delivery_miles || 0),
+            drive_minutes: Number(body.drive_minutes || 0),
+            delivery_date: body.delivery_date || null,
+            delivery_window: body.delivery_window || null,
+            recipient_name: body.recipient_name || null,
+            recipient_phone: body.recipient_phone || null,
+          })
+          .select()
+          .single();
+        if (!deliveryError) delivery = deliveryData;
+      }
+
+      return json(201, { item: data, delivery });
     }
 
     if (event.httpMethod === "PATCH") {
