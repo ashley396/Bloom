@@ -1,80 +1,92 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#a72f67"><title>Bloom POS</title><link rel="stylesheet" href="/styles.css"></head><body>
 <div id="toast" class="toast" hidden></div>
-<section id="auth" class="auth"><div class="auth-card"><div class="brand">Bloom</div><h1>Your complete florist operating system.</h1><p>POS, websites, recipes, delivery, staff, reports, multiple stores and wholesale.</p><form id="authForm"><label id="shopWrap" hidden>Shop name<input id="shopName"></label><label id="nameWrap" hidden>Your name<input id="fullName"></label><label>Email<input id="email" type="email" required></label><label>Password<input id="password" type="password" minlength="6" required></label><button class="primary wide" id="authButton">Sign in</button></form><button class="link" id="switchMode">Create a Bloom account</button><p id="authMessage"></p><small>Bloom X v13.0 Pastel POS Edition</small></div></section>
+<section id="auth" class="auth"><div class="auth-card"><div class="brand">Bloom</div><h1>Your complete florist operating system.</h1><p>POS, websites, recipes, delivery, staff, reports, multiple stores and wholesale.</p><form id="authForm"><label id="shopWrap" hidden>Shop name<input id="shopName"></label><label id="nameWrap" hidden>Your name<input id="fullName"></label><label>Email<input id="email" type="email" required></label><label>Password<input id="password" type="password" minlength="6" required></label><button class="primary wide" id="authButton">Sign in</button></form><button class="link" id="switchMode">Create a Bloom account</button><p id="authMessage"></p><small>Bloom X v13.1 True Pastel POS Redesign</small></div></section>
 <main id="app" hidden><header><div class="header-brand"><img id="appLogo" class="app-logo" alt="Shop logo" hidden><div class="brand"><span class="brand-flower">✿</span> Bloom <small>POS</small></div><select id="shopSwitcher"></select></div><div><small id="accountEmail"></small><button id="logout" class="secondary">Sign out</button></div></header>
 <div class="shell"><aside>
 <p>SHOP</p><button class="active" data-page="dashboardPage">Point of Sale</button><button data-page="ordersPage">Orders</button><button data-page="deliveriesPage">Deliveries</button><button data-page="customersPage">Customers</button><button data-page="inventoryPage">Inventory</button>
 <p>CREATE & SELL</p><button data-page="productsPage">Products & Recipe Builder</button><button data-page="websitePage">Website Studio</button><button data-page="libraryPage">Floral Library</button><button data-page="invoicesPage">Invoices</button><button data-page="paymentsPage">Payments</button>
 <p>BUSINESS</p><button data-page="expensesPage">Expenses</button><button data-page="reportsPage">Reports</button><button data-page="staffPage">Staff</button><button data-page="marketplacePage">Wholesale</button><button data-page="storesPage">Stores</button><button data-page="settingsPage">Settings</button>
 </aside><div class="content">
-<section id="dashboardPage" class="page active">
-  <div class="dashboard-hero">
-    <div class="dashboard-welcome-photo" id="dashboardWelcomePhoto" hidden><img id="dashboardWelcomeImage" alt="Shop welcome image"></div>
-    <div class="dashboard-welcome-copy">
-      <p class="eyebrow">YOUR FLORIST COMMAND CENTER</p>
-      <h1 id="greeting">Welcome to Bloom</h1>
-      <p id="dashboardDate" class="subtle"></p><p class="welcome-subline">Here’s what’s happening in your flower shop today.</p>
-    </div>
-    <div class="rose-top-assistant" aria-label="Rose daily assistant">
-      <div class="rose-top-character" aria-hidden="true">👵</div>
-      <div class="rose-top-controls">
-        <strong>Rose</strong>
-        <small>Your daily shop briefing is ready.</small>
-        <button id="speakRoseBriefing" type="button" class="secondary">🔊 Hear Rose</button>
+<section id="dashboardPage" class="page active pos-home">
+  <div class="pos-welcome-row">
+    <section class="rose-welcome-card">
+      <img src="/assets/rose.png" class="assistant-portrait rose-portrait" alt="Rose assistant">
+      <div class="welcome-copy">
+        <h1 id="greeting">Good morning!</h1>
+        <p id="dashboardDate" class="subtle"></p>
+        <p class="welcome-subline">Here’s what’s happening in your shop today.</p>
+        <div class="welcome-stats">
+          <span><b id="ordersDueToday">0</b><small>Orders Due</small></span>
+          <span><b id="deliveriesToday">0</b><small>Active Deliveries</small></span>
+          <span><b id="lowStock">0</b><small>Low Stock</small></span>
+          <span><b id="unpaidTotal">$0</b><small>Outstanding</small></span>
+        </div>
       </div>
-      <span id="roseBriefingText" class="visually-hidden">Let me take a look at the shop, honey…</span>
-    </div>
-    <div class="hero-actions">
-      <button class="secondary" data-page="deliveriesPage">View deliveries</button>
-      <button class="primary" data-open="orderDialog">+ New order</button>
-    </div>
-  </div>
-
-  <div class="dashboard-kpis">
-    <article class="kpi-card featured"><span>Sales today</span><strong id="todaySales">$0</strong><small id="ordersTodayLabel">0 orders today</small></article>
-    <article class="kpi-card"><span>Orders due today</span><strong id="ordersDueToday">0</strong><small>Design and pickup queue</small></article>
-    <article class="kpi-card"><span>Deliveries today</span><strong id="deliveriesToday">0</strong><small id="deliveriesStatus">0 still active</small></article>
-    <article class="kpi-card"><span>Estimated profit</span><strong id="profit">$0</strong><small>Paid sales less expenses</small></article>
-    <article class="kpi-card alert"><span>Low inventory</span><strong id="lowStock">0</strong><small>Items needing attention</small></article>
-    <article class="kpi-card"><span>Outstanding</span><strong id="unpaidTotal">$0</strong><small>Unpaid open orders</small></article>
-  </div>
-
-  <section class="panel morning-briefing" aria-labelledby="morningBriefingTitle">
-    <div class="panel-heading"><div><p class="eyebrow">ROSE'S DAILY BRIEFING</p><h2 id="morningBriefingTitle">What needs your attention today</h2></div><button type="button" class="secondary" data-assistant-prompt="Rose, give me my morning business briefing using today's orders, deliveries, unpaid balances, inventory, sales, and expenses.">Ask Rose aloud</button></div>
-    <div class="briefing-grid">
-      <article><span>Orders due</span><strong id="briefOrders">0</strong><small>Design, pickup, or delivery</small></article>
-      <article><span>Active deliveries</span><strong id="briefDeliveries">0</strong><small>Still on today's route</small></article>
-      <article><span>Low stock</span><strong id="briefLowStock">0</strong><small>Items to reorder</small></article>
-      <article><span>Unpaid balances</span><strong id="briefUnpaid">$0</strong><small>Follow-up needed</small></article>
-    </div>
-  </section>
-
-  <div class="dashboard-main-grid">
-    <section class="panel dashboard-panel">
-      <div class="panel-heading"><div><p class="eyebrow">7-DAY PERFORMANCE</p><h2>Sales trend</h2></div><strong id="weekSales">$0</strong></div>
-      <div id="salesChart" class="sales-chart" aria-label="Seven day sales chart"></div>
-      <div class="mini-metrics"><span><small>Paid sales</small><strong id="totalSales">$0</strong></span><span><small>Expenses</small><strong id="totalExpenses">$0</strong></span><span><small>Customers</small><strong id="customerCount">0</strong></span></div>
-    </section>
-
-    <section class="panel dashboard-panel">
-      <div class="panel-heading"><div><p class="eyebrow">QUICK ACTIONS</p><h2>Keep the shop moving</h2></div></div>
-      <div class="quick-action-grid">
-        <button data-open="orderDialog"><span>＋</span><b>New order</b><small>Start a florist order</small></button>
-        <button data-open="customerDialog"><span>♡</span><b>Add customer</b><small>Grow your CRM</small></button>
-        <button data-open="inventoryDialog"><span>✿</span><b>Add inventory</b><small>Update flower counts</small></button>
-        <button data-page="websitePage"><span>⌂</span><b>Website Studio</b><small>Edit your storefront</small></button>
+      <div class="rose-action">
+        <button id="speakRoseBriefing" class="primary" type="button">🔊 Hear Rose</button>
+        <small>Tap for your daily briefing</small>
+        <span id="roseBriefingText" class="visually-hidden">Let me take a look at the shop, honey…</span>
       </div>
+      <img src="/assets/floral-top.png" class="welcome-floral" alt="">
+    </section>
+
+    <section class="lily-suggestion-card">
+      <img src="/assets/lily.png" class="assistant-portrait lily-portrait" alt="Lily assistant">
+      <div><h2>Hi Ashley!</h2><p>I found new floral ideas that match your inventory.</p><button class="soft-green" data-page="libraryPage">View suggestions</button></div>
     </section>
   </div>
 
-  <div class="dashboard-lower-grid">
-    <section class="panel dashboard-panel"><div class="panel-heading"><div><p class="eyebrow">PRODUCTION</p><h2>Orders requiring attention</h2></div><button class="text-button" data-page="ordersPage">View all</button></div><div id="queue" class="cards compact-cards"></div></section>
-    <section class="panel dashboard-panel"><div class="panel-heading"><div><p class="eyebrow">DELIVERY BOARD</p><h2>Upcoming stops</h2></div><button class="text-button" data-page="deliveriesPage">Open board</button></div><div id="upcomingDeliveries" class="dashboard-list"></div></section>
-    <section class="assistant-suite">
-      <article class="assistant-persona lily-card"><div class="persona-mark">L</div><div><span>MEET LILY</span><h2>Creative florist</h2><p>Design ideas, recipes, pricing, product descriptions, website copy and social posts.</p></div><div class="persona-actions"><button type="button" class="secondary" data-assistant-prompt="Lily, suggest a beautiful hydrangea arrangement I can sell this week.">Hydrangea idea</button><button type="button" class="secondary" data-assistant-prompt="Lily, write a product description for a premium seasonal bouquet.">Write description</button></div></article>
-      <article class="assistant-persona rose-card"><div class="persona-mark">R</div><div><span>MEET ROSE</span><h2>Business manager</h2><p>Sales, expenses, unpaid balances, inventory, delivery efficiency and next-step coaching.</p></div><div class="persona-actions"><button type="button" class="secondary" data-assistant-prompt="Rose, summarize what needs my attention today.">Daily briefing</button><button type="button" class="secondary" data-assistant-prompt="Rose, show me ways to improve profit this week.">Profit ideas</button></div></article>
-      <article class="ai-card bloom-assistant"><span>TALK WITH LILY OR ROSE</span><h2>Your Bloom assistants</h2><p>Type or speak a question. Lily is sweet and encouraging; Rose is experienced, direct, and playfully sassy.</p><div class="assistant-input-row"><input id="assistantPrompt" placeholder="Lily, help me price a bouquet…"><button id="assistantMic" class="secondary mic-button" type="button" title="Speak your question">🎤</button></div><div class="assistant-choice"><button type="button" class="assistant-chip lily-chip" data-persona="Lily">🌸 Ask Lily</button><button type="button" class="assistant-chip rose-chip" data-persona="Rose">🌹 Ask Rose</button><label class="speak-toggle"><input id="assistantSpeak" type="checkbox" checked> Speak answers aloud</label></div><button id="assistantRun" class="secondary wide" type="button">Ask assistant</button><div class="wake-controls"><button id="assistantWakeToggle" class="secondary wide" type="button">🎙️ Turn on “Hey Lily / Hey Rose”</button><small id="assistantWakeStatus">Hands-free listening is off.</small></div><p id="assistantListening" class="subtle" hidden>Listening…</p><p id="assistantAnswer" aria-live="polite"></p></article>
+  <div class="pos-workspace">
+    <section class="pos-center">
+      <div class="product-toolbar">
+        <div class="product-tabs"><button class="active">Product Pads</button><button data-page="inventoryPage">Scan</button><button data-page="libraryPage">Visual</button><button data-open="orderDialog">Manual Entry</button></div>
+        <div class="product-view-tools"><select><option>Everyday</option><option>Wedding</option><option>Sympathy</option><option>Plants</option></select><button>▦</button><button>▤</button></div>
+      </div>
+
+      <div class="product-pad-grid">
+        <button class="pad" data-open="orderDialog"><img src="/assets/fresh.png"><span>Fresh<br>Arrangements</span></button>
+        <button class="pad" data-open="orderDialog"><img src="/assets/basket.png"><span>Basket<br>Arrangements</span></button>
+        <button class="pad" data-open="orderDialog"><img src="/assets/rose-arr.png"><span>Rose<br>Arrangements</span></button>
+        <button class="pad" data-open="orderDialog"><img src="/assets/tulips.png"><span>Loose<br>Flowers</span></button>
+        <button class="pad" data-open="orderDialog"><img src="/assets/chocolates.png"><span>Chocolates<br>& Gifts</span></button>
+        <button class="pad" data-open="orderDialog"><img src="/assets/corsage.png"><span>Corsages</span></button>
+        <button class="pad" data-open="orderDialog"><img src="/assets/boutonniere.png"><span>Boutonnieres</span></button>
+        <button class="pad" data-open="orderDialog"><img src="/assets/sympathy.png"><span>Sympathy<br>Arrangements</span></button>
+        <button class="pad" data-open="orderDialog"><img src="/assets/spray.png"><span>Sympathy<br>Spray</span></button>
+        <button class="pad" data-open="orderDialog"><img src="/assets/basket2.png"><span>Sympathy<br>Basket</span></button>
+        <button class="pad" data-open="orderDialog"><img src="/assets/plant.png"><span>Blooming<br>Plants</span></button>
+        <button class="pad" data-open="orderDialog"><img src="/assets/orchid.png"><span>Orchid<br>Plants</span></button>
+        <button class="pad" data-open="orderDialog"><img src="/assets/green.png"><span>Green<br>Plants</span></button>
+        <button class="pad" data-open="orderDialog"><img src="/assets/dish.png"><span>Dish<br>Garden</span></button>
+        <button class="pad misc-pad" data-open="orderDialog"><span>🧺<br>Misc Items</span></button>
+      </div>
+
+      <section class="current-order-panel">
+        <div class="current-order-head"><div><b>Current Order</b><span>Live queue</span></div><div><button data-open="customerDialog">+ Add Customer</button><button data-open="orderDialog">+ Add Note</button><button class="clear-btn">Clear</button></div></div>
+        <div id="queue" class="pos-order-list"></div>
+        <div class="order-footer-actions"><button class="primary" data-open="orderDialog">+ Add Item</button><button class="secondary">Save as Quote</button><button class="secondary">🖨 Print</button></div>
+      </section>
     </section>
+
+    <aside class="pos-right-column">
+      <section class="progress-card">
+        <div class="panel-heading"><h3>Today’s Progress</h3><button>•••</button></div>
+        <div class="progress-body"><div class="progress-ring"><strong>0%</strong><small>of goal</small></div><div class="progress-legend"><span><i class="pink-dot"></i>Sales <b id="todaySales">$0</b></span><span><i class="green-dot"></i>Orders <b id="ordersTodayLabel">0</b></span><span><i class="gold-dot"></i>Deliveries <b id="deliveriesStatus">0</b></span></div></div>
+        <div class="progress-week"><span>D<b>0</b></span><span>P<b>0</b></span><span>W<b>0</b></span><span>H<b>6</b></span></div>
+      </section>
+
+      <section class="checkout-card">
+        <div class="checkout-tabs"><button class="active">Payment</button><button>Discount</button><button>Loyalty</button><button>Tax Codes</button></div>
+        <div class="checkout-lines"><span>Subtotal <b id="weekSales">$0</b></span><span>Discount <b>$0.00</b></span><span>Service Fee <b>$0.00</b></span><span>Delivery Fee <b>$0.00</b></span><span>Tax (6.0%) <b>$0.00</b></span></div>
+        <div class="checkout-total"><span>Total</span><strong id="totalSales">$0</strong></div>
+        <button class="process-payment" data-page="paymentsPage">▣ Process Payment</button>
+        <div class="checkout-bottom"><button>◷ Hold Order</button><button>••• More Options</button></div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="dashboard-support-data" hidden>
+    <span id="profit">$0</span><span id="totalExpenses">$0</span><span id="customerCount">0</span><span id="briefOrders">0</span><span id="briefDeliveries">0</span><span id="briefLowStock">0</span><span id="briefUnpaid">$0</span><div id="salesChart"></div><div id="upcomingDeliveries"></div>
   </div>
 </section>
 <section id="customersPage" class="page"><div class="heading"><h1>Customer CRM</h1><button class="primary" data-open="customerDialog">+ Add customer</button></div><input id="customerSearch" class="search" placeholder="Search customers"><div id="customersList" class="cards"></div></section>
