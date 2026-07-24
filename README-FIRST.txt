@@ -1,46 +1,39 @@
-BLOOM COMMERCIAL v4.1 — ONE-DEPLOY UPGRADE
+BLOOM FLAGSHIP v6.0 — COMBINED MAJOR UPDATE
 
-NEW IN v4.1
-- Edit and delete customers
-- Customer search
-- Edit and delete inventory
-- Soft-delete recycle-bin protection
-- Professional printable receipts
-- Refreshed florist-style design
-- Improved mobile layout and dashboard cards
+THIS RELEASE INCLUDES
+• Multi-store creation and switching
+• Product catalog and floral recipe costing
+• Expanded florist order builder
+• Website Studio with custom themes, colors, logo, hero image, domain and mobile preview
+• Bloom Floral Library starter designs
+• Delivery center
+• Staff and role directory
+• Wholesale marketplace listing and purchase-request foundation
+• Customer CRM with VIP, birthday, anniversary and favorites
+• Existing receipt uploads, Stripe checkout, receipts, expenses and profit reports
 
-IMPORTANT: USE ONLY ONE NETLIFY BUILD
+IMPORTANT LIMITS
+• Full voice/generative AI still requires an external AI provider.
+• Wholesale supplier payouts and commissions require Stripe Connect and marketplace compliance setup.
+• Website Studio saves and previews the storefront. Publishing each florist to a separate custom domain needs the next public-storefront routing layer.
+• The starter floral library uses editable floral artwork placeholders. Florists can paste their own product image URLs now.
 
-1. RUN THE SMALL DATABASE MIGRATION FIRST
-   In Supabase, open SQL Editor.
-   Open: supabase/migrations/v4.1.sql
-   Copy the complete file into SQL Editor and click Run.
-   This does not use Netlify credits.
+INSTALL WITH ONE DEPLOYMENT
+1. Unzip this package.
+2. In Supabase SQL Editor, run only:
+   supabase/migrations/v6.0.sql
+3. Copy everything INSIDE Bloom_Flagship_v6 into the current Bloom repository.
+4. Replace existing files.
+5. In GitHub Desktop use:
+   Upgrade Bloom to Flagship v6.0
+6. Commit to main and Push origin once.
+7. Wait for Netlify to finish, then hard-refresh and sign in.
 
-2. REPLACE YOUR CURRENT PROJECT FILES
-   Copy the contents of this Bloom folder into the current GitHub Desktop Bloom repository.
-   Allow Windows to replace matching files.
-
-3. COMMIT ONCE
-   Suggested summary:
-   Upgrade Bloom to v4.1
-
-4. PUSH ONCE
-   Click Push origin in GitHub Desktop.
-   Netlify should perform one deployment containing the entire update.
-
-5. TEST AFTER NETLIFY SAYS PUBLISHED
-   - Sign in
-   - Search, edit and delete a test customer
-   - Edit and delete a test inventory item
-   - Open an order and select View receipt
-   - Print the receipt or choose Save as PDF in the print window
-
-NOTES
-- Delete moves customers and inventory out of the active app instead of permanently destroying the database record.
-- Existing orders, customers and inventory remain intact.
-- No environment variables need to be changed for this update.
-- Do not upload the .git folder from another repository over your existing .git folder.
-
-SECURITY
-Never share SUPABASE_SERVICE_ROLE_KEY or STRIPE_SECRET_KEY.
+TEST
+• Create a product and recipe
+• Add a Floral Library design to the catalog
+• Save Website Studio settings
+• Create an order from a product
+• Add and advance a delivery
+• Add staff and a wholesale listing
+• Create a second store and switch between stores
