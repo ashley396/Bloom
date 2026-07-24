@@ -12,16 +12,10 @@ export async function handler(event){
       client.from("expenses").select("*").eq("shop_id",shopId).order("expense_date",{ascending:false})
     ]);
     for(const r of [orders,inventory,customers,expenses]) if(r.error) throw r.error;
-    const allOrders=orders.data||[], allExpenses=expenses.data||[], today=new Date().toISOString().slice(0,10);
-    const sales=allOrders.filter(o=>o.status!=="CANCELLED").reduce((a,o)=>a+Number(o.total||0),0);
-    const expenseTotal=allExpenses.reduce((a,e)=>a+Number(e.amount||0),0);
-    return json(200,{
-      ordersToday:allOrders.filter(o=>String(o.created_at).slice(0,10)===today).length,
-      totalSales:sales,totalExpenses:expenseTotal,profit:sales-expenseTotal,
-      deliveries:allOrders.filter(o=>o.fulfillment==="DELIVERY"&&!["COMPLETED","CANCELLED"].includes(o.status)).length,
-      lowStock:(inventory.data||[]).filter(i=>Number(i.quantity)<=Number(i.low_stock_level)).length,
-      customers:(customers.data||[]).length,
-      queue:allOrders.filter(o=>!["COMPLETED","CANCELLED"].includes(o.status)).slice(0,10)
-    });
+    const allOrders=orders.data||[],allExpenses=expenses.data||[],today=new Date().toISOString().slice(0,10);
+    const paidOrders=allOrders.filter(o=>o.payment_status==="PAID"&&o.status!=="CANCELLED");
+    const sales=paidOrders.reduce((a,o)=>a+Number(o.total||0),0),expenseTotal=allExpenses.reduce((a,e)=>a+Number(e.amount||0),0);
+    const todaySales=paidOrders.filter(o=>String(o.paid_at||o.created_at).slice(0,10)===today).reduce((a,o)=>a+Number(o.total||0),0);
+    return json(200,{ordersToday:allOrders.filter(o=>String(o.created_at).slice(0,10)===today).length,totalSales:sales,todaySales,totalExpenses:expenseTotal,profit:sales-expenseTotal,unpaidTotal:allOrders.filter(o=>o.payment_status!=="PAID"&&o.status!=="CANCELLED").reduce((a,o)=>a+Number(o.total||0),0),deliveries:allOrders.filter(o=>o.fulfillment==="DELIVERY"&&!['COMPLETED','CANCELLED'].includes(o.status)).length,lowStock:(inventory.data||[]).filter(i=>Number(i.quantity)<=Number(i.low_stock_level)).length,customers:(customers.data||[]).length,queue:allOrders.filter(o=>!['COMPLETED','CANCELLED'].includes(o.status)).slice(0,10),recentExpenses:allExpenses.slice(0,5)});
   }catch(error){ return fail(error); }
 }

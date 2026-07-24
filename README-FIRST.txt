@@ -1,46 +1,52 @@
-BLOOM COMMERCIAL v4.1 — ONE-DEPLOY UPGRADE
+BLOOM v8.0 — FLORIST ORDER BUILDER
 
-NEW IN v4.1
-- Edit and delete customers
-- Customer search
-- Edit and delete inventory
-- Soft-delete recycle-bin protection
-- Professional printable receipts
-- Refreshed florist-style design
-- Improved mobile layout and dashboard cards
+WHAT IS NEW
+- Full-screen professional florist Order Builder
+- Existing-customer lookup and phone autofill
+- Recipient, occasion, source, design style and color palette
+- Preferred flowers, restrictions, arrangement description and add-ons
+- Pickup/delivery workflow with location type, driver and instructions
+- Live total and estimated-profit preview
+- Labor, discount, tax, delivery, add-ons, deposit and material-cost fields
+- Rush/VIP production priority
+- Mobile-responsive order-building layout
 
-IMPORTANT: USE ONLY ONE NETLIFY BUILD
+DEPLOY IN TWO STEPS
+1. In Supabase SQL Editor, run: supabase/migrations/v8.0.sql
+2. Upload or push this entire project to your existing Netlify site once.
 
-1. RUN THE SMALL DATABASE MIGRATION FIRST
-   In Supabase, open SQL Editor.
-   Open: supabase/migrations/v4.1.sql
-   Copy the complete file into SQL Editor and click Run.
-   This does not use Netlify credits.
+IMPORTANT
+- Keep your existing Netlify environment variables.
+- Do not put secret keys into public files.
+- Test one order after deployment before using it for live sales.
 
-2. REPLACE YOUR CURRENT PROJECT FILES
-   Copy the contents of this Bloom folder into the current GitHub Desktop Bloom repository.
-   Allow Windows to replace matching files.
+QUICK TEST
+- Sign in
+- Click + New order
+- Select or type a customer
+- Choose a product and verify the live total changes
+- Switch Pickup to Delivery and verify delivery fields appear
+- Add labor, delivery, tax or discount and verify totals
+- Create the order and open its receipt
 
-3. COMMIT ONCE
-   Suggested summary:
-   Upgrade Bloom to v4.1
+BLOOMOS v7.0 — INTEGRATION-READY RELEASE
 
-4. PUSH ONCE
-   Click Push origin in GitHub Desktop.
-   Netlify should perform one deployment containing the entire update.
+This package contains the full Bloom Flagship v6 application plus live-ready server connections for OpenAI and Stripe Connect.
 
-5. TEST AFTER NETLIFY SAYS PUBLISHED
-   - Sign in
-   - Search, edit and delete a test customer
-   - Edit and delete a test inventory item
-   - Open an order and select View receipt
-   - Print the receipt or choose Save as PDF in the print window
+INSTALL
+1. Copy this package into the Bloom repository and replace existing files.
+2. Run supabase/migrations/v7.0.sql in Supabase SQL Editor.
+3. Add all variables shown in .env.example to Netlify.
+4. Redeploy once.
+5. Read README-INTEGRATIONS.txt before enabling live payments.
 
-NOTES
-- Delete moves customers and inventory out of the active app instead of permanently destroying the database record.
-- Existing orders, customers and inventory remain intact.
-- No environment variables need to be changed for this update.
-- Do not upload the .git folder from another repository over your existing .git folder.
+NOW INCLUDED
+- Bloom AI server endpoint
+- Stripe Connect Express account onboarding
+- Stripe connected-account dashboard links
+- Marketplace destination-charge checkout with configurable Bloom fee
+- Secure server-side keys only
+- Integration event database foundation
 
-SECURITY
-Never share SUPABASE_SERVICE_ROLE_KEY or STRIPE_SECRET_KEY.
+NOT AUTOMATICALLY INCLUDED
+Provider approval, identity verification, business verification, API billing, domain ownership, and production payment activation must be completed in the provider dashboards by the account owner.

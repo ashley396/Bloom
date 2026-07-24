@@ -1,6 +1,6 @@
 {
-  "name": "bloom-commercial",
-  "version": "4.0.1",
+  "name": "bloomos-florist-order-builder",
+  "version": "8.0.0",
   "private": true,
   "type": "module",
   "dependencies": {
