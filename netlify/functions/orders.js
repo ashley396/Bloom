@@ -2,7 +2,7 @@ import { json,bodyOf,preflight,methodNotAllowed } from "./_shared/http.js";
 import { currentUser,fail } from "./_shared/supabase.js";
 export async function handler(event){
  const ready=preflight(event);if(ready)return ready;
- try{const {client,shopId}=await currentUser(event);
+ try const {client,shopId,user}=await currentUser(event);
   if(event.httpMethod==="GET"){const {data,error}=await client.from("orders").select("*").eq("shop_id",shopId).order("created_at",{ascending:false});if(error)throw error;return json(200,{items:data||[]});}
   const body=bodyOf(event);
   if(event.httpMethod==="POST"){
@@ -15,7 +15,10 @@ export async function handler(event){
    }
    const estimatedCost=Number(body.estimated_cost||costTotal||0);
    const total=Math.max(0,subtotal+labor+addonsTotal+tax+delivery-discount);
-   const payload={shop_id:shopId,order_number:`BL-${Date.now().toString().slice(-8)}`,customer_name:body.customer_name,customer_phone:body.customer_phone||null,recipient_name:body.recipient_name||null,recipient_phone:body.recipient_phone||null,occasion:body.occasion||null,order_source:body.order_source||"Phone",design_style:body.design_style||null,color_palette:body.color_palette||null,preferred_flowers:body.preferred_flowers||null,flower_restrictions:body.flower_restrictions||null,arrangement_description:body.arrangement_description||null,addons:body.addons||null,addon_total:addonsTotal,fulfillment:body.fulfillment||"PICKUP",delivery_address:body.delivery_address||null,delivery_date:body.delivery_date||null,delivery_window:body.delivery_window||null,location_type:body.location_type||null,driver:body.driver||null,delivery_instructions:body.delivery_instructions||null,designer:body.designer||null,priority:body.priority||"NORMAL",card_message:body.card_message||null,product_id:body.product_id||null,subtotal,labor_charge:labor,tax,delivery_fee:delivery,discount,total,cost_total:estimatedCost,payment_status:body.payment_status||"UNPAID",payment_method:body.payment_method||null,amount_paid:Number(body.amount_paid||0),paid_at:body.payment_status==="PAID"?new Date().toISOString():null,notes:body.notes||null};
+  const payload={
+  user_id:user.id,
+  shop_id:shopId,
+  order_number: ...`BL-${Date.now().toString().slice(-8)}`,customer_name:body.customer_name,customer_phone:body.customer_phone||null,recipient_name:body.recipient_name||null,recipient_phone:body.recipient_phone||null,occasion:body.occasion||null,order_source:body.order_source||"Phone",design_style:body.design_style||null,color_palette:body.color_palette||null,preferred_flowers:body.preferred_flowers||null,flower_restrictions:body.flower_restrictions||null,arrangement_description:body.arrangement_description||null,addons:body.addons||null,addon_total:addonsTotal,fulfillment:body.fulfillment||"PICKUP",delivery_address:body.delivery_address||null,delivery_date:body.delivery_date||null,delivery_window:body.delivery_window||null,location_type:body.location_type||null,driver:body.driver||null,delivery_instructions:body.delivery_instructions||null,designer:body.designer||null,priority:body.priority||"NORMAL",card_message:body.card_message||null,product_id:body.product_id||null,subtotal,labor_charge:labor,tax,delivery_fee:delivery,discount,total,cost_total:estimatedCost,payment_status:body.payment_status||"UNPAID",payment_method:body.payment_method||null,amount_paid:Number(body.amount_paid||0),paid_at:body.payment_status==="PAID"?new Date().toISOString():null,notes:body.notes||null};
    const {data,error}=await client.from("orders").insert(payload).select("*").single();if(error)throw error;return json(201,{item:data});
   }
   if(event.httpMethod==="PATCH"){
