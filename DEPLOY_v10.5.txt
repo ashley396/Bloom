@@ -1,0 +1,1 @@
+Deploy the complete folder to Netlify. No Supabase migration is required. After deployment, refresh with Ctrl + F5.
