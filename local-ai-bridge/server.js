@@ -5,7 +5,7 @@ const app = express();
 const HOST = process.env.BLOOM_AI_HOST || "127.0.0.1";
 const PORT = Number(process.env.BLOOM_AI_PORT || 11435);
 const OLLAMA_URL = (process.env.OLLAMA_URL || "http://127.0.0.1:11434").replace(/\/$/, "");
-const DEFAULT_MODEL = process.env.BLOOM_AI_MODEL || "llama3.1:8b";
+const DEFAULT_MODEL = process.env.BLOOM_AI_MODEL || "llama3.1";
 const ALLOWED_ORIGINS = new Set((process.env.BLOOM_ALLOWED_ORIGINS || "https://bloom-technologies.netlify.app,http://localhost:8888,http://localhost:5173").split(",").map(x=>x.trim()).filter(Boolean));
 
 app.disable("x-powered-by");

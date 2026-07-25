@@ -5,7 +5,7 @@ Install Ollama from its official website on Windows or macOS. On Linux, use Olla
 
 ## 2. Install the recommended model
 ```bash
-ollama pull llama3.1:8b
+ollama pull llama3.1
 ```
 
 ## 3. Start Bloom Local AI Bridge
