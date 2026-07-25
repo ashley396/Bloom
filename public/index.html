@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#a72f67"><title>Bloom POS</title><link rel="stylesheet" href="/styles.css"></head><body>
 <div id="toast" class="toast" hidden></div>
-<section id="auth" class="auth"><div class="auth-card"><div class="brand">Bloom</div><h1>Your complete florist operating system.</h1><p>POS, websites, recipes, delivery, staff, reports, multiple stores and wholesale.</p><form id="authForm"><label id="shopWrap" hidden>Shop name<input id="shopName"></label><label id="nameWrap" hidden>Your name<input id="fullName"></label><label>Email<input id="email" type="email" required></label><label>Password<input id="password" type="password" minlength="6" required></label><button class="primary wide" id="authButton">Sign in</button></form><button class="link" id="switchMode">Create a Bloom account</button><p id="authMessage"></p><small>Bloom X v13.4 Seamless Pastel POS</small></div></section>
+<section id="auth" class="auth"><div class="auth-card"><div class="brand">Bloom</div><h1>Your complete florist operating system.</h1><p>POS, websites, recipes, delivery, staff, reports, multiple stores and wholesale.</p><form id="authForm"><label id="shopWrap" hidden>Shop name<input id="shopName"></label><label id="nameWrap" hidden>Your name<input id="fullName"></label><label>Email<input id="email" type="email" required></label><label>Password<input id="password" type="password" minlength="6" required></label><button class="primary wide" id="authButton">Sign in</button></form><button class="link" id="switchMode">Create a Bloom account</button><p id="authMessage"></p><small>Bloom X v13.5 Seamless RC1</small></div></section>
 <main id="app" hidden><header><div class="header-brand"><img id="appLogo" class="app-logo" alt="Shop logo" hidden><div class="brand"><span class="brand-flower">✿</span> Bloom <small>POS</small></div><select id="shopSwitcher"></select></div><div><small id="accountEmail"></small><button id="logout" class="secondary">Sign out</button></div></header>
 <div class="shell"><aside>
 <p>SHOP</p><button class="active" data-page="dashboardPage">Point of Sale</button><button data-page="ordersPage">Orders</button><button data-page="deliveriesPage">Deliveries</button><button data-page="customersPage">Customers</button><button data-page="inventoryPage">Inventory</button>
@@ -14,18 +14,18 @@
       <div class="welcome-copy">
         <h1 id="greeting">Good morning!</h1>
         <p id="dashboardDate" class="subtle"></p>
-        <p class="welcome-subline">Here’s what’s happening in your shop today.</p>
+        <p class="welcome-subline">Let’s make something beautiful today.</p>
         <div class="welcome-stats">
           <span><b id="ordersDueToday">0</b><small>Orders Due</small></span>
           <span><b id="deliveriesToday">0</b><small>Active Deliveries</small></span>
           <span><b id="lowStock">0</b><small>Low Stock</small></span>
           <span><b id="unpaidTotal">$0</b><small>Outstanding</small></span>
         </div>
-      </div>
-      <div class="rose-action">
-        <button id="speakRoseBriefing" class="primary" type="button">🔊 Hear Rose</button>
-        <small>Tap for your daily briefing</small>
-        <span id="roseBriefingText" class="visually-hidden">Let me take a look at the shop, honey…</span>
+        <div class="rose-action">
+          <button id="speakRoseBriefing" class="primary" type="button">🔊 Hear Rose</button>
+          <small>Daily shop briefing</small>
+          <span id="roseBriefingText" class="visually-hidden">Let me take a look at the shop, honey…</span>
+        </div>
       </div>
       <img src="/assets/floral-top.png" class="welcome-floral" alt="">
     </section>
@@ -49,7 +49,7 @@
 
       <section class="current-order-panel">
         <div class="current-order-head"><div><b>Current Order</b><span id="cartItemCount">0 items</span></div><div><button data-open="customerDialog">+ Add Customer</button><button id="clearCartBtn" class="clear-btn" type="button">Clear</button></div></div>
-        <div class="pos-customer-row"><label>Customer<select id="posCustomerSelect"><option value="">Walk-in Customer</option></select></label><label>Order note<input id="posOrderNote" placeholder="Add a note…"></label></div>
+        <div class="pos-customer-row"><label>Customer<div class="customer-picker"><select id="posCustomerSelect" autocomplete="off"><option value="">Walk-in Customer</option></select><button id="quickAddCustomerBtn" class="secondary" type="button">+ New</button></div></label><label>Order note<input id="posOrderNote" name="order_note" placeholder="Add a note…" autocomplete="on" spellcheck="true"></label></div>
         <div id="queue" class="pos-order-list"></div>
         <div class="order-footer-actions"><button class="primary" data-open="orderDialog">+ Manual Item</button><button id="saveCartQuoteBtn" class="secondary" type="button">Save as Quote</button><button id="printCartBtn" class="secondary" type="button">🖨 Print</button></div>
       </section>
@@ -127,7 +127,7 @@
 <section id="paymentsPage" class="page"><div class="heading"><div><p class="eyebrow">CHECKOUT</p><h1>Payments</h1><p class="subtle">Send a secure Stripe checkout for an order, deposit, or custom amount.</p></div></div><div class="panel narrow payment-panel"><label>Payment amount ($)<input id="paymentAmount" type="number" min="0.50" step=".01" placeholder="0.00"></label><label>Payment description<input id="paymentDescription" placeholder="Order number or customer name"></label><button id="checkout" class="primary" type="button">Open secure Stripe checkout</button><p id="paymentStatus" class="subtle" aria-live="polite"></p></div></section>
 <section id="expensesPage" class="page"><div class="heading"><div><h1>Expenses & receipt vault</h1><p class="subtle">Photograph or upload a receipt.</p></div><button class="primary" data-open="expenseDialog">+ Add expense</button></div><div id="expensesList" class="cards"></div></section>
 <section id="reportsPage" class="page"><div class="heading"><div><p class="eyebrow">BUSINESS INTELLIGENCE</p><h1>Revenue & profit</h1></div></div><div id="financeList" class="report-table"></div></section>
-<section id="staffPage" class="page"><div class="heading"><div><h1>Staff & roles</h1><p class="subtle">Manage employees, roles, and time clock activity.</p></div><button class="primary" data-open="staffDialog">+ Add staff</button></div><section class="staff-timeclock panel"><div><p class="eyebrow">EMPLOYEE TIME CLOCK</p><h2>Clock in or out</h2><p id="shiftStatusText" class="subtle">No active shift on this device.</p></div><button id="shiftButton" class="primary shift-button" type="button">⇥ Clock In</button></section><div id="staffList" class="cards"></div></section>
+<section id="staffPage" class="page"><div class="heading"><div><h1>Staff & roles</h1><p class="subtle">Manage employees, roles, and time clock activity.</p></div><button class="primary" data-open="staffDialog">+ Add staff</button></div><section class="staff-timeclock panel"><div><p class="eyebrow">EMPLOYEE TIME CLOCK</p><h2>Clock in or out</h2><p id="shiftStatusText" class="subtle">No active shift on this device.</p></div><button id="shiftButton" class="primary shift-button" type="button">⇥ Clock In</button></section><section class="panel shift-history-panel"><div class="heading"><div><p class="eyebrow">RECENT ACTIVITY</p><h2>Time clock history</h2></div><button id="clearShiftHistory" class="secondary" type="button">Clear history</button></div><div id="shiftHistoryList" class="cards compact-cards"></div></section><div id="staffList" class="cards"></div></section>
 <section id="marketplacePage" class="page"><div class="heading"><div><p class="eyebrow">WHOLESALE FOUNDATION</p><h1>Bloom Wholesale</h1></div><button class="primary" data-open="marketplaceDialog">+ Add listing</button></div><p class="subtle">Listings are included. Stripe Connect onboarding and marketplace checkout endpoints are now integration-ready.</p><div id="marketplaceList" class="product-grid"></div></section>
 <section id="storesPage" class="page"><div class="heading"><div><p class="eyebrow">MULTI-LOCATION</p><h1>Your flower shops</h1></div><button class="primary" data-open="storeDialog">+ Add store</button></div><div id="storesList" class="cards"></div></section>
 </div></div></main>
