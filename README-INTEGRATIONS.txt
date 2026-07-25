@@ -12,8 +12,6 @@ Run supabase/migrations/v7.0.sql after the earlier Bloom migrations.
 
 B. Netlify environment variables
 Add:
-- OPENAI_API_KEY
-- OPENAI_MODEL (example: gpt-4.1-mini; use a model enabled for your OpenAI account)
 - STRIPE_SECRET_KEY
 - SITE_URL
 - BLOOM_MARKETPLACE_FEE_PERCENT
@@ -38,3 +36,5 @@ FUNCTIONS INCLUDED
 
 IMPORTANT
 These integrations become live only after your private keys and provider accounts are configured. Never upload secret keys to GitHub or paste them into browser code.
+
+Bloom v17 AI requires no OpenAI key. See OLLAMA-INSTALLATION.md.

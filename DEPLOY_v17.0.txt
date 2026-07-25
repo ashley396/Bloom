@@ -1,0 +1,9 @@
+BLOOM v17 DEPLOYMENT
+
+1. Upload this complete ZIP to the existing Netlify site.
+2. Delete OPENAI_API_KEY and OPENAI_MODEL from Netlify if desired; Bloom no longer uses them.
+3. On each computer using Lily or Rose, install Ollama and run the included Bloom Local AI Bridge launcher.
+4. Open Bloom → Settings → Run diagnostics.
+5. Install/select llama3.1:8b.
+
+Stripe, Supabase, POS, payments, inventory, and v16 Profit Intelligence remain cloud-hosted and work without local AI.

@@ -1,6 +1,6 @@
 {
   "name": "bloom-florist-operating-system",
-  "version": "16.0.0",
+  "version": "17.0.0",
   "private": true,
   "type": "module",
   "dependencies": {
@@ -9,5 +9,9 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "scripts": {
+    "ai:install": "npm --prefix local-ai-bridge install",
+    "ai:start": "npm --prefix local-ai-bridge start"
   }
 }

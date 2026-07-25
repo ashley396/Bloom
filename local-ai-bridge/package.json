@@ -1,0 +1,13 @@
+{
+  "name": "bloom-local-ai-bridge",
+  "version": "17.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node server.js --check"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
