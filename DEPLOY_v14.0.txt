@@ -1,0 +1,12 @@
+BLOOM v14.0 PAYMENT SETUP
+
+1. Finish Stripe account activation and bank payout setup.
+2. In Stripe Developers > API keys, turn off test mode and copy the live secret key beginning sk_live_.
+3. In Netlify > bloom-technologies > Site configuration > Environment variables:
+   STRIPE_SECRET_KEY = your sk_live_ key
+   SITE_URL = https://bloom-technologies.netlify.app
+4. Deploy Bloom_X_v14.0_Secure_Stripe.zip.
+5. Create a $1.00 order and complete one real card payment.
+6. Confirm it appears under Stripe live Payments and the Bloom order becomes PAID.
+
+Never paste the live secret key into Bloom code, GitHub, or chat.

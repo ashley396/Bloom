@@ -1,0 +1,9 @@
+BLOOM v14.1 DEPLOYMENT
+
+1. Upload this complete ZIP to the same Netlify site used for Bloom v14.0.
+2. Do not change Stripe, Supabase, or other environment variables.
+3. After deployment, open Orders and refresh once.
+4. Test one order through each stage using Advance.
+5. Confirm an order with estimated cost above 33% of its total displays the red COGS warning.
+
+No Supabase SQL is needed for this release.

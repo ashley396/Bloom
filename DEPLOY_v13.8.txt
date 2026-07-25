@@ -1,0 +1,5 @@
+1. Upload this complete ZIP to Netlify.
+2. No new Supabase SQL is required if migration_v13.6_staff_timeclock_payroll.sql was already run.
+3. After deployment, press Ctrl + Shift + R once.
+4. Test Expenses: add, edit, filter, open receipt, delete.
+5. Test Reports: totals, categories, refresh, CSV export.
