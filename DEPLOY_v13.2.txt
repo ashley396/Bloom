@@ -1,0 +1,1 @@
+Upload the complete ZIP to Netlify. No Supabase migration is required. After deploy, refresh with Ctrl + F5.

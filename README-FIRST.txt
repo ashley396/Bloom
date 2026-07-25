@@ -1,21 +1,25 @@
-BLOOMOS v7.0 — INTEGRATION-READY RELEASE
+BLOOM v8.1 — LUXURY DASHBOARD
 
-This package contains the full Bloom Flagship v6 application plus live-ready server connections for OpenAI and Stripe Connect.
+WHAT IS NEW
+- Florist command-center dashboard
+- Today's sales, orders due, deliveries, profit, low stock and outstanding totals
+- Seven-day paid-sales chart
+- Quick actions for orders, customers, inventory and Website Studio
+- Upcoming delivery list
+- Improved responsive mobile dashboard
+- Existing v8.0 Florist Order Builder preserved
 
-INSTALL
-1. Copy this package into the Bloom repository and replace existing files.
-2. Run supabase/migrations/v7.0.sql in Supabase SQL Editor.
-3. Add all variables shown in .env.example to Netlify.
-4. Redeploy once.
-5. Read README-INTEGRATIONS.txt before enabling live payments.
+DEPLOYMENT
+1. Replace the matching files in your GitHub Bloom repository with every file in this folder.
+2. Commit the update. Suggested summary: Bloom v8.1 - Luxury Dashboard
+3. Netlify will deploy automatically from GitHub.
+4. No new Supabase migration is required for v8.1.
 
-NOW INCLUDED
-- Bloom AI server endpoint
-- Stripe Connect Express account onboarding
-- Stripe connected-account dashboard links
-- Marketplace destination-charge checkout with configurable Bloom fee
-- Secure server-side keys only
-- Integration event database foundation
+TESTING
+- Sign in and confirm the dashboard loads.
+- Create or mark an order paid and confirm the dashboard totals refresh.
+- Check the dashboard on both phone and computer.
+- Open New Order, Website Studio, Customers and Inventory from Quick Actions.
 
-NOT AUTOMATICALLY INCLUDED
-Provider approval, identity verification, business verification, API billing, domain ownership, and production payment activation must be completed in the provider dashboards by the account owner.
+IMPORTANT
+Keep all existing Netlify environment variables unchanged.

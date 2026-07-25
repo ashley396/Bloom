@@ -1,0 +1,11 @@
+BLOOM X V12.0 DEPLOYMENT
+
+1. In Supabase SQL Editor, run:
+   supabase/migration_v12.0_luxury_branding.sql
+
+2. Upload the complete contents of this ZIP to Netlify.
+
+3. Refresh Bloom with Ctrl + F5.
+
+4. Open Settings > Bloom appearance to choose sidebar/header colors and upload a dashboard picture.
+5. Open Website Studio to upload the website logo as a regular file.

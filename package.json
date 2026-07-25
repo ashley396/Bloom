@@ -1,6 +1,6 @@
 {
-  "name": "bloomos-integration-ready",
-  "version": "7.0.0",
+  "name": "bloom-florist-operating-system",
+  "version": "13.0.0",
   "private": true,
   "type": "module",
   "dependencies": {

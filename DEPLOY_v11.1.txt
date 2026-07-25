@@ -1,0 +1,1 @@
+Deploy the full project to Netlify. No Supabase migration is required. Keep STRIPE_SECRET_KEY and SITE_URL configured in Netlify. After deploy, refresh with Ctrl + F5.

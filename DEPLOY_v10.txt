@@ -1,0 +1,11 @@
+BLOOM X v10.0 DEPLOYMENT
+
+1. Replace the current GitHub project files with this folder.
+2. Commit and push to GitHub.
+3. Let Netlify deploy automatically.
+4. Refresh Bloom with Ctrl + F5.
+
+No Supabase migration is required.
+
+Suggested GitHub summary:
+Bloom X v10.0 - Website Studio, real floral photos, Lily and Rose assistants

@@ -1,0 +1,23 @@
+-- Bloom v9.1 integrated order-to-delivery workflow
+alter table public.orders add column if not exists customer_phone text;
+alter table public.orders add column if not exists location_type text;
+alter table public.orders add column if not exists driver text;
+alter table public.orders add column if not exists designer text;
+alter table public.orders add column if not exists priority text default 'NORMAL';
+alter table public.orders add column if not exists design_style text;
+alter table public.orders add column if not exists color_palette text;
+alter table public.orders add column if not exists preferred_flowers text;
+alter table public.orders add column if not exists flower_restrictions text;
+alter table public.orders add column if not exists addons text;
+alter table public.orders add column if not exists labor_charge numeric(12,2) default 0;
+alter table public.orders add column if not exists addon_total numeric(12,2) default 0;
+alter table public.orders add column if not exists discount numeric(12,2) default 0;
+alter table public.orders add column if not exists estimated_cost numeric(12,2) default 0;
+alter table public.deliveries add column if not exists round_trip_miles numeric(10,2) default 0;
+alter table public.deliveries add column if not exists drive_minutes numeric(10,2) default 0;
+alter table public.deliveries add column if not exists delivery_date date;
+alter table public.deliveries add column if not exists delivery_window text;
+alter table public.deliveries add column if not exists recipient_name text;
+alter table public.deliveries add column if not exists recipient_phone text;
+create unique index if not exists deliveries_one_per_order on public.deliveries(order_id) where order_id is not null;
+notify pgrst, 'reload schema';

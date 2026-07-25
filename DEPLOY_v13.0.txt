@@ -1,0 +1,7 @@
+BLOOM X v13.0 DEPLOYMENT
+
+1. No new Supabase migration is required.
+2. Upload the complete Bloom_X_v13.0_Pastel_POS_Edition.zip to Netlify.
+3. Wait for the deploy to finish.
+4. Open Bloom in Microsoft Edge and press Ctrl + F5.
+5. Go to Settings & Branding to upload the shop logo once and select colors/fonts.

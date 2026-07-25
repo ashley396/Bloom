@@ -1,0 +1,4 @@
+1. Run supabase/migration_v11.3_branding.sql in Supabase SQL Editor.
+2. Deploy the full project.
+3. Open Settings to choose colors, font, and upload your logo.
+4. Save settings and refresh with Ctrl+F5.

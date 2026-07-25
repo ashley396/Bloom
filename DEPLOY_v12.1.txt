@@ -1,0 +1,7 @@
+Bloom X v12.1 deployment
+
+1. Upload the complete ZIP contents to Netlify.
+2. No Supabase SQL migration is required.
+3. Refresh Bloom with Ctrl + F5.
+4. Open Settings > Voice settings and preview the available Rose voices.
+5. Microphone permission is only needed for voice questions and wake phrases. Hearing Rose does not require microphone access.

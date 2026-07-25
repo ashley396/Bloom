@@ -1,0 +1,7 @@
+1. In Supabase SQL Editor, run: supabase/migration_v10.1_inventory_pro.sql
+2. Upload this full project to GitHub and push.
+3. Let Netlify deploy, then refresh Bloom with Ctrl + F5.
+4. Image scanning requires OPENAI_API_KEY in Netlify. CSV import works without it.
+
+GitHub summary:
+Bloom X v10.1 - Fix inventory, add flower colors, 3x pricing, and inventory scanning

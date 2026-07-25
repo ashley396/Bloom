@@ -1,0 +1,5 @@
+Bloom X v11.2 deployment
+1. Upload the complete project to GitHub/Netlify.
+2. No new Supabase migration is required.
+3. After Netlify finishes, refresh Bloom with Ctrl + F5.
+4. Test: create an inventory item matching a recipe ingredient, create an order using that product, then confirm the quantity decreased.

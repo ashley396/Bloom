@@ -1,0 +1,9 @@
+Bloom X v10.4 deployment
+
+1. Upload this complete folder to the existing GitHub repository.
+2. Commit summary:
+   Bloom X v10.4 - Add real floral library, recipe guidance, and Lily writing helper
+3. Push to GitHub and allow Netlify to deploy.
+4. No Supabase migration is required.
+5. OPENAI_API_KEY already in Netlify is used by Lily's writing helper; do not add it again.
+6. Refresh Bloom with Ctrl + F5 after deployment.

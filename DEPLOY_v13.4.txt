@@ -1,0 +1,5 @@
+BLOOM X v13.4 DEPLOY
+1. Upload the entire ZIP to Netlify.
+2. No Supabase migration is required.
+3. After deployment completes, open Bloom and press Ctrl + F5.
+4. The first v13.4 load restores the complete default picture tile set. Custom tile editing remains available through Edit tiles.
