@@ -52,32 +52,7 @@ function showAuth(){$("#auth").hidden=false;$("#app").hidden=true}
 function showApp(){$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";loadStores()}
 function showPage(id){$$(".page").forEach(p=>p.classList.toggle("active",p.id===id));$$("[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));loadPage(id)}
 async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,websitePage:loadWebsite,libraryPage:renderLibrary,expensesPage:loadExpenses,reportsPage:loadReports,staffPage:loadStaff,marketplacePage:loadMarketplace,storesPage:loadStores,settingsPage:loadSettings,invoicesPage:loadInvoices};try{if(m[id])await m[id]()}catch(e){toast(e.message)}}
-const ORDER_FLOW=[
-  {id:"NEW",label:"New"},
-  {id:"DESIGNING",label:"Designing"},
-  {id:"READY",label:"Ready"},
-  {id:"OUT_FOR_DELIVERY",label:"Out / Pickup"},
-  {id:"COMPLETED",label:"Completed"}
-];
-function normalizeOrderStatus(value){const status=String(value||"NEW").toUpperCase();return ORDER_FLOW.some(x=>x.id===status)?status:"NEW"}
-function orderTelemetry(message,type="info"){
-  const log=$("#telemetryLog");if(!log)return;
-  const row=document.createElement("p");if(type!=="info")row.className=type;
-  const time=document.createElement("time");time.textContent=new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-  const text=document.createElement("span");text.textContent=message;row.append(time,text);log.prepend(row);
-  while(log.children.length>40)log.lastElementChild.remove();
-}
-function cogsSnapshot(o){const total=Math.max(0,Number(o.total||0)),cost=Math.max(0,Number(o.estimated_cost||0));const ratio=total?cost/total:0;return {total,cost,ratio,over:cost>0&&ratio>.33}}
-function renderProductionOrder(o){
-  const status=normalizeOrderStatus(o.status),index=ORDER_FLOW.findIndex(x=>x.id===status),next=ORDER_FLOW[index+1],cogs=cogsSnapshot(o),pct=Math.round(cogs.ratio*100),meter=Math.min(100,pct);
-  const guardrail=cogs.over?`<div class="cogs-warning">⚠ COGS is ${pct}% — above Bloom’s 33% target. Review the price or recipe before committing.</div>`:cogs.cost?`<div class="cogs-good">✓ COGS ${pct}% · within 33% target</div>`:`<div class="cogs-good">Add an estimated cost to activate the 33% guardrail.</div>`;
-  return `<article class="production-card" data-order-card="${o.id}"><div class="card-top"><div><h3>${esc(o.order_number||"Order")} · ${esc(o.customer_name||"Customer")}</h3><div class="meta">${esc(o.occasion||"Floral order")} · ${dateText(o.delivery_date)}</div></div><span class="badge ${o.payment_status==="PAID"?"good":"warn"}">${esc(o.payment_status||"UNPAID")}</span></div><div class="production-card-total"><strong>${money(cogs.total)}</strong><small>${o.recipient_name?`For ${esc(o.recipient_name)}`:esc(o.fulfillment||"")}</small></div><div class="cogs-meter ${cogs.over?"over":""}" title="COGS ${pct}%"><span style="width:${meter}%"></span></div>${guardrail}<div class="production-actions"><button class="secondary" data-receipt="${o.id}">Receipt</button>${next?`<button class="primary advance-order" data-advance-order="${o.id}" data-current-status="${status}">Advance → ${esc(next.label)}</button>`:`<button class="secondary" disabled>Completed</button>`}</div></article>`
-}
-function renderOrderBoard(){
-  const board=$("#ordersBoard");if(!board)return;
-  board.innerHTML=ORDER_FLOW.map(column=>{const items=orders.filter(o=>normalizeOrderStatus(o.status)===column.id);return `<section class="order-board-column" data-order-column="${column.id}"><div class="order-board-column-head"><h2>${esc(column.label)}</h2><span>${items.length}</span></div><div class="order-board-stack">${items.length?items.map(renderProductionOrder).join(""):'<div class="order-board-empty">No orders here</div>'}</div></section>`}).join("");
-}
-function renderOrder(o){return renderProductionOrder(o)}
+function renderOrder(o){return `<article class="card"><div class="card-top"><div><h3>${esc(o.order_number)} · ${esc(o.customer_name)}</h3><div class="meta">${esc(o.occasion||"Floral order")} · ${esc(o.fulfillment)} ${dateText(o.delivery_date)}</div></div><span class="badge ${o.payment_status==="PAID"?"good":"warn"}">${esc(o.payment_status||"UNPAID")}</span></div><p><strong>${money(o.total)}</strong>${o.recipient_name?` · For ${esc(o.recipient_name)}`:""}</p><div class="card-actions"><button class="secondary" data-receipt="${o.id}">Receipt</button>${o.payment_status==="PAID"?`<button class="secondary" data-unpay="${o.id}">Mark unpaid</button>`:`<button class="primary" data-pay="${o.id}">Mark paid</button>`}</div></article>`}
 
 function invoiceCard(o){const paid=(o.payment_status||"UNPAID")==="PAID";return `<article class="card invoice-card"><div class="card-top"><div><h3>Invoice ${esc(o.order_number||"")}</h3><div class="meta">${esc(o.customer_name||"Customer")} · ${dateText((o.created_at||"").slice(0,10))}</div></div><span class="badge ${paid?"good":"warn"}">${paid?"PAID":"OPEN"}</span></div><p>${esc(o.recipient_name?`Recipient: ${o.recipient_name}`:(o.occasion||"Floral order"))}</p><div class="invoice-amount"><span>Total</span><strong>${money(o.total)}</strong></div><div class="card-actions"><button class="secondary" data-invoice-view="${o.id}" type="button">View / print</button><button class="secondary" data-invoice-email="${o.id}" type="button">Email invoice</button>${paid?`<button class="secondary" data-unpay="${o.id}" type="button">Mark unpaid</button>`:`<button class="primary" data-pay="${o.id}" type="button">Mark paid</button>`}</div></article>`}
 async function loadInvoices(){if(!orders.length)await loadOrders();const outstanding=orders.filter(o=>(o.payment_status||"UNPAID")!=="PAID");$("#invoiceOutstanding").textContent=money(outstanding.reduce((s,o)=>s+Number(o.total||0),0));$("#invoiceOpenCount").textContent=outstanding.length;$("#invoicePaidCount").textContent=orders.length-outstanding.length;$("#invoiceList").innerHTML=orders.length?orders.map(invoiceCard).join(""):empty("No invoices yet. Create an order first.")}
@@ -109,19 +84,7 @@ async function loadDashboard(){
 async function loadStores(){const {items}=await api("stores");try{shopSettings=(await api("settings")).item;applyBranding(shopSettings)}catch{};$("#shopSwitcher").innerHTML=items.map(s=>`<option value="${s.id}" ${s.active?"selected":""}>${esc(s.name)}</option>`).join("");const active=items.find(x=>x.active);const hour=new Date().getHours(),daypart=hour<12?"Good morning":hour<17?"Good afternoon":"Good evening";$("#greeting").textContent=`${daypart}, Ashley!`;if($("#storesList"))$("#storesList").innerHTML=items.length?items.map(s=>`<article class="card"><div class="card-top"><div><h3>${esc(s.name)}</h3><div class="meta">${esc(s.address||"Address not set")} · ${esc(s.role)}</div></div>${s.active?'<span class="badge good">ACTIVE</span>':""}</div>${!s.active?`<div class="card-actions"><button class="primary" data-switch-shop="${s.id}">Open this shop</button></div>`:""}</article>`).join(""):empty("No stores.")}
 async function loadCustomers(){customers=(await api("customers")).items||[];renderCustomers();refreshOrderCustomerOptions()}
 function renderCustomers(){renderPosCustomerOptions();const q=$("#customerSearch").value.toLowerCase();const rows=customers.filter(x=>[x.name,x.phone,x.email,x.favorite_flowers,x.favorite_colors].join(" ").toLowerCase().includes(q));$("#customersList").innerHTML=rows.length?rows.map(c=>`<article class="card"><div class="card-top"><div><h3>${c.vip?"★ ":""}${esc(c.name)}</h3><div class="meta">${esc(c.phone||"")} ${c.email?`· ${esc(c.email)}`:""}</div></div>${c.vip?'<span class="badge">VIP</span>':""}${c.is_business?'<span class="badge good">BUSINESS</span>':""}</div>${c.favorite_flowers?`<p>Favorites: ${esc(c.favorite_flowers)} ${c.favorite_colors?`· ${esc(c.favorite_colors)}`:""}</p>`:""}<div class="card-actions"><button class="secondary" data-edit-customer="${c.id}">Edit</button><button class="secondary" data-delete-customer="${c.id}">Delete</button></div></article>`).join(""):empty("No customers found.")}
-async function loadOrders(){orderTelemetry("GET /.netlify/functions/orders → requesting active order state");orders=(await api("orders")).items||[];renderOrderBoard();if($("#ordersList"))$("#ordersList").innerHTML=orders.length?orders.map(renderOrder).join(""):empty("No orders.");if($("#deliveryOrder"))$("#deliveryOrder").innerHTML=orders.map(o=>`<option value="${o.id}" data-address="${esc(o.delivery_address||"")}">${esc(o.order_number)} · ${esc(o.customer_name)}</option>`).join("");syncDeliveryStopAddress();orderTelemetry(`GET orders → ${orders.length} record${orders.length===1?"":"s"} synchronized`,"success")}
-async function advanceOrderState(id,currentStatus){
-  const currentIndex=ORDER_FLOW.findIndex(x=>x.id===normalizeOrderStatus(currentStatus)),next=ORDER_FLOW[currentIndex+1];if(!next)return;
-  const card=document.querySelector(`[data-order-card="${CSS.escape(id)}"]`);card?.classList.add("is-moving");
-  orderTelemetry(`UI advance ${id}: ${ORDER_FLOW[currentIndex].id} → ${next.id}`);
-  try{
-    orderTelemetry(`PATCH /.netlify/functions/orders { status: ${next.id} }`);
-    const result=await api("orders",{method:"PATCH",body:JSON.stringify({id,status:next.id})});
-    const updated=result.item||{};orders=orders.map(o=>o.id===id?{...o,...updated,status:next.id}:o);renderOrderBoard();
-    orderTelemetry(`Postgres orders UPDATE committed → ${next.id}`,"success");toast(`Order moved to ${next.label}`);
-    loadDashboard();
-  }catch(error){card?.classList.remove("is-moving");orderTelemetry(`Transition failed: ${error.message}`,"error");toast(error.message)}
-}
+async function loadOrders(){orders=(await api("orders")).items||[];$("#ordersList").innerHTML=orders.length?orders.map(renderOrder).join(""):empty("No orders.");$("#deliveryOrder").innerHTML=orders.map(o=>`<option value="${o.id}" data-address="${esc(o.delivery_address||"")}">${esc(o.order_number)} · ${esc(o.customer_name)}</option>`).join("");syncDeliveryStopAddress()}
 async function loadDeliveries(){
   const result=await api("deliveries");
   const items=result.items||[];
@@ -315,7 +278,6 @@ if(t=e.target.closest("[data-delete-product]")){if(confirm("Delete this product?
 if(t=e.target.closest("[data-add-library]")){t.disabled=true;try{await addLibraryProduct(t.dataset.addLibrary)}finally{t.disabled=false}return}
 if(t=e.target.closest("[data-invoice-view]")){if(!shopSettings)shopSettings=(await api("settings")).item;return openInvoice(orders.find(x=>x.id===t.dataset.invoiceView))}
 if(t=e.target.closest("[data-invoice-email]")){return emailInvoice(orders.find(x=>x.id===t.dataset.invoiceEmail))}
-if(t=e.target.closest("[data-advance-order]")){return advanceOrderState(t.dataset.advanceOrder,t.dataset.currentStatus)}
 if(t=e.target.closest("[data-receipt]")){if(!shopSettings)shopSettings=(await api("settings")).item;return openReceipt(orders.find(x=>x.id===t.dataset.receipt))}
 if(t=e.target.closest("[data-pay]")){const m=prompt("Payment method","Card");if(m){await api("orders",{method:"PATCH",body:JSON.stringify({id:t.dataset.pay,action:"MARK_PAID",payment_method:m})});loadOrders();loadDashboard()}return}
 if(t=e.target.closest("[data-unpay]")){await api("orders",{method:"PATCH",body:JSON.stringify({id:t.dataset.unpay,action:"MARK_UNPAID"})});loadOrders();loadDashboard();return}
@@ -339,8 +301,6 @@ $("#dashboardImageUpload")?.addEventListener("change",e=>readBrandImage(e.target
 $("#removeDashboardImage")?.addEventListener("click",()=>{$("#dashboardImageUrl").value="";$("#dashboardImageUpload").value="";previewBrandingForm()});
 $("#speakRoseBriefing")?.addEventListener("click",()=>{const text=$("#roseBriefingText")?.dataset.spoken||$("#roseBriefingText")?.textContent||"";if(!window.speechSynthesis)return toast("Voice playback is not supported in this browser.");speakAssistant(text,"Rose",true)});
 $("#moreMenu").onclick=()=>{const p=prompt("Open customers, inventory, expenses, reports, staff, delivery, wholesale or stores","customers"),m={customers:"customersPage",inventory:"inventoryPage",expenses:"expensesPage",reports:"reportsPage",staff:"staffPage",delivery:"deliveriesPage",wholesale:"marketplacePage",stores:"storesPage",settings:"settingsPage"};if(m[p?.toLowerCase()])showPage(m[p.toLowerCase()])};
-$("#refreshOrderBoard")?.addEventListener("click",()=>loadOrders());
-$("#clearTelemetry")?.addEventListener("click",()=>{const log=$("#telemetryLog");if(log)log.innerHTML="<p><time>READY</time><span>Activity log cleared.</span></p>"});
 loadPosTiles();initShiftButton();removeDuplicateControls();
 function enableSmartTyping(){document.documentElement.setAttribute("spellcheck","true");$$('input:not([type="password"]):not([type="email"]):not([type="number"]):not([type="date"]),textarea').forEach(el=>{el.spellcheck=true;if(!el.getAttribute("autocomplete"))el.setAttribute("autocomplete","on");el.setAttribute("autocapitalize","sentences")});const map={name:"name",phone:"tel",email:"email",address:"street-address",customer_name:"name",customer_phone:"tel",recipient_name:"name",recipient_phone:"tel"};$$('input[name],textarea[name]').forEach(el=>{if(map[el.name])el.setAttribute("autocomplete",map[el.name])})}
 enableSmartTyping();loadPosCart();try{pendingPaymentOrder=JSON.parse(localStorage.getItem("bloom_pending_payment_order")||"null")}catch{}if(session?.accessToken){showApp();Promise.all([loadDashboard(),loadInventory(),loadOrders(),loadProducts()]).then(finishStripeReturn)}else showAuth();
