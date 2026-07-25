@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#a72f67"><title>Bloom POS</title><link rel="stylesheet" href="/styles.css"></head><body>
 <div id="toast" class="toast" hidden></div>
-<section id="auth" class="auth"><div class="auth-card"><div class="brand">Bloom</div><h1>Your complete florist operating system.</h1><p>POS, websites, recipes, delivery, staff, reports, multiple stores and wholesale.</p><form id="authForm"><label id="shopWrap" hidden>Shop name<input id="shopName"></label><label id="nameWrap" hidden>Your name<input id="fullName"></label><label>Email<input id="email" type="email" required></label><label>Password<input id="password" type="password" minlength="6" required></label><button class="primary wide" id="authButton">Sign in</button></form><button class="link" id="switchMode">Create a Bloom account</button><p id="authMessage"></p><small>Bloom X v13.8 System Debug</small></div></section>
+<section id="auth" class="auth"><div class="auth-card"><div class="brand">Bloom</div><h1>Your complete florist operating system.</h1><p>POS, websites, recipes, delivery, staff, reports, multiple stores and wholesale.</p><form id="authForm"><label id="shopWrap" hidden>Shop name<input id="shopName"></label><label id="nameWrap" hidden>Your name<input id="fullName"></label><label>Email<input id="email" type="email" required></label><label>Password<input id="password" type="password" minlength="6" required></label><button class="primary wide" id="authButton">Sign in</button></form><button class="link" id="switchMode">Create a Bloom account</button><p id="authMessage"></p><small>Bloom X v16 Profit Intelligence</small></div></section>
 <main id="app" hidden><header><div class="header-brand"><img id="appLogo" class="app-logo" alt="Shop logo" hidden><div class="brand"><span class="brand-flower">✿</span> Bloom <small>POS</small></div><select id="shopSwitcher"></select></div><div><small id="accountEmail"></small><button id="logout" class="secondary">Sign out</button></div></header>
 <div class="shell"><aside>
 <p>SHOP</p><button class="active" data-page="dashboardPage">Point of Sale</button><button data-page="ordersPage">Orders</button><button data-page="deliveriesPage">Deliveries</button><button data-page="customersPage">Customers</button><button data-page="inventoryPage">Inventory</button>
@@ -35,6 +35,21 @@
       <div><h2>Hi Ashley!</h2><p>I found new floral ideas that match your inventory.</p><button class="soft-green" data-page="libraryPage">View suggestions</button></div>
     </section>
   </div>
+
+  <section class="profit-intelligence-grid" aria-label="Bloom profit intelligence">
+    <article class="profit-score-card">
+      <div><p class="eyebrow">BLOOM PROFIT SCORE</p><h2><span id="bloomProfitScore">--</span><small>/100</small></h2><p id="profitScoreMessage">Calculating shop health…</p></div>
+      <div class="score-breakdown"><span>Freshness <b id="freshnessScore">--%</b></span><span>Margin health <b id="marginHealthScore">--%</b></span><span>Waste risk <b id="wasteRiskLabel">--</b></span></div>
+    </article>
+    <article class="use-first-card">
+      <div class="panel-heading"><div><p class="eyebrow">ZERO-WASTE ENGINE</p><h3>Use these first</h3></div><button type="button" data-page="inventoryPage">Open inventory</button></div>
+      <div id="useFirstList" class="use-first-list"><p class="subtle">Loading freshness data…</p></div>
+    </article>
+    <article class="daily-special-card">
+      <div><p class="eyebrow">LILY'S DAILY SPECIAL</p><h3 id="dailySpecialName">Reviewing today's inventory…</h3><p id="dailySpecialRecipe" class="subtle"></p></div>
+      <div class="daily-special-footer"><span>Waste prevented <b id="dailySpecialWaste">$0.00</b></span><button id="createDailySpecial" type="button" class="soft-green">Create product</button></div>
+    </article>
+  </section>
 
   <div class="pos-workspace">
     <section class="pos-center">
@@ -162,6 +177,7 @@
 </div>
 <datalist id="flowerColors"><option>Red</option><option>White</option><option>Pink</option><option>Hot Pink</option><option>Yellow</option><option>Orange</option><option>Peach</option><option>Purple</option><option>Blue</option><option>Green</option><option>Cream</option><option>Lavender</option><option>Coral</option><option>Mixed</option></datalist>
 <div class="three"><label>Quantity in stock<input name="quantity" type="number" step=".01" min="0" value="0"></label><label>Low-stock alert<input name="low_stock_level" type="number" step=".01" min="0" value="5"></label><label>Unit<input name="unit" value="stems"></label></div>
+<div class="three freshness-fields"><label>Arrival date<input name="arrival_date" type="date"></label><label>Expected vase life (days)<input name="vase_life_days" type="number" min="1" max="30" value="7"></label><label>Supplier<input name="supplier" placeholder="Wholesaler or farm"></label></div>
 <div class="two"><label>Wholesale price per unit ($)<input name="cost" id="inventoryWholesaleCost" type="number" step=".01" min="0" value="0"></label><label>Bloom retail price ($)<input name="price" id="inventoryRetailPrice" type="number" step=".01" min="0" value="0"><small id="inventoryMarkupNote">Flowers automatically price at 3× wholesale.</small></label></div>
 <div class="inventory-calculation"><span>Wholesale stock value: <strong id="wholesaleStockValue">$0.00</strong></span><span>Retail stock value: <strong id="retailStockValue">$0.00</strong></span></div>
 <div class="actions"><button type="button" class="secondary close">Cancel</button><button class="primary">Save inventory</button></div></form></dialog>

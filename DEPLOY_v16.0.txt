@@ -1,0 +1,8 @@
+BLOOM V16 — TWO STEPS
+
+1. In Supabase SQL Editor, run the complete file:
+   supabase/migration_v16_profit_intelligence.sql
+
+2. Upload this complete ZIP to the existing bloom-technologies Netlify site.
+
+No new environment variables are required. Stripe settings remain unchanged.

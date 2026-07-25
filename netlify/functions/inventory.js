@@ -17,7 +17,11 @@ function payloadOf(body,shopId){
     low_stock_level:Math.max(0,Number(body.low_stock_level||5)),
     unit:cleanText(body.unit,"stems")||"stems",
     cost,
-    price
+    price,
+    arrival_date: cleanText(body.arrival_date) || new Date().toISOString().slice(0,10),
+    vase_life_days: Math.max(1,Number(body.vase_life_days||7)),
+    supplier: cleanText(body.supplier),
+    lot_code: cleanText(body.lot_code)
   };
 }
 export async function handler(event){
