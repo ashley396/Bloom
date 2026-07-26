@@ -1,0 +1,13 @@
+BLOOM v20.6 — ONE-TIME ADMIN + SUBSCRIBER INTELLIGENCE SETUP
+
+This package includes v20.5 and v20.6 together.
+
+1. In Supabase > SQL Editor, run migration_v20.5_admin_control_center.sql if you have not already run it.
+2. Then run migration_v20.6_subscriber_intelligence.sql one time.
+3. Create/authorize your separate admin user using the instructions in DEPLOY_v20.5.txt if not already done.
+4. Deploy the complete Bloom-main folder to Netlify one time.
+5. Open /admin.html and sign in with the separate admin account.
+
+The Overview page will then show subscriber totals, plan counts, estimated monthly recurring revenue, new subscribers this month, cancellations, and a dated activity feed. Alerts are automatic after the migration is installed.
+
+Estimated monthly revenue uses the agreed plan prices: Starter $39, Pro $79, Premium $129. Stripe remains the final source of truth for actual payments, refunds, taxes, and processing fees.

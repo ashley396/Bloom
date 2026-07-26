@@ -1,0 +1,22 @@
+BLOOM v20.5 ADMIN CONTROL CENTER
+
+1. Open Supabase > SQL Editor.
+2. Run: supabase/migration_v20.5_admin_control_center.sql
+3. Create a SEPARATE admin user in Supabase Authentication > Users using your private admin email.
+4. Copy that admin user's UUID.
+5. In SQL Editor run:
+
+insert into public.platform_admins (user_id, role, display_name)
+values ('PASTE-ADMIN-USER-UUID-HERE', 'super_admin', 'Ashley Goodman')
+on conflict (user_id) do update set active=true, role='super_admin';
+
+6. Deploy the entire Bloom-main folder to Netlify one time.
+7. Open: https://YOUR-SITE.netlify.app/admin.html
+8. Sign in with the separate admin account.
+
+SECURITY NOTES
+- Never add the admin page to the florist sidebar.
+- Never share the separate admin login.
+- SUPABASE_SERVICE_ROLE_KEY must remain only in Netlify environment variables.
+- Every remote admin save is written to the platform_admin_audit table.
+- Do not use browser developer tools or direct database edits for routine customer support.

@@ -58,7 +58,7 @@ async function api(path,opt={},auth=true){const h={"Content-Type":"application/j
 function applyBranding(settings=shopSettings||{}){const root=document.documentElement;const primary=settings.primary_color||"#8f3f68",bg=settings.app_background_color||"#f8f3f6",sidebar=settings.sidebar_color||"#30232d",header=settings.header_color||"#ffffff",font=settings.app_font||"Elegant";root.style.setProperty("--brand-primary",primary);root.style.setProperty("--app-background",bg);root.style.setProperty("--sidebar-color",sidebar);root.style.setProperty("--header-color",header);document.body.dataset.appFont=font;const logo=settings.logo_url||"";const appLogo=$("#appLogo"),preview=$("#settingsLogoPreview"),placeholder=$("#logoPlaceholder"),webPreview=$("#websiteLogoPreview"),webPlaceholder=$("#websiteLogoPlaceholder");if(appLogo){appLogo.src=logo;appLogo.hidden=!logo}if(preview){preview.src=logo;preview.hidden=!logo}if(placeholder)placeholder.hidden=Boolean(logo);if(webPreview){webPreview.src=logo;webPreview.hidden=!logo}if(webPlaceholder)webPlaceholder.hidden=Boolean(logo);const dash=settings.dashboard_image_url||"",dashWrap=$("#dashboardWelcomePhoto"),dashImg=$("#dashboardWelcomeImage"),dashPreview=$("#dashboardImagePreview"),dashPlaceholder=$("#dashboardImagePlaceholder");if(dashImg){dashImg.src=dash;dashWrap.hidden=!dash}if(dashPreview){dashPreview.src=dash;dashPreview.hidden=!dash}if(dashPlaceholder)dashPlaceholder.hidden=Boolean(dash);const brandEl=document.querySelector(".brand");if(brandEl)brandEl.textContent=settings.name||"Bloom";}
 function previewBrandingForm(){const f=$("#settingsForm");if(!f)return;const d=Object.fromEntries(new FormData(f));applyBranding({...shopSettings,...d});const p=$("#themePreview");if(p){p.style.background=d.app_background_color||"#f8f3f6";p.style.borderColor=d.primary_color||"#8f3f68";p.querySelector("span").style.color=d.primary_color||"#8f3f68";p.dataset.font=d.app_font||"Elegant"}}
 function showAuth(){$("#auth").hidden=false;$("#app").hidden=true}
-function showApp(){$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";loadStores()}
+function showApp(){$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";loadStores();loadRemoteAdminConfig()}
 function showPage(id){$$(".page").forEach(p=>p.classList.toggle("active",p.id===id));$$("[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));loadPage(id)}
 async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,expensesPage:loadExpenses,reportsPage:loadReports,staffPage:loadStaff,marketplacePage:loadMarketplace,storesPage:loadStores,settingsPage:loadSettings,invoicesPage:loadInvoices};try{if(m[id])await m[id]()}catch(e){toast(e.message)}}
 const ORDER_FLOW=[
@@ -443,3 +443,48 @@ $("#shotGenerate")?.addEventListener("click",async()=>{const b=$("#shotGenerate"
 $("#shotSaveDraft")?.addEventListener("click",()=>saveShotDraft(false));
 $("#shotAddProduct")?.addEventListener("click",async()=>{if(!$("#shotApproved").checked)return toast("Review the content and check approval first");const name=$("#shotProductName").value.trim();if(!name)return toast("Enter a product name");const payload={name,category:$("#shotOccasion").value,price:Number($("#shotPrice").value||0),description:$("#shotDescription").value,image_url:shotImage?$("#bloomshotCanvas").toDataURL("image/jpeg",.86):"",available_online:false,featured:false,active:true};try{await api("products",{method:"POST",body:JSON.stringify(payload)});toast("Product added as an unpublished draft");$("#shotStatus").textContent="Saved to Products as a draft. It is not online until you publish it.";await loadProducts()}catch(e){toast(e.message)}});
 syncShotOutputs();
+
+
+// Bloom v20.5 remote administration configuration.
+async function loadRemoteAdminConfig(){
+  try{
+    const shopId=localStorage.getItem("bloom_active_shop_id")||"";
+    const q=shopId?`?shopId=${encodeURIComponent(shopId)}`:"";
+    const {config}=await api(`tenant-config${q}`,{method:"GET"});
+    applyRemoteAdminConfig(config||{});
+  }catch(error){console.warn("Remote admin configuration unavailable",error)}
+}
+function applyRemoteAdminConfig(config={}){
+  const theme=config.theme||{},root=document.documentElement;
+  if(theme.primary)root.style.setProperty("--admin-primary",theme.primary);
+  if(theme.accent)root.style.setProperty("--admin-accent",theme.accent);
+  if(theme.background)root.style.setProperty("--admin-background",theme.background);
+  if(theme.sidebar)root.style.setProperty("--admin-sidebar",theme.sidebar);
+  if(theme.radius)root.style.setProperty("--admin-radius",`${Number(theme.radius)}px`);
+  document.body.dataset.adminDensity=theme.density||"comfortable";
+  const aside=document.querySelector("#app aside");
+  if(aside){
+    const nav=config.navigation||{},buttons=[...aside.querySelectorAll("button[data-page]")];
+    const byPage=new Map(buttons.map(b=>[b.dataset.page,b]));
+    (nav.order||[]).forEach(page=>{const b=byPage.get(page);if(b)aside.appendChild(b)});
+    const hidden=new Set(nav.hidden||[]);
+    buttons.forEach(b=>b.hidden=hidden.has(b.dataset.page));
+  }
+  const featurePage={dashboard:"dashboardPage",orders:"ordersPage",deliveries:"deliveriesPage",customers:"customersPage",inventory:"inventoryPage",products:"productsPage",bloomshot:"bloomshotPage",website:"websitePage",library:"libraryPage",invoices:"invoicesPage",payments:"paymentsPage",expenses:"expensesPage",reports:"reportsPage",staff:"staffPage",marketplace:"marketplacePage",stores:"storesPage"};
+  Object.entries(config.features||{}).forEach(([feature,enabled])=>{
+    const page=featurePage[feature];if(!page||enabled!==false)return;
+    document.querySelectorAll(`[data-page="${page}"],#${page}`).forEach(el=>el.hidden=true);
+  });
+  let banner=document.querySelector("#remoteAdminAnnouncement");
+  if(config.announcement){
+    if(!banner){banner=document.createElement("div");banner.id="remoteAdminAnnouncement";banner.className="remote-admin-announcement";document.querySelector("#app .content")?.prepend(banner)}
+    banner.textContent=config.announcement;banner.hidden=false;
+  }else if(banner)banner.hidden=true;
+  if(config.account_status==="maintenance"||config.account_status==="suspended"){
+    let lock=document.querySelector("#remoteAccountLock");
+    if(!lock){lock=document.createElement("div");lock.id="remoteAccountLock";lock.className="remote-account-lock";document.body.appendChild(lock)}
+    const suspended=config.account_status==="suspended";
+    lock.innerHTML=`<div><span>${suspended?"🔒":"🛠️"}</span><h2>${suspended?"Account temporarily unavailable":"Bloom maintenance in progress"}</h2><p>${esc(config.support_message||"Please contact Bloom Support for assistance.")}</p><button type="button" onclick="location.reload()">Check again</button></div>`;
+    lock.hidden=false;
+  }
+}
