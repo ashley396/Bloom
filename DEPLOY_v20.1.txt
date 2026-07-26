@@ -1,0 +1,9 @@
+BLOOM v20.1 ATELIER EDITION — ONE DEPLOY
+
+1. Keep your existing Netlify environment variables unchanged.
+2. Keep your existing Supabase project and database unchanged.
+3. Upload/deploy this complete Bloom-main folder to Netlify exactly as you did for v20.
+4. No SQL migration is required.
+5. After deployment, hard-refresh the browser once (Ctrl+Shift+R on Windows).
+
+This is an appearance-only release. All v20 functions remain in place.
