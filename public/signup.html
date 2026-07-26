@@ -1,21 +1,21 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Start Your Bloom Free Trial</title><meta name="description" content="Create your Bloom florist software account and start a 14-day free trial.">
-<link rel="icon" href="/assets/bloom-icon.svg"><link rel="stylesheet" href="/signup.css"></head>
+<link rel="icon" href="/assets/bloom-icon.svg"><link rel="stylesheet" href="/signup.css"><link rel="stylesheet" href="/platform-v21.1.css"></head>
 <body>
 <main class="signup-shell">
-  <section class="signup-story">
+  <section class="signup-story" id="about">
     <a class="signup-brand" href="/"><img src="/assets/bloom-icon.svg" alt="Bloom"><div><strong>Bloom</strong><small>Floral Business Suite</small></div></a>
     <div class="story-copy"><p class="eyebrow">BUILT FOR FLORISTS. BY A FLORIST.</p><h1>Everything your flower shop needs to bloom.</h1><p>Bloom brings orders, customers, inventory, recipes, deliveries, payments, websites, marketing, and helpful AI together in one beautiful workspace.</p>
       <div class="feature-list"><span>✓ Florist POS & order management</span><span>✓ Inventory, recipes & pricing</span><span>✓ Website, marketing & BloomShot</span><span>✓ Lily and Rose business assistants</span></div>
     </div>
     <div class="story-floral" aria-hidden="true"></div>
-    <footer><span>Independent-florist first</span><span>Secure account setup</span></footer>
+    <footer class="signup-story-footer"><span>Independent-florist first</span><span>Secure account setup</span></footer>
   </section>
   <section class="signup-workspace">
     <header class="signup-heading"><p class="eyebrow">START YOUR 14-DAY FREE TRIAL</p><h2>Choose the plan that fits your shop</h2><p>No setup fee. No contract. Cancel anytime. No hidden Bloom software fees.</p></header>
     <form id="signupForm">
-      <div class="plans" aria-label="Choose your plan">
+      <div class="plans" id="pricing" aria-label="Choose your plan">
         <label class="plan"><input type="radio" name="plan" value="starter" data-price="39"><span>Starter</span><strong>$39<small>/month</small></strong><p>Essential tools for a growing shop.</p><em>POS & orders</em><em>Inventory management</em><em>Website builder</em><em>Marketing tools</em></label>
         <label class="plan featured"><b>MOST POPULAR</b><input type="radio" name="plan" value="pro" data-price="79" checked><span>Pro</span><strong>$79<small>/month</small></strong><p>Everything most independent florists need.</p><em>Everything in Starter</em><em>Advanced reporting</em><em>Delivery management</em><em>Lily AI assistant</em></label>
         <label class="plan"><input type="radio" name="plan" value="premium" data-price="129"><span>Premium</span><strong>$129<small>/month</small></strong><p>Complete capability for ambitious shops.</p><em>Everything in Pro</em><em>Multi-store tools</em><em>Priority support</em><em>Wholesale access</em></label>
@@ -34,4 +34,8 @@
       </div>
     </form>
   </section>
-</main><script src="/signup.js" type="module"></script></body></html>
+</main><footer class="signup-company-footer">
+  <div><strong>Bloom Technologies</strong><span>Built for florists. By a florist.</span></div>
+  <nav><a href="#about">About</a><a href="#pricing">Pricing</a><a id="foundation" href="/">Rose Foundation</a><a id="privacy" href="#">Privacy</a><a id="terms" href="#">Terms</a></nav>
+  <p>Bloom software pricing is transparent. Card processors and optional payment providers may charge their own disclosed transaction fees.</p>
+</footer><script src="/signup.js" type="module"></script></body></html>

@@ -1,0 +1,17 @@
+BLOOM v21.1 — ACCESS, LOGIN, FOOTER & PAYMENT METHODS
+
+1. Upload/deploy the complete Bloom-main folder to Netlify.
+2. In Netlify, confirm Publish directory is: public
+3. Confirm Functions directory is: netlify/functions
+4. Keep your existing Supabase and Stripe environment variables.
+5. Open your admin page at either:
+   https://YOUR-SITE.netlify.app/admin
+   https://YOUR-SITE.netlify.app/admin.html
+6. Open customer login at:
+   https://YOUR-SITE.netlify.app/login
+7. Open customer signup at:
+   https://YOUR-SITE.netlify.app/signup
+8. In Stripe Dashboard > Settings > Payment methods, enable the eligible methods you want (for example Affirm, Afterpay/Clearpay, or Klarna). Stripe decides which options appear based on eligibility, amount, currency, and customer location.
+9. Hard refresh with Ctrl + Shift + R. On phone, close and reopen the app.
+
+IMPORTANT: Affirm/Afterpay are for eligible customer order payments. They are not generally available for Bloom's recurring software subscription Checkout.

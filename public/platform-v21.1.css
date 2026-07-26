@@ -1,0 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Parisienne&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap');
+
+:root{--login-ink:#2f2930;--login-green:#496527;--login-pink:#e94b7b;--login-blush:#fff3f6;--login-cream:#fffdf9}
+.auth-shell,.signup-shell{font-family:'DM Sans',sans-serif}
+.auth-logo span,.auth-intro h2,.signup-brand strong,.signup-heading h2,.form-card h3{font-family:'Playfair Display',serif}
+.auth-hero-copy h1,.story-copy h1{font-family:'Parisienne',cursive!important;font-weight:400!important;letter-spacing:0!important;color:var(--login-pink)!important;line-height:1.05!important}
+.login-marketing,.signup-story{position:relative;overflow:hidden;background:linear-gradient(145deg,#fffdf9 0%,#fff5f7 58%,#f1f6ec 100%)!important}
+.login-marketing:before,.signup-story:before{content:"";position:absolute;left:-35px;bottom:-20px;width:270px;height:270px;background:url('/assets/floral-top.png') center/contain no-repeat;opacity:.2;transform:rotate(12deg);pointer-events:none}
+.login-marketing:after,.signup-story:after{content:"";position:absolute;right:-45px;top:-30px;width:235px;height:235px;background:url('/assets/floral-top.png') center/contain no-repeat;opacity:.16;transform:rotate(190deg);pointer-events:none}
+.auth-card.login-card{border-radius:28px!important;border:1px solid #eadfe2!important;box-shadow:0 24px 70px rgba(68,44,56,.13)!important}
+.auth-submit{min-height:50px;background:linear-gradient(135deg,#e94b7b,#cb3568)!important;border:0!important;box-shadow:0 12px 28px rgba(233,75,123,.23)!important}
+.auth-submit:disabled{opacity:.7;cursor:wait}
+.auth-message{min-height:22px;color:#a22d54;font-weight:600}
+.bloom-public-footer{margin-top:26px;border-top:1px solid #eadfe2;padding:22px 0 0;display:grid;gap:14px;color:#6d6268;font-size:13px;position:relative;z-index:2}
+.footer-brand{display:flex;align-items:center;gap:10px}.footer-brand img{width:38px;height:38px}.footer-brand strong{display:block;font:700 22px 'Playfair Display',serif;color:#496527}.footer-brand span{font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.footer-links,.footer-trust{display:flex;gap:14px;flex-wrap:wrap}.footer-links a{color:#67475a;text-decoration:none;font-weight:600}.footer-links a:hover{color:#e94b7b}.footer-trust span{padding-right:14px;border-right:1px solid #e5dadd}.footer-trust span:last-child{border:0}
+.signup-company-footer{font-family:'DM Sans',sans-serif;background:#3d2633;color:#fff;padding:28px clamp(22px,6vw,90px);display:grid;grid-template-columns:1fr auto;gap:12px 28px;align-items:center}.signup-company-footer strong{display:block;font:700 24px 'Playfair Display',serif}.signup-company-footer span,.signup-company-footer p{color:#eadde4;font-size:13px}.signup-company-footer nav{display:flex;gap:18px;flex-wrap:wrap}.signup-company-footer a{color:#fff;text-decoration:none;font-weight:600}.signup-company-footer p{grid-column:1/-1;margin:0;padding-top:12px;border-top:1px solid rgba(255,255,255,.16)}
+.bnpl-note{margin:12px 0 0;padding:12px 14px;border-radius:14px;background:#f7f1fb;border:1px solid #e7dcef;color:#5f5165;font-size:12px;line-height:1.45}
+@media(max-width:760px){.bloom-public-footer{padding-bottom:16px}.footer-trust{display:grid;gap:6px}.footer-trust span{border:0;padding:0}.signup-company-footer{grid-template-columns:1fr}.signup-company-footer nav{gap:12px}.auth-hero-copy h1,.story-copy h1{font-size:44px!important}}

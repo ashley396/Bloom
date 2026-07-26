@@ -227,7 +227,6 @@ function setAuthMode(isCreate){
   $("#authMessage").textContent="";
 }
 $("#switchMode")?.addEventListener("click",()=>location.href="/signup.html");
-$("#authForm").onsubmit=async e=>{e.preventDefault();$("#authMessage").textContent="";try{const payload={shopName:$("#shopName")?.value||"",fullName:$("#fullName")?.value||"",businessPhone:$("#businessPhone")?.value||"",businessType:$("#businessType")?.value||"",businessAddress:$("#businessAddress")?.value||"",businessCity:$("#businessCity")?.value||"",businessState:$("#businessState")?.value||"",businessZip:$("#businessZip")?.value||"",planCode:document.querySelector('input[name="signupPlan"]:checked')?.value||"pro",subscriptionPrice:Number(document.querySelector('input[name="signupPlan"]:checked')?.dataset.price||79),email:$("#email").value,password:$("#password").value};const d=await api("auth-login",{method:"POST",body:JSON.stringify({email:payload.email,password:payload.password})},false);if(d.confirmationRequired){$("#authMessage").textContent="Your account was created. Check your email to confirm it, then return here to sign in.";return}saveSession(d);showApp();await Promise.all([loadDashboard(),loadInventory(),loadOrders(),loadProducts()])}catch(err){$("#authMessage").textContent=err.message}};
 setAuthMode(false);
 
 
