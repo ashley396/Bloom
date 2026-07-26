@@ -1,0 +1,16 @@
+BLOOM v20.0 — ONE DEPLOYMENT
+
+1. In Netlify, keep all existing Supabase and Stripe environment variables.
+2. Optional low-cost cloud AI:
+   CLOUDFLARE_ACCOUNT_ID=your Cloudflare account ID
+   CLOUDFLARE_AI_API_TOKEN=an API token allowed to run Workers AI
+   CLOUDFLARE_AI_MODEL=@cf/meta/llama-3.1-8b-instruct-fast
+
+If the Cloudflare variables are omitted, Lily automatically falls back to the existing free local Ollama bridge.
+
+3. Upload/commit this complete folder once. Netlify publishes /public and builds /netlify/functions.
+4. Run: npm run check
+5. Test Lily with the local bridge on and off.
+6. Test BloomShot: upload photo, edit, download, generate wording, edit wording, approve, add as product draft.
+
+No new Supabase migration is required for v20.
