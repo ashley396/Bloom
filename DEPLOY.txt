@@ -1,0 +1,13 @@
+FLORAVIA SaaS FOUNDATION v1 — DEPLOY
+
+1. Run `supabase/migration_floravia_saas_foundation_v1.sql` in Supabase SQL Editor.
+2. Copy the Netlify functions into the existing project.
+3. Add the onboarding HTML, CSS, and JS using README.md.
+4. Add the Stripe price IDs and webhook secret in Netlify.
+5. Push one GitHub commit and allow one Netlify deployment.
+6. Test with a brand-new email address before enabling public signup.
+
+Suggested GitHub summary:
+Floravia SaaS Foundation v1 - multi-shop onboarding, subscriptions, Lily and Rose account setup
+
+Do not enable public customer signup until two-account tenant isolation testing passes.

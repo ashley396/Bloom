@@ -1,56 +1,35 @@
 @echo off
 setlocal
+TITLE Bloom Local AI - Lily and Rose
 cd /d "%~dp0"
 
-echo ==============================================
-echo       BLOOM LOCAL AI - LILY AND ROSE
-echo ==============================================
-echo.
+set "NODE_EXE="
+where node >nul 2>nul && set "NODE_EXE=node"
+if not defined NODE_EXE if exist "%ProgramFiles%\nodejs\node.exe" set "NODE_EXE=%ProgramFiles%\nodejs\node.exe"
+if not defined NODE_EXE if exist "%LocalAppData%\Programs\nodejs\node.exe" set "NODE_EXE=%LocalAppData%\Programs\nodejs\node.exe"
 
-if not exist "local-ai-bridge\package.json" (
-  echo ERROR: Bloom AI files were not found.
-  echo Please right-click the ZIP, choose Extract All, then run this file
-  echo from the extracted Bloom folder. Do not run it inside the ZIP.
+if not defined NODE_EXE (
+  echo.
+  echo Node.js could not be found.
+  echo Install the Windows LTS version of Node.js, restart Windows, and try again.
   echo.
   pause
   exit /b 1
 )
 
-where node >nul 2>nul
-if errorlevel 1 (
-  echo ERROR: Node.js is not installed or Windows has not refreshed PATH.
-  echo Install Node.js LTS, restart Windows, then run this file again.
+if not exist "%~dp0local-ai-bridge\server.js" (
+  echo.
+  echo Bloom bridge file is missing:
+  echo %~dp0local-ai-bridge\server.js
+  echo.
   pause
   exit /b 1
 )
 
-where ollama >nul 2>nul
-if errorlevel 1 (
-  echo ERROR: Ollama is not installed.
-  echo Install Ollama and download llama3.1 first.
-  pause
-  exit /b 1
-)
-
-cd /d "%~dp0local-ai-bridge"
-
-echo Checking Lily's model...
-ollama list | findstr /i "llama3.1" >nul
-if errorlevel 1 (
-  echo llama3.1 is not installed. Downloading it now...
-  ollama pull llama3.1
-  if errorlevel 1 (
-    echo ERROR: Lily's model could not be downloaded.
-    pause
-    exit /b 1
-  )
-)
-
-echo.
 echo Starting Lily and Rose...
-echo Keep this window open while using Bloom.
-echo Health page: http://127.0.0.1:11435/health
 echo.
-start "" "http://127.0.0.1:11435/health"
-node server.js
+"%NODE_EXE%" "%~dp0local-ai-bridge\server.js"
+
+echo.
+echo The Bloom AI Bridge stopped. Review any message above.
 pause

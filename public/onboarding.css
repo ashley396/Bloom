@@ -1,0 +1,19 @@
+.onboarding-dialog { width:min(680px,calc(100vw - 24px)); border:0; border-radius:28px; padding:0; box-shadow:0 30px 90px rgba(72,49,60,.25); }
+.onboarding-dialog::backdrop { background:rgba(41,29,35,.52); backdrop-filter:blur(5px); }
+.onboarding-dialog form { padding:28px; }
+.onboarding-dialog header h2 { margin:.2rem 0 .4rem; font-size:clamp(1.6rem,4vw,2.3rem); }
+.onboarding-dialog .eyebrow { letter-spacing:.14em; font-size:.72rem; font-weight:800; opacity:.62; }
+.onboarding-progress { height:7px; border-radius:99px; background:#f0e6eb; overflow:hidden; margin:22px 0; }
+.onboarding-progress span { display:block; width:25%; height:100%; background:linear-gradient(90deg,#bb6f92,#789f7b); transition:width .25s ease; }
+.onboarding-step { display:none; gap:14px; }
+.onboarding-step.active { display:grid; }
+.onboarding-step label { display:grid; gap:6px; font-weight:700; font-size:.9rem; }
+.onboarding-step input,.onboarding-step select,.onboarding-step textarea { width:100%; box-sizing:border-box; border:1px solid #dccbd3; border-radius:13px; padding:12px 14px; font:inherit; background:#fff; }
+.onboarding-step textarea { min-height:88px; resize:vertical; }
+.grid-3 { display:grid; grid-template-columns:2fr 1fr 1fr; gap:10px; }
+.ready-card { padding:16px; border-radius:16px; background:#f8f0f4; line-height:1.6; }
+.onboarding-dialog footer { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
+.onboarding-dialog button { border:0; border-radius:13px; padding:12px 18px; font-weight:800; cursor:pointer; }
+.onboarding-dialog button:not(.secondary) { background:#9c5877; color:white; }
+.onboarding-dialog button.secondary { background:#eee5e9; color:#513c46; }
+@media (max-width:620px){ .onboarding-dialog form{padding:20px}.grid-3{grid-template-columns:1fr}.onboarding-dialog footer button{flex:1} }

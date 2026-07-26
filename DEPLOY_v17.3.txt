@@ -1,0 +1,11 @@
+BLOOM X v17.3 — LOCAL AI BRIDGE FIX
+
+1. Replace the repository contents with this project's contents and push once to GitHub.
+2. Let Netlify deploy automatically.
+3. No Supabase migration is required.
+4. On the shop Windows computer, extract/keep a local copy of this project.
+5. Double-click START-BLOOM-AI-WINDOWS.bat and leave the black window open.
+6. Visit http://127.0.0.1:11435/health and confirm healthy is true.
+7. Open Bloom and press Ctrl+F5, then test Lily and Rose.
+
+The bridge no longer uses npm or Express. It starts directly with Node.js and includes a fallback for C:\Program Files\nodejs\node.exe.

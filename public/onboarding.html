@@ -1,0 +1,71 @@
+<dialog id="floraviaOnboarding" class="onboarding-dialog">
+  <form id="floraviaOnboardingForm" method="dialog">
+    <header>
+      <p class="eyebrow">PROJECT FLORAVIA</p>
+      <h2>Let’s get your flower shop ready</h2>
+      <p>Complete these details once. Lily and Rose will use them to personalize your account.</p>
+    </header>
+
+    <div class="onboarding-progress"><span id="onboardingProgress"></span></div>
+
+    <section class="onboarding-step active" data-step="1">
+      <h3>1. Your shop</h3>
+      <label>Owner name<input name="fullName" autocomplete="name" required></label>
+      <label>Shop name<input name="shopName" autocomplete="organization" required></label>
+      <label>Business email<input name="email" type="email" autocomplete="email"></label>
+      <label>Phone<input name="phone" type="tel" autocomplete="tel" required></label>
+      <label>Website<input name="website" type="url" placeholder="https://"></label>
+    </section>
+
+    <section class="onboarding-step" data-step="2">
+      <h3>2. Location</h3>
+      <label>Street address<input name="addressLine1" autocomplete="street-address" required></label>
+      <label>Suite or unit<input name="addressLine2"></label>
+      <div class="grid-3">
+        <label>City<input name="city" required></label>
+        <label>State<input name="state" required></label>
+        <label>ZIP code<input name="postalCode" inputmode="numeric" required></label>
+      </div>
+      <label>Time zone
+        <select name="timezone">
+          <option value="America/New_York">Eastern</option>
+          <option value="America/Chicago">Central</option>
+          <option value="America/Denver">Mountain</option>
+          <option value="America/Los_Angeles">Pacific</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="onboarding-step" data-step="3">
+      <h3>3. Store defaults</h3>
+      <label>Sales tax rate (%)<input name="taxRate" type="number" min="0" max="100" step="0.001" value="6"></label>
+      <label>Default delivery fee ($)<input name="deliveryFee" type="number" min="0" step="0.01" value="0"></label>
+      <label>Receipt heading<input name="receiptHeader" placeholder="Thank you for shopping local!"></label>
+    </section>
+
+    <section class="onboarding-step" data-step="4">
+      <h3>4. Meet Lily and Rose</h3>
+      <label>How should your shop sound?
+        <select name="shopTone">
+          <option value="warm, capable, florist-friendly">Warm and professional</option>
+          <option value="luxury, polished, elegant">Luxury and elegant</option>
+          <option value="friendly, country, conversational">Friendly and country</option>
+          <option value="bright, upbeat, modern">Bright and modern</option>
+        </select>
+      </label>
+      <label>Delivery notes<textarea name="deliveryNotes" placeholder="We do not deliver on Sundays…"></textarea></label>
+      <label>Marketing notes<textarea name="marketingNotes" placeholder="We prefer a luxury voice and feature hydrangeas…"></textarea></label>
+      <div class="ready-card">
+        <strong>Lily</strong> will help create products, recipes, websites, and marketing.<br>
+        <strong>Rose</strong> will help with sales, inventory, deliveries, and profit.
+      </div>
+    </section>
+
+    <p id="onboardingMessage" class="error"></p>
+    <footer>
+      <button type="button" id="onboardingBack" class="secondary" hidden>Back</button>
+      <button type="button" id="onboardingNext">Continue</button>
+      <button type="submit" id="onboardingFinish" hidden>Open my shop</button>
+    </footer>
+  </form>
+</dialog>

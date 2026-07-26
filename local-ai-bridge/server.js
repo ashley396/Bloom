@@ -6,50 +6,50 @@ const HOST = process.env.BLOOM_AI_HOST || "127.0.0.1";
 const PORT = Number(process.env.BLOOM_AI_PORT || 11435);
 const OLLAMA_URL = (process.env.OLLAMA_URL || "http://127.0.0.1:11434").replace(/\/$/, "");
 const DEFAULT_MODEL = process.env.BLOOM_AI_MODEL || "llama3.1:latest";
-const ALLOWED_ORIGINS = new Set(
-  (process.env.BLOOM_ALLOWED_ORIGINS || "https://bloom-technologies.netlify.app,http://localhost:8888,http://localhost:5173")
+const MAX_BODY_BYTES = 12 * 1024 * 1024;
+
+const explicitlyAllowed = new Set(
+  (process.env.BLOOM_ALLOWED_ORIGINS || "https://bloom-technologies.netlify.app")
     .split(",")
     .map((value) => value.trim())
-    .filter(Boolean),
+    .filter(Boolean)
 );
 
-function isAllowedOrigin(origin) {
+function originAllowed(origin = "") {
   if (!origin) return true;
-  if (ALLOWED_ORIGINS.has(origin)) return true;
-  if (/^https:\/\/[a-z0-9-]+(?:--[a-z0-9-]+)?\.netlify\.app$/i.test(origin)) return true;
-  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+  if (explicitlyAllowed.has(origin)) return true;
+  try {
+    const parsed = new URL(origin);
+    if (parsed.protocol === "http:" && ["localhost", "127.0.0.1"].includes(parsed.hostname)) return true;
+    if (parsed.protocol === "https:" && parsed.hostname.endsWith(".netlify.app")) return true;
+  } catch {}
+  return false;
 }
 
 function setCors(req, res) {
-  const origin = req.headers.origin;
-  if (origin && isAllowedOrigin(origin)) {
+  const origin = req.headers.origin || "";
+  if (origin && originAllowed(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-    if (req.headers["access-control-request-private-network"] === "true") {
-      res.setHeader("Access-Control-Allow-Private-Network", "true");
-    }
   }
-  return !origin || isAllowedOrigin(origin);
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Private-Network", "true");
+  res.setHeader("Cache-Control", "no-store");
 }
 
-function sendJson(res, statusCode, payload) {
-  const body = JSON.stringify(payload);
-  res.writeHead(statusCode, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(body),
-    "Cache-Control": "no-store",
-  });
-  res.end(body);
+function sendJson(req, res, statusCode, payload) {
+  setCors(req, res);
+  res.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
+  res.end(JSON.stringify(payload));
 }
 
-async function readJson(req, maxBytes = 12 * 1024 * 1024) {
-  const chunks = [];
+async function readJson(req) {
   let size = 0;
+  const chunks = [];
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > maxBytes) throw new Error("Request is too large.");
+    if (size > MAX_BODY_BYTES) throw new Error("Request is too large.");
     chunks.push(chunk);
   }
   if (!chunks.length) return {};
@@ -62,44 +62,40 @@ async function readJson(req, maxBytes = 12 * 1024 * 1024) {
 
 async function ollama(path, options = {}) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), Number(options.timeout || 90000));
+  const timer = setTimeout(() => controller.abort(), Number(options.timeout || 90000));
   try {
     const response = await fetch(`${OLLAMA_URL}${path}`, {
-      ...options,
+      method: options.method || "GET",
+      body: options.body,
       signal: controller.signal,
-      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) }
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `Ollama returned ${response.status}`);
     return data;
   } catch (error) {
-    if (error.name === "AbortError") throw new Error("The local AI request timed out.");
-    if (/fetch failed|ECONNREFUSED/i.test(String(error.message))) {
+    if (error?.name === "AbortError") throw new Error("The local AI request timed out.");
+    if (/fetch failed|ECONNREFUSED|connection refused/i.test(String(error?.message))) {
       throw new Error("Ollama is not running. Open Ollama, then try again.");
     }
     throw error;
   } finally {
-    clearTimeout(timeout);
+    clearTimeout(timer);
   }
 }
 
 async function status() {
   try {
-    const data = await ollama("/api/tags", { method: "GET", timeout: 5000 });
-    const models = (data.models || []).map((model) => ({
-      name: model.name,
-      size: model.size,
-      modified_at: model.modified_at,
-    }));
+    const data = await ollama("/api/tags", { timeout: 5000 });
+    const models = (data.models || []).map(({ name, size, modified_at }) => ({ name, size, modified_at }));
+    const baseName = DEFAULT_MODEL.split(":")[0];
     return {
       bridge: true,
       ollama: true,
       healthy: true,
       defaultModel: DEFAULT_MODEL,
       models,
-      defaultAvailable: models.some(
-        (model) => model.name === DEFAULT_MODEL || model.name.startsWith(`${DEFAULT_MODEL.split(":")[0]}:`),
-      ),
+      defaultAvailable: models.some((model) => model.name === DEFAULT_MODEL || model.name.startsWith(`${baseName}:`))
     };
   } catch (error) {
     return {
@@ -109,22 +105,79 @@ async function status() {
       defaultModel: DEFAULT_MODEL,
       models: [],
       defaultAvailable: false,
-      error: error.message,
+      error: error.message
     };
   }
 }
 
-const personaInstructions = {
-  Lily: "You are Lily, Bloom's creative florist assistant. Be warm, upbeat, practical, florist-focused, and concise. Help with floral recipes, pricing, product descriptions, marketing, substitutions, sympathy wording, weddings, and waste reduction. Never invent shop facts, inventory, prices, or customer details.",
-  Rose: "You are Rose, Bloom's seasoned flower-shop business manager. Be direct, protective of profit, gently witty, and never rude. Help with sales, margins, expenses, unpaid balances, inventory, deliveries, staffing, and business decisions. Never invent shop numbers.",
+const personas = {
+  Lily: "You are Lily, Bloom's warm and encouraging florist assistant. Give practical, concise help with floral recipes, substitutions, pricing, product descriptions, card messages, marketing, and waste reduction. Never invent shop facts, inventory, prices, customer details, or order details.",
+  Rose: "You are Rose, Bloom's experienced florist business manager. Be direct, protective of profit, gently witty, and never rude. Help with margins, expenses, inventory, deliveries, unpaid balances, ordering, and business decisions. Never invent numbers or shop facts."
 };
 
-async function installModel(model) {
+async function handleChat(body) {
+  const prompt = String(body.prompt || "").trim();
+  const persona = body.persona === "Rose" ? "Rose" : "Lily";
+  const model = String(body.model || DEFAULT_MODEL).trim();
+  const context = body.context || {};
+  if (!prompt) throw new Error("Enter a question first.");
+
+  const data = await ollama("/api/chat", {
+    method: "POST",
+    timeout: 120000,
+    body: JSON.stringify({
+      model,
+      stream: false,
+      format: body.format === "json" ? "json" : undefined,
+      options: { temperature: persona === "Rose" ? 0.2 : 0.45, num_predict: 700 },
+      messages: [
+        { role: "system", content: personas[persona] },
+        { role: "user", content: `SHOP DATA (use only when relevant):\n${JSON.stringify(context)}\n\nQUESTION:\n${prompt}` }
+      ]
+    })
+  });
+
+  const answer = String(data.message?.content || "").trim();
+  if (!answer) throw new Error("The model returned an empty response.");
+  return { answer, persona, model, local: true };
+}
+
+async function handleGenerate(body) {
+  const model = String(body.model || DEFAULT_MODEL).trim();
+  const task = String(body.task || "content");
+  const input = body.input || {};
+  const schema = body.schema || { result: "string" };
+  const prompt = `Complete this florist task: ${task}. Return VALID JSON ONLY matching this example shape: ${JSON.stringify(schema)}. Do not use markdown. INPUT: ${JSON.stringify(input)}`;
+  const data = await ollama("/api/chat", {
+    method: "POST",
+    timeout: 120000,
+    body: JSON.stringify({
+      model,
+      stream: false,
+      format: "json",
+      options: { temperature: 0.25, num_predict: 900 },
+      messages: [
+        { role: "system", content: "You produce accurate florist-focused structured data. Never invent shop-specific facts. Return JSON only." },
+        { role: "user", content: prompt }
+      ]
+    })
+  });
+  const raw = String(data.message?.content || "");
+  try {
+    return { result: JSON.parse(raw), model, local: true };
+  } catch {
+    throw new Error("The model returned invalid structured data. Try again.");
+  }
+}
+
+async function installModel(body) {
+  const model = String(body.model || DEFAULT_MODEL).trim();
+  if (!/^[a-zA-Z0-9._:/-]+$/.test(model)) throw new Error("Invalid model name.");
   return await new Promise((resolve, reject) => {
     const child = spawn("ollama", ["pull", model], { shell: process.platform === "win32" });
     let output = "";
-    child.stdout.on("data", (data) => { output += data.toString(); });
-    child.stderr.on("data", (data) => { output += data.toString(); });
+    child.stdout.on("data", (chunk) => (output += chunk.toString()));
+    child.stderr.on("data", (chunk) => (output += chunk.toString()));
     child.once("error", () => reject(new Error("Ollama is not installed or could not be started.")));
     child.once("close", (code) => {
       if (code === 0) resolve({ ok: true, model, message: `${model} is installed.` });
@@ -133,107 +186,58 @@ async function installModel(model) {
   });
 }
 
-async function route(req, res) {
-  if (!setCors(req, res)) return sendJson(res, 403, { error: "This website is not allowed to use Bloom Local AI." });
+const server = http.createServer(async (req, res) => {
+  const origin = req.headers.origin || "";
+  if (!originAllowed(origin)) return sendJson(req, res, 403, { error: "This website is not allowed to use Bloom Local AI." });
   if (req.method === "OPTIONS") {
+    setCors(req, res);
     res.writeHead(204);
     return res.end();
   }
 
-  const url = new URL(req.url, `http://${req.headers.host || `${HOST}:${PORT}`}`);
-
-  if (req.method === "GET" && (url.pathname === "/health" || url.pathname === "/models")) {
-    return sendJson(res, 200, await status());
-  }
-
-  if (req.method === "POST" && url.pathname === "/models/install") {
-    try {
-      const body = await readJson(req);
-      const model = String(body.model || DEFAULT_MODEL).trim();
-      if (!/^[a-zA-Z0-9._:/-]+$/.test(model)) return sendJson(res, 400, { error: "Invalid model name." });
-      return sendJson(res, 200, await installModel(model));
-    } catch (error) {
-      return sendJson(res, 503, { error: error.message });
+  try {
+    const url = new URL(req.url || "/", `http://${HOST}:${PORT}`);
+    if (req.method === "GET" && (url.pathname === "/health" || url.pathname === "/models")) {
+      return sendJson(req, res, 200, await status());
     }
-  }
-
-  if (req.method === "POST" && url.pathname === "/chat") {
-    try {
-      const body = await readJson(req);
-      const model = String(body.model || DEFAULT_MODEL);
-      const prompt = String(body.prompt || "").trim();
-      const persona = body.persona === "Rose" ? "Rose" : "Lily";
-      const context = body.context || {};
-      if (!prompt) return sendJson(res, 400, { error: "Enter a question first." });
-      const data = await ollama("/api/chat", {
-        method: "POST",
-        body: JSON.stringify({
-          model,
-          stream: false,
-          format: body.format === "json" ? "json" : undefined,
-          options: { temperature: persona === "Rose" ? 0.2 : 0.45, num_predict: 700 },
-          messages: [
-            { role: "system", content: personaInstructions[persona] },
-            { role: "user", content: `SHOP DATA (use only when relevant):\n${JSON.stringify(context)}\n\nQUESTION:\n${prompt}` },
-          ],
-        }),
-        timeout: 120000,
-      });
-      const answer = String(data.message?.content || "").trim();
-      if (!answer) throw new Error("The model returned an empty response.");
-      return sendJson(res, 200, { answer, persona, model, local: true });
-    } catch (error) {
-      return sendJson(res, 503, { error: error.message || "Bloom Local AI is unavailable." });
+    if (req.method === "POST" && url.pathname === "/chat") {
+      return sendJson(req, res, 200, await handleChat(await readJson(req)));
     }
-  }
-
-  if (req.method === "POST" && url.pathname === "/generate") {
-    try {
-      const body = await readJson(req);
-      const model = String(body.model || DEFAULT_MODEL);
-      const task = String(body.task || "content");
-      const input = body.input || {};
-      const schema = body.schema || { result: "string" };
-      const prompt = `You are Bloom's florist operations engine. Complete the ${task} task. Return VALID JSON ONLY matching this example shape: ${JSON.stringify(schema)}. Do not use markdown. INPUT: ${JSON.stringify(input)}`;
-      const data = await ollama("/api/chat", {
-        method: "POST",
-        body: JSON.stringify({
-          model,
-          stream: false,
-          format: "json",
-          options: { temperature: 0.25, num_predict: 900 },
-          messages: [
-            { role: "system", content: "You produce accurate florist-focused structured data. Never invent shop-specific facts. Return JSON only." },
-            { role: "user", content: prompt },
-          ],
-        }),
-        timeout: 120000,
-      });
-      const raw = String(data.message?.content || "");
-      let result;
-      try { result = JSON.parse(raw); } catch { throw new Error("The model returned invalid structured data. Try again."); }
-      return sendJson(res, 200, { result, model, local: true });
-    } catch (error) {
-      return sendJson(res, 503, { error: error.message || "Structured generation failed." });
+    if (req.method === "POST" && url.pathname === "/generate") {
+      return sendJson(req, res, 200, await handleGenerate(await readJson(req)));
     }
+    if (req.method === "POST" && url.pathname === "/models/install") {
+      return sendJson(req, res, 200, await installModel(await readJson(req)));
+    }
+    return sendJson(req, res, 404, { error: "Not found." });
+  } catch (error) {
+    return sendJson(req, res, 503, { error: error?.message || "Bloom Local AI is unavailable." });
   }
-
-  return sendJson(res, 404, { error: "Bloom Local AI route not found." });
-}
-
-const server = http.createServer((req, res) => {
-  route(req, res).catch((error) => sendJson(res, 500, { error: error.message || "Unexpected bridge error." }));
 });
 
-server.listen(PORT, HOST, () => {
-  console.log(`Bloom Local AI Bridge running at http://${HOST}:${PORT}`);
-  console.log(`Ollama: ${OLLAMA_URL}`);
-  console.log(`Default model: ${DEFAULT_MODEL}`);
+server.listen(PORT, HOST, async () => {
+  console.log("====================================================");
+  console.log(" Bloom Local AI Bridge is running");
+  console.log(` Address: http://${HOST}:${PORT}`);
+  console.log(` Ollama: ${OLLAMA_URL}`);
+  console.log(` Model: ${DEFAULT_MODEL}`);
+  console.log(" Keep this window open while using Lily and Rose.");
+  console.log("====================================================");
+  console.log(await status());
+});
+
+server.on("error", (error) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(`Port ${PORT} is already in use. The Bloom bridge may already be running.`);
+  } else {
+    console.error(error);
+  }
+  process.exitCode = 1;
 });
 
 if (process.argv.includes("--check")) {
   setTimeout(async () => {
     console.log(await status());
     server.close();
-  }, 300);
+  }, 500);
 }
