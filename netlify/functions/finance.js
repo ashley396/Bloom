@@ -1,11 +1,11 @@
 import { json,preflight,methodNotAllowed } from "./_shared/http.js";
-import { currentUser,fail } from "./_shared/supabase.js";
+import { currentUser,fail,requireRoles } from "./_shared/supabase.js";
 
 export async function handler(event){
   const ready=preflight(event);if(ready)return ready;
   if(event.httpMethod!=="GET")return methodNotAllowed();
   try{
-    const {client,shopId}=await currentUser(event);
+    const ctx=await currentUser(event);requireRoles(ctx,['owner', 'manager', 'accountant']);const {client,shopId}=ctx;
     const [ordersResult,expensesResult]=await Promise.all([
       client.from("orders").select("total,payment_status,status,paid_at,created_at").eq("shop_id",shopId),
       client.from("expenses").select("amount,expense_date,category").eq("shop_id",shopId)

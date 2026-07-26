@@ -1,0 +1,3 @@
+import { readdir, readFile } from 'node:fs/promises';import { join } from 'node:path';import { spawnSync } from 'node:child_process';
+async function walk(d){let out=[];for(const e of await readdir(d,{withFileTypes:true})){const p=join(d,e.name);if(e.isDirectory()&&!['node_modules'].includes(e.name))out=out.concat(await walk(p));else if(e.isFile()&&p.endsWith('.js'))out.push(p)}return out}
+const files=await walk('.');let failed=false;for(const f of files){const r=spawnSync(process.execPath,['--check',f],{encoding:'utf8'});if(r.status){failed=true;console.error(r.stderr||`Failed: ${f}`)}}if(failed)process.exit(1);console.log(`Syntax check passed: ${files.length} JavaScript files.`);

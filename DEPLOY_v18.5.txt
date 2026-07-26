@@ -1,0 +1,30 @@
+BLOOM v18.5 — PAYMENT INTEGRITY & SECURITY
+
+IMPORTANT: This release requires ONE Supabase migration before the Netlify deploy.
+
+1. In Supabase > SQL Editor, open and run:
+   supabase/migration_v18.5_payment_integrity_security.sql
+
+2. In Netlify > Site configuration > Environment variables, confirm:
+   STRIPE_SECRET_KEY
+   SITE_URL=https://bloom-technologies.netlify.app
+
+3. In Stripe Dashboard > Developers > Webhooks, add endpoint:
+   https://bloom-technologies.netlify.app/.netlify/functions/stripe-order-webhook
+   Select events:
+   - checkout.session.completed
+   - checkout.session.async_payment_succeeded
+
+4. Copy the webhook signing secret (starts whsec_) into Netlify as:
+   STRIPE_ORDER_WEBHOOK_SECRET
+
+5. Replace your local GitHub repository contents with this Bloom-main folder, commit, and push once.
+
+6. Test in Stripe TEST mode first:
+   - Create a $100.00 order.
+   - Record a $25.00 cash deposit. Balance must become $75.00.
+   - Charge $50.00 in Stripe. Balance must become $25.00 and status PARTIAL.
+   - Charge the last $25.00. Balance must become $0.00 and status PAID.
+   - Refresh after each payment. Amounts must remain correct.
+
+Do not switch Stripe to live mode until all tests pass.

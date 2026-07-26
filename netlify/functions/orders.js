@@ -170,15 +170,10 @@ export async function handler(event) {
     if (event.httpMethod === "PATCH") {
       const body = bodyOf(event);
       const payload = {};
-      if(body.action === "MARK_PAID"){
-        payload.payment_status="PAID";
-        payload.payment_method=body.payment_method||"Other";
-        payload.balance_due=0;
-      }else if(body.action === "MARK_UNPAID"){
-        payload.payment_status="UNPAID";
-        payload.amount_paid=0;
+      if(body.action === "MARK_PAID" || body.action === "MARK_UNPAID"){
+        return json(400,{error:"Payment status must be changed by recording a payment or refund in the payment ledger."});
       }else{
-        for(const field of ["status","payment_status","payment_method","amount_paid","balance_due","delivery_miles","drive_minutes"]){
+        for(const field of ["status","delivery_miles","drive_minutes"]){
           if(field in body)payload[field]=body[field];
         }
       }
