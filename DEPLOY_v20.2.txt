@@ -1,0 +1,11 @@
+BLOOM v20.2 PROFESSIONAL EDITION — ONE DEPLOYMENT
+
+1. Unzip this package.
+2. Upload the complete Bloom-main folder to Netlify exactly as you have done for prior releases.
+3. No Supabase migration is required.
+4. No new Netlify environment variables are required.
+5. After Netlify finishes, open Bloom and press Ctrl + Shift + R on Windows.
+6. On a phone, close the installed Bloom app/browser tab completely and reopen it.
+7. If Bloom is installed to the home screen, remove and reinstall the home-screen shortcut to force the new app icon to appear.
+
+This release changes appearance only. It does not replace or remove Bloom functions.
