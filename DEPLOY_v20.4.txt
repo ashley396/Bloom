@@ -1,0 +1,8 @@
+BLOOM v20.4 — ONE DEPLOY
+
+1. Upload/deploy the complete Bloom-main folder to Netlify.
+2. Wait for the deploy to finish.
+3. On desktop, press Ctrl + Shift + R.
+4. On mobile, fully close Bloom and reopen it. If installed to the home screen and an old appearance remains, remove the shortcut and install it again.
+
+No Supabase SQL migration is required.

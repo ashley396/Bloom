@@ -7,7 +7,7 @@ export async function handler(event){
     const body=bodyOf(event); const {url,anonKey}=publicSettings();
     const response=await fetch(`${url}/auth/v1/signup`,{
       method:"POST",headers:{"Content-Type":"application/json",apikey:anonKey,Authorization:`Bearer ${anonKey}`},
-      body:JSON.stringify({email:body.email,password:body.password,data:{full_name:body.fullName||"",shop_name:body.shopName||"My Flower Shop"}})
+      body:JSON.stringify({email:body.email,password:body.password,data:{full_name:body.fullName||"",shop_name:body.shopName||"My Flower Shop",business_phone:body.businessPhone||"",business_type:body.businessType||"",business_address:body.businessAddress||"",business_city:body.businessCity||"",business_state:body.businessState||"",business_zip:body.businessZip||"",plan_code:["starter","pro","premium"].includes(body.planCode)?body.planCode:"pro",subscription_price:[39,79,129].includes(Number(body.subscriptionPrice))?Number(body.subscriptionPrice):79,trial_days:14,trial_started_at:new Date().toISOString()}})
     });
     const data=await response.json();
     if(!response.ok) return json(response.status,{error:data.msg||data.message||"Could not create account"});

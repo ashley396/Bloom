@@ -1,0 +1,9 @@
+BLOOM v20.3 — SINGLE DEPLOY
+
+1. Upload the complete Bloom-main folder to Netlify.
+2. No Supabase migration is required.
+3. After deployment, hard refresh desktop with Ctrl + Shift + R.
+4. On mobile, close and reopen the browser/app shortcut.
+5. Test both Sign in and Create a free account with a new email address.
+
+This release changes the public account experience and signup metadata only. Existing Bloom functions are preserved.
