@@ -5,10 +5,38 @@ let createMode=false,session=readSession(),customers=[],inventory=[],orders=[],p
 const BLOOM_AI_BRIDGE="http://127.0.0.1:11435";
 function selectedAiModel(){return localStorage.getItem("bloomAiModel")||"llama3.1:latest"}
 async function localAi(path,opt={}){const r=await fetch(`${BLOOM_AI_BRIDGE}${path}`,{...opt,headers:{"Content-Type":"application/json",...(opt.headers||{})}});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Local AI request failed (${r.status})`);return d}
-async function cloudAi(prompt,persona="Lily",context={}){return api("ai-assistant",{method:"POST",body:JSON.stringify({prompt,persona,context})})}
-async function askBloomAi(prompt,persona="Lily",context={}){try{return await localAi("/chat",{method:"POST",body:JSON.stringify({prompt,persona,model:selectedAiModel(),context})})}catch(localError){try{return await cloudAi(prompt,persona,context)}catch(cloudError){throw new Error(`${localError.message} Cloud fallback: ${cloudError.message}`)}}}
+async function askBloomAi(prompt,persona="Lily",context={}){
+  try{
+    return await localAi("/chat",{method:"POST",body:JSON.stringify({prompt,persona,model:selectedAiModel(),context})});
+  }catch(error){
+    throw new Error(`${error.message} Start Ollama and START-BLOOM-AI-WINDOWS.bat on this computer, then try again.`);
+  }
+}
 async function loadAiContext(){try{return (await api("ai-context",{method:"GET"})).context||{}}catch{return {shop:shopSettings||{},inventory,recent_orders:orders,deliveries}}}
-async function refreshAiStatus(){const badge=$("#aiHealthBadge"),msg=$("#aiDiagnosticMessage"),modelSelect=$("#aiModelSelect");try{const d=await localAi("/health");$("#aiBridgeStatus").textContent=d.bridge?"Online":"Offline";$("#aiOllamaStatus").textContent=d.ollama?"Running":"Not running";if(modelSelect){const names=(d.models||[]).map(x=>x.name);const selected=selectedAiModel();modelSelect.innerHTML=[...new Set([selected,"llama3.1:latest",...names])].map(n=>`<option value="${esc(n)}" ${n===selected?"selected":""}>${esc(n)}</option>`).join("")}badge.textContent=d.healthy?"AI Ready":"Needs attention";badge.className=`badge ${d.healthy?"good":"warn"}`;msg.textContent=d.healthy?"Lily is online through Bloom Local AI.":"Local AI needs attention.";return d}catch(localError){try{const cloud=await api("ai-assistant",{method:"GET"});if($("#aiBridgeStatus"))$("#aiBridgeStatus").textContent="Offline";if($("#aiOllamaStatus"))$("#aiOllamaStatus").textContent="Cloud fallback";if(badge){badge.textContent=cloud.configured?"Lily Online":"AI Setup Needed";badge.className=`badge ${cloud.configured?"good":"warn"}`}if(msg)msg.textContent=cloud.configured?"Lily is online through Bloom Cloud AI. The local bridge is optional.":"Add OPENAI_API_KEY in Netlify to bring Lily online, or start the local bridge.";return cloud}catch(e){if($("#aiBridgeStatus"))$("#aiBridgeStatus").textContent="Offline";if($("#aiOllamaStatus"))$("#aiOllamaStatus").textContent="Unavailable";if(badge){badge.textContent="AI Offline";badge.className="badge warn"}if(msg)msg.textContent="Add OPENAI_API_KEY in Netlify or start the Bloom Local AI Bridge. Normal POS, payments, and inventory remain available.";return null}}}
+async function refreshAiStatus(){
+  const badge=$("#aiHealthBadge"),msg=$("#aiDiagnosticMessage"),modelSelect=$("#aiModelSelect");
+  try{
+    const d=await localAi("/health");
+    $("#aiBridgeStatus").textContent=d.bridge?"Online":"Offline";
+    $("#aiOllamaStatus").textContent=d.ollama?"Running":"Not running";
+    if(modelSelect){
+      const names=(d.models||[]).map(x=>x.name),selected=selectedAiModel();
+      modelSelect.innerHTML=[...new Set([selected,"llama3.1:latest",...names])].map(n=>`<option value="${esc(n)}" ${n===selected?"selected":""}>${esc(n)}</option>`).join("");
+    }
+    badge.textContent=d.healthy?"Lily Online":"Needs attention";
+    badge.className=`badge ${d.healthy?"good":"warn"}`;
+    msg.textContent=d.healthy
+      ? "Lily is running privately on this computer through Ollama. No OpenAI credits are used."
+      : (d.error||"Ollama is not running. Open Ollama and restart the Bloom AI bridge.");
+    return d;
+  }catch(error){
+    if($("#aiBridgeStatus"))$("#aiBridgeStatus").textContent="Offline";
+    if($("#aiOllamaStatus"))$("#aiOllamaStatus").textContent="Not connected";
+    if(badge){badge.textContent="Lily Offline";badge.className="badge warn";}
+    if(msg)msg.textContent="On this computer, open Ollama and double-click START-BLOOM-AI-WINDOWS.bat. Keep that window open while using Lily. Bloom POS, orders, and payments still work when Lily is offline.";
+    return null;
+  }
+}
 
 const LIBRARY=[
 ["Garden Harmony","Everyday",84.99,"💐","A lush garden-style arrangement featuring soft blue hydrangea, vivid red and coral blooms, berries, and airy greenery in a clear cylinder vase.",[["Blue Hydrangea",2],["Red Roses",5],["Coral Anemones",4],["Hypericum Berries",3],["Eucalyptus",5],["Clear Cylinder Vase",1]],"/assets/floral-library/garden-harmony.jpg"],

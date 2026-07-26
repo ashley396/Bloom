@@ -1,0 +1,29 @@
+BLOOM v19.2 — LOCAL LILY FIX
+
+WHAT CHANGED
+- Lily and Rose now use local Ollama only.
+- Bloom no longer calls OpenAI for Lily or Rose.
+- No OPENAI_API_KEY or OPENAI_MODEL is required.
+- The AI status card now reports the real local bridge/Ollama state.
+- A friendly offline message replaces the failed cloud request.
+
+DEPLOYMENT — ONE NETLIFY DEPLOY, NO SUPABASE SQL
+1. Deploy the entire Bloom-main folder to Netlify exactly as you normally do.
+2. In Netlify, OPENAI_API_KEY and OPENAI_MODEL may be deleted because Lily no longer uses them. Deleting them is optional.
+3. On each Windows computer that will use Lily:
+   a. Install Ollama from its official installer.
+   b. Open Ollama.
+   c. In this Bloom folder, double-click START-BLOOM-AI-WINDOWS.bat.
+   d. Keep the black bridge window open while using Lily.
+4. Open Bloom > Settings > Run diagnostics.
+5. The card should show Bridge: Online, Ollama: Running, Lily Online.
+6. Click Test Lily.
+
+FIRST MODEL INSTALL
+- In Bloom Settings, choose llama3.1:8b or llama3.1:latest and click Install selected model.
+- The download can be several gigabytes and only happens once per computer/model.
+
+IMPORTANT
+- Lily works only on a computer running Ollama and the Bloom Local AI Bridge.
+- A phone cannot directly run this local Windows bridge. POS, orders, inventory, and payments still work normally on the phone.
+- No Supabase migration is needed for v19.2.
