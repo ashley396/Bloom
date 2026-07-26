@@ -23,3 +23,7 @@ TESTING
 
 IMPORTANT
 Keep all existing Netlify environment variables unchanged.
+
+
+BLOOM X v18.0
+Start with DEPLOY_v18.0.txt. This release requires one Netlify deployment and no Supabase SQL.

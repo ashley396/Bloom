@@ -1,0 +1,26 @@
+BLOOM X v18.0 — ONE DEPLOY
+
+1. Do not upload this ZIP directly into Supabase. No SQL is required.
+2. Extract the ZIP on your computer.
+3. Replace the contents of your local Bloom GitHub repository with the contents of the Bloom-main folder.
+4. Do not delete your local .env file or expose secret keys in GitHub.
+5. In GitHub Desktop, review the changes, enter summary: Bloom X v18.0 daily operations, then Commit to main and Push origin.
+6. Netlify should deploy automatically from GitHub.
+7. In Netlify, confirm these environment variables still exist:
+   SUPABASE_URL
+   SUPABASE_ANON_KEY or SUPABASE_PUBLISHABLE_KEY (whichever the project currently uses)
+   SUPABASE_SERVICE_ROLE_KEY
+   STRIPE_SECRET_KEY
+   SITE_URL=https://bloom-technologies.netlify.app
+8. Test using TEST MODE Stripe keys before switching to live keys.
+
+TEST CHECKLIST
+- Sign in and open Point of Sale.
+- Add a product tile, price, and quantity.
+- Save as Quote, open Saved Quotes, and resume it.
+- Process the POS order.
+- Confirm Payments shows the correct order and balance.
+- Record a small cash deposit and confirm status becomes PARTIAL.
+- Record the rest and confirm status becomes PAID.
+- Create another order and complete Stripe test checkout.
+- Return to Bloom and confirm the matching order becomes PAID.
