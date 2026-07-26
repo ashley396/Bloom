@@ -1,0 +1,27 @@
+BLOOM v19.1 HOTFIX — DEPLOY IN THIS ORDER
+
+1. SUPABASE (required for the Production Board)
+   - Open Supabase > SQL Editor > New query.
+   - Copy and run: supabase/migration_v19.1_order_status_hotfix.sql
+   - Confirm the query finishes successfully.
+
+2. NETLIFY AI SETUP (required only for Lily cloud fallback)
+   - Open Netlify > Site configuration > Environment variables.
+   - Add OPENAI_API_KEY with your secret OpenAI API key.
+   - Optional: add OPENAI_MODEL. If omitted, Bloom uses gpt-4.1-mini.
+   - Never put the secret key in app.js, index.html, GitHub, or Supabase.
+
+3. NETLIFY DEPLOY
+   - Deploy the complete Bloom-main folder once.
+   - Do not upload only the public folder because Netlify Functions are part of this fix.
+
+4. TEST
+   - Orders: move NEW > DESIGNING > READY > OUT / PICKUP > COMPLETED.
+   - Invoices: click Take payment and confirm Payments opens with the correct balance.
+   - Orders and invoices: verify Edit opens the saved order and Save changes updates it.
+   - Delete an unpaid test order. Verify an order with a recorded payment is protected.
+   - Settings: Run diagnostics. Lily should show online through Local AI or Cloud AI.
+
+ROLLBACK
+   - In Netlify, restore the previous successful deployment.
+   - The status migration may safely remain installed.

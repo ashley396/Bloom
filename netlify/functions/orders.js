@@ -169,17 +169,30 @@ export async function handler(event) {
 
     if (event.httpMethod === "PATCH") {
       const body = bodyOf(event);
-      const payload = {};
+      if (!body.id) return json(400,{error:"Missing order id."});
       if(body.action === "MARK_PAID" || body.action === "MARK_UNPAID"){
         return json(400,{error:"Payment status must be changed by recording a payment or refund in the payment ledger."});
-      }else{
-        for(const field of ["status","delivery_miles","drive_minutes"]){
-          if(field in body)payload[field]=body[field];
-        }
+      }
+      const editable=["customer_name","customer_phone","occasion","fulfillment","delivery_address","delivery_date","notes","tax_rate","recipient_name","recipient_phone","delivery_window","delivery_instructions","delivery_miles","drive_minutes","order_source","card_message","arrangement_description","location_type","driver","designer","priority","design_style","color_palette","preferred_flowers","flower_restrictions","addons","labor_charge","addon_total","discount","estimated_cost","product_id","customer_type","payment_required"];
+      const payload={};for(const field of editable)if(field in body)payload[field]=body[field]===""?null:body[field];
+      if("status" in body)payload.status=String(body.status||"NEW").toUpperCase();
+      if(["subtotal","labor_charge","addon_total","discount","tax_rate","delivery_fee","tax"].some(k=>k in body)){
+        const {data:existing,error:readError}=await client.from("orders").select("subtotal,labor_charge,addon_total,discount,tax_rate,delivery_fee,amount_paid").eq("id",body.id).eq("shop_id",shopId).single();if(readError)throw readError;
+        const flowers=Number(body.subtotal??existing.subtotal??0),labor=Number(body.labor_charge??existing.labor_charge??0),addons=Number(body.addon_total??existing.addon_total??0),discount=Number(body.discount??existing.discount??0),deliveryFee=Number(body.delivery_fee??existing.delivery_fee??0),rate=Number(body.tax_rate??existing.tax_rate??0),subtotal=Math.max(0,flowers+labor+addons-discount),tax="tax" in body?Number(body.tax||0):Math.round(subtotal*(rate/100)*100)/100,total=subtotal+tax+deliveryFee,paid=Number(existing.amount_paid||0);
+        Object.assign(payload,{subtotal,tax,tax_rate:rate,delivery_fee:deliveryFee,total,balance_due:Math.max(0,total-paid),payment_status:paid<=0?"UNPAID":paid>=total?"PAID":"PARTIAL"});
       }
       const { data, error } = await client.from("orders").update(payload).eq("id",body.id).eq("shop_id",shopId).select().single();
       if (error) throw error;
       return json(200, { item: data });
+    }
+
+    if (event.httpMethod === "DELETE") {
+      const body=bodyOf(event);if(!body.id)return json(400,{error:"Missing order id."});
+      const {data:payments,error:paymentError}=await client.from("payment_transactions").select("id").eq("shop_id",shopId).eq("order_id",body.id).limit(1);if(paymentError)throw paymentError;
+      if(payments?.length)return json(409,{error:"This order has recorded payments and cannot be deleted. Keep it for the payment audit trail."});
+      await client.from("deliveries").delete().eq("shop_id",shopId).eq("order_id",body.id);
+      const {error}=await client.from("orders").delete().eq("id",body.id).eq("shop_id",shopId);if(error)throw error;
+      return json(200,{ok:true});
     }
 
     return methodNotAllowed();
