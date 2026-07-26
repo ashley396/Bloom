@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Start Your Bloom Free Trial</title><meta name="description" content="Create your Bloom florist software account and start a 14-day free trial.">
+<link rel="icon" href="/assets/bloom-icon.svg"><link rel="stylesheet" href="/signup.css"></head>
+<body>
+<main class="signup-shell">
+  <section class="signup-story">
+    <a class="signup-brand" href="/"><img src="/assets/bloom-icon.svg" alt="Bloom"><div><strong>Bloom</strong><small>Floral Business Suite</small></div></a>
+    <div class="story-copy"><p class="eyebrow">BUILT FOR FLORISTS. BY A FLORIST.</p><h1>Everything your flower shop needs to bloom.</h1><p>Bloom brings orders, customers, inventory, recipes, deliveries, payments, websites, marketing, and helpful AI together in one beautiful workspace.</p>
+      <div class="feature-list"><span>✓ Florist POS & order management</span><span>✓ Inventory, recipes & pricing</span><span>✓ Website, marketing & BloomShot</span><span>✓ Lily and Rose business assistants</span></div>
+    </div>
+    <div class="story-floral" aria-hidden="true"></div>
+    <footer><span>Independent-florist first</span><span>Secure account setup</span></footer>
+  </section>
+  <section class="signup-workspace">
+    <header class="signup-heading"><p class="eyebrow">START YOUR 14-DAY FREE TRIAL</p><h2>Choose the plan that fits your shop</h2><p>No setup fee. No contract. Cancel anytime. No hidden Bloom software fees.</p></header>
+    <form id="signupForm">
+      <div class="plans" aria-label="Choose your plan">
+        <label class="plan"><input type="radio" name="plan" value="starter" data-price="39"><span>Starter</span><strong>$39<small>/month</small></strong><p>Essential tools for a growing shop.</p><em>POS & orders</em><em>Inventory management</em><em>Website builder</em><em>Marketing tools</em></label>
+        <label class="plan featured"><b>MOST POPULAR</b><input type="radio" name="plan" value="pro" data-price="79" checked><span>Pro</span><strong>$79<small>/month</small></strong><p>Everything most independent florists need.</p><em>Everything in Starter</em><em>Advanced reporting</em><em>Delivery management</em><em>Lily AI assistant</em></label>
+        <label class="plan"><input type="radio" name="plan" value="premium" data-price="129"><span>Premium</span><strong>$129<small>/month</small></strong><p>Complete capability for ambitious shops.</p><em>Everything in Pro</em><em>Multi-store tools</em><em>Priority support</em><em>Wholesale access</em></label>
+      </div>
+      <div class="form-card">
+        <div class="form-card-head"><img src="/assets/bloom-icon.svg" alt=""><div><h3>Create your flower shop account</h3><p>Your trial begins when your account is created.</p></div></div>
+        <div class="two"><label>Your full name<input id="fullName" required autocomplete="name"></label><label>Flower shop name<input id="shopName" required autocomplete="organization"></label></div>
+        <div class="two"><label>Business email<input id="email" type="email" required autocomplete="email"></label><label>Phone number<input id="businessPhone" type="tel" required autocomplete="tel"></label></div>
+        <div class="two"><label>Password<input id="password" type="password" minlength="8" required autocomplete="new-password"></label><label>Business type<select id="businessType"><option>Retail flower shop</option><option>Home-based florist</option><option>Event florist</option><option>Wedding florist</option><option>Multi-location florist</option><option>Other</option></select></label></div>
+        <label>Street address<input id="businessAddress" required autocomplete="street-address"></label>
+        <div class="location"><label>City<input id="businessCity" required></label><label>State<input id="businessState" required maxlength="2" placeholder="KY"></label><label>ZIP code<input id="businessZip" required inputmode="numeric"></label></div>
+        <label class="agree"><input id="agreeTerms" type="checkbox" required><span>I agree to Bloom's Terms and Privacy Policy and confirm I am authorized to create this business account.</span></label>
+        <button class="create-button" type="submit">Start my free trial</button><p id="signupMessage" class="message" aria-live="polite"></p>
+        <div class="trust"><span>14-day free trial</span><span>No credit card required today</span><span>No hidden Bloom fees</span></div>
+        <p class="signin">Already have an account? <a href="/">Sign in</a></p>
+      </div>
+    </form>
+  </section>
+</main><script src="/signup.js" type="module"></script></body></html>

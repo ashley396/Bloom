@@ -11,12 +11,13 @@ export async function handler(event) {
 
     if (event.httpMethod === 'GET' && action === 'overview') {
       const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0,0,0,0);
-      const [shopsRes, membersRes, ordersRes, subsRes, alertsRes] = await Promise.all([
+      const [shopsRes, membersRes, ordersRes, subsRes, alertsRes, platformRes] = await Promise.all([
         client.from('shops').select('*', { count: 'exact', head: true }),
         client.from('shop_members').select('*', { count: 'exact', head: true }),
         client.from('orders').select('*', { count: 'exact', head: true }),
         client.from('shop_subscriptions').select('shop_id,plan_code,status,cancel_at_period_end,created_at,updated_at'),
-        client.from('platform_admin_notifications').select('id,shop_id,event_type,title,message,read_at,created_at').order('created_at',{ascending:false}).limit(30)
+        client.from('platform_admin_notifications').select('id,shop_id,event_type,title,message,read_at,created_at').order('created_at',{ascending:false}).limit(30),
+        client.from('platform_settings').select('value').eq('key','rose_foundation').maybeSingle()
       ]);
       if (subsRes.error) throw subsRes.error;
       const subs=subsRes.data||[], active=subs.filter(x=>['trialing','active'].includes(x.status));
@@ -32,7 +33,7 @@ export async function handler(event) {
         canceledThisMonth:subs.filter(x=>x.status==='canceled'&&new Date(x.updated_at)>=monthStart).length,
         estimatedMrr:active.filter(x=>x.status==='active').reduce((sum,x)=>sum+(price[x.plan_code]||0),0)
       };
-      return json(200,{admin,metrics,alerts:alertsRes.data||[]});
+      return json(200,{admin,metrics,alerts:alertsRes.data||[],platform:{foundationTotal:Number(platformRes.data?.value?.total||0)}});
     }
 
     if (event.httpMethod === 'GET' && action === 'shops') {
@@ -59,6 +60,13 @@ export async function handler(event) {
     }
 
     if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
+    if (action === 'save-platform-settings') {
+      const foundationTotal=Math.max(0,Number(body.foundationTotal||0));
+      const {error}=await client.from('platform_settings').upsert({key:'rose_foundation',value:{total:foundationTotal},updated_by:user.id,updated_at:new Date().toISOString()});
+      if(error)throw error;
+      await writeAdminAudit(client,user.id,null,'update_rose_foundation',{total:foundationTotal});
+      return json(200,{ok:true,foundationTotal});
+    }
     if (action === 'mark-alerts-read') {
       const { error } = await client.from('platform_admin_notifications').update({read_at:new Date().toISOString()}).is('read_at',null);
       if (error) throw error;

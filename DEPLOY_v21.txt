@@ -1,0 +1,26 @@
+BLOOM v21 PLATFORM EDITION — ONE DEPLOY
+
+1. In Supabase > SQL Editor, run these in order if you have not already run them:
+   a. supabase/migration_v20.5_admin_control_center.sql
+   b. supabase/migration_v20.6_subscriber_intelligence.sql
+   c. supabase/migration_v21_platform_edition.sql
+
+2. In Netlify, confirm these environment variables exist:
+   SUPABASE_URL
+   SUPABASE_ANON_KEY
+   SUPABASE_SERVICE_ROLE_KEY
+
+3. Deploy the complete Bloom-main folder once.
+
+4. Open YOUR admin page (not admin.bloom.io):
+   https://bloom-technologies.netlify.app/admin.html
+
+5. The first time only, Bloom displays “Create your Bloom Owner account.”
+   Create a separate private admin email/password. After it succeeds, sign in on that same page.
+
+6. Customer account creation is now separate:
+   https://bloom-technologies.netlify.app/signup.html
+
+7. Hard refresh desktop with Ctrl+Shift+R. On phones, close and reopen Bloom.
+
+IMPORTANT: The first-owner setup automatically locks after the first platform owner exists. Keep the owner password private.

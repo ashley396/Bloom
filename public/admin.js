@@ -6,6 +6,29 @@ function toast(t){const x=$('#adminToast');x.textContent=t;x.hidden=false;setTim
 async function call(path,opt={},auth=true){const headers={'Content-Type':'application/json',...(opt.headers||{})};if(auth&&session?.accessToken)headers.Authorization=`Bearer ${session.accessToken}`;const r=await fetch(`/.netlify/functions/${path}`,{...opt,headers});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function saveSession(d){session={accessToken:d.accessToken,refreshToken:d.refreshToken,user:d.user};localStorage.setItem('bloom_admin_session',JSON.stringify(session))}
 function showApp(){ $('#adminAuth').hidden=true;$('#adminApp').hidden=false;$('#adminIdentity').textContent=session.user.email;loadOverview();loadShops() }
+async function initializeAdmin(){
+  try{
+    const d=await call('admin-bootstrap',{},false);
+    if(!d.ownerExists){$('#ownerSetup').hidden=false;$('#adminAuth').hidden=true;$('#adminApp').hidden=true;return}
+    $('#ownerSetup').hidden=true;
+    if(session){
+      call('admin-console?action=overview').then(showApp).catch(()=>{localStorage.removeItem('bloom_admin_session');$('#adminAuth').hidden=false});
+    }else $('#adminAuth').hidden=false;
+  }catch(err){$('#adminAuth').hidden=false;$('#loginMessage').textContent=err.message}
+}
+$('#ownerSetupForm')?.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const msg=$('#ownerSetupMessage'),password=$('#ownerPassword').value;
+  if(password!==$('#ownerPasswordConfirm').value){msg.textContent='The passwords do not match.';return}
+  msg.textContent='Creating your secure Owner account…';
+  try{
+    await call('admin-bootstrap',{method:'POST',body:JSON.stringify({name:$('#ownerName').value,email:$('#ownerEmail').value,password})},false);
+    msg.textContent='Owner account created. You can sign in now.';
+    $('#adminEmail').value=$('#ownerEmail').value;
+    $('#ownerPassword').value='';$('#ownerPasswordConfirm').value='';
+    setTimeout(()=>{$('#ownerSetup').hidden=true;$('#adminAuth').hidden=false},700);
+  }catch(err){msg.textContent=err.message}
+});
 $('#adminLogin').onsubmit=async e=>{e.preventDefault();$('#loginMessage').textContent='';try{const d=await call('auth-login',{method:'POST',body:JSON.stringify({email:$('#adminEmail').value,password:$('#adminPassword').value})},false);saveSession(d);await call('admin-console?action=overview');showApp()}catch(err){$('#loginMessage').textContent=err.message}}
 $('#adminLogout').onclick=()=>{localStorage.removeItem('bloom_admin_session');location.reload()}
 $$('nav button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
@@ -19,6 +42,7 @@ async function loadOverview(){
     ['New this month',d.metrics.newThisMonth],
     ['Estimated monthly revenue',money(d.metrics.estimatedMrr)]
   ].map(([a,b])=>`<article class="metric"><small>${a}</small><strong>${typeof b==='number'?Number(b).toLocaleString():b}</strong></article>`).join('');
+  if($('#foundationTotal'))$('#foundationTotal').value=Number(d.platform?.foundationTotal||0).toFixed(2);
   $('#subscriptionSnapshot').innerHTML=[
     ['Free trials',d.metrics.trials],
     ['Starter',d.metrics.starter],
@@ -34,6 +58,7 @@ async function loadOverview(){
 function escapeHtml(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 async function loadShops(){const q=encodeURIComponent($('#shopSearch').value||'');const d=await call(`admin-console?action=shops&search=${q}`);$('#shopList').innerHTML=d.shops.length?d.shops.map(s=>{const sub=s.shop_subscriptions?.[0]||{};const cfg=s.shop_admin_config?.[0]||{};return `<article class="shop-row"><div><strong>${s.name}</strong><small>${s.email||s.slug||''}</small></div><span>${s.city||''}${s.state?`, ${s.state}`:''}</span><span class="badge">${sub.plan_code||'trial'}</span><span class="badge ${cfg.account_status==='suspended'?'danger':cfg.account_status==='maintenance'?'warn':''}">${cfg.account_status||'active'}</span><button data-open-shop="${s.id}">Manage</button></article>`}).join(''):'<p>No florist accounts found.</p>';$$('[data-open-shop]').forEach(b=>b.onclick=()=>openShop(b.dataset.openShop))}
+$('#saveFoundation')?.addEventListener('click',async()=>{await call('admin-console',{method:'POST',body:JSON.stringify({action:'save-platform-settings',foundationTotal:Number($('#foundationTotal').value||0)})});toast('Rose Foundation amount saved');loadOverview()});
 $('#markAlertsRead').onclick=async()=>{await call('admin-console',{method:'POST',body:JSON.stringify({action:'mark-alerts-read'})});toast('Subscriber alerts marked read');loadOverview()};
 $('#shopSearch').oninput=()=>{clearTimeout(window.st);window.st=setTimeout(loadShops,350)};$('#refreshAdmin').onclick=()=>{loadOverview();loadShops();if(selectedShop)openShop(selectedShop)};
 async function openShop(id){selectedShop=id;selectedData=await call(`admin-console?action=shop&shopId=${id}`);fillEditor();setView('editor')}
@@ -49,4 +74,4 @@ $('#saveSubscription').onclick=async()=>{await call('admin-console',{method:'POS
 function renderPreview(){const p=$('.theme-preview');if(!p)return;p.style.setProperty('--preview-primary',$('[name="primary"]').value);p.style.setProperty('--preview-bg',$('[name="background"]').value);p.style.setProperty('--preview-sidebar',$('[name="sidebar"]').value)}$$('[name="primary"],[name="background"],[name="sidebar"]').forEach(x=>x.oninput=renderPreview);
 function renderAudit(){const a=selectedData?.audit||[];$('#auditList').innerHTML=a.length?a.map(x=>`<div class="audit-item"><span>${new Date(x.created_at).toLocaleString()}</span><strong>${x.action.replaceAll('_',' ')}</strong><code>${JSON.stringify(x.details)}</code></div>`).join(''):'<p>No admin changes recorded for this account.</p>'}
 $('#previewCustomer').onclick=()=>window.open('/','_blank');
-if(session){call('admin-console?action=overview').then(showApp).catch(()=>{localStorage.removeItem('bloom_admin_session')})}
+initializeAdmin();

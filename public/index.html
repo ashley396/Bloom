@@ -1,81 +1,19 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#4d2540"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/assets/bloom-icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/assets/bloom-app-icon-192.png"><title>Bloom — Florist Operating System</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/polish-v20.2.css"><link rel="stylesheet" href="/polish-v20.4.css"></head><body>
 <div id="toast" class="toast" hidden></div>
-<section id="auth" class="auth auth-shell">
-  <div class="auth-marketing">
-    <a class="auth-logo" href="#" aria-label="Bloom home"><img src="/assets/bloom-icon.svg" alt=""><span>Bloom</span></a>
-    <div class="auth-hero-copy">
-      <p class="auth-kicker">BUILT FOR INDEPENDENT FLORISTS</p>
-      <h1>Run your flower shop beautifully.</h1>
-      <p class="auth-lead">Bloom brings your point of sale, orders, customers, inventory, recipes, deliveries, website, marketing, payments, and business insights into one elegant workspace.</p>
-      <div class="auth-trust-row"><span>✓ 14-day free trial</span><span>✓ No setup fee</span><span>✓ No hidden Bloom fees</span></div>
-    </div>
-    <div class="auth-feature-grid">
-      <article><span>01</span><div><strong>Everything in one place</strong><p>Replace scattered notebooks and expensive add-ons with one florist-first system.</p></div></article>
-      <article><span>02</span><div><strong>Made by a florist, for florists</strong><p>Bloom is designed around real flower-shop work—not generic retail software.</p></div></article>
-      <article><span>03</span><div><strong>You stay in control</strong><p>Edit every product, price, recipe, photo, and AI suggestion before anything is saved or published.</p></div></article>
-    </div>
-    <div class="auth-about">
-      <p class="auth-kicker">WHO WE ARE</p>
-      <h2>Small-shop heart. Big-company capability.</h2>
-      <p>Bloom was created to give local florists the technology they deserve without draining their profit. Our promise is simple: clear pricing, honest tools, and software that helps independent flower shops grow.</p>
-    </div>
-    <footer class="auth-marketing-footer"><span>Bloom Florist Operating System</span><span>Private • Secure • Florist-first</span></footer>
+<section id="auth" class="auth auth-shell login-only-shell">
+  <div class="auth-marketing login-marketing">
+    <a class="auth-logo" href="/" aria-label="Bloom home"><img src="/assets/bloom-icon.svg" alt=""><span>Bloom</span></a>
+    <div class="auth-hero-copy"><p class="auth-kicker">THE FLORIST OPERATING SYSTEM</p><h1>Run your flower shop beautifully.</h1><p class="auth-lead">Orders, customers, inventory, recipes, deliveries, websites, marketing, payments, Lily, and Rose—all together in one florist-first workspace.</p><div class="auth-trust-row"><span>✓ Built for independent florists</span><span>✓ Clear pricing</span><span>✓ No hidden Bloom fees</span></div></div>
+    <div class="login-assistants"><article><img src="/assets/lily.png" alt="Lily"><div><strong>Lily</strong><span>Your creative florist assistant</span></div></article><article><img src="/assets/rose.png" alt="Rose"><div><strong>Rose</strong><span>Your business and profit advisor</span></div></article></div>
+    <footer class="auth-marketing-footer"><span>Bloom Floral Business Suite</span><span>Built for florists. By a florist.</span></footer>
   </div>
-
-  <div class="auth-panel">
-    <div class="auth-card">
-      <div class="auth-mobile-brand"><img src="/assets/bloom-icon.svg" alt=""><span>Bloom</span></div>
-      <div id="signInIntro" class="auth-intro">
-        <p class="auth-kicker">WELCOME BACK</p>
-        <h2>Sign in to your shop</h2>
-        <p>Pick up exactly where you left off.</p>
-      </div>
-      <div id="createIntro" class="auth-intro" hidden>
-        <p class="auth-kicker">START WITH BLOOM</p>
-        <h2>Create your Bloom account</h2>
-        <p>Choose the plan that fits your shop and start with a full 14-day free trial.</p>
-      </div>
-
-      <section id="freePlanCard" class="pricing-selector" hidden aria-label="Choose a Bloom plan">
-        <div class="pricing-heading"><span>Choose your plan</span><strong>14 days free on every plan</strong><small>Cancel anytime. No setup fee, no contract, and no hidden Bloom software fees.</small></div>
-        <div class="pricing-grid">
-          <label class="price-option"><input type="radio" name="signupPlan" value="starter" data-price="39"><span class="plan-name">Starter</span><strong>$39<small>/month</small></strong><em>Essential tools for a growing flower shop.</em><b>POS & orders</b><b>Inventory management</b><b>Website builder</b><b>Marketing tools</b></label>
-          <label class="price-option featured"><span class="popular">MOST POPULAR</span><input type="radio" name="signupPlan" value="pro" data-price="79" checked><span class="plan-name">Pro</span><strong>$79<small>/month</small></strong><em>Everything most independent florists need.</em><b>Everything in Starter</b><b>Advanced reporting</b><b>Delivery management</b><b>Lily AI assistant</b></label>
-          <label class="price-option"><input type="radio" name="signupPlan" value="premium" data-price="129"><span class="plan-name">Premium</span><strong>$129<small>/month</small></strong><em>Complete capability for ambitious shops.</em><b>Everything in Pro</b><b>Multi-store tools</b><b>Priority support</b><b>Wholesale marketplace access</b></label>
-        </div>
-        <p class="pricing-disclosure">Your first 14 days are free. Billing begins after the trial unless canceled. Optional payment processors charge their own clearly disclosed processing fees.</p>
-      </section>
-
-      <form id="authForm" class="auth-form">
-        <div class="signup-fields" id="signupFields" hidden>
-          <div class="auth-two">
-            <label>Your full name<input id="fullName" autocomplete="name" placeholder="Ashley Goodman"></label>
-            <label>Flower shop name<input id="shopName" autocomplete="organization" placeholder="Lilies in Bloom"></label>
-          </div>
-          <div class="auth-two">
-            <label>Business phone<input id="businessPhone" type="tel" autocomplete="tel" placeholder="(606) 555-0123"></label>
-            <label>Business type<select id="businessType"><option value="Retail flower shop">Retail flower shop</option><option value="Home-based florist">Home-based florist</option><option value="Event and wedding florist">Event and wedding florist</option><option value="Multi-location florist">Multi-location florist</option><option value="New flower shop">New flower shop</option><option value="Other floral business">Other floral business</option></select></label>
-          </div>
-          <label>Street address<input id="businessAddress" autocomplete="street-address" placeholder="123 Main Street"></label>
-          <div class="auth-location-grid">
-            <label>City<input id="businessCity" autocomplete="address-level2"></label>
-            <label>State<input id="businessState" autocomplete="address-level1" maxlength="2" placeholder="KY"></label>
-            <label>ZIP<input id="businessZip" autocomplete="postal-code" inputmode="numeric"></label>
-          </div>
-        </div>
-        <label>Email address<input id="email" type="email" autocomplete="email" required placeholder="you@yourflowershop.com"></label>
-        <label>Password<input id="password" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters"></label>
-        <label id="termsWrap" class="auth-check" hidden><input id="agreeTerms" type="checkbox"><span>I agree to Bloom's Terms and Privacy Policy and confirm that I am authorized to create this shop account.</span></label>
-        <button class="primary wide auth-submit" id="authButton">Sign in</button>
-      </form>
-      <p id="authMessage" class="auth-message" aria-live="polite"></p>
-      <div class="auth-switch"><span id="switchPrompt">New to Bloom?</span><button class="link" id="switchMode" type="button">Start your free trial</button></div>
-      <div class="auth-security"><span>🔒 Secure account access</span><span>14-day free trial</span><span>No hidden Bloom fees</span></div>
-      <small class="auth-version">Bloom v20.5 • The florist operating system</small>
-    </div>
-  </div>
+  <div class="auth-panel"><div class="auth-card login-card"><div class="auth-mobile-brand"><img src="/assets/bloom-icon.svg" alt=""><span>Bloom</span></div><div class="auth-intro"><p class="auth-kicker">WELCOME BACK</p><h2>Sign in to your shop</h2><p>Enter your Bloom account details to continue.</p></div>
+    <form id="authForm" class="auth-form"><label>Business email<input id="email" type="email" required autocomplete="username" placeholder="you@yourflowershop.com"></label><label>Password<input id="password" type="password" required autocomplete="current-password" placeholder="Your password"></label><button class="primary wide auth-submit" id="authButton">Sign in</button></form>
+    <p id="authMessage" class="auth-message" aria-live="polite"></p><a class="create-account-link" href="/signup.html">New to Bloom? <strong>Start your 14-day free trial</strong></a><div class="auth-security"><span>🔒 Secure account access</span><span>No hidden Bloom fees</span></div><small class="auth-version">Bloom v21 • Floral Business Suite</small>
+    <div id="signupFields" hidden></div><section id="freePlanCard" hidden></section><div id="createIntro" hidden></div><div id="signInIntro" hidden></div><span id="switchPrompt" hidden></span><button id="switchMode" type="button" hidden></button><input id="agreeTerms" type="checkbox" hidden><div id="termsWrap" hidden></div>
+  </div></div>
 </section>
-<main id="app" hidden><header><div class="header-brand"><img id="appLogo" class="app-logo" alt="Shop logo" hidden><div class="brand"><span class="brand-flower">✿</span> Bloom <small>POS</small></div><select id="shopSwitcher"></select></div><div><small id="accountEmail"></small><button id="logout" class="secondary">Sign out</button></div></header>
+<main id="app" hidden><div class="platform-top-strip"><div class="foundation-mini"><span>🌹</span><div><small>Rose Foundation</small><strong id="roseFoundationTotal">$0.00 raised</strong></div></div><div class="assistant-mini-dock"><button type="button" data-page="dashboardPage"><img src="/assets/lily.png" alt=""><span><b>Lily</b><small>Creative assistant</small></span></button><button type="button" data-page="reportsPage"><img src="/assets/rose.png" alt=""><span><b>Rose</b><small>Business advisor</small></span></button></div></div><header><div class="header-brand"><img id="appLogo" class="app-logo" alt="Shop logo" hidden><div class="brand"><span class="brand-flower">✿</span> Bloom <small>POS</small></div><select id="shopSwitcher"></select></div><div><small id="accountEmail"></small><button id="logout" class="secondary">Sign out</button></div></header>
 <div class="shell"><aside>
 <p>SHOP</p><button class="active" data-page="dashboardPage">Point of Sale</button><button data-page="ordersPage">Orders</button><button data-page="deliveriesPage">Deliveries</button><button data-page="customersPage">Customers</button><button data-page="inventoryPage">Inventory</button>
 <p>CREATE & SELL</p><button data-page="productsPage">Products & Recipe Builder</button><button data-page="bloomshotPage">BloomShot Studio</button><button data-page="websitePage">Website Studio</button><button data-page="libraryPage">Floral Library</button><button data-page="invoicesPage">Invoices</button><button data-page="paymentsPage">Payments</button>
