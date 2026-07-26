@@ -1,0 +1,11 @@
+BLOOM X v17.2 — LOCAL LILY & ROSE
+
+1. Replace the files in the existing GitHub repository with this project and commit/push.
+2. Let Netlify deploy once. No Supabase migration is required.
+3. On the shop Windows computer, keep Ollama running.
+4. Extract this project folder on the computer; do not run files from inside the ZIP.
+5. Double-click START-BLOOM-AI-WINDOWS.bat and leave the black window open.
+6. Open Bloom and press Ctrl+F5.
+7. Click the floating “Ask Lily or Rose” button in the lower-right corner.
+
+The local bridge runs only on the shop computer at 127.0.0.1:11435. Netlify does not run Ollama.
