@@ -22,6 +22,9 @@ export async function handler(event){
   const totalSales=ledger?ledger.reduce((a,p)=>a+netPayment(p),0):paid.reduce((a,o)=>a+Number(o.total||0),0),totalExpenses=allExpenses.reduce((a,e)=>a+Number(e.amount||0),0);
   const todaySales=ledger?ledger.filter(p=>localDate(p.received_at)===today).reduce((a,p)=>a+netPayment(p),0):paid.filter(o=>localDate(o.paid_at||o.created_at)===today).reduce((a,o)=>a+Number(o.total||0),0);
   const activeDeliveries=allOrders.filter(o=>o.fulfillment==="DELIVERY"&&!['COMPLETED','CANCELLED'].includes(o.status));
+  const pickupsToday=allOrders.filter(o=>o.fulfillment==="PICKUP"&&localDate(o.delivery_date)===today&&!['COMPLETED','CANCELLED'].includes(o.status)).length;
+  const completedOrders=allOrders.filter(o=>o.status!=="CANCELLED"&&Number(o.total||0)>0);
+  const averageOrder=completedOrders.length?completedOrders.reduce((a,o)=>a+Number(o.total||0),0)/completedOrders.length:0;
   const dueToday=allOrders.filter(o=>localDate(o.delivery_date)===today&&!['COMPLETED','CANCELLED'].includes(o.status));
   const lowStock=stock.filter(i=>Number(i.quantity||0)<=Number(i.low_stock_level||0)).length;
   const unpaid=allOrders.filter(o=>o.payment_status!=="PAID"&&o.status!=="CANCELLED").reduce((a,o)=>a+Math.max(0,Number(o.total||0)-Number(o.amount_paid||0)),0);
@@ -33,6 +36,6 @@ export async function handler(event){
   const profitScore=Math.max(0,Math.min(100,Math.round(freshnessScore*.45+marginHealth*.45+(wasteRisk==='Low'?100:wasteRisk==='Medium'?65:30)*.10)));
   const chosen=useFirst.slice(0,3);const dailySpecial=chosen.length?{name:`Fresh Pick ${chosen[0].color||chosen[0].name} Special`,items:chosen.map(i=>({name:i.name,color:i.color,quantity:Math.min(Number(i.quantity||0),i.category==='Greenery'?3:5),unit:i.unit,cost:i.cost})),wastePrevented:Number(chosen.reduce((a,i)=>a+Math.min(Number(i.quantity||0),5)*Number(i.cost||0),0).toFixed(2))}:null;
   const weeklySales=[];for(let n=6;n>=0;n--){const d=new Date();d.setDate(d.getDate()-n);const key=d.toISOString().slice(0,10);weeklySales.push({label:d.toLocaleDateString('en-US',{weekday:'short'}),total:ledger?ledger.filter(p=>localDate(p.received_at)===key).reduce((a,p)=>a+netPayment(p),0):paid.filter(o=>localDate(o.paid_at||o.created_at)===key).reduce((a,o)=>a+Number(o.total||0),0)})}
-  return json(200,{todaySales,totalSales,totalExpenses,profit:totalSales-totalExpenses,unpaidTotal:unpaid,ordersDueToday:dueToday.length,deliveriesToday:activeDeliveries.length,deliveries:activeDeliveries.length,lowStock,customers:(customers.data||[]).length,weekSales:weeklySales.reduce((a,x)=>a+x.total,0),ordersToday:allOrders.filter(o=>localDate(o.created_at)===today).length,weeklySales,upcomingDeliveries:activeDeliveries.slice(0,5),profitIntelligence:{profitScore,freshnessScore,marginHealth,wasteRisk,wasteValue,useFirst,dailySpecial}});
+  return json(200,{todaySales,totalSales,totalExpenses,profit:totalSales-totalExpenses,pickupsToday,averageOrder,unpaidTotal:unpaid,ordersDueToday:dueToday.length,deliveriesToday:activeDeliveries.length,deliveries:activeDeliveries.length,lowStock,customers:(customers.data||[]).length,weekSales:weeklySales.reduce((a,x)=>a+x.total,0),ordersToday:allOrders.filter(o=>localDate(o.created_at)===today).length,weeklySales,upcomingDeliveries:activeDeliveries.slice(0,5),profitIntelligence:{profitScore,freshnessScore,marginHealth,wasteRisk,wasteValue,useFirst,dailySpecial}});
  }catch(error){return fail(error)}
 }

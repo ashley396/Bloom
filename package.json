@@ -1,6 +1,6 @@
 {
   "name": "bloom-florist-operating-system",
-  "version": "18.5.0",
+  "version": "19.0.0",
   "private": true,
   "type": "module",
   "dependencies": {

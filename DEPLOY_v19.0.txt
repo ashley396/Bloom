@@ -1,0 +1,24 @@
+BLOOM v19.0 DEPLOYMENT — ONE NETLIFY DEPLOY
+
+This release does NOT require a new Supabase SQL migration.
+
+1. Keep your existing Netlify environment variables and Supabase project unchanged.
+2. Upload the complete contents of this Bloom v19.0 folder to your existing Netlify site, or commit/push it through GitHub Desktop.
+3. Wait for the Netlify deployment to finish.
+4. Sign in and run the test checklist below.
+
+TEST CHECKLIST
+[ ] Dashboard loads without an error.
+[ ] Today's Pickups displays a number.
+[ ] Average Order displays a dollar amount.
+[ ] Each morning quick-action button opens the correct page or dialog.
+[ ] Customers page loads.
+[ ] View Timeline opens for a customer.
+[ ] Customer summary cards display.
+[ ] A customer's prior orders appear when the customer name or phone matches the order.
+[ ] Edit and Delete customer buttons still work.
+[ ] Orders, payments, inventory, products, and Stripe test mode still load normally.
+[ ] Test on both phone and computer.
+
+ROLLBACK
+If the deployment has a problem, use Netlify Deploys > select the prior successful v18.5 deploy > Publish deploy.
