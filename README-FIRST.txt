@@ -1,26 +1,28 @@
-BLOOM AI ROUTER FIX — redesign-v22
+BLOOM STABILIZATION UPDATE — REDESIGN-V22
 
-This update changes only two files:
-  netlify/functions/ai-assistant.js
-  netlify/functions/ai-context.js
+This package contains six source files plus the marketplace architecture note.
 
-What it fixes:
-- Stops Bloom from sending the entire shop database to Cloudflare AI.
-- Routes each request to a focused area: florist, business, inventory, website, marketing, customer, delivery, or reports.
-- Keeps Lily and Rose personalities.
-- Limits arrays, strings, object depth, and total prompt size.
-- Reduces AI context records returned from Supabase.
-- Gives a clearer message if a request is still too large.
+What it changes:
+1. Trims embedded logos, website photos, receipt images, base64 data, long strings, arrays, and nested objects before any AI request leaves the browser.
+2. Repeats the same safety checks inside the Netlify AI function, so oversized requests cannot reach Cloudflare even if the browser cache is stale.
+3. Reduces ai-context database results to recent, relevant records.
+4. Sends signup confirmation links back to the current Netlify branch or production login page instead of localhost.
+5. Records the recommended Florist / Wholesaler / Platform Admin marketplace design.
 
-How to install:
-1. Keep GitHub Desktop on the redesign-v22 branch.
-2. Extract this ZIP.
-3. Copy the included netlify folder into the root Bloom folder.
-4. Choose Replace the files in the destination when Windows asks.
-5. In GitHub Desktop, confirm ONLY these two files are selected.
-6. Commit with: Fix Lily and Rose AI context routing
-7. Push origin. Netlify will create one branch deploy.
-8. Test Lily and Rose on the redesign-v22 branch site before publishing production.
+Files to replace in the Bloom repository:
+- app.js
+- public/app.js
+- netlify/functions/ai-assistant.js
+- netlify/functions/ai-context.js
+- netlify/functions/auth-signup.js
+- MARKETPLACE_ARCHITECTURE.md (new planning file)
 
-No Supabase migration is needed.
-The existing CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_AI_API_TOKEN variables remain unchanged.
+Recommended commit message:
+Fix Bloom AI payload and signup redirect
+
+After Netlify deploys redesign-v22:
+1. Open the branch site.
+2. Press Ctrl+Shift+R.
+3. Test “Lily write this.”
+4. In Network > ai-assistant > Response, a successful response may include promptChars. It should be well below 42,000, not hundreds of thousands.
+5. Do not publish to production until Lily, Rose, and signup confirmation are tested on the branch.

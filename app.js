@@ -414,12 +414,35 @@ document.querySelector('[data-page="settingsPage"]')?.addEventListener("click",(
 
 
 /* Bloom v20 — low-cost AI router + BloomShot Studio */
+
+function aiSafeValue(value,depth=0,key=""){
+  const blocked=/^(?:logo|logo_url|image|image_url|hero_image_url|receipt_data_url|photo|photo_url|data_url|file|attachment|canvas|base64)$/i;
+  if(value==null||typeof value==="number"||typeof value==="boolean")return value;
+  if(blocked.test(key))return undefined;
+  if(typeof value==="string"){
+    if(/^data:[^;]+;base64,/i.test(value))return "[embedded image omitted]";
+    return value.length>2400?`${value.slice(0,2400)}…[trimmed]`:value;
+  }
+  if(depth>=4)return "[nested data omitted]";
+  if(Array.isArray(value))return value.slice(0,18).map(v=>aiSafeValue(v,depth+1,key));
+  if(typeof value==="object"){
+    const out={};
+    for(const [k,v] of Object.entries(value).slice(0,40)){
+      if(blocked.test(k))continue;
+      const safe=aiSafeValue(v,depth+1,k);if(safe!==undefined)out[k]=safe;
+    }
+    return out;
+  }
+  return String(value);
+}
+function safeAiPayload(payload){return aiSafeValue(payload)||{}}
 async function smartAi(payload){
-  try{return await api("ai-assistant",{method:"POST",body:JSON.stringify(payload)})}
+  const safePayload=safeAiPayload(payload);
+  try{return await api("ai-assistant",{method:"POST",body:JSON.stringify(safePayload)})}
   catch(cloudError){
     try{
-      if(payload.mode==="generate")return await localAi("/generate",{method:"POST",body:JSON.stringify(payload)});
-      return await localAi("/chat",{method:"POST",body:JSON.stringify(payload)});
+      if(payload.mode==="generate")return await localAi("/generate",{method:"POST",body:JSON.stringify(safePayload)});
+      return await localAi("/chat",{method:"POST",body:JSON.stringify(safePayload)});
     }catch(localError){throw new Error(`${cloudError.message} Local fallback: ${localError.message}`)}
   }
 }
