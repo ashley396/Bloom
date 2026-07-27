@@ -1,0 +1,84 @@
+/* Bloom Foundation — Step 2
+   Visual system override only. No data, Supabase, Stripe, or workflow logic changes. */
+:root{
+  --bloom-ink:#34242d;
+  --bloom-muted:#796b72;
+  --bloom-wine:#6f3156;
+  --bloom-wine-dark:#4d2540;
+  --bloom-rose:#c982a9;
+  --bloom-blush:#f9eef4;
+  --bloom-cream:#fffaf6;
+  --bloom-sage:#dfeadf;
+  --bloom-sage-dark:#52705b;
+  --bloom-gold:#c59a55;
+  --bloom-line:#eadde4;
+  --bloom-shadow:0 12px 35px rgba(77,37,64,.10);
+  --bloom-radius:20px;
+}
+html{background:var(--bloom-cream)!important}
+body{color:var(--bloom-ink);background:linear-gradient(135deg,#fffaf6 0%,#fff 45%,#fbf2f7 100%)!important}
+button,input,select,textarea{font:inherit}
+button{transition:transform .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease}
+button:hover{transform:translateY(-1px)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(201,130,169,.28);outline-offset:2px}
+
+.platform-top-strip{background:linear-gradient(90deg,var(--bloom-wine-dark),var(--bloom-wine));color:#fff;border:0;box-shadow:0 5px 20px rgba(77,37,64,.18)}
+.foundation-mini,.assistant-mini-dock button{color:#fff}
+.assistant-mini-dock button{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15)}
+.assistant-mini-dock button:hover{background:rgba(255,255,255,.15)}
+header{background:rgba(255,255,255,.92)!important;backdrop-filter:blur(18px);border-bottom:1px solid var(--bloom-line)!important;box-shadow:0 4px 18px rgba(77,37,64,.05)}
+.brand{font-family:Georgia,'Times New Roman',serif;letter-spacing:.02em;color:var(--bloom-wine-dark)}
+.brand-flower{color:var(--bloom-rose)}
+
+.shell>aside{background:linear-gradient(180deg,#fff 0%,#fff9fc 100%)!important;border-right:1px solid var(--bloom-line)!important;box-shadow:8px 0 30px rgba(77,37,64,.04)}
+.shell>aside p{color:#9b7489;letter-spacing:.14em;font-weight:800;font-size:.68rem;margin-top:1.25rem}
+.shell>aside button{border-radius:12px!important;color:#604d57!important;font-weight:650;border:1px solid transparent!important}
+.shell>aside button:hover{background:var(--bloom-blush)!important;color:var(--bloom-wine-dark)!important}
+.shell>aside button.active{background:linear-gradient(135deg,var(--bloom-wine-dark),var(--bloom-wine))!important;color:#fff!important;box-shadow:0 8px 18px rgba(77,37,64,.2)}
+.content{padding:24px 28px 40px!important}
+.page>.heading{margin-bottom:22px;padding-bottom:16px;border-bottom:1px solid var(--bloom-line)}
+.heading h1,.page h1{font-family:Georgia,'Times New Roman',serif;color:var(--bloom-wine-dark);letter-spacing:-.025em}
+.eyebrow{color:var(--bloom-rose)!important;letter-spacing:.13em!important;font-weight:850!important}
+.subtle{color:var(--bloom-muted)!important}
+
+.primary,.process-payment{background:linear-gradient(135deg,var(--bloom-wine-dark),var(--bloom-wine))!important;color:#fff!important;border:0!important;box-shadow:0 8px 18px rgba(77,37,64,.18)!important;border-radius:12px!important;font-weight:750!important}
+.primary:hover,.process-payment:hover{box-shadow:0 12px 24px rgba(77,37,64,.24)!important}
+.secondary,.soft-green,.button-link{border-radius:12px!important;font-weight:700!important}
+.secondary{background:#fff!important;border:1px solid var(--bloom-line)!important;color:var(--bloom-wine-dark)!important}
+.soft-green{background:var(--bloom-sage)!important;color:#31503a!important;border:1px solid #cadcca!important}
+input,select,textarea{border:1px solid #dfd2d9!important;border-radius:11px!important;background:#fff!important;color:var(--bloom-ink)!important;box-shadow:0 1px 0 rgba(77,37,64,.02)}
+input:focus,select:focus,textarea:focus{border-color:var(--bloom-rose)!important;box-shadow:0 0 0 4px rgba(201,130,169,.12)!important}
+
+.rose-welcome-card{background:linear-gradient(125deg,#fff 0%,#fff6fa 65%,#f5e5ee 100%)!important;border:1px solid #efdde6!important;border-radius:26px!important;box-shadow:var(--bloom-shadow)!important;overflow:hidden}
+.rose-welcome-card h1{font-family:Georgia,'Times New Roman',serif;color:var(--bloom-wine-dark);font-size:clamp(1.8rem,3vw,2.7rem)}
+.welcome-stats span{background:rgba(255,255,255,.76)!important;border:1px solid rgba(201,130,169,.2)!important;border-radius:14px!important;padding:12px 14px!important}
+.welcome-stats b{color:var(--bloom-wine-dark)!important;font-size:1.15rem}
+.lily-suggestion-card{background:linear-gradient(145deg,#eff7ef,#fff)!important;border:1px solid #d7e7d7!important;border-radius:24px!important;box-shadow:var(--bloom-shadow)!important}
+.assistant-portrait{filter:drop-shadow(0 10px 18px rgba(77,37,64,.13))}
+
+.profit-score-card,.use-first-card,.daily-special-card,.progress-card,.checkout-card,.current-order-panel,.inventory-scan-banner,.inventory-value-card,.cards>article,.cards>.card{border:1px solid var(--bloom-line)!important;border-radius:var(--bloom-radius)!important;box-shadow:var(--bloom-shadow)!important;background:rgba(255,255,255,.94)!important}
+.profit-score-card{background:linear-gradient(145deg,var(--bloom-wine-dark),#7d4167)!important;color:#fff!important;border:0!important}
+.profit-score-card .eyebrow,.profit-score-card p,.profit-score-card span{color:rgba(255,255,255,.82)!important}
+.profit-score-card h2,.profit-score-card b{color:#fff!important}
+.daily-special-card{background:linear-gradient(145deg,#fffaf2,#fff)!important;border-color:#efdfc7!important}
+.use-first-card{background:linear-gradient(145deg,#f6fbf6,#fff)!important;border-color:#d9e7d9!important}
+
+.product-toolbar,.current-order-head,.checkout-tabs{border-color:var(--bloom-line)!important}
+.product-pad-grid>*{border-radius:16px!important;overflow:hidden;box-shadow:0 7px 18px rgba(77,37,64,.08)!important;border:1px solid var(--bloom-line)!important}
+.current-order-panel,.progress-card,.checkout-card{overflow:hidden}
+.checkout-total{background:var(--bloom-blush)!important;border-radius:14px!important;padding:15px!important}
+.checkout-total strong{color:var(--bloom-wine-dark)!important}
+.progress-ring{border-color:var(--bloom-rose)!important}
+
+.cards,.kanban,.order-board{gap:16px!important}
+.card,dialog form,.dialog-shell{border-radius:20px!important}
+dialog{border:0!important;border-radius:22px!important;box-shadow:0 30px 80px rgba(44,24,35,.28)!important}
+dialog::backdrop{background:rgba(45,27,37,.46);backdrop-filter:blur(3px)}
+.toast{border-radius:14px!important;box-shadow:0 14px 35px rgba(45,27,37,.25)!important}
+
+@media(max-width:900px){
+  .content{padding:18px 14px 32px!important}
+  .shell>aside{box-shadow:none}
+  .rose-welcome-card,.lily-suggestion-card{border-radius:20px!important}
+}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
