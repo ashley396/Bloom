@@ -525,3 +525,74 @@ function applyRemoteAdminConfig(config={}){
     lock.hidden=false;
   }
 }
+
+/* Bloom v23 — Lily AI Studio */
+let aiStudioDraft=null;
+let aiStudioPrevious=null;
+let aiStudioVoiceEnabled=localStorage.getItem("bloomLilyVoice")!=="off";
+const aiStudioFieldMap={
+  tagline:"websiteTagline",hero_title:"websiteHeroTitle",hero_text:"websiteHeroText",about_text:"websiteAboutText"
+};
+function lilyVoice(text){
+  if(!aiStudioVoiceEnabled||!window.speechSynthesis||!text)return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(String(text).replace(/[🌸💕✨💐😂🌷]/g,""));
+  const voices=speechSynthesis.getVoices();
+  u.voice=voices.find(v=>/female|samantha|ava|jenny|aria|zira/i.test(v.name))||voices.find(v=>/^en/i.test(v.lang))||null;
+  u.rate=.98;u.pitch=1.16;u.volume=.9;speechSynthesis.speak(u);
+}
+function aiStudioMessage(role,text){
+  const wrap=$("#aiStudioMessages");if(!wrap)return;
+  const article=document.createElement("article");article.className=`ai-message ${role}`;
+  article.innerHTML=`<span class="message-avatar">${role==="user"?"💬":"🌸"}</span><div><strong>${role==="user"?"You":"Lily"}</strong><p></p></div>`;
+  article.querySelector("p").textContent=text;wrap.appendChild(article);wrap.scrollTop=wrap.scrollHeight;
+}
+function aiStudioTasks(items=[],active=-1){
+  const q=$("#aiStudioTaskQueue");if(!q)return;q.hidden=!items.length;
+  q.innerHTML=items.map((x,i)=>`<div class="ai-task-row ${i<active?"done":""}"><span>${i<active?"✓":i===active?"⏳":"○"}</span><span>${x}</span></div>`).join("");
+}
+function normalizedStudioDraft(raw={}){
+  const website=raw.website&&typeof raw.website==="object"?raw.website:{};
+  const product=raw.product&&typeof raw.product==="object"?raw.product:{};
+  const marketing=raw.marketing&&typeof raw.marketing==="object"?raw.marketing:{};
+  return {message:raw.message||raw.text||"I made a draft for you! Take a look and tell me what you think. 💕",website,product,marketing,image_prompt:raw.image_prompt||""};
+}
+function renderAiStudioDraft(){
+  const list=$("#aiStudioChangeList"),badge=$("#aiStudioDraftBadge");if(!list)return;
+  if(!aiStudioDraft){badge.textContent="No draft";list.innerHTML='<div class="ai-empty-state"><span>🌷</span><strong>Your draft will appear here</strong><p>Ask Lily to improve the website, write a product, or prepare marketing.</p></div>';$("#aiStudioApply").disabled=true;$("#aiStudioUndo").disabled=!aiStudioPrevious;return}
+  const cards=[];
+  const labels={tagline:"Tagline",hero_title:"Hero headline",hero_text:"Hero message",about_text:"About section",seo_title:"SEO title",seo_description:"SEO description"};
+  for(const [k,v] of Object.entries(aiStudioDraft.website||{}))if(v)cards.push(`<article class="ai-change-card"><small>Website · ${labels[k]||k.replaceAll("_"," ")}</small><p>${escapeHtml(String(v))}</p></article>`);
+  for(const [k,v] of Object.entries(aiStudioDraft.product||{}))if(v&&typeof v!=="object")cards.push(`<article class="ai-change-card"><small>Product · ${k.replaceAll("_"," ")}</small><p>${escapeHtml(String(v))}</p></article>`);
+  for(const [k,v] of Object.entries(aiStudioDraft.marketing||{}))if(v)cards.push(`<article class="ai-change-card"><small>Marketing · ${k.replaceAll("_"," ")}</small><p>${escapeHtml(String(v))}</p></article>`);
+  if(aiStudioDraft.image_prompt)cards.push(`<article class="ai-change-card"><small>Image concept</small><p>${escapeHtml(aiStudioDraft.image_prompt)}</p></article>`);
+  list.innerHTML=cards.join("")||'<div class="ai-empty-state"><span>🌸</span><strong>Lily answered</strong><p>No editable fields were included in this draft.</p></div>';
+  badge.textContent=`${cards.length} suggested change${cards.length===1?"":"s"}`;badge.className="badge good";$("#aiStudioApply").disabled=!cards.length;$("#aiStudioUndo").disabled=!aiStudioPrevious;
+}
+async function runAiStudio(prompt){
+  const tasks=["Reading your request","Writing the creative draft","Preparing your approval preview"];
+  aiStudioTasks(tasks,0);aiStudioMessage("user",prompt);
+  try{
+    await new Promise(r=>setTimeout(r,180));aiStudioTasks(tasks,1);
+    const d=await smartAi({mode:"generate",persona:"Lily",task:`Act as Lily, Bloom's sweet, bubbly, lightly funny creative florist assistant. Respond to this request: ${prompt}. Create only relevant fields. Never claim anything was saved or published.`,input:{shop:{name:shopSettings?.name||"",city:shopSettings?.city||"",address:shopSettings?.address||"",website_style:shopSettings?.website_style||"",delivery_area:shopSettings?.delivery_area||""},currentWebsite:{tagline:$("#websiteTagline")?.value||"",hero_title:$("#websiteHeroTitle")?.value||"",hero_text:$("#websiteHeroText")?.value||"",about_text:$("#websiteAboutText")?.value||""}},schema:{message:"one sweet, bubbly sentence explaining the draft",website:{tagline:"optional",hero_title:"optional",hero_text:"optional",about_text:"optional",seo_title:"optional",seo_description:"optional"},product:{name:"optional",category:"optional",price:"optional number",description:"optional",seo_title:"optional",seo_description:"optional"},marketing:{facebook:"optional",instagram:"optional",google_business:"optional"},image_prompt:"optional photorealistic floral product image prompt"}});
+    aiStudioTasks(tasks,2);aiStudioPrevious=aiStudioDraft;aiStudioDraft=normalizedStudioDraft(d.result||{});renderAiStudioDraft();
+    const reply=aiStudioDraft.message;aiStudioMessage("assistant",reply);lilyVoice(reply);aiStudioTasks(tasks,3);setTimeout(()=>aiStudioTasks([],0),900);
+    localStorage.setItem("bloomAiStudioDraft",JSON.stringify(aiStudioDraft));
+  }catch(e){aiStudioTasks([],0);aiStudioMessage("assistant",`Oops—my petals got a little tangled. ${e.message}`);toast(e.message)}
+}
+$("#aiStudioForm")?.addEventListener("submit",e=>{e.preventDefault();const input=$("#aiStudioPrompt"),prompt=input.value.trim();if(!prompt)return toast("Tell Lily what you want to create");input.value="";runAiStudio(prompt)});
+$$('[data-ai-prompt]').forEach(b=>b.addEventListener("click",()=>runAiStudio(b.dataset.aiPrompt)));
+$("#aiStudioApply")?.addEventListener("click",()=>{
+  if(!aiStudioDraft)return;
+  let applied=0;
+  for(const [key,id] of Object.entries(aiStudioFieldMap)){const value=aiStudioDraft.website?.[key],el=document.getElementById(id);if(value&&el){el.value=value;el.dispatchEvent(new Event("input",{bubbles:true}));applied++}}
+  const product=aiStudioDraft.product||{};
+  if(Object.keys(product).length){const form=$("#productForm");if(form){if(product.name)form.elements.name.value=product.name;if(product.category)form.elements.category.value=product.category;if(product.price!==undefined)form.elements.price.value=product.price;if(product.description)form.elements.description.value=product.description;if(product.seo_title)form.elements.seo_title.value=product.seo_title;if(product.seo_description)form.elements.seo_description.value=product.seo_description;$("#productDialogTitle").textContent="Review Lily's product draft";$("#productDialog")?.showModal();applied++}}
+  if(applied){showPage("websitePage");toast("Lily's approved draft was applied. Save the website when ready.")}else toast("This draft is ready to copy, but it has no website fields to apply.");
+});
+$("#aiStudioUndo")?.addEventListener("click",()=>{if(!aiStudioPrevious)return;const current=aiStudioDraft;aiStudioDraft=aiStudioPrevious;aiStudioPrevious=current;renderAiStudioDraft();toast("Draft restored")});
+$("#aiStudioClear")?.addEventListener("click",()=>{aiStudioPrevious=aiStudioDraft;aiStudioDraft=null;localStorage.removeItem("bloomAiStudioDraft");renderAiStudioDraft();$("#aiStudioMessages").innerHTML='<article class="ai-message assistant"><span class="message-avatar">🌸</span><div><strong>Lily</strong><p>Fresh page, fresh flowers! What are we making? 💕</p></div></article>'});
+$("#aiStudioVoiceToggle")?.addEventListener("click",e=>{aiStudioVoiceEnabled=!aiStudioVoiceEnabled;localStorage.setItem("bloomLilyVoice",aiStudioVoiceEnabled?"on":"off");e.currentTarget.textContent=aiStudioVoiceEnabled?"🔊 Voice on":"🔇 Voice off";if(aiStudioVoiceEnabled)lilyVoice("Yay! You can hear me again.")});
+if($("#aiStudioVoiceToggle"))$("#aiStudioVoiceToggle").textContent=aiStudioVoiceEnabled?"🔊 Voice on":"🔇 Voice off";
+try{const saved=JSON.parse(localStorage.getItem("bloomAiStudioDraft")||"null");if(saved){aiStudioDraft=saved;renderAiStudioDraft()}}catch{}
+const dog=$("#bloomDog");function petBloomDog(){dog?.classList.add("pet");lilyVoice("Oh, she loves that! Look at that whole-body wiggle!");setTimeout(()=>dog?.classList.remove("pet"),1800)}dog?.addEventListener("click",petBloomDog);dog?.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" ")petBloomDog()});

@@ -1,10 +1,10 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#4d2540"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/assets/bloom-icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/assets/bloom-app-icon-192.png"><title>Bloom — Florist Operating System</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/polish-v20.2.css"><link rel="stylesheet" href="/polish-v20.4.css"><link rel="stylesheet" href="/platform-v21.1.css"></head><body>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#4d2540"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/assets/bloom-icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/assets/bloom-app-icon-192.png"><title>Bloom — Florist Operating System</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/polish-v20.2.css"><link rel="stylesheet" href="/polish-v20.4.css"><link rel="stylesheet" href="/platform-v21.1.css"><link rel="stylesheet" href="/bloom-v23.css"></head><body>
 <div id="toast" class="toast" hidden></div>
 <section id="auth" hidden></section>
 <main id="app" hidden><div class="platform-top-strip"><div class="foundation-mini"><span>🌹</span><div><small>Rose Foundation</small><strong id="roseFoundationTotal">$0.00 raised</strong></div></div><div class="assistant-mini-dock"><button type="button" data-page="dashboardPage"><img src="/assets/lily.png" alt=""><span><b>Lily</b><small>Creative assistant</small></span></button><button type="button" data-page="reportsPage"><img src="/assets/rose.png" alt=""><span><b>Rose</b><small>Business advisor</small></span></button></div></div><header><div class="header-brand"><img id="appLogo" class="app-logo" alt="Shop logo" hidden><div class="brand"><span class="brand-flower">✿</span> Bloom <small>POS</small></div><select id="shopSwitcher"></select></div><div><small id="accountEmail"></small><button id="logout" class="secondary">Sign out</button></div></header>
 <div class="shell"><aside>
 <p>SHOP</p><button class="active" data-page="dashboardPage">Point of Sale</button><button data-page="ordersPage">Orders</button><button data-page="deliveriesPage">Deliveries</button><button data-page="customersPage">Customers</button><button data-page="inventoryPage">Inventory</button>
-<p>CREATE & SELL</p><button data-page="productsPage">Products & Recipe Builder</button><button data-page="bloomshotPage">BloomShot Studio</button><button data-page="websitePage">Website Studio</button><button data-page="libraryPage">Floral Library</button><button data-page="invoicesPage">Invoices</button><button data-page="paymentsPage">Payments</button>
+<p>CREATE & SELL</p><button data-page="aiStudioPage">🌸 Lily AI Studio</button><button data-page="productsPage">Products & Recipe Builder</button><button data-page="bloomshotPage">BloomShot Studio</button><button data-page="websitePage">Website Studio</button><button data-page="libraryPage">Floral Library</button><button data-page="invoicesPage">Invoices</button><button data-page="paymentsPage">Payments</button>
 <p>BUSINESS</p><button data-page="expensesPage">Expenses</button><button data-page="reportsPage">Reports</button><button data-page="staffPage">Staff</button><button data-page="marketplacePage">Wholesale</button><button data-page="storesPage">Stores</button><button data-page="settingsPage">Settings</button><div class="sidebar-spacer"></div>
 </aside><div class="content">
 <section id="dashboardPage" class="page active pos-home">
@@ -156,6 +156,28 @@
     </aside>
   </div>
 </section>
+
+<section id="aiStudioPage" class="page ai-studio-page">
+  <div class="heading ai-studio-heading"><div><p class="eyebrow">BLOOM v23</p><h1>Lily AI Studio</h1><p class="subtle">Talk to your creative florist assistant. Preview every website change before saving or publishing.</p></div><div class="ai-studio-actions"><button id="aiStudioVoiceToggle" class="secondary" type="button">🔊 Voice on</button><button id="aiStudioClear" class="secondary" type="button">New chat</button></div></div>
+  <div class="ai-studio-shell">
+    <section class="panel ai-conversation-panel">
+      <div class="assistant-profile lily-profile"><img src="/assets/lily.png" alt="Lily"><div><strong>Lily</strong><small>Creative florist & website helper</small></div><span class="assistant-online">Ready</span></div>
+      <div id="aiStudioMessages" class="ai-studio-messages" aria-live="polite">
+        <article class="ai-message assistant"><span class="message-avatar">🌸</span><div><strong>Lily</strong><p>Hi! I’m so happy you’re here! Tell me what you want to create, and I’ll make a draft you can preview before anything changes. 💕</p></div></article>
+      </div>
+      <div id="aiStudioTaskQueue" class="ai-task-queue" hidden></div>
+      <div class="ai-quick-prompts"><button type="button" data-ai-prompt="Make my homepage feel more luxurious and welcoming.">Luxury homepage</button><button type="button" data-ai-prompt="Write a warm local SEO homepage for my flower shop and delivery area.">Local SEO</button><button type="button" data-ai-prompt="Create a complete product listing for a premium hydrangea arrangement under $95.">New product</button><button type="button" data-ai-prompt="Create a Facebook post for my flower shop today.">Facebook post</button></div>
+      <form id="aiStudioForm" class="ai-studio-composer"><textarea id="aiStudioPrompt" rows="2" placeholder="Ask Lily to update your website, create a product, or write marketing..."></textarea><button class="primary" type="submit">Send to Lily ✨</button></form>
+    </section>
+    <aside class="ai-studio-preview panel">
+      <div class="ai-preview-head"><div><strong>Change preview</strong><small>Nothing is saved until you approve it.</small></div><span id="aiStudioDraftBadge" class="badge">No draft</span></div>
+      <div id="aiStudioChangeList" class="ai-change-list"><div class="ai-empty-state"><span>🌷</span><strong>Your draft will appear here</strong><p>Ask Lily to improve the website, write a product, or prepare marketing.</p></div></div>
+      <div class="ai-preview-actions"><button id="aiStudioUndo" class="secondary" type="button" disabled>Undo</button><button id="aiStudioApply" class="primary" type="button" disabled>Apply to Website Studio</button></div>
+      <div class="rose-tip"><span>🌹</span><div><strong>Rose says</strong><p>“Honey, we preview first. We don’t go changing the storefront before we’ve had a look.”</p></div></div>
+    </aside>
+  </div>
+</section>
+<div id="bloomDog" class="bloom-dog" role="button" tabindex="0" aria-label="Pet Lily the shop dog"><span class="dog-body">🐕</span><span class="dog-paw">🐾</span><span class="dog-note">Pet me!</span></div>
 <section id="websitePage" class="page">
 <div class="heading"><div><p class="eyebrow">PREMIUM STOREFRONT BUILDER</p><h1>Website Studio X</h1><p class="subtle">Build a polished florist website with real arrangement photography.</p></div><div class="heading-actions"><button id="previewWebsite" class="secondary">Preview</button><button id="saveWebsite" class="primary">Save website</button></div></div>
 <div class="website-studio-layout">
