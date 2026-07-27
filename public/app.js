@@ -213,18 +213,29 @@ function recipePayload(){return [...$("#recipeRows").children].map(r=>{const i=r
 function openReceipt(o){if(!o)return;$("#receiptContent").innerHTML=`<div class="receipt"><div class="receipt-brand">${shopSettings?.logo_url?`<img class="print-logo" src="${esc(shopSettings.logo_url)}" alt="">`:""}<h1>${shopSettings?.logo_url?"":"✿ "}${esc(shopSettings?.name||"Bloom")}</h1><p>${esc(shopSettings?.address||"Beautiful flowers, thoughtfully made")}</p></div><div class="receipt-head"><strong>${esc(o.order_number)}</strong><strong>${new Date(o.created_at).toLocaleDateString()}</strong></div><div class="receipt-grid"><div><div class="receipt-label">Customer</div><strong>${esc(o.customer_name)}</strong><p>${esc(o.recipient_name||"")}</p></div><div><div class="receipt-label">Fulfillment</div><strong>${esc(o.fulfillment)}</strong><p>${dateText(o.delivery_date)}</p></div></div><div class="receipt-line"><span>Floral order</span><span>${money(o.subtotal)}</span></div><div class="receipt-line"><span>Tax</span><span>${money(o.tax)}</span></div><div class="receipt-line"><span>Delivery</span><span>${money(o.delivery_fee)}</span></div><div class="receipt-total-row"><span>Total</span><span>${money(o.total)}</span></div><div class="payment-stamp">${esc(o.payment_status||"UNPAID")}</div><p>${esc(o.card_message||"")}</p><p style="text-align:center">Thank you for supporting a local flower shop.</p></div>`;$("#receiptDialog").showModal()}
 function setAuthMode(isCreate){
   createMode=Boolean(isCreate);
-  $("#signupFields").hidden=!createMode;
-  $("#createIntro").hidden=!createMode;
-  $("#signInIntro").hidden=createMode;
-  $("#freePlanCard").hidden=!createMode;
-  $("#termsWrap").hidden=!createMode;
-  $("#authButton").textContent=createMode?"Create my free Bloom account":"Sign in";
-  $("#switchPrompt").textContent=createMode?"Already have a Bloom account?":"New to Bloom?";
-  $("#switchMode").textContent=createMode?"Sign in instead":"Start your free trial";
-  $("#password").autocomplete=createMode?"new-password":"current-password";
+  const signupFields=$("#signupFields");
+  if(signupFields)signupFields.hidden=!createMode;
+  const createIntro=$("#createIntro");
+  if(createIntro)createIntro.hidden=!createMode;
+  const signInIntro=$("#signInIntro");
+  if(signInIntro)signInIntro.hidden=createMode;
+  const freePlanCard=$("#freePlanCard");
+  if(freePlanCard)freePlanCard.hidden=!createMode;
+  const termsWrap=$("#termsWrap");
+  if(termsWrap)termsWrap.hidden=!createMode;
+  const authButton=$("#authButton");
+  if(authButton)authButton.textContent=createMode?"Create my free Bloom account":"Sign in";
+  const switchPrompt=$("#switchPrompt");
+  if(switchPrompt)switchPrompt.textContent=createMode?"Already have a Bloom account?":"New to Bloom?";
+  const switchMode=$("#switchMode");
+  if(switchMode)switchMode.textContent=createMode?"Sign in instead":"Start your free trial";
+  const password=$("#password");
+  if(password)password.autocomplete=createMode?"new-password":"current-password";
   ["fullName","shopName","businessPhone","businessAddress","businessCity","businessState","businessZip"].forEach(id=>{const field=$("#"+id);if(field)field.required=createMode});
-  $("#agreeTerms").required=createMode;
-  $("#authMessage").textContent="";
+  const agreeTerms=$("#agreeTerms");
+  if(agreeTerms)agreeTerms.required=createMode;
+  const authMessage=$("#authMessage");
+  if(authMessage)authMessage.textContent="";
 }
 $("#switchMode")?.addEventListener("click",()=>location.href="/signup.html");
 setAuthMode(false);
