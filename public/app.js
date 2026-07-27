@@ -336,8 +336,8 @@ function availableEnglishVoices(){const voices=window.speechSynthesis?.getVoices
 function preferredVoice(persona){const pool=availableEnglishVoices();const saved=persona==="Rose"?localStorage.getItem("bloomRoseVoice")||"":"";if(saved){const exact=pool.find(v=>v.name===saved);if(exact)return exact}const female=pool.filter(v=>FEMALE_VOICE_HINTS.test(v.name||""));if(persona==="Rose")return female.find(v=>/samantha|victoria|karen|moira|zira|joanna|salli|serena/i.test(v.name))||female[0]||pool.find(v=>/natural|enhanced|premium/i.test(v.name))||pool[0];return female.find(v=>/aria|jenny|ava|susan|emma|olivia/i.test(v.name))||female[0]||pool[0]}
 function roseVoiceRate(){return Number(localStorage.getItem("bloomRoseVoiceRate")||.9)}
 function roseVoicePitch(){return Number(localStorage.getItem("bloomRoseVoicePitch")||1.08)}
-function speakAssistant(text,persona,force=false){if((!force&&!$("#assistantSpeak")?.checked)||!window.speechSynthesis||!text)return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.voice=preferredVoice(persona);u.rate=persona==="Rose"?roseVoiceRate():1.02;u.pitch=persona==="Rose"?roseVoicePitch():1.12;u.volume=1;window.speechSynthesis.speak(u)}
-async function runAssistant(rawPrompt,persona=assistantPersona){let prompt=(rawPrompt??$("#assistantPrompt")?.value??"").trim();if(!prompt)return toast("Ask Lily or Rose a question first");setAssistantPersona(persona);if(!new RegExp(`^${persona}\\b`,"i").test(prompt))prompt=`${persona}, ${prompt}`;const out=$("#assistantAnswer");if(!out)return toast("Assistant panel is not available on this page");out.textContent=`${persona} is thinking…`;try{const context=await loadAiContext();const d=await smartAi({mode:"chat",prompt,persona,model:selectedAiModel(),context});out.textContent=d.answer;speakAssistant(d.answer,d.persona||persona)}catch(e){out.textContent=`AI unavailable: ${e.message}. Bloom POS and payments are still working.`}}
+function speakAssistant(text,persona,force=false){const spoken=aiGeneratedText(text);if((!force&&!$("#assistantSpeak")?.checked)||!window.speechSynthesis||!spoken)return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(spoken.replace(/[🌸💕✨💐😂🌷]/g,""));u.voice=preferredVoice(persona);u.rate=persona==="Rose"?Math.min(1,roseVoiceRate()):.96;u.pitch=persona==="Rose"?Math.min(1.04,roseVoicePitch()):1.05;u.volume=1;window.speechSynthesis.speak(u)}
+async function runAssistant(rawPrompt,persona=assistantPersona){let prompt=(rawPrompt??$("#assistantPrompt")?.value??"").trim();if(!prompt)return toast("Ask Lily or Rose a question first");setAssistantPersona(persona);if(!new RegExp(`^${persona}\\b`,"i").test(prompt))prompt=`${persona}, ${prompt}`;const out=$("#assistantAnswer");if(!out)return toast("Assistant panel is not available on this page");out.textContent=`${persona} is thinking…`;try{const context=await loadAiContext();const d=await smartAi({mode:"chat",prompt,persona,model:selectedAiModel(),context});const answer=aiGeneratedText(d?.answer??d?.result??d)||`${persona} could not format that response. Please try again.`;out.textContent=answer;speakAssistant(answer,d.persona||persona)}catch(e){out.textContent=`AI unavailable: ${e.message}. Bloom POS and payments are still working.`}}
 $$('[data-persona]').forEach(b=>b.onclick=()=>{setAssistantPersona(b.dataset.persona);$("#assistantPrompt")?.focus()});
 $$('[data-assistant-prompt]').forEach(b=>b.onclick=()=>{const prompt=b.dataset.assistantPrompt;assistantPersona=/^Rose\b/i.test(prompt)?"Rose":"Lily";setAssistantPersona(assistantPersona);const input=$("#assistantPrompt");if(input){input.value=prompt;input.focus()}});
 setAssistantPersona("Lily");
@@ -534,12 +534,13 @@ const aiStudioFieldMap={
   tagline:"websiteTagline",hero_title:"websiteHeroTitle",hero_text:"websiteHeroText",about_text:"websiteAboutText"
 };
 function lilyVoice(text){
-  if(!aiStudioVoiceEnabled||!window.speechSynthesis||!text)return;
+  const spoken=aiGeneratedText(text);
+  if(!aiStudioVoiceEnabled||!window.speechSynthesis||!spoken)return;
   speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(String(text).replace(/[🌸💕✨💐😂🌷]/g,""));
+  const u=new SpeechSynthesisUtterance(spoken.replace(/[🌸💕✨💐😂🌷]/g,""));
   const voices=speechSynthesis.getVoices();
   u.voice=voices.find(v=>/female|samantha|ava|jenny|aria|zira/i.test(v.name))||voices.find(v=>/^en/i.test(v.lang))||null;
-  u.rate=.98;u.pitch=1.16;u.volume=.9;speechSynthesis.speak(u);
+  u.rate=.95;u.pitch=1.05;u.volume=.9;speechSynthesis.speak(u);
 }
 function aiStudioMessage(role,text){
   const wrap=$("#aiStudioMessages");if(!wrap)return;
@@ -555,7 +556,7 @@ function normalizedStudioDraft(raw={}){
   const website=raw.website&&typeof raw.website==="object"?raw.website:{};
   const product=raw.product&&typeof raw.product==="object"?raw.product:{};
   const marketing=raw.marketing&&typeof raw.marketing==="object"?raw.marketing:{};
-  return {message:raw.message||raw.text||"I made a draft for you! Take a look and tell me what you think. 💕",website,product,marketing,image_prompt:raw.image_prompt||""};
+  return {message:aiGeneratedText(raw.message||raw.text)||"I made a draft for you. Take a look and tell me what you think.",website,product,marketing,image_prompt:aiGeneratedText(raw.image_prompt)};
 }
 function renderAiStudioDraft(){
   const list=$("#aiStudioChangeList"),badge=$("#aiStudioDraftBadge");if(!list)return;
@@ -595,4 +596,4 @@ $("#aiStudioClear")?.addEventListener("click",()=>{aiStudioPrevious=aiStudioDraf
 $("#aiStudioVoiceToggle")?.addEventListener("click",e=>{aiStudioVoiceEnabled=!aiStudioVoiceEnabled;localStorage.setItem("bloomLilyVoice",aiStudioVoiceEnabled?"on":"off");e.currentTarget.textContent=aiStudioVoiceEnabled?"🔊 Voice on":"🔇 Voice off";if(aiStudioVoiceEnabled)lilyVoice("Yay! You can hear me again.")});
 if($("#aiStudioVoiceToggle"))$("#aiStudioVoiceToggle").textContent=aiStudioVoiceEnabled?"🔊 Voice on":"🔇 Voice off";
 try{const saved=JSON.parse(localStorage.getItem("bloomAiStudioDraft")||"null");if(saved){aiStudioDraft=saved;renderAiStudioDraft()}}catch{}
-const dog=$("#bloomDog");function petBloomDog(){dog?.classList.add("pet");lilyVoice("Oh, she loves that! Look at that whole-body wiggle!");setTimeout(()=>dog?.classList.remove("pet"),1800)}dog?.addEventListener("click",petBloomDog);dog?.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" ")petBloomDog()});
+const dog=$("#bloomDog");function petBloomDog(){dog?.classList.add("pet");lilyVoice("She loves that. Look at that whole-body wiggle!");setTimeout(()=>dog?.classList.remove("pet"),1800)}function inviteBloomDog(){if(!dog||document.hidden)return;dog.classList.add("is-visiting");setTimeout(()=>dog.classList.remove("is-visiting"),9000)}dog?.addEventListener("click",petBloomDog);dog?.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" ")petBloomDog()});setTimeout(inviteBloomDog,18000);setInterval(inviteBloomDog,120000);

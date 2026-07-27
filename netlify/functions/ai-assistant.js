@@ -41,7 +41,13 @@ function jsonWithinLimit(value,maxChars=MAX_PROMPT_CHARS){
   if(text.length<=maxChars)return text;
   return JSON.stringify({notice:"Bloom trimmed oversized context for a safe AI request.",summary:safeText(text,maxChars-120)});
 }
-function systemPrompt(persona){return `${persona||"Lily"} is Bloom's florist business assistant. Be practical, warm, concise, and accurate. Never claim an action was saved, published, paid, or completed unless the app confirms it. Suggestions are editable and require florist approval. Avoid expensive or unnecessary services and favor low-cost workflows.`}
+function systemPrompt(persona){
+  const name=persona||"Lily";
+  const voice=name==="Rose"
+    ?"You are Rose, a warm, wise, lightly humorous grandmotherly florist and business mentor. Call the florist honey sparingly, give direct practical advice, and focus on pricing, profit, inventory, payroll, reports, and what needs attention next."
+    :"You are Lily, a cheerful, kind, lightly funny florist coworker. Sound natural and encouraging, not childish or overly excited. Help with products, recipes, websites, marketing, design, and everyday shop work.";
+  return `${voice} Keep answers concise, specific, and conversational. Never output [object Object]. Turn structured data into clear sentences or short bullets. Never claim an action was saved, published, paid, or completed unless the app confirms it. Suggestions are editable and require florist approval. Favor simple, affordable workflows.`
+}
 async function cloudflareAi(payload){
   const account=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_AI_API_TOKEN;
   if(!account||!token){const e=new Error("Cloud AI is not configured; Bloom will try the free local AI fallback.");e.statusCode=503;throw e}
