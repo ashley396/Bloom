@@ -1,29 +1,26 @@
-BLOOM v8.1 — LUXURY DASHBOARD
+BLOOM AI ROUTER FIX — redesign-v22
 
-WHAT IS NEW
-- Florist command-center dashboard
-- Today's sales, orders due, deliveries, profit, low stock and outstanding totals
-- Seven-day paid-sales chart
-- Quick actions for orders, customers, inventory and Website Studio
-- Upcoming delivery list
-- Improved responsive mobile dashboard
-- Existing v8.0 Florist Order Builder preserved
+This update changes only two files:
+  netlify/functions/ai-assistant.js
+  netlify/functions/ai-context.js
 
-DEPLOYMENT
-1. Replace the matching files in your GitHub Bloom repository with every file in this folder.
-2. Commit the update. Suggested summary: Bloom v8.1 - Luxury Dashboard
-3. Netlify will deploy automatically from GitHub.
-4. No new Supabase migration is required for v8.1.
+What it fixes:
+- Stops Bloom from sending the entire shop database to Cloudflare AI.
+- Routes each request to a focused area: florist, business, inventory, website, marketing, customer, delivery, or reports.
+- Keeps Lily and Rose personalities.
+- Limits arrays, strings, object depth, and total prompt size.
+- Reduces AI context records returned from Supabase.
+- Gives a clearer message if a request is still too large.
 
-TESTING
-- Sign in and confirm the dashboard loads.
-- Create or mark an order paid and confirm the dashboard totals refresh.
-- Check the dashboard on both phone and computer.
-- Open New Order, Website Studio, Customers and Inventory from Quick Actions.
+How to install:
+1. Keep GitHub Desktop on the redesign-v22 branch.
+2. Extract this ZIP.
+3. Copy the included netlify folder into the root Bloom folder.
+4. Choose Replace the files in the destination when Windows asks.
+5. In GitHub Desktop, confirm ONLY these two files are selected.
+6. Commit with: Fix Lily and Rose AI context routing
+7. Push origin. Netlify will create one branch deploy.
+8. Test Lily and Rose on the redesign-v22 branch site before publishing production.
 
-IMPORTANT
-Keep all existing Netlify environment variables unchanged.
-
-
-BLOOM X v18.0
-Start with DEPLOY_v18.0.txt. This release requires one Netlify deployment and no Supabase SQL.
+No Supabase migration is needed.
+The existing CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_AI_API_TOKEN variables remain unchanged.
