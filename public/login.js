@@ -24,7 +24,7 @@ async function bloomLogin(event){
     const session={accessToken:data.accessToken,refreshToken:data.refreshToken,user:data.user};
     localStorage.setItem('bloom_session',JSON.stringify(session));
     window.dispatchEvent(new CustomEvent('bloom-login-success',{detail:session}));
-    location.reload();
+    location.href="/";
   }catch(error){
     message.textContent=error.message || 'Sign in failed. Please try again.';
     form.dataset.submitting='false';

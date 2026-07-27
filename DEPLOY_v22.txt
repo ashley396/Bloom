@@ -1,0 +1,22 @@
+BLOOM v22 — PUBLIC WEBSITE, SEPARATE LOGIN/SIGNUP, ADMIN ROUTE & COMPLETE FOOTER
+
+1. Unzip this package.
+2. In Netlify, deploy the complete Bloom-main folder (or push it through GitHub).
+3. Confirm Netlify build settings:
+   Publish directory: public
+   Functions directory: netlify/functions
+4. No new Supabase SQL migration is required for this release.
+5. After deployment, hard refresh with Ctrl + Shift + R.
+6. Test these exact addresses in a private/incognito window:
+   /login
+   /signup
+   /admin
+   /legal/privacy/
+   /legal/terms/
+   /sitemap/
+
+IMPORTANT:
+- Login, signup, and admin are now separate pages. The application no longer displays the account pages by scrolling.
+- Public contact, feedback, career, expert, and unsubscribe forms use Netlify Forms. After the deployment is processed, submissions appear in Netlify > Forms.
+- Privacy Policy and Terms of Use are practical launch drafts, not legal advice. Have a qualified attorney review them before accepting paying customers.
+- The pink bouquet image is bundled locally and adds no monthly image cost.

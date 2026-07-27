@@ -10,26 +10,41 @@
   to = "/.netlify/functions/:splat"
   status = 200
 
-
-[[redirects]]
-  from = "/admin"
-  to = "/admin.html"
-  status = 200
-
-[[redirects]]
-  from = "/admin/"
-  to = "/admin.html"
-  status = 200
-
 [[redirects]]
   from = "/login"
-  to = "/index.html"
+  to = "/login.html"
   status = 200
+  force = true
+
+[[redirects]]
+  from = "/login/"
+  to = "/login.html"
+  status = 200
+  force = true
 
 [[redirects]]
   from = "/signup"
   to = "/signup.html"
   status = 200
+  force = true
+
+[[redirects]]
+  from = "/signup/"
+  to = "/signup.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/admin"
+  to = "/admin.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/admin/"
+  to = "/admin.html"
+  status = 200
+  force = true
 
 [[redirects]]
   from = "/*"

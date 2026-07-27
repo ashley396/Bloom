@@ -1,41 +1,18 @@
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Start Your Bloom Free Trial</title><meta name="description" content="Create your Bloom florist software account and start a 14-day free trial.">
-<link rel="icon" href="/assets/bloom-icon.svg"><link rel="stylesheet" href="/signup.css"><link rel="stylesheet" href="/platform-v21.1.css"></head>
-<body>
-<main class="signup-shell">
-  <section class="signup-story" id="about">
-    <a class="signup-brand" href="/"><img src="/assets/bloom-icon.svg" alt="Bloom"><div><strong>Bloom</strong><small>Floral Business Suite</small></div></a>
-    <div class="story-copy"><p class="eyebrow">BUILT FOR FLORISTS. BY A FLORIST.</p><h1>Everything your flower shop needs to bloom.</h1><p>Bloom brings orders, customers, inventory, recipes, deliveries, payments, websites, marketing, and helpful AI together in one beautiful workspace.</p>
-      <div class="feature-list"><span>✓ Florist POS & order management</span><span>✓ Inventory, recipes & pricing</span><span>✓ Website, marketing & BloomShot</span><span>✓ Lily and Rose business assistants</span></div>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f8edf1"><link rel="icon" href="/assets/bloom-icon.svg"><link rel="stylesheet" href="/public-site.css"><title>Create Your Account | BloomTech</title><meta name="description" content="Start a 14-day free trial of BloomTech florist software."></head><body>
+<header class="public-topbar"><a class="public-logo" href="/login"><img src="/assets/bloom-icon.svg" alt=""><span><strong>BloomTech</strong><small>Floral Business Suite</small></span></a><nav class="public-nav"><a href="/company/about/">About</a><a href="/help/">Help</a><a class="nav-cta" href="/login">Sign In</a></nav></header>
+<section class="signup-hero"><p class="eyebrow">BUILT FOR FLORISTS. BY A FLORIST.</p><h1>Create your BloomTech account</h1><p>Choose your plan, start your 14-day free trial, and bring your flower shop into one beautiful workspace. No setup fee, no contract, and no hidden BloomTech software fees.</p><img class="signup-floral" src="/assets/pink-bouquet.jpg" alt="Pink flower bouquet"></section>
+<main class="signup-main"><form id="signupForm"><section class="plans" id="pricing"><label class="plan-card"><input type="radio" name="plan" value="starter" data-price="39"><h3>Starter</h3><strong>$39<small>/month</small></strong><p>Essential tools for a growing flower shop.</p><ul><li>POS and orders</li><li>Customer management</li><li>Inventory and recipes</li><li>Website and marketing tools</li></ul></label><label class="plan-card"><span class="popular">MOST POPULAR</span><input type="radio" name="plan" value="pro" data-price="79" checked><h3>Pro</h3><strong>$79<small>/month</small></strong><p>More power for independent florists.</p><ul><li>Everything in Starter</li><li>Advanced reporting</li><li>Delivery management</li><li>Lily and Rose assistants</li></ul></label><label class="plan-card"><input type="radio" name="plan" value="premium" data-price="129"><h3>Premium</h3><strong>$129<small>/month</small></strong><p>The complete platform for ambitious shops.</p><ul><li>Everything in Pro</li><li>Multi-store tools</li><li>Wholesale access</li><li>Priority support</li></ul></label></section>
+<section class="form-section"><p class="eyebrow">START YOUR 14-DAY FREE TRIAL</p><h2>Tell us about your flower shop</h2><p>No credit card is required to create your account today.</p><div class="field-grid"><label>Your full name<input id="fullName" required autocomplete="name"></label><label>Flower shop name<input id="shopName" required autocomplete="organization"></label><label>Business email<input id="email" type="email" required autocomplete="email"></label><label>Phone number<input id="businessPhone" type="tel" required autocomplete="tel"></label><label>Create a password<input id="password" type="password" minlength="8" required autocomplete="new-password"></label><label>Business type<select id="businessType"><option>Retail flower shop</option><option>Home-based florist</option><option>Event florist</option><option>Wedding florist</option><option>Multi-location florist</option><option>Other</option></select></label></div><label>Street address<input id="businessAddress" required autocomplete="street-address"></label><div class="field-grid three"><label>City<input id="businessCity" required></label><label>State<input id="businessState" required maxlength="2" placeholder="KY"></label><label>ZIP code<input id="businessZip" required inputmode="numeric"></label></div><label class="agree"><input id="agreeTerms" type="checkbox" required><span>I agree to the <a href="/legal/terms/" target="_blank">Terms of Use</a> and <a href="/legal/privacy/" target="_blank">Privacy Policy</a>, and confirm that I am authorized to create this business account.</span></label><button class="primary-btn" type="submit">Start my 14-day free trial</button><p id="signupMessage" class="form-message" aria-live="polite"></p><p class="form-note">Already have an account? <a href="/login">Sign in</a></p></section></form></main>
+<footer class="site-footer">
+  <div class="footer-main">
+    <div class="footer-brand">
+      <a class="footer-logo" href="/login"><img src="/assets/bloom-icon.svg" alt="BloomTech"><span><strong>BloomTech</strong><small>Floral Business Suite</small></span></a>
+      <p>Florist-first software created to help independent flower shops work beautifully, protect their profits, and grow with confidence.</p>
+      <div class="footer-promise"><span>14-day free trial</span><span>No setup fee</span><span>No contracts</span><span>No hidden BloomTech software fees</span></div>
     </div>
-    <div class="story-floral" aria-hidden="true"></div>
-    <footer class="signup-story-footer"><span>Independent-florist first</span><span>Secure account setup</span></footer>
-  </section>
-  <section class="signup-workspace">
-    <header class="signup-heading"><p class="eyebrow">START YOUR 14-DAY FREE TRIAL</p><h2>Choose the plan that fits your shop</h2><p>No setup fee. No contract. Cancel anytime. No hidden Bloom software fees.</p></header>
-    <form id="signupForm">
-      <div class="plans" id="pricing" aria-label="Choose your plan">
-        <label class="plan"><input type="radio" name="plan" value="starter" data-price="39"><span>Starter</span><strong>$39<small>/month</small></strong><p>Essential tools for a growing shop.</p><em>POS & orders</em><em>Inventory management</em><em>Website builder</em><em>Marketing tools</em></label>
-        <label class="plan featured"><b>MOST POPULAR</b><input type="radio" name="plan" value="pro" data-price="79" checked><span>Pro</span><strong>$79<small>/month</small></strong><p>Everything most independent florists need.</p><em>Everything in Starter</em><em>Advanced reporting</em><em>Delivery management</em><em>Lily AI assistant</em></label>
-        <label class="plan"><input type="radio" name="plan" value="premium" data-price="129"><span>Premium</span><strong>$129<small>/month</small></strong><p>Complete capability for ambitious shops.</p><em>Everything in Pro</em><em>Multi-store tools</em><em>Priority support</em><em>Wholesale access</em></label>
-      </div>
-      <div class="form-card">
-        <div class="form-card-head"><img src="/assets/bloom-icon.svg" alt=""><div><h3>Create your flower shop account</h3><p>Your trial begins when your account is created.</p></div></div>
-        <div class="two"><label>Your full name<input id="fullName" required autocomplete="name"></label><label>Flower shop name<input id="shopName" required autocomplete="organization"></label></div>
-        <div class="two"><label>Business email<input id="email" type="email" required autocomplete="email"></label><label>Phone number<input id="businessPhone" type="tel" required autocomplete="tel"></label></div>
-        <div class="two"><label>Password<input id="password" type="password" minlength="8" required autocomplete="new-password"></label><label>Business type<select id="businessType"><option>Retail flower shop</option><option>Home-based florist</option><option>Event florist</option><option>Wedding florist</option><option>Multi-location florist</option><option>Other</option></select></label></div>
-        <label>Street address<input id="businessAddress" required autocomplete="street-address"></label>
-        <div class="location"><label>City<input id="businessCity" required></label><label>State<input id="businessState" required maxlength="2" placeholder="KY"></label><label>ZIP code<input id="businessZip" required inputmode="numeric"></label></div>
-        <label class="agree"><input id="agreeTerms" type="checkbox" required><span>I agree to Bloom's Terms and Privacy Policy and confirm I am authorized to create this business account.</span></label>
-        <button class="create-button" type="submit">Start my free trial</button><p id="signupMessage" class="message" aria-live="polite"></p>
-        <div class="trust"><span>14-day free trial</span><span>No credit card required today</span><span>No hidden Bloom fees</span></div>
-        <p class="signin">Already have an account? <a href="/">Sign in</a></p>
-      </div>
-    </form>
-  </section>
-</main><footer class="signup-company-footer">
-  <div><strong>Bloom Technologies</strong><span>Built for florists. By a florist.</span></div>
-  <nav><a href="#about">About</a><a href="#pricing">Pricing</a><a id="foundation" href="/">Rose Foundation</a><a id="privacy" href="#">Privacy</a><a id="terms" href="#">Terms</a></nav>
-  <p>Bloom software pricing is transparent. Card processors and optional payment providers may charge their own disclosed transaction fees.</p>
-</footer><script src="/signup.js" type="module"></script></body></html>
+    <div class="footer-column"><h3>Our Company</h3><a href="/company/about/">About Us</a><a href="/company/careers/">Careers</a><a href="/company/services/">Our Services</a><a href="/company/become-a-florist/">Become a BloomTech Florist</a><a href="/company/difference/">The BloomTech Difference</a><a href="/company/feedback/">Feedback</a></div>
+    <div class="footer-column"><h3>Help & Support</h3><a href="/help/">Help Center</a><a href="/help/faqs/">Customer FAQs</a><a href="/help/order-delivery/">Order & Delivery Info</a><a href="/help/chat/">Chat with an Expert</a><a href="/help/contact/">Contact Customer Service</a></div>
+    <div class="footer-column"><h3>Legal & Preferences</h3><a href="/legal/privacy/">Privacy Policy</a><a href="/legal/unsubscribe/">Unsubscribe</a><a href="/legal/terms/">Terms of Use</a><a href="/sitemap/">Sitemap</a><a href="/legal/cookies/">Cookie Notice</a><a href="/legal/accessibility/">Accessibility</a></div>
+  </div>
+  <div class="footer-bottom"><span>© <span data-current-year></span> Bloom Technologies. All rights reserved.</span><span>Built in Kentucky · Built for florists, by a florist.</span><span>Payment processing and optional providers may charge their own disclosed fees.</span></div>
+</footer><script src="/signup.js" type="module"></script><script>document.querySelectorAll('[data-current-year]').forEach(e=>e.textContent=new Date().getFullYear())</script></body></html>
