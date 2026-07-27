@@ -1,4 +1,6 @@
 
+function escapeHtml(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let createMode=false,session=readSession(),customers=[],inventory=[],orders=[],products=[],deliveries=[],expenses=[],reportData={items:[],categories:[],totals:{}},shopSettings=null,receiptDataUrl=null,scannedInventoryItems=[],assistantPersona="Lily",selectedLibraryIndex=null,pendingPaymentOrder=null;
 
