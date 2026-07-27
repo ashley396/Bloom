@@ -169,17 +169,22 @@ export async function handler(event) {
 
     if (event.httpMethod === "PATCH") {
       const body = bodyOf(event);
+      if (!body.id) return json(400, { error: "Missing order id" });
+      if (body.action === "MARK_PAID" || body.action === "MARK_UNPAID") return json(400, { error: "Payment status must be changed by recording a payment or refund in the payment ledger." });
       const payload = {};
-      if(body.action === "MARK_PAID" || body.action === "MARK_UNPAID"){
-        return json(400,{error:"Payment status must be changed by recording a payment or refund in the payment ledger."});
-      }else{
-        for(const field of ["status","delivery_miles","drive_minutes"]){
-          if(field in body)payload[field]=body[field];
-        }
-      }
+      const textFields = ["customer_name","customer_phone","occasion","fulfillment","delivery_address","delivery_date","notes","customer_type","recipient_name","recipient_phone","delivery_window","delivery_instructions","order_source","card_message","arrangement_description","location_type","driver","designer","priority","design_style","color_palette","preferred_flowers","flower_restrictions","addons","payment_method","product_id","status"];
+      const numberFields = ["subtotal","tax","delivery_fee","tax_rate","amount_paid","delivery_miles","drive_minutes","labor_charge","addon_total","discount","estimated_cost"];
+      for (const field of textFields) if (field in body) payload[field] = body[field] || null;
+      for (const field of numberFields) if (field in body) payload[field] = Number(body[field] || 0);
+      if ("customer_name" in payload && !String(payload.customer_name || "").trim()) return json(400, { error: "Customer name is required" });
+      const flowers=Number(payload.subtotal||0),labor=Number(payload.labor_charge||0),addons=Number(payload.addon_total||0),discount=Number(payload.discount||0);
+      payload.subtotal=Math.max(0,flowers+labor+addons-discount); payload.total=payload.subtotal+Number(payload.tax||0)+Number(payload.delivery_fee||0); payload.balance_due=Math.max(0,payload.total-Number(payload.amount_paid||0));
+      payload.payment_status=payload.balance_due<=0&&payload.total>0?"PAID":Number(payload.amount_paid||0)>0?"PARTIAL":"UNPAID";
       const { data, error } = await client.from("orders").update(payload).eq("id",body.id).eq("shop_id",shopId).select().single();
       if (error) throw error;
-      return json(200, { item: data });
+      const { data: existingDelivery } = await client.from("deliveries").select("id").eq("shop_id",shopId).eq("order_id",body.id).maybeSingle();
+      if(data.fulfillment==="DELIVERY"&&data.delivery_address){const deliveryPayload={address:data.delivery_address,driver:data.driver||null,notes:data.delivery_instructions||null,round_trip_miles:Number(data.delivery_miles||0),drive_minutes:Number(data.drive_minutes||0),delivery_date:data.delivery_date||null,delivery_window:data.delivery_window||null,recipient_name:data.recipient_name||null,recipient_phone:data.recipient_phone||null};if(existingDelivery?.id)await client.from("deliveries").update(deliveryPayload).eq("id",existingDelivery.id).eq("shop_id",shopId);else await client.from("deliveries").insert({shop_id:shopId,order_id:data.id,status:"PENDING",...deliveryPayload})}else if(existingDelivery?.id)await client.from("deliveries").delete().eq("id",existingDelivery.id).eq("shop_id",shopId);
+      return json(200,{item:data});
     }
 
     return methodNotAllowed();
