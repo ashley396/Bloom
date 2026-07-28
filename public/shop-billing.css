@@ -1,0 +1,21 @@
+.shop-billing-root{display:grid;gap:16px}
+.shop-billing-plan{padding:16px;border-radius:16px;border:1px solid var(--border,#eadfe5);background:linear-gradient(135deg,#fff,#fff8fb)}
+.shop-billing-plan dl{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin:12px 0 0}
+.shop-billing-plan dt{font-size:12px;color:#76636d}
+.shop-billing-plan dd{margin:4px 0 0;font-weight:600}
+.shop-billing-actions{display:flex;flex-wrap:wrap;gap:8px}
+.shop-billing-actions button{margin:0}
+.shop-billing-links{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px}
+.shop-billing-links button{background:none;border:none;padding:0;color:var(--accent,#8f3f68);text-decoration:underline;cursor:pointer;font:inherit}
+.sub-center-shell{display:grid;gap:18px}
+.sub-dl{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:12px 0 0}
+.sub-dl dt{font-size:12px;color:#76636d}
+.sub-dl dd{margin:4px 0 0;font-weight:600}
+.sub-actions{display:flex;flex-wrap:wrap;gap:8px}
+.sub-cancel-btn{border-color:#c44!important;color:#8a2a2a}
+.sub-reminder{padding:12px;border-radius:12px;background:#fff8ef;border:1px solid #f0e0c8}
+.sub-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.sub-list{font-size:13px;padding-left:18px}
+.sub-cancel-dialog,.sub-survey-dialog{border:none;border-radius:18px;padding:0;max-width:480px}
+.sub-cancel-facts{margin:12px 0;padding-left:18px}
+@media(max-width:720px){.sub-grid{grid-template-columns:1fr}}

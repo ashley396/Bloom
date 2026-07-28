@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Florist shop</title>
+  <link rel="stylesheet" href="/storefront/storefront.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body class="bloom-storefront">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div id="storefrontAnnounce" class="storefront-announce" hidden role="status"></div>
+  <header class="storefront-header" id="storefrontHeader">
+    <div class="storefront-brand" id="storefrontBrand"></div>
+    <button type="button" class="storefront-nav-toggle" id="navToggle" aria-expanded="false" aria-controls="storefrontNav">Menu</button>
+    <nav id="storefrontNav" class="storefront-nav" aria-label="Primary"></nav>
+    <div class="storefront-actions">
+      <label class="storefront-search-wrap"><span class="visually-hidden">Search products</span><input type="search" id="storefrontSearch" placeholder="Search flowers…" autocomplete="off"></label>
+      <button type="button" id="cartBtn" class="secondary">Cart <span id="cartCount">0</span></button>
+    </div>
+  </header>
+  <nav id="breadcrumbs" class="storefront-breadcrumbs" aria-label="Breadcrumb"></nav>
+  <main id="main" tabindex="-1"></main>
+  <aside id="cartDrawer" class="storefront-cart" hidden aria-labelledby="cartTitle">
+    <h2 id="cartTitle">Your cart</h2>
+    <div id="cartLines"></div>
+    <p id="cartTotals" class="cart-totals"></p>
+    <form id="checkoutForm" class="checkout-form">
+      <h3>Checkout details</h3>
+      <label>Your name<input name="name" required autocomplete="name"></label>
+      <label>Phone<input name="phone" type="tel" required autocomplete="tel"></label>
+      <label>Email<input name="email" type="email" autocomplete="email"></label>
+      <label>Recipient name<input name="recipient_name" autocomplete="name"></label>
+      <label>Fulfillment<select name="fulfillment"><option value="PICKUP">Pickup</option><option value="DELIVERY">Delivery</option></select></label>
+      <label class="delivery-only">Delivery address<textarea name="delivery_address" rows="2"></textarea></label>
+      <label>Date needed<input name="delivery_date" type="date" required></label>
+      <label>Card message<textarea name="card_message" rows="2" maxlength="500" placeholder="Optional message for the card"></textarea></label>
+      <label class="delivery-only">Delivery instructions<textarea name="delivery_instructions" rows="2" maxlength="1000"></textarea></label>
+      <fieldset id="paymentModeFieldset" class="payment-mode">
+        <legend>Payment</legend>
+        <label><input type="radio" name="payment_mode" value="pay_now"> Pay securely now (card)</label>
+        <label><input type="radio" name="payment_mode" value="pay_later" checked> Pay with florist later</label>
+      </fieldset>
+      <p id="checkoutTotalsDetail" class="cart-totals"></p>
+      <button type="submit" class="primary" id="checkoutSubmit">Place order</button>
+      <p class="subtle" id="checkoutPaymentNote">Secure card checkout opens on Stripe when you choose pay now.</p>
+    </form>
+    <button type="button" class="secondary" id="closeCart">Close</button>
+  </aside>
+  <footer class="storefront-footer" id="storefrontFooter"></footer>
+  <div id="liveRegion" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+  <script src="/storefront/storefront.js" defer></script>
+</body>
+</html>

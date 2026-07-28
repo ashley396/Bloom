@@ -1,6 +1,7 @@
 import { json } from "./_shared/http.js";
+import { getProductionConfig } from "./_shared/production.js";
+
 export async function handler(){
-  const required=["SUPABASE_URL","SUPABASE_ANON_KEY","SUPABASE_SERVICE_ROLE_KEY"];
-  const missing=required.filter(k=>!process.env[k]);
-  return json(missing.length?503:200,{ok:missing.length===0,app:"Bloom Commercial v4",missing});
+  const config=getProductionConfig(process.env);
+  return json(config.environment_valid?200:503,{ok:config.environment_valid,app:"Bloom Commercial v4",missing:config.missing_env,warnings:config.warnings,production_health:"/.netlify/functions/production-health"});
 }

@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { validateVerificationProfile } from "./marketplace-verification-rules.js";
 
 export const BUCKET = "marketplace-verification-documents";
 export const TABLE = "marketplace_verification_applications";
@@ -323,27 +324,7 @@ export async function upsertTaxSecret(client, { applicationId, userId, taxId, ke
 }
 
 export function validateProfileForSubmission(profileData = {}) {
-  const errors = [];
-  const requiredFields = ["legal_name", "owner_name", "email", "phone", "business_address"];
-  for (const field of requiredFields) {
-    if (!String(profileData[field] || "").trim()) {
-      errors.push(`Missing required field: ${field}`);
-    }
-  }
-  if (profileData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(profileData.email))) {
-    errors.push("Invalid email address.");
-  }
-  if (!profileData.consent_confirmed) {
-    errors.push("Consent confirmation is required.");
-  }
-  const requiredDocuments = ["resale_certificate", "sales_tax_permit", "business_license", "ein_confirmation"];
-  const documents = profileData.documents || {};
-  for (const docKey of requiredDocuments) {
-    if (!documents[docKey]) {
-      errors.push(`Missing required document: ${docKey}`);
-    }
-  }
-  return { valid: errors.length === 0, errors };
+  return validateVerificationProfile(profileData, { submitting: true });
 }
 
 export function parseOptionalTimestamp(value) {

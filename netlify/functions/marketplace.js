@@ -2,7 +2,7 @@ import { json,bodyOf,preflight,methodNotAllowed } from "./_shared/http.js";
 import { currentUser,fail } from "./_shared/supabase.js";
 
 const TABLE = "marketplace_listings";
-const FIELDS = ["supplier_name", "product_name", "category", "unit", "price", "minimum_quantity", "available_quantity", "image_url", "delivery_notes", "active"];
+const FIELDS = ["supplier_name", "product_name", "category", "category_slug", "unit", "price", "minimum_quantity", "available_quantity", "image_url", "description", "delivery_notes", "active", "sku", "low_stock_threshold", "allows_shipping", "allows_local_pickup"];
 const ORDER = "created_at";
 
 export async function handler(event){

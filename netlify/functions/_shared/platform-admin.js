@@ -28,3 +28,13 @@ export async function writeAdminAudit(client, adminUserId, shopId, action, detai
     details
   });
 }
+
+export async function writeCommandAudit(client, adminUserId, action, { shopId = null, targetType = null, targetId = null, result = 'success', ip = 'unknown', ...rest } = {}) {
+  await writeAdminAudit(client, adminUserId, shopId, action, {
+    target_type: targetType,
+    target_id: targetId,
+    result,
+    ip_placeholder: ip,
+    ...rest
+  });
+}

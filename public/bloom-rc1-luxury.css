@@ -1,0 +1,202 @@
+/** Bloom RC1 — luxury design tokens (CSS custom properties). */
+
+:root {
+  --bloom-ivory: #faf7f2;
+  --bloom-warm-white: #fffcf9;
+  --bloom-blush: #f3e4e8;
+  --bloom-dusty-rose: #c9899e;
+  --bloom-sage: #9aab8e;
+  --bloom-botanical: #3d5c4a;
+  --bloom-gold: #c4a574;
+  --bloom-charcoal: #2f2a2c;
+  --bloom-muted: #6b6166;
+  --bloom-surface: rgba(255, 255, 255, 0.94);
+  --bloom-border: #e8ddd5;
+  --bloom-shadow-sm: 0 4px 18px rgba(47, 42, 44, 0.06);
+  --bloom-shadow-md: 0 12px 40px rgba(47, 42, 44, 0.1);
+  --bloom-radius-sm: 10px;
+  --bloom-radius-md: 16px;
+  --bloom-radius-lg: 22px;
+  --bloom-space-xs: 6px;
+  --bloom-space-sm: 10px;
+  --bloom-space-md: 16px;
+  --bloom-space-lg: 24px;
+  --bloom-space-xl: 36px;
+  --bloom-font-display: "Cormorant Garamond", "Palatino Linotype", Georgia, serif;
+  --bloom-font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --bloom-font-accent: "Segoe Script", "Brush Script MT", cursive;
+  --bloom-motion: 180ms ease;
+  --bloom-focus: 0 0 0 3px rgba(201, 137, 158, 0.45);
+  --bloom-success: #3d6b52;
+  --bloom-warning: #9a7340;
+  --bloom-error: #9b3d4a;
+  --bloom-info: #4a667a;
+  --bloom-tap-min: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --bloom-motion: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+body.bloom-rc1 {
+  background: var(--bloom-ivory);
+  color: var(--bloom-charcoal);
+  font-family: var(--bloom-font-body);
+}
+
+body.bloom-rc1 .panel,
+body.bloom-rc1 .card,
+body.bloom-rc1 .metric-box {
+  background: var(--bloom-surface) !important;
+  border: 1px solid var(--bloom-border) !important;
+  border-radius: var(--bloom-radius-md) !important;
+  box-shadow: var(--bloom-shadow-sm) !important;
+}
+
+body.bloom-rc1 .eyebrow {
+  letter-spacing: 0.14em;
+  color: var(--bloom-dusty-rose);
+}
+
+body.bloom-rc1 .heading h1 {
+  font-family: var(--bloom-font-display);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+body.bloom-rc1 button.primary {
+  min-height: var(--bloom-tap-min);
+  border-radius: var(--bloom-radius-sm);
+}
+
+body.bloom-rc1 button:focus-visible,
+body.bloom-rc1 input:focus-visible,
+body.bloom-rc1 select:focus-visible,
+body.bloom-rc1 textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--bloom-focus);
+}
+
+body.bloom-rc1 .bloom-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bloom-space-md);
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: var(--bloom-space-lg);
+}
+
+body.bloom-rc1 .editor-canvas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bloom-space-md);
+  margin-top: var(--bloom-space-md);
+}
+body.bloom-rc1 .editor-section {
+  border: 1px dashed var(--bloom-border);
+  padding: var(--bloom-space-md);
+  border-radius: var(--bloom-radius-sm);
+}
+body.bloom-rc1 .theme-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--bloom-space-md);
+}
+body.bloom-rc1 .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+body.bloom-rc1 .bloom-empty-luxury {
+  padding: var(--bloom-space-xl);
+  text-align: center;
+  color: var(--bloom-muted);
+}
+
+body.bloom-rc1 .bloom-dashboard-timeline {
+  display: grid;
+  gap: var(--bloom-space-sm);
+}
+
+body.bloom-rc1 .bloom-dashboard-timeline article {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--bloom-space-md);
+  padding: var(--bloom-space-md);
+  border-left: 3px solid var(--bloom-dusty-rose);
+  background: var(--bloom-warm-white);
+  border-radius: var(--bloom-radius-sm);
+}
+
+body.bloom-rc1 .inventory-cooler-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--bloom-space-md);
+}
+
+body.bloom-rc1 .cooler-card {
+  overflow: hidden;
+}
+
+body.bloom-rc1 .cooler-card img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  background: var(--bloom-blush);
+}
+
+body.bloom-rc1 .instant-wizard-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bloom-space-sm);
+  margin-bottom: var(--bloom-space-lg);
+}
+
+body.bloom-rc1 .instant-wizard-steps span {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--bloom-blush);
+  font-size: 13px;
+}
+
+body.bloom-rc1 .instant-wizard-steps span.active {
+  background: var(--bloom-botanical);
+  color: #fff;
+}
+
+body.bloom-rc1 .lily-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 88px;
+  z-index: 40;
+  border-radius: 999px;
+  box-shadow: var(--bloom-shadow-md);
+  min-height: var(--bloom-tap-min);
+  min-width: var(--bloom-tap-min);
+}
+
+body[data-app-font="Elegant"] .heading h1 {
+  font-family: var(--bloom-font-display);
+}
+
+body[data-app-font="Girly"] .eyebrow {
+  font-family: var(--bloom-font-accent);
+  font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  body.bloom-rc1 .content {
+    padding-bottom: 96px;
+  }
+}

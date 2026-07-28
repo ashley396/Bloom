@@ -227,6 +227,28 @@ aside:after{bottom:-72px!important;opacity:.58!important;height:150px!important;
 .marketplace-verification-dialog .heading{padding:20px 22px 0}
 .marketplace-verification-dialog .dialog-tools{padding:16px 22px 22px;border-top:1px solid #eee2e8;margin-top:12px}
 @media(max-width:700px){.marketplace-verification-dialog{width:min(96vw,100%)}.verification-grid label{font-size:.92rem}.verification-steps{gap:6px}.step-pill{font-size:.73rem;padding:7px 10px}}
+.marketplace-tabs{display:flex;gap:10px;margin:16px 0}
+.marketplace-tabs button.active{background:#c43c6b;color:#fff;border-color:#c43c6b}
+.marketplace-panel{display:none}
+.marketplace-panel.active{display:block}
+.marketplace-toolbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.marketplace-toolbar label{font-size:.88rem}
+.marketplace-cart-badge{display:inline-grid;place-items:center;min-width:28px;height:28px;padding:0 8px;border-radius:999px;background:#f6edf1;color:#6b3452;font-weight:700;margin-right:8px}
+.marketplace-card-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.badge.verified{background:#e7f5ea;color:#2f6b3b}
+.badge.warn{background:#fff4df;color:#8a5a00}
+.marketplace-detail-panel{margin-top:18px;padding:16px;border:1px solid #ecdfe4;border-radius:16px;background:#fffdf8}
+.marketplace-detail-image{max-width:100%;border-radius:12px;margin:12px 0}
+.marketplace-seller-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.marketplace-seller-grid .panel.wide{grid-column:1/-1}
+.product-grid.compact{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.marketplace-card-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media(max-width:700px){.marketplace-toolbar{grid-template-columns:1fr}.marketplace-card-actions{grid-template-columns:1fr}}
+.wholesale-seller-root{display:grid;gap:16px}
+.wholesale-seller-nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.wholesale-seller-nav button.active{background:#c43c6b;color:#fff;border-color:#c43c6b}
+.wholesale-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.wholesale-toolbar{margin:0 0 12px}
 
 /* Bloom v14.1 — state-driven florist production board */
 .order-command-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}

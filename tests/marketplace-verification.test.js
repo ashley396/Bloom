@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 await import('../public/marketplace-verification.js');
-const { buildVerificationProgress, buildMarketplaceVerificationSubmissionPayload, getVerificationStatus, maskTaxId, normalizeMarketplaceVerificationProfile, validateMarketplaceVerificationProfile } = globalThis.BloomMarketplaceVerification;
+const { buildVerificationProgress, buildMarketplaceVerificationSubmissionPayload, getVerificationStatus, getVerificationRules, maskTaxId, normalizeMarketplaceVerificationProfile, validateMarketplaceVerificationProfile } = globalThis.BloomMarketplaceVerification;
 
 test('buildVerificationProgress reports completed steps', () => {
   const progress = buildVerificationProgress({
@@ -43,11 +43,28 @@ test('normalizeMarketplaceVerificationProfile creates a consistent review struct
 });
 
 test('validateMarketplaceVerificationProfile reports missing fields and invalid values', () => {
-  const validation = validateMarketplaceVerificationProfile({ email: 'not-an-email' }, { requiredFields: ['legal_name', 'email'], requiredDocuments: ['resale_certificate'] });
+  const validation = validateMarketplaceVerificationProfile({ email: 'not-an-email' }, { requiredFields: ['legal_name', 'email'], requiredDocuments: ['resale_certificate', 'government_id'] });
   assert.equal(validation.valid, false);
   assert.ok(validation.errors.some((message) => message.includes('Legal business name')));
   assert.ok(validation.errors.some((message) => message.includes('valid email')));
-  assert.deepEqual(validation.missingDocuments, ['resale_certificate']);
+  assert.deepEqual(validation.missingDocuments, ['resale_certificate', 'government_id']);
+});
+
+test('validateMarketplaceVerificationProfile does not require EIN or website', () => {
+  const validation = validateMarketplaceVerificationProfile({
+    legal_name: 'Bloom Florals',
+    owner_name: 'Ada Rose',
+    business_address: '123 Main St',
+    phone: '555-0100',
+    email: 'ada@example.com',
+    sales_tax_permit_number: 'ST-999',
+    consent_confirmed: true,
+    documents: {
+      resale_certificate: { name: 'resale.pdf' },
+      government_id: { name: 'id.jpg' }
+    }
+  }, getVerificationRules());
+  assert.equal(validation.valid, true);
 });
 
 test('buildMarketplaceVerificationSubmissionPayload strips sensitive values and keeps review metadata', () => {

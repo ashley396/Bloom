@@ -1,5 +1,7 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail } from "./_shared/supabase.js";
+import { writeShopAudit } from "./_shared/production.js";
+import { validateOrderCreateBody, clampText } from "./_shared/validation.js";
 
 function orderNumber() {
   return `BLM-${Date.now().toString().slice(-8)}`;
@@ -26,6 +28,8 @@ export async function handler(event) {
 
     if (event.httpMethod === "POST") {
       const body = bodyOf(event);
+      const validation = validateOrderCreateBody(body);
+      if (!validation.valid) return json(400, { error: validation.errors[0] });
 
       if (!body.customer_name) {
         return json(400, { error: "Customer name is required" });
@@ -43,7 +47,7 @@ export async function handler(event) {
         user_id: user.id,
         shop_id: shopId,
         order_number: orderNumber(),
-        customer_name: body.customer_name.trim(),
+        customer_name: clampText(body.customer_name, 120),
         customer_phone: body.customer_phone || null,
         occasion: body.occasion || null,
         fulfillment:
@@ -94,6 +98,15 @@ export async function handler(event) {
         .single();
 
       if (error) throw error;
+
+      await writeShopAudit(client, {
+        shopId,
+        userId: user.id,
+        eventType: "order_created",
+        entityType: "order",
+        entityId: data.id,
+        metadata: { order_number: data.order_number, total: data.total, payment_status: data.payment_status }
+      });
 
       let delivery = null;
       if (data.fulfillment === "DELIVERY" && data.delivery_address) {
@@ -183,6 +196,14 @@ export async function handler(event) {
       const { data, error } = await client.from("orders").update(payload).eq("id",body.id).eq("shop_id",shopId).select().single();
       if (error) throw error;
       const { data: existingDelivery } = await client.from("deliveries").select("id").eq("shop_id",shopId).eq("order_id",body.id).maybeSingle();
+      await writeShopAudit(client, {
+        shopId,
+        userId: user.id,
+        eventType: "order_updated",
+        entityType: "order",
+        entityId: data.id,
+        metadata: { status: data.status, payment_status: data.payment_status }
+      });
       if(data.fulfillment==="DELIVERY"&&data.delivery_address){const deliveryPayload={address:data.delivery_address,driver:data.driver||null,notes:data.delivery_instructions||null,round_trip_miles:Number(data.delivery_miles||0),drive_minutes:Number(data.drive_minutes||0),delivery_date:data.delivery_date||null,delivery_window:data.delivery_window||null,recipient_name:data.recipient_name||null,recipient_phone:data.recipient_phone||null};if(existingDelivery?.id)await client.from("deliveries").update(deliveryPayload).eq("id",existingDelivery.id).eq("shop_id",shopId);else await client.from("deliveries").insert({shop_id:shopId,order_id:data.id,status:"PENDING",...deliveryPayload})}else if(existingDelivery?.id)await client.from("deliveries").delete().eq("id",existingDelivery.id).eq("shop_id",shopId);
       return json(200,{item:data});
     }

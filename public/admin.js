@@ -1,18 +1,19 @@
+import { initCommandCenter } from './admin-command-center-ui.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-let session=JSON.parse(localStorage.getItem('bloom_admin_session')||'null'),selectedShop=null,selectedData=null;
+let session=JSON.parse(localStorage.getItem('bloom_admin_session')||'null'),selectedShop=null,selectedData=null,commandCenter=null;
 const FEATURES=['dashboard','orders','deliveries','customers','inventory','products','bloomshot','website','library','invoices','payments','expenses','reports','staff','marketplace','stores','lily','rose'];
 const DEFAULT_NAV=['dashboardPage','ordersPage','deliveriesPage','customersPage','inventoryPage','productsPage','bloomshotPage','websitePage','libraryPage','invoicesPage','paymentsPage','expensesPage','reportsPage','staffPage','marketplacePage','storesPage','settingsPage'];
 function toast(t){const x=$('#adminToast');x.textContent=t;x.hidden=false;setTimeout(()=>x.hidden=true,2800)}
 async function call(path,opt={},auth=true){const headers={'Content-Type':'application/json',...(opt.headers||{})};if(auth&&session?.accessToken)headers.Authorization=`Bearer ${session.accessToken}`;const r=await fetch(`/.netlify/functions/${path}`,{...opt,headers});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function saveSession(d){session={accessToken:d.accessToken,refreshToken:d.refreshToken,user:d.user};localStorage.setItem('bloom_admin_session',JSON.stringify(session))}
-function showApp(){ $('#adminAuth').hidden=true;$('#adminApp').hidden=false;$('#adminIdentity').textContent=session.user.email;loadOverview();loadShops() }
+function showApp(){ $('#adminAuth').hidden=true;$('#adminApp').hidden=false;$('#adminIdentity').textContent=session.user.email;commandCenter=initCommandCenter({call,toast,escapeHtml,$,$$,setView});loadOverview();if(window.__loadCommandView)window.__loadCommandView('overview');loadShops();window.BloomLaunchPolish?.init?.({mode:'admin',api:call});window.BloomLilyPlatform?.init?.({mode:'admin',api:call,toast})}
 async function initializeAdmin(){
   try{
     const d=await call('admin-bootstrap',{},false);
     if(!d.ownerExists){$('#ownerSetup').hidden=false;$('#adminAuth').hidden=true;$('#adminApp').hidden=true;return}
     $('#ownerSetup').hidden=true;
     if(session){
-      call('admin-console?action=overview').then(showApp).catch(()=>{localStorage.removeItem('bloom_admin_session');$('#adminAuth').hidden=false});
+      call('admin-command-center?action=dashboard').then(showApp).catch(()=>{localStorage.removeItem('bloom_admin_session');$('#adminAuth').hidden=false});
     }else $('#adminAuth').hidden=false;
   }catch(err){$('#adminAuth').hidden=false;$('#loginMessage').textContent=err.message}
 }
@@ -29,10 +30,19 @@ $('#ownerSetupForm')?.addEventListener('submit',async e=>{
     setTimeout(()=>{$('#ownerSetup').hidden=true;$('#adminAuth').hidden=false},700);
   }catch(err){msg.textContent=err.message}
 });
-$('#adminLogin').onsubmit=async e=>{e.preventDefault();$('#loginMessage').textContent='';try{const d=await call('auth-login',{method:'POST',body:JSON.stringify({email:$('#adminEmail').value,password:$('#adminPassword').value})},false);saveSession(d);await call('admin-console?action=overview');showApp()}catch(err){$('#loginMessage').textContent=err.message}}
+$('#adminLogin').onsubmit=async e=>{e.preventDefault();$('#loginMessage').textContent='';try{const d=await call('auth-login',{method:'POST',body:JSON.stringify({email:$('#adminEmail').value,password:$('#adminPassword').value})},false);saveSession(d);await call('admin-command-center?action=dashboard');showApp()}catch(err){$('#loginMessage').textContent=err.message}}
 $('#adminLogout').onclick=()=>{localStorage.removeItem('bloom_admin_session');location.reload()}
 $$('nav button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
-function setView(name){$$('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));$$('.view').forEach(v=>v.classList.toggle('active',v.id===`${name}View`));$('#viewTitle').textContent={overview:'Overview',shops:'Florist Accounts',editor:'Remote Account Editor',audit:'Change History'}[name]||name}
+function setView(name){
+  $$('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
+  $$('.view').forEach(v=>v.classList.toggle('active',v.id===`${name}View`));
+  const titles={
+    overview:'Executive dashboard',betaToolkit:'Beta toolkit — RC1',users:'User management',marketplaceAdmin:'Marketplace admin',support:'Support center',subscriptions:'Subscriptions',announcements:'Announcements',featureFlags:'Feature flags',analytics:'Analytics',paymentHub:'Payment platform',systemHealth:'System health',shops:'Florist accounts',editor:'Remote account editor',auditLog:'Audit log',floralLibraryAdmin:'Floral Library import & quality',audit:'Shop change history'
+  };
+  $('#viewTitle').textContent=titles[name]||name;
+  if(window.__loadCommandView)window.__loadCommandView(name);
+  if(name==='floralLibraryAdmin')window.BloomLibraryAdmin?.mount?.(document.getElementById('floralLibraryAdminRoot'));
+}
 async function loadOverview(){
   const d=await call('admin-console?action=overview');
   const money=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
@@ -60,7 +70,7 @@ function escapeHtml(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','
 async function loadShops(){const q=encodeURIComponent($('#shopSearch').value||'');const d=await call(`admin-console?action=shops&search=${q}`);$('#shopList').innerHTML=d.shops.length?d.shops.map(s=>{const sub=s.shop_subscriptions?.[0]||{};const cfg=s.shop_admin_config?.[0]||{};return `<article class="shop-row"><div><strong>${s.name}</strong><small>${s.email||s.slug||''}</small></div><span>${s.city||''}${s.state?`, ${s.state}`:''}</span><span class="badge">${sub.plan_code||'trial'}</span><span class="badge ${cfg.account_status==='suspended'?'danger':cfg.account_status==='maintenance'?'warn':''}">${cfg.account_status||'active'}</span><button data-open-shop="${s.id}">Manage</button></article>`}).join(''):'<p>No florist accounts found.</p>';$$('[data-open-shop]').forEach(b=>b.onclick=()=>openShop(b.dataset.openShop))}
 $('#saveFoundation')?.addEventListener('click',async()=>{await call('admin-console',{method:'POST',body:JSON.stringify({action:'save-platform-settings',foundationTotal:Number($('#foundationTotal').value||0)})});toast('Rose Foundation amount saved');loadOverview()});
 $('#markAlertsRead').onclick=async()=>{await call('admin-console',{method:'POST',body:JSON.stringify({action:'mark-alerts-read'})});toast('Subscriber alerts marked read');loadOverview()};
-$('#shopSearch').oninput=()=>{clearTimeout(window.st);window.st=setTimeout(loadShops,350)};$('#refreshAdmin').onclick=()=>{loadOverview();loadShops();if(selectedShop)openShop(selectedShop)};
+$('#shopSearch').oninput=()=>{clearTimeout(window.st);window.st=setTimeout(loadShops,350)};$('#refreshAdmin').onclick=()=>{loadOverview();loadShops();if(window.__loadCommandView)window.__loadCommandView($('nav button.active')?.dataset.view||'overview');if(selectedShop)openShop(selectedShop)};
 async function openShop(id){selectedShop=id;selectedData=await call(`admin-console?action=shop&shopId=${id}`);fillEditor();setView('editor')}
 function val(name,v){const el=$(`[name="${name}"]`);if(!el)return;if(el.type==='checkbox')el.checked=Boolean(v);else el.value=v??''}
 function isoLocal(v){if(!v)return'';const d=new Date(v);return new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,16)}
