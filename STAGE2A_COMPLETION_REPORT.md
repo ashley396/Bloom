@@ -103,3 +103,20 @@ Executed all `*.down.sql` in reverse order (`03c → 03b → 03a → 02 → 01`)
 
 ## 10. Approval gate
 Stage 2A is complete and validated on the rehearsal database. **Requesting founder approval** to (a) run the same files/checklist against production and (b) begin Stage 2B. No Stage 2B work has started.
+
+## 11. Production execution status — BLOCKED (no production database reachable)
+
+Production execution was requested (PR #5, approved order M-2A-01 → M-2A-03 → M-2A-02a/b/c). Following `STAGE2A_CHECKLISTS.md` §A pre-flight and requirement #2 ("confirm the connected database is the intended production Supabase project before making changes"), the pre-flight identity check **failed**, so per requirements #6/#7 execution was **halted before any migration was applied**.
+
+**Confirmation of the connected database (non-secret identifiers only):**
+- No production connection is present in the environment: there are **no** `SUPABASE_*`, `POSTGRES_*`, `DATABASE_*`, `PG*`, or connection-string variables injected.
+- The only reachable database is the **local dev/rehearsal** instance: API `http://127.0.0.1:54321`, DB container `supabase_db_workspace` (local socket), JWT issuer `supabase-demo`, DB `postgres`. Project ref: local `workspace`.
+- The Supabase MCP integration is in `needsAuth` (no cloud project accessible).
+
+**Actions taken:** none against any database. No migration executed, no rollback run, no schema changed, no deploy. No credentials/secrets were accessed or exposed (only variable names and URL hosts were inspected).
+
+**To proceed with production, one of the following is required from the founder:**
+1. Provide a **direct** production Postgres connection string as a secret named `SUPABASE_DB_URL` (session/direct connection on port 5432 — **not** the transaction pooler on 6543, because `CREATE INDEX CONCURRENTLY` requires a non-pooled session), plus the project ref for confirmation; **or**
+2. Have a DBA run the reviewed files in `supabase/stage2a/` per `STAGE2A_CHECKLISTS.md` and share the (secret-free) verification output, which will be recorded here.
+
+Once production access is confirmed, execution will follow the exact approved files with per-migration validation and immediate stop-on-failure, and this report will be completed with the production identifiers and results. **Stage 2B remains not started.**
