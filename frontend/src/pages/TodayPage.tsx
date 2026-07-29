@@ -24,17 +24,22 @@ export function TodayPage() {
 
   return (
     <PagePhotoRegistry pageId="today">
-      <div className="mx-auto max-w-6xl space-y-8 lg:space-y-10">
-        <TodayHeader firstName={d.user.firstName} dateLabel={d.dateLabel} />
+      <div className="mx-auto max-w-6xl space-y-12 lg:space-y-16">
+        <div className="space-y-6">
+          <TodayHeader />
+          <TodayHeroPhoto
+            photoId={d.heroPhoto.photoId}
+            pageSlot={d.heroPhoto.photoSlot}
+            firstName={d.user.firstName}
+            dateLabel={d.dateLabel}
+          />
+        </div>
 
-        <TodayHeroPhoto
-          photoId={d.heroPhoto.photoId}
-          pageSlot={d.heroPhoto.photoSlot}
-        />
+        <UpNextCard order={d.upNext} className="animate-fade-in" />
 
         <section
           aria-label="Daily summary"
-          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+          className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6"
         >
           <MetricCard label="Orders today" value={d.metrics.ordersToday} icon={ShoppingBag} />
           <MetricCard label="Deliveries" value={d.metrics.deliveries} icon={Truck} />
@@ -42,13 +47,11 @@ export function TodayPage() {
           <MetricCard label="Staff clocked in" value={d.metrics.staffClockedIn} icon={Users} />
         </section>
 
-        <UpNextCard order={d.upNext} />
-
-        <div className="grid gap-6 xl:grid-cols-12 xl:gap-8">
+        <div className="grid gap-8 xl:grid-cols-12 xl:gap-10">
           <div className="xl:col-span-7">
             <DesignQueue orders={d.designQueue} />
           </div>
-          <div className="space-y-6 xl:col-span-5">
+          <div className="space-y-8 xl:col-span-5">
             <LilyRecommendation
               message={d.lily.message}
               primaryAction={d.lily.primaryAction}
@@ -58,7 +61,7 @@ export function TodayPage() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2 xl:gap-8">
+        <div className="grid gap-8 lg:grid-cols-2 xl:gap-10">
           <DeliveryTimeline stops={d.deliverySchedule} />
           <QuickActions actions={d.quickActions} />
         </div>

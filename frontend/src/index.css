@@ -6,28 +6,30 @@
   --font-sans: "DM Sans", system-ui, -apple-system, sans-serif;
   --font-serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
 
-  --color-warm-white: #ffffff;
-  --color-warm-cream: #fdf9f4;
-  --color-warm-cream-deep: #f7f0e8;
+  --color-warm-white: #fffcf8;
+  --color-warm-cream: #faf6ef;
+  --color-warm-cream-deep: #f3ece3;
+  --color-warm-ivory: #fff9f2;
 
-  --color-blush-50: #fdf2f5;
-  --color-blush-100: #f9e4eb;
-  --color-blush-400: #e8a4b8;
-  --color-blush-500: #d97a96;
-  --color-blush-600: #c45f7f;
+  --color-blush-50: #fdf5f7;
+  --color-blush-100: #faeef2;
+  --color-blush-400: #e8b4c4;
+  --color-blush-500: #d4a0b0;
+  --color-blush-600: #b88494;
 
-  --color-sage-pale: #eef3ef;
-  --color-sage-soft: #dce8df;
-  --color-sage-muted: #8fa396;
+  --color-sage-pale: #eef2ed;
+  --color-sage-soft: #dde6dc;
+  --color-sage-muted: #7a9182;
+  --color-sage-ink: #5a6b60;
 
-  --color-hydrangea-pale: #e8eef6;
-  --color-hydrangea-soft: #d4e2f4;
+  --color-hydrangea-pale: #eef2f7;
+  --color-hydrangea-soft: #dce6f0;
 
-  --color-charcoal: #2a2a2a;
-  --color-charcoal-muted: #5c5c5c;
-  --color-charcoal-subtle: #8a8a8a;
+  --color-charcoal: #2c2826;
+  --color-charcoal-muted: #5a534e;
+  --color-charcoal-subtle: #8a8178;
 
-  --color-florisyn-border: rgb(42 42 42 / 0.06);
+  --color-florisyn-border: rgb(44 40 38 / 0.07);
 
   --color-florisyn-cream: var(--color-warm-cream);
   --color-florisyn-ink: var(--color-charcoal);
@@ -35,10 +37,12 @@
   --color-florisyn-surface: var(--color-warm-white);
 
   --radius-xl: 1rem;
-  --radius-2xl: 1.25rem;
+  --radius-2xl: 1.375rem;
+  --radius-3xl: 1.75rem;
 
-  --shadow-card: 0 1px 2px rgb(42 42 42 / 0.04), 0 12px 40px -16px rgb(42 42 42 / 0.08);
-  --shadow-card-hover: 0 2px 8px rgb(42 42 42 / 0.06), 0 20px 48px -16px rgb(42 42 42 / 0.1);
+  --shadow-card: 0 1px 2px rgb(44 40 38 / 0.03), 0 8px 32px -12px rgb(44 40 38 / 0.07);
+  --shadow-card-hover: 0 2px 6px rgb(44 40 38 / 0.04), 0 16px 40px -12px rgb(44 40 38 / 0.1);
+  --shadow-elevated: 0 4px 24px -8px rgb(44 40 38 / 0.12);
 }
 
 @layer base {
@@ -61,7 +65,7 @@
   }
 
   body {
-    @apply m-0 min-h-svh overflow-x-hidden bg-warm-cream font-sans text-[15px] leading-relaxed text-charcoal antialiased;
+    @apply m-0 min-h-svh overflow-x-hidden bg-warm-cream font-sans text-[15px] leading-[1.65] text-charcoal antialiased;
   }
 
   :focus-visible {
@@ -86,7 +90,31 @@
 @layer utilities {
   .font-serif-display {
     font-family: var(--font-serif);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
+    font-feature-settings: "liga" 1, "kern" 1;
+  }
+
+  .text-label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-sage-ink;
+  }
+
+  .surface-lift {
+    @apply motion-safe:transition-[transform,box-shadow] motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-card-hover;
+  }
+
+  .animate-fade-in {
+    @apply motion-safe:animate-[fade-in_0.5s_ease-out_both] motion-reduce:animate-none;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .shadow-card {
@@ -95,6 +123,10 @@
 
   .shadow-card-hover {
     box-shadow: var(--shadow-card-hover);
+  }
+
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
   }
 
   .motion-safe-transition {

@@ -9,10 +9,10 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-blush-500 text-white hover:bg-blush-600 active:scale-[0.98] dark:bg-blush-500 dark:hover:bg-blush-600",
+          "bg-blush-500 text-white shadow-sm hover:bg-blush-600 active:scale-[0.99] motion-safe:hover:shadow-card dark:bg-blush-500 dark:hover:bg-blush-600",
         secondary:
-          "bg-warm-white text-charcoal shadow-sm ring-1 ring-florisyn-border hover:bg-warm-cream-deep dark:bg-florisyn-surface",
-        ghost: "text-charcoal-muted hover:bg-sage-pale/80 hover:text-charcoal",
+          "bg-warm-white text-charcoal shadow-card ring-1 ring-florisyn-border hover:bg-warm-ivory dark:bg-florisyn-surface",
+        ghost: "text-charcoal-muted hover:bg-sage-pale/90 hover:text-charcoal",
       },
       size: {
         default: "h-11 min-h-[44px] px-5 py-2",

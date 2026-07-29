@@ -13,10 +13,10 @@ export function DailyInsight({ message, className }: DailyInsightProps) {
       padding="md"
       aria-labelledby="daily-insight-title"
     >
-      <p id="daily-insight-title" className="text-xs font-semibold uppercase tracking-wide text-charcoal-subtle">
+      <p id="daily-insight-title" className="text-label">
         Holiday preparation
       </p>
-      <p className="mt-2 text-sm leading-relaxed text-charcoal-muted md:text-[15px]">{message}</p>
+      <p className="mt-3 text-[15px] leading-relaxed text-charcoal-muted">{message}</p>
     </SurfaceCard>
   );
 }

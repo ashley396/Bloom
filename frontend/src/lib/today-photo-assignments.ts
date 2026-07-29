@@ -19,7 +19,7 @@ export type TodayPhotoSlotId =
  */
 export const TODAY_PHOTO_ASSIGNMENTS: Record<TodayPhotoSlotId, FloristryPhotoId> =
   {
-    "today.hero": "seasonal-spring",
+    "today.hero": "workspace-hero-bench",
     "today.up-next": "sympathy-funeral-spray",
     "today.design-queue.dq-1": "sympathy-lilies",
     "today.design-queue.dq-2": "mixed-everyday-bouquet",

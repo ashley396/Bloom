@@ -39,7 +39,7 @@ export function FloristShell({ children }: FloristShellProps) {
           aria-label="Primary"
         >
           <p className="font-serif-display text-xl font-semibold text-charcoal">Florisyn</p>
-          <p className="mt-0.5 text-xs text-charcoal-subtle">Lilies in Bloom</p>
+          <p className="mt-1 text-xs text-sage-ink">Lilies in Bloom</p>
           <nav className="mt-6" aria-label="Shop">
             <ul className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
               {navItems.map(({ to, label, icon: Icon, end }) => (
@@ -57,7 +57,7 @@ export function FloristShell({ children }: FloristShellProps) {
                         )}
                         aria-current={isActive ? "page" : undefined}
                       >
-                        <Icon className="size-4 opacity-90" aria-hidden />
+                        <Icon className="size-4 text-sage-muted" strokeWidth={1.75} aria-hidden />
                         {label}
                       </span>
                     )}
@@ -70,7 +70,7 @@ export function FloristShell({ children }: FloristShellProps) {
         <div className="flex min-w-0 flex-1 flex-col pb-20 lg:pb-0">
           <main
             id="main-content"
-            className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8 lg:px-10 lg:py-10"
+            className="min-w-0 flex-1 px-5 py-8 md:px-10 md:py-10 lg:px-12 lg:py-12"
             tabIndex={-1}
           >
             {children}

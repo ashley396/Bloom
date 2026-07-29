@@ -16,14 +16,14 @@ const statusStyles: Record<
   },
   waiting: {
     pill: "bg-warm-cream-deep text-charcoal-muted",
-    dot: "bg-charcoal-subtle",
+    dot: "bg-sage-muted",
   },
   ready: {
     pill: "bg-sage-pale text-charcoal",
     dot: "bg-sage-muted",
   },
   delivered: {
-    pill: "bg-sage-soft/50 text-charcoal-muted",
+    pill: "bg-sage-soft/60 text-charcoal-muted",
     dot: "bg-sage-muted",
   },
 };
@@ -37,19 +37,21 @@ export function DesignQueueItem({ order }: DesignQueueItemProps) {
   const statusText = designQueueStatusLabel[order.status];
 
   return (
-    <article className="flex gap-4 rounded-xl bg-warm-cream/60 p-4 ring-1 ring-florisyn-border/80">
+    <article className="surface-lift flex gap-5 rounded-2xl bg-warm-cream/50 p-5 ring-1 ring-florisyn-border/90">
       <PhotoAsset
         photoId={order.photoId}
         pageSlot={order.photoSlot}
         alt={`Reference for ${order.customerOrRecipient}`}
         aspect="square"
-        className="size-16 shrink-0 rounded-lg sm:size-[4.5rem]"
+        className="size-[4.25rem] shrink-0 rounded-xl sm:size-[4.75rem]"
       />
-      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h3 className="truncate font-medium text-charcoal">{order.customerOrRecipient}</h3>
-          <p className="text-sm text-charcoal-muted">{order.occasion}</p>
-          <p className="mt-1 text-xs text-charcoal-subtle">
+          <h3 className="truncate text-[15px] font-medium text-charcoal">
+            {order.customerOrRecipient}
+          </h3>
+          <p className="mt-0.5 text-sm text-charcoal-muted">{order.occasion}</p>
+          <p className="mt-1.5 text-xs text-sage-ink">
             Due <time>{order.dueTime}</time>
           </p>
         </div>
@@ -57,14 +59,11 @@ export function DesignQueueItem({ order }: DesignQueueItemProps) {
           <span className="font-medium tabular-nums text-charcoal">{order.price}</span>
           <span
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium",
+              "inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium",
               styles.pill,
             )}
           >
-            <span
-              className={cn("size-1.5 rounded-full", styles.dot)}
-              aria-hidden
-            />
+            <span className={cn("size-1.5 rounded-full", styles.dot)} aria-hidden />
             {statusText}
           </span>
         </div>
@@ -83,14 +82,14 @@ export function DesignQueue({ orders, className }: DesignQueueProps) {
     <SurfaceCard as="section" className={className} aria-labelledby="design-queue-title">
       <h2
         id="design-queue-title"
-        className="font-serif-display text-xl font-semibold text-charcoal md:text-2xl"
+        className="font-serif-display text-2xl font-medium text-charcoal md:text-[1.75rem]"
       >
         Today&apos;s design queue
       </h2>
-      <p className="mt-1 text-sm text-charcoal-muted">
+      <p className="mt-2 max-w-prose text-[15px] leading-relaxed text-charcoal-muted">
         Orders on the bench — calm, scannable, never spreadsheet-dense.
       </p>
-      <ul className="mt-6 space-y-3">
+      <ul className="mt-8 space-y-4">
         {orders.map((order) => (
           <li key={order.id}>
             <DesignQueueItem order={order} />

@@ -29,11 +29,11 @@ export function QuickActions({ actions, className }: QuickActionsProps) {
     <SurfaceCard as="section" className={className} aria-labelledby="quick-actions-title">
       <h2
         id="quick-actions-title"
-        className="font-serif-display text-xl font-semibold text-charcoal md:text-2xl"
+        className="font-serif-display text-2xl font-medium text-charcoal md:text-[1.75rem]"
       >
         Quick actions
       </h2>
-      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
         {actions.map((action) => {
           const Icon = icons[action.id];
           return (
@@ -41,10 +41,12 @@ export function QuickActions({ actions, className }: QuickActionsProps) {
               key={action.id}
               type="button"
               variant="secondary"
-              className="h-auto min-h-[44px] flex-col gap-2 py-4 text-center"
+              className="surface-lift h-auto min-h-[52px] flex-col gap-2.5 rounded-2xl py-5 text-center"
             >
-              <Icon className="size-5 text-blush-600" aria-hidden />
-              <span className="text-xs font-semibold leading-tight sm:text-sm">{action.label}</span>
+              <Icon className="size-[18px] text-sage-muted" strokeWidth={1.75} aria-hidden />
+              <span className="text-xs font-semibold leading-snug text-charcoal sm:text-sm">
+                {action.label}
+              </span>
             </Button>
           );
         })}

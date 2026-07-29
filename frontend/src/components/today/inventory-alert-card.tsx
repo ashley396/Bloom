@@ -7,8 +7,8 @@ import { PhotoAsset } from "../media/PhotoAsset";
 import { SurfaceCard } from "../ui/surface-card";
 
 const toneStyles = {
-  critical: "bg-blush-50 text-charcoal ring-blush-100",
-  good: "bg-sage-pale text-charcoal ring-sage-soft/80",
+  critical: "bg-blush-50 text-charcoal ring-blush-100/90",
+  good: "bg-sage-pale/80 text-charcoal ring-sage-soft/70",
   warn: "bg-warm-cream-deep text-charcoal ring-florisyn-border",
 };
 
@@ -21,7 +21,7 @@ export function InventoryAlertCard({ alert }: InventoryAlertCardProps) {
   return (
     <div
       className={cn(
-        "flex items-center gap-4 rounded-xl px-4 py-3 ring-1",
+        "flex items-center gap-4 rounded-2xl px-5 py-4 ring-1",
         toneStyles[tone],
       )}
     >
@@ -30,15 +30,13 @@ export function InventoryAlertCard({ alert }: InventoryAlertCardProps) {
         pageSlot={alert.photoSlot}
         alt={`${alert.item} stock`}
         aspect="square"
-        className="size-12 shrink-0 rounded-lg"
+        className="size-14 shrink-0 rounded-xl"
       />
       <div className="min-w-0 flex-1">
         <p className="font-medium text-charcoal">{alert.item}</p>
-        <p className="text-sm text-charcoal-muted">{alert.quantity}</p>
+        <p className="mt-0.5 text-sm text-charcoal-muted">{alert.quantity}</p>
       </div>
-      <span className="text-xs font-semibold uppercase tracking-wide text-charcoal-subtle">
-        {alert.level}
-      </span>
+      <span className="text-label text-sage-ink">{alert.level}</span>
     </div>
   );
 }
@@ -53,11 +51,11 @@ export function InventoryAlertsSection({ alerts, className }: InventoryAlertsSec
     <SurfaceCard as="section" className={className} aria-labelledby="inventory-alerts-title">
       <h2
         id="inventory-alerts-title"
-        className="font-serif-display text-xl font-semibold text-charcoal md:text-2xl"
+        className="font-serif-display text-2xl font-medium text-charcoal md:text-[1.75rem]"
       >
         Inventory alerts
       </h2>
-      <ul className="mt-6 space-y-2">
+      <ul className="mt-8 space-y-3">
         {alerts.map((alert) => (
           <li key={alert.id}>
             <InventoryAlertCard alert={alert} />

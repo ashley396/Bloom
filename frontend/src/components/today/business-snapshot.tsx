@@ -11,20 +11,20 @@ export function BusinessSnapshot({ metrics, className }: BusinessSnapshotProps) 
     <SurfaceCard as="section" className={className} aria-labelledby="business-snapshot-title">
       <h2
         id="business-snapshot-title"
-        className="font-serif-display text-xl font-semibold text-charcoal md:text-2xl"
+        className="font-serif-display text-2xl font-medium text-charcoal md:text-[1.75rem]"
       >
         Business snapshot
       </h2>
-      <div className="mt-6 space-y-6">
+      <div className="mt-8 space-y-8">
         <div>
           <div className="flex items-end justify-between gap-2">
-            <p className="text-sm font-medium text-charcoal-muted">Revenue goal</p>
-            <p className="text-sm font-semibold tabular-nums text-charcoal">
+            <p className="text-[15px] font-medium text-charcoal-muted">Revenue goal</p>
+            <p className="font-serif-display text-xl font-medium tabular-nums text-charcoal">
               {metrics.revenueGoalPercent}%
             </p>
           </div>
           <div
-            className="mt-2 h-2 overflow-hidden rounded-full bg-sage-pale"
+            className="mt-3 h-2.5 overflow-hidden rounded-full bg-sage-pale"
             role="progressbar"
             aria-valuenow={metrics.revenueGoalPercent}
             aria-valuemin={0}
@@ -36,30 +36,24 @@ export function BusinessSnapshot({ metrics, className }: BusinessSnapshotProps) 
               style={{ width: `${metrics.revenueGoalPercent}%` }}
             />
           </div>
-          <p className="mt-2 text-xs text-charcoal-subtle">{metrics.revenueGoalLabel}</p>
+          <p className="mt-3 text-sm text-sage-ink">{metrics.revenueGoalLabel}</p>
         </div>
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <dl className="grid grid-cols-1 gap-6 sm:grid-cols-3">
           <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-charcoal-subtle">
-              Avg order
-            </dt>
-            <dd className="font-serif-display mt-1 text-xl font-semibold text-charcoal">
+            <dt className="text-label">Avg order</dt>
+            <dd className="font-serif-display mt-2 text-2xl font-medium text-charcoal">
               {metrics.averageOrderValue}
             </dd>
           </div>
           <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-charcoal-subtle">
-              Outstanding
-            </dt>
-            <dd className="font-serif-display mt-1 text-xl font-semibold text-charcoal">
+            <dt className="text-label">Outstanding</dt>
+            <dd className="font-serif-display mt-2 text-2xl font-medium text-charcoal">
               {metrics.outstandingInvoices}
             </dd>
           </div>
           <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-charcoal-subtle">
-              Delivery profit
-            </dt>
-            <dd className="font-serif-display mt-1 text-xl font-semibold text-charcoal">
+            <dt className="text-label">Delivery profit</dt>
+            <dd className="font-serif-display mt-2 text-2xl font-medium text-charcoal">
               {metrics.deliveryProfitability}
             </dd>
           </div>
