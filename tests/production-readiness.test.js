@@ -50,7 +50,7 @@ test("getProductionConfig warns when Stripe missing", () => {
 });
 
 test("safePublicError hides internal 500 details", () => {
-  assert.match(safePublicError({ statusCode: 500, message: "DB connection xyz" }), /Unexpected Bloom/);
+  assert.match(safePublicError({ statusCode: 500, message: "DB connection xyz" }), /Unexpected Florisyn/);
   assert.equal(safePublicError({ statusCode: 403, message: "nope" }), "You do not have permission to perform this action.");
 });
 

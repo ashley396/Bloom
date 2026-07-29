@@ -63,7 +63,7 @@
         <button type="button" class="secondary sub-cancel-btn" id="subCancel">Cancel subscription</button>
         <button type="button" class="secondary" id="subExport">Download my data</button>
       </div>`
-          : `<p class="subtle">Only the shop owner can change the Bloom subscription.</p>`
+          : `<p class="subtle">Only the shop owner can change the Florisyn subscription.</p>`
       }
       <div class="shop-billing-links sub-links">
         <button type="button" id="subInvoices">Billing history (portal)</button>
@@ -124,7 +124,7 @@
       .join("");
     dlg.innerHTML = `<form method="dialog" class="panel">
       <h2>Optional feedback</h2>
-      <p class="subtle">Help us improve Bloom (optional — skip anytime).</p>
+      <p class="subtle">Help us improve Florisyn (optional — skip anytime).</p>
       <label>Reason<select id="subSurveyReason"><option value="">Select…</option>${opts}</select></label>
       <label>Comments<textarea id="subSurveyFeedback" rows="3"></textarea></label>
       <div class="card-actions">

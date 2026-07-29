@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Florisyn">
+  <path fill="none" stroke="#2F2A2C" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"
+    d="M46 104V32
+       M46 32c0-14 18-22 32-14 10 5 14 16 8 26-4 7-12 10-20 8
+       M46 58h38
+       M46 58c-2 8-8 14-16 16"/>
+</svg>

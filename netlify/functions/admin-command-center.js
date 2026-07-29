@@ -1,5 +1,5 @@
 import { json, fail } from "./_shared/saas.js";
-import { platformAdmin, writeCommandAudit } from "./_shared/platform-admin.js";
+import { platformAdmin, writeCommandAudit, requireSuperAdmin } from "./_shared/platform-admin.js";
 import {
   auditRecordFromRow,
   buildMonthlySeries,
@@ -471,6 +471,7 @@ export async function handler(event) {
     }
 
     if (action === "suspend-user") {
+      requireSuperAdmin(admin);
       const shopId = body.shop_id;
       if (!shopId) return json(400, { error: "shop_id is required" });
       const { data, error } = await client
@@ -484,6 +485,7 @@ export async function handler(event) {
     }
 
     if (action === "reactivate-user") {
+      requireSuperAdmin(admin);
       const shopId = body.shop_id;
       if (!shopId) return json(400, { error: "shop_id is required" });
       const { data, error } = await client
@@ -507,6 +509,7 @@ export async function handler(event) {
     }
 
     if (action === "marketplace-listing") {
+      requireSuperAdmin(admin);
       const listingId = body.listing_id || body.id;
       const decision = String(body.decision || "").toLowerCase();
       if (!listingId) return json(400, { error: "listing_id is required" });
@@ -557,6 +560,7 @@ export async function handler(event) {
     }
 
     if (action === "create-announcement") {
+      requireSuperAdmin(admin);
       const validation = validateAnnouncementPayload(body);
       if (!validation.valid) return json(400, { error: validation.errors.join(" ") });
       const record = {
@@ -579,6 +583,7 @@ export async function handler(event) {
     }
 
     if (action === "save-feature-flags") {
+      requireSuperAdmin(admin);
       const flags = body.flags && typeof body.flags === "object" ? body.flags : {};
       for (const key of PLATFORM_FEATURE_FLAGS) {
         if (!(key in flags)) continue;

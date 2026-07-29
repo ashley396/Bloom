@@ -194,7 +194,7 @@ import {
     banner.setAttribute("aria-label", "Getting started checklist");
     banner.innerHTML = `
       <div style="flex:1">
-        <p class="eyebrow">WELCOME TO BLOOM</p>
+        <p class="eyebrow">WELCOME TO FLORISYN</p>
         <strong>Setup checklist · ${prog.complete}/${prog.total} complete</strong>
         <progress max="100" value="${prog.percent}"></progress>
         <div class="bloom-onboarding-steps">${prog.remaining

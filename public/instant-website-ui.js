@@ -33,7 +33,7 @@
           <option value="rustic_farmhouse">Rustic Farmhouse</option>
         </select></label>
         <label>Domain path<select id="instantDomainMode">
-          <option value="bloom_subdomain">Use temporary Bloom address (shopname.bloom-sites.com)</option>
+          <option value="bloom_subdomain">Use temporary Florisyn address (shopname.bloom-sites.com)</option>
           <option value="connect">Connect a domain I own</option>
           <option value="purchase">Find & purchase a domain (provider integration required)</option>
         </select></label>

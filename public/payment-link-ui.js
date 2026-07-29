@@ -43,7 +43,7 @@
         <h1>Pay ${money(info.amount_due)}</h1>
         ${info.allow_partial ? `<label>Amount to pay ($)<input id="payPartial" type="number" min="0.01" step="0.01" value="${info.amount_due}"></label>` : ""}
         <button type="button" class="primary" id="paySubmit">Continue to card checkout</button>
-        <p class="subtle">Powered by Bloom Payment Hub · Stripe</p>`;
+        <p class="subtle">Powered by Florisyn Payment Hub · Stripe</p>`;
       document.getElementById("paySubmit").onclick = async () => {
         const amount = info.allow_partial ? Number(document.getElementById("payPartial")?.value || info.amount_due) : info.amount_due;
         const d = await publicApi("payment-link-public", {

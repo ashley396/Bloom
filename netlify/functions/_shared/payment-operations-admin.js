@@ -52,7 +52,7 @@ export function buildPaymentOperationsMetrics({
 
   return {
     bloom_technologies_saas: {
-      label: "Revenue paid to Bloom Technologies (software subscriptions)",
+      label: "Revenue paid to Florisyn Technologies (software subscriptions)",
       subscription_revenue_today: bloomMrrToday,
       subscription_revenue_month: bloomMrrMonth,
       active_bloom_subscribers: bloomActive,

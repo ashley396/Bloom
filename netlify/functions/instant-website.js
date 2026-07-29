@@ -20,6 +20,7 @@ import {
   restoreThemeSettings
 } from "./_shared/bloom-website-editor.js";
 import { tenantIsolationCheck } from "./_shared/bloom-storefront-core.js";
+import { buildWebsiteCatalogSeeds, shouldSeedWebsiteCatalog } from "./_shared/bloom-website-catalog-seed.js";
 import { writeShopAudit } from "./_shared/production.js";
 
 const ROLES = ["owner", "manager", "designer", "cashier"];
@@ -32,6 +33,35 @@ async function loadShopProfile(client, shopId) {
   const { data, error } = await client.from("shops").select("*").eq("id", shopId).maybeSingle();
   if (error) throw error;
   return data || {};
+}
+
+async function seedWebsiteCatalogIfEmpty(client, shopId) {
+  try {
+    const { count, error } = await client
+      .from("products")
+      .select("id", { count: "exact", head: true })
+      .eq("shop_id", shopId)
+      .is("deleted_at", null);
+    if (error) throw error;
+    if (!shouldSeedWebsiteCatalog(count)) return { seeded: 0, skipped: true };
+    const seeds = buildWebsiteCatalogSeeds(shopId, { maxItems: 48 });
+    for (const copy of seeds) {
+      await client.from("products").insert({
+        shop_id: shopId,
+        name: copy.name,
+        category: (copy.categories || [])[0] || "Everyday",
+        description: copy.description,
+        image_url: copy.primary_image?.url,
+        price: copy.retail_price ?? copy.suggested_retail?.default ?? 0,
+        active: true,
+        available_online: true
+      });
+    }
+    return { seeded: seeds.length };
+  } catch (e) {
+    if (missingTable(e)) return { seeded: 0, note: "Products table unavailable." };
+    throw e;
+  }
 }
 
 export async function handler(event) {
@@ -90,7 +120,8 @@ export async function handler(event) {
           );
         }
         await writeShopAudit(client, { shopId, userId: user.id, eventType: "website_generated", entityType: "website", entityId: proj.id, metadata: { launch_mode: site.project.launch_mode } });
-        return json(201, { site, project_id: proj.id });
+        const catalog_seed = body.seed_catalog !== false ? await seedWebsiteCatalogIfEmpty(client, shopId) : { seeded: 0 };
+        return json(201, { site, project_id: proj.id, catalog_seed });
       } catch (e) {
         if (missingTable(e)) return json(200, { site, note: "Apply RC1 migration to persist website project." });
         throw e;

@@ -8,7 +8,7 @@ export async function platformAdmin(event, allowedRoles = []) {
     .eq('user_id', user.id)
     .maybeSingle();
   if (error || !data || !data.active) {
-    const err = new Error('This account is not authorized for Bloom Administration.');
+    const err = new Error('This account is not authorized for Florisyn Administration.');
     err.statusCode = 403;
     throw err;
   }
@@ -18,6 +18,14 @@ export async function platformAdmin(event, allowedRoles = []) {
     throw err;
   }
   return { client, user, admin: data };
+}
+
+/** Closed Beta: only `super_admin` may run high-impact platform mutations. */
+export function requireSuperAdmin(adminRecord, message = "This action requires a Florisyn super admin.") {
+  if (String(adminRecord?.role || "").toLowerCase() === "super_admin") return;
+  const err = new Error(message);
+  err.statusCode = 403;
+  throw err;
 }
 
 export async function writeAdminAudit(client, adminUserId, shopId, action, details = {}) {

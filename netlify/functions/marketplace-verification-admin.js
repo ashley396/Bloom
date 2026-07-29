@@ -1,6 +1,6 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { fail } from "./_shared/supabase.js";
-import { platformAdmin, writeAdminAudit } from "./_shared/platform-admin.js";
+import { platformAdmin, writeAdminAudit, requireSuperAdmin } from "./_shared/platform-admin.js";
 import {
   TABLE,
   ADMIN_REVIEW_DECISIONS,
@@ -38,6 +38,7 @@ export async function handler(event) {
     }
 
     if (event.httpMethod === "POST") {
+      requireSuperAdmin(admin);
       const body = bodyOf(event);
       const applicationId = body.application_id || body.id;
       const decision = String(body.decision || "").toLowerCase();

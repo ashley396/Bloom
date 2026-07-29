@@ -14,21 +14,23 @@
     root.insertAdjacentHTML(
       "afterbegin",
       `<div class="theme-gallery-shell panel">
-        <p class="eyebrow">THEME GALLERY</p>
-        <h2>Compare launch modes</h2>
-        <p class="subtle">Switch styles without losing page content. Confirm before applying.</p>
+        <p class="eyebrow">WEBSITE LOOK &amp; FEEL</p>
+        <h2>Visual theme previews</h2>
+        <p class="subtle">Preview any look with your real content — no save required. Apply only when you're ready.</p>
         <div id="themeGalleryGrid" class="theme-gallery-grid"></div>
-        <div class="card-actions">
-          <button type="button" class="secondary" id="themeCompareBtn">Compare selected</button>
-          <button type="button" class="primary" id="themeApplyBtn">Apply theme</button>
-          <button type="button" class="secondary" id="themeRestoreBtn">Restore previous theme</button>
-        </div>
+        <dialog id="themePreviewDialog" class="theme-preview-modal">
+          <div class="panel-heading"><h3 id="themePreviewTitle">Preview</h3><button type="button" class="secondary" id="themePreviewClose">Close</button></div>
+          <div class="theme-preview-frame" id="themePreviewFrame"></div>
+          <div class="card-actions">
+            <button type="button" class="primary" id="themePreviewApply">Apply theme</button>
+          </div>
+        </dialog>
         <p id="themeGalleryStatus" class="subtle" aria-live="polite"></p>
       </div>`
     );
 
     let modes = [];
-    let selected = new Set();
+    let previewModeId = null;
     let previousTheme = null;
     let currentSite = null;
 
@@ -37,50 +39,77 @@
       renderCards();
     });
 
+    function deviceMock(mode, device) {
+      const w = device === "mobile" ? "100%" : device === "tablet" ? "768px" : "100%";
+      return `<div class="theme-preview-device" style="--preview-bg:${mode.palette[0]};max-width:${w}">
+        <span>${device}</span>
+        <div style="padding:12px;font-family:serif;color:${mode.palette[2] || "#333"}">
+          <div style="height:8px;width:60%;background:${mode.palette[1]};border-radius:4px;margin-bottom:8px"></div>
+          <strong style="font-size:${device === "mobile" ? "14px" : "18px"}">${esc(window.shopSettings?.name || "Your Florist")}</strong>
+          <p style="font-size:12px;opacity:.8;margin:8px 0">Featured arrangements · Shop · Sympathy</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <div style="aspect-ratio:1;background:${mode.palette[1]}33;border-radius:8px"></div>
+            <div style="aspect-ratio:1;background:${mode.palette[1]}33;border-radius:8px"></div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function openPreview(mode) {
+      previewModeId = mode.id;
+      const dlg = root.querySelector("#themePreviewDialog");
+      root.querySelector("#themePreviewTitle").textContent = mode.label;
+      root.querySelector("#themePreviewFrame").innerHTML =
+        deviceMock(mode, "desktop") + deviceMock(mode, "tablet") + deviceMock(mode, "mobile");
+      dlg.showModal();
+    }
+
     function renderCards() {
       const grid = root.querySelector("#themeGalleryGrid");
       grid.innerHTML = modes
         .map(
-          (m) => `<article class="theme-card" data-id="${esc(m.id)}">
-            <h3>${esc(m.label)}</h3>
-            <div class="theme-previews"><span class="preview-chip">Desktop</span><span class="preview-chip">Tablet</span><span class="preview-chip">Mobile</span></div>
-            <div class="palette" style="background:linear-gradient(90deg,${m.palette.join(",")})" aria-hidden="true"></div>
-            <p class="subtle">Font: ${esc(m.fontPair)}</p>
-            <label class="check"><input type="checkbox" data-fav="${esc(m.id)}"> Favorite</label>
-            <label class="check"><input type="checkbox" data-select="${esc(m.id)}"> Compare</label>
+          (m) => `<article class="theme-card panel" data-id="${esc(m.id)}">
+            <div class="theme-card-preview" style="background:linear-gradient(145deg,${m.palette.join(",")});min-height:100px;border-radius:12px"></div>
+            <p class="subtle">Serif + sans · product cards · soft buttons</p>
+            <div class="card-actions">
+              <button type="button" class="secondary" data-preview="${esc(m.id)}">Preview</button>
+              <button type="button" class="primary" data-apply="${esc(m.id)}">Apply theme</button>
+            </div>
           </article>`
         )
         .join("");
     }
 
-    root.querySelector("#themeApplyBtn")?.addEventListener("click", async () => {
-      const id = [...selected][0] || modes[0]?.id;
-      if (!id) return;
-      if (!confirm("Apply this theme? Page content will stay the same.")) return;
-      const status = root.querySelector("#themeGalleryStatus");
-      status.textContent = "Applying theme…";
-      try {
-        const d = await api("switch_theme", { launch_mode: id, confirmed: true, persist: true, site: currentSite });
-        previousTheme = d.previous_theme;
-        currentSite = d.site;
-        status.textContent = `${modes.find((m) => m.id === id)?.label || id} applied.`;
-        window.toast?.("Theme updated");
-      } catch (e) {
-        status.textContent = e.message;
+    root.querySelector("#themeGalleryGrid")?.addEventListener("click", async (e) => {
+      const prev = e.target.closest("[data-preview]");
+      if (prev) {
+        const mode = modes.find((m) => m.id === prev.dataset.preview);
+        if (mode) openPreview(mode);
+        return;
+      }
+      const apply = e.target.closest("[data-apply]");
+      if (apply) {
+        const mode = modes.find((m) => m.id === apply.dataset.apply);
+        if (!mode) return;
+        if (!confirm(`Apply ${mode.label}? Your page content stays the same.`)) return;
+        try {
+          const d = await api("switch_theme", { launch_mode: mode.id, confirmed: true, persist: true, site: currentSite });
+          previousTheme = d.previous_theme;
+          currentSite = d.site;
+          root.querySelector("#themeGalleryStatus").textContent = `${mode.label} applied.`;
+          window.toast?.("Theme updated");
+        } catch (err) {
+          root.querySelector("#themeGalleryStatus").textContent = err.message;
+        }
       }
     });
 
-    root.querySelector("#themeRestoreBtn")?.addEventListener("click", async () => {
-      if (!previousTheme) return root.querySelector("#themeGalleryStatus").textContent = "No previous theme saved.";
-      const d = await api("restore_theme", { previous_theme: previousTheme, site: currentSite });
-      root.querySelector("#themeGalleryStatus").textContent = d.restored ? "Previous theme restored." : "Nothing to restore.";
-    });
-
-    root.querySelector("#themeGalleryGrid")?.addEventListener("change", (e) => {
-      const sel = e.target.closest("[data-select]");
-      if (!sel) return;
-      if (sel.checked) selected.add(sel.dataset.select);
-      else selected.delete(sel.dataset.select);
+    root.querySelector("#themePreviewClose")?.addEventListener("click", () => root.querySelector("#themePreviewDialog").close());
+    root.querySelector("#themePreviewApply")?.addEventListener("click", async () => {
+      const mode = modes.find((m) => m.id === previewModeId);
+      if (!mode) return;
+      root.querySelector("#themePreviewDialog").close();
+      root.querySelector(`[data-apply="${mode.id}"]`)?.click();
     });
 
     api("get_project")

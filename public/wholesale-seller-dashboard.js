@@ -203,7 +203,7 @@
     document.querySelectorAll('[data-wholesale-publish]').forEach((button) => {
       button.addEventListener('click', async () => {
         await hooks.api('marketplace-seller', { method: 'POST', body: JSON.stringify({ action: 'publish', id: button.dataset.wholesalePublish, transition: 'publish' }) });
-        hooks.toast('Product published to Bloom Wholesale.');
+        hooks.toast('Product published to Florisyn Wholesale.');
         reload(hooks);
       });
     });

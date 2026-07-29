@@ -10,10 +10,10 @@ export function emailProviderConfigured(env = process.env) {
 }
 
 function brandShell({ title, bodyHtml, shopName }) {
-  const name = shopName || "Bloom Florist";
+  const name = shopName || "Florisyn Shop";
   return `<!DOCTYPE html><html><body style="font-family:Georgia,serif;background:#f8edf1;padding:24px">
 <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:28px;border:1px solid #e8d4df">
-<p style="letter-spacing:.12em;font-size:11px;color:#7a4a66;margin:0 0 8px">BLOOM PAYMENTS</p>
+<p style="letter-spacing:.12em;font-size:11px;color:#7a4a66;margin:0 0 8px">FLORISYN PAYMENTS</p>
 <h1 style="color:#4d2540;font-size:22px;margin:0 0 16px">${title}</h1>
 ${bodyHtml}
 <p style="color:#666;font-size:13px;margin-top:24px">— ${name}</p>
@@ -71,7 +71,7 @@ async function dispatchEmail(env, { to, subject, html, text }) {
       },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: toCheck.value }] }],
-        from: { email: env.BLOOM_EMAIL_FROM || "payments@bloom.app", name: env.BLOOM_EMAIL_FROM_NAME || "Bloom" },
+        from: { email: env.BLOOM_EMAIL_FROM || "payments@bloom.app", name: env.BLOOM_EMAIL_FROM_NAME || "Florisyn" },
         subject,
         content: [
           { type: "text/plain", value: text || subject },

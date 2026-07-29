@@ -7,11 +7,10 @@ import {
   MIGRATION_MANIFEST
 } from "../netlify/functions/_shared/bloom-release.js";
 
-test("RC1 version label matches product naming", () => {
-  assert.match(BLOOM_VERSION_LABEL, /1\.0 RC1/);
-  assert.equal(BLOOM_VERSION_CODE, "1.0.0-rc.1");
+test("Florisyn version label matches product naming", () => {
+  assert.match(BLOOM_VERSION_LABEL, /Florisyn 1\.0/);
+  assert.equal(BLOOM_VERSION_CODE, "founder-1.0");
 });
-
 test("migration manifest includes release candidate feedback migration", () => {
   assert.ok(MIGRATION_MANIFEST.some((m) => m.file.includes("release_candidate_v1")));
 });

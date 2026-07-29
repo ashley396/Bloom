@@ -83,8 +83,10 @@ export function validateAnnouncementPayload(body = {}) {
 }
 
 export function systemHealthSnapshot(env = process.env) {
-  const required = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_ANON_KEY"];
-  const missing = required.filter((key) => !env[key]);
+  const missing = [];
+  if (!env.SUPABASE_URL) missing.push("SUPABASE_URL");
+  if (!env.SUPABASE_ANON_KEY && !env.SUPABASE_PUBLISHABLE_KEY) missing.push("SUPABASE_ANON_KEY");
+  if (!env.SUPABASE_SERVICE_ROLE_KEY && !env.SUPABASE_SECRET_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
   return {
     database: missing.length ? "degraded" : "ok",
     netlify_functions: "ok",

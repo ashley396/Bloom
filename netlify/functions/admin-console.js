@@ -1,5 +1,5 @@
 import { json, fail } from './_shared/saas.js';
-import { platformAdmin, writeAdminAudit } from './_shared/platform-admin.js';
+import { platformAdmin, writeAdminAudit, requireSuperAdmin } from './_shared/platform-admin.js';
 
 const safeObject = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
@@ -61,6 +61,7 @@ export async function handler(event) {
 
     if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
     if (action === 'save-platform-settings') {
+      requireSuperAdmin(admin);
       const foundationTotal=Math.max(0,Number(body.foundationTotal||0));
       const {error}=await client.from('platform_settings').upsert({key:'rose_foundation',value:{total:foundationTotal},updated_by:user.id,updated_at:new Date().toISOString()});
       if(error)throw error;
@@ -76,6 +77,7 @@ export async function handler(event) {
     if (!shopId) throw Object.assign(new Error('shopId is required'), { statusCode: 400 });
 
     if (action === 'save-config') {
+      requireSuperAdmin(admin);
       const record = {
         shop_id: shopId,
         account_status: body.accountStatus || 'active',
@@ -95,6 +97,7 @@ export async function handler(event) {
     }
 
     if (action === 'update-shop') {
+      requireSuperAdmin(admin);
       const allowed = ['name','email','phone','website','address_line_1','address_line_2','city','state','postal_code','timezone','tax_rate','default_delivery_fee','receipt_header','invoice_prefix'];
       const patch = {};
       for (const key of allowed) if (Object.prototype.hasOwnProperty.call(body.shop || {}, key)) patch[key] = body.shop[key];
@@ -106,6 +109,7 @@ export async function handler(event) {
     }
 
     if (action === 'update-subscription') {
+      requireSuperAdmin(admin);
       const subscription = body.subscription || {};
       const patch = {
         plan_code: subscription.plan_code,

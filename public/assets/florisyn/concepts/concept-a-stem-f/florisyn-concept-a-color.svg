@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Florisyn Concept A  Stem F (color)">
+  <rect width="128" height="128" rx="28" fill="#FAF7F2"/>
+  <!-- Stem (vertical of F) -->
+  <path fill="none" stroke="#4D6B5C" stroke-width="7" stroke-linecap="round" d="M44 104V24"/>
+  <!-- Top crossbar  leaf blade -->
+  <path fill="#6B8F7A" d="M44 36c0 0 52-6 58 8 4 10-8 18-22 14-20-6-36-8-36-8v-14z"/>
+  <!-- Mid crossbar  smaller leaf -->
+  <path fill="#8FA897" d="M44 58c0 0 38-4 42 6 3 8-6 12-16 10-14-4-26-6-26-6v-10z"/>
+  <!-- Peony-soft cap (abstract layers, not a flower) -->
+  <path fill="#C4A4A4" opacity="0.55" d="M38 28c8-10 20-14 32-10 10 3 16 12 12 20-6 12-22 14-34 8-8-4-12-12-10-18z"/>
+  <circle cx="52" cy="26" r="3" fill="#C9A962"/>
+</svg>

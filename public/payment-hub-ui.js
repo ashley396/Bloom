@@ -235,7 +235,7 @@
     dlg.id = "phWizardDialog";
     dlg.className = "ph-wizard-dialog";
     dlg.innerHTML = `<form method="dialog" class="panel"><h2>What payment processor do you already use?</h2>
-      <p class="subtle">Bloom connects to the processor you have — you are not forced into a single vendor.</p>
+      <p class="subtle">Florisyn connects to the processor you have — you are not forced into a single vendor.</p>
       <div class="ph-wizard-options">${(wizard.options || [])
         .map((o) => `<button type="button" class="secondary ph-wizard-choice" data-choice="${esc(o.id)}">${esc(o.label)}</button>`)
         .join("")}</div>

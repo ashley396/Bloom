@@ -166,7 +166,7 @@ export function initCommandCenter(deps) {
       )
       .join('');
     mount.innerHTML = `
-      <h2>${escapeHtml(v.label || 'Bloom RC1')}</h2>
+      <h2>${escapeHtml(v.label || 'Florisyn RC1')}</h2>
       <p class="quiet">Code ${escapeHtml(v.code || '')} · Branch ${escapeHtml(v.branch || '')} · Schema ${escapeHtml(d.database?.schema_tag || '')} · Migrations ${d.database?.migrations_applied ?? 0}/${(d.migrations || []).length}</p>
       <h3>Beta checklist</h3><div class="check-grid">${checks}</div>
       <h3>Migration status</h3><table class="audit-table"><thead><tr><th>File</th><th>Status</th></tr></thead><tbody>${mig}</tbody></table>
@@ -233,9 +233,9 @@ export function initCommandCenter(deps) {
     const florist = d.florist_customer_payments || {};
     const ops = d.operations || {};
     mount.innerHTML = `<h2>Payment operations</h2>
-      <p class="quiet"><strong>A.</strong> ${escapeHtml(saas.label || 'Bloom SaaS')}</p>
+      <p class="quiet"><strong>A.</strong> ${escapeHtml(saas.label || 'Florisyn SaaS')}</p>
       <div class="metric-grid">
-        <article class="metric-box"><span>Bloom subs (active)</span><strong>${saas.active_bloom_subscribers ?? 0}</strong></article>
+        <article class="metric-box"><span>Florisyn subs (active)</span><strong>${saas.active_bloom_subscribers ?? 0}</strong></article>
         <article class="metric-box"><span>SaaS revenue (month)</span><strong>$${Number(saas.subscription_revenue_month || 0).toFixed(2)}</strong></article>
         <article class="metric-box"><span>Failed SaaS payments</span><strong>${saas.failed_bloom_subscription_payments ?? 0}</strong></article>
       </div>

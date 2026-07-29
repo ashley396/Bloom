@@ -1,0 +1,86 @@
+/**
+ * Florisyn Foundation — brand tokens (sage, rose, ivory, charcoal, gold).
+ * Loads after RC2.1 consistency overrides.
+ */
+
+:root {
+  --florisyn-sage: #6b8f7a;
+  --florisyn-sage-deep: #4d6b5c;
+  --florisyn-rose: #c4a4a4;
+  --florisyn-ivory: #faf7f2;
+  --florisyn-charcoal: #2f2a2c;
+  --florisyn-gold: #c9a962;
+  --florisyn-font-display: "Georgia", "Times New Roman", serif;
+  --florisyn-font-ui: Inter, system-ui, sans-serif;
+}
+
+body.florisyn {
+  --brand-primary: var(--florisyn-sage-deep);
+  --bloom-charcoal: var(--florisyn-charcoal);
+  --bloom-ivory: var(--florisyn-ivory);
+  --bloom-muted: #6b6166;
+  --bloom-blush: #f0e4e4;
+  --bloom-dusty-rose: var(--florisyn-rose);
+  --bloom-botanical: var(--florisyn-sage);
+  --bloom-border: #e5ddd4;
+  background: var(--florisyn-ivory);
+  color: var(--florisyn-charcoal);
+  font-family: var(--florisyn-font-ui);
+}
+
+body.florisyn .brand-mark {
+  width: 41px;
+  height: 41px;
+}
+
+body.florisyn .brand-wordmark {
+  height: 32px;
+  width: auto;
+}
+
+body.florisyn .primary {
+  background: linear-gradient(145deg, var(--florisyn-sage), var(--florisyn-sage-deep)) !important;
+}
+
+body.florisyn .eyebrow {
+  color: var(--florisyn-sage-deep);
+}
+
+body.florisyn #bloomLoadingScreen {
+  background: var(--florisyn-ivory);
+}
+
+body.florisyn .florisyn-loading-mark {
+  animation: florisynPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes florisynPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.82;
+    transform: scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.florisyn .florisyn-loading-mark {
+    animation: none;
+  }
+}
+
+/* Auth — Florisyn palette on shared auth shell */
+body.florisyn.bloom-auth,
+body.bloom-auth.florisyn {
+  --auth-brand: var(--florisyn-sage-deep);
+  --auth-accent: var(--florisyn-gold);
+  --auth-bg: var(--florisyn-ivory);
+  --auth-ink: var(--florisyn-charcoal);
+}
+
+body.florisyn .bloom-auth-btn {
+  background: linear-gradient(145deg, var(--florisyn-sage), var(--florisyn-sage-deep));
+}

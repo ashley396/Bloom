@@ -10,7 +10,7 @@
     { label: "Reports", page: "reportsPage" },
     { label: "Facebook Post", prompt: "Write a Facebook post for today's featured arrangement" },
     { label: "Website", page: "websitePage" },
-    { label: "Support", prompt: "How do I contact Bloom support?" }
+    { label: "Support", prompt: "How do I contact Florisyn support?" }
   ];
 
   let deps = null;
@@ -69,8 +69,8 @@
     fab.type = "button";
     fab.id = "lilyFab";
     fab.className = "lily-fab";
-    fab.title = "Lily — Bloom assistant";
-    fab.innerHTML = '<img src="/assets/lily.png" alt="Lily">';
+    fab.title = "Lily — Florisyn assistant";
+    fab.innerHTML = '<img src="/assets/assistants/lily-portrait.svg" alt="Lily">';
     fab.onclick = () => togglePanel(true);
 
     const panel = document.createElement("section");
@@ -357,7 +357,7 @@
             const chat = await deps.smartAi({
               mode: "chat",
               persona: "Lily",
-              prompt: `You are Lily, Bloom's intelligent operating assistant (not a generic chatbot). Help the florist with shop operations. User: ${message}`,
+              prompt: `You are Lily, Florisyn's intelligent operating assistant (not a generic chatbot). Help the florist with shop operations. User: ${message}`,
               context: ctx
             });
             const answer = chat.answer || chat.message || chat.result?.text;
@@ -423,7 +423,7 @@
     if (action.type === "api" && confirmed && deps.api) {
       try {
         await deps.api(action.endpoint, { method: action.method || "POST", body: JSON.stringify(action.body || {}) });
-        deps.toast?.("Bloom updated inventory.");
+        deps.toast?.("Florisyn updated inventory.");
         deps.loadInventory?.();
       } catch (e) {
         deps.toast?.(e.message);

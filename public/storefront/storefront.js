@@ -211,7 +211,7 @@
     if (note) {
       note.textContent =
         modes.includes("pay_now") && commerce.stripe_available
-          ? "Pay now uses Stripe — Bloom never stores card numbers on this page."
+          ? "Pay now uses Stripe — Florisyn never stores card numbers on this page."
           : "Your florist will confirm the order and send a secure payment link if due.";
     }
   }
@@ -382,7 +382,7 @@
       loadCart();
       renderPage(route);
       bindEvents(route);
-      document.getElementById("storefrontFooter").innerHTML = `<p>${esc(state.site.site.shop.name)}</p><p class="subtle">Domain status: ${state.site.domain?.connected ? "Custom domain pending verification" : "Bloom temporary address"} — not a purchase confirmation.</p>`;
+      document.getElementById("storefrontFooter").innerHTML = `<p>${esc(state.site.site.shop.name)}</p><p class="subtle">Domain status: ${state.site.domain?.connected ? "Custom domain pending verification" : "Florisyn temporary address"} — not a purchase confirmation.</p>`;
     } catch (err) {
       document.getElementById("main").innerHTML = `<div class="empty-state"><h1>Unavailable</h1><p>${esc(err.message)}</p></div>`;
     }

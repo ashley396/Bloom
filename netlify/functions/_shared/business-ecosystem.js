@@ -15,15 +15,15 @@ export const FLOWER_SUBSCRIPTION_TYPES = [
 ];
 
 export const LOYALTY_TIERS = [
-  { id: "bloom", label: "Bloom", min_points: 0, multiplier: 1 },
+  { id: "bloom", label: "Florisyn", min_points: 0, multiplier: 1 },
   { id: "silver", label: "Silver", min_points: 500, multiplier: 1.1 },
-  { id: "gold", label: "Bloom Gold", min_points: 1500, multiplier: 1.25 },
-  { id: "platinum", label: "Bloom Platinum", min_points: 4000, multiplier: 1.5 }
+  { id: "gold", label: "Florisyn Gold", min_points: 1500, multiplier: 1.25 },
+  { id: "platinum", label: "Florisyn Platinum", min_points: 4000, multiplier: 1.5 }
 ];
 
 export const MEMBERSHIP_TEMPLATES = [
-  { key: "bloom_gold", label: "Bloom Gold", benefits: ["10% off", "Free delivery over $75", "Bonus points"] },
-  { key: "bloom_platinum", label: "Bloom Platinum", benefits: ["15% off", "Free delivery", "Priority ordering", "Exclusive products"] },
+  { key: "bloom_gold", label: "Florisyn Gold", benefits: ["10% off", "Free delivery over $75", "Bonus points"] },
+  { key: "bloom_platinum", label: "Florisyn Platinum", benefits: ["15% off", "Free delivery", "Priority ordering", "Exclusive products"] },
   { key: "wedding", label: "Wedding Membership", benefits: ["Planning consult", "10% off wedding orders"] },
   { key: "business", label: "Business Membership", benefits: ["Net-30 option", "Dedicated rep", "Volume pricing"] }
 ];

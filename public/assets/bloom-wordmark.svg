@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 112">
-  <rect width="360" height="112" fill="none"/>
-  <text x="12" y="76" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="72" font-weight="700" letter-spacing="1.4" fill="#2f2a2f">BLOOM</text>
-  <path d="M318 26h22" stroke="#7b9e5f" stroke-width="8" stroke-linecap="round"/>
-  <path d="M318 44h16" stroke="#bf6b87" stroke-width="8" stroke-linecap="round"/>
-</svg>

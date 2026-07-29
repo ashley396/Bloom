@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 280" role="img" aria-labelledby="daisyTitle">
+  <title id="daisyTitle">Daisy, Bloom mascot  golden doodle resting</title>
+  <defs>
+    <linearGradient id="coat" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f3e6d4"/>
+      <stop offset="55%" stop-color="#e8c9a8"/>
+      <stop offset="100%" stop-color="#d4a574"/>
+    </linearGradient>
+    <radialGradient id="eye" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#5c4033"/>
+      <stop offset="100%" stop-color="#3d2817"/>
+    </radialGradient>
+  </defs>
+  <!-- Tail -->
+  <ellipse cx="248" cy="188" rx="36" ry="52" fill="url(#coat)" opacity=".92"/>
+  <!-- Body sitting -->
+  <ellipse cx="168" cy="196" rx="78" ry="62" fill="url(#coat)"/>
+  <!-- Back leg -->
+  <ellipse cx="118" cy="218" rx="28" ry="18" fill="#d9b896"/>
+  <!-- Front paws -->
+  <ellipse cx="148" cy="232" rx="22" ry="14" fill="#e8c9a8"/>
+  <ellipse cx="188" cy="232" rx="22" ry="14" fill="#e8c9a8"/>
+  <!-- Head -->
+  <ellipse cx="200" cy="128" rx="52" ry="48" fill="url(#coat)"/>
+  <!-- Ear left -->
+  <ellipse cx="162" cy="98" rx="22" ry="38" fill="#e0bc98" transform="rotate(-18 162 98)"/>
+  <!-- Ear right -->
+  <ellipse cx="238" cy="102" rx="24" ry="40" fill="#e0bc98" transform="rotate(22 238 102)"/>
+  <!-- Snout -->
+  <ellipse cx="218" cy="142" rx="28" ry="22" fill="#f7efe4"/>
+  <ellipse cx="232" cy="138" rx="8" ry="6" fill="#4a3728"/>
+  <!-- Eyes -->
+  <ellipse cx="188" cy="118" rx="7" ry="9" fill="url(#eye)"/>
+  <ellipse cx="218" cy="116" rx="7" ry="9" fill="url(#eye)"/>
+  <circle cx="190" cy="115" r="2" fill="#fff" opacity=".7"/>
+  <circle cx="220" cy="113" r="2" fill="#fff" opacity=".7"/>
+  <!-- Curl texture -->
+  <path d="M140 170 Q155 150 175 165" fill="none" stroke="#c9a078" stroke-width="2" opacity=".35"/>
+  <path d="M195 175 Q210 155 230 170" fill="none" stroke="#c9a078" stroke-width="2" opacity=".35"/>
+</svg>

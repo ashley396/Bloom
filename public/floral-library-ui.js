@@ -7,6 +7,7 @@
   const money = (n) => `$${Number(n || 0).toFixed(2)}`;
 
   let masterCache = null;
+  let libraryVisible = 60;
 
   async function loadMaster() {
     if (masterCache) return masterCache;
@@ -36,23 +37,41 @@
       const text = `${p.name} ${(p.categories || []).join(" ")} ${p.description}`.toLowerCase();
       return (!q || text.includes(q)) && (!cat || (p.categories || []).includes(cat));
     });
-    list.innerHTML = rows.length
-      ? rows
-          .map(
-            (p) => `<article class="product-card floral-library-card" data-library-id="${esc(p.id)}">
-        <img src="${esc(p.primary_image?.url)}" alt="${esc(p.primary_image?.alt || p.name)}" loading="lazy" width="400" height="300">
+    const visible = rows.slice(0, libraryVisible);
+    list.innerHTML = visible.length
+      ? visible
+          .map((p) => {
+            const stems = (p.recipe || []).reduce((s, r) => s + Number(r.qty || 0), 0);
+            const retail = Number(p.suggested_retail?.default || 0);
+            const cost = Number(p.suggested_cost || retail * 0.42);
+            const profit = Math.max(0, retail - cost);
+            const designMin = 12 + (stems % 18);
+            const recipeLine = (p.recipe || [])
+              .map((r) => `${r.qty} ${esc(r.name)}`)
+              .join(" · ");
+            return `<article class="product-card floral-library-card" data-library-id="${esc(p.id)}">
+        <img src="${esc(p.primary_image?.url)}" alt="${esc(p.primary_image?.alt || p.name)}" loading="lazy" width="480" height="360">
         <div class="body"><span class="badge">${esc(p.categories?.[0] || "Floral")}</span>
         <h3>${esc(p.name)}</h3><p>${esc(p.short_description || p.description)}</p>
         <div class="price">${money(p.suggested_retail?.default)}</div>
+        <div class="recipe-preview"><strong>Recipe</strong><span>${recipeLine || "Starter stems included"}</span></div>
+        <div class="library-recipe-meta"><span>${stems} stems</span><span>~${designMin} min design</span><span>Est. profit ${money(profit)}</span></div>
         <p class="subtle">License: ${esc(p.image_license?.source)} · ${esc(p.image_license?.review_status)}</p>
         <div class="card-actions">
           <button type="button" class="secondary" data-library-preview="${esc(p.id)}">Preview</button>
           <button type="button" class="primary" data-library-add="${esc(p.id)}">Add to My Shop</button>
           <button type="button" class="secondary" data-library-draft="${esc(p.id)}">Add as draft</button>
-        </div></div></article>`
-          )
-          .join("")
+        </div></div></article>`;
+          })
+          .join("") +
+        (rows.length > libraryVisible
+          ? `<div class="card-actions"><button type="button" class="secondary" id="libraryLoadMore">Show more (${rows.length - libraryVisible} remaining)</button><p class="subtle">${rows.length} designs in Florisyn catalog</p></div>`
+          : `<p class="subtle">${rows.length} designs in Florisyn catalog</p>`)
       : `<div class="bloom-empty-luxury" role="status"><strong>No library designs match your search.</strong><p>Try hydrangea, sympathy, or wedding.</p></div>`;
+    document.getElementById("libraryLoadMore")?.addEventListener("click", () => {
+      libraryVisible += 60;
+      renderLibrary();
+    });
     bindActions();
   }
 

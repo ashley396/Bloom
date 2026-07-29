@@ -23,10 +23,10 @@ $('#ownerSetupForm')?.addEventListener('submit',async e=>{
   if(password!==$('#ownerPasswordConfirm').value){msg.textContent='The passwords do not match.';return}
   msg.textContent='Creating your secure Owner account…';
   try{
-    await call('admin-bootstrap',{method:'POST',body:JSON.stringify({name:$('#ownerName').value,email:$('#ownerEmail').value,password})},false);
+    await call('admin-bootstrap',{method:'POST',body:JSON.stringify({name:$('#ownerName').value,email:$('#ownerEmail').value,password,bootstrapSecret:$('#ownerBootstrapSecret')?.value||''})},false);
     msg.textContent='Owner account created. You can sign in now.';
     $('#adminEmail').value=$('#ownerEmail').value;
-    $('#ownerPassword').value='';$('#ownerPasswordConfirm').value='';
+    $('#ownerPassword').value='';$('#ownerPasswordConfirm').value='';if($('#ownerBootstrapSecret'))$('#ownerBootstrapSecret').value='';
     setTimeout(()=>{$('#ownerSetup').hidden=true;$('#adminAuth').hidden=false},700);
   }catch(err){msg.textContent=err.message}
 });

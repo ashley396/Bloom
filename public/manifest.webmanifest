@@ -1,1 +1,27 @@
-{"name":"Bloom Florist Operating System","short_name":"Bloom","start_url":"/","display":"standalone","background_color":"#f7f6f4","theme_color":"#4d2540","icons":[{"src":"/assets/bloom-app-icon-192.png","sizes":"192x192","type":"image/png"},{"src":"/assets/bloom-app-icon-512.png","sizes":"512x512","type":"image/png"}]}
+{
+
+  "name": "Florisyn",
+
+  "short_name": "Florisyn",
+
+  "description": "The Operating System for Modern Florists — POS, orders, websites, and daily shop work.",
+
+  "start_url": "/",
+
+  "display": "standalone",
+
+  "background_color": "#faf7f2",
+
+  "theme_color": "#6b8f7a",
+
+  "icons": [
+
+    { "src": "/assets/florisyn/florisyn-mark.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" },
+
+    { "src": "/assets/florisyn/favicon.svg", "sizes": "64x64", "type": "image/svg+xml", "purpose": "any" }
+
+  ]
+
+}
+
+

@@ -8,7 +8,7 @@
 
 ## Environment variables
 
-See [ENVIRONMENT.md](./ENVIRONMENT.md). Run `GET /.netlify/functions/production-health` after deploy to verify.
+See [ENVIRONMENT.md](./ENVIRONMENT.md). Function access tiers: [FUNCTION-ACCESS-TIERS.md](./FUNCTION-ACCESS-TIERS.md). Run `GET /.netlify/functions/production-health` after deploy to verify.
 
 ## Migration order
 

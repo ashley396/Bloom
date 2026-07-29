@@ -1,9 +1,8 @@
 /** Bloom 1.0 release candidate metadata (shared server/client). */
 
-export const BLOOM_VERSION_LABEL = "Bloom Version 1.0 RC1";
-export const BLOOM_VERSION_CODE = "1.0.0-rc.1";
-export const BLOOM_SCHEMA_TAG = "release-candidate-v1";
-
+export const BLOOM_VERSION_LABEL = "Florisyn 1.0";
+export const BLOOM_VERSION_CODE = "founder-1.0";
+export const BLOOM_SCHEMA_TAG = "florisyn-founder-1.0";
 /** Forward-only migrations for this line (review before apply). */
 export const MIGRATION_MANIFEST = [
   { id: "verification", file: "20260727_marketplace_verification_production_v1.sql", probe: "marketplace_verification_applications" },
@@ -18,7 +17,7 @@ export const KNOWN_ISSUES_V1 = [
   {
     id: "university",
     severity: "info",
-    title: "Bloom University not in POS navigation",
+    title: "Florisyn University not in POS navigation",
     detail: "Feature flag exists; dedicated University module is post–1.0 GA."
   },
   {

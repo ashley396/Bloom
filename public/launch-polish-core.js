@@ -52,7 +52,7 @@ export function bloomErrorState({ title = "Something went wrong", message = "", 
 export function bloomOfflineState() {
   return bloomErrorState({
     title: "You appear to be offline",
-    message: "Bloom will reconnect when your network returns. Saved work on this device is still available.",
+    message: "Florisyn will reconnect when your network returns. Saved work on this device is still available.",
     retryId: "bloom-offline-retry"
   });
 }
@@ -120,7 +120,7 @@ export function helpCopyForPage(pageId = "") {
   };
   return (
     map[pageId] || {
-      title: "Bloom",
+      title: "Florisyn",
       body: "Use Lily for quick actions or open Help for guides.",
       learn: "/help/index.html"
     }

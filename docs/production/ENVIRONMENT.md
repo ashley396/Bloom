@@ -11,6 +11,14 @@
 | `CLOUDFLARE_AI_TOKEN` | Optional | Hosted AI assistant |
 | `CLOUDFLARE_ACCOUNT_ID` | Optional | Hosted AI assistant |
 | `RESEND_API_KEY` | Optional | Transactional email |
+| `PLATFORM_BOOTSTRAP_SECRET` | **Yes** (production HQ) | One-time key for first platform owner setup via `admin-bootstrap` POST |
+| `FLORISYN_ALLOW_OPEN_BOOTSTRAP` | Optional (local dev only) | Set `true` to allow POST without secret when `PLATFORM_BOOTSTRAP_SECRET` is unset — **never in production** |
+
+## Platform owner bootstrap
+
+1. Generate a long random string for `PLATFORM_BOOTSTRAP_SECRET` in Netlify **before** deploying Bundle A1+.
+2. Open `/admin`, complete first-time owner setup, paste the key into **Platform setup key** (not stored in the repo).
+3. After the first row exists in `platform_admins`, **POST bootstrap returns 409 permanently**; only admin login works. GET still returns `{ ownerExists: true }` for the admin UI.
 
 ## Feature gating when missing
 
