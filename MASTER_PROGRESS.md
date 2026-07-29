@@ -2,8 +2,8 @@
 
 Single source of truth for roadmap execution. Updated after each completed bundle.
 
-**Last updated:** 2026-07-29 (Bundle B1 Florist Workflow Polish — **awaiting approval**)  
-**Current phase:** 2A — Security / Admin (A1 deployed; A2 code complete; **B1 ready for review**)
+**Last updated:** 2026-07-29 (Bundle B1 **QA correction bundle** — **not deployed**)  
+**Current phase:** 2A — Security / Admin (A1 deployed; A2 code complete; **B1 correction ready for re-QA**)
 
 ---
 
@@ -12,7 +12,7 @@ Single source of truth for roadmap execution. Updated after each completed bundl
 | Scope | % | Notes |
 |-------|---|--------|
 | Phase 2A (all bundles) | ~33% | Bundle A1 complete; A2 code complete; A3–A5 pending |
-| Florist workflow (B1) | ✅ Code complete | **Awaiting approval** — not deployed |
+| Florist workflow (B1) | ✅ Correction bundle | **QA blockers fixed on `redesign-v22`** — not redeployed |
 | Full Closed Beta roadmap (2A–2G) | ~10% | |
 
 ---
@@ -259,7 +259,7 @@ No other schema changes. **`pin_hash`** column already live (v22.1).
 
 **A1:** Frozen — deployed.  
 **A2:** Awaiting approval to deploy (code + migration script ready).  
-**B1:** **Awaiting approval** (florist workflow polish on `redesign-v22` — no deploy/merge).  
+**B1:** **QA correction bundle** (payments + order manage payment + receipt print) — **not deployed / PR #7 not merged**.  
 **A3:** Not started.
 
 ---
@@ -343,5 +343,60 @@ No other schema changes. **`pin_hash`** column already live (v22.1).
 
 ### Deployment readiness
 
-**Ready for staged QA** on a branch deploy after approval. **Not** merged to main. Requires existing Stripe + Supabase env; no new migrations.
+**Ready for re-QA** on branch deploy after intentional redeploy. **Not** merged to main. Requires existing Stripe + Supabase env; no new migrations.
+
+---
+
+## Bundle B1 — QA correction (2026-07-29)
+
+**Status:** ✅ **Code complete** — addresses deploy-preview QA blockers **1–3** in one bundle. **No deploy** until re-QA approves.
+
+### Root causes fixed
+
+| Blocker | Root cause | Fix |
+|---------|------------|-----|
+| **Payments** | `ordersCache` undefined → Take payment / invoice pay always “Order not found”; duplicate `#paymentsTabCheckout` listeners left Checkout panel hidden after Hub tab; `applyCheckoutMethods` swallowed API errors | Use `orders` array; single tab handler + checkout init on `loadPaymentsPage`; surface errors in `#paymentStatus` |
+| **Update payment from orders** | No order-board action; broken pay handler | **Manage payment** on each production order + invoices; `openPaymentCenterForOrder` loads Payment Center (ledger POST unchanged — no unsafe edits to historical rows) |
+| **Receipt printing** | Global `@media print` hid app chrome but left dialog/page sizing → blank/long rolls | `body.print-receipt-mode` + `#receiptPrintRoot`; thermal widths (80mm / 58mm); **Print Receipt** prints region only |
+
+### Files changed (correction)
+
+| File | Why |
+|------|-----|
+| `public/app.js` | Payment Center navigation, status parity, receipt markup, print helper |
+| `public/payment-hub-ui.js` | Propagate checkout_methods errors |
+| `public/receipt-print.css` | **New** — thermal print CSS |
+| `public/styles.css` | Remove conflicting global receipt print rules |
+| `public/index.html` | Link print CSS; Print Receipt button |
+| `netlify/functions/_shared/order-payment-display.js` | **New** — shared balance/status helpers |
+| `tests/bloom-b1-correction.test.js` | **New** — payment center wiring, status sync, print CSS |
+| `MASTER_PROGRESS.md` | This subsection |
+
+### Database / env (correction)
+
+**No SQL.** Stripe checkout still requires `STRIPE_SECRET_KEY` + public `SITE_URL`/`URL`/`DEPLOY_PRIME_URL` for return URLs; Payment Hub unchanged (`payment-hub` function + optional hub tables).
+
+### Automated testing (correction)
+
+| Command | Result |
+|---------|--------|
+| `node --test tests/bloom-b1-correction.test.js` | Pass |
+| `node --test tests/bloom-b1.test.js` | Pass |
+
+### Manual QA checklist (correction)
+
+- [ ] Orders → **Manage payment** opens Payment Center with order, balance, and status shown
+- [ ] Invoices → **Manage payment** / **Take payment** same behavior (no “Order not found”)
+- [ ] Payments → Checkout tab visible after visiting Payment Hub tab
+- [ ] Missing hub/checkout config shows message in `#paymentStatus` (not silent)
+- [ ] Stripe checkout: `create-checkout` → redirect; failures show in UI
+- [ ] Record cash/check payment → order board + invoices show updated PAID/PARTIAL/UNPAID
+- [ ] Receipt → **Print Receipt** → single thermal-width slip (no blank roll)
+- [ ] Lily/Rose unchanged; A1/A2 auth paths unchanged
+
+### Rollback (correction)
+
+1. Revert correction commit on `redesign-v22`.  
+2. Redeploy prior preview SHA if needed.  
+3. No SQL rollback.
 

@@ -383,13 +383,10 @@
 
   async function applyCheckoutMethods() {
     const api = window.BloomPaymentHub?.api || window.api;
-    if (!api) return;
-    try {
-      const d = await api("payment-hub?action=checkout_methods");
-      renderCheckoutButtons(d.checkout_methods);
-    } catch {
-      /* ignore */
-    }
+    if (!api) throw new Error("Sign in to load checkout payment methods.");
+    const d = await api("payment-hub?action=checkout_methods");
+    renderCheckoutButtons(d.checkout_methods);
+    return d;
   }
 
   window.BloomPaymentHub = {
