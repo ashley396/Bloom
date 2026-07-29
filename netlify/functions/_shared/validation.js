@@ -1,10 +1,24 @@
 /** Bloom production validation helpers (server-side). */
 
+export const WALK_IN_CUSTOMER_NAME = "Walk-in Customer";
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[\d\s().+\-]{7,20}$/;
 
 export function clampText(value, max = 500) {
   return String(value ?? "").trim().slice(0, max);
+}
+
+export function resolveCustomerName(value) {
+  const text = clampText(value, 120);
+  return text || WALK_IN_CUSTOMER_NAME;
+}
+
+export function orderHasLineItem(body = {}) {
+  const desc = clampText(body.arrangement_description, 4000);
+  const productId = clampText(body.product_id, 64);
+  const subtotal = Number(body.subtotal || 0);
+  return Boolean(desc) || Boolean(productId) || (Number.isFinite(subtotal) && subtotal > 0);
 }
 
 export function validateEmail(value, { required = false } = {}) {
@@ -39,8 +53,7 @@ export function validateMoney(value, { min = 0, max = 1_000_000, fieldName = "Am
 
 export function validateOrderCreateBody(body = {}) {
   const errors = [];
-  const customer = validateRequiredText(body.customer_name, "Customer name", 120);
-  if (!customer.ok) errors.push(customer.error);
+  const customer_name = resolveCustomerName(body.customer_name);
   if (body.customer_email) {
     const email = validateEmail(body.customer_email);
     if (!email.ok) errors.push(email.error);
@@ -49,25 +62,48 @@ export function validateOrderCreateBody(body = {}) {
     const phone = validatePhone(body.customer_phone);
     if (!phone.ok) errors.push(phone.error);
   }
-  const subtotal = validateMoney(body.subtotal, { fieldName: "Subtotal", max: 500_000 });
+  if (!orderHasLineItem(body)) {
+    errors.push(
+      "Add at least one item — select a catalog product, describe the arrangement, or enter a product amount."
+    );
+  }
+  const subtotal = validateMoney(body.subtotal ?? 0, { fieldName: "Subtotal", max: 500_000, min: 0 });
   if (!subtotal.ok) errors.push(subtotal.error);
   const fulfillment = String(body.fulfillment || "PICKUP").toUpperCase();
+  if (!["PICKUP", "DELIVERY"].includes(fulfillment)) {
+    errors.push("Choose pickup or delivery.");
+  }
+  const deliveryDate = clampText(body.delivery_date, 32);
+  if (!deliveryDate) {
+    errors.push("Choose a due, pickup, or delivery date.");
+  }
   if (fulfillment === "DELIVERY") {
     const address = validateRequiredText(body.delivery_address, "Delivery address", 500);
     if (!address.ok) errors.push(address.error);
   }
+  const paymentRequired = String(body.payment_required ?? "YES").toUpperCase();
+  if (!["YES", "NO"].includes(paymentRequired)) {
+    errors.push("Choose whether to take payment now or skip payment for later.");
+  }
   if (body.notes && clampText(body.notes, 4000).length !== String(body.notes).trim().length) {
     errors.push("Notes are too long.");
   }
-  return { valid: errors.length === 0, errors, sanitized: { customer_name: customer.value || clampText(body.customer_name, 120) } };
+  return {
+    valid: errors.length === 0,
+    errors,
+    sanitized: { customer_name, fulfillment, payment_required: paymentRequired }
+  };
 }
 
 /** PATCH / orders — delivery address required when fulfillment is DELIVERY. */
 export function validateOrderPatchBody(body = {}) {
   const errors = [];
   if ("customer_name" in body) {
-    const customer = validateRequiredText(body.customer_name, "Customer name", 120);
-    if (!customer.ok) errors.push(customer.error);
+    const name = resolveCustomerName(body.customer_name);
+    if (!name) errors.push("Customer name is required.");
+  }
+  if ("delivery_date" in body && !clampText(body.delivery_date, 32)) {
+    errors.push("Choose a due, pickup, or delivery date.");
   }
   if (String(body.fulfillment || "").toUpperCase() === "DELIVERY") {
     const address = validateRequiredText(body.delivery_address, "Delivery address", 500);

@@ -386,6 +386,9 @@ No other schema changes. **`pin_hash`** column already live (v22.1).
 ### Manual QA checklist (correction)
 
 - [ ] Orders → **Manage payment** opens Payment Center with order, balance, and status shown
+- [ ] **New order:** **Use Walk-in Customer** + product amount + pickup date + skip payment → saves without phone/recipient/card message
+- [ ] Delivery order blocks save without address; pickup does not require address
+- [ ] Business account + skip payment does not force Payment Center
 - [ ] Invoices → **Manage payment** / **Take payment** same behavior (no “Order not found”)
 - [ ] Payments → Checkout tab visible after visiting Payment Hub tab
 - [ ] Missing hub/checkout config shows message in `#paymentStatus` (not silent)

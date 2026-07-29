@@ -285,6 +285,19 @@ body.bloom-rc21 .receipt-compact .receipt-thanks {
   margin: 8px 0 0;
   font-size: 8.5pt;
 }
+body.bloom-rc21 .label-optional {
+  font-weight: 600;
+  font-size: 11px;
+  color: #7e707a;
+  letter-spacing: 0.02em;
+}
+body.bloom-rc21 .order-form-hint {
+  margin: 0 0 12px;
+  line-height: 1.45;
+}
+body.bloom-rc21 .order-form-shortcuts {
+  margin: -4px 0 12px;
+}
 body.bloom-rc21 .bloom-staff-list-card {
   display: flex;
   align-items: center;

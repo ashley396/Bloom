@@ -26,9 +26,14 @@ test("validatePhone accepts common florist formats", () => {
 });
 
 test("validateOrderCreateBody requires customer and sane subtotal", () => {
-  const bad = validateOrderCreateBody({ subtotal: -1 });
+  const bad = validateOrderCreateBody({ subtotal: -1, delivery_date: "2026-07-30", fulfillment: "PICKUP" });
   assert.equal(bad.valid, false);
-  const good = validateOrderCreateBody({ customer_name: "Sarah", subtotal: 50 });
+  const good = validateOrderCreateBody({
+    customer_name: "Sarah",
+    subtotal: 50,
+    delivery_date: "2026-07-30",
+    fulfillment: "PICKUP"
+  });
   assert.equal(good.valid, true);
 });
 
@@ -36,6 +41,7 @@ test("validateOrderCreateBody requires delivery address for DELIVERY", () => {
   const bad = validateOrderCreateBody({
     customer_name: "Sarah",
     subtotal: 50,
+    delivery_date: "2026-07-30",
     fulfillment: "DELIVERY"
   });
   assert.equal(bad.valid, false);
@@ -82,7 +88,8 @@ test("order lifecycle validation allows typical POS payload", () => {
     customer_name: "Walk-in",
     subtotal: 45,
     tax: 2.7,
-    fulfillment: "PICKUP"
+    fulfillment: "PICKUP",
+    delivery_date: "2026-07-30"
   });
   assert.equal(v.valid, true);
 });

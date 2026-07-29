@@ -35,8 +35,12 @@
     const fields = dlg.querySelector("#guidedFields");
     if (step === "customer") {
       fields.innerHTML = `<label>Customer<select id="guidedCustomerSelect"><option value="">New customer</option></select></label>
-        <label>Name<input name="customer_name" required value="${esc(state.customer_name || "")}"></label>
-        <label>Phone<input name="customer_phone" value="${esc(state.customer_phone || "")}"></label>`;
+        <label>Name<input name="customer_name" value="${esc(state.customer_name || "")}" placeholder="Required — or Walk-in Customer"></label>
+        <label>Phone <span class="label-optional">Optional</span><input name="customer_phone" value="${esc(state.customer_phone || "")}"></label>
+        <button type="button" class="secondary" id="guidedWalkIn">Use Walk-in Customer</button>`;
+      fields.querySelector("#guidedWalkIn")?.addEventListener("click", () => {
+        fields.querySelector("[name=customer_name]").value = "Walk-in Customer";
+      });
       const sel = fields.querySelector("#guidedCustomerSelect");
       (window.__bloomCustomers || []).forEach((c) => {
         sel.insertAdjacentHTML("beforeend", `<option value="${esc(c.id)}" data-name="${esc(c.name)}" data-phone="${esc(c.phone || "")}">${esc(c.name)}</option>`);
@@ -49,7 +53,7 @@
         }
       };
     } else if (step === "recipient") {
-      fields.innerHTML = `<label>Recipient name<input name="recipient_name" required value="${esc(state.recipient_name || "")}"></label>`;
+      fields.innerHTML = `<label>Recipient name <span class="label-optional">Optional</span><input name="recipient_name" value="${esc(state.recipient_name || "")}"></label>`;
     } else if (step === "arrangement") {
       fields.innerHTML = `<label>Product<select name="product_id"><option value="">Custom</option></select></label>
         <label>Description<textarea name="arrangement_description">${esc(state.arrangement_description || "")}</textarea></label>`;
@@ -111,11 +115,20 @@
 
   function validateStep(step) {
     const errors = [];
-    if (step === "customer" && !state.customer_name?.trim()) errors.push("Customer name is required.");
-    if (step === "recipient" && !state.recipient_name?.trim()) errors.push("Recipient name is required.");
-    if (step === "arrangement" && !state.arrangement_description?.trim() && !state.product_id) errors.push("Choose a product or describe the arrangement.");
+    if (step === "customer" && !String(state.customer_name || "").trim()) {
+      state.customer_name = "Walk-in Customer";
+    }
+    if (step === "arrangement" && !state.arrangement_description?.trim() && !state.product_id && !(Number(state.subtotal) > 0)) {
+      errors.push("Choose a product, describe the arrangement, or enter a subtotal.");
+    }
     if (step === "fulfillment" && !state.fulfillment) errors.push("Choose pickup or delivery.");
-    if (step === "delivery_details" && state.fulfillment === "DELIVERY" && !state.delivery_address?.trim()) errors.push("Delivery address is required.");
+    if (step === "delivery_details") {
+      if (!String(state.delivery_date || "").trim()) errors.push("Choose a due date.");
+      if (state.fulfillment === "DELIVERY" && !state.delivery_address?.trim()) errors.push("Delivery address is required.");
+    }
+    if (step === "payment" && !state.payment_method && state.deposit === undefined) {
+      /* deposit optional — due later is valid */
+    }
     return errors;
   }
 
@@ -129,9 +142,10 @@
     const deposit = Number(state.deposit || 0);
     const total = taxable + tax + deliveryFee;
     const body = {
-      customer_name: state.customer_name,
+      customer_name: state.customer_name?.trim() || "Walk-in Customer",
       customer_phone: state.customer_phone,
       customer_type: state.payment_method === "HOUSE" ? "BUSINESS" : "PERSONAL",
+      payment_required: state.payment_method === "HOUSE" || state.payment_method === "" ? "NO" : "YES",
       recipient_name: state.recipient_name,
       arrangement_description: state.arrangement_description,
       card_message: state.card_message,

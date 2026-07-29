@@ -31,10 +31,6 @@ export async function handler(event) {
       const validation = validateOrderCreateBody(body);
       if (!validation.valid) return json(400, { error: validation.errors[0] });
 
-      if (!body.customer_name) {
-        return json(400, { error: "Customer name is required" });
-      }
-
       const flowers = Number(body.subtotal || 0);
       const labor = Number(body.labor_charge || 0);
       const addons = Number(body.addon_total || 0);
@@ -50,7 +46,7 @@ export async function handler(event) {
         user_id: user.id,
         shop_id: shopId,
         order_number: orderNumber(),
-        customer_name: clampText(body.customer_name, 120),
+        customer_name: validation.sanitized.customer_name || clampText(body.customer_name, 120),
         customer_phone: body.customer_phone || null,
         occasion: body.occasion || null,
         fulfillment:

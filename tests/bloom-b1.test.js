@@ -13,16 +13,18 @@ test("validateOrderCreateBody requires delivery address for DELIVERY", () => {
   const bad = validateOrderCreateBody({
     customer_name: "Sam",
     subtotal: 40,
-    fulfillment: "DELIVERY"
+    fulfillment: "DELIVERY",
+    delivery_date: "2026-07-30"
   });
   assert.equal(bad.valid, false);
-  assert.match(bad.errors[0], /Delivery address/i);
+  assert.match(bad.errors.join(" "), /Delivery address/i);
 
   const good = validateOrderCreateBody({
     customer_name: "Sam",
     subtotal: 40,
     fulfillment: "DELIVERY",
-    delivery_address: "12 Main St, Springfield IL 62701"
+    delivery_address: "12 Main St, Springfield IL 62701",
+    delivery_date: "2026-07-30"
   });
   assert.equal(good.valid, true);
 });
