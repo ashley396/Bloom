@@ -58,7 +58,17 @@ export function safePublicError(error) {
   if (status === 401) return "Please sign in again.";
   if (status === 403) return "You do not have permission to perform this action.";
   if (status === 400) return error?.message || "Invalid request.";
+  if (status === 404) return error?.message || "We could not find that record.";
   if (status === 503) return error?.message || "Florisyn is temporarily unavailable.";
+  if (/permission denied for function post_order_payment/i.test(msg)) {
+    return "Cash and manual payments could not be posted. Your shop session is valid, but the payment service rejected the request.";
+  }
+  if (/Payment exceeds remaining balance/i.test(msg)) {
+    return "That amount is more than the order balance due.";
+  }
+  if (/Order not found/i.test(msg)) {
+    return "That order was not found in your shop. Refresh orders and try again.";
+  }
   if (status < 500) return error?.message || "Request could not be completed.";
   return "Unexpected Florisyn error. Try again or contact support.";
 }
