@@ -1,0 +1,374 @@
+/**
+ * Bloom — unified authentication & account pages (RC2 branding).
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Source+Sans+3:wght@400;500;600;700&display=swap");
+
+:root {
+  --auth-ivory: #faf7f2;
+  --auth-blush: #f3e4e8;
+  --auth-rose: #c9899e;
+  --auth-rose-deep: #8f3f68;
+  --auth-sage: #3d5c4a;
+  --auth-charcoal: #2f2a2c;
+  --auth-muted: #6b6166;
+  --auth-white: #fffcf9;
+  --auth-border: #e8ddd5;
+  --auth-shadow: 0 20px 50px rgba(47, 42, 44, 0.1);
+  --auth-radius: 18px;
+  --auth-font-display: "Cormorant Garamond", Georgia, serif;
+  --auth-font-body: "Source Sans 3", system-ui, sans-serif;
+  --auth-tap: 48px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body.bloom-auth {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--auth-font-body);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--auth-charcoal);
+  background: var(--auth-ivory);
+}
+
+.bloom-auth a {
+  color: var(--auth-rose-deep);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.bloom-auth a:hover {
+  color: var(--auth-sage);
+}
+
+.bloom-auth-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px clamp(16px, 4vw, 32px);
+  background: rgba(255, 252, 249, 0.92);
+  border-bottom: 1px solid var(--auth-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+}
+
+.bloom-auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.bloom-auth-brand img {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+
+.bloom-auth-brand strong {
+  display: block;
+  font-family: var(--auth-font-display);
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.bloom-auth-brand small {
+  display: block;
+  font-size: 12px;
+  color: var(--auth-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bloom-auth-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.bloom-auth-nav a {
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--auth-charcoal);
+}
+
+.bloom-auth-nav .nav-cta {
+  background: var(--auth-sage);
+  color: #fff !important;
+  padding: 10px 18px;
+  border-radius: 999px;
+  min-height: var(--auth-tap);
+  display: inline-flex;
+  align-items: center;
+}
+
+.bloom-auth-shell {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  min-height: calc(100vh - 77px);
+}
+
+.bloom-auth-visual {
+  position: relative;
+  min-height: 320px;
+  overflow: hidden;
+}
+
+.bloom-auth-visual img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 40%;
+  display: block;
+}
+
+.bloom-auth-visual::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, rgba(47, 42, 44, 0.55) 0%, rgba(61, 92, 74, 0.35) 45%, transparent 70%);
+}
+
+.bloom-auth-visual-copy {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: clamp(24px, 5vw, 48px);
+  color: #fff;
+  z-index: 1;
+  max-width: 36em;
+}
+
+.bloom-auth-visual-copy .eyebrow {
+  letter-spacing: 0.18em;
+  font-size: 11px;
+  text-transform: uppercase;
+  opacity: 0.92;
+  margin: 0 0 8px;
+}
+
+.bloom-auth-visual-copy h1 {
+  font-family: var(--auth-font-display);
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 0 0 12px;
+}
+
+.bloom-auth-visual-copy p {
+  margin: 0;
+  font-size: 1.05rem;
+  opacity: 0.95;
+}
+
+.bloom-auth-visual-credit {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  z-index: 2;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.bloom-auth-form-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(24px, 4vw, 48px);
+  background: var(--auth-white);
+}
+
+.bloom-auth-card {
+  width: min(440px, 100%);
+}
+
+.bloom-auth-card .eyebrow {
+  color: var(--auth-rose);
+  letter-spacing: 0.16em;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+}
+
+.bloom-auth-card h2 {
+  font-family: var(--auth-font-display);
+  font-size: clamp(1.75rem, 3vw, 2.1rem);
+  font-weight: 600;
+  margin: 0 0 8px;
+  line-height: 1.2;
+}
+
+.bloom-auth-card .lead {
+  color: var(--auth-muted);
+  margin: 0 0 24px;
+}
+
+.bloom-auth-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.bloom-auth-card input,
+.bloom-auth-card select,
+.bloom-auth-card textarea {
+  min-height: var(--auth-tap);
+  padding: 12px 14px;
+  border: 1px solid var(--auth-border);
+  border-radius: 12px;
+  font: inherit;
+  background: #fff;
+  width: 100%;
+}
+
+.bloom-auth-card input:focus-visible,
+.bloom-auth-card select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(201, 137, 158, 0.45);
+}
+
+.bloom-auth-btn {
+  width: 100%;
+  min-height: var(--auth-tap);
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--auth-rose-deep), var(--auth-rose));
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 8px;
+  box-shadow: 0 8px 24px rgba(143, 63, 104, 0.25);
+}
+
+.bloom-auth-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.bloom-auth-btn.secondary-btn {
+  background: #fff;
+  color: var(--auth-charcoal);
+  border: 1px solid var(--auth-border);
+  box-shadow: none;
+}
+
+.bloom-auth-message {
+  margin-top: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.bloom-auth-message.success {
+  color: var(--auth-sage);
+}
+
+.bloom-auth-message.error {
+  color: #9b3d4a;
+}
+
+.bloom-auth-links {
+  margin-top: 20px;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bloom-auth-footer {
+  padding: 24px clamp(16px, 4vw, 32px);
+  text-align: center;
+  font-size: 13px;
+  color: var(--auth-muted);
+  border-top: 1px solid var(--auth-border);
+}
+
+/* Signup extended layout */
+.bloom-auth-signup-shell {
+  grid-template-columns: 1fr;
+}
+
+.bloom-auth-signup-shell .bloom-auth-visual {
+  max-height: 280px;
+}
+
+.bloom-auth-signup-main {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 32px clamp(16px, 4vw, 32px) 48px;
+}
+
+.bloom-auth-plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.bloom-auth-plan {
+  border: 1px solid var(--auth-border);
+  border-radius: var(--auth-radius);
+  padding: 20px;
+  cursor: pointer;
+  background: #fff;
+  position: relative;
+}
+
+.bloom-auth-plan:has(input:checked) {
+  border-color: var(--auth-rose);
+  box-shadow: var(--auth-shadow);
+}
+
+.bloom-auth-plan input {
+  position: absolute;
+  opacity: 0;
+}
+
+.bloom-auth-plan .popular {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  background: var(--auth-blush);
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+@media (max-width: 900px) {
+  .bloom-auth-shell {
+    grid-template-columns: 1fr;
+  }
+  .bloom-auth-visual {
+    min-height: 240px;
+    max-height: 42vh;
+  }
+  .bloom-auth-nav a:not(.nav-cta) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}

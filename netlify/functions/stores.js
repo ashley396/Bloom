@@ -1,5 +1,5 @@
 import { json,bodyOf,preflight,methodNotAllowed } from "./_shared/http.js";
-import { currentUser,fail } from "./_shared/supabase.js";
+import { currentUser,fail,requireServerKeyFor } from "./_shared/supabase.js";
 export async function handler(event){
  const ready=preflight(event);if(ready)return ready;
  try{
@@ -9,6 +9,7 @@ export async function handler(event){
    if(error)throw error;return json(200,{items:(data||[]).map(x=>({...x.shops,role:x.role,active:x.shop_id===shopId}))});
   }
   if(event.httpMethod==="POST"){
+   requireServerKeyFor("add_store");
    const body=bodyOf(event);if(!body.name)throw new Error("Shop name is required");
    const {data:shop,error}=await client.from("shops").insert({owner_id:user.id,name:body.name,phone:body.phone||null,email:body.email||null,address:body.address||null}).select("*").single();if(error)throw error;
    const {error:memberError}=await client.from("shop_members").insert({shop_id:shop.id,user_id:user.id,role:"owner"});if(memberError)throw memberError;

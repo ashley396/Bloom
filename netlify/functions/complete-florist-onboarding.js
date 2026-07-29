@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { resolveSupabaseClientKey } from "./_shared/supabase.js";
 
 function response(statusCode, body) {
   return {
@@ -13,13 +14,13 @@ export async function handler(event) {
 
   try {
     const supabaseUrl = process.env.SUPABASE_URL;
-    const anonKey = process.env.SUPABASE_ANON_KEY;
-    if (!supabaseUrl || !anonKey) return response(503, { error: "Supabase is not configured in Netlify." });
+    const clientKey = resolveSupabaseClientKey();
+    if (!supabaseUrl || !clientKey) return response(503, { error: "Supabase is not configured in Netlify." });
 
     const authorization = event.headers.authorization || event.headers.Authorization || "";
     if (!authorization.startsWith("Bearer ")) return response(401, { error: "Please sign in again." });
 
-    const supabase = createClient(supabaseUrl, anonKey, {
+    const supabase = createClient(supabaseUrl.replace(/\/$/, ""), clientKey.value, {
       global: { headers: { Authorization: authorization } },
       auth: { persistSession: false, autoRefreshToken: false }
     });

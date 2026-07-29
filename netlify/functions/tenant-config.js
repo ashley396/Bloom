@@ -14,6 +14,19 @@ export async function handler(event) {
     if (!membership) return json(403, { error: 'You do not have access to this shop.' });
     const { data, error } = await client.from('shop_admin_config').select('account_status,support_message,announcement,theme,navigation,features,content,updated_at').eq('shop_id', shopId).maybeSingle();
     if (error) throw error;
-    return json(200, { config: data || {} });
+    let platformFlags = {};
+    try {
+      const flagsRes = await client.from('platform_feature_flags').select('flag_key,enabled');
+      if (!flagsRes.error) {
+        flagsRes.data?.forEach((row) => {
+          platformFlags[row.flag_key] = row.enabled;
+        });
+      }
+    } catch {
+      platformFlags = {};
+    }
+    const config = data || {};
+    config.platform_flags = platformFlags;
+    return json(200, { config });
   } catch (error) { return fail(error); }
 }

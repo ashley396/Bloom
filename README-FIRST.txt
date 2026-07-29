@@ -1,29 +1,12 @@
-BLOOM v8.1 — LUXURY DASHBOARD
+BLOOM — LILY [object Object] DISPLAY FIX
 
-WHAT IS NEW
-- Florist command-center dashboard
-- Today's sales, orders due, deliveries, profit, low stock and outstanding totals
-- Seven-day paid-sales chart
-- Quick actions for orders, customers, inventory and Website Studio
-- Upcoming delivery list
-- Improved responsive mobile dashboard
-- Existing v8.0 Florist Order Builder preserved
+This update fixes the Website Studio helper showing [object Object].
 
-DEPLOYMENT
-1. Replace the matching files in your GitHub Bloom repository with every file in this folder.
-2. Commit the update. Suggested summary: Bloom v8.1 - Luxury Dashboard
-3. Netlify will deploy automatically from GitHub.
-4. No new Supabase migration is required for v8.1.
+Replace only:
+- app.js
+- public/app.js
 
-TESTING
-- Sign in and confirm the dashboard loads.
-- Create or mark an order paid and confirm the dashboard totals refresh.
-- Check the dashboard on both phone and computer.
-- Open New Order, Website Studio, Customers and Inventory from Quick Actions.
+The AI connection is working. The issue was that Cloudflare sometimes returned the generated wording inside a nested JSON object, and Bloom assigned that object directly to the text field. Bloom now safely extracts the actual wording.
 
-IMPORTANT
-Keep all existing Netlify environment variables unchanged.
-
-
-BLOOM X v18.0
-Start with DEPLOY_v18.0.txt. This release requires one Netlify deployment and no Supabase SQL.
+Commit message:
+Fix Lily generated text display

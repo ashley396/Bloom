@@ -1,0 +1,229 @@
+/**
+ * Florisyn Founder Release 1.0 — polish layer (no feature changes).
+ * Micro-interactions, spacing, and premium defaults on top of RC2.1 + brand tokens.
+ */
+
+body.florisyn {
+  --florisyn-motion: 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  --florisyn-radius: 14px;
+  --florisyn-radius-lg: 20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.florisyn {
+    --florisyn-motion: 0ms;
+  }
+}
+
+body.florisyn .card,
+body.florisyn .panel,
+body.florisyn .metric-box,
+body.florisyn .production-card {
+  border-radius: var(--florisyn-radius) !important;
+  transition: box-shadow var(--florisyn-motion), transform var(--florisyn-motion), border-color var(--florisyn-motion);
+}
+
+body.florisyn .card:hover,
+body.florisyn .production-card:hover {
+  box-shadow: 0 10px 32px rgba(47, 42, 44, 0.08);
+}
+
+body.florisyn button,
+body.florisyn .bloom-auth-btn {
+  transition: background var(--florisyn-motion), transform var(--florisyn-motion), box-shadow var(--florisyn-motion), opacity var(--florisyn-motion);
+}
+
+body.florisyn button.primary:hover:not(:disabled),
+body.florisyn .bloom-auth-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(77, 107, 92, 0.28);
+}
+
+body.florisyn button.secondary:hover:not(:disabled) {
+  border-color: var(--florisyn-sage-deep);
+}
+
+body.florisyn .heading h1,
+body.florisyn .bloom-auth-visual-copy h1,
+body.florisyn .content-hero h1 {
+  font-family: var(--florisyn-font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+body.florisyn .content {
+  padding-bottom: 48px;
+}
+
+body.florisyn .page .heading {
+  margin-bottom: 28px;
+}
+
+body.florisyn .bloom-empty-state,
+body.florisyn .florisyn-empty-state {
+  padding: 36px 24px;
+  text-align: center;
+  border-radius: var(--florisyn-radius-lg);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px dashed #e5ddd4;
+}
+
+body.florisyn .florisyn-skeleton {
+  background: linear-gradient(90deg, #f0ebe4 0%, #faf7f2 50%, #f0ebe4 100%);
+  background-size: 200% 100%;
+  animation: florisynShimmer 1.4s ease-in-out infinite;
+  border-radius: 8px;
+  min-height: 1rem;
+}
+
+@keyframes florisynShimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.florisyn .florisyn-skeleton {
+    animation: none;
+    background: #f0ebe4;
+  }
+}
+
+body.florisyn #orderForm .order-builder-summary,
+body.florisyn .order-builder-layout {
+  gap: 20px;
+}
+
+body.florisyn .order-builder-summary {
+  position: sticky;
+  top: 16px;
+}
+
+body.florisyn .toast {
+  transition: opacity var(--florisyn-motion), transform var(--florisyn-motion);
+}
+
+body.florisyn .receipt .receipt-brand img.print-logo {
+  max-height: 56px;
+}
+
+body.florisyn .receipt-florisyn-mark {
+  display: block;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 8px;
+}
+
+body.florisyn.bloom-auth .bloom-auth-card {
+  border-radius: var(--florisyn-radius-lg);
+  box-shadow: 0 16px 48px rgba(47, 42, 44, 0.08);
+}
+
+body.florisyn.bloom-auth .bloom-auth-message.success {
+  color: var(--florisyn-sage-deep);
+  background: rgba(107, 143, 122, 0.12);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+body.florisyn .public-logo small,
+body.florisyn .bloom-auth-brand small,
+body.florisyn .footer-logo small {
+  line-height: 1.35;
+  max-width: 16rem;
+}
+
+/* Left sidebar — one nav style; no secondary borders or legacy inset rings */
+body.florisyn .shell > aside button[data-page] {
+  appearance: none;
+  -webkit-appearance: none;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  min-width: 0;
+  margin: 2px 0;
+  padding: 10px 12px !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #51474d !important;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  justify-content: flex-start;
+  cursor: pointer;
+  transform: none !important;
+  overflow: visible;
+}
+
+body.florisyn .shell > aside button[data-page]::before {
+  display: inline-grid;
+  place-items: center;
+  width: 21px;
+  margin-right: 9px;
+  flex-shrink: 0;
+  color: #897d83;
+  font-size: 14px;
+  opacity: 1;
+  filter: none;
+}
+
+body.florisyn .shell > aside button[data-page]::after {
+  display: none !important;
+  content: none !important;
+}
+
+body.florisyn .shell > aside button[data-page]:hover {
+  background: #f4eff1 !important;
+  color: var(--florisyn-sage-deep, #4d6b5c) !important;
+  transform: none !important;
+}
+
+body.florisyn .shell > aside button[data-page].active {
+  background: linear-gradient(90deg, #edf2e6, #f6f7f2) !important;
+  color: var(--florisyn-sage-deep, #4d6b5c) !important;
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--florisyn-sage, #6b8f7a) !important;
+}
+
+body.florisyn .shell > aside button[data-page].active::before {
+  color: var(--florisyn-sage-deep, #4d6b5c);
+}
+
+body.florisyn .shell > aside button[data-page]:focus-visible {
+  outline: 2px solid var(--florisyn-sage, #6b8f7a);
+  outline-offset: 2px;
+}
+
+/* Avoid box-drawing icons that read as stray outlined boxes */
+body.florisyn .shell > aside button[data-page="invoicesPage"]::before {
+  content: "$";
+}
+
+body.florisyn .shell > aside button[data-page="paymentsPage"]::before {
+  content: "◆";
+  font-size: 12px;
+}
+
+body.florisyn .mobile-nav button[data-page] {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.florisyn .mobile-nav button[data-page].active {
+  background: #f0e8ec !important;
+  color: var(--florisyn-sage-deep, #4d6b5c) !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 900px) {
+  body.florisyn .shell > aside {
+    display: none !important;
+  }
+}

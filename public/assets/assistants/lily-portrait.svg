@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" role="img" aria-label="Lily, Creative Assistant">
+  <defs>
+    <linearGradient id="lilyBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f5ebe4"/>
+      <stop offset="100%" stop-color="#e8f0ea"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="140" rx="16" fill="url(#lilyBg)"/>
+  <circle cx="60" cy="48" r="26" fill="#f0ddd8"/>
+  <path fill="#6b8f7a" d="M60 22c-8 6-14 16-14 28 0 14 10 24 24 24h2c14 0 24-10 24-24 0-12-6-22-14-28-4 10-12 16-22 16s-18-6-22-16z"/>
+  <path fill="#c9899e" opacity=".85" d="M48 38c4-6 8-8 12-8s8 2 12 8c-2 8-8 12-12 12s-10-4-12-12z"/>
+  <ellipse cx="60" cy="108" rx="34" ry="22" fill="#fff" opacity=".55"/>
+  <text x="60" y="112" text-anchor="middle" font-family="Georgia, serif" font-size="11" fill="#4d6b5c">Lily</text>
+</svg>

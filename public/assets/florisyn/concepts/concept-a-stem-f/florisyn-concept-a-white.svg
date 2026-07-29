@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Florisyn Concept A  Stem F (white on charcoal)">
+  <rect width="128" height="128" rx="28" fill="#2F2A2C"/>
+  <path fill="none" stroke="#FAF7F2" stroke-width="7" stroke-linecap="round" d="M44 104V24"/>
+  <path fill="#FAF7F2" d="M44 36c0 0 52-6 58 8 4 10-8 18-22 14-20-6-36-8-36-8v-14z"/>
+  <path fill="#FAF7F2" opacity="0.78" d="M44 58c0 0 38-4 42 6 3 8-6 12-16 10-14-4-26-6-26-6v-10z"/>
+  <path fill="#FAF7F2" opacity="0.35" d="M38 28c8-10 20-14 32-10 10 3 16 12 12 20-6 12-22 14-34 8-8-4-12-12-10-18z"/>
+  <circle cx="52" cy="26" r="3" fill="#C9A962"/>
+</svg>

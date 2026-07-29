@@ -1,0 +1,9 @@
+.bloom-ecosystem-shell{display:grid;gap:16px}
+.bloom-eco-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.bloom-eco-tabs button{border-radius:999px;padding:8px 14px;border:1px solid #dec9d4;background:#fff}
+.bloom-eco-tabs button.active{background:#8f3f68;color:#fff;border-color:transparent}
+.bloom-eco-panel{display:none}
+.bloom-eco-panel.active{display:block}
+.bloom-eco-metrics{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.bloom-eco-metric{padding:12px;border-radius:14px;border:1px solid #eadfe5;background:linear-gradient(135deg,#fff,#fff8fb)}
+.bloom-eco-list{max-height:280px;overflow:auto;font-size:13px}

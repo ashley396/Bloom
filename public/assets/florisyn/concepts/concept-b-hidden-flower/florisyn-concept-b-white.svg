@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Florisyn Concept B  Hidden Flower (white)">
+  <rect width="128" height="128" rx="28" fill="#2F2A2C"/>
+  <path fill="#FAF7F2" d="M64 28c14 0 24 10 24 24 0 6-2 11-6 15-9 9-24 10-36 5-8-4-12-12-12-20 0-12 10-24 30-24z"/>
+  <path fill="#FAF7F2" opacity="0.72" d="M64 34c10 0 18 7 18 18 0 5-2 9-5 12-7 7-18 8-27 4-6-3-9-9-9-15 0-10 8-19 23-19z"/>
+  <path fill="#2F2A2C" d="M48 38h8v56h-8z"/>
+  <path fill="#2F2A2C" d="M48 38h44v10H48z"/>
+  <path fill="#2F2A2C" d="M48 58h32v9H48z"/>
+  <rect x="48" y="94" width="8" height="10" rx="2" fill="#FAF7F2"/>
+  <circle cx="64" cy="30" r="3" fill="#C9A962"/>
+</svg>

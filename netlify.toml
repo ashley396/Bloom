@@ -47,6 +47,52 @@
   force = true
 
 [[redirects]]
+  from = "/forgot-password"
+  to = "/forgot-password.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/forgot-password/"
+  to = "/forgot-password.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/verify-email"
+  to = "/verify-email.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/verify-email/"
+  to = "/verify-email.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/reset-password"
+  to = "/reset-password.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/reset-password/"
+  to = "/reset-password.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/store/*"
+  to = "/storefront/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/storefront-preview/*"
+  to = "/storefront/index.html"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

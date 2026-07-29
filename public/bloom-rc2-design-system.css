@@ -1,0 +1,319 @@
+/**
+ * Bloom RC2 Founder Edition — unified visual system.
+ * Layers on RC1 tokens; fixes truncation, tap targets, and page rhythm app-wide.
+ */
+
+body.bloom-rc2 {
+  --bloom-rc2-page-pad: clamp(16px, 3vw, 28px);
+  --bloom-rc2-card-pad: 18px;
+  --bloom-rc2-heading: clamp(1.35rem, 2.5vw, 1.85rem);
+  --bloom-rc2-body: 15px;
+  --bloom-rc2-line: 1.55;
+  --bloom-rc2-shadow: 0 8px 32px rgba(47, 42, 44, 0.07);
+  --bloom-rc2-radius: 14px;
+  font-size: var(--bloom-rc2-body);
+  line-height: var(--bloom-rc2-line);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.bloom-rc2 .content {
+  padding: var(--bloom-rc2-page-pad);
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+body.bloom-rc2 .page .heading h1,
+body.bloom-rc2 .heading h1 {
+  font-family: var(--bloom-font-display);
+  font-size: var(--bloom-rc2-heading);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+}
+
+body.bloom-rc2 .eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  overflow: visible;
+  white-space: normal;
+}
+
+body.bloom-rc2 button,
+body.bloom-rc2 .primary,
+body.bloom-rc2 .secondary,
+body.bloom-rc2 aside button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 16px;
+  border-radius: var(--bloom-rc2-radius);
+  font-size: 14px;
+  font-weight: 600;
+  overflow: visible;
+  white-space: normal;
+  text-overflow: unset;
+}
+
+body.bloom-rc2 label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: visible;
+}
+
+body.bloom-rc2 input,
+body.bloom-rc2 select,
+body.bloom-rc2 textarea {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--bloom-border);
+  font-size: 15px;
+  max-width: 100%;
+}
+
+body.bloom-rc2 textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+body.bloom-rc2 .card,
+body.bloom-rc2 .panel,
+body.bloom-rc2 .metric-box,
+body.bloom-rc2 article.card {
+  border-radius: var(--bloom-rc2-radius);
+  box-shadow: var(--bloom-rc2-shadow);
+  overflow: visible;
+}
+
+body.bloom-rc2 .card h3,
+body.bloom-rc2 .panel h3 {
+  overflow: visible;
+  white-space: normal;
+  word-break: break-word;
+}
+
+body.bloom-rc2 .meta,
+body.bloom-rc2 .subtle {
+  overflow: visible;
+  white-space: normal;
+  word-break: break-word;
+}
+
+body.bloom-rc2 aside {
+  padding-bottom: 24px;
+}
+
+body.bloom-rc2 aside button {
+  text-align: left;
+  width: 100%;
+  justify-content: flex-start;
+}
+
+body.bloom-rc2 .search {
+  min-height: 44px;
+  width: 100%;
+  max-width: 420px;
+}
+
+body.bloom-rc2 table {
+  width: 100%;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+
+body.bloom-rc2 .product-pad-grid,
+body.bloom-rc2 .cards {
+  gap: 16px;
+}
+
+body.bloom-rc2 .bloom-empty-luxury,
+body.bloom-rc2 .empty {
+  padding: 32px 20px;
+}
+
+body.bloom-rc2 .bloom-luxury-hero {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 20px;
+  align-items: stretch;
+  margin-bottom: 16px;
+}
+
+body.bloom-rc2 .bloom-hero-visual {
+  position: relative;
+  border-radius: var(--bloom-rc2-radius);
+  overflow: hidden;
+  min-height: 200px;
+  background: var(--bloom-blush);
+}
+
+body.bloom-rc2 .bloom-hero-visual img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+body.bloom-rc2 .bloom-hero-edit {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+body.bloom-rc2 .bloom-hero-logo {
+  max-height: 48px;
+  width: auto;
+  margin-bottom: 8px;
+}
+
+body.bloom-rc2 .bloom-quick-actions {
+  margin: 16px 0;
+}
+
+body.bloom-rc2 .recipe-privacy-banner {
+  margin-bottom: 16px;
+  border-left: 4px solid var(--bloom-botanical);
+}
+
+/* Daisy */
+.bloom-daisy {
+  position: fixed;
+  left: 16px;
+  bottom: 88px;
+  z-index: 35;
+  pointer-events: none;
+  opacity: 0.95;
+  transition: transform var(--bloom-motion, 180ms ease);
+}
+
+.bloom-daisy--interactive {
+  pointer-events: auto;
+  cursor: default;
+}
+
+.bloom-daisy--wag {
+  animation: daisy-wag 2s ease forwards;
+}
+
+@keyframes daisy-wag {
+  0% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-4deg) translateY(-2px);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.bloom-daisy--reduced,
+.bloom-daisy--reduced.bloom-daisy--wag {
+  animation: none !important;
+}
+
+.bloom-daisy[data-seasonal="holiday"]::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 20px;
+  width: 28px;
+  height: 14px;
+  background: #9b3d4a;
+  border-radius: 4px;
+  opacity: 0.85;
+}
+
+/* First run */
+.bloom-first-run {
+  border: none;
+  padding: 0;
+  max-width: 480px;
+  border-radius: 20px;
+  box-shadow: var(--bloom-shadow-md);
+}
+
+.bloom-first-run-inner {
+  padding: 28px;
+  text-align: center;
+  background: var(--bloom-warm-white);
+}
+
+.bloom-first-run .first-run-daisy {
+  margin: 8px auto;
+}
+
+/* Theme preview modal */
+.theme-preview-modal {
+  border: none;
+  padding: 0;
+  max-width: min(960px, 96vw);
+  border-radius: 16px;
+}
+
+.theme-preview-frame {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 16px;
+}
+
+.theme-preview-device {
+  border: 1px solid var(--bloom-border);
+  border-radius: 12px;
+  overflow: hidden;
+  min-height: 120px;
+  background: linear-gradient(180deg, var(--preview-bg, #faf7f2), #fff);
+}
+
+.theme-preview-device span {
+  display: block;
+  padding: 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--bloom-muted);
+}
+
+@media (max-width: 900px) {
+  body.bloom-rc2 .shell {
+    flex-direction: column;
+  }
+  body.bloom-rc2 aside {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  body.bloom-rc2 .bloom-luxury-hero {
+    grid-template-columns: 1fr;
+  }
+  .theme-preview-frame {
+    grid-template-columns: 1fr;
+  }
+  .bloom-daisy {
+    bottom: 72px;
+    transform: scale(0.85);
+    transform-origin: left bottom;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.bloom-rc2 * {
+    animation-duration: 0.01ms !important;
+  }
+}

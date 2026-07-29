@@ -1,5 +1,7 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail } from "./_shared/supabase.js";
+import { writeShopAudit } from "./_shared/production.js";
+import { validateOrderCreateBody, clampText, validateOrderPatchBody } from "./_shared/validation.js";
 
 function orderNumber() {
   return `BLM-${Date.now().toString().slice(-8)}`;
@@ -26,24 +28,25 @@ export async function handler(event) {
 
     if (event.httpMethod === "POST") {
       const body = bodyOf(event);
-
-      if (!body.customer_name) {
-        return json(400, { error: "Customer name is required" });
-      }
+      const validation = validateOrderCreateBody(body);
+      if (!validation.valid) return json(400, { error: validation.errors[0] });
 
       const flowers = Number(body.subtotal || 0);
       const labor = Number(body.labor_charge || 0);
       const addons = Number(body.addon_total || 0);
       const discount = Number(body.discount || 0);
       const subtotal = Math.max(0, flowers + labor + addons - discount);
-      const tax = Number(body.tax || 0);
+      const taxRate = Number(body.tax_rate || 0);
+      const taxable = Math.max(0, flowers + labor + addons - discount);
+      const taxFromRate = Math.round(taxable * (taxRate / 100) * 100) / 100;
+      const tax = Number.isFinite(Number(body.tax)) && Number(body.tax) > 0 ? Number(body.tax) : taxFromRate;
       const deliveryFee = Number(body.delivery_fee || 0);
 
       const payload = {
         user_id: user.id,
         shop_id: shopId,
         order_number: orderNumber(),
-        customer_name: body.customer_name.trim(),
+        customer_name: validation.sanitized.customer_name || clampText(body.customer_name, 120),
         customer_phone: body.customer_phone || null,
         occasion: body.occasion || null,
         fulfillment:
@@ -94,6 +97,15 @@ export async function handler(event) {
         .single();
 
       if (error) throw error;
+
+      await writeShopAudit(client, {
+        shopId,
+        userId: user.id,
+        eventType: "order_created",
+        entityType: "order",
+        entityId: data.id,
+        metadata: { order_number: data.order_number, total: data.total, payment_status: data.payment_status }
+      });
 
       let delivery = null;
       if (data.fulfillment === "DELIVERY" && data.delivery_address) {
@@ -169,17 +181,68 @@ export async function handler(event) {
 
     if (event.httpMethod === "PATCH") {
       const body = bodyOf(event);
+      if (!body.id) return json(400, { error: "Missing order id" });
+      const patchValidation = validateOrderPatchBody(body);
+      if (!patchValidation.valid) return json(400, { error: patchValidation.errors[0] });
+      if (body.action === "MARK_PAID" || body.action === "MARK_UNPAID") return json(400, { error: "Payment status must be changed by recording a payment or refund in the payment ledger." });
       const payload = {};
-      if(body.action === "MARK_PAID" || body.action === "MARK_UNPAID"){
-        return json(400,{error:"Payment status must be changed by recording a payment or refund in the payment ledger."});
-      }else{
-        for(const field of ["status","delivery_miles","drive_minutes"]){
-          if(field in body)payload[field]=body[field];
-        }
-      }
+      const textFields = ["customer_name","customer_phone","occasion","fulfillment","delivery_address","delivery_date","notes","customer_type","recipient_name","recipient_phone","delivery_window","delivery_instructions","order_source","card_message","arrangement_description","location_type","driver","designer","priority","design_style","color_palette","preferred_flowers","flower_restrictions","addons","payment_method","product_id","status"];
+      const numberFields = ["subtotal","tax","delivery_fee","tax_rate","amount_paid","delivery_miles","drive_minutes","labor_charge","addon_total","discount","estimated_cost"];
+      for (const field of textFields) if (field in body) payload[field] = body[field] || null;
+      for (const field of numberFields) if (field in body) payload[field] = Number(body[field] || 0);
+      if ("customer_name" in payload && !String(payload.customer_name || "").trim()) return json(400, { error: "Customer name is required" });
+      const flowers=Number(payload.subtotal||0),labor=Number(payload.labor_charge||0),addons=Number(payload.addon_total||0),discount=Number(payload.discount||0);
+      payload.subtotal=Math.max(0,flowers+labor+addons-discount); payload.total=payload.subtotal+Number(payload.tax||0)+Number(payload.delivery_fee||0); payload.balance_due=Math.max(0,payload.total-Number(payload.amount_paid||0));
+      payload.payment_status=payload.balance_due<=0&&payload.total>0?"PAID":Number(payload.amount_paid||0)>0?"PARTIAL":"UNPAID";
       const { data, error } = await client.from("orders").update(payload).eq("id",body.id).eq("shop_id",shopId).select().single();
       if (error) throw error;
-      return json(200, { item: data });
+      const { data: existingDelivery } = await client.from("deliveries").select("id").eq("shop_id",shopId).eq("order_id",body.id).maybeSingle();
+      await writeShopAudit(client, {
+        shopId,
+        userId: user.id,
+        eventType: "order_updated",
+        entityType: "order",
+        entityId: data.id,
+        metadata: { status: data.status, payment_status: data.payment_status }
+      });
+      if(data.fulfillment==="DELIVERY"&&data.delivery_address){const deliveryPayload={address:data.delivery_address,driver:data.driver||null,notes:data.delivery_instructions||null,round_trip_miles:Number(data.delivery_miles||0),drive_minutes:Number(data.drive_minutes||0),delivery_date:data.delivery_date||null,delivery_window:data.delivery_window||null,recipient_name:data.recipient_name||null,recipient_phone:data.recipient_phone||null};if(existingDelivery?.id)await client.from("deliveries").update(deliveryPayload).eq("id",existingDelivery.id).eq("shop_id",shopId);else await client.from("deliveries").insert({shop_id:shopId,order_id:data.id,status:"PENDING",...deliveryPayload})}else if(existingDelivery?.id)await client.from("deliveries").delete().eq("id",existingDelivery.id).eq("shop_id",shopId);
+      return json(200,{item:data});
+    }
+
+    if (event.httpMethod === "DELETE") {
+      const body = bodyOf(event);
+      if (!body.id) return json(400, { error: "Missing order id" });
+      const { data: order, error: orderError } = await client
+        .from("orders")
+        .select("id,order_number")
+        .eq("id", body.id)
+        .eq("shop_id", shopId)
+        .maybeSingle();
+      if (orderError) throw orderError;
+      if (!order) return json(404, { error: "Order not found." });
+      const { count, error: payError } = await client
+        .from("payments")
+        .select("id", { count: "exact", head: true })
+        .eq("shop_id", shopId)
+        .eq("order_id", body.id);
+      if (payError) throw payError;
+      if (count > 0) {
+        return json(400, {
+          error: "This order has payment history. Refund or adjust payments before deleting the order."
+        });
+      }
+      await client.from("deliveries").delete().eq("shop_id", shopId).eq("order_id", body.id);
+      const { error: deleteError } = await client.from("orders").delete().eq("id", body.id).eq("shop_id", shopId);
+      if (deleteError) throw deleteError;
+      await writeShopAudit(client, {
+        shopId,
+        userId: user.id,
+        eventType: "order_deleted",
+        entityType: "order",
+        entityId: body.id,
+        metadata: { order_number: order.order_number }
+      });
+      return json(200, { ok: true });
     }
 
     return methodNotAllowed();

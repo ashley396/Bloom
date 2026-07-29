@@ -1,0 +1,27 @@
+.payment-hub-shell{margin-top:12px}
+.payment-hub-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}
+.payment-hub-tabs button{border-radius:999px;padding:8px 14px;border:1px solid var(--border,#dec9d4);background:var(--panel,#fff)}
+.payment-hub-tabs button.active{background:var(--accent,#8f3f68);color:#fff;border-color:transparent}
+.payment-hub-panel{display:none}
+.payment-hub-panel.active{display:block}
+.payment-hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.ph-provider-card{border:1px solid var(--border,#eadfe5);border-radius:16px;padding:14px;background:var(--panel,#fff);box-shadow:0 6px 20px #5f3b4e0a}
+.ph-provider-card.coming-soon{opacity:.85}
+.ph-provider-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.ph-badge{font-size:11px;padding:4px 8px;border-radius:999px;background:#f3edf1;color:#5c4652}
+.ph-badge.live{background:#e7f6ec;color:#247341}
+.ph-badge.test{background:#fff4e5;color:#9a6b00}
+.ph-badge.soon{background:#eef0ff;color:#434db0}
+.ph-metrics{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:16px 0}
+.ph-metric{border-radius:14px;padding:12px;background:linear-gradient(135deg,#fff,#fff7fb);border:1px solid #eadfe5}
+.ph-metric small{display:block;color:#76636d}
+.ph-method-list{display:grid;gap:8px;max-height:320px;overflow:auto}
+.ph-method-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:10px;border:1px solid #eee}
+.ph-empty{text-align:center;padding:48px 16px;color:#76636d}
+.ph-loading{display:flex;align-items:center;gap:10px;padding:24px;color:#76636d}
+.ph-split-row{display:grid;grid-template-columns:1fr 100px 80px auto;gap:8px;align-items:end;margin-bottom:8px}
+@media(max-width:720px){.ph-split-row{grid-template-columns:1fr 1fr}}
+html[data-theme="dark"] .ph-provider-card,html.dark .ph-provider-card{background:#2a2228;border-color:#463a42}
+.ph-wizard-dialog{border:none;border-radius:18px;padding:0;max-width:520px}
+.ph-wizard-options{display:grid;gap:8px;margin:12px 0}
+.ph-wizard-options button{width:100%;text-align:left}
