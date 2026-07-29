@@ -48,12 +48,19 @@ export function getProductionConfig(env = process.env) {
 
 export function safePublicError(error) {
   const status = error?.statusCode || 500;
+  const msg = String(error?.message || "");
+  if (/SUPABASE_SERVICE_ROLE_KEY is not configured in Netlify/i.test(msg)) {
+    return "Florisyn's secure server connection is not set up in Netlify yet. You can still use your current shop; contact support if you need multi-location setup.";
+  }
+  if (/Supabase server API key is not configured/i.test(msg)) {
+    return "Florisyn's secure server connection is not set up in Netlify yet. You can still use your current shop; contact support if you need multi-location setup.";
+  }
   if (status === 401) return "Please sign in again.";
   if (status === 403) return "You do not have permission to perform this action.";
   if (status === 400) return error?.message || "Invalid request.";
-  if (status === 503) return error?.message || "Bloom is temporarily unavailable.";
+  if (status === 503) return error?.message || "Florisyn is temporarily unavailable.";
   if (status < 500) return error?.message || "Request could not be completed.";
-  return "Unexpected Bloom error. Try again or contact support.";
+  return "Unexpected Florisyn error. Try again or contact support.";
 }
 
 export function structuredLog(level, message, meta = {}) {

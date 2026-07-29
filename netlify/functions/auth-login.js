@@ -1,5 +1,5 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
-import { publicSettings, fail, admin } from "./_shared/supabase.js";
+import { publicSettings, fail, adminIfConfigured } from "./_shared/supabase.js";
 import { checkRateLimit, structuredLog, writeShopAudit } from "./_shared/production.js";
 import { validateEmail } from "./_shared/validation.js";
 
@@ -21,11 +21,13 @@ export async function handler(event){
     const data=await response.json();
     if(!response.ok){
       structuredLog("warn","login_failed",{email:emailCheck.value});
-      await writeShopAudit(admin(),{userId:null,eventType:"login_failed",entityType:"auth",metadata:{email:emailCheck.value}});
+      const auditClient=adminIfConfigured();
+      if(auditClient) await writeShopAudit(auditClient,{userId:null,eventType:"login_failed",entityType:"auth",metadata:{email:emailCheck.value}});
       return json(response.status,{error:data.msg||data.message||"Sign in failed"});
     }
     structuredLog("info","login_success",{user_id:data.user?.id});
-    await writeShopAudit(admin(),{userId:data.user?.id,eventType:"login_success",entityType:"auth",entityId:data.user?.id});
+    const auditClient=adminIfConfigured();
+    if(auditClient) await writeShopAudit(auditClient,{userId:data.user?.id,eventType:"login_success",entityType:"auth",entityId:data.user?.id});
     return json(200,{accessToken:data.access_token,refreshToken:data.refresh_token,expiresIn:data.expires_in,user:data.user});
   }catch(error){ return fail(error); }
 }
