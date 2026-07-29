@@ -54,19 +54,19 @@ export const FLORISTRY_PHOTO_LIBRARY: Record<
     id: "seasonal-spring",
     file: `${floristryBase}/seasonal-spring.jpg`,
     category: "seasonal",
-    credit: "Unsplash",
+    credit: "Pexels #792942 — spring blossoms",
   },
   "sympathy-funeral-spray": {
     id: "sympathy-funeral-spray",
-    file: `${floristryBase}/funeral-spray.jpg`,
+    file: `${floristryBase}/sympathy-funeral-spray.jpg`,
     category: "sympathy",
-    credit: "Pexels",
+    credit: "Pexels #7296680 — sympathy standing spray",
   },
   "sympathy-lilies": {
     id: "sympathy-lilies",
     file: `${floristryBase}/sympathy-lilies.jpg`,
     category: "sympathy",
-    credit: "Pexels",
+    credit: "Pexels #1181395 — white lilies",
   },
   "mixed-everyday-bouquet": {
     id: "mixed-everyday-bouquet",
@@ -108,13 +108,13 @@ export const FLORISTRY_PHOTO_LIBRARY: Record<
     id: "plant-potted-green",
     file: `${floristryBase}/potted-plant.jpg`,
     category: "plant",
-    credit: "Pexels",
+    credit: "Pexels #1457813 — potted greenery",
   },
   "workspace-hero-bench": {
     id: "workspace-hero-bench",
     file: `${floristryBase}/hero-workbench.jpg`,
     category: "workspace",
-    credit: "Unsplash",
+    credit: "Pexels #6129129 — florist shop interior",
   },
   "mixed-garden-harmony": {
     id: "mixed-garden-harmony",
@@ -126,7 +126,7 @@ export const FLORISTRY_PHOTO_LIBRARY: Record<
     id: "mixed-corporate-lobby",
     file: `${floristryBase}/corporate-lobby.jpg`,
     category: "mixed-everyday",
-    credit: "Pexels",
+    credit: "Pexels #4579929 — interior floral arrangement",
   },
   "everyday-birthday-pastel": {
     id: "everyday-birthday-pastel",
@@ -152,12 +152,12 @@ export const FLORISTRY_PHOTO_LIBRARY: Record<
     category: "mixed-everyday",
     credit: "Pexels",
   },
-  /** Optional gift add-on only — not used on multi-card pages like /today. */
+  /** Optional gift add-on only — file added when gift UI ships; not used on list pages. */
   "premium-chocolate-gift": {
     id: "premium-chocolate-gift",
     file: `${floristryBase}/premium-chocolate-gift.jpg`,
     category: "mixed-everyday",
-    credit: "Reserved slot — add real licensed product photo when gift UI ships",
+    credit: "Reserved — premium chocolate box (optional gift add-on)",
   },
   "workspace-luxury-shop": {
     id: "workspace-luxury-shop",
