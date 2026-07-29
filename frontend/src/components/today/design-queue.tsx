@@ -39,9 +39,8 @@ export function DesignQueueItem({ order }: DesignQueueItemProps) {
   return (
     <article className="flex gap-4 rounded-xl bg-warm-cream/60 p-4 ring-1 ring-florisyn-border/80">
       <PhotoAsset
-        src={order.photoSrc}
-        licensedFallbackSrc={order.photoFallbackSrc}
-        suppressShopDefault
+        photoId={order.photoId}
+        pageSlot={order.photoSlot}
         alt={`Reference for ${order.customerOrRecipient}`}
         aspect="square"
         className="size-16 shrink-0 rounded-lg sm:size-[4.5rem]"

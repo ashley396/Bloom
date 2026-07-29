@@ -25,16 +25,13 @@ export function InventoryAlertCard({ alert }: InventoryAlertCardProps) {
         toneStyles[tone],
       )}
     >
-      {alert.photoSrc ? (
-        <PhotoAsset
-          src={alert.photoSrc}
-          licensedFallbackSrc={alert.photoFallbackSrc}
-          suppressShopDefault
-          alt={`${alert.item} stock`}
-          aspect="square"
-          className="size-12 shrink-0 rounded-lg"
-        />
-      ) : null}
+      <PhotoAsset
+        photoId={alert.photoId}
+        pageSlot={alert.photoSlot}
+        alt={`${alert.item} stock`}
+        aspect="square"
+        className="size-12 shrink-0 rounded-lg"
+      />
       <div className="min-w-0 flex-1">
         <p className="font-medium text-charcoal">{alert.item}</p>
         <p className="text-sm text-charcoal-muted">{alert.quantity}</p>

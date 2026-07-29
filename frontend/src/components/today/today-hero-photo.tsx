@@ -1,9 +1,10 @@
+import type { FloristryPhotoId } from "../../lib/floristry-photo-library";
 import { PhotoAsset } from "../media/PhotoAsset";
 import { cn } from "../../lib/utils";
 
 export type TodayHeroPhotoProps = {
-  src: string;
-  licensedFallbackSrc?: string;
+  photoId: FloristryPhotoId;
+  pageSlot: string;
   alt?: string;
   className?: string;
 };
@@ -12,9 +13,9 @@ export type TodayHeroPhotoProps = {
  * Restrained hero photography — supports the dashboard without overpowering metrics.
  */
 export function TodayHeroPhoto({
-  src,
-  licensedFallbackSrc,
-  alt = "Fresh floral designs from today’s bench",
+  photoId,
+  pageSlot,
+  alt = "Fresh seasonal arrangement from the design bench",
   className,
 }: TodayHeroPhotoProps) {
   return (
@@ -25,9 +26,8 @@ export function TodayHeroPhoto({
       )}
     >
       <PhotoAsset
-        src={src}
-        licensedFallbackSrc={licensedFallbackSrc}
-        suppressShopDefault
+        photoId={photoId}
+        pageSlot={pageSlot}
         alt={alt}
         aspect="video"
         priority

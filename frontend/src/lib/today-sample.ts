@@ -1,9 +1,10 @@
 /** Typed sample data for /today — replace with API wiring later. */
 
+import type { FloristryPhotoId } from "./floristry-photo-library";
 import {
-  FLORISTRY_PHOTOS,
-  TODAY_PAGE_PHOTOS,
-} from "./floristry-photos";
+  getTodayPhotoId,
+  type TodayPhotoSlotId,
+} from "./today-photo-assignments";
 
 export type TodaySummaryMetrics = {
   ordersToday: number;
@@ -17,8 +18,8 @@ export type UpNextOrder = {
   title: string;
   dueTime: string;
   deliveryNote: string;
-  photoSrc?: string | null;
-  photoFallbackSrc?: string | null;
+  photoId: FloristryPhotoId;
+  photoSlot: TodayPhotoSlotId;
 };
 
 export type DesignQueueOrder = {
@@ -28,8 +29,8 @@ export type DesignQueueOrder = {
   dueTime: string;
   status: "designing" | "waiting" | "ready" | "delivered";
   price: string;
-  photoSrc?: string | null;
-  photoFallbackSrc?: string | null;
+  photoId: FloristryPhotoId;
+  photoSlot: TodayPhotoSlotId;
 };
 
 export type DeliveryScheduleStop = {
@@ -45,8 +46,8 @@ export type InventoryAlertRow = {
   item: string;
   level: "Low" | "Good" | "Reorder soon";
   quantity: string;
-  photoSrc?: string | null;
-  photoFallbackSrc?: string | null;
+  photoId: FloristryPhotoId;
+  photoSlot: TodayPhotoSlotId;
 };
 
 export type QuickActionId =
@@ -71,8 +72,8 @@ export const todayPageData = {
   },
   dateLabel: "Wednesday, July 29, 2026",
   heroPhoto: {
-    src: TODAY_PAGE_PHOTOS.hero.src,
-    fallbackSrc: FLORISTRY_PHOTOS.seasonalSpring.src,
+    photoId: getTodayPhotoId("today.hero"),
+    photoSlot: "today.hero" as const,
   },
   metrics: {
     ordersToday: 14,
@@ -85,8 +86,8 @@ export const todayPageData = {
     title: "Sympathy arrangement",
     dueTime: "10:00 AM",
     deliveryNote: "Delivery to Johnson Funeral Home",
-    photoSrc: TODAY_PAGE_PHOTOS.upNext.src,
-    photoFallbackSrc: FLORISTRY_PHOTOS.everydayMixed.src,
+    photoId: getTodayPhotoId("today.up-next"),
+    photoSlot: "today.up-next",
   } satisfies UpNextOrder,
   designQueue: [
     {
@@ -96,8 +97,8 @@ export const todayPageData = {
       dueTime: "10:00 AM",
       status: "designing",
       price: "$185.00",
-      photoSrc: TODAY_PAGE_PHOTOS.designQueue["dq-1"].src,
-      photoFallbackSrc: FLORISTRY_PHOTOS.rosesRed.src,
+      photoId: getTodayPhotoId("today.design-queue.dq-1"),
+      photoSlot: "today.design-queue.dq-1",
     },
     {
       id: "dq-2",
@@ -106,8 +107,8 @@ export const todayPageData = {
       dueTime: "11:30 AM",
       status: "waiting",
       price: "$92.00",
-      photoSrc: TODAY_PAGE_PHOTOS.designQueue["dq-2"].src,
-      photoFallbackSrc: FLORISTRY_PHOTOS.tulipsSpring.src,
+      photoId: getTodayPhotoId("today.design-queue.dq-2"),
+      photoSlot: "today.design-queue.dq-2",
     },
     {
       id: "dq-3",
@@ -116,8 +117,8 @@ export const todayPageData = {
       dueTime: "12:15 PM",
       status: "ready",
       price: "$128.00",
-      photoSrc: TODAY_PAGE_PHOTOS.designQueue["dq-3"].src,
-      photoFallbackSrc: FLORISTRY_PHOTOS.orchidElegant.src,
+      photoId: getTodayPhotoId("today.design-queue.dq-3"),
+      photoSlot: "today.design-queue.dq-3",
     },
     {
       id: "dq-4",
@@ -126,8 +127,8 @@ export const todayPageData = {
       dueTime: "2:00 PM",
       status: "waiting",
       price: "$340.00",
-      photoSrc: TODAY_PAGE_PHOTOS.designQueue["dq-4"].src,
-      photoFallbackSrc: FLORISTRY_PHOTOS.sunflowers.src,
+      photoId: getTodayPhotoId("today.design-queue.dq-4"),
+      photoSlot: "today.design-queue.dq-4",
     },
   ] satisfies DesignQueueOrder[],
   deliverySchedule: [
@@ -179,24 +180,24 @@ export const todayPageData = {
       item: "White Roses",
       level: "Low",
       quantity: "18 stems",
-      photoSrc: TODAY_PAGE_PHOTOS.inventory["inv-1"].src,
-      photoFallbackSrc: FLORISTRY_PHOTOS.weddingFlowers.src,
+      photoId: getTodayPhotoId("today.inventory.inv-1"),
+      photoSlot: "today.inventory.inv-1",
     },
     {
       id: "inv-2",
       item: "Hydrangeas",
       level: "Good",
       quantity: "42 stems",
-      photoSrc: TODAY_PAGE_PHOTOS.inventory["inv-2"].src,
-      photoFallbackSrc: FLORISTRY_PHOTOS.gardenHarmony.src,
+      photoId: getTodayPhotoId("today.inventory.inv-2"),
+      photoSlot: "today.inventory.inv-2",
     },
     {
       id: "inv-3",
       item: "Leatherleaf",
       level: "Reorder soon",
       quantity: "24 stems",
-      photoSrc: TODAY_PAGE_PHOTOS.inventory["inv-3"].src,
-      photoFallbackSrc: FLORISTRY_PHOTOS.seasonalSpring.src,
+      photoId: getTodayPhotoId("today.inventory.inv-3"),
+      photoSlot: "today.inventory.inv-3",
     },
   ] satisfies InventoryAlertRow[],
   quickActions: [
