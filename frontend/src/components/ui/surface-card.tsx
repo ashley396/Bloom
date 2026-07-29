@@ -4,16 +4,15 @@ import { cn } from "../../lib/utils";
 type SurfaceCardProps = {
   children: ReactNode;
   className?: string;
-  as?: "div" | "section" | "article";
+  as?: "div" | "section" | "article" | "aside";
   padding?: "none" | "sm" | "md" | "lg";
-  hover?: boolean;
 };
 
 const paddingMap = {
   none: "",
   sm: "p-5",
-  md: "p-6 md:p-7",
-  lg: "p-8 md:p-10",
+  md: "p-6 lg:p-7",
+  lg: "p-8 lg:p-9",
 };
 
 export function SurfaceCard({
@@ -21,13 +20,11 @@ export function SurfaceCard({
   className,
   as: Tag = "div",
   padding = "md",
-  hover = false,
 }: SurfaceCardProps) {
   return (
     <Tag
       className={cn(
-        "rounded-2xl border border-florisyn-border/80 bg-florisyn-surface shadow-card motion-safe-transition",
-        hover && "hover:shadow-card-hover",
+        "rounded-2xl bg-warm-white shadow-card motion-safe-transition ring-1 ring-florisyn-border",
         paddingMap[padding],
         className,
       )}

@@ -54,7 +54,7 @@ export function PhotoAsset({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-lg bg-florisyn-sage-100 dark:bg-florisyn-sage-900/50",
+        "overflow-hidden rounded-lg bg-sage-pale dark:bg-florisyn-sage-900/50",
         aspect !== "auto" && aspectClass[aspect],
         className,
       )}

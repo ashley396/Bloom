@@ -1,9 +1,10 @@
 export { BusinessSnapshot } from "./business-snapshot";
+export { DailyInsight } from "./daily-insight";
 export { DeliveryTimeline } from "./delivery-timeline";
-export { DesignQueue } from "./design-queue";
-export { InventoryAlerts } from "./inventory-alerts";
-export { KpiStatCard } from "./kpi-stat-card";
-export { LilyInsightCard } from "./lily-insight-card";
+export { DesignQueue, DesignQueueItem } from "./design-queue";
+export { InventoryAlertCard, InventoryAlertsSection } from "./inventory-alert-card";
+export { LilyRecommendation } from "./lily-recommendation";
+export { MetricCard } from "./metric-card";
 export { QuickActions } from "./quick-actions";
-export { RecentActivity } from "./recent-activity";
-export { TodayHero } from "./today-hero";
+export { TodayHeader } from "./today-header";
+export { UpNextCard } from "./up-next-card";

@@ -1,54 +1,58 @@
-import type { DeliveryStop } from "../../lib/today-data";
 import { cn } from "../../lib/utils";
-import { SectionHeader } from "../ui/section-header";
+import {
+  deliveryStatusLabel,
+  type DeliveryScheduleStop,
+} from "../../lib/today-sample";
 import { SurfaceCard } from "../ui/surface-card";
 
-const dotStyle: Record<DeliveryStop["status"], string> = {
-  delivered: "bg-florisyn-sage-500 ring-florisyn-sage-100",
-  "en-route": "bg-amber-500 ring-amber-100 animate-pulse motion-reduce:animate-none",
-  scheduled: "bg-florisyn-border ring-florisyn-sage-50",
+const statusStyles: Record<DeliveryScheduleStop["status"], string> = {
+  scheduled: "bg-charcoal-subtle",
+  "en-route": "bg-blush-500 motion-safe:animate-pulse motion-reduce:animate-none",
+  delivered: "bg-sage-muted",
 };
 
-type DeliveryTimelineProps = {
-  stops: DeliveryStop[];
+export type DeliveryTimelineProps = {
+  stops: DeliveryScheduleStop[];
   className?: string;
 };
 
 export function DeliveryTimeline({ stops, className }: DeliveryTimelineProps) {
   return (
-    <SurfaceCard className={className} as="section" aria-labelledby="delivery-heading">
-      <SectionHeader
-        title="Delivery timeline"
-        description="Today's route at a glance — times, recipients, and status."
-      />
-      <h2 id="delivery-heading" className="sr-only">
-        Delivery timeline
+    <SurfaceCard as="section" className={className} aria-labelledby="delivery-schedule-title">
+      <h2
+        id="delivery-schedule-title"
+        className="font-serif-display text-xl font-semibold text-charcoal md:text-2xl"
+      >
+        Delivery schedule
       </h2>
-      <ol className="relative space-y-0 border-l border-florisyn-border/80 pl-6">
+      <ol className="mt-6 space-y-0">
         {stops.map((stop, index) => (
-          <li key={stop.id} className={cn("relative pb-8 last:pb-0")}>
+          <li
+            key={stop.id}
+            className={cn(
+              "relative border-l border-florisyn-border pl-6",
+              index < stops.length - 1 ? "pb-8" : "pb-0",
+            )}
+          >
             <span
               className={cn(
-                "absolute -left-[calc(0.375rem+1px)] top-1.5 size-3 rounded-full ring-4",
-                dotStyle[stop.status],
+                "absolute -left-[5px] top-1.5 size-2.5 rounded-full ring-4 ring-warm-white",
+                statusStyles[stop.status],
               )}
               aria-hidden
             />
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <time className="text-xs font-semibold uppercase tracking-wide text-florisyn-muted">
+                <time className="text-xs font-semibold uppercase tracking-wide text-charcoal-subtle">
                   {stop.time}
                 </time>
-                <p className="mt-1 font-medium text-florisyn-ink">{stop.recipient}</p>
-                <p className="text-sm text-florisyn-muted">{stop.address}</p>
+                <p className="mt-1 font-medium text-charcoal">{stop.destination}</p>
+                <p className="text-sm text-charcoal-muted">Driver: {stop.driver}</p>
               </div>
-              <p className="text-xs font-medium capitalize text-florisyn-sage-700 dark:text-florisyn-sage-500">
-                {stop.status.replace("-", " ")}
-              </p>
+              <span className="text-xs font-medium text-charcoal-muted">
+                {deliveryStatusLabel[stop.status]}
+              </span>
             </div>
-            {index < stops.length - 1 ? (
-              <span className="sr-only">Next stop</span>
-            ) : null}
           </li>
         ))}
       </ol>

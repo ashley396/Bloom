@@ -1,77 +1,98 @@
-import { ArrowRight } from "lucide-react";
-import type { DesignQueueItem } from "../../lib/today-data";
-import { cn } from "../../lib/utils";
-import { Button } from "../ui/button";
-import { SectionHeader } from "../ui/section-header";
+import { PhotoAsset } from "../media/PhotoAsset";
 import { SurfaceCard } from "../ui/surface-card";
+import { cn } from "../../lib/utils";
+import {
+  designQueueStatusLabel,
+  type DesignQueueOrder,
+} from "../../lib/today-sample";
 
-const statusLabel: Record<DesignQueueItem["status"], string> = {
-  "in-progress": "In progress",
-  waiting: "Waiting",
-  ready: "Ready for pickup",
+const statusStyles: Record<
+  DesignQueueOrder["status"],
+  { pill: string; dot: string }
+> = {
+  designing: {
+    pill: "bg-hydrangea-pale text-charcoal",
+    dot: "bg-blush-500",
+  },
+  waiting: {
+    pill: "bg-warm-cream-deep text-charcoal-muted",
+    dot: "bg-charcoal-subtle",
+  },
+  ready: {
+    pill: "bg-sage-pale text-charcoal",
+    dot: "bg-sage-muted",
+  },
+  delivered: {
+    pill: "bg-sage-soft/50 text-charcoal-muted",
+    dot: "bg-sage-muted",
+  },
 };
 
-const statusStyle: Record<DesignQueueItem["status"], string> = {
-  "in-progress": "bg-florisyn-sage-50 text-florisyn-sage-700 dark:bg-florisyn-sage-100/50",
-  waiting: "bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100",
-  ready: "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100",
+export type DesignQueueItemProps = {
+  order: DesignQueueOrder;
 };
 
-type DesignQueueProps = {
-  items: DesignQueueItem[];
+export function DesignQueueItem({ order }: DesignQueueItemProps) {
+  const styles = statusStyles[order.status];
+  const statusText = designQueueStatusLabel[order.status];
+
+  return (
+    <article className="flex gap-4 rounded-xl bg-warm-cream/60 p-4 ring-1 ring-florisyn-border/80">
+      <PhotoAsset
+        src={order.photoSrc}
+        alt={`Reference for ${order.customerOrRecipient}`}
+        aspect="square"
+        className="size-16 shrink-0 rounded-lg sm:size-[4.5rem]"
+      />
+      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h3 className="truncate font-medium text-charcoal">{order.customerOrRecipient}</h3>
+          <p className="text-sm text-charcoal-muted">{order.occasion}</p>
+          <p className="mt-1 text-xs text-charcoal-subtle">
+            Due <time>{order.dueTime}</time>
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 sm:flex-col sm:items-end">
+          <span className="font-medium tabular-nums text-charcoal">{order.price}</span>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium",
+              styles.pill,
+            )}
+          >
+            <span
+              className={cn("size-1.5 rounded-full", styles.dot)}
+              aria-hidden
+            />
+            {statusText}
+          </span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export type DesignQueueProps = {
+  orders: DesignQueueOrder[];
   className?: string;
 };
 
-export function DesignQueue({ items, className }: DesignQueueProps) {
+export function DesignQueue({ orders, className }: DesignQueueProps) {
   return (
-    <SurfaceCard className={className} as="section" aria-labelledby="design-queue-heading">
-      <SectionHeader
-        title="Today's design queue"
-        description="Bench order for the design team — not a metrics dashboard."
-        action={
-          <Button type="button" variant="ghost" size="sm" className="gap-1">
-            View all
-            <ArrowRight className="size-4" aria-hidden />
-          </Button>
-        }
-      />
-      <h2 id="design-queue-heading" className="sr-only">
+    <SurfaceCard as="section" className={className} aria-labelledby="design-queue-title">
+      <h2
+        id="design-queue-title"
+        className="font-serif-display text-xl font-semibold text-charcoal md:text-2xl"
+      >
         Today&apos;s design queue
       </h2>
-      <ul className="space-y-3">
-        {items.map((item) => (
-          <li key={item.id}>
-            <article
-              className={cn(
-                "flex flex-col gap-3 rounded-xl border border-florisyn-border/60 bg-florisyn-cream/50 p-4 motion-safe-transition",
-                "sm:flex-row sm:items-center sm:justify-between dark:bg-florisyn-sage-50/30",
-              )}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-medium text-florisyn-ink">{item.title}</h3>
-                  {item.priority === "rush" ? (
-                    <span className="rounded-md bg-florisyn-ink px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                      Rush
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-1 text-sm text-florisyn-muted">{item.customer}</p>
-              </div>
-              <div className="flex shrink-0 flex-wrap items-center gap-3 sm:flex-col sm:items-end">
-                <time className="text-sm font-medium tabular-nums text-florisyn-ink">
-                  {item.dueTime}
-                </time>
-                <span
-                  className={cn(
-                    "rounded-lg px-2.5 py-1 text-xs font-medium",
-                    statusStyle[item.status],
-                  )}
-                >
-                  {statusLabel[item.status]}
-                </span>
-              </div>
-            </article>
+      <p className="mt-1 text-sm text-charcoal-muted">
+        Orders on the bench — calm, scannable, never spreadsheet-dense.
+      </p>
+      <ul className="mt-6 space-y-3">
+        {orders.map((order) => (
+          <li key={order.id}>
+            <DesignQueueItem order={order} />
           </li>
         ))}
       </ul>

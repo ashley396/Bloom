@@ -4,22 +4,21 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium motion-safe-transition disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-florisyn-sage-500 focus-visible:ring-offset-2 focus-visible:ring-offset-florisyn-cream",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium motion-safe-transition disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-blush-500 focus-visible:ring-offset-2 focus-visible:ring-offset-warm-cream",
   {
     variants: {
       variant: {
         default:
-          "bg-florisyn-sage-700 text-white hover:bg-florisyn-sage-900 active:scale-[0.98] dark:bg-florisyn-sage-500 dark:text-florisyn-ink dark:hover:bg-florisyn-sage-500/90",
+          "bg-blush-500 text-white hover:bg-blush-600 active:scale-[0.98] dark:bg-blush-500 dark:hover:bg-blush-600",
         secondary:
-          "border border-florisyn-sage-100 bg-white text-florisyn-ink hover:bg-florisyn-sage-50 dark:border-florisyn-sage-100 dark:bg-florisyn-surface dark:hover:bg-florisyn-sage-50/10",
-        ghost:
-          "text-florisyn-sage-700 hover:bg-florisyn-sage-50 dark:text-florisyn-sage-500 dark:hover:bg-florisyn-sage-50/10",
+          "bg-warm-white text-charcoal shadow-sm ring-1 ring-florisyn-border hover:bg-warm-cream-deep dark:bg-florisyn-surface",
+        ghost: "text-charcoal-muted hover:bg-sage-pale/80 hover:text-charcoal",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-6",
-        icon: "size-10",
+        default: "h-11 min-h-[44px] px-5 py-2",
+        sm: "h-10 min-h-[40px] rounded-lg px-4",
+        lg: "h-12 min-h-[48px] rounded-xl px-6 text-base",
+        icon: "size-11 min-h-[44px] min-w-[44px]",
       },
     },
     defaultVariants: {

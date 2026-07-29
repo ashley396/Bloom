@@ -1,55 +1,50 @@
-import type { LucideIcon } from "lucide-react";
 import {
-  CreditCard,
+  FileText,
   PackagePlus,
-  PlusCircle,
-  Truck,
+  ShoppingBag,
+  Store,
+  UserPlus,
 } from "lucide-react";
-import type { quickActions } from "../../lib/today-data";
-import { cn } from "../../lib/utils";
+import type { QuickActionId } from "../../lib/today-sample";
 import { Button } from "../ui/button";
-import { SectionHeader } from "../ui/section-header";
 import { SurfaceCard } from "../ui/surface-card";
 
-const iconMap: Record<(typeof quickActions)[number]["id"], LucideIcon> = {
-  "new-order": PlusCircle,
-  "take-payment": CreditCard,
-  "add-delivery": Truck,
-  "scan-inventory": PackagePlus,
+const icons: Record<QuickActionId, typeof ShoppingBag> = {
+  "new-order": ShoppingBag,
+  "open-pos": Store,
+  "add-customer": UserPlus,
+  "receive-inventory": PackagePlus,
+  "create-invoice": FileText,
 };
 
-type QuickActionsProps = {
-  actions: typeof quickActions;
+type Action = { id: QuickActionId; label: string };
+
+export type QuickActionsProps = {
+  actions: Action[];
   className?: string;
 };
 
 export function QuickActions({ actions, className }: QuickActionsProps) {
   return (
-    <SurfaceCard className={className} as="section" aria-labelledby="quick-actions-heading">
-      <SectionHeader title="Quick actions" description="One tap to the workflows you use every morning." />
-      <h2 id="quick-actions-heading" className="sr-only">
+    <SurfaceCard as="section" className={className} aria-labelledby="quick-actions-title">
+      <h2
+        id="quick-actions-title"
+        className="font-serif-display text-xl font-semibold text-charcoal md:text-2xl"
+      >
         Quick actions
       </h2>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
         {actions.map((action) => {
-          const Icon = iconMap[action.id];
+          const Icon = icons[action.id];
           return (
             <Button
               key={action.id}
               type="button"
               variant="secondary"
-              className={cn(
-                "h-auto flex-col items-start gap-3 rounded-xl border-florisyn-border/80 px-4 py-4 text-left",
-                "hover:shadow-card motion-safe-transition",
-              )}
+              className="h-auto min-h-[44px] flex-col gap-2 py-4 text-center"
             >
-              <Icon className="size-5 text-florisyn-sage-700 dark:text-florisyn-sage-500" aria-hidden />
-              <span>
-                <span className="block text-sm font-semibold text-florisyn-ink">{action.label}</span>
-                <span className="mt-0.5 block text-xs font-normal text-florisyn-muted">
-                  {action.hint}
-                </span>
-              </span>
+              <Icon className="size-5 text-blush-600" aria-hidden />
+              <span className="text-xs font-semibold leading-tight sm:text-sm">{action.label}</span>
             </Button>
           );
         })}
