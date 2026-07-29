@@ -2,6 +2,7 @@ import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { publicSettings, fail } from "./_shared/supabase.js";
 import { checkRateLimit } from "./_shared/production.js";
 import { validateEmail } from "./_shared/validation.js";
+import { authRedirectPath } from "./_shared/site-url.js";
 
 export async function handler(event) {
   const ready = preflight(event);
@@ -16,8 +17,8 @@ export async function handler(event) {
     if (!emailCheck.ok) return json(400, { error: emailCheck.error });
 
     const { url, anonKey } = publicSettings();
-    const siteUrl = (process.env.DEPLOY_PRIME_URL || process.env.SITE_URL || process.env.URL || "").replace(/\/$/, "");
-    const redirectTo = `${siteUrl || "http://localhost:8888"}/reset-password`;
+    const origin = event.headers?.origin || event.headers?.Origin || "";
+    const redirectTo = authRedirectPath(process.env, origin, "/reset-password");
 
     const response = await fetch(`${url}/auth/v1/recover`, {
       method: "POST",

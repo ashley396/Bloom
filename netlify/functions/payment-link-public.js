@@ -6,6 +6,7 @@ import {
   transitionPaymentLinkStatus,
   validatePaymentLinkCreate
 } from "./_shared/payment-hub-experience.js";
+import { resolvePublicSiteUrl } from "./_shared/site-url.js";
 
 function missingTable(error) {
   return error?.code === "42P01" || String(error?.message || "").includes("does not exist");
@@ -84,6 +85,7 @@ export async function handler(event) {
         }
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         const { data: shop } = await client.from("shops").select("name,stripe_connect_account_id").eq("id", link.shop_id).maybeSingle();
+        const siteBase = (body.return_url || resolvePublicSiteUrl(process.env, event.headers?.origin || "")).replace(/\/$/, "");
         const sessionParams = {
           mode: "payment",
           line_items: [
@@ -96,8 +98,8 @@ export async function handler(event) {
               quantity: 1
             }
           ],
-          success_url: `${body.return_url || process.env.URL || "https://localhost"}/pay.html?t=${encodeURIComponent(token)}&paid=1`,
-          cancel_url: `${body.return_url || process.env.URL || "https://localhost"}/pay.html?t=${encodeURIComponent(token)}`,
+          success_url: `${siteBase}/pay.html?t=${encodeURIComponent(token)}&paid=1`,
+          cancel_url: `${siteBase}/pay.html?t=${encodeURIComponent(token)}`,
           metadata: {
             bloom_payment_link_id: link.id,
             bloom_shop_id: String(link.shop_id),

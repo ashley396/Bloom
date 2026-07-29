@@ -32,6 +32,15 @@ test("validateOrderCreateBody requires customer and sane subtotal", () => {
   assert.equal(good.valid, true);
 });
 
+test("validateOrderCreateBody requires delivery address for DELIVERY", () => {
+  const bad = validateOrderCreateBody({
+    customer_name: "Sarah",
+    subtotal: 50,
+    fulfillment: "DELIVERY"
+  });
+  assert.equal(bad.valid, false);
+});
+
 test("validateCustomerBody validates optional email", () => {
   const bad = validateCustomerBody({ name: "John", email: "not-email" });
   assert.equal(bad.valid, false);

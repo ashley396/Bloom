@@ -51,10 +51,29 @@ export function validateOrderCreateBody(body = {}) {
   }
   const subtotal = validateMoney(body.subtotal, { fieldName: "Subtotal", max: 500_000 });
   if (!subtotal.ok) errors.push(subtotal.error);
+  const fulfillment = String(body.fulfillment || "PICKUP").toUpperCase();
+  if (fulfillment === "DELIVERY") {
+    const address = validateRequiredText(body.delivery_address, "Delivery address", 500);
+    if (!address.ok) errors.push(address.error);
+  }
   if (body.notes && clampText(body.notes, 4000).length !== String(body.notes).trim().length) {
     errors.push("Notes are too long.");
   }
   return { valid: errors.length === 0, errors, sanitized: { customer_name: customer.value || clampText(body.customer_name, 120) } };
+}
+
+/** PATCH / orders — delivery address required when fulfillment is DELIVERY. */
+export function validateOrderPatchBody(body = {}) {
+  const errors = [];
+  if ("customer_name" in body) {
+    const customer = validateRequiredText(body.customer_name, "Customer name", 120);
+    if (!customer.ok) errors.push(customer.error);
+  }
+  if (String(body.fulfillment || "").toUpperCase() === "DELIVERY") {
+    const address = validateRequiredText(body.delivery_address, "Delivery address", 500);
+    if (!address.ok) errors.push(address.error);
+  }
+  return { valid: errors.length === 0, errors };
 }
 
 export function validateInventoryItemBody(body = {}) {

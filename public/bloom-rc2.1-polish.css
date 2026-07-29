@@ -267,3 +267,42 @@ body.bloom-rc21 .bloom-daisy {
     overflow-x: auto;
   }
 }
+
+/* Bundle B1 — compact receipts & staff list */
+body.bloom-rc21 .receipt.receipt-compact {
+  max-width: 3.1in;
+  font-size: 9pt;
+  line-height: 1.15;
+}
+body.bloom-rc21 .receipt-compact .receipt-grid-compact {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  font-size: 8.5pt;
+}
+body.bloom-rc21 .receipt-compact .receipt-thanks {
+  text-align: center;
+  margin: 8px 0 0;
+  font-size: 8.5pt;
+}
+body.bloom-rc21 .bloom-staff-list-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+body.bloom-rc21 .bloom-staff-name-only {
+  margin: 0;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+body.bloom-rc21 .bloom-staff-list-card .card-actions {
+  margin: 0;
+  flex-shrink: 0;
+}
+body.bloom-rc21 .staff-time-history {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bloom-border, #eadde5);
+}

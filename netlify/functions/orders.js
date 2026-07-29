@@ -1,7 +1,7 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail } from "./_shared/supabase.js";
 import { writeShopAudit } from "./_shared/production.js";
-import { validateOrderCreateBody, clampText } from "./_shared/validation.js";
+import { validateOrderCreateBody, clampText, validateOrderPatchBody } from "./_shared/validation.js";
 
 function orderNumber() {
   return `BLM-${Date.now().toString().slice(-8)}`;
@@ -40,7 +40,10 @@ export async function handler(event) {
       const addons = Number(body.addon_total || 0);
       const discount = Number(body.discount || 0);
       const subtotal = Math.max(0, flowers + labor + addons - discount);
-      const tax = Number(body.tax || 0);
+      const taxRate = Number(body.tax_rate || 0);
+      const taxable = Math.max(0, flowers + labor + addons - discount);
+      const taxFromRate = Math.round(taxable * (taxRate / 100) * 100) / 100;
+      const tax = Number.isFinite(Number(body.tax)) && Number(body.tax) > 0 ? Number(body.tax) : taxFromRate;
       const deliveryFee = Number(body.delivery_fee || 0);
 
       const payload = {
@@ -183,6 +186,8 @@ export async function handler(event) {
     if (event.httpMethod === "PATCH") {
       const body = bodyOf(event);
       if (!body.id) return json(400, { error: "Missing order id" });
+      const patchValidation = validateOrderPatchBody(body);
+      if (!patchValidation.valid) return json(400, { error: patchValidation.errors[0] });
       if (body.action === "MARK_PAID" || body.action === "MARK_UNPAID") return json(400, { error: "Payment status must be changed by recording a payment or refund in the payment ledger." });
       const payload = {};
       const textFields = ["customer_name","customer_phone","occasion","fulfillment","delivery_address","delivery_date","notes","customer_type","recipient_name","recipient_phone","delivery_window","delivery_instructions","order_source","card_message","arrangement_description","location_type","driver","designer","priority","design_style","color_palette","preferred_flowers","flower_restrictions","addons","payment_method","product_id","status"];
@@ -206,6 +211,42 @@ export async function handler(event) {
       });
       if(data.fulfillment==="DELIVERY"&&data.delivery_address){const deliveryPayload={address:data.delivery_address,driver:data.driver||null,notes:data.delivery_instructions||null,round_trip_miles:Number(data.delivery_miles||0),drive_minutes:Number(data.drive_minutes||0),delivery_date:data.delivery_date||null,delivery_window:data.delivery_window||null,recipient_name:data.recipient_name||null,recipient_phone:data.recipient_phone||null};if(existingDelivery?.id)await client.from("deliveries").update(deliveryPayload).eq("id",existingDelivery.id).eq("shop_id",shopId);else await client.from("deliveries").insert({shop_id:shopId,order_id:data.id,status:"PENDING",...deliveryPayload})}else if(existingDelivery?.id)await client.from("deliveries").delete().eq("id",existingDelivery.id).eq("shop_id",shopId);
       return json(200,{item:data});
+    }
+
+    if (event.httpMethod === "DELETE") {
+      const body = bodyOf(event);
+      if (!body.id) return json(400, { error: "Missing order id" });
+      const { data: order, error: orderError } = await client
+        .from("orders")
+        .select("id,order_number")
+        .eq("id", body.id)
+        .eq("shop_id", shopId)
+        .maybeSingle();
+      if (orderError) throw orderError;
+      if (!order) return json(404, { error: "Order not found." });
+      const { count, error: payError } = await client
+        .from("payments")
+        .select("id", { count: "exact", head: true })
+        .eq("shop_id", shopId)
+        .eq("order_id", body.id);
+      if (payError) throw payError;
+      if (count > 0) {
+        return json(400, {
+          error: "This order has payment history. Refund or adjust payments before deleting the order."
+        });
+      }
+      await client.from("deliveries").delete().eq("shop_id", shopId).eq("order_id", body.id);
+      const { error: deleteError } = await client.from("orders").delete().eq("id", body.id).eq("shop_id", shopId);
+      if (deleteError) throw deleteError;
+      await writeShopAudit(client, {
+        shopId,
+        userId: user.id,
+        eventType: "order_deleted",
+        entityType: "order",
+        entityId: body.id,
+        metadata: { order_number: order.order_number }
+      });
+      return json(200, { ok: true });
     }
 
     return methodNotAllowed();

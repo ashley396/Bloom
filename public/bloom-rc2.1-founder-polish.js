@@ -73,24 +73,10 @@
   function staffCard(x, timeEntries) {
     const entries = (timeEntries || []).filter((e) => e.staff_id === x.id);
     const open = entries.find((e) => !e.clock_out);
-    const clockLabel = open
-      ? `Clocked in ${new Date(open.clock_in).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
-      : entries
-          .filter((e) => e.clock_out)
-          .slice(-1)
-          .map((e) => `Last out ${new Date(e.clock_out).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`)[0] || "Not on clock";
-    return `<article class="card employee-card bloom-staff-card-wrap">
-      <div class="bloom-staff-card">
-        <div class="bloom-avatar" aria-hidden="true">${esc(initials(x.name))}</div>
-        <div class="card-top" style="flex:1;border:none;padding:0">
-          <div><h3>${esc(x.name)}</h3>
-          <div class="meta">${esc(clockLabel)}</div></div>
-          <span class="badge ${open ? "good" : ""}">${open ? "CLOCKED IN" : "CLOCKED OUT"}</span>
-        </div>
-      </div>
+    return `<article class="card employee-card bloom-staff-card-wrap bloom-staff-list-card">
+      <h3 class="bloom-staff-name-only" data-edit-staff="${x.id}" role="button" tabindex="0" title="Open private employee file (PIN required)">${esc(x.name)}</h3>
       <div class="card-actions">
         <button class="primary" data-staff-clock="${x.id}" data-clock-action="${open ? "CLOCK_OUT" : "CLOCK_IN"}">${open ? "Clock out" : "Clock in"}</button>
-        <button class="secondary" data-edit-staff="${x.id}">Employee file (PIN)</button>
       </div>
     </article>`;
   }
