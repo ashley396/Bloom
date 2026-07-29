@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 import { DollarSign, ShoppingBag, Truck, Users } from "lucide-react";
-import { PagePhotoRegistry } from "../components/media/page-photo-registry";
+import {
+  PagePhotoRegistry,
+  validateTodayPhotoAssignments,
+} from "../lib/floral-asset-library";
 import { BusinessSnapshot } from "../components/today/business-snapshot";
 import { DailyInsight } from "../components/today/daily-insight";
 import { DeliveryTimeline } from "../components/today/delivery-timeline";
@@ -12,7 +15,6 @@ import { QuickActions } from "../components/today/quick-actions";
 import { TodayHeader } from "../components/today/today-header";
 import { TodayHeroPhoto } from "../components/today/today-hero-photo";
 import { UpNextCard } from "../components/today/up-next-card";
-import { validateTodayPhotoAssignments } from "../lib/today-photo-assignments";
 import { todayPageData } from "../lib/today-sample";
 
 export function TodayPage() {

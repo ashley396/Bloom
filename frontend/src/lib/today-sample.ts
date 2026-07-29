@@ -1,10 +1,7 @@
 /** Typed sample data for /today — replace with API wiring later. */
 
-import type { FloristryPhotoId } from "./floristry-photo-library";
-import {
-  getTodayPhotoId,
-  type TodayPhotoSlotId,
-} from "./today-photo-assignments";
+import type { FloralAssetId, TodayPhotoSlotId } from "./floral-asset-library";
+import { getTodayPhotoId } from "./floral-asset-library";
 
 export type TodaySummaryMetrics = {
   ordersToday: number;
@@ -18,7 +15,7 @@ export type UpNextOrder = {
   title: string;
   dueTime: string;
   deliveryNote: string;
-  photoId: FloristryPhotoId;
+  photoId: FloralAssetId;
   photoSlot: TodayPhotoSlotId;
 };
 
@@ -29,7 +26,7 @@ export type DesignQueueOrder = {
   dueTime: string;
   status: "designing" | "waiting" | "ready" | "delivered";
   price: string;
-  photoId: FloristryPhotoId;
+  photoId: FloralAssetId;
   photoSlot: TodayPhotoSlotId;
 };
 
@@ -46,7 +43,7 @@ export type InventoryAlertRow = {
   item: string;
   level: "Low" | "Good" | "Reorder soon";
   quantity: string;
-  photoId: FloristryPhotoId;
+  photoId: FloralAssetId;
   photoSlot: TodayPhotoSlotId;
 };
 

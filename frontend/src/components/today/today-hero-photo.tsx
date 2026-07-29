@@ -1,9 +1,9 @@
-import type { FloristryPhotoId } from "../../lib/floristry-photo-library";
-import { PhotoAsset } from "../media/PhotoAsset";
+import type { FloralAssetId } from "../../lib/floral-asset-library";
+import { PhotoAsset } from "../../lib/floral-asset-library";
 import { cn } from "../../lib/utils";
 
 export type TodayHeroPhotoProps = {
-  photoId: FloristryPhotoId;
+  photoId: FloralAssetId;
   pageSlot: string;
   firstName: string;
   dateLabel: string;

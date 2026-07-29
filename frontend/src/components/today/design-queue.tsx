@@ -1,4 +1,4 @@
-import { PhotoAsset } from "../media/PhotoAsset";
+import { PhotoAsset } from "../../lib/floral-asset-library";
 import { SurfaceCard } from "../ui/surface-card";
 import { cn } from "../../lib/utils";
 import {

@@ -3,7 +3,7 @@ import {
   inventoryLevelTone,
   type InventoryAlertRow,
 } from "../../lib/today-sample";
-import { PhotoAsset } from "../media/PhotoAsset";
+import { PhotoAsset } from "../../lib/floral-asset-library";
 import { SurfaceCard } from "../ui/surface-card";
 
 const toneStyles = {

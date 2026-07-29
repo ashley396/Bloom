@@ -14,8 +14,8 @@ import { usePagePhotoRegistry } from "./page-photo-registry";
  * - On load failure, show a neutral empty state — do not substitute another card’s image.
  */
 
-/** Legacy shop workspace — only for single-image surfaces outside multi-card pages. */
-export const DEFAULT_SHOP_PHOTO = "/assets/auth/luxury-florist-workspace.jpg";
+/** Legacy export — resolved via Floral Asset Library catalog only. */
+export const DEFAULT_SHOP_PHOTO = getFloristryPhotoSrc("workspace-luxury-shop");
 
 export type PhotoAssetProps = {
   /** Preferred: typed catalog asset. */

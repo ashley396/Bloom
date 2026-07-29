@@ -1,6 +1,6 @@
 /**
- * Florisyn typed photo library — one catalog ID maps to exactly one on-disk photograph.
- * Do not use alternate crops of the same source as separate IDs.
+ * @internal File paths exist ONLY in this module. App code must use `@/lib/floral-asset-library`.
+ * Florisyn Floral Asset Library (catalog) — FROZEN architecture; extend IDs, do not redesign.
  */
 
 export type FloristryPhotoCategory =
@@ -33,7 +33,8 @@ export type FloristryPhotoId =
   | "seasonal-sunflowers"
   | "seasonal-tulips"
   | "orchid-elegant"
-  | "premium-chocolate-gift";
+  | "premium-chocolate-gift"
+  | "workspace-luxury-shop";
 
 export type FloristryPhotoRecord = {
   id: FloristryPhotoId;
@@ -157,6 +158,12 @@ export const FLORISTRY_PHOTO_LIBRARY: Record<
     file: `${floristryBase}/premium-chocolate-gift.jpg`,
     category: "mixed-everyday",
     credit: "Reserved slot — add real licensed product photo when gift UI ships",
+  },
+  "workspace-luxury-shop": {
+    id: "workspace-luxury-shop",
+    file: "/assets/auth/luxury-florist-workspace.jpg",
+    category: "workspace",
+    credit: "Florisyn — licensed shop workspace (single-image surfaces only)",
   },
 };
 

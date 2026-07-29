@@ -1,7 +1,7 @@
-import type { FloristryPhotoId } from "./floristry-photo-library";
-import { assertUniquePhotoAssignments } from "./floristry-photo-library";
+import type { FloristryPhotoId } from "../../floristry-photo-library";
+import { assertUniquePhotoAssignments } from "../../floristry-photo-library";
 
-/** Every visible photo slot on `/today` — one unique catalog ID each. */
+/** Every visible photo slot on `/today` — one unique catalog ID each. FROZEN slot map. */
 export type TodayPhotoSlotId =
   | "today.hero"
   | "today.up-next"
@@ -13,10 +13,6 @@ export type TodayPhotoSlotId =
   | "today.inventory.inv-2"
   | "today.inventory.inv-3";
 
-/**
- * Page photo plan — covers required variety (sympathy, hydrangea, roses, mixed,
- * wedding, centerpiece, plant, seasonal) across nine unique photographs.
- */
 export const TODAY_PHOTO_ASSIGNMENTS: Record<TodayPhotoSlotId, FloristryPhotoId> =
   {
     "today.hero": "workspace-hero-bench",
@@ -44,7 +40,6 @@ export function collectTodayPhotoAssignmentEntries(): ReadonlyArray<{
   }));
 }
 
-/** Module load + page mount validation. */
 export function validateTodayPhotoAssignments(pageLabel = "/today"): void {
   assertUniquePhotoAssignments(collectTodayPhotoAssignmentEntries(), pageLabel);
 }

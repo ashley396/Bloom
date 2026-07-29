@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "oxlint",
+    "lint": "oxlint && node scripts/verify-floral-asset-consumption.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -1,4 +1,4 @@
-import { PhotoAsset } from "../media/PhotoAsset";
+import { PhotoAsset } from "../../lib/floral-asset-library";
 import { Button } from "../ui/button";
 import { SurfaceCard } from "../ui/surface-card";
 import type { UpNextOrder } from "../../lib/today-sample";
