@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import crypto from "node:crypto";
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail, requireRoles } from "./_shared/supabase.js";
+import { requireRowShopId } from "./_shared/shop-scope.js";
 import { writeShopAudit } from "./_shared/production.js";
 import {
   PROVIDER_CATALOG,
@@ -512,7 +513,7 @@ export async function handler(event) {
       if (card.expires_at && new Date(card.expires_at) < new Date()) return json(400, { error: "Gift card expired." });
       const v = validateGiftCardRedeem({ balance: card.balance, amount });
       if (!v.valid) return json(400, { error: v.error });
-      await client.from("gift_cards").update({ balance: v.remaining, updated_at: new Date().toISOString() }).eq("id", card.id);
+      await client.from("gift_cards").update({ balance: v.remaining, updated_at: new Date().toISOString() }).eq("shop_id", shopId).eq("id", card.id);
       await client.from("gift_card_transactions").insert({
         shop_id: shopId,
         gift_card_id: card.id,
@@ -545,7 +546,7 @@ export async function handler(event) {
       if (!account) return json(404, { error: "House account not found." });
       const v = validateHouseAccountCharge({ balance: account.balance, credit_limit: account.credit_limit, amount });
       if (!v.valid) return json(400, { error: v.error });
-      await client.from("house_accounts").update({ balance: v.new_balance, updated_at: new Date().toISOString() }).eq("id", accountId);
+      await client.from("house_accounts").update({ balance: v.new_balance, updated_at: new Date().toISOString() }).eq("shop_id", shopId).eq("id", accountId);
       await client.from("house_account_transactions").insert({
         shop_id: shopId,
         house_account_id: accountId,
@@ -662,7 +663,7 @@ export async function handler(event) {
       if (!card) return json(404, { error: "Gift card not found." });
       const v = validateGiftCardReload({ balance: card.balance, amount });
       if (!v.valid) return json(400, { error: v.error });
-      await client.from("gift_cards").update({ balance: v.new_balance, updated_at: new Date().toISOString() }).eq("id", card.id);
+      await client.from("gift_cards").update({ balance: v.new_balance, updated_at: new Date().toISOString() }).eq("shop_id", shopId).eq("id", card.id);
       await client.from("gift_card_transactions").insert({
         shop_id: shopId,
         gift_card_id: card.id,
@@ -705,7 +706,7 @@ export async function handler(event) {
       if (!account) return json(404, { error: "House account not found." });
       if (account.suspended_at) return json(400, { error: "Account is suspended." });
       const newBalance = Math.max(0, Math.round((Number(account.balance) - amount) * 100) / 100);
-      await client.from("house_accounts").update({ balance: newBalance, updated_at: new Date().toISOString() }).eq("id", accountId);
+      await client.from("house_accounts").update({ balance: newBalance, updated_at: new Date().toISOString() }).eq("shop_id", shopId).eq("id", accountId);
       await client.from("house_account_transactions").insert({
         shop_id: shopId,
         house_account_id: accountId,
@@ -887,7 +888,7 @@ export async function handler(event) {
       const shop = await loadShop(client, shopId);
       let customer = null;
       if (link?.customer_id) {
-        const { data: c } = await client.from("customers").select("name,email,phone,sms_consent").eq("id", link.customer_id).maybeSingle();
+        const { data: c } = await client.from("customers").select("name,email,phone,sms_consent").eq("shop_id", shopId).eq("id", link.customer_id).maybeSingle();
         customer = c;
       }
       const delivery = { email: null, sms: null };
@@ -1026,7 +1027,7 @@ export async function handler(event) {
       if (mErr) throw mErr;
       if (!method) return json(404, { error: "Method not found." });
       await client.from("payment_hub_saved_methods").update({ is_default: false }).eq("shop_id", shopId).eq("customer_id", method.customer_id);
-      await client.from("payment_hub_saved_methods").update({ is_default: true }).eq("id", methodId);
+      await client.from("payment_hub_saved_methods").update({ is_default: true }).eq("shop_id", shopId).eq("id", methodId);
       return json(200, { ok: true });
     }
 
@@ -1085,13 +1086,19 @@ export async function handler(event) {
         const { data: o } = await client.from("orders").select("*").eq("shop_id", shopId).eq("id", orderId).maybeSingle();
         order = o;
         if (o?.customer_id) {
-          const { data: c } = await client.from("customers").select("name,email,phone,sms_consent").eq("id", o.customer_id).maybeSingle();
+          const { data: c } = await client.from("customers").select("name,email,phone,sms_consent").eq("shop_id", shopId).eq("id", o.customer_id).maybeSingle();
           customer = c;
         }
       }
       if (body.payment_link_id) {
-        const { data: l } = await client.from("payment_hub_payment_links").select("*").eq("id", body.payment_link_id).maybeSingle();
+        const { data: l } = await client
+          .from("payment_hub_payment_links")
+          .select("*")
+          .eq("shop_id", shopId)
+          .eq("id", body.payment_link_id)
+          .maybeSingle();
         link = l;
+        if (link) requireRowShopId(link, shopId, "Payment link");
       }
       const stop = shouldStopRecovery({ order, link, subscription: null });
       if (stop.stop) return json(200, { stopped: true, reason: stop.reason });
@@ -1144,7 +1151,7 @@ export async function handler(event) {
       const { data: order } = await client.from("orders").select("*").eq("shop_id", shopId).eq("id", orderId).maybeSingle();
       let customer = null;
       if (order?.customer_id) {
-        const { data: c } = await client.from("customers").select("*").eq("id", order.customer_id).maybeSingle();
+        const { data: c } = await client.from("customers").select("*").eq("shop_id", shopId).eq("id", order.customer_id).maybeSingle();
         customer = c;
       }
       const shop = await loadShop(client, shopId);

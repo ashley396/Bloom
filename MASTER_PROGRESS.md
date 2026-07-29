@@ -2,8 +2,8 @@
 
 Single source of truth for roadmap execution. Updated after each completed bundle.
 
-**Last updated:** 2026-07-29 (A1 production deploy executed)  
-**Current phase:** 2A — Security / Admin (A1 frozen & deployed; A2 next)
+**Last updated:** 2026-07-29 (Bundle A2 implementation complete — awaiting deploy approval)  
+**Current phase:** 2A — Security / Admin (A1 frozen & deployed; **A2 ready for review**; A3 next)
 
 ---
 
@@ -11,7 +11,7 @@ Single source of truth for roadmap execution. Updated after each completed bundl
 
 | Scope | % | Notes |
 |-------|---|--------|
-| Phase 2A (all bundles) | ~17% | Bundle A1 complete; A2–A5 pending |
+| Phase 2A (all bundles) | ~33% | Bundle A1 complete; **A2 complete (code)**; A3–A5 pending |
 | Full Closed Beta roadmap (2A–2G) | ~8% | |
 
 ---
@@ -166,9 +166,88 @@ Body field only: `bootstrapSecret` (no request headers).
 - Rate limits are per Netlify isolate (documented; same as auth-login).
 - If `PLATFORM_BOOTSTRAP_SECRET` is missing in production and open bootstrap is false, **first-time POST returns 503** until env is set.
 
+---
+
+## Bundle A2 — Auth, JWT / RLS, staff PIN, payment scoping
+
+**Status:** ✅ **Code complete** — **Not deployed** (awaiting approval)
+
+### Scope delivered
+
+| ID | Deliverable |
+|----|-------------|
+| A2.1 | **JWT-first `currentUser()`** — member `userClient(token)` only; `usesServiceRole: false`; Tier-3 routes still use explicit `admin()` |
+| A2.2 | **`staff_time_entries` RLS** — forward-only migration `20260729_phase2a_a2_staff_time_entries_rls_v1.sql` |
+| A2.3 | **Staff PIN hardening** — rate limit PIN actions; list staff without sensitive columns; PIN hash never returned |
+| A2.4 | **Payment Hub tenant scoping** — `shop_id` on mutating queries; customers/links scoped; `requireRowShopId` helper |
+| A2.5 | **Onboarding auth alignment** — `complete-florist-onboarding` accepts publishable or anon key |
+| A2.6 | Docs + tests — `FUNCTION-ACCESS-TIERS.md`, `SECURITY-REVIEW.md`, `tests/platform-a2.test.js` |
+
+### Files changed
+
+| File | Why |
+|------|-----|
+| `netlify/functions/_shared/supabase.js` | JWT-first `currentUser()` (no service-role bypass) |
+| `netlify/functions/_shared/saas.js` | `authenticatedUser()` matches JWT-first pattern |
+| `netlify/functions/_shared/shop-scope.js` | **New** — cross-shop row guard |
+| `netlify/functions/staff.js` | PIN rate limit; narrow staff SELECT columns |
+| `netlify/functions/payment-hub.js` | Shop-scoped updates and customer/link reads |
+| `netlify/functions/complete-florist-onboarding.js` | `resolveSupabaseClientKey()` |
+| `supabase/migrations/20260729_phase2a_a2_staff_time_entries_rls_v1.sql` | **New** — RLS on `staff_time_entries` |
+| `tests/platform-a2.test.js` | **New** — scope + migration smoke |
+| `docs/production/FUNCTION-ACCESS-TIERS.md` | Tier 1 JWT/RLS note |
+| `docs/production/SECURITY-REVIEW.md` | Authentication row updated |
+
+### Database changes
+
+| Item | Action |
+|------|--------|
+| `20260729_phase2a_a2_staff_time_entries_rls_v1.sql` | **Apply in Supabase before/ with A2 deploy** — enables RLS + `is_shop_member(shop_id)` policy on `staff_time_entries` |
+
+No other schema changes. **`pin_hash`** column already live (v22.1).
+
+### Netlify environment variables
+
+**No new variables.** Existing required:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY` and/or `SUPABASE_PUBLISHABLE_KEY` (florist JWT paths)
+- Service role/secret still required only for Tier-0/3 functions (`admin()`, webhooks, public pay links)
+
+### Automated testing
+
+| Command | Result (local) |
+|---------|----------------|
+| `npm run check` | Run before deploy |
+| `node --test tests/*.test.js` | Run before deploy (includes `platform-a2.test.js`) |
+
+### Manual QA checklist (operator)
+
+- [ ] Apply `20260729_phase2a_a2_staff_time_entries_rls_v1.sql` on staging/production Supabase
+- [ ] Florist login → dashboard → create/view order (unchanged)
+- [ ] Staff list shows names/roles only (`pin_set` boolean, no hash)
+- [ ] Employee PIN clock in/out works for manager after RLS migration
+- [ ] 12+ wrong PINs within 1 min → **429** on staff PIN actions
+- [ ] Payment Hub gift card / house account / saved-method actions still work for active shop
+- [ ] `complete-florist-onboarding` works with publishable key env (if anon renamed)
+- [ ] HQ / webhooks / `admin-bootstrap` still work (service role paths untouched)
+
+### Regression risk
+
+| Area | Level | Mitigation |
+|------|-------|------------|
+| Florist routes after JWT-first | Medium | Apply staff_time_entries RLS migration; smoke test staff + orders |
+| Shops missing RLS on other tables | Low | Unchanged tables; payment hub still code-scoped by `shop_id` |
+| A1 admin bootstrap | None | Not modified |
+
+### Rollback plan
+
+1. Netlify → redeploy previous build (pre-A2).  
+2. Git revert A2 commit(s).  
+3. SQL: policy can remain (harmless) or `drop policy` + `disable row level security` on `staff_time_entries` only if emergency (not recommended).
+
 ### Remaining Phase 2A work
 
-- **A2** — Auth, JWT, RLS (`currentUser`, staff PIN, `staff_time_entries`, payment scoping)
 - **A3** — Payments & public endpoints (payment-link payload, webhooks)
 - **A4** — Validation & unified `fail()`
 - **A5** — Shop creation column alignment + onboarding path cleanup
@@ -177,5 +256,6 @@ Body field only: `bootstrapSecret` (no request headers).
 
 ## Next step
 
-**A1:** Frozen — deploy when ready (see deployment status above).  
-**A2:** Implementation plan drafted (JWT-first `currentUser`, `staff_time_entries` RLS, PIN hardening, payment-hub `shop_id` scoping). **Awaiting approval:** `Approved — proceed with A2 implementation` — no code until then.
+**A1:** Frozen — deployed.  
+**A2:** **Awaiting approval to deploy** (code + migration script ready).  
+**A3:** Not started.

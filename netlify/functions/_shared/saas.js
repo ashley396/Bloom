@@ -1,6 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 import {
-  adminIfConfigured,
   userClient,
   resolveSupabaseServerKey,
   FOUNDER_SERVER_KEY_HINT
@@ -39,15 +38,14 @@ export async function authenticatedUser(event) {
     throw error;
   }
   const token = auth.slice(7);
-  const adminClient = adminIfConfigured();
-  const client = adminClient ?? userClient(token);
+  const client = userClient(token);
   const { data, error } = await client.auth.getUser(token);
   if (error || !data.user) {
     const err = new Error("Your session expired. Please sign in again.");
     err.statusCode = 401;
     throw err;
   }
-  return { client, user: data.user, usesServiceRole: Boolean(adminClient) };
+  return { client, user: data.user, usesServiceRole: false };
 }
 
 export function json(statusCode, body) {

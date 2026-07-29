@@ -18,7 +18,7 @@ No shop JWT. May use rate limits and tokens in URL/body.
 
 ## Tier 1 — Shop member (Bearer JWT + `currentUser`)
 
-Florist app. Queries scoped by `shop_id` and role.
+Florist app. Queries scoped by `shop_id` and role. **A2:** `currentUser()` always uses the member JWT + anon/publishable key (RLS); it does not upgrade to the service role.
 
 All standard CRUD: `orders`, `customers`, `inventory`, `dashboard`, `settings`, `payment-hub`, `marketplace`, etc.
 

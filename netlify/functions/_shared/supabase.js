@@ -107,18 +107,33 @@ export function adminIfConfigured() {
 function denied(message,statusCode=403){const e=new Error(message);e.statusCode=statusCode;throw e}
 function isMissingColumnError(error,column="status"){const msg=String(error?.message||error||"").toLowerCase();return msg.includes(column.toLowerCase())&&(msg.includes("column")||msg.includes("schema cache"))}
 async function activeMembership(client,userId,preferredShopId){const base=()=>client.from("shop_members").select("shop_id,role,status").eq("user_id",userId);let membership=null;if(preferredShopId){let r=await base().eq("shop_id",preferredShopId).eq("status","active").maybeSingle();if(r.error&&isMissingColumnError(r.error,"status"))r=await base().eq("shop_id",preferredShopId).maybeSingle();if(r.error)throw r.error;membership=r.data}if(!membership){let r=await base().eq("status","active").order("created_at",{ascending:true}).limit(1).maybeSingle();if(r.error&&isMissingColumnError(r.error,"status"))r=await base().order("created_at",{ascending:true}).limit(1).maybeSingle();if(r.error)throw r.error;membership=r.data}return membership}
-export async function currentUser(event){
- const auth=event.headers.authorization||event.headers.Authorization||"";
- if(!auth.startsWith("Bearer "))denied("Please sign in",401);
- const token=auth.slice(7);
- const adminClient=adminIfConfigured();
- const client=adminClient??userClient(token);
- const {data,error}=await client.auth.getUser(token);
- if(error||!data.user)denied("Your session expired. Please sign in again.",401);
- const {data:profile,error:profileError}=await client.from("profiles").select("default_shop_id").eq("id",data.user.id).maybeSingle();if(profileError)throw profileError;
- const membership=await activeMembership(client,data.user.id,profile?.default_shop_id);
- if(!membership)denied("This account does not have an active Florisyn shop membership.");
- return{client,user:data.user,shopId:membership.shop_id,role:String(membership.role||"staff").toLowerCase(),membership,usesServiceRole:Boolean(adminClient)}
+/**
+ * Florist session: JWT + member-scoped Supabase client (RLS enforced).
+ * Phase 2A A2 — does not use service role; Tier-3 routes call admin() explicitly.
+ */
+export async function currentUser(event) {
+  const auth = event.headers.authorization || event.headers.Authorization || "";
+  if (!auth.startsWith("Bearer ")) denied("Please sign in", 401);
+  const token = auth.slice(7);
+  const client = userClient(token);
+  const { data, error } = await client.auth.getUser(token);
+  if (error || !data.user) denied("Your session expired. Please sign in again.", 401);
+  const { data: profile, error: profileError } = await client
+    .from("profiles")
+    .select("default_shop_id")
+    .eq("id", data.user.id)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  const membership = await activeMembership(client, data.user.id, profile?.default_shop_id);
+  if (!membership) denied("This account does not have an active Florisyn shop membership.");
+  return {
+    client,
+    user: data.user,
+    shopId: membership.shop_id,
+    role: String(membership.role || "staff").toLowerCase(),
+    membership,
+    usesServiceRole: false
+  };
 }
 export function requireRoles(context,roles){if(!roles.includes(context.role))denied("You do not have permission to perform this action.")}
 export function fail(error){structuredLog("error","function_error",{message:error.message,status:error.statusCode||500});console.error("Florisyn function error:",error);return{statusCode:error.statusCode||500,headers:{"Content-Type":"application/json","Cache-Control":"no-store"},body:JSON.stringify({error:safePublicError(error)})}}

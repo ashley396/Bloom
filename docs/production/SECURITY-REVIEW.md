@@ -4,7 +4,7 @@
 
 | Control | Implementation |
 |---------|----------------|
-| Authentication | Bearer JWT via `currentUser()` / Supabase `getUser` |
+| Authentication | Bearer JWT via `currentUser()` → **member-scoped** Supabase client (`userClient`); RLS enforced on florist routes (Phase 2A A2). Tier-3/webhooks use `admin()` |
 | Platform admin | `platformAdmin()` for Command Center; high-impact mutations require `super_admin` (Closed Beta) |
 | Platform bootstrap | `admin-bootstrap` POST locked after first owner; secret + rate limits — see [FUNCTION-ACCESS-TIERS.md](./FUNCTION-ACCESS-TIERS.md) |
 | Tenant isolation | `shop_id` on queries/mutations for florist data |
