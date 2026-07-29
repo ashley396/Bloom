@@ -99,7 +99,15 @@ export function mapManualPaymentError(error) {
   if (code === "PGRST202" || /Could not find the function.*post_order_payment/i.test(msg)) {
     return {
       statusCode: 503,
-      message: "Payment posting is not available on this database yet. Contact Florisyn support."
+      message:
+        "Payment posting is not available on this database yet. Apply migration supabase/migrations/20260729_post_order_payment_v185.sql in Supabase, then reload the API schema."
+    };
+  }
+  if (/relation "public\.payments" does not exist/i.test(msg) || /Could not find the table 'public.payments'/i.test(msg)) {
+    return {
+      statusCode: 503,
+      message:
+        "The payments ledger table is missing in Supabase. Apply migration supabase/migrations/20260729_post_order_payment_v185.sql before recording cash payments."
     };
   }
   return null;
@@ -123,4 +131,60 @@ export function derivePaymentTotalsFromOrder(order) {
   );
   const status = String(order?.payment_status || "UNPAID").toUpperCase();
   return { total, paid, balance, status };
+}
+
+export const SPLIT_TENDER_LABELS = ["Cash", "Check", "Card", "Other"];
+
+export function normalizeSplitPartMethod(method) {
+  const m = String(method || "Other").trim();
+  if (SPLIT_TENDER_LABELS.includes(m)) return m;
+  if (m === "Stripe") return "Card";
+  return "Other";
+}
+
+/** Validate split parts against current balance (allows partial; blocks overpay). */
+export function validateSplitPaymentParts(order, parts = []) {
+  const errors = [];
+  const { total, paid, balance } = derivePaymentTotalsFromOrder(order);
+  if (!Array.isArray(parts) || !parts.length) {
+    errors.push("Add at least one payment part.");
+    return { valid: false, errors, total, paid, balance, splitTotal: 0, remainingAfter: balance, parts: [] };
+  }
+  const normalized = parts.map((p, index) => {
+    const method = normalizeSplitPartMethod(p.method);
+    const amount = Math.round(Number(p.amount || 0) * 100) / 100;
+    const note = String(p.note || p.reference || "").trim().slice(0, 200);
+    const idempotencyKey = String(p.idempotency_key || p.idempotencyKey || "").trim() || null;
+    return { index, method, amount, note, idempotencyKey };
+  });
+  for (const p of normalized) {
+    if (!Number.isFinite(p.amount) || p.amount <= 0) errors.push(`Part ${p.index + 1}: enter an amount greater than zero.`);
+  }
+  const manualParts = normalized.filter((p) => p.method !== "Card");
+  const splitTotalAll = Math.round(normalized.reduce((s, p) => s + p.amount, 0) * 100) / 100;
+  const splitTotalManual = Math.round(manualParts.reduce((s, p) => s + p.amount, 0) * 100) / 100;
+  if (splitTotalAll > balance + 0.005) {
+    errors.push(`Split total (${splitTotalAll.toFixed(2)}) cannot exceed the remaining balance (${balance.toFixed(2)}).`);
+  }
+  const cardParts = normalized.filter((p) => p.method === "Card");
+  const remainingAfter = Math.max(0, Math.round((balance - splitTotalManual) * 100) / 100);
+  return {
+    valid: errors.length === 0,
+    errors,
+    total,
+    paid,
+    balance,
+    splitTotal: splitTotalAll,
+    splitTotalManual,
+    remainingAfter,
+    parts: normalized,
+    cardParts
+  };
+}
+
+export function buildSplitPartMetadata(part, splitBatchId) {
+  const meta = { source: "Florisyn split payment", split_batch_id: splitBatchId };
+  if (part.note) meta.note = part.note;
+  if (part.method === "Card") meta.deferred_checkout = true;
+  return meta;
 }

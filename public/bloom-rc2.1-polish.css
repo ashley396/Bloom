@@ -298,6 +298,40 @@ body.bloom-rc21 .order-form-hint {
 body.bloom-rc21 .order-form-shortcuts {
   margin: -4px 0 12px;
 }
+body.bloom-rc21 .split-payment-dialog form {
+  padding: 22px;
+  max-width: 520px;
+}
+body.bloom-rc21 .split-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+body.bloom-rc21 .split-summary-grid span {
+  display: block;
+  font-size: 11px;
+  color: #7e707a;
+}
+body.bloom-rc21 .split-payment-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid #eadde5;
+}
+body.bloom-rc21 .split-payment-row label {
+  margin: 0;
+}
+body.bloom-rc21 .split-totals-foot {
+  margin-top: 10px;
+  font-size: 13px;
+}
+body.bloom-rc21 .receipt-tenders {
+  margin: 8px 0;
+  padding-top: 6px;
+  border-top: 1px dashed #ccc;
+}
 body.bloom-rc21 .bloom-staff-list-card {
   display: flex;
   align-items: center;

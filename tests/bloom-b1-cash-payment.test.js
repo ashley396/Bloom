@@ -85,11 +85,17 @@ test("permission denied on post_order_payment maps to safe message", () => {
   assert.match(mapped.message, /secure server connection/i);
 });
 
-test("payments function uses service role for post_order_payment after shop check", () => {
+test("payments function uses service role and executePostOrderPayment after shop check", () => {
   const src = fs.readFileSync(new URL("../netlify/functions/payments.js", import.meta.url), "utf8");
-  assert.match(src, /admin\(\)/);
-  assert.match(src, /\.rpc\("post_order_payment"/);
+  assert.match(src, /resolveServiceClient/);
+  assert.match(src, /executePostOrderPayment/);
   assert.match(src, /\.eq\("shop_id", shopId\)/);
+});
+
+test("PGRST202 maps to payment posting unavailable when RPC path fails without fallback", () => {
+  const mapped = mapManualPaymentError({ code: "PGRST202", message: "Could not find the function" });
+  assert.equal(mapped.statusCode, 503);
+  assert.match(mapped.message, /Payment posting is not available/i);
 });
 
 test("House Account tender maps to Other for payments table constraint", () => {
