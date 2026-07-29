@@ -12,11 +12,11 @@ export function AppShell({ children, sidebar, header }: AppShellProps) {
     <div className="min-h-svh bg-florisyn-cream dark:bg-florisyn-cream">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:shadow-[var(--shadow-soft)]"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-florisyn-surface focus:px-4 focus:py-2 focus:shadow-card"
       >
         Skip to main content
       </a>
-      <div className="mx-auto flex min-h-svh max-w-[1400px] flex-col lg:flex-row">
+      <div className="mx-auto flex min-h-svh max-w-[1600px] flex-col lg:flex-row">
         <aside
           className={cn(
             "border-b border-florisyn-sage-100 bg-florisyn-surface lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-r dark:border-florisyn-sage-100",
@@ -34,7 +34,7 @@ export function AppShell({ children, sidebar, header }: AppShellProps) {
           ) : null}
           <main
             id="main-content"
-            className="flex-1 px-4 py-6 md:px-6 lg:px-8"
+            className="flex-1 px-4 py-8 md:px-8 md:py-10 lg:px-10 lg:py-12"
             tabIndex={-1}
           >
             {children}
