@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+
+  --color-florisyn-sage-50: #f4f7f5;
+  --color-florisyn-sage-100: #e3ebe6;
+  --color-florisyn-sage-500: #6b8f7a;
+  --color-florisyn-sage-700: #4a6b59;
+  --color-florisyn-sage-900: #2d4035;
+
+  --color-florisyn-cream: #faf8f5;
+  --color-florisyn-ink: #1a1f1c;
+  --color-florisyn-muted: #5c6560;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 1rem;
+
+  --shadow-soft: 0 4px 24px -4px rgb(26 31 28 / 0.08);
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply m-0 min-h-svh bg-florisyn-cream font-sans text-florisyn-ink antialiased;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-florisyn-sage-500;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  .motion-safe-transition {
+    @apply motion-safe:transition-[transform,opacity,box-shadow] motion-safe:duration-200 motion-safe:ease-out;
+  }
+}
