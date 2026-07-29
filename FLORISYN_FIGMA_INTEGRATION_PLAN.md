@@ -185,3 +185,84 @@ Each phase is a small, reviewable PR; no broad implementation until this plan is
 4. Confirmation on licensed floral photography source (from `FLORISYN_IMAGE_SYSTEM.md`) for any stock imagery.
 
 No broad implementation will begin until this plan is reviewed and approved.
+
+---
+
+# PART 2 — Figma inspection results (visual source of truth)
+
+The approved Figma Make preview was opened and inspected in a browser (all routes navigated; screenshots captured). §0's blocking dependency is resolved. Screenshots: `figma_dashboard.webp`, `figma_pos.webp`, `figma_orders.webp`, `figma_inventory.webp`, `figma_reports.webp`, `figma_settings.webp`, `figma_order_detail_drawer.webp` (in the walkthrough). Note: exact token values should still be confirmed via Figma **Dev Mode**; values below are measured-by-eye starting points.
+
+> The preview's top bar shows "Sign up with email"/"Continue with Google" — that is **Figma Make preview chrome**, not part of the Florisyn app design; excluded from the build. Please confirm.
+
+## 2.1 Figma screen inventory
+Persistent **left sidebar** grouped into sections, plus a top bar (search "Search anything…", help, user profile "Ashley Monroe" bottom-left). Nav items (in order):
+- **Overview:** Dashboard
+- **Operations:** Orders, POS, Deliveries, **Calendar**
+- **Customers:** Customers, Invoices
+- **Flowers:** Inventory
+- **Business:** Reports, **Marketing**
+- **Team:** Employees
+- **Intelligence:** Lily AI, Rose AI
+- **Bottom:** Settings
+
+Screens documented (14 + a right-side **Order Detail drawer**): Dashboard (Lily card + 6 stat cards + recent orders + inventory alerts), Orders (filter pills by status, table, Lily insight banner), POS (product catalog grid w/ category photo chips + right-hand order panel: customer search, occasion, recipient, card message, pickup/delivery toggle, notes, items, totals, actions), Deliveries (route timeline cards), Calendar (month view w/ events), Customers (cards w/ stats + call/email), Invoices (summary cards + list + send), Inventory (photo cards w/ stock bar, category badges, cost/retail/margin, reorder/price), Reports (line/donut/bar charts + KPI cards), Marketing (campaigns list + templates), Employees/Team (member cards), Lily AI (chat), Rose AI (insight cards), Settings (shop details + notification toggles).
+
+## 2.2 Observed design tokens (starting values — confirm in Dev Mode)
+- **Colors:** primary sage green `~#7A9B76`; light green surface `~#E8F1E6`; page bg `~#FAFAF8`; card `#FFFFFF`; input bg `~#F8F6F3`; text primary `~#2C2C2C`, secondary `~#8B8B8B`, tertiary `~#B8B8B8`; status: green (success/ready/delivered), orange (in-progress/low), red (critical/none), blue (pending), purple (accent).
+- **Typography:** serif headings (Playfair Display-like), sans-serif body (Inter-like). Confirm exact families/weights/sizes from Dev Mode.
+- **Radius:** buttons ~8px, cards ~12px, inputs ~6px, badges/avatars pill/round.
+- **Shadows:** soft, low-opacity (≈ `0 2px 8px rgba(0,0,0,.08)`).
+- **Spacing:** generous; card-based grids (2–3 cols) collapsing to 1 col on small screens.
+
+## 2.3 Component inventory (from Figma → maps to §3 component list)
+App shell + grouped sidebar + top bar; page headers (title + subtitle + primary action); buttons (primary green, secondary outlined, icon buttons); inputs; selects ("Sort: …"); search fields; **filter pills/tabs with counts**; cards (stat, product, customer, delivery-timeline, insight, employee); tables (Orders, Invoices); status badges (color-coded); **right-side drawer** (Order Detail) as the modal pattern; alert/insight banners (Lily); avatars (initials, pastel); charts (line/donut/bar) on Reports; toggle switches (Settings). Empty/loading/error/permission states were not all visible → §2.5.
+
+## 2.4 Refined Figma → code mapping (screen → route/component → data → status + states)
+
+| Figma screen | Existing route/component | Backend data/functions | Status | States to add |
+|---|---|---|---|---|
+| Dashboard | `dashboardPage`/`loadDashboard` | `GET /api/dashboard` | Preserve + New-UI | loading, error, empty |
+| Orders (+filter pills) | `ordersPage`/`loadOrders` + `orderDialog` | `orders`, `deliveries`, `recipes` | Preserve + New-UI | loading, empty, error, per-status filters |
+| Order Detail drawer | `receiptDialog`/order render | order data, `verify-checkout` | Rewire (drawer pattern) | loading, error |
+| POS | `paymentsPage` + product pad + `quickPriceForm` | `orders`,`payments`,`create-checkout`,`verify-checkout`,`customers`,`products`,`settings` | Preserve + Rewire | empty cart, payment pending/success/error |
+| Deliveries (timeline) | `deliveriesPage`/`loadDeliveries` | `deliveries`, `route-distance` | Preserve + New-UI | empty, error, no-route |
+| **Calendar** | *(none today)* | derive from `orders.delivery_date`/`deliveries` | **New-UI (no new backend)** | empty, loading |
+| Customers | `customersPage`/`loadCustomers` | `customers`, `customer-insights` | Preserve + New-UI | empty, loading, error |
+| Invoices | `invoicesPage`/`loadInvoices` | orders/`payments` | Preserve + New-UI | empty, past-due, error |
+| Inventory | `inventoryPage`/`loadInventory` | `inventory` (+`inventory-scan` pending) | Preserve + New-UI | empty, low/critical, error |
+| Reports (charts) | `reportsPage`/`loadReports` | `finance` | Preserve + New-UI (add charts) | loading, empty |
+| Marketing | `websitePage`/`loadWebsite` + static site | `settings`, Netlify Forms | Preserve + New-UI | draft/scheduled/sent |
+| Employees/Team | `staffPage`/`loadStaff` + `staffForm` | `staff`, Stage 2A `staff_time_entries` (owner/mgr vs self) | Preserve + New-UI | **permission-denied** (payroll), empty |
+| Lily AI (chat) | `bloomshotPage` + assistant | `ai-assistant`,`ai-context`,`content-helper`,local bridge | Rewire (+fix `ai-context`) | loading, offline (AI down) |
+| Rose AI (insights) | *(part of bloomshot)* | `ai-assistant`/`content-helper` | Rewire | loading, empty |
+| Settings | `settingsPage`/`loadSettings` + `stripe-connect` | `settings`,`stores`,`stripe-connect`,subscriptions | Preserve + New-UI | saving, error, permission |
+
+## 2.5 Missing screens / states (to resolve before/within the relevant phase)
+- **Calendar** exists in Figma but has **no backend** today → build from existing `orders.delivery_date`/`deliveries` (no schema change); confirm scope.
+- **Not shown in the Figma** but present in the app (decision needed — see §2.6): Products & Recipe builder, Floral Library, Marketplace (wholesale), multi-store/shop switcher, onboarding wizard, subscription/billing UI, admin console.
+- **States generally absent from the preview** and required (rule #4 in prompt): loading skeletons, error states, empty states, success/confirmation toasts, and **permission-denied** states (critical for Team/payroll per Stage 2A). These will be designed as shared components and applied everywhere.
+- **Responsive/mobile nav** wasn't demonstrable in the preview → the mobile navigation (collapsed sidebar/hamburger + drawer) will be built to match the desktop system; confirm any mobile frames exist in Figma.
+
+## 2.6 Existing features WITHOUT a Figma screen (must be preserved — rule #5)
+Products/recipes, Floral Library, Marketplace, Stores/shop-switch, onboarding, subscription/billing, admin console. Options per item (need your call): (a) design later (keep functional, lightly styled with the new tokens in the interim), or (b) fold into an existing Figma screen (e.g., Products under Inventory/POS). **None will be removed or turned into dead controls.**
+
+## 2.7 Accessibility plan (rule #11)
+Semantic landmarks (`<nav> <main> <header>`), every control labelled (`<label for>`/`aria-label`), keyboard operability for nav/menus/drawer/dialogs (native `<dialog>` focus trap, ESC to close), visible `:focus-visible` rings in a brand token, WCAG-AA contrast (verify the sage-green-on-white and badge colors meet 4.5:1 for text / 3:1 for large/UI), ≥44px touch targets, charts get text/table alternatives, images get meaningful `alt`. Automated checks (axe/Lighthouse) + a keyboard-only manual pass per screen.
+
+## 2.8 Preview plan (rules #10, #18)
+Local only: `netlify dev --offline` + local Supabase (per `AGENTS.md`). Per phase I'll capture `computerUse` screenshots/short video at desktop/laptop/tablet/mobile widths and post them here for approval before moving on. Each screen compared side-by-side with its Figma frame. Regression checks confirm preserved features still work against real local data (no mock data, rule #6).
+
+## 2.9 Deployment plan (minimize Netlify usage — rule #19)
+- **No production deploys during integration** (rule #10/#17); all review via local previews.
+- Batch approved phases and deploy in **one Netlify build** per approved tranche (e.g., design system + shell + first pages together), not per-page. Because the frontend is static + esbuild-bundled functions, a single deploy ships everything touched.
+- Target **≤ 2–3 total deploys** for the whole integration: (1) after design-system + shell + Dashboard/POS/Orders are approved, (2) after the remaining pages, (3) a final polish pass — adjustable to your credit budget.
+
+## 2.10 Open questions for approval
+1. Confirm the no-framework approach (CSS tokens + native ES-module components) vs introducing a bundler/framework.
+2. Confirm the top-bar auth buttons are preview chrome to exclude.
+3. Decide handling for the §2.6 features not in the Figma (design later vs fold-in).
+4. Confirm Calendar scope (derive from orders/deliveries, no new backend).
+5. Provide Figma **Dev Mode** access or a token export so exact colors/type/spacing match precisely.
+6. Approve the small in-scope fixes: blank-SPA bootstrap, `ai-context` identifiers, emoji→image component.
+
+No broad implementation will begin until this plan is approved.
