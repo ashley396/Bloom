@@ -1,5 +1,10 @@
 /** Typed sample data for /today — replace with API wiring later. */
 
+import {
+  FLORISTRY_PHOTOS,
+  TODAY_PAGE_PHOTOS,
+} from "./floristry-photos";
+
 export type TodaySummaryMetrics = {
   ordersToday: number;
   deliveries: number;
@@ -13,6 +18,7 @@ export type UpNextOrder = {
   dueTime: string;
   deliveryNote: string;
   photoSrc?: string | null;
+  photoFallbackSrc?: string | null;
 };
 
 export type DesignQueueOrder = {
@@ -23,6 +29,7 @@ export type DesignQueueOrder = {
   status: "designing" | "waiting" | "ready" | "delivered";
   price: string;
   photoSrc?: string | null;
+  photoFallbackSrc?: string | null;
 };
 
 export type DeliveryScheduleStop = {
@@ -38,6 +45,8 @@ export type InventoryAlertRow = {
   item: string;
   level: "Low" | "Good" | "Reorder soon";
   quantity: string;
+  photoSrc?: string | null;
+  photoFallbackSrc?: string | null;
 };
 
 export type QuickActionId =
@@ -61,6 +70,10 @@ export const todayPageData = {
     shopName: "Lilies in Bloom",
   },
   dateLabel: "Wednesday, July 29, 2026",
+  heroPhoto: {
+    src: TODAY_PAGE_PHOTOS.hero.src,
+    fallbackSrc: FLORISTRY_PHOTOS.seasonalSpring.src,
+  },
   metrics: {
     ordersToday: 14,
     deliveries: 5,
@@ -72,7 +85,8 @@ export const todayPageData = {
     title: "Sympathy arrangement",
     dueTime: "10:00 AM",
     deliveryNote: "Delivery to Johnson Funeral Home",
-    photoSrc: null,
+    photoSrc: TODAY_PAGE_PHOTOS.upNext.src,
+    photoFallbackSrc: FLORISTRY_PHOTOS.everydayMixed.src,
   } satisfies UpNextOrder,
   designQueue: [
     {
@@ -82,7 +96,8 @@ export const todayPageData = {
       dueTime: "10:00 AM",
       status: "designing",
       price: "$185.00",
-      photoSrc: null,
+      photoSrc: TODAY_PAGE_PHOTOS.designQueue["dq-1"].src,
+      photoFallbackSrc: FLORISTRY_PHOTOS.rosesRed.src,
     },
     {
       id: "dq-2",
@@ -91,7 +106,8 @@ export const todayPageData = {
       dueTime: "11:30 AM",
       status: "waiting",
       price: "$92.00",
-      photoSrc: null,
+      photoSrc: TODAY_PAGE_PHOTOS.designQueue["dq-2"].src,
+      photoFallbackSrc: FLORISTRY_PHOTOS.tulipsSpring.src,
     },
     {
       id: "dq-3",
@@ -100,7 +116,8 @@ export const todayPageData = {
       dueTime: "12:15 PM",
       status: "ready",
       price: "$128.00",
-      photoSrc: null,
+      photoSrc: TODAY_PAGE_PHOTOS.designQueue["dq-3"].src,
+      photoFallbackSrc: FLORISTRY_PHOTOS.orchidElegant.src,
     },
     {
       id: "dq-4",
@@ -109,7 +126,8 @@ export const todayPageData = {
       dueTime: "2:00 PM",
       status: "waiting",
       price: "$340.00",
-      photoSrc: null,
+      photoSrc: TODAY_PAGE_PHOTOS.designQueue["dq-4"].src,
+      photoFallbackSrc: FLORISTRY_PHOTOS.sunflowers.src,
     },
   ] satisfies DesignQueueOrder[],
   deliverySchedule: [
@@ -156,9 +174,30 @@ export const todayPageData = {
     dismissAction: "Dismiss",
   },
   inventoryAlerts: [
-    { id: "inv-1", item: "White Roses", level: "Low", quantity: "18 stems" },
-    { id: "inv-2", item: "Hydrangeas", level: "Good", quantity: "42 stems" },
-    { id: "inv-3", item: "Leatherleaf", level: "Reorder soon", quantity: "24 stems" },
+    {
+      id: "inv-1",
+      item: "White Roses",
+      level: "Low",
+      quantity: "18 stems",
+      photoSrc: TODAY_PAGE_PHOTOS.inventory["inv-1"].src,
+      photoFallbackSrc: FLORISTRY_PHOTOS.weddingFlowers.src,
+    },
+    {
+      id: "inv-2",
+      item: "Hydrangeas",
+      level: "Good",
+      quantity: "42 stems",
+      photoSrc: TODAY_PAGE_PHOTOS.inventory["inv-2"].src,
+      photoFallbackSrc: FLORISTRY_PHOTOS.gardenHarmony.src,
+    },
+    {
+      id: "inv-3",
+      item: "Leatherleaf",
+      level: "Reorder soon",
+      quantity: "24 stems",
+      photoSrc: TODAY_PAGE_PHOTOS.inventory["inv-3"].src,
+      photoFallbackSrc: FLORISTRY_PHOTOS.seasonalSpring.src,
+    },
   ] satisfies InventoryAlertRow[],
   quickActions: [
     { id: "new-order" as const, label: "New Order" },

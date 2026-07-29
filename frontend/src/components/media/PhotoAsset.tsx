@@ -2,6 +2,9 @@ import { useMemo, useState } from "react";
 import { cn } from "../../lib/utils";
 
 /**
+ * Florisyn photography policy (all screens):
+ * - Real professional floral photography only; never repeat the same file on one page.
+ * - No food/balloons in photo slots except a single premium chocolate gift add-on when applicable.
  * Licensed professional default — never AI-generated floral art.
  * Florists can override via `src` or `floristLibrarySrc`.
  */
@@ -18,6 +21,8 @@ export type PhotoAssetProps = {
   className?: string;
   aspect?: "video" | "square" | "portrait" | "auto";
   priority?: boolean;
+  /** When true, do not fall back to the shared shop workspace photo (avoids duplicate “hero” on a page). */
+  suppressShopDefault?: boolean;
 };
 
 const aspectClass: Record<NonNullable<PhotoAssetProps["aspect"]>, string> = {
@@ -35,21 +40,29 @@ export function PhotoAsset({
   className,
   aspect = "video",
   priority = false,
+  suppressShopDefault = false,
 }: PhotoAssetProps) {
   const chain = useMemo(
     () =>
       [
         ...new Set(
-          [src, floristLibrarySrc, licensedFallbackSrc, DEFAULT_SHOP_PHOTO].filter(
-            Boolean,
-          ),
+          [
+            src,
+            floristLibrarySrc,
+            licensedFallbackSrc,
+            suppressShopDefault ? null : DEFAULT_SHOP_PHOTO,
+          ].filter(Boolean),
         ),
       ] as string[],
-    [src, floristLibrarySrc, licensedFallbackSrc],
+    [src, floristLibrarySrc, licensedFallbackSrc, suppressShopDefault],
   );
 
   const [index, setIndex] = useState(0);
-  const current = chain[Math.min(index, chain.length - 1)] ?? DEFAULT_SHOP_PHOTO;
+  const current =
+    chain[Math.min(index, chain.length - 1)] ??
+    (suppressShopDefault
+      ? licensedFallbackSrc ?? src ?? ""
+      : DEFAULT_SHOP_PHOTO);
 
   return (
     <div

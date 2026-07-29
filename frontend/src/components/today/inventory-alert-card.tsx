@@ -3,6 +3,7 @@ import {
   inventoryLevelTone,
   type InventoryAlertRow,
 } from "../../lib/today-sample";
+import { PhotoAsset } from "../media/PhotoAsset";
 import { SurfaceCard } from "../ui/surface-card";
 
 const toneStyles = {
@@ -20,11 +21,21 @@ export function InventoryAlertCard({ alert }: InventoryAlertCardProps) {
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-4 rounded-xl px-4 py-3 ring-1",
+        "flex items-center gap-4 rounded-xl px-4 py-3 ring-1",
         toneStyles[tone],
       )}
     >
-      <div>
+      {alert.photoSrc ? (
+        <PhotoAsset
+          src={alert.photoSrc}
+          licensedFallbackSrc={alert.photoFallbackSrc}
+          suppressShopDefault
+          alt={`${alert.item} stock`}
+          aspect="square"
+          className="size-12 shrink-0 rounded-lg"
+        />
+      ) : null}
+      <div className="min-w-0 flex-1">
         <p className="font-medium text-charcoal">{alert.item}</p>
         <p className="text-sm text-charcoal-muted">{alert.quantity}</p>
       </div>

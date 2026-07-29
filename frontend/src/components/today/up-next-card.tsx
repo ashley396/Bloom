@@ -47,6 +47,8 @@ export function UpNextCard({ order, className }: UpNextCardProps) {
         <div className="border-t border-florisyn-border md:border-l md:border-t-0">
           <PhotoAsset
             src={order.photoSrc}
+            licensedFallbackSrc={order.photoFallbackSrc}
+            suppressShopDefault
             alt={`Reference photo for ${order.customer}`}
             aspect="square"
             className="h-full min-h-[140px] rounded-none rounded-b-2xl md:rounded-bl-none md:rounded-r-2xl"

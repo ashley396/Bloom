@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { DollarSign, ShoppingBag, Truck, Users } from "lucide-react";
 import { BusinessSnapshot } from "../components/today/business-snapshot";
 import { DailyInsight } from "../components/today/daily-insight";
@@ -8,15 +9,29 @@ import { LilyRecommendation } from "../components/today/lily-recommendation";
 import { MetricCard } from "../components/today/metric-card";
 import { QuickActions } from "../components/today/quick-actions";
 import { TodayHeader } from "../components/today/today-header";
+import { TodayHeroPhoto } from "../components/today/today-hero-photo";
 import { UpNextCard } from "../components/today/up-next-card";
+import {
+  assertUniquePhotosOnPage,
+  collectTodayPagePhotoUrls,
+} from "../lib/floristry-photos";
 import { todayPageData } from "../lib/today-sample";
 
 export function TodayPage() {
   const d = todayPageData;
 
+  useEffect(() => {
+    assertUniquePhotosOnPage(collectTodayPagePhotoUrls(), "/today");
+  }, []);
+
   return (
     <div className="mx-auto max-w-6xl space-y-8 lg:space-y-10">
       <TodayHeader firstName={d.user.firstName} dateLabel={d.dateLabel} />
+
+      <TodayHeroPhoto
+        src={d.heroPhoto.src}
+        licensedFallbackSrc={d.heroPhoto.fallbackSrc}
+      />
 
       <section
         aria-label="Daily summary"
