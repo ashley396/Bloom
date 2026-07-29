@@ -1,5 +1,10 @@
+import { LayoutDashboard, Package, Settings, ShoppingBag, Wallet } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import { AppShell } from "./components/layout/AppShell";
+import { SalesTrendChart } from "./components/charts/SalesTrendChart";
+import { FadeIn } from "./components/motion/FadeIn";
 import { PhotoAsset } from "./components/media/PhotoAsset";
+import { ThemeToggle } from "./components/theme/ThemeToggle";
 import { Button } from "./components/ui/button";
 import {
   Card,
@@ -8,16 +13,21 @@ import {
   CardHeader,
   CardTitle,
 } from "./components/ui/card";
+import { staggerContainer } from "./lib/motion";
+import { sampleSalesTrend } from "./lib/sample-data";
 
 const navItems = [
-  "Point of Sale",
-  "Orders",
-  "Payment Center",
-  "Inventory",
-  "Settings",
+  { label: "Point of Sale", icon: LayoutDashboard },
+  { label: "Orders", icon: ShoppingBag },
+  { label: "Payment Center", icon: Wallet },
+  { label: "Inventory", icon: Package },
+  { label: "Settings", icon: Settings },
 ] as const;
 
 export default function App() {
+  const reduceMotion = useReducedMotion();
+  const Grid = reduceMotion ? "div" : motion.div;
+
   return (
     <AppShell
       sidebar={
@@ -26,15 +36,16 @@ export default function App() {
             Shop
           </p>
           <ul className="flex flex-row gap-2 overflow-x-auto pb-2 lg:flex-col lg:gap-1 lg:overflow-visible lg:pb-0">
-            {navItems.map((label, i) => (
+            {navItems.map(({ label, icon: Icon }, i) => (
               <li key={label} className="shrink-0 lg:shrink">
                 <Button
                   type="button"
                   variant={i === 0 ? "default" : "ghost"}
                   size="sm"
-                  className="w-full justify-start lg:w-full"
+                  className="w-full justify-start gap-2 lg:w-full"
                   aria-current={i === 0 ? "page" : undefined}
                 >
+                  <Icon className="size-4 shrink-0" aria-hidden />
                   {label}
                 </Button>
               </li>
@@ -48,57 +59,73 @@ export default function App() {
             <p className="text-xs font-medium uppercase tracking-wide text-florisyn-muted">
               Florisyn
             </p>
-            <h1 className="text-xl font-semibold text-florisyn-ink md:text-2xl">
-              React UI foundation
+            <h1 className="text-xl font-semibold text-florisyn-ink md:text-2xl lg:text-3xl">
+              The operating system for modern florists
             </h1>
           </div>
-          <Button type="button" variant="secondary" size="sm">
-            Sign out
-          </Button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button type="button" variant="secondary" size="sm">
+              Sign out
+            </Button>
+          </div>
         </div>
       }
     >
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        <Card className="md:col-span-2 xl:col-span-2">
-          <CardHeader>
-            <CardTitle>Photography-first product surfaces</CardTitle>
-            <CardDescription>
-              User uploads and shop photos only — no placeholder floral art or
-              AI-generated flower imagery.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <PhotoAsset
-              src={null}
-              alt="Fresh arrangement at the shop workspace"
-              priority
-              aspect="portrait"
-            />
-            <PhotoAsset
-              src="/assets/auth/luxury-florist-workspace.jpg"
-              alt="Luxury florist workspace"
-              aspect="portrait"
-            />
-          </CardContent>
-        </Card>
+      <Grid
+        className="grid gap-6 md:grid-cols-2 xl:grid-cols-12"
+        {...(!reduceMotion
+          ? {
+              variants: staggerContainer,
+              initial: "hidden",
+              animate: "visible",
+            }
+          : {})}
+      >
+        <FadeIn className="md:col-span-2 xl:col-span-8">
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle>Licensed photography, your library first</CardTitle>
+              <CardDescription>
+                Never AI-generated floral imagery. Florists replace defaults with
+                their own library; graceful fallbacks keep every surface polished.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <PhotoAsset
+                src={null}
+                floristLibrarySrc={null}
+                alt="Shop workspace — default licensed photography"
+                priority
+                aspect="portrait"
+              />
+              <PhotoAsset
+                floristLibrarySrc="/assets/auth/luxury-florist-workspace.jpg"
+                alt="Entry from the shop floral library"
+                aspect="portrait"
+              />
+              <PhotoAsset
+                src="/assets/auth/luxury-florist-workspace.jpg"
+                alt="Custom upload overrides library and defaults"
+                aspect="portrait"
+                className="sm:col-span-2 lg:col-span-1"
+              />
+            </CardContent>
+          </Card>
+        </FadeIn>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Responsive shell</CardTitle>
-            <CardDescription>
-              Desktop sidebar, horizontal nav on tablet/mobile, WCAG AA focus
-              and skip link.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-florisyn-muted">
-            <p>Design tokens: Florisyn sage, cream, ink.</p>
-            <p>Components: shadcn-style Button and Card.</p>
-            <Button type="button" className="w-full">
-              Primary action
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+        <FadeIn className="xl:col-span-4">
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle>Weekly sales</CardTitle>
+              <CardDescription>Desktop-first dashboard; Recharts with lazy load.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SalesTrendChart data={sampleSalesTrend} />
+            </CardContent>
+          </Card>
+        </FadeIn>
+      </Grid>
     </AppShell>
   );
 }

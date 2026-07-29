@@ -9,7 +9,7 @@ export function Card({
     <div
       data-slot="card"
       className={cn(
-        "rounded-xl border border-florisyn-sage-100 bg-white text-florisyn-ink shadow-[var(--shadow-soft)] motion-safe-transition",
+        "rounded-xl border border-florisyn-sage-100 bg-florisyn-surface text-florisyn-ink shadow-[var(--shadow-soft)] motion-safe-transition dark:border-florisyn-sage-100",
         className,
       )}
       {...props}

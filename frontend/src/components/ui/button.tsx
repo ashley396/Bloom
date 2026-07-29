@@ -9,10 +9,11 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-florisyn-sage-700 text-white hover:bg-florisyn-sage-900 active:scale-[0.98]",
+          "bg-florisyn-sage-700 text-white hover:bg-florisyn-sage-900 active:scale-[0.98] dark:bg-florisyn-sage-500 dark:text-florisyn-ink dark:hover:bg-florisyn-sage-500/90",
         secondary:
-          "border border-florisyn-sage-100 bg-white text-florisyn-ink hover:bg-florisyn-sage-50",
-        ghost: "text-florisyn-sage-700 hover:bg-florisyn-sage-50",
+          "border border-florisyn-sage-100 bg-white text-florisyn-ink hover:bg-florisyn-sage-50 dark:border-florisyn-sage-100 dark:bg-florisyn-surface dark:hover:bg-florisyn-sage-50/10",
+        ghost:
+          "text-florisyn-sage-700 hover:bg-florisyn-sage-50 dark:text-florisyn-sage-500 dark:hover:bg-florisyn-sage-50/10",
       },
       size: {
         default: "h-10 px-4 py-2",

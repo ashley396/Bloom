@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
 
@@ -12,6 +14,7 @@
   --color-florisyn-cream: #faf8f5;
   --color-florisyn-ink: #1a1f1c;
   --color-florisyn-muted: #5c6560;
+  --color-florisyn-surface: #ffffff;
 
   --radius-sm: 0.375rem;
   --radius-md: 0.625rem;
@@ -23,6 +26,17 @@
 @layer base {
   :root {
     color-scheme: light;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --color-florisyn-cream: #121614;
+    --color-florisyn-ink: #f2f5f3;
+    --color-florisyn-muted: #a8b5ae;
+    --color-florisyn-surface: #1a211d;
+    --color-florisyn-sage-50: #1e2823;
+    --color-florisyn-sage-100: #2a3630;
+    --shadow-soft: 0 4px 24px -4px rgb(0 0 0 / 0.35);
   }
 
   html {

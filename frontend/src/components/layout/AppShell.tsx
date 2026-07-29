@@ -9,7 +9,7 @@ type AppShellProps = {
 
 export function AppShell({ children, sidebar, header }: AppShellProps) {
   return (
-    <div className="min-h-svh bg-florisyn-cream">
+    <div className="min-h-svh bg-florisyn-cream dark:bg-florisyn-cream">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:shadow-[var(--shadow-soft)]"
@@ -19,7 +19,7 @@ export function AppShell({ children, sidebar, header }: AppShellProps) {
       <div className="mx-auto flex min-h-svh max-w-[1400px] flex-col lg:flex-row">
         <aside
           className={cn(
-            "border-b border-florisyn-sage-100 bg-white lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-r",
+            "border-b border-florisyn-sage-100 bg-florisyn-surface lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-r dark:border-florisyn-sage-100",
             "px-4 py-4 lg:sticky lg:top-0 lg:h-svh lg:overflow-y-auto",
           )}
           aria-label="Primary"
@@ -28,7 +28,7 @@ export function AppShell({ children, sidebar, header }: AppShellProps) {
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
           {header ? (
-            <header className="border-b border-florisyn-sage-100 bg-white px-4 py-3 md:px-6">
+            <header className="border-b border-florisyn-sage-100 bg-florisyn-surface px-4 py-3 md:px-6 dark:border-florisyn-sage-100">
               {header}
             </header>
           ) : null}
