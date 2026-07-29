@@ -7,6 +7,10 @@ import {
   buildSplitPartMetadata
 } from "../netlify/functions/_shared/manual-order-payment.js";
 import {
+  shouldContinueSplitWorkflow,
+  defaultSplitRowsForBalance
+} from "../netlify/functions/_shared/payment-center-ux.js";
+import {
   executePostOrderPayment,
   isPostOrderPaymentRpcMissing,
   postOrderPaymentFallback
@@ -212,6 +216,34 @@ test("split failure response includes failed part index (handler contract)", () 
   assert.match(src, /Split payment stopped/);
   assert.match(src, /failed_part/);
   assert.match(src, /completed_parts/);
+});
+
+test("shouldContinueSplitWorkflow keeps user in split until paid", () => {
+  assert.equal(shouldContinueSplitWorkflow(40), true);
+  assert.equal(shouldContinueSplitWorkflow(0), false);
+  assert.equal(shouldContinueSplitWorkflow(0.004), false);
+});
+
+test("defaultSplitRowsForBalance prefills remaining amount", () => {
+  const rows = defaultSplitRowsForBalance(75.25);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].amount, 75.25);
+  assert.equal(rows[0].method, "Cash");
+});
+
+test("split workflow stays active in app.js after partial payment", () => {
+  const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(app, /handleSplitPaymentContinuation/);
+  assert.match(app, /continueSplitWorkflow/);
+  assert.match(app, /completeSplitWorkflow/);
+  assert.match(app, /startSplitStripeCheckout/);
+  assert.match(app, /bloom_split_stripe_return/);
+  assert.doesNotMatch(app, /Manual parts posted\. Complete.*Take Card Payment/);
+});
+
+test("Manage Payment resumes active split session", () => {
+  const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(app, /splitPaymentSession\?\.orderId===order\.id/);
 });
 
 test("split UI wired inline in Payment Center", () => {

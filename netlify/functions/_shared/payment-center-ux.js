@@ -12,6 +12,19 @@ export function computeCashChange(cashReceived, paymentAmount) {
   return Math.max(0, Math.round((received - pay) * 100) / 100);
 }
 
+export function shouldContinueSplitWorkflow(balanceDue) {
+  return defaultCashPaymentAmount(balanceDue) > 0.005;
+}
+
+/** Default single-row split plan for whatever balance remains. */
+export function defaultSplitRowsForBalance(balanceDue) {
+  const balance = defaultCashPaymentAmount(balanceDue);
+  return [{ method: "Cash", amount: balance, note: "" }];
+}
+
+export const SPLIT_PAYMENT_SESSION_KEY = "bloom_split_payment_session";
+export const SPLIT_STRIPE_RETURN_KEY = "bloom_split_stripe_return";
+
 export const PAYMENT_CENTER_PRIMARY_METHODS = ["Cash", "Card", "Check", "Split", "PayLater"];
 
 export const PAYMENT_CENTER_MORE_METHODS = ["Gift Card", "Store Credit", "Other"];
