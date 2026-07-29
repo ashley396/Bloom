@@ -39,6 +39,8 @@ export function validateManualPaymentBody(body = {}) {
   const methodForRpc = normalizeMethodForPaymentsTable(method);
   const metadata = { source: "Florisyn payments page" };
   if (method !== methodForRpc) metadata.tender_label = method;
+  const note = String(body.note || body.reference || "").trim().slice(0, 200);
+  if (note) metadata.note = note;
   return {
     valid: errors.length === 0,
     errors,

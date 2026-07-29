@@ -214,11 +214,11 @@ test("split failure response includes failed part index (handler contract)", () 
   assert.match(src, /completed_parts/);
 });
 
-test("split UI and dialog wired in Payment Center", () => {
+test("split UI wired inline in Payment Center", () => {
   const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
   const js = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
-  assert.match(html, /id="openSplitPayment"/);
-  assert.match(html, /id="splitPaymentDialog"/);
+  assert.match(html, /data-payment-mode="split"/);
+  assert.match(html, /id="paymentFlowSplit"/);
   assert.match(js, /submitSplitPayment/);
   assert.match(js, /openReceiptWithPayments/);
 });
