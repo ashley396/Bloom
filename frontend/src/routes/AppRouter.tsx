@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { FloristShell } from "../components/layout/FloristShell";
+import { OrdersPage } from "../pages/OrdersPage";
 import { TodayPage } from "../pages/TodayPage";
 
 function PlaceholderPage({ title }: { title: string }) {
@@ -17,7 +18,7 @@ export function AppRouter() {
       <Routes>
         <Route path="/" element={<Navigate to="/today" replace />} />
         <Route path="/today" element={<TodayPage />} />
-        <Route path="/orders" element={<PlaceholderPage title="Orders" />} />
+        <Route path="/orders" element={<OrdersPage />} />
         <Route path="/pos" element={<PlaceholderPage title="Point of Sale" />} />
         <Route path="/inventory" element={<PlaceholderPage title="Inventory" />} />
         <Route path="/customers" element={<PlaceholderPage title="Customers" />} />

@@ -8,7 +8,7 @@
  *
  * Rules (non-negotiable):
  * 1. Consume assets only via `FloralAssetId` + `resolveFloralAssetSrc()` or `PhotoAsset photoId`.
- * 2. Never hardcode `/assets/...` paths in pages, components, or sample data.
+ * 2. Never hardcode public asset URL paths in pages, components, or sample data.
  * 3. Never repeat the same catalog ID on one page render (use `PagePhotoRegistry`).
  * 4. Never use fallback chains that duplicate another card’s image (`PhotoAsset` → empty state).
  * 5. New pages: add `floral-asset-library/pages/<route>.ts` assignment maps + wrap with `PagePhotoRegistry`.
@@ -34,6 +34,15 @@ export {
   getTodayPhotoId,
   validateTodayPhotoAssignments,
 } from "./pages/today";
+
+export {
+  type OrdersPhotoSlotId,
+  ORDERS_PHOTO_ASSIGNMENTS,
+  collectOrdersListPhotoAssignmentEntries,
+  getOrdersListPhotoId,
+  getOrdersPhotoSlotForOrderId,
+  validateOrdersPhotoAssignments,
+} from "./pages/orders";
 
 /** Single-image shop surfaces only — not for multi-card pages. */
 export const FLORAL_ASSET_SHOP_DEFAULT_ID = "workspace-luxury-shop" as const;
