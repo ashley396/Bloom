@@ -2,8 +2,8 @@
 
 Single source of truth for roadmap execution. Updated after each completed bundle.
 
-**Last updated:** 2026-07-29 (Bundle A2 implementation complete — awaiting deploy approval)  
-**Current phase:** 2A — Security / Admin (A1 frozen & deployed; **A2 ready for review**; A3 next)
+**Last updated:** 2026-07-29 (Bundle B1 Florist Workflow Polish — **awaiting approval**)  
+**Current phase:** 2A — Security / Admin (A1 deployed; A2 code complete; **B1 ready for review**)
 
 ---
 
@@ -11,8 +11,9 @@ Single source of truth for roadmap execution. Updated after each completed bundl
 
 | Scope | % | Notes |
 |-------|---|--------|
-| Phase 2A (all bundles) | ~33% | Bundle A1 complete; **A2 complete (code)**; A3–A5 pending |
-| Full Closed Beta roadmap (2A–2G) | ~8% | |
+| Phase 2A (all bundles) | ~33% | Bundle A1 complete; A2 code complete; A3–A5 pending |
+| Florist workflow (B1) | ✅ Code complete | **Awaiting approval** — not deployed |
+| Full Closed Beta roadmap (2A–2G) | ~10% | |
 
 ---
 
@@ -257,5 +258,90 @@ No other schema changes. **`pin_hash`** column already live (v22.1).
 ## Next step
 
 **A1:** Frozen — deployed.  
-**A2:** **Awaiting approval to deploy** (code + migration script ready).  
+**A2:** Awaiting approval to deploy (code + migration script ready).  
+**B1:** **Awaiting approval** (florist workflow polish on `redesign-v22` — no deploy/merge).  
 **A3:** Not started.
+
+---
+
+## Bundle B1 — Florist Workflow Polish
+
+**Status:** ✅ **Code complete** — **Not deployed / not merged** (awaiting approval)
+
+### Scope delivered
+
+| Area | Deliverable |
+|------|-------------|
+| **Orders** | Edit existing orders (Quick edit + save); **DELETE** with confirmation (blocked when payment ledger exists); auto-open **Payment Center** after new personal orders; **Business account** + skip-payment paths; **delivery address required** (client + server); **tax rate %** with calculated tax; **compact receipt** layout |
+| **Staff** | List shows **name + Clock in/out only**; tap name → **PIN** → private file (payroll, tax, contact, **time history**) |
+| **Payments** | Stripe checkout requires linked order; clearer status in Payment Center; return from Stripe lands on Payment Center; Payment Hub unchanged |
+| **Email** | Signup + password reset redirects use **`resolvePublicSiteUrl`** — no localhost in verification emails |
+| **Nav** | Dedicated **Invoices** sidebar group + **Payment Center** label |
+
+### Files changed
+
+| File | Why |
+|------|-----|
+| `public/app.js` | Order delete, delivery validation, payment flow, receipts, staff UI hooks |
+| `public/index.html` | Sidebar, order form actions, staff history, payment copy |
+| `public/bloom-rc2.1-founder-polish.js` | Minimal staff cards |
+| `public/bloom-rc2.1-polish.css` | Compact receipt + staff list styles |
+| `netlify/functions/orders.js` | DELETE, delivery validation on PATCH, tax from rate on create |
+| `netlify/functions/_shared/validation.js` | Delivery rules for create/patch |
+| `netlify/functions/_shared/site-url.js` | **New** — public site URL for auth redirects |
+| `netlify/functions/auth-signup.js` | Verification redirect via site-url helper |
+| `netlify/functions/auth-forgot-password.js` | Reset redirect — no localhost fallback |
+| `netlify/functions/payment-link-public.js` | Stripe return URLs without localhost |
+| `tests/bloom-b1.test.js` | **New** — B1 validation + redirect tests |
+| `tests/production-readiness.test.js` | Delivery validation assertion |
+| `MASTER_PROGRESS.md` | This section |
+
+### Database changes
+
+**None.** Order delete uses existing `orders` / `deliveries` / `payments` tables.
+
+### Netlify environment variables
+
+**No new variables.** Existing `SITE_URL` / `URL` / `DEPLOY_PRIME_URL` improve auth email redirects when set.
+
+### Automated testing
+
+| Command | Result (local) |
+|---------|----------------|
+| `npm run check` | Pass |
+| `node --test tests/bloom-b1.test.js` | Pass |
+| `node --test tests/*.test.js` | Run before deploy |
+
+### Manual QA checklist (operator)
+
+- [ ] Create delivery order without address → blocked with clear message
+- [ ] Create personal order → Payment Center opens with balance prefilled
+- [ ] Create business account order → stays on orders; no forced payment
+- [ ] Edit order → save changes; delete order (no payments) → removed from board
+- [ ] Delete order with payments → friendly error
+- [ ] Staff list: name + clock only; tap name → PIN → payroll file + time history
+- [ ] Stripe checkout from Payment Center with linked order; success return shows updated status
+- [ ] Signup email confirmation link host is production/staging URL (not localhost)
+- [ ] Lily/Rose: local AI or cloud path smoke (unchanged code paths)
+- [ ] Payment Hub tab still loads providers and methods
+
+### Regression risk
+
+| Area | Level | Mitigation |
+|------|-------|------------|
+| Order create/patch | Low | Validation only adds delivery rule |
+| Order delete | Medium | Blocked when payments exist |
+| Auth emails | Low | Falls back to production Netlify URL |
+| A2 JWT / staff PIN | None | Staff function unchanged except UI consumption |
+| Payment Hub | Low | No hub core changes |
+
+### Rollback plan
+
+1. Git revert B1 commit(s) on `redesign-v22`.  
+2. Redeploy previous build if B1 was deployed.  
+3. No SQL rollback.
+
+### Deployment readiness
+
+**Ready for staged QA** on a branch deploy after approval. **Not** merged to main. Requires existing Stripe + Supabase env; no new migrations.
+
