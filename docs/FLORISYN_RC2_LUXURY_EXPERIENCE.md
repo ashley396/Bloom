@@ -94,21 +94,44 @@ Confident, calm, concise. Delivery optimization, business insights, outstanding 
 
 ---
 
+## Phase 2 — Orders & POS (RC2)
+
+Premium florist command center for high-volume days (Valentine's, Mother's Day, weddings).
+
+| Capability | Production |
+|------------|------------|
+| Kanban / Timeline / Calendar / List views | `florisyn-rc2-orders-pos.js` view switcher |
+| Stationery order cards | Thumbnail, priority, notes, typography hierarchy |
+| Quick actions on hover | Edit, duplicate, print, call, message, assign, mark ready/delivered |
+| Smart groups | Morning, afternoon, evening, rush, wedding, funeral, standing, business |
+| Drag-and-drop columns | PATCH via existing `orders` API |
+| POS receipt preview | Live cart preview beside checkout totals |
+| Luxury payment confirmation | Payment Center success panel styling |
+
+Accents reserved for **late**, **unpaid**, **rush**, and **overdue** only — everything else stays calm.
+
+---
+
 ## File map
 
 ### Production (ships via Netlify → `public/`)
 
 | File | Purpose |
 |------|---------|
-| `public/florisyn-rc2-luxury-experience.css` | Master luxury design tokens + Bloom Moment + Atelier |
-| `public/florisyn-rc2-luxury-unified.css` | **Full SPA coverage** — nav, dialogs, forms, tables, kanban, POS, payments, tabs, mobile |
-| `public/florisyn-rc2-luxury-auth.css` | Auth pages (login, signup, password reset) |
-| `public/florisyn-rc2-luxury-public.css` | Marketing site (company, help, legal, sitemap) |
-| `public/florisyn-rc2-luxury-admin.css` | Florisyn HQ Command Center |
+| `public/florisyn-rc2-tokens.css` | **Canonical design tokens** — maps all legacy `--pink`, `--brand-primary`, spacing, motion |
+| `public/florisyn-rc2-luxury-experience.css` | Bloom Moment, Atelier Flow, base luxury body |
+| `public/florisyn-rc2-luxury-unified.css` | Navigation, dialogs, forms, tables, kanban, POS, payments, mobile |
+| `public/florisyn-rc2-luxury-modules.css` | **All 21 pages** — v13 pink neutralization, website studio, reports, marketplace, AI, settings |
+| `public/florisyn-rc2-luxury-auth.css` | Auth pages |
+| `public/florisyn-rc2-luxury-public.css` | Marketing site (14 pages) |
+| `public/florisyn-rc2-luxury-admin.css` | Command Center |
 | `public/florisyn-rc2-luxury-storefront.css` | Customer storefront |
-| `public/florisyn-rc2-bloom-moment.js` | Bloom Moment DOM enhancement |
-| `public/florisyn-rc2-atelier-flow.js` | Daily Atelier Flow DOM enhancement |
-| `public/index.html` | Body class `florisyn-rc2-luxury`, font + asset wiring |
+| `public/florisyn-rc2-luxury-init.js` | Dialog polish, page consistency (UI only) |
+| `public/florisyn-rc2-bloom-moment.js` | Bloom Moment |
+| `public/florisyn-rc2-atelier-flow.js` | Daily Atelier Flow |
+| `public/florisyn-rc2-orders-pos.css` | **Phase 2** — Orders workspace, stationery cards, POS checkout |
+| `public/florisyn-rc2-orders-pos.js` | **Phase 2** — View switcher, quick actions, drag-drop, receipt preview |
+| `public/onboarding.css` | Onboarding dialog styling (now wired) |
 
 ### React preview (design north star)
 
@@ -118,8 +141,8 @@ Confident, calm, concise. Delivery optimization, business insights, outstanding 
 | `frontend/src/lib/bloom-moment-quotes.ts` | Rotating content library |
 | `frontend/src/pages/TodayPage.tsx` | Luxury command center layout |
 | `frontend/src/components/today/*` | Bloom Moment, Atelier, Lily, Rose |
-| `frontend/src/components/layout/LuxuryPageShell.tsx` | Shared luxury page chrome |
-| `frontend/src/pages/LuxuryModulePages.tsx` | POS, Inventory, CRM, Payments, Deliveries previews |
+| `frontend/src/components/layout/LuxuryPageShell.tsx` | Shared luxury page chrome (React preview) |
+| `frontend/src/components/ui/button.tsx` | Luxury button variants |
 
 ---
 

@@ -66,9 +66,25 @@ describe("Florisyn RC2 luxury experience", () => {
     assert.match(html, /florisyn-rc2-luxury-experience\.css/);
     assert.match(html, /florisyn-rc2-luxury-unified\.css/);
     assert.match(html, /florisyn-rc2-luxury-modules\.css/);
+    assert.match(html, /florisyn-rc2-orders-pos\.css/);
     assert.match(html, /florisyn-rc2-luxury-init\.js/);
+    assert.match(html, /florisyn-rc2-orders-pos\.js/);
     assert.match(html, /onboarding\.css/);
     assert.match(html, /florisyn-rc2-luxury/);
+  });
+
+  it("Phase 2 orders-pos module exists with views and quick actions", () => {
+    const css = readFileSync(join(ROOT, "public/florisyn-rc2-orders-pos.css"), "utf8");
+    assert.match(css, /rc2-stationery-card/);
+    assert.match(css, /rc2-quick-actions/);
+    assert.match(css, /rc2-view-switcher/);
+    assert.match(css, /prefers-reduced-motion/);
+
+    const js = readFileSync(join(ROOT, "public/florisyn-rc2-orders-pos.js"), "utf8");
+    assert.match(js, /FlorisynRC2Orders/);
+    assert.match(js, /data-rc2-view/);
+    assert.match(js, /data-rc2-action/);
+    assert.doesNotMatch(js, /password|secret|api_key/i);
   });
 
   it("no placeholder React module pages remain", () => {

@@ -7,6 +7,12 @@ import { OrderCard } from "../components/orders/order-card";
 import { OrderDetailPanel } from "../components/orders/order-detail-panel";
 import { OrdersFilters } from "../components/orders/orders-filters";
 import { OrdersSearchBar } from "../components/orders/orders-search-bar";
+import {
+  OrdersKanbanBoard,
+  OrdersTimelineView,
+  OrdersViewSwitcher,
+  type OrdersViewMode,
+} from "../components/orders/orders-views";
 import type { FloristOrder, OrderFilterChip } from "../lib/orders-sample";
 import { useOrdersPreview } from "../hooks/useOrdersPreview";
 import { cn } from "../lib/utils";
@@ -51,6 +57,7 @@ export function OrdersPage() {
   const [filters, setFilters] = useState<Set<OrderFilterChip>>(() => new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [view, setView] = useState<OrdersViewMode>("kanban");
 
   useEffect(() => {
     validateOrdersPhotoAssignments("/orders");
@@ -144,6 +151,13 @@ export function OrdersPage() {
 
         <OrdersSearchBar value={search} onChange={setSearch} />
 
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <OrdersViewSwitcher view={view} onChange={setView} />
+          <p className="text-sm text-sage-ink">
+            {filtered.length} {filtered.length === 1 ? "order" : "orders"}
+          </p>
+        </div>
+
         <div className="flex min-h-0 flex-1 flex-col gap-8 xl:grid xl:grid-cols-[180px_minmax(0,1fr)_min(380px,420px)] xl:items-start xl:gap-10">
           <OrdersFilters
             active={filters}
@@ -152,25 +166,34 @@ export function OrdersPage() {
           />
 
           <section aria-label="Order list" className="min-w-0 space-y-4">
-            <p className="text-sm text-sage-ink">
-              {filtered.length} {filtered.length === 1 ? "order" : "orders"}
-            </p>
-            <ul className="space-y-4">
-              {filtered.map((order) => (
-                <li key={order.id}>
-                  <OrderCard
-                    order={order}
-                    selected={selectedId === order.id}
-                    onSelect={() => selectOrder(order.id)}
-                  />
-                </li>
-              ))}
-            </ul>
-            {filtered.length === 0 ? (
-              <p className="rounded-2xl bg-warm-white p-10 text-center text-charcoal-muted ring-1 ring-florisyn-border">
-                No orders match your search.
-              </p>
-            ) : null}
+            {view === "kanban" ? (
+              <OrdersKanbanBoard
+                orders={filtered}
+                selectedId={selectedId}
+                onSelect={selectOrder}
+              />
+            ) : view === "timeline" ? (
+              <OrdersTimelineView orders={filtered} onSelect={selectOrder} />
+            ) : (
+              <>
+                <ul className="space-y-4">
+                  {filtered.map((order) => (
+                    <li key={order.id}>
+                      <OrderCard
+                        order={order}
+                        selected={selectedId === order.id}
+                        onSelect={() => selectOrder(order.id)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+                {filtered.length === 0 ? (
+                  <p className="rounded-2xl bg-warm-white p-10 text-center text-charcoal-muted ring-1 ring-florisyn-border">
+                    No orders match your search.
+                  </p>
+                ) : null}
+              </>
+            )}
           </section>
 
           <OrderDetailPanel
