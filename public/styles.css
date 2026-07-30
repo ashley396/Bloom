@@ -237,7 +237,11 @@ aside:after{bottom:-72px!important;opacity:.58!important;height:150px!important;
 
 /* Bloom v14.1 — state-driven florist production board */
 .order-command-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
-.order-board{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:14px;overflow-x:auto;padding:2px 2px 14px;scroll-snap-type:x proximity}
+.order-board{display:grid;grid-template-columns:repeat(9,minmax(200px,1fr));gap:14px;overflow-x:auto;padding:2px 2px 14px;scroll-snap-type:x proximity}
+.status-history-list{display:grid;gap:8px;max-height:180px;overflow:auto}
+.status-history-row{display:flex;justify-content:space-between;gap:12px;padding:8px 10px;border:1px solid rgba(107,82,92,.12);border-radius:12px;background:rgba(255,255,255,.7);font-size:13px}
+.status-history-row strong{font-weight:600;color:#4a3340}
+.status-history-row time{color:#8a747e;font-size:12px;white-space:nowrap}
 .order-board-column{background:rgba(255,255,255,.62);border:1px solid rgba(107,82,92,.12);border-radius:22px;min-height:430px;padding:12px;scroll-snap-align:start}
 .order-board-column-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 4px 12px;border-bottom:1px solid rgba(107,82,92,.1);margin-bottom:12px}
 .order-board-column-head h2{font-size:15px;margin:0}.order-board-column-head span{min-width:27px;height:27px;border-radius:999px;display:grid;place-items:center;background:#fff;font-weight:800;font-size:12px}

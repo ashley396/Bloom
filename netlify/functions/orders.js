@@ -16,6 +16,28 @@ export async function handler(event) {
     const { client, shopId, user } = await currentUser(event);
 
     if (event.httpMethod === "GET") {
+      const qs = event.queryStringParameters || {};
+      if (qs.order_id && qs.view === "history") {
+        const orderId = String(qs.order_id || "").trim();
+        if (!orderId) return json(400, { error: "Missing order id." });
+        const { data: orderRow, error: orderError } = await client
+          .from("orders")
+          .select("id")
+          .eq("id", orderId)
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        if (orderError) throw orderError;
+        if (!orderRow) return json(404, { error: "Order not found." });
+        const { data, error } = await client
+          .from("order_status_history")
+          .select("id,from_status,to_status,changed_by,note,created_at")
+          .eq("shop_id", shopId)
+          .eq("order_id", orderId)
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        return json(200, { items: data || [] });
+      }
+
       const { data, error } = await client
         .from("orders")
         .select("*")

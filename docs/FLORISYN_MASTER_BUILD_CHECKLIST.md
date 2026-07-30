@@ -1,7 +1,7 @@
 # Florisyn Master Build Checklist
 
 **Last updated:** 2026-07-30  
-**Branch:** `build/florisyn-foundation-v1`  
+**Branch:** `cursor/florisyn-daily-loop-v2-7317` (Daily Loop v2 on top of Foundation v1)  
 **Legend:** ✅ COMPLETE · 🟡 IN PROGRESS · ⚪ PLANNED · 🔒 FUTURE · ⛔ BLOCKED
 
 Each entry includes status, relevant files, dependencies, and verification method.
@@ -24,8 +24,9 @@ Each entry includes status, relevant files, dependencies, and verification metho
 | Item | Status | Files | Dependencies | Verification |
 |------|--------|-------|--------------|--------------|
 | Create / edit orders (production) | ✅ COMPLETE | `public/app.js`, `netlify/functions/orders.js` | RLS, `orders` table | Add order, edit, save |
-| Expanded status vocabulary | 🟡 IN PROGRESS | `_shared/order-status.js`, migration `20260730_foundation_daily_loop_v1.sql` | Migration applied | PATCH status → history row |
-| Status history (timestamped) | 🟡 IN PROGRESS | `order_status_history` table, `recordOrderStatusChange()` | Migration applied | Query history after status change |
+| Expanded status vocabulary | 🟡 IN PROGRESS | `_shared/order-status.js`, migration, `public/app.js` | Migration applied | Board shows full workflow |
+| Status history (timestamped) | 🟡 IN PROGRESS | API + order dialog timeline | Migration applied | Edit order → history list |
+| Align UI `NEW` column with `Pending` | ✅ COMPLETE | `boardColumnForStatus()` in `app.js` | — | NEW orders in Pending column |
 | Customer/recipient search + reuse | ✅ COMPLETE | `public/app.js`, `customers.js` | CRM data | Order form autocomplete |
 | Delivery address separate from billing | ✅ COMPLETE | Order form fields, `orders.js` validation | — | Create delivery order |
 | Percentage tax | ✅ COMPLETE | Order form + totals in `app.js` | Shop tax rate in settings | Verify tax line on receipt |
@@ -173,7 +174,7 @@ Each entry includes status, relevant files, dependencies, and verification metho
 | Server-side validation | ✅ COMPLETE | `_shared/validation.js` | — | Invalid payload → 400 |
 | Rate limits (auth, PIN) | ✅ COMPLETE | `_shared/rate-limit.js` | — | Brute force blocked |
 | Feature flags for unfinished modules | 🟡 IN PROGRESS | `_shared/feature-flags.js` | Env overrides | GET production-health |
-| Session refresh | ⚪ PLANNED | `auth-refresh.js` unused | Client wiring | Token refresh before expiry |
+| Session refresh | ✅ COMPLETE | `auth-refresh.js`, `refreshSessionIfNeeded()` in `app.js` | — | Token refresh before expiry |
 | MFA for platform admins | 🔒 FUTURE | — | Supabase MFA | — |
 
 See `docs/SECURITY_REVIEW.md` for full findings.
