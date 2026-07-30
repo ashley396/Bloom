@@ -263,6 +263,25 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 
 ---
 
+## Design System v1.0 (permanent UI reference)
+
+**Authority:** `docs/FLORISYN_DESIGN_SYSTEM.md` — tokens, components, layout patterns.
+
+| Area | Status | Verification |
+|------|--------|--------------|
+| Color role tokens (primary, success, warning, …) | 🟡 IN PROGRESS | `:root` in `public/styles.css`; semantic badges |
+| Typography scale (Display → Caption) | 🟡 IN PROGRESS | Today hero + page headings |
+| Spacing scale (4–64px) | 🟡 IN PROGRESS | Card/panel padding audit |
+| Radius + shadow tokens | 🟡 IN PROGRESS | `--radius`, `--shadow-soft` consistent |
+| Motion tokens (150/250/350ms) | 🟡 IN PROGRESS | Hover transitions; reduced-motion |
+| Core components catalog | 🟡 IN PROGRESS | Buttons, cards, badges, kanban, dialogs |
+| Layout patterns (dashboard, kanban, wizard, …) | 🟡 IN PROGRESS | Shell matches documented patterns |
+| Orders card standard (project, not spreadsheet) | 🟡 IN PROGRESS | Kanban + order dialog fields |
+| Design review checklist (8 items) | ✅ COMPLETE | Documented — enforce before feature ship |
+| React `ui/` parity with production | 🟡 IN PROGRESS | `button`, `card`, `surface-card` |
+
+---
+
 ## Ecosystem Portals (permanent portal architecture)
 
 **Authority:** `docs/FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md` — one OS, three role-based portals.
@@ -333,4 +352,4 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 
 ---
 
-*Maintained with Foundation v1 + Daily Loop v2/v3 + Website Studio + Gold Standard + Experience Standard + Ecosystem Portals (2026-07-30).*
+*Maintained with Foundation v1 + Daily Loop v2/v3 + Website Studio + Gold Standard + Experience Standard + Design System v1.0 + Ecosystem Portals (2026-07-30).*

@@ -122,7 +122,7 @@ There is **one** of each — shared across all portals:
 | **Payment model** | Stripe + `payments.js`, `payment-hub.js` | Florist Payment Center; marketplace settlement |
 | **Delivery model** | `deliveries` + proof storage | Florist delivery board; wholesaler outbound (same schema) |
 | **Authentication system** | Supabase Auth + shop membership | Florist staff JWT; platform owner separate surface |
-| **Design system** | Experience Standard + `public/styles.css` | All portals — no orphan UI frameworks |
+| **Design system** | `FLORISYN_DESIGN_SYSTEM.md` + `public/styles.css` | All portals — tokens and shared components |
 | **Notification system** | Transactional email + in-app toasts | Shared templates and delivery status |
 | **AI platform** | Lily + Rose + `ai-status.js` | Florist creative/ops; platform AI usage metering |
 
@@ -208,7 +208,8 @@ All agents and engineers must:
 | Document | Relationship |
 |----------|--------------|
 | `FLORISYN_GOLD_STANDARD.md` | §1, §10 — single source of truth and ecosystem |
-| `FLORISYN_EXPERIENCE_STANDARD.md` | Shared design system across portals |
+| `FLORISYN_EXPERIENCE_STANDARD.md` | UX constitution across portals |
+| `FLORISYN_DESIGN_SYSTEM.md` | v1.0 tokens and component catalog |
 | `FLORISYN_WEBSITE_STUDIO_BLUEPRINT.md` | Florist portal module — Website Studio |
 | `FLORISYN_MASTER_BUILD_CHECKLIST.md` | Portal module ship status |
 | `SECURITY_REVIEW.md` | Platform Owner security and RLS |

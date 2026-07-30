@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-07-30  
 **Purpose:** Single authoritative index for Florisyn product architecture, integration rules, and permanent specifications.  
-**Companion docs:** Checklist (`FLORISYN_MASTER_BUILD_CHECKLIST.md`), Gold Standard (`FLORISYN_GOLD_STANDARD.md`), Experience Standard (`FLORISYN_EXPERIENCE_STANDARD.md`), Ecosystem Portals (`FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md`), repository audit, security/reliability/SEO/legal plans.
+**Companion docs:** Checklist (`FLORISYN_MASTER_BUILD_CHECKLIST.md`), Gold Standard (`FLORISYN_GOLD_STANDARD.md`), Experience Standard (`FLORISYN_EXPERIENCE_STANDARD.md`), Design System (`FLORISYN_DESIGN_SYSTEM.md`), Ecosystem Portals (`FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md`), repository audit, security/reliability/SEO/legal plans.
 
 ---
 
@@ -13,6 +13,8 @@ Florisyn is the **operating system for modern florists** — POS, orders, custom
 **Permanent product principles:** `docs/FLORISYN_GOLD_STANDARD.md` — ten owner-approved rules (Single Source of Truth, Florist First, Calm Software, Explainable AI, One Click Rule, Recovery Before Speed, Holiday Mode, Delight, Performance Budget, Future Ecosystem). All modules and agents must comply.
 
 **Permanent UX constitution:** `docs/FLORISYN_EXPERIENCE_STANDARD.md` — visual language, layout, orders presentation, forms, empty states, errors, accessibility, and the seven-question feature completion gate. All screens must harmonize with the approved **Today page** design language.
+
+**Permanent design system:** `docs/FLORISYN_DESIGN_SYSTEM.md` — v1.0 tokens (color, typography, spacing, radius, shadow, motion), component catalog, layout patterns, orders card standard, accessibility, and design review checklist. Single visual source of truth for all portals.
 
 **Permanent portal model:** `docs/FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md` — Florist, Wholesaler, and Platform Owner portals on one OS; shared customer, product, inventory, order, payment, delivery, auth, design, notification, and AI services. Every feature must declare portal ownership and shared-service dependencies.
 
@@ -234,7 +236,7 @@ Website Studio SEO and legal page starters **require attorney review** before cu
 
 ## 11. Development rules for all agents
 
-1. Read this bible + **Gold Standard** + **Experience Standard** + **Ecosystem Portals** + checklist before large features.
+1. Read this bible + **Gold Standard** + **Experience Standard** + **Design System** + **Ecosystem Portals** + checklist before large features.
 2. Minimize diff scope; match existing conventions.
 3. No deploy, no production migrations unless explicitly assigned.
 4. Preserve Today page and Floral Asset Library architecture.
@@ -254,6 +256,7 @@ Website Studio SEO and legal page starters **require attorney review** before cu
 | **This file** | Master architecture & integration bible |
 | **`FLORISYN_GOLD_STANDARD.md`** | **Permanent product principles (10 rules)** |
 | **`FLORISYN_EXPERIENCE_STANDARD.md`** | **Permanent UX & visual design constitution** |
+| **`FLORISYN_DESIGN_SYSTEM.md`** | **v1.0 UI tokens, components, layout patterns** |
 | **`FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md`** | **Florist / Wholesaler / Platform Owner portal model** |
 | `FLORISYN_MASTER_BUILD_CHECKLIST.md` | Ship status by product area |
 | `FLORISYN_WEBSITE_STUDIO_BLUEPRINT.md` | Permanent Website Studio specification |
@@ -264,4 +267,4 @@ Website Studio SEO and legal page starters **require attorney review** before cu
 
 ---
 
-*Maintained by Florisyn engineering. Website Studio specification added 2026-07-30. Gold Standard principles added 2026-07-30. Experience Standard added 2026-07-30. Ecosystem Portals Standard added 2026-07-30.*
+*Maintained by Florisyn engineering. Website Studio specification added 2026-07-30. Gold Standard principles added 2026-07-30. Experience Standard added 2026-07-30. Ecosystem Portals Standard added 2026-07-30. Design System v1.0 added 2026-07-30.*

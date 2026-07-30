@@ -33,6 +33,7 @@ test("stacked release documentation package exists", () => {
     "docs/STACKED_RELEASE_ROLLBACK.md",
     "docs/FLORISYN_GOLD_STANDARD.md",
     "docs/FLORISYN_EXPERIENCE_STANDARD.md",
+    "docs/FLORISYN_DESIGN_SYSTEM.md",
     "docs/FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md",
   ]) {
     assert.ok(fs.existsSync(path.join(process.cwd(), file)), `${file} missing`);
@@ -109,5 +110,29 @@ test("ecosystem portals standard defines three portals and shared platform rules
     "Delivery model",
   ]) {
     assert.match(doc, new RegExp(shared), `missing shared service: ${shared}`);
+  }
+});
+
+test("design system v1 defines tokens components and review checklist", () => {
+  const doc = fs.readFileSync(
+    path.join(process.cwd(), "docs/FLORISYN_DESIGN_SYSTEM.md"),
+    "utf8",
+  );
+  assert.match(doc, /Design System v1\.0/);
+  assert.match(doc, /Colors communicate meaning before decoration/);
+  assert.match(doc, /4 • 8 • 12 • 16 • 24 • 32 • 48 • 64 px/);
+  assert.match(doc, /150ms/);
+  assert.match(doc, /not spreadsheet rows/i);
+  assert.match(doc, /Design review checklist/);
+  assert.match(doc, /design tokens/i);
+  for (const component of [
+    "Buttons",
+    "Cards",
+    "Order Cards",
+    "Status Badges",
+    "Empty States",
+    "Loading Skeletons",
+  ]) {
+    assert.match(doc, new RegExp(component), `missing component: ${component}`);
   }
 });

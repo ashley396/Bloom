@@ -16,6 +16,8 @@ Users should immediately feel **calm**, **confident**, and **productive**.
 
 **Companion principles:** `docs/FLORISYN_GOLD_STANDARD.md` (product behavior) — this document defines **how it looks and feels**. When Gold Standard §3 (Calm Software) or §8 (Delight) apply, this constitution is the implementation guide.
 
+**Component & token reference:** `docs/FLORISYN_DESIGN_SYSTEM.md` — v1.0 design tokens, component catalog, layout patterns, and design review checklist. Experience Standard sets behavior; Design System sets implementation.
+
 ---
 
 ## Core experience principles
@@ -260,6 +262,7 @@ All agents and engineers must:
 |----------|--------------|
 | `FLORISYN_GOLD_STANDARD.md` | Product principles — Calm Software, Delight, Performance |
 | `FLORISYN_MASTER_ARCHITECTURE_BIBLE.md` | Architecture index |
+| `FLORISYN_DESIGN_SYSTEM.md` | v1.0 tokens, components, layout patterns |
 | `FLORISYN_MASTER_BUILD_CHECKLIST.md` | Verification tracking per experience area |
 | `FLORISYN_WEBSITE_STUDIO_BLUEPRINT.md` | Website Studio editor must obey this constitution |
 | `public/styles.css` | Production SPA visual implementation |
