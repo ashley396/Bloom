@@ -176,6 +176,12 @@ body.florisyn-rc2-luxury #inventoryDialog.rc2-ws-dialog .inventory-flower-detail
 }
 
 /* ═══ PHASE 2 — CUSTOMERS / CRM ═══ */
+body.florisyn-rc2-luxury #customersPage.rc2-ws-complete {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rc2-space-4);
+}
+
 body.florisyn-rc2-luxury #customersPage.rc2-ws-complete .search {
   background: var(--rc2-warm-white);
   border: 1px solid var(--line);
@@ -212,6 +218,12 @@ body.florisyn-rc2-luxury #customerProfileDialog.rc2-ws-dialog .panel {
 }
 
 /* ═══ PHASE 3 — DELIVERIES ═══ */
+body.florisyn-rc2-luxury #deliveriesPage.rc2-ws-complete {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rc2-space-4);
+}
+
 body.florisyn-rc2-luxury #deliveriesPage.rc2-ws-complete .delivery-summary {
   display: grid;
   gap: var(--rc2-space-3);
@@ -436,6 +448,35 @@ body.florisyn-rc2-luxury .bloom-dog {
 }
 
 /* ═══ PHASE 10 — FINANCE ═══ */
+body.florisyn-rc2-luxury #expensesPage.rc2-ws-complete .expense-toolbar {
+  background: var(--rc2-warm-white);
+  border: 1px solid var(--line);
+  border-radius: var(--rc2-radius-lg);
+  display: grid;
+  gap: var(--rc2-space-3);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin-bottom: var(--rc2-space-4);
+  padding: var(--rc2-space-4);
+}
+
+body.florisyn-rc2-luxury #expensesPage.rc2-ws-complete #expensesList {
+  display: grid;
+  gap: var(--rc2-space-4);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+}
+
+body.florisyn-rc2-luxury #invoicesPage.rc2-ws-complete #invoiceList {
+  display: grid;
+  gap: var(--rc2-space-4);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+}
+
+body.florisyn-rc2-luxury #reportsPage.rc2-ws-complete .report-grid {
+  display: grid;
+  gap: var(--rc2-space-5);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+}
+
 body.florisyn-rc2-luxury #reportsPage.rc2-ws-complete .report-summary,
 body.florisyn-rc2-luxury #expensesPage.rc2-ws-complete .report-summary,
 body.florisyn-rc2-luxury #invoicesPage.rc2-ws-complete .invoice-summary {
@@ -567,6 +608,24 @@ body.florisyn-rc2-luxury dialog.rc2-ws-dialog textarea {
 body.florisyn-rc2-luxury dialog.rc2-ws-dialog .order-builder-dialog,
 body.florisyn-rc2-luxury #orderDialog.rc2-ws-dialog {
   max-width: min(98vw, 1100px);
+}
+
+body.florisyn-rc2-luxury #quickPriceDialog.rc2-ws-dialog,
+body.florisyn-rc2-luxury #tileManagerDialog.rc2-ws-dialog,
+body.florisyn-rc2-luxury #tileEditDialog.rc2-ws-dialog {
+  max-width: min(96vw, 640px);
+}
+
+body.florisyn-rc2-luxury #floraviaOnboarding.rc2-ws-dialog {
+  border: none;
+  max-width: min(96vw, 680px);
+  padding: 0;
+}
+
+body.florisyn-rc2-luxury #customerProfileDialog.rc2-ws-dialog,
+body.florisyn-rc2-luxury #phWizardDialog.rc2-ws-dialog,
+body.florisyn-rc2-luxury #themePreviewDialog.rc2-ws-dialog {
+  max-width: min(96vw, 720px);
 }
 
 /* ═══ Responsive & motion ═══ */

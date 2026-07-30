@@ -293,6 +293,22 @@
         });
       }
     });
+    window.FlorisynRC2?.enhanceDialogs?.();
+  }
+
+  function observeDynamicDialogs() {
+    if (document.body.dataset.rc2WsDialogObserved) return;
+    document.body.dataset.rc2WsDialogObserved = "1";
+    const obs = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          if (node.tagName === "DIALOG") enhanceDialogs();
+          else if (node.querySelector?.("dialog")) enhanceDialogs();
+        }
+      }
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
   }
 
   const enhancers = {
@@ -365,6 +381,7 @@
   function init() {
     document.body.classList.add("florisyn-rc2-workspaces");
     bindObservers();
+    observeDynamicDialogs();
     enhanceDialogs();
     const active = document.querySelector(".page.active");
     if (active?.id) runEnhancer(active.id);
