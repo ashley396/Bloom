@@ -189,6 +189,8 @@ Everything should plug into the **same platform**:
 
 No greenfield microservice may introduce a second source of truth for core business objects.
 
+**Portal assignment:** Every surface belongs to Florist, Wholesaler, or Platform Owner portal — see `docs/FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md`.
+
 ---
 
 ## Application to development
@@ -210,6 +212,7 @@ All agents and engineers must:
 |----------|--------------|
 | `FLORISYN_MASTER_ARCHITECTURE_BIBLE.md` | Architecture index — §1 Product north star aligns with this file |
 | `FLORISYN_EXPERIENCE_STANDARD.md` | §3 Calm Software, §8 Delight — UX & visual constitution |
+| `FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md` | §10 Future Ecosystem — three portals, shared services |
 | `FLORISYN_MASTER_BUILD_CHECKLIST.md` | Verification tracking per principle |
 | `FLORISYN_WEBSITE_STUDIO_BLUEPRINT.md` | Website Studio must obey §1, §4, §5, §6 |
 | `RELIABILITY_AND_RECOVERY.md` | §6 Recovery Before Speed |

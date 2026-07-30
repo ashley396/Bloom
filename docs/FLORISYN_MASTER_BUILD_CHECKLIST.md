@@ -263,6 +263,22 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 
 ---
 
+## Ecosystem Portals (permanent portal architecture)
+
+**Authority:** `docs/FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md` — one OS, three role-based portals.
+
+| Portal | Status | Verification |
+|--------|--------|--------------|
+| Portal 1 — Florist (Today, Orders, POS, CRM, …) | 🟡 IN PROGRESS | Production SPA; Today anchor preserved |
+| Portal 2 — Wholesaler (catalog, fulfillment, …) | 🟡 IN PROGRESS | `wholesaleSellerPage`, verification, seller dashboard |
+| Portal 3 — Platform Owner (tenants, flags, health) | 🟡 IN PROGRESS | `admin.html`, `admin-command-center.js` |
+| Shared customer / product / inventory models | 🟡 IN PROGRESS | No duplicate domain tables in new work |
+| Shared order / payment / delivery models | 🟡 IN PROGRESS | Wholesale orders use marketplace tables linked to core |
+| Shared auth + design + AI platform | 🟡 IN PROGRESS | Supabase Auth; Experience Standard; Lily/Rose |
+| Four-question feature gate (portal, services, SSOT, standards) | ✅ COMPLETE | Documented — enforce before feature ship |
+
+---
+
 ## Experience Standard (permanent UX constitution)
 
 **Authority:** `docs/FLORISYN_EXPERIENCE_STANDARD.md` — all screens must feel like one application.
@@ -317,4 +333,4 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 
 ---
 
-*Maintained with Foundation v1 + Daily Loop v2/v3 + Website Studio + Gold Standard + Experience Standard (2026-07-30).*
+*Maintained with Foundation v1 + Daily Loop v2/v3 + Website Studio + Gold Standard + Experience Standard + Ecosystem Portals (2026-07-30).*

@@ -33,6 +33,7 @@ test("stacked release documentation package exists", () => {
     "docs/STACKED_RELEASE_ROLLBACK.md",
     "docs/FLORISYN_GOLD_STANDARD.md",
     "docs/FLORISYN_EXPERIENCE_STANDARD.md",
+    "docs/FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md",
   ]) {
     assert.ok(fs.existsSync(path.join(process.cwd(), file)), `${file} missing`);
   }
@@ -81,5 +82,32 @@ test("experience standard defines UX constitution and completion gate", () => {
     "Accessibility",
   ]) {
     assert.match(doc, new RegExp(section), `missing section: ${section}`);
+  }
+});
+
+test("ecosystem portals standard defines three portals and shared platform rules", () => {
+  const doc = fs.readFileSync(
+    path.join(process.cwd(), "docs/FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md"),
+    "utf8",
+  );
+  for (const portal of [
+    "Portal 1 — Florist",
+    "Portal 2 — Wholesaler",
+    "Portal 3 — Platform Owner",
+  ]) {
+    assert.match(doc, new RegExp(portal), `missing portal: ${portal}`);
+  }
+  assert.match(doc, /Which portal uses it/);
+  assert.match(doc, /single source of truth/i);
+  assert.match(doc, /Gold Standard and Experience Standard/);
+  for (const shared of [
+    "Customer model",
+    "Product model",
+    "Inventory model",
+    "Order model",
+    "Payment model",
+    "Delivery model",
+  ]) {
+    assert.match(doc, new RegExp(shared), `missing shared service: ${shared}`);
   }
 });
