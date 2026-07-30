@@ -2,7 +2,7 @@
 
 **Prepared:** 2026-07-30  
 **Branch:** `release/florisyn-foundation-daily-loop-v3`  
-**Verified commit:** `e56807f`  
+**Verified commit:** `2bc43f7`  
 **Scope:** Foundation v1 + Daily Loop v2 + Daily Loop v3 stacked release  
 **Agent task:** Verification, packaging, owner-readiness only — **no deployment performed**
 
@@ -44,7 +44,7 @@ Engineering gates pass. Production deployment remains blocked until the owner co
 | Check | Result | Evidence |
 |-------|--------|----------|
 | Current branch | **Pass** | `release/florisyn-foundation-daily-loop-v3` |
-| Working tree clean (pre-change) | **Pass** | RC1 packaging commit `e56807f` |
+| Working tree clean | **Pass** | Clean at RC1 verification; commit `2bc43f7` |
 | Draft PR #11 | **Pass** | Open, draft, base `main`, head `release/florisyn-foundation-daily-loop-v3` |
 | Expected release commits in PR | **Pass** | 13 commits: Foundation → v2 → v3 → stacked gate → constitution docs |
 | Merge conflicts with `main` | **Pass** | `git merge-tree` — no conflicts detected |
@@ -52,7 +52,7 @@ Engineering gates pass. Production deployment remains blocked until the owner co
 | Linear release history | **Pass** | Fast-forward stack from `build/florisyn-foundation-v1`; 11 commits ahead of foundation tip |
 | Documentation references | **Pass** | Governance map + constitution docs exist; RC1 test verifies paths |
 
-**Verified commit SHA:** `e56807f`
+**Verified commit SHA:** `2bc43f7`
 
 ---
 
@@ -62,10 +62,10 @@ Recorded at RC1 packaging on release branch.
 
 | Gate | Command | Result |
 |------|---------|--------|
-| Full test suite | `npm test` | **405/405 pass** |
+| Full test suite | `npm test` | **410/410 pass** |
 | Stacked-release readiness | `npm run test:stacked-release` | **9/9 pass** |
 | RC1 readiness tests | `npm run test:rc1` | **5/5 pass** |
-| Syntax check | `npm run check` | **217 JS files pass** |
+| Syntax check | `npm run check` | **218 JS files pass** |
 | Frontend build | `npm run frontend:build` | **Pass** (Vite production build) |
 | Frontend lint | `cd frontend && npm run lint` | **Pass** (4 Fast Refresh warnings only) |
 | Type check | Included in `frontend:build` (`tsc -b`) | **Pass** |
@@ -243,9 +243,50 @@ If Stripe live keys, webhook, or mode are unconfirmed → **blocks production de
 
 ## 10. RC1 smoke-test readiness
 
-Full ordered script: **`FLORISYN_RC1_OWNER_DEPLOYMENT_CHECKLIST.md`** (after deploy) and **`STACKED_RELEASE_SMOKE_TEST.md`** (detailed 33-step reference).
+Full ordered scripts:
 
-Summary coverage:
+- **`FLORISYN_RC1_OWNER_DEPLOYMENT_CHECKLIST.md`** — concise after-deploy checklist (below)
+- **`STACKED_RELEASE_SMOKE_TEST.md`** — detailed 33-step reference
+
+### RC1 smoke-test matrix (expected result · severity · blocks release)
+
+| # | Area | Test | Expected | Severity | Blocks? |
+|---|------|------|----------|----------|---------|
+| 1 | Auth | Create account | Email sent | High | **Yes** |
+| 2 | Auth | Verify email link | Production URL, not localhost | Critical | **Yes** |
+| 3 | Auth | Log in | Today / POS loads | Critical | **Yes** |
+| 4 | Auth | Session refresh | Recovers or clean re-login | High | **Yes** |
+| 5 | Auth | Log out | Session cleared | Medium | No |
+| 6 | Auth | Password reset | Email + link on production domain | High | **Yes** |
+| 7 | Tenant | Cross-shop access | 403 / no other shop data | Critical | **Yes** |
+| 8 | CRM | Create customer | Saves and lists | High | **Yes** |
+| 9 | CRM | Duplicate prevention | 409 on duplicate phone/email | High | **Yes** |
+| 10 | CRM | Edit customer + preferences | Saves; marketing consent separate | Medium | No |
+| 11 | Orders | Create order + delivery address | Separate delivery fields persist | High | **Yes** |
+| 12 | Orders | Tax calculation | Correct line on order | Medium | No |
+| 13 | Orders | Payment routing | Lands on Payment Center | High | **Yes** |
+| 14 | Orders | Status across columns | All supported columns accept moves | Medium | No |
+| 15 | Orders | Status history | Timestamps in edit dialog | Medium | No |
+| 16 | Orders | Edit order | Save succeeds | High | **Yes** |
+| 17 | Proof | Upload valid photo | Stored; signed URL ~300s | Medium | No* |
+| 18 | Proof | Reject invalid/oversized | Clear error; not Delivered | High | **Yes** if proof enabled |
+| 19 | Proof | Delivered without photo | Reason required; saves | Medium | No |
+| 20 | Proof | Failed upload | Does **not** mark Delivered | Critical | **Yes** if proof enabled |
+| 21 | Inventory | Create/update + dates | Freshness fields persist | Medium | No |
+| 22 | Inventory | Use First filter | Correct sort/filter | Low | No |
+| 23 | Pay | Successful Stripe txn | Order balance updates | Critical | **Yes** |
+| 24 | Pay | Failed payment | Clear error; order intact | High | No |
+| 25 | Pay | Receipt / invoice | Print/nav works | Medium | No |
+| 26 | Pay | Webhook reconciliation | Payment recorded after webhook | High | **Yes** |
+| 27 | UI | Today page | Unchanged layout | Critical | **Yes** |
+| 28 | UI | Orders board | Columns + cards render | High | **Yes** |
+| 29 | UI | Mobile navigation | Bottom nav works | Medium | No |
+| 30 | UI | Order details panel | Right/side summary visible | Medium | No |
+| 31 | UI | No broken routes | No blank pages on main nav | High | **Yes** |
+
+\*Proof tests required only after `delivery-proofs` bucket migration applied.
+
+Summary coverage (legacy table):
 
 | Area | Steps | Release-blocking failures |
 |------|-------|---------------------------|

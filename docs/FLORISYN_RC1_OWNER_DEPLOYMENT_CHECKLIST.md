@@ -116,39 +116,48 @@ Run on **production**. Mark **Pass** or **Fail**. **Roll back immediately** on a
 | 1 | Sign up → verification email arrives | ☐ | ☐ | **Yes** |
 | 2 | Verification link opens production URL (not localhost) | ☐ | ☐ | **Yes** |
 | 3 | Sign in → Today / POS loads | ☐ | ☐ | **Yes** |
-| 4 | Sign out works | ☐ | ☐ | No |
+| 4 | Session refresh (wait 5+ min or force 401) | ☐ | ☐ | **Yes** |
+| 5 | Password reset email uses production URL | ☐ | ☐ | **Yes** |
+| 6 | Sign out works | ☐ | ☐ | No |
 
 ### Tenant isolation (release-blocking)
 
 | # | Test | Pass | Fail | Blocks? |
 |---|------|------|------|---------|
-| 5 | User A cannot see User B’s shop orders/customers | ☐ | ☐ | **Yes** |
+| 7 | User A cannot see User B’s shop orders/customers | ☐ | ☐ | **Yes** |
 
 ### Customers
 
 | # | Test | Pass | Fail | Blocks? |
 |---|------|------|------|---------|
-| 6 | Create customer | ☐ | ☐ | **Yes** |
-| 7 | Duplicate phone/email rejected | ☐ | ☐ | **Yes** |
-| 8 | Contact preference saves | ☐ | ☐ | No |
+| 8 | Create customer | ☐ | ☐ | **Yes** |
+| 9 | Duplicate phone/email rejected | ☐ | ☐ | **Yes** |
+| 10 | Edit customer | ☐ | ☐ | No |
+| 11 | Contact preference + marketing consent | ☐ | ☐ | No |
 
 ### Orders & payments
 
 | # | Test | Pass | Fail | Blocks? |
 |---|------|------|------|---------|
-| 9 | Create order | ☐ | ☐ | **Yes** |
-| 10 | Tax calculates correctly | ☐ | ☐ | No |
-| 11 | Routes to Payment Center | ☐ | ☐ | **Yes** |
-| 12 | Move order across board columns + history shows | ☐ | ☐ | No |
-| 13 | Stripe payment (test or authorized live) succeeds | ☐ | ☐ | **Yes** |
+| 12 | Create order with delivery address | ☐ | ☐ | **Yes** |
+| 13 | Tax calculates correctly | ☐ | ☐ | No |
+| 14 | Routes to Payment Center | ☐ | ☐ | **Yes** |
+| 15 | Move order across board columns | ☐ | ☐ | No |
+| 16 | Status history on edit | ☐ | ☐ | No |
+| 17 | Edit order saves | ☐ | ☐ | **Yes** |
+| 18 | Stripe payment succeeds | ☐ | ☐ | **Yes** |
+| 19 | Failed payment handled cleanly | ☐ | ☐ | No |
+| 20 | Receipt / invoice navigation | ☐ | ☐ | No |
 
-### Delivery proof (only after storage migration)
+### Delivery proof (after storage migration)
 
 | # | Test | Pass | Fail | Blocks? |
 |---|------|------|------|---------|
-| 14 | Upload valid photo on delivery | ☐ | ☐ | No* |
-| 15 | Oversized/invalid file rejected | ☐ | ☐ | No |
-| 16 | Failed upload does **not** mark Delivered | ☐ | ☐ | **Yes** if using proof |
+| 21 | Upload valid photo | ☐ | ☐ | No* |
+| 22 | Invalid/oversized file rejected | ☐ | ☐ | No |
+| 23 | Signed URL opens (~5 min) | ☐ | ☐ | No |
+| 24 | Delivered without photo + reason | ☐ | ☐ | No |
+| 25 | Failed upload does **not** mark Delivered | ☐ | ☐ | **Yes** if using proof |
 
 \*Required if proof capture is enabled for RC1.
 
@@ -156,16 +165,20 @@ Run on **production**. Mark **Pass** or **Fail**. **Roll back immediately** on a
 
 | # | Test | Pass | Fail | Blocks? |
 |---|------|------|------|---------|
-| 17 | Create/update inventory item | ☐ | ☐ | No |
-| 18 | Use First / freshness filter works | ☐ | ☐ | No |
+| 26 | Create/update item + received date | ☐ | ☐ | No |
+| 27 | Use First / freshness filter | ☐ | ☐ | No |
 
-### UI regression (release-blocking for Today)
+### UI regression
 
 | # | Test | Pass | Fail | Blocks? |
 |---|------|------|------|---------|
-| 19 | Today page loads — no redesign breakage | ☐ | ☐ | **Yes** |
-| 20 | Orders board loads | ☐ | ☐ | **Yes** |
-| 21 | Mobile bottom navigation works | ☐ | ☐ | No |
+| 28 | Today page — no redesign breakage | ☐ | ☐ | **Yes** |
+| 29 | Orders board loads | ☐ | ☐ | **Yes** |
+| 30 | Mobile bottom navigation | ☐ | ☐ | No |
+| 31 | Order details / side panel | ☐ | ☐ | No |
+| 32 | Main nav routes — no blank pages | ☐ | ☐ | **Yes** |
+
+**Extended reference:** `docs/STACKED_RELEASE_SMOKE_TEST.md`
 
 ---
 
