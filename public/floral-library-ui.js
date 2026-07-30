@@ -51,7 +51,7 @@
               .join(" · ");
             return `<article class="product-card floral-library-card" data-library-id="${esc(p.id)}">
         <img src="${esc(p.primary_image?.url)}" alt="${esc(p.primary_image?.alt || p.name)}" loading="lazy" width="480" height="360">
-        <div class="body"><span class="badge">${esc(p.categories?.[0] || "Floral")}</span>
+        <div class="body"><span class="badge">${esc(p.catalog_tier || p.categories?.[0] || "Floral")}</span>
         <h3>${esc(p.name)}</h3><p>${esc(p.short_description || p.description)}</p>
         <div class="price">${money(p.suggested_retail?.default)}</div>
         <div class="recipe-preview"><strong>Recipe</strong><span>${recipeLine || "Starter stems included"}</span></div>
