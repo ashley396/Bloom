@@ -2,7 +2,7 @@
 
 **Prepared:** 2026-07-30  
 **Branch:** `release/florisyn-foundation-daily-loop-v3`  
-**Verified commit:** `2bc43f7`  
+**Verified commit:** `449e598`  
 **Scope:** Foundation v1 + Daily Loop v2 + Daily Loop v3 stacked release  
 **Agent task:** Verification, packaging, owner-readiness only — **no deployment performed**
 
