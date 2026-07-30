@@ -2,7 +2,7 @@
 
 **Prepared:** 2026-07-30  
 **Branch:** `release/florisyn-foundation-daily-loop-v3`  
-**Verified commit:** `25a4a9d`  
+**Verified commit:** `e56807f`  
 **Scope:** Foundation v1 + Daily Loop v2 + Daily Loop v3 stacked release  
 **Agent task:** Verification, packaging, owner-readiness only — **no deployment performed**
 
@@ -44,7 +44,7 @@ Engineering gates pass. Production deployment remains blocked until the owner co
 | Check | Result | Evidence |
 |-------|--------|----------|
 | Current branch | **Pass** | `release/florisyn-foundation-daily-loop-v3` |
-| Working tree clean (pre-change) | **Pass** | `git status` clean at `878ee55`; RC1 packaging commit `25a4a9d` |
+| Working tree clean (pre-change) | **Pass** | RC1 packaging commit `e56807f` |
 | Draft PR #11 | **Pass** | Open, draft, base `main`, head `release/florisyn-foundation-daily-loop-v3` |
 | Expected release commits in PR | **Pass** | 13 commits: Foundation → v2 → v3 → stacked gate → constitution docs |
 | Merge conflicts with `main` | **Pass** | `git merge-tree` — no conflicts detected |
@@ -52,7 +52,7 @@ Engineering gates pass. Production deployment remains blocked until the owner co
 | Linear release history | **Pass** | Fast-forward stack from `build/florisyn-foundation-v1`; 11 commits ahead of foundation tip |
 | Documentation references | **Pass** | Governance map + constitution docs exist; RC1 test verifies paths |
 
-**Verified commit SHA:** `25a4a9d`
+**Verified commit SHA:** `e56807f`
 
 ---
 
