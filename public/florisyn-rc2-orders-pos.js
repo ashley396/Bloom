@@ -44,8 +44,10 @@
     group: localStorage.getItem(STORAGE_GROUP) || "all",
     calendarMonth: new Date(),
     initialized: false,
+    workspaceMounted: false,
     boardObserver: null,
     cartObserver: null,
+    statusUpdateInFlight: null,
   };
 
   function getOrders() {
@@ -167,7 +169,11 @@
   }
 
   async function patchOrderStatus(id, status) {
-    if (!window.api) return;
+    if (!window.api) return false;
+    if (state.statusUpdateInFlight === id) return false;
+    const o = findOrder(id);
+    const previousStatus = o?.status;
+    state.statusUpdateInFlight = id;
     const card = document.querySelector(`[data-order-card="${CSS.escape(id)}"]`);
     card?.classList.add("is-moving");
     try {
@@ -177,14 +183,23 @@
       });
       if (Array.isArray(window.orders)) {
         const updated = result.item || {};
-        window.orders = window.orders.map((o) =>
-          o.id === id ? { ...o, ...updated, status: updated.status || status } : o,
+        window.orders = window.orders.map((ord) =>
+          ord.id === id ? { ...ord, ...updated, status: updated.status || status } : ord,
         );
       }
       await window.loadOrders?.();
+      return true;
     } catch (e) {
       card?.classList.remove("is-moving");
+      if (previousStatus && o && Array.isArray(window.orders)) {
+        window.orders = window.orders.map((ord) =>
+          ord.id === id ? { ...ord, status: previousStatus } : ord,
+        );
+      }
       window.toast?.(e?.message || "Could not update order");
+      return false;
+    } finally {
+      if (state.statusUpdateInFlight === id) state.statusUpdateInFlight = null;
     }
   }
 
@@ -227,6 +242,11 @@
     }
   }
 
+  function cardHasAdvanceButton(id) {
+    const card = document.querySelector(`[data-order-card="${CSS.escape(id)}"]`);
+    return Boolean(card?.querySelector("[data-advance-order]:not([disabled])"));
+  }
+
   function buildQuickActions(o) {
     const phone = o.customer_phone || "";
     const id = o.id;
@@ -242,11 +262,16 @@
       actions.push({ label: "Message", action: "message" });
     }
     actions.push({ label: "Assign designer", action: "assign" });
-    if (!["READY", "PICKUP_READY", "DELIVERED", "COMPLETED"].includes(status)) {
-      actions.push({ label: "Mark ready", action: "ready" });
-    }
-    if (!["DELIVERED", "COMPLETED"].includes(status)) {
-      actions.push({ label: "Mark delivered", action: "delivered" });
+    const hasAdvance = cardHasAdvanceButton(id);
+    if (hasAdvance) {
+      actions.push({ label: "Advance", action: "advance" });
+    } else {
+      if (!["READY", "PICKUP_READY", "DELIVERED", "COMPLETED"].includes(status)) {
+        actions.push({ label: "Mark ready", action: "ready" });
+      }
+      if (!["DELIVERED", "COMPLETED"].includes(status)) {
+        actions.push({ label: "Mark delivered", action: "delivered" });
+      }
     }
     return actions
       .map(
@@ -256,8 +281,27 @@
       .join("");
   }
 
+  function stripCardEnhancement(cardEl) {
+    if (!cardEl) return;
+    cardEl.querySelectorAll(".rc2-card-body, .rc2-quick-actions").forEach((el) => el.remove());
+    cardEl.classList.remove(
+      "rc2-stationery-card",
+      "is-late",
+      "is-overdue",
+      "is-rush",
+      "is-touch-open",
+      "is-dragging",
+      "is-moving",
+    );
+    cardEl.draggable = false;
+    delete cardEl.dataset.rc2Enhanced;
+    delete cardEl.dataset.rc2Group;
+  }
+
   function enhanceCard(cardEl, o) {
-    if (!cardEl || !o || cardEl.dataset.rc2Enhanced === "1") return;
+    if (!cardEl || !o) return;
+    if (cardEl.dataset.rc2Enhanced === "1") return;
+    stripCardEnhancement(cardEl);
     cardEl.dataset.rc2Enhanced = "1";
     cardEl.classList.add("rc2-stationery-card");
     cardEl.draggable = state.view === "kanban";
@@ -383,7 +427,11 @@
 
   function mountWorkspaceChrome() {
     const page = document.getElementById("ordersPage");
-    if (!page || page.querySelector(".rc2-orders-workspace")) return;
+    if (!page || state.workspaceMounted) return;
+    if (page.querySelector(".rc2-orders-workspace")) {
+      state.workspaceMounted = true;
+      return;
+    }
 
     const layout = page.querySelector(".order-command-layout");
     if (!layout) return;
@@ -455,6 +503,7 @@
 
     setView(state.view, true);
     setGroup(state.group, true);
+    state.workspaceMounted = true;
   }
 
   function setView(view, silent) {
@@ -649,9 +698,10 @@
         const id = e.dataTransfer.getData("text/plain");
         const columnId = col.dataset.orderColumn;
         const targetStatus = COLUMN_TARGET_STATUS[columnId];
-        if (!id || !targetStatus) return;
+        if (!id || !targetStatus || state.statusUpdateInFlight) return;
         const o = findOrder(id);
-        if (!o || String(o.status || "").toUpperCase() === targetStatus) return;
+        const current = String(o?.status || "").toUpperCase();
+        if (!o || current === targetStatus) return;
         await patchOrderStatus(id, targetStatus);
       });
     });
@@ -698,6 +748,9 @@
       case "assign":
         triggerClick(`[data-edit-order="${CSS.escape(orderId)}"]`, card);
         break;
+      case "advance":
+        triggerClick(`[data-advance-order="${CSS.escape(orderId)}"]`, card);
+        break;
       case "ready":
         await patchOrderStatus(orderId, "READY");
         break;
@@ -729,6 +782,16 @@
     updatePosReceiptPreview();
   }
 
+  function readCheckoutDisplayTotals() {
+    const subtotalText = document.getElementById("weekSales")?.textContent?.trim() || "";
+    const totalText = document.getElementById("totalSales")?.textContent?.trim() || "";
+    const taxSpan = [...document.querySelectorAll(".checkout-lines span")].find((el) =>
+      /tax/i.test(el.textContent || ""),
+    );
+    const taxText = taxSpan?.querySelector("b")?.textContent?.trim() || "";
+    return { subtotalText, taxText, totalText };
+  }
+
   function updatePosReceiptPreview() {
     const body = document.getElementById("rc2ReceiptBody");
     const customerEl = document.getElementById("rc2ReceiptCustomer");
@@ -750,21 +813,24 @@
       return;
     }
 
-    const subtotal = cart.reduce((s, x) => s + (Number(x.price) || 0) * (Number(x.quantity) || 1), 0);
+    const { subtotalText, taxText, totalText } = readCheckoutDisplayTotals();
     body.innerHTML =
       cart
         .map(
           (x) =>
             `<div class="rc2-pos-receipt-line"><span>${esc(x.name)}<small> × ${Number(x.quantity) || 1}</small></span><span>${esc(money((Number(x.price) || 0) * (Number(x.quantity) || 1)))}</span></div>`,
         )
-        .join("") + `<div class="rc2-pos-receipt-line"><strong>Subtotal</strong><strong>${esc(money(subtotal))}</strong></div>`;
+        .join("") +
+      `<div class="rc2-pos-receipt-line"><span>Subtotal</span><span>${esc(subtotalText || money(cart.reduce((s, x) => s + (Number(x.price) || 0) * (Number(x.quantity) || 1), 0)))}</span></div>` +
+      (taxText
+        ? `<div class="rc2-pos-receipt-line"><span>Tax</span><span>${esc(taxText)}</span></div>`
+        : "") +
+      `<div class="rc2-pos-receipt-line"><strong>Total</strong><strong>${esc(totalText || subtotalText)}</strong></div>`;
   }
 
   function onBoardRendered() {
     mountWorkspaceChrome();
-    document.querySelectorAll(".production-card[data-order-card]").forEach((el) => {
-      delete el.dataset.rc2Enhanced;
-    });
+    document.querySelectorAll(".production-card[data-order-card]").forEach(stripCardEnhancement);
     enhanceAllCards();
     setupDragDrop();
     if (state.view === "timeline") renderTimelineView();
@@ -808,12 +874,30 @@
     if (!queue || state.cartObserver) return;
     state.cartObserver = new MutationObserver(updatePosReceiptPreview);
     state.cartObserver.observe(queue, { childList: true, subtree: true });
+    document.getElementById("posCustomerSelect")?.addEventListener("change", updatePosReceiptPreview);
+    ["weekSales", "totalSales"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el || el.dataset.rc2Observed) return;
+      el.dataset.rc2Observed = "1";
+      const obs = new MutationObserver(updatePosReceiptPreview);
+      obs.observe(el, { characterData: true, childList: true, subtree: true });
+    });
   }
 
   function init() {
     if (state.initialized) return;
     state.initialized = true;
     document.body.classList.add("florisyn-rc2-orders-pos");
+
+    function activateAlternateViewItem(orderId) {
+      if (!orderId) return;
+      setView("kanban");
+      requestAnimationFrame(() => {
+        const card = document.querySelector(`[data-order-card="${CSS.escape(orderId)}"]`);
+        card?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        card?.focus?.();
+      });
+    }
 
     document.addEventListener("click", (e) => {
       const actionBtn = e.target.closest("[data-rc2-action]");
@@ -826,14 +910,27 @@
 
       const timelineItem = e.target.closest(".rc2-timeline-item");
       if (timelineItem?.dataset.orderId) {
-        const card = document.querySelector(`[data-order-card="${CSS.escape(timelineItem.dataset.orderId)}"]`);
-        card?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        setView("kanban");
+        activateAlternateViewItem(timelineItem.dataset.orderId);
         return;
       }
 
       const listRow = e.target.closest(".rc2-list-row");
       if (listRow?.dataset.orderId) {
+        triggerClick(`[data-edit-order="${CSS.escape(listRow.dataset.orderId)}"]`);
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const timelineItem = e.target.closest(".rc2-timeline-item");
+      if (timelineItem?.dataset.orderId) {
+        e.preventDefault();
+        activateAlternateViewItem(timelineItem.dataset.orderId);
+        return;
+      }
+      const listRow = e.target.closest(".rc2-list-row");
+      if (listRow?.dataset.orderId) {
+        e.preventDefault();
         triggerClick(`[data-edit-order="${CSS.escape(listRow.dataset.orderId)}"]`);
       }
     });
@@ -852,7 +949,15 @@
       if (!prev || prev.__rc2OrdersShowPage) return;
       window.showPage = function (id) {
         const r = prev.apply(this, arguments);
-        if (id === "ordersPage") setTimeout(onBoardRendered, 50);
+        if (id === "ordersPage") {
+          updateStats();
+          if (state.view !== "kanban") {
+            if (state.view === "timeline") renderTimelineView();
+            if (state.view === "calendar") renderCalendarView();
+            if (state.view === "list") renderListView();
+          }
+          applyGroupFilter();
+        }
         if (id === "dashboardPage") {
           enhancePosCheckout();
           updatePosReceiptPreview();

@@ -84,6 +84,11 @@ describe("Florisyn RC2 luxury experience", () => {
     assert.match(js, /FlorisynRC2Orders/);
     assert.match(js, /data-rc2-view/);
     assert.match(js, /data-rc2-action/);
+    assert.match(js, /statusUpdateInFlight/);
+    assert.match(js, /stripCardEnhancement/);
+    assert.match(js, /workspaceMounted/);
+    assert.match(js, /readCheckoutDisplayTotals/);
+    assert.match(js, /case "advance"/);
     assert.doesNotMatch(js, /password|secret|api_key/i);
   });
 

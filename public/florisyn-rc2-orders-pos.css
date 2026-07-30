@@ -942,6 +942,70 @@ body.florisyn-rc2-luxury .payment-action-primary {
   }
 }
 
+body.florisyn-rc2-luxury .rc2-card-title-block h3,
+body.florisyn-rc2-luxury .rc2-card-customer,
+body.florisyn-rc2-luxury .rc2-card-meta-grid strong,
+body.florisyn-rc2-luxury .rc2-list-main h4,
+body.florisyn-rc2-luxury .rc2-list-main p,
+body.florisyn-rc2-luxury .rc2-timeline-item h4,
+body.florisyn-rc2-luxury .rc2-timeline-item p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+body.florisyn-rc2-luxury .rc2-card-notes {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+body.florisyn-rc2-luxury .rc2-view-switcher button:focus-visible,
+body.florisyn-rc2-luxury .rc2-group-chip:focus-visible,
+body.florisyn-rc2-luxury .rc2-quick-actions button:focus-visible {
+  outline: 2px solid var(--rc2-champagne-gold);
+  outline-offset: 2px;
+}
+
+body.florisyn-rc2-luxury .rc2-card-chip.is-late-chip,
+body.florisyn-rc2-luxury .rc2-card-chip.is-rush-chip,
+body.florisyn-rc2-luxury .rc2-card-chip.is-pay-unpaid {
+  font-weight: 700;
+}
+
+body.florisyn-rc2-luxury .rc2-timeline-view,
+body.florisyn-rc2-luxury .rc2-list-view {
+  max-height: min(70vh, 70dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+body.florisyn-rc2-luxury .rc2-pos-receipt-body .subtle {
+  font-style: italic;
+}
+
+@media (max-width: 900px) {
+  body.florisyn-rc2-luxury #ordersPage .order-board {
+    max-width: 100%;
+  }
+
+  body.florisyn-rc2-luxury .production-card.rc2-stationery-card::after {
+    color: var(--rc2-ink-subtle);
+    content: "Tap for actions";
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding: 0 var(--rc2-space-4) var(--rc2-space-2);
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  body.florisyn-rc2-luxury .production-card.rc2-stationery-card.is-touch-open::after {
+    content: "";
+    padding: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   body.florisyn-rc2-luxury .rc2-orders-view,
   body.florisyn-rc2-luxury .production-card,
