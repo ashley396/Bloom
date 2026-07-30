@@ -1,7 +1,7 @@
 # Florisyn Master Build Checklist
 
 **Last updated:** 2026-07-30  
-**Branch:** `cursor/florisyn-daily-loop-v2-7317` (Daily Loop v2 on top of Foundation v1)  
+**Branch:** `cursor/florisyn-daily-loop-v3` (Daily Loop v3 on top of v2 → Foundation v1)  
 **Legend:** ✅ COMPLETE · 🟡 IN PROGRESS · ⚪ PLANNED · 🔒 FUTURE · ⛔ BLOCKED
 
 Each entry includes status, relevant files, dependencies, and verification method.
@@ -37,9 +37,11 @@ Each entry includes status, relevant files, dependencies, and verification metho
 | Post-create → Payment Center | ✅ COMPLETE | `openPaymentCenterForOrder()` in `app.js` | Stripe optional | Add order → lands on payments |
 | Invoice nav destination | ✅ COMPLETE | Sidebar `invoicesPage`, `loadInvoices` | — | Click Invoices in nav |
 | Compact receipt + production print | ✅ COMPLETE | Print CSS in `styles.css`, invoice render | — | Print from order/invoice |
-| React Orders preview | 🟡 IN PROGRESS | `frontend/src/pages/OrdersPage.tsx` | Sample data only | `npm run frontend:dev` |
+| React Orders preview | 🟡 IN PROGRESS | `frontend/src/pages/OrdersPage.tsx`, `orders-api.ts` | `REACT_ORDERS_PREVIEW=false` default; API when flag on | Flag off → production fallback link |
+| Customer contact preferences UI | ✅ COMPLETE | `customer-preferences.js`, `customers.js`, `public/index.html` | Foundation `contact_preferences` column | CRM + order builder summary |
+| Delivery proof capture UI + API | ✅ COMPLETE | `delivery-proof.js`, `deliveries.js`, proof dialog | Private `delivery-proofs` bucket | Capture proof smoke in QA doc |
+| Inventory freshness fields + filters | ✅ COMPLETE | `inventory-freshness.js`, `inventory.js`, inventory UI | Foundation inventory columns | Use First filter + save dates |
 | Order audit log (full entity diff) | ⚪ PLANNED | `audit_events` table | Migration + handler wiring | Inspect audit_events |
-| Align UI `NEW` column with `PENDING` | ⚪ PLANNED | `public/app.js` ORDER_FLOW | — | Board shows Pending not NEW |
 
 ---
 
@@ -50,10 +52,10 @@ Each entry includes status, relevant files, dependencies, and verification metho
 | CRUD + search | ✅ COMPLETE | `customers.js`, `public/app.js` | RLS | Add/edit customer |
 | Buyer vs recipient separation | ✅ COMPLETE | Order + customer models | — | Delivery to different recipient |
 | Order history on customer | ✅ COMPLETE | Customer detail panel | Orders linked | Open customer record |
-| House account flag | 🟡 IN PROGRESS | Migration column `is_house_account` | Migration applied | PATCH customer |
-| Soft delete | 🟡 IN PROGRESS | Migration column `deleted_at` | Migration + UI filter | Delete → hidden not purged |
-| Contact preferences | 🟡 IN PROGRESS | Migration `contact_preferences` jsonb | Migration + UI | Save prefs |
-| Duplicate prevention | ⚪ PLANNED | Dedup on phone/email | Server validation | Attempt duplicate phone |
+| House account flag | ✅ COMPLETE | Migration + customer form | Migration applied | House account checkbox |
+| Soft delete | ✅ COMPLETE | Server `deleted_at` filter + soft DELETE | Migration applied | Delete hides customer |
+| Duplicate prevention | ✅ COMPLETE | `_shared/customer-dedup.js` | — | 409 on duplicate phone/email |
+| Contact preferences (operational vs marketing) | ✅ COMPLETE | `customer-preferences.js`, v3 UI | Foundation column | CRM + order builder |
 | RBAC for PII | ✅ COMPLETE | RLS `is_shop_member()` | Supabase auth | Cross-shop access denied |
 
 ---
@@ -80,7 +82,7 @@ Each entry includes status, relevant files, dependencies, and verification metho
 | Item kinds (flower, container, etc.) | 🟡 IN PROGRESS | Migration `item_kind` column | Migration | Set kind on item |
 | Color-level tracking | 🟡 IN PROGRESS | Migration `color` column | Migration | Rose color field |
 | Markup multiplier (3× default) | 🟡 IN PROGRESS | Migration `markup_multiplier` | Migration | Default 3.0 on new rows |
-| Freshness / use-first dates | 🟡 IN PROGRESS | `received_at`, `use_by` columns | Migration | Dashboard use-first |
+| Freshness / use-first dates | ✅ COMPLETE | `received_at`, `use_by`, v3 UI/filters | Migration | Use First filter |
 | Manual intake | ✅ COMPLETE | Inventory form | — | Add row manually |
 | Barcode intake | ✅ COMPLETE | Scanner hooks in app | Hardware optional | Scan SKU |
 | Voice intake | 🔒 FUTURE | Feature flag `INVENTORY_AI_INTAKE` off | AI + STT | — |
@@ -107,19 +109,33 @@ Each entry includes status, relevant files, dependencies, and verification metho
 | Round-trip mileage | 🟡 IN PROGRESS | `route-distance.js`, migration `round_trip_*` | `GOOGLE_MAPS_API_KEY` | Calculate route on order |
 | Assigned driver | ✅ COMPLETE | Order + delivery fields | Staff | Assign driver |
 | Delivery status tracking | ✅ COMPLETE | Order status OUT_FOR_DELIVERY etc. | — | Move on board |
-| Proof photo / signature | 🟡 IN PROGRESS | Migration columns on `deliveries` | Storage + UI | ⛔ UI not wired yet |
+| Proof photo / signature | ✅ COMPLETE | `delivery-proof.js`, `deliveries.js`, v3 UI | Private `delivery-proofs` bucket | Daily Loop v3 QA |
 | Maps abstraction + fallback | 🟡 IN PROGRESS | `route-distance.js`, flag `DELIVERY_MAPS` | API key or graceful degrade | Remove maps key → message |
 
 ---
 
-## Website
+## Website Studio
+
+**Permanent specification:** `docs/FLORISYN_WEBSITE_STUDIO_BLUEPRINT.md`  
+**Architecture:** `docs/FLORISYN_MASTER_ARCHITECTURE_BIBLE.md` §6  
+**Feature flag:** `WEBSITE_STUDIO_V2` default `false` (RC1 `INSTANT_WEBSITE` remains for shipped module)
 
 | Item | Status | Files | Dependencies | Verification |
 |------|--------|-------|--------------|--------------|
-| Instant Website Studio | ✅ COMPLETE | `instant-website.js`, `bloom-instant-website.js` | Shop settings | Preview site |
-| Public storefront | ✅ COMPLETE | `storefront-public.js`, `public/storefront/` | Tenant slug | Visit `/store/{slug}` |
-| SEO per-shop sitemap | 🟡 IN PROGRESS | `storefront-public.js?action=sitemap` | Published pages | Fetch sitemap XML |
-| Landing page architecture | ⚪ PLANNED | `docs/SEO_FOUNDATION.md` | Content templates | — |
+| **WS-0** Architecture (pages, sections, themes, domains, versioning) | ⚪ PLANNED | Blueprint § Build phases | Unify `website_pages` + `bloom_website_*` | Architecture review |
+| **WS-1** Lily Quick Start (interview → draft site) | ⚪ PLANNED | Lily + `instant-website.js` extension | WS-0 models | 30-min setup QA |
+| **WS-2** Visual Editor (canvas, contextual panels) | ⚪ PLANNED | New editor shell | WS-0, WS-1 | Click-to-edit smoke |
+| **WS-3** Products & Checkout (publish → Orders OS) | ⚪ PLANNED | `products`, Stripe, `orders.js` | WS-0, payments | Web order in board |
+| **WS-4** Inventory & Holiday Command Center | ⚪ PLANNED | `inventory-freshness.js`, holiday module | WS-3, inventory API | Low-stock hide smoke |
+| **WS-5** SEO, Analytics, Publishing | ⚪ PLANNED | `SEO_FOUNDATION.md`, domains | WS-0 versioning | Pre-publish checklist |
+| **WS-6** Import, Mobile Editor, Advanced Lily | ⚪ PLANNED | Import adapter, mobile UI | WS-2–WS-5 | Import does not auto-publish |
+| RC1 Instant Website (precursor) | ✅ COMPLETE | `bloom-instant-website.js`, `instant-website.js` | Shop settings | Preview site |
+| RC1 Website editor shell | 🟡 IN PROGRESS | `website-editor-ui.js` | RC1 projects | Section reorder |
+| Public storefront | ✅ COMPLETE | `storefront-public.js` | Tenant slug | `/store/{slug}` |
+| Per-shop sitemap | 🟡 IN PROGRESS | `storefront-public.js?action=sitemap` | Published pages | Fetch sitemap XML |
+| Four quick-start entry paths | ⚪ PLANNED | WS-1 UI | WS-1 | Lily / Design / Import / Blank |
+| Pre-publish checklist | ⚪ PLANNED | WS-5 | All WS phases | Block publish on critical gaps |
+| Holiday Command Center | ⚪ PLANNED | WS-4 | New module | Single control center |
 
 ---
 
@@ -252,11 +268,11 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 | Step | Status | Verification |
 |------|--------|--------------|
 | All docs committed | 🟡 IN PROGRESS | This checklist + 8 doc files |
-| Tests 321/322 pass | 🟡 IN PROGRESS | 1 pre-existing RC polish failure |
+| Tests 396/396 pass | ✅ COMPLETE | `npm test` | — | Full suite green |
 | Migration reviewed | ✅ COMPLETE | `20260730_foundation_daily_loop_v1.sql` |
 | Owner applies migration | ⛔ BLOCKED | Supabase credentials required |
 | Single controlled Netlify deploy | ⛔ BLOCKED | Owner approval — **do not auto-deploy** |
 
 ---
 
-*Maintained with Foundation v1 batch — update status as items ship.*
+*Maintained with Foundation v1 + Daily Loop v2/v3 + Website Studio specification (2026-07-30).*

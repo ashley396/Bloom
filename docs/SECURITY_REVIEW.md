@@ -37,6 +37,9 @@ Florisyn's production stack enforces **tenant isolation via Supabase RLS** and *
 | Stripe webhook livemode/key mismatch rejected | `_shared/stripe-mode.js`, `stripe-order-webhook.js` | Security tests |
 | Feature flag env override bug | `_shared/feature-flags.js` | Security tests |
 | Delivery proof upload validation module | `_shared/upload-validation.js` | Security tests |
+| Delivery proof private storage + 300s signed URLs (Daily Loop v3) | `_shared/delivery-proof.js`, `deliveries.js` | `tests/foundation-daily-loop-v3.test.js` |
+| Customer marketing consent separate from operational contact (v3) | `_shared/customer-preferences.js` | v3 tests + CRM UI |
+| `REACT_ORDERS_PREVIEW` defaults false (v3) | `_shared/feature-flags.js` | `production-health` JSON |
 | Feature flags default risky modules off (`VOICE_WAKE`, `INVENTORY_AI_INTAKE`, recipe deductions) | `_shared/feature-flags.js` | `tests/foundation-v1.test.js` |
 | Order status normalization + history insert on create/patch | `_shared/order-status.js`, `orders.js` | Foundation tests + manual PATCH |
 | Auth redirect avoids localhost when `SITE_URL` set | `_shared/site-url.js` | `tests/foundation-v1.test.js` |
@@ -71,7 +74,7 @@ Florisyn's production stack enforces **tenant isolation via Supabase RLS** and *
 | CSRF | Partial | Same-site cookies N/A (Bearer token); Stripe uses session IDs |
 | XSS | Partial | React escapes; production app uses `textContent` mostly — review website HTML export |
 | Rate limiting | Partial | Auth login, staff PIN, client-errors |
-| Upload validation | Partial | Floral library admin — verify MIME/size server-side on next pass |
+| Upload validation | Partial | Delivery proof MIME/size (`upload-validation.js`); expense receipts; floral library admin — extend as needed |
 | Secure headers | Partial | Netlify defaults; custom CSP recommended |
 | Least-privilege roles | ✅ Implemented | Shop member vs platform admin |
 | Audit logs | 🟡 Started | `audit_events` table; wiring for all admin actions pending |
