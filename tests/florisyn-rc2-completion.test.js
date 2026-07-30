@@ -112,4 +112,93 @@ describe("Florisyn RC2 completion audit", () => {
     assert.match(css, /--pink: var\(--rc2-sage-deep\)/);
     assert.doesNotMatch(css, /#007bff|#2563eb/);
   });
+
+  it("orders and POS pages have purpose-built RC2 selectors", () => {
+    const css = readFileSync(join(PUBLIC, "florisyn-rc2-orders-pos.css"), "utf8");
+    assert.match(css, /#ordersPage/);
+    assert.match(css, /\.pos-home/);
+    assert.match(css, /prefers-reduced-motion/);
+    assert.match(css, /min-height: 44px/);
+  });
+
+  it("all static dialogs receive RC2 workspace dialog rules", () => {
+    const html = readFileSync(join(PUBLIC, "index.html"), "utf8");
+    const css =
+      readFileSync(join(PUBLIC, "florisyn-rc2-workspaces.css"), "utf8") +
+      readFileSync(join(PUBLIC, "florisyn-rc2-wholesale-complete.css"), "utf8") +
+      readFileSync(join(PUBLIC, "florisyn-rc2-orders-pos.css"), "utf8") +
+      readFileSync(join(PUBLIC, "florisyn-rc2-luxury-unified.css"), "utf8");
+    const staticDialogs = [...html.matchAll(/<dialog id="([^"]+)"/g)].map((m) => m[1]);
+    assert.ok(staticDialogs.length >= 19, "expected at least 19 static dialogs");
+    for (const id of staticDialogs) {
+      const hasSpecific = new RegExp(`#${id}`).test(css);
+      const hasGeneric = css.includes("dialog.rc2-ws-dialog");
+      assert.ok(hasSpecific || hasGeneric, `missing RC2 rules for #${id}`);
+    }
+  });
+
+  it("dynamic dialogs have RC2 workspace selectors", () => {
+    const css = readFileSync(join(PUBLIC, "florisyn-rc2-workspaces.css"), "utf8");
+    for (const id of ["customerProfileDialog", "phWizardDialog", "themePreviewDialog", "floraviaOnboarding"]) {
+      assert.match(css, new RegExp(`#${id}`), `missing #${id} rules`);
+    }
+  });
+
+  it("admin Command Center views share RC2 complete layout rules", () => {
+    const css = readFileSync(join(PUBLIC, "florisyn-rc2-luxury-admin.css"), "utf8");
+    const adminHtml = readFileSync(join(PUBLIC, "admin.html"), "utf8");
+    const views = [...adminHtml.matchAll(/id="([^"]+View|ownerSetup|adminAuth)"/g)].map((m) => m[1]);
+    assert.ok(views.length >= 16, "expected admin views in admin.html");
+    assert.match(css, /\.view\.active/);
+    assert.match(css, /prefers-reduced-motion/);
+    for (const id of ["ownerSetup", "adminAuth", "overviewView", "usersView", "shopsView"]) {
+      assert.match(adminHtml, new RegExp(`id="${id}"`));
+    }
+  });
+
+  it("auth routes activate RC2 luxury body class and overlay CSS", () => {
+    const authCss = readFileSync(join(PUBLIC, "florisyn-rc2-luxury-auth.css"), "utf8");
+    for (const page of ["login.html", "signup.html", "verify-email.html", "forgot-password.html", "reset-password.html"]) {
+      const html = readFileSync(join(PUBLIC, page), "utf8");
+      assert.match(html, /florisyn-rc2-luxury-auth\.css/);
+      assert.match(html, /florisyn-rc2-luxury/);
+    }
+    assert.match(authCss, /RC2 Auth complete/);
+  });
+
+  it("public and storefront satellite pages use RC2 overlays", () => {
+    const publicPages = [
+      "company/about/index.html",
+      "help/index.html",
+      "legal/privacy/index.html",
+      "sitemap/index.html",
+      "storefront/index.html",
+    ];
+    for (const page of publicPages) {
+      const html = readFileSync(join(PUBLIC, page), "utf8");
+      assert.match(html, /florisyn-rc2-luxury/);
+    }
+  });
+
+  it("workspaces JS avoids duplicate showPage wrapping", () => {
+    const js = readFileSync(join(PUBLIC, "florisyn-rc2-workspaces.js"), "utf8");
+    assert.match(js, /showPageWrapped/);
+    assert.match(js, /__rc2WsWrapped/);
+    assert.match(js, /observeDynamicDialogs/);
+    assert.equal((js.match(/window\.showPage\s*=/g) || []).length, 1);
+  });
+
+  it("onboarding module exports post-login hook without altering auth flow", () => {
+    const js = readFileSync(join(PUBLIC, "onboarding.js"), "utf8");
+    assert.match(js, /floraviaSaasAfterLogin/);
+    assert.match(js, /window\.floraviaSaasAfterLogin/);
+    assert.doesNotMatch(js, /window\.location\.replace\(/);
+  });
+
+  it("wholesale seller dashboard renders RC2-complete sections", () => {
+    const js = readFileSync(join(PUBLIC, "wholesale-seller-dashboard.js"), "utf8");
+    for (const section of ["dashboard", "products", "orders", "customers", "shipping", "pricing", "import"]) {
+      assert.match(js, new RegExp(section, "i"), `missing wholesale seller section: ${section}`);
+    }
+  });
 });
