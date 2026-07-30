@@ -183,10 +183,43 @@ Expected:
 8. (If Stripe test keys) Complete test card payment
 9. (After v3 + `delivery-proofs` bucket) Capture delivery proof on a test stop — verify short-lived signed URL, status only advances on success
 
-**Storage (v3):** Create private bucket `delivery-proofs` with the same shop-scoped RLS pattern as `expense-receipts` before enabling proof capture in production.
+**Storage (v3):** Apply `supabase/migrations/20260730_delivery_proofs_storage.sql` (or runbook in stacked release docs) before enabling proof capture. Rollback: `supabase/rollback/20260730_delivery_proofs_storage_rollback.sql`.
 
+---
 
-## Rollback procedures
+## Stacked release (Foundation v1 + Daily Loop v2 + v3)
+
+**Release branch:** `release/florisyn-foundation-daily-loop-v3`  
+**One-deploy model:** Single Netlify publish after database + storage preparation.
+
+### Owner documents
+
+| Document | Purpose |
+|----------|---------|
+| `docs/STACKED_RELEASE_READINESS_REPORT.md` | Engineering verification + verdict |
+| `docs/STACKED_RELEASE_OWNER_CHECKLIST.md` | Environment, auth, Stripe, flags |
+| `docs/STACKED_RELEASE_SMOKE_TEST.md` | Post-deploy smoke steps |
+| `docs/STACKED_RELEASE_ROLLBACK.md` | Netlify, storage, DB, Stripe rollback |
+
+### Production preparation order
+
+```
+1. Supabase backup (record timestamp)
+2. Apply 20260730_foundation_daily_loop_v1.sql
+3. Verify post-migration SQL (readiness report §6)
+4. Apply 20260730_delivery_proofs_storage.sql
+5. Confirm delivery-proofs bucket private in Storage UI
+6. Complete STACKED_RELEASE_OWNER_CHECKLIST.md (env + auth)
+7. Publish ONE Netlify deploy from release/florisyn-foundation-daily-loop-v3
+8. Run STACKED_RELEASE_SMOKE_TEST.md
+9. Monitor 24h (section below)
+```
+
+### Rollback (stacked)
+
+See `docs/STACKED_RELEASE_ROLLBACK.md` — Netlify first, then flags/Stripe, storage optional, DB last resort.
+
+---
 
 ### Application rollback (fast)
 
