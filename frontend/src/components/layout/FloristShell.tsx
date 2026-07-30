@@ -1,25 +1,12 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
-import {
-  CalendarDays,
-  CreditCard,
-  LayoutGrid,
-  Package,
-  ShoppingBag,
-  Truck,
-  Users,
-} from "lucide-react";
+import { CalendarDays, ShoppingBag } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { buttonVariants } from "../ui/button";
 
 const navItems = [
   { to: "/today", label: "Today", icon: CalendarDays, end: true },
   { to: "/orders", label: "Orders", icon: ShoppingBag, end: false },
-  { to: "/pos", label: "POS", icon: LayoutGrid, end: false },
-  { to: "/deliveries", label: "Deliveries", icon: Truck, end: false },
-  { to: "/inventory", label: "Inventory", icon: Package, end: false },
-  { to: "/customers", label: "Customers", icon: Users, end: false },
-  { to: "/payments", label: "Payments", icon: CreditCard, end: false },
 ] as const;
 
 type FloristShellProps = {
@@ -84,8 +71,8 @@ export function FloristShell({ children }: FloristShellProps) {
         </div>
       </div>
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-florisyn-border bg-warm-white/95 p-3 backdrop-blur-sm lg:hidden">
-        <NavLink to="/pos" className="block">
-          <span className={cn(buttonVariants({ size: "lg" }), "w-full")}>New Order</span>
+        <NavLink to="/orders" className="block">
+          <span className={cn(buttonVariants({ size: "lg" }), "w-full")}>Orders</span>
         </NavLink>
       </div>
     </div>
