@@ -298,6 +298,28 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 
 ---
 
+## Portal Ownership Matrix (shared service ownership)
+
+**Authority:** `docs/FLORISYN_PORTAL_OWNERSHIP_MATRIX.md` — Florist / Wholesaler / Platform Owner per service.
+
+| Shared service | Florist | Wholesaler | Platform Owner | Status |
+|----------------|---------|------------|----------------|--------|
+| Customers | Create & manage | Wholesale accounts | Tenant oversight | 🟡 IN PROGRESS |
+| Products | Browse, price, sell | Catalog publish | Taxonomy / moderation | 🟡 IN PROGRESS |
+| Inventory | Shop stock | Warehouse stock | Cross-platform analytics | 🟡 IN PROGRESS |
+| Orders | Retail | Wholesale | Monitoring | 🟡 IN PROGRESS |
+| Payments | Customer payments | Wholesale payments | Subscriptions / platform finance | 🟡 IN PROGRESS |
+| Delivery | Schedule & complete | Ship wholesale | Ops analytics | 🟡 IN PROGRESS |
+| Website Studio | Storefront | Catalog pages | Templates / settings | 🟡 IN PROGRESS |
+| Lily & Rose AI | Shop assistant | Wholesale assistant | Admin insights | 🟡 IN PROGRESS |
+| Marketplace | Purchase | Sell | Administration | 🟡 IN PROGRESS |
+| Reports | Business | Warehouse | Platform-wide | 🟡 IN PROGRESS |
+| Users | Shop staff | Warehouse staff | Tenant admin | 🟡 IN PROGRESS |
+| Security | Shop RBAC | Seller RBAC | Platform audit | 🟡 IN PROGRESS |
+| Governance rules (one model, permissions not duplicates) | ✅ COMPLETE | Documented in matrix |
+
+---
+
 ## Experience Standard (permanent UX constitution)
 
 **Authority:** `docs/FLORISYN_EXPERIENCE_STANDARD.md` — all screens must feel like one application.
@@ -352,4 +374,4 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 
 ---
 
-*Maintained with Foundation v1 + Daily Loop v2/v3 + Website Studio + Governance Map + Gold Standard + Experience Standard + Design System v1.0 + Ecosystem Portals (2026-07-30).*
+*Maintained with Foundation v1 + Daily Loop v2/v3 + Website Studio + Governance Map + Gold Standard + Experience Standard + Design System v1.0 + Ecosystem Portals + Portal Ownership Matrix (2026-07-30).*

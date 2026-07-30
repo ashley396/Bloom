@@ -36,6 +36,7 @@ test("stacked release documentation package exists", () => {
     "docs/FLORISYN_EXPERIENCE_STANDARD.md",
     "docs/FLORISYN_DESIGN_SYSTEM.md",
     "docs/FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md",
+    "docs/FLORISYN_PORTAL_OWNERSHIP_MATRIX.md",
   ]) {
     assert.ok(fs.existsSync(path.join(process.cwd(), file)), `${file} missing`);
   }
@@ -158,4 +159,29 @@ test("governance map defines documentation hierarchy and entry points", () => {
   );
   assert.match(bible, /## 0\. Governance map/);
   assert.match(bible, /FLORISYN_GOVERNANCE_MAP\.md/);
+});
+
+test("portal ownership matrix defines shared service roles per portal", () => {
+  const doc = fs.readFileSync(
+    path.join(process.cwd(), "docs/FLORISYN_PORTAL_OWNERSHIP_MATRIX.md"),
+    "utf8",
+  );
+  assert.match(doc, /Single Source of Truth/i);
+  for (const service of [
+    "Customers",
+    "Products",
+    "Inventory",
+    "Orders",
+    "Payments",
+    "Delivery",
+    "Website Studio",
+    "Marketplace",
+    "Security",
+  ]) {
+    assert.match(doc, new RegExp(service), `missing service: ${service}`);
+  }
+  assert.match(doc, /Florist Portal/);
+  assert.match(doc, /Wholesaler Portal/);
+  assert.match(doc, /Platform Owner Portal/);
+  assert.match(doc, /one canonical data model/i);
 });

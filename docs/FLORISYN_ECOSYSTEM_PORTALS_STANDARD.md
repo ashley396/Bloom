@@ -21,6 +21,7 @@ Each portal shares the same **design system**, **security model**, and **core se
 | `FLORISYN_GOLD_STANDARD.md` | Product behavior — especially §1 Single Source of Truth, §10 Future Ecosystem |
 | `FLORISYN_EXPERIENCE_STANDARD.md` | Visual language and completion gate — all portals use one design system |
 | `FLORISYN_MASTER_ARCHITECTURE_BIBLE.md` | Integration index, tenant isolation, domain APIs |
+| `FLORISYN_PORTAL_OWNERSHIP_MATRIX.md` | Who owns each shared service per portal |
 
 ---
 
@@ -208,6 +209,7 @@ All agents and engineers must:
 | Document | Relationship |
 |----------|--------------|
 | `FLORISYN_GOLD_STANDARD.md` | §1, §10 — single source of truth and ecosystem |
+| `FLORISYN_PORTAL_OWNERSHIP_MATRIX.md` | Shared service ownership by portal |
 | `FLORISYN_EXPERIENCE_STANDARD.md` | UX constitution across portals |
 | `FLORISYN_DESIGN_SYSTEM.md` | v1.0 tokens and component catalog |
 | `FLORISYN_WEBSITE_STUDIO_BLUEPRINT.md` | Florist portal module — Website Studio |

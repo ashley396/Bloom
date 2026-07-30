@@ -18,6 +18,7 @@
 | How should Florisyn look and feel? | `FLORISYN_EXPERIENCE_STANDARD.md` |
 | How should UI components be built? | `FLORISYN_DESIGN_SYSTEM.md` |
 | How do the portals fit together? | `FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md` |
+| Who owns each shared service? | `FLORISYN_PORTAL_OWNERSHIP_MATRIX.md` |
 | How is Website Studio designed? | `FLORISYN_WEBSITE_STUDIO_BLUEPRINT.md` |
 | What must be complete before release? | `FLORISYN_MASTER_BUILD_CHECKLIST.md` |
 
@@ -38,6 +39,8 @@ Florisyn is the **operating system for modern florists** — POS, orders, custom
 **Permanent design system:** `docs/FLORISYN_DESIGN_SYSTEM.md` — v1.0 tokens (color, typography, spacing, radius, shadow, motion), component catalog, layout patterns, orders card standard, accessibility, and design review checklist. Single visual source of truth for all portals.
 
 **Permanent portal model:** `docs/FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md` — Florist, Wholesaler, and Platform Owner portals on one OS; shared customer, product, inventory, order, payment, delivery, auth, design, notification, and AI services. Every feature must declare portal ownership and shared-service dependencies.
+
+**Portal ownership matrix:** `docs/FLORISYN_PORTAL_OWNERSHIP_MATRIX.md` — which portal owns, manages, or consumes each shared service (Customers through Security). Complements Ecosystem Portals; reinforces Single Source of Truth.
 
 **Non-negotiables:**
 
@@ -280,6 +283,7 @@ Website Studio SEO and legal page starters **require attorney review** before cu
 | **`FLORISYN_EXPERIENCE_STANDARD.md`** | **Permanent UX & visual design constitution** |
 | **`FLORISYN_DESIGN_SYSTEM.md`** | **v1.0 UI tokens, components, layout patterns** |
 | **`FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md`** | **Florist / Wholesaler / Platform Owner portal model** |
+| **`FLORISYN_PORTAL_OWNERSHIP_MATRIX.md`** | **Shared service ownership by portal** |
 | `FLORISYN_MASTER_BUILD_CHECKLIST.md` | Ship status by product area |
 | `FLORISYN_WEBSITE_STUDIO_BLUEPRINT.md` | Permanent Website Studio specification |
 | `FLORISYN_REPOSITORY_AUDIT.md` | Codebase inventory |
@@ -289,4 +293,4 @@ Website Studio SEO and legal page starters **require attorney review** before cu
 
 ---
 
-*Maintained by Florisyn engineering. Governance Map added 2026-07-30. Website Studio specification added 2026-07-30. Gold Standard principles added 2026-07-30. Experience Standard added 2026-07-30. Ecosystem Portals Standard added 2026-07-30. Design System v1.0 added 2026-07-30.*
+*Maintained by Florisyn engineering. Governance Map added 2026-07-30. Portal Ownership Matrix added 2026-07-30. Website Studio specification added 2026-07-30. Gold Standard principles added 2026-07-30. Experience Standard added 2026-07-30. Ecosystem Portals Standard added 2026-07-30. Design System v1.0 added 2026-07-30.*

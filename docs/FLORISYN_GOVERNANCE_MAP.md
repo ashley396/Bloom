@@ -85,6 +85,8 @@ Defines:
 - Shared platform services
 - Shared design language
 
+**Service ownership by portal:** `FLORISYN_PORTAL_OWNERSHIP_MATRIX.md` — who owns, manages, or consumes each shared service (Customers, Products, Orders, etc.).
+
 ---
 
 ### How is Website Studio designed?
@@ -125,6 +127,7 @@ Read top-down. Lower documents must not contradict higher ones.
 3. Experience Standard           ← UX & visual constitution
 4. Design System                 ← tokens & components
 5. Ecosystem Portals Standard    ← Florist / Wholesaler / Platform Owner
+   Portal Ownership Matrix       ← who owns each shared service (companion)
 6. Website Studio Blueprint      ← Website Studio permanent spec
 7. Master Build Checklist        ← ship status & release gates
 ```
