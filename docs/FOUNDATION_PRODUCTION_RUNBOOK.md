@@ -181,8 +181,10 @@ Expected:
 6. Settings → AI status shows honest state
 7. Staff list — no pay rates; private file requires PIN
 8. (If Stripe test keys) Complete test card payment
+9. (After v3 + `delivery-proofs` bucket) Capture delivery proof on a test stop — verify short-lived signed URL, status only advances on success
 
----
+**Storage (v3):** Create private bucket `delivery-proofs` with the same shop-scoped RLS pattern as `expense-receipts` before enabling proof capture in production.
+
 
 ## Rollback procedures
 

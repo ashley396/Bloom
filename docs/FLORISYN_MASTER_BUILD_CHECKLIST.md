@@ -1,7 +1,7 @@
 # Florisyn Master Build Checklist
 
 **Last updated:** 2026-07-30  
-**Branch:** `cursor/florisyn-daily-loop-v2-7317` (Daily Loop v2 on top of Foundation v1)  
+**Branch:** `cursor/florisyn-daily-loop-v3` (Daily Loop v3 on top of v2 → Foundation v1)  
 **Legend:** ✅ COMPLETE · 🟡 IN PROGRESS · ⚪ PLANNED · 🔒 FUTURE · ⛔ BLOCKED
 
 Each entry includes status, relevant files, dependencies, and verification method.
@@ -37,9 +37,12 @@ Each entry includes status, relevant files, dependencies, and verification metho
 | Post-create → Payment Center | ✅ COMPLETE | `openPaymentCenterForOrder()` in `app.js` | Stripe optional | Add order → lands on payments |
 | Invoice nav destination | ✅ COMPLETE | Sidebar `invoicesPage`, `loadInvoices` | — | Click Invoices in nav |
 | Compact receipt + production print | ✅ COMPLETE | Print CSS in `styles.css`, invoice render | — | Print from order/invoice |
-| React Orders preview | 🟡 IN PROGRESS | `frontend/src/pages/OrdersPage.tsx` | Sample data only | `npm run frontend:dev` |
+| React Orders preview | 🟡 IN PROGRESS | `frontend/src/pages/OrdersPage.tsx`, `orders-api.ts` | `REACT_ORDERS_PREVIEW=false` default; API when flag on | Flag off → production fallback link |
+| Customer contact preferences UI | ✅ COMPLETE | `customer-preferences.js`, `customers.js`, `public/index.html` | Foundation `contact_preferences` column | CRM + order builder summary |
+| Delivery proof capture UI + API | ✅ COMPLETE | `delivery-proof.js`, `deliveries.js`, proof dialog | Private `delivery-proofs` bucket | Capture proof smoke in QA doc |
+| Inventory freshness fields + filters | ✅ COMPLETE | `inventory-freshness.js`, `inventory.js`, inventory UI | Foundation inventory columns | Use First filter + save dates |
 | Order audit log (full entity diff) | ⚪ PLANNED | `audit_events` table | Migration + handler wiring | Inspect audit_events |
-| Align UI `NEW` column with `PENDING` | ⚪ PLANNED | `public/app.js` ORDER_FLOW | — | Board shows Pending not NEW |
+| Align UI `NEW` column with `PENDING` | ✅ COMPLETE | `boardColumnForStatus()` in `app.js` | — | NEW orders in Pending column |
 
 ---
 
@@ -50,10 +53,9 @@ Each entry includes status, relevant files, dependencies, and verification metho
 | CRUD + search | ✅ COMPLETE | `customers.js`, `public/app.js` | RLS | Add/edit customer |
 | Buyer vs recipient separation | ✅ COMPLETE | Order + customer models | — | Delivery to different recipient |
 | Order history on customer | ✅ COMPLETE | Customer detail panel | Orders linked | Open customer record |
-| House account flag | 🟡 IN PROGRESS | Migration column `is_house_account` | Migration applied | PATCH customer |
-| Soft delete | 🟡 IN PROGRESS | Migration column `deleted_at` | Migration + UI filter | Delete → hidden not purged |
-| Contact preferences | 🟡 IN PROGRESS | Migration `contact_preferences` jsonb | Migration + UI | Save prefs |
-| Duplicate prevention | ⚪ PLANNED | Dedup on phone/email | Server validation | Attempt duplicate phone |
+| House account flag | 🟡 IN PROGRESS | Migration + customer form | Migration applied | House account checkbox |
+| Soft delete | 🟡 IN PROGRESS | Server `deleted_at` filter + soft DELETE | Migration applied | Delete hides customer |
+| Duplicate prevention | 🟡 IN PROGRESS | `_shared/customer-dedup.js` | — | 409 on duplicate phone/email |
 | RBAC for PII | ✅ COMPLETE | RLS `is_shop_member()` | Supabase auth | Cross-shop access denied |
 
 ---

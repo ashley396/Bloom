@@ -15,7 +15,7 @@ const DEFAULT_FLAGS = {
   INVENTORY_RECIPE_DEDUCTIONS: false,
   DELIVERY_MAPS: true,
   LILY_SERVER_PERSISTENCE: true,
-  REACT_ORDERS_PREVIEW: true,
+  REACT_ORDERS_PREVIEW: false,
 };
 
 function envFlag(name, fallback, env = process.env) {
