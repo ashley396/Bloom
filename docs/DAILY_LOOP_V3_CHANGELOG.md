@@ -61,4 +61,9 @@ Production-ready batch for the florist daily loop: customer communication prefer
 
 1. Foundation v1 (`build/florisyn-foundation-v1`) + migration  
 2. Daily Loop v2 (`cursor/florisyn-daily-loop-v2-7317`)  
-3. Daily Loop v3 (this branch)
+3. Daily Loop v3 (this branch)  
+4. Website Studio WS-0…WS-6 (spec in `FLORISYN_WEBSITE_STUDIO_BLUEPRINT.md` — not started)
+
+## Documentation addendum (2026-07-30)
+
+- Website Studio permanent specification added to Master Architecture Bible and blueprint (documentation only; `WEBSITE_STUDIO_V2` flag default `false`).

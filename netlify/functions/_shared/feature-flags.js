@@ -11,6 +11,8 @@ const DEFAULT_FLAGS = {
   WHOLESALE_SELLER: true,
   BUSINESS_ECOSYSTEM: true,
   INSTANT_WEBSITE: true,
+  /** Full Website Studio v2 (Lily quick start, visual editor, checkout) — not production until phased rollout */
+  WEBSITE_STUDIO_V2: false,
   INVENTORY_AI_INTAKE: false,
   INVENTORY_RECIPE_DEDUCTIONS: false,
   DELIVERY_MAPS: true,

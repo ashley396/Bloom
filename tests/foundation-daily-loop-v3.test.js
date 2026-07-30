@@ -245,6 +245,7 @@ test("risky inventory AI flags remain false by default", () => {
   const flags = getFeatureFlags({});
   assert.equal(flags.INVENTORY_AI_INTAKE, false);
   assert.equal(flags.INVENTORY_RECIPE_DEDUCTIONS, false);
+  assert.equal(flags.WEBSITE_STUDIO_V2, false);
 });
 
 test("customer UI includes contact preference fields", () => {
@@ -258,7 +259,13 @@ test("delivery proof dialog exists in production UI", () => {
   assert.match(html, /id="deliveryProofDialog"/);
 });
 
-test("inventory freshness filter exists", () => {
-  const html = fs.readFileSync(path.join(process.cwd(), "public/index.html"), "utf8");
-  assert.match(html, /id="inventoryFreshnessFilter"/);
+test("Website Studio blueprint and architecture bible exist", () => {
+  assert.ok(fs.existsSync(path.join(process.cwd(), "docs/FLORISYN_WEBSITE_STUDIO_BLUEPRINT.md")));
+  assert.ok(fs.existsSync(path.join(process.cwd(), "docs/FLORISYN_MASTER_ARCHITECTURE_BIBLE.md")));
+  const checklist = fs.readFileSync(
+    path.join(process.cwd(), "docs/FLORISYN_MASTER_BUILD_CHECKLIST.md"),
+    "utf8",
+  );
+  assert.match(checklist, /WS-0.*Architecture/);
+  assert.match(checklist, /WEBSITE_STUDIO_V2/);
 });

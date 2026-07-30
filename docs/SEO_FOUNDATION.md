@@ -2,7 +2,9 @@
 
 **Last updated:** 2026-07-30  
 **Scope:** Florist public websites, marketing pages, storefront  
-**Note:** Technical SEO foundations only — no ranking guarantees.
+**Note:** Technical SEO foundations only — no ranking guarantees.  
+**Website Studio (target):** `docs/FLORISYN_WEBSITE_STUDIO_BLUEPRINT.md` — SEO § and pre-publish checks.  
+**Architecture bible:** `docs/FLORISYN_MASTER_ARCHITECTURE_BIBLE.md` §6.
 
 ---
 
