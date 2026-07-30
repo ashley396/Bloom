@@ -1,0 +1,112 @@
+/**
+ * Florisyn RC2 — Auth pages luxury overlay
+ * login, signup, forgot/reset password, verify-email
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap");
+
+body.bloom-auth.florisyn-rc2-luxury,
+body.bloom-auth.florisyn {
+  --auth-ivory: #faf6ef;
+  --auth-blush: #f0e4e4;
+  --auth-rose: #c4a4a4;
+  --auth-rose-deep: #4d6b5c;
+  --auth-sage: #6b8f7a;
+  --auth-charcoal: #2c2826;
+  --auth-muted: #5a534e;
+  --auth-white: #fffcf8;
+  --auth-border: rgb(44 40 38 / 0.08);
+  --auth-shadow: 0 12px 48px -16px rgb(44 40 38 / 0.12);
+  --auth-radius: 20px;
+  --auth-font-display: "Cormorant Garamond", Georgia, serif;
+  --auth-font-body: "DM Sans", system-ui, sans-serif;
+  background: var(--auth-ivory);
+  font-family: var(--auth-font-body);
+}
+
+body.bloom-auth.florisyn-rc2-luxury .bloom-auth-top {
+  background: rgb(255 252 248 / 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--auth-border);
+}
+
+body.bloom-auth.florisyn-rc2-luxury .bloom-auth-brand strong {
+  font-family: var(--auth-font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+body.bloom-auth.florisyn-rc2-luxury .bloom-auth-card {
+  background: var(--auth-white);
+  border: 1px solid var(--auth-border);
+  border-radius: var(--auth-radius);
+  box-shadow: var(--auth-shadow);
+}
+
+body.bloom-auth.florisyn-rc2-luxury .bloom-auth-card h1 {
+  font-family: var(--auth-font-display);
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+body.bloom-auth.florisyn-rc2-luxury .bloom-auth-btn {
+  background: linear-gradient(180deg, var(--auth-sage), #4d6b5c);
+  border: none;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgb(77 107 92 / 0.25);
+  color: var(--auth-white);
+  font-weight: 600;
+  min-height: 48px;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+body.bloom-auth.florisyn-rc2-luxury .bloom-auth-btn:hover {
+  box-shadow: 0 4px 16px rgb(77 107 92 / 0.3);
+}
+
+body.bloom-auth.florisyn-rc2-luxury .bloom-auth-btn:active {
+  transform: scale(0.98);
+}
+
+body.bloom-auth.florisyn-rc2-luxury input,
+body.bloom-auth.florisyn-rc2-luxury select {
+  background: var(--auth-white);
+  border: 1px solid var(--auth-border);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 2px rgb(44 40 38 / 0.04);
+  min-height: 48px;
+  padding: 12px 16px;
+}
+
+body.bloom-auth.florisyn-rc2-luxury input:focus {
+  border-color: #c4a574;
+  box-shadow: 0 0 0 3px rgb(196 165 116 / 0.2);
+  outline: none;
+}
+
+body.bloom-auth.florisyn-rc2-luxury .nav-cta {
+  background: linear-gradient(180deg, var(--auth-sage), #4d6b5c);
+  border-radius: 999px;
+  color: var(--auth-white) !important;
+  font-weight: 600;
+  padding: 10px 20px;
+  text-decoration: none;
+}
+
+body.bloom-auth.florisyn-rc2-luxury .bloom-auth-visual img {
+  border-radius: var(--auth-radius);
+}
+
+@media (max-width: 760px) {
+  body.bloom-auth.florisyn-rc2-luxury .bloom-auth-shell {
+    padding: 24px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.bloom-auth.florisyn-rc2-luxury .bloom-auth-btn:active {
+    transform: none;
+  }
+}

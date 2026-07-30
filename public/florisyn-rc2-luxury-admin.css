@@ -1,0 +1,117 @@
+/**
+ * Florisyn RC2 — Admin Command Center luxury overlay
+ */
+
+body.florisyn-rc2-luxury-admin {
+  --adm-bg: #faf6ef;
+  --adm-surface: #fffcf8;
+  --adm-ink: #2c2826;
+  --adm-muted: #5a534e;
+  --adm-accent: #6b8f7a;
+  --adm-gold: #c4a574;
+  --adm-border: rgb(44 40 38 / 0.08);
+  --adm-display: "Cormorant Garamond", Georgia, serif;
+  --adm-body: "DM Sans", system-ui, sans-serif;
+  background: var(--adm-bg);
+  color: var(--adm-ink);
+  font-family: var(--adm-body);
+}
+
+body.florisyn-rc2-luxury-admin #adminApp aside {
+  background: var(--adm-surface);
+  border-right: 1px solid var(--adm-border);
+}
+
+body.florisyn-rc2-luxury-admin #adminApp aside nav button {
+  border-radius: 12px;
+  color: var(--adm-muted);
+  font-weight: 500;
+  min-height: 44px;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+body.florisyn-rc2-luxury-admin #adminApp aside nav button.active {
+  background: rgb(107 143 122 / 0.12);
+  color: var(--adm-accent);
+  font-weight: 600;
+}
+
+body.florisyn-rc2-luxury-admin #adminApp aside nav button:hover {
+  background: #f5f0e8;
+}
+
+body.florisyn-rc2-luxury-admin .panel {
+  background: var(--adm-surface);
+  border: 1px solid var(--adm-border);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px -12px rgb(44 40 38 / 0.07);
+}
+
+body.florisyn-rc2-luxury-admin h1,
+body.florisyn-rc2-luxury-admin h2 {
+  font-family: var(--adm-display);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+body.florisyn-rc2-luxury-admin .eyebrow {
+  color: var(--adm-accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+body.florisyn-rc2-luxury-admin .admin-login,
+body.florisyn-rc2-luxury-admin .owner-setup-card {
+  background: var(--adm-surface);
+  border: 1px solid var(--adm-border);
+  border-radius: 24px;
+  box-shadow: 0 12px 48px -16px rgb(44 40 38 / 0.12);
+}
+
+body.florisyn-rc2-luxury-admin button:not(.secondary) {
+  background: linear-gradient(180deg, var(--adm-accent), #4d6b5c);
+  border: none;
+  border-radius: 14px;
+  color: var(--adm-surface);
+  font-weight: 600;
+  min-height: 44px;
+}
+
+body.florisyn-rc2-luxury-admin .secondary {
+  background: var(--adm-surface);
+  border: 1px solid var(--adm-border);
+  border-radius: 14px;
+  color: var(--adm-ink);
+}
+
+body.florisyn-rc2-luxury-admin input,
+body.florisyn-rc2-luxury-admin select,
+body.florisyn-rc2-luxury-admin textarea {
+  background: var(--adm-surface);
+  border: 1px solid var(--adm-border);
+  border-radius: 12px;
+  min-height: 44px;
+}
+
+body.florisyn-rc2-luxury-admin input:focus,
+body.florisyn-rc2-luxury-admin select:focus,
+body.florisyn-rc2-luxury-admin textarea:focus {
+  border-color: var(--adm-gold);
+  box-shadow: 0 0 0 3px rgb(196 165 116 / 0.2);
+  outline: none;
+}
+
+body.florisyn-rc2-luxury-admin .metric-grid article,
+body.florisyn-rc2-luxury-admin .snapshot-grid > div {
+  background: var(--adm-surface);
+  border: 1px solid var(--adm-border);
+  border-radius: 16px;
+}
+
+body.florisyn-rc2-luxury-admin .editor-tabs button.active {
+  border-bottom: 2px solid var(--adm-gold);
+  color: var(--adm-ink);
+  font-weight: 600;
+}

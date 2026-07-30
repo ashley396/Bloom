@@ -1,0 +1,77 @@
+/**
+ * Florisyn RC2 — Customer storefront luxury overlay
+ */
+
+body.bloom-storefront.florisyn-rc2-luxury-storefront {
+  --sf-bg: #faf6ef;
+  --sf-surface: #fffcf8;
+  --sf-accent: #c4a4a4;
+  --sf-botanical: #6b8f7a;
+  --sf-text: #2c2826;
+  --sf-muted: #5a534e;
+  --sf-gold: #c4a574;
+  --sf-border: rgb(44 40 38 / 0.08);
+  --sf-display: "Cormorant Garamond", Georgia, serif;
+  --sf-body: "DM Sans", system-ui, sans-serif;
+  background: var(--sf-bg);
+  color: var(--sf-text);
+  font-family: var(--sf-body);
+  line-height: 1.65;
+}
+
+body.florisyn-rc2-luxury-storefront .storefront-header {
+  background: rgb(255 252 248 / 0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--sf-border);
+}
+
+body.florisyn-rc2-luxury-storefront .storefront-brand {
+  font-family: var(--sf-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+body.florisyn-rc2-luxury-storefront .product-card {
+  background: var(--sf-surface);
+  border: 1px solid var(--sf-border);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px -12px rgb(44 40 38 / 0.07);
+  overflow: hidden;
+  transition: box-shadow 250ms ease, transform 250ms ease;
+}
+
+body.florisyn-rc2-luxury-storefront .product-card:hover {
+  box-shadow: 0 16px 40px -12px rgb(44 40 38 / 0.1);
+  transform: translateY(-3px);
+}
+
+body.florisyn-rc2-luxury-storefront .product-card h3 {
+  font-family: var(--sf-display);
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+body.florisyn-rc2-luxury-storefront button.primary,
+body.florisyn-rc2-luxury-storefront .add-to-cart {
+  background: linear-gradient(180deg, var(--sf-botanical), #4d6b5c);
+  border: none;
+  border-radius: 14px;
+  color: var(--sf-surface);
+  font-weight: 600;
+  min-height: 48px;
+}
+
+body.florisyn-rc2-luxury-storefront input,
+body.florisyn-rc2-luxury-storefront select {
+  background: var(--sf-surface);
+  border: 1px solid var(--sf-border);
+  border-radius: 12px;
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.florisyn-rc2-luxury-storefront .product-card:hover {
+    transform: none;
+  }
+}

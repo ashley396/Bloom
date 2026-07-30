@@ -100,7 +100,12 @@ Confident, calm, concise. Delivery optimization, business insights, outstanding 
 
 | File | Purpose |
 |------|---------|
-| `public/florisyn-rc2-luxury-experience.css` | Master luxury design tokens + component overrides |
+| `public/florisyn-rc2-luxury-experience.css` | Master luxury design tokens + Bloom Moment + Atelier |
+| `public/florisyn-rc2-luxury-unified.css` | **Full SPA coverage** — nav, dialogs, forms, tables, kanban, POS, payments, tabs, mobile |
+| `public/florisyn-rc2-luxury-auth.css` | Auth pages (login, signup, password reset) |
+| `public/florisyn-rc2-luxury-public.css` | Marketing site (company, help, legal, sitemap) |
+| `public/florisyn-rc2-luxury-admin.css` | Florisyn HQ Command Center |
+| `public/florisyn-rc2-luxury-storefront.css` | Customer storefront |
 | `public/florisyn-rc2-bloom-moment.js` | Bloom Moment DOM enhancement |
 | `public/florisyn-rc2-atelier-flow.js` | Daily Atelier Flow DOM enhancement |
 | `public/index.html` | Body class `florisyn-rc2-luxury`, font + asset wiring |
@@ -113,7 +118,8 @@ Confident, calm, concise. Delivery optimization, business insights, outstanding 
 | `frontend/src/lib/bloom-moment-quotes.ts` | Rotating content library |
 | `frontend/src/pages/TodayPage.tsx` | Luxury command center layout |
 | `frontend/src/components/today/*` | Bloom Moment, Atelier, Lily, Rose |
-| `frontend/src/components/ui/button.tsx` | Luxury button variants |
+| `frontend/src/components/layout/LuxuryPageShell.tsx` | Shared luxury page chrome |
+| `frontend/src/pages/LuxuryModulePages.tsx` | POS, Inventory, CRM, Payments, Deliveries previews |
 
 ---
 

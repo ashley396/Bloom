@@ -6,6 +6,7 @@ import {
   LayoutGrid,
   Package,
   ShoppingBag,
+  Truck,
   Users,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -15,6 +16,7 @@ const navItems = [
   { to: "/today", label: "Today", icon: CalendarDays, end: true },
   { to: "/orders", label: "Orders", icon: ShoppingBag, end: false },
   { to: "/pos", label: "POS", icon: LayoutGrid, end: false },
+  { to: "/deliveries", label: "Deliveries", icon: Truck, end: false },
   { to: "/inventory", label: "Inventory", icon: Package, end: false },
   { to: "/customers", label: "Customers", icon: Users, end: false },
   { to: "/payments", label: "Payments", icon: CreditCard, end: false },
