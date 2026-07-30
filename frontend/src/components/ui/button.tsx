@@ -4,15 +4,17 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium motion-safe-transition disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-blush-500 focus-visible:ring-offset-2 focus-visible:ring-offset-warm-cream",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium motion-safe-transition disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-champagne-gold focus-visible:ring-offset-2 focus-visible:ring-offset-warm-cream",
   {
     variants: {
       variant: {
         default:
-          "bg-blush-500 text-white shadow-sm hover:bg-blush-600 active:scale-[0.99] motion-safe:hover:shadow-card dark:bg-blush-500 dark:hover:bg-blush-600",
+          "bg-gradient-to-b from-eucalyptus to-olive text-warm-white shadow-sm ring-1 ring-forest/10 hover:from-sage-muted hover:to-eucalyptus active:scale-[0.98] motion-safe:hover:shadow-card dark:from-eucalyptus dark:to-olive",
         secondary:
-          "bg-warm-white text-charcoal shadow-card ring-1 ring-florisyn-border hover:bg-warm-ivory dark:bg-florisyn-surface",
+          "bg-warm-white text-charcoal shadow-card ring-1 ring-florisyn-border hover:bg-linen/80 active:scale-[0.99] dark:bg-florisyn-surface",
         ghost: "text-charcoal-muted hover:bg-sage-pale/90 hover:text-charcoal",
+        luxury:
+          "bg-gradient-to-b from-champagne-gold/90 to-champagne-gold text-charcoal shadow-sm ring-1 ring-champagne-gold/30 hover:brightness-105 active:scale-[0.98]",
       },
       size: {
         default: "h-11 min-h-[44px] px-5 py-2",

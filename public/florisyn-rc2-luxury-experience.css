@@ -1,0 +1,383 @@
+/**
+ * Florisyn RC2 — The Luxury Experience
+ * Production design system layer. UI/UX only — no business logic.
+ * Loads after all prior Florisyn polish layers.
+ */
+
+body.florisyn-rc2-luxury {
+  /* ── Luxury palette tokens ── */
+  --rc2-warm-white: #fffcf8;
+  --rc2-soft-cream: #faf6ef;
+  --rc2-ivory: #fff9f2;
+  --rc2-linen: #f5f0e8;
+  --rc2-cashmere: #ebe4d9;
+  --rc2-stone: #9a9188;
+  --rc2-warm-taupe: #7a7268;
+  --rc2-champagne: #e8dcc8;
+  --rc2-champagne-pale: #f5efe4;
+  --rc2-champagne-gold: #c4a574;
+  --rc2-sage: #6b8f7a;
+  --rc2-sage-deep: #4d6b5c;
+  --rc2-eucalyptus: #6b8f7a;
+  --rc2-olive: #5c6b52;
+  --rc2-forest: #3d4a38;
+  --rc2-dusty-rose: #c4a4a4;
+  --rc2-soft-blush: #f0e4e4;
+  --rc2-terracotta: #b8846e;
+  --rc2-ink: #2c2826;
+  --rc2-ink-muted: #5a534e;
+  --rc2-ink-subtle: #8a8178;
+
+  /* Override brand tokens */
+  --brand-primary: var(--rc2-sage-deep);
+  --app-background: var(--rc2-soft-cream);
+  --ink: var(--rc2-ink);
+  --muted: var(--rc2-ink-muted);
+  --line: rgb(44 40 38 / 0.08);
+  --florisyn-ivory: var(--rc2-ivory);
+  --florisyn-charcoal: var(--rc2-ink);
+  --florisyn-sage: var(--rc2-sage);
+  --florisyn-gold: var(--rc2-champagne-gold);
+
+  /* Typography */
+  --rc2-font-display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  --rc2-font-ui: "DM Sans", Inter, system-ui, sans-serif;
+  --florisyn-font-display: var(--rc2-font-display);
+  --florisyn-font-ui: var(--rc2-font-ui);
+
+  /* Spacing & rhythm */
+  --rc2-page-pad: clamp(20px, 4vw, 48px);
+  --rc2-section-gap: clamp(32px, 5vw, 64px);
+  --rc2-card-pad: clamp(20px, 3vw, 32px);
+
+  /* Surfaces */
+  --rc2-radius-sm: 12px;
+  --rc2-radius-md: 16px;
+  --rc2-radius-lg: 20px;
+  --rc2-radius-xl: 24px;
+  --rc2-shadow-card: 0 1px 2px rgb(44 40 38 / 0.03), 0 8px 32px -12px rgb(44 40 38 / 0.07);
+  --rc2-shadow-hover: 0 2px 6px rgb(44 40 38 / 0.04), 0 16px 40px -12px rgb(44 40 38 / 0.1);
+  --rc2-shadow-luxury: 0 1px 0 rgb(255 255 255 / 0.6) inset, 0 12px 48px -16px rgb(44 40 38 / 0.12);
+
+  /* Motion */
+  --rc2-ease-silk: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --rc2-ease-bloom: cubic-bezier(0.34, 1.2, 0.64, 1);
+  --rc2-duration-fast: 150ms;
+  --rc2-duration-normal: 250ms;
+
+  background: var(--rc2-soft-cream);
+  color: var(--rc2-ink);
+  font-family: var(--rc2-font-ui);
+  font-size: 15px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Typography hierarchy ── */
+body.florisyn-rc2-luxury h1,
+body.florisyn-rc2-luxury .heading h1 {
+  font-family: var(--rc2-font-display);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--rc2-ink);
+}
+
+body.florisyn-rc2-luxury h2,
+body.florisyn-rc2-luxury .panel h2 {
+  font-family: var(--rc2-font-display);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+body.florisyn-rc2-luxury .eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rc2-sage-deep);
+}
+
+/* ── Layout breathing room ── */
+body.florisyn-rc2-luxury .content {
+  padding: var(--rc2-page-pad);
+}
+
+body.florisyn-rc2-luxury .page {
+  gap: var(--rc2-section-gap);
+}
+
+/* ── Premium surfaces ── */
+body.florisyn-rc2-luxury .card,
+body.florisyn-rc2-luxury .panel,
+body.florisyn-rc2-luxury article.card {
+  background: var(--rc2-warm-white);
+  border: 1px solid var(--line);
+  border-radius: var(--rc2-radius-lg);
+  box-shadow: var(--rc2-shadow-card);
+  padding: var(--rc2-card-pad);
+  transition: box-shadow var(--rc2-duration-normal) var(--rc2-ease-silk),
+    transform var(--rc2-duration-normal) var(--rc2-ease-silk);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body.florisyn-rc2-luxury .card:hover,
+  body.florisyn-rc2-luxury .panel:hover,
+  body.florisyn-rc2-luxury article.card:hover {
+    box-shadow: var(--rc2-shadow-hover);
+    transform: translateY(-2px);
+  }
+}
+
+/* ── Luxury buttons ── */
+body.florisyn-rc2-luxury .primary {
+  background: linear-gradient(180deg, var(--rc2-sage), var(--rc2-sage-deep)) !important;
+  border: none;
+  border-radius: var(--rc2-radius-md);
+  box-shadow: 0 1px 2px rgb(61 74 56 / 0.2), inset 0 1px 0 rgb(255 255 255 / 0.15);
+  color: var(--rc2-warm-white);
+  font-weight: 600;
+  min-height: 44px;
+  padding: 0 20px;
+  transition: transform var(--rc2-duration-fast) var(--rc2-ease-silk),
+    box-shadow var(--rc2-duration-fast) var(--rc2-ease-silk);
+}
+
+body.florisyn-rc2-luxury .primary:hover {
+  box-shadow: 0 4px 12px rgb(61 74 56 / 0.25), inset 0 1px 0 rgb(255 255 255 / 0.2);
+}
+
+body.florisyn-rc2-luxury .primary:active {
+  transform: scale(0.98);
+}
+
+body.florisyn-rc2-luxury .secondary {
+  background: var(--rc2-warm-white);
+  border: 1px solid var(--line);
+  border-radius: var(--rc2-radius-md);
+  box-shadow: var(--rc2-shadow-card);
+  color: var(--rc2-ink);
+  min-height: 44px;
+}
+
+body.florisyn-rc2-luxury .secondary:hover {
+  background: var(--rc2-linen);
+}
+
+/* ── Tactile inputs ── */
+body.florisyn-rc2-luxury input,
+body.florisyn-rc2-luxury select,
+body.florisyn-rc2-luxury textarea {
+  background: var(--rc2-warm-white);
+  border: 1px solid var(--line);
+  border-radius: var(--rc2-radius-sm);
+  box-shadow: inset 0 1px 2px rgb(44 40 38 / 0.04);
+  min-height: 44px;
+  padding: 10px 14px;
+  transition: border-color var(--rc2-duration-fast), box-shadow var(--rc2-duration-fast);
+}
+
+body.florisyn-rc2-luxury input:focus,
+body.florisyn-rc2-luxury select:focus,
+body.florisyn-rc2-luxury textarea:focus {
+  border-color: var(--rc2-champagne-gold);
+  box-shadow: 0 0 0 3px rgb(196 165 116 / 0.2);
+  outline: none;
+}
+
+/* ── Bloom Moment (production) ── */
+#florisynBloomMoment {
+  background: linear-gradient(135deg, var(--rc2-ivory), var(--rc2-soft-cream), var(--rc2-champagne-pale));
+  border: 1px solid rgb(196 165 116 / 0.2);
+  border-radius: var(--rc2-radius-xl);
+  box-shadow: var(--rc2-shadow-luxury);
+  margin-bottom: var(--rc2-section-gap);
+  overflow: hidden;
+  padding: clamp(24px, 4vw, 40px);
+  position: relative;
+}
+
+#florisynBloomMoment::before {
+  background: radial-gradient(circle at 90% 10%, rgb(196 165 116 / 0.08), transparent 50%);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+#florisynBloomMoment .bloom-moment-label {
+  color: var(--rc2-champagne-gold);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+#florisynBloomMoment .bloom-moment-quote {
+  color: var(--rc2-ink);
+  font-family: var(--rc2-font-display);
+  font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+  margin: 16px 0 0;
+}
+
+#florisynBloomMoment .bloom-moment-attribution {
+  color: var(--rc2-ink-subtle);
+  font-size: 14px;
+  font-weight: 500;
+  margin-top: 16px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #florisynBloomMoment {
+    animation: rc2-bloom-reveal 0.8s var(--rc2-ease-bloom) both;
+  }
+}
+
+@keyframes rc2-bloom-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── Daily Atelier Flow (production) ── */
+#florisynAtelierFlow {
+  margin-bottom: var(--rc2-section-gap);
+}
+
+#florisynAtelierFlow .atelier-timeline {
+  list-style: none;
+  margin: 24px 0 0;
+  padding: 0;
+  position: relative;
+}
+
+#florisynAtelierFlow .atelier-timeline::before {
+  background: linear-gradient(180deg, rgb(196 165 116 / 0.3), rgb(154 145 136 / 0.2), transparent);
+  bottom: 16px;
+  content: "";
+  left: 22px;
+  position: absolute;
+  top: 16px;
+  width: 1px;
+}
+
+#florisynAtelierFlow .atelier-item {
+  display: flex;
+  gap: 20px;
+  padding-bottom: 28px;
+  position: relative;
+}
+
+#florisynAtelierFlow .atelier-item:last-child {
+  padding-bottom: 0;
+}
+
+#florisynAtelierFlow .atelier-icon {
+  align-items: center;
+  background: var(--rc2-linen);
+  border-radius: var(--rc2-radius-md);
+  display: flex;
+  flex-shrink: 0;
+  height: 44px;
+  justify-content: center;
+  position: relative;
+  width: 44px;
+  z-index: 1;
+}
+
+#florisynAtelierFlow .atelier-time {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+#florisynAtelierFlow .atelier-type {
+  color: var(--rc2-sage-deep);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+#florisynAtelierFlow .atelier-title {
+  font-weight: 500;
+  margin-top: 6px;
+}
+
+#florisynAtelierFlow .atelier-subtitle {
+  color: var(--rc2-ink-muted);
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+/* ── Orders Kanban luxury styling ── */
+body.florisyn-rc2-luxury #ordersPage .order-board-column {
+  background: var(--rc2-linen);
+  border-radius: var(--rc2-radius-lg);
+  padding: 16px;
+}
+
+body.florisyn-rc2-luxury #ordersPage .order-card,
+body.florisyn-rc2-luxury #ordersPage article.card {
+  border-radius: var(--rc2-radius-md);
+  transition: box-shadow var(--rc2-duration-normal) var(--rc2-ease-silk),
+    transform var(--rc2-duration-normal) var(--rc2-ease-silk);
+}
+
+/* ── Lily & Rose AI panels ── */
+body.florisyn-rc2-luxury .lily-panel,
+body.florisyn-rc2-luxury .rose-panel {
+  background: linear-gradient(135deg, var(--rc2-warm-white), var(--rc2-linen));
+  border-radius: var(--rc2-radius-lg);
+}
+
+/* ── Sidebar refinement ── */
+body.florisyn-rc2-luxury aside {
+  background: var(--rc2-warm-white);
+  border-right: 1px solid var(--line);
+}
+
+body.florisyn-rc2-luxury aside button.active {
+  background: var(--rc2-sage-pale);
+  color: var(--rc2-sage-deep);
+}
+
+/* ── Accessibility: focus states ── */
+body.florisyn-rc2-luxury :focus-visible {
+  outline: 2px solid var(--rc2-champagne-gold);
+  outline-offset: 2px;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  body.florisyn-rc2-luxury .card:hover,
+  body.florisyn-rc2-luxury .panel:hover,
+  body.florisyn-rc2-luxury article.card:hover {
+    transform: none;
+  }
+
+  #florisynBloomMoment {
+    animation: none;
+  }
+}
+
+/* ── Loading screen luxury ── */
+body.florisyn-rc2-luxury #bloomLoadingScreen {
+  background: var(--rc2-soft-cream);
+}
+
+body.florisyn-rc2-luxury #bloomLoadingScreen p {
+  color: var(--rc2-ink-muted);
+  font-family: var(--rc2-font-display);
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}

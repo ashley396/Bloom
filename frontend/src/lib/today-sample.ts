@@ -213,6 +213,63 @@ export const todayPageData = {
   } satisfies BusinessSnapshotMetrics,
   dailyInsight:
     "Friday is expected to be busier than usual. Consider scheduling an additional delivery driver.",
+  rose: {
+    summary:
+      "Today's on track. Revenue is at 72% of goal with five deliveries remaining. Two invoices are overdue — gentle reminders recommended.",
+    metrics: [
+      { label: "Outstanding", value: "$2,460" },
+      { label: "Deliveries left", value: "5" },
+    ],
+  },
+  atelierFlow: [
+    {
+      id: "af-1",
+      time: "8:30 AM",
+      type: "order" as const,
+      title: "Johnson Family sympathy arrangement",
+      subtitle: "Design bench · Due 10:00 AM",
+      status: "active" as const,
+    },
+    {
+      id: "af-2",
+      time: "9:30 AM",
+      type: "delivery" as const,
+      title: "Johnson Funeral Home",
+      subtitle: "Marcus · En route",
+      status: "active" as const,
+    },
+    {
+      id: "af-3",
+      time: "10:15 AM",
+      type: "call" as const,
+      title: "Wedding consultation — Chen & Park",
+      subtitle: "30 min · Conference line",
+      status: "upcoming" as const,
+    },
+    {
+      id: "af-4",
+      time: "11:00 AM",
+      type: "website" as const,
+      title: "New website order #4821",
+      subtitle: "Birthday bouquet · Same-day delivery",
+      status: "upcoming" as const,
+    },
+    {
+      id: "af-5",
+      time: "12:30 PM",
+      type: "appointment" as const,
+      title: "Corporate account review — Studio Eleven",
+      status: "upcoming" as const,
+    },
+    {
+      id: "af-6",
+      time: "2:00 PM",
+      type: "payment" as const,
+      title: "Invoice #1042 payment expected",
+      subtitle: "Riverview Hospital · $340",
+      status: "upcoming" as const,
+    },
+  ],
 };
 
 export const designQueueStatusLabel: Record<

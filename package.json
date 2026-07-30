@@ -20,6 +20,7 @@
     "test:daily-loop-v3": "node --test tests/foundation-daily-loop-v3.test.js",
     "test:stacked-release": "node --test tests/stacked-release-readiness.test.js",
     "test:rc1": "node --test tests/florisyn-rc1-readiness.test.js",
+    "test:rc2": "node --test tests/florisyn-rc2-luxury.test.js",
     "frontend:dev": "npm --prefix frontend run dev",
     "frontend:build": "npm --prefix frontend run build"
   }

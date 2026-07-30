@@ -3,46 +3,81 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
+  /* Typography — editorial luxury pairing */
   --font-sans: "DM Sans", system-ui, -apple-system, sans-serif;
   --font-serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
 
+  /* Warm neutrals — boutique interior */
   --color-warm-white: #fffcf8;
   --color-warm-cream: #faf6ef;
   --color-warm-cream-deep: #f3ece3;
   --color-warm-ivory: #fff9f2;
+  --color-linen: #f5f0e8;
+  --color-cashmere: #ebe4d9;
+  --color-stone: #9a9188;
+  --color-warm-taupe: #7a7268;
 
+  /* Champagne & gold — restrained accent */
+  --color-champagne: #e8dcc8;
+  --color-champagne-pale: #f5efe4;
+  --color-champagne-gold: #c4a574;
+
+  /* Botanical greens */
+  --color-sage-pale: #eef2ed;
+  --color-sage-soft: #dde6dc;
+  --color-sage-muted: #7a9182;
+  --color-sage-ink: #5a6b60;
+  --color-eucalyptus: #6b8f7a;
+  --color-olive: #5c6b52;
+  --color-forest: #3d4a38;
+
+  /* Dusty rose & blush */
   --color-blush-50: #fdf5f7;
   --color-blush-100: #faeef2;
   --color-blush-400: #e8b4c4;
   --color-blush-500: #d4a0b0;
   --color-blush-600: #b88494;
+  --color-dusty-rose: #c4a4a4;
+  --color-soft-blush: #f0e4e4;
 
-  --color-sage-pale: #eef2ed;
-  --color-sage-soft: #dde6dc;
-  --color-sage-muted: #7a9182;
-  --color-sage-ink: #5a6b60;
-
+  /* Hydrangea accent */
   --color-hydrangea-pale: #eef2f7;
   --color-hydrangea-soft: #dce6f0;
 
+  /* Terracotta — natural warmth */
+  --color-terracotta: #b8846e;
+  --color-terracotta-pale: #f5ebe4;
+
+  /* Ink — avoid harsh black */
   --color-charcoal: #2c2826;
   --color-charcoal-muted: #5a534e;
   --color-charcoal-subtle: #8a8178;
 
+  /* Semantic aliases */
   --color-florisyn-border: rgb(44 40 38 / 0.07);
-
   --color-florisyn-cream: var(--color-warm-cream);
   --color-florisyn-ink: var(--color-charcoal);
   --color-florisyn-muted: var(--color-charcoal-muted);
   --color-florisyn-surface: var(--color-warm-white);
+  --color-sage: var(--color-eucalyptus);
 
+  /* Radii — premium stationery */
   --radius-xl: 1rem;
   --radius-2xl: 1.375rem;
   --radius-3xl: 1.75rem;
 
+  /* Shadows — soft, layered */
   --shadow-card: 0 1px 2px rgb(44 40 38 / 0.03), 0 8px 32px -12px rgb(44 40 38 / 0.07);
   --shadow-card-hover: 0 2px 6px rgb(44 40 38 / 0.04), 0 16px 40px -12px rgb(44 40 38 / 0.1);
   --shadow-elevated: 0 4px 24px -8px rgb(44 40 38 / 0.12);
+  --shadow-luxury: 0 1px 0 rgb(255 255 255 / 0.6) inset, 0 12px 48px -16px rgb(44 40 38 / 0.12);
+
+  /* Motion — silk & petals */
+  --ease-silk: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-bloom: cubic-bezier(0.34, 1.2, 0.64, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
 }
 
 @layer base {
@@ -69,7 +104,7 @@
   }
 
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-blush-500;
+    @apply outline-2 outline-offset-2 outline-champagne-gold;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -102,6 +137,10 @@
     @apply motion-safe:transition-[transform,box-shadow] motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-card-hover;
   }
 
+  .surface-stationery {
+    @apply rounded-2xl bg-warm-white shadow-card ring-1 ring-florisyn-border;
+  }
+
   .animate-fade-in {
     @apply motion-safe:animate-[fade-in_0.5s_ease-out_both] motion-reduce:animate-none;
   }
@@ -117,6 +156,27 @@
     }
   }
 
+  @keyframes bloom-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes petal-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+
   .shadow-card {
     box-shadow: var(--shadow-card);
   }
@@ -127,6 +187,10 @@
 
   .shadow-elevated {
     box-shadow: var(--shadow-elevated);
+  }
+
+  .shadow-luxury {
+    box-shadow: var(--shadow-luxury);
   }
 
   .motion-safe-transition {

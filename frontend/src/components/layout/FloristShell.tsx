@@ -38,8 +38,12 @@ export function FloristShell({ children }: FloristShellProps) {
           className="shrink-0 border-b border-florisyn-border bg-warm-white px-4 py-5 lg:w-56 lg:border-b-0 lg:border-r xl:w-60"
           aria-label="Primary"
         >
-          <p className="font-serif-display text-xl font-semibold text-charcoal">Florisyn</p>
-          <p className="mt-1 text-xs text-sage-ink">Lilies in Bloom</p>
+          <p className="font-serif-display text-[1.625rem] font-semibold tracking-tight text-charcoal">
+            Florisyn
+          </p>
+          <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.12em] text-champagne-gold">
+            Luxury Atelier OS
+          </p>
           <nav className="mt-6" aria-label="Shop">
             <ul className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
               {navItems.map(({ to, label, icon: Icon, end }) => (
