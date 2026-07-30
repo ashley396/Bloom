@@ -1,0 +1,180 @@
+/**
+ * Florisyn RC2 — Wholesale buyer & seller complete layouts (Phases 5–6)
+ */
+
+body.florisyn-rc2-luxury #marketplacePage.rc2-ws-complete .marketplace-shell {
+  display: grid;
+  gap: var(--rc2-space-5);
+}
+
+body.florisyn-rc2-luxury #marketplacePage.rc2-ws-complete .marketplace-intro {
+  background: linear-gradient(135deg, var(--rc2-warm-white), var(--rc2-champagne-pale));
+  border: 1px solid var(--line);
+  border-radius: var(--rc2-radius-xl);
+  padding: var(--rc2-space-5);
+}
+
+body.florisyn-rc2-luxury #marketplacePage.rc2-ws-complete .verification-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: var(--rc2-space-3);
+}
+
+body.florisyn-rc2-luxury #marketplacePage.rc2-ws-complete .step-pill {
+  background: var(--rc2-warm-white);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-family: var(--rc2-font-ui);
+  font-size: 0.8125rem;
+  min-height: 36px;
+  padding: 8px 14px;
+}
+
+body.florisyn-rc2-luxury #marketplacePage.rc2-ws-complete .marketplace-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+body.florisyn-rc2-luxury #marketplacePage.rc2-ws-complete .marketplace-tabs button {
+  min-height: 44px;
+}
+
+body.florisyn-rc2-luxury #marketplacePage.rc2-ws-complete .marketplace-toolbar {
+  background: var(--rc2-warm-white);
+  border: 1px solid var(--line);
+  border-radius: var(--rc2-radius-lg);
+  display: grid;
+  gap: var(--rc2-space-3);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin-bottom: var(--rc2-space-4);
+  padding: var(--rc2-space-4);
+}
+
+body.florisyn-rc2-luxury #marketplacePage.rc2-ws-complete #marketplaceBrowseGrid {
+  display: grid;
+  gap: var(--rc2-space-5);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+}
+
+body.florisyn-rc2-luxury .rc2-marketplace-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body.florisyn-rc2-luxury .rc2-marketplace-card img {
+  aspect-ratio: 1;
+  object-fit: cover;
+  width: 100%;
+}
+
+body.florisyn-rc2-luxury .rc2-marketplace-card .marketplace-card-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.florisyn-rc2-luxury .rc2-marketplace-card .marketplace-card-actions .wide {
+  grid-column: 1 / -1;
+}
+
+body.florisyn-rc2-luxury #marketplacePage.rc2-ws-complete .marketplace-detail-panel {
+  background: var(--rc2-warm-white);
+  border: 1px solid var(--line);
+  border-radius: var(--rc2-radius-xl);
+  box-shadow: var(--rc2-shadow-luxury);
+  padding: var(--rc2-space-5);
+}
+
+body.florisyn-rc2-luxury #marketplaceDialog.rc2-ws-dialog,
+body.florisyn-rc2-luxury #marketplaceVerificationDialog.rc2-ws-dialog,
+body.florisyn-rc2-luxury #wholesaleProductDialog.rc2-ws-dialog {
+  max-width: min(96vw, 720px);
+}
+
+body.florisyn-rc2-luxury #marketplaceVerificationDialog.rc2-ws-dialog .verification-progress-bar {
+  background: var(--rc2-linen);
+  block-size: 8px;
+  border-radius: 999px;
+  margin: var(--rc2-space-4) 0;
+  overflow: hidden;
+}
+
+body.florisyn-rc2-luxury #marketplaceVerificationDialog.rc2-ws-dialog .verification-progress-bar span {
+  background: linear-gradient(90deg, var(--rc2-sage), var(--rc2-champagne-gold));
+  block-size: 100%;
+  display: block;
+}
+
+/* Seller dashboard sections */
+body.florisyn-rc2-luxury #wholesaleSellerPage.rc2-ws-complete,
+body.florisyn-rc2-luxury .rc2-wholesale-seller-complete {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rc2-space-5);
+}
+
+body.florisyn-rc2-luxury .rc2-wholesale-seller-complete .wholesale-seller-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+body.florisyn-rc2-luxury .rc2-wholesale-seller-complete .wholesale-seller-nav button.active {
+  background: rgb(107 143 122 / 0.12);
+  border-color: var(--rc2-sage);
+  color: var(--rc2-sage-deep);
+}
+
+body.florisyn-rc2-luxury .rc2-wholesale-seller-complete .wholesale-kpi-row {
+  display: grid;
+  gap: var(--rc2-space-3);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+body.florisyn-rc2-luxury .rc2-wholesale-seller-complete .wholesale-kpi {
+  background: var(--rc2-warm-white);
+  border: 1px solid var(--line);
+  border-radius: var(--rc2-radius-lg);
+  box-shadow: var(--rc2-shadow-card);
+}
+
+body.florisyn-rc2-luxury .rc2-wholesale-seller-complete .wholesale-seller-grid {
+  display: grid;
+  gap: var(--rc2-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+body.florisyn-rc2-luxury .rc2-wholesale-seller-complete .wholesale-seller-grid .wide {
+  grid-column: 1 / -1;
+}
+
+body.florisyn-rc2-luxury .rc2-wholesale-seller-complete .cards {
+  display: grid;
+  gap: var(--rc2-space-4);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+}
+
+body.florisyn-rc2-luxury .rc2-wholesale-seller-complete .verification-grid {
+  display: grid;
+  gap: var(--rc2-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+body.florisyn-rc2-luxury .rc2-wholesale-seller-complete .wholesale-toolbar {
+  margin-bottom: var(--rc2-space-3);
+}
+
+@media (max-width: 767px) {
+  body.florisyn-rc2-luxury .rc2-marketplace-card .marketplace-card-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.florisyn-rc2-luxury .rc2-marketplace-card {
+    transition: none;
+  }
+}
