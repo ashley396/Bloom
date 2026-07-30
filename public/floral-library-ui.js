@@ -169,10 +169,15 @@
     }
   }
 
+  let libraryUiBound = false;
+
   async function init() {
     await loadMaster();
-    document.getElementById("librarySearch")?.addEventListener("input", () => renderLibrary());
-    document.getElementById("libraryCategory")?.addEventListener("change", () => renderLibrary());
+    if (!libraryUiBound) {
+      libraryUiBound = true;
+      document.getElementById("librarySearch")?.addEventListener("input", () => renderLibrary());
+      document.getElementById("libraryCategory")?.addEventListener("change", () => renderLibrary());
+    }
     await renderLibrary();
   }
 
