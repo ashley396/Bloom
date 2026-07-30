@@ -32,6 +32,7 @@ test("stacked release documentation package exists", () => {
     "docs/STACKED_RELEASE_SMOKE_TEST.md",
     "docs/STACKED_RELEASE_ROLLBACK.md",
     "docs/FLORISYN_GOLD_STANDARD.md",
+    "docs/FLORISYN_EXPERIENCE_STANDARD.md",
   ]) {
     assert.ok(fs.existsSync(path.join(process.cwd(), file)), `${file} missing`);
   }
@@ -58,4 +59,27 @@ test("gold standard defines ten permanent product principles", () => {
   }
   assert.match(doc, /Accept \/ Edit \/ Reject/);
   assert.match(doc, /Under 2 seconds/);
+});
+
+test("experience standard defines UX constitution and completion gate", () => {
+  const doc = fs.readFileSync(
+    path.join(process.cwd(), "docs/FLORISYN_EXPERIENCE_STANDARD.md"),
+    "utf8",
+  );
+  assert.match(doc, /Beauty never slows the florist down/);
+  assert.match(doc, /Orders Standard/i);
+  assert.match(doc, /Never resemble a spreadsheet/);
+  assert.match(doc, /Florist Emotion Standard/i);
+  assert.match(doc, /Would a florist enjoy using it for an entire workday/);
+  for (const section of [
+    "Typography",
+    "Color",
+    "Cards",
+    "Buttons",
+    "Motion",
+    "Empty states",
+    "Accessibility",
+  ]) {
+    assert.match(doc, new RegExp(section), `missing section: ${section}`);
+  }
 });

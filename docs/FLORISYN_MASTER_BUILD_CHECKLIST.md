@@ -263,6 +263,29 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 
 ---
 
+## Experience Standard (permanent UX constitution)
+
+**Authority:** `docs/FLORISYN_EXPERIENCE_STANDARD.md` — all screens must feel like one application.
+
+| Area | Status | Verification |
+|------|--------|--------------|
+| Core principles (beauty, one purpose, obvious actions) | 🟡 IN PROGRESS | UX review against Today page anchor |
+| Typography & color hierarchy | 🟡 IN PROGRESS | Consistent status colors across orders/deliveries |
+| Premium cards (shadows, padding, imagery) | 🟡 IN PROGRESS | Order board + customer cards visual QA |
+| Buttons (one primary, danger confirmation) | 🟡 IN PROGRESS | Payment Center + delete flows |
+| Motion (smooth, non-blocking) | 🟡 IN PROGRESS | `prefers-reduced-motion`; no save-blocking animation |
+| Desktop layout (nav, top bar, content, panel) | 🟡 IN PROGRESS | Production SPA shell |
+| Mobile layout (bottom nav, thumb-friendly) | 🟡 IN PROGRESS | Mobile smoke in stacked release test |
+| Orders standard (floral project, not spreadsheet) | 🟡 IN PROGRESS | Order card shows photo, timeline, payment |
+| Forms (autofill, early validation, preserve work) | 🟡 IN PROGRESS | Order + customer forms |
+| Empty states (purpose + first action) | 🟡 IN PROGRESS | No bare "No data" screens |
+| Errors (what happened + how to fix + preserve work) | 🟡 IN PROGRESS | `BloomLaunchPolish.errorState` patterns |
+| Accessibility (keyboard, focus, contrast, SR) | 🟡 IN PROGRESS | Manual a11y pass on critical flows |
+| Florist emotion (welcoming, calm under peaks) | 🟡 IN PROGRESS | Owner sign-off on holiday-season UX |
+| Seven-question completion gate | ✅ COMPLETE | Documented — enforce before feature ship |
+
+---
+
 ## Gold Standard (permanent product principles)
 
 **Authority:** `docs/FLORISYN_GOLD_STANDARD.md` — applies to all modules and releases.
@@ -294,4 +317,4 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 
 ---
 
-*Maintained with Foundation v1 + Daily Loop v2/v3 + Website Studio + Gold Standard principles (2026-07-30).*
+*Maintained with Foundation v1 + Daily Loop v2/v3 + Website Studio + Gold Standard + Experience Standard (2026-07-30).*

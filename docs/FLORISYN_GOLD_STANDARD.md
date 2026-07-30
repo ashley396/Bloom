@@ -147,6 +147,8 @@ Small touches matter:
 
 Delight must never block §3 Calm Software or §10 Performance Budget. Animations respect `prefers-reduced-motion`.
 
+**Visual implementation:** `docs/FLORISYN_EXPERIENCE_STANDARD.md` — typography, cards, motion, empty states, and completion gate.
+
 ---
 
 ## 9. Performance Budget
@@ -207,6 +209,7 @@ All agents and engineers must:
 | Document | Relationship |
 |----------|--------------|
 | `FLORISYN_MASTER_ARCHITECTURE_BIBLE.md` | Architecture index — §1 Product north star aligns with this file |
+| `FLORISYN_EXPERIENCE_STANDARD.md` | §3 Calm Software, §8 Delight — UX & visual constitution |
 | `FLORISYN_MASTER_BUILD_CHECKLIST.md` | Verification tracking per principle |
 | `FLORISYN_WEBSITE_STUDIO_BLUEPRINT.md` | Website Studio must obey §1, §4, §5, §6 |
 | `RELIABILITY_AND_RECOVERY.md` | §6 Recovery Before Speed |
