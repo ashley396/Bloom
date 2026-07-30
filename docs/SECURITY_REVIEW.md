@@ -33,7 +33,10 @@ Florisyn's production stack enforces **tenant isolation via Supabase RLS** and *
 
 | Fix | Files | Verification |
 |-----|-------|--------------|
-| Honest AI status — no fake "online" without configured provider | `_shared/ai-status.js`, `ai-status.js`, `public/app.js` `refreshAiStatus()` | GET `/.netlify/functions/ai-status` without env → `configuration_required` |
+| Auth pathname sanitization (open redirect blocked) | `_shared/site-url.js` | `tests/foundation-release-security.test.js` |
+| Stripe webhook livemode/key mismatch rejected | `_shared/stripe-mode.js`, `stripe-order-webhook.js` | Security tests |
+| Feature flag env override bug | `_shared/feature-flags.js` | Security tests |
+| Delivery proof upload validation module | `_shared/upload-validation.js` | Security tests |
 | Feature flags default risky modules off (`VOICE_WAKE`, `INVENTORY_AI_INTAKE`, recipe deductions) | `_shared/feature-flags.js` | `tests/foundation-v1.test.js` |
 | Order status normalization + history insert on create/patch | `_shared/order-status.js`, `orders.js` | Foundation tests + manual PATCH |
 | Auth redirect avoids localhost when `SITE_URL` set | `_shared/site-url.js` | `tests/foundation-v1.test.js` |

@@ -12,7 +12,7 @@
 | Gate | Result | Notes |
 |------|--------|-------|
 | JS syntax check | ✅ PASS | 207 files — `node scripts/check.mjs` |
-| Unit/integration tests | 🟡 321/322 PASS | 1 pre-existing failure (see below) |
+| Unit/integration tests | ✅ **357/357 PASS** | Includes 35 release-security tests; RC2.2 sidebar test fixed |
 | Foundation tests | ✅ 6/6 PASS | `npm run test:foundation` |
 | Frontend TypeScript build | ✅ PASS | `npm run frontend:build` |
 | Frontend lint | ✅ PASS | oxlint + floral asset guards |
@@ -46,22 +46,20 @@ cd frontend && npm run build && npm run lint
 ### Full suite (`node --test tests/*.test.js`)
 
 ```
-# tests 322
-# pass 321
-# fail 1
-# duration_ms ~824
+# tests 357
+# pass 357
+# fail 0
+# duration_ms ~642
 ```
 
-**Failure (pre-existing, not introduced by Foundation v1):**
+**Previously failing test (resolved in release review):**
 
 ```
-not ok 157 - sidebar invoices and payments are plain nav buttons without extra wrappers
+sidebar invoices and payments are plain nav buttons without extra wrappers
 ```
 
-- **File:** `tests/florisyn-rc2.2-founder-polish.test.js` (RC2.2 sidebar polish contract)
-- **Cause:** HTML structure for Invoices/Payments nav items includes wrappers added in a prior polish pass
-- **Impact:** Cosmetic test only — navigation functional in browser
-- **Recommendation:** Update test to match current approved nav OR revert nav HTML (low priority)
+- **Cause:** Test expected nav label `Payments`; approved design uses **`Payment Center`**
+- **Fix:** Updated `tests/florisyn-founder-1.0.test.js` — not a product regression
 
 ### Foundation v1 tests (`tests/foundation-v1.test.js`)
 
@@ -177,7 +175,9 @@ supabase db push
 
 ## Verdict
 
-**Foundation v1 code batch is safe to review for deploy** with one known pre-existing test failure unrelated to foundation changes. Do not deploy until owner completes migration backup/apply and manual payment/AI verification on staging.
+**Release candidate is ready for owner-controlled production step** — see `docs/FOUNDATION_RELEASE_REVIEW.md` and `docs/FOUNDATION_PRODUCTION_RUNBOOK.md`.
+
+Do not deploy or apply migration until owner completes backup and review.
 
 ---
 

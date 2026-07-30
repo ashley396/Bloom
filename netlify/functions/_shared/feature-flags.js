@@ -18,9 +18,9 @@ const DEFAULT_FLAGS = {
   REACT_ORDERS_PREVIEW: true,
 };
 
-function envFlag(name, fallback) {
+function envFlag(name, fallback, env = process.env) {
   const key = `FLORISYN_FLAG_${name}`;
-  const raw = process.env[key];
+  const raw = env[key];
   if (raw === undefined || raw === "") return fallback;
   return /^(1|true|yes|on)$/i.test(String(raw));
 }
@@ -28,7 +28,7 @@ function envFlag(name, fallback) {
 export function getFeatureFlags(env = process.env) {
   const flags = {};
   for (const [name, defaultValue] of Object.entries(DEFAULT_FLAGS)) {
-    flags[name] = envFlag(name, defaultValue);
+    flags[name] = envFlag(name, defaultValue, env);
   }
   return Object.freeze(flags);
 }

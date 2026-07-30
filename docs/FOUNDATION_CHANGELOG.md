@@ -25,6 +25,7 @@ Phase 0 repository audit and Phase 1 foundation batch: daily operating loop sche
 | `netlify/functions/ai-status.js` | Public GET endpoint for AI configuration state |
 | `frontend/src/components/ErrorBoundary.tsx` | React global error boundary |
 | `tests/foundation-v1.test.js` | Foundation unit tests (6 cases) |
+| `tests/foundation-release-security.test.js` | Pre-production security/release tests (35 cases) |
 | `docs/FLORISYN_REPOSITORY_AUDIT.md` | Full repository audit |
 | `docs/FLORISYN_MASTER_BUILD_CHECKLIST.md` | Master build checklist by product area |
 | `docs/SECURITY_REVIEW.md` | Security findings + fixes |
@@ -33,7 +34,12 @@ Phase 0 repository audit and Phase 1 foundation batch: daily operating loop sche
 | `docs/LEGAL_COMPLIANCE_ARCHITECTURE.md` | Legal acceptance architecture |
 | `docs/COST_CONTROL_PLAN.md` | Infrastructure cost controls |
 | `docs/FOUNDATION_QA_REPORT.md` | QA gate results |
-| `docs/FOUNDATION_CHANGELOG.md` | This file |
+| `netlify/functions/_shared/site-url.js` | Auth redirect sanitization + diagnostics |
+| `netlify/functions/_shared/stripe-mode.js` | Stripe live/test mode validation |
+| `netlify/functions/_shared/upload-validation.js` | Delivery proof upload validation |
+| `supabase/migrations/20260730_foundation_daily_loop_v1_rollback.sql` | Emergency rollback (manual) |
+| `docs/FOUNDATION_RELEASE_REVIEW.md` | Independent pre-production verification |
+| `docs/FOUNDATION_PRODUCTION_RUNBOOK.md` | Step-by-step production process |
 
 ### Modified files
 
@@ -120,7 +126,10 @@ Phase 0 repository audit and Phase 1 foundation batch: daily operating loop sche
 ## Bugs fixed
 
 - Lily/Rose appearing "offline" without explanation → Settings now shows Configuration Required with clear message when no AI provider configured
-- Auth verification links could use localhost → `site-url.js` behavior verified by test (requires `SITE_URL` in prod)
+- Auth verification links could use localhost → `site-url.js` sanitizes pathnames; `SITE_URL`/`DEPLOY_PRIME_URL` preferred (requires env in prod)
+- Feature flag env overrides ignored passed env object → fixed in `_shared/feature-flags.js`
+- Stripe webhook livemode/key mismatch could process wrong-mode events → `assertStripeLivemodeMatchesKey` in `stripe-order-webhook.js`
+- Stale sidebar test expected `Payments` instead of approved `Payment Center` label → test updated
 
 ---
 
@@ -183,10 +192,11 @@ Code rollback alone is safe without migration apply. If migration was applied, p
 # 7. Monitor production-health and function logs for 24h
 ```
 
-**Safe deploy trigger (Netlify CLI example):**
+**Safe deploy trigger:** See `docs/FOUNDATION_PRODUCTION_RUNBOOK.md` — prefer Netlify Dashboard branch deploy; `netlify deploy --prod --branch=...` is not valid CLI syntax.
 
 ```bash
-netlify deploy --prod --branch=build/florisyn-foundation-v1
+# After owner approval — from checked-out branch:
+netlify deploy --prod
 ```
 
 Only run after owner approval and staging verification.

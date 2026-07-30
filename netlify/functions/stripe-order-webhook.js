@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { admin, fail } from "./_shared/supabase.js";
 import { postStripePayment } from "./_shared/post-stripe-payment.js";
 import { postStripePaymentLink } from "./_shared/post-stripe-payment-link.js";
+import { assertStripeLivemodeMatchesKey } from "./_shared/stripe-mode.js";
 
 export async function handler(event) {
   try {
@@ -19,6 +20,15 @@ export async function handler(event) {
       stripeEvent = stripe.webhooks.constructEvent(raw, signature, process.env.STRIPE_ORDER_WEBHOOK_SECRET);
     } catch (e) {
       return { statusCode: 400, body: `Webhook signature error: ${e.message}` };
+    }
+
+    const modeCheck = assertStripeLivemodeMatchesKey(
+      process.env.STRIPE_SECRET_KEY,
+      Boolean(stripeEvent.livemode),
+    );
+    if (!modeCheck.ok) {
+      console.warn(JSON.stringify({ level: "warn", message: "stripe_webhook_mode_mismatch", reason: modeCheck.reason }));
+      return { statusCode: 400, body: JSON.stringify({ error: modeCheck.reason }) };
     }
 
     const client = admin();
