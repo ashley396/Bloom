@@ -8,7 +8,7 @@ import { OrderDetailPanel } from "../components/orders/order-detail-panel";
 import { OrdersFilters } from "../components/orders/orders-filters";
 import { OrdersSearchBar } from "../components/orders/orders-search-bar";
 import type { FloristOrder, OrderFilterChip } from "../lib/orders-sample";
-import { ordersSample } from "../lib/orders-sample";
+import { useOrdersPreview } from "../hooks/useOrdersPreview";
 import { cn } from "../lib/utils";
 
 function matchesSearch(order: FloristOrder, query: string): boolean {
@@ -46,26 +46,31 @@ function matchesFilters(order: FloristOrder, active: Set<OrderFilterChip>): bool
 }
 
 export function OrdersPage() {
+  const { enabled, loading, error, orders, usingFallback } = useOrdersPreview();
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Set<OrderFilterChip>>(() => new Set());
-  const [selectedId, setSelectedId] = useState<string | null>(ordersSample[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
   useEffect(() => {
     validateOrdersPhotoAssignments("/orders");
   }, []);
 
+  useEffect(() => {
+    if (orders.length && !selectedId) setSelectedId(orders[0]?.id ?? null);
+  }, [orders, selectedId]);
+
   const filtered = useMemo(
     () =>
-      ordersSample.filter(
+      orders.filter(
         (o) => matchesSearch(o, search) && matchesFilters(o, filters),
       ),
-    [search, filters],
+    [orders, search, filters],
   );
 
   const selected =
     filtered.find((o) => o.id === selectedId) ??
-    ordersSample.find((o) => o.id === selectedId) ??
+    orders.find((o) => o.id === selectedId) ??
     null;
 
   const toggleFilter = (chip: OrderFilterChip) => {
@@ -82,6 +87,27 @@ export function OrdersPage() {
     setMobileDetailOpen(true);
   };
 
+  if (!enabled && !loading) {
+    return (
+      <div className="mx-auto max-w-2xl py-16 text-center">
+        <p className="text-label">Orders preview</p>
+        <h1 className="font-serif-display text-3xl font-medium text-charcoal">
+          Production Orders remain active
+        </h1>
+        <p className="mt-3 text-charcoal-muted">
+          React Orders preview is disabled (<code>REACT_ORDERS_PREVIEW=false</code>).
+          Continue using the production Orders board in the main Florisyn app.
+        </p>
+        <a
+          href="/"
+          className="mt-6 inline-flex rounded-full bg-sage px-5 py-2.5 text-sm font-medium text-white"
+        >
+          Open production Orders
+        </a>
+      </div>
+    );
+  }
+
   return (
     <PagePhotoRegistry pageId="orders">
       <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-col gap-8 lg:gap-10">
@@ -91,9 +117,29 @@ export function OrdersPage() {
             Floral projects
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-charcoal-muted">
-            Every order is a living arrangement — design, deliver, and delight from one calm
-            workspace.
+            {enabled
+              ? "Read-only preview wired to the production orders API."
+              : "Every order is a living arrangement — design, deliver, and delight from one calm workspace."}
           </p>
+          {loading ? (
+            <p className="text-sm text-sage-ink">Loading orders…</p>
+          ) : null}
+          {error ? (
+            <p className="rounded-xl bg-warm-white px-4 py-3 text-sm text-charcoal ring-1 ring-florisyn-border">
+              {error}{" "}
+              <a href="/" className="underline">
+                Use production Orders
+              </a>
+            </p>
+          ) : null}
+          {usingFallback && enabled && !error ? (
+            <p className="text-sm text-charcoal-muted">
+              Showing fallback sample data.{" "}
+              <a href="/" className="underline">
+                Open production Orders
+              </a>
+            </p>
+          ) : null}
         </header>
 
         <OrdersSearchBar value={search} onChange={setSearch} />

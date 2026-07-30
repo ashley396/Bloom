@@ -2,6 +2,7 @@ import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail } from "./_shared/supabase.js";
 import { writeShopAudit } from "./_shared/production.js";
 import { validateOrderCreateBody, clampText, validateOrderPatchBody } from "./_shared/validation.js";
+import { normalizeOrderStatus, recordOrderStatusChange } from "./_shared/order-status.js";
 
 function orderNumber() {
   return `BLM-${Date.now().toString().slice(-8)}`;
@@ -15,6 +16,28 @@ export async function handler(event) {
     const { client, shopId, user } = await currentUser(event);
 
     if (event.httpMethod === "GET") {
+      const qs = event.queryStringParameters || {};
+      if (qs.order_id && qs.view === "history") {
+        const orderId = String(qs.order_id || "").trim();
+        if (!orderId) return json(400, { error: "Missing order id." });
+        const { data: orderRow, error: orderError } = await client
+          .from("orders")
+          .select("id")
+          .eq("id", orderId)
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        if (orderError) throw orderError;
+        if (!orderRow) return json(404, { error: "Order not found." });
+        const { data, error } = await client
+          .from("order_status_history")
+          .select("id,from_status,to_status,changed_by,note,created_at")
+          .eq("shop_id", shopId)
+          .eq("order_id", orderId)
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        return json(200, { items: data || [] });
+      }
+
       const { data, error } = await client
         .from("orders")
         .select("*")
@@ -97,6 +120,15 @@ export async function handler(event) {
         .single();
 
       if (error) throw error;
+
+      await recordOrderStatusChange(client, {
+        shopId,
+        orderId: data.id,
+        fromStatus: null,
+        toStatus: data.status,
+        userId: user.id,
+        note: "Order created",
+      });
 
       await writeShopAudit(client, {
         shopId,
@@ -191,11 +223,27 @@ export async function handler(event) {
       for (const field of textFields) if (field in body) payload[field] = body[field] || null;
       for (const field of numberFields) if (field in body) payload[field] = Number(body[field] || 0);
       if ("customer_name" in payload && !String(payload.customer_name || "").trim()) return json(400, { error: "Customer name is required" });
+      const { data: priorOrder } = await client
+        .from("orders")
+        .select("status")
+        .eq("id", body.id)
+        .eq("shop_id", shopId)
+        .maybeSingle();
+      if ("status" in payload && payload.status) payload.status = normalizeOrderStatus(payload.status);
       const flowers=Number(payload.subtotal||0),labor=Number(payload.labor_charge||0),addons=Number(payload.addon_total||0),discount=Number(payload.discount||0);
       payload.subtotal=Math.max(0,flowers+labor+addons-discount); payload.total=payload.subtotal+Number(payload.tax||0)+Number(payload.delivery_fee||0); payload.balance_due=Math.max(0,payload.total-Number(payload.amount_paid||0));
       payload.payment_status=payload.balance_due<=0&&payload.total>0?"PAID":Number(payload.amount_paid||0)>0?"PARTIAL":"UNPAID";
       const { data, error } = await client.from("orders").update(payload).eq("id",body.id).eq("shop_id",shopId).select().single();
       if (error) throw error;
+      if ("status" in payload) {
+        await recordOrderStatusChange(client, {
+          shopId,
+          orderId: data.id,
+          fromStatus: priorOrder?.status,
+          toStatus: data.status,
+          userId: user.id,
+        });
+      }
       const { data: existingDelivery } = await client.from("deliveries").select("id").eq("shop_id",shopId).eq("order_id",body.id).maybeSingle();
       await writeShopAudit(client, {
         shopId,

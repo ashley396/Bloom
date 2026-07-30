@@ -14,6 +14,12 @@
     "ai:install": "npm --prefix local-ai-bridge install",
     "ai:start": "npm --prefix local-ai-bridge start",
     "check": "node scripts/check.mjs",
+    "test": "node --test tests/*.test.js",
+    "test:foundation": "node --test tests/foundation-v1.test.js",
+    "test:daily-loop-v2": "node --test tests/foundation-daily-loop-v2.test.js",
+    "test:daily-loop-v3": "node --test tests/foundation-daily-loop-v3.test.js",
+    "test:stacked-release": "node --test tests/stacked-release-readiness.test.js",
+    "test:rc1": "node --test tests/florisyn-rc1-readiness.test.js",
     "frontend:dev": "npm --prefix frontend run dev",
     "frontend:build": "npm --prefix frontend run build"
   }
