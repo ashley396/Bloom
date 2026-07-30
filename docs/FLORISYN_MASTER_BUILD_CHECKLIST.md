@@ -352,4 +352,4 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 
 ---
 
-*Maintained with Foundation v1 + Daily Loop v2/v3 + Website Studio + Gold Standard + Experience Standard + Design System v1.0 + Ecosystem Portals (2026-07-30).*
+*Maintained with Foundation v1 + Daily Loop v2/v3 + Website Studio + Governance Map + Gold Standard + Experience Standard + Design System v1.0 + Ecosystem Portals (2026-07-30).*

@@ -32,6 +32,7 @@ test("stacked release documentation package exists", () => {
     "docs/STACKED_RELEASE_SMOKE_TEST.md",
     "docs/STACKED_RELEASE_ROLLBACK.md",
     "docs/FLORISYN_GOLD_STANDARD.md",
+    "docs/FLORISYN_GOVERNANCE_MAP.md",
     "docs/FLORISYN_EXPERIENCE_STANDARD.md",
     "docs/FLORISYN_DESIGN_SYSTEM.md",
     "docs/FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md",
@@ -135,4 +136,26 @@ test("design system v1 defines tokens components and review checklist", () => {
   ]) {
     assert.match(doc, new RegExp(component), `missing component: ${component}`);
   }
+});
+
+test("governance map defines documentation hierarchy and entry points", () => {
+  const doc = fs.readFileSync(
+    path.join(process.cwd(), "docs/FLORISYN_GOVERNANCE_MAP.md"),
+    "utf8",
+  );
+  assert.match(doc, /Which document should I use/);
+  assert.match(doc, /FLORISYN_MASTER_ARCHITECTURE_BIBLE\.md/);
+  assert.match(doc, /FLORISYN_GOLD_STANDARD\.md/);
+  assert.match(doc, /FLORISYN_EXPERIENCE_STANDARD\.md/);
+  assert.match(doc, /FLORISYN_DESIGN_SYSTEM\.md/);
+  assert.match(doc, /FLORISYN_ECOSYSTEM_PORTALS_STANDARD\.md/);
+  assert.match(doc, /FLORISYN_WEBSITE_STUDIO_BLUEPRINT\.md/);
+  assert.match(doc, /FLORISYN_MASTER_BUILD_CHECKLIST\.md/);
+  assert.match(doc, /No implementation should contradict a higher-level document/);
+  const bible = fs.readFileSync(
+    path.join(process.cwd(), "docs/FLORISYN_MASTER_ARCHITECTURE_BIBLE.md"),
+    "utf8",
+  );
+  assert.match(bible, /## 0\. Governance map/);
+  assert.match(bible, /FLORISYN_GOVERNANCE_MAP\.md/);
 });

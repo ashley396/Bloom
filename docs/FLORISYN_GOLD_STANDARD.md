@@ -211,6 +211,7 @@ All agents and engineers must:
 | Document | Relationship |
 |----------|--------------|
 | `FLORISYN_MASTER_ARCHITECTURE_BIBLE.md` | Architecture index — §1 Product north star aligns with this file |
+| `FLORISYN_GOVERNANCE_MAP.md` | Documentation entry point and hierarchy |
 | `FLORISYN_EXPERIENCE_STANDARD.md` | §3 Calm Software, §8 Delight — UX & visual constitution |
 | `FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md` | §10 Future Ecosystem — three portals, shared services |
 | `FLORISYN_MASTER_BUILD_CHECKLIST.md` | Verification tracking per principle |

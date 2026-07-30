@@ -2,7 +2,28 @@
 
 **Last updated:** 2026-07-30  
 **Purpose:** Single authoritative index for Florisyn product architecture, integration rules, and permanent specifications.  
-**Companion docs:** Checklist (`FLORISYN_MASTER_BUILD_CHECKLIST.md`), Gold Standard (`FLORISYN_GOLD_STANDARD.md`), Experience Standard (`FLORISYN_EXPERIENCE_STANDARD.md`), Design System (`FLORISYN_DESIGN_SYSTEM.md`), Ecosystem Portals (`FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md`), repository audit, security/reliability/SEO/legal plans.
+**Start here first:** `docs/FLORISYN_GOVERNANCE_MAP.md` — which document to use for each question.  
+**Companion docs:** Governance Map, Checklist, Gold Standard, Experience Standard, Design System, Ecosystem Portals, Website Studio blueprint, repository audit, security/reliability/SEO/legal plans.
+
+---
+
+## 0. Governance map — documentation entry point
+
+**Full guide:** `docs/FLORISYN_GOVERNANCE_MAP.md`
+
+| Question | Document |
+|----------|----------|
+| How should the platform be engineered? | **This bible** |
+| What principles override every decision? | `FLORISYN_GOLD_STANDARD.md` |
+| How should Florisyn look and feel? | `FLORISYN_EXPERIENCE_STANDARD.md` |
+| How should UI components be built? | `FLORISYN_DESIGN_SYSTEM.md` |
+| How do the portals fit together? | `FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md` |
+| How is Website Studio designed? | `FLORISYN_WEBSITE_STUDIO_BLUEPRINT.md` |
+| What must be complete before release? | `FLORISYN_MASTER_BUILD_CHECKLIST.md` |
+
+**Documentation hierarchy (top → bottom):** Master Architecture Bible → Gold Standard → Experience Standard → Design System → Ecosystem Portals → Website Studio Blueprint → Master Build Checklist.
+
+Together these form the **permanent constitution for Florisyn**. No implementation should contradict a higher-level document.
 
 ---
 
@@ -236,7 +257,7 @@ Website Studio SEO and legal page starters **require attorney review** before cu
 
 ## 11. Development rules for all agents
 
-1. Read this bible + **Gold Standard** + **Experience Standard** + **Design System** + **Ecosystem Portals** + checklist before large features.
+1. Read **Governance Map** + this bible + **Gold Standard** + **Experience Standard** + **Design System** + **Ecosystem Portals** + checklist before large features.
 2. Minimize diff scope; match existing conventions.
 3. No deploy, no production migrations unless explicitly assigned.
 4. Preserve Today page and Floral Asset Library architecture.
@@ -253,6 +274,7 @@ Website Studio SEO and legal page starters **require attorney review** before cu
 
 | Document | Role |
 |----------|------|
+| **`FLORISYN_GOVERNANCE_MAP.md`** | **Documentation entry point — which doc to use** |
 | **This file** | Master architecture & integration bible |
 | **`FLORISYN_GOLD_STANDARD.md`** | **Permanent product principles (10 rules)** |
 | **`FLORISYN_EXPERIENCE_STANDARD.md`** | **Permanent UX & visual design constitution** |
@@ -267,4 +289,4 @@ Website Studio SEO and legal page starters **require attorney review** before cu
 
 ---
 
-*Maintained by Florisyn engineering. Website Studio specification added 2026-07-30. Gold Standard principles added 2026-07-30. Experience Standard added 2026-07-30. Ecosystem Portals Standard added 2026-07-30. Design System v1.0 added 2026-07-30.*
+*Maintained by Florisyn engineering. Governance Map added 2026-07-30. Website Studio specification added 2026-07-30. Gold Standard principles added 2026-07-30. Experience Standard added 2026-07-30. Ecosystem Portals Standard added 2026-07-30. Design System v1.0 added 2026-07-30.*
