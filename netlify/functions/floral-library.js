@@ -14,7 +14,7 @@ export async function handler(event) {
       return json(200, {
         products: catalog,
         count: catalog.length,
-        note: "Bloom RC2 starter catalog — licensed stock; replace with your photography over time."
+        note: "Florisyn starter catalog — 450 ultra-realistic florist arrangements. Licensed stock; replace with your shop photography."
       });
     }
 

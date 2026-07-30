@@ -1,23 +1,12 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
-import {
-  CalendarDays,
-  CreditCard,
-  LayoutGrid,
-  Package,
-  ShoppingBag,
-  Users,
-} from "lucide-react";
+import { CalendarDays, ShoppingBag } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { buttonVariants } from "../ui/button";
 
 const navItems = [
   { to: "/today", label: "Today", icon: CalendarDays, end: true },
   { to: "/orders", label: "Orders", icon: ShoppingBag, end: false },
-  { to: "/pos", label: "POS", icon: LayoutGrid, end: false },
-  { to: "/inventory", label: "Inventory", icon: Package, end: false },
-  { to: "/customers", label: "Customers", icon: Users, end: false },
-  { to: "/payments", label: "Payments", icon: CreditCard, end: false },
 ] as const;
 
 type FloristShellProps = {
@@ -38,8 +27,12 @@ export function FloristShell({ children }: FloristShellProps) {
           className="shrink-0 border-b border-florisyn-border bg-warm-white px-4 py-5 lg:w-56 lg:border-b-0 lg:border-r xl:w-60"
           aria-label="Primary"
         >
-          <p className="font-serif-display text-xl font-semibold text-charcoal">Florisyn</p>
-          <p className="mt-1 text-xs text-sage-ink">Lilies in Bloom</p>
+          <p className="font-serif-display text-[1.625rem] font-semibold tracking-tight text-charcoal">
+            Florisyn
+          </p>
+          <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.12em] text-champagne-gold">
+            Luxury Atelier OS
+          </p>
           <nav className="mt-6" aria-label="Shop">
             <ul className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
               {navItems.map(({ to, label, icon: Icon, end }) => (
@@ -78,8 +71,8 @@ export function FloristShell({ children }: FloristShellProps) {
         </div>
       </div>
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-florisyn-border bg-warm-white/95 p-3 backdrop-blur-sm lg:hidden">
-        <NavLink to="/pos" className="block">
-          <span className={cn(buttonVariants({ size: "lg" }), "w-full")}>New Order</span>
+        <NavLink to="/orders" className="block">
+          <span className={cn(buttonVariants({ size: "lg" }), "w-full")}>Orders</span>
         </NavLink>
       </div>
     </div>

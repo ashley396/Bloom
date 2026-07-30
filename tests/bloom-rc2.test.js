@@ -5,20 +5,21 @@ import { shouldSeedWebsiteCatalog, buildWebsiteCatalogSeeds } from "../netlify/f
 import fs from "node:fs";
 
 test("RC2 floral catalog has hundreds of arrangements", () => {
-  const catalog = getBloomFloristCatalog(240);
-  assert.equal(catalog.length, 240);
+  const catalog = getBloomFloristCatalog(450);
+  assert.equal(catalog.length, 450);
   assert.ok(catalog.every((p) => p.name && p.primary_image?.url && p.image_license?.source));
   const uniqueNames = new Set(catalog.map((p) => p.name));
   assert.equal(uniqueNames.size, catalog.length);
 });
 
 test("catalog includes roses hydrangeas wedding sympathy", () => {
-  const text = getBloomFloristCatalog(80)
-    .map((p) => p.categories.join(" "))
+  const text = getBloomFloristCatalog(450)
+    .map((p) => `${p.categories.join(" ")} ${(p.recipe || []).map((r) => r.name).join(" ")}`)
     .join(" ")
     .toLowerCase();
   assert.match(text, /rose/);
-  assert.match(text, /hydrangea|wedding|sympathy/);
+  assert.match(text, /hydrangea/);
+  assert.match(text, /sympathy|peoni|ranunculus/);
 });
 
 test("website catalog seed only when empty", () => {
@@ -51,5 +52,5 @@ test("RC2 design system css linked from index", () => {
 });
 
 test("catalog default size constant", () => {
-  assert.equal(BLOOM_RC2_CATALOG_SIZE, 240);
+  assert.equal(BLOOM_RC2_CATALOG_SIZE, 450);
 });

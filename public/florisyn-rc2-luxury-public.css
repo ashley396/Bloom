@@ -1,0 +1,142 @@
+/**
+ * Florisyn RC2 — Public marketing site luxury overlay
+ * company/, help/, legal/, sitemap/
+ */
+
+body.florisyn-rc2-luxury-public {
+  --pub-bg: #faf6ef;
+  --pub-surface: #fffcf8;
+  --pub-ink: #2c2826;
+  --pub-muted: #5a534e;
+  --pub-accent: #6b8f7a;
+  --pub-gold: #c4a574;
+  --pub-border: rgb(44 40 38 / 0.08);
+  --pub-display: "Cormorant Garamond", Georgia, serif;
+  --pub-body: "DM Sans", system-ui, sans-serif;
+  background: var(--pub-bg);
+  color: var(--pub-ink);
+  font-family: var(--pub-body);
+  line-height: 1.65;
+}
+
+body.florisyn-rc2-luxury-public .public-topbar {
+  background: rgb(255 252 248 / 0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--pub-border);
+}
+
+body.florisyn-rc2-luxury-public .public-logo strong {
+  font-family: var(--pub-display);
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+body.florisyn-rc2-luxury-public .content-hero h1 {
+  font-family: var(--pub-display);
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+body.florisyn-rc2-luxury-public .eyebrow {
+  color: var(--pub-accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+body.florisyn-rc2-luxury-public .info-card {
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px -12px rgb(44 40 38 / 0.07);
+  padding: 28px;
+  transition: box-shadow 250ms ease, transform 250ms ease;
+}
+
+body.florisyn-rc2-luxury-public .info-card:hover {
+  box-shadow: 0 16px 40px -12px rgb(44 40 38 / 0.1);
+  transform: translateY(-2px);
+}
+
+body.florisyn-rc2-luxury-public .public-nav a,
+body.florisyn-rc2-luxury-public .nav-cta {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+body.florisyn-rc2-luxury-public .public-nav a {
+  padding: 8px 12px;
+}
+
+body.florisyn-rc2-luxury-public .nav-cta {
+  background: linear-gradient(180deg, var(--pub-accent), #4d6b5c);
+  border-radius: 999px;
+  color: #fffcf8 !important;
+  font-weight: 600;
+  padding: 10px 20px;
+}
+
+body.florisyn-rc2-luxury-public .site-footer {
+  background: var(--pub-surface);
+  border-top: 1px solid var(--pub-border);
+}
+
+body.florisyn-rc2-luxury-public .footer-promise span {
+  background: rgb(107 143 122 / 0.1);
+  border-radius: 999px;
+  color: var(--pub-accent);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.florisyn-rc2-luxury-public .info-card:hover {
+    transform: none;
+  }
+}
+
+/* ── RC2 Public complete layout ── */
+body.florisyn-rc2-luxury-public {
+  overflow-x: clip;
+}
+
+body.florisyn-rc2-luxury-public .content-page {
+  margin: 0 auto;
+  max-width: 1080px;
+  padding: clamp(32px, 5vw, 64px) clamp(16px, 3vw, 32px);
+}
+
+body.florisyn-rc2-luxury-public .content-grid {
+  display: grid;
+  gap: var(--rc2-space-5, 24px);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+body.florisyn-rc2-luxury-public input,
+body.florisyn-rc2-luxury-public select,
+body.florisyn-rc2-luxury-public textarea {
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-radius: 12px;
+  font-family: var(--pub-body);
+  min-height: 44px;
+  padding: 12px 14px;
+  width: 100%;
+}
+
+body.florisyn-rc2-luxury-public button,
+body.florisyn-rc2-luxury-public .button-link {
+  min-height: 44px;
+}
+
+body.florisyn-rc2-luxury-public a:focus-visible,
+body.florisyn-rc2-luxury-public button:focus-visible {
+  box-shadow: 0 0 0 3px rgb(196 165 116 / 0.35);
+  outline: none;
+}

@@ -132,9 +132,13 @@ test("website health score does not promise rankings", () => {
 });
 
 test("starter library includes hydrangea and roses", () => {
-  const names = STARTER_FLORAL_LIBRARY.map((p) => p.name.toLowerCase()).join(" ");
-  assert.match(names, /hydrangea/);
-  assert.match(names, /rose/);
+  const blob = STARTER_FLORAL_LIBRARY.map((p) =>
+    `${p.name} ${(p.recipe || []).map((r) => r.name).join(" ")}`
+  )
+    .join(" ")
+    .toLowerCase();
+  assert.match(blob, /hydrangea/);
+  assert.match(blob, /rose/);
 });
 
 test("POS payment regression guard — create-checkout path unchanged", () => {

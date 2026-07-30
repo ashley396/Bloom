@@ -1,0 +1,102 @@
+/**
+ * Florisyn RC2 — Canonical design tokens
+ * Single source of truth for CSS custom properties.
+ * Maps legacy token names (--pink, --brand-primary, etc.) to luxury palette.
+ */
+
+body.florisyn-rc2-luxury,
+body.florisyn-rc2-luxury :root {
+  /* ── Luxury palette ── */
+  --rc2-warm-white: #fffcf8;
+  --rc2-soft-cream: #faf6ef;
+  --rc2-ivory: #fff9f2;
+  --rc2-linen: #f5f0e8;
+  --rc2-cashmere: #ebe4d9;
+  --rc2-stone: #9a9188;
+  --rc2-warm-taupe: #7a7268;
+  --rc2-champagne: #e8dcc8;
+  --rc2-champagne-pale: #f5efe4;
+  --rc2-champagne-gold: #c4a574;
+  --rc2-sage: #6b8f7a;
+  --rc2-sage-deep: #4d6b5c;
+  --rc2-sage-pale: #eef2ed;
+  --rc2-sage-soft: #dde6dc;
+  --rc2-eucalyptus: #6b8f7a;
+  --rc2-olive: #5c6b52;
+  --rc2-forest: #3d4a38;
+  --rc2-dusty-rose: #c4a4a4;
+  --rc2-soft-blush: #f0e4e4;
+  --rc2-terracotta: #b8846e;
+  --rc2-ink: #2c2826;
+  --rc2-ink-muted: #5a534e;
+  --rc2-ink-subtle: #8a8178;
+
+  /* ── Typography ── */
+  --rc2-font-display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  --rc2-font-ui: "DM Sans", "Segoe UI", system-ui, sans-serif;
+
+  /* ── Spacing scale: 4 • 8 • 12 • 16 • 24 • 32 • 48 • 64 ── */
+  --rc2-space-1: 4px;
+  --rc2-space-2: 8px;
+  --rc2-space-3: 12px;
+  --rc2-space-4: 16px;
+  --rc2-space-5: 24px;
+  --rc2-space-6: 32px;
+  --rc2-space-7: 48px;
+  --rc2-space-8: 64px;
+  --rc2-page-pad: clamp(20px, 4vw, 48px);
+  --rc2-section-gap: clamp(32px, 5vw, 64px);
+  --rc2-card-pad: clamp(20px, 3vw, 32px);
+
+  /* ── Radii ── */
+  --rc2-radius-sm: 12px;
+  --rc2-radius-md: 16px;
+  --rc2-radius-lg: 20px;
+  --rc2-radius-xl: 24px;
+  --radius: 20px;
+
+  /* ── Shadows ── */
+  --rc2-shadow-card: 0 1px 2px rgb(44 40 38 / 0.03), 0 8px 32px -12px rgb(44 40 38 / 0.07);
+  --rc2-shadow-hover: 0 2px 6px rgb(44 40 38 / 0.04), 0 16px 40px -12px rgb(44 40 38 / 0.1);
+  --rc2-shadow-luxury: 0 1px 0 rgb(255 255 255 / 0.6) inset, 0 12px 48px -16px rgb(44 40 38 / 0.12);
+  --shadow: var(--rc2-shadow-hover);
+  --shadow-soft: var(--rc2-shadow-card);
+
+  /* ── Motion ── */
+  --rc2-ease-silk: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --rc2-ease-bloom: cubic-bezier(0.34, 1.2, 0.64, 1);
+  --rc2-duration-fast: 150ms;
+  --rc2-duration-normal: 250ms;
+  --rc2-duration-slow: 400ms;
+
+  /* ── Legacy token remapping (styles.css v13 + bloom layers) ── */
+  --brand-primary: var(--rc2-sage-deep);
+  --brand-primary-soft: var(--rc2-sage-pale);
+  --brand-secondary: var(--rc2-eucalyptus);
+  --brand-secondary-soft: var(--rc2-sage-soft);
+  --pink: var(--rc2-sage-deep);
+  --pink-soft: var(--rc2-sage-pale);
+  --cream: var(--rc2-warm-white);
+  --peach: var(--rc2-champagne-pale);
+  --lavender: var(--rc2-linen);
+  --sage: var(--rc2-eucalyptus);
+  --ink: var(--rc2-ink);
+  --muted: var(--rc2-ink-muted);
+  --line: rgb(44 40 38 / 0.08);
+  --panel: var(--rc2-warm-white);
+  --app-background: var(--rc2-soft-cream);
+  --sidebar-color: var(--rc2-warm-white);
+  --header-color: var(--rc2-warm-white);
+  --florisyn-ivory: var(--rc2-ivory);
+  --florisyn-charcoal: var(--rc2-ink);
+  --florisyn-sage: var(--rc2-sage);
+  --florisyn-gold: var(--rc2-champagne-gold);
+  --florisyn-font-display: var(--rc2-font-display);
+  --florisyn-font-ui: var(--rc2-font-ui);
+  --bloom-line: var(--line);
+  --bloom-border: var(--line);
+  --lily-border: var(--line);
+  --lily-panel-bg: var(--rc2-warm-white);
+  --lily-toolbar-bg: var(--rc2-linen);
+  --border: var(--line);
+}

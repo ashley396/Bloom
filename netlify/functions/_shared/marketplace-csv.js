@@ -54,7 +54,7 @@ export function parseMarketplaceCsv(text = "") {
 export function marketplaceCsvTemplate() {
   return [
     "product_name,supplier_name,sku,category,unit,price,minimum_quantity,available_quantity,description,image_url,publish_status,delivery_notes,allows_shipping,allows_local_pickup",
-    "Garden Rose Bundle,Acme Growers,ROSE-001,Fresh Flowers,bunch,24.50,1,100,Premium roses for events,,draft,Ships cold-packed,true,false"
+    "Garden Rose Bundle,Sunrise Rose Farms,ROSE-001,Fresh Flowers,bunch,24.50,1,100,Premium roses for events,,draft,Ships cold-packed,true,false"
   ].join("\n");
 }
 

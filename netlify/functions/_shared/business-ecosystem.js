@@ -4,7 +4,7 @@ export const FLOWER_SCHEDULES = ["weekly", "biweekly", "monthly", "quarterly", "
 export const FLOWER_SUBSCRIPTION_TYPES = [
   { key: "fresh_flowers", label: "Fresh flowers" },
   { key: "office", label: "Office flowers" },
-  { key: "restaurant", label: "Restaurant flowers" },
+  { key: "hospitality", label: "Hospitality & restaurant accounts" },
   { key: "church", label: "Church flowers" },
   { key: "funeral_home", label: "Funeral home flowers" },
   { key: "birthday_club", label: "Birthday Club" },
