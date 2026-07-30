@@ -67,10 +67,14 @@ describe("Florisyn RC2 luxury experience", () => {
     assert.match(html, /florisyn-rc2-luxury-unified\.css/);
     assert.match(html, /florisyn-rc2-luxury-modules\.css/);
     assert.match(html, /florisyn-rc2-orders-pos\.css/);
+    assert.match(html, /florisyn-rc2-workspaces\.css/);
+    assert.match(html, /florisyn-rc2-wholesale-complete\.css/);
     assert.match(html, /florisyn-rc2-luxury-init\.js/);
     assert.match(html, /florisyn-rc2-orders-pos\.js/);
+    assert.match(html, /florisyn-rc2-workspaces\.js/);
     assert.match(html, /onboarding\.css/);
     assert.match(html, /florisyn-rc2-luxury/);
+    assert.match(html, /id="floraviaOnboarding"/);
   });
 
   it("Phase 2 orders-pos module exists with views and quick actions", () => {

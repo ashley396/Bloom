@@ -1,24 +1,62 @@
 /**
- * Florisyn RC2 — Luxury init
- * Applies cohesive UI polish across the production SPA.
- * No business logic — DOM classes, dialog animation, page consistency only.
+ * Florisyn RC2 — Luxury init (enhanced dialog completion)
  */
 (function () {
   "use strict";
 
+  let focusTrapDialog = null;
+  let focusTrapPrev = null;
+
   function enhanceDialogs() {
     document.querySelectorAll("dialog").forEach(function (dlg) {
+      dlg.classList.add("rc2-ws-dialog");
       if (!dlg.dataset.rc2Enhanced) {
         dlg.dataset.rc2Enhanced = "1";
         dlg.addEventListener("toggle", function () {
           if (dlg.open) {
             document.body.classList.add("rc2-dialog-open");
+            trapFocus(dlg);
           } else {
             document.body.classList.remove("rc2-dialog-open");
+            releaseFocus();
           }
         });
       }
     });
+  }
+
+  function trapFocus(dlg) {
+    focusTrapDialog = dlg;
+    focusTrapPrev = document.activeElement;
+    const focusable = dlg.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (first) first.focus();
+
+    function onKey(e) {
+      if (e.key !== "Tab" || !dlg.open) return;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    }
+    dlg.__rc2KeyHandler = onKey;
+    dlg.addEventListener("keydown", onKey);
+  }
+
+  function releaseFocus() {
+    if (focusTrapDialog?.__rc2KeyHandler) {
+      focusTrapDialog.removeEventListener("keydown", focusTrapDialog.__rc2KeyHandler);
+      focusTrapDialog.__rc2KeyHandler = null;
+    }
+    focusTrapPrev?.focus?.();
+    focusTrapDialog = null;
+    focusTrapPrev = null;
   }
 
   function enhancePageHeadings() {
@@ -43,6 +81,7 @@
     var observer = new MutationObserver(function () {
       enhancePageHeadings();
       syncMobileNav();
+      enhanceDialogs();
     });
     observer.observe(content, { attributes: true, subtree: true, attributeFilter: ["class"] });
   }
