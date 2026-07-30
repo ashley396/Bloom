@@ -11,7 +11,7 @@
 
 | Gate | Result | Notes |
 |------|--------|-------|
-| JS syntax check | ✅ PASS | 207 files — `node scripts/check.mjs` |
+| JS syntax check | ✅ PASS | 210 files — `node scripts/check.mjs` |
 | Unit/integration tests | ✅ **357/357 PASS** | Includes 35 release-security tests; RC2.2 sidebar test fixed |
 | Foundation tests | ✅ 6/6 PASS | `npm run test:foundation` |
 | Frontend TypeScript build | ✅ PASS | `npm run frontend:build` |

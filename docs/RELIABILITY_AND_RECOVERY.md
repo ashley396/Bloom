@@ -106,8 +106,8 @@ Foundation v1 migration (`20260730_foundation_daily_loop_v1.sql`) is **additive 
 **Rollback strategy:**
 
 1. **Preferred:** Restore Supabase from backup taken immediately before apply.
-2. **Partial:** Do not drop tables in production; disable features reading new columns via feature flags.
-3. **Netlify:** Redeploy commit `3fd33de` (pre-foundation) if code rollback needed — backup branch `backup/florisyn-pre-foundation-20260730-1415`.
+2. **Partial:** Run `supabase/migrations/20260730_foundation_daily_loop_v1_rollback.sql` (emergency only — see runbook)
+3. **Netlify:** Redeploy previous deploy — see `docs/FOUNDATION_PRODUCTION_RUNBOOK.md`
 
 See `docs/production/MIGRATION-ORDER.md` for full ordering.
 

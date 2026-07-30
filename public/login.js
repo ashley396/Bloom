@@ -21,7 +21,7 @@ async function bloomLogin(event){
     });
     const data=await response.json().catch(()=>({}));
     if(!response.ok) throw new Error(data.error || `Sign in failed (${response.status})`);
-    const session={accessToken:data.accessToken,refreshToken:data.refreshToken,user:data.user};
+    const session={accessToken:data.accessToken,refreshToken:data.refreshToken,user:data.user,expiresAt:data.expiresIn?Date.now()+Number(data.expiresIn)*1000:null};
     localStorage.setItem('bloom_session',JSON.stringify(session));
     window.dispatchEvent(new CustomEvent('bloom-login-success',{detail:session}));
     location.href="/";
