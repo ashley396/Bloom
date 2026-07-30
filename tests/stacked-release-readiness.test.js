@@ -31,7 +31,31 @@ test("stacked release documentation package exists", () => {
     "docs/STACKED_RELEASE_OWNER_CHECKLIST.md",
     "docs/STACKED_RELEASE_SMOKE_TEST.md",
     "docs/STACKED_RELEASE_ROLLBACK.md",
+    "docs/FLORISYN_GOLD_STANDARD.md",
   ]) {
     assert.ok(fs.existsSync(path.join(process.cwd(), file)), `${file} missing`);
   }
+});
+
+test("gold standard defines ten permanent product principles", () => {
+  const doc = fs.readFileSync(
+    path.join(process.cwd(), "docs/FLORISYN_GOLD_STANDARD.md"),
+    "utf8",
+  );
+  for (const principle of [
+    "Single Source of Truth",
+    "Florist First",
+    "Calm Software",
+    "Explainable AI",
+    "One Click Rule",
+    "Recovery Before Speed",
+    "Holiday Mode",
+    "Delight",
+    "Performance Budget",
+    "Future Ecosystem",
+  ]) {
+    assert.match(doc, new RegExp(principle), `missing principle: ${principle}`);
+  }
+  assert.match(doc, /Accept \/ Edit \/ Reject/);
+  assert.match(doc, /Under 2 seconds/);
 });

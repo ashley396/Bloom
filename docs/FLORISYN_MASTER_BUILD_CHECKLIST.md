@@ -263,6 +263,25 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 
 ---
 
+## Gold Standard (permanent product principles)
+
+**Authority:** `docs/FLORISYN_GOLD_STANDARD.md` — applies to all modules and releases.
+
+| Principle | Status | Verification |
+|-----------|--------|--------------|
+| §1 Single Source of Truth | 🟡 IN PROGRESS | No duplicate domain tables; Website Studio consumes existing APIs |
+| §2 Florist First | 🟡 IN PROGRESS | UX review on order/payment flows; plain-language labels |
+| §3 Calm Software | 🟡 IN PROGRESS | Today + Orders board visual QA under load |
+| §4 Explainable AI | 🟡 IN PROGRESS | Lily draft → preview → publish; `ai-status.js` honest state |
+| §5 One Click Rule | 🟡 IN PROGRESS | Smoke: create order, payment, print card ≤2 clicks from home |
+| §6 Recovery Before Speed | 🟡 IN PROGRESS | Order status history, audit_events, rollback runbooks |
+| §7 Holiday Mode | 🔒 FUTURE | WS-4 Holiday Command Center; production board peak UX |
+| §8 Delight | 🟡 IN PROGRESS | Empty states, typography, publish celebration (Website Studio) |
+| §9 Performance Budget | 🟡 IN PROGRESS | <2s load target; Lighthouse on production SPA |
+| §10 Future Ecosystem | 🟡 IN PROGRESS | Shared APIs for POS, Website, Marketplace, Lily, Rose |
+
+---
+
 ## Deployment gate (Foundation v1)
 
 | Step | Status | Verification |
@@ -275,4 +294,4 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 
 ---
 
-*Maintained with Foundation v1 + Daily Loop v2/v3 + Website Studio specification (2026-07-30).*
+*Maintained with Foundation v1 + Daily Loop v2/v3 + Website Studio + Gold Standard principles (2026-07-30).*
