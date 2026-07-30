@@ -115,3 +115,119 @@ body.florisyn-rc2-luxury-admin .editor-tabs button.active {
   color: var(--adm-ink);
   font-weight: 600;
 }
+
+/* ── RC2 Admin complete — all Command Center views ── */
+body.florisyn-rc2-luxury-admin #adminApp {
+  overflow-x: clip;
+}
+
+body.florisyn-rc2-luxury-admin #adminApp > aside {
+  padding: var(--rc2-space-4, 16px);
+}
+
+body.florisyn-rc2-luxury-admin #adminApp main {
+  padding: clamp(16px, 3vw, 32px);
+}
+
+body.florisyn-rc2-luxury-admin .view {
+  display: none;
+  flex-direction: column;
+  gap: var(--rc2-space-5, 24px);
+}
+
+body.florisyn-rc2-luxury-admin .view.active {
+  display: flex;
+}
+
+body.florisyn-rc2-luxury-admin .overview-grid {
+  display: grid;
+  gap: var(--rc2-space-5, 24px);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+}
+
+body.florisyn-rc2-luxury-admin .shop-list,
+body.florisyn-rc2-luxury-admin .alert-list,
+body.florisyn-rc2-luxury-admin .cards {
+  display: grid;
+  gap: var(--rc2-space-3, 12px);
+}
+
+body.florisyn-rc2-luxury-admin .header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rc2-space-3, 12px);
+  margin-bottom: var(--rc2-space-4, 16px);
+}
+
+body.florisyn-rc2-luxury-admin .header-actions input,
+body.florisyn-rc2-luxury-admin .header-actions select {
+  flex: 1 1 180px;
+  min-height: 44px;
+}
+
+body.florisyn-rc2-luxury-admin #commandDashboard {
+  background: linear-gradient(135deg, var(--adm-surface), var(--adm-bg));
+  border: 1px solid var(--adm-border);
+  border-radius: 24px;
+  margin-bottom: var(--rc2-space-4, 16px);
+  padding: var(--rc2-space-5, 24px);
+}
+
+body.florisyn-rc2-luxury-admin .health-panel {
+  font-family: var(--adm-body);
+}
+
+body.florisyn-rc2-luxury-admin .form-grid {
+  display: grid;
+  gap: var(--rc2-space-4, 16px);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+body.florisyn-rc2-luxury-admin .form-grid .wide {
+  grid-column: 1 / -1;
+}
+
+body.florisyn-rc2-luxury-admin .check-grid {
+  display: grid;
+  gap: 12px;
+}
+
+body.florisyn-rc2-luxury-admin .check-grid label {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-height: 44px;
+}
+
+body.florisyn-rc2-luxury-admin #floralLibraryAdminRoot .panel {
+  padding: var(--rc2-space-5, 24px);
+}
+
+body.florisyn-rc2-luxury-admin .admin-auth {
+  align-items: center;
+  display: grid;
+  justify-items: center;
+  min-height: 100dvh;
+  padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+
+body.florisyn-rc2-luxury-admin .admin-login {
+  max-width: 480px;
+  padding: clamp(24px, 4vw, 40px);
+  width: min(96vw, 480px);
+}
+
+body.florisyn-rc2-luxury-admin button:focus-visible,
+body.florisyn-rc2-luxury-admin input:focus-visible,
+body.florisyn-rc2-luxury-admin select:focus-visible,
+body.florisyn-rc2-luxury-admin textarea:focus-visible {
+  box-shadow: 0 0 0 3px rgb(196 165 116 / 0.35);
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.florisyn-rc2-luxury-admin #adminApp aside nav button {
+    transition: none;
+  }
+}

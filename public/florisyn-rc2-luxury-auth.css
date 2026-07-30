@@ -110,3 +110,60 @@ body.bloom-auth.florisyn-rc2-luxury .bloom-auth-visual img {
     transform: none;
   }
 }
+
+/* ── RC2 Auth complete layout ── */
+body.bloom-auth.florisyn-rc2-luxury {
+  overflow-x: clip;
+}
+
+body.bloom-auth.florisyn-rc2-luxury .bloom-auth-shell,
+body.bloom-auth.florisyn-rc2-luxury .bloom-auth-signup-shell {
+  display: grid;
+  gap: clamp(24px, 4vw, 48px);
+  grid-template-columns: 1fr;
+  margin: 0 auto;
+  max-width: 1200px;
+  min-height: calc(100dvh - 72px);
+  padding: clamp(24px, 4vw, 48px) clamp(16px, 3vw, 32px);
+}
+
+@media (min-width: 900px) {
+  body.bloom-auth.florisyn-rc2-luxury .bloom-auth-shell,
+  body.bloom-auth.florisyn-rc2-luxury .bloom-auth-signup-shell {
+    align-items: center;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  }
+}
+
+body.bloom-auth.florisyn-rc2-luxury .bloom-auth-visual {
+  border-radius: var(--auth-radius);
+  overflow: hidden;
+}
+
+body.bloom-auth.florisyn-rc2-luxury .bloom-auth-visual-copy h1 {
+  font-family: var(--auth-font-display);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 500;
+}
+
+body.bloom-auth.florisyn-rc2-luxury .bloom-auth-card form label {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+body.bloom-auth.florisyn-rc2-luxury .bloom-auth-error,
+body.bloom-auth.florisyn-rc2-luxury .error {
+  background: rgb(196 165 116 / 0.12);
+  border: 1px solid rgb(196 165 116 / 0.35);
+  border-radius: 12px;
+  color: #8a6b3a;
+  font-size: 0.875rem;
+  padding: 12px 14px;
+}
+
+body.bloom-auth.florisyn-rc2-luxury a:focus-visible,
+body.bloom-auth.florisyn-rc2-luxury button:focus-visible {
+  box-shadow: 0 0 0 3px rgb(196 165 116 / 0.35);
+  outline: none;
+}

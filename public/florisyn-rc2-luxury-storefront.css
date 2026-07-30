@@ -75,3 +75,36 @@ body.florisyn-rc2-luxury-storefront select {
     transform: none;
   }
 }
+
+/* ── RC2 Storefront complete layout ── */
+body.florisyn-rc2-luxury-storefront {
+  overflow-x: clip;
+}
+
+body.florisyn-rc2-luxury-storefront .storefront-main {
+  margin: 0 auto;
+  max-width: 1200px;
+  padding: clamp(24px, 4vw, 48px) clamp(16px, 3vw, 24px);
+}
+
+body.florisyn-rc2-luxury-storefront .product-grid {
+  display: grid;
+  gap: var(--rc2-space-5, 24px);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+}
+
+body.florisyn-rc2-luxury-storefront .empty-state {
+  background: var(--sf-surface);
+  border: 1px dashed var(--sf-border);
+  border-radius: 20px;
+  color: var(--sf-muted);
+  font-family: var(--sf-body);
+  padding: 48px 24px;
+  text-align: center;
+}
+
+body.florisyn-rc2-luxury-storefront button:focus-visible,
+body.florisyn-rc2-luxury-storefront a:focus-visible {
+  box-shadow: 0 0 0 3px rgb(196 165 116 / 0.35);
+  outline: none;
+}

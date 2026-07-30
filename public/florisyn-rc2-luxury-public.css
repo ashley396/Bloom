@@ -100,3 +100,43 @@ body.florisyn-rc2-luxury-public .footer-promise span {
     transform: none;
   }
 }
+
+/* ── RC2 Public complete layout ── */
+body.florisyn-rc2-luxury-public {
+  overflow-x: clip;
+}
+
+body.florisyn-rc2-luxury-public .content-page {
+  margin: 0 auto;
+  max-width: 1080px;
+  padding: clamp(32px, 5vw, 64px) clamp(16px, 3vw, 32px);
+}
+
+body.florisyn-rc2-luxury-public .content-grid {
+  display: grid;
+  gap: var(--rc2-space-5, 24px);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+body.florisyn-rc2-luxury-public input,
+body.florisyn-rc2-luxury-public select,
+body.florisyn-rc2-luxury-public textarea {
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-radius: 12px;
+  font-family: var(--pub-body);
+  min-height: 44px;
+  padding: 12px 14px;
+  width: 100%;
+}
+
+body.florisyn-rc2-luxury-public button,
+body.florisyn-rc2-luxury-public .button-link {
+  min-height: 44px;
+}
+
+body.florisyn-rc2-luxury-public a:focus-visible,
+body.florisyn-rc2-luxury-public button:focus-visible {
+  box-shadow: 0 0 0 3px rgb(196 165 116 / 0.35);
+  outline: none;
+}

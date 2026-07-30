@@ -1,19 +1,155 @@
-.onboarding-dialog { width:min(680px,calc(100vw - 24px)); border:0; border-radius:28px; padding:0; box-shadow:0 30px 90px rgba(72,49,60,.25); }
-.onboarding-dialog::backdrop { background:rgba(41,29,35,.52); backdrop-filter:blur(5px); }
-.onboarding-dialog form { padding:28px; }
-.onboarding-dialog header h2 { margin:.2rem 0 .4rem; font-size:clamp(1.6rem,4vw,2.3rem); }
-.onboarding-dialog .eyebrow { letter-spacing:.14em; font-size:.72rem; font-weight:800; opacity:.62; }
-.onboarding-progress { height:7px; border-radius:99px; background:#f0e6eb; overflow:hidden; margin:22px 0; }
-.onboarding-progress span { display:block; width:25%; height:100%; background:linear-gradient(90deg,#bb6f92,#789f7b); transition:width .25s ease; }
-.onboarding-step { display:none; gap:14px; }
-.onboarding-step.active { display:grid; }
-.onboarding-step label { display:grid; gap:6px; font-weight:700; font-size:.9rem; }
-.onboarding-step input,.onboarding-step select,.onboarding-step textarea { width:100%; box-sizing:border-box; border:1px solid #dccbd3; border-radius:13px; padding:12px 14px; font:inherit; background:#fff; }
-.onboarding-step textarea { min-height:88px; resize:vertical; }
-.grid-3 { display:grid; grid-template-columns:2fr 1fr 1fr; gap:10px; }
-.ready-card { padding:16px; border-radius:16px; background:#f8f0f4; line-height:1.6; }
-.onboarding-dialog footer { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
-.onboarding-dialog button { border:0; border-radius:13px; padding:12px 18px; font-weight:800; cursor:pointer; }
-.onboarding-dialog button:not(.secondary) { background:#9c5877; color:white; }
-.onboarding-dialog button.secondary { background:#eee5e9; color:#513c46; }
-@media (max-width:620px){ .onboarding-dialog form{padding:20px}.grid-3{grid-template-columns:1fr}.onboarding-dialog footer button{flex:1} }
+/**
+ * Florisyn RC2 — Onboarding dialog (wired in index.html)
+ */
+.onboarding-dialog {
+  width: min(680px, calc(100vw - 24px));
+  border: 0;
+  border-radius: 24px;
+  padding: 0;
+  box-shadow: 0 12px 48px -16px rgb(44 40 38 / 0.18);
+  max-height: min(92dvh, 900px);
+  overflow: auto;
+}
+
+.onboarding-dialog::backdrop {
+  background: rgb(44 40 38 / 0.45);
+  backdrop-filter: blur(8px);
+}
+
+.onboarding-dialog form {
+  padding: clamp(20px, 4vw, 28px);
+}
+
+.onboarding-dialog header h2 {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-weight: 500;
+  margin: 0.2rem 0 0.4rem;
+  font-size: clamp(1.6rem, 4vw, 2.1rem);
+}
+
+.onboarding-dialog .eyebrow {
+  color: #6b8f7a;
+  letter-spacing: 0.14em;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.onboarding-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: #f5f0e8;
+  overflow: hidden;
+  margin: 22px 0;
+}
+
+.onboarding-progress span {
+  display: block;
+  width: 25%;
+  height: 100%;
+  background: linear-gradient(90deg, #6b8f7a, #c4a574);
+  transition: width 0.25s ease;
+}
+
+.onboarding-step {
+  display: none;
+  gap: 14px;
+}
+
+.onboarding-step.active {
+  display: grid;
+}
+
+.onboarding-step label {
+  display: grid;
+  gap: 6px;
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.onboarding-step input,
+.onboarding-step select,
+.onboarding-step textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgb(44 40 38 / 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font: inherit;
+  background: #fffcf8;
+  min-height: 44px;
+}
+
+.onboarding-step textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.grid-3 {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ready-card {
+  background: #faf6ef;
+  border: 1px solid rgb(44 40 38 / 0.08);
+  border-radius: 16px;
+  padding: 16px;
+  line-height: 1.55;
+}
+
+.onboarding-dialog footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+.onboarding-dialog button {
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.onboarding-dialog button:not(.secondary) {
+  background: linear-gradient(180deg, #6b8f7a, #4d6b5c);
+  color: #fffcf8;
+}
+
+.onboarding-dialog button.secondary {
+  background: #fffcf8;
+  border: 1px solid rgb(44 40 38 / 0.08);
+  color: #2c2826;
+}
+
+.onboarding-dialog button:focus-visible {
+  box-shadow: 0 0 0 3px rgb(196 165 116 / 0.35);
+  outline: none;
+}
+
+@media (max-width: 620px) {
+  .onboarding-dialog form {
+    padding: 20px;
+  }
+
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-dialog footer button {
+    flex: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-progress span {
+    transition: none;
+  }
+}
