@@ -95,6 +95,30 @@ describe("Florisyn RC2 luxury experience", () => {
     assert.doesNotMatch(router, /runs in production/i);
   });
 
+  it("satellite pages activate RC2 overlays via body classes", () => {
+    const admin = readFileSync(join(ROOT, "public/admin.html"), "utf8");
+    assert.match(admin, /body class="florisyn-rc2-luxury-admin"/);
+
+    const pay = readFileSync(join(ROOT, "public/pay.html"), "utf8");
+    assert.match(pay, /florisyn-rc2-tokens\.css/);
+    assert.match(pay, /body class="[^"]*florisyn-rc2-luxury/);
+
+    const storefront = readFileSync(join(ROOT, "public/storefront/index.html"), "utf8");
+    assert.match(storefront, /florisyn-rc2-luxury-storefront/);
+
+    const about = readFileSync(join(ROOT, "public/company/about/index.html"), "utf8");
+    assert.match(about, /body class="florisyn-rc2-luxury-public"/);
+    assert.doesNotMatch(about, /luxury-public\.css">>/);
+  });
+
+  it("unified CSS includes staging audit hardening", () => {
+    const css = readFileSync(join(ROOT, "public/florisyn-rc2-luxury-unified.css"), "utf8");
+    assert.match(css, /STAGING AUDIT/);
+    assert.match(css, /\.progress-ring/);
+    assert.match(css, /overflow-x: clip/);
+    assert.match(css, /92dvh/);
+  });
+
   it("React luxury page shell exists for shared chrome", () => {
     assert.ok(existsSync(join(ROOT, "frontend/src/components/layout/LuxuryPageShell.tsx")));
   });

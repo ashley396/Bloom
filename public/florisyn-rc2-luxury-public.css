@@ -62,6 +62,17 @@ body.florisyn-rc2-luxury-public .info-card:hover {
   transform: translateY(-2px);
 }
 
+body.florisyn-rc2-luxury-public .public-nav a,
+body.florisyn-rc2-luxury-public .nav-cta {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+body.florisyn-rc2-luxury-public .public-nav a {
+  padding: 8px 12px;
+}
+
 body.florisyn-rc2-luxury-public .nav-cta {
   background: linear-gradient(180deg, var(--pub-accent), #4d6b5c);
   border-radius: 999px;

@@ -62,7 +62,7 @@ body.florisyn-rc2-luxury .shell > aside {
 }
 
 body.florisyn-rc2-luxury .shell > aside::before {
-  color: var(--rc2-champagne-gold) !important;
+  color: var(--rc2-warm-taupe) !important;
   font-family: var(--rc2-font-ui);
   font-size: 10px !important;
   font-weight: 600;
@@ -782,5 +782,85 @@ body.florisyn-rc2-luxury #toast {
   body.florisyn-rc2-luxury .production-card:hover,
   body.florisyn-rc2-luxury .product-pad-grid button:hover {
     transform: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STAGING AUDIT — legacy leak fixes & responsive hardening
+   ═══════════════════════════════════════════════════════════════ */
+
+body.florisyn-rc2-luxury {
+  overflow-x: clip;
+}
+
+body.florisyn-rc2-luxury .content,
+body.florisyn-rc2-luxury .order-board,
+body.florisyn-rc2-luxury .rc2-orders-view-host {
+  max-width: 100%;
+}
+
+body.florisyn-rc2-luxury .progress-ring {
+  background: radial-gradient(circle, #fff 61%, transparent 62%),
+    conic-gradient(
+      var(--rc2-sage-deep) 0 var(--progress, 10%),
+      var(--rc2-sage-pale) var(--progress, 10%) 55%,
+      var(--rc2-champagne-pale) 55% 100%
+    ) !important;
+}
+
+body.florisyn-rc2-luxury .report-table,
+body.florisyn-rc2-luxury .report-table th,
+body.florisyn-rc2-luxury .report-table td,
+body.florisyn-rc2-luxury .cart-table,
+body.florisyn-rc2-luxury .cart-table-head,
+body.florisyn-rc2-luxury .cart-row,
+body.florisyn-rc2-luxury .meta,
+body.florisyn-rc2-luxury .pay-stats,
+body.florisyn-rc2-luxury .checkout-lines,
+body.florisyn-rc2-luxury .inventory-card .meta,
+body.florisyn-rc2-luxury .status-history-row,
+body.florisyn-rc2-luxury .split-part-list {
+  font-family: var(--rc2-font-ui) !important;
+}
+
+body.florisyn-rc2-luxury dialog {
+  max-height: min(92vh, 92dvh);
+}
+
+body.florisyn-rc2-luxury .onboarding-dialog .onboarding-progress {
+  background: var(--rc2-linen) !important;
+}
+
+body.florisyn-rc2-luxury .onboarding-dialog .onboarding-progress span {
+  background: linear-gradient(90deg, var(--rc2-champagne-gold), var(--rc2-sage)) !important;
+}
+
+body.florisyn-rc2-luxury .onboarding-dialog button:not(.secondary) {
+  background: linear-gradient(180deg, var(--rc2-sage), var(--rc2-sage-deep)) !important;
+  min-height: 44px;
+}
+
+body.florisyn-rc2-luxury .onboarding-dialog .ready-card {
+  background: var(--rc2-linen) !important;
+}
+
+body.florisyn-rc2-luxury .onboarding-dialog footer {
+  background: var(--rc2-warm-white);
+  bottom: 0;
+  margin-bottom: calc(-1 * var(--rc2-space-4));
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
+  position: sticky;
+  z-index: 2;
+}
+
+@media (max-width: 900px) {
+  body.florisyn-rc2-luxury dialog {
+    max-height: min(94vh, 94dvh);
+  }
+
+  body.florisyn-rc2-luxury .sticky-actions,
+  body.florisyn-rc2-luxury dialog .actions,
+  body.florisyn-rc2-luxury .dialog-tools {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
   }
 }
