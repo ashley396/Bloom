@@ -1,7 +1,7 @@
 /**
  * Florisyn — ultra-realistic florist catalog generator (450 arrangements).
  * Everyday · Budget-Friendly · Premium Everyday
- * Florist-specific only — no food, restaurant ordering, or generic SaaS demo content.
+ * Production retail designs only — profitable, repeatable, buildable today.
  */
 
 const PEXELS_FLORAL_POOL = [
@@ -36,25 +36,34 @@ const STYLES = ["simple", "modern", "cheerful", "compact", "rustic", "classic", 
 const PALETTES = [
   "Blush and white", "Red and green", "Yellow and white", "Purple and lavender",
   "Peach and cream", "Blue and white", "Pink and ivory", "Warm autumn tones",
-  "Soft pastels", "Bold primary colors", "White and green", "Coral and sage",
+  "Soft pastels", "Red and yellow", "White and green", "Coral and sage",
 ];
-const CONTAINERS = [
+const ALL_CONTAINERS = [
   "Clear glass cube", "Cylinder vase", "Mason jar", "Ceramic vase", "Bubble bowl",
   "Compote", "Rectangular glass vase", "Handled basket with liner", "Bud vase cluster",
   "Market wrap (no vase)", "Plastic design dish with foam", "Unglazed pottery pot",
 ];
-const MECHANICS = [
-  "Tape grid in vase", "Chicken wire ball", "Floral foam brick", "Hand-tied bouquet wrap",
-  "Spiral hand-tie with binding point", "Foam-free tape grid", "Pin frog in low bowl",
+const BUDGET_CONTAINERS = [
+  "Mason jar", "Cylinder vase", "Market wrap (no vase)", "Plastic design dish with foam",
+  "Handled basket with liner", "Unglazed pottery pot",
+];
+const PREMIUM_CONTAINERS = [
+  "Ceramic vase", "Cylinder vase", "Clear glass cube", "Compote", "Bubble bowl",
+  "Rectangular glass vase",
 ];
 const GREENS = [
   "Leatherleaf", "Pittosporum", "Salal", "Israeli ruscus", "Tree fern", "Eucalyptus",
   "Myrtle", "Dusty miller", "Bear grass", "Lemon leaf",
 ];
+const BUDGET_GREENS = ["Leatherleaf", "Pittosporum"];
 const OCCASIONS = [
   "Everyday", "Birthday", "Anniversary", "Sympathy bouquets", "Get Well",
   "Congratulations", "New Baby", "Love & Romance",
 ];
+
+const FORBIDDEN_TERMS = /\b(pizza|burger|coffee|cupcake|restaurant order|grocery|sushi|taco|latte|espresso)\b/i;
+const VAGUE_RECIPE = /^(seasonal blooms|mixed flowers|greenery|seasonal greenery|misc flowers)$/i;
+const FANTASY_FLOWERS = /\b(unicorn|fantasy|dried butterfly|preserved moss ball)\b/i;
 
 const TIER_CONFIG = [
   {
@@ -62,6 +71,8 @@ const TIER_CONFIG = [
     slug: "everyday",
     count: 150,
     baseRetail: 44.99,
+    maxStems: 24,
+    maxDesignMinutes: 25,
     flowers: [
       { name: "Standard roses", stems: [5, 6, 7, 8, 9, 10, 12] },
       { name: "Carnations", stems: [6, 8, 10, 12, 14] },
@@ -80,13 +91,15 @@ const TIER_CONFIG = [
       "Market", "Classic", "Fresh", "Sunny", "Garden", "Cheerful", "Daily", "Shop",
       "Hand-Tied", "Walk-In", "Counter", "Cooler", "Designer", "Simple", "Bright",
     ],
-    why: "Fast to build at the bench, uses cooler staples, and sells steadily for walk-in and phone orders.",
+    profitNote: "Uses cooler staples with strong everyday turn and predictable stem cost.",
   },
   {
     tier: "Budget-Friendly",
     slug: "budget",
     count: 150,
     baseRetail: 29.99,
+    maxStems: 18,
+    maxDesignMinutes: 18,
     flowers: [
       { name: "Carnations", stems: [8, 10, 12, 14, 16] },
       { name: "Daisy poms", stems: [4, 5, 6, 7, 8] },
@@ -101,32 +114,32 @@ const TIER_CONFIG = [
       "Value", "Economy", "Compact", "Petite", "Smart", "Everyday Value", "Quick",
       "Budget", "Simple", "Small", "Starter", "Express", "Cooler Special", "Basic",
     ],
-    why: "Low stem cost and quick production protect margin while still looking full and gift-ready.",
+    profitNote: "Low stem cost and compact mechanics protect margin on high-volume sales.",
   },
   {
     tier: "Premium Everyday",
     slug: "premium-everyday",
     count: 150,
     baseRetail: 64.99,
+    maxStems: 22,
+    maxDesignMinutes: 28,
     flowers: [
       { name: "Garden roses", stems: [3, 4, 5, 6, 7] },
       { name: "Ranunculus", stems: [4, 5, 6, 7, 8] },
       { name: "Peonies", stems: [2, 3, 4, 5] },
       { name: "Premium stock", stems: [5, 6, 7, 8] },
-      { name: "Hydrangea", stems: [1, 2, 3] },
+      { name: "Premium hydrangea", stems: [1, 2, 3] },
       { name: "Standard roses", stems: [4, 5, 6, 7] },
       { name: "Anemones", stems: [3, 4, 5, 6] },
-      { name: "Tulip", stems: [5, 6, 7, 8, 10] },
+      { name: "Tulips", stems: [5, 6, 7, 8, 10] },
     ],
     nameRoots: [
       "Boutique", "Elevated", "Signature", "Premium", "Refined", "Soft Luxury",
       "Designer", "Atelier", "Studio", "Curated", "Polished", "Upscale", "Fine",
     ],
-    why: "A slightly elevated look using small counts of premium blooms while staying practical for daily production.",
+    profitNote: "Small counts of premium blooms create upsell value without excess labor.",
   },
 ];
-
-const FORBIDDEN_TERMS = /\b(pizza|burger|coffee|cupcake|restaurant order|grocery|sushi|taco|latte|espresso)\b/i;
 
 function pexelsUrl(id) {
   return `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=1200`;
@@ -146,37 +159,89 @@ function pickStems(flower, index) {
   return flower.stems[index % flower.stems.length];
 }
 
+function containersForTier(tier) {
+  if (tier.tier === "Budget-Friendly") return BUDGET_CONTAINERS;
+  if (tier.tier === "Premium Everyday") return PREMIUM_CONTAINERS;
+  return ALL_CONTAINERS;
+}
+
+function foliageForTier(tier, index) {
+  if (tier.tier === "Budget-Friendly") return pick(BUDGET_GREENS, index);
+  return pick(GREENS, index);
+}
+
+function mechanicsForContainer(container) {
+  if (container.includes("Market wrap")) return "Spiral hand-tie with binding point";
+  if (container.includes("Basket") || container.includes("dish")) return "Floral foam brick";
+  if (container.includes("Bubble bowl") || container.includes("Compote")) return "Pin frog in low bowl";
+  if (container.includes("Bud vase")) return "Hand-tied bouquet wrap";
+  return "Tape grid in vase";
+}
+
 /** Spread photo IDs — minimize repeats within typical 60-item library page loads. */
 function photoIdForIndex(globalIndex) {
   const primeStep = 17;
-  const poolIndex = (globalIndex * primeStep + Math.floor(globalIndex / PEXELS_FLORAL_POOL.length)) % PEXELS_FLORAL_POOL.length;
+  const poolIndex =
+    (globalIndex * primeStep + Math.floor(globalIndex / PEXELS_FLORAL_POOL.length)) %
+    PEXELS_FLORAL_POOL.length;
   return PEXELS_FLORAL_POOL[poolIndex];
 }
 
-function buildRecipe(primary, secondary, primaryStems, secondaryStems, greeneryStems) {
+function buildRecipe(primary, secondary, primaryStems, secondaryStems, foliageName, greeneryStems) {
   const recipe = [{ name: primary.name, qty: primaryStems }];
-  if (secondary && secondaryStems > 0) recipe.push({ name: secondary.name, qty: secondaryStems });
-  if (greeneryStems > 0) recipe.push({ name: pick(GREENS, primaryStems), qty: greeneryStems });
+  if (secondary && secondary.name !== primary.name && secondaryStems > 0) {
+    recipe.push({ name: secondary.name, qty: secondaryStems });
+  }
+  if (greeneryStems > 0) recipe.push({ name: foliageName, qty: greeneryStems });
   return recipe;
 }
 
-function buildInstructions({ container, mechanics, primary, primaryStems, greenery, greeneryStems }) {
-  return [
-    `Prep ${container.toLowerCase()} and ${mechanics.toLowerCase()}.`,
-    `Condition ${primary.name.toLowerCase()} and cut stems at an angle.`,
-    `Place ${greeneryStems} stems of ${greenery.toLowerCase()} to frame the container.`,
-    `Insert ${primaryStems} ${primary.name.toLowerCase()} at varied heights for a natural silhouette.`,
-    `Fill gaps, check water level, and finish with a clean sleeve or bow if hand-tied.`,
+function trimRecipeToMaxStems(recipe, maxStems) {
+  let total = recipe.reduce((s, r) => s + r.qty, 0);
+  if (total <= maxStems) return recipe;
+  const trimmed = recipe.map((r) => ({ ...r }));
+  while (total > maxStems && trimmed.length) {
+    const idx = trimmed.findIndex((r) => r.qty > 1 && !/leatherleaf|pittosporum|salal|ruscus|fern|eucalyptus|myrtle|grass|leaf/i.test(r.name));
+    const target = idx >= 0 ? idx : 0;
+    trimmed[target].qty -= 1;
+    total -= 1;
+  }
+  return trimmed;
+}
+
+function buildInstructions({ container, mechanics, primary, primaryStems, foliage, greeneryStems, handTied }) {
+  const steps = [
+    "Sanitize the bench, bucket, and tools; fill a clean bucket with water and commercial floral preservative.",
+    `Prep the ${container.toLowerCase()} using ${mechanics.toLowerCase()}.`,
+    `Condition ${primaryStems} stems of ${primary.name.toLowerCase()} — re-cut at a 45° angle and remove foliage below the waterline.`,
   ];
+  if (greeneryStems > 0) {
+    steps.push(`Insert ${greeneryStems} stems of ${foliage.toLowerCase()} to establish the outer frame.`);
+  }
+  steps.push(
+    `Place ${primary.name.toLowerCase()} at varied heights; keep the silhouette rounded and retail-ready.`,
+    handTied
+      ? "Secure with bind wire, wrap the stems, and finish with sleeve and care card."
+      : "Check water level, clean stray foliage, and stage for cooler or delivery."
+  );
+  return steps;
+}
+
+function buildWhyItWorks(tier, occasion) {
+  return [
+    `Profitability: ${tier.profitNote}`,
+    `Simplicity: Designed for ${tier.maxDesignMinutes} minutes or less at the design bench with standard shop mechanics.`,
+    `Customer appeal: A clear ${occasion.toLowerCase()} gift that reads polished in photos and on the sales floor.`,
+  ].join(" ");
 }
 
 function buildDescription(product) {
   const recipeLine = product.recipe.map((r) => `${r.qty} ${r.name}`).join(", ");
   const steps = product.instructions.map((s, i) => `${i + 1}. ${s}`).join(" ");
   return [
-    `${product.name} — ${product.style} ${product.catalog_tier.toLowerCase()} design in ${product.color_palette.toLowerCase()}.`,
-    `Container: ${product.container}. Mechanics: ${product.mechanics}.`,
-    `Recipe: ${recipeLine}. Foliage: ${product.foliage}.`,
+    `${product.name} — ${product.design_style} ${product.catalog_tier.toLowerCase()} arrangement in ${product.color_palette.toLowerCase()}.`,
+    `Container: ${product.container}. Mechanics: ${product.mechanics}. Foliage: ${product.foliage}.`,
+    `Recipe: ${recipeLine}.`,
     `Build: ${steps}`,
     product.why_it_works,
   ].join(" ");
@@ -185,26 +250,25 @@ function buildDescription(product) {
 function mkArrangement(globalIndex, tierIndex, tier, localIndex) {
   const primary = pick(tier.flowers, localIndex * 3 + tierIndex);
   const secondary = pick(tier.flowers, localIndex * 5 + tierIndex + 2);
-  const style = pick(STYLES, globalIndex);
+  const designStyle = pick(STYLES, globalIndex);
   const palette = pick(PALETTES, globalIndex + localIndex);
-  const container = pick(CONTAINERS, globalIndex + tierIndex);
-  const mechanics = pick(MECHANICS, localIndex + tierIndex);
-  const foliage = pick(GREENS, globalIndex);
+  const container = pick(containersForTier(tier), globalIndex + tierIndex);
+  const mechanics = mechanicsForContainer(container);
+  const foliage = foliageForTier(tier, globalIndex);
   const occasion = pick(OCCASIONS, globalIndex);
   const nameRoot = pick(tier.nameRoots, localIndex);
-  const primaryStems = pickStems(primary, globalIndex);
-  const secondaryStems =
+  let primaryStems = pickStems(primary, globalIndex);
+  let secondaryStems =
     tier.tier === "Budget-Friendly"
       ? Math.max(2, Math.floor(primaryStems / 3))
       : Math.max(3, Math.floor(primaryStems / 2));
-  const greeneryStems = tier.tier === "Budget-Friendly" ? 3 + (localIndex % 3) : 4 + (localIndex % 4);
+  let greeneryStems = tier.tier === "Budget-Friendly" ? 3 + (localIndex % 2) : 4 + (localIndex % 3);
   const primaryShort = primary.name
     .replace(/^Standard |^Premium |^Garden |^Mini /, "")
     .replace(/s$/, "")
     .trim();
-  const occasionLabel =
-    occasion === "Everyday" ? "Bouquet" : occasion.replace(/ bouquets$/, "");
-  let name = `${nameRoot} ${style.charAt(0).toUpperCase() + style.slice(1)} ${primaryShort} ${occasionLabel}`;
+  const occasionLabel = occasion === "Everyday" ? "Bouquet" : occasion.replace(/ bouquets$/, "");
+  let name = `${nameRoot} ${designStyle.charAt(0).toUpperCase() + designStyle.slice(1)} ${primaryShort} ${occasionLabel}`;
   if (localIndex % 3 === 0 && tier.tier === "Budget-Friendly") {
     name = `${nameRoot} ${primaryShort} ${container.split(" ")[0]} ${occasionLabel}`;
   } else if (localIndex % 5 === 0) {
@@ -218,27 +282,32 @@ function mkArrangement(globalIndex, tierIndex, tier, localIndex) {
     (localIndex % 9) * 4.5 +
     (tier.tier === "Premium Everyday" ? 12 : 0) +
     (occasion.includes("Sympathy") || occasion.includes("Anniversary") ? 8 : 0);
-  const recipe = buildRecipe(primary, secondary, primaryStems, secondaryStems, greeneryStems);
+  let recipe = buildRecipe(primary, secondary, primaryStems, secondaryStems, foliage, greeneryStems);
+  recipe = trimRecipeToMaxStems(recipe, tier.maxStems);
+  const handTied = container.includes("Market wrap") || mechanics.includes("hand-tie");
   const instructions = buildInstructions({
     container,
     mechanics,
     primary,
-    primaryStems,
-    greenery: foliage,
-    greeneryStems,
+    primaryStems: recipe.find((r) => r.name === primary.name)?.qty || primaryStems,
+    foliage,
+    greeneryStems: recipe.find((r) => r.name === foliage)?.qty || greeneryStems,
+    handTied,
   });
   const product = {
     id,
     scope: "master",
     name,
     catalog_tier: tier.tier,
-    style,
+    design_style: designStyle,
+    style: designStyle,
     color_palette: palette,
     container,
     mechanics,
     foliage,
-    categories: [tier.tier, occasion, primary.name.replace(/Standard |Premium /, "") + "s"],
-    arrangement_type: occasion.includes("Sympathy") || occasion.includes("Funeral") ? "tribute" : "bouquet",
+    categories: [tier.tier, occasion, primaryShort + "s"],
+    arrangement_type: occasion.includes("Sympathy") ? "tribute" : "bouquet",
+    estimated_design_minutes: Math.min(tier.maxDesignMinutes, 10 + recipe.reduce((s, r) => s + r.qty, 0)),
     suggested_retail: {
       default: Math.round(retail * 100) / 100,
       min: Math.round(retail * 0.88 * 100) / 100,
@@ -247,9 +316,9 @@ function mkArrangement(globalIndex, tierIndex, tier, localIndex) {
     suggested_cost: Math.round(retail * (tier.tier === "Budget-Friendly" ? 0.38 : 0.42) * 100) / 100,
     recipe,
     instructions,
-    why_it_works: tier.why,
+    why_it_works: buildWhyItWorks(tier, occasion),
     publish_status: "published",
-    tags: [tier.slug, primary.name.toLowerCase().replace(/\s+/g, "-"), style, "florist-realistic"],
+    tags: [tier.slug, primary.name.toLowerCase().replace(/\s+/g, "-"), designStyle, "florist-realistic"],
     staff_only_recipe: true,
     primary_image: {
       url,
@@ -263,15 +332,34 @@ function mkArrangement(globalIndex, tierIndex, tier, localIndex) {
     },
   };
   product.description = buildDescription(product);
-  product.short_description = product.description.slice(0, 140);
+  product.short_description = `${product.name}. ${product.catalog_tier} · ${product.color_palette}. ${product.recipe.map((r) => `${r.qty} ${r.name}`).join(", ")}.`;
   return product;
+}
+
+export function validateFloristCatalogQuality(items) {
+  const errors = [];
+  for (const item of items) {
+    const blob = `${item.name} ${item.description} ${item.recipe.map((r) => r.name).join(" ")}`;
+    if (FORBIDDEN_TERMS.test(blob)) errors.push(`${item.id}: forbidden non-floral term`);
+    if (FANTASY_FLOWERS.test(blob)) errors.push(`${item.id}: fantasy content`);
+    for (const row of item.recipe) {
+      if (VAGUE_RECIPE.test(row.name)) errors.push(`${item.id}: vague recipe line "${row.name}"`);
+      if (row.qty <= 0 || row.qty > 20) errors.push(`${item.id}: unrealistic stem count for ${row.name}`);
+    }
+    if (!item.design_style || !item.color_palette || !item.instructions?.length) {
+      errors.push(`${item.id}: missing required production fields`);
+    }
+  }
+  return errors;
 }
 
 /** Generate full 450-arrangement florist catalog. */
 export function generateFloristCatalog(total = 450) {
   const expected = TIER_CONFIG.reduce((s, t) => s + t.count, 0);
   if (total !== expected) {
-    throw new Error(`Florist catalog expects ${expected} arrangements (${TIER_CONFIG.map((t) => `${t.count} ${t.tier}`).join(", ")}).`);
+    throw new Error(
+      `Florist catalog expects ${expected} arrangements (${TIER_CONFIG.map((t) => `${t.count} ${t.tier}`).join(", ")}).`,
+    );
   }
 
   const items = [];
@@ -296,15 +384,9 @@ export function generateFloristCatalog(total = 450) {
     names.add(uniqueName);
   }
 
-  if (names.size !== items.length) {
-    throw new Error("Duplicate arrangement names detected in florist catalog.");
-  }
-
-  for (const item of items) {
-    const blob = `${item.name} ${item.description} ${item.categories.join(" ")}`;
-    if (FORBIDDEN_TERMS.test(blob)) {
-      throw new Error(`Forbidden non-floral term in catalog item: ${item.id}`);
-    }
+  const qualityErrors = validateFloristCatalogQuality(items);
+  if (qualityErrors.length) {
+    throw new Error(`Catalog quality check failed: ${qualityErrors.slice(0, 3).join("; ")}`);
   }
 
   return items;

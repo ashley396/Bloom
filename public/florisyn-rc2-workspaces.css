@@ -327,6 +327,57 @@ body.florisyn-rc2-luxury #libraryDesignDialog.rc2-ws-dialog {
   max-width: min(96vw, 760px);
 }
 
+body.florisyn-rc2-luxury #libraryPreviewDialog.rc2-ws-dialog {
+  max-width: min(96vw, 720px);
+}
+
+body.florisyn-rc2-luxury .library-preview-image {
+  aspect-ratio: 4 / 3;
+  border-radius: var(--rc2-radius-lg);
+  margin-bottom: var(--rc2-space-4);
+  object-fit: cover;
+  width: 100%;
+}
+
+body.florisyn-rc2-luxury .library-preview-grid {
+  display: grid;
+  gap: var(--rc2-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  margin-bottom: var(--rc2-space-4);
+}
+
+body.florisyn-rc2-luxury .library-preview-grid ul,
+body.florisyn-rc2-luxury #libraryPreviewSteps {
+  font-family: var(--rc2-font-ui);
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+body.florisyn-rc2-luxury .library-preview-grid dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+body.florisyn-rc2-luxury .library-preview-grid dt {
+  color: var(--rc2-ink-muted);
+  font-family: var(--rc2-font-ui);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+body.florisyn-rc2-luxury .library-preview-grid dd {
+  font-family: var(--rc2-font-ui);
+  margin: 0 0 8px;
+}
+
+body.florisyn-rc2-luxury #libraryPreviewWhy {
+  font-family: var(--rc2-font-ui);
+  line-height: 1.55;
+  margin: 0 0 var(--rc2-space-4);
+}
+
 body.florisyn-rc2-luxury #productDialog.rc2-ws-dialog .recipe-builder-box {
   background: var(--rc2-ivory);
   border: 1px solid rgb(196 165 116 / 0.25);

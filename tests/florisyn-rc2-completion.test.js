@@ -139,7 +139,7 @@ describe("Florisyn RC2 completion audit", () => {
 
   it("dynamic dialogs have RC2 workspace selectors", () => {
     const css = readFileSync(join(PUBLIC, "florisyn-rc2-workspaces.css"), "utf8");
-    for (const id of ["customerProfileDialog", "phWizardDialog", "themePreviewDialog", "floraviaOnboarding"]) {
+    for (const id of ["customerProfileDialog", "phWizardDialog", "themePreviewDialog", "floraviaOnboarding", "libraryPreviewDialog"]) {
       assert.match(css, new RegExp(`#${id}`), `missing #${id} rules`);
     }
   });
