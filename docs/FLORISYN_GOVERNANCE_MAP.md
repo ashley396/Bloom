@@ -115,6 +115,8 @@ Defines:
 - Verification tracking
 - Production gates
 
+**RC1 deploy package:** `FLORISYN_RC1_FINAL_READINESS_REPORT.md` + `FLORISYN_RC1_OWNER_DEPLOYMENT_CHECKLIST.md`
+
 ---
 
 ## Documentation hierarchy
