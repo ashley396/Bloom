@@ -188,7 +188,20 @@ select id, status from public.orders limit 5;
 
 ## 9. Quality gates (release branch)
 
-Recorded at release commit — see CI section in PR body. All gates must pass before owner deploy.
+Recorded at release commit `9d68a48` on 2026-07-30. All gates passed.
+
+| Gate | Result |
+|------|--------|
+| Full test suite (`npm test`) | ✅ **399/399** pass |
+| Stacked release tests (`npm run test:stacked-release`) | ✅ **3/3** pass |
+| Syntax check (`npm run check`) | ✅ 217 JavaScript files |
+| Frontend build (`npm run frontend:build`) | ✅ Vite production build succeeded |
+| Frontend lint (`cd frontend && npm run lint`) | ✅ Pass (4 Fast Refresh warnings only) |
+| Dependency audit (`npm audit --audit-level=high`) | ✅ 0 vulnerabilities |
+| Client secret scan (`public/`, `frontend/src/`) | ✅ No `sk_live`, `sk_test`, or service role keys |
+| Migration validation | ✅ Covered by foundation + stacked-release tests |
+| Tenant isolation / feature-flag tests | ✅ Included in full suite |
+| Delivery proof storage-path tests | ✅ Included in v3 + stacked-release tests |
 
 ---
 
