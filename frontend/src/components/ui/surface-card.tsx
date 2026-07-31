@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 type SurfaceCardProps = {
   children: ReactNode;
@@ -17,7 +17,6 @@ const paddingMap = {
   lg: "p-8 lg:p-10",
 };
 
-/** Convenience card surface — composable Card/CardHeader/CardContent offer more structure. */
 export function SurfaceCard({
   children,
   className,
