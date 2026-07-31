@@ -5,7 +5,7 @@
 | Control | Implementation |
 |---------|----------------|
 | Authentication | Bearer JWT via `currentUser()` → **member-scoped** Supabase client (`userClient`); RLS enforced on florist routes (Phase 2A A2). Tier-3/webhooks use `admin()` |
-| Platform admin | `platformAdmin()` is a server authorization boundary (not a browser DB-access path): verifies the bearer JWT first, then queries `platform_admins` with a service-role client created only after verification, then hands that client to Command Center / admin routes only after an active-admin + role check passes (P0-02). **Founding Beta (P0-02 R1):** all four platform-admin endpoints are `super_admin` only; missing/empty `allowedRoles` fails closed to `super_admin`; every mutation calls `requireSuperAdmin(admin)` immediately before its write; handlers use shared `platformAdminErrorResponse()` for redacted 5xx responses and safe logging |
+| Platform admin | `platformAdmin()` is a server authorization boundary (not a browser DB-access path): verifies the bearer JWT first, then queries `platform_admins` with a service-role client created only after verification (P0-02). **Founding Beta (P0-02 R1):** all four endpoints are `super_admin` only; every mutation calls `requireSuperAdmin(admin)` before its write. **P0-02 R2:** fixed public error catalog (`florisynCode` only); server-owned request IDs; enforced log allowlists; unknown 400/404/5xx never return provider text |
 | Platform bootstrap | `admin-bootstrap` POST locked after first owner; secret + rate limits — see [FUNCTION-ACCESS-TIERS.md](./FUNCTION-ACCESS-TIERS.md) |
 | Tenant isolation | `shop_id` on queries/mutations for florist data |
 | Input validation | `_shared/validation.js` on login, orders, inventory, customers |

@@ -231,8 +231,10 @@ service-role client is handed to downstream admin code only after authorization 
 `super_admin` only; `platformAdmin(event, ["super_admin"])` is called explicitly at every
 handler; missing/empty `allowedRoles` fails closed to `super_admin`. Mutations require an
 explicit `requireSuperAdmin(admin)` call immediately before their database write. Handlers use
-the shared `platformAdminErrorResponse()` boundary — 500-level responses and logs never include
-raw provider/database details.
+the shared `platformAdminErrorResponse()` boundary with a Florisyn-owned public error catalog
+(P0-02 R2): only `florisynCode` selects public wording; unknown errors become generic 500;
+logs carry a server-generated request ID (never browser headers) and enforce allowlisted
+event/category/status fields.
 
 ---
 

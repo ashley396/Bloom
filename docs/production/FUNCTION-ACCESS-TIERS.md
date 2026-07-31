@@ -53,8 +53,11 @@ has been verified** (P0-02):
    shops (orders, subscriptions, marketplace listings, etc.) without shop-scoped RLS blocking it.
 
 All four platform-admin handlers use the shared `platformAdminErrorResponse()` boundary
-(P0-02 R1): 500-level responses never include raw database/provider messages; logs contain
-only a stable event name, HTTP status, optional correlation ID, and a Florisyn categorical code.
+(P0-02 R1 / P0-02 R2): public responses come only from the Florisyn-owned error catalog via
+`error.florisynCode` — never from raw `statusCode` or provider `message`. Unknown errors become
+generic 500. Logs use a server-generated `requestId` (`crypto.randomUUID()` per request via
+WeakMap); browser `x-request-id` / `x-correlation-id` headers are never trusted. Logs enforce
+allowlisted event names, categories, and HTTP statuses only.
 
 | Function | Access (Founding Beta) | Mutations | Notes |
 |----------|------------------------|-----------|-------|
