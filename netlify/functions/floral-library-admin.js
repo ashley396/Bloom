@@ -21,7 +21,8 @@ export async function handler(event) {
   if (!["GET", "POST"].includes(event.httpMethod)) return methodNotAllowed();
 
   try {
-    const { client, user } = await platformAdmin(event, ["super_admin", "content_admin"]);
+    // Closed beta: Floral Library admin endpoint is super_admin only.
+    const { client, user } = await platformAdmin(event, ["super_admin"]);
     const qs = event.queryStringParameters || {};
     const body = event.httpMethod === "POST" ? bodyOf(event) : {};
     const action = String(body.action || qs.action || "quality").toLowerCase();

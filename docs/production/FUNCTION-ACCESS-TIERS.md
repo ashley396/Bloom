@@ -31,9 +31,10 @@ Florisyn HQ. Requires row in `platform_admins` with `active = true`.
 | `admin-console` | Shop remote edit; **mutations** require `super_admin` (Closed Beta) |
 | `admin-command-center` | Command center; suspend/listings/announcements/flags require `super_admin` |
 | `marketplace-verification-admin` | Verification decisions require `super_admin` |
-| `floral-library-admin` | `super_admin` or `content_admin` |
+| `floral-library-admin` | `super_admin` only, including reads (Closed Beta; entire endpoint gated) |
 
-Reads (dashboard, lists) remain available to any active platform admin.
+Reads (dashboard, lists) remain available to any active platform admin, except where a function
+explicitly restricts the whole endpoint to `super_admin` as noted above.
 
 ## Tier 3 — Service role (`admin()`)
 

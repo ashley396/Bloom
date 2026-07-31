@@ -1,5 +1,6 @@
--- Minimal schema for Floral Library P0-01 RLS integration tests (local Postgres only).
+-- Minimal schema for Floral Library P0-01/R1 RLS integration tests (local Postgres only).
 -- Not a production migration. Does not include Community objects.
+-- platform_admins role constraint matches supabase/migration_v20.5_admin_control_center.sql.
 
 create extension if not exists "pgcrypto";
 
@@ -40,14 +41,22 @@ create table if not exists public.shops (
   created_at timestamptz not null default now()
 );
 
+-- Production-parity platform_admins (legacy supabase/migration_v20.5_admin_control_center.sql).
 create table if not exists public.platform_admins (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  role text not null default 'admin',
+  role text not null default 'super_admin'
+    check (role in ('super_admin', 'support', 'designer', 'billing')),
   display_name text,
-  active boolean not null default true
+  active boolean not null default true,
+  created_at timestamptz not null default now()
 );
 
 alter table public.platform_admins enable row level security;
+-- No browser-facing policies. No authenticated/anon grants (matches production intent).
+revoke all on table public.platform_admins from public;
+revoke all on table public.platform_admins from anon;
+revoke all on table public.platform_admins from authenticated;
+grant select, insert, update, delete on table public.platform_admins to service_role;
 
 -- Mirror production create from 20260728_bloom_rc1_instant_websites.sql (tables only).
 create table if not exists public.bloom_floral_library_master (

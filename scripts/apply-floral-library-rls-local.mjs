@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Apply Floral Library P0-01 schema lock to local Postgres for RLS tests.
+ * Apply Floral Library P0-01/R1 schema lock to local Postgres for RLS tests.
  *
  * Usage:
  *   node scripts/apply-floral-library-rls-local.mjs
  *   FLORAL_LIBRARY_APPLY_MODE=lock-again node scripts/apply-floral-library-rls-local.mjs
  *
  * Modes:
- *   reset (default) — drop schemas, bootstrap, apply P0-01 lock
- *   lock-again — re-apply P0-01 only (no schema reset)
+ *   reset (default) — drop schemas, bootstrap, apply P0-01/R1 lock
+ *   lock-again — re-apply P0-01/R1 only (no schema reset)
  */
 import fs from "node:fs";
 import path from "node:path";
