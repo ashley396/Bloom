@@ -71,10 +71,60 @@ const MIME_EXT = {
   "image/webp": "webp",
 };
 
-export function parseDataUrl(dataUrl) {
-  const match = String(dataUrl || "").match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) return null;
-  return { mime: match[1].toLowerCase(), buffer: Buffer.from(match[2], "base64") };
+/**
+ * Maximum base64 character length whose decoded payload can fit in maxBytes.
+ * base64 maps 3 bytes → 4 chars (with padding to a multiple of 4).
+ */
+export function maxBase64LengthForBytes(maxBytes = COMMUNITY_IMAGE_MAX_BYTES) {
+  const n = Number(maxBytes);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.ceil(n / 3) * 4;
+}
+
+/**
+ * Parse a data URL with size enforcement BEFORE base64 decoding.
+ * Rejects oversized declared binary size, oversized base64 payload length,
+ * and malformed base64. Returns { ok, mime, buffer } or { ok:false, error }.
+ */
+export function parseDataUrl(dataUrl, { maxBytes = COMMUNITY_IMAGE_MAX_BYTES, sizeBytes } = {}) {
+  const match = String(dataUrl || "").match(/^data:([^;]+);base64,([\s\S]*)$/);
+  if (!match) return { ok: false, error: "Invalid image encoding." };
+
+  const mime = match[1].toLowerCase();
+  const b64 = String(match[2] || "").replace(/\s+/g, "");
+  if (!b64) return { ok: false, error: "Invalid image encoding." };
+
+  if (Number.isFinite(Number(sizeBytes)) && Number(sizeBytes) > maxBytes) {
+    return { ok: false, error: "Community photos must be under 2 MB." };
+  }
+
+  // Enforce encoded-size ceiling before Buffer.from allocates decoded bytes.
+  const maxChars = maxBase64LengthForBytes(maxBytes);
+  if (b64.length > maxChars) {
+    return { ok: false, error: "Community photos must be under 2 MB." };
+  }
+
+  // Standard base64 alphabet + padding; length must be divisible by 4.
+  if (b64.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) {
+    return { ok: false, error: "Invalid image encoding." };
+  }
+
+  let buffer;
+  try {
+    buffer = Buffer.from(b64, "base64");
+  } catch {
+    return { ok: false, error: "Invalid image encoding." };
+  }
+
+  // Node may decode leniently; still enforce decoded binary limit.
+  if (!buffer || buffer.length <= 0) {
+    return { ok: false, error: "Image file is empty." };
+  }
+  if (buffer.length > maxBytes) {
+    return { ok: false, error: "Community photos must be under 2 MB." };
+  }
+
+  return { ok: true, mime, buffer };
 }
 
 /** Detect real image type from magic bytes. Returns mime or null. */
@@ -96,13 +146,13 @@ export function detectImageMimeFromBytes(buffer) {
 }
 
 /**
- * Fully decode and sanitize a Community image with sharp.
- * - Enforces encoded size before decoding
+ * Fully decode and sanitize a Community image with sharp (single sanitization pass).
+ * - Rejects oversized declared size and oversized base64 BEFORE decoding base64
  * - Requires declared MIME (jpeg/png/webp) to match magic bytes and sharp format
- * - Fully decodes pixels, rejects corrupt/truncated/animated multi-frame inputs
- *   (or reduces to one safe still when sharp can isolate page 0)
- * - Re-encodes and strips EXIF/GPS/metadata; stores only the sanitized buffer
- * - Enforces dimension, pixel, and post-encode size limits
+ * - Fully decodes pixels; rejects corrupt/truncated inputs
+ * - Re-encodes and strips EXIF/GPS/metadata; returns only the sanitized buffer
+ * - Enforces dimension, pixel, and post-sanitization size limits
+ * Callers must pass the returned object to upload — do not sanitize again.
  * Does not trust client filename/extension. Filenames are server-generated.
  */
 export async function validateCommunityImageUpload({
@@ -118,19 +168,20 @@ export async function validateCommunityImageUpload({
   let declaredMime = String(mime || "").toLowerCase();
 
   if (dataUrl) {
-    const parsed = parseDataUrl(dataUrl);
-    if (!parsed) return { valid: false, error: "Invalid image encoding." };
+    const parsed = parseDataUrl(dataUrl, { maxBytes, sizeBytes });
+    if (!parsed.ok) return { valid: false, error: parsed.error };
     resolvedBuffer = parsed.buffer;
     declaredMime = parsed.mime;
+  }
+
+  if (Number.isFinite(Number(sizeBytes)) && Number(sizeBytes) > maxBytes) {
+    return { valid: false, error: "Community photos must be under 2 MB." };
   }
 
   if (!resolvedBuffer || resolvedBuffer.length <= 0) {
     return { valid: false, error: "Image file is empty." };
   }
   if (resolvedBuffer.length > maxBytes) {
-    return { valid: false, error: "Community photos must be under 2 MB." };
-  }
-  if (Number.isFinite(Number(sizeBytes)) && Number(sizeBytes) > maxBytes) {
     return { valid: false, error: "Community photos must be under 2 MB." };
   }
 

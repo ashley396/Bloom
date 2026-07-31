@@ -12,6 +12,9 @@ import {
   validateReportBody,
   validateCommunityImageUpload,
   detectImageMimeFromBytes,
+  parseDataUrl,
+  maxBase64LengthForBytes,
+  COMMUNITY_IMAGE_MAX_BYTES,
   canEditOwnContent,
   canModerateCommunity,
   publicPost,
@@ -269,7 +272,9 @@ test("florist-community function enforces flag, membership, signed URLs, RPCs", 
   assert.match(src, /createSignedUrl/);
   assert.match(src, /moderatorForPost\(ctx, data, platformAdmin\)/);
   assert.doesNotMatch(src, /canModerate:\s*true/);
-  assert.match(src, /validateCommunityImageUpload/);
+  assert.match(src, /validatePostBody/);
+  assert.match(src, /uploadPrevalidatedCommunityImage/);
+  assert.doesNotMatch(src, /validateCommunityImageUpload/);
   assert.doesNotMatch(src, /\.from\("platform_admins"\)/);
   assert.doesNotMatch(src, /object\/public\/florist-community/);
   assert.doesNotMatch(src, /\.from\("orders"\)/);
@@ -289,6 +294,9 @@ test("community R1/R2/R3 migration hardens membership, private storage, narrow m
   assert.doesNotMatch(sql, /coalesce\s*\(\s*sm\.status/i);
   assert.doesNotMatch(sql, /exception\s+when others then/i);
   assert.match(sql, /Community security migration aborted/);
+  assert.match(sql, /found_statuses is distinct from expected_statuses/);
+  assert.match(sql, /not\\s\+in/);
+  assert.doesNotMatch(sql, /check_def !~\* 'active'/);
   assert.match(sql, /public\s*=\s*false/);
   assert.match(sql, /on conflict \(post_id, reporter_user_id\) do nothing/);
   assert.match(sql, /florist_community_moderate_comment/);
@@ -344,4 +352,32 @@ test("package pins sharp for real decode/re-encode", () => {
   assert.match(shared, /import sharp from "sharp"/);
   assert.doesNotMatch(shared, /image-size/);
   assert.match(shared, /Fully decode and sanitize/);
+  assert.match(shared, /BEFORE decoding base64|before Buffer\.from/i);
+});
+
+test("parseDataUrl enforces size before base64 decode", () => {
+  assert.equal(maxBase64LengthForBytes(3), 4);
+  const overDeclared = parseDataUrl("data:image/png;base64,QQ==", {
+    sizeBytes: COMMUNITY_IMAGE_MAX_BYTES + 5,
+  });
+  assert.equal(overDeclared.ok, false);
+  const overLen = parseDataUrl(`data:image/png;base64,${"A".repeat(maxBase64LengthForBytes() + 4)}`);
+  assert.equal(overLen.ok, false);
+  const malformed = parseDataUrl("data:image/png;base64,@@@@");
+  assert.equal(malformed.ok, false);
+});
+
+test("create/update use prevalidated v.image once; storage module has no sharp", () => {
+  const handler = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
+  assert.match(handler, /uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image\)/g);
+  assert.equal(
+    (handler.match(/uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image\)/g) || []).length,
+    2
+  );
+  const storage = fs.readFileSync(
+    path.join(process.cwd(), "netlify/functions/_shared/florist-community-storage.js"),
+    "utf8"
+  );
+  assert.doesNotMatch(storage, /\bsharp\b|validateCommunityImageUpload|data_url|parseDataUrl/);
+  assert.doesNotMatch(storage, /upload\([^)]*dataUrl/);
 });

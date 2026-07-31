@@ -12,15 +12,17 @@ import {
   validatePostBody,
   validateCommentBody,
   validateReportBody,
-  validateCommunityImageUpload,
   publicProfile,
   publicPost,
   publicComment,
-  communityImagePath,
   canEditOwnContent,
   assertCommunitySafePayload,
   isStoragePath,
 } from "./_shared/florist-community.js";
+import {
+  uploadPrevalidatedCommunityImage,
+  removeCommunityImageQuietly,
+} from "./_shared/florist-community-storage.js";
 
 function featureGate() {
   if (!isFeatureEnabled("COMMUNITY_BETA")) {
@@ -200,18 +202,6 @@ async function ensureDefaultProfile(client, ctx) {
     throw error;
   }
   return data;
-}
-
-async function uploadCommunityImage(client, shopId, userId, dataUrl) {
-  if (!dataUrl) return { ok: true, path: null };
-  const validation = await validateCommunityImageUpload({ dataUrl });
-  if (!validation.valid) return { ok: false, error: validation.error };
-  const path = communityImagePath(shopId, userId, validation.mime);
-  const { error } = await client.storage
-    .from(COMMUNITY_IMAGE_BUCKET)
-    .upload(path, validation.buffer, { contentType: validation.mime, upsert: false });
-  if (error) return { ok: false, error: "Image upload failed." };
-  return { ok: true, path };
 }
 
 async function signedImageUrl(client, path) {
@@ -460,10 +450,12 @@ export async function handler(event) {
       const v = await validatePostBody(body);
       if (!v.valid) return json(400, { error: v.errors.join(" ") });
       let imagePath = null;
-      if (body.image_data_url) {
-        const up = await uploadCommunityImage(client, shopId, user.id, body.image_data_url);
+      let uploadedPath = null;
+      if (v.image) {
+        const up = await uploadPrevalidatedCommunityImage(client, shopId, user.id, v.image);
         if (!up.ok) return json(400, { error: up.error });
         imagePath = up.path;
+        uploadedPath = up.path;
       }
       const insert = {
         author_user_id: user.id,
@@ -484,6 +476,7 @@ export async function handler(event) {
         )
         .single();
       if (error) {
+        if (uploadedPath) await removeCommunityImageQuietly(client, uploadedPath);
         if (missingRelation(error)) friendlyMissing();
         throw error;
       }
@@ -533,10 +526,13 @@ export async function handler(event) {
         body: v.sanitized.body,
         updated_at: new Date().toISOString(),
       };
-      if (body.image_data_url) {
-        const up = await uploadCommunityImage(client, shopId, user.id, body.image_data_url);
+      let uploadedPath = null;
+      const previousPath = existing.image_path || null;
+      if (v.image) {
+        const up = await uploadPrevalidatedCommunityImage(client, shopId, user.id, v.image);
         if (!up.ok) return json(400, { error: up.error });
         patch.image_path = up.path;
+        uploadedPath = up.path;
       }
       const { data, error } = await client
         .from("florist_community_posts")
@@ -547,7 +543,14 @@ export async function handler(event) {
           "id,author_user_id,shop_id,category,caption,body,image_path,status,like_count,comment_count,created_at,updated_at"
         )
         .single();
-      if (error) throw error;
+      if (error) {
+        // Never delete the previous image before DB success; roll back the new object only.
+        if (uploadedPath) await removeCommunityImageQuietly(client, uploadedPath);
+        throw error;
+      }
+      if (uploadedPath && previousPath && previousPath !== uploadedPath) {
+        await removeCommunityImageQuietly(client, previousPath);
+      }
       const signed = await signedImageUrl(client, data.image_path);
       return json(200, {
         item: publicPost(
@@ -575,15 +578,18 @@ export async function handler(event) {
       const mod = moderatorForPost(ctx, existing, platformAdmin);
       if (!mine && !mod) return json(403, { error: "You cannot delete this post." });
       if (mine && !moderationOnly) {
+        const previousPath = existing.image_path || null;
         const { error } = await client
           .from("florist_community_posts")
           .delete()
           .eq("id", id)
           .eq("author_user_id", user.id);
         if (error) throw error;
+        // Remove image only after successful author hard-delete.
+        if (previousPath) await removeCommunityImageQuietly(client, previousPath);
         return json(200, { ok: true });
       }
-      // Moderators soft-remove only — hard delete unavailable.
+      // Moderators soft-remove only — hard delete unavailable; preserve image for review.
       const { data: modResult, error } = await client.rpc("florist_community_moderate_post", {
         p_post_id: id,
         p_status: "removed",

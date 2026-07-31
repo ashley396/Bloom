@@ -3,16 +3,18 @@
 Use this before any production deploy of `beta/august10-stabilization` (PR #13).
 **Do not apply staging or production migrations until Technical Director approval.**
 
-Baseline: `main` @ `eb690be` + Florist Community Beta + **Correction R3 security**.
+Baseline: `main` @ `eb690be` + Florist Community Beta + **Correction R4 security**.
 
-**Truth statements (Correction R3):**
+**Truth statements (Correction R4):**
 - PR #13 is **not merged**.
 - No production deployment occurred from this work.
 - Community migrations have **not** been applied to staging or production.
 - `COMMUNITY_BETA` **defaults OFF** (enable only with explicit `FLORISYN_FLAG_COMMUNITY_BETA=true`).
 - Community images are **private**; clients receive **short-lived signed URLs** (300s) only when readable.
-- Uploaded images are **fully decoded and re-encoded with sharp**; EXIF/GPS/metadata stripped; sanitized buffer stored.
-- Active florist shop membership requires exactly `shop_members.status = 'active'` (legacy DBs get a guarded status column; migration fails loudly on incompatible data).
+- Uploaded images are **fully decoded and re-encoded with sharp exactly once** in validation; upload stores only the prevalidated sanitized buffer (no second sharp pass / no data-URL re-decode).
+- Declared size and base64 length are enforced **before** `Buffer.from`; malformed base64 is rejected safely.
+- Image lifecycle: roll back new objects on create/update DB failure; remove previous only after successful replace; author delete removes image after DB success; moderator soft-remove preserves image for review.
+- Active florist shop membership requires exactly `shop_members.status = 'active'` (legacy DBs get a guarded status column). Membership constraint compatibility requires the exact allowlist `{active, invited, suspended, removed}` — incomplete/inverted/broader constraints abort loudly.
 - v1 alone is **locked** (no Community access) until the security migration succeeds.
 - Moderators cannot rewrite content or hard-delete; status-only RPCs only.
 - Storage DELETE is owner-only for user JWT; service_role cleanup remains for audited internal processes.
@@ -73,7 +75,7 @@ If the security migration fails after v1, Community remains locked (not publicly
 
 ## 3. Staff-time RLS A2 — PAUSED
 
-**Do not apply Staff A2 as part of PR #13 / Community Correction R3.**
+**Do not apply Staff A2 as part of PR #13 / Community Correction R4.**
 Staff A2 remains a separate, paused workstream. Do not include it in staging or production Community rollout instructions.
 
 ---
@@ -153,7 +155,7 @@ npm run test:community-rls
 Prefer **Stripe test mode** until go-live approval.
 Do not mix live keys with test webhooks (`assertStripeLivemodeMatchesKey`).
 
-Live Stripe / device testing still requires an **approved** environment — not performed by Correction R3.
+Live Stripe / device testing still requires an **approved** environment — not performed by Correction R4.
 
 ---
 

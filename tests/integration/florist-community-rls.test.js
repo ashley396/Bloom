@@ -245,6 +245,84 @@ test("legacy no-status schema: R1 adds status and requires exact active", async 
   });
 });
 
+test("membership status_check: canonical compatible + apply-twice", async () => {
+  await withClient(async (client) => {
+    const { rows } = await client.query(`
+      select pg_get_constraintdef(oid) as def
+      from pg_constraint
+      where conname = 'shop_members_status_check'
+        and conrelid = 'public.shop_members'::regclass
+    `);
+    assert.ok(rows[0]?.def);
+    assert.match(rows[0].def, /active/i);
+    assert.match(rows[0].def, /invited/i);
+    assert.match(rows[0].def, /suspended/i);
+    assert.match(rows[0].def, /removed/i);
+  });
+  const out = applyMigrations("r1-again");
+  assert.match(out, /R1 re-applied successfully/);
+  await withClient(seed);
+});
+
+test("membership status_check: incomplete active/suspended-only fails loudly", async () => {
+  await withClient(async (client) => {
+    await client.query(`alter table public.shop_members drop constraint shop_members_status_check`);
+    await client.query(`
+      alter table public.shop_members
+        add constraint shop_members_status_check
+        check (status in ('active', 'suspended'))
+    `);
+  });
+  const r = spawnSync(process.execPath, [path.join(process.cwd(), "scripts/apply-community-migrations-local.mjs")], {
+    env: { ...process.env, COMMUNITY_TEST_DATABASE_URL: DATABASE_URL, COMMUNITY_APPLY_MODE: "r1-again" },
+    encoding: "utf8",
+  });
+  assert.notEqual(r.status, 0);
+  assert.match(`${r.stdout}\n${r.stderr}`, /aborted|exactly \(active, invited, suspended, removed\)|incompatible/i);
+  applyMigrations("reset");
+  await withClient(seed);
+});
+
+test("membership status_check: inverted NOT IN fails loudly", async () => {
+  await withClient(async (client) => {
+    // Clear rows so an inverted constraint can be installed for the migration check.
+    await client.query(`delete from public.shop_members`);
+    await client.query(`alter table public.shop_members drop constraint shop_members_status_check`);
+    await client.query(`
+      alter table public.shop_members
+        add constraint shop_members_status_check
+        check (status not in ('active', 'invited', 'suspended', 'removed'))
+    `);
+  });
+  const r = spawnSync(process.execPath, [path.join(process.cwd(), "scripts/apply-community-migrations-local.mjs")], {
+    env: { ...process.env, COMMUNITY_TEST_DATABASE_URL: DATABASE_URL, COMMUNITY_APPLY_MODE: "r1-again" },
+    encoding: "utf8",
+  });
+  assert.notEqual(r.status, 0);
+  assert.match(`${r.stdout}\n${r.stderr}`, /inverted|aborted|incompatible/i);
+  applyMigrations("reset");
+  await withClient(seed);
+});
+
+test("membership status_check: unsupported extra status fails loudly", async () => {
+  await withClient(async (client) => {
+    await client.query(`alter table public.shop_members drop constraint shop_members_status_check`);
+    await client.query(`
+      alter table public.shop_members
+        add constraint shop_members_status_check
+        check (status in ('active', 'invited', 'suspended', 'removed', 'banned'))
+    `);
+  });
+  const r = spawnSync(process.execPath, [path.join(process.cwd(), "scripts/apply-community-migrations-local.mjs")], {
+    env: { ...process.env, COMMUNITY_TEST_DATABASE_URL: DATABASE_URL, COMMUNITY_APPLY_MODE: "r1-again" },
+    encoding: "utf8",
+  });
+  assert.notEqual(r.status, 0);
+  assert.match(`${r.stdout}\n${r.stderr}`, /aborted|exactly \(active, invited, suspended, removed\)|banned/i);
+  applyMigrations("reset");
+  await withClient(seed);
+});
+
 test("nullable shop_members.status with NULL rows migrates to active fail-loud path", async () => {
   applyMigrations("v1-alone");
   try {

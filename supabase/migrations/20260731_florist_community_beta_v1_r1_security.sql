@@ -26,6 +26,8 @@ declare
   has_default boolean;
   has_check boolean;
   check_def text;
+  found_statuses text[];
+  expected_statuses text[] := array['active', 'invited', 'removed', 'suspended'];
 begin
   select exists (
     select 1
@@ -86,16 +88,44 @@ begin
       add constraint shop_members_status_check
       check (status in ('active', 'invited', 'suspended', 'removed'));
   else
+    -- Exact compatibility: must be a positive allowlist of exactly
+    -- (active, invited, suspended, removed). Substring presence is not enough.
     select pg_get_constraintdef(oid) into check_def
     from pg_constraint
     where conname = 'shop_members_status_check'
       and conrelid = 'public.shop_members'::regclass;
-    if check_def is null
-       or check_def !~* 'active'
-       or check_def !~* 'suspended' then
+
+    if check_def is null then
       raise exception
-        'Community security migration aborted: existing shop_members_status_check is incompatible (%).',
-        coalesce(check_def, '<null>');
+        'Community security migration aborted: existing shop_members_status_check is incompatible (<null>).';
+    end if;
+
+    -- Reject inverted / negative constraints even if they mention the same words.
+    if check_def ~* 'not\s+in' or check_def ~* '<>\s*all' then
+      raise exception
+        'Community security migration aborted: existing shop_members_status_check is inverted/incompatible (%).',
+        check_def;
+    end if;
+
+    -- Must be a positive allowlist form.
+    if not (check_def ~* '\min\s*\(' or check_def ~* '=\s*any\s*\(') then
+      raise exception
+        'Community security migration aborted: existing shop_members_status_check is not an allowlist (%).',
+        check_def;
+    end if;
+
+    select coalesce(array_agg(x order by x), array[]::text[])
+      into found_statuses
+    from (
+      select distinct lower(m[1]) as x
+      from regexp_matches(lower(check_def), '''([^'']+)''', 'g') as m
+    ) s;
+
+    if found_statuses is distinct from expected_statuses then
+      raise exception
+        'Community security migration aborted: existing shop_members_status_check must permit exactly (active, invited, suspended, removed); found % in (%).',
+        coalesce(found_statuses::text, '{}'),
+        check_def;
     end if;
   end if;
 end $$;
