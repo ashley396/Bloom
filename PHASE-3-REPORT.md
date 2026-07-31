@@ -5,7 +5,7 @@
 **Starting commit (stabilization):** `eb690be`
 **Correction R1 tip:** `09c9ea78abb45a9220dfb2a3a1824d789df4102d`
 **Correction R2 tip:** `7880df9e429427b1c6670040ec8ebb8ab0ee5c47`
-**Correction R3 tip:** see latest commit on branch after R3 push
+**Correction R3 tip:** `50f313e6b95d65fe9221e957fd1493662a179ea6`
 
 **Draft PR:** https://github.com/ashley396/Bloom/pull/13 — **NOT MERGED**
 
