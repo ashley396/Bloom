@@ -9,7 +9,7 @@
 **Correction R3 docs pin / R4 start:** `6f34825ccf8a65ba68e7397806edabfb44e891ff`
 **Correction R4 tip:** `9225b056e95dee06d0aad8495c6fabc733b1d3a7`
 **Correction R4 docs tip / R5 start:** `d6fb895bfb7f844760294ab7772a0bde61140826`
-**Correction R5 tip:** `PENDING`
+**Correction R5 tip:** `f751d94ece9aa966b125103678e7ad02dd55ce53`
 
 **Draft PR:** https://github.com/ashley396/Bloom/pull/13 — **NOT MERGED**
 
