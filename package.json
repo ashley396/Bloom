@@ -22,8 +22,10 @@
     "test:stacked-release": "node --test tests/stacked-release-readiness.test.js",
     "test:rc1": "node --test tests/florisyn-rc1-readiness.test.js",
     "test:community-rls": "node --test tests/integration/florist-community-rls.test.js",
+    "test:floral-library-rls": "node --test tests/integration/floral-library-rls.test.js",
     "test:community-smoke": "node scripts/august10-community-smoke.mjs",
     "db:community-local": "node scripts/apply-community-migrations-local.mjs",
+    "db:floral-library-local": "node scripts/apply-floral-library-rls-local.mjs",
     "frontend:dev": "npm --prefix frontend run dev",
     "frontend:build": "npm --prefix frontend run build"
   },
