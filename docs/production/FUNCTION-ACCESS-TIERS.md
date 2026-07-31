@@ -42,29 +42,31 @@ has been verified** (P0-02):
 3. Only after authentication succeeds, create the secure service-role client via `admin()`.
    A missing service-role key fails safely with a 503 before any database call.
 4. Query `platform_admins` for exactly that verified `user.id`, using the service-role client.
-   Any query/provider failure is caught and re-thrown as a redacted 503 — the raw cause is
-   logged server-side only, never returned to the caller.
-5. Require a matching row with `active = true`, and (when `allowedRoles` is given) an allowed
-   role. `super_admin` is always permitted as an explicit override.
+   Any query/provider failure is caught and re-thrown as a redacted 503 — provider details never
+   enter logs (only a fixed Florisyn event and categorical code).
+5. Require a matching row with `active = true`, and an allowed role. When `allowedRoles` is
+   missing or empty, access **fails closed to `super_admin` only** (Founding Beta, P0-02 R1) —
+   there is no "any active admin" fallback. `super_admin` is always permitted as an explicit
+   override when a narrower role list is supplied.
 6. Only after authorization succeeds is the service-role client handed to downstream platform
    administration code — which is why every Tier 2 handler below can safely query across all
    shops (orders, subscriptions, marketplace listings, etc.) without shop-scoped RLS blocking it.
 
-| Function | Reads | Mutations | Notes |
-|----------|-------|-----------|-------|
-| `admin-console` | Any active admin (`overview`, `shops`, `shop`) | `save-platform-settings`, `save-config`, `update-shop`, `update-subscription` → `requireSuperAdmin`; `mark-alerts-read` → `requireAnyActiveAdmin` (explicit, low-risk) | |
-| `admin-command-center` | Any active admin (dashboard, users, marketplace, support, subscriptions, announcements, feature-flags, analytics, system-health, audit-log, etc.) | `suspend-user`, `reactivate-user`, `marketplace-listing`, `create-announcement`, `save-feature-flags` → `requireSuperAdmin`; `password-reset-workflow`, `support-update`, `lily-query`, `record-ai-request` → `requireAnyActiveAdmin` (explicit, low-risk audit/analytics/ticket writes) | |
-| `marketplace-verification-admin` | Any active admin | Verification review (single POST action) → `requireSuperAdmin` | |
-| `floral-library-admin` | `super_admin` only | `super_admin` only | `platformAdmin(event, ["super_admin"])` gates the **entire endpoint**, including reads — one explicit gate covers every action (Closed Beta) |
+All four platform-admin handlers use the shared `platformAdminErrorResponse()` boundary
+(P0-02 R1): 500-level responses never include raw database/provider messages; logs contain
+only a stable event name, HTTP status, optional correlation ID, and a Florisyn categorical code.
 
-Every mutation branch above calls `requireSuperAdmin(admin)` or `requireAnyActiveAdmin(admin)`
-immediately before its database write — an explicit, greppable/testable role gate, not an
-implicit assumption. `requireAnyActiveAdmin` is a no-op once `platformAdmin()` has already
-verified an active row; its purpose is to make each mutation's authorization decision explicit
-rather than relying only on the handler-entry check.
+| Function | Access (Founding Beta) | Mutations | Notes |
+|----------|------------------------|-----------|-------|
+| `admin-console` | `super_admin` only — `platformAdmin(event, ["super_admin"])` | All POST actions → `requireSuperAdmin(admin)` immediately before write | |
+| `admin-command-center` | `super_admin` only — `platformAdmin(event, ["super_admin"])` | All POST actions → `requireSuperAdmin(admin)` immediately before write | |
+| `marketplace-verification-admin` | `super_admin` only — `platformAdmin(event, ["super_admin"])` | Verification review (POST) → `requireSuperAdmin(admin)` | |
+| `floral-library-admin` | `super_admin` only — `platformAdmin(event, ["super_admin"])` | Import/approve/duplicate-review → `requireSuperAdmin(admin)` before each write | |
 
-Reads (dashboard, lists) remain available to any active platform admin, except where a function
-explicitly restricts the whole endpoint to `super_admin` as noted above.
+Every mutation branch above calls `requireSuperAdmin(admin)` immediately before its database
+write — an explicit, greppable/testable role gate, not an implicit assumption. Broader
+administrator capabilities (`support`, `designer`, `billing`) are deferred until a separate RBAC
+matrix receives Founder approval.
 
 ## Tier 3 — Service role (`admin()`)
 
@@ -83,7 +85,8 @@ Webhooks and bootstrap are the only Tier 3 entrypoints that are not also gated b
 
 See [ENVIRONMENT.md](./ENVIRONMENT.md) for `PLATFORM_BOOTSTRAP_SECRET` and `FLORISYN_ALLOW_OPEN_BOOTSTRAP`.
 
-## Closed Beta role model
+## Closed Beta role model (Founding Beta — P0-02 R1)
 
-- **`super_admin`**: first platform owner; full HQ mutations.
-- Other roles (`support`, `billing`, …) may exist in DB but **high-impact POST actions require `super_admin`** until a later phase expands RBAC.
+- **`super_admin`**: only role that may access any current platform-admin endpoint or mutation.
+- Other roles (`support`, `billing`, `designer`, …) may exist in DB but **cannot receive the
+  service-role client** until a separate RBAC matrix receives Founder approval.

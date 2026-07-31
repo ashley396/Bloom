@@ -1,11 +1,11 @@
-import { json, fail } from './_shared/saas.js';
-import { platformAdmin, writeAdminAudit, requireSuperAdmin, requireAnyActiveAdmin } from './_shared/platform-admin.js';
+import { json } from './_shared/saas.js';
+import { platformAdmin, writeAdminAudit, requireSuperAdmin, platformAdminErrorResponse } from './_shared/platform-admin.js';
 
 const safeObject = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
 export async function handler(event) {
   try {
-    const { client, user, admin } = await platformAdmin(event);
+    const { client, user, admin } = await platformAdmin(event, ["super_admin"]);
     const body = event.body ? JSON.parse(event.body) : {};
     const action = body.action || event.queryStringParameters?.action || 'overview';
 
@@ -69,7 +69,7 @@ export async function handler(event) {
       return json(200,{ok:true,foundationTotal});
     }
     if (action === 'mark-alerts-read') {
-      requireAnyActiveAdmin(admin);
+      requireSuperAdmin(admin);
       const { error } = await client.from('platform_admin_notifications').update({read_at:new Date().toISOString()}).is('read_at',null);
       if (error) throw error;
       return json(200,{ok:true});
@@ -127,5 +127,5 @@ export async function handler(event) {
     }
 
     return json(400, { error: 'Unknown admin action' });
-  } catch (error) { return fail(error); }
+  } catch (error) { return platformAdminErrorResponse(event, error); }
 }

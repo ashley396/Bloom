@@ -227,8 +227,12 @@ token is verified via `authenticatedUser()`. The only trusted identity is the ve
 `user_metadata`/`raw_user_meta_data`. Requires an active row in `platform_admins` and (per
 endpoint) an allowed role; `super_admin` is always permitted as an explicit override. The
 service-role client is handed to downstream admin code only after authorization succeeds
-(P0-02). Mutations require an explicit `requireSuperAdmin()` or `requireAnyActiveAdmin()` call
-before their database write.
+(P0-02). **Founding Beta (P0-02 R1):** all current platform-admin endpoints require
+`super_admin` only; `platformAdmin(event, ["super_admin"])` is called explicitly at every
+handler; missing/empty `allowedRoles` fails closed to `super_admin`. Mutations require an
+explicit `requireSuperAdmin(admin)` call immediately before their database write. Handlers use
+the shared `platformAdminErrorResponse()` boundary — 500-level responses and logs never include
+raw provider/database details.
 
 ---
 

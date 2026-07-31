@@ -1,5 +1,5 @@
 /**
- * P0-02 — Platform admin authorization boundary.
+ * P0-02 / P0-02 R1 — Platform admin authorization boundary.
  *
  * platformAdmin() is a SERVER authorization boundary, not a browser
  * database-access mechanism. These tests prove:
@@ -7,9 +7,12 @@
  *   - only the verified user.id (never body/query/headers/user_metadata) is used
  *   - the service-role client is created only after authentication succeeds
  *   - platform_admins is queried with the service-role client, never a user JWT
- *   - role gates (support/designer/billing/super_admin) match the documented matrix
- *   - every platformAdmin() call site is accounted for
- *   - every mutation branch has an explicit role gate
+ *   - Founding Beta: default and empty allowedRoles fail closed to super_admin only
+ *   - support/designer/billing/inactive/unknown/non-admin are denied
+ *   - every platformAdmin() call site explicitly requests super_admin
+ *   - every mutation branch has requireSuperAdmin immediately before its write
+ *   - database/provider errors and thrown exceptions are redacted in responses and logs
+ *   - all four handlers use the shared platformAdminErrorResponse boundary
  *   - no service-role secret ever appears in public/frontend bundles
  */
 import test from "node:test";
@@ -19,25 +22,28 @@ import path from "node:path";
 import {
   platformAdmin,
   requireSuperAdmin,
-  requireAnyActiveAdmin,
+  platformAdminErrorResponse,
+  logPlatformAdminEvent,
+  LOOKUP_FAILURE_MESSAGE,
 } from "../netlify/functions/_shared/platform-admin.js";
 
 const VERIFIED_USER_ID = "11111111-1111-1111-1111-111111111111";
 const ATTACKER_USER_ID = "99999999-9999-9999-9999-999999999999";
 
+const INJECTED = {
+  token: "sk_live_INJECTED_TOKEN_abc123",
+  url: "https://db-host.internal:5432/postgres",
+  path: "/var/lib/postgresql/data/platform_admins",
+  hostname: "db-host.internal",
+  providerCode: "42501",
+  tableName: "platform_admins",
+  rawMessage: 'relation "public.platform_admins" permission denied for role authenticated',
+};
+
 function authOk(userId = VERIFIED_USER_ID, calls) {
   return async (event) => {
     if (calls) calls.push({ step: "authenticate", event });
     return { user: { id: userId }, usesServiceRole: false };
-  };
-}
-
-function authMissingToken(calls) {
-  return async () => {
-    if (calls) calls.push({ step: "authenticate" });
-    const err = new Error("Please sign in");
-    err.statusCode = 401;
-    throw err;
   };
 }
 
@@ -50,7 +56,6 @@ function authInvalidToken(calls) {
   };
 }
 
-/** Fake service-role client: only ever looked up by the recorded .eq() filter value. */
 function fakeServerClient({ rows = [], queryError = null, queryThrow = null, calls } = {}) {
   return {
     from(table) {
@@ -95,9 +100,19 @@ function eventWithBearer(token = "irrelevant-in-fake-authenticate") {
   return { headers: { authorization: `Bearer ${token}` }, queryStringParameters: {}, body: null };
 }
 
+function captureConsoleError(fn) {
+  const logs = [];
+  const orig = console.error;
+  console.error = (...args) => logs.push(args.map(String).join(" "));
+  try {
+    return { logs, result: fn() };
+  } finally {
+    console.error = orig;
+  }
+}
+
 // ---------------------------------------------------------------------------
-// 1. No bearer token denied — uses REAL default authenticatedUser (no network I/O
-//    required: it checks the Authorization header before creating any client).
+// Authentication boundary
 // ---------------------------------------------------------------------------
 test("no bearer token: real default path denies with 401 before any server client", async () => {
   const event = { headers: {} };
@@ -107,9 +122,6 @@ test("no bearer token: real default path denies with 401 before any server clien
   });
 });
 
-// ---------------------------------------------------------------------------
-// 2. Invalid/expired bearer token denied; server client never created.
-// ---------------------------------------------------------------------------
 test("invalid bearer token denied with 401; server client never created", async () => {
   const calls = [];
   const client = fakeServerClient({ rows: [] });
@@ -117,21 +129,18 @@ test("invalid bearer token denied with 401; server client never created", async 
     authenticate: authInvalidToken(calls),
     createServerClient: serverClientFactory(client, calls),
   };
-  await assert.rejects(() => platformAdmin(eventWithBearer(), [], deps), (err) => {
+  await assert.rejects(() => platformAdmin(eventWithBearer(), ["super_admin"], deps), (err) => {
     assert.equal(err.statusCode, 401);
     return true;
   });
   assert.equal(calls.filter((c) => c.step === "createServerClient").length, 0);
 });
 
-// ---------------------------------------------------------------------------
-// 3. Verified non-admin denied.
-// ---------------------------------------------------------------------------
 test("verified non-admin (no platform_admins row) denied with 403", async () => {
   const calls = [];
   const client = fakeServerClient({ rows: [], calls });
   const deps = { authenticate: authOk(VERIFIED_USER_ID, calls), createServerClient: serverClientFactory(client, calls) };
-  await assert.rejects(() => platformAdmin(eventWithBearer(), [], deps), (err) => {
+  await assert.rejects(() => platformAdmin(eventWithBearer(), ["super_admin"], deps), (err) => {
     assert.equal(err.statusCode, 403);
     return true;
   });
@@ -139,71 +148,108 @@ test("verified non-admin (no platform_admins row) denied with 403", async () => 
   assert.equal(filtered.val, VERIFIED_USER_ID);
 });
 
-// ---------------------------------------------------------------------------
-// 4. Inactive administrator denied.
-// ---------------------------------------------------------------------------
 test("inactive administrator denied with 403", async () => {
   const client = fakeServerClient({
     rows: [{ user_id: VERIFIED_USER_ID, role: "super_admin", active: false }],
   });
   const deps = { authenticate: authOk(), createServerClient: serverClientFactory(client) };
-  await assert.rejects(() => platformAdmin(eventWithBearer(), [], deps), (err) => {
+  await assert.rejects(() => platformAdmin(eventWithBearer(), ["super_admin"], deps), (err) => {
     assert.equal(err.statusCode, 403);
     return true;
   });
 });
 
 // ---------------------------------------------------------------------------
-// 5-8. Role matrix: support / designer / billing / super_admin.
+// P0-02 R1: Founding Beta role lockdown
 // ---------------------------------------------------------------------------
-function roleMatrixCase(role) {
-  return async () => {
-    // Baseline (allowedRoles = []): any active admin, including this role, is permitted.
-    const anyAdminClient = fakeServerClient({
-      rows: [{ user_id: VERIFIED_USER_ID, role, active: true }],
-    });
-    const anyAdminResult = await platformAdmin(eventWithBearer(), [], {
-      authenticate: authOk(),
-      createServerClient: serverClientFactory(anyAdminClient),
-    });
-    assert.equal(anyAdminResult.admin.role, role);
-    assert.equal(anyAdminResult.admin.active, true);
+const NON_SUPER_ROLES = ["support", "designer", "billing", "unknown_role"];
 
-    // super_admin-restricted endpoint: non-super_admin roles are denied.
-    const restrictedClient = fakeServerClient({
+for (const role of NON_SUPER_ROLES) {
+  test(`default platformAdmin() access denies ${role} (fail closed to super_admin)`, async () => {
+    const client = fakeServerClient({
       rows: [{ user_id: VERIFIED_USER_ID, role, active: true }],
     });
-    if (role === "super_admin") {
-      const ok = await platformAdmin(eventWithBearer(), ["super_admin"], {
-        authenticate: authOk(),
-        createServerClient: serverClientFactory(restrictedClient),
-      });
-      assert.equal(ok.admin.role, "super_admin");
-    } else {
-      await assert.rejects(
-        () =>
-          platformAdmin(eventWithBearer(), ["super_admin"], {
-            authenticate: authOk(),
-            createServerClient: serverClientFactory(restrictedClient),
-          }),
-        (err) => {
-          assert.equal(err.statusCode, 403);
-          return true;
-        }
-      );
-    }
-  };
+    await assert.rejects(
+      () =>
+        platformAdmin(eventWithBearer(), undefined, {
+          authenticate: authOk(),
+          createServerClient: serverClientFactory(client),
+        }),
+      (err) => {
+        assert.equal(err.statusCode, 403);
+        return true;
+      }
+    );
+  });
+
+  test(`explicit empty allowedRoles denies ${role} (no any-active-admin fallback)`, async () => {
+    const client = fakeServerClient({
+      rows: [{ user_id: VERIFIED_USER_ID, role, active: true }],
+    });
+    await assert.rejects(
+      () =>
+        platformAdmin(eventWithBearer(), [], {
+          authenticate: authOk(),
+          createServerClient: serverClientFactory(client),
+        }),
+      (err) => {
+        assert.equal(err.statusCode, 403);
+        return true;
+      }
+    );
+  });
+
+  test(`explicit super_admin gate denies ${role}`, async () => {
+    const client = fakeServerClient({
+      rows: [{ user_id: VERIFIED_USER_ID, role, active: true }],
+    });
+    await assert.rejects(
+      () =>
+        platformAdmin(eventWithBearer(), ["super_admin"], {
+          authenticate: authOk(),
+          createServerClient: serverClientFactory(client),
+        }),
+      (err) => {
+        assert.equal(err.statusCode, 403);
+        return true;
+      }
+    );
+  });
 }
 
-test("support role behavior matches documented matrix", roleMatrixCase("support"));
-test("designer role behavior matches documented matrix", roleMatrixCase("designer"));
-test("billing role behavior matches documented matrix", roleMatrixCase("billing"));
-test("super_admin role behavior matches documented matrix (override on restricted endpoints)", roleMatrixCase("super_admin"));
+test("super_admin allowed with default (missing) allowedRoles", async () => {
+  const client = fakeServerClient({
+    rows: [{ user_id: VERIFIED_USER_ID, role: "super_admin", active: true }],
+  });
+  const result = await platformAdmin(eventWithBearer(), undefined, {
+    authenticate: authOk(),
+    createServerClient: serverClientFactory(client),
+  });
+  assert.equal(result.admin.role, "super_admin");
+});
 
-// ---------------------------------------------------------------------------
-// 9. Disallowed role cannot reach the service client (promise rejects before
-//    any client object is handed back to caller code).
-// ---------------------------------------------------------------------------
+test("super_admin allowed with explicit empty allowedRoles (defaults to super_admin)", async () => {
+  const client = fakeServerClient({
+    rows: [{ user_id: VERIFIED_USER_ID, role: "super_admin", active: true }],
+  });
+  const result = await platformAdmin(eventWithBearer(), [], {
+    authenticate: authOk(),
+    createServerClient: serverClientFactory(client),
+  });
+  assert.equal(result.admin.role, "super_admin");
+});
+
+test("super_admin override still permits access when allowedRoles lists another role", async () => {
+  const client = fakeServerClient({
+    rows: [{ user_id: VERIFIED_USER_ID, role: "super_admin", active: true }],
+  });
+  const result = await platformAdmin(eventWithBearer(), ["support"], {
+    authenticate: authOk(),
+    createServerClient: serverClientFactory(client),
+  });
+  assert.equal(result.admin.role, "super_admin");
+});
+
 test("disallowed role cannot reach the service client returned to callers", async () => {
   const client = fakeServerClient({
     rows: [{ user_id: VERIFIED_USER_ID, role: "support", active: true }],
@@ -218,18 +264,17 @@ test("disallowed role cannot reach the service client returned to callers", asyn
   } catch (err) {
     assert.equal(err.statusCode, 403);
   }
-  assert.equal(reachedDownstream, false, "downstream code must never receive a client on a disallowed role");
+  assert.equal(reachedDownstream, false);
 });
 
 // ---------------------------------------------------------------------------
-// 10. Spoofed body/query admin ID is ignored — only the verified JWT user.id
-//     is ever used to look up platform_admins.
+// Identity spoofing ignored
 // ---------------------------------------------------------------------------
 test("spoofed body/query/header admin identity is ignored; only verified user.id is used", async () => {
   const calls = [];
   const client = fakeServerClient({
     rows: [
-      { user_id: VERIFIED_USER_ID, role: "support", active: true },
+      { user_id: VERIFIED_USER_ID, role: "super_admin", active: true },
       { user_id: ATTACKER_USER_ID, role: "super_admin", active: true },
     ],
     calls,
@@ -243,28 +288,23 @@ test("spoofed body/query/header admin identity is ignored; only verified user.id
     queryStringParameters: { user_id: ATTACKER_USER_ID, admin_id: ATTACKER_USER_ID, role: "super_admin" },
     body: JSON.stringify({ user_id: ATTACKER_USER_ID, admin_id: ATTACKER_USER_ID, role: "super_admin" }),
   };
-  const result = await platformAdmin(spoofedEvent, [], {
+  const result = await platformAdmin(spoofedEvent, ["super_admin"], {
     authenticate: authOk(VERIFIED_USER_ID, calls),
     createServerClient: serverClientFactory(client, calls),
   });
-  // If spoofing worked, this would resolve as super_admin (the attacker's row).
   assert.equal(result.admin.user_id, VERIFIED_USER_ID);
-  assert.equal(result.admin.role, "support");
   const filtered = calls.find((c) => c.step === "eq");
   assert.equal(filtered.val, VERIFIED_USER_ID);
   assert.notEqual(filtered.val, ATTACKER_USER_ID);
 });
 
-// ---------------------------------------------------------------------------
-// 12. Server client is created only after JWT verification (ordering proof).
-// ---------------------------------------------------------------------------
 test("server client is created only after authentication succeeds (ordering)", async () => {
   const calls = [];
   const client = fakeServerClient({
     rows: [{ user_id: VERIFIED_USER_ID, role: "super_admin", active: true }],
     calls,
   });
-  await platformAdmin(eventWithBearer(), [], {
+  await platformAdmin(eventWithBearer(), ["super_admin"], {
     authenticate: authOk(VERIFIED_USER_ID, calls),
     createServerClient: serverClientFactory(client, calls),
   });
@@ -272,11 +312,11 @@ test("server client is created only after authentication succeeds (ordering)", a
   const authIdx = steps.indexOf("authenticate");
   const createIdx = steps.indexOf("createServerClient");
   assert.ok(authIdx >= 0 && createIdx >= 0);
-  assert.ok(authIdx < createIdx, "authenticate must run strictly before createServerClient");
+  assert.ok(authIdx < createIdx);
 });
 
 // ---------------------------------------------------------------------------
-// 13. Missing server key fails safely (503), without a raw provider message.
+// Safe failure / redaction
 // ---------------------------------------------------------------------------
 test("missing server key fails safely with 503 and a safe message", async () => {
   const founderHint =
@@ -287,7 +327,7 @@ test("missing server key fails safely with 503 and a safe message", async () => 
   });
   await assert.rejects(
     () =>
-      platformAdmin(eventWithBearer(), [], {
+      platformAdmin(eventWithBearer(), ["super_admin"], {
         authenticate: authOk(),
         createServerClient: serverClientFactoryThrows(serverKeyError),
       }),
@@ -299,53 +339,159 @@ test("missing server key fails safely with 503 and a safe message", async () => 
   );
 });
 
-// ---------------------------------------------------------------------------
-// Database/provider failure during the platform_admins lookup is redacted.
-// ---------------------------------------------------------------------------
-test("platform_admins lookup failure is redacted (no raw provider message)", async () => {
-  const rawMessage = "relation \"public.platform_admins\" permission denied for role authenticated at db-host:5432";
-  const client = fakeServerClient({ queryError: { code: "42501", message: rawMessage } });
-  const logs = [];
-  const orig = console.error;
-  console.error = (...args) => logs.push(args.map(String).join(" "));
-  try {
-    await assert.rejects(
-      () =>
-        platformAdmin(eventWithBearer(), [], {
-          authenticate: authOk(),
-          createServerClient: serverClientFactory(client),
-        }),
-      (err) => {
-        assert.equal(err.statusCode, 503);
-        assert.doesNotMatch(err.message, /permission denied|db-host|platform_admins/);
-        return true;
-      }
-    );
-  } finally {
-    console.error = orig;
-  }
-  // The raw cause may be logged server-side only (never returned to the caller).
-  assert.ok(logs.some((l) => l.includes("platformAdmin")));
-});
-
-test("platform_admins lookup throw is also redacted", async () => {
-  const client = fakeServerClient({ queryThrow: new Error("ECONNRESET db-host secret=abc123") });
+test("platform_admins lookup failure is redacted in thrown error (no raw provider message)", async () => {
+  const rawMessage = `${INJECTED.rawMessage} at ${INJECTED.hostname}:5432 code=${INJECTED.providerCode}`;
+  const client = fakeServerClient({ queryError: { code: INJECTED.providerCode, message: rawMessage } });
   await assert.rejects(
     () =>
-      platformAdmin(eventWithBearer(), [], {
+      platformAdmin(eventWithBearer(), ["super_admin"], {
         authenticate: authOk(),
         createServerClient: serverClientFactory(client),
       }),
     (err) => {
       assert.equal(err.statusCode, 503);
-      assert.doesNotMatch(err.message, /ECONNRESET|secret=/);
+      assert.equal(err.message, LOOKUP_FAILURE_MESSAGE);
+      assert.doesNotMatch(err.message, /permission denied|db-host|platform_admins|42501/);
       return true;
     }
   );
 });
 
+test("platform_admins lookup throw is also redacted in thrown error", async () => {
+  const client = fakeServerClient({
+    queryThrow: new Error(`ECONNRESET ${INJECTED.hostname} secret=${INJECTED.token}`),
+  });
+  await assert.rejects(
+    () =>
+      platformAdmin(eventWithBearer(), ["super_admin"], {
+        authenticate: authOk(),
+        createServerClient: serverClientFactory(client),
+      }),
+    (err) => {
+      assert.equal(err.statusCode, 503);
+      assert.doesNotMatch(err.message, /ECONNRESET|secret=|db-host/);
+      return true;
+    }
+  );
+});
+
+test("platform_admins lookup failure log uses fixed event and category only (no injected values)", async () => {
+  const rawMessage = `${INJECTED.rawMessage} ${INJECTED.url} ${INJECTED.tableName} code=${INJECTED.providerCode}`;
+  const client = fakeServerClient({ queryError: { code: INJECTED.providerCode, message: rawMessage } });
+  const logs = [];
+  const orig = console.error;
+  console.error = (...args) => logs.push(args.map(String).join(" "));
+  try {
+    await assert.rejects(() =>
+      platformAdmin(
+        { headers: { "x-request-id": "req-test-123" } },
+        ["super_admin"],
+        { authenticate: authOk(), createServerClient: serverClientFactory(client) }
+      )
+    );
+  } finally {
+    console.error = orig;
+  }
+  assert.equal(logs.length, 1);
+  const parsed = JSON.parse(logs[0]);
+  assert.equal(parsed.event, "platform_admin_lookup_failed");
+  assert.equal(parsed.category, "admin_lookup_db");
+  assert.equal(parsed.status, 503);
+  assert.equal(parsed.correlationId, "req-test-123");
+  const logStr = logs.join(" ");
+  for (const val of Object.values(INJECTED)) {
+    assert.doesNotMatch(logStr, new RegExp(val.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+});
+
 // ---------------------------------------------------------------------------
-// 14. No service-role key appears in public/frontend files.
+// platformAdminErrorResponse boundary
+// ---------------------------------------------------------------------------
+test("platformAdminErrorResponse redacts 500-level database errors in response body", () => {
+  const event = { headers: { "x-request-id": "corr-abc" } };
+  const dbError = Object.assign(
+    new Error(`${INJECTED.rawMessage} at ${INJECTED.url} table=${INJECTED.tableName}`),
+    { statusCode: 500, code: INJECTED.providerCode }
+  );
+  const logs = [];
+  const orig = console.error;
+  console.error = (...args) => logs.push(args.map(String).join(" "));
+  let response;
+  try {
+    response = platformAdminErrorResponse(event, dbError);
+  } finally {
+    console.error = orig;
+  }
+  const body = JSON.parse(response.body);
+  assert.equal(response.statusCode, 500);
+  assert.equal(body.error, "Unexpected Florisyn error. Try again or contact support.");
+  for (const val of Object.values(INJECTED)) {
+    assert.doesNotMatch(body.error, new RegExp(val.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  const logParsed = JSON.parse(logs[0]);
+  assert.equal(logParsed.event, "platform_admin_handler_error");
+  assert.equal(logParsed.category, "platform_admin_internal");
+  assert.equal(logParsed.correlationId, "corr-abc");
+  const logStr = logs.join(" ");
+  for (const val of Object.values(INJECTED)) {
+    assert.doesNotMatch(logStr, new RegExp(val.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+});
+
+test("platformAdminErrorResponse keeps generic 401/403 messages", () => {
+  const r401 = platformAdminErrorResponse({}, Object.assign(new Error("raw auth detail"), { statusCode: 401 }));
+  const r403 = platformAdminErrorResponse({}, Object.assign(new Error("raw forbidden detail"), { statusCode: 403 }));
+  assert.equal(JSON.parse(r401.body).error, "Please sign in again.");
+  assert.equal(JSON.parse(r403.body).error, "You do not have permission to perform this action.");
+  assert.doesNotMatch(JSON.parse(r401.body).error, /raw auth/);
+  assert.doesNotMatch(JSON.parse(r403.body).error, /raw forbidden/);
+});
+
+test("platformAdminErrorResponse allows approved validation messages on 400/404", () => {
+  const r400 = platformAdminErrorResponse({}, Object.assign(new Error("shopId is required"), { statusCode: 400 }));
+  const r404 = platformAdminErrorResponse({}, Object.assign(new Error("Application not found."), { statusCode: 404 }));
+  assert.equal(JSON.parse(r400.body).error, "shopId is required");
+  assert.equal(JSON.parse(r404.body).error, "Application not found.");
+});
+
+test("platformAdminErrorResponse allowlists Florisyn-owned 503 config errors only", () => {
+  const allowlisted = platformAdminErrorResponse(
+    {},
+    Object.assign(new Error(LOOKUP_FAILURE_MESSAGE), { statusCode: 503 })
+  );
+  assert.equal(JSON.parse(allowlisted.body).error, LOOKUP_FAILURE_MESSAGE);
+
+  const provider503 = platformAdminErrorResponse(
+    {},
+    Object.assign(new Error(`${INJECTED.rawMessage} at ${INJECTED.hostname}`), { statusCode: 503 })
+  );
+  assert.equal(JSON.parse(provider503.body).error, "Florisyn is temporarily unavailable. Please try again.");
+  assert.doesNotMatch(JSON.parse(provider503.body).error, /platform_admins|db-host/);
+});
+
+test("logPlatformAdminEvent never includes injected sensitive values", () => {
+  const logs = [];
+  const orig = console.error;
+  console.error = (...args) => logs.push(args.map(String).join(" "));
+  try {
+    logPlatformAdminEvent("platform_admin_test_event", {
+      category: "test_category",
+      status: 503,
+      correlationId: "safe-id-only",
+    });
+  } finally {
+    console.error = orig;
+  }
+  const parsed = JSON.parse(logs[0]);
+  assert.equal(parsed.event, "platform_admin_test_event");
+  assert.equal(parsed.category, "test_category");
+  for (const val of Object.values(INJECTED)) {
+    assert.doesNotMatch(logs.join(" "), new RegExp(val.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+});
+
+// ---------------------------------------------------------------------------
+// No service-role secrets in public/frontend
 // ---------------------------------------------------------------------------
 const SECRET_PATTERNS = [/SUPABASE_SERVICE_ROLE_KEY/, /SUPABASE_SECRET_KEY/, /sk_live_[a-zA-Z0-9]+/, /sb_secret_[a-zA-Z0-9]+/];
 
@@ -384,7 +530,7 @@ test("no service-role key or secret pattern in frontend/src", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 15. Every platformAdmin() call site appears in the audit matrix.
+// Call-site inventory
 // ---------------------------------------------------------------------------
 const EXPECTED_PLATFORM_ADMIN_CALL_SITES = [
   "admin-console.js",
@@ -392,6 +538,8 @@ const EXPECTED_PLATFORM_ADMIN_CALL_SITES = [
   "marketplace-verification-admin.js",
   "floral-library-admin.js",
 ];
+
+const PLATFORM_ADMIN_HANDLERS = EXPECTED_PLATFORM_ADMIN_CALL_SITES;
 
 function findPlatformAdminCallSites() {
   const dir = path.join(process.cwd(), "netlify/functions");
@@ -405,8 +553,26 @@ function findPlatformAdminCallSites() {
 }
 
 test("every platformAdmin() call site is accounted for in the audit matrix", () => {
-  const found = findPlatformAdminCallSites();
-  assert.deepEqual(found, [...EXPECTED_PLATFORM_ADMIN_CALL_SITES].sort());
+  assert.deepEqual(findPlatformAdminCallSites(), [...EXPECTED_PLATFORM_ADMIN_CALL_SITES].sort());
+});
+
+test("every current platform-admin endpoint explicitly requests super_admin", () => {
+  for (const file of EXPECTED_PLATFORM_ADMIN_CALL_SITES) {
+    const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions", file), "utf8");
+    assert.match(
+      src,
+      /platformAdmin\(event,\s*\["super_admin"\]\)/,
+      `${file} must call platformAdmin(event, ["super_admin"]) explicitly`
+    );
+  }
+});
+
+test("all four handlers use the shared platformAdminErrorResponse boundary", () => {
+  for (const file of PLATFORM_ADMIN_HANDLERS) {
+    const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions", file), "utf8");
+    assert.match(src, /platformAdminErrorResponse\(event,\s*error\)/, `${file} must use platformAdminErrorResponse`);
+    assert.doesNotMatch(src, /\bfail\(error\)/, `${file} must not use fail(error)`);
+  }
 });
 
 test("audit matrix is documented in FUNCTION-ACCESS-TIERS.md for every call site", () => {
@@ -415,91 +581,78 @@ test("audit matrix is documented in FUNCTION-ACCESS-TIERS.md for every call site
     const fnName = file.replace(/\.js$/, "");
     assert.match(doc, new RegExp(fnName), `${fnName} must appear in the access-tiers matrix`);
   }
+  assert.match(doc, /`super_admin`\s+only/i);
   assert.match(doc, /server authorization boundary/i);
 });
 
 // ---------------------------------------------------------------------------
-// 16. Mutation actions have explicit role gates (source-level audit).
+// Mutation gates — every write requires requireSuperAdmin immediately before
 // ---------------------------------------------------------------------------
-test("admin-console.js mutations each have an explicit role gate before mutation", () => {
+test("admin-console.js mutations each have requireSuperAdmin immediately before write", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/admin-console.js"), "utf8");
-  const expected = {
-    "save-platform-settings": "requireSuperAdmin",
-    "mark-alerts-read": "requireAnyActiveAdmin",
-    "save-config": "requireSuperAdmin",
-    "update-shop": "requireSuperAdmin",
-    "update-subscription": "requireSuperAdmin",
-  };
-  for (const [action, gate] of Object.entries(expected)) {
-    const re = new RegExp(`if \\(action === '${action}'\\) \\{\\s*${gate}\\(admin\\);`);
-    assert.match(src, re, `admin-console.js action "${action}" must call ${gate}(admin) immediately`);
+  const actions = [
+    "save-platform-settings",
+    "mark-alerts-read",
+    "save-config",
+    "update-shop",
+    "update-subscription",
+  ];
+  for (const action of actions) {
+    const re = new RegExp(`if \\(action === '${action}'\\) \\{\\s*requireSuperAdmin\\(admin\\);`);
+    assert.match(src, re, `admin-console.js action "${action}" must call requireSuperAdmin(admin) immediately`);
   }
+  assert.doesNotMatch(src, /requireAnyActiveAdmin/);
 });
 
-test("admin-command-center.js mutations each have an explicit role gate before mutation", () => {
+test("admin-command-center.js mutations each have requireSuperAdmin immediately before write", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/admin-command-center.js"), "utf8");
-  const expected = {
-    "suspend-user": "requireSuperAdmin",
-    "reactivate-user": "requireSuperAdmin",
-    "password-reset-workflow": "requireAnyActiveAdmin",
-    "marketplace-listing": "requireSuperAdmin",
-    "support-update": "requireAnyActiveAdmin",
-    "create-announcement": "requireSuperAdmin",
-    "save-feature-flags": "requireSuperAdmin",
-    "lily-query": "requireAnyActiveAdmin",
-    "record-ai-request": "requireAnyActiveAdmin",
-  };
-  for (const [action, gate] of Object.entries(expected)) {
-    const re = new RegExp(`if \\(action === "${action}"\\) \\{\\s*${gate}\\(admin\\);`);
-    assert.match(src, re, `admin-command-center.js action "${action}" must call ${gate}(admin) immediately`);
+  const actions = [
+    "suspend-user",
+    "reactivate-user",
+    "password-reset-workflow",
+    "marketplace-listing",
+    "support-update",
+    "create-announcement",
+    "save-feature-flags",
+    "lily-query",
+    "record-ai-request",
+  ];
+  for (const action of actions) {
+    const re = new RegExp(`if \\(action === "${action}"\\) \\{\\s*requireSuperAdmin\\(admin\\);`);
+    assert.match(src, re, `admin-command-center.js action "${action}" must call requireSuperAdmin(admin) immediately`);
   }
+  assert.doesNotMatch(src, /requireAnyActiveAdmin/);
 });
 
-test("marketplace-verification-admin.js mutation has an explicit super_admin gate", () => {
+test("marketplace-verification-admin.js mutation has requireSuperAdmin immediately before write", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/marketplace-verification-admin.js"), "utf8");
   assert.match(src, /if \(event\.httpMethod === "POST"\) \{\s*requireSuperAdmin\(admin\);/);
 });
 
-test("floral-library-admin.js gates the entire endpoint to super_admin at platformAdmin() entry", () => {
+test("floral-library-admin.js mutation actions have requireSuperAdmin immediately before write", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/floral-library-admin.js"), "utf8");
-  assert.match(src, /platformAdmin\(event,\s*\["super_admin"\]\)/);
+  assert.match(
+    src,
+    /if \(action === "dry_run" \|\| action === "import_validate"\) \{\s*requireSuperAdmin\(admin\);/
+  );
+  for (const action of ["approve_batch", "duplicate_review"]) {
+    const re = new RegExp(`if \\(action === "${action}"\\) \\{\\s*requireSuperAdmin\\(admin\\);`);
+    assert.match(src, re, `floral-library-admin.js action "${action}" must call requireSuperAdmin(admin) immediately`);
+  }
 });
 
-// ---------------------------------------------------------------------------
-// platformAdmin() itself never uses a user-JWT client for platform_admins.
-// ---------------------------------------------------------------------------
 test("platform-admin.js queries platform_admins only with the service-role client", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/_shared/platform-admin.js"), "utf8");
   assert.match(src, /admin as createServiceRoleClient/);
   assert.match(src, /buildServerClient\(\)/);
   assert.match(src, /serverClient[\s\S]{0,10}\.from\("platform_admins"\)/);
-  // Code must never read identity from body/query/headers/user_metadata (comments describing
-  // this constraint are fine; only actual property-access patterns would be a violation).
   assert.doesNotMatch(src, /\bbody\.(user_id|admin_id|role)\b/);
   assert.doesNotMatch(src, /queryStringParameters\s*\??\.\s*(user_id|admin_id|role)/);
   assert.doesNotMatch(src, /\.user_metadata\b|\.raw_user_meta_data\b/);
+  assert.doesNotMatch(src, /requireAnyActiveAdmin/);
 });
 
-// ---------------------------------------------------------------------------
-// requireSuperAdmin / requireAnyActiveAdmin sanity (kept alongside legacy suite).
-// ---------------------------------------------------------------------------
-test("requireAnyActiveAdmin allows any active admin record", () => {
-  assert.doesNotThrow(() => requireAnyActiveAdmin({ role: "support", active: true }));
-  assert.doesNotThrow(() => requireAnyActiveAdmin({ role: "billing", active: true }));
-});
-
-test("requireAnyActiveAdmin rejects an inactive or missing admin record", () => {
-  assert.throws(() => requireAnyActiveAdmin({ role: "support", active: false }), (err) => {
-    assert.equal(err.statusCode, 403);
-    return true;
-  });
-  assert.throws(() => requireAnyActiveAdmin(null), (err) => {
-    assert.equal(err.statusCode, 403);
-    return true;
-  });
-});
-
-test("requireSuperAdmin still allows super_admin and blocks others", () => {
+test("requireSuperAdmin allows super_admin and blocks others", () => {
   assert.doesNotThrow(() => requireSuperAdmin({ role: "super_admin" }));
   assert.throws(() => requireSuperAdmin({ role: "designer" }), (err) => {
     assert.equal(err.statusCode, 403);

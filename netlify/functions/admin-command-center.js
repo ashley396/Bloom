@@ -1,5 +1,5 @@
-import { json, fail } from "./_shared/saas.js";
-import { platformAdmin, writeCommandAudit, requireSuperAdmin, requireAnyActiveAdmin } from "./_shared/platform-admin.js";
+import { json } from "./_shared/saas.js";
+import { platformAdmin, writeCommandAudit, requireSuperAdmin, platformAdminErrorResponse } from "./_shared/platform-admin.js";
 import {
   auditRecordFromRow,
   buildMonthlySeries,
@@ -49,7 +49,7 @@ async function safeCount(client, table) {
 
 export async function handler(event) {
   try {
-    const { client, user, admin } = await platformAdmin(event);
+    const { client, user, admin } = await platformAdmin(event, ["super_admin"]);
     const body = event.body ? JSON.parse(event.body) : {};
     const action = body.action || event.queryStringParameters?.action || "dashboard";
     const ip = clientIp(event);
@@ -499,7 +499,7 @@ export async function handler(event) {
     }
 
     if (action === "password-reset-workflow") {
-      requireAnyActiveAdmin(admin);
+      requireSuperAdmin(admin);
       await writeCommandAudit(client, user.id, "password_reset_workflow", {
         targetType: "user",
         targetId: body.user_id || body.email,
@@ -544,7 +544,7 @@ export async function handler(event) {
     }
 
     if (action === "support-update") {
-      requireAnyActiveAdmin(admin);
+      requireSuperAdmin(admin);
       const id = body.id;
       if (!id) return json(400, { error: "id is required" });
       const notes = Array.isArray(body.notes) ? body.notes : [];
@@ -608,7 +608,7 @@ export async function handler(event) {
     }
 
     if (action === "lily-query") {
-      requireAnyActiveAdmin(admin);
+      requireSuperAdmin(admin);
       const message = String(body.message || "").trim();
       if (!message) return json(400, { error: "Add a message for Lily." });
       const intent = detectIntent(message);
@@ -629,7 +629,7 @@ export async function handler(event) {
     }
 
     if (action === "record-ai-request") {
-      requireAnyActiveAdmin(admin);
+      requireSuperAdmin(admin);
       const today = new Date().toISOString().slice(0, 10);
       try {
         const { data: existing } = await client.from("platform_ai_usage_daily").select("request_count").eq("usage_date", today).maybeSingle();
@@ -646,6 +646,6 @@ export async function handler(event) {
 
     return json(400, { error: "Unknown command center action" });
   } catch (error) {
-    return fail(error);
+    return platformAdminErrorResponse(event, error);
   }
 }

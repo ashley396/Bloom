@@ -1,6 +1,5 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
-import { fail } from "./_shared/supabase.js";
-import { platformAdmin, writeAdminAudit, requireSuperAdmin } from "./_shared/platform-admin.js";
+import { platformAdmin, writeAdminAudit, requireSuperAdmin, platformAdminErrorResponse } from "./_shared/platform-admin.js";
 import {
   TABLE,
   ADMIN_REVIEW_DECISIONS,
@@ -21,7 +20,7 @@ export async function handler(event) {
   if (ready) return ready;
 
   try {
-    const { client, user, admin } = await platformAdmin(event);
+    const { client, user, admin } = await platformAdmin(event, ["super_admin"]);
 
     if (event.httpMethod === "GET") {
       const status = event.queryStringParameters?.status;
@@ -119,10 +118,10 @@ export async function handler(event) {
     return methodNotAllowed();
   } catch (error) {
     if (isMissingVerificationTableError(error)) {
-      return json(503, {
-        error: "Marketplace verification tables are not available yet. Apply the marketplace verification migration in Supabase."
-      });
+      error.statusCode = 503;
+      error.message =
+        "Marketplace verification tables are not available yet. Apply the marketplace verification migration in Supabase.";
     }
-    return fail(error);
+    return platformAdminErrorResponse(event, error);
   }
 }

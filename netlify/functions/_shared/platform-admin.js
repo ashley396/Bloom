@@ -1,9 +1,101 @@
-import { authenticatedUser, admin as createServiceRoleClient } from "./saas.js";
+import { authenticatedUser, admin as createServiceRoleClient, json } from "./saas.js";
+import { FOUNDER_SERVER_KEY_HINT } from "./supabase.js";
 
-const UNAUTHORIZED_MESSAGE = "This account is not authorized for Florisyn Administration.";
-const ROLE_MESSAGE = "Your admin role does not allow this action.";
-const LOOKUP_FAILURE_MESSAGE =
+export const UNAUTHORIZED_MESSAGE = "This account is not authorized for Florisyn Administration.";
+export const ROLE_MESSAGE = "Your admin role does not allow this action.";
+export const LOOKUP_FAILURE_MESSAGE =
   "Unable to verify Florisyn Administration access right now. Please try again.";
+
+const GENERIC_401 = "Please sign in again.";
+const GENERIC_403 = "You do not have permission to perform this action.";
+const GENERIC_500 = "Unexpected Florisyn error. Try again or contact support.";
+const GENERIC_503 = "Florisyn is temporarily unavailable. Please try again.";
+
+/** Florisyn-owned 503 messages that may be returned to callers (never provider text). */
+const ALLOWLISTED_503_MESSAGES = new Set([
+  LOOKUP_FAILURE_MESSAGE,
+  FOUNDER_SERVER_KEY_HINT,
+  "Marketplace verification tables are not available yet. Apply the marketplace verification migration in Supabase.",
+  "Apply command_center_v1 migration for feature flags."
+]);
+
+const FOUNDING_BETA_ROLES = ["super_admin"];
+
+/**
+ * Safe platform-admin log line — never includes provider messages, codes, stacks,
+ * URLs, hostnames, table names, tokens, or request bodies.
+ */
+export function logPlatformAdminEvent(eventName, { category, status, correlationId } = {}) {
+  const payload = {
+    event: eventName,
+    category: category || "platform_admin",
+    status: status || 500,
+    ts: new Date().toISOString()
+  };
+  if (correlationId) payload.correlationId = correlationId;
+  console.error(JSON.stringify(payload));
+}
+
+function correlationIdFromEvent(event) {
+  return (
+    event?.headers?.["x-request-id"] ||
+    event?.headers?.["X-Request-Id"] ||
+    event?.headers?.["x-correlation-id"] ||
+    event?.headers?.["X-Correlation-Id"] ||
+    null
+  );
+}
+
+function categorizeError(status) {
+  if (status === 401) return "platform_admin_unauthorized";
+  if (status === 403) return "platform_admin_forbidden";
+  if (status === 400) return "platform_admin_validation";
+  if (status === 404) return "platform_admin_not_found";
+  if (status === 503) return "platform_admin_unavailable";
+  if (status >= 500) return "platform_admin_internal";
+  return "platform_admin_client";
+}
+
+function safe503Message(error) {
+  const msg = String(error?.message || "");
+  if (error?.code === "supabase_server_key_missing") return FOUNDER_SERVER_KEY_HINT;
+  if (ALLOWLISTED_503_MESSAGES.has(msg)) return msg;
+  if (/Florisyn's secure server connection/i.test(msg)) return FOUNDER_SERVER_KEY_HINT;
+  return GENERIC_503;
+}
+
+/**
+ * Shared fail-closed error boundary for all platform-admin handlers.
+ * Never returns raw database/provider messages on 500-level responses.
+ */
+export function platformAdminErrorResponse(event, error) {
+  const status = error?.statusCode || 500;
+  const correlationId = correlationIdFromEvent(event);
+  const category = categorizeError(status);
+
+  logPlatformAdminEvent("platform_admin_handler_error", {
+    category,
+    status,
+    correlationId
+  });
+
+  let message;
+  if (status === 401) {
+    message = GENERIC_401;
+  } else if (status === 403) {
+    message = GENERIC_403;
+  } else if (status === 400 || status === 404) {
+    message = error?.message || (status === 404 ? "We could not find that record." : "Invalid request.");
+  } else if (status === 503) {
+    message = safe503Message(error);
+  } else if (status >= 500) {
+    message = GENERIC_500;
+  } else {
+    message = error?.message || "Request could not be completed.";
+  }
+
+  return json(status, { error: message });
+}
 
 /**
  * Server-side authorization boundary for Florisyn platform administration.
@@ -16,6 +108,9 @@ const LOOKUP_FAILURE_MESSAGE =
  * Auth; an administrator identity is never accepted from the request body,
  * query parameters, other headers, `user_metadata`, or `raw_user_meta_data`.
  *
+ * Founding Beta (P0-02 R1): when `allowedRoles` is missing or empty, access
+ * fails closed to `super_admin` only — no "any active admin" fallback.
+ *
  * Flow (fail-closed at every step):
  *   1. Verify the bearer token via `authenticatedUser()` — throws 401 for a
  *      missing, invalid, or expired token. No server client exists yet.
@@ -25,24 +120,23 @@ const LOOKUP_FAILURE_MESSAGE =
  *      safe 503 when the service-role key is not configured in Netlify.
  *   4. Use the service-role client to query `platform_admins` for exactly
  *      that `user.id`. Any query/provider failure is caught and re-thrown
- *      as a redacted, safe 503 — the raw error is only logged server-side.
- *   5. Require a matching row with `active = true`; require the endpoint's
- *      allowed role when `allowedRoles` is non-empty. `super_admin` is
- *      always permitted as an explicit override.
+ *      as a redacted, safe 503 — provider details never enter logs.
+ *   5. Require a matching row with `active = true` and an allowed role.
+ *      `super_admin` is always permitted as an explicit override.
  *   6. Only after authorization succeeds is the service-role client
  *      returned to downstream platform administration code.
  *
  * @param {object} event Netlify function event.
- * @param {string[]} [allowedRoles] Roles permitted for this call; empty means any active admin.
- * @param {object} [deps] Test seam only: { authenticate, createServerClient }. Production
- *   call sites must never pass this — defaults are the real Supabase-backed implementations.
+ * @param {string[]} [allowedRoles] Roles permitted for this call; missing/empty
+ *   defaults to `["super_admin"]` (Founding Beta fail-closed).
+ * @param {object} [deps] Test seam only: { authenticate, createServerClient }.
  */
-export async function platformAdmin(event, allowedRoles = [], deps = {}) {
+export async function platformAdmin(event, allowedRoles, deps = {}) {
+  const roles =
+    allowedRoles && allowedRoles.length > 0 ? allowedRoles : FOUNDING_BETA_ROLES;
   const authenticate = deps.authenticate || authenticatedUser;
   const buildServerClient = deps.createServerClient || createServiceRoleClient;
 
-  // Step 1 + 2: verify the bearer token first. The ONLY identity we trust is
-  // the verified user.id — nothing from body/query/headers/user_metadata.
   const { user } = await authenticate(event);
   const userId = user && user.id;
   if (!userId) {
@@ -51,13 +145,8 @@ export async function platformAdmin(event, allowedRoles = [], deps = {}) {
     throw err;
   }
 
-  // Step 3: only after authentication succeeds, create the secure server
-  // client. buildServerClient() throws a safe 503 if the server key is
-  // missing — no platform_admins query is attempted without it.
   const serverClient = buildServerClient();
 
-  // Step 4: query platform_admins for exactly the verified user id, using
-  // the service-role client (never the caller's own JWT client).
   let data;
   try {
     const result = await serverClient
@@ -67,34 +156,33 @@ export async function platformAdmin(event, allowedRoles = [], deps = {}) {
       .maybeSingle();
     if (result.error) throw result.error;
     data = result.data;
-  } catch (dbError) {
-    // Redacted: log the real cause server-side only; never leak provider
-    // details, table/column names, or raw messages to the caller.
-    console.error("platformAdmin: platform_admins lookup failed:", dbError?.message || dbError);
+  } catch {
+    logPlatformAdminEvent("platform_admin_lookup_failed", {
+      category: "admin_lookup_db",
+      status: 503,
+      correlationId: correlationIdFromEvent(event)
+    });
     const err = new Error(LOOKUP_FAILURE_MESSAGE);
     err.statusCode = 503;
     throw err;
   }
 
-  // Step 5: require a matching, active administrator row.
   if (!data || data.active !== true) {
     const err = new Error(UNAUTHORIZED_MESSAGE);
     err.statusCode = 403;
     throw err;
   }
 
-  // Role gate — super_admin is always permitted as an explicit override.
-  if (allowedRoles.length && !allowedRoles.includes(data.role) && data.role !== "super_admin") {
+  if (!roles.includes(data.role) && data.role !== "super_admin") {
     const err = new Error(ROLE_MESSAGE);
     err.statusCode = 403;
     throw err;
   }
 
-  // Step 6: only now hand the service-role client to downstream admin code.
   return { client: serverClient, user, admin: data };
 }
 
-/** Closed Beta: only `super_admin` may run high-impact platform mutations. */
+/** Founding Beta: only `super_admin` may run platform-admin mutations. */
 export function requireSuperAdmin(adminRecord, message = "This action requires a Florisyn super admin.") {
   if (String(adminRecord?.role || "").toLowerCase() === "super_admin") return;
   const err = new Error(message);
@@ -102,28 +190,8 @@ export function requireSuperAdmin(adminRecord, message = "This action requires a
   throw err;
 }
 
-/**
- * Explicit gate for mutations intentionally available to any active platform
- * administrator (not restricted to super_admin). `platformAdmin()` already
- * guarantees `adminRecord.active === true` by the time a handler runs this,
- * so this call is always satisfied in practice — its purpose is to make each
- * mutation's authorization decision explicit and greppable/auditable rather
- * than an implicit assumption, per the platform admin authorization boundary
- * (P0-02): every mutation branch must show a role gate before its database
- * write, not only the handler-entry check.
- */
-export function requireAnyActiveAdmin(
-  adminRecord,
-  message = "This action requires an active Florisyn platform administrator."
-) {
-  if (adminRecord && adminRecord.active === true) return;
-  const err = new Error(message);
-  err.statusCode = 403;
-  throw err;
-}
-
 export async function writeAdminAudit(client, adminUserId, shopId, action, details = {}) {
-  await client.from('platform_admin_audit').insert({
+  await client.from("platform_admin_audit").insert({
     admin_user_id: adminUserId,
     shop_id: shopId || null,
     action,
@@ -131,7 +199,12 @@ export async function writeAdminAudit(client, adminUserId, shopId, action, detai
   });
 }
 
-export async function writeCommandAudit(client, adminUserId, action, { shopId = null, targetType = null, targetId = null, result = 'success', ip = 'unknown', ...rest } = {}) {
+export async function writeCommandAudit(
+  client,
+  adminUserId,
+  action,
+  { shopId = null, targetType = null, targetId = null, result = "success", ip = "unknown", ...rest } = {}
+) {
   await writeAdminAudit(client, adminUserId, shopId, action, {
     target_type: targetType,
     target_id: targetId,
