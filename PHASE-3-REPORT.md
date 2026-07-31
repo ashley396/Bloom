@@ -1,4 +1,4 @@
-# Phase 3 Report — August 10 Beta Stabilization (+ Correction R5)
+# Phase 3 Report — August 10 Beta Stabilization (+ Correction R6)
 
 **Branch:** `beta/august10-stabilization`
 **Base:** `main` @ `eb690beb0c138db504cd897ef497a9e54c462a4b`
@@ -10,16 +10,18 @@
 **Correction R4 tip:** `9225b056e95dee06d0aad8495c6fabc733b1d3a7`
 **Correction R4 docs tip / R5 start:** `d6fb895bfb7f844760294ab7772a0bde61140826`
 **Correction R5 tip:** `f751d94ece9aa966b125103678e7ad02dd55ce53`
+**Correction R5 docs tip / R6 start:** `f13e24c66fdad8673472ee4414099ba9775e8a80`
+**Correction R6 tip:** `PENDING`
 
 **Draft PR:** https://github.com/ashley396/Bloom/pull/13 — **NOT MERGED**
 
-## Truth (Correction R5)
+## Truth (Correction R6)
 
 - Community feature flag **defaults OFF**.
 - Community images are **private**; API returns **300s signed URLs** only after `florist_community_image_readable`.
 - Image uploads are **fully decoded and re-encoded with `sharp@0.35.3` exactly once** in `validatePostBody` / `validateCommunityImageUpload`. Upload accepts only the prevalidated sanitized object (`valid`, `sanitized`, nonempty buffer, jpeg/png/webp, ≤2 MB) and **never** re-decodes a data URL or runs a second sharp pass.
 - **Base64 size is enforced before `Buffer.from`**: declared size and max base64 length are rejected prior to decode; malformed base64 is rejected safely; decoded binary and post-sanitization 2 MB checks remain.
-- **Image storage lifecycle (reference-safe):** after ambiguous create/update write errors, `reconcileCommunityImageAfterWriteError` keeps the image if a post references it, removes only when the DB conclusively shows no reference, and retains on reconcile query failure/throw (orphan deferred). Successful replacement removes the previous object only after DB success; author hard-delete removes image after DB delete; moderator soft-remove **preserves** the image. Cleanup/reconcile logs use stable event names + safe codes only (no paths, tokens, URLs, or raw provider messages).
+- **Image storage lifecycle (fail-closed reconcile):** after ambiguous create/update write errors, `reconcileCommunityImageAfterWriteError` treats only a real JS array as conclusive (`[]` → remove orphan; non-empty → retain). `null` / `undefined` / unexpected shapes retain with `query_shape`. Query error/throw retain. Logs use only Florisyn-owned codes: `query_error`, `query_throw`, `query_shape`, `remove_error`, `remove_throw`, `unknown` — never provider `error.code` / messages / paths / tokens / URLs. Successful replacement removes the previous object only after DB success; author hard-delete removes image after DB delete; moderator soft-remove **preserves** the image.
 - **Active florist membership** requires exactly `shop_members.status = 'active'` (no `coalesce`). Membership constraint compatibility accepts only the exact allowlist `{active, invited, suspended, removed}` — not substring presence of “active”/“suspended”. Incomplete, inverted, or broader constraints abort with a clear error. Apply-twice remains successful.
 - **v1 alone is locked**: private bucket, no public image read, no anon/authenticated Community access, SECURITY DEFINER helpers not executable by clients.
 - Broad moderator UPDATE/DELETE policies removed; status-only hardened RPCs only.
@@ -42,16 +44,18 @@
 4. **Correction R3** — sharp decode/re-encode, v1 locked-alone, storage-delete lockdown, fail-loud membership, canModerate truth
 5. **Correction R4** — single-pass image pipeline, pre-base64 size enforcement, storage lifecycle cleanup, exact membership constraint compatibility
 6. **Correction R5** — reference-safe reconcile after ambiguous create/update write errors
+7. **Correction R6** — fail-closed query-shape handling; Florisyn-owned log-code allowlist only
 
 ---
 
-## Security design (R5)
+## Security design (R6)
 
 | Control | Implementation |
 |---------|----------------|
 | Single-pass sanitize | `validatePostBody` → sanitized `v.image`; `uploadPrevalidatedCommunityImage` stores buffer only |
 | Pre-base64 size | `parseDataUrl` / `maxBase64LengthForBytes` reject before `Buffer.from` |
-| Image lifecycle | `reconcileCommunityImageAfterWriteError` on create/update write error; previous removed only after successful replace; author delete after DB success; soft-remove preserves |
+| Image lifecycle | Fail-closed reconcile: array-only conclusive responses; retain on null/undefined/unexpected shape |
+| Log codes | Allowlist only: query_error, query_throw, query_shape, remove_error, remove_throw, unknown |
 | Membership constraint | Exact allowlist compare of extracted statuses; reject `NOT IN` / incomplete / extra statuses |
 | Image readability | Active posts → active florists; moderated → active author / active manager / platform admin |
 | Storage DELETE | Active owner only; no manager/admin direct delete |
@@ -85,7 +89,7 @@ Do **not** paste insecure intermediate SQL by hand in production. Apply migratio
 
 ## Tests
 
-See Correction R5 report for exact totals (`npm test`, check, frontend build, community smoke/RLS, `npm audit --audit-level=high`).
+See Correction R6 report for exact totals (`npm test`, check, frontend build, community smoke/RLS, `npm audit --audit-level=high`).
 
 ---
 
@@ -98,4 +102,4 @@ See Correction R5 report for exact totals (`npm test`, check, frontend build, co
 
 ---
 
-*End of Phase 3 / Correction R5 documentation.*
+*End of Phase 3 / Correction R6 documentation.*

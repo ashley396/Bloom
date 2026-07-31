@@ -3,9 +3,9 @@
 Use this before any production deploy of `beta/august10-stabilization` (PR #13).
 **Do not apply staging or production migrations until Technical Director approval.**
 
-Baseline: `main` @ `eb690be` + Florist Community Beta + **Correction R5 security**.
+Baseline: `main` @ `eb690be` + Florist Community Beta + **Correction R6 security**.
 
-**Truth statements (Correction R5):**
+**Truth statements (Correction R6):**
 - PR #13 is **not merged**.
 - No production deployment occurred from this work.
 - Community migrations have **not** been applied to staging or production.
@@ -13,7 +13,7 @@ Baseline: `main` @ `eb690be` + Florist Community Beta + **Correction R5 security
 - Community images are **private**; clients receive **short-lived signed URLs** (300s) only when readable.
 - Uploaded images are **fully decoded and re-encoded with sharp exactly once** in validation; upload stores only the prevalidated sanitized buffer (no second sharp pass / no data-URL re-decode).
 - Declared size and base64 length are enforced **before** `Buffer.from`; malformed base64 is rejected safely.
-- Image lifecycle is **reference-safe**: after ambiguous create/update write errors, reconcile by `image_path` (keep if referenced; remove only confirmed orphans; keep on reconcile query failure). Remove previous only after successful replace; author delete removes image after DB success; moderator soft-remove preserves image for review.
+- Image lifecycle is **fail-closed**: after ambiguous create/update write errors, reconcile by `image_path` using only real JS arrays as conclusive (`[]` orphan remove; non-empty retain; null/undefined/unexpected retain). Logs use Florisyn-owned categorical codes only. Remove previous only after successful replace; author delete removes image after DB success; moderator soft-remove preserves image for review.
 - Active florist shop membership requires exactly `shop_members.status = 'active'` (legacy DBs get a guarded status column). Membership constraint compatibility requires the exact allowlist `{active, invited, suspended, removed}` — incomplete/inverted/broader constraints abort loudly.
 - v1 alone is **locked** (no Community access) until the security migration succeeds.
 - Moderators cannot rewrite content or hard-delete; status-only RPCs only.
@@ -75,7 +75,7 @@ If the security migration fails after v1, Community remains locked (not publicly
 
 ## 3. Staff-time RLS A2 — PAUSED
 
-**Do not apply Staff A2 as part of PR #13 / Community Correction R5.**
+**Do not apply Staff A2 as part of PR #13 / Community Correction R6.**
 Staff A2 remains a separate, paused workstream. Do not include it in staging or production Community rollout instructions.
 
 ---
@@ -155,7 +155,7 @@ npm run test:community-rls
 Prefer **Stripe test mode** until go-live approval.
 Do not mix live keys with test webhooks (`assertStripeLivemodeMatchesKey`).
 
-Live Stripe / device testing still requires an **approved** environment — not performed by Correction R5.
+Live Stripe / device testing still requires an **approved** environment — not performed by Correction R6.
 
 ---
 

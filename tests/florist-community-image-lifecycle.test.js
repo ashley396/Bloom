@@ -10,6 +10,8 @@ import {
   uploadPrevalidatedCommunityImage,
   removeCommunityImageQuietly,
   reconcileCommunityImageAfterWriteError,
+  safeCommunityImageErrorCode,
+  COMMUNITY_IMAGE_LOG_CODES,
 } from "../netlify/functions/_shared/florist-community-storage.js";
 import {
   validateCommunityImageUpload,
@@ -46,12 +48,16 @@ function mockStorageClient({ uploadError = null, removeError = null } = {}) {
 /**
  * Supabase-shaped client for reconciliation: posts query + storage remove.
  */
-function mockReconcileClient({
-  rows = [],
-  queryError = null,
-  queryThrow = null,
-  removeError = null,
-} = {}) {
+function mockReconcileClient(opts = {}) {
+  const {
+    rows = [],
+    data,
+    queryError = null,
+    queryThrow = null,
+    removeError = null,
+    removeThrow = null,
+  } = opts;
+  const hasDataOverride = Object.prototype.hasOwnProperty.call(opts, "data");
   const calls = { select: [], remove: [] };
   return {
     calls,
@@ -77,7 +83,7 @@ function mockReconcileClient({
               calls.select.push({ ...state });
               if (queryThrow) throw queryThrow;
               if (queryError) return { data: null, error: queryError };
-              return { data: rows, error: null };
+              return { data: hasDataOverride ? data : rows, error: null };
             })
             .then(resolve, reject);
         },
@@ -89,6 +95,7 @@ function mockReconcileClient({
         return {
           async remove(paths) {
             calls.remove.push({ bucket, paths });
+            if (removeThrow) throw removeThrow;
             return removeError ? { error: removeError } : { error: null, data: paths };
           },
         };
@@ -201,9 +208,9 @@ test("pre-base64 size enforcement rejects oversized payloads before decode", () 
   assert.match(bad.error, /Invalid image encoding/);
 });
 
-test("R5 reconcile: write error + post references new image → retain; remove 0", async () => {
+test("R5/R6 reconcile: data [{id}] retains; remove 0", async () => {
   const client = mockReconcileClient({
-    rows: [{ id: "post-1" }],
+    data: [{ id: "post-1" }],
   });
   const result = await reconcileCommunityImageAfterWriteError(client, SAMPLE_PATH);
   assert.equal(result.action, "retained");
@@ -213,13 +220,45 @@ test("R5 reconcile: write error + post references new image → retain; remove 0
   assert.equal(client.calls.select[0].filters.image_path, SAMPLE_PATH);
 });
 
-test("R5 reconcile: write error + DB confirms no reference → remove exactly once", async () => {
-  const client = mockReconcileClient({ rows: [] });
+test("R5/R6 reconcile: data [] removes exactly once", async () => {
+  const client = mockReconcileClient({ data: [] });
   const result = await reconcileCommunityImageAfterWriteError(client, SAMPLE_PATH);
   assert.equal(result.action, "removed");
   assert.equal(result.reason, "orphan");
   assert.equal(client.calls.remove.length, 1);
   assert.deepEqual(client.calls.remove[0].paths, [SAMPLE_PATH]);
+});
+
+test("R6 reconcile: data null retains; remove 0", async () => {
+  const client = mockReconcileClient({ data: null });
+  const result = await reconcileCommunityImageAfterWriteError(client, SAMPLE_PATH);
+  assert.equal(result.action, "retained");
+  assert.equal(result.reason, "query_shape");
+  assert.equal(client.calls.remove.length, 0);
+});
+
+test("R6 reconcile: data undefined retains; remove 0", async () => {
+  const client = mockReconcileClient({ data: undefined });
+  const result = await reconcileCommunityImageAfterWriteError(client, SAMPLE_PATH);
+  assert.equal(result.action, "retained");
+  assert.equal(result.reason, "query_shape");
+  assert.equal(client.calls.remove.length, 0);
+});
+
+test("R6 reconcile: data {} retains; remove 0", async () => {
+  const client = mockReconcileClient({ data: {} });
+  const result = await reconcileCommunityImageAfterWriteError(client, SAMPLE_PATH);
+  assert.equal(result.action, "retained");
+  assert.equal(result.reason, "query_shape");
+  assert.equal(client.calls.remove.length, 0);
+});
+
+test("R6 reconcile: data unexpected string retains; remove 0", async () => {
+  const client = mockReconcileClient({ data: "unexpected" });
+  const result = await reconcileCommunityImageAfterWriteError(client, SAMPLE_PATH);
+  assert.equal(result.action, "retained");
+  assert.equal(result.reason, "query_shape");
+  assert.equal(client.calls.remove.length, 0);
 });
 
 test("R5 reconcile: query returns error → retain; remove 0", async () => {
@@ -241,6 +280,7 @@ test("R5 reconcile: query returns error → retain; remove 0", async () => {
     console.error = orig;
   }
   assert.ok(logs.some((args) => args[0] === "community_image_reconcile_deferred"));
+  assert.ok(logs.some((args) => args[1]?.code === "query_error"));
 });
 
 test("R5 reconcile: query throws → retain; remove 0", async () => {
@@ -259,18 +299,36 @@ test("R5 reconcile: query throws → retain; remove 0", async () => {
     console.error = orig;
   }
   assert.ok(logs.some((args) => args[0] === "community_image_reconcile_deferred"));
+  assert.ok(logs.some((args) => args[1]?.code === "query_throw"));
 });
 
-test("R5 reconcile logging never exposes path, token, URL, or raw error message", async () => {
+test("R6 logging: provider codes/tokens/paths/URLs never enter logs; only allowlisted codes", async () => {
   const injectedPath = SAMPLE_PATH;
   const injectedToken = "tok_LIVE_secret_should_not_log";
   const injectedUrl = "https://signed.example/object?token=xyz";
   const rawMessage = `db failed path=${injectedPath} token=${injectedToken} url=${injectedUrl}`;
+  const allowlist = new Set(COMMUNITY_IMAGE_LOG_CODES);
+
+  assert.equal(safeCommunityImageErrorCode(injectedToken), "unknown");
+  assert.equal(safeCommunityImageErrorCode("PGRST301"), "unknown");
+  assert.equal(safeCommunityImageErrorCode("query_error"), "query_error");
 
   const cases = [
     () =>
       reconcileCommunityImageAfterWriteError(
-        mockReconcileClient({ queryError: { code: "XX000", message: rawMessage } }),
+        mockReconcileClient({
+          queryError: { code: injectedToken, message: rawMessage },
+        }),
+        injectedPath
+      ),
+    () =>
+      reconcileCommunityImageAfterWriteError(
+        mockReconcileClient({
+          queryError: {
+            code: `path=${injectedPath}`,
+            message: rawMessage,
+          },
+        }),
         injectedPath
       ),
     () =>
@@ -278,10 +336,22 @@ test("R5 reconcile logging never exposes path, token, URL, or raw error message"
         mockReconcileClient({ queryThrow: new Error(rawMessage) }),
         injectedPath
       ),
+    () =>
+      reconcileCommunityImageAfterWriteError(
+        mockReconcileClient({ data: null }),
+        injectedPath
+      ),
     async () => {
       const client = mockReconcileClient({
-        rows: [],
-        removeError: { code: "StorageError", message: rawMessage },
+        data: [],
+        removeError: { code: injectedToken, message: rawMessage },
+      });
+      return removeCommunityImageQuietly(client, injectedPath);
+    },
+    async () => {
+      const client = mockReconcileClient({
+        data: [],
+        removeThrow: new Error(rawMessage),
       });
       return removeCommunityImageQuietly(client, injectedPath);
     },
@@ -290,20 +360,26 @@ test("R5 reconcile logging never exposes path, token, URL, or raw error message"
   for (const run of cases) {
     const logs = [];
     const orig = console.error;
-    console.error = (...args) => logs.push(args.map(String).join(" "));
+    console.error = (...args) => logs.push(args);
     try {
       await run();
     } finally {
       console.error = orig;
     }
-    const joined = logs.join("\n");
-    assert.ok(!joined.includes(injectedPath), "must not log object path");
-    assert.ok(!joined.includes(injectedToken), "must not log token");
-    assert.ok(!joined.includes(injectedUrl), "must not log signed URL");
-    assert.ok(!joined.includes(rawMessage), "must not log raw provider message");
-    assert.ok(!joined.includes("https://"), "must not log URLs");
-    for (const line of logs) {
-      assert.match(line, /community_image_(reconcile_deferred|cleanup_failed)/);
+    assert.ok(logs.length > 0, "expected a redacted log event");
+    for (const args of logs) {
+      const event = args[0];
+      const payload = args[1];
+      assert.match(String(event), /community_image_(reconcile_deferred|cleanup_failed)/);
+      assert.equal(typeof payload, "object");
+      assert.ok(allowlist.has(payload.code), `code must be allowlisted, got ${payload.code}`);
+      const joined = args.map(String).join(" ");
+      assert.ok(!joined.includes(injectedPath), "must not log object path");
+      assert.ok(!joined.includes(injectedToken), "must not log provider token/code");
+      assert.ok(!joined.includes(injectedUrl), "must not log signed URL");
+      assert.ok(!joined.includes(rawMessage), "must not log raw provider message");
+      assert.ok(!joined.includes("https://"), "must not log URLs");
+      assert.ok(!joined.includes("PGRST"), "must not log provider codes");
     }
   }
 });
@@ -360,19 +436,22 @@ test("handler: create/update use reconcile on write error; success path removes 
 test("lifecycle: author delete removes image after DB delete; cleanup errors stay redacted", async () => {
   const client = mockStorageClient({
     removeError: {
-      code: "StorageError",
+      code: "tok_LIVE_secret_should_not_log",
       message: `boom path=${SAMPLE_PATH} token=secret https://evil.example`,
     },
   });
   const errors = [];
   const orig = console.error;
-  console.error = (...args) => errors.push(args.map(String).join(" "));
+  console.error = (...args) => errors.push(args);
   try {
     const result = await removeCommunityImageQuietly(client, SAMPLE_PATH);
     assert.equal(result.ok, false);
-    assert.ok(errors.some((e) => /community_image_cleanup_failed/.test(e)));
-    assert.ok(!errors.some((e) => e.includes(SAMPLE_PATH)), "must not log object path");
-    assert.ok(!errors.some((e) => /token=secret|https:\/\//.test(e)), "must not log secrets/URLs");
+    assert.ok(errors.some((args) => args[0] === "community_image_cleanup_failed"));
+    assert.ok(errors.some((args) => args[1]?.code === "remove_error"));
+    const joined = errors.map((args) => args.map(String).join(" ")).join("\n");
+    assert.ok(!joined.includes(SAMPLE_PATH), "must not log object path");
+    assert.ok(!joined.includes("tok_LIVE_secret_should_not_log"), "must not log provider code");
+    assert.ok(!/token=secret|https:\/\//.test(joined), "must not log secrets/URLs");
   } finally {
     console.error = orig;
   }
