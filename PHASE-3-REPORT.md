@@ -7,7 +7,8 @@
 **Correction R2 tip:** `7880df9e429427b1c6670040ec8ebb8ab0ee5c47`
 **Correction R3 tip:** `50f313e6b95d65fe9221e957fd1493662a179ea6`
 **Correction R3 docs pin / R4 start:** `6f34825ccf8a65ba68e7397806edabfb44e891ff`
-**Correction R4 tip:** `c778b35aa0dfe4f5314e7e8a53503ce062919369`
+**Correction R4 tip (functional):** `9225b056e95dee06d0aad8495c6fabc733b1d3a7`
+**Correction R4 verification tip:** `6b20eea32d72595ec8376a8df8b3bf5665f88b1a`
 
 **Draft PR:** https://github.com/ashley396/Bloom/pull/13 — **NOT MERGED**
 
