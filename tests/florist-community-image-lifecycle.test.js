@@ -85,6 +85,10 @@ test("create/update path processes image exactly once via validatePostBody → u
   });
   assert.equal(v.valid, true);
   assert.equal(v.image.sanitized, true);
+  assert.equal(v.image.valid, true);
+  assert.ok(Buffer.isBuffer(v.image.buffer) && v.image.buffer.length > 0);
+  assert.ok(["image/jpeg", "image/png", "image/webp"].includes(v.image.mime));
+  assert.ok(v.image.buffer.length <= COMMUNITY_IMAGE_MAX_BYTES);
 
   const client = mockStorageClient();
   const up = await uploadPrevalidatedCommunityImage(
@@ -96,6 +100,24 @@ test("create/update path processes image exactly once via validatePostBody → u
   assert.equal(up.ok, true);
   // Upload must store the already-sanitized buffer from validatePostBody — no second sanitize API.
   assert.equal(client.calls.upload[0].buffer, v.image.buffer);
+  assert.equal(client.calls.upload[0].buffer.equals(v.image.buffer), true);
+
+  // Regression: sharp may exist only in the shared validator — never in upload/handler.
+  const shared = fs.readFileSync(
+    path.join(process.cwd(), "netlify/functions/_shared/florist-community.js"),
+    "utf8"
+  );
+  const storage = fs.readFileSync(
+    path.join(process.cwd(), "netlify/functions/_shared/florist-community-storage.js"),
+    "utf8"
+  );
+  const handler = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
+  assert.match(shared, /import sharp from "sharp"/);
+  assert.equal((shared.match(/import sharp from "sharp"/g) || []).length, 1);
+  assert.doesNotMatch(storage, /from ["']sharp["']/);
+  assert.doesNotMatch(handler, /from ["']sharp["']/);
+  assert.doesNotMatch(handler, /validateCommunityImageUpload/);
+  assert.match(handler, /uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image\)/);
 });
 
 test("pre-base64 size enforcement rejects oversized payloads before decode", () => {
