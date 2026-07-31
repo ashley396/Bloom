@@ -1,5 +1,7 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
-import { currentUser, fail } from "./_shared/supabase.js";
+import { currentUser, fail, adminIfConfigured } from "./_shared/supabase.js";
+import { authenticatedUser } from "./_shared/saas.js";
+import { writeAdminAudit } from "./_shared/platform-admin.js";
 import { isFeatureEnabled } from "./_shared/feature-flags.js";
 import {
   COMMUNITY_CATEGORIES,
@@ -33,9 +35,11 @@ function missingRelation(error) {
   const msg = String(error?.message || error || "").toLowerCase();
   return (
     error?.code === "42P01" ||
+    error?.code === "PGRST202" ||
     msg.includes("does not exist") ||
     msg.includes("schema cache") ||
-    msg.includes("could not find the table")
+    msg.includes("could not find the table") ||
+    msg.includes("could not find the function")
   );
 }
 
@@ -55,44 +59,90 @@ function denied(message, statusCode = 403) {
 }
 
 /**
- * Authoritative active-florist gate for Netlify handlers.
- * currentUser() already resolves an active membership; double-check status.
+ * Fail-closed active-florist gate. Never ignores false/error results.
+ * Missing migration helpers surface as 503 — never as open access.
  */
 async function requireActiveFlorist(ctx) {
   const { client, user, shopId, membership } = ctx;
-  const status = String(membership?.status || "active").toLowerCase();
+  if (!shopId || !user?.id) {
+    denied("An active florist shop membership is required to use Community.");
+  }
+  const status = String(membership?.status || "").toLowerCase();
   if (status && status !== "active") {
     denied("An active florist shop membership is required to use Community.");
   }
-  // Prefer DB helper when available (RLS-aligned).
-  try {
-    const { data, error } = await client.rpc("is_active_florist");
-    if (!error && data === false) {
-      denied("An active florist shop membership is required to use Community.");
-    }
-  } catch {
-    /* helper may be unavailable pre-migration; membership check above still applies */
+
+  const { data, error } = await client.rpc("is_active_florist");
+  if (error) {
+    if (missingRelation(error)) friendlyMissing();
+    const e = new Error("Unable to verify florist membership for Community.");
+    e.statusCode = 503;
+    e.code = "community_membership_check_failed";
+    throw e;
   }
-  if (!shopId || !user?.id) {
+  if (data !== true) {
     denied("An active florist shop membership is required to use Community.");
   }
   return ctx;
 }
 
-async function isPlatformAdmin(client, userId) {
+/**
+ * Platform-admin check via hardened SECURITY DEFINER RPC.
+ * Never queries platform_admins with a user JWT client (no browser-facing RLS policy).
+ */
+async function isPlatformAdminViaRpc(client) {
+  const { data, error } = await client.rpc("is_platform_admin_user");
+  if (error) {
+    if (missingRelation(error)) friendlyMissing();
+    const e = new Error("Unable to verify platform admin authorization.");
+    e.statusCode = 503;
+    e.code = "community_admin_check_failed";
+    throw e;
+  }
+  return data === true;
+}
+
+/**
+ * Resolve Community access: active florist, or moderation-only platform admin.
+ */
+async function resolveCommunityAccess(event) {
+  let floristCtx = null;
+  let floristError = null;
   try {
-    const { data, error } = await client
-      .from("platform_admins")
-      .select("user_id,active")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (error) {
-      if (missingRelation(error)) return false;
-      throw error;
-    }
-    return Boolean(data && data.active !== false);
-  } catch {
-    return false;
+    floristCtx = await currentUser(event);
+  } catch (error) {
+    floristError = error;
+    if (error?.statusCode === 401) throw error;
+  }
+
+  if (floristCtx) {
+    await requireActiveFlorist(floristCtx);
+    const platformAdmin = await isPlatformAdminViaRpc(floristCtx.client);
+    return { ...floristCtx, platformAdmin, moderationOnly: false };
+  }
+
+  // Membership failed — allow moderation-only platform admins without Community participation.
+  const { client, user } = await authenticatedUser(event);
+  const platformAdmin = await isPlatformAdminViaRpc(client);
+  if (!platformAdmin) {
+    if (floristError) throw floristError;
+    denied("An active florist shop membership is required to use Community.");
+  }
+  return {
+    client,
+    user,
+    shopId: null,
+    role: null,
+    membership: null,
+    platformAdmin: true,
+    moderationOnly: true,
+    usesServiceRole: false,
+  };
+}
+
+function requireParticipant(ctx) {
+  if (ctx.moderationOnly || !ctx.shopId) {
+    denied("Platform administrators may moderate Community but are not ordinary participants.");
   }
 }
 
@@ -168,11 +218,28 @@ async function signedImageUrl(client, path) {
   if (!path || !isStoragePath(path)) {
     return { url: null, expiresIn: null };
   }
+  // Renewed access must pass DB authorization (hidden/removed posts fail closed).
+  const { data: readable, error: readErr } = await client.rpc("florist_community_image_readable", {
+    p_path: path,
+  });
+  if (readErr || readable !== true) {
+    return { url: null, expiresIn: null };
+  }
   const { data, error } = await client.storage
     .from(COMMUNITY_IMAGE_BUCKET)
     .createSignedUrl(path, COMMUNITY_SIGNED_URL_SECONDS);
   if (error) return { url: null, expiresIn: null };
   return { url: data?.signedUrl || null, expiresIn: COMMUNITY_SIGNED_URL_SECONDS };
+}
+
+async function auditPlatformModeration(userId, shopId, action, details) {
+  const svc = adminIfConfigured();
+  if (!svc) return;
+  try {
+    await writeAdminAudit(svc, userId, shopId || null, action, details);
+  } catch (error) {
+    console.error("Community moderation audit write failed:", error?.message || error);
+  }
 }
 
 async function attachAuthors(client, posts) {
@@ -253,10 +320,8 @@ export async function handler(event) {
   if (ready) return ready;
   try {
     featureGate();
-    const ctx = await currentUser(event);
-    await requireActiveFlorist(ctx);
-    const { client, shopId, user } = ctx;
-    const platformAdmin = await isPlatformAdmin(client, user.id);
+    const ctx = await resolveCommunityAccess(event);
+    const { client, shopId, user, platformAdmin, moderationOnly } = ctx;
     const method = event.httpMethod;
 
     if (method === "GET") {
@@ -272,14 +337,17 @@ export async function handler(event) {
             image_max_bytes: 2 * 1024 * 1024,
             image_signed_url_seconds: COMMUNITY_SIGNED_URL_SECONDS,
             can_moderate_platform: platformAdmin,
+            moderation_only: Boolean(moderationOnly),
           })
         );
       }
       if (action === "profile") {
+        requireParticipant(ctx);
         const profile = await ensureDefaultProfile(client, ctx);
         return json(200, { profile: publicProfile(profile), guidelines: COMMUNITY_GUIDELINES });
       }
       if (action === "comments") {
+        requireParticipant(ctx);
         const postId = String(event.queryStringParameters?.post_id || "");
         if (!postId) return json(400, { error: "post_id is required." });
         await requireActivePost(client, postId);
@@ -312,7 +380,8 @@ export async function handler(event) {
           ),
         });
       }
-      if (action === "moderation" && platformAdmin) {
+      if (action === "moderation") {
+        if (!platformAdmin) return json(403, { error: "Platform admin moderation only." });
         const { data: reports, error } = await client
           .from("florist_community_reports")
           .select("id,post_id,reason,status,created_at,reporter_user_id")
@@ -320,8 +389,28 @@ export async function handler(event) {
           .order("created_at", { ascending: false })
           .limit(50);
         if (error) throw error;
-        return json(200, assertCommunitySafePayload({ reports: reports || [] }));
+        const postIds = [...new Set((reports || []).map((r) => r.post_id).filter(Boolean))];
+        let posts = [];
+        if (postIds.length) {
+          const { data: postRows, error: pe } = await client
+            .from("florist_community_posts")
+            .select(
+              "id,author_user_id,shop_id,category,caption,body,image_path,status,like_count,comment_count,created_at,updated_at"
+            )
+            .in("id", postIds);
+          if (pe) throw pe;
+          posts = postRows || [];
+        }
+        return json(
+          200,
+          assertCommunitySafePayload({
+            reports: reports || [],
+            posts,
+            moderation_only: Boolean(moderationOnly),
+          })
+        );
       }
+      requireParticipant(ctx);
       const category = event.queryStringParameters?.category || "";
       const items = await feed(client, ctx, { category, platformAdmin });
       const profile = await ensureDefaultProfile(client, ctx);
@@ -344,6 +433,7 @@ export async function handler(event) {
     const action = String(body.action || "").toLowerCase();
 
     if (action === "save_profile") {
+      requireParticipant(ctx);
       const v = validateProfileBody(body);
       if (!v.valid) return json(400, { error: v.errors.join(" ") });
       const payload = {
@@ -365,6 +455,7 @@ export async function handler(event) {
     }
 
     if (action === "create_post") {
+      requireParticipant(ctx);
       await ensureDefaultProfile(client, ctx);
       const v = validatePostBody(body);
       if (!v.valid) return json(400, { error: v.errors.join(" ") });
@@ -412,6 +503,7 @@ export async function handler(event) {
     }
 
     if (action === "update_post") {
+      requireParticipant(ctx);
       const id = String(body.id || "");
       if (!id) return json(400, { error: "Post id is required." });
       const { data: existing, error: ge } = await client
@@ -423,6 +515,9 @@ export async function handler(event) {
       if (!existing) return json(404, { error: "Post not found." });
       if (!canEditOwnContent({ userId: user.id, authorUserId: existing.author_user_id })) {
         return json(403, { error: "You can only edit your own posts." });
+      }
+      if (existing.status !== "active") {
+        return json(403, { error: "Hidden or removed posts cannot be edited or restored by authors." });
       }
       const v = validatePostBody({
         category: body.category ?? existing.category,
@@ -478,25 +573,32 @@ export async function handler(event) {
       const mine = canEditOwnContent({ userId: user.id, authorUserId: existing.author_user_id });
       const mod = moderatorForPost(ctx, existing, platformAdmin);
       if (!mine && !mod) return json(403, { error: "You cannot delete this post." });
-      if (mine) {
+      if (mine && !moderationOnly) {
         const { error } = await client
           .from("florist_community_posts")
           .delete()
           .eq("id", id)
           .eq("author_user_id", user.id);
         if (error) throw error;
-      } else {
-        const { data: modResult, error } = await client.rpc("florist_community_moderate_post", {
-          p_post_id: id,
-          p_status: "removed",
-        });
-        if (error) throw error;
-        return json(200, { ok: true, ...(modResult || {}) });
+        return json(200, { ok: true });
       }
-      return json(200, { ok: true });
+      // Moderators soft-remove only — hard delete unavailable.
+      const { data: modResult, error } = await client.rpc("florist_community_moderate_post", {
+        p_post_id: id,
+        p_status: "removed",
+      });
+      if (error) throw error;
+      if (platformAdmin) {
+        await auditPlatformModeration(user.id, existing.shop_id, "community_moderate_post", {
+          post_id: id,
+          status: "removed",
+        });
+      }
+      return json(200, { ok: true, ...(modResult || {}) });
     }
 
     if (action === "toggle_like") {
+      requireParticipant(ctx);
       const postId = String(body.post_id || "");
       if (!postId) return json(400, { error: "post_id is required." });
       const { data, error } = await client.rpc("florist_community_toggle_like", {
@@ -517,6 +619,7 @@ export async function handler(event) {
     }
 
     if (action === "add_comment") {
+      requireParticipant(ctx);
       const postId = String(body.post_id || "");
       const v = validateCommentBody(body);
       if (!postId) return json(400, { error: "post_id is required." });
@@ -557,24 +660,31 @@ export async function handler(event) {
       const mine = canEditOwnContent({ userId: user.id, authorUserId: existing.author_user_id });
       const mod = moderatorForPost(ctx, existing, platformAdmin);
       if (!mine && !mod) return json(403, { error: "You cannot delete this comment." });
-      if (mine) {
+      if (mine && !moderationOnly) {
         const { error } = await client
           .from("florist_community_comments")
           .delete()
           .eq("id", id)
           .eq("author_user_id", user.id);
         if (error) throw error;
-      } else {
-        const { error } = await client
-          .from("florist_community_comments")
-          .update({ status: "removed", updated_at: new Date().toISOString() })
-          .eq("id", id);
-        if (error) throw error;
+        return json(200, { ok: true });
       }
-      return json(200, { ok: true });
+      const { data: modResult, error } = await client.rpc("florist_community_moderate_comment", {
+        p_comment_id: id,
+        p_status: "removed",
+      });
+      if (error) throw error;
+      if (platformAdmin) {
+        await auditPlatformModeration(user.id, existing.shop_id, "community_moderate_comment", {
+          comment_id: id,
+          status: "removed",
+        });
+      }
+      return json(200, { ok: true, ...(modResult || {}) });
     }
 
     if (action === "report_post") {
+      requireParticipant(ctx);
       const postId = String(body.post_id || "");
       const v = validateReportBody(body);
       if (!postId) return json(400, { error: "post_id is required." });
@@ -615,11 +725,44 @@ export async function handler(event) {
         throw error;
       }
       if (platformAdmin && body.report_id) {
-        await client
-          .from("florist_community_reports")
-          .update({ status: "reviewed" })
-          .eq("id", body.report_id);
+        const { error: re } = await client.rpc("florist_community_moderate_report", {
+          p_report_id: body.report_id,
+          p_status: "reviewed",
+        });
+        if (re) throw re;
       }
+      if (platformAdmin) {
+        await auditPlatformModeration(user.id, null, "community_moderate_post", {
+          post_id: id,
+          status,
+          report_id: body.report_id || null,
+        });
+      }
+      return json(200, { ok: true, status: data?.status || status });
+    }
+
+    if (action === "moderate_report") {
+      if (!platformAdmin) {
+        return json(403, { error: "Only platform administrators may update report status." });
+      }
+      const reportId = String(body.report_id || body.id || "");
+      const status = String(body.status || "reviewed").toLowerCase();
+      if (!reportId) return json(400, { error: "report_id is required." });
+      const { data, error } = await client.rpc("florist_community_moderate_report", {
+        p_report_id: reportId,
+        p_status: status,
+      });
+      if (error) {
+        if (missingRelation(error)) friendlyMissing();
+        const msg = String(error.message || "");
+        if (/Not authorized|42501/i.test(msg)) return json(403, { error: "Not authorized." });
+        if (/not found|P0002/i.test(msg)) return json(404, { error: "Report not found." });
+        throw error;
+      }
+      await auditPlatformModeration(user.id, null, "community_moderate_report", {
+        report_id: reportId,
+        status: data?.status || status,
+      });
       return json(200, { ok: true, status: data?.status || status });
     }
 

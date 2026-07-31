@@ -20,6 +20,7 @@ as $$
   );
 $$;
 
+-- Legacy-safe: do not reference shop_members.status (column may be absent until R1).
 create or replace function public.is_shop_manager_of(target_shop uuid)
 returns boolean
 language sql
@@ -31,7 +32,6 @@ as $$
     select 1 from public.shop_members
     where shop_id = target_shop
       and user_id = auth.uid()
-      and coalesce(status, 'active') = 'active'
       and lower(role) in ('owner', 'manager', 'admin')
   );
 $$;

@@ -3,15 +3,16 @@
 Use this before any production deploy of `beta/august10-stabilization` (PR #13).  
 **Do not apply staging or production migrations until Technical Director approval.**
 
-Baseline: `main` @ `eb690be` + Florist Community Beta + **Correction R1 security**.
+Baseline: `main` @ `eb690be` + Florist Community Beta + **Correction R2 security**.
 
-**Truth statements (Correction R1):**
+**Truth statements (Correction R2):**
 - PR #13 is **not merged**.
 - No production deployment occurred from this work.
 - Community / R1 migrations have **not** been applied to staging or production.
 - `COMMUNITY_BETA` **defaults OFF** (enable only with explicit `FLORISYN_FLAG_COMMUNITY_BETA=true`).
-- Community images are **private**; clients receive **short-lived signed URLs** (300s).
-- Active florist shop membership is required (DB RLS + server).
+- Community images are **private**; clients receive **short-lived signed URLs** (300s) only when readable.
+- Active florist shop membership requires exactly `shop_members.status = 'active'` (legacy DBs get a guarded status column).
+- Moderators cannot rewrite content or hard-delete; status-only RPCs only.
 - **Staff A2 remains paused** — do not apply or bundle with Community.
 - Live Stripe / device testing still requires an approved environment.
 
@@ -46,7 +47,7 @@ Apply **in order** only after approval. Skip any already applied.
 | Migration | Purpose |
 |-----------|---------|
 | `supabase/migrations/20260731_florist_community_beta_v1.sql` | Community tables + initial RLS/storage |
-| `supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql` | **Correction R1** — active membership, private images, guards, atomic counters, hardened RPCs |
+| `supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql` | **Correction R1/R2** — active membership (legacy-safe status), private images, narrow moderation RPCs, hidden lockdown, grants |
 
 ### Paused (do not apply as part of Community)
 
@@ -64,7 +65,7 @@ Apply **in order** only after approval. Skip any already applied.
 
 ## 3. Staff-time RLS A2 — PAUSED
 
-**Do not apply Staff A2 as part of PR #13 / Community Correction R1.**  
+**Do not apply Staff A2 as part of PR #13 / Community Correction R2.**  
 Staff A2 remains a separate, paused workstream. Do not include it in staging or production Community rollout instructions.
 
 ---
@@ -89,12 +90,14 @@ Files:
 - **`public = false`**
 - Limit: 2 MB; MIME: jpeg, png, webp
 - Path: `{shop_id}/{user_id}/{server-generated}.{ext}`
-- Reads: authenticated **active florists** only (signed URLs from API, 300s)
+- Reads: only when `florist_community_image_readable(path)` (active post for ordinary florists; author/manager/platform-admin exceptions)
+- Signed URLs from API, 300s; known paths do not renew access after hide/remove for ordinary florists
 - No permanent public object URLs
 
 ### Membership rule
 
-A user may use Community only when authenticated **and** they have at least one `shop_members` row with `status = 'active'`.
+A user may use Community as a participant only when authenticated **and** they have at least one `shop_members` row with exactly `status = 'active'`.  
+Platform administrators may use **moderation-only** access via `is_platform_admin_user()` without becoming ordinary Community participants.
 
 ### Local verification (allowed)
 
@@ -137,7 +140,7 @@ npm run test:community-rls
 Prefer **Stripe test mode** until go-live approval.  
 Do not mix live keys with test webhooks (`assertStripeLivemodeMatchesKey`).
 
-Live Stripe / device testing still requires an **approved** environment — not performed by Correction R1.
+Live Stripe / device testing still requires an **approved** environment — not performed by Correction R2.
 
 ---
 

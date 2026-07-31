@@ -1,5 +1,5 @@
 /**
- * Local smoke checks for Florist Community Beta security correction R1.
+ * Local smoke checks for Florist Community Beta security correction R2.
  * Run: npm run test:community-smoke
  */
 import assert from "node:assert/strict";
@@ -68,10 +68,22 @@ check("create post validation for each category", () => {
   }
 });
 
-check("magic-byte image validation", () => {
-  const png =
-    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-  assert.equal(validateCommunityImageUpload({ dataUrl: png }).valid, true);
+check("decoded image validation + corrupt rejection", () => {
+  const fixtures = path.join(root, "tests/fixtures/community-images");
+  assert.equal(
+    validateCommunityImageUpload({
+      buffer: fs.readFileSync(path.join(fixtures, "valid-1x1.png")),
+      mime: "image/png",
+    }).valid,
+    true
+  );
+  assert.equal(
+    validateCommunityImageUpload({
+      buffer: fs.readFileSync(path.join(fixtures, "corrupt-truncated.jpg")),
+      mime: "image/jpeg",
+    }).valid,
+    false
+  );
   assert.equal(detectImageMimeFromBytes(Buffer.from("GIF89a......")), null);
   assert.equal(validateCommunityImageUpload({ mime: "image/gif", sizeBytes: 100 }).valid, false);
 });
@@ -119,7 +131,7 @@ check("UI has loading, empty, error states", () => {
   assert.match(ui, /community-error/);
 });
 
-check("R1 security migration present; Staff A2 not bundled", () => {
+check("R1/R2 security migration present; Staff A2 not bundled", () => {
   assert.ok(fs.existsSync(path.join(root, "supabase/migrations/20260731_florist_community_beta_v1.sql")));
   assert.ok(
     fs.existsSync(path.join(root, "supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql"))
@@ -129,6 +141,8 @@ check("R1 security migration present; Staff A2 not bundled", () => {
     "utf8"
   );
   assert.doesNotMatch(r1, /staff_time_entries/);
+  assert.doesNotMatch(r1, /coalesce\s*\(\s*sm\.status/i);
+  assert.match(r1, /florist_community_moderate_report/);
 });
 
 check("core modules still present (no rewrite)", () => {

@@ -3,6 +3,8 @@
  * Never include customer, recipient, employee, payment, or order fields.
  */
 
+import { imageSize } from "image-size";
+
 export const COMMUNITY_CATEGORIES = Object.freeze([
   "Design Help",
   "Business Advice",
@@ -20,6 +22,9 @@ export const COMMUNITY_GUIDELINES = Object.freeze([
 ]);
 
 export const COMMUNITY_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+/** Decoded pixel budget (width * height) — keeps Netlify function memory bounded. */
+export const COMMUNITY_IMAGE_MAX_PIXELS = 4096 * 4096;
+export const COMMUNITY_IMAGE_MAX_DIMENSION = 8192;
 
 /** Short-lived signed URL lifetime for private Community images (seconds). */
 export const COMMUNITY_SIGNED_URL_SECONDS = 300;
@@ -31,6 +36,12 @@ export const COMMUNITY_IMAGE_ALLOWED_MIMES = new Set([
 ]);
 
 export const COMMUNITY_IMAGE_BUCKET = "florist-community";
+
+const DETECTED_TO_TYPE = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
 
 const FORBIDDEN_KEYS = new Set([
   "customer_name",
@@ -84,8 +95,9 @@ export function detectImageMimeFromBytes(buffer) {
 }
 
 /**
- * Validate Community image upload using decoded bytes (magic-byte check).
- * Does not trust client MIME, filename, or extension.
+ * Validate Community image upload:
+ * magic bytes + declared MIME match + decode/parse + size limits.
+ * Does not trust client filename or extension. Filenames are server-generated.
  */
 export function validateCommunityImageUpload({ mime, sizeBytes, dataUrl, buffer } = {}) {
   let resolvedBuffer = buffer && Buffer.isBuffer(buffer) ? buffer : null;
@@ -105,6 +117,10 @@ export function validateCommunityImageUpload({ mime, sizeBytes, dataUrl, buffer 
     return { valid: false, error: "Community photos must be under 2 MB." };
   }
 
+  if (Number.isFinite(Number(sizeBytes)) && Number(sizeBytes) > COMMUNITY_IMAGE_MAX_BYTES) {
+    return { valid: false, error: "Community photos must be under 2 MB." };
+  }
+
   const detected = detectImageMimeFromBytes(resolvedBuffer);
   if (!detected || !COMMUNITY_IMAGE_ALLOWED_MIMES.has(detected)) {
     return {
@@ -113,7 +129,6 @@ export function validateCommunityImageUpload({ mime, sizeBytes, dataUrl, buffer 
     };
   }
 
-  // Reject declared MIME that contradicts magic bytes when a declaration is present.
   if (
     declaredMime &&
     COMMUNITY_IMAGE_ALLOWED_MIMES.has(declaredMime) &&
@@ -122,14 +137,37 @@ export function validateCommunityImageUpload({ mime, sizeBytes, dataUrl, buffer 
     return { valid: false, error: "Image content does not match the declared file type." };
   }
 
-  if (Number.isFinite(Number(sizeBytes)) && Number(sizeBytes) > COMMUNITY_IMAGE_MAX_BYTES) {
-    return { valid: false, error: "Community photos must be under 2 MB." };
+  let dimensions;
+  try {
+    dimensions = imageSize(resolvedBuffer);
+  } catch {
+    return { valid: false, error: "Image file is corrupt or truncated." };
+  }
+
+  const width = Number(dimensions?.width || 0);
+  const height = Number(dimensions?.height || 0);
+  const parsedType = String(dimensions?.type || "").toLowerCase();
+  const expectedType = DETECTED_TO_TYPE[detected];
+
+  if (!width || !height || width < 1 || height < 1) {
+    return { valid: false, error: "Image file is corrupt or truncated." };
+  }
+  if (expectedType && parsedType && parsedType !== expectedType) {
+    return { valid: false, error: "Image content does not match the declared file type." };
+  }
+  if (width > COMMUNITY_IMAGE_MAX_DIMENSION || height > COMMUNITY_IMAGE_MAX_DIMENSION) {
+    return { valid: false, error: "Community photos exceed the maximum dimensions." };
+  }
+  if (width * height > COMMUNITY_IMAGE_MAX_PIXELS) {
+    return { valid: false, error: "Community photos exceed the maximum decoded size." };
   }
 
   return {
     valid: true,
     mime: detected,
     sizeBytes: resolvedBuffer.length,
+    width,
+    height,
     buffer: resolvedBuffer,
   };
 }

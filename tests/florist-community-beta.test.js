@@ -73,34 +73,47 @@ test("post validation requires category and caption", () => {
   assert.equal(ok.valid, true);
 });
 
-test("magic-byte image validation accepts real JPEG/PNG/WebP and rejects impostors", () => {
+test("image validation accepts real JPEG/PNG/WebP fixtures and rejects corrupt/truncated", () => {
+  const fixtures = path.join(process.cwd(), "tests/fixtures/community-images");
+  const png = fs.readFileSync(path.join(fixtures, "valid-1x1.png"));
+  const jpg = fs.readFileSync(path.join(fixtures, "valid-1x1.jpg"));
+  const webp = fs.readFileSync(path.join(fixtures, "valid-1x1.webp"));
+  const truncJpg = fs.readFileSync(path.join(fixtures, "corrupt-truncated.jpg"));
+  const truncPng = fs.readFileSync(path.join(fixtures, "corrupt-truncated.png"));
+  const truncWebp = fs.readFileSync(path.join(fixtures, "corrupt-truncated.webp"));
+  const pngAsJpeg = fs.readFileSync(path.join(fixtures, "png-bytes-as-jpeg.bin"));
+
+  assert.equal(validateCommunityImageUpload({ buffer: png, mime: "image/png" }).valid, true);
+  assert.equal(validateCommunityImageUpload({ buffer: jpg, mime: "image/jpeg" }).valid, true);
+  assert.equal(validateCommunityImageUpload({ buffer: webp, mime: "image/webp" }).valid, true);
+
   const ok = validateCommunityImageUpload({ dataUrl: tinyPng });
   assert.equal(ok.valid, true);
   assert.equal(ok.mime, "image/png");
+  assert.equal(ok.width, 1);
+  assert.equal(ok.height, 1);
 
   const gif = validateCommunityImageUpload({
     dataUrl: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
   });
   assert.equal(gif.valid, false);
 
-  // Fake PNG declared as JPEG with wrong magic
-  const fake = Buffer.from("not-an-image-file-content!!!!!!!!!!");
-  assert.equal(detectImageMimeFromBytes(fake), null);
-  assert.equal(validateCommunityImageUpload({ buffer: fake, mime: "image/png" }).valid, false);
+  assert.equal(detectImageMimeFromBytes(Buffer.from("not-an-image-file-content!!!!!!!!!!")), null);
+  assert.equal(validateCommunityImageUpload({ buffer: truncJpg, mime: "image/jpeg" }).valid, false);
+  assert.equal(validateCommunityImageUpload({ buffer: truncPng, mime: "image/png" }).valid, false);
+  assert.equal(validateCommunityImageUpload({ buffer: truncWebp, mime: "image/webp" }).valid, false);
+  assert.equal(
+    validateCommunityImageUpload({ buffer: pngAsJpeg, mime: "image/jpeg" }).valid,
+    false,
+    "declared MIME must match magic bytes"
+  );
 
-  const huge = validateCommunityImageUpload({
-    mime: "image/jpeg",
-    sizeBytes: 3 * 1024 * 1024,
-    buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, ...Buffer.alloc(100)]),
-  });
-  // buffer small but sizeBytes oversized
   assert.equal(
     validateCommunityImageUpload({
       buffer: Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(3 * 1024 * 1024)]),
     }).valid,
     false
   );
-  assert.ok(huge);
 });
 
 test("comments and reports validate length", () => {
@@ -179,35 +192,46 @@ test("florist-community function enforces flag, membership, signed URLs, RPCs", 
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
   assert.match(src, /isFeatureEnabled\("COMMUNITY_BETA"\)/);
   assert.match(src, /requireActiveFlorist/);
-  assert.match(src, /currentUser\(event\)/);
+  assert.match(src, /resolveCommunityAccess/);
+  assert.match(src, /is_platform_admin_user/);
+  assert.match(src, /florist_community_image_readable/);
+  assert.match(src, /florist_community_moderate_report/);
+  assert.match(src, /florist_community_moderate_comment/);
   assert.match(src, /createSignedUrl/);
   assert.match(src, /COMMUNITY_SIGNED_URL_SECONDS|image_signed_url_seconds/);
   assert.match(src, /florist_community_toggle_like/);
   assert.match(src, /florist_community_report_post/);
   assert.match(src, /florist_community_moderate_post/);
   assert.match(src, /validateCommunityImageUpload/);
-  assert.doesNotMatch(src, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.doesNotMatch(src, /\.from\("platform_admins"\)/);
   assert.doesNotMatch(src, /object\/public\/florist-community/);
   assert.doesNotMatch(src, /\.from\("orders"\)/);
   assert.doesNotMatch(src, /\.from\("customers"\)/);
   assert.doesNotMatch(src, /\.from\("staff"\)/);
   assert.doesNotMatch(src, /\.from\("payments"\)/);
   assert.doesNotMatch(src, /florist_community_adjust_like_count/);
+  assert.doesNotMatch(src, /catch\s*\{\s*\/\* helper may be unavailable/);
 });
 
-test("community R1 migration hardens membership, private storage, counters", () => {
+test("community R1/R2 migration hardens membership, private storage, narrow moderation", () => {
   const sql = fs.readFileSync(
     path.join(process.cwd(), "supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql"),
     "utf8"
   );
   assert.match(sql, /is_active_florist/);
   assert.match(sql, /is_active_member_of/);
+  assert.match(sql, /sm\.status = 'active'/);
+  assert.doesNotMatch(sql, /coalesce\s*\(\s*sm\.status/i);
   assert.match(sql, /public\s*=\s*false/);
   assert.match(sql, /florist_community_toggle_like/);
-  assert.match(sql, /florist_community_report_post/);
-  assert.match(sql, /florist_community_like_counter/);
-  assert.match(sql, /revoke all on function public\.is_active_florist/);
-  assert.match(sql, /florist_community_posts_guard/);
+  assert.match(sql, /on conflict \(post_id, reporter_user_id\) do nothing/);
+  assert.match(sql, /florist_community_moderate_comment/);
+  assert.match(sql, /florist_community_moderate_report/);
+  assert.match(sql, /florisyn_internal/);
+  assert.match(sql, /drop policy if exists "community posts update moderator"/);
+  assert.match(sql, /drop policy if exists "community posts update author content"/);
+  assert.match(sql, /revoke all on table public\.florist_community_posts from anon/);
+  assert.match(sql, /shop_members_active_user_idx/);
   assert.doesNotMatch(sql, /staff_time_entries/);
 });
 
