@@ -137,7 +137,7 @@ await check("UI has loading, empty, error states", () => {
   assert.match(ui, /community-error/);
 });
 
-await check("R5 security migrations present; Staff A2 not bundled; v1 locked", () => {
+await check("R6 security migrations present; Staff A2 not bundled; v1 locked", () => {
   assert.ok(fs.existsSync(path.join(root, "supabase/migrations/20260731_florist_community_beta_v1.sql")));
   assert.ok(
     fs.existsSync(path.join(root, "supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql"))
