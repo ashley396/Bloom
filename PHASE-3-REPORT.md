@@ -11,7 +11,7 @@
 **Correction R4 docs tip / R5 start:** `d6fb895bfb7f844760294ab7772a0bde61140826`
 **Correction R5 tip:** `f751d94ece9aa966b125103678e7ad02dd55ce53`
 **Correction R5 docs tip / R6 start:** `f13e24c66fdad8673472ee4414099ba9775e8a80`
-**Correction R6 tip:** `PENDING`
+**Correction R6 tip:** `b04f7e59ece3e9977b3c834087b29d020ce3136b`
 
 **Draft PR:** https://github.com/ashley396/Bloom/pull/13 — **NOT MERGED**
 
