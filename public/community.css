@@ -1,0 +1,204 @@
+/* Florist Community Beta */
+.community-beta-pill {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 800;
+  background: #e8f0ea;
+  color: #2f5d3a;
+  vertical-align: middle;
+}
+
+.community-shell {
+  display: grid;
+  gap: 1rem;
+  max-width: 820px;
+}
+
+.community-hero h2 {
+  margin: 0.25rem 0 0.4rem;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+.community-guidelines {
+  padding: 1rem 1.15rem;
+}
+
+.community-guidelines summary {
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.community-guidelines ol {
+  margin: 0.75rem 0 0;
+  padding-left: 1.2rem;
+  color: #5c4f58;
+  line-height: 1.45;
+}
+
+.community-profile,
+.community-composer,
+.community-post {
+  padding: 1.15rem 1.25rem;
+}
+
+.community-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.community-chip {
+  border: 1px solid #e0d3db;
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: #4a3d46;
+}
+
+.community-chip.active,
+.community-chip:hover {
+  background: #2f5d3a;
+  border-color: #2f5d3a;
+  color: #fff;
+}
+
+.community-feed {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.community-post-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.community-category {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #2f5d3a;
+}
+
+.community-caption {
+  margin: 0.7rem 0 0.35rem;
+  font-size: 1.15rem;
+}
+
+.community-body {
+  margin: 0 0 0.75rem;
+  color: #4f434c;
+  white-space: pre-wrap;
+}
+
+.community-post-image,
+.community-image-preview {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  object-fit: cover;
+  border-radius: 14px;
+  margin: 0.5rem 0 0.75rem;
+  background: #f0e8ed;
+}
+
+.community-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.community-like.liked {
+  background: #e8f0ea;
+  border-color: #9cbc9f;
+  color: #2f5d3a;
+}
+
+.community-comments {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #eadde5;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.community-comment p {
+  margin: 0.25rem 0 0.4rem;
+}
+
+.community-comment-form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.community-state {
+  text-align: center;
+  padding: 2.5rem 1.25rem;
+  background: #fff;
+  border: 1px solid #eadde5;
+  border-radius: 18px;
+}
+
+.community-spinner {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto 0.85rem;
+  border-radius: 50%;
+  border: 3px solid #e5d8e0;
+  border-top-color: #2f5d3a;
+  animation: community-spin 0.8s linear infinite;
+}
+
+@keyframes community-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.community-error h3 {
+  color: #8a2434;
+}
+
+.community-error-inline {
+  color: #8a2434;
+}
+
+@media (max-width: 760px) {
+  #communityPage .heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .community-shell {
+    max-width: none;
+  }
+
+  .community-post-head {
+    flex-direction: column;
+  }
+
+  .community-actions button {
+    flex: 1 1 calc(50% - 0.45rem);
+  }
+
+  .community-chip {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  .community-profile .two,
+  .community-composer .two {
+    grid-template-columns: 1fr;
+  }
+}
