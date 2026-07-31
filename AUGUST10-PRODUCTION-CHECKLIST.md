@@ -1,18 +1,21 @@
 # August 10 Production Checklist
 
-Use this before any production deploy of `beta/august10-stabilization` (PR #13).  
+Use this before any production deploy of `beta/august10-stabilization` (PR #13).
 **Do not apply staging or production migrations until Technical Director approval.**
 
-Baseline: `main` @ `eb690be` + Florist Community Beta + **Correction R2 security**.
+Baseline: `main` @ `eb690be` + Florist Community Beta + **Correction R3 security**.
 
-**Truth statements (Correction R2):**
+**Truth statements (Correction R3):**
 - PR #13 is **not merged**.
 - No production deployment occurred from this work.
-- Community / R1 migrations have **not** been applied to staging or production.
+- Community migrations have **not** been applied to staging or production.
 - `COMMUNITY_BETA` **defaults OFF** (enable only with explicit `FLORISYN_FLAG_COMMUNITY_BETA=true`).
 - Community images are **private**; clients receive **short-lived signed URLs** (300s) only when readable.
-- Active florist shop membership requires exactly `shop_members.status = 'active'` (legacy DBs get a guarded status column).
+- Uploaded images are **fully decoded and re-encoded with sharp**; EXIF/GPS/metadata stripped; sanitized buffer stored.
+- Active florist shop membership requires exactly `shop_members.status = 'active'` (legacy DBs get a guarded status column; migration fails loudly on incompatible data).
+- v1 alone is **locked** (no Community access) until the security migration succeeds.
 - Moderators cannot rewrite content or hard-delete; status-only RPCs only.
+- Storage DELETE is owner-only for user JWT; service_role cleanup remains for audited internal processes.
 - **Staff A2 remains paused** — do not apply or bundle with Community.
 - Live Stripe / device testing still requires an approved environment.
 
@@ -30,6 +33,7 @@ Baseline: `main` @ `eb690be` + Florist Community Beta + **Correction R2 security
 ## 2. Supabase migrations still needing apply
 
 Apply **in order** only after approval. Skip any already applied.
+Use the repository migration history / approved apply process. **Stop on failure** — do not continue past an error, and do not manually paste an insecure intermediate state.
 
 ### Existing stack (verify applied)
 
@@ -46,8 +50,10 @@ Apply **in order** only after approval. Skip any already applied.
 
 | Migration | Purpose |
 |-----------|---------|
-| `supabase/migrations/20260731_florist_community_beta_v1.sql` | Community tables + initial RLS/storage |
-| `supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql` | **Correction R1/R2** — active membership (legacy-safe status), private images, narrow moderation RPCs, hidden lockdown, grants |
+| `supabase/migrations/20260731_florist_community_beta_v1.sql` | **Locked** Community tables + private bucket (no client access yet) |
+| `supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql` | **Security unlock** — active membership, private image auth, narrow moderation RPCs, grants |
+
+If the security migration fails after v1, Community remains locked (not publicly accessible). Fix the failure, then re-apply the security migration (idempotent).
 
 ### Paused (do not apply as part of Community)
 
@@ -57,15 +63,17 @@ Apply **in order** only after approval. Skip any already applied.
 
 **Apply method (recommended):**
 
-1. Supabase → **SQL** → paste migration contents → Run (v1 then R1).
-2. Confirm no errors.
-3. Verify RLS enabled and bucket `florist-community` has `public = false`.
+1. Confirm backup.
+2. Apply `20260731_florist_community_beta_v1.sql` through the approved migration path.
+3. Apply `20260731_florist_community_beta_v1_r1_security.sql` next.
+4. Confirm no errors; verify bucket `florist-community` has `public = false` and Community policies exist.
+5. Do **not** instruct operators to apply two insecure migrations manually.
 
 ---
 
 ## 3. Staff-time RLS A2 — PAUSED
 
-**Do not apply Staff A2 as part of PR #13 / Community Correction R2.**  
+**Do not apply Staff A2 as part of PR #13 / Community Correction R3.**
 Staff A2 remains a separate, paused workstream. Do not include it in staging or production Community rollout instructions.
 
 ---
@@ -73,8 +81,8 @@ Staff A2 remains a separate, paused workstream. Do not include it in staging or 
 ## 4. Community database tables, storage, and RLS
 
 Files:
-1. `20260731_florist_community_beta_v1.sql`
-2. `20260731_florist_community_beta_v1_r1_security.sql`
+1. `20260731_florist_community_beta_v1.sql` (locked schema)
+2. `20260731_florist_community_beta_v1_r1_security.sql` (authorization)
 
 ### Tables
 
@@ -84,25 +92,30 @@ Files:
 - `florist_community_likes`
 - `florist_community_reports`
 
-### Storage (private)
+### Storage
 
 - Bucket: `florist-community`
-- **`public = false`**
-- Limit: 2 MB; MIME: jpeg, png, webp
+- Limit: 2 MB encoded **and** after sanitization
+- MIME: jpeg, png, webp (declared + detected + sharp format must agree)
 - Path: `{shop_id}/{user_id}/{server-generated}.{ext}`
-- Reads: only when `florist_community_image_readable(path)` (active post for ordinary florists; author/manager/platform-admin exceptions)
-- Signed URLs from API, 300s; known paths do not renew access after hide/remove for ordinary florists
+- Server: full decode/re-encode via `sharp@0.35.3`; metadata stripped
+- Reads: only when `florist_community_image_readable(path)`
+  - active posts → active florists
+  - moderated posts → active author, active shop manager, or platform admin
+- DELETE (user JWT): active image owner only
 - No permanent public object URLs
 
 ### Membership rule
 
-A user may use Community as a participant only when authenticated **and** they have at least one `shop_members` row with exactly `status = 'active'`.  
+A user may use Community as a participant only when authenticated **and** they have at least one `shop_members` row with exactly `status = 'active'`.
 Platform administrators may use **moderation-only** access via `is_platform_admin_user()` without becoming ordinary Community participants.
 
 ### Local verification (allowed)
 
 ```bash
+COMMUNITY_APPLY_MODE=v1-alone npm run db:community-local
 npm run db:community-local
+COMMUNITY_APPLY_MODE=r1-again npm run db:community-local
 npm run test:community-rls
 ```
 
@@ -120,7 +133,7 @@ npm run test:community-rls
 | `STRIPE_WEBHOOK_SECRET` | Yes | Matching mode |
 | `FLORISYN_FLAG_COMMUNITY_BETA` | **Required for Community** | Must be explicitly `true` to enable; missing/false = OFF |
 
-\* Needed for some admin/store flows. Community feed uses user JWT + RLS.
+\* Needed for some admin/store flows and audited cleanup. Community feed uses user JWT + RLS.
 
 **Never** put service-role or Stripe secrets in `public/`.
 
@@ -137,10 +150,10 @@ npm run test:community-rls
 
 ## 7. Stripe production configuration
 
-Prefer **Stripe test mode** until go-live approval.  
+Prefer **Stripe test mode** until go-live approval.
 Do not mix live keys with test webhooks (`assertStripeLivemodeMatchesKey`).
 
-Live Stripe / device testing still requires an **approved** environment — not performed by Correction R2.
+Live Stripe / device testing still requires an **approved** environment — not performed by Correction R3.
 
 ---
 
@@ -153,6 +166,7 @@ Live Stripe / device testing still requires an **approved** environment — not 
 | Active florist feed / post / like / comment | ☐ |
 | Second shop cross-read; no cross-edit | ☐ |
 | Private signed images load for members | ☐ |
+| Hidden post images not renewable for ordinary florists | ☐ |
 | Core POS (Today / orders / payments) unchanged | ☐ |
 
 ---
@@ -174,9 +188,9 @@ Live Stripe / device testing still requires an **approved** environment — not 
 
 ## 11. Post-apply smoke (two shops) — after approved migration apply
 
-1. Shop A active member: profile → post (+ image) → like/comment.
+1. Shop A active member: profile → post (+ sanitized image) → like/comment.
 2. Shop B active member: sees feed; cannot edit/delete A’s post; can like/comment/report.
-3. Inactive member: denied.
+3. Inactive/suspended member: denied (including image renewal).
 4. Confirm signed image URLs expire (~300s) and bucket is private.
 5. Confirm orders/customers never appear in Community responses.
 
@@ -187,11 +201,8 @@ Live Stripe / device testing still requires an **approved** environment — not 
 | Check | Owner | Date |
 |-------|-------|------|
 | Backup created | | |
-| Community v1 + R1 applied (approved env only) | | |
+| Community v1 then security migration applied (approved env only) | | |
 | Staff A2 left paused | | |
 | `FLORISYN_FLAG_COMMUNITY_BETA` explicit decision | | |
-| Netlify env confirmed | | |
-| SITE_URL + auth redirects | | |
-| Stripe mode confirmed | | |
-| Mobile / two-shop smoke passed | | |
-| Rollback deploy ID recorded | | |
+| Mobile / two-shop smoke | | |
+| TD authorization to proceed | | |

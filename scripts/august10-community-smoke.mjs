@@ -1,5 +1,5 @@
 /**
- * Local smoke checks for Florist Community Beta security correction R2.
+ * Local smoke checks for Florist Community Beta security correction R3.
  * Run: npm run test:community-smoke
  */
 import assert from "node:assert/strict";
@@ -20,9 +20,9 @@ import { isFeatureEnabled } from "../netlify/functions/_shared/feature-flags.js"
 const root = process.cwd();
 const results = [];
 
-function check(name, fn) {
+async function check(name, fn) {
   try {
-    fn();
+    await fn();
     results.push({ name, ok: true });
     console.log(`PASS  ${name}`);
   } catch (e) {
@@ -31,16 +31,16 @@ function check(name, fn) {
   }
 }
 
-check("feature flag defaults OFF", () => {
+await check("feature flag defaults OFF", () => {
   assert.equal(isFeatureEnabled("COMMUNITY_BETA", {}), false);
 });
 
-check("feature flag enables only with explicit true", () => {
+await check("feature flag enables only with explicit true", () => {
   assert.equal(isFeatureEnabled("COMMUNITY_BETA", { FLORISYN_FLAG_COMMUNITY_BETA: "true" }), true);
   assert.equal(isFeatureEnabled("COMMUNITY_BETA", { FLORISYN_FLAG_COMMUNITY_BETA: "false" }), false);
 });
 
-check("SPA wiring + nav hidden by default", () => {
+await check("SPA wiring + nav hidden by default", () => {
   const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
   assert.match(html, /communityPage/);
   assert.match(html, /hidden/);
@@ -49,51 +49,57 @@ check("SPA wiring + nav hidden by default", () => {
   assert.match(app, /loadCommunityPage/);
 });
 
-check("two-shop ownership: only author edits", () => {
+await check("two-shop ownership: only author edits", () => {
   assert.equal(canEditOwnContent({ userId: "user-a", authorUserId: "user-a" }), true);
   assert.equal(canEditOwnContent({ userId: "user-b", authorUserId: "user-a" }), false);
 });
 
-check("moderation requires shop match in API", () => {
+await check("moderation requires shop match in API; create_post uses moderatorForPost", () => {
   const src = fs.readFileSync(path.join(root, "netlify/functions/florist-community.js"), "utf8");
   assert.match(src, /post\.shop_id === ctx\.shopId/);
   assert.match(src, /requireActiveFlorist/);
   assert.match(src, /createSignedUrl/);
+  assert.match(src, /moderatorForPost\(ctx, data, platformAdmin\)/);
+  assert.doesNotMatch(src, /canModerate:\s*true/);
 });
 
-check("create post validation for each category", () => {
+await check("create post validation for each category", async () => {
   for (const category of COMMUNITY_CATEGORIES) {
-    const v = validatePostBody({ category, caption: `${category} tip` });
+    const v = await validatePostBody({ category, caption: `${category} tip` });
     assert.equal(v.valid, true, category);
   }
 });
 
-check("decoded image validation + corrupt rejection", () => {
+await check("sharp decode/re-encode + corrupt rejection", async () => {
   const fixtures = path.join(root, "tests/fixtures/community-images");
   assert.equal(
-    validateCommunityImageUpload({
-      buffer: fs.readFileSync(path.join(fixtures, "valid-1x1.png")),
-      mime: "image/png",
-    }).valid,
+    (
+      await validateCommunityImageUpload({
+        buffer: fs.readFileSync(path.join(fixtures, "valid-1x1.png")),
+        mime: "image/png",
+      })
+    ).valid,
     true
   );
   assert.equal(
-    validateCommunityImageUpload({
-      buffer: fs.readFileSync(path.join(fixtures, "corrupt-truncated.jpg")),
-      mime: "image/jpeg",
-    }).valid,
+    (
+      await validateCommunityImageUpload({
+        buffer: fs.readFileSync(path.join(fixtures, "corrupt-short-jpg.bin")),
+        mime: "image/jpeg",
+      })
+    ).valid,
     false
   );
   assert.equal(detectImageMimeFromBytes(Buffer.from("GIF89a......")), null);
-  assert.equal(validateCommunityImageUpload({ mime: "image/gif", sizeBytes: 100 }).valid, false);
+  assert.equal((await validateCommunityImageUpload({ mime: "image/gif", sizeBytes: 100 })).valid, false);
 });
 
-check("no permanent public image URLs", () => {
+await check("no permanent public image URLs", () => {
   assert.equal(communityImagePublicUrl("https://x.supabase.co", "a/b/c.jpg"), null);
   assert.equal(COMMUNITY_SIGNED_URL_SECONDS, 300);
 });
 
-check("payload never leaks order/customer/staff fields", () => {
+await check("payload never leaks order/customer/staff fields", () => {
   const post = publicPost({
     id: "1",
     category: "Questions",
@@ -117,35 +123,39 @@ check("payload never leaks order/customer/staff fields", () => {
   assert.doesNotMatch(json, /LEAK|pin_hash/);
 });
 
-check("no service role key in frontend community files", () => {
+await check("no service role key in frontend community files", () => {
   for (const f of ["public/community-ui.js", "public/app.js", "public/index.html"]) {
     const src = fs.readFileSync(path.join(root, f), "utf8");
     assert.doesNotMatch(src, /SERVICE_ROLE|sk_live_|sk_test_/);
   }
 });
 
-check("UI has loading, empty, error states", () => {
+await check("UI has loading, empty, error states", () => {
   const ui = fs.readFileSync(path.join(root, "public/community-ui.js"), "utf8");
   assert.match(ui, /community-loading/);
   assert.match(ui, /community-empty/);
   assert.match(ui, /community-error/);
 });
 
-check("R1/R2 security migration present; Staff A2 not bundled", () => {
+await check("R3 security migrations present; Staff A2 not bundled; v1 locked", () => {
   assert.ok(fs.existsSync(path.join(root, "supabase/migrations/20260731_florist_community_beta_v1.sql")));
   assert.ok(
     fs.existsSync(path.join(root, "supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql"))
   );
+  const v1 = fs.readFileSync(path.join(root, "supabase/migrations/20260731_florist_community_beta_v1.sql"), "utf8");
   const r1 = fs.readFileSync(
     path.join(root, "supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql"),
     "utf8"
   );
+  assert.match(v1, /LOCKED/);
+  assert.match(v1, /public\s*=\s*false/);
   assert.doesNotMatch(r1, /staff_time_entries/);
   assert.doesNotMatch(r1, /coalesce\s*\(\s*sm\.status/i);
+  assert.doesNotMatch(r1, /exception\s+when others then/i);
   assert.match(r1, /florist_community_moderate_report/);
 });
 
-check("core modules still present (no rewrite)", () => {
+await check("core modules still present (no rewrite)", () => {
   for (const f of [
     "netlify/functions/orders.js",
     "netlify/functions/customers.js",

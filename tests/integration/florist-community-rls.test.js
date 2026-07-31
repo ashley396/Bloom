@@ -143,6 +143,61 @@ test.beforeEach(async () => {
   });
 });
 
+test("v1-alone locked state: private bucket, no Community access, helpers locked", async () => {
+  applyMigrations("v1-alone");
+  try {
+    await withClient(async (client) => {
+      const { rows: bucket } = await client.query(
+        `select public from storage.buckets where id='florist-community'`
+      );
+      assert.equal(bucket[0].public, false);
+
+      const { rows: policies } = await client.query(`
+        select policyname from pg_policies
+        where tablename in ('florist_community_posts','florist_community_profiles','objects')
+          and (policyname ilike 'community%' or schemaname='storage')
+      `);
+      assert.ok(
+        !policies.some((p) => /select|insert|update|delete/i.test(p.policyname) && !/service role/i.test(p.policyname)),
+        "v1 must not expose Community authenticated/public policies"
+      );
+
+      const { rows: priv } = await client.query(`
+        select
+          has_function_privilege('anon', 'public.is_platform_admin_user()', 'EXECUTE') as anon_admin,
+          has_function_privilege('authenticated', 'public.is_platform_admin_user()', 'EXECUTE') as auth_admin,
+          has_function_privilege('authenticated', 'public.is_shop_manager_of(uuid)', 'EXECUTE') as auth_mgr,
+          has_table_privilege('anon', 'public.florist_community_posts', 'SELECT') as anon_posts,
+          has_table_privilege('authenticated', 'public.florist_community_posts', 'SELECT') as auth_posts
+      `);
+      assert.equal(priv[0].anon_admin, false);
+      assert.equal(priv[0].auth_admin, false);
+      assert.equal(priv[0].auth_mgr, false);
+      assert.equal(priv[0].anon_posts, false);
+      assert.equal(priv[0].auth_posts, false);
+
+      await assert.rejects(
+        () =>
+          asRole(client, "authenticated", USER_A, async (c) => {
+            await c.query(`select * from public.florist_community_posts`);
+          }),
+        /permission denied|42501/i
+      );
+      await assert.rejects(
+        () =>
+          asRole(client, "anon", null, async (c) => {
+            await c.query(`select * from storage.objects where bucket_id='florist-community'`);
+          }),
+        /permission denied|42501/i
+      );
+    });
+  } finally {
+    // Restore full stack for remaining tests. If R1 fails, v1 alone stays locked (already verified).
+    applyMigrations("reset");
+    await withClient(seed);
+  }
+});
+
 test("legacy no-status schema: R1 adds status and requires exact active", async () => {
   const bootstrap = fs.readFileSync(
     path.join(process.cwd(), "tests/fixtures/community-rls-bootstrap.sql"),
@@ -161,13 +216,17 @@ test("legacy no-status schema: R1 adds status and requires exact active", async 
   assert.match(r1, /add column status text/);
   assert.match(r1, /sm\.status = 'active'/);
   assert.doesNotMatch(r1, /coalesce\s*\(\s*sm\.status/i);
+  assert.doesNotMatch(r1, /exception\s+when others then/i);
+  assert.match(r1, /Community security migration aborted/);
 
   await withClient(async (client) => {
     const { rows } = await client.query(`
-      select column_name from information_schema.columns
+      select column_name, is_nullable, column_default
+      from information_schema.columns
       where table_schema='public' and table_name='shop_members' and column_name='status'
     `);
     assert.equal(rows.length, 1, "R1 must add status onto legacy shop_members");
+    assert.equal(rows[0].is_nullable, "NO");
 
     const { rows: idx } = await client.query(`
       select indexname from pg_indexes
@@ -184,6 +243,50 @@ test("legacy no-status schema: R1 adds status and requires exact active", async 
     );
     assert.equal(inactive.rows[0].ok, false);
   });
+});
+
+test("nullable shop_members.status with NULL rows migrates to active fail-loud path", async () => {
+  applyMigrations("v1-alone");
+  try {
+    await withClient(async (client) => {
+      await client.query(`alter table public.shop_members add column status text`);
+      await client.query(
+        `insert into auth.users (id, email) values ($1, 'null-status@test.local') on conflict do nothing`,
+        [USER_A]
+      );
+      await client.query(
+        `insert into public.shops (id, name) values ($1, 'Nullable Shop') on conflict do nothing`,
+        [SHOP_A]
+      );
+      await client.query(
+        `insert into public.shop_members (shop_id, user_id, role, status)
+         values ($1, $2, 'owner', null)`,
+        [SHOP_A, USER_A]
+      );
+      const before = await client.query(
+        `select status from public.shop_members where user_id=$1`,
+        [USER_A]
+      );
+      assert.equal(before.rows[0].status, null);
+    });
+
+    applyMigrations("r1-again");
+
+    await withClient(async (client) => {
+      const { rows } = await client.query(`
+        select status, is_nullable
+        from public.shop_members sm
+        join information_schema.columns c
+          on c.table_schema='public' and c.table_name='shop_members' and c.column_name='status'
+        where sm.user_id=$1
+      `, [USER_A]);
+      assert.equal(rows[0].status, "active");
+      assert.equal(rows[0].is_nullable, "NO");
+    });
+  } finally {
+    applyMigrations("reset");
+    await withClient(seed);
+  }
 });
 
 test("R1 migration applies twice without schema reset", async () => {
@@ -511,6 +614,70 @@ test("hidden posts/comments/likes/images locked for ordinary florists", async ()
     );
     assert.equal(authorSees.rowCount, 1);
     assert.equal(authorSees.rows[0].status, "hidden");
+
+    // Active author can still read moderated image
+    const authorImage = await asRole(client, "authenticated", USER_A, async (c) =>
+      c.query(`select public.florist_community_image_readable($1) as ok`, [imagePath])
+    );
+    assert.equal(authorImage.rows[0].ok, true);
+
+    // Suspended author cannot renew image access
+    await client.query(`update public.shop_members set status='suspended' where user_id=$1`, [USER_A]);
+    const suspendedImage = await asRole(client, "authenticated", USER_A, async (c) =>
+      c.query(`select public.florist_community_image_readable($1) as ok`, [imagePath])
+    );
+    assert.equal(suspendedImage.rows[0].ok, false);
+    await client.query(`update public.shop_members set status='active' where user_id=$1`, [USER_A]);
+  });
+});
+
+test("storage delete: only active owner; managers/platform admins cannot direct-delete", async () => {
+  await withClient(async (client) => {
+    const imagePath = `${SHOP_A}/${USER_A}/delete-me.jpg`;
+    await asRole(client, "authenticated", USER_A, async (c) => {
+      await c.query(
+        `insert into public.florist_community_posts
+         (author_user_id, shop_id, category, caption, status, image_path)
+         values ($1, $2, 'Questions', 'img', 'active', $3)`,
+        [USER_A, SHOP_A, imagePath]
+      );
+      await c.query(
+        `insert into storage.objects (bucket_id, name, owner)
+         values ('florist-community', $1, $2)`,
+        [imagePath, USER_A]
+      );
+    });
+
+    const mgrDel = await asRole(client, "authenticated", USER_MGR, async (c) =>
+      c.query(`delete from storage.objects where bucket_id='florist-community' and name=$1`, [imagePath])
+    );
+    assert.equal(mgrDel.rowCount, 0, "manager must not directly delete another florist image");
+
+    const adminDel = await asRole(client, "authenticated", USER_PLATFORM, async (c) =>
+      c.query(`delete from storage.objects where bucket_id='florist-community' and name=$1`, [imagePath])
+    );
+    assert.equal(adminDel.rowCount, 0, "platform admin must not directly delete via user policy");
+
+    const ownerDel = await asRole(client, "authenticated", USER_A, async (c) =>
+      c.query(`delete from storage.objects where bucket_id='florist-community' and name=$1`, [imagePath])
+    );
+    assert.equal(ownerDel.rowCount, 1, "active owner may delete own object");
+
+    // Recreate for service-role break-glass cleanup
+    await asRole(client, "authenticated", USER_A, async (c) => {
+      await c.query(
+        `insert into storage.objects (bucket_id, name, owner)
+         values ('florist-community', $1, $2)`,
+        [imagePath, USER_A]
+      );
+    });
+    await asRole(client, "service_role", null, async (c) => {
+      const r = await c.query(
+        `delete from storage.objects where bucket_id='florist-community' and name=$1`,
+        [imagePath]
+      );
+      assert.equal(r.rowCount, 1, "service_role retains break-glass cleanup");
+    });
   });
 });
 

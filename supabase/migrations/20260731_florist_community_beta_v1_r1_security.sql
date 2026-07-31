@@ -19,37 +19,85 @@ grant usage on schema florisyn_internal to service_role;
 -- ---------------------------------------------------------------------------
 
 do $$
+declare
+  has_status boolean;
+  status_udt text;
+  status_nullable text;
+  has_default boolean;
+  has_check boolean;
+  check_def text;
 begin
-  if not exists (
+  select exists (
     select 1
     from information_schema.columns
     where table_schema = 'public'
       and table_name = 'shop_members'
       and column_name = 'status'
-  ) then
+  ) into has_status;
+
+  if not has_status then
     alter table public.shop_members add column status text;
     update public.shop_members set status = 'active' where status is null;
     alter table public.shop_members alter column status set default 'active';
     alter table public.shop_members alter column status set not null;
   else
-    update public.shop_members set status = 'active' where status is null;
-  end if;
-end $$;
+    select c.udt_name, c.is_nullable,
+           (c.column_default is not null)
+      into status_udt, status_nullable, has_default
+    from information_schema.columns c
+    where c.table_schema = 'public'
+      and c.table_name = 'shop_members'
+      and c.column_name = 'status';
 
-do $$
-begin
-  if not exists (
+    if status_udt not in ('text', 'varchar', 'bpchar') then
+      raise exception
+        'Community security migration aborted: public.shop_members.status must be a text type (found %).',
+        status_udt;
+    end if;
+
+    -- Migrate NULL legacy memberships to active deliberately.
+    update public.shop_members set status = 'active' where status is null;
+
+    if not has_default then
+      alter table public.shop_members alter column status set default 'active';
+    end if;
+
+    if status_nullable = 'YES' then
+      alter table public.shop_members alter column status set not null;
+    end if;
+  end if;
+
+  select exists (
     select 1 from pg_constraint
     where conname = 'shop_members_status_check'
       and conrelid = 'public.shop_members'::regclass
-  ) then
+  ) into has_check;
+
+  if not has_check then
+    -- Fail loudly if incompatible values prevent the required control.
+    if exists (
+      select 1 from public.shop_members
+      where status not in ('active', 'invited', 'suspended', 'removed')
+    ) then
+      raise exception
+        'Community security migration aborted: shop_members.status contains values outside (active, invited, suspended, removed).';
+    end if;
     alter table public.shop_members
       add constraint shop_members_status_check
       check (status in ('active', 'invited', 'suspended', 'removed'));
+  else
+    select pg_get_constraintdef(oid) into check_def
+    from pg_constraint
+    where conname = 'shop_members_status_check'
+      and conrelid = 'public.shop_members'::regclass;
+    if check_def is null
+       or check_def !~* 'active'
+       or check_def !~* 'suspended' then
+      raise exception
+        'Community security migration aborted: existing shop_members_status_check is incompatible (%).',
+        coalesce(check_def, '<null>');
+    end if;
   end if;
-exception
-  when others then
-    null;
 end $$;
 
 create index if not exists shop_members_active_user_idx
@@ -158,10 +206,20 @@ as $$
       from public.florist_community_posts p
       where p.image_path = p_path
         and (
+          -- Active-post images: any active florist
           (p.status = 'active' and public.is_active_florist())
-          or p.author_user_id = auth.uid()
-          or public.is_platform_admin_user()
-          or public.is_shop_manager_of(p.shop_id)
+          -- Moderated images: active author, active shop manager, or platform admin
+          or (
+            p.status in ('hidden', 'removed')
+            and (
+              public.is_platform_admin_user()
+              or (
+                p.author_user_id = auth.uid()
+                and public.is_active_florist()
+              )
+              or public.is_shop_manager_of(p.shop_id)
+            )
+          )
         )
     );
 $$;
@@ -1126,23 +1184,16 @@ create policy "community images insert member"
 drop policy if exists "community images update" on storage.objects;
 
 drop policy if exists "community images delete own" on storage.objects;
+-- Only the active image owner may directly delete their object.
+-- Managers/platform admins moderate via status-only RPCs; service_role cleanup remains.
 create policy "community images delete own"
   on storage.objects
   for delete
   to authenticated
   using (
     bucket_id = 'florist-community'
-    and (
-      (
-        (storage.foldername(name))[2] = auth.uid()::text
-        and public.is_active_florist()
-      )
-      or public.is_platform_admin_user()
-      or (
-        (storage.foldername(name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        and public.is_shop_manager_of((storage.foldername(name))[1]::uuid)
-      )
-    )
+    and (storage.foldername(name))[2] = auth.uid()::text
+    and public.is_active_florist()
   );
 
 drop policy if exists "community images service role" on storage.objects;

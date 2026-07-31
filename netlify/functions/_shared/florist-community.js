@@ -3,7 +3,7 @@
  * Never include customer, recipient, employee, payment, or order fields.
  */
 
-import { imageSize } from "image-size";
+import sharp from "sharp";
 
 export const COMMUNITY_CATEGORIES = Object.freeze([
   "Design Help",
@@ -37,10 +37,11 @@ export const COMMUNITY_IMAGE_ALLOWED_MIMES = new Set([
 
 export const COMMUNITY_IMAGE_BUCKET = "florist-community";
 
-const DETECTED_TO_TYPE = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
+const SHARP_FORMAT_TO_MIME = {
+  jpeg: "image/jpeg",
+  jpg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
 };
 
 const FORBIDDEN_KEYS = new Set([
@@ -95,11 +96,24 @@ export function detectImageMimeFromBytes(buffer) {
 }
 
 /**
- * Validate Community image upload:
- * magic bytes + declared MIME match + decode/parse + size limits.
- * Does not trust client filename or extension. Filenames are server-generated.
+ * Fully decode and sanitize a Community image with sharp.
+ * - Enforces encoded size before decoding
+ * - Requires declared MIME (jpeg/png/webp) to match magic bytes and sharp format
+ * - Fully decodes pixels, rejects corrupt/truncated/animated multi-frame inputs
+ *   (or reduces to one safe still when sharp can isolate page 0)
+ * - Re-encodes and strips EXIF/GPS/metadata; stores only the sanitized buffer
+ * - Enforces dimension, pixel, and post-encode size limits
+ * Does not trust client filename/extension. Filenames are server-generated.
  */
-export function validateCommunityImageUpload({ mime, sizeBytes, dataUrl, buffer } = {}) {
+export async function validateCommunityImageUpload({
+  mime,
+  sizeBytes,
+  dataUrl,
+  buffer,
+  maxBytes = COMMUNITY_IMAGE_MAX_BYTES,
+  maxPixels = COMMUNITY_IMAGE_MAX_PIXELS,
+  maxDimension = COMMUNITY_IMAGE_MAX_DIMENSION,
+} = {}) {
   let resolvedBuffer = buffer && Buffer.isBuffer(buffer) ? buffer : null;
   let declaredMime = String(mime || "").toLowerCase();
 
@@ -113,12 +127,18 @@ export function validateCommunityImageUpload({ mime, sizeBytes, dataUrl, buffer 
   if (!resolvedBuffer || resolvedBuffer.length <= 0) {
     return { valid: false, error: "Image file is empty." };
   }
-  if (resolvedBuffer.length > COMMUNITY_IMAGE_MAX_BYTES) {
+  if (resolvedBuffer.length > maxBytes) {
+    return { valid: false, error: "Community photos must be under 2 MB." };
+  }
+  if (Number.isFinite(Number(sizeBytes)) && Number(sizeBytes) > maxBytes) {
     return { valid: false, error: "Community photos must be under 2 MB." };
   }
 
-  if (Number.isFinite(Number(sizeBytes)) && Number(sizeBytes) > COMMUNITY_IMAGE_MAX_BYTES) {
-    return { valid: false, error: "Community photos must be under 2 MB." };
+  if (!COMMUNITY_IMAGE_ALLOWED_MIMES.has(declaredMime)) {
+    return {
+      valid: false,
+      error: "Community photos must be declared as image/jpeg, image/png, or image/webp.",
+    };
   }
 
   const detected = detectImageMimeFromBytes(resolvedBuffer);
@@ -128,47 +148,100 @@ export function validateCommunityImageUpload({ mime, sizeBytes, dataUrl, buffer 
       error: "Community photos must be a valid JPEG, PNG, or WebP image.",
     };
   }
-
-  if (
-    declaredMime &&
-    COMMUNITY_IMAGE_ALLOWED_MIMES.has(declaredMime) &&
-    declaredMime !== detected
-  ) {
+  if (declaredMime !== detected) {
     return { valid: false, error: "Image content does not match the declared file type." };
   }
 
-  let dimensions;
+  let metadata;
   try {
-    dimensions = imageSize(resolvedBuffer);
+    metadata = await sharp(resolvedBuffer, {
+      failOn: "error",
+      animated: true,
+      limitInputPixels: maxPixels,
+    }).metadata();
   } catch {
-    return { valid: false, error: "Image file is corrupt or truncated." };
+    return { valid: false, error: "Image file is corrupt, truncated, or cannot be decoded." };
   }
 
-  const width = Number(dimensions?.width || 0);
-  const height = Number(dimensions?.height || 0);
-  const parsedType = String(dimensions?.type || "").toLowerCase();
-  const expectedType = DETECTED_TO_TYPE[detected];
-
-  if (!width || !height || width < 1 || height < 1) {
-    return { valid: false, error: "Image file is corrupt or truncated." };
-  }
-  if (expectedType && parsedType && parsedType !== expectedType) {
+  const sharpMime = SHARP_FORMAT_TO_MIME[String(metadata.format || "").toLowerCase()];
+  if (!sharpMime || sharpMime !== declaredMime) {
     return { valid: false, error: "Image content does not match the declared file type." };
   }
-  if (width > COMMUNITY_IMAGE_MAX_DIMENSION || height > COMMUNITY_IMAGE_MAX_DIMENSION) {
+
+  const width = Number(metadata.width || 0);
+  const height = Number(metadata.height || 0);
+  if (!width || !height || width < 1 || height < 1) {
+    return { valid: false, error: "Image file is corrupt, truncated, or cannot be decoded." };
+  }
+  if (width > maxDimension || height > maxDimension) {
     return { valid: false, error: "Community photos exceed the maximum dimensions." };
   }
-  if (width * height > COMMUNITY_IMAGE_MAX_PIXELS) {
+  if (width * height > maxPixels) {
     return { valid: false, error: "Community photos exceed the maximum decoded size." };
+  }
+
+  const pages = Number(metadata.pages || 1);
+  const isAnimated = pages > 1 || (Array.isArray(metadata.delay) && metadata.delay.length > 1);
+  // Decode only the first still frame; reject when multi-page content cannot be isolated.
+  const decodeOptions = {
+    failOn: "error",
+    limitInputPixels: maxPixels,
+    pages: 1,
+    page: 0,
+  };
+
+  // rotate() applies EXIF orientation; re-encode does not copy EXIF/GPS/metadata by default.
+  const pipeline = sharp(resolvedBuffer, decodeOptions).rotate();
+
+  let sanitized;
+  try {
+    if (declaredMime === "image/jpeg") {
+      sanitized = await pipeline.jpeg({ quality: 85, mozjpeg: true }).toBuffer();
+    } else if (declaredMime === "image/png") {
+      sanitized = await pipeline.png({ compressionLevel: 9, palette: false }).toBuffer();
+    } else {
+      sanitized = await pipeline.webp({ quality: 85, effort: 4 }).toBuffer();
+    }
+  } catch {
+    return { valid: false, error: "Image file is corrupt, truncated, or cannot be decoded." };
+  }
+
+  if (!sanitized || sanitized.length <= 0) {
+    return { valid: false, error: "Image sanitization produced an empty file." };
+  }
+  if (sanitized.length > maxBytes) {
+    return { valid: false, error: "Community photos must be under 2 MB after sanitization." };
+  }
+
+  // Verify the sanitized output fully decodes again.
+  let outMeta;
+  try {
+    outMeta = await sharp(sanitized, {
+      failOn: "error",
+      limitInputPixels: maxPixels,
+    }).metadata();
+  } catch {
+    return { valid: false, error: "Sanitized image failed verification decode." };
+  }
+  const outMime = SHARP_FORMAT_TO_MIME[String(outMeta.format || "").toLowerCase()];
+  if (outMime !== declaredMime) {
+    return { valid: false, error: "Sanitized image format mismatch." };
+  }
+  const outW = Number(outMeta.width || 0);
+  const outH = Number(outMeta.height || 0);
+  if (!outW || !outH || outW * outH > maxPixels) {
+    return { valid: false, error: "Sanitized image exceeds decoded size limits." };
   }
 
   return {
     valid: true,
-    mime: detected,
-    sizeBytes: resolvedBuffer.length,
-    width,
-    height,
-    buffer: resolvedBuffer,
+    mime: declaredMime,
+    sizeBytes: sanitized.length,
+    width: outW,
+    height: outH,
+    buffer: sanitized,
+    sanitized: true,
+    animatedReduced: Boolean(isAnimated),
   };
 }
 
@@ -196,7 +269,7 @@ export function validateProfileBody(body = {}) {
   };
 }
 
-export function validatePostBody(body = {}) {
+export async function validatePostBody(body = {}) {
   const category = String(body.category || "").trim();
   const caption = sanitizeText(body.caption, 280);
   const text = sanitizeText(body.body ?? body.text, 4000) || null;
@@ -205,14 +278,16 @@ export function validatePostBody(body = {}) {
     errors.push("Choose a valid category.");
   }
   if (!caption) errors.push("Caption is required.");
+  let image = null;
   if (body.image_data_url) {
-    const img = validateCommunityImageUpload({ dataUrl: body.image_data_url });
-    if (!img.valid) errors.push(img.error);
+    image = await validateCommunityImageUpload({ dataUrl: body.image_data_url });
+    if (!image.valid) errors.push(image.error);
   }
   return {
     valid: errors.length === 0,
     errors,
     sanitized: { category, caption, body: text },
+    image,
   };
 }
 

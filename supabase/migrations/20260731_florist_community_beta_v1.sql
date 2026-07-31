@@ -1,10 +1,13 @@
--- Florisyn Florist Community Beta v1
--- Cross-shop feed for authenticated florists. No customer/order/payment/employee data.
+-- Florisyn Florist Community Beta v1 (LOCKED schema bootstrap)
+-- Creates Community tables + private storage under RLS with NO authenticated/public access.
+-- Final authorization is installed only by 20260731_florist_community_beta_v1_r1_security.sql.
 -- Safe to re-run (IF NOT EXISTS / DROP POLICY IF EXISTS).
 -- Do not apply to production until AUGUST10-PRODUCTION-CHECKLIST.md steps are followed.
+-- If the security migration fails after v1, Community remains locked — not publicly accessible.
 
 -- ---------------------------------------------------------------------------
--- Helpers
+-- Helpers (LOCKED in v1 — not executable by anon/authenticated)
+-- Final authorization is established only by the R1/R2 security migration.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.is_platform_admin_user()
@@ -12,11 +15,13 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = ''
 as $$
   select exists (
-    select 1 from public.platform_admins
-    where user_id = auth.uid() and coalesce(active, true) = true
+    select 1
+    from public.platform_admins pa
+    where pa.user_id = auth.uid()
+      and pa.active = true
   );
 $$;
 
@@ -26,15 +31,26 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = ''
 as $$
   select exists (
-    select 1 from public.shop_members
-    where shop_id = target_shop
-      and user_id = auth.uid()
-      and lower(role) in ('owner', 'manager', 'admin')
+    select 1
+    from public.shop_members sm
+    where sm.shop_id = target_shop
+      and sm.user_id = auth.uid()
+      and lower(sm.role) in ('owner', 'manager', 'admin')
   );
 $$;
+
+revoke all on function public.is_platform_admin_user() from public;
+revoke all on function public.is_platform_admin_user() from anon;
+revoke all on function public.is_platform_admin_user() from authenticated;
+grant execute on function public.is_platform_admin_user() to service_role;
+
+revoke all on function public.is_shop_manager_of(uuid) from public;
+revoke all on function public.is_shop_manager_of(uuid) from anon;
+revoke all on function public.is_shop_manager_of(uuid) from authenticated;
+grant execute on function public.is_shop_manager_of(uuid) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- Profiles (public florist identity only)
@@ -60,33 +76,15 @@ create index if not exists florist_community_profiles_shop_idx
 
 alter table public.florist_community_profiles enable row level security;
 
+
+-- v1 LOCKED STATE: enable RLS and DROP every Community policy.
+-- Authenticated/anon have no Community access until R1/R2 installs final policies.
+-- Service role retains break-glass access (BYPASSRLS / service policies).
+
 drop policy if exists "community profiles select authenticated" on public.florist_community_profiles;
-create policy "community profiles select authenticated"
-  on public.florist_community_profiles
-  for select
-  to authenticated
-  using (true);
-
+drop policy if exists "community profiles select active florist" on public.florist_community_profiles;
 drop policy if exists "community profiles insert own" on public.florist_community_profiles;
-create policy "community profiles insert own"
-  on public.florist_community_profiles
-  for insert
-  to authenticated
-  with check (
-    user_id = auth.uid()
-    and public.is_shop_member(shop_id)
-  );
-
 drop policy if exists "community profiles update own" on public.florist_community_profiles;
-create policy "community profiles update own"
-  on public.florist_community_profiles
-  for update
-  to authenticated
-  using (user_id = auth.uid())
-  with check (
-    user_id = auth.uid()
-    and public.is_shop_member(shop_id)
-  );
 
 -- ---------------------------------------------------------------------------
 -- Posts
@@ -123,54 +121,11 @@ create index if not exists florist_community_posts_shop_idx
 alter table public.florist_community_posts enable row level security;
 
 drop policy if exists "community posts select" on public.florist_community_posts;
-create policy "community posts select"
-  on public.florist_community_posts
-  for select
-  to authenticated
-  using (
-    status = 'active'
-    or author_user_id = auth.uid()
-    or public.is_platform_admin_user()
-    or public.is_shop_manager_of(shop_id)
-  );
-
 drop policy if exists "community posts insert" on public.florist_community_posts;
-create policy "community posts insert"
-  on public.florist_community_posts
-  for insert
-  to authenticated
-  with check (
-    author_user_id = auth.uid()
-    and public.is_shop_member(shop_id)
-    and status = 'active'
-  );
-
 drop policy if exists "community posts update" on public.florist_community_posts;
-create policy "community posts update"
-  on public.florist_community_posts
-  for update
-  to authenticated
-  using (
-    author_user_id = auth.uid()
-    or public.is_platform_admin_user()
-    or public.is_shop_manager_of(shop_id)
-  )
-  with check (
-    author_user_id = auth.uid()
-    or public.is_platform_admin_user()
-    or public.is_shop_manager_of(shop_id)
-  );
-
+drop policy if exists "community posts update author content" on public.florist_community_posts;
+drop policy if exists "community posts update moderator" on public.florist_community_posts;
 drop policy if exists "community posts delete" on public.florist_community_posts;
-create policy "community posts delete"
-  on public.florist_community_posts
-  for delete
-  to authenticated
-  using (
-    author_user_id = auth.uid()
-    or public.is_platform_admin_user()
-    or public.is_shop_manager_of(shop_id)
-  );
 
 -- ---------------------------------------------------------------------------
 -- Comments
@@ -196,54 +151,10 @@ create index if not exists florist_community_comments_post_idx
 alter table public.florist_community_comments enable row level security;
 
 drop policy if exists "community comments select" on public.florist_community_comments;
-create policy "community comments select"
-  on public.florist_community_comments
-  for select
-  to authenticated
-  using (
-    status = 'active'
-    or author_user_id = auth.uid()
-    or public.is_platform_admin_user()
-    or public.is_shop_manager_of(shop_id)
-  );
-
 drop policy if exists "community comments insert" on public.florist_community_comments;
-create policy "community comments insert"
-  on public.florist_community_comments
-  for insert
-  to authenticated
-  with check (
-    author_user_id = auth.uid()
-    and public.is_shop_member(shop_id)
-    and status = 'active'
-  );
-
 drop policy if exists "community comments update" on public.florist_community_comments;
-create policy "community comments update"
-  on public.florist_community_comments
-  for update
-  to authenticated
-  using (
-    author_user_id = auth.uid()
-    or public.is_platform_admin_user()
-    or public.is_shop_manager_of(shop_id)
-  )
-  with check (
-    author_user_id = auth.uid()
-    or public.is_platform_admin_user()
-    or public.is_shop_manager_of(shop_id)
-  );
-
+drop policy if exists "community comments update author content" on public.florist_community_comments;
 drop policy if exists "community comments delete" on public.florist_community_comments;
-create policy "community comments delete"
-  on public.florist_community_comments
-  for delete
-  to authenticated
-  using (
-    author_user_id = auth.uid()
-    or public.is_platform_admin_user()
-    or public.is_shop_manager_of(shop_id)
-  );
 
 -- ---------------------------------------------------------------------------
 -- Likes / encouragement
@@ -263,28 +174,8 @@ create index if not exists florist_community_likes_user_idx
 alter table public.florist_community_likes enable row level security;
 
 drop policy if exists "community likes select" on public.florist_community_likes;
-create policy "community likes select"
-  on public.florist_community_likes
-  for select
-  to authenticated
-  using (true);
-
 drop policy if exists "community likes insert" on public.florist_community_likes;
-create policy "community likes insert"
-  on public.florist_community_likes
-  for insert
-  to authenticated
-  with check (
-    user_id = auth.uid()
-    and public.is_shop_member(shop_id)
-  );
-
 drop policy if exists "community likes delete" on public.florist_community_likes;
-create policy "community likes delete"
-  on public.florist_community_likes
-  for delete
-  to authenticated
-  using (user_id = auth.uid());
 
 -- ---------------------------------------------------------------------------
 -- Reports
@@ -307,88 +198,33 @@ create table if not exists public.florist_community_reports (
 alter table public.florist_community_reports enable row level security;
 
 drop policy if exists "community reports insert" on public.florist_community_reports;
-create policy "community reports insert"
-  on public.florist_community_reports
-  for insert
-  to authenticated
-  with check (
-    reporter_user_id = auth.uid()
-    and public.is_shop_member(reporter_shop_id)
-  );
-
 drop policy if exists "community reports select own or admin" on public.florist_community_reports;
-create policy "community reports select own or admin"
-  on public.florist_community_reports
-  for select
-  to authenticated
-  using (
-    reporter_user_id = auth.uid()
-    or public.is_platform_admin_user()
-  );
-
 drop policy if exists "community reports update admin" on public.florist_community_reports;
-create policy "community reports update admin"
-  on public.florist_community_reports
-  for update
-  to authenticated
-  using (public.is_platform_admin_user())
-  with check (public.is_platform_admin_user());
 
 -- ---------------------------------------------------------------------------
--- Storage bucket (arrangement images only)
+-- Storage bucket — PRIVATE in v1 (no public read policy)
 -- Path: {shop_id}/{user_id}/{timestamp-uuid}.{ext}
--- Public read — images are intentionally shared in Community Beta.
+-- Authenticated image access is granted only by R1/R2.
 -- ---------------------------------------------------------------------------
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
   'florist-community',
   'florist-community',
-  true,
+  false,
   2097152,
   array['image/jpeg', 'image/png', 'image/webp']
 )
 on conflict (id) do update set
-  public = excluded.public,
+  public = false,
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists "community images select" on storage.objects;
-create policy "community images select"
-  on storage.objects
-  for select
-  to public
-  using (bucket_id = 'florist-community');
-
+drop policy if exists "community images select active florist" on storage.objects;
 drop policy if exists "community images insert member" on storage.objects;
-create policy "community images insert member"
-  on storage.objects
-  for insert
-  to authenticated
-  with check (
-    bucket_id = 'florist-community'
-    and (storage.foldername(name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-    and (storage.foldername(name))[2] = auth.uid()::text
-    and public.is_shop_member((storage.foldername(name))[1]::uuid)
-  );
-
+drop policy if exists "community images update" on storage.objects;
 drop policy if exists "community images delete own" on storage.objects;
-create policy "community images delete own"
-  on storage.objects
-  for delete
-  to authenticated
-  using (
-    bucket_id = 'florist-community'
-    and (
-      (storage.foldername(name))[2] = auth.uid()::text
-      or public.is_platform_admin_user()
-      or (
-        (storage.foldername(name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        and public.is_shop_manager_of((storage.foldername(name))[1]::uuid)
-      )
-    )
-  );
-
 drop policy if exists "community images service role" on storage.objects;
 create policy "community images service role"
   on storage.objects
@@ -396,5 +232,12 @@ create policy "community images service role"
   to service_role
   using (bucket_id = 'florist-community')
   with check (bucket_id = 'florist-community');
+
+-- Explicitly revoke Community table access from anon (and do not grant authenticated policies yet).
+revoke all on table public.florist_community_profiles from anon;
+revoke all on table public.florist_community_posts from anon;
+revoke all on table public.florist_community_comments from anon;
+revoke all on table public.florist_community_likes from anon;
+revoke all on table public.florist_community_reports from anon;
 
 notify pgrst, 'reload schema';

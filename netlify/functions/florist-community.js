@@ -204,7 +204,7 @@ async function ensureDefaultProfile(client, ctx) {
 
 async function uploadCommunityImage(client, shopId, userId, dataUrl) {
   if (!dataUrl) return { ok: true, path: null };
-  const validation = validateCommunityImageUpload({ dataUrl });
+  const validation = await validateCommunityImageUpload({ dataUrl });
   if (!validation.valid) return { ok: false, error: validation.error };
   const path = communityImagePath(shopId, userId, validation.mime);
   const { error } = await client.storage
@@ -457,7 +457,7 @@ export async function handler(event) {
     if (action === "create_post") {
       requireParticipant(ctx);
       await ensureDefaultProfile(client, ctx);
-      const v = validatePostBody(body);
+      const v = await validatePostBody(body);
       if (!v.valid) return json(400, { error: v.errors.join(" ") });
       let imagePath = null;
       if (body.image_data_url) {
@@ -494,7 +494,7 @@ export async function handler(event) {
           { ...data, author: profile },
           {
             isMine: true,
-            canModerate: true,
+            canModerate: moderatorForPost(ctx, data, platformAdmin),
             imageUrl: signed.url,
             imageExpiresIn: signed.expiresIn,
           }
@@ -519,10 +519,11 @@ export async function handler(event) {
       if (existing.status !== "active") {
         return json(403, { error: "Hidden or removed posts cannot be edited or restored by authors." });
       }
-      const v = validatePostBody({
+      const v = await validatePostBody({
         category: body.category ?? existing.category,
         caption: body.caption ?? existing.caption,
         body: body.body ?? existing.body,
+        image_data_url: body.image_data_url,
       });
       if (!v.valid) return json(400, { error: v.errors.join(" ") });
       // Only editable content fields — never counters/status/ownership

@@ -1,26 +1,26 @@
-# Phase 3 Report — August 10 Beta Stabilization (+ Correction R2)
+# Phase 3 Report — August 10 Beta Stabilization (+ Correction R3)
 
-**Branch:** `beta/august10-stabilization`  
-**Base:** `main` @ `eb690beb0c138db504cd897ef497a9e54c462a4b`  
-**Starting commit (stabilization):** `eb690be`  
-**Correction R1 tip:** `09c9ea78abb45a9220dfb2a3a1824d789df4102d`  
-**Correction R2 tip:** `5c0d100365e1052de83e6ef8094ec91bf7a190db`  
+**Branch:** `beta/august10-stabilization`
+**Base:** `main` @ `eb690beb0c138db504cd897ef497a9e54c462a4b`
+**Starting commit (stabilization):** `eb690be`
+**Correction R1 tip:** `09c9ea78abb45a9220dfb2a3a1824d789df4102d`
+**Correction R2 tip:** `7880df9e429427b1c6670040ec8ebb8ab0ee5c47`
+**Correction R3 tip:** see latest commit on branch after R3 push
 
 **Draft PR:** https://github.com/ashley396/Bloom/pull/13 — **NOT MERGED**
 
-## Truth (Correction R2)
+## Truth (Correction R3)
 
 - Community feature flag **defaults OFF**.
 - Community images are **private**; API returns **300s signed URLs** only after `florist_community_image_readable`.
-- **Active florist membership** requires exactly `shop_members.status = 'active'` (no `coalesce`).
-- Legacy DBs without `status` are upgraded by a guarded, non-destructive R1 step.
+- Image uploads are **fully decoded and re-encoded with `sharp@0.35.3`** (not header-only parsing). EXIF/GPS/metadata are stripped; only the sanitized buffer is stored.
+- **Active florist membership** requires exactly `shop_members.status = 'active'` (no `coalesce`). Membership migration fails loudly on incompatible schema/data.
+- **v1 alone is locked**: private bucket, no public image read, no anon/authenticated Community access, SECURITY DEFINER helpers not executable by clients.
 - Broad moderator UPDATE/DELETE policies removed; status-only hardened RPCs only.
-- Hidden/removed posts lock out ordinary florists from posts, comments, likes, and image renewal.
-- Platform admin authorization uses `is_platform_admin_user()` RPC (never direct `platform_admins` user-client reads).
-- `requireActiveFlorist()` is fail-closed (false/errors → deny or 503).
+- Storage DELETE: active image owner only; managers/platform admins cannot direct-delete; service_role cleanup remains.
+- Platform admin authorization uses `is_platform_admin_user()` RPC.
+- `requireActiveFlorist()` is fail-closed.
 - Report insert is conflict-safe (`ON CONFLICT DO NOTHING`).
-- Image validation: magic bytes + MIME match + decode via `image-size` + size limits.
-- Database-backed RLS integration tests include legacy schema, apply-twice, real concurrency, and platform-admin persona.
 - Migrations **not** applied to staging or production.
 - **Staff A2 remains paused**.
 - No production deployment.
@@ -30,66 +30,63 @@
 
 ## Commits (functional)
 
-1. `8c353ac` — Community schema, validation, API (initial)
-2. `077204d` — Community UI + flag wiring (initial)
-3. `2149fc8` — Tests, smoke, checklist (initial)
-4. `8935bee`+ — Phase 3 docs (initial)
-5. **Correction R1** — `09c9ea7` membership, private storage, guards, counters, magic bytes, flag default off, RLS tests
-6. **Correction R2** — production-schema compatibility, idempotent R1, narrow moderation, hidden lockdown, platform-admin RPC, fail-closed membership, concurrent reports, real concurrency tests, decode image validation, grants hardening
+1. Initial Community Beta work on this branch
+2. **Correction R1** — `09c9ea7`
+3. **Correction R2** — `5c0d100` / docs `7880df9`
+4. **Correction R3** — sharp decode/re-encode, v1 locked-alone, storage-delete lockdown, fail-loud membership, canModerate truth
 
 ---
 
-## Security design (R2)
+## Security design (R3)
 
 | Control | Implementation |
 |---------|----------------|
-| Legacy `shop_members.status` | Guarded ADD COLUMN + migrate NULL→active; index `shop_members_active_user_idx` |
-| Exact active membership | `sm.status = 'active'` only (no coalesce) |
-| Narrow moderation | Authors update content on active rows only; managers/admins status via RPC; no hard-delete for moderators |
-| Comment/report moderation RPCs | `florist_community_moderate_comment`, `florist_community_moderate_report` |
-| Hidden content | Ordinary florists cannot read hidden posts/comments/likes or renew image URLs |
-| Platform admin | `is_platform_admin_user()` SECURITY DEFINER; moderation-only exception without shop membership |
-| Fail-closed gate | `requireActiveFlorist` throws on false/error; missing helper → 503 |
-| Concurrent reports | Atomic upsert conflict path; both callers succeed; status unchanged |
-| Image validation | Signatures + MIME + `image-size` decode + encoded/decoded limits; server filenames |
-| Function hardening | `florisyn_internal` helpers; empty `search_path`; revoke PUBLIC/anon; minimum table grants; anon revoked |
+| Image sanitization | `sharp@0.35.3` full decode → re-encode; strip metadata; 2 MB before/after; pixel/dimension limits |
+| v1 locked alone | Private bucket; drop all Community policies; revoke helper EXECUTE from anon/authenticated |
+| Fail-loud membership | Guarded status add/migrate; incompatible constraint/values raise clear exceptions (no `WHEN OTHERS`) |
+| Image readability | Active posts → active florists; moderated → active author / active manager / platform admin |
+| Storage DELETE | Active owner only; no manager/admin direct delete |
+| canModerate API truth | Computed via `moderatorForPost` / role+platform-admin; never hardcoded `true` on create |
 
 ---
 
-## Migrations
+## Migrations / apply process
 
 | File | Applied to staging/prod? |
 |------|--------------------------|
 | `20260731_florist_community_beta_v1.sql` | **No** |
-| `20260731_florist_community_beta_v1_r1_security.sql` (R1+R2) | **No** |
-| Staff A2 `20260729_phase2a_a2_...` | **Paused — not part of this work** |
+| `20260731_florist_community_beta_v1_r1_security.sql` | **No** |
+| Staff A2 | **Paused** |
 
-**Local apply:** `npm run db:community-local` — success on Postgres 16.  
-**Idempotency:** `COMMUNITY_APPLY_MODE=r1-again npm run db:community-local` — success without schema reset.
+**Local apply (history-preserving; stops on failure):**
+```bash
+npm run db:community-local
+# modes:
+# COMMUNITY_APPLY_MODE=v1-alone   → locked v1 only
+# COMMUNITY_APPLY_MODE=r1-again   → re-apply security migration without reset
+```
 
-**Rollback:** restore DB backup; or drop R1 RPCs/triggers/policies then re-apply v1 from backup. Prefer backup restore.
+Do **not** paste insecure intermediate SQL by hand in production. Apply migrations in order through the approved process; if the security migration fails, v1 remains locked.
 
-**Supabase security advisor:** not available in this environment’s MCP tool set (no advisor/lint tools exposed). Local privilege assertions cover anon revoke + EXECUTE grants.
+**Rollback:** restore DB backup. Prefer backup restore over partial drops.
+
+**Supabase security advisor:** MCP unavailable/unauthenticated in this environment.
 
 ---
 
-## Tests (see Correction R2 report for exact totals)
+## Tests
 
-- Unit: `npm test`
-- RLS integration: `npm run test:community-rls`
-- Smoke: `npm run test:community-smoke`
-- Foundation / daily-loop / stacked-release / rc1 / check / frontend:build
-- `npm audit --audit-level=high`
+See Correction R3 report for exact totals (`npm test`, foundation/daily-loop suites, community smoke/RLS, apply-twice, concurrency, `npm audit --audit-level=high`).
 
 ---
 
 ## Remaining staging work
 
-- Apply Community v1 + R1 on an **approved** staging project only
-- Enable `FLORISYN_FLAG_COMMUNITY_BETA=true` on that env only
+- Apply Community v1 then R1/R2/R3 security migration on an **approved** staging project only
+- Enable `FLORISYN_FLAG_COMMUNITY_BETA=true` on that env only after TD approval
 - Live two-shop + Stripe test + mobile device QA
 - Staff A2 remains a separate paused track
 
 ---
 
-*End of Phase 3 / Correction R2 documentation.*
+*End of Phase 3 / Correction R3 documentation.*
