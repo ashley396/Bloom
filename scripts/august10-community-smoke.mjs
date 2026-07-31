@@ -137,7 +137,7 @@ await check("UI has loading, empty, error states", () => {
   assert.match(ui, /community-error/);
 });
 
-await check("R4 security migrations present; Staff A2 not bundled; v1 locked", () => {
+await check("R5 security migrations present; Staff A2 not bundled; v1 locked", () => {
   assert.ok(fs.existsSync(path.join(root, "supabase/migrations/20260731_florist_community_beta_v1.sql")));
   assert.ok(
     fs.existsSync(path.join(root, "supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql"))
@@ -162,8 +162,10 @@ await check("R4 security migrations present; Staff A2 not bundled; v1 locked", (
   assert.match(r1, /found_statuses is distinct from expected_statuses/);
   assert.doesNotMatch(r1, /check_def !~\* 'active'/);
   assert.match(handler, /uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image\)/);
+  assert.match(handler, /reconcileCommunityImageAfterWriteError\(client, uploadedPath\)/);
   assert.doesNotMatch(handler, /validateCommunityImageUpload/);
   assert.doesNotMatch(storage, /from ["']sharp["']/);
+  assert.match(storage, /reconcileCommunityImageAfterWriteError/);
 });
 
 await check("core modules still present (no rewrite)", () => {
