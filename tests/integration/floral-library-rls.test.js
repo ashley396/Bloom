@@ -469,18 +469,21 @@ test("no authenticated write policies; SELECT grant only on master", async () =>
   });
 });
 
-test("platformAdmin user-client cannot read platform_admins under production-parity grants (boundary finding)", async () => {
+test("P0-02 fixed: direct authenticated-JWT SELECT on platform_admins remains denied by design", async () => {
   await withClient(async (client) => {
     await seed(client);
-    // Mirrors platformAdmin()'s user-JWT select against platform_admins.
-    // Production-parity: no GRANT and no browser policy → permission denied (or empty under RLS).
+    // platform_admins intentionally has no GRANT/policy for authenticated — by design, not a bug.
+    // platformAdmin() (netlify/functions/_shared/platform-admin.js) never uses a user-JWT client
+    // for this table; it verifies the bearer token first, then queries platform_admins with a
+    // service-role client created only after verification (see
+    // tests/platform-admin-authorization-boundary.test.js for the full authorization-boundary suite).
     await assert.rejects(
       () =>
         asRole(client, "authenticated", USER_SUPER, (c) =>
           c.query(`select user_id, role, active from public.platform_admins where user_id = $1`, [USER_SUPER])
         ),
       /permission denied/i,
-      "P0 Admin Authorization Boundary: authenticated JWT cannot read platform_admins"
+      "authenticated JWT must never be able to read platform_admins directly"
     );
   });
 });

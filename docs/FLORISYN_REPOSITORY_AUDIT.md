@@ -218,7 +218,17 @@ Many functions catch missing-table errors (e.g. `lily-ai.js`, `payment-link-publ
 
 ### Platform admin auth
 
-Separate path via `platformAdmin()` in `_shared/platform-admin.js` — requires active row in `platform_admins`. Mutations often require `super_admin` role.
+Separate path via `platformAdmin()` in `_shared/platform-admin.js` — a **server authorization
+boundary**, not a browser database-access mechanism. `public.platform_admins` has no grants or
+RLS policies for `anon`/`authenticated` (P0-01 / P0-01 R1); only `platformAdmin()`'s
+service-role client may read it, and that client is created only *after* the caller's bearer
+token is verified via `authenticatedUser()`. The only trusted identity is the verified
+`user.id` — never an ID/role from the request body, query string, other headers, or
+`user_metadata`/`raw_user_meta_data`. Requires an active row in `platform_admins` and (per
+endpoint) an allowed role; `super_admin` is always permitted as an explicit override. The
+service-role client is handed to downstream admin code only after authorization succeeds
+(P0-02). Mutations require an explicit `requireSuperAdmin()` or `requireAnyActiveAdmin()` call
+before their database write.
 
 ---
 

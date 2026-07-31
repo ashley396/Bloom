@@ -1,5 +1,5 @@
 import { json, fail } from "./_shared/saas.js";
-import { platformAdmin, writeCommandAudit, requireSuperAdmin } from "./_shared/platform-admin.js";
+import { platformAdmin, writeCommandAudit, requireSuperAdmin, requireAnyActiveAdmin } from "./_shared/platform-admin.js";
 import {
   auditRecordFromRow,
   buildMonthlySeries,
@@ -499,6 +499,7 @@ export async function handler(event) {
     }
 
     if (action === "password-reset-workflow") {
+      requireAnyActiveAdmin(admin);
       await writeCommandAudit(client, user.id, "password_reset_workflow", {
         targetType: "user",
         targetId: body.user_id || body.email,
@@ -543,6 +544,7 @@ export async function handler(event) {
     }
 
     if (action === "support-update") {
+      requireAnyActiveAdmin(admin);
       const id = body.id;
       if (!id) return json(400, { error: "id is required" });
       const notes = Array.isArray(body.notes) ? body.notes : [];
@@ -606,6 +608,7 @@ export async function handler(event) {
     }
 
     if (action === "lily-query") {
+      requireAnyActiveAdmin(admin);
       const message = String(body.message || "").trim();
       if (!message) return json(400, { error: "Add a message for Lily." });
       const intent = detectIntent(message);
@@ -626,6 +629,7 @@ export async function handler(event) {
     }
 
     if (action === "record-ai-request") {
+      requireAnyActiveAdmin(admin);
       const today = new Date().toISOString().slice(0, 10);
       try {
         const { data: existing } = await client.from("platform_ai_usage_daily").select("request_count").eq("usage_date", today).maybeSingle();
