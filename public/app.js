@@ -70,16 +70,50 @@ function applyBranding(settings=shopSettings||{}){const root=document.documentEl
 function previewBrandingForm(){const f=$("#settingsForm");if(!f)return;const d=Object.fromEntries(new FormData(f));applyBranding({...shopSettings,...d});const p=$("#themePreview");if(p){p.style.background=d.app_background_color||"#f8f3f6";p.style.borderColor=d.primary_color||"#8f3f68";p.querySelector("span").style.color=d.primary_color||"#8f3f68";p.dataset.font=d.app_font||"Elegant"}}
 function showAuth(){location.replace("/login")}
 async function loadPlatformSettings(){try{const d=await api('platform-settings');if($('#roseFoundationTotal'))$('#roseFoundationTotal').textContent=`${money(d.roseFoundationTotal||0)} raised`}catch{}}
-function showApp(){loadPlatformSettings();$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";if(session?.refreshToken&&!window.florisynSessionRefreshTimer)window.florisynSessionRefreshTimer=setInterval(()=>refreshSessionIfNeeded(),5*60*1000);loadStores();loadRemoteAdminConfig();window.BloomLaunchPolish?.init?.({api,mode:"florist"});window.BloomLilyPlatform?.init?.({api,toast,showPage,smartAi,loadAiContext,prepareOrderBuilder,loadInventory,renderCustomers});window.showPage=showPage;window.api=api;window.loadOrders=loadOrders;window.setPendingPaymentOrder=setPendingPaymentOrder;window.session=session;window.BloomPaymentHub&&(window.BloomPaymentHub.api=api);window.subscriptionCenterApi=api;window.recordLocalPayment=recordLocalPayment;window.BloomLaunchPolish?.refreshPageHelp?.("dashboardPage");window.BloomRose?.mount?.();window.BloomDaisy?.mount?.();window.FlorisynAssistantVoice?.init?.({getScope:()=>{const shop=shopSettings?.shop_id||session?.shopId||session?.user?.default_shop_id||"shop";const user=session?.user?.id||"local";return `${shop}:${user}`},getSpeakEnabled:()=>{const el=$("#assistantSpeak");return el?el.checked:true}});window.BloomLilyVoice?.patchSpeakAssistant?.();window.BloomFirstRun?.showWelcome?.();window.BloomRC21?.initLoadingScreen?.();window.BloomRC21?.tuneLily?.();const qp=new URLSearchParams(location.search);if(qp.get("page"))showPage(qp.get("page"))}
+function showApp(){loadPlatformSettings();refreshCommunityFeatureFlag();$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";if(session?.refreshToken&&!window.florisynSessionRefreshTimer)window.florisynSessionRefreshTimer=setInterval(()=>refreshSessionIfNeeded(),5*60*1000);loadStores();loadRemoteAdminConfig();window.BloomLaunchPolish?.init?.({api,mode:"florist"});window.BloomLilyPlatform?.init?.({api,toast,showPage,smartAi,loadAiContext,prepareOrderBuilder,loadInventory,renderCustomers});window.showPage=showPage;window.api=api;window.loadOrders=loadOrders;window.setPendingPaymentOrder=setPendingPaymentOrder;window.session=session;window.BloomPaymentHub&&(window.BloomPaymentHub.api=api);window.subscriptionCenterApi=api;window.recordLocalPayment=recordLocalPayment;window.BloomLaunchPolish?.refreshPageHelp?.("dashboardPage");window.BloomRose?.mount?.();window.BloomDaisy?.mount?.();window.FlorisynAssistantVoice?.init?.({getScope:()=>{const shop=shopSettings?.shop_id||session?.shopId||session?.user?.default_shop_id||"shop";const user=session?.user?.id||"local";return `${shop}:${user}`},getSpeakEnabled:()=>{const el=$("#assistantSpeak");return el?el.checked:true}});window.BloomLilyVoice?.patchSpeakAssistant?.();window.BloomFirstRun?.showWelcome?.();window.BloomRC21?.initLoadingScreen?.();window.BloomRC21?.tuneLily?.();const qp=new URLSearchParams(location.search);if(qp.get("page"))showPage(qp.get("page"))}
 function showPage(id){
-  const run=()=>{$$(".page").forEach(p=>p.classList.toggle("active",p.id===id));$$("#app aside button[data-page], .mobile-nav button[data-page], .assistant-mini-dock button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));loadPage(id)};
+  const run=()=>{
+    if(id==="communityPage"&&!communityBetaEnabled){
+      refreshCommunityFeatureFlag().then((on)=>{if(!on){toast("Florist Community Beta is disabled.");return}showPage("communityPage")});
+      return;
+    }
+    $$(".page").forEach(p=>p.classList.toggle("active",p.id===id));
+    $$("#app aside button[data-page], .mobile-nav button[data-page], .assistant-mini-dock button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));
+    loadPage(id);
+  };
   window.BloomLaunchPolish?.onPageStart?.(id);
   if(window.BloomLaunchPolish?.transitionTo)window.BloomLaunchPolish.transitionTo(id,run);
   else run();
 }
 async function loadPaymentsPage(){try{pendingPaymentOrder=pendingPaymentOrder||JSON.parse(localStorage.getItem("bloom_pending_payment_order")||"null")}catch{}renderPaymentCenterShell();if(window.BloomPaymentHub){window.BloomPaymentHub.api=api;try{await window.BloomPaymentHub.load(true)}catch(e){const msg=e?.message||"Payment Hub could not load.";if($("#paymentStatus"))$("#paymentStatus").textContent=msg;toast(msg)}}await applyPaymentHubCheckout()}
 async function loadEcosystemPage(){if(window.BloomEcosystem){window.bloomEcosystemApi=api;await window.BloomEcosystem.load()}}
-async function loadCommunityPage(){if(window.BloomCommunity){window.bloomCommunityApi=api;await window.BloomCommunity.load()}}
+let communityBetaEnabled=false;
+function setCommunityNavVisible(on){
+  communityBetaEnabled=Boolean(on);
+  $$('[data-page="communityPage"]').forEach((el)=>{el.hidden=!communityBetaEnabled;el.style.display=communityBetaEnabled?"":"none"});
+  const page=$("#communityPage");
+  if(page&&!communityBetaEnabled){page.classList.remove("active");if(page.querySelector("#communityRoot"))page.querySelector("#communityRoot").innerHTML="";}
+}
+async function refreshCommunityFeatureFlag(){
+  try{
+    const d=await fetch("/.netlify/functions/production-health").then((r)=>r.ok?r.json():null).catch(()=>null);
+    const on=Boolean(d?.feature_flags?.COMMUNITY_BETA);
+    setCommunityNavVisible(on);
+    return on;
+  }catch{
+    setCommunityNavVisible(false);
+    return false;
+  }
+}
+async function loadCommunityPage(){
+  const on=await refreshCommunityFeatureFlag();
+  if(!on){
+    const root=$("#communityRoot");
+    if(root)root.innerHTML=`<div class="community-state community-error" role="alert"><h3>Community unavailable</h3><p>Florist Community Beta is disabled.</p></div>`;
+    return;
+  }
+  if(window.BloomCommunity){window.bloomCommunityApi=api;await window.BloomCommunity.load()}
+}
 async function loadSubscriptionPage(){if(window.BloomSubscriptionCenter){window.subscriptionCenterApi=api;await window.BloomSubscriptionCenter.load(document.getElementById("subscriptionCenterRoot"))}}
 async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,expensesPage:loadExpenses,reportsPage:loadReports,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,communityPage:loadCommunityPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,aiStudioPage:()=>refreshAiStatus()};try{if(m[id])await m[id]()}catch(e){toast(e.message);const box=document.querySelector(`#${id} .cards, #${id}List, #${id.replace("Page","")}List, #communityRoot`);if(box&&window.BloomLaunchPolish?.errorState)box.innerHTML=window.BloomLaunchPolish.errorState({message:e.message})}}
 const ORDER_STATUS_DEFS=[
@@ -555,7 +589,7 @@ $("#removeWebsiteLogo")?.addEventListener("click",()=>{$("#websiteLogoUrl").valu
 $("#dashboardImageUpload")?.addEventListener("change",e=>readBrandImage(e.target.files?.[0],"#dashboardImageUrl",1800000));
 $("#removeDashboardImage")?.addEventListener("click",()=>{$("#dashboardImageUrl").value="";$("#dashboardImageUpload").value="";previewBrandingForm()});
 $("#speakRoseBriefing")?.addEventListener("click",()=>{const text=$("#roseBriefingText")?.dataset.spoken||$("#roseBriefingText")?.textContent||"";if(!window.FlorisynAssistantVoice?.speak&&!window.speechSynthesis)return toast("Voice playback is not supported in this browser.");speakAssistant(text,"Rose",true)});
-$("#moreMenu").onclick=()=>{const p=prompt("Open customers, inventory, expenses, reports, staff, delivery, wholesale, community or stores","customers"),m={customers:"customersPage",inventory:"inventoryPage",expenses:"expensesPage",reports:"reportsPage",staff:"staffPage",delivery:"deliveriesPage",wholesale:"marketplacePage",community:"communityPage",stores:"storesPage",settings:"settingsPage"};if(m[p?.toLowerCase()])showPage(m[p.toLowerCase()])};
+$("#moreMenu").onclick=()=>{const hint=communityBetaEnabled?"Open customers, inventory, expenses, reports, staff, delivery, wholesale, community or stores":"Open customers, inventory, expenses, reports, staff, delivery, wholesale or stores";const p=prompt(hint,"customers"),m={customers:"customersPage",inventory:"inventoryPage",expenses:"expensesPage",reports:"reportsPage",staff:"staffPage",delivery:"deliveriesPage",wholesale:"marketplacePage",stores:"storesPage",settings:"settingsPage"};if(communityBetaEnabled)m.community="communityPage";if(m[p?.toLowerCase()])showPage(m[p.toLowerCase()])};
 $("#refreshOrderBoard")?.addEventListener("click",()=>loadOrders());
 $("#clearTelemetry")?.addEventListener("click",()=>{const log=$("#telemetryLog");if(log)log.innerHTML="<p><time>READY</time><span>Activity log cleared.</span></p>"});
 $("#sendBetaFeedback")?.addEventListener("click",async()=>{const msg=$("#betaFeedbackMessage")?.value?.trim(),status=$("#betaFeedbackStatus");if(!msg)return toast("Add feedback first");if(status)status.textContent="Sending…";try{await api("beta-feedback",{method:"POST",body:JSON.stringify({message:msg,category:"florist_beta",path:location.pathname})});if(status)status.textContent="Thank you — your feedback was sent to Florisyn HQ.";$("#betaFeedbackMessage").value="";toast("Beta feedback sent")}catch(e){if(status)status.textContent=e.message;toast(e.message)}});

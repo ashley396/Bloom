@@ -21,11 +21,16 @@ export const COMMUNITY_GUIDELINES = Object.freeze([
 
 export const COMMUNITY_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
 
+/** Short-lived signed URL lifetime for private Community images (seconds). */
+export const COMMUNITY_SIGNED_URL_SECONDS = 300;
+
 export const COMMUNITY_IMAGE_ALLOWED_MIMES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
 ]);
+
+export const COMMUNITY_IMAGE_BUCKET = "florist-community";
 
 const FORBIDDEN_KEYS = new Set([
   "customer_name",
@@ -48,33 +53,85 @@ const FORBIDDEN_KEYS = new Set([
   "staff_id",
 ]);
 
+const MIME_EXT = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
 export function parseDataUrl(dataUrl) {
   const match = String(dataUrl || "").match(/^data:([^;]+);base64,(.+)$/);
   if (!match) return null;
   return { mime: match[1].toLowerCase(), buffer: Buffer.from(match[2], "base64") };
 }
 
-export function validateCommunityImageUpload({ mime, sizeBytes, dataUrl } = {}) {
-  let resolvedMime = String(mime || "").toLowerCase();
-  let resolvedSize = Number(sizeBytes);
+/** Detect real image type from magic bytes. Returns mime or null. */
+export function detectImageMimeFromBytes(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 12) return null;
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+    return "image/png";
+  }
+  if (
+    buffer.toString("ascii", 0, 4) === "RIFF" &&
+    buffer.toString("ascii", 8, 12) === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
+/**
+ * Validate Community image upload using decoded bytes (magic-byte check).
+ * Does not trust client MIME, filename, or extension.
+ */
+export function validateCommunityImageUpload({ mime, sizeBytes, dataUrl, buffer } = {}) {
+  let resolvedBuffer = buffer && Buffer.isBuffer(buffer) ? buffer : null;
+  let declaredMime = String(mime || "").toLowerCase();
 
   if (dataUrl) {
     const parsed = parseDataUrl(dataUrl);
     if (!parsed) return { valid: false, error: "Invalid image encoding." };
-    resolvedMime = parsed.mime;
-    resolvedSize = parsed.buffer.length;
+    resolvedBuffer = parsed.buffer;
+    declaredMime = parsed.mime;
   }
 
-  if (!COMMUNITY_IMAGE_ALLOWED_MIMES.has(resolvedMime)) {
-    return { valid: false, error: "Community photos must be JPEG, PNG, or WebP." };
-  }
-  if (!Number.isFinite(resolvedSize) || resolvedSize <= 0) {
+  if (!resolvedBuffer || resolvedBuffer.length <= 0) {
     return { valid: false, error: "Image file is empty." };
   }
-  if (resolvedSize > COMMUNITY_IMAGE_MAX_BYTES) {
+  if (resolvedBuffer.length > COMMUNITY_IMAGE_MAX_BYTES) {
     return { valid: false, error: "Community photos must be under 2 MB." };
   }
-  return { valid: true, mime: resolvedMime, sizeBytes: resolvedSize };
+
+  const detected = detectImageMimeFromBytes(resolvedBuffer);
+  if (!detected || !COMMUNITY_IMAGE_ALLOWED_MIMES.has(detected)) {
+    return {
+      valid: false,
+      error: "Community photos must be a valid JPEG, PNG, or WebP image.",
+    };
+  }
+
+  // Reject declared MIME that contradicts magic bytes when a declaration is present.
+  if (
+    declaredMime &&
+    COMMUNITY_IMAGE_ALLOWED_MIMES.has(declaredMime) &&
+    declaredMime !== detected
+  ) {
+    return { valid: false, error: "Image content does not match the declared file type." };
+  }
+
+  if (Number.isFinite(Number(sizeBytes)) && Number(sizeBytes) > COMMUNITY_IMAGE_MAX_BYTES) {
+    return { valid: false, error: "Community photos must be under 2 MB." };
+  }
+
+  return {
+    valid: true,
+    mime: detected,
+    sizeBytes: resolvedBuffer.length,
+    buffer: resolvedBuffer,
+  };
 }
 
 export function sanitizeText(value, max) {
@@ -135,12 +192,12 @@ export function validateReportBody(body = {}) {
   return { valid: errors.length === 0, errors, sanitized: { reason } };
 }
 
-export function canModerateCommunity({ userId, role, isPlatformAdmin, post } = {}) {
+export function canModerateCommunity({ role, isPlatformAdmin, post, shopId } = {}) {
   if (!post) return false;
   if (isPlatformAdmin) return true;
   const r = String(role || "").toLowerCase();
-  if (["owner", "manager", "admin"].includes(r) && post.shop_id) {
-    return true; // caller must also verify shop_id matches moderator's shop
+  if (["owner", "manager", "admin"].includes(r) && post.shop_id && post.shop_id === shopId) {
+    return true;
   }
   return false;
 }
@@ -182,14 +239,19 @@ export function publicProfile(row) {
   });
 }
 
-export function publicPost(row, { liked = false, isMine = false, canModerate = false, imageUrl = null } = {}) {
+export function publicPost(
+  row,
+  { liked = false, isMine = false, canModerate = false, imageUrl = null, imageExpiresIn = null } = {}
+) {
   if (!row) return null;
   return assertCommunitySafePayload({
     id: row.id,
     category: row.category,
     caption: row.caption,
     body: row.body || null,
+    image_path: row.image_path || null,
     image_url: imageUrl,
+    image_url_expires_in: imageExpiresIn,
     status: row.status,
     like_count: Number(row.like_count || 0),
     comment_count: Number(row.comment_count || 0),
@@ -233,23 +295,19 @@ export function publicComment(row, { isMine = false, canModerate = false } = {})
   });
 }
 
-export function communityImagePublicUrl(supabaseUrl, path) {
-  if (!path) return null;
-  if (/^https?:\/\//i.test(path)) return path;
-  const base = String(supabaseUrl || "").replace(/\/$/, "");
-  if (!base) return null;
-  return `${base}/storage/v1/object/public/florist-community/${path}`;
+/** @deprecated Public permanent URLs are forbidden — use signed URLs. */
+export function communityImagePublicUrl() {
+  return null;
 }
-
-export const COMMUNITY_IMAGE_BUCKET = "florist-community";
-
-const MIME_EXT = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-};
 
 export function communityImagePath(shopId, userId, mime) {
   const ext = MIME_EXT[mime] || "jpg";
   return `${shopId}/${userId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+}
+
+export function isStoragePath(value) {
+  const text = String(value || "");
+  if (!text) return false;
+  if (/^https?:\/\//i.test(text)) return false;
+  return text.includes("/");
 }

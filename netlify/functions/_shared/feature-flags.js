@@ -18,8 +18,12 @@ const DEFAULT_FLAGS = {
   DELIVERY_MAPS: true,
   LILY_SERVER_PERSISTENCE: true,
   REACT_ORDERS_PREVIEW: false,
-  /** Florist Community Beta — emergency disable: FLORISYN_FLAG_COMMUNITY_BETA=false */
-  COMMUNITY_BETA: true,
+  /**
+   * Florist Community Beta — SAFE DEFAULT OFF.
+   * Missing FLORISYN_FLAG_COMMUNITY_BETA => disabled.
+   * Enable only with explicit FLORISYN_FLAG_COMMUNITY_BETA=true.
+   */
+  COMMUNITY_BETA: false,
 };
 
 function envFlag(name, fallback, env = process.env) {

@@ -5,11 +5,13 @@ import path from "node:path";
 import {
   COMMUNITY_CATEGORIES,
   COMMUNITY_GUIDELINES,
+  COMMUNITY_SIGNED_URL_SECONDS,
   validateProfileBody,
   validatePostBody,
   validateCommentBody,
   validateReportBody,
   validateCommunityImageUpload,
+  detectImageMimeFromBytes,
   canEditOwnContent,
   publicPost,
   publicProfile,
@@ -22,9 +24,11 @@ import { getFeatureFlags, isFeatureEnabled } from "../netlify/functions/_shared/
 const tinyPng =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
-test("COMMUNITY_BETA flag defaults true and can be disabled via env", () => {
+test("COMMUNITY_BETA flag defaults OFF; only explicit true enables", () => {
   const flags = getFeatureFlags({});
-  assert.equal(flags.COMMUNITY_BETA, true);
+  assert.equal(flags.COMMUNITY_BETA, false);
+  assert.equal(isFeatureEnabled("COMMUNITY_BETA", {}), false);
+  assert.equal(isFeatureEnabled("COMMUNITY_BETA", { FLORISYN_FLAG_COMMUNITY_BETA: "" }), false);
   assert.equal(isFeatureEnabled("COMMUNITY_BETA", { FLORISYN_FLAG_COMMUNITY_BETA: "false" }), false);
   assert.equal(isFeatureEnabled("COMMUNITY_BETA", { FLORISYN_FLAG_COMMUNITY_BETA: "true" }), true);
 });
@@ -41,6 +45,10 @@ test("community categories match product requirements", () => {
 test("community guidelines are present for beta UX", () => {
   assert.ok(COMMUNITY_GUIDELINES.length >= 4);
   assert.ok(COMMUNITY_GUIDELINES.some((g) => /customer/i.test(g)));
+});
+
+test("signed URL lifetime is documented and short", () => {
+  assert.equal(COMMUNITY_SIGNED_URL_SECONDS, 300);
 });
 
 test("profile validation requires display and shop names", () => {
@@ -65,21 +73,34 @@ test("post validation requires category and caption", () => {
   assert.equal(ok.valid, true);
 });
 
-test("post image must be jpeg/png/webp under 2MB", () => {
+test("magic-byte image validation accepts real JPEG/PNG/WebP and rejects impostors", () => {
   const ok = validateCommunityImageUpload({ dataUrl: tinyPng });
   assert.equal(ok.valid, true);
   assert.equal(ok.mime, "image/png");
 
-  const bad = validateCommunityImageUpload({
+  const gif = validateCommunityImageUpload({
     dataUrl: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
   });
-  assert.equal(bad.valid, false);
+  assert.equal(gif.valid, false);
+
+  // Fake PNG declared as JPEG with wrong magic
+  const fake = Buffer.from("not-an-image-file-content!!!!!!!!!!");
+  assert.equal(detectImageMimeFromBytes(fake), null);
+  assert.equal(validateCommunityImageUpload({ buffer: fake, mime: "image/png" }).valid, false);
 
   const huge = validateCommunityImageUpload({
     mime: "image/jpeg",
     sizeBytes: 3 * 1024 * 1024,
+    buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, ...Buffer.alloc(100)]),
   });
-  assert.equal(huge.valid, false);
+  // buffer small but sizeBytes oversized
+  assert.equal(
+    validateCommunityImageUpload({
+      buffer: Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(3 * 1024 * 1024)]),
+    }).valid,
+    false
+  );
+  assert.ok(huge);
 });
 
 test("comments and reports validate length", () => {
@@ -118,7 +139,7 @@ test("public post payload never includes customer or payment fields", () => {
       hourly_rate: 20,
     },
   };
-  const clean = publicPost(dirty, { liked: true, isMine: true, imageUrl: "https://example.com/x.jpg" });
+  const clean = publicPost(dirty, { liked: true, isMine: true, imageUrl: "https://signed.example/x" });
   assert.equal(clean.caption, "Need advice");
   assert.equal(clean.liked, true);
   assert.equal(clean.author.display_name, "Maya");
@@ -141,51 +162,64 @@ test("assertCommunitySafePayload strips forbidden keys deeply", () => {
   assert.equal("pin_hash" in obj, false);
 });
 
-test("community image path is shop/user scoped", () => {
-  const p = communityImagePath("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "image/jpeg");
-  assert.match(p, /^11111111-1111-1111-1111-111111111111\/22222222-2222-2222-2222-222222222222\/.+\.jpg$/);
-  const url = communityImagePublicUrl("https://abc.supabase.co", p);
-  assert.match(url, /^https:\/\/abc\.supabase\.co\/storage\/v1\/object\/public\/florist-community\//);
+test("community image path is shop/user scoped; public URL helper disabled", () => {
+  const p = communityImagePath(
+    "11111111-1111-1111-1111-111111111111",
+    "22222222-2222-2222-2222-222222222222",
+    "image/jpeg"
+  );
+  assert.match(
+    p,
+    /^11111111-1111-1111-1111-111111111111\/22222222-2222-2222-2222-222222222222\/.+\.jpg$/
+  );
+  assert.equal(communityImagePublicUrl("https://abc.supabase.co", p), null);
 });
 
-test("florist-community function enforces feature flag and auth patterns", () => {
+test("florist-community function enforces flag, membership, signed URLs, RPCs", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
   assert.match(src, /isFeatureEnabled\("COMMUNITY_BETA"\)/);
+  assert.match(src, /requireActiveFlorist/);
   assert.match(src, /currentUser\(event\)/);
-  assert.match(src, /author_user_id/);
-  assert.match(src, /moderate_hide|moderate_remove/);
-  assert.match(src, /validateCommunityImageUpload|uploadCommunityImage/);
+  assert.match(src, /createSignedUrl/);
+  assert.match(src, /COMMUNITY_SIGNED_URL_SECONDS|image_signed_url_seconds/);
+  assert.match(src, /florist_community_toggle_like/);
+  assert.match(src, /florist_community_report_post/);
+  assert.match(src, /florist_community_moderate_post/);
+  assert.match(src, /validateCommunityImageUpload/);
   assert.doesNotMatch(src, /SUPABASE_SERVICE_ROLE_KEY/);
-  // Must not query sensitive shop tables for community feed
+  assert.doesNotMatch(src, /object\/public\/florist-community/);
   assert.doesNotMatch(src, /\.from\("orders"\)/);
   assert.doesNotMatch(src, /\.from\("customers"\)/);
   assert.doesNotMatch(src, /\.from\("staff"\)/);
   assert.doesNotMatch(src, /\.from\("payments"\)/);
+  assert.doesNotMatch(src, /florist_community_adjust_like_count/);
 });
 
-test("community migration enables RLS and storage policies", () => {
+test("community R1 migration hardens membership, private storage, counters", () => {
   const sql = fs.readFileSync(
-    path.join(process.cwd(), "supabase/migrations/20260731_florist_community_beta_v1.sql"),
+    path.join(process.cwd(), "supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql"),
     "utf8"
   );
-  assert.match(sql, /florist_community_posts/);
-  assert.match(sql, /enable row level security/);
-  assert.match(sql, /is_platform_admin_user/);
-  assert.match(sql, /is_shop_manager_of/);
-  assert.match(sql, /florist-community/);
-  assert.match(sql, /author_user_id = auth\.uid\(\)/);
-  assert.match(sql, /file_size_limit/);
+  assert.match(sql, /is_active_florist/);
+  assert.match(sql, /is_active_member_of/);
+  assert.match(sql, /public\s*=\s*false/);
+  assert.match(sql, /florist_community_toggle_like/);
+  assert.match(sql, /florist_community_report_post/);
+  assert.match(sql, /florist_community_like_counter/);
+  assert.match(sql, /revoke all on function public\.is_active_florist/);
+  assert.match(sql, /florist_community_posts_guard/);
+  assert.doesNotMatch(sql, /staff_time_entries/);
 });
 
-test("community UI and nav are wired in SPA shell", () => {
+test("community UI hides nav when disabled and keeps loading/empty/error states", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "public/index.html"), "utf8");
   assert.match(html, /id="communityPage"/);
   assert.match(html, /community-ui\.js/);
-  assert.match(html, /community\.css/);
-  assert.match(html, /data-page="communityPage"/);
+  assert.match(html, /data-page="communityPage"[^>]*hidden/);
   const app = fs.readFileSync(path.join(process.cwd(), "public/app.js"), "utf8");
-  assert.match(app, /loadCommunityPage/);
-  assert.match(app, /communityPage:loadCommunityPage/);
+  assert.match(app, /refreshCommunityFeatureFlag|setCommunityNavVisible/);
+  assert.match(app, /COMMUNITY_BETA/);
+  assert.match(app, /communityBetaEnabled/);
   const ui = fs.readFileSync(path.join(process.cwd(), "public/community-ui.js"), "utf8");
   assert.match(ui, /BloomCommunity/);
   assert.match(ui, /community-loading|Loading Florist Community/);

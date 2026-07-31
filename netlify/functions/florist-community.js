@@ -5,19 +5,19 @@ import {
   COMMUNITY_CATEGORIES,
   COMMUNITY_GUIDELINES,
   COMMUNITY_IMAGE_BUCKET,
+  COMMUNITY_SIGNED_URL_SECONDS,
   validateProfileBody,
   validatePostBody,
   validateCommentBody,
   validateReportBody,
   validateCommunityImageUpload,
-  parseDataUrl,
   publicProfile,
   publicPost,
   publicComment,
   communityImagePath,
-  communityImagePublicUrl,
   canEditOwnContent,
   assertCommunitySafePayload,
+  isStoragePath,
 } from "./_shared/florist-community.js";
 
 function featureGate() {
@@ -41,11 +41,42 @@ function missingRelation(error) {
 
 function friendlyMissing() {
   const e = new Error(
-    "Florist Community tables are not set up yet. Apply migration 20260731_florist_community_beta_v1.sql, then try again."
+    "Florist Community tables are not set up yet. Apply community migrations, then try again."
   );
   e.statusCode = 503;
   e.code = "community_not_migrated";
   throw e;
+}
+
+function denied(message, statusCode = 403) {
+  const e = new Error(message);
+  e.statusCode = statusCode;
+  throw e;
+}
+
+/**
+ * Authoritative active-florist gate for Netlify handlers.
+ * currentUser() already resolves an active membership; double-check status.
+ */
+async function requireActiveFlorist(ctx) {
+  const { client, user, shopId, membership } = ctx;
+  const status = String(membership?.status || "active").toLowerCase();
+  if (status && status !== "active") {
+    denied("An active florist shop membership is required to use Community.");
+  }
+  // Prefer DB helper when available (RLS-aligned).
+  try {
+    const { data, error } = await client.rpc("is_active_florist");
+    if (!error && data === false) {
+      denied("An active florist shop membership is required to use Community.");
+    }
+  } catch {
+    /* helper may be unavailable pre-migration; membership check above still applies */
+  }
+  if (!shopId || !user?.id) {
+    denied("An active florist shop membership is required to use Community.");
+  }
+  return ctx;
 }
 
 async function isPlatformAdmin(client, userId) {
@@ -96,8 +127,9 @@ async function ensureDefaultProfile(client, ctx) {
   } catch {
     /* ignore */
   }
-  const display =
-    String(ctx.user.user_metadata?.full_name || ctx.user.email?.split("@")[0] || "Florist").slice(0, 80);
+  const display = String(
+    ctx.user.user_metadata?.full_name || ctx.user.email?.split("@")[0] || "Florist"
+  ).slice(0, 80);
   const row = {
     user_id: ctx.user.id,
     shop_id: ctx.shopId,
@@ -124,18 +156,23 @@ async function uploadCommunityImage(client, shopId, userId, dataUrl) {
   if (!dataUrl) return { ok: true, path: null };
   const validation = validateCommunityImageUpload({ dataUrl });
   if (!validation.valid) return { ok: false, error: validation.error };
-  const parsed = parseDataUrl(dataUrl);
-  if (!parsed) return { ok: false, error: "Invalid image encoding." };
-  const path = communityImagePath(shopId, userId, parsed.mime);
+  const path = communityImagePath(shopId, userId, validation.mime);
   const { error } = await client.storage
     .from(COMMUNITY_IMAGE_BUCKET)
-    .upload(path, parsed.buffer, { contentType: parsed.mime, upsert: false });
-  if (error) return { ok: false, error: error.message || "Image upload failed." };
+    .upload(path, validation.buffer, { contentType: validation.mime, upsert: false });
+  if (error) return { ok: false, error: "Image upload failed." };
   return { ok: true, path };
 }
 
-function imageUrlFor(path) {
-  return communityImagePublicUrl(process.env.SUPABASE_URL, path);
+async function signedImageUrl(client, path) {
+  if (!path || !isStoragePath(path)) {
+    return { url: null, expiresIn: null };
+  }
+  const { data, error } = await client.storage
+    .from(COMMUNITY_IMAGE_BUCKET)
+    .createSignedUrl(path, COMMUNITY_SIGNED_URL_SECONDS);
+  if (error) return { url: null, expiresIn: null };
+  return { url: data?.signedUrl || null, expiresIn: COMMUNITY_SIGNED_URL_SECONDS };
 }
 
 async function attachAuthors(client, posts) {
@@ -161,6 +198,19 @@ async function loadLikesForUser(client, userId, postIds) {
   return new Set((data || []).map((r) => r.post_id));
 }
 
+async function requireActivePost(client, postId) {
+  const { data, error } = await client
+    .from("florist_community_posts")
+    .select("id,shop_id,author_user_id,status,image_path")
+    .eq("id", postId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || data.status !== "active") {
+    denied("This post is not available.", 404);
+  }
+  return data;
+}
+
 async function feed(client, ctx, { category, platformAdmin }) {
   let query = client
     .from("florist_community_posts")
@@ -184,12 +234,16 @@ async function feed(client, ctx, { category, platformAdmin }) {
     ctx.user.id,
     withAuthors.map((p) => p.id)
   );
-  return withAuthors.map((p) =>
-    publicPost(p, {
-      liked: liked.has(p.id),
-      isMine: p.author_user_id === ctx.user.id,
-      canModerate: moderatorForPost(ctx, p, platformAdmin),
-      imageUrl: imageUrlFor(p.image_path),
+  return Promise.all(
+    withAuthors.map(async (p) => {
+      const signed = await signedImageUrl(client, p.image_path);
+      return publicPost(p, {
+        liked: liked.has(p.id),
+        isMine: p.author_user_id === ctx.user.id,
+        canModerate: moderatorForPost(ctx, p, platformAdmin),
+        imageUrl: signed.url,
+        imageExpiresIn: signed.expiresIn,
+      });
     })
   );
 }
@@ -199,8 +253,8 @@ export async function handler(event) {
   if (ready) return ready;
   try {
     featureGate();
-    // Any active shop member may use Community; shop_id comes from JWT membership.
     const ctx = await currentUser(event);
+    await requireActiveFlorist(ctx);
     const { client, shopId, user } = ctx;
     const platformAdmin = await isPlatformAdmin(client, user.id);
     const method = event.httpMethod;
@@ -212,9 +266,11 @@ export async function handler(event) {
           200,
           assertCommunitySafePayload({
             beta: true,
+            enabled: true,
             categories: COMMUNITY_CATEGORIES,
             guidelines: COMMUNITY_GUIDELINES,
             image_max_bytes: 2 * 1024 * 1024,
+            image_signed_url_seconds: COMMUNITY_SIGNED_URL_SECONDS,
             can_moderate_platform: platformAdmin,
           })
         );
@@ -226,6 +282,7 @@ export async function handler(event) {
       if (action === "comments") {
         const postId = String(event.queryStringParameters?.post_id || "");
         if (!postId) return json(400, { error: "post_id is required." });
+        await requireActivePost(client, postId);
         const { data, error } = await client
           .from("florist_community_comments")
           .select("id,post_id,author_user_id,shop_id,body,status,created_at")
@@ -237,10 +294,7 @@ export async function handler(event) {
           if (missingRelation(error)) friendlyMissing();
           throw error;
         }
-        const withAuthors = await attachAuthors(
-          client,
-          (data || []).map((c) => ({ ...c, author_user_id: c.author_user_id }))
-        );
+        const withAuthors = await attachAuthors(client, data || []);
         const { data: post } = await client
           .from("florist_community_posts")
           .select("id,shop_id,author_user_id")
@@ -275,9 +329,11 @@ export async function handler(event) {
         200,
         assertCommunitySafePayload({
           beta: true,
+          enabled: true,
           profile: publicProfile(profile),
           guidelines: COMMUNITY_GUIDELINES,
           categories: COMMUNITY_CATEGORIES,
+          image_signed_url_seconds: COMMUNITY_SIGNED_URL_SECONDS,
           items,
         })
       );
@@ -326,6 +382,8 @@ export async function handler(event) {
         body: v.sanitized.body,
         image_path: imagePath,
         status: "active",
+        like_count: 0,
+        comment_count: 0,
       };
       const { data, error } = await client
         .from("florist_community_posts")
@@ -339,13 +397,15 @@ export async function handler(event) {
         throw error;
       }
       const profile = await loadProfile(client, user.id);
+      const signed = await signedImageUrl(client, data.image_path);
       return json(201, {
         item: publicPost(
           { ...data, author: profile },
           {
             isMine: true,
             canModerate: true,
-            imageUrl: imageUrlFor(data.image_path),
+            imageUrl: signed.url,
+            imageExpiresIn: signed.expiresIn,
           }
         ),
       });
@@ -356,7 +416,7 @@ export async function handler(event) {
       if (!id) return json(400, { error: "Post id is required." });
       const { data: existing, error: ge } = await client
         .from("florist_community_posts")
-        .select("*")
+        .select("id,author_user_id,shop_id,category,caption,body,image_path,status")
         .eq("id", id)
         .maybeSingle();
       if (ge) throw ge;
@@ -370,6 +430,7 @@ export async function handler(event) {
         body: body.body ?? existing.body,
       });
       if (!v.valid) return json(400, { error: v.errors.join(" ") });
+      // Only editable content fields — never counters/status/ownership
       const patch = {
         category: v.sanitized.category,
         caption: v.sanitized.caption,
@@ -391,10 +452,15 @@ export async function handler(event) {
         )
         .single();
       if (error) throw error;
+      const signed = await signedImageUrl(client, data.image_path);
       return json(200, {
         item: publicPost(
           { ...data, author: await loadProfile(client, user.id) },
-          { isMine: true, imageUrl: imageUrlFor(data.image_path) }
+          {
+            isMine: true,
+            imageUrl: signed.url,
+            imageExpiresIn: signed.expiresIn,
+          }
         ),
       });
     }
@@ -420,11 +486,12 @@ export async function handler(event) {
           .eq("author_user_id", user.id);
         if (error) throw error;
       } else {
-        const { error } = await client
-          .from("florist_community_posts")
-          .update({ status: "removed", updated_at: new Date().toISOString() })
-          .eq("id", id);
+        const { data: modResult, error } = await client.rpc("florist_community_moderate_post", {
+          p_post_id: id,
+          p_status: "removed",
+        });
         if (error) throw error;
+        return json(200, { ok: true, ...(modResult || {}) });
       }
       return json(200, { ok: true });
     }
@@ -432,55 +499,21 @@ export async function handler(event) {
     if (action === "toggle_like") {
       const postId = String(body.post_id || "");
       if (!postId) return json(400, { error: "post_id is required." });
-      const { data: existing } = await client
-        .from("florist_community_likes")
-        .select("post_id")
-        .eq("post_id", postId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (existing) {
-        const { error } = await client
-          .from("florist_community_likes")
-          .delete()
-          .eq("post_id", postId)
-          .eq("user_id", user.id);
-        if (error) throw error;
-        await client.rpc("florist_community_adjust_like_count", { p_post_id: postId, p_delta: -1 }).then(
-          () => {},
-          async () => {
-            const { data: post } = await client
-              .from("florist_community_posts")
-              .select("like_count")
-              .eq("id", postId)
-              .maybeSingle();
-            if (post) {
-              await client
-                .from("florist_community_posts")
-                .update({ like_count: Math.max(0, Number(post.like_count || 0) - 1) })
-                .eq("id", postId);
-            }
-          }
-        );
-        return json(200, { liked: false });
-      }
-      const { error } = await client.from("florist_community_likes").insert({
-        post_id: postId,
-        user_id: user.id,
-        shop_id: shopId,
+      const { data, error } = await client.rpc("florist_community_toggle_like", {
+        p_post_id: postId,
+        p_shop_id: shopId,
       });
-      if (error) throw error;
-      const { data: post } = await client
-        .from("florist_community_posts")
-        .select("like_count")
-        .eq("id", postId)
-        .maybeSingle();
-      if (post) {
-        await client
-          .from("florist_community_posts")
-          .update({ like_count: Number(post.like_count || 0) + 1 })
-          .eq("id", postId);
+      if (error) {
+        if (missingRelation(error)) friendlyMissing();
+        const msg = String(error.message || "");
+        if (/not available|P0002/i.test(msg)) return json(404, { error: "This post is not available." });
+        if (/membership|42501|authenticated/i.test(msg)) return json(403, { error: msg });
+        throw error;
       }
-      return json(200, { liked: true });
+      return json(200, {
+        liked: Boolean(data?.liked),
+        like_count: Number(data?.like_count || 0),
+      });
     }
 
     if (action === "add_comment") {
@@ -488,6 +521,7 @@ export async function handler(event) {
       const v = validateCommentBody(body);
       if (!postId) return json(400, { error: "post_id is required." });
       if (!v.valid) return json(400, { error: v.errors.join(" ") });
+      await requireActivePost(client, postId);
       await ensureDefaultProfile(client, ctx);
       const { data, error } = await client
         .from("florist_community_comments")
@@ -504,23 +538,9 @@ export async function handler(event) {
         if (missingRelation(error)) friendlyMissing();
         throw error;
       }
-      const { data: post } = await client
-        .from("florist_community_posts")
-        .select("comment_count")
-        .eq("id", postId)
-        .maybeSingle();
-      if (post) {
-        await client
-          .from("florist_community_posts")
-          .update({ comment_count: Number(post.comment_count || 0) + 1 })
-          .eq("id", postId);
-      }
       const profile = await loadProfile(client, user.id);
       return json(201, {
-        item: publicComment(
-          { ...data, author: profile },
-          { isMine: true }
-        ),
+        item: publicComment({ ...data, author: profile }, { isMine: true }),
       });
     }
 
@@ -551,17 +571,6 @@ export async function handler(event) {
           .eq("id", id);
         if (error) throw error;
       }
-      const { data: post } = await client
-        .from("florist_community_posts")
-        .select("comment_count")
-        .eq("id", existing.post_id)
-        .maybeSingle();
-      if (post) {
-        await client
-          .from("florist_community_posts")
-          .update({ comment_count: Math.max(0, Number(post.comment_count || 0) - 1) })
-          .eq("id", existing.post_id);
-      }
       return json(200, { ok: true });
     }
 
@@ -570,49 +579,48 @@ export async function handler(event) {
       const v = validateReportBody(body);
       if (!postId) return json(400, { error: "post_id is required." });
       if (!v.valid) return json(400, { error: v.errors.join(" ") });
-      const { error } = await client.from("florist_community_reports").upsert(
-        {
-          post_id: postId,
-          reporter_user_id: user.id,
-          reporter_shop_id: shopId,
-          reason: v.sanitized.reason,
-          status: "open",
-        },
-        { onConflict: "post_id,reporter_user_id" }
-      );
+      const { data, error } = await client.rpc("florist_community_report_post", {
+        p_post_id: postId,
+        p_shop_id: shopId,
+        p_reason: v.sanitized.reason,
+      });
       if (error) {
         if (missingRelation(error)) friendlyMissing();
+        const msg = String(error.message || "");
+        if (/not available|P0002/i.test(msg)) return json(404, { error: "This post is not available." });
         throw error;
       }
-      return json(200, { ok: true, message: "Thanks — moderators will review this post." });
+      return json(200, {
+        ok: true,
+        already_reported: Boolean(data?.already_reported),
+        message: data?.message || "Thanks — moderators will review this post.",
+      });
     }
 
     if (action === "moderate_hide" || action === "moderate_remove") {
       const id = String(body.id || body.post_id || "");
       if (!id) return json(400, { error: "Post id is required." });
-      const { data: existing, error: ge } = await client
-        .from("florist_community_posts")
-        .select("id,shop_id,author_user_id,status")
-        .eq("id", id)
-        .maybeSingle();
-      if (ge) throw ge;
-      if (!existing) return json(404, { error: "Post not found." });
-      if (!moderatorForPost(ctx, existing, platformAdmin)) {
-        return json(403, { error: "Moderation requires a shop manager for this shop or a platform admin." });
-      }
       const status = action === "moderate_remove" ? "removed" : "hidden";
-      const { error } = await client
-        .from("florist_community_posts")
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
+      const { data, error } = await client.rpc("florist_community_moderate_post", {
+        p_post_id: id,
+        p_status: status,
+      });
+      if (error) {
+        if (missingRelation(error)) friendlyMissing();
+        const msg = String(error.message || "");
+        if (/Not authorized|42501/i.test(msg)) {
+          return json(403, { error: "Moderation requires a shop manager for this shop or a platform admin." });
+        }
+        if (/not found|P0002/i.test(msg)) return json(404, { error: "Post not found." });
+        throw error;
+      }
       if (platformAdmin && body.report_id) {
         await client
           .from("florist_community_reports")
           .update({ status: "reviewed" })
           .eq("id", body.report_id);
       }
-      return json(200, { ok: true, status });
+      return json(200, { ok: true, status: data?.status || status });
     }
 
     return json(400, { error: "Unknown community action." });
