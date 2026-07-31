@@ -22,6 +22,7 @@ import {
 import {
   uploadPrevalidatedCommunityImage,
   removeCommunityImageQuietly,
+  reconcileCommunityImageAfterWriteError,
 } from "./_shared/florist-community-storage.js";
 
 function featureGate() {
@@ -476,7 +477,8 @@ export async function handler(event) {
         )
         .single();
       if (error) {
-        if (uploadedPath) await removeCommunityImageQuietly(client, uploadedPath);
+        // Ambiguous write: commit may have succeeded despite a failed response.
+        if (uploadedPath) await reconcileCommunityImageAfterWriteError(client, uploadedPath);
         if (missingRelation(error)) friendlyMissing();
         throw error;
       }
@@ -544,8 +546,8 @@ export async function handler(event) {
         )
         .single();
       if (error) {
-        // Never delete the previous image before DB success; roll back the new object only.
-        if (uploadedPath) await removeCommunityImageQuietly(client, uploadedPath);
+        // Ambiguous write: never delete previous image; reconcile new object only if unreferenced.
+        if (uploadedPath) await reconcileCommunityImageAfterWriteError(client, uploadedPath);
         throw error;
       }
       if (uploadedPath && previousPath && previousPath !== uploadedPath) {
