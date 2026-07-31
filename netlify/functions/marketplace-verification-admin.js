@@ -1,5 +1,5 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
-import { platformAdmin, writeAdminAudit, requireSuperAdmin, platformAdminErrorResponse } from "./_shared/platform-admin.js";
+import { platformAdmin, writeAdminAudit, requireSuperAdmin, platformAdminErrorResponse, platformAdminError } from "./_shared/platform-admin.js";
 import {
   TABLE,
   ADMIN_REVIEW_DECISIONS,
@@ -118,9 +118,7 @@ export async function handler(event) {
     return methodNotAllowed();
   } catch (error) {
     if (isMissingVerificationTableError(error)) {
-      error.statusCode = 503;
-      error.message =
-        "Marketplace verification tables are not available yet. Apply the marketplace verification migration in Supabase.";
+      throw platformAdminError("verification_schema_unavailable");
     }
     return platformAdminErrorResponse(event, error);
   }

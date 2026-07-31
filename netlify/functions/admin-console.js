@@ -1,5 +1,5 @@
 import { json } from './_shared/saas.js';
-import { platformAdmin, writeAdminAudit, requireSuperAdmin, platformAdminErrorResponse } from './_shared/platform-admin.js';
+import { platformAdmin, writeAdminAudit, requireSuperAdmin, platformAdminErrorResponse, platformAdminError } from './_shared/platform-admin.js';
 
 const safeObject = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
@@ -47,7 +47,7 @@ export async function handler(event) {
 
     if (event.httpMethod === 'GET' && action === 'shop') {
       const shopId = event.queryStringParameters?.shopId;
-      if (!shopId) throw Object.assign(new Error('shopId is required'), { statusCode: 400 });
+      if (!shopId) throw platformAdminError('missing_shop_id');
       const [shopRes, configRes, membersRes, auditRes] = await Promise.all([
         client.from('shops').select('*').eq('id', shopId).single(),
         client.from('shop_admin_config').select('*').eq('shop_id', shopId).maybeSingle(),
@@ -75,7 +75,7 @@ export async function handler(event) {
       return json(200,{ok:true});
     }
     const shopId = body.shopId;
-    if (!shopId) throw Object.assign(new Error('shopId is required'), { statusCode: 400 });
+    if (!shopId) throw platformAdminError('missing_shop_id');
 
     if (action === 'save-config') {
       requireSuperAdmin(admin);

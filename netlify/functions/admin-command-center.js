@@ -1,5 +1,5 @@
 import { json } from "./_shared/saas.js";
-import { platformAdmin, writeCommandAudit, requireSuperAdmin, platformAdminErrorResponse } from "./_shared/platform-admin.js";
+import { platformAdmin, writeCommandAudit, requireSuperAdmin, platformAdminErrorResponse, platformAdminError } from "./_shared/platform-admin.js";
 import {
   auditRecordFromRow,
   buildMonthlySeries,
