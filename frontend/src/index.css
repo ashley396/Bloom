@@ -3,46 +3,108 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
+  /* Typography */
   --font-sans: "DM Sans", system-ui, -apple-system, sans-serif;
   --font-serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
 
+  /* Warm neutrals */
   --color-warm-white: #fffcf8;
   --color-warm-cream: #faf6ef;
   --color-warm-cream-deep: #f3ece3;
   --color-warm-ivory: #fff9f2;
 
+  /* Blush — primary accent */
   --color-blush-50: #fdf5f7;
   --color-blush-100: #faeef2;
   --color-blush-400: #e8b4c4;
   --color-blush-500: #d4a0b0;
   --color-blush-600: #b88494;
 
-  --color-sage-pale: #eef2ed;
-  --color-sage-soft: #dde6dc;
-  --color-sage-muted: #7a9182;
-  --color-sage-ink: #5a6b60;
+  /* Sage — secondary / labels */
+  --color-sage-50: #f4f7f4;
+  --color-sage-100: #eef2ed;
+  --color-sage-200: #dde6dc;
+  --color-sage-300: #c5d4c6;
+  --color-sage-400: #9bb09f;
+  --color-sage-500: #7a9182;
+  --color-sage-600: #5a6b60;
+  --color-sage-700: #465349;
+  --color-sage-800: #343e38;
+  --color-sage-900: #252c28;
+  --color-sage-pale: var(--color-sage-100);
+  --color-sage-soft: var(--color-sage-200);
+  --color-sage-muted: var(--color-sage-500);
+  --color-sage-ink: var(--color-sage-600);
 
+  /* Hydrangea — info tints */
   --color-hydrangea-pale: #eef2f7;
   --color-hydrangea-soft: #dce6f0;
 
+  /* Charcoal — text hierarchy */
   --color-charcoal: #2c2826;
   --color-charcoal-muted: #5a534e;
   --color-charcoal-subtle: #8a8178;
 
-  --color-florisyn-border: rgb(44 40 38 / 0.07);
+  /* Semantic status */
+  --color-success: #5a7d62;
+  --color-success-soft: #e8f0ea;
+  --color-warning: #9a7b4f;
+  --color-warning-soft: #f5efe4;
+  --color-destructive: #b85c5c;
+  --color-destructive-soft: #faeaea;
+  --color-info: #5a7291;
+  --color-info-soft: var(--color-hydrangea-pale);
 
+  /* Florisyn semantic aliases */
+  --color-florisyn-border: rgb(44 40 38 / 0.07);
+  --color-florisyn-border-strong: rgb(44 40 38 / 0.12);
   --color-florisyn-cream: var(--color-warm-cream);
   --color-florisyn-ink: var(--color-charcoal);
   --color-florisyn-muted: var(--color-charcoal-muted);
   --color-florisyn-surface: var(--color-warm-white);
+  --color-florisyn-primary: var(--color-blush-500);
+  --color-florisyn-primary-hover: var(--color-blush-600);
+  --color-florisyn-secondary: var(--color-sage-pale);
+  --color-florisyn-accent: var(--color-sage-ink);
+  --color-florisyn-ring: var(--color-blush-500);
 
+  /* Legacy aliases used in charts / media */
+  --color-florisyn-sage-50: var(--color-sage-50);
+  --color-florisyn-sage-100: var(--color-sage-100);
+  --color-florisyn-sage-500: var(--color-sage-500);
+  --color-florisyn-sage-700: var(--color-sage-700);
+  --color-florisyn-sage-900: var(--color-sage-900);
+  --color-sage: var(--color-sage-500);
+
+  /* Radii */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
   --radius-xl: 1rem;
   --radius-2xl: 1.375rem;
   --radius-3xl: 1.75rem;
 
+  /* Shadows */
+  --shadow-soft: var(--shadow-card);
   --shadow-card: 0 1px 2px rgb(44 40 38 / 0.03), 0 8px 32px -12px rgb(44 40 38 / 0.07);
   --shadow-card-hover: 0 2px 6px rgb(44 40 38 / 0.04), 0 16px 40px -12px rgb(44 40 38 / 0.1);
   --shadow-elevated: 0 4px 24px -8px rgb(44 40 38 / 0.12);
+  --shadow-dialog: 0 8px 40px -12px rgb(44 40 38 / 0.18);
+
+  /* Spacing scale (reference — use Tailwind spacing in components) */
+  --spacing-touch: 2.75rem;
+  --spacing-page-x: 1.25rem;
+  --spacing-page-y: 2rem;
+  --spacing-section: 3rem;
+  --spacing-card-sm: 1.5rem;
+  --spacing-card-md: 1.75rem;
+  --spacing-card-lg: 2rem;
+
+  /* Z-index layers */
+  --z-dropdown: 50;
+  --z-sticky: 100;
+  --z-dialog: 200;
+  --z-toast: 300;
 }
 
 @layer base {
@@ -54,10 +116,24 @@
     color-scheme: dark;
     --color-warm-cream: #1a1816;
     --color-warm-white: #242220;
+    --color-warm-cream-deep: #2e2a27;
+    --color-warm-ivory: #2a2724;
     --color-charcoal: #f5f2ef;
     --color-charcoal-muted: #c9c4be;
+    --color-charcoal-subtle: #9a948c;
     --color-florisyn-border: rgb(255 255 255 / 0.08);
+    --color-florisyn-border-strong: rgb(255 255 255 / 0.14);
+    --color-sage-pale: #2a302c;
+    --color-sage-soft: #343e38;
+    --color-sage-ink: #b8c4bb;
+    --color-success-soft: rgb(90 125 98 / 0.15);
+    --color-warning-soft: rgb(154 123 79 / 0.15);
+    --color-destructive-soft: rgb(184 92 92 / 0.15);
+    --color-info-soft: rgb(90 114 145 / 0.15);
     --shadow-card: 0 1px 2px rgb(0 0 0 / 0.2), 0 12px 40px -16px rgb(0 0 0 / 0.45);
+    --shadow-card-hover: 0 4px 12px rgb(0 0 0 / 0.25), 0 20px 48px -16px rgb(0 0 0 / 0.5);
+    --shadow-elevated: 0 8px 32px -12px rgb(0 0 0 / 0.55);
+    --shadow-dialog: 0 16px 48px -12px rgb(0 0 0 / 0.6);
   }
 
   html {
@@ -88,16 +164,92 @@
 }
 
 @layer utilities {
+  /* Typography scale */
   .font-serif-display {
     font-family: var(--font-serif);
     letter-spacing: -0.025em;
     font-feature-settings: "liga" 1, "kern" 1;
   }
 
+  .text-display-lg {
+    font-family: var(--font-serif);
+    letter-spacing: -0.025em;
+    font-feature-settings: "liga" 1, "kern" 1;
+    font-size: 2.25rem;
+    line-height: 1.15;
+    font-weight: 500;
+    color: var(--color-charcoal);
+  }
+
+  @media (min-width: 768px) {
+    .text-display-lg {
+      font-size: 3rem;
+    }
+  }
+
+  .text-display-md {
+    font-family: var(--font-serif);
+    letter-spacing: -0.025em;
+    font-feature-settings: "liga" 1, "kern" 1;
+    font-size: 1.875rem;
+    line-height: 1.2;
+    font-weight: 500;
+    color: var(--color-charcoal);
+  }
+
+  @media (min-width: 768px) {
+    .text-display-md {
+      font-size: 2.25rem;
+    }
+  }
+
+  .text-heading-lg {
+    font-family: var(--font-serif);
+    letter-spacing: -0.025em;
+    font-size: 1.5rem;
+    line-height: 1.3;
+    font-weight: 500;
+    color: var(--color-charcoal);
+  }
+
+  .text-heading-md {
+    font-family: var(--font-serif);
+    letter-spacing: -0.025em;
+    font-size: 1.25rem;
+    line-height: 1.35;
+    font-weight: 500;
+    color: var(--color-charcoal);
+  }
+
+  .text-heading-sm {
+    font-size: 1.125rem;
+    line-height: 1.35;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--color-charcoal);
+  }
+
+  .text-body {
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .text-body-sm {
+    font-size: 0.875rem;
+    line-height: 1.625;
+  }
+
+  .text-caption {
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--color-charcoal-muted);
+  }
+
   .text-label {
     @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-sage-ink;
   }
 
+  /* Surfaces & motion */
   .surface-lift {
     @apply motion-safe:transition-[transform,box-shadow] motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-card-hover;
   }
@@ -117,6 +269,21 @@
     }
   }
 
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  .animate-dialog-in {
+    @apply motion-safe:animate-[dialog-in_0.2s_ease-out_both] motion-reduce:animate-none;
+  }
+
   .shadow-card {
     box-shadow: var(--shadow-card);
   }
@@ -129,7 +296,20 @@
     box-shadow: var(--shadow-elevated);
   }
 
+  .shadow-dialog {
+    box-shadow: var(--shadow-dialog);
+  }
+
   .motion-safe-transition {
-    @apply motion-safe:transition-[transform,opacity,box-shadow,background-color] motion-safe:duration-200 motion-safe:ease-out;
+    @apply motion-safe:transition-[transform,opacity,box-shadow,background-color,border-color] motion-safe:duration-200 motion-safe:ease-out;
+  }
+
+  /* Page layout helpers */
+  .page-container {
+    @apply mx-auto w-full max-w-6xl px-5 py-8 md:px-10 md:py-10 lg:px-12 lg:py-12;
+  }
+
+  .section-stack {
+    @apply space-y-12 lg:space-y-16;
   }
 }

@@ -1,17 +1,19 @@
 import type { ReactNode } from "react";
-import { cn } from "../../lib/utils";
+import { cn } from "@/lib/utils";
 
 type SectionHeaderProps = {
   title: string;
   description?: string;
   action?: ReactNode;
   className?: string;
+  eyebrow?: string;
 };
 
 export function SectionHeader({
   title,
   description,
   action,
+  eyebrow,
   className,
 }: SectionHeaderProps) {
   return (
@@ -22,13 +24,10 @@ export function SectionHeader({
       )}
     >
       <div className="max-w-xl">
-        <h2 className="font-display text-xl font-semibold tracking-tight text-florisyn-ink md:text-2xl">
-          {title}
-        </h2>
+        {eyebrow ? <p className="text-label mb-2">{eyebrow}</p> : null}
+        <h2 className="text-heading-md">{title}</h2>
         {description ? (
-          <p className="mt-1.5 text-sm leading-relaxed text-florisyn-muted md:text-[15px]">
-            {description}
-          </p>
+          <p className="mt-1.5 text-body-sm text-charcoal-muted">{description}</p>
         ) : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
