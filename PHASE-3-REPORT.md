@@ -4,7 +4,7 @@
 **Branch:** `beta/august10-stabilization`  
 **Base:** `main` @ `eb690beb0c138db504cd897ef497a9e54c462a4b`  
 **Starting commit:** `eb690be` — Merge PR #11 (Foundation + Daily Loop v3)  
-**Ending commit:** `a2ce2bd` (branch tip; docs report body at `8935bee`)
+**Ending commit:** `17d87a7`
 
 **Constraints honored:**
 - Did not work directly on `main`
@@ -23,7 +23,8 @@
 2. `077204d` — `feat(community): Beta UI, nav wiring, and COMMUNITY_BETA flag`
 3. `2149fc8` — `test(community): beta coverage, smoke script, and production checklist`
 4. `8935bee` — `docs: Phase 3 August 10 stabilization report`
-5. `a2ce2bd` — `docs: pin Phase 3 ending commit to docs report SHA`
+5. `bdc0aed` — `docs: pin Phase 3 ending commit to docs report SHA`
+6. `17d87a7` — `docs: set Phase 3 ending commit to branch tip bdc0aed`
 
 ---
 
