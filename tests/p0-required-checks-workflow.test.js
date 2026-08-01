@@ -138,8 +138,15 @@ test("P0 required-checks runs root audit and frontend security policy without su
 });
 
 // ---------------------------------------------------------------------------
-// Frontend security policy (P0-03 R1)
+// Frontend security policy (P0-03 R1 / R2)
 // ---------------------------------------------------------------------------
+
+function cleanAudit() {
+  return {
+    vulnerabilities: {},
+    metadata: { vulnerabilities: { high: 0, critical: 0, total: 0 } }
+  };
+}
 
 test("policy allows exact approved advisory under approved conditions", () => {
   const result = evaluateFrontendSecurityPolicy({
@@ -333,15 +340,63 @@ test("policy fails after 2026-08-15", () => {
 test("policy passes zero-high audit without using the exception", () => {
   const result = evaluateFrontendSecurityPolicy({
     ...baseContext(),
-    audit: {
-      vulnerabilities: {},
-      metadata: { vulnerabilities: { high: 0, critical: 0, total: 0 } }
-    }
+    audit: cleanAudit()
   });
   assert.equal(result.ok, true);
   assert.equal(result.exceptionActive, false);
   assert.match(result.message, /no high or critical vulnerabilities/i);
   assert.doesNotMatch(result.message, /Temporary frontend security exception active/);
+});
+
+test("R2: zero-high audit passes after 2026-08-15 without exception gates", () => {
+  const result = evaluateFrontendSecurityPolicy({
+    ...baseContext({ now: new Date("2026-08-16T00:00:00.000Z") }),
+    audit: cleanAudit()
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.exceptionActive, false);
+  assert.match(result.message, /no high or critical vulnerabilities/i);
+});
+
+test("R2: zero-high audit passes with a different safely resolved router version", () => {
+  const result = evaluateFrontendSecurityPolicy({
+    ...baseContext({
+      frontendPackageJson: approvedPackageJson("8.3.0"),
+      frontendLockfile: approvedLockfile("8.3.0")
+    }),
+    audit: cleanAudit()
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.exceptionActive, false);
+});
+
+test("R2: zero-high audit passes if frontend/dist is published", () => {
+  const result = evaluateFrontendSecurityPolicy({
+    ...baseContext({ netlifyToml: 'publish = "frontend/dist"\n' }),
+    audit: cleanAudit()
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.exceptionActive, false);
+});
+
+test("R2: zero-high audit passes when RSC/server-router code or dependencies exist", () => {
+  const result = evaluateFrontendSecurityPolicy({
+    ...baseContext({
+      frontendPackageJson: {
+        dependencies: {
+          "react-router-dom": "8.3.0",
+          "react-server-dom-webpack": "19.0.0"
+        }
+      },
+      frontendLockfile: approvedLockfile("8.3.0"),
+      frontendSourceFiles: [
+        { path: "frontend/src/server.tsx", content: 'import { ServerRouter } from "react-router";\n' }
+      ]
+    }),
+    audit: cleanAudit()
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.exceptionActive, false);
 });
 
 test("live script accepts current frontend audit under temporary exception", () => {

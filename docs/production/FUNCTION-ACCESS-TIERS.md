@@ -114,6 +114,7 @@ non-Postgres unit suite (`tests/platform-admin-authorization-boundary.test.js`) 
 Frontend dependency auditing uses `scripts/audit-frontend-security.mjs`: root audit stays at
 zero high/critical findings; frontend temporarily allows only `GHSA-qwww-vcr4-c8h2` for
 `react-router` / `react-router-dom@7.18.2` under non-RSC / `publish=public` conditions until
-**2026-08-15** (UTC) or React production migration, whichever is first. Review owner:
-Technical Director. These are automated checks — not confirmed here as branch-protection
-required status checks.
+**2026-08-15** (UTC) or React production migration, whichever is first. Exception lifecycle
+(P0-03 R2): those gates run only when the approved advisory is present; clean audits pass
+without them. Review owner: Technical Director. These are automated checks — not confirmed
+here as branch-protection required status checks.

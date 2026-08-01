@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 /**
- * P0-03 R1 — Strict temporary frontend dependency security policy.
+ * P0-03 R1 / R2 — Strict temporary frontend dependency security policy.
  *
  * Allows only GHSA-qwww-vcr4-c8h2 for react-router / react-router-dom @ 7.18.2
  * under non-RSC, unpublished-preview conditions. Expires 2026-08-15.
+ *
+ * Exception gates (version / expiry / publish / RSC) run only when that
+ * approved advisory is present. Clean audits pass without those restrictions.
  *
  * Not a general allowlist. Review owner: Technical Director.
  */
@@ -118,25 +121,53 @@ function utcDateString(date) {
   return d.toISOString().slice(0, 10);
 }
 
-/**
- * Pure policy evaluator — injectable for tests.
- * @returns {{ ok: true, exceptionActive: boolean, message: string } | never throws}
- */
-export function evaluateFrontendSecurityPolicy({
-  audit,
-  now = new Date(),
-  netlifyToml = "",
-  frontendPackageJson = {},
-  frontendLockfile = {},
-  frontendSourceFiles = []
-} = {}) {
-  if (audit == null || typeof audit !== "object" || Array.isArray(audit)) {
-    throw fail("Frontend audit JSON is missing or malformed.");
-  }
-  if (!audit.vulnerabilities || typeof audit.vulnerabilities !== "object") {
-    throw fail("Frontend audit JSON is missing a vulnerabilities object.");
+function collectHighOrCriticalFindings(vulns) {
+  const highOrCritical = [];
+
+  for (const [packageName, entry] of Object.entries(vulns)) {
+    const severity = String(entry?.severity || "").toLowerCase();
+    if (severity !== "high" && severity !== "critical") continue;
+
+    const advisories = collectAdvisoriesForPackage(vulns, packageName);
+    if (!advisories.length) {
+      // Package marked high/critical but no resolvable advisory objects after via walk.
+      highOrCritical.push({
+        packageName,
+        severity,
+        id: null,
+        title: "unresolved high/critical vulnerability entry"
+      });
+      continue;
+    }
+    for (const adv of advisories) {
+      highOrCritical.push({
+        packageName,
+        severity: adv.severity || severity,
+        id: adv.id,
+        title: adv.title,
+        url: adv.url
+      });
+    }
   }
 
+  const unique = [];
+  const seenKeys = new Set();
+  for (const item of highOrCritical) {
+    const key = `${item.packageName}|${item.id || item.title}`;
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    unique.push(item);
+  }
+  return unique;
+}
+
+function assertApprovedExceptionGates({
+  now,
+  netlifyToml,
+  frontendPackageJson,
+  frontendLockfile,
+  frontendSourceFiles
+}) {
   const today = utcDateString(now);
   if (today > EXCEPTION_EXPIRES_ON) {
     throw fail(
@@ -177,45 +208,28 @@ export function evaluateFrontendSecurityPolicy({
       [`declared=${declared}`]
     );
   }
+}
 
-  const vulns = audit.vulnerabilities;
-  const highOrCritical = [];
-
-  for (const [packageName, entry] of Object.entries(vulns)) {
-    const severity = String(entry?.severity || "").toLowerCase();
-    if (severity !== "high" && severity !== "critical") continue;
-
-    const advisories = collectAdvisoriesForPackage(vulns, packageName);
-    if (!advisories.length) {
-      // Package marked high/critical but no resolvable advisory objects after via walk.
-      highOrCritical.push({
-        packageName,
-        severity,
-        id: null,
-        title: "unresolved high/critical vulnerability entry"
-      });
-      continue;
-    }
-    for (const adv of advisories) {
-      highOrCritical.push({
-        packageName,
-        severity: adv.severity || severity,
-        id: adv.id,
-        title: adv.title,
-        url: adv.url
-      });
-    }
+/**
+ * Pure policy evaluator — injectable for tests.
+ * @returns {{ ok: true, exceptionActive: boolean, message: string } | never throws}
+ */
+export function evaluateFrontendSecurityPolicy({
+  audit,
+  now = new Date(),
+  netlifyToml = "",
+  frontendPackageJson = {},
+  frontendLockfile = {},
+  frontendSourceFiles = []
+} = {}) {
+  if (audit == null || typeof audit !== "object" || Array.isArray(audit)) {
+    throw fail("Frontend audit JSON is missing or malformed.");
+  }
+  if (!audit.vulnerabilities || typeof audit.vulnerabilities !== "object") {
+    throw fail("Frontend audit JSON is missing a vulnerabilities object.");
   }
 
-  // Deduplicate by package+advisory id
-  const unique = [];
-  const seenKeys = new Set();
-  for (const item of highOrCritical) {
-    const key = `${item.packageName}|${item.id || item.title}`;
-    if (seenKeys.has(key)) continue;
-    seenKeys.add(key);
-    unique.push(item);
-  }
+  const unique = collectHighOrCriticalFindings(audit.vulnerabilities);
 
   if (!unique.length) {
     return {
@@ -249,6 +263,14 @@ export function evaluateFrontendSecurityPolicy({
   }
 
   if (approvedHits > 0) {
+    // Exception-only gates apply only when the approved advisory is actually required.
+    assertApprovedExceptionGates({
+      now,
+      netlifyToml,
+      frontendPackageJson,
+      frontendLockfile,
+      frontendSourceFiles
+    });
     return {
       ok: true,
       exceptionActive: true,

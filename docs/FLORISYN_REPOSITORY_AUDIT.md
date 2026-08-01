@@ -517,8 +517,10 @@ Frontend audit truth: root audit reports zero findings; frontend temporarily acc
 because Netlify publishes `public/` (not `frontend/dist`) and the React app is client-only
 `BrowserRouter` with no RSC/server-router usage. This is **not** a claim of zero total
 vulnerabilities. Exception expires **2026-08-15** (UTC) or at React production migration,
-whichever first. Review owner: Technical Director. Automated checks only — not confirmed as
-GitHub branch-protection required checks.
+whichever first. **P0-03 R2:** exception gates apply only while that advisory is present; a
+clean high/critical-free audit does not require the pin/expiry/publish/RSC restrictions.
+Review owner: Technical Director. Automated checks only — not confirmed as GitHub
+branch-protection required checks.
 
 ---
 

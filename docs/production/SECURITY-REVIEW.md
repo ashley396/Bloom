@@ -40,6 +40,8 @@ Rationale for the temporary exception: Netlify `publish = "public"` (not `fronte
 frontend uses client-only `BrowserRouter`; no RSC/server-router entrypoints or dependencies.
 **Does not claim zero total frontend vulnerabilities.** Exception expires before React production
 migration or **2026-08-15** (UTC), whichever happens first. Review owner: Technical Director.
+**P0-03 R2:** exception gates (pin/expiry/publish/RSC) apply only when that approved advisory is
+present; a future clean high/critical-free audit passes without those restrictions.
 
 ## Recommended follow-ups (post-beta)
 
