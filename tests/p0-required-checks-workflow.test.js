@@ -42,6 +42,8 @@ test("P0 required-checks workflow provides PostgreSQL 16 and both RLS suites", (
   assert.match(src, /npm run test:floral-library-rls/);
   assert.match(src, /COMMUNITY_TEST_DATABASE_URL:/);
   assert.match(src, /FLORAL_LIBRARY_TEST_DATABASE_URL:/);
+  assert.match(src, /CREATE ROLE florisyn_test/);
+  assert.match(src, /Require both RLS suites to pass/);
 });
 
 test("P0 required-checks workflow has no deploy or production credentials", () => {
