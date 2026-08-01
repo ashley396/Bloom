@@ -1,5 +1,5 @@
 /**
- * P0-02 / P0-02 R1 / P0-02 R2 — Platform admin authorization boundary.
+ * P0-02 / P0-02 R1 / P0-02 R2 / P0-02 R3 — Platform admin authorization boundary.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -11,9 +11,13 @@ import {
   platformAdminErrorResponse,
   platformAdminError,
   getPlatformAdminRequestId,
+  parsePlatformAdminJsonBody,
   PLATFORM_ADMIN_PUBLIC_ERRORS,
   LOOKUP_FAILURE_MESSAGE,
 } from "../netlify/functions/_shared/platform-admin.js";
+import { handler as marketplaceVerificationAdminHandler } from "../netlify/functions/marketplace-verification-admin.js";
+import { handler as adminConsoleHandler } from "../netlify/functions/admin-console.js";
+import { TABLE as VERIFICATION_TABLE } from "../netlify/functions/_shared/marketplace-verification.js";
 
 const VERIFIED_USER_ID = "11111111-1111-1111-1111-111111111111";
 const ATTACKER_USER_ID = "99999999-9999-9999-9999-999999999999";
@@ -354,7 +358,7 @@ test("platformAdminError creates Florisyn-owned errors with florisynCode", () =>
   assert.equal(err.message, PLATFORM_ADMIN_PUBLIC_ERRORS.missing_shop_id.message);
 });
 
-test("platformAdminErrorResponse uses florisynCode only — ignores raw statusCode and message", () => {
+test("platformAdminErrorResponse ignores raw statusCode/message without Florisyn brand", () => {
   const event = eventWithInjectedHeaders();
   const logs = captureConsoleError(() => {
     const r401 = platformAdminErrorResponse(
@@ -375,10 +379,11 @@ test("platformAdminErrorResponse uses florisynCode only — ignores raw statusCo
   assertNoInjectionIn(logs.join(" "));
 });
 
-test("platformAdminErrorResponse returns catalog wording for approved florisynCode values", () => {
+test("platformAdminErrorResponse returns catalog wording for Florisyn-branded errors", () => {
   for (const code of [
     "unauthorized",
     "forbidden",
+    "invalid_request",
     "missing_shop_id",
     "not_found",
     "admin_lookup_unavailable",
@@ -544,7 +549,7 @@ test("every platformAdmin() call site is accounted for", () => {
 test("every endpoint explicitly requests super_admin", () => {
   for (const file of EXPECTED_PLATFORM_ADMIN_CALL_SITES) {
     const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions", file), "utf8");
-    assert.match(src, /platformAdmin\(event,\s*\["super_admin"\]\)/);
+    assert.match(src, /platformAdmin\(event,\s*\["super_admin"\](?:,\s*deps)?\)/);
   }
 });
 
@@ -553,6 +558,15 @@ test("all four handlers use platformAdminErrorResponse", () => {
     const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions", file), "utf8");
     assert.match(src, /platformAdminErrorResponse\(event,\s*error\)/);
     assert.doesNotMatch(src, /\bfail\(error\)/);
+  }
+});
+
+test("all four handlers use parsePlatformAdminJsonBody for request bodies", () => {
+  for (const file of EXPECTED_PLATFORM_ADMIN_CALL_SITES) {
+    const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions", file), "utf8");
+    assert.match(src, /parsePlatformAdminJsonBody\(event\)/);
+    assert.doesNotMatch(src, /JSON\.parse\(event\.body\)/);
+    assert.doesNotMatch(src, /\bbodyOf\(event\)/);
   }
 });
 
@@ -610,4 +624,394 @@ test("requireSuperAdmin allows super_admin and blocks others with forbidden code
     assert.equal(err.florisynCode, "forbidden");
     return true;
   });
+});
+
+// ---------------------------------------------------------------------------
+// P0-02 R3: Florisyn brand, deep catalog freeze, JSON parser, handler resolve
+// ---------------------------------------------------------------------------
+
+test("platformAdminError('forbidden') emits fixed 403 catalog response", () => {
+  const response = platformAdminErrorResponse({}, platformAdminError("forbidden"));
+  assert.equal(response.statusCode, 403);
+  assert.equal(
+    JSON.parse(response.body).error,
+    PLATFORM_ADMIN_PUBLIC_ERRORS.forbidden.message
+  );
+});
+
+test("plain object with florisynCode forbidden becomes generic 500", () => {
+  const forged = {
+    florisynCode: "forbidden",
+    statusCode: 403,
+    message: PLATFORM_ADMIN_PUBLIC_ERRORS.forbidden.message,
+  };
+  const logs = captureConsoleError(() => {
+    const response = platformAdminErrorResponse(eventWithInjectedHeaders(), forged);
+    assert.equal(response.statusCode, 500);
+    assert.equal(JSON.parse(response.body).error, PLATFORM_ADMIN_PUBLIC_ERRORS.unexpected.message);
+    assertNoInjectionIn(response.body);
+  });
+  assertNoInjectionIn(logs.join(" "));
+});
+
+test("provider Error with forged florisynCode server_key_missing becomes generic 500", () => {
+  const providerErr = Object.assign(
+    new Error(`${INJECTED.rawMessage} ${INJECTED.token} ${INJECTED.url}`),
+    {
+      florisynCode: "server_key_missing",
+      statusCode: 503,
+      code: INJECTED.providerCode,
+      details: INJECTED.path,
+      hint: INJECTED.hostname,
+      stack: INJECTED.stack,
+    }
+  );
+  const logs = captureConsoleError(() => {
+    const response = platformAdminErrorResponse(eventWithInjectedHeaders(), providerErr);
+    assert.equal(response.statusCode, 500);
+    assert.equal(JSON.parse(response.body).error, PLATFORM_ADMIN_PUBLIC_ERRORS.unexpected.message);
+    assertNoInjectionIn(response.body);
+  });
+  const parsed = JSON.parse(logs[0]);
+  assert.equal(parsed.event, "platform_admin_handler_error");
+  assert.equal(parsed.status, 500);
+  assert.equal(parsed.category, "platform_admin_internal");
+  assert.match(parsed.requestId, UUID_RE);
+  assertNoInjectionIn(logs.join(" "));
+});
+
+test("private Florisyn error brand is not exported from platform-admin module", async () => {
+  const mod = await import("../netlify/functions/_shared/platform-admin.js");
+  for (const key of Object.keys(mod)) {
+    assert.doesNotMatch(key, /brand|symbol|WeakSet|FLORISYN_PLATFORM/i);
+  }
+  const err = platformAdminError("forbidden");
+  assert.equal(Object.getOwnPropertySymbols(err).length, 0);
+});
+
+test("public error catalog is deeply frozen", () => {
+  assert.equal(Object.isFrozen(PLATFORM_ADMIN_PUBLIC_ERRORS), true);
+  assert.equal(Object.isFrozen(PLATFORM_ADMIN_PUBLIC_ERRORS.forbidden), true);
+  assert.equal(Object.isFrozen(PLATFORM_ADMIN_PUBLIC_ERRORS.verification_schema_unavailable), true);
+  assert.equal(Object.isFrozen(PLATFORM_ADMIN_PUBLIC_ERRORS.unexpected), true);
+
+  const originalForbidden = PLATFORM_ADMIN_PUBLIC_ERRORS.forbidden.message;
+  const originalStatus = PLATFORM_ADMIN_PUBLIC_ERRORS.forbidden.status;
+  const originalVerification = PLATFORM_ADMIN_PUBLIC_ERRORS.verification_schema_unavailable.message;
+
+  assert.throws(() => {
+    PLATFORM_ADMIN_PUBLIC_ERRORS.forbidden.message = "HACKED FORBIDDEN";
+  }, TypeError);
+  assert.throws(() => {
+    PLATFORM_ADMIN_PUBLIC_ERRORS.forbidden.status = 200;
+  }, TypeError);
+  assert.throws(() => {
+    PLATFORM_ADMIN_PUBLIC_ERRORS.verification_schema_unavailable.message = "HACKED";
+  }, TypeError);
+
+  assert.equal(PLATFORM_ADMIN_PUBLIC_ERRORS.forbidden.message, originalForbidden);
+  assert.equal(PLATFORM_ADMIN_PUBLIC_ERRORS.forbidden.status, originalStatus);
+  assert.equal(
+    PLATFORM_ADMIN_PUBLIC_ERRORS.verification_schema_unavailable.message,
+    originalVerification
+  );
+
+  const response = platformAdminErrorResponse({}, platformAdminError("forbidden"));
+  assert.equal(response.statusCode, 403);
+  assert.equal(JSON.parse(response.body).error, originalForbidden);
+});
+
+test("parsePlatformAdminJsonBody matrix: empty, valid, malformed, non-object", () => {
+  assert.deepEqual(parsePlatformAdminJsonBody({ body: null }), {});
+  assert.deepEqual(parsePlatformAdminJsonBody({ body: undefined }), {});
+  assert.deepEqual(parsePlatformAdminJsonBody({ body: "" }), {});
+  assert.deepEqual(parsePlatformAdminJsonBody({}), {});
+  assert.deepEqual(parsePlatformAdminJsonBody({ body: '{"action":"overview"}' }), {
+    action: "overview",
+  });
+
+  for (const body of [
+    "{not-json",
+    "[]",
+    '"string"',
+    "42",
+    "true",
+    "null",
+    JSON.stringify(["action"]),
+  ]) {
+    assert.throws(
+      () => parsePlatformAdminJsonBody({ body }),
+      (err) => err.florisynCode === "invalid_request" && err.statusCode === 400
+    );
+  }
+});
+
+test("authenticated admin-console handler returns fixed 400 for malformed JSON", async () => {
+  const client = fakeServerClient({
+    rows: [{ user_id: VERIFIED_USER_ID, role: "super_admin", active: true }],
+  });
+  const event = {
+    httpMethod: "POST",
+    headers: {
+      authorization: "Bearer test",
+      "x-request-id": INJECTED.requestId,
+      "x-correlation-id": INJECTED.correlationId,
+    },
+    queryStringParameters: {},
+    body: `{"action":"save-config", "leak":"${INJECTED.token}",`,
+  };
+  const logs = [];
+  const orig = console.error;
+  console.error = (...args) => logs.push(args.map(String).join(" "));
+  let response;
+  try {
+    response = await adminConsoleHandler(event, {
+      authenticate: authOk(),
+      createServerClient: serverClientFactory(client),
+    });
+  } finally {
+    console.error = orig;
+  }
+  assert.equal(response.statusCode, 400);
+  assert.deepEqual(JSON.parse(response.body), { error: "Invalid request." });
+  assertNoInjectionIn(response.body);
+  assert.equal(logs.length, 1);
+  const parsed = JSON.parse(logs[0]);
+  assert.equal(parsed.event, "platform_admin_handler_error");
+  assert.equal(parsed.category, "platform_admin_validation");
+  assert.equal(parsed.status, 400);
+  assert.match(parsed.requestId, UUID_RE);
+  assert.notEqual(parsed.requestId, INJECTED.requestId);
+  assertNoInjectionIn(logs.join(" "));
+});
+
+function marketplaceVerificationClient({ adminRow, verificationError, calls }) {
+  return {
+    from(table) {
+      if (table === "platform_admins") {
+        let lastEqValue;
+        const builder = {
+          select() {
+            return builder;
+          },
+          eq(col, val) {
+            lastEqValue = val;
+            if (calls) calls.push({ step: "platform_admins_eq", col, val });
+            return builder;
+          },
+          async maybeSingle() {
+            if (calls) calls.push({ step: "platform_admins_lookup", filteredBy: lastEqValue });
+            if (adminRow && adminRow.user_id === lastEqValue) {
+              return { data: adminRow, error: null };
+            }
+            return { data: null, error: null };
+          },
+        };
+        return builder;
+      }
+
+      if (table === VERIFICATION_TABLE) {
+        const builder = {
+          select() {
+            if (calls) calls.push({ step: "verification_select", table });
+            return builder;
+          },
+          order() {
+            return builder;
+          },
+          eq() {
+            return builder;
+          },
+          then(resolve, reject) {
+            if (calls) calls.push({ step: "verification_query_settled", table });
+            return Promise.resolve({ data: null, error: verificationError }).then(resolve, reject);
+          },
+        };
+        return builder;
+      }
+
+      throw new Error(`unexpected table ${table}`);
+    },
+  };
+}
+
+test("marketplace-verification-admin missing-table path resolves with fixed 503", async () => {
+  const calls = [];
+  const providerMessage =
+    `relation "public.${VERIFICATION_TABLE}" does not exist at ${INJECTED.url} token=${INJECTED.token} path=${INJECTED.path}`;
+  const verificationError = Object.assign(new Error(providerMessage), {
+    code: "42P01",
+    details: INJECTED.path,
+    hint: INJECTED.hostname,
+    stack: INJECTED.stack,
+  });
+  const client = marketplaceVerificationClient({
+    adminRow: {
+      user_id: VERIFIED_USER_ID,
+      role: "super_admin",
+      display_name: "Founder",
+      active: true,
+    },
+    verificationError,
+    calls,
+  });
+  const event = {
+    httpMethod: "GET",
+    headers: {
+      authorization: "Bearer test",
+      "x-request-id": INJECTED.requestId,
+      "x-correlation-id": INJECTED.correlationId,
+    },
+    queryStringParameters: {},
+    body: null,
+  };
+
+  const logs = [];
+  const orig = console.error;
+  console.error = (...args) => logs.push(args.map(String).join(" "));
+  let settled;
+  let rejected;
+  try {
+    settled = await marketplaceVerificationAdminHandler(event, {
+      authenticate: authOk(VERIFIED_USER_ID, calls),
+      createServerClient: serverClientFactory(client, calls),
+    }).then(
+      (value) => ({ ok: true, value }),
+      (reason) => {
+        rejected = reason;
+        return { ok: false, reason };
+      }
+    );
+  } finally {
+    console.error = orig;
+  }
+
+  assert.equal(settled.ok, true, "handler promise must resolve, not reject");
+  assert.equal(rejected, undefined);
+  const response = settled.value;
+  assert.equal(response.statusCode, 503);
+  assert.deepEqual(JSON.parse(response.body), {
+    error: PLATFORM_ADMIN_PUBLIC_ERRORS.verification_schema_unavailable.message,
+  });
+  assertNoInjectionIn(response.body);
+  assert.doesNotMatch(response.body, /42P01/);
+  assert.doesNotMatch(response.body, new RegExp(VERIFICATION_TABLE));
+
+  const steps = calls.map((c) => c.step);
+  assert.ok(steps.includes("authenticate"));
+  assert.ok(steps.includes("createServerClient"));
+  assert.ok(steps.includes("platform_admins_lookup"));
+  assert.ok(steps.includes("verification_select"));
+  assert.ok(steps.indexOf("authenticate") < steps.indexOf("createServerClient"));
+  assert.ok(steps.indexOf("platform_admins_lookup") < steps.indexOf("verification_select"));
+
+  assert.equal(logs.length, 1);
+  const parsed = JSON.parse(logs[0]);
+  assert.equal(parsed.event, "platform_admin_handler_error");
+  assert.equal(parsed.category, "platform_admin_unavailable");
+  assert.equal(parsed.status, 503);
+  assert.match(parsed.requestId, UUID_RE);
+  assert.notEqual(parsed.requestId, INJECTED.requestId);
+  assert.deepEqual(Object.keys(parsed).sort(), ["category", "event", "requestId", "status", "ts"]);
+  assertNoInjectionIn(logs.join(" "));
+});
+
+test("marketplace-verification-admin unknown provider error becomes generic 500", async () => {
+  const verificationError = Object.assign(
+    new Error(`${INJECTED.rawMessage} ${INJECTED.token} ${INJECTED.url}`),
+    {
+      code: "XX000",
+      details: INJECTED.path,
+      hint: INJECTED.hostname,
+      stack: INJECTED.stack,
+    }
+  );
+  const client = marketplaceVerificationClient({
+    adminRow: {
+      user_id: VERIFIED_USER_ID,
+      role: "super_admin",
+      display_name: "Founder",
+      active: true,
+    },
+    verificationError,
+  });
+  const logs = [];
+  const orig = console.error;
+  console.error = (...args) => logs.push(args.map(String).join(" "));
+  let response;
+  try {
+    response = await marketplaceVerificationAdminHandler(
+      {
+        httpMethod: "GET",
+        headers: { authorization: "Bearer test" },
+        queryStringParameters: {},
+        body: null,
+      },
+      {
+        authenticate: authOk(),
+        createServerClient: serverClientFactory(client),
+      }
+    );
+  } finally {
+    console.error = orig;
+  }
+  assert.equal(response.statusCode, 500);
+  assert.equal(JSON.parse(response.body).error, PLATFORM_ADMIN_PUBLIC_ERRORS.unexpected.message);
+  assertNoInjectionIn(response.body);
+  assertNoInjectionIn(logs.join(" "));
+});
+
+test("marketplace-verification-admin missing server key returns branded 503", async () => {
+  const response = await marketplaceVerificationAdminHandler(
+    {
+      httpMethod: "GET",
+      headers: { authorization: "Bearer test" },
+      queryStringParameters: {},
+      body: null,
+    },
+    {
+      authenticate: authOk(),
+      createServerClient: serverClientFactoryThrows(new Error("key missing")),
+    }
+  );
+  assert.equal(response.statusCode, 503);
+  assert.equal(
+    JSON.parse(response.body).error,
+    PLATFORM_ADMIN_PUBLIC_ERRORS.server_key_missing.message
+  );
+});
+
+test("marketplace-verification-admin unauthorized remains 401", async () => {
+  const response = await marketplaceVerificationAdminHandler(
+    {
+      httpMethod: "GET",
+      headers: {},
+      queryStringParameters: {},
+      body: null,
+    },
+    {
+      authenticate: authInvalidToken(),
+      createServerClient: serverClientFactory(fakeServerClient()),
+    }
+  );
+  assert.equal(response.statusCode, 401);
+  assert.equal(JSON.parse(response.body).error, PLATFORM_ADMIN_PUBLIC_ERRORS.unauthorized.message);
+});
+
+test("marketplace-verification-admin forbidden non-admin remains 403", async () => {
+  const emptyAdminClient = fakeServerClient({ rows: [] });
+  const response = await marketplaceVerificationAdminHandler(
+    {
+      httpMethod: "GET",
+      headers: { authorization: "Bearer test" },
+      queryStringParameters: {},
+      body: null,
+    },
+    {
+      authenticate: authOk(),
+      createServerClient: serverClientFactory(emptyAdminClient),
+    }
+  );
+  assert.equal(response.statusCode, 403);
+  assert.equal(JSON.parse(response.body).error, PLATFORM_ADMIN_PUBLIC_ERRORS.forbidden.message);
 });

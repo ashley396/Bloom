@@ -2,8 +2,18 @@ import { randomUUID } from "node:crypto";
 import { authenticatedUser, admin as createServiceRoleClient, json } from "./saas.js";
 import { FOUNDER_SERVER_KEY_HINT } from "./supabase.js";
 
+/** Unforgeable module-owned brand — never exported; not readable from error objects. */
+const brandedPlatformAdminErrors = new WeakSet();
+
+function freezePublicErrorCatalog(catalog) {
+  for (const key of Object.keys(catalog)) {
+    Object.freeze(catalog[key]);
+  }
+  return Object.freeze(catalog);
+}
+
 /** Florisyn-owned public error catalog — fixed codes map to fixed status/message pairs only. */
-export const PLATFORM_ADMIN_PUBLIC_ERRORS = Object.freeze({
+export const PLATFORM_ADMIN_PUBLIC_ERRORS = freezePublicErrorCatalog({
   invalid_request: { status: 400, message: "Invalid request." },
   missing_shop_id: { status: 400, message: "A shop ID is required." },
   not_found: { status: 404, message: "We could not find that record." },
@@ -77,6 +87,10 @@ export function getPlatformAdminRequestId(event) {
   return ctx.requestId;
 }
 
+function isFlorisynPlatformAdminError(error) {
+  return Boolean(error && brandedPlatformAdminErrors.has(error));
+}
+
 /** Create a Florisyn-owned platform-admin error (never copy provider text). */
 export function platformAdminError(code) {
   const entry = PLATFORM_ADMIN_PUBLIC_ERRORS[code] || PLATFORM_ADMIN_PUBLIC_ERRORS.unexpected;
@@ -84,7 +98,31 @@ export function platformAdminError(code) {
   const err = new Error(entry.message);
   err.statusCode = entry.status;
   err.florisynCode = resolvedCode;
+  brandedPlatformAdminErrors.add(err);
   return err;
+}
+
+/**
+ * Shared safe JSON body parser for platform-admin handlers.
+ * Empty → {}; valid plain object → object; malformed/non-object → branded invalid_request.
+ * Never returns submitted body text or parser messages.
+ */
+export function parsePlatformAdminJsonBody(event) {
+  const raw = event?.body;
+  if (raw == null || raw === "") return {};
+
+  let parsed;
+  try {
+    parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch {
+    throw platformAdminError("invalid_request");
+  }
+
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw platformAdminError("invalid_request");
+  }
+
+  return parsed;
 }
 
 function safeLogEventName(eventName) {
@@ -119,11 +157,12 @@ function logPlatformAdminEvent(eventName, { category, status, requestId } = {}) 
 
 /**
  * Shared fail-closed error boundary for all platform-admin handlers.
- * Public wording comes only from `error.florisynCode` — never from statusCode or message.
+ * Only Florisyn-branded errors from platformAdminError() may select a non-500 catalog entry.
+ * Public wording never comes from statusCode, message, or forged florisynCode values.
  */
 export function platformAdminErrorResponse(event, error) {
   const requestId = getPlatformAdminRequestId(event);
-  const code = error?.florisynCode;
+  const code = isFlorisynPlatformAdminError(error) ? error.florisynCode : undefined;
   const resolvedCode = code && PLATFORM_ADMIN_PUBLIC_ERRORS[code] ? code : "unexpected";
   const entry = PLATFORM_ADMIN_PUBLIC_ERRORS[resolvedCode];
 
@@ -225,4 +264,17 @@ export async function writeCommandAudit(
     ip_placeholder: ip,
     ...rest
   });
+}
+
+/** Resolve optional handler deps without treating Netlify context as injection. */
+export function resolvePlatformAdminHandlerDeps(contextOrDeps) {
+  if (
+    contextOrDeps
+    && typeof contextOrDeps === "object"
+    && (typeof contextOrDeps.authenticate === "function"
+      || typeof contextOrDeps.createServerClient === "function")
+  ) {
+    return contextOrDeps;
+  }
+  return {};
 }

@@ -232,9 +232,12 @@ service-role client is handed to downstream admin code only after authorization 
 handler; missing/empty `allowedRoles` fails closed to `super_admin`. Mutations require an
 explicit `requireSuperAdmin(admin)` call immediately before their database write. Handlers use
 the shared `platformAdminErrorResponse()` boundary with a Florisyn-owned public error catalog
-(P0-02 R2): only `florisynCode` selects public wording; unknown errors become generic 500;
-logs carry a server-generated request ID (never browser headers) and enforce allowlisted
-event/category/status fields.
+(P0-02 R2 / P0-02 R3): only errors created by `platformAdminError()` (private module brand)
+may select non-500 public wording; forged `florisynCode` values and unknown/provider errors
+become generic 500; the catalog is deeply frozen; all four handlers parse bodies via
+`parsePlatformAdminJsonBody()`; marketplace verification missing-table errors return the fixed
+`verification_schema_unavailable` 503 (handler resolves). Logs carry a server-generated request
+ID (never browser headers) and enforce allowlisted event/category/status fields.
 
 ---
 

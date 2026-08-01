@@ -1,5 +1,13 @@
-import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
-import { platformAdmin, writeAdminAudit, requireSuperAdmin, platformAdminErrorResponse, platformAdminError } from "./_shared/platform-admin.js";
+import { json, preflight, methodNotAllowed } from "./_shared/http.js";
+import {
+  platformAdmin,
+  writeAdminAudit,
+  requireSuperAdmin,
+  platformAdminErrorResponse,
+  platformAdminError,
+  parsePlatformAdminJsonBody,
+  resolvePlatformAdminHandlerDeps
+} from "./_shared/platform-admin.js";
 import {
   TABLE,
   ADMIN_REVIEW_DECISIONS,
@@ -15,12 +23,13 @@ import {
 const APPLICATION_SELECT =
   "id, user_id, florist_shop_id, wholesaler_shop_id, status, consent_confirmed, consent_at, profile_data, review_history, review_notes, submitted_at, reviewed_at, documents_expire_at, approval_expires_at, created_at, updated_at";
 
-export async function handler(event) {
+export async function handler(event, contextOrDeps) {
   const ready = preflight(event);
   if (ready) return ready;
 
   try {
-    const { client, user, admin } = await platformAdmin(event, ["super_admin"]);
+    const deps = resolvePlatformAdminHandlerDeps(contextOrDeps);
+    const { client, user, admin } = await platformAdmin(event, ["super_admin"], deps);
 
     if (event.httpMethod === "GET") {
       const status = event.queryStringParameters?.status;
@@ -38,7 +47,7 @@ export async function handler(event) {
 
     if (event.httpMethod === "POST") {
       requireSuperAdmin(admin);
-      const body = bodyOf(event);
+      const body = parsePlatformAdminJsonBody(event);
       const applicationId = body.application_id || body.id;
       const decision = String(body.decision || "").toLowerCase();
 
@@ -118,7 +127,10 @@ export async function handler(event) {
     return methodNotAllowed();
   } catch (error) {
     if (isMissingVerificationTableError(error)) {
-      throw platformAdminError("verification_schema_unavailable");
+      return platformAdminErrorResponse(
+        event,
+        platformAdminError("verification_schema_unavailable")
+      );
     }
     return platformAdminErrorResponse(event, error);
   }

@@ -1,5 +1,12 @@
-import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
-import { platformAdmin, writeAdminAudit, requireSuperAdmin, platformAdminErrorResponse } from "./_shared/platform-admin.js";
+import { json, preflight, methodNotAllowed } from "./_shared/http.js";
+import {
+  platformAdmin,
+  writeAdminAudit,
+  requireSuperAdmin,
+  platformAdminErrorResponse,
+  parsePlatformAdminJsonBody,
+  resolvePlatformAdminHandlerDeps
+} from "./_shared/platform-admin.js";
 import {
   dryRunImport,
   approveImportBatch,
@@ -14,16 +21,17 @@ import { STARTER_FLORAL_LIBRARY } from "./_shared/floral-library-core.js";
 const inMemoryBatches = new Map();
 const inMemoryQueue = [];
 
-export async function handler(event) {
+export async function handler(event, contextOrDeps) {
   const ready = preflight(event);
   if (ready) return ready;
   if (!["GET", "POST"].includes(event.httpMethod)) return methodNotAllowed();
 
   try {
     // Closed beta: Floral Library admin endpoint is super_admin only.
-    const { client, user, admin } = await platformAdmin(event, ["super_admin"]);
+    const deps = resolvePlatformAdminHandlerDeps(contextOrDeps);
+    const { client, user, admin } = await platformAdmin(event, ["super_admin"], deps);
     const qs = event.queryStringParameters || {};
-    const body = event.httpMethod === "POST" ? bodyOf(event) : {};
+    const body = event.httpMethod === "POST" ? parsePlatformAdminJsonBody(event) : {};
     const action = String(body.action || qs.action || "quality").toLowerCase();
 
     if (action === "quality" && event.httpMethod === "GET") {

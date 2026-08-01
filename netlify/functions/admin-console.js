@@ -1,12 +1,21 @@
 import { json } from './_shared/saas.js';
-import { platformAdmin, writeAdminAudit, requireSuperAdmin, platformAdminErrorResponse, platformAdminError } from './_shared/platform-admin.js';
+import {
+  platformAdmin,
+  writeAdminAudit,
+  requireSuperAdmin,
+  platformAdminErrorResponse,
+  platformAdminError,
+  parsePlatformAdminJsonBody,
+  resolvePlatformAdminHandlerDeps
+} from './_shared/platform-admin.js';
 
 const safeObject = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
-export async function handler(event) {
+export async function handler(event, contextOrDeps) {
   try {
-    const { client, user, admin } = await platformAdmin(event, ["super_admin"]);
-    const body = event.body ? JSON.parse(event.body) : {};
+    const deps = resolvePlatformAdminHandlerDeps(contextOrDeps);
+    const { client, user, admin } = await platformAdmin(event, ["super_admin"], deps);
+    const body = parsePlatformAdminJsonBody(event);
     const action = body.action || event.queryStringParameters?.action || 'overview';
 
     if (event.httpMethod === 'GET' && action === 'overview') {
