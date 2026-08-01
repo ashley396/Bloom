@@ -5,8 +5,7 @@ import {
   requireSuperAdmin,
   platformAdminErrorResponse,
   platformAdminError,
-  parsePlatformAdminJsonBody,
-  resolvePlatformAdminHandlerDeps
+  parsePlatformAdminJsonBody
 } from "./_shared/platform-admin.js";
 import {
   TABLE,
@@ -23,12 +22,13 @@ import {
 const APPLICATION_SELECT =
   "id, user_id, florist_shop_id, wholesaler_shop_id, status, consent_confirmed, consent_at, profile_data, review_history, review_notes, submitted_at, reviewed_at, documents_expire_at, approval_expires_at, created_at, updated_at";
 
-export async function handler(event, contextOrDeps) {
+/** Test seam — production uses bound real dependencies via exported `handler`. */
+export function createMarketplaceVerificationAdminHandler(deps = {}) {
+  return async function handler(event, _context) {
   const ready = preflight(event);
   if (ready) return ready;
 
   try {
-    const deps = resolvePlatformAdminHandlerDeps(contextOrDeps);
     const { client, user, admin } = await platformAdmin(event, ["super_admin"], deps);
 
     if (event.httpMethod === "GET") {
@@ -134,4 +134,8 @@ export async function handler(event, contextOrDeps) {
     }
     return platformAdminErrorResponse(event, error);
   }
+  };
 }
+
+/** Production Netlify entry — ignores context for auth/service-role overrides. */
+export const handler = createMarketplaceVerificationAdminHandler();

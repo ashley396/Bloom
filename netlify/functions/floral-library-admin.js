@@ -4,8 +4,7 @@ import {
   writeAdminAudit,
   requireSuperAdmin,
   platformAdminErrorResponse,
-  parsePlatformAdminJsonBody,
-  resolvePlatformAdminHandlerDeps
+  parsePlatformAdminJsonBody
 } from "./_shared/platform-admin.js";
 import {
   dryRunImport,
@@ -21,14 +20,15 @@ import { STARTER_FLORAL_LIBRARY } from "./_shared/floral-library-core.js";
 const inMemoryBatches = new Map();
 const inMemoryQueue = [];
 
-export async function handler(event, contextOrDeps) {
+/** Test seam — production uses bound real dependencies via exported `handler`. */
+export function createFloralLibraryAdminHandler(deps = {}) {
+  return async function handler(event, _context) {
   const ready = preflight(event);
   if (ready) return ready;
   if (!["GET", "POST"].includes(event.httpMethod)) return methodNotAllowed();
 
   try {
     // Closed beta: Floral Library admin endpoint is super_admin only.
-    const deps = resolvePlatformAdminHandlerDeps(contextOrDeps);
     const { client, user, admin } = await platformAdmin(event, ["super_admin"], deps);
     const qs = event.queryStringParameters || {};
     const body = event.httpMethod === "POST" ? parsePlatformAdminJsonBody(event) : {};
@@ -98,4 +98,8 @@ export async function handler(event, contextOrDeps) {
   } catch (error) {
     return platformAdminErrorResponse(event, error);
   }
+  };
 }
+
+/** Production Netlify entry — ignores context for auth/service-role overrides. */
+export const handler = createFloralLibraryAdminHandler();

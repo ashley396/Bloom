@@ -53,17 +53,20 @@ has been verified** (P0-02):
    shops (orders, subscriptions, marketplace listings, etc.) without shop-scoped RLS blocking it.
 
 All four platform-admin handlers use the shared `platformAdminErrorResponse()` boundary
-(P0-02 R1 / P0-02 R2 / P0-02 R3): public responses come only from the Florisyn-owned error
-catalog, and only for errors created by `platformAdminError()` (module-owned brand via private
-`WeakSet` — forged `florisynCode` values become generic 500). Nested catalog entries are deeply
-frozen. Unknown / provider errors become generic 500. Request bodies are parsed by shared
-`parsePlatformAdminJsonBody()` (empty → `{}`; valid object → object; malformed/non-object →
-branded `invalid_request` 400). The marketplace verification admin missing-table path maps to
-`verification_schema_unavailable` and **returns** the 503 response (handler promise resolves;
-never rethrows from the final catch). Logs use a server-generated `requestId`
-(`crypto.randomUUID()` per request via WeakMap); browser `x-request-id` / `x-correlation-id`
-headers are never trusted. Logs enforce allowlisted event names, categories, and HTTP statuses
-only.
+(P0-02 R1 / P0-02 R2 / P0-02 R3 / P0-02 R4): public responses come only from the Florisyn-owned
+error catalog, and only for errors created by `platformAdminError()` (module-owned brand via
+private `WeakSet` — forged `florisynCode` values become generic 500). Catalog code lookup uses
+`Object.hasOwn` only (prototype keys like `toString` / `constructor` / `__proto__` resolve to
+`unexpected` 500). Nested catalog entries are deeply frozen. Unknown / provider errors become
+generic 500. Request bodies are parsed by shared `parsePlatformAdminJsonBody()` (empty → `{}`;
+valid object → object; malformed/non-object → branded `invalid_request` 400). The marketplace
+verification admin missing-table path maps to `verification_schema_unavailable` and **returns**
+the 503 response (handler promise resolves; never rethrows from the final catch). Production
+Netlify handlers are factory-bound with real dependencies; the Netlify `context` argument cannot
+override `authenticate`, `createServerClient`, authorization, or service-role behavior (P0-02 R4).
+Logs use a server-generated `requestId` (`crypto.randomUUID()` per request via WeakMap); browser
+`x-request-id` / `x-correlation-id` headers are never trusted. Logs enforce allowlisted event
+names, categories, and HTTP statuses only.
 
 | Function | Access (Founding Beta) | Mutations | Notes |
 |----------|------------------------|-----------|-------|

@@ -1,5 +1,5 @@
 /**
- * P0-02 / P0-02 R1 / P0-02 R2 / P0-02 R3 — Platform admin authorization boundary.
+ * P0-02 / P0-02 R1 / P0-02 R2 / P0-02 R3 / P0-02 R4 — Platform admin authorization boundary.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -15,8 +15,22 @@ import {
   PLATFORM_ADMIN_PUBLIC_ERRORS,
   LOOKUP_FAILURE_MESSAGE,
 } from "../netlify/functions/_shared/platform-admin.js";
-import { handler as marketplaceVerificationAdminHandler } from "../netlify/functions/marketplace-verification-admin.js";
-import { handler as adminConsoleHandler } from "../netlify/functions/admin-console.js";
+import {
+  handler as marketplaceVerificationAdminHandler,
+  createMarketplaceVerificationAdminHandler,
+} from "../netlify/functions/marketplace-verification-admin.js";
+import {
+  handler as adminConsoleHandler,
+  createAdminConsoleHandler,
+} from "../netlify/functions/admin-console.js";
+import {
+  handler as adminCommandCenterHandler,
+  createAdminCommandCenterHandler,
+} from "../netlify/functions/admin-command-center.js";
+import {
+  handler as floralLibraryAdminHandler,
+  createFloralLibraryAdminHandler,
+} from "../netlify/functions/floral-library-admin.js";
 import { TABLE as VERIFICATION_TABLE } from "../netlify/functions/_shared/marketplace-verification.js";
 
 const VERIFIED_USER_ID = "11111111-1111-1111-1111-111111111111";
@@ -763,12 +777,13 @@ test("authenticated admin-console handler returns fixed 400 for malformed JSON",
   const logs = [];
   const orig = console.error;
   console.error = (...args) => logs.push(args.map(String).join(" "));
+  const testHandler = createAdminConsoleHandler({
+    authenticate: authOk(),
+    createServerClient: serverClientFactory(client),
+  });
   let response;
   try {
-    response = await adminConsoleHandler(event, {
-      authenticate: authOk(),
-      createServerClient: serverClientFactory(client),
-    });
+    response = await testHandler(event);
   } finally {
     console.error = orig;
   }
@@ -869,13 +884,14 @@ test("marketplace-verification-admin missing-table path resolves with fixed 503"
   const logs = [];
   const orig = console.error;
   console.error = (...args) => logs.push(args.map(String).join(" "));
+  const testHandler = createMarketplaceVerificationAdminHandler({
+    authenticate: authOk(VERIFIED_USER_ID, calls),
+    createServerClient: serverClientFactory(client, calls),
+  });
   let settled;
   let rejected;
   try {
-    settled = await marketplaceVerificationAdminHandler(event, {
-      authenticate: authOk(VERIFIED_USER_ID, calls),
-      createServerClient: serverClientFactory(client, calls),
-    }).then(
+    settled = await testHandler(event).then(
       (value) => ({ ok: true, value }),
       (reason) => {
         rejected = reason;
@@ -938,20 +954,18 @@ test("marketplace-verification-admin unknown provider error becomes generic 500"
   const logs = [];
   const orig = console.error;
   console.error = (...args) => logs.push(args.map(String).join(" "));
+  const testHandler = createMarketplaceVerificationAdminHandler({
+    authenticate: authOk(),
+    createServerClient: serverClientFactory(client),
+  });
   let response;
   try {
-    response = await marketplaceVerificationAdminHandler(
-      {
-        httpMethod: "GET",
-        headers: { authorization: "Bearer test" },
-        queryStringParameters: {},
-        body: null,
-      },
-      {
-        authenticate: authOk(),
-        createServerClient: serverClientFactory(client),
-      }
-    );
+    response = await testHandler({
+      httpMethod: "GET",
+      headers: { authorization: "Bearer test" },
+      queryStringParameters: {},
+      body: null,
+    });
   } finally {
     console.error = orig;
   }
@@ -962,18 +976,16 @@ test("marketplace-verification-admin unknown provider error becomes generic 500"
 });
 
 test("marketplace-verification-admin missing server key returns branded 503", async () => {
-  const response = await marketplaceVerificationAdminHandler(
-    {
-      httpMethod: "GET",
-      headers: { authorization: "Bearer test" },
-      queryStringParameters: {},
-      body: null,
-    },
-    {
-      authenticate: authOk(),
-      createServerClient: serverClientFactoryThrows(new Error("key missing")),
-    }
-  );
+  const testHandler = createMarketplaceVerificationAdminHandler({
+    authenticate: authOk(),
+    createServerClient: serverClientFactoryThrows(new Error("key missing")),
+  });
+  const response = await testHandler({
+    httpMethod: "GET",
+    headers: { authorization: "Bearer test" },
+    queryStringParameters: {},
+    body: null,
+  });
   assert.equal(response.statusCode, 503);
   assert.equal(
     JSON.parse(response.body).error,
@@ -982,36 +994,148 @@ test("marketplace-verification-admin missing server key returns branded 503", as
 });
 
 test("marketplace-verification-admin unauthorized remains 401", async () => {
-  const response = await marketplaceVerificationAdminHandler(
-    {
-      httpMethod: "GET",
-      headers: {},
-      queryStringParameters: {},
-      body: null,
-    },
-    {
-      authenticate: authInvalidToken(),
-      createServerClient: serverClientFactory(fakeServerClient()),
-    }
-  );
+  const testHandler = createMarketplaceVerificationAdminHandler({
+    authenticate: authInvalidToken(),
+    createServerClient: serverClientFactory(fakeServerClient()),
+  });
+  const response = await testHandler({
+    httpMethod: "GET",
+    headers: {},
+    queryStringParameters: {},
+    body: null,
+  });
   assert.equal(response.statusCode, 401);
   assert.equal(JSON.parse(response.body).error, PLATFORM_ADMIN_PUBLIC_ERRORS.unauthorized.message);
 });
 
 test("marketplace-verification-admin forbidden non-admin remains 403", async () => {
   const emptyAdminClient = fakeServerClient({ rows: [] });
-  const response = await marketplaceVerificationAdminHandler(
-    {
-      httpMethod: "GET",
-      headers: { authorization: "Bearer test" },
-      queryStringParameters: {},
-      body: null,
-    },
-    {
-      authenticate: authOk(),
-      createServerClient: serverClientFactory(emptyAdminClient),
-    }
-  );
+  const testHandler = createMarketplaceVerificationAdminHandler({
+    authenticate: authOk(),
+    createServerClient: serverClientFactory(emptyAdminClient),
+  });
+  const response = await testHandler({
+    httpMethod: "GET",
+    headers: { authorization: "Bearer test" },
+    queryStringParameters: {},
+    body: null,
+  });
   assert.equal(response.statusCode, 403);
   assert.equal(JSON.parse(response.body).error, PLATFORM_ADMIN_PUBLIC_ERRORS.forbidden.message);
+});
+
+// ---------------------------------------------------------------------------
+// P0-02 R4: own-property catalog lookup + production handler ignores context deps
+// ---------------------------------------------------------------------------
+
+const GENERIC_500 = {
+  status: 500,
+  message: PLATFORM_ADMIN_PUBLIC_ERRORS.unexpected.message,
+  florisynCode: "unexpected",
+};
+
+function assertGenericUnexpectedError(err) {
+  assert.equal(err.statusCode, GENERIC_500.status);
+  assert.equal(err.message, GENERIC_500.message);
+  assert.equal(err.florisynCode, GENERIC_500.florisynCode);
+  assert.notEqual(err.statusCode, undefined);
+  assert.ok(String(err.message).length > 0);
+}
+
+function assertGenericUnexpectedResponse(response) {
+  assert.equal(response.statusCode, 500);
+  assert.notEqual(response.statusCode, undefined);
+  const body = JSON.parse(response.body);
+  assert.equal(body.error, GENERIC_500.message);
+  assert.ok(String(body.error).length > 0);
+  assert.equal(Object.prototype.hasOwnProperty.call(body, "error"), true);
+}
+
+test("platformAdminError rejects prototype and malformed codes via own-property lookup", () => {
+  const malformedCodes = [
+    "toString",
+    "constructor",
+    "__proto__",
+    "hasOwnProperty",
+    "",
+    "not_a_real_code",
+    null,
+    undefined,
+    Symbol("forbidden"),
+  ];
+  for (const code of malformedCodes) {
+    const err = platformAdminError(code);
+    assertGenericUnexpectedError(err);
+    const response = platformAdminErrorResponse({}, err);
+    assertGenericUnexpectedResponse(response);
+  }
+});
+
+test("platformAdminErrorResponse treats branded errors with poisoned florisynCode as unexpected 500", () => {
+  for (const poisoned of ["toString", "constructor", "__proto__", "hasOwnProperty", "", "nope"]) {
+    const err = platformAdminError("forbidden");
+    err.florisynCode = poisoned;
+    const response = platformAdminErrorResponse({}, err);
+    assertGenericUnexpectedResponse(response);
+  }
+});
+
+const PRODUCTION_HANDLERS = [
+  ["admin-console", adminConsoleHandler],
+  ["admin-command-center", adminCommandCenterHandler],
+  ["marketplace-verification-admin", marketplaceVerificationAdminHandler],
+  ["floral-library-admin", floralLibraryAdminHandler],
+];
+
+for (const [name, productionHandler] of PRODUCTION_HANDLERS) {
+  test(`production ${name} handler ignores Netlify-context dependency overrides`, async () => {
+    let authenticateCalls = 0;
+    let createServerClientCalls = 0;
+    let fromCalls = 0;
+    const fakeAuthenticate = async () => {
+      authenticateCalls += 1;
+      return { user: { id: VERIFIED_USER_ID }, usesServiceRole: false };
+    };
+    const fakeCreateServerClient = () => {
+      createServerClientCalls += 1;
+      return {
+        from(table) {
+          fromCalls += 1;
+          throw new Error(`fake client must not query ${table}`);
+        },
+      };
+    };
+    const response = await productionHandler(
+      {
+        httpMethod: "GET",
+        headers: {},
+        queryStringParameters: {},
+        body: null,
+      },
+      {
+        authenticate: fakeAuthenticate,
+        createServerClient: fakeCreateServerClient,
+        callbackWaitsForEmptyEventLoop: true,
+      }
+    );
+    assert.equal(response.statusCode, 401);
+    assert.equal(JSON.parse(response.body).error, PLATFORM_ADMIN_PUBLIC_ERRORS.unauthorized.message);
+    assert.equal(authenticateCalls, 0);
+    assert.equal(createServerClientCalls, 0);
+    assert.equal(fromCalls, 0);
+  });
+}
+
+test("resolvePlatformAdminHandlerDeps is removed from platform-admin and handlers", () => {
+  const shared = fs.readFileSync(
+    path.join(process.cwd(), "netlify/functions/_shared/platform-admin.js"),
+    "utf8"
+  );
+  assert.doesNotMatch(shared, /resolvePlatformAdminHandlerDeps/);
+  for (const file of EXPECTED_PLATFORM_ADMIN_CALL_SITES) {
+    const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions", file), "utf8");
+    assert.doesNotMatch(src, /resolvePlatformAdminHandlerDeps/);
+    assert.match(src, /create\w+Handler/);
+    assert.match(src, /export const handler = create/);
+  }
 });

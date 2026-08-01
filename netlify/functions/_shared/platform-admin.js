@@ -91,10 +91,20 @@ function isFlorisynPlatformAdminError(error) {
   return Boolean(error && brandedPlatformAdminErrors.has(error));
 }
 
+/**
+ * Resolve a catalog code via own-property membership only.
+ * Inherited prototype keys, symbols, non-strings, and unknown codes → unexpected.
+ */
+function resolveCatalogCode(code) {
+  if (typeof code !== "string" || code === "") return "unexpected";
+  if (!Object.hasOwn(PLATFORM_ADMIN_PUBLIC_ERRORS, code)) return "unexpected";
+  return code;
+}
+
 /** Create a Florisyn-owned platform-admin error (never copy provider text). */
 export function platformAdminError(code) {
-  const entry = PLATFORM_ADMIN_PUBLIC_ERRORS[code] || PLATFORM_ADMIN_PUBLIC_ERRORS.unexpected;
-  const resolvedCode = PLATFORM_ADMIN_PUBLIC_ERRORS[code] ? code : "unexpected";
+  const resolvedCode = resolveCatalogCode(code);
+  const entry = PLATFORM_ADMIN_PUBLIC_ERRORS[resolvedCode];
   const err = new Error(entry.message);
   err.statusCode = entry.status;
   err.florisynCode = resolvedCode;
@@ -163,7 +173,7 @@ function logPlatformAdminEvent(eventName, { category, status, requestId } = {}) 
 export function platformAdminErrorResponse(event, error) {
   const requestId = getPlatformAdminRequestId(event);
   const code = isFlorisynPlatformAdminError(error) ? error.florisynCode : undefined;
-  const resolvedCode = code && PLATFORM_ADMIN_PUBLIC_ERRORS[code] ? code : "unexpected";
+  const resolvedCode = resolveCatalogCode(code);
   const entry = PLATFORM_ADMIN_PUBLIC_ERRORS[resolvedCode];
 
   logPlatformAdminEvent("platform_admin_handler_error", {
@@ -264,17 +274,4 @@ export async function writeCommandAudit(
     ip_placeholder: ip,
     ...rest
   });
-}
-
-/** Resolve optional handler deps without treating Netlify context as injection. */
-export function resolvePlatformAdminHandlerDeps(contextOrDeps) {
-  if (
-    contextOrDeps
-    && typeof contextOrDeps === "object"
-    && (typeof contextOrDeps.authenticate === "function"
-      || typeof contextOrDeps.createServerClient === "function")
-  ) {
-    return contextOrDeps;
-  }
-  return {};
 }

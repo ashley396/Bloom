@@ -5,8 +5,7 @@ import {
   requireSuperAdmin,
   platformAdminErrorResponse,
   platformAdminError,
-  parsePlatformAdminJsonBody,
-  resolvePlatformAdminHandlerDeps
+  parsePlatformAdminJsonBody
 } from "./_shared/platform-admin.js";
 import {
   auditRecordFromRow,
@@ -55,9 +54,10 @@ async function safeCount(client, table) {
   }
 }
 
-export async function handler(event, contextOrDeps) {
+/** Test seam — production uses bound real dependencies via exported `handler`. */
+export function createAdminCommandCenterHandler(deps = {}) {
+  return async function handler(event, _context) {
   try {
-    const deps = resolvePlatformAdminHandlerDeps(contextOrDeps);
     const { client, user, admin } = await platformAdmin(event, ["super_admin"], deps);
     const body = parsePlatformAdminJsonBody(event);
     const action = body.action || event.queryStringParameters?.action || "dashboard";
@@ -657,4 +657,8 @@ export async function handler(event, contextOrDeps) {
   } catch (error) {
     return platformAdminErrorResponse(event, error);
   }
+  };
 }
+
+/** Production Netlify entry — ignores context for auth/service-role overrides. */
+export const handler = createAdminCommandCenterHandler();
