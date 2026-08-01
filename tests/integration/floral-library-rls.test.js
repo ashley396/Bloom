@@ -508,7 +508,7 @@ test("migration SQL uses capability helper; no Community helpers; no authenticat
 
 test("floral-library-admin endpoint is super_admin only", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/floral-library-admin.js"), "utf8");
-  assert.match(src, /platformAdmin\(event,\s*\["super_admin"\]\)/);
+  assert.match(src, /platformAdmin\(event,\s*\["super_admin"\](?:,\s*deps)?\)/);
   assert.doesNotMatch(src, /content_admin/);
 });
 
