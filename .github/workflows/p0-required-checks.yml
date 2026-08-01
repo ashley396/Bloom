@@ -63,15 +63,16 @@ jobs:
     timeout-minutes: 25
     services:
       postgres:
+        # Official image default superuser is `postgres` (required by Community R1 grants).
         image: postgres:16
         env:
-          POSTGRES_USER: florisyn_test
-          POSTGRES_PASSWORD: florisyn_test
-          POSTGRES_DB: florisyn_community_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U florisyn_test -d florisyn_community_test"
+          --health-cmd "pg_isready -U postgres -d postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
@@ -88,13 +89,63 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
+      - name: Create Florisyn RLS test role and database
+        run: |
+          node --input-type=module <<'EOF'
+          import pg from "pg";
+          const admin = new pg.Client({
+            connectionString: "postgres://postgres:postgres@127.0.0.1:5432/postgres",
+          });
+          await admin.connect();
+          try {
+            await admin.query(`
+              DO $$ BEGIN
+                CREATE ROLE florisyn_test LOGIN SUPERUSER PASSWORD 'florisyn_test';
+              EXCEPTION WHEN duplicate_object THEN NULL;
+              END $$;
+            `);
+            const existing = await admin.query(
+              "SELECT 1 FROM pg_database WHERE datname = 'florisyn_community_test'"
+            );
+            if (existing.rowCount === 0) {
+              await admin.query("CREATE DATABASE florisyn_community_test OWNER florisyn_test");
+            }
+          } finally {
+            await admin.end();
+          }
+          const probe = new pg.Client({
+            connectionString: process.env.COMMUNITY_TEST_DATABASE_URL,
+          });
+          await probe.connect();
+          const { rows } = await probe.query("select current_user, current_database()");
+          console.log(rows[0]);
+          await probe.end();
+          EOF
+
       - name: Florist Community RLS suite
+        id: community-rls
+        continue-on-error: true
         run: npm run test:community-rls
         env:
           COMMUNITY_TEST_DATABASE_URL: ${{ env.COMMUNITY_TEST_DATABASE_URL }}
 
       - name: Floral Library RLS suite
+        id: floral-library-rls
+        continue-on-error: true
         run: npm run test:floral-library-rls
         env:
           FLORAL_LIBRARY_TEST_DATABASE_URL: ${{ env.FLORAL_LIBRARY_TEST_DATABASE_URL }}
           COMMUNITY_TEST_DATABASE_URL: ${{ env.COMMUNITY_TEST_DATABASE_URL }}
+
+      - name: Require both RLS suites to pass
+        if: always()
+        run: |
+          set -euo pipefail
+          community="${{ steps.community-rls.outcome }}"
+          floral="${{ steps.floral-library-rls.outcome }}"
+          echo "community-rls outcome: ${community}"
+          echo "floral-library-rls outcome: ${floral}"
+          if [ "$community" != "success" ] || [ "$floral" != "success" ]; then
+            echo "One or more PostgreSQL RLS suites failed (connection failures are failures)."
+            exit 1
+          fi
