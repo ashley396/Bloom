@@ -14,6 +14,16 @@
 | Errors | `safePublicError()` — generic 5xx messages |
 | Logging | `structuredLog()` JSON to function logs |
 
+## Pull-request CI (P0-03)
+
+Required GitHub Actions workflow: `.github/workflows/p0-required-checks.yml`.
+
+- Triggers on `pull_request` targeting `main` and `workflow_dispatch`
+- Top-level `permissions: contents: read` only — no write, deploy, or hosted credentials
+- **Core job:** `npm test`, `npm run check`, `npm run frontend:build`, `npm audit --audit-level=high`, `npm run test:community-smoke`
+- **Database security job:** isolated PostgreSQL 16 service; runs `npm run test:community-rls` then `npm run test:floral-library-rls` (connection failures fail the job)
+- No Netlify / Supabase-hosted / Stripe secrets; no production or staging migrations; no deploy steps
+
 ## Recommended follow-ups (post-beta)
 
 - Global rate limit (Upstash/Netlify Blobs) for auth endpoints

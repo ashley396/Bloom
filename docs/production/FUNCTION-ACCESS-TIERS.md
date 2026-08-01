@@ -102,3 +102,12 @@ See [ENVIRONMENT.md](./ENVIRONMENT.md) for `PLATFORM_BOOTSTRAP_SECRET` and `FLOR
 - **`super_admin`**: only role that may access any current platform-admin endpoint or mutation.
 - Other roles (`support`, `billing`, `designer`, …) may exist in DB but **cannot receive the
   service-role client** until a separate RBAC matrix receives Founder approval.
+
+## Pull-request verification (P0-03)
+
+RLS persona suites for Community and Floral Library are required CI on pull requests to `main`
+via `.github/workflows/p0-required-checks.yml` (PostgreSQL 16 service container). Those suites
+exercise database grants/policies in an isolated CI database — they do not deploy, do not apply
+hosted migrations, and do not use production service-role credentials. Platform-admin Tier 2
+handlers remain verified by the non-Postgres unit suite (`tests/platform-admin-authorization-boundary.test.js`)
+in the same workflow’s core job.

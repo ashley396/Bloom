@@ -503,6 +503,14 @@ not ok 157 - sidebar invoices and payments are plain nav buttons without extra w
 
 **None.** React app has lint/verify scripts only (`verify-floral-asset-consumption.mjs`, `verify-floral-catalog-files.mjs`).
 
+### Pull-request CI (P0-03)
+
+`.github/workflows/p0-required-checks.yml` runs on `pull_request` → `main` (and `workflow_dispatch`) with
+`permissions: contents: read` only. Core job: unit tests, syntax check, frontend build, audit, community
+smoke. Database job: PostgreSQL 16 service runs `test:community-rls` and `test:floral-library-rls`
+sequentially. No deploy steps and no production / Netlify / Stripe / hosted Supabase credentials.
+Source regression: `tests/p0-required-checks-workflow.test.js`.
+
 ---
 
 ## 12. Working vs partial vs broken features

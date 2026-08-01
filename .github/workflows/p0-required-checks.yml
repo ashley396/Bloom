@@ -1,0 +1,100 @@
+# P0-03 — Required pull-request CI with PostgreSQL security tests.
+# Read-only verification only. No deploy, no hosted credentials.
+name: P0 Required Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p0-required-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  # Isolated CI Postgres — matches local RLS script defaults (not production).
+  COMMUNITY_TEST_DATABASE_URL: postgres://florisyn_test:florisyn_test@127.0.0.1:5432/florisyn_community_test
+  FLORAL_LIBRARY_TEST_DATABASE_URL: postgres://florisyn_test:florisyn_test@127.0.0.1:5432/florisyn_community_test
+
+jobs:
+  core:
+    name: Core checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Unit and integration tests (non-Postgres)
+        run: npm test
+
+      - name: Syntax check
+        run: npm run check
+
+      - name: Frontend production build
+        run: npm run frontend:build
+
+      - name: npm audit (high+)
+        run: npm audit --audit-level=high
+
+      - name: Community smoke (feature-flag / static checks)
+        run: npm run test:community-smoke
+
+  database-security:
+    name: PostgreSQL RLS security suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: florisyn_test
+          POSTGRES_PASSWORD: florisyn_test
+          POSTGRES_DB: florisyn_community_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U florisyn_test -d florisyn_community_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Florist Community RLS suite
+        run: npm run test:community-rls
+        env:
+          COMMUNITY_TEST_DATABASE_URL: ${{ env.COMMUNITY_TEST_DATABASE_URL }}
+
+      - name: Floral Library RLS suite
+        run: npm run test:floral-library-rls
+        env:
+          FLORAL_LIBRARY_TEST_DATABASE_URL: ${{ env.FLORAL_LIBRARY_TEST_DATABASE_URL }}
+          COMMUNITY_TEST_DATABASE_URL: ${{ env.COMMUNITY_TEST_DATABASE_URL }}
