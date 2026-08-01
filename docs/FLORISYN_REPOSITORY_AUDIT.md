@@ -503,13 +503,22 @@ not ok 157 - sidebar invoices and payments are plain nav buttons without extra w
 
 **None.** React app has lint/verify scripts only (`verify-floral-asset-consumption.mjs`, `verify-floral-catalog-files.mjs`).
 
-### Pull-request CI (P0-03)
+### Pull-request CI (P0-03 / P0-03 R1)
 
 `.github/workflows/p0-required-checks.yml` runs on `pull_request` → `main` (and `workflow_dispatch`) with
-`permissions: contents: read` only. Core job: unit tests, syntax check, frontend build, audit, community
-smoke. Database job: PostgreSQL 16 service runs `test:community-rls` and `test:floral-library-rls`
+`permissions: contents: read` only. Core job: unit tests, syntax check, frontend build, root
+`npm audit --audit-level=high`, frontend policy `scripts/audit-frontend-security.mjs`, community smoke.
+Database job: digest-pinned PostgreSQL 16 runs `test:community-rls` and `test:floral-library-rls`
 sequentially. No deploy steps and no production / Netlify / Stripe / hosted Supabase credentials.
-Source regression: `tests/p0-required-checks-workflow.test.js`.
+Source/policy regressions: `tests/p0-required-checks-workflow.test.js`.
+
+Frontend audit truth: root audit reports zero findings; frontend temporarily accepts only
+`GHSA-qwww-vcr4-c8h2` affecting `react-router` and `react-router-dom` (both exact **7.18.2**),
+because Netlify publishes `public/` (not `frontend/dist`) and the React app is client-only
+`BrowserRouter` with no RSC/server-router usage. This is **not** a claim of zero total
+vulnerabilities. Exception expires **2026-08-15** (UTC) or at React production migration,
+whichever first. Review owner: Technical Director. Automated checks only — not confirmed as
+GitHub branch-protection required checks.
 
 ---
 

@@ -14,15 +14,32 @@
 | Errors | `safePublicError()` — generic 5xx messages |
 | Logging | `structuredLog()` JSON to function logs |
 
-## Pull-request CI (P0-03)
+## Pull-request CI (P0-03 / P0-03 R1)
 
-Required GitHub Actions workflow: `.github/workflows/p0-required-checks.yml`.
+Automated pull-request checks workflow: `.github/workflows/p0-required-checks.yml`
+(not independently verified here as GitHub branch-protection required checks).
 
 - Triggers on `pull_request` targeting `main` and `workflow_dispatch`
 - Top-level `permissions: contents: read` only — no write, deploy, or hosted credentials
-- **Core job:** `npm test`, `npm run check`, `npm run frontend:build`, `npm audit --audit-level=high`, `npm run test:community-smoke`
-- **Database security job:** isolated PostgreSQL 16 service; runs `npm run test:community-rls` then `npm run test:floral-library-rls` (connection failures fail the job)
+- **Core job:** `npm test`, `npm run check`, `npm run frontend:build`, root
+  `npm audit --audit-level=high`, `node scripts/audit-frontend-security.mjs`,
+  `npm run test:community-smoke`
+- **Database security job:** digest-pinned PostgreSQL 16 service; runs
+  `npm run test:community-rls` then `npm run test:floral-library-rls`
+  (connection failures fail the job)
 - No Netlify / Supabase-hosted / Stripe secrets; no production or staging migrations; no deploy steps
+
+### Dependency audit truth (P0-03 R1)
+
+| Scope | Result |
+|-------|--------|
+| Root `npm audit --audit-level=high` | Zero findings |
+| Frontend policy (`scripts/audit-frontend-security.mjs`) | Temporarily accepts **exactly one** advisory: `GHSA-qwww-vcr4-c8h2`, only for `react-router` and `react-router-dom` both pinned at **7.18.2** |
+
+Rationale for the temporary exception: Netlify `publish = "public"` (not `frontend/dist`);
+frontend uses client-only `BrowserRouter`; no RSC/server-router entrypoints or dependencies.
+**Does not claim zero total frontend vulnerabilities.** Exception expires before React production
+migration or **2026-08-15** (UTC), whichever happens first. Review owner: Technical Director.
 
 ## Recommended follow-ups (post-beta)
 

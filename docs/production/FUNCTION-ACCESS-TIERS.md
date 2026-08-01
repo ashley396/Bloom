@@ -103,11 +103,17 @@ See [ENVIRONMENT.md](./ENVIRONMENT.md) for `PLATFORM_BOOTSTRAP_SECRET` and `FLOR
 - Other roles (`support`, `billing`, `designer`, …) may exist in DB but **cannot receive the
   service-role client** until a separate RBAC matrix receives Founder approval.
 
-## Pull-request verification (P0-03)
+## Pull-request verification (P0-03 / P0-03 R1)
 
-RLS persona suites for Community and Floral Library are required CI on pull requests to `main`
-via `.github/workflows/p0-required-checks.yml` (PostgreSQL 16 service container). Those suites
-exercise database grants/policies in an isolated CI database — they do not deploy, do not apply
-hosted migrations, and do not use production service-role credentials. Platform-admin Tier 2
-handlers remain verified by the non-Postgres unit suite (`tests/platform-admin-authorization-boundary.test.js`)
-in the same workflow’s core job.
+Automated pull-request checks on PRs to `main` via `.github/workflows/p0-required-checks.yml`
+(digest-pinned PostgreSQL 16 service). Those suites exercise database grants/policies in an
+isolated CI database — they do not deploy, do not apply hosted migrations, and do not use
+production service-role credentials. Platform-admin Tier 2 handlers remain verified by the
+non-Postgres unit suite (`tests/platform-admin-authorization-boundary.test.js`) in the core job.
+
+Frontend dependency auditing uses `scripts/audit-frontend-security.mjs`: root audit stays at
+zero high/critical findings; frontend temporarily allows only `GHSA-qwww-vcr4-c8h2` for
+`react-router` / `react-router-dom@7.18.2` under non-RSC / `publish=public` conditions until
+**2026-08-15** (UTC) or React production migration, whichever is first. Review owner:
+Technical Director. These are automated checks — not confirmed here as branch-protection
+required status checks.

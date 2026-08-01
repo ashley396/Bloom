@@ -54,6 +54,9 @@ jobs:
       - name: npm audit (high+)
         run: npm audit --audit-level=high
 
+      - name: Frontend dependency security policy
+        run: node scripts/audit-frontend-security.mjs
+
       - name: Community smoke (feature-flag / static checks)
         run: npm run test:community-smoke
 
@@ -63,8 +66,8 @@ jobs:
     timeout-minutes: 25
     services:
       postgres:
-        # Official image default superuser is `postgres` (required by Community R1 grants).
-        image: postgres:16
+        # PostgreSQL 16 — digest pinned from successful run 30704551465.
+        image: postgres:16@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
