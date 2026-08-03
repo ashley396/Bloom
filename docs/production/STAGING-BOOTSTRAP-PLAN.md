@@ -1,7 +1,7 @@
 # Staging Bootstrap Plan — Brand-New Supabase Project
 
-**Purpose:** Ordered, rehearseable plan to stand up a **new** Florisyn staging Supabase database through PR #13 tip schema readiness.  
-**Local rehearsal HEAD baseline:** `bf1943163444f86293c633219c0d0ac019ca1a00` (+ this plan).  
+**Purpose:** Ordered, rehearseable plan to stand up a **new** Florisyn staging Supabase database through PR #13 tip schema readiness.
+**Local rehearsal HEAD baseline:** `bf1943163444f86293c633219c0d0ac019ca1a00` (+ this plan).
 **Hard stop:** Do **not** connect to or mutate hosted staging until Technical Director approval after local rehearsal passes.
 
 ## Truth / constraints
