@@ -3,13 +3,15 @@
 Use this before any production deploy of `beta/august10-stabilization` (PR #13).
 **Do not apply staging or production migrations until Technical Director approval.**
 
-Baseline: `main` @ `eb690be` + Florist Community Beta + **Correction R6 security**.
+Baseline: `main` @ `eb690be` + Florist Community Beta + Correction R6 + P0-01 Floral Library lock + P0-02/P0-03/P0-07A stabilization work on tip `de683c0258e78df765200641c9bc795eae2c98c8`.
 
-**Truth statements (Correction R6):**
+**Truth statements:**
 - PR #13 is **not merged**.
 - No production deployment occurred from this work.
 - Community migrations have **not** been applied to staging or production.
+- Floral Library lock migration (`20260801_p0_01_floral_library_schema_lock_v1.sql`) is included in PR #13 and has **not** been applied to a hosted environment.
 - `COMMUNITY_BETA` **defaults OFF** (enable only with explicit `FLORISYN_FLAG_COMMUNITY_BETA=true`).
+- **Keep Community OFF** during all migration apply and persona/RLS verification.
 - Community images are **private**; clients receive **short-lived signed URLs** (300s) only when readable.
 - Uploaded images are **fully decoded and re-encoded with sharp exactly once** in validation; upload stores only the prevalidated sanitized buffer (no second sharp pass / no data-URL re-decode).
 - Declared size and base64 length are enforced **before** `Buffer.from`; malformed base64 is rejected safely.
@@ -18,8 +20,9 @@ Baseline: `main` @ `eb690be` + Florist Community Beta + **Correction R6 security
 - v1 alone is **locked** (no Community access) until the security migration succeeds.
 - Moderators cannot rewrite content or hard-delete; status-only RPCs only.
 - Storage DELETE is owner-only for user JWT; service_role cleanup remains for audited internal processes.
-- **Staff A2 remains paused** — do not apply or bundle with Community.
+- **Staff A2 remains paused** — do not apply or bundle with Community or Floral Library lock.
 - Live Stripe / device testing still requires an approved environment.
+- Migration failure **must stop the release process**. Recovery is **backup / PITR** — not destructive DOWN SQL.
 
 ---
 
@@ -30,12 +33,16 @@ Baseline: `main` @ `eb690be` + Florist Community Beta + **Correction R6 security
 3. Record backup time and project ref in your change log.
 4. Optional: `pg_dump` a logical backup for extra safety.
 
+**Do not apply any PR #13 migration until backup/PITR is confirmed.**
+
 ---
 
 ## 2. Supabase migrations still needing apply
 
 Apply **in order** only after approval. Skip any already applied.
 Use the repository migration history / approved apply process. **Stop on failure** — do not continue past an error, and do not manually paste an insecure intermediate state.
+
+Keep `FLORISYN_FLAG_COMMUNITY_BETA` missing or `false` for the entire migration and persona verification window.
 
 ### Existing stack (verify applied)
 
@@ -55,9 +62,26 @@ Use the repository migration history / approved apply process. **Stop on failure
 | `supabase/migrations/20260731_florist_community_beta_v1.sql` | **Locked** Community tables + private bucket (no client access yet) |
 | `supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql` | **Security unlock** — active membership, private image auth, narrow moderation RPCs, grants |
 
-If the security migration fails after v1, Community remains locked (not publicly accessible). Fix the failure, then re-apply the security migration (idempotent).
+Community **v1 must precede** Community R1. If the security migration fails after v1, Community remains locked (not publicly accessible). Fix the failure, then re-apply the security migration (idempotent).
 
-### Paused (do not apply as part of Community)
+### Required for Floral Library lock (after approval) — included in PR #13
+
+| Migration | Purpose |
+|-----------|---------|
+| `supabase/migrations/20260801_p0_01_floral_library_schema_lock_v1.sql` | Enables RLS and restricts Floral Library master / import-batch exposure (P0-01 / R1) |
+
+**Floral Library lock facts:**
+- Included in PR #13 tip.
+- **Independent** from Community migrations (does not depend on Community tables or helpers).
+- Follows repository filename chronology after the Community pair.
+- Has **not** been applied to a hosted environment.
+- Enables RLS and restricts Floral Library access (approved master reads for authenticated; unapproved master visibility for active `super_admin` only; import batches service_role only).
+- Requires staging verification for personas: **ordinary florist**, **inactive admin**, **non-super-admin**, **super_admin**, and **service_role**.
+- Failure must **stop the release process**.
+- Recovery is **backup / PITR** — not destructive DOWN SQL.
+- Keep Community **OFF** during Floral Library migration verification.
+
+### Paused (do not apply as part of PR #13)
 
 | Migration | Status |
 |-----------|--------|
@@ -65,18 +89,23 @@ If the security migration fails after v1, Community remains locked (not publicly
 
 **Apply method (recommended):**
 
-1. Confirm backup.
-2. Apply `20260731_florist_community_beta_v1.sql` through the approved migration path.
-3. Apply `20260731_florist_community_beta_v1_r1_security.sql` next.
-4. Confirm no errors; verify bucket `florist-community` has `public = false` and Community policies exist.
-5. Do **not** instruct operators to apply two insecure migrations manually.
+1. Confirm backup / PITR.
+2. Confirm Community flag is OFF.
+3. Apply `20260731_florist_community_beta_v1.sql` through the approved migration path.
+4. Apply `20260731_florist_community_beta_v1_r1_security.sql` next.
+5. Confirm no errors; verify bucket `florist-community` has `public = false` and Community policies exist.
+6. Apply `20260801_p0_01_floral_library_schema_lock_v1.sql` (independent of Community; filename chronology after Community pair).
+7. Run Floral Library persona/RLS verification (ordinary florist, inactive admin, non-super-admin, super_admin, service_role).
+8. **Stop immediately** on any migration or persona failure; recover via backup/PITR — do not run destructive DOWN SQL.
+9. Do **not** instruct operators to apply insecure intermediate SQL manually.
+10. Do **not** enable Community until all migration and persona tests pass and TD approves.
 
 ---
 
 ## 3. Staff-time RLS A2 — PAUSED
 
-**Do not apply Staff A2 as part of PR #13 / Community Correction R6.**
-Staff A2 remains a separate, paused workstream. Do not include it in staging or production Community rollout instructions.
+**Do not apply Staff A2 as part of PR #13.**
+Staff A2 remains a separate, paused workstream. Do not include it in staging or production Community or Floral Library rollout instructions.
 
 ---
 
@@ -123,6 +152,42 @@ npm run test:community-rls
 
 ---
 
+## 4b. Floral Library lock — tables, RLS, and persona verification
+
+File (included in PR #13):
+- `supabase/migrations/20260801_p0_01_floral_library_schema_lock_v1.sql`
+
+Targets:
+- `public.bloom_floral_library_master`
+- `public.bloom_library_import_batches`
+
+Intent:
+- Enable RLS and restrict Floral Library access.
+- Ordinary authenticated clients: approved master select only; no authenticated writes.
+- Unapproved master visibility: active `super_admin` capability helper only.
+- Import batches: service_role only (zero JWT policies).
+
+### Staging persona checks (required after approved apply)
+
+| Persona | Expected |
+|---------|----------|
+| Ordinary florist | Approved master readable per policy; no unapproved/import access; no writes |
+| Inactive admin | No elevated Floral Library admin capability |
+| Non-super-admin platform role | Denied elevated unapproved master visibility / admin mutations |
+| `super_admin` | Elevated unapproved master visibility per lock helper; admin path still Founding Beta gated |
+| `service_role` | Import-batch / service processing path retained |
+
+Keep Community **OFF** while performing these checks.
+
+### Local verification (allowed)
+
+```bash
+npm run db:floral-library-local
+npm run test:floral-library-rls
+```
+
+---
+
 ## 5. Netlify environment variable names
 
 | Variable | Required | Notes |
@@ -138,6 +203,8 @@ npm run test:community-rls
 \* Needed for some admin/store flows and audited cleanup. Community feed uses user JWT + RLS.
 
 **Never** put service-role or Stripe secrets in `public/`.
+
+During migration verification, leave `FLORISYN_FLAG_COMMUNITY_BETA` unset or `false`.
 
 ---
 
@@ -196,15 +263,19 @@ Live Stripe / device testing still requires an **approved** environment — not 
 4. Confirm signed image URLs expire (~300s) and bucket is private.
 5. Confirm orders/customers never appear in Community responses.
 
+Perform only after Community migrations succeed, Floral Library persona checks pass (if floral lock was applied in the same window), and TD approves enabling the Community flag.
+
 ---
 
 ## Sign-off
 
 | Check | Owner | Date |
 |-------|-------|------|
-| Backup created | | |
+| Backup created / PITR confirmed | | |
 | Community v1 then security migration applied (approved env only) | | |
+| Floral Library migration applied | | |
+| Floral Library persona/RLS verification passed | | |
 | Staff A2 left paused | | |
-| `FLORISYN_FLAG_COMMUNITY_BETA` explicit decision | | |
+| `FLORISYN_FLAG_COMMUNITY_BETA` explicit decision (remain OFF until all migration + persona tests pass) | | |
 | Mobile / two-shop smoke | | |
 | TD authorization to proceed | | |
