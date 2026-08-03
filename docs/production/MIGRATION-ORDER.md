@@ -1,5 +1,7 @@
 # Migration order (review only — do not apply without approval)
 
+For a **brand-new staging Supabase project**, use the complete greenfield chain and local rehearsal in [`STAGING-BOOTSTRAP-PLAN.md`](./STAGING-BOOTSTRAP-PLAN.md) (`npm run db:staging-bootstrap-rehearse`). This file remains the short production-oriented order reference.
+
 Apply in Supabase SQL editor or CLI **after backup** (or confirmed PITR). Forward-only; use new migration files to fix mistakes.
 
 **Stop immediately on migration failure.** Recovery is **backup / PITR** — do not run destructive `DOWN` scripts in production.

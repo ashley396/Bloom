@@ -27,6 +27,8 @@
     "test:community-smoke": "node scripts/august10-community-smoke.mjs",
     "db:community-local": "node scripts/apply-community-migrations-local.mjs",
     "db:floral-library-local": "node scripts/apply-floral-library-rls-local.mjs",
+    "db:staging-bootstrap-rehearse": "node scripts/rehearse-staging-bootstrap-local.mjs",
+    "audit:staging-api-keys": "node scripts/audit-staging-api-key-compatibility.mjs",
     "frontend:dev": "npm --prefix frontend run dev",
     "frontend:build": "npm --prefix frontend run build"
   },
