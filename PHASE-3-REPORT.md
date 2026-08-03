@@ -1,54 +1,82 @@
-# Phase 3 Report — August 10 Beta Stabilization (+ Correction R6)
+# Phase 3 Report — August 10 Beta Stabilization (PR #13 tip)
 
 **Branch:** `beta/august10-stabilization`
 **Base:** `main` @ `eb690beb0c138db504cd897ef497a9e54c462a4b`
 **Starting commit (stabilization):** `eb690be`
-**Correction R1 tip:** `09c9ea78abb45a9220dfb2a3a1824d789df4102d`
-**Correction R2 tip:** `7880df9e429427b1c6670040ec8ebb8ab0ee5c47`
-**Correction R3 tip:** `50f313e6b95d65fe9221e957fd1493662a179ea6`
-**Correction R3 docs pin / R4 start:** `6f34825ccf8a65ba68e7397806edabfb44e891ff`
-**Correction R4 tip:** `9225b056e95dee06d0aad8495c6fabc733b1d3a7`
-**Correction R4 docs tip / R5 start:** `d6fb895bfb7f844760294ab7772a0bde61140826`
-**Correction R5 tip:** `f751d94ece9aa966b125103678e7ad02dd55ce53`
-**Correction R5 docs tip / R6 start:** `f13e24c66fdad8673472ee4414099ba9775e8a80`
-**Correction R6 tip:** `b04f7e59ece3e9977b3c834087b29d020ce3136b`
+**Current PR tip:** `de683c0258e78df765200641c9bc795eae2c98c8`
+
+**Historical Community correction tip pins (unchanged history):**
+- Correction R1 tip: `09c9ea78abb45a9220dfb2a3a1824d789df4102d`
+- Correction R2 tip: `7880df9e429427b1c6670040ec8ebb8ab0ee5c47`
+- Correction R3 tip: `50f313e6b95d65fe9221e957fd1493662a179ea6`
+- Correction R3 docs pin / R4 start: `6f34825ccf8a65ba68e7397806edabfb44e891ff`
+- Correction R4 tip: `9225b056e95dee06d0aad8495c6fabc733b1d3a7`
+- Correction R4 docs tip / R5 start: `d6fb895bfb7f844760294ab7772a0bde61140826`
+- Correction R5 tip: `f751d94ece9aa966b125103678e7ad02dd55ce53`
+- Correction R5 docs tip / R6 start: `f13e24c66fdad8673472ee4414099ba9775e8a80`
+- Correction R6 tip: `b04f7e59ece3e9977b3c834087b29d020ce3136b`
 
 **Draft PR:** https://github.com/ashley396/Bloom/pull/13 — **NOT MERGED**
 
-## Truth (Correction R6)
+---
 
-- Community feature flag **defaults OFF**.
+## Current truth (tip `de683c0`)
+
+- PR #13 is **draft / open / unmerged**.
+- **No production deployment** from this work.
+- **No hosted staging/production migration applied** for Community or Floral Library lock.
+- **No hosted database connection** for live schema snapshot work; snapshot SQL was **not** executed against a hosted DB.
+- Community feature flag **defaults OFF**; keep OFF until approved migration + persona verification.
+- Today page **untouched**.
+- **Staff A2 remains paused** and excluded from this apply set.
+- Frontend temporary advisory exception **GHSA-qwww-vcr4-c8h2** for `react-router` / `react-router-dom@7.18.2` expires **2026-08-15**.
 - Community images are **private**; API returns **300s signed URLs** only after `florist_community_image_readable`.
-- Image uploads are **fully decoded and re-encoded with `sharp@0.35.3` exactly once** in `validatePostBody` / `validateCommunityImageUpload`. Upload accepts only the prevalidated sanitized object (`valid`, `sanitized`, nonempty buffer, jpeg/png/webp, ≤2 MB) and **never** re-decodes a data URL or runs a second sharp pass.
-- **Base64 size is enforced before `Buffer.from`**: declared size and max base64 length are rejected prior to decode; malformed base64 is rejected safely; decoded binary and post-sanitization 2 MB checks remain.
-- **Image storage lifecycle (fail-closed reconcile):** after ambiguous create/update write errors, `reconcileCommunityImageAfterWriteError` treats only a real JS array as conclusive (`[]` → remove orphan; non-empty → retain). `null` / `undefined` / unexpected shapes retain with `query_shape`. Query error/throw retain. Logs use only Florisyn-owned codes: `query_error`, `query_throw`, `query_shape`, `remove_error`, `remove_throw`, `unknown` — never provider `error.code` / messages / paths / tokens / URLs. Successful replacement removes the previous object only after DB success; author hard-delete removes image after DB delete; moderator soft-remove **preserves** the image.
-- **Active florist membership** requires exactly `shop_members.status = 'active'` (no `coalesce`). Membership constraint compatibility accepts only the exact allowlist `{active, invited, suspended, removed}` — not substring presence of “active”/“suspended”. Incomplete, inverted, or broader constraints abort with a clear error. Apply-twice remains successful.
-- **v1 alone is locked**: private bucket, no public image read, no anon/authenticated Community access, SECURITY DEFINER helpers not executable by clients.
-- Broad moderator UPDATE/DELETE policies removed; status-only hardened RPCs only.
-- Storage DELETE: active image owner only; managers/platform admins cannot direct-delete; service_role cleanup remains.
-- Platform admin authorization uses `is_platform_admin_user()` RPC.
-- `requireActiveFlorist()` is fail-closed.
-- Report insert is conflict-safe (`ON CONFLICT DO NOTHING`).
-- Migrations **not** applied to staging or production.
-- **Staff A2 remains paused**.
-- No production deployment.
-- PR #12 untouched; Today page untouched; React migration not started.
+- Image uploads are **fully decoded and re-encoded with `sharp@0.35.3` exactly once**; upload stores only the prevalidated sanitized buffer.
+- Platform-admin Founding Beta: empty/missing allowed roles fail closed to **`super_admin` only**.
 
 ---
 
-## Commits (functional)
+## Milestone summaries (after Correction R6)
 
-1. Initial Community Beta work on this branch
-2. **Correction R1** — `09c9ea7`
-3. **Correction R2** — `5c0d100` / docs `7880df9`
-4. **Correction R3** — sharp decode/re-encode, v1 locked-alone, storage-delete lockdown, fail-loud membership, canModerate truth
-5. **Correction R4** — single-pass image pipeline, pre-base64 size enforcement, storage lifecycle cleanup, exact membership constraint compatibility
-6. **Correction R5** — reference-safe reconcile after ambiguous create/update write errors
-7. **Correction R6** — fail-closed query-shape handling; Florisyn-owned log-code allowlist only
+### Community Beta + Corrections R1–R6
+Florist Community schema/API/UI with fail-closed membership, private images, single-pass sharp sanitization, fail-closed image reconcile + log allowlist, and Community flag default OFF.
+
+### P0-01 / R1 — Floral Library schema lock
+Adds `20260801_p0_01_floral_library_schema_lock_v1.sql`: enables RLS and restricts `bloom_floral_library_master` / `bloom_library_import_batches`. Independent of Community. Not applied to any hosted environment. Local/CI coverage via `npm run test:floral-library-rls`.
+
+### P0-02 R1–R4 — Platform-admin fail-closed boundary
+All four platform-admin endpoints require `super_admin`; mutations call `requireSuperAdmin` before writes; branded public error catalog; server-owned request IDs; `Object.hasOwn` catalog lookup; production handlers factory-bound so Netlify context cannot override auth deps.
+
+### P0-03 through R2 — Required PR CI + frontend audit policy
+Adds `.github/workflows/p0-required-checks.yml` (Core checks + digest-pinned PostgreSQL 16 dual RLS suites). Temporary frontend audit exception for `GHSA-qwww-vcr4-c8h2` at exact `7.18.2`, expiry **2026-08-15**; R2 applies exception gates only when that advisory is present.
+
+### P0-05 — Branch protection confirmation
+GitHub repository ruleset **Florisyn Main Protection** (`rulesets/20192574`, enforcement `active`, target default branch) requires status checks:
+- `Core checks`
+- `PostgreSQL RLS security suites`
+with `strict_required_status_checks_policy: true`. Also enforces pull-request rules, linear history, deletion block, and non-fast-forward. Confirmed via GitHub Rulesets API (not inferred from workflow files alone).
+
+### P0-07A R1–R4 closeout
+Safe live schema snapshot pack: READ ONLY metadata SQL, fail-closed static validator, focused tests, runbook. Closeout commit `de683c0258e78df765200641c9bc795eae2c98c8`. No hosted DB connection; snapshot not executed against hosted DB.
+
+### P0-08A — Cumulative scope inventory
+Read-only inventory of `main…de683c0` (41 commits / 57 files). Identified missing Floral Library entry in release docs (addressed by P0-08B documentation reconciliation). No code/migration/test changes in 08A.
 
 ---
 
-## Security design (R6)
+## Commits (functional tracks on this branch)
+
+1. Initial Community Beta work
+2. **Correction R1–R6** — membership, private images, sharp single-pass, lifecycle reconcile, log allowlist
+3. **P0-01 / R1** — Floral Library schema lock
+4. **P0-02 R1–R4** — platform-admin fail-closed boundary
+5. Design-system foundation **added then fully reverted** (net zero `frontend/src`)
+6. **P0-03 through R2** — required checks workflow + temporary frontend audit policy
+7. **P0-07A** — live schema snapshot pack (`de683c0`)
+
+---
+
+## Security design (Community R6 — still current)
 
 | Control | Implementation |
 |---------|----------------|
@@ -69,37 +97,48 @@
 |------|--------------------------|
 | `20260731_florist_community_beta_v1.sql` | **No** |
 | `20260731_florist_community_beta_v1_r1_security.sql` | **No** |
-| Staff A2 | **Paused** |
+| `20260801_p0_01_floral_library_schema_lock_v1.sql` | **No** |
+| Staff A2 | **Paused / excluded** |
+
+**Order:** Community v1 → Community R1 → Floral Library lock (independent of Community; filename chronology). Stop on failure. Recovery = backup/PITR, not DOWN SQL. Keep Community OFF during verification.
 
 **Local apply (history-preserving; stops on failure):**
 ```bash
 npm run db:community-local
-# modes:
-# COMMUNITY_APPLY_MODE=v1-alone   → locked v1 only
-# COMMUNITY_APPLY_MODE=r1-again   → re-apply security migration without reset
+# COMMUNITY_APPLY_MODE=v1-alone | r1-again
+npm run db:floral-library-local
+npm run test:community-rls
+npm run test:floral-library-rls
 ```
 
-Do **not** paste insecure intermediate SQL by hand in production. Apply migrations in order through the approved process; if the security migration fails, v1 remains locked.
-
-**Rollback:** restore DB backup. Prefer backup restore over partial drops.
-
-**Supabase security advisor:** MCP unavailable/unauthenticated in this environment.
+Do **not** paste insecure intermediate SQL by hand in production.
 
 ---
 
-## Tests
+## Current verification truth (at tip `de683c0`)
 
-See Correction R6 report for exact totals (`npm test`, check, frontend build, community smoke/RLS, `npm audit --audit-level=high`).
+Recorded at P0-07A closeout on this tip (documentation reconciliation does not re-run the suite):
+
+| Check | Result |
+|-------|--------|
+| Snapshot tests | **47/47** |
+| `npm test` | **576/576** |
+| `npm run check` | **229** JavaScript files |
+| Frontend build | **pass** |
+| Root high audit | **0** |
+| Required GitHub workflow | **success** — https://github.com/ashley396/Bloom/actions/runs/30823028506 (`Core checks` + `PostgreSQL RLS security suites`) |
 
 ---
 
 ## Remaining staging work
 
-- Apply Community v1 then R1 security migration on an **approved** staging project only
-- Enable `FLORISYN_FLAG_COMMUNITY_BETA=true` on that env only after TD approval
+- Apply Community v1 then R1 on an **approved** staging project only (after backup/PITR)
+- Apply Floral Library lock on that approved env; run persona/RLS verification (ordinary florist, inactive admin, non-super-admin, super_admin, service_role)
+- Keep `FLORISYN_FLAG_COMMUNITY_BETA` OFF until all migration + persona tests pass and TD approves enablement
 - Live two-shop + Stripe test + mobile device QA
 - Staff A2 remains a separate paused track
+- Resolve or replace frontend advisory exception before **2026-08-15**
 
 ---
 
-*End of Phase 3 / Correction R6 documentation.*
+*End of Phase 3 report — updated for PR tip `de683c0258e78df765200641c9bc795eae2c98c8` (P0-08B documentation reconciliation).*
