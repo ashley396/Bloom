@@ -59,18 +59,37 @@ test("auth admission supports the standard edge next fallback", async () => {
   assert.equal(response.headers.get("cache-control"), "no-store");
 });
 
-test("bounded upstream fetch returns a safe 503 timeout", async () => {
+test("bounded upstream fetch returns a safe 503 timeout", { timeout: 10_000 }, async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (_url, { signal }) => new Promise((_resolve, reject) => {
-    signal.addEventListener("abort", () => reject(signal.reason), { once: true });
-  });
+  const originalTimeout = AbortSignal.timeout;
+  // node:test can drain before an unref'd AbortSignal.timeout timer fires.
+  AbortSignal.timeout = (ms) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      const reason = new Error("The operation was aborted due to timeout");
+      reason.name = "TimeoutError";
+      controller.abort(reason);
+    }, ms);
+    if (typeof timer.unref === "function") timer.ref();
+    return controller.signal;
+  };
+  globalThis.fetch = (_url, { signal }) =>
+    new Promise((_resolve, reject) => {
+      const onAbort = () => reject(signal.reason || new Error("aborted"));
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener("abort", onAbort, { once: true });
+    });
   try {
     await assert.rejects(
-      fetchWithTimeout("https://example.invalid", {}, { timeoutMs: 5, service: "Authentication service" }),
+      fetchWithTimeout("https://example.invalid", {}, { timeoutMs: 40, service: "Authentication service" }),
       (error) => error?.statusCode === 503 && error?.code === "upstream_timeout"
     );
   } finally {
     globalThis.fetch = originalFetch;
+    AbortSignal.timeout = originalTimeout;
   }
 });
 
