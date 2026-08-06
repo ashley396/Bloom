@@ -12,6 +12,7 @@ async function initializeAdmin(){
     const d=await call('admin-bootstrap',{},false);
     if(!d.ownerExists){$('#ownerSetup').hidden=false;$('#adminAuth').hidden=true;$('#adminApp').hidden=true;return}
     $('#ownerSetup').hidden=true;
+    if($('#loginMessage'))$('#loginMessage').textContent='Owner account exists. Sign in to Florisyn HQ.';
     if(session){
       call('admin-command-center?action=dashboard').then(showApp).catch(()=>{localStorage.removeItem('bloom_admin_session');$('#adminAuth').hidden=false});
     }else $('#adminAuth').hidden=false;
