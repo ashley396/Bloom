@@ -319,6 +319,41 @@ body.florisyn-rc22 img:not([src]) {
   visibility: hidden;
 }
 
+body.florisyn-rc22 .website-studio-layout {
+  grid-template-columns: minmax(380px, 500px) minmax(0, 1fr) !important;
+  gap: 18px !important;
+}
+
+body.florisyn-rc22 .website-controls,
+body.florisyn-rc22 .preview-toolbar,
+body.florisyn-rc22 .premium-preview,
+body.florisyn-rc22 .website-editor-shell {
+  border-color: #ebe6e3 !important;
+  box-shadow: 0 10px 30px rgba(47, 42, 44, 0.055) !important;
+}
+
+body.florisyn-rc22 .studio-section {
+  padding: 18px 20px !important;
+  border-bottom-color: #ebe6e3 !important;
+  background: var(--surface-ivory);
+}
+
+body.florisyn-rc22 .studio-section:nth-child(even) {
+  background: #fff;
+}
+
+body.florisyn-rc22 .studio-title > span {
+  background: var(--florisyn-sage, #6b8f7a) !important;
+  color: #fff !important;
+}
+
+body.florisyn-rc22 .photo-category-chips button.active,
+body.florisyn-rc22 .preview-tabs .active {
+  background: var(--florisyn-charcoal, #2f2a2c) !important;
+  border-color: var(--florisyn-charcoal, #2f2a2c) !important;
+  color: #fff !important;
+}
+
 @media (max-width: 1200px) {
   body.florisyn-rc22 .platform-top-strip {
     padding-left: 18px;
@@ -329,6 +364,10 @@ body.florisyn-rc22 img:not([src]) {
   }
 
   body.florisyn-rc22 .pos-welcome-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  body.florisyn-rc22 .website-studio-layout {
     grid-template-columns: 1fr !important;
   }
 }
@@ -367,4 +406,96 @@ body.florisyn-rc22 img:not([src]) {
   body.florisyn-rc22 .assistant-mini-dock small {
     display: block !important;
   }
+}
+
+/* —— Launch surfaces: Orders, Website Studio, Payments, Staff —— */
+body.florisyn-rc22 .order-command-page,
+body.florisyn-rc22 #websitePage,
+body.florisyn-rc22 #paymentsPage,
+body.florisyn-rc22 #staffPage {
+  --surface-navy: #18252f;
+  --surface-ivory: #fffcf8;
+  --surface-blush: #f3e4e8;
+  --surface-gold: #c9a962;
+  --surface-botanical: #3d5c4a;
+}
+
+body.florisyn-rc22 .order-command-page .heading,
+body.florisyn-rc22 #websitePage .heading,
+body.florisyn-rc22 #paymentsPage .heading,
+body.florisyn-rc22 #staffPage .heading {
+  padding: 18px 20px;
+  border: 1px solid #e7ddd2;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 252, 248, 0.95), rgba(243, 228, 232, 0.45)),
+    var(--surface-ivory);
+  box-shadow: 0 14px 34px rgba(24, 37, 47, 0.06);
+}
+
+body.florisyn-rc22 .order-command-page .heading h1,
+body.florisyn-rc22 #websitePage .heading h1,
+body.florisyn-rc22 #paymentsPage .heading h1,
+body.florisyn-rc22 #staffPage .heading h1 {
+  color: var(--surface-navy);
+}
+
+body.florisyn-rc22 .order-board-column,
+body.florisyn-rc22 .order-card,
+body.florisyn-rc22 #websitePage .studio-section,
+body.florisyn-rc22 #websitePage .site-preview,
+body.florisyn-rc22 #paymentsPage .payment-top-summary,
+body.florisyn-rc22 #paymentsPage .payment-flow-panel,
+body.florisyn-rc22 #staffPage .bloom-staff-list-card {
+  border-color: #e7ddd2 !important;
+  border-radius: 8px !important;
+  background: rgba(255, 252, 248, 0.96) !important;
+  box-shadow: 0 10px 28px rgba(24, 37, 47, 0.06) !important;
+}
+
+body.florisyn-rc22 .order-board-column h2,
+body.florisyn-rc22 #websitePage .studio-title h3,
+body.florisyn-rc22 #paymentsPage .payment-flow-panel h2,
+body.florisyn-rc22 #staffPage .bloom-staff-name-only {
+  color: var(--surface-navy) !important;
+}
+
+body.florisyn-rc22 #websitePage .site-preview {
+  border-width: 6px !important;
+  border-color: var(--surface-navy) !important;
+}
+
+body.florisyn-rc22 #websitePage .preview-hero {
+  background:
+    linear-gradient(90deg, rgba(24, 37, 47, 0.72), rgba(61, 92, 74, 0.28)),
+    var(--hero-image, linear-gradient(135deg, var(--surface-navy), var(--surface-botanical))) !important;
+  background-size: cover !important;
+  background-position: center !important;
+}
+
+body.florisyn-rc22 #paymentsPage .payment-tile {
+  border-color: #e7ddd2 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+}
+
+body.florisyn-rc22 #paymentsPage .payment-tile.primary-tile {
+  background: linear-gradient(145deg, var(--surface-navy), var(--surface-botanical)) !important;
+  color: #fff !important;
+}
+
+body.florisyn-rc22 #staffPage .bloom-staff-list-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px !important;
+}
+
+body.florisyn-rc22 #staffPage .bloom-staff-list-card .card-actions {
+  margin: 0 !important;
+}
+
+body.florisyn-rc22 #staffPage .bloom-staff-list-card button {
+  min-width: 132px;
 }

@@ -26,7 +26,13 @@ async function bloomLogin(event){
     window.dispatchEvent(new CustomEvent('bloom-login-success',{detail:session}));
     location.href="/";
   }catch(error){
-    message.textContent=error.message || 'Sign in failed. Please try again.';
+    const detail=String(error.message||'');
+    if(/invalid login credentials|email not confirmed/i.test(detail)){
+      const emailParam=encodeURIComponent(email||'');
+      message.innerHTML=`Could not sign in yet. Check your email confirmation link, or <a href="/verify-email?pending=1&email=${emailParam}">resend the confirmation email</a>.`;
+    }else{
+      message.textContent=detail || 'Sign in failed. Please try again.';
+    }
     form.dataset.submitting='false';
     button.disabled=false;
     button.textContent='Sign in';

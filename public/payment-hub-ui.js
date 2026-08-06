@@ -97,8 +97,12 @@
       .slice(0, 8)
       .map((r) => `<li>${money(r.amount)} · ${esc(r.provider_id)} · ${esc(r.status)}${r.notes ? ` · ${esc(r.notes)}` : ""}</li>`)
       .join("");
+    const paymentOptions = (refunds?.payments || [])
+      .map((p) => `<option value="${esc(p.id)}" data-refundable="${esc(p.refundable_amount)}">${esc(p.received_at ? new Date(p.received_at).toLocaleDateString() : "Payment")} · ${money(p.refundable_amount)} refundable · ${esc(p.method || p.processor || "payment")}</option>`)
+      .join("");
     return `<h3>Refund center</h3>
-      <div class="two"><label>Amount<input id="phRefundAmount" type="number" step="0.01"></label><label>Stripe payment intent ID<input id="phRefundIntent" placeholder="pi_…"></label></div>
+      <div class="two"><label>Payment<select id="phRefundPaymentId"><option value="">Select a refundable payment</option>${paymentOptions}</select></label><label>Amount<input id="phRefundAmount" type="number" step="0.01"></label></div>
+      <label>Idempotency key<input id="phRefundIdempotencyKey" placeholder="Generated automatically if blank"></label>
       <label>Reason<select id="phRefundReason">${(refunds?.reasons || []).map((r) => `<option value="${esc(r)}">${esc(r)}</option>`).join("")}</select></label>
       <label>Notes<textarea id="phRefundNotes" rows="2" placeholder="Internal notes (audit log)"></textarea></label>
       <label class="check"><input type="checkbox" id="phRefundPartial"> Partial refund</label>
@@ -209,13 +213,21 @@
 
   async function submitRefund() {
     const api = window.BloomPaymentHub?.api || window.api;
+    const paymentId = String(document.getElementById("phRefundPaymentId")?.value || "").trim();
+    const explicitKey = String(document.getElementById("phRefundIdempotencyKey")?.value || "").trim();
+    const idempotencyKey = explicitKey || `refund:${paymentId || "missing"}:${Date.now()}`;
+    if (!paymentId) {
+      window.toast?.("Select a refundable payment first.");
+      return;
+    }
     try {
       await api("payment-hub", {
         method: "POST",
         body: JSON.stringify({
           action: "refund_create",
           amount: document.getElementById("phRefundAmount")?.value,
-          payment_intent_id: document.getElementById("phRefundIntent")?.value,
+          payment_id: paymentId,
+          idempotency_key: idempotencyKey,
           reason: document.getElementById("phRefundReason")?.value,
           notes: document.getElementById("phRefundNotes")?.value,
           partial: document.getElementById("phRefundPartial")?.checked,

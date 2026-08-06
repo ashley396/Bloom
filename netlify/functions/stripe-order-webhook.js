@@ -19,7 +19,7 @@ export async function handler(event) {
     try {
       stripeEvent = stripe.webhooks.constructEvent(raw, signature, process.env.STRIPE_ORDER_WEBHOOK_SECRET);
     } catch (e) {
-      return { statusCode: 400, body: `Webhook signature error: ${e.message}` };
+      return { statusCode: 400, body: "Webhook signature verification failed." };
     }
 
     const modeCheck = assertStripeLivemodeMatchesKey(

@@ -48,6 +48,16 @@ async function logSubscriptionEvent(client, { shopId, userId, eventType, reasonC
   });
 }
 
+function stripeRedirectBaseUrl() {
+  const site = String(process.env.SITE_URL || process.env.URL || "").trim().replace(/\/$/, "");
+  if (!site) {
+    const e = new Error("SITE_URL is not configured in Netlify.");
+    e.statusCode = 503;
+    throw e;
+  }
+  return site;
+}
+
 async function loadBillingHistory(client, shopId, sub, stripe) {
   const eventsRes = await client
     .from("shop_subscription_events")
@@ -273,7 +283,7 @@ export async function handler(event) {
       };
       const price = priceMap[planCode];
       if (!price) return json(503, { error: `Stripe price for ${planCode} is not configured.` });
-      const site = (process.env.SITE_URL || event.headers.origin || "").replace(/\/$/, "");
+      const site = stripeRedirectBaseUrl();
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
         customer: sub.stripe_customer_id || undefined,
@@ -292,7 +302,7 @@ export async function handler(event) {
       if (!stripe || !sub.stripe_customer_id) {
         return json(400, { error: "No billing profile yet. Choose a paid plan first." });
       }
-      const site = (process.env.SITE_URL || event.headers.origin || "").replace(/\/$/, "");
+      const site = stripeRedirectBaseUrl();
       const portal = await stripe.billingPortal.sessions.create({
         customer: sub.stripe_customer_id,
         return_url: `${site}/?page=subscriptionPage`

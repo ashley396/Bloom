@@ -300,6 +300,21 @@ test("stripe webhook verifies signature before processing", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/stripe-order-webhook.js"), "utf8");
   assert.match(src, /constructEvent/);
   assert.match(src, /assertStripeLivemodeMatchesKey/);
+  assert.match(src, /Webhook signature verification failed\./);
+  assert.doesNotMatch(src, /Webhook signature error: \$\{e\.message\}/);
+});
+
+test("Stripe redirect URLs never trust request origin headers", () => {
+  for (const file of [
+    "netlify/functions/stripe-connect.js",
+    "netlify/functions/create-checkout.js",
+    "netlify/functions/shop-billing.js",
+    "netlify/functions/marketplace-checkout.js"
+  ]) {
+    const src = fs.readFileSync(path.join(process.cwd(), file), "utf8");
+    assert.match(src, /process\.env\.SITE_URL\s*\|\|\s*process\.env\.URL/);
+    assert.doesNotMatch(src, /event\.headers\.origin/);
+  }
 });
 
 test("postStripePayment uses idempotency key in RPC", () => {
