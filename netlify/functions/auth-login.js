@@ -7,6 +7,8 @@ import { logAuthEvent, mapAuthProviderFailure } from "./_shared/auth-email.js";
 
 const MEMBERSHIP_MESSAGE =
   "Your Florisyn login works, but this account is not linked to an active flower shop yet. Finish onboarding or contact Florisyn support so we can attach your shop membership.";
+const MEMBERSHIP_CHECK_UNAVAILABLE =
+  "Sign in is temporarily unavailable while we verify shop access. Please try again in a moment.";
 
 function isMissingColumnError(error, column = "status") {
   const msg = String(error?.message || error || "").toLowerCase();
@@ -41,11 +43,27 @@ async function isActivePlatformAdmin(client, userId) {
 /**
  * Florist accounts need an active shop membership before a session is issued.
  * Platform admins may sign in without shop membership (Admin console path).
- * If service role is unavailable, skip the gate and let currentUser enforce later.
+ * Fail closed when service role or membership lookup is unavailable — never mint tokens blind.
  */
 async function assertFloristAccessOrAdmin(userId, event, requestId) {
+  if (!userId) {
+    return { ok: false, status: 401, code: "invalid_credentials", error: "Invalid email or password." };
+  }
   const client = adminIfConfigured();
-  if (!client || !userId) return { ok: true, skipped: true };
+  if (!client) {
+    logAuthEvent(
+      "error",
+      "login_membership_check_unavailable",
+      { user_id: userId, request_id: requestId, reason: "service_role_missing" },
+      event
+    );
+    return {
+      ok: false,
+      status: 503,
+      code: "membership_check_unavailable",
+      error: MEMBERSHIP_CHECK_UNAVAILABLE
+    };
+  }
   try {
     if (await hasActiveShopMembership(client, userId)) return { ok: true, kind: "shop_member" };
     if (await isActivePlatformAdmin(client, userId)) return { ok: true, kind: "platform_admin" };
@@ -55,16 +73,20 @@ async function assertFloristAccessOrAdmin(userId, event, requestId) {
       { user_id: userId, request_id: requestId },
       event
     );
-    return { ok: false, code: "shop_membership_required", error: MEMBERSHIP_MESSAGE };
+    return { ok: false, status: 403, code: "shop_membership_required", error: MEMBERSHIP_MESSAGE };
   } catch (error) {
     logAuthEvent(
-      "warn",
+      "error",
       "login_membership_check_failed",
       { user_id: userId, request_id: requestId, provider_status: error?.status || error?.code || "error" },
       event
     );
-    // Fail open to currentUser membership enforcement when lookup is unavailable.
-    return { ok: true, skipped: true };
+    return {
+      ok: false,
+      status: 503,
+      code: "membership_check_unavailable",
+      error: MEMBERSHIP_CHECK_UNAVAILABLE
+    };
   }
 }
 
@@ -149,7 +171,7 @@ export async function handler(event) {
 
     const access = await assertFloristAccessOrAdmin(data.user?.id, event, requestId);
     if (!access.ok) {
-      return json(403, { error: access.error, code: access.code });
+      return json(access.status || 403, { error: access.error, code: access.code });
     }
 
     logAuthEvent(

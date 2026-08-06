@@ -44,6 +44,15 @@ test("missing shop membership shows onboarding, not invalid-login copy", () => {
   assert.doesNotMatch(appJs, /showMembershipOnboarding[\s\S]{0,200}Invalid email or password/);
 });
 
+test("login membership gate fails closed when lookup unavailable", () => {
+  assert.match(loginFn, /membership_check_unavailable/);
+  assert.match(loginFn, /service_role_missing/);
+  assert.doesNotMatch(loginFn, /Fail open to currentUser/);
+  assert.doesNotMatch(loginFn, /return \{ ok: true, skipped: true \}/);
+  assert.match(loginFn, /status: 503/);
+  assert.match(loginJs, /membership_check_unavailable/);
+});
+
 test("login UI separates unconfirmed email from wrong-password guidance", () => {
   assert.match(loginJs, /invalid login credentials\|invalid email or password\|email not confirmed/i);
   assert.match(loginJs, /forgot-password/);

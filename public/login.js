@@ -37,7 +37,7 @@ async function bloomLogin(event){
       message.textContent=detail;
     }else if(code==='email_not_confirmed'||/email not confirmed/i.test(detail)){
       message.innerHTML=`Could not sign in yet. Check your email confirmation link, or <a href="/verify-email?pending=1&email=${emailParam}">resend the confirmation email</a>.`;
-    }else if(code==='auth_rate_limited'||code==='auth_email_provider_unavailable'){
+    }else if(code==='auth_rate_limited'||code==='auth_email_provider_unavailable'||code==='membership_check_unavailable'){
       message.textContent=detail || 'Sign in is temporarily unavailable. Please try again shortly.';
     }else if(code==='invalid_credentials'||/invalid login credentials|invalid email or password|email not confirmed/i.test(detail)){
       message.innerHTML=`Could not sign in. Check your email and password, or <a href="/forgot-password">reset your password</a>. Need to confirm your email? <a href="/verify-email?pending=1&email=${emailParam}">Resend confirmation</a>.`;
