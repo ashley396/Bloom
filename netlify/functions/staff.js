@@ -49,9 +49,14 @@ const validPin = (pin, stored) => {
     return false;
   }
 };
+function deny(message, statusCode = 403) {
+  const e = new Error(message);
+  e.statusCode = statusCode;
+  throw e;
+}
 const requirePinFormat = (pin) => {
   if (!/^\d{4,8}$/.test(String(pin || "")))
-    throw new Error("Employee PIN must be 4–8 digits.");
+    deny("Employee PIN must be 4–8 digits.", 400);
 };
 function pinRateLimit(event, staffId) {
   const limit = checkRateLimit(event, {
@@ -64,11 +69,6 @@ function pinRateLimit(event, staffId) {
     e.statusCode = 429;
     throw e;
   }
-}
-function deny(message, statusCode = 403) {
-  const e = new Error(message);
-  e.statusCode = statusCode;
-  throw e;
 }
 function hasAssignedValue(body, field) {
   return Object.prototype.hasOwnProperty.call(body, field) && body[field] !== "" && body[field] != null;
@@ -144,7 +144,7 @@ export async function handler(event) {
           .single();
         if (employeeError) throw employeeError;
         if (employee.pin_hash && !validPin(body.pin, employee.pin_hash))
-          throw new Error("Incorrect employee PIN.");
+          deny("Incorrect employee PIN.", 401);
         const { data: timeEntries, error: timeEntriesError } = await client
           .from("staff_time_entries")
           .select("id,staff_id,clock_in,clock_out,hours_worked,created_at")
@@ -167,13 +167,14 @@ export async function handler(event) {
           .eq("shop_id", shopId)
           .single();
         if (employeeError) throw employeeError;
-        if (!employee.active) throw new Error("This employee is inactive.");
+        if (!employee.active) deny("This employee is inactive.", 403);
         if (!employee.pin_hash)
-          throw new Error(
+          deny(
             "A manager must set this employee’s PIN before clocking in.",
+            400,
           );
         if (!validPin(body.pin, employee.pin_hash))
-          throw new Error("Incorrect employee PIN.");
+          deny("Incorrect employee PIN.", 401);
         if (body.action === "CLOCK_IN") {
           const { data: open } = await client
             .from("staff_time_entries")
@@ -243,7 +244,7 @@ export async function handler(event) {
     }
     if (event.httpMethod === "PATCH") {
       const body = bodyOf(event);
-      if (!body.id) throw new Error("Missing employee id");
+      if (!body.id) deny("Missing employee id", 400);
       const wantsPrivate = PRIVATE_STAFF_FIELDS.some((f) => hasAssignedValue(body, f));
       const wantsNewPin = Boolean(String(body.pin || "").trim());
       if (wantsPrivate || wantsNewPin) {
@@ -269,7 +270,7 @@ export async function handler(event) {
     }
     if (event.httpMethod === "DELETE") {
       const body = bodyOf(event);
-      if (!body.id) throw new Error("Missing employee id");
+      if (!body.id) deny("Missing employee id", 400);
       const { error } = await client
         .from("staff")
         .delete()

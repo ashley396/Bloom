@@ -8,12 +8,27 @@ test("corsOrigin uses SITE_URL and trims trailing slash", () => {
 
 test("corsOrigin falls back to staging without wildcard or localhost", () => {
   assert.equal(corsOrigin({}), "https://florisyn-staging.netlify.app");
+  assert.notEqual(corsOrigin({}), "*");
+  assert.doesNotMatch(corsOrigin({}), /localhost/i);
 });
 
-test("json includes locked CORS origin and Vary header", () => {
+test("corsOrigin reflects allowlisted request Origin", () => {
+  assert.equal(
+    corsOrigin({ SITE_URL: "https://florisyn-staging.netlify.app" }, "https://www.florisyn.com"),
+    "https://www.florisyn.com"
+  );
+  assert.equal(
+    corsOrigin({ SITE_URL: "https://florisyn-staging.netlify.app" }, "https://evil.example"),
+    "https://florisyn-staging.netlify.app"
+  );
+});
+
+test("json includes locked CORS origin, security headers, and Vary", () => {
   const r = json(200, { ok: true }, { URL: "https://florisyn-staging.netlify.app" });
   assert.equal(r.headers["Access-Control-Allow-Origin"], "https://florisyn-staging.netlify.app");
   assert.equal(r.headers.Vary, "Origin");
+  assert.equal(r.headers["X-Content-Type-Options"], "nosniff");
+  assert.equal(r.headers["X-Frame-Options"], "DENY");
   assert.notEqual(r.headers["Access-Control-Allow-Origin"], "*");
 });
 

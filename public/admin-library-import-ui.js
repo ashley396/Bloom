@@ -6,15 +6,18 @@
       .replace(/>/g, "&gt;");
 
   async function adminApi(action, extra = {}) {
-    const session = JSON.parse(localStorage.getItem("bloom_admin_session") || "null");
+    let session = null;
+    try { session = JSON.parse(localStorage.getItem("bloom_admin_session") || "null"); }
+    catch { localStorage.removeItem("bloom_admin_session"); session = null; }
     const headers = { "Content-Type": "application/json" };
-    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+    const token = session?.accessToken || session?.access_token;
+    if (token) headers.Authorization = `Bearer ${token}`;
     const res = await fetch(`/.netlify/functions/floral-library-admin?action=${encodeURIComponent(action)}`, {
       method: extra.method || "POST",
       headers,
       body: extra.body ? JSON.stringify(extra.body) : JSON.stringify({ action, ...extra })
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || "Admin request failed");
     return data;
   }
