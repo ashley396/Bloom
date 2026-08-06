@@ -2,6 +2,19 @@ import { admin, fail } from "./_shared/saas.js";
 import { json } from "./_shared/saas.js";
 import { bootstrapRateLimit, verifyBootstrapSecret } from "./_shared/platform-bootstrap.js";
 
+function bootstrapSetupError(error) {
+  console.error("Florisyn admin bootstrap setup check failed:", {
+    code: error?.code || "admin_bootstrap_setup_check_failed",
+    statusCode: error?.statusCode || error?.status || 503
+  });
+  const err = new Error(
+    "Platform owner setup cannot verify the admin database yet. Confirm staging Supabase has the canonical admin tables and server key."
+  );
+  err.statusCode = 503;
+  err.code = "admin_bootstrap_setup_unavailable";
+  return err;
+}
+
 export async function handler(event) {
   try {
     const method = event.httpMethod || "GET";
@@ -19,12 +32,13 @@ export async function handler(event) {
     }
 
     const client = admin();
-    const { count, error: countError } = await client
+    const { data: ownerRows, error: countError } = await client
       .from("platform_admins")
-      .select("*", { count: "exact", head: true });
-    if (countError) throw countError;
+      .select("user_id")
+      .limit(1);
+    if (countError) throw bootstrapSetupError(countError);
 
-    const ownerExists = Number(count || 0) > 0;
+    const ownerExists = Array.isArray(ownerRows) && ownerRows.length > 0;
 
     if (method === "GET") {
       return json(200, { ownerExists });
