@@ -134,3 +134,15 @@ test("auth refresh has local validation and rate limiting", () => {
   assert.match(authRefreshSource, /Refresh token is required\./);
   assert.match(authRefreshSource, /grant_type=refresh_token/);
 });
+
+test("password auth routes use distributed Blobs admission", () => {
+  const production = fs.readFileSync(new URL("../netlify/functions/_shared/production.js", import.meta.url), "utf8");
+  assert.match(production, /checkDistributedRateLimit/);
+  assert.match(production, /@netlify\/blobs/);
+  assert.match(production, /florisyn-auth-admission/);
+  assert.match(authLoginSource, /checkDistributedRateLimit/);
+  assert.match(authSignupSource, /checkDistributedRateLimit/);
+  assert.match(authForgotSource, /checkDistributedRateLimit/);
+  assert.match(authResetSource, /checkDistributedRateLimit/);
+  assert.match(authLoginSource, /Retry-After/);
+});

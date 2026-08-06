@@ -1,6 +1,6 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { publicSettings, fail, adminIfConfigured } from "./_shared/supabase.js";
-import { checkRateLimit, writeShopAudit } from "./_shared/production.js";
+import { checkDistributedRateLimit, writeShopAudit } from "./_shared/production.js";
 import { validateEmail } from "./_shared/validation.js";
 import { fetchWithTimeout, requestIdOf } from "./_shared/upstream.js";
 import { logAuthEvent, mapAuthProviderFailure } from "./_shared/auth-email.js";
@@ -95,7 +95,7 @@ export async function handler(event) {
   const ready = preflight(event);
   if (ready) return ready;
   if (event.httpMethod !== "POST") return methodNotAllowed();
-  const limit = checkRateLimit(event, { key: "auth-login", limit: 30, windowMs: 60_000 });
+  const limit = await checkDistributedRateLimit(event, { key: "auth-login", limit: 30, windowMs: 60_000 });
   if (!limit.allowed) {
     const retryAfterSeconds = Math.max(1, Math.ceil((limit.retryAfterMs || 60_000) / 1000));
     const limited = json(429, {
