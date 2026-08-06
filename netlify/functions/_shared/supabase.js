@@ -143,4 +143,4 @@ export async function currentUser(event) {
   };
 }
 export function requireRoles(context,roles){if(!roles.includes(context.role))denied("You do not have permission to perform this action.")}
-export function fail(error){structuredLog("error","function_error",{message:error.message,status:error.statusCode||500,code:error.code||undefined});console.error("Florisyn function error:",error);const payload={error:safePublicError(error)};if(error?.code)payload.code=error.code;return{statusCode:error.statusCode||500,headers:{"Content-Type":"application/json","Cache-Control":"no-store"},body:JSON.stringify(payload)}}
+export function fail(error){structuredLog("error","function_error",{message:error.message,status:error.statusCode||500,code:error.code||undefined});console.error("Florisyn function error:",error);const payload={error:safePublicError(error)};if(error?.code)payload.code=error.code;return{statusCode:error.statusCode||500,headers:{"Content-Type":"application/json","Cache-Control":"no-store","X-Content-Type-Options":"nosniff","X-Frame-Options":"DENY","Referrer-Policy":"strict-origin-when-cross-origin"},body:JSON.stringify(payload)}}

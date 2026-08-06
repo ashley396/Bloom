@@ -1,6 +1,7 @@
 import { initCommandCenter } from './admin-command-center-ui.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-let session=JSON.parse(localStorage.getItem('bloom_admin_session')||'null'),selectedShop=null,selectedData=null,commandCenter=null;
+function readAdminSession(){try{return JSON.parse(localStorage.getItem('bloom_admin_session')||'null')}catch{localStorage.removeItem('bloom_admin_session');return null}}
+let session=readAdminSession(),selectedShop=null,selectedData=null,commandCenter=null;
 const FEATURES=['dashboard','orders','deliveries','customers','inventory','products','bloomshot','website','library','invoices','payments','expenses','reports','staff','marketplace','stores','lily','rose'];
 const DEFAULT_NAV=['dashboardPage','ordersPage','deliveriesPage','customersPage','inventoryPage','productsPage','bloomshotPage','websitePage','libraryPage','invoicesPage','paymentsPage','expensesPage','reportsPage','staffPage','marketplacePage','storesPage','settingsPage'];
 function toast(t){const x=$('#adminToast');x.textContent=t;x.hidden=false;setTimeout(()=>x.hidden=true,2800)}
