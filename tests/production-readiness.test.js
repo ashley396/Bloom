@@ -64,6 +64,24 @@ test("getProductionConfig warns when Stripe missing", () => {
   assert.ok(cfg.warnings.some((w) => /Stripe/i.test(w)));
 });
 
+test("Stripe readiness requires the order webhook signing secret", () => {
+  const cfg = getProductionConfig({
+    STRIPE_SECRET_KEY: "sk_test_placeholder",
+    STRIPE_WEBHOOK_SECRET: "whsec_subscription_placeholder"
+  });
+  assert.equal(cfg.features.payments, true);
+  assert.equal(cfg.features.stripe_webhooks, false);
+  assert.equal(cfg.features.stripe_subscription_webhooks, true);
+  assert.ok(cfg.warnings.some((w) => /STRIPE_ORDER_WEBHOOK_SECRET/));
+
+  const ready = getProductionConfig({
+    STRIPE_SECRET_KEY: "sk_test_placeholder",
+    STRIPE_ORDER_WEBHOOK_SECRET: "whsec_order_placeholder"
+  });
+  assert.equal(ready.features.stripe_webhooks, true);
+  assert.equal(ready.warnings.some((w) => /STRIPE_ORDER_WEBHOOK_SECRET/.test(w)), false);
+});
+
 test("safePublicError hides internal 500 details", () => {
   assert.match(safePublicError({ statusCode: 500, message: "DB connection xyz" }), /Unexpected Florisyn/);
   assert.equal(safePublicError({ statusCode: 403, message: "nope" }), "You do not have permission to perform this action.");
