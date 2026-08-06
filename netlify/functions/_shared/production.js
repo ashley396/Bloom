@@ -135,7 +135,8 @@ export async function checkDistributedRateLimit(event, { key = "global", limit =
     const { connectLambda, getStore } = await import("@netlify/blobs");
     // Classic Lambda-compat handlers do not auto-wire Blobs; connect per request.
     connectLambda(event);
-    const store = getStore({ name: "florisyn-auth-admission", consistency: "strong" });
+    // Eventual consistency: Lambda-compat Blobs lacks uncachedEdgeURL for "strong".
+    const store = getStore({ name: "florisyn-auth-admission", consistency: "eventual" });
     const ip = clientIp(event);
     const bucketKey = `${key}:${ip}`;
     const now = Date.now();
