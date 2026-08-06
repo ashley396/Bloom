@@ -27,7 +27,7 @@ async function bloomLogin(event){
     location.href="/";
   }catch(error){
     const detail=String(error.message||'');
-    if(/invalid login credentials|email not confirmed/i.test(detail)){
+    if(/invalid login credentials|invalid email or password|email not confirmed/i.test(detail)){
       const emailParam=encodeURIComponent(email||'');
       message.innerHTML=`Could not sign in yet. Check your email confirmation link, or <a href="/verify-email?pending=1&email=${emailParam}">resend the confirmation email</a>.`;
     }else{

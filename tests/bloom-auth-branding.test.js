@@ -49,16 +49,18 @@ test("verify email page can resend confirmation email", () => {
   assert.match(js, /florisyn_pending_email/);
   assert.match(fn, /auth\/v1\/resend/);
   assert.match(fn, /type:\s*"signup"/);
+  assert.match(fn, /email_redirect_to:\s*redirectTo/);
   assert.match(fn, /authRedirectPath\(process\.env, origin, "\/verify-email\?confirmed=1"\)/);
+  assert.match(fn, /If this email has an unconfirmed Florisyn account/);
 });
 
 test("login pages guide unconfirmed accounts to resend confirmation", () => {
   const login = fs.readFileSync(new URL("../public/login.js", import.meta.url), "utf8");
   const admin = fs.readFileSync(new URL("../public/admin.js", import.meta.url), "utf8");
 
-  assert.match(login, /invalid login credentials\|email not confirmed/i);
+  assert.match(login, /invalid login credentials\|invalid email or password\|email not confirmed/i);
   assert.match(login, /\/verify-email\?pending=1&email=/);
-  assert.match(admin, /invalid login credentials\|email not confirmed/i);
+  assert.match(admin, /invalid login credentials\|invalid email or password\|email not confirmed/i);
   assert.match(admin, /\/verify-email\?pending=1&email=/);
 });
 

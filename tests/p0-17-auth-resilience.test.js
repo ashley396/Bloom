@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
 
 import authAdmission, { config as authAdmissionConfig } from "../netlify/edge-functions/auth-admission.js";
 import { fetchWithTimeout, requestIdOf } from "../netlify/functions/_shared/upstream.js";
+
+const authLoginSource = fs.readFileSync(new URL("../netlify/functions/auth-login.js", import.meta.url), "utf8");
+const authSignupSource = fs.readFileSync(new URL("../netlify/functions/auth-signup.js", import.meta.url), "utf8");
+const authForgotSource = fs.readFileSync(new URL("../netlify/functions/auth-forgot-password.js", import.meta.url), "utf8");
+const authResetSource = fs.readFileSync(new URL("../netlify/functions/auth-reset-password.js", import.meta.url), "utf8");
+const authRefreshSource = fs.readFileSync(new URL("../netlify/functions/auth-refresh.js", import.meta.url), "utf8");
 
 test("distributed auth admission covers password routes but excludes refresh", () => {
   assert.equal(authAdmissionConfig.rateLimit.windowLimit, 30);
@@ -73,4 +80,26 @@ test("request id accepts provider ids and rejects unsafe log input", () => {
     "01NETLIFYREQUESTID123456789"
   );
   assert.equal(requestIdOf({ headers: { "x-florisyn-request-id": "bad id\nforged" } }), null);
+});
+
+test("auth handlers do not expose raw Supabase auth failure messages", () => {
+  assert.match(authLoginSource, /Invalid email or password\./);
+  assert.doesNotMatch(authLoginSource, /data\.msg\|\|data\.message/);
+  assert.doesNotMatch(authLoginSource, /data\.msg\s*\|\|\s*data\.message/);
+
+  assert.match(authSignupSource, /validateEmail\(body\.email,\{required:true\}\)/);
+  assert.match(authSignupSource, /Password must be at least 8 characters\./);
+  assert.doesNotMatch(authSignupSource, /data\.msg\|\|data\.message/);
+
+  assert.match(authForgotSource, /If an account exists for this email/);
+  assert.doesNotMatch(authForgotSource, /data\.msg\s*\|\|\s*data\.message/);
+
+  assert.match(authResetSource, /This reset link is invalid or expired/);
+  assert.doesNotMatch(authResetSource, /data\.msg\s*\|\|\s*data\.message/);
+});
+
+test("auth refresh has local validation and rate limiting", () => {
+  assert.match(authRefreshSource, /checkRateLimit\(event,\{key:"auth-refresh",limit:120,windowMs:60_000\}\)/);
+  assert.match(authRefreshSource, /Refresh token is required\./);
+  assert.match(authRefreshSource, /grant_type=refresh_token/);
 });

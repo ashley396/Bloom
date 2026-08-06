@@ -499,3 +499,78 @@ body.florisyn-rc22 #staffPage .bloom-staff-list-card .card-actions {
 body.florisyn-rc22 #staffPage .bloom-staff-list-card button {
   min-width: 132px;
 }
+
+/* —— Secondary florist workspaces: quiet luxury shell —— */
+body.florisyn-rc22 #customersPage,
+body.florisyn-rc22 #deliveriesPage,
+body.florisyn-rc22 #inventoryPage,
+body.florisyn-rc22 #productsPage,
+body.florisyn-rc22 #libraryPage,
+body.florisyn-rc22 #invoicesPage,
+body.florisyn-rc22 #expensesPage,
+body.florisyn-rc22 #reportsPage,
+body.florisyn-rc22 #storesPage,
+body.florisyn-rc22 #settingsPage {
+  --secondary-surface-navy: #18252f;
+  --secondary-surface-ivory: #fffcf8;
+  --secondary-surface-line: #e7ddd2;
+}
+
+body.florisyn-rc22 #customersPage > .heading,
+body.florisyn-rc22 #deliveriesPage > .heading,
+body.florisyn-rc22 #inventoryPage > .heading,
+body.florisyn-rc22 #productsPage > .heading,
+body.florisyn-rc22 #libraryPage > .heading,
+body.florisyn-rc22 #invoicesPage > .heading,
+body.florisyn-rc22 #expensesPage > .heading,
+body.florisyn-rc22 #reportsPage > .heading,
+body.florisyn-rc22 #storesPage > .heading,
+body.florisyn-rc22 #settingsPage > .heading {
+  padding: 16px 18px;
+  border: 1px solid var(--secondary-surface-line);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255, 252, 248, 0.98), rgba(243, 228, 232, 0.34));
+  box-shadow: 0 10px 28px rgba(24, 37, 47, 0.045);
+}
+
+body.florisyn-rc22 #customersPage > .heading h1,
+body.florisyn-rc22 #deliveriesPage > .heading h1,
+body.florisyn-rc22 #inventoryPage > .heading h1,
+body.florisyn-rc22 #productsPage > .heading h1,
+body.florisyn-rc22 #libraryPage > .heading h1,
+body.florisyn-rc22 #invoicesPage > .heading h1,
+body.florisyn-rc22 #expensesPage > .heading h1,
+body.florisyn-rc22 #reportsPage > .heading h1,
+body.florisyn-rc22 #storesPage > .heading h1,
+body.florisyn-rc22 #settingsPage > .heading h1 {
+  color: var(--secondary-surface-navy);
+}
+
+body.florisyn-rc22 #customersPage .search,
+body.florisyn-rc22 #libraryPage .library-toolbar,
+body.florisyn-rc22 #invoicesPage .invoice-summary,
+body.florisyn-rc22 #expensesPage .report-summary,
+body.florisyn-rc22 #expensesPage .expense-toolbar,
+body.florisyn-rc22 #reportsPage .report-summary,
+body.florisyn-rc22 #reportsPage .report-grid > section,
+body.florisyn-rc22 #deliveriesPage .delivery-summary article,
+body.florisyn-rc22 #settingsPage .settings-grid > section {
+  border: 1px solid var(--secondary-surface-line) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 252, 248, 0.96) !important;
+  box-shadow: 0 8px 24px rgba(24, 37, 47, 0.045) !important;
+}
+
+body.florisyn-rc22 #customersPage .card,
+body.florisyn-rc22 #deliveriesPage .kanban-col,
+body.florisyn-rc22 #inventoryPage .card,
+body.florisyn-rc22 #productsPage .product-card,
+body.florisyn-rc22 #libraryPage .product-card,
+body.florisyn-rc22 #invoicesPage .invoice-card,
+body.florisyn-rc22 #expensesPage .card,
+body.florisyn-rc22 #storesPage .card {
+  border-color: var(--secondary-surface-line) !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  box-shadow: 0 8px 22px rgba(24, 37, 47, 0.045) !important;
+}

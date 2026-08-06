@@ -55,6 +55,15 @@ test("auth redirect allows Netlify preview DEPLOY_PRIME_URL", () => {
   assert.equal(url, `${preview}/reset-password`);
 });
 
+test("auth redirect allows Netlify preview request origin only", () => {
+  const preview = "https://deploy-preview-42--bloom-technologies.netlify.app";
+  assert.equal(authRedirectPath({}, preview, "/verify-email?confirmed=1"), `${preview}/verify-email?confirmed=1`);
+
+  const blocked = authRedirectPath({}, "https://evil.example", "/verify-email?confirmed=1");
+  assert.doesNotMatch(blocked, /evil\.example/);
+  assert.match(blocked, /^https:\/\//);
+});
+
 test("auth redirect localhost development falls back when SITE_URL unset", () => {
   const url = authRedirectPath({}, "http://localhost:8888", "/verify-email");
   assert.doesNotMatch(url, /localhost/);
@@ -355,6 +364,18 @@ test("rollback migration file exists and is marked emergency-only", () => {
   const sql = fs.readFileSync(rollback, "utf8");
   assert.match(sql, /EMERGENCY|manual/i);
   assert.doesNotMatch(sql, /drop table public\.orders/i);
+});
+
+test("staging rollback proof script and runbook are present", () => {
+  const script = path.join(process.cwd(), "scripts/verify-staging-rollback-proof.mjs");
+  const runbook = fs.readFileSync(path.join(process.cwd(), "docs/production/BACKUP-RECOVERY.md"), "utf8");
+  const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
+  assert.ok(fs.existsSync(script));
+  assert.equal(pkg.scripts["verify:rollback-proof"], "node scripts/verify-staging-rollback-proof.mjs");
+  assert.match(runbook, /npm run verify:rollback-proof/);
+  assert.match(runbook, /Application first/);
+  assert.match(runbook, /Database last/);
+  assert.match(runbook, /Do not forward-apply rollback SQL/);
 });
 
 // ---------------------------------------------------------------------------
