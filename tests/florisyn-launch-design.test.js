@@ -27,6 +27,25 @@ test("launch surface cards use restrained 8px radius", () => {
   assert.doesNotMatch(polish, /#websitePage[\s\S]{0,1200}border-radius:\s*14px/);
 });
 
+test("secondary florist workspaces share the quiet luxury shell", () => {
+  for (const selector of [
+    "#customersPage",
+    "#deliveriesPage",
+    "#inventoryPage",
+    "#productsPage",
+    "#libraryPage",
+    "#invoicesPage",
+    "#expensesPage",
+    "#reportsPage",
+    "#storesPage",
+    "#settingsPage"
+  ]) {
+    assert.match(polish, new RegExp(selector.replace(/[.#]/g, "\\$&")));
+  }
+
+  assert.match(polish, /Secondary florist workspaces: quiet luxury shell/);
+});
+
 test("Today dashboard structure selectors remain preserved", () => {
   assert.match(polish, /#dashboardPage\.pos-home/);
   assert.match(polish, /\.pos-welcome-row/);

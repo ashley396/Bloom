@@ -27,9 +27,9 @@ export async function handler(event) {
       },
       body: JSON.stringify({ password })
     }, { timeoutMs: 5_000, service: "Password reset service" });
-    const data = await response.json().catch(() => ({}));
+    await response.json().catch(() => ({}));
     if (!response.ok) {
-      return json(response.status, { error: data.msg || data.message || "Could not update password." });
+      return json(400, { error: "This reset link is invalid or expired. Request a new password reset email." });
     }
     return json(200, { ok: true });
   } catch (error) {

@@ -25,7 +25,7 @@ export async function handler(event){
       structuredLog("warn","login_failed",{email:emailCheck.value,request_id:requestId});
       const auditClient=adminIfConfigured();
       if(auditClient) await writeShopAudit(auditClient,{userId:null,eventType:"login_failed",entityType:"auth",metadata:{email:emailCheck.value}});
-      return json(response.status,{error:data.msg||data.message||"Sign in failed"});
+      return json(401,{error:"Invalid email or password."});
     }
     structuredLog("info","login_success",{user_id:data.user?.id,request_id:requestId});
     const auditClient=adminIfConfigured();

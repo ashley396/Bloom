@@ -30,10 +30,7 @@ export async function handler(event) {
       },
       body: JSON.stringify({ email: emailCheck.value, redirect_to: redirectTo })
     }, { timeoutMs: 5_000, service: "Password recovery service" });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok && response.status !== 429) {
-      return json(response.status, { error: data.msg || data.message || "Could not send reset email." });
-    }
+    await response.json().catch(() => ({}));
     return json(200, {
       ok: true,
       message: "If an account exists for this email, you will receive password reset instructions shortly."
