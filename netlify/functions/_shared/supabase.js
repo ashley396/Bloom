@@ -125,7 +125,14 @@ export async function currentUser(event) {
     .maybeSingle();
   if (profileError) throw profileError;
   const membership = await activeMembership(client, data.user.id, profile?.default_shop_id);
-  if (!membership) denied("This account does not have an active Florisyn shop membership.");
+  if (!membership) {
+    const e = new Error(
+      "Your Florisyn login works, but this account is not linked to an active flower shop yet. Finish onboarding or contact Florisyn support so we can attach your shop membership."
+    );
+    e.statusCode = 403;
+    e.code = "shop_membership_required";
+    throw e;
+  }
   return {
     client,
     user: data.user,
@@ -136,4 +143,4 @@ export async function currentUser(event) {
   };
 }
 export function requireRoles(context,roles){if(!roles.includes(context.role))denied("You do not have permission to perform this action.")}
-export function fail(error){structuredLog("error","function_error",{message:error.message,status:error.statusCode||500});console.error("Florisyn function error:",error);return{statusCode:error.statusCode||500,headers:{"Content-Type":"application/json","Cache-Control":"no-store"},body:JSON.stringify({error:safePublicError(error)})}}
+export function fail(error){structuredLog("error","function_error",{message:error.message,status:error.statusCode||500,code:error.code||undefined});console.error("Florisyn function error:",error);const payload={error:safePublicError(error)};if(error?.code)payload.code=error.code;return{statusCode:error.statusCode||500,headers:{"Content-Type":"application/json","Cache-Control":"no-store"},body:JSON.stringify(payload)}}
