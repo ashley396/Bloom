@@ -262,12 +262,13 @@ export async function handler(event) {
             .select("id,launch_mode,theme_id,theme_settings")
             .maybeSingle();
           if (error) throw error;
+          if (!project) return json(404, { error: "Create a website draft before changing its theme." });
           const confirmed = confirmThemePersistence(project, {
             theme_id: updated.project.theme_id,
             theme_settings: updated.theme_settings
           });
           if (!confirmed.ok) {
-            return json(project ? 503 : 404, { error: confirmed.error });
+            return json(503, { error: confirmed.error });
           }
         } catch (e) {
           if (missingTable(e)) return json(503, { error: "Website projects not migrated." });
