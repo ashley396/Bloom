@@ -58,6 +58,18 @@ await check("auth-login invalid credentials fail closed", async () => {
   assert.doesNotMatch(JSON.stringify(body), /accessToken|refreshToken|access_token/i);
 });
 
+await check("auth-login edge admission request id", async () => {
+  const res = await fetch(`${BASE}/.netlify/functions/auth-login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "not-a-real-user@example.invalid", password: "wrongwrong" })
+  });
+  assert.equal(res.status, 401);
+  const requestId = res.headers.get("x-request-id");
+  assert.ok(requestId && requestId.length >= 8, "expected x-request-id from auth-admission edge function");
+  assert.equal(res.headers.get("cache-control"), "no-store");
+});
+
 await check("auth-resend generic success", async () => {
   const { res, body } = await getJson("/.netlify/functions/auth-resend-confirmation", {
     method: "POST",

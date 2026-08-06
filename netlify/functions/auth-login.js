@@ -97,10 +97,14 @@ export async function handler(event) {
   if (event.httpMethod !== "POST") return methodNotAllowed();
   const limit = checkRateLimit(event, { key: "auth-login", limit: 30, windowMs: 60_000 });
   if (!limit.allowed) {
-    return json(429, {
+    const retryAfterSeconds = Math.max(1, Math.ceil((limit.retryAfterMs || 60_000) / 1000));
+    const limited = json(429, {
       error: "Too many sign-in attempts. Please wait and try again.",
-      code: "auth_rate_limited"
-    });
+      code: "auth_rate_limited",
+      retryAfterSeconds
+    }, process.env, event);
+    limited.headers = { ...limited.headers, "Retry-After": String(retryAfterSeconds) };
+    return limited;
   }
   try {
     const body = bodyOf(event);

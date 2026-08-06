@@ -23,6 +23,49 @@
     X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"
 
+# P0-17 distributed auth admission (Pro: max 5 code-based rate-limit rules).
+# Identity redirects attach Netlify edge rate limits to password Auth routes.
+# Session refresh is intentionally excluded.
+[[redirects]]
+  from = "/.netlify/functions/auth-login"
+  to = "/.netlify/functions/auth-login"
+  status = 200
+  force = true
+  [redirects.rate_limit]
+  window_limit = 30
+  window_size = 60
+  aggregate_by = ["ip", "domain"]
+
+[[redirects]]
+  from = "/.netlify/functions/auth-signup"
+  to = "/.netlify/functions/auth-signup"
+  status = 200
+  force = true
+  [redirects.rate_limit]
+  window_limit = 30
+  window_size = 60
+  aggregate_by = ["ip", "domain"]
+
+[[redirects]]
+  from = "/.netlify/functions/auth-forgot-password"
+  to = "/.netlify/functions/auth-forgot-password"
+  status = 200
+  force = true
+  [redirects.rate_limit]
+  window_limit = 30
+  window_size = 60
+  aggregate_by = ["ip", "domain"]
+
+[[redirects]]
+  from = "/.netlify/functions/auth-reset-password"
+  to = "/.netlify/functions/auth-reset-password"
+  status = 200
+  force = true
+  [redirects.rate_limit]
+  window_limit = 30
+  window_size = 60
+  aggregate_by = ["ip", "domain"]
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
