@@ -7,9 +7,10 @@ const DEFAULT_FLAGS = {
   /** Voice wake words / always-on mic — not production-ready */
   VOICE_WAKE: false,
   VOICE_TTS_CLOUD: false,
-  MARKETPLACE_PUBLIC: true,
-  WHOLESALE_SELLER: true,
-  BUSINESS_ECOSYSTEM: true,
+  /** Deferred until after the florist-core launch. Explicit opt-in only. */
+  MARKETPLACE_PUBLIC: false,
+  WHOLESALE_SELLER: false,
+  BUSINESS_ECOSYSTEM: false,
   INSTANT_WEBSITE: true,
   /** Full Website Studio v2 (Lily quick start, visual editor, checkout) — not production until phased rollout */
   WEBSITE_STUDIO_V2: false,
