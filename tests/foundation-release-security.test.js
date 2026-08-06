@@ -227,6 +227,27 @@ test("staff OPEN_FILE requires PIN when pin_hash is set", () => {
   assert.match(src, /if\s*\(employee\.pin_hash\s*&&\s*!validPin\(body\.pin,\s*employee\.pin_hash\)\)/);
 });
 
+test("staff history stays out of the front-page response", () => {
+  const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/staff.js"), "utf8");
+  const getBlock = src.slice(src.indexOf('if (event.httpMethod === "GET")'), src.indexOf('if (event.httpMethod === "POST")'));
+  assert.match(getBlock, /select\("staff_id,clock_in"\)/);
+  assert.match(getBlock, /\.is\("clock_out", null\)/);
+  assert.match(getBlock, /open_shifts:/);
+  assert.doesNotMatch(getBlock, /time_entries:/);
+  assert.doesNotMatch(getBlock, /select\("\*"\)/);
+});
+
+test("staff history loads only after the private file PIN check", () => {
+  const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/staff.js"), "utf8");
+  const openFile = src.slice(src.indexOf('if (body.action === "OPEN_FILE")'), src.indexOf('if (body.action === "CLOCK_IN"'));
+  const pinCheck = openFile.indexOf("validPin(body.pin, employee.pin_hash)");
+  const historyRead = openFile.indexOf('.from("staff_time_entries")');
+  assert.ok(pinCheck >= 0 && historyRead > pinCheck);
+  assert.match(openFile, /\.eq\("shop_id", shopId\)/);
+  assert.match(openFile, /\.eq\("staff_id", employee\.id\)/);
+  assert.match(openFile, /time_entries:/);
+});
+
 // ---------------------------------------------------------------------------
 // Delivery proof upload validation
 // ---------------------------------------------------------------------------

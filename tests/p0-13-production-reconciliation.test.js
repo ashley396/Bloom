@@ -10,14 +10,7 @@ const migration = fs.readFileSync(
 );
 const onboarding = fs.readFileSync(path.join(root, "netlify/functions/complete-onboarding.js"), "utf8");
 const stores = fs.readFileSync(path.join(root, "netlify/functions/stores.js"), "utf8");
-const preflight = fs.readFileSync(
-  path.join(root, "supabase/production_reconciliation/P0-13-PREFLIGHT.sql"),
-  "utf8",
-);
-const verify = fs.readFileSync(
-  path.join(root, "supabase/production_reconciliation/P0-13-VERIFY.sql"),
-  "utf8",
-);
+const gitignore = fs.readFileSync(path.join(root, ".gitignore"), "utf8");
 const runtime = fs.readFileSync(
   path.join(root, "tests/fixtures/p0-13-staging-runtime.sql"),
   "utf8",
@@ -28,7 +21,6 @@ test("P0-13 removes every legacy policy before installing one exact authenticate
   assert.match(migration, /execute format\('drop policy %I on %I\.%I'/i);
   assert.doesNotMatch(migration, /create policy[^;]*\bto public\b/i);
   assert.equal((migration.match(/\bcreate policy\b/gi) || []).length, 28);
-  assert.match(verify, /policy_count[^\n]*= 28/i);
 });
 
 test("P0-13 closes self-enrollment and keeps membership mutation owner-only", () => {
@@ -74,17 +66,8 @@ test("runtime harness proves policy count, self-enrollment denial, and atomic wo
   assert.match(runtime, /rollback;\s*$/i);
 });
 
-test("production package is read-only before approval and never edits migration history directly", () => {
-  const executablePreflight = preflight.replace(/^\s*--.*$/gm, "").trim();
-  const executableVerify = verify.replace(/^\s*--.*$/gm, "").trim();
-  assert.match(executablePreflight, /^with\b/i);
-  assert.doesNotMatch(executablePreflight, /^\s*(insert|update|delete|alter|create|drop|truncate|grant|revoke)\b/im);
-  assert.match(preflight, /marketplace_security_hardening_v1/i);
-  assert.match(preflight, /vojeelyiakvpqpwinicj/i);
-  assert.doesNotMatch(preflight, /sqdzaoxqlsgbphvlmfeb/i);
-  assert.doesNotMatch(executableVerify, /^\s*(insert|update|delete|alter|create|drop|truncate|grant|revoke)\b/im);
-  assert.doesNotMatch(
-    `${executablePreflight}\n${executableVerify}`,
-    /(?:insert\s+into|update|delete\s+from)\s+supabase_migrations\.schema_migrations/i,
-  );
+test("private production reconciliation files stay out of the public repository", () => {
+  assert.match(gitignore, /^supabase\/production_reconciliation\/$/m);
+  assert.match(gitignore, /^docs\/production\/P0-\*-\*\.md$/m);
+  assert.match(gitignore, /^docs\/production\/FLORISYN-FULL-SYSTEM-AUDIT-\*\.md$/m);
 });
