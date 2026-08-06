@@ -17,7 +17,10 @@ import {
   deleteSectionWithConfirm,
   moveSectionKeyboard,
   publishRequiresApproval,
-  restoreThemeSettings
+  restoreThemeSettings,
+  normalizeSectionOrder,
+  assertPageNotStale,
+  confirmThemePersistence
 } from "./_shared/bloom-website-editor.js";
 import { tenantIsolationCheck } from "./_shared/bloom-storefront-core.js";
 import { buildWebsiteCatalogSeeds, shouldSeedWebsiteCatalog } from "./_shared/bloom-website-catalog-seed.js";
@@ -131,7 +134,9 @@ export async function handler(event) {
       try {
         const { data: project, error: projectError } = await client.from("bloom_website_projects").select("*").eq("shop_id", shopId).maybeSingle();
         if (projectError) throw projectError;
-        const { data: pages, error: pagesError } = await client.from("bloom_website_pages").select("*").eq("shop_id", shopId).order("nav_order");
+        let pagesQuery = client.from("bloom_website_pages").select("*").eq("shop_id", shopId).order("nav_order");
+        if (project?.id) pagesQuery = pagesQuery.eq("project_id", project.id);
+        const { data: pages, error: pagesError } = await pagesQuery;
         if (pagesError) throw pagesError;
         return json(200, { project, pages: pages || [] });
       } catch (e) {
@@ -154,6 +159,9 @@ export async function handler(event) {
         if (!proj) return json(404, { error: "Website project not found." });
         const { data: prev, error: previousError } = await client.from("bloom_website_pages").select("*").eq("project_id", proj.id).eq("slug", page.slug).maybeSingle();
         if (previousError) throw previousError;
+        const expectedUpdatedAt = body.expected_updated_at || page.updated_at || body.base_updated_at || null;
+        const stale = assertPageNotStale({ expectedUpdatedAt, currentUpdatedAt: prev?.updated_at });
+        if (!stale.ok) return json(409, { error: stale.error, code: stale.code || "stale_draft" });
         if (prev) {
           const { error: versionError } = await client.from("bloom_website_page_versions").insert({
             shop_id: shopId,
@@ -162,6 +170,7 @@ export async function handler(event) {
           });
           if (versionError) throw versionError;
         }
+        const sections = normalizeSectionOrder(page.sections || []);
         const { data: savedPage, error: saveError } = await client.from("bloom_website_pages").upsert(
           {
             shop_id: shopId,
@@ -172,7 +181,7 @@ export async function handler(event) {
             nav_order: page.nav_order ?? 0,
             template: page.template || "custom",
             content: page.content || {},
-            sections: page.sections || [],
+            sections,
             updated_at: new Date().toISOString()
           },
           { onConflict: "project_id,slug" }
@@ -250,12 +259,15 @@ export async function handler(event) {
               updated_at: new Date().toISOString()
             })
             .eq("shop_id", shopId)
-            .select("id,launch_mode,theme_id")
+            .select("id,launch_mode,theme_id,theme_settings")
             .maybeSingle();
           if (error) throw error;
-          if (!project) return json(404, { error: "Create a website draft before changing its theme." });
-          if (project.theme_id !== updated.project.theme_id) {
-            return json(503, { error: "Theme change could not be confirmed. Your current design remains safe." });
+          const confirmed = confirmThemePersistence(project, {
+            theme_id: updated.project.theme_id,
+            theme_settings: updated.theme_settings
+          });
+          if (!confirmed.ok) {
+            return json(project ? 503 : 404, { error: confirmed.error });
           }
         } catch (e) {
           if (missingTable(e)) return json(503, { error: "Website projects not migrated." });

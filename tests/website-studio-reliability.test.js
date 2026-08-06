@@ -8,7 +8,12 @@ import {
   verifyPreviewToken,
   signPreviewToken
 } from "../netlify/functions/_shared/bloom-storefront-core.js";
-import { publishRequiresApproval } from "../netlify/functions/_shared/bloom-website-editor.js";
+import {
+  publishRequiresApproval,
+  normalizeSectionOrder,
+  assertPageNotStale,
+  confirmThemePersistence
+} from "../netlify/functions/_shared/bloom-website-editor.js";
 
 const editor = fs.readFileSync(new URL("../public/website-editor-ui.js", import.meta.url), "utf8");
 const storefrontPublic = fs.readFileSync(
@@ -33,6 +38,15 @@ test("editor surfaces empty, loading, and load-error states", () => {
   assert.match(editor, /No website sections yet/);
   assert.match(editor, /Website draft could not be loaded/);
   assert.match(editor, /Unpublished drafts never appear/);
+});
+
+test("editor disables save/publish while busy and sends expected_updated_at", () => {
+  assert.match(editor, /function setBusy/);
+  assert.match(editor, /expected_updated_at/);
+  assert.match(editor, /btn\.disabled = busy/);
+  assert.match(editor, /editorOpenPreview/);
+  assert.match(editor, /preview_token/);
+  assert.match(editor, /Draft preview could not be opened/);
 });
 
 test("unpublished drafts never resolve as public storefront content", () => {
@@ -73,8 +87,49 @@ test("cross-shop website edits are denied and publish stays approval-gated", () 
 test("stale draft / publish confirmation failure modes stay explicit", () => {
   assert.match(instantWebsite, /Website publish could not be confirmed\. Your draft remains safe/);
   assert.match(instantWebsite, /Create and save a website draft before publishing/);
+  assert.match(instantWebsite, /assertPageNotStale/);
+  assert.match(instantWebsite, /stale_draft/);
   assert.match(editor, /Draft was not saved/);
   assert.match(editor, /Website was not published/);
+  assert.equal(assertPageNotStale({ expectedUpdatedAt: "a", currentUpdatedAt: "a" }).ok, true);
+  assert.equal(assertPageNotStale({ expectedUpdatedAt: "a", currentUpdatedAt: "b" }).code, "stale_draft");
+});
+
+test("section order is normalized before persist and get_project is project-scoped", () => {
+  const normalized = normalizeSectionOrder([
+    { id: "b", order: 5 },
+    { id: "a", order: 1 },
+    { id: "c" }
+  ]);
+  assert.deepEqual(
+    normalized.map((s) => s.id),
+    ["a", "b", "c"]
+  );
+  assert.deepEqual(
+    normalized.map((s) => s.order),
+    [0, 1, 2]
+  );
+  assert.match(instantWebsite, /normalizeSectionOrder/);
+  assert.match(instantWebsite, /eq\("project_id", project\.id\)/);
+});
+
+test("theme persistence confirms theme_settings as well as theme_id", () => {
+  assert.match(instantWebsite, /confirmThemePersistence/);
+  assert.match(instantWebsite, /theme_settings/);
+  assert.equal(
+    confirmThemePersistence(
+      { theme_id: "classic", theme_settings: { accent: "gold" } },
+      { theme_id: "classic", theme_settings: { accent: "gold" } }
+    ).ok,
+    true
+  );
+  assert.equal(
+    confirmThemePersistence(
+      { theme_id: "classic", theme_settings: { accent: "navy" } },
+      { theme_id: "classic", theme_settings: { accent: "gold" } }
+    ).ok,
+    false
+  );
 });
 
 test("editor keeps section order, undo\/redo restore, and mobile preview", () => {

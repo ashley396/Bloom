@@ -127,6 +127,51 @@ export function publishRequiresApproval({ lilyDraft = false, approved = false, s
   return { ok: true };
 }
 
+/** Persist a contiguous order index so public and editor reads agree. */
+export function normalizeSectionOrder(sections = []) {
+  return [...(sections || [])]
+    .map((s, i) => ({
+      s,
+      i,
+      order: Number.isFinite(Number(s?.order)) ? Number(s.order) : Number.POSITIVE_INFINITY
+    }))
+    .sort((a, b) => a.order - b.order || a.i - b.i)
+    .map(({ s }, i) => ({ ...s, order: i }));
+}
+
+/**
+ * Optimistic concurrency for draft saves.
+ * When the client sends a known base timestamp that no longer matches the DB row, reject.
+ */
+export function assertPageNotStale({ expectedUpdatedAt, currentUpdatedAt } = {}) {
+  if (!expectedUpdatedAt) return { ok: true };
+  if (!currentUpdatedAt) return { ok: true };
+  const expected = String(expectedUpdatedAt);
+  const current = String(currentUpdatedAt);
+  if (expected === current) return { ok: true };
+  return {
+    ok: false,
+    code: "stale_draft",
+    error: "This draft changed elsewhere. Reload the latest version before saving again."
+  };
+}
+
+/** Confirm theme persistence returned the expected theme id and settings payload. */
+export function confirmThemePersistence(project, expected = {}) {
+  if (!project) return { ok: false, error: "Create a website draft before changing its theme." };
+  if (expected.theme_id != null && project.theme_id !== expected.theme_id) {
+    return { ok: false, error: "Theme change could not be confirmed. Your current design remains safe." };
+  }
+  if (expected.theme_settings != null) {
+    const got = JSON.stringify(project.theme_settings ?? null);
+    const want = JSON.stringify(expected.theme_settings ?? null);
+    if (got !== want) {
+      return { ok: false, error: "Theme settings could not be confirmed. Your current design remains safe." };
+    }
+  }
+  return { ok: true };
+}
+
 export function themeGalleryCard(mode, shopContent = {}) {
   return {
     id: mode.id,
