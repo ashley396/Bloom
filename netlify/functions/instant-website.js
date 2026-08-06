@@ -268,7 +268,9 @@ export async function handler(event) {
             theme_settings: updated.theme_settings
           });
           if (!confirmed.ok) {
-            return json(503, { error: confirmed.error });
+            return json(503, {
+              error: confirmed.error || "Theme change could not be confirmed. Your current design remains safe."
+            });
           }
         } catch (e) {
           if (missingTable(e)) return json(503, { error: "Website projects not migrated." });
