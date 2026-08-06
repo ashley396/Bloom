@@ -35,7 +35,7 @@ export async function handler(event) {
       })
     }, { timeoutMs: 5_000, service: "Email confirmation service" });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok && response.status !== 429) {
+    if (!response.ok && response.status >= 500) {
       return json(response.status, { error: data.msg || data.message || "Could not resend confirmation email." });
     }
 
