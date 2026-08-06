@@ -132,7 +132,9 @@ export async function checkDistributedRateLimit(event, { key = "global", limit =
   if (!local.allowed) return local;
 
   try {
-    const { getStore } = await import("@netlify/blobs");
+    const { connectLambda, getStore } = await import("@netlify/blobs");
+    // Classic Lambda-compat handlers do not auto-wire Blobs; connect per request.
+    connectLambda(event);
     const store = getStore({ name: "florisyn-auth-admission", consistency: "strong" });
     const ip = clientIp(event);
     const bucketKey = `${key}:${ip}`;

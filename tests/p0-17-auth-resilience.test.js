@@ -139,6 +139,7 @@ test("password auth routes use distributed Blobs admission", () => {
   const production = fs.readFileSync(new URL("../netlify/functions/_shared/production.js", import.meta.url), "utf8");
   assert.match(production, /checkDistributedRateLimit/);
   assert.match(production, /@netlify\/blobs/);
+  assert.match(production, /connectLambda\(event\)/);
   assert.match(production, /florisyn-auth-admission/);
   assert.match(authLoginSource, /checkDistributedRateLimit/);
   assert.match(authSignupSource, /checkDistributedRateLimit/);
