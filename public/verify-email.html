@@ -32,6 +32,10 @@
           <li>Return here and sign in</li>
         </ul>
         <p id="verifyMessage" class="bloom-auth-message" aria-live="polite"></p>
+        <form id="resendConfirmationForm" class="bloom-auth-mini-form" hidden>
+          <label>Email address<input id="resendEmail" type="email" autocomplete="email"></label>
+          <button type="submit" class="bloom-auth-btn" id="resendButton">Resend confirmation email</button>
+        </form>
         <a href="/login" class="bloom-auth-btn" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;margin-top:16px">Go to sign in</a>
         <div class="bloom-auth-links" style="margin-top:20px">
           <a href="/help/contact/">Resend help — contact support</a>

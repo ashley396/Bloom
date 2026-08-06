@@ -31,7 +31,7 @@ $('#ownerSetupForm')?.addEventListener('submit',async e=>{
     setTimeout(()=>{$('#ownerSetup').hidden=true;$('#adminAuth').hidden=false},700);
   }catch(err){msg.textContent=err.message}
 });
-$('#adminLogin').onsubmit=async e=>{e.preventDefault();$('#loginMessage').textContent='';try{const d=await call('auth-login',{method:'POST',body:JSON.stringify({email:$('#adminEmail').value,password:$('#adminPassword').value})},false);saveSession(d);await call('admin-command-center?action=dashboard');showApp()}catch(err){$('#loginMessage').textContent=err.message}}
+$('#adminLogin').onsubmit=async e=>{e.preventDefault();const loginMessage=$('#loginMessage'),email=$('#adminEmail').value;loginMessage.textContent='';try{const d=await call('auth-login',{method:'POST',body:JSON.stringify({email,password:$('#adminPassword').value})},false);saveSession(d);await call('admin-command-center?action=dashboard');showApp()}catch(err){const detail=String(err.message||'');if(/invalid login credentials|email not confirmed/i.test(detail)){loginMessage.innerHTML=`Could not sign in yet. Check your email confirmation link, or <a href="/verify-email?pending=1&email=${encodeURIComponent(email)}">resend the confirmation email</a>.`;}else loginMessage.textContent=detail}}
 $('#adminLogout').onclick=()=>{localStorage.removeItem('bloom_admin_session');location.reload()}
 $$('nav button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
 function setView(name){

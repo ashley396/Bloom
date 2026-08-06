@@ -8,6 +8,16 @@ import {
   mapCheckoutListing
 } from "./_shared/marketplace-verification.js";
 
+function stripeRedirectBaseUrl() {
+  const site = String(process.env.SITE_URL || process.env.URL || "").trim().replace(/\/$/, "");
+  if (!site) {
+    const e = new Error("SITE_URL is not configured in Netlify.");
+    e.statusCode = 503;
+    throw e;
+  }
+  return site;
+}
+
 export async function handler(event) {
   const ready = preflight(event);
   if (ready) return ready;
@@ -69,7 +79,7 @@ export async function handler(event) {
     const qty = Math.max(1, Number(body.quantity || 1));
     const amount = Math.round(Number(listing.price) * qty * 100);
     const fee = Math.round(amount * (Number(process.env.BLOOM_MARKETPLACE_FEE_PERCENT || 5) / 100));
-    const site = (process.env.SITE_URL || event.headers.origin || "").replace(/\/$/, "");
+    const site = stripeRedirectBaseUrl();
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",

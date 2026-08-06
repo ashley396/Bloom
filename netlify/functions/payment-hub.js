@@ -227,6 +227,38 @@ async function buildHubView(ctx, stripe) {
     refundsHistory = [];
   }
 
+  let refundablePayments = [];
+  try {
+    const rp = await client
+      .from("payments")
+      .select("id,order_id,amount,refunded_amount,method,payment_method,processor,status,received_at,created_at")
+      .eq("shop_id", shopId)
+      .in("status", ["SUCCEEDED", "PARTIALLY_REFUNDED"])
+      .order("received_at", { ascending: false, nullsFirst: false })
+      .limit(50);
+    if (!rp.error) {
+      refundablePayments = (rp.data || [])
+        .map((payment) => {
+          const amount = Number(payment.amount || 0);
+          const refunded = Number(payment.refunded_amount || 0);
+          return {
+            id: payment.id,
+            order_id: payment.order_id,
+            amount,
+            refunded_amount: refunded,
+            refundable_amount: Math.max(0, amount - refunded),
+            method: payment.payment_method || payment.method,
+            processor: payment.processor,
+            status: payment.status,
+            received_at: payment.received_at || payment.created_at
+          };
+        })
+        .filter((payment) => payment.refundable_amount > 0);
+    }
+  } catch {
+    refundablePayments = [];
+  }
+
   let setupWizard = settings.setup_wizard || {};
   if (!setupWizard.completed && !setupWizard.skipped) setupWizard.show_wizard = true;
 
@@ -276,7 +308,7 @@ async function buildHubView(ctx, stripe) {
       outstanding_balances: houseAccounts.reduce((s, a) => s + Number(a.balance || 0), 0),
       aging: buildHouseAgingReport(houseAccounts, [])
     },
-    refunds: { reasons: REFUND_REASONS, history: refundsHistory },
+    refunds: { reasons: REFUND_REASONS, history: refundsHistory, payments: refundablePayments },
     experience: {
       terminals: TERMINAL_CATALOG,
       reports: experience_reports,

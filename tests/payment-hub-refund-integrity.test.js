@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { createProviderAdapter } from "../netlify/functions/_shared/payment-hub-providers.js";
 
 const handlerSource = fs.readFileSync(new URL("../netlify/functions/payment-hub.js", import.meta.url), "utf8");
+const uiSource = fs.readFileSync(new URL("../public/payment-hub-ui.js", import.meta.url), "utf8");
 const migrationSource = fs.readFileSync(
   new URL("../supabase/migrations/20260805154819_p0_19_refund_idempotency.sql", import.meta.url),
   "utf8"
@@ -80,4 +81,14 @@ test("refund handler maps isolation and over-refund failures safely", () => {
   assert.match(handlerSource, /return json\(404, \{ error: "Payment not found\." \}\)/);
   assert.match(handlerSource, /return json\(409, \{ error: "Refund exceeds the remaining refundable balance\." \}\)/);
   assert.match(handlerSource, /if \(!idempotencyKey\) return json\(400/);
+});
+
+test("refund UI sends payment id and idempotency key, never payment intent id", () => {
+  assert.match(uiSource, /id="phRefundPaymentId"/);
+  assert.match(uiSource, /id="phRefundIdempotencyKey"/);
+  assert.match(uiSource, /payment_id:\s*paymentId/);
+  assert.match(uiSource, /idempotency_key:\s*idempotencyKey/);
+  assert.match(uiSource, /`refund:\$\{paymentId \|\| "missing"\}:\$\{Date\.now\(\)\}`/);
+  assert.doesNotMatch(uiSource, /payment_intent_id/);
+  assert.doesNotMatch(uiSource, /phRefundIntent/);
 });

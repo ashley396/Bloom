@@ -67,6 +67,31 @@ test("website drafts and publishing require confirmed Supabase writes", () => {
   assert.match(editor, /if \(!published\?\.published \|\| published\?\.status !== "published"\)/);
 });
 
+test("storefront bundle reads pages for the selected project only", () => {
+  assert.match(
+    storefrontPublic,
+    /\.from\("bloom_website_pages"\)\s*\.select\("\*"\)\s*\.eq\("shop_id", shopId\)\s*\.eq\("project_id", project\.id\)/s
+  );
+  assert.doesNotMatch(
+    storefrontPublic,
+    /\.from\("bloom_website_pages"\)\s*\.select\("\*"\)\s*\.eq\("shop_id", shopId\)\s*\.order\("nav_order"/s
+  );
+});
+
+test("editor preserves unsaved sections on save and publish failure", () => {
+  const editor = fs.readFileSync(new URL("../public/website-editor-ui.js", import.meta.url), "utf8");
+  assert.match(editor, /Your changes remain in the editor/);
+  assert.match(editor, /Publishing was stopped/);
+  assert.match(editor, /Your saved draft is safe/);
+  assert.doesNotMatch(editor, /catch\s*\([^)]*\)\s*{[^}]*sections\s*=\s*\[\]/s);
+});
+
+test("publish requires save confirmation before publish call", () => {
+  const editor = fs.readFileSync(new URL("../public/website-editor-ui.js", import.meta.url), "utf8");
+  assert.ok(editor.indexOf('api("save_page"') < editor.indexOf('api("publish"'));
+  assert.match(editor, /if \(!saved\?\.saved \|\| !saved\?\.page\?\.id\) throw/);
+});
+
 test("Today and the daily florist loop remain protected", () => {
   assert.match(governance, /\*\*Today is PRESERVE\.\*\*/);
   assert.match(

@@ -2,6 +2,16 @@ import Stripe from "stripe";
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail } from "./_shared/supabase.js";
 
+function stripeRedirectBaseUrl() {
+  const site = String(process.env.SITE_URL || process.env.URL || "").trim().replace(/\/$/, "");
+  if (!site) {
+    const e = new Error("SITE_URL is not configured in Netlify.");
+    e.statusCode = 503;
+    throw e;
+  }
+  return site;
+}
+
 export async function handler(event){
   const ready=preflight(event); if(ready) return ready;
   if(!["GET","POST"].includes(event.httpMethod)) return methodNotAllowed();
@@ -15,7 +25,7 @@ export async function handler(event){
       const account=await stripe.accounts.retrieve(shop.stripe_connect_account_id);
       return json(200,{connected:true,accountId:account.id,chargesEnabled:account.charges_enabled,payoutsEnabled:account.payouts_enabled,detailsSubmitted:account.details_submitted});
     }
-    const body=bodyOf(event),site=(process.env.SITE_URL||event.headers.origin||"").replace(/\/$/,"");
+    const body=bodyOf(event),site=stripeRedirectBaseUrl();
     let accountId=shop.stripe_connect_account_id;
     if(!accountId){
       const account=await stripe.accounts.create({type:"express",country:"US",email:user.email,capabilities:{card_payments:{requested:true},transfers:{requested:true}},business_profile:{name:shop.name},metadata:{bloom_shop_id:shopId}});
