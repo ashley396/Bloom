@@ -16,24 +16,24 @@ test("distributed auth admission covers password routes but excludes refresh", (
   assert.equal(authAdmissionConfig.rateLimit.windowSize, 60);
   assert.deepEqual(authAdmissionConfig.rateLimit.aggregateBy, ["ip", "domain"]);
   assert.equal(authAdmissionConfig.rateLimit.action, "rate_limit");
-  assert.ok(authAdmissionConfig.path.includes("/.netlify/functions/auth-login"));
-  assert.ok(authAdmissionConfig.path.includes("/.netlify/functions/auth-signup"));
+  assert.ok(authAdmissionConfig.path.includes("/api/auth-login"));
+  assert.ok(authAdmissionConfig.path.includes("/api/auth-signup"));
   assert.equal(authAdmissionConfig.path.length, 4);
   assert.ok(!authAdmissionConfig.path.some((path) => path.includes("auth-refresh")));
-  assert.ok(!authAdmissionConfig.path.some((path) => path.startsWith("/api/")));
+  assert.ok(!authAdmissionConfig.path.some((path) => path.includes("/.netlify/functions/")));
 });
 
-test("netlify.toml attaches redirect rate limits to password auth routes", () => {
+test("netlify.toml attaches redirect rate limits to /api password auth routes", () => {
   const toml = fs.readFileSync(new URL("../netlify.toml", import.meta.url), "utf8");
-  assert.match(toml, /from = "\/\.netlify\/functions\/auth-login"[\s\S]*?\[redirects\.rate_limit\]/);
-  assert.match(toml, /from = "\/\.netlify\/functions\/auth-signup"[\s\S]*?window_limit = 30/);
-  assert.match(toml, /from = "\/\.netlify\/functions\/auth-forgot-password"[\s\S]*?aggregate_by = \["ip", "domain"\]/);
-  assert.match(toml, /from = "\/\.netlify\/functions\/auth-reset-password"[\s\S]*?window_size = 60/);
+  assert.match(toml, /from = "\/api\/auth-login"[\s\S]*?\[redirects\.rate_limit\]/);
+  assert.match(toml, /from = "\/api\/auth-signup"[\s\S]*?window_limit = 30/);
+  assert.match(toml, /from = "\/api\/auth-forgot-password"[\s\S]*?aggregate_by = \["ip", "domain"\]/);
+  assert.match(toml, /from = "\/api\/auth-reset-password"[\s\S]*?window_size = 60/);
   assert.doesNotMatch(toml, /auth-refresh[\s\S]{0,120}rate_limit/);
 });
 
 test("auth admission propagates one request id without consuming the body", async () => {
-  const request = new Request("https://florisyn-staging.netlify.app/.netlify/functions/auth-login", {
+  const request = new Request("https://florisyn-staging.netlify.app/api/auth-login", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email: "load@example.invalid", password: "not-a-real-secret" })

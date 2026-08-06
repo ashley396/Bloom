@@ -1,15 +1,11 @@
 /**
  * Distributed admission control for password-based authentication routes.
  *
- * Netlify enforces rateLimit from this config at the edge across instances.
- * Redirect rate_limit rules in netlify.toml provide a second distributed gate
- * for CLI deploys where edge rateLimit post-processing can be skipped.
+ * Primary distributed gate: netlify.toml redirect rate_limit on /api/auth-*.
+ * This edge function correlates request IDs and keeps a docs-aligned rateLimit
+ * on the same /api entry points (Pro: max 5 code-based rules project-wide).
  * Serverless handlers keep smaller in-memory limits as defense in depth.
- * Session refresh is intentionally excluded so a login burst cannot evict
- * already-authenticated users.
- *
- * Pro plan allows 5 code-based rate-limit rules per project — keep this path
- * list at 4 function entry points (login UI hits /.netlify/functions/*).
+ * Session refresh is intentionally excluded.
  */
 export default async function authAdmission(request, context) {
   const requestId = context.requestId || crypto.randomUUID();
@@ -27,10 +23,10 @@ export default async function authAdmission(request, context) {
 
 export const config = {
   path: [
-    "/.netlify/functions/auth-login",
-    "/.netlify/functions/auth-signup",
-    "/.netlify/functions/auth-forgot-password",
-    "/.netlify/functions/auth-reset-password"
+    "/api/auth-login",
+    "/api/auth-signup",
+    "/api/auth-forgot-password",
+    "/api/auth-reset-password"
   ],
   rateLimit: {
     action: "rate_limit",

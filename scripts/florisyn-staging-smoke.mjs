@@ -47,7 +47,7 @@ await check("admin-bootstrap owner state", async () => {
 });
 
 await check("auth-login invalid credentials fail closed", async () => {
-  const { res, body } = await getJson("/.netlify/functions/auth-login", {
+  const { res, body } = await getJson("/api/auth-login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email: "not-a-real-user@example.invalid", password: "wrongwrong" })
@@ -59,7 +59,7 @@ await check("auth-login invalid credentials fail closed", async () => {
 });
 
 await check("auth-login edge admission request id", async () => {
-  const res = await fetch(`${BASE}/.netlify/functions/auth-login`, {
+  const res = await fetch(`${BASE}/api/auth-login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email: "not-a-real-user@example.invalid", password: "wrongwrong" })
