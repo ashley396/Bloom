@@ -55,3 +55,15 @@ test("HTTP JSON responses include security headers and origin allowlist", () => 
   assert.match(src, /florisyn\.com/);
   assert.match(read("netlify.toml"), /Cross-Origin-Opener-Policy/);
 });
+
+test("app.js pass2 guards payment checkout and inventory listeners", () => {
+  const src = read("public/app.js");
+  assert.match(src, /prepareOrderBuilder[\s\S]*Order form unavailable/);
+  assert.match(src, /inventoryWholesaleCost"\)\?\.addEventListener/);
+  assert.match(src, /if\(\$\("#checkout"\)\)\$\("#checkout"\)\.onclick/);
+  assert.match(src, /florisynUnhandledToast/);
+  assert.match(src, /window\.addEventListener\("unhandledrejection"/);
+  assert.match(src, /openCustomer[\s\S]*Customer form unavailable/);
+  assert.match(src, /openInventory[\s\S]*Inventory form unavailable/);
+  assert.match(src, /if\(\$\("#paymentStatus"\)\)\$\("#paymentStatus"\)\.textContent/);
+});
