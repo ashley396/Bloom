@@ -16,7 +16,7 @@
     root.insertAdjacentHTML(
       "afterbegin",
       `<div class="instant-wizard-shell panel bloom-rc1-wizard">
-        <p class="eyebrow">BLOOM INSTANT WEBSITES</p>
+        <p class="eyebrow">FLORISYN INSTANT WEBSITES</p>
         <h2>Launch your florist site in minutes</h2>
         <p class="subtle">We pre-fill from your shop profile — no retyping phone, address, or logo.</p>
         <div class="instant-wizard-steps" id="instantWizardSteps">

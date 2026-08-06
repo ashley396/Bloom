@@ -194,7 +194,7 @@ export function planClientAction(intent, slots = {}) {
       return {
         type: "message",
         requiresConfirmation: false,
-        message: "Photo-based flower recognition and recipe estimation are coming soon. For now, use BloomShot Studio or Products to describe the arrangement."
+        message: "Photo-based flower recognition and recipe estimation are coming soon. For now, use Florisyn Photo Studio or Products to describe the arrangement."
       };
     case "admin.insights":
       return { type: "admin", requiresConfirmation: false, navigate: "admin_command_center" };

@@ -994,21 +994,24 @@ test("focused package command runs this suite", () => {
   });
   assert.equal(r.status, 0, r.stderr || r.stdout);
   assert.match(r.stdout + r.stderr, /approved snapshot SQL file exists/i);
-  assert.match(r.stdout + r.stderr, /# pass /);
+  assert.match(r.stdout + r.stderr, /(?:#|ℹ) pass /);
 });
 
-test("existing migrations are unchanged under supabase/", () => {
-  const g = spawnSync(
-    "git",
-    ["status", "--porcelain", "--untracked-files=all", "--", "supabase"],
-    { cwd: ROOT, encoding: "utf8" }
-  );
-  assert.equal(g.status, 0, g.stderr);
-  assert.equal(
-    g.stdout.trim(),
-    "",
-    `supabase/ must have empty git status (modified/deleted/untracked). Got:\n${g.stdout}`
-  );
+test("canonical executable migrations have unique timestamp identities", () => {
+  const migrationDir = path.join(ROOT, "supabase/migrations");
+  const files = fs.readdirSync(migrationDir).filter((name) => name.endsWith(".sql")).sort();
+  assert.deepEqual(files, [
+    "20260804000000_greenfield_baseline.sql",
+    "20260804171338_p0_09d_function_acl_hardening.sql",
+    "20260804185015_p0_10_atomic_order_create.sql",
+    "20260804205339_p0_12_closed_beta_tenant_isolation.sql",
+    "20260804223000_p0_13_policy_consolidation.sql",
+    "20260804224500_p0_14_onboarding_convergence.sql",
+    "20260805154819_p0_19_refund_idempotency.sql"
+  ]);
+  const versions = files.map((name) => name.match(/^(\d{14})_/i)?.[1]);
+  assert.ok(versions.every(Boolean), "every executable migration must use a 14-digit timestamp");
+  assert.equal(new Set(versions).size, versions.length, "migration versions must be unique");
 });
 
 test("validator CLI exits nonzero on violation and zero on approved file", () => {

@@ -145,7 +145,7 @@ export function restorePageVersion(current, versionSnapshot) {
 
 export function domainPlaceholder(shop = {}) {
   if (shop.custom_domain) {
-    return { mode: "custom", host: shop.custom_domain, status: "pending_verification", ssl: "pending", dns_instructions: "Add CNAME to Bloom sites host.", purchased: false };
+    return { mode: "custom", host: shop.custom_domain, status: "pending_verification", ssl: "pending", dns_instructions: "Add the CNAME provided by Florisyn.", purchased: false };
   }
   return {
     mode: shop.slug ? "bloom_subdomain" : "unset",

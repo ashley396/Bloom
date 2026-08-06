@@ -125,7 +125,7 @@ function mk(id, name, category, price, description, licenseSource, url, recipe) 
     primary_image: { url, alt: `${name} floral arrangement`, hash: simpleHash(url) },
     image_license: {
       source: licenseSource,
-      attribution: licenseSource === "licensed_stock_pexels" ? "Pexels — verify license at import" : "Bloom starter asset",
+      attribution: licenseSource === "licensed_stock_pexels" ? "Pexels — verify license at import" : "Florisyn starter asset",
       review_status: "approved_starter"
     },
     recipe: recipe.map(([n, q]) => ({ name: n, qty: q })),

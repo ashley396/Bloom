@@ -62,15 +62,15 @@ async function logAction(client, { userId, shopId, intent, actionType, result, m
 
 function buildResponseMessage(intent, permission, planned, confirmed) {
   if (!permission.allowed) {
-    return "I can help with that, but your Bloom role does not allow this action. Ask a shop owner or manager if you need access.";
+    return "I can help with that, but your Florisyn role does not allow this action. Ask a shop owner or manager if you need access.";
   }
   if (planned?.message) return planned.message;
   if (planned?.requiresConfirmation && !confirmed) {
-    return `I can ${planned.label || "do that"}. Confirm below and I will guide Bloom — I will not change anything without your approval.`;
+    return `I can ${planned.label || "do that"}. Confirm below and I will guide Florisyn — I will not change anything without your approval.`;
   }
   if (planned?.type === "navigate") return "Opening the right workspace for you.";
   if (intent.intent === "general.chat") return null;
-  return "Here is what I prepared. Review the suggestion and confirm if Bloom should take action.";
+  return "Here is what I prepared. Review the suggestion and confirm if Florisyn should take action.";
 }
 
 export async function handler(event) {

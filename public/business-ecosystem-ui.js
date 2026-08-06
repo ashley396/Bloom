@@ -67,7 +67,7 @@
   function render(root, hub) {
     hubCache = hub;
     root.innerHTML = `<div class="bloom-ecosystem-shell panel">
-      <p class="eyebrow">BLOOM BUSINESS ECOSYSTEM</p>
+      <p class="eyebrow">FLORISYN BUSINESS ECOSYSTEM</p>
       <h2>Business operating system</h2>
       <div class="bloom-eco-tabs">${tabButtons("overview")}</div>
       ${TABS.map(([id]) => `<div class="bloom-eco-panel${id === "overview" ? " active" : ""}" data-eco-panel="${id}"></div>`).join("")}

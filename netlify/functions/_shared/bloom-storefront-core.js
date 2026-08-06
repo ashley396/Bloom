@@ -27,10 +27,11 @@ export const COLLECTION_SLUGS = [
 ];
 
 export function previewTokenSecret(env = process.env) {
-  return env.BLOOM_STOREFRONT_PREVIEW_SECRET || env.PAYMENT_HUB_TOKEN_KEY || "bloom-preview-dev-only";
+  return env.BLOOM_STOREFRONT_PREVIEW_SECRET || env.PAYMENT_HUB_TOKEN_KEY || null;
 }
 
 export function signPreviewToken(shopId, expiresAtMs, secret = previewTokenSecret()) {
+  if (!secret) throw new Error("Storefront preview is not configured.");
   const payload = `${shopId}:${expiresAtMs}`;
   const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
   return Buffer.from(`${payload}:${sig}`).toString("base64url");
@@ -38,13 +39,18 @@ export function signPreviewToken(shopId, expiresAtMs, secret = previewTokenSecre
 
 export function verifyPreviewToken(token, shopId, now = Date.now(), secret = previewTokenSecret()) {
   if (!token) return { valid: false, error: "Preview token required." };
+  if (!secret) return { valid: false, error: "Storefront preview is not configured." };
   try {
     const raw = Buffer.from(token, "base64url").toString("utf8");
     const [sid, exp, sig] = raw.split(":");
     if (sid !== String(shopId)) return { valid: false, error: "Token shop mismatch." };
     if (Number(exp) < now) return { valid: false, error: "Preview token expired." };
     const expected = crypto.createHmac("sha256", secret).update(`${sid}:${exp}`).digest("hex");
-    if (sig !== expected) return { valid: false, error: "Invalid preview token." };
+    const actualBuffer = Buffer.from(sig || "", "utf8");
+    const expectedBuffer = Buffer.from(expected, "utf8");
+    if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) {
+      return { valid: false, error: "Invalid preview token." };
+    }
     return { valid: true, mode: "preview" };
   } catch {
     return { valid: false, error: "Malformed preview token." };

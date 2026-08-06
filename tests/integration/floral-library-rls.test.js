@@ -524,7 +524,7 @@ test("schema audit truth: migrations vs legacy vs fixture (report-only assertion
   assert.match(legacyAdmin, /check \(role in \('super_admin','support','designer','billing'\)\)/);
 
   // Staff A2 remains a separate paused track — do not apply/modify.
-  const staffA2 = path.join(migRoot, "20260729_phase2a_a2_staff_time_entries_rls_v1.sql");
+  const staffA2 = path.join(process.cwd(), "supabase/legacy_migrations/20260729_phase2a_a2_staff_time_entries_rls_v1.sql");
   assert.ok(fs.existsSync(staffA2), "Staff A2 migration file exists but is out of P0-01 scope");
   const staffSql = fs.readFileSync(staffA2, "utf8");
   assert.match(staffSql, /staff_time_entries/i);

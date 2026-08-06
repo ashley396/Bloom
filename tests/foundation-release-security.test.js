@@ -193,7 +193,7 @@ test("cross-tenant inventory row rejected by shop scope helper", () => {
 
 test("audit_events migration restricts access to shop members", () => {
   const sql = fs.readFileSync(
-    path.join(process.cwd(), "supabase/migrations/20260730_foundation_daily_loop_v1.sql"),
+    path.join(process.cwd(), "supabase/legacy_migrations/20260730_foundation_daily_loop_v1.sql"),
     "utf8",
   );
   assert.match(sql, /alter table public\.audit_events enable row level security/i);
@@ -203,7 +203,7 @@ test("audit_events migration restricts access to shop members", () => {
 
 test("order_status_history migration enforces shop member RLS", () => {
   const sql = fs.readFileSync(
-    path.join(process.cwd(), "supabase/migrations/20260730_foundation_daily_loop_v1.sql"),
+    path.join(process.cwd(), "supabase/legacy_migrations/20260730_foundation_daily_loop_v1.sql"),
     "utf8",
   );
   assert.match(sql, /order_status_history shop members/i);
@@ -217,14 +217,14 @@ test("order_status_history migration enforces shop member RLS", () => {
 test("staff GET strips sensitive fields server-side", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/staff.js"), "utf8");
   assert.match(src, /\.map\(staffSummary\)/);
-  assert.match(src, /pin_set:Boolean\(row\.pin_hash\)/);
-  assert.match(src, /const\{pin_hash,\.\.\.safe\}=row/);
+  assert.match(src, /pin_set:\s*Boolean\(row\.pin_hash\)/);
+  assert.match(src, /const\s*\{\s*pin_hash,\s*\.\.\.safe\s*\}\s*=\s*row/);
   assert.doesNotMatch(src, /items:.*hourly_rate/s);
 });
 
 test("staff OPEN_FILE requires PIN when pin_hash is set", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/staff.js"), "utf8");
-  assert.match(src, /if\(employee\.pin_hash&&!validPin\(body\.pin,employee\.pin_hash\)\)/);
+  assert.match(src, /if\s*\(employee\.pin_hash\s*&&\s*!validPin\(body\.pin,\s*employee\.pin_hash\)\)/);
 });
 
 // ---------------------------------------------------------------------------
@@ -301,7 +301,7 @@ test("Stripe secret not present in public client bundle", () => {
 
 test("foundation migration is additive without DROP TABLE", () => {
   const sql = fs.readFileSync(
-    path.join(process.cwd(), "supabase/migrations/20260730_foundation_daily_loop_v1.sql"),
+    path.join(process.cwd(), "supabase/legacy_migrations/20260730_foundation_daily_loop_v1.sql"),
     "utf8",
   );
   assert.doesNotMatch(sql, /drop table/i);
@@ -313,7 +313,7 @@ test("foundation migration is additive without DROP TABLE", () => {
 test("rollback migration file exists and is marked emergency-only", () => {
   const rollback = path.join(
     process.cwd(),
-    "supabase/migrations/20260730_foundation_daily_loop_v1_rollback.sql",
+    "supabase/legacy_migrations/20260730_foundation_daily_loop_v1_rollback.sql",
   );
   assert.ok(fs.existsSync(rollback));
   const sql = fs.readFileSync(rollback, "utf8");

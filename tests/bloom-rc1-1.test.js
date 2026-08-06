@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   resolvePublishedSite,
   filterPublicProducts,
+  previewTokenSecret,
   verifyPreviewToken,
   signPreviewToken,
   mergeCatalogProducts,
@@ -53,6 +54,18 @@ test("preview authorization token", () => {
   const token = signPreviewToken("shop-1", exp, "test-secret");
   assert.equal(verifyPreviewToken(token, "shop-1", Date.now(), "test-secret").valid, true);
   assert.equal(verifyPreviewToken(token, "shop-2", Date.now(), "test-secret").valid, false);
+});
+
+test("storefront preview fails closed without a configured secret", () => {
+  assert.equal(previewTokenSecret({}), null);
+  assert.throws(
+    () => signPreviewToken("shop-1", Date.now() + 60000, null),
+    /Storefront preview is not configured/
+  );
+  assert.deepEqual(
+    verifyPreviewToken("attacker-token", "shop-1", Date.now(), null),
+    { valid: false, error: "Storefront preview is not configured." }
+  );
 });
 
 test("draft products hidden on public site", () => {
@@ -133,7 +146,27 @@ test("guided order body matches orders API shape", () => {
     fulfillment: "PICKUP"
   });
   assert.equal(body.customer_name, "Sam");
-  assert.ok(body.tax >= 0);
+  assert.equal(body.tax, 6);
+  for (const field of ["amount_paid", "balance_due", "payment_status", "payment_method", "paid_at"]) {
+    assert.equal(field in body, false);
+  }
+});
+
+test("guided order keeps product amount separate from labor for server pricing", () => {
+  const body = buildOrderBodyFromGuided({
+    customer_name: "Sam",
+    recipient_name: "Sam",
+    subtotal: 100,
+    labor_charge: 20,
+    discount: 10,
+    tax_rate: 10,
+    fulfillment: "PICKUP"
+  });
+  assert.equal(body.subtotal, 100);
+  assert.equal(body.labor_charge, 20);
+  assert.equal(body.discount, 10);
+  assert.equal(body.tax, 11);
+  assert.equal(body.total_preview, 121);
 });
 
 test("payment handoff regression guard", () => {

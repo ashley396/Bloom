@@ -3,6 +3,7 @@ import { publicSettings, fail } from "./_shared/supabase.js";
 import { checkRateLimit } from "./_shared/production.js";
 import { validateEmail } from "./_shared/validation.js";
 import { authRedirectPath } from "./_shared/site-url.js";
+import { fetchWithTimeout } from "./_shared/upstream.js";
 
 export async function handler(event) {
   const ready = preflight(event);
@@ -20,7 +21,7 @@ export async function handler(event) {
     const origin = event.headers?.origin || event.headers?.Origin || "";
     const redirectTo = authRedirectPath(process.env, origin, "/reset-password");
 
-    const response = await fetch(`${url}/auth/v1/recover`, {
+    const response = await fetchWithTimeout(`${url}/auth/v1/recover`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -28,7 +29,7 @@ export async function handler(event) {
         Authorization: `Bearer ${anonKey}`
       },
       body: JSON.stringify({ email: emailCheck.value, redirect_to: redirectTo })
-    });
+    }, { timeoutMs: 5_000, service: "Password recovery service" });
     const data = await response.json().catch(() => ({}));
     if (!response.ok && response.status !== 429) {
       return json(response.status, { error: data.msg || data.message || "Could not send reset email." });

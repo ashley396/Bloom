@@ -286,7 +286,7 @@ test("florist-community function enforces flag, membership, signed URLs, RPCs", 
 
 test("community R1/R2/R3 migration hardens membership, private storage, narrow moderation", () => {
   const sql = fs.readFileSync(
-    path.join(process.cwd(), "supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql"),
+    path.join(process.cwd(), "supabase/legacy_migrations/20260731_florist_community_beta_v1_r1_security.sql"),
     "utf8"
   );
   assert.match(sql, /is_active_florist/);
@@ -305,7 +305,7 @@ test("community R1/R2/R3 migration hardens membership, private storage, narrow m
   assert.doesNotMatch(sql, /staff_time_entries/);
 
   const v1 = fs.readFileSync(
-    path.join(process.cwd(), "supabase/migrations/20260731_florist_community_beta_v1.sql"),
+    path.join(process.cwd(), "supabase/legacy_migrations/20260731_florist_community_beta_v1.sql"),
     "utf8"
   );
   assert.match(v1, /LOCKED/);

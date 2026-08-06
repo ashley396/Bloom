@@ -77,21 +77,35 @@
     }
 
     root.querySelector("#editorSave")?.addEventListener("click", async () => {
-      syncTextEdits();
-      await api("save_page", { page: { ...homePage, sections } });
-      live("Draft saved.");
-      root.querySelector("#editorStatus").textContent = "Draft saved.";
+      const status = root.querySelector("#editorStatus");
+      status.textContent = "Saving draft…";
+      try {
+        syncTextEdits();
+        const result = await api("save_page", { page: { ...homePage, sections } });
+        if (!result?.saved || !result?.page?.id) throw new Error("Website draft save could not be confirmed. Your changes remain in the editor.");
+        live("Draft saved.");
+        status.textContent = "Draft saved.";
+      } catch (e) {
+        live("Draft was not saved.");
+        status.textContent = e.message;
+      }
     });
 
     root.querySelector("#editorPublish")?.addEventListener("click", async () => {
-      syncTextEdits();
-      await api("save_page", { page: { ...homePage, sections } });
+      const status = root.querySelector("#editorStatus");
+      status.textContent = "Saving and publishing…";
       try {
-        await api("publish", { approved: true, saved: true, lily_draft: false });
+        syncTextEdits();
+        const saved = await api("save_page", { page: { ...homePage, sections } });
+        if (!saved?.saved || !saved?.page?.id) throw new Error("Website draft save could not be confirmed. Publishing was stopped.");
+        const published = await api("publish", { approved: true, saved: true, lily_draft: false });
+        if (!published?.published || published?.status !== "published") throw new Error("Website publish could not be confirmed. Your saved draft is safe.");
         live("Site published.");
+        status.textContent = "Website published.";
         window.toast?.("Website published");
       } catch (e) {
-        root.querySelector("#editorStatus").textContent = e.message;
+        live("Website was not published.");
+        status.textContent = e.message;
       }
     });
 

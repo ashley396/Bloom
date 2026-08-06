@@ -1,6 +1,7 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { publicSettings, fail } from "./_shared/supabase.js";
 import { checkRateLimit } from "./_shared/production.js";
+import { fetchWithTimeout } from "./_shared/upstream.js";
 
 export async function handler(event) {
   const ready = preflight(event);
@@ -17,7 +18,7 @@ export async function handler(event) {
     if (password.length < 8) return json(400, { error: "Password must be at least 8 characters." });
 
     const { url, anonKey } = publicSettings();
-    const response = await fetch(`${url}/auth/v1/user`, {
+    const response = await fetchWithTimeout(`${url}/auth/v1/user`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -25,7 +26,7 @@ export async function handler(event) {
         Authorization: `Bearer ${accessToken}`
       },
       body: JSON.stringify({ password })
-    });
+    }, { timeoutMs: 5_000, service: "Password reset service" });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       return json(response.status, { error: data.msg || data.message || "Could not update password." });

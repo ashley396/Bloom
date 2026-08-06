@@ -210,7 +210,7 @@ test("legacy no-status schema: R1 adds status and requires exact active", async 
   );
 
   const r1 = fs.readFileSync(
-    path.join(process.cwd(), "supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql"),
+    path.join(process.cwd(), "supabase/legacy_migrations/20260731_florist_community_beta_v1_r1_security.sql"),
     "utf8"
   );
   assert.match(r1, /add column status text/);

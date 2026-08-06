@@ -44,9 +44,20 @@ async function shopBySlug(client, slug) {
 
 async function loadWebsiteBundle(client, shopId) {
   try {
-    const { data: project } = await client.from("bloom_website_projects").select("*").eq("shop_id", shopId).maybeSingle();
+    const { data: project, error: projectError } = await client
+      .from("bloom_website_projects")
+      .select("*")
+      .eq("shop_id", shopId)
+      .maybeSingle();
+    if (projectError) throw projectError;
     if (!project) return null;
-    const { data: pages } = await client.from("bloom_website_pages").select("*").eq("shop_id", shopId).order("nav_order");
+    const { data: pages, error: pagesError } = await client
+      .from("bloom_website_pages")
+      .select("*")
+      .eq("shop_id", shopId)
+      .eq("project_id", project.id)
+      .order("nav_order");
+    if (pagesError) throw pagesError;
     return { project, pages: pages || [] };
   } catch (e) {
     if (missingTable(e)) return null;
@@ -57,7 +68,8 @@ async function loadWebsiteBundle(client, shopId) {
 async function loadPublicProducts(client, shopId) {
   const legacy = [];
   try {
-    const { data } = await client.from("products").select("*").eq("shop_id", shopId);
+    const { data, error } = await client.from("products").select("*").eq("shop_id", shopId);
+    if (error) throw error;
     (data || []).forEach((p) => {
       legacy.push({
         id: p.id,
@@ -75,7 +87,8 @@ async function loadPublicProducts(client, shopId) {
   }
   let catalog = [];
   try {
-    const { data } = await client.from("bloom_shop_catalog_products").select("*").eq("shop_id", shopId);
+    const { data, error } = await client.from("bloom_shop_catalog_products").select("*").eq("shop_id", shopId);
+    if (error) throw error;
     catalog = data || [];
   } catch (e) {
     if (!missingTable(e)) throw e;
@@ -370,6 +383,7 @@ export async function handler(event) {
 }
 
 async function loadShopProfile(client, shopId) {
-  const { data } = await client.from("shops").select("slug,name").eq("id", shopId).maybeSingle();
+  const { data, error } = await client.from("shops").select("slug,name").eq("id", shopId).maybeSingle();
+  if (error) throw error;
   return data;
 }

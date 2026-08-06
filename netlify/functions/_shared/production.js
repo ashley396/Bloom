@@ -141,7 +141,7 @@ export function securityReviewSummary() {
     authorization: "shop_members.role + requireRoles on sensitive routes",
     tenant_isolation: "shop_id filter on all florist mutations",
     validation: "shared validation.js on auth, orders, inventory, customers",
-    rate_limiting: "checkRateLimit hook on auth-login and client-errors",
+    rate_limiting: "Netlify distributed auth admission plus per-isolate defense-in-depth limits",
     secrets: "Never returned in API responses; sanitized client error payloads",
     error_handling: "safePublicError for 5xx; structured JSON logs"
   };

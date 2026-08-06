@@ -1,9 +1,9 @@
 import Stripe from "stripe";
 import crypto from "node:crypto";
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
-import { currentUser, fail, requireRoles } from "./_shared/supabase.js";
+import { admin, currentUser, fail, requireRoles } from "./_shared/supabase.js";
 import { requireRowShopId } from "./_shared/shop-scope.js";
-import { writeShopAudit } from "./_shared/production.js";
+import { structuredLog, writeShopAudit } from "./_shared/production.js";
 import {
   PROVIDER_CATALOG,
   PROVIDER_IDS,
@@ -753,45 +753,102 @@ export async function handler(event) {
         e.statusCode = 403;
         throw e;
       }
-      const providerId = String(body.provider_id || "stripe");
-      const paymentAmount = Number(body.payment_amount || body.amount || 0);
-      const v = validateRefundRequest({ amount: body.amount, paymentAmount, partial: body.partial });
+      const idempotencyKey = String(body.idempotency_key || "").trim();
+      if (!idempotencyKey) return json(400, { error: "Refund idempotency key is required." });
+      const providerId = String(body.provider_id || "stripe").trim().toLowerCase();
+      const paymentId = String(body.payment_id || "").trim();
+      if (!paymentId) return json(400, { error: "Payment is required." });
+      const requestedAmount = Number(body.amount);
+      const v = validateRefundRequest({ amount: requestedAmount, paymentAmount: Number.MAX_SAFE_INTEGER, partial: body.partial });
       if (!v.valid) return json(400, { error: v.error });
       const shop = await loadShop(client, shopId);
       const adapter = createProviderAdapter(providerId, { stripeClient: stripe, shop });
-      let providerResult = { ok: true, provider_ref: body.provider_ref || null };
-      if (body.payment_intent_id && providerId === "stripe") {
-        providerResult = await adapter.refund({
-          paymentIntentId: body.payment_intent_id,
-          amount: v.amount,
-          reason: body.reason
-        });
-        if (!providerResult.ok) return json(400, providerResult);
+      const ledgerClient = admin();
+      const { data: reservation, error: reservationError } = await ledgerClient.rpc("reserve_payment_refund", {
+        p_shop_id: shopId,
+        p_payment_id: paymentId,
+        p_idempotency_key: idempotencyKey,
+        p_amount: v.amount,
+        p_reason: body.reason || "customer_request",
+        p_notes: body.notes || null,
+        p_actor_user_id: user.id,
+        p_provider_id: providerId
+      });
+      if (reservationError) {
+        if (/Payment not found/i.test(reservationError.message || "")) return json(404, { error: "Payment not found." });
+        if (/exceeds remaining refundable balance/i.test(reservationError.message || "")) {
+          return json(409, { error: "Refund exceeds the remaining refundable balance." });
+        }
+        if (/idempotency key conflicts/i.test(reservationError.message || "")) {
+          return json(409, { error: "Refund idempotency key conflicts with an existing request." });
+        }
+        throw reservationError;
       }
-      const row = {
-        shop_id: shopId,
-        provider_id: providerId,
-        payment_id: body.payment_id || null,
-        provider_ref: providerResult.refund_id || body.provider_ref,
-        amount: v.amount,
-        reason: body.reason || "customer_request",
-        notes: body.notes || null,
-        status: providerResult.ok ? "completed" : "pending",
-        partial: v.partial,
-        actor_user_id: user.id,
-        metadata: { payment_intent_id: body.payment_intent_id || null, notes: body.notes || null }
-      };
-      const { data: refundRow, error } = await client.from("payment_hub_refunds").insert(row).select("*").single();
-      if (error && error.code !== "42P01") throw error;
+      const reservedRefund = reservation?.refund;
+      if (!reservedRefund?.id) throw new Error("Refund reservation was not confirmed.");
+      if (reservedRefund.status === "completed") {
+        return json(200, { refund: reservedRefund, duplicate: true });
+      }
+
+      const paymentIntentId = reservedRefund.metadata?.payment_intent_id;
+      let providerResult;
+      try {
+        providerResult = await adapter.refund({
+          paymentIntentId,
+          amount: v.amount,
+          reason: body.reason,
+          idempotencyKey
+        });
+        if (!providerResult.ok) {
+          const providerError = new Error(providerResult.error || "Refund provider rejected the request.");
+          providerError.code = "provider_rejected";
+          throw providerError;
+        }
+      } catch (providerError) {
+        const { error: failError } = await ledgerClient.rpc("fail_payment_refund", {
+          p_shop_id: shopId,
+          p_refund_id: reservedRefund.id,
+          p_error_code: providerError.code || providerError.type || "provider_error"
+        });
+        structuredLog("error", "payment_refund_provider_failed", {
+          shop_id: shopId,
+          refund_id: reservedRefund.id,
+          error_code: providerError.code || providerError.type || "provider_error",
+          reservation_update_failed: Boolean(failError)
+        });
+        if (failError) throw failError;
+        return json(502, { error: "The refund provider did not complete the refund. It is safe to retry with the same key." });
+      }
+
+      const { data: completion, error: completionError } = await ledgerClient.rpc("complete_payment_refund", {
+        p_shop_id: shopId,
+        p_refund_id: reservedRefund.id,
+        p_provider_ref: providerResult.refund_id,
+        p_provider_status: providerResult.status || "succeeded"
+      });
+      if (completionError || !completion?.refund?.id) {
+        structuredLog("error", "payment_refund_reconciliation_required", {
+          shop_id: shopId,
+          refund_id: reservedRefund.id,
+          provider_ref: providerResult.refund_id,
+          error_code: completionError?.code || "completion_not_confirmed"
+        });
+        return json(202, {
+          status: "reconciliation_required",
+          refund_id: reservedRefund.id,
+          provider_ref: providerResult.refund_id
+        });
+      }
+      const refundRow = completion.refund;
       await writeShopAudit(client, {
         shopId,
         userId: user.id,
         eventType: "payment_refund",
         entityType: "refund",
-        entityId: refundRow?.id || body.payment_id || "refund",
-        metadata: buildRefundAuditEntry(refundRow || row, { userId: user.id })
+        entityId: refundRow.id,
+        metadata: buildRefundAuditEntry(refundRow, { userId: user.id })
       });
-      return json(201, { refund: refundRow || row, provider: providerResult });
+      return json(reservation?.duplicate ? 200 : 201, { refund: refundRow, provider: providerResult });
     }
 
     if (action === "refund_void") {
