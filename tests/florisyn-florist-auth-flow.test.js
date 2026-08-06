@@ -34,10 +34,23 @@ test("confirmed florist boot loads shop workflows from session", () => {
 test("missing shop membership shows onboarding, not invalid-login copy", () => {
   assert.match(supabase, /shop_membership_required/);
   assert.match(supabase, /not linked to an active flower shop/);
+  assert.match(loginFn, /shop_membership_required/);
+  assert.match(loginFn, /platform_admins/);
+  assert.match(loginFn, /hasActiveShopMembership|shop_members/);
+  assert.match(loginJs, /shop_membership_required/);
   assert.match(appJs, /showMembershipOnboarding/);
   assert.match(appJs, /SHOP SETUP NEEDED/);
   assert.match(appJs, /This is not an invalid password problem/);
   assert.doesNotMatch(appJs, /showMembershipOnboarding[\s\S]{0,200}Invalid email or password/);
+});
+
+test("login UI separates unconfirmed email from wrong-password guidance", () => {
+  assert.match(loginJs, /invalid login credentials\|invalid email or password\|email not confirmed/i);
+  assert.match(loginJs, /forgot-password/);
+  assert.match(loginJs, /email_not_confirmed/);
+  assert.match(loginJs, /invalid_credentials/);
+  assert.match(loginFn, /auth_rate_limited/);
+  assert.match(loginFn, /auth_email_provider_unavailable/);
 });
 
 test("validateEmail rejects malformed domains with actionable code", () => {

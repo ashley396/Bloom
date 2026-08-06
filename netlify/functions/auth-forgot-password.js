@@ -34,8 +34,8 @@ export async function handler(event) {
     }, { timeoutMs: 5_000, service: "Password recovery service" });
     const data = await response.json().catch(() => ({}));
     const mapped = mapAuthProviderFailure(response, data, { flow: "recover" });
-    if (mapped.statusCode >= 500) {
-      logAuthEvent("error", "auth_recover_provider_unavailable", {
+    if (mapped.statusCode >= 500 || mapped.code === "auth_rate_limited") {
+      logAuthEvent("error", mapped.code === "auth_rate_limited" ? "auth_recover_rate_limited" : "auth_recover_provider_unavailable", {
         email_domain: emailCheck.value.split("@")[1],
         provider_status: response.status,
         code: mapped.code,

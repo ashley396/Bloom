@@ -44,7 +44,7 @@ export function resolvePublicSiteUrl(env = process.env, requestOrigin = "") {
     return url;
   }
 
-  return "https://bloom-technologies.netlify.app";
+  return "https://florisyn-staging.netlify.app";
 }
 
 export function getSiteUrlDiagnostics(env = process.env, requestOrigin = "") {
@@ -72,7 +72,7 @@ export function getSiteUrlDiagnostics(env = process.env, requestOrigin = "") {
       ? "SITE_URL"
       : isNetlifyPreviewUrl(origin)
         ? "request_origin_preview"
-        : resolved.includes("bloom-technologies.netlify.app")
+        : resolved.includes("florisyn-staging.netlify.app") || resolved.includes("bloom-technologies.netlify.app")
           ? "fallback"
           : "URL_or_origin";
 
