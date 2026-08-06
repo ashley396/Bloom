@@ -20,14 +20,21 @@ async function bloomLogin(event){
       body:JSON.stringify({email,password})
     });
     const data=await response.json().catch(()=>({}));
-    if(!response.ok) throw new Error(data.error || `Sign in failed (${response.status})`);
+    if(!response.ok){
+      const err=new Error(data.error || `Sign in failed (${response.status})`);
+      err.code=data.code||'';
+      throw err;
+    }
     const session={accessToken:data.accessToken,refreshToken:data.refreshToken,user:data.user,expiresAt:data.expiresIn?Date.now()+Number(data.expiresIn)*1000:null};
     localStorage.setItem('bloom_session',JSON.stringify(session));
     window.dispatchEvent(new CustomEvent('bloom-login-success',{detail:session}));
     location.href="/";
   }catch(error){
     const detail=String(error.message||'');
-    if(/invalid login credentials|invalid email or password|email not confirmed/i.test(detail)){
+    const code=String(error.code||'');
+    if(code==='shop_membership_required'||/not linked to an active flower shop/i.test(detail)){
+      message.textContent=detail;
+    }else if(code==='email_not_confirmed'||/invalid login credentials|invalid email or password|email not confirmed/i.test(detail)){
       const emailParam=encodeURIComponent(email||'');
       message.innerHTML=`Could not sign in yet. Check your email confirmation link, or <a href="/verify-email?pending=1&email=${emailParam}">resend the confirmation email</a>.`;
     }else{

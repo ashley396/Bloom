@@ -48,16 +48,31 @@
     let sections = [];
 
     async function loadProject() {
-      const d = await api("get_project");
-      project = d.project;
-      homePage = (d.pages || []).find((p) => p.slug === "home") || { slug: "home", title: "Home", sections: [] };
-      sections = [...(homePage.sections || [])].sort((a, b) => a.order - b.order);
-      history.reset({ sections });
-      renderCanvas();
+      const status = root.querySelector("#editorStatus");
+      status.textContent = "Loading website draft…";
+      try {
+        const d = await api("get_project");
+        project = d.project;
+        homePage = (d.pages || []).find((p) => p.slug === "home") || { slug: "home", title: "Home", sections: [] };
+        sections = [...(homePage.sections || [])].sort((a, b) => a.order - b.order);
+        history.reset({ sections });
+        renderCanvas();
+        status.textContent = sections.length ? "Draft ready." : "No sections yet — add content, then save draft.";
+      } catch (e) {
+        live("Website draft could not be loaded.");
+        status.textContent = e.message || "Could not load website draft. Try again.";
+        root.querySelector("#editorCanvas").innerHTML =
+          `<div class="bloom-empty-state florisyn-empty-state"><p>Website draft could not be loaded.</p><p class="subtle">${esc(e.message || "Try again.")}</p></div>`;
+      }
     }
 
     function renderCanvas() {
       const canvas = root.querySelector("#editorCanvas");
+      if (!sections.length) {
+        canvas.innerHTML =
+          `<div class="bloom-empty-state florisyn-empty-state"><p>No website sections yet.</p><p class="subtle">Save a draft after adding sections. Unpublished drafts never appear on your public storefront.</p></div>`;
+        return;
+      }
       canvas.innerHTML = sections
         .map(
           (s, idx) => `<article class="editor-section" data-id="${esc(s.id)}" draggable="true">
