@@ -92,12 +92,18 @@ export function structuredLog(level, message, meta = {}) {
 
 const rateBucket = new Map();
 
-/** Best-effort rate limit hook (per isolate). Returns { allowed, retryAfterMs }. */
-export function checkRateLimit(event, { key = "global", limit = 120, windowMs = 60_000 } = {}) {
-  const ip =
+function clientIp(event) {
+  return (
     event?.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() ||
     event?.headers?.["client-ip"] ||
-    "unknown";
+    event?.headers?.["x-nf-client-connection-ip"] ||
+    "unknown"
+  );
+}
+
+/** Best-effort rate limit hook (per isolate). Returns { allowed, retryAfterMs }. */
+export function checkRateLimit(event, { key = "global", limit = 120, windowMs = 60_000 } = {}) {
+  const ip = clientIp(event);
   const bucketKey = `${key}:${ip}`;
   const now = Date.now();
   let row = rateBucket.get(bucketKey);
@@ -112,9 +118,62 @@ export function checkRateLimit(event, { key = "global", limit = 120, windowMs = 
     }
   }
   if (row.count > limit) {
-    return { allowed: false, retryAfterMs: windowMs - (now - row.start) };
+    return { allowed: false, retryAfterMs: windowMs - (now - row.start), source: "isolate" };
   }
-  return { allowed: true, retryAfterMs: 0 };
+  return { allowed: true, retryAfterMs: 0, source: "isolate" };
+}
+
+async function bumpBlobBucket(store, bucketKey, limit, windowMs) {
+  const now = Date.now();
+  const raw = await store.get(bucketKey, { type: "json" });
+  let row = raw && typeof raw === "object" ? raw : null;
+  if (!row || !Number(row.start) || now - Number(row.start) > windowMs) {
+    row = { start: now, count: 0 };
+  }
+  row.count = Number(row.count || 0) + 1;
+  await store.setJSON(bucketKey, row);
+  if (row.count > limit) {
+    return {
+      allowed: false,
+      retryAfterMs: Math.max(1, windowMs - (now - Number(row.start))),
+      source: "blobs",
+      bucket: bucketKey
+    };
+  }
+  return { allowed: true, retryAfterMs: 0, source: "blobs", bucket: bucketKey };
+}
+
+/**
+ * Distributed auth admission via Netlify Blobs (shared across function instances).
+ * Enforces per-IP limits plus a higher site-wide backstop so rotating egress /
+ * botnets cannot fully bypass admission. Falls back to per-isolate limits.
+ */
+export async function checkDistributedRateLimit(
+  event,
+  { key = "global", limit = 30, siteLimit = 120, windowMs = 60_000 } = {}
+) {
+  const local = checkRateLimit(event, { key, limit, windowMs });
+  if (!local.allowed) return local;
+
+  try {
+    const { connectLambda, getStore } = await import("@netlify/blobs");
+    // Classic Lambda-compat handlers do not auto-wire Blobs; connect per request.
+    connectLambda(event);
+    // Eventual consistency: Lambda-compat Blobs lacks uncachedEdgeURL for "strong".
+    const store = getStore({ name: "florisyn-auth-admission", consistency: "eventual" });
+    const ip = clientIp(event);
+    const perIp = await bumpBlobBucket(store, `${key}:${ip}`, limit, windowMs);
+    if (!perIp.allowed) return perIp;
+    const siteWide = await bumpBlobBucket(store, `${key}:__site__`, siteLimit, windowMs);
+    if (!siteWide.allowed) return siteWide;
+    return { allowed: true, retryAfterMs: 0, source: "blobs" };
+  } catch (error) {
+    structuredLog("warn", "distributed_rate_limit_fallback", {
+      key,
+      reason: String(error?.message || error).slice(0, 160)
+    });
+    return local;
+  }
 }
 
 export async function writeShopAudit(

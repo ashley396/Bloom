@@ -1,6 +1,6 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { publicSettings, fail } from "./_shared/supabase.js";
-import { checkRateLimit } from "./_shared/production.js";
+import { checkDistributedRateLimit } from "./_shared/production.js";
 import { fetchWithTimeout, requestIdOf } from "./_shared/upstream.js";
 import { logAuthEvent, mapAuthProviderFailure, jsonAuthError } from "./_shared/auth-email.js";
 
@@ -9,8 +9,13 @@ export async function handler(event) {
   const ready = preflight(event);
   if (ready) return ready;
   if (event.httpMethod !== "POST") return methodNotAllowed();
-  const limit = checkRateLimit(event, { key: "auth-reset", limit: 15, windowMs: 60_000 });
-  if (!limit.allowed) return json(429, { error: "Too many requests. Please wait and try again.", code: "auth_rate_limited" });
+  const limit = await checkDistributedRateLimit(event, { key: "auth-reset", limit: 15, windowMs: 60_000 });
+  if (!limit.allowed) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((limit.retryAfterMs || 60_000) / 1000));
+    const limited = json(429, { error: "Too many requests. Please wait and try again.", code: "auth_rate_limited", retryAfterSeconds }, process.env, event);
+    limited.headers = { ...limited.headers, "Retry-After": String(retryAfterSeconds) };
+    return limited;
+  }
 
   try {
     const body = bodyOf(event);

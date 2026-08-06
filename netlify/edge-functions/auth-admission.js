@@ -1,10 +1,11 @@
 /**
  * Distributed admission control for password-based authentication routes.
  *
- * Netlify enforces the rate limit at the edge across function instances. The
- * serverless handlers keep their smaller in-memory limits as defense in depth.
- * Session refresh is intentionally excluded so a login burst cannot evict
- * already-authenticated users.
+ * Primary distributed gate: netlify.toml redirect rate_limit on /api/auth-*.
+ * This edge function correlates request IDs and keeps a docs-aligned rateLimit
+ * on the same /api entry points (Pro: max 5 code-based rules project-wide).
+ * Serverless handlers keep smaller in-memory limits as defense in depth.
+ * Session refresh is intentionally excluded.
  */
 export default async function authAdmission(request, context) {
   const requestId = context.requestId || crypto.randomUUID();
@@ -22,18 +23,13 @@ export default async function authAdmission(request, context) {
 
 export const config = {
   path: [
-    "/.netlify/functions/auth-login",
-    "/.netlify/functions/auth-signup",
-    "/.netlify/functions/auth-forgot-password",
-    "/.netlify/functions/auth-reset-password",
     "/api/auth-login",
     "/api/auth-signup",
     "/api/auth-forgot-password",
     "/api/auth-reset-password"
   ],
-  method: "POST",
-  onError: "fail",
   rateLimit: {
+    action: "rate_limit",
     windowLimit: 30,
     windowSize: 60,
     aggregateBy: ["ip", "domain"]

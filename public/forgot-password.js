@@ -15,7 +15,7 @@ form?.addEventListener("submit", async (e) => {
   button.disabled = true;
   button.textContent = "Sending…";
   try {
-    const res = await fetch("/.netlify/functions/auth-forgot-password", {
+    const res = await fetch("/api/auth-forgot-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email })
