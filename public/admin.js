@@ -145,6 +145,9 @@ $('#adminLogin').onsubmit=async e=>{
       $('#adminResetPasswordHint')?.addEventListener('click',()=>$('#adminResetPassword')?.click());
     }else if(/permission|forbidden|not have permission|platform admin|administration/i.test(detail)){
       loginMessage.textContent=detail||'This account is not authorized for Florisyn Administration.';
+    }else if(/unexpected florisyn error/i.test(detail)){
+      loginMessage.innerHTML=`Your password was accepted, but Florisyn HQ could not finish loading. Use <button type="button" class="linkish" id="adminResetPasswordHint">Reset password</button> if needed, then try again. If it still fails, your account may need the platform owner role repaired.`;
+      $('#adminResetPasswordHint')?.addEventListener('click',()=>$('#adminResetPassword')?.click());
     }else loginMessage.textContent=detail||'Could not sign in. Please try again.';
   }
 };

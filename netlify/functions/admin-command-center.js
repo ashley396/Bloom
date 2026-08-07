@@ -46,11 +46,51 @@ function clientIp(event) {
 async function safeCount(client, table) {
   try {
     const { count, error } = await client.from(table).select("*", { count: "exact", head: true });
-    if (error) throw error;
+    if (error) {
+      if (isMissingTableError(error)) return null;
+      console.error(JSON.stringify({
+        event: "admin_command_center_safe_count_error",
+        table,
+        code: error.code || null,
+        message: String(error.message || "").slice(0, 180)
+      }));
+      return null;
+    }
     return count || 0;
   } catch (error) {
     if (isMissingTableError(error)) return null;
-    throw error;
+    console.error(JSON.stringify({
+      event: "admin_command_center_safe_count_throw",
+      table,
+      message: String(error?.message || error).slice(0, 180)
+    }));
+    return null;
+  }
+}
+
+async function safeSelect(client, table, build) {
+  try {
+    const query = build(client.from(table));
+    const result = await query;
+    if (result.error) {
+      if (isMissingTableError(result.error)) return [];
+      console.error(JSON.stringify({
+        event: "admin_command_center_safe_select_error",
+        table,
+        code: result.error.code || null,
+        message: String(result.error.message || "").slice(0, 180)
+      }));
+      return [];
+    }
+    return result.data || [];
+  } catch (error) {
+    if (isMissingTableError(error)) return [];
+    console.error(JSON.stringify({
+      event: "admin_command_center_safe_select_throw",
+      table,
+      message: String(error?.message || error).slice(0, 180)
+    }));
+    return [];
   }
 }
 
@@ -64,30 +104,30 @@ export function createAdminCommandCenterHandler(deps = {}) {
     const ip = clientIp(event);
 
     if (event.httpMethod === "GET" && action === "dashboard") {
-      const monthStart = new Date();
-      monthStart.setUTCDate(1);
-      monthStart.setUTCHours(0, 0, 0, 0);
-
       const [
         shopsCount,
         membersCount,
         ordersCount,
         listingsCount,
         sellerProfilesCount,
-        subsRes,
-        shopsRes,
-        ordersRes,
-        aiTodayRes
+        subs,
+        shops,
+        orders,
+        aiTodayRows
       ] = await Promise.all([
         safeCount(client, "shops"),
         safeCount(client, "shop_members"),
         safeCount(client, "orders"),
         safeCount(client, "marketplace_listings"),
         safeCount(client, "marketplace_seller_profiles"),
-        client.from("shop_subscriptions").select("shop_id,plan_code,status,cancel_at_period_end,created_at,updated_at,stripe_customer_id,current_period_ends_at"),
-        client.from("shops").select("id,created_at").order("created_at", { ascending: false }).limit(500),
-        client.from("orders").select("id,total,created_at").order("created_at", { ascending: false }).limit(500),
-        client.from("platform_ai_usage_daily").select("request_count").eq("usage_date", new Date().toISOString().slice(0, 10)).maybeSingle()
+        safeSelect(client, "shop_subscriptions", (q) =>
+          q.select("shop_id,plan_code,status,cancel_at_period_end,created_at,updated_at,stripe_customer_id,current_period_ends_at")
+        ),
+        safeSelect(client, "shops", (q) => q.select("id,created_at").order("created_at", { ascending: false }).limit(500)),
+        safeSelect(client, "orders", (q) => q.select("id,total,created_at").order("created_at", { ascending: false }).limit(500)),
+        safeSelect(client, "platform_ai_usage_daily", (q) =>
+          q.select("request_count").eq("usage_date", new Date().toISOString().slice(0, 10)).limit(1)
+        )
       ]);
 
       let pendingFloristVerifications = null;
@@ -112,34 +152,23 @@ export function createAdminCommandCenterHandler(deps = {}) {
         pendingSellerVerifications = null;
       }
 
-      const subs = subsRes.error ? [] : subsRes.data || [];
-      const active = subs.filter((x) => ["trialing", "active"].includes(x.status));
+      const active = (subs || []).filter((x) => ["trialing", "active"].includes(x.status));
       const price = { starter: 39, professional: 79, premium: 129 };
       const mrr = active.filter((x) => x.status === "active").reduce((sum, x) => sum + (price[x.plan_code] || 0), 0);
 
-      let wholesaleOrders = [];
-      let grossMarketplace = 0;
-      try {
-        const wRes = await client.from("marketplace_wholesale_orders").select("total,created_at,status").limit(500);
-        if (!wRes.error) {
-          wholesaleOrders = wRes.data || [];
-          grossMarketplace = wholesaleOrders
-            .filter((o) => ["paid", "fulfilled", "completed"].includes(String(o.status).toLowerCase()))
-            .reduce((sum, o) => sum + Number(o.total || 0), 0);
-        }
-      } catch {
-        wholesaleOrders = [];
-      }
-
-      const shops = shopsRes.error ? [] : shopsRes.data || [];
-      const orders = ordersRes.error ? [] : ordersRes.data || [];
+      const wholesaleOrders = await safeSelect(client, "marketplace_wholesale_orders", (q) =>
+        q.select("total,created_at,status").limit(500)
+      );
+      const grossMarketplace = wholesaleOrders
+        .filter((o) => ["paid", "fulfilled", "completed"].includes(String(o.status).toLowerCase()))
+        .reduce((sum, o) => sum + Number(o.total || 0), 0);
 
       const charts = {
         revenue: buildRevenueSeries(orders),
         new_customers: buildMonthlySeries(shops),
         marketplace_orders: buildMonthlySeries(wholesaleOrders),
         subscription_growth: buildMonthlySeries(
-          subs.map((s) => ({ created_at: s.created_at })),
+          (subs || []).map((s) => ({ created_at: s.created_at })),
           { months: 6 }
         )
       };
@@ -159,8 +188,9 @@ export function createAdminCommandCenterHandler(deps = {}) {
           marketplace_revenue: grossMarketplace,
           monthly_recurring_revenue: mrr,
           active_subscriptions: active.length,
-          ai_requests_today: aiTodayRes.error ? null : Number(aiTodayRes.data?.request_count || 0),
-          online_users: null
+          ai_requests_today: aiTodayRows[0] ? Number(aiTodayRows[0].request_count || 0) : null,
+          online_users: null,
+          members_count: membersCount
         },
         charts
       });
