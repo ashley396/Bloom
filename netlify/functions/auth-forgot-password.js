@@ -108,7 +108,7 @@ export async function handler(event) {
     return json(200, {
       ok: true,
       code: "recover_accepted",
-      message: "If an account exists for this email, you will receive password reset instructions shortly. If the link opens localhost, update Supabase Authentication → URL Configuration Site URL to https://www.florisyn.com and add that domain under Redirect URLs."
+      message: "If an account exists for this email, you will receive password reset instructions shortly."
     });
   } catch (error) {
     return fail(error);

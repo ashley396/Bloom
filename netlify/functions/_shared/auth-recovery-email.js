@@ -50,7 +50,7 @@ export async function generatePasswordRecoveryLink({ email, redirectTo, env = pr
   );
 
   const data = await response.json().catch(() => ({}));
-  const actionLink = data?.action_link || data?.properties?.action_link || null;
+  let actionLink = data?.action_link || data?.properties?.action_link || null;
   if (!response.ok || !actionLink) {
     return {
       ok: false,
@@ -59,6 +59,16 @@ export async function generatePasswordRecoveryLink({ email, redirectTo, env = pr
       message: data?.msg || data?.error_description || data?.message || null
     };
   }
+
+  // Force production redirect even if Supabase Auth Site URL is still localhost.
+  try {
+    const link = new URL(actionLink);
+    link.searchParams.set("redirect_to", redirectTo);
+    actionLink = link.toString();
+  } catch {
+    /* keep provider link as-is */
+  }
+
   return { ok: true, actionLink, data };
 }
 
