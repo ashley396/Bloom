@@ -12,53 +12,89 @@
   <link rel="stylesheet" href="/bloom-auth.css">
   <link rel="stylesheet" href="/florisyn-brand.css">
   <link rel="stylesheet" href="/florisyn-founder-1.0.css">
-  <link rel="stylesheet" href="/florisyn-atelier-auth.css">
+  <link rel="stylesheet" href="/florisyn-atelier-auth.css?v=loginmock1">
 </head>
-<body class="bloom-auth florisyn florisyn-atelier-auth">
-  <header class="bloom-auth-top">
-    <a class="bloom-auth-brand" href="/login">
-      <img src="/assets/florisyn/florisyn-mark.png?v=official1" width="96" height="96" alt="Florisyn">
-      <span><strong>Florisyn</strong><small>The Operating System for Modern Florists</small></span>
-        <p class="atelier-auth-tagline">Where Your Passion Flowers</p>
+<body class="bloom-auth florisyn florisyn-atelier-auth florisyn-login-mockup">
+  <div class="login-decor login-decor-line" aria-hidden="true"></div>
+  <div class="login-decor login-decor-florals" aria-hidden="true"></div>
+
+  <main class="login-mockup-shell">
+    <a class="login-brand" href="/login">
+      <img src="/assets/florisyn/florisyn-login-lockup.png?v=loginmock1" width="220" height="220" alt="Florisyn">
+      <span class="visually-hidden"><strong>Florisyn</strong></span>
+      <p class="atelier-auth-tagline visually-hidden">Where Your Passion Flowers</p>
     </a>
-    <nav class="bloom-auth-nav" aria-label="Account">
-      <a href="/company/about/">About</a>
-      <a href="/help/">Help</a>
-      <a class="nav-cta" href="/signup">Start free trial</a>
-    </nav>
-  </header>
-  <main class="bloom-auth-shell">
-    <section class="bloom-auth-visual" aria-hidden="true">
-      <img src="/assets/auth/luxury-florist-workspace.jpg" alt="" width="1600" height="1067" fetchpriority="high">
-    </section>
-    <section class="bloom-auth-form-zone">
-      <div class="bloom-auth-card">
-        <h2>Welcome back</h2>
-        <p class="lead">Sign in to your Florisyn account.</p>
-        <form id="authForm">
-          <label>Email
-            <input id="email" name="email" type="email" required autocomplete="username" placeholder="you@yourflowershop.com">
-          </label>
-          <label>Password
-            <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="Your password">
-          </label>
-          <div class="atelier-auth-row">
-            <label class="check"><input type="checkbox" name="remember" checked> Remember me</label>
-            <a href="/forgot-password">Forgot password?</a>
-          </div>
-          <button type="submit" class="bloom-auth-btn" id="authButton">Sign in</button>
-        </form>
-        <p id="authMessage" class="bloom-auth-message" role="status" aria-live="polite"></p>
-        <div class="bloom-auth-links">
-          <a href="/signup">Create a Florisyn account</a>
-          <a href="/verify-email">Email verification help</a>
-          <a href="/admin">Florisyn HQ admin</a>
+
+    <section class="login-mockup-card" aria-labelledby="loginHeading">
+      <h1 id="loginHeading" class="login-heading">Welcome back <span class="login-heading-bloom" aria-hidden="true">❀</span></h1>
+      <p class="login-lead">Sign in to your Florisyn account.</p>
+
+      <form id="authForm" class="login-mockup-form">
+        <label class="login-field">Email address
+          <input id="email" name="email" type="email" required autocomplete="username" placeholder="user@florisyn.com">
+        </label>
+        <label class="login-field">Password
+          <span class="login-password-wrap">
+            <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••">
+            <button type="button" class="login-password-toggle" id="passwordToggle" aria-label="Show password" aria-pressed="false">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12Z"/><circle cx="12" cy="12" r="3.2"/></svg>
+            </button>
+          </span>
+        </label>
+        <div class="atelier-auth-row login-options">
+          <label class="check"><input type="checkbox" name="remember" checked> Remember me</label>
+          <a href="/forgot-password">Forgot password?</a>
         </div>
+        <button type="submit" class="bloom-auth-btn login-submit" id="authButton">Sign in</button>
+      </form>
+
+      <p id="authMessage" class="bloom-auth-message" role="status" aria-live="polite"></p>
+
+      <div class="login-divider" role="separator"><span>or continue with</span></div>
+      <div class="login-social" aria-label="Other sign-in options">
+        <button type="button" class="login-social-btn" data-social="google" aria-label="Continue with Google" title="Email sign-in is required for now">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M12 10.2v3.6h5.1c-.2 1.2-.9 2.3-1.9 3l3.1 2.4c1.8-1.7 2.9-4.1 2.9-7 0-.7-.1-1.3-.2-1.9H12z"/><path fill="#34A853" d="M6.6 14.3l-.9.7-2.5 1.9C4.9 19.7 8.2 22 12 22c2.7 0 5-.9 6.6-2.4l-3.1-2.4c-.9.6-2 1-3.5 1-2.7 0-5-1.8-5.8-4.3z"/><path fill="#4A90E2" d="M3.2 7.1C2.4 8.7 2 10.3 2 12s.4 3.3 1.2 4.9l3.4-2.6C6.2 13.5 6 12.8 6 12s.2-1.5.5-2.2L3.2 7.1z"/><path fill="#FBBC05" d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.8-2.8C16.9 2.9 14.7 2 12 2 8.2 2 4.9 4.3 3.2 7.1l3.4 2.6C7 7.7 9.3 5.9 12 5.9z"/></svg>
+        </button>
+        <button type="button" class="login-social-btn" data-social="apple" aria-label="Continue with Apple" title="Email sign-in is required for now">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#111" d="M16.4 12.7c0-2.1 1.7-3.1 1.8-3.2-1-1.4-2.5-1.6-3-1.7-1.3-.1-2.5.8-3.1.8-.7 0-1.7-.7-2.8-.7-1.4 0-2.8.9-3.5 2.2-1.5 2.6-.4 6.4 1.1 8.5.7 1 1.6 2.2 2.7 2.1 1.1 0 1.5-.7 2.8-.7s1.6.7 2.8.7c1.2 0 1.9-1 2.6-2 .8-1.2 1.1-2.3 1.1-2.4-.1 0-2.2-.8-2.2-3.6zM14.3 6.4c.6-.7 1-1.7.9-2.7-1 .1-2.1.6-2.7 1.4-.6.7-1.1 1.7-.9 2.7 1-.1 2-.6 2.7-1.4z"/></svg>
+        </button>
+        <button type="button" class="login-social-btn" data-social="microsoft" aria-label="Continue with Microsoft" title="Email sign-in is required for now">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#F25022" d="M2 2h9.5v9.5H2z"/><path fill="#7FBA00" d="M12.5 2H22v9.5h-9.5z"/><path fill="#00A4EF" d="M2 12.5h9.5V22H2z"/><path fill="#FFB900" d="M12.5 12.5H22V22h-9.5z"/></svg>
+        </button>
       </div>
+
+      <p class="login-footer-link">New to Florisyn? <a href="/signup"><strong>Create account</strong></a></p>
+      <p class="login-help-links">
+        <a href="/verify-email">Email verification help</a>
+        <a href="/admin">Florisyn HQ admin</a>
+      </p>
     </section>
   </main>
-  <footer class="bloom-auth-footer">© <span data-current-year></span> Florisyn Technologies · Built by a florist, designed for florists</footer>
+
+  <footer class="bloom-auth-footer login-mockup-footer">© <span data-current-year></span> Florisyn Technologies · Built by a florist, designed for florists</footer>
   <script src="/login.js" defer></script>
   <script src="/bloom-auth-common.js" defer></script>
+  <script>
+    (function () {
+      var toggle = document.getElementById("passwordToggle");
+      var input = document.getElementById("password");
+      var message = document.getElementById("authMessage");
+      if (toggle && input) {
+        toggle.addEventListener("click", function () {
+          var show = input.type === "password";
+          input.type = show ? "text" : "password";
+          toggle.setAttribute("aria-pressed", show ? "true" : "false");
+          toggle.setAttribute("aria-label", show ? "Hide password" : "Show password");
+        });
+      }
+      document.querySelectorAll(".login-social-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          if (!message) return;
+          message.textContent = "Please sign in with your Florisyn email and password for now.";
+          message.classList.remove("success");
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

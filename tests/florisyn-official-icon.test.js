@@ -16,7 +16,11 @@ test("official Florisyn icon PNG is present and substantial", () => {
 test("pages use official Florisyn PNG mark, not generic SVG monoline", () => {
   for (const page of ["login.html", "index.html", "admin.html", "signup.html"]) {
     const html = fs.readFileSync(new URL(`../public/${page}`, import.meta.url), "utf8");
-    assert.match(html, /florisyn-mark\.png/, `${page} should use official PNG mark`);
+    if (page === "login.html") {
+      assert.match(html, /florisyn-login-lockup\.png|florisyn-mark\.png/, `${page} should use official login lockup or mark`);
+    } else {
+      assert.match(html, /florisyn-mark\.png/, `${page} should use official PNG mark`);
+    }
     assert.doesNotMatch(html, /florisyn-mark\.svg/, `${page} should not use generic SVG mark`);
   }
   const manifest = fs.readFileSync(new URL("../public/manifest.webmanifest", import.meta.url), "utf8");
