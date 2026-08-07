@@ -42,9 +42,17 @@ function securityHeaders(env = process.env, requestOrigin = "") {
 
 export function json(statusCode, body, env = process.env, event = null) {
   const requestOrigin = event?.headers?.origin || event?.headers?.Origin || "";
+  const headers = securityHeaders(env, requestOrigin);
+  const requestId =
+    event?.headers?.["x-florisyn-request-id"] ||
+    event?.headers?.["X-Florisyn-Request-Id"] ||
+    event?.headers?.["x-request-id"] ||
+    "";
+  const rid = String(requestId || "").trim();
+  if (/^[A-Za-z0-9_-]{8,80}$/.test(rid)) headers["x-request-id"] = rid;
   return {
     statusCode,
-    headers: securityHeaders(env, requestOrigin),
+    headers,
     body: JSON.stringify(body)
   };
 }

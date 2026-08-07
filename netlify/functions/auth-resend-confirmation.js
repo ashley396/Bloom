@@ -1,6 +1,6 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { publicSettings, fail } from "./_shared/supabase.js";
-import { checkRateLimit } from "./_shared/production.js";
+import { checkRateLimit, checkDistributedRateLimit } from "./_shared/production.js";
 import { validateEmail } from "./_shared/validation.js";
 import { authRedirectPath } from "./_shared/site-url.js";
 import { fetchWithTimeout, requestIdOf } from "./_shared/upstream.js";
@@ -14,8 +14,19 @@ export async function handler(event) {
   if (ready) return ready;
   if (event.httpMethod !== "POST") return methodNotAllowed();
 
-  const limit = checkRateLimit(event, { key: "auth-resend-confirmation", limit: 5, windowMs: 60_000 });
-  if (!limit.allowed) return json(429, { error: "Too many confirmation email requests. Please wait and try again.", code: "auth_rate_limited" });
+  const localLimit = checkRateLimit(event, { key: "auth-resend-confirmation", limit: 5, windowMs: 60_000 });
+  const distributed = await checkDistributedRateLimit(event, { key: "auth-resend-confirmation", limit: 8, windowMs: 60_000 });
+  const limit = !localLimit.allowed ? localLimit : distributed;
+  if (!limit.allowed) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((limit.retryAfterMs || 60_000) / 1000));
+    const limited = json(429, {
+      error: "Too many confirmation email requests. Please wait and try again.",
+      code: "auth_rate_limited",
+      retryAfterSeconds
+    }, process.env, event);
+    limited.headers = { ...limited.headers, "Retry-After": String(retryAfterSeconds) };
+    return limited;
+  }
 
   try {
     const body = bodyOf(event);
@@ -47,6 +58,29 @@ export async function handler(event) {
       });
     }
 
+    logAuthEvent("warn", "auth_resend_direct_failed", {
+      email_domain: emailCheck.value.split("@")[1],
+      reason: direct.reason || null,
+      mailer_configured: emailProviderConfigured(process.env).configured,
+      request_id: requestId
+    }, event);
+
+    if (direct.reason === "email_from_not_configured" || direct.reason === "provider_not_configured") {
+      return json(503, {
+        error: "Confirmation email is not fully configured yet. Please try again shortly or contact Florisyn support.",
+        code: direct.reason,
+        confirmationEmailSent: false
+      }, process.env, event);
+    }
+
+    if (direct.reason === "provider_error") {
+      return json(503, {
+        error: "Confirmation email could not be sent right now. Please wait a minute and try again.",
+        code: "auth_email_provider_unavailable",
+        confirmationEmailSent: false
+      }, process.env, event);
+    }
+
     // Fallback: Supabase Auth resend with redirect_to as query (GoTrue-compatible).
     const { url, anonKey } = publicSettings();
     const response = await fetchWithTimeout(`${url}/auth/v1/resend?redirect_to=${encodeURIComponent(redirectTo)}`, {
@@ -72,7 +106,7 @@ export async function handler(event) {
         mailer_configured: emailProviderConfigured(process.env).configured,
         request_id: requestId
       }, event);
-      return jsonAuthError(mapped);
+      return jsonAuthError(mapped, process.env, event);
     }
     logAuthEvent("info", "auth_resend_accepted", {
       email_domain: emailCheck.value.split("@")[1],

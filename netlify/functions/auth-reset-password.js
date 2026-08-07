@@ -42,7 +42,7 @@ export async function handler(event) {
         code: mapped.code,
         request_id: requestId
       }, event);
-      return jsonAuthError({ ...mapped, code: "reset_link_expired", error: "This reset link is invalid or expired. Request a new password reset email." });
+      return jsonAuthError({ ...mapped, code: "reset_link_expired", error: "This reset link is invalid or expired. Request a new password reset email." }, process.env, event);
     }
     logAuthEvent("info", "auth_reset_success", { request_id: requestId }, event);
     return json(200, { ok: true, code: "reset_success" });

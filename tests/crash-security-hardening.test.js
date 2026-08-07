@@ -67,3 +67,41 @@ test("app.js pass2 guards payment checkout and inventory listeners", () => {
   assert.match(src, /openInventory[\s\S]*Inventory form unavailable/);
   assert.match(src, /if\(\$\("#paymentStatus"\)\)\$\("#paymentStatus"\)\.textContent/);
 });
+
+test("auth refresh re-checks shop membership before minting tokens", () => {
+  const refresh = read("netlify/functions/auth-refresh.js");
+  const access = read("netlify/functions/_shared/florist-access.js");
+  assert.match(refresh, /assertFloristAccessOrAdmin/);
+  assert.match(refresh, /response\.json\(\)\.catch/);
+  assert.match(access, /membership_check_unavailable/);
+  assert.match(access, /\.eq\("status", "active"\)/);
+  assert.doesNotMatch(access, /retry without status|Fail open|without.*status/);
+});
+
+test("signup never returns session tokens; client does not auto-store bloom_session", () => {
+  const signup = read("netlify/functions/auth-signup.js");
+  const client = read("public/signup.js");
+  assert.match(signup, /accessToken:null/);
+  assert.match(signup, /session_tokens_omitted:true/);
+  assert.doesNotMatch(client, /localStorage\.setItem\('bloom_session'/);
+  assert.match(client, /authClient\?\.postAuth/);
+  assert.match(client, /\/login\?account=created|verify-email/);
+});
+
+test("login and verify-email guard missing auth client and DOM nodes", () => {
+  const login = read("public/login.js");
+  const verify = read("public/verify-email.js");
+  assert.match(login, /authClient\?\.postAuth/);
+  assert.match(login, /authClient\?\.rateLimitMessage/);
+  assert.match(verify, /title\) title\.textContent/);
+  assert.match(verify, /resendButton\) \{\s*resendButton\.disabled/);
+});
+
+test("admin shop list and audit escape HTML; check payment avoids null delete", () => {
+  const admin = read("public/admin.js");
+  const app = read("public/app.js");
+  assert.match(admin, /escapeHtml\(s\.name\)/);
+  assert.match(admin, /escapeHtml\(JSON\.stringify\(x\.details\)\)/);
+  assert.match(app, /if\(checkBtn\)delete checkBtn\.dataset\.moreMethod/);
+  assert.match(read("netlify/functions/_shared/supabase.js"), /membershipSchemaUnavailable/);
+});

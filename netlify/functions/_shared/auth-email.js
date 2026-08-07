@@ -5,6 +5,7 @@
 
 import { structuredLog } from "./production.js";
 import { requestIdOf } from "./upstream.js";
+import { json } from "./http.js";
 
 const SENSITIVE_META_KEYS = /pass(word)?|token|secret|authorization|apikey|api_key|refresh|access_token|redirect|link|cookie/i;
 
@@ -42,7 +43,8 @@ export function mapAuthProviderFailure(response, data = {}, { flow = "auth" } = 
     return {
       statusCode: 429,
       code: "auth_rate_limited",
-      error: "Too many email requests. Please wait a minute and try again."
+      error: "Too many email requests. Please wait a minute and try again.",
+      retryAfterSeconds: 60
     };
   }
 
@@ -129,15 +131,16 @@ export function mapAuthProviderFailure(response, data = {}, { flow = "auth" } = 
   };
 }
 
-export function jsonAuthError(mapped) {
+export function jsonAuthError(mapped, env = process.env, event = null) {
   const body = { error: mapped.error, code: mapped.code };
   if (mapped.ok) body.ok = true;
-  return {
-    statusCode: mapped.statusCode,
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-store"
-    },
-    body: JSON.stringify(body)
-  };
+  if (mapped.retryAfterSeconds) body.retryAfterSeconds = mapped.retryAfterSeconds;
+  const response = json(mapped.statusCode, body, env, event);
+  if (mapped.retryAfterSeconds) {
+    response.headers = { ...response.headers, "Retry-After": String(mapped.retryAfterSeconds) };
+  }
+  if (mapped.requestId) {
+    response.headers = { ...response.headers, "x-request-id": String(mapped.requestId) };
+  }
+  return response;
 }
