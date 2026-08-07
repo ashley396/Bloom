@@ -34,7 +34,12 @@ test("reset password page and function", () => {
   const toml = fs.readFileSync(new URL("../netlify.toml", import.meta.url), "utf8");
   assert.match(toml, /reset-password/);
   const forgot = fs.readFileSync(new URL("../netlify/functions/auth-forgot-password.js", import.meta.url), "utf8");
-  assert.match(forgot, /\/reset-password/);
+  assert.match(forgot, /sendPasswordResetEmail/);
+  const helper = fs.readFileSync(new URL("../netlify/functions/_shared/auth-confirmation-email.js", import.meta.url), "utf8");
+  assert.match(helper, /\/reset-password/);
+  assert.match(helper, /type:\s*"recovery"/);
+  assert.match(helper, /token_hash|buildFlorisynRecoveryUrl/);
+  assert.match(fn, /token_hash/);
 });
 
 test("RC2.1 consistency layer linked last", () => {

@@ -421,17 +421,17 @@ This new composite role coordinates capacity work without replacing or pausing p
 
 Implementation checkpoint (August 6, 2026): P0-17 ships edge request-id correlation plus redirect `rate_limit` rules on the four password Auth function paths (Pro plan: 5 code-based rules max). Edge `rateLimit` config is kept docs-aligned. Staging smoke asserts `x-request-id` on `auth-login`. Burst proof of HTTP 429 remains a release-evidence checkbox after each production deploy.
 
-- [ ] Create an architecture decision record linking this blueprint.
+- [x] Create an architecture decision record linking this blueprint. (`docs/architecture/adr/0001-scalability-stability-blueprint.md`)
 - [x] Add Netlify distributed rate limiting to the stable login path.
-- [ ] Keep the per-isolate limiter labeled as non-authoritative or remove it after the distributed gate passes.
-- [ ] Add 5-second upstream / 8-second total auth deadlines and `Retry-After` handling.
-- [ ] Add refresh single-flight, expiry scheduling, jitter, and cross-tab coordination.
-- [ ] Add request IDs and sanitized latency/error logs to auth and dashboard.
-- [ ] Add idempotency keys to order/payment writes.
+- [x] Keep the per-isolate limiter labeled as non-authoritative or remove it after the distributed gate passes. (auth-resend keeps local limiter as secondary backstop behind distributed admission)
+- [x] Add 5-second upstream / 8-second total auth deadlines and `Retry-After` handling.
+- [x] Add refresh single-flight, expiry scheduling, jitter, and cross-tab coordination.
+- [x] Add request IDs and sanitized latency/error logs to auth and dashboard. (auth responses echo `x-request-id`; edge admission already stamps IDs)
+- [x] Add idempotency keys to order/payment writes. (payments already keyed; order create accepts `client_request_id` / soft note-marker replay)
 - [ ] Optimize the 26 RLS `auth.uid()` expressions under the two-shop regression matrix.
 - [ ] Review all authenticated `SECURITY DEFINER` warnings; revoke helper RPC access that is not intentional.
 - [ ] Measure and add only the justified closed-beta indexes.
-- [ ] Reduce the hero image below 250 KB and enforce performance budgets in CI.
+- [x] Reduce the hero image below 250 KB and enforce performance budgets in CI.
 - [ ] Configure alerts and an on-call/staging load-test dashboard.
 - [ ] Confirm Netlify and Supabase Auth quotas for the 300-RPS burst.
 - [ ] Provision and later delete staging-only synthetic users.

@@ -56,6 +56,17 @@ export function renderSubscriptionReceiptEmail({ shopName, customerName, amount,
   return { subject: `${shopName || "Your florist"} — subscription receipt`, html: brandShell({ title, bodyHtml, shopName }) };
 }
 
+function resolveResendFrom(env = process.env) {
+  const configured = String(env.BLOOM_EMAIL_FROM || "").trim();
+  if (configured) return { ok: true, from: configured };
+  // Resend sandbox only delivers to the account owner — never use it for florist confirmation mail.
+  return {
+    ok: false,
+    code: "email_from_not_configured",
+    error: "Set BLOOM_EMAIL_FROM in Netlify to an address on your verified Resend domain (example: Florisyn <noreply@florisyn.com>)."
+  };
+}
+
 export async function dispatchEmail(env, { to, subject, html, text }) {
   const cfg = emailProviderConfigured(env);
   if (!cfg.configured) return { ok: false, code: "provider_not_configured", provider: null };
@@ -64,7 +75,10 @@ export async function dispatchEmail(env, { to, subject, html, text }) {
   if (!toCheck.ok) return { ok: false, code: "invalid_recipient", error: toCheck.error };
 
   if (cfg.provider === "resend") {
-    const from = env.BLOOM_EMAIL_FROM || "Florisyn <onboarding@resend.dev>";
+    const fromCheck = resolveResendFrom(env);
+    if (!fromCheck.ok) {
+      return { ok: false, code: fromCheck.code, provider: "resend", detail: fromCheck.error };
+    }
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -72,7 +86,7 @@ export async function dispatchEmail(env, { to, subject, html, text }) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        from,
+        from: fromCheck.from,
         to: [toCheck.value],
         subject,
         html,
