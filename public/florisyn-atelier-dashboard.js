@@ -228,20 +228,12 @@
     });
     if (!document.body.dataset.atelierDelegate) {
       document.body.dataset.atelierDelegate = "1";
+      // Close the mobile drawer on navigation; page/dialog routing is handled by app.js delegation.
       document.body.addEventListener("click", (e) => {
-        const openBtn = e.target.closest?.("[data-open]");
-        if (openBtn && openBtn.closest("#atelierTodayOrders, #atelierTopBouquets, .atelier-empty")) {
-          const dialog = document.getElementById(openBtn.dataset.open);
-          if (dialog?.showModal) {
-            e.preventDefault();
-            document.querySelector(`[data-open="${openBtn.dataset.open}"]`)?.onclick?.() || dialog.showModal();
-          }
-        }
-        const pageBtn = e.target.closest?.("[data-page]");
-        if (pageBtn && pageBtn.closest(".atelier-empty, .atelier-panel-head, .atelier-inventory-alert")) {
-          if (typeof window.showPage === "function" && pageBtn.dataset.page) {
-            window.showPage(pageBtn.dataset.page);
-          }
+        const navish = e.target.closest?.("[data-page], [data-open]");
+        if (!navish) return;
+        if (navish.closest("#atelierSidebarDrawer, .shell > aside, .atelier-empty, .atelier-panel-head, .atelier-inventory-alert, #atelierTodayOrders, #atelierTopBouquets")) {
+          setDrawer(false);
         }
       });
     }
