@@ -1,0 +1,279 @@
+/**
+ * Florisyn Atelier — Admin HQ visual system.
+ * Visual-only overrides for admin.css / admin-luxury.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap");
+
+body.florisyn.admin-luxury.florisyn-atelier-shell,
+body.florisyn-atelier-admin {
+  --atelier-navy: #1a2b48;
+  --atelier-navy-deep: #132038;
+  --atelier-navy-soft: #243a5c;
+  --atelier-blush: #f6dfe8;
+  --atelier-pink: #f4c4d4;
+  --atelier-ivory: #fffafb;
+  --atelier-canvas: #f7f1f4;
+  --atelier-champagne: #c9a962;
+  --atelier-muted: #6d7385;
+  --atelier-line: rgba(26, 43, 72, 0.1);
+  --atelier-font-display: "Playfair Display", Georgia, serif;
+  --atelier-font-ui: Figtree, system-ui, sans-serif;
+
+  --ink: var(--atelier-navy);
+  --muted: var(--atelier-muted);
+  --line: var(--atelier-line);
+  --pink: #c45d7a;
+  --green: var(--atelier-navy);
+  --cream: var(--atelier-canvas);
+  --card: #ffffff;
+  --shadow: 0 18px 48px rgba(26, 43, 72, 0.08);
+
+  font-family: var(--atelier-font-ui);
+  color: var(--atelier-navy);
+  background:
+    radial-gradient(ellipse 90% 55% at 8% -10%, rgba(246, 223, 232, 0.9), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 100% 0%, rgba(244, 196, 212, 0.35), transparent 50%),
+    linear-gradient(180deg, #fbf6f8 0%, var(--atelier-canvas) 45%, #f3ebe6 100%) !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell,
+body.florisyn.admin-luxury.florisyn-atelier-shell button,
+body.florisyn.admin-luxury.florisyn-atelier-shell input,
+body.florisyn.admin-luxury.florisyn-atelier-shell select,
+body.florisyn.admin-luxury.florisyn-atelier-shell textarea {
+  font-family: var(--atelier-font-ui);
+}
+
+/* Login / owner setup */
+body.florisyn.admin-luxury.florisyn-atelier-shell .admin-auth {
+  background:
+    radial-gradient(900px 520px at 15% -10%, rgba(244, 196, 212, 0.7), transparent 55%),
+    radial-gradient(700px 420px at 90% 10%, rgba(246, 223, 232, 0.85), transparent 50%),
+    linear-gradient(180deg, #fff7fa 0%, #f7eef3 55%, #f3e9ef 100%) !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .admin-login {
+  border-radius: 28px !important;
+  border: 1px solid var(--atelier-line) !important;
+  background: rgba(255, 250, 251, 0.96) !important;
+  box-shadow: 0 24px 60px rgba(26, 43, 72, 0.12) !important;
+  backdrop-filter: blur(12px);
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .admin-login img {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  box-shadow: 0 14px 32px rgba(26, 43, 72, 0.18);
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .admin-login h1,
+body.florisyn.admin-luxury.florisyn-atelier-shell .workspace h1,
+body.florisyn.admin-luxury.florisyn-atelier-shell .editor-heading h2,
+body.florisyn.admin-luxury.florisyn-atelier-shell .admin-brand strong,
+body.florisyn.admin-luxury.florisyn-atelier-shell .panel h2,
+body.florisyn.admin-luxury.florisyn-atelier-shell .panel h3 {
+  font-family: var(--atelier-font-display) !important;
+  color: var(--atelier-navy) !important;
+  letter-spacing: -0.02em;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .eyebrow {
+  color: #c45d7a !important;
+  letter-spacing: 0.16em !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .admin-login button,
+body.florisyn.admin-luxury.florisyn-atelier-shell button:not(.secondary):not([data-theme-toggle]) {
+  background: linear-gradient(135deg, var(--atelier-navy) 0%, var(--atelier-navy-soft) 100%) !important;
+  color: #fff !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 28px rgba(26, 43, 72, 0.22);
+  font-weight: 700;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell button.secondary,
+body.florisyn.admin-luxury.florisyn-atelier-shell .aside-foot button,
+body.florisyn.admin-luxury.florisyn-atelier-shell .header-actions button,
+body.florisyn.admin-luxury.florisyn-atelier-shell .editor-heading button {
+  background: #fff !important;
+  color: var(--atelier-navy) !important;
+  border: 1px solid var(--atelier-line) !important;
+  border-radius: 999px !important;
+  box-shadow: none;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell input,
+body.florisyn.admin-luxury.florisyn-atelier-shell select,
+body.florisyn.admin-luxury.florisyn-atelier-shell textarea {
+  border-radius: 12px !important;
+  border-color: var(--atelier-line) !important;
+  background: #fffafb !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell input:focus,
+body.florisyn.admin-luxury.florisyn-atelier-shell select:focus,
+body.florisyn.admin-luxury.florisyn-atelier-shell textarea:focus,
+body.florisyn.admin-luxury.florisyn-atelier-shell input:focus-visible,
+body.florisyn.admin-luxury.florisyn-atelier-shell select:focus-visible,
+body.florisyn.admin-luxury.florisyn-atelier-shell textarea:focus-visible,
+body.florisyn.admin-luxury.florisyn-atelier-shell button:focus-visible {
+  outline: none !important;
+  border-color: rgba(26, 43, 72, 0.35) !important;
+  box-shadow: 0 0 0 3px rgba(244, 196, 212, 0.55) !important;
+}
+
+/* Navy command sidebar — matches app mockup */
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp > aside,
+body.florisyn.admin-luxury.florisyn-atelier-shell main > aside {
+  background: linear-gradient(180deg, var(--atelier-navy) 0%, var(--atelier-navy-deep) 100%) !important;
+  border-right: 0 !important;
+  color: #f7f2f4 !important;
+  box-shadow: 12px 0 40px rgba(26, 43, 72, 0.18);
+  padding: 22px 14px 24px !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .admin-brand {
+  padding: 4px 10px 22px !important;
+  gap: 12px;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .admin-brand img {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 14px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .admin-brand strong {
+  color: #fff !important;
+  font-size: 1.35rem !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .admin-brand small {
+  color: rgba(247, 242, 244, 0.62) !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell nav button {
+  background: transparent !important;
+  color: rgba(247, 242, 244, 0.82) !important;
+  border-radius: 14px !important;
+  font-weight: 600 !important;
+  min-height: 42px;
+  box-shadow: none !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell nav button:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #fff !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell nav button.active {
+  background: linear-gradient(90deg, rgba(244, 196, 212, 0.28), rgba(255, 255, 255, 0.08)) !important;
+  color: #fff !important;
+  box-shadow: inset 3px 0 0 var(--atelier-pink) !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .aside-foot {
+  border-top-color: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(247, 242, 244, 0.7);
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .aside-foot button {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .aside-foot small,
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminIdentity {
+  color: rgba(247, 242, 244, 0.55);
+}
+
+/* Workspace cards */
+body.florisyn.admin-luxury.florisyn-atelier-shell .workspace {
+  background: transparent;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .panel,
+body.florisyn.admin-luxury.florisyn-atelier-shell .metric,
+body.florisyn.admin-luxury.florisyn-atelier-shell .editor-tab,
+body.florisyn.admin-luxury.florisyn-atelier-shell .shop-row,
+body.florisyn.admin-luxury.florisyn-atelier-shell .subscriber-alert,
+body.florisyn.admin-luxury.florisyn-atelier-shell .feature-check {
+  background: rgba(255, 252, 250, 0.96) !important;
+  border: 1px solid var(--atelier-line) !important;
+  border-radius: 18px !important;
+  box-shadow: var(--shadow) !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .metric strong {
+  font-family: var(--atelier-font-display);
+  color: var(--atelier-navy);
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell nav.editor-tabs button,
+body.florisyn.admin-luxury.florisyn-atelier-shell .editor-tabs button {
+  background: transparent !important;
+  color: var(--atelier-muted) !important;
+  box-shadow: none !important;
+  border-radius: 10px 10px 0 0 !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .editor-tabs button.active {
+  color: var(--atelier-navy) !important;
+  border-bottom: 3px solid var(--atelier-pink) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .badge {
+  background: var(--atelier-blush) !important;
+  color: var(--atelier-navy) !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .subscriber-alert.unread {
+  background: #fff7fa !important;
+  border-color: #efc2d3 !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .bar-track i {
+  background: linear-gradient(90deg, var(--atelier-navy), #c45d7a) !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .health-row .ok {
+  color: var(--atelier-navy);
+}
+
+/* Soft floral atmosphere in workspace corner */
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp .workspace {
+  position: relative;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp .workspace::before {
+  content: "";
+  position: absolute;
+  right: -2%;
+  top: -2%;
+  width: min(34vw, 320px);
+  height: min(34vw, 320px);
+  background: url("/assets/atelier-floral-corner.jpg") center / cover no-repeat;
+  opacity: 0.14;
+  pointer-events: none;
+  z-index: 0;
+  mask-image: radial-gradient(circle at 70% 30%, #000 15%, transparent 70%);
+  -webkit-mask-image: radial-gradient(circle at 70% 30%, #000 15%, transparent 70%);
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp .workspace > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.florisyn.admin-luxury.florisyn-atelier-shell .admin-login,
+  body.florisyn.admin-luxury.florisyn-atelier-shell .panel {
+    box-shadow: none;
+  }
+}
