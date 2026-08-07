@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#faf7f2">
+  <meta name="theme-color" content="#1a2b48">
   <meta name="description" content="Sign in to Florisyn — The Operating System for Modern Florists. Orders, POS, websites, and daily shop work.">
   <title>Sign in | Florisyn</title>
   <link rel="icon" href="/assets/florisyn/favicon.svg" type="image/svg+xml">
@@ -12,12 +12,14 @@
   <link rel="stylesheet" href="/bloom-auth.css">
   <link rel="stylesheet" href="/florisyn-brand.css">
   <link rel="stylesheet" href="/florisyn-founder-1.0.css">
+  <link rel="stylesheet" href="/florisyn-atelier-auth.css">
 </head>
-<body class="bloom-auth florisyn">
+<body class="bloom-auth florisyn florisyn-atelier-auth">
   <header class="bloom-auth-top">
     <a class="bloom-auth-brand" href="/login">
-      <img src="/assets/florisyn/florisyn-mark.svg" width="44" height="44" alt="">
+      <img src="/assets/florisyn/florisyn-mark.svg" width="56" height="56" alt="">
       <span><strong>Florisyn</strong><small>The Operating System for Modern Florists</small></span>
+        <p class="atelier-auth-tagline">Where Your Passion Flowers</p>
     </a>
     <nav class="bloom-auth-nav" aria-label="Account">
       <a href="/company/about/">About</a>
@@ -26,33 +28,29 @@
     </nav>
   </header>
   <main class="bloom-auth-shell">
-    <section class="bloom-auth-visual" aria-hidden="false">
-      <img src="/assets/auth/luxury-florist-workspace.jpg" alt="Florist arranging flowers in a bright design workspace" width="1600" height="1067" fetchpriority="high">
-      <div class="bloom-auth-visual-copy">
-        <p class="eyebrow">Where Your Passion Flowers.</p>
-        <h1>Elegant software for modern florists.</h1>
-        <p>Orders, POS, deliveries, recipes, websites, and payments — one calm, premium workspace.</p>
-      </div>
-      <span class="bloom-auth-visual-credit">Photo: licensed stock (Pexels)</span>
+    <section class="bloom-auth-visual" aria-hidden="true">
+      <img src="/assets/auth/luxury-florist-workspace.jpg" alt="" width="1600" height="1067" fetchpriority="high">
     </section>
     <section class="bloom-auth-form-zone">
       <div class="bloom-auth-card">
-        <p class="eyebrow">Welcome back</p>
-        <h2>Sign in</h2>
-        <p class="lead">Use your business email and password.</p>
+        <h2>Welcome back</h2>
+        <p class="lead">Sign in to your Florisyn account.</p>
         <form id="authForm">
-          <label>Business email
+          <label>Email
             <input id="email" name="email" type="email" required autocomplete="username" placeholder="you@yourflowershop.com">
           </label>
           <label>Password
             <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="Your password">
           </label>
+          <div class="atelier-auth-row">
+            <label class="check"><input type="checkbox" name="remember" checked> Remember me</label>
+            <a href="/forgot-password">Forgot password?</a>
+          </div>
           <button type="submit" class="bloom-auth-btn" id="authButton">Sign in</button>
         </form>
         <p id="authMessage" class="bloom-auth-message" role="status" aria-live="polite"></p>
         <div class="bloom-auth-links">
           <a href="/signup">Create a Florisyn account</a>
-          <a href="/forgot-password">Forgot your password?</a>
           <a href="/verify-email">Email verification help</a>
           <a href="/admin">Florisyn HQ admin</a>
         </div>
