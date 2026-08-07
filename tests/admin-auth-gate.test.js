@@ -33,10 +33,17 @@ test("Admin JS restores original auth shell gate sequence", () => {
   assert.match(adminJs, /lockAdminShell\(\)/);
   assert.match(adminJs, /initializeAdmin\(\)/);
   assert.match(adminJs, /admin-command-center\?action=dashboard/);
-  assert.match(adminJs, /if\(!session\?\.accessToken\|\|!session\?\.user\)/);
+  assert.match(adminJs, /if\(!session\?\.accessToken\)/);
   assert.match(adminJs, /clearAdminSession\(\);\s*showLoginGate\(\)/);
   // Still uses original login + session validation paths (no new auth invention).
   assert.match(adminJs, /auth-login/);
   assert.match(adminJs, /bloom_admin_session/);
   assert.match(adminJs, /admin-bootstrap/);
+});
+
+test("Admin login cannot be wiped by a stale session restore race", () => {
+  assert.match(adminJs, /authEpoch|bumpAuthEpoch/);
+  assert.match(adminJs, /session\?\.accessToken!==token/);
+  assert.match(adminJs, /bumpAuthEpoch\(\).*cancel any in-flight stale session restore|const epoch=bumpAuthEpoch\(\)/);
+  assert.match(adminJs, /Reveal shell first|never let post-auth UI init bounce/i);
 });
