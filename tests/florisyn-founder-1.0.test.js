@@ -14,12 +14,11 @@ const USER_VISIBLE_BLOCKLIST = [
   /assets\/bloom-icon/
 ];
 
-test("production logo is Concept C monoline in florisyn-mark.svg", () => {
-  const mark = fs.readFileSync(new URL("../public/assets/florisyn/florisyn-mark.svg", import.meta.url), "utf8");
-  assert.match(mark, /#1[Aa]2[Bb]48/);
-  assert.match(mark, /#FAF7F2/i);
-  assert.match(mark, /#C9A962/i);
-  assert.doesNotMatch(mark, /fill="#6b8f7a"/);
+test("production logo uses official Florisyn icon artwork", () => {
+  const markPng = fs.statSync(new URL("../public/assets/florisyn/florisyn-mark.png", import.meta.url));
+  const official = fs.statSync(new URL("../public/assets/florisyn/florisyn-official-icon.png", import.meta.url));
+  assert.ok(markPng.size > 10_000);
+  assert.ok(official.size > 50_000);
 });
 
 test("public HTML has no blocked Bloom branding strings", () => {

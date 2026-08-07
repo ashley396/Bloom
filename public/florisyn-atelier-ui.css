@@ -547,3 +547,23 @@ body.florisyn-atelier .page > .heading {
     padding: 12px;
   }
 }
+
+
+/* Official Florisyn icon lockup */
+body.florisyn-atelier .brand-mark,
+body.florisyn-atelier .florisyn-loading-mark {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 14px !important;
+  background: transparent !important;
+  box-shadow: 0 10px 22px rgba(26, 43, 72, 0.18) !important;
+  object-fit: contain;
+}
+body.florisyn-atelier .florisyn-loading-mark {
+  width: 88px !important;
+  height: 88px !important;
+  border-radius: 22px !important;
+}
+body.florisyn-atelier .brand-wordmark {
+  display: none !important; /* official icon includes FLORISYN */
+}
