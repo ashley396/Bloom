@@ -4,18 +4,25 @@ export const ASSISTANT_PERSONAS = ["Lily", "Rose"];
 
 export const VOICE_DEFAULTS = {
   Lily: {
-    rate: 0.91,
-    pitch: 1.02,
-    volume: 0.93,
+    rate: 0.98,
+    pitch: 1.08,
+    volume: 0.95,
     preview:
-      "Hi there. I'm Lily. I'll help you with designs, recipes, and the creative side of your shop — calmly and clearly."
+      "Hey! I'm Lily — your upbeat creative partner. Let's dream up gorgeous designs, recipes, and fresh ideas for the shop!"
   },
   Rose: {
-    rate: 0.9,
-    pitch: 0.96,
+    rate: 0.88,
+    pitch: 0.92,
     volume: 0.94,
     preview:
-      "Good morning. Rose here. Let's look at what's due today, what's unpaid, and what needs your attention — no fluff."
+      "Good morning, dear. I'm Rose. Let's look at what's due today, what's unpaid, and what needs your wise attention — calmly and clearly."
+  },
+  Daisy: {
+    rate: 1.05,
+    pitch: 1.14,
+    volume: 0.96,
+    preview:
+      "Woof—I mean, hi! I'm Daisy, the cheerful shop pup. Treats, tail wags, and tiny shop cheer, coming right up!"
   }
 };
 

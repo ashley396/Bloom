@@ -543,7 +543,10 @@ body.bloom-rc21 :focus-visible {
 
 /* Reduced motion: page animation handled in bloom-rc2.1-polish.css */
 @media (prefers-reduced-motion: reduce) {
-  body.bloom-rc21 .bloom-daisy--wag {
+  body.bloom-rc21 .bloom-daisy--wag-disabled {
     animation: none !important;
   }
 }
+
+/* floating daisy removed */
+body.bloom-rc21 .bloom-daisy, body.bloom-rc21 #bloomDaisy{display:none!important;animation:none!important}
