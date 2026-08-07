@@ -47,16 +47,31 @@ body.florisyn-design-mode .panel:hover,
 body.florisyn-design-mode .card:hover,
 body.florisyn-design-mode .atelier-kpi:hover,
 body.florisyn-design-mode .pad:hover,
+body.florisyn-design-mode .product-pad:hover,
+body.florisyn-design-mode .pos-workspace:hover,
+body.florisyn-design-mode .sidebar:hover,
 body.florisyn-design-mode .assistant-mini-dock button:hover,
 body.florisyn-design-mode .rose-welcome-card:hover,
 body.florisyn-design-mode .lily-suggestion-card:hover,
 body.florisyn-design-mode h1:hover,
 body.florisyn-design-mode h2:hover,
 body.florisyn-design-mode h3:hover,
+body.florisyn-design-mode h4:hover,
 body.florisyn-design-mode p:hover,
 body.florisyn-design-mode img:hover {
   outline: 1px dashed rgba(201, 169, 98, 0.9);
   cursor: pointer;
+}
+
+body.florisyn-design-mode [contenteditable="true"][data-florisyn-inline="1"] {
+  outline: 1px dashed rgba(196, 93, 122, 0.55);
+  cursor: text;
+  min-width: 1ch;
+}
+
+body.florisyn-design-mode [contenteditable="true"][data-florisyn-inline="1"]:focus {
+  outline: 2px solid rgba(196, 93, 122, 0.85);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 body.florisyn-image-edit-mode img,

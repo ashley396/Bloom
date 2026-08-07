@@ -16,6 +16,7 @@ test("design overrides JSON is visual-only config", () => {
   const doc = JSON.parse(overrides);
   assert.equal(doc.version, 1);
   assert.ok(doc.cssVars && doc.texts && doc.styles && doc.images && doc.layout && doc.voices);
+  assert.ok(doc.characters && doc.characters.Lily && doc.characters.Rose && doc.characters.Daisy);
   assert.ok(Array.isArray(doc.library));
   assert.ok("Lily" in doc.voices && "Rose" in doc.voices && "Daisy" in doc.voices);
 });
@@ -30,10 +31,15 @@ test("UI editor is admin-gated and visual-only", () => {
   assert.match(editorJs, /florisyn-image-edit-mode/);
   assert.match(editorJs, /uploadVoice/);
   assert.match(editorJs, /Ashley image library/);
+  assert.match(editorJs, /backgroundImage|Background image URL/);
+  assert.match(editorJs, /contenteditable|enableInlineTextEditing/);
+  assert.match(editorJs, /applyCharacters|Character text/);
+  assert.match(editorJs, /Sidebar \/ section position|flexDirection/);
   assert.doesNotMatch(editorJs, /create-checkout|auth-login|membership|createClient\(|from\(['"]/i);
   assert.match(editorCss, /#florisynDesignBar/);
   assert.match(editorCss, /\.florisyn-design-selected/);
   assert.match(editorCss, /florisyn-image-edit-mode/);
+  assert.match(editorCss, /contenteditable/);
 });
 
 test("Admin page exposes UI Design Mode and Image Edit Mode", () => {
@@ -42,10 +48,14 @@ test("Admin page exposes UI Design Mode and Image Edit Mode", () => {
   assert.match(adminHtml, /florisyn-ui-editor\.js/);
   assert.match(adminJs, /uiDesignMode/);
   assert.match(adminJs, /FlorisynUiEditor/);
+  assert.match(adminJs, /florisyn-admin-authenticated/);
+  assert.match(editorJs, /florisyn-admin-authenticated/);
   assert.match(editorJs, /Upload Lily voice|uploadVoice/);
   assert.match(editorJs, /Daisy/);
   assert.match(editorJs, /replaceSelectedWithSrc|Image replaced instantly/);
   assert.match(editorJs, /removeSelectedImage/);
+  assert.match(editorJs, /adminSaveCharacters|Save character text/);
+  assert.match(editorJs, /adminSaveCssVars|Brand colors/);
 });
 
 test("florist app loads design overrides and custom voice playback wiring", () => {

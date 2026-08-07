@@ -18,6 +18,11 @@
     images: {},
     layout: {},
     library: [],
+    characters: {
+      Lily: { name: "", title: "", blurb: "" },
+      Rose: { name: "", title: "", blurb: "" },
+      Daisy: { name: "", title: "", blurb: "" }
+    },
     voices: { Lily: null, Rose: null, Daisy: null }
   });
 
@@ -99,6 +104,13 @@
           ...emptyDoc(),
           ...parsed,
           voices: { ...emptyDoc().voices, ...(parsed.voices || {}) },
+          characters: {
+            ...emptyDoc().characters,
+            ...(parsed.characters || {}),
+            Lily: { ...emptyDoc().characters.Lily, ...(parsed.characters?.Lily || {}) },
+            Rose: { ...emptyDoc().characters.Rose, ...(parsed.characters?.Rose || {}) },
+            Daisy: { ...emptyDoc().characters.Daisy, ...(parsed.characters?.Daisy || {}) }
+          },
           library: Array.isArray(parsed.library) ? parsed.library : []
         };
       }
@@ -118,6 +130,13 @@
           ...emptyDoc(),
           ...parsed,
           voices: { ...emptyDoc().voices, ...(parsed.voices || {}) },
+          characters: {
+            ...emptyDoc().characters,
+            ...(parsed.characters || {}),
+            Lily: { ...emptyDoc().characters.Lily, ...(parsed.characters?.Lily || {}) },
+            Rose: { ...emptyDoc().characters.Rose, ...(parsed.characters?.Rose || {}) },
+            Daisy: { ...emptyDoc().characters.Daisy, ...(parsed.characters?.Daisy || {}) }
+          },
           library: Array.isArray(parsed.library) ? parsed.library : []
         };
       }
@@ -132,6 +151,13 @@
       ...emptyDoc(),
       ...next,
       voices: { ...emptyDoc().voices, ...(next.voices || {}) },
+      characters: {
+        ...emptyDoc().characters,
+        ...(next.characters || {}),
+        Lily: { ...emptyDoc().characters.Lily, ...(next.characters?.Lily || {}) },
+        Rose: { ...emptyDoc().characters.Rose, ...(next.characters?.Rose || {}) },
+        Daisy: { ...emptyDoc().characters.Daisy, ...(next.characters?.Daisy || {}) }
+      },
       library: Array.isArray(next.library) ? next.library : [],
       updatedAt: new Date().toISOString()
     };
@@ -218,24 +244,103 @@
     });
   }
 
+
+  function applyCharacters(characters = {}) {
+    PERSONAS.forEach((persona) => {
+      const c = characters?.[persona] || {};
+      document.querySelectorAll(`[data-florisyn-character="${persona}"]`).forEach((btn) => {
+        const nameEl = btn.querySelector("b, strong");
+        const titleEl = btn.querySelector("small");
+        if (c.name && nameEl) nameEl.textContent = c.name;
+        if (c.title && titleEl) titleEl.textContent = c.title;
+      });
+      if (c.blurb) {
+        document.querySelectorAll(`[data-florisyn-character-blurb="${persona}"]`).forEach((el) => {
+          el.textContent = c.blurb;
+        });
+      }
+    });
+  }
+
   function applyOverrides(source = doc) {
     applyCssVars(source.cssVars || {});
     ensureStyleEl().textContent = cssFromStyles(source.styles || {});
     applyTexts(source.texts || {});
     applyImages(source.images || {});
     applyLayout(source.layout || {});
+    applyCharacters(source.characters || {});
   }
 
   function markEditableHints() {
-    document.querySelectorAll(".assistant-mini-dock button, .daisy-dock-btn, .rose-welcome-card, .lily-suggestion-card, .pos-workspace, #productPadGrid, #greeting").forEach((el, i) => {
+    document.querySelectorAll(".assistant-mini-dock button, .daisy-dock-btn, .rose-welcome-card, .lily-suggestion-card, .pos-workspace, #productPadGrid, #greeting, .panel, .card, .pad, body, main, .workspace, aside").forEach((el, i) => {
       if (!el.getAttribute("data-florisyn-edit")) el.setAttribute("data-florisyn-edit", `edit-${i}`);
     });
+    document.querySelectorAll(".assistant-mini-dock button, .daisy-dock-btn").forEach((btn) => {
+      const name = btn.querySelector("b, strong")?.textContent?.trim();
+      if (PERSONAS.includes(name)) {
+        btn.setAttribute("data-florisyn-character", name);
+        const titleEl = btn.querySelector("small");
+        if (titleEl && !titleEl.getAttribute("data-florisyn-edit")) titleEl.setAttribute("data-florisyn-edit", `char-title-${name}`);
+      }
+    });
+    const roseBlurb = document.querySelector(".rose-welcome-card .welcome-subline, .rose-welcome-card p.subtle, .rose-tip p");
+    if (roseBlurb) roseBlurb.setAttribute("data-florisyn-character-blurb", "Rose");
+    const lilyBlurb = document.querySelector(".lily-suggestion-card p, .lily-profile small, #aiStudioPage .ai-message.assistant p");
+    if (lilyBlurb) lilyBlurb.setAttribute("data-florisyn-character-blurb", "Lily");
+    const daisyBlurb = document.querySelector(".daisy-dock-btn small");
+    if (daisyBlurb && !daisyBlurb.getAttribute("data-florisyn-character-blurb")) {
+      /* title uses small; blurb optional via character panel only */
+    }
     document.querySelectorAll("img").forEach((img, i) => {
       if (!img.getAttribute("data-florisyn-image")) {
         const key = img.id || img.alt || `auto-${i}`;
         img.setAttribute("data-florisyn-image", String(key).replace(/\W+/g, "-").slice(0, 48) || `img-${i}`);
       }
     });
+  }
+
+  function enableInlineTextEditing() {
+    document.querySelectorAll("h1,h2,h3,h4,p,span,label,b,strong,small,[data-florisyn-edit]").forEach((el) => {
+      if (el.closest("#florisynDesignBar, #florisynDesignInspector, #uiDesignModeRoot, dialog, script, style")) return;
+      if (el.matches("input,textarea,select,img,button,a,nav")) return;
+      if (el.children.length > 3) return;
+      el.setAttribute("contenteditable", "true");
+      el.dataset.florisynInline = "1";
+    });
+  }
+
+  function disableInlineTextEditing() {
+    document.querySelectorAll('[contenteditable="true"][data-florisyn-inline="1"]').forEach((el) => {
+      el.removeAttribute("contenteditable");
+      delete el.dataset.florisynInline;
+    });
+  }
+
+  function commitInlineText(el) {
+    if (!el || mode !== "design") return;
+    const sel = selectorFor(el);
+    if (!sel) return;
+    const text = el.textContent || "";
+    const next = structuredClone(doc);
+    next.texts = next.texts || {};
+    next.texts[sel] = text;
+    persist(next);
+  }
+
+  function onInlineBlur(e) {
+    const el = e.target?.closest?.('[contenteditable="true"][data-florisyn-inline="1"]');
+    if (!el) return;
+    commitInlineText(el);
+  }
+
+  function onInlineDblClick(e) {
+    if (mode !== "design") return;
+    if (e.target.closest("#florisynDesignBar, #florisynDesignInspector")) return;
+    const el = e.target.closest("h1,h2,h3,h4,p,span,label,b,strong,small,[data-florisyn-edit]");
+    if (!el || el.matches("img,input,textarea,select")) return;
+    el.setAttribute("contenteditable", "true");
+    el.dataset.florisynInline = "1";
+    el.focus();
   }
 
   function setSelected(el) {
@@ -345,24 +450,104 @@
     }
 
     const text = selected.matches("input,textarea,select,img") ? "" : selected.textContent?.trim() || "";
+    const bgImage = (cs.backgroundImage || "").includes("url(")
+      ? ((cs.backgroundImage.match(/url\(["']?(.*?)["']?\)/) || [])[1] || "")
+      : "";
     inspectorEl.innerHTML = `
       <h2>Edit element</h2>
       <p class="subtle">${sel.replace(/</g, "&lt;")}</p>
       <label>Text<textarea id="fdText" rows="3">${text.replace(/</g, "&lt;")}</textarea></label>
       <div class="florisyn-design-row">
         <label>Text color<input id="fdColor" type="color" value="${rgbToHex(cs.color)}"></label>
-        <label>Background<input id="fdBg" type="color" value="${rgbToHex(cs.backgroundColor)}"></label>
+        <label>Background color<input id="fdBg" type="color" value="${rgbToHex(cs.backgroundColor)}"></label>
+      </div>
+      <label>Background image URL<input id="fdBgUrl" type="url" value="${String(bgImage).replace(/"/g, "&quot;")}" placeholder="https://… or leave blank"></label>
+      <label>Upload background image<input id="fdBgFile" type="file" accept="image/*"></label>
+      <p class="subtle">Ashley image library</p>
+      ${libraryHtml()}
+      <div class="florisyn-design-row">
+        <label>Padding / panel spacing<input id="fdPad" type="number" min="0" step="1" value="${parseInt(cs.paddingTop, 10) || 0}"></label>
+        <label>Gap<input id="fdGap" type="number" min="0" step="1" value="${parseInt(cs.gap, 10) || 0}"></label>
       </div>
       <div class="florisyn-design-row">
-        <label>Padding<input id="fdPad" type="number" min="0" step="1" value="${parseInt(cs.paddingTop, 10) || 0}"></label>
         <label>Margin<input id="fdMar" type="number" step="1" value="${parseInt(cs.marginTop, 10) || 0}"></label>
+        <label>Width (px)<input id="fdW" type="number" min="0" step="1" value="${parseInt(cs.width, 10) || ""}"></label>
       </div>
+      <div class="florisyn-design-row">
+        <label>Align
+          <select id="fdJustify">
+            <option value="">Default</option>
+            <option>flex-start</option>
+            <option>center</option>
+            <option>flex-end</option>
+            <option>space-between</option>
+          </select>
+        </label>
+        <label>Text align
+          <select id="fdTextAlign">
+            <option value="">Default</option>
+            <option>left</option>
+            <option>center</option>
+            <option>right</option>
+          </select>
+        </label>
+      </div>
+      <label>Sidebar / section position
+        <select id="fdSidePos">
+          <option value="">Default</option>
+          <option value="row">Content left · sidebar right</option>
+          <option value="row-reverse">Sidebar left · content right</option>
+          <option value="column">Stack vertical</option>
+          <option value="column-reverse">Stack reverse</option>
+        </select>
+      </label>
+      <p class="subtle">Drag to nudge placement. Double-click text to edit inline. Visual overrides only.</p>
       <div class="actions">
-        <button type="button" id="fdApply">Apply</button>
+        <button type="button" id="fdApply">Apply & save</button>
         <button type="button" class="secondary" id="fdClear">Clear override</button>
       </div>`;
+    const sideSel = inspectorEl.querySelector("#fdSidePos");
+    if (sideSel) {
+      const cur = cs.flexDirection || "";
+      [...sideSel.options].forEach((o) => {
+        if (o.value && o.value === cur) o.selected = true;
+      });
+    }
+    const justSel = inspectorEl.querySelector("#fdJustify");
+    if (justSel) {
+      const cur = cs.justifyContent || "";
+      [...justSel.options].forEach((o) => {
+        if (o.value && o.value === cur) o.selected = true;
+      });
+    }
+    const taSel = inspectorEl.querySelector("#fdTextAlign");
+    if (taSel) {
+      const cur = cs.textAlign || "";
+      [...taSel.options].forEach((o) => {
+        if (o.value && o.value === cur) o.selected = true;
+      });
+    }
     inspectorEl.querySelector("#fdApply")?.addEventListener("click", applyDesignInspector);
     inspectorEl.querySelector("#fdClear")?.addEventListener("click", clearSelectedOverride);
+    inspectorEl.querySelector("#fdBgFile")?.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!/^image\//i.test(file.type)) return toast("Choose an image file");
+      if (file.size > MAX_IMAGE_BYTES) return toast("Image must be under 2.5 MB");
+      const reader = new FileReader();
+      reader.onload = () => {
+        const urlInput = inspectorEl.querySelector("#fdBgUrl");
+        if (urlInput) urlInput.value = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+    inspectorEl.querySelectorAll("[data-lib-pick]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const item = doc.library?.[Number(btn.dataset.libPick)];
+        const urlInput = inspectorEl.querySelector("#fdBgUrl");
+        if (item?.dataUrl && urlInput) urlInput.value = item.dataUrl;
+      });
+    });
   }
 
   function rgbToHex(input) {
@@ -377,20 +562,49 @@
     const next = structuredClone(doc);
     next.styles = next.styles || {};
     next.texts = next.texts || {};
-    next.styles[sel] = next.styles[sel] || {};
+    next.styles[sel] = { ...(next.styles[sel] || {}) };
     const text = inspectorEl.querySelector("#fdText")?.value;
-    if (typeof text === "string") {
+    if (typeof text === "string" && !selected.matches("input,textarea,select,img")) {
       next.texts[sel] = text;
       selected.textContent = text;
     }
     const color = inspectorEl.querySelector("#fdColor")?.value;
     const bg = inspectorEl.querySelector("#fdBg")?.value;
+    const bgUrl = String(inspectorEl.querySelector("#fdBgUrl")?.value || "").trim();
     const pad = inspectorEl.querySelector("#fdPad")?.value;
+    const gap = inspectorEl.querySelector("#fdGap")?.value;
     const mar = inspectorEl.querySelector("#fdMar")?.value;
+    const w = inspectorEl.querySelector("#fdW")?.value;
+    const justify = inspectorEl.querySelector("#fdJustify")?.value;
+    const textAlign = inspectorEl.querySelector("#fdTextAlign")?.value;
+    const sidePos = inspectorEl.querySelector("#fdSidePos")?.value;
     if (color) next.styles[sel].color = color;
     if (bg) next.styles[sel].background = bg;
+    if (bgUrl) {
+      next.styles[sel].backgroundImage = `url("${bgUrl.replace(/"/g, "")}")`;
+      next.styles[sel].backgroundSize = "cover";
+      next.styles[sel].backgroundPosition = "center";
+      next.styles[sel].backgroundRepeat = "no-repeat";
+    } else {
+      delete next.styles[sel].backgroundImage;
+      delete next.styles[sel].backgroundSize;
+      delete next.styles[sel].backgroundPosition;
+      delete next.styles[sel].backgroundRepeat;
+    }
     if (pad !== undefined && pad !== "") next.styles[sel].padding = `${pad}px`;
-    if (mar !== undefined && mar !== "") next.styles[sel].marginTop = `${mar}px`;
+    if (gap !== undefined && gap !== "") next.styles[sel].gap = `${gap}px`;
+    if (mar !== undefined && mar !== "") next.styles[sel].margin = `${mar}px`;
+    if (w) next.styles[sel].width = `${w}px`;
+    if (justify) next.styles[sel].justifyContent = justify;
+    else delete next.styles[sel].justifyContent;
+    if (textAlign) next.styles[sel].textAlign = textAlign;
+    else delete next.styles[sel].textAlign;
+    if (sidePos) {
+      next.styles[sel].display = "flex";
+      next.styles[sel].flexDirection = sidePos;
+    } else {
+      delete next.styles[sel].flexDirection;
+    }
     persist(next);
     toast("Visual change applied");
   }
@@ -521,9 +735,14 @@
       el = e.target.closest("img, [data-florisyn-image]");
       if (el && el.tagName !== "IMG") el = el.querySelector("img") || el;
     } else {
-      el = e.target.closest("h1,h2,h3,p,img,button,.panel,.card,.atelier-kpi,.pad,.rose-welcome-card,.lily-suggestion-card,.pos-workspace,.assistant-mini-dock button,.view,[data-florisyn-edit]");
+      el = e.target.closest("h1,h2,h3,h4,p,span,label,img,button,a,.panel,.card,.atelier-kpi,.pad,.product-pad,.rose-welcome-card,.lily-suggestion-card,.pos-workspace,.pos-shell,.catalog-shell,.dashboard-shell,.admin-shell,.shell,.sidebar,.nav,.assistant-mini-dock button,.view,.hero,.section,[data-florisyn-edit],[data-assistant],[data-florisyn-character]");
     }
     if (!el || el.closest("dialog")) return;
+    // Allow inline text caret when already contenteditable and not starting a drag.
+    if (mode === "design" && e.target.isContentEditable && e.detail >= 2) {
+      setSelected(el);
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     setSelected(el);
@@ -703,6 +922,7 @@
     const wasOn = Boolean(mode);
     mode = null;
     document.body.classList.remove("florisyn-design-mode", "florisyn-image-edit-mode", "florisyn-design-dragging");
+    disableInlineTextEditing();
     setSelected(null);
     barEl?.remove();
     barEl = null;
@@ -722,6 +942,7 @@
     mode = "design";
     document.body.classList.add("florisyn-design-mode");
     markEditableHints();
+    enableInlineTextEditing();
     ensureBar();
     ensureInspector();
     localStorage.setItem("florisyn_design_mode", "1");
@@ -785,6 +1006,37 @@
         <div id="ashleyImageLibraryAdmin" class="library-admin-grid"></div>
       </article>
       <article class="panel florisyn-design-admin-panel" style="margin-top:16px">
+        <h2>Brand colors</h2>
+        <p class="subtle">Visual CSS variables only — applied instantly, saved in design JSON.</p>
+        <div class="florisyn-design-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label>Ink<input id="adminCssInk" type="color" value="${rgbToHex(getComputedStyle(document.documentElement).getPropertyValue("--ink") || "#1a2b48")}"></label>
+          <label>Accent<input id="adminCssAccent" type="color" value="${rgbToHex(getComputedStyle(document.documentElement).getPropertyValue("--accent") || "#c45c68")}"></label>
+          <label>Surface<input id="adminCssSurface" type="color" value="${rgbToHex(getComputedStyle(document.documentElement).getPropertyValue("--surface") || "#f7f1ea")}"></label>
+          <label>Panel<input id="adminCssPanel" type="color" value="${rgbToHex(getComputedStyle(document.documentElement).getPropertyValue("--panel") || "#ffffff")}"></label>
+        </div>
+        <div class="actions" style="margin-top:12px">
+          <button type="button" id="adminSaveCssVars">Save brand colors</button>
+        </div>
+      </article>
+      <article class="panel florisyn-design-admin-panel" style="margin-top:16px">
+        <h2>Character text & personality</h2>
+        <p class="subtle">Edit Lily, Rose, and Daisy display name, title, and personality blurb. Visual copy only.</p>
+        <div class="voice-upload-grid">
+          ${PERSONAS.map((p) => {
+            const c = doc.characters?.[p] || {};
+            return `<div class="voice-card" data-character-card="${p}">
+              <h3>${p}</h3>
+              <label>Name<input data-char-name="${p}" type="text" value="${String(c.name || "").replace(/"/g, "&quot;")}" placeholder="${p}"></label>
+              <label>Title<input data-char-title="${p}" type="text" value="${String(c.title || "").replace(/"/g, "&quot;")}" placeholder="Title / role"></label>
+              <label>Personality blurb<textarea data-char-blurb="${p}" rows="3" placeholder="Short personality line">${String(c.blurb || "").replace(/</g, "&lt;")}</textarea></label>
+            </div>`;
+          }).join("")}
+        </div>
+        <div class="actions" style="margin-top:12px">
+          <button type="button" id="adminSaveCharacters">Save character text</button>
+        </div>
+      </article>
+      <article class="panel florisyn-design-admin-panel" style="margin-top:16px">
         <h2>Character voices</h2>
         <p class="subtle">Upload custom audio for Lily, Rose, and Daisy (mp3/wav/ogg/m4a, under 3.5 MB).</p>
         <div class="voice-upload-grid">
@@ -816,6 +1068,33 @@
       [...(e.target.files || [])].forEach((file) => addLibraryFile(file, false));
       e.target.value = "";
     });
+    root.querySelector("#adminSaveCssVars")?.addEventListener("click", () => {
+      const next = structuredClone(doc);
+      next.cssVars = next.cssVars || {};
+      const ink = root.querySelector("#adminCssInk")?.value;
+      const accent = root.querySelector("#adminCssAccent")?.value;
+      const surface = root.querySelector("#adminCssSurface")?.value;
+      const panel = root.querySelector("#adminCssPanel")?.value;
+      if (ink) next.cssVars["--ink"] = ink;
+      if (accent) next.cssVars["--accent"] = accent;
+      if (surface) next.cssVars["--surface"] = surface;
+      if (panel) next.cssVars["--panel"] = panel;
+      persist(next);
+      toast("Brand colors saved");
+    });
+    root.querySelector("#adminSaveCharacters")?.addEventListener("click", () => {
+      const next = structuredClone(doc);
+      next.characters = next.characters || emptyDoc().characters;
+      PERSONAS.forEach((p) => {
+        next.characters[p] = {
+          name: String(root.querySelector(`[data-char-name="${p}"]`)?.value || "").trim(),
+          title: String(root.querySelector(`[data-char-title="${p}"]`)?.value || "").trim(),
+          blurb: String(root.querySelector(`[data-char-blurb="${p}"]`)?.value || "").trim()
+        };
+      });
+      persist(next);
+      toast("Character text saved");
+    });
     PERSONAS.forEach((p) => {
       root.querySelector(`[data-voice-file="${p}"]`)?.addEventListener("change", (e) => {
         uploadVoice(p, e.target.files?.[0]);
@@ -843,6 +1122,14 @@
     }
   }
 
+  function tryMountAdminPanel() {
+    const adminRoot = document.getElementById("uiDesignModeRoot");
+    if (!adminRoot) return;
+    if (!hasAdminSession()) return;
+    if (document.getElementById("adminApp")?.hidden) return;
+    mountAdminPanel(adminRoot);
+  }
+
   async function boot() {
     const published = await loadPublished();
     const local = loadLocal();
@@ -852,6 +1139,9 @@
     document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("pointermove", onPointerMove, true);
     document.addEventListener("pointerup", onPointerUp, true);
+    document.addEventListener("focusout", onInlineBlur, true);
+    document.addEventListener("dblclick", onInlineDblClick, true);
+    document.addEventListener("florisyn-admin-authenticated", tryMountAdminPanel);
 
     const params = new URLSearchParams(location.search);
     if (hasAdminSession()) {
@@ -859,9 +1149,8 @@
       else if (params.get("florisynDesign") === "1" || localStorage.getItem("florisyn_design_mode") === "1") enterDesignMode();
     }
 
-    const adminRoot = document.getElementById("uiDesignModeRoot");
     // Only mount Admin visual studio after Admin shell is authenticated.
-    if (adminRoot && hasAdminSession() && !document.getElementById("adminApp")?.hidden) mountAdminPanel(adminRoot);
+    tryMountAdminPanel();
   }
 
   window.FlorisynUiEditor = {

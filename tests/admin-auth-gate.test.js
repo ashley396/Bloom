@@ -39,6 +39,8 @@ test("Admin JS restores original auth shell gate sequence", () => {
   assert.match(adminJs, /auth-login/);
   assert.match(adminJs, /bloom_admin_session/);
   assert.match(adminJs, /admin-bootstrap/);
+  // Visual studio mounts only after authenticated showApp — never pre-login.
+  assert.match(adminJs, /florisyn-admin-authenticated/);
 });
 
 test("Admin login cannot be wiped by a stale session restore race", () => {

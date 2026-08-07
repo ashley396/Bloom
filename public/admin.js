@@ -42,6 +42,8 @@ function showApp(){
     Promise.resolve(loadShops()).catch((err)=>toast(err.message||'Could not load shops'));
     window.BloomLaunchPolish?.init?.({mode:'admin',api:call});
     window.BloomLilyPlatform?.init?.({mode:'admin',api:call,toast});
+    // Visual studio only — mount after auth so Design Mode never appears pre-login.
+    document.dispatchEvent(new CustomEvent('florisyn-admin-authenticated'));
   }catch(err){
     console.error(err);
     toast(err?.message||'Admin UI finished signing in, but one panel failed to load');

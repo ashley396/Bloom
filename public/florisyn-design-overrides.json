@@ -7,6 +7,11 @@
   "images": {},
   "layout": {},
   "library": [],
+  "characters": {
+    "Lily": { "name": "", "title": "", "blurb": "" },
+    "Rose": { "name": "", "title": "", "blurb": "" },
+    "Daisy": { "name": "", "title": "", "blurb": "" }
+  },
   "voices": {
     "Lily": null,
     "Rose": null,
