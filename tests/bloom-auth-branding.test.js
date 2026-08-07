@@ -69,10 +69,17 @@ test("signup sends confirmation email when mailer is configured", () => {
 
 test("Florisyn app icon uses official monoline mark with ivory tile", () => {
   const icon = fs.readFileSync(new URL("../public/assets/florisyn/florisyn-mark.svg", import.meta.url), "utf8");
-  assert.match(icon, /4[Dd]6[Bb]5[Cc]/);
+  assert.match(icon, /#1[Aa]2[Bb]48/);
   assert.match(icon, /FAF7F2/i);
   assert.match(icon, /C9A962/i);
   assert.match(icon, /Florisyn/i);
+});
+
+test("admin page uses Atelier admin stylesheet", () => {
+  const html = fs.readFileSync(new URL("../public/admin.html", import.meta.url), "utf8");
+  assert.match(html, /florisyn-atelier-admin\.css/);
+  assert.match(html, /florisyn-atelier-admin/);
+  assert.match(html, /florisyn-apple-touch-180\.png/);
 });
 
 test("login pages guide unconfirmed accounts to resend confirmation", () => {

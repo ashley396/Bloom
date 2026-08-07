@@ -16,7 +16,9 @@ const USER_VISIBLE_BLOCKLIST = [
 
 test("production logo is Concept C monoline in florisyn-mark.svg", () => {
   const mark = fs.readFileSync(new URL("../public/assets/florisyn/florisyn-mark.svg", import.meta.url), "utf8");
-  assert.match(mark, /stroke="#4[Dd]6[Bb]5[Cc]"/);
+  assert.match(mark, /#1[Aa]2[Bb]48/);
+  assert.match(mark, /#FAF7F2/i);
+  assert.match(mark, /#C9A962/i);
   assert.doesNotMatch(mark, /fill="#6b8f7a"/);
 });
 
