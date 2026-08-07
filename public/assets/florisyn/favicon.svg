@@ -1,6 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Florisyn">
-  <rect width="32" height="32" rx="6" fill="#FAF7F2"/>
+  <rect width="32" height="32" rx="7" fill="#FAF7F2"/>
   <path fill="none" stroke="#4D6B5C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
     d="M10 26V10 M10 10c0-4 6-6 10-3 3 2 4 5 2 7 M10 17h12"/>
-  <circle cx="12" cy="9" r="1.2" fill="#C9A962"/>
+  <path fill="none" stroke="#C4A4A4" stroke-width="1.4" stroke-linecap="round" opacity="0.75"
+    d="M10 13h13"/>
+  <circle cx="12" cy="9" r="1.25" fill="#C9A962"/>
 </svg>

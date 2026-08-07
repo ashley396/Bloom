@@ -1,7 +1,7 @@
 /* Florisyn Atelier — shared shell polish for admin / onboarding / pay / storefront / company pages.
    Visual-only. Does not alter layout structure or feature behavior. */
 
-@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Manrope:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap");
 
 :root {
   --atelier-ink: #1a2b48;
@@ -11,8 +11,8 @@
   --atelier-petal: #c9a0a8;
   --atelier-cream: #fbf7f4;
   --atelier-line: rgba(26, 43, 72, 0.12);
-  --atelier-serif: "Cormorant Garamond", "Times New Roman", serif;
-  --atelier-sans: Manrope, "Segoe UI", sans-serif;
+  --atelier-serif: "Playfair Display", Georgia, serif;
+  --atelier-sans: Figtree, "Segoe UI", sans-serif;
 }
 
 html {

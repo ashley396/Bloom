@@ -5,6 +5,8 @@ import { checkDistributedRateLimit } from "./_shared/production.js";
 import { fetchWithTimeout, requestIdOf } from "./_shared/upstream.js";
 import { validateEmail } from "./_shared/validation.js";
 import { logAuthEvent, mapAuthProviderFailure, jsonAuthError } from "./_shared/auth-email.js";
+import { sendSignupConfirmationEmail } from "./_shared/auth-confirmation-email.js";
+import { emailProviderConfigured } from "./_shared/notification-email.js";
 
 export async function handler(event){
   const requestId=requestIdOf(event);
@@ -35,7 +37,35 @@ export async function handler(event){
       logAuthEvent("warn","signup_failed",{email_domain:emailCheck.value.split("@")[1],provider_status:response.status,code:mapped.code,request_id:requestId},event);
       return jsonAuthError(mapped);
     }
-    logAuthEvent("info","signup_accepted",{user_id:data.user?.id||null,confirmation_required:!data.access_token,request_id:requestId},event);
-    return json(200,{accessToken:data.access_token||null,refreshToken:data.refresh_token||null,expiresIn:data.expires_in||null,user:data.user||null,confirmationRequired:!data.access_token});
+
+    const confirmationRequired=!data.access_token;
+    let confirmationEmail={sent:false,provider:null,reason:null};
+    if(confirmationRequired){
+      confirmationEmail=await sendSignupConfirmationEmail({
+        email:emailCheck.value,
+        fullName:body.fullName||"",
+        shopName:body.shopName||"",
+        origin,
+        env:process.env
+      });
+      logAuthEvent(confirmationEmail.sent?"info":"warn",confirmationEmail.sent?"signup_confirmation_email_sent":"signup_confirmation_email_skipped",{
+        email_domain:emailCheck.value.split("@")[1],
+        provider:confirmationEmail.provider||null,
+        reason:confirmationEmail.reason||null,
+        mailer_configured:emailProviderConfigured(process.env).configured,
+        request_id:requestId
+      },event);
+    }
+
+    logAuthEvent("info","signup_accepted",{user_id:data.user?.id||null,confirmation_required:confirmationRequired,confirmation_email_sent:Boolean(confirmationEmail.sent),request_id:requestId},event);
+    return json(200,{
+      accessToken:data.access_token||null,
+      refreshToken:data.refresh_token||null,
+      expiresIn:data.expires_in||null,
+      user:data.user||null,
+      confirmationRequired,
+      confirmationEmailSent:Boolean(confirmationEmail.sent),
+      confirmationEmailProvider:confirmationEmail.provider||null
+    });
   }catch(error){ return fail(error); }
 }

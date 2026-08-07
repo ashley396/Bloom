@@ -3,6 +3,7 @@
 import { validateEmail } from "./validation.js";
 
 export function emailProviderConfigured(env = process.env) {
+  if (env.RESEND_API_KEY) return { configured: true, provider: "resend" };
   if (env.BLOOM_EMAIL_PROVIDER === "sendgrid" && env.SENDGRID_API_KEY) return { configured: true, provider: "sendgrid" };
   if (env.BLOOM_EMAIL_PROVIDER === "postmark" && env.POSTMARK_SERVER_TOKEN) return { configured: true, provider: "postmark" };
   if (env.BLOOM_EMAIL_WEBHOOK_URL) return { configured: true, provider: "webhook" };
@@ -55,12 +56,35 @@ export function renderSubscriptionReceiptEmail({ shopName, customerName, amount,
   return { subject: `${shopName || "Your florist"} — subscription receipt`, html: brandShell({ title, bodyHtml, shopName }) };
 }
 
-async function dispatchEmail(env, { to, subject, html, text }) {
+export async function dispatchEmail(env, { to, subject, html, text }) {
   const cfg = emailProviderConfigured(env);
   if (!cfg.configured) return { ok: false, code: "provider_not_configured", provider: null };
 
   const toCheck = validateEmail(to, { required: true });
   if (!toCheck.ok) return { ok: false, code: "invalid_recipient", error: toCheck.error };
+
+  if (cfg.provider === "resend") {
+    const from = env.BLOOM_EMAIL_FROM || "Florisyn <onboarding@resend.dev>";
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from,
+        to: [toCheck.value],
+        subject,
+        html,
+        text: text || subject
+      })
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      return { ok: false, code: "provider_error", status: res.status, detail: detail.slice(0, 240) };
+    }
+    return { ok: true, provider: "resend" };
+  }
 
   if (cfg.provider === "sendgrid") {
     const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
