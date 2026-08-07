@@ -16,22 +16,21 @@ test("live avatar PNGs exist for Lily, Rose, and Daisy", () => {
 
 test("top Daisy dock kept; floating/bottom dog mascots removed", () => {
   const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
-  const daisy = fs.readFileSync(new URL("../public/daisy-mascot.js", import.meta.url), "utf8");
   const lily = fs.readFileSync(new URL("../public/lily-platform.js", import.meta.url), "utf8");
   const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
   assert.match(html, /florisyn-live-avatars\.css/);
   assert.match(html, /daisy-dock-btn/);
   assert.match(html, /<b>Daisy<\/b>/);
-  assert.match(html, /lily-portrait\.png/);
-  assert.match(html, /rose-portrait\.png/);
-  assert.match(html, /daisy-portrait\.png/);
+  assert.match(html, /assistants\/daisy-portrait\.png/);
   assert.doesNotMatch(html, /id="bloomDog"|class="bloom-dog"/);
   assert.doesNotMatch(html, /Pet Lily the shop dog/);
+  assert.doesNotMatch(html, /daisy-mascot\.js/);
   assert.match(html, /florisyn-no-floating-mascot\.css/);
-  assert.match(daisy, /intentionally disabled|noop/);
-  assert.doesNotMatch(daisy, /bloom-daisy--wag|dogTrot|appendChild\(el\)/);
+  assert.ok(!fs.existsSync(new URL("../public/daisy-mascot.js", import.meta.url)));
   assert.doesNotMatch(app, /petBloomDog|#bloomDog/);
   assert.match(lily, /lily-portrait\.png/);
+  const v23 = fs.readFileSync(new URL("../public/bloom-v23.css", import.meta.url), "utf8");
+  assert.doesNotMatch(v23, /\.bloom-dog\{|dogTrot/);
 });
 
 test("floral library arrangement images are unique", () => {
