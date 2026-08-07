@@ -186,57 +186,9 @@ body.bloom-rc2 .recipe-privacy-banner {
   border-left: 4px solid var(--bloom-botanical);
 }
 
-/* Daisy */
-.bloom-daisy {
-  position: fixed;
-  left: 16px;
-  bottom: 88px;
-  z-index: 35;
-  pointer-events: none;
-  opacity: 0.95;
-  transition: transform var(--bloom-motion, 180ms ease);
-}
+/* Daisy floating mascot removed — top dock only */
+.bloom-daisy, #bloomDaisy { display: none !important; animation: none !important; }
 
-.bloom-daisy--interactive {
-  pointer-events: auto;
-  cursor: default;
-}
-
-.bloom-daisy--wag {
-  animation: daisy-wag 2s ease forwards;
-}
-
-@keyframes daisy-wag {
-  0% {
-    transform: rotate(0deg);
-  }
-  25% {
-    transform: rotate(-4deg) translateY(-2px);
-  }
-  50% {
-    transform: rotate(3deg);
-  }
-  100% {
-    transform: rotate(0deg);
-  }
-}
-
-.bloom-daisy--reduced,
-.bloom-daisy--reduced.bloom-daisy--wag {
-  animation: none !important;
-}
-
-.bloom-daisy[data-seasonal="holiday"]::after {
-  content: "";
-  position: absolute;
-  top: 8px;
-  right: 20px;
-  width: 28px;
-  height: 14px;
-  background: #9b3d4a;
-  border-radius: 4px;
-  opacity: 0.85;
-}
 
 /* First run */
 .bloom-first-run {
