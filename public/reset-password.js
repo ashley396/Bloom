@@ -18,6 +18,7 @@ function readResetTokens() {
   const query = parseParams((location.search || "").replace(/^\?/, ""));
   return {
     accessToken: hash.access_token || query.access_token || "",
+    tokenHash: hash.token_hash || query.token_hash || "",
     type: hash.type || query.type || "",
     error: hash.error_description || query.error_description || hash.error || query.error || ""
   };
@@ -25,13 +26,15 @@ function readResetTokens() {
 
 const tokens = readResetTokens();
 const accessToken = tokens.accessToken;
+const tokenHash = tokens.tokenHash;
 const type = tokens.type;
 const typeOk = !type || type === "recovery";
+const hasResetSecret = Boolean(accessToken || tokenHash);
 
 if (tokens.error) {
   message.textContent = String(tokens.error).replace(/\+/g, " ");
   message.classList.add("error");
-} else if (!accessToken || !typeOk) {
+} else if (!hasResetSecret || !typeOk) {
   message.textContent =
     "This reset link is missing or expired. Request a new link from the forgot password page.";
   message.classList.add("error");
@@ -53,7 +56,7 @@ form?.addEventListener("submit", async (event) => {
     message.textContent = "Passwords do not match.";
     return;
   }
-  if (!accessToken) {
+  if (!hasResetSecret) {
     message.textContent = "This reset link is missing or expired. Request a new link.";
     message.classList.add("error");
     return;
@@ -61,10 +64,13 @@ form?.addEventListener("submit", async (event) => {
   button.disabled = true;
   button.textContent = "Updating…";
   try {
+    const payload = { password };
+    if (accessToken) payload.access_token = accessToken;
+    if (tokenHash) payload.token_hash = tokenHash;
     const response = await fetch("/api/auth-reset-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, access_token: accessToken })
+      body: JSON.stringify(payload)
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Could not update password.");

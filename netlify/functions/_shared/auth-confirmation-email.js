@@ -144,12 +144,15 @@ async function generateLinkOnce({ email, redirectTo, type, env }) {
   );
 
   const data = await response.json().catch(() => ({}));
-  const actionLink =
-    data?.action_link ||
-    data?.properties?.action_link ||
+  const props = data?.properties && typeof data.properties === "object" ? data.properties : {};
+  const actionLink = data?.action_link || props.action_link || null;
+  const hashedToken =
+    data?.hashed_token ||
+    props.hashed_token ||
     data?.email_otp ||
+    props.email_otp ||
     null;
-  if (!response.ok || !actionLink) {
+  if (!response.ok || (!actionLink && !hashedToken)) {
     return {
       ok: false,
       code: "generate_link_failed",
@@ -158,7 +161,7 @@ async function generateLinkOnce({ email, redirectTo, type, env }) {
       type
     };
   }
-  return { ok: true, actionLink, data, type };
+  return { ok: true, actionLink, hashedToken, data, type };
 }
 
 /**
@@ -285,6 +288,23 @@ export function ensureAuthActionRedirect(actionLink, redirectTo) {
 }
 
 /**
+ * Prefer a Florisyn-hosted reset URL with token_hash so we never depend on
+ * Supabase Auth "Site URL" (often still localhost in dashboard).
+ */
+export function buildFlorisynRecoveryUrl(redirectTo, hashedToken, actionLink) {
+  const base = String(redirectTo || "").replace(/\/$/, "") || "https://www.florisyn.com/reset-password";
+  const token = String(hashedToken || "").trim();
+  if (token) {
+    const url = new URL(base.includes("://") ? base : `https://www.florisyn.com${base.startsWith("/") ? base : `/${base}`}`);
+    url.searchParams.set("type", "recovery");
+    url.searchParams.set("token_hash", token);
+    return url.toString();
+  }
+  if (actionLink) return ensureAuthActionRedirect(actionLink, redirectTo);
+  return null;
+}
+
+/**
  * Password reset via admin recovery link + Resend (not Supabase's built-in mailer).
  */
 export async function sendPasswordResetEmail({ email, fullName = "", origin = "", env = process.env }) {
@@ -308,7 +328,11 @@ export async function sendPasswordResetEmail({ email, fullName = "", origin = ""
     };
   }
 
-  const resetUrl = ensureAuthActionRedirect(link.actionLink, redirectTo);
+  const resetUrl = buildFlorisynRecoveryUrl(redirectTo, link.hashedToken, link.actionLink);
+  if (!resetUrl) {
+    return { sent: false, provider: provider.provider, reason: "generate_link_failed", detail: "missing_recovery_token" };
+  }
+
   const tpl = renderPasswordResetEmail({ resetUrl, fullName });
   const result = await dispatchEmail(env, {
     to: email,

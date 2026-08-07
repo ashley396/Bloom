@@ -38,6 +38,8 @@ test("reset password page and function", () => {
   const helper = fs.readFileSync(new URL("../netlify/functions/_shared/auth-confirmation-email.js", import.meta.url), "utf8");
   assert.match(helper, /\/reset-password/);
   assert.match(helper, /type:\s*"recovery"/);
+  assert.match(helper, /token_hash|buildFlorisynRecoveryUrl/);
+  assert.match(fn, /token_hash/);
 });
 
 test("RC2.1 consistency layer linked last", () => {
