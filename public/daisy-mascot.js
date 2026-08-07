@@ -30,7 +30,7 @@
     el.id = "bloomDaisy";
     el.className = "bloom-daisy bloom-daisy--resting";
     el.setAttribute("aria-hidden", load().mode === "stationary" ? "true" : "false");
-    el.innerHTML = `<img src="/assets/daisy/daisy-resting.svg" width="120" height="105" alt="">`;
+    el.innerHTML = `<img src="/assets/daisy/daisy-portrait.png" width="112" height="112" alt="Daisy">`;
     document.body.appendChild(el);
     apply(load());
   }
@@ -51,7 +51,7 @@
     if (!el) return;
     clearTimeout(wagTimer);
     el.classList.add("bloom-daisy--wag");
-    el.setAttribute("aria-label", reason || "Rose companion acknowledges an update");
+    el.setAttribute("aria-label", reason || "Daisy acknowledges an update");
     wagTimer = setTimeout(() => {
       el.classList.remove("bloom-daisy--wag");
       el.classList.add("bloom-daisy--resting");
@@ -63,11 +63,11 @@
     const s = load();
     root.insertAdjacentHTML(
       "beforeend",
-      `<section class="panel bloom-daisy-settings" id="roseSettingsPanel">
-        <p class="eyebrow">ROSE COMPANION</p>
-        <h2>Optional shop companion</h2>
-        <p class="subtle">A quiet on-screen companion for Lily &amp; Rose — never blocks your work. (Legacy mascot; assistants are Lily and Rose.)</p>
-        <label class="check"><input type="checkbox" id="daisyHide" ${s.hidden ? "checked" : ""}> Hide companion</label>
+      `<section class="panel bloom-daisy-settings" id="daisySettingsPanel">
+        <p class="eyebrow">DAISY</p>
+        <h2>Shop mascot</h2>
+        <p class="subtle">Daisy stays nearby with Lily &amp; Rose — never blocks your work.</p>
+        <label class="check"><input type="checkbox" id="daisyHide" ${s.hidden ? "checked" : ""}> Hide Daisy</label>
         <label>Mode<select id="daisyMode">
           <option value="stationary" ${s.mode === "stationary" ? "selected" : ""}>Stationary (default)</option>
           <option value="interactive" ${s.mode === "interactive" ? "selected" : ""}>Interactive</option>
