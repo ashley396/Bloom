@@ -10,13 +10,15 @@ test("RC2.2 polish stylesheet linked after founder layer", () => {
   assert.match(html, /florisyn-rc22/);
 });
 
-test("assistant portraits use bundled SVG assets", () => {
+test("assistant portraits use live PNG avatar assets", () => {
   const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
-  assert.match(html, /assistants\/lily-portrait\.svg/);
-  assert.match(html, /assistants\/rose-portrait\.svg/);
+  assert.match(html, /assistants\/lily-portrait\.png/);
+  assert.match(html, /assistants\/rose-portrait\.png/);
+  assert.match(html, /assistants\/daisy-portrait\.png/);
+  assert.match(html, /florisyn-live-avatars\.css/);
   assert.doesNotMatch(html, /\/assets\/lily\.png/);
   assert.doesNotMatch(html, /\/assets\/rose\.png/);
-  for (const rel of ["lily-portrait.svg", "rose-portrait.svg"]) {
+  for (const rel of ["lily-portrait.png", "rose-portrait.png", "daisy-portrait.png"]) {
     fs.accessSync(new URL(`../public/assets/assistants/${rel}`, import.meta.url));
   }
 });
