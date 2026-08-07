@@ -16,16 +16,16 @@ const LIBRARY=[
 ["White Hydrangea Elegance","Hydrangeas",94.99,"🤍","Creamy white hydrangeas designed in a clean, timeless garden style.",[["White Hydrangea",6],["Italian Ruscus",5]],"https://images.pexels.com/photos/1458694/pexels-photo-1458694.jpeg?auto=compress&cs=tinysrgb&w=1000"],
 ["Classic Red Rose Romance","Love & Romance",99.99,"🌹","Twelve premium red roses arranged with soft filler and greenery.",[["Red Roses",12],["Baby's Breath",3],["Leatherleaf",5]],"https://images.pexels.com/photos/1070850/pexels-photo-1070850.jpeg?auto=compress&cs=tinysrgb&w=1000"],
 ["Blush Rose Garden","Love & Romance",109.99,"🌸","Soft blush roses with garden texture for birthdays, anniversaries, and romance.",[["Blush Roses",12],["Waxflower",4],["Eucalyptus",5]],"https://images.pexels.com/photos/931162/pexels-photo-931162.jpeg?auto=compress&cs=tinysrgb&w=1000"],
-["Sunny Birthday Celebration","Birthday",79.99,"🌻","A bright, joyful mix of sunflowers and seasonal blooms.",[["Sunflowers",5],["Yellow Roses",6],["Daisies",7],["Greenery",5]],"https://images.pexels.com/photos/2111192/pexels-photo-2111192.jpeg?auto=compress&cs=tinysrgb&w=1000"],
-["Garden Party Mix","Everyday",74.99,"💐","A colorful garden-style arrangement filled with seasonal texture.",[["Mixed Flowers",18],["Greenery",6]],"https://images.pexels.com/photos/1308881/pexels-photo-1308881.jpeg?auto=compress&cs=tinysrgb&w=1000"],
+["Sunny Birthday Celebration","Birthday",79.99,"🌻","A bright, joyful mix of sunflowers and seasonal blooms.",[["Sunflowers",5],["Yellow Roses",6],["Daisies",7],["Greenery",5]],"https://images.pexels.com/photos/1457571/pexels-photo-1457571.jpeg?auto=compress&cs=tinysrgb&w=1000"],
+["Garden Party Mix","Everyday",74.99,"💐","A colorful garden-style arrangement filled with seasonal texture.",[["Mixed Flowers",18],["Greenery",6]],"https://images.pexels.com/photos/2058498/pexels-photo-2058498.jpeg?auto=compress&cs=tinysrgb&w=1000"],
 ["Peaceful White Sympathy","Sympathy",124.99,"🕊️","Elegant white flowers designed to offer comfort and peace.",[["White Lilies",5],["White Roses",8],["White Hydrangea",2],["Greenery",7]],"https://images.pexels.com/photos/169193/pexels-photo-169193.jpeg?auto=compress&cs=tinysrgb&w=1000"],
 ["Elegant Tribute","Funeral",169.99,"🤍","A graceful standing tribute with premium white flowers and greenery.",[["White Roses",12],["Lilies",8],["Snapdragons",8],["Greenery",12]],"https://images.pexels.com/photos/1158783/pexels-photo-1158783.jpeg?auto=compress&cs=tinysrgb&w=1000"],
 ["Romantic Bridal Bouquet","Wedding",159.99,"💍","A soft bridal bouquet of roses, hydrangeas, and eucalyptus.",[["White Roses",12],["Hydrangea",3],["Eucalyptus",6]],"https://images.pexels.com/photos/931168/pexels-photo-931168.jpeg?auto=compress&cs=tinysrgb&w=1000"],
 ["Modern White Wedding","Wedding",179.99,"✨","A clean and elegant white wedding bouquet with premium garden flowers.",[["White Roses",10],["Ranunculus",8],["Hydrangea",2],["Italian Ruscus",5]],"https://images.pexels.com/photos/931167/pexels-photo-931167.jpeg?auto=compress&cs=tinysrgb&w=1000"],
 ["New Baby Pastels","New Baby",79.99,"🍼","Pastel blooms created to welcome a sweet new arrival.",[["Pastel Roses",6],["Hydrangea",2],["Carnations",5],["Greenery",5]],"https://images.pexels.com/photos/736230/pexels-photo-736230.jpeg?auto=compress&cs=tinysrgb&w=1000"],
-["Get Well Sunshine","Get Well",69.99,"🌼","Cheerful yellow flowers designed to brighten a hospital room or home.",[["Sunflowers",4],["Daisies",8],["Yellow Roses",5],["Greenery",5]],"https://images.pexels.com/photos/54200/pexels-photo-54200.jpeg?auto=compress&cs=tinysrgb&w=1000"],
-["Lavender Serenity","Everyday",84.99,"💜","Lavender and purple blooms with soft garden greenery.",[["Lavender Roses",6],["Purple Stock",5],["Hydrangea",2],["Eucalyptus",5]],"https://images.pexels.com/photos/1407322/pexels-photo-1407322.jpeg?auto=compress&cs=tinysrgb&w=1000"],
-["Modern Orchid Gift","Plants",84.99,"🌿","A sophisticated orchid presentation for a home, office, or special occasion.",[["Orchid Plant",1],["Ceramic Pot",1]],"https://images.pexels.com/photos/459335/pexels-photo-459335.jpeg?auto=compress&cs=tinysrgb&w=1000"],
+["Get Well Sunshine","Get Well",69.99,"🌼","Cheerful yellow flowers designed to brighten a hospital room or home.",[["Sunflowers",4],["Daisies",8],["Yellow Roses",5],["Greenery",5]],"https://images.pexels.com/photos/1162541/pexels-photo-1162541.jpeg?auto=compress&cs=tinysrgb&w=1000"],
+["Lavender Serenity","Everyday",84.99,"💜","Lavender and purple blooms with soft garden greenery.",[["Lavender Roses",6],["Purple Stock",5],["Hydrangea",2],["Eucalyptus",5]],"https://images.pexels.com/photos/4041396/pexels-photo-4041396.jpeg?auto=compress&cs=tinysrgb&w=1000"],
+["Modern Orchid Gift","Plants",84.99,"🌿","A sophisticated orchid presentation for a home, office, or special occasion.",[["Orchid Plant",1],["Ceramic Pot",1]],"https://images.pexels.com/photos/1034392/pexels-photo-1034392.jpeg?auto=compress&cs=tinysrgb&w=1000"],
 ["Celebration Brights","Congratulations",89.99,"🎉","Bold color and joyful flowers for graduations, promotions, and big moments.",[["Gerbera Daisies",7],["Roses",6],["Greenery",6]],"https://images.pexels.com/photos/462402/pexels-photo-462402.jpeg?auto=compress&cs=tinysrgb&w=1000"]
 ];
 const DEFAULT_POS_TILES=[
@@ -110,9 +110,12 @@ function showPage(id){
       const on=p.id===id;
       p.classList.toggle("active",on);
       p.classList.remove("bloom-page-exit");
-      if(on)p.hidden=false;
+      p.hidden=!on;
     });
     $$("#app aside button[data-page], #atelierSidebarDrawer button[data-page], .mobile-nav button[data-page], .assistant-mini-dock button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));
+    const content=document.querySelector("#app .content");
+    if(content)content.scrollTop=0;
+    window.scrollTo(0,0);
     loadPage(id);
   };
   window.BloomLaunchPolish?.onPageStart?.(id);

@@ -20,7 +20,7 @@ test("app uses document click delegation for data-page and data-open", () => {
 test("showPage activates the target page section and clears exit state", () => {
   assert.match(app, /const target=document\.getElementById\(id\)/);
   assert.match(app, /p\.classList\.remove\("bloom-page-exit"\)/);
-  assert.match(app, /if\(on\)p\.hidden=false/);
+  assert.match(app, /p\.hidden=!on/);
   assert.match(app, /\$\$\("\.page"\)\.forEach/);
   assert.match(app, /window\.showPage=showPage/);
 });

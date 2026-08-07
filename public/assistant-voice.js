@@ -212,8 +212,10 @@
     const def = Core.VOICE_DEFAULTS[persona];
     const blurb =
       persona === "Lily"
-        ? "Warm, friendly, calm — creative partner energy."
-        : "Mature, confident, lightly humorous — never harsh.";
+        ? "Upbeat, warm, and creative — a young partner who makes shop work feel fun."
+        : persona === "Daisy"
+          ? "Cheerful and funny shop-pup energy — short, playful encouragement."
+          : "Wise, steady, and kindly experienced — a calm older advisor.";
 
     root.insertAdjacentHTML(
       "beforeend",

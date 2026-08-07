@@ -85,12 +85,53 @@ body.florisyn.admin-luxury.florisyn-atelier-shell .eyebrow {
 }
 
 body.florisyn.admin-luxury.florisyn-atelier-shell .admin-login button,
-body.florisyn.admin-luxury.florisyn-atelier-shell button:not(.secondary):not([data-theme-toggle]) {
+body.florisyn.admin-luxury.florisyn-atelier-shell button:not(.secondary):not([data-theme-toggle]):not(nav button):not(.editor-tabs button):not(.subscriber-alert) {
   background: linear-gradient(135deg, var(--atelier-navy) 0%, var(--atelier-navy-soft) 100%) !important;
   color: #fff !important;
   border-radius: 14px !important;
   box-shadow: 0 12px 28px rgba(26, 43, 72, 0.22);
   font-weight: 700;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell nav button,
+body.florisyn.admin-luxury.florisyn-atelier-shell .editor-tabs button {
+  background: transparent !important;
+  color: #51464d !important;
+  box-shadow: none !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell nav button.active,
+body.florisyn.admin-luxury.florisyn-atelier-shell nav button:hover {
+  background: rgba(246, 223, 232, 0.65) !important;
+  color: var(--atelier-navy) !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .editor-tabs {
+  flex-wrap: wrap;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .metric-box,
+body.florisyn.admin-luxury.florisyn-atelier-shell .metric {
+  background: #fff !important;
+  border: 1px solid var(--atelier-line) !important;
+  border-radius: 18px !important;
+  padding: 18px !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .shop-row {
+  align-items: center;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .workspace {
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 body.florisyn.admin-luxury.florisyn-atelier-shell button.secondary,
