@@ -1,6 +1,6 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { publicSettings, fail } from "./_shared/supabase.js";
-import { checkRateLimit } from "./_shared/production.js";
+import { checkRateLimit, checkDistributedRateLimit } from "./_shared/production.js";
 import { validateEmail } from "./_shared/validation.js";
 import { authRedirectPath } from "./_shared/site-url.js";
 import { fetchWithTimeout, requestIdOf } from "./_shared/upstream.js";
@@ -14,8 +14,19 @@ export async function handler(event) {
   if (ready) return ready;
   if (event.httpMethod !== "POST") return methodNotAllowed();
 
-  const limit = checkRateLimit(event, { key: "auth-resend-confirmation", limit: 5, windowMs: 60_000 });
-  if (!limit.allowed) return json(429, { error: "Too many confirmation email requests. Please wait and try again.", code: "auth_rate_limited" });
+  const localLimit = checkRateLimit(event, { key: "auth-resend-confirmation", limit: 5, windowMs: 60_000 });
+  const distributed = await checkDistributedRateLimit(event, { key: "auth-resend-confirmation", limit: 8, windowMs: 60_000 });
+  const limit = !localLimit.allowed ? localLimit : distributed;
+  if (!limit.allowed) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((limit.retryAfterMs || 60_000) / 1000));
+    const limited = json(429, {
+      error: "Too many confirmation email requests. Please wait and try again.",
+      code: "auth_rate_limited",
+      retryAfterSeconds
+    }, process.env, event);
+    limited.headers = { ...limited.headers, "Retry-After": String(retryAfterSeconds) };
+    return limited;
+  }
 
   try {
     const body = bodyOf(event);

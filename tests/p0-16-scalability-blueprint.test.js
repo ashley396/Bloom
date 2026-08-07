@@ -22,6 +22,7 @@ test("scalability blueprint preserves the required A-H response contract", () =>
   ]) {
     assert.match(blueprint, new RegExp(heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
+  assert.match(blueprint, /docs\/architecture\/adr\/0001-scalability-stability-blueprint\.md/);
 });
 
 test("k6 capacity suite includes all required scenarios and thresholds", () => {

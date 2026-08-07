@@ -42,7 +42,8 @@ export function mapAuthProviderFailure(response, data = {}, { flow = "auth" } = 
     return {
       statusCode: 429,
       code: "auth_rate_limited",
-      error: "Too many email requests. Please wait a minute and try again."
+      error: "Too many email requests. Please wait a minute and try again.",
+      retryAfterSeconds: 60
     };
   }
 
@@ -132,12 +133,16 @@ export function mapAuthProviderFailure(response, data = {}, { flow = "auth" } = 
 export function jsonAuthError(mapped) {
   const body = { error: mapped.error, code: mapped.code };
   if (mapped.ok) body.ok = true;
+  if (mapped.retryAfterSeconds) body.retryAfterSeconds = mapped.retryAfterSeconds;
+  const headers = {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store"
+  };
+  if (mapped.retryAfterSeconds) headers["Retry-After"] = String(mapped.retryAfterSeconds);
+  if (mapped.requestId) headers["x-request-id"] = String(mapped.requestId);
   return {
     statusCode: mapped.statusCode,
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-store"
-    },
+    headers,
     body: JSON.stringify(body)
   };
 }

@@ -92,12 +92,34 @@ export async function handleOrders(event, dependencies = {}) {
       const validation = validateOrderCreateBody(body);
       if (!validation.valid) return json(400, { error: validation.errors[0] });
 
+      const clientRequestId = String(body.client_request_id || body.idempotency_key || "")
+        .trim()
+        .slice(0, 80)
+        .replace(/[^A-Za-z0-9:_-]/g, "");
+      if (clientRequestId) {
+        const { data: existingOrder, error: existingError } = await client
+          .from("orders")
+          .select("*")
+          .eq("shop_id", shopId)
+          .ilike("notes", `%[req:${clientRequestId}]%`)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (existingError) throw existingError;
+        if (existingOrder) return json(200, { item: existingOrder, idempotent: true });
+      }
+
       const flowers = Number(body.subtotal || 0);
       const labor = Number(body.labor_charge || 0);
       const addons = Number(body.addon_total || 0);
       const discount = Number(body.discount || 0);
       const taxRate = Number(body.tax_rate || 0);
       const deliveryFee = Number(body.delivery_fee || 0);
+
+      const baseNotes = body.notes || null;
+      const notesWithRequest = clientRequestId
+        ? [baseNotes, `[req:${clientRequestId}]`].filter(Boolean).join(" ").slice(0, 2000)
+        : baseNotes;
 
       const payload = {
         customer_name: validation.sanitized.customer_name || clampText(body.customer_name, 120),
@@ -110,7 +132,7 @@ export async function handleOrders(event, dependencies = {}) {
         delivery_date: body.delivery_date || null,
         subtotal: flowers,
         delivery_fee: deliveryFee,
-        notes: body.notes || null,
+        notes: notesWithRequest,
         tax_rate: taxRate,
         customer_type: body.customer_type || "PERSONAL",
         recipient_name: body.recipient_name || null,
