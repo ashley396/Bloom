@@ -9,7 +9,7 @@ const css = fs.readFileSync(new URL("../public/florisyn-atelier-auth.css", impor
 test("login and signup use premium auth hero shell with official mark", () => {
   for (const html of [login, signup]) {
     assert.match(html, /florisyn-auth-hero/);
-    assert.match(html, /florisyn-atelier-auth\.css\?v=authhero1/);
+    assert.match(html, /florisyn-atelier-auth\.css\?v=authhero2/);
     assert.match(html, /florisyn-mark\.png\?v=official1/);
     assert.match(html, /<strong>Florisyn<\/strong>/);
     assert.match(html, /florisyn-auth-hero-devices\.png/);
