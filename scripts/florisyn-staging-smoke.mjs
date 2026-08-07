@@ -122,6 +122,28 @@ await check("luxury shell CSS markers", async () => {
   }
 });
 
+await check("atelier UI CSS markers", async () => {
+  const [ui, auth, shell, login] = await Promise.all([
+    fetch(`${BASE}/florisyn-atelier-ui.css`),
+    fetch(`${BASE}/florisyn-atelier-auth.css`),
+    fetch(`${BASE}/florisyn-atelier-shell.css`),
+    fetch(`${BASE}/login`),
+  ]);
+  assert.equal(ui.status, 200);
+  assert.equal(auth.status, 200);
+  assert.equal(shell.status, 200);
+  assert.equal(login.status, 200);
+  const uiSrc = await ui.text();
+  const authSrc = await auth.text();
+  const shellSrc = await shell.text();
+  const loginHtml = await login.text();
+  assert.match(uiSrc, /florisyn-atelier|--atelier-navy/);
+  assert.match(authSrc, /florisyn-atelier-auth|--atelier-navy/);
+  assert.match(shellSrc, /florisyn-atelier-shell|--atelier-ink/);
+  assert.match(loginHtml, /florisyn-atelier-auth\.css/);
+  assert.match(loginHtml, /Where Your Passion Flowers/);
+});
+
 const failed = results.filter((r) => !r.ok);
 console.log(
   JSON.stringify(
