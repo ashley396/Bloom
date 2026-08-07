@@ -23,7 +23,8 @@ test("auth hero image exists locally", () => {
 
 test("forgot password function exists", () => {
   const src = fs.readFileSync(new URL("../netlify/functions/auth-forgot-password.js", import.meta.url), "utf8");
-  assert.match(src, /auth\/v1\/recover/);
+  assert.match(src, /sendPasswordResetEmail/);
+  assert.doesNotMatch(src, /auth\/v1\/recover/);
 });
 
 test("signup redirects to verify email page", () => {
