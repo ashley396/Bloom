@@ -49,9 +49,30 @@ test("verify email page can resend confirmation email", () => {
   assert.match(js, /florisyn_pending_email/);
   assert.match(fn, /auth\/v1\/resend/);
   assert.match(fn, /type:\s*"signup"/);
-  assert.match(fn, /email_redirect_to:\s*redirectTo/);
+  assert.match(fn, /redirect_to=\$\{encodeURIComponent\(redirectTo\)\}/);
+  assert.match(fn, /sendSignupConfirmationEmail/);
   assert.match(fn, /authRedirectPath\(process\.env, origin, "\/verify-email\?confirmed=1"\)/);
   assert.match(fn, /If this email has an unconfirmed Florisyn account/);
+});
+
+test("signup sends confirmation email when mailer is configured", () => {
+  const signup = fs.readFileSync(new URL("../netlify/functions/auth-signup.js", import.meta.url), "utf8");
+  const helper = fs.readFileSync(new URL("../netlify/functions/_shared/auth-confirmation-email.js", import.meta.url), "utf8");
+  const mailer = fs.readFileSync(new URL("../netlify/functions/_shared/notification-email.js", import.meta.url), "utf8");
+  assert.match(signup, /sendSignupConfirmationEmail/);
+  assert.match(signup, /confirmationEmailSent/);
+  assert.match(helper, /admin\/generate_link/);
+  assert.match(helper, /type:\s*"signup"/);
+  assert.match(mailer, /RESEND_API_KEY/);
+  assert.match(mailer, /api\.resend\.com\/emails/);
+});
+
+test("Florisyn app icon uses official monoline mark with ivory tile", () => {
+  const icon = fs.readFileSync(new URL("../public/assets/florisyn/florisyn-mark.svg", import.meta.url), "utf8");
+  assert.match(icon, /4[Dd]6[Bb]5[Cc]/);
+  assert.match(icon, /FAF7F2/i);
+  assert.match(icon, /C9A962/i);
+  assert.match(icon, /Florisyn/i);
 });
 
 test("login pages guide unconfirmed accounts to resend confirmation", () => {
@@ -62,10 +83,4 @@ test("login pages guide unconfirmed accounts to resend confirmation", () => {
   assert.match(login, /\/verify-email\?pending=1&email=/);
   assert.match(admin, /invalid login credentials\|invalid email or password\|email not confirmed/i);
   assert.match(admin, /\/verify-email\?pending=1&email=/);
-});
-
-test("Florisyn app icon uses official monoline mark", () => {
-  const icon = fs.readFileSync(new URL("../public/assets/florisyn/florisyn-mark.svg", import.meta.url), "utf8");
-  assert.match(icon, /4[Dd]6[Bb]5[Cc]/);
-  assert.match(icon, /Florisyn/i);
 });

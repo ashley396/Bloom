@@ -4,7 +4,7 @@
  * Does not change behavior. Styles existing markup under body.florisyn-atelier.
  */
 
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap");
 
 body.florisyn-atelier {
   --atelier-navy: #1a2b48;
@@ -26,8 +26,8 @@ body.florisyn-atelier {
   --atelier-radius-sm: 14px;
   --atelier-shadow: 0 18px 40px rgba(26, 43, 72, 0.08);
   --atelier-shadow-soft: 0 8px 24px rgba(26, 43, 72, 0.06);
-  --atelier-font-display: "Fraunces", "Cormorant Garamond", Georgia, serif;
-  --atelier-font-ui: "Manrope", "Source Sans 3", system-ui, sans-serif;
+  --atelier-font-display: "Playfair Display", Georgia, serif;
+  --atelier-font-ui: Figtree, "Source Sans 3", system-ui, sans-serif;
   --florisyn-navy: #18252f;
   --florisyn-champagne: #c9a962;
   --florisyn-ivory: var(--atelier-ivory);
@@ -93,10 +93,22 @@ body.florisyn-atelier .header-brand::after {
 }
 
 body.florisyn-atelier .brand-mark {
-  width: 42px !important;
-  height: 42px !important;
+  width: 44px !important;
+  height: 44px !important;
   border-radius: 14px;
   box-shadow: 0 8px 18px rgba(26, 43, 72, 0.12);
+  background: #faf7f2;
+}
+
+body.florisyn-atelier .brand-wordmark {
+  height: 28px !important;
+  width: auto !important;
+  max-width: 160px;
+}
+
+body.florisyn-atelier .shell > aside .brand-mark,
+body.florisyn-atelier .header-brand .brand-mark {
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 body.florisyn-atelier #logout {
