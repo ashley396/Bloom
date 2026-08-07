@@ -47,11 +47,9 @@ test("verify email page can resend confirmation email", () => {
   assert.match(html, /resendConfirmationForm/);
   assert.match(js, /auth-resend-confirmation/);
   assert.match(js, /florisyn_pending_email/);
-  assert.match(fn, /auth\/v1\/resend/);
-  assert.match(fn, /type:\s*"signup"/);
-  assert.match(fn, /redirect_to=\$\{encodeURIComponent\(redirectTo\)\}/);
   assert.match(fn, /sendSignupConfirmationEmail/);
-  assert.match(fn, /authRedirectPath\(process\.env, origin, "\/verify-email\?confirmed=1"\)/);
+  assert.doesNotMatch(fn, /auth\/v1\/resend/);
+  assert.match(fn, /confirmationEmailSent:\s*true/);
   assert.match(fn, /If this email has an unconfirmed Florisyn account/);
 });
 
@@ -62,7 +60,9 @@ test("signup sends confirmation email when mailer is configured", () => {
   assert.match(signup, /sendSignupConfirmationEmail/);
   assert.match(signup, /confirmationEmailSent/);
   assert.match(helper, /admin\/generate_link/);
-  assert.match(helper, /type:\s*"signup"/);
+  assert.match(helper, /"signup"/);
+  assert.match(helper, /magiclink/);
+  assert.match(helper, /alreadyConfirmed/);
   assert.match(mailer, /RESEND_API_KEY/);
   assert.match(mailer, /api\.resend\.com\/emails/);
 });
