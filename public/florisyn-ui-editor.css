@@ -1,0 +1,265 @@
+/* Florisyn Admin visual editors — Design Mode + Image Edit Mode (visual-only) */
+
+#florisynDesignBar {
+  position: fixed;
+  z-index: 10050;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  max-width: min(980px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(26, 43, 72, 0.96);
+  color: #fff;
+  box-shadow: 0 18px 40px rgba(26, 43, 72, 0.35);
+  font: 600 13px Figtree, system-ui, sans-serif;
+}
+
+#florisynDesignBar button,
+#florisynDesignBar label.florisyn-design-file {
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font: inherit;
+  background: #fff;
+  color: #1a2b48;
+}
+
+#florisynDesignBar button.secondary {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+#florisynDesignBar .florisyn-design-status {
+  opacity: 0.9;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+body.florisyn-design-mode [data-florisyn-edit]:hover,
+body.florisyn-design-mode .panel:hover,
+body.florisyn-design-mode .card:hover,
+body.florisyn-design-mode .atelier-kpi:hover,
+body.florisyn-design-mode .pad:hover,
+body.florisyn-design-mode .assistant-mini-dock button:hover,
+body.florisyn-design-mode .rose-welcome-card:hover,
+body.florisyn-design-mode .lily-suggestion-card:hover,
+body.florisyn-design-mode h1:hover,
+body.florisyn-design-mode h2:hover,
+body.florisyn-design-mode h3:hover,
+body.florisyn-design-mode p:hover,
+body.florisyn-design-mode img:hover {
+  outline: 1px dashed rgba(201, 169, 98, 0.9);
+  cursor: pointer;
+}
+
+body.florisyn-image-edit-mode img,
+body.florisyn-image-edit-mode .pad img,
+body.florisyn-image-edit-mode .assistant-mini-dock img,
+body.florisyn-image-edit-mode .assistant-portrait,
+body.florisyn-image-edit-mode .product-card img,
+body.florisyn-image-edit-mode .floral-library-card img,
+body.florisyn-image-edit-mode [data-florisyn-image] {
+  outline: 2px dashed rgba(196, 93, 122, 0.55);
+  cursor: pointer;
+  transition: outline-color 120ms ease, box-shadow 120ms ease;
+}
+
+body.florisyn-image-edit-mode img:hover,
+body.florisyn-image-edit-mode .pad img:hover,
+body.florisyn-image-edit-mode .assistant-mini-dock img:hover,
+body.florisyn-image-edit-mode .assistant-portrait:hover,
+body.florisyn-image-edit-mode .product-card img:hover,
+body.florisyn-image-edit-mode .floral-library-card img:hover,
+body.florisyn-image-edit-mode [data-florisyn-image]:hover {
+  outline-color: #c45d7a;
+  box-shadow: 0 0 0 4px rgba(196, 93, 122, 0.18);
+}
+
+body.florisyn-design-mode .florisyn-design-selected,
+body.florisyn-image-edit-mode .florisyn-design-selected {
+  outline: 2px solid #c9a962 !important;
+  box-shadow: 0 0 0 4px rgba(201, 169, 98, 0.25) !important;
+  position: relative;
+  z-index: 2;
+}
+
+#florisynDesignInspector {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10060;
+  width: min(360px, calc(100vw - 24px));
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+  background: #fffafb;
+  border: 1px solid rgba(26, 43, 72, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 22px 50px rgba(26, 43, 72, 0.18);
+  padding: 16px;
+  color: #1a2b48;
+  font: 500 13px Figtree, system-ui, sans-serif;
+}
+
+#florisynDesignInspector[hidden] {
+  display: none !important;
+}
+
+#florisynDesignInspector h2 {
+  margin: 0 0 4px;
+  font: 600 1.2rem "Playfair Display", Georgia, serif;
+}
+
+#florisynDesignInspector .subtle {
+  color: #6d7385;
+  margin: 0 0 14px;
+}
+
+#florisynDesignInspector label {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#florisynDesignInspector input,
+#florisynDesignInspector textarea,
+#florisynDesignInspector select {
+  width: 100%;
+  border: 1px solid rgba(26, 43, 72, 0.14);
+  border-radius: 10px;
+  padding: 9px 10px;
+  font: inherit;
+  background: #fff;
+}
+
+#florisynDesignInspector .florisyn-design-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+#florisynDesignInspector .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+#florisynDesignInspector button,
+.florisyn-design-admin-panel button,
+.florisyn-design-admin-panel label.file-btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  background: #1a2b48;
+  color: #fff;
+}
+
+#florisynDesignInspector button.secondary,
+.florisyn-design-admin-panel button.secondary,
+.florisyn-design-admin-panel label.file-btn.secondary {
+  background: #fff;
+  color: #1a2b48;
+  border: 1px solid rgba(26, 43, 72, 0.16);
+}
+
+body.florisyn-design-mode.florisyn-design-dragging,
+body.florisyn-image-edit-mode.florisyn-design-dragging {
+  user-select: none;
+  cursor: grabbing;
+}
+
+.florisyn-image-library {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.florisyn-image-library button {
+  padding: 0 !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+  background: #f4eef1 !important;
+  border: 1px solid rgba(26, 43, 72, 0.1) !important;
+  aspect-ratio: 1;
+}
+
+.florisyn-image-library img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  outline: none !important;
+}
+
+.florisyn-design-admin-panel .voice-upload-grid,
+.florisyn-design-admin-panel .image-mode-grid {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.florisyn-design-admin-panel .voice-card,
+.florisyn-design-admin-panel .image-mode-card {
+  border: 1px solid rgba(26, 43, 72, 0.1);
+  border-radius: 16px;
+  padding: 16px;
+  background: #fff;
+}
+
+.florisyn-design-admin-panel .voice-card h3,
+.florisyn-design-admin-panel .image-mode-card h3 {
+  margin: 0 0 6px;
+  font-family: "Playfair Display", Georgia, serif;
+}
+
+.florisyn-design-admin-panel .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.florisyn-design-admin-panel .library-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.florisyn-design-admin-panel .library-admin-grid figure {
+  margin: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(26, 43, 72, 0.1);
+  background: #f7f1f4;
+}
+
+.florisyn-design-admin-panel .library-admin-grid img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+}
+
+.florisyn-design-admin-panel .library-admin-grid figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px;
+  font-size: 11px;
+}

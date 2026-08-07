@@ -42,11 +42,12 @@ function setView(name){
   if(workspace)workspace.scrollTop=0;
   window.scrollTo(0,0);
   const titles={
-    overview:'Executive dashboard',betaToolkit:'Beta toolkit — RC1',users:'User management',marketplaceAdmin:'Marketplace admin',support:'Support center',subscriptions:'Subscriptions',announcements:'Announcements',featureFlags:'Feature flags',analytics:'Analytics',paymentHub:'Payment platform',systemHealth:'System health',shops:'Florist accounts',editor:'Remote account editor',auditLog:'Audit log',floralLibraryAdmin:'Floral Library import & quality',audit:'Shop change history'
+    overview:'Executive dashboard',betaToolkit:'Beta toolkit — RC1',users:'User management',marketplaceAdmin:'Marketplace admin',support:'Support center',subscriptions:'Subscriptions',announcements:'Announcements',featureFlags:'Feature flags',analytics:'Analytics',paymentHub:'Payment platform',systemHealth:'System health',shops:'Florist accounts',editor:'Remote account editor',auditLog:'Audit log',floralLibraryAdmin:'Floral Library import & quality',uiDesignMode:'UI Design Mode — visual studio',audit:'Shop change history'
   };
   $('#viewTitle').textContent=titles[name]||name;
   if(window.__loadCommandView)window.__loadCommandView(name);
   if(name==='floralLibraryAdmin')window.BloomLibraryAdmin?.mount?.(document.getElementById('floralLibraryAdminRoot'));
+  if(name==='uiDesignMode')window.FlorisynUiEditor?.mountAdminPanel?.(document.getElementById('uiDesignModeRoot'));
 }
 async function loadOverview(){
   const d=await call('admin-console?action=overview');
