@@ -5,6 +5,7 @@
 
 import { structuredLog } from "./production.js";
 import { requestIdOf } from "./upstream.js";
+import { json } from "./http.js";
 
 const SENSITIVE_META_KEYS = /pass(word)?|token|secret|authorization|apikey|api_key|refresh|access_token|redirect|link|cookie/i;
 
@@ -130,19 +131,16 @@ export function mapAuthProviderFailure(response, data = {}, { flow = "auth" } = 
   };
 }
 
-export function jsonAuthError(mapped) {
+export function jsonAuthError(mapped, env = process.env, event = null) {
   const body = { error: mapped.error, code: mapped.code };
   if (mapped.ok) body.ok = true;
   if (mapped.retryAfterSeconds) body.retryAfterSeconds = mapped.retryAfterSeconds;
-  const headers = {
-    "Content-Type": "application/json",
-    "Cache-Control": "no-store"
-  };
-  if (mapped.retryAfterSeconds) headers["Retry-After"] = String(mapped.retryAfterSeconds);
-  if (mapped.requestId) headers["x-request-id"] = String(mapped.requestId);
-  return {
-    statusCode: mapped.statusCode,
-    headers,
-    body: JSON.stringify(body)
-  };
+  const response = json(mapped.statusCode, body, env, event);
+  if (mapped.retryAfterSeconds) {
+    response.headers = { ...response.headers, "Retry-After": String(mapped.retryAfterSeconds) };
+  }
+  if (mapped.requestId) {
+    response.headers = { ...response.headers, "x-request-id": String(mapped.requestId) };
+  }
+  return response;
 }

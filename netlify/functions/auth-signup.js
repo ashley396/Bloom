@@ -35,7 +35,7 @@ export async function handler(event){
     if(!response.ok){
       const mapped=mapAuthProviderFailure(response,data,{flow:"signup"});
       logAuthEvent("warn","signup_failed",{email_domain:emailCheck.value.split("@")[1],provider_status:response.status,code:mapped.code,request_id:requestId},event);
-      return jsonAuthError(mapped);
+      return jsonAuthError(mapped, process.env, event);
     }
 
     const confirmationRequired=!data.access_token;
@@ -57,15 +57,18 @@ export async function handler(event){
       },event);
     }
 
-    logAuthEvent("info","signup_accepted",{user_id:data.user?.id||null,confirmation_required:confirmationRequired,confirmation_email_sent:Boolean(confirmationEmail.sent),request_id:requestId},event);
+    // Never mint florist sessions from signup. Login (and refresh) enforce shop membership.
+    // Returning tokens here would let unattached accounts bypass that gate.
+    logAuthEvent("info","signup_accepted",{user_id:data.user?.id||null,confirmation_required:confirmationRequired,confirmation_email_sent:Boolean(confirmationEmail.sent),session_tokens_omitted:true,request_id:requestId},event);
     return json(200,{
-      accessToken:data.access_token||null,
-      refreshToken:data.refresh_token||null,
-      expiresIn:data.expires_in||null,
-      user:data.user||null,
+      accessToken:null,
+      refreshToken:null,
+      expiresIn:null,
+      user:data.user?{id:data.user.id,email:data.user.email}:null,
       confirmationRequired,
       confirmationEmailSent:Boolean(confirmationEmail.sent),
-      confirmationEmailProvider:confirmationEmail.provider||null
-    });
-  }catch(error){ return fail(error); }
+      confirmationEmailProvider:confirmationEmail.provider||null,
+      nextStep:confirmationRequired?"verify_email":"sign_in"
+    },process.env,event);
+  }catch(error){ return fail(error,process.env,event); }
 }

@@ -46,7 +46,7 @@ export async function handler(event) {
         code: mapped.code,
         request_id: requestId
       }, event);
-      return jsonAuthError(mapped);
+      return jsonAuthError(mapped, process.env, event);
     }
     logAuthEvent("info", "auth_recover_accepted", {
       email_domain: emailCheck.value.split("@")[1],

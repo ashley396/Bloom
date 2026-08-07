@@ -4,91 +4,7 @@ import { checkDistributedRateLimit, writeShopAudit } from "./_shared/production.
 import { validateEmail } from "./_shared/validation.js";
 import { fetchWithTimeout, requestIdOf } from "./_shared/upstream.js";
 import { logAuthEvent, mapAuthProviderFailure } from "./_shared/auth-email.js";
-
-const MEMBERSHIP_MESSAGE =
-  "Your Florisyn login works, but this account is not linked to an active flower shop yet. Finish onboarding or contact Florisyn support so we can attach your shop membership.";
-const MEMBERSHIP_CHECK_UNAVAILABLE =
-  "Sign in is temporarily unavailable while we verify shop access. Please try again in a moment.";
-
-function isMissingColumnError(error, column = "status") {
-  const msg = String(error?.message || error || "").toLowerCase();
-  return msg.includes(column.toLowerCase()) && (msg.includes("column") || msg.includes("schema cache"));
-}
-
-async function hasActiveShopMembership(client, userId) {
-  let result = await client
-    .from("shop_members")
-    .select("shop_id")
-    .eq("user_id", userId)
-    .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
-  if (result.error && isMissingColumnError(result.error, "status")) {
-    result = await client.from("shop_members").select("shop_id").eq("user_id", userId).limit(1).maybeSingle();
-  }
-  if (result.error) throw result.error;
-  return Boolean(result.data?.shop_id);
-}
-
-async function isActivePlatformAdmin(client, userId) {
-  const result = await client
-    .from("platform_admins")
-    .select("user_id,active")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (result.error) throw result.error;
-  return Boolean(result.data?.active);
-}
-
-/**
- * Florist accounts need an active shop membership before a session is issued.
- * Platform admins may sign in without shop membership (Admin console path).
- * Fail closed when service role or membership lookup is unavailable — never mint tokens blind.
- */
-async function assertFloristAccessOrAdmin(userId, event, requestId) {
-  if (!userId) {
-    return { ok: false, status: 401, code: "invalid_credentials", error: "Invalid email or password." };
-  }
-  const client = adminIfConfigured();
-  if (!client) {
-    logAuthEvent(
-      "error",
-      "login_membership_check_unavailable",
-      { user_id: userId, request_id: requestId, reason: "service_role_missing" },
-      event
-    );
-    return {
-      ok: false,
-      status: 503,
-      code: "membership_check_unavailable",
-      error: MEMBERSHIP_CHECK_UNAVAILABLE
-    };
-  }
-  try {
-    if (await hasActiveShopMembership(client, userId)) return { ok: true, kind: "shop_member" };
-    if (await isActivePlatformAdmin(client, userId)) return { ok: true, kind: "platform_admin" };
-    logAuthEvent(
-      "warn",
-      "login_shop_membership_required",
-      { user_id: userId, request_id: requestId },
-      event
-    );
-    return { ok: false, status: 403, code: "shop_membership_required", error: MEMBERSHIP_MESSAGE };
-  } catch (error) {
-    logAuthEvent(
-      "error",
-      "login_membership_check_failed",
-      { user_id: userId, request_id: requestId, provider_status: error?.status || error?.code || "error" },
-      event
-    );
-    return {
-      ok: false,
-      status: 503,
-      code: "membership_check_unavailable",
-      error: MEMBERSHIP_CHECK_UNAVAILABLE
-    };
-  }
-}
+import { assertFloristAccessOrAdmin } from "./_shared/florist-access.js";
 
 export async function handler(event) {
   const requestId = requestIdOf(event);
@@ -181,7 +97,7 @@ export async function handler(event) {
       return json(401, { error: "Invalid email or password.", code: "invalid_credentials" });
     }
 
-    const access = await assertFloristAccessOrAdmin(data.user?.id, event, requestId);
+    const access = await assertFloristAccessOrAdmin(data.user?.id, event, requestId, { flow: "login" });
     if (!access.ok) {
       return json(access.status || 403, { error: access.error, code: access.code });
     }
@@ -208,6 +124,6 @@ export async function handler(event) {
       user: data.user
     });
   } catch (error) {
-    return fail(error);
+    return fail(error, process.env, event);
   }
 }

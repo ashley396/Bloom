@@ -83,7 +83,7 @@ export async function handler(event) {
         mailer_configured: emailProviderConfigured(process.env).configured,
         request_id: requestId
       }, event);
-      return jsonAuthError(mapped);
+      return jsonAuthError(mapped, process.env, event);
     }
     logAuthEvent("info", "auth_resend_accepted", {
       email_domain: emailCheck.value.split("@")[1],

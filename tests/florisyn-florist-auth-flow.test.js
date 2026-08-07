@@ -23,6 +23,7 @@ test("florist login stores bloom_session and redirects home", () => {
   assert.match(loginJs, /localStorage\.setItem\('bloom_session'/);
   assert.match(loginJs, /location\.href="\/"/);
   assert.match(loginJs, /authClient\.postAuth\('\/api\/auth-login'/);
+  assert.match(loginJs, /authClient\?\.postAuth/);
   assert.doesNotMatch(loginJs, /admin-bootstrap|ownerSetup/);
 });
 
@@ -33,11 +34,13 @@ test("confirmed florist boot loads shop workflows from session", () => {
 });
 
 test("missing shop membership shows onboarding, not invalid-login copy", () => {
+  const floristAccess = fs.readFileSync(new URL("../netlify/functions/_shared/florist-access.js", import.meta.url), "utf8");
   assert.match(supabase, /shop_membership_required/);
   assert.match(supabase, /not linked to an active flower shop/);
-  assert.match(loginFn, /shop_membership_required/);
-  assert.match(loginFn, /platform_admins/);
-  assert.match(loginFn, /hasActiveShopMembership|shop_members/);
+  assert.match(loginFn, /assertFloristAccessOrAdmin/);
+  assert.match(floristAccess, /shop_membership_required/);
+  assert.match(floristAccess, /platform_admins/);
+  assert.match(floristAccess, /hasActiveShopMembership|shop_members/);
   assert.match(loginJs, /shop_membership_required/);
   assert.match(appJs, /showMembershipOnboarding/);
   assert.match(appJs, /SHOP SETUP NEEDED/);
@@ -46,11 +49,13 @@ test("missing shop membership shows onboarding, not invalid-login copy", () => {
 });
 
 test("login membership gate fails closed when lookup unavailable", () => {
-  assert.match(loginFn, /membership_check_unavailable/);
-  assert.match(loginFn, /service_role_missing/);
+  const floristAccess = fs.readFileSync(new URL("../netlify/functions/_shared/florist-access.js", import.meta.url), "utf8");
+  assert.match(loginFn, /assertFloristAccessOrAdmin/);
+  assert.match(floristAccess, /membership_check_unavailable/);
+  assert.match(floristAccess, /service_role_missing/);
   assert.doesNotMatch(loginFn, /Fail open to currentUser/);
-  assert.doesNotMatch(loginFn, /return \{ ok: true, skipped: true \}/);
-  assert.match(loginFn, /status: 503/);
+  assert.doesNotMatch(floristAccess, /return \{ ok: true, skipped: true \}/);
+  assert.match(floristAccess, /status: 503/);
   assert.match(loginJs, /membership_check_unavailable/);
 });
 

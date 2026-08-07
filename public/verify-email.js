@@ -11,25 +11,31 @@ const pendingEmail = params.get("email") || sessionStorage.getItem("florisyn_pen
 if (resendEmail) resendEmail.value = pendingEmail;
 
 if (params.get("confirmed") === "1") {
-  title.textContent = "Email confirmed";
-  lead.textContent = "Thank you — your email is verified. Sign in to open your Florisyn workspace.";
-  msg.textContent = "You're all set. We won't ask you to confirm again on this device.";
-  msg.classList.add("success");
+  if (title) title.textContent = "Email confirmed";
+  if (lead) lead.textContent = "Thank you — your email is verified. Sign in to open your Florisyn workspace.";
+  if (msg) {
+    msg.textContent = "You're all set. We won't ask you to confirm again on this device.";
+    msg.classList.add("success");
+  }
   if (steps) steps.hidden = true;
   sessionStorage.removeItem("florisyn_pending_email");
 } else if (params.get("pending") === "1") {
-  title.textContent = "Confirm your email";
-  lead.textContent = "Your account was created. We sent a confirmation link — check your inbox (and spam folder).";
+  if (title) title.textContent = "Confirm your email";
+  if (lead) lead.textContent = "Your account was created. We sent a confirmation link — check your inbox (and spam folder).";
   const delayed = sessionStorage.getItem("florisyn_pending_email_hint");
-  msg.textContent = delayed || "If it does not arrive, use the resend button below.";
+  if (msg) {
+    msg.textContent = delayed || "If it does not arrive, use the resend button below.";
+    msg.classList.add("success");
+  }
   if (delayed) sessionStorage.removeItem("florisyn_pending_email_hint");
-  msg.classList.add("success");
   if (resendForm) resendForm.hidden = false;
 } else if (params.get("error") === "1") {
-  title.textContent = "Verification link expired";
-  lead.textContent = "This confirmation link is no longer valid or has already been used.";
-  msg.textContent = "Sign in if you already confirmed, or request a fresh confirmation email below.";
-  msg.classList.add("error");
+  if (title) title.textContent = "Verification link expired";
+  if (lead) lead.textContent = "This confirmation link is no longer valid or has already been used.";
+  if (msg) {
+    msg.textContent = "Sign in if you already confirmed, or request a fresh confirmation email below.";
+    msg.classList.add("error");
+  }
   if (steps) steps.hidden = true;
   if (resendForm) resendForm.hidden = false;
 }
@@ -37,14 +43,18 @@ if (params.get("confirmed") === "1") {
 resendForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const email = String(resendEmail?.value || "").trim();
-  msg.classList.remove("success", "error");
+  msg?.classList.remove("success", "error");
   if (!email) {
-    msg.textContent = "Enter the email address you used to create your Florisyn account.";
-    msg.classList.add("error");
+    if (msg) {
+      msg.textContent = "Enter the email address you used to create your Florisyn account.";
+      msg.classList.add("error");
+    }
     return;
   }
-  resendButton.disabled = true;
-  resendButton.textContent = "Sending...";
+  if (resendButton) {
+    resendButton.disabled = true;
+    resendButton.textContent = "Sending...";
+  }
   try {
     const authClient = window.FlorisynAuthClient;
     let data = {};
@@ -69,17 +79,23 @@ resendForm?.addEventListener("submit", async (event) => {
       if (!response.ok) throw new Error(data.error || `Could not resend confirmation email (${response.status})`);
     }
     sessionStorage.setItem("florisyn_pending_email", email);
-    msg.textContent = data.message || "If this email has an unconfirmed account, a new confirmation link will arrive shortly.";
-    msg.classList.add("success");
-  } catch (error) {
-    if (error.code === "auth_rate_limited" && window.FlorisynAuthClient) {
-      msg.textContent = window.FlorisynAuthClient.rateLimitMessage(error.retryAfterSeconds, error.message);
-    } else {
-      msg.textContent = error.message || "Could not resend confirmation email.";
+    if (msg) {
+      msg.textContent = data.message || "If this email has an unconfirmed account, a new confirmation link will arrive shortly.";
+      msg.classList.add("success");
     }
-    msg.classList.add("error");
+  } catch (error) {
+    if (msg) {
+      if (error.code === "auth_rate_limited" && window.FlorisynAuthClient) {
+        msg.textContent = window.FlorisynAuthClient.rateLimitMessage(error.retryAfterSeconds, error.message);
+      } else {
+        msg.textContent = error.message || "Could not resend confirmation email.";
+      }
+      msg.classList.add("error");
+    }
   } finally {
-    resendButton.disabled = false;
-    resendButton.textContent = "Resend confirmation email";
+    if (resendButton) {
+      resendButton.disabled = false;
+      resendButton.textContent = "Resend confirmation email";
+    }
   }
 });

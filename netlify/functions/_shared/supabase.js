@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { safePublicError, structuredLog } from "./production.js";
+import { json } from "./http.js";
 
 /** Netlify / Node — read from process.env only (no file loading here). */
 const SERVER_KEY_ENV_NAMES = ["SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY"];
@@ -106,7 +107,8 @@ export function adminIfConfigured() {
 }
 function denied(message,statusCode=403){const e=new Error(message);e.statusCode=statusCode;throw e}
 function isMissingColumnError(error,column="status"){const msg=String(error?.message||error||"").toLowerCase();return msg.includes(column.toLowerCase())&&(msg.includes("column")||msg.includes("schema cache"))}
-async function activeMembership(client,userId,preferredShopId){const base=()=>client.from("shop_members").select("shop_id,role,status").eq("user_id",userId);let membership=null;if(preferredShopId){let r=await base().eq("shop_id",preferredShopId).eq("status","active").maybeSingle();if(r.error&&isMissingColumnError(r.error,"status"))r=await base().eq("shop_id",preferredShopId).maybeSingle();if(r.error)throw r.error;membership=r.data}if(!membership){let r=await base().eq("status","active").order("created_at",{ascending:true}).limit(1).maybeSingle();if(r.error&&isMissingColumnError(r.error,"status"))r=await base().order("created_at",{ascending:true}).limit(1).maybeSingle();if(r.error)throw r.error;membership=r.data}return membership}
+function membershipSchemaUnavailable(){const e=new Error("Shop membership schema is incomplete. Please contact Florisyn support.");e.statusCode=503;e.code="membership_check_unavailable";return e}
+async function activeMembership(client,userId,preferredShopId){const base=()=>client.from("shop_members").select("shop_id,role,status").eq("user_id",userId);let membership=null;if(preferredShopId){let r=await base().eq("shop_id",preferredShopId).eq("status","active").maybeSingle();if(r.error&&isMissingColumnError(r.error,"status"))throw membershipSchemaUnavailable();if(r.error)throw r.error;membership=r.data}if(!membership){let r=await base().eq("status","active").order("created_at",{ascending:true}).limit(1).maybeSingle();if(r.error&&isMissingColumnError(r.error,"status"))throw membershipSchemaUnavailable();if(r.error)throw r.error;membership=r.data}return membership}
 /**
  * Florist session: JWT + member-scoped Supabase client (RLS enforced).
  * Phase 2A A2 — does not use service role; Tier-3 routes call admin() explicitly.
@@ -143,4 +145,10 @@ export async function currentUser(event) {
   };
 }
 export function requireRoles(context,roles){if(!roles.includes(context.role))denied("You do not have permission to perform this action.")}
-export function fail(error){structuredLog("error","function_error",{message:error.message,status:error.statusCode||500,code:error.code||undefined});console.error("Florisyn function error:",error);const payload={error:safePublicError(error)};if(error?.code)payload.code=error.code;return{statusCode:error.statusCode||500,headers:{"Content-Type":"application/json","Cache-Control":"no-store","X-Content-Type-Options":"nosniff","X-Frame-Options":"DENY","Referrer-Policy":"strict-origin-when-cross-origin"},body:JSON.stringify(payload)}}
+export function fail(error, env = process.env, event = null){
+  structuredLog("error","function_error",{message:error.message,status:error.statusCode||500,code:error.code||undefined});
+  console.error("Florisyn function error:",error);
+  const payload={error:safePublicError(error)};
+  if(error?.code)payload.code=error.code;
+  return json(error.statusCode||500, payload, env, event);
+}
