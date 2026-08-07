@@ -51,7 +51,7 @@ test("official tagline appears on login", () => {
 
 test("sidebar invoices and payments are plain nav buttons without extra wrappers", () => {
   const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
-  const aside = html.match(/<aside>([\s\S]*?)<\/aside>/)?.[1] || "";
+  const aside = html.match(/<aside[^>]*>([\s\S]*?)<\/aside>/)?.[1] || "";
   assert.match(aside, /<button data-page="invoicesPage">Invoices<\/button>/);
   assert.match(aside, /<button data-page="paymentsPage">Payment Center<\/button>/);
   assert.doesNotMatch(aside, /class="secondary"[^>]*data-page="invoicesPage"/);
