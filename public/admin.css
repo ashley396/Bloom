@@ -15,6 +15,16 @@ nav button{background:transparent;color:#51464d;text-align:left}nav button.activ
 
 .owner-setup-card small{display:block;margin-top:14px;color:#847980}.foundation-admin-card{display:flex;justify-content:space-between;align-items:center;gap:24px}.foundation-edit{display:flex;align-items:end;gap:10px}.foundation-edit label{margin:0}.foundation-edit input{min-width:180px}@media(max-width:760px){.foundation-admin-card,.foundation-edit{display:block}.foundation-edit button{margin-top:10px;width:100%}}
 
+/* Admin login: password eye + reset (visual/helpers only; uses existing auth-forgot-password) */
+.admin-password-wrap{position:relative;display:block}
+.admin-password-wrap input{padding-right:48px}
+.admin-password-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:0;border-radius:10px;padding:0;display:grid;place-items:center;background:transparent;color:#8a7f86;cursor:pointer;box-shadow:none}
+.admin-password-toggle:hover,.admin-password-toggle[aria-pressed="true"]{color:#1a2b48;background:rgba(246,223,232,.55)}
+#adminLogin button.secondary,#adminResetPassword{background:#fff;color:var(--ink);border:1px solid var(--line)}
+#adminLogin #loginMessage a,.admin-login>a,#loginMessage button.linkish{color:#9b3058;font-weight:700}
+#loginMessage{min-height:1.4em;margin:0 0 12px;color:var(--muted);line-height:1.5}
+#loginMessage button.linkish{display:inline;padding:0;border:0;background:none;color:#9b3058;font:inherit;font-weight:700;cursor:pointer;text-decoration:underline}
+
 body[data-admin-theme="dark"]{--ink:#f4eef1;--muted:#b9abb1;--line:#3a3035;--cream:#171316;--card:#211b1f;color:var(--ink);background:var(--cream)}
 body[data-admin-theme="dark"] aside,body[data-admin-theme="dark"] .panel,body[data-admin-theme="dark"] .metric,body[data-admin-theme="dark"] .shop-row{background:var(--card);border-color:var(--line)}
 body[data-admin-theme="dark"] nav button{color:#d8ccd2}

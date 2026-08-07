@@ -47,3 +47,13 @@ test("Admin login cannot be wiped by a stale session restore race", () => {
   assert.match(adminJs, /bumpAuthEpoch\(\).*cancel any in-flight stale session restore|const epoch=bumpAuthEpoch\(\)/);
   assert.match(adminJs, /Reveal shell first|never let post-auth UI init bounce/i);
 });
+
+test("Admin login exposes password eye toggle and existing reset flow", () => {
+  assert.match(adminHtml, /id="adminPasswordToggle"/);
+  assert.match(adminHtml, /aria-label="Show password"/);
+  assert.match(adminHtml, /id="adminResetPassword"/);
+  assert.match(adminHtml, /Reset password/);
+  assert.match(adminJs, /adminPasswordToggle/);
+  assert.match(adminJs, /auth-forgot-password/);
+  assert.match(adminCss, /\.admin-password-toggle/);
+});

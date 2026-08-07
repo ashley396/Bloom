@@ -90,6 +90,35 @@ $('#ownerSetupForm')?.addEventListener('submit',async e=>{
     setTimeout(showLoginGate,700);
   }catch(err){msg.textContent=err.message}
 });
+$('#adminPasswordToggle')?.addEventListener('click',()=>{
+  const input=$('#adminPassword');
+  const toggle=$('#adminPasswordToggle');
+  if(!input||!toggle)return;
+  const show=input.type==='password';
+  input.type=show?'text':'password';
+  toggle.setAttribute('aria-pressed',show?'true':'false');
+  toggle.setAttribute('aria-label',show?'Hide password':'Show password');
+});
+$('#adminResetPassword')?.addEventListener('click',async()=>{
+  const loginMessage=$('#loginMessage');
+  const email=String($('#adminEmail')?.value||'').trim();
+  const btn=$('#adminResetPassword');
+  if(loginMessage){loginMessage.dataset.userError='1';loginMessage.textContent=''}
+  if(!email){
+    if(loginMessage)loginMessage.textContent='Enter your Admin email first, then click Reset password.';
+    $('#adminEmail')?.focus();
+    return;
+  }
+  if(btn){btn.disabled=true;btn.textContent='Sending reset link…'}
+  try{
+    const d=await call('auth-forgot-password',{method:'POST',body:JSON.stringify({email})},false);
+    if(loginMessage)loginMessage.textContent=d.message||'If an account exists for this email, you will receive password reset instructions shortly.';
+    if(btn)btn.textContent='Reset email sent';
+  }catch(err){
+    if(loginMessage)loginMessage.textContent=err.message||'Could not send reset email. Please try again.';
+    if(btn){btn.disabled=false;btn.textContent='Reset password'}
+  }
+});
 $('#adminLogin').onsubmit=async e=>{
   e.preventDefault();
   const loginMessage=$('#loginMessage');
@@ -112,7 +141,8 @@ $('#adminLogin').onsubmit=async e=>{
     if(!loginMessage)return;
     loginMessage.dataset.userError='1';
     if(/invalid login credentials|invalid email or password|email not confirmed/i.test(detail)){
-      loginMessage.innerHTML=`Could not sign in yet. Check your email confirmation link, or <a href="/verify-email?pending=1&email=${encodeURIComponent(email)}">resend the confirmation email</a>.`;
+      loginMessage.innerHTML=`Could not sign in yet. Check your password, <button type="button" class="linkish" id="adminResetPasswordHint">reset your password</button>, or <a href="/verify-email?pending=1&email=${encodeURIComponent(email)}">resend the confirmation email</a>.`;
+      $('#adminResetPasswordHint')?.addEventListener('click',()=>$('#adminResetPassword')?.click());
     }else if(/permission|forbidden|not have permission|platform admin|administration/i.test(detail)){
       loginMessage.textContent=detail||'This account is not authorized for Florisyn Administration.';
     }else loginMessage.textContent=detail||'Could not sign in. Please try again.';

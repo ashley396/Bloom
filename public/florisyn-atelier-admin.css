@@ -101,7 +101,7 @@ body.florisyn.admin-luxury.florisyn-atelier-shell .eyebrow {
 }
 
 body.florisyn.admin-luxury.florisyn-atelier-shell .admin-login button,
-body.florisyn.admin-luxury.florisyn-atelier-shell button:not(.secondary):not([data-theme-toggle]):not(nav button):not(.editor-tabs button):not(.subscriber-alert) {
+body.florisyn.admin-luxury.florisyn-atelier-shell button:not(.secondary):not([data-theme-toggle]):not(nav button):not(.editor-tabs button):not(.subscriber-alert):not(.admin-password-toggle) {
   background: linear-gradient(135deg, var(--atelier-navy) 0%, var(--atelier-navy-soft) 100%) !important;
   color: #fff !important;
   border-radius: 14px !important;
