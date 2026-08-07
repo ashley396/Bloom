@@ -1147,9 +1147,24 @@ body.florisyn-atelier .page > .heading h1 {
     display: block !important;
   }
   body.florisyn-atelier .atelier-assist-rail,
-  body.florisyn-atelier .profit-intelligence-grid,
-  body.florisyn-atelier .pos-workspace {
+  body.florisyn-atelier .profit-intelligence-grid {
     display: none !important;
+  }
+  /* Keep Point of Sale + product pads reachable on mobile */
+  body.florisyn-atelier .pos-workspace {
+    display: grid !important;
+    margin-top: 14px;
+  }
+  body.florisyn-atelier .pos-right-column {
+    display: none !important;
+  }
+  body.florisyn-atelier .product-pad-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  body.florisyn-atelier .pad {
+    min-height: 132px !important;
   }
 
   body.florisyn-atelier .atelier-dash-hero {
@@ -1763,4 +1778,58 @@ body.florisyn-atelier.florisyn-rc22 #productsPage > .heading {
   body.florisyn-atelier .order-board-column {
     min-height: 340px;
   }
+}
+
+/* UI restore: dashboard alignment */
+body.florisyn-atelier .shell > .content {
+  width: 100%;
+  max-width: none;
+}
+body.florisyn-atelier #dashboardPage.pos-home {
+  width: 100%;
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+}
+body.florisyn-atelier .atelier-dash-overview {
+  width: 100%;
+  align-items: stretch;
+}
+body.florisyn-atelier .atelier-dash-columns {
+  width: 100%;
+}
+
+
+/* Restore: product pads fully visible; faces not cropped harshly */
+body.florisyn-atelier .product-pad-grid{
+  width:100%;
+  max-width:none;
+  overflow:visible !important;
+}
+body.florisyn-atelier .pad{
+  overflow:hidden;
+  min-height:140px;
+}
+body.florisyn-atelier .pad img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:center center;
+}
+body.florisyn-atelier .assistant-portrait,
+body.florisyn-atelier .assistant-mini-dock img,
+body.florisyn-atelier .rose-portrait,
+body.florisyn-atelier .lily-portrait{
+  object-fit:cover !important;
+  object-position:center 18% !important;
+}
+body.florisyn-atelier .shell > .content{
+  overflow-y:auto;
+  max-height:none;
+}
+body.florisyn-atelier .pos-workspace{
+  width:100%;
+  max-width:1280px;
+  margin-left:auto;
+  margin-right:auto;
 }

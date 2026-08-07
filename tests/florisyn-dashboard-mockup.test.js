@@ -18,7 +18,7 @@ test("dashboard mockup chrome is wired in the florist app shell", () => {
   assert.match(html, /atelier-inventory-alert/);
   assert.match(html, /Point of Sale/);
   assert.match(html, /florisyn-atelier-dashboard\.js/);
-  assert.match(html, /florisyn-atelier-ui\.css\?v=atelierops1/);
+  assert.match(html, /florisyn-atelier-ui\.css\?v=atelierops2/);
 });
 
 test("mobile mockup chrome matches founder phone layout markers", () => {
