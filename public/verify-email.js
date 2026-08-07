@@ -20,7 +20,9 @@ if (params.get("confirmed") === "1") {
 } else if (params.get("pending") === "1") {
   title.textContent = "Confirm your email";
   lead.textContent = "Your account was created. We sent a confirmation link — check your inbox (and spam folder).";
-  msg.textContent = "If it does not arrive, use the resend button below.";
+  const delayed = sessionStorage.getItem("florisyn_pending_email_hint");
+  msg.textContent = delayed || "If it does not arrive, use the resend button below.";
+  if (delayed) sessionStorage.removeItem("florisyn_pending_email_hint");
   msg.classList.add("success");
   if (resendForm) resendForm.hidden = false;
 } else if (params.get("error") === "1") {
@@ -44,18 +46,37 @@ resendForm?.addEventListener("submit", async (event) => {
   resendButton.disabled = true;
   resendButton.textContent = "Sending...";
   try {
-    const response = await fetch("/.netlify/functions/auth-resend-confirmation", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email })
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || `Could not resend confirmation email (${response.status})`);
+    const authClient = window.FlorisynAuthClient;
+    let data = {};
+    let response;
+    if (authClient?.postAuth) {
+      const result = await authClient.postAuth("/.netlify/functions/auth-resend-confirmation", { email });
+      response = result.response;
+      data = result.data;
+      if (!response.ok) {
+        const err = new Error(data.error || `Could not resend confirmation email (${response.status})`);
+        err.code = data.code || "";
+        err.retryAfterSeconds = result.retryAfterSeconds;
+        throw err;
+      }
+    } else {
+      response = await fetch("/.netlify/functions/auth-resend-confirmation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      });
+      data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Could not resend confirmation email (${response.status})`);
+    }
     sessionStorage.setItem("florisyn_pending_email", email);
     msg.textContent = data.message || "If this email has an unconfirmed account, a new confirmation link will arrive shortly.";
     msg.classList.add("success");
   } catch (error) {
-    msg.textContent = error.message || "Could not resend confirmation email.";
+    if (error.code === "auth_rate_limited" && window.FlorisynAuthClient) {
+      msg.textContent = window.FlorisynAuthClient.rateLimitMessage(error.retryAfterSeconds, error.message);
+    } else {
+      msg.textContent = error.message || "Could not resend confirmation email.";
+    }
     msg.classList.add("error");
   } finally {
     resendButton.disabled = false;

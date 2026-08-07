@@ -149,7 +149,15 @@ export async function handler(event) {
           },
           event
         );
-        return json(mapped.statusCode, { error: mapped.error, code: mapped.code });
+        const mappedResponse = json(mapped.statusCode, {
+          error: mapped.error,
+          code: mapped.code,
+          ...(mapped.retryAfterSeconds ? { retryAfterSeconds: mapped.retryAfterSeconds } : {})
+        }, process.env, event);
+        if (mapped.retryAfterSeconds) {
+          mappedResponse.headers = { ...mappedResponse.headers, "Retry-After": String(mapped.retryAfterSeconds) };
+        }
+        return mappedResponse;
       }
       logAuthEvent(
         "warn",

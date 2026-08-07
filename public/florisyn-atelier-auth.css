@@ -918,11 +918,18 @@ body.florisyn-auth-hero .auth-hero-stage {
   isolation: isolate;
 }
 
-body.florisyn-auth-hero .auth-hero-devices {
+body.florisyn-auth-hero .auth-hero-devices,
+body.florisyn-auth-hero .auth-hero-devices-picture {
   width: 100%;
   height: auto;
   display: block;
   filter: drop-shadow(0 28px 50px rgba(26, 43, 72, 0.18));
+  border-radius: 28px;
+}
+body.florisyn-auth-hero .auth-hero-devices-picture img {
+  width: 100%;
+  height: auto;
+  display: block;
   border-radius: 28px;
 }
 

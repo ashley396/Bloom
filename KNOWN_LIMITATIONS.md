@@ -6,7 +6,7 @@
 - **Mobile navigation** — Bottom nav + “More” prompt; not all sidebar pages on mobile nav.
 - **AI** — Requires Cloudflare env and/or local Ollama bridge for full generative quality.
 - **Beta feedback** — Requires `20260728_release_candidate_v1.sql` for persistent inbox.
-- **Hardcoded demo copy** — Dashboard greeting “Ashley” until shop user profile wiring.
-- **Duplicate CSS layers** — Historical polish CSS files; consolidated gradually via Launch Polish.
+- **Hardcoded demo copy** — Dashboard greeting uses the signed-in profile/email first name when available.
+- **Duplicate CSS layers** — Historical polish CSS files; consolidated gradually via Launch Polish / Atelier.
 
 See also `KNOWN_ISSUES` in `netlify/functions/_shared/bloom-release.js` (shown in Admin Beta toolkit).

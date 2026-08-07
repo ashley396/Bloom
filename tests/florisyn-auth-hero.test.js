@@ -9,12 +9,14 @@ const css = fs.readFileSync(new URL("../public/florisyn-atelier-auth.css", impor
 test("login and signup use premium auth hero shell with official mark", () => {
   for (const html of [login, signup]) {
     assert.match(html, /florisyn-auth-hero/);
-    assert.match(html, /florisyn-atelier-auth\.css\?v=authhero2/);
+    assert.match(html, /florisyn-atelier-auth\.css\?v=authhero3/);
     assert.match(html, /florisyn-mark\.png\?v=official1/);
     assert.match(html, /<strong>Florisyn<\/strong>/);
-    assert.match(html, /florisyn-auth-hero-devices\.png/);
+    assert.match(html, /florisyn-auth-hero-devices\.(webp|png)/);
+    assert.match(html, /<picture class="auth-hero-devices-picture">/);
     assert.match(html, /florisyn-auth-petals\.png/);
     assert.match(html, /Where Your Passion Flowers/);
+    assert.match(html, /florisyn-auth-client\.js/);
   }
 });
 
@@ -44,13 +46,18 @@ test("auth hero CSS uses Playfair display and magenta accent", () => {
   assert.match(css, /authPetalFloat/);
 });
 
-test("auth hero image assets exist", () => {
+test("auth hero image assets exist and stay under hero budget", () => {
+  const petals = fs.statSync(new URL("../public/assets/florisyn/florisyn-auth-petals.png", import.meta.url));
+  assert.ok(petals.size > 20_000, "florisyn-auth-petals.png too small");
+
   for (const file of [
     "florisyn-auth-hero-devices.png",
-    "florisyn-auth-petals.png",
+    "florisyn-auth-hero-devices.webp",
     "florisyn-auth-bouquet.png",
+    "florisyn-auth-bouquet.webp",
   ]) {
     const stat = fs.statSync(new URL(`../public/assets/florisyn/${file}`, import.meta.url));
-    assert.ok(stat.size > 20_000, `${file} too small`);
+    assert.ok(stat.size > 10_000, `${file} too small`);
+    assert.ok(stat.size <= 250_000, `${file} exceeds 250KB hero budget (${stat.size})`);
   }
 });

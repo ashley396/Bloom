@@ -22,7 +22,7 @@ const supabase = fs.readFileSync(new URL("../netlify/functions/_shared/supabase.
 test("florist login stores bloom_session and redirects home", () => {
   assert.match(loginJs, /localStorage\.setItem\('bloom_session'/);
   assert.match(loginJs, /location\.href="\/"/);
-  assert.match(loginJs, /fetch\('\/api\/auth-login'/);
+  assert.match(loginJs, /authClient\.postAuth\('\/api\/auth-login'/);
   assert.doesNotMatch(loginJs, /admin-bootstrap|ownerSetup/);
 });
 
