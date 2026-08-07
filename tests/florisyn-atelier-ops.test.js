@@ -34,5 +34,5 @@ test("workspace page headings keep feature entry points", () => {
   assert.match(html, /data-open="deliveryDialog"/);
   assert.match(html, /id="customersPage"/);
   assert.match(html, /data-open="customerDialog"/);
-  assert.match(html, /florisyn-atelier-ui\.css\?v=atelierops1/);
+  assert.match(html, /florisyn-atelier-ui\.css\?v=atelierops2/);
 });
