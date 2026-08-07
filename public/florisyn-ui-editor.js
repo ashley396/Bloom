@@ -860,7 +860,8 @@
     }
 
     const adminRoot = document.getElementById("uiDesignModeRoot");
-    if (adminRoot) mountAdminPanel(adminRoot);
+    // Only mount Admin visual studio after Admin shell is authenticated.
+    if (adminRoot && hasAdminSession() && !document.getElementById("adminApp")?.hidden) mountAdminPanel(adminRoot);
   }
 
   window.FlorisynUiEditor = {

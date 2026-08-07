@@ -5,6 +5,22 @@
 
 @import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap");
 
+/* Never let atelier display rules reveal gated Admin chrome before auth. */
+body.florisyn.admin-luxury.florisyn-atelier-shell [hidden],
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp[hidden],
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminAuth[hidden],
+body.florisyn.admin-luxury.florisyn-atelier-shell #ownerSetup[hidden] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell.admin-locked #adminApp {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 body.florisyn.admin-luxury.florisyn-atelier-shell,
 body.florisyn-atelier-admin {
   --atelier-navy: #1a2b48;
