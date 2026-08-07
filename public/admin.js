@@ -1,10 +1,11 @@
 import { initCommandCenter } from './admin-command-center-ui.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 function readAdminSession(){try{return JSON.parse(localStorage.getItem('bloom_admin_session')||'null')}catch{localStorage.removeItem('bloom_admin_session');return null}}
-let session=readAdminSession(),selectedShop=null,selectedData=null,commandCenter=null;
+let session=readAdminSession(),selectedShop=null,selectedData=null,commandCenter=null,authEpoch=0;
 const FEATURES=['dashboard','orders','deliveries','customers','inventory','products','bloomshot','website','library','invoices','payments','expenses','reports','staff','marketplace','stores','lily','rose'];
 const DEFAULT_NAV=['dashboardPage','ordersPage','deliveriesPage','customersPage','inventoryPage','productsPage','bloomshotPage','websitePage','libraryPage','invoicesPage','paymentsPage','expensesPage','reportsPage','staffPage','marketplacePage','storesPage','settingsPage'];
-function toast(t){const x=$('#adminToast');x.textContent=t;x.hidden=false;setTimeout(()=>x.hidden=true,2800)}
+function bumpAuthEpoch(){authEpoch+=1;return authEpoch}
+function toast(t){const x=$('#adminToast');if(!x)return;x.textContent=t;x.hidden=false;setTimeout(()=>x.hidden=true,2800)}
 async function call(path,opt={},auth=true){const headers={'Content-Type':'application/json',...(opt.headers||{})};if(auth&&session?.accessToken)headers.Authorization=`Bearer ${session.accessToken}`;const base=(String(path).startsWith("auth-")&&!String(path).startsWith("auth-refresh")&&!String(path).startsWith("auth-resend"))?`/api/${path}`:`/.netlify/functions/${path}`;const r=await fetch(base,{...opt,headers});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function saveSession(d){session={accessToken:d.accessToken,refreshToken:d.refreshToken,user:d.user};localStorage.setItem('bloom_admin_session',JSON.stringify(session))}
 function clearAdminSession(){session=null;localStorage.removeItem('bloom_admin_session')}
@@ -25,31 +26,52 @@ function showOwnerSetupGate(){
   if($('#ownerSetup'))$('#ownerSetup').hidden=false;
 }
 function showApp(){
-  if(!session?.accessToken||!session?.user){clearAdminSession();showLoginGate();return}
+  if(!session?.accessToken){clearAdminSession();showLoginGate();return false}
   if($('#ownerSetup'))$('#ownerSetup').hidden=true;
   if($('#adminAuth'))$('#adminAuth').hidden=true;
   const app=$('#adminApp');
   if(app){app.hidden=false;app.setAttribute('aria-hidden','false')}
   document.body.classList.remove('admin-locked');
   document.body.classList.add('admin-authenticated');
-  if($('#adminIdentity'))$('#adminIdentity').textContent=session.user.email;
-  commandCenter=initCommandCenter({call,toast,escapeHtml,$,$$,setView});
-  loadOverview();
-  if(window.__loadCommandView)window.__loadCommandView('overview');
-  loadShops();
-  window.BloomLaunchPolish?.init?.({mode:'admin',api:call});
-  window.BloomLilyPlatform?.init?.({mode:'admin',api:call,toast});
+  if($('#adminIdentity'))$('#adminIdentity').textContent=session.user?.email||'';
+  // Reveal shell first; never let post-auth UI init bounce Ashley back to login.
+  try{
+    commandCenter=initCommandCenter({call,toast,escapeHtml,$,$$,setView});
+    Promise.resolve(loadOverview()).catch((err)=>toast(err.message||'Could not load overview'));
+    if(window.__loadCommandView)window.__loadCommandView('overview');
+    Promise.resolve(loadShops()).catch((err)=>toast(err.message||'Could not load shops'));
+    window.BloomLaunchPolish?.init?.({mode:'admin',api:call});
+    window.BloomLilyPlatform?.init?.({mode:'admin',api:call,toast});
+  }catch(err){
+    console.error(err);
+    toast(err?.message||'Admin UI finished signing in, but one panel failed to load');
+  }
+  return true;
 }
 async function initializeAdmin(){
   lockAdminShell();
+  const epoch=bumpAuthEpoch();
   try{
     const d=await call('admin-bootstrap',{},false);
+    if(epoch!==authEpoch)return;
     if(!d.ownerExists){showOwnerSetupGate();return}
-    if($('#loginMessage'))$('#loginMessage').textContent='Owner account exists. Sign in to Florisyn HQ.';
+    if($('#loginMessage')&&!$('#loginMessage').dataset.userError)$('#loginMessage').textContent='Owner account exists. Sign in to Florisyn HQ.';
     if(session?.accessToken){
-      call('admin-command-center?action=dashboard').then(showApp).catch(()=>{clearAdminSession();showLoginGate()});
+      const token=session.accessToken;
+      call('admin-command-center?action=dashboard').then(()=>{
+        if(epoch!==authEpoch)return;
+        if(session?.accessToken!==token)return;
+        showApp();
+      }).catch(()=>{
+        // Stale/expired restore only — never clear a newer successful login.
+        if(epoch!==authEpoch)return;
+        if(session?.accessToken!==token)return;
+        clearAdminSession();
+        showLoginGate();
+      });
     }else showLoginGate();
   }catch(err){
+    if(epoch!==authEpoch)return;
     clearAdminSession();
     showLoginGate();
     if($('#loginMessage'))$('#loginMessage').textContent=err.message;
@@ -68,8 +90,35 @@ $('#ownerSetupForm')?.addEventListener('submit',async e=>{
     setTimeout(showLoginGate,700);
   }catch(err){msg.textContent=err.message}
 });
-$('#adminLogin').onsubmit=async e=>{e.preventDefault();const loginMessage=$('#loginMessage'),email=$('#adminEmail').value;loginMessage.textContent='';try{const d=await call('auth-login',{method:'POST',body:JSON.stringify({email,password:$('#adminPassword').value})},false);saveSession(d);await call('admin-command-center?action=dashboard');showApp()}catch(err){clearAdminSession();showLoginGate();const detail=String(err.message||'');if(/invalid login credentials|invalid email or password|email not confirmed/i.test(detail)){loginMessage.innerHTML=`Could not sign in yet. Check your email confirmation link, or <a href="/verify-email?pending=1&email=${encodeURIComponent(email)}">resend the confirmation email</a>.`;}else loginMessage.textContent=detail}}
-$('#adminLogout').onclick=()=>{clearAdminSession();location.reload()}
+$('#adminLogin').onsubmit=async e=>{
+  e.preventDefault();
+  const loginMessage=$('#loginMessage');
+  const email=$('#adminEmail').value;
+  if(loginMessage){loginMessage.dataset.userError='1';loginMessage.textContent='Signing in…'}
+  const epoch=bumpAuthEpoch(); // cancel any in-flight stale session restore
+  try{
+    const d=await call('auth-login',{method:'POST',body:JSON.stringify({email,password:$('#adminPassword').value})},false);
+    if(epoch!==authEpoch)return;
+    if(!d?.accessToken)throw new Error('Sign in did not return a session. Please try again.');
+    saveSession(d);
+    await call('admin-command-center?action=dashboard');
+    if(epoch!==authEpoch)return;
+    showApp();
+  }catch(err){
+    if(epoch!==authEpoch)return;
+    clearAdminSession();
+    showLoginGate();
+    const detail=String(err.message||'');
+    if(!loginMessage)return;
+    loginMessage.dataset.userError='1';
+    if(/invalid login credentials|invalid email or password|email not confirmed/i.test(detail)){
+      loginMessage.innerHTML=`Could not sign in yet. Check your email confirmation link, or <a href="/verify-email?pending=1&email=${encodeURIComponent(email)}">resend the confirmation email</a>.`;
+    }else if(/permission|forbidden|not have permission|platform admin|administration/i.test(detail)){
+      loginMessage.textContent=detail||'This account is not authorized for Florisyn Administration.';
+    }else loginMessage.textContent=detail||'Could not sign in. Please try again.';
+  }
+};
+$('#adminLogout').onclick=()=>{bumpAuthEpoch();clearAdminSession();location.reload()}
 lockAdminShell();
 if(!window.__florisynAdminNavWired){window.__florisynAdminNavWired=1;document.addEventListener('click',(e)=>{const navBtn=e.target.closest?.('nav button[data-view]');if(navBtn?.dataset?.view){e.preventDefault();setView(navBtn.dataset.view);return}const tabBtn=e.target.closest?.('.editor-tabs button[data-tab]');if(tabBtn?.dataset?.tab){e.preventDefault();document.querySelectorAll('.editor-tabs button').forEach(x=>x.classList.toggle('active',x===tabBtn));document.querySelectorAll('.editor-tab').forEach(p=>p.classList.toggle('active',p.dataset.panel===tabBtn.dataset.tab));return}const openShopBtn=e.target.closest?.('[data-open-shop]');if(openShopBtn?.dataset?.openShop){e.preventDefault();openShop(openShopBtn.dataset.openShop);return}const alertShopBtn=e.target.closest?.('[data-alert-shop]');if(alertShopBtn?.dataset?.alertShop){e.preventDefault();openShop(alertShopBtn.dataset.alertShop);}});} 
 function setView(name){
