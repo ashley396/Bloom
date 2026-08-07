@@ -5,6 +5,7 @@ import { validateEmail } from "./_shared/validation.js";
 import { authRedirectPath } from "./_shared/site-url.js";
 import { fetchWithTimeout, requestIdOf } from "./_shared/upstream.js";
 import { logAuthEvent, mapAuthProviderFailure, jsonAuthError } from "./_shared/auth-email.js";
+import { sendPasswordRecoveryEmail } from "./_shared/auth-recovery-email.js";
 
 export async function handler(event) {
   const requestId = requestIdOf(event);
@@ -24,10 +25,54 @@ export async function handler(event) {
     const emailCheck = validateEmail(body.email, { required: true });
     if (!emailCheck.ok) return json(400, { error: emailCheck.error, code: emailCheck.code || "invalid_email" });
 
-    const { url, anonKey } = publicSettings();
     const origin = event.headers?.origin || event.headers?.Origin || "";
     const redirectTo = authRedirectPath(process.env, origin, "/reset-password");
 
+    // Prefer Florisyn-branded Resend email with an explicit production redirect (never localhost).
+    const branded = await sendPasswordRecoveryEmail({
+      email: emailCheck.value,
+      origin,
+      env: process.env
+    });
+    if (branded.sent) {
+      logAuthEvent(
+        "info",
+        "auth_recover_branded_sent",
+        {
+          email_domain: emailCheck.value.split("@")[1],
+          provider: branded.provider,
+          redirect_host: (() => {
+            try {
+              return new URL(branded.redirectTo || redirectTo).host;
+            } catch {
+              return "unknown";
+            }
+          })(),
+          request_id: requestId
+        },
+        event
+      );
+      return json(200, {
+        ok: true,
+        code: "recover_accepted",
+        message: "If an account exists for this email, you will receive password reset instructions shortly."
+      });
+    }
+
+    if (branded.reason && branded.reason !== "provider_not_configured") {
+      logAuthEvent(
+        "warn",
+        "auth_recover_branded_fallback",
+        {
+          email_domain: emailCheck.value.split("@")[1],
+          reason: branded.reason,
+          request_id: requestId
+        },
+        event
+      );
+    }
+
+    const { url, anonKey } = publicSettings();
     const response = await fetchWithTimeout(`${url}/auth/v1/recover`, {
       method: "POST",
       headers: {
@@ -51,6 +96,13 @@ export async function handler(event) {
     logAuthEvent("info", "auth_recover_accepted", {
       email_domain: emailCheck.value.split("@")[1],
       provider_status: response.status,
+      redirect_host: (() => {
+        try {
+          return new URL(redirectTo).host;
+        } catch {
+          return "unknown";
+        }
+      })(),
       request_id: requestId
     }, event);
     return json(200, {

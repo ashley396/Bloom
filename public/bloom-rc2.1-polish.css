@@ -255,7 +255,7 @@ body.bloom-rc21 .lily-panel {
   border-radius: 18px;
 }
 
-body.bloom-rc21 .bloom-daisy {
+body.bloom-rc21 .bloom-daisy { display: none !important;
   opacity: 0.88;
 }
 
