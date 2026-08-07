@@ -11,6 +11,7 @@
 | `CLOUDFLARE_AI_TOKEN` | Optional | Hosted AI assistant |
 | `CLOUDFLARE_ACCOUNT_ID` | Optional | Hosted AI assistant |
 | `RESEND_API_KEY` | Optional | Transactional email |
+| `BLOOM_EMAIL_FROM` | Required when Resend is used | Verified sender, e.g. `Florisyn <noreply@florisyn.com>` (do not use `onboarding@resend.dev` for real recipients) |
 | `PLATFORM_BOOTSTRAP_SECRET` | **Yes** (production HQ) | One-time key for first platform owner setup via `admin-bootstrap` POST |
 | `FLORISYN_ALLOW_OPEN_BOOTSTRAP` | Optional (local dev only) | Set `true` to allow POST without secret when `PLATFORM_BOOTSTRAP_SECRET` is unset — **never in production** |
 

@@ -70,6 +70,18 @@ test("email not configured", () => {
   assert.equal(emailProviderConfigured({}).configured, false);
 });
 
+test("Resend dispatch requires BLOOM_EMAIL_FROM on verified domain", async () => {
+  const { dispatchEmail } = await import("../netlify/functions/_shared/notification-email.js");
+  const missing = await dispatchEmail({ RESEND_API_KEY: "re_test" }, {
+    to: "florist@example.com",
+    subject: "Confirm",
+    html: "<p>hi</p>",
+    text: "hi"
+  });
+  assert.equal(missing.ok, false);
+  assert.equal(missing.code, "email_from_not_configured");
+});
+
 test("sms configured twilio", () => {
   const c = smsProviderConfigured({
     BLOOM_SMS_PROVIDER: "twilio",

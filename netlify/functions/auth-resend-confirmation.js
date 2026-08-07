@@ -58,6 +58,29 @@ export async function handler(event) {
       });
     }
 
+    logAuthEvent("warn", "auth_resend_direct_failed", {
+      email_domain: emailCheck.value.split("@")[1],
+      reason: direct.reason || null,
+      mailer_configured: emailProviderConfigured(process.env).configured,
+      request_id: requestId
+    }, event);
+
+    if (direct.reason === "email_from_not_configured" || direct.reason === "provider_not_configured") {
+      return json(503, {
+        error: "Confirmation email is not fully configured yet. Please try again shortly or contact Florisyn support.",
+        code: direct.reason,
+        confirmationEmailSent: false
+      }, process.env, event);
+    }
+
+    if (direct.reason === "provider_error") {
+      return json(503, {
+        error: "Confirmation email could not be sent right now. Please wait a minute and try again.",
+        code: "auth_email_provider_unavailable",
+        confirmationEmailSent: false
+      }, process.env, event);
+    }
+
     // Fallback: Supabase Auth resend with redirect_to as query (GoTrue-compatible).
     const { url, anonKey } = publicSettings();
     const response = await fetchWithTimeout(`${url}/auth/v1/resend?redirect_to=${encodeURIComponent(redirectTo)}`, {
