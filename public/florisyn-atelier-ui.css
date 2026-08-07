@@ -1764,3 +1764,22 @@ body.florisyn-atelier.florisyn-rc22 #productsPage > .heading {
     min-height: 340px;
   }
 }
+
+/* UI restore: dashboard alignment */
+body.florisyn-atelier .shell > .content {
+  width: 100%;
+  max-width: none;
+}
+body.florisyn-atelier #dashboardPage.pos-home {
+  width: 100%;
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+}
+body.florisyn-atelier .atelier-dash-overview {
+  width: 100%;
+  align-items: stretch;
+}
+body.florisyn-atelier .atelier-dash-columns {
+  width: 100%;
+}

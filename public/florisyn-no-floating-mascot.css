@@ -1,0 +1,19 @@
+/* Floating / trotting dog mascot removed — Daisy stays in the top dock only. */
+.bloom-dog,
+#bloomDog,
+#bloomDaisy,
+.bloom-daisy {
+  display: none !important;
+  animation: none !important;
+  pointer-events: none !important;
+}
+
+@keyframes daisy-wag {
+  from { transform: none; }
+  to { transform: none; }
+}
+
+@keyframes dogTrot {
+  from { transform: none; }
+  to { transform: none; }
+}

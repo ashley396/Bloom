@@ -24,7 +24,7 @@ const LIBRARY=[
 ["Modern White Wedding","Wedding",179.99,"✨","A clean and elegant white wedding bouquet with premium garden flowers.",[["White Roses",10],["Ranunculus",8],["Hydrangea",2],["Italian Ruscus",5]],"https://images.pexels.com/photos/931167/pexels-photo-931167.jpeg?auto=compress&cs=tinysrgb&w=1000"],
 ["New Baby Pastels","New Baby",79.99,"🍼","Pastel blooms created to welcome a sweet new arrival.",[["Pastel Roses",6],["Hydrangea",2],["Carnations",5],["Greenery",5]],"https://images.pexels.com/photos/736230/pexels-photo-736230.jpeg?auto=compress&cs=tinysrgb&w=1000"],
 ["Get Well Sunshine","Get Well",69.99,"🌼","Cheerful yellow flowers designed to brighten a hospital room or home.",[["Sunflowers",4],["Daisies",8],["Yellow Roses",5],["Greenery",5]],"https://images.pexels.com/photos/54200/pexels-photo-54200.jpeg?auto=compress&cs=tinysrgb&w=1000"],
-["Lavender Serenity","Everyday",84.99,"💜","Lavender and purple blooms with soft garden greenery.",[["Lavender Roses",6],["Purple Stock",5],["Hydrangea",2],["Eucalyptus",5]],"https://images.pexels.com/photos/931167/pexels-photo-931167.jpeg?auto=compress&cs=tinysrgb&w=1000"],
+["Lavender Serenity","Everyday",84.99,"💜","Lavender and purple blooms with soft garden greenery.",[["Lavender Roses",6],["Purple Stock",5],["Hydrangea",2],["Eucalyptus",5]],"https://images.pexels.com/photos/1407322/pexels-photo-1407322.jpeg?auto=compress&cs=tinysrgb&w=1000"],
 ["Modern Orchid Gift","Plants",84.99,"🌿","A sophisticated orchid presentation for a home, office, or special occasion.",[["Orchid Plant",1],["Ceramic Pot",1]],"https://images.pexels.com/photos/459335/pexels-photo-459335.jpeg?auto=compress&cs=tinysrgb&w=1000"],
 ["Celebration Brights","Congratulations",89.99,"🎉","Bold color and joyful flowers for graduations, promotions, and big moments.",[["Gerbera Daisies",7],["Roses",6],["Greenery",6]],"https://images.pexels.com/photos/462402/pexels-photo-462402.jpeg?auto=compress&cs=tinysrgb&w=1000"]
 ];
@@ -101,7 +101,7 @@ function showPage(id){
       return;
     }
     $$(".page").forEach(p=>p.classList.toggle("active",p.id===id));
-    $$("#app aside button[data-page], .mobile-nav button[data-page], .assistant-mini-dock button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));
+    $$("#app aside button[data-page], #atelierSidebarDrawer button[data-page], .mobile-nav button[data-page], .assistant-mini-dock button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));
     loadPage(id);
   };
   window.BloomLaunchPolish?.onPageStart?.(id);
@@ -798,4 +798,3 @@ $("#aiStudioClear")?.addEventListener("click",()=>{aiStudioPrevious=aiStudioDraf
 $("#aiStudioVoiceToggle")?.addEventListener("click",e=>{aiStudioVoiceEnabled=!aiStudioVoiceEnabled;localStorage.setItem("bloomLilyVoice",aiStudioVoiceEnabled?"on":"off");e.currentTarget.textContent=aiStudioVoiceEnabled?"🔊 Voice on":"🔇 Voice off";if(aiStudioVoiceEnabled)lilyVoice("Yay! You can hear me again.")});
 if($("#aiStudioVoiceToggle"))$("#aiStudioVoiceToggle").textContent=aiStudioVoiceEnabled?"🔊 Voice on":"🔇 Voice off";
 try{const saved=JSON.parse(localStorage.getItem("bloomAiStudioDraft")||"null");if(saved){aiStudioDraft=saved;renderAiStudioDraft()}}catch{}
-const dog=$("#bloomDog");let dogPetTimer=null;function petBloomDog(){if(!dog)return;dog.classList.remove("pet");void dog.offsetWidth;dog.classList.add("pet");if(dogPetTimer)window.clearTimeout(dogPetTimer);dogPetTimer=window.setTimeout(()=>dog.classList.remove("pet"),1100);lilyVoice("Oh, that’s so sweet. She loves the attention.")}dog?.addEventListener("click",petBloomDog);dog?.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" ")petBloomDog()});
