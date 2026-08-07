@@ -9,7 +9,7 @@ test("auth pages share bloom-auth.css", () => {
     const html = fs.readFileSync(new URL(`../public/${page}`, import.meta.url), "utf8");
     assert.match(html, /bloom-auth\.css/, `${page} missing auth stylesheet`);
     assert.match(html, /bloom-auth/, `${page} missing auth body class or layout`);
-    assert.match(html, /florisyn\/favicon\.svg/, `${page} missing favicon`);
+    assert.match(html, /florisyn\/(favicon\.svg|florisyn-favicon-32\.png)/, `${page} missing favicon`);
     assert.match(html, /<strong>Florisyn<\/strong>/, `${page} should use Florisyn branding`);
     assert.match(html, /\/assets\/florisyn\//, `${page} should use Florisyn assets`);
   }
@@ -67,12 +67,9 @@ test("signup sends confirmation email when mailer is configured", () => {
   assert.match(mailer, /api\.resend\.com\/emails/);
 });
 
-test("Florisyn app icon uses official monoline mark with ivory tile", () => {
-  const icon = fs.readFileSync(new URL("../public/assets/florisyn/florisyn-mark.svg", import.meta.url), "utf8");
-  assert.match(icon, /#1[Aa]2[Bb]48/);
-  assert.match(icon, /FAF7F2/i);
-  assert.match(icon, /C9A962/i);
-  assert.match(icon, /Florisyn/i);
+test("Florisyn app icon uses official founder artwork PNG", () => {
+  const icon = fs.statSync(new URL("../public/assets/florisyn/florisyn-mark.png", import.meta.url));
+  assert.ok(icon.size > 10_000);
 });
 
 test("admin page uses Atelier admin stylesheet", () => {

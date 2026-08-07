@@ -140,10 +140,18 @@ body.florisyn.admin-luxury.florisyn-atelier-shell .admin-brand {
 }
 
 body.florisyn.admin-luxury.florisyn-atelier-shell .admin-brand img {
-  width: 44px !important;
-  height: 44px !important;
+  width: 52px !important;
+  height: 52px !important;
   border-radius: 14px;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+  object-fit: contain;
+  background: transparent;
+}
+body.florisyn.admin-luxury.florisyn-atelier-shell .admin-login img {
+  width: 96px !important;
+  height: 96px !important;
+  border-radius: 24px !important;
+  object-fit: contain;
 }
 
 body.florisyn.admin-luxury.florisyn-atelier-shell .admin-brand strong {
