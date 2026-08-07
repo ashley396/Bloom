@@ -1,0 +1,255 @@
+/* Florisyn Atelier — shared shell polish for admin / onboarding / pay / storefront / company pages.
+   Visual-only. Does not alter layout structure or feature behavior. */
+
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Manrope:wght@400;500;600;700&display=swap");
+
+:root {
+  --atelier-ink: #1a2b48;
+  --atelier-ink-soft: #2c4066;
+  --atelier-blush: #f4e9ec;
+  --atelier-blush-deep: #e8d4da;
+  --atelier-petal: #c9a0a8;
+  --atelier-cream: #fbf7f4;
+  --atelier-line: rgba(26, 43, 72, 0.12);
+  --atelier-serif: "Cormorant Garamond", "Times New Roman", serif;
+  --atelier-sans: Manrope, "Segoe UI", sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body.florisyn-atelier-shell {
+  font-family: var(--atelier-sans);
+  color: var(--atelier-ink);
+  background:
+    radial-gradient(ellipse 90% 55% at 8% -10%, rgba(244, 233, 236, 0.95), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 100% 0%, rgba(232, 212, 218, 0.45), transparent 50%),
+    linear-gradient(180deg, #f7f2ef 0%, var(--atelier-cream) 48%, #f3ebe6 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+body.florisyn-atelier-shell h1,
+body.florisyn-atelier-shell h2,
+body.florisyn-atelier-shell h3,
+body.florisyn-atelier-shell .brand-name,
+body.florisyn-atelier-shell .logo,
+body.florisyn-atelier-shell .wordmark {
+  font-family: var(--atelier-serif);
+  letter-spacing: 0.01em;
+  color: var(--atelier-ink);
+}
+
+body.florisyn-atelier-shell a {
+  color: var(--atelier-ink-soft);
+}
+
+body.florisyn-atelier-shell a:hover {
+  color: var(--atelier-ink);
+}
+
+body.florisyn-atelier-shell .btn,
+body.florisyn-atelier-shell button.primary,
+body.florisyn-atelier-shell .primary-btn,
+body.florisyn-atelier-shell input[type="submit"],
+body.florisyn-atelier-shell .cta,
+body.florisyn-atelier-shell .button-primary {
+  background: linear-gradient(135deg, var(--atelier-ink) 0%, #243a5c 100%);
+  border-color: transparent;
+  color: #fff;
+  border-radius: 999px;
+  font-family: var(--atelier-sans);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+body.florisyn-atelier-shell .btn:hover,
+body.florisyn-atelier-shell button.primary:hover,
+body.florisyn-atelier-shell .primary-btn:hover,
+body.florisyn-atelier-shell .cta:hover,
+body.florisyn-atelier-shell .button-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgba(26, 43, 72, 0.22);
+}
+
+body.florisyn-atelier-shell .btn-secondary,
+body.florisyn-atelier-shell button.secondary,
+body.florisyn-atelier-shell .secondary-btn,
+body.florisyn-atelier-shell .button-secondary {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--atelier-line);
+  color: var(--atelier-ink);
+  border-radius: 999px;
+}
+
+body.florisyn-atelier-shell input,
+body.florisyn-atelier-shell select,
+body.florisyn-atelier-shell textarea {
+  border-radius: 12px;
+  border-color: var(--atelier-line);
+  font-family: var(--atelier-sans);
+}
+
+body.florisyn-atelier-shell input:focus,
+body.florisyn-atelier-shell select:focus,
+body.florisyn-atelier-shell textarea:focus {
+  outline: none;
+  border-color: rgba(26, 43, 72, 0.35);
+  box-shadow: 0 0 0 3px rgba(201, 160, 168, 0.28);
+}
+
+body.florisyn-atelier-shell header,
+body.florisyn-atelier-shell .topbar,
+body.florisyn-atelier-shell .site-header,
+body.florisyn-atelier-shell .app-header,
+body.florisyn-atelier-shell nav.primary {
+  background: rgba(255, 252, 250, 0.82);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--atelier-line);
+}
+
+body.florisyn-atelier-shell .card,
+body.florisyn-atelier-shell .panel,
+body.florisyn-atelier-shell .box,
+body.florisyn-atelier-shell .surface,
+body.florisyn-atelier-shell .auth-card,
+body.florisyn-atelier-shell .content-card,
+body.florisyn-atelier-shell .info-card,
+body.florisyn-atelier-shell .plan-card,
+body.florisyn-atelier-shell .form-section {
+  background: rgba(255, 252, 250, 0.9);
+  border: 1px solid var(--atelier-line);
+  border-radius: 18px;
+  box-shadow: 0 18px 48px rgba(26, 43, 72, 0.06);
+}
+
+/* Public marketing / help / legal pages (public-site.css) */
+body.florisyn-atelier-shell {
+  --sage: var(--atelier-ink);
+  --ink: var(--atelier-ink);
+  --cream: var(--atelier-cream);
+  --blush: var(--atelier-blush);
+  --sage-soft: var(--atelier-blush);
+  --line: var(--atelier-line);
+  --muted: #6d7385;
+  --rose: #c45d7a;
+  --rose-dark: #a84864;
+}
+
+body.florisyn-atelier-shell .public-logo strong,
+body.florisyn-atelier-shell .footer-logo strong,
+body.florisyn-atelier-shell .content-hero h1,
+body.florisyn-atelier-shell .content-body h2,
+body.florisyn-atelier-shell .content-body h3,
+body.florisyn-atelier-shell .footer-column h3,
+body.florisyn-atelier-shell .floral-copy h1,
+body.florisyn-atelier-shell .auth-card h2,
+body.florisyn-atelier-shell .signup-hero h1,
+body.florisyn-atelier-shell .form-section h2 {
+  font-family: var(--atelier-serif);
+  color: var(--atelier-ink);
+}
+
+body.florisyn-atelier-shell .content-hero {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(244, 233, 236, 0.95), transparent 70%),
+    linear-gradient(180deg, #fbf7f4 0%, transparent 100%);
+}
+
+body.florisyn-atelier-shell .eyebrow {
+  color: var(--atelier-petal);
+}
+
+body.florisyn-atelier-shell .public-nav .nav-cta,
+body.florisyn-atelier-shell .primary-btn {
+  background: linear-gradient(135deg, var(--atelier-ink) 0%, #243a5c 100%);
+  color: #fff;
+  border-radius: 999px;
+  box-shadow: 0 12px 28px rgba(26, 43, 72, 0.18);
+}
+
+body.florisyn-atelier-shell .site-footer {
+  background: #f3ebe6;
+  border-top: 1px solid var(--atelier-line);
+}
+
+body.florisyn-atelier-shell .footer-column a:hover {
+  color: var(--atelier-ink);
+}
+
+body.florisyn-atelier-shell .info-card {
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+body.florisyn-atelier-shell .info-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px rgba(26, 43, 72, 0.1);
+}
+
+body.florisyn-atelier-shell .admin-entry {
+  background:
+    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(244, 233, 236, 0.9), transparent 55%),
+    linear-gradient(145deg, #fbf7f4, #f3ebe6);
+}
+
+/* Storefront customer sites */
+body.florisyn-atelier-shell.bloom-storefront {
+  --storefront-ink: var(--atelier-ink);
+}
+
+body.florisyn-atelier-shell .storefront-header {
+  background: rgba(255, 252, 250, 0.9);
+  border-bottom: 1px solid var(--atelier-line);
+  backdrop-filter: blur(12px);
+}
+
+body.florisyn-atelier-shell .storefront-brand,
+body.florisyn-atelier-shell .storefront-header h1 {
+  font-family: var(--atelier-serif);
+  color: var(--atelier-ink);
+}
+
+/* Pay link page */
+body.florisyn-atelier-shell.pay-link-page {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+body.florisyn-atelier-shell .pay-link-shell {
+  width: min(100%, 480px);
+}
+
+/* Soft floral corner atmosphere — decorative only */
+body.florisyn-atelier-shell::before {
+  content: "";
+  position: fixed;
+  inset: auto -4% -8% auto;
+  width: min(42vw, 420px);
+  height: min(42vw, 420px);
+  background:
+    url("/assets/atelier-floral-corner.jpg") center / cover no-repeat;
+  opacity: 0.18;
+  pointer-events: none;
+  z-index: 0;
+  mask-image: radial-gradient(circle at 70% 70%, #000 20%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle at 70% 70%, #000 20%, transparent 72%);
+}
+
+body.florisyn-atelier-shell > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.florisyn-atelier-shell .btn,
+  body.florisyn-atelier-shell button.primary,
+  body.florisyn-atelier-shell .primary-btn,
+  body.florisyn-atelier-shell .cta {
+    transition: none;
+  }
+}
