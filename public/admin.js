@@ -7,17 +7,53 @@ const DEFAULT_NAV=['dashboardPage','ordersPage','deliveriesPage','customersPage'
 function toast(t){const x=$('#adminToast');x.textContent=t;x.hidden=false;setTimeout(()=>x.hidden=true,2800)}
 async function call(path,opt={},auth=true){const headers={'Content-Type':'application/json',...(opt.headers||{})};if(auth&&session?.accessToken)headers.Authorization=`Bearer ${session.accessToken}`;const base=(String(path).startsWith("auth-")&&!String(path).startsWith("auth-refresh")&&!String(path).startsWith("auth-resend"))?`/api/${path}`:`/.netlify/functions/${path}`;const r=await fetch(base,{...opt,headers});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function saveSession(d){session={accessToken:d.accessToken,refreshToken:d.refreshToken,user:d.user};localStorage.setItem('bloom_admin_session',JSON.stringify(session))}
-function showApp(){ $('#adminAuth').hidden=true;$('#adminApp').hidden=false;$('#adminIdentity').textContent=session.user.email;commandCenter=initCommandCenter({call,toast,escapeHtml,$,$$,setView});loadOverview();if(window.__loadCommandView)window.__loadCommandView('overview');loadShops();window.BloomLaunchPolish?.init?.({mode:'admin',api:call});window.BloomLilyPlatform?.init?.({mode:'admin',api:call,toast})}
+function clearAdminSession(){session=null;localStorage.removeItem('bloom_admin_session')}
+function lockAdminShell(){
+  document.body.classList.add('admin-locked');
+  document.body.classList.remove('admin-authenticated');
+  const app=$('#adminApp');
+  if(app){app.hidden=true;app.setAttribute('aria-hidden','true')}
+}
+function showLoginGate(){
+  lockAdminShell();
+  if($('#ownerSetup'))$('#ownerSetup').hidden=true;
+  if($('#adminAuth'))$('#adminAuth').hidden=false;
+}
+function showOwnerSetupGate(){
+  lockAdminShell();
+  if($('#adminAuth'))$('#adminAuth').hidden=true;
+  if($('#ownerSetup'))$('#ownerSetup').hidden=false;
+}
+function showApp(){
+  if(!session?.accessToken||!session?.user){clearAdminSession();showLoginGate();return}
+  if($('#ownerSetup'))$('#ownerSetup').hidden=true;
+  if($('#adminAuth'))$('#adminAuth').hidden=true;
+  const app=$('#adminApp');
+  if(app){app.hidden=false;app.setAttribute('aria-hidden','false')}
+  document.body.classList.remove('admin-locked');
+  document.body.classList.add('admin-authenticated');
+  if($('#adminIdentity'))$('#adminIdentity').textContent=session.user.email;
+  commandCenter=initCommandCenter({call,toast,escapeHtml,$,$$,setView});
+  loadOverview();
+  if(window.__loadCommandView)window.__loadCommandView('overview');
+  loadShops();
+  window.BloomLaunchPolish?.init?.({mode:'admin',api:call});
+  window.BloomLilyPlatform?.init?.({mode:'admin',api:call,toast});
+}
 async function initializeAdmin(){
+  lockAdminShell();
   try{
     const d=await call('admin-bootstrap',{},false);
-    if(!d.ownerExists){$('#ownerSetup').hidden=false;$('#adminAuth').hidden=true;$('#adminApp').hidden=true;return}
-    $('#ownerSetup').hidden=true;
+    if(!d.ownerExists){showOwnerSetupGate();return}
     if($('#loginMessage'))$('#loginMessage').textContent='Owner account exists. Sign in to Florisyn HQ.';
-    if(session){
-      call('admin-command-center?action=dashboard').then(showApp).catch(()=>{localStorage.removeItem('bloom_admin_session');$('#adminAuth').hidden=false});
-    }else $('#adminAuth').hidden=false;
-  }catch(err){$('#adminAuth').hidden=false;$('#loginMessage').textContent=err.message}
+    if(session?.accessToken){
+      call('admin-command-center?action=dashboard').then(showApp).catch(()=>{clearAdminSession();showLoginGate()});
+    }else showLoginGate();
+  }catch(err){
+    clearAdminSession();
+    showLoginGate();
+    if($('#loginMessage'))$('#loginMessage').textContent=err.message;
+  }
 }
 $('#ownerSetupForm')?.addEventListener('submit',async e=>{
   e.preventDefault();
@@ -29,11 +65,12 @@ $('#ownerSetupForm')?.addEventListener('submit',async e=>{
     msg.textContent='Owner account created. You can sign in now.';
     $('#adminEmail').value=$('#ownerEmail').value;
     $('#ownerPassword').value='';$('#ownerPasswordConfirm').value='';if($('#ownerBootstrapSecret'))$('#ownerBootstrapSecret').value='';
-    setTimeout(()=>{$('#ownerSetup').hidden=true;$('#adminAuth').hidden=false},700);
+    setTimeout(showLoginGate,700);
   }catch(err){msg.textContent=err.message}
 });
-$('#adminLogin').onsubmit=async e=>{e.preventDefault();const loginMessage=$('#loginMessage'),email=$('#adminEmail').value;loginMessage.textContent='';try{const d=await call('auth-login',{method:'POST',body:JSON.stringify({email,password:$('#adminPassword').value})},false);saveSession(d);await call('admin-command-center?action=dashboard');showApp()}catch(err){const detail=String(err.message||'');if(/invalid login credentials|invalid email or password|email not confirmed/i.test(detail)){loginMessage.innerHTML=`Could not sign in yet. Check your email confirmation link, or <a href="/verify-email?pending=1&email=${encodeURIComponent(email)}">resend the confirmation email</a>.`;}else loginMessage.textContent=detail}}
-$('#adminLogout').onclick=()=>{localStorage.removeItem('bloom_admin_session');location.reload()}
+$('#adminLogin').onsubmit=async e=>{e.preventDefault();const loginMessage=$('#loginMessage'),email=$('#adminEmail').value;loginMessage.textContent='';try{const d=await call('auth-login',{method:'POST',body:JSON.stringify({email,password:$('#adminPassword').value})},false);saveSession(d);await call('admin-command-center?action=dashboard');showApp()}catch(err){clearAdminSession();showLoginGate();const detail=String(err.message||'');if(/invalid login credentials|invalid email or password|email not confirmed/i.test(detail)){loginMessage.innerHTML=`Could not sign in yet. Check your email confirmation link, or <a href="/verify-email?pending=1&email=${encodeURIComponent(email)}">resend the confirmation email</a>.`;}else loginMessage.textContent=detail}}
+$('#adminLogout').onclick=()=>{clearAdminSession();location.reload()}
+lockAdminShell();
 $$('nav button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
 function setView(name){
   $$('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
