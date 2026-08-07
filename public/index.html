@@ -1,44 +1,184 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1a2b48"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/assets/florisyn/florisyn-favicon-32.png?v=official1" type="image/png" sizes="32x32"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><title>Florisyn — The Operating System for Modern Florists</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/polish-v20.2.css"><link rel="stylesheet" href="/polish-v20.4.css"><link rel="stylesheet" href="/platform-v21.1.css"><link rel="stylesheet" href="/bloom-v23.css"><link rel="stylesheet" href="/lily-platform.css"><link rel="stylesheet" href="/florisyn-live-avatars.css"><link rel="stylesheet" href="/florisyn-atelier-ui.css"><link rel="stylesheet" href="/launch-polish-v1.css"><link rel="stylesheet" href="/payment-hub.css"><link rel="stylesheet" href="/payment-center-polish.css"><link rel="stylesheet" href="/shop-billing.css"><link rel="stylesheet" href="/business-ecosystem.css"><link rel="stylesheet" href="/bloom-rc1-luxury.css"><link rel="stylesheet" href="/bloom-rc2-design-system.css"><link rel="stylesheet" href="/bloom-rc2.1-polish.css"><link rel="stylesheet" href="/receipt-print.css"><link rel="stylesheet" href="/bloom-rc2.1-consistency.css"><link rel="stylesheet" href="/florisyn-brand.css"><link rel="stylesheet" href="/florisyn-founder-1.0.css"><link rel="stylesheet" href="/florisyn-rc2.2-founder-polish.css"><link rel="stylesheet" href="/community.css"></head><body class="bloom-rc1 bloom-rc2 bloom-rc21 florisyn florisyn-rc22 florisyn-atelier">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1a2b48"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/assets/florisyn/florisyn-favicon-32.png?v=official1" type="image/png" sizes="32x32"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><title>Florisyn — The Operating System for Modern Florists</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/polish-v20.2.css"><link rel="stylesheet" href="/polish-v20.4.css"><link rel="stylesheet" href="/platform-v21.1.css"><link rel="stylesheet" href="/bloom-v23.css"><link rel="stylesheet" href="/lily-platform.css"><link rel="stylesheet" href="/florisyn-live-avatars.css"><link rel="stylesheet" href="/florisyn-atelier-ui.css?v=dashmock1"><link rel="stylesheet" href="/launch-polish-v1.css"><link rel="stylesheet" href="/payment-hub.css"><link rel="stylesheet" href="/payment-center-polish.css"><link rel="stylesheet" href="/shop-billing.css"><link rel="stylesheet" href="/business-ecosystem.css"><link rel="stylesheet" href="/bloom-rc1-luxury.css"><link rel="stylesheet" href="/bloom-rc2-design-system.css"><link rel="stylesheet" href="/bloom-rc2.1-polish.css"><link rel="stylesheet" href="/receipt-print.css"><link rel="stylesheet" href="/bloom-rc2.1-consistency.css"><link rel="stylesheet" href="/florisyn-brand.css"><link rel="stylesheet" href="/florisyn-founder-1.0.css"><link rel="stylesheet" href="/florisyn-rc2.2-founder-polish.css"><link rel="stylesheet" href="/community.css"></head><body class="bloom-rc1 bloom-rc2 bloom-rc21 florisyn florisyn-rc22 florisyn-atelier">
 <div id="bloomLoadingScreen" role="status" aria-live="polite"><div class="bloom-loading-inner"><img class="florisyn-loading-mark" src="/assets/florisyn/florisyn-mark.png?v=official1" width="72" height="72" alt=""><p>Loading Florisyn…</p></div></div>
 <div id="toast" class="toast" hidden></div>
 <section id="auth" hidden></section>
-<main id="app" hidden tabindex="-1"><div class="platform-top-strip"><div class="foundation-mini"><span>🌹</span><div><small>Rose Foundation</small><strong id="roseFoundationTotal">$0.00 raised</strong></div></div><div class="assistant-mini-dock"><button type="button" data-page="dashboardPage"><img src="/assets/assistants/lily-portrait.png" alt="Lily"><span><b>Lily</b><small>Creative Assistant</small></span></button><button type="button" data-page="reportsPage"><img src="/assets/assistants/rose-portrait.png" alt="Rose"><span><b>Rose</b><small>Business Advisor</small></span></button><button type="button" class="daisy-dock-btn" data-page="dashboardPage" title="Daisy"><img src="/assets/assistants/daisy-portrait.png" alt="Daisy"><span><b>Daisy</b><small>Shop Mascot</small></span></button></div></div><header><div class="header-brand"><img id="appLogo" class="app-logo" alt="Shop logo" hidden><img src="/assets/florisyn/florisyn-mark.png?v=official1" class="brand-mark" alt="Florisyn"><img src="/assets/florisyn/florisyn-wordmark.svg?v=atelier3" class="brand-wordmark" alt="Florisyn"><select id="shopSwitcher"></select></div><div><small id="accountEmail"></small><small class="bloom-version-inline" data-florisyn-version data-bloom-version>Florisyn 1.0</small><button id="logout" class="secondary">Sign out</button></div></header>
-<div class="shell"><aside>
-<p>SHOP</p><button class="active" data-page="dashboardPage">Point of Sale</button><button data-page="ordersPage">Orders</button><button data-page="deliveriesPage">Deliveries</button><button data-page="customersPage">Customers</button><button data-page="inventoryPage">Inventory</button>
-<p>INVOICES</p><button data-page="invoicesPage">Invoices</button><button data-page="paymentsPage">Payment Center</button>
-<p>CREATE & SELL</p><button data-page="aiStudioPage">🌸 Lily AI Studio</button><button data-page="productsPage">Products & Recipe Builder</button><button data-page="bloomshotPage">Florisyn Photo Studio</button><button data-page="websitePage">Website Studio</button><button data-page="libraryPage">Floral Library</button>
-<p>BUSINESS</p><button data-page="expensesPage">Expenses</button><button data-page="reportsPage">Reports</button><button data-page="staffPage">Staff</button><button data-page="marketplacePage">Wholesale</button><button data-page="wholesaleSellerPage">Seller dashboard</button><button data-page="storesPage">Stores</button><button data-page="subscriptionPage">Subscription</button><button data-page="ecosystemPage">Business OS</button><button data-page="communityPage" hidden style="display:none">Community <span class="community-beta-pill">Beta</span></button><button data-page="settingsPage">Settings</button><div class="sidebar-spacer"></div>
+<main id="app" hidden tabindex="-1"><div class="platform-top-strip"><div class="foundation-mini"><span>🌹</span><div><small>Rose Foundation</small><strong id="roseFoundationTotal">$0.00 raised</strong></div></div><div class="assistant-mini-dock"><button type="button" data-page="dashboardPage"><img src="/assets/assistants/lily-portrait.png" alt="Lily"><span><b>Lily</b><small>Creative Assistant</small></span></button><button type="button" data-page="reportsPage"><img src="/assets/assistants/rose-portrait.png" alt="Rose"><span><b>Rose</b><small>Business Advisor</small></span></button><button type="button" class="daisy-dock-btn" data-page="dashboardPage" title="Daisy"><img src="/assets/assistants/daisy-portrait.png" alt="Daisy"><span><b>Daisy</b><small>Shop Mascot</small></span></button></div></div><header class="atelier-app-header">
+  <div class="atelier-mobile-topbar">
+    <button type="button" id="atelierMenuToggle" class="atelier-menu-toggle" aria-label="Open menu" aria-controls="atelierSidebarDrawer">
+      <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
+    </button>
+    <div class="atelier-mobile-logo" aria-label="Florisyn">
+      <span class="atelier-mark-f" aria-hidden="true">F</span>
+      <strong>Florisyn</strong>
+    </div>
+    <button type="button" class="atelier-icon-btn atelier-mobile-notify" id="atelierMobileNotify" title="Notifications" aria-label="Notifications">
+      <span aria-hidden="true">🔔</span><i class="atelier-notify-dot" aria-hidden="true"></i>
+    </button>
+  </div>
+  <div class="header-brand atelier-header-brand">
+    <img id="appLogo" class="app-logo" alt="Shop logo" hidden>
+    <img src="/assets/florisyn/florisyn-mark.png?v=official1" class="brand-mark" alt="Florisyn">
+    <img src="/assets/florisyn/florisyn-wordmark.svg?v=atelier3" class="brand-wordmark" alt="Florisyn">
+    <select id="shopSwitcher" aria-label="Switch shop"></select>
+  </div>
+  <label class="atelier-global-search">
+    <span class="atelier-search-icon" aria-hidden="true">⌕</span>
+    <input id="atelierGlobalSearch" type="search" placeholder="Search orders, inventory, customers..." autocomplete="off">
+  </label>
+  <div class="atelier-header-actions">
+    <button type="button" class="atelier-icon-btn" id="atelierNotifyBtn" title="Notifications" aria-label="Notifications">🔔</button>
+    <div class="atelier-user-chip">
+      <img src="/assets/assistants/rose-portrait.png" alt="" class="atelier-user-avatar" width="40" height="40">
+      <span><b id="atelierUserName">Ashley</b><small id="atelierUserRole">Owner &amp; Florist</small></span>
+    </div>
+    <small id="accountEmail" class="atelier-account-email"></small>
+    <small class="bloom-version-inline" data-florisyn-version data-bloom-version>Florisyn 1.0</small>
+    <button id="logout" class="secondary">Sign out</button>
+  </div>
+</header>
+<div class="shell"><button type="button" class="atelier-sidebar-backdrop" id="atelierSidebarBackdrop" aria-label="Close menu" hidden></button><aside id="atelierSidebarDrawer">
+<div class="atelier-sidebar-brand" aria-label="Florisyn">
+  <span class="atelier-mark-f" aria-hidden="true">F</span>
+  <strong>Florisyn</strong>
+</div>
+<p>SHOP</p>
+<button class="active" data-page="dashboardPage">Dashboard</button>
+<button data-page="ordersPage">Orders</button>
+<button data-page="inventoryPage">Inventory</button>
+<button data-page="productsPage">Products</button>
+<button data-page="deliveriesPage">Deliveries</button>
+<button data-page="customersPage">Customers</button>
+<p>INVOICES</p>
+<button data-page="invoicesPage">Invoices</button>
+<button data-page="paymentsPage">Payment Center</button>
+<p>CREATE &amp; SELL</p>
+<button data-page="aiStudioPage">Lily AI Studio</button>
+<button data-page="bloomshotPage">Photo Studio</button>
+<button data-page="websitePage">Website Studio</button>
+<button data-page="libraryPage">Floral Library</button>
+<p>BUSINESS</p>
+<button data-page="expensesPage">Expenses</button>
+<button data-page="reportsPage">Reports</button>
+<button data-page="staffPage">Staff</button>
+<button data-page="marketplacePage">Wholesale</button>
+<button data-page="wholesaleSellerPage">Seller dashboard</button>
+<button data-page="storesPage">Stores</button>
+<button data-page="subscriptionPage">Subscription</button>
+<button data-page="ecosystemPage">Business OS</button>
+<button data-page="communityPage" hidden style="display:none">Community <span class="community-beta-pill">Beta</span></button>
+<button data-page="settingsPage">Settings</button>
+<div class="sidebar-spacer"></div>
+<section class="atelier-premium-card" aria-label="Premium plan">
+  <p>Premium Plan</p>
+  <small>Unlock deeper shop intelligence and marketing tools.</small>
+  <button type="button" data-page="subscriptionPage">Get more details now</button>
+</section>
 </aside><div class="content">
 <section id="dashboardPage" class="page active pos-home">
-  <div class="pos-welcome-row">
-    <section class="rose-welcome-card">
-      <img src="/assets/assistants/rose-portrait.png" class="assistant-portrait rose-portrait" alt="Rose assistant">
-      <div class="welcome-copy">
-        <h1 id="greeting">Good morning!</h1>
-        <p id="dashboardDate" class="subtle"></p>
-        <p class="welcome-subline">Here’s what’s happening in your shop today.</p>
-        <div class="welcome-stats">
-          <span><b id="ordersDueToday">0</b><small>Orders Due</small></span>
-          <span><b id="deliveriesToday">0</b><small>Active Deliveries</small></span>
-          <span><b id="lowStock">0</b><small>Low Stock</small></span>
-          <span><b id="unpaidTotal">$0</b><small>Outstanding</small></span>
+  <div class="pos-welcome-row atelier-dash-overview">
+    <div class="atelier-dash-main">
+      <div class="atelier-dash-hero">
+        <div class="welcome-copy">
+          <h1 id="greeting">Good morning!</h1>
+          <p id="dashboardDate" class="subtle"></p>
+          <p class="welcome-subline welcome-subline-desktop">Here’s what’s happening in your workshop today.</p>
+          <p class="welcome-subline welcome-subline-mobile">Here’s what’s blooming today.</p>
+        </div>
+        <button class="primary atelier-add-order" type="button" data-open="orderDialog">+ Add Order</button>
+      </div>
+
+            <div class="welcome-stats atelier-kpi-row" aria-label="Shop metrics">
+        <article class="atelier-kpi kpi-revenue">
+          <span class="kpi-icon" aria-hidden="true">💰</span>
+          <small>Total Revenue</small>
+          <b id="kpiRevenue">$0</b>
+          <em class="kpi-delta up" id="kpiRevenueDelta">vs last month</em>
+          <svg class="atelier-spark spark-revenue" viewBox="0 0 280 88" preserveAspectRatio="none" aria-hidden="true"><path d="M0 70 C40 68 55 40 90 48 C130 58 150 20 190 28 C230 36 250 12 280 18" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/></svg>
+        </article>
+        <article class="atelier-kpi kpi-sales">
+          <span class="kpi-icon" aria-hidden="true">🧾</span>
+          <small class="kpi-label-desktop">Total Sales</small>
+          <small class="kpi-label-mobile">Orders</small>
+          <b id="kpiSalesCount">0</b>
+          <em class="kpi-delta up" id="kpiSalesDelta">vs last month</em>
+          <svg class="atelier-spark" viewBox="0 0 120 36" preserveAspectRatio="none" aria-hidden="true"><path d="M0 28 C20 26 28 10 45 14 C62 18 70 30 88 12 C100 4 110 8 120 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        </article>
+        <article class="atelier-kpi kpi-orders">
+          <span class="kpi-icon" aria-hidden="true">📦</span>
+          <small class="kpi-label-desktop">Active Orders</small>
+          <small class="kpi-label-mobile">Delivered</small>
+          <b class="kpi-value-desktop" id="ordersDueToday">0</b>
+          <b class="kpi-value-mobile" id="deliveriesToday">0</b>
+          <em class="kpi-delta up" id="kpiOrdersDelta">vs last month</em>
+          <svg class="atelier-spark" viewBox="0 0 120 36" preserveAspectRatio="none" aria-hidden="true"><path d="M0 28 C20 26 28 10 45 14 C62 18 70 30 88 12 C100 4 110 8 120 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        </article>
+        <article class="atelier-kpi kpi-retention">
+          <span class="kpi-icon" aria-hidden="true">♡</span>
+          <small class="kpi-label-desktop">Customer Retention</small>
+          <small class="kpi-label-mobile">Happiness</small>
+          <b id="kpiRetention">—</b>
+          <em class="kpi-delta up" id="kpiRetentionDelta">vs last month</em>
+          <svg class="atelier-spark" viewBox="0 0 120 36" preserveAspectRatio="none" aria-hidden="true"><path d="M0 28 C20 26 28 10 45 14 C62 18 70 30 88 12 C100 4 110 8 120 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        </article>
+      </div>
+
+      <div class="atelier-dash-columns">
+        <div class="atelier-panel" aria-labelledby="atelierTodayOrdersHeading">
+          <div class="atelier-panel-head">
+            <h3 id="atelierTodayOrdersHeading">Today’s Orders</h3>
+            <button type="button" class="atelier-panel-more atelier-view-all" data-page="ordersPage">View all</button>
+          </div>
+          <div id="atelierTodayOrders" class="atelier-list"></div>
+        </div>
+        <div class="atelier-panel" aria-labelledby="atelierTopBouquetsHeading">
+          <div class="atelier-panel-head">
+            <h3 id="atelierTopBouquetsHeading">Top Bouquets</h3>
+            <button type="button" class="atelier-panel-more" data-page="productsPage" aria-label="View products">•••</button>
+          </div>
+          <div id="atelierTopBouquets" class="atelier-list"></div>
+        </div>
+        <div class="atelier-panel atelier-deliveries-col" aria-labelledby="atelierDeliveriesHeading">
+          <div class="atelier-panel-head">
+            <h3 id="atelierDeliveriesHeading">Upcoming Deliveries</h3>
+            <button type="button" class="atelier-panel-more" data-page="deliveriesPage" aria-label="View deliveries">•••</button>
+          </div>
+          <p class="atelier-delivery-date" id="atelierDeliveryDateLabel"></p>
+          <div id="atelierUpcomingDeliveries" class="atelier-delivery-list"></div>
+          <button type="button" class="atelier-inventory-alert" data-page="inventoryPage">
+            <span>
+              <strong>Inventory Alert</strong>
+              <small><b id="lowStock">0</b> items are running low. View inventory</small>
+            </span>
+          </button>
         </div>
       </div>
-      <div class="rose-action">
-        <button id="speakRoseBriefing" class="primary" type="button">🔊 Hear Rose</button>
-        <small>Tap for your daily briefing</small>
-        <span id="roseBriefingText" class="visually-hidden">Let me take a look at the shop, honey…</span>
-      </div>
-      <img src="/assets/atelier-lilies-corner.jpg" class="welcome-floral" alt="">
-    </section>
+    </div>
 
-    <section class="lily-suggestion-card">
-      <img src="/assets/assistants/lily-portrait.png" class="assistant-portrait lily-portrait" alt="Lily assistant">
-      <div><h2>Hi Ashley!</h2><p>I found new floral ideas that match your inventory.</p><button class="soft-green" data-page="libraryPage">View suggestions</button></div>
-    </section>
+    <aside class="atelier-assist-rail">
+      <div class="rose-welcome-card">
+        <img src="/assets/assistants/rose-portrait.png" class="assistant-portrait rose-portrait" alt="Rose assistant">
+        <div class="welcome-copy">
+          <h2>Rose briefing</h2>
+          <p class="welcome-subline">Your daily shop pulse from Rose.</p>
+          <div class="welcome-stats rose-mini-stats">
+            <span><b id="roseDeliveriesStat">0</b><small>Active Deliveries</small></span>
+            <span><b id="unpaidTotal">$0</b><small>Outstanding</small></span>
+          </div>
+        </div>
+        <div class="rose-action">
+          <button id="speakRoseBriefing" class="primary" type="button">🔊 Hear Rose</button>
+          <small>Tap for your daily briefing</small>
+          <span id="roseBriefingText" class="visually-hidden">Let me take a look at the shop, honey…</span>
+        </div>
+      </div>
+      <div class="lily-suggestion-card">
+        <img src="/assets/assistants/lily-portrait.png" class="assistant-portrait lily-portrait" alt="Lily assistant">
+        <div><h2>Hi Ashley!</h2><p>I found new floral ideas that match your inventory.</p><button class="soft-green" data-page="libraryPage">View suggestions</button></div>
+      </div>
+    </aside>
   </div>
 
-  <section class="profit-intelligence-grid" aria-label="Florisyn profit intelligence">
+  <div class="profit-intelligence-grid" aria-label="Florisyn profit intelligence">
     <article class="profit-score-card">
       <div><p class="eyebrow">FLORISYN PROFIT SCORE</p><h2><span id="bloomProfitScore">--</span><small>/100</small></h2><p id="profitScoreMessage">Calculating shop health…</p></div>
       <div class="score-breakdown"><span>Freshness <b id="freshnessScore">--%</b></span><span>Margin health <b id="marginHealthScore">--%</b></span><span>Waste risk <b id="wasteRiskLabel">--</b></span></div>
@@ -51,9 +191,13 @@
       <div><p class="eyebrow">LILY'S DAILY SPECIAL</p><h3 id="dailySpecialName">Reviewing today's inventory…</h3><p id="dailySpecialRecipe" class="subtle"></p></div>
       <div class="daily-special-footer"><span>Waste prevented <b id="dailySpecialWaste">$0.00</b></span><button id="createDailySpecial" type="button" class="soft-green">Create product</button></div>
     </article>
-  </section>
+  </div>
 
   <div class="pos-workspace">
+    <div class="pos-workspace-head">
+      <div><p class="eyebrow">FRONT COUNTER</p><h2>Point of Sale</h2><p class="subtle">Product pads, cart, and checkout for walk-ins and phone orders.</p></div>
+      <button class="primary" type="button" data-open="orderDialog">+ New sale</button>
+    </div>
     <section class="pos-center">
       <div class="product-toolbar">
         <div class="product-tabs"><button class="active">Product Pads</button><button data-page="inventoryPage">Scan</button><button data-page="libraryPage">Visual</button><button data-open="orderDialog">Manual Entry</button></div>
@@ -61,8 +205,6 @@
       </div>
 
       <div id="productPadGrid" class="product-pad-grid"></div>
-
-
 
       <section class="current-order-panel">
         <div class="current-order-head"><div><b>Current Order</b><span id="cartItemCount">0 items</span></div><div><button data-open="customerDialog">+ Add Customer</button><button id="clearCartBtn" class="clear-btn" type="button">Clear</button></div></div>
@@ -219,7 +361,13 @@
 <section id="wholesaleSellerPage" class="page"><div class="heading"><div><p class="eyebrow">FLORISYN WHOLESALE 1.0</p><h1>Seller dashboard</h1><p class="subtle">Products, inventory, orders, customers, shipping, and pricing in one workspace.</p></div><div class="heading-actions"><button type="button" class="secondary" data-page="marketplacePage">Browse marketplace</button><button type="button" class="primary" id="wholesaleNewProductBtn">+ New product</button></div></div><div id="wholesaleSellerRoot" class="wholesale-seller-root"></div></section>
 <section id="storesPage" class="page"><div class="heading"><div><p class="eyebrow">MULTI-LOCATION</p><h1>Your flower shops</h1></div><button class="primary" data-open="storeDialog">+ Add store</button></div><div id="storesList" class="cards"></div></section>
 </div></div></main>
-<nav class="mobile-nav"><button data-page="dashboardPage">Home</button><button data-page="ordersPage">Orders</button><button data-page="productsPage">Products</button><button data-page="websitePage">Website</button><button id="moreMenu">More</button></nav>
+<nav class="mobile-nav atelier-mobile-nav" aria-label="Primary">
+  <button type="button" data-page="dashboardPage"><span class="mnav-ico" aria-hidden="true">⌂</span><span>Dashboard</span></button>
+  <button type="button" data-page="ordersPage"><span class="mnav-ico" aria-hidden="true">☰</span><span>Orders</span></button>
+  <button type="button" class="atelier-mobile-add" data-open="orderDialog" aria-label="Add order"><span aria-hidden="true">+</span></button>
+  <button type="button" data-page="inventoryPage"><span class="mnav-ico" aria-hidden="true">▦</span><span>Inventory</span></button>
+  <button type="button" id="moreMenu"><span class="mnav-ico" aria-hidden="true">•••</span><span>More</span></button>
+</nav>
 
 <dialog id="customerDialog"><form id="customerForm"><input name="id" type="hidden"><h2 id="customerDialogTitle">Add customer</h2><label>Name<input name="name" required></label><div class="two"><label>Phone<input name="phone"></label><label>Email<input name="email"></label></div><label>Address<textarea name="address"></textarea></label><div class="two"><label>Birthday<input name="birthday" type="date"></label><label>Anniversary<input name="anniversary" type="date"></label></div><div class="two"><label>Favorite flowers<input name="favorite_flowers"></label><label>Favorite colors<input name="favorite_colors"></label></div><div class="two"><label class="check"><input name="vip" type="checkbox"> VIP customer</label><label class="check"><input name="is_business" type="checkbox"> Business account</label></div><div class="two"><label class="check"><input name="is_house_account" type="checkbox"> House account</label></div>
 <section class="contact-preferences-section"><p class="eyebrow">COMMUNICATION PREFERENCES</p><label>Preferred contact method<select name="preferred_method"><option value="none">No preference</option><option value="phone">Phone</option><option value="text">Text</option><option value="email">Email</option></select></label><label class="check"><input name="marketing_opt_in" type="checkbox"> Customer opts in to marketing emails/texts</label><p class="subtle">Operational order updates are separate from marketing. Marketing requires explicit opt-in — customers are not enrolled automatically.</p></section>
@@ -271,4 +419,4 @@
 
 <dialog id="savedQuotesDialog"><div class="dialog-shell"><div class="heading"><div><p class="eyebrow">REGISTER</p><h2>Saved quotes</h2><p class="subtle">Resume a quote on this register or remove it.</p></div><button class="close" type="button">×</button></div><div id="savedQuotesList" class="saved-quotes-list"></div></div></dialog>
 <dialog id="receiptDialog"><div id="receiptContent"></div><div class="dialog-tools"><button id="closeReceipt" class="secondary">Close</button><button id="printReceipt" class="primary" type="button">Print Receipt</button></div></dialog>
-<script src="/florisyn-version.js" defer></script><script src="/bloom-version.js" defer></script><script src="/lily-platform.js" defer></script><script type="module" src="/launch-polish.js"></script><script src="/production-monitor.js" defer></script><script src="/login.js" defer></script><script src="/marketplace-verification.js" defer></script><script src="/marketplace-categories.js" defer></script><script src="/marketplace-experience.js" defer></script><script src="/wholesale-seller-dashboard.js" defer></script><script src="/payment-hub-ui.js" defer></script><script src="/subscription-center-ui.js" defer></script><script src="/business-ecosystem-ui.js" defer></script><script src="/assistant-voice-core.js" defer></script><script src="/assistant-voice.js" defer></script><script src="/bloom-rc2-lily-voice.js" defer></script><script src="/daisy-mascot.js" defer></script><script src="/bloom-rc2-first-run.js" defer></script><script src="/bloom-rc2-dashboard.js" defer></script><script src="/bloom-rc2.1-founder-polish.js" defer></script><script src="/bloom-rc2.1-consistency.js" defer></script><script src="/instant-website-ui.js" defer></script><script src="/theme-gallery-ui.js" defer></script><script src="/website-editor-ui.js" defer></script><script src="/floral-library-ui.js" defer></script><script src="/customer-profile-ui.js" defer></script><script src="/guided-order-stepper.js" defer></script><script src="/bloom-rc1-dashboard.js" defer></script><script src="/community-ui.js" defer></script><script src="/app.js" defer></script></body></html>
+<script src="/florisyn-version.js" defer></script><script src="/bloom-version.js" defer></script><script src="/lily-platform.js" defer></script><script type="module" src="/launch-polish.js"></script><script src="/production-monitor.js" defer></script><script src="/login.js" defer></script><script src="/marketplace-verification.js" defer></script><script src="/marketplace-categories.js" defer></script><script src="/marketplace-experience.js" defer></script><script src="/wholesale-seller-dashboard.js" defer></script><script src="/payment-hub-ui.js" defer></script><script src="/subscription-center-ui.js" defer></script><script src="/business-ecosystem-ui.js" defer></script><script src="/assistant-voice-core.js" defer></script><script src="/assistant-voice.js" defer></script><script src="/bloom-rc2-lily-voice.js" defer></script><script src="/daisy-mascot.js" defer></script><script src="/bloom-rc2-first-run.js" defer></script><script src="/bloom-rc2-dashboard.js" defer></script><script src="/florisyn-atelier-dashboard.js?v=dashmock1" defer></script><script src="/bloom-rc2.1-founder-polish.js" defer></script><script src="/bloom-rc2.1-consistency.js" defer></script><script src="/instant-website-ui.js" defer></script><script src="/theme-gallery-ui.js" defer></script><script src="/website-editor-ui.js" defer></script><script src="/floral-library-ui.js" defer></script><script src="/customer-profile-ui.js" defer></script><script src="/guided-order-stepper.js" defer></script><script src="/bloom-rc1-dashboard.js" defer></script><script src="/community-ui.js" defer></script><script src="/app.js" defer></script></body></html>
