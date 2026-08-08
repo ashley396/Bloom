@@ -76,10 +76,15 @@ body.florisyn-atelier .shell > aside#atelierSidebarDrawer {
   color: var(--lux-sidebar-text) !important;
   border-right: 0 !important;
   box-shadow: none !important;
-  padding: 22px 14px 18px !important;
-  display: flex;
-  flex-direction: column;
+  padding: 18px 12px 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
   gap: 0;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  position: sticky !important;
+  top: 0 !important;
+  overflow: hidden !important;
 }
 
 body.florisyn-atelier .atelier-sidebar-brand {
@@ -111,32 +116,63 @@ body.florisyn-atelier .atelier-mark-f {
 }
 
 body.florisyn-atelier .florisyn-lux-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  overflow: auto;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
 }
 
-body.florisyn-atelier .shell > aside p {
-  margin: 16px 10px 6px !important;
+/* Keep every route button + section label visible — never hide nav entries */
+body.florisyn-atelier .florisyn-lux-nav > button[data-page] {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+body.florisyn-atelier .florisyn-lux-nav > .florisyn-lux-nav-label {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+body.florisyn-atelier .florisyn-lux-nav > .florisyn-lux-nav-divider {
+  display: block !important;
+  visibility: visible !important;
+}
+
+body.florisyn-atelier .shell > aside p,
+body.florisyn-atelier .florisyn-lux-nav-label {
+  margin: 12px 10px 4px !important;
   font-size: 10px !important;
   letter-spacing: 0.12em !important;
   font-weight: 600 !important;
   color: rgba(200, 202, 222, 0.55) !important;
+  text-transform: uppercase;
+  flex: 0 0 auto !important;
+  align-items: center;
 }
 
 body.florisyn-atelier .florisyn-lux-nav-divider {
+  display: block !important;
   border: 0;
   border-top: 1px solid rgba(200, 202, 222, 0.16);
-  margin: 12px 8px;
+  margin: 10px 8px;
+  flex: 0 0 auto;
 }
 
 body.florisyn-atelier .shell > aside button[data-page],
 body.florisyn-atelier .florisyn-lux-nav > button {
-  min-height: 38px !important;
+  min-height: 34px !important;
   border-radius: 8px !important;
-  padding: 8px 12px !important;
+  padding: 7px 12px !important;
   font-size: 13px !important;
   font-weight: 500 !important;
   color: var(--lux-sidebar-text) !important;
@@ -145,6 +181,17 @@ body.florisyn-atelier .florisyn-lux-nav > button {
   box-shadow: none !important;
   text-align: left;
   justify-content: flex-start;
+  flex: 0 0 auto !important;
+  width: 100% !important;
+}
+
+/* Kill legacy emoji/icon ::before so labels stay readable */
+body.florisyn-atelier .florisyn-lux-sidebar button[data-page]::before,
+body.florisyn-atelier .florisyn-lux-sidebar button[data-page]::after,
+body.florisyn-atelier .shell > aside#atelierSidebarDrawer::before,
+body.florisyn-atelier .shell > aside#atelierSidebarDrawer::after {
+  content: none !important;
+  display: none !important;
 }
 
 body.florisyn-atelier .florisyn-lux-nav-indent {
@@ -165,11 +212,12 @@ body.florisyn-atelier .shell > aside button[data-page].active {
 }
 
 body.florisyn-atelier .atelier-premium-card {
-  margin-top: 12px;
-  padding: 14px !important;
+  margin-top: 8px;
+  padding: 12px !important;
   border-radius: 12px !important;
   background: rgba(255, 255, 255, 0.06) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  flex: 0 0 auto !important;
 }
 
 body.florisyn-atelier .atelier-premium-card p {

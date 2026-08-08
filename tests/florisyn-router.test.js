@@ -67,10 +67,11 @@ test("sidebar lists every required route in exact order", () => {
   for (const [route, page] of SIDEBAR_ORDER) {
     assert.match(nav, new RegExp(`data-route="${route}"\\s+data-page="${page}"`));
   }
-  assert.match(nav, /BUSINESS/);
-  assert.match(nav, /SELLER DASHBOARD/);
-  assert.match(nav, /SUBSCRIPTION/);
+  assert.match(nav, /florisyn-lux-nav-label">BUSINESS</);
+  assert.match(nav, /florisyn-lux-nav-label">SELLER DASHBOARD</);
+  assert.match(nav, /florisyn-lux-nav-label">SUBSCRIPTION</);
   assert.match(nav, /POS Settings/);
+  assert.equal(routes.length, 21);
   assert.match(html, /florisyn-premium-badge/);
   assert.match(html, /PREMIUM PLAN/);
   const premiumStart = html.indexOf("florisyn-premium-badge");
@@ -78,6 +79,9 @@ test("sidebar lists every required route in exact order", () => {
   const premium = html.slice(premiumStart, premiumEnd);
   assert.match(premium, /PREMIUM PLAN/);
   assert.doesNotMatch(premium, /<button/);
+  // Premium badge sits after nav, not as a route button
+  assert.ok(html.indexOf('class="florisyn-lux-nav"') < premiumStart);
+  assert.ok(html.indexOf("</nav>", html.indexOf('class="florisyn-lux-nav"')) < premiumStart);
 });
 
 test("router module maps paths to page ids", () => {

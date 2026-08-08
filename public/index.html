@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1a1f3c"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/assets/florisyn/florisyn-favicon-32.png?v=official1" type="image/png" sizes="32x32"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><title>Florisyn — The Operating System for Modern Florists</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/polish-v20.2.css"><link rel="stylesheet" href="/polish-v20.4.css"><link rel="stylesheet" href="/platform-v21.1.css"><link rel="stylesheet" href="/bloom-v23.css"><link rel="stylesheet" href="/lily-platform.css"><link rel="stylesheet" href="/florisyn-live-avatars.css"><link rel="stylesheet" href="/florisyn-atelier-ui.css?v=atelierops1"><link rel="stylesheet" href="/florisyn-luxury-dashboard.css?v=lux3"><link rel="stylesheet" href="/florisyn-luxury-ai-studio.css?v=ai1"><link rel="stylesheet" href="/florisyn-luxury-business-os.css?v=bos1"><link rel="stylesheet" href="/launch-polish-v1.css"><link rel="stylesheet" href="/payment-hub.css"><link rel="stylesheet" href="/payment-center-polish.css"><link rel="stylesheet" href="/shop-billing.css"><link rel="stylesheet" href="/business-ecosystem.css"><link rel="stylesheet" href="/bloom-rc1-luxury.css"><link rel="stylesheet" href="/bloom-rc2-design-system.css"><link rel="stylesheet" href="/bloom-rc2.1-polish.css"><link rel="stylesheet" href="/receipt-print.css"><link rel="stylesheet" href="/bloom-rc2.1-consistency.css"><link rel="stylesheet" href="/florisyn-brand.css"><link rel="stylesheet" href="/florisyn-founder-1.0.css"><link rel="stylesheet" href="/florisyn-rc2.2-founder-polish.css"><link rel="stylesheet" href="/community.css"><link rel="stylesheet" href="/florisyn-ui-editor.css"><link rel="stylesheet" href="/florisyn-luxury-pos.css?v=pos4"></head><body class="bloom-rc1 bloom-rc2 bloom-rc21 florisyn florisyn-rc22 florisyn-atelier">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1a1f3c"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/assets/florisyn/florisyn-favicon-32.png?v=official1" type="image/png" sizes="32x32"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><title>Florisyn — The Operating System for Modern Florists</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/polish-v20.2.css"><link rel="stylesheet" href="/polish-v20.4.css"><link rel="stylesheet" href="/platform-v21.1.css"><link rel="stylesheet" href="/bloom-v23.css"><link rel="stylesheet" href="/lily-platform.css"><link rel="stylesheet" href="/florisyn-live-avatars.css"><link rel="stylesheet" href="/florisyn-atelier-ui.css?v=atelierops1"><link rel="stylesheet" href="/florisyn-luxury-dashboard.css?v=lux-nav2"><link rel="stylesheet" href="/florisyn-luxury-ai-studio.css?v=ai1"><link rel="stylesheet" href="/florisyn-luxury-business-os.css?v=bos1"><link rel="stylesheet" href="/launch-polish-v1.css"><link rel="stylesheet" href="/payment-hub.css"><link rel="stylesheet" href="/payment-center-polish.css"><link rel="stylesheet" href="/shop-billing.css"><link rel="stylesheet" href="/business-ecosystem.css"><link rel="stylesheet" href="/bloom-rc1-luxury.css"><link rel="stylesheet" href="/bloom-rc2-design-system.css"><link rel="stylesheet" href="/bloom-rc2.1-polish.css"><link rel="stylesheet" href="/receipt-print.css"><link rel="stylesheet" href="/bloom-rc2.1-consistency.css"><link rel="stylesheet" href="/florisyn-brand.css"><link rel="stylesheet" href="/florisyn-founder-1.0.css"><link rel="stylesheet" href="/florisyn-rc2.2-founder-polish.css"><link rel="stylesheet" href="/community.css"><link rel="stylesheet" href="/florisyn-ui-editor.css"><link rel="stylesheet" href="/florisyn-luxury-pos.css?v=pos4"></head><body class="bloom-rc1 bloom-rc2 bloom-rc21 florisyn florisyn-rc22 florisyn-atelier">
 <div id="bloomLoadingScreen" role="status" aria-live="polite"><div class="bloom-loading-inner"><img class="florisyn-loading-mark" src="/assets/florisyn/florisyn-mark.png?v=official1" width="72" height="72" alt=""><p>Loading Florisyn…</p></div></div>
 <div id="toast" class="toast" hidden></div>
 <section id="auth" hidden></section>
@@ -10,7 +10,7 @@
     <img src="/assets/florisyn/florisyn-mark.png?v=official1" class="atelier-sidebar-mark" width="36" height="36" alt="">
     <strong>Florisyn</strong>
   </div>
-  <nav class="florisyn-lux-nav" aria-label="Shop navigation">
+  <nav class="florisyn-lux-nav" aria-label="Shop navigation" data-florisyn-nav="full">
     <button type="button" class="active" data-route="/dashboard" data-page="dashboardPage">Dashboard</button>
     <button type="button" data-route="/pos" data-page="posPage">POS</button>
     <button type="button" data-route="/orders" data-page="ordersPage">Orders</button>
@@ -18,7 +18,7 @@
     <button type="button" data-route="/bouquets" data-page="bouquetsPage">Bouquets</button>
     <button type="button" data-route="/customers" data-page="customersPage">Customers</button>
     <button type="button" data-route="/deliveries" data-page="deliveriesPage">Deliveries</button>
-    <hr class="florisyn-lux-nav-divider" />
+    <hr class="florisyn-lux-nav-divider" aria-hidden="true" />
     <button type="button" data-route="/payment-centre" data-page="paymentsPage">Payment Centre</button>
     <button type="button" data-route="/lily-ai-studio" data-page="aiStudioPage">Lily AI Studio</button>
     <button type="button" data-route="/analytics" data-page="analyticsPage">Analytics</button>
@@ -27,19 +27,18 @@
     <button type="button" data-route="/photo-studio" data-page="bloomshotPage">Photo Studio</button>
     <button type="button" data-route="/website-studio" data-page="websitePage">Website Studio</button>
     <button type="button" data-route="/floral-library" data-page="libraryPage">Floral Library</button>
-    <p>BUSINESS</p>
+    <p class="florisyn-lux-nav-label">BUSINESS</p>
     <button type="button" data-route="/staff" data-page="staffPage">Staff</button>
     <button type="button" data-route="/wholesale" data-page="marketplacePage">Wholesale</button>
-    <p>SELLER DASHBOARD</p>
+    <p class="florisyn-lux-nav-label">SELLER DASHBOARD</p>
     <button type="button" data-route="/stores" data-page="storesPage">Stores</button>
-    <p>SUBSCRIPTION</p>
+    <p class="florisyn-lux-nav-label">SUBSCRIPTION</p>
     <button type="button" data-route="/business-os" data-page="ecosystemPage">Business OS</button>
     <button type="button" data-route="/pos-settings" data-page="posSettingsPage">POS Settings</button>
-    <hr class="florisyn-lux-nav-divider" />
+    <hr class="florisyn-lux-nav-divider" aria-hidden="true" />
     <button type="button" data-route="/settings" data-page="settingsPage">Settings</button>
   </nav>
-  <div class="sidebar-spacer"></div>
-  <section class="atelier-premium-card florisyn-premium-badge" aria-label="Premium plan" aria-hidden="false">
+  <section class="atelier-premium-card florisyn-premium-badge" aria-label="Premium plan">
     <p>PREMIUM PLAN</p>
     <small>Unlock deeper shop intelligence and marketing tools.</small>
   </section>
