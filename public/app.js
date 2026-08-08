@@ -86,6 +86,18 @@ function showPage(id){
     refreshCommunityFeatureFlag().then((on)=>{if(!on){toast("Florist Community Beta is disabled.");return}showPage("communityPage")});
     return;
   }
+  if(id==="holidayPage"&&!holidayCommandEnabled){
+    refreshCommunityFeatureFlag().then(()=>{if(!holidayCommandEnabled){toast("Holiday Command Center is disabled.");return}showPage("holidayPage")});
+    return;
+  }
+  if(id==="emailCampaignsPage"&&!emailCampaignsEnabled){
+    refreshCommunityFeatureFlag().then(()=>{if(!emailCampaignsEnabled){toast("Email Campaigns is disabled.");return}showPage("emailCampaignsPage")});
+    return;
+  }
+  if(id==="weddingsPage"&&!weddingWorkflowsEnabled){
+    refreshCommunityFeatureFlag().then(()=>{if(!weddingWorkflowsEnabled){toast("Wedding Workflows is disabled.");return}showPage("weddingsPage")});
+    return;
+  }
   // Exclusive page visibility: toggle .active + hidden immediately (no delayed transitionTo merge).
   $$(".page").forEach((p)=>{
     const on=p.id===id;
@@ -103,20 +115,39 @@ function showPage(id){
 async function loadPaymentsPage(){try{pendingPaymentOrder=pendingPaymentOrder||JSON.parse(localStorage.getItem("bloom_pending_payment_order")||"null")}catch{}renderPaymentCenterShell();if(window.BloomPaymentHub){window.BloomPaymentHub.api=api;try{await window.BloomPaymentHub.load(true)}catch(e){const msg=e?.message||"Payment Hub could not load.";if($("#paymentStatus"))$("#paymentStatus").textContent=msg;toast(msg)}}await applyPaymentHubCheckout()}
 async function loadEcosystemPage(){if(window.BloomEcosystem){window.bloomEcosystemApi=api;await window.BloomEcosystem.load()}}
 let communityBetaEnabled=false;
+let holidayCommandEnabled=false;
+let emailCampaignsEnabled=false;
+let weddingWorkflowsEnabled=false;
 function setCommunityNavVisible(on){
   communityBetaEnabled=Boolean(on);
   $$('[data-page="communityPage"]').forEach((el)=>{el.hidden=!communityBetaEnabled;el.style.display=communityBetaEnabled?"":"none"});
   const page=$("#communityPage");
   if(page&&!communityBetaEnabled){page.classList.remove("active");if(page.querySelector("#communityRoot"))page.querySelector("#communityRoot").innerHTML="";}
 }
+function setFlaggedNavVisible(pageId,enabled,rootSelector){
+  const on=Boolean(enabled);
+  $$(`[data-page="${pageId}"]`).forEach((el)=>{el.hidden=!on;el.style.display=on?"":"none"});
+  const page=$(`#${pageId}`);
+  if(page&&!on){page.classList.remove("active");page.hidden=true;const root=rootSelector?page.querySelector(rootSelector):null;if(root)root.innerHTML=""}
+  return on;
+}
+function setHolidayNavVisible(on){holidayCommandEnabled=setFlaggedNavVisible("holidayPage",on,"#holidayRoot")}
+function setEmailCampaignsNavVisible(on){emailCampaignsEnabled=setFlaggedNavVisible("emailCampaignsPage",on,"#emailCampaignsRoot")}
+function setWeddingsNavVisible(on){weddingWorkflowsEnabled=setFlaggedNavVisible("weddingsPage",on,"#weddingsRoot")}
 async function refreshCommunityFeatureFlag(){
   try{
     const d=await fetch("/.netlify/functions/production-health").then((r)=>r.ok?r.json():null).catch(()=>null);
     const on=Boolean(d?.feature_flags?.COMMUNITY_BETA);
     setCommunityNavVisible(on);
+    setHolidayNavVisible(Boolean(d?.feature_flags?.HOLIDAY_COMMAND_CENTER));
+    setEmailCampaignsNavVisible(Boolean(d?.feature_flags?.EMAIL_CAMPAIGNS));
+    setWeddingsNavVisible(Boolean(d?.feature_flags?.WEDDING_WORKFLOWS));
     return on;
   }catch{
     setCommunityNavVisible(false);
+    setHolidayNavVisible(false);
+    setEmailCampaignsNavVisible(false);
+    setWeddingsNavVisible(false);
     return false;
   }
 }
@@ -129,8 +160,35 @@ async function loadCommunityPage(){
   }
   if(window.BloomCommunity){window.bloomCommunityApi=api;await window.BloomCommunity.load()}
 }
+async function loadHolidayPage(){
+  await refreshCommunityFeatureFlag();
+  if(!holidayCommandEnabled){
+    const root=$("#holidayRoot");
+    if(root)root.innerHTML=`<div class="panel" role="alert"><h3>Unavailable</h3><p class="subtle">Holiday Command Center is disabled.</p></div>`;
+    return;
+  }
+  if(window.BloomHolidayCommand){window.bloomHolidayApi=api;await window.BloomHolidayCommand.load()}
+}
+async function loadEmailCampaignsPage(){
+  await refreshCommunityFeatureFlag();
+  if(!emailCampaignsEnabled){
+    const root=$("#emailCampaignsRoot");
+    if(root)root.innerHTML=`<div class="panel" role="alert"><h3>Unavailable</h3><p class="subtle">Email Campaigns is disabled.</p></div>`;
+    return;
+  }
+  if(window.BloomEmailCampaigns){window.bloomEmailCampaignsApi=api;await window.BloomEmailCampaigns.load()}
+}
+async function loadWeddingsPage(){
+  await refreshCommunityFeatureFlag();
+  if(!weddingWorkflowsEnabled){
+    const root=$("#weddingsRoot");
+    if(root)root.innerHTML=`<div class="panel" role="alert"><h3>Unavailable</h3><p class="subtle">Wedding Workflows is disabled.</p></div>`;
+    return;
+  }
+  if(window.BloomWeddings){window.bloomWeddingsApi=api;await window.BloomWeddings.load()}
+}
 async function loadSubscriptionPage(){if(window.BloomSubscriptionCenter){window.subscriptionCenterApi=api;await window.BloomSubscriptionCenter.load(document.getElementById("subscriptionCenterRoot"))}}
-async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,expensesPage:loadExpenses,reportsPage:loadReports,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,communityPage:loadCommunityPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,aiStudioPage:()=>refreshAiStatus()};try{if(m[id])await m[id]()}catch(e){toast(e.message);const box=document.querySelector(`#${id} .cards, #${id}List, #${id.replace("Page","")}List, #communityRoot`);if(box&&window.BloomLaunchPolish?.errorState)box.innerHTML=window.BloomLaunchPolish.errorState({message:e.message})}}
+async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,expensesPage:loadExpenses,reportsPage:loadReports,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,communityPage:loadCommunityPage,holidayPage:loadHolidayPage,emailCampaignsPage:loadEmailCampaignsPage,weddingsPage:loadWeddingsPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,aiStudioPage:()=>refreshAiStatus()};try{if(m[id])await m[id]()}catch(e){toast(e.message);const box=document.querySelector(`#${id} .cards, #${id}List, #${id.replace("Page","")}List, #communityRoot, #holidayRoot, #emailCampaignsRoot, #weddingsRoot`);if(box&&window.BloomLaunchPolish?.errorState)box.innerHTML=window.BloomLaunchPolish.errorState({message:e.message})}}
 const ORDER_STATUS_DEFS=[
   {id:"PENDING",label:"Pending",legacy:["NEW","PENDING"]},
   {id:"CONFIRMED",label:"Confirmed",legacy:["CONFIRMED"]},
@@ -455,6 +513,9 @@ $("#shiftButton")?.addEventListener("click",toggleShift);
 
 $("#logout").onclick=()=>{localStorage.removeItem("bloom_session");session=null;location.replace("/login")};$$("[data-page]").forEach(b=>b.onclick=()=>showPage(b.dataset.page));$$("[data-open]").forEach(b=>b.onclick=async()=>{if(b.dataset.open==="expenseDialog")return openExpense();const dialog=document.getElementById(b.dataset.open);if(!dialog)return toast("This Florisyn panel is unavailable. Refresh and try again.");if(b.dataset.open==="orderDialog")await prepareOrderBuilder();dialog.showModal()});$$(".close").forEach(b=>b.onclick=()=>b.closest("dialog").close());$("#customerSearch").oninput=renderCustomers;$("#addRecipeRow").onclick=()=>addRecipeRow();$("#refreshInvoices")?.addEventListener("click",loadInvoices);
 $("#refreshCommunity")?.addEventListener("click",()=>loadCommunityPage());
+$("#refreshHoliday")?.addEventListener("click",()=>loadHolidayPage());
+$("#refreshEmailCampaigns")?.addEventListener("click",()=>loadEmailCampaignsPage());
+$("#refreshWeddings")?.addEventListener("click",()=>loadWeddingsPage());
 $("#shopSwitcher").onchange=async e=>{await api("stores",{method:"PATCH",body:JSON.stringify({shop_id:e.target.value})});location.reload()};
 $("#customerForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));d.vip=f.elements.vip.checked;d.is_business=f.elements.is_business.checked;if(f.elements.is_house_account)d.is_house_account=f.elements.is_house_account.checked;d.contact_preferences={preferred_method:f.elements.preferred_method?.value||"none",marketing_opt_in:Boolean(f.elements.marketing_opt_in?.checked)};try{await api("customers",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)})}catch(err){return toast(err.message)}f.reset();$("#customerDialog").close();toast("Customer saved");loadCustomers()};
 $("#inventoryForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));const save=f.querySelector('button.primary');save.disabled=true;save.textContent="Saving…";try{const result=await api("inventory",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)});f.reset();$("#inventoryDialog").close();toast(`${result.item?.name||"Inventory"} saved`);await loadInventory();await loadDashboard()}catch(err){toast(err.message)}finally{save.disabled=false;save.textContent="Save inventory"}};
@@ -603,7 +664,7 @@ $("#removeWebsiteLogo")?.addEventListener("click",()=>{$("#websiteLogoUrl").valu
 $("#dashboardImageUpload")?.addEventListener("change",e=>readBrandImage(e.target.files?.[0],"#dashboardImageUrl",1800000));
 $("#removeDashboardImage")?.addEventListener("click",()=>{$("#dashboardImageUrl").value="";$("#dashboardImageUpload").value="";previewBrandingForm()});
 $("#speakRoseBriefing")?.addEventListener("click",()=>{const text=$("#roseBriefingText")?.dataset.spoken||$("#roseBriefingText")?.textContent||"";if(!window.FlorisynAssistantVoice?.speak&&!window.speechSynthesis)return toast("Voice playback is not supported in this browser.");speakAssistant(text,"Rose",true)});
-$("#moreMenu")?.addEventListener("click",()=>{const hint=communityBetaEnabled?"Open customers, inventory, expenses, reports, staff, delivery, wholesale, community or stores":"Open customers, inventory, expenses, reports, staff, delivery, wholesale or stores";const p=prompt(hint,"customers"),m={customers:"customersPage",inventory:"inventoryPage",expenses:"expensesPage",reports:"reportsPage",staff:"staffPage",delivery:"deliveriesPage",wholesale:"marketplacePage",stores:"storesPage",settings:"settingsPage"};if(communityBetaEnabled)m.community="communityPage";if(m[p?.toLowerCase()])showPage(m[p.toLowerCase()])});
+$("#moreMenu")?.addEventListener("click",()=>{const extras=[communityBetaEnabled&&"community",holidayCommandEnabled&&"holiday",emailCampaignsEnabled&&"email",weddingWorkflowsEnabled&&"weddings"].filter(Boolean);const hint=extras.length?`Open customers, inventory, expenses, reports, staff, delivery, wholesale, ${extras.join(", ")} or stores`:"Open customers, inventory, expenses, reports, staff, delivery, wholesale or stores";const p=prompt(hint,"customers"),m={customers:"customersPage",inventory:"inventoryPage",expenses:"expensesPage",reports:"reportsPage",staff:"staffPage",delivery:"deliveriesPage",wholesale:"marketplacePage",stores:"storesPage",settings:"settingsPage"};if(communityBetaEnabled)m.community="communityPage";if(holidayCommandEnabled)m.holiday="holidayPage";if(emailCampaignsEnabled)m.email="emailCampaignsPage";if(weddingWorkflowsEnabled)m.weddings="weddingsPage";if(m[p?.toLowerCase()])showPage(m[p.toLowerCase()])});
 $("#refreshOrderBoard")?.addEventListener("click",()=>loadOrders());
 $("#clearTelemetry")?.addEventListener("click",()=>{const log=$("#telemetryLog");if(log)log.innerHTML="<p><time>READY</time><span>Activity log cleared.</span></p>"});
 $("#sendBetaFeedback")?.addEventListener("click",async()=>{const msg=$("#betaFeedbackMessage")?.value?.trim(),status=$("#betaFeedbackStatus");if(!msg)return toast("Add feedback first");if(status)status.textContent="Sending…";try{await api("beta-feedback",{method:"POST",body:JSON.stringify({message:msg,category:"florist_beta",path:location.pathname})});if(status)status.textContent="Thank you — your feedback was sent to Florisyn HQ.";$("#betaFeedbackMessage").value="";toast("Beta feedback sent")}catch(e){if(status)status.textContent=e.message;toast(e.message)}});
