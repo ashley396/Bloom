@@ -11,8 +11,7 @@ import { prepareAssistantSpeechText } from "./_shared/assistant-voice.js";
 function cloudConfigured(env = process.env) {
   return Boolean(
     (env.AZURE_SPEECH_KEY && env.AZURE_SPEECH_REGION) ||
-      env.ELEVENLABS_API_KEY ||
-      env.OPENAI_API_KEY
+      env.ELEVENLABS_API_KEY
   );
 }
 

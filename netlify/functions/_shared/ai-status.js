@@ -15,7 +15,6 @@ export function getAiProviderStatus(env = process.env) {
   const cloudflare =
     Boolean(env.CLOUDFLARE_AI_API_TOKEN || env.CLOUDFLARE_AI_TOKEN) &&
     Boolean(env.CLOUDFLARE_ACCOUNT_ID);
-  const openai = Boolean(env.OPENAI_API_KEY);
   const ollamaUrl = String(env.OLLAMA_URL || env.BLOOM_AI_HOST || "").trim();
 
   if (cloudflare) {
@@ -26,17 +25,6 @@ export function getAiProviderStatus(env = process.env) {
       message: "Cloud AI is configured for Lily and Rose.",
       lily: "online",
       rose: "online",
-    };
-  }
-
-  if (openai) {
-    return {
-      state: AI_STATUS.LIMITED,
-      provider: "openai",
-      label: "Limited",
-      message: "OpenAI is configured. Cloudflare Workers AI is preferred for production.",
-      lily: "limited",
-      rose: "limited",
     };
   }
 
@@ -56,7 +44,7 @@ export function getAiProviderStatus(env = process.env) {
     provider: null,
     label: "Configuration Required",
     message:
-      "AI is not configured in this environment. Set CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_API_TOKEN, or OPENAI_API_KEY. POS, orders, and payments continue to work.",
+      "AI is not configured in this environment. Set CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_API_TOKEN, or use the free local AI fallback. POS, orders, and payments continue to work.",
     lily: "offline",
     rose: "offline",
     voice_wake_enabled: isFeatureEnabled("VOICE_WAKE", env),

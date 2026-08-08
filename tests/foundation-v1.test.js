@@ -32,6 +32,13 @@ test("getAiProviderStatus reports online when Cloudflare is configured", () => {
   assert.equal(status.state, AI_STATUS.ONLINE);
 });
 
+test("getAiProviderStatus ignores OpenAI credentials for cost control", () => {
+  const status = getAiProviderStatus({ OPENAI_API_KEY: "sk-test-not-used" });
+  assert.equal(status.state, AI_STATUS.CONFIGURATION_REQUIRED);
+  assert.equal(status.provider, null);
+  assert.equal(status.lily, "offline");
+});
+
 test("feature flags default voice wake off", () => {
   assert.equal(isFeatureEnabled("VOICE_WAKE", {}), false);
 });
