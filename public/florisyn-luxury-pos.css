@@ -23,6 +23,11 @@ body.florisyn-atelier #posPage.florisyn-pos-page.active {
   display: block !important;
 }
 
+/* Give the register the full content canvas */
+body.florisyn-atelier.florisyn-pos-active .shell > .content {
+  padding: 12px 12px 16px !important;
+}
+
 /* Beat polish / rc2 grid overrides on .pos-workspace */
 body.florisyn-atelier #posPage .pos-workspace.florisyn-pos-lux,
 body.florisyn-atelier .pos-workspace.florisyn-pos-lux {
