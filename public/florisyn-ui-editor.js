@@ -980,11 +980,11 @@
       <article class="panel florisyn-design-admin-panel">
         <p class="eyebrow">ASHLEY VISUAL STUDIO</p>
         <h2>UI Design Mode</h2>
-        <p class="subtle">Edit Florisyn visuals only — text, spacing, colors, images, layout, and character voices. Never changes payments, access gates, staff PIN, Website Studio logic, or database queries.</p>
+        <p class="subtle">Edit Florisyn visuals only — text, spacing, colors, images, layout, and character voices on Admin and every florist OS page. Never changes payments, access gates, staff PIN, Website Studio logic, or database queries.</p>
         <div class="actions">
-          <button type="button" id="adminEnterDesign">Enter Design Mode</button>
+          <button type="button" id="adminEnterDesign">Enter Design Mode (this Admin page)</button>
           <button type="button" class="secondary" id="adminExitDesign">Exit Design Mode</button>
-          <a class="secondary" href="/?florisynDesign=1" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Open florist app in Design Mode</a>
+          <a class="secondary" href="/?florisynDesign=1" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Edit all florist pages in Design Mode</a>
         </div>
       </article>
       <article class="panel florisyn-design-admin-panel image-mode-card" style="margin-top:16px">

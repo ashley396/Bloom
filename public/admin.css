@@ -89,3 +89,6 @@ body.admin-luxury button:focus-visible{
   outline:3px solid rgba(201,169,98,.45);
   outline-offset:2px;
 }
+
+.editor-heading-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+.editor-heading-actions .secondary{background:#fff;color:var(--ink);border:1px solid var(--line)}
