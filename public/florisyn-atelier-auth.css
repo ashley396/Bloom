@@ -1,0 +1,1163 @@
+/**
+ * Florisyn Atelier auth — login mockup match + shared auth polish.
+ * Pair with bloom-auth.css; body.bloom-auth.florisyn-atelier-auth
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap");
+
+body.bloom-auth.florisyn-atelier-auth {
+  --atelier-navy: #1a2b48;
+  --atelier-blush: #f6dfe8;
+  --atelier-pink: #f4c4d4;
+  --atelier-ivory: #fffafb;
+  --atelier-tan: #c9a27a;
+  --atelier-gold: #b08d57;
+  --atelier-muted: #6d7385;
+  --atelier-line: rgba(26, 43, 72, 0.1);
+  --atelier-font-display: "Playfair Display", Georgia, serif;
+  --atelier-font-ui: Figtree, "Source Sans 3", system-ui, sans-serif;
+  --auth-navy: var(--atelier-navy);
+  --auth-champagne: #c9a962;
+  --auth-ivory: var(--atelier-ivory);
+  --auth-blush: var(--atelier-blush);
+  --auth-charcoal: var(--atelier-navy);
+  --auth-muted: var(--atelier-muted);
+  --auth-border: #ecd7df;
+  --auth-font-display: var(--atelier-font-display);
+  --auth-font-body: var(--atelier-font-ui);
+  --auth-radius: 16px;
+  font-family: var(--atelier-font-ui);
+  background:
+    radial-gradient(900px 520px at 15% -10%, rgba(244, 196, 212, 0.7), transparent 55%),
+    radial-gradient(700px 420px at 90% 10%, rgba(246, 223, 232, 0.85), transparent 50%),
+    linear-gradient(180deg, #fff7fa 0%, #f7eef3 55%, #f3e9ef 100%);
+  color: var(--atelier-navy);
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-top {
+  background: transparent;
+  border-bottom: 0;
+  justify-content: center;
+  padding-top: 28px;
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-nav {
+  display: none;
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-brand {
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-brand img {
+  width: 96px;
+  height: 96px;
+  border-radius: 24px;
+  box-shadow: 0 16px 36px rgba(26, 43, 72, 0.2);
+  background: transparent;
+  object-fit: contain;
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-brand strong {
+  font-family: var(--atelier-font-display);
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--atelier-navy);
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-brand small {
+  display: none;
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-shell {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: calc(100vh - 140px);
+  padding: 8px 16px 48px;
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-visual {
+  display: none !important;
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-form-zone {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  padding: 0;
+  background: transparent;
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  background: #fff;
+  border: 1px solid var(--atelier-line);
+  border-radius: 28px;
+  padding: 32px 28px 28px;
+  box-shadow: 0 24px 60px rgba(26, 43, 72, 0.12);
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-card h2 {
+  font-family: var(--atelier-font-display);
+  font-size: clamp(1.85rem, 4vw, 2.2rem);
+  text-align: center;
+  margin: 0 0 8px;
+  color: var(--atelier-navy);
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-card .lead {
+  text-align: center;
+  margin: 0 0 26px;
+  color: var(--atelier-muted);
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-card label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--atelier-navy);
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-card input {
+  border-radius: 14px;
+  border: 1px solid #e7d3dc;
+  background: #fffafb;
+  min-height: 50px;
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-btn {
+  background: var(--atelier-navy);
+  color: #fff;
+  border-radius: 14px;
+  box-shadow: 0 14px 30px rgba(26, 43, 72, 0.28);
+}
+
+body.bloom-auth.florisyn-atelier-auth .atelier-auth-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 18px;
+  font-size: 13px;
+}
+
+body.bloom-auth.florisyn-atelier-auth .atelier-auth-row label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-weight: 600;
+  color: var(--atelier-muted);
+}
+
+body.bloom-auth.florisyn-atelier-auth .atelier-auth-row a {
+  color: var(--atelier-navy);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-footer {
+  background: transparent;
+  border-top: 0;
+  color: var(--atelier-muted);
+}
+
+body.bloom-auth.florisyn-atelier-auth .atelier-auth-tagline {
+  margin: 6px 0 0;
+  text-align: center;
+  font-family: var(--atelier-font-display);
+  font-size: 1.05rem;
+  font-style: italic;
+  color: var(--atelier-navy);
+  opacity: 0.85;
+}
+
+/* Signup / other auth pages keep room */
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-signup-shell {
+  background: transparent;
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-signup-shell .bloom-auth-visual {
+  display: none !important;
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-plan {
+  border-radius: 20px;
+  border-color: var(--atelier-line);
+}
+
+body.bloom-auth.florisyn-atelier-auth .bloom-auth-plan:has(input:checked) {
+  border-color: var(--atelier-navy);
+  box-shadow: 0 0 0 3px rgba(26, 43, 72, 0.12);
+}
+
+/* =========================================================
+   LOGIN MOCKUP — exact founder layout
+   ========================================================= */
+
+body.florisyn-login-mockup {
+  min-height: 100vh;
+  background: #f8e9ef !important;
+  overflow-x: hidden;
+}
+
+body.florisyn-login-mockup .bloom-auth-top,
+body.florisyn-login-mockup .bloom-auth-shell,
+body.florisyn-login-mockup .bloom-auth-visual {
+  display: none !important;
+}
+
+body.florisyn-login-mockup .login-decor {
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body.florisyn-login-mockup .login-decor-line {
+  top: -4%;
+  right: -6%;
+  width: min(58vw, 420px);
+  aspect-ratio: 1;
+  background: url("/assets/florisyn/florisyn-login-line-florals.png?v=loginmock1") center / contain no-repeat;
+  opacity: 0.55;
+}
+
+body.florisyn-login-mockup .login-decor-florals {
+  left: -8%;
+  bottom: -6%;
+  width: min(72vw, 520px);
+  aspect-ratio: 1;
+  background: url("/assets/florisyn/florisyn-login-florals-corner.png?v=loginmock1") center / contain no-repeat;
+  opacity: 0.95;
+}
+
+body.florisyn-login-mockup .login-mockup-shell {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 420px);
+  margin: 0 auto;
+  padding: clamp(28px, 6vh, 56px) 22px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+body.florisyn-login-mockup .login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+  margin-bottom: 8px;
+}
+
+body.florisyn-login-mockup .login-brand img {
+  width: min(210px, 58vw);
+  height: auto;
+  filter: drop-shadow(0 10px 24px rgba(26, 43, 72, 0.12));
+}
+
+body.florisyn-login-mockup .login-mockup-card {
+  width: 100%;
+  margin-top: 6px;
+}
+
+body.florisyn-login-mockup .login-heading {
+  margin: 0;
+  text-align: center;
+  font-family: var(--atelier-font-display);
+  font-weight: 600;
+  font-size: clamp(2rem, 6vw, 2.45rem);
+  color: #2c3548;
+  letter-spacing: -0.02em;
+}
+
+body.florisyn-login-mockup .login-heading-bloom {
+  color: #e59bb0;
+  font-size: 0.72em;
+  margin-left: 2px;
+  vertical-align: middle;
+}
+
+body.florisyn-login-mockup .login-lead {
+  margin: 8px 0 26px;
+  text-align: center;
+  color: #8a8793;
+  font-size: 0.98rem;
+}
+
+body.florisyn-login-mockup .login-mockup-form {
+  display: grid;
+  gap: 14px;
+}
+
+body.florisyn-login-mockup .login-field {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #3a4254;
+}
+
+body.florisyn-login-mockup .login-field input {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid #ead7df;
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: #fff;
+  color: var(--atelier-navy);
+  font: inherit;
+  font-weight: 500;
+}
+
+body.florisyn-login-mockup .login-field input:focus {
+  outline: none;
+  border-color: rgba(26, 43, 72, 0.35);
+  box-shadow: 0 0 0 3px rgba(229, 155, 176, 0.35);
+}
+
+body.florisyn-login-mockup .login-password-wrap {
+  position: relative;
+  display: block;
+}
+
+body.florisyn-login-mockup .login-password-wrap input {
+  padding-right: 48px;
+}
+
+body.florisyn-login-mockup .login-password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  color: #9a96a3;
+  border-radius: 10px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  box-shadow: none !important;
+}
+
+body.florisyn-login-mockup .login-password-toggle:hover {
+  color: var(--atelier-navy);
+  background: rgba(246, 223, 232, 0.55);
+}
+
+body.florisyn-login-mockup .login-options {
+  margin: 2px 0 6px;
+}
+
+body.florisyn-login-mockup .login-submit,
+body.florisyn-login-mockup .bloom-auth-btn.login-submit {
+  width: 100%;
+  min-height: 54px;
+  margin-top: 4px;
+  border: 0;
+  border-radius: 14px;
+  background: #2f4a6e !important;
+  color: #fff !important;
+  font-weight: 700;
+  font-size: 1rem;
+  box-shadow: 0 14px 28px rgba(47, 74, 110, 0.28);
+  cursor: pointer;
+}
+
+body.florisyn-login-mockup .login-submit:hover {
+  filter: brightness(1.05);
+}
+
+body.florisyn-login-mockup .login-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 22px 0 16px;
+  color: #a39eaa;
+  font-size: 13px;
+}
+
+body.florisyn-login-mockup .login-divider::before,
+body.florisyn-login-mockup .login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e6d7de;
+}
+
+body.florisyn-login-mockup .login-social {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
+
+body.florisyn-login-mockup .login-social-btn {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  border: 1px solid #ead7df;
+  background: #fff !important;
+  box-shadow: 0 6px 16px rgba(26, 43, 72, 0.06) !important;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+body.florisyn-login-mockup .login-social-btn:hover {
+  border-color: #d7b8c4;
+  transform: translateY(-1px);
+}
+
+body.florisyn-login-mockup .login-footer-link {
+  margin: 22px 0 0;
+  text-align: center;
+  color: #7d7885;
+  font-size: 0.95rem;
+}
+
+body.florisyn-login-mockup .login-footer-link a {
+  color: #2c3548;
+  text-decoration: none;
+}
+
+body.florisyn-login-mockup .login-help-links {
+  margin: 14px 0 0;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+body.florisyn-login-mockup .login-help-links a {
+  color: #9a96a3;
+  text-decoration: none;
+}
+
+body.florisyn-login-mockup .login-mockup-footer {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 8px 16px 28px;
+  font-size: 12px;
+  color: #9a96a3;
+}
+
+body.florisyn-login-mockup .bloom-auth-message {
+  min-height: 20px;
+  text-align: center;
+  margin: 12px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ae294f;
+}
+
+body.florisyn-login-mockup .visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 640px) {
+  body.florisyn-login-mockup .login-decor-florals {
+    width: min(88vw, 420px);
+    left: -18%;
+    bottom: -10%;
+    opacity: 0.88;
+  }
+
+  body.florisyn-login-mockup .login-decor-line {
+    width: min(70vw, 300px);
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.florisyn-login-mockup .login-social-btn {
+    transition: none;
+  }
+}
+
+/* =========================================================
+   AUTH HERO — desktop login + create account (founder landing)
+   ========================================================= */
+
+body.florisyn-auth-hero {
+  --hero-magenta: #c43b6e;
+  --hero-navy: #121c2e;
+  --hero-ink: #1a2233;
+  --hero-muted: #6d7385;
+  --hero-cream: #fff8f4;
+  min-height: 100vh;
+  color: var(--hero-ink);
+  background:
+    radial-gradient(900px 560px at 12% 8%, rgba(244, 196, 212, 0.55), transparent 60%),
+    radial-gradient(820px 520px at 88% 18%, rgba(214, 198, 240, 0.38), transparent 58%),
+    radial-gradient(700px 480px at 70% 90%, rgba(246, 223, 232, 0.45), transparent 55%),
+    linear-gradient(180deg, #fffaf7 0%, #fff5f8 42%, #f7eef5 100%) !important;
+  overflow-x: hidden;
+}
+
+body.florisyn-auth-hero .bloom-auth-top,
+body.florisyn-auth-hero .bloom-auth-shell,
+body.florisyn-auth-hero .login-decor {
+  display: none !important;
+}
+
+body.florisyn-auth-hero .auth-hero-atmosphere {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+body.florisyn-auth-hero .auth-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(8px);
+}
+
+body.florisyn-auth-hero .auth-orb-a {
+  width: min(46vw, 520px);
+  height: min(46vw, 520px);
+  left: -8%;
+  top: 18%;
+  background: radial-gradient(circle, rgba(244, 196, 212, 0.55), transparent 70%);
+}
+
+body.florisyn-auth-hero .auth-orb-b {
+  width: min(40vw, 460px);
+  height: min(40vw, 460px);
+  right: -6%;
+  top: -8%;
+  background: radial-gradient(circle, rgba(214, 198, 240, 0.42), transparent 70%);
+}
+
+body.florisyn-auth-hero .auth-orb-c {
+  width: min(36vw, 400px);
+  height: min(36vw, 400px);
+  right: 18%;
+  bottom: -10%;
+  background: radial-gradient(circle, rgba(255, 220, 230, 0.5), transparent 70%);
+}
+
+body.florisyn-auth-hero .auth-petals {
+  position: absolute;
+  object-fit: contain;
+  opacity: 0.92;
+  animation: authPetalFloat 12s ease-in-out infinite;
+}
+
+body.florisyn-auth-hero .auth-petals-a {
+  width: min(28vw, 260px);
+  top: 12%;
+  left: 38%;
+  animation-delay: 0s;
+}
+
+body.florisyn-auth-hero .auth-petals-b {
+  width: min(22vw, 200px);
+  top: 58%;
+  left: 8%;
+  transform: rotate(-18deg);
+  animation-delay: -4s;
+  opacity: 0.75;
+}
+
+body.florisyn-auth-hero .auth-petals-c {
+  width: min(34vw, 320px);
+  right: -4%;
+  bottom: 4%;
+  opacity: 0.85;
+  animation-delay: -7s;
+}
+
+@keyframes authPetalFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-14px) rotate(3deg); }
+}
+
+body.florisyn-auth-hero .auth-hero-nav,
+body.florisyn-auth-hero .auth-hero-shell,
+body.florisyn-auth-hero .auth-hero-footer {
+  position: relative;
+  z-index: 1;
+}
+
+body.florisyn-auth-hero .auth-hero-nav {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 24px;
+  padding: 22px clamp(20px, 4vw, 56px);
+}
+
+body.florisyn-auth-hero .auth-hero-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--hero-ink);
+}
+
+body.florisyn-auth-hero .auth-hero-logo img {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  object-fit: contain;
+  box-shadow: 0 10px 24px rgba(26, 43, 72, 0.16);
+  background: #fff;
+}
+
+body.florisyn-auth-hero .auth-hero-logo strong {
+  font-family: var(--atelier-font-display);
+  font-size: 1.7rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+body.florisyn-auth-hero .auth-hero-links {
+  display: flex;
+  justify-content: center;
+  gap: clamp(14px, 2vw, 28px);
+  flex-wrap: wrap;
+}
+
+body.florisyn-auth-hero .auth-hero-links a {
+  color: #4a5160;
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+body.florisyn-auth-hero .auth-hero-links a:hover {
+  color: var(--hero-navy);
+}
+
+body.florisyn-auth-hero .auth-hero-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+body.florisyn-auth-hero .auth-nav-login {
+  color: var(--hero-ink);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+body.florisyn-auth-hero .auth-nav-cta,
+body.florisyn-auth-hero .login-submit,
+body.florisyn-auth-hero .bloom-auth-btn.login-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 20px;
+  border-radius: 14px !important;
+  background: var(--hero-navy) !important;
+  color: #fff !important;
+  text-decoration: none;
+  font-weight: 700;
+  border: 0;
+  box-shadow: 0 14px 30px rgba(18, 28, 46, 0.22);
+}
+
+body.florisyn-auth-hero .auth-hero-shell {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(340px, 1.05fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: center;
+  padding: 12px clamp(20px, 4vw, 56px) 40px;
+  max-width: 1280px;
+  margin: 0 auto;
+  min-height: calc(100vh - 140px);
+}
+
+body.florisyn-auth-hero .auth-hero-copy {
+  max-width: 520px;
+  animation: authHeroRise 560ms ease both;
+}
+
+body.florisyn-auth-hero .auth-eyebrow-pill {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 18px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(244, 196, 212, 0.55);
+  color: #8a3a57;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.florisyn-auth-hero .auth-hero-copy h1 {
+  margin: 0;
+  font-family: var(--atelier-font-display);
+  font-weight: 600;
+  font-size: clamp(2.4rem, 4.6vw, 3.6rem);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  color: var(--hero-ink);
+}
+
+body.florisyn-auth-hero .auth-hero-copy h1 em {
+  display: inline;
+  font-style: italic;
+  font-weight: 600;
+  color: var(--hero-magenta);
+}
+
+body.florisyn-auth-hero .auth-hero-lead {
+  margin: 16px 0 28px;
+  color: var(--hero-muted);
+  font-size: 1.05rem;
+  line-height: 1.55;
+  max-width: 34ch;
+}
+
+body.florisyn-auth-hero .auth-hero-form {
+  display: grid;
+  gap: 14px;
+}
+
+body.florisyn-auth-hero .login-field {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #3a4254;
+}
+
+body.florisyn-auth-hero .login-field input,
+body.florisyn-auth-hero .auth-signup-card input,
+body.florisyn-auth-hero .auth-signup-card select {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid #ead7df;
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--atelier-navy);
+  font: inherit;
+  font-weight: 500;
+  box-shadow: 0 8px 20px rgba(26, 43, 72, 0.04);
+}
+
+body.florisyn-auth-hero .login-field input:focus,
+body.florisyn-auth-hero .auth-signup-card input:focus,
+body.florisyn-auth-hero .auth-signup-card select:focus {
+  outline: none;
+  border-color: rgba(196, 59, 110, 0.45);
+  box-shadow: 0 0 0 3px rgba(244, 196, 212, 0.55);
+}
+
+body.florisyn-auth-hero .login-password-wrap {
+  position: relative;
+  display: block;
+}
+
+body.florisyn-auth-hero .login-password-wrap input {
+  padding-right: 48px;
+}
+
+body.florisyn-auth-hero .login-password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  color: #9a96a3;
+  border-radius: 10px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  box-shadow: none !important;
+}
+
+body.florisyn-auth-hero .login-options {
+  margin: 2px 0 6px;
+}
+
+body.florisyn-auth-hero .auth-hero-form .login-submit {
+  width: 100%;
+  min-height: 54px;
+  margin-top: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+body.florisyn-auth-hero .auth-hero-secondary-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+body.florisyn-auth-hero .auth-watch-demo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--hero-ink);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+body.florisyn-auth-hero .auth-watch-demo span {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid #d9c4cd;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  background: #fff;
+}
+
+body.florisyn-auth-hero .login-footer-link {
+  margin: 0;
+  color: #7d7885;
+  font-size: 0.95rem;
+}
+
+body.florisyn-auth-hero .login-footer-link a {
+  color: var(--hero-ink);
+  text-decoration: none;
+}
+
+body.florisyn-auth-hero .login-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 22px 0 16px;
+  color: #a39eaa;
+  font-size: 13px;
+}
+
+body.florisyn-auth-hero .login-divider::before,
+body.florisyn-auth-hero .login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e6d7de;
+}
+
+body.florisyn-auth-hero .login-social {
+  display: flex;
+  gap: 14px;
+}
+
+body.florisyn-auth-hero .login-social-btn {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  border: 1px solid #ead7df;
+  background: #fff !important;
+  box-shadow: 0 6px 16px rgba(26, 43, 72, 0.06) !important;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+body.florisyn-auth-hero .login-help-links {
+  margin: 18px 0 0;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+body.florisyn-auth-hero .login-help-links a {
+  color: #9a96a3;
+  text-decoration: none;
+}
+
+body.florisyn-auth-hero .bloom-auth-message {
+  min-height: 20px;
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ae294f;
+}
+
+body.florisyn-auth-hero .auth-hero-visual {
+  position: relative;
+  animation: authHeroRise 700ms ease both;
+  animation-delay: 80ms;
+}
+
+body.florisyn-auth-hero .auth-hero-stage {
+  position: relative;
+  isolation: isolate;
+}
+
+body.florisyn-auth-hero .auth-hero-devices {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 28px 50px rgba(26, 43, 72, 0.18));
+  border-radius: 28px;
+}
+
+body.florisyn-auth-hero .auth-hero-bloom-float {
+  position: absolute;
+  width: min(42%, 220px);
+  right: -4%;
+  top: -6%;
+  object-fit: contain;
+  filter: drop-shadow(0 16px 28px rgba(26, 43, 72, 0.18));
+  animation: authPetalFloat 10s ease-in-out infinite;
+  pointer-events: none;
+}
+
+body.florisyn-auth-hero .auth-hero-visual-copy {
+  margin-top: 18px;
+  max-width: 36ch;
+}
+
+body.florisyn-auth-hero .auth-hero-visual-copy .eyebrow {
+  color: var(--hero-magenta);
+  letter-spacing: 0.14em;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+body.florisyn-auth-hero .auth-hero-visual-copy h2 {
+  margin: 8px 0 0;
+  font-family: var(--atelier-font-display);
+  font-size: 1.55rem;
+  font-weight: 600;
+  color: var(--hero-ink);
+  line-height: 1.25;
+}
+
+body.florisyn-auth-hero .auth-hero-footer {
+  background: transparent;
+  border-top: 0;
+  text-align: center;
+  padding: 8px 16px 28px;
+  color: #9a96a3;
+  font-size: 12px;
+}
+
+body.florisyn-auth-hero .visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Signup specifics */
+body.florisyn-signup-hero .auth-hero-shell {
+  align-items: start;
+  padding-top: 8px;
+}
+
+body.florisyn-signup-hero .auth-hero-copy {
+  max-width: none;
+}
+
+body.florisyn-signup-hero .auth-hero-copy h1 {
+  font-size: clamp(2.1rem, 3.8vw, 3.1rem);
+}
+
+body.florisyn-signup-hero .auth-hero-visual {
+  position: sticky;
+  top: 24px;
+}
+
+body.florisyn-signup-hero .bloom-auth-plans {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+body.florisyn-signup-hero .bloom-auth-plan {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--atelier-line);
+  border-radius: 18px;
+  padding: 14px 12px;
+  box-shadow: 0 10px 24px rgba(26, 43, 72, 0.05);
+}
+
+body.florisyn-signup-hero .bloom-auth-plan:has(input:checked) {
+  border-color: var(--hero-navy);
+  box-shadow: 0 0 0 3px rgba(18, 28, 46, 0.12);
+}
+
+body.florisyn-signup-hero .auth-signup-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(26, 43, 72, 0.08);
+  border-radius: 24px;
+  padding: 22px 20px;
+  box-shadow: 0 22px 50px rgba(26, 43, 72, 0.08);
+  display: grid;
+  gap: 12px;
+}
+
+body.florisyn-signup-hero .auth-signup-card .eyebrow {
+  margin: 0;
+  color: var(--hero-magenta);
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+body.florisyn-signup-hero .auth-signup-card h2 {
+  margin: 0 0 4px;
+  font-family: var(--atelier-font-display);
+  font-size: 1.55rem;
+  color: var(--hero-ink);
+}
+
+body.florisyn-signup-hero .auth-signup-card label {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #3a4254;
+}
+
+body.florisyn-signup-hero .auth-signup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+
+body.florisyn-signup-hero .auth-signup-city-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 12px;
+}
+
+body.florisyn-signup-hero .auth-terms {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start;
+  gap: 10px;
+  font-weight: 500 !important;
+}
+
+body.florisyn-signup-hero .auth-terms input {
+  width: auto;
+  min-height: 0;
+  box-shadow: none;
+}
+
+@keyframes authHeroRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (max-width: 1080px) {
+  body.florisyn-auth-hero .auth-hero-links {
+    display: none;
+  }
+  body.florisyn-auth-hero .auth-hero-nav {
+    grid-template-columns: 1fr auto;
+  }
+}
+
+@media (max-width: 920px) {
+  body.florisyn-auth-hero .auth-hero-shell {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  body.florisyn-auth-hero .auth-hero-visual {
+    order: -1;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  body.florisyn-signup-hero .auth-hero-visual {
+    position: relative;
+    top: 0;
+  }
+
+  body.florisyn-signup-hero .bloom-auth-plans,
+  body.florisyn-signup-hero .auth-signup-grid,
+  body.florisyn-signup-hero .auth-signup-city-row {
+    grid-template-columns: 1fr;
+  }
+
+  body.florisyn-auth-hero .auth-petals-a {
+    left: auto;
+    right: 4%;
+    top: 8%;
+    width: 150px;
+  }
+}
+
+@media (max-width: 640px) {
+  body.florisyn-auth-hero .auth-hero-nav {
+    padding: 16px;
+  }
+
+  body.florisyn-auth-hero .auth-hero-logo strong {
+    font-size: 1.35rem;
+  }
+
+  body.florisyn-auth-hero .auth-nav-cta {
+    min-height: 40px;
+    padding: 0 14px;
+    font-size: 0.85rem;
+  }
+
+  body.florisyn-auth-hero .auth-hero-shell {
+    padding: 8px 16px 28px;
+  }
+
+  body.florisyn-auth-hero .auth-hero-copy h1 {
+    font-size: 2.15rem;
+  }
+
+  body.florisyn-auth-hero .auth-hero-bloom-float {
+    width: 36%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.florisyn-auth-hero .auth-petals,
+  body.florisyn-auth-hero .auth-hero-bloom-float,
+  body.florisyn-auth-hero .auth-hero-copy,
+  body.florisyn-auth-hero .auth-hero-visual {
+    animation: none !important;
+  }
+}
+

@@ -70,7 +70,7 @@
     fab.id = "lilyFab";
     fab.className = "lily-fab";
     fab.title = "Lily — Florisyn assistant";
-    fab.innerHTML = '<img src="/assets/assistants/lily-portrait.svg" alt="Lily">';
+    fab.innerHTML = '<img src="/assets/assistants/lily-portrait.png" alt="Lily">';
     fab.onclick = () => togglePanel(true);
 
     const panel = document.createElement("section");

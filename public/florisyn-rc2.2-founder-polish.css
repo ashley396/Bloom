@@ -98,22 +98,66 @@ body.florisyn-rc22 .assistant-mini-dock small {
   text-transform: none;
 }
 
-/* —— Sidebar (reinforce unified nav) —— */
+/* —— Sidebar (navy luxury shell) —— */
+body.florisyn-rc22 {
+  --florisyn-navy: #18252f;
+  --florisyn-champagne: #c9a962;
+  --florisyn-ivory: #fffcf8;
+  --florisyn-blush: #f3e4e8;
+  --sidebar-color: var(--florisyn-navy);
+  --brand-primary: var(--florisyn-champagne);
+}
+
 body.florisyn-rc22 .shell > aside {
   padding-top: 16px !important;
   padding-bottom: 20px !important;
+  background: linear-gradient(180deg, #18252f 0%, #1f303c 100%) !important;
+  color: #f4efe8 !important;
+  border-right: 1px solid rgba(201, 169, 98, 0.22) !important;
 }
 
 body.florisyn-rc22 .shell > aside p {
   margin: 16px 12px 6px !important;
   font-size: 9px !important;
   letter-spacing: 0.16em !important;
+  color: rgba(244, 239, 232, 0.55) !important;
 }
 
 body.florisyn-rc22 .shell > aside button[data-page] {
   min-height: 42px !important;
   padding: 10px 12px !important;
   line-height: 1.25;
+  color: rgba(255, 252, 248, 0.88) !important;
+  border-radius: 8px !important;
+}
+
+body.florisyn-rc22 .shell > aside button[data-page].active {
+  background: rgba(201, 169, 98, 0.18) !important;
+  color: #fffcf8 !important;
+  box-shadow: inset 3px 0 0 var(--florisyn-champagne) !important;
+}
+
+body.florisyn-rc22 header {
+  border-bottom-color: #e7ddd2 !important;
+  background: linear-gradient(180deg, #fffcf8, rgba(243, 228, 232, 0.35)) !important;
+}
+
+body.florisyn-rc22 button.primary,
+body.florisyn-rc22 .primary {
+  background: linear-gradient(145deg, #c9a962, #a8883f) !important;
+  color: #18252f !important;
+  border-radius: 8px !important;
+}
+
+body.florisyn-rc22 #app,
+body.florisyn-rc22 .content {
+  background:
+    radial-gradient(1200px 480px at 12% -10%, rgba(243, 228, 232, 0.55), transparent 60%),
+    var(--florisyn-ivory) !important;
+}
+
+body.florisyn-rc22 #dashboardPage.pos-home .pos-welcome-row {
+  border-radius: 8px;
 }
 
 body.florisyn-rc22 .shell > aside button[data-page="aiStudioPage"]::before {

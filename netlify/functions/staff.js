@@ -2,12 +2,14 @@ import crypto from "node:crypto";
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail, requireRoles, admin } from "./_shared/supabase.js";
 import { checkRateLimit } from "./_shared/production.js";
-const STAFF_FIELDS = [
-  "name",
+
+/** Visible on Staff front page / create without private-file unlock. */
+const PUBLIC_STAFF_FIELDS = ["name", "role", "active"];
+
+/** Pay, tax, contact — only after private-file PIN unlock. */
+const PRIVATE_STAFF_FIELDS = [
   "email",
   "phone",
-  "role",
-  "active",
   "hourly_rate",
   "hire_date",
   "federal_tax_rate",
@@ -16,6 +18,7 @@ const STAFF_FIELDS = [
   "other_deduction_rate",
   "fixed_deduction",
 ];
+
 const cleanStaff = (row) => {
   if (!row) return row;
   const { pin_hash, ...safe } = row;
@@ -46,9 +49,14 @@ const validPin = (pin, stored) => {
     return false;
   }
 };
+function deny(message, statusCode = 403) {
+  const e = new Error(message);
+  e.statusCode = statusCode;
+  throw e;
+}
 const requirePinFormat = (pin) => {
   if (!/^\d{4,8}$/.test(String(pin || "")))
-    throw new Error("Employee PIN must be 4–8 digits.");
+    deny("Employee PIN must be 4–8 digits.", 400);
 };
 function pinRateLimit(event, staffId) {
   const limit = checkRateLimit(event, {
@@ -62,6 +70,35 @@ function pinRateLimit(event, staffId) {
     throw e;
   }
 }
+function hasAssignedValue(body, field) {
+  return Object.prototype.hasOwnProperty.call(body, field) && body[field] !== "" && body[field] != null;
+}
+function copyFields(body, fields, payload) {
+  for (const f of fields) {
+    if (hasAssignedValue(body, f)) payload[f] = body[f];
+  }
+}
+function unlockPinFromBody(body) {
+  return String(body.private_file_pin || body.current_pin || "").trim();
+}
+async function requirePrivateFileUnlock(event, client, shopId, staffId, body) {
+  pinRateLimit(event, staffId || "unknown");
+  const { data: employee, error } = await client
+    .from("staff")
+    .select("id,pin_hash")
+    .eq("id", staffId)
+    .eq("shop_id", shopId)
+    .single();
+  if (error) throw error;
+  // Legacy / setup rows with no PIN yet may receive the first private-file write.
+  if (!employee.pin_hash) return employee;
+  const unlock = unlockPinFromBody(body);
+  if (!unlock || !validPin(unlock, employee.pin_hash)) {
+    deny("Private employee file PIN is required to edit pay, tax, contact, or PIN settings.");
+  }
+  return employee;
+}
+
 export async function handler(event) {
   const ready = preflight(event);
   if (ready) return ready;
@@ -107,7 +144,7 @@ export async function handler(event) {
           .single();
         if (employeeError) throw employeeError;
         if (employee.pin_hash && !validPin(body.pin, employee.pin_hash))
-          throw new Error("Incorrect employee PIN.");
+          deny("Incorrect employee PIN.", 401);
         const { data: timeEntries, error: timeEntriesError } = await client
           .from("staff_time_entries")
           .select("id,staff_id,clock_in,clock_out,hours_worked,created_at")
@@ -130,13 +167,14 @@ export async function handler(event) {
           .eq("shop_id", shopId)
           .single();
         if (employeeError) throw employeeError;
-        if (!employee.active) throw new Error("This employee is inactive.");
+        if (!employee.active) deny("This employee is inactive.", 403);
         if (!employee.pin_hash)
-          throw new Error(
+          deny(
             "A manager must set this employee’s PIN before clocking in.",
+            400,
           );
         if (!validPin(body.pin, employee.pin_hash))
-          throw new Error("Incorrect employee PIN.");
+          deny("Incorrect employee PIN.", 401);
         if (body.action === "CLOCK_IN") {
           const { data: open } = await client
             .from("staff_time_entries")
@@ -184,9 +222,16 @@ export async function handler(event) {
         if (error) throw error;
         return json(200, { item: data });
       }
+      for (const f of PRIVATE_STAFF_FIELDS) {
+        if (hasAssignedValue(body, f)) {
+          deny(
+            "Private employee fields cannot be set on create. Open the PIN-protected employee file to add pay, tax, or contact details.",
+          );
+        }
+      }
       const payload = { shop_id: shopId, active: true };
-      for (const f of STAFF_FIELDS)
-        if (f in body && body[f] !== "") payload[f] = body[f];
+      copyFields(body, PUBLIC_STAFF_FIELDS, payload);
+      if (!String(payload.name || "").trim()) deny("Employee name is required.", 400);
       requirePinFormat(body.pin);
       payload.pin_hash = hashPin(body.pin);
       const { data, error } = await client
@@ -199,14 +244,20 @@ export async function handler(event) {
     }
     if (event.httpMethod === "PATCH") {
       const body = bodyOf(event);
-      if (!body.id) throw new Error("Missing employee id");
+      if (!body.id) deny("Missing employee id", 400);
+      const wantsPrivate = PRIVATE_STAFF_FIELDS.some((f) => hasAssignedValue(body, f));
+      const wantsNewPin = Boolean(String(body.pin || "").trim());
+      if (wantsPrivate || wantsNewPin) {
+        await requirePrivateFileUnlock(event, client, shopId, body.id, body);
+      }
       const payload = {};
-      for (const f of STAFF_FIELDS)
-        if (f in body && body[f] !== "") payload[f] = body[f];
-      if (body.pin) {
+      copyFields(body, PUBLIC_STAFF_FIELDS, payload);
+      if (wantsPrivate) copyFields(body, PRIVATE_STAFF_FIELDS, payload);
+      if (wantsNewPin) {
         requirePinFormat(body.pin);
         payload.pin_hash = hashPin(body.pin);
       }
+      if (!Object.keys(payload).length) deny("No employee changes provided.", 400);
       const { data, error } = await client
         .from("staff")
         .update(payload)
@@ -219,7 +270,7 @@ export async function handler(event) {
     }
     if (event.httpMethod === "DELETE") {
       const body = bodyOf(event);
-      if (!body.id) throw new Error("Missing employee id");
+      if (!body.id) deny("Missing employee id", 400);
       const { error } = await client
         .from("staff")
         .delete()

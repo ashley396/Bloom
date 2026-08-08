@@ -1,10 +1,11 @@
 import { initCommandCenter } from './admin-command-center-ui.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-let session=JSON.parse(localStorage.getItem('bloom_admin_session')||'null'),selectedShop=null,selectedData=null,commandCenter=null;
+function readAdminSession(){try{return JSON.parse(localStorage.getItem('bloom_admin_session')||'null')}catch{localStorage.removeItem('bloom_admin_session');return null}}
+let session=readAdminSession(),selectedShop=null,selectedData=null,commandCenter=null;
 const FEATURES=['dashboard','orders','deliveries','customers','inventory','products','bloomshot','website','library','invoices','payments','expenses','reports','staff','marketplace','stores','lily','rose'];
 const DEFAULT_NAV=['dashboardPage','ordersPage','deliveriesPage','customersPage','inventoryPage','productsPage','bloomshotPage','websitePage','libraryPage','invoicesPage','paymentsPage','expensesPage','reportsPage','staffPage','marketplacePage','storesPage','settingsPage'];
 function toast(t){const x=$('#adminToast');x.textContent=t;x.hidden=false;setTimeout(()=>x.hidden=true,2800)}
-async function call(path,opt={},auth=true){const headers={'Content-Type':'application/json',...(opt.headers||{})};if(auth&&session?.accessToken)headers.Authorization=`Bearer ${session.accessToken}`;const r=await fetch(`/.netlify/functions/${path}`,{...opt,headers});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
+async function call(path,opt={},auth=true){const headers={'Content-Type':'application/json',...(opt.headers||{})};if(auth&&session?.accessToken)headers.Authorization=`Bearer ${session.accessToken}`;const base=(String(path).startsWith("auth-")&&!String(path).startsWith("auth-refresh")&&!String(path).startsWith("auth-resend"))?`/api/${path}`:`/.netlify/functions/${path}`;const r=await fetch(base,{...opt,headers});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function saveSession(d){session={accessToken:d.accessToken,refreshToken:d.refreshToken,user:d.user};localStorage.setItem('bloom_admin_session',JSON.stringify(session))}
 function showApp(){ $('#adminAuth').hidden=true;$('#adminApp').hidden=false;$('#adminIdentity').textContent=session.user.email;commandCenter=initCommandCenter({call,toast,escapeHtml,$,$$,setView});loadOverview();if(window.__loadCommandView)window.__loadCommandView('overview');loadShops();window.BloomLaunchPolish?.init?.({mode:'admin',api:call});window.BloomLilyPlatform?.init?.({mode:'admin',api:call,toast})}
 async function initializeAdmin(){

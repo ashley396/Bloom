@@ -14,10 +14,11 @@ const USER_VISIBLE_BLOCKLIST = [
   /assets\/bloom-icon/
 ];
 
-test("production logo is Concept C monoline in florisyn-mark.svg", () => {
-  const mark = fs.readFileSync(new URL("../public/assets/florisyn/florisyn-mark.svg", import.meta.url), "utf8");
-  assert.match(mark, /stroke="#4[Dd]6[Bb]5[Cc]"/);
-  assert.doesNotMatch(mark, /fill="#6b8f7a"/);
+test("production logo uses official Florisyn icon artwork", () => {
+  const markPng = fs.statSync(new URL("../public/assets/florisyn/florisyn-mark.png", import.meta.url));
+  const official = fs.statSync(new URL("../public/assets/florisyn/florisyn-official-icon.png", import.meta.url));
+  assert.ok(markPng.size > 10_000);
+  assert.ok(official.size > 50_000);
 });
 
 test("public HTML has no blocked Bloom branding strings", () => {
@@ -50,7 +51,7 @@ test("official tagline appears on login", () => {
 
 test("sidebar invoices and payments are plain nav buttons without extra wrappers", () => {
   const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
-  const aside = html.match(/<aside>([\s\S]*?)<\/aside>/)?.[1] || "";
+  const aside = html.match(/<aside[^>]*>([\s\S]*?)<\/aside>/)?.[1] || "";
   assert.match(aside, /<button data-page="invoicesPage">Invoices<\/button>/);
   assert.match(aside, /<button data-page="paymentsPage">Payment Center<\/button>/);
   assert.doesNotMatch(aside, /class="secondary"[^>]*data-page="invoicesPage"/);

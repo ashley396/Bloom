@@ -1,6 +1,11 @@
 (function () {
   function enhanceDashboard(data) {
     document.body.classList.add("bloom-rc2-dashboard");
+    if (document.body.classList.contains("florisyn-atelier")) {
+      window.FlorisynAtelierDashboard?.render?.(data);
+      window.BloomRC1?.enhanceDashboard?.(data);
+      return;
+    }
     const welcome = document.querySelector(".rose-welcome-card");
     if (welcome && !document.getElementById("bloomLuxuryHero")) {
       const floral = welcome.querySelector(".welcome-floral");

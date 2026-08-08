@@ -56,6 +56,9 @@ export function safePublicError(error) {
   if (/Supabase server API key is not configured/i.test(msg)) {
     return "Florisyn's secure server connection is not set up in Netlify yet. You can still use your current shop; contact support if you need multi-location setup.";
   }
+  if (error?.code === "shop_membership_required") {
+    return "Your Florisyn login works, but this account is not linked to an active flower shop yet. Finish onboarding or contact Florisyn support so we can attach your shop membership.";
+  }
   if (status === 401) return "Please sign in again.";
   if (status === 403) return "You do not have permission to perform this action.";
   if (status === 400) return error?.message || "Invalid request.";

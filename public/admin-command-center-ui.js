@@ -1,5 +1,15 @@
 const ccCall = (path, opt) => window.__adminCall(path, opt);
 
+function readBetaChecks() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('bloom_beta_readiness_checks') || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    localStorage.removeItem('bloom_beta_readiness_checks');
+    return {};
+  }
+}
+
 function chartBars(series = [], label) {
   const max = Math.max(1, ...series.map((s) => Number(s.value || 0)));
   return `<article class="panel chart-panel"><h3>${label}</h3><div class="chart-bars">${series.map((s) => `<div class="chart-bar"><span>${s.label}</span><div class="bar-track"><i style="width:${Math.round((Number(s.value || 0) / max) * 100)}%"></i></div><strong>${Number(s.value || 0).toLocaleString()}</strong></div>`).join('')}</div></article>`;
@@ -158,7 +168,7 @@ export function initCommandCenter(deps) {
           `<article class="shop-row"><div><strong>${escapeHtml(f.category)}</strong><small>${new Date(f.created_at).toLocaleString()} · shop ${escapeHtml(f.shop_id || '—')}</small></div><p>${escapeHtml(f.message)}</p></article>`
       )
       .join('');
-    const stored = JSON.parse(localStorage.getItem('bloom_beta_readiness_checks') || '{}');
+    const stored = readBetaChecks();
     const checks = (d.checklist || [])
       .map(
         (c) =>
@@ -174,7 +184,7 @@ export function initCommandCenter(deps) {
       <h3>Feedback inbox</h3><div class="shop-list">${inbox || '<p class="quiet">No feedback yet.</p>'}</div>`;
     $$('[data-beta-check]').forEach((input) => {
       input.onchange = () => {
-        const next = JSON.parse(localStorage.getItem('bloom_beta_readiness_checks') || '{}');
+        const next = readBetaChecks();
         next[input.dataset.betaCheck] = input.checked;
         localStorage.setItem('bloom_beta_readiness_checks', JSON.stringify(next));
       };
@@ -197,7 +207,7 @@ export function initCommandCenter(deps) {
     const checklist = (betaRes?.checklist || [])
       .map((c) => `<li><strong>${escapeHtml(c.area)}</strong> — ${escapeHtml(c.item)}</li>`)
       .join('');
-    const stored = JSON.parse(localStorage.getItem('bloom_beta_readiness_checks') || '{}');
+    const stored = readBetaChecks();
     const checks = (betaRes?.checklist || [])
       .map(
         (c) =>
@@ -213,7 +223,7 @@ export function initCommandCenter(deps) {
       <p class="quiet">${escapeHtml(betaRes?.tests?.command || 'node --test tests/*.test.js')}</p>`;
     $$('[data-beta-check]').forEach((input) => {
       input.onchange = () => {
-        const next = JSON.parse(localStorage.getItem('bloom_beta_readiness_checks') || '{}');
+        const next = readBetaChecks();
         next[input.dataset.betaCheck] = input.checked;
         localStorage.setItem('bloom_beta_readiness_checks', JSON.stringify(next));
       };
