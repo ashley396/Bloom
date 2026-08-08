@@ -387,11 +387,94 @@ async function openQuickSalePad(button){
   const tile=posTiles.find(x=>x.id===button.dataset.tileId)||{id:"custom",name:button.dataset.saleItem||"Custom item",image:""};
   const f=$("#quickPriceForm");f.reset();f.elements.tile_id.value=tile.id;f.elements.item_name.value=tile.name;f.elements.quantity.value=1;$("#quickPriceTitle").textContent=`Add ${tile.name}`;$("#quickPriceItemName").textContent=tile.name;$("#quickPriceImage").src=tile.image||"/assets/fresh.png";$("#quickPriceDialog").showModal();setTimeout(()=>{$("#quickPriceAmount").focus();$("#quickPriceAmount").select()},50)
 }
+let posLuxDiscountApplied=false;
+const POS_LUX_SERVICE_FEE=15;
+const POS_LUX_DEMO_CART=[
+  {id:"demo-blush",name:"Blush Serenity Bouquet",description:"Large Vase, Silk Wrap Ribbon",price:180,quantity:1},
+  {id:"demo-rose",name:"Rose Garden Arrangement",description:"Signature ceramic bowl, peach premium spray roses",price:150,quantity:2},
+  {id:"demo-wrap",name:"Gift Wrapping Service",description:"Embossed paper, handwritten gold foil card",price:12,quantity:1}
+];
 function savePosCart(){localStorage.setItem("bloom_pos_cart",JSON.stringify(posCart));renderPosCart()}
-function loadPosCart(){try{posCart=JSON.parse(localStorage.getItem("bloom_pos_cart")||"[]");if(!Array.isArray(posCart))posCart=[]}catch{posCart=[]}try{savedQuotes=JSON.parse(localStorage.getItem("bloom_saved_quotes")||"[]");if(!Array.isArray(savedQuotes))savedQuotes=[]}catch{savedQuotes=[]}renderPosCart();renderSavedQuotes()}
-function cartTotals(){const subtotal=posCart.reduce((s,x)=>s+(Number(x.price)||0)*(Number(x.quantity)||1),0),rate=Number(shopSettings?.tax_rate??6),tax=Math.round(subtotal*rate)/100,total=subtotal+tax;return{subtotal,tax,total,rate}}
-function renderPosCustomerOptions(){const select=$("#posCustomerSelect");if(!select)return;const current=select.value;select.innerHTML='<option value="">Walk-in Customer</option>'+customers.map(c=>`<option value="${esc(c.id||c.name)}" data-name="${esc(c.name)}">${esc(c.name)}</option>`).join("");select.value=[...select.options].some(o=>o.value===current)?current:""}
-function renderPosCart(){const box=$("#queue");if(!box)return;const {subtotal,tax,total,rate}=cartTotals();$("#cartItemCount").textContent=`${posCart.reduce((s,x)=>s+Number(x.quantity||1),0)} items`;box.innerHTML=posCart.length?`<div class="cart-table"><div class="cart-table-head"><span>Item</span><span>Qty</span><span>Price</span><span>Total</span><span></span></div>${posCart.map((x,i)=>`<div class="cart-row"><span><strong>${esc(x.name)}</strong>${x.description?`<small>${esc(x.description)}</small>`:""}</span><span class="qty-control"><button data-cart-minus="${i}">−</button><b>${Number(x.quantity)||1}</b><button data-cart-plus="${i}">+</button></span><span><input data-cart-price="${i}" type="number" min="0" step=".01" value="${Number(x.price||0).toFixed(2)}"></span><span><b>${money((Number(x.price)||0)*(Number(x.quantity)||1))}</b></span><span><button class="icon-delete" data-cart-remove="${i}" aria-label="Remove">🗑</button></span></div>`).join("")}</div>`:empty("Tap a product picture, enter the price, and it will appear here.");$("#weekSales").textContent=money(subtotal);const taxLine=$$(".checkout-lines span").find(x=>x.textContent.includes("Tax ("));if(taxLine)taxLine.innerHTML=`Tax (${rate.toFixed(1)}%) <b>${money(tax)}</b>`;$("#totalSales").textContent=money(total);const pay=$(".process-payment");if(pay){pay.disabled=!posCart.length;pay.dataset.cartCheckout="1"}}
+function loadPosCart(){
+  try{posCart=JSON.parse(localStorage.getItem("bloom_pos_cart")||"[]");if(!Array.isArray(posCart))posCart=[]}catch{posCart=[]}
+  if(!posCart.length&&document.getElementById("florisynPosLux")&&!localStorage.getItem("bloom_pos_cart_seeded")){
+    posCart=structuredClone(POS_LUX_DEMO_CART);
+    localStorage.setItem("bloom_pos_cart",JSON.stringify(posCart));
+    localStorage.setItem("bloom_pos_cart_seeded","1");
+    posLuxDiscountApplied=true;
+  }
+  try{savedQuotes=JSON.parse(localStorage.getItem("bloom_saved_quotes")||"[]");if(!Array.isArray(savedQuotes))savedQuotes=[]}catch{savedQuotes=[]}
+  if(document.getElementById("florisynPosLux")&&(document.querySelector("#posLuxDiscountCode")?.value||"").trim().toUpperCase()==="VIPGOLD10")posLuxDiscountApplied=true;
+  renderPosCart();
+  renderSavedQuotes();
+}
+function cartTotals(){
+  const lux=!!document.getElementById("florisynPosLux");
+  const subtotal=posCart.reduce((s,x)=>s+(Number(x.price)||0)*(Number(x.quantity)||1),0);
+  const code=(document.querySelector("#posLuxDiscountCode")?.value||"").trim().toUpperCase();
+  const discountPct=lux&&posLuxDiscountApplied&&code==="VIPGOLD10"?10:0;
+  const discount=Math.round(subtotal*discountPct)/100;
+  const service=lux&&posCart.length?POS_LUX_SERVICE_FEE:0;
+  const rate=lux?10:Number(shopSettings?.tax_rate??6);
+  const tax=Math.round(subtotal*rate)/100;
+  const total=Math.max(0,Math.round((subtotal-discount+service+tax)*100)/100);
+  return{subtotal,tax,total,rate,discount,service,discountPct};
+}
+function renderPosCustomerOptions(){
+  const select=$("#posCustomerSelect");
+  if(!select)return;
+  const current=select.value;
+  const keepClara=current==="clara-kensington"||current==="";
+  const hasClaraCustomer=customers.some(c=>/clara\s*kensington/i.test(c.name||""));
+  select.innerHTML='<option value="">Walk-in Customer</option>'+
+    (hasClaraCustomer?"":'<option value="clara-kensington" data-name="Clara Kensington">Clara Kensington</option>')+
+    customers.map(c=>`<option value="${esc(c.id||c.name)}" data-name="${esc(c.name)}">${esc(c.name)}</option>`).join("");
+  if([...select.options].some(o=>o.value===current))select.value=current;
+  else if(keepClara&&[...select.options].some(o=>o.value==="clara-kensington"))select.value="clara-kensington";
+  window.FlorisynLuxuryPos?.syncCustomer?.();
+}
+function renderPosCart(){
+  const box=$("#queue");
+  if(!box)return;
+  const {subtotal,tax,total,rate,discount,service,discountPct}=cartTotals();
+  const itemCount=posCart.reduce((s,x)=>s+Number(x.quantity||1),0);
+  if($("#cartItemCount"))$("#cartItemCount").textContent=`${itemCount} items`;
+  const lux=!!document.getElementById("florisynPosLux");
+  if(lux){
+    box.innerHTML=posCart.length
+      ?`<div class="cart-table pos-lux-cart-table"><div class="cart-table-head"><span>QTY</span><span>ITEM DESCRIPTION</span><span>UNIT PRICE</span><span>LINE TOTAL</span></div>${posCart.map((x,i)=>`<div class="cart-row"><span class="qty-control"><button type="button" data-cart-minus="${i}" aria-label="Decrease quantity">−</button><b>${Number(x.quantity)||1}</b><button type="button" data-cart-plus="${i}" aria-label="Increase quantity">+</button></span><span class="pos-lux-item"><strong>${esc(x.name)}</strong>${x.description?`<small>${esc(x.description)}</small>`:""}</span><span class="pos-lux-unit"><input data-cart-price="${i}" type="number" min="0" step=".01" value="${Number(x.price||0).toFixed(2)}" aria-label="Unit price"></span><span class="pos-lux-line-total"><b>${money((Number(x.price)||0)*(Number(x.quantity)||1))}</b><button type="button" class="icon-delete" data-cart-remove="${i}" aria-label="Remove">×</button></span></div>`).join("")}</div>`
+      :`<div class="pos-lux-empty">Scan or select items to begin a sale.</div>`;
+  }else{
+    box.innerHTML=posCart.length
+      ?`<div class="cart-table"><div class="cart-table-head"><span>Item</span><span>Qty</span><span>Price</span><span>Total</span><span></span></div>${posCart.map((x,i)=>`<div class="cart-row"><span><strong>${esc(x.name)}</strong>${x.description?`<small>${esc(x.description)}</small>`:""}</span><span class="qty-control"><button data-cart-minus="${i}">−</button><b>${Number(x.quantity)||1}</b><button data-cart-plus="${i}">+</button></span><span><input data-cart-price="${i}" type="number" min="0" step=".01" value="${Number(x.price||0).toFixed(2)}"></span><span><b>${money((Number(x.price)||0)*(Number(x.quantity)||1))}</b></span><span><button class="icon-delete" data-cart-remove="${i}" aria-label="Remove">🗑</button></span></div>`).join("")}</div>`
+      :empty("Tap a product picture, enter the price, and it will appear here.");
+  }
+  if($("#cartSubtotal"))$("#cartSubtotal").textContent=money(subtotal);
+  else if($("#weekSales"))$("#weekSales").textContent=money(subtotal);
+  if($("#posLuxDiscountAmt"))$("#posLuxDiscountAmt").textContent=discount?`−$${Number(discount).toFixed(2)}`:"−$0.00";
+  const discountLabel=$("#posLuxDiscountLine")?.querySelector("span");
+  if(discountLabel)discountLabel.textContent=discountPct?`Discount (${discountPct}% VIP coupon)`:"Discount (10% VIP coupon)";
+  if($("#posLuxServiceFee"))$("#posLuxServiceFee").textContent=money(service||(lux&&posCart.length?POS_LUX_SERVICE_FEE:lux?POS_LUX_SERVICE_FEE:0));
+  if($("#posLuxTax"))$("#posLuxTax").textContent=money(tax);
+  else{
+    const taxLine=$$(".checkout-lines span").find(x=>x.textContent.includes("Tax ("));
+    if(taxLine)taxLine.innerHTML=`Tax (${rate.toFixed(1)}%) <b>${money(tax)}</b>`;
+  }
+  if($("#cartTotal"))$("#cartTotal").textContent=money(total);
+  else if($("#totalSales"))$("#totalSales").textContent=money(total);
+  const pay=$(".process-payment");
+  if(pay){pay.disabled=!posCart.length;pay.dataset.cartCheckout="1"}
+  document.dispatchEvent(new CustomEvent("florisyn-pos-refresh-cart",{detail:{subtotal,tax,total,discount,service}}));
+}
+window.renderPosCart=renderPosCart;
+document.addEventListener("florisyn-pos-discount-apply",()=>{
+  const code=($("#posLuxDiscountCode")?.value||"").trim().toUpperCase();
+  if(code==="VIPGOLD10"){posLuxDiscountApplied=true;toast("VIPGOLD10 applied")}
+  else if(!code){posLuxDiscountApplied=false;toast("Discount cleared")}
+  else{posLuxDiscountApplied=false;toast("Unrecognized discount code")}
+  renderPosCart();
+});
+
 function persistSavedQuotes(){localStorage.setItem("bloom_saved_quotes",JSON.stringify(savedQuotes));renderSavedQuotes()}
 function renderSavedQuotes(){const count=$("#savedQuoteCount");if(count)count.textContent=String(savedQuotes.length);const box=$("#savedQuotesList");if(!box)return;box.innerHTML=savedQuotes.length?savedQuotes.map(q=>`<article class="saved-quote-card"><div><strong>${esc(q.name)}</strong><small>${new Date(q.createdAt).toLocaleString()} · ${q.cart.reduce((n,x)=>n+Number(x.quantity||1),0)} items · ${money(q.total)}</small></div><div><button class="primary" data-load-quote="${q.id}" type="button">Resume</button><button class="secondary" data-delete-quote="${q.id}" type="button">Delete</button></div></article>`).join(""):empty("No saved quotes on this device.")}
 function saveCurrentQuote(){if(!posCart.length)return toast("Add an item before saving a quote");const customerOption=$("#posCustomerSelect")?.selectedOptions?.[0],customerName=customerOption?.dataset?.name||"Walk-in Customer",name=prompt("Quote name",`${customerName} quote`)?.trim();if(!name)return;const totals=cartTotals();savedQuotes.unshift({id:`quote-${Date.now()}`,name,createdAt:new Date().toISOString(),customerId:$("#posCustomerSelect")?.value||"",note:$("#posOrderNote")?.value||"",cart:structuredClone(posCart),total:totals.total});savedQuotes=savedQuotes.slice(0,25);persistSavedQuotes();toast("Quote saved on this register")}
@@ -428,7 +511,7 @@ function renderSplitPaymentRows(rows){const host=$("#splitPaymentRows");if(!host
 function readSplitRows(){return [...($("#splitPaymentRows")?.querySelectorAll(".split-part-row")||[])].map(row=>({amount:Number(row.querySelector("[data-split-amount]")?.value||0),method:row.querySelector("[data-split-method]")?.value||"Cash",note:row.querySelector("[data-split-note]")?.value||""}))}
 function updateSplitTotals(){const balance=Number($("#paymentTopSummary")?.dataset.balance||getPaymentBalance());const rows=readSplitRows();const splitTotal=Math.round(rows.reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;const manualTotal=Math.round(rows.filter(r=>r.method!=="Card").reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;const cardTotal=Math.round(rows.filter(r=>r.method==="Card").reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;if($("#splitTotalLive"))$("#splitTotalLive").textContent=money(splitTotal);if($("#splitRemainingLive"))$("#splitRemainingLive").textContent=money(Math.max(0,balance-manualTotal));const err=$("#splitPaymentError");if(err)err.textContent=splitTotal>balance+0.005?`Split total ${money(splitTotal)} exceeds balance ${money(balance)}.`:"";const notice=$("#splitCardNotice");if(notice){if(cardTotal>0){notice.hidden=false;notice.textContent=`Card total ${money(cardTotal)} opens Stripe for that amount after cash/check/other parts post.`}else notice.hidden=true}}
 function setPendingPaymentOrder(order){pendingPaymentOrder=order||null;if(order)localStorage.setItem("bloom_pending_payment_order",JSON.stringify(order));else{localStorage.removeItem("bloom_pending_payment_order");clearSplitSession()}renderPaymentCenterShell()}
-async function checkoutPosCart(){if(!posCart.length)return toast("Add an item first");const customerSelect=$("#posCustomerSelect"),option=customerSelect.selectedOptions[0],customerName=option?.dataset.name||"Walk-in Customer",note=$("#posOrderNote")?.value||"",{subtotal,tax,total,rate}=cartTotals();const description=posCart.map(x=>`${x.quantity} × ${x.name}${x.description?` (${x.description})`:""}`).join("; ");try{const result=await api("orders",{method:"POST",body:JSON.stringify({customer_name:customerName,customer_phone:"",customer_type:"PERSONAL",payment_required:"YES",recipient_name:customerName,occasion:"",order_source:"Walk-in",arrangement_description:description,notes:note,fulfillment:"PICKUP",delivery_date:new Date().toISOString().slice(0,10),subtotal,labor_charge:0,delivery_fee:0,discount:0,tax_rate:rate,tax,estimated_cost:0,total_preview:total})});const order=result.item||{};posCart=[];savePosCart();if($("#posOrderNote"))$("#posOrderNote").value="";toast("Order created — choose a payment method");await openPaymentCenterForOrder(order);loadOrders();loadDashboard()}catch(e){toast(e.message)}}
+async function checkoutPosCart(){if(!posCart.length)return toast("Add an item first");const customerSelect=$("#posCustomerSelect"),option=customerSelect.selectedOptions[0],customerName=option?.dataset.name||"Walk-in Customer",note=$("#posOrderNote")?.value||"",{subtotal,tax,total,rate,discount,service}=cartTotals();const description=posCart.map(x=>`${x.quantity} × ${x.name}${x.description?` (${x.description})`:""}`).join("; ");try{const result=await api("orders",{method:"POST",body:JSON.stringify({customer_name:customerName,customer_phone:"",customer_type:"PERSONAL",payment_required:"YES",recipient_name:customerName,occasion:"",order_source:"Walk-in",arrangement_description:description,notes:note,fulfillment:service?"DELIVERY":"PICKUP",delivery_date:new Date().toISOString().slice(0,10),subtotal,labor_charge:0,delivery_fee:service||0,discount:discount||0,tax_rate:rate,tax,estimated_cost:0,total_preview:total})});const order=result.item||{};posCart=[];savePosCart();if($("#posOrderNote"))$("#posOrderNote").value="";toast("Order created — choose a payment method");await openPaymentCenterForOrder(order);loadOrders();loadDashboard()}catch(e){toast(e.message)}}
 addPastelPageFrames();
 document.addEventListener('click',e=>{const pad=e.target.closest('.quick-sale-pad');if(pad){e.preventDefault();openQuickSalePad(pad)}});
 document.addEventListener("click",e=>{let t;if(t=e.target.closest("#manageTilesBtn,#addTileFromGrid")){renderTileEditor();$("#tileManagerDialog").showModal();return}if(t=e.target.closest("#addTileBtn")){openTileEditor();return}if(t=e.target.closest("[data-edit-tile]")){openTileEditor(posTiles.find(x=>x.id===t.dataset.editTile));return}if(t=e.target.closest("[data-delete-tile]")){if(confirm("Delete this product tile?")){posTiles=posTiles.filter(x=>x.id!==t.dataset.deleteTile);renderTileEditor()}return}if(t=e.target.closest("[data-tile-up]")){const i=Number(t.dataset.tileUp);if(i>0)[posTiles[i-1],posTiles[i]]=[posTiles[i],posTiles[i-1]];renderTileEditor();return}if(t=e.target.closest("[data-tile-down]")){const i=Number(t.dataset.tileDown);if(i<posTiles.length-1)[posTiles[i+1],posTiles[i]]=[posTiles[i],posTiles[i+1]];renderTileEditor();return}});
