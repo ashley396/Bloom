@@ -9,28 +9,33 @@ const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
 const routerSrc = fs.readFileSync(path.join(root, "public/florisyn-router.js"), "utf8");
 const appJs = fs.readFileSync(path.join(root, "public/app.js"), "utf8");
 const dashJs = fs.readFileSync(path.join(root, "public/florisyn-atelier-dashboard.js"), "utf8");
+const styles = fs.readFileSync(path.join(root, "public/styles.css"), "utf8");
+const adminHtml = fs.readFileSync(path.join(root, "public/admin.html"), "utf8");
+const adminJs = fs.readFileSync(path.join(root, "public/admin.js"), "utf8");
 
+/** Pre-Codex florist tabs + separate POS page (not scroll-merged into dashboard). */
 const SIDEBAR_ORDER = [
   ["/dashboard", "dashboardPage"],
   ["/pos", "posPage"],
   ["/orders", "ordersPage"],
+  ["/inventory", "inventoryPage"],
   ["/products", "productsPage"],
-  ["/bouquets", "bouquetsPage"],
-  ["/customers", "customersPage"],
   ["/deliveries", "deliveriesPage"],
+  ["/customers", "customersPage"],
+  ["/invoices", "invoicesPage"],
   ["/payment-centre", "paymentsPage"],
   ["/lily-ai-studio", "aiStudioPage"],
-  ["/analytics", "analyticsPage"],
-  ["/reports", "reportsPage"],
-  ["/expenses", "expensesPage"],
   ["/photo-studio", "bloomshotPage"],
   ["/website-studio", "websitePage"],
   ["/floral-library", "libraryPage"],
+  ["/expenses", "expensesPage"],
+  ["/reports", "reportsPage"],
   ["/staff", "staffPage"],
   ["/wholesale", "marketplacePage"],
+  ["/wholesale/seller", "wholesaleSellerPage"],
   ["/stores", "storesPage"],
+  ["/subscription", "subscriptionPage"],
   ["/business-os", "ecosystemPage"],
-  ["/pos-settings", "posSettingsPage"],
   ["/settings", "settingsPage"]
 ];
 
@@ -44,9 +49,10 @@ test("florist shell wires History API router and separate POS page", () => {
   assert.match(html, /florisyn-router\.js/);
   assert.match(html, /id="posPage"/);
   assert.match(html, /id="dashboardPage"/);
-  assert.match(html, /id="bouquetsPage"/);
-  assert.match(html, /id="analyticsPage"/);
-  assert.match(html, /id="posSettingsPage"/);
+  assert.match(html, /id="inventoryPage"/);
+  assert.match(html, /id="invoicesPage"/);
+  assert.match(html, /id="paymentsPage"/);
+  assert.match(html, /id="websitePage"/);
   assert.match(html, /data-route="\/pos"/);
   assert.doesNotMatch(html, /data-lux-scroll/);
   const dashStart = html.indexOf('id="dashboardPage"');
@@ -56,9 +62,11 @@ test("florist shell wires History API router and separate POS page", () => {
   assert.match(html.slice(posStart, posStart + 8000), /id="florisynPosLux"/);
 });
 
-test("sidebar lists every required route in exact order", () => {
+test("sidebar lists every required route in restored pre-Codex order", () => {
   const nav = navBlock();
-  const routes = [...nav.matchAll(/data-route="([^"]+)"/g)].map((m) => m[1]);
+  const routes = [...nav.matchAll(/data-route="([^"]+)"/g)]
+    .map((m) => m[1])
+    .filter((route) => route !== "/community");
   assert.deepEqual(
     routes,
     SIDEBAR_ORDER.map(([route]) => route),
@@ -67,21 +75,18 @@ test("sidebar lists every required route in exact order", () => {
   for (const [route, page] of SIDEBAR_ORDER) {
     assert.match(nav, new RegExp(`data-route="${route}"\\s+data-page="${page}"`));
   }
-  assert.match(nav, /florisyn-lux-nav-label">BUSINESS</);
-  assert.match(nav, /florisyn-lux-nav-label">SELLER DASHBOARD</);
-  assert.match(nav, /florisyn-lux-nav-label">SUBSCRIPTION</);
-  assert.match(nav, /POS Settings/);
-  assert.equal(routes.length, 21);
-  assert.match(html, /florisyn-premium-badge/);
-  assert.match(html, /PREMIUM PLAN/);
-  const premiumStart = html.indexOf("florisyn-premium-badge");
-  const premiumEnd = html.indexOf("</section>", premiumStart);
-  const premium = html.slice(premiumStart, premiumEnd);
-  assert.match(premium, /PREMIUM PLAN/);
-  assert.doesNotMatch(premium, /<button/);
-  // Premium badge sits after nav, not as a route button
-  assert.ok(html.indexOf('class="florisyn-lux-nav"') < premiumStart);
-  assert.ok(html.indexOf("</nav>", html.indexOf('class="florisyn-lux-nav"')) < premiumStart);
+  assert.match(nav, /Inventory/);
+  assert.match(nav, /Invoices/);
+  assert.match(nav, /Payment Center/);
+  assert.match(nav, /Seller dashboard/);
+  assert.match(nav, /Subscription/);
+  assert.match(nav, /data-route="\/community"/);
+});
+
+test("page visibility CSS keeps sections separate (not a scroll stack)", () => {
+  assert.match(styles, /\.page\{display:none\}/);
+  assert.match(styles, /\.page\.active\{display:block\}/);
+  assert.match(appJs, /\$\$\("\.page"\)\.forEach\(p=>p\.classList\.toggle\("active",p\.id===id\)\)/);
 });
 
 test("router module maps paths to page ids", () => {
@@ -119,18 +124,27 @@ test("router module maps paths to page ids", () => {
   assert.equal(router.resolve("/").page, "dashboardPage");
   assert.equal(router.resolve("/payment-center").path, "/payment-centre");
   assert.equal(router.pathForPage("posPage"), "/pos");
-  assert.equal(router.pathForPage("posSettingsPage"), "/pos-settings");
-  assert.equal(router.pathForPage("bouquetsPage"), "/bouquets");
-  assert.equal(router.pathForPage("analyticsPage"), "/analytics");
+  assert.equal(router.pathForPage("inventoryPage"), "/inventory");
+  assert.equal(router.pathForPage("invoicesPage"), "/invoices");
 });
 
-test("app boots router and atelier no longer scroll-to-POS", () => {
+test("app boots router with data-page fallback and no scroll-to-POS", () => {
   assert.match(appJs, /FlorisynRouter/);
   assert.match(appJs, /installShowPageBridge/);
   assert.match(appJs, /bootFromLocation/);
   assert.match(appJs, /posPage/);
-  assert.match(appJs, /loadAnalyticsPage|analyticsPage/);
-  assert.match(appJs, /loadPosSettingsPage|posSettingsPage/);
+  assert.match(appJs, /\[data-page\]"\)\.forEach\(b=>b\.onclick=/);
+  assert.match(appJs, /if\(window\.FlorisynRouter\)return/);
   assert.doesNotMatch(dashJs, /luxScroll|scrollIntoView/);
   assert.doesNotMatch(html, /data-lux-scroll/);
+});
+
+test("admin remains a separate authenticated /admin shell", () => {
+  assert.match(adminHtml, /id="adminApp"/);
+  assert.match(adminHtml, /id="adminAuth"/);
+  assert.match(adminJs, /function lockAdminShell/);
+  assert.match(adminJs, /function showLoginGate/);
+  assert.match(adminJs, /admin-locked/);
+  assert.match(adminJs, /if\(!session\?\.accessToken\|\|!session\?\.user\)/);
+  assert.doesNotMatch(html, /id="adminApp"/);
 });

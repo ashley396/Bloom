@@ -20,8 +20,8 @@ test("luxury Figma shell chrome is wired", () => {
   assert.match(html, /Orders Today/);
   assert.match(html, /Deliveries Today/);
   assert.match(html, /Customer Happiness/);
-  assert.match(html, /Payment Centre/);
-  assert.match(html, /Premium Plan/);
+  assert.match(html, /Payment Center/);
+  assert.match(html, /PREMIUM PLAN/);
 });
 
 test("luxury palette uses navy and rose without green primary buttons", () => {
