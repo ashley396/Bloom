@@ -1,8 +1,76 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1a2b48"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/assets/florisyn/florisyn-favicon-32.png?v=official1" type="image/png" sizes="32x32"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><title>Florisyn — The Operating System for Modern Florists</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/polish-v20.2.css"><link rel="stylesheet" href="/polish-v20.4.css"><link rel="stylesheet" href="/platform-v21.1.css"><link rel="stylesheet" href="/bloom-v23.css"><link rel="stylesheet" href="/lily-platform.css"><link rel="stylesheet" href="/florisyn-live-avatars.css"><link rel="stylesheet" href="/florisyn-atelier-ui.css?v=atelierops1"><link rel="stylesheet" href="/launch-polish-v1.css"><link rel="stylesheet" href="/payment-hub.css"><link rel="stylesheet" href="/payment-center-polish.css"><link rel="stylesheet" href="/shop-billing.css"><link rel="stylesheet" href="/business-ecosystem.css"><link rel="stylesheet" href="/bloom-rc1-luxury.css"><link rel="stylesheet" href="/bloom-rc2-design-system.css"><link rel="stylesheet" href="/bloom-rc2.1-polish.css"><link rel="stylesheet" href="/receipt-print.css"><link rel="stylesheet" href="/bloom-rc2.1-consistency.css"><link rel="stylesheet" href="/florisyn-brand.css"><link rel="stylesheet" href="/florisyn-founder-1.0.css"><link rel="stylesheet" href="/florisyn-rc2.2-founder-polish.css"><link rel="stylesheet" href="/community.css"></head><body class="bloom-rc1 bloom-rc2 bloom-rc21 florisyn florisyn-rc22 florisyn-atelier">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1a1f3c"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/assets/florisyn/florisyn-favicon-32.png?v=official1" type="image/png" sizes="32x32"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><title>Florisyn — The Operating System for Modern Florists</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/polish-v20.2.css"><link rel="stylesheet" href="/polish-v20.4.css"><link rel="stylesheet" href="/platform-v21.1.css"><link rel="stylesheet" href="/bloom-v23.css"><link rel="stylesheet" href="/lily-platform.css"><link rel="stylesheet" href="/florisyn-live-avatars.css"><link rel="stylesheet" href="/florisyn-atelier-ui.css?v=route-unmount4"><link rel="stylesheet" href="/florisyn-luxury-dashboard.css?v=lux-nav2"><link rel="stylesheet" href="/florisyn-luxury-ai-studio.css?v=ai1"><link rel="stylesheet" href="/florisyn-luxury-business-os.css?v=bos1"><link rel="stylesheet" href="/florisyn-luxury-orders.css?v=ord1"><link rel="stylesheet" href="/launch-polish-v1.css"><link rel="stylesheet" href="/payment-hub.css"><link rel="stylesheet" href="/payment-center-polish.css"><link rel="stylesheet" href="/shop-billing.css"><link rel="stylesheet" href="/business-ecosystem.css"><link rel="stylesheet" href="/bloom-rc1-luxury.css"><link rel="stylesheet" href="/bloom-rc2-design-system.css"><link rel="stylesheet" href="/bloom-rc2.1-polish.css"><link rel="stylesheet" href="/receipt-print.css"><link rel="stylesheet" href="/bloom-rc2.1-consistency.css"><link rel="stylesheet" href="/florisyn-brand.css"><link rel="stylesheet" href="/florisyn-founder-1.0.css"><link rel="stylesheet" href="/florisyn-rc2.2-founder-polish.css"><link rel="stylesheet" href="/community.css"><link rel="stylesheet" href="/florisyn-ui-editor.css"><link rel="stylesheet" href="/florisyn-luxury-pos.css?v=route-unmount4"><style id="florisyn-pos-critical">
+/* Critical POS layout — must win over polish/rc2 */
+#posPage.florisyn-pos-page.active #florisynPosLux.pos-workspace.florisyn-pos-lux{
+  display:flex!important;flex-direction:column!important;grid-template-columns:none!important;grid-template-rows:none!important;
+  gap:0!important;height:calc(100dvh - 120px)!important;max-height:calc(100dvh - 120px)!important;min-height:560px!important;
+  margin:0!important;padding:0!important;overflow:hidden!important;background:#fbf6f7!important;
+}
+#posPage #florisynPosLux .pos-lux-main-row{display:flex!important;flex-direction:row!important;align-items:stretch!important;flex:1 1 auto!important;min-height:0!important;width:100%!important;overflow:hidden!important}
+#posPage #florisynPosLux .pos-lux-rail{display:flex!important;flex-direction:column!important;flex:0 0 52px!important;width:52px!important;min-width:52px!important;max-width:52px!important;background:#1a1f3c!important;padding:10px 4px!important;gap:4px!important;z-index:3!important}
+#posPage #florisynPosLux .pos-lux-rail-btn{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;width:100%!important;min-height:56px!important;color:#fff!important;background:transparent!important;border:0!important;border-radius:8px!important;box-shadow:none!important;padding:8px 2px!important}
+#posPage #florisynPosLux .pos-lux-rail-btn small{display:block!important;color:#fff!important;font-size:8px!important;font-weight:700!important}
+#posPage #florisynPosLux .pos-lux-center{display:flex!important;flex-direction:column!important;flex:1 1 auto!important;min-width:0!important;overflow:hidden!important;padding:12px 14px 10px!important;gap:10px!important;background:#fbf6f7!important}
+#posPage #florisynPosLux .pos-lux-top-block{flex:0 0 auto!important;overflow:visible!important;background:#fff!important;border:1px solid #eae6e8!important;border-radius:8px!important;padding:12px 14px!important}
+#posPage #florisynPosLux .pos-lux-topbar{display:flex!important;flex:0 0 auto!important;align-items:center!important;gap:16px!important;width:100%!important;background:#fff!important;border-bottom:1px solid #eae6e8!important;padding:10px 16px!important}
+#posPage #florisynPosLux #posLuxCategories.pos-lux-categories{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;grid-template-rows:repeat(2,56px)!important;gap:8px!important;overflow:visible!important;max-height:none!important;height:auto!important;width:100%!important}
+#posPage #florisynPosLux .pos-lux-cat{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:100%!important;height:56px!important;min-height:56px!important;border:0!important;border-radius:8px!important;color:#fff!important;background-size:cover!important;background-position:center!important;box-shadow:inset 0 0 0 999px rgba(26,31,60,.48)!important;font-size:12px!important;font-weight:650!important;padding:6px 10px!important}
+#posPage #florisynPosLux #productPadGrid{display:none!important;height:0!important;overflow:hidden!important;margin:0!important;padding:0!important}
+#posPage #florisynPosLux .pos-lux-basket{display:flex!important;flex-direction:column!important;flex:1 1 auto!important;min-height:180px!important;overflow:hidden!important;background:#fff!important;border:1px solid #eae6e8!important;border-radius:8px!important;padding:12px 14px!important}
+#posPage #florisynPosLux #queue.pos-lux-queue{display:block!important;flex:1 1 auto!important;min-height:120px!important;overflow:auto!important}
+#posPage #florisynPosLux .pos-lux-checkout{display:flex!important;flex-direction:column!important;flex:0 0 340px!important;width:340px!important;min-width:340px!important;max-width:340px!important;background:#fff!important;border-left:1px solid #eae6e8!important;padding:16px!important;overflow:auto!important;position:static!important}
+#posPage #florisynPosLux .pos-lux-statusbar{display:flex!important;flex:0 0 auto!important;width:100%!important;background:#1a1f3c!important;color:#fff!important;align-items:center!important;justify-content:space-between!important;padding:10px 16px!important}
+.page:not(.active),.page[hidden]{display:none!important;visibility:hidden!important;pointer-events:none!important}
+#bloomDaisy,.bloom-daisy{display:none!important;visibility:hidden!important;pointer-events:none!important;opacity:0!important}
+body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{display:none!important;visibility:hidden!important}
+@media(max-width:1280px){
+  #posPage #florisynPosLux.pos-workspace{display:flex!important;flex-direction:column!important;grid-template-columns:none!important}
+  #posPage #florisynPosLux .pos-lux-main-row{display:flex!important;flex-direction:row!important;flex-wrap:wrap!important}
+  #posPage #florisynPosLux .pos-lux-checkout{flex:1 1 100%!important;width:100%!important;max-width:none!important;min-width:0!important}
+}
+</style></head><body class="bloom-rc1 bloom-rc2 bloom-rc21 florisyn florisyn-rc22 florisyn-atelier">
 <div id="bloomLoadingScreen" role="status" aria-live="polite"><div class="bloom-loading-inner"><img class="florisyn-loading-mark" src="/assets/florisyn/florisyn-mark.png?v=official1" width="72" height="72" alt=""><p>Loading Florisyn…</p></div></div>
 <div id="toast" class="toast" hidden></div>
 <section id="auth" hidden></section>
-<main id="app" hidden tabindex="-1"><div class="platform-top-strip"><div class="foundation-mini"><span>🌹</span><div><small>Rose Foundation</small><strong id="roseFoundationTotal">$0.00 raised</strong></div></div><div class="assistant-mini-dock"><button type="button" data-page="dashboardPage"><img src="/assets/assistants/lily-portrait.png" alt="Lily"><span><b>Lily</b><small>Creative Assistant</small></span></button><button type="button" data-page="reportsPage"><img src="/assets/assistants/rose-portrait.png" alt="Rose"><span><b>Rose</b><small>Business Advisor</small></span></button><button type="button" class="daisy-dock-btn" data-page="dashboardPage" title="Daisy"><img src="/assets/assistants/daisy-portrait.png" alt="Daisy"><span><b>Daisy</b><small>Shop Mascot</small></span></button></div></div><header class="atelier-app-header">
+<main id="app" hidden tabindex="-1">
+<div class="shell florisyn-lux-shell">
+<button type="button" class="atelier-sidebar-backdrop" id="atelierSidebarBackdrop" aria-label="Close menu" hidden></button>
+<aside id="atelierSidebarDrawer" class="florisyn-lux-sidebar">
+  <div class="atelier-sidebar-brand" aria-label="Florisyn">
+    <img src="/assets/florisyn/florisyn-mark.png?v=official1" class="atelier-sidebar-mark" width="36" height="36" alt="">
+    <strong>Florisyn</strong>
+  </div>
+  <nav class="florisyn-lux-nav" aria-label="Shop navigation" data-florisyn-nav="full">
+    <button type="button" class="active" data-route="/dashboard" data-page="dashboardPage">Dashboard</button>
+    <button type="button" data-route="/pos" data-page="posPage">POS</button>
+    <button type="button" data-route="/orders" data-page="ordersPage">Orders</button>
+    <button type="button" data-route="/inventory" data-page="inventoryPage">Inventory</button>
+    <button type="button" data-route="/products" data-page="productsPage">Products</button>
+    <button type="button" data-route="/deliveries" data-page="deliveriesPage">Deliveries</button>
+    <button type="button" data-route="/customers" data-page="customersPage">Customers</button>
+    <button type="button" data-route="/invoices" data-page="invoicesPage">Invoices</button>
+    <button type="button" data-route="/payment-centre" data-page="paymentsPage">Payment Center</button>
+    <button type="button" data-route="/lily-ai-studio" data-page="aiStudioPage">Lily AI Studio</button>
+    <button type="button" data-route="/photo-studio" data-page="bloomshotPage">Photo Studio</button>
+    <button type="button" data-route="/website-studio" data-page="websitePage">Website Studio</button>
+    <button type="button" data-route="/floral-library" data-page="libraryPage">Floral Library</button>
+    <button type="button" data-route="/expenses" data-page="expensesPage">Expenses</button>
+    <button type="button" data-route="/reports" data-page="reportsPage">Reports</button>
+    <button type="button" data-route="/staff" data-page="staffPage">Staff</button>
+    <button type="button" data-route="/wholesale" data-page="marketplacePage">Wholesale</button>
+    <button type="button" data-route="/wholesale/seller" data-page="wholesaleSellerPage">Seller dashboard</button>
+    <button type="button" data-route="/stores" data-page="storesPage">Stores</button>
+    <button type="button" data-route="/subscription" data-page="subscriptionPage">Subscription</button>
+    <button type="button" data-route="/business-os" data-page="ecosystemPage">Business OS</button>
+    <button type="button" data-route="/community" data-page="communityPage" hidden style="display:none">Community <span class="community-beta-pill">Beta</span></button>
+    <button type="button" data-route="/settings" data-page="settingsPage">Settings</button>
+  </nav>
+  <section class="atelier-premium-card florisyn-premium-badge" aria-label="Premium plan">
+    <p>PREMIUM PLAN</p>
+    <small>Unlock deeper shop intelligence and marketing tools.</small>
+  </section>
+</aside>
+<div class="florisyn-lux-main">
+<header class="atelier-app-header florisyn-lux-header">
   <div class="atelier-mobile-topbar">
     <button type="button" id="atelierMenuToggle" class="atelier-menu-toggle" aria-label="Open menu" aria-controls="atelierSidebarDrawer">
       <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
@@ -15,76 +83,54 @@
       <span aria-hidden="true">🔔</span><i class="atelier-notify-dot" aria-hidden="true"></i>
     </button>
   </div>
-  <div class="header-brand atelier-header-brand">
+  <div class="header-brand atelier-header-brand florisyn-lux-shop">
     <img id="appLogo" class="app-logo" alt="Shop logo" hidden>
-    <img src="/assets/florisyn/florisyn-mark.png?v=official1" class="brand-mark" alt="Florisyn">
-    <img src="/assets/florisyn/florisyn-wordmark.svg?v=atelier3" class="brand-wordmark" alt="Florisyn">
     <select id="shopSwitcher" aria-label="Switch shop"></select>
+    <span class="florisyn-os-badge">FLOWER SHOP OS</span>
   </div>
   <label class="atelier-global-search">
     <span class="atelier-search-icon" aria-hidden="true">⌕</span>
     <input id="atelierGlobalSearch" type="search" placeholder="Search orders, inventory, customers..." autocomplete="off">
   </label>
-  <div class="atelier-header-actions">
-    <button type="button" class="atelier-icon-btn" id="atelierNotifyBtn" title="Notifications" aria-label="Notifications">🔔</button>
-    <div class="atelier-user-chip">
+  <div class="atelier-header-actions florisyn-lux-header-actions">
+    <button type="button" class="florisyn-ask-lily" data-route="/lily-ai-studio" data-page="aiStudioPage" id="askLilyHeaderBtn">✦ Ask Lily</button>
+    <small id="accountEmail" class="atelier-account-email"></small>
+    <a class="florisyn-foundation-link" href="#roseFoundationTotal" id="florisynFoundationHeaderLink">Florisyn Foundation</a>
+    <button id="logout" class="secondary">Sign out</button>
+    <button type="button" class="atelier-icon-btn" id="atelierNotifyBtn" title="Notifications" aria-label="Notifications" hidden>🔔</button>
+    <div class="atelier-user-chip" hidden>
       <img src="/assets/assistants/rose-portrait.png" alt="" class="atelier-user-avatar" width="40" height="40">
       <span><b id="atelierUserName">Florist</b><small id="atelierUserRole">Owner &amp; Florist</small></span>
     </div>
-    <small id="accountEmail" class="atelier-account-email"></small>
-    <small class="bloom-version-inline" data-florisyn-version data-bloom-version>Florisyn 1.0</small>
-    <button id="logout" class="secondary">Sign out</button>
+    <small class="bloom-version-inline" data-florisyn-version data-bloom-version hidden>Florisyn 1.0</small>
   </div>
 </header>
-<div class="shell"><button type="button" class="atelier-sidebar-backdrop" id="atelierSidebarBackdrop" aria-label="Close menu" hidden></button><aside id="atelierSidebarDrawer">
-<div class="atelier-sidebar-brand" aria-label="Florisyn">
-  <span class="atelier-mark-f" aria-hidden="true">F</span>
-  <strong>Florisyn</strong>
+<div class="platform-top-strip florisyn-lux-foundation">
+  <div class="foundation-mini">
+    <div><small class="rose-foundation-label">ROSE FOUNDATION</small><strong id="roseFoundationTotal">$0.00 raised</strong></div>
+  </div>
+  <div class="assistant-mini-dock">
+    <button type="button" data-route="/lily-ai-studio" data-page="aiStudioPage"><img src="/assets/assistants/lily-portrait.png" alt="Lily"><span><b>Lily</b><small>Creative Assistant</small></span></button>
+    <button type="button" data-route="/reports" data-page="reportsPage"><img src="/assets/assistants/rose-portrait.png" alt="Rose"><span><b>Rose</b><small>Business Advisor</small></span></button>
+    <button type="button" class="daisy-dock-btn" data-route="/dashboard" data-page="dashboardPage" title="Daisy"><img src="/assets/assistants/daisy-portrait.png" alt="Daisy"><span><b>Daisy</b><small>Shop Mascot</small></span></button>
+  </div>
 </div>
-<p>SHOP</p>
-<button class="active" data-page="dashboardPage">Dashboard</button>
-<button data-page="ordersPage">Orders</button>
-<button data-page="inventoryPage">Inventory</button>
-<button data-page="productsPage">Products</button>
-<button data-page="deliveriesPage">Deliveries</button>
-<button data-page="customersPage">Customers</button>
-<p>INVOICES</p>
-<button data-page="invoicesPage">Invoices</button>
-<button data-page="paymentsPage">Payment Center</button>
-<p>CREATE &amp; SELL</p>
-<button data-page="aiStudioPage">Lily AI Studio</button>
-<button data-page="bloomshotPage">Photo Studio</button>
-<button data-page="websitePage">Website Studio</button>
-<button data-page="libraryPage">Floral Library</button>
-<p>BUSINESS</p>
-<button data-page="expensesPage">Expenses</button>
-<button data-page="reportsPage">Reports</button>
-<button data-page="staffPage">Staff</button>
-<button data-page="marketplacePage">Wholesale</button>
-<button data-page="wholesaleSellerPage">Seller dashboard</button>
-<button data-page="storesPage">Stores</button>
-<button data-page="subscriptionPage">Subscription</button>
-<button data-page="ecosystemPage">Business OS</button>
-<button data-page="communityPage" hidden style="display:none">Community <span class="community-beta-pill">Beta</span></button>
-<button data-page="settingsPage">Settings</button>
-<div class="sidebar-spacer"></div>
-<section class="atelier-premium-card" aria-label="Premium plan">
-  <p>Premium Plan</p>
-  <small>Unlock deeper shop intelligence and marketing tools.</small>
-  <button type="button" data-page="subscriptionPage">Get more details now</button>
-</section>
-</aside><div class="content">
-<section id="dashboardPage" class="page active pos-home">
+<div class="content">
+<section id="dashboardPage" class="page active florisyn-dash-page pos-home">
   <div class="pos-welcome-row atelier-dash-overview">
     <div class="atelier-dash-main">
       <div class="atelier-dash-hero">
         <div class="welcome-copy">
           <h1 id="greeting">Good morning!</h1>
           <p id="dashboardDate" class="subtle"></p>
-          <p class="welcome-subline welcome-subline-desktop">Here’s what’s happening in your workshop today.</p>
+          <p class="welcome-subline welcome-subline-desktop">Here’s what’s happening with your boutique today.</p>
           <p class="welcome-subline welcome-subline-mobile">Here’s what’s blooming today.</p>
         </div>
-        <button class="primary atelier-add-order" type="button" data-open="orderDialog">+ Add Order</button>
+        <div class="atelier-dash-hero-actions">
+          <button class="primary atelier-add-order" type="button" data-open="orderDialog">+ New Order</button>
+          <time class="florisyn-lux-date" id="dashboardDateChip"></time>
+          <img src="/assets/assistants/rose-portrait.png" alt="" class="florisyn-lux-user-avatar" width="40" height="40">
+        </div>
       </div>
 
             <div class="welcome-stats atelier-kpi-row" aria-label="Shop metrics">
@@ -97,7 +143,7 @@
         </article>
         <article class="atelier-kpi kpi-sales">
           <span class="kpi-icon" aria-hidden="true">🧾</span>
-          <small class="kpi-label-desktop">Total Sales</small>
+          <small class="kpi-label-desktop">Orders Today</small>
           <small class="kpi-label-mobile">Orders</small>
           <b id="kpiSalesCount">0</b>
           <em class="kpi-delta up" id="kpiSalesDelta">vs last month</em>
@@ -105,16 +151,16 @@
         </article>
         <article class="atelier-kpi kpi-orders">
           <span class="kpi-icon" aria-hidden="true">📦</span>
-          <small class="kpi-label-desktop">Active Orders</small>
+          <small class="kpi-label-desktop">Deliveries Today</small>
           <small class="kpi-label-mobile">Delivered</small>
-          <b class="kpi-value-desktop" id="ordersDueToday">0</b>
-          <b class="kpi-value-mobile" id="deliveriesToday">0</b>
+          <b class="kpi-value-desktop" id="deliveriesToday">0</b>
+          <b class="kpi-value-mobile" id="ordersDueToday" hidden>0</b>
           <em class="kpi-delta up" id="kpiOrdersDelta">vs last month</em>
           <svg class="atelier-spark" viewBox="0 0 120 36" preserveAspectRatio="none" aria-hidden="true"><path d="M0 28 C20 26 28 10 45 14 C62 18 70 30 88 12 C100 4 110 8 120 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
         </article>
         <article class="atelier-kpi kpi-retention">
           <span class="kpi-icon" aria-hidden="true">♡</span>
-          <small class="kpi-label-desktop">Customer Retention</small>
+          <small class="kpi-label-desktop">Customer Happiness</small>
           <small class="kpi-label-mobile">Happiness</small>
           <b id="kpiRetention">—</b>
           <em class="kpi-delta up" id="kpiRetentionDelta">vs last month</em>
@@ -173,7 +219,7 @@
       </div>
       <div class="lily-suggestion-card">
         <img src="/assets/assistants/lily-portrait.png" class="assistant-portrait lily-portrait" alt="Lily assistant">
-        <div><h2 id="lilySuggestionGreeting">Hi there!</h2><p>I found new floral ideas that match your inventory.</p><button class="soft-green" data-page="libraryPage">View suggestions</button></div>
+        <div><h2 id="lilySuggestionGreeting">Hi there!</h2><p>I found new floral ideas that match your inventory.</p><button class="florisyn-rose-btn" data-page="libraryPage">View suggestions</button></div>
       </div>
     </aside>
   </div>
@@ -189,66 +235,244 @@
     </article>
     <article class="daily-special-card">
       <div><p class="eyebrow">LILY'S DAILY SPECIAL</p><h3 id="dailySpecialName">Reviewing today's inventory…</h3><p id="dailySpecialRecipe" class="subtle"></p></div>
-      <div class="daily-special-footer"><span>Waste prevented <b id="dailySpecialWaste">$0.00</b></span><button id="createDailySpecial" type="button" class="soft-green">Create product</button></div>
+      <div class="daily-special-footer"><span>Waste prevented <b id="dailySpecialWaste">$0.00</b></span><button id="createDailySpecial" type="button" class="florisyn-rose-btn">Create product</button></div>
     </article>
   </div>
 
-  <div class="pos-workspace">
-    <div class="pos-workspace-head">
-      <div><p class="eyebrow">FRONT COUNTER</p><h2>Point of Sale</h2><p class="subtle">Product pads, cart, and checkout for walk-ins and phone orders.</p></div>
-      <button class="primary" type="button" data-open="orderDialog">+ New sale</button>
-    </div>
-    <section class="pos-center">
-      <div class="product-toolbar">
-        <div class="product-tabs"><button class="active">Product Pads</button><button data-page="inventoryPage">Scan</button><button data-page="libraryPage">Visual</button><button data-open="orderDialog">Manual Entry</button></div>
-        <div class="product-view-tools"><label class="visually-hidden" for="tileCategoryFilter">Product tile category</label><select id="tileCategoryFilter"><option>Everyday</option><option>Wedding</option><option>Sympathy</option><option>Plants</option></select><button id="manageTilesBtn" class="compact-edit-tiles" type="button" title="Edit product tiles" aria-label="Edit product tiles">✎ <span>Edit</span></button><button type="button" aria-label="Show compact product tile grid">▦</button><button type="button" aria-label="Show spacious product tile grid">▤</button></div>
-      </div>
-
-      <div id="productPadGrid" class="product-pad-grid"></div>
-
-      <section class="current-order-panel">
-        <div class="current-order-head"><div><b>Current Order</b><span id="cartItemCount">0 items</span></div><div><button data-open="customerDialog">+ Add Customer</button><button id="clearCartBtn" class="clear-btn" type="button">Clear</button></div></div>
-        <div class="pos-customer-row"><label>Customer<select id="posCustomerSelect"><option value="">Walk-in Customer</option></select></label><label>Order note<input id="posOrderNote" placeholder="Add a note…"></label></div>
-        <div id="queue" class="pos-order-list"></div>
-        <div class="order-footer-actions"><button class="primary" data-open="orderDialog">+ Manual Item</button><button id="saveCartQuoteBtn" class="secondary" type="button">Save as Quote</button><button id="loadCartQuoteBtn" class="secondary" type="button">Saved Quotes <span id="savedQuoteCount">0</span></button><button id="printCartBtn" class="secondary" type="button">🖨 Print</button></div>
-      </section>
-    </section>
-
-    <aside class="pos-right-column">
-      <section class="progress-card">
-        <div class="panel-heading"><h3>Today’s Progress</h3><button>•••</button></div>
-        <div class="progress-body"><div class="progress-ring"><strong>0%</strong><small>of goal</small></div><div class="progress-legend"><span><i class="pink-dot"></i>Sales <b id="todaySales">$0</b></span><span><i class="green-dot"></i>Orders <b id="ordersTodayLabel">0</b></span><span><i class="gold-dot"></i>Deliveries <b id="deliveriesStatus">0</b></span></div></div>
-        <div class="progress-week"><span>D<b>0</b></span><span>P<b>0</b></span><span>W<b>0</b></span><span>H<b>6</b></span></div>
-      </section>
-
-      <section class="checkout-card">
-        <div class="checkout-tabs"><button class="active">Payment</button><button>Discount</button><button>Loyalty</button><button>Tax Codes</button></div>
-        <div class="checkout-lines"><span>Subtotal <b id="weekSales">$0</b></span><span>Discount <b>$0.00</b></span><span>Service Fee <b>$0.00</b></span><span>Delivery Fee <b>$0.00</b></span><span>Tax (6.0%) <b>$0.00</b></span></div>
-        <div class="checkout-total"><span>Total</span><strong id="totalSales">$0</strong></div>
-        <button class="process-payment" type="button">▣ Process Payment</button>
-        <div class="checkout-bottom"><button>◷ Hold Order</button><button>••• More Options</button></div>
-      </section>
-    </aside>
-  </div>
-
+  
   <div class="dashboard-support-data" hidden>
     <span id="profit">$0</span><span id="totalExpenses">$0</span><span id="customerCount">0</span><span id="briefOrders">0</span><span id="briefDeliveries">0</span><span id="briefLowStock">0</span><span id="briefUnpaid">$0</span><div id="salesChart"></div><div id="upcomingDeliveries"></div>
   </div>
 </section>
-<section id="customersPage" class="page"><div class="heading atelier-page-heading"><div><p class="eyebrow">CUSTOMERS</p><h1>Customer book</h1><p class="subtle">Profiles, favorites, reminders, and order history in one place.</p></div><button class="primary" data-open="customerDialog">+ Add customer</button></div><input id="customerSearch" class="search" placeholder="Search customers"><div id="customersList" class="cards"></div></section>
-<section id="ordersPage" class="page order-command-page">
-  <div class="heading atelier-page-heading">
-    <div><p class="eyebrow">ORDERS</p><h1>Florist orders</h1><p class="subtle">Move each order through design, delivery, and payment without losing the plot.</p></div>
-    <div class="actions"><button id="refreshOrderBoard" class="secondary" type="button">Refresh</button><button class="primary" data-open="orderDialog">+ Add Order</button></div>
+<section id="posPage" class="page florisyn-pos-page" hidden aria-label="Point of Sale">
+<div class="pos-workspace florisyn-pos-lux" id="florisynPosLux">
+  <header class="pos-lux-topbar">
+        <div class="pos-lux-register">
+          <span class="pos-lux-fmark" aria-hidden="true">F</span>
+          <div>
+            <strong>Main Counter Register #1</strong>
+            <span class="pos-lux-scanner"><i aria-hidden="true"></i> Scanner Ready</span>
+          </div>
+        </div>
+        <div class="pos-lux-mode" role="tablist" aria-label="Browse mode">
+          <button type="button" class="active" data-pos-mode="product">By Product</button>
+          <button type="button" data-pos-mode="customer">By Customer</button>
+        </div>
+        <label class="pos-lux-search">
+          <span aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg></span>
+          <input id="posLuxSearch" type="search" placeholder="Search items, barcodes, or custom tags..." autocomplete="off">
+        </label>
+        <div class="pos-lux-staff">
+          <div>
+            <strong id="posLuxDateTime">May 12, 2026 • 11:24 AM</strong>
+            <small>Staff: <span id="posLuxStaffName">Ashley Goodman</span></small>
+          </div>
+          <img src="/assets/assistants/rose-portrait.png" alt="" width="40" height="40" class="pos-lux-staff-avatar">
+        </div>
+      </header>
+  <div class="pos-lux-main-row">
+    <aside class="pos-lux-rail" aria-label="Register tools">
+      <button type="button" class="pos-lux-rail-btn active" data-pos-tool="cart" title="Cart"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 7h15l-1.5 9h-12z"/><path d="M6 7L5 3H2"/><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg></span><small>CART</small></button>
+      <button type="button" class="pos-lux-rail-btn" data-pos-tool="lookup" title="Lookup"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/><circle cx="11" cy="11" r="2.2" fill="currentColor" stroke="none"/></svg></span><small>LOOKUP</small></button>
+      <button type="button" class="pos-lux-rail-btn" data-pos-tool="returns" title="Returns"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></span><small>RETURNS</small></button>
+      <button type="button" class="pos-lux-rail-btn" data-pos-tool="quick" data-open="orderDialog" title="Quick Sale"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span><small>QUICK</small></button>
+      <button type="button" class="pos-lux-rail-btn" data-pos-tool="hold" id="posHoldOrderBtn" title="Hold"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></span><small>HOLD</small></button>
+      <button type="button" class="pos-lux-rail-btn" data-pos-tool="recall" id="posRecallBtn" title="Recall"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></span><small>RECALL</small></button>
+    </aside>
+
+    <div class="pos-lux-center">
+      <div class="pos-lux-top-block">
+        <div class="pos-lux-cat-head">
+          <h3>Luxury Catalog Categories</h3>
+          <button type="button" class="pos-lux-customize" id="manageTilesBtn">Customize Shortcuts</button>
+        </div>
+        <div class="pos-lux-categories" id="posLuxCategories" aria-label="Catalog categories">
+          <button type="button" class="pos-lux-cat active" data-pos-cat="Everyday" style="background-image:url('/assets/pink-bouquet.jpg')">Bright Bouquets</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/atelier-floral-corner.jpg')">Contemporary</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Sympathy" style="background-image:url('/assets/sympathy.png')">Funeral & Sympathy</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/rose-arr.png')">Romance Specials</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/atelier-bouquet-hero.jpg')">Seasonal Harvest</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Plants" style="background-image:url('/assets/orchid.png')">Tropical Paradise</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/tulips.png')">Hand-Tied Stems</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/dish.png')">Luxury Vase</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Wedding" style="background-image:url('/assets/atelier-lilies-corner.jpg')">Wedding Bouquets</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Other" style="background-image:url('/assets/spray.png')">Dried & Preserved</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Gifts" style="background-image:url('/assets/chocolates.png')">Gifts & Add-ons</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/fresh.png')">Custom Mix</button>
+        </div>
+        <label class="visually-hidden" for="tileCategoryFilter">Product tile category</label>
+        <select id="tileCategoryFilter" class="visually-hidden" tabindex="-1" aria-hidden="true">
+          <option value="all">All</option>
+          <option value="Everyday">Everyday</option>
+          <option value="Wedding">Wedding</option>
+          <option value="Sympathy">Sympathy</option>
+          <option value="Plants">Plants</option>
+          <option value="Gifts">Gifts</option>
+          <option value="Other">Other</option>
+        </select>
+        <div id="productPadGrid" class="product-pad-grid pos-lux-pads" aria-label="Product pads" hidden></div>
+      </div>
+
+      <section class="pos-lux-basket" aria-labelledby="posBasketHeading">
+        <div class="pos-lux-basket-head">
+          <h3 id="posBasketHeading">Active Transaction Basket</h3>
+          <div class="pos-lux-basket-actions">
+            <span id="cartItemCount" class="pos-lux-item-count visually-hidden">0 items</span>
+            <button type="button" id="clearCartBtn" class="pos-lux-clear" data-cart-clear title="Clear basket">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              Clear All
+            </button>
+          </div>
+        </div>
+                <div id="queue" class="pos-order-list pos-lux-queue" aria-label="Active transaction basket">
+          <div class="cart-table pos-lux-cart-table">
+            <div class="cart-table-head"><span>QTY</span><span>ITEM DESCRIPTION</span><span>UNIT PRICE</span><span>LINE TOTAL</span></div>
+            <div class="cart-row"><span class="qty-control"><button type="button" data-cart-minus="0" aria-label="Decrease quantity">−</button><b>1</b><button type="button" data-cart-plus="0" aria-label="Increase quantity">+</button></span><span class="pos-lux-item"><strong>Blush Serenity Bouquet</strong><small>Large Vase, Silk Wrap Ribbon</small></span><span class="pos-lux-unit">$180.00</span><span class="pos-lux-line-total"><b>$180.00</b></span></div>
+            <div class="cart-row"><span class="qty-control"><button type="button" data-cart-minus="1" aria-label="Decrease quantity">−</button><b>2</b><button type="button" data-cart-plus="1" aria-label="Increase quantity">+</button></span><span class="pos-lux-item"><strong>Rose Garden Arrangement</strong><small>Signature ceramic bowl, peach premium spray roses</small></span><span class="pos-lux-unit">$150.00</span><span class="pos-lux-line-total"><b>$300.00</b></span></div>
+            <div class="cart-row"><span class="qty-control"><button type="button" data-cart-minus="2" aria-label="Decrease quantity">−</button><b>1</b><button type="button" data-cart-plus="2" aria-label="Increase quantity">+</button></span><span class="pos-lux-item"><strong>Gift Wrapping Service</strong><small>Embossed paper, handwritten gold foil card</small></span><span class="pos-lux-unit">$12.00</span><span class="pos-lux-line-total"><b>$12.00</b></span></div>
+          </div>
+        </div>
+        <div class="pos-lux-ops" hidden aria-hidden="true">
+          <button type="button" data-open="orderDialog">+ Manual Item</button>
+          <button type="button" id="saveCartQuoteBtn">Save as Quote</button>
+          <button type="button" id="loadCartQuoteBtn">Recall quotes</button>
+          <button type="button" id="printCartBtn">Print</button>
+          <span id="savedQuoteCount">0</span>
+          <select id="posCustomerSelect"><option value="clara-kensington" data-name="Clara Kensington" selected>Clara Kensington</option><option value="">Walk-in Customer</option></select>
+          <textarea id="posOrderNote"></textarea>
+        </div>
+      </section>
+    </div>
+
+    <aside class="pos-lux-checkout" aria-label="Checkout">
+      <div class="pos-lux-customer-block">
+        <div class="pos-lux-customer-head">
+          <span>ASSIGNED CUSTOMER</span>
+          <em class="pos-lux-vip" id="posLuxVipBadge">VIP GOLD</em>
+        </div>
+        <div class="pos-lux-customer-row">
+          <img id="posLuxCustomerAvatar" src="/assets/assistants/lily-portrait.png" alt="" width="48" height="48">
+          <div class="pos-lux-customer-meta">
+            <strong id="posLuxCustomerName">Clara Kensington</strong>
+            <small id="posLuxCustomerEmail">clara.kensington@email.com</small>
+          </div>
+          <div class="pos-lux-loyalty" title="Loyalty progress">
+            <div class="pos-lux-ring" id="posLuxLoyaltyRing" style="--lux-loyalty:75" aria-hidden="true"><span id="posLuxLoyaltyPts">4,300 pts</span></div>
+          </div>
+        </div>
+        <p class="pos-lux-loyalty-note" id="posLuxLoyaltyNote">$50.00 reward coupon available.</p>
+      </div>
+
+      <div class="pos-lux-totals">
+        <div class="pos-lux-line"><span>Subtotal</span><b id="cartSubtotal">$492.00</b></div>
+        <div class="pos-lux-discount-row">
+          <label class="pos-lux-code">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            <input id="posLuxDiscountCode" type="text" value="VIPGOLD10" placeholder="Discount code" autocomplete="off">
+          </label>
+          <button type="button" class="pos-lux-apply" id="posLuxApplyDiscount">Apply</button>
+        </div>
+        <div class="pos-lux-line rose" id="posLuxDiscountLine"><span>Discount (10% VIP coupon)</span><b id="posLuxDiscountAmt">−$49.20</b></div>
+        <div class="pos-lux-line"><span>Service / White-Glove Delivery</span><b id="posLuxServiceFee">$15.00</b></div>
+        <div class="pos-lux-line checkout-lines"><span>Tax (VAT 10%)</span><b id="posLuxTax">$49.20</b></div>
+        <div class="pos-lux-grand"><span>Grand Total</span><strong id="cartTotal">$507.00</strong></div>
+      </div>
+
+      <div class="pos-lux-pay-actions">
+        <button type="button" class="pos-lux-charge process-payment" data-cart-checkout="1" id="posChargeCardBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          Charge Card
+        </button>
+        <button type="button" class="pos-lux-cash" id="posAcceptCashBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
+          Accept Cash Payment
+        </button>
+        <div class="pos-lux-pay-row">
+          <button type="button" class="pos-lux-outline" id="posSplitPayBtn">Split Payment</button>
+          <button type="button" class="pos-lux-outline" id="posHoldOrderBtn2">Hold Order</button>
+        </div>
+      </div>
+
+      <div class="pos-lux-legacy-metrics" hidden aria-hidden="true">
+        <b id="todaySales">$0</b><b id="ordersTodayLabel">0</b><b id="deliveriesStatus">0</b>
+        <b id="weekSales">$0.00</b><b id="totalSales">$0.00</b>
+      </div>
+    </aside>
+    </div>
+
+    <footer class="pos-lux-statusbar">
+      <div class="pos-lux-status-left"><i aria-hidden="true"></i> Register Online <span>ID: REG-MAIN-001</span></div>
+      <div class="pos-lux-status-right">
+        <span>Today’s Transactions: <b id="posLuxTxCount">132</b> settled</span>
+        <span>Expected Drawer Balance: <b id="posLuxDrawerBal">$2,480.50</b></span>
+      </div>
+    </footer>
   </div>
-  <div class="order-command-layout">
+</section>
+<section id="customersPage" class="page" hidden><div class="heading atelier-page-heading"><div><p class="eyebrow">CUSTOMERS</p><h1>Customer book</h1><p class="subtle">Profiles, favorites, reminders, and order history in one place.</p></div><button class="primary" data-open="customerDialog">+ Add customer</button></div><input id="customerSearch" class="search" placeholder="Search customers"><div id="customersList" class="cards"></div></section>
+<section id="ordersPage" class="page order-command-page florisyn-lux-orders" hidden aria-label="Orders">
+  <div class="heading atelier-page-heading ord-heading">
+    <div>
+      <h1>Orders</h1>
+      <p class="subtle">Manage and track all customer orders.</p>
+    </div>
+    <div class="actions ord-heading-actions">
+      <button type="button" class="ord-export" id="ordExportBtn">Export</button>
+      <button type="button" class="ord-new" data-open="orderDialog" id="ordNewOrderBtn">+ New Order</button>
+      <button id="refreshOrderBoard" class="secondary" type="button" hidden>Refresh</button>
+    </div>
+  </div>
+
+  <div class="ord-toolbar">
+    <div class="ord-tabs" id="ordTabs" aria-label="Order status filters"></div>
+    <div class="ord-tools">
+      <label class="ord-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="ordSearch" type="search" placeholder="Search orders..." aria-label="Search orders">
+      </label>
+      <button type="button" class="ord-date" id="ordDateRange" title="Date range">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        May 1 - May 12, 2026
+      </button>
+      <button type="button" class="ord-filter-btn" id="ordFilterBtn" aria-label="More filters" title="Filters">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="ord-table-card">
+    <div class="ord-table-wrap">
+      <table class="ord-table" id="ordTable">
+        <thead>
+          <tr>
+            <th scope="col"><input class="ord-check" type="checkbox" id="ordSelectAll" aria-label="Select all orders"></th>
+            <th scope="col" data-ord-sort="order">Order #</th>
+            <th scope="col" data-ord-sort="customer">Customer</th>
+            <th scope="col" data-ord-sort="items">Items</th>
+            <th scope="col" data-ord-sort="total">Total</th>
+            <th scope="col" data-ord-sort="status">Status</th>
+            <th scope="col" data-ord-sort="date">Date</th>
+            <th scope="col" data-ord-sort="delivery">Delivery</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ordTableBody"></tbody>
+      </table>
+    </div>
+    <div class="ord-pager">
+      <div class="ord-pager-meta" id="ordPagerMeta">Showing 1-8 of 186 orders</div>
+      <div class="ord-pages" id="ordPages" aria-label="Pagination"></div>
+    </div>
+  </div>
+
+  <div class="order-command-layout" hidden aria-hidden="true">
     <div id="ordersBoard" class="order-board" aria-live="polite"></div>
     <div id="telemetryLog" class="telemetry-log-hidden" aria-hidden="true"></div>
   </div>
   <div id="ordersList" class="cards order-list-fallback" hidden></div>
 </section>
-<section id="deliveriesPage" class="page"><div class="heading atelier-page-heading"><div><p class="eyebrow">DELIVERIES</p><h1>Today’s route</h1><p class="subtle">Keep every stop on time with a clear shop route board.</p></div><div class="heading-actions"><button id="printManifest" class="secondary">Print manifest</button><button class="primary" data-open="deliveryDialog">+ Add stop</button></div></div><div class="delivery-summary"><article><span>Scheduled</span><strong id="deliveryScheduledCount">0</strong></article><article><span>Out for delivery</span><strong id="deliveryOutCount">0</strong></article><article><span>Delivered</span><strong id="deliveryDoneCount">0</strong></article><article><span>Route miles</span><strong id="deliveryMilesTotal">0.0</strong></article></div><div id="deliveriesList" class="kanban"></div></section>
-<section id="inventoryPage" class="page">
+<section id="deliveriesPage" class="page" hidden><div class="heading atelier-page-heading"><div><p class="eyebrow">DELIVERIES</p><h1>Today’s route</h1><p class="subtle">Keep every stop on time with a clear shop route board.</p></div><div class="heading-actions"><button id="printManifest" class="secondary">Print manifest</button><button class="primary" data-open="deliveryDialog">+ Add stop</button></div></div><div class="delivery-summary"><article><span>Scheduled</span><strong id="deliveryScheduledCount">0</strong></article><article><span>Out for delivery</span><strong id="deliveryOutCount">0</strong></article><article><span>Delivered</span><strong id="deliveryDoneCount">0</strong></article><article><span>Route miles</span><strong id="deliveryMilesTotal">0.0</strong></article></div><div id="deliveriesList" class="kanban"></div></section>
+<section id="inventoryPage" class="page" hidden>
   <div class="heading atelier-page-heading">
     <div><p class="eyebrow">INVENTORY</p><h1>Cooler &amp; stock</h1><p class="subtle">Track stems by flower, color, wholesale cost, and retail value.</p></div>
     <div class="heading-actions"><button class="secondary" id="scanInventoryBtn">Upload &amp; scan</button><button class="primary" data-open="inventoryDialog">+ Add inventory</button></div>
@@ -267,9 +491,84 @@
   <div id="inventoryColorTabs" class="color-tabs"></div>
   <div id="inventoryList" class="cards inventory-cards"></div>
 </section>
-<section id="productsPage" class="page"><div class="heading atelier-page-heading"><div><p class="eyebrow">PRODUCTS</p><h1>Bouquets &amp; recipes</h1><p class="subtle">Build sellable arrangements with private recipes and clear margins.</p></div><button class="primary" data-open="productDialog">+ New product</button></div><div id="productsList" class="product-grid"></div></section>
+<section id="productsPage" class="page" hidden><div class="heading atelier-page-heading"><div><p class="eyebrow">PRODUCTS</p><h1>Bouquets &amp; recipes</h1><p class="subtle">Build sellable arrangements with private recipes and clear margins.</p></div><button class="primary" data-open="productDialog">+ New product</button></div><div id="productsList" class="product-grid"></div></section>
+<section id="bouquetsPage" class="page" hidden>
+  <div class="heading atelier-page-heading">
+    <div>
+      <p class="eyebrow">BOUQUETS</p>
+      <h1>Bouquets</h1>
+      <p class="subtle">Signature bouquet designs for your shop floor and storefront.</p>
+    </div>
+    <div class="heading-actions">
+      <button type="button" class="secondary" data-route="/floral-library" data-page="libraryPage">Browse Floral Library</button>
+      <button type="button" class="primary" data-open="productDialog">+ New bouquet product</button>
+    </div>
+  </div>
+  <div class="panel florisyn-route-panel">
+    <p class="subtle">Start from Floral Library designs, then save them into Products with your private recipes and pricing.</p>
+    <div class="actions">
+      <button type="button" class="primary" data-route="/floral-library" data-page="libraryPage">Open Floral Library</button>
+      <button type="button" class="secondary" data-route="/products" data-page="productsPage">Go to Products</button>
+    </div>
+  </div>
+</section>
+<section id="analyticsPage" class="page" hidden>
+  <div class="heading atelier-page-heading">
+    <div>
+      <p class="eyebrow">ANALYTICS</p>
+      <h1>Analytics</h1>
+      <p class="subtle">A quick pulse on revenue, profit, and shop performance.</p>
+    </div>
+    <div class="actions">
+      <button type="button" class="secondary" data-route="/reports" data-page="reportsPage">Open full reports</button>
+    </div>
+  </div>
+  <div class="report-summary analytics-summary">
+    <div><small>Total revenue</small><strong id="analyticsRevenue">$0.00</strong></div>
+    <div><small>Total expenses</small><strong id="analyticsExpenses">$0.00</strong></div>
+    <div><small>Net profit</small><strong id="analyticsProfit">$0.00</strong></div>
+    <div><small>Profit margin</small><strong id="analyticsMargin">0.0%</strong></div>
+  </div>
+  <div class="panel florisyn-route-panel">
+    <p class="subtle">Detailed monthly results and expense categories live in Reports.</p>
+  </div>
+</section>
+<section id="posSettingsPage" class="page" hidden>
+  <div class="heading atelier-page-heading">
+    <div>
+      <p class="eyebrow">REGISTER</p>
+      <h1>POS Settings</h1>
+      <p class="subtle">Configure tax, delivery fees, receipts, and register defaults for checkout.</p>
+    </div>
+    <div class="heading-actions">
+      <button type="button" class="secondary" data-route="/pos" data-page="posPage">Open POS</button>
+      <button type="button" class="primary" data-route="/settings" data-page="settingsPage">Shop settings</button>
+    </div>
+  </div>
+  <div class="settings-grid">
+    <section class="panel">
+      <h2>Checkout defaults</h2>
+      <p class="subtle">These values follow your saved shop settings. Update them in Settings → Shop information.</p>
+      <div class="report-summary">
+        <div><small>Default sales tax</small><strong id="posSettingsTax">6%</strong></div>
+        <div><small>Default delivery fee</small><strong id="posSettingsDelivery">$10.00</strong></div>
+        <div><small>Register name</small><strong>Main Counter Register #1</strong></div>
+        <div><small>Register ID</small><strong>REG-MAIN-001</strong></div>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>Quick links</h2>
+      <div class="actions">
+        <button type="button" class="secondary" data-route="/settings" data-page="settingsPage">Edit tax &amp; delivery</button>
+        <button type="button" class="secondary" data-route="/subscription" data-page="subscriptionPage">Subscription Center</button>
+        <button type="button" class="secondary" data-route="/inventory" data-page="inventoryPage">Inventory</button>
+        <button type="button" class="secondary" data-route="/invoices" data-page="invoicesPage">Invoices</button>
+      </div>
+    </section>
+  </div>
+</section>
 
-<section id="bloomshotPage" class="page bloomshot-page">
+<section id="bloomshotPage" class="page bloomshot-page" hidden>
   <div class="heading"><div><p class="eyebrow">PRO PHOTO + PRODUCT STUDIO</p><h1>Florisyn Photo Studio</h1><p class="subtle">Turn one arrangement photo into editable, website-ready and social-ready content. Nothing saves or publishes until you approve it.</p></div><div class="actions"><button id="bloomshotRestore" class="secondary" type="button">Restore original</button><button id="bloomshotDownload" class="primary" type="button">Download image</button></div></div>
   <div class="bloomshot-workspace">
     <section class="panel bloomshot-editor">
@@ -302,27 +601,119 @@
   </div>
 </section>
 
-<section id="aiStudioPage" class="page ai-studio-page">
-  <div class="heading ai-studio-heading"><div><p class="eyebrow">FLORISYN STUDIO</p><h1>Lily AI Studio</h1><p class="subtle">Talk to your creative florist assistant. Preview every website change before saving or publishing.</p></div><div class="ai-studio-actions"><button id="aiStudioVoiceToggle" class="secondary" type="button">🔊 Voice on</button><button id="aiStudioClear" class="secondary" type="button">New chat</button></div></div>
-  <div class="ai-studio-shell">
-    <section class="panel ai-conversation-panel">
-      <div class="assistant-profile lily-profile"><img src="/assets/assistants/lily-portrait.png" alt="Lily"><div><strong>Lily</strong><small>Creative Assistant</small></div><span class="assistant-online">Ready</span></div>
-      <div id="aiStudioMessages" class="ai-studio-messages" aria-live="polite">
-        <article class="ai-message assistant"><span class="message-avatar">🌸</span><div><strong>Lily</strong><p>Hi! I’m so happy you’re here! Tell me what you want to create, and I’ll make a draft you can preview before anything changes. 💕</p></div></article>
+<section id="aiStudioPage" class="page ai-studio-page florisyn-lux-ai-studio" hidden>
+  <div class="heading ai-studio-heading lux-ai-heading">
+    <div>
+      <p class="eyebrow lux-ai-eyebrow">CREATIVE STUDIO</p>
+      <h1>Lily AI Studio</h1>
+      <p class="subtle">Talk to your creative brand assistant. Preview every website change before saving or publishing.</p>
+    </div>
+    <div class="ai-studio-actions">
+      <button id="aiStudioVoiceToggle" class="secondary lux-ai-ghost" type="button">Voice on</button>
+      <button id="aiStudioClear" class="secondary lux-ai-ghost" type="button">New chat</button>
+    </div>
+  </div>
+
+  <nav class="lux-ai-tabs" aria-label="Studio sections">
+    <button type="button" class="active" data-lux-ai-tab="studio" aria-current="page">Lily AI Studio</button>
+    <button type="button" data-lux-ai-tab="ask" data-page="aiStudioPage" data-route="/lily-ai-studio">Ask Lily</button>
+    <button type="button" data-lux-ai-tab="website" data-page="websitePage" data-route="/website-studio">Website Studio</button>
+    <button type="button" data-lux-ai-tab="learn" id="aiStudioLearnMore">Learn More</button>
+  </nav>
+
+  <div class="ai-studio-shell lux-ai-shell">
+    <section class="panel ai-conversation-panel lux-ai-chat" aria-label="Chat with Lily">
+      <div class="assistant-profile lily-profile lux-ai-lily-head">
+        <img src="/assets/assistants/lily-portrait.png" alt="Lily, Creative Assistant" width="40" height="40">
+        <div>
+          <strong>Lily <span class="lux-ai-verified" title="Verified" aria-label="Verified">✓</span></strong>
+          <small>Creative Assistant</small>
+        </div>
+        <button type="button" class="lux-ai-reply" id="aiStudioReplyBtn">Reply</button>
       </div>
+
+      <div id="aiStudioMessages" class="ai-studio-messages lux-ai-messages" aria-live="polite">
+        <article class="ai-message assistant">
+          <img class="message-avatar lux-ai-avatar" src="/assets/assistants/lily-portrait.png" alt="" width="40" height="40">
+          <div class="lux-ai-bubble">
+            <p>Hi! I'm so happy you're here! Tell me what you want to create, and I'll make a draft you can preview before anything changes. 💜</p>
+          </div>
+        </article>
+      </div>
+
       <div id="aiStudioTaskQueue" class="ai-task-queue" hidden></div>
-      <div class="ai-quick-prompts"><button type="button" data-ai-prompt="Make my homepage feel more luxurious and welcoming.">Luxury homepage</button><button type="button" data-ai-prompt="Write a warm local SEO homepage for my flower shop and delivery area.">Local SEO</button><button type="button" data-ai-prompt="Create a complete product listing for a premium hydrangea arrangement under $95.">New product</button><button type="button" data-ai-prompt="Create a Facebook post for my flower shop today.">Facebook post</button></div>
-      <form id="aiStudioForm" class="ai-studio-composer"><textarea id="aiStudioPrompt" rows="2" placeholder="Ask Lily to update your website, create a product, or write marketing..."></textarea><button class="primary" type="submit">Send to Lily ✨</button></form>
+
+      <div class="ai-quick-prompts lux-ai-chips">
+        <button type="button" data-ai-prompt="Make my homepage feel more luxurious and welcoming.">Luxury homepage</button>
+        <button type="button" data-ai-prompt="Write a warm local SEO homepage for my flower shop and delivery area.">Local SEO</button>
+        <button type="button" data-ai-prompt="Create a complete product listing for a premium hydrangea arrangement under $95.">New product</button>
+        <button type="button" data-ai-prompt="Create a Facebook post for my flower shop today.">Facebook post</button>
+      </div>
+
+      <form id="aiStudioForm" class="ai-studio-composer lux-ai-composer">
+        <textarea id="aiStudioPrompt" rows="1" placeholder="Ask Lily to update your website, create a product, or write marketing..."></textarea>
+        <button class="primary lux-ai-send" type="submit">Send to Lily →</button>
+      </form>
     </section>
-    <aside class="ai-studio-preview panel">
-      <div class="ai-preview-head"><div><strong>Change preview</strong><small>Nothing is saved until you approve it.</small></div><span id="aiStudioDraftBadge" class="badge">No draft</span></div>
-      <div id="aiStudioChangeList" class="ai-change-list"><div class="ai-empty-state"><span>🌷</span><strong>Your draft will appear here</strong><p>Ask Lily to improve the website, write a product, or prepare marketing.</p></div></div>
-      <div class="ai-preview-actions"><button id="aiStudioUndo" class="secondary" type="button" disabled>Undo</button><button id="aiStudioApply" class="primary" type="button" disabled>Apply to Website Studio</button></div>
-      <div class="rose-tip"><span>🌹</span><div><strong>Rose says</strong><p>“Honey, we preview first. We don’t go changing the storefront before we’ve had a look.”</p></div></div>
+
+    <aside class="ai-studio-preview panel lux-ai-preview" aria-label="Change preview">
+      <div class="ai-preview-head lux-ai-preview-head">
+        <div>
+          <strong>Change preview</strong>
+          <small>Nothing is saved until you approve it.</small>
+        </div>
+        <span id="aiStudioDraftBadge" class="badge lux-ai-draft-badge">No draft</span>
+      </div>
+
+      <div class="lux-ai-site-mock" id="aiStudioSiteMock" aria-hidden="false">
+        <div class="lux-ai-mock-nav">
+          <strong>Florisyn</strong>
+          <span>Shop</span>
+          <span>Bouquets</span>
+          <span>About</span>
+          <em>Order Now</em>
+        </div>
+        <div class="lux-ai-mock-hero" style="background-image:url('/assets/atelier-bouquet-hero.jpg')">
+          <small class="lux-ai-mock-label">HEADER</small>
+          <h3 id="aiStudioMockHeroTitle">Luxury Blooms</h3>
+          <p id="aiStudioMockHeroText">Handcrafted arrangements for every occasion.</p>
+          <button type="button" tabindex="-1">Shop Collection</button>
+          <small class="lux-ai-mock-label lux-ai-mock-label-bottom">HERO SECTION</small>
+        </div>
+        <div class="lux-ai-mock-products">
+          <div class="lux-ai-mock-products-head">
+            <strong>Featured Arrangements</strong>
+            <a href="#" id="aiStudioMockViewAll" class="lux-ai-view-all">VIEW ALL</a>
+          </div>
+          <small class="lux-ai-mock-label">PRODUCTS GRID</small>
+          <div class="lux-ai-mock-grid">
+            <article><img src="/assets/pink-bouquet.jpg" alt=""><b id="aiStudioMockP1">Rose Bliss</b><span>$89</span></article>
+            <article><img src="/assets/atelier-lilies-corner.jpg" alt=""><b id="aiStudioMockP2">Lily Dreams</b><span>$120</span></article>
+            <article><img src="/assets/atelier-floral-corner.jpg" alt=""><b id="aiStudioMockP3">Wild Garden</b><span>$75</span></article>
+          </div>
+        </div>
+      </div>
+
+      <div id="aiStudioChangeList" class="ai-change-list lux-ai-change-list" hidden>
+        <div class="ai-empty-state"><strong>Your draft will appear here</strong><p>Ask Lily to improve the website, write a product, or prepare marketing.</p></div>
+      </div>
+
+      <div class="ai-preview-actions lux-ai-preview-actions">
+        <button id="aiStudioUndo" class="secondary lux-ai-undo" type="button" disabled>Undo</button>
+        <button id="aiStudioApply" class="primary lux-ai-apply" type="button" disabled>Apply to Store</button>
+      </div>
+
+      <div class="rose-tip lux-ai-rose-tip">
+        <img src="/assets/assistants/rose-portrait.png" alt="Rose" width="32" height="32">
+        <div>
+          <strong>Rose says:</strong>
+          <p>Always preview first! Try changing the storefront background to see how it looks.</p>
+        </div>
+      </div>
     </aside>
   </div>
 </section>
-<section id="websitePage" class="page">
+<section id="websitePage" class="page" hidden>
 <div class="heading"><div><p class="eyebrow">PREMIUM STOREFRONT BUILDER</p><h1>Website Studio X</h1><p class="subtle">Build a polished florist website with real arrangement photography.</p></div><div class="heading-actions"><button id="previewWebsite" class="secondary">Preview</button><button id="saveWebsite" class="primary">Save website</button></div></div>
 <div class="website-studio-layout">
 <form id="websiteForm" class="panel website-controls"><section class="studio-section ai-writing-focus"><div class="studio-title"><span>AI</span><div><h3>Lily writing focus</h3><p>Choose the goal before using any “Lily write this” button.</p></div></div><label>Writing goal<select id="websiteAiMode"><option value="local SEO">Local SEO — rank in the shop’s city and delivery area</option><option value="luxury conversion">Luxury sales copy — turn visitors into buyers</option><option value="warm trustworthy">Warm & trustworthy — everyday shop voice</option><option value="wedding specialist">Wedding specialist — elegant consultations and bookings</option><option value="sympathy care">Sympathy care — compassionate, respectful wording</option><option value="holiday campaign">Holiday campaign — urgency, gifting, and preorders</option></select></label><p class="subtle">Lily will include natural city, service, occasion, and delivery phrases without keyword stuffing.</p></section>
@@ -342,28 +733,128 @@
 </form>
 <div class="website-preview-column"><div class="preview-toolbar"><div><strong>Live preview</strong><small>Updates as you type</small></div><div class="preview-tabs"><button type="button" class="secondary active" data-preview="desktop">Desktop</button><button type="button" class="secondary" data-preview="mobile">Mobile</button></div></div><div id="websitePreview" class="site-preview premium-preview"></div><div class="studio-help"><strong>Lily’s website checklist</strong><span>✓ Real arrangement photography</span><span>✓ Clear order button</span><span>✓ Phone, hours and delivery area</span><span>✓ Featured products with prices</span></div></div>
 </div></section>
-<section id="libraryPage" class="page"><div class="heading"><div><p class="eyebrow">REAL ARRANGEMENT STARTER CATALOG</p><h1>Floral Library</h1><p class="subtle">Real floral photography, polished product wording, and editable starter recipes. Add a design, then customize it for your shop.</p></div></div><div class="library-toolbar panel"><label>Search the floral library<input id="librarySearch" placeholder="Hydrangea, sympathy, wedding, roses..."></label><label>Occasion or category<select id="libraryCategory"><option value="">All categories</option><option>Hydrangeas</option><option>Birthday</option><option>Love & Romance</option><option>Sympathy</option><option>Funeral</option><option>Wedding</option><option>Everyday</option><option>New Baby</option><option>Get Well</option><option>Congratulations</option><option>Plants</option></select></label></div><div id="libraryList" class="product-grid"></div></section>
-<section id="subscriptionPage" class="page"><div class="heading"><div><p class="eyebrow">FLORISYN SUBSCRIPTION</p><h1>Subscription Center</h1><p class="subtle">Manage your Florisyn plan, billing, and data — upgrade, pause, or cancel in one place.</p></div></div><div id="subscriptionCenterRoot" class="panel shop-billing-root"></div></section>
-<section id="ecosystemPage" class="page"><div class="heading"><div><p class="eyebrow">BUSINESS ECOSYSTEM</p><h1>Florisyn Business OS</h1><p class="subtle">Subscriptions, loyalty, finance, vendors, delivery, and Lily coach — connected to your POS and Payment Hub.</p></div></div><div id="ecosystemRoot"></div></section><section id="communityPage" class="page"><div class="heading"><div><p class="eyebrow">FLORIST COMMUNITY <span class="community-beta-pill">Beta</span></p><h1>Florist Community</h1><p class="subtle">Share design help, business advice, questions, and celebrations with fellow florists.</p></div><button id="refreshCommunity" class="secondary" type="button">Refresh</button></div><div id="communityRoot"></div></section>
-<section id="settingsPage" class="page"><div class="heading"><div><p class="eyebrow">ONE BRANDING CENTER</p><h1>Settings & Branding</h1></div><button id="saveSettings" class="primary">Save settings</button></div><form id="settingsForm" class="settings-grid"><section class="ai-settings-card"><div class="panel-heading"><div><p class="eyebrow">FLORISYN LOCAL AI</p><h2>AI Status Dashboard</h2><p class="subtle">Free, local AI powered by Ollama. Florisyn's POS keeps working even when AI is offline.</p></div><span id="aiHealthBadge" class="badge warn">Checking…</span></div><div class="ai-status-grid"><div><small>Bridge</small><strong id="aiBridgeStatus">Checking</strong></div><div><small>Ollama</small><strong id="aiOllamaStatus">Checking</strong></div><div><small>Selected model</small><select id="aiModelSelect"><option value="llama3.1:8b">llama3.1:8b</option></select></div><div><small>Default model</small><strong>llama3.1:8b</strong></div></div><div id="aiDiagnosticMessage" class="ai-diagnostic">Run the Florisyn Local AI Bridge on this computer to enable Lily and Rose.</div><div class="card-actions"><button id="refreshAiStatus" class="secondary" type="button">Run diagnostics</button><button id="installAiModel" class="secondary" type="button">Install selected model</button><button id="testLocalAi" class="primary" type="button">Test Lily</button></div></section>
+<section id="libraryPage" class="page" hidden><div class="heading"><div><p class="eyebrow">REAL ARRANGEMENT STARTER CATALOG</p><h1>Floral Library</h1><p class="subtle">Real floral photography, polished product wording, and editable starter recipes. Add a design, then customize it for your shop.</p></div></div><div class="library-toolbar panel"><label>Search the floral library<input id="librarySearch" placeholder="Hydrangea, sympathy, wedding, roses..."></label><label>Occasion or category<select id="libraryCategory"><option value="">All categories</option><option>Hydrangeas</option><option>Birthday</option><option>Love & Romance</option><option>Sympathy</option><option>Funeral</option><option>Wedding</option><option>Everyday</option><option>New Baby</option><option>Get Well</option><option>Congratulations</option><option>Plants</option></select></label></div><div id="libraryList" class="product-grid"></div></section>
+<section id="subscriptionPage" class="page" hidden><div class="heading"><div><p class="eyebrow">FLORISYN SUBSCRIPTION</p><h1>Subscription Center</h1><p class="subtle">Manage your Florisyn plan, billing, and data — upgrade, pause, or cancel in one place.</p></div></div><div id="subscriptionCenterRoot" class="panel shop-billing-root"></div></section>
+<section id="ecosystemPage" class="page florisyn-lux-business-os" hidden aria-label="Business OS — Rose Advisor">
+  <div class="heading bos-heading">
+    <div>
+      <p class="eyebrow bos-eyebrow">BUSINESS ADVISOR</p>
+      <h1>Rose</h1>
+      <p class="subtle">Your AI business strategist. Get advice on pricing, marketing, operations, and growth.</p>
+    </div>
+  </div>
+
+  <nav class="bos-tabs" aria-label="Business OS sections">
+    <button type="button" class="active" data-bos-tab="chat" aria-current="page">Chat with Rose</button>
+    <button type="button" data-bos-tab="insights">Business Insights</button>
+    <button type="button" data-bos-tab="actions">Action Items</button>
+  </nav>
+
+  <div class="bos-panel active" data-bos-panel="chat">
+    <div class="bos-shell">
+      <section class="bos-chat" aria-label="Chat with Rose">
+        <div class="bos-rose-head">
+          <img class="bos-rose-avatar" src="/assets/assistants/rose-portrait.png" alt="" width="40" height="40">
+          <div class="bos-rose-meta">
+            <strong>Rose <span class="bos-star" title="Advisor" aria-label="Star">⭐</span></strong>
+            <small>AI Business Strategist</small>
+          </div>
+          <span class="bos-active-badge">Advisor Active</span>
+        </div>
+
+        <div id="bosMessages" class="bos-messages" aria-live="polite"></div>
+
+        <div class="bos-chips" aria-label="Quick suggestions">
+          <button type="button" data-bos-chip="Pricing strategy">Pricing strategy</button>
+          <button type="button" data-bos-chip="Marketing plan">Marketing plan</button>
+          <button type="button" data-bos-chip="Competitor analysis">Competitor analysis</button>
+          <button type="button" data-bos-chip="Monthly review">Monthly review</button>
+        </div>
+
+        <form id="bosChatForm" class="bos-composer">
+          <input id="bosPrompt" type="text" autocomplete="off" placeholder="Ask Rose about business strategy, pricing, or growth..." aria-label="Message Rose">
+          <button id="bosSendBtn" class="bos-send" type="submit">Send to Rose →</button>
+        </form>
+      </section>
+
+      <aside class="bos-pulse" aria-label="Business Pulse">
+        <div class="bos-pulse-head">
+          <h2>Business Pulse</h2>
+          <p>Rose's latest recommendations</p>
+        </div>
+        <div class="bos-insights">
+          <article class="bos-insight">
+            <h3>Revenue Opportunity</h3>
+            <p>Increase wedding package prices by 15% based on demand analysis.</p>
+            <div class="bos-insight-actions">
+              <button type="button" data-bos-action="apply">Apply</button>
+              <time datetime="">Just now</time>
+            </div>
+          </article>
+          <article class="bos-insight">
+            <h3>Marketing Suggestion</h3>
+            <p>Post behind-the-scenes content on Instagram — competitors see 40% more engagement.</p>
+            <div class="bos-insight-actions">
+              <button type="button" data-bos-action="create-post">Create Post</button>
+              <time datetime="">Just now</time>
+            </div>
+          </article>
+          <article class="bos-insight">
+            <h3>Operational Alert</h3>
+            <p>Reorder roses from supplier by Thursday to avoid stockout for weekend orders.</p>
+            <div class="bos-insight-actions">
+              <button type="button" data-bos-action="add-task">Add to Tasks</button>
+              <time datetime="">Just now</time>
+            </div>
+          </article>
+        </div>
+        <div class="bos-lily-tip">
+          <img src="/assets/assistants/lily-portrait.png" alt="" width="32" height="32">
+          <p><strong>Lily says:</strong> "I can help design the Instagram post Rose suggested! Just say the word."</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="bos-panel bos-secondary" data-bos-panel="insights">
+    <h2>Business Insights</h2>
+    <p>Rose synthesizes POS, booking, and inventory signals into a living pulse. Open <strong>Chat with Rose</strong> for strategy, or act on recommendations in Business Pulse.</p>
+    <div class="bos-insights" style="margin-top:16px">
+      <article class="bos-insight"><h3>Wedding demand</h3><p>Bookings are up 23% season-to-date — capacity and package pricing are the levers.</p></article>
+      <article class="bos-insight"><h3>Stem velocity</h3><p>Premium roses are the weekend bottleneck. Reorder cadence should move earlier in the week.</p></article>
+      <article class="bos-insight"><h3>Marketing gap</h3><p>Process content outperforms polished catalog posts for nearby competitors this month.</p></article>
+    </div>
+  </div>
+
+  <div class="bos-panel bos-secondary" data-bos-panel="actions">
+    <h2>Action Items</h2>
+    <p>Tasks Rose hands off from Business Pulse. Apply pricing, create posts with Lily, or track operational reorders here.</p>
+    <div id="bosActionList" class="bos-action-list">
+      <div class="bos-empty subtle">No open action items yet — use Add to Tasks on an insight.</div>
+    </div>
+  </div>
+
+  <div id="ecosystemRoot" hidden aria-hidden="true"></div>
+</section><section id="communityPage" class="page" hidden><div class="heading"><div><p class="eyebrow">FLORIST COMMUNITY <span class="community-beta-pill">Beta</span></p><h1>Florist Community</h1><p class="subtle">Share design help, business advice, questions, and celebrations with fellow florists.</p></div><button id="refreshCommunity" class="secondary" type="button">Refresh</button></div><div id="communityRoot"></div></section>
+<section id="settingsPage" class="page" hidden><div class="heading"><div><p class="eyebrow">ONE BRANDING CENTER</p><h1>Settings & Branding</h1></div><button id="saveSettings" class="primary">Save settings</button></div><form id="settingsForm" class="settings-grid"><section class="ai-settings-card"><div class="panel-heading"><div><p class="eyebrow">FLORISYN LOCAL AI</p><h2>AI Status Dashboard</h2><p class="subtle">Free, local AI powered by Ollama. Florisyn's POS keeps working even when AI is offline.</p></div><span id="aiHealthBadge" class="badge warn">Checking…</span></div><div class="ai-status-grid"><div><small>Bridge</small><strong id="aiBridgeStatus">Checking</strong></div><div><small>Ollama</small><strong id="aiOllamaStatus">Checking</strong></div><div><small>Selected model</small><select id="aiModelSelect"><option value="llama3.1:8b">llama3.1:8b</option></select></div><div><small>Default model</small><strong>llama3.1:8b</strong></div></div><div id="aiDiagnosticMessage" class="ai-diagnostic">Run the Florisyn Local AI Bridge on this computer to enable Lily and Rose.</div><div class="card-actions"><button id="refreshAiStatus" class="secondary" type="button">Run diagnostics</button><button id="installAiModel" class="secondary" type="button">Install selected model</button><button id="testLocalAi" class="primary" type="button">Test Lily</button></div></section>
 <section class="panel"><h2>Shop information</h2><label>Shop name<input name="name" placeholder="Your flower shop name"></label><label>Shop address (route starting point)<textarea name="address" placeholder="Street, city, state ZIP"></textarea></label><div class="two"><label>Phone<input name="phone"></label><label>Email<input name="email" type="email"></label></div><div class="two"><label>Default delivery fee ($)<input name="default_delivery_fee" type="number" min="0" step="1" value="10"></label><label>Default sales tax rate (%)<input name="tax_rate" type="number" min="0" step="0.01" value="6"></label></div><label>Maximum delivery radius (miles)<input name="delivery_radius" type="number" min="0" step="1" value="25"></label><p class="subtle">Automatic road mileage uses the Google Routes API already configured in Netlify.</p><div id="mapsStatus" class="status-note">Mileage service has not been tested yet.</div></section>
 <section class="panel brand-settings"><h2>Branding Center</h2><p class="subtle">This is the one place to upload your logo and control Florisyn’s colors, fonts, website identity, invoices, receipts, and printouts.</p><div class="theme-preview" id="themePreview"><span>Florisyn</span><strong>Your shop, your style</strong><small>Preview updates as you choose.</small></div><div class="two"><label>Button / accent color<input name="primary_color" id="appPrimaryColor" type="color" value="#8f3f68"></label><label>Background color<input name="app_background_color" id="appBackgroundColor" type="color" value="#f8f3f6"></label></div><div class="two"><label>Sidebar color<input name="sidebar_color" id="sidebarColor" type="color" value="#30232d"></label><label>Header color<input name="header_color" id="headerColor" type="color" value="#ffffff"></label></div><label>App font<select name="app_font" id="appFont"><option value="Elegant">Elegant serif</option><option value="Girly">Girly script accents</option><option value="Modern">Modern clean</option><option value="Classic">Classic</option><option value="Playful">Playful</option></select></label><h3>Voice settings</h3><div id="assistantVoiceSettingsHost"></div><h3 class="branding-logo-title">Your shop logo</h3><p class="subtle">Upload it here once. Florisyn automatically uses it at the top-left, on your website, invoices, receipts, delivery tickets, and every branded printout.</p><div class="logo-upload-row"><div class="logo-preview"><img id="settingsLogoPreview" alt="Logo preview" hidden><span id="logoPlaceholder">Your logo</span></div><div><input name="logo_url" id="logoUrl" type="hidden"><input id="logoUpload" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"><button id="removeLogo" type="button" class="secondary">Remove logo</button><small>PNG with a transparent background works best.</small></div></div><h3>Dashboard welcome picture</h3><p class="subtle">Add a favorite arrangement, storefront, or seasonal image beside your welcome message.</p><div class="logo-upload-row"><div class="logo-preview welcome-preview"><img id="dashboardImagePreview" alt="Dashboard image preview" hidden><span id="dashboardImagePlaceholder">Welcome picture</span></div><div><input name="dashboard_image_url" id="dashboardImageUrl" type="hidden"><input id="dashboardImageUpload" type="file" accept="image/png,image/jpeg,image/webp"><button id="removeDashboardImage" type="button" class="secondary">Remove picture</button><small>Landscape or square images work best.</small></div></div></section>
 <section class="panel shop-billing-panel"><p class="eyebrow">YOUR FLORISYN SUBSCRIPTION</p><h2>Account &amp; billing</h2><p class="subtle"><button type="button" class="secondary" data-page="subscriptionPage">Open Subscription Center</button></p><div id="shopBillingRoot" class="shop-billing-root"></div></section>
 <section class="panel bloom-about-panel"><h2>About Florisyn</h2><p class="subtle"><strong data-bloom-version>Florisyn Foundation</strong> — Release Candidate for florist beta.</p><label>Beta feedback<textarea id="betaFeedbackMessage" rows="3" placeholder="Tell us what broke or what you love…"></textarea></label><div class="card-actions"><button type="button" class="secondary" id="sendBetaFeedback">Send beta feedback</button></div><p id="betaFeedbackStatus" class="subtle" aria-live="polite"></p></section>
 </form></section>
-<section id="invoicesPage" class="page"><div class="heading"><div><p class="eyebrow">BILLING</p><h1>Invoices</h1><p class="subtle">Create, review, print, and email invoices from florist orders.</p></div><button id="refreshInvoices" class="secondary" type="button">Refresh invoices</button></div><div class="invoice-summary"><article class="metric-box"><span>Outstanding</span><strong id="invoiceOutstanding">$0.00</strong></article><article class="metric-box"><span>Open invoices</span><strong id="invoiceOpenCount">0</strong></article><article class="metric-box"><span>Paid invoices</span><strong id="invoicePaidCount">0</strong></article></div><div id="invoiceList" class="cards"></div></section>
-<section id="paymentsPage" class="page payment-center-page"><div class="heading"><div><p class="eyebrow">PAYMENT CENTER</p><h1>Take payment</h1><p class="subtle">Fast checkout for walk-ins and phone orders.</p></div></div><div class="payment-center-toolbar"><button type="button" class="secondary" id="paymentCenterBackOrder">Back to Order</button><button type="button" class="secondary" id="paymentCenterCancel">Cancel</button></div><div id="paymentCenterEmpty" class="panel"><strong>No order selected</strong><p class="subtle">Open an order and choose Manage payment, or complete a POS sale.</p></div><div id="paymentCenterActive" hidden><div id="paymentTopSummary" class="payment-top-summary" aria-live="polite"></div><div id="paymentMethodPicker" class="payment-method-picker"><button type="button" class="payment-tile primary-tile" data-payment-mode="cash">Cash</button><button type="button" class="payment-tile primary-tile" data-payment-mode="card">Card</button><button type="button" class="payment-tile" data-payment-mode="check">Check</button><button type="button" class="payment-tile" data-payment-mode="split">Split Payment</button><button type="button" class="payment-tile" data-payment-mode="pay-later">Pay Later</button></div><details class="payment-more-methods"><summary>More payment methods</summary><div class="payment-method-picker"><button type="button" class="payment-tile" data-payment-more="Gift Card">Gift Card</button><button type="button" class="payment-tile" data-payment-more="Store Credit">Store Credit</button><button type="button" class="payment-tile" data-payment-more="Other">Other</button></div></details><div id="paymentFlowCash" class="payment-flow-panel" hidden><h2>Cash payment</h2><div class="cash-math-grid"><label>Amount to apply ($)<input id="cashPaymentAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></label><label>Cash received ($)<input id="cashReceived" type="number" min="0" step="0.01" inputmode="decimal"></label></div><div class="cash-quick-row"><button type="button" class="secondary" data-cash-quick="exact">Exact Amount</button><button type="button" class="secondary" data-cash-quick="20">$20</button><button type="button" class="secondary" data-cash-quick="50">$50</button><button type="button" class="secondary" data-cash-quick="100">$100</button></div><p class="subtle">Change due: <strong id="cashChangeDue">$0.00</strong> · Balance after: <strong id="cashBalanceAfter">$0.00</strong></p><button type="button" class="primary payment-action-primary" id="completeCashPayment">Complete Cash Payment</button></div><div id="paymentFlowCard" class="payment-flow-panel" hidden><h2>Card payment</h2><p class="subtle">Stripe secure checkout opens in a new step. Your card reader and saved Stripe settings apply.</p><label>Charge amount ($)<input id="cardPaymentAmount" type="number" min="0.50" step="0.01" inputmode="decimal"></label><button type="button" class="primary payment-action-primary" id="checkout">Take Card Payment</button></div><div id="paymentFlowCheck" class="payment-flow-panel" hidden><h2>Check payment</h2><label>Check amount ($)<input id="checkPaymentAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></label><label>Reference <span class="label-optional">Optional</span><input id="checkPaymentNote" placeholder="Check number"></label><button type="button" class="primary payment-action-primary" id="completeCheckPayment">Complete Check Payment</button></div><div id="paymentFlowSplit" class="payment-flow-panel" hidden><h2>Split payment</h2><p class="subtle">Add each tender below. Card portions use Stripe after cash/check/other parts post.</p><ol id="splitPaymentRows" class="split-part-list"></ol><button type="button" class="secondary" id="addSplitPaymentRow">Add Another Payment Method</button><p id="splitPaymentError" class="error-summary" role="alert"></p><p class="subtle">Split total: <strong id="splitTotalLive">$0.00</strong> · Remaining balance: <strong id="splitRemainingLive">$0.00</strong></p><p id="splitCardNotice" class="subtle" hidden></p><button type="button" class="primary payment-action-primary" id="completeSplitPayment">Complete Split Payment</button></div><div id="paymentFlowPayLater" class="payment-flow-panel" hidden><h2>Pay later</h2><p class="subtle">No payment will be posted. The order stays on file with its current balance.</p><button type="button" class="primary payment-action-primary" id="confirmPayLater">Return to Order</button></div><div id="paymentSuccessPanel" class="payment-flow-panel payment-success-panel" hidden><h2>Payment recorded</h2><p id="paymentSuccessDetail" class="subtle"></p><div class="success-actions"><button type="button" class="primary" id="paymentSuccessPrint">Print Receipt</button><button type="button" class="secondary" id="paymentSuccessReturn">Return to Order</button></div></div><details id="paymentHistorySection" class="payment-advanced-block"><summary>Payment history</summary><div id="paymentHistoryBody"><p class="subtle">Loading…</p></div></details><details id="paymentAdvancedSection" class="payment-advanced-block"><summary>Advanced — Payment Hub &amp; links</summary><div id="paymentsHubPanel"><div id="paymentHubRoot"></div></div><div class="payment-link-actions"><button type="button" class="secondary" id="paymentLinkCopy">Copy secure payment link</button><button type="button" class="secondary" id="paymentLinkEmail">Email payment link</button><button type="button" class="secondary" id="paymentLinkSms">SMS payment link</button><div id="paymentLinkQr" class="subtle" aria-live="polite"></div></div></details><p id="paymentStatus" class="payment-status-live subtle" aria-live="polite"></p></div><div class="payment-legacy-fields" aria-hidden="true"><input id="paymentAmount" type="number" min="0.01" step=".01" tabindex="-1"><input id="paymentTip" type="number" min="0" step="0.01" value="0" tabindex="-1"><input id="paymentDescription" tabindex="-1"><input id="paymentDepositMode" type="checkbox" tabindex="-1"></div><div id="paymentsCheckoutPanel" hidden aria-hidden="true"><div id="pendingPaymentSummary"></div><button type="button" id="useFullBalance" tabindex="-1" hidden></button><button type="button" id="clearPendingPayment" tabindex="-1" hidden></button></div></section>
-<section id="expensesPage" class="page"><div class="heading"><div><p class="eyebrow">RECEIPT VAULT</p><h1>Expenses</h1><p class="subtle">Save, search, edit, and verify every business expense.</p></div><button class="primary" data-open="expenseDialog">+ Add expense</button></div><div class="report-summary"><div><small>Visible expenses</small><strong id="expenseVisibleTotal">$0.00</strong></div><div><small>Number of entries</small><strong id="expenseVisibleCount">0</strong></div></div><div class="expense-toolbar"><input id="expenseSearch" type="search" placeholder="Search vendor, category, or notes"><select id="expenseCategoryFilter"><option value="">All categories</option><option>Flowers</option><option>Supplies</option><option>Rent</option><option>Utilities</option><option>Payroll</option><option>Marketing</option><option>Delivery</option><option>Other</option></select><input id="expenseMonthFilter" type="month"><button type="button" class="secondary" id="clearExpenseFilters">Clear filters</button></div><div id="expensesList" class="cards"></div></section>
-<section id="reportsPage" class="page"><div class="heading"><div><p class="eyebrow">BUSINESS INTELLIGENCE</p><h1>Revenue, expenses & profit</h1><p class="subtle">Paid, non-cancelled orders are counted as revenue.</p></div><div class="actions"><button type="button" class="secondary" id="refreshReports">Refresh</button><button type="button" class="primary" id="exportReportsCsv">Export CSV</button></div></div><div class="report-summary"><div><small>Total revenue</small><strong id="reportRevenue">$0.00</strong></div><div><small>Total expenses</small><strong id="reportExpenses">$0.00</strong></div><div><small>Net profit</small><strong id="reportProfit">$0.00</strong></div><div><small>Profit margin</small><strong id="reportMargin">0.0%</strong></div></div><div class="report-grid"><section><h2>Monthly results</h2><div id="financeList" class="report-table"></div></section><section><h2>Expenses by category</h2><div id="expenseCategoryReport" class="report-table"></div></section></div></section>
-<section id="staffPage" class="page"><div class="heading"><div><p class="eyebrow">TEAM & PAYROLL</p><h1>Staff</h1><p class="subtle">Employee cards show clock status only. Open an employee file for PIN-protected payroll details.</p></div><button class="primary" id="addStaffButton" type="button">+ Add employee</button></div><div id="staffList" class="cards"></div></section>
-<section id="marketplacePage" class="page"><div class="heading"><div><p class="eyebrow">WHOLESALE MARKETPLACE</p><h1>Florisyn Wholesale</h1><p class="subtle">Browse verified sellers, manage your storefront, and complete florist verification for checkout.</p></div><div class="heading-actions"><span id="marketplaceCartCount" class="marketplace-cart-badge" aria-label="Saved cart items">0</span><button id="marketplaceVerificationBtn" class="secondary" type="button">Business verification</button><button class="primary" data-open="marketplaceDialog">+ Add listing</button></div></div><div class="marketplace-shell"><div class="panel marketplace-intro"><h2>Marketplace access</h2><p class="subtle">Purchasing is gated by approved florist verification. Documents stay in private storage; tax details remain encrypted and masked.</p><div id="verificationStatusCard" class="verification-status-card"><strong id="verificationStatusLabel">Not started</strong><p id="verificationStatusText">Start a business profile to unlock purchasing and document review.</p></div><div class="verification-steps"><div class="step-pill">1. Business info</div><div class="step-pill">2. Optional tax</div><div class="step-pill">3. Documents</div><div class="step-pill">4. Review</div></div></div><div class="marketplace-tabs"><button type="button" class="secondary active" id="marketplaceTabBrowse">Shop</button><button type="button" class="secondary" id="marketplaceTabSell">Sell</button></div><div id="marketplaceBrowsePanel" class="marketplace-panel active"><div class="marketplace-toolbar"><label>Search<input id="marketplaceSearch" type="search" placeholder="Search products or sellers"></label><label>Category<select id="marketplaceCategory"><option value="">All categories</option></select></label><label>Seller<input id="marketplaceSellerFilter" type="search" placeholder="Seller name or shop id"></label><label>Min price<input id="marketplaceMinPrice" type="number" step="0.01" min="0"></label><label>Max price<input id="marketplaceMaxPrice" type="number" step="0.01" min="0"></label><label class="check"><input id="marketplaceInStock" type="checkbox"> In stock only</label><label>Fulfillment<select id="marketplaceShipping"><option value="">Any</option><option value="shipping">Shipping</option><option value="pickup">Local pickup</option></select></label></div><div id="marketplaceBrowseEmpty" class="empty-state" hidden>No products match these filters.</div><div id="marketplaceBrowseGrid" class="product-grid"></div><aside id="marketplaceDetailPanel" class="marketplace-detail-panel" hidden></aside></div><div id="marketplaceSellPanel" class="marketplace-panel"><div id="marketplaceSellerDashboard" class="marketplace-seller-dashboard"><p class="subtle">Manage your storefront in the dedicated seller dashboard.</p><button type="button" class="primary" data-page="wholesaleSellerPage">Open seller dashboard</button></div></div></div></section>
-<section id="wholesaleSellerPage" class="page"><div class="heading"><div><p class="eyebrow">FLORISYN WHOLESALE 1.0</p><h1>Seller dashboard</h1><p class="subtle">Products, inventory, orders, customers, shipping, and pricing in one workspace.</p></div><div class="heading-actions"><button type="button" class="secondary" data-page="marketplacePage">Browse marketplace</button><button type="button" class="primary" id="wholesaleNewProductBtn">+ New product</button></div></div><div id="wholesaleSellerRoot" class="wholesale-seller-root"></div></section>
-<section id="storesPage" class="page"><div class="heading"><div><p class="eyebrow">MULTI-LOCATION</p><h1>Your flower shops</h1></div><button class="primary" data-open="storeDialog">+ Add store</button></div><div id="storesList" class="cards"></div></section>
-</div></div></main>
+<section id="invoicesPage" class="page" hidden><div class="heading"><div><p class="eyebrow">BILLING</p><h1>Invoices</h1><p class="subtle">Create, review, print, and email invoices from florist orders.</p></div><button id="refreshInvoices" class="secondary" type="button">Refresh invoices</button></div><div class="invoice-summary"><article class="metric-box"><span>Outstanding</span><strong id="invoiceOutstanding">$0.00</strong></article><article class="metric-box"><span>Open invoices</span><strong id="invoiceOpenCount">0</strong></article><article class="metric-box"><span>Paid invoices</span><strong id="invoicePaidCount">0</strong></article></div><div id="invoiceList" class="cards"></div></section>
+<section id="paymentsPage" class="page payment-center-page" hidden><div class="heading"><div><p class="eyebrow">PAYMENT CENTER</p><h1>Take payment</h1><p class="subtle">Fast checkout for walk-ins and phone orders.</p></div></div><div class="payment-center-toolbar"><button type="button" class="secondary" id="paymentCenterBackOrder">Back to Order</button><button type="button" class="secondary" id="paymentCenterCancel">Cancel</button></div><div id="paymentCenterEmpty" class="panel"><strong>No order selected</strong><p class="subtle">Open an order and choose Manage payment, or complete a POS sale.</p></div><div id="paymentCenterActive" hidden><div id="paymentTopSummary" class="payment-top-summary" aria-live="polite"></div><div id="paymentMethodPicker" class="payment-method-picker"><button type="button" class="payment-tile primary-tile" data-payment-mode="cash">Cash</button><button type="button" class="payment-tile primary-tile" data-payment-mode="card">Card</button><button type="button" class="payment-tile" data-payment-mode="check">Check</button><button type="button" class="payment-tile" data-payment-mode="split">Split Payment</button><button type="button" class="payment-tile" data-payment-mode="pay-later">Pay Later</button></div><details class="payment-more-methods"><summary>More payment methods</summary><div class="payment-method-picker"><button type="button" class="payment-tile" data-payment-more="Gift Card">Gift Card</button><button type="button" class="payment-tile" data-payment-more="Store Credit">Store Credit</button><button type="button" class="payment-tile" data-payment-more="Other">Other</button></div></details><div id="paymentFlowCash" class="payment-flow-panel" hidden><h2>Cash payment</h2><div class="cash-math-grid"><label>Amount to apply ($)<input id="cashPaymentAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></label><label>Cash received ($)<input id="cashReceived" type="number" min="0" step="0.01" inputmode="decimal"></label></div><div class="cash-quick-row"><button type="button" class="secondary" data-cash-quick="exact">Exact Amount</button><button type="button" class="secondary" data-cash-quick="20">$20</button><button type="button" class="secondary" data-cash-quick="50">$50</button><button type="button" class="secondary" data-cash-quick="100">$100</button></div><p class="subtle">Change due: <strong id="cashChangeDue">$0.00</strong> · Balance after: <strong id="cashBalanceAfter">$0.00</strong></p><button type="button" class="primary payment-action-primary" id="completeCashPayment">Complete Cash Payment</button></div><div id="paymentFlowCard" class="payment-flow-panel" hidden><h2>Card payment</h2><p class="subtle">Stripe secure checkout opens in a new step. Your card reader and saved Stripe settings apply.</p><label>Charge amount ($)<input id="cardPaymentAmount" type="number" min="0.50" step="0.01" inputmode="decimal"></label><button type="button" class="primary payment-action-primary" id="checkout">Take Card Payment</button></div><div id="paymentFlowCheck" class="payment-flow-panel" hidden><h2>Check payment</h2><label>Check amount ($)<input id="checkPaymentAmount" type="number" min="0.01" step="0.01" inputmode="decimal"></label><label>Reference <span class="label-optional">Optional</span><input id="checkPaymentNote" placeholder="Check number"></label><button type="button" class="primary payment-action-primary" id="completeCheckPayment">Complete Check Payment</button></div><div id="paymentFlowSplit" class="payment-flow-panel" hidden><h2>Split payment</h2><p class="subtle">Add each tender below. Card portions use Stripe after cash/check/other parts post.</p><ol id="splitPaymentRows" class="split-part-list"></ol><button type="button" class="secondary" id="addSplitPaymentRow">Add Another Payment Method</button><p id="splitPaymentError" class="error-summary" role="alert"></p><p class="subtle">Split total: <strong id="splitTotalLive">$0.00</strong> · Remaining balance: <strong id="splitRemainingLive">$0.00</strong></p><p id="splitCardNotice" class="subtle" hidden></p><button type="button" class="primary payment-action-primary" id="completeSplitPayment">Complete Split Payment</button></div><div id="paymentFlowPayLater" class="payment-flow-panel" hidden><h2>Pay later</h2><p class="subtle">No payment will be posted. The order stays on file with its current balance.</p><button type="button" class="primary payment-action-primary" id="confirmPayLater">Return to Order</button></div><div id="paymentSuccessPanel" class="payment-flow-panel payment-success-panel" hidden><h2>Payment recorded</h2><p id="paymentSuccessDetail" class="subtle"></p><div class="success-actions"><button type="button" class="primary" id="paymentSuccessPrint">Print Receipt</button><button type="button" class="secondary" id="paymentSuccessReturn">Return to Order</button></div></div><details id="paymentHistorySection" class="payment-advanced-block"><summary>Payment history</summary><div id="paymentHistoryBody"><p class="subtle">Loading…</p></div></details><details id="paymentAdvancedSection" class="payment-advanced-block"><summary>Advanced — Payment Hub &amp; links</summary><div id="paymentsHubPanel"><div id="paymentHubRoot"></div></div><div class="payment-link-actions"><button type="button" class="secondary" id="paymentLinkCopy">Copy secure payment link</button><button type="button" class="secondary" id="paymentLinkEmail">Email payment link</button><button type="button" class="secondary" id="paymentLinkSms">SMS payment link</button><div id="paymentLinkQr" class="subtle" aria-live="polite"></div></div></details><p id="paymentStatus" class="payment-status-live subtle" aria-live="polite"></p></div><div class="payment-legacy-fields" aria-hidden="true"><input id="paymentAmount" type="number" min="0.01" step=".01" tabindex="-1"><input id="paymentTip" type="number" min="0" step="0.01" value="0" tabindex="-1"><input id="paymentDescription" tabindex="-1"><input id="paymentDepositMode" type="checkbox" tabindex="-1"></div><div id="paymentsCheckoutPanel" hidden aria-hidden="true"><div id="pendingPaymentSummary"></div><button type="button" id="useFullBalance" tabindex="-1" hidden></button><button type="button" id="clearPendingPayment" tabindex="-1" hidden></button></div></section>
+<section id="expensesPage" class="page" hidden><div class="heading"><div><p class="eyebrow">RECEIPT VAULT</p><h1>Expenses</h1><p class="subtle">Save, search, edit, and verify every business expense.</p></div><button class="primary" data-open="expenseDialog">+ Add expense</button></div><div class="report-summary"><div><small>Visible expenses</small><strong id="expenseVisibleTotal">$0.00</strong></div><div><small>Number of entries</small><strong id="expenseVisibleCount">0</strong></div></div><div class="expense-toolbar"><input id="expenseSearch" type="search" placeholder="Search vendor, category, or notes"><select id="expenseCategoryFilter"><option value="">All categories</option><option>Flowers</option><option>Supplies</option><option>Rent</option><option>Utilities</option><option>Payroll</option><option>Marketing</option><option>Delivery</option><option>Other</option></select><input id="expenseMonthFilter" type="month"><button type="button" class="secondary" id="clearExpenseFilters">Clear filters</button></div><div id="expensesList" class="cards"></div></section>
+<section id="reportsPage" class="page" hidden><div class="heading"><div><p class="eyebrow">BUSINESS INTELLIGENCE</p><h1>Revenue, expenses & profit</h1><p class="subtle">Paid, non-cancelled orders are counted as revenue.</p></div><div class="actions"><button type="button" class="secondary" id="refreshReports">Refresh</button><button type="button" class="primary" id="exportReportsCsv">Export CSV</button></div></div><div class="report-summary"><div><small>Total revenue</small><strong id="reportRevenue">$0.00</strong></div><div><small>Total expenses</small><strong id="reportExpenses">$0.00</strong></div><div><small>Net profit</small><strong id="reportProfit">$0.00</strong></div><div><small>Profit margin</small><strong id="reportMargin">0.0%</strong></div></div><div class="report-grid"><section><h2>Monthly results</h2><div id="financeList" class="report-table"></div></section><section><h2>Expenses by category</h2><div id="expenseCategoryReport" class="report-table"></div></section></div></section>
+<section id="staffPage" class="page" hidden><div class="heading"><div><p class="eyebrow">TEAM & PAYROLL</p><h1>Staff</h1><p class="subtle">Employee cards show clock status only. Open an employee file for PIN-protected payroll details.</p></div><button class="primary" id="addStaffButton" type="button">+ Add employee</button></div><div id="staffList" class="cards"></div></section>
+<section id="marketplacePage" class="page" hidden><div class="heading"><div><p class="eyebrow">WHOLESALE MARKETPLACE</p><h1>Florisyn Wholesale</h1><p class="subtle">Browse verified sellers, manage your storefront, and complete florist verification for checkout.</p></div><div class="heading-actions"><span id="marketplaceCartCount" class="marketplace-cart-badge" aria-label="Saved cart items">0</span><button id="marketplaceVerificationBtn" class="secondary" type="button">Business verification</button><button class="primary" data-open="marketplaceDialog">+ Add listing</button></div></div><div class="marketplace-shell"><div class="panel marketplace-intro"><h2>Marketplace access</h2><p class="subtle">Purchasing is gated by approved florist verification. Documents stay in private storage; tax details remain encrypted and masked.</p><div id="verificationStatusCard" class="verification-status-card"><strong id="verificationStatusLabel">Not started</strong><p id="verificationStatusText">Start a business profile to unlock purchasing and document review.</p></div><div class="verification-steps"><div class="step-pill">1. Business info</div><div class="step-pill">2. Optional tax</div><div class="step-pill">3. Documents</div><div class="step-pill">4. Review</div></div></div><div class="marketplace-tabs"><button type="button" class="secondary active" id="marketplaceTabBrowse">Shop</button><button type="button" class="secondary" id="marketplaceTabSell">Sell</button></div><div id="marketplaceBrowsePanel" class="marketplace-panel active"><div class="marketplace-toolbar"><label>Search<input id="marketplaceSearch" type="search" placeholder="Search products or sellers"></label><label>Category<select id="marketplaceCategory"><option value="">All categories</option></select></label><label>Seller<input id="marketplaceSellerFilter" type="search" placeholder="Seller name or shop id"></label><label>Min price<input id="marketplaceMinPrice" type="number" step="0.01" min="0"></label><label>Max price<input id="marketplaceMaxPrice" type="number" step="0.01" min="0"></label><label class="check"><input id="marketplaceInStock" type="checkbox"> In stock only</label><label>Fulfillment<select id="marketplaceShipping"><option value="">Any</option><option value="shipping">Shipping</option><option value="pickup">Local pickup</option></select></label></div><div id="marketplaceBrowseEmpty" class="empty-state" hidden>No products match these filters.</div><div id="marketplaceBrowseGrid" class="product-grid"></div><aside id="marketplaceDetailPanel" class="marketplace-detail-panel" hidden></aside></div><div id="marketplaceSellPanel" class="marketplace-panel"><div id="marketplaceSellerDashboard" class="marketplace-seller-dashboard"><p class="subtle">Manage your storefront in the dedicated seller dashboard.</p><button type="button" class="primary" data-page="wholesaleSellerPage">Open seller dashboard</button></div></div></div></section>
+<section id="wholesaleSellerPage" class="page" hidden><div class="heading"><div><p class="eyebrow">FLORISYN WHOLESALE 1.0</p><h1>Seller dashboard</h1><p class="subtle">Products, inventory, orders, customers, shipping, and pricing in one workspace.</p></div><div class="heading-actions"><button type="button" class="secondary" data-page="marketplacePage">Browse marketplace</button><button type="button" class="primary" id="wholesaleNewProductBtn">+ New product</button></div></div><div id="wholesaleSellerRoot" class="wholesale-seller-root"></div></section>
+<section id="storesPage" class="page" hidden><div class="heading"><div><p class="eyebrow">MULTI-LOCATION</p><h1>Your flower shops</h1></div><button class="primary" data-open="storeDialog">+ Add store</button></div><div id="storesList" class="cards"></div></section>
+</div></div></div></main>
 <nav class="mobile-nav atelier-mobile-nav" aria-label="Primary">
-  <button type="button" data-page="dashboardPage"><span class="mnav-ico" aria-hidden="true">⌂</span><span>POS</span></button>
-  <button type="button" data-page="ordersPage"><span class="mnav-ico" aria-hidden="true">☰</span><span>Orders</span></button>
-  <button type="button" data-page="inventoryPage"><span class="mnav-ico" aria-hidden="true">▦</span><span>Inventory</span></button>
+  <button type="button" data-route="/pos" data-page="posPage"><span class="mnav-ico" aria-hidden="true">⌂</span><span>POS</span></button>
+  <button type="button" data-route="/orders" data-page="ordersPage"><span class="mnav-ico" aria-hidden="true">☰</span><span>Orders</span></button>
+  <button type="button" data-route="/inventory" data-page="inventoryPage"><span class="mnav-ico" aria-hidden="true">▦</span><span>Inventory</span></button>
 </nav>
 
 <dialog id="customerDialog"><form id="customerForm"><input name="id" type="hidden"><h2 id="customerDialogTitle">Add customer</h2><label>Name<input name="name" required></label><div class="two"><label>Phone<input name="phone"></label><label>Email<input name="email"></label></div><label>Address<textarea name="address"></textarea></label><div class="two"><label>Birthday<input name="birthday" type="date"></label><label>Anniversary<input name="anniversary" type="date"></label></div><div class="two"><label>Favorite flowers<input name="favorite_flowers"></label><label>Favorite colors<input name="favorite_colors"></label></div><div class="two"><label class="check"><input name="vip" type="checkbox"> VIP customer</label><label class="check"><input name="is_business" type="checkbox"> Business account</label></div><div class="two"><label class="check"><input name="is_house_account" type="checkbox"> House account</label></div>
@@ -416,4 +907,4 @@
 
 <dialog id="savedQuotesDialog"><div class="dialog-shell"><div class="heading"><div><p class="eyebrow">REGISTER</p><h2>Saved quotes</h2><p class="subtle">Resume a quote on this register or remove it.</p></div><button class="close" type="button">×</button></div><div id="savedQuotesList" class="saved-quotes-list"></div></div></dialog>
 <dialog id="receiptDialog"><div id="receiptContent"></div><div class="dialog-tools"><button id="closeReceipt" class="secondary">Close</button><button id="printReceipt" class="primary" type="button">Print Receipt</button></div></dialog>
-<script src="/florisyn-version.js" defer></script><script src="/bloom-version.js" defer></script><script src="/lily-platform.js" defer></script><script type="module" src="/launch-polish.js"></script><script src="/production-monitor.js" defer></script><script src="/login.js" defer></script><script src="/marketplace-verification.js" defer></script><script src="/marketplace-categories.js" defer></script><script src="/marketplace-experience.js" defer></script><script src="/wholesale-seller-dashboard.js" defer></script><script src="/payment-hub-ui.js" defer></script><script src="/subscription-center-ui.js" defer></script><script src="/business-ecosystem-ui.js" defer></script><script src="/assistant-voice-core.js" defer></script><script src="/assistant-voice.js" defer></script><script src="/bloom-rc2-lily-voice.js" defer></script><script src="/daisy-mascot.js" defer></script><script src="/bloom-rc2-first-run.js" defer></script><script src="/bloom-rc2-dashboard.js" defer></script><script src="/florisyn-atelier-dashboard.js?v=dashmock1" defer></script><script src="/bloom-rc2.1-founder-polish.js" defer></script><script src="/bloom-rc2.1-consistency.js" defer></script><script src="/instant-website-ui.js" defer></script><script src="/theme-gallery-ui.js" defer></script><script src="/website-editor-ui.js" defer></script><script src="/floral-library-ui.js" defer></script><script src="/customer-profile-ui.js" defer></script><script src="/guided-order-stepper.js" defer></script><script src="/bloom-rc1-dashboard.js" defer></script><script src="/community-ui.js" defer></script><script src="/app.js" defer></script></body></html>
+<script src="/florisyn-version.js" defer></script><script src="/bloom-version.js" defer></script><script src="/lily-platform.js" defer></script><script type="module" src="/launch-polish.js"></script><script src="/production-monitor.js" defer></script><script src="/login.js" defer></script><script src="/marketplace-verification.js" defer></script><script src="/marketplace-categories.js" defer></script><script src="/marketplace-experience.js" defer></script><script src="/wholesale-seller-dashboard.js" defer></script><script src="/payment-hub-ui.js" defer></script><script src="/subscription-center-ui.js" defer></script><script src="/business-ecosystem-ui.js" defer></script><script src="/florisyn-luxury-business-os.js" defer></script><script src="/florisyn-luxury-orders.js" defer></script><script src="/assistant-voice-core.js" defer></script><script src="/assistant-voice.js" defer></script><script src="/florisyn-ui-editor.js" defer></script><script src="/bloom-rc2-lily-voice.js" defer></script><script src="/daisy-mascot.js?v=route-unmount3" defer></script><script src="/bloom-rc2-first-run.js" defer></script><script src="/bloom-rc2-dashboard.js" defer></script><script src="/florisyn-atelier-dashboard.js?v=lux2" defer></script><script src="/florisyn-luxury-pos.js?v=pos3" defer></script><script src="/bloom-rc2.1-founder-polish.js" defer></script><script src="/bloom-rc2.1-consistency.js" defer></script><script src="/instant-website-ui.js" defer></script><script src="/theme-gallery-ui.js" defer></script><script src="/website-editor-ui.js" defer></script><script src="/floral-library-ui.js" defer></script><script src="/customer-profile-ui.js" defer></script><script src="/guided-order-stepper.js" defer></script><script src="/bloom-rc1-dashboard.js" defer></script><script src="/community-ui.js" defer></script><script src="/florisyn-router.js?v=route-unmount4" defer></script><script src="/app.js?v=route-unmount4" defer></script></body></html>

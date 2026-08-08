@@ -92,17 +92,21 @@
         const total = money(o.total);
         const img = o.image_url || "/assets/pink-bouquet.jpg";
         const status = statusLabel(o);
+        const bouquet = o.product_name || o.arrangement_name || o.item_name || status;
+        const fulfill = /deliver/i.test(String(o.fulfillment_type || o.delivery_type || o.status || ""))
+          ? "Delivery"
+          : "Pickup";
         return `<article class="atelier-list-row">
           <img src="${esc(img)}" alt="" loading="lazy" width="44" height="44">
           <div class="atelier-list-copy">
             <strong class="row-title-desktop">${esc(name)}</strong>
             <strong class="row-title-mobile">${esc(num)}</strong>
-            <small class="row-sub-desktop">${esc(num)}</small>
+            <small class="row-sub-desktop">${esc(num)} · ${esc(bouquet)} · ${fulfill}</small>
             <small class="row-sub-mobile">${esc(name)}</small>
           </div>
           <div class="atelier-list-meta">
             <b>${total}</b>
-            <span class="atelier-status">${esc(status)}</span>
+            <span class="atelier-status">${esc(fulfill)}</span>
           </div>
         </article>`;
       })
@@ -165,9 +169,12 @@
           o.delivery_window ||
           o.delivery_time ||
           ["10:30 AM", "12:00 PM", "2:15 PM", "4:00 PM", "5:30 PM"][idx % 5];
+        const st = statusLabel(o);
+        const pending = /pending|ready|design/i.test(st);
         return `<article class="atelier-delivery-row">
           <time>${esc(time)}</time>
           <div><strong>${esc(name)}</strong><small>${esc(addr)}</small></div>
+          <span class="atelier-delivery-badge ${pending ? "pending" : ""}">${esc(pending ? "Pending" : "On Route")}</span>
         </article>`;
       })
       .join("");
@@ -200,6 +207,14 @@
     const greeting = $("#greeting")?.textContent || "";
     const match = greeting.match(/Good (?:morning|afternoon|evening),\s*([^!🌸]+)/i);
     if (userName && match) userName.textContent = match[1].trim();
+    const dateChip = $("#dashboardDateChip");
+    if (dateChip) {
+      dateChip.textContent = new Date().toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
   }
 
   function setDrawer(open) {
@@ -209,6 +224,7 @@
     const toggle = $("#atelierMenuToggle");
     if (toggle) toggle.setAttribute("aria-expanded", open ? "true" : "false");
   }
+  window.FlorisynAtelierChrome = { setDrawer };
 
   function wireChrome() {
     const toggle = $("#atelierMenuToggle");
@@ -237,11 +253,10 @@
             document.querySelector(`[data-open="${openBtn.dataset.open}"]`)?.onclick?.() || dialog.showModal();
           }
         }
-        const pageBtn = e.target.closest?.("[data-page]");
-        if (pageBtn && pageBtn.closest(".atelier-empty, .atelier-panel-head, .atelier-inventory-alert")) {
-          if (typeof window.showPage === "function" && pageBtn.dataset.page) {
-            window.showPage(pageBtn.dataset.page);
-          }
+        const pageBtn = e.target.closest?.("[data-route], [data-page]");
+        if (pageBtn && pageBtn.closest("#atelierSidebarDrawer, .atelier-mobile-nav, .atelier-empty, .atelier-panel-head, .atelier-inventory-alert, .florisyn-lux-header")) {
+          // URL + page swap owned by FlorisynRouter; drawer only closes here.
+          setDrawer(false);
         }
       });
     }

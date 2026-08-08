@@ -289,7 +289,7 @@ export function initCommandCenter(deps) {
   };
 
   $('#userSearch')?.addEventListener('input', () => clearTimeout(window.userSearchTimer) || (window.userSearchTimer = setTimeout(loadUsers, 300)));
-  $('#userRoleFilter')?.change(loadUsers);
+  $('#userRoleFilter')?.addEventListener('change', loadUsers);
   $('#auditFilter')?.addEventListener('input', () => clearTimeout(window.auditTimer) || (window.auditTimer = setTimeout(loadAuditLog, 300)));
 
   $('#announcementForm')?.addEventListener('submit', async (e) => {
