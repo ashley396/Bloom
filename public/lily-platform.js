@@ -63,6 +63,14 @@
       .replace(/^(.+)$/s, (m) => (m.includes("<p>") || m.includes("<ul>") ? m : `<p>${m}</p>`));
   }
 
+  function friendlyLilyError(error) {
+    const msg = String(error?.message || error || "");
+    if (/cloud ai|local fallback|local ai|load failed|ai unavailable|provider|ollama/i.test(msg)) {
+      return "Lily is here, but her AI writing service is temporarily offline. You can still use the quick buttons below for orders, products, customers, inventory, website, reports, and support.";
+    }
+    return `I hit a snag: ${msg || "Please try again."}`;
+  }
+
   function mountShell() {
     if (document.getElementById("lilyFab")) return;
     const fab = document.createElement("button");
@@ -99,7 +107,7 @@
       <div id="lilyConfirm" class="lily-confirm" hidden></div>
       <div class="lily-toolbar" id="lilyToolbar"></div>
       <div class="lily-compose">
-        <button type="button" class="lily-voice" title="Voice (coming soon)">🎙</button>
+        <button type="button" class="lily-voice" title="Hear Lily">🎙</button>
         <textarea id="lilyInput" rows="1" placeholder="Ask Lily anything about your shop…"></textarea>
         <button type="button" class="lily-send" id="lilySend">→</button>
       </div>`;
@@ -116,6 +124,13 @@
       localStorage.setItem(THEME_KEY, next);
     };
     document.getElementById("lilySend").onclick = () => sendMessage();
+    document.querySelector(".lily-voice").onclick = () => {
+      window.FlorisynAssistantVoice?.speak?.(
+        "Lily",
+        "Hi, I'm Lily. I'm here to help with your shop, and I'll keep things simple.",
+        { force: true, respectToggle: false }
+      );
+    };
     document.getElementById("lilyInput").addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
@@ -395,7 +410,7 @@
       }
     } catch (err) {
       hideTyping();
-      await typeAssistantResponse(`I hit a snag: ${err.message}`);
+      await typeAssistantResponse(friendlyLilyError(err));
     }
   }
 

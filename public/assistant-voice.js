@@ -188,7 +188,7 @@
   }
 
   async function speak(persona, text, options = {}) {
-    const who = persona === "Rose" ? "Rose" : "Lily";
+    const who = persona === "Rose" ? "Rose" : persona === "Daisy" ? "Daisy" : "Lily";
     const force = Boolean(options.force);
     const respectToggle = options.respectToggle !== false;
     if (respectToggle && !force && ctx.getSpeakEnabled?.() === false) return false;
@@ -206,14 +206,16 @@
   }
 
   function mountPersonaPanel(root, persona) {
-    const id = persona === "Rose" ? "roseVoicePanel" : "lilyVoicePanel";
+    const id = persona === "Rose" ? "roseVoicePanel" : persona === "Daisy" ? "daisyVoicePanel" : "lilyVoicePanel";
     if (!root || root.querySelector(`#${id}`)) return;
     const cfg = loadSettings(persona);
     const def = Core.VOICE_DEFAULTS[persona];
     const blurb =
       persona === "Lily"
-        ? "Warm, friendly, calm — creative partner energy."
-        : "Mature, confident, lightly humorous — never harsh.";
+        ? "Warm, friendly, cheerful — creative partner energy."
+        : persona === "Rose"
+          ? "Mature, confident, lightly humorous — never harsh."
+          : "Bright, gentle, encouraging — a soft mascot voice.";
 
     root.insertAdjacentHTML(
       "beforeend",
@@ -291,14 +293,15 @@
       host.insertAdjacentHTML(
         "afterbegin",
         `<div id="assistantVoiceSettingsIntro" class="assistant-voice-intro">
-          <p class="eyebrow">LILY &amp; ROSE</p>
+          <p class="eyebrow">LILY, ROSE &amp; DAISY</p>
           <h2>Assistant voices</h2>
-          <p class="subtle">Tune how Lily and Rose sound on this device. Settings are saved per shop and user.</p>
+          <p class="subtle">Tune how Lily, Rose, and Daisy sound on this device. Settings are saved per shop and user.</p>
         </div>`
       );
     }
     mountPersonaPanel(host, "Lily");
     mountPersonaPanel(host, "Rose");
+    mountPersonaPanel(host, "Daisy");
     const legacyLily = host.querySelector("#lilyVoiceRc2");
     if (legacyLily) legacyLily.remove();
   }
