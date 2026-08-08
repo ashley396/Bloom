@@ -41,3 +41,19 @@ test("Admin JS restores auth shell gate sequence", () => {
   assert.match(adminJs, /admin-bootstrap/);
   assert.doesNotMatch(adminJs, /FlorisynUiEditor|uiDesignMode|florisyn-admin-authenticated/);
 });
+
+test("Admin login exposes password eye and reset via existing forgot-password API", () => {
+  assert.match(adminHtml, /id="adminPasswordToggle"/);
+  assert.match(adminHtml, /aria-label="Show password"/);
+  assert.match(adminHtml, /id="adminResetPassword"/);
+  assert.match(adminHtml, /Reset password/);
+  assert.match(adminJs, /adminPasswordToggle/);
+  assert.match(adminJs, /auth-forgot-password/);
+  assert.match(adminCss, /\.admin-password-toggle/);
+});
+
+test("Admin command center does not use jQuery .change on DOM helpers", () => {
+  const cc = fs.readFileSync(path.join(root, "public/admin-command-center-ui.js"), "utf8");
+  assert.doesNotMatch(cc, /\?\.change\(/);
+  assert.match(cc, /userRoleFilter.*addEventListener\('change'/);
+});
