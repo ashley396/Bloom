@@ -1296,7 +1296,7 @@ body.florisyn-atelier .page > .heading h1 {
   /* Bottom tab bar — founder mobile mockup */
   body.florisyn-atelier .mobile-nav.atelier-mobile-nav {
     display: grid !important;
-    grid-template-columns: 1fr 1fr 64px 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: end;
     gap: 0;
     position: fixed;
@@ -1332,23 +1332,6 @@ body.florisyn-atelier .page > .heading h1 {
   body.florisyn-atelier .mobile-nav.atelier-mobile-nav > button.active {
     color: #4d78d8 !important;
     background: transparent !important;
-  }
-  body.florisyn-atelier .mobile-nav .atelier-mobile-add {
-    width: 58px !important;
-    height: 58px !important;
-    min-height: 58px !important;
-    margin: -22px auto 0 !important;
-    border-radius: 50% !important;
-    background: linear-gradient(160deg, #1a2b48, #243a5c) !important;
-    color: #fff !important;
-    font-size: 28px !important;
-    font-weight: 500 !important;
-    box-shadow: 0 12px 28px rgba(26, 43, 72, 0.35);
-    padding: 0 !important;
-  }
-  body.florisyn-atelier .mobile-nav .atelier-mobile-add span {
-    line-height: 1;
-    margin-top: -2px;
   }
 }
 
