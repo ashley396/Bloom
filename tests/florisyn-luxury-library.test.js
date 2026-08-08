@@ -36,8 +36,8 @@ const NAMES = [
 test("floral library page shell and assets are wired", () => {
   assert.match(html, /id="libraryPage"/);
   assert.match(html, /florisyn-lux-library/);
-  assert.match(html, /florisyn-luxury-library\.css\?v=lib1/);
-  assert.match(html, /florisyn-luxury-library\.js\?v=lib1/);
+  assert.match(html, /florisyn-luxury-library\.css\?v=lib2/);
+  assert.match(html, /florisyn-luxury-library\.js\?v=lib2/);
   assert.match(html, /Browse and add pre-designed recipes/);
   assert.match(html, /All Arrangements/);
   assert.match(html, /id="librarySearch"/);
@@ -66,6 +66,26 @@ test("library palette uses navy and rose CTAs without green primary buttons", ()
   assert.match(css, /repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
   assert.match(css, /\.lux-lib-add/);
   assert.match(css, /\.lux-lib-draft/);
+  assert.match(css, /\.lux-lib-body/);
+  assert.match(css, /display:\s*flex\s*!important/);
+  assert.match(css, /aside#atelierSidebarDrawer/);
   assert.doesNotMatch(css, /\.lux-lib-add[^{]*\{[^}]*#547428/i);
   assert.doesNotMatch(css, /background:\s*#547428|background:\s*#486329/i);
+});
+
+test("every catalog card image file exists and sources are documented", () => {
+  const dir = path.join(root, "public/images/library");
+  const sources = fs.readFileSync(path.join(dir, "UNSPLASH_SOURCES.txt"), "utf8");
+  assert.match(sources, /unsplash\.com/);
+  for (const name of NAMES) {
+    const slug = name
+      .toLowerCase()
+      .replace(/&/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const file = path.join(dir, `${slug}.jpg`);
+    assert.ok(fs.existsSync(file), `missing ${slug}.jpg`);
+    assert.ok(fs.statSync(file).size > 8000, `${slug}.jpg too small`);
+    assert.match(sources, new RegExp(`${slug}\\.jpg`));
+  }
 });

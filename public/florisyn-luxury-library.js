@@ -109,6 +109,8 @@
     const count = $("#luxLibCount");
     if (count) count.textContent = `${rows.length} arrangement${rows.length === 1 ? "" : "s"}`;
     list.className = "lux-lib-grid";
+    list.removeAttribute("hidden");
+    list.style.display = "grid";
     list.innerHTML = rows.length
       ? rows.map(cardHtml).join("")
       : `<div class="lux-lib-empty" role="status"><strong>No arrangements match.</strong><p>Try another filter or search term.</p></div>`;
