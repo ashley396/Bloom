@@ -680,10 +680,8 @@ body.florisyn-atelier .shell > aside button.active {
   /* already handled */
 }
 
-/* Hide below-fold clutter on first viewport feel — keep in DOM for features */
 @media (min-width: 981px) {
-  body.florisyn-atelier #dashboardPage.pos-home .profit-intelligence-grid,
-  body.florisyn-atelier #dashboardPage.pos-home .pos-workspace {
+  body.florisyn-atelier #dashboardPage.florisyn-dash-page .profit-intelligence-grid {
     margin-top: 28px;
   }
 }

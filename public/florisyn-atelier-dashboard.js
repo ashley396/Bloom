@@ -253,22 +253,10 @@
             document.querySelector(`[data-open="${openBtn.dataset.open}"]`)?.onclick?.() || dialog.showModal();
           }
         }
-        const pageBtn = e.target.closest?.("[data-page]");
+        const pageBtn = e.target.closest?.("[data-route], [data-page]");
         if (pageBtn && pageBtn.closest("#atelierSidebarDrawer, .atelier-mobile-nav, .atelier-empty, .atelier-panel-head, .atelier-inventory-alert, .florisyn-lux-header")) {
-          if (typeof window.showPage === "function" && pageBtn.dataset.page) {
-            e.preventDefault();
-            window.showPage(pageBtn.dataset.page);
-            setDrawer(false);
-            if (pageBtn.dataset.luxScroll === "pos") {
-              requestAnimationFrame(() => {
-                document.querySelector(".pos-workspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
-              });
-            } else if (pageBtn.dataset.page === "dashboardPage") {
-              requestAnimationFrame(() => {
-                document.querySelector(".atelier-dash-overview")?.scrollIntoView({ behavior: "smooth", block: "start" });
-              });
-            }
-          }
+          // URL + page swap owned by FlorisynRouter; drawer only closes here.
+          setDrawer(false);
         }
       });
     }

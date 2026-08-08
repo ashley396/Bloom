@@ -40,6 +40,7 @@ test("luxury palette uses navy and rose without green primary buttons", () => {
 test("luxury dashboard list rendering keeps delivery badges and date chip", () => {
   assert.match(dashJs, /dashboardDateChip/);
   assert.match(dashJs, /atelier-delivery-badge/);
-  assert.match(dashJs, /luxScroll/);
-  assert.match(html, /data-lux-scroll="pos"/);
+  assert.match(html, /id="posPage"/);
+  assert.match(html, /data-route="\/pos"/);
+  assert.doesNotMatch(html, /data-lux-scroll/);
 });

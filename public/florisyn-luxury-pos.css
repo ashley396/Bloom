@@ -3,6 +3,17 @@
  * Navy #1a1f3c · Rose #E06B85 · Blush #FBF6F7 · Inter
  */
 
+body.florisyn-atelier #posPage.florisyn-pos-page {
+  display: none;
+  margin: 0;
+  padding: 0;
+  min-height: calc(100dvh - 180px);
+}
+
+body.florisyn-atelier #posPage.florisyn-pos-page.active {
+  display: block !important;
+}
+
 body.florisyn-atelier .pos-workspace.florisyn-pos-lux {
   --pos-navy: #1a1f3c;
   --pos-rose: #e06b85;
@@ -16,13 +27,17 @@ body.florisyn-atelier .pos-workspace.florisyn-pos-lux {
   grid-template-columns: 52px minmax(0, 1fr) 340px;
   grid-template-rows: 1fr auto;
   gap: 0;
-  margin: 20px -8px 0;
-  min-height: calc(100dvh - 220px);
+  margin: 0;
+  min-height: calc(100dvh - 180px);
   background: var(--pos-blush);
   border: 1px solid var(--pos-border);
   border-radius: 12px;
   overflow: hidden;
   font-family: Inter, system-ui, sans-serif;
+}
+
+body.florisyn-atelier #posPage .pos-workspace.florisyn-pos-lux {
+  margin: 0;
 }
 
 body.florisyn-atelier .pos-workspace.florisyn-pos-lux .pos-workspace-head {
