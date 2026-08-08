@@ -136,7 +136,12 @@
       const go = showPageFn || window.showPage;
       if (typeof go === "function") go(pageId, { fromRouter: true, path: targetPath });
       else {
-        document.querySelectorAll(".page").forEach((p) => p.classList.toggle("active", p.id === pageId));
+        document.querySelectorAll(".page").forEach((p) => {
+          const on = p.id === pageId;
+          p.classList.toggle("active", on);
+          if (on) p.removeAttribute("hidden");
+          else p.setAttribute("hidden", "");
+        });
         syncActiveNav(targetPath);
       }
     } finally {

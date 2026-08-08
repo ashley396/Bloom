@@ -10,6 +10,7 @@ const routerSrc = fs.readFileSync(path.join(root, "public/florisyn-router.js"), 
 const appJs = fs.readFileSync(path.join(root, "public/app.js"), "utf8");
 const dashJs = fs.readFileSync(path.join(root, "public/florisyn-atelier-dashboard.js"), "utf8");
 const styles = fs.readFileSync(path.join(root, "public/styles.css"), "utf8");
+const atelierUi = fs.readFileSync(path.join(root, "public/florisyn-atelier-ui.css"), "utf8");
 const adminHtml = fs.readFileSync(path.join(root, "public/admin.html"), "utf8");
 const adminJs = fs.readFileSync(path.join(root, "public/admin.js"), "utf8");
 
@@ -86,7 +87,13 @@ test("sidebar lists every required route in restored pre-Codex order", () => {
 test("page visibility CSS keeps sections separate (not a scroll stack)", () => {
   assert.match(styles, /\.page\{display:none\}/);
   assert.match(styles, /\.page\.active\{display:block\}/);
-  assert.match(appJs, /\$\$\("\.page"\)\.forEach\(p=>p\.classList\.toggle\("active",p\.id===id\)\)/);
+  assert.match(appJs, /p\.classList\.toggle\("active",on\)/);
+  assert.match(appJs, /p\.setAttribute\("hidden",""\)/);
+  assert.match(appJs, /p\.removeAttribute\("hidden"\)/);
+  /* Atelier must not force #dashboardPage visible without .active (Codex scroll-merge bug). */
+  assert.match(atelierUi, /body\.florisyn-atelier\s+\.page:not\(\.active\)\s*\{\s*display:\s*none\s*!important/);
+  assert.match(atelierUi, /#dashboardPage\.pos-home\.active\s*\{/);
+  assert.doesNotMatch(atelierUi, /#dashboardPage\.pos-home\s*\{\s*display:\s*flex/);
 });
 
 test("router module maps paths to page ids", () => {

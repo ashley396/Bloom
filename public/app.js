@@ -87,7 +87,13 @@ function showPage(id){
       refreshCommunityFeatureFlag().then((on)=>{if(!on){toast("Florist Community Beta is disabled.");return}showPage("communityPage")});
       return;
     }
-    $$(".page").forEach(p=>p.classList.toggle("active",p.id===id));
+    $$(".page").forEach(p=>{
+      const on=p.id===id;
+      p.classList.toggle("active",on);
+      /* Fail-closed: inactive route pages must not remain in layout (Dashboard included). */
+      if(on)p.removeAttribute("hidden");
+      else p.setAttribute("hidden","");
+    });
     document.body.classList.toggle("florisyn-pos-active", id==="posPage");
     const routePath=window.FlorisynRouter?.path||window.FlorisynRouter?.PAGE_PATH?.[id]||"";
     if(window.FlorisynRouter?.syncActiveNav&&routePath)window.FlorisynRouter.syncActiveNav(routePath);
@@ -109,7 +115,7 @@ function setCommunityNavVisible(on){
   communityBetaEnabled=Boolean(on);
   $$('[data-page="communityPage"]').forEach((el)=>{el.hidden=!communityBetaEnabled;el.style.display=communityBetaEnabled?"":"none"});
   const page=$("#communityPage");
-  if(page&&!communityBetaEnabled){page.classList.remove("active");if(page.querySelector("#communityRoot"))page.querySelector("#communityRoot").innerHTML="";}
+  if(page&&!communityBetaEnabled){page.classList.remove("active");page.setAttribute("hidden","");if(page.querySelector("#communityRoot"))page.querySelector("#communityRoot").innerHTML="";}
 }
 async function refreshCommunityFeatureFlag(){
   try{

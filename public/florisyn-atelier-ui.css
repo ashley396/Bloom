@@ -237,8 +237,13 @@ body.florisyn-atelier .kanban article {
   box-shadow: var(--atelier-shadow-soft) !important;
 }
 
-/* —— Dashboard / Today welcome —— */
-body.florisyn-atelier #dashboardPage.pos-home {
+/* —— Page isolation (routing): never keep inactive sections in the layout —— */
+body.florisyn-atelier .page:not(.active) {
+  display: none !important;
+}
+
+/* —— Dashboard / Today welcome (only when its route is active) —— */
+body.florisyn-atelier #dashboardPage.pos-home.active {
   display: flex;
   flex-direction: column;
   gap: 20px;
