@@ -20,7 +20,7 @@ declare
     'marketplace_listings',
     'marketplace_seller_profiles',
     'marketplace_wholesale_orders',
-    'marketplace_verifications',
+    'marketplace_verification_applications',
     'platform_announcements',
     'platform_support_items',
     'platform_feature_flags',
