@@ -1,7 +1,7 @@
 /**
  * Florisyn Luxury POS — register layout (Figma)
  * flex: rail 52px | center | checkout 340px + status bar
- * Categories: 4×3 grid, no scroll · Navy #1a1f3c · Rose #E06B85 · Blush #FBF6F7
+ * Categories: 6×2 grid (152×56) · Navy #1a1f3c · Rose #E06B85 · Blush #FBF6F7
  */
 
 /* Daisy must never cover the register */
@@ -163,13 +163,37 @@ body.florisyn-atelier .pos-lux-center {
 
 #posPage #florisynPosLux .pos-lux-topbar,
 body.florisyn-atelier .pos-lux-topbar {
+  display: flex !important;
+  align-items: center;
+  gap: 16px;
+  background: #fff !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--pos-border, #eae6e8) !important;
+  border-radius: 0 !important;
+  padding: 10px 16px !important;
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  min-height: 64px;
+}
+
+#posPage #florisynPosLux .pos-lux-register {
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: #fff;
-  border: 1px solid var(--pos-border, #eae6e8);
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+#posPage #florisynPosLux .pos-lux-fmark {
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
-  padding: 8px 12px;
+  background: #111;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-family: "Crimson Pro", Georgia, serif;
+  font-weight: 700;
+  font-size: 16px;
   flex: 0 0 auto;
 }
 
@@ -222,7 +246,8 @@ body.florisyn-atelier .pos-lux-topbar {
 }
 
 #posPage #florisynPosLux .pos-lux-search {
-  flex: 1;
+  flex: 1 1 320px;
+  max-width: 420px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -247,6 +272,7 @@ body.florisyn-atelier .pos-lux-topbar {
   align-items: center;
   gap: 10px;
   text-align: right;
+  margin-left: auto;
 }
 
 #posPage #florisynPosLux .pos-lux-staff strong {
@@ -269,7 +295,7 @@ body.florisyn-atelier .pos-lux-topbar {
   object-position: center 18%;
 }
 
-/* TOP categories — 4×3, no scroll */
+/* TOP categories — 6×2, no scroll */
 #posPage #florisynPosLux .pos-lux-top-block,
 body.florisyn-atelier .pos-lux-top-block {
   flex: 0 0 auto !important;
@@ -278,6 +304,11 @@ body.florisyn-atelier .pos-lux-top-block {
   gap: 8px;
   overflow: visible !important;
   max-height: none !important;
+  background: #fff !important;
+  border: 1px solid var(--pos-border, #eae6e8) !important;
+  border-radius: 8px !important;
+  padding: 12px 14px !important;
+  box-shadow: 0 6px 18px rgba(26, 31, 60, 0.05);
 }
 
 #posPage #florisynPosLux .pos-lux-cat-head,
@@ -311,8 +342,8 @@ body.florisyn-atelier .pos-lux-customize {
 body.florisyn-atelier #posLuxCategories.pos-lux-categories,
 body.florisyn-atelier .pos-lux-categories {
   display: grid !important;
-  grid-template-columns: repeat(4, 1fr) !important;
-  grid-template-rows: repeat(3, 56px) !important;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  grid-template-rows: repeat(2, 56px) !important;
   gap: 8px !important;
   overflow: visible !important;
   max-height: none !important;
@@ -848,7 +879,8 @@ body.florisyn-atelier .pos-lux-statusbar {
 
   #posPage #florisynPosLux #posLuxCategories.pos-lux-categories {
     display: grid !important;
-    grid-template-columns: repeat(4, 1fr) !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    grid-template-rows: repeat(4, 56px) !important;
   }
 }
 
