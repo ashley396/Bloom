@@ -15,14 +15,18 @@ body.florisyn-atelier:has(#posPage.active) #bloomDaisy {
 }
 
 body.florisyn-atelier #posPage.florisyn-pos-page,
-#posPage.florisyn-pos-page {
-  display: none;
+#posPage.florisyn-pos-page,
+body.florisyn-atelier #posPage.florisyn-pos-page:not(.active),
+#posPage.florisyn-pos-page:not(.active),
+body.florisyn-atelier #posPage.florisyn-pos-page[hidden],
+#posPage.florisyn-pos-page[hidden] {
+  display: none !important;
   margin: 0 !important;
   padding: 0 !important;
 }
 
-body.florisyn-atelier #posPage.florisyn-pos-page.active,
-#posPage.florisyn-pos-page.active {
+body.florisyn-atelier #posPage.florisyn-pos-page.active:not([hidden]),
+#posPage.florisyn-pos-page.active:not([hidden]) {
   display: block !important;
 }
 

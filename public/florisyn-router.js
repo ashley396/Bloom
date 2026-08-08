@@ -139,8 +139,7 @@
         document.querySelectorAll(".page").forEach((p) => {
           const on = p.id === pageId;
           p.classList.toggle("active", on);
-          if (on) p.removeAttribute("hidden");
-          else p.setAttribute("hidden", "");
+          p.hidden = !on;
         });
         syncActiveNav(targetPath);
       }

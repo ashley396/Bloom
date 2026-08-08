@@ -88,8 +88,7 @@ test("page visibility CSS keeps sections separate (not a scroll stack)", () => {
   assert.match(styles, /\.page\{display:none!important\}/);
   assert.match(styles, /\.page\.active\{display:block!important\}/);
   assert.match(appJs, /p\.classList\.toggle\("active",on\)/);
-  assert.match(appJs, /p\.setAttribute\("hidden",""\)/);
-  assert.match(appJs, /p\.removeAttribute\("hidden"\)/);
+  assert.match(appJs, /p\.hidden=!on/);
   assert.match(appJs, /window\.scrollTo\(0,0\)/);
   assert.doesNotMatch(appJs, /BloomLaunchPolish\?\.transitionTo/);
   /* Atelier must not force #dashboardPage visible without .active (Codex scroll-merge bug). */
