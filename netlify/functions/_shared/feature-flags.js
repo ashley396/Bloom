@@ -25,6 +25,22 @@ const DEFAULT_FLAGS = {
    * Enable only with explicit FLORISYN_FLAG_COMMUNITY_BETA=true.
    */
   COMMUNITY_BETA: false,
+  /**
+   * Holiday Command Center — SAFE DEFAULT OFF.
+   * Enable only with explicit FLORISYN_FLAG_HOLIDAY_COMMAND_CENTER=true.
+   */
+  HOLIDAY_COMMAND_CENTER: false,
+  /**
+   * Email Campaigns — SAFE DEFAULT OFF.
+   * Draft/schedule only until send pipeline is configured.
+   * Enable only with explicit FLORISYN_FLAG_EMAIL_CAMPAIGNS=true.
+   */
+  EMAIL_CAMPAIGNS: false,
+  /**
+   * Wedding Workflows — SAFE DEFAULT OFF.
+   * Enable only with explicit FLORISYN_FLAG_WEDDING_WORKFLOWS=true.
+   */
+  WEDDING_WORKFLOWS: false,
 };
 
 function envFlag(name, fallback, env = process.env) {
