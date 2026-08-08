@@ -131,7 +131,20 @@ async function loadCommunityPage(){
   if(window.BloomCommunity){window.bloomCommunityApi=api;await window.BloomCommunity.load()}
 }
 async function loadSubscriptionPage(){if(window.BloomSubscriptionCenter){window.subscriptionCenterApi=api;await window.BloomSubscriptionCenter.load(document.getElementById("subscriptionCenterRoot"))}}
-async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,expensesPage:loadExpenses,reportsPage:loadReports,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,communityPage:loadCommunityPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,posPage:()=>{window.FlorisynLuxuryPos?.syncStatusMetrics?.();window.FlorisynLuxuryPos?.syncCustomer?.();if(typeof renderPosTiles==="function")renderPosTiles();},aiStudioPage:()=>refreshAiStatus()};try{if(m[id])await m[id]()}catch(e){toast(e.message);const box=document.querySelector(`#${id} .cards, #${id}List, #${id.replace("Page","")}List, #communityRoot`);if(box&&window.BloomLaunchPolish?.errorState)box.innerHTML=window.BloomLaunchPolish.errorState({message:e.message})}}
+
+async function loadAnalyticsPage(){
+  await loadReports();
+  const pairs=[["reportRevenue","analyticsRevenue"],["reportExpenses","analyticsExpenses"],["reportProfit","analyticsProfit"],["reportMargin","analyticsMargin"]];
+  pairs.forEach(([from,to])=>{const a=$(from),b=$(to);if(a&&b)b.textContent=a.textContent});
+}
+function loadPosSettingsPage(){
+  const tax=Number(shopSettings?.tax_rate??6);
+  const fee=Number(shopSettings?.default_delivery_fee??10);
+  if($("#posSettingsTax"))$("#posSettingsTax").textContent=`${tax}%`;
+  if($("#posSettingsDelivery"))$("#posSettingsDelivery").textContent=money(fee);
+}
+
+async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,bouquetsPage:()=>{},expensesPage:loadExpenses,reportsPage:loadReports,analyticsPage:loadAnalyticsPage,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,communityPage:loadCommunityPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,posSettingsPage:loadPosSettingsPage,posPage:()=>{window.FlorisynLuxuryPos?.syncStatusMetrics?.();window.FlorisynLuxuryPos?.syncCustomer?.();if(typeof renderPosTiles==="function")renderPosTiles();},aiStudioPage:()=>refreshAiStatus()};try{if(m[id])await m[id]()}catch(e){toast(e.message);const box=document.querySelector(`#${id} .cards, #${id}List, #${id.replace("Page","")}List, #communityRoot`);if(box&&window.BloomLaunchPolish?.errorState)box.innerHTML=window.BloomLaunchPolish.errorState({message:e.message})}}
 const ORDER_STATUS_DEFS=[
   {id:"PENDING",label:"Pending",legacy:["NEW","PENDING"]},
   {id:"CONFIRMED",label:"Confirmed",legacy:["CONFIRMED"]},
@@ -388,7 +401,7 @@ function openTileEditor(tile=null){const f=$("#tileEditForm");f.reset();f.elemen
 function initShiftButton(){const button=$("#shiftButton");if(!button)return;const clockedIn=localStorage.getItem("bloom_shift_active")==="1";button.classList.toggle("clocked-in",clockedIn);button.textContent=clockedIn?"⇥ Clock Out":"⇥ Clock In";const status=$("#shiftStatusText");if(status)status.textContent=clockedIn?`Shift started ${localStorage.getItem("bloom_shift_started")||"earlier"}.`:"No active shift on this device."}
 function toggleShift(){const active=localStorage.getItem("bloom_shift_active")==="1";const now=new Date();if(active){const start=localStorage.getItem("bloom_shift_started");localStorage.setItem("bloom_last_shift",JSON.stringify({started:start,ended:now.toISOString()}));localStorage.removeItem("bloom_shift_active");localStorage.removeItem("bloom_shift_started");toast("Clocked out successfully") }else{localStorage.setItem("bloom_shift_active","1");localStorage.setItem("bloom_shift_started",now.toISOString());toast("Clocked in successfully")}initShiftButton()}
 function removeDuplicateControls(){const roseButtons=$$("#speakRoseBriefing");roseButtons.slice(1).forEach(x=>x.remove());const clocks=$$("#shiftButton,.shift-button");clocks.slice(1).forEach(x=>x.remove())}
-function addPastelPageFrames(){Object.keys({customersPage:1,ordersPage:1,deliveriesPage:1,inventoryPage:1,productsPage:1,websitePage:1,libraryPage:1,invoicesPage:1,paymentsPage:1,expensesPage:1,reportsPage:1,staffPage:1,marketplacePage:1,wholesaleSellerPage:1,storesPage:1,settingsPage:1,subscriptionPage:1,ecosystemPage:1}).forEach(id=>document.getElementById(id)?.classList.add("pastel-matched-page"))}
+function addPastelPageFrames(){Object.keys({customersPage:1,ordersPage:1,deliveriesPage:1,inventoryPage:1,productsPage:1,bouquetsPage:1,websitePage:1,libraryPage:1,invoicesPage:1,paymentsPage:1,expensesPage:1,reportsPage:1,analyticsPage:1,staffPage:1,marketplacePage:1,wholesaleSellerPage:1,storesPage:1,settingsPage:1,subscriptionPage:1,ecosystemPage:1,posSettingsPage:1}).forEach(id=>document.getElementById(id)?.classList.add("pastel-matched-page"))}
 async function openQuickSalePad(button){
   const tile=posTiles.find(x=>x.id===button.dataset.tileId)||{id:"custom",name:button.dataset.saleItem||"Custom item",image:""};
   const f=$("#quickPriceForm");f.reset();f.elements.tile_id.value=tile.id;f.elements.item_name.value=tile.name;f.elements.quantity.value=1;$("#quickPriceTitle").textContent=`Add ${tile.name}`;$("#quickPriceItemName").textContent=tile.name;$("#quickPriceImage").src=tile.image||"/assets/fresh.png";$("#quickPriceDialog").showModal();setTimeout(()=>{$("#quickPriceAmount").focus();$("#quickPriceAmount").select()},50)

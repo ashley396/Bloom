@@ -175,26 +175,26 @@ body.florisyn-atelier .atelier-premium-card {
 body.florisyn-atelier .atelier-premium-card p {
   color: #fff !important;
   margin: 0 0 4px !important;
-  font-size: 13px !important;
-  letter-spacing: 0 !important;
-  text-transform: none !important;
+  font-size: 12px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  font-weight: 700 !important;
 }
 
 body.florisyn-atelier .atelier-premium-card small {
   color: var(--lux-sidebar-text) !important;
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: 0;
   line-height: 1.35;
 }
 
+body.florisyn-atelier .atelier-premium-card.florisyn-premium-badge {
+  pointer-events: none;
+  user-select: none;
+}
+
 body.florisyn-atelier .atelier-premium-card button {
-  width: 100%;
-  border-radius: var(--lux-pill-radius) !important;
-  background: var(--lux-rose) !important;
-  color: #fff !important;
-  border: 0 !important;
-  font-weight: 600 !important;
-  min-height: 36px !important;
+  display: none !important;
 }
 
 /* —— Header —— */
