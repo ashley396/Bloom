@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1a1f3c"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/assets/florisyn/florisyn-favicon-32.png?v=official1" type="image/png" sizes="32x32"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><title>Florisyn — The Operating System for Modern Florists</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/polish-v20.2.css"><link rel="stylesheet" href="/polish-v20.4.css"><link rel="stylesheet" href="/platform-v21.1.css"><link rel="stylesheet" href="/bloom-v23.css"><link rel="stylesheet" href="/lily-platform.css"><link rel="stylesheet" href="/florisyn-live-avatars.css"><link rel="stylesheet" href="/florisyn-atelier-ui.css?v=atelierops1"><link rel="stylesheet" href="/florisyn-luxury-dashboard.css?v=lux-nav2"><link rel="stylesheet" href="/florisyn-luxury-ai-studio.css?v=ai1"><link rel="stylesheet" href="/florisyn-luxury-business-os.css?v=bos1"><link rel="stylesheet" href="/launch-polish-v1.css"><link rel="stylesheet" href="/payment-hub.css"><link rel="stylesheet" href="/payment-center-polish.css"><link rel="stylesheet" href="/shop-billing.css"><link rel="stylesheet" href="/business-ecosystem.css"><link rel="stylesheet" href="/bloom-rc1-luxury.css"><link rel="stylesheet" href="/bloom-rc2-design-system.css"><link rel="stylesheet" href="/bloom-rc2.1-polish.css"><link rel="stylesheet" href="/receipt-print.css"><link rel="stylesheet" href="/bloom-rc2.1-consistency.css"><link rel="stylesheet" href="/florisyn-brand.css"><link rel="stylesheet" href="/florisyn-founder-1.0.css"><link rel="stylesheet" href="/florisyn-rc2.2-founder-polish.css"><link rel="stylesheet" href="/community.css"><link rel="stylesheet" href="/florisyn-ui-editor.css"><link rel="stylesheet" href="/florisyn-luxury-pos.css?v=pos5"><style id="florisyn-pos-critical">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1a1f3c"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/assets/florisyn/florisyn-favicon-32.png?v=official1" type="image/png" sizes="32x32"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><title>Florisyn — The Operating System for Modern Florists</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/polish-v20.2.css"><link rel="stylesheet" href="/polish-v20.4.css"><link rel="stylesheet" href="/platform-v21.1.css"><link rel="stylesheet" href="/bloom-v23.css"><link rel="stylesheet" href="/lily-platform.css"><link rel="stylesheet" href="/florisyn-live-avatars.css"><link rel="stylesheet" href="/florisyn-atelier-ui.css?v=atelierops1"><link rel="stylesheet" href="/florisyn-luxury-dashboard.css?v=lux-nav2"><link rel="stylesheet" href="/florisyn-luxury-ai-studio.css?v=ai1"><link rel="stylesheet" href="/florisyn-luxury-business-os.css?v=bos1"><link rel="stylesheet" href="/florisyn-luxury-orders.css?v=ord1"><link rel="stylesheet" href="/launch-polish-v1.css"><link rel="stylesheet" href="/payment-hub.css"><link rel="stylesheet" href="/payment-center-polish.css"><link rel="stylesheet" href="/shop-billing.css"><link rel="stylesheet" href="/business-ecosystem.css"><link rel="stylesheet" href="/bloom-rc1-luxury.css"><link rel="stylesheet" href="/bloom-rc2-design-system.css"><link rel="stylesheet" href="/bloom-rc2.1-polish.css"><link rel="stylesheet" href="/receipt-print.css"><link rel="stylesheet" href="/bloom-rc2.1-consistency.css"><link rel="stylesheet" href="/florisyn-brand.css"><link rel="stylesheet" href="/florisyn-founder-1.0.css"><link rel="stylesheet" href="/florisyn-rc2.2-founder-polish.css"><link rel="stylesheet" href="/community.css"><link rel="stylesheet" href="/florisyn-ui-editor.css"><link rel="stylesheet" href="/florisyn-luxury-pos.css?v=pos5"><style id="florisyn-pos-critical">
 /* Critical POS layout — must win over polish/rc2 */
 #posPage.florisyn-pos-page.active #florisynPosLux.pos-workspace.florisyn-pos-lux{
   display:flex!important;flex-direction:column!important;grid-template-columns:none!important;grid-template-rows:none!important;
@@ -408,12 +408,62 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
   </div>
 </section>
 <section id="customersPage" class="page"><div class="heading atelier-page-heading"><div><p class="eyebrow">CUSTOMERS</p><h1>Customer book</h1><p class="subtle">Profiles, favorites, reminders, and order history in one place.</p></div><button class="primary" data-open="customerDialog">+ Add customer</button></div><input id="customerSearch" class="search" placeholder="Search customers"><div id="customersList" class="cards"></div></section>
-<section id="ordersPage" class="page order-command-page">
-  <div class="heading atelier-page-heading">
-    <div><p class="eyebrow">ORDERS</p><h1>Florist orders</h1><p class="subtle">Move each order through design, delivery, and payment without losing the plot.</p></div>
-    <div class="actions"><button id="refreshOrderBoard" class="secondary" type="button">Refresh</button><button class="primary" data-open="orderDialog">+ Add Order</button></div>
+<section id="ordersPage" class="page order-command-page florisyn-lux-orders" aria-label="Orders">
+  <div class="heading atelier-page-heading ord-heading">
+    <div>
+      <h1>Orders</h1>
+      <p class="subtle">Manage and track all customer orders.</p>
+    </div>
+    <div class="actions ord-heading-actions">
+      <button type="button" class="ord-export" id="ordExportBtn">Export</button>
+      <button type="button" class="ord-new" data-open="orderDialog" id="ordNewOrderBtn">+ New Order</button>
+      <button id="refreshOrderBoard" class="secondary" type="button" hidden>Refresh</button>
+    </div>
   </div>
-  <div class="order-command-layout">
+
+  <div class="ord-toolbar">
+    <div class="ord-tabs" id="ordTabs" aria-label="Order status filters"></div>
+    <div class="ord-tools">
+      <label class="ord-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="ordSearch" type="search" placeholder="Search orders..." aria-label="Search orders">
+      </label>
+      <button type="button" class="ord-date" id="ordDateRange" title="Date range">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        May 1 - May 12, 2026
+      </button>
+      <button type="button" class="ord-filter-btn" id="ordFilterBtn" aria-label="More filters" title="Filters">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="ord-table-card">
+    <div class="ord-table-wrap">
+      <table class="ord-table" id="ordTable">
+        <thead>
+          <tr>
+            <th scope="col"><input class="ord-check" type="checkbox" id="ordSelectAll" aria-label="Select all orders"></th>
+            <th scope="col" data-ord-sort="order">Order #</th>
+            <th scope="col" data-ord-sort="customer">Customer</th>
+            <th scope="col" data-ord-sort="items">Items</th>
+            <th scope="col" data-ord-sort="total">Total</th>
+            <th scope="col" data-ord-sort="status">Status</th>
+            <th scope="col" data-ord-sort="date">Date</th>
+            <th scope="col" data-ord-sort="delivery">Delivery</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ordTableBody"></tbody>
+      </table>
+    </div>
+    <div class="ord-pager">
+      <div class="ord-pager-meta" id="ordPagerMeta">Showing 1-8 of 186 orders</div>
+      <div class="ord-pages" id="ordPages" aria-label="Pagination"></div>
+    </div>
+  </div>
+
+  <div class="order-command-layout" hidden aria-hidden="true">
     <div id="ordersBoard" class="order-board" aria-live="polite"></div>
     <div id="telemetryLog" class="telemetry-log-hidden" aria-hidden="true"></div>
   </div>
@@ -855,4 +905,4 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
 
 <dialog id="savedQuotesDialog"><div class="dialog-shell"><div class="heading"><div><p class="eyebrow">REGISTER</p><h2>Saved quotes</h2><p class="subtle">Resume a quote on this register or remove it.</p></div><button class="close" type="button">×</button></div><div id="savedQuotesList" class="saved-quotes-list"></div></div></dialog>
 <dialog id="receiptDialog"><div id="receiptContent"></div><div class="dialog-tools"><button id="closeReceipt" class="secondary">Close</button><button id="printReceipt" class="primary" type="button">Print Receipt</button></div></dialog>
-<script src="/florisyn-version.js" defer></script><script src="/bloom-version.js" defer></script><script src="/lily-platform.js" defer></script><script type="module" src="/launch-polish.js"></script><script src="/production-monitor.js" defer></script><script src="/login.js" defer></script><script src="/marketplace-verification.js" defer></script><script src="/marketplace-categories.js" defer></script><script src="/marketplace-experience.js" defer></script><script src="/wholesale-seller-dashboard.js" defer></script><script src="/payment-hub-ui.js" defer></script><script src="/subscription-center-ui.js" defer></script><script src="/business-ecosystem-ui.js" defer></script><script src="/florisyn-luxury-business-os.js" defer></script><script src="/assistant-voice-core.js" defer></script><script src="/assistant-voice.js" defer></script><script src="/florisyn-ui-editor.js" defer></script><script src="/bloom-rc2-lily-voice.js" defer></script><script src="/daisy-mascot.js" defer></script><script src="/bloom-rc2-first-run.js" defer></script><script src="/bloom-rc2-dashboard.js" defer></script><script src="/florisyn-atelier-dashboard.js?v=lux2" defer></script><script src="/florisyn-luxury-pos.js?v=pos3" defer></script><script src="/bloom-rc2.1-founder-polish.js" defer></script><script src="/bloom-rc2.1-consistency.js" defer></script><script src="/instant-website-ui.js" defer></script><script src="/theme-gallery-ui.js" defer></script><script src="/website-editor-ui.js" defer></script><script src="/floral-library-ui.js" defer></script><script src="/customer-profile-ui.js" defer></script><script src="/guided-order-stepper.js" defer></script><script src="/bloom-rc1-dashboard.js" defer></script><script src="/community-ui.js" defer></script><script src="/florisyn-router.js?v=route2" defer></script><script src="/app.js" defer></script></body></html>
+<script src="/florisyn-version.js" defer></script><script src="/bloom-version.js" defer></script><script src="/lily-platform.js" defer></script><script type="module" src="/launch-polish.js"></script><script src="/production-monitor.js" defer></script><script src="/login.js" defer></script><script src="/marketplace-verification.js" defer></script><script src="/marketplace-categories.js" defer></script><script src="/marketplace-experience.js" defer></script><script src="/wholesale-seller-dashboard.js" defer></script><script src="/payment-hub-ui.js" defer></script><script src="/subscription-center-ui.js" defer></script><script src="/business-ecosystem-ui.js" defer></script><script src="/florisyn-luxury-business-os.js" defer></script><script src="/florisyn-luxury-orders.js" defer></script><script src="/assistant-voice-core.js" defer></script><script src="/assistant-voice.js" defer></script><script src="/florisyn-ui-editor.js" defer></script><script src="/bloom-rc2-lily-voice.js" defer></script><script src="/daisy-mascot.js" defer></script><script src="/bloom-rc2-first-run.js" defer></script><script src="/bloom-rc2-dashboard.js" defer></script><script src="/florisyn-atelier-dashboard.js?v=lux2" defer></script><script src="/florisyn-luxury-pos.js?v=pos3" defer></script><script src="/bloom-rc2.1-founder-polish.js" defer></script><script src="/bloom-rc2.1-consistency.js" defer></script><script src="/instant-website-ui.js" defer></script><script src="/theme-gallery-ui.js" defer></script><script src="/website-editor-ui.js" defer></script><script src="/floral-library-ui.js" defer></script><script src="/customer-profile-ui.js" defer></script><script src="/guided-order-stepper.js" defer></script><script src="/bloom-rc1-dashboard.js" defer></script><script src="/community-ui.js" defer></script><script src="/florisyn-router.js?v=route2" defer></script><script src="/app.js" defer></script></body></html>
