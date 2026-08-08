@@ -39,10 +39,12 @@
     const host = $("#posLuxCategories");
     if (!host || host.dataset.bound) return;
     host.dataset.bound = "1";
-    host.innerHTML = CATEGORIES.map(
-      (c, i) =>
-        `<button type="button" class="pos-lux-cat${i === 0 ? " active" : ""}" data-pos-cat="${c.filter}" style="background-image:url('${c.image}')">${c.label}</button>`
-    ).join("");
+    if (!host.querySelector(".pos-lux-cat")) {
+      host.innerHTML = CATEGORIES.map(
+        (c, i) =>
+          `<button type="button" class="pos-lux-cat${i === 0 ? " active" : ""}" data-pos-cat="${c.filter}" style="background-image:url('${c.image}')">${c.label}</button>`
+      ).join("");
+    }
     host.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-pos-cat]");
       if (!btn) return;

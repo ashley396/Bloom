@@ -1151,8 +1151,13 @@ body.florisyn-atelier .page > .heading h1 {
   }
   body.florisyn-atelier .atelier-assist-rail,
   body.florisyn-atelier .profit-intelligence-grid,
-  body.florisyn-atelier .pos-workspace {
+  body.florisyn-atelier #dashboardPage .pos-workspace {
     display: none !important;
+  }
+  /* Luxury POS is its own route — never hide the register workspace */
+  body.florisyn-atelier #posPage .pos-workspace.florisyn-pos-lux,
+  body.florisyn-atelier #posPage.active .pos-workspace {
+    display: flex !important;
   }
 
   body.florisyn-atelier .atelier-dash-hero {

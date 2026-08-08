@@ -417,7 +417,8 @@ const POS_LUX_DEMO_CART=[
 function savePosCart(){localStorage.setItem("bloom_pos_cart",JSON.stringify(posCart));renderPosCart()}
 function loadPosCart(){
   try{posCart=JSON.parse(localStorage.getItem("bloom_pos_cart")||"[]");if(!Array.isArray(posCart))posCart=[]}catch{posCart=[]}
-  if(!posCart.length&&document.getElementById("florisynPosLux")&&!localStorage.getItem("bloom_pos_cart_seeded")){
+  if(!posCart.length&&document.getElementById("florisynPosLux")){
+    /* Always restore the Figma demo basket when the luxury register cart is empty */
     posCart=structuredClone(POS_LUX_DEMO_CART);
     localStorage.setItem("bloom_pos_cart",JSON.stringify(posCart));
     localStorage.setItem("bloom_pos_cart_seeded","1");
