@@ -35,11 +35,21 @@ test("UI editor is admin-gated and visual-only", () => {
   assert.match(editorJs, /contenteditable|enableInlineTextEditing/);
   assert.match(editorJs, /applyCharacters|Character text/);
   assert.match(editorJs, /Sidebar \/ section position|flexDirection/);
+  assert.match(editorJs, /isForbiddenTextSelector|isSafeTextTarget|sanitizeDesignDoc/);
+  assert.match(editorJs, /resetDesignOverrides|Reset visuals/);
+  assert.match(editorJs, /restoreAdminDesignPanel|ensureAdminDesignRoot/);
   assert.doesNotMatch(editorJs, /create-checkout|auth-login|membership|createClient\(|from\(['"]/i);
   assert.match(editorCss, /#florisynDesignBar/);
   assert.match(editorCss, /\.florisyn-design-selected/);
   assert.match(editorCss, /florisyn-image-edit-mode/);
   assert.match(editorCss, /contenteditable/);
+});
+
+test("design import refuses shell-flattening text selectors", () => {
+  assert.match(editorJs, /FORBIDDEN_TEXT_SELECTOR_RE/);
+  assert.match(editorJs, /#uiDesignModeRoot/);
+  assert.match(editorJs, /never flatten structured UI|isSafeTextTarget/);
+  assert.match(editorJs, /Please choose a \.json design file|not valid design JSON/);
 });
 
 test("Admin page exposes UI Design Mode and Image Edit Mode", () => {

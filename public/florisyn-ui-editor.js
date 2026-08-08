@@ -7,7 +7,13 @@
   const PUBLISHED_URL = "/florisyn-design-overrides.json";
   const MAX_VOICE_BYTES = 3.5 * 1024 * 1024;
   const MAX_IMAGE_BYTES = 2.5 * 1024 * 1024;
+
   const PERSONAS = ["Lily", "Rose", "Daisy"];
+  const TEXT_SAFE_TAGS = new Set(["H1", "H2", "H3", "H4", "H5", "H6", "P", "SPAN", "LABEL", "B", "STRONG", "SMALL", "EM", "A", "LI", "FIGCAPTION", "BUTTON"]);
+  const FORBIDDEN_TEXT_SELECTOR_RE =
+    /(?:^|[\s>+~])(html|body|main|aside|nav|form|section|article|header|footer|dialog)(?:$|[\s.[:#>])|#adminApp\b|#adminAuth\b|#ownerSetup\b|#uiDesignModeRoot\b|#uiDesignModeView\b|#florisynDesignBar\b|#florisynDesignInspector\b|\.shell\b|\.admin-shell\b|\.view\b|\.page\b|\.sidebar\b|\.workspace\b|\.panel\b|\.florisyn-design-admin-panel\b/i;
+  const FORBIDDEN_SHELL_SELECTOR_RE =
+    /#adminApp\b|#adminAuth\b|#ownerSetup\b|#uiDesignModeRoot\b|#uiDesignModeView\b|^(body|html|main)$/i;
 
   const emptyDoc = () => ({
     version: 1,
@@ -25,6 +31,88 @@
     },
     voices: { Lily: null, Rose: null, Daisy: null }
   });
+
+  function isForbiddenTextSelector(sel) {
+    const raw = String(sel || "").trim();
+    if (!raw) return true;
+    if (raw === "*" || raw === ":root") return true;
+    return FORBIDDEN_TEXT_SELECTOR_RE.test(raw);
+  }
+
+  function isSafeTextTarget(el) {
+    if (!el || el.nodeType !== 1) return false;
+    if (el.closest("#florisynDesignBar, #florisynDesignInspector, dialog, script, style")) return false;
+    if (el.matches("input,textarea,select,img,svg,video,canvas,iframe,table,ul,ol")) return false;
+    if (!TEXT_SAFE_TAGS.has(el.tagName)) return false;
+    // Allow simple phrasing children only — never flatten structured UI.
+    if (el.children.length === 0) return true;
+    return [...el.children].every((child) => TEXT_SAFE_TAGS.has(child.tagName) && child.children.length === 0);
+  }
+
+  function sanitizeDesignDoc(raw) {
+    const base = emptyDoc();
+    const next = raw && typeof raw === "object" ? raw : {};
+    const texts = {};
+    Object.entries(next.texts || {}).forEach(([sel, value]) => {
+      if (isForbiddenTextSelector(sel)) return;
+      if (typeof value !== "string") return;
+      texts[sel] = value;
+    });
+    const styles = {};
+    Object.entries(next.styles || {}).forEach(([sel, rules]) => {
+      if (!sel || FORBIDDEN_SHELL_SELECTOR_RE.test(sel)) return;
+      if (!rules || typeof rules !== "object") return;
+      styles[sel] = rules;
+    });
+    const layout = {};
+    Object.entries(next.layout || {}).forEach(([sel, rules]) => {
+      if (!sel || FORBIDDEN_SHELL_SELECTOR_RE.test(sel)) return;
+      layout[sel] = rules;
+    });
+    const images = {};
+    Object.entries(next.images || {}).forEach(([sel, src]) => {
+      if (!sel || FORBIDDEN_SHELL_SELECTOR_RE.test(sel)) return;
+      images[sel] = src;
+    });
+    return {
+      ...base,
+      cssVars: next.cssVars && typeof next.cssVars === "object" ? next.cssVars : {},
+      version: 1,
+      updatedAt: next.updatedAt || null,
+      texts,
+      styles,
+      layout,
+      images,
+      voices: { ...base.voices, ...(next.voices || {}) },
+      characters: {
+        ...base.characters,
+        ...(next.characters || {}),
+        Lily: { ...base.characters.Lily, ...(next.characters?.Lily || {}) },
+        Rose: { ...base.characters.Rose, ...(next.characters?.Rose || {}) },
+        Daisy: { ...base.characters.Daisy, ...(next.characters?.Daisy || {}) }
+      },
+      library: Array.isArray(next.library) ? next.library : []
+    };
+  }
+
+  function ensureAdminDesignRoot() {
+    const view = document.getElementById("uiDesignModeView");
+    if (!view) return document.getElementById("uiDesignModeRoot");
+    let root = document.getElementById("uiDesignModeRoot");
+    if (!root || !view.contains(root)) {
+      view.innerHTML = '<div id="uiDesignModeRoot"></div>';
+      root = document.getElementById("uiDesignModeRoot");
+    }
+    return root;
+  }
+
+  function restoreAdminDesignPanel() {
+    if (!hasAdminSession() || document.getElementById("adminApp")?.hidden) return false;
+    const root = ensureAdminDesignRoot();
+    if (!root) return false;
+    mountAdminPanel(root);
+    return true;
+  }
 
   let doc = emptyDoc();
   let selected = null;
@@ -147,20 +235,10 @@
   }
 
   function persist(next) {
-    doc = {
-      ...emptyDoc(),
+    doc = sanitizeDesignDoc({
       ...next,
-      voices: { ...emptyDoc().voices, ...(next.voices || {}) },
-      characters: {
-        ...emptyDoc().characters,
-        ...(next.characters || {}),
-        Lily: { ...emptyDoc().characters.Lily, ...(next.characters?.Lily || {}) },
-        Rose: { ...emptyDoc().characters.Rose, ...(next.characters?.Rose || {}) },
-        Daisy: { ...emptyDoc().characters.Daisy, ...(next.characters?.Daisy || {}) }
-      },
-      library: Array.isArray(next.library) ? next.library : [],
       updatedAt: new Date().toISOString()
-    };
+    });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
     applyOverrides(doc);
     document.dispatchEvent(new CustomEvent("florisyn-design-overrides-changed", { detail: doc }));
@@ -202,10 +280,21 @@
 
   function applyTexts(texts = {}) {
     Object.entries(texts).forEach(([sel, value]) => {
-      if (!sel) return;
-      document.querySelectorAll(sel).forEach((el) => {
-        if (el.matches("input,textarea,select")) el.value = value;
-        else el.textContent = value;
+      if (!sel || isForbiddenTextSelector(sel)) return;
+      if (typeof value !== "string") return;
+      let nodes;
+      try {
+        nodes = document.querySelectorAll(sel);
+      } catch {
+        return;
+      }
+      nodes.forEach((el) => {
+        if (el.matches("input,textarea,select")) {
+          el.value = value;
+          return;
+        }
+        if (!isSafeTextTarget(el)) return;
+        el.textContent = value;
       });
     });
   }
@@ -272,7 +361,8 @@
   }
 
   function markEditableHints() {
-    document.querySelectorAll(".assistant-mini-dock button, .daisy-dock-btn, .rose-welcome-card, .lily-suggestion-card, .pos-workspace, #productPadGrid, #greeting, .panel, .card, .pad, body, main, .workspace, aside").forEach((el, i) => {
+    document.querySelectorAll(".assistant-mini-dock button, .daisy-dock-btn, .rose-welcome-card, .lily-suggestion-card, .pos-workspace, #productPadGrid, #greeting, .card, .pad").forEach((el, i) => {
+      if (el.closest("#uiDesignModeRoot, #florisynDesignBar, #florisynDesignInspector, #adminAuth, #ownerSetup")) return;
       if (!el.getAttribute("data-florisyn-edit")) el.setAttribute("data-florisyn-edit", `edit-${i}`);
     });
     document.querySelectorAll(".assistant-mini-dock button, .daisy-dock-btn").forEach((btn) => {
@@ -318,8 +408,9 @@
 
   function commitInlineText(el) {
     if (!el || mode !== "design") return;
+    if (!isSafeTextTarget(el)) return;
     const sel = selectorFor(el);
-    if (!sel) return;
+    if (!sel || isForbiddenTextSelector(sel)) return;
     const text = el.textContent || "";
     const next = structuredClone(doc);
     next.texts = next.texts || {};
@@ -564,9 +655,11 @@
     next.texts = next.texts || {};
     next.styles[sel] = { ...(next.styles[sel] || {}) };
     const text = inspectorEl.querySelector("#fdText")?.value;
-    if (typeof text === "string" && !selected.matches("input,textarea,select,img")) {
+    if (typeof text === "string" && isSafeTextTarget(selected) && !isForbiddenTextSelector(sel)) {
       next.texts[sel] = text;
       selected.textContent = text;
+    } else if (typeof text === "string" && text !== (selected.textContent || "") && !isSafeTextTarget(selected)) {
+      toast("Text edits are only for labels and headings — not whole panels");
     }
     const color = inspectorEl.querySelector("#fdColor")?.value;
     const bg = inspectorEl.querySelector("#fdBg")?.value;
@@ -735,7 +828,11 @@
       el = e.target.closest("img, [data-florisyn-image]");
       if (el && el.tagName !== "IMG") el = el.querySelector("img") || el;
     } else {
-      el = e.target.closest("h1,h2,h3,h4,p,span,label,img,button,a,.panel,.card,.atelier-kpi,.pad,.product-pad,.rose-welcome-card,.lily-suggestion-card,.pos-workspace,.pos-shell,.catalog-shell,.dashboard-shell,.admin-shell,.shell,.sidebar,.nav,.assistant-mini-dock button,.view,.hero,.section,[data-florisyn-edit],[data-assistant],[data-florisyn-character]");
+      el = e.target.closest("h1,h2,h3,h4,p,span,label,img,button,a,.card,.atelier-kpi,.pad,.product-pad,.rose-welcome-card,.lily-suggestion-card,.pos-workspace,.assistant-mini-dock button,.hero,[data-florisyn-edit],[data-assistant],[data-florisyn-character]");
+      if (el && el.closest("#uiDesignModeRoot, #adminAuth, #ownerSetup")) {
+        // In Admin Design Mode studio, only allow leaf text/image targets — never whole panels.
+        el = e.target.closest("h1,h2,h3,h4,p,span,label,img,button,small,b,strong");
+      }
     }
     if (!el || el.closest("dialog")) return;
     // Allow inline text caret when already contenteditable and not starting a drag.
@@ -799,10 +896,28 @@
   }
 
   function importJsonFile(file) {
+    if (!file) return;
+    if (!/\.json$/i.test(file.name || "") && file.type && file.type !== "application/json") {
+      return toast("Please choose a .json design file");
+    }
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        persist(JSON.parse(String(reader.result || "{}")));
+        const parsed = JSON.parse(String(reader.result || "{}"));
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          throw new Error("object required");
+        }
+        // Never let import flatten Admin / florist shell markup.
+        persist(sanitizeDesignDoc(parsed));
+        restoreAdminDesignPanel();
+        if (mode === "design") {
+          markEditableHints();
+          enableInlineTextEditing();
+          ensureBar();
+        } else if (mode === "image") {
+          markEditableHints();
+          ensureBar();
+        }
         toast("Design config imported and applied");
         refreshVoiceCards();
         refreshAdminLibrary();
@@ -811,6 +926,17 @@
       }
     };
     reader.readAsText(file);
+  }
+
+  function resetDesignOverrides() {
+    localStorage.removeItem(STORAGE_KEY);
+    doc = emptyDoc();
+    applyOverrides(doc);
+    if (restoreAdminDesignPanel()) {
+      toast("Design overrides cleared — Admin layout restored");
+      return;
+    }
+    toast("Design overrides cleared");
   }
 
   function setVoice(persona, voice) {
@@ -888,6 +1014,7 @@
       <button type="button" class="secondary" id="fdExport">Download JSON</button>
       <label class="florisyn-design-file secondary">Import JSON<input id="fdImport" type="file" accept="application/json,.json" hidden></label>
       ${mode === "image" ? `<label class="florisyn-design-file secondary">Add to library<input id="fdBarLib" type="file" accept="image/*" hidden></label>` : ""}
+      <button type="button" class="secondary" id="fdReset">Reset visuals</button>
       <button type="button" class="secondary" id="fdExit">Exit ${label}</button>`;
     document.body.appendChild(barEl);
     barEl.querySelector("#fdSave")?.addEventListener("click", () => {
@@ -905,6 +1032,7 @@
       addLibraryFile(e.target.files?.[0], false);
       e.target.value = "";
     });
+    barEl.querySelector("#fdReset")?.addEventListener("click", () => resetDesignOverrides());
     barEl.querySelector("#fdExit")?.addEventListener("click", () => exitAllModes());
     return barEl;
   }
@@ -997,6 +1125,7 @@
           <a class="secondary" href="/?florisynImageEdit=1" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Open florist app in Image Edit Mode</a>
           <button type="button" class="secondary" id="adminExportDesign">Download design JSON</button>
           <label class="file-btn secondary">Import design JSON<input id="adminImportDesign" type="file" accept="application/json,.json" hidden></label>
+          <button type="button" class="secondary" id="adminResetDesign">Reset visuals</button>
         </div>
         <h3 style="margin-top:18px">Ashley image library</h3>
         <p class="subtle">Upload images here, then reuse them anywhere in Image Edit Mode.</p>
@@ -1064,6 +1193,7 @@
       if (file) importJsonFile(file);
       e.target.value = "";
     });
+    root.querySelector("#adminResetDesign")?.addEventListener("click", () => resetDesignOverrides());
     root.querySelector("#adminLibUpload")?.addEventListener("change", (e) => {
       [...(e.target.files || [])].forEach((file) => addLibraryFile(file, false));
       e.target.value = "";
@@ -1123,17 +1253,17 @@
   }
 
   function tryMountAdminPanel() {
-    const adminRoot = document.getElementById("uiDesignModeRoot");
-    if (!adminRoot) return;
     if (!hasAdminSession()) return;
     if (document.getElementById("adminApp")?.hidden) return;
-    mountAdminPanel(adminRoot);
+    restoreAdminDesignPanel();
   }
 
   async function boot() {
     const published = await loadPublished();
     const local = loadLocal();
-    doc = local || published || emptyDoc();
+    doc = sanitizeDesignDoc(local || published || emptyDoc());
+    // Drop previously saved shell-flattening text overrides that broke Admin.
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
     applyOverrides(doc);
 
     document.addEventListener("pointerdown", onPointerDown, true);
