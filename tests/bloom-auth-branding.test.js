@@ -45,26 +45,37 @@ test("verify email page can resend confirmation email", () => {
   const fn = fs.readFileSync(new URL("../netlify/functions/auth-resend-confirmation.js", import.meta.url), "utf8");
 
   assert.match(html, /resendConfirmationForm/);
-  assert.match(js, /auth-resend-confirmation/);
+  assert.match(js, /fetch\("\/api\/auth-resend-confirmation"/);
+  assert.doesNotMatch(js, /\/\.netlify\/functions\/auth-resend-confirmation/);
   assert.match(js, /florisyn_pending_email/);
   assert.match(fn, /auth\/v1\/resend/);
   assert.match(fn, /type:\s*"signup"/);
-  assert.match(fn, /redirect_to=\$\{encodeURIComponent\(redirectTo\)\}/);
+  assert.match(fn, /options:\s*\{\s*email_redirect_to:\s*redirectTo,\s*emailRedirectTo:\s*redirectTo\s*\}/);
   assert.match(fn, /sendSignupConfirmationEmail/);
+  assert.match(fn, /confirmationEmailSent/);
+  assert.match(fn, /mapAuthProviderFailure\(response, data, \{ flow: "resend" \}\)/);
   assert.match(fn, /authRedirectPath\(process\.env, origin, "\/verify-email\?confirmed=1"\)/);
   assert.match(fn, /If this email has an unconfirmed Florisyn account/);
 });
 
-test("signup sends confirmation email when mailer is configured", () => {
+test("signup requests Supabase confirmation email and sends branded confirmation when configured", () => {
   const signup = fs.readFileSync(new URL("../netlify/functions/auth-signup.js", import.meta.url), "utf8");
   const helper = fs.readFileSync(new URL("../netlify/functions/_shared/auth-confirmation-email.js", import.meta.url), "utf8");
   const mailer = fs.readFileSync(new URL("../netlify/functions/_shared/notification-email.js", import.meta.url), "utf8");
+  const mapper = fs.readFileSync(new URL("../netlify/functions/_shared/auth-email.js", import.meta.url), "utf8");
+  assert.match(signup, /auth\/v1\/signup\?redirect_to=\$\{encodeURIComponent\(confirmUrl\)\}/);
+  assert.match(signup, /authRedirectPath\(process\.env,origin,"\/verify-email\?confirmed=1"\)/);
+  assert.match(signup, /mapAuthProviderFailure\(response,data,\{flow:"signup"\}\)/);
+  assert.match(signup, /confirmationRequired:!data\.access_token/);
   assert.match(signup, /sendSignupConfirmationEmail/);
   assert.match(signup, /confirmationEmailSent/);
   assert.match(helper, /admin\/generate_link/);
   assert.match(helper, /type:\s*"signup"/);
   assert.match(mailer, /RESEND_API_KEY/);
   assert.match(mailer, /api\.resend\.com\/emails/);
+  assert.match(mapper, /auth_email_provider_unavailable/);
+  assert.match(mapper, /account_already_registered/);
+  assert.match(mapper, /invalid_email_domain/);
 });
 
 test("Florisyn app icon uses official founder artwork PNG", () => {

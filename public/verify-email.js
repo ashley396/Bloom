@@ -44,7 +44,7 @@ resendForm?.addEventListener("submit", async (event) => {
   resendButton.disabled = true;
   resendButton.textContent = "Sending...";
   try {
-    const response = await fetch("/.netlify/functions/auth-resend-confirmation", {
+    const response = await fetch("/api/auth-resend-confirmation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email })

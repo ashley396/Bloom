@@ -135,15 +135,27 @@ test("auth refresh has local validation and rate limiting", () => {
   assert.match(authRefreshSource, /grant_type=refresh_token/);
 });
 
-test("password auth routes use distributed Blobs admission", () => {
-  const production = fs.readFileSync(new URL("../netlify/functions/_shared/production.js", import.meta.url), "utf8");
-  assert.match(production, /checkDistributedRateLimit/);
-  assert.match(production, /@netlify\/blobs/);
-  assert.match(production, /connectLambda\(event\)/);
-  assert.match(production, /florisyn-auth-admission/);
-  assert.match(authLoginSource, /checkDistributedRateLimit/);
-  assert.match(authSignupSource, /checkDistributedRateLimit/);
-  assert.match(authForgotSource, /checkDistributedRateLimit/);
-  assert.match(authResetSource, /checkDistributedRateLimit/);
-  assert.match(authLoginSource, /Retry-After/);
+test("login membership gate fails closed when verification is unavailable", () => {
+  assert.match(authLoginSource, /membership_check_unavailable/);
+  assert.match(authLoginSource, /service_role_missing/);
+  assert.match(authLoginSource, /status:\s*503/);
+  assert.match(authLoginSource, /return json\(access\.status \|\| 403/);
+  assert.doesNotMatch(authLoginSource, /return \{ ok: true, skipped: true \}/);
+  assert.doesNotMatch(authLoginSource, /Fail open to currentUser/);
+});
+
+test("password auth routes rely on Netlify distributed admission before serverless fallback", () => {
+  const toml = fs.readFileSync(new URL("../netlify.toml", import.meta.url), "utf8");
+  const edgeSource = fs.readFileSync(new URL("../netlify/edge-functions/auth-admission.js", import.meta.url), "utf8");
+
+  for (const route of ["auth-login", "auth-signup", "auth-forgot-password", "auth-reset-password"]) {
+    assert.match(toml, new RegExp(`from = "/api/${route}"[\\s\\S]*?\\[redirects\\.rate_limit\\]`));
+    assert.match(toml, new RegExp(`from = "/api/${route}"[\\s\\S]*?window_limit = 30`));
+    assert.match(edgeSource, new RegExp(`"/api/${route}"`));
+  }
+
+  assert.match(edgeSource, /rateLimit:\s*\{/);
+  assert.match(edgeSource, /action:\s*"rate_limit"/);
+  assert.doesNotMatch(edgeSource, /auth-refresh/);
+  assert.doesNotMatch(toml, /from = "\/api\/auth-refresh"[\s\S]*?\[redirects\.rate_limit\]/);
 });

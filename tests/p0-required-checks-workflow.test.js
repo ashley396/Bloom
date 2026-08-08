@@ -399,11 +399,11 @@ test("R2: zero-high audit passes when RSC/server-router code or dependencies exi
   assert.equal(result.exceptionActive, false);
 });
 
-test("live script accepts current frontend audit under temporary exception", () => {
+test("live script accepts current frontend audit without temporary exception", () => {
   const result = runFrontendSecurityAudit({
     now: new Date("2026-08-01T15:00:00.000Z")
   });
   assert.equal(result.ok, true);
-  assert.equal(result.exceptionActive, true);
-  assert.equal(result.message, `Temporary frontend security exception active: ${APPROVED_ADVISORY_ID}`);
+  assert.equal(result.exceptionActive, false);
+  assert.match(result.message, /passed with no high or critical vulnerabilities/i);
 });

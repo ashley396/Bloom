@@ -5,6 +5,7 @@ import { validateEmail } from "./_shared/validation.js";
 import { authRedirectPath } from "./_shared/site-url.js";
 import { fetchWithTimeout, requestIdOf } from "./_shared/upstream.js";
 import { logAuthEvent, mapAuthProviderFailure, jsonAuthError } from "./_shared/auth-email.js";
+import { sendSignupConfirmationEmail } from "./_shared/auth-confirmation-email.js";
 
 export async function handler(event) {
   const requestId = requestIdOf(event);
@@ -47,14 +48,30 @@ export async function handler(event) {
       }, event);
       return jsonAuthError(mapped);
     }
+    const emailResult = await sendSignupConfirmationEmail({
+      email: emailCheck.value,
+      origin,
+      env: process.env
+    }).catch((error) => ({ sent: false, reason: error?.code || error?.message || "confirmation_email_failed" }));
+    if (!emailResult.sent && emailResult.reason !== "provider_not_configured") {
+      logAuthEvent("warn", "auth_resend_confirmation_email_not_sent", {
+        email_domain: emailCheck.value.split("@")[1],
+        code: emailResult.reason || "confirmation_email_failed",
+        provider: emailResult.provider || null,
+        request_id: requestId
+      }, event);
+    }
     logAuthEvent("info", "auth_resend_accepted", {
       email_domain: emailCheck.value.split("@")[1],
       provider_status: response.status,
+      confirmation_email_sent: Boolean(emailResult.sent),
+      confirmation_email_provider: emailResult.provider || null,
       request_id: requestId
     }, event);
     return json(200, {
       ok: true,
       code: "resend_accepted",
+      confirmationEmailSent: Boolean(emailResult.sent),
       message: "If this email has an unconfirmed Florisyn account, a new confirmation link will arrive shortly. Already confirmed? Use Forgot Password instead."
     });
   } catch (error) {

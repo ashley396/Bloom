@@ -135,7 +135,7 @@
         status.textContent = "Draft saved.";
       } catch (e) {
         live("Draft was not saved.");
-        status.textContent = e.message;
+        status.textContent = e.message || "Could not save website draft. Try again.";
       } finally {
         setBusy(false);
       }
@@ -158,7 +158,7 @@
         window.toast?.("Website published");
       } catch (e) {
         live("Website was not published.");
-        status.textContent = e.message;
+        status.textContent = e.message || "Could not save website draft. Try again.";
       } finally {
         setBusy(false);
       }

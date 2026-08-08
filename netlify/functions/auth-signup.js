@@ -5,6 +5,7 @@ import { checkRateLimit } from "./_shared/production.js";
 import { fetchWithTimeout, requestIdOf } from "./_shared/upstream.js";
 import { validateEmail } from "./_shared/validation.js";
 import { logAuthEvent, mapAuthProviderFailure, jsonAuthError } from "./_shared/auth-email.js";
+import { sendSignupConfirmationEmail } from "./_shared/auth-confirmation-email.js";
 
 export async function handler(event){
   const requestId=requestIdOf(event);
@@ -30,7 +31,28 @@ export async function handler(event){
       logAuthEvent("warn","signup_failed",{email_domain:emailCheck.value.split("@")[1],provider_status:response.status,code:mapped.code,request_id:requestId},event);
       return jsonAuthError(mapped);
     }
-    logAuthEvent("info","signup_accepted",{user_id:data.user?.id||null,confirmation_required:!data.access_token,request_id:requestId},event);
-    return json(200,{accessToken:data.access_token||null,refreshToken:data.refresh_token||null,expiresIn:data.expires_in||null,user:data.user||null,confirmationRequired:!data.access_token});
+    let confirmationEmailSent = false;
+    let confirmationEmailProvider = null;
+    if (!data.access_token) {
+      const emailResult = await sendSignupConfirmationEmail({
+        email: emailCheck.value,
+        fullName: body.fullName || "",
+        shopName: body.shopName || "My Flower Shop",
+        origin,
+        env: process.env
+      }).catch((error) => ({ sent: false, reason: error?.code || error?.message || "confirmation_email_failed" }));
+      confirmationEmailSent = Boolean(emailResult.sent);
+      confirmationEmailProvider = emailResult.provider || null;
+      if (!confirmationEmailSent && emailResult.reason !== "provider_not_configured") {
+        logAuthEvent("warn", "signup_confirmation_email_not_sent", {
+          user_id: data.user?.id || null,
+          code: emailResult.reason || "confirmation_email_failed",
+          provider: confirmationEmailProvider,
+          request_id: requestId
+        }, event);
+      }
+    }
+    logAuthEvent("info","signup_accepted",{user_id:data.user?.id||null,confirmation_required:!data.access_token,confirmation_email_sent:confirmationEmailSent,confirmation_email_provider:confirmationEmailProvider,request_id:requestId},event);
+    return json(200,{accessToken:data.access_token||null,refreshToken:data.refresh_token||null,expiresIn:data.expires_in||null,user:data.user||null,confirmationRequired:!data.access_token,confirmationEmailSent,confirmationEmailProvider});
   }catch(error){ return fail(error); }
 }

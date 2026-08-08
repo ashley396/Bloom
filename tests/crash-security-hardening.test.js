@@ -9,13 +9,14 @@ const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
 
 test("app.js serializes session refresh and wraps critical shop forms", () => {
   const src = read("public/app.js");
+  const websiteEditor = read("public/website-editor-ui.js");
   assert.match(src, /refreshInFlight/);
-  assert.match(src, /\$\("#orderForm"\)&&\(\$\("#orderForm"\)\.onsubmit=async[\s\S]*catch\(err\)\{toast/);
-  assert.match(src, /\$\("#productForm"\)&&\(\$\("#productForm"\)\.onsubmit=async[\s\S]*catch\(err\)/);
-  assert.match(src, /\$\("#deliveryForm"\)&&\(\$\("#deliveryForm"\)\.onsubmit=async[\s\S]*catch\(err\)/);
-  assert.match(src, /\$\("#marketplaceForm"\)&&\(\$\("#marketplaceForm"\)\.onsubmit=async[\s\S]*catch\(err\)/);
-  assert.match(src, /\$\("#storeForm"\)&&\(\$\("#storeForm"\)\.onsubmit=async[\s\S]*catch\(err\)/);
-  assert.match(src, /Could not save website draft/);
+  assert.match(src, /function bindForm\(selector,handler\)[\s\S]*catch\(err\)\{toast/);
+  for (const selector of ["#orderForm", "#productForm", "#deliveryForm", "#marketplaceForm", "#storeForm"]) {
+    assert.match(src, new RegExp(`bindForm\\("${selector}"`));
+  }
+  assert.match(websiteEditor, /Website draft save could not be confirmed/);
+  assert.match(websiteEditor, /Your saved draft is safe/);
   assert.match(src, /Could not switch shops/);
 });
 

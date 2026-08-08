@@ -29,7 +29,7 @@
     <button type="button" class="atelier-icon-btn" id="atelierNotifyBtn" title="Notifications" aria-label="Notifications">🔔</button>
     <div class="atelier-user-chip">
       <img src="/assets/assistants/rose-portrait.png" alt="" class="atelier-user-avatar" width="40" height="40">
-      <span><b id="atelierUserName">Ashley</b><small id="atelierUserRole">Owner &amp; Florist</small></span>
+      <span><b id="atelierUserName">Florist</b><small id="atelierUserRole">Owner &amp; Florist</small></span>
     </div>
     <small id="accountEmail" class="atelier-account-email"></small>
     <small class="bloom-version-inline" data-florisyn-version data-bloom-version>Florisyn 1.0</small>
@@ -173,7 +173,7 @@
       </div>
       <div class="lily-suggestion-card">
         <img src="/assets/assistants/lily-portrait.png" class="assistant-portrait lily-portrait" alt="Lily assistant">
-        <div><h2>Hi Ashley!</h2><p>I found new floral ideas that match your inventory.</p><button class="soft-green" data-page="libraryPage">View suggestions</button></div>
+        <div><h2 id="lilySuggestionGreeting">Hi there!</h2><p>I found new floral ideas that match your inventory.</p><button class="soft-green" data-page="libraryPage">View suggestions</button></div>
       </div>
     </aside>
   </div>
@@ -201,7 +201,7 @@
     <section class="pos-center">
       <div class="product-toolbar">
         <div class="product-tabs"><button class="active">Product Pads</button><button data-page="inventoryPage">Scan</button><button data-page="libraryPage">Visual</button><button data-open="orderDialog">Manual Entry</button></div>
-        <div class="product-view-tools"><select id="tileCategoryFilter"><option>Everyday</option><option>Wedding</option><option>Sympathy</option><option>Plants</option></select><button id="manageTilesBtn" class="compact-edit-tiles" type="button" title="Edit product tiles" aria-label="Edit product tiles">✎ <span>Edit</span></button><button>▦</button><button>▤</button></div>
+        <div class="product-view-tools"><label class="visually-hidden" for="tileCategoryFilter">Product tile category</label><select id="tileCategoryFilter"><option>Everyday</option><option>Wedding</option><option>Sympathy</option><option>Plants</option></select><button id="manageTilesBtn" class="compact-edit-tiles" type="button" title="Edit product tiles" aria-label="Edit product tiles">✎ <span>Edit</span></button><button type="button" aria-label="Show compact product tile grid">▦</button><button type="button" aria-label="Show spacious product tile grid">▤</button></div>
       </div>
 
       <div id="productPadGrid" class="product-pad-grid"></div>

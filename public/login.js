@@ -14,7 +14,7 @@ async function bloomLogin(event){
   button.disabled=true;
   button.textContent='Signing in…';
   try{
-    const response=await fetch('/.netlify/functions/auth-login',{
+    const response=await fetch('/api/auth-login',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({email,password})
@@ -35,6 +35,8 @@ async function bloomLogin(event){
     const emailParam=encodeURIComponent(email||'');
     if(code==='shop_membership_required'||/not linked to an active flower shop/i.test(detail)){
       message.textContent=detail;
+    }else if(code==='membership_check_unavailable'){
+      message.textContent=detail || 'Sign in is temporarily unavailable while Florisyn verifies shop access. Please try again shortly.';
     }else if(code==='email_not_confirmed'||/email not confirmed/i.test(detail)){
       message.innerHTML=`Could not sign in yet. Check your email confirmation link, or <a href="/verify-email?pending=1&email=${emailParam}">resend the confirmation email</a>.`;
     }else if(code==='auth_rate_limited'||code==='auth_email_provider_unavailable'){

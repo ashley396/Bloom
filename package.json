@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@netlify/blobs": "^9.1.6",
     "@supabase/supabase-js": "^2.49.8",
     "sharp": "0.35.3",
     "stripe": "^17.7.0"
@@ -36,7 +35,8 @@
     "db:baseline:build": "node scripts/build-canonical-baseline.mjs",
     "db:baseline:check": "node scripts/build-canonical-baseline.mjs --check",
     "frontend:dev": "npm --prefix frontend run dev",
-    "frontend:build": "npm --prefix frontend run build"
+    "frontend:build": "npm --prefix frontend run build",
+    "verify:live-staging-smoke": "node scripts/verify-live-staging-smoke.mjs"
   },
   "devDependencies": {
     "pg": "^8.22.0"

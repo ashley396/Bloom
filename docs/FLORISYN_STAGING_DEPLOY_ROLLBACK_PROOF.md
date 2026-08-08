@@ -32,6 +32,14 @@ Do not publish file-by-file through GitHub contents APIs while Netlify auto depl
 After Netlify finishes the auto deploy:
 
 ```bash
+npm run verify:live-staging-smoke
+```
+
+This automated smoke gate verifies static security headers, function `no-store` headers, non-wildcard CORS, invalid-login failure handling, confirmation-resend handling, and secret redaction.
+
+Manual equivalent:
+
+```bash
 BASE="https://florisyn-staging.netlify.app"
 curl -fsS "$BASE/.netlify/functions/production-health"
 curl -fsS "$BASE/.netlify/functions/admin-bootstrap"
