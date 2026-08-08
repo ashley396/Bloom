@@ -1,0 +1,387 @@
+/**
+ * Florisyn Luxury Floral Library — Figma grid
+ * Navy #1a1f3c · Rose #E06B85 · Full cards always · Shared sidebar preserved
+ */
+
+/* Keep shared shell sidebar on Floral Library (never full-bleed alone) */
+body.florisyn-atelier:has(#libraryPage.active) .shell.florisyn-lux-shell,
+body:has(#libraryPage.active) .shell.florisyn-lux-shell {
+  display: grid !important;
+  grid-template-columns: var(--lux-sidebar, 220px) minmax(0, 1fr) !important;
+}
+
+body.florisyn-atelier:has(#libraryPage.active) .shell > aside#atelierSidebarDrawer,
+body:has(#libraryPage.active) .shell > aside#atelierSidebarDrawer {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: var(--lux-sidebar, 220px) !important;
+  min-width: var(--lux-sidebar, 220px) !important;
+}
+
+#libraryPage.florisyn-lux-library,
+body.florisyn-atelier #libraryPage.florisyn-lux-library {
+  --lib-navy: #1a1f3c;
+  --lib-rose: #e06b85;
+  --lib-ink: #26263a;
+  --lib-muted: #666670;
+  --lib-border: #eae6e8;
+  --lib-blush: #fbf6f7;
+  --lib-radius: 8px;
+  font-family: Inter, system-ui, sans-serif;
+  color: var(--lib-ink);
+  display: none;
+}
+
+#libraryPage.florisyn-lux-library.active,
+body.florisyn-atelier #libraryPage.florisyn-lux-library.active {
+  display: block !important;
+}
+
+#libraryPage.florisyn-lux-library > .heading,
+body.florisyn-atelier #libraryPage.florisyn-lux-library > .heading {
+  display: block !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 0 8px !important;
+  margin: 0 0 18px !important;
+}
+
+#libraryPage.florisyn-lux-library > .heading h1 {
+  font-family: "Crimson Pro", Georgia, serif !important;
+  font-size: clamp(2rem, 3vw, 2.55rem) !important;
+  font-weight: 600 !important;
+  color: var(--lib-navy) !important;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px !important;
+}
+
+#libraryPage.florisyn-lux-library > .heading .eyebrow {
+  display: none !important;
+}
+
+#libraryPage.florisyn-lux-library > .heading .subtle {
+  max-width: 620px;
+  font-size: 14.5px !important;
+  line-height: 1.5;
+  color: var(--lib-muted) !important;
+  margin: 0 !important;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 14px;
+  margin: 0 0 22px;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-filters button {
+  border: 1px solid var(--lib-border) !important;
+  background: #fff !important;
+  color: var(--lib-muted) !important;
+  border-radius: 999px !important;
+  padding: 8px 14px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  min-height: 0 !important;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-filters button.active,
+#libraryPage.florisyn-lux-library .lux-lib-filters button[aria-current="true"] {
+  background: var(--lib-navy) !important;
+  border-color: var(--lib-navy) !important;
+  color: #fff !important;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-search,
+#libraryPage.florisyn-lux-library #librarySearch {
+  min-width: 200px;
+  max-width: 260px;
+  border: 1px solid var(--lib-border) !important;
+  border-radius: 20px !important;
+  background: #fff !important;
+  padding: 9px 14px !important;
+  font-size: 13px !important;
+  box-shadow: none !important;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-sort,
+#libraryPage.florisyn-lux-library #luxLibSort {
+  border: 1px solid var(--lib-border) !important;
+  border-radius: 20px !important;
+  background: #fff !important;
+  padding: 9px 12px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  color: var(--lib-ink) !important;
+  box-shadow: none !important;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-meta {
+  width: 100%;
+  font-size: 12.5px;
+  color: var(--lib-muted);
+  margin: -8px 0 4px;
+}
+
+#libraryPage.florisyn-lux-library .library-toolbar {
+  display: none !important;
+}
+
+#libraryPage.florisyn-lux-library #libraryCategory {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+}
+
+/* 3-column catalog — beat polish auto-fill product-grid rules */
+#libraryPage.florisyn-lux-library #libraryList,
+#libraryPage.florisyn-lux-library #libraryList.lux-lib-grid,
+#libraryPage.florisyn-lux-library .lux-lib-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 24px !important;
+  align-items: stretch !important;
+  grid-auto-rows: auto !important;
+}
+
+/* Every card: image → name/price → style → desc → stats → recipe → buttons */
+#libraryPage.florisyn-lux-library .lux-lib-card {
+  background: #fff !important;
+  border: 1px solid var(--lib-border) !important;
+  border-radius: var(--lib-radius) !important;
+  box-shadow: 0 10px 28px rgba(26, 31, 60, 0.06) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  min-width: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  clip-path: none !important;
+  mask: none !important;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-media {
+  position: relative;
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  height: 200px !important;
+  max-height: 200px !important;
+  aspect-ratio: auto !important;
+  background: var(--lib-blush);
+  overflow: hidden;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-media img {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 200px !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  display: block !important;
+  border-radius: 0 !important;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-ribbon {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;
+  background: linear-gradient(135deg, #c9a962, #a8883f);
+  color: #1a1f3c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 5px 9px;
+  border-radius: 999px;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-body {
+  display: flex !important;
+  flex-direction: column !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  gap: 10px;
+  padding: 16px 16px 14px !important;
+  flex: 1 1 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-title-row {
+  display: flex !important;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-title-row h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--lib-navy);
+  line-height: 1.25;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-price {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--lib-navy);
+  white-space: nowrap;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-style {
+  display: inline-flex !important;
+  width: fit-content;
+  background: rgba(26, 31, 60, 0.08);
+  color: var(--lib-navy);
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--lib-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-stats {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  background: #f3f6f1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #3d5c4a;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-recipe {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--lib-ink);
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-recipe strong {
+  color: var(--lib-muted);
+  font-weight: 700;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-actions {
+  display: grid !important;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+  visibility: visible !important;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-add,
+#libraryPage.florisyn-lux-library .lux-lib-draft {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 40px !important;
+  border-radius: 8px !important;
+  font-weight: 700 !important;
+  font-size: 13.5px !important;
+  box-shadow: none !important;
+  visibility: visible !important;
+}
+
+/* Rose pink primary · white outlined secondary */
+#libraryPage.florisyn-lux-library .lux-lib-add {
+  background: var(--lib-rose) !important;
+  border: 0 !important;
+  color: #fff !important;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-draft {
+  background: #fff !important;
+  border: 1.5px solid var(--lib-rose) !important;
+  color: var(--lib-rose) !important;
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-foot {
+  margin: 0;
+  font-size: 11px;
+  color: var(--lib-muted);
+}
+
+#libraryPage.florisyn-lux-library .lux-lib-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--lib-muted);
+  background: #fff;
+  border: 1px dashed var(--lib-border);
+  border-radius: 8px;
+}
+
+@media (max-width: 1100px) {
+  #libraryPage.florisyn-lux-library #libraryList.lux-lib-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 900px) {
+  body.florisyn-atelier:has(#libraryPage.active) .shell.florisyn-lux-shell {
+    grid-template-columns: 1fr !important;
+  }
+
+  body.florisyn-atelier:has(#libraryPage.active) .shell > aside#atelierSidebarDrawer {
+    /* mobile drawer pattern from atelier — keep available when opened */
+    position: fixed !important;
+  }
+}
+
+@media (max-width: 700px) {
+  #libraryPage.florisyn-lux-library #libraryList.lux-lib-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  #libraryPage.florisyn-lux-library .lux-lib-tools {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  #libraryPage.florisyn-lux-library .lux-lib-search,
+  #libraryPage.florisyn-lux-library #librarySearch {
+    flex: 1;
+    max-width: none;
+  }
+}

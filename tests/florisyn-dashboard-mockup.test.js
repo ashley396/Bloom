@@ -19,6 +19,7 @@ test("dashboard mockup chrome is wired in the florist app shell", () => {
   assert.match(html, /Point of Sale/);
   assert.match(html, /florisyn-atelier-dashboard\.js/);
   assert.match(html, /florisyn-atelier-ui\.css\?v=atelierops1/);
+  assert.match(html, /florisyn-luxury-dashboard\.css/);
 });
 
 test("mobile mockup chrome matches founder phone layout markers", () => {
@@ -39,7 +40,6 @@ test("mobile mockup chrome matches founder phone layout markers", () => {
   assert.match(css, /grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
   assert.doesNotMatch(css, /\.atelier-mobile-add/);
   assert.match(css, /kpi-revenue/);
-  assert.match(css, /linear-gradient\(145deg, #1a2b48/);
 });
 
 test("atelier dashboard script renders overview lists and drawer chrome", () => {

@@ -5,6 +5,22 @@
 
 @import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap");
 
+/* Never let atelier display rules reveal gated Admin chrome before auth. */
+body.florisyn.admin-luxury.florisyn-atelier-shell [hidden],
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp[hidden],
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminAuth[hidden],
+body.florisyn.admin-luxury.florisyn-atelier-shell #ownerSetup[hidden] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell.admin-locked #adminApp {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 body.florisyn.admin-luxury.florisyn-atelier-shell,
 body.florisyn-atelier-admin {
   --atelier-navy: #1a2b48;
@@ -84,13 +100,20 @@ body.florisyn.admin-luxury.florisyn-atelier-shell .eyebrow {
   letter-spacing: 0.16em !important;
 }
 
-body.florisyn.admin-luxury.florisyn-atelier-shell .admin-login button,
-body.florisyn.admin-luxury.florisyn-atelier-shell button:not(.secondary):not([data-theme-toggle]) {
+body.florisyn.admin-luxury.florisyn-atelier-shell .admin-login button:not(.admin-password-toggle):not(.secondary),
+body.florisyn.admin-luxury.florisyn-atelier-shell button:not(.secondary):not(.admin-password-toggle):not([data-theme-toggle]) {
   background: linear-gradient(135deg, var(--atelier-navy) 0%, var(--atelier-navy-soft) 100%) !important;
   color: #fff !important;
   border-radius: 14px !important;
   box-shadow: 0 12px 28px rgba(26, 43, 72, 0.22);
   font-weight: 700;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell .admin-password-toggle {
+  background: transparent !important;
+  color: #8a7f86 !important;
+  box-shadow: none !important;
+  border-radius: 10px !important;
 }
 
 body.florisyn.admin-luxury.florisyn-atelier-shell button.secondary,
