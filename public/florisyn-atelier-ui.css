@@ -234,11 +234,21 @@ body.florisyn-atelier .kanban article {
   box-shadow: var(--atelier-shadow-soft) !important;
 }
 
-/* —— Dashboard / Today welcome —— */
-body.florisyn-atelier #dashboardPage.pos-home {
-  display: flex;
+/* —— Page isolation: inactive .page must never remain in layout —— */
+body.florisyn-atelier .page:not(.active),
+body.florisyn-atelier .page[hidden] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* —— Dashboard / Today welcome (only when active) —— */
+body.florisyn-atelier #dashboardPage.pos-home.active:not([hidden]) {
+  display: flex !important;
   flex-direction: column;
   gap: 20px;
+  visibility: visible !important;
+  pointer-events: auto !important;
 }
 
 body.florisyn-atelier .pos-welcome-row {
