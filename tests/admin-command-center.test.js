@@ -90,6 +90,12 @@ test("admin remote editor keeps account, appearance, navigation, features, and s
     "sidebar",
     "nav_order",
     "nav_hidden",
+    "app_background_image",
+    "dashboard_image",
+    "logo_image",
+    "layout_mode",
+    "button_labels",
+    "tab_labels",
     "plan_code",
     "subscription_status",
     "account_status"
@@ -101,6 +107,8 @@ test("admin remote editor keeps account, appearance, navigation, features, and s
   assert.match(js, /const FEATURES=\[[^\]]*'rose'/);
   assert.match(js, /action:'update-shop'/);
   assert.match(js, /action:'save-config'/);
+  assert.match(js, /parseJsonField\('button_labels'\)/);
+  assert.match(js, /parseJsonField\('tab_labels'\)/);
   assert.match(js, /action:'update-subscription'/);
   assert.match(js, /#saveShop/);
   assert.match(js, /#saveSubscription/);

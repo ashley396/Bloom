@@ -46,5 +46,19 @@ test("atelier dashboard script renders overview lists and drawer chrome", () => 
   assert.match(dashJs, /FlorisynAtelierDashboard/);
   assert.match(dashJs, /renderTodayOrders/);
   assert.match(dashJs, /atelier-drawer-open/);
+  assert.match(dashJs, /window\.FlorisynAtelierChrome = \{ setDrawer \}/);
+  assert.match(dashJs, /#atelierSidebarDrawer, \.atelier-mobile-nav/);
+  assert.match(dashJs, /setDrawer\(false\)/);
   assert.match(dashJs, /statusLabel/);
+});
+
+test("remote admin content controls can update images and labels", () => {
+  const app = fs.readFileSync(path.join(root, "public/app.js"), "utf8");
+  assert.match(app, /safeRemoteImageUrl/);
+  assert.match(app, /app_background_image/);
+  assert.match(app, /dashboard_image/);
+  assert.match(app, /logo_image/);
+  assert.match(app, /button_labels/);
+  assert.match(app, /tab_labels/);
+  assert.match(css, /--remote-app-background-image/);
 });

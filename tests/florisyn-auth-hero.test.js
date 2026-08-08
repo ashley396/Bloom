@@ -24,6 +24,11 @@ test("login keeps auth form contracts", () => {
   assert.match(login, /id="password"/);
   assert.match(login, /id="authButton"/);
   assert.match(login, /id="authMessage"/);
+  assert.match(login, /Thoughtful florist software for modern shops/);
+  assert.match(login, /Welcome back!/);
+  assert.match(login, /About Florisyn/);
+  assert.doesNotMatch(login, /The #1 florist management platform/);
+  assert.doesNotMatch(login, /Watch Demo/);
   assert.match(login, /Create account/);
 });
 
