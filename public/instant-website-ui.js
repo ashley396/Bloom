@@ -17,8 +17,8 @@
       "afterbegin",
       `<div class="instant-wizard-shell panel bloom-rc1-wizard">
         <p class="eyebrow">FLORISYN INSTANT WEBSITES</p>
-        <h2>Launch your florist site in minutes</h2>
-        <p class="subtle">We pre-fill from your shop profile — no retyping phone, address, or logo.</p>
+        <h2>Build your florist website with guided AI-style help</h2>
+        <p class="subtle">Describe the shop once. Florisyn creates a florist-specific draft with sections, copy prompts, SEO basics, and catalog starter content without paid AI.</p>
         <div class="instant-wizard-steps" id="instantWizardSteps">
           <span class="active">1 Business</span><span>2 Logo</span><span>3 Style</span><span>4 Collections</span><span>5 Domain</span><span>6 Preview</span><span>7 Publish</span>
         </div>
@@ -32,13 +32,21 @@
           <option value="modern_minimal">Modern Minimal</option>
           <option value="rustic_farmhouse">Rustic Farmhouse</option>
         </select></label>
+        <div class="florist-ai-brief" aria-label="Florist website brief">
+          <label>Website style<input id="instantBriefStyle" placeholder="Luxury, romantic, modern, garden-inspired"></label>
+          <label>Best customers<input id="instantBriefAudience" placeholder="Busy local families, brides, sympathy customers"></label>
+          <label>What you sell most<textarea id="instantBriefSpecialty" rows="2" placeholder="Everyday bouquets, weddings, sympathy, plants, gifts"></textarea></label>
+          <label>Delivery area<input id="instantBriefDelivery" placeholder="City, neighborhoods, nearby towns"></label>
+          <label>Main website goal<textarea id="instantBriefGoal" rows="2" placeholder="Make ordering beautiful flowers fast, clear, and trustworthy"></textarea></label>
+          <label>Occasions to feature<input id="instantBriefOccasions" placeholder="Birthday, Sympathy, Wedding, Anniversary, Plants"></label>
+        </div>
         <label>Domain path<select id="instantDomainMode">
           <option value="bloom_subdomain">Use temporary Florisyn address (shopname.bloom-sites.com)</option>
           <option value="connect">Connect a domain I own</option>
           <option value="purchase">Find & purchase a domain (provider integration required)</option>
         </select></label>
         <div class="card-actions">
-          <button type="button" class="primary" id="instantGenerateBtn">Build starter website</button>
+          <button type="button" class="primary" id="instantGenerateBtn">Build florist website draft</button>
           <button type="button" class="secondary" id="instantHealthBtn">Website health check</button>
         </div>
         <p id="instantWizardStatus" class="subtle" aria-live="polite"></p>
@@ -56,10 +64,18 @@
     );
     root.querySelector("#instantGenerateBtn")?.addEventListener("click", async () => {
       const status = root.querySelector("#instantWizardStatus");
-      status.textContent = "Generating from your shop profile…";
+      status.textContent = "Generating florist website draft…";
       try {
-        const d = await api("wizard_generate", { launch_mode: root.querySelector("#instantLaunchMode")?.value });
-        status.textContent = d.note || "Starter site ready — edit in Website Studio and preview before publish.";
+        const brief = {
+          style: root.querySelector("#instantBriefStyle")?.value,
+          audience: root.querySelector("#instantBriefAudience")?.value,
+          specialty: root.querySelector("#instantBriefSpecialty")?.value,
+          delivery_area: root.querySelector("#instantBriefDelivery")?.value,
+          hero_goal: root.querySelector("#instantBriefGoal")?.value,
+          occasions: root.querySelector("#instantBriefOccasions")?.value
+        };
+        const d = await api("wizard_generate", { launch_mode: root.querySelector("#instantLaunchMode")?.value, brief });
+        status.textContent = d.note || "Florist website draft ready — edit sections, preview, then publish.";
         window.toast?.("Instant website draft created");
         if (window.renderWebsite) window.renderWebsite();
       } catch (e) {

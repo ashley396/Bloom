@@ -85,9 +85,19 @@ test("Florisyn app icon uses official founder artwork PNG", () => {
 
 test("admin page uses Atelier admin stylesheet", () => {
   const html = fs.readFileSync(new URL("../public/admin.html", import.meta.url), "utf8");
+  const js = fs.readFileSync(new URL("../public/admin.js", import.meta.url), "utf8");
+  const adminCss = fs.readFileSync(new URL("../public/admin.css", import.meta.url), "utf8");
   assert.match(html, /florisyn-atelier-admin\.css/);
   assert.match(html, /florisyn-atelier-admin/);
   assert.match(html, /florisyn-apple-touch-180\.png/);
+  assert.match(html, /href="\/forgot-password"/);
+  assert.match(html, /id="adminPasswordToggle"/);
+  assert.match(adminCss, /\[hidden\]\{display:none!important\}/);
+  assert.match(js, /adminPasswordToggle/);
+  assert.match(js, /input\.type=show\?'text':'password'/);
+  assert.match(js, /friendlyAdminError/);
+  assert.match(js, /Florisyn Administration could not finish loading/);
+  assert.match(js, /localStorage\.removeItem\('bloom_admin_session'\)/);
 });
 
 test("login pages guide unconfirmed accounts to resend confirmation", () => {

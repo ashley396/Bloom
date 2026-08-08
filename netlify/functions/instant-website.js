@@ -85,7 +85,11 @@ export async function handler(event) {
 
     if (action === "generate" || action === "wizard_generate") {
       const shop = { ...(await loadShopProfile(client, shopId)), ...(body.shop || {}) };
-      const site = buildSiteFromShopProfile(shop, { launch_mode: body.launch_mode, status: "draft" });
+      const site = buildSiteFromShopProfile(shop, {
+        launch_mode: body.launch_mode,
+        status: "draft",
+        brief: body.brief || body.florist_brief || {}
+      });
       try {
         const { data: proj, error } = await client
           .from("bloom_website_projects")

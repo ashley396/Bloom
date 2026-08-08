@@ -29,6 +29,19 @@
         <p class="eyebrow">VISUAL EDITOR</p>
         <h2>Edit your website sections</h2>
         <div class="editor-toolbar card-actions">
+          <label class="editor-add-section">Add section<select id="editorSectionType">
+            <option value="hero">Hero</option>
+            <option value="featured_arrangements">Featured arrangements</option>
+            <option value="occasion_tiles">Occasion tiles</option>
+            <option value="delivery_area">Delivery area</option>
+            <option value="wedding_feature">Weddings and events</option>
+            <option value="sympathy_feature">Sympathy</option>
+            <option value="about_florist">About florist</option>
+            <option value="shop_hours">Hours</option>
+            <option value="contact_form">Contact form</option>
+            <option value="cta_banner">Call to action</option>
+          </select></label>
+          <button type="button" class="secondary" id="editorAddSection">Add</button>
           <button type="button" class="secondary" id="editorUndo">Undo</button>
           <button type="button" class="secondary" id="editorRedo">Redo</button>
           <button type="button" class="secondary" id="editorSave">Save draft</button>
@@ -121,6 +134,23 @@
         .join("");
     }
 
+    function titleForType(type) {
+      return String(type || "custom_text_image").replaceAll("_", " ").replace(/\b\w/g, (m) => m.toUpperCase());
+    }
+
+    function newSection(type) {
+      const id = `${type || "section"}-${Date.now()}`;
+      return {
+        id,
+        type: type || "custom_text_image",
+        order: sections.length,
+        props: {
+          title: titleForType(type),
+          text: "Click to edit this florist website section."
+        }
+      };
+    }
+
     root.querySelector("#editorSave")?.addEventListener("click", async () => {
       if (busy) return;
       const status = root.querySelector("#editorStatus");
@@ -203,6 +233,13 @@
         renderCanvas();
         live("Redo.");
       }
+    });
+    root.querySelector("#editorAddSection")?.addEventListener("click", () => {
+      syncTextEdits();
+      sections = [...sections, newSection(root.querySelector("#editorSectionType")?.value)].map((s, order) => ({ ...s, order }));
+      pushHistory();
+      renderCanvas();
+      live("Section added.");
     });
 
     ["Desktop", "Tablet", "Mobile"].forEach((mode) => {

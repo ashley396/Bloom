@@ -64,13 +64,15 @@ export const SECTION_TYPES = [
 
 export function buildSiteFromShopProfile(shop = {}, options = {}) {
   const mode = LAUNCH_MODES.find((m) => m.id === options.launch_mode) || LAUNCH_MODES[0];
+  const brief = normalizeFloristWebsiteBrief(options.brief || {});
+  const enhancedShop = applyFloristWebsiteBrief(shop, brief);
   const pages = DEFAULT_SITE_PAGES.map((p) => ({
     ...p,
     id: `${p.slug}-v1`,
     visible: p.nav !== false,
-    content: defaultPageContent(p, shop)
+    content: defaultPageContent(p, enhancedShop)
   }));
-  const sections = defaultHomeSections(shop, mode);
+  const sections = defaultHomeSections(enhancedShop, mode, brief);
   return {
     project: {
       shop_id: shop.id,
@@ -88,8 +90,44 @@ export function buildSiteFromShopProfile(shop = {}, options = {}) {
     pages,
     navigation: pages.filter((p) => p.visible).map((p, i) => ({ page_id: p.id, label: p.title, order: i })),
     sections,
-    seo: buildSeoBundle(shop, pages[0]),
-    domain: domainPlaceholder(shop)
+    seo: buildSeoBundle(enhancedShop, pages[0]),
+    domain: domainPlaceholder(shop),
+    florist_brief: brief
+  };
+}
+
+export function normalizeFloristWebsiteBrief(brief = {}) {
+  const clean = (value, fallback = "") => String(value || fallback).trim().slice(0, 220);
+  const split = (value, fallback = []) =>
+    String(value || "")
+      .split(/[,;\n]/)
+      .map((x) => clean(x).slice(0, 48))
+      .filter(Boolean)
+      .slice(0, 8)
+      .concat(fallback)
+      .slice(0, 8);
+  return {
+    style: clean(brief.style, "luxury boutique"),
+    audience: clean(brief.audience, "local flower buyers"),
+    specialty: clean(brief.specialty, "everyday flowers, sympathy, weddings, and gifts"),
+    delivery_area: clean(brief.delivery_area),
+    hero_goal: clean(brief.hero_goal, "Make ordering flowers feel simple, elegant, and trustworthy."),
+    occasions: split(brief.occasions, ["Birthday", "Sympathy", "Wedding", "Plants"])
+  };
+}
+
+function applyFloristWebsiteBrief(shop, brief) {
+  const specialty = brief.specialty || "fresh flowers";
+  return {
+    ...shop,
+    tagline: shop.tagline || `Elegant ${specialty} for ${brief.audience || "every occasion"}`,
+    about_text:
+      shop.about_text ||
+      `${shop.name || "This florist"} creates ${specialty} with careful design, reliable service, and warm local delivery.`,
+    delivery_radius: shop.delivery_radius || brief.delivery_area,
+    seo_description:
+      shop.seo_description ||
+      `Order ${specialty} from ${shop.name || "your local florist"}. ${brief.delivery_area ? `Delivery available in ${brief.delivery_area}.` : "Pickup and delivery available."}`
   };
 }
 
@@ -107,15 +145,16 @@ function defaultPageContent(page, shop) {
   return { intro: `Welcome to ${name}.` };
 }
 
-function defaultHomeSections(shop, mode) {
+function defaultHomeSections(shop, mode, brief = {}) {
   return [
-    { id: "hero-1", type: "hero", order: 0, props: { title: shop.hero_title || shop.name, subtitle: shop.tagline || "Fresh flowers, delivered with care", image: shop.hero_image_url } },
-    { id: "feat-1", type: "featured_arrangements", order: 1, props: { collection: "featured" } },
-    { id: "occ-1", type: "occasion_tiles", order: 2, props: { occasions: ["Birthday", "Sympathy", "Wedding", "Plants"] } },
+    { id: "hero-1", type: "hero", order: 0, props: { title: shop.hero_title || shop.name, subtitle: shop.tagline || "Fresh flowers, delivered with care", text: brief.hero_goal, image: shop.hero_image_url } },
+    { id: "feat-1", type: "featured_arrangements", order: 1, props: { title: "Signature arrangements", collection: "featured", style: brief.style } },
+    { id: "occ-1", type: "occasion_tiles", order: 2, props: { title: "Shop by occasion", occasions: brief.occasions?.length ? brief.occasions : ["Birthday", "Sympathy", "Wedding", "Plants"] } },
+    { id: "delivery-1", type: "delivery_area", order: 3, props: { title: "Local delivery", text: shop.delivery_radius ? `Delivering throughout ${shop.delivery_radius}.` : "Add your delivery area so customers know where you serve." } },
     { id: "about-1", type: "about_florist", order: 3, props: { text: shop.about_text } },
     { id: "hours-1", type: "shop_hours", order: 4, props: { hours: shop.hours || "Mon–Sat 9–6" } },
     { id: "cta-1", type: "cta_banner", order: 5, props: { text: "Order flowers for delivery or pickup", action: "shop" } }
-  ];
+  ].map((section, order) => ({ ...section, order }));
 }
 
 export function switchThemePreserveContent(site, newModeId) {
