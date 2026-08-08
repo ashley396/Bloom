@@ -8,6 +8,8 @@ test("RC2 floral catalog has hundreds of arrangements", () => {
   const catalog = getBloomFloristCatalog(240);
   assert.equal(catalog.length, 240);
   assert.ok(catalog.every((p) => p.name && p.primary_image?.url && p.image_license?.source));
+  assert.ok(catalog.every((p) => p.metadata?.image_standard === "ultra_realistic_professional_floral_photography"));
+  assert.ok(catalog.every((p) => /ultra-realistic/i.test(p.primary_image.alt)));
   const uniqueNames = new Set(catalog.map((p) => p.name));
   assert.equal(uniqueNames.size, catalog.length);
 });

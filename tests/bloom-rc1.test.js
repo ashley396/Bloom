@@ -137,6 +137,18 @@ test("starter library includes hydrangea and roses", () => {
   assert.match(names, /rose/);
 });
 
+test("starter library is marked for ultra-realistic photo-first launch quality", () => {
+  assert.ok(STARTER_FLORAL_LIBRARY.length >= 12);
+  for (const product of STARTER_FLORAL_LIBRARY) {
+    assert.equal(product.metadata?.image_standard, "ultra_realistic_professional_floral_photography");
+    assert.equal(product.metadata?.launch_quality, "starter_verified");
+    assert.match(product.primary_image.alt, /ultra-realistic/i);
+    assert.match(product.primary_image.alt, /photograph/i);
+    assert.match(product.description, /ultra-realistic/i);
+    assert.ok(product.tags.includes("ultra_realistic"));
+  }
+});
+
 test("POS payment regression guard — create-checkout path unchanged", () => {
   assert.ok(true);
 });
