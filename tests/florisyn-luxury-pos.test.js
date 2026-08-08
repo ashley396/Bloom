@@ -62,10 +62,14 @@ test("luxury POS palette uses navy and rose without green CTAs", () => {
   assert.match(css, /#e06b85/i);
   assert.match(css, /#fbf6f7/i);
   assert.match(css, /#26263a/i);
-  assert.match(css, /grid-template-columns:\s*52px/);
+  assert.match(css, /pos-lux-main-row/);
+  assert.match(css, /flex:\s*0\s+0\s+52px/);
   assert.match(css, /340px/);
-  assert.match(css, /width:\s*152px/);
+  assert.match(css, /grid-template-columns:\s*repeat\(4,\s*1fr\)/);
   assert.match(css, /height:\s*56px/);
+  assert.match(css, /#bloomDaisy/);
+  assert.match(html, /pos-lux-main-row/);
+  assert.match(html, /Luxury Catalog Categories/);
   assert.doesNotMatch(css, /\.pos-lux-charge[^{]*\{[^}]*#547428/i);
   assert.doesNotMatch(css, /background:\s*#547428|background:\s*#486329/i);
 });

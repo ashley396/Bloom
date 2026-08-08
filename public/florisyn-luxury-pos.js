@@ -59,7 +59,6 @@
         select.value = filter;
         select.dispatchEvent(new Event("change", { bubbles: true }));
       }
-      $("#productPadGrid")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   }
 

@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1a1f3c"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/assets/florisyn/florisyn-favicon-32.png?v=official1" type="image/png" sizes="32x32"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><title>Florisyn — The Operating System for Modern Florists</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/polish-v20.2.css"><link rel="stylesheet" href="/polish-v20.4.css"><link rel="stylesheet" href="/platform-v21.1.css"><link rel="stylesheet" href="/bloom-v23.css"><link rel="stylesheet" href="/lily-platform.css"><link rel="stylesheet" href="/florisyn-live-avatars.css"><link rel="stylesheet" href="/florisyn-atelier-ui.css?v=atelierops1"><link rel="stylesheet" href="/florisyn-luxury-dashboard.css?v=lux3"><link rel="stylesheet" href="/florisyn-luxury-pos.css?v=pos3"><link rel="stylesheet" href="/florisyn-luxury-ai-studio.css?v=ai1"><link rel="stylesheet" href="/launch-polish-v1.css"><link rel="stylesheet" href="/payment-hub.css"><link rel="stylesheet" href="/payment-center-polish.css"><link rel="stylesheet" href="/shop-billing.css"><link rel="stylesheet" href="/business-ecosystem.css"><link rel="stylesheet" href="/bloom-rc1-luxury.css"><link rel="stylesheet" href="/bloom-rc2-design-system.css"><link rel="stylesheet" href="/bloom-rc2.1-polish.css"><link rel="stylesheet" href="/receipt-print.css"><link rel="stylesheet" href="/bloom-rc2.1-consistency.css"><link rel="stylesheet" href="/florisyn-brand.css"><link rel="stylesheet" href="/florisyn-founder-1.0.css"><link rel="stylesheet" href="/florisyn-rc2.2-founder-polish.css"><link rel="stylesheet" href="/community.css"><link rel="stylesheet" href="/florisyn-ui-editor.css"></head><body class="bloom-rc1 bloom-rc2 bloom-rc21 florisyn florisyn-rc22 florisyn-atelier">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1a1f3c"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/assets/florisyn/florisyn-favicon-32.png?v=official1" type="image/png" sizes="32x32"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1"><title>Florisyn — The Operating System for Modern Florists</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/polish-v20.2.css"><link rel="stylesheet" href="/polish-v20.4.css"><link rel="stylesheet" href="/platform-v21.1.css"><link rel="stylesheet" href="/bloom-v23.css"><link rel="stylesheet" href="/lily-platform.css"><link rel="stylesheet" href="/florisyn-live-avatars.css"><link rel="stylesheet" href="/florisyn-atelier-ui.css?v=atelierops1"><link rel="stylesheet" href="/florisyn-luxury-dashboard.css?v=lux3"><link rel="stylesheet" href="/florisyn-luxury-ai-studio.css?v=ai1"><link rel="stylesheet" href="/launch-polish-v1.css"><link rel="stylesheet" href="/payment-hub.css"><link rel="stylesheet" href="/payment-center-polish.css"><link rel="stylesheet" href="/shop-billing.css"><link rel="stylesheet" href="/business-ecosystem.css"><link rel="stylesheet" href="/bloom-rc1-luxury.css"><link rel="stylesheet" href="/bloom-rc2-design-system.css"><link rel="stylesheet" href="/bloom-rc2.1-polish.css"><link rel="stylesheet" href="/receipt-print.css"><link rel="stylesheet" href="/bloom-rc2.1-consistency.css"><link rel="stylesheet" href="/florisyn-brand.css"><link rel="stylesheet" href="/florisyn-founder-1.0.css"><link rel="stylesheet" href="/florisyn-rc2.2-founder-polish.css"><link rel="stylesheet" href="/community.css"><link rel="stylesheet" href="/florisyn-ui-editor.css"><link rel="stylesheet" href="/florisyn-luxury-pos.css?v=pos4"></head><body class="bloom-rc1 bloom-rc2 bloom-rc21 florisyn florisyn-rc22 florisyn-atelier">
 <div id="bloomLoadingScreen" role="status" aria-live="polite"><div class="bloom-loading-inner"><img class="florisyn-loading-mark" src="/assets/florisyn/florisyn-mark.png?v=official1" width="72" height="72" alt=""><p>Loading Florisyn…</p></div></div>
 <div id="toast" class="toast" hidden></div>
 <section id="auth" hidden></section>
@@ -221,13 +221,14 @@
 </section>
 <section id="posPage" class="page florisyn-pos-page" aria-label="Point of Sale">
 <div class="pos-workspace florisyn-pos-lux" id="florisynPosLux">
+  <div class="pos-lux-main-row">
     <aside class="pos-lux-rail" aria-label="Register tools">
-      <button type="button" class="pos-lux-rail-btn active" data-pos-tool="cart" title="Cart"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 7h15l-1.5 9h-12z"/><path d="M6 7L5 3H2"/><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg></span><small>Cart</small></button>
-      <button type="button" class="pos-lux-rail-btn" data-pos-tool="lookup" title="Lookup"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg></span><small>Lookup</small></button>
-      <button type="button" class="pos-lux-rail-btn" data-pos-tool="returns" title="Returns"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></span><small>Returns</small></button>
-      <button type="button" class="pos-lux-rail-btn" data-pos-tool="quick" data-open="orderDialog" title="Quick Sale"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span><small>Quick</small></button>
-      <button type="button" class="pos-lux-rail-btn" data-pos-tool="hold" id="posHoldOrderBtn" title="Hold"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></span><small>Hold</small></button>
-      <button type="button" class="pos-lux-rail-btn" data-pos-tool="recall" id="posRecallBtn" title="Recall"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 2.1-5.8"/><path d="M3 4v5h5"/></svg></span><small>Recall</small></button>
+      <button type="button" class="pos-lux-rail-btn active" data-pos-tool="cart" title="Cart"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 7h15l-1.5 9h-12z"/><path d="M6 7L5 3H2"/><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg></span><small>CART</small></button>
+      <button type="button" class="pos-lux-rail-btn" data-pos-tool="lookup" title="Lookup"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/><circle cx="11" cy="11" r="2.2" fill="currentColor" stroke="none"/></svg></span><small>LOOKUP</small></button>
+      <button type="button" class="pos-lux-rail-btn" data-pos-tool="returns" title="Returns"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></span><small>RETURNS</small></button>
+      <button type="button" class="pos-lux-rail-btn" data-pos-tool="quick" data-open="orderDialog" title="Quick Sale"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span><small>QUICK</small></button>
+      <button type="button" class="pos-lux-rail-btn" data-pos-tool="hold" id="posHoldOrderBtn" title="Hold"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></span><small>HOLD</small></button>
+      <button type="button" class="pos-lux-rail-btn" data-pos-tool="recall" id="posRecallBtn" title="Recall"><span class="pos-lux-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></span><small>RECALL</small></button>
     </aside>
 
     <div class="pos-lux-center">
@@ -253,24 +254,24 @@
         </div>
       </header>
 
-      <div class="pos-lux-cat-head">
-        <h3 class="visually-hidden">Luxury catalog categories</h3>
-        <button type="button" class="pos-lux-customize" id="manageTilesBtn">Customize Shortcuts</button>
+      <div class="pos-lux-top-block">
+        <div class="pos-lux-cat-head">
+          <h3>Luxury Catalog Categories</h3>
+          <button type="button" class="pos-lux-customize" id="manageTilesBtn">Customize Shortcuts</button>
+        </div>
+        <div class="pos-lux-categories" id="posLuxCategories" aria-label="Catalog categories"></div>
+        <label class="visually-hidden" for="tileCategoryFilter">Product tile category</label>
+        <select id="tileCategoryFilter" class="visually-hidden" tabindex="-1" aria-hidden="true">
+          <option value="all">All</option>
+          <option value="Everyday">Everyday</option>
+          <option value="Wedding">Wedding</option>
+          <option value="Sympathy">Sympathy</option>
+          <option value="Plants">Plants</option>
+          <option value="Gifts">Gifts</option>
+          <option value="Other">Other</option>
+        </select>
+        <div id="productPadGrid" class="product-pad-grid pos-lux-pads" aria-label="Product pads" hidden></div>
       </div>
-      <div class="pos-lux-categories" id="posLuxCategories" aria-label="Catalog categories"></div>
-
-      <label class="visually-hidden" for="tileCategoryFilter">Product tile category</label>
-      <select id="tileCategoryFilter" class="visually-hidden" tabindex="-1" aria-hidden="true">
-        <option value="all">All</option>
-        <option value="Everyday">Everyday</option>
-        <option value="Wedding">Wedding</option>
-        <option value="Sympathy">Sympathy</option>
-        <option value="Plants">Plants</option>
-        <option value="Gifts">Gifts</option>
-        <option value="Other">Other</option>
-      </select>
-
-      <div id="productPadGrid" class="product-pad-grid pos-lux-pads" aria-label="Product pads"></div>
 
       <section class="pos-lux-basket" aria-labelledby="posBasketHeading">
         <div class="pos-lux-basket-head">
@@ -350,6 +351,7 @@
         <b id="weekSales">$0.00</b><b id="totalSales">$0.00</b>
       </div>
     </aside>
+    </div>
 
     <footer class="pos-lux-statusbar">
       <div class="pos-lux-status-left"><i aria-hidden="true"></i> Register Online <span>REG-MAIN-001</span></div>

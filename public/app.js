@@ -88,6 +88,7 @@ function showPage(id){
       return;
     }
     $$(".page").forEach(p=>p.classList.toggle("active",p.id===id));
+    document.body.classList.toggle("florisyn-pos-active", id==="posPage");
     const routePath=window.FlorisynRouter?.path||window.FlorisynRouter?.PAGE_PATH?.[id]||"";
     if(window.FlorisynRouter?.syncActiveNav&&routePath)window.FlorisynRouter.syncActiveNav(routePath);
     else $$("#app aside button[data-page], .mobile-nav button[data-page], .assistant-mini-dock button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));
