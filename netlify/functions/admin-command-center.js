@@ -39,6 +39,15 @@ function isMissingTableError(error) {
   return message.includes("does not exist") || message.includes("could not find the table");
 }
 
+/** Soft-fail HQ reads when a table is missing OR the DB role lacks grants (42501). */
+function isSoftReadError(error) {
+  if (!error) return false;
+  if (isMissingTableError(error)) return true;
+  const code = String(error.code || "");
+  const message = String(error.message || error.details || "").toLowerCase();
+  return code === "42501" || message.includes("permission denied");
+}
+
 function clientIp(event) {
   return event.headers["x-forwarded-for"]?.split(",")[0]?.trim() || event.headers["client-ip"] || "unknown";
 }
@@ -47,7 +56,7 @@ async function safeCount(client, table) {
   try {
     const { count, error } = await client.from(table).select("*", { count: "exact", head: true });
     if (error) {
-      if (isMissingTableError(error)) return null;
+      if (isSoftReadError(error)) return null;
       console.error(JSON.stringify({
         event: "admin_command_center_safe_count_error",
         table,
@@ -58,7 +67,7 @@ async function safeCount(client, table) {
     }
     return count || 0;
   } catch (error) {
-    if (isMissingTableError(error)) return null;
+    if (isSoftReadError(error)) return null;
     console.error(JSON.stringify({
       event: "admin_command_center_safe_count_throw",
       table,
@@ -73,7 +82,7 @@ async function safeSelect(client, table, build) {
     const query = build(client.from(table));
     const result = await query;
     if (result.error) {
-      if (isMissingTableError(result.error)) return [];
+      if (isSoftReadError(result.error)) return [];
       console.error(JSON.stringify({
         event: "admin_command_center_safe_select_error",
         table,
@@ -84,7 +93,7 @@ async function safeSelect(client, table, build) {
     }
     return result.data || [];
   } catch (error) {
-    if (isMissingTableError(error)) return [];
+    if (isSoftReadError(error)) return [];
     console.error(JSON.stringify({
       event: "admin_command_center_safe_select_throw",
       table,
@@ -199,65 +208,55 @@ export function createAdminCommandCenterHandler(deps = {}) {
     if (event.httpMethod === "GET" && action === "users") {
       const search = String(event.queryStringParameters?.search || body.search || "").trim();
       const roleFilter = String(event.queryStringParameters?.role || "").trim();
-      let query = client
-        .from("shop_members")
-        .select("user_id,shop_id,role,status,created_at,shops(name,email,city,state)")
-        .eq("status", "active")
-        .limit(200);
-      if (roleFilter) query = query.eq("role", roleFilter);
-      const { data, error } = await query;
-      if (error) throw error;
-      let rows = data || [];
+      let rows = await safeSelect(client, "shop_members", (q) => {
+        let query = q
+          .select("user_id,shop_id,role,status,created_at,shops(name,email,city,state)")
+          .eq("status", "active")
+          .limit(200);
+        if (roleFilter) query = query.eq("role", roleFilter);
+        return query;
+      });
       if (search) rows = rows.filter((row) => JSON.stringify(row).toLowerCase().includes(search.toLowerCase()));
-      const admins = await client.from("platform_admins").select("user_id,role,display_name,active");
-      return json(200, { users: rows, admins: admins.data || [] });
+      const admins = await safeSelect(client, "platform_admins", (q) =>
+        q.select("user_id,role,display_name,active")
+      );
+      return json(200, { users: rows, admins });
     }
 
     if (event.httpMethod === "GET" && action === "marketplace") {
-      const listingsRes = await client
-        .from("marketplace_listings")
-        .select("id,shop_id,product_name,supplier_name,active,publish_status,admin_review_status,featured_at,admin_suspended_at,created_at")
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (listingsRes.error && !isMissingTableError(listingsRes.error)) throw listingsRes.error;
-      let applications = [];
-      try {
-        const appRes = await client
-          .from(VERIFICATION_TABLE)
+      const listings = await safeSelect(client, "marketplace_listings", (q) =>
+        q
+          .select("id,shop_id,product_name,supplier_name,active,publish_status,admin_review_status,featured_at,admin_suspended_at,created_at")
+          .order("created_at", { ascending: false })
+          .limit(200)
+      );
+      const applications = await safeSelect(client, VERIFICATION_TABLE, (q) =>
+        q
           .select("id,user_id,florist_shop_id,wholesaler_shop_id,status,submitted_at,created_at")
           .order("created_at", { ascending: false })
-          .limit(200);
-        if (!appRes.error) applications = appRes.data || [];
-      } catch {
-        applications = [];
-      }
+          .limit(200)
+      );
       return json(200, {
-        listings: listingsRes.data || [],
+        listings,
         verifications: applications
       });
     }
 
     if (event.httpMethod === "GET" && action === "support") {
-      const { data, error } = await client
-        .from("platform_support_items")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (error) {
-        if (isMissingTableError(error)) return json(200, { items: [] });
-        throw error;
-      }
-      return json(200, { items: data || [] });
+      const items = await safeSelect(client, "platform_support_items", (q) =>
+        q.select("*").order("created_at", { ascending: false }).limit(200)
+      );
+      return json(200, { items });
     }
 
     if (event.httpMethod === "GET" && action === "subscriptions") {
-      const { data, error } = await client
-        .from("shop_subscriptions")
-        .select("shop_id,plan_code,status,trial_ends_at,current_period_ends_at,cancel_at_period_end,stripe_customer_id,created_at,updated_at,shops(name,email)")
-        .order("updated_at", { ascending: false })
-        .limit(300);
-      if (error) throw error;
-      const rows = (data || []).map((row) => ({
+      const data = await safeSelect(client, "shop_subscriptions", (q) =>
+        q
+          .select("shop_id,plan_code,status,trial_ends_at,current_period_ends_at,cancel_at_period_end,stripe_customer_id,created_at,updated_at,shops(name,email)")
+          .order("updated_at", { ascending: false })
+          .limit(300)
+      );
+      const rows = data.map((row) => ({
         ...sanitizeSubscriptionForAdmin(row),
         shop_name: row.shops?.name,
         shop_email: row.shops?.email
@@ -274,44 +273,34 @@ export function createAdminCommandCenterHandler(deps = {}) {
     }
 
     if (event.httpMethod === "GET" && action === "announcements") {
-      const { data, error } = await client
-        .from("platform_announcements")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) {
-        if (isMissingTableError(error)) return json(200, { announcements: [] });
-        throw error;
-      }
-      return json(200, { announcements: data || [] });
+      const announcements = await safeSelect(client, "platform_announcements", (q) =>
+        q.select("*").order("created_at", { ascending: false }).limit(100)
+      );
+      return json(200, { announcements });
     }
 
     if (event.httpMethod === "GET" && action === "feature-flags") {
-      const { data, error } = await client.from("platform_feature_flags").select("flag_key,enabled,description,updated_at");
-      if (error) {
-        if (isMissingTableError(error)) {
-          return json(200, { flags: mergeFeatureFlags({}) });
-        }
-        throw error;
-      }
+      const data = await safeSelect(client, "platform_feature_flags", (q) =>
+        q.select("flag_key,enabled,description,updated_at")
+      );
       const map = {};
-      (data || []).forEach((row) => {
+      data.forEach((row) => {
         map[row.flag_key] = row.enabled;
       });
       return json(200, { flags: mergeFeatureFlags(map), catalog: PLATFORM_FEATURE_FLAGS });
     }
 
     if (event.httpMethod === "GET" && action === "analytics") {
-      const [ordersRes, shopsRes, listingsRes] = await Promise.all([
-        client.from("orders").select("total,created_at").order("created_at", { ascending: false }).limit(300),
-        client.from("shop_members").select("shop_id,created_at").order("created_at", { ascending: false }).limit(300),
-        client.from("marketplace_listings").select("id,product_name,shop_id,created_at").order("created_at", { ascending: false }).limit(100)
+      const [orders, shops, listings] = await Promise.all([
+        safeSelect(client, "orders", (q) => q.select("total,created_at").order("created_at", { ascending: false }).limit(300)),
+        safeSelect(client, "shop_members", (q) => q.select("shop_id,created_at").order("created_at", { ascending: false }).limit(300)),
+        safeSelect(client, "marketplace_listings", (q) => q.select("id,product_name,shop_id,created_at").order("created_at", { ascending: false }).limit(100))
       ]);
       return json(200, {
-        revenue_by_month: buildRevenueSeries(ordersRes.data || []),
-        customer_growth: buildMonthlySeries(shopsRes.data || []),
-        marketplace_growth: buildMonthlySeries(listingsRes.data || []),
-        top_products: (listingsRes.data || []).slice(0, 10),
+        revenue_by_month: buildRevenueSeries(orders),
+        customer_growth: buildMonthlySeries(shops),
+        marketplace_growth: buildMonthlySeries(listings),
+        top_products: listings.slice(0, 10),
         ai_usage_note: "Connect platform_ai_usage_daily for live AI analytics after migration apply."
       });
     }
@@ -324,18 +313,13 @@ export function createAdminCommandCenterHandler(deps = {}) {
     }
 
     if (event.httpMethod === "GET" && action === "subscription-analytics") {
-      const { data: subs, error: subErr } = await client
-        .from("shop_subscriptions")
-        .select("shop_id,plan_code,status,cancel_at_period_end,current_period_ends_at");
-      if (subErr && !isMissingTableError(subErr)) throw subErr;
-      let events = [];
-      try {
-        const ev = await client.from("shop_subscription_events").select("shop_id,event_type,reason_code,created_at").limit(1000);
-        if (!ev.error) events = ev.data || [];
-      } catch {
-        events = [];
-      }
-      const metrics = computeAdminSubscriptionMetrics(subs || [], events);
+      const subs = await safeSelect(client, "shop_subscriptions", (q) =>
+        q.select("shop_id,plan_code,status,cancel_at_period_end,current_period_ends_at")
+      );
+      const events = await safeSelect(client, "shop_subscription_events", (q) =>
+        q.select("shop_id,event_type,reason_code,created_at").limit(1000)
+      );
+      const metrics = computeAdminSubscriptionMetrics(subs, events);
       const recent = events.slice(0, 50).map((e) => ({
         shop_id: e.shop_id,
         event_type: e.event_type,
@@ -476,11 +460,16 @@ export function createAdminCommandCenterHandler(deps = {}) {
           .select("id,shop_id,user_id,category,message,app_version,created_at")
           .order("created_at", { ascending: false })
           .limit(200);
-        if (error) throw error;
+        if (error) {
+          if (isSoftReadError(error)) {
+            return json(200, { feedback: [], note: "Feedback inbox unavailable until database grants/migrations are repaired." });
+          }
+          throw error;
+        }
         return json(200, { feedback: data || [] });
       } catch (error) {
-        if (isMissingTableError(error)) {
-          return json(200, { feedback: [], note: "Apply 20260728_release_candidate_v1.sql to enable inbox storage." });
+        if (isSoftReadError(error)) {
+          return json(200, { feedback: [], note: "Feedback inbox unavailable until database grants/migrations are repaired." });
         }
         throw error;
       }
@@ -497,12 +486,14 @@ export function createAdminCommandCenterHandler(deps = {}) {
     }
 
     if (event.httpMethod === "GET" && action === "audit-log") {
-      const filter = String(event.queryStringParameters?.filter || "").trim();
-      let query = client.from("platform_admin_audit").select("*").order("created_at", { ascending: false }).limit(200);
-      if (filter) query = query.ilike("action", `%${filter}%`);
-      const { data, error } = await query;
-      if (error) throw error;
-      return json(200, { audit: (data || []).map(auditRecordFromRow) });
+      const filter = String(event.queryStringParameters?.filter || "").trim().toLowerCase();
+      const rows = await safeSelect(client, "platform_admin_audit", (q) =>
+        q.select("*").order("created_at", { ascending: false }).limit(200)
+      );
+      const audit = rows
+        .map((row) => auditRecordFromRow(row))
+        .filter((row) => !filter || JSON.stringify(row).toLowerCase().includes(filter));
+      return json(200, { audit });
     }
 
     if (event.httpMethod !== "POST") {

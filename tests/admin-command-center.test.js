@@ -105,3 +105,18 @@ test("admin remote editor keeps account, appearance, navigation, features, and s
   assert.match(js, /#saveShop/);
   assert.match(js, /#saveSubscription/);
 });
+
+
+test("admin command center soft-fails permission-denied HQ reads", () => {
+  const src = fs.readFileSync(new URL("../netlify/functions/admin-command-center.js", import.meta.url), "utf8");
+  assert.match(src, /function isSoftReadError/);
+  assert.match(src, /42501/);
+  assert.match(src, /permission denied/);
+  assert.match(src, /safeSelect\(client, "shop_subscriptions"/);
+  assert.match(src, /safeSelect\(client, "platform_announcements"/);
+});
+
+test("payment operations treats Resend as configured email", () => {
+  const src = fs.readFileSync(new URL("../netlify/functions/_shared/payment-operations-admin.js", import.meta.url), "utf8");
+  assert.match(src, /RESEND_API_KEY/);
+});
