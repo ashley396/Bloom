@@ -1,0 +1,18 @@
+{
+  "name": "Florisyn / Bloom",
+  "install": "npm ci && npm --prefix frontend ci",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "frontend-dev",
+      "command": "npm --prefix frontend run dev -- --host 0.0.0.0",
+      "description": "Vite dev server for the React florist app (http://localhost:5173)."
+    }
+  ],
+  "ports": [
+    {
+      "name": "frontend",
+      "port": 5173
+    }
+  ]
+}
