@@ -209,7 +209,6 @@
     const toggle = $("#atelierMenuToggle");
     if (toggle) toggle.setAttribute("aria-expanded", open ? "true" : "false");
   }
-  window.FlorisynAtelierChrome = { setDrawer };
 
   function wireChrome() {
     const toggle = $("#atelierMenuToggle");
@@ -239,11 +238,9 @@
           }
         }
         const pageBtn = e.target.closest?.("[data-page]");
-        if (pageBtn && pageBtn.closest("#atelierSidebarDrawer, .atelier-mobile-nav, .atelier-empty, .atelier-panel-head, .atelier-inventory-alert")) {
+        if (pageBtn && pageBtn.closest(".atelier-empty, .atelier-panel-head, .atelier-inventory-alert")) {
           if (typeof window.showPage === "function" && pageBtn.dataset.page) {
-            e.preventDefault();
             window.showPage(pageBtn.dataset.page);
-            setDrawer(false);
           }
         }
       });

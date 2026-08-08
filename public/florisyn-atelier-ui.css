@@ -37,12 +37,9 @@ body.florisyn-atelier {
   font-family: var(--atelier-font-ui);
   color: var(--atelier-ink);
   background:
-    var(--remote-app-background-image, none),
     radial-gradient(1200px 600px at 10% -10%, rgba(244, 196, 212, 0.55), transparent 55%),
     radial-gradient(900px 500px at 100% 0%, rgba(246, 223, 232, 0.7), transparent 50%),
     linear-gradient(180deg, #fbf6f8 0%, var(--atelier-canvas) 40%, #f3eef2 100%);
-  background-size: cover, auto, auto, auto;
-  background-position: center, center, center, center;
 }
 
 body.florisyn-atelier,

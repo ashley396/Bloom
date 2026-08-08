@@ -671,21 +671,6 @@ syncShotOutputs();
 
 
 // Bloom v20.5 remote administration configuration.
-function safeRemoteImageUrl(value){
-  const raw=String(value||"").trim();
-  if(!raw)return"";
-  if(raw.startsWith("/")&&!raw.startsWith("//"))return raw;
-  try{const url=new URL(raw);return url.protocol==="https:"?url.href:""}catch{return""}
-}
-function applyRemoteLabels(labels={},selectorPrefix=""){
-  if(!labels||typeof labels!=="object")return;
-  Object.entries(labels).forEach(([key,label])=>{
-    const text=String(label||"").trim();
-    if(!key||!text)return;
-    const target=document.querySelector(`${selectorPrefix}[data-page="${CSS.escape(key)}"],${selectorPrefix}[data-open="${CSS.escape(key)}"]`);
-    if(target)target.textContent=text;
-  });
-}
 async function loadRemoteAdminConfig(){
   try{
     const shopId=localStorage.getItem("bloom_active_shop_id")||"";
@@ -702,20 +687,6 @@ function applyRemoteAdminConfig(config={}){
   if(theme.sidebar)root.style.setProperty("--admin-sidebar",theme.sidebar);
   if(theme.radius)root.style.setProperty("--admin-radius",`${Number(theme.radius)}px`);
   document.body.dataset.adminDensity=theme.density||"comfortable";
-  const content=config.content||{};
-  document.body.dataset.remoteLayout=content.layout_mode||"classic";
-  const bg=safeRemoteImageUrl(content.app_background_image);
-  if(bg)document.body.style.setProperty("--remote-app-background-image",`url("${bg.replace(/"/g,"%22")}")`);
-  const logo=safeRemoteImageUrl(content.logo_image);
-  if(logo){
-    document.querySelectorAll("#appLogo,.app-logo").forEach(img=>{img.src=logo;img.hidden=false});
-  }
-  const dash=safeRemoteImageUrl(content.dashboard_image);
-  if(dash){
-    const dashImg=$("#dashboardWelcomeImage");
-    const dashWrap=$("#dashboardWelcomePhoto");
-    if(dashImg){dashImg.src=dash;if(dashWrap)dashWrap.hidden=false}
-  }
   const aside=document.querySelector("#app aside");
   if(aside){
     const nav=config.navigation||{},buttons=[...aside.querySelectorAll("button[data-page]")];
@@ -724,12 +695,6 @@ function applyRemoteAdminConfig(config={}){
     const hidden=new Set(nav.hidden||[]);
     buttons.forEach(b=>b.hidden=hidden.has(b.dataset.page));
   }
-  applyRemoteLabels(content.button_labels||{},"");
-  const tabLabels=content.tab_labels||{};
-  document.querySelectorAll("#app aside p").forEach((node)=>{
-    const key=String(node.textContent||"").toLowerCase().replace(/[^a-z]+/g,"_").replace(/^_|_$/g,"");
-    if(tabLabels[key])node.textContent=String(tabLabels[key]);
-  });
   const featurePage={dashboard:"dashboardPage",orders:"ordersPage",deliveries:"deliveriesPage",customers:"customersPage",inventory:"inventoryPage",products:"productsPage",bloomshot:"bloomshotPage",website:"websitePage",library:"libraryPage",invoices:"invoicesPage",payments:"paymentsPage",expenses:"expensesPage",reports:"reportsPage",staff:"staffPage",marketplace:"marketplacePage",stores:"storesPage"};
   Object.entries(config.features||{}).forEach(([feature,enabled])=>{
     const page=featurePage[feature];if(!page||enabled!==false)return;
