@@ -51,7 +51,7 @@ test("Daisy has a gentle mascot voice profile and avoids robotic choices", () =>
   const daisy = pickAssistantVoice(voices, "Daisy");
   assert.equal(daisy.name, voices[1].name);
   assert.equal(VOICE_DEFAULTS.Daisy.pitch, 1.12);
-  assert.match(VOICE_DEFAULTS.Daisy.preview, /bright, gentle voice/);
+  assert.match(VOICE_DEFAULTS.Daisy.preview, /cheerful, funny/);
 });
 
 test("mergeVoiceSettings uses defaults when values missing", () => {

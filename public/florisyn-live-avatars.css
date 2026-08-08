@@ -8,7 +8,7 @@
 .bloom-daisy img {
   border-radius: 50%;
   object-fit: cover;
-  object-position: center top;
+  object-position: center 18%;
   background: linear-gradient(145deg, #fff7f2, #eef5ea);
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 8px 18px rgba(24, 37, 47, 0.12);
 }
@@ -57,7 +57,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center top;
+  object-position: center 18%;
 }
 
 .bloom-daisy {

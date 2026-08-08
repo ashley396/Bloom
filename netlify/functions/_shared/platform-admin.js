@@ -182,6 +182,17 @@ export function platformAdminErrorResponse(event, error) {
     requestId
   });
 
+  // Server-only diagnostics for unexpected failures (never returned to the browser).
+  if (resolvedCode === "unexpected") {
+    console.error(JSON.stringify({
+      event: "platform_admin_unexpected_detail",
+      requestId,
+      name: error?.name || null,
+      code: error?.code || error?.florisynCode || null,
+      message: String(error?.message || error || "").slice(0, 220)
+    }));
+  }
+
   return json(entry.status, { error: entry.message });
 }
 
