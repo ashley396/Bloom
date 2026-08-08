@@ -16,8 +16,9 @@ test("Admin HTML starts locked and hides app until auth", () => {
   assert.match(adminHtml, /id="adminApp"[^>]*aria-hidden="true"/);
   assert.match(adminHtml, /id="adminAuth"[^>]*\bhidden\b/);
   assert.match(adminHtml, /id="ownerSetup"[^>]*\bhidden\b/);
-  // Restore must not reintroduce Design Mode chrome into Admin.
-  assert.doesNotMatch(adminHtml, /florisyn-ui-editor|uiDesignModeRoot/);
+  // Design Mode / UI Editor remains Admin-gated visual tooling.
+  assert.match(adminHtml, /uiDesignModeRoot/);
+  assert.match(adminHtml, /florisyn-ui-editor\.js/);
 });
 
 test("Admin CSS forces [hidden] so display:grid cannot leak Admin UI", () => {
@@ -39,7 +40,9 @@ test("Admin JS restores auth shell gate sequence", () => {
   assert.match(adminJs, /auth-login/);
   assert.match(adminJs, /bloom_admin_session/);
   assert.match(adminJs, /admin-bootstrap/);
-  assert.doesNotMatch(adminJs, /FlorisynUiEditor|uiDesignMode|florisyn-admin-authenticated/);
+  assert.match(adminJs, /FlorisynUiEditor/);
+  assert.match(adminJs, /uiDesignMode/);
+  assert.match(adminJs, /florisyn-admin-authenticated/);
 });
 
 test("Admin login exposes password eye and reset via existing forgot-password API", () => {
