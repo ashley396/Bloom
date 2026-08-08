@@ -189,6 +189,17 @@ test("legacy inventory without freshness fields remains valid", () => {
   assert.equal(result.valid, true);
 });
 
+test("item_kind preserves supply/container and does not coerce via || ternary bug", () => {
+  const supply = validateInventoryFreshnessFields({ item_kind: "supply", category: "Flowers" });
+  assert.equal(supply.sanitized.item_kind, "supply");
+  const container = validateInventoryFreshnessFields({ item_kind: "container", category: "Supplies" });
+  assert.equal(container.sanitized.item_kind, "container");
+  const fromCategory = validateInventoryFreshnessFields({ category: "Flowers" });
+  assert.equal(fromCategory.sanitized.item_kind, "flower");
+  const defaultSupply = validateInventoryFreshnessFields({ category: "Ribbon" });
+  assert.equal(defaultSupply.sanitized.item_kind, "supply");
+});
+
 // ---------------------------------------------------------------------------
 // React Orders preview
 // ---------------------------------------------------------------------------

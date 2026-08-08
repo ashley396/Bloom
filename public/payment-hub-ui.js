@@ -167,6 +167,7 @@
     );
     root.querySelector("#phGiftReload")?.addEventListener("click", reloadGift);
     root.querySelector("#phRefundSubmit")?.addEventListener("click", submitRefund);
+    root.querySelector("#phRefundVoid")?.addEventListener("click", voidLastRefund);
     root.querySelector("#phRecoveryDemo")?.addEventListener("click", () =>
       hubAction({ action: "payment_recovery_run", attempt_number: 0, order_id: "demo" })
     );
@@ -238,6 +239,26 @@
       await window.BloomPaymentHub.load(true);
     } catch (e) {
       window.toast?.(e.message);
+    }
+  }
+
+  async function voidLastRefund() {
+    const history = hubCache?.refunds?.history || [];
+    const target =
+      history.find((r) => r?.id && String(r.status || "").toLowerCase() !== "voided") || history.find((r) => r?.id);
+    if (!target?.id) {
+      window.toast?.("No refund is available to void.");
+      return;
+    }
+    const ok = window.confirm(
+      `Void refund ${money(target.amount)} (${String(target.status || "pending")})? This cannot be undone from the register.`
+    );
+    if (!ok) return;
+    try {
+      await hubAction({ action: "refund_void", refund_id: target.id });
+      window.toast?.("Refund voided");
+    } catch (e) {
+      window.toast?.(e?.message || "Could not void refund.");
     }
   }
 

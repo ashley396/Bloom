@@ -145,7 +145,24 @@
     document.querySelectorAll(".pos-lux-rail-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         document.querySelectorAll(".pos-lux-rail-btn").forEach((b) => b.classList.toggle("active", b === btn));
-        if (btn.dataset.posTool === "lookup") $("#posLuxSearch")?.focus();
+        const tool = btn.dataset.posTool;
+        if (tool === "lookup") {
+          $("#posLuxSearch")?.focus();
+          return;
+        }
+        if (tool === "returns") {
+          /* Returns/refunds use the existing Payment Center refund hub — no parallel flow. */
+          try {
+            sessionStorage.setItem("florisyn_open_refund_center", "1");
+          } catch {}
+          if (typeof window.showPage === "function") window.showPage("paymentsPage");
+          else document.querySelector('[data-page="paymentsPage"]')?.click();
+          window.toast?.("Open Refund center to process a return.");
+          return;
+        }
+        if (tool === "cart") {
+          $("#queue")?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+        }
       });
     });
   }
