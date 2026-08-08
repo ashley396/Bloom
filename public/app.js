@@ -103,7 +103,7 @@ function showPage(id){
   else run();
 }
 async function loadPaymentsPage(){try{pendingPaymentOrder=pendingPaymentOrder||JSON.parse(localStorage.getItem("bloom_pending_payment_order")||"null")}catch{}renderPaymentCenterShell();if(window.BloomPaymentHub){window.BloomPaymentHub.api=api;try{await window.BloomPaymentHub.load(true)}catch(e){const msg=e?.message||"Payment Hub could not load.";if($("#paymentStatus"))$("#paymentStatus").textContent=msg;toast(msg)}}await applyPaymentHubCheckout()}
-async function loadEcosystemPage(){if(window.BloomEcosystem){window.bloomEcosystemApi=api;await window.BloomEcosystem.load()}}
+async function loadEcosystemPage(){window.FlorisynBusinessOs?.boot?.();if(window.BloomEcosystem){window.bloomEcosystemApi=api;try{await window.BloomEcosystem.load()}catch{}}}
 let communityBetaEnabled=false;
 function setCommunityNavVisible(on){
   communityBetaEnabled=Boolean(on);
@@ -907,6 +907,7 @@ function renderAiStudioDraft(){
   list.innerHTML=cards.join("")||'<div class="ai-empty-state"><span>🌸</span><strong>Lily answered</strong><p>No editable fields were included in this draft.</p></div>';
   badge.textContent=`${cards.length} suggested change${cards.length===1?"":"s"}`;badge.className="badge good lux-ai-draft-badge";$("#aiStudioApply").disabled=!cards.length;$("#aiStudioUndo").disabled=!aiStudioPrevious;const changeList=$("#aiStudioChangeList");if(changeList)changeList.hidden=!cards.length;syncAiStudioMock(aiStudioDraft);
 }
+window.smartAi=smartAi;window.loadAiContext=loadAiContext;
 async function runAiStudio(prompt){
   const tasks=["Reading your request","Writing the creative draft","Preparing your approval preview"];
   aiStudioTasks(tasks,0);aiStudioMessage("user",prompt);

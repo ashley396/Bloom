@@ -1,0 +1,476 @@
+/**
+ * Florisyn Business OS — Rose AI Business Advisor (Figma)
+ * Navy #1a1f3c · Gold #C8860A · Rose pink #E06B85 (Lily only) · Blush #FBF6F7 · Inter
+ */
+
+body.florisyn-atelier #ecosystemPage.florisyn-lux-business-os {
+  --bos-navy: #1a1f3c;
+  --bos-gold: #c8860a;
+  --bos-gold-soft: rgba(200, 134, 10, 0.12);
+  --bos-lily: #e06b85;
+  --bos-blush: #fbf6f7;
+  --bos-ink: #26263a;
+  --bos-muted: #666670;
+  --bos-border: #eae6e8;
+  --bos-card: #ffffff;
+  --bos-radius: 8px;
+  --bos-pill: 20px;
+  font-family: Inter, system-ui, sans-serif;
+  background: transparent;
+  max-width: none;
+  padding-bottom: 28px;
+  color: var(--bos-ink);
+}
+
+body.florisyn-atelier #ecosystemPage.florisyn-lux-business-os .bos-heading {
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+body.florisyn-atelier #ecosystemPage.florisyn-lux-business-os .bos-eyebrow,
+body.florisyn-atelier #ecosystemPage.florisyn-lux-business-os .eyebrow.bos-eyebrow {
+  color: var(--bos-gold) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+
+body.florisyn-atelier #ecosystemPage.florisyn-lux-business-os .bos-heading h1 {
+  margin: 0 0 6px;
+  color: var(--bos-navy);
+  font-size: clamp(1.85rem, 2.6vw, 2.25rem);
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+body.florisyn-atelier #ecosystemPage.florisyn-lux-business-os .bos-heading .subtle {
+  color: var(--bos-muted);
+  max-width: 58ch;
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Tabs */
+body.florisyn-atelier #ecosystemPage .bos-tabs {
+  display: flex;
+  gap: 22px;
+  border-bottom: 1px solid var(--bos-border);
+  margin: 10px 0 18px;
+  overflow-x: auto;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-tabs button {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--bos-muted) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  padding: 10px 2px 12px !important;
+  border-radius: 0 !important;
+  border-bottom: 3px solid transparent !important;
+  white-space: nowrap;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-tabs button.active {
+  color: var(--bos-ink) !important;
+  border-bottom-color: var(--bos-gold) !important;
+}
+
+/* Layout ~60 / 40 */
+body.florisyn-atelier #ecosystemPage .bos-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-panel {
+  display: none !important;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-panel.active {
+  display: block !important;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-panel[data-bos-panel="insights"].active,
+body.florisyn-atelier #ecosystemPage .bos-panel[data-bos-panel="actions"].active {
+  background: var(--bos-card);
+  border: 1px solid var(--bos-border);
+  border-radius: var(--bos-radius);
+  padding: 20px;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-chat,
+body.florisyn-atelier #ecosystemPage .bos-pulse {
+  background: var(--bos-card);
+  border: 1px solid var(--bos-border);
+  border-radius: var(--bos-radius);
+  padding: 18px;
+  min-height: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Rose message header */
+body.florisyn-atelier #ecosystemPage .bos-rose-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-rose-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  object-fit: cover;
+  object-position: center 18%;
+  border: 2px solid var(--bos-gold);
+  flex-shrink: 0;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-rose-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-rose-meta strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  color: var(--bos-ink);
+}
+
+body.florisyn-atelier #ecosystemPage .bos-star {
+  color: var(--bos-gold);
+  font-size: 13px;
+  line-height: 1;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-rose-meta small {
+  display: block;
+  color: var(--bos-muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-active-badge {
+  margin-left: auto;
+  border: 1px solid var(--bos-gold);
+  color: var(--bos-gold);
+  background: transparent;
+  border-radius: var(--bos-pill);
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Messages */
+body.florisyn-atelier #ecosystemPage .bos-messages {
+  flex: 1;
+  min-height: 220px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-right: 4px;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-msg {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  max-width: 92%;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-msg.assistant {
+  align-self: flex-start;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-msg.user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-msg-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1.5px solid var(--bos-gold);
+  flex-shrink: 0;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-msg.user .bos-msg-avatar {
+  display: none;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-bubble {
+  background: var(--bos-navy);
+  color: #fff;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  position: relative;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-msg.assistant .bos-bubble::before {
+  content: "✦";
+  position: absolute;
+  left: -16px;
+  top: 10px;
+  color: var(--bos-gold);
+  font-size: 11px;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-msg.user .bos-bubble {
+  background: #f3eef1;
+  color: var(--bos-ink);
+}
+
+body.florisyn-atelier #ecosystemPage .bos-bubble p {
+  margin: 0;
+}
+
+/* Chips */
+body.florisyn-atelier #ecosystemPage .bos-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-chips button {
+  border: 1px solid var(--bos-gold) !important;
+  background: #fff !important;
+  color: var(--bos-gold) !important;
+  border-radius: var(--bos-pill) !important;
+  padding: 7px 14px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-chips button:hover {
+  background: var(--bos-gold-soft) !important;
+}
+
+/* Composer */
+body.florisyn-atelier #ecosystemPage .bos-composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #faf7f8;
+  border: 1px solid var(--bos-border);
+  border-radius: var(--bos-pill);
+  padding: 6px 6px 6px 16px;
+  margin-top: auto;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-composer input {
+  flex: 1;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 13.5px;
+  color: var(--bos-ink);
+  min-height: 40px;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-composer input::placeholder {
+  color: #9a959c;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-send {
+  border: 0 !important;
+  background: var(--bos-gold) !important;
+  color: #fff !important;
+  border-radius: var(--bos-pill) !important;
+  padding: 0 18px !important;
+  min-height: 40px;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  box-shadow: none !important;
+  white-space: nowrap;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-send:disabled {
+  opacity: 0.55;
+}
+
+/* Business Pulse */
+body.florisyn-atelier #ecosystemPage .bos-pulse-head h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  color: var(--bos-ink);
+}
+
+body.florisyn-atelier #ecosystemPage .bos-pulse-head p {
+  margin: 0 0 8px;
+  color: var(--bos-muted);
+  font-size: 13px;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-insights {
+  display: grid;
+  gap: 12px;
+  flex: 1;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-insight {
+  border: 1px solid var(--bos-border);
+  border-left: 3px solid var(--bos-gold);
+  border-radius: var(--bos-radius);
+  padding: 14px 14px 12px;
+  background: #fff;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-insight h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--bos-ink);
+}
+
+body.florisyn-atelier #ecosystemPage .bos-insight p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--bos-muted);
+  line-height: 1.4;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-insight-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-insight-actions button {
+  border: 1px solid var(--bos-gold) !important;
+  background: #fff !important;
+  color: var(--bos-gold) !important;
+  border-radius: var(--bos-pill) !important;
+  padding: 6px 14px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-insight-actions button:hover {
+  background: var(--bos-gold-soft) !important;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-insight-actions time {
+  color: var(--bos-muted);
+  font-size: 11.5px;
+}
+
+/* Lily crossover */
+body.florisyn-atelier #ecosystemPage .bos-lily-tip {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #fbf0f3;
+  border-radius: var(--bos-radius);
+  padding: 12px 14px;
+  margin-top: auto;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-lily-tip img {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  object-fit: cover;
+  object-position: center 18%;
+  border: 2px solid var(--bos-lily);
+  flex-shrink: 0;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-lily-tip p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--bos-ink);
+  line-height: 1.4;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-lily-tip strong {
+  color: var(--bos-ink);
+}
+
+/* Secondary tab panels */
+body.florisyn-atelier #ecosystemPage .bos-secondary h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-secondary p {
+  color: var(--bos-muted);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-action-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-action-item {
+  border: 1px solid var(--bos-border);
+  border-left: 3px solid var(--bos-gold);
+  border-radius: var(--bos-radius);
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+body.florisyn-atelier #ecosystemPage .bos-action-item span {
+  font-size: 13px;
+  color: var(--bos-ink);
+}
+
+body.florisyn-atelier #ecosystemPage .bos-action-item em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--bos-gold);
+  font-weight: 700;
+}
+
+body.florisyn-atelier #ecosystemPage #ecosystemRoot {
+  display: none !important;
+}
+
+@media (max-width: 1100px) {
+  body.florisyn-atelier #ecosystemPage .bos-shell {
+    grid-template-columns: 1fr;
+  }
+
+  body.florisyn-atelier #ecosystemPage .bos-chat,
+  body.florisyn-atelier #ecosystemPage .bos-pulse {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  body.florisyn-atelier #ecosystemPage .bos-composer {
+    flex-wrap: wrap;
+    border-radius: 14px;
+    padding: 10px;
+  }
+
+  body.florisyn-atelier #ecosystemPage .bos-send {
+    width: 100%;
+  }
+
+  body.florisyn-atelier #ecosystemPage .bos-active-badge {
+    display: none;
+  }
+}
