@@ -80,29 +80,45 @@ function applyBranding(settings=shopSettings||{}){const root=document.documentEl
 function previewBrandingForm(){const f=$("#settingsForm");if(!f)return;const d=Object.fromEntries(new FormData(f));applyBranding({...shopSettings,...d});const p=$("#themePreview");if(p){p.style.background=d.app_background_color||"#f8f3f6";p.style.borderColor=d.primary_color||"#8f3f68";p.querySelector("span").style.color=d.primary_color||"#8f3f68";p.dataset.font=d.app_font||"Elegant"}}
 function showAuth(){location.replace("/login")}
 async function loadPlatformSettings(){try{const d=await api('platform-settings');if($('#roseFoundationTotal'))$('#roseFoundationTotal').textContent=`${money(d.roseFoundationTotal||0)} raised`}catch{}}
-function showApp(){loadPlatformSettings();refreshCommunityFeatureFlag();$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";if(session?.refreshToken&&!window.florisynSessionRefreshTimer)window.florisynSessionRefreshTimer=setInterval(()=>refreshSessionIfNeeded(),5*60*1000);loadStores();loadRemoteAdminConfig();window.BloomLaunchPolish?.init?.({api,mode:"florist"});window.BloomLilyPlatform?.init?.({api,toast,showPage,smartAi,loadAiContext,prepareOrderBuilder,loadInventory,renderCustomers});window.showPage=showPage;window.api=api;window.loadOrders=loadOrders;window.setPendingPaymentOrder=setPendingPaymentOrder;window.session=session;window.BloomPaymentHub&&(window.BloomPaymentHub.api=api);window.subscriptionCenterApi=api;window.recordLocalPayment=recordLocalPayment;window.BloomLaunchPolish?.refreshPageHelp?.("dashboardPage");window.BloomRose?.mount?.();window.BloomDaisy?.mount?.();window.FlorisynAssistantVoice?.init?.({getScope:()=>{const shop=shopSettings?.shop_id||session?.shopId||session?.user?.default_shop_id||"shop";const user=session?.user?.id||"local";return `${shop}:${user}`},getSpeakEnabled:()=>{const el=$("#assistantSpeak");return el?el.checked:true}});window.BloomLilyVoice?.patchSpeakAssistant?.();window.BloomFirstRun?.showWelcome?.();window.BloomRC21?.initLoadingScreen?.();window.BloomRC21?.tuneLily?.();const qp=new URLSearchParams(location.search);if(qp.get("page"))showPage(qp.get("page"))}
+function showApp(){loadPlatformSettings();refreshCommunityFeatureFlag();$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";if(session?.refreshToken&&!window.florisynSessionRefreshTimer)window.florisynSessionRefreshTimer=setInterval(()=>refreshSessionIfNeeded(),5*60*1000);loadStores();loadRemoteAdminConfig();window.BloomLaunchPolish?.init?.({api,mode:"florist"});if(window.FlorisynRouter?.installShowPageBridge){window.showPage=window.FlorisynRouter.installShowPageBridge(showPage)}else window.showPage=showPage;window.BloomLilyPlatform?.init?.({api,toast:toast,showPage:window.showPage,smartAi,loadAiContext,prepareOrderBuilder,loadInventory,renderCustomers});window.api=api;window.loadOrders=loadOrders;window.setPendingPaymentOrder=setPendingPaymentOrder;window.session=session;window.BloomPaymentHub&&(window.BloomPaymentHub.api=api);window.subscriptionCenterApi=api;window.recordLocalPayment=recordLocalPayment;window.BloomLaunchPolish?.refreshPageHelp?.("dashboardPage");window.BloomRose?.mount?.();window.BloomDaisy?.mount?.();window.FlorisynAssistantVoice?.init?.({getScope:()=>{const shop=shopSettings?.shop_id||session?.shopId||session?.user?.default_shop_id||"shop";const user=session?.user?.id||"local";return `${shop}:${user}`},getSpeakEnabled:()=>{const el=$("#assistantSpeak");return el?el.checked:true}});window.BloomLilyVoice?.patchSpeakAssistant?.();window.BloomFirstRun?.showWelcome?.();window.BloomRC21?.initLoadingScreen?.();window.BloomRC21?.tuneLily?.();window.FlorisynRouter?.bootFromLocation?.({replace:true})||window.showPage("dashboardPage")}
 function showPage(id){
-  const run=()=>{
-    if(id==="communityPage"&&!communityBetaEnabled){
-      refreshCommunityFeatureFlag().then((on)=>{if(!on){toast("Florist Community Beta is disabled.");return}showPage("communityPage")});
-      return;
-    }
-    $$(".page").forEach(p=>p.classList.toggle("active",p.id===id));
-    $$("#app aside button[data-page], .mobile-nav button[data-page], .assistant-mini-dock button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));
-    loadPage(id);
-  };
+  if(id==="communityPage"&&!communityBetaEnabled){
+    refreshCommunityFeatureFlag().then((on)=>{if(!on){toast("Florist Community Beta is disabled.");return}showPage("communityPage")});
+    return;
+  }
+  /* Exclusive page visibility — canonical controller; apply immediately (never via transitionTo). */
+  $$(".page").forEach(p=>{
+    const on=p.id===id;
+    p.classList.toggle("active",on);
+    p.hidden=!on;
+  });
+  document.body.classList.toggle("florisyn-pos-active", id==="posPage");
+  try{
+    const scroller=document.querySelector(".florisyn-lux-main")||document.querySelector(".content");
+    if(scroller)scroller.scrollTop=0;
+    window.scrollTo(0,0);
+    document.documentElement.scrollTop=0;
+    document.body.scrollTop=0;
+  }catch{}
+  const routePath=window.FlorisynRouter?.PAGE_PATH?.[id]||window.FlorisynRouter?.path||"";
+  if(window.FlorisynRouter?.syncActiveNav&&routePath)window.FlorisynRouter.syncActiveNav(routePath);
+  else $$("#app aside button[data-page], .mobile-nav button[data-page], .assistant-mini-dock button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));
   window.BloomLaunchPolish?.onPageStart?.(id);
-  if(window.BloomLaunchPolish?.transitionTo)window.BloomLaunchPolish.transitionTo(id,run);
-  else run();
+  loadPage(id);
+  if(id==="posPage"){
+    window.FlorisynLuxuryPos?.boot?.();
+    window.renderPosCart?.();
+  }
+  window.BloomLaunchPolish?.refreshPageHelp?.(id);
 }
-async function loadPaymentsPage(){try{pendingPaymentOrder=pendingPaymentOrder||JSON.parse(localStorage.getItem("bloom_pending_payment_order")||"null")}catch{}renderPaymentCenterShell();if(window.BloomPaymentHub){window.BloomPaymentHub.api=api;try{await window.BloomPaymentHub.load(true)}catch(e){const msg=e?.message||"Payment Hub could not load.";if($("#paymentStatus"))$("#paymentStatus").textContent=msg;toast(msg)}}await applyPaymentHubCheckout()}
-async function loadEcosystemPage(){if(window.BloomEcosystem){window.bloomEcosystemApi=api;await window.BloomEcosystem.load()}}
+async function loadPaymentsPage(){try{pendingPaymentOrder=pendingPaymentOrder||JSON.parse(localStorage.getItem("bloom_pending_payment_order")||"null")}catch{}renderPaymentCenterShell();if(window.BloomPaymentHub){window.BloomPaymentHub.api=api;try{await window.BloomPaymentHub.load(true)}catch(e){const msg=e?.message||"Payment Hub could not load.";if($("#paymentStatus"))$("#paymentStatus").textContent=msg;toast(msg)}}await applyPaymentHubCheckout();try{if(sessionStorage.getItem("florisyn_open_refund_center")==="1"){sessionStorage.removeItem("florisyn_open_refund_center");const adv=document.querySelector("#paymentsPage details.payment-advanced-block, #paymentsPage details");if(adv)adv.open=true;const hub=document.getElementById("paymentHubRoot")||document.getElementById("phRefundSubmit");hub?.scrollIntoView?.({behavior:"smooth",block:"start"});$("#phRefundPaymentId")?.focus?.()}}catch{}}
+async function loadEcosystemPage(){window.FlorisynBusinessOs?.boot?.();if(window.BloomEcosystem){window.bloomEcosystemApi=api;try{await window.BloomEcosystem.load()}catch{}}}
 let communityBetaEnabled=false;
 function setCommunityNavVisible(on){
   communityBetaEnabled=Boolean(on);
   $$('[data-page="communityPage"]').forEach((el)=>{el.hidden=!communityBetaEnabled;el.style.display=communityBetaEnabled?"":"none"});
   const page=$("#communityPage");
-  if(page&&!communityBetaEnabled){page.classList.remove("active");if(page.querySelector("#communityRoot"))page.querySelector("#communityRoot").innerHTML="";}
+  if(page&&!communityBetaEnabled){page.classList.remove("active");page.setAttribute("hidden","");if(page.querySelector("#communityRoot"))page.querySelector("#communityRoot").innerHTML="";}
 }
 async function refreshCommunityFeatureFlag(){
   try{
@@ -125,7 +141,20 @@ async function loadCommunityPage(){
   if(window.BloomCommunity){window.bloomCommunityApi=api;await window.BloomCommunity.load()}
 }
 async function loadSubscriptionPage(){if(window.BloomSubscriptionCenter){window.subscriptionCenterApi=api;await window.BloomSubscriptionCenter.load(document.getElementById("subscriptionCenterRoot"))}}
-async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,expensesPage:loadExpenses,reportsPage:loadReports,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,communityPage:loadCommunityPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,aiStudioPage:()=>refreshAiStatus()};try{if(m[id])await m[id]()}catch(e){toast(e.message);const box=document.querySelector(`#${id} .cards, #${id}List, #${id.replace("Page","")}List, #communityRoot`);if(box&&window.BloomLaunchPolish?.errorState)box.innerHTML=window.BloomLaunchPolish.errorState({message:e.message})}}
+
+async function loadAnalyticsPage(){
+  await loadReports();
+  const pairs=[["reportRevenue","analyticsRevenue"],["reportExpenses","analyticsExpenses"],["reportProfit","analyticsProfit"],["reportMargin","analyticsMargin"]];
+  pairs.forEach(([from,to])=>{const a=$(from),b=$(to);if(a&&b)b.textContent=a.textContent});
+}
+function loadPosSettingsPage(){
+  const tax=Number(shopSettings?.tax_rate??6);
+  const fee=Number(shopSettings?.default_delivery_fee??10);
+  if($("#posSettingsTax"))$("#posSettingsTax").textContent=`${tax}%`;
+  if($("#posSettingsDelivery"))$("#posSettingsDelivery").textContent=money(fee);
+}
+
+async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,bouquetsPage:()=>{},expensesPage:loadExpenses,reportsPage:loadReports,analyticsPage:loadAnalyticsPage,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,communityPage:loadCommunityPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,posSettingsPage:loadPosSettingsPage,posPage:()=>{window.FlorisynLuxuryPos?.syncStatusMetrics?.();window.FlorisynLuxuryPos?.syncCustomer?.();if(typeof renderPosTiles==="function")renderPosTiles();},aiStudioPage:()=>refreshAiStatus()};try{if(m[id])await m[id]()}catch(e){toast(e.message);const box=document.querySelector(`#${id} .cards, #${id}List, #${id.replace("Page","")}List, #communityRoot`);if(box&&window.BloomLaunchPolish?.errorState)box.innerHTML=window.BloomLaunchPolish.errorState({message:e.message})}}
 const ORDER_STATUS_DEFS=[
   {id:"PENDING",label:"Pending",legacy:["NEW","PENDING"]},
   {id:"CONFIRMED",label:"Confirmed",legacy:["CONFIRMED"]},
@@ -223,7 +252,7 @@ async function loadDashboard(){
 async function loadStores(){try{const {items}=await api("stores");try{shopSettings=(await api("settings")).item;applyBranding(shopSettings)}catch{};$("#shopSwitcher").innerHTML=items.map(s=>`<option value="${s.id}" ${s.active?"selected":""}>${esc(s.name)}</option>`).join("");const active=items.find(x=>x.active);const hour=new Date().getHours(),daypart=hour<12?"Good morning":hour<17?"Good afternoon":"Good evening",firstName=firstNameFromIdentity(session?.user,shopSettings);$("#greeting").textContent=`${daypart}, ${firstName}!`;if($("#lilySuggestionGreeting"))$("#lilySuggestionGreeting").textContent=`Hi ${firstName}!`;if($("#atelierUserName"))$("#atelierUserName").textContent=firstName;if($("#storesList"))$("#storesList").innerHTML=items.length?items.map(s=>`<article class="card"><div class="card-top"><div><h3>${esc(s.name)}</h3><div class="meta">${esc(s.address||"Address not set")} · ${esc(s.role)}</div></div>${s.active?'<span class="badge good">ACTIVE</span>':""}</div>${!s.active?`<div class="card-actions"><button class="primary" data-switch-shop="${s.id}">Open this shop</button></div>`:""}</article>`).join(""):empty("No stores.")}catch(e){if($("#storesList"))$("#storesList").innerHTML=window.BloomLaunchPolish?.errorState?.({message:e.message})||empty(e.message||"Could not load locations.");toast(e.message||"Could not load shop locations.")}}
 async function loadCustomers(){customers=(await api("customers")).items||[];renderCustomers();refreshOrderCustomerOptions()}
 function renderCustomers(){renderPosCustomerOptions();const q=$("#customerSearch").value.toLowerCase();const rows=customers.filter(x=>[x.name,x.phone,x.email,x.favorite_flowers,x.favorite_colors].join(" ").toLowerCase().includes(q));const legacyCard=c=>`<article class="card"><div class="card-top"><div><h3>${c.vip?"★ ":""}${esc(c.name)}</h3><div class="meta">${esc(c.phone||"")} ${c.email?`· ${esc(c.email)}`:""}</div></div>${c.vip?'<span class="badge">VIP</span>':""}${c.is_business?'<span class="badge good">BUSINESS</span>':""}${c.is_house_account?'<span class="badge good">HOUSE</span>':""}</div><p class="subtle">${esc(contactPrefSummary(c))}</p>${c.favorite_flowers?`<p>Favorites: ${esc(c.favorite_flowers)} ${c.favorite_colors?`· ${esc(c.favorite_colors)}`:""}</p>`:""}<div class="card-actions"><button class="secondary" data-view-customer="${c.id}">Profile</button><button class="secondary" data-edit-customer="${c.id}">Edit</button><button class="secondary" data-delete-customer="${c.id}">Delete</button></div></article>`;$("#customersList").innerHTML=rows.length?rows.map(c=>window.BloomRC21?.customerCard?.(c,orders)||legacyCard(c)).join(""):empty("No customers found.");window.BloomCustomerProfile?.init?.({customers,orders,session,showPage})}
-async function loadOrders(){orderTelemetry("GET /.netlify/functions/orders → requesting active order state");orders=(await api("orders")).items||[];renderOrderBoard();window.BloomRC21?.mountOrdersToolbar?.();if($("#ordersList"))$("#ordersList").innerHTML=orders.length?orders.map(renderOrder).join(""):empty("No orders.");if($("#deliveryOrder"))$("#deliveryOrder").innerHTML=orders.map(o=>`<option value="${o.id}" data-address="${esc(o.delivery_address||"")}">${esc(o.order_number)} · ${esc(o.customer_name)}</option>`).join("");syncDeliveryStopAddress();window.BloomGuidedOrder?.mountToggle?.();orderTelemetry(`GET orders → ${orders.length} record${orders.length===1?"":"s"} synchronized`,"success")}
+async function loadOrders(){orderTelemetry("GET /.netlify/functions/orders → requesting active order state");orders=(await api("orders")).items||[];window.orders=orders;renderOrderBoard();window.FlorisynLuxuryOrders?.boot?.(orders);window.BloomRC21?.mountOrdersToolbar?.();if($("#ordersList"))$("#ordersList").innerHTML=orders.length?orders.map(renderOrder).join(""):empty("No orders.");if($("#deliveryOrder"))$("#deliveryOrder").innerHTML=orders.map(o=>`<option value="${o.id}" data-address="${esc(o.delivery_address||"")}">${esc(o.order_number)} · ${esc(o.customer_name)}</option>`).join("");syncDeliveryStopAddress();window.BloomGuidedOrder?.mountToggle?.();orderTelemetry(`GET orders → ${orders.length} record${orders.length===1?"":"s"} synchronized`,"success")}
 async function advanceOrderState(id,currentStatus){
   const next=nextAdvanceStatus(currentStatus);if(!next)return;
   const card=document.querySelector(`[data-order-card="${CSS.escape(id)}"]`);card?.classList.add("is-moving");
@@ -327,7 +356,7 @@ function exportReportsCsv(){const rows=[["Period","Revenue","Expenses","Profit"]
 async function loadWebsite(){shopSettings=(await api("settings")).item;const f=$("#websiteForm");for(const[k,v]of Object.entries(shopSettings||{})){if(!f.elements[k])continue;if(f.elements[k].type==="checkbox")f.elements[k].checked=Boolean(v);else f.elements[k].value=v??""}applyBranding(shopSettings);renderWebsite();await window.BloomInstantWebsite?.load?.();await window.BloomThemeGallery?.load?.();await window.BloomWebsiteEditor?.load?.()}
 
 async function loadSettings(){shopSettings=(await api("settings")).item;window.shopSettings=shopSettings;const f=$("#settingsForm");for(const[k,v]of Object.entries(shopSettings||{})){if(f.elements[k])f.elements[k].value=v??""}applyBranding(shopSettings);previewBrandingForm();$("#mapsStatus").textContent="Shop defaults loaded. Use Calculate mileage on a delivery order to test the route service.";if(window.BloomSubscriptionCenter){window.subscriptionCenterApi=api;await window.BloomSubscriptionCenter.load(document.getElementById("shopBillingRoot"))}window.BloomRose?.mountSettings?.(document.getElementById("settingsPage"));window.BloomDaisy?.mountSettings?.(document.getElementById("settingsPage"));window.FlorisynAssistantVoice?.mountSettings?.(document.getElementById("settingsPage"));window.BloomLilyVoice?.mountSettings?.(document.getElementById("settingsPage"))}
-async function calculateRoute(showMessage=true){const f=$("#orderForm"),address=f.elements.delivery_address.value.trim();if(!address){if(showMessage)toast("Enter the delivery address first");return null}const result=$("#routeResult");result.textContent="Calculating driving route…";try{const d=await api("route-distance",{method:"POST",body:JSON.stringify({destination:address})});f.elements.delivery_miles.value=Number(d.roundTripMiles||0).toFixed(1);f.elements.drive_minutes.value=Math.round(Number(d.driveMinutes||0));result.textContent=`${Number(d.oneWayMiles).toFixed(1)} miles one way · ${Number(d.roundTripMiles).toFixed(1)} round trip · about ${Math.round(Number(d.driveMinutes))} minutes`;return d}catch(e){result.textContent=e.message;if(showMessage)toast(e.message);return null}}
+async function calculateRoute(showMessage=true){const f=$("#orderForm"),address=f.elements.delivery_address.value.trim();if(!address){if(showMessage)toast("Enter the delivery address first");return null}const result=$("#routeResult");result.textContent="Calculating driving route…";try{const d=await api("route-distance",{method:"POST",body:JSON.stringify({destination:address})});f.elements.delivery_miles.value=Number(d.roundTripMiles||0).toFixed(1);f.elements.drive_minutes.value=Math.round(Number(d.driveMinutes||0));result.textContent=`${Number(d.oneWayMiles).toFixed(1)} miles one way · ${Number(d.roundTripMiles).toFixed(1)} round trip · about ${Math.round(Number(d.driveMinutes))} minutes`;return d}catch(e){const raw=e?.message||"Mileage service unavailable";const degrade=/api key|not configured|503|unavailable|maps/i.test(raw);const msg=degrade?"Automatic mileage is unavailable right now. You can still save the delivery order.":raw;result.textContent=msg;if(showMessage)toast(msg);return null}}
 function renderWebsite(){const f=$("#websiteForm"),d=Object.fromEntries(new FormData(f)),main=d.primary_color||"#a72f67",accent=d.accent_color||"#6f8f72",hero=d.hero_image_url?`url('${d.hero_image_url}')`:`linear-gradient(135deg,${main},${accent})`;const pv=$("#websitePreview");pv.style.setProperty("--site-main",main);pv.style.setProperty("--site-accent",accent);pv.style.setProperty("--hero-image",hero);const online=products.filter(p=>p.available_online).slice(0,6);const cards=(online.length?online:[{name:"Hydrangea Garden",price:85,image_url:"https://images.pexels.com/photos/931177/pexels-photo-931177.jpeg?auto=compress&cs=tinysrgb&w=700"},{name:"Seasonal Designer's Choice",price:75,image_url:"https://images.pexels.com/photos/1458694/pexels-photo-1458694.jpeg?auto=compress&cs=tinysrgb&w=700"},{name:"Romantic Roses",price:95,image_url:"https://images.pexels.com/photos/1070850/pexels-photo-1070850.jpeg?auto=compress&cs=tinysrgb&w=700"}]);pv.innerHTML=`<div class="preview-announcement">Fresh flowers · Thoughtful design · Local delivery</div><div class="preview-nav">${d.logo_url?`<img src="${esc(d.logo_url)}">`:""}<strong>${esc(d.name||"Your Flower Shop")}</strong><span>Shop Flowers · Occasions · Weddings · Sympathy · About</span><button>Order flowers</button></div><div class="preview-hero"><div class="hero-copy"><p>${esc(d.tagline||d.website_style||"Local florist")}</p><h2>${esc(d.hero_title||"Flowers made beautifully for every moment")}</h2><div>${esc(d.hero_text||"Thoughtful floral designs, gifts, and local delivery.")}</div><button>Shop the collection</button></div></div><section class="preview-occasions"><span>Birthday</span><span>Love & Romance</span><span>Sympathy</span><span>Wedding</span></section><section class="preview-featured"><p class="eyebrow">SHOP OUR FAVORITES</p><h3>Featured arrangements</h3><div class="preview-product-grid">${cards.map(p=>`<article>${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}">`:`<div class="preview-product-placeholder">Fresh Flowers</div>`}<strong>${esc(p.name)}</strong><small>${money(p.price||0)}</small><button>View arrangement</button></article>`).join("")}</div></section><section class="preview-story"><div><p class="eyebrow">DESIGNED LOCALLY</p><h3>Flowers with heart</h3><p>${esc(d.about_text||"Every arrangement is designed by hand with fresh flowers and personal attention.")}</p></div><div class="preview-story-card"><b>Local delivery</b><span>${esc(d.address||"Your delivery area")}</span><b>Talk to a florist</b><span>${esc(d.phone||"Your phone number")}</span></div></section><footer><strong>${esc(d.name||"Your Flower Shop")}</strong><span>${esc(d.phone||"Phone")} · ${esc(d.address||"Local delivery")}</span>${d.custom_domain?`<span>${esc(d.custom_domain)}</span>`:""}</footer>`}
 function openCustomer(x=null){const f=$("#customerForm");if(!f)return toast("Customer form unavailable. Refresh Florisyn and try again.");f.reset();for(const k of["id","name","phone","email","address","birthday","anniversary","favorite_flowers","favorite_colors","notes"])f.elements[k].value=x?.[k]||"";f.elements.vip.checked=Boolean(x?.vip);f.elements.is_business.checked=Boolean(x?.is_business);if(f.elements.is_house_account)f.elements.is_house_account.checked=Boolean(x?.is_house_account);const prefs=x?.contact_preferences&&typeof x.contact_preferences==="object"?x.contact_preferences:{};if(f.elements.preferred_method)f.elements.preferred_method.value=prefs.preferred_method||"none";if(f.elements.marketing_opt_in)f.elements.marketing_opt_in.checked=Boolean(prefs.marketing_opt_in);$("#customerDialogTitle").textContent=x?"Edit customer":"Add customer";$("#customerDialog").showModal()}
 function updateInventoryPrice(force=false){const f=$("#inventoryForm"),category=f.elements.category.value,cost=Number(f.elements.cost.value||0),quantity=Number(f.elements.quantity.value||0),markup=Math.max(0.1,Number(f.elements.markup_multiplier?.value||3));if(category==="Flowers"&&(force||!f.elements.price.dataset.manual))f.elements.price.value=(cost*markup).toFixed(2);$("#inventoryMarkupNote").textContent=category==="Flowers"?`Flowers automatically price at ${markup}× wholesale.`:"Set the retail price for this item.";$("#wholesaleStockValue").textContent=money(cost*quantity);$("#retailStockValue").textContent=money(Number(f.elements.price.value||0)*quantity)}
@@ -382,16 +411,100 @@ function openTileEditor(tile=null){const f=$("#tileEditForm");f.reset();f.elemen
 function initShiftButton(){const button=$("#shiftButton");if(!button)return;const clockedIn=localStorage.getItem("bloom_shift_active")==="1";button.classList.toggle("clocked-in",clockedIn);button.textContent=clockedIn?"⇥ Clock Out":"⇥ Clock In";const status=$("#shiftStatusText");if(status)status.textContent=clockedIn?`Shift started ${localStorage.getItem("bloom_shift_started")||"earlier"}.`:"No active shift on this device."}
 function toggleShift(){const active=localStorage.getItem("bloom_shift_active")==="1";const now=new Date();if(active){const start=localStorage.getItem("bloom_shift_started");localStorage.setItem("bloom_last_shift",JSON.stringify({started:start,ended:now.toISOString()}));localStorage.removeItem("bloom_shift_active");localStorage.removeItem("bloom_shift_started");toast("Clocked out successfully") }else{localStorage.setItem("bloom_shift_active","1");localStorage.setItem("bloom_shift_started",now.toISOString());toast("Clocked in successfully")}initShiftButton()}
 function removeDuplicateControls(){const roseButtons=$$("#speakRoseBriefing");roseButtons.slice(1).forEach(x=>x.remove());const clocks=$$("#shiftButton,.shift-button");clocks.slice(1).forEach(x=>x.remove())}
-function addPastelPageFrames(){Object.keys({customersPage:1,ordersPage:1,deliveriesPage:1,inventoryPage:1,productsPage:1,websitePage:1,libraryPage:1,invoicesPage:1,paymentsPage:1,expensesPage:1,reportsPage:1,staffPage:1,marketplacePage:1,wholesaleSellerPage:1,storesPage:1,settingsPage:1,subscriptionPage:1,ecosystemPage:1}).forEach(id=>document.getElementById(id)?.classList.add("pastel-matched-page"))}
+function addPastelPageFrames(){Object.keys({customersPage:1,ordersPage:1,deliveriesPage:1,inventoryPage:1,productsPage:1,bouquetsPage:1,websitePage:1,libraryPage:1,invoicesPage:1,paymentsPage:1,expensesPage:1,reportsPage:1,analyticsPage:1,staffPage:1,marketplacePage:1,wholesaleSellerPage:1,storesPage:1,settingsPage:1,subscriptionPage:1,ecosystemPage:1,posSettingsPage:1}).forEach(id=>document.getElementById(id)?.classList.add("pastel-matched-page"))}
 async function openQuickSalePad(button){
   const tile=posTiles.find(x=>x.id===button.dataset.tileId)||{id:"custom",name:button.dataset.saleItem||"Custom item",image:""};
   const f=$("#quickPriceForm");f.reset();f.elements.tile_id.value=tile.id;f.elements.item_name.value=tile.name;f.elements.quantity.value=1;$("#quickPriceTitle").textContent=`Add ${tile.name}`;$("#quickPriceItemName").textContent=tile.name;$("#quickPriceImage").src=tile.image||"/assets/fresh.png";$("#quickPriceDialog").showModal();setTimeout(()=>{$("#quickPriceAmount").focus();$("#quickPriceAmount").select()},50)
 }
+let posLuxDiscountApplied=false;
+const POS_LUX_SERVICE_FEE=15;
+const POS_LUX_DEMO_CART=[
+  {id:"demo-blush",name:"Blush Serenity Bouquet",description:"Large Vase, Silk Wrap Ribbon",price:180,quantity:1},
+  {id:"demo-rose",name:"Rose Garden Arrangement",description:"Signature ceramic bowl, peach premium spray roses",price:150,quantity:2},
+  {id:"demo-wrap",name:"Gift Wrapping Service",description:"Embossed paper, handwritten gold foil card",price:12,quantity:1}
+];
 function savePosCart(){localStorage.setItem("bloom_pos_cart",JSON.stringify(posCart));renderPosCart()}
-function loadPosCart(){try{posCart=JSON.parse(localStorage.getItem("bloom_pos_cart")||"[]");if(!Array.isArray(posCart))posCart=[]}catch{posCart=[]}try{savedQuotes=JSON.parse(localStorage.getItem("bloom_saved_quotes")||"[]");if(!Array.isArray(savedQuotes))savedQuotes=[]}catch{savedQuotes=[]}renderPosCart();renderSavedQuotes()}
-function cartTotals(){const subtotal=posCart.reduce((s,x)=>s+(Number(x.price)||0)*(Number(x.quantity)||1),0),rate=Number(shopSettings?.tax_rate??6),tax=Math.round(subtotal*rate)/100,total=subtotal+tax;return{subtotal,tax,total,rate}}
-function renderPosCustomerOptions(){const select=$("#posCustomerSelect");if(!select)return;const current=select.value;select.innerHTML='<option value="">Walk-in Customer</option>'+customers.map(c=>`<option value="${esc(c.id||c.name)}" data-name="${esc(c.name)}">${esc(c.name)}</option>`).join("");select.value=[...select.options].some(o=>o.value===current)?current:""}
-function renderPosCart(){const box=$("#queue");if(!box)return;const {subtotal,tax,total,rate}=cartTotals();$("#cartItemCount").textContent=`${posCart.reduce((s,x)=>s+Number(x.quantity||1),0)} items`;box.innerHTML=posCart.length?`<div class="cart-table"><div class="cart-table-head"><span>Item</span><span>Qty</span><span>Price</span><span>Total</span><span></span></div>${posCart.map((x,i)=>`<div class="cart-row"><span><strong>${esc(x.name)}</strong>${x.description?`<small>${esc(x.description)}</small>`:""}</span><span class="qty-control"><button data-cart-minus="${i}">−</button><b>${Number(x.quantity)||1}</b><button data-cart-plus="${i}">+</button></span><span><input data-cart-price="${i}" type="number" min="0" step=".01" value="${Number(x.price||0).toFixed(2)}"></span><span><b>${money((Number(x.price)||0)*(Number(x.quantity)||1))}</b></span><span><button class="icon-delete" data-cart-remove="${i}" aria-label="Remove">🗑</button></span></div>`).join("")}</div>`:empty("Tap a product picture, enter the price, and it will appear here.");$("#weekSales").textContent=money(subtotal);const taxLine=$$(".checkout-lines span").find(x=>x.textContent.includes("Tax ("));if(taxLine)taxLine.innerHTML=`Tax (${rate.toFixed(1)}%) <b>${money(tax)}</b>`;$("#totalSales").textContent=money(total);const pay=$(".process-payment");if(pay){pay.disabled=!posCart.length;pay.dataset.cartCheckout="1"}}
+function loadPosCart(){
+  try{posCart=JSON.parse(localStorage.getItem("bloom_pos_cart")||"[]");if(!Array.isArray(posCart))posCart=[]}catch{posCart=[]}
+  if(!posCart.length&&document.getElementById("florisynPosLux")){
+    /* Always restore the Figma demo basket when the luxury register cart is empty */
+    posCart=structuredClone(POS_LUX_DEMO_CART);
+    localStorage.setItem("bloom_pos_cart",JSON.stringify(posCart));
+    localStorage.setItem("bloom_pos_cart_seeded","1");
+    posLuxDiscountApplied=true;
+  }
+  try{savedQuotes=JSON.parse(localStorage.getItem("bloom_saved_quotes")||"[]");if(!Array.isArray(savedQuotes))savedQuotes=[]}catch{savedQuotes=[]}
+  if(document.getElementById("florisynPosLux")&&(document.querySelector("#posLuxDiscountCode")?.value||"").trim().toUpperCase()==="VIPGOLD10")posLuxDiscountApplied=true;
+  renderPosCart();
+  renderSavedQuotes();
+}
+function cartTotals(){
+  const lux=!!document.getElementById("florisynPosLux");
+  const subtotal=posCart.reduce((s,x)=>s+(Number(x.price)||0)*(Number(x.quantity)||1),0);
+  const code=(document.querySelector("#posLuxDiscountCode")?.value||"").trim().toUpperCase();
+  const discountPct=lux&&posLuxDiscountApplied&&code==="VIPGOLD10"?10:0;
+  const discount=Math.round(subtotal*discountPct)/100;
+  const service=lux&&posCart.length?POS_LUX_SERVICE_FEE:0;
+  const rate=lux?10:Number(shopSettings?.tax_rate??6);
+  const tax=Math.round(subtotal*rate)/100;
+  const total=Math.max(0,Math.round((subtotal-discount+service+tax)*100)/100);
+  return{subtotal,tax,total,rate,discount,service,discountPct};
+}
+function renderPosCustomerOptions(){
+  const select=$("#posCustomerSelect");
+  if(!select)return;
+  const current=select.value;
+  const keepClara=current==="clara-kensington"||current==="";
+  const hasClaraCustomer=customers.some(c=>/clara\s*kensington/i.test(c.name||""));
+  select.innerHTML='<option value="">Walk-in Customer</option>'+
+    (hasClaraCustomer?"":'<option value="clara-kensington" data-name="Clara Kensington">Clara Kensington</option>')+
+    customers.map(c=>`<option value="${esc(c.id||c.name)}" data-name="${esc(c.name)}">${esc(c.name)}</option>`).join("");
+  if([...select.options].some(o=>o.value===current))select.value=current;
+  else if(keepClara&&[...select.options].some(o=>o.value==="clara-kensington"))select.value="clara-kensington";
+  window.FlorisynLuxuryPos?.syncCustomer?.();
+}
+function renderPosCart(){
+  const box=$("#queue");
+  if(!box)return;
+  const {subtotal,tax,total,rate,discount,service,discountPct}=cartTotals();
+  const itemCount=posCart.reduce((s,x)=>s+Number(x.quantity||1),0);
+  if($("#cartItemCount"))$("#cartItemCount").textContent=`${itemCount} items`;
+  const lux=!!document.getElementById("florisynPosLux");
+  if(lux){
+    box.innerHTML=posCart.length
+      ?`<div class="cart-table pos-lux-cart-table"><div class="cart-table-head"><span>QTY</span><span>ITEM DESCRIPTION</span><span>UNIT PRICE</span><span>LINE TOTAL</span></div>${posCart.map((x,i)=>`<div class="cart-row"><span class="qty-control"><button type="button" data-cart-minus="${i}" aria-label="Decrease quantity">−</button><b>${Number(x.quantity)||1}</b><button type="button" data-cart-plus="${i}" aria-label="Increase quantity">+</button></span><span class="pos-lux-item"><strong>${esc(x.name)}</strong>${x.description?`<small>${esc(x.description)}</small>`:""}</span><span class="pos-lux-unit"><input data-cart-price="${i}" type="number" min="0" step=".01" value="${Number(x.price||0).toFixed(2)}" aria-label="Unit price"></span><span class="pos-lux-line-total"><b>${money((Number(x.price)||0)*(Number(x.quantity)||1))}</b><button type="button" class="icon-delete" data-cart-remove="${i}" aria-label="Remove">×</button></span></div>`).join("")}</div>`
+      :`<div class="pos-lux-empty">Scan or select items to begin a sale.</div>`;
+  }else{
+    box.innerHTML=posCart.length
+      ?`<div class="cart-table"><div class="cart-table-head"><span>Item</span><span>Qty</span><span>Price</span><span>Total</span><span></span></div>${posCart.map((x,i)=>`<div class="cart-row"><span><strong>${esc(x.name)}</strong>${x.description?`<small>${esc(x.description)}</small>`:""}</span><span class="qty-control"><button data-cart-minus="${i}">−</button><b>${Number(x.quantity)||1}</b><button data-cart-plus="${i}">+</button></span><span><input data-cart-price="${i}" type="number" min="0" step=".01" value="${Number(x.price||0).toFixed(2)}"></span><span><b>${money((Number(x.price)||0)*(Number(x.quantity)||1))}</b></span><span><button class="icon-delete" data-cart-remove="${i}" aria-label="Remove">🗑</button></span></div>`).join("")}</div>`
+      :empty("Tap a product picture, enter the price, and it will appear here.");
+  }
+  if($("#cartSubtotal"))$("#cartSubtotal").textContent=money(subtotal);
+  else if($("#weekSales"))$("#weekSales").textContent=money(subtotal);
+  if($("#posLuxDiscountAmt"))$("#posLuxDiscountAmt").textContent=discount?`−$${Number(discount).toFixed(2)}`:"−$0.00";
+  const discountLabel=$("#posLuxDiscountLine")?.querySelector("span");
+  if(discountLabel)discountLabel.textContent=discountPct?`Discount (${discountPct}% VIP coupon)`:"Discount (10% VIP coupon)";
+  if($("#posLuxServiceFee"))$("#posLuxServiceFee").textContent=money(service||(lux&&posCart.length?POS_LUX_SERVICE_FEE:lux?POS_LUX_SERVICE_FEE:0));
+  if($("#posLuxTax"))$("#posLuxTax").textContent=money(tax);
+  else{
+    const taxLine=$$(".checkout-lines span").find(x=>x.textContent.includes("Tax ("));
+    if(taxLine)taxLine.innerHTML=`Tax (${rate.toFixed(1)}%) <b>${money(tax)}</b>`;
+  }
+  if($("#cartTotal"))$("#cartTotal").textContent=money(total);
+  else if($("#totalSales"))$("#totalSales").textContent=money(total);
+  const pay=$(".process-payment");
+  if(pay){pay.disabled=!posCart.length;pay.dataset.cartCheckout="1"}
+  document.dispatchEvent(new CustomEvent("florisyn-pos-refresh-cart",{detail:{subtotal,tax,total,discount,service}}));
+}
+window.renderPosCart=renderPosCart;
+document.addEventListener("florisyn-pos-discount-apply",()=>{
+  const code=($("#posLuxDiscountCode")?.value||"").trim().toUpperCase();
+  if(code==="VIPGOLD10"){posLuxDiscountApplied=true;toast("VIPGOLD10 applied")}
+  else if(!code){posLuxDiscountApplied=false;toast("Discount cleared")}
+  else{posLuxDiscountApplied=false;toast("Unrecognized discount code")}
+  renderPosCart();
+});
+
 function persistSavedQuotes(){localStorage.setItem("bloom_saved_quotes",JSON.stringify(savedQuotes));renderSavedQuotes()}
 function renderSavedQuotes(){const count=$("#savedQuoteCount");if(count)count.textContent=String(savedQuotes.length);const box=$("#savedQuotesList");if(!box)return;box.innerHTML=savedQuotes.length?savedQuotes.map(q=>`<article class="saved-quote-card"><div><strong>${esc(q.name)}</strong><small>${new Date(q.createdAt).toLocaleString()} · ${q.cart.reduce((n,x)=>n+Number(x.quantity||1),0)} items · ${money(q.total)}</small></div><div><button class="primary" data-load-quote="${q.id}" type="button">Resume</button><button class="secondary" data-delete-quote="${q.id}" type="button">Delete</button></div></article>`).join(""):empty("No saved quotes on this device.")}
 function saveCurrentQuote(){if(!posCart.length)return toast("Add an item before saving a quote");const customerOption=$("#posCustomerSelect")?.selectedOptions?.[0],customerName=customerOption?.dataset?.name||"Walk-in Customer",name=prompt("Quote name",`${customerName} quote`)?.trim();if(!name)return;const totals=cartTotals();savedQuotes.unshift({id:`quote-${Date.now()}`,name,createdAt:new Date().toISOString(),customerId:$("#posCustomerSelect")?.value||"",note:$("#posOrderNote")?.value||"",cart:structuredClone(posCart),total:totals.total});savedQuotes=savedQuotes.slice(0,25);persistSavedQuotes();toast("Quote saved on this register")}
@@ -428,7 +541,7 @@ function renderSplitPaymentRows(rows){const host=$("#splitPaymentRows");if(!host
 function readSplitRows(){return [...($("#splitPaymentRows")?.querySelectorAll(".split-part-row")||[])].map(row=>({amount:Number(row.querySelector("[data-split-amount]")?.value||0),method:row.querySelector("[data-split-method]")?.value||"Cash",note:row.querySelector("[data-split-note]")?.value||""}))}
 function updateSplitTotals(){const balance=Number($("#paymentTopSummary")?.dataset.balance||getPaymentBalance());const rows=readSplitRows();const splitTotal=Math.round(rows.reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;const manualTotal=Math.round(rows.filter(r=>r.method!=="Card").reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;const cardTotal=Math.round(rows.filter(r=>r.method==="Card").reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;if($("#splitTotalLive"))$("#splitTotalLive").textContent=money(splitTotal);if($("#splitRemainingLive"))$("#splitRemainingLive").textContent=money(Math.max(0,balance-manualTotal));const err=$("#splitPaymentError");if(err)err.textContent=splitTotal>balance+0.005?`Split total ${money(splitTotal)} exceeds balance ${money(balance)}.`:"";const notice=$("#splitCardNotice");if(notice){if(cardTotal>0){notice.hidden=false;notice.textContent=`Card total ${money(cardTotal)} opens Stripe for that amount after cash/check/other parts post.`}else notice.hidden=true}}
 function setPendingPaymentOrder(order){pendingPaymentOrder=order||null;if(order)localStorage.setItem("bloom_pending_payment_order",JSON.stringify(order));else{localStorage.removeItem("bloom_pending_payment_order");clearSplitSession()}renderPaymentCenterShell()}
-async function checkoutPosCart(){if(!posCart.length)return toast("Add an item first");const customerSelect=$("#posCustomerSelect"),option=customerSelect.selectedOptions[0],customerName=option?.dataset.name||"Walk-in Customer",note=$("#posOrderNote")?.value||"",{subtotal,tax,total,rate}=cartTotals();const description=posCart.map(x=>`${x.quantity} × ${x.name}${x.description?` (${x.description})`:""}`).join("; ");try{const result=await api("orders",{method:"POST",body:JSON.stringify({customer_name:customerName,customer_phone:"",customer_type:"PERSONAL",payment_required:"YES",recipient_name:customerName,occasion:"",order_source:"Walk-in",arrangement_description:description,notes:note,fulfillment:"PICKUP",delivery_date:new Date().toISOString().slice(0,10),subtotal,labor_charge:0,delivery_fee:0,discount:0,tax_rate:rate,tax,estimated_cost:0,total_preview:total})});const order=result.item||{};posCart=[];savePosCart();if($("#posOrderNote"))$("#posOrderNote").value="";toast("Order created — choose a payment method");await openPaymentCenterForOrder(order);loadOrders();loadDashboard()}catch(e){toast(e.message)}}
+async function checkoutPosCart(){if(!posCart.length)return toast("Add an item first");const customerSelect=$("#posCustomerSelect"),option=customerSelect.selectedOptions[0],customerName=option?.dataset.name||"Walk-in Customer",note=$("#posOrderNote")?.value||"",{subtotal,tax,total,rate,discount,service}=cartTotals();const description=posCart.map(x=>`${x.quantity} × ${x.name}${x.description?` (${x.description})`:""}`).join("; ");try{const result=await api("orders",{method:"POST",body:JSON.stringify({customer_name:customerName,customer_phone:"",customer_type:"PERSONAL",payment_required:"YES",recipient_name:customerName,occasion:"",order_source:"Walk-in",arrangement_description:description,notes:note,fulfillment:service?"DELIVERY":"PICKUP",delivery_date:new Date().toISOString().slice(0,10),subtotal,labor_charge:0,delivery_fee:service||0,discount:discount||0,tax_rate:rate,tax,estimated_cost:0,total_preview:total})});const order=result.item||{};posCart=[];savePosCart();if($("#posOrderNote"))$("#posOrderNote").value="";toast("Order created — choose a payment method");await openPaymentCenterForOrder(order);loadOrders();loadDashboard()}catch(e){toast(e.message)}}
 addPastelPageFrames();
 document.addEventListener('click',e=>{const pad=e.target.closest('.quick-sale-pad');if(pad){e.preventDefault();openQuickSalePad(pad)}});
 document.addEventListener("click",e=>{let t;if(t=e.target.closest("#manageTilesBtn,#addTileFromGrid")){renderTileEditor();$("#tileManagerDialog").showModal();return}if(t=e.target.closest("#addTileBtn")){openTileEditor();return}if(t=e.target.closest("[data-edit-tile]")){openTileEditor(posTiles.find(x=>x.id===t.dataset.editTile));return}if(t=e.target.closest("[data-delete-tile]")){if(confirm("Delete this product tile?")){posTiles=posTiles.filter(x=>x.id!==t.dataset.deleteTile);renderTileEditor()}return}if(t=e.target.closest("[data-tile-up]")){const i=Number(t.dataset.tileUp);if(i>0)[posTiles[i-1],posTiles[i]]=[posTiles[i],posTiles[i-1]];renderTileEditor();return}if(t=e.target.closest("[data-tile-down]")){const i=Number(t.dataset.tileDown);if(i<posTiles.length-1)[posTiles[i+1],posTiles[i]]=[posTiles[i],posTiles[i+1]];renderTileEditor();return}});
@@ -448,7 +561,25 @@ document.addEventListener("click",e=>{let t;if(t=e.target.closest("[data-load-qu
 $("#shiftButton")?.addEventListener("click",toggleShift);
 
 
-$("#logout").onclick=()=>{localStorage.removeItem("bloom_session");session=null;location.replace("/login")};$$("[data-page]").forEach(b=>b.onclick=()=>showPage(b.dataset.page));$$("[data-open]").forEach(b=>b.onclick=async()=>{if(b.dataset.open==="expenseDialog")return openExpense();const dialog=document.getElementById(b.dataset.open);if(!dialog)return toast("This Florisyn panel is unavailable. Refresh and try again.");if(b.dataset.open==="orderDialog")await prepareOrderBuilder();dialog.showModal()});$$(".close").forEach(b=>b.onclick=()=>b.closest("dialog").close());$("#customerSearch").oninput=renderCustomers;$("#addRecipeRow").onclick=()=>addRecipeRow();$("#refreshInvoices")?.addEventListener("click",loadInvoices);
+$("#logout").onclick=()=>{localStorage.removeItem("bloom_session");session=null;location.replace("/login")};
+function openShopNotifications(){
+  const pending=Number(String($("#briefOrders")?.textContent||$("#ordersDueToday")?.textContent||$("#kpiSalesCount")?.textContent||"0").replace(/[^\d]/g,"")||0);
+  const lowStock=Number(String($("#briefLowStock")?.textContent||$("#lowStock")?.textContent||"0").replace(/[^\d]/g,"")||0);
+  const parts=[];
+  if(pending)parts.push(`${pending} order${pending===1?"":"s"} needing attention`);
+  if(lowStock)parts.push(`${lowStock} low-stock item${lowStock===1?"":"s"}`);
+  toast(parts.length?`Shop alerts: ${parts.join(" · ")}. Opening Orders.`:"No urgent shop alerts right now. Opening Orders.");
+  showPage("ordersPage");
+}
+["atelierMobileNotify","atelierNotifyBtn"].forEach((id)=>{
+  const btn=document.getElementById(id);
+  if(!btn||btn.dataset.notifyBound)return;
+  btn.dataset.notifyBound="1";
+  btn.addEventListener("click",openShopNotifications);
+});
+/* Fallback page nav when FlorisynRouter is unavailable; router owns clicks when present. */
+$$("[data-page]").forEach(b=>b.onclick=()=>{if(window.FlorisynRouter)return;showPage(b.dataset.page)});
+$$("[data-open]").forEach(b=>b.onclick=async()=>{if(b.dataset.open==="expenseDialog")return openExpense();const dialog=document.getElementById(b.dataset.open);if(!dialog)return toast("This Florisyn panel is unavailable. Refresh and try again.");if(b.dataset.open==="orderDialog")await prepareOrderBuilder();dialog.showModal()});$$(".close").forEach(b=>b.onclick=()=>b.closest("dialog").close());$("#customerSearch").oninput=renderCustomers;$("#addRecipeRow").onclick=()=>addRecipeRow();$("#refreshInvoices")?.addEventListener("click",loadInvoices);
 $("#refreshCommunity")?.addEventListener("click",()=>loadCommunityPage());
 $("#shopSwitcher").onchange=async e=>{await api("stores",{method:"PATCH",body:JSON.stringify({shop_id:e.target.value})});location.reload()};
 $("#customerForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));d.vip=f.elements.vip.checked;d.is_business=f.elements.is_business.checked;if(f.elements.is_house_account)d.is_house_account=f.elements.is_house_account.checked;d.contact_preferences={preferred_method:f.elements.preferred_method?.value||"none",marketing_opt_in:Boolean(f.elements.marketing_opt_in?.checked)};try{await api("customers",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)})}catch(err){return toast(err.message)}f.reset();$("#customerDialog").close();toast("Customer saved");loadCustomers()};
@@ -671,6 +802,21 @@ syncShotOutputs();
 
 
 // Bloom v20.5 remote administration configuration.
+function safeRemoteImageUrl(value){
+  const raw=String(value||"").trim();
+  if(!raw)return"";
+  if(raw.startsWith("/")&&!raw.startsWith("//"))return raw;
+  try{const url=new URL(raw);return url.protocol==="https:"?url.href:""}catch{return""}
+}
+function applyRemoteLabels(labels={},selectorPrefix=""){
+  if(!labels||typeof labels!=="object")return;
+  Object.entries(labels).forEach(([key,label])=>{
+    const text=String(label||"").trim();
+    if(!key||!text)return;
+    const target=document.querySelector(`${selectorPrefix}[data-page="${CSS.escape(key)}"],${selectorPrefix}[data-open="${CSS.escape(key)}"]`);
+    if(target)target.textContent=text;
+  });
+}
 async function loadRemoteAdminConfig(){
   try{
     const shopId=localStorage.getItem("bloom_active_shop_id")||"";
@@ -687,6 +833,20 @@ function applyRemoteAdminConfig(config={}){
   if(theme.sidebar)root.style.setProperty("--admin-sidebar",theme.sidebar);
   if(theme.radius)root.style.setProperty("--admin-radius",`${Number(theme.radius)}px`);
   document.body.dataset.adminDensity=theme.density||"comfortable";
+  const content=config.content||{};
+  document.body.dataset.remoteLayout=content.layout_mode||"classic";
+  const bg=safeRemoteImageUrl(content.app_background_image);
+  if(bg)document.body.style.setProperty("--remote-app-background-image",`url("${bg.replace(/"/g,"%22")}")`);
+  const logo=safeRemoteImageUrl(content.logo_image);
+  if(logo){
+    document.querySelectorAll("#appLogo,.app-logo").forEach(img=>{img.src=logo;img.hidden=false});
+  }
+  const dash=safeRemoteImageUrl(content.dashboard_image);
+  if(dash){
+    const dashImg=$("#dashboardWelcomeImage");
+    const dashWrap=$("#dashboardWelcomePhoto");
+    if(dashImg){dashImg.src=dash;if(dashWrap)dashWrap.hidden=false}
+  }
   const aside=document.querySelector("#app aside");
   if(aside){
     const nav=config.navigation||{},buttons=[...aside.querySelectorAll("button[data-page]")];
@@ -695,6 +855,12 @@ function applyRemoteAdminConfig(config={}){
     const hidden=new Set(nav.hidden||[]);
     buttons.forEach(b=>b.hidden=hidden.has(b.dataset.page));
   }
+  applyRemoteLabels(content.button_labels||{},"");
+  const tabLabels=content.tab_labels||{};
+  document.querySelectorAll("#app aside p").forEach((node)=>{
+    const key=String(node.textContent||"").toLowerCase().replace(/[^a-z]+/g,"_").replace(/^_|_$/g,"");
+    if(tabLabels[key])node.textContent=String(tabLabels[key]);
+  });
   const featurePage={dashboard:"dashboardPage",orders:"ordersPage",deliveries:"deliveriesPage",customers:"customersPage",inventory:"inventoryPage",products:"productsPage",bloomshot:"bloomshotPage",website:"websitePage",library:"libraryPage",invoices:"invoicesPage",payments:"paymentsPage",expenses:"expensesPage",reports:"reportsPage",staff:"staffPage",marketplace:"marketplacePage",stores:"storesPage"};
   Object.entries(config.features||{}).forEach(([feature,enabled])=>{
     const page=featurePage[feature];if(!page||enabled!==false)return;
@@ -732,8 +898,20 @@ function lilyVoice(text){
 function aiStudioMessage(role,text){
   const wrap=$("#aiStudioMessages");if(!wrap)return;
   const article=document.createElement("article");article.className=`ai-message ${role}`;
-  article.innerHTML=`<span class="message-avatar">${role==="user"?"💬":"🌸"}</span><div><strong>${role==="user"?"You":"Lily"}</strong><p></p></div>`;
+  const avatar=role==="assistant"
+    ?`<img class="message-avatar lux-ai-avatar" src="/assets/assistants/lily-portrait.png" alt="" width="40" height="40">`
+    :`<span class="message-avatar lux-ai-avatar" aria-hidden="true">You</span>`;
+  article.innerHTML=`${avatar}<div class="lux-ai-bubble"><strong>${role==="user"?"You":"Lily"}</strong><p></p></div>`;
   article.querySelector("p").textContent=aiGeneratedText(text)||"";wrap.appendChild(article);wrap.scrollTop=wrap.scrollHeight;
+}
+function syncAiStudioMock(draft){
+  const title=$("#aiStudioMockHeroTitle"), text=$("#aiStudioMockHeroText");
+  if(!title||!text)return;
+  const w=draft?.website||{};
+  title.textContent=aiGeneratedText(w.hero_title)||"Luxury Blooms";
+  text.textContent=aiGeneratedText(w.hero_text||w.tagline)||"Handcrafted arrangements for every occasion.";
+  const pName=aiGeneratedText(draft?.product?.name||"");
+  if(pName&&$("#aiStudioMockP1"))$("#aiStudioMockP1").textContent=pName;
 }
 function aiStudioTasks(items=[],active=-1){
   const q=$("#aiStudioTaskQueue");if(!q)return;q.hidden=!items.length;
@@ -747,7 +925,7 @@ function normalizedStudioDraft(raw={}){
 }
 function renderAiStudioDraft(){
   const list=$("#aiStudioChangeList"),badge=$("#aiStudioDraftBadge");if(!list)return;
-  if(!aiStudioDraft){badge.textContent="No draft";list.innerHTML='<div class="ai-empty-state"><span>🌷</span><strong>Your draft will appear here</strong><p>Ask Lily to improve the website, write a product, or prepare marketing.</p></div>';$("#aiStudioApply").disabled=true;$("#aiStudioUndo").disabled=!aiStudioPrevious;return}
+  if(!aiStudioDraft){badge.textContent="No draft";badge.className="badge lux-ai-draft-badge";list.innerHTML='<div class="ai-empty-state"><strong>Your draft will appear here</strong><p>Ask Lily to improve the website, write a product, or prepare marketing.</p></div>';list.hidden=true;$("#aiStudioApply").disabled=true;$("#aiStudioUndo").disabled=!aiStudioPrevious;syncAiStudioMock(null);return}
   const cards=[];
   const labels={tagline:"Tagline",hero_title:"Hero headline",hero_text:"Hero message",about_text:"About section",seo_title:"SEO title",seo_description:"SEO description"};
   for(const [k,v] of Object.entries(aiStudioDraft.website||{}))if(v)cards.push(`<article class="ai-change-card"><small>Website · ${labels[k]||k.replaceAll("_"," ")}</small><p>${escapeHtml(aiGeneratedText(v))}</p></article>`);
@@ -755,8 +933,9 @@ function renderAiStudioDraft(){
   for(const [k,v] of Object.entries(aiStudioDraft.marketing||{}))if(v)cards.push(`<article class="ai-change-card"><small>Marketing · ${k.replaceAll("_"," ")}</small><p>${escapeHtml(aiGeneratedText(v))}</p></article>`);
   if(aiStudioDraft.image_prompt)cards.push(`<article class="ai-change-card"><small>Image concept</small><p>${escapeHtml(aiGeneratedText(aiStudioDraft.image_prompt))}</p></article>`);
   list.innerHTML=cards.join("")||'<div class="ai-empty-state"><span>🌸</span><strong>Lily answered</strong><p>No editable fields were included in this draft.</p></div>';
-  badge.textContent=`${cards.length} suggested change${cards.length===1?"":"s"}`;badge.className="badge good";$("#aiStudioApply").disabled=!cards.length;$("#aiStudioUndo").disabled=!aiStudioPrevious;
+  badge.textContent=`${cards.length} suggested change${cards.length===1?"":"s"}`;badge.className="badge good lux-ai-draft-badge";$("#aiStudioApply").disabled=!cards.length;$("#aiStudioUndo").disabled=!aiStudioPrevious;const changeList=$("#aiStudioChangeList");if(changeList)changeList.hidden=!cards.length;syncAiStudioMock(aiStudioDraft);
 }
+window.smartAi=smartAi;window.loadAiContext=loadAiContext;
 async function runAiStudio(prompt){
   const tasks=["Reading your request","Writing the creative draft","Preparing your approval preview"];
   aiStudioTasks(tasks,0);aiStudioMessage("user",prompt);
@@ -769,7 +948,7 @@ async function runAiStudio(prompt){
   }catch(e){aiStudioTasks([],0);aiStudioMessage("assistant",`Oops—my petals got a little tangled. ${e.message}`);toast(e.message)}
 }
 $("#aiStudioForm")?.addEventListener("submit",e=>{e.preventDefault();const input=$("#aiStudioPrompt"),prompt=input.value.trim();if(!prompt)return toast("Tell Lily what you want to create");input.value="";runAiStudio(prompt)});
-$$('[data-ai-prompt]').forEach(b=>b.addEventListener("click",()=>runAiStudio(b.dataset.aiPrompt)));
+$$("#aiStudioPage [data-ai-prompt]").forEach(b=>b.addEventListener("click",()=>{const input=$("#aiStudioPrompt");if(!input)return;input.value=b.dataset.aiPrompt||b.textContent||"";input.focus();input.setSelectionRange(input.value.length,input.value.length)}));
 $("#aiStudioApply")?.addEventListener("click",()=>{
   if(!aiStudioDraft)return;
   let applied=0;
@@ -779,8 +958,18 @@ $("#aiStudioApply")?.addEventListener("click",()=>{
   if(applied){showPage("websitePage");toast("Lily's approved draft was applied. Save the website when ready.")}else toast("This draft is ready to copy, but it has no website fields to apply.");
 });
 $("#aiStudioUndo")?.addEventListener("click",()=>{if(!aiStudioPrevious)return;const current=aiStudioDraft;aiStudioDraft=aiStudioPrevious;aiStudioPrevious=current;renderAiStudioDraft();toast("Draft restored")});
-$("#aiStudioClear")?.addEventListener("click",()=>{aiStudioPrevious=aiStudioDraft;aiStudioDraft=null;localStorage.removeItem("bloomAiStudioDraft");renderAiStudioDraft();$("#aiStudioMessages").innerHTML='<article class="ai-message assistant"><span class="message-avatar">🌸</span><div><strong>Lily</strong><p>Fresh page, fresh flowers! What are we making? 💕</p></div></article>'});
-$("#aiStudioVoiceToggle")?.addEventListener("click",e=>{aiStudioVoiceEnabled=!aiStudioVoiceEnabled;localStorage.setItem("bloomLilyVoice",aiStudioVoiceEnabled?"on":"off");e.currentTarget.textContent=aiStudioVoiceEnabled?"🔊 Voice on":"🔇 Voice off";if(aiStudioVoiceEnabled)lilyVoice("Yay! You can hear me again.")});
-if($("#aiStudioVoiceToggle"))$("#aiStudioVoiceToggle").textContent=aiStudioVoiceEnabled?"🔊 Voice on":"🔇 Voice off";
+$("#aiStudioClear")?.addEventListener("click",()=>{aiStudioPrevious=aiStudioDraft;aiStudioDraft=null;localStorage.removeItem("bloomAiStudioDraft");renderAiStudioDraft();$("#aiStudioMessages").innerHTML='<article class="ai-message assistant"><img class="message-avatar lux-ai-avatar" src="/assets/assistants/lily-portrait.png" alt="" width="40" height="40"><div class="lux-ai-bubble"><p>Hi! I\'m so happy you\'re here! Tell me what you want to create, and I\'ll make a draft you can preview before anything changes. 💜</p></div></article>'});
+$("#aiStudioVoiceToggle")?.addEventListener("click",e=>{aiStudioVoiceEnabled=!aiStudioVoiceEnabled;localStorage.setItem("bloomLilyVoice",aiStudioVoiceEnabled?"on":"off");e.currentTarget.textContent=aiStudioVoiceEnabled?"Voice on":"Voice off";if(aiStudioVoiceEnabled)lilyVoice("Yay! You can hear me again.")});
+if($("#aiStudioVoiceToggle"))$("#aiStudioVoiceToggle").textContent=aiStudioVoiceEnabled?"Voice on":"Voice off";
+$("#aiStudioReplyBtn")?.addEventListener("click",()=>{$("#aiStudioPrompt")?.focus()});
+$("#aiStudioLearnMore")?.addEventListener("click",()=>toast("Lily drafts website, product, and marketing copy — preview on the right, then Apply to Store."));
+$("#aiStudioMockViewAll")?.addEventListener("click",e=>{e.preventDefault()});
+document.querySelectorAll("#aiStudioPage .lux-ai-tabs [data-lux-ai-tab]").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll("#aiStudioPage .lux-ai-tabs [data-lux-ai-tab]").forEach(b=>{b.classList.toggle("active",b===btn);if(b===btn)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
+    if(btn.dataset.luxAiTab==="website"&&btn.dataset.route&&window.FlorisynRouter)window.FlorisynRouter.navigate(btn.dataset.route);
+    if(btn.dataset.luxAiTab==="ask")$("#aiStudioPrompt")?.focus();
+  });
+});
 try{const saved=JSON.parse(localStorage.getItem("bloomAiStudioDraft")||"null");if(saved){aiStudioDraft=saved;renderAiStudioDraft()}}catch{}
 const dog=$("#bloomDog");let dogPetTimer=null;function petBloomDog(){if(!dog)return;dog.classList.remove("pet");void dog.offsetWidth;dog.classList.add("pet");if(dogPetTimer)window.clearTimeout(dogPetTimer);dogPetTimer=window.setTimeout(()=>dog.classList.remove("pet"),1100);lilyVoice("Oh, that’s so sweet. She loves the attention.")}dog?.addEventListener("click",petBloomDog);dog?.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" ")petBloomDog()});

@@ -52,9 +52,16 @@ export function validateInventoryFreshnessFields(body = {}) {
   const markup = validateMarkupMultiplier(body.markup_multiplier);
   if (!markup.ok) errors.push(markup.error);
 
-  const item_kind = String(body.item_kind || body.category === "Flowers" ? "flower" : "supply")
-    .trim()
-    .slice(0, 40) || "flower";
+  /* Precedence bug fix: never coerce a provided item_kind via `||` with ternary. */
+  const ALLOWED_KINDS = new Set(["flower", "supply", "container", "ribbon", "foam", "other"]);
+  const rawKind = String(body.item_kind ?? "").trim().toLowerCase();
+  let item_kind;
+  if (rawKind) {
+    item_kind = (ALLOWED_KINDS.has(rawKind) ? rawKind : rawKind.replace(/[^a-z0-9_\-]/g, "").slice(0, 40)) || "other";
+  } else {
+    const category = String(body.category || "").trim().toLowerCase();
+    item_kind = category === "flowers" || category === "flower" ? "flower" : "supply";
+  }
 
   return {
     valid: errors.length === 0,
