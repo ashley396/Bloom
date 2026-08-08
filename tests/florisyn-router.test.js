@@ -85,15 +85,39 @@ test("sidebar lists every required route in restored pre-Codex order", () => {
 });
 
 test("page visibility CSS keeps sections separate (not a scroll stack)", () => {
-  assert.match(styles, /\.page\{display:none\}/);
-  assert.match(styles, /\.page\.active\{display:block\}/);
+  assert.match(styles, /\.page\{display:none!important\}/);
+  assert.match(styles, /\.page\.active\{display:block!important\}/);
   assert.match(appJs, /p\.classList\.toggle\("active",on\)/);
   assert.match(appJs, /p\.setAttribute\("hidden",""\)/);
   assert.match(appJs, /p\.removeAttribute\("hidden"\)/);
+  assert.match(appJs, /window\.scrollTo\(0,0\)/);
+  assert.doesNotMatch(appJs, /BloomLaunchPolish\?\.transitionTo/);
   /* Atelier must not force #dashboardPage visible without .active (Codex scroll-merge bug). */
-  assert.match(atelierUi, /body\.florisyn-atelier\s+\.page:not\(\.active\)\s*\{\s*display:\s*none\s*!important/);
-  assert.match(atelierUi, /#dashboardPage\.pos-home\.active\s*\{/);
+  assert.match(atelierUi, /\.page:not\(\.active\),\s*\nbody\.florisyn-atelier \.page\[hidden\]/);
+  assert.match(atelierUi, /#dashboardPage\.pos-home\.active:not\(\[hidden\]\)\s*\{/);
   assert.doesNotMatch(atelierUi, /#dashboardPage\.pos-home\s*\{\s*display:\s*flex/);
+  assert.match(html, /<section id="ordersPage"[^>]*\bhidden\b/);
+  assert.match(html, /<section id="inventoryPage"[^>]*\bhidden\b/);
+  assert.match(html, /<section id="dashboardPage" class="page active[^"]*"/);
+  assert.doesNotMatch(html.match(/<section id="dashboardPage"[^>]*>/)?.[0] || "", /\bhidden\b/);
+});
+
+test("assistant dock tabs use the same data-page routing as sidebar", () => {
+  const dockStart = html.indexOf('class="assistant-mini-dock"');
+  const dock = html.slice(dockStart, html.indexOf("</div>", dockStart));
+  assert.match(dock, /data-page="aiStudioPage"/);
+  assert.match(dock, /data-route="\/lily-ai-studio"/);
+  assert.match(dock, /data-page="reportsPage"/);
+  assert.match(dock, /data-route="\/reports"/);
+  assert.match(dock, /data-page="dashboardPage"/);
+});
+
+test("floating Daisy mascot is not mounted on the florist shell", () => {
+  const daisy = fs.readFileSync(path.join(root, "public/daisy-mascot.js"), "utf8");
+  assert.match(daisy, /Floating bottom-screen Daisy/);
+  assert.match(daisy, /el\.remove\(\)/);
+  assert.doesNotMatch(daisy, /document\.body\.appendChild\(el\)/);
+  assert.match(html, /#bloomDaisy/);
 });
 
 test("router module maps paths to page ids", () => {

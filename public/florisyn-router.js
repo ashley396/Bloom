@@ -197,7 +197,7 @@
     // Ignore plain form controls / selects that may carry leftover data-page.
     if (el.matches("option, select, input, textarea, label")) return;
     const inShell = el.closest(
-      "#atelierSidebarDrawer, .florisyn-lux-nav, .mobile-nav, .atelier-mobile-nav, .assistant-mini-dock, .florisyn-lux-header, .atelier-premium-card, .atelier-panel-head, .atelier-inventory-alert, .atelier-empty, .content, .atelier-dash-overview"
+      "#atelierSidebarDrawer, .florisyn-lux-nav, .mobile-nav, .atelier-mobile-nav, .assistant-mini-dock, .platform-top-strip, .florisyn-lux-header, .atelier-premium-card, .atelier-panel-head, .atelier-inventory-alert, .atelier-empty, .content, .atelier-dash-overview"
     );
     if (!inShell) return;
 

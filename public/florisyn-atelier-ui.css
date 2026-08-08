@@ -238,15 +238,20 @@ body.florisyn-atelier .kanban article {
 }
 
 /* —— Page isolation (routing): never keep inactive sections in the layout —— */
-body.florisyn-atelier .page:not(.active) {
+body.florisyn-atelier .page:not(.active),
+body.florisyn-atelier .page[hidden] {
   display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 /* —— Dashboard / Today welcome (only when its route is active) —— */
-body.florisyn-atelier #dashboardPage.pos-home.active {
-  display: flex;
+body.florisyn-atelier #dashboardPage.pos-home.active:not([hidden]) {
+  display: flex !important;
   flex-direction: column;
   gap: 20px;
+  visibility: visible !important;
+  pointer-events: auto !important;
 }
 
 body.florisyn-atelier .pos-welcome-row {

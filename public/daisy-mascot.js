@@ -1,5 +1,7 @@
 (function () {
   const KEY = "bloom_daisy_settings";
+  /* Portrait retained for settings/voice tooling; floating bottom mascot is not mounted. */
+  const PORTRAIT = "/assets/daisy/daisy-portrait.png";
   const defaults = { mode: "stationary", hidden: false, reduceMotion: false, seasonal: "none" };
 
   function load() {
@@ -24,15 +26,9 @@
   let wagTimer = null;
 
   function mount() {
-    if (load().hidden) return;
-    if (document.getElementById("bloomDaisy")) return;
-    const el = document.createElement("div");
-    el.id = "bloomDaisy";
-    el.className = "bloom-daisy bloom-daisy--resting";
-    el.setAttribute("aria-hidden", load().mode === "stationary" ? "true" : "false");
-    el.innerHTML = `<img src="/assets/daisy/daisy-portrait.png" width="112" height="112" alt="Daisy">`;
-    document.body.appendChild(el);
-    apply(load());
+    /* Floating bottom-screen Daisy/dog mascot removed — keep settings/voice APIs only. */
+    const el = document.getElementById("bloomDaisy");
+    if (el) el.remove();
   }
 
   function apply(settings) {
