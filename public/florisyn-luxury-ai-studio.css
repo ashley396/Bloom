@@ -1,0 +1,632 @@
+/**
+ * Florisyn Luxury Lily AI Studio — Figma match
+ * Navy #1a1f3c · Rose #E06B85 · Blush #FBF6F7 · Inter
+ */
+
+body.florisyn-atelier #aiStudioPage.florisyn-lux-ai-studio {
+  --lux-ai-navy: #1a1f3c;
+  --lux-ai-rose: #e06b85;
+  --lux-ai-blush: #fbf6f7;
+  --lux-ai-ink: #26263a;
+  --lux-ai-muted: #666670;
+  --lux-ai-border: #eae6e8;
+  --lux-ai-card: #ffffff;
+  --lux-ai-radius: 8px;
+  --lux-ai-pill: 20px;
+  font-family: Inter, system-ui, sans-serif;
+  background: transparent;
+  max-width: none;
+  padding-bottom: 28px;
+}
+
+body.florisyn-atelier #aiStudioPage.florisyn-lux-ai-studio .lux-ai-heading {
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+body.florisyn-atelier #aiStudioPage.florisyn-lux-ai-studio .lux-ai-eyebrow,
+body.florisyn-atelier #aiStudioPage.florisyn-lux-ai-studio .eyebrow.lux-ai-eyebrow {
+  color: var(--lux-ai-rose) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+
+body.florisyn-atelier #aiStudioPage.florisyn-lux-ai-studio .lux-ai-heading h1 {
+  margin: 0 0 6px;
+  color: var(--lux-ai-ink);
+  font-size: clamp(1.7rem, 2.4vw, 2.1rem);
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+body.florisyn-atelier #aiStudioPage.florisyn-lux-ai-studio .lux-ai-heading .subtle {
+  color: var(--lux-ai-muted);
+  max-width: 54ch;
+  margin: 0;
+}
+
+body.florisyn-atelier #aiStudioPage.florisyn-lux-ai-studio .lux-ai-ghost {
+  border: 1px solid var(--lux-ai-border) !important;
+  background: #fff !important;
+  color: var(--lux-ai-ink) !important;
+  border-radius: var(--lux-ai-pill) !important;
+  box-shadow: none !important;
+  font-weight: 600 !important;
+}
+
+/* Tabs */
+body.florisyn-atelier #aiStudioPage .lux-ai-tabs {
+  display: flex;
+  gap: 22px;
+  border-bottom: 1px solid var(--lux-ai-border);
+  margin: 8px 0 18px;
+  overflow-x: auto;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-tabs button {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--lux-ai-muted) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  padding: 10px 2px 12px !important;
+  border-radius: 0 !important;
+  border-bottom: 3px solid transparent !important;
+  white-space: nowrap;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-tabs button.active,
+body.florisyn-atelier #aiStudioPage .lux-ai-tabs button[aria-current="page"] {
+  color: var(--lux-ai-ink) !important;
+  border-bottom-color: var(--lux-ai-rose) !important;
+}
+
+/* Shell 60/40 */
+body.florisyn-atelier #aiStudioPage .lux-ai-shell.ai-studio-shell {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr) !important;
+  gap: 18px !important;
+  align-items: stretch;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-chat,
+body.florisyn-atelier #aiStudioPage .lux-ai-preview {
+  background: var(--lux-ai-card) !important;
+  border: 1px solid var(--lux-ai-border) !important;
+  border-radius: var(--lux-ai-radius) !important;
+  box-shadow: 0 8px 22px rgba(26, 31, 60, 0.05) !important;
+  overflow: hidden;
+}
+
+/* Lily header */
+body.florisyn-atelier #aiStudioPage .lux-ai-lily-head.assistant-profile {
+  background: #fff !important;
+  border-bottom: 1px solid var(--lux-ai-border);
+  padding: 14px 16px;
+  gap: 12px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-lily-head img {
+  width: 40px !important;
+  height: 40px !important;
+  border: 2px solid var(--lux-ai-rose) !important;
+  box-shadow: none !important;
+  object-fit: cover;
+  object-position: center 18%;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-lily-head strong {
+  color: var(--lux-ai-ink);
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-verified {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--lux-ai-rose);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-lily-head small {
+  color: var(--lux-ai-muted);
+  font-size: 12px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-reply {
+  margin-left: auto;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--lux-ai-rose) !important;
+  font-weight: 650 !important;
+  font-size: 13px !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+body.florisyn-atelier #aiStudioPage .assistant-online {
+  display: none !important;
+}
+
+/* Messages */
+body.florisyn-atelier #aiStudioPage .lux-ai-messages.ai-studio-messages {
+  height: min(420px, 48vh);
+  overflow: auto;
+  padding: 18px 16px;
+  background: var(--lux-ai-blush) !important;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-messages .ai-message {
+  display: flex;
+  gap: 10px;
+  max-width: 92%;
+  margin: 0 0 14px;
+  align-items: flex-start;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-messages .ai-message.user {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-avatar,
+body.florisyn-atelier #aiStudioPage .lux-ai-messages .message-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  object-fit: cover;
+  object-position: center 18%;
+  border: 2px solid var(--lux-ai-rose);
+  flex-shrink: 0;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 0;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-messages .ai-message.user .message-avatar,
+body.florisyn-atelier #aiStudioPage .lux-ai-messages .ai-message.user .lux-ai-avatar {
+  border-color: var(--lux-ai-navy);
+  background: var(--lux-ai-navy);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-bubble {
+  background: var(--lux-ai-navy);
+  color: #fff;
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 18px rgba(26, 31, 60, 0.12);
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-messages .ai-message.user .lux-ai-bubble {
+  background: #fff;
+  color: var(--lux-ai-ink);
+  border: 1px solid var(--lux-ai-border);
+  box-shadow: 0 4px 12px rgba(26, 31, 60, 0.05);
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-bubble p,
+body.florisyn-atelier #aiStudioPage .lux-ai-messages .ai-message p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: inherit;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-messages .ai-message strong {
+  display: none;
+}
+
+/* Chips */
+body.florisyn-atelier #aiStudioPage .lux-ai-chips.ai-quick-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px 4px;
+  background: #fff;
+  border-top: 1px solid var(--lux-ai-border);
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-chips button {
+  border: 1px solid var(--lux-ai-border) !important;
+  background: #fff !important;
+  color: var(--lux-ai-ink) !important;
+  border-radius: var(--lux-ai-pill) !important;
+  padding: 8px 14px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-chips button:hover {
+  border-color: var(--lux-ai-rose) !important;
+  color: var(--lux-ai-rose) !important;
+}
+
+/* Composer */
+body.florisyn-atelier #aiStudioPage .lux-ai-composer.ai-studio-composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  background: #fff;
+  border-top: 0;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-composer textarea {
+  flex: 1;
+  min-height: 44px !important;
+  max-height: 120px;
+  border: 1px solid var(--lux-ai-border) !important;
+  border-radius: var(--lux-ai-pill) !important;
+  padding: 12px 16px !important;
+  resize: none;
+  font-size: 13.5px;
+  color: var(--lux-ai-ink);
+  background: #faf7f8 !important;
+  box-shadow: none !important;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-send,
+body.florisyn-atelier #aiStudioPage .lux-ai-send.primary {
+  border: 0 !important;
+  border-radius: var(--lux-ai-pill) !important;
+  background: var(--lux-ai-rose) !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  font-size: 13.5px !important;
+  padding: 12px 18px !important;
+  white-space: nowrap;
+  box-shadow: none !important;
+  min-height: 44px;
+}
+
+/* Preview panel */
+body.florisyn-atelier #aiStudioPage .lux-ai-preview {
+  display: flex;
+  flex-direction: column;
+  padding: 0 !important;
+  background: #fff !important;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-preview-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 10px;
+  align-items: flex-start;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-preview-head strong {
+  display: block;
+  color: var(--lux-ai-ink);
+  font-size: 15px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-preview-head small {
+  color: var(--lux-ai-muted);
+  font-size: 12px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-draft-badge.badge {
+  background: rgba(224, 107, 133, 0.12) !important;
+  color: var(--lux-ai-rose) !important;
+  border: 0 !important;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-draft-badge.badge.good {
+  background: rgba(26, 31, 60, 0.08) !important;
+  color: var(--lux-ai-navy) !important;
+}
+
+/* Mini site mock */
+body.florisyn-atelier #aiStudioPage .lux-ai-site-mock {
+  margin: 0 16px;
+  border: 1px solid var(--lux-ai-border);
+  border-radius: var(--lux-ai-radius);
+  overflow: hidden;
+  background: #fff;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--lux-ai-navy);
+  color: #fff;
+  padding: 10px 12px;
+  font-size: 11px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-nav strong {
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-nav span {
+  opacity: 0.85;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-nav em {
+  margin-left: auto;
+  font-style: normal;
+  background: var(--lux-ai-rose);
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-weight: 700;
+  font-size: 10px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-hero {
+  position: relative;
+  min-height: 148px;
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+  padding: 28px 14px 18px;
+  display: grid;
+  align-content: end;
+  gap: 4px;
+  box-shadow: inset 0 0 0 999px rgba(26, 31, 60, 0.38);
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-hero h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 750;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-hero p {
+  margin: 0 0 8px;
+  font-size: 12px;
+  opacity: 0.95;
+  max-width: 28ch;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-hero button {
+  justify-self: start;
+  border: 0 !important;
+  background: var(--lux-ai-rose) !important;
+  color: #fff !important;
+  border-radius: 999px !important;
+  padding: 7px 12px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-label {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--lux-ai-muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-label-bottom {
+  top: auto;
+  bottom: 8px;
+  left: auto;
+  right: 8px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-products {
+  position: relative;
+  padding: 12px;
+  background: #fff;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-products-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-products-head strong {
+  font-size: 12.5px;
+  color: var(--lux-ai-ink);
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-view-all {
+  color: var(--lux-ai-rose);
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-products > .lux-ai-mock-label {
+  position: static;
+  display: inline-block;
+  margin-bottom: 8px;
+  background: #f4eef1;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-grid article {
+  border: 1px solid var(--lux-ai-border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-grid img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-grid b {
+  display: block;
+  font-size: 10.5px;
+  padding: 6px 6px 0;
+  color: var(--lux-ai-ink);
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-mock-grid span {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--lux-ai-rose);
+  padding: 2px 6px 6px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-change-list {
+  margin: 10px 16px 0;
+  max-height: 140px;
+  overflow: auto;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-change-list .ai-change-card {
+  border: 1px solid var(--lux-ai-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: #faf7f8;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-change-list .ai-change-card small {
+  color: var(--lux-ai-rose);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-change-list .ai-change-card p {
+  margin: 4px 0 0;
+  color: var(--lux-ai-ink);
+  font-size: 13px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-preview-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 10px;
+  padding: 14px 16px 10px;
+  margin-top: auto;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-undo {
+  border: 1px solid var(--lux-ai-border) !important;
+  background: #fff !important;
+  color: var(--lux-ai-ink) !important;
+  border-radius: 8px !important;
+  font-weight: 650 !important;
+  box-shadow: none !important;
+  min-height: 42px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-apply,
+body.florisyn-atelier #aiStudioPage .lux-ai-apply.primary {
+  border: 0 !important;
+  background: var(--lux-ai-rose) !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+  min-height: 42px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-apply:disabled,
+body.florisyn-atelier #aiStudioPage .lux-ai-undo:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Rose tip */
+body.florisyn-atelier #aiStudioPage .lux-ai-rose-tip.rose-tip {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0 16px 16px;
+  padding: 12px;
+  border: 1px solid var(--lux-ai-border);
+  border-radius: var(--lux-ai-radius);
+  background: #fffafb;
+  box-shadow: 0 6px 16px rgba(26, 31, 60, 0.05);
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-rose-tip img {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  object-fit: cover;
+  object-position: center 18%;
+  flex-shrink: 0;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-rose-tip strong {
+  display: block;
+  color: var(--lux-ai-ink);
+  font-size: 12.5px;
+  margin-bottom: 2px;
+}
+
+body.florisyn-atelier #aiStudioPage .lux-ai-rose-tip p {
+  margin: 0;
+  color: var(--lux-ai-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* Kill green accents on this page */
+body.florisyn-atelier #aiStudioPage.florisyn-lux-ai-studio .soft-green,
+body.florisyn-atelier #aiStudioPage.florisyn-lux-ai-studio .primary:not(.lux-ai-send):not(.lux-ai-apply) {
+  background: var(--lux-ai-rose) !important;
+}
+
+body.florisyn-atelier #aiStudioPage.florisyn-lux-ai-studio .assistant-online {
+  background: rgba(224, 107, 133, 0.12) !important;
+  color: var(--lux-ai-rose) !important;
+}
+
+@media (max-width: 1100px) {
+  body.florisyn-atelier #aiStudioPage .lux-ai-shell.ai-studio-shell {
+    grid-template-columns: 1fr !important;
+  }
+  body.florisyn-atelier #aiStudioPage .lux-ai-messages.ai-studio-messages {
+    height: 320px;
+  }
+}
+
+@media (max-width: 640px) {
+  body.florisyn-atelier #aiStudioPage .lux-ai-composer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  body.florisyn-atelier #aiStudioPage .lux-ai-send {
+    width: 100%;
+  }
+  body.florisyn-atelier #aiStudioPage .lux-ai-mock-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
