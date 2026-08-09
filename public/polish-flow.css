@@ -1,0 +1,36 @@
+/* Florisyn flow polish — additive only, no redesign.
+   Goals: nothing important is cut off, arrangement photos aren't cropped short,
+   and everything flows on desktop + mobile. Loaded last so it can refine the
+   existing layered styles without replacing them. */
+
+/* --- Card text: wrap instead of clipping (no cut-off words) --- */
+.product-card .body h3,
+.floral-library-card .body h3,
+.product-card .body p,
+.floral-library-card .body p {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* --- Arrangement imagery: consistent 4:3 so bouquet tops aren't "cut short".
+   Matches FLORISYN_DESIGN_SYSTEM.md ("Product Cards — 4:3 imagery"). --- */
+.product-card > img,
+.floral-library-card > img {
+  width: 100%;
+  height: auto !important;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+
+/* Guard against accidental horizontal overflow anywhere on small screens. */
+@media (max-width: 760px) {
+  .content { overflow-x: hidden; }
+}
+
+/* Assistant dock (Lily · Rose · Daisy): keep all three tidy and readable when
+   the top strip gets narrow, rather than squeezing or clipping labels. */
+@media (max-width: 1024px) {
+  body.florisyn-rc22 .assistant-mini-dock { gap: 8px; }
+  body.florisyn-rc22 .assistant-mini-dock small { display: none; }
+}
