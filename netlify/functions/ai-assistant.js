@@ -39,16 +39,16 @@ function compact(value,depth=0,key=""){
 function jsonWithinLimit(value,maxChars=MAX_PROMPT_CHARS){
   let text=JSON.stringify(compact(value));
   if(text.length<=maxChars)return text;
-  return JSON.stringify({notice:"Bloom trimmed oversized context for a safe AI request.",summary:safeText(text,maxChars-120)});
+  return JSON.stringify({notice:"Florisyn trimmed oversized context for a safe AI request.",summary:safeText(text,maxChars-120)});
 }
-function systemPrompt(persona){return `${persona||"Lily"} is Bloom's florist business assistant. Be practical, warm, concise, and accurate. Never claim an action was saved, published, paid, or completed unless the app confirms it. Suggestions are editable and require florist approval. Avoid expensive or unnecessary services and favor low-cost workflows.`}
+function systemPrompt(persona){return `${persona||"Lily"} is Florisyn's florist business assistant. Be practical, warm, concise, and accurate. Never claim an action was saved, published, paid, or completed unless the app confirms it. Suggestions are editable and require florist approval. Avoid expensive or unnecessary services and favor low-cost workflows.`}
 async function cloudflareAi(payload){
   const account=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_AI_API_TOKEN;
-  if(!account||!token){const e=new Error("Cloud AI is not configured; Bloom will try the free local AI fallback.");e.statusCode=503;throw e}
+  if(!account||!token){const e=new Error("Cloud AI is not configured; Florisyn will try the free local AI fallback.");e.statusCode=503;throw e}
   const model=process.env.CLOUDFLARE_AI_MODEL||MODEL_DEFAULT;
   const user=payload.mode==="generate"
     ?`Task: ${safeText(payload.task,1200)}\nInput: ${jsonWithinLimit(payload.input||{},30000)}\nReturn ONLY valid JSON matching this shape: ${jsonWithinLimit(payload.schema||{text:"result"},5000)}`
-    :`Question: ${safeText(payload.prompt,4000)}\nRelevant Bloom context: ${jsonWithinLimit(payload.context||{},32000)}`;
+    :`Question: ${safeText(payload.prompt,4000)}\nRelevant Florisyn context: ${jsonWithinLimit(payload.context||{},32000)}`;
   const r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/ai/run/${model}`,{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"system",content:systemPrompt(payload.persona)},{role:"user",content:user}],max_tokens:payload.mode==="generate"?700:550,temperature:.35})});
   const d=await r.json();if(!r.ok||!d.success)throw new Error(d.errors?.[0]?.message||"Cloud AI request failed");
   const text=d.result?.response||d.result?.result||"";

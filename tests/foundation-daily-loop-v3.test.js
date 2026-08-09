@@ -241,8 +241,11 @@ test("Payment Center sidebar label preserved", () => {
   assert.match(html, /paymentsPage.*Payment Center|Payment Center/);
 });
 
-test("risky inventory AI flags remain false by default", () => {
+test("deferred launch features remain false by default", () => {
   const flags = getFeatureFlags({});
+  assert.equal(flags.MARKETPLACE_PUBLIC, false);
+  assert.equal(flags.WHOLESALE_SELLER, false);
+  assert.equal(flags.BUSINESS_ECOSYSTEM, false);
   assert.equal(flags.INVENTORY_AI_INTAKE, false);
   assert.equal(flags.INVENTORY_RECIPE_DEDUCTIONS, false);
   assert.equal(flags.WEBSITE_STUDIO_V2, false);

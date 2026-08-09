@@ -62,6 +62,8 @@ test("payment link expiration status", () => {
 
 test("email configured detection", () => {
   assert.equal(emailProviderConfigured({ BLOOM_EMAIL_PROVIDER: "sendgrid", SENDGRID_API_KEY: "x" }).configured, true);
+  assert.equal(emailProviderConfigured({ RESEND_API_KEY: "re_test" }).configured, true);
+  assert.equal(emailProviderConfigured({ RESEND_API_KEY: "re_test" }).provider, "resend");
 });
 
 test("email not configured", () => {

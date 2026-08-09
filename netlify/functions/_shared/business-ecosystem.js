@@ -32,17 +32,20 @@ export const PO_STATUSES = ["draft", "pending_approval", "approved", "sent", "pa
 export const DELIVERY_STATUSES = ["scheduled", "out_for_delivery", "delivered", "failed", "returned"];
 
 export function addDays(date, days) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
+  const raw = typeof date === "string" ? date.trim() : "";
+  const dateOnly = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const d = dateOnly
+    ? new Date(Date.UTC(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3])))
+    : new Date(date);
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
 
 export function nextDeliveryDate(schedule, fromDate = new Date(), customIntervalDays = null) {
-  const base = new Date(fromDate);
-  base.setHours(0, 0, 0, 0);
   const map = { weekly: 7, biweekly: 14, monthly: 30, quarterly: 90, custom: Number(customIntervalDays) || 30 };
   const add = map[schedule] || 7;
-  return addDays(base, add);
+  return addDays(fromDate, add);
 }
 
 export function validateFlowerSubscription(body = {}) {

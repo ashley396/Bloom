@@ -5,7 +5,7 @@ import path from "node:path";
 
 test("delivery-proofs storage migration defines private bucket and shop RLS", () => {
   const sql = fs.readFileSync(
-    path.join(process.cwd(), "supabase/migrations/20260730_delivery_proofs_storage.sql"),
+    path.join(process.cwd(), "supabase/legacy_migrations/20260730_delivery_proofs_storage.sql"),
     "utf8",
   );
   assert.match(sql, /delivery-proofs/);

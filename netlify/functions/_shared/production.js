@@ -4,7 +4,7 @@ import { systemHealthSnapshot } from "./command-center.js";
 
 export const ENV_GROUPS = {
   core: ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"],
-  payments: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],
+  payments: ["STRIPE_SECRET_KEY", "STRIPE_ORDER_WEBHOOK_SECRET"],
   connect: ["STRIPE_CONNECT_CLIENT_ID"],
   ai: ["CLOUDFLARE_AI_TOKEN", "CLOUDFLARE_ACCOUNT_ID"],
   email: ["RESEND_API_KEY"]
@@ -29,14 +29,15 @@ export function getProductionConfig(env = process.env) {
   const health = systemHealthSnapshot(env);
   const features = {
     payments: Boolean(env.STRIPE_SECRET_KEY),
-    stripe_webhooks: Boolean(env.STRIPE_WEBHOOK_SECRET),
+    stripe_webhooks: Boolean(env.STRIPE_ORDER_WEBHOOK_SECRET),
+    stripe_subscription_webhooks: Boolean(env.STRIPE_WEBHOOK_SECRET),
     connect: Boolean(env.STRIPE_CONNECT_CLIENT_ID),
     ai_cloud: Boolean(env.CLOUDFLARE_AI_TOKEN && env.CLOUDFLARE_ACCOUNT_ID),
     email: Boolean(env.RESEND_API_KEY)
   };
   const warnings = [];
   if (!features.payments) warnings.push("Stripe payments disabled — STRIPE_SECRET_KEY missing.");
-  if (features.payments && !features.stripe_webhooks) warnings.push("Stripe webhooks not verified — STRIPE_WEBHOOK_SECRET missing.");
+  if (features.payments && !features.stripe_webhooks) warnings.push("Stripe order webhooks not verified — STRIPE_ORDER_WEBHOOK_SECRET missing.");
   if (!features.ai_cloud) warnings.push("Cloud AI optional — local AI bridge or Cloudflare token required for full AI.");
   return {
     ...health,
@@ -54,6 +55,9 @@ export function safePublicError(error) {
   }
   if (/Supabase server API key is not configured/i.test(msg)) {
     return "Florisyn's secure server connection is not set up in Netlify yet. You can still use your current shop; contact support if you need multi-location setup.";
+  }
+  if (error?.code === "shop_membership_required") {
+    return "Your Florisyn login works, but this account is not linked to an active flower shop yet. Finish onboarding or contact Florisyn support so we can attach your shop membership.";
   }
   if (status === 401) return "Please sign in again.";
   if (status === 403) return "You do not have permission to perform this action.";
@@ -141,7 +145,7 @@ export function securityReviewSummary() {
     authorization: "shop_members.role + requireRoles on sensitive routes",
     tenant_isolation: "shop_id filter on all florist mutations",
     validation: "shared validation.js on auth, orders, inventory, customers",
-    rate_limiting: "checkRateLimit hook on auth-login and client-errors",
+    rate_limiting: "Netlify distributed auth admission plus per-isolate defense-in-depth limits",
     secrets: "Never returned in API responses; sanitized client error payloads",
     error_handling: "safePublicError for 5xx; structured JSON logs"
   };

@@ -34,8 +34,8 @@ export function validateGuidedStep(step, data = {}) {
       if (Number(data.subtotal || 0) < 0) errors.push("Subtotal cannot be negative.");
       break;
     case "payment":
-      if (data.payment_required === "YES" && !data.payment_method && Number(data.deposit || 0) <= 0) {
-        errors.push("Choose payment method or enter a deposit.");
+      if (data.payment_choice && !["PAY_NOW", "PAY_LATER", "HOUSE"].includes(data.payment_choice)) {
+        errors.push("Choose what happens after the order is created.");
       }
       break;
     case "review":
@@ -56,17 +56,17 @@ export function buildOrderBodyFromGuided(state = {}) {
   const flowers = Number(state.subtotal || 0);
   const labor = Number(state.labor_charge || 0);
   const discount = Number(state.discount || 0);
-  const subtotal = Math.max(0, flowers + labor - discount);
+  const taxableSubtotal = Math.max(0, flowers + labor - discount);
   const taxRate = Number(state.tax_rate || 0);
-  const tax = Math.round(subtotal * taxRate * 100) / 100;
+  const tax = Math.round(taxableSubtotal * (taxRate / 100) * 100) / 100;
   const deliveryFee = Number(state.delivery_fee || 0);
-  const deposit = Number(state.deposit || state.amount_paid || 0);
-  const total = subtotal + tax + deliveryFee;
+  const total = taxableSubtotal + tax + deliveryFee;
+  const paymentChoice = String(state.payment_choice || (state.is_business ? "HOUSE" : "PAY_NOW"));
   return {
     customer_name: state.customer_name,
     customer_phone: state.customer_phone || null,
-    customer_type: state.is_business ? "BUSINESS" : "PERSONAL",
-    payment_required: state.payment_required || "YES",
+    customer_type: paymentChoice === "HOUSE" ? "BUSINESS" : "PERSONAL",
+    payment_required: paymentChoice === "PAY_NOW" ? "YES" : "NO",
     recipient_name: state.recipient_name,
     recipient_phone: state.recipient_phone || null,
     occasion: state.occasion || null,
@@ -79,16 +79,13 @@ export function buildOrderBodyFromGuided(state = {}) {
     delivery_date: state.delivery_date || new Date().toISOString().slice(0, 10),
     delivery_window: state.delivery_window || null,
     delivery_instructions: state.delivery_instructions || null,
-    subtotal,
+    subtotal: flowers,
     labor_charge: labor,
     discount,
     tax_rate: taxRate,
     tax,
     delivery_fee: deliveryFee,
     estimated_cost: Number(state.estimated_cost || 0),
-    payment_status: deposit >= total ? "PAID" : deposit > 0 ? "PARTIAL" : "UNPAID",
-    payment_method: state.payment_method || null,
-    amount_paid: deposit,
     total_preview: total
   };
 }

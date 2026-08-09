@@ -1,6 +1,11 @@
-import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
-import { fail } from "./_shared/supabase.js";
-import { platformAdmin, writeAdminAudit } from "./_shared/platform-admin.js";
+import { json, preflight, methodNotAllowed } from "./_shared/http.js";
+import {
+  platformAdmin,
+  writeAdminAudit,
+  requireSuperAdmin,
+  platformAdminErrorResponse,
+  parsePlatformAdminJsonBody
+} from "./_shared/platform-admin.js";
 import {
   dryRunImport,
   approveImportBatch,
@@ -15,15 +20,18 @@ import { STARTER_FLORAL_LIBRARY } from "./_shared/floral-library-core.js";
 const inMemoryBatches = new Map();
 const inMemoryQueue = [];
 
-export async function handler(event) {
+/** Test seam — production uses bound real dependencies via exported `handler`. */
+export function createFloralLibraryAdminHandler(deps = {}) {
+  return async function handler(event, _context) {
   const ready = preflight(event);
   if (ready) return ready;
   if (!["GET", "POST"].includes(event.httpMethod)) return methodNotAllowed();
 
   try {
-    const { client, user } = await platformAdmin(event, ["super_admin", "content_admin"]);
+    // Closed beta: Floral Library admin endpoint is super_admin only.
+    const { client, user, admin } = await platformAdmin(event, ["super_admin"], deps);
     const qs = event.queryStringParameters || {};
-    const body = event.httpMethod === "POST" ? bodyOf(event) : {};
+    const body = event.httpMethod === "POST" ? parsePlatformAdminJsonBody(event) : {};
     const action = String(body.action || qs.action || "quality").toLowerCase();
 
     if (action === "quality" && event.httpMethod === "GET") {
@@ -38,6 +46,7 @@ export async function handler(event) {
     }
 
     if (action === "dry_run" || action === "import_validate") {
+      requireSuperAdmin(admin);
       const rows = body.rows || (body.csv ? parseCsvImport(body.csv) : body.manifest || []);
       const report = dryRunImport(rows);
       const batchId = `batch-${Date.now()}`;
@@ -47,6 +56,7 @@ export async function handler(event) {
     }
 
     if (action === "approve_batch") {
+      requireSuperAdmin(admin);
       const batch = inMemoryBatches.get(body.batch_id);
       if (!batch) return json(404, { error: "Batch not found." });
       const imm = assertMasterLibraryImmutable({ scope: body.as_shop ? "shop" : "master" });
@@ -65,6 +75,7 @@ export async function handler(event) {
     }
 
     if (action === "duplicate_review") {
+      requireSuperAdmin(admin);
       const item = body.item;
       if (!item) return json(400, { error: "item required" });
       const result = duplicateReviewAction(item, body.review_action, body.note);
@@ -85,6 +96,10 @@ export async function handler(event) {
 
     return json(200, { ok: true, actions: ["quality", "dry_run", "approve_batch", "duplicate_queue", "duplicate_review"] });
   } catch (error) {
-    return fail(error);
+    return platformAdminErrorResponse(event, error);
   }
+  };
 }
+
+/** Production Netlify entry — ignores context for auth/service-role overrides. */
+export const handler = createFloralLibraryAdminHandler();

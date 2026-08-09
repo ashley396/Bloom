@@ -1,12 +1,21 @@
-import { json, fail } from './_shared/saas.js';
-import { platformAdmin, writeAdminAudit, requireSuperAdmin } from './_shared/platform-admin.js';
+import { json } from './_shared/saas.js';
+import {
+  platformAdmin,
+  writeAdminAudit,
+  requireSuperAdmin,
+  platformAdminErrorResponse,
+  platformAdminError,
+  parsePlatformAdminJsonBody
+} from './_shared/platform-admin.js';
 
 const safeObject = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
-export async function handler(event) {
+/** Test seam — production uses bound real dependencies via exported `handler`. */
+export function createAdminConsoleHandler(deps = {}) {
+  return async function handler(event, _context) {
   try {
-    const { client, user, admin } = await platformAdmin(event);
-    const body = event.body ? JSON.parse(event.body) : {};
+    const { client, user, admin } = await platformAdmin(event, ["super_admin"], deps);
+    const body = parsePlatformAdminJsonBody(event);
     const action = body.action || event.queryStringParameters?.action || 'overview';
 
     if (event.httpMethod === 'GET' && action === 'overview') {
@@ -47,7 +56,7 @@ export async function handler(event) {
 
     if (event.httpMethod === 'GET' && action === 'shop') {
       const shopId = event.queryStringParameters?.shopId;
-      if (!shopId) throw Object.assign(new Error('shopId is required'), { statusCode: 400 });
+      if (!shopId) throw platformAdminError('missing_shop_id');
       const [shopRes, configRes, membersRes, auditRes] = await Promise.all([
         client.from('shops').select('*').eq('id', shopId).single(),
         client.from('shop_admin_config').select('*').eq('shop_id', shopId).maybeSingle(),
@@ -69,12 +78,13 @@ export async function handler(event) {
       return json(200,{ok:true,foundationTotal});
     }
     if (action === 'mark-alerts-read') {
+      requireSuperAdmin(admin);
       const { error } = await client.from('platform_admin_notifications').update({read_at:new Date().toISOString()}).is('read_at',null);
       if (error) throw error;
       return json(200,{ok:true});
     }
     const shopId = body.shopId;
-    if (!shopId) throw Object.assign(new Error('shopId is required'), { statusCode: 400 });
+    if (!shopId) throw platformAdminError('missing_shop_id');
 
     if (action === 'save-config') {
       requireSuperAdmin(admin);
@@ -126,5 +136,9 @@ export async function handler(event) {
     }
 
     return json(400, { error: 'Unknown admin action' });
-  } catch (error) { return fail(error); }
+  } catch (error) { return platformAdminErrorResponse(event, error); }
+  };
 }
+
+/** Production Netlify entry — ignores context for auth/service-role overrides. */
+export const handler = createAdminConsoleHandler();

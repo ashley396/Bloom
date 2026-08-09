@@ -17,7 +17,10 @@ import {
   deleteSectionWithConfirm,
   moveSectionKeyboard,
   publishRequiresApproval,
-  restoreThemeSettings
+  restoreThemeSettings,
+  normalizeSectionOrder,
+  assertPageNotStale,
+  confirmThemePersistence
 } from "./_shared/bloom-website-editor.js";
 import { tenantIsolationCheck } from "./_shared/bloom-storefront-core.js";
 import { buildWebsiteCatalogSeeds, shouldSeedWebsiteCatalog } from "./_shared/bloom-website-catalog-seed.js";
@@ -45,8 +48,7 @@ async function seedWebsiteCatalogIfEmpty(client, shopId) {
     if (error) throw error;
     if (!shouldSeedWebsiteCatalog(count)) return { seeded: 0, skipped: true };
     const seeds = buildWebsiteCatalogSeeds(shopId, { maxItems: 48 });
-    for (const copy of seeds) {
-      await client.from("products").insert({
+    const rows = seeds.map((copy) => ({
         shop_id: shopId,
         name: copy.name,
         category: (copy.categories || [])[0] || "Everyday",
@@ -55,8 +57,9 @@ async function seedWebsiteCatalogIfEmpty(client, shopId) {
         price: copy.retail_price ?? copy.suggested_retail?.default ?? 0,
         active: true,
         available_online: true
-      });
-    }
+      }));
+    const { error: insertError } = await client.from("products").insert(rows);
+    if (insertError) throw insertError;
     return { seeded: seeds.length };
   } catch (e) {
     if (missingTable(e)) return { seeded: 0, note: "Products table unavailable." };
@@ -82,7 +85,11 @@ export async function handler(event) {
 
     if (action === "generate" || action === "wizard_generate") {
       const shop = { ...(await loadShopProfile(client, shopId)), ...(body.shop || {}) };
-      const site = buildSiteFromShopProfile(shop, { launch_mode: body.launch_mode, status: "draft" });
+      const site = buildSiteFromShopProfile(shop, {
+        launch_mode: body.launch_mode,
+        status: "draft",
+        brief: body.brief || body.florist_brief || {}
+      });
       try {
         const { data: proj, error } = await client
           .from("bloom_website_projects")
@@ -102,9 +109,7 @@ export async function handler(event) {
           .select("*")
           .single();
         if (error) throw error;
-        for (const page of site.pages) {
-          await client.from("bloom_website_pages").upsert(
-            {
+        const pageRows = site.pages.map((page) => ({
               shop_id: shopId,
               project_id: proj.id,
               slug: page.slug,
@@ -115,10 +120,11 @@ export async function handler(event) {
               content: page.content,
               sections: page.slug === "home" ? site.sections : [],
               updated_at: new Date().toISOString()
-            },
-            { onConflict: "project_id,slug" }
-          );
-        }
+            }));
+        const { error: pageError } = await client
+          .from("bloom_website_pages")
+          .upsert(pageRows, { onConflict: "project_id,slug" });
+        if (pageError) throw pageError;
         await writeShopAudit(client, { shopId, userId: user.id, eventType: "website_generated", entityType: "website", entityId: proj.id, metadata: { launch_mode: site.project.launch_mode } });
         const catalog_seed = body.seed_catalog !== false ? await seedWebsiteCatalogIfEmpty(client, shopId) : { seeded: 0 };
         return json(201, { site, project_id: proj.id, catalog_seed });
@@ -130,8 +136,12 @@ export async function handler(event) {
 
     if (action === "get_project") {
       try {
-        const { data: project } = await client.from("bloom_website_projects").select("*").eq("shop_id", shopId).maybeSingle();
-        const { data: pages } = await client.from("bloom_website_pages").select("*").eq("shop_id", shopId).order("nav_order");
+        const { data: project, error: projectError } = await client.from("bloom_website_projects").select("*").eq("shop_id", shopId).maybeSingle();
+        if (projectError) throw projectError;
+        let pagesQuery = client.from("bloom_website_pages").select("*").eq("shop_id", shopId).order("nav_order");
+        if (project?.id) pagesQuery = pagesQuery.eq("project_id", project.id);
+        const { data: pages, error: pagesError } = await pagesQuery;
+        if (pagesError) throw pagesError;
         return json(200, { project, pages: pages || [] });
       } catch (e) {
         if (missingTable(e)) {
@@ -148,17 +158,24 @@ export async function handler(event) {
       const page = body.page;
       if (!page?.slug) return json(400, { error: "Page slug required." });
       try {
-        const { data: proj } = await client.from("bloom_website_projects").select("id").eq("shop_id", shopId).maybeSingle();
+        const { data: proj, error: projectError } = await client.from("bloom_website_projects").select("id").eq("shop_id", shopId).maybeSingle();
+        if (projectError) throw projectError;
         if (!proj) return json(404, { error: "Website project not found." });
-        const { data: prev } = await client.from("bloom_website_pages").select("*").eq("project_id", proj.id).eq("slug", page.slug).maybeSingle();
+        const { data: prev, error: previousError } = await client.from("bloom_website_pages").select("*").eq("project_id", proj.id).eq("slug", page.slug).maybeSingle();
+        if (previousError) throw previousError;
+        const expectedUpdatedAt = body.expected_updated_at || page.updated_at || body.base_updated_at || null;
+        const stale = assertPageNotStale({ expectedUpdatedAt, currentUpdatedAt: prev?.updated_at });
+        if (!stale.ok) return json(409, { error: stale.error, code: stale.code || "stale_draft" });
         if (prev) {
-          await client.from("bloom_website_page_versions").insert({
+          const { error: versionError } = await client.from("bloom_website_page_versions").insert({
             shop_id: shopId,
             page_id: prev.id,
             snapshot: { content: prev.content, sections: prev.sections }
           });
+          if (versionError) throw versionError;
         }
-        await client.from("bloom_website_pages").upsert(
+        const sections = normalizeSectionOrder(page.sections || []);
+        const { data: savedPage, error: saveError } = await client.from("bloom_website_pages").upsert(
           {
             shop_id: shopId,
             project_id: proj.id,
@@ -168,12 +185,22 @@ export async function handler(event) {
             nav_order: page.nav_order ?? 0,
             template: page.template || "custom",
             content: page.content || {},
-            sections: page.sections || [],
+            sections,
             updated_at: new Date().toISOString()
           },
           { onConflict: "project_id,slug" }
-        );
-        return json(200, { saved: true });
+        ).select("id,slug,updated_at").single();
+        if (saveError) throw saveError;
+        if (!savedPage) return json(503, { error: "Website draft save could not be confirmed. Your editor remains open." });
+        await writeShopAudit(client, {
+          shopId,
+          userId: user.id,
+          eventType: "website_page_saved",
+          entityType: "website_page",
+          entityId: savedPage.id,
+          metadata: { slug: savedPage.slug }
+        });
+        return json(200, { saved: true, page: savedPage });
       } catch (e) {
         if (missingTable(e)) return json(503, { error: "Website tables not migrated." });
         throw e;
@@ -227,7 +254,7 @@ export async function handler(event) {
       const updated = switchThemePreserveContent(site, body.launch_mode);
       if (body.persist && body.confirmed) {
         try {
-          await client
+          const { data: project, error } = await client
             .from("bloom_website_projects")
             .update({
               launch_mode: updated.project.launch_mode,
@@ -235,9 +262,23 @@ export async function handler(event) {
               theme_settings: updated.theme_settings,
               updated_at: new Date().toISOString()
             })
-            .eq("shop_id", shopId);
+            .eq("shop_id", shopId)
+            .select("id,launch_mode,theme_id,theme_settings")
+            .maybeSingle();
+          if (error) throw error;
+          if (!project) return json(404, { error: "Create a website draft before changing its theme." });
+          const confirmed = confirmThemePersistence(project, {
+            theme_id: updated.project.theme_id,
+            theme_settings: updated.theme_settings
+          });
+          if (!confirmed.ok) {
+            return json(503, {
+              error: confirmed.error || "Theme change could not be confirmed. Your current design remains safe."
+            });
+          }
         } catch (e) {
-          if (!missingTable(e)) throw e;
+          if (missingTable(e)) return json(503, { error: "Website projects not migrated." });
+          throw e;
         }
       }
       return json(200, { site: updated, previous_theme: previousTheme });
@@ -273,12 +314,28 @@ export async function handler(event) {
       const gate = publishRequiresApproval({ lilyDraft: body.lily_draft, approved: body.approved, saved: body.saved !== false });
       if (!gate.ok) return json(400, { error: gate.error });
       try {
-        await client.from("bloom_website_projects").update({ status: "published", updated_at: new Date().toISOString() }).eq("shop_id", shopId);
+        const { data: project, error } = await client
+          .from("bloom_website_projects")
+          .update({ status: "published", updated_at: new Date().toISOString() })
+          .eq("shop_id", shopId)
+          .select("id,status")
+          .maybeSingle();
+        if (error) throw error;
+        if (!project) return json(404, { error: "Create and save a website draft before publishing." });
+        if (project.status !== "published") return json(503, { error: "Website publish could not be confirmed. Your draft remains safe." });
+        await writeShopAudit(client, {
+          shopId,
+          userId: user.id,
+          eventType: "website_published",
+          entityType: "website",
+          entityId: project.id,
+          metadata: { approved: true, source: "website_editor" }
+        });
+        return json(200, { published: true, project_id: project.id, status: project.status });
       } catch (e) {
         if (missingTable(e)) return json(503, { error: "Website projects not migrated." });
         throw e;
       }
-      return json(200, { published: true });
     }
 
     if (action === "commerce_settings") {
@@ -289,10 +346,11 @@ export async function handler(event) {
           .from("bloom_website_projects")
           .update({ commerce_settings: settings, updated_at: new Date().toISOString() })
           .eq("shop_id", shopId)
-          .select("commerce_settings")
+          .select("id,commerce_settings")
           .maybeSingle();
         if (error) throw error;
-        return json(200, { commerce_settings: data?.commerce_settings || settings });
+        if (!data) return json(404, { error: "Create a website draft before changing commerce settings." });
+        return json(200, { commerce_settings: data.commerce_settings });
       } catch (e) {
         if (missingTable(e)) return json(503, { error: "Apply RC1.2 commerce migration for commerce_settings." });
         throw e;

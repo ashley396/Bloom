@@ -1,0 +1,154 @@
+# P0-03 — Required pull-request CI with PostgreSQL security tests.
+# Read-only verification only. No deploy, no hosted credentials.
+name: P0 Required Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p0-required-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  # Isolated CI Postgres — matches local RLS script defaults (not production).
+  COMMUNITY_TEST_DATABASE_URL: postgres://florisyn_test:florisyn_test@127.0.0.1:5432/florisyn_community_test
+  FLORAL_LIBRARY_TEST_DATABASE_URL: postgres://florisyn_test:florisyn_test@127.0.0.1:5432/florisyn_community_test
+
+jobs:
+  core:
+    name: Core checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Unit and integration tests (non-Postgres)
+        run: npm test
+
+      - name: Syntax check
+        run: npm run check
+
+      - name: Frontend production build
+        run: npm run frontend:build
+
+      - name: npm audit (high+)
+        run: npm audit --audit-level=high
+
+      - name: Frontend dependency security policy
+        run: node scripts/audit-frontend-security.mjs
+
+      - name: Community smoke (feature-flag / static checks)
+        run: npm run test:community-smoke
+
+  database-security:
+    name: PostgreSQL RLS security suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        # PostgreSQL 16 — digest pinned from successful run 30704551465.
+        image: postgres:16@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Create Florisyn RLS test role and database
+        run: |
+          node --input-type=module <<'EOF'
+          import pg from "pg";
+          const admin = new pg.Client({
+            connectionString: "postgres://postgres:postgres@127.0.0.1:5432/postgres",
+          });
+          await admin.connect();
+          try {
+            await admin.query(`
+              DO $$ BEGIN
+                CREATE ROLE florisyn_test LOGIN SUPERUSER PASSWORD 'florisyn_test';
+              EXCEPTION WHEN duplicate_object THEN NULL;
+              END $$;
+            `);
+            const existing = await admin.query(
+              "SELECT 1 FROM pg_database WHERE datname = 'florisyn_community_test'"
+            );
+            if (existing.rowCount === 0) {
+              await admin.query("CREATE DATABASE florisyn_community_test OWNER florisyn_test");
+            }
+          } finally {
+            await admin.end();
+          }
+          const probe = new pg.Client({
+            connectionString: process.env.COMMUNITY_TEST_DATABASE_URL,
+          });
+          await probe.connect();
+          const { rows } = await probe.query("select current_user, current_database()");
+          console.log(rows[0]);
+          await probe.end();
+          EOF
+
+      - name: Florist Community RLS suite
+        id: community-rls
+        continue-on-error: true
+        run: npm run test:community-rls
+        env:
+          COMMUNITY_TEST_DATABASE_URL: ${{ env.COMMUNITY_TEST_DATABASE_URL }}
+
+      - name: Floral Library RLS suite
+        id: floral-library-rls
+        continue-on-error: true
+        run: npm run test:floral-library-rls
+        env:
+          FLORAL_LIBRARY_TEST_DATABASE_URL: ${{ env.FLORAL_LIBRARY_TEST_DATABASE_URL }}
+          COMMUNITY_TEST_DATABASE_URL: ${{ env.COMMUNITY_TEST_DATABASE_URL }}
+
+      - name: Require both RLS suites to pass
+        if: always()
+        run: |
+          set -euo pipefail
+          community="${{ steps.community-rls.outcome }}"
+          floral="${{ steps.floral-library-rls.outcome }}"
+          echo "community-rls outcome: ${community}"
+          echo "floral-library-rls outcome: ${floral}"
+          if [ "$community" != "success" ] || [ "$floral" != "success" ]; then
+            echo "One or more PostgreSQL RLS suites failed (connection failures are failures)."
+            exit 1
+          fi

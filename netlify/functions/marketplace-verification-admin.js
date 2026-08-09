@@ -1,6 +1,12 @@
-import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
-import { fail } from "./_shared/supabase.js";
-import { platformAdmin, writeAdminAudit, requireSuperAdmin } from "./_shared/platform-admin.js";
+import { json, preflight, methodNotAllowed } from "./_shared/http.js";
+import {
+  platformAdmin,
+  writeAdminAudit,
+  requireSuperAdmin,
+  platformAdminErrorResponse,
+  platformAdminError,
+  parsePlatformAdminJsonBody
+} from "./_shared/platform-admin.js";
 import {
   TABLE,
   ADMIN_REVIEW_DECISIONS,
@@ -16,12 +22,14 @@ import {
 const APPLICATION_SELECT =
   "id, user_id, florist_shop_id, wholesaler_shop_id, status, consent_confirmed, consent_at, profile_data, review_history, review_notes, submitted_at, reviewed_at, documents_expire_at, approval_expires_at, created_at, updated_at";
 
-export async function handler(event) {
+/** Test seam — production uses bound real dependencies via exported `handler`. */
+export function createMarketplaceVerificationAdminHandler(deps = {}) {
+  return async function handler(event, _context) {
   const ready = preflight(event);
   if (ready) return ready;
 
   try {
-    const { client, user, admin } = await platformAdmin(event);
+    const { client, user, admin } = await platformAdmin(event, ["super_admin"], deps);
 
     if (event.httpMethod === "GET") {
       const status = event.queryStringParameters?.status;
@@ -39,7 +47,7 @@ export async function handler(event) {
 
     if (event.httpMethod === "POST") {
       requireSuperAdmin(admin);
-      const body = bodyOf(event);
+      const body = parsePlatformAdminJsonBody(event);
       const applicationId = body.application_id || body.id;
       const decision = String(body.decision || "").toLowerCase();
 
@@ -119,10 +127,15 @@ export async function handler(event) {
     return methodNotAllowed();
   } catch (error) {
     if (isMissingVerificationTableError(error)) {
-      return json(503, {
-        error: "Marketplace verification tables are not available yet. Apply the marketplace verification migration in Supabase."
-      });
+      return platformAdminErrorResponse(
+        event,
+        platformAdminError("verification_schema_unavailable")
+      );
     }
-    return fail(error);
+    return platformAdminErrorResponse(event, error);
   }
+  };
 }
+
+/** Production Netlify entry — ignores context for auth/service-role overrides. */
+export const handler = createMarketplaceVerificationAdminHandler();

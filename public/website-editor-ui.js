@@ -29,9 +29,23 @@
         <p class="eyebrow">VISUAL EDITOR</p>
         <h2>Edit your website sections</h2>
         <div class="editor-toolbar card-actions">
+          <label class="editor-add-section">Add section<select id="editorSectionType">
+            <option value="hero">Hero</option>
+            <option value="featured_arrangements">Featured arrangements</option>
+            <option value="occasion_tiles">Occasion tiles</option>
+            <option value="delivery_area">Delivery area</option>
+            <option value="wedding_feature">Weddings and events</option>
+            <option value="sympathy_feature">Sympathy</option>
+            <option value="about_florist">About florist</option>
+            <option value="shop_hours">Hours</option>
+            <option value="contact_form">Contact form</option>
+            <option value="cta_banner">Call to action</option>
+          </select></label>
+          <button type="button" class="secondary" id="editorAddSection">Add</button>
           <button type="button" class="secondary" id="editorUndo">Undo</button>
           <button type="button" class="secondary" id="editorRedo">Redo</button>
           <button type="button" class="secondary" id="editorSave">Save draft</button>
+          <button type="button" class="secondary" id="editorOpenPreview">Open draft preview</button>
           <button type="button" class="secondary" id="editorPreviewDesktop">Desktop</button>
           <button type="button" class="secondary" id="editorPreviewTablet">Tablet</button>
           <button type="button" class="secondary" id="editorPreviewMobile">Mobile</button>
@@ -46,18 +60,62 @@
     let project = null;
     let homePage = null;
     let sections = [];
+    let busy = false;
+
+    function setBusy(next) {
+      busy = !!next;
+      ["editorSave", "editorPublish", "editorOpenPreview"].forEach((id) => {
+        const btn = root.querySelector(`#${id}`);
+        if (btn) btn.disabled = busy;
+      });
+    }
+
+    function pagePayload() {
+      return {
+        page: { ...homePage, sections },
+        expected_updated_at: homePage?.updated_at || null
+      };
+    }
+
+    function rememberSavedPage(savedPage) {
+      if (!savedPage) return;
+      homePage = {
+        ...homePage,
+        id: savedPage.id,
+        slug: savedPage.slug || homePage?.slug || "home",
+        updated_at: savedPage.updated_at || homePage?.updated_at || null
+      };
+    }
 
     async function loadProject() {
-      const d = await api("get_project");
-      project = d.project;
-      homePage = (d.pages || []).find((p) => p.slug === "home") || { slug: "home", title: "Home", sections: [] };
-      sections = [...(homePage.sections || [])].sort((a, b) => a.order - b.order);
-      history.reset({ sections });
-      renderCanvas();
+      const status = root.querySelector("#editorStatus");
+      status.textContent = "Loading website draft…";
+      setBusy(true);
+      try {
+        const d = await api("get_project");
+        project = d.project;
+        homePage = (d.pages || []).find((p) => p.slug === "home") || { slug: "home", title: "Home", sections: [] };
+        sections = [...(homePage.sections || [])].sort((a, b) => a.order - b.order);
+        history.reset({ sections });
+        renderCanvas();
+        status.textContent = sections.length ? "Draft ready." : "No sections yet — add content, then save draft.";
+      } catch (e) {
+        live("Website draft could not be loaded.");
+        status.textContent = e.message || "Could not load website draft. Try again.";
+        root.querySelector("#editorCanvas").innerHTML =
+          `<div class="bloom-empty-state florisyn-empty-state"><p>Website draft could not be loaded.</p><p class="subtle">${esc(e.message || "Try again.")}</p></div>`;
+      } finally {
+        setBusy(false);
+      }
     }
 
     function renderCanvas() {
       const canvas = root.querySelector("#editorCanvas");
+      if (!sections.length) {
+        canvas.innerHTML =
+          `<div class="bloom-empty-state florisyn-empty-state"><p>No website sections yet.</p><p class="subtle">Save a draft after adding sections. Unpublished drafts never appear on your public storefront.</p></div>`;
+        return;
+      }
       canvas.innerHTML = sections
         .map(
           (s, idx) => `<article class="editor-section" data-id="${esc(s.id)}" draggable="true">
@@ -76,22 +134,87 @@
         .join("");
     }
 
+    function titleForType(type) {
+      return String(type || "custom_text_image").replaceAll("_", " ").replace(/\b\w/g, (m) => m.toUpperCase());
+    }
+
+    function newSection(type) {
+      const id = `${type || "section"}-${Date.now()}`;
+      return {
+        id,
+        type: type || "custom_text_image",
+        order: sections.length,
+        props: {
+          title: titleForType(type),
+          text: "Click to edit this florist website section."
+        }
+      };
+    }
+
     root.querySelector("#editorSave")?.addEventListener("click", async () => {
-      syncTextEdits();
-      await api("save_page", { page: { ...homePage, sections } });
-      live("Draft saved.");
-      root.querySelector("#editorStatus").textContent = "Draft saved.";
+      if (busy) return;
+      const status = root.querySelector("#editorStatus");
+      status.textContent = "Saving draft…";
+      setBusy(true);
+      try {
+        syncTextEdits();
+        const result = await api("save_page", pagePayload());
+        if (!result?.saved || !result?.page?.id) throw new Error("Website draft save could not be confirmed. Your changes remain in the editor.");
+        rememberSavedPage(result.page);
+        live("Draft saved.");
+        status.textContent = "Draft saved.";
+      } catch (e) {
+        live("Draft was not saved.");
+        status.textContent = e.message || "Could not save website draft. Try again.";
+      } finally {
+        setBusy(false);
+      }
     });
 
     root.querySelector("#editorPublish")?.addEventListener("click", async () => {
-      syncTextEdits();
-      await api("save_page", { page: { ...homePage, sections } });
+      if (busy) return;
+      const status = root.querySelector("#editorStatus");
+      status.textContent = "Saving and publishing…";
+      setBusy(true);
       try {
-        await api("publish", { approved: true, saved: true, lily_draft: false });
+        syncTextEdits();
+        const saved = await api("save_page", pagePayload());
+        if (!saved?.saved || !saved?.page?.id) throw new Error("Website draft save could not be confirmed. Publishing was stopped.");
+        rememberSavedPage(saved.page);
+        const published = await api("publish", { approved: true, saved: true, lily_draft: false });
+        if (!published?.published || published?.status !== "published") throw new Error("Website publish could not be confirmed. Your saved draft is safe.");
         live("Site published.");
+        status.textContent = "Website published.";
         window.toast?.("Website published");
       } catch (e) {
-        root.querySelector("#editorStatus").textContent = e.message;
+        live("Website was not published.");
+        status.textContent = e.message || "Could not save website draft. Try again.";
+      } finally {
+        setBusy(false);
+      }
+    });
+
+    root.querySelector("#editorOpenPreview")?.addEventListener("click", async () => {
+      if (busy) return;
+      const status = root.querySelector("#editorStatus");
+      status.textContent = "Opening draft preview…";
+      setBusy(true);
+      try {
+        const preview = await window.api("storefront-public", {
+          method: "POST",
+          body: JSON.stringify({ action: "preview_token" })
+        });
+        if (!preview?.preview_url || !preview?.token) {
+          throw new Error("Draft preview is unavailable. Save a draft and confirm preview is configured for this shop.");
+        }
+        window.open(preview.preview_url, "_blank", "noopener,noreferrer");
+        live("Draft preview opened.");
+        status.textContent = "Draft preview opened in a new tab.";
+      } catch (e) {
+        live("Draft preview could not be opened.");
+        status.textContent = e.message || "Draft preview could not be opened. Missing preview secret or shop slug.";
+      } finally {
+        setBusy(false);
       }
     });
 
@@ -110,6 +233,13 @@
         renderCanvas();
         live("Redo.");
       }
+    });
+    root.querySelector("#editorAddSection")?.addEventListener("click", () => {
+      syncTextEdits();
+      sections = [...sections, newSection(root.querySelector("#editorSectionType")?.value)].map((s, order) => ({ ...s, order }));
+      pushHistory();
+      renderCanvas();
+      live("Section added.");
     });
 
     ["Desktop", "Tablet", "Mobile"].forEach((mode) => {
@@ -240,6 +370,7 @@
 
     loadProject().catch((e) => {
       root.querySelector("#editorStatus").textContent = e.message;
+      setBusy(false);
     });
   }
 

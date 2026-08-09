@@ -1,17 +1,30 @@
 import Stripe from "stripe";
 import { authenticatedUser, env, fail, json } from "./_shared/saas.js";
 
-const stripe = new Stripe(env("STRIPE_SECRET_KEY"));
 const priceMap = {
   starter: process.env.STRIPE_PRICE_STARTER,
   professional: process.env.STRIPE_PRICE_PROFESSIONAL,
   premium: process.env.STRIPE_PRICE_PREMIUM
 };
 
+function stripeClient() {
+  return new Stripe(env("STRIPE_SECRET_KEY"));
+}
+
+function parseBody(event) {
+  try {
+    return event.body ? JSON.parse(event.body) : {};
+  } catch {
+    const e = new Error("Invalid request body");
+    e.statusCode = 400;
+    throw e;
+  }
+}
+
 export async function handler(event) {
   if (event.httpMethod !== "POST") return json(405, { error: "Method not allowed" });
   try {
-    const { planCode } = JSON.parse(event.body || "{}");
+    const { planCode } = parseBody(event);
     const price = priceMap[planCode];
     if (!price) throw Object.assign(new Error("That subscription plan is not configured"), { statusCode: 400 });
 
@@ -21,6 +34,7 @@ export async function handler(event) {
 
     const { data: subscription } = await client.from("shop_subscriptions").select("stripe_customer_id").eq("shop_id", profile.default_shop_id).maybeSingle();
     const siteUrl = env("SITE_URL").replace(/\/$/, "");
+    const stripe = stripeClient();
 
     const checkout = await stripe.checkout.sessions.create({
       mode: "subscription",

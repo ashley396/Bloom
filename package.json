@@ -1,10 +1,11 @@
 {
-  "name": "bloom-florist-operating-system",
+  "name": "florisyn-florist-operating-system",
   "version": "1.0.0-rc.1",
   "private": true,
   "type": "module",
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
+    "sharp": "0.35.3",
     "stripe": "^17.7.0"
   },
   "engines": {
@@ -14,13 +15,30 @@
     "ai:install": "npm --prefix local-ai-bridge install",
     "ai:start": "npm --prefix local-ai-bridge start",
     "check": "node scripts/check.mjs",
+    "verify:rollback-proof": "node scripts/verify-staging-rollback-proof.mjs",
     "test": "node --test tests/*.test.js",
     "test:foundation": "node --test tests/foundation-v1.test.js",
     "test:daily-loop-v2": "node --test tests/foundation-daily-loop-v2.test.js",
     "test:daily-loop-v3": "node --test tests/foundation-daily-loop-v3.test.js",
     "test:stacked-release": "node --test tests/stacked-release-readiness.test.js",
     "test:rc1": "node --test tests/florisyn-rc1-readiness.test.js",
+    "test:community-rls": "node --test tests/integration/florist-community-rls.test.js",
+    "test:floral-library-rls": "node --test tests/integration/floral-library-rls.test.js",
+    "test:live-schema-snapshot": "node --test tests/florisyn-live-schema-snapshot.test.js",
+    "test:canonical-migrations": "node --test tests/p0-11-canonical-migration-chain.test.js",
+    "test:tenant-isolation": "node --test tests/p0-12-closed-beta-tenant-isolation.test.js",
+    "test:production-reconciliation": "node --test tests/p0-13-production-reconciliation.test.js",
+    "test:onboarding-convergence": "node --test tests/p0-14-onboarding-convergence.test.js",
+    "test:community-smoke": "node scripts/august10-community-smoke.mjs",
+    "db:community-local": "node scripts/apply-community-migrations-local.mjs",
+    "db:floral-library-local": "node scripts/apply-floral-library-rls-local.mjs",
+    "db:baseline:build": "node scripts/build-canonical-baseline.mjs",
+    "db:baseline:check": "node scripts/build-canonical-baseline.mjs --check",
     "frontend:dev": "npm --prefix frontend run dev",
-    "frontend:build": "npm --prefix frontend run build"
+    "frontend:build": "npm --prefix frontend run build",
+    "verify:live-staging-smoke": "node scripts/verify-live-staging-smoke.mjs"
+  },
+  "devDependencies": {
+    "pg": "^8.22.0"
   }
 }

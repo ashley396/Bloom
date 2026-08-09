@@ -51,14 +51,23 @@ export async function authenticatedUser(event) {
 export function json(statusCode, body) {
   return {
     statusCode,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY",
+      "Referrer-Policy": "strict-origin-when-cross-origin"
+    },
     body: JSON.stringify(body)
   };
 }
 
 export function fail(error) {
   console.error(error);
-  return json(error.statusCode || 500, { error: error.message || "Unexpected error" });
+  const message = error?.statusCode && error.statusCode < 500
+    ? (error.message || "Request failed")
+    : "Unexpected error";
+  return json(error.statusCode || 500, { error: message });
 }
 
 export function slugify(value) {

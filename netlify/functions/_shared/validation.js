@@ -23,9 +23,17 @@ export function orderHasLineItem(body = {}) {
 
 export function validateEmail(value, { required = false } = {}) {
   const text = String(value ?? "").trim();
-  if (!text) return required ? { ok: false, error: "Email is required." } : { ok: true, value: "" };
-  if (!EMAIL_RE.test(text)) return { ok: false, error: "Enter a valid email address." };
-  if (text.length > 254) return { ok: false, error: "Email is too long." };
+  if (!text) return required ? { ok: false, error: "Email is required.", code: "invalid_email" } : { ok: true, value: "" };
+  if (text.length > 254) return { ok: false, error: "Email is too long.", code: "invalid_email" };
+  const at = text.lastIndexOf("@");
+  const domain = at > 0 ? text.slice(at + 1) : "";
+  if (/^(localhost|test\.local|invalid)$/i.test(domain)) {
+    return { ok: false, error: "Enter a valid business email address with a real domain.", code: "invalid_email_domain" };
+  }
+  if (!domain.includes(".") || domain.startsWith(".") || domain.endsWith(".") || domain.includes("..")) {
+    return { ok: false, error: "Enter a valid business email address with a real domain.", code: "invalid_email_domain" };
+  }
+  if (!EMAIL_RE.test(text)) return { ok: false, error: "Enter a valid email address.", code: "invalid_email" };
   return { ok: true, value: text.toLowerCase() };
 }
 

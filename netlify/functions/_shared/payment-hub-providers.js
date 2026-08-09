@@ -69,7 +69,7 @@ export function createProviderAdapter(providerId, { stripeClient, shop = {}, env
         return { ok: true, needs_onboarding: true, message: "Use Connect onboarding via stripe-connect function." };
       },
       async disconnect() {
-        return { ok: true, message: "Disconnect clears Bloom reference only; revoke in Stripe Dashboard." };
+        return { ok: true, message: "Disconnect clears the Florisyn reference only; revoke access in Stripe Dashboard." };
       },
       async reconnect() {
         return this.connect();
@@ -144,20 +144,25 @@ export function createProviderAdapter(providerId, { stripeClient, shop = {}, env
       async capture({ sessionId }) {
         return { ok: true, processor: "stripe", captured: Boolean(sessionId), message: "Capture handled by Stripe Checkout webhook." };
       },
-      async refund({ paymentIntentId, amount, reason }) {
-        if (!stripeClient || !paymentIntentId) return { ok: false, error: "Payment reference required" };
-        const refund = await stripeClient.refunds.create({
-          payment_intent: paymentIntentId,
-          amount: amount ? Math.round(Number(amount) * 100) : undefined,
-          metadata: reason ? { bloom_reason: String(reason).slice(0, 64) } : undefined
-        });
+      async refund({ paymentIntentId, amount, reason, idempotencyKey }) {
+        if (!stripeClient || !paymentIntentId || !idempotencyKey) {
+          return { ok: false, error: "Payment reference and idempotency key are required." };
+        }
+        const refund = await stripeClient.refunds.create(
+          {
+            payment_intent: paymentIntentId,
+            amount: Math.round(Number(amount) * 100),
+            metadata: reason ? { florisyn_reason: String(reason).slice(0, 64) } : undefined
+          },
+          { idempotencyKey }
+        );
         return { ok: true, processor: "stripe", refund_id: refund.id, status: refund.status };
       },
       async void() {
         return { ok: false, error: "Use refund for Stripe Checkout payments." };
       },
       async tokenize() {
-        return { ok: true, processor: "stripe", message: "Use Stripe Checkout or Elements — Bloom stores provider refs only." };
+        return { ok: true, processor: "stripe", message: "Use Stripe Checkout or Elements — Florisyn stores provider references only." };
       },
       async listTransactions({ limit = 25 } = {}) {
         if (!stripeClient) return { ok: false, error: "Stripe client unavailable" };

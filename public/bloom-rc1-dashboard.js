@@ -1,5 +1,6 @@
 (function () {
   function enhanceDashboard(dashboardData) {
+    if (document.body.classList.contains("florisyn-atelier")) return;
     const host = document.querySelector("#dashboardPage .pos-welcome-row");
     if (!host || document.getElementById("bloomLuxuryTimeline")) return;
     const d = dashboardData || {};

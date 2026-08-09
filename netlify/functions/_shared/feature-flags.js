@@ -7,9 +7,10 @@ const DEFAULT_FLAGS = {
   /** Voice wake words / always-on mic — not production-ready */
   VOICE_WAKE: false,
   VOICE_TTS_CLOUD: false,
-  MARKETPLACE_PUBLIC: true,
-  WHOLESALE_SELLER: true,
-  BUSINESS_ECOSYSTEM: true,
+  /** Deferred until after the florist-core launch. Explicit opt-in only. */
+  MARKETPLACE_PUBLIC: false,
+  WHOLESALE_SELLER: false,
+  BUSINESS_ECOSYSTEM: false,
   INSTANT_WEBSITE: true,
   /** Full Website Studio v2 (Lily quick start, visual editor, checkout) — not production until phased rollout */
   WEBSITE_STUDIO_V2: false,
@@ -18,6 +19,28 @@ const DEFAULT_FLAGS = {
   DELIVERY_MAPS: true,
   LILY_SERVER_PERSISTENCE: true,
   REACT_ORDERS_PREVIEW: false,
+  /**
+   * Florist Community Beta — SAFE DEFAULT OFF.
+   * Missing FLORISYN_FLAG_COMMUNITY_BETA => disabled.
+   * Enable only with explicit FLORISYN_FLAG_COMMUNITY_BETA=true.
+   */
+  COMMUNITY_BETA: false,
+  /**
+   * Holiday Command Center — SAFE DEFAULT OFF.
+   * Enable only with explicit FLORISYN_FLAG_HOLIDAY_COMMAND_CENTER=true.
+   */
+  HOLIDAY_COMMAND_CENTER: false,
+  /**
+   * Email Campaigns — SAFE DEFAULT OFF.
+   * Draft/schedule only until send pipeline is configured.
+   * Enable only with explicit FLORISYN_FLAG_EMAIL_CAMPAIGNS=true.
+   */
+  EMAIL_CAMPAIGNS: false,
+  /**
+   * Wedding Workflows — SAFE DEFAULT OFF.
+   * Enable only with explicit FLORISYN_FLAG_WEDDING_WORKFLOWS=true.
+   */
+  WEDDING_WORKFLOWS: false,
 };
 
 function envFlag(name, fallback, env = process.env) {

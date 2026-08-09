@@ -9,6 +9,7 @@ import {
   seasonalScheduleValid,
   tenantIsolationCheck,
   lilyWebsiteDraftRequiresApproval,
+  normalizeFloristWebsiteBrief,
   LAUNCH_MODES,
   DEFAULT_SITE_PAGES
 } from "../netlify/functions/_shared/bloom-instant-website.js";
@@ -27,6 +28,30 @@ test("website generation from shop profile", () => {
   assert.equal(site.project.launch_mode, "luxury_boutique");
   assert.ok(site.pages.length >= 10);
   assert.equal(site.project.temporary_url, "petals.bloom-sites.com");
+});
+
+test("website brief creates florist-specific Wix-style draft without paid AI", () => {
+  const brief = normalizeFloristWebsiteBrief({
+    style: "romantic luxury",
+    audience: "brides and local gift buyers",
+    specialty: "weddings, sympathy, orchids",
+    delivery_area: "Lancaster and Lititz",
+    hero_goal: "Make premium ordering feel simple.",
+    occasions: "Wedding, Sympathy, Orchids"
+  });
+  const site = buildSiteFromShopProfile(
+    { id: "s1", name: "Petals", slug: "petals" },
+    { launch_mode: "luxury_boutique", brief }
+  );
+  assert.equal(site.florist_brief.style, "romantic luxury");
+  assert.match(site.sections.find((s) => s.type === "hero").props.text, /premium ordering/);
+  assert.match(site.sections.find((s) => s.type === "delivery_area").props.text, /Lancaster/);
+  assert.deepEqual(site.sections.find((s) => s.type === "occasion_tiles").props.occasions.slice(0, 3), [
+    "Wedding",
+    "Sympathy",
+    "Orchids"
+  ]);
+  assert.match(site.seo.meta_description, /weddings, sympathy, orchids/);
 });
 
 test("empty profile handling", () => {
@@ -135,6 +160,18 @@ test("starter library includes hydrangea and roses", () => {
   const names = STARTER_FLORAL_LIBRARY.map((p) => p.name.toLowerCase()).join(" ");
   assert.match(names, /hydrangea/);
   assert.match(names, /rose/);
+});
+
+test("starter library is marked for ultra-realistic photo-first launch quality", () => {
+  assert.ok(STARTER_FLORAL_LIBRARY.length >= 12);
+  for (const product of STARTER_FLORAL_LIBRARY) {
+    assert.equal(product.metadata?.image_standard, "ultra_realistic_professional_floral_photography");
+    assert.equal(product.metadata?.launch_quality, "starter_verified");
+    assert.match(product.primary_image.alt, /ultra-realistic/i);
+    assert.match(product.primary_image.alt, /photograph/i);
+    assert.match(product.description, /ultra-realistic/i);
+    assert.ok(product.tags.includes("ultra_realistic"));
+  }
 });
 
 test("POS payment regression guard — create-checkout path unchanged", () => {

@@ -4,3 +4,12 @@ node_modules/
 .env.*
 !.env.example
 .DS_Store
+deploy-*.zip
+soffice_profile_*/
+load-tests/k6/users.*.json
+!load-tests/k6/users.example.json
+load-tests/k6/*-summary.json
+docs/production/FLORISYN-FULL-SYSTEM-AUDIT-*.md
+docs/production/P0-*-*.md
+supabase/production_reconciliation/
+florisyn-codex-staging-bundle.patch

@@ -93,7 +93,7 @@ export async function handler(event) {
               price_data: {
                 currency: "usd",
                 unit_amount: Math.round(v.amount * 100),
-                product_data: { name: `Order payment — ${shop?.name || "Bloom florist"}` }
+                product_data: { name: `Order payment — ${shop?.name || "Florisyn florist"}` }
               },
               quantity: 1
             }

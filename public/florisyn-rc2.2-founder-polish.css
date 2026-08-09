@@ -98,22 +98,66 @@ body.florisyn-rc22 .assistant-mini-dock small {
   text-transform: none;
 }
 
-/* —— Sidebar (reinforce unified nav) —— */
+/* —— Sidebar (navy luxury shell) —— */
+body.florisyn-rc22 {
+  --florisyn-navy: #18252f;
+  --florisyn-champagne: #c9a962;
+  --florisyn-ivory: #fffcf8;
+  --florisyn-blush: #f3e4e8;
+  --sidebar-color: var(--florisyn-navy);
+  --brand-primary: var(--florisyn-champagne);
+}
+
 body.florisyn-rc22 .shell > aside {
   padding-top: 16px !important;
   padding-bottom: 20px !important;
+  background: linear-gradient(180deg, #18252f 0%, #1f303c 100%) !important;
+  color: #f4efe8 !important;
+  border-right: 1px solid rgba(201, 169, 98, 0.22) !important;
 }
 
 body.florisyn-rc22 .shell > aside p {
   margin: 16px 12px 6px !important;
   font-size: 9px !important;
   letter-spacing: 0.16em !important;
+  color: rgba(244, 239, 232, 0.55) !important;
 }
 
 body.florisyn-rc22 .shell > aside button[data-page] {
   min-height: 42px !important;
   padding: 10px 12px !important;
   line-height: 1.25;
+  color: rgba(255, 252, 248, 0.88) !important;
+  border-radius: 8px !important;
+}
+
+body.florisyn-rc22 .shell > aside button[data-page].active {
+  background: rgba(201, 169, 98, 0.18) !important;
+  color: #fffcf8 !important;
+  box-shadow: inset 3px 0 0 var(--florisyn-champagne) !important;
+}
+
+body.florisyn-rc22 header {
+  border-bottom-color: #e7ddd2 !important;
+  background: linear-gradient(180deg, #fffcf8, rgba(243, 228, 232, 0.35)) !important;
+}
+
+body.florisyn-rc22 button.primary,
+body.florisyn-rc22 .primary {
+  background: linear-gradient(145deg, #c9a962, #a8883f) !important;
+  color: #18252f !important;
+  border-radius: 8px !important;
+}
+
+body.florisyn-rc22 #app,
+body.florisyn-rc22 .content {
+  background:
+    radial-gradient(1200px 480px at 12% -10%, rgba(243, 228, 232, 0.55), transparent 60%),
+    var(--florisyn-ivory) !important;
+}
+
+body.florisyn-rc22 #dashboardPage.pos-home .pos-welcome-row {
+  border-radius: 8px;
 }
 
 body.florisyn-rc22 .shell > aside button[data-page="aiStudioPage"]::before {
@@ -319,6 +363,41 @@ body.florisyn-rc22 img:not([src]) {
   visibility: hidden;
 }
 
+body.florisyn-rc22 .website-studio-layout {
+  grid-template-columns: minmax(380px, 500px) minmax(0, 1fr) !important;
+  gap: 18px !important;
+}
+
+body.florisyn-rc22 .website-controls,
+body.florisyn-rc22 .preview-toolbar,
+body.florisyn-rc22 .premium-preview,
+body.florisyn-rc22 .website-editor-shell {
+  border-color: #ebe6e3 !important;
+  box-shadow: 0 10px 30px rgba(47, 42, 44, 0.055) !important;
+}
+
+body.florisyn-rc22 .studio-section {
+  padding: 18px 20px !important;
+  border-bottom-color: #ebe6e3 !important;
+  background: var(--surface-ivory);
+}
+
+body.florisyn-rc22 .studio-section:nth-child(even) {
+  background: #fff;
+}
+
+body.florisyn-rc22 .studio-title > span {
+  background: var(--florisyn-sage, #6b8f7a) !important;
+  color: #fff !important;
+}
+
+body.florisyn-rc22 .photo-category-chips button.active,
+body.florisyn-rc22 .preview-tabs .active {
+  background: var(--florisyn-charcoal, #2f2a2c) !important;
+  border-color: var(--florisyn-charcoal, #2f2a2c) !important;
+  color: #fff !important;
+}
+
 @media (max-width: 1200px) {
   body.florisyn-rc22 .platform-top-strip {
     padding-left: 18px;
@@ -329,6 +408,10 @@ body.florisyn-rc22 img:not([src]) {
   }
 
   body.florisyn-rc22 .pos-welcome-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  body.florisyn-rc22 .website-studio-layout {
     grid-template-columns: 1fr !important;
   }
 }
@@ -367,4 +450,171 @@ body.florisyn-rc22 img:not([src]) {
   body.florisyn-rc22 .assistant-mini-dock small {
     display: block !important;
   }
+}
+
+/* —— Launch surfaces: Orders, Website Studio, Payments, Staff —— */
+body.florisyn-rc22 .order-command-page,
+body.florisyn-rc22 #websitePage,
+body.florisyn-rc22 #paymentsPage,
+body.florisyn-rc22 #staffPage {
+  --surface-navy: #18252f;
+  --surface-ivory: #fffcf8;
+  --surface-blush: #f3e4e8;
+  --surface-gold: #c9a962;
+  --surface-botanical: #3d5c4a;
+}
+
+body.florisyn-rc22 .order-command-page .heading,
+body.florisyn-rc22 #websitePage .heading,
+body.florisyn-rc22 #paymentsPage .heading,
+body.florisyn-rc22 #staffPage .heading {
+  padding: 18px 20px;
+  border: 1px solid #e7ddd2;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 252, 248, 0.95), rgba(243, 228, 232, 0.45)),
+    var(--surface-ivory);
+  box-shadow: 0 14px 34px rgba(24, 37, 47, 0.06);
+}
+
+body.florisyn-rc22 .order-command-page .heading h1,
+body.florisyn-rc22 #websitePage .heading h1,
+body.florisyn-rc22 #paymentsPage .heading h1,
+body.florisyn-rc22 #staffPage .heading h1 {
+  color: var(--surface-navy);
+}
+
+body.florisyn-rc22 .order-board-column,
+body.florisyn-rc22 .order-card,
+body.florisyn-rc22 #websitePage .studio-section,
+body.florisyn-rc22 #websitePage .site-preview,
+body.florisyn-rc22 #paymentsPage .payment-top-summary,
+body.florisyn-rc22 #paymentsPage .payment-flow-panel,
+body.florisyn-rc22 #staffPage .bloom-staff-list-card {
+  border-color: #e7ddd2 !important;
+  border-radius: 8px !important;
+  background: rgba(255, 252, 248, 0.96) !important;
+  box-shadow: 0 10px 28px rgba(24, 37, 47, 0.06) !important;
+}
+
+body.florisyn-rc22 .order-board-column h2,
+body.florisyn-rc22 #websitePage .studio-title h3,
+body.florisyn-rc22 #paymentsPage .payment-flow-panel h2,
+body.florisyn-rc22 #staffPage .bloom-staff-name-only {
+  color: var(--surface-navy) !important;
+}
+
+body.florisyn-rc22 #websitePage .site-preview {
+  border-width: 6px !important;
+  border-color: var(--surface-navy) !important;
+}
+
+body.florisyn-rc22 #websitePage .preview-hero {
+  background:
+    linear-gradient(90deg, rgba(24, 37, 47, 0.72), rgba(61, 92, 74, 0.28)),
+    var(--hero-image, linear-gradient(135deg, var(--surface-navy), var(--surface-botanical))) !important;
+  background-size: cover !important;
+  background-position: center !important;
+}
+
+body.florisyn-rc22 #paymentsPage .payment-tile {
+  border-color: #e7ddd2 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+}
+
+body.florisyn-rc22 #paymentsPage .payment-tile.primary-tile {
+  background: linear-gradient(145deg, var(--surface-navy), var(--surface-botanical)) !important;
+  color: #fff !important;
+}
+
+body.florisyn-rc22 #staffPage .bloom-staff-list-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px !important;
+}
+
+body.florisyn-rc22 #staffPage .bloom-staff-list-card .card-actions {
+  margin: 0 !important;
+}
+
+body.florisyn-rc22 #staffPage .bloom-staff-list-card button {
+  min-width: 132px;
+}
+
+/* —— Secondary florist workspaces: quiet luxury shell —— */
+body.florisyn-rc22 #customersPage,
+body.florisyn-rc22 #deliveriesPage,
+body.florisyn-rc22 #inventoryPage,
+body.florisyn-rc22 #productsPage,
+body.florisyn-rc22 #libraryPage,
+body.florisyn-rc22 #invoicesPage,
+body.florisyn-rc22 #expensesPage,
+body.florisyn-rc22 #reportsPage,
+body.florisyn-rc22 #storesPage,
+body.florisyn-rc22 #settingsPage {
+  --secondary-surface-navy: #18252f;
+  --secondary-surface-ivory: #fffcf8;
+  --secondary-surface-line: #e7ddd2;
+}
+
+body.florisyn-rc22 #customersPage > .heading,
+body.florisyn-rc22 #deliveriesPage > .heading,
+body.florisyn-rc22 #inventoryPage > .heading,
+body.florisyn-rc22 #productsPage > .heading,
+body.florisyn-rc22 #libraryPage > .heading,
+body.florisyn-rc22 #invoicesPage > .heading,
+body.florisyn-rc22 #expensesPage > .heading,
+body.florisyn-rc22 #reportsPage > .heading,
+body.florisyn-rc22 #storesPage > .heading,
+body.florisyn-rc22 #settingsPage > .heading {
+  padding: 16px 18px;
+  border: 1px solid var(--secondary-surface-line);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255, 252, 248, 0.98), rgba(243, 228, 232, 0.34));
+  box-shadow: 0 10px 28px rgba(24, 37, 47, 0.045);
+}
+
+body.florisyn-rc22 #customersPage > .heading h1,
+body.florisyn-rc22 #deliveriesPage > .heading h1,
+body.florisyn-rc22 #inventoryPage > .heading h1,
+body.florisyn-rc22 #productsPage > .heading h1,
+body.florisyn-rc22 #libraryPage > .heading h1,
+body.florisyn-rc22 #invoicesPage > .heading h1,
+body.florisyn-rc22 #expensesPage > .heading h1,
+body.florisyn-rc22 #reportsPage > .heading h1,
+body.florisyn-rc22 #storesPage > .heading h1,
+body.florisyn-rc22 #settingsPage > .heading h1 {
+  color: var(--secondary-surface-navy);
+}
+
+body.florisyn-rc22 #customersPage .search,
+body.florisyn-rc22 #libraryPage .library-toolbar,
+body.florisyn-rc22 #invoicesPage .invoice-summary,
+body.florisyn-rc22 #expensesPage .report-summary,
+body.florisyn-rc22 #expensesPage .expense-toolbar,
+body.florisyn-rc22 #reportsPage .report-summary,
+body.florisyn-rc22 #reportsPage .report-grid > section,
+body.florisyn-rc22 #deliveriesPage .delivery-summary article,
+body.florisyn-rc22 #settingsPage .settings-grid > section {
+  border: 1px solid var(--secondary-surface-line) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 252, 248, 0.96) !important;
+  box-shadow: 0 8px 24px rgba(24, 37, 47, 0.045) !important;
+}
+
+body.florisyn-rc22 #customersPage .card,
+body.florisyn-rc22 #deliveriesPage .kanban-col,
+body.florisyn-rc22 #inventoryPage .card,
+body.florisyn-rc22 #productsPage .product-card,
+body.florisyn-rc22 #libraryPage .product-card,
+body.florisyn-rc22 #invoicesPage .invoice-card,
+body.florisyn-rc22 #expensesPage .card,
+body.florisyn-rc22 #storesPage .card {
+  border-color: var(--secondary-surface-line) !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  box-shadow: 0 8px 22px rgba(24, 37, 47, 0.045) !important;
 }

@@ -46,18 +46,16 @@ export async function executeRecurringSubscriptionRun(ctx) {
   const plan = buildRecurringBillingPlan(sub);
   const totals = computeRecurringOrderTotals(sub, settings);
   let orderId = null;
-  let orderRow = null;
 
   const orderPayload = {
-    shop_id: sub.shop_id,
     customer_id: sub.customer_id,
-    status: "PENDING",
-    payment_status: "UNPAID",
-    total: totals.total,
+    customer_name: sub.customer_name || "Recurring customer",
+    fulfillment: "PICKUP",
     subtotal: totals.subtotal,
-    tax: totals.tax,
+    tax_rate: totals.subtotal > 0 ? (totals.tax / totals.subtotal) * 100 : 0,
     delivery_fee: totals.deliveryFee,
     notes: `Recurring: ${sub.subscription_type || "flowers"}`,
+    order_source: "Recurring Subscription",
     metadata: {
       bloom_subscription_id: sub.id,
       recurring: true,
@@ -68,10 +66,12 @@ export async function executeRecurringSubscriptionRun(ctx) {
   };
 
   try {
-    const { data, error } = await client.from("orders").insert(orderPayload).select("id,metadata").single();
-    if (!error && data) {
-      orderId = data.id;
-      orderRow = data;
+    const { data, error } = await client.rpc("create_order_atomic", {
+      p_shop_id: sub.shop_id,
+      p_order: orderPayload,
+    });
+    if (!error && data?.item) {
+      orderId = data.item.id;
     }
   } catch {
     return { outcome: "failed", reason: "order_create_failed", run_key: runKey };

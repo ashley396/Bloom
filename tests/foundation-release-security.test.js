@@ -55,6 +55,15 @@ test("auth redirect allows Netlify preview DEPLOY_PRIME_URL", () => {
   assert.equal(url, `${preview}/reset-password`);
 });
 
+test("auth redirect allows Netlify preview request origin only", () => {
+  const preview = "https://deploy-preview-42--bloom-technologies.netlify.app";
+  assert.equal(authRedirectPath({}, preview, "/verify-email?confirmed=1"), `${preview}/verify-email?confirmed=1`);
+
+  const blocked = authRedirectPath({}, "https://evil.example", "/verify-email?confirmed=1");
+  assert.doesNotMatch(blocked, /evil\.example/);
+  assert.match(blocked, /^https:\/\//);
+});
+
 test("auth redirect localhost development falls back when SITE_URL unset", () => {
   const url = authRedirectPath({}, "http://localhost:8888", "/verify-email");
   assert.doesNotMatch(url, /localhost/);
@@ -92,6 +101,20 @@ test("AI status never reports online without provider credentials", () => {
 
   const partialToken = getAiProviderStatus({ CLOUDFLARE_AI_API_TOKEN: "only-token" });
   assert.notEqual(partialToken.state, AI_STATUS.ONLINE);
+
+  const openaiOnly = getAiProviderStatus({ OPENAI_API_KEY: "sk-test-not-used" });
+  assert.equal(openaiOnly.state, AI_STATUS.CONFIGURATION_REQUIRED);
+  assert.equal(openaiOnly.provider, null);
+  assert.equal(openaiOnly.lily, "offline");
+});
+
+test("runtime AI configuration does not advertise OpenAI", () => {
+  const aiStatus = fs.readFileSync(path.join(process.cwd(), "netlify/functions/_shared/ai-status.js"), "utf8");
+  const tts = fs.readFileSync(path.join(process.cwd(), "netlify/functions/assistant-tts.js"), "utf8");
+  const envExample = fs.readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
+  assert.doesNotMatch(aiStatus, /OPENAI_API_KEY|openai/i);
+  assert.doesNotMatch(tts, /OPENAI_API_KEY|openai/i);
+  assert.doesNotMatch(envExample, /OPENAI_API_KEY|OPENAI_MODEL/i);
 });
 
 test("ai-status HTTP handler exposes no secrets", async () => {
@@ -193,7 +216,7 @@ test("cross-tenant inventory row rejected by shop scope helper", () => {
 
 test("audit_events migration restricts access to shop members", () => {
   const sql = fs.readFileSync(
-    path.join(process.cwd(), "supabase/migrations/20260730_foundation_daily_loop_v1.sql"),
+    path.join(process.cwd(), "supabase/legacy_migrations/20260730_foundation_daily_loop_v1.sql"),
     "utf8",
   );
   assert.match(sql, /alter table public\.audit_events enable row level security/i);
@@ -203,7 +226,7 @@ test("audit_events migration restricts access to shop members", () => {
 
 test("order_status_history migration enforces shop member RLS", () => {
   const sql = fs.readFileSync(
-    path.join(process.cwd(), "supabase/migrations/20260730_foundation_daily_loop_v1.sql"),
+    path.join(process.cwd(), "supabase/legacy_migrations/20260730_foundation_daily_loop_v1.sql"),
     "utf8",
   );
   assert.match(sql, /order_status_history shop members/i);
@@ -217,14 +240,35 @@ test("order_status_history migration enforces shop member RLS", () => {
 test("staff GET strips sensitive fields server-side", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/staff.js"), "utf8");
   assert.match(src, /\.map\(staffSummary\)/);
-  assert.match(src, /pin_set:Boolean\(row\.pin_hash\)/);
-  assert.match(src, /const\{pin_hash,\.\.\.safe\}=row/);
+  assert.match(src, /pin_set:\s*Boolean\(row\.pin_hash\)/);
+  assert.match(src, /const\s*\{\s*pin_hash,\s*\.\.\.safe\s*\}\s*=\s*row/);
   assert.doesNotMatch(src, /items:.*hourly_rate/s);
 });
 
 test("staff OPEN_FILE requires PIN when pin_hash is set", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/staff.js"), "utf8");
-  assert.match(src, /if\(employee\.pin_hash&&!validPin\(body\.pin,employee\.pin_hash\)\)/);
+  assert.match(src, /if\s*\(employee\.pin_hash\s*&&\s*!validPin\(body\.pin,\s*employee\.pin_hash\)\)/);
+});
+
+test("staff history stays out of the front-page response", () => {
+  const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/staff.js"), "utf8");
+  const getBlock = src.slice(src.indexOf('if (event.httpMethod === "GET")'), src.indexOf('if (event.httpMethod === "POST")'));
+  assert.match(getBlock, /select\("staff_id,clock_in"\)/);
+  assert.match(getBlock, /\.is\("clock_out", null\)/);
+  assert.match(getBlock, /open_shifts:/);
+  assert.doesNotMatch(getBlock, /time_entries:/);
+  assert.doesNotMatch(getBlock, /select\("\*"\)/);
+});
+
+test("staff history loads only after the private file PIN check", () => {
+  const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/staff.js"), "utf8");
+  const openFile = src.slice(src.indexOf('if (body.action === "OPEN_FILE")'), src.indexOf('if (body.action === "CLOCK_IN"'));
+  const pinCheck = openFile.indexOf("validPin(body.pin, employee.pin_hash)");
+  const historyRead = openFile.indexOf('.from("staff_time_entries")');
+  assert.ok(pinCheck >= 0 && historyRead > pinCheck);
+  assert.match(openFile, /\.eq\("shop_id", shopId\)/);
+  assert.match(openFile, /\.eq\("staff_id", employee\.id\)/);
+  assert.match(openFile, /time_entries:/);
 });
 
 // ---------------------------------------------------------------------------
@@ -279,6 +323,21 @@ test("stripe webhook verifies signature before processing", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/stripe-order-webhook.js"), "utf8");
   assert.match(src, /constructEvent/);
   assert.match(src, /assertStripeLivemodeMatchesKey/);
+  assert.match(src, /Webhook signature verification failed\./);
+  assert.doesNotMatch(src, /Webhook signature error: \$\{e\.message\}/);
+});
+
+test("Stripe redirect URLs never trust request origin headers", () => {
+  for (const file of [
+    "netlify/functions/stripe-connect.js",
+    "netlify/functions/create-checkout.js",
+    "netlify/functions/shop-billing.js",
+    "netlify/functions/marketplace-checkout.js"
+  ]) {
+    const src = fs.readFileSync(path.join(process.cwd(), file), "utf8");
+    assert.match(src, /process\.env\.SITE_URL\s*\|\|\s*process\.env\.URL/);
+    assert.doesNotMatch(src, /event\.headers\.origin/);
+  }
 });
 
 test("postStripePayment uses idempotency key in RPC", () => {
@@ -301,7 +360,7 @@ test("Stripe secret not present in public client bundle", () => {
 
 test("foundation migration is additive without DROP TABLE", () => {
   const sql = fs.readFileSync(
-    path.join(process.cwd(), "supabase/migrations/20260730_foundation_daily_loop_v1.sql"),
+    path.join(process.cwd(), "supabase/legacy_migrations/20260730_foundation_daily_loop_v1.sql"),
     "utf8",
   );
   assert.doesNotMatch(sql, /drop table/i);
@@ -313,12 +372,24 @@ test("foundation migration is additive without DROP TABLE", () => {
 test("rollback migration file exists and is marked emergency-only", () => {
   const rollback = path.join(
     process.cwd(),
-    "supabase/migrations/20260730_foundation_daily_loop_v1_rollback.sql",
+    "supabase/legacy_migrations/20260730_foundation_daily_loop_v1_rollback.sql",
   );
   assert.ok(fs.existsSync(rollback));
   const sql = fs.readFileSync(rollback, "utf8");
   assert.match(sql, /EMERGENCY|manual/i);
   assert.doesNotMatch(sql, /drop table public\.orders/i);
+});
+
+test("staging rollback proof script and runbook are present", () => {
+  const script = path.join(process.cwd(), "scripts/verify-staging-rollback-proof.mjs");
+  const runbook = fs.readFileSync(path.join(process.cwd(), "docs/production/BACKUP-RECOVERY.md"), "utf8");
+  const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
+  assert.ok(fs.existsSync(script));
+  assert.equal(pkg.scripts["verify:rollback-proof"], "node scripts/verify-staging-rollback-proof.mjs");
+  assert.match(runbook, /npm run verify:rollback-proof/);
+  assert.match(runbook, /Application first/);
+  assert.match(runbook, /Database last/);
+  assert.match(runbook, /Do not forward-apply rollback SQL/);
 });
 
 // ---------------------------------------------------------------------------

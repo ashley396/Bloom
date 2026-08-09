@@ -9,6 +9,10 @@ import {
   sanitizeSubscriptionForAdmin,
   DEFAULT_FEATURE_FLAGS
 } from "../netlify/functions/_shared/command-center.js";
+import fs from "node:fs";
+
+const adminHtml = () => fs.readFileSync(new URL("../public/admin.html", import.meta.url), "utf8");
+const adminJs = () => fs.readFileSync(new URL("../public/admin.js", import.meta.url), "utf8");
 
 test("mergeFeatureFlags applies defaults for unknown keys", () => {
   const flags = mergeFeatureFlags({ marketplace: false });
@@ -70,4 +74,34 @@ test("announcement audience validation accepts florist targeting", () => {
   });
   assert.equal(valid.valid, true);
   assert.equal(valid.audience, "florists");
+});
+
+test("admin remote editor keeps account, appearance, navigation, features, and subscription edits wired", () => {
+  const html = adminHtml();
+  const js = adminJs();
+  for (const name of [
+    "name",
+    "email",
+    "phone",
+    "website",
+    "primary",
+    "accent",
+    "background",
+    "sidebar",
+    "nav_order",
+    "nav_hidden",
+    "plan_code",
+    "subscription_status",
+    "account_status"
+  ]) {
+    assert.match(html, new RegExp(`name="${name}"`));
+  }
+  assert.match(js, /const FEATURES=\[[^\]]*'website'/);
+  assert.match(js, /const FEATURES=\[[^\]]*'lily'/);
+  assert.match(js, /const FEATURES=\[[^\]]*'rose'/);
+  assert.match(js, /action:'update-shop'/);
+  assert.match(js, /action:'save-config'/);
+  assert.match(js, /action:'update-subscription'/);
+  assert.match(js, /#saveShop/);
+  assert.match(js, /#saveSubscription/);
 });

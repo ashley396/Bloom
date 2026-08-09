@@ -72,7 +72,7 @@ export function validateSavedMethodToken(body = {}) {
     return { valid: false, error: "Provider token reference required — never send card numbers." };
   }
   if (body.pan || body.card_number || body.cvv) {
-    return { valid: false, error: "Card numbers must not be sent to Bloom." };
+    return { valid: false, error: "Card numbers must not be sent to Florisyn." };
   }
   return { valid: true };
 }

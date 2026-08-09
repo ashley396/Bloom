@@ -4,16 +4,52 @@ import { writeShopAudit } from "./_shared/production.js";
 import { validateOrderCreateBody, clampText, validateOrderPatchBody } from "./_shared/validation.js";
 import { normalizeOrderStatus, recordOrderStatusChange } from "./_shared/order-status.js";
 
-function orderNumber() {
-  return `BLM-${Date.now().toString().slice(-8)}`;
+export const ORDER_PAYMENT_LEDGER_FIELDS = Object.freeze([
+  "amount_paid",
+  "balance_due",
+  "payment_status",
+  "payment_method",
+  "paid_at",
+]);
+
+export function submittedPaymentLedgerFields(body = {}) {
+  return ORDER_PAYMENT_LEDGER_FIELDS.filter((field) => Object.prototype.hasOwnProperty.call(body, field));
 }
 
-export async function handler(event) {
+function roundMoney(value) {
+  return Math.round(Number(value || 0) * 100) / 100;
+}
+
+function paymentStateForTotal(total, amountPaid, priorStatus) {
+  const normalizedPriorStatus = String(priorStatus || "UNPAID").trim().toUpperCase();
+  const paid = Math.max(0, roundMoney(amountPaid));
+  const balanceDue = Math.max(0, roundMoney(total - paid));
+  if (normalizedPriorStatus === "REFUNDED") {
+    return { amountPaid: paid, balanceDue, paymentStatus: "REFUNDED" };
+  }
+  const paymentStatus = balanceDue <= 0.005 && total > 0 && paid >= total - 0.005
+    ? "PAID"
+    : paid > 0
+      ? "PARTIAL"
+      : "UNPAID";
+  return { amountPaid: paid, balanceDue, paymentStatus };
+}
+
+function paymentFieldError(body) {
+  const fields = submittedPaymentLedgerFields(body);
+  if (!fields.length) return null;
+  return `Payment fields (${fields.join(", ")}) can only be changed by recording a payment or refund in the payment ledger.`;
+}
+
+export async function handleOrders(event, dependencies = {}) {
+  const authenticate = dependencies.currentUser || currentUser;
+  const audit = dependencies.writeShopAudit || writeShopAudit;
+  const recordStatusChange = dependencies.recordOrderStatusChange || recordOrderStatusChange;
   const ready = preflight(event);
   if (ready) return ready;
 
   try {
-    const { client, shopId, user } = await currentUser(event);
+    const { client, shopId, user } = await authenticate(event);
 
     if (event.httpMethod === "GET") {
       const qs = event.queryStringParameters || {};
@@ -51,6 +87,8 @@ export async function handler(event) {
 
     if (event.httpMethod === "POST") {
       const body = bodyOf(event);
+      const forbiddenPaymentFieldError = paymentFieldError(body);
+      if (forbiddenPaymentFieldError) return json(400, { error: forbiddenPaymentFieldError });
       const validation = validateOrderCreateBody(body);
       if (!validation.valid) return json(400, { error: validation.errors[0] });
 
@@ -58,35 +96,22 @@ export async function handler(event) {
       const labor = Number(body.labor_charge || 0);
       const addons = Number(body.addon_total || 0);
       const discount = Number(body.discount || 0);
-      const subtotal = Math.max(0, flowers + labor + addons - discount);
       const taxRate = Number(body.tax_rate || 0);
-      const taxable = Math.max(0, flowers + labor + addons - discount);
-      const taxFromRate = Math.round(taxable * (taxRate / 100) * 100) / 100;
-      const tax = Number.isFinite(Number(body.tax)) && Number(body.tax) > 0 ? Number(body.tax) : taxFromRate;
       const deliveryFee = Number(body.delivery_fee || 0);
 
       const payload = {
-        user_id: user.id,
-        shop_id: shopId,
-        order_number: orderNumber(),
         customer_name: validation.sanitized.customer_name || clampText(body.customer_name, 120),
+        customer_id: body.customer_id || null,
         customer_phone: body.customer_phone || null,
         occasion: body.occasion || null,
         fulfillment:
           body.fulfillment === "DELIVERY" ? "DELIVERY" : "PICKUP",
         delivery_address: body.delivery_address || null,
         delivery_date: body.delivery_date || null,
-        status: "NEW",
-        subtotal,
-        tax,
+        subtotal: flowers,
         delivery_fee: deliveryFee,
-        total: subtotal + tax + deliveryFee,
         notes: body.notes || null,
-        tax_rate: Number(body.tax_rate || 0),
-        amount_paid: Number(body.amount_paid || 0),
-        balance_due: Math.max(0, subtotal + tax + deliveryFee - Number(body.amount_paid || 0)),
-        payment_status: body.payment_status || (Number(body.amount_paid || 0) > 0 ? "PARTIAL" : "UNPAID"),
-        payment_method: body.payment_method || null,
+        tax_rate: taxRate,
         customer_type: body.customer_type || "PERSONAL",
         recipient_name: body.recipient_name || null,
         recipient_phone: body.recipient_phone || null,
@@ -113,130 +138,76 @@ export async function handler(event) {
         product_id: body.product_id || null,
       };
 
-      const { data, error } = await client
-        .from("orders")
-        .insert(payload)
-        .select()
-        .single();
-
+      const { data, error } = await client.rpc("create_order_atomic", {
+        p_shop_id: shopId,
+        p_order: payload,
+      });
       if (error) throw error;
-
-      await recordOrderStatusChange(client, {
-        shopId,
-        orderId: data.id,
-        fromStatus: null,
-        toStatus: data.status,
-        userId: user.id,
-        note: "Order created",
-      });
-
-      await writeShopAudit(client, {
-        shopId,
-        userId: user.id,
-        eventType: "order_created",
-        entityType: "order",
-        entityId: data.id,
-        metadata: { order_number: data.order_number, total: data.total, payment_status: data.payment_status }
-      });
-
-      let delivery = null;
-      if (data.fulfillment === "DELIVERY" && data.delivery_address) {
-        const { data: deliveryData, error: deliveryError } = await client
-          .from("deliveries")
-          .insert({
-            shop_id: shopId,
-            order_id: data.id,
-            address: data.delivery_address,
-            driver: body.driver || null,
-            status: "PENDING",
-            notes: body.delivery_instructions || null,
-            round_trip_miles: Number(body.delivery_miles || 0),
-            drive_minutes: Number(body.drive_minutes || 0),
-            delivery_date: body.delivery_date || null,
-            delivery_window: body.delivery_window || null,
-            recipient_name: body.recipient_name || null,
-            recipient_phone: body.recipient_phone || null,
-          })
-          .select()
-          .single();
-        if (!deliveryError) delivery = deliveryData;
-      }
-
-      const inventoryAdjustments = [];
-      const inventoryWarnings = [];
-      if (body.product_id) {
-        const { data: recipeRows, error: recipeError } = await client
-          .from("product_recipes")
-          .select("ingredient_name,quantity,unit")
-          .eq("shop_id", shopId)
-          .eq("product_id", body.product_id);
-        if (!recipeError && Array.isArray(recipeRows)) {
-          const { data: stockRows, error: stockError } = await client
-            .from("inventory")
-            .select("id,name,color,quantity,unit")
-            .eq("shop_id", shopId)
-            .is("deleted_at", null);
-          if (!stockError && Array.isArray(stockRows)) {
-            const normalize = value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-            for (const recipe of recipeRows) {
-              const wanted = normalize(recipe.ingredient_name);
-              const stock = stockRows.find(row => {
-                const full = normalize(`${row.color || ""} ${row.name || ""}`);
-                const name = normalize(row.name);
-                return full === wanted || name === wanted || full.includes(wanted) || wanted.includes(name);
-              });
-              if (!stock) {
-                inventoryWarnings.push(`${recipe.ingredient_name}: not found in inventory`);
-                continue;
-              }
-              const used = Math.max(0, Number(recipe.quantity || 0));
-              const before = Number(stock.quantity || 0);
-              const after = Math.max(0, before - used);
-              const { error: updateError } = await client
-                .from("inventory")
-                .update({ quantity: after })
-                .eq("id", stock.id)
-                .eq("shop_id", shopId);
-              if (updateError) inventoryWarnings.push(`${stock.name}: ${updateError.message}`);
-              else {
-                stock.quantity = after;
-                inventoryAdjustments.push({ id: stock.id, name: stock.name, used, before, after, unit: stock.unit });
-                if (after === 0 && used > before) inventoryWarnings.push(`${stock.name}: recipe needed ${used}, but only ${before} was available`);
-              }
-            }
-          }
-        }
-      }
-
-      return json(201, { item: data, delivery, inventoryAdjustments, inventoryWarnings });
+      if (!data?.item) throw new Error("Atomic order creation returned no order.");
+      return json(201, data);
     }
 
     if (event.httpMethod === "PATCH") {
       const body = bodyOf(event);
       if (!body.id) return json(400, { error: "Missing order id" });
+      const forbiddenPaymentFieldError = paymentFieldError(body);
+      if (forbiddenPaymentFieldError) return json(400, { error: forbiddenPaymentFieldError });
       const patchValidation = validateOrderPatchBody(body);
       if (!patchValidation.valid) return json(400, { error: patchValidation.errors[0] });
       if (body.action === "MARK_PAID" || body.action === "MARK_UNPAID") return json(400, { error: "Payment status must be changed by recording a payment or refund in the payment ledger." });
       const payload = {};
-      const textFields = ["customer_name","customer_phone","occasion","fulfillment","delivery_address","delivery_date","notes","customer_type","recipient_name","recipient_phone","delivery_window","delivery_instructions","order_source","card_message","arrangement_description","location_type","driver","designer","priority","design_style","color_palette","preferred_flowers","flower_restrictions","addons","payment_method","product_id","status"];
-      const numberFields = ["subtotal","tax","delivery_fee","tax_rate","amount_paid","delivery_miles","drive_minutes","labor_charge","addon_total","discount","estimated_cost"];
+      const textFields = ["customer_name","customer_phone","occasion","fulfillment","delivery_address","delivery_date","notes","customer_type","recipient_name","recipient_phone","delivery_window","delivery_instructions","order_source","card_message","arrangement_description","location_type","driver","designer","priority","design_style","color_palette","preferred_flowers","flower_restrictions","addons","product_id","status"];
+      const numberFields = ["subtotal","tax","delivery_fee","tax_rate","delivery_miles","drive_minutes","labor_charge","addon_total","discount","estimated_cost"];
       for (const field of textFields) if (field in body) payload[field] = body[field] || null;
-      for (const field of numberFields) if (field in body) payload[field] = Number(body[field] || 0);
+      for (const field of numberFields) {
+        if (!(field in body)) continue;
+        const value = Number(body[field] || 0);
+        if (!Number.isFinite(value)) return json(400, { error: `${field} must be a number.` });
+        payload[field] = value;
+      }
       if ("customer_name" in payload && !String(payload.customer_name || "").trim()) return json(400, { error: "Customer name is required" });
-      const { data: priorOrder } = await client
+      const { data: priorOrder, error: priorOrderError } = await client
         .from("orders")
-        .select("status")
+        .select("id,status,subtotal,tax,delivery_fee,total,tax_rate,amount_paid,balance_due,payment_status,labor_charge,addon_total,discount")
         .eq("id", body.id)
         .eq("shop_id", shopId)
         .maybeSingle();
+      if (priorOrderError) throw priorOrderError;
+      if (!priorOrder) return json(404, { error: "Order not found." });
       if ("status" in payload && payload.status) payload.status = normalizeOrderStatus(payload.status);
-      const flowers=Number(payload.subtotal||0),labor=Number(payload.labor_charge||0),addons=Number(payload.addon_total||0),discount=Number(payload.discount||0);
-      payload.subtotal=Math.max(0,flowers+labor+addons-discount); payload.total=payload.subtotal+Number(payload.tax||0)+Number(payload.delivery_fee||0); payload.balance_due=Math.max(0,payload.total-Number(payload.amount_paid||0));
-      payload.payment_status=payload.balance_due<=0&&payload.total>0?"PAID":Number(payload.amount_paid||0)>0?"PARTIAL":"UNPAID";
+      const pricingFields = ["subtotal","tax","delivery_fee","tax_rate","labor_charge","addon_total","discount"];
+      if (pricingFields.some((field) => Object.prototype.hasOwnProperty.call(body, field))) {
+        const priorLabor = Number(priorOrder.labor_charge || 0);
+        const priorAddons = Number(priorOrder.addon_total || 0);
+        const priorDiscount = Number(priorOrder.discount || 0);
+        const priorProductAmount = Math.max(0, Number(priorOrder.subtotal || 0) - priorLabor - priorAddons + priorDiscount);
+        const productAmount = "subtotal" in body ? Number(body.subtotal || 0) : priorProductAmount;
+        const labor = "labor_charge" in body ? Number(body.labor_charge || 0) : priorLabor;
+        const addons = "addon_total" in body ? Number(body.addon_total || 0) : priorAddons;
+        const discount = "discount" in body ? Number(body.discount || 0) : priorDiscount;
+        const subtotal = Math.max(0, roundMoney(productAmount + labor + addons - discount));
+        const taxRate = "tax_rate" in body ? Number(body.tax_rate || 0) : Number(priorOrder.tax_rate || 0);
+        const tax = Math.max(0, roundMoney(subtotal * (taxRate / 100)));
+        const deliveryFee = "delivery_fee" in body ? Number(body.delivery_fee || 0) : Number(priorOrder.delivery_fee || 0);
+        const total = Math.max(0, roundMoney(subtotal + tax + deliveryFee));
+        if (total + 0.005 < Number(priorOrder.amount_paid || 0)) {
+          return json(400, { error: "The revised order total cannot be less than payments already recorded. Record a refund or payment adjustment first." });
+        }
+        const payment = paymentStateForTotal(total, priorOrder.amount_paid, priorOrder.payment_status);
+        Object.assign(payload, {
+          subtotal,
+          tax,
+          tax_rate: taxRate,
+          delivery_fee: deliveryFee,
+          total,
+          balance_due: payment.balanceDue,
+          payment_status: payment.paymentStatus,
+        });
+      }
       const { data, error } = await client.from("orders").update(payload).eq("id",body.id).eq("shop_id",shopId).select().single();
       if (error) throw error;
       if ("status" in payload) {
-        await recordOrderStatusChange(client, {
+        await recordStatusChange(client, {
           shopId,
           orderId: data.id,
           fromStatus: priorOrder?.status,
@@ -245,7 +216,7 @@ export async function handler(event) {
         });
       }
       const { data: existingDelivery } = await client.from("deliveries").select("id").eq("shop_id",shopId).eq("order_id",body.id).maybeSingle();
-      await writeShopAudit(client, {
+      await audit(client, {
         shopId,
         userId: user.id,
         eventType: "order_updated",
@@ -282,7 +253,7 @@ export async function handler(event) {
       await client.from("deliveries").delete().eq("shop_id", shopId).eq("order_id", body.id);
       const { error: deleteError } = await client.from("orders").delete().eq("id", body.id).eq("shop_id", shopId);
       if (deleteError) throw deleteError;
-      await writeShopAudit(client, {
+      await audit(client, {
         shopId,
         userId: user.id,
         eventType: "order_deleted",
@@ -297,4 +268,8 @@ export async function handler(event) {
   } catch (error) {
     return fail(error);
   }
+}
+
+export async function handler(event) {
+  return handleOrders(event);
 }
