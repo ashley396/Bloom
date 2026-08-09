@@ -49,8 +49,17 @@
             const recipeLine = (p.recipe || [])
               .map((r) => `${r.qty} ${esc(r.name)}`)
               .join(" · ");
+            const imageHtml =
+              window.FlorisynMedia && window.FlorisynMedia.mediaImg
+                ? window.FlorisynMedia.mediaImg({
+                    url: p.primary_image?.url,
+                    alt: p.primary_image?.alt || p.name,
+                    width: 480,
+                    height: 360
+                  })
+                : `<img src="${esc(p.primary_image?.url)}" alt="${esc(p.primary_image?.alt || p.name)}" loading="lazy" width="480" height="360">`;
             return `<article class="product-card floral-library-card" data-library-id="${esc(p.id)}">
-        <img src="${esc(p.primary_image?.url)}" alt="${esc(p.primary_image?.alt || p.name)}" loading="lazy" width="480" height="360">
+        ${imageHtml}
         <div class="body"><span class="badge">${esc(p.categories?.[0] || "Floral")}</span>
         <h3>${esc(p.name)}</h3><p>${esc(p.short_description || p.description)}</p>
         <div class="price">${money(p.suggested_retail?.default)}</div>

@@ -1,0 +1,27 @@
+/* Florisyn media resilience — elegant loading + graceful fallback.
+   Additive only: affects the loading/broken states of images that opt in
+   via [data-fx-media]. Does not alter the existing design in the happy path. */
+.fx-media {
+  background: linear-gradient(135deg, #fdeef4, #f3f5ec);
+}
+
+/* Soft blush shimmer while the image is still loading. */
+.fx-media-loading {
+  background-image: linear-gradient(100deg, #f6e9f0 28%, #fcf4f8 48%, #f6e9f0 68%);
+  background-size: 200% 100%;
+  animation: fxMediaShimmer 1.15s ease-in-out infinite;
+}
+
+@keyframes fxMediaShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Once we have fallen back to the curated arrangement, keep it framed nicely. */
+.fx-media-broken {
+  object-fit: cover;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-media-loading { animation: none; }
+}
