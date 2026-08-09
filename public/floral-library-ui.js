@@ -9,18 +9,26 @@
   let masterCache = null;
   let libraryVisible = 60;
 
+  function signatureCollection() {
+    return Array.isArray(window.FlorisynLibraryCollection) ? window.FlorisynLibraryCollection : [];
+  }
+
   async function loadMaster() {
     if (masterCache) return masterCache;
+    let items = [];
     if (window.api) {
       try {
         const d = await window.api("floral-library?action=starter", { method: "GET" });
-        masterCache = d.products || [];
-        return masterCache;
+        items = Array.isArray(d.products) ? d.products : [];
       } catch {
-        masterCache = [];
+        items = [];
       }
     }
-    return masterCache || [];
+    // Fall back to the curated Florisyn Signature Collection so the Library is
+    // never empty (offline, backend down, or before the catalog is seeded).
+    if (!items.length) items = signatureCollection();
+    masterCache = items;
+    return masterCache;
   }
 
   function getMaster() {
