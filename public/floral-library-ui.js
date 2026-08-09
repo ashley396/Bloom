@@ -9,18 +9,26 @@
   let masterCache = null;
   let libraryVisible = 60;
 
+  function signatureCollection() {
+    return Array.isArray(window.FlorisynLibraryCollection) ? window.FlorisynLibraryCollection : [];
+  }
+
   async function loadMaster() {
     if (masterCache) return masterCache;
+    let items = [];
     if (window.api) {
       try {
         const d = await window.api("floral-library?action=starter", { method: "GET" });
-        masterCache = d.products || [];
-        return masterCache;
+        items = Array.isArray(d.products) ? d.products : [];
       } catch {
-        masterCache = [];
+        items = [];
       }
     }
-    return masterCache || [];
+    // Fall back to the curated Florisyn Signature Collection so the Library is
+    // never empty (offline, backend down, or before the catalog is seeded).
+    if (!items.length) items = signatureCollection();
+    masterCache = items;
+    return masterCache;
   }
 
   function getMaster() {
@@ -49,8 +57,17 @@
             const recipeLine = (p.recipe || [])
               .map((r) => `${r.qty} ${esc(r.name)}`)
               .join(" · ");
+            const imageHtml =
+              window.FlorisynMedia && window.FlorisynMedia.mediaImg
+                ? window.FlorisynMedia.mediaImg({
+                    url: p.primary_image?.url,
+                    alt: p.primary_image?.alt || p.name,
+                    width: 480,
+                    height: 360
+                  })
+                : `<img src="${esc(p.primary_image?.url)}" alt="${esc(p.primary_image?.alt || p.name)}" loading="lazy" width="480" height="360">`;
             return `<article class="product-card floral-library-card" data-library-id="${esc(p.id)}">
-        <img src="${esc(p.primary_image?.url)}" alt="${esc(p.primary_image?.alt || p.name)}" loading="lazy" width="480" height="360">
+        ${imageHtml}
         <div class="body"><span class="badge">${esc(p.categories?.[0] || "Floral")}</span>
         <h3>${esc(p.name)}</h3><p>${esc(p.short_description || p.description)}</p>
         <div class="price">${money(p.suggested_retail?.default)}</div>
