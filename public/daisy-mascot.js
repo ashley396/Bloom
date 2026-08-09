@@ -24,15 +24,10 @@
   let wagTimer = null;
 
   function mount() {
-    if (load().hidden) return;
-    if (document.getElementById("bloomDaisy")) return;
-    const el = document.createElement("div");
-    el.id = "bloomDaisy";
-    el.className = "bloom-daisy bloom-daisy--resting";
-    el.setAttribute("aria-hidden", load().mode === "stationary" ? "true" : "false");
-    el.innerHTML = `<img src="/assets/daisy/daisy-resting.svg" width="120" height="105" alt="">`;
-    document.body.appendChild(el);
-    apply(load());
+    // Retired: the floating bottom-of-page mascot has been removed. Daisy now
+    // appears as an avatar in the top assistant dock (Lily · Rose · Daisy).
+    // Kept as a safe no-op so existing callers (showApp) don't break.
+    return;
   }
 
   function apply(settings) {
