@@ -30,19 +30,8 @@ body.florisyn-rc22 .brand-wordmark {
 }
 
 body.florisyn-rc22 .header-brand::after {
-  content: "Flower Shop OS" !important;
-  font-family: var(--florisyn-font-ui, Inter, system-ui, sans-serif) !important;
-  font-size: 10px !important;
-  font-weight: 650 !important;
-  font-style: normal !important;
-  letter-spacing: 0.12em !important;
-  text-transform: uppercase;
-  color: var(--florisyn-sage-deep, #4d6b5c) !important;
-  border-left: 1px solid #e5ddd4 !important;
-  padding-left: 14px !important;
-  margin-left: 2px;
-  line-height: 1.35;
-  white-space: nowrap;
+  content: none !important;
+  display: none !important;
 }
 
 body.florisyn-rc22 #app header {
