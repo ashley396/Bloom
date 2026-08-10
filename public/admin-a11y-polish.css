@@ -29,6 +29,54 @@ main#adminApp aside nav button {
   max-height: none;
 }
 
+.admin-password-wrap {
+  position: relative;
+  display: block;
+}
+
+.admin-password-wrap input {
+  padding-right: 46px;
+}
+
+.admin-password-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  line-height: 0;
+}
+
+.admin-password-toggle:hover {
+  color: var(--ink);
+}
+
+.admin-login-options {
+  display: flex;
+  justify-content: flex-end;
+  margin: -4px 0 2px;
+  font-size: 13px;
+}
+
+.admin-login-options a {
+  color: var(--pink);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.admin-login-footer {
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+
+.admin-login-footer a {
+  color: var(--muted);
+}
+
 #adminMfaSecret {
   word-break: break-all;
   overflow-wrap: anywhere;

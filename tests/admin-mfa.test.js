@@ -14,6 +14,10 @@ test("Admin MFA gate requires enroll when no factors, challenge when enrolled, a
     "challenge"
   );
   assert.deepEqual(
+    adminMfaGateDecision({ currentLevel: "aal1", nextLevel: "aal1", pendingFactorCount: 1 }).action,
+    "challenge"
+  );
+  assert.deepEqual(
     adminMfaGateDecision({ currentLevel: "aal1", nextLevel: "aal1", verifiedFactorCount: 0 }).action,
     "enroll"
   );
@@ -66,6 +70,8 @@ test("Admin MFA UI exists only on admin.html login, not florist pages", () => {
   const adminHtml = read("public/admin.html");
   assert.match(adminHtml, /id="adminMfaForm"/);
   assert.match(adminHtml, /id="adminMfaCode"/);
+  assert.match(adminHtml, /id="adminPasswordToggle"/);
+  assert.match(adminHtml, /forgot-password/);
   assert.match(adminHtml, /admin-mfa\.js|admin\.js/);
 
   for (const file of ["public/login.js", "public/app.js", "public/index.html", "public/login.html"]) {
