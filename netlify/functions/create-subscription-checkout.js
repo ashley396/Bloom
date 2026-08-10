@@ -1,11 +1,6 @@
 import Stripe from "stripe";
 import { authenticatedUser, env, fail, json } from "./_shared/saas.js";
-
-const priceMap = {
-  starter: process.env.STRIPE_PRICE_STARTER,
-  professional: process.env.STRIPE_PRICE_PROFESSIONAL,
-  premium: process.env.STRIPE_PRICE_PREMIUM
-};
+import { stripePriceId } from "./_shared/stripe-prices.js";
 
 function stripeClient() {
   return new Stripe(env("STRIPE_SECRET_KEY"));
@@ -24,8 +19,9 @@ function parseBody(event) {
 export async function handler(event) {
   if (event.httpMethod !== "POST") return json(405, { error: "Method not allowed" });
   try {
-    const { planCode } = parseBody(event);
-    const price = priceMap[planCode];
+    const { planCode, billingInterval = "monthly" } = parseBody(event);
+    const interval = billingInterval === "annual" ? "annual" : "monthly";
+    const price = stripePriceId(planCode, interval);
     if (!price) throw Object.assign(new Error("That subscription plan is not configured"), { statusCode: 400 });
 
     const { client, user } = await authenticatedUser(event);
@@ -44,8 +40,8 @@ export async function handler(event) {
       allow_promotion_codes: true,
       success_url: `${siteUrl}/?subscription=success`,
       cancel_url: `${siteUrl}/?subscription=cancelled`,
-      metadata: { shop_id: profile.default_shop_id, user_id: user.id, plan_code: planCode },
-      subscription_data: { metadata: { shop_id: profile.default_shop_id, plan_code: planCode } }
+      metadata: { shop_id: profile.default_shop_id, user_id: user.id, plan_code: planCode, billing_interval: interval },
+      subscription_data: { metadata: { shop_id: profile.default_shop_id, plan_code: planCode, billing_interval: interval } }
     });
 
     return json(200, { url: checkout.url });

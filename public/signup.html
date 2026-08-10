@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="/florisyn-brand.css">
   <link rel="stylesheet" href="/florisyn-founder-1.0.css">
   <link rel="stylesheet" href="/florisyn-atelier-auth.css?v=authhero2">
+  <link rel="stylesheet" href="/pricing.css">
 </head>
 <body class="bloom-auth florisyn florisyn-atelier-auth florisyn-auth-hero florisyn-signup-hero">
   <div class="auth-hero-atmosphere" aria-hidden="true">
@@ -32,7 +33,7 @@
     <nav class="auth-hero-links" aria-label="Marketing">
       <a href="/company/services/">Product</a>
       <a href="/company/services/">Features</a>
-      <a href="#pricing">Pricing</a>
+      <a href="/company/pricing/">Pricing</a>
       <a href="/help/">Resources</a>
       <a href="/company/about/">About</a>
     </nav>
@@ -51,9 +52,14 @@
 
       <form id="signupForm" class="auth-hero-form auth-signup-form">
         <section class="bloom-auth-plans" id="pricing" aria-label="Choose a plan">
-          <label class="bloom-auth-plan"><input type="radio" name="plan" value="starter" data-price="59"><h3>Starter</h3><strong>$59<small>/mo</small></strong><p>Essential POS, orders, and inventory.</p></label>
-          <label class="bloom-auth-plan"><span class="popular">Popular</span><input type="radio" name="plan" value="pro" data-price="99" checked><h3>Pro</h3><strong>$99<small>/mo</small></strong><p>Reporting, deliveries, Lily &amp; Rose.</p></label>
-          <label class="bloom-auth-plan"><input type="radio" name="plan" value="premium" data-price="149"><h3>Premium</h3><strong>$149<small>/mo</small></strong><p>Multi-store, wholesale, priority support.</p></label>
+          <div class="pricing-toggle-wrap pricing-signup-toggle" data-pricing-toggle>
+            <div class="pricing-toggle" role="group" aria-label="Billing interval">
+              <button type="button" data-billing-interval="monthly" aria-pressed="true">Monthly</button>
+              <button type="button" data-billing-interval="annual" aria-pressed="false">Annual</button>
+            </div>
+            <span class="pricing-save-pill">Annual billing · <span data-pricing-save>Save 2 months</span></span>
+          </div>
+          <div class="bloom-auth-plans" id="pricingPlansSignup"></div>
         </section>
 
         <div class="auth-signup-card">
@@ -94,6 +100,7 @@
   </main>
 
   <footer class="bloom-auth-footer auth-hero-footer">© <span data-current-year></span> Florisyn Technologies</footer>
+  <script src="/pricing.js" type="module"></script>
   <script src="/signup.js" type="module"></script>
   <script src="/bloom-auth-common.js" defer></script>
 </body>

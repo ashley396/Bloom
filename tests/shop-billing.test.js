@@ -10,7 +10,7 @@ import {
 } from "../netlify/functions/_shared/shop-billing.js";
 
 test("professional plan upgrade path", () => {
-  assert.equal(planLabel("professional"), "Professional");
+  assert.equal(planLabel("professional"), "Pro");
   assert.equal(upgradeTarget("professional"), "premium");
   assert.equal(downgradeTarget("professional"), "starter");
 });

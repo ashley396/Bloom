@@ -19,6 +19,7 @@ import {
   buildCancellationSummary,
   subscriptionEventType
 } from "./_shared/subscription-center.js";
+import { stripePriceId } from "./_shared/stripe-prices.js";
 
 async function loadSubscription(client, shopId) {
   const { data, error } = await client.from("shop_subscriptions").select("*").eq("shop_id", shopId).maybeSingle();
@@ -276,13 +277,9 @@ export async function handler(event) {
         return json(400, { error: "That plan change is not available." });
       }
       if (!stripe) return json(503, { error: "Stripe billing is not configured." });
-      const priceMap = {
-        starter: process.env.STRIPE_PRICE_STARTER,
-        professional: process.env.STRIPE_PRICE_PROFESSIONAL,
-        premium: process.env.STRIPE_PRICE_PREMIUM
-      };
-      const price = priceMap[planCode];
-      if (!price) return json(503, { error: `Stripe price for ${planCode} is not configured.` });
+      const interval = body.billing_interval === "annual" ? "annual" : "monthly";
+      const price = stripePriceId(planCode, interval);
+      if (!price) return json(503, { error: `Stripe price for ${planCode} (${interval}) is not configured.` });
       const site = stripeRedirectBaseUrl();
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
@@ -291,8 +288,8 @@ export async function handler(event) {
         line_items: [{ price, quantity: 1 }],
         success_url: `${site}/?page=subscriptionPage&subscription=success`,
         cancel_url: `${site}/?page=subscriptionPage&subscription=cancelled`,
-        metadata: { bloom_shop_id: String(shopId), plan_code: planCode },
-        subscription_data: { metadata: { shop_id: shopId, plan_code: planCode } }
+        metadata: { bloom_shop_id: String(shopId), plan_code: planCode, billing_interval: interval },
+        subscription_data: { metadata: { shop_id: shopId, plan_code: planCode, billing_interval: interval } }
       });
       await logSubscriptionEvent(client, { shopId, userId: user.id, eventType: action, metadata: { plan_code: planCode } });
       return json(200, { url: session.url, plan_code: planCode });

@@ -1,11 +1,16 @@
 /** Bloom shop SaaS billing — plan labels and helpers (pure). */
 
-export const PLAN_CATALOG = {
-  trial: { label: "Trial", price: 0, code: "trial" },
-  starter: { label: "Starter", price: 59, code: "starter" },
-  professional: { label: "Professional", price: 99, code: "professional" },
-  premium: { label: "Premium", price: 149, code: "premium" }
-};
+import {
+  PRICING_TIERS,
+  monthlyPrice as pricingMonthly,
+  planQuote,
+  validSubscriptionPrices as pricingValidPrices
+} from "../../../lib/pricing/florisyn-pricing.js";
+
+export const PLAN_CATALOG = Object.fromEntries([
+  ["trial", { label: "Trial", price: 0, code: "trial" }],
+  ...PRICING_TIERS.map((t) => [t.code, { label: t.name, price: t.monthly, code: t.code }])
+]);
 
 export const PLAN_ORDER = ["starter", "professional", "premium"];
 
@@ -15,12 +20,14 @@ export function planLabel(planCode) {
 
 export function planPrice(planCode) {
   const code = planCode === "pro" ? "professional" : planCode;
-  return PLAN_CATALOG[code]?.price ?? 0;
+  return PLAN_CATALOG[code]?.price ?? pricingMonthly(code);
 }
 
 export function validSubscriptionPrices() {
-  return PLAN_ORDER.map((code) => PLAN_CATALOG[code].price);
+  return pricingValidPrices();
 }
+
+export { planQuote };
 
 export function upgradeTarget(current) {
   const i = PLAN_ORDER.indexOf(current);
