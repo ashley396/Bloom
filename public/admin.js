@@ -162,6 +162,8 @@ function setView(name){
 async function loadOverview(){
   const d=await call('admin-console?action=overview');
   const money=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
+  const moneyCents=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:2});
+  renderPlatformEconomics(d.economics,d.economics_projection_500,money,moneyCents);
   $('#adminMetrics').innerHTML=[
     ['Florist accounts',d.metrics.shops],
     ['Active subscriptions',d.metrics.activeSubscriptions],
@@ -180,6 +182,24 @@ async function loadOverview(){
   const alerts=d.alerts||[];
   $('#subscriberAlerts').innerHTML=alerts.length?alerts.map(a=>`<button class="subscriber-alert ${a.read_at?'':'unread'}" data-alert-shop="${a.shop_id||''}"><span class="alert-dot"></span><div><strong>${escapeHtml(a.title)}</strong><p>${escapeHtml(a.message||'')}</p><small>${new Date(a.created_at).toLocaleString()}</small></div></button>`).join(''):'<p class="quiet">No subscriber activity yet.</p>';
   $$('[data-alert-shop]').forEach(b=>b.onclick=()=>b.dataset.alertShop&&openShop(b.dataset.alertShop));
+}
+function renderPlatformEconomics(current={}, projected={}, money, moneyCents){
+  const root=$('#platformEconomics');
+  if(!root)return;
+  const renderBlock=(label,e)=>{
+    if(!e)return '';
+    const lines=(e.line_items||[]).map(x=>`<div><span>${escapeHtml(x.label)}</span><strong>${moneyCents(x.usd)}</strong></div>`).join('');
+    return `<section><h3>${escapeHtml(label)}</h3><div class="platform-economics-summary">
+      <article><small>Subscription MRR</small><strong>${money(e.mrr_usd)}</strong></article>
+      <article><small>Est. infra burn</small><strong>${moneyCents(e.estimated_burn_usd)}</strong></article>
+      <article><small>Margin after infra</small><strong>${e.margin_after_infra_percent??'—'}%</strong></article>
+    </div><div class="platform-economics-lines">${lines}
+      <div><span>Stripe fees on subscriptions (est.)</span><strong>${moneyCents(e.stripe_fees_usd)}</strong></div>
+      <div><span>Net after infra + Stripe (est.)</span><strong>${money(e.net_after_stripe_usd)}</strong></div>
+    </div><p class="quiet">${escapeHtml(e.scale_band||'')}. ~${Number(e.estimated_monthly_invocations||0).toLocaleString()} function calls/mo modeled.</p>
+    <ul>${(e.assumptions_summary||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></section>`;
+  };
+  root.innerHTML=`<div class="platform-economics-grid">${renderBlock('Current platform',current)}<div class="platform-economics-projection">${renderBlock('Planning scenario — 500 subscribers',projected)}</div></div>`;
 }
 function escapeHtml(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
