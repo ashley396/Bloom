@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/florisyn-brand.css">
   <link rel="stylesheet" href="/florisyn-founder-1.0.css">
   <link rel="stylesheet" href="/florisyn-atelier-auth.css?v=authhero2">
-  <link rel="stylesheet" href="/pricing.css">
+  <link rel="stylesheet" href="/pricing.css?v=signup2">
 </head>
 <body class="bloom-auth florisyn florisyn-atelier-auth florisyn-auth-hero florisyn-signup-hero">
   <div class="auth-hero-atmosphere" aria-hidden="true">
@@ -52,15 +52,18 @@
       <p class="atelier-auth-tagline visually-hidden">Where Your Passion Flowers</p>
 
       <form id="signupForm" class="auth-hero-form auth-signup-form">
-        <section class="bloom-auth-plans" id="pricing" aria-label="Choose a plan">
-          <div class="pricing-toggle-wrap pricing-signup-toggle" data-pricing-toggle>
-            <div class="pricing-toggle" role="group" aria-label="Billing interval">
-              <button type="button" data-billing-interval="monthly" aria-pressed="true">Monthly</button>
-              <button type="button" data-billing-interval="annual" aria-pressed="false">Annual</button>
+        <section class="signup-pricing" id="pricing" aria-labelledby="signupPlanHeading">
+          <div class="signup-pricing-head">
+            <p class="signup-pricing-eyebrow" id="signupPlanHeading">Choose your plan</p>
+            <div class="pricing-toggle-wrap pricing-signup-toggle" data-pricing-toggle>
+              <div class="pricing-toggle" role="group" aria-label="Billing interval">
+                <button type="button" data-billing-interval="monthly" aria-pressed="true">Monthly</button>
+                <button type="button" data-billing-interval="annual" aria-pressed="false">Annual</button>
+              </div>
+              <span class="pricing-save-pill">Annual billing · <span data-pricing-save>Save 2 months</span></span>
             </div>
-            <span class="pricing-save-pill">Annual billing · <span data-pricing-save>Save 2 months</span></span>
           </div>
-          <div class="bloom-auth-plans" id="pricingPlansSignup"></div>
+          <div class="signup-plan-grid" id="pricingPlansSignup" role="radiogroup" aria-labelledby="signupPlanHeading"></div>
         </section>
 
         <div class="auth-signup-card">

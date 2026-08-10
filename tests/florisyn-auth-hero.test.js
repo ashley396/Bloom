@@ -30,6 +30,9 @@ test("login keeps auth form contracts", () => {
 test("signup keeps trial form contracts", () => {
   assert.match(signup, /id="signupForm"/);
   assert.match(signup, /id="pricing"/);
+  assert.match(signup, /id="pricingPlansSignup"/);
+  assert.match(signup, /signup-plan-grid/);
+  assert.doesNotMatch(signup, /<section class="bloom-auth-plans" id="pricing"/);
   assert.match(signup, /id="fullName"/);
   assert.match(signup, /id="shopName"/);
   assert.match(signup, /id="agreeTerms"/);
