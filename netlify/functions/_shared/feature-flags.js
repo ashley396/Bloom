@@ -41,6 +41,15 @@ const DEFAULT_FLAGS = {
    * Enable only with explicit FLORISYN_FLAG_WEDDING_WORKFLOWS=true.
    */
   WEDDING_WORKFLOWS: false,
+  /**
+   * Florist Network — florist-to-florist wire orders + partner directory.
+   * Enable with FLORISYN_FLAG_FLORIST_NETWORK=true (default on for growth rollout).
+   */
+  FLORIST_NETWORK: true,
+  /**
+   * Peak readiness checklist (Mother's Day) on dashboard — default on.
+   */
+  PEAK_READINESS: true,
 };
 
 function envFlag(name, fallback, env = process.env) {

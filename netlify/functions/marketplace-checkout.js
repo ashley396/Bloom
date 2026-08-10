@@ -31,7 +31,7 @@ export async function handler(event) {
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const { client, user } = await currentUser(event);
+    const { client, user, shopId } = await currentUser(event);
     const body = bodyOf(event);
 
     const { data: application, error: applicationError } = await client
@@ -98,8 +98,28 @@ export async function handler(event) {
       },
       success_url: `${site}/?marketplace=success`,
       cancel_url: `${site}/?marketplace=cancelled`,
-      metadata: { listing_id: listing.id }
+      metadata: {
+        listing_id: listing.id,
+        buyer_shop_id: String(shopId || ""),
+        seller_shop_id: String(listing.shop_id || listing.seller_shop_id || ""),
+        quantity: String(qty),
+        marketplace: "wholesale"
+      }
     });
+
+    try {
+      await client.from("marketplace_wholesale_orders").insert({
+        seller_shop_id: listing.shop_id,
+        buyer_shop_id: shopId,
+        listing_id: listing.id,
+        status: "pending_payment",
+        total: Number(listing.price) * qty,
+        items: [{ listing_id: listing.id, name: listing.name, quantity: qty, unit_price: listing.price }],
+        metadata: { stripe_checkout_session_id: session.id }
+      });
+    } catch {
+      /* table may not exist pre-migration */
+    }
 
     return json(200, { url: session.url });
   } catch (error) {

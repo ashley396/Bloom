@@ -7,6 +7,16 @@ async function api(path, opt = {}) {
   return d;
 }
 
+const params = new URLSearchParams(location.search);
+const refCode = params.get("ref");
+if (refCode) {
+  try {
+    sessionStorage.setItem("florisyn_referral_code", refCode);
+  } catch {
+    /* ignore */
+  }
+}
+
 $("#signupForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const button = e.submitter || $("#signupForm button[type='submit']");
@@ -16,6 +26,7 @@ $("#signupForm").addEventListener("submit", async (e) => {
   button.textContent = "Creating your Florisyn account…";
   try {
     const plan = document.querySelector('input[name="plan"]:checked');
+    const referralCode = sessionStorage.getItem("florisyn_referral_code") || refCode || "";
     const payload = {
       fullName: $("#fullName").value.trim(),
       shopName: $("#shopName").value.trim(),
@@ -29,7 +40,8 @@ $("#signupForm").addEventListener("submit", async (e) => {
       businessZip: $("#businessZip").value.trim(),
       planCode: plan.value,
       subscriptionPrice: Number(plan.dataset.price),
-      billingInterval: plan.dataset.interval || "monthly"
+      billingInterval: plan.dataset.interval || "monthly",
+      referralCode
     };
     const d = await api("auth-signup", { method: "POST", body: JSON.stringify(payload) });
     if (d.confirmationRequired) {
@@ -39,6 +51,17 @@ $("#signupForm").addEventListener("submit", async (e) => {
     }
     if (d.accessToken) {
       localStorage.setItem("bloom_session", JSON.stringify({ accessToken: d.accessToken, refreshToken: d.refreshToken, user: d.user }));
+      if (referralCode) {
+        try {
+          await api("referral-program", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${d.accessToken}` },
+            body: JSON.stringify({ action: "attribute", code: referralCode })
+          });
+        } catch {
+          /* non-blocking */
+        }
+      }
       location.href = "/";
     } else location.href = "/?account=created";
   } catch (err) {
