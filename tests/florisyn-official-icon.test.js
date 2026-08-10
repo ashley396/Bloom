@@ -17,7 +17,7 @@ test("pages use official Florisyn PNG mark, not generic SVG monoline", () => {
   for (const page of ["login.html", "index.html", "admin.html", "signup.html"]) {
     const html = fs.readFileSync(new URL(`../public/${page}`, import.meta.url), "utf8");
     if (page === "login.html") {
-      assert.match(html, /florisyn-login-lockup\.png|florisyn-mark\.png/, `${page} should use official login lockup or mark`);
+      assert.match(html, /florisyn-login-lockup\.png|florisyn-mark\.png|florisyn-official-icon\.png/, `${page} should use official Florisyn logo asset`);
     } else {
       assert.match(html, /florisyn-mark\.png/, `${page} should use official PNG mark`);
     }

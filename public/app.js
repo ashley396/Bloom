@@ -98,6 +98,7 @@ function showPage(id){
     refreshCommunityFeatureFlag().then(()=>{if(!weddingWorkflowsEnabled){toast("Wedding Workflows is disabled.");return}showPage("weddingsPage")});
     return;
   }
+  window.FlorisynPlatform?.setDrawer?.(false);
   // Exclusive page visibility: toggle .active + hidden immediately (no delayed transitionTo merge).
   $$(".page").forEach((p)=>{
     const on=p.id===id;
