@@ -69,14 +69,48 @@ export function publicRecipeSummary(row, { imageUrl = null } = {}) {
   };
 }
 
-export async function generateRecipeWithCloudflare(runGenerate, input) {
-  const result = await runGenerate({
-    mode: "generate",
-    persona: "Lily",
-    task:
-      "From a florist's community arrangement post, estimate a professional stem-count recipe other florists can copy. Use realistic wholesale-style stem counts. Never include customer or order data.",
-    input,
-    schema: RECIPE_AI_SCHEMA,
-  });
-  return sanitizeRecipeDraft(result?.result || result);
+export function buildLocalRecipeDraftFromPost(post = {}) {
+  const caption = String(post.caption || "Community arrangement").trim().slice(0, 120);
+  const category =
+    String(post.category || "").trim() === "Arrangement Share"
+      ? "Everyday"
+      : String(post.category || "Everyday").trim().slice(0, 80) || "Everyday";
+  return {
+    name: caption || "Florist arrangement",
+    description:
+      String(post.body || "").trim().slice(0, 2000) ||
+      "Starter stem-count recipe from your Community post. Adjust counts to match your design.",
+    category,
+    suggested_retail: 79,
+    container: "Clear glass vase",
+    mechanics: "Clean water, fresh cut stems",
+    recipe: [
+      { name: "Seasonal focal flower", qty: 5, kind: "flower" },
+      { name: "Accent bloom", qty: 4, kind: "flower" },
+      { name: "Filler flower", qty: 3, kind: "flower" },
+      { name: "Greenery", qty: 4, kind: "foliage" },
+    ],
+    instructions: [
+      "Prep stems and build shape with greenery first.",
+      "Add focal flowers, then accents. Top off water and check proportions before sharing.",
+    ],
+  };
+}
+
+export async function generateRecipeWithCloudflare(runGenerate, input, { onCloudError } = {}) {
+  try {
+    const result = await runGenerate({
+      mode: "generate",
+      persona: "Lily",
+      task:
+        "From a florist's community arrangement post, estimate a professional stem-count recipe other florists can copy. Use realistic wholesale-style stem counts. Never include customer or order data.",
+      input,
+      schema: RECIPE_AI_SCHEMA,
+    });
+    const draft = sanitizeRecipeDraft(result?.result || result);
+    if (draft) return { draft, source: "cloudflare" };
+  } catch (error) {
+    if (typeof onCloudError === "function") onCloudError(error);
+  }
+  return { draft: null, source: "unavailable" };
 }

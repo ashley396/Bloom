@@ -21,6 +21,7 @@
       caption: "",
       body: "",
     },
+    recipeUi: {},
   };
   let pendingImageDataUrl = null;
   let pendingAvatarDataUrl = null;
@@ -248,10 +249,14 @@
       </div>`;
     }
     if (post.can_build_recipe && post.image_url) {
-      return `<div class="community-recipe panel">
+      const ui = state.recipeUi[id] || {};
+      return `<div class="community-recipe panel" data-recipe-panel="${esc(id)}">
         <p class="eyebrow">LILY</p>
         <p class="subtle">Turn your arrangement photo into a stem-count recipe other florists can copy.</p>
-        <button type="button" class="primary community-build-recipe" data-id="${esc(id)}">Build recipe with Lily</button>
+        ${ui.busy ? `<p class="community-recipe-busy" role="status">Lily is building your recipe…</p>` : ""}
+        ${ui.error ? `<p class="community-error-inline" role="alert">${esc(ui.error)}</p>` : ""}
+        ${ui.notice ? `<p class="subtle">${esc(ui.notice)}</p>` : ""}
+        <button type="button" class="primary community-build-recipe" data-id="${esc(id)}"${ui.busy ? " disabled" : ""}>Build recipe with Lily</button>
       </div>`;
     }
     return "";
@@ -260,7 +265,7 @@
   function postCard(post) {
     const author = post.author || {};
     const img = post.image_url
-      ? `<img class="community-post-image" src="${esc(post.image_url)}" alt="Arrangement shared by ${esc(author.display_name || "florist")}" loading="lazy">`
+      ? `<figure class="community-post-image-wrap"><img class="community-post-image" src="${esc(post.image_url)}" alt="Arrangement shared by ${esc(author.display_name || "florist")}" loading="lazy"></figure>`
       : "";
     const mod = post.can_moderate
       ? `<button type="button" class="secondary community-mod-hide" data-id="${esc(post.id)}">Hide</button>
@@ -606,8 +611,8 @@
     el.querySelectorAll(".community-build-recipe").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const id = btn.getAttribute("data-id");
-        btn.disabled = true;
-        setStatus("Lily is building a recipe from your arrangement…");
+        state.recipeUi[id] = { busy: true, error: "", notice: "" };
+        render();
         try {
           const res = await api("generate_recipe", { post_id: id });
           const post = state.items.find((p) => p.id === id);
@@ -616,11 +621,22 @@
             post.recipe_status = "draft";
             if (res.item) Object.assign(post, res.item);
           }
-          setStatus("Recipe draft ready — review and publish when you are happy.");
+          delete state.recipeUi[id];
+          const notice =
+            res.lily_source === "local_fallback"
+              ? "Lily drafted a starter recipe you can edit (AI was busy)."
+              : "Recipe draft ready — review and publish when you are happy.";
+          setStatus(notice);
+          if (typeof window.toast === "function") window.toast(notice);
           render();
         } catch (err) {
-          setStatus(err.message || "Lily could not build a recipe.");
-          btn.disabled = false;
+          state.recipeUi[id] = {
+            busy: false,
+            error: err.message || "Lily could not build a recipe.",
+            notice: "",
+          };
+          setStatus(state.recipeUi[id].error);
+          render();
         }
       });
     });
