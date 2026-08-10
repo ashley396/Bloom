@@ -14,7 +14,7 @@ export async function handler(event) {
       return json(200, {
         products: catalog,
         count: catalog.length,
-        note: "Florisyn Everyday Ultra-Realistic Collection — batch 1 (50 arrangements)."
+        note: "Florisyn Everyday Ultra-Realistic Collection — batches 1–2 (100 arrangements toward 500)."
       });
     }
 

@@ -164,10 +164,11 @@ test("everyday library includes hydrangea and roses", () => {
   assert.match(names, /rose/);
 });
 
-test("public floral library serves 50 everyday ultra-realistic arrangements", () => {
+test("public floral library serves 100 everyday ultra-realistic arrangements", () => {
   const catalog = getPublicFloralLibraryCatalog();
-  assert.equal(catalog.length, 50);
+  assert.equal(catalog.length, 100);
   assert.ok(catalog.some((p) => p.id === "ed-01-sunshine-cube"));
+  assert.ok(catalog.some((p) => p.id === "ed-100-florist-counter-classic"));
   assert.ok(catalog.some((p) => p.name === "Everyday Florist Favorite"));
   assert.ok(catalog.every((p) => p.primary_image?.url));
   assert.ok(catalog.every((p) => !String(p.id).startsWith("lib-rc2-")), "catalog must not include RC2 filler grid");
@@ -180,7 +181,7 @@ test("public floral library serves 50 everyday ultra-realistic arrangements", ()
 
 test("everyday library is marked for ultra-realistic launch quality", () => {
   const catalog = getEverydayFloralLibraryCatalog();
-  assert.equal(catalog.length, 50);
+  assert.equal(catalog.length, 100);
   for (const product of catalog) {
     assert.equal(product.metadata?.image_standard, "ultra_realistic_professional_floral_photography");
     assert.equal(product.metadata?.launch_quality, "everyday_verified");

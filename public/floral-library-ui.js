@@ -7,7 +7,7 @@
   const money = (n) => `$${Number(n || 0).toFixed(2)}`;
 
   let masterCache = null;
-  let libraryVisible = 50;
+  let libraryVisible = 100;
   let libraryInitPromise = null;
 
   function isRc2FillerProduct(p) {
