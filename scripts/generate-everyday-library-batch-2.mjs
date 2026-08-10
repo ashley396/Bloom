@@ -5,22 +5,12 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { materializeEverydayImage } from "./floral-library-image-pool.mjs";
 
 const root = process.cwd();
 const publicDir = path.join(root, "public");
 const dataPath = path.join(publicDir, "data/floral-library-everyday-batch-2.json");
 const everydayDir = path.join(publicDir, "assets/floral-library/everyday");
-
-const POOL = [
-  "florisyn-everyday-sunny-bouquet.jpg",
-  "florisyn-everyday-spring-pastels.jpg",
-  "garden-harmony.jpg",
-  "florisyn-everyday-rose-pitcher.jpg",
-  "florisyn-everyday-garden-medley.jpg",
-  "florisyn-everyday-market-wildflowers.jpg",
-  "florisyn-everyday-daisies-tulips.jpg",
-  "florisyn-arrangement-signature-blush.jpg"
-];
 
 const BATCH_OFFSET = 50;
 
@@ -145,11 +135,7 @@ fs.writeFileSync(dataPath, JSON.stringify(catalog, null, 2) + "\n");
 
 fs.mkdirSync(everydayDir, { recursive: true });
 for (let i = 0; i < arrangements.length; i++) {
-  const a = arrangements[i];
-  const target = path.join(everydayDir, `${a.id}.jpg`);
-  const poolFile = POOL[(BATCH_OFFSET + i) % POOL.length];
-  if (fs.existsSync(target)) fs.unlinkSync(target);
-  fs.symlinkSync(path.join("..", poolFile), target);
+  materializeEverydayImage(publicDir, arrangements[i], BATCH_OFFSET + i);
 }
 
 console.log(`generate-everyday-library-batch-2: wrote ${arrangements.length} new arrangements (ed-51 … ed-100)`);

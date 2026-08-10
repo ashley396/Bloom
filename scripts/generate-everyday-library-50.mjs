@@ -6,23 +6,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-
-const root = process.cwd();
-const publicDir = path.join(root, "public");
-const dataPath = path.join(publicDir, "data/floral-library-everyday-50.json");
-const everydayDir = path.join(publicDir, "assets/floral-library/everyday");
-
-const POOL = [
-  "florisyn-everyday-sunny-bouquet.jpg",
-  "florisyn-everyday-spring-pastels.jpg",
-  "garden-harmony.jpg",
-  "florisyn-everyday-rose-pitcher.jpg",
-  "florisyn-everyday-garden-medley.jpg",
-  "florisyn-everyday-market-wildflowers.jpg",
-  "florisyn-everyday-daisies-tulips.jpg",
-  "florisyn-arrangement-signature-blush.jpg",
-  "florisyn-everyday-garden-medley.jpg"
-];
+import { materializeEverydayImage } from "./floral-library-image-pool.mjs";
 
 /** @type {Array<{name:string,style:string,palette:string,container:string,mechanics:string,tools:string[],flowers:Array<[string,number]>,foliage:Array<[string,number]>,steps:string[],why:string,retail:number}>} */
 const SPECS = [
@@ -143,15 +127,7 @@ fs.writeFileSync(dataPath, JSON.stringify(catalog, null, 2) + "\n");
 
 fs.mkdirSync(everydayDir, { recursive: true });
 for (let i = 0; i < arrangements.length; i++) {
-  const a = arrangements[i];
-  const target = path.join(everydayDir, `${a.id}.jpg`);
-  const poolFile = POOL[i % POOL.length];
-  const source = path.join(publicDir, "assets/floral-library", poolFile);
-  if (fs.existsSync(target)) fs.unlinkSync(target);
-  fs.symlinkSync(path.join("..", poolFile), target);
-  if (!fs.existsSync(source)) {
-    console.warn(`warn: pool image missing ${source}`);
-  }
+  materializeEverydayImage(publicDir, arrangements[i], i);
 }
 
 function toLibraryProduct(a) {
@@ -201,5 +177,5 @@ const products = arrangements.map(toLibraryProduct);
 
 console.log(`generate-everyday-library-50: wrote ${arrangements.length} arrangements (batch 1)`);
 console.log(`  JSON: ${dataPath}`);
-console.log(`  Images: ${everydayDir} (batch 1 symlinks)`);
+console.log(`  Images: ${everydayDir} (real JPG copies for Netlify)`);
 console.log(`  Run: npm run sync:floral-library`);

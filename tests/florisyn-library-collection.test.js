@@ -67,5 +67,8 @@ test("every referenced image is a local, optimized asset that exists on disk", (
     assert.ok(p.primary_image?.alt, `${p.id}: alt text required for accessibility`);
     const filePath = path.join(publicDir, url.replace(/^\//, ""));
     assert.ok(existsSync(filePath), `${p.id}: asset file missing on disk (${url})`);
+    const head = readFileSync(filePath).subarray(0, 2);
+    assert.equal(head[0], 0xff, `${p.id}: asset must be a real JPEG (not a symlink/HTML fallback)`);
+    assert.equal(head[1], 0xd8, `${p.id}: asset must be a real JPEG (not a symlink/HTML fallback)`);
   }
 });

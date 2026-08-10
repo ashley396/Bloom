@@ -5,8 +5,17 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 
 const root = process.cwd();
+
+const materialize = spawnSync(process.execPath, [path.join(root, "scripts/materialize-floral-library-images.mjs")], {
+  stdio: "inherit"
+});
+if (materialize.status !== 0) {
+  process.exit(materialize.status ?? 1);
+}
+
 const deployId =
   process.env.NETLIFY_DEPLOY_ID ||
   process.env.COMMIT_REF?.slice(0, 12) ||
