@@ -24,15 +24,12 @@
   let wagTimer = null;
 
   function mount() {
-    if (load().hidden) return;
-    if (document.getElementById("bloomDaisy")) return;
-    const el = document.createElement("div");
-    el.id = "bloomDaisy";
-    el.className = "bloom-daisy bloom-daisy--resting";
-    el.setAttribute("aria-hidden", load().mode === "stationary" ? "true" : "false");
-    el.innerHTML = `<img src="/assets/daisy/daisy-portrait.png" width="112" height="112" alt="Daisy">`;
-    document.body.appendChild(el);
-    apply(load());
+    // Removed: the floating on-screen Daisy dog mascot is retired (it overlapped
+    // the sidebar). Daisy still appears as an avatar in the top assistant dock.
+    // Also clean up any previously-mounted instance.
+    const existing = document.getElementById("bloomDaisy");
+    if (existing) existing.remove();
+    return;
   }
 
   function apply(settings) {

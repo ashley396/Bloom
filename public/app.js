@@ -238,7 +238,26 @@ function renderProductionOrder(o){
 }
 function renderOrderBoard(){
   const board=$("#ordersBoard");if(!board)return;
-  board.innerHTML=ORDER_BOARD_COLUMNS.map(column=>{const items=orders.filter(o=>boardColumnForStatus(o.status)===column.id);return `<section class="order-board-column" data-order-column="${column.id}"><div class="order-board-column-head"><h2>${esc(column.label)}</h2><span>${items.length}</span></div><div class="order-board-stack">${items.length?items.map(renderProductionOrder).join(""):'<div class="order-board-empty">No orders here</div>'}</div></section>`}).join("");
+  if(!orders.length){
+    board.innerHTML=`<div class="orders-table-empty bloom-empty-luxury" role="status"><strong>No orders yet</strong><p>New orders appear here. Use “+ Add Order” to create one.</p></div>`;
+    return;
+  }
+  const rows=orders.map(o=>{
+    const pv=orderPaymentView(o);
+    const col=boardColumnForStatus(o.status);
+    const initials=String(o.customer_name||"?").trim().charAt(0).toUpperCase()||"?";
+    const item=o.arrangement_description||o.occasion||"Floral order";
+    return `<tr class="ot-row" data-edit-order="${esc(o.id)}" tabindex="0">`+
+      `<td class="ot-order"><strong>${esc(o.order_number||"—")}</strong></td>`+
+      `<td class="ot-customer"><span class="ot-avatar" aria-hidden="true">${esc(initials)}</span><span class="ot-customer-name">${esc(o.customer_name||"Walk-in")}</span></td>`+
+      `<td class="ot-item"><span>${esc(item)}</span>${o.recipient_name?`<small>For ${esc(o.recipient_name)}</small>`:""}</td>`+
+      `<td class="ot-date">${esc(dateText(o.delivery_date)||"—")}</td>`+
+      `<td class="ot-status"><span class="ot-pill ot-pill--${esc(String(col).toLowerCase())}">${esc(orderStatusLabel(canonicalOrderStatus(o.status)))}</span></td>`+
+      `<td class="ot-total"><strong>${money(o.total)}</strong> <span class="badge ${paymentBadgeClass(pv.status)}">${esc(pv.status)}</span></td>`+
+      `<td class="ot-actions"><button class="secondary" type="button" data-edit-order="${esc(o.id)}">View</button></td>`+
+    `</tr>`;
+  }).join("");
+  board.innerHTML=`<div class="orders-table-wrap"><table class="orders-table"><thead><tr><th>Order</th><th>Customer</th><th>Item</th><th>Delivery</th><th>Status</th><th>Total</th><th aria-label="Actions"></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function renderOrder(o){return renderProductionOrder(o)}
 

@@ -15,14 +15,14 @@ test("live avatar PNGs exist for Lily, Rose, and Daisy", () => {
 });
 
 test("UI surfaces point at live avatar PNGs", () => {
+  // Lily, Rose, and Daisy appear as avatars in the top assistant dock (index.html).
+  // The floating on-screen Daisy mascot was intentionally retired, so the avatar
+  // is verified here in the header/dock rather than in daisy-mascot.js.
   const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
-  const daisy = fs.readFileSync(new URL("../public/daisy-mascot.js", import.meta.url), "utf8");
   const lily = fs.readFileSync(new URL("../public/lily-platform.js", import.meta.url), "utf8");
   assert.match(html, /florisyn-live-avatars\.css/);
   assert.match(html, /lily-portrait\.png/);
   assert.match(html, /rose-portrait\.png/);
   assert.match(html, /daisy-portrait\.png/);
-  assert.match(daisy, /daisy-portrait\.png/);
-  assert.match(daisy, /Shop mascot/);
   assert.match(lily, /lily-portrait\.png/);
 });
