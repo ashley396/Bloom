@@ -220,12 +220,23 @@
         !post.is_mine && r.id
           ? `<button type="button" class="primary community-import-recipe" data-recipe-id="${esc(r.id)}">Add to My Shop</button>`
           : "";
-      return `<div class="community-recipe panel community-recipe-published">
+      const ui = state.recipeUi[id] || {};
+      const rebuildBtn =
+        post.is_mine && post.image_url
+          ? `<div class="card-actions community-recipe-rebuild-wrap">
+              ${ui.busy ? `<p class="community-recipe-busy" role="status">Lily is re-reading your photo…</p>` : ""}
+              ${ui.error ? `<p class="community-error-inline" role="alert">${esc(ui.error)}</p>` : ""}
+              ${ui.notice ? `<p class="subtle">${esc(ui.notice)}</p>` : ""}
+              <button type="button" class="secondary community-rebuild-recipe" data-id="${esc(id)}"${ui.busy ? " disabled" : ""}>Rebuild with Lily</button>
+            </div>`
+          : "";
+      return `<div class="community-recipe panel community-recipe-published" data-recipe-panel="${esc(id)}">
         <p class="eyebrow">🌸 LILY RECIPE · SHARED</p>
         <h4>${esc(r.title)}</h4>
         ${r.suggested_retail ? `<p class="subtle">Suggested retail · $${Number(r.suggested_retail).toFixed(0)}</p>` : ""}
         ${stems ? `<ul class="community-recipe-stems">${stems}</ul>` : ""}
         ${importBtn}
+        ${rebuildBtn}
       </div>`;
     }
     if (!post.is_mine) return "";
@@ -609,40 +620,51 @@
       });
     });
 
-    el.querySelectorAll(".community-build-recipe").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const id = btn.getAttribute("data-id");
-        state.recipeUi[id] = { busy: true, error: "", notice: "" };
-        render();
-        try {
-          const res = await api("generate_recipe", { post_id: id });
-          const post = state.items.find((p) => p.id === id);
-          if (post) {
-            post.recipe_draft = res.recipe_draft;
-            post.recipe_status = "draft";
-            if (res.item) Object.assign(post, res.item);
-          }
-          delete state.recipeUi[id];
-          const notice =
-            res.lily_source === "cloudflare_vision"
-              ? "Lily read your photo and drafted a stem-count recipe — review before publishing."
-              : res.lily_source === "local_vision_fallback"
-                ? "Lily identified flowers from your photo (AI recipe writer was busy) — edit counts as needed."
-                : res.lily_source === "local_fallback"
-                  ? "Lily drafted a starter recipe you can edit (AI was busy)."
-                  : "Recipe draft ready — review and publish when you are happy.";
-          setStatus(notice);
-          if (typeof window.toast === "function") window.toast(notice);
-          render();
-        } catch (err) {
-          state.recipeUi[id] = {
-            busy: false,
-            error: err.message || "Lily could not build a recipe.",
-            notice: "",
-          };
-          setStatus(state.recipeUi[id].error);
-          render();
+    async function runLilyRecipe(id, { rebuilding = false } = {}) {
+      state.recipeUi[id] = { busy: true, error: "", notice: "" };
+      render();
+      try {
+        const res = await api("generate_recipe", { post_id: id });
+        const post = state.items.find((p) => p.id === id);
+        if (post) {
+          post.recipe_draft = res.recipe_draft;
+          post.recipe_status = res.item?.recipe_status || (rebuilding ? "published" : "draft");
+          if (res.item) Object.assign(post, res.item);
         }
+        delete state.recipeUi[id];
+        const notice = rebuilding
+          ? res.lily_source === "cloudflare_vision" || res.lily_source === "local_vision_fallback"
+            ? "Lily re-read your photo and updated the shared recipe."
+            : "Recipe updated — Lily could not fully read the photo, so review the stem list."
+          : res.lily_source === "cloudflare_vision"
+            ? "Lily read your photo and drafted a stem-count recipe — review before publishing."
+            : res.lily_source === "local_vision_fallback"
+              ? "Lily identified flowers from your photo (AI recipe writer was busy) — edit counts as needed."
+              : res.lily_source === "local_fallback"
+                ? "Lily drafted a starter recipe you can edit (AI was busy)."
+                : "Recipe draft ready — review and publish when you are happy.";
+        setStatus(notice);
+        if (typeof window.toast === "function") window.toast(notice);
+        render();
+      } catch (err) {
+        state.recipeUi[id] = {
+          busy: false,
+          error: err.message || "Lily could not build a recipe.",
+          notice: "",
+        };
+        setStatus(state.recipeUi[id].error);
+        render();
+      }
+    }
+
+    el.querySelectorAll(".community-build-recipe").forEach((btn) => {
+      btn.addEventListener("click", () => runLilyRecipe(btn.getAttribute("data-id")));
+    });
+
+    el.querySelectorAll(".community-rebuild-recipe").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (!confirm("Rebuild this recipe from your photo? The shared stem list will update.")) return;
+        runLilyRecipe(btn.getAttribute("data-id"), { rebuilding: true });
       });
     });
 
