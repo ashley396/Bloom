@@ -38,6 +38,15 @@
 /* Retire the floating dog mascots completely (Daisy lives in the top dock). */
 #bloomDaisy, .bloom-daisy, #bloomDog, .bloom-dog { display: none !important; }
 
+/* Mobile nav drawer must actually slide in when opened. The default off-screen
+   rule is scoped to `aside#atelierSidebarDrawer` (ID = higher specificity), so
+   the open-state rule needs matching specificity (+!important) to win. Without
+   this, tapping the menu shows the backdrop but the drawer stays off-screen. */
+body.florisyn-atelier.atelier-drawer-open .shell > aside#atelierSidebarDrawer,
+body.florisyn-atelier.atelier-drawer-open .shell > aside {
+  transform: translateX(0) !important;
+}
+
 /* Sidebar nav labels must never be cut off — allow them to wrap. */
 body.florisyn-atelier .shell > aside button,
 .shell > aside button {
