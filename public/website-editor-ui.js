@@ -53,7 +53,10 @@
           <button type="button" class="secondary" id="editorPreviewMobile">Mobile</button>
           <button type="button" class="primary" id="editorPublish">Publish (approved)</button>
         </div>
-        <div id="editorCanvas" class="editor-canvas" data-preview="desktop"></div>
+        <div class="editor-layout">
+          <div id="editorCanvas" class="editor-canvas" data-preview="desktop"></div>
+          <aside id="editorInspector" class="editor-inspector panel" aria-label="Section properties"></aside>
+        </div>
         <p id="editorStatus" class="subtle" aria-live="polite"></p>
       </div>`
     );
@@ -66,6 +69,7 @@
     let sections = [];
     let busy = false;
     let autosaveTimer = null;
+    let selectedSectionId = null;
 
     function setBusy(next) {
       busy = !!next;
@@ -155,17 +159,42 @@
       }
     }
 
+    function renderInspector() {
+      const panel = root.querySelector("#editorInspector");
+      const section = sections.find((s) => s.id === selectedSectionId) || null;
+      window.BloomSectionInspector?.renderPanel(panel, section, {
+        onChange(updated) {
+          const idx = sections.findIndex((s) => s.id === updated.id);
+          if (idx >= 0) sections[idx] = updated;
+          pushHistory();
+          renderCanvas();
+          scheduleAutosave();
+        },
+        onReorderBlock(from, to) {
+          const section = sections.find((s) => s.id === selectedSectionId);
+          if (!section) return;
+          const blocks = window.BloomSectionInspector.blockList(section);
+          const order = blocks.map((b) => b.path);
+          const [moved] = order.splice(from, 1);
+          order.splice(to, 0, moved);
+          live("Block order updated.");
+        }
+      });
+    }
+
     function renderCanvas() {
       const canvas = root.querySelector("#editorCanvas");
       if (!sections.length) {
         canvas.innerHTML =
           `<div class="bloom-empty-state florisyn-empty-state"><p>No website sections yet.</p><p class="subtle">Save a draft after adding sections. Unpublished drafts never appear on your public storefront.</p></div>`;
+        renderInspector();
         return;
       }
       canvas.innerHTML = sections
         .map(
-          (s, idx) => `<article class="editor-section" data-id="${esc(s.id)}" draggable="true">
+          (s, idx) => `<article class="editor-section${s.id === selectedSectionId ? " selected" : ""}" data-id="${esc(s.id)}" draggable="true">
             <div class="editor-section-tools">
+              <button type="button" class="secondary editor-select" data-select="${esc(s.id)}" aria-label="Edit section properties">Edit</button>
               <button type="button" class="secondary" data-move="up" data-id="${esc(s.id)}" aria-label="Move section up">↑</button>
               <button type="button" class="secondary" data-move="down" data-id="${esc(s.id)}" aria-label="Move section down">↓</button>
               <button type="button" class="secondary" data-dup="${esc(s.id)}">Duplicate</button>
@@ -173,11 +202,11 @@
               <button type="button" class="secondary" data-del="${esc(s.id)}">Delete</button>
             </div>
             <span class="subtle">${esc(s.type)} · #${idx + 1}</span>
-            <div class="editable" contenteditable="true" data-section="${esc(s.id)}" data-path="title">${esc(s.props?.title || s.props?.text || "Click to edit text")}</div>
-            <button type="button" class="secondary" data-image="${esc(s.id)}">Replace image</button>
+            <div class="editor-section-preview">${window.BloomSectionRenderer?.renderSection?.(s, { shop: "preview", shopName: window.shopSettings?.name || "Your Florist", products: [] }) || `<div class="editable" contenteditable="true" data-section="${esc(s.id)}" data-path="title">${esc(s.props?.title || s.props?.text || "Click to edit text")}</div>`}</div>
           </article>`
         )
         .join("");
+      renderInspector();
     }
 
     function titleForType(type) {
@@ -297,6 +326,18 @@
     });
 
     root.querySelector("#editorCanvas")?.addEventListener("click", async (e) => {
+      const selectBtn = e.target.closest("[data-select]");
+      if (selectBtn) {
+        selectedSectionId = selectBtn.dataset.select;
+        renderCanvas();
+        live("Section selected.");
+        return;
+      }
+      const sec = e.target.closest(".editor-section");
+      if (sec && !e.target.closest(".editor-section-tools")) {
+        selectedSectionId = sec.dataset.id;
+        renderCanvas();
+      }
       const move = e.target.closest("[data-move]");
       if (move) {
         const id = move.dataset.id;

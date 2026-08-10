@@ -19,5 +19,43 @@ export function createFlorisynServices(config: { baseUrl: string; getToken: () =
     navigateToAssistant(id: AssistantId) {
       return ASSISTANTS[id]?.page ?? "Dashboard";
     },
+    website: {
+      async getProject() {
+        return api.request("instant-website", {
+          method: "POST",
+          body: JSON.stringify({ action: "get_project" }),
+        });
+      },
+      async publishChecklist(payload: { project?: unknown; pages?: unknown[] }) {
+        return api.request("instant-website", {
+          method: "POST",
+          body: JSON.stringify({ action: "publish_checklist", ...payload }),
+        });
+      },
+      async lilyInterviewSteps() {
+        return api.request("instant-website", {
+          method: "POST",
+          body: JSON.stringify({ action: "lily_interview_steps" }),
+        });
+      },
+      async connectDomain(domain: string) {
+        return api.request("instant-website", {
+          method: "POST",
+          body: JSON.stringify({ action: "connect_domain", domain }),
+        });
+      },
+      async verifyDomain(domain: string) {
+        return api.request("instant-website", {
+          method: "POST",
+          body: JSON.stringify({ action: "verify_domain", domain }),
+        });
+      },
+      async updateSeo(seo: { seo_title?: string; meta_description?: string }) {
+        return api.request("instant-website", {
+          method: "POST",
+          body: JSON.stringify({ action: "update_seo", ...seo }),
+        });
+      },
+    },
   };
 }

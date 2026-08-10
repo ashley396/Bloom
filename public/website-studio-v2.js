@@ -57,6 +57,15 @@
           <div class="ws2-kpi"><small>SEO score</small><strong id="ws2SeoScore">—</strong></div>
         </div>
         <ul class="ws2-checklist" id="ws2Checklist"></ul>
+        <hr>
+        <h3>Custom domain</h3>
+        <div class="ws2-seo-field ws2-domain-field">
+          <label>Your domain<input id="ws2DomainInput" placeholder="www.yourflowershop.com"></label>
+          <button type="button" class="secondary" id="ws2DomainConnect">Connect domain</button>
+          <button type="button" class="secondary" id="ws2DomainVerify">Verify DNS</button>
+          <div id="ws2DomainInstructions" class="subtle"></div>
+          <p id="ws2DomainStatus" class="subtle" aria-live="polite"></p>
+        </div>
         <p id="ws2SeoStatus" class="subtle" aria-live="polite"></p>
       </div>`;
     root.appendChild(shell);
@@ -196,6 +205,33 @@
 
     shell.querySelector("#ws2RefreshPreview")?.addEventListener("click", () => refreshPreview());
     shell.querySelector("#ws2RunChecklist")?.addEventListener("click", () => runChecklist());
+
+    shell.querySelector("#ws2DomainConnect")?.addEventListener("click", async () => {
+      const status = shell.querySelector("#ws2DomainStatus");
+      const domain = shell.querySelector("#ws2DomainInput").value.trim();
+      status.textContent = "Saving domain…";
+      try {
+        const d = await api("connect_domain", { domain });
+        const steps = (d.instructions?.steps || []).map((s) => `<li>${esc(s)}</li>`).join("");
+        shell.querySelector("#ws2DomainInstructions").innerHTML = `<ol>${steps}</ol><p>CNAME → <code>${esc(d.instructions?.records?.[0]?.value || "")}</code></p>`;
+        status.textContent = d.verification?.verified ? "Domain verified!" : "Add the CNAME record, then click Verify DNS.";
+      } catch (e) {
+        status.textContent = e.message;
+      }
+    });
+
+    shell.querySelector("#ws2DomainVerify")?.addEventListener("click", async () => {
+      const status = shell.querySelector("#ws2DomainStatus");
+      status.textContent = "Checking DNS…";
+      try {
+        const d = await api("verify_domain", { domain: shell.querySelector("#ws2DomainInput").value.trim() });
+        status.textContent = d.verified
+          ? "Domain verified — published SEO will use your custom domain."
+          : d.verification?.error || "DNS not verified yet.";
+      } catch (e) {
+        status.textContent = e.message;
+      }
+    });
 
     shell.querySelectorAll("[data-device]").forEach((btn) => {
       btn.addEventListener("click", () => {

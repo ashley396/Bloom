@@ -138,3 +138,80 @@
   font-size: 0.8rem;
   opacity: 0.75;
 }
+
+.editor-layout {
+  display: grid;
+  grid-template-columns: 1fr minmax(240px, 300px);
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .editor-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.editor-inspector {
+  position: sticky;
+  top: 1rem;
+  max-height: 70vh;
+  overflow: auto;
+}
+.editor-section.selected {
+  outline: 2px solid var(--accent, #8f3f68);
+  outline-offset: 2px;
+}
+.editor-section-preview {
+  pointer-events: none;
+  opacity: 0.95;
+  transform: scale(0.98);
+  transform-origin: top center;
+}
+.editor-block-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+  padding: 0.35rem;
+  border-radius: 8px;
+  background: var(--accent-soft, #f8f3f6);
+}
+.editor-drag-handle {
+  cursor: grab;
+  padding: 0.25rem;
+}
+.lily-wizard-head {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.lily-wizard-dialog {
+  max-width: 520px;
+  border: none;
+  border-radius: 16px;
+  padding: 1.25rem;
+}
+.lily-wizard-progress {
+  height: 6px;
+  background: #eee;
+  border-radius: 999px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+.lily-wizard-progress div {
+  height: 100%;
+  background: var(--accent, #8f3f68);
+  width: 0;
+  transition: width 0.2s ease;
+}
+.lily-bubble {
+  background: var(--accent-soft, #f8f3f6);
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-style: italic;
+}
+.ws2-domain-field code {
+  font-size: 0.85em;
+  word-break: break-all;
+}
