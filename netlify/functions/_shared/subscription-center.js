@@ -1,5 +1,7 @@
 /** Subscription Center — dates, metrics, exit survey (pure). */
 
+import { planPrice } from "./shop-billing.js";
+
 export const EXIT_SURVEY_REASONS = [
   { code: "too_expensive", label: "Cost" },
   { code: "missing_features", label: "Missing features" },
@@ -8,8 +10,6 @@ export const EXIT_SURVEY_REASONS = [
   { code: "business_closed", label: "Business closed" },
   { code: "other", label: "Other" }
 ];
-
-const PLAN_PRICE = { starter: 39, professional: 79, premium: 129, trial: 0, pro: 79 };
 
 export function normalizePlanCode(code) {
   if (code === "pro") return "professional";
@@ -48,7 +48,7 @@ export function computeAdminSubscriptionMetrics(rows = [], events = []) {
     const plan = normalizePlanCode(row.plan_code);
     if (status === "active") {
       counts.active += 1;
-      mrr += PLAN_PRICE[plan] || 0;
+      mrr += planPrice(plan) || 0;
     } else if (status === "paused") counts.paused += 1;
     else if (status === "canceled") counts.canceled += 1;
     else if (status === "trialing" || plan === "trial") counts.trial += 1;

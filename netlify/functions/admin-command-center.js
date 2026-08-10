@@ -17,6 +17,7 @@ import {
   systemHealthSnapshot,
   validateAnnouncementPayload
 } from "./_shared/command-center.js";
+import { planPrice } from "./_shared/shop-billing.js";
 import { detectIntent, mapAdminInsight } from "./_shared/lily-ai-engine.js";
 import { getProductionConfig, BETA_READINESS_CHECKLIST, securityReviewSummary } from "./_shared/production.js";
 import {
@@ -116,8 +117,7 @@ export function createAdminCommandCenterHandler(deps = {}) {
 
       const subs = subsRes.error ? [] : subsRes.data || [];
       const active = subs.filter((x) => ["trialing", "active"].includes(x.status));
-      const price = { starter: 39, professional: 79, premium: 129 };
-      const mrr = active.filter((x) => x.status === "active").reduce((sum, x) => sum + (price[x.plan_code] || 0), 0);
+      const mrr = active.filter((x) => x.status === "active").reduce((sum, x) => sum + (planPrice(x.plan_code) || 0), 0);
 
       let wholesaleOrders = [];
       let grossMarketplace = 0;

@@ -2,9 +2,9 @@
 
 export const PLAN_CATALOG = {
   trial: { label: "Trial", price: 0, code: "trial" },
-  starter: { label: "Starter", price: 39, code: "starter" },
-  professional: { label: "Professional", price: 79, code: "professional" },
-  premium: { label: "Premium", price: 129, code: "premium" }
+  starter: { label: "Starter", price: 59, code: "starter" },
+  professional: { label: "Professional", price: 99, code: "professional" },
+  premium: { label: "Premium", price: 149, code: "premium" }
 };
 
 export const PLAN_ORDER = ["starter", "professional", "premium"];
@@ -14,7 +14,12 @@ export function planLabel(planCode) {
 }
 
 export function planPrice(planCode) {
-  return PLAN_CATALOG[planCode]?.price ?? 0;
+  const code = planCode === "pro" ? "professional" : planCode;
+  return PLAN_CATALOG[code]?.price ?? 0;
+}
+
+export function validSubscriptionPrices() {
+  return PLAN_ORDER.map((code) => PLAN_CATALOG[code].price);
 }
 
 export function upgradeTarget(current) {
