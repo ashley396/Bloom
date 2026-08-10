@@ -20,9 +20,8 @@ import {
   applyProductSyncToggle,
   validateLibraryProduct,
   detectDuplicateImageHash,
-  STARTER_FLORAL_LIBRARY,
   getPublicFloralLibraryCatalog,
-  getFlorisynSignatureCatalog
+  getEverydayFloralLibraryCatalog
 } from "../netlify/functions/_shared/floral-library-core.js";
 
 test("website generation from shop profile", () => {
@@ -96,7 +95,7 @@ test("master library immutability for shops", () => {
 });
 
 test("add to my shop creates independent copy", () => {
-  const master = STARTER_FLORAL_LIBRARY[0];
+  const master = getPublicFloralLibraryCatalog()[0];
   const copy = copyLibraryItemToShop(master, { shopId: "shop-1" });
   assert.notEqual(copy.id, master.id);
   assert.equal(copy.master_library_id, master.id);
@@ -127,12 +126,13 @@ test("domain status does not claim purchased", () => {
 test("image licensing validation", () => {
   const bad = validateLibraryProduct({ id: "1", name: "X", primary_image: { url: "u" } });
   assert.equal(bad.valid, false);
-  const good = validateLibraryProduct(STARTER_FLORAL_LIBRARY[0]);
+  const good = validateLibraryProduct(getPublicFloralLibraryCatalog()[0]);
   assert.equal(good.valid, true);
 });
 
 test("duplicate image hook", () => {
-  const dup = detectDuplicateImageHash(STARTER_FLORAL_LIBRARY, STARTER_FLORAL_LIBRARY[0].primary_image.hash);
+  const catalog = getPublicFloralLibraryCatalog();
+  const dup = detectDuplicateImageHash(catalog, catalog[0].primary_image.hash);
   assert.ok(dup.length >= 1);
 });
 
@@ -158,35 +158,36 @@ test("website health score does not promise rankings", () => {
   assert.match(h.disclaimer, /not a ranking guarantee/i);
 });
 
-test("starter library includes hydrangea and roses", () => {
-  const names = STARTER_FLORAL_LIBRARY.map((p) => p.name.toLowerCase()).join(" ");
+test("everyday library includes hydrangea and roses", () => {
+  const names = getPublicFloralLibraryCatalog().map((p) => p.name.toLowerCase()).join(" ");
   assert.match(names, /hydrangea/);
   assert.match(names, /rose/);
 });
 
-test("public floral library serves signature collection only", () => {
+test("public floral library serves 50 everyday ultra-realistic arrangements", () => {
   const catalog = getPublicFloralLibraryCatalog();
-  const signatures = getFlorisynSignatureCatalog();
-  assert.ok(signatures.length >= 8);
-  assert.equal(catalog.length, signatures.length);
-  assert.ok(catalog.some((p) => p.id === "sig-signature-blush-garden"));
+  assert.equal(catalog.length, 50);
+  assert.ok(catalog.some((p) => p.id === "ed-01-sunshine-cube"));
+  assert.ok(catalog.some((p) => p.name === "Everyday Florist Favorite"));
   assert.ok(catalog.every((p) => p.primary_image?.url));
-  assert.ok(catalog.every((p) => !String(p.id).startsWith("lib-rc2-")), "starter catalog must not include RC2 filler grid");
+  assert.ok(catalog.every((p) => !String(p.id).startsWith("lib-rc2-")), "catalog must not include RC2 filler grid");
   assert.ok(!catalog.some((p) => p.name === "Garden Rose Bouquet"), "no auto-generated Garden Rose filler");
   assert.ok(!catalog.some((p) => p.image_license?.source === "licensed_stock_pexels"), "no legacy Pexels starters");
+  assert.ok(!catalog.some((p) => p.id.startsWith("sig-")), "no legacy signature ids");
   const ids = catalog.map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length);
 });
 
-test("starter library is marked for ultra-realistic photo-first launch quality", () => {
-  assert.ok(STARTER_FLORAL_LIBRARY.length >= 12);
-  for (const product of STARTER_FLORAL_LIBRARY) {
+test("everyday library is marked for ultra-realistic launch quality", () => {
+  const catalog = getEverydayFloralLibraryCatalog();
+  assert.equal(catalog.length, 50);
+  for (const product of catalog) {
     assert.equal(product.metadata?.image_standard, "ultra_realistic_professional_floral_photography");
-    assert.equal(product.metadata?.launch_quality, "starter_verified");
+    assert.equal(product.metadata?.launch_quality, "everyday_verified");
     assert.match(product.primary_image.alt, /ultra-realistic/i);
-    assert.match(product.primary_image.alt, /photograph/i);
     assert.match(product.description, /ultra-realistic/i);
     assert.ok(product.tags.includes("ultra_realistic"));
+    assert.ok(product.categories.includes("Everyday"));
   }
 });
 

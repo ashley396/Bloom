@@ -2,7 +2,7 @@
 window.FLORISYN_VERSION = {
   label: "Florisyn 1.0",
   code: "founder-1.0",
-  build: "teststamp1234",
+  build: "local-1786391024442",
   branch: "redesign-v22"
 };
 

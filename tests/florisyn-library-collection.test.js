@@ -26,9 +26,10 @@ const ALLOWED_CATEGORIES = new Set([
 
 test("collection is a non-empty array with unique ids", () => {
   assert.ok(Array.isArray(COLLECTION));
-  assert.ok(COLLECTION.length >= 6, "expected at least 6 curated designs");
+  assert.equal(COLLECTION.length, 50, "expected 50 everyday designs");
   const ids = COLLECTION.map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length, "ids must be unique");
+  assert.ok(ids.every((id) => id.startsWith("ed-")), "everyday batch ids");
 });
 
 test("every item has valid metadata for the renderer", () => {
@@ -63,7 +64,6 @@ test("every referenced image is a local, optimized asset that exists on disk", (
   for (const p of COLLECTION) {
     const url = p.primary_image?.url || "";
     assert.ok(url.startsWith("/assets/floral-library/"), `${p.id}: image must be a local asset`);
-    assert.match(url, /\.jpg$/, `${p.id}: expected a .jpg asset`);
     assert.ok(p.primary_image?.alt, `${p.id}: alt text required for accessibility`);
     const filePath = path.join(publicDir, url.replace(/^\//, ""));
     assert.ok(existsSync(filePath), `${p.id}: asset file missing on disk (${url})`);

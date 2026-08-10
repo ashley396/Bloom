@@ -1,6 +1,6 @@
 import { json, preflight, methodNotAllowed, bodyOf } from "./_shared/http.js";
 import { currentUser, fail } from "./_shared/supabase.js";
-import { STARTER_FLORAL_LIBRARY, copyLibraryItemToShop, validateLibraryProduct, getPublicFloralLibraryCatalog } from "./_shared/floral-library-core.js";
+import { getEverydayFloralLibraryCatalog, copyLibraryItemToShop, validateLibraryProduct, getPublicFloralLibraryCatalog } from "./_shared/floral-library-core.js";
 import { getBloomFloristCatalog, BLOOM_RC2_CATALOG_SIZE } from "./_shared/floral-library-catalog.js";
 
 export async function handler(event) {
@@ -14,7 +14,7 @@ export async function handler(event) {
       return json(200, {
         products: catalog,
         count: catalog.length,
-        note: "Florisyn Signature Collection and curated starter arrangements with real photography."
+        note: "Florisyn Everyday Ultra-Realistic Collection — batch 1 (50 arrangements)."
       });
     }
 
@@ -29,8 +29,7 @@ export async function handler(event) {
       if (body.action === "add_to_shop") {
         const master =
           getPublicFloralLibraryCatalog().find((p) => p.id === body.master_id) ||
-          getBloomFloristCatalog(BLOOM_RC2_CATALOG_SIZE).find((p) => p.id === body.master_id) ||
-          STARTER_FLORAL_LIBRARY.find((p) => p.id === body.master_id);
+          getEverydayFloralLibraryCatalog().find((p) => p.id === body.master_id);
         if (!master) return json(404, { error: "Library item not found." });
         const copy = copyLibraryItemToShop(master, { shopId: ctx.shopId, overrides: body.overrides });
         return json(201, { product: copy });

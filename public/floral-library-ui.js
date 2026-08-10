@@ -7,13 +7,14 @@
   const money = (n) => `$${Number(n || 0).toFixed(2)}`;
 
   let masterCache = null;
-  let libraryVisible = 60;
+  let libraryVisible = 50;
   let libraryInitPromise = null;
 
   function isRc2FillerProduct(p) {
     const id = String(p?.id || "");
     if (id.startsWith("lib-rc2-")) return true;
-    if (id.startsWith("lib-") && !id.startsWith("sig-")) return true;
+    if (id.startsWith("lib-")) return true;
+    if (id.startsWith("sig-")) return true;
     if ((p?.tags || []).includes("rc2_starter")) return true;
     if (p?.image_license?.source === "licensed_stock_pexels") return true;
     if (/^Garden \w+ (Bouquet|Birthday|Anniversary|Romance|Wedding)/.test(String(p?.name || ""))) return true;
