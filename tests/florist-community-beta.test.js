@@ -335,6 +335,10 @@ test("community UI hides nav when disabled and keeps loading/empty/error states"
   assert.match(ui, /BloomCommunity/);
   assert.match(ui, /community-loading|Loading Florist Community/);
   assert.match(ui, /community-empty|Your florist feed is quiet/);
+  assert.match(ui, /composerDraft/);
+  assert.match(ui, /captureComposerDraft/);
+  assert.match(ui, /updateComposerImagePreview/);
+  assert.doesNotMatch(ui, /reader\.onload = \(\) => \{\s*onDataUrl\(reader\.result\);\s*render\(\)/);
   assert.match(ui, /community-error|Something went wrong/);
 });
 
