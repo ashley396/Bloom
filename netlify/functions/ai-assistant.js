@@ -1,5 +1,6 @@
 import { json, preflight, methodNotAllowed, bodyOf } from "./_shared/http.js";
 import { currentUser } from "./_shared/supabase.js";
+import { systemPromptFor, temperatureForPersona, normalizePersona } from "./_shared/florist-ai-personas.js";
 
 const MODEL_DEFAULT="@cf/meta/llama-3.1-8b-instruct-fast";
 const MAX_PROMPT_CHARS=42000;
@@ -41,7 +42,9 @@ function jsonWithinLimit(value,maxChars=MAX_PROMPT_CHARS){
   if(text.length<=maxChars)return text;
   return JSON.stringify({notice:"Florisyn trimmed oversized context for a safe AI request.",summary:safeText(text,maxChars-120)});
 }
-function systemPrompt(persona){return `${persona||"Lily"} is Florisyn's florist business assistant. Be practical, warm, concise, and accurate. Never claim an action was saved, published, paid, or completed unless the app confirms it. Suggestions are editable and require florist approval. Avoid expensive or unnecessary services and favor low-cost workflows.`}
+function systemPrompt(persona, mode = "chat") {
+  return systemPromptFor(persona, mode);
+}
 
 export function cloudflareAiToken(env = process.env) {
   return String(env.CLOUDFLARE_AI_API_TOKEN || env.CLOUDFLARE_AI_TOKEN || "").trim();
@@ -65,11 +68,15 @@ async function cloudflareAi(payload){
   const token=cloudflareAiToken();
   if(!account||!token){const e=new Error("Cloud AI is not configured; Florisyn will try the free local AI fallback.");e.statusCode=503;throw e}
   const model=process.env.CLOUDFLARE_AI_MODEL||MODEL_DEFAULT;
+  const persona = normalizePersona(payload.persona);
+  const mode = payload.mode === "generate" ? "generate" : "chat";
   const user=payload.mode==="generate"
     ?`Task: ${safeText(payload.task,1200)}\nInput: ${jsonWithinLimit(payload.input||{},30000)}\nReturn ONLY valid JSON matching this shape: ${jsonWithinLimit(payload.schema||{text:"result"},5000)}`
     :`Question: ${safeText(payload.prompt,4000)}\nRelevant Florisyn context: ${jsonWithinLimit(payload.context||{},32000)}`;
   const url=`https://api.cloudflare.com/client/v4/accounts/${account}/ai/run/${encodeURIComponent(model)}`;
-  const r=await fetch(url,{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"system",content:systemPrompt(payload.persona)},{role:"user",content:user}],max_tokens:payload.mode==="generate"?700:550,temperature:.35})});
+  const maxTokens=Math.min(1200,Math.max(400,Number(payload.max_tokens)||(mode==="generate"?800:550)));
+  const temperature=temperatureForPersona(persona, mode);
+  const r=await fetch(url,{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"system",content:systemPrompt(persona, mode)},{role:"user",content:user}],max_tokens:maxTokens,temperature})});
   let d={};
   try{d=await r.json()}catch{
     const e=new Error(`Cloud AI returned a non-JSON response (${r.status}).`);
@@ -84,7 +91,7 @@ async function cloudflareAi(payload){
   const text=extractCloudflareText(d.result);
   if(!text.trim()) throw new Error("Cloud AI returned an empty response. Check CLOUDFLARE_AI_API_TOKEN Workers AI permissions.");
   if(payload.mode==="generate")return {result:cleanJson(text)||{text},provider:"Cloudflare Workers AI",model,promptChars:user.length};
-  return {answer:text,persona:payload.persona||"Lily",provider:"Cloudflare Workers AI",model,promptChars:user.length};
+  return {answer:text,persona,provider:"Cloudflare Workers AI",model,promptChars:user.length};
 }
 
 /** Shared Cloudflare generate/chat entry for other Netlify handlers. */
