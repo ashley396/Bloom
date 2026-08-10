@@ -146,6 +146,7 @@ test("nav and pages stay hidden until flags enable", () => {
   assert.match(html, /data-page="holidayPage"[^>]*hidden/);
   assert.match(html, /data-page="emailCampaignsPage"[^>]*hidden/);
   assert.match(html, /data-page="weddingsPage"[^>]*hidden/);
+  assert.match(html, /data-route="\/florist-network"/);
   assert.match(html, /id="holidayPage"/);
   assert.match(html, /id="emailCampaignsPage"/);
   assert.match(html, /id="weddingsPage"/);
@@ -154,15 +155,17 @@ test("nav and pages stay hidden until flags enable", () => {
   assert.match(html, /weddings-ui\.js/);
 
   const app = fs.readFileSync(path.join(root, "public/app.js"), "utf8");
-  assert.match(app, /HOLIDAY_COMMAND_CENTER/);
+  assert.match(app, /refreshGrowthFeatureFlags|HOLIDAY_COMMAND_CENTER/);
   assert.match(app, /EMAIL_CAMPAIGNS/);
   assert.match(app, /WEDDING_WORKFLOWS/);
+  assert.match(app, /FLORIST_NETWORK/);
   assert.match(app, /setHolidayNavVisible/);
   assert.match(app, /setEmailCampaignsNavVisible/);
   assert.match(app, /setWeddingsNavVisible/);
   assert.match(app, /loadHolidayPage/);
   assert.match(app, /loadEmailCampaignsPage/);
   assert.match(app, /loadWeddingsPage/);
+  assert.match(app, /loadFloristNetworkPage/);
 
   assert.match(
     fs.readFileSync(path.join(root, "public/holiday-command-ui.js"), "utf8"),

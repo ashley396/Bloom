@@ -31,6 +31,10 @@
     "/invoices": { page: "invoicesPage" },
     "/subscription": { page: "subscriptionPage" },
     "/community": { page: "communityPage" },
+    "/florist-network": { page: "floristNetworkPage" },
+    "/marketing": { page: "emailCampaignsPage" },
+    "/weddings": { page: "weddingsPage" },
+    "/holiday-command": { page: "holidayPage" },
     "/wholesale/seller": { page: "wholesaleSellerPage" }
   };
 
@@ -61,6 +65,10 @@
     invoicesPage: "/invoices",
     subscriptionPage: "/subscription",
     communityPage: "/community",
+    floristNetworkPage: "/florist-network",
+    emailCampaignsPage: "/marketing",
+    weddingsPage: "/weddings",
+    holidayPage: "/holiday-command",
     wholesaleSellerPage: "/wholesale/seller"
   };
 

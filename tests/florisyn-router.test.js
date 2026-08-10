@@ -26,6 +26,11 @@ const SIDEBAR_ORDER = [
   ["/photo-studio", "bloomshotPage"],
   ["/website-studio", "websitePage"],
   ["/floral-library", "libraryPage"],
+  ["/community", "communityPage"],
+  ["/florist-network", "floristNetworkPage"],
+  ["/marketing", "emailCampaignsPage"],
+  ["/weddings", "weddingsPage"],
+  ["/holiday-command", "holidayPage"],
   ["/staff", "staffPage"],
   ["/wholesale", "marketplacePage"],
   ["/stores", "storesPage"],
@@ -67,11 +72,12 @@ test("sidebar lists every required route in exact order", () => {
   for (const [route, page] of SIDEBAR_ORDER) {
     assert.match(nav, new RegExp(`data-route="${route}"\\s+data-page="${page}"`));
   }
+  assert.match(nav, /florisyn-lux-nav-label">GROWTH</);
   assert.match(nav, /florisyn-lux-nav-label">BUSINESS</);
   assert.match(nav, /florisyn-lux-nav-label">SELLER DASHBOARD</);
   assert.match(nav, /florisyn-lux-nav-label">SUBSCRIPTION</);
   assert.match(nav, /POS Settings/);
-  assert.equal(routes.length, 21);
+  assert.equal(routes.length, 26);
   assert.match(html, /florisyn-premium-badge/);
   assert.match(html, /PREMIUM PLAN/);
   const premiumStart = html.indexOf("florisyn-premium-badge");
