@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { parseFloristExport } from "../lib/migration/florist-import.js";
 import { generateReferralCode, normalizeReferralCode } from "../lib/growth/referral-program.js";
 import { scoreReadiness, MOTHERS_DAY_CHECKLIST } from "../lib/ops/mothers-day-ready.js";
-import { validateWirePayload, canTransitionWire, generateWireNumber } from "../lib/florist-network/wire-orders.js";
+import { validateWirePayload, canTransitionWire, generateWireNumber, computeWireSettlement, FLORISYN_WIRE_PLATFORM_FEE_PERCENT } from "../lib/florist-network/wire-orders.js";
 
 test("csv import parses product rows", () => {
   const p = parseFloristExport("name,price,category\nRose Bowl,59,Everyday\n", { entity: "products" });
@@ -36,4 +36,12 @@ test("wire orders validate and transition", () => {
   assert.ok(generateWireNumber().startsWith("FN-"));
   assert.equal(canTransitionWire("sent", "accepted"), true);
   assert.equal(canTransitionWire("sent", "delivered"), false);
+});
+
+test("Florisyn takes zero platform fee on Florist Network wires", () => {
+  assert.equal(FLORISYN_WIRE_PLATFORM_FEE_PERCENT, 0);
+  const settlement = computeWireSettlement(100);
+  assert.equal(settlement.florisyn_platform_fee, 0);
+  assert.equal(settlement.fulfilling_shop_payout, 100);
+  assert.equal(settlement.partner_relay_fee, 0);
 });

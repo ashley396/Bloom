@@ -5,7 +5,10 @@ import {
   validateWirePayload,
   generateWireNumber,
   canTransitionWire,
-  WIRE_STATUS_LABELS
+  WIRE_STATUS_LABELS,
+  computeWireSettlement,
+  FLORISYN_WIRE_PLATFORM_FEE_PERCENT,
+  WIRE_ZERO_PLATFORM_POLICY,
 } from "../../lib/florist-network/wire-orders.js";
 
 function featureGate() {
@@ -56,7 +59,7 @@ export async function handler(event) {
         .eq("shop_id", shopId)
         .maybeSingle();
       if (error) throw error;
-      return json(200, { profile: data });
+      return json(200, { profile: data, wire_policy: WIRE_ZERO_PLATFORM_POLICY });
     }
 
     if (event.httpMethod === "GET") {
@@ -74,7 +77,9 @@ export async function handler(event) {
           ...row,
           status_label: WIRE_STATUS_LABELS[row.status] || row.status
         })),
-        view
+        view,
+        wire_policy: WIRE_ZERO_PLATFORM_POLICY,
+        florisyn_platform_fee_percent: FLORISYN_WIRE_PLATFORM_FEE_PERCENT,
       });
     }
 
@@ -95,8 +100,8 @@ export async function handler(event) {
         accepts_incoming_wires: body.accepts_incoming_wires !== false,
         sends_outgoing_wires: body.sends_outgoing_wires !== false,
         service_zips: Array.isArray(body.service_zips) ? body.service_zips : [],
-        wire_fee_percent: Number(body.wire_fee_percent || 20),
-        wire_fee_flat: Number(body.wire_fee_flat || 0),
+        wire_fee_percent: Math.max(0, Number(body.wire_fee_percent || 0)),
+        wire_fee_flat: Math.max(0, Number(body.wire_fee_flat || 0)),
         bio: body.bio || null,
         is_active: body.is_active !== false,
         updated_at: new Date().toISOString()
@@ -107,7 +112,7 @@ export async function handler(event) {
         .select()
         .single();
       if (error) throw error;
-      return json(200, { profile: data });
+      return json(200, { profile: data, wire_policy: WIRE_ZERO_PLATFORM_POLICY });
     }
 
     if (event.httpMethod === "POST" && action === "send-wire") {
@@ -115,6 +120,7 @@ export async function handler(event) {
       if (!v.ok) return json(400, { error: v.error });
       const fulfilling_shop_id = body.fulfilling_shop_id;
       if (!fulfilling_shop_id) return json(400, { error: "Select a fulfilling florist." });
+      const settlement = computeWireSettlement(v.payload.wire_amount);
       const record = {
         wire_number: generateWireNumber(),
         sending_shop_id: shopId,
@@ -122,13 +128,19 @@ export async function handler(event) {
         source_order_id: body.source_order_id || null,
         status: body.send ? "sent" : "draft",
         ...v.payload,
+        metadata: {
+          florisyn_platform_fee: settlement.florisyn_platform_fee,
+          fulfilling_shop_payout: settlement.fulfilling_shop_payout,
+          partner_relay_fee: settlement.partner_relay_fee,
+          wire_policy: WIRE_ZERO_PLATFORM_POLICY,
+        },
         sent_at: body.send ? new Date().toISOString() : null,
         created_by: user?.id || null,
         updated_at: new Date().toISOString()
       };
       const { data, error } = await client.from("florist_wire_orders").insert(record).select().single();
       if (error) throw error;
-      return json(201, { item: data });
+      return json(201, { item: data, settlement });
     }
 
     if (event.httpMethod === "POST" && action === "transition") {

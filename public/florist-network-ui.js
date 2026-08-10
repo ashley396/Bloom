@@ -27,7 +27,7 @@
     return `<article class="panel wire-card">
       <div class="panel-heading"><div><p class="eyebrow">${esc(row.wire_number)}</p><h3>${esc(row.recipient_name)}</h3>
       <p class="subtle">${esc(row.delivery_date)} · ${esc(row.status_label || row.status)}</p></div>
-      <strong>$${Number(row.wire_amount || 0).toFixed(2)}</strong></div>
+      <strong>$${Number(row.wire_amount || 0).toFixed(2)}</strong>${row.metadata?.florisyn_platform_fee === 0 || row.metadata?.florisyn_platform_fee == null ? `<small class="subtle"> · 100% to partner</small>` : ""}</div>
       <p>${esc(row.product_description)}</p>
       <p class="subtle">${esc(row.delivery_address)}</p>
       ${row.card_message ? `<p class="subtle"><em>${esc(row.card_message)}</em></p>` : ""}
@@ -52,7 +52,8 @@
         <article class="panel">
           <p class="eyebrow">FLORISYN FLORIST NETWORK</p>
           <h2>Florist-to-florist wires</h2>
-          <p class="subtle">Send overflow orders to trusted partner shops — modern wire-out without legacy wire fees.</p>
+          <p class="subtle">Send overflow orders to trusted partner shops. <strong>Florisyn charges $0 on wires</strong> — your partner florist receives 100% of the wire amount you send.</p>
+          <p class="subtle fn-zero-fee-banner">No Florisyn cut · No legacy wire-network fees · You and your partner keep the sale</p>
           <form id="wireForm" class="form-grid two">
             <label class="wide">Fulfilling florist<select name="fulfilling_shop_id" required>${partnerOptions || '<option value="">Join the network to see partners</option>'}</select></label>
             <label>Recipient<input name="recipient_name" required></label>
