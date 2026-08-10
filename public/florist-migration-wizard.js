@@ -16,9 +16,9 @@
     root.innerHTML = `<section class="panel migration-wizard">
       <p class="eyebrow">SWITCH TO FLORISYN</p>
       <h2>Migration wizard</h2>
-      <p class="subtle">Import products or customers from CSV, Floranext, or Hana exports.</p>
+      <p class="subtle">Import products, customers, inventory, or orders from CSV, Floranext, or Hana exports.</p>
       <div class="two">
-        <label>Import type<select id="migrationEntity"><option value="products">Products</option><option value="customers">Customers</option></select></label>
+        <label>Import type<select id="migrationEntity"><option value="products">Products</option><option value="customers">Customers</option><option value="inventory">Inventory</option><option value="orders">Orders</option></select></label>
         <label>Source<select id="migrationSource"><option value="csv">CSV / spreadsheet</option><option value="floranext">Floranext export</option><option value="hana">Hana POS export</option></select></label>
       </div>
       <label>Paste CSV or export file contents<textarea id="migrationText" rows="8" placeholder="Paste column headers in row 1…"></textarea></label>

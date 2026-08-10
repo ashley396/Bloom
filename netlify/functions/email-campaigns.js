@@ -2,6 +2,7 @@ import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail } from "./_shared/supabase.js";
 import { isFeatureEnabled } from "./_shared/feature-flags.js";
 import { validateEmailCampaignBody } from "./_shared/holiday-weddings-email.js";
+import { dispatchEmail, emailProviderConfigured } from "./_shared/notification-email.js";
 
 function featureGate() {
   if (!isFeatureEnabled("EMAIL_CAMPAIGNS")) {
@@ -33,7 +34,21 @@ function friendlyMissing() {
 }
 
 function sendEnabled(env = process.env) {
+  if (emailProviderConfigured(env).configured) return true;
   return /^(1|true|yes|on)$/i.test(String(env.FLORISYN_EMAIL_CAMPAIGNS_SEND || ""));
+}
+
+async function campaignRecipients(client, shopId) {
+  const { data, error } = await client
+    .from("customers")
+    .select("email,contact_preferences")
+    .eq("shop_id", shopId)
+    .not("email", "is", null);
+  if (error) throw error;
+  return (data || []).filter((row) => {
+    const prefs = row.contact_preferences && typeof row.contact_preferences === "object" ? row.contact_preferences : {};
+    return prefs.marketing_opt_in !== false && String(row.email || "").includes("@");
+  });
 }
 
 export async function handler(event) {
@@ -149,11 +164,50 @@ export async function handler(event) {
       if (!body.id) return json(400, { error: "Missing campaign id." });
       if (!sendEnabled()) {
         return json(503, {
-          error: "Email send pipeline is not enabled. Draft and schedule only until domain send is configured.",
+          error: "Email send is not configured. Add RESEND_API_KEY in Netlify or set FLORISYN_EMAIL_CAMPAIGNS_SEND=true for local stub mode.",
           code: "email_send_disabled",
         });
       }
-      // Fail-closed stub: mark sent locally only when explicitly enabled. No external provider yet.
+      const { data: campaign, error: loadError } = await client
+        .from("email_campaigns")
+        .select("*")
+        .eq("id", body.id)
+        .eq("shop_id", shopId)
+        .in("status", ["draft", "scheduled"])
+        .single();
+      if (loadError) {
+        if (missingRelation(loadError)) friendlyMissing();
+        throw loadError;
+      }
+
+      const provider = emailProviderConfigured(process.env);
+      let delivery = "local_stub";
+      let sentCount = 0;
+      let failedCount = 0;
+
+      if (provider.configured) {
+        const recipients = await campaignRecipients(client, shopId);
+        const testTo = String(body.test_to || "").trim();
+        const targets = testTo ? [{ email: testTo }] : recipients;
+        if (!targets.length) {
+          return json(400, { error: "No marketing recipients found. Add customer emails or pass test_to." });
+        }
+        for (const row of targets.slice(0, 500)) {
+          const result = await dispatchEmail(process.env, {
+            to: row.email,
+            subject: campaign.subject,
+            html: campaign.body_html,
+            text: campaign.preview_text || campaign.subject,
+          });
+          if (result.ok) sentCount += 1;
+          else failedCount += 1;
+        }
+        delivery = provider.provider;
+        if (!sentCount) {
+          return json(502, { error: "Email provider rejected all sends.", code: "email_send_failed", failedCount });
+        }
+      }
+
       const { data, error } = await client
         .from("email_campaigns")
         .update({
@@ -170,7 +224,7 @@ export async function handler(event) {
         if (missingRelation(error)) friendlyMissing();
         throw error;
       }
-      return json(200, { item: data, delivery: "local_stub" });
+      return json(200, { item: data, delivery, sentCount, failedCount });
     }
 
     if (method === "DELETE" || (method === "POST" && action === "delete")) {

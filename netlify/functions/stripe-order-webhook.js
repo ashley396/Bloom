@@ -35,7 +35,23 @@ export async function handler(event) {
     if (stripeEvent.type === "checkout.session.completed" || stripeEvent.type === "checkout.session.async_payment_succeeded") {
       const session = stripeEvent.data.object;
       const meta = session.metadata || {};
-      if (meta.bloom_payment_link_id) {
+      if (meta.marketplace === "wholesale") {
+        try {
+          await client
+            .from("marketplace_wholesale_orders")
+            .update({
+              status: "paid",
+              paid_at: new Date().toISOString(),
+              metadata: {
+                stripe_checkout_session_id: session.id,
+                stripe_payment_intent: session.payment_intent || null
+              }
+            })
+            .eq("metadata->>stripe_checkout_session_id", session.id);
+        } catch (marketErr) {
+          console.warn(JSON.stringify({ level: "warn", message: "marketplace_wholesale_order_update_skipped", reason: String(marketErr?.message || marketErr) }));
+        }
+      } else if (meta.bloom_payment_link_id) {
         await postStripePaymentLink(client, session, stripeEvent.id);
       } else if (meta.bloom_order_id && meta.bloom_shop_id) {
         await postStripePayment(client, session);

@@ -7,15 +7,16 @@ const DEFAULT_FLAGS = {
   /** Voice wake words / always-on mic — not production-ready */
   VOICE_WAKE: false,
   VOICE_TTS_CLOUD: false,
-  /** Deferred until after the florist-core launch. Explicit opt-in only. */
-  MARKETPLACE_PUBLIC: false,
-  WHOLESALE_SELLER: false,
+  /** Wholesale marketplace browse + checkout — default on for Florisyn growth rollout. */
+  MARKETPLACE_PUBLIC: true,
+  WHOLESALE_SELLER: true,
   BUSINESS_ECOSYSTEM: false,
   INSTANT_WEBSITE: true,
   /** Full Website Studio v2 (Lily quick start, visual editor, checkout) — not production until phased rollout */
   WEBSITE_STUDIO_V2: false,
   INVENTORY_AI_INTAKE: false,
-  INVENTORY_RECIPE_DEDUCTIONS: false,
+  /** Deduct recipe ingredients when orders reach production-ready status (not at entry). */
+  INVENTORY_RECIPE_DEDUCTIONS: true,
   DELIVERY_MAPS: true,
   LILY_SERVER_PERSISTENCE: true,
   REACT_ORDERS_PREVIEW: false,
@@ -29,18 +30,15 @@ const DEFAULT_FLAGS = {
    * Holiday Command Center — SAFE DEFAULT OFF.
    * Enable only with explicit FLORISYN_FLAG_HOLIDAY_COMMAND_CENTER=true.
    */
-  HOLIDAY_COMMAND_CENTER: false,
+  HOLIDAY_COMMAND_CENTER: true,
   /**
-   * Email Campaigns — SAFE DEFAULT OFF.
-   * Draft/schedule only until send pipeline is configured.
-   * Enable only with explicit FLORISYN_FLAG_EMAIL_CAMPAIGNS=true.
+   * Email Campaigns — draft, schedule, and send when Resend is configured.
    */
-  EMAIL_CAMPAIGNS: false,
+  EMAIL_CAMPAIGNS: true,
   /**
-   * Wedding Workflows — SAFE DEFAULT OFF.
-   * Enable only with explicit FLORISYN_FLAG_WEDDING_WORKFLOWS=true.
+   * Wedding Workflows — proposals, checklists, and event timelines.
    */
-  WEDDING_WORKFLOWS: false,
+  WEDDING_WORKFLOWS: true,
   /**
    * Florist Network — florist-to-florist wire orders + partner directory.
    * Enable with FLORISYN_FLAG_FLORIST_NETWORK=true (default on for growth rollout).

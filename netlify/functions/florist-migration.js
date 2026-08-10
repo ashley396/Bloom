@@ -19,6 +19,29 @@ async function insertBatch(client, table, shopId, rows) {
   return { inserted, errors };
 }
 
+async function insertOrdersBatch(client, shopId, rows) {
+  let inserted = 0;
+  const errors = [];
+  for (const row of rows) {
+    const { error } = await client.rpc("create_order_atomic", {
+      p_shop_id: shopId,
+      p_order: {
+        customer_name: row.customer_name,
+        delivery_date: row.delivery_date,
+        subtotal: row.total || 0,
+        notes: row.notes || null,
+        occasion: row.occasion || null,
+        fulfillment: "PICKUP",
+        skip_recipe_deduction: true,
+        metadata: { imported: true, import_status: row.status || "PENDING" }
+      }
+    });
+    if (error) errors.push(error.message);
+    else inserted += 1;
+  }
+  return { inserted, errors };
+}
+
 export async function handler(event) {
   const ready = preflight(event);
   if (ready) return ready;
@@ -28,21 +51,32 @@ export async function handler(event) {
     const action = body.action || event.queryStringParameters?.action || "preview";
 
     if (action === "preview") {
+      const entity = ["customers", "inventory", "orders"].includes(body.entity) ? body.entity : "products";
       const preview = parseFloristExport(body.text || body.csv || "", {
-        entity: body.entity === "customers" ? "customers" : "products",
+        entity,
         source: body.source
       });
       return json(200, { preview: summarizeImportPreview(preview), rows: preview.rows, errors: preview.errors });
     }
 
     if (action === "apply") {
+      const entity = ["customers", "inventory", "orders"].includes(body.entity) ? body.entity : "products";
       const preview = parseFloristExport(body.text || body.csv || "", {
-        entity: body.entity === "customers" ? "customers" : "products",
+        entity,
         source: body.source
       });
-      const table = preview.entity === "customers" ? "customers" : "products";
+      const tableMap = {
+        customers: "customers",
+        products: "products",
+        inventory: "inventory",
+        orders: "orders"
+      };
+      const table = tableMap[preview.entity] || "products";
       const rows = preview.rows.slice(0, Math.min(Number(body.limit) || 500, 500));
-      const result = await insertBatch(client, table, shopId, rows);
+      const result =
+        preview.entity === "orders"
+          ? await insertOrdersBatch(client, shopId, rows)
+          : await insertBatch(client, table, shopId, rows);
       return json(200, {
         ok: true,
         entity: preview.entity,
