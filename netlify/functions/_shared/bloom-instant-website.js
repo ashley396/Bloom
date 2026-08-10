@@ -1,5 +1,7 @@
 /** Bloom Instant Websites — themes, pages, SEO, domains (RC1 pure). */
 
+import { buildPublishedSeoBundle } from "../../../lib/seo/published-site-seo.js";
+
 export const LAUNCH_MODES = [
   { id: "classic_florist", label: "Classic Florist", fontPair: "elegant_serif_sans", palette: ["#faf7f2", "#c9899e", "#3d5c4a"] },
   { id: "luxury_boutique", label: "Luxury Boutique", fontPair: "modern_luxury_serif", palette: ["#fff9f5", "#8f3f68", "#2f2a2c"] },
@@ -197,27 +199,17 @@ export function domainPlaceholder(shop = {}) {
 }
 
 export function buildSeoBundle(shop, homePage) {
-  const name = shop.name || "Florist";
-  return {
-    title: shop.seo_title || `${name} — Local Florist & Delivery`,
-    meta_description: shop.seo_description || `Order flowers from ${name}. Delivery and pickup available.`,
-    canonical_url: shop.custom_domain ? `https://${shop.custom_domain}` : null,
-    og_image: shop.hero_image_url || shop.logo_url,
-    local_business_json_ld: {
-      "@type": "Florist",
-      name,
-      telephone: shop.phone,
-      address: shop.address
-    },
-    sitemap: DEFAULT_SITE_PAGES.map((p) => p.slug),
-    robots: "index,follow"
-  };
+  const pages = homePage
+    ? [{ slug: "home", title: homePage.title || "Home", visible: true, content: homePage.content || {} }]
+    : DEFAULT_SITE_PAGES.map((p) => ({ slug: p.slug, title: p.title, visible: p.nav !== false, content: {} }));
+  return buildPublishedSeoBundle(shop, pages);
 }
 
 export function computeWebsiteHealthScore(site = {}, products = []) {
   let score = 100;
   const tips = [];
-  if (!site.seo?.meta_description) {
+  const seo = site.seo || site.seo_settings || {};
+  if (!seo.meta_description) {
     score -= 8;
     tips.push("Add a homepage meta description.");
   }

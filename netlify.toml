@@ -145,6 +145,16 @@
   force = true
 
 [[redirects]]
+  from = "/store/:shop/sitemap.xml"
+  to = "/.netlify/functions/storefront-public?action=sitemap&shop=:shop"
+  status = 200
+
+[[redirects]]
+  from = "/store/:shop/robots.txt"
+  to = "/.netlify/functions/storefront-public?action=robots&shop=:shop"
+  status = 200
+
+[[redirects]]
   from = "/store/*"
   to = "/storefront/index.html"
   status = 200

@@ -38,7 +38,9 @@
     "db:baseline:check": "node scripts/build-canonical-baseline.mjs --check",
     "frontend:dev": "npm --prefix frontend run dev",
     "frontend:build": "npm --prefix frontend run build",
-    "verify:live-staging-smoke": "node scripts/verify-live-staging-smoke.mjs"
+    "verify:live-staging-smoke": "node scripts/verify-live-staging-smoke.mjs",
+    "seo:generate": "node scripts/generate-seo-files.mjs",
+    "seo:inject": "node scripts/inject-public-seo.mjs"
   },
   "devDependencies": {
     "jest": "^29.7.0",

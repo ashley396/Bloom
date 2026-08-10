@@ -48,11 +48,19 @@ function showAdminMfaUi({mode,qrCode='',secret=''}={}){
 async function getAdminMfaClient(){
   if(adminMfaClient)return adminMfaClient;
   const cfg=await call('admin-mfa-config',{},false);
+  if(cfg?.mfaSkipAllowed){
+    throw new Error('Admin MFA client is not required when staging skip is enabled.');
+  }
   adminMfaClient=await createAdminMfaClient(cfg.supabaseUrl,cfg.anonKey);
   return adminMfaClient;
 }
 /** Admin-only MFA gate. Never called from florist/POS login. */
 async function ensureAdminMfaBeforeDashboard(){
+  const cfg=await call('admin-mfa-config',{},false);
+  if(cfg?.mfaSkipAllowed){
+    saveSession({accessToken:session.accessToken,refreshToken:session.refreshToken,user:session.user,mfaVerified:false});
+    return;
+  }
   const supabase=await getAdminMfaClient();
   await bindAdminSession(supabase,session);
   const state=await readAdminMfaState(supabase);

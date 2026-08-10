@@ -5,6 +5,8 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
 
+  let editorSelectPage = null;
+
   async function api(action, extra = {}) {
     return window.api("instant-website", { method: "POST", body: JSON.stringify({ action, ...extra }) });
   }
@@ -59,8 +61,11 @@
     const history = createHistory();
     let project = null;
     let homePage = null;
+    let allPages = [];
+    let activeSlug = "home";
     let sections = [];
     let busy = false;
+    let autosaveTimer = null;
 
     function setBusy(next) {
       busy = !!next;
@@ -70,21 +75,60 @@
       });
     }
 
+    function currentPage() {
+      return allPages.find((p) => p.slug === activeSlug) || homePage;
+    }
+
     function pagePayload() {
+      const page = currentPage();
       return {
-        page: { ...homePage, sections },
-        expected_updated_at: homePage?.updated_at || null
+        page: { ...page, sections },
+        expected_updated_at: page?.updated_at || null
       };
     }
 
     function rememberSavedPage(savedPage) {
       if (!savedPage) return;
-      homePage = {
-        ...homePage,
+      const idx = allPages.findIndex((p) => p.slug === (savedPage.slug || activeSlug));
+      const merged = {
+        ...(idx >= 0 ? allPages[idx] : homePage),
         id: savedPage.id,
-        slug: savedPage.slug || homePage?.slug || "home",
-        updated_at: savedPage.updated_at || homePage?.updated_at || null
+        slug: savedPage.slug || activeSlug,
+        updated_at: savedPage.updated_at || null
       };
+      if (idx >= 0) allPages[idx] = merged;
+      if (merged.slug === "home") homePage = merged;
+      if (merged.slug === activeSlug) homePage = merged.slug === "home" ? merged : homePage;
+    }
+
+    function selectPage(slug) {
+      if (slug === activeSlug) return;
+      syncTextEdits();
+      activeSlug = slug;
+      const page = currentPage();
+      sections = [...(page?.sections || [])].sort((a, b) => a.order - b.order);
+      history.reset({ sections });
+      renderCanvas();
+      const status = root.querySelector("#editorStatus");
+      status.textContent = `Editing ${page?.title || slug}.`;
+    }
+
+    function scheduleAutosave() {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(async () => {
+        if (busy) return;
+        const status = root.querySelector("#editorStatus");
+        try {
+          syncTextEdits();
+          const result = await api("save_page", pagePayload());
+          if (result?.saved && result?.page?.id) {
+            rememberSavedPage(result.page);
+            status.textContent = "Draft autosaved.";
+          }
+        } catch {
+          /* keep editing — user can save manually */
+        }
+      }, 2500);
     }
 
     async function loadProject() {
@@ -94,7 +138,9 @@
       try {
         const d = await api("get_project");
         project = d.project;
-        homePage = (d.pages || []).find((p) => p.slug === "home") || { slug: "home", title: "Home", sections: [] };
+        allPages = d.pages || [];
+        homePage = allPages.find((p) => p.slug === "home") || { slug: "home", title: "Home", sections: [] };
+        activeSlug = "home";
         sections = [...(homePage.sections || [])].sort((a, b) => a.order - b.order);
         history.reset({ sections });
         renderCanvas();
@@ -335,6 +381,7 @@
         sections[idx].props = sections[idx].props || {};
         sections[idx].props[path] = el.textContent.trim();
       });
+      scheduleAutosave();
     }
 
     function pushHistory() {
@@ -372,6 +419,8 @@
       root.querySelector("#editorStatus").textContent = e.message;
       setBusy(false);
     });
+
+    editorSelectPage = selectPage;
   }
 
   function load() {
@@ -379,5 +428,9 @@
     if (page) mountEditor(page);
   }
 
-  window.BloomWebsiteEditor = { load, mountEditor };
+  window.BloomWebsiteEditor = {
+    load,
+    mountEditor,
+    selectPage: (slug) => editorSelectPage?.(slug)
+  };
 })();

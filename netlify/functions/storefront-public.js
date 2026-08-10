@@ -10,8 +10,9 @@ import {
   mergeCatalogProducts,
   verifyPreviewToken,
   signPreviewToken,
-  buildSitemapEntries,
-  robotsTxt
+  buildPublishedSitemapXml,
+  publishedRobotsTxt,
+  resolvePublishedSiteBaseUrl
 } from "./_shared/bloom-storefront-core.js";
 import {
   mergeCommerceSettings,
@@ -286,7 +287,13 @@ export async function handler(event) {
       const shop = slug ? await shopBySlug(client, slug) : null;
       const bundle = shop ? await loadWebsiteBundle(client, shop.id) : null;
       const allow = bundle?.project?.status === "published";
-      return { statusCode: 200, headers: { "Content-Type": "text/plain" }, body: robotsTxt({ allowIndex: allow }) };
+      const baseUrl = shop ? resolvePublishedSiteBaseUrl(shop) : null;
+      const sitemapUrl = baseUrl ? `${baseUrl.replace(/\/$/, "")}/sitemap.xml` : null;
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+        body: publishedRobotsTxt({ allowIndex: allow, sitemapUrl: allow ? sitemapUrl : null })
+      };
     }
 
     if (action === "sitemap" && event.httpMethod === "GET") {
@@ -296,10 +303,16 @@ export async function handler(event) {
       const shop = await shopBySlug(client, slug);
       if (!shop) return json(404, { error: "Shop not found." });
       const bundle = await loadWebsiteBundle(client, shop.id);
-      const base = `https://${shop.slug || slug}.bloom-sites.com`;
-      const pages = bundle?.pages?.length ? bundle.pages : buildSiteFromShopProfile(shop).pages;
       if (bundle?.project?.status !== "published") return json(403, { error: "Sitemap available when published." });
-      return json(200, { entries: buildSitemapEntries(base, pages) });
+      const baseUrl = resolvePublishedSiteBaseUrl(shop);
+      const pages = bundle?.pages?.length ? bundle.pages : buildSiteFromShopProfile(shop).pages;
+      const products = filterPublicProducts(await loadPublicProducts(client, shop.id));
+      const xml = buildPublishedSitemapXml(baseUrl, pages, products);
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "application/xml; charset=utf-8" },
+        body: xml
+      };
     }
 
     if (event.httpMethod === "GET") {
@@ -347,6 +360,7 @@ export async function handler(event) {
         },
         domain: {
           host: shop.slug ? `${shop.slug}.bloom-sites.com` : null,
+          base_url: resolved.base_url,
           purchased: false,
           connected: !!shop.custom_domain,
           status: shop.custom_domain ? "pending_verification" : "bloom_subdomain"
