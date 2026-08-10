@@ -98,13 +98,15 @@ export function mountSignupPlans(root = document) {
         interval === "annual"
           ? `Billed ${formatMoney(quote.billed)}/yr · save ${formatMoney(quote.savings)}`
           : `Billed ${formatMoney(quote.billed)}/mo after trial`;
-      return `<label class="bloom-auth-plan">
-        ${tier.popular ? '<span class="popular">Popular</span>' : ""}
+      return `<label class="signup-plan-card bloom-auth-plan">
+        ${tier.popular ? '<span class="popular">Most popular</span>' : ""}
         <input type="radio" name="plan" value="${tier.signupCode}" data-monthly="${tier.monthly}" data-price="${quote.billed}" data-interval="${interval}" ${checked ? "checked" : ""}>
-        <h3>${tier.name}</h3>
-        <strong class="plan-price">${formatMoney(quote.display)}<small>/mo</small></strong>
-        <p class="plan-note">${note}</p>
-        <p>${tier.summary}</p>
+        <span class="signup-plan-card-body">
+          <span class="signup-plan-name">${tier.name}</span>
+          <span class="signup-plan-price">${formatMoney(quote.display)}<small>/mo</small></span>
+          <span class="signup-plan-note">${note}</span>
+          <span class="signup-plan-summary">${tier.summary}</span>
+        </span>
       </label>`;
     }).join("");
     if (toggle) updateToggle(toggle, interval);

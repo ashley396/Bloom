@@ -987,7 +987,12 @@ body.florisyn-signup-hero .auth-hero-shell {
 }
 
 body.florisyn-signup-hero .auth-hero-copy {
-  max-width: none;
+  max-width: min(680px, 100%);
+}
+
+body.florisyn-signup-hero .auth-hero-form {
+  width: 100%;
+  max-width: 680px;
 }
 
 body.florisyn-signup-hero .auth-hero-copy h1 {
@@ -997,26 +1002,6 @@ body.florisyn-signup-hero .auth-hero-copy h1 {
 body.florisyn-signup-hero .auth-hero-visual {
   position: sticky;
   top: 24px;
-}
-
-body.florisyn-signup-hero .bloom-auth-plans {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-body.florisyn-signup-hero .bloom-auth-plan {
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid var(--atelier-line);
-  border-radius: 18px;
-  padding: 14px 12px;
-  box-shadow: 0 10px 24px rgba(26, 43, 72, 0.05);
-}
-
-body.florisyn-signup-hero .bloom-auth-plan:has(input:checked) {
-  border-color: var(--hero-navy);
-  box-shadow: 0 0 0 3px rgba(18, 28, 46, 0.12);
 }
 
 body.florisyn-signup-hero .auth-signup-card {
@@ -1110,7 +1095,7 @@ body.florisyn-signup-hero .auth-terms input {
     top: 0;
   }
 
-  body.florisyn-signup-hero .bloom-auth-plans,
+  body.florisyn-signup-hero .signup-plan-grid,
   body.florisyn-signup-hero .auth-signup-grid,
   body.florisyn-signup-hero .auth-signup-city-row {
     grid-template-columns: 1fr;

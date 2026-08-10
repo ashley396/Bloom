@@ -182,13 +182,159 @@
 }
 
 .pricing-signup-toggle {
-  margin: 0 0 14px;
+  margin: 0;
+}
+
+/* Signup page — plan picker (separate from marketing pricing grid) */
+body.florisyn-signup-hero .signup-pricing {
+  display: grid;
+  gap: 16px;
+  margin: 0 0 18px;
+  width: 100%;
+}
+
+body.florisyn-signup-hero .signup-pricing-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+
+body.florisyn-signup-hero .signup-pricing-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hero-magenta, #8a3a57);
+}
+
+body.florisyn-signup-hero .signup-pricing .pricing-toggle-wrap {
+  margin: 0;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px 14px;
+}
+
+body.florisyn-signup-hero .signup-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+body.florisyn-signup-hero .signup-plan-card {
+  position: relative;
+  display: block;
+  min-width: 0;
+  margin: 0;
+  padding: 16px 14px;
+  border: 1px solid rgba(26, 43, 72, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 24px rgba(26, 43, 72, 0.05);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+body.florisyn-signup-hero .signup-plan-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(26, 43, 72, 0.08);
+}
+
+body.florisyn-signup-hero .signup-plan-card:has(input:checked) {
+  border-color: #1a2b48;
+  box-shadow: 0 0 0 3px rgba(26, 43, 72, 0.12);
+}
+
+body.florisyn-signup-hero .signup-plan-card input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.florisyn-signup-hero .signup-plan-card-body {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+body.florisyn-signup-hero .signup-plan-name {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #1a2b48;
+  line-height: 1.2;
+}
+
+body.florisyn-signup-hero .signup-plan-price {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #1a2b48;
+  line-height: 1;
+}
+
+body.florisyn-signup-hero .signup-plan-price small {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #6d7385;
+  margin-left: 2px;
+}
+
+body.florisyn-signup-hero .signup-plan-note {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6d7385;
+  line-height: 1.35;
+}
+
+body.florisyn-signup-hero .signup-plan-summary {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #5f585c;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+body.florisyn-signup-hero .signup-plan-card .popular {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: #1a2b48;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 800;
 }
 
 body.florisyn-signup-hero .plan-note {
   margin: 0;
   font-size: 11px;
   color: #6d7385;
+}
+
+@media (max-width: 1080px) {
+  body.florisyn-signup-hero .signup-plan-grid {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+  }
+
+  body.florisyn-signup-hero .signup-pricing-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  body.florisyn-signup-hero .signup-pricing .pricing-toggle-wrap {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 980px) {
