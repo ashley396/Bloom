@@ -7,8 +7,12 @@
     touch-action: none;
   }
 
-  body.florisyn-atelier .mobile-nav.atelier-mobile-nav {
+  body.florisyn-atelier .mobile-nav.atelier-mobile-nav:has(#mobileNavMore) {
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+
+  body.florisyn-atelier .mobile-nav.atelier-mobile-nav:not(:has(#mobileNavMore)) {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 
   body.florisyn-atelier .mobile-nav.atelier-mobile-nav > button {

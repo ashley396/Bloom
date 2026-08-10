@@ -740,13 +740,17 @@ body.florisyn-atelier .shell > aside button.active {
     display: block !important;
   }
 
-  body.florisyn-atelier .shell > aside#atelierSidebarDrawer {
-    position: fixed;
+  body.florisyn-atelier .shell > aside#atelierSidebarDrawer,
+  body.florisyn-atelier .shell > aside#atelierSidebarDrawer.florisyn-lux-sidebar {
+    position: fixed !important;
+    top: 0 !important;
     z-index: 40;
     inset: 0 auto 0 0;
     transform: translateX(-105%);
     transition: transform 180ms ease;
     width: min(280px, 86vw) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
   }
 
   body.florisyn-atelier.atelier-drawer-open .shell > aside#atelierSidebarDrawer {
