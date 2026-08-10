@@ -24,7 +24,7 @@ test("collectAdminTotpFactors includes unverified factors from listFactors().all
   assert.equal(factors[0].id, "pending-1");
 });
 
-test("enrollAdminTotp reuses unverified Florisyn Admin factor without calling enroll", async () => {
+test("enrollAdminTotp refreshes QR when Florisyn Admin factor is still unverified", async () => {
   const calls = [];
   const supabase = {
     auth: {
@@ -45,17 +45,28 @@ test("enrollAdminTotp reuses unverified Florisyn Admin factor without calling en
             error: null
           };
         },
+        async unenroll({ factorId }) {
+          calls.push(["unenroll", factorId]);
+          return { data: null, error: null };
+        },
         async enroll() {
           calls.push("enroll");
-          throw new Error('A factor with the friendly name "Florisyn Admin" for this user already exists');
+          return {
+            data: {
+              id: "factor-new",
+              totp: { qr_code: "data:image/svg+xml,qr", secret: "SECRET123", uri: "otpauth://totp" }
+            },
+            error: null
+          };
         }
       }
     }
   };
   const result = await enrollAdminTotp(supabase, "Florisyn Admin");
-  assert.equal(result.pendingVerification, true);
-  assert.equal(result.factorId, "factor-pending");
-  assert.deepEqual(calls, []);
+  assert.equal(result.factorId, "factor-new");
+  assert.match(result.qrCode, /qr/);
+  assert.equal(result.secret, "SECRET123");
+  assert.deepEqual(calls, [["unenroll", "factor-pending"], "enroll"]);
 });
 
 test("enrollAdminTotp recovers from friendly-name conflict by re-listing factors", async () => {
@@ -112,7 +123,7 @@ test("Admin MFA gate requires enroll when no factors, challenge when enrolled, a
   );
   assert.deepEqual(
     adminMfaGateDecision({ currentLevel: "aal1", nextLevel: "aal1", pendingFactorCount: 1 }).action,
-    "challenge"
+    "enroll"
   );
   assert.deepEqual(
     adminMfaGateDecision({ currentLevel: "aal1", nextLevel: "aal1", verifiedFactorCount: 0 }).action,
@@ -168,7 +179,8 @@ test("Admin MFA UI exists only on admin.html login, not florist pages", () => {
   assert.match(adminHtml, /id="adminMfaForm"/);
   assert.match(adminHtml, /id="adminMfaCode"/);
   assert.match(adminHtml, /id="adminPasswordToggle"/);
-  assert.match(adminHtml, /forgot-password/);
+  assert.match(adminHtml, /id="adminMfaSetupAgain"/);
+  assert.match(adminHtml, /admin-mfa-help/);
   assert.match(adminHtml, /admin-mfa\.js|admin\.js/);
 
   for (const file of ["public/login.js", "public/app.js", "public/index.html", "public/login.html"]) {

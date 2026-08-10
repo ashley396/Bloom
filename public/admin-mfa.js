@@ -10,7 +10,7 @@ export function adminMfaGateDecision({ currentLevel, nextLevel, verifiedFactorCo
     return { action: "challenge", reason: "enrolled_pending_verify" };
   }
   if (pendingFactorCount > 0) {
-    return { action: "challenge", reason: "pending_factor_exists" };
+    return { action: "enroll", reason: "pending_needs_qr" };
   }
   return { action: "enroll", reason: "admin_mfa_required" };
 }
@@ -103,23 +103,37 @@ export async function readAdminMfaState(supabase) {
   };
 }
 
-/** Enroll Admin TOTP via supabase.auth.mfa.enroll(). Reuses an existing pending factor. */
-export async function enrollAdminTotp(supabase, friendlyName = "Florisyn Admin") {
+/** Remove a TOTP factor so enrollment can start fresh (e.g. never finished QR setup). */
+export async function unenrollAdminFactor(supabase, factorId) {
+  if (!factorId) return;
+  const { error } = await supabase.auth.mfa.unenroll({ factorId });
+  if (error) throw error;
+}
+
+/** Drop stale Florisyn Admin factors and return a new QR + secret. */
+export async function resetAdminTotpEnrollment(supabase, friendlyName = "Florisyn Admin") {
+  const { data: listed, error: listError } = await supabase.auth.mfa.listFactors();
+  if (listError) throw listError;
+  for (const factor of collectAdminTotpFactors(listed)) {
+    if (factorFriendlyName(factor) === friendlyName && factor.status !== "verified") {
+      await unenrollAdminFactor(supabase, factor.id);
+    }
+  }
+  return enrollAdminTotp(supabase, friendlyName, { allowVerifiedReuse: true });
+}
+
+/** Enroll Admin TOTP via supabase.auth.mfa.enroll(). Refreshes QR when setup was never finished. */
+export async function enrollAdminTotp(supabase, friendlyName = "Florisyn Admin", options = {}) {
+  const { allowVerifiedReuse = true } = options;
   const { data: listed, error: listError } = await supabase.auth.mfa.listFactors();
   if (listError) throw listError;
   const totpFactors = collectAdminTotpFactors(listed);
   const existing = totpFactors.find((f) => factorFriendlyName(f) === friendlyName);
-  if (existing?.status === "verified") {
+  if (existing?.status === "verified" && allowVerifiedReuse) {
     return { factorId: existing.id, alreadyVerified: true, qrCode: "", secret: "", uri: "" };
   }
   if (existing) {
-    return {
-      factorId: existing.id,
-      pendingVerification: true,
-      qrCode: "",
-      secret: "",
-      uri: ""
-    };
+    await unenrollAdminFactor(supabase, existing.id);
   }
 
   const { data, error } = await supabase.auth.mfa.enroll({
@@ -131,17 +145,12 @@ export async function enrollAdminTotp(supabase, friendlyName = "Florisyn Admin")
       const { data: relisted, error: relistError } = await supabase.auth.mfa.listFactors();
       if (relistError) throw relistError;
       const again = collectAdminTotpFactors(relisted).find((f) => factorFriendlyName(f) === friendlyName);
+      if (again?.status === "verified" && allowVerifiedReuse) {
+        return { factorId: again.id, alreadyVerified: true, qrCode: "", secret: "", uri: "" };
+      }
       if (again) {
-        if (again.status === "verified") {
-          return { factorId: again.id, alreadyVerified: true, qrCode: "", secret: "", uri: "" };
-        }
-        return {
-          factorId: again.id,
-          pendingVerification: true,
-          qrCode: "",
-          secret: "",
-          uri: ""
-        };
+        await unenrollAdminFactor(supabase, again.id);
+        return enrollAdminTotp(supabase, friendlyName, { ...options, allowVerifiedReuse: false });
       }
     }
     throw error;

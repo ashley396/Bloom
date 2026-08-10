@@ -4,6 +4,7 @@ import {
   bindAdminSession,
   readAdminMfaState,
   enrollAdminTotp,
+  resetAdminTotpEnrollment,
   challengeAndVerifyAdminMfa,
   pickAdminFactorId
 } from './admin-mfa.js';
@@ -44,16 +45,25 @@ function showAdminMfaUi({mode,qrCode='',secret=''}={}){
   const intro=$('#adminMfaIntro');
   if(mode==='enroll'){
     enroll.hidden=false;
-    if(intro)intro.textContent='Scan this QR code with your authenticator app, then enter the 6-digit code below.';
+    if(intro)intro.textContent='Install a free authenticator app on your phone (Google Authenticator, Microsoft Authenticator, or 1Password), scan the QR code, then enter the 6-digit code below.';
     const qr=$('#adminMfaQr');
     if(qr){qr.src=qrCode||'';qr.hidden=!qrCode}
-    if($('#adminMfaSecret'))$('#adminMfaSecret').textContent=secret?`Secret: ${secret}`:'';
+    if($('#adminMfaSecret'))$('#adminMfaSecret').textContent=secret?`Or enter this setup key manually: ${secret}`:'';
+    if($('#adminMfaSetupAgain'))$('#adminMfaSetupAgain').hidden=Boolean(qrCode);
   }else{
     enroll.hidden=true;
     if(intro)intro.textContent='Enter the 6-digit code from your authenticator app for Florisyn Admin.';
+    if($('#adminMfaSetupAgain'))$('#adminMfaSetupAgain').hidden=false;
   }
   if($('#loginMessage'))$('#loginMessage').textContent='';
   if($('#adminMfaCode')){$('#adminMfaCode').value='';$('#adminMfaCode').focus()}
+}
+function requireAdminMfaEnroll(enrolled,message='Set up your authenticator app to finish Admin sign-in.'){
+  adminMfaPending={factorId:enrolled.factorId,mode:'enroll'};
+  showAdminMfaUi({mode:'enroll',qrCode:enrolled.qrCode,secret:enrolled.secret});
+  const err=new Error(message);
+  err.code='admin_mfa_enrollment_required';
+  throw err;
 }
 function requireAdminMfaChallenge(message='Enter your authenticator code to continue.'){
   adminMfaPending={...adminMfaPending,mode:'challenge'};
@@ -101,15 +111,7 @@ async function ensureAdminMfaBeforeDashboard(){
       saveSession({accessToken:session.accessToken,refreshToken:session.refreshToken,user:session.user,mfaVerified:true});
       return;
     }
-    if(enrolled.pendingVerification){
-      adminMfaPending={factorId:enrolled.factorId,mode:'challenge'};
-      requireAdminMfaChallenge('Your authenticator is already set up. Enter the 6-digit code to sign in.');
-    }
-    adminMfaPending={factorId:enrolled.factorId,mode:'enroll'};
-    showAdminMfaUi({mode:'enroll',qrCode:enrolled.qrCode,secret:enrolled.secret});
-    const err=new Error('Set up your authenticator app to finish Admin sign-in.');
-    err.code='admin_mfa_enrollment_required';
-    throw err;
+    requireAdminMfaEnroll(enrolled);
   }
   adminMfaPending={factorId:state.verifiedFactors[0]?.id||state.pendingFactors[0]?.id||null,mode:'challenge'};
   requireAdminMfaChallenge('Enter your authenticator code to finish Admin sign-in.');
@@ -189,6 +191,23 @@ $('#adminMfaCancel')?.addEventListener('click',()=>{
   clearAdminSession();
   showPasswordLogin();
   if($('#loginMessage'))$('#loginMessage').textContent='Admin sign-in cancelled. Enter your password again.';
+});
+$('#adminMfaSetupAgain')?.addEventListener('click',async()=>{
+  const loginMessage=$('#loginMessage');
+  if(loginMessage)loginMessage.textContent='Creating a new authenticator setup…';
+  try{
+    if(!session)throw new Error('Sign in with your Admin password first.');
+    const supabase=await getAdminMfaClient();
+    await bindAdminSession(supabase,session);
+    const enrolled=await resetAdminTotpEnrollment(supabase,'Florisyn Admin');
+    requireAdminMfaEnroll(enrolled,'Scan the new QR code with your authenticator app.');
+  }catch(err){
+    if(err?.code==='admin_mfa_enrollment_required'){
+      if(loginMessage)loginMessage.textContent='';
+      return;
+    }
+    if(loginMessage)loginMessage.textContent=err.message||'Could not restart authenticator setup.';
+  }
 });
 $('#adminLogout').onclick=()=>{clearAdminSession();location.reload()}
 $$('nav button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
