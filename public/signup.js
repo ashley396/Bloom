@@ -15,6 +15,15 @@ if (refCode) {
   } catch {
     /* ignore */
   }
+  const note = $("#referralSignupNote");
+  if (note) note.hidden = false;
+  api(`referral-program?action=validate&code=${encodeURIComponent(refCode)}`)
+    .then(() => {
+      if (note) note.textContent = "Referral applied — you and your referring shop each get a free month when you subscribe.";
+    })
+    .catch(() => {
+      if (note) note.textContent = "Referral code saved. If it is valid, rewards apply when you subscribe.";
+    });
 }
 
 $("#signupForm").addEventListener("submit", async (e) => {

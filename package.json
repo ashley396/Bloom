@@ -42,6 +42,7 @@
     "seo:generate": "node scripts/generate-seo-files.mjs",
     "seo:inject": "node scripts/inject-public-seo.mjs",
     "verify:website-publish": "node scripts/verify-website-publish-smoke.mjs",
+    "verify:launch": "node scripts/verify-launch-readiness.mjs",
     "test:ai-suite": "node --test tests/florisyn-ai-suite.test.js"
   },
   "devDependencies": {
