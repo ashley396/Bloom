@@ -335,6 +335,10 @@ test("community UI hides nav when disabled and keeps loading/empty/error states"
   assert.match(ui, /BloomCommunity/);
   assert.match(ui, /community-loading|Loading Florist Community/);
   assert.match(ui, /community-empty|Your florist feed is quiet/);
+  assert.match(ui, /composerDraft/);
+  assert.match(ui, /captureComposerDraft/);
+  assert.match(ui, /updateComposerImagePreview/);
+  assert.doesNotMatch(ui, /reader\.onload = \(\) => \{\s*onDataUrl\(reader\.result\);\s*render\(\)/);
   assert.match(ui, /community-error|Something went wrong/);
 });
 
@@ -377,11 +381,12 @@ test("parseDataUrl enforces size before base64 decode", () => {
 
 test("create/update use prevalidated v.image once; storage module has no sharp", () => {
   const handler = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
-  assert.match(handler, /uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image\)/g);
+  assert.match(handler, /uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image,/g);
   assert.equal(
-    (handler.match(/uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image\)/g) || []).length,
+    (handler.match(/uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image,/g) || []).length,
     2
   );
+  assert.match(handler, /communityStorageClient\(\)/);
   const storage = fs.readFileSync(
     path.join(process.cwd(), "netlify/functions/_shared/florist-community-storage.js"),
     "utf8"
