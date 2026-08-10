@@ -75,6 +75,21 @@
     [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
+[[headers]]
+  for = "/floral-library-ui.js"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/floral-library-collection.js"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/floral-media.js"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
 # P0-17 distributed auth admission (Pro: max 5 code-based rate-limit rules).
 # Rate limits must target /api/* entry points — Netlify drops redirects that
 # rewrite /.netlify/functions/* onto itself. Clients call /api/auth-*.

@@ -30,5 +30,7 @@ test("stamp-build writes deploy id and cache-busts key HTML", () => {
   const index = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
   assert.match(index, new RegExp(`/app\\.js\\?v=${stamp}`));
   assert.match(index, new RegExp(`/florisyn-version\\.js\\?v=${stamp}`));
+  assert.match(index, new RegExp(`/floral-library-ui\\.js\\?v=${stamp}`));
+  assert.match(index, new RegExp(`/floral-library-collection\\.js\\?v=${stamp}`));
   assert.match(index, /florisyn-build\.js\?v=/);
 });

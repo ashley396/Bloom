@@ -296,7 +296,17 @@ function productCard(p){
   const urls=window.BloomLaunchPolish?.parseProductImages?.(p)||(p.image_url?[p.image_url]:[]);
   const media=urls.length&&window.BloomLaunchPolish?.productGalleryThumbHtml?window.BloomLaunchPolish.productGalleryThumbHtml(urls,p.name):p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" decoding="async">`:`<div class="product-art">💐</div>`;
   return `<article class="product-card">${media}<div class="body"><span class="badge">${esc(p.category)}</span><h3>${esc(p.name)}</h3><p class="meta">${esc(p.description||"")}</p><div class="price">${money(p.price)}</div><div class="product-status"><span class="badge ${p.available_online?'good':'warn'}">${p.available_online?'ONLINE':'NOT ONLINE'}</span></div><div class="card-actions"><button class="secondary" data-edit-product="${p.id}">Edit + recipe</button><button class="secondary" data-duplicate-product="${p.id}">Duplicate</button><button class="secondary" data-publish-product="${p.id}">${p.available_online?'Remove from website':'Publish to website'}</button><button class="secondary danger" data-delete-product="${p.id}">Delete</button></div></div></article>`}
-function renderLibrary(){if(window.BloomFloralLibraryUI?.init){window.BloomFloralLibraryUI.init();return}const q=( $("#librarySearch")?.value||"").toLowerCase(),cat=$("#libraryCategory")?.value||"";const rows=LIBRARY.map((p,i)=>({p,i})).filter(({p})=>(!q||`${p[0]} ${p[1]} ${p[4]} ${p[5].map(r=>r[0]).join(" ")}`.toLowerCase().includes(q))&&(!cat||p[1]===cat));$("#libraryList").innerHTML=rows.length?rows.map(({p,i})=>`<article class="product-card floral-library-card" data-library-card="${i}">${p[6]?`<img src="${esc(p[6])}" alt="${esc(p[0])} floral arrangement" loading="lazy">`:`<div class="product-art">${p[3]}</div>`}<div class="body"><span class="badge">${esc(p[1])}</span><h3>${esc(p[0])}</h3><p>${esc(p[4])}</p><div class="price">${money(p[2])}</div><div class="recipe-preview"><strong>Starter recipe</strong><span>${p[5].map(r=>`${r[1]} ${esc(r[0])}`).join(" · ")}</span></div><div class="card-actions"><button type="button" class="secondary" data-preview-library="${i}">View & edit</button><button type="button" class="primary" data-add-library="${i}">Add to my products</button></div></div></article>`).join(""):empty("No floral designs match that search.")}
+async function renderLibrary(){
+  const list=$("#libraryList");
+  if(window.BloomFloralLibraryUI?.init){
+    if(list&&!window.BloomFloralLibraryUI.getMaster?.()?.length&&window.FlorisynLibraryCollection?.length){
+      list.innerHTML=window.BloomLaunchPolish?.loadingSkeleton?.("cards",3)||`<p class="subtle">Loading Florisyn Signature Collection…</p>`;
+    }
+    await window.BloomFloralLibraryUI.init();
+    return;
+  }
+  if(list)list.innerHTML=empty("Floral Library is loading. Please refresh in a moment.");
+}
 let staffMembers=[],staffTimeEntries=[],lastPrivateFilePin="";
 function staffHours(id){return staffTimeEntries.filter(x=>x.staff_id===id).reduce((n,x)=>n+Number(x.hours_worked||0),0)}
 function staffCard(x){const entries=staffTimeEntries.filter(e=>e.staff_id===x.id),open=entries.find(e=>!e.clock_out);return `<article class="card employee-card private-summary bloom-staff-list-card"><h3 class="bloom-staff-name-only" data-edit-staff="${x.id}" role="button" tabindex="0" title="Open private employee file (PIN required)">${esc(x.name)}</h3><div class="card-actions"><button class="primary" data-staff-clock="${x.id}" data-clock-action="${open?"CLOCK_OUT":"CLOCK_IN"}">${open?"Clock Out":"Clock In"}</button></div></article>`}

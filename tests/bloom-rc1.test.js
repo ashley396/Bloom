@@ -172,6 +172,8 @@ test("public floral library serves signature collection without auto-generated f
   assert.ok(catalog.length < 40, "public catalog should stay curated, not hundreds of generated items");
   assert.ok(catalog.some((p) => p.id === "sig-signature-blush-garden"));
   assert.ok(catalog.every((p) => p.primary_image?.url));
+  assert.ok(catalog.every((p) => !String(p.id).startsWith("lib-rc2-")), "starter catalog must not include RC2 filler grid");
+  assert.ok(!catalog.some((p) => p.name === "Garden Rose Bouquet"), "no auto-generated Garden Rose filler");
   const ids = catalog.map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length);
 });

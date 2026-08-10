@@ -54,7 +54,10 @@ const bustedFiles = [
   "florisyn-luxury-pos.js",
   "florisyn-luxury-orders.js",
   "florisyn-luxury-business-os.js",
-  "florisyn-atelier-dashboard.js"
+  "florisyn-atelier-dashboard.js",
+  "floral-library-ui.js",
+  "floral-library-collection.js",
+  "floral-media.js"
 ];
 
 for (const rel of cacheBustTargets) {

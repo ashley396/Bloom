@@ -8,28 +8,45 @@
 
   let masterCache = null;
   let libraryVisible = 60;
+  let libraryInitPromise = null;
+
+  function isRc2FillerProduct(p) {
+    const id = String(p?.id || "");
+    if (id.startsWith("lib-rc2-")) return true;
+    if ((p?.tags || []).includes("rc2_starter")) return true;
+    if (/^Garden \w+ (Bouquet|Birthday|Anniversary|Romance|Wedding)/.test(String(p?.name || ""))) return true;
+    return false;
+  }
 
   function signatureCollection() {
     return Array.isArray(window.FlorisynLibraryCollection) ? window.FlorisynLibraryCollection : [];
   }
 
-  async function loadMaster() {
-    if (masterCache) return masterCache;
+  function mergeCatalog(signature, remote) {
+    const merged = new Map();
+    for (const p of signature) {
+      if (p?.id) merged.set(p.id, p);
+    }
+    for (const p of remote) {
+      if (!p?.id || isRc2FillerProduct(p)) continue;
+      if (!merged.has(p.id)) merged.set(p.id, p);
+    }
+    return merged.size ? [...merged.values()] : signature;
+  }
+
+  async function loadMaster(force = false) {
+    if (masterCache && !force) return masterCache;
     const signature = signatureCollection();
     let remote = [];
     if (window.api) {
       try {
         const d = await window.api("floral-library?action=starter", { method: "GET" });
-        remote = Array.isArray(d.products) ? d.products : [];
+        remote = Array.isArray(d.products) ? d.products.filter((p) => !isRc2FillerProduct(p)) : [];
       } catch {
         remote = [];
       }
     }
-    const merged = new Map();
-    for (const p of [...signature, ...remote]) {
-      if (p?.id) merged.set(p.id, p);
-    }
-    masterCache = merged.size ? [...merged.values()] : signature;
+    masterCache = mergeCatalog(signature, remote);
     return masterCache;
   }
 
@@ -164,10 +181,19 @@
   }
 
   async function init() {
-    await loadMaster();
-    document.getElementById("librarySearch")?.addEventListener("input", () => renderLibrary());
-    document.getElementById("libraryCategory")?.addEventListener("change", () => renderLibrary());
-    await renderLibrary();
+    if (!libraryInitPromise) {
+      libraryInitPromise = (async () => {
+        if (signatureCollection().length) {
+          masterCache = mergeCatalog(signatureCollection(), []);
+          await renderLibrary();
+        }
+        await loadMaster(true);
+        document.getElementById("librarySearch")?.addEventListener("input", () => renderLibrary());
+        document.getElementById("libraryCategory")?.addEventListener("change", () => renderLibrary());
+        await renderLibrary();
+      })();
+    }
+    return libraryInitPromise;
   }
 
   window.BloomFloralLibraryUI = { renderLibrary, init, getMaster };
