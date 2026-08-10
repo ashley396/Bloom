@@ -76,3 +76,19 @@ export function planQuote(monthly, interval = "monthly") {
 export function formatMoney(amount) {
   return `$${Number(amount).toLocaleString("en-US")}`;
 }
+
+/** Primary price line for UI — annual shows the real yearly charge, not amortized /mo. */
+export function formatPlanPriceHeadline(quote, interval = "monthly") {
+  if (interval === "annual") {
+    return {
+      amount: formatMoney(quote.billed),
+      suffix: "/yr",
+      note: `Save ${formatMoney(quote.savings)} vs paying monthly · ${formatMoney(quote.display)}/mo equivalent`
+    };
+  }
+  return {
+    amount: formatMoney(quote.display),
+    suffix: "/mo",
+    note: `Billed monthly after your ${TRIAL_DAYS}-day trial`
+  };
+}

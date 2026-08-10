@@ -9,7 +9,7 @@ import {
   validSubscriptionPrices,
   tierBySignupCode
 } from "../lib/pricing/florisyn-pricing.js";
-import { PRICING_TIERS as PUBLIC_TIERS, ANNUAL_MONTHS_FREE as PUBLIC_FREE } from "../public/pricing-catalog.js";
+import { PRICING_TIERS as PUBLIC_TIERS, ANNUAL_MONTHS_FREE as PUBLIC_FREE, formatPlanPriceHeadline, planQuote as publicPlanQuote } from "../public/pricing-catalog.js";
 
 test("annual billing charges ten months (two months free)", () => {
   assert.equal(ANNUAL_MONTHS_FREE, 2);
@@ -42,6 +42,14 @@ test("valid subscription prices include monthly and annual totals", () => {
 test("signup codes map to billing tiers", () => {
   assert.equal(tierBySignupCode("pro")?.code, "professional");
   assert.equal(tierBySignupCode("starter")?.monthly, 59);
+});
+
+test("annual UI headline shows yearly charge (not amortized monthly only)", () => {
+  const quote = publicPlanQuote(99, "annual");
+  const headline = formatPlanPriceHeadline(quote, "annual");
+  assert.equal(headline.amount, "$990");
+  assert.equal(headline.suffix, "/yr");
+  assert.match(headline.note, /\$83\/mo equivalent/);
 });
 
 test("public pricing catalog stays aligned with server catalog", () => {
