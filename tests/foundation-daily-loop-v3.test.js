@@ -245,7 +245,7 @@ test("launch feature flags match growth rollout defaults", () => {
   const flags = getFeatureFlags({});
   assert.equal(flags.MARKETPLACE_PUBLIC, true);
   assert.equal(flags.WHOLESALE_SELLER, true);
-  assert.equal(flags.BUSINESS_ECOSYSTEM, false);
+  assert.equal(flags.BUSINESS_ECOSYSTEM, true);
   assert.equal(flags.INVENTORY_AI_INTAKE, false);
   assert.equal(flags.INVENTORY_RECIPE_DEDUCTIONS, true);
   assert.equal(flags.WEBSITE_STUDIO_V2, false);

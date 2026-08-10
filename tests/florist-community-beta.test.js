@@ -29,11 +29,11 @@ const fixtures = path.join(process.cwd(), "tests/fixtures/community-images");
 const tinyPng =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
-test("COMMUNITY_BETA flag defaults OFF; only explicit true enables", () => {
+test("COMMUNITY_BETA flag defaults ON at launch; explicit false disables", () => {
   const flags = getFeatureFlags({});
-  assert.equal(flags.COMMUNITY_BETA, false);
-  assert.equal(isFeatureEnabled("COMMUNITY_BETA", {}), false);
-  assert.equal(isFeatureEnabled("COMMUNITY_BETA", { FLORISYN_FLAG_COMMUNITY_BETA: "" }), false);
+  assert.equal(flags.COMMUNITY_BETA, true);
+  assert.equal(isFeatureEnabled("COMMUNITY_BETA", {}), true);
+  assert.equal(isFeatureEnabled("COMMUNITY_BETA", { FLORISYN_FLAG_COMMUNITY_BETA: "" }), true);
   assert.equal(isFeatureEnabled("COMMUNITY_BETA", { FLORISYN_FLAG_COMMUNITY_BETA: "false" }), false);
   assert.equal(isFeatureEnabled("COMMUNITY_BETA", { FLORISYN_FLAG_COMMUNITY_BETA: "true" }), true);
 });

@@ -10,7 +10,8 @@ const DEFAULT_FLAGS = {
   /** Wholesale marketplace browse + checkout — default on for Florisyn growth rollout. */
   MARKETPLACE_PUBLIC: true,
   WHOLESALE_SELLER: true,
-  BUSINESS_ECOSYSTEM: false,
+  /** Subscriptions, loyalty, finance hub, Lily business coach — default on at public launch. */
+  BUSINESS_ECOSYSTEM: true,
   INSTANT_WEBSITE: true,
   /** Full Website Studio v2 (Lily quick start, visual editor, checkout) — not production until phased rollout */
   WEBSITE_STUDIO_V2: false,
@@ -21,11 +22,10 @@ const DEFAULT_FLAGS = {
   LILY_SERVER_PERSISTENCE: true,
   REACT_ORDERS_PREVIEW: false,
   /**
-   * Florist Community Beta — SAFE DEFAULT OFF.
-   * Missing FLORISYN_FLAG_COMMUNITY_BETA => disabled.
-   * Enable only with explicit FLORISYN_FLAG_COMMUNITY_BETA=true.
+   * Florist Community — social feed for florists (default on at public launch).
+   * Disable with FLORISYN_FLAG_COMMUNITY_BETA=false if you need an emergency kill switch.
    */
-  COMMUNITY_BETA: false,
+  COMMUNITY_BETA: true,
   /**
    * Holiday Command Center — SAFE DEFAULT OFF.
    * Enable only with explicit FLORISYN_FLAG_HOLIDAY_COMMAND_CENTER=true.

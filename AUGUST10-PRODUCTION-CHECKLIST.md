@@ -9,7 +9,7 @@ Baseline: `main` @ `eb690be` + Florist Community Beta + **Correction R6 security
 - PR #13 is **not merged**.
 - No production deployment occurred from this work.
 - Community migrations have **not** been applied to staging or production.
-- `COMMUNITY_BETA` **defaults OFF** (enable only with explicit `FLORISYN_FLAG_COMMUNITY_BETA=true`).
+- `COMMUNITY_BETA` **defaults ON** at public launch (disable with `FLORISYN_FLAG_COMMUNITY_BETA=false`).
 - Community images are **private**; clients receive **short-lived signed URLs** (300s) only when readable.
 - Uploaded images are **fully decoded and re-encoded with sharp exactly once** in validation; upload stores only the prevalidated sanitized buffer (no second sharp pass / no data-URL re-decode).
 - Declared size and base64 length are enforced **before** `Buffer.from`; malformed base64 is rejected safely.
@@ -133,7 +133,7 @@ npm run test:community-rls
 | `SITE_URL` | Yes | Production origin |
 | `STRIPE_SECRET_KEY` | Yes | Prefer test mode for beta |
 | `STRIPE_WEBHOOK_SECRET` | Yes | Matching mode |
-| `FLORISYN_FLAG_COMMUNITY_BETA` | **Required for Community** | Must be explicitly `true` to enable; missing/false = OFF |
+| `FLORISYN_FLAG_COMMUNITY_BETA` | Optional kill switch | Default **ON** at launch; set `false` to disable |
 
 \* Needed for some admin/store flows and audited cleanup. Community feed uses user JWT + RLS.
 
