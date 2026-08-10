@@ -9,6 +9,8 @@ import {
   RECIPE_AI_SCHEMA,
   buildLocalRecipeDraftFromPost,
   generateRecipeWithCloudflare,
+  inferFlowersFromPostText,
+  isGenericIngredientName,
 } from "../netlify/functions/_shared/florist-community-recipes.js";
 
 test("sanitizeRecipeDraft requires title and stem lines", () => {
@@ -61,6 +63,24 @@ test("RECIPE_AI_SCHEMA documents Lily output shape", () => {
   assert.ok(Array.isArray(RECIPE_AI_SCHEMA.recipe));
 });
 
+test("sanitizeRecipeDraft rejects generic placeholder stems", () => {
+  assert.equal(
+    sanitizeRecipeDraft({
+      name: "Generic",
+      recipe: [{ name: "Seasonal focal flower", qty: 5, kind: "flower" }],
+    }),
+    null
+  );
+  assert.equal(isGenericIngredientName("Accent bloom"), true);
+  assert.equal(isGenericIngredientName("Freedom rose"), false);
+});
+
+test("inferFlowersFromPostText reads caption flower names", () => {
+  const stems = inferFlowersFromPostText("Blush Freedom roses with eucalyptus", "");
+  assert.ok(stems.some((row) => /rose/i.test(row.name)));
+  assert.ok(stems.some((row) => /eucalyptus/i.test(row.name)));
+});
+
 test("buildLocalRecipeDraftFromPost creates editable starter recipe", () => {
   const draft = buildLocalRecipeDraftFromPost({
     caption: "Modern Floral",
@@ -69,6 +89,18 @@ test("buildLocalRecipeDraftFromPost creates editable starter recipe", () => {
   });
   assert.equal(draft.name, "Modern Floral");
   assert.ok(draft.recipe.length >= 3);
+  assert.ok(
+    !draft.recipe.some((row) => isGenericIngredientName(row.name)),
+    "local fallback should use real wholesale names"
+  );
+});
+
+test("buildLocalRecipeDraftFromPost prefers caption flower names", () => {
+  const draft = buildLocalRecipeDraftFromPost({
+    caption: "Sunflower porch jar",
+    body: "Yellow mums and leatherleaf",
+  });
+  assert.ok(draft.recipe.some((row) => /sunflower|mum|leatherleaf/i.test(row.name)));
 });
 
 test("generateRecipeWithCloudflare falls back when cloud AI fails", async () => {
@@ -95,9 +127,10 @@ test("florist-community handler wires Lily recipe actions", () => {
   assert.match(src, /action === "recipes"/);
 });
 
-test("community UI exposes Lily recipe controls", () => {
+test("community UI hints florists to name flowers for Lily", () => {
   const ui = fs.readFileSync(path.join(process.cwd(), "public/community-ui.js"), "utf8");
   assert.match(ui, /Build recipe with Lily/);
+  assert.match(ui, /name the flowers in your caption/i);
   assert.match(ui, /recipeUi/);
   assert.match(ui, /community-post-image-wrap/);
   assert.match(ui, /generate_recipe/);

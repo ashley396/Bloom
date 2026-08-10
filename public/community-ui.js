@@ -182,8 +182,9 @@
         </div>
       </div>
       <label>Category<select name="category" required>${opts}</select></label>
-      <label>Caption<input name="caption" required maxlength="280" placeholder="What's on your design bench today?" value="${esc(draft.caption || "")}"></label>
-      <label>Details (optional)<textarea name="body" maxlength="4000" rows="3" placeholder="Recipe tips, mechanics, or business advice — no customer info.">${esc(draft.body || "")}</textarea></label>
+      <label>Caption<input name="caption" required maxlength="280" placeholder="Modern blush garden — Freedom roses, spray roses, eucalyptus…" value="${esc(draft.caption || "")}"></label>
+      <p class="subtle community-caption-hint">Tip: name the flowers in your caption so Lily can build a specific stem-count recipe.</p>
+      <label>Details (optional)<textarea name="body" maxlength="4000" rows="3" placeholder="Stem counts, mechanics, variety notes — no customer info.">${esc(draft.body || "")}</textarea></label>
       <label class="community-photo-upload">
         <span class="community-photo-upload-label">📷 Arrangement photo (optional, max 2 MB, JPG/PNG/WebP)</span>
         <input type="file" id="communityImageInput" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp">
@@ -252,7 +253,7 @@
       const ui = state.recipeUi[id] || {};
       return `<div class="community-recipe panel" data-recipe-panel="${esc(id)}">
         <p class="eyebrow">LILY</p>
-        <p class="subtle">Turn your arrangement photo into a stem-count recipe other florists can copy.</p>
+        <p class="subtle">Turn your arrangement photo into a stem-count recipe other florists can copy. Mention flower types in the caption for the smartest draft.</p>
         ${ui.busy ? `<p class="community-recipe-busy" role="status">Lily is building your recipe…</p>` : ""}
         ${ui.error ? `<p class="community-error-inline" role="alert">${esc(ui.error)}</p>` : ""}
         ${ui.notice ? `<p class="subtle">${esc(ui.notice)}</p>` : ""}

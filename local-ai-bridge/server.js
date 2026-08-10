@@ -1,6 +1,11 @@
 import http from "node:http";
 import { spawn } from "node:child_process";
 import { URL } from "node:url";
+import {
+  systemPromptFor,
+  temperatureForPersona,
+  normalizePersona
+} from "../netlify/functions/_shared/florist-ai-personas.js";
 
 const HOST = process.env.BLOOM_AI_HOST || "127.0.0.1";
 const PORT = Number(process.env.BLOOM_AI_PORT || 11435);
@@ -110,14 +115,9 @@ async function status() {
   }
 }
 
-const personas = {
-  Lily: "You are Lily, Bloom's warm and encouraging florist assistant. Give practical, concise help with floral recipes, substitutions, pricing, product descriptions, card messages, marketing, and waste reduction. Never invent shop facts, inventory, prices, customer details, or order details.",
-  Rose: "You are Rose, Bloom's experienced florist business manager. Be direct, protective of profit, gently witty, and never rude. Help with margins, expenses, inventory, deliveries, unpaid balances, ordering, and business decisions. Never invent numbers or shop facts."
-};
-
 async function handleChat(body) {
   const prompt = String(body.prompt || "").trim();
-  const persona = body.persona === "Rose" ? "Rose" : "Lily";
+  const persona = normalizePersona(body.persona);
   const model = String(body.model || DEFAULT_MODEL).trim();
   const context = body.context || {};
   if (!prompt) throw new Error("Enter a question first.");
@@ -129,9 +129,9 @@ async function handleChat(body) {
       model,
       stream: false,
       format: body.format === "json" ? "json" : undefined,
-      options: { temperature: persona === "Rose" ? 0.2 : 0.45, num_predict: 700 },
+      options: { temperature: temperatureForPersona(persona, "chat"), num_predict: 700 },
       messages: [
-        { role: "system", content: personas[persona] },
+        { role: "system", content: systemPromptFor(persona, "chat") },
         { role: "user", content: `SHOP DATA (use only when relevant):\n${JSON.stringify(context)}\n\nQUESTION:\n${prompt}` }
       ]
     })
@@ -143,6 +143,7 @@ async function handleChat(body) {
 }
 
 async function handleGenerate(body) {
+  const persona = normalizePersona(body.persona || "Lily");
   const model = String(body.model || DEFAULT_MODEL).trim();
   const task = String(body.task || "content");
   const input = body.input || {};
@@ -155,9 +156,9 @@ async function handleGenerate(body) {
       model,
       stream: false,
       format: "json",
-      options: { temperature: 0.25, num_predict: 900 },
+      options: { temperature: temperatureForPersona(persona, "generate"), num_predict: 900 },
       messages: [
-        { role: "system", content: "You produce accurate florist-focused structured data. Never invent shop-specific facts. Return JSON only." },
+        { role: "system", content: systemPromptFor(persona, "generate") },
         { role: "user", content: prompt }
       ]
     })

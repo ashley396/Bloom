@@ -2,16 +2,42 @@
  * Florisyn Business OS — Rose AI Business Advisor chat + pulse panel.
  */
 (function () {
-  const RESPONSES = {
-    "pricing strategy":
-      "Looking at your wedding demand spike, I recommend lifting signature wedding packages by 12–15% while keeping weekday everyday bouquets steady. Protect volume on entry arrangements and capture margin where bookings are already overflowing.",
-    "marketing plan":
-      "Lead with behind-the-scenes Instagram Reels this week — your competitors are seeing ~40% more engagement on process content. Pair each Reel with a clear wedding consult CTA and a soft Everyday Bouquet promo for midweek.",
-    "competitor analysis":
-      "Nearby shops are underpricing premium vase work but over-indexing on discounts. Your luxury positioning is the advantage — lean into white-glove delivery stories and VIP add-ons rather than matching coupon wars.",
-    "monthly review":
-      "Month-to-date: wedding bookings +23%, average order value up slightly, and rose stem usage is running hot for the weekend. Priority: lock supplier reorder by Thursday, then confirm two VIP bridal consultations before Friday."
+  const TOPIC_REPLIES = {
+    pricing: [
+      "Wedding demand is strong — lift signature packages 12–15% while holding steady on weekday everyday price points. Protect entry volume; capture margin where consults are already booked.",
+      "Before a blanket price bump, tier by labor: hand-tied everyday stays flat, premium vase and bridal installs move up first. That protects walk-in volume while you recover design time.",
+      "Check stem cost on your top three wedding SKUs this week. If rose or hydrangea landed higher, adjust package pricing now instead of eating margin on Saturday rush orders."
+    ],
+    marketing: [
+      "Lead with behind-the-scenes Reels — process content is outperforming static posts in your market. End each clip with one clear CTA: wedding consult or midweek everyday pickup.",
+      "This week, pair one educational carousel (care tips, vase sizing) with one social-proof post (review screenshot, delivery moment). Alternate formats so the feed does not feel repetitive.",
+      "Repurpose your best recent arrangement as three assets: feed photo, Story poll on color preference, and a short caption with delivery-area keywords for local search."
+    ],
+    competitors: [
+      "Nearby shops are discounting hard on premium vase work. Your edge is service story — highlight white-glove delivery and consult quality instead of matching coupon wars.",
+      "Competitors are under-indexing on sympathy professionalism. A calm, consistent sympathy landing page and clear standing-spray tiers can win trust without racing to the bottom.",
+      "If rivals push free delivery, counter with value: timed delivery windows, photo proof, and upgrade stems — not a margin-killing free zone."
+    ],
+    review: [
+      "Month-to-date: wedding bookings trending up, average ticket stable, rose usage hot for the weekend. Reorder high-velocity stems by Thursday and confirm VIP bridal consults.",
+      "Quick pulse: track unpaid balances and delivery-heavy days first — those two usually explain cash-flow surprises before month end.",
+      "Scan last month's top five SKUs by margin, not just revenue. Promote the winners in POS favorites and trim the slow movers from standing cooler commitments."
+    ],
+    general: [
+      "Three moves for this week: protect wedding package margin, schedule one midweek marketing push, and reorder fast-moving roses before the weekend rush.",
+      "Start with what is due today — unpaid orders, delivery prep, and cooler gaps — then ask me to go deeper on pricing, marketing, competitors, or a monthly review.",
+      "Pick one profit lever and one visibility lever this week. Rose can walk you through either if you name the goal (more weddings, higher AOV, or better weekday traffic)."
+    ]
   };
+
+  function simpleHash(text) {
+    let h = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+      h ^= text.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
 
   function $(sel, root) {
     return (root || document).querySelector(sel);
@@ -66,15 +92,14 @@
   }
 
   function replyFor(prompt) {
-    const key = prompt.trim().toLowerCase();
-    for (const [k, v] of Object.entries(RESPONSES)) {
-      if (key === k || key.includes(k)) return v;
-    }
-    if (/price|pricing|wedding|package/i.test(prompt)) return RESPONSES["pricing strategy"];
-    if (/market|instagram|social|content/i.test(prompt)) return RESPONSES["marketing plan"];
-    if (/competitor|rival|nearby/i.test(prompt)) return RESPONSES["competitor analysis"];
-    if (/month|review|report|kpi/i.test(prompt)) return RESPONSES["monthly review"];
-    return `Noted. Based on your current books, I would prioritize three moves: protect wedding package margin, schedule a midweek marketing push, and reorder high-velocity roses before Thursday. Ask me to go deeper on pricing, marketing, competitors, or a monthly review.`;
+    const clean = String(prompt || "").trim();
+    let topic = "general";
+    if (/price|pricing|wedding|package|margin|markup/i.test(clean)) topic = "pricing";
+    else if (/market|instagram|social|content|reel|post|promo/i.test(clean)) topic = "marketing";
+    else if (/competitor|rival|nearby|compare/i.test(clean)) topic = "competitors";
+    else if (/month|review|report|kpi|pulse|week/i.test(clean)) topic = "review";
+    const variants = TOPIC_REPLIES[topic] || TOPIC_REPLIES.general;
+    return variants[simpleHash(clean.toLowerCase()) % variants.length];
   }
 
   async function askRose(prompt) {
@@ -98,7 +123,7 @@
           const d = await smartAi({
             mode: "chat",
             persona: "Rose",
-            prompt: `Rose, as Florisyn's AI Business Strategist, answer concisely with practical florist shop advice: ${clean}`,
+            prompt: clean,
             context
           });
           thinking.remove();
