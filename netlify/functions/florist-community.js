@@ -55,12 +55,39 @@ function missingRelation(error) {
   );
 }
 
-function friendlyMissing() {
-  const e = new Error(
-    "Florist Community tables are not set up yet. Apply community migrations, then try again."
+/** PR #66 columns/tables missing while base Community exists, or PostgREST cache stale. */
+function isExtendedSchemaError(error) {
+  if (!missingRelation(error)) return false;
+  const msg = String(error?.message || error || "").toLowerCase();
+  return (
+    msg.includes("avatar_path") ||
+    msg.includes("recipe_draft") ||
+    msg.includes("recipe_status") ||
+    msg.includes("published_recipe_id") ||
+    msg.includes("florist_community_recipes")
   );
+}
+
+function friendlyMissing(cause) {
+  const detail = String(cause?.message || cause || "").toLowerCase();
+  let message =
+    "Florist Community tables are not set up yet. Apply community migrations, then try again.";
+  if (
+    detail.includes("avatar_path") ||
+    detail.includes("recipe_draft") ||
+    detail.includes("recipe_status") ||
+    detail.includes("florist_community_recipes")
+  ) {
+    message =
+      "Community needs the latest Supabase migration (avatars + Lily recipes). Run 20260810230000_florist_community_profile_avatar.sql, then Supabase → Settings → API → Reload schema.";
+  } else if (detail.includes("schema cache")) {
+    message =
+      "Supabase schema cache is stale. In SQL Editor run: NOTIFY pgrst, 'reload schema'; then hard-refresh Community.";
+  }
+  const e = new Error(message);
   e.statusCode = 503;
   e.code = "community_not_migrated";
+  if (cause?.message) e.detail = String(cause.message).slice(0, 300);
   throw e;
 }
 
@@ -176,8 +203,14 @@ function moderatorForPost(ctx, post, platformAdmin) {
 const PROFILE_COLUMNS =
   "user_id,shop_id,display_name,shop_display_name,city,region,bio,avatar_path,updated_at";
 
+const PROFILE_COLUMNS_LEGACY =
+  "user_id,shop_id,display_name,shop_display_name,city,region,bio,updated_at";
+
 const POST_COLUMNS =
   "id,author_user_id,shop_id,category,caption,body,image_path,status,like_count,comment_count,created_at,updated_at,recipe_draft,recipe_status,published_recipe_id";
+
+const POST_COLUMNS_LEGACY =
+  "id,author_user_id,shop_id,category,caption,body,image_path,status,like_count,comment_count,created_at,updated_at";
 
 const RECIPE_COLUMNS =
   "id,post_id,author_user_id,author_shop_id,title,description,category,recipe,instructions,suggested_retail,image_path,status,import_count,created_at,updated_at";
@@ -192,13 +225,20 @@ async function profileForApi(client, row) {
 }
 
 async function loadProfile(client, userId) {
-  const { data, error } = await client
+  let { data, error } = await client
     .from("florist_community_profiles")
     .select(PROFILE_COLUMNS)
     .eq("user_id", userId)
     .maybeSingle();
+  if (error && isExtendedSchemaError(error)) {
+    ({ data, error } = await client
+      .from("florist_community_profiles")
+      .select(PROFILE_COLUMNS_LEGACY)
+      .eq("user_id", userId)
+      .maybeSingle());
+  }
   if (error) {
-    if (missingRelation(error)) friendlyMissing();
+    if (missingRelation(error)) friendlyMissing(error);
     throw error;
   }
   return data;
@@ -227,13 +267,20 @@ async function ensureDefaultProfile(client, ctx) {
     bio: null,
     updated_at: new Date().toISOString(),
   };
-  const { data, error } = await client
+  let { data, error } = await client
     .from("florist_community_profiles")
     .upsert(row, { onConflict: "user_id" })
     .select(PROFILE_COLUMNS)
     .single();
+  if (error && isExtendedSchemaError(error)) {
+    ({ data, error } = await client
+      .from("florist_community_profiles")
+      .upsert(row, { onConflict: "user_id" })
+      .select(PROFILE_COLUMNS_LEGACY)
+      .single());
+  }
   if (error) {
-    if (missingRelation(error)) friendlyMissing();
+    if (missingRelation(error)) friendlyMissing(error);
     throw error;
   }
   return data;
@@ -270,10 +317,16 @@ async function auditPlatformModeration(userId, shopId, action, details) {
 async function attachAuthors(client, posts) {
   const ids = [...new Set((posts || []).map((p) => p.author_user_id).filter(Boolean))];
   if (!ids.length) return posts;
-  const { data, error } = await client
+  let { data, error } = await client
     .from("florist_community_profiles")
     .select(PROFILE_COLUMNS)
     .in("user_id", ids);
+  if (error && isExtendedSchemaError(error)) {
+    ({ data, error } = await client
+      .from("florist_community_profiles")
+      .select(PROFILE_COLUMNS_LEGACY)
+      .in("user_id", ids));
+  }
   if (error) throw error;
   const profiles = await Promise.all((data || []).map((row) => profileForApi(client, row)));
   const map = new Map(profiles.filter(Boolean).map((p) => [p.user_id, p]));
@@ -313,7 +366,8 @@ async function loadPublishedRecipes(client, recipeIds) {
     .in("id", ids)
     .eq("status", "active");
   if (error) {
-    if (missingRelation(error)) friendlyMissing();
+    if (isExtendedSchemaError(error)) return new Map();
+    if (missingRelation(error)) friendlyMissing(error);
     throw error;
   }
   const map = new Map();
@@ -324,19 +378,26 @@ async function loadPublishedRecipes(client, recipeIds) {
   return map;
 }
 
-async function feed(client, ctx, { category, platformAdmin }) {
+async function queryActivePosts(client, selectColumns, category) {
   let query = client
     .from("florist_community_posts")
-    .select(POST_COLUMNS)
+    .select(selectColumns)
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(50);
   if (category && COMMUNITY_CATEGORIES.includes(category)) {
     query = query.eq("category", category);
   }
-  const { data, error } = await query;
+  return query;
+}
+
+async function feed(client, ctx, { category, platformAdmin }) {
+  let { data, error } = await queryActivePosts(client, POST_COLUMNS, category);
+  if (error && isExtendedSchemaError(error)) {
+    ({ data, error } = await queryActivePosts(client, POST_COLUMNS_LEGACY, category));
+  }
   if (error) {
-    if (missingRelation(error)) friendlyMissing();
+    if (missingRelation(error)) friendlyMissing(error);
     throw error;
   }
   const withAuthors = await attachAuthors(client, data || []);
@@ -373,16 +434,23 @@ async function recipesFeed(client) {
     .order("created_at", { ascending: false })
     .limit(50);
   if (error) {
-    if (missingRelation(error)) friendlyMissing();
+    if (isExtendedSchemaError(error)) return [];
+    if (missingRelation(error)) friendlyMissing(error);
     throw error;
   }
   const authorIds = [...new Set((data || []).map((r) => r.author_user_id).filter(Boolean))];
   let profileMap = new Map();
   if (authorIds.length) {
-    const { data: profiles, error: pe } = await client
+    let { data: profiles, error: pe } = await client
       .from("florist_community_profiles")
       .select(PROFILE_COLUMNS)
       .in("user_id", authorIds);
+    if (pe && isExtendedSchemaError(pe)) {
+      ({ data: profiles, error: pe } = await client
+        .from("florist_community_profiles")
+        .select(PROFILE_COLUMNS_LEGACY)
+        .in("user_id", authorIds));
+    }
     if (pe) throw pe;
     const resolved = await Promise.all((profiles || []).map((row) => profileForApi(client, row)));
     profileMap = new Map(resolved.filter(Boolean).map((p) => [p.user_id, p]));
