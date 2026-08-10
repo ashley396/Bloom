@@ -20,7 +20,9 @@ import {
   applyProductSyncToggle,
   validateLibraryProduct,
   detectDuplicateImageHash,
-  STARTER_FLORAL_LIBRARY
+  STARTER_FLORAL_LIBRARY,
+  getPublicFloralLibraryCatalog,
+  getFlorisynSignatureCatalog
 } from "../netlify/functions/_shared/floral-library-core.js";
 
 test("website generation from shop profile", () => {
@@ -160,6 +162,18 @@ test("starter library includes hydrangea and roses", () => {
   const names = STARTER_FLORAL_LIBRARY.map((p) => p.name.toLowerCase()).join(" ");
   assert.match(names, /hydrangea/);
   assert.match(names, /rose/);
+});
+
+test("public floral library serves signature collection without auto-generated filler", () => {
+  const catalog = getPublicFloralLibraryCatalog();
+  const signatures = getFlorisynSignatureCatalog();
+  assert.ok(signatures.length >= 8);
+  assert.ok(catalog.length >= signatures.length);
+  assert.ok(catalog.length < 40, "public catalog should stay curated, not hundreds of generated items");
+  assert.ok(catalog.some((p) => p.id === "sig-signature-blush-garden"));
+  assert.ok(catalog.every((p) => p.primary_image?.url));
+  const ids = catalog.map((p) => p.id);
+  assert.equal(new Set(ids).size, ids.length);
 });
 
 test("starter library is marked for ultra-realistic photo-first launch quality", () => {

@@ -81,7 +81,8 @@ function mkProduct(index) {
   const photoId = PEXELS_POOL[index % PEXELS_POOL.length];
   const url = pexelsUrl(photoId);
   const price = 49.99 + (index % 12) * 7.5 + (occ.cat.includes("Luxury") || occ.cat.includes("Wedding") ? 40 : 0);
-  const description = `An ultra-realistic ${style.toLowerCase()} ${flower.toLowerCase()} design for ${occ.cat.toLowerCase()} with licensed starter photography; replace with your own shop work anytime.`;
+  const description = `A ${style.toLowerCase()} ${flower.toLowerCase()} arrangement styled for ${occ.cat.toLowerCase()} — starter recipe and pricing included. Customize the photo and copy for your shop anytime.`;
+  const shortDescription = `${style} ${flower} for ${occ.cat.replace(/ bouquets$/i, "").toLowerCase()}. Ready to add to your catalog.`;
   return {
     id,
     scope: "master",
@@ -91,7 +92,7 @@ function mkProduct(index) {
     suggested_retail: { default: Math.round(price * 100) / 100, min: price * 0.9, max: price * 1.25 },
     suggested_cost: Math.round(price * 0.42 * 100) / 100,
     description,
-    short_description: description.slice(0, 120),
+    short_description: shortDescription,
     primary_image: { url, alt: `${name} ultra-realistic floral arrangement photograph`, hash: hash(`${id}-${url}`) },
     image_license: {
       source: "licensed_stock_pexels",

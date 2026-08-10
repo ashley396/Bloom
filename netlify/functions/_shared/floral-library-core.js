@@ -94,6 +94,173 @@ export function productVisibleOnPublicSite(product, { publishedOnly = true } = {
 
 const ULTRA_REALISTIC_IMAGE_STANDARD = "ultra_realistic_professional_floral_photography";
 
+const SIGNATURE_LIBRARY_BASE = "/assets/floral-library/";
+
+/** Curated Florisyn Studio arrangements — local photos, real names, shop-ready copy. */
+export function getFlorisynSignatureCatalog() {
+  const sig = (cfg) => ({
+    id: cfg.id,
+    scope: "master",
+    source: "florisyn_signature",
+    name: cfg.name,
+    categories: cfg.categories,
+    arrangement_type: "bouquet",
+    short_description: cfg.short,
+    description: cfg.description || cfg.short,
+    suggested_retail: { default: cfg.retail, min: cfg.retail * 0.9, max: cfg.retail * 1.25 },
+    suggested_cost: cfg.cost != null ? cfg.cost : Math.round(cfg.retail * 0.42 * 100) / 100,
+    primary_image: {
+      url: `${SIGNATURE_LIBRARY_BASE}${cfg.image}`,
+      alt: cfg.alt || `${cfg.name} floral arrangement photograph`,
+      hash: simpleHash(cfg.image)
+    },
+    image_license: {
+      source: "Florisyn Studio",
+      attribution: "Florisyn Signature Collection",
+      review_status: "approved"
+    },
+    recipe: (cfg.recipe || []).map((r) => ({ name: r.name, qty: r.qty })),
+    publish_status: "published",
+    tags: [...cfg.categories.map((c) => c.toLowerCase()), "florisyn_signature", "ultra_realistic"],
+    metadata: {
+      image_standard: ULTRA_REALISTIC_IMAGE_STANDARD,
+      launch_quality: "signature_verified",
+      replaceable_by_shop: true
+    }
+  });
+
+  return [
+    sig({
+      id: "sig-everyday-garden-medley",
+      name: "Everyday Garden Medley",
+      categories: ["Everyday"],
+      retail: 64.99,
+      image: "florisyn-everyday-garden-medley.jpg",
+      alt: "Loose garden bouquet of pink roses, white daisies and greenery in a mason jar",
+      short: "A loose, cheerful garden mix in a mason jar — perfect for any day.",
+      recipe: [
+        { name: "Garden Roses", qty: 5 },
+        { name: "White Daisies", qty: 6 },
+        { name: "Blue Statice", qty: 3 },
+        { name: "Mixed Greenery", qty: 5 }
+      ]
+    }),
+    sig({
+      id: "sig-everyday-sunny-bouquet",
+      name: "Sunny Day Bouquet",
+      categories: ["Everyday", "Get Well"],
+      retail: 59.99,
+      image: "florisyn-everyday-sunny-bouquet.jpg",
+      alt: "Cheerful bouquet of sunflowers, daisies and spray roses in a glass vase",
+      short: "Sunflowers and daisies to brighten someone's whole week.",
+      recipe: [
+        { name: "Sunflowers", qty: 3 },
+        { name: "Yellow Daisies", qty: 6 },
+        { name: "Orange Spray Roses", qty: 4 },
+        { name: "Greenery", qty: 4 }
+      ]
+    }),
+    sig({
+      id: "sig-everyday-market-wildflowers",
+      name: "Market Fresh Wildflowers",
+      categories: ["Everyday"],
+      retail: 54.99,
+      image: "florisyn-everyday-market-wildflowers.jpg",
+      alt: "Rustic wildflower gathering in soft pinks, lavender and white",
+      short: "A relaxed, just-picked wildflower gathering with airy texture.",
+      recipe: [
+        { name: "Seasonal Wildflowers", qty: 9 },
+        { name: "Lavender Stems", qty: 4 },
+        { name: "Airy Grasses", qty: 5 }
+      ]
+    }),
+    sig({
+      id: "sig-everyday-rose-pitcher",
+      name: "Simple Rose Pitcher",
+      categories: ["Love & Romance", "Everyday"],
+      retail: 69.99,
+      image: "florisyn-everyday-rose-pitcher.jpg",
+      alt: "Cream and blush roses with eucalyptus in a white ceramic pitcher",
+      short: "Cream and blush roses in a sweet ceramic pitcher — soft and simple.",
+      recipe: [
+        { name: "Cream Roses", qty: 6 },
+        { name: "Blush Roses", qty: 6 },
+        { name: "Eucalyptus", qty: 4 },
+        { name: "Baby's Breath", qty: 3 }
+      ]
+    }),
+    sig({
+      id: "sig-everyday-spring-pastels",
+      name: "Spring Pastels",
+      categories: ["Everyday", "New Baby"],
+      retail: 62.99,
+      image: "florisyn-everyday-spring-pastels.jpg",
+      alt: "Pastel tulips, ranunculus and daffodils in a clear glass vase",
+      short: "Fresh tulips and ranunculus in soft pastels — a breath of spring.",
+      recipe: [
+        { name: "Pastel Tulips", qty: 7 },
+        { name: "Ranunculus", qty: 5 },
+        { name: "Daffodils", qty: 4 },
+        { name: "Foliage", qty: 3 }
+      ]
+    }),
+    sig({
+      id: "sig-everyday-daisies-tulips",
+      name: "Daisies & Tulips",
+      categories: ["Everyday", "Birthday"],
+      retail: 49.99,
+      image: "florisyn-everyday-daisies-tulips.jpg",
+      alt: "White daisies and soft pink tulips with greenery in a glass jar",
+      short: "Bright white daisies and pink tulips — simple, happy, everyday.",
+      recipe: [
+        { name: "White Daisies", qty: 8 },
+        { name: "Pink Tulips", qty: 6 },
+        { name: "Greenery", qty: 4 }
+      ]
+    }),
+    sig({
+      id: "sig-signature-blush-garden",
+      name: "Signature Blush Garden",
+      categories: ["Everyday", "Love & Romance"],
+      retail: 74.99,
+      image: "florisyn-arrangement-signature-blush.jpg",
+      alt: "Blush garden roses with blue and white hydrangea and eucalyptus",
+      short: "Blush garden roses with soft hydrangea and eucalyptus — our signature look.",
+      recipe: [
+        { name: "Blush Garden Roses", qty: 6 },
+        { name: "Blue Hydrangea", qty: 2 },
+        { name: "White Hydrangea", qty: 1 },
+        { name: "Ranunculus", qty: 4 },
+        { name: "Eucalyptus", qty: 5 }
+      ]
+    }),
+    sig({
+      id: "sig-luxury-garden-harmony",
+      name: "Luxury Garden Harmony",
+      categories: ["Luxury arrangements", "Everyday"],
+      retail: 124.99,
+      image: "garden-harmony.jpg",
+      alt: "Premium mixed garden bouquet with hydrangea, roses and seasonal blooms",
+      short: "Layered luxury texture with hydrangea, roses, and seasonal garden blooms.",
+      recipe: [
+        { name: "Hydrangea", qty: 2 },
+        { name: "Roses", qty: 8 },
+        { name: "Seasonal blooms", qty: 10 },
+        { name: "Eucalyptus", qty: 6 }
+      ]
+    })
+  ];
+}
+
+/** Public starter catalog — signature studio shots first, then curated starters (no auto-generated filler). */
+export function getPublicFloralLibraryCatalog() {
+  const byId = new Map();
+  for (const product of [...getFlorisynSignatureCatalog(), ...STARTER_FLORAL_LIBRARY]) {
+    byId.set(product.id, product);
+  }
+  return [...byId.values()];
+}
+
 /** Starter collection — launch-safe, photo-forward, and clearly labeled; expand via import manifest. */
 export const STARTER_FLORAL_LIBRARY = [
   mk("lib-hydrangea-blue", "Blue Hydrangea Garden", "Hydrangeas", 89.99, "Ultra-realistic blue and white hydrangea arrangement with layered eucalyptus.", "licensed_stock_pexels", "https://images.pexels.com/photos/931177/pexels-photo-931177.jpeg?auto=compress&cs=tinysrgb&w=1000", [["Blue Hydrangea", 4], ["Eucalyptus", 5]]),

@@ -139,6 +139,21 @@
         { name: "Ranunculus", qty: 4 },
         { name: "Eucalyptus", qty: 5 }
       ]
+    }),
+    item({
+      id: "sig-luxury-garden-harmony",
+      name: "Luxury Garden Harmony",
+      categories: ["Luxury arrangements", "Everyday"],
+      retail: 124.99,
+      image: "garden-harmony.jpg",
+      alt: "Premium mixed garden bouquet with hydrangea, roses and seasonal blooms",
+      short: "Layered luxury texture with hydrangea, roses, and seasonal garden blooms.",
+      recipe: [
+        { name: "Hydrangea", qty: 2 },
+        { name: "Roses", qty: 8 },
+        { name: "Seasonal blooms", qty: 10 },
+        { name: "Eucalyptus", qty: 6 }
+      ]
     })
   ];
 

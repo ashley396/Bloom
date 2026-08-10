@@ -82,25 +82,26 @@ function showAuth(){location.replace("/login")}
 async function loadPlatformSettings(){try{const d=await api('platform-settings');if($('#roseFoundationTotal'))$('#roseFoundationTotal').textContent=`${money(d.roseFoundationTotal||0)} raised`}catch{}}
 function showApp(){loadPlatformSettings();refreshCommunityFeatureFlag();$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";if(session?.refreshToken&&!window.florisynSessionRefreshTimer)window.florisynSessionRefreshTimer=setInterval(()=>refreshSessionIfNeeded(),5*60*1000);loadStores();loadRemoteAdminConfig();window.BloomLaunchPolish?.init?.({api,mode:"florist"});if(window.FlorisynRouter?.installShowPageBridge){window.showPage=window.FlorisynRouter.installShowPageBridge(showPage)}else window.showPage=showPage;window.BloomLilyPlatform?.init?.({api,toast:toast,showPage:window.showPage,smartAi,loadAiContext,prepareOrderBuilder,loadInventory,renderCustomers});window.api=api;window.loadOrders=loadOrders;window.setPendingPaymentOrder=setPendingPaymentOrder;window.session=session;window.BloomPaymentHub&&(window.BloomPaymentHub.api=api);window.subscriptionCenterApi=api;window.recordLocalPayment=recordLocalPayment;window.BloomLaunchPolish?.refreshPageHelp?.("dashboardPage");window.BloomRose?.mount?.();window.BloomDaisy?.mount?.();window.FlorisynAssistantVoice?.init?.({getScope:()=>{const shop=shopSettings?.shop_id||session?.shopId||session?.user?.default_shop_id||"shop";const user=session?.user?.id||"local";return `${shop}:${user}`},getSpeakEnabled:()=>{const el=$("#assistantSpeak");return el?el.checked:true}});window.BloomLilyVoice?.patchSpeakAssistant?.();window.BloomFirstRun?.showWelcome?.();window.BloomRC21?.initLoadingScreen?.();window.BloomRC21?.tuneLily?.();window.FlorisynRouter?.bootFromLocation?.({replace:true})||window.showPage("dashboardPage")}
 function showPage(id){
-  const run=()=>{
-    if(id==="communityPage"&&!communityBetaEnabled){
-      refreshCommunityFeatureFlag().then((on)=>{if(!on){toast("Florist Community Beta is disabled.");return}showPage("communityPage")});
-      return;
-    }
-    $$(".page").forEach(p=>p.classList.toggle("active",p.id===id));
-    document.body.classList.toggle("florisyn-pos-active", id==="posPage");
-    const routePath=window.FlorisynRouter?.path||window.FlorisynRouter?.PAGE_PATH?.[id]||"";
-    if(window.FlorisynRouter?.syncActiveNav&&routePath)window.FlorisynRouter.syncActiveNav(routePath);
-    else $$("#app aside button[data-page], .mobile-nav button[data-page], .assistant-mini-dock button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));
-    loadPage(id);
-    if(id==="posPage"){
-      window.FlorisynLuxuryPos?.boot?.();
-      window.renderPosCart?.();
-    }
-  };
+  if(id==="communityPage"&&!communityBetaEnabled){
+    refreshCommunityFeatureFlag().then((on)=>{if(!on){toast("Florist Community Beta is disabled.");return}showPage("communityPage")});
+    return;
+  }
   window.BloomLaunchPolish?.onPageStart?.(id);
-  if(window.BloomLaunchPolish?.transitionTo)window.BloomLaunchPolish.transitionTo(id,run);
-  else run();
+  $$(".page").forEach(p=>{
+    const on=p.id===id;
+    p.hidden=!on;
+    p.classList.toggle("active",on);
+  });
+  document.body.classList.toggle("florisyn-pos-active", id==="posPage");
+  const routePath=window.FlorisynRouter?.path||window.FlorisynRouter?.PAGE_PATH?.[id]||"";
+  if(window.FlorisynRouter?.syncActiveNav&&routePath)window.FlorisynRouter.syncActiveNav(routePath);
+  else $$("#app aside button[data-page], .mobile-nav button[data-page], .assistant-mini-dock button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));
+  loadPage(id);
+  if(id==="posPage"){
+    window.FlorisynLuxuryPos?.boot?.();
+    window.renderPosCart?.();
+  }
+  window.BloomLaunchPolish?.refreshPageHelp?.(id);
 }
 async function loadPaymentsPage(){try{pendingPaymentOrder=pendingPaymentOrder||JSON.parse(localStorage.getItem("bloom_pending_payment_order")||"null")}catch{}renderPaymentCenterShell();if(window.BloomPaymentHub){window.BloomPaymentHub.api=api;try{await window.BloomPaymentHub.load(true)}catch(e){const msg=e?.message||"Payment Hub could not load.";if($("#paymentStatus"))$("#paymentStatus").textContent=msg;toast(msg)}}await applyPaymentHubCheckout()}
 async function loadEcosystemPage(){window.FlorisynBusinessOs?.boot?.();if(window.BloomEcosystem){window.bloomEcosystemApi=api;try{await window.BloomEcosystem.load()}catch{}}}

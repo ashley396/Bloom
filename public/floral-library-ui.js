@@ -15,19 +15,21 @@
 
   async function loadMaster() {
     if (masterCache) return masterCache;
-    let items = [];
+    const signature = signatureCollection();
+    let remote = [];
     if (window.api) {
       try {
         const d = await window.api("floral-library?action=starter", { method: "GET" });
-        items = Array.isArray(d.products) ? d.products : [];
+        remote = Array.isArray(d.products) ? d.products : [];
       } catch {
-        items = [];
+        remote = [];
       }
     }
-    // Fall back to the curated Florisyn Signature Collection so the Library is
-    // never empty (offline, backend down, or before the catalog is seeded).
-    if (!items.length) items = signatureCollection();
-    masterCache = items;
+    const merged = new Map();
+    for (const p of [...signature, ...remote]) {
+      if (p?.id) merged.set(p.id, p);
+    }
+    masterCache = merged.size ? [...merged.values()] : signature;
     return masterCache;
   }
 
@@ -69,7 +71,7 @@
             return `<article class="product-card floral-library-card" data-library-id="${esc(p.id)}">
         ${imageHtml}
         <div class="body"><span class="badge">${esc(p.categories?.[0] || "Floral")}</span>
-        <h3>${esc(p.name)}</h3><p>${esc(p.short_description || p.description)}</p>
+        <h3>${esc(p.name)}</h3><p>${esc(p.short_description || p.description || "")}</p>
         <div class="price">${money(p.suggested_retail?.default)}</div>
         <div class="recipe-preview"><strong>Recipe</strong><span>${recipeLine || "Starter stems included"}</span></div>
         <div class="library-recipe-meta"><span>${stems} stems</span><span>~${designMin} min design</span><span>Est. profit ${money(profit)}</span></div>
@@ -92,12 +94,46 @@
     bindActions();
   }
 
+  function openLibraryPreview(id) {
+    const p = getMaster().find((x) => x.id === id);
+    if (!p) return;
+    const form = document.getElementById("libraryDesignForm");
+    const dialog = document.getElementById("libraryDesignDialog");
+    if (!form || !dialog) {
+      window.toast?.("Preview is loading — try again in a moment.");
+      return;
+    }
+    form.elements.name.value = p.name || "";
+    form.elements.category.value = p.categories?.[0] || "Everyday";
+    form.elements.price.value = Number(p.suggested_retail?.default || 0);
+    form.elements.description.value = p.description || p.short_description || "";
+    form.elements.image_url.value = p.primary_image?.url || "";
+    const img = document.getElementById("libraryDesignImage");
+    if (img) {
+      img.src = p.primary_image?.url || "";
+      img.hidden = !p.primary_image?.url;
+      img.alt = p.primary_image?.alt || p.name || "Floral arrangement";
+    }
+    const rows = document.getElementById("libraryRecipeRows");
+    if (rows) {
+      rows.innerHTML = (p.recipe || [])
+        .map(
+          (r, i) => `<div class="library-recipe-row"><label>Flower or supply<input data-library-ingredient value="${esc(r.name)}"></label><label>Quantity<input data-library-quantity type="number" min="0" step=".1" value="${Number(r.qty || 1)}"></label><button type="button" class="secondary danger" data-remove-library-line="${i}">Delete line</button></div>`
+        )
+        .join("");
+    }
+    dialog.showModal();
+  }
+
   function bindActions() {
     document.querySelectorAll("[data-library-add]").forEach((btn) =>
       btn.addEventListener("click", () => addToShop(btn.dataset.libraryAdd, "published"))
     );
     document.querySelectorAll("[data-library-draft]").forEach((btn) =>
       btn.addEventListener("click", () => addToShop(btn.dataset.libraryDraft, "draft"))
+    );
+    document.querySelectorAll("[data-library-preview]").forEach((btn) =>
+      btn.addEventListener("click", () => openLibraryPreview(btn.dataset.libraryPreview))
     );
   }
 

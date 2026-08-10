@@ -10,6 +10,11 @@
 .floral-library-card .body p {
   white-space: normal;
   overflow-wrap: anywhere;
+  overflow: visible;
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  max-height: none;
 }
 
 /* --- Arrangement imagery: consistent 4:3 so bouquet tops aren't "cut short".

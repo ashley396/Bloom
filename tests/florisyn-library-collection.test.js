@@ -20,7 +20,8 @@ const COLLECTION = loadCollection();
 // Mirrors the <select id="libraryCategory"> options in index.html.
 const ALLOWED_CATEGORIES = new Set([
   "Hydrangeas", "Birthday", "Love & Romance", "Sympathy", "Funeral",
-  "Wedding", "Everyday", "New Baby", "Get Well", "Congratulations", "Plants"
+  "Wedding", "Everyday", "New Baby", "Get Well", "Congratulations", "Plants",
+  "Luxury arrangements"
 ]);
 
 test("collection is a non-empty array with unique ids", () => {
