@@ -9,15 +9,15 @@ import {
   LAUNCH_MODES,
   lilyWebsiteDraftRequiresApproval
 } from "./_shared/bloom-instant-website.js";
-import { buildPublishedSeoBundle } from "../../../lib/seo/published-site-seo.js";
-import { buildPublishChecklist, validatePageSeoUpdate } from "../../../lib/website-studio/publish-checklist.js";
+import { buildPublishedSeoBundle } from "../../lib/seo/published-site-seo.js";
+import { buildPublishChecklist, validatePageSeoUpdate } from "../../lib/website-studio/publish-checklist.js";
 import {
   buildDnsInstructions,
   verifyDomainDns,
   mergeDomainStatus,
   normalizeDomain
-} from "../../../lib/website-studio/domain-verification.js";
-import { LILY_INTERVIEW_STEPS, buildWizardPayload } from "../../../lib/website-studio/lily-interview.js";
+} from "../../lib/website-studio/domain-verification.js";
+import { LILY_INTERVIEW_STEPS, buildWizardPayload } from "../../lib/website-studio/lily-interview.js";
 import {
   applyTextEdit,
   applyImageReplace,
