@@ -6,7 +6,7 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
 
-  const CATEGORIES = ["Design Help", "Business Advice", "Questions", "Celebrations"];
+  const CATEGORIES = ["Design Help", "Business Advice", "Questions", "Celebrations", "Arrangement Share"];
   let state = {
     loading: false,
     error: null,
@@ -18,6 +18,7 @@
     openComments: null,
   };
   let pendingImageDataUrl = null;
+  let pendingAvatarDataUrl = null;
 
   async function api(action, extra = {}, method = "POST") {
     const fn = window.bloomCommunityApi || window.api;
@@ -56,9 +57,18 @@
 
   function renderEmpty() {
     return `<div class="community-state community-empty">
-      <h3>No posts yet</h3>
-      <p>Be the first florist to share a design tip, business question, or celebration.</p>
+      <h3>Your florist feed is quiet</h3>
+      <p>Share an arrangement photo, design tip, or question — the way you would on social, but florist-only.</p>
     </div>`;
+  }
+
+  function avatarHtml(profile, { size = "md", alt = "Florist profile photo" } = {}) {
+    const url = profile?.avatar_url;
+    const initials = esc(String(profile?.display_name || "F").trim().charAt(0).toUpperCase() || "F");
+    if (url) {
+      return `<img class="community-avatar community-avatar-${size}" src="${esc(url)}" alt="${esc(alt)}" loading="lazy" width="48" height="48">`;
+    }
+    return `<span class="community-avatar community-avatar-${size} community-avatar-fallback" aria-hidden="true">${initials}</span>`;
   }
 
   function guidelinesHtml(list) {
@@ -71,43 +81,68 @@
 
   function profileForm(profile) {
     const p = profile || {};
+    const previewSrc = pendingAvatarDataUrl || p.avatar_url || "";
+    const previewInner = previewSrc
+      ? `<img id="communityAvatarPreview" class="community-avatar community-avatar-xl" src="${esc(previewSrc)}" alt="Your profile photo">`
+      : `<span id="communityAvatarPreview" class="community-avatar community-avatar-xl community-avatar-fallback">${esc(
+          String(p.display_name || "F").trim().charAt(0).toUpperCase() || "F"
+        )}</span>`;
     return `<form id="communityProfileForm" class="community-profile panel">
-      <div class="community-profile-head">
-        <div>
-          <p class="eyebrow">YOUR FLORIST PROFILE</p>
-          <h3>How other florists see you</h3>
-          <p class="subtle">Never include customer or order details in your bio.</p>
+      <div class="community-profile-social">
+        <div class="community-profile-photo-col">
+          ${previewInner}
+          <label class="community-avatar-upload">
+            <span class="primary community-avatar-upload-btn">Change photo</span>
+            <input type="file" id="communityAvatarInput" accept="image/jpeg,image/png,image/webp" hidden>
+          </label>
+          ${
+            p.avatar_url || pendingAvatarDataUrl
+              ? `<button type="button" class="secondary community-avatar-remove" id="communityAvatarRemove">Remove photo</button>`
+              : ""
+          }
         </div>
-      </div>
-      <div class="two">
-        <label>Display name<input name="display_name" required maxlength="80" value="${esc(p.display_name || "")}"></label>
-        <label>Shop name<input name="shop_display_name" required maxlength="120" value="${esc(p.shop_display_name || "")}"></label>
-      </div>
-      <div class="two">
-        <label>City<input name="city" maxlength="80" value="${esc(p.city || "")}"></label>
-        <label>Region / state<input name="region" maxlength="80" value="${esc(p.region || "")}"></label>
-      </div>
-      <label>Short bio<textarea name="bio" maxlength="500" rows="2" placeholder="Specialty, years in business, what you love designing…">${esc(p.bio || "")}</textarea></label>
-      <div class="card-actions">
-        <button type="submit" class="secondary">Save profile</button>
+        <div class="community-profile-fields">
+          <p class="eyebrow">YOUR FLORIST PROFILE</p>
+          <h3>${esc(p.display_name || "Your florist identity")}</h3>
+          <p class="subtle">Profile photos and arrangement posts work like Instagram or Facebook — but only for florists. Never include customer or order details.</p>
+          <div class="two">
+            <label>Display name<input name="display_name" required maxlength="80" value="${esc(p.display_name || "")}"></label>
+            <label>Shop name<input name="shop_display_name" required maxlength="120" value="${esc(p.shop_display_name || "")}"></label>
+          </div>
+          <div class="two">
+            <label>City<input name="city" maxlength="80" value="${esc(p.city || "")}"></label>
+            <label>Region / state<input name="region" maxlength="80" value="${esc(p.region || "")}"></label>
+          </div>
+          <label>Short bio<textarea name="bio" maxlength="500" rows="2" placeholder="Specialty, style, years in business…">${esc(p.bio || "")}</textarea></label>
+          <div class="card-actions">
+            <button type="submit" class="primary">Save profile</button>
+          </div>
+        </div>
       </div>
     </form>`;
   }
 
   function composerHtml() {
+    const p = state.profile || {};
     const opts = CATEGORIES.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
     return `<form id="communityComposer" class="community-composer panel">
-      <p class="eyebrow">SHARE WITH FLORISTS</p>
-      <h3>Create a post</h3>
+      <div class="community-composer-head">
+        ${avatarHtml(p, { size: "sm", alt: "Your profile" })}
+        <div>
+          <p class="eyebrow">CREATE A POST</p>
+          <h3>Share with florists</h3>
+        </div>
+      </div>
       <label>Category<select name="category" required>${opts}</select></label>
-      <label>Caption<input name="caption" required maxlength="280" placeholder="What are you sharing?"></label>
-      <label>Details (optional)<textarea name="body" maxlength="4000" rows="3" placeholder="Tips, questions, or celebration notes — no customer info."></textarea></label>
-      <label>Arrangement photo (optional, max 2 MB)
+      <label>Caption<input name="caption" required maxlength="280" placeholder="What's on your design bench today?"></label>
+      <label>Details (optional)<textarea name="body" maxlength="4000" rows="3" placeholder="Recipe tips, mechanics, or business advice — no customer info."></textarea></label>
+      <label class="community-photo-upload">
+        <span class="community-photo-upload-label">📷 Arrangement photo (optional, max 2 MB)</span>
         <input type="file" id="communityImageInput" accept="image/jpeg,image/png,image/webp">
       </label>
       <img id="communityImagePreview" class="community-image-preview" alt="" hidden>
       <div class="card-actions">
-        <button type="submit" class="primary">Post to Community</button>
+        <button type="submit" class="primary">Post</button>
       </div>
     </form>`;
   }
@@ -138,22 +173,23 @@
       : "";
     return `<article class="community-post panel" data-post-id="${esc(post.id)}">
       <header class="community-post-head">
-        <div>
+        ${avatarHtml(author, { size: "md", alt: `${author.display_name || "Florist"} profile photo` })}
+        <div class="community-post-author">
           <strong>${esc(author.display_name || "Florist")}</strong>
-          <span class="subtle"> · ${esc(author.shop_display_name || "")}${author.city ? ` · ${esc(author.city)}` : ""}</span>
+          <span class="subtle">${esc(author.shop_display_name || "")}${author.city ? ` · ${esc(author.city)}` : ""}</span>
           <p class="community-category">${esc(post.category)}</p>
         </div>
-        <time class="subtle" datetime="${esc(post.created_at || "")}">${esc(formatWhen(post.created_at))}</time>
+        <time class="subtle community-post-time" datetime="${esc(post.created_at || "")}">${esc(formatWhen(post.created_at))}</time>
       </header>
+      ${img}
       <h3 class="community-caption">${esc(post.caption)}</h3>
       ${post.body ? `<p class="community-body">${esc(post.body)}</p>` : ""}
-      ${img}
       <div class="community-actions">
         <button type="button" class="secondary community-like${post.liked ? " liked" : ""}" data-id="${esc(post.id)}" aria-pressed="${post.liked ? "true" : "false"}">
-          ${post.liked ? "Encouraged" : "Encourage"} · ${Number(post.like_count || 0)}
+          ${post.liked ? "♥ Encouraged" : "♡ Encourage"} · ${Number(post.like_count || 0)}
         </button>
         <button type="button" class="secondary community-toggle-comments" data-id="${esc(post.id)}">
-          Comments · ${Number(post.comment_count || 0)}
+          💬 ${Number(post.comment_count || 0)}
         </button>
         <button type="button" class="secondary community-report" data-id="${esc(post.id)}">Report</button>
         ${mine}
@@ -195,9 +231,9 @@
 
     el.innerHTML = `<div class="community-shell">
       <div class="community-hero">
-        <p class="eyebrow">FLORIST COMMUNITY <span class="community-beta-pill">Beta</span></p>
-        <h2>Learn and celebrate with fellow florists</h2>
-        <p class="subtle">Share design help, business advice, questions, and celebrations. No customer or order data — ever.</p>
+        <p class="eyebrow">FLORIST SOCIAL <span class="community-beta-pill">Beta</span></p>
+        <h2>Your florist feed</h2>
+        <p class="subtle">Profile photos, arrangement posts, encourages, and comments — like Instagram or Facebook, built only for flower shops.</p>
       </div>
       ${guidelinesHtml(state.guidelines)}
       ${profileForm(state.profile)}
@@ -209,35 +245,14 @@
     bind();
   }
 
-  function bind() {
+  function bindFileImage(inputId, onDataUrl, previewSelector) {
     const el = root();
-    if (!el) return;
-
-    el.querySelector("#communityProfileForm")?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      setStatus("Saving profile…");
-      try {
-        const res = await api("save_profile", {
-          display_name: fd.get("display_name"),
-          shop_display_name: fd.get("shop_display_name"),
-          city: fd.get("city"),
-          region: fd.get("region"),
-          bio: fd.get("bio"),
-        });
-        state.profile = res.profile;
-        setStatus("Profile saved.");
-      } catch (err) {
-        setStatus(err.message || "Could not save profile.");
-      }
-    });
-
-    el.querySelector("#communityImageInput")?.addEventListener("change", (e) => {
+    el.querySelector(inputId)?.addEventListener("change", (e) => {
       const file = e.target.files?.[0];
-      pendingImageDataUrl = null;
-      const preview = el.querySelector("#communityImagePreview");
+      onDataUrl(null);
+      const preview = el.querySelector(previewSelector);
       if (!file) {
-        if (preview) preview.hidden = true;
+        if (preview?.tagName === "IMG") preview.hidden = true;
         return;
       }
       if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
@@ -252,14 +267,129 @@
       }
       const reader = new FileReader();
       reader.onload = () => {
-        pendingImageDataUrl = reader.result;
-        if (preview) {
-          preview.src = pendingImageDataUrl;
-          preview.hidden = false;
-        }
+        onDataUrl(reader.result);
+        render();
       };
       reader.readAsDataURL(file);
     });
+  }
+
+  function bind() {
+    const el = root();
+    if (!el) return;
+
+    el.querySelector("#communityProfileForm")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      setStatus("Saving profile…");
+      try {
+        const payload = {
+          display_name: fd.get("display_name"),
+          shop_display_name: fd.get("shop_display_name"),
+          city: fd.get("city"),
+          region: fd.get("region"),
+          bio: fd.get("bio"),
+        };
+        if (pendingAvatarDataUrl) payload.avatar_data_url = pendingAvatarDataUrl;
+        const res = await api("save_profile", payload);
+        state.profile = res.profile;
+        pendingAvatarDataUrl = null;
+        setStatus("Profile saved.");
+        render();
+      } catch (err) {
+        setStatus(err.message || "Could not save profile.");
+      }
+    });
+
+    el.querySelector("#communityAvatarRemove")?.addEventListener("click", async () => {
+      pendingAvatarDataUrl = null;
+      setStatus("Removing profile photo…");
+      try {
+        const fd = new FormData(el.querySelector("#communityProfileForm"));
+        const res = await api("save_profile", {
+          display_name: fd.get("display_name"),
+          shop_display_name: fd.get("shop_display_name"),
+          city: fd.get("city"),
+          region: fd.get("region"),
+          bio: fd.get("bio"),
+          remove_avatar: true,
+        });
+        state.profile = res.profile;
+        setStatus("Profile photo removed.");
+        render();
+      } catch (err) {
+        setStatus(err.message || "Could not remove photo.");
+      }
+    });
+
+    el.querySelector("#communityAvatarInput")?.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        setStatus("Please choose a JPEG, PNG, or WebP image.");
+        e.target.value = "";
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        setStatus("Image must be under 2 MB.");
+        e.target.value = "";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        pendingAvatarDataUrl = reader.result;
+        const col = el.querySelector(".community-profile-photo-col");
+        const old = col?.querySelector(".community-avatar-xl, #communityAvatarPreview");
+        if (col && old) {
+          const img = document.createElement("img");
+          img.id = "communityAvatarPreview";
+          img.className = "community-avatar community-avatar-xl";
+          img.src = pendingAvatarDataUrl;
+          img.alt = "Your profile photo";
+          old.replaceWith(img);
+        }
+        if (!col?.querySelector("#communityAvatarRemove")) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "secondary community-avatar-remove";
+          btn.id = "communityAvatarRemove";
+          btn.textContent = "Remove photo";
+          btn.addEventListener("click", async () => {
+            pendingAvatarDataUrl = null;
+            setStatus("Removing profile photo…");
+            try {
+              const form = el.querySelector("#communityProfileForm");
+              const fd = new FormData(form);
+              const res = await api("save_profile", {
+                display_name: fd.get("display_name"),
+                shop_display_name: fd.get("shop_display_name"),
+                city: fd.get("city"),
+                region: fd.get("region"),
+                bio: fd.get("bio"),
+                remove_avatar: true,
+              });
+              state.profile = res.profile;
+              setStatus("Profile photo removed.");
+              render();
+            } catch (err) {
+              setStatus(err.message || "Could not remove photo.");
+            }
+          });
+          col?.append(btn);
+        }
+        setStatus("Photo ready — click Save profile.");
+      };
+      reader.readAsDataURL(file);
+    });
+
+    bindFileImage("#communityImageInput", (url) => {
+      pendingImageDataUrl = url;
+      const preview = el.querySelector("#communityImagePreview");
+      if (preview && url) {
+        preview.src = url;
+        preview.hidden = false;
+      }
+    }, "#communityImagePreview");
 
     el.querySelector("#communityComposer")?.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -275,6 +405,7 @@
         await api("create_post", payload);
         pendingImageDataUrl = null;
         setStatus("Post published.");
+        e.target.reset();
         await load({ keepCategory: true });
       } catch (err) {
         setStatus(err.message || "Could not publish.");
@@ -383,14 +514,17 @@
       (items || [])
         .map(
           (c) => `<div class="community-comment">
-          <strong>${esc(c.author?.display_name || "Florist")}</strong>
-          <span class="subtle"> · ${esc(formatWhen(c.created_at))}</span>
-          <p>${esc(c.body)}</p>
-          ${
-            c.is_mine || c.can_moderate
-              ? `<button type="button" class="secondary community-delete-comment" data-id="${esc(c.id)}">Delete</button>`
-              : ""
-          }
+          ${avatarHtml(c.author || {}, { size: "xs", alt: "" })}
+          <div class="community-comment-body">
+            <strong>${esc(c.author?.display_name || "Florist")}</strong>
+            <span class="subtle"> · ${esc(formatWhen(c.created_at))}</span>
+            <p>${esc(c.body)}</p>
+            ${
+              c.is_mine || c.can_moderate
+                ? `<button type="button" class="secondary community-delete-comment" data-id="${esc(c.id)}">Delete</button>`
+                : ""
+            }
+          </div>
         </div>`
         )
         .join("") || `<p class="subtle">No comments yet.</p>`;
@@ -414,7 +548,7 @@
         box.innerHTML = renderComments(postId, state.comments[postId]);
         bindCommentForm(box, postId);
         const likeBtn = root()?.querySelector(`.community-toggle-comments[data-id="${postId}"]`);
-        if (likeBtn && post) likeBtn.textContent = `Comments · ${post.comment_count}`;
+        if (likeBtn && post) likeBtn.textContent = `💬 ${post.comment_count}`;
       } catch (err) {
         setStatus(err.message);
       }
@@ -442,8 +576,6 @@
     state.error = null;
     render();
     try {
-      const qs = { action: "feed" };
-      if (state.category) qs.category = state.category;
       const fn = window.bloomCommunityApi || window.api;
       if (!fn) throw new Error("Sign in required.");
       const params = new URLSearchParams();

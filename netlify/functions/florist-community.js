@@ -9,6 +9,7 @@ import {
   COMMUNITY_IMAGE_BUCKET,
   COMMUNITY_SIGNED_URL_SECONDS,
   validateProfileBody,
+  validateProfileAvatarUpload,
   validatePostBody,
   validateCommentBody,
   validateReportBody,
@@ -21,6 +22,7 @@ import {
 } from "./_shared/florist-community.js";
 import {
   uploadPrevalidatedCommunityImage,
+  uploadPrevalidatedCommunityAvatar,
   removeCommunityImageQuietly,
   reconcileCommunityImageAfterWriteError,
 } from "./_shared/florist-community-storage.js";
@@ -164,10 +166,22 @@ function moderatorForPost(ctx, post, platformAdmin) {
   return false;
 }
 
+const PROFILE_COLUMNS =
+  "user_id,shop_id,display_name,shop_display_name,city,region,bio,avatar_path,updated_at";
+
+async function profileForApi(client, row) {
+  if (!row) return null;
+  const signed = await signedImageUrl(client, row.avatar_path);
+  return publicProfile(row, {
+    avatarUrl: signed.url,
+    avatarExpiresIn: signed.expiresIn,
+  });
+}
+
 async function loadProfile(client, userId) {
   const { data, error } = await client
     .from("florist_community_profiles")
-    .select("user_id,shop_id,display_name,shop_display_name,city,region,bio,updated_at")
+    .select(PROFILE_COLUMNS)
     .eq("user_id", userId)
     .maybeSingle();
   if (error) {
@@ -203,7 +217,7 @@ async function ensureDefaultProfile(client, ctx) {
   const { data, error } = await client
     .from("florist_community_profiles")
     .upsert(row, { onConflict: "user_id" })
-    .select("user_id,shop_id,display_name,shop_display_name,city,region,bio,updated_at")
+    .select(PROFILE_COLUMNS)
     .single();
   if (error) {
     if (missingRelation(error)) friendlyMissing();
@@ -245,10 +259,11 @@ async function attachAuthors(client, posts) {
   if (!ids.length) return posts;
   const { data, error } = await client
     .from("florist_community_profiles")
-    .select("user_id,shop_id,display_name,shop_display_name,city,region,bio,updated_at")
+    .select(PROFILE_COLUMNS)
     .in("user_id", ids);
   if (error) throw error;
-  const map = new Map((data || []).map((p) => [p.user_id, p]));
+  const profiles = await Promise.all((data || []).map((row) => profileForApi(client, row)));
+  const map = new Map(profiles.filter(Boolean).map((p) => [p.user_id, p]));
   return (posts || []).map((p) => ({ ...p, author: map.get(p.author_user_id) || null }));
 }
 
@@ -342,7 +357,7 @@ export async function handler(event) {
       if (action === "profile") {
         requireParticipant(ctx);
         const profile = await ensureDefaultProfile(client, ctx);
-        return json(200, { profile: publicProfile(profile), guidelines: COMMUNITY_GUIDELINES });
+        return json(200, { profile: await profileForApi(client, profile), guidelines: COMMUNITY_GUIDELINES });
       }
       if (action === "comments") {
         requireParticipant(ctx);
@@ -417,7 +432,7 @@ export async function handler(event) {
         assertCommunitySafePayload({
           beta: true,
           enabled: true,
-          profile: publicProfile(profile),
+          profile: await profileForApi(client, profile),
           guidelines: COMMUNITY_GUIDELINES,
           categories: COMMUNITY_CATEGORIES,
           image_signed_url_seconds: COMMUNITY_SIGNED_URL_SECONDS,
@@ -434,22 +449,40 @@ export async function handler(event) {
       requireParticipant(ctx);
       const v = validateProfileBody(body);
       if (!v.valid) return json(400, { error: v.errors.join(" ") });
+      const existing = await loadProfile(client, user.id);
+      const avatarCheck = await validateProfileAvatarUpload(body);
+      if (!avatarCheck.valid) return json(400, { error: avatarCheck.error });
+
+      let avatarPath = existing?.avatar_path || null;
+      if (avatarCheck.remove) {
+        if (existing?.avatar_path) await removeCommunityImageQuietly(client, existing.avatar_path);
+        avatarPath = null;
+      } else if (avatarCheck.image) {
+        const up = await uploadPrevalidatedCommunityAvatar(client, shopId, user.id, avatarCheck.image);
+        if (!up.ok) return json(400, { error: up.error });
+        if (existing?.avatar_path && existing.avatar_path !== up.path) {
+          await removeCommunityImageQuietly(client, existing.avatar_path);
+        }
+        avatarPath = up.path;
+      }
+
       const payload = {
         user_id: user.id,
         shop_id: shopId,
         ...v.sanitized,
+        avatar_path: avatarPath,
         updated_at: new Date().toISOString(),
       };
       const { data, error } = await client
         .from("florist_community_profiles")
         .upsert(payload, { onConflict: "user_id" })
-        .select("user_id,shop_id,display_name,shop_display_name,city,region,bio,updated_at")
+        .select(PROFILE_COLUMNS)
         .single();
       if (error) {
         if (missingRelation(error)) friendlyMissing();
         throw error;
       }
-      return json(200, { profile: publicProfile(data) });
+      return json(200, { profile: await profileForApi(client, data) });
     }
 
     if (action === "create_post") {

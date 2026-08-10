@@ -44,6 +44,7 @@ test("community categories match product requirements", () => {
     "Business Advice",
     "Questions",
     "Celebrations",
+    "Arrangement Share",
   ]);
 });
 
@@ -273,6 +274,9 @@ test("florist-community function enforces flag, membership, signed URLs, RPCs", 
   assert.match(src, /moderatorForPost\(ctx, data, platformAdmin\)/);
   assert.doesNotMatch(src, /community_admin_check_failed/);
   assert.match(src, /community_admin_check_degraded/);
+  assert.match(src, /avatar_path/);
+  assert.match(src, /uploadPrevalidatedCommunityAvatar/);
+  assert.match(src, /validateProfileAvatarUpload/);
   assert.doesNotMatch(src, /Unable to verify platform admin authorization/);
   assert.match(src, /validatePostBody/);
   assert.match(src, /uploadPrevalidatedCommunityImage/);

@@ -19,6 +19,7 @@ const files = [
   "supabase/legacy_migrations/20260731_florist_community_beta_v1.sql",
   "supabase/legacy_migrations/20260731_florist_community_beta_v1_r1_security.sql",
   "supabase/migrations/20260810210000_growth_rpc_grants.sql",
+  "supabase/migrations/20260810230000_florist_community_profile_avatar.sql",
 ];
 
 function cleanSql(sql) {

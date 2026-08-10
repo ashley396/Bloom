@@ -7,6 +7,7 @@ import {
   COMMUNITY_IMAGE_ALLOWED_MIMES,
   COMMUNITY_IMAGE_BUCKET,
   COMMUNITY_IMAGE_MAX_BYTES,
+  communityAvatarPath,
   communityImagePath,
   isStoragePath,
 } from "./florist-community.js";
@@ -79,6 +80,22 @@ export async function uploadPrevalidatedCommunityImage(client, shopId, userId, p
       upsert: false,
     });
   if (error) return { ok: false, error: "Image upload failed." };
+  return { ok: true, path };
+}
+
+/** Upload a sanitized profile avatar to the private Community bucket. */
+export async function uploadPrevalidatedCommunityAvatar(client, shopId, userId, prevalidatedImage) {
+  const check = assertPrevalidatedCommunityImage(prevalidatedImage);
+  if (!check.ok) return { ok: false, error: check.error };
+
+  const path = communityAvatarPath(shopId, userId, prevalidatedImage.mime);
+  const { error } = await client.storage
+    .from(COMMUNITY_IMAGE_BUCKET)
+    .upload(path, prevalidatedImage.buffer, {
+      contentType: prevalidatedImage.mime,
+      upsert: false,
+    });
+  if (error) return { ok: false, error: "Profile photo upload failed." };
   return { ok: true, path };
 }
 
