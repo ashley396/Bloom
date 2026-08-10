@@ -30,6 +30,7 @@ import { runCloudflareGenerate } from "./ai-assistant.js";
 import {
   sanitizeRecipeDraft,
   generateRecipeWithCloudflare,
+  buildLocalRecipeDraftFromPost,
   recipeToProductItems,
   publicRecipeSummary,
 } from "./_shared/florist-community-recipes.js";
@@ -922,18 +923,28 @@ export async function handler(event) {
         return json(400, { error: "This post already has a published recipe." });
       }
       let draft;
-      try {
-        draft = await generateRecipeWithCloudflare(runCloudflareGenerate, {
-          caption: post.caption,
-          body: post.body,
-          category: post.category,
-          has_arrangement_photo: true,
-          note: "Estimate realistic stem counts florists can copy. No customer or order data.",
-        });
-      } catch (error) {
-        const e = new Error(error.message || "Lily could not build a recipe right now.");
-        e.statusCode = error.statusCode || 503;
-        throw e;
+      let lilySource = "cloudflare";
+      const generated = await generateRecipeWithCloudflare(runCloudflareGenerate, {
+        caption: post.caption,
+        body: post.body,
+        category: post.category,
+        has_arrangement_photo: true,
+        note: "Estimate realistic stem counts florists can copy. No customer or order data.",
+      }, {
+        onCloudError: (error) => {
+          console.warn(
+            JSON.stringify({
+              level: "warn",
+              message: "community_recipe_cloudflare_degraded",
+              detail: String(error?.message || error).slice(0, 200),
+            })
+          );
+        },
+      });
+      draft = generated.draft;
+      if (!draft) {
+        draft = buildLocalRecipeDraftFromPost(post);
+        lilySource = "local_fallback";
       }
       if (!draft) return json(502, { error: "Lily could not build a recipe from this post. Try again." });
       const { data, error } = await client
@@ -954,6 +965,7 @@ export async function handler(event) {
       const signed = await signedImageUrl(client, data.image_path);
       return json(200, {
         recipe_draft: draft,
+        lily_source: lilySource,
         item: publicPost(data, {
           isMine: true,
           imageUrl: signed.url,

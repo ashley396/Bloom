@@ -7,6 +7,8 @@ import {
   recipeToProductItems,
   publicRecipeSummary,
   RECIPE_AI_SCHEMA,
+  buildLocalRecipeDraftFromPost,
+  generateRecipeWithCloudflare,
 } from "../netlify/functions/_shared/florist-community-recipes.js";
 
 test("sanitizeRecipeDraft requires title and stem lines", () => {
@@ -59,9 +61,32 @@ test("RECIPE_AI_SCHEMA documents Lily output shape", () => {
   assert.ok(Array.isArray(RECIPE_AI_SCHEMA.recipe));
 });
 
+test("buildLocalRecipeDraftFromPost creates editable starter recipe", () => {
+  const draft = buildLocalRecipeDraftFromPost({
+    caption: "Modern Floral",
+    category: "Arrangement Share",
+    body: "Bright garden mix",
+  });
+  assert.equal(draft.name, "Modern Floral");
+  assert.ok(draft.recipe.length >= 3);
+});
+
+test("generateRecipeWithCloudflare falls back when cloud AI fails", async () => {
+  const out = await generateRecipeWithCloudflare(
+    async () => {
+      throw new Error("Cloud AI offline");
+    },
+    { caption: "Test" }
+  );
+  assert.equal(out.draft, null);
+  assert.equal(out.source, "unavailable");
+});
+
 test("florist-community handler wires Lily recipe actions", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
   assert.match(src, /generate_recipe/);
+  assert.match(src, /buildLocalRecipeDraftFromPost/);
+  assert.match(src, /local_fallback/);
   assert.match(src, /save_recipe_draft/);
   assert.match(src, /publish_recipe/);
   assert.match(src, /import_recipe_to_shop/);
@@ -73,9 +98,17 @@ test("florist-community handler wires Lily recipe actions", () => {
 test("community UI exposes Lily recipe controls", () => {
   const ui = fs.readFileSync(path.join(process.cwd(), "public/community-ui.js"), "utf8");
   assert.match(ui, /Build recipe with Lily/);
+  assert.match(ui, /recipeUi/);
+  assert.match(ui, /community-post-image-wrap/);
   assert.match(ui, /generate_recipe/);
   assert.match(ui, /publish_recipe/);
   assert.match(ui, /import_recipe_to_shop/);
+});
+
+test("community post images use contain layout", () => {
+  const css = fs.readFileSync(path.join(process.cwd(), "public/community.css"), "utf8");
+  assert.match(css, /community-post-image-wrap/);
+  assert.match(css, /object-fit: contain/);
 });
 
 test("avatar migration includes community recipes tables", () => {

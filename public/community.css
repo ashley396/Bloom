@@ -243,11 +243,35 @@
   font-size: 0.82rem;
 }
 
+.community-post-image-wrap {
+  margin: 0 0 0.65rem;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f8f2f5;
+  line-height: 0;
+}
+
 .community-post-image,
 .community-image-preview {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: none;
+  object-fit: contain;
+  object-position: center center;
   border-radius: 12px;
-  max-height: min(72vh, 640px);
-  margin: 0 0 0.65rem;
+  margin: 0;
+}
+
+.community-post .community-post-image {
+  object-fit: contain !important;
+}
+
+.community-recipe-busy {
+  margin: 0.35rem 0;
+  font-weight: 650;
+  color: #2f5d3a;
 }
 
 .community-caption {
