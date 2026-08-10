@@ -377,11 +377,12 @@ test("parseDataUrl enforces size before base64 decode", () => {
 
 test("create/update use prevalidated v.image once; storage module has no sharp", () => {
   const handler = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
-  assert.match(handler, /uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image\)/g);
+  assert.match(handler, /uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image,/g);
   assert.equal(
-    (handler.match(/uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image\)/g) || []).length,
+    (handler.match(/uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image,/g) || []).length,
     2
   );
+  assert.match(handler, /communityStorageClient\(\)/);
   const storage = fs.readFileSync(
     path.join(process.cwd(), "netlify/functions/_shared/florist-community-storage.js"),
     "utf8"

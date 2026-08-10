@@ -182,6 +182,10 @@ const POST_COLUMNS =
 const RECIPE_COLUMNS =
   "id,post_id,author_user_id,author_shop_id,title,description,category,recipe,instructions,suggested_retail,image_path,status,import_count,created_at,updated_at";
 
+function communityStorageClient() {
+  return adminIfConfigured();
+}
+
 async function profileForApi(client, row) {
   if (!row) return null;
   const signed = await signedImageUrl(client, row.avatar_path);
@@ -546,7 +550,9 @@ export async function handler(event) {
         if (existing?.avatar_path) await removeCommunityImageQuietly(client, existing.avatar_path);
         avatarPath = null;
       } else if (avatarCheck.image) {
-        const up = await uploadPrevalidatedCommunityAvatar(client, shopId, user.id, avatarCheck.image);
+        const up = await uploadPrevalidatedCommunityAvatar(client, shopId, user.id, avatarCheck.image, {
+          storageClient: communityStorageClient(),
+        });
         if (!up.ok) return json(400, { error: up.error });
         if (existing?.avatar_path && existing.avatar_path !== up.path) {
           await removeCommunityImageQuietly(client, existing.avatar_path);
@@ -581,7 +587,9 @@ export async function handler(event) {
       let imagePath = null;
       let uploadedPath = null;
       if (v.image) {
-        const up = await uploadPrevalidatedCommunityImage(client, shopId, user.id, v.image);
+        const up = await uploadPrevalidatedCommunityImage(client, shopId, user.id, v.image, {
+          storageClient: communityStorageClient(),
+        });
         if (!up.ok) return json(400, { error: up.error });
         imagePath = up.path;
         uploadedPath = up.path;
@@ -659,7 +667,9 @@ export async function handler(event) {
       let uploadedPath = null;
       const previousPath = existing.image_path || null;
       if (v.image) {
-        const up = await uploadPrevalidatedCommunityImage(client, shopId, user.id, v.image);
+        const up = await uploadPrevalidatedCommunityImage(client, shopId, user.id, v.image, {
+          storageClient: communityStorageClient(),
+        });
         if (!up.ok) return json(400, { error: up.error });
         patch.image_path = up.path;
         uploadedPath = up.path;

@@ -63,39 +63,72 @@ export function assertPrevalidatedCommunityImage(image, { maxBytes = COMMUNITY_I
   return { ok: true };
 }
 
+async function uploadCommunityBuffer(client, path, buffer, mime, { storageClient = null, logCode = "community_image_upload_failed" } = {}) {
+  const uploaders = storageClient && storageClient !== client ? [storageClient, client] : [client];
+  for (const uploader of uploaders) {
+    const { error } = await uploader.storage.from(COMMUNITY_IMAGE_BUCKET).upload(path, buffer, {
+      contentType: mime,
+      upsert: false,
+    });
+    if (!error) return { ok: true };
+  }
+  console.error(JSON.stringify({ level: "warn", message: logCode, bucket: COMMUNITY_IMAGE_BUCKET }));
+  return { ok: false };
+}
+
 /**
  * Upload a prevalidated sanitized Community image.
  * Accepts only the sanitize result object (valid, sanitized, buffer, mime).
- * Does not decode payloads or re-run image sanitization.
+ * Uses service-role storage when provided (after server-side auth checks).
  */
-export async function uploadPrevalidatedCommunityImage(client, shopId, userId, prevalidatedImage) {
+export async function uploadPrevalidatedCommunityImage(
+  client,
+  shopId,
+  userId,
+  prevalidatedImage,
+  { storageClient = null } = {}
+) {
   const check = assertPrevalidatedCommunityImage(prevalidatedImage);
   if (!check.ok) return { ok: false, error: check.error };
 
   const path = communityImagePath(shopId, userId, prevalidatedImage.mime);
-  const { error } = await client.storage
-    .from(COMMUNITY_IMAGE_BUCKET)
-    .upload(path, prevalidatedImage.buffer, {
-      contentType: prevalidatedImage.mime,
-      upsert: false,
-    });
-  if (error) return { ok: false, error: "Image upload failed." };
+  const uploaded = await uploadCommunityBuffer(client, path, prevalidatedImage.buffer, prevalidatedImage.mime, {
+    storageClient,
+    logCode: "community_image_upload_failed",
+  });
+  if (!uploaded.ok) {
+    return {
+      ok: false,
+      error:
+        "Image upload failed. In Supabase, ensure the private florist-community storage bucket and upload policies are applied.",
+    };
+  }
   return { ok: true, path };
 }
 
 /** Upload a sanitized profile avatar to the private Community bucket. */
-export async function uploadPrevalidatedCommunityAvatar(client, shopId, userId, prevalidatedImage) {
+export async function uploadPrevalidatedCommunityAvatar(
+  client,
+  shopId,
+  userId,
+  prevalidatedImage,
+  { storageClient = null } = {}
+) {
   const check = assertPrevalidatedCommunityImage(prevalidatedImage);
   if (!check.ok) return { ok: false, error: check.error };
 
   const path = communityAvatarPath(shopId, userId, prevalidatedImage.mime);
-  const { error } = await client.storage
-    .from(COMMUNITY_IMAGE_BUCKET)
-    .upload(path, prevalidatedImage.buffer, {
-      contentType: prevalidatedImage.mime,
-      upsert: false,
-    });
-  if (error) return { ok: false, error: "Profile photo upload failed." };
+  const uploaded = await uploadCommunityBuffer(client, path, prevalidatedImage.buffer, prevalidatedImage.mime, {
+    storageClient,
+    logCode: "community_avatar_upload_failed",
+  });
+  if (!uploaded.ok) {
+    return {
+      ok: false,
+      error:
+        "Profile photo upload failed. In Supabase, ensure the private florist-community storage bucket and upload policies are applied.",
+    };
+  }
   return { ok: true, path };
 }
 
