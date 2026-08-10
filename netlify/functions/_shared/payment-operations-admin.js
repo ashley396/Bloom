@@ -49,8 +49,16 @@ export function buildPaymentOperationsMetrics({
     (r) => r.status === "failed" || r.error_message?.includes("attention")
   ).length;
 
-  const emailHealth = process.env.BLOOM_EMAIL_PROVIDER || process.env.BLOOM_EMAIL_WEBHOOK_URL ? "configured" : "not_configured";
-  const smsHealth = process.env.BLOOM_SMS_PROVIDER || process.env.BLOOM_SMS_WEBHOOK_URL ? "configured" : "not_configured";
+  const emailHealth =
+    process.env.BLOOM_EMAIL_PROVIDER ||
+    process.env.BLOOM_EMAIL_WEBHOOK_URL ||
+    process.env.RESEND_API_KEY
+      ? "configured"
+      : "not_configured";
+  const smsHealth =
+    process.env.BLOOM_SMS_PROVIDER || process.env.BLOOM_SMS_WEBHOOK_URL || process.env.TWILIO_AUTH_TOKEN
+      ? "configured"
+      : "not_configured";
 
   return {
     bloom_technologies_saas: {

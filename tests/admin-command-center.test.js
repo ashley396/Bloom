@@ -124,18 +124,45 @@ test("admin remote editor keeps account, appearance, navigation, features, and s
     "sidebar",
     "nav_order",
     "nav_hidden",
+    "app_background_image",
+    "dashboard_image",
+    "logo_image",
+    "layout_mode",
+    "button_labels",
+    "tab_labels",
     "plan_code",
     "subscription_status",
     "account_status"
   ]) {
     assert.match(html, new RegExp(`name="${name}"`));
   }
+  assert.match(html, /data-tab="content"/);
+  assert.match(html, /Edit florist pages \(Design Mode\)/);
   assert.match(js, /const FEATURES=\[[^\]]*'website'/);
   assert.match(js, /const FEATURES=\[[^\]]*'lily'/);
   assert.match(js, /const FEATURES=\[[^\]]*'rose'/);
   assert.match(js, /action:'update-shop'/);
   assert.match(js, /action:'save-config'/);
+  assert.match(js, /parseJsonField\('button_labels'\)/);
+  assert.match(js, /parseJsonField\('tab_labels'\)/);
+  assert.match(js, /florisynDesign=1/);
+  assert.match(js, /florisynImageEdit=1/);
   assert.match(js, /action:'update-subscription'/);
   assert.match(js, /#saveShop/);
   assert.match(js, /#saveSubscription/);
+});
+
+
+test("admin command center soft-fails permission-denied HQ reads", () => {
+  const src = fs.readFileSync(new URL("../netlify/functions/admin-command-center.js", import.meta.url), "utf8");
+  assert.match(src, /function isSoftReadError/);
+  assert.match(src, /42501/);
+  assert.match(src, /permission denied/);
+  assert.match(src, /safeSelect\(client, "shop_subscriptions"/);
+  assert.match(src, /safeSelect\(client, "platform_announcements"/);
+});
+
+test("payment operations treats Resend as configured email", () => {
+  const src = fs.readFileSync(new URL("../netlify/functions/_shared/payment-operations-admin.js", import.meta.url), "utf8");
+  assert.match(src, /RESEND_API_KEY/);
 });

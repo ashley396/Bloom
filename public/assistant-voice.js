@@ -187,6 +187,19 @@
     return false;
   }
 
+  async function playUploadedVoice(persona) {
+    const play = window.FlorisynUiEditor?.playCustomVoice;
+    if (typeof play === "function") return play(persona);
+    const voice = window.FlorisynUiEditor?.getCustomVoice?.(persona);
+    if (!voice?.dataUrl || typeof Audio === "undefined") return false;
+    try {
+      await new Audio(voice.dataUrl).play();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async function speak(persona, text, options = {}) {
     const who = persona === "Rose" ? "Rose" : persona === "Daisy" ? "Daisy" : "Lily";
     const force = Boolean(options.force);
@@ -194,7 +207,16 @@
     if (respectToggle && !force && ctx.getSpeakEnabled?.() === false) return false;
 
     const clean = Core.prepareAssistantSpeechText(text);
-    if (!clean) return false;
+    if (!clean && !options.preferUploadedVoice) return false;
+
+    // Admin-uploaded custom voice samples (visual studio) — play when requested or for Daisy.
+    if (options.preferUploadedVoice || options.sampleOnly || who === "Daisy") {
+      const uploaded = await playUploadedVoice(who);
+      if (uploaded) return true;
+      if (options.sampleOnly || who === "Daisy") return false;
+    }
+
+    if (who === "Daisy") return false; // Daisy uses uploaded sample voice only
 
     const cfg = loadSettings(who);
     if (cfg.engine === "cloud") {
@@ -206,16 +228,16 @@
   }
 
   function mountPersonaPanel(root, persona) {
-    const id = persona === "Rose" ? "roseVoicePanel" : persona === "Daisy" ? "daisyVoicePanel" : "lilyVoicePanel";
+    const id = persona === "Rose" ? "roseVoicePanel" : "lilyVoicePanel";
     if (!root || root.querySelector(`#${id}`)) return;
     const cfg = loadSettings(persona);
     const def = Core.VOICE_DEFAULTS[persona];
     const blurb =
       persona === "Lily"
-        ? "Warm, friendly, cheerful — creative partner energy."
-        : persona === "Rose"
-          ? "Mature, confident, lightly humorous — never harsh."
-          : "Bright, gentle, encouraging — a soft mascot voice.";
+        ? "Upbeat, warm, and creative — a young partner who makes shop work feel fun."
+        : persona === "Daisy"
+          ? "Cheerful and funny shop-pup energy — short, playful encouragement."
+          : "Wise, steady, and kindly experienced — a calm older advisor.";
 
     root.insertAdjacentHTML(
       "beforeend",
@@ -245,6 +267,16 @@
 
     const panel = root.querySelector(`#${id}`);
     const sel = panel.querySelector(".assistant-voice-select");
+    panel.insertAdjacentHTML(
+      "beforeend",
+      `<div class="dialog-tools" style="margin-top:8px">
+        <label class="secondary" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">Upload custom ${persona} voice
+          <input type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.webm" data-upload-voice="${persona}" hidden>
+        </label>
+        <button type="button" class="secondary" data-play-upload="${persona}">Play upload</button>
+      </div>
+      <p class="subtle" data-upload-voice-meta="${persona}">Custom uploads are managed in Admin → UI Design Mode.</p>`
+    );
 
     function fillSelect() {
       const voices = refreshVoices().filter((v) => /^en/i.test(v.lang || "en-US"));
@@ -268,6 +300,14 @@
       saveSettings(persona, { voiceName: sel.value });
       window.toast?.(`${persona} voice saved for this shop on this device`);
     });
+    panel.querySelector(`[data-upload-voice="${persona}"]`)?.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (file) window.FlorisynUiEditor?.uploadVoice?.(persona, file);
+      e.target.value = "";
+    });
+    panel.querySelector(`[data-play-upload="${persona}"]`)?.addEventListener("click", () => {
+      speak(persona, "", { force: true, sampleOnly: true, preferUploadedVoice: true });
+    });
     panel.querySelector(".assistant-voice-rate")?.addEventListener("input", (e) => {
       saveSettings(persona, { rate: Number(e.target.value) });
     });
@@ -275,7 +315,7 @@
       saveSettings(persona, { pitch: Number(e.target.value) });
     });
     panel.querySelector(".assistant-voice-preview")?.addEventListener("click", () => {
-      speak(persona, def.preview, { force: true, respectToggle: false });
+      speak(persona, def.preview, { force: true, respectToggle: false, preferUploadedVoice: true });
     });
     panel.querySelector(".assistant-voice-restore")?.addEventListener("click", () => {
       const next = restoreDefaults(persona);
@@ -293,15 +333,14 @@
       host.insertAdjacentHTML(
         "afterbegin",
         `<div id="assistantVoiceSettingsIntro" class="assistant-voice-intro">
-          <p class="eyebrow">LILY, ROSE &amp; DAISY</p>
+          <p class="eyebrow">LILY &amp; ROSE</p>
           <h2>Assistant voices</h2>
-          <p class="subtle">Tune how Lily, Rose, and Daisy sound on this device. Settings are saved per shop and user.</p>
+          <p class="subtle">Tune how Lily and Rose sound on this device. Settings are saved per shop and user.</p>
         </div>`
       );
     }
     mountPersonaPanel(host, "Lily");
     mountPersonaPanel(host, "Rose");
-    mountPersonaPanel(host, "Daisy");
     const legacyLily = host.querySelector("#lilyVoiceRc2");
     if (legacyLily) legacyLily.remove();
   }

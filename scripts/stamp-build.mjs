@@ -50,7 +50,11 @@ const bustedFiles = [
   "app.js",
   "pricing-catalog.js",
   "admin-a11y-polish.css",
-  "pricing.css"
+  "florisyn-router.js",
+  "florisyn-luxury-pos.js",
+  "florisyn-luxury-orders.js",
+  "florisyn-luxury-business-os.js",
+  "florisyn-atelier-dashboard.js"
 ];
 
 for (const rel of cacheBustTargets) {

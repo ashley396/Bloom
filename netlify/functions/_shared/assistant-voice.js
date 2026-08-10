@@ -8,21 +8,21 @@ export const VOICE_DEFAULTS = {
     pitch: 1.08,
     volume: 0.95,
     preview:
-      "Hi, I'm Lily. I'll help with flowers, recipes, websites, and creative ideas in a warm, cheerful voice."
+      "Hey! I'm Lily — your upbeat creative partner. Let's dream up gorgeous designs, recipes, and fresh ideas for the shop!"
   },
   Rose: {
     rate: 0.88,
     pitch: 0.94,
     volume: 0.95,
     preview:
-      "Good morning, Rose here. Let's calmly check what is due today, what needs attention, and where the money is."
+      "Good morning, dear. I'm Rose. Let's look at what's due today, what's unpaid, and what needs your wise attention — calmly and clearly."
   },
   Daisy: {
     rate: 0.98,
     pitch: 1.12,
     volume: 0.9,
     preview:
-      "Hi, I'm Daisy. I'll stay nearby with a bright, gentle voice and never interrupt your work."
+      "Hi! I'm Daisy — cheerful, funny, and here with a little shop sparkle whenever you need a smile."
   }
 };
 
