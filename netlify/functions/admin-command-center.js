@@ -48,9 +48,10 @@ async function safeCount(client, table) {
     const { count, error } = await client.from(table).select("*", { count: "exact", head: true });
     if (error) throw error;
     return count || 0;
-  } catch (error) {
-    if (isMissingTableError(error)) return null;
-    throw error;
+  } catch {
+    // Missing table, permission, or a transient error → treat the metric as
+    // unknown (null). Never fail the whole admin dashboard for one count.
+    return null;
   }
 }
 
@@ -64,6 +65,7 @@ export function createAdminCommandCenterHandler(deps = {}) {
     const ip = clientIp(event);
 
     if (event.httpMethod === "GET" && action === "dashboard") {
+      try {
       const monthStart = new Date();
       monthStart.setUTCDate(1);
       monthStart.setUTCHours(0, 0, 0, 0);
@@ -164,6 +166,23 @@ export function createAdminCommandCenterHandler(deps = {}) {
         },
         charts
       });
+      } catch (dashboardError) {
+        // The dashboard aggregates many optional tables; a single failure must
+        // never 500 the entire admin console. Return a degraded-but-valid payload.
+        return json(200, {
+          admin,
+          degraded: true,
+          note: "Some dashboard metrics are temporarily unavailable.",
+          kpis: {
+            total_florists: null, total_wholesalers: null, total_marketplace_sellers: null,
+            total_marketplace_listings: null, pending_florist_verifications: null,
+            pending_seller_verifications: null, pending_marketplace_approvals: null,
+            total_orders: null, gross_marketplace_sales: 0, marketplace_revenue: 0,
+            monthly_recurring_revenue: 0, active_subscriptions: 0, ai_requests_today: null, online_users: null
+          },
+          charts: { revenue: [], new_customers: [], marketplace_orders: [], subscription_growth: [] }
+        });
+      }
     }
 
     if (event.httpMethod === "GET" && action === "users") {

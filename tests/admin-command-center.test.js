@@ -9,6 +9,7 @@ import {
   sanitizeSubscriptionForAdmin,
   DEFAULT_FEATURE_FLAGS
 } from "../netlify/functions/_shared/command-center.js";
+import { createAdminCommandCenterHandler } from "../netlify/functions/admin-command-center.js";
 import fs from "node:fs";
 
 const adminHtml = () => fs.readFileSync(new URL("../public/admin.html", import.meta.url), "utf8");
@@ -74,6 +75,39 @@ test("announcement audience validation accepts florist targeting", () => {
   });
   assert.equal(valid.valid, true);
   assert.equal(valid.audience, "florists");
+});
+
+test("admin dashboard degrades to 200 (never 500s) when backend queries fail", async () => {
+  const activeAdmin = { data: { user_id: "u1", role: "super_admin", active: true }, error: null };
+  function adminQuery() {
+    const q = {
+      select() { return q; },
+      eq() { return q; },
+      maybeSingle() { return Promise.resolve(activeAdmin); },
+      then(res, rej) { return Promise.resolve(activeAdmin).then(res, rej); }
+    };
+    return q;
+  }
+  function failingQuery() {
+    const fail = () => Promise.reject(new Error("simulated db outage"));
+    const q = {
+      select() { return q; }, eq() { return q; }, in() { return q; }, order() { return q; },
+      limit() { return q; }, gte() { return q; }, ilike() { return q; },
+      maybeSingle() { return fail(); },
+      then(res, rej) { return fail().then(res, rej); }
+    };
+    return q;
+  }
+  const client = { from(table) { return table === "platform_admins" ? adminQuery() : failingQuery(); } };
+  const handler = createAdminCommandCenterHandler({
+    authenticate: async () => ({ user: { id: "u1" } }),
+    createServerClient: () => client
+  });
+  const res = await handler({ httpMethod: "GET", queryStringParameters: { action: "dashboard" }, headers: {} });
+  assert.equal(res.statusCode, 200);
+  const body = JSON.parse(res.body);
+  assert.ok(body.kpis, "dashboard still returns a kpis object when queries fail");
+  assert.ok(body.charts, "dashboard still returns charts when queries fail");
 });
 
 test("admin remote editor keeps account, appearance, navigation, features, and subscription edits wired", () => {
