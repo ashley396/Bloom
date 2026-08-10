@@ -86,6 +86,12 @@ async function cloudflareAi(payload){
   if(payload.mode==="generate")return {result:cleanJson(text)||{text},provider:"Cloudflare Workers AI",model,promptChars:user.length};
   return {answer:text,persona:payload.persona||"Lily",provider:"Cloudflare Workers AI",model,promptChars:user.length};
 }
+
+/** Shared Cloudflare generate/chat entry for other Netlify handlers. */
+export async function runCloudflareGenerate(payload) {
+  return cloudflareAi(payload);
+}
+
 export async function handler(event){
   const ready=preflight(event);if(ready)return ready;if(event.httpMethod!=="POST")return methodNotAllowed();
   try{await currentUser(event);const payload=bodyOf(event);if(!payload.prompt&&!payload.task)return json(400,{error:"Add a prompt or task."});return json(200,await cloudflareAi(payload))}

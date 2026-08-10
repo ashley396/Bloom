@@ -10,6 +10,7 @@ export const COMMUNITY_CATEGORIES = Object.freeze([
   "Business Advice",
   "Questions",
   "Celebrations",
+  "Arrangement Share",
 ]);
 
 export const COMMUNITY_GUIDELINES = Object.freeze([
@@ -18,6 +19,8 @@ export const COMMUNITY_GUIDELINES = Object.freeze([
   "One arrangement photo per post. Upload only images you have rights to share.",
   "No spam, promotions for non-floral scams, or off-topic sales pitches.",
   "Report posts that break these guidelines. Moderators may hide or remove content.",
+  "Add a profile photo so fellow florists recognize you — like social media, but florist-only.",
+  "On arrangement photos, Lily can draft a stem-count recipe you can publish for other florists or add to your shop.",
   "This Community is a Beta. Features may change; private messaging and groups are not available.",
 ]);
 
@@ -320,6 +323,20 @@ export function validateProfileBody(body = {}) {
   };
 }
 
+export async function validateProfileAvatarUpload(body = {}) {
+  if (body.remove_avatar) {
+    return { valid: true, remove: true, image: null };
+  }
+  if (!body.avatar_data_url) {
+    return { valid: true, remove: false, image: null };
+  }
+  const image = await validateCommunityImageUpload({ dataUrl: body.avatar_data_url });
+  if (!image.valid) {
+    return { valid: false, error: image.error, remove: false, image: null };
+  }
+  return { valid: true, remove: false, image };
+}
+
 export async function validatePostBody(body = {}) {
   const category = String(body.category || "").trim();
   const caption = sanitizeText(body.caption, 280);
@@ -389,7 +406,7 @@ export function assertCommunitySafePayload(obj) {
   return obj;
 }
 
-export function publicProfile(row) {
+export function publicProfile(row, { avatarUrl = null, avatarExpiresIn = null } = {}) {
   if (!row) return null;
   return assertCommunitySafePayload({
     user_id: row.user_id,
@@ -399,16 +416,26 @@ export function publicProfile(row) {
     city: row.city || null,
     region: row.region || null,
     bio: row.bio || null,
+    avatar_url: avatarUrl,
+    avatar_url_expires_in: avatarExpiresIn,
     updated_at: row.updated_at || null,
   });
 }
 
 export function publicPost(
   row,
-  { liked = false, isMine = false, canModerate = false, imageUrl = null, imageExpiresIn = null } = {}
+  {
+    liked = false,
+    isMine = false,
+    canModerate = false,
+    imageUrl = null,
+    imageExpiresIn = null,
+    publishedRecipe = null,
+  } = {}
 ) {
   if (!row) return null;
-  return assertCommunitySafePayload({
+  const recipeStatus = String(row.recipe_status || "none");
+  const payload = {
     id: row.id,
     category: row.category,
     caption: row.caption,
@@ -424,6 +451,11 @@ export function publicPost(
     liked: Boolean(liked),
     is_mine: Boolean(isMine),
     can_moderate: Boolean(canModerate),
+    recipe_status: recipeStatus,
+    can_build_recipe: Boolean(
+      isMine && row.image_path && recipeStatus !== "published" && recipeStatus !== "imported"
+    ),
+    published_recipe: publishedRecipe || null,
     author: row.author
       ? publicProfile(row.author)
       : {
@@ -435,7 +467,11 @@ export function publicPost(
           region: row.author_region || null,
           bio: null,
         },
-  });
+  };
+  if (isMine && row.recipe_draft) {
+    payload.recipe_draft = row.recipe_draft;
+  }
+  return assertCommunitySafePayload(payload);
 }
 
 export function publicComment(row, { isMine = false, canModerate = false } = {}) {
@@ -467,6 +503,12 @@ export function communityImagePublicUrl() {
 export function communityImagePath(shopId, userId, mime) {
   const ext = MIME_EXT[mime] || "jpg";
   return `${shopId}/${userId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+}
+
+/** Profile avatar path — same bucket, distinct filename prefix for readability RPC. */
+export function communityAvatarPath(shopId, userId, mime) {
+  const ext = MIME_EXT[mime] || "jpg";
+  return `${shopId}/${userId}/avatar-${Date.now()}-${crypto.randomUUID()}.${ext}`;
 }
 
 export function isStoragePath(value) {
