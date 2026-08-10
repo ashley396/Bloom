@@ -41,7 +41,8 @@
     "verify:live-staging-smoke": "node scripts/verify-live-staging-smoke.mjs",
     "seo:generate": "node scripts/generate-seo-files.mjs",
     "seo:inject": "node scripts/inject-public-seo.mjs",
-    "verify:website-publish": "node scripts/verify-website-publish-smoke.mjs"
+    "verify:website-publish": "node scripts/verify-website-publish-smoke.mjs",
+    "test:ai-suite": "node --test tests/florisyn-ai-suite.test.js"
   },
   "devDependencies": {
     "jest": "^29.7.0",

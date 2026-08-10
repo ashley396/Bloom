@@ -23,9 +23,27 @@ Set `EXPO_PUBLIC_FLORISYN_API=https://www.florisyn.com` before building producti
 
 ```
 mobile/src/services/apiClient.ts   — resilient fetch wrapper
-mobile/src/services/florisynServices.ts — Lily/Rose/Daisy + API factory
+mobile/src/services/florisynServices.ts — Lily/Rose/Daisy + website API factory
+mobile/src/screens/WebsiteScreen.tsx   — publish status, SEO KPIs, DNS verify
 lib/assistants/registry.js         — canonical assistant definitions (web + server)
 lib/core/resilience.js             — circuit breaker, retry (shared with backend)
+lib/website-studio/                — Lily interview, domain DNS, publish checklist
+```
+
+## Website Studio (mobile)
+
+From **More → Website Studio** or the drawer **Website** entry:
+
+- View draft/published status and SEO title
+- Readiness + SEO scores from `publish_checklist`
+- Verify custom domain DNS
+- Open full web builder for section editing and publish
+
+```typescript
+const svc = createFlorisynServices({ baseUrl, getToken });
+await svc.website.getProject();
+await svc.website.publishChecklist({ project, pages });
+await svc.website.verifyDomain("www.yourshop.com");
 ```
 
 ## High concurrency (1000+ users)
