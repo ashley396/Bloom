@@ -167,7 +167,9 @@
         });
       });
     } catch (e) {
-      root.innerHTML = `<p class="subtle">${esc(e.message)}</p>`;
+      const message = e.message || "Something went wrong loading Florist Network.";
+      root.innerHTML = `<div class="panel" role="alert"><h3>Something went wrong</h3><p class="subtle">${esc(message)}</p><button type="button" class="primary" id="fnRetry">Try again</button></div>`;
+      root.querySelector("#fnRetry")?.addEventListener("click", () => load(root));
     }
   }
 

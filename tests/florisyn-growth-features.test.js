@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { parseFloristExport } from "../lib/migration/florist-import.js";
 import { generateReferralCode, normalizeReferralCode } from "../lib/growth/referral-program.js";
 import { scoreReadiness, MOTHERS_DAY_CHECKLIST } from "../lib/ops/mothers-day-ready.js";
@@ -36,6 +38,14 @@ test("wire orders validate and transition", () => {
   assert.ok(generateWireNumber().startsWith("FN-"));
   assert.equal(canTransitionWire("sent", "accepted"), true);
   assert.equal(canTransitionWire("sent", "delivered"), false);
+});
+
+test("growth Netlify handlers surface friendly migration errors", () => {
+  const network = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-network.js"), "utf8");
+  assert.match(network, /florist_network_not_migrated/);
+  assert.match(network, /could not find the table/);
+  const lily = fs.readFileSync(path.join(process.cwd(), "public/lily-platform.js"), "utf8");
+  assert.match(lily, /marketingDraftFallback/);
 });
 
 test("Florisyn takes zero platform fee on Florist Network wires", () => {
