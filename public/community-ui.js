@@ -624,9 +624,13 @@
           }
           delete state.recipeUi[id];
           const notice =
-            res.lily_source === "local_fallback"
-              ? "Lily drafted a starter recipe you can edit (AI was busy)."
-              : "Recipe draft ready — review and publish when you are happy.";
+            res.lily_source === "cloudflare_vision"
+              ? "Lily read your photo and drafted a stem-count recipe — review before publishing."
+              : res.lily_source === "local_vision_fallback"
+                ? "Lily identified flowers from your photo (AI recipe writer was busy) — edit counts as needed."
+                : res.lily_source === "local_fallback"
+                  ? "Lily drafted a starter recipe you can edit (AI was busy)."
+                  : "Recipe draft ready — review and publish when you are happy.";
           setStatus(notice);
           if (typeof window.toast === "function") window.toast(notice);
           render();

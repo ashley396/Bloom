@@ -98,8 +98,8 @@ function simpleHash(text) {
   return h >>> 0;
 }
 
-export function inferFlowersFromPostText(caption = "", body = "") {
-  const text = `${caption}\n${body}`.trim();
+export function inferFlowersFromPostText(caption = "", body = "", vision = "") {
+  const text = `${vision}\n${caption}\n${body}`.trim();
   if (!text) return [];
   const found = [];
   const used = new Set();
@@ -171,15 +171,16 @@ export function publicRecipeSummary(row, { imageUrl = null } = {}) {
   };
 }
 
-export function buildLocalRecipeDraftFromPost(post = {}) {
+export function buildLocalRecipeDraftFromPost(post = {}, { visionText = "" } = {}) {
   const caption = String(post.caption || "Community arrangement").trim().slice(0, 120);
   const body = String(post.body || "").trim();
+  const vision = String(visionText || "").trim();
   const category =
     String(post.category || "").trim() === "Arrangement Share"
       ? "Everyday"
       : String(post.category || "Everyday").trim().slice(0, 80) || "Everyday";
 
-  let recipe = inferFlowersFromPostText(caption, body);
+  let recipe = inferFlowersFromPostText(caption, body, vision);
   if (!recipe.length) {
     const idx = simpleHash(`${caption}|${body}|${post.id || ""}`) % STYLE_PRESETS.length;
     recipe = STYLE_PRESETS[idx].map((row) => ({ ...row }));
@@ -191,7 +192,9 @@ export function buildLocalRecipeDraftFromPost(post = {}) {
     name: caption || "Florist arrangement",
     description:
       body.slice(0, 2000) ||
-      `Stem-count recipe inspired by "${caption || "your post"}". Lily inferred likely wholesale flowers — edit counts to match your design.`,
+      (vision
+        ? `Stem-count recipe from Lily's photo read: ${vision.slice(0, 400)}. Edit counts to match your design.`
+        : `Stem-count recipe inspired by "${caption || "your post"}". Lily inferred likely wholesale flowers — edit counts to match your design.`),
     category,
     suggested_retail: retailBase,
     container: /vase|jar|basket|box/i.test(`${caption} ${body}`) ? "Designer vase" : "Clear glass vase",
@@ -209,21 +212,33 @@ const RECIPE_GENERATE_TASK = `From a florist's community arrangement post, write
 Rules:
 - Use REAL wholesale flower and foliage names only (Freedom rose, spray rose, hydrangea, alstroemeria, leatherleaf, Israeli ruscus, etc.).
 - NEVER use placeholders like "seasonal focal flower", "accent bloom", or "filler flower".
-- Infer likely flowers from caption, category, and details; vary counts realistically for the described style.
+- When arrangement_photo_analysis is provided, treat it as authoritative for which flowers are in the design.
+- Use caption and details for style, container, and price tier — not to override clear photo evidence.
 - Never include customer, order, or payment data.`;
 
-export async function generateRecipeWithCloudflare(runGenerate, input, { onCloudError } = {}) {
+export async function generateRecipeWithCloudflare(runGenerate, input, { onCloudError, visionText = "" } = {}) {
+  const enriched = {
+    ...input,
+    ...(visionText
+      ? {
+          arrangement_photo_analysis: String(visionText).slice(0, 1500),
+          photo_authority: "Trust the photo analysis for flower IDs when it conflicts with vague captions.",
+        }
+      : {}),
+  };
   try {
     const result = await runGenerate({
       mode: "generate",
       persona: "Lily",
       task: RECIPE_GENERATE_TASK,
-      input,
+      input: enriched,
       schema: RECIPE_AI_SCHEMA,
       max_tokens: 900,
     });
     const draft = sanitizeRecipeDraft(result?.result || result);
-    if (draft) return { draft, source: "cloudflare" };
+    if (draft) {
+      return { draft, source: visionText ? "cloudflare_vision" : "cloudflare" };
+    }
   } catch (error) {
     if (typeof onCloudError === "function") onCloudError(error);
   }
