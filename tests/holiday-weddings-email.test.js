@@ -16,23 +16,14 @@ import {
 
 const root = process.cwd();
 
-test("HOLIDAY_COMMAND_CENTER / EMAIL_CAMPAIGNS / WEDDING_WORKFLOWS default OFF", () => {
+test("HOLIDAY_COMMAND_CENTER / EMAIL_CAMPAIGNS / WEDDING_WORKFLOWS default ON for growth rollout", () => {
   const flags = getFeatureFlags({});
-  assert.equal(flags.HOLIDAY_COMMAND_CENTER, false);
-  assert.equal(flags.EMAIL_CAMPAIGNS, false);
-  assert.equal(flags.WEDDING_WORKFLOWS, false);
-  assert.equal(isFeatureEnabled("HOLIDAY_COMMAND_CENTER", {}), false);
-  assert.equal(isFeatureEnabled("EMAIL_CAMPAIGNS", {}), false);
-  assert.equal(isFeatureEnabled("WEDDING_WORKFLOWS", {}), false);
-  assert.equal(
-    isFeatureEnabled("HOLIDAY_COMMAND_CENTER", { FLORISYN_FLAG_HOLIDAY_COMMAND_CENTER: "true" }),
-    true
-  );
-  assert.equal(isFeatureEnabled("EMAIL_CAMPAIGNS", { FLORISYN_FLAG_EMAIL_CAMPAIGNS: "true" }), true);
-  assert.equal(
-    isFeatureEnabled("WEDDING_WORKFLOWS", { FLORISYN_FLAG_WEDDING_WORKFLOWS: "true" }),
-    true
-  );
+  assert.equal(flags.HOLIDAY_COMMAND_CENTER, true);
+  assert.equal(flags.EMAIL_CAMPAIGNS, true);
+  assert.equal(flags.WEDDING_WORKFLOWS, true);
+  assert.equal(isFeatureEnabled("HOLIDAY_COMMAND_CENTER", {}), true);
+  assert.equal(isFeatureEnabled("EMAIL_CAMPAIGNS", {}), true);
+  assert.equal(isFeatureEnabled("WEDDING_WORKFLOWS", {}), true);
   assert.equal(
     isFeatureEnabled("HOLIDAY_COMMAND_CENTER", { FLORISYN_FLAG_HOLIDAY_COMMAND_CENTER: "false" }),
     false

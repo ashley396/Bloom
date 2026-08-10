@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <script src="/seo/florisyn-seo.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Florisyn florist success stories — real shops using POS, website studio, and peak-season tools.">
+  <title>Case Studies | Florisyn</title>
+  <link rel="icon" href="/assets/florisyn/florisyn-favicon-32.png?v=official1" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="/public-site.css">
+  <link rel="stylesheet" href="/florisyn-atelier-shell.css">
+  <link rel="stylesheet" href="/pricing.css">
+</head>
+<body class="florisyn-atelier-shell">
+  <header class="public-topbar">
+    <a class="public-logo" href="/login"><img src="/assets/florisyn/florisyn-mark.png?v=official1" alt=""><span><strong>Florisyn</strong><small>The Operating System for Modern Florists</small></span></a>
+    <nav class="public-nav"><a href="/company/about/">About</a><a href="/company/pricing/">Pricing</a><a href="/company/case-studies/" aria-current="page">Case studies</a><a href="/help/">Help</a><a href="/login">Sign In</a><a class="nav-cta" href="/signup">Start Free Trial</a></nav>
+  </header>
+  <main class="content-page">
+    <section class="content-hero">
+      <p class="eyebrow">Florists on Florisyn</p>
+      <h1>Shops like yours, growing with Florisyn</h1>
+      <p class="pricing-hero-lead">Independent florists use Florisyn to replace multiple tools, publish SEO-ready websites, and survive peak season with confidence.</p>
+    </section>
+    <section class="pricing-grid" id="caseStudiesGrid" aria-label="Case studies"></section>
+    <section class="pricing-faq">
+      <h2>Refer a florist</h2>
+      <p>Already on Florisyn? Open <strong>Settings → Refer a florist</strong> in your shop dashboard for your personal link. You each get a free month when they subscribe.</p>
+      <a class="primary-btn" style="max-width:320px;margin:24px auto 0" href="/signup">Start your free trial</a>
+    </section>
+  </main>
+  <footer class="site-footer"><div class="footer-bottom"><span>© <span data-current-year></span> Florisyn Technologies</span></div></footer>
+  <script>document.querySelectorAll("[data-current-year]").forEach((e) => (e.textContent = new Date().getFullYear()));</script>
+  <script>
+    fetch("/.netlify/functions/referral-program?action=case-studies")
+      .then((r) => r.json())
+      .then((d) => {
+        const grid = document.getElementById("caseStudiesGrid");
+        grid.innerHTML = (d.studies || []).map((s) => `<article class="pricing-card">
+      <h2>${s.shop}</h2>
+      <p class="pricing-summary">${s.city} · ${s.plan} plan</p>
+      <p><strong>${s.headline}</strong></p>
+      <blockquote style="margin:16px 0;font-style:italic;color:#5f585c">“${s.quote}”</blockquote>
+      <ul class="pricing-features">${s.metrics.map((m) => `<li>${m}</li>`).join("")}</ul>
+      <a class="primary-btn pricing-cta" href="/signup">Start free trial</a>
+    </article>`).join("");
+      });
+  </script>
+</body>
+</html>

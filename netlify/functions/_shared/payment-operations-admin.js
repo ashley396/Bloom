@@ -1,5 +1,7 @@
 /** Admin Payment Operations metrics — separate Bloom SaaS vs florist customer payments. */
 
+import { planPrice } from "./shop-billing.js";
+
 export function buildPaymentOperationsMetrics({
   shopSubscriptions = [],
   subscriptionEvents = [],
@@ -21,7 +23,7 @@ export function buildPaymentOperationsMetrics({
   let bloomMrrMonth = 0;
   for (const s of shopSubscriptions) {
     if (s.status !== "active") continue;
-    const amt = Number(s.metadata?.mrr ?? (s.plan_code === "professional" ? 79 : 0));
+    const amt = Number(s.metadata?.mrr ?? planPrice(s.plan_code) ?? 0);
     bloomMrrMonth += amt;
     if ((s.updated_at || s.created_at || "").slice(0, 10) === today) bloomMrrToday += amt;
   }

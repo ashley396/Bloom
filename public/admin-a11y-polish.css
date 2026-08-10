@@ -1,0 +1,93 @@
+/* Admin HQ — scroll, overflow, and mobile polish (additive). */
+
+main#adminApp aside {
+  overflow: hidden;
+}
+
+main#adminApp aside nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+main#adminApp aside nav button {
+  min-height: 44px;
+  white-space: normal;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.admin-auth {
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.admin-login {
+  max-height: none;
+}
+
+#adminMfaSecret {
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+#adminMfaQr {
+  max-width: 100%;
+  height: auto;
+}
+
+.audit-item {
+  word-break: break-word;
+}
+
+.import-report,
+#libraryImportReport {
+  overflow-x: auto;
+  max-height: 320px;
+  word-break: break-word;
+}
+
+@media (max-width: 760px) {
+  .shop-row,
+  .user-row {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  .shop-row button,
+  .user-row button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .audit-item {
+    grid-template-columns: 1fr !important;
+    gap: 6px;
+  }
+
+  .executive-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+  }
+
+  .header-actions button {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 360px) {
+  .executive-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .metric-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

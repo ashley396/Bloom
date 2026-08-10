@@ -46,46 +46,140 @@
     }
   }
 
-  function setMeta(site, page) {
-    const seo = site?.site?.seo || {};
-    const title = page?.title ? `${page.title} — ${site.site.shop.name}` : seo.title || site.site.shop.name;
-    document.title = title;
-    let desc = document.querySelector('meta[name="description"]');
-    if (!desc) {
-      desc = document.createElement("meta");
-      desc.name = "description";
-      document.head.appendChild(desc);
-    }
-    desc.content = page?.content?.meta_description || seo.meta_description || "";
-    const og = (name, content) => {
-      let m = document.querySelector(`meta[property="${name}"]`);
-      if (!m) {
-        m = document.createElement("meta");
-        m.setAttribute("property", name);
-        document.head.appendChild(m);
-      }
-      m.content = content || "";
-    };
-    og("og:title", title);
-    og("og:description", desc.content);
-    og("og:image", seo.og_image || site.site.shop.hero_image_url || "");
-    injectJsonLd(site);
+  function siteBaseUrl(site) {
+    const resolved = site?.site || {};
+    return String(resolved.base_url || resolved.seo?.base_url || "").replace(/\/$/, "") ||
+      `${location.origin}/store/${state.shopSlug}`;
   }
 
-  function injectJsonLd(site) {
-    const existing = document.getElementById("jsonld-local");
-    existing?.remove();
-    const script = document.createElement("script");
-    script.id = "jsonld-local";
-    script.type = "application/ld+json";
-    script.textContent = JSON.stringify({
-      "@context": "https://schema.org",
-      ...site.site.seo?.local_business_json_ld,
-      name: site.site.shop.name,
-      telephone: site.site.shop.phone,
-      address: site.site.shop.address
+  function pageCanonical(base, page, product) {
+    const root = base.replace(/\/$/, "");
+    if (product) return `${root}/product/${product.id}`;
+    if (!page || page.slug === "home") return `${root}/`;
+    return `${root}/${page.slug}`;
+  }
+
+  function setMeta(site, page, product) {
+    const seo = site?.site?.seo || {};
+    const shopName = site.site.shop.name;
+    const preview = site.preview;
+    const base = siteBaseUrl(site);
+
+    let title;
+    let description;
+    let ogType = "website";
+    if (product) {
+      title = product.seo_title || `${product.name} — ${shopName}`;
+      description = product.short_description || product.description || seo.meta_description || "";
+      ogType = "product";
+    } else {
+      title = page?.content?.seo_title || (page?.title ? `${page.title} — ${shopName}` : seo.title || shopName);
+      description = page?.content?.meta_description || seo.meta_description || `Order flowers from ${shopName}. Delivery and pickup available.`;
+    }
+    const canonical = pageCanonical(base, page, product);
+    const robots = preview ? "noindex,nofollow" : seo.robots || "index,follow,max-image-preview:large";
+    const ogImage = product?.primary_image?.url || seo.og_image || site.site.shop.hero_image_url || "/assets/florisyn/florisyn-official-icon.png";
+
+    document.title = title;
+
+    const upsert = (attr, key, content) => {
+      if (content == null) return;
+      const sel = attr === "name" ? `meta[name="${key}"]` : `meta[property="${key}"]`;
+      let el = document.querySelector(sel);
+      if (!el) {
+        el = document.createElement("meta");
+        if (attr === "name") el.name = key;
+        else el.setAttribute("property", key);
+        document.head.appendChild(el);
+      }
+      el.content = content;
+    };
+
+    upsert("name", "description", String(description).slice(0, 160));
+    upsert("name", "robots", robots);
+    let link = document.querySelector('link[rel="canonical"]');
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "canonical";
+      document.head.appendChild(link);
+    }
+    link.href = canonical;
+
+    upsert("property", "og:type", ogType);
+    upsert("property", "og:title", title);
+    upsert("property", "og:description", String(description).slice(0, 200));
+    upsert("property", "og:url", canonical);
+    upsert("property", "og:image", ogImage);
+    upsert("property", "og:site_name", shopName);
+
+    upsert("name", "twitter:card", "summary_large_image");
+    upsert("name", "twitter:title", title);
+    upsert("name", "twitter:description", String(description).slice(0, 200));
+    upsert("name", "twitter:image", ogImage);
+
+    injectJsonLd(site, page, product, canonical, base);
+  }
+
+  function injectJsonLd(site, page, product, canonical, base) {
+    document.querySelectorAll('script[data-storefront-seo="1"]').forEach((n) => n.remove());
+    const shop = site.site.shop;
+    const seo = site.site.seo || {};
+    const blocks = [];
+
+    if (seo.local_business_json_ld) blocks.push(seo.local_business_json_ld);
+    else {
+      blocks.push({
+        "@context": "https://schema.org",
+        "@type": "Florist",
+        name: shop.name,
+        telephone: shop.phone,
+        url: `${base.replace(/\/$/, "")}/`,
+        address: shop.address,
+        image: seoImage(site)
+      });
+    }
+    if (seo.website_json_ld && !product) blocks.push(seo.website_json_ld);
+
+    if (product) {
+      blocks.push({
+        "@context": "https://schema.org",
+        "@type": "Product",
+        name: product.name,
+        description: product.short_description || product.description,
+        image: product.primary_image?.url,
+        brand: { "@type": "Brand", name: shop.name },
+        offers: {
+          "@type": "Offer",
+          priceCurrency: "USD",
+          price: Number(product.retail_price || 0),
+          availability: "https://schema.org/InStock",
+          url: canonical
+        }
+      });
+    }
+
+    if (page?.slug && page.slug !== "home" && !product) {
+      blocks.push({
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: `${base.replace(/\/$/, "")}/` },
+          { "@type": "ListItem", position: 2, name: page.title, item: canonical }
+        ]
+      });
+    }
+
+    blocks.forEach((block) => {
+      const script = document.createElement("script");
+      script.type = "application/ld+json";
+      script.setAttribute("data-storefront-seo", "1");
+      script.textContent = JSON.stringify(block);
+      document.head.appendChild(script);
     });
-    document.head.appendChild(script);
+  }
+
+  function seoImage(site) {
+    return site?.site?.seo?.og_image || site.site.shop.hero_image_url || "";
   }
 
   function renderNav(pages, shop) {
@@ -114,23 +208,24 @@
   }
 
   function renderSections(sections, shop) {
+    const shopData = state.site?.site?.shop || {};
+    const ctx = {
+      shop,
+      shopName: shopData.name,
+      products: state.products,
+      aboutText: shopData.about_text,
+      hours: shopData.hours,
+      phone: shopData.phone,
+      email: shopData.email,
+      address: shopData.address
+    };
+    if (window.BloomSectionRenderer?.renderSections) {
+      return window.BloomSectionRenderer.renderSections(sections, ctx);
+    }
     return (sections || [])
       .filter((s) => !s.hidden)
       .sort((a, b) => a.order - b.order)
-      .map((s) => {
-        if (s.type === "hero") {
-          return `<section class="sf-section hero"><h1 contenteditable="false">${esc(s.props?.title || "")}</h1><p>${esc(s.props?.subtitle || "")}</p></section>`;
-        }
-        if (s.type === "featured_arrangements" || s.type === "product_collection") {
-          const items = state.products.filter((p) => p.sync?.featured).slice(0, 6);
-          const list = items.length ? items : state.products.slice(0, 6);
-          return `<section class="sf-section"><h2>Featured</h2><div class="product-grid">${list.map((p) => productCard(p, shop)).join("")}</div></section>`;
-        }
-        if (s.type === "about_florist") return `<section class="sf-section"><h2>About</h2><p>${esc(s.props?.text || state.site.site.shop.about_text || "")}</p></section>`;
-        if (s.type === "shop_hours") return `<section class="sf-section"><h2>Hours</h2><p>${esc(s.props?.hours || state.site.site.shop.hours || "")}</p></section>`;
-        if (s.type === "cta_banner") return `<section class="sf-section cta"><p>${esc(s.props?.text || "")}</p><a class="primary" href="/store/${esc(shop)}/shop">Shop now</a></section>`;
-        return `<section class="sf-section"><h2>${esc(s.type.replace(/_/g, " "))}</h2></section>`;
-      })
+      .map((s) => `<section class="sf-section"><h2>${esc(s.type.replace(/_/g, " "))}</h2></section>`)
       .join("");
   }
 
@@ -139,20 +234,23 @@
     const shop = state.shopSlug;
     const pages = state.site.site.pages || [];
     const page = pages.find((p) => p.slug === route.slug) || pages.find((p) => p.slug === "home");
-    setMeta(state.site, page);
     renderNav(pages, shop);
     renderBreadcrumbs(route.slug, pages, shop);
 
     if (route.slug === "product" && route.productId) {
       const p = state.products.find((x) => String(x.id) === String(route.productId));
       if (!p) {
+        setMeta(state.site, page, null);
         main.innerHTML = `<div class="empty-state"><h1>Not found</h1><p>This arrangement is unavailable.</p><a href="/store/${esc(shop)}/shop">Back to shop</a></div>`;
         return;
       }
+      setMeta(state.site, page, p);
       const price = p.sync?.show_price_online ? `$${Number(p.retail_price || 0).toFixed(2)}` : "Call for price";
       main.innerHTML = `<article class="product-detail"><div class="product-detail-grid">${p.primary_image?.url ? `<img src="${esc(p.primary_image.url)}" alt="${esc(p.primary_image.alt || p.name)}" loading="lazy">` : `<div class="img-placeholder">No image</div>`}<div><h1>${esc(p.name)}</h1><p>${esc(p.description || "")}</p><p class="price">${price}</p><button type="button" class="primary add-cart" data-id="${esc(p.id)}">Add to cart</button></div></div></article>`;
       return;
     }
+
+    setMeta(state.site, page, null);
 
     if (route.slug === "shop" || page?.template === "collection") {
       const q = document.getElementById("storefrontSearch")?.value || "";

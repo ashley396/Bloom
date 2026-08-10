@@ -6,6 +6,7 @@ import { fetchWithTimeout, requestIdOf } from "./_shared/upstream.js";
 import { validateEmail } from "./_shared/validation.js";
 import { logAuthEvent, mapAuthProviderFailure, jsonAuthError } from "./_shared/auth-email.js";
 import { sendSignupConfirmationEmail } from "./_shared/auth-confirmation-email.js";
+import { planPrice, validSubscriptionPrices } from "./_shared/shop-billing.js";
 
 export async function handler(event){
   const requestId=requestIdOf(event);
@@ -23,7 +24,7 @@ export async function handler(event){
     const confirmUrl=authRedirectPath(process.env,origin,"/verify-email?confirmed=1");
     const response=await fetchWithTimeout(`${url}/auth/v1/signup?redirect_to=${encodeURIComponent(confirmUrl)}`,{
       method:"POST",headers:{"Content-Type":"application/json",apikey:anonKey,Authorization:`Bearer ${anonKey}`},
-      body:JSON.stringify({email:emailCheck.value,password,data:{full_name:body.fullName||"",shop_name:body.shopName||"My Flower Shop",business_phone:body.businessPhone||"",business_type:body.businessType||"",business_address:body.businessAddress||"",business_city:body.businessCity||"",business_state:body.businessState||"",business_zip:body.businessZip||"",plan_code:["starter","pro","premium"].includes(body.planCode)?body.planCode:"pro",subscription_price:[39,79,129].includes(Number(body.subscriptionPrice))?Number(body.subscriptionPrice):79,trial_days:14,trial_started_at:new Date().toISOString()}})
+      body:JSON.stringify({email:emailCheck.value,password,data:{full_name:body.fullName||"",shop_name:body.shopName||"My Flower Shop",business_phone:body.businessPhone||"",business_type:body.businessType||"",business_address:body.businessAddress||"",business_city:body.businessCity||"",business_state:body.businessState||"",business_zip:body.businessZip||"",plan_code:["starter","pro","premium"].includes(body.planCode)?body.planCode:"pro",subscription_price:validSubscriptionPrices().includes(Number(body.subscriptionPrice))?Number(body.subscriptionPrice):planPrice("professional"),billing_interval:body.billingInterval==="annual"?"annual":"monthly",referral_code:body.referralCode||null,trial_days:14,trial_started_at:new Date().toISOString()}})
     },{timeoutMs:5_000,service:"Account creation service"});
     const data=await response.json().catch(()=>({}));
     if(!response.ok){

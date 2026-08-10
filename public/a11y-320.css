@@ -1,0 +1,139 @@
+/* Florisyn 320px accessibility pass — touch targets, focus, overflow.
+   Additive; loaded last. Targets iPhone SE / narrow Android viewports. */
+
+/* --- Skip link (styled in launch-polish-v1.css) --- */
+.bloom-skip-link:focus {
+  position: fixed;
+  left: 12px;
+  top: 12px;
+  z-index: 9999;
+  padding: 10px 16px;
+  background: #fff;
+  color: #1a2b48;
+  border: 2px solid #4d78d8;
+  border-radius: 10px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+/* --- Global focus-visible on main app chrome --- */
+body.florisyn-atelier button:focus-visible,
+body.florisyn-atelier a:focus-visible,
+body.florisyn-atelier input:focus-visible,
+body.florisyn-atelier select:focus-visible,
+body.florisyn-atelier textarea:focus-visible,
+.mobile-nav button:focus-visible,
+#atelierMenuToggle:focus-visible,
+.atelier-icon-btn:focus-visible {
+  outline: 3px solid #4d78d8;
+  outline-offset: 2px;
+}
+
+/* --- Minimum 44px touch targets --- */
+body.florisyn-atelier .atelier-menu-toggle,
+body.florisyn-atelier .atelier-icon-btn,
+body.florisyn-atelier #logout,
+body.florisyn-atelier #shopSwitcher,
+body.florisyn-atelier .mobile-nav.atelier-mobile-nav > button,
+body.florisyn-atelier .shell > aside button[data-page] {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+body.florisyn-atelier .atelier-menu-toggle {
+  width: 44px;
+  height: 44px;
+}
+
+/* Lily panel tools */
+.lily-platform-toolbar button,
+.lily-platform-tools button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* POS cart qty controls */
+.cart-table button,
+.qty-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media (max-width: 360px) {
+  /* Bottom tabs: icon-forward labels at very narrow widths */
+  body.florisyn-atelier .mobile-nav.atelier-mobile-nav > button span:not(.mnav-ico) {
+    font-size: 9px;
+    letter-spacing: -0.02em;
+  }
+
+  body.florisyn-atelier .atelier-mobile-logo strong {
+    font-size: 1.05rem;
+  }
+
+  /* KPI row stacks on very narrow screens */
+  body.florisyn-atelier .welcome-stats.atelier-kpi-row,
+  body.florisyn-atelier .welcome-stats {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* POS workspace must not force horizontal scroll */
+  .pos-workspace {
+    grid-template-columns: 1fr !important;
+    min-width: 0 !important;
+  }
+
+  .product-pad-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .product-tabs {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  /* Order board kanban scroll hint */
+  .order-board {
+    scroll-padding-inline: 12px;
+  }
+
+  .orders-table thead th {
+    white-space: normal;
+    font-size: 10px;
+    padding: 10px 8px;
+  }
+
+  .orders-table td {
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+
+  .ot-actions {
+    white-space: normal;
+  }
+
+  /* Dialog actions full-width for easier tapping */
+  dialog .actions button,
+  dialog .dialog-tools button {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 320px) {
+  body.florisyn-atelier .content {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  body.florisyn-atelier .mobile-nav.atelier-mobile-nav {
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.florisyn-atelier .shell > aside,
+  body.florisyn-atelier .atelier-sidebar-backdrop {
+    transition: none !important;
+  }
+}

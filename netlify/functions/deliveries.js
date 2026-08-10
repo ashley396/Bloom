@@ -2,6 +2,7 @@ import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail } from "./_shared/supabase.js";
 import { writeShopAudit } from "./_shared/production.js";
 import { requireRowShopId } from "./_shared/shop-scope.js";
+import { optimizeRouteStops } from "../../lib/delivery/route-board.js";
 import {
   uploadDeliveryProof,
   attachDeliveryProofUrls,
@@ -162,6 +163,32 @@ export async function handler(event) {
     }
 
     const body = bodyOf(event);
+
+    if (event.httpMethod === "POST" && body.action === "optimize_route") {
+      const { data: stops, error: listError } = await client
+        .from(TABLE)
+        .select("*")
+        .eq("shop_id", shopId);
+      if (listError) throw listError;
+      const optimized = optimizeRouteStops(stops || []);
+      for (const stop of optimized) {
+        if (stop.route_order == null) continue;
+        await client
+          .from(TABLE)
+          .update({ route_order: stop.route_order })
+          .eq("id", stop.id)
+          .eq("shop_id", shopId);
+      }
+      const { data: refreshed, error: refreshError } = await client
+        .from(TABLE)
+        .select("*")
+        .eq("shop_id", shopId)
+        .order("route_order", { ascending: true, nullsFirst: false })
+        .order(ORDER, { ascending: false });
+      if (refreshError) throw refreshError;
+      const items = await attachDeliveryProofUrls(client, refreshed || []);
+      return json(200, { items, optimized: true });
+    }
 
     if (event.httpMethod === "POST" && (body.action === "capture_proof" || qs.action === "proof")) {
       return captureDeliveryProof(client, shopId, user, body);

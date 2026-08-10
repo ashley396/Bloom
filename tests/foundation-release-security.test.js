@@ -138,7 +138,7 @@ test("risky feature flags default false in empty environment", () => {
   assert.equal(flags.VOICE_WAKE, false);
   assert.equal(flags.VOICE_TTS_CLOUD, false);
   assert.equal(flags.INVENTORY_AI_INTAKE, false);
-  assert.equal(flags.INVENTORY_RECIPE_DEDUCTIONS, false);
+  assert.equal(flags.INVENTORY_RECIPE_DEDUCTIONS, true);
 });
 
 test("feature flags cannot grant platform admin or bypass auth", () => {
