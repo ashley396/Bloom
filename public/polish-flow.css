@@ -34,3 +34,16 @@
   body.florisyn-rc22 .assistant-mini-dock { gap: 8px; }
   body.florisyn-rc22 .assistant-mini-dock small { display: none; }
 }
+
+/* Settings → AI status: replace the harsh terminal-black box with a soft info
+   card that matches the premium design (readable, not monospace). */
+.ai-diagnostic {
+  background: #f7f4ef !important;
+  color: #4b3f36 !important;
+  border: 1px solid #ece5da !important;
+  border-radius: 13px !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  padding: 12px 14px !important;
+}
