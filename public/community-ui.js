@@ -16,6 +16,11 @@
     category: "",
     comments: {},
     openComments: null,
+    composerDraft: {
+      category: CATEGORIES[0],
+      caption: "",
+      body: "",
+    },
   };
   let pendingImageDataUrl = null;
   let pendingAvatarDataUrl = null;
@@ -55,6 +60,41 @@
     el.querySelector("#communityRetry")?.addEventListener("click", () => load());
   }
 
+  function isAllowedImageFile(file) {
+    if (!file) return false;
+    const mime = String(file.type || "").toLowerCase();
+    if (["image/jpeg", "image/png", "image/webp"].includes(mime)) return true;
+    const ext = String(file.name || "").split(".").pop()?.toLowerCase();
+    return ["jpg", "jpeg", "png", "webp"].includes(ext);
+  }
+
+  function captureComposerDraft() {
+    const form = root()?.querySelector("#communityComposer");
+    if (!form) return;
+    const fd = new FormData(form);
+    state.composerDraft = {
+      category: String(fd.get("category") || state.composerDraft.category || CATEGORIES[0]),
+      caption: String(fd.get("caption") || ""),
+      body: String(fd.get("body") || ""),
+    };
+  }
+
+  function resetComposerDraft() {
+    state.composerDraft = { category: CATEGORIES[0], caption: "", body: "" };
+    pendingImageDataUrl = null;
+  }
+
+  function updateComposerImagePreview(dataUrl) {
+    const preview = root()?.querySelector("#communityImagePreview");
+    if (!preview) return;
+    if (dataUrl) {
+      preview.src = dataUrl;
+      preview.hidden = false;
+    } else {
+      preview.removeAttribute("src");
+      preview.hidden = true;
+    }
+  }
   function renderEmpty() {
     return `<div class="community-state community-empty">
       <h3>Your florist feed is quiet</h3>
@@ -124,7 +164,14 @@
 
   function composerHtml() {
     const p = state.profile || {};
-    const opts = CATEGORIES.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+    const draft = state.composerDraft || {};
+    const selectedCategory = draft.category || CATEGORIES[0];
+    const opts = CATEGORIES.map(
+      (c) => `<option value="${esc(c)}"${c === selectedCategory ? " selected" : ""}>${esc(c)}</option>`
+    ).join("");
+    const previewAttrs = pendingImageDataUrl
+      ? `src="${esc(pendingImageDataUrl)}"`
+      : 'hidden aria-hidden="true"';
     return `<form id="communityComposer" class="community-composer panel">
       <div class="community-composer-head">
         ${avatarHtml(p, { size: "sm", alt: "Your profile" })}
@@ -134,13 +181,13 @@
         </div>
       </div>
       <label>Category<select name="category" required>${opts}</select></label>
-      <label>Caption<input name="caption" required maxlength="280" placeholder="What's on your design bench today?"></label>
-      <label>Details (optional)<textarea name="body" maxlength="4000" rows="3" placeholder="Recipe tips, mechanics, or business advice — no customer info."></textarea></label>
+      <label>Caption<input name="caption" required maxlength="280" placeholder="What's on your design bench today?" value="${esc(draft.caption || "")}"></label>
+      <label>Details (optional)<textarea name="body" maxlength="4000" rows="3" placeholder="Recipe tips, mechanics, or business advice — no customer info.">${esc(draft.body || "")}</textarea></label>
       <label class="community-photo-upload">
-        <span class="community-photo-upload-label">📷 Arrangement photo (optional, max 2 MB)</span>
-        <input type="file" id="communityImageInput" accept="image/jpeg,image/png,image/webp">
+        <span class="community-photo-upload-label">📷 Arrangement photo (optional, max 2 MB, JPG/PNG/WebP)</span>
+        <input type="file" id="communityImageInput" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp">
       </label>
-      <img id="communityImagePreview" class="community-image-preview" alt="" hidden>
+      <img id="communityImagePreview" class="community-image-preview" alt="Arrangement preview" ${previewAttrs}>
       <div class="card-actions">
         <button type="submit" class="primary">Post</button>
       </div>
@@ -269,13 +316,16 @@
     const el = root();
     if (!el) return;
     if (state.loading) {
+      captureComposerDraft();
       renderLoading(el);
       return;
     }
     if (state.error) {
+      captureComposerDraft();
       renderError(el, state.error);
       return;
     }
+    captureComposerDraft();
     const feed =
       state.items.length === 0
         ? renderEmpty()
@@ -301,14 +351,9 @@
     const el = root();
     el.querySelector(inputId)?.addEventListener("change", (e) => {
       const file = e.target.files?.[0];
-      onDataUrl(null);
-      const preview = el.querySelector(previewSelector);
-      if (!file) {
-        if (preview?.tagName === "IMG") preview.hidden = true;
-        return;
-      }
-      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-        setStatus("Please choose a JPEG, PNG, or WebP image.");
+      if (!file) return;
+      if (!isAllowedImageFile(file)) {
+        setStatus("Please choose a JPEG, PNG, or WebP image (iPhone HEIC is not supported yet).");
         e.target.value = "";
         return;
       }
@@ -317,10 +362,16 @@
         e.target.value = "";
         return;
       }
+      captureComposerDraft();
       const reader = new FileReader();
       reader.onload = () => {
         onDataUrl(reader.result);
-        render();
+        updateComposerImagePreview(reader.result);
+        setStatus("Photo attached — your caption is saved. Click Post when ready.");
+      };
+      reader.onerror = () => {
+        setStatus("Could not read that image file. Try another photo.");
+        e.target.value = "";
       };
       reader.readAsDataURL(file);
     });
@@ -453,29 +504,28 @@
 
     bindFileImage("#communityImageInput", (url) => {
       pendingImageDataUrl = url;
-      const preview = el.querySelector("#communityImagePreview");
-      if (preview && url) {
-        preview.src = url;
-        preview.hidden = false;
-      }
     }, "#communityImagePreview");
 
     el.querySelector("#communityComposer")?.addEventListener("submit", async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
+      const caption = String(fd.get("caption") || "").trim();
+      if (!caption) {
+        setStatus("Caption is required.");
+        return;
+      }
       setStatus("Publishing…");
       try {
         const payload = {
           category: fd.get("category"),
-          caption: fd.get("caption"),
+          caption,
           body: fd.get("body"),
         };
         if (pendingImageDataUrl) payload.image_data_url = pendingImageDataUrl;
         await api("create_post", payload);
-        pendingImageDataUrl = null;
+        resetComposerDraft();
         setStatus("Post published.");
-        e.target.reset();
-        await load({ keepCategory: true });
+        await load({ keepCategory: true, keepComposer: false });
       } catch (err) {
         setStatus(err.message || "Could not publish.");
       }
@@ -737,6 +787,7 @@
     const el = root();
     if (!el) return;
     if (!opts.keepCategory) state.category = state.category || "";
+    if (opts.keepComposer !== false) captureComposerDraft();
     state.loading = true;
     state.error = null;
     render();
