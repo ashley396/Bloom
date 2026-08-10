@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { admin, fail } from "./_shared/supabase.js";
 import { postStripePayment } from "./_shared/post-stripe-payment.js";
 import { postStripePaymentLink } from "./_shared/post-stripe-payment-link.js";
+import { markFloristWirePaidFromCheckout } from "./_shared/florist-wire-payment.js";
 import { assertStripeLivemodeMatchesKey } from "./_shared/stripe-mode.js";
 
 export async function handler(event) {
@@ -35,7 +36,13 @@ export async function handler(event) {
     if (stripeEvent.type === "checkout.session.completed" || stripeEvent.type === "checkout.session.async_payment_succeeded") {
       const session = stripeEvent.data.object;
       const meta = session.metadata || {};
-      if (meta.marketplace === "wholesale") {
+      if (meta.florist_network === "wire" && meta.florist_wire_id) {
+        try {
+          await markFloristWirePaidFromCheckout(client, session);
+        } catch (wireErr) {
+          console.warn(JSON.stringify({ level: "warn", message: "florist_wire_payment_skipped", reason: String(wireErr?.message || wireErr) }));
+        }
+      } else if (meta.marketplace === "wholesale") {
         try {
           await client
             .from("marketplace_wholesale_orders")

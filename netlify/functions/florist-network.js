@@ -1,6 +1,13 @@
+import Stripe from "stripe";
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail } from "./_shared/supabase.js";
 import { isFeatureEnabled } from "./_shared/feature-flags.js";
+import { createFloristWireCheckoutSession } from "./_shared/florist-wire-payment.js";
+import {
+  canInitiateWirePayment,
+  partnerCanReceiveWirePayments,
+  wirePaymentLabel,
+} from "../../lib/florist-network/wire-payment.js";
 import {
   validateWirePayload,
   generateWireNumber,
@@ -24,6 +31,16 @@ function missingTable(error) {
   return error?.code === "42P01" || msg.includes("does not exist");
 }
 
+function stripeRedirectBaseUrl() {
+  const site = String(process.env.SITE_URL || process.env.URL || "").trim().replace(/\/$/, "");
+  if (!site) {
+    const e = new Error("SITE_URL is not configured in Netlify.");
+    e.statusCode = 503;
+    throw e;
+  }
+  return site;
+}
+
 export async function handler(event) {
   const ready = preflight(event);
   if (ready) return ready;
@@ -44,6 +61,18 @@ export async function handler(event) {
       const { data, error } = await q;
       if (error) throw error;
       let items = data || [];
+      if (items.length) {
+        const shopIds = items.map((p) => p.shop_id);
+        const { data: shops } = await client
+          .from("shops")
+          .select("id, stripe_connect_account_id")
+          .in("id", shopIds);
+        const shopMap = new Map((shops || []).map((s) => [s.id, s]));
+        items = items.map((p) => ({
+          ...p,
+          can_receive_payments: partnerCanReceiveWirePayments(shopMap.get(p.shop_id)),
+        }));
+      }
       if (zip) {
         items = items.filter(
           (p) => !p.service_zips?.length || p.service_zips.includes(zip)
@@ -75,7 +104,8 @@ export async function handler(event) {
       return json(200, {
         items: (data || []).map((row) => ({
           ...row,
-          status_label: WIRE_STATUS_LABELS[row.status] || row.status
+          status_label: WIRE_STATUS_LABELS[row.status] || row.status,
+          payment_label: wirePaymentLabel(row.payment_status),
         })),
         view,
         wire_policy: WIRE_ZERO_PLATFORM_POLICY,
@@ -128,6 +158,7 @@ export async function handler(event) {
         source_order_id: body.source_order_id || null,
         status: body.send ? "sent" : "draft",
         ...v.payload,
+        payment_status: "unpaid",
         metadata: {
           florisyn_platform_fee: settlement.florisyn_platform_fee,
           fulfilling_shop_payout: settlement.fulfilling_shop_payout,
@@ -140,7 +171,96 @@ export async function handler(event) {
       };
       const { data, error } = await client.from("florist_wire_orders").insert(record).select().single();
       if (error) throw error;
-      return json(201, { item: data, settlement });
+      return json(201, { item: data, settlement, pay_next: true });
+    }
+
+    if (event.httpMethod === "POST" && action === "pay-wire") {
+      if (!process.env.STRIPE_SECRET_KEY) {
+        return json(503, { error: "Stripe is not configured in Netlify. Wire payment requires STRIPE_SECRET_KEY." });
+      }
+      if (!body.id) return json(400, { error: "Missing wire order id." });
+      const { data: wire, error: wireError } = await client
+        .from("florist_wire_orders")
+        .select("*")
+        .eq("id", body.id)
+        .maybeSingle();
+      if (wireError) throw wireError;
+      const payCheck = canInitiateWirePayment(wire, shopId);
+      if (!payCheck.ok) return json(400, { error: payCheck.error });
+
+      const { data: fulfillingShop, error: shopError } = await client
+        .from("shops")
+        .select("id, name, stripe_connect_account_id")
+        .eq("id", wire.fulfilling_shop_id)
+        .maybeSingle();
+      if (shopError) throw shopError;
+      if (!partnerCanReceiveWirePayments(fulfillingShop)) {
+        return json(409, {
+          error:
+            "Your partner florist must connect Stripe in Payment Center before they can receive wire payments online.",
+        });
+      }
+
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+      const site = stripeRedirectBaseUrl();
+      const { session, settlement } = await createFloristWireCheckoutSession(stripe, {
+        wire,
+        sendingShopId: shopId,
+        fulfillingShopId: wire.fulfilling_shop_id,
+        fulfillingConnectAccountId: fulfillingShop.stripe_connect_account_id,
+        customerEmail: user.email,
+        siteUrl: site,
+      });
+
+      const priorMeta = wire.metadata && typeof wire.metadata === "object" ? wire.metadata : {};
+      await client
+        .from("florist_wire_orders")
+        .update({
+          payment_status: "pending_payment",
+          stripe_checkout_session_id: session.id,
+          metadata: { ...priorMeta, checkout_started_at: new Date().toISOString() },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", wire.id);
+
+      return json(200, {
+        url: session.url,
+        settlement,
+        wire_policy: WIRE_ZERO_PLATFORM_POLICY,
+      });
+    }
+
+    if (event.httpMethod === "POST" && action === "mark-paid-offline") {
+      if (!body.id) return json(400, { error: "Missing wire order id." });
+      const { data: wire, error: wireError } = await client
+        .from("florist_wire_orders")
+        .select("*")
+        .eq("id", body.id)
+        .maybeSingle();
+      if (wireError) throw wireError;
+      if (!wire || wire.sending_shop_id !== shopId) {
+        return json(403, { error: "Only the sending shop can mark a wire paid." });
+      }
+      if (wire.payment_status === "paid") return json(200, { item: wire });
+      const priorMeta = wire.metadata && typeof wire.metadata === "object" ? wire.metadata : {};
+      const { data, error } = await client
+        .from("florist_wire_orders")
+        .update({
+          payment_status: "paid",
+          paid_at: new Date().toISOString(),
+          metadata: {
+            ...priorMeta,
+            paid_via: "offline",
+            offline_note: String(body.note || "").trim() || null,
+            florisyn_platform_fee: 0,
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", body.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return json(200, { item: data });
     }
 
     if (event.httpMethod === "POST" && action === "transition") {
