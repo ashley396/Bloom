@@ -27,8 +27,23 @@ function featureGate() {
 }
 
 function missingTable(error) {
-  const msg = String(error?.message || "").toLowerCase();
-  return error?.code === "42P01" || msg.includes("does not exist");
+  const msg = String(error?.message || error || "").toLowerCase();
+  return (
+    error?.code === "42P01" ||
+    error?.code === "PGRST202" ||
+    msg.includes("does not exist") ||
+    msg.includes("schema cache") ||
+    msg.includes("could not find the table")
+  );
+}
+
+function friendlyMissing() {
+  const e = new Error(
+    "Florist Network tables are not set up yet. Apply the florist network growth migrations in Supabase, then try again."
+  );
+  e.statusCode = 503;
+  e.code = "florist_network_not_migrated";
+  throw e;
 }
 
 function stripeRedirectBaseUrl() {
@@ -294,7 +309,11 @@ export async function handler(event) {
     return json(400, { error: "Unknown florist network action." });
   } catch (error) {
     if (missingTable(error)) {
-      return json(503, { error: "Apply florist_network_growth_v1 migration in Supabase." });
+      try {
+        friendlyMissing();
+      } catch (missing) {
+        return fail(missing);
+      }
     }
     return fail(error);
   }

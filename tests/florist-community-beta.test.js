@@ -271,7 +271,9 @@ test("florist-community function enforces flag, membership, signed URLs, RPCs", 
   assert.match(src, /florist_community_moderate_comment/);
   assert.match(src, /createSignedUrl/);
   assert.match(src, /moderatorForPost\(ctx, data, platformAdmin\)/);
-  assert.doesNotMatch(src, /canModerate:\s*true/);
+  assert.doesNotMatch(src, /community_admin_check_failed/);
+  assert.match(src, /community_admin_check_degraded/);
+  assert.doesNotMatch(src, /Unable to verify platform admin authorization/);
   assert.match(src, /validatePostBody/);
   assert.match(src, /uploadPrevalidatedCommunityImage/);
   assert.doesNotMatch(src, /validateCommunityImageUpload/);

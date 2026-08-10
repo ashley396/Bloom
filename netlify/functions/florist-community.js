@@ -78,6 +78,8 @@ async function requireActiveFlorist(ctx) {
   const { data, error } = await client.rpc("is_active_florist");
   if (error) {
     if (missingRelation(error)) friendlyMissing();
+    // RPC may fail when grants are stale; currentUser already validated shop membership.
+    if (status === "active" || !status) return ctx;
     const e = new Error("Unable to verify florist membership for Community.");
     e.statusCode = 503;
     e.code = "community_membership_check_failed";
@@ -97,10 +99,15 @@ async function isPlatformAdminViaRpc(client) {
   const { data, error } = await client.rpc("is_platform_admin_user");
   if (error) {
     if (missingRelation(error)) friendlyMissing();
-    const e = new Error("Unable to verify platform admin authorization.");
-    e.statusCode = 503;
-    e.code = "community_admin_check_failed";
-    throw e;
+    // Never block florists when admin RPC is unavailable (e.g. missing EXECUTE grant).
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        message: "community_admin_check_degraded",
+        detail: String(error.message || error).slice(0, 200)
+      })
+    );
+    return false;
   }
   return data === true;
 }

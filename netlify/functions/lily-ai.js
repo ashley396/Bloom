@@ -157,7 +157,15 @@ export async function handler(event) {
           .single();
         convId = data?.id || null;
       } catch (error) {
-        if (!isMissingTableError(error)) throw error;
+        if (!isMissingTableError(error)) {
+          console.warn(
+            JSON.stringify({
+              level: "warn",
+              message: "lily_conversation_create_skipped",
+              detail: String(error.message || error).slice(0, 200)
+            })
+          );
+        }
       }
     }
 

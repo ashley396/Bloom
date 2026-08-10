@@ -71,6 +71,18 @@
     return `I hit a snag: ${msg || "Please try again."}`;
   }
 
+  function marketingDraftFallback(generate, shop = {}) {
+    if (!generate?.task && !generate?.input?.prompt) return "";
+    const shopName = shop.name || "Our flower shop";
+    const prompt = String(generate.input?.prompt || generate.input?.message || "").trim();
+    const topic = prompt.replace(/^write (a )?/i, "").replace(/\.$/, "") || "today's featured flowers";
+    const channel = String(generate.input?.channel || generate.channel || "facebook").toLowerCase();
+    if (channel.includes("facebook")) {
+      return `**Draft (edit before posting):**\n\n🌸 ${topic.charAt(0).toUpperCase() + topic.slice(1)} — fresh from ${shopName}! Perfect for gifting or brightening your week. Stop by or order for local delivery.\n\n#flowers #localflorist #${shopName.replace(/[^a-z0-9]+/gi, "").toLowerCase() || "florist"}`;
+    }
+    return `**Draft (edit before posting):**\n\n${topic.charAt(0).toUpperCase() + topic.slice(1)} — from ${shopName}. Fresh, local, and ready for your next celebration.`;
+  }
+
   function mountShell() {
     if (document.getElementById("lilyFab")) return;
     const fab = document.createElement("button");
@@ -368,7 +380,11 @@
             data.response = (data.response || "") + extra;
             deps.api?.("admin-command-center", { method: "POST", body: JSON.stringify({ action: "record-ai-request" }) }).catch(() => {});
           } catch {
-            if (data.response) {
+            const ctx = deps.loadAiContext ? await deps.loadAiContext().catch(() => ({})) : {};
+            const fallback = marketingDraftFallback(data.generate, ctx.shop || data.generate?.input?.shop);
+            if (fallback) {
+              data.response = (data.response || "") + `\n\n${fallback}`;
+            } else if (data.response) {
               data.response += "\n\nI couldn't generate an AI draft just now. Check Cloudflare AI in Netlify, or try again in a moment.";
             }
           }
