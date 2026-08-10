@@ -33,10 +33,23 @@ Use this checklist before opening Florisyn to paying florists. It covers **every
 
 ---
 
-## Step 1 — Back up Supabase
+## Step 1 — Confirm Supabase backups (before migrations)
 
-1. Supabase Dashboard → **Database → Backups** → create a manual backup (or confirm PITR).
-2. Record backup time and project ref in your change log.
+Supabase **does not** show a “Manual backup” button on Pro plans. Daily backups are automatic.
+
+1. Supabase Dashboard → **Database → Backups → Scheduled backups** (your current tab).
+2. Confirm you see recent **PHYSICAL** (or logical) daily backups — e.g. **10 Aug 2026** with a **Restore** button. That means Pro daily backup is active (7-day retention on Pro).
+3. Optional — **Point in time** tab: only appears if you purchased the **PITR add-on** (~$100/mo). You do **not** need PITR to launch; daily backups are enough for most migrations.
+4. Optional extra safety before a big migration — logical dump via CLI (off-platform copy):
+
+```bash
+supabase link --project-ref YOUR_PROJECT_REF
+supabase db dump -f pre-launch-$(date +%Y%m%d).sql
+```
+
+5. Record in your change log: project name (**Florisyn Staging**), project ref, and the latest scheduled backup date/time you see.
+
+**You can proceed to Step 2** once today’s (or yesterday’s) scheduled backup is listed. No separate “Confirm PITR” step unless you pay for PITR.
 
 ---
 

@@ -25,10 +25,13 @@ Baseline: `main` @ `eb690be` + Florist Community Beta + **Correction R6 security
 
 ## 1. Database backup (do this first)
 
-1. Open Supabase Dashboard → **Database → Backups**.
-2. Create a **manual backup** (or confirm PITR is enabled).
-3. Record backup time and project ref in your change log.
-4. Optional: `pg_dump` a logical backup for extra safety.
+Supabase Pro/Team/Enterprise: **daily automatic backups** — no manual backup button in the dashboard.
+
+1. Open Supabase Dashboard → **Database → Backups → Scheduled backups**.
+2. Confirm recent daily backups appear (e.g. **PHYSICAL** rows with **Restore**). Pro retains ~7 days.
+3. **Point in time** tab = PITR add-on only (optional, paid). Not required for launch.
+4. Optional: `supabase db dump` for an off-platform logical backup before migrations.
+5. Record project ref and latest backup timestamp in your change log.
 
 ---
 
