@@ -2,10 +2,107 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { adminMfaGateDecision, challengeAndVerifyAdminMfa } from "../public/admin-mfa.js";
+import { adminMfaGateDecision, challengeAndVerifyAdminMfa, collectAdminTotpFactors, enrollAdminTotp } from "../public/admin-mfa.js";
 
 const root = process.cwd();
 const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
+
+test("collectAdminTotpFactors includes unverified factors from listFactors().all", () => {
+  const listed = {
+    all: [
+      {
+        id: "pending-1",
+        factor_type: "totp",
+        friendly_name: "Florisyn Admin",
+        status: "unverified"
+      }
+    ],
+    totp: []
+  };
+  const factors = collectAdminTotpFactors(listed);
+  assert.equal(factors.length, 1);
+  assert.equal(factors[0].id, "pending-1");
+});
+
+test("enrollAdminTotp reuses unverified Florisyn Admin factor without calling enroll", async () => {
+  const calls = [];
+  const supabase = {
+    auth: {
+      mfa: {
+        async listFactors() {
+          return {
+            data: {
+              all: [
+                {
+                  id: "factor-pending",
+                  factor_type: "totp",
+                  friendly_name: "Florisyn Admin",
+                  status: "unverified"
+                }
+              ],
+              totp: []
+            },
+            error: null
+          };
+        },
+        async enroll() {
+          calls.push("enroll");
+          throw new Error('A factor with the friendly name "Florisyn Admin" for this user already exists');
+        }
+      }
+    }
+  };
+  const result = await enrollAdminTotp(supabase, "Florisyn Admin");
+  assert.equal(result.pendingVerification, true);
+  assert.equal(result.factorId, "factor-pending");
+  assert.deepEqual(calls, []);
+});
+
+test("enrollAdminTotp recovers from friendly-name conflict by re-listing factors", async () => {
+  let listedOnce = true;
+  const supabase = {
+    auth: {
+      mfa: {
+        async listFactors() {
+          if (listedOnce) {
+            listedOnce = false;
+            return { data: { all: [], totp: [] }, error: null };
+          }
+          return {
+            data: {
+              all: [
+                {
+                  id: "factor-live",
+                  factor_type: "totp",
+                  friendly_name: "Florisyn Admin",
+                  status: "verified"
+                }
+              ],
+              totp: [
+                {
+                  id: "factor-live",
+                  factor_type: "totp",
+                  friendly_name: "Florisyn Admin",
+                  status: "verified"
+                }
+              ]
+            },
+            error: null
+          };
+        },
+        async enroll() {
+          return {
+            data: null,
+            error: { code: "mfa_factor_name_conflict", message: "A factor with the friendly name already exists" }
+          };
+        }
+      }
+    }
+  };
+  const result = await enrollAdminTotp(supabase, "Florisyn Admin");
+  assert.equal(result.alreadyVerified, true);
+  assert.equal(result.factorId, "factor-live");
+});
 
 test("Admin MFA gate requires enroll when no factors, challenge when enrolled, allow at aal2", () => {
   assert.deepEqual(adminMfaGateDecision({ currentLevel: "aal2", nextLevel: "aal2" }).action, "allow");

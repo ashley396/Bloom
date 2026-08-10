@@ -44,15 +44,23 @@ function showAdminMfaUi({mode,qrCode='',secret=''}={}){
   const intro=$('#adminMfaIntro');
   if(mode==='enroll'){
     enroll.hidden=false;
-    if(intro)intro.textContent='Admin MFA enrollment is required. Scan the QR, then enter the code.';
+    if(intro)intro.textContent='Scan this QR code with your authenticator app, then enter the 6-digit code below.';
     const qr=$('#adminMfaQr');
     if(qr){qr.src=qrCode||'';qr.hidden=!qrCode}
     if($('#adminMfaSecret'))$('#adminMfaSecret').textContent=secret?`Secret: ${secret}`:'';
   }else{
     enroll.hidden=true;
-    if(intro)intro.textContent='Enter the authenticator code to finish Admin sign-in.';
+    if(intro)intro.textContent='Enter the 6-digit code from your authenticator app for Florisyn Admin.';
   }
+  if($('#loginMessage'))$('#loginMessage').textContent='';
   if($('#adminMfaCode')){$('#adminMfaCode').value='';$('#adminMfaCode').focus()}
+}
+function requireAdminMfaChallenge(message='Enter your authenticator code to continue.'){
+  adminMfaPending={...adminMfaPending,mode:'challenge'};
+  showAdminMfaUi({mode:'challenge'});
+  const err=new Error(message);
+  err.code='admin_mfa_challenge_required';
+  throw err;
 }
 async function getAdminMfaClient(){
   if(adminMfaClient)return adminMfaClient;
@@ -78,30 +86,33 @@ async function ensureAdminMfaBeforeDashboard(){
     return;
   }
   if(state.decision.action==='enroll'){
-    const enrolled=await enrollAdminTotp(supabase,'Florisyn Admin');
+    let enrolled;
+    try{
+      enrolled=await enrollAdminTotp(supabase,'Florisyn Admin');
+    }catch(err){
+      if(/friendly name .* already exists|factor with the friendly name|mfa_factor_name_conflict/i.test(String(err?.message||''))||err?.code==='mfa_factor_name_conflict'){
+        const retryState=await readAdminMfaState(supabase);
+        adminMfaPending={factorId:retryState.verifiedFactors[0]?.id||retryState.pendingFactors[0]?.id||null,mode:'challenge'};
+        requireAdminMfaChallenge('Your authenticator is already set up. Enter the 6-digit code to sign in.');
+      }
+      throw err;
+    }
     if(enrolled.alreadyVerified){
       saveSession({accessToken:session.accessToken,refreshToken:session.refreshToken,user:session.user,mfaVerified:true});
       return;
     }
     if(enrolled.pendingVerification){
       adminMfaPending={factorId:enrolled.factorId,mode:'challenge'};
-      showAdminMfaUi({mode:'challenge'});
-      if($('#adminMfaIntro'))$('#adminMfaIntro').textContent='Enter the 6-digit code from your authenticator app (Florisyn Admin is already enrolled).';
-      const err=new Error('Enter your authenticator code to finish Admin MFA setup.');
-      err.code='admin_mfa_challenge_required';
-      throw err;
+      requireAdminMfaChallenge('Your authenticator is already set up. Enter the 6-digit code to sign in.');
     }
     adminMfaPending={factorId:enrolled.factorId,mode:'enroll'};
     showAdminMfaUi({mode:'enroll',qrCode:enrolled.qrCode,secret:enrolled.secret});
-    const err=new Error('Admin MFA enrollment required.');
+    const err=new Error('Set up your authenticator app to finish Admin sign-in.');
     err.code='admin_mfa_enrollment_required';
     throw err;
   }
   adminMfaPending={factorId:state.verifiedFactors[0]?.id||state.pendingFactors[0]?.id||null,mode:'challenge'};
-  showAdminMfaUi({mode:'challenge'});
-  const err=new Error('Admin MFA verification required.');
-  err.code='admin_mfa_challenge_required';
-  throw err;
+  requireAdminMfaChallenge('Enter your authenticator code to finish Admin sign-in.');
 }
 async function assertPlatformAdminAccess(){
   await call('admin-command-center?action=dashboard');
@@ -122,7 +133,7 @@ async function initializeAdmin(){
     if(session){
       enterAdminAfterAuth().catch((err)=>{
         if(err?.code==='admin_mfa_enrollment_required'||err?.code==='admin_mfa_challenge_required'){
-          if($('#loginMessage'))$('#loginMessage').textContent=err.message;
+          if($('#loginMessage'))$('#loginMessage').textContent='';
           $('#adminAuth').hidden=false;
           return;
         }
@@ -146,7 +157,7 @@ $('#ownerSetupForm')?.addEventListener('submit',async e=>{
     setTimeout(()=>{$('#ownerSetup').hidden=true;$('#adminAuth').hidden=false},700);
   }catch(err){msg.textContent=err.message}
 });
-$('#adminLogin').onsubmit=async e=>{e.preventDefault();const loginMessage=$('#loginMessage'),email=$('#adminEmail').value;loginMessage.textContent='';try{const d=await call('auth-login',{method:'POST',body:JSON.stringify({email,password:$('#adminPassword').value})},false);saveSession(d);await enterAdminAfterAuth()}catch(err){if(err?.code==='admin_mfa_enrollment_required'||err?.code==='admin_mfa_challenge_required'){loginMessage.textContent=err.message;return}clearAdminSession();showPasswordLogin();const detail=String(err.message||'');if(/invalid login credentials|invalid email or password|email not confirmed/i.test(detail)){loginMessage.innerHTML=`Could not sign in yet. Check your email confirmation link, <a href="/forgot-password">reset your password</a>, or <a href="/verify-email?pending=1&email=${encodeURIComponent(email)}">resend confirmation</a>.`;}else if(/permission|forbidden|not an? admin|administration/i.test(detail)){loginMessage.textContent='This account is not authorized for Florisyn Administration. Florist and staff logins do not use Admin MFA.';}else loginMessage.textContent=detail}}
+$('#adminLogin').onsubmit=async e=>{e.preventDefault();const loginMessage=$('#loginMessage'),email=$('#adminEmail').value;loginMessage.textContent='';try{const d=await call('auth-login',{method:'POST',body:JSON.stringify({email,password:$('#adminPassword').value})},false);saveSession(d);await enterAdminAfterAuth()}catch(err){if(err?.code==='admin_mfa_enrollment_required'||err?.code==='admin_mfa_challenge_required'){loginMessage.textContent='';return}clearAdminSession();showPasswordLogin();const detail=String(err.message||'');if(/invalid login credentials|invalid email or password|email not confirmed/i.test(detail)){loginMessage.innerHTML=`Could not sign in yet. Check your email confirmation link, <a href="/forgot-password">reset your password</a>, or <a href="/verify-email?pending=1&email=${encodeURIComponent(email)}">resend confirmation</a>.`;}else if(/permission|forbidden|not an? admin|administration/i.test(detail)){loginMessage.textContent='This account is not authorized for Florisyn Administration. Florist and staff logins do not use Admin MFA.';}else loginMessage.textContent=detail}}
 $('#adminPasswordToggle')?.addEventListener('click',()=>{
   const input=$('#adminPassword');
   const btn=$('#adminPasswordToggle');

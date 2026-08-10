@@ -15,6 +15,33 @@ export function adminMfaGateDecision({ currentLevel, nextLevel, verifiedFactorCo
   return { action: "enroll", reason: "admin_mfa_required" };
 }
 
+/** Supabase listFactors() only includes verified TOTP rows in `.totp`; unverified live in `.all`. */
+export function collectAdminTotpFactors(listed) {
+  const all = listed?.all || [];
+  const verifiedTotp = listed?.totp || [];
+  const byId = new Map();
+  for (const factor of [...all, ...verifiedTotp]) {
+    const type = String(factor?.factor_type || factor?.factorType || "").toLowerCase();
+    if (type && type !== "totp") continue;
+    if (factor?.id) byId.set(factor.id, factor);
+  }
+  return [...byId.values()];
+}
+
+function factorFriendlyName(factor) {
+  return String(factor?.friendly_name || factor?.friendlyName || "").trim();
+}
+
+function isFactorNameConflict(error) {
+  const code = String(error?.code || error?.error_code || "");
+  const message = String(error?.message || "");
+  return (
+    code === "mfa_factor_name_conflict" ||
+    /friendly name .* already exists/i.test(message) ||
+    /factor with the friendly name/i.test(message)
+  );
+}
+
 async function loadCreateClient() {
   const mod = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/+esm");
   return mod.createClient;
@@ -58,7 +85,7 @@ export async function readAdminMfaState(supabase) {
   ]);
   if (aalError) throw aalError;
   if (factorError) throw factorError;
-  const totp = factors?.totp || [];
+  const totp = collectAdminTotpFactors(factors);
   const verified = totp.filter((f) => f.status === "verified");
   const pending = totp.filter((f) => f.status !== "verified");
   const decision = adminMfaGateDecision({
@@ -80,9 +107,8 @@ export async function readAdminMfaState(supabase) {
 export async function enrollAdminTotp(supabase, friendlyName = "Florisyn Admin") {
   const { data: listed, error: listError } = await supabase.auth.mfa.listFactors();
   if (listError) throw listError;
-  const existing = (listed?.totp || []).find(
-    (f) => String(f.friendly_name || f.friendlyName || "") === friendlyName
-  );
+  const totpFactors = collectAdminTotpFactors(listed);
+  const existing = totpFactors.find((f) => factorFriendlyName(f) === friendlyName);
   if (existing?.status === "verified") {
     return { factorId: existing.id, alreadyVerified: true, qrCode: "", secret: "", uri: "" };
   }
@@ -100,7 +126,26 @@ export async function enrollAdminTotp(supabase, friendlyName = "Florisyn Admin")
     factorType: "totp",
     friendlyName
   });
-  if (error) throw error;
+  if (error) {
+    if (isFactorNameConflict(error)) {
+      const { data: relisted, error: relistError } = await supabase.auth.mfa.listFactors();
+      if (relistError) throw relistError;
+      const again = collectAdminTotpFactors(relisted).find((f) => factorFriendlyName(f) === friendlyName);
+      if (again) {
+        if (again.status === "verified") {
+          return { factorId: again.id, alreadyVerified: true, qrCode: "", secret: "", uri: "" };
+        }
+        return {
+          factorId: again.id,
+          pendingVerification: true,
+          qrCode: "",
+          secret: "",
+          uri: ""
+        };
+      }
+    }
+    throw error;
+  }
   return {
     factorId: data.id,
     qrCode: data.totp?.qr_code || "",
