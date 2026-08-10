@@ -1,4 +1,10 @@
-import { PRICING_TIERS, ANNUAL_MONTHS_FREE, TRIAL_DAYS, planQuote, formatMoney } from "./pricing-catalog.js";
+import {
+  PRICING_TIERS,
+  ANNUAL_MONTHS_FREE,
+  planQuote,
+  formatMoney,
+  formatPlanPriceHeadline
+} from "./pricing-catalog.js";
 
 const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => [...root.querySelectorAll(s)];
@@ -30,19 +36,16 @@ function signupHref(tier, interval) {
 
 function renderPriceCard(tier, interval) {
   const quote = planQuote(tier.monthly, interval);
-  const billedNote =
-    interval === "annual"
-      ? `<p class="pricing-billed-note">Billed ${formatMoney(quote.billed)} annually · save ${formatMoney(quote.savings)}</p>`
-      : `<p class="pricing-billed-note">Billed monthly after your ${TRIAL_DAYS}-day trial</p>`;
+  const headline = formatPlanPriceHeadline(quote, interval);
 
   return `<article class="pricing-card${tier.popular ? " pricing-card-popular" : ""}">
     ${tier.popular ? '<span class="pricing-popular">Most popular</span>' : ""}
     <h2>${tier.name}</h2>
     <p class="pricing-summary">${tier.summary}</p>
     <p class="pricing-amount" data-tier="${tier.code}">
-      <strong>${formatMoney(quote.display)}</strong><small>/mo</small>
+      <strong>${headline.amount}</strong><small>${headline.suffix}</small>
     </p>
-    ${billedNote}
+    <p class="pricing-billed-note">${headline.note}</p>
     <ul class="pricing-features">${tier.features.map((f) => `<li>${f}</li>`).join("")}</ul>
     <a class="primary-btn pricing-cta" href="${signupHref(tier, interval)}">Start free trial</a>
   </article>`;
@@ -94,17 +97,14 @@ export function mountSignupPlans(root = document) {
     section.innerHTML = PRICING_TIERS.map((tier) => {
       const quote = planQuote(tier.monthly, interval);
       const checked = preferredPlan ? tier.signupCode === preferredPlan : tier.popular;
-      const note =
-        interval === "annual"
-          ? `Billed ${formatMoney(quote.billed)}/yr · save ${formatMoney(quote.savings)}`
-          : `Billed ${formatMoney(quote.billed)}/mo after trial`;
+      const headline = formatPlanPriceHeadline(quote, interval);
       return `<label class="signup-plan-card bloom-auth-plan">
         ${tier.popular ? '<span class="popular">Most popular</span>' : ""}
         <input type="radio" name="plan" value="${tier.signupCode}" data-monthly="${tier.monthly}" data-price="${quote.billed}" data-interval="${interval}" ${checked ? "checked" : ""}>
         <span class="signup-plan-card-body">
           <span class="signup-plan-name">${tier.name}</span>
-          <span class="signup-plan-price">${formatMoney(quote.display)}<small>/mo</small></span>
-          <span class="signup-plan-note">${note}</span>
+          <span class="signup-plan-price">${headline.amount}<small>${headline.suffix}</small></span>
+          <span class="signup-plan-note">${headline.note}</span>
           <span class="signup-plan-summary">${tier.summary}</span>
         </span>
       </label>`;

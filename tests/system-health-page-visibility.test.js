@@ -34,8 +34,10 @@ test("styles.css keeps fail-closed .page / .page.active contract", () => {
 });
 
 test("Admin remains a separate document from florist shell", () => {
-  assert.match(read("public/admin.html"), /id="adminAuth"/);
-  assert.match(read("public/admin.html"), /id="adminApp"[^>]*hidden/);
+  const admin = read("public/admin.html");
+  assert.match(admin, /id="adminAuth"/);
+  assert.match(admin, /getElementById\('adminAuth'\).*removeAttribute\('hidden'\)/);
+  assert.match(admin, /id="adminApp"[^>]*hidden/);
   assert.doesNotMatch(read("public/index.html"), /id="adminApp"/);
   assert.doesNotMatch(read("public/login.js"), /mfa\.enroll|adminMfaForm|challengeAndVerifyAdminMfa/);
 });

@@ -20,11 +20,20 @@ function saveSession(d){session={accessToken:d.accessToken,refreshToken:d.refres
 function clearAdminSession(){session=null;adminMfaClient=null;adminMfaPending={factorId:null,mode:null};localStorage.removeItem('bloom_admin_session')}
 function showPasswordLogin(){
   $('#adminApp').hidden=true;
+  $('#ownerSetup').hidden=true;
   $('#adminAuth').hidden=false;
   $('#adminLogin').hidden=false;
   $('#adminMfaForm').hidden=true;
   $('#adminMfaEnrollBlock').hidden=true;
   if($('#adminMfaCode'))$('#adminMfaCode').value='';
+}
+function showAdminGateLoading(message='Loading Florisyn HQ…'){
+  $('#adminApp').hidden=true;
+  $('#ownerSetup').hidden=true;
+  $('#adminAuth').hidden=false;
+  $('#adminLogin').hidden=false;
+  $('#adminMfaForm').hidden=true;
+  if($('#loginMessage'))$('#loginMessage').textContent=message;
 }
 function showAdminMfaUi({mode,qrCode='',secret=''}={}){
   $('#adminApp').hidden=true;
@@ -92,6 +101,7 @@ async function enterAdminAfterAuth(){
   showApp();
 }
 async function initializeAdmin(){
+  showAdminGateLoading();
   try{
     const d=await call('admin-bootstrap',{},false);
     if(!d.ownerExists){$('#ownerSetup').hidden=false;$('#adminAuth').hidden=true;$('#adminApp').hidden=true;return}
@@ -101,6 +111,7 @@ async function initializeAdmin(){
       enterAdminAfterAuth().catch((err)=>{
         if(err?.code==='admin_mfa_enrollment_required'||err?.code==='admin_mfa_challenge_required'){
           if($('#loginMessage'))$('#loginMessage').textContent=err.message;
+          $('#adminAuth').hidden=false;
           return;
         }
         clearAdminSession();
