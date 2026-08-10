@@ -252,13 +252,9 @@ export function getFlorisynSignatureCatalog() {
   ];
 }
 
-/** Public starter catalog — signature studio shots first, then curated starters (no auto-generated filler). */
+/** Public catalog — Florisyn Signature Collection only (no legacy Pexels starters). */
 export function getPublicFloralLibraryCatalog() {
-  const byId = new Map();
-  for (const product of [...getFlorisynSignatureCatalog(), ...STARTER_FLORAL_LIBRARY]) {
-    byId.set(product.id, product);
-  }
-  return [...byId.values()];
+  return getFlorisynSignatureCatalog();
 }
 
 /** Starter collection — launch-safe, photo-forward, and clearly labeled; expand via import manifest. */

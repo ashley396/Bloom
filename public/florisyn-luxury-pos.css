@@ -79,23 +79,24 @@ body.florisyn-atelier .pos-lux-main-row {
   overflow: hidden !important;
 }
 
-/* Left toolbar 52px */
+/* Left toolbar — wide enough for rail labels */
 #posPage #florisynPosLux .pos-lux-rail,
 body.florisyn-atelier .pos-lux-rail {
-  flex: 0 0 52px !important;
-  width: 52px !important;
-  min-width: 52px !important;
-  max-width: 52px !important;
+  flex: 0 0 68px !important;
+  width: 68px !important;
+  min-width: 68px !important;
+  max-width: 68px !important;
   background: var(--pos-navy, #1a1f3c) !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: stretch !important;
   gap: 4px !important;
-  padding: 10px 4px !important;
+  padding: 10px 6px !important;
   z-index: 3 !important;
   position: relative !important;
   visibility: visible !important;
   opacity: 1 !important;
+  overflow: visible !important;
 }
 
 #posPage #florisynPosLux .pos-lux-rail-btn,
@@ -342,7 +343,7 @@ body.florisyn-atelier .pos-lux-customize {
 body.florisyn-atelier #posLuxCategories.pos-lux-categories,
 body.florisyn-atelier .pos-lux-categories {
   display: grid !important;
-  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   grid-template-rows: repeat(2, 56px) !important;
   gap: 8px !important;
   overflow: visible !important;
@@ -688,10 +689,12 @@ body.florisyn-atelier .pos-lux-checkout {
 #posPage #florisynPosLux .pos-lux-discount-row {
   display: flex;
   gap: 8px;
+  align-items: stretch;
 }
 
 #posPage #florisynPosLux .pos-lux-code {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -718,8 +721,28 @@ body.florisyn-atelier .pos-lux-checkout {
   background: var(--pos-navy, #1a1f3c) !important;
   color: #fff !important;
   font-weight: 600 !important;
-  padding: 0 14px !important;
+  padding: 0 16px !important;
   box-shadow: none !important;
+  flex: 0 0 auto;
+  min-height: 38px;
+  align-self: stretch;
+  white-space: nowrap;
+}
+
+#posPage #florisynPosLux .pos-lux-search {
+  display: none !important;
+}
+
+body:has(#posPage.active) #lilyFab,
+body.florisyn-pos-active #lilyFab {
+  display: none !important;
+}
+
+#posPage #florisynPosLux .pos-lux-queue::before,
+#posPage #florisynPosLux .pos-lux-queue::after,
+#posPage #florisynPosLux .pos-lux-basket::after {
+  display: none !important;
+  content: none !important;
 }
 
 #posPage #florisynPosLux .pos-lux-grand {

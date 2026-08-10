@@ -13,7 +13,9 @@
   function isRc2FillerProduct(p) {
     const id = String(p?.id || "");
     if (id.startsWith("lib-rc2-")) return true;
+    if (id.startsWith("lib-") && !id.startsWith("sig-")) return true;
     if ((p?.tags || []).includes("rc2_starter")) return true;
+    if (p?.image_license?.source === "licensed_stock_pexels") return true;
     if (/^Garden \w+ (Bouquet|Birthday|Anniversary|Romance|Wedding)/.test(String(p?.name || ""))) return true;
     return false;
   }

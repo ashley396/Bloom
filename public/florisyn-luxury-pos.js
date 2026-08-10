@@ -3,19 +3,16 @@
  * Visual/register chrome only; cart/checkout still owned by app.js.
  */
 (function () {
+  const LIB = "/assets/floral-library/";
   const CATEGORIES = [
-    { label: "Bright Bouquets", filter: "Everyday", image: "/assets/pink-bouquet.jpg" },
-    { label: "Contemporary", filter: "Everyday", image: "/assets/atelier-floral-corner.jpg" },
-    { label: "Funeral & Sympathy", filter: "Sympathy", image: "/assets/sympathy.png" },
-    { label: "Romance Specials", filter: "Everyday", image: "/assets/rose-arr.png" },
-    { label: "Seasonal Harvest", filter: "Everyday", image: "/assets/atelier-bouquet-hero.jpg" },
-    { label: "Tropical Paradise", filter: "Plants", image: "/assets/orchid.png" },
-    { label: "Hand-Tied Stems", filter: "Everyday", image: "/assets/tulips.png" },
-    { label: "Luxury Vase", filter: "Everyday", image: "/assets/dish.png" },
-    { label: "Wedding Bouquets", filter: "Wedding", image: "/assets/atelier-lilies-corner.jpg" },
-    { label: "Dried & Preserved", filter: "Other", image: "/assets/spray.png" },
-    { label: "Gifts & Add-ons", filter: "Gifts", image: "/assets/chocolates.png" },
-    { label: "Custom Mix", filter: "Everyday", image: "/assets/fresh.png" }
+    { label: "Bright Bouquets", filter: "Everyday", image: `${LIB}florisyn-everyday-sunny-bouquet.jpg` },
+    { label: "Contemporary", filter: "Everyday", image: `${LIB}florisyn-everyday-spring-pastels.jpg` },
+    { label: "Funeral & Sympathy", filter: "Sympathy", image: `${LIB}garden-harmony.jpg` },
+    { label: "Romance Specials", filter: "Everyday", image: `${LIB}florisyn-everyday-rose-pitcher.jpg` },
+    { label: "Seasonal Harvest", filter: "Everyday", image: `${LIB}florisyn-everyday-garden-medley.jpg` },
+    { label: "Tropical Paradise", filter: "Plants", image: `${LIB}florisyn-everyday-market-wildflowers.jpg` },
+    { label: "Hand-Tied Stems", filter: "Everyday", image: `${LIB}florisyn-everyday-daisies-tulips.jpg` },
+    { label: "Luxury Vase", filter: "Everyday", image: `${LIB}florisyn-arrangement-signature-blush.jpg` }
   ];
 
   function $(sel, root) {
@@ -26,13 +23,15 @@
     const el = $("#posLuxDateTime");
     if (!el) return;
     const now = new Date();
-    el.textContent = now.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit"
-    }).replace(",", " •");
+    el.textContent = now
+      .toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      })
+      .replace(",", " •");
   }
 
   function renderCategories() {
@@ -80,16 +79,13 @@
     if (!nameEl) return;
     const opt = select?.selectedOptions?.[0];
     const value = select?.value || "";
-    const name = opt?.dataset?.name || opt?.textContent || "Clara Kensington";
-    const isWalkIn = select ? value === "" : false;
-    const isClara = /clara/i.test(name) || value === "clara-kensington";
+    const name = opt?.dataset?.name || opt?.textContent || "";
+    const isWalkIn = !value;
     nameEl.textContent = isWalkIn ? "Walk-in Customer" : name;
     if (emailEl) {
       emailEl.textContent = isWalkIn
         ? "Select a customer for loyalty"
-        : isClara
-          ? "clara.kensington@email.com"
-          : `${String(name).toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.|\.$/g, "")}@email.com`;
+        : `${String(name).toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.|\.$/g, "")}@email.com`;
     }
     if (vip) vip.hidden = isWalkIn;
     const ring = $("#posLuxLoyaltyRing");
@@ -127,47 +123,38 @@
       document.dispatchEvent(new CustomEvent("florisyn-pos-discount-apply"));
     });
     $("#posCustomerSelect")?.addEventListener("change", syncCustomer);
-    $("#posLuxSearch")?.addEventListener("keydown", (e) => {
-      if (e.key !== "Enter") return;
-      const q = String(e.currentTarget.value || "").trim().toLowerCase();
-      if (!q) return;
-      const pads = [...document.querySelectorAll("#productPadGrid .quick-sale-pad, #productPadGrid .pad")];
-      const hit = pads.find((p) => String(p.dataset.saleItem || p.title || p.textContent || "").toLowerCase().includes(q));
-      if (hit) hit.click();
-    });
     document.querySelectorAll("[data-pos-mode]").forEach((btn) => {
       btn.addEventListener("click", () => {
         document.querySelectorAll("[data-pos-mode]").forEach((b) => b.classList.toggle("active", b === btn));
         if (btn.dataset.posMode === "customer") $("#posCustomerSelect")?.focus();
-        else $("#posLuxSearch")?.focus();
+        else $("#atelierGlobalSearch")?.focus();
       });
     });
     document.querySelectorAll(".pos-lux-rail-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         document.querySelectorAll(".pos-lux-rail-btn").forEach((b) => b.classList.toggle("active", b === btn));
-        if (btn.dataset.posTool === "lookup") $("#posLuxSearch")?.focus();
+        if (btn.dataset.posTool === "lookup") $("#atelierGlobalSearch")?.focus();
       });
     });
   }
 
-  function boot() {
-    if (!$("#florisynPosLux")) return;
+  function init() {
     renderCategories();
-    tickClock();
-    setInterval(tickClock, 30000);
+    wireActions();
     syncStaff();
     syncCustomer();
     syncStatusMetrics();
-    wireActions();
+    tickClock();
+    window.setInterval(tickClock, 30000);
   }
 
-  window.FlorisynLuxuryPos = { syncCustomer, syncStatusMetrics, syncStaff, boot };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
-  else boot();
-  document.addEventListener("florisyn-admin-authenticated", boot);
-  document.addEventListener("florisyn-pos-refresh-cart", () => {
-    syncCustomer();
-    syncStatusMetrics();
-  });
+  window.FlorisynLuxuryPos = {
+    syncCustomer,
+    syncStaff,
+    syncStatusMetrics,
+    renderCategories
+  };
 })();

@@ -164,16 +164,16 @@ test("starter library includes hydrangea and roses", () => {
   assert.match(names, /rose/);
 });
 
-test("public floral library serves signature collection without auto-generated filler", () => {
+test("public floral library serves signature collection only", () => {
   const catalog = getPublicFloralLibraryCatalog();
   const signatures = getFlorisynSignatureCatalog();
   assert.ok(signatures.length >= 8);
-  assert.ok(catalog.length >= signatures.length);
-  assert.ok(catalog.length < 40, "public catalog should stay curated, not hundreds of generated items");
+  assert.equal(catalog.length, signatures.length);
   assert.ok(catalog.some((p) => p.id === "sig-signature-blush-garden"));
   assert.ok(catalog.every((p) => p.primary_image?.url));
   assert.ok(catalog.every((p) => !String(p.id).startsWith("lib-rc2-")), "starter catalog must not include RC2 filler grid");
   assert.ok(!catalog.some((p) => p.name === "Garden Rose Bouquet"), "no auto-generated Garden Rose filler");
+  assert.ok(!catalog.some((p) => p.image_license?.source === "licensed_stock_pexels"), "no legacy Pexels starters");
   const ids = catalog.map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length);
 });

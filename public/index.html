@@ -6,13 +6,13 @@
   margin:0!important;padding:0!important;overflow:hidden!important;background:#fbf6f7!important;
 }
 #posPage #florisynPosLux .pos-lux-main-row{display:flex!important;flex-direction:row!important;align-items:stretch!important;flex:1 1 auto!important;min-height:0!important;width:100%!important;overflow:hidden!important}
-#posPage #florisynPosLux .pos-lux-rail{display:flex!important;flex-direction:column!important;flex:0 0 52px!important;width:52px!important;min-width:52px!important;max-width:52px!important;background:#1a1f3c!important;padding:10px 4px!important;gap:4px!important;z-index:3!important}
+#posPage #florisynPosLux .pos-lux-rail{display:flex!important;flex-direction:column!important;flex:0 0 68px!important;width:68px!important;min-width:68px!important;max-width:68px!important;background:#1a1f3c!important;padding:10px 6px!important;gap:4px!important;z-index:3!important;overflow:visible!important}
 #posPage #florisynPosLux .pos-lux-rail-btn{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;width:100%!important;min-height:56px!important;color:#fff!important;background:transparent!important;border:0!important;border-radius:8px!important;box-shadow:none!important;padding:8px 2px!important}
 #posPage #florisynPosLux .pos-lux-rail-btn small{display:block!important;color:#fff!important;font-size:8px!important;font-weight:700!important}
 #posPage #florisynPosLux .pos-lux-center{display:flex!important;flex-direction:column!important;flex:1 1 auto!important;min-width:0!important;overflow:hidden!important;padding:12px 14px 10px!important;gap:10px!important;background:#fbf6f7!important}
 #posPage #florisynPosLux .pos-lux-top-block{flex:0 0 auto!important;overflow:visible!important;background:#fff!important;border:1px solid #eae6e8!important;border-radius:8px!important;padding:12px 14px!important}
 #posPage #florisynPosLux .pos-lux-topbar{display:flex!important;flex:0 0 auto!important;align-items:center!important;gap:16px!important;width:100%!important;background:#fff!important;border-bottom:1px solid #eae6e8!important;padding:10px 16px!important}
-#posPage #florisynPosLux #posLuxCategories.pos-lux-categories{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;grid-template-rows:repeat(2,56px)!important;gap:8px!important;overflow:visible!important;max-height:none!important;height:auto!important;width:100%!important}
+#posPage #florisynPosLux #posLuxCategories.pos-lux-categories{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;grid-template-rows:repeat(2,56px)!important;gap:8px!important;overflow:visible!important;max-height:none!important;height:auto!important;width:100%!important}
 #posPage #florisynPosLux .pos-lux-cat{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:100%!important;height:56px!important;min-height:56px!important;border:0!important;border-radius:8px!important;color:#fff!important;background-size:cover!important;background-position:center!important;box-shadow:inset 0 0 0 999px rgba(26,31,60,.48)!important;font-size:12px!important;font-weight:650!important;padding:6px 10px!important}
 #posPage #florisynPosLux #productPadGrid{display:none!important;height:0!important;overflow:hidden!important;margin:0!important;padding:0!important}
 #posPage #florisynPosLux .pos-lux-basket{display:flex!important;flex-direction:column!important;flex:1 1 auto!important;min-height:180px!important;overflow:hidden!important;background:#fff!important;border:1px solid #eae6e8!important;border-radius:8px!important;padding:12px 14px!important}
@@ -25,7 +25,7 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
   #posPage #florisynPosLux .pos-lux-main-row{display:flex!important;flex-direction:row!important;flex-wrap:wrap!important}
   #posPage #florisynPosLux .pos-lux-checkout{flex:1 1 100%!important;width:100%!important;max-width:none!important;min-width:0!important}
 }
-</style><script src="/florisyn-build.js?v=dev"></script></head><body class="bloom-rc1 bloom-rc2 bloom-rc21 florisyn florisyn-rc22 florisyn-atelier">
+</style><script src="/florisyn-build.js?v=teststamp1234"></script></head><body class="bloom-rc1 bloom-rc2 bloom-rc21 florisyn florisyn-rc22 florisyn-atelier">
 <div id="bloomLoadingScreen" role="status" aria-live="polite"><div class="bloom-loading-inner"><img class="florisyn-loading-mark" src="/assets/florisyn/florisyn-mark.png?v=official1" width="72" height="72" alt=""><p>Loading Florisyn…</p></div></div>
 <div id="toast" class="toast" hidden></div>
 <section id="auth" hidden></section>
@@ -52,8 +52,6 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
     <button type="button" data-route="/reports" data-page="reportsPage">Reports</button>
     <button type="button" data-route="/expenses" data-page="expensesPage">Expenses</button>
     <button type="button" data-route="/photo-studio" data-page="bloomshotPage">Photo Studio</button>
-    <button type="button" data-route="/website-studio" data-page="websitePage">Website Studio</button>
-    <button type="button" data-route="/floral-library" data-page="libraryPage">Floral Library</button>
     <p class="florisyn-lux-nav-label">GROWTH</p>
     <button type="button" data-route="/community" data-page="communityPage" hidden>Florist Community</button>
     <button type="button" data-route="/florist-network" data-page="floristNetworkPage">Florist Network</button>
@@ -265,10 +263,6 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
           <button type="button" class="active" data-pos-mode="product">By Product</button>
           <button type="button" data-pos-mode="customer">By Customer</button>
         </div>
-        <label class="pos-lux-search">
-          <span aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg></span>
-          <input id="posLuxSearch" type="search" placeholder="Search items, barcodes, or custom tags..." autocomplete="off">
-        </label>
         <div class="pos-lux-staff">
           <div>
             <strong id="posLuxDateTime">May 12, 2026 • 11:24 AM</strong>
@@ -294,18 +288,14 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
           <button type="button" class="pos-lux-customize" id="manageTilesBtn">Customize Shortcuts</button>
         </div>
         <div class="pos-lux-categories" id="posLuxCategories" aria-label="Catalog categories">
-          <button type="button" class="pos-lux-cat active" data-pos-cat="Everyday" style="background-image:url('/assets/pink-bouquet.jpg')">Bright Bouquets</button>
-          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/atelier-floral-corner.jpg')">Contemporary</button>
-          <button type="button" class="pos-lux-cat" data-pos-cat="Sympathy" style="background-image:url('/assets/sympathy.png')">Funeral & Sympathy</button>
-          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/rose-arr.png')">Romance Specials</button>
-          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/atelier-bouquet-hero.jpg')">Seasonal Harvest</button>
-          <button type="button" class="pos-lux-cat" data-pos-cat="Plants" style="background-image:url('/assets/orchid.png')">Tropical Paradise</button>
-          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/tulips.png')">Hand-Tied Stems</button>
-          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/dish.png')">Luxury Vase</button>
-          <button type="button" class="pos-lux-cat" data-pos-cat="Wedding" style="background-image:url('/assets/atelier-lilies-corner.jpg')">Wedding Bouquets</button>
-          <button type="button" class="pos-lux-cat" data-pos-cat="Other" style="background-image:url('/assets/spray.png')">Dried & Preserved</button>
-          <button type="button" class="pos-lux-cat" data-pos-cat="Gifts" style="background-image:url('/assets/chocolates.png')">Gifts & Add-ons</button>
-          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/fresh.png')">Custom Mix</button>
+          <button type="button" class="pos-lux-cat active" data-pos-cat="Everyday" style="background-image:url('/assets/floral-library/florisyn-everyday-sunny-bouquet.jpg')">Bright Bouquets</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/floral-library/florisyn-everyday-spring-pastels.jpg')">Contemporary</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Sympathy" style="background-image:url('/assets/floral-library/garden-harmony.jpg')">Funeral &amp; Sympathy</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/floral-library/florisyn-everyday-rose-pitcher.jpg')">Romance Specials</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/floral-library/florisyn-everyday-garden-medley.jpg')">Seasonal Harvest</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Plants" style="background-image:url('/assets/floral-library/florisyn-everyday-market-wildflowers.jpg')">Tropical Paradise</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/floral-library/florisyn-everyday-daisies-tulips.jpg')">Hand-Tied Stems</button>
+          <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/floral-library/florisyn-arrangement-signature-blush.jpg')">Luxury Vase</button>
         </div>
         <label class="visually-hidden" for="tileCategoryFilter">Product tile category</label>
         <select id="tileCategoryFilter" class="visually-hidden" tabindex="-1" aria-hidden="true">
@@ -332,12 +322,7 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
           </div>
         </div>
                 <div id="queue" class="pos-order-list pos-lux-queue" aria-label="Active transaction basket">
-          <div class="cart-table pos-lux-cart-table">
-            <div class="cart-table-head"><span>QTY</span><span>ITEM DESCRIPTION</span><span>UNIT PRICE</span><span>LINE TOTAL</span></div>
-            <div class="cart-row"><span class="qty-control"><button type="button" data-cart-minus="0" aria-label="Decrease quantity">−</button><b>1</b><button type="button" data-cart-plus="0" aria-label="Increase quantity">+</button></span><span class="pos-lux-item"><strong>Blush Serenity Bouquet</strong><small>Large Vase, Silk Wrap Ribbon</small></span><span class="pos-lux-unit">$180.00</span><span class="pos-lux-line-total"><b>$180.00</b></span></div>
-            <div class="cart-row"><span class="qty-control"><button type="button" data-cart-minus="1" aria-label="Decrease quantity">−</button><b>2</b><button type="button" data-cart-plus="1" aria-label="Increase quantity">+</button></span><span class="pos-lux-item"><strong>Rose Garden Arrangement</strong><small>Signature ceramic bowl, peach premium spray roses</small></span><span class="pos-lux-unit">$150.00</span><span class="pos-lux-line-total"><b>$300.00</b></span></div>
-            <div class="cart-row"><span class="qty-control"><button type="button" data-cart-minus="2" aria-label="Decrease quantity">−</button><b>1</b><button type="button" data-cart-plus="2" aria-label="Increase quantity">+</button></span><span class="pos-lux-item"><strong>Gift Wrapping Service</strong><small>Embossed paper, handwritten gold foil card</small></span><span class="pos-lux-unit">$12.00</span><span class="pos-lux-line-total"><b>$12.00</b></span></div>
-          </div>
+          <div class="pos-lux-empty">Scan or select items to begin a sale.</div>
         </div>
         <div class="pos-lux-ops" hidden aria-hidden="true">
           <button type="button" data-open="orderDialog">+ Manual Item</button>
@@ -345,7 +330,7 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
           <button type="button" id="loadCartQuoteBtn">Recall quotes</button>
           <button type="button" id="printCartBtn">Print</button>
           <span id="savedQuoteCount">0</span>
-          <select id="posCustomerSelect"><option value="clara-kensington" data-name="Clara Kensington" selected>Clara Kensington</option><option value="">Walk-in Customer</option></select>
+          <select id="posCustomerSelect"><option value="" selected>Walk-in Customer</option></select>
           <textarea id="posOrderNote"></textarea>
         </div>
       </section>
@@ -355,34 +340,34 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
       <div class="pos-lux-customer-block">
         <div class="pos-lux-customer-head">
           <span>ASSIGNED CUSTOMER</span>
-          <em class="pos-lux-vip" id="posLuxVipBadge">VIP GOLD</em>
+          <em class="pos-lux-vip" id="posLuxVipBadge" hidden>VIP GOLD</em>
         </div>
         <div class="pos-lux-customer-row">
           <img id="posLuxCustomerAvatar" src="/assets/assistants/lily-portrait.png" alt="" width="48" height="48">
           <div class="pos-lux-customer-meta">
-            <strong id="posLuxCustomerName">Clara Kensington</strong>
-            <small id="posLuxCustomerEmail">clara.kensington@email.com</small>
+            <strong id="posLuxCustomerName">Walk-in Customer</strong>
+            <small id="posLuxCustomerEmail">Select a customer for loyalty</small>
           </div>
           <div class="pos-lux-loyalty" title="Loyalty progress">
-            <div class="pos-lux-ring" id="posLuxLoyaltyRing" style="--lux-loyalty:75" aria-hidden="true"><span id="posLuxLoyaltyPts">4,300 pts</span></div>
+            <div class="pos-lux-ring" id="posLuxLoyaltyRing" style="--lux-loyalty:0" aria-hidden="true"><span id="posLuxLoyaltyPts">0 pts</span></div>
           </div>
         </div>
-        <p class="pos-lux-loyalty-note" id="posLuxLoyaltyNote">$50.00 reward coupon available.</p>
+        <p class="pos-lux-loyalty-note" id="posLuxLoyaltyNote">Assign a customer to unlock loyalty.</p>
       </div>
 
       <div class="pos-lux-totals">
-        <div class="pos-lux-line"><span>Subtotal</span><b id="cartSubtotal">$492.00</b></div>
+        <div class="pos-lux-line"><span>Subtotal</span><b id="cartSubtotal">$0.00</b></div>
         <div class="pos-lux-discount-row">
           <label class="pos-lux-code">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-            <input id="posLuxDiscountCode" type="text" value="VIPGOLD10" placeholder="Discount code" autocomplete="off">
+            <input id="posLuxDiscountCode" type="text" value="" placeholder="Discount code" autocomplete="off">
           </label>
           <button type="button" class="pos-lux-apply" id="posLuxApplyDiscount">Apply</button>
         </div>
-        <div class="pos-lux-line rose" id="posLuxDiscountLine"><span>Discount (10% VIP coupon)</span><b id="posLuxDiscountAmt">−$49.20</b></div>
-        <div class="pos-lux-line"><span>Service / White-Glove Delivery</span><b id="posLuxServiceFee">$15.00</b></div>
-        <div class="pos-lux-line checkout-lines"><span>Tax (VAT 10%)</span><b id="posLuxTax">$49.20</b></div>
-        <div class="pos-lux-grand"><span>Grand Total</span><strong id="cartTotal">$507.00</strong></div>
+        <div class="pos-lux-line rose" id="posLuxDiscountLine" hidden><span>Discount</span><b id="posLuxDiscountAmt">−$0.00</b></div>
+        <div class="pos-lux-line"><span>Service / White-Glove Delivery</span><b id="posLuxServiceFee">$0.00</b></div>
+        <div class="pos-lux-line checkout-lines"><span>Tax (VAT 10%)</span><b id="posLuxTax">$0.00</b></div>
+        <div class="pos-lux-grand"><span>Grand Total</span><strong id="cartTotal">$0.00</strong></div>
       </div>
 
       <div class="pos-lux-pay-actions">
@@ -410,8 +395,8 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
     <footer class="pos-lux-statusbar">
       <div class="pos-lux-status-left"><i aria-hidden="true"></i> Register Online <span>ID: REG-MAIN-001</span></div>
       <div class="pos-lux-status-right">
-        <span>Today’s Transactions: <b id="posLuxTxCount">132</b> settled</span>
-        <span>Expected Drawer Balance: <b id="posLuxDrawerBal">$2,480.50</b></span>
+        <span>Today’s Transactions: <b id="posLuxTxCount">0</b> settled</span>
+        <span>Expected Drawer Balance: <b id="posLuxDrawerBal">$0.00</b></span>
       </div>
     </footer>
   </div>
@@ -920,4 +905,4 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
 
 <dialog id="savedQuotesDialog"><div class="dialog-shell"><div class="heading"><div><p class="eyebrow">REGISTER</p><h2>Saved quotes</h2><p class="subtle">Resume a quote on this register or remove it.</p></div><button class="close" type="button">×</button></div><div id="savedQuotesList" class="saved-quotes-list"></div></div></dialog>
 <dialog id="receiptDialog"><div id="receiptContent"></div><div class="dialog-tools"><button id="closeReceipt" class="secondary">Close</button><button id="printReceipt" class="primary" type="button">Print Receipt</button></div></dialog>
-<script src="/florisyn-version.js?v=dev" defer></script><script src="/bloom-version.js" defer></script><script src="/lily-platform.js" defer></script><script type="module" src="/launch-polish.js"></script><script src="/production-monitor.js" defer></script><script src="/login.js" defer></script><script src="/marketplace-verification.js" defer></script><script src="/marketplace-categories.js" defer></script><script src="/marketplace-experience.js" defer></script><script src="/wholesale-seller-dashboard.js" defer></script><script src="/payment-hub-ui.js" defer></script><script src="/subscription-center-ui.js" defer></script><script src="/business-ecosystem-ui.js" defer></script><script src="/florisyn-luxury-business-os.js?v=dev" defer></script><script src="/florisyn-luxury-orders.js?v=dev" defer></script><script src="/assistant-voice-core.js" defer></script><script src="/assistant-voice.js" defer></script><script src="/florisyn-ui-editor.js" defer></script><script src="/bloom-rc2-lily-voice.js" defer></script><script src="/daisy-mascot.js" defer></script><script src="/bloom-rc2-first-run.js" defer></script><script src="/bloom-rc2-dashboard.js" defer></script><script src="/florisyn-atelier-dashboard.js?v=dev" defer></script><script src="/florisyn-luxury-pos.js?v=dev" defer></script><script src="/bloom-rc2.1-founder-polish.js" defer></script><script src="/bloom-rc2.1-consistency.js" defer></script><script src="/ai-suite-hub.js" defer></script><script src="/storefront/section-renderer.js" defer></script><script src="/website-section-inspector.js" defer></script><script src="/lily-website-wizard.js" defer></script><script src="/instant-website-ui.js" defer></script><script src="/theme-gallery-ui.js" defer></script><script src="/website-studio-v2.js" defer></script><script src="/website-editor-ui.js" defer></script><script src="/floral-media.js" defer></script><script src="/floral-library-collection.js" defer></script><script src="/floral-library-ui.js" defer></script><script src="/customer-profile-ui.js" defer></script><script src="/guided-order-stepper.js" defer></script><script src="/bloom-rc1-dashboard.js" defer></script><script src="/community-ui.js" defer></script><script src="/holiday-command-ui.js" defer></script><script src="/mothers-day-ready.js" defer></script><script src="/florist-migration-wizard.js" defer></script><script src="/florist-network-ui.js" defer></script><script src="/referral-hub.js" defer></script><script src="/email-campaigns-ui.js" defer></script><script src="/weddings-ui.js" defer></script><script src="/core/florisyn-platform.js" defer></script><script src="/florisyn-router.js?v=dev" defer></script><script src="/app.js?v=dev" defer></script></body></html>
+<script src="/florisyn-version.js?v=teststamp1234" defer></script><script src="/bloom-version.js" defer></script><script src="/lily-platform.js" defer></script><script type="module" src="/launch-polish.js"></script><script src="/production-monitor.js" defer></script><script src="/login.js" defer></script><script src="/marketplace-verification.js" defer></script><script src="/marketplace-categories.js" defer></script><script src="/marketplace-experience.js" defer></script><script src="/wholesale-seller-dashboard.js" defer></script><script src="/payment-hub-ui.js" defer></script><script src="/subscription-center-ui.js" defer></script><script src="/business-ecosystem-ui.js" defer></script><script src="/florisyn-luxury-business-os.js?v=teststamp1234" defer></script><script src="/florisyn-luxury-orders.js?v=teststamp1234" defer></script><script src="/assistant-voice-core.js" defer></script><script src="/assistant-voice.js" defer></script><script src="/florisyn-ui-editor.js" defer></script><script src="/bloom-rc2-lily-voice.js" defer></script><script src="/daisy-mascot.js" defer></script><script src="/bloom-rc2-first-run.js" defer></script><script src="/bloom-rc2-dashboard.js" defer></script><script src="/florisyn-atelier-dashboard.js?v=teststamp1234" defer></script><script src="/florisyn-luxury-pos.js?v=teststamp1234" defer></script><script src="/bloom-rc2.1-founder-polish.js" defer></script><script src="/bloom-rc2.1-consistency.js" defer></script><script src="/ai-suite-hub.js" defer></script><script src="/storefront/section-renderer.js" defer></script><script src="/website-section-inspector.js" defer></script><script src="/lily-website-wizard.js" defer></script><script src="/instant-website-ui.js" defer></script><script src="/theme-gallery-ui.js" defer></script><script src="/website-studio-v2.js" defer></script><script src="/website-editor-ui.js" defer></script><script src="/floral-media.js?v=teststamp1234" defer></script><script src="/floral-library-collection.js?v=teststamp1234" defer></script><script src="/floral-library-ui.js?v=teststamp1234" defer></script><script src="/customer-profile-ui.js" defer></script><script src="/guided-order-stepper.js" defer></script><script src="/bloom-rc1-dashboard.js" defer></script><script src="/community-ui.js" defer></script><script src="/holiday-command-ui.js" defer></script><script src="/mothers-day-ready.js" defer></script><script src="/florist-migration-wizard.js" defer></script><script src="/florist-network-ui.js" defer></script><script src="/referral-hub.js" defer></script><script src="/email-campaigns-ui.js" defer></script><script src="/weddings-ui.js" defer></script><script src="/core/florisyn-platform.js" defer></script><script src="/florisyn-router.js?v=teststamp1234" defer></script><script src="/app.js?v=teststamp1234" defer></script></body></html>
