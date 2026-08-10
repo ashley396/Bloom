@@ -159,6 +159,57 @@
     return `<div class="community-filters" role="toolbar" aria-label="Filter by category">${chips}</div>`;
   }
 
+  function recipePanel(post) {
+    const id = post.id;
+    if (post.published_recipe) {
+      const r = post.published_recipe;
+      const stems = (r.recipe || [])
+        .slice(0, 8)
+        .map((row) => `<li>${esc(row.qty || row.quantity)} × ${esc(row.name)}</li>`)
+        .join("");
+      const importBtn =
+        !post.is_mine && r.id
+          ? `<button type="button" class="primary community-import-recipe" data-recipe-id="${esc(r.id)}">Add to My Shop</button>`
+          : "";
+      return `<div class="community-recipe panel community-recipe-published">
+        <p class="eyebrow">🌸 LILY RECIPE · SHARED</p>
+        <h4>${esc(r.title)}</h4>
+        ${r.suggested_retail ? `<p class="subtle">Suggested retail · $${Number(r.suggested_retail).toFixed(0)}</p>` : ""}
+        ${stems ? `<ul class="community-recipe-stems">${stems}</ul>` : ""}
+        ${importBtn}
+      </div>`;
+    }
+    if (!post.is_mine) return "";
+    if (post.recipe_status === "draft" && post.recipe_draft) {
+      const d = post.recipe_draft;
+      const rows = (d.recipe || [])
+        .map(
+          (row, i) =>
+            `<div class="community-recipe-row"><input data-recipe-idx="${i}" data-field="name" value="${esc(row.name)}" maxlength="120" aria-label="Ingredient"><input data-recipe-idx="${i}" data-field="qty" type="number" min="1" value="${esc(row.qty || row.quantity || 1)}" aria-label="Qty"></div>`
+        )
+        .join("");
+      return `<div class="community-recipe panel community-recipe-draft" data-post-id="${esc(id)}">
+        <p class="eyebrow">🌸 LILY RECIPE · DRAFT</p>
+        <label>Title<input class="community-recipe-title" value="${esc(d.name || "")}" maxlength="120"></label>
+        <label>Category<input class="community-recipe-category" value="${esc(d.category || "Everyday")}" maxlength="80"></label>
+        <label>Suggested retail ($)<input class="community-recipe-retail" type="number" min="0" step="1" value="${esc(d.suggested_retail || 0)}"></label>
+        <div class="community-recipe-rows">${rows}</div>
+        <div class="card-actions">
+          <button type="button" class="secondary community-save-recipe" data-id="${esc(id)}">Save draft</button>
+          <button type="button" class="primary community-publish-recipe" data-id="${esc(id)}">Publish to Community</button>
+        </div>
+      </div>`;
+    }
+    if (post.can_build_recipe && post.image_url) {
+      return `<div class="community-recipe panel">
+        <p class="eyebrow">LILY</p>
+        <p class="subtle">Turn your arrangement photo into a stem-count recipe other florists can copy.</p>
+        <button type="button" class="primary community-build-recipe" data-id="${esc(id)}">Build recipe with Lily</button>
+      </div>`;
+    }
+    return "";
+  }
+
   function postCard(post) {
     const author = post.author || {};
     const img = post.image_url
@@ -184,6 +235,7 @@
       ${img}
       <h3 class="community-caption">${esc(post.caption)}</h3>
       ${post.body ? `<p class="community-body">${esc(post.body)}</p>` : ""}
+      ${recipePanel(post)}
       <div class="community-actions">
         <button type="button" class="secondary community-like${post.liked ? " liked" : ""}" data-id="${esc(post.id)}" aria-pressed="${post.liked ? "true" : "false"}">
           ${post.liked ? "♥ Encouraged" : "♡ Encourage"} · ${Number(post.like_count || 0)}
@@ -233,7 +285,7 @@
       <div class="community-hero">
         <p class="eyebrow">FLORIST SOCIAL <span class="community-beta-pill">Beta</span></p>
         <h2>Your florist feed</h2>
-        <p class="subtle">Profile photos, arrangement posts, encourages, and comments — like Instagram or Facebook, built only for flower shops.</p>
+        <p class="subtle">Profile photos, arrangement posts, Lily recipes, encourages, and comments — like Instagram or Facebook, built only for flower shops.</p>
       </div>
       ${guidelinesHtml(state.guidelines)}
       ${profileForm(state.profile)}
@@ -272,6 +324,23 @@
       };
       reader.readAsDataURL(file);
     });
+  }
+
+  function collectRecipeDraft(panel) {
+    if (!panel) return null;
+    const name = panel.querySelector(".community-recipe-title")?.value?.trim();
+    const category = panel.querySelector(".community-recipe-category")?.value?.trim() || "Everyday";
+    const suggested_retail = Number(panel.querySelector(".community-recipe-retail")?.value || 0);
+    const recipe = [];
+    panel.querySelectorAll(".community-recipe-row").forEach((row) => {
+      const idx = row.querySelector("[data-field='name']");
+      const qty = row.querySelector("[data-field='qty']");
+      const stemName = idx?.value?.trim();
+      const stemQty = Number(qty?.value || 0);
+      if (stemName && stemQty > 0) recipe.push({ name: stemName, qty: stemQty, kind: "flower" });
+    });
+    if (!name || !recipe.length) return null;
+    return { name, category, suggested_retail, recipe, instructions: [] };
   }
 
   function bind() {
@@ -480,6 +549,102 @@
           setStatus(res.message || "Report submitted.");
         } catch (err) {
           setStatus(err.message);
+        }
+      });
+    });
+
+    el.querySelectorAll(".community-build-recipe").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-id");
+        btn.disabled = true;
+        setStatus("Lily is building a recipe from your arrangement…");
+        try {
+          const res = await api("generate_recipe", { post_id: id });
+          const post = state.items.find((p) => p.id === id);
+          if (post) {
+            post.recipe_draft = res.recipe_draft;
+            post.recipe_status = "draft";
+            if (res.item) Object.assign(post, res.item);
+          }
+          setStatus("Recipe draft ready — review and publish when you are happy.");
+          render();
+        } catch (err) {
+          setStatus(err.message || "Lily could not build a recipe.");
+          btn.disabled = false;
+        }
+      });
+    });
+
+    el.querySelectorAll(".community-save-recipe").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-id");
+        const panel = el.querySelector(`.community-recipe-draft[data-post-id="${CSS.escape(id)}"]`);
+        const draft = collectRecipeDraft(panel);
+        if (!draft) {
+          setStatus("Add a title and at least one stem line.");
+          return;
+        }
+        btn.disabled = true;
+        setStatus("Saving recipe draft…");
+        try {
+          await api("save_recipe_draft", { post_id: id, recipe_draft: draft });
+          const post = state.items.find((p) => p.id === id);
+          if (post) {
+            post.recipe_draft = draft;
+            post.recipe_status = "draft";
+          }
+          setStatus("Recipe draft saved.");
+        } catch (err) {
+          setStatus(err.message || "Could not save draft.");
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+
+    el.querySelectorAll(".community-publish-recipe").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-id");
+        const panel = el.querySelector(`.community-recipe-draft[data-post-id="${CSS.escape(id)}"]`);
+        const draft = collectRecipeDraft(panel);
+        if (!draft) {
+          setStatus("Add a title and at least one stem line.");
+          return;
+        }
+        if (!confirm("Publish this recipe for other florists to copy?")) return;
+        btn.disabled = true;
+        setStatus("Publishing recipe…");
+        try {
+          const res = await api("publish_recipe", { post_id: id, recipe_draft: draft });
+          const post = state.items.find((p) => p.id === id);
+          if (post && res.item) Object.assign(post, res.item);
+          else if (post) {
+            post.recipe_status = "published";
+            post.published_recipe = res.published_recipe;
+            post.can_build_recipe = false;
+          }
+          setStatus("Recipe published to Community.");
+          render();
+        } catch (err) {
+          setStatus(err.message || "Could not publish recipe.");
+          btn.disabled = false;
+        }
+      });
+    });
+
+    el.querySelectorAll(".community-import-recipe").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const recipeId = btn.getAttribute("data-recipe-id");
+        btn.disabled = true;
+        setStatus("Adding recipe to your shop…");
+        try {
+          const res = await api("import_recipe_to_shop", { recipe_id: recipeId });
+          setStatus(res.message || "Added to Products & Recipe Builder.");
+          if (typeof window.toast === "function") window.toast(res.message);
+        } catch (err) {
+          setStatus(err.message || "Could not import recipe.");
+        } finally {
+          btn.disabled = false;
         }
       });
     });

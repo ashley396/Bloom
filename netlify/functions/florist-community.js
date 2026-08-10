@@ -26,6 +26,13 @@ import {
   removeCommunityImageQuietly,
   reconcileCommunityImageAfterWriteError,
 } from "./_shared/florist-community-storage.js";
+import { runCloudflareGenerate } from "./ai-assistant.js";
+import {
+  sanitizeRecipeDraft,
+  generateRecipeWithCloudflare,
+  recipeToProductItems,
+  publicRecipeSummary,
+} from "./_shared/florist-community-recipes.js";
 
 function featureGate() {
   if (!isFeatureEnabled("COMMUNITY_BETA")) {
@@ -169,6 +176,12 @@ function moderatorForPost(ctx, post, platformAdmin) {
 const PROFILE_COLUMNS =
   "user_id,shop_id,display_name,shop_display_name,city,region,bio,avatar_path,updated_at";
 
+const POST_COLUMNS =
+  "id,author_user_id,shop_id,category,caption,body,image_path,status,like_count,comment_count,created_at,updated_at,recipe_draft,recipe_status,published_recipe_id";
+
+const RECIPE_COLUMNS =
+  "id,post_id,author_user_id,author_shop_id,title,description,category,recipe,instructions,suggested_retail,image_path,status,import_count,created_at,updated_at";
+
 async function profileForApi(client, row) {
   if (!row) return null;
   const signed = await signedImageUrl(client, row.avatar_path);
@@ -291,12 +304,30 @@ async function requireActivePost(client, postId) {
   return data;
 }
 
+async function loadPublishedRecipes(client, recipeIds) {
+  const ids = [...new Set((recipeIds || []).filter(Boolean))];
+  if (!ids.length) return new Map();
+  const { data, error } = await client
+    .from("florist_community_recipes")
+    .select(RECIPE_COLUMNS)
+    .in("id", ids)
+    .eq("status", "active");
+  if (error) {
+    if (missingRelation(error)) friendlyMissing();
+    throw error;
+  }
+  const map = new Map();
+  for (const row of data || []) {
+    const signed = await signedImageUrl(client, row.image_path);
+    map.set(row.id, publicRecipeSummary(row, { imageUrl: signed.url }));
+  }
+  return map;
+}
+
 async function feed(client, ctx, { category, platformAdmin }) {
   let query = client
     .from("florist_community_posts")
-    .select(
-      "id,author_user_id,shop_id,category,caption,body,image_path,status,like_count,comment_count,created_at,updated_at"
-    )
+    .select(POST_COLUMNS)
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(50);
@@ -314,18 +345,70 @@ async function feed(client, ctx, { category, platformAdmin }) {
     ctx.user.id,
     withAuthors.map((p) => p.id)
   );
+  const recipeMap = await loadPublishedRecipes(
+    client,
+    withAuthors.map((p) => p.published_recipe_id)
+  );
   return Promise.all(
     withAuthors.map(async (p) => {
       const signed = await signedImageUrl(client, p.image_path);
+      const isMine = p.author_user_id === ctx.user.id;
       return publicPost(p, {
         liked: liked.has(p.id),
-        isMine: p.author_user_id === ctx.user.id,
+        isMine,
         canModerate: moderatorForPost(ctx, p, platformAdmin),
         imageUrl: signed.url,
         imageExpiresIn: signed.expiresIn,
+        publishedRecipe: p.published_recipe_id ? recipeMap.get(p.published_recipe_id) || null : null,
       });
     })
   );
+}
+
+async function recipesFeed(client) {
+  const { data, error } = await client
+    .from("florist_community_recipes")
+    .select(RECIPE_COLUMNS)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) {
+    if (missingRelation(error)) friendlyMissing();
+    throw error;
+  }
+  const authorIds = [...new Set((data || []).map((r) => r.author_user_id).filter(Boolean))];
+  let profileMap = new Map();
+  if (authorIds.length) {
+    const { data: profiles, error: pe } = await client
+      .from("florist_community_profiles")
+      .select(PROFILE_COLUMNS)
+      .in("user_id", authorIds);
+    if (pe) throw pe;
+    const resolved = await Promise.all((profiles || []).map((row) => profileForApi(client, row)));
+    profileMap = new Map(resolved.filter(Boolean).map((p) => [p.user_id, p]));
+  }
+  return Promise.all(
+    (data || []).map(async (row) => {
+      const signed = await signedImageUrl(client, row.image_path);
+      return {
+        ...publicRecipeSummary(row, { imageUrl: signed.url }),
+        author: profileMap.get(row.author_user_id) || null,
+      };
+    })
+  );
+}
+
+async function requireOwnPostWithImage(client, userId, postId) {
+  const { data, error } = await client
+    .from("florist_community_posts")
+    .select(POST_COLUMNS)
+    .eq("id", postId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || data.status !== "active") denied("This post is not available.", 404);
+  if (data.author_user_id !== userId) denied("You can only build recipes on your own posts.");
+  if (!data.image_path) denied("Add an arrangement photo before building a recipe.");
+  return data;
 }
 
 export async function handler(event) {
@@ -358,6 +441,11 @@ export async function handler(event) {
         requireParticipant(ctx);
         const profile = await ensureDefaultProfile(client, ctx);
         return json(200, { profile: await profileForApi(client, profile), guidelines: COMMUNITY_GUIDELINES });
+      }
+      if (action === "recipes") {
+        requireParticipant(ctx);
+        const items = await recipesFeed(client);
+        return json(200, assertCommunitySafePayload({ items }));
       }
       if (action === "comments") {
         requireParticipant(ctx);
@@ -813,6 +901,218 @@ export async function handler(event) {
         status: data?.status || status,
       });
       return json(200, { ok: true, status: data?.status || status });
+    }
+
+    if (action === "generate_recipe") {
+      requireParticipant(ctx);
+      const postId = String(body.post_id || "");
+      if (!postId) return json(400, { error: "post_id is required." });
+      const post = await requireOwnPostWithImage(client, user.id, postId);
+      if (post.recipe_status === "published") {
+        return json(400, { error: "This post already has a published recipe." });
+      }
+      let draft;
+      try {
+        draft = await generateRecipeWithCloudflare(runCloudflareGenerate, {
+          caption: post.caption,
+          body: post.body,
+          category: post.category,
+          has_arrangement_photo: true,
+          note: "Estimate realistic stem counts florists can copy. No customer or order data.",
+        });
+      } catch (error) {
+        const e = new Error(error.message || "Lily could not build a recipe right now.");
+        e.statusCode = error.statusCode || 503;
+        throw e;
+      }
+      if (!draft) return json(502, { error: "Lily could not build a recipe from this post. Try again." });
+      const { data, error } = await client
+        .from("florist_community_posts")
+        .update({
+          recipe_draft: draft,
+          recipe_status: "draft",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", postId)
+        .eq("author_user_id", user.id)
+        .select(POST_COLUMNS)
+        .single();
+      if (error) {
+        if (missingRelation(error)) friendlyMissing();
+        throw error;
+      }
+      const signed = await signedImageUrl(client, data.image_path);
+      return json(200, {
+        recipe_draft: draft,
+        item: publicPost(data, {
+          isMine: true,
+          imageUrl: signed.url,
+          imageExpiresIn: signed.expiresIn,
+        }),
+      });
+    }
+
+    if (action === "save_recipe_draft") {
+      requireParticipant(ctx);
+      const postId = String(body.post_id || "");
+      if (!postId) return json(400, { error: "post_id is required." });
+      await requireOwnPostWithImage(client, user.id, postId);
+      const draft = sanitizeRecipeDraft(body.recipe_draft || body.recipe);
+      if (!draft) return json(400, { error: "Recipe needs a title and at least one stem line." });
+      const { data, error } = await client
+        .from("florist_community_posts")
+        .update({
+          recipe_draft: draft,
+          recipe_status: "draft",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", postId)
+        .eq("author_user_id", user.id)
+        .select(POST_COLUMNS)
+        .single();
+      if (error) {
+        if (missingRelation(error)) friendlyMissing();
+        throw error;
+      }
+      return json(200, { recipe_draft: draft, recipe_status: data.recipe_status });
+    }
+
+    if (action === "publish_recipe") {
+      requireParticipant(ctx);
+      const postId = String(body.post_id || "");
+      if (!postId) return json(400, { error: "post_id is required." });
+      const post = await requireOwnPostWithImage(client, user.id, postId);
+      const draft = sanitizeRecipeDraft(body.recipe_draft || post.recipe_draft);
+      if (!draft) return json(400, { error: "Save a recipe draft before publishing." });
+      const insert = {
+        post_id: postId,
+        author_user_id: user.id,
+        author_shop_id: shopId,
+        title: draft.name,
+        description: draft.description,
+        category: draft.category,
+        recipe: draft.recipe,
+        instructions: draft.instructions,
+        suggested_retail: draft.suggested_retail,
+        image_path: post.image_path,
+        status: "active",
+        updated_at: new Date().toISOString(),
+      };
+      const { data: recipeRow, error: ie } = await client
+        .from("florist_community_recipes")
+        .insert(insert)
+        .select(RECIPE_COLUMNS)
+        .single();
+      if (ie) {
+        if (missingRelation(ie)) friendlyMissing();
+        throw ie;
+      }
+      const { data, error } = await client
+        .from("florist_community_posts")
+        .update({
+          recipe_draft: draft,
+          recipe_status: "published",
+          published_recipe_id: recipeRow.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", postId)
+        .eq("author_user_id", user.id)
+        .select(POST_COLUMNS)
+        .single();
+      if (error) throw error;
+      const signed = await signedImageUrl(client, data.image_path);
+      const publishedRecipe = publicRecipeSummary(recipeRow, { imageUrl: signed.url });
+      return json(201, {
+        published_recipe: publishedRecipe,
+        item: publicPost(data, {
+          isMine: true,
+          imageUrl: signed.url,
+          imageExpiresIn: signed.expiresIn,
+          publishedRecipe,
+        }),
+      });
+    }
+
+    if (action === "import_recipe_to_shop") {
+      requireParticipant(ctx);
+      const recipeId = String(body.recipe_id || "");
+      if (!recipeId) return json(400, { error: "recipe_id is required." });
+      const { data: recipe, error: re } = await client
+        .from("florist_community_recipes")
+        .select(RECIPE_COLUMNS)
+        .eq("id", recipeId)
+        .eq("status", "active")
+        .maybeSingle();
+      if (re) {
+        if (missingRelation(re)) friendlyMissing();
+        throw re;
+      }
+      if (!recipe) return json(404, { error: "Recipe not found." });
+      const draft = sanitizeRecipeDraft({
+        name: recipe.title,
+        description: recipe.description,
+        category: recipe.category,
+        suggested_retail: recipe.suggested_retail,
+        recipe: recipe.recipe,
+        instructions: recipe.instructions,
+      });
+      if (!draft) return json(400, { error: "This recipe cannot be imported." });
+      const productPayload = {
+        shop_id: shopId,
+        name: draft.name,
+        category: draft.category || "Everyday",
+        description: draft.description || "",
+        price: draft.suggested_retail || 0,
+        image_url: "",
+        active: true,
+        featured: false,
+        available_online: true,
+      };
+      const { data: product, error: pe } = await client
+        .from("products")
+        .insert(productPayload)
+        .select("id,name")
+        .single();
+      if (pe) throw pe;
+      const items = recipeToProductItems(draft);
+      if (items.length) {
+        const rows = items.map((x) => ({
+          shop_id: shopId,
+          product_id: product.id,
+          inventory_id: null,
+          ingredient_name: x.ingredient_name,
+          quantity: x.quantity,
+          unit: x.unit,
+          unit_cost: x.unit_cost,
+        }));
+        const { error: recipeErr } = await client.from("product_recipes").insert(rows);
+        if (recipeErr) throw recipeErr;
+      }
+      const svc = adminIfConfigured();
+      if (svc) {
+        try {
+          const { data: current } = await svc
+            .from("florist_community_recipes")
+            .select("import_count")
+            .eq("id", recipeId)
+            .maybeSingle();
+          await svc
+            .from("florist_community_recipes")
+            .update({
+              import_count: Number(current?.import_count || 0) + 1,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", recipeId);
+        } catch {
+          /* non-blocking */
+        }
+      }
+      return json(201, {
+        ok: true,
+        product_id: product.id,
+        product_name: product.name,
+        message: `${product.name} was added to Products & Recipe Builder.`,
+      });
     }
 
     return json(400, { error: "Unknown community action." });

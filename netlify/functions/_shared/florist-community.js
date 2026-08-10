@@ -20,6 +20,7 @@ export const COMMUNITY_GUIDELINES = Object.freeze([
   "No spam, promotions for non-floral scams, or off-topic sales pitches.",
   "Report posts that break these guidelines. Moderators may hide or remove content.",
   "Add a profile photo so fellow florists recognize you — like social media, but florist-only.",
+  "On arrangement photos, Lily can draft a stem-count recipe you can publish for other florists or add to your shop.",
   "This Community is a Beta. Features may change; private messaging and groups are not available.",
 ]);
 
@@ -423,10 +424,18 @@ export function publicProfile(row, { avatarUrl = null, avatarExpiresIn = null } 
 
 export function publicPost(
   row,
-  { liked = false, isMine = false, canModerate = false, imageUrl = null, imageExpiresIn = null } = {}
+  {
+    liked = false,
+    isMine = false,
+    canModerate = false,
+    imageUrl = null,
+    imageExpiresIn = null,
+    publishedRecipe = null,
+  } = {}
 ) {
   if (!row) return null;
-  return assertCommunitySafePayload({
+  const recipeStatus = String(row.recipe_status || "none");
+  const payload = {
     id: row.id,
     category: row.category,
     caption: row.caption,
@@ -442,6 +451,11 @@ export function publicPost(
     liked: Boolean(liked),
     is_mine: Boolean(isMine),
     can_moderate: Boolean(canModerate),
+    recipe_status: recipeStatus,
+    can_build_recipe: Boolean(
+      isMine && row.image_path && recipeStatus !== "published" && recipeStatus !== "imported"
+    ),
+    published_recipe: publishedRecipe || null,
     author: row.author
       ? publicProfile(row.author)
       : {
@@ -453,7 +467,11 @@ export function publicPost(
           region: row.author_region || null,
           bio: null,
         },
-  });
+  };
+  if (isMine && row.recipe_draft) {
+    payload.recipe_draft = row.recipe_draft;
+  }
+  return assertCommunitySafePayload(payload);
 }
 
 export function publicComment(row, { isMine = false, canModerate = false } = {}) {

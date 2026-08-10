@@ -276,6 +276,8 @@ test("florist-community function enforces flag, membership, signed URLs, RPCs", 
   assert.match(src, /community_admin_check_degraded/);
   assert.match(src, /avatar_path/);
   assert.match(src, /uploadPrevalidatedCommunityAvatar/);
+  assert.match(src, /generate_recipe/);
+  assert.match(src, /florist_community_recipes/);
   assert.match(src, /validateProfileAvatarUpload/);
   assert.doesNotMatch(src, /Unable to verify platform admin authorization/);
   assert.match(src, /validatePostBody/);
@@ -332,7 +334,7 @@ test("community UI hides nav when disabled and keeps loading/empty/error states"
   const ui = fs.readFileSync(path.join(process.cwd(), "public/community-ui.js"), "utf8");
   assert.match(ui, /BloomCommunity/);
   assert.match(ui, /community-loading|Loading Florist Community/);
-  assert.match(ui, /community-empty|No posts yet/);
+  assert.match(ui, /community-empty|Your florist feed is quiet/);
   assert.match(ui, /community-error|Something went wrong/);
 });
 
