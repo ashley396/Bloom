@@ -25,8 +25,10 @@ import {
   uploadPrevalidatedCommunityAvatar,
   removeCommunityImageQuietly,
   reconcileCommunityImageAfterWriteError,
+  downloadCommunityImageBuffer,
 } from "./_shared/florist-community-storage.js";
 import { runCloudflareGenerate } from "./ai-assistant.js";
+import { analyzeArrangementPhoto } from "./_shared/florist-ai-vision.js";
 import {
   sanitizeRecipeDraft,
   generateRecipeWithCloudflare,
@@ -924,6 +926,24 @@ export async function handler(event) {
       }
       let draft;
       let lilySource = "cloudflare";
+      let visionText = "";
+      if (post.image_path) {
+        try {
+          const imagePayload = await downloadCommunityImageBuffer(client, post.image_path);
+          if (imagePayload) {
+            const vision = await analyzeArrangementPhoto(imagePayload, { caption: post.caption });
+            visionText = vision?.text || "";
+          }
+        } catch (visionError) {
+          console.warn(
+            JSON.stringify({
+              level: "warn",
+              message: "community_recipe_vision_degraded",
+              detail: String(visionError?.message || visionError).slice(0, 200),
+            })
+          );
+        }
+      }
       const generated = await generateRecipeWithCloudflare(runCloudflareGenerate, {
         caption: post.caption,
         body: post.body,
@@ -931,6 +951,7 @@ export async function handler(event) {
         has_arrangement_photo: true,
         note: "Estimate realistic stem counts florists can copy. No customer or order data.",
       }, {
+        visionText,
         onCloudError: (error) => {
           console.warn(
             JSON.stringify({
@@ -942,9 +963,10 @@ export async function handler(event) {
         },
       });
       draft = generated.draft;
+      if (draft) lilySource = generated.source;
       if (!draft) {
-        draft = buildLocalRecipeDraftFromPost(post);
-        lilySource = "local_fallback";
+        draft = buildLocalRecipeDraftFromPost(post, { visionText });
+        lilySource = visionText ? "local_vision_fallback" : "local_fallback";
       }
       if (!draft) return json(502, { error: "Lily could not build a recipe from this post. Try again." });
       const { data, error } = await client
