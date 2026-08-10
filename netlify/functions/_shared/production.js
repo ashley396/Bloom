@@ -37,7 +37,7 @@ export function getProductionConfig(env = process.env) {
     stripe_webhooks: Boolean(env.STRIPE_ORDER_WEBHOOK_SECRET),
     stripe_subscription_webhooks: Boolean(env.STRIPE_WEBHOOK_SECRET),
     connect: Boolean(env.STRIPE_CONNECT_CLIENT_ID),
-    ai_cloud: Boolean(env.CLOUDFLARE_AI_TOKEN && env.CLOUDFLARE_ACCOUNT_ID),
+    ai_cloud: Boolean(env.CLOUDFLARE_ACCOUNT_ID && (env.CLOUDFLARE_AI_API_TOKEN || env.CLOUDFLARE_AI_TOKEN)),
     email: Boolean(env.RESEND_API_KEY)
   };
   const warnings = [];

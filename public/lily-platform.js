@@ -356,16 +356,22 @@
           renderSuggestions(data.coach);
         }
         if (data.generate && deps.smartAi) {
-          const gen = await deps.smartAi({
-            mode: "generate",
-            persona: "Lily",
-            task: data.generate.task,
-            input: data.generate.input,
-            schema: data.generate.schema
-          });
-          const extra = gen.result ? `\n\n**Draft:**\n${JSON.stringify(gen.result, null, 2)}` : "";
-          data.response = (data.response || "") + extra;
-          deps.api?.("admin-command-center", { method: "POST", body: JSON.stringify({ action: "record-ai-request" }) }).catch(() => {});
+          try {
+            const gen = await deps.smartAi({
+              mode: "generate",
+              persona: "Lily",
+              task: data.generate.task,
+              input: data.generate.input,
+              schema: data.generate.schema
+            });
+            const extra = gen.result ? `\n\n**Draft:**\n${JSON.stringify(gen.result, null, 2)}` : "";
+            data.response = (data.response || "") + extra;
+            deps.api?.("admin-command-center", { method: "POST", body: JSON.stringify({ action: "record-ai-request" }) }).catch(() => {});
+          } catch {
+            if (data.response) {
+              data.response += "\n\nI couldn't generate an AI draft just now. Check Cloudflare AI in Netlify, or try again in a moment.";
+            }
+          }
         } else if (data.intent?.intent === "general.chat" && deps.smartAi && message) {
           try {
             const ctx = deps.loadAiContext ? await deps.loadAiContext() : {};
