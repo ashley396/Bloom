@@ -79,13 +79,25 @@ async function ensureAdminMfaBeforeDashboard(){
   }
   if(state.decision.action==='enroll'){
     const enrolled=await enrollAdminTotp(supabase,'Florisyn Admin');
+    if(enrolled.alreadyVerified){
+      saveSession({accessToken:session.accessToken,refreshToken:session.refreshToken,user:session.user,mfaVerified:true});
+      return;
+    }
+    if(enrolled.pendingVerification){
+      adminMfaPending={factorId:enrolled.factorId,mode:'challenge'};
+      showAdminMfaUi({mode:'challenge'});
+      if($('#adminMfaIntro'))$('#adminMfaIntro').textContent='Enter the 6-digit code from your authenticator app (Florisyn Admin is already enrolled).';
+      const err=new Error('Enter your authenticator code to finish Admin MFA setup.');
+      err.code='admin_mfa_challenge_required';
+      throw err;
+    }
     adminMfaPending={factorId:enrolled.factorId,mode:'enroll'};
     showAdminMfaUi({mode:'enroll',qrCode:enrolled.qrCode,secret:enrolled.secret});
     const err=new Error('Admin MFA enrollment required.');
     err.code='admin_mfa_enrollment_required';
     throw err;
   }
-  adminMfaPending={factorId:state.verifiedFactors[0]?.id||null,mode:'challenge'};
+  adminMfaPending={factorId:state.verifiedFactors[0]?.id||state.pendingFactors[0]?.id||null,mode:'challenge'};
   showAdminMfaUi({mode:'challenge'});
   const err=new Error('Admin MFA verification required.');
   err.code='admin_mfa_challenge_required';
@@ -134,7 +146,16 @@ $('#ownerSetupForm')?.addEventListener('submit',async e=>{
     setTimeout(()=>{$('#ownerSetup').hidden=true;$('#adminAuth').hidden=false},700);
   }catch(err){msg.textContent=err.message}
 });
-$('#adminLogin').onsubmit=async e=>{e.preventDefault();const loginMessage=$('#loginMessage'),email=$('#adminEmail').value;loginMessage.textContent='';try{const d=await call('auth-login',{method:'POST',body:JSON.stringify({email,password:$('#adminPassword').value})},false);saveSession(d);await enterAdminAfterAuth()}catch(err){if(err?.code==='admin_mfa_enrollment_required'||err?.code==='admin_mfa_challenge_required'){loginMessage.textContent=err.message;return}clearAdminSession();showPasswordLogin();const detail=String(err.message||'');if(/invalid login credentials|invalid email or password|email not confirmed/i.test(detail)){loginMessage.innerHTML=`Could not sign in yet. Check your email confirmation link, or <a href="/verify-email?pending=1&email=${encodeURIComponent(email)}">resend the confirmation email</a>.`;}else if(/permission|forbidden|not an? admin|administration/i.test(detail)){loginMessage.textContent='This account is not authorized for Florisyn Administration. Florist and staff logins do not use Admin MFA.';}else loginMessage.textContent=detail}}
+$('#adminLogin').onsubmit=async e=>{e.preventDefault();const loginMessage=$('#loginMessage'),email=$('#adminEmail').value;loginMessage.textContent='';try{const d=await call('auth-login',{method:'POST',body:JSON.stringify({email,password:$('#adminPassword').value})},false);saveSession(d);await enterAdminAfterAuth()}catch(err){if(err?.code==='admin_mfa_enrollment_required'||err?.code==='admin_mfa_challenge_required'){loginMessage.textContent=err.message;return}clearAdminSession();showPasswordLogin();const detail=String(err.message||'');if(/invalid login credentials|invalid email or password|email not confirmed/i.test(detail)){loginMessage.innerHTML=`Could not sign in yet. Check your email confirmation link, <a href="/forgot-password">reset your password</a>, or <a href="/verify-email?pending=1&email=${encodeURIComponent(email)}">resend confirmation</a>.`;}else if(/permission|forbidden|not an? admin|administration/i.test(detail)){loginMessage.textContent='This account is not authorized for Florisyn Administration. Florist and staff logins do not use Admin MFA.';}else loginMessage.textContent=detail}}
+$('#adminPasswordToggle')?.addEventListener('click',()=>{
+  const input=$('#adminPassword');
+  const btn=$('#adminPasswordToggle');
+  if(!input||!btn)return;
+  const show=input.type==='password';
+  input.type=show?'text':'password';
+  btn.setAttribute('aria-pressed',show?'true':'false');
+  btn.setAttribute('aria-label',show?'Hide password':'Show password');
+});
 $('#adminMfaForm')?.addEventListener('submit',async e=>{
   e.preventDefault();
   const loginMessage=$('#loginMessage');

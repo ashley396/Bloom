@@ -4,10 +4,13 @@
  */
 
 /** Pure gate decision for Admin MFA (testable without network). */
-export function adminMfaGateDecision({ currentLevel, nextLevel, verifiedFactorCount = 0 } = {}) {
+export function adminMfaGateDecision({ currentLevel, nextLevel, verifiedFactorCount = 0, pendingFactorCount = 0 } = {}) {
   if (currentLevel === "aal2") return { action: "allow", reason: "aal2" };
   if (verifiedFactorCount > 0 || nextLevel === "aal2") {
     return { action: "challenge", reason: "enrolled_pending_verify" };
+  }
+  if (pendingFactorCount > 0) {
+    return { action: "challenge", reason: "pending_factor_exists" };
   }
   return { action: "enroll", reason: "admin_mfa_required" };
 }
@@ -55,22 +58,44 @@ export async function readAdminMfaState(supabase) {
   ]);
   if (aalError) throw aalError;
   if (factorError) throw factorError;
-  const verified = factors?.totp?.filter((f) => f.status === "verified") || [];
+  const totp = factors?.totp || [];
+  const verified = totp.filter((f) => f.status === "verified");
+  const pending = totp.filter((f) => f.status !== "verified");
   const decision = adminMfaGateDecision({
     currentLevel: aal?.currentLevel || null,
     nextLevel: aal?.nextLevel || null,
-    verifiedFactorCount: verified.length
+    verifiedFactorCount: verified.length,
+    pendingFactorCount: pending.length
   });
   return {
     currentLevel: aal?.currentLevel || null,
     nextLevel: aal?.nextLevel || null,
     verifiedFactors: verified,
+    pendingFactors: pending,
     decision
   };
 }
 
-/** Enroll Admin TOTP via supabase.auth.mfa.enroll(). */
+/** Enroll Admin TOTP via supabase.auth.mfa.enroll(). Reuses an existing pending factor. */
 export async function enrollAdminTotp(supabase, friendlyName = "Florisyn Admin") {
+  const { data: listed, error: listError } = await supabase.auth.mfa.listFactors();
+  if (listError) throw listError;
+  const existing = (listed?.totp || []).find(
+    (f) => String(f.friendly_name || f.friendlyName || "") === friendlyName
+  );
+  if (existing?.status === "verified") {
+    return { factorId: existing.id, alreadyVerified: true, qrCode: "", secret: "", uri: "" };
+  }
+  if (existing) {
+    return {
+      factorId: existing.id,
+      pendingVerification: true,
+      qrCode: "",
+      secret: "",
+      uri: ""
+    };
+  }
+
   const { data, error } = await supabase.auth.mfa.enroll({
     factorType: "totp",
     friendlyName
@@ -125,7 +150,7 @@ export async function challengeAndVerifyAdminMfa(supabase, { factorId, code }) {
 export async function pickAdminFactorId(supabase, preferredFactorId) {
   if (preferredFactorId) return preferredFactorId;
   const state = await readAdminMfaState(supabase);
-  const id = state.verifiedFactors[0]?.id;
-  if (!id) throw new Error("No verified Admin MFA factor is enrolled.");
+  const id = state.verifiedFactors[0]?.id || state.pendingFactors[0]?.id;
+  if (!id) throw new Error("No Admin MFA factor is enrolled.");
   return id;
 }
