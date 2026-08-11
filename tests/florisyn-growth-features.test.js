@@ -48,10 +48,14 @@ test("growth Netlify handlers surface friendly migration errors", () => {
   assert.match(lily, /marketingDraftFallback/);
 });
 
-test("Florisyn takes zero platform fee on Florist Network wires", () => {
+test("Florisyn takes zero platform fee on Florist Network wires with default 80/20 split", () => {
   assert.equal(FLORISYN_WIRE_PLATFORM_FEE_PERCENT, 0);
   const settlement = computeWireSettlement(100);
   assert.equal(settlement.florisyn_platform_fee, 0);
-  assert.equal(settlement.fulfilling_shop_payout, 100);
-  assert.equal(settlement.partner_relay_fee, 0);
+  assert.equal(settlement.fulfilling_shop_payout, 80);
+  assert.equal(settlement.partner_relay_fee, 20);
+  assert.equal(settlement.relay_fee_percent, 20);
+  const custom = computeWireSettlement(200, { relayPercent: 15 });
+  assert.equal(custom.fulfilling_shop_payout, 170);
+  assert.equal(custom.partner_relay_fee, 30);
 });

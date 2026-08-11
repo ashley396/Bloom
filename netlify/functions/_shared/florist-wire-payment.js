@@ -13,9 +13,15 @@ export async function createFloristWireCheckoutSession(stripe, {
   siteUrl,
 }) {
   const amount = Math.max(0, Number(wire.wire_amount || 0));
-  const cents = Math.round(amount * 100);
-  const settlement = computeWireSettlement(amount);
-  const applicationFee = stripeApplicationFeeCents(amount);
+  const relayPercent =
+    wire.relay_fee_percent ??
+    wire.metadata?.relay_fee_percent ??
+    undefined;
+  const settlement = computeWireSettlement(amount, {
+    relayPercent: relayPercent != null ? Number(relayPercent) : undefined,
+  });
+  const payCents = Math.round(settlement.fulfilling_shop_payout * 100);
+  const applicationFee = stripeApplicationFeeCents(amount, { relayPercent: settlement.relay_fee_percent });
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
@@ -25,10 +31,10 @@ export async function createFloristWireCheckoutSession(stripe, {
         quantity: 1,
         price_data: {
           currency: "usd",
-          unit_amount: cents,
+          unit_amount: payCents,
           product_data: {
             name: `Florist Network wire ${wire.wire_number}`,
-            description: `100% to partner florist ($${settlement.fulfilling_shop_payout.toFixed(2)}) — Florisyn fee $0`,
+            description: `${100 - settlement.relay_fee_percent}% to partner ($${settlement.fulfilling_shop_payout.toFixed(2)}) · ${settlement.relay_fee_percent}% sending relay · Florisyn fee $0`,
           },
         },
       },
