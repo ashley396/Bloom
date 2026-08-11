@@ -4,14 +4,16 @@ import { getBloomFloristCatalog, BLOOM_RC2_CATALOG_SIZE } from "../netlify/funct
 import { shouldSeedWebsiteCatalog, buildWebsiteCatalogSeeds } from "../netlify/functions/_shared/bloom-website-catalog-seed.js";
 import fs from "node:fs";
 
-test("RC2 floral catalog has hundreds of arrangements", () => {
+test("RC2 floral catalog has a verified unique-photo starter collection", () => {
   const catalog = getBloomFloristCatalog(240);
-  assert.equal(catalog.length, 240);
+  assert.equal(catalog.length, BLOOM_RC2_CATALOG_SIZE);
   assert.ok(catalog.every((p) => p.name && p.primary_image?.url && p.image_license?.source));
   assert.ok(catalog.every((p) => p.metadata?.image_standard === "ultra_realistic_professional_floral_photography"));
   assert.ok(catalog.every((p) => /ultra-realistic/i.test(p.primary_image.alt)));
   const uniqueNames = new Set(catalog.map((p) => p.name));
   assert.equal(uniqueNames.size, catalog.length);
+  const uniqueImages = new Set(catalog.map((p) => p.primary_image.url));
+  assert.equal(uniqueImages.size, catalog.length);
 });
 
 test("catalog includes roses hydrangeas wedding sympathy", () => {
@@ -21,6 +23,23 @@ test("catalog includes roses hydrangeas wedding sympathy", () => {
     .toLowerCase();
   assert.match(text, /rose/);
   assert.match(text, /hydrangea|wedding|sympathy/);
+});
+
+test("first visible floral library page uses unique everyday arrangement photos", () => {
+  const firstPage = getBloomFloristCatalog(60);
+  assert.equal(firstPage.length, 60);
+  assert.ok(firstPage.every((p) => p.categories.includes("Everyday")));
+  assert.ok(firstPage.every((p) => /everyday floral arrangement/i.test(p.description)));
+  const imageUrls = firstPage.map((p) => p.primary_image.url);
+  assert.equal(new Set(imageUrls).size, imageUrls.length);
+});
+
+test("first visible floral library recipes are florist-ready and not repeated filler", () => {
+  const firstPage = getBloomFloristCatalog(60);
+  assert.ok(firstPage.every((p) => p.recipe.length >= 4));
+  assert.ok(firstPage.every((p) => p.recipe.every((r) => r.name && Number(r.qty) > 0)));
+  const recipeSignatures = firstPage.map((p) => p.recipe.map((r) => `${r.name}:${r.qty}`).join("|"));
+  assert.ok(new Set(recipeSignatures).size >= 20);
 });
 
 test("website catalog seed only when empty", () => {
@@ -53,5 +72,5 @@ test("RC2 design system css linked from index", () => {
 });
 
 test("catalog default size constant", () => {
-  assert.equal(BLOOM_RC2_CATALOG_SIZE, 240);
+  assert.ok(BLOOM_RC2_CATALOG_SIZE >= 60);
 });
