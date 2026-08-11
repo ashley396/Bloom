@@ -419,10 +419,10 @@ This new composite role coordinates capacity work without replacing or pausing p
 
 ### H1. P0 — before 1,000-user certification
 
-Implementation checkpoint (August 4, 2026): P0-17 now has a local candidate for distributed Netlify admission across password-based Auth routes, five-second Supabase Auth upstream deadlines, refresh-route isolation, and edge-to-function request correlation. The focused gate passes. These controls remain unchecked below until Netlify's hosted build recognizes the rule and the staging smoke test proves the deployed behavior.
+Implementation checkpoint (August 6, 2026): P0-17 ships edge request-id correlation plus redirect `rate_limit` rules on the four password Auth function paths (Pro plan: 5 code-based rules max). Edge `rateLimit` config is kept docs-aligned. Staging smoke asserts `x-request-id` on `auth-login`. Burst proof of HTTP 429 remains a release-evidence checkbox after each production deploy.
 
 - [ ] Create an architecture decision record linking this blueprint.
-- [ ] Add Netlify distributed rate limiting to the stable login path.
+- [x] Add Netlify distributed rate limiting to the stable login path.
 - [ ] Keep the per-isolate limiter labeled as non-authoritative or remove it after the distributed gate passes.
 - [ ] Add 5-second upstream / 8-second total auth deadlines and `Retry-After` handling.
 - [ ] Add refresh single-flight, expiry scheduling, jitter, and cross-tab coordination.

@@ -9,6 +9,7 @@ import {
   seasonalScheduleValid,
   tenantIsolationCheck,
   lilyWebsiteDraftRequiresApproval,
+  normalizeFloristWebsiteBrief,
   LAUNCH_MODES,
   DEFAULT_SITE_PAGES
 } from "../netlify/functions/_shared/bloom-instant-website.js";
@@ -19,7 +20,8 @@ import {
   applyProductSyncToggle,
   validateLibraryProduct,
   detectDuplicateImageHash,
-  STARTER_FLORAL_LIBRARY
+  getPublicFloralLibraryCatalog,
+  getEverydayFloralLibraryCatalog
 } from "../netlify/functions/_shared/floral-library-core.js";
 
 test("website generation from shop profile", () => {
@@ -27,6 +29,30 @@ test("website generation from shop profile", () => {
   assert.equal(site.project.launch_mode, "luxury_boutique");
   assert.ok(site.pages.length >= 10);
   assert.equal(site.project.temporary_url, "petals.bloom-sites.com");
+});
+
+test("website brief creates florist-specific Wix-style draft without paid AI", () => {
+  const brief = normalizeFloristWebsiteBrief({
+    style: "romantic luxury",
+    audience: "brides and local gift buyers",
+    specialty: "weddings, sympathy, orchids",
+    delivery_area: "Lancaster and Lititz",
+    hero_goal: "Make premium ordering feel simple.",
+    occasions: "Wedding, Sympathy, Orchids"
+  });
+  const site = buildSiteFromShopProfile(
+    { id: "s1", name: "Petals", slug: "petals" },
+    { launch_mode: "luxury_boutique", brief }
+  );
+  assert.equal(site.florist_brief.style, "romantic luxury");
+  assert.match(site.sections.find((s) => s.type === "hero").props.text, /premium ordering/);
+  assert.match(site.sections.find((s) => s.type === "delivery_area").props.text, /Lancaster/);
+  assert.deepEqual(site.sections.find((s) => s.type === "occasion_tiles").props.occasions.slice(0, 3), [
+    "Wedding",
+    "Sympathy",
+    "Orchids"
+  ]);
+  assert.match(site.seo.meta_description, /weddings, sympathy, orchids/);
 });
 
 test("empty profile handling", () => {
@@ -69,7 +95,7 @@ test("master library immutability for shops", () => {
 });
 
 test("add to my shop creates independent copy", () => {
-  const master = STARTER_FLORAL_LIBRARY[0];
+  const master = getPublicFloralLibraryCatalog()[0];
   const copy = copyLibraryItemToShop(master, { shopId: "shop-1" });
   assert.notEqual(copy.id, master.id);
   assert.equal(copy.master_library_id, master.id);
@@ -100,12 +126,13 @@ test("domain status does not claim purchased", () => {
 test("image licensing validation", () => {
   const bad = validateLibraryProduct({ id: "1", name: "X", primary_image: { url: "u" } });
   assert.equal(bad.valid, false);
-  const good = validateLibraryProduct(STARTER_FLORAL_LIBRARY[0]);
+  const good = validateLibraryProduct(getPublicFloralLibraryCatalog()[0]);
   assert.equal(good.valid, true);
 });
 
 test("duplicate image hook", () => {
-  const dup = detectDuplicateImageHash(STARTER_FLORAL_LIBRARY, STARTER_FLORAL_LIBRARY[0].primary_image.hash);
+  const catalog = getPublicFloralLibraryCatalog();
+  const dup = detectDuplicateImageHash(catalog, catalog[0].primary_image.hash);
   assert.ok(dup.length >= 1);
 });
 
@@ -131,10 +158,38 @@ test("website health score does not promise rankings", () => {
   assert.match(h.disclaimer, /not a ranking guarantee/i);
 });
 
-test("starter library includes hydrangea and roses", () => {
-  const names = STARTER_FLORAL_LIBRARY.map((p) => p.name.toLowerCase()).join(" ");
+test("everyday library includes hydrangea and roses", () => {
+  const names = getPublicFloralLibraryCatalog().map((p) => p.name.toLowerCase()).join(" ");
   assert.match(names, /hydrangea/);
   assert.match(names, /rose/);
+});
+
+test("public floral library serves 100 everyday ultra-realistic arrangements", () => {
+  const catalog = getPublicFloralLibraryCatalog();
+  assert.equal(catalog.length, 100);
+  assert.ok(catalog.some((p) => p.id === "ed-01-sunshine-cube"));
+  assert.ok(catalog.some((p) => p.id === "ed-100-florist-counter-classic"));
+  assert.ok(catalog.some((p) => p.name === "Everyday Florist Favorite"));
+  assert.ok(catalog.every((p) => p.primary_image?.url));
+  assert.ok(catalog.every((p) => !String(p.id).startsWith("lib-rc2-")), "catalog must not include RC2 filler grid");
+  assert.ok(!catalog.some((p) => p.name === "Garden Rose Bouquet"), "no auto-generated Garden Rose filler");
+  assert.ok(!catalog.some((p) => p.image_license?.source === "licensed_stock_pexels"), "no legacy Pexels starters");
+  assert.ok(!catalog.some((p) => p.id.startsWith("sig-")), "no legacy signature ids");
+  const ids = catalog.map((p) => p.id);
+  assert.equal(new Set(ids).size, ids.length);
+});
+
+test("everyday library is marked for ultra-realistic launch quality", () => {
+  const catalog = getEverydayFloralLibraryCatalog();
+  assert.equal(catalog.length, 100);
+  for (const product of catalog) {
+    assert.equal(product.metadata?.image_standard, "ultra_realistic_professional_floral_photography");
+    assert.equal(product.metadata?.launch_quality, "everyday_verified");
+    assert.match(product.primary_image.alt, /ultra-realistic/i);
+    assert.match(product.description, /ultra-realistic/i);
+    assert.ok(product.tags.includes("ultra_realistic"));
+    assert.ok(product.categories.includes("Everyday"));
+  }
 });
 
 test("POS payment regression guard — create-checkout path unchanged", () => {

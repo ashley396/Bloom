@@ -47,7 +47,7 @@ await check("admin-bootstrap owner state", async () => {
 });
 
 await check("auth-login invalid credentials fail closed", async () => {
-  const { res, body } = await getJson("/.netlify/functions/auth-login", {
+  const { res, body } = await getJson("/api/auth-login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email: "not-a-real-user@example.invalid", password: "wrongwrong" })
@@ -56,6 +56,18 @@ await check("auth-login invalid credentials fail closed", async () => {
   assert.equal(body.code, "invalid_credentials");
   assert.match(String(body.error || ""), /Invalid email or password/i);
   assert.doesNotMatch(JSON.stringify(body), /accessToken|refreshToken|access_token/i);
+});
+
+await check("auth-login edge admission request id", async () => {
+  const res = await fetch(`${BASE}/api/auth-login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "not-a-real-user@example.invalid", password: "wrongwrong" })
+  });
+  assert.equal(res.status, 401);
+  const requestId = res.headers.get("x-request-id");
+  assert.ok(requestId && requestId.length >= 8, "expected x-request-id from auth-admission edge function");
+  assert.equal(res.headers.get("cache-control"), "no-store");
 });
 
 await check("auth-resend generic success", async () => {
@@ -108,6 +120,28 @@ await check("luxury shell CSS markers", async () => {
     assert.match(src, /#18252f/);
     assert.match(src, /#c9a962/);
   }
+});
+
+await check("atelier UI CSS markers", async () => {
+  const [ui, auth, shell, login] = await Promise.all([
+    fetch(`${BASE}/florisyn-atelier-ui.css`),
+    fetch(`${BASE}/florisyn-atelier-auth.css`),
+    fetch(`${BASE}/florisyn-atelier-shell.css`),
+    fetch(`${BASE}/login`),
+  ]);
+  assert.equal(ui.status, 200);
+  assert.equal(auth.status, 200);
+  assert.equal(shell.status, 200);
+  assert.equal(login.status, 200);
+  const uiSrc = await ui.text();
+  const authSrc = await auth.text();
+  const shellSrc = await shell.text();
+  const loginHtml = await login.text();
+  assert.match(uiSrc, /florisyn-atelier|--atelier-navy/);
+  assert.match(authSrc, /florisyn-atelier-auth|--atelier-navy/);
+  assert.match(shellSrc, /florisyn-atelier-shell|--atelier-ink/);
+  assert.match(loginHtml, /florisyn-atelier-auth\.css/);
+  assert.match(loginHtml, /Where Your Passion Flowers/);
 });
 
 const failed = results.filter((r) => !r.ok);

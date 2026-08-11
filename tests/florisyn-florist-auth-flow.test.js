@@ -20,6 +20,8 @@ const appJs = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf
 const supabase = fs.readFileSync(new URL("../netlify/functions/_shared/supabase.js", import.meta.url), "utf8");
 
 test("florist login stores bloom_session and redirects home", () => {
+  assert.match(loginJs, /fetch\('\/api\/auth-login'/);
+  assert.doesNotMatch(loginJs, /\/\.netlify\/functions\/auth-login/);
   assert.match(loginJs, /localStorage\.setItem\('bloom_session'/);
   assert.match(loginJs, /location\.href="\/"/);
   assert.doesNotMatch(loginJs, /admin-bootstrap|ownerSetup/);

@@ -1,22 +1,150 @@
 import { initCommandCenter } from './admin-command-center-ui.js';
+import {
+  createAdminMfaClient,
+  bindAdminSession,
+  readAdminMfaState,
+  enrollAdminTotp,
+  resetAdminTotpEnrollment,
+  challengeAndVerifyAdminMfa,
+  pickAdminFactorId
+} from './admin-mfa.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-let session=JSON.parse(localStorage.getItem('bloom_admin_session')||'null'),selectedShop=null,selectedData=null,commandCenter=null;
+function readAdminSession(){try{return JSON.parse(localStorage.getItem('bloom_admin_session')||'null')}catch{localStorage.removeItem('bloom_admin_session');return null}}
+let session=readAdminSession(),selectedShop=null,selectedData=null,commandCenter=null;
+let adminMfaClient=null;
+let adminMfaPending={factorId:null,mode:null};
 const FEATURES=['dashboard','orders','deliveries','customers','inventory','products','bloomshot','website','library','invoices','payments','expenses','reports','staff','marketplace','stores','lily','rose'];
 const DEFAULT_NAV=['dashboardPage','ordersPage','deliveriesPage','customersPage','inventoryPage','productsPage','bloomshotPage','websitePage','libraryPage','invoicesPage','paymentsPage','expensesPage','reportsPage','staffPage','marketplacePage','storesPage','settingsPage'];
 function toast(t){const x=$('#adminToast');x.textContent=t;x.hidden=false;setTimeout(()=>x.hidden=true,2800)}
-async function call(path,opt={},auth=true){const headers={'Content-Type':'application/json',...(opt.headers||{})};if(auth&&session?.accessToken)headers.Authorization=`Bearer ${session.accessToken}`;const r=await fetch(`/.netlify/functions/${path}`,{...opt,headers});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
-function saveSession(d){session={accessToken:d.accessToken,refreshToken:d.refreshToken,user:d.user};localStorage.setItem('bloom_admin_session',JSON.stringify(session))}
+async function call(path,opt={},auth=true){const headers={'Content-Type':'application/json',...(opt.headers||{})};if(auth&&session?.accessToken)headers.Authorization=`Bearer ${session.accessToken}`;const base=(String(path).startsWith("auth-")&&!String(path).startsWith("auth-refresh")&&!String(path).startsWith("auth-resend"))?`/api/${path}`:`/.netlify/functions/${path}`;const r=await fetch(base,{...opt,headers});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
+function saveSession(d){session={accessToken:d.accessToken,refreshToken:d.refreshToken,user:d.user,mfaVerified:Boolean(d.mfaVerified)};localStorage.setItem('bloom_admin_session',JSON.stringify(session))}
+function clearAdminSession(){session=null;adminMfaClient=null;adminMfaPending={factorId:null,mode:null};localStorage.removeItem('bloom_admin_session')}
+function showPasswordLogin(){
+  $('#adminApp').hidden=true;
+  $('#ownerSetup').hidden=true;
+  $('#adminAuth').hidden=false;
+  $('#adminLogin').hidden=false;
+  $('#adminMfaForm').hidden=true;
+  $('#adminMfaEnrollBlock').hidden=true;
+  if($('#adminMfaCode'))$('#adminMfaCode').value='';
+}
+function showAdminGateLoading(message='Loading Florisyn HQ…'){
+  $('#adminApp').hidden=true;
+  $('#ownerSetup').hidden=true;
+  $('#adminAuth').hidden=false;
+  $('#adminLogin').hidden=false;
+  $('#adminMfaForm').hidden=true;
+  if($('#loginMessage'))$('#loginMessage').textContent=message;
+}
+function showAdminMfaUi({mode,qrCode='',secret=''}={}){
+  $('#adminApp').hidden=true;
+  $('#adminAuth').hidden=false;
+  $('#adminLogin').hidden=true;
+  $('#adminMfaForm').hidden=false;
+  const enroll=$('#adminMfaEnrollBlock');
+  const intro=$('#adminMfaIntro');
+  if(mode==='enroll'){
+    enroll.hidden=false;
+    if(intro)intro.textContent='Install a free authenticator app on your phone (Google Authenticator, Microsoft Authenticator, or 1Password), scan the QR code, then enter the 6-digit code below.';
+    const qr=$('#adminMfaQr');
+    if(qr){qr.src=qrCode||'';qr.hidden=!qrCode}
+    if($('#adminMfaSecret'))$('#adminMfaSecret').textContent=secret?`Or enter this setup key manually: ${secret}`:'';
+    if($('#adminMfaSetupAgain'))$('#adminMfaSetupAgain').hidden=Boolean(qrCode);
+  }else{
+    enroll.hidden=true;
+    if(intro)intro.textContent='Enter the 6-digit code from your authenticator app for Florisyn Admin.';
+    if($('#adminMfaSetupAgain'))$('#adminMfaSetupAgain').hidden=false;
+  }
+  if($('#loginMessage'))$('#loginMessage').textContent='';
+  if($('#adminMfaCode')){$('#adminMfaCode').value='';$('#adminMfaCode').focus()}
+}
+function requireAdminMfaEnroll(enrolled,message='Set up your authenticator app to finish Admin sign-in.'){
+  adminMfaPending={factorId:enrolled.factorId,mode:'enroll'};
+  showAdminMfaUi({mode:'enroll',qrCode:enrolled.qrCode,secret:enrolled.secret});
+  const err=new Error(message);
+  err.code='admin_mfa_enrollment_required';
+  throw err;
+}
+function requireAdminMfaChallenge(message='Enter your authenticator code to continue.'){
+  adminMfaPending={...adminMfaPending,mode:'challenge'};
+  showAdminMfaUi({mode:'challenge'});
+  const err=new Error(message);
+  err.code='admin_mfa_challenge_required';
+  throw err;
+}
+async function getAdminMfaClient(){
+  if(adminMfaClient)return adminMfaClient;
+  const cfg=await call('admin-mfa-config',{},false);
+  if(cfg?.mfaSkipAllowed){
+    throw new Error('Admin MFA client is not required when staging skip is enabled.');
+  }
+  adminMfaClient=await createAdminMfaClient(cfg.supabaseUrl,cfg.anonKey);
+  return adminMfaClient;
+}
+/** Admin-only MFA gate. Never called from florist/POS login. */
+async function ensureAdminMfaBeforeDashboard(){
+  const cfg=await call('admin-mfa-config',{},false);
+  if(cfg?.mfaSkipAllowed){
+    saveSession({accessToken:session.accessToken,refreshToken:session.refreshToken,user:session.user,mfaVerified:false});
+    return;
+  }
+  const supabase=await getAdminMfaClient();
+  await bindAdminSession(supabase,session);
+  const state=await readAdminMfaState(supabase);
+  if(state.decision.action==='allow'){
+    saveSession({accessToken:session.accessToken,refreshToken:session.refreshToken,user:session.user,mfaVerified:true});
+    return;
+  }
+  if(state.decision.action==='enroll'){
+    let enrolled;
+    try{
+      enrolled=await enrollAdminTotp(supabase,'Florisyn Admin');
+    }catch(err){
+      if(/friendly name .* already exists|factor with the friendly name|mfa_factor_name_conflict/i.test(String(err?.message||''))||err?.code==='mfa_factor_name_conflict'){
+        const retryState=await readAdminMfaState(supabase);
+        adminMfaPending={factorId:retryState.verifiedFactors[0]?.id||retryState.pendingFactors[0]?.id||null,mode:'challenge'};
+        requireAdminMfaChallenge('Your authenticator is already set up. Enter the 6-digit code to sign in.');
+      }
+      throw err;
+    }
+    if(enrolled.alreadyVerified){
+      saveSession({accessToken:session.accessToken,refreshToken:session.refreshToken,user:session.user,mfaVerified:true});
+      return;
+    }
+    requireAdminMfaEnroll(enrolled);
+  }
+  adminMfaPending={factorId:state.verifiedFactors[0]?.id||state.pendingFactors[0]?.id||null,mode:'challenge'};
+  requireAdminMfaChallenge('Enter your authenticator code to finish Admin sign-in.');
+}
+async function assertPlatformAdminAccess(){
+  await call('admin-command-center?action=dashboard');
+}
 function showApp(){ $('#adminAuth').hidden=true;$('#adminApp').hidden=false;$('#adminIdentity').textContent=session.user.email;commandCenter=initCommandCenter({call,toast,escapeHtml,$,$$,setView});loadOverview();if(window.__loadCommandView)window.__loadCommandView('overview');loadShops();window.BloomLaunchPolish?.init?.({mode:'admin',api:call});window.BloomLilyPlatform?.init?.({mode:'admin',api:call,toast})}
+async function enterAdminAfterAuth(){
+  await assertPlatformAdminAccess();
+  await ensureAdminMfaBeforeDashboard();
+  showApp();
+}
 async function initializeAdmin(){
+  showAdminGateLoading();
   try{
     const d=await call('admin-bootstrap',{},false);
     if(!d.ownerExists){$('#ownerSetup').hidden=false;$('#adminAuth').hidden=true;$('#adminApp').hidden=true;return}
     $('#ownerSetup').hidden=true;
     if($('#loginMessage'))$('#loginMessage').textContent='Owner account exists. Sign in to Florisyn HQ.';
     if(session){
-      call('admin-command-center?action=dashboard').then(showApp).catch(()=>{localStorage.removeItem('bloom_admin_session');$('#adminAuth').hidden=false});
-    }else $('#adminAuth').hidden=false;
-  }catch(err){$('#adminAuth').hidden=false;$('#loginMessage').textContent=err.message}
+      enterAdminAfterAuth().catch((err)=>{
+        if(err?.code==='admin_mfa_enrollment_required'||err?.code==='admin_mfa_challenge_required'){
+          if($('#loginMessage'))$('#loginMessage').textContent='';
+          $('#adminAuth').hidden=false;
+          return;
+        }
+        clearAdminSession();
+        showPasswordLogin();
+        if($('#loginMessage'))$('#loginMessage').textContent=err.message||'Please sign in again.';
+      });
+    }else showPasswordLogin();
+  }catch(err){showPasswordLogin();$('#loginMessage').textContent=err.message}
 }
 $('#ownerSetupForm')?.addEventListener('submit',async e=>{
   e.preventDefault();
@@ -31,8 +159,57 @@ $('#ownerSetupForm')?.addEventListener('submit',async e=>{
     setTimeout(()=>{$('#ownerSetup').hidden=true;$('#adminAuth').hidden=false},700);
   }catch(err){msg.textContent=err.message}
 });
-$('#adminLogin').onsubmit=async e=>{e.preventDefault();const loginMessage=$('#loginMessage'),email=$('#adminEmail').value;loginMessage.textContent='';try{const d=await call('auth-login',{method:'POST',body:JSON.stringify({email,password:$('#adminPassword').value})},false);saveSession(d);await call('admin-command-center?action=dashboard');showApp()}catch(err){const detail=String(err.message||'');if(/invalid login credentials|invalid email or password|email not confirmed/i.test(detail)){loginMessage.innerHTML=`Could not sign in yet. Check your email confirmation link, or <a href="/verify-email?pending=1&email=${encodeURIComponent(email)}">resend the confirmation email</a>.`;}else loginMessage.textContent=detail}}
-$('#adminLogout').onclick=()=>{localStorage.removeItem('bloom_admin_session');location.reload()}
+$('#adminLogin').onsubmit=async e=>{e.preventDefault();const loginMessage=$('#loginMessage'),email=$('#adminEmail').value;loginMessage.textContent='';try{const d=await call('auth-login',{method:'POST',body:JSON.stringify({email,password:$('#adminPassword').value})},false);saveSession(d);await enterAdminAfterAuth()}catch(err){if(err?.code==='admin_mfa_enrollment_required'||err?.code==='admin_mfa_challenge_required'){loginMessage.textContent='';return}clearAdminSession();showPasswordLogin();const detail=String(err.message||'');if(/invalid login credentials|invalid email or password|email not confirmed/i.test(detail)){loginMessage.innerHTML=`Could not sign in yet. Check your email confirmation link, <a href="/forgot-password">reset your password</a>, or <a href="/verify-email?pending=1&email=${encodeURIComponent(email)}">resend confirmation</a>.`;}else if(/permission|forbidden|not an? admin|administration/i.test(detail)){loginMessage.textContent='This account is not authorized for Florisyn Administration. Florist and staff logins do not use Admin MFA.';}else loginMessage.textContent=detail}}
+$('#adminPasswordToggle')?.addEventListener('click',()=>{
+  const input=$('#adminPassword');
+  const btn=$('#adminPasswordToggle');
+  if(!input||!btn)return;
+  const show=input.type==='password';
+  input.type=show?'text':'password';
+  btn.setAttribute('aria-pressed',show?'true':'false');
+  btn.setAttribute('aria-label',show?'Hide password':'Show password');
+});
+$('#adminMfaForm')?.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const loginMessage=$('#loginMessage');
+  loginMessage.textContent='';
+  try{
+    if(!session)throw new Error('Sign in with your Admin password first.');
+    const supabase=await getAdminMfaClient();
+    await bindAdminSession(supabase,session);
+    const factorId=await pickAdminFactorId(supabase,adminMfaPending.factorId);
+    const tokens=await challengeAndVerifyAdminMfa(supabase,{factorId,code:$('#adminMfaCode').value});
+    saveSession({...tokens,mfaVerified:true});
+    adminMfaPending={factorId:null,mode:null};
+    await assertPlatformAdminAccess();
+    showApp();
+  }catch(err){
+    loginMessage.textContent=err.message||'Admin MFA verification failed.';
+  }
+});
+$('#adminMfaCancel')?.addEventListener('click',()=>{
+  clearAdminSession();
+  showPasswordLogin();
+  if($('#loginMessage'))$('#loginMessage').textContent='Admin sign-in cancelled. Enter your password again.';
+});
+$('#adminMfaSetupAgain')?.addEventListener('click',async()=>{
+  const loginMessage=$('#loginMessage');
+  if(loginMessage)loginMessage.textContent='Creating a new authenticator setup…';
+  try{
+    if(!session)throw new Error('Sign in with your Admin password first.');
+    const supabase=await getAdminMfaClient();
+    await bindAdminSession(supabase,session);
+    const enrolled=await resetAdminTotpEnrollment(supabase,'Florisyn Admin');
+    requireAdminMfaEnroll(enrolled,'Scan the new QR code with your authenticator app.');
+  }catch(err){
+    if(err?.code==='admin_mfa_enrollment_required'){
+      if(loginMessage)loginMessage.textContent='';
+      return;
+    }
+    if(loginMessage)loginMessage.textContent=err.message||'Could not restart authenticator setup.';
+  }
+});
+$('#adminLogout').onclick=()=>{clearAdminSession();location.reload()}
 $$('nav button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
 function setView(name){
   $$('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
@@ -47,6 +224,8 @@ function setView(name){
 async function loadOverview(){
   const d=await call('admin-console?action=overview');
   const money=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
+  const moneyCents=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:2});
+  renderPlatformEconomics(d.economics,d.economics_projection_500,money,moneyCents);
   $('#adminMetrics').innerHTML=[
     ['Florist accounts',d.metrics.shops],
     ['Active subscriptions',d.metrics.activeSubscriptions],
@@ -65,6 +244,24 @@ async function loadOverview(){
   const alerts=d.alerts||[];
   $('#subscriberAlerts').innerHTML=alerts.length?alerts.map(a=>`<button class="subscriber-alert ${a.read_at?'':'unread'}" data-alert-shop="${a.shop_id||''}"><span class="alert-dot"></span><div><strong>${escapeHtml(a.title)}</strong><p>${escapeHtml(a.message||'')}</p><small>${new Date(a.created_at).toLocaleString()}</small></div></button>`).join(''):'<p class="quiet">No subscriber activity yet.</p>';
   $$('[data-alert-shop]').forEach(b=>b.onclick=()=>b.dataset.alertShop&&openShop(b.dataset.alertShop));
+}
+function renderPlatformEconomics(current={}, projected={}, money, moneyCents){
+  const root=$('#platformEconomics');
+  if(!root)return;
+  const renderBlock=(label,e)=>{
+    if(!e)return '';
+    const lines=(e.line_items||[]).map(x=>`<div><span>${escapeHtml(x.label)}</span><strong>${moneyCents(x.usd)}</strong></div>`).join('');
+    return `<section><h3>${escapeHtml(label)}</h3><div class="platform-economics-summary">
+      <article><small>Subscription MRR</small><strong>${money(e.mrr_usd)}</strong></article>
+      <article><small>Est. infra burn</small><strong>${moneyCents(e.estimated_burn_usd)}</strong></article>
+      <article><small>Margin after infra</small><strong>${e.margin_after_infra_percent??'—'}%</strong></article>
+    </div><div class="platform-economics-lines">${lines}
+      <div><span>Stripe fees on subscriptions (est.)</span><strong>${moneyCents(e.stripe_fees_usd)}</strong></div>
+      <div><span>Net after infra + Stripe (est.)</span><strong>${money(e.net_after_stripe_usd)}</strong></div>
+    </div><p class="quiet">${escapeHtml(e.scale_band||'')}. ~${Number(e.estimated_monthly_invocations||0).toLocaleString()} function calls/mo modeled.</p>
+    <ul>${(e.assumptions_summary||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></section>`;
+  };
+  root.innerHTML=`<div class="platform-economics-grid">${renderBlock('Current platform',current)}<div class="platform-economics-projection">${renderBlock('Planning scenario — 500 subscribers',projected)}</div></div>`;
 }
 function escapeHtml(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 

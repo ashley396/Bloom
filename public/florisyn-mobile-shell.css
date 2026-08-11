@@ -1,0 +1,446 @@
+/**
+ * Florisyn mobile shell — fixes split sidebar, empty gray content, and bottom nav overlap.
+ * Loaded last so it wins over legacy polish @760 / @820 / @980 rules.
+ */
+@media (max-width: 820px) {
+  body.florisyn-atelier {
+    --florisyn-mobile-nav-height: calc(62px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Single-column app shell — sidebar must not reserve a grid column */
+  body.florisyn-atelier .shell.florisyn-lux-shell {
+    display: block !important;
+    grid-template-columns: none !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  body.florisyn-atelier .florisyn-lux-main {
+    width: 100% !important;
+    max-width: 100vw !important;
+    min-width: 0 !important;
+    min-height: 100dvh;
+  }
+
+  /* Off-canvas drawer (overrides luxury sticky sidebar) */
+  body.florisyn-atelier .shell > aside#atelierSidebarDrawer,
+  body.florisyn-atelier .shell > aside#atelierSidebarDrawer.florisyn-lux-sidebar,
+  body.florisyn-atelier .shell > aside {
+    display: flex !important;
+    flex-direction: column !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    width: min(300px, 88vw) !important;
+    transform: translateX(-105%) !important;
+    transition: transform 200ms ease !important;
+    z-index: 90 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    border-right: 0 !important;
+  }
+
+  body.florisyn-atelier.atelier-drawer-open .shell > aside#atelierSidebarDrawer,
+  body.florisyn-atelier.atelier-drawer-open .shell > aside {
+    transform: translateX(0) !important;
+  }
+
+  body.florisyn-atelier .atelier-sidebar-backdrop {
+    z-index: 85 !important;
+  }
+
+  body.florisyn-atelier .florisyn-lux-nav {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  body.florisyn-atelier .florisyn-lux-nav > button[data-page] {
+    white-space: normal !important;
+    line-height: 1.25 !important;
+  }
+
+  /* Mobile header + foundation strip — full width, no desktop sidebar offset */
+  body.florisyn-atelier .florisyn-lux-header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 50 !important;
+    width: 100% !important;
+  }
+
+  body.florisyn-atelier .atelier-mobile-topbar {
+    display: grid !important;
+    width: 100% !important;
+  }
+
+  body.florisyn-rc22 .platform-top-strip,
+  body.florisyn-atelier .florisyn-lux-foundation {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  /* Main content uses full viewport width */
+  body.florisyn-atelier .florisyn-lux-main > .content,
+  body.florisyn-atelier .shell > .content {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 12px 14px calc(var(--florisyn-mobile-nav-height) + 12px) !important;
+    background: transparent !important;
+  }
+
+  body.florisyn-atelier #app {
+    overflow-x: hidden !important;
+  }
+
+  /* Bottom tab bar — daily actions + Menu drawer */
+  body.florisyn-atelier .mobile-nav.atelier-mobile-nav {
+    display: grid !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 70 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    background: rgba(255, 255, 255, 0.98) !important;
+    border-top: 1px solid rgba(26, 31, 60, 0.08) !important;
+    box-shadow: 0 -8px 24px rgba(26, 31, 60, 0.08) !important;
+    backdrop-filter: blur(12px);
+  }
+
+  body.florisyn-atelier .mobile-nav.atelier-mobile-nav > button {
+    min-height: 48px !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    padding: 4px 1px !important;
+  }
+
+  body.florisyn-atelier .mobile-nav.atelier-mobile-nav > button.active {
+    color: var(--lux-navy, #1a1f3c) !important;
+    background: rgba(246, 223, 232, 0.65) !important;
+  }
+
+  body.florisyn-atelier #mobileNavMore {
+    color: var(--lux-navy, #1a1f3c) !important;
+  }
+
+  /* Lily FAB + panel sit above the tab bar */
+  body.florisyn-atelier .lily-fab,
+  body.bloom-rc21 .lily-fab {
+    bottom: calc(var(--florisyn-mobile-nav-height) + 8px) !important;
+    right: 12px !important;
+    z-index: 65 !important;
+  }
+
+  body.florisyn-atelier .lily-panel,
+  body.bloom-rc21 .lily-panel {
+    bottom: calc(var(--florisyn-mobile-nav-height) + 72px) !important;
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+    z-index: 66 !important;
+  }
+
+  body.florisyn-atelier .toast,
+  body.bloom-rc21 .toast {
+    bottom: calc(var(--florisyn-mobile-nav-height) + 8px) !important;
+  }
+
+  /* Dashboard: show desktop sections stacked (not a blank gray canvas) */
+  body.florisyn-atelier .atelier-assist-rail {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    margin-top: 12px !important;
+  }
+
+  body.florisyn-atelier .profit-intelligence-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    margin-top: 12px !important;
+  }
+
+  body.florisyn-atelier .atelier-panel + .atelier-panel {
+    display: block !important;
+    margin-top: 12px !important;
+  }
+
+  body.florisyn-atelier .atelier-dash-columns {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* Pages: stack headings and actions like desktop content, not crushed */
+  body.florisyn-atelier .page > .heading {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  body.florisyn-atelier .page > .heading .actions,
+  body.florisyn-atelier .page > .heading .heading-actions {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  body.florisyn-atelier .page > .heading .actions button,
+  body.florisyn-atelier .page > .heading .heading-actions button {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  /* One page visible — active page fills viewport stack */
+  body.florisyn-atelier .page.active {
+    display: block !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  body.florisyn-atelier .florisyn-lux-main {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Cards, grids, and tiles stack cleanly */
+  body.florisyn-atelier .product-grid,
+  body.florisyn-atelier .cards,
+  body.florisyn-atelier .inventory-grid,
+  body.florisyn-atelier #productPadGrid,
+  body.florisyn-atelier .marketplace-toolbar,
+  body.florisyn-atelier .expense-toolbar {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  body.florisyn-atelier .two,
+  body.florisyn-atelier .three,
+  body.florisyn-atelier .report-grid,
+  body.florisyn-atelier .settings-grid,
+  body.florisyn-atelier .website-studio-layout,
+  body.florisyn-atelier .marketplace-shell {
+    grid-template-columns: 1fr !important;
+    display: grid !important;
+  }
+
+  body.florisyn-atelier .report-table,
+  body.florisyn-atelier .order-board,
+  body.florisyn-atelier .cart-table-wrap,
+  body.florisyn-atelier .telemetry-panel {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body.florisyn-atelier .order-board {
+    white-space: nowrap;
+  }
+
+  body.florisyn-atelier .order-board-column {
+    display: inline-block !important;
+    vertical-align: top;
+    width: min(86vw, 300px) !important;
+    white-space: normal;
+  }
+
+  /* Forms — comfortable tap targets */
+  body.florisyn-atelier .page input:not([type="checkbox"]):not([type="radio"]),
+  body.florisyn-atelier .page select,
+  body.florisyn-atelier .page textarea,
+  body.florisyn-atelier dialog input:not([type="checkbox"]):not([type="radio"]),
+  body.florisyn-atelier dialog select,
+  body.florisyn-atelier dialog textarea {
+    min-height: 44px !important;
+    font-size: 16px !important;
+  }
+
+  body.florisyn-atelier dialog textarea {
+    min-height: 88px !important;
+  }
+
+  /* Modals fit phone screens and scroll internally */
+  body.florisyn-atelier dialog {
+    width: min(100vw - 16px, 100%) !important;
+    max-width: none !important;
+    max-height: min(92dvh, 100%) !important;
+    margin: auto !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.florisyn-atelier dialog form,
+  body.florisyn-atelier dialog .dialog-shell {
+    max-height: 92dvh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  body.florisyn-atelier dialog .actions,
+  body.florisyn-atelier dialog .dialog-tools,
+  body.florisyn-atelier dialog .sticky-actions {
+    position: sticky !important;
+    bottom: 0 !important;
+    background: #fff !important;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 2 !important;
+  }
+
+  /* Images scale without cropping important content */
+  body.florisyn-atelier .page img:not(.assistant-portrait):not(.florisyn-official-logo):not(.florisyn-brand-mark),
+  body.florisyn-atelier .product-card img,
+  body.florisyn-atelier .floral-library-card img {
+    max-width: 100% !important;
+    height: auto !important;
+    object-fit: contain !important;
+  }
+
+  body.florisyn-atelier .product-card img,
+  body.florisyn-atelier .floral-library-card img {
+    max-height: 220px !important;
+    object-fit: cover !important;
+  }
+
+  /* Floating mascots must not block primary actions */
+  body.florisyn-atelier #bloomDog,
+  body.florisyn-atelier #bloomDaisy,
+  body.florisyn-atelier .bloom-dog,
+  body.florisyn-atelier .bloom-daisy {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  body.florisyn-atelier .assistant-mini-dock {
+    display: none !important;
+  }
+
+  /* POS — full-width register on phones */
+  body.florisyn-atelier.florisyn-pos-active .shell > .content,
+  body.florisyn-atelier #posPage.active {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  body.florisyn-atelier.florisyn-pos-active .shell > .content {
+    padding-top: 0 !important;
+    padding-bottom: calc(var(--florisyn-mobile-nav-height) + 4px) !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux.pos-workspace.florisyn-pos-lux {
+    min-height: calc(100dvh - var(--florisyn-mobile-nav-height) - 56px) !important;
+    height: auto !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux .pos-lux-main-row {
+    flex-direction: column !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux .pos-lux-center {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux .pos-lux-checkout {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    flex: 0 0 auto !important;
+    border-left: 0 !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux .pos-lux-rail {
+    width: 100% !important;
+    max-width: none !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    max-height: 58px !important;
+    min-height: 0 !important;
+    padding: 4px 6px !important;
+    gap: 2px !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux #posLuxCategories.pos-lux-categories {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: none !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux .pos-lux-rail-btn {
+    min-height: 44px !important;
+    max-height: 48px !important;
+    min-width: 52px !important;
+  }
+
+  /* Dashboard assistant cards */
+  body.florisyn-atelier .atelier-assist-rail .rose-welcome-card,
+  body.florisyn-atelier .atelier-assist-rail .lily-suggestion-card {
+    border-radius: 16px !important;
+    margin-bottom: 0 !important;
+    grid-template-columns: 52px minmax(0, 1fr) !important;
+    align-items: start !important;
+    gap: 10px !important;
+    padding: 12px 14px !important;
+    min-height: 0 !important;
+  }
+
+  body.florisyn-atelier .lily-suggestion-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  body.florisyn-atelier .lily-suggestion-actions button {
+    min-height: 44px !important;
+    flex: 1 1 auto !important;
+  }
+
+  body.florisyn-atelier .atelier-assist-rail .assistant-portrait,
+  body.florisyn-atelier .rose-portrait,
+  body.florisyn-atelier .lily-portrait {
+    width: 52px !important;
+    height: 52px !important;
+    min-width: 52px !important;
+    max-height: 52px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+  }
+
+  body.florisyn-atelier .sticky-actions,
+  body.florisyn-atelier .payment-center-toolbar,
+  body.florisyn-atelier .page > .heading .primary {
+    margin-bottom: 4px !important;
+  }
+
+  body.florisyn-atelier .page .primary:last-child,
+  body.florisyn-atelier .page .secondary:last-child {
+    margin-bottom: env(safe-area-inset-bottom, 0px) !important;
+  }
+}
+
+@media (min-width: 821px) {
+  body.florisyn-atelier .mobile-nav.atelier-mobile-nav {
+    display: none !important;
+  }
+}

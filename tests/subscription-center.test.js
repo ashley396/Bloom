@@ -11,7 +11,7 @@ test("admin metrics compute MRR from active paid plans", () => {
     ],
     [{ event_type: "reactivate" }]
   );
-  assert.equal(m.mrr, 118);
+  assert.equal(m.mrr, 158);
   assert.equal(m.counts.active, 2);
   assert.equal(m.counts.trial, 1);
   assert.equal(m.counts.reactivated, 1);

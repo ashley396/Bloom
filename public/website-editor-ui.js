@@ -5,6 +5,8 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
 
+  let editorSelectPage = null;
+
   async function api(action, extra = {}) {
     return window.api("instant-website", { method: "POST", body: JSON.stringify({ action, ...extra }) });
   }
@@ -29,6 +31,19 @@
         <p class="eyebrow">VISUAL EDITOR</p>
         <h2>Edit your website sections</h2>
         <div class="editor-toolbar card-actions">
+          <label class="editor-add-section">Add section<select id="editorSectionType">
+            <option value="hero">Hero</option>
+            <option value="featured_arrangements">Featured arrangements</option>
+            <option value="occasion_tiles">Occasion tiles</option>
+            <option value="delivery_area">Delivery area</option>
+            <option value="wedding_feature">Weddings and events</option>
+            <option value="sympathy_feature">Sympathy</option>
+            <option value="about_florist">About florist</option>
+            <option value="shop_hours">Hours</option>
+            <option value="contact_form">Contact form</option>
+            <option value="cta_banner">Call to action</option>
+          </select></label>
+          <button type="button" class="secondary" id="editorAddSection">Add</button>
           <button type="button" class="secondary" id="editorUndo">Undo</button>
           <button type="button" class="secondary" id="editorRedo">Redo</button>
           <button type="button" class="secondary" id="editorSave">Save draft</button>
@@ -38,7 +53,10 @@
           <button type="button" class="secondary" id="editorPreviewMobile">Mobile</button>
           <button type="button" class="primary" id="editorPublish">Publish (approved)</button>
         </div>
-        <div id="editorCanvas" class="editor-canvas" data-preview="desktop"></div>
+        <div class="editor-layout">
+          <div id="editorCanvas" class="editor-canvas" data-preview="desktop"></div>
+          <aside id="editorInspector" class="editor-inspector panel" aria-label="Section properties"></aside>
+        </div>
         <p id="editorStatus" class="subtle" aria-live="polite"></p>
       </div>`
     );
@@ -46,8 +64,12 @@
     const history = createHistory();
     let project = null;
     let homePage = null;
+    let allPages = [];
+    let activeSlug = "home";
     let sections = [];
     let busy = false;
+    let autosaveTimer = null;
+    let selectedSectionId = null;
 
     function setBusy(next) {
       busy = !!next;
@@ -57,21 +79,60 @@
       });
     }
 
+    function currentPage() {
+      return allPages.find((p) => p.slug === activeSlug) || homePage;
+    }
+
     function pagePayload() {
+      const page = currentPage();
       return {
-        page: { ...homePage, sections },
-        expected_updated_at: homePage?.updated_at || null
+        page: { ...page, sections },
+        expected_updated_at: page?.updated_at || null
       };
     }
 
     function rememberSavedPage(savedPage) {
       if (!savedPage) return;
-      homePage = {
-        ...homePage,
+      const idx = allPages.findIndex((p) => p.slug === (savedPage.slug || activeSlug));
+      const merged = {
+        ...(idx >= 0 ? allPages[idx] : homePage),
         id: savedPage.id,
-        slug: savedPage.slug || homePage?.slug || "home",
-        updated_at: savedPage.updated_at || homePage?.updated_at || null
+        slug: savedPage.slug || activeSlug,
+        updated_at: savedPage.updated_at || null
       };
+      if (idx >= 0) allPages[idx] = merged;
+      if (merged.slug === "home") homePage = merged;
+      if (merged.slug === activeSlug) homePage = merged.slug === "home" ? merged : homePage;
+    }
+
+    function selectPage(slug) {
+      if (slug === activeSlug) return;
+      syncTextEdits();
+      activeSlug = slug;
+      const page = currentPage();
+      sections = [...(page?.sections || [])].sort((a, b) => a.order - b.order);
+      history.reset({ sections });
+      renderCanvas();
+      const status = root.querySelector("#editorStatus");
+      status.textContent = `Editing ${page?.title || slug}.`;
+    }
+
+    function scheduleAutosave() {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(async () => {
+        if (busy) return;
+        const status = root.querySelector("#editorStatus");
+        try {
+          syncTextEdits();
+          const result = await api("save_page", pagePayload());
+          if (result?.saved && result?.page?.id) {
+            rememberSavedPage(result.page);
+            status.textContent = "Draft autosaved.";
+          }
+        } catch {
+          /* keep editing — user can save manually */
+        }
+      }, 2500);
     }
 
     async function loadProject() {
@@ -81,7 +142,9 @@
       try {
         const d = await api("get_project");
         project = d.project;
-        homePage = (d.pages || []).find((p) => p.slug === "home") || { slug: "home", title: "Home", sections: [] };
+        allPages = d.pages || [];
+        homePage = allPages.find((p) => p.slug === "home") || { slug: "home", title: "Home", sections: [] };
+        activeSlug = "home";
         sections = [...(homePage.sections || [])].sort((a, b) => a.order - b.order);
         history.reset({ sections });
         renderCanvas();
@@ -96,17 +159,42 @@
       }
     }
 
+    function renderInspector() {
+      const panel = root.querySelector("#editorInspector");
+      const section = sections.find((s) => s.id === selectedSectionId) || null;
+      window.BloomSectionInspector?.renderPanel(panel, section, {
+        onChange(updated) {
+          const idx = sections.findIndex((s) => s.id === updated.id);
+          if (idx >= 0) sections[idx] = updated;
+          pushHistory();
+          renderCanvas();
+          scheduleAutosave();
+        },
+        onReorderBlock(from, to) {
+          const section = sections.find((s) => s.id === selectedSectionId);
+          if (!section) return;
+          const blocks = window.BloomSectionInspector.blockList(section);
+          const order = blocks.map((b) => b.path);
+          const [moved] = order.splice(from, 1);
+          order.splice(to, 0, moved);
+          live("Block order updated.");
+        }
+      });
+    }
+
     function renderCanvas() {
       const canvas = root.querySelector("#editorCanvas");
       if (!sections.length) {
         canvas.innerHTML =
           `<div class="bloom-empty-state florisyn-empty-state"><p>No website sections yet.</p><p class="subtle">Save a draft after adding sections. Unpublished drafts never appear on your public storefront.</p></div>`;
+        renderInspector();
         return;
       }
       canvas.innerHTML = sections
         .map(
-          (s, idx) => `<article class="editor-section" data-id="${esc(s.id)}" draggable="true">
+          (s, idx) => `<article class="editor-section${s.id === selectedSectionId ? " selected" : ""}" data-id="${esc(s.id)}" draggable="true">
             <div class="editor-section-tools">
+              <button type="button" class="secondary editor-select" data-select="${esc(s.id)}" aria-label="Edit section properties">Edit</button>
               <button type="button" class="secondary" data-move="up" data-id="${esc(s.id)}" aria-label="Move section up">↑</button>
               <button type="button" class="secondary" data-move="down" data-id="${esc(s.id)}" aria-label="Move section down">↓</button>
               <button type="button" class="secondary" data-dup="${esc(s.id)}">Duplicate</button>
@@ -114,11 +202,28 @@
               <button type="button" class="secondary" data-del="${esc(s.id)}">Delete</button>
             </div>
             <span class="subtle">${esc(s.type)} · #${idx + 1}</span>
-            <div class="editable" contenteditable="true" data-section="${esc(s.id)}" data-path="title">${esc(s.props?.title || s.props?.text || "Click to edit text")}</div>
-            <button type="button" class="secondary" data-image="${esc(s.id)}">Replace image</button>
+            <div class="editor-section-preview">${window.BloomSectionRenderer?.renderSection?.(s, { shop: "preview", shopName: window.shopSettings?.name || "Your Florist", products: [] }) || `<div class="editable" contenteditable="true" data-section="${esc(s.id)}" data-path="title">${esc(s.props?.title || s.props?.text || "Click to edit text")}</div>`}</div>
           </article>`
         )
         .join("");
+      renderInspector();
+    }
+
+    function titleForType(type) {
+      return String(type || "custom_text_image").replaceAll("_", " ").replace(/\b\w/g, (m) => m.toUpperCase());
+    }
+
+    function newSection(type) {
+      const id = `${type || "section"}-${Date.now()}`;
+      return {
+        id,
+        type: type || "custom_text_image",
+        order: sections.length,
+        props: {
+          title: titleForType(type),
+          text: "Click to edit this florist website section."
+        }
+      };
     }
 
     root.querySelector("#editorSave")?.addEventListener("click", async () => {
@@ -135,7 +240,7 @@
         status.textContent = "Draft saved.";
       } catch (e) {
         live("Draft was not saved.");
-        status.textContent = e.message;
+        status.textContent = e.message || "Could not save website draft. Try again.";
       } finally {
         setBusy(false);
       }
@@ -158,7 +263,7 @@
         window.toast?.("Website published");
       } catch (e) {
         live("Website was not published.");
-        status.textContent = e.message;
+        status.textContent = e.message || "Could not save website draft. Try again.";
       } finally {
         setBusy(false);
       }
@@ -204,6 +309,13 @@
         live("Redo.");
       }
     });
+    root.querySelector("#editorAddSection")?.addEventListener("click", () => {
+      syncTextEdits();
+      sections = [...sections, newSection(root.querySelector("#editorSectionType")?.value)].map((s, order) => ({ ...s, order }));
+      pushHistory();
+      renderCanvas();
+      live("Section added.");
+    });
 
     ["Desktop", "Tablet", "Mobile"].forEach((mode) => {
       root.querySelector(`#editorPreview${mode}`)?.addEventListener("click", () => {
@@ -214,6 +326,18 @@
     });
 
     root.querySelector("#editorCanvas")?.addEventListener("click", async (e) => {
+      const selectBtn = e.target.closest("[data-select]");
+      if (selectBtn) {
+        selectedSectionId = selectBtn.dataset.select;
+        renderCanvas();
+        live("Section selected.");
+        return;
+      }
+      const sec = e.target.closest(".editor-section");
+      if (sec && !e.target.closest(".editor-section-tools")) {
+        selectedSectionId = sec.dataset.id;
+        renderCanvas();
+      }
       const move = e.target.closest("[data-move]");
       if (move) {
         const id = move.dataset.id;
@@ -298,6 +422,7 @@
         sections[idx].props = sections[idx].props || {};
         sections[idx].props[path] = el.textContent.trim();
       });
+      scheduleAutosave();
     }
 
     function pushHistory() {
@@ -335,6 +460,8 @@
       root.querySelector("#editorStatus").textContent = e.message;
       setBusy(false);
     });
+
+    editorSelectPage = selectPage;
   }
 
   function load() {
@@ -342,5 +469,9 @@
     if (page) mountEditor(page);
   }
 
-  window.BloomWebsiteEditor = { load, mountEditor };
+  window.BloomWebsiteEditor = {
+    load,
+    mountEditor,
+    selectPage: (slug) => editorSelectPage?.(slug)
+  };
 })();

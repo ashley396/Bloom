@@ -8,9 +8,17 @@ import {
   buildSeoBundle,
   tenantIsolationCheck
 } from "./bloom-instant-website.js";
+import {
+  buildPublishedSeoBundle,
+  resolvePublishedSiteBaseUrl,
+  renderPublishedPageMeta,
+  buildPublishedSitemapXml,
+  publishedRobotsTxt,
+  productJsonLd as publishedProductJsonLd,
+} from "../../../lib/seo/published-site-seo.js";
 import { productVisibleOnPublicSite } from "./floral-library-core.js";
 
-export { tenantIsolationCheck };
+export { buildPublishedSitemapXml, publishedRobotsTxt, resolvePublishedSiteBaseUrl, tenantIsolationCheck };
 
 export const COLLECTION_SLUGS = [
   "shop",
@@ -140,12 +148,19 @@ export function resolvePublishedSite(project, pages, shop, { preview = false } =
   const mode = LAUNCH_MODES.find((m) => m.id === (project?.theme_id || project?.launch_mode)) || LAUNCH_MODES[0];
   const fonts = FONT_PAIRINGS.find((f) => f.id === project?.theme_settings?.font_pairing) || FONT_PAIRINGS[0];
   const visiblePages = (pages || []).filter((p) => p.visible !== false);
+  const baseUrl = resolvePublishedSiteBaseUrl(shop);
+  const seo =
+    project?.seo_settings && Object.keys(project.seo_settings).length
+      ? { ...project.seo_settings, base_url: project.seo_settings.base_url || baseUrl }
+      : buildPublishedSeoBundle(shop, visiblePages, { preview });
+  if (preview) seo.robots = "noindex,nofollow";
   return {
     allowed: true,
     project,
     theme: { mode, fonts, settings: project?.theme_settings || {} },
     pages: visiblePages,
-    seo: project?.seo_settings || buildSeoBundle(shop, pages?.[0]),
+    seo,
+    base_url: baseUrl,
     shop: sanitizePublicShop(shop)
   };
 }
@@ -182,28 +197,20 @@ export function fallbackSiteFromProfile(shop = {}) {
 }
 
 export function renderPageMeta(page, siteSeo, baseUrl) {
-  const title = page?.content?.seo_title || `${page?.title || "Page"} — ${siteSeo?.title || "Florist"}`;
-  const description = page?.content?.meta_description || siteSeo?.meta_description || "";
-  const canonical = baseUrl ? `${baseUrl.replace(/\/$/, "")}/${page?.slug === "home" ? "" : page?.slug}` : null;
-  return { title, description, canonical, og_image: siteSeo?.og_image };
+  const meta = renderPublishedPageMeta(page, siteSeo, baseUrl || siteSeo?.base_url);
+  return {
+    title: meta.title,
+    description: meta.description,
+    canonical: meta.canonical,
+    og_image: meta.og?.image || siteSeo?.og_image,
+    robots: meta.robots,
+    og: meta.og,
+    twitter: meta.twitter,
+  };
 }
 
-export function productJsonLd(product, shop) {
-  if (!product?.sync?.show_price_online) return null;
-  return {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: product.name,
-    description: product.short_description || product.description,
-    image: product.primary_image?.url,
-    offers: {
-      "@type": "Offer",
-      priceCurrency: "USD",
-      price: product.retail_price,
-      availability: "https://schema.org/InStock"
-    },
-    brand: { "@type": "Florist", name: shop?.name }
-  };
+export function productJsonLd(product, shop, baseUrl) {
+  return publishedProductJsonLd(product, shop, baseUrl || resolvePublishedSiteBaseUrl(shop));
 }
 
 export function buildSitemapEntries(baseUrl, pages) {
@@ -216,8 +223,11 @@ export function buildSitemapEntries(baseUrl, pages) {
     }));
 }
 
-export function robotsTxt({ allowIndex = true } = {}) {
-  return allowIndex ? "User-agent: *\nAllow: /\n" : "User-agent: *\nDisallow: /\n";
+export function robotsTxt({ allowIndex = true, sitemapUrl = null } = {}) {
+  if (!allowIndex) return "User-agent: *\nDisallow: /\n";
+  const lines = ["User-agent: *", "Allow: /"];
+  if (sitemapUrl) lines.push("", `Sitemap: ${sitemapUrl}`);
+  return `${lines.join("\n")}\n`;
 }
 
 export function breadcrumbTrail(slug, pages) {

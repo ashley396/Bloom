@@ -9,6 +9,11 @@ import {
   sanitizeSubscriptionForAdmin,
   DEFAULT_FEATURE_FLAGS
 } from "../netlify/functions/_shared/command-center.js";
+import { createAdminCommandCenterHandler } from "../netlify/functions/admin-command-center.js";
+import fs from "node:fs";
+
+const adminHtml = () => fs.readFileSync(new URL("../public/admin.html", import.meta.url), "utf8");
+const adminJs = () => fs.readFileSync(new URL("../public/admin.js", import.meta.url), "utf8");
 
 test("mergeFeatureFlags applies defaults for unknown keys", () => {
   const flags = mergeFeatureFlags({ marketplace: false });
@@ -70,4 +75,94 @@ test("announcement audience validation accepts florist targeting", () => {
   });
   assert.equal(valid.valid, true);
   assert.equal(valid.audience, "florists");
+});
+
+test("admin dashboard degrades to 200 (never 500s) when backend queries fail", async () => {
+  const activeAdmin = { data: { user_id: "u1", role: "super_admin", active: true }, error: null };
+  function adminQuery() {
+    const q = {
+      select() { return q; },
+      eq() { return q; },
+      maybeSingle() { return Promise.resolve(activeAdmin); },
+      then(res, rej) { return Promise.resolve(activeAdmin).then(res, rej); }
+    };
+    return q;
+  }
+  function failingQuery() {
+    const fail = () => Promise.reject(new Error("simulated db outage"));
+    const q = {
+      select() { return q; }, eq() { return q; }, in() { return q; }, order() { return q; },
+      limit() { return q; }, gte() { return q; }, ilike() { return q; },
+      maybeSingle() { return fail(); },
+      then(res, rej) { return fail().then(res, rej); }
+    };
+    return q;
+  }
+  const client = { from(table) { return table === "platform_admins" ? adminQuery() : failingQuery(); } };
+  const handler = createAdminCommandCenterHandler({
+    authenticate: async () => ({ user: { id: "u1" } }),
+    createServerClient: () => client
+  });
+  const res = await handler({ httpMethod: "GET", queryStringParameters: { action: "dashboard" }, headers: {} });
+  assert.equal(res.statusCode, 200);
+  const body = JSON.parse(res.body);
+  assert.ok(body.kpis, "dashboard still returns a kpis object when queries fail");
+  assert.ok(body.charts, "dashboard still returns charts when queries fail");
+});
+
+test("admin remote editor keeps account, appearance, navigation, features, and subscription edits wired", () => {
+  const html = adminHtml();
+  const js = adminJs();
+  for (const name of [
+    "name",
+    "email",
+    "phone",
+    "website",
+    "primary",
+    "accent",
+    "background",
+    "sidebar",
+    "nav_order",
+    "nav_hidden",
+    "app_background_image",
+    "dashboard_image",
+    "logo_image",
+    "layout_mode",
+    "button_labels",
+    "tab_labels",
+    "plan_code",
+    "subscription_status",
+    "account_status"
+  ]) {
+    assert.match(html, new RegExp(`name="${name}"`));
+  }
+  assert.match(html, /data-tab="content"/);
+  assert.match(html, /Edit florist pages \(Design Mode\)/);
+  assert.match(js, /const FEATURES=\[[^\]]*'website'/);
+  assert.match(js, /const FEATURES=\[[^\]]*'lily'/);
+  assert.match(js, /const FEATURES=\[[^\]]*'rose'/);
+  assert.match(js, /action:'update-shop'/);
+  assert.match(js, /action:'save-config'/);
+  assert.match(js, /parseJsonField\('button_labels'\)/);
+  assert.match(js, /parseJsonField\('tab_labels'\)/);
+  assert.match(js, /florisynDesign=1/);
+  assert.match(js, /florisynImageEdit=1/);
+  assert.match(js, /action:'update-subscription'/);
+  assert.match(js, /#saveShop/);
+  assert.match(js, /#saveSubscription/);
+});
+
+
+test("admin command center soft-fails permission-denied HQ reads", () => {
+  const src = fs.readFileSync(new URL("../netlify/functions/admin-command-center.js", import.meta.url), "utf8");
+  assert.match(src, /function isSoftReadError/);
+  assert.match(src, /42501/);
+  assert.match(src, /permission denied/);
+  assert.match(src, /safeSelect\(client, "shop_subscriptions"/);
+  assert.match(src, /safeSelect\(client, "platform_announcements"/);
+});
+
+test("payment operations treats Resend as configured email", () => {
+  const src = fs.readFileSync(new URL("../netlify/functions/_shared/payment-operations-admin.js", import.meta.url), "utf8");
+  assert.match(src, /RESEND_API_KEY/);
 });

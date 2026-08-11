@@ -63,6 +63,26 @@
       .replace(/^(.+)$/s, (m) => (m.includes("<p>") || m.includes("<ul>") ? m : `<p>${m}</p>`));
   }
 
+  function friendlyLilyError(error) {
+    const msg = String(error?.message || error || "");
+    if (/cloud ai|local fallback|local ai|load failed|ai unavailable|provider|ollama/i.test(msg)) {
+      return "Lily is here, but her AI writing service is temporarily offline. You can still use the quick buttons below for orders, products, customers, inventory, website, reports, and support.";
+    }
+    return `I hit a snag: ${msg || "Please try again."}`;
+  }
+
+  function marketingDraftFallback(generate, shop = {}) {
+    if (!generate?.task && !generate?.input?.prompt) return "";
+    const shopName = shop.name || "Our flower shop";
+    const prompt = String(generate.input?.prompt || generate.input?.message || "").trim();
+    const topic = prompt.replace(/^write (a )?/i, "").replace(/\.$/, "") || "today's featured flowers";
+    const channel = String(generate.input?.channel || generate.channel || "facebook").toLowerCase();
+    if (channel.includes("facebook")) {
+      return `**Draft (edit before posting):**\n\n🌸 ${topic.charAt(0).toUpperCase() + topic.slice(1)} — fresh from ${shopName}! Perfect for gifting or brightening your week. Stop by or order for local delivery.\n\n#flowers #localflorist #${shopName.replace(/[^a-z0-9]+/gi, "").toLowerCase() || "florist"}`;
+    }
+    return `**Draft (edit before posting):**\n\n${topic.charAt(0).toUpperCase() + topic.slice(1)} — from ${shopName}. Fresh, local, and ready for your next celebration.`;
+  }
+
   function mountShell() {
     if (document.getElementById("lilyFab")) return;
     const fab = document.createElement("button");
@@ -70,7 +90,7 @@
     fab.id = "lilyFab";
     fab.className = "lily-fab";
     fab.title = "Lily — Florisyn assistant";
-    fab.innerHTML = '<img src="/assets/assistants/lily-portrait.svg" alt="Lily">';
+    fab.innerHTML = '<img src="/assets/assistants/lily-portrait.png" alt="Lily">';
     fab.onclick = () => togglePanel(true);
 
     const panel = document.createElement("section");
@@ -99,7 +119,7 @@
       <div id="lilyConfirm" class="lily-confirm" hidden></div>
       <div class="lily-toolbar" id="lilyToolbar"></div>
       <div class="lily-compose">
-        <button type="button" class="lily-voice" title="Voice (coming soon)">🎙</button>
+        <button type="button" class="lily-voice" title="Hear Lily">🎙</button>
         <textarea id="lilyInput" rows="1" placeholder="Ask Lily anything about your shop…"></textarea>
         <button type="button" class="lily-send" id="lilySend">→</button>
       </div>`;
@@ -116,6 +136,13 @@
       localStorage.setItem(THEME_KEY, next);
     };
     document.getElementById("lilySend").onclick = () => sendMessage();
+    document.querySelector(".lily-voice").onclick = () => {
+      window.FlorisynAssistantVoice?.speak?.(
+        "Lily",
+        "Hi, I'm Lily. I'm here to help with your shop, and I'll keep things simple.",
+        { force: true, respectToggle: false }
+      );
+    };
     document.getElementById("lilyInput").addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
@@ -341,16 +368,26 @@
           renderSuggestions(data.coach);
         }
         if (data.generate && deps.smartAi) {
-          const gen = await deps.smartAi({
-            mode: "generate",
-            persona: "Lily",
-            task: data.generate.task,
-            input: data.generate.input,
-            schema: data.generate.schema
-          });
-          const extra = gen.result ? `\n\n**Draft:**\n${JSON.stringify(gen.result, null, 2)}` : "";
-          data.response = (data.response || "") + extra;
-          deps.api?.("admin-command-center", { method: "POST", body: JSON.stringify({ action: "record-ai-request" }) }).catch(() => {});
+          try {
+            const gen = await deps.smartAi({
+              mode: "generate",
+              persona: "Lily",
+              task: data.generate.task,
+              input: data.generate.input,
+              schema: data.generate.schema
+            });
+            const extra = gen.result ? `\n\n**Draft:**\n${JSON.stringify(gen.result, null, 2)}` : "";
+            data.response = (data.response || "") + extra;
+            deps.api?.("admin-command-center", { method: "POST", body: JSON.stringify({ action: "record-ai-request" }) }).catch(() => {});
+          } catch {
+            const ctx = deps.loadAiContext ? await deps.loadAiContext().catch(() => ({})) : {};
+            const fallback = marketingDraftFallback(data.generate, ctx.shop || data.generate?.input?.shop);
+            if (fallback) {
+              data.response = (data.response || "") + `\n\n${fallback}`;
+            } else if (data.response) {
+              data.response += "\n\nI couldn't generate an AI draft just now. Check Cloudflare AI in Netlify, or try again in a moment.";
+            }
+          }
         } else if (data.intent?.intent === "general.chat" && deps.smartAi && message) {
           try {
             const ctx = deps.loadAiContext ? await deps.loadAiContext() : {};
@@ -395,7 +432,7 @@
       }
     } catch (err) {
       hideTyping();
-      await typeAssistantResponse(`I hit a snag: ${err.message}`);
+      await typeAssistantResponse(friendlyLilyError(err));
     }
   }
 

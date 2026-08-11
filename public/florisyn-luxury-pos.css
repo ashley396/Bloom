@@ -1,0 +1,945 @@
+/**
+ * Florisyn Luxury POS — register layout (Figma)
+ * flex: rail 52px | center | checkout 340px + status bar
+ * Categories: 6×2 grid (152×56) · Navy #1a1f3c · Rose #E06B85 · Blush #FBF6F7
+ */
+
+/* Daisy must never cover the register */
+body:has(#posPage.active) #bloomDaisy,
+body.florisyn-pos-active #bloomDaisy,
+body.florisyn-atelier:has(#posPage.active) #bloomDaisy {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+body.florisyn-atelier #posPage.florisyn-pos-page,
+#posPage.florisyn-pos-page {
+  display: none;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+body.florisyn-atelier #posPage.florisyn-pos-page.active,
+#posPage.florisyn-pos-page.active {
+  display: block !important;
+}
+
+body.florisyn-atelier.florisyn-pos-active .shell > .content,
+body.florisyn-pos-active .shell > .content {
+  padding: 10px 12px 12px !important;
+}
+
+/* Workspace shell */
+body.florisyn-atelier #posPage .pos-workspace.florisyn-pos-lux,
+body.florisyn-atelier #posPage #florisynPosLux,
+#posPage #florisynPosLux.pos-workspace.florisyn-pos-lux {
+  --pos-navy: #1a1f3c;
+  --pos-rose: #e06b85;
+  --pos-blush: #fbf6f7;
+  --pos-ink: #26263a;
+  --pos-muted: #666670;
+  --pos-border: #eae6e8;
+  --pos-radius: 8px;
+  --pos-pill: 20px;
+  display: flex !important;
+  flex-direction: column !important;
+  grid-template-columns: none !important;
+  grid-template-rows: none !important;
+  gap: 0 !important;
+  align-items: stretch !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: calc(100dvh - 120px);
+  height: calc(100dvh - 120px);
+  max-height: calc(100dvh - 120px);
+  background: var(--pos-blush) !important;
+  border: 1px solid var(--pos-border) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+  font-family: Inter, system-ui, sans-serif;
+  position: relative;
+}
+
+body.florisyn-atelier .pos-workspace.florisyn-pos-lux .pos-workspace-head {
+  display: none !important;
+}
+
+/* Main row: toolbar | center | checkout */
+#posPage #florisynPosLux .pos-lux-main-row,
+body.florisyn-atelier .pos-lux-main-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Left toolbar — wide enough for rail labels */
+#posPage #florisynPosLux .pos-lux-rail,
+body.florisyn-atelier .pos-lux-rail {
+  flex: 0 0 68px !important;
+  width: 68px !important;
+  min-width: 68px !important;
+  max-width: 68px !important;
+  background: var(--pos-navy, #1a1f3c) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 4px !important;
+  padding: 10px 6px !important;
+  z-index: 3 !important;
+  position: relative !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  overflow: visible !important;
+}
+
+#posPage #florisynPosLux .pos-lux-rail-btn,
+body.florisyn-atelier .pos-lux-rail-btn {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px;
+  min-height: 56px;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: #fff !important;
+  box-shadow: none !important;
+  padding: 8px 2px !important;
+  font-size: 9px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  width: 100% !important;
+}
+
+#posPage #florisynPosLux .pos-lux-rail-btn small,
+body.florisyn-atelier .pos-lux-rail-btn small {
+  display: block !important;
+  font-size: 8px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
+  color: #fff !important;
+  line-height: 1.1;
+}
+
+#posPage #florisynPosLux .pos-lux-rail-btn .pos-lux-ico,
+body.florisyn-atelier .pos-lux-rail-btn .pos-lux-ico {
+  display: grid;
+  place-items: center;
+  line-height: 1;
+}
+
+#posPage #florisynPosLux .pos-lux-rail-btn .pos-lux-ico svg {
+  display: block;
+  stroke: #fff;
+}
+
+#posPage #florisynPosLux .pos-lux-rail-btn.active,
+#posPage #florisynPosLux .pos-lux-rail-btn:hover,
+body.florisyn-atelier .pos-lux-rail-btn.active,
+body.florisyn-atelier .pos-lux-rail-btn:hover {
+  background: var(--pos-rose, #e06b85) !important;
+}
+
+/* Center */
+#posPage #florisynPosLux .pos-lux-center,
+body.florisyn-atelier .pos-lux-center {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: var(--pos-blush, #fbf6f7);
+  padding: 12px 14px 10px;
+  gap: 10px;
+  overflow: hidden !important;
+}
+
+#posPage #florisynPosLux .pos-lux-topbar,
+body.florisyn-atelier .pos-lux-topbar {
+  display: flex !important;
+  align-items: center;
+  gap: 16px;
+  background: #fff !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--pos-border, #eae6e8) !important;
+  border-radius: 0 !important;
+  padding: 10px 16px !important;
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  min-height: 64px;
+}
+
+#posPage #florisynPosLux .pos-lux-register {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+#posPage #florisynPosLux .pos-lux-fmark {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #111;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-family: "Crimson Pro", Georgia, serif;
+  font-weight: 700;
+  font-size: 16px;
+  flex: 0 0 auto;
+}
+
+#posPage #florisynPosLux .pos-lux-register strong {
+  display: block;
+  font-size: 13px;
+  color: var(--pos-ink, #26263a);
+}
+
+#posPage #florisynPosLux .pos-lux-scanner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--pos-muted, #666670);
+  margin-top: 2px;
+}
+
+#posPage #florisynPosLux .pos-lux-scanner i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2f9d6a;
+  display: inline-block;
+}
+
+#posPage #florisynPosLux .pos-lux-mode {
+  display: inline-flex;
+  background: #f1eef1;
+  border-radius: 20px;
+  padding: 3px;
+  gap: 2px;
+}
+
+#posPage #florisynPosLux .pos-lux-mode button {
+  border: 0 !important;
+  background: transparent !important;
+  border-radius: 20px !important;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: var(--pos-muted, #666670) !important;
+  box-shadow: none !important;
+}
+
+#posPage #florisynPosLux .pos-lux-mode button.active {
+  background: #fff !important;
+  color: var(--pos-ink, #26263a) !important;
+  box-shadow: 0 2px 8px rgba(26, 31, 60, 0.08) !important;
+}
+
+#posPage #florisynPosLux .pos-lux-search {
+  flex: 1 1 320px;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f3f1f4;
+  border-radius: 20px;
+  padding: 0 14px;
+  min-height: 36px;
+  color: var(--pos-muted, #666670);
+}
+
+#posPage #florisynPosLux .pos-lux-search input {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  width: 100%;
+  font-size: 13px;
+  color: var(--pos-ink, #26263a);
+}
+
+#posPage #florisynPosLux .pos-lux-staff {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: right;
+  margin-left: auto;
+}
+
+#posPage #florisynPosLux .pos-lux-staff strong {
+  display: block;
+  font-size: 12.5px;
+  color: var(--pos-ink, #26263a);
+}
+
+#posPage #florisynPosLux .pos-lux-staff small {
+  color: var(--pos-rose, #e06b85);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+#posPage #florisynPosLux .pos-lux-staff-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  object-fit: cover;
+  object-position: center 18%;
+}
+
+/* TOP categories — 6×2, no scroll */
+#posPage #florisynPosLux .pos-lux-top-block,
+body.florisyn-atelier .pos-lux-top-block {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px;
+  overflow: visible !important;
+  max-height: none !important;
+  background: #fff !important;
+  border: 1px solid var(--pos-border, #eae6e8) !important;
+  border-radius: 8px !important;
+  padding: 12px 14px !important;
+  box-shadow: 0 6px 18px rgba(26, 31, 60, 0.05);
+}
+
+#posPage #florisynPosLux .pos-lux-cat-head,
+body.florisyn-atelier .pos-lux-cat-head {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between !important;
+  gap: 12px;
+}
+
+#posPage #florisynPosLux .pos-lux-cat-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--pos-ink, #26263a);
+}
+
+#posPage #florisynPosLux .pos-lux-customize,
+body.florisyn-atelier .pos-lux-customize {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--pos-rose, #e06b85) !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+#posPage #florisynPosLux #posLuxCategories.pos-lux-categories,
+#posPage #florisynPosLux .pos-lux-categories,
+body.florisyn-atelier #posLuxCategories.pos-lux-categories,
+body.florisyn-atelier .pos-lux-categories {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  grid-template-rows: repeat(2, 56px) !important;
+  gap: 8px !important;
+  overflow: visible !important;
+  max-height: none !important;
+  height: auto !important;
+  width: 100% !important;
+  flex-wrap: unset !important;
+}
+
+#posPage #florisynPosLux .pos-lux-cat,
+body.florisyn-atelier .pos-lux-cat {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  height: 56px !important;
+  min-height: 56px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background-size: cover !important;
+  background-position: center !important;
+  color: #fff !important;
+  font-weight: 650 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.01em;
+  box-shadow: inset 0 0 0 999px rgba(26, 31, 60, 0.48) !important;
+  padding: 6px 10px !important;
+  text-align: center;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+#posPage #florisynPosLux .pos-lux-cat.active,
+#posPage #florisynPosLux .pos-lux-cat:hover {
+  box-shadow: inset 0 0 0 999px rgba(224, 107, 133, 0.45) !important;
+}
+
+#posPage #florisynPosLux #productPadGrid,
+#posPage #florisynPosLux .pos-lux-pads,
+body.florisyn-atelier .florisyn-pos-lux #productPadGrid,
+body.florisyn-atelier .florisyn-pos-lux .pos-lux-pads {
+  display: none !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+/* BOTTOM basket */
+#posPage #florisynPosLux .pos-lux-basket,
+body.florisyn-atelier .pos-lux-basket {
+  background: #fff !important;
+  border: 1px solid var(--pos-border, #eae6e8) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 6px 18px rgba(26, 31, 60, 0.05);
+  padding: 12px 14px 10px;
+  flex: 1 1 auto !important;
+  min-height: 180px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  visibility: visible !important;
+}
+
+#posPage #florisynPosLux .pos-lux-basket-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  flex: 0 0 auto;
+}
+
+#posPage #florisynPosLux .pos-lux-basket-head h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--pos-ink, #26263a);
+}
+
+#posPage #florisynPosLux .pos-lux-basket-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#posPage #florisynPosLux .pos-lux-clear {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--pos-rose, #e06b85) !important;
+  font-weight: 600 !important;
+  font-size: 12.5px !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+#posPage #florisynPosLux #queue.pos-lux-queue,
+#posPage #florisynPosLux .pos-lux-queue,
+body.florisyn-atelier .pos-lux-queue {
+  flex: 1 1 auto !important;
+  min-height: 120px !important;
+  overflow: auto !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
+#posPage #florisynPosLux .pos-lux-queue .cart-table,
+#posPage #florisynPosLux .pos-lux-queue .pos-lux-cart-table {
+  width: 100%;
+}
+
+#posPage #florisynPosLux .pos-lux-queue .cart-table-head,
+#posPage #florisynPosLux .pos-lux-queue .cart-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1.6fr) 110px 110px;
+  gap: 10px;
+  align-items: center;
+}
+
+#posPage #florisynPosLux .pos-lux-empty {
+  padding: 28px 8px;
+  text-align: center;
+  color: var(--pos-muted, #666670);
+  font-size: 13px;
+}
+
+#posPage #florisynPosLux .pos-lux-item strong {
+  display: block;
+}
+
+#posPage #florisynPosLux .pos-lux-line-total {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+#posPage #florisynPosLux .pos-lux-line-total .icon-delete {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--pos-muted, #666670) !important;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+#posPage #florisynPosLux .pos-lux-queue .cart-table-head {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--pos-muted, #666670);
+  border-bottom: 1px solid var(--pos-border, #eae6e8);
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+#posPage #florisynPosLux .pos-lux-queue .cart-row {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(234, 230, 232, 0.9);
+}
+
+#posPage #florisynPosLux .pos-lux-queue .cart-row strong {
+  display: block;
+  font-size: 13px;
+  color: var(--pos-ink, #26263a);
+}
+
+#posPage #florisynPosLux .pos-lux-queue .cart-row small {
+  color: var(--pos-muted, #666670);
+  font-size: 11.5px;
+}
+
+#posPage #florisynPosLux .pos-lux-queue .qty-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f6f3f5;
+  border-radius: 999px;
+  padding: 3px 6px;
+}
+
+#posPage #florisynPosLux .pos-lux-queue .qty-control button {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px !important;
+  border: 0 !important;
+  background: #fff !important;
+  color: var(--pos-ink, #26263a) !important;
+  box-shadow: 0 1px 3px rgba(26, 31, 60, 0.08) !important;
+  padding: 0 !important;
+}
+
+#posPage #florisynPosLux .pos-lux-queue input[data-cart-price] {
+  width: 88px;
+  border: 1px solid var(--pos-border, #eae6e8) !important;
+  border-radius: 8px !important;
+  padding: 6px 8px !important;
+  font-size: 13px;
+}
+
+#posPage #florisynPosLux .pos-lux-ops {
+  display: none !important;
+}
+
+/* Right checkout 340px */
+#posPage #florisynPosLux .pos-lux-checkout,
+body.florisyn-atelier .pos-lux-checkout {
+  flex: 0 0 340px !important;
+  width: 340px !important;
+  min-width: 340px !important;
+  max-width: 340px !important;
+  background: #fff !important;
+  border-left: 1px solid var(--pos-border, #eae6e8);
+  padding: 16px;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px;
+  overflow: auto;
+  position: static !important;
+  top: auto !important;
+  visibility: visible !important;
+}
+
+#posPage #florisynPosLux .pos-lux-customer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--pos-muted, #666670);
+}
+
+#posPage #florisynPosLux .pos-lux-vip {
+  font-style: normal;
+  background: rgba(224, 107, 133, 0.14);
+  color: var(--pos-rose, #e06b85);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+#posPage #florisynPosLux .pos-lux-customer-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+#posPage #florisynPosLux .pos-lux-customer-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+#posPage #florisynPosLux .pos-lux-customer-row img {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  object-fit: cover;
+  object-position: center 18%;
+}
+
+#posPage #florisynPosLux .pos-lux-customer-row strong {
+  display: block;
+  color: var(--pos-ink, #26263a);
+  font-size: 14px;
+}
+
+#posPage #florisynPosLux .pos-lux-customer-row small,
+#posPage #florisynPosLux .pos-lux-loyalty-note {
+  color: var(--pos-muted, #666670);
+  font-size: 12px;
+}
+
+#posPage #florisynPosLux .pos-lux-loyalty-note {
+  margin: 8px 0 0;
+}
+
+#posPage #florisynPosLux .pos-lux-loyalty {
+  margin: 0 0 0 auto;
+}
+
+#posPage #florisynPosLux .pos-lux-ring {
+  --lux-loyalty: 75;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(var(--pos-rose, #e06b85) calc(var(--lux-loyalty) * 1%), #efe9ec 0);
+  position: relative;
+  flex-shrink: 0;
+}
+
+#posPage #florisynPosLux .pos-lux-ring::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+#posPage #florisynPosLux .pos-lux-ring span {
+  position: relative;
+  z-index: 1;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--pos-ink, #26263a);
+  text-align: center;
+  max-width: 44px;
+  line-height: 1.15;
+}
+
+#posPage #florisynPosLux .pos-lux-totals {
+  border-top: 1px solid var(--pos-border, #eae6e8);
+  padding-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+#posPage #florisynPosLux .pos-lux-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--pos-ink, #26263a);
+}
+
+#posPage #florisynPosLux .pos-lux-line.rose,
+#posPage #florisynPosLux .pos-lux-line.rose b {
+  color: var(--pos-rose, #e06b85);
+}
+
+#posPage #florisynPosLux .pos-lux-discount-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+#posPage #florisynPosLux .pos-lux-code {
+  flex: 1 1 72%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--pos-border, #eae6e8);
+  border-radius: 8px;
+  padding: 0 14px;
+  min-height: 46px;
+  background: #faf7f8;
+}
+
+#posPage #florisynPosLux .pos-lux-code input {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  width: 100%;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pos-ink, #26263a);
+}
+
+#posPage #florisynPosLux .pos-lux-apply {
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: var(--pos-navy, #1a1f3c) !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  padding: 0 10px !important;
+  box-shadow: none !important;
+  flex: 0 0 auto;
+  min-height: 46px;
+  max-width: 72px;
+  align-self: stretch;
+  white-space: nowrap;
+}
+
+#posPage #florisynPosLux .pos-lux-search {
+  display: none !important;
+}
+
+body:has(#posPage.active) #lilyFab,
+body.florisyn-pos-active #lilyFab {
+  display: none !important;
+}
+
+#posPage #florisynPosLux .pos-lux-queue::before,
+#posPage #florisynPosLux .pos-lux-queue::after,
+#posPage #florisynPosLux .pos-lux-basket::after {
+  display: none !important;
+  content: none !important;
+}
+
+#posPage #florisynPosLux .pos-lux-grand {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pos-border, #eae6e8);
+}
+
+#posPage #florisynPosLux .pos-lux-grand span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pos-ink, #26263a);
+}
+
+#posPage #florisynPosLux .pos-lux-grand strong,
+#posPage #florisynPosLux .pos-lux-grand #cartTotal {
+  font-size: 1.7rem;
+  font-weight: 750;
+  color: var(--pos-ink, #26263a);
+  letter-spacing: -0.02em;
+}
+
+#posPage #florisynPosLux .pos-lux-pay-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: auto;
+}
+
+#posPage #florisynPosLux .pos-lux-charge,
+#posPage #florisynPosLux .pos-lux-cash {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  box-shadow: none !important;
+}
+
+#posPage #florisynPosLux .pos-lux-charge {
+  background: var(--pos-rose, #e06b85) !important;
+  color: #fff !important;
+}
+
+#posPage #florisynPosLux .pos-lux-cash {
+  background: var(--pos-navy, #1a1f3c) !important;
+  color: #fff !important;
+}
+
+#posPage #florisynPosLux .pos-lux-pay-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+#posPage #florisynPosLux .pos-lux-outline {
+  min-height: 40px;
+  border: 1px solid var(--pos-border, #eae6e8) !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: var(--pos-ink, #26263a) !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+/* Status bar */
+#posPage #florisynPosLux .pos-lux-statusbar,
+body.florisyn-atelier .pos-lux-statusbar {
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  background: var(--pos-navy, #1a1f3c) !important;
+  color: #fff !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 16px;
+  font-size: 12px;
+  grid-column: unset !important;
+  grid-row: unset !important;
+}
+
+#posPage #florisynPosLux .pos-lux-status-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#posPage #florisynPosLux .pos-lux-status-left i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2f9d6a;
+}
+
+#posPage #florisynPosLux .pos-lux-status-left span {
+  opacity: 0.75;
+  margin-left: 6px;
+}
+
+#posPage #florisynPosLux .pos-lux-status-right {
+  display: flex;
+  gap: 18px;
+}
+
+#posPage #florisynPosLux .pos-lux-status-right b {
+  color: var(--pos-rose, #e06b85);
+}
+
+#posPage #florisynPosLux .progress-card,
+#posPage #florisynPosLux .checkout-card,
+#posPage #florisynPosLux .pos-right-column {
+  display: none !important;
+}
+
+/* Beat polish @media(max-width:1280px){.pos-workspace{grid-template-columns:1fr}} */
+@media (max-width: 1280px) {
+  #posPage #florisynPosLux.pos-workspace.florisyn-pos-lux,
+  body.florisyn-atelier #posPage .pos-workspace.florisyn-pos-lux {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: none !important;
+    height: auto;
+    max-height: none;
+  }
+
+  #posPage #florisynPosLux .pos-lux-main-row {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap;
+  }
+
+  #posPage #florisynPosLux .pos-lux-rail {
+    flex: 0 0 52px !important;
+    width: 52px !important;
+    display: flex !important;
+  }
+
+  #posPage #florisynPosLux .pos-lux-center {
+    flex: 1 1 calc(100% - 52px) !important;
+  }
+
+  #posPage #florisynPosLux .pos-lux-checkout {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    border-left: 0;
+    border-top: 1px solid var(--pos-border, #eae6e8);
+  }
+
+  #posPage #florisynPosLux #posLuxCategories.pos-lux-categories {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    grid-template-rows: repeat(4, 56px) !important;
+  }
+}
+
+@media (max-width: 820px) {
+  #posPage #florisynPosLux .pos-lux-main-row {
+    flex-direction: column;
+  }
+
+  #posPage #florisynPosLux .pos-lux-rail {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    flex-direction: row !important;
+    overflow: auto;
+    padding: 8px !important;
+  }
+
+  #posPage #florisynPosLux .pos-lux-rail-btn {
+    min-width: 64px;
+  }
+
+  #posPage #florisynPosLux #posLuxCategories.pos-lux-categories {
+    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-rows: none !important;
+  }
+
+  #posPage #florisynPosLux .pos-lux-queue .cart-table-head,
+  #posPage #florisynPosLux .pos-lux-queue .cart-row {
+    grid-template-columns: 80px minmax(0, 1fr) 88px;
+  }
+
+  #posPage #florisynPosLux .pos-lux-queue .cart-table-head span:nth-child(3),
+  #posPage #florisynPosLux .pos-lux-queue .cart-row > span:nth-child(3) {
+    display: none;
+  }
+}

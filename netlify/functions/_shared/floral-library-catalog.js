@@ -81,7 +81,8 @@ function mkProduct(index) {
   const photoId = PEXELS_POOL[index % PEXELS_POOL.length];
   const url = pexelsUrl(photoId);
   const price = 49.99 + (index % 12) * 7.5 + (occ.cat.includes("Luxury") || occ.cat.includes("Wedding") ? 40 : 0);
-  const description = `A ${style.toLowerCase()} ${flower.toLowerCase()} design for ${occ.cat.toLowerCase()} — hand-crafted for your shop catalog. Licensed starter photography; replace with your own work anytime.`;
+  const description = `A ${style.toLowerCase()} ${flower.toLowerCase()} arrangement styled for ${occ.cat.toLowerCase()} — starter recipe and pricing included. Customize the photo and copy for your shop anytime.`;
+  const shortDescription = `${style} ${flower} for ${occ.cat.replace(/ bouquets$/i, "").toLowerCase()}. Ready to add to your catalog.`;
   return {
     id,
     scope: "master",
@@ -91,8 +92,8 @@ function mkProduct(index) {
     suggested_retail: { default: Math.round(price * 100) / 100, min: price * 0.9, max: price * 1.25 },
     suggested_cost: Math.round(price * 0.42 * 100) / 100,
     description,
-    short_description: description.slice(0, 120),
-    primary_image: { url, alt: `${name} floral arrangement`, hash: hash(`${id}-${url}`) },
+    short_description: shortDescription,
+    primary_image: { url, alt: `${name} ultra-realistic floral arrangement photograph`, hash: hash(`${id}-${url}`) },
     image_license: {
       source: "licensed_stock_pexels",
       attribution: "Pexels — verify license at import",
@@ -103,7 +104,12 @@ function mkProduct(index) {
       { name: "Seasonal greenery", qty: 4 + (index % 3) }
     ],
     publish_status: "published",
-    tags: [occ.slug, flower.toLowerCase(), "rc2_starter"],
+    tags: [occ.slug, flower.toLowerCase(), "rc2_starter", "ultra_realistic"],
+    metadata: {
+      image_standard: "ultra_realistic_professional_floral_photography",
+      launch_quality: "starter_verified",
+      replaceable_by_shop: true
+    },
     staff_only_recipe: true
   };
 }

@@ -1,0 +1,217 @@
+/* Website Studio V2 — 3-panel florist builder */
+.website-studio-v2 {
+  display: grid;
+  grid-template-columns: minmax(200px, 240px) 1fr minmax(260px, 320px);
+  gap: 1rem;
+  margin-top: 1rem;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .website-studio-v2 {
+    grid-template-columns: 1fr;
+  }
+  .ws2-panel-pages,
+  .ws2-panel-seo {
+    order: 2;
+  }
+  .ws2-panel-canvas {
+    order: 1;
+  }
+}
+.ws2-panel {
+  background: var(--card, #fff);
+  border: 1px solid var(--border, #e8e0e4);
+  border-radius: 12px;
+  padding: 1rem;
+  max-height: min(80vh, 900px);
+  overflow: auto;
+}
+.ws2-panel h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+.ws2-page-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ws2-page-list li button {
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.65rem;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+.ws2-page-list li button.active,
+.ws2-page-list li button:hover {
+  background: var(--accent-soft, #f8f3f6);
+}
+.ws2-page-list .slug {
+  display: block;
+  font-size: 0.75rem;
+  opacity: 0.65;
+}
+.ws2-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.ws2-toolbar button,
+.ws2-toolbar select {
+  min-height: 44px;
+}
+.ws2-live-preview {
+  border: 1px solid var(--border, #e8e0e4);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f4f4f4;
+  min-height: 200px;
+}
+.ws2-live-preview iframe {
+  width: 100%;
+  border: 0;
+  display: block;
+  background: #fff;
+}
+.ws2-live-preview[data-device="mobile"] iframe {
+  max-width: 390px;
+  margin: 0 auto;
+}
+.ws2-live-preview[data-device="tablet"] iframe {
+  max-width: 768px;
+  margin: 0 auto;
+}
+.ws2-seo-field label {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+.ws2-seo-field input,
+.ws2-seo-field textarea {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+.ws2-char-count {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+.ws2-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+}
+.ws2-checklist li {
+  padding: 0.35rem 0;
+  font-size: 0.875rem;
+}
+.ws2-checklist li.fail {
+  color: var(--danger, #a33);
+}
+.ws2-checklist li.pass::before {
+  content: "✓ ";
+  color: var(--success, #2d6a4f);
+}
+.ws2-checklist li.fail::before {
+  content: "○ ";
+}
+.ws2-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+.ws2-kpi {
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: var(--accent-soft, #f8f3f6);
+  text-align: center;
+}
+.ws2-kpi strong {
+  display: block;
+  font-size: 1.25rem;
+}
+.ws2-autosave {
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.editor-layout {
+  display: grid;
+  grid-template-columns: 1fr minmax(240px, 300px);
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .editor-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.editor-inspector {
+  position: sticky;
+  top: 1rem;
+  max-height: 70vh;
+  overflow: auto;
+}
+.editor-section.selected {
+  outline: 2px solid var(--accent, #8f3f68);
+  outline-offset: 2px;
+}
+.editor-section-preview {
+  pointer-events: none;
+  opacity: 0.95;
+  transform: scale(0.98);
+  transform-origin: top center;
+}
+.editor-block-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+  padding: 0.35rem;
+  border-radius: 8px;
+  background: var(--accent-soft, #f8f3f6);
+}
+.editor-drag-handle {
+  cursor: grab;
+  padding: 0.25rem;
+}
+.lily-wizard-head {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.lily-wizard-dialog {
+  max-width: 520px;
+  border: none;
+  border-radius: 16px;
+  padding: 1.25rem;
+}
+.lily-wizard-progress {
+  height: 6px;
+  background: #eee;
+  border-radius: 999px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+.lily-wizard-progress div {
+  height: 100%;
+  background: var(--accent, #8f3f68);
+  width: 0;
+  transition: width 0.2s ease;
+}
+.lily-bubble {
+  background: var(--accent-soft, #f8f3f6);
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-style: italic;
+}
+.ws2-domain-field code {
+  font-size: 0.85em;
+  word-break: break-all;
+}

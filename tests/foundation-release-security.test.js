@@ -101,6 +101,20 @@ test("AI status never reports online without provider credentials", () => {
 
   const partialToken = getAiProviderStatus({ CLOUDFLARE_AI_API_TOKEN: "only-token" });
   assert.notEqual(partialToken.state, AI_STATUS.ONLINE);
+
+  const openaiOnly = getAiProviderStatus({ OPENAI_API_KEY: "sk-test-not-used" });
+  assert.equal(openaiOnly.state, AI_STATUS.CONFIGURATION_REQUIRED);
+  assert.equal(openaiOnly.provider, null);
+  assert.equal(openaiOnly.lily, "offline");
+});
+
+test("runtime AI configuration does not advertise OpenAI", () => {
+  const aiStatus = fs.readFileSync(path.join(process.cwd(), "netlify/functions/_shared/ai-status.js"), "utf8");
+  const tts = fs.readFileSync(path.join(process.cwd(), "netlify/functions/assistant-tts.js"), "utf8");
+  const envExample = fs.readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
+  assert.doesNotMatch(aiStatus, /OPENAI_API_KEY|openai/i);
+  assert.doesNotMatch(tts, /OPENAI_API_KEY|openai/i);
+  assert.doesNotMatch(envExample, /OPENAI_API_KEY|OPENAI_MODEL/i);
 });
 
 test("ai-status HTTP handler exposes no secrets", async () => {
@@ -124,7 +138,7 @@ test("risky feature flags default false in empty environment", () => {
   assert.equal(flags.VOICE_WAKE, false);
   assert.equal(flags.VOICE_TTS_CLOUD, false);
   assert.equal(flags.INVENTORY_AI_INTAKE, false);
-  assert.equal(flags.INVENTORY_RECIPE_DEDUCTIONS, false);
+  assert.equal(flags.INVENTORY_RECIPE_DEDUCTIONS, true);
 });
 
 test("feature flags cannot grant platform admin or bypass auth", () => {

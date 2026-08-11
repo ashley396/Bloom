@@ -233,3 +233,33 @@ h2 {
     gap: 16px;
   }
 }
+
+.occasion-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.occasion-tile {
+  display: block;
+  padding: 1rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--sf-accent) 12%, #fff);
+  text-align: center;
+  text-decoration: none;
+  color: var(--sf-text);
+  min-height: var(--sf-tap, 44px);
+  font-weight: 600;
+}
+
+.occasion-tile:hover {
+  background: color-mix(in srgb, var(--sf-accent) 22%, #fff);
+}
+
+.sf-section.sympathy,
+.sf-section.wedding {
+  border-left: 4px solid var(--sf-botanical);
+  padding-left: 1rem;
+}
+

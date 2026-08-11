@@ -1,4 +1,5 @@
 [build]
+  command = "node scripts/stamp-build.mjs"
   publish = "public"
   functions = "netlify/functions"
 
@@ -7,11 +8,131 @@
 
 [[headers]]
   for = "/*"
-  [headers.values]
+    [headers.values]
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Resource-Policy = "same-site"
+    X-Permitted-Cross-Domain-Policies = "none"
+
+[[headers]]
+  for = "/.netlify/functions/*"
+    [headers.values]
+    Cache-Control = "no-store"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+
+# App shell JS/CSS — always revalidate so deploy stamps and pricing/admin fixes reach browsers.
+[[headers]]
+  for = "/pricing.js"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/pricing-catalog.js"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/admin.js"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/admin-mfa.js"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/app.js"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/signup.js"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/florisyn-version.js"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/florisyn-build.js"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/pricing.css"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/admin-a11y-polish.css"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/floral-library-ui.js"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/floral-library-collection.js"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/floral-media.js"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# P0-17 distributed auth admission (Pro: max 5 code-based rate-limit rules).
+# Rate limits must target /api/* entry points — Netlify drops redirects that
+# rewrite /.netlify/functions/* onto itself. Clients call /api/auth-*.
+# Session refresh is intentionally excluded.
+[[redirects]]
+  from = "/api/auth-login"
+  to = "/.netlify/functions/auth-login"
+  status = 200
+  force = true
+  [redirects.rate_limit]
+  window_limit = 30
+  window_size = 60
+  aggregate_by = ["ip", "domain"]
+
+[[redirects]]
+  from = "/api/auth-signup"
+  to = "/.netlify/functions/auth-signup"
+  status = 200
+  force = true
+  [redirects.rate_limit]
+  window_limit = 30
+  window_size = 60
+  aggregate_by = ["ip", "domain"]
+
+[[redirects]]
+  from = "/api/auth-forgot-password"
+  to = "/.netlify/functions/auth-forgot-password"
+  status = 200
+  force = true
+  [redirects.rate_limit]
+  window_limit = 30
+  window_size = 60
+  aggregate_by = ["ip", "domain"]
+
+[[redirects]]
+  from = "/api/auth-reset-password"
+  to = "/.netlify/functions/auth-reset-password"
+  status = 200
+  force = true
+  [redirects.rate_limit]
+  window_limit = 30
+  window_size = 60
+  aggregate_by = ["ip", "domain"]
 
 [[redirects]]
   from = "/api/*"
@@ -89,6 +210,16 @@
   to = "/reset-password.html"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/store/:shop/sitemap.xml"
+  to = "/.netlify/functions/storefront-public?action=sitemap&shop=:shop"
+  status = 200
+
+[[redirects]]
+  from = "/store/:shop/robots.txt"
+  to = "/.netlify/functions/storefront-public?action=robots&shop=:shop"
+  status = 200
 
 [[redirects]]
   from = "/store/*"

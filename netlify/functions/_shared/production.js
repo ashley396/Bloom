@@ -18,6 +18,11 @@ export const BETA_READINESS_CHECKLIST = [
   { id: "payments", area: "Payments", item: "Stripe checkout when keys configured" },
   { id: "marketplace", area: "Marketplace", item: "Browse, verify, and checkout gated correctly" },
   { id: "wholesale", area: "Wholesale", item: "Seller publish workflow draft → published" },
+  { id: "florist_network", area: "Florist Network", item: "Wire order to partner; Stripe pay or mark paid offline" },
+  { id: "community", area: "Florist Community", item: "Profile, post, encourage, comment (active members only)" },
+  { id: "email", area: "Email Campaigns", item: "Draft and send when RESEND_API_KEY configured" },
+  { id: "holiday", area: "Holiday Command", item: "Peak checklist and holiday tools load" },
+  { id: "weddings", area: "Weddings", item: "Proposals and wedding workflow pages load" },
   { id: "lily", area: "Lily", item: "AI actions respect role permissions" },
   { id: "admin", area: "Admin", item: "Command Center gated to platform admins" },
   { id: "performance", area: "Performance", item: "Dashboard loads under 3s on broadband" },
@@ -32,7 +37,7 @@ export function getProductionConfig(env = process.env) {
     stripe_webhooks: Boolean(env.STRIPE_ORDER_WEBHOOK_SECRET),
     stripe_subscription_webhooks: Boolean(env.STRIPE_WEBHOOK_SECRET),
     connect: Boolean(env.STRIPE_CONNECT_CLIENT_ID),
-    ai_cloud: Boolean(env.CLOUDFLARE_AI_TOKEN && env.CLOUDFLARE_ACCOUNT_ID),
+    ai_cloud: Boolean(env.CLOUDFLARE_ACCOUNT_ID && (env.CLOUDFLARE_AI_API_TOKEN || env.CLOUDFLARE_AI_TOKEN)),
     email: Boolean(env.RESEND_API_KEY)
   };
   const warnings = [];

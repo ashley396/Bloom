@@ -141,6 +141,20 @@ test("editor keeps section order, undo\/redo restore, and mobile preview", () =>
   assert.match(editor, /editorPreviewMobile/);
 });
 
+test("website builder exposes florist AI-style brief and add-section controls", () => {
+  const wizard = fs.readFileSync(new URL("../public/instant-website-ui.js", import.meta.url), "utf8");
+  const css = fs.readFileSync(new URL("../public/bloom-rc1-luxury.css", import.meta.url), "utf8");
+  assert.match(wizard, /Build your florist website with guided AI-style help/);
+  assert.match(wizard, /instantBriefSpecialty/);
+  assert.match(wizard, /instantBriefDelivery/);
+  assert.match(wizard, /Build florist website draft/);
+  assert.match(instantWebsite, /brief: body\.brief/);
+  assert.match(editor, /editorAddSection/);
+  assert.match(editor, /newSection/);
+  assert.match(editor, /delivery_area/);
+  assert.match(css, /florist-ai-brief/);
+});
+
 test("theme persistence action remains available on website API", () => {
   assert.match(instantWebsite, /switch_theme/);
 });

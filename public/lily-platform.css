@@ -27,7 +27,8 @@
 .lily-toolbar button{border:1px solid #eadde5;background:#fff;border-radius:12px;padding:8px 6px;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#5c4a54;cursor:pointer}
 .lily-compose{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--lily-border,#eadde5);align-items:flex-end;background:var(--lily-panel-bg,#fffcfd)}
 .lily-compose textarea{flex:1;resize:none;min-height:42px;max-height:120px;border-radius:14px;border:1px solid #eadde5;padding:10px 12px;font:inherit;background:#fff}
-.lily-compose .lily-voice{width:42px;height:42px;border-radius:12px;border:1px dashed #c9b5c0;background:#fff;cursor:not-allowed;opacity:.65}
+.lily-compose .lily-voice{width:42px;height:42px;border-radius:12px;border:1px solid #eadde5;background:#fff;cursor:pointer;opacity:1}
+.lily-compose .lily-voice:hover{background:#fff7fb;box-shadow:0 4px 14px #5b234014}
 .lily-compose .lily-send{width:42px;height:42px;border-radius:12px;border:none;background:#7e214e;color:#fff;font-weight:800;cursor:pointer}
 .lily-confirm{margin:0 12px 8px;padding:10px;border-radius:12px;background:#fff7eb;border:1px solid #f0d9b8;font-size:13px}
 .lily-confirm button{margin-top:8px;margin-right:6px}

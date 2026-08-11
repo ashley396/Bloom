@@ -83,7 +83,7 @@ function testUser() {
 
 function login(user) {
   const response = http.post(
-    `${BASE_URL}/.netlify/functions/auth-login`,
+    `${BASE_URL}/api/auth-login`,
     JSON.stringify({ email: user.email, password: user.password }),
     {
       headers: { "Content-Type": "application/json" },

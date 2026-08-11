@@ -9,6 +9,13 @@ import {
   VOICE_DEFAULTS
 } from "../netlify/functions/_shared/assistant-voice.js";
 
+const lilyPlatform = await import("node:fs").then((fs) =>
+  fs.readFileSync(new URL("../public/lily-platform.js", import.meta.url), "utf8")
+);
+const lilyCss = await import("node:fs").then((fs) =>
+  fs.readFileSync(new URL("../public/lily-platform.css", import.meta.url), "utf8")
+);
+
 test("prepareAssistantSpeechText strips emoji and clamps length", () => {
   const t = prepareAssistantSpeechText("Hello 🌸 world.  Extra   spaces.");
   assert.match(t, /Hello world/);
@@ -36,6 +43,17 @@ test("Lily and Rose pick different best voices when options differ", () => {
   assert.ok(lily && rose);
 });
 
+test("Daisy has a gentle mascot voice profile and avoids robotic choices", () => {
+  const voices = [
+    { name: "Microsoft David Desktop - English (United States)", lang: "en-US" },
+    { name: "Microsoft Ava Online (Natural) - English (United States)", lang: "en-US", localService: false }
+  ];
+  const daisy = pickAssistantVoice(voices, "Daisy");
+  assert.equal(daisy.name, voices[1].name);
+  assert.equal(VOICE_DEFAULTS.Daisy.pitch, 1.12);
+  assert.match(VOICE_DEFAULTS.Daisy.preview, /cheerful, funny/);
+});
+
 test("mergeVoiceSettings uses defaults when values missing", () => {
   const m = mergeVoiceSettings("Rose", {});
   assert.equal(m.rate, VOICE_DEFAULTS.Rose.rate);
@@ -52,4 +70,13 @@ test("assistant-tts handler advertises fallback when cloud not configured", asyn
   assert.equal(res.statusCode, 503);
   const body = JSON.parse(res.body);
   assert.equal(body.fallback, true);
+});
+
+test("Lily panel hides technical AI outage text behind friendly offline copy", () => {
+  assert.match(lilyPlatform, /function friendlyLilyError/);
+  assert.match(lilyPlatform, /AI writing service is temporarily offline/);
+  assert.match(lilyPlatform, /orders, products, customers, inventory, website, reports, and support/);
+  assert.doesNotMatch(lilyPlatform, /I hit a snag: \$\{err\.message\}/);
+  assert.match(lilyPlatform, /Hear Lily/);
+  assert.match(lilyCss, /\.lily-compose \.lily-voice[\s\S]*cursor:pointer/);
 });

@@ -1,66 +1,130 @@
 <!doctype html>
 <html lang="en">
-<head>
+<head><script src="/seo/florisyn-seo.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#faf7f2">
+  <meta name="theme-color" content="#1a2b48">
   <meta name="description" content="Sign in to Florisyn — The Operating System for Modern Florists. Orders, POS, websites, and daily shop work.">
   <title>Sign in | Florisyn</title>
-  <link rel="icon" href="/assets/florisyn/favicon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/assets/florisyn/florisyn-mark.svg">
+  <link rel="icon" href="/assets/florisyn/florisyn-favicon-32.png?v=official1" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="/bloom-auth.css">
   <link rel="stylesheet" href="/florisyn-brand.css">
   <link rel="stylesheet" href="/florisyn-founder-1.0.css">
+  <link rel="stylesheet" href="/florisyn-atelier-auth.css?v=authhero2">
+  <script src="/florisyn-build.js?v=local-1786391254892"></script>
 </head>
-<body class="bloom-auth florisyn">
-  <header class="bloom-auth-top">
-    <a class="bloom-auth-brand" href="/login">
-      <img src="/assets/florisyn/florisyn-mark.svg" width="44" height="44" alt="">
-      <span><strong>Florisyn</strong><small>The Operating System for Modern Florists</small></span>
+<body class="bloom-auth florisyn florisyn-atelier-auth florisyn-auth-hero florisyn-login-hero">
+  <div class="auth-hero-atmosphere" aria-hidden="true">
+    <span class="auth-orb auth-orb-a"></span>
+    <span class="auth-orb auth-orb-b"></span>
+    <span class="auth-orb auth-orb-c"></span>
+    <img class="auth-petals auth-petals-a" src="/assets/florisyn/florisyn-auth-petals.png?v=authhero2" alt="" hidden>
+    <img class="auth-petals auth-petals-b" src="/assets/florisyn/florisyn-auth-petals.png?v=authhero2" alt="" hidden>
+    <img class="auth-petals auth-petals-c" src="/assets/florisyn/florisyn-auth-petals.png?v=authhero2" alt="" hidden>
+  </div>
+
+  <header class="auth-hero-nav">
+    <a class="auth-hero-logo" href="/login">
+      <img src="/assets/florisyn/florisyn-official-icon.png?v=official1" width="48" height="48" alt="" class="florisyn-official-logo">
+      <strong>Florisyn</strong>
     </a>
-    <nav class="bloom-auth-nav" aria-label="Account">
+    <nav class="auth-hero-links" aria-label="Marketing">
+      <a href="/company/services/">Product</a>
+      <a href="/company/services/">Features</a>
+      <a href="/signup#pricing">Pricing</a>
+      <a href="/help/">Resources</a>
       <a href="/company/about/">About</a>
-      <a href="/help/">Help</a>
-      <a class="nav-cta" href="/signup">Start free trial</a>
     </nav>
+    <div class="auth-hero-nav-actions">
+      <a class="auth-nav-login is-active" href="/login">Login</a>
+      <a class="auth-nav-cta" href="/company/about/">About Florisyn</a>
+    </div>
   </header>
-  <main class="bloom-auth-shell">
-    <section class="bloom-auth-visual" aria-hidden="false">
-      <img src="/assets/auth/luxury-florist-workspace.jpg" alt="Florist arranging flowers in a bright design workspace" width="1600" height="1067" fetchpriority="high">
-      <div class="bloom-auth-visual-copy">
-        <p class="eyebrow">Where Your Passion Flowers.</p>
-        <h1>Elegant software for modern florists.</h1>
-        <p>Orders, POS, deliveries, recipes, websites, and payments — one calm, premium workspace.</p>
-      </div>
-      <span class="bloom-auth-visual-credit">Photo: licensed stock (Pexels)</span>
-    </section>
-    <section class="bloom-auth-form-zone">
-      <div class="bloom-auth-card">
-        <p class="eyebrow">Welcome back</p>
-        <h2>Sign in</h2>
-        <p class="lead">Use your business email and password.</p>
-        <form id="authForm">
-          <label>Business email
-            <input id="email" name="email" type="email" required autocomplete="username" placeholder="you@yourflowershop.com">
-          </label>
-          <label>Password
-            <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="Your password">
-          </label>
-          <button type="submit" class="bloom-auth-btn" id="authButton">Sign in</button>
-        </form>
-        <p id="authMessage" class="bloom-auth-message" role="status" aria-live="polite"></p>
-        <div class="bloom-auth-links">
-          <a href="/signup">Create a Florisyn account</a>
-          <a href="/forgot-password">Forgot your password?</a>
-          <a href="/verify-email">Email verification help</a>
-          <a href="/admin">Florisyn HQ admin</a>
+
+  <main class="auth-hero-shell">
+    <section class="auth-hero-copy" aria-labelledby="loginHeading">
+      <p class="auth-eyebrow-pill">The operating system for modern florists</p>
+      <h1 id="loginHeading">Welcome back</h1>
+      <p class="auth-hero-lead">Sign in to run your floral business with beauty &amp; intelligence.</p>
+      <p class="atelier-auth-tagline visually-hidden">Where Your Passion Flowers</p>
+
+      <form id="authForm" class="auth-hero-form">
+        <label class="login-field">Email address
+          <input id="email" name="email" type="email" required autocomplete="username" placeholder="you@yourflowershop.com">
+        </label>
+        <label class="login-field">Password
+          <span class="login-password-wrap">
+            <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••">
+            <button type="button" class="login-password-toggle" id="passwordToggle" aria-label="Show password" aria-pressed="false">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12Z"/><circle cx="12" cy="12" r="3.2"/></svg>
+            </button>
+          </span>
+        </label>
+        <div class="atelier-auth-row login-options">
+          <label class="check"><input type="checkbox" name="remember" checked> Remember me</label>
+          <a href="/forgot-password">Forgot password?</a>
         </div>
+        <button type="submit" class="bloom-auth-btn login-submit" id="authButton">Start Your Free Session</button>
+      </form>
+
+      <p id="authMessage" class="bloom-auth-message" role="status" aria-live="polite"></p>
+
+      <div class="auth-hero-secondary-actions">
+        <p class="login-footer-link">New to Florisyn? <a href="/signup"><strong>Create account</strong></a></p>
+      </div>
+
+      <div class="login-divider" role="separator"><span>or continue with</span></div>
+      <div class="login-social" aria-label="Other sign-in options">
+        <button type="button" class="login-social-btn" data-social="google" aria-label="Continue with Google" title="Email sign-in is required for now">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M12 10.2v3.6h5.1c-.2 1.2-.9 2.3-1.9 3l3.1 2.4c1.8-1.7 2.9-4.1 2.9-7 0-.7-.1-1.3-.2-1.9H12z"/><path fill="#34A853" d="M6.6 14.3l-.9.7-2.5 1.9C4.9 19.7 8.2 22 12 22c2.7 0 5-.9 6.6-2.4l-3.1-2.4c-.9.6-2 1-3.5 1-2.7 0-5-1.8-5.8-4.3z"/><path fill="#4A90E2" d="M3.2 7.1C2.4 8.7 2 10.3 2 12s.4 3.3 1.2 4.9l3.4-2.6C6.2 13.5 6 12.8 6 12s.2-1.5.5-2.2L3.2 7.1z"/><path fill="#FBBC05" d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.8-2.8C16.9 2.9 14.7 2 12 2 8.2 2 4.9 4.3 3.2 7.1l3.4 2.6C7 7.7 9.3 5.9 12 5.9z"/></svg>
+        </button>
+        <button type="button" class="login-social-btn" data-social="apple" aria-label="Continue with Apple" title="Email sign-in is required for now">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#111" d="M16.4 12.7c0-2.1 1.7-3.1 1.8-3.2-1-1.4-2.5-1.6-3-1.7-1.3-.1-2.5.8-3.1.8-.7 0-1.7-.7-2.8-.7-1.4 0-2.8.9-3.5 2.2-1.5 2.6-.4 6.4 1.1 8.5.7 1 1.6 2.2 2.7 2.1 1.1 0 1.5-.7 2.8-.7s1.6.7 2.8.7c1.2 0 1.9-1 2.6-2 .8-1.2 1.1-2.3 1.1-2.4-.1 0-2.2-.8-2.2-3.6zM14.3 6.4c.6-.7 1-1.7.9-2.7-1 .1-2.1.6-2.7 1.4-.6.7-1.1 1.7-.9 2.7 1-.1 2-.6 2.7-1.4z"/></svg>
+        </button>
+        <button type="button" class="login-social-btn" data-social="microsoft" aria-label="Continue with Microsoft" title="Email sign-in is required for now">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#F25022" d="M2 2h9.5v9.5H2z"/><path fill="#7FBA00" d="M12.5 2H22v9.5h-9.5z"/><path fill="#00A4EF" d="M2 12.5h9.5V22H2z"/><path fill="#FFB900" d="M12.5 12.5H22V22h-9.5z"/></svg>
+        </button>
+      </div>
+
+      <p class="login-help-links">
+        <a href="/verify-email">Email verification help</a>
+        <a href="/admin">Florisyn HQ admin</a>
+      </p>
+    </section>
+
+    <section class="auth-hero-visual" aria-hidden="true">
+      <div class="auth-hero-stage">
+        <img class="auth-hero-devices" src="/assets/florisyn/florisyn-auth-hero-devices.png?v=authhero2" width="1200" height="900" alt="">
       </div>
     </section>
   </main>
-  <footer class="bloom-auth-footer">© <span data-current-year></span> Florisyn Technologies · Built by a florist, designed for florists</footer>
+
+  <footer class="bloom-auth-footer auth-hero-footer">© <span data-current-year></span> Florisyn Technologies · Built by a florist, designed for florists</footer>
   <script src="/login.js" defer></script>
   <script src="/bloom-auth-common.js" defer></script>
+  <script>
+    (function () {
+      var toggle = document.getElementById("passwordToggle");
+      var input = document.getElementById("password");
+      var message = document.getElementById("authMessage");
+      if (toggle && input) {
+        toggle.addEventListener("click", function () {
+          var show = input.type === "password";
+          input.type = show ? "text" : "password";
+          toggle.setAttribute("aria-pressed", show ? "true" : "false");
+          toggle.setAttribute("aria-label", show ? "Hide password" : "Show password");
+        });
+      }
+      document.querySelectorAll(".login-social-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          if (!message) return;
+          message.textContent = "Please sign in with your Florisyn email and password for now.";
+          message.classList.remove("success");
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

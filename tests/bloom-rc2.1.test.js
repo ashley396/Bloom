@@ -53,8 +53,10 @@ test("RC2.1 consistency stylesheet covers assistants and dialogs", () => {
   assert.match(css, /mobile-nav/);
 });
 
-test("floral library UI shows recipe meta", () => {
+test("floral library UI shows recipe meta and blocks RC2 filler grid", () => {
   const ui = fs.readFileSync(new URL("../public/floral-library-ui.js", import.meta.url), "utf8");
   assert.match(ui, /library-recipe-meta/);
   assert.match(ui, /stems/);
+  assert.match(ui, /isRc2FillerProduct/);
+  assert.match(ui, /FlorisynLibraryCollection/);
 });

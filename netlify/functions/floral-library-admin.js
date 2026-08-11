@@ -15,7 +15,7 @@ import {
   parseCsvImport,
   assertMasterLibraryImmutable
 } from "./_shared/floral-library-admin.js";
-import { STARTER_FLORAL_LIBRARY } from "./_shared/floral-library-core.js";
+import { getEverydayFloralLibraryCatalog } from "./_shared/floral-library-core.js";
 
 const inMemoryBatches = new Map();
 const inMemoryQueue = [];
@@ -35,7 +35,7 @@ export function createFloralLibraryAdminHandler(deps = {}) {
     const action = String(body.action || qs.action || "quality").toLowerCase();
 
     if (action === "quality" && event.httpMethod === "GET") {
-      let products = STARTER_FLORAL_LIBRARY;
+      let products = getEverydayFloralLibraryCatalog();
       try {
         const { data } = await client.from("bloom_floral_library_master").select("id,data,review_status,image_license");
         if (data?.length) products = data.map((r) => ({ ...r.data, id: r.id, review_status: r.review_status, image_license: r.image_license }));
@@ -70,7 +70,7 @@ export function createFloralLibraryAdminHandler(deps = {}) {
     }
 
     if (action === "duplicate_queue") {
-      const queue = duplicateReviewQueue(body.items?.length ? body.items : inMemoryQueue, STARTER_FLORAL_LIBRARY);
+      const queue = duplicateReviewQueue(body.items?.length ? body.items : inMemoryQueue, getEverydayFloralLibraryCatalog());
       return json(200, { items: queue });
     }
 

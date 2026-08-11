@@ -271,8 +271,15 @@
           return;
         }
         try {
-          await hooks.api('marketplace-checkout', { method: 'POST', body: JSON.stringify({ listing_id: checkoutBtn.dataset.marketCheckout, quantity: 1 }) });
-          hooks.toast('Checkout session started.');
+          const result = await hooks.api('marketplace-checkout', {
+            method: 'POST',
+            body: JSON.stringify({ listing_id: checkoutBtn.dataset.marketCheckout, quantity: 1 })
+          });
+          if (result.url) window.location.href = result.url;
+          else if (result.urls?.length) {
+            hooks.toast(result.message || 'Open each supplier checkout.');
+            window.location.href = result.urls[0];
+          } else hooks.toast('Checkout session started.');
         } catch (error) {
           hooks.toast(error.message);
         }
@@ -306,6 +313,31 @@
     hooks.$('#marketplaceTabSell')?.addEventListener('click', () => {
       hooks.$('#marketplaceBrowsePanel')?.classList.remove('active');
       hooks.$('#marketplaceSellPanel')?.classList.add('active');
+    });
+
+    hooks.$('#marketplaceCartCheckout')?.addEventListener('click', async () => {
+      const cart = readCart();
+      if (!cart.length) return hooks.toast('Add items to your cart first.');
+      if (hooks.getVerificationStatus?.() !== 'approved') {
+        hooks.openVerificationDialog?.();
+        return hooks.toast('Complete wholesale verification before checkout.');
+      }
+      try {
+        const result = await hooks.api('marketplace-checkout', {
+          method: 'POST',
+          body: JSON.stringify({ items: cart.map((row) => ({ listing_id: row.id, quantity: row.quantity || 1 })) })
+        });
+        if (result.url) {
+          writeCart([]);
+          renderCartBadge(hooks);
+          window.location.href = result.url;
+        } else if (result.urls?.length) {
+          hooks.toast(result.message || 'Complete checkout for each supplier.');
+          window.location.href = result.urls[0];
+        }
+      } catch (error) {
+        hooks.toast(error.message);
+      }
     });
   }
 

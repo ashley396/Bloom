@@ -1,11 +1,17 @@
 import Stripe from "stripe";
 import { admin, env } from "./_shared/saas.js";
 
-const stripe = new Stripe(env("STRIPE_SECRET_KEY"));
+function stripeClient() {
+  return new Stripe(env("STRIPE_SECRET_KEY"));
+}
 
 export async function handler(event) {
   try {
-    const signature = event.headers["stripe-signature"];
+    const signature = event.headers["stripe-signature"] || event.headers["Stripe-Signature"];
+    if (!signature) {
+      return { statusCode: 400, headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" }, body: "Webhook error" };
+    }
+    const stripe = stripeClient();
     const stripeEvent = stripe.webhooks.constructEvent(event.body, signature, env("STRIPE_WEBHOOK_SECRET"));
     const client = admin();
 
@@ -43,9 +49,9 @@ export async function handler(event) {
       }
     }
 
-    return { statusCode: 200, body: "ok" };
+    return { statusCode: 200, headers: { "Cache-Control": "no-store" }, body: "ok" };
   } catch (error) {
-    console.error(error);
-    return { statusCode: 400, body: `Webhook error: ${error.message}` };
+    console.error("stripe-subscription-webhook", error?.message || error);
+    return { statusCode: 400, headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" }, body: "Webhook error" };
   }
 }

@@ -7,6 +7,8 @@ import {
   platformAdminError,
   parsePlatformAdminJsonBody
 } from './_shared/platform-admin.js';
+import { planPrice } from './_shared/shop-billing.js';
+import { buildPlatformEconomics, economicsScenario } from '../../lib/platform/platform-economics.js';
 
 const safeObject = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
@@ -30,7 +32,6 @@ export function createAdminConsoleHandler(deps = {}) {
       ]);
       if (subsRes.error) throw subsRes.error;
       const subs=subsRes.data||[], active=subs.filter(x=>['trialing','active'].includes(x.status));
-      const price={starter:39,professional:79,premium:129};
       const countPlan=plan=>active.filter(x=>x.plan_code===plan).length;
       const metrics={
         shops:shopsRes.count||0,members:membersRes.count||0,orders:ordersRes.count||0,
@@ -40,9 +41,11 @@ export function createAdminConsoleHandler(deps = {}) {
         canceling:active.filter(x=>x.cancel_at_period_end).length,
         newThisMonth:subs.filter(x=>new Date(x.created_at)>=monthStart).length,
         canceledThisMonth:subs.filter(x=>x.status==='canceled'&&new Date(x.updated_at)>=monthStart).length,
-        estimatedMrr:active.filter(x=>x.status==='active').reduce((sum,x)=>sum+(price[x.plan_code]||0),0)
+        estimatedMrr:active.filter(x=>x.status==='active').reduce((sum,x)=>sum+(planPrice(x.plan_code)||0),0)
       };
-      return json(200,{admin,metrics,alerts:alertsRes.data||[],platform:{foundationTotal:Number(platformRes.data?.value?.total||0)}});
+      const economics = buildPlatformEconomics(metrics);
+      const economics_projection_500 = economicsScenario(500);
+      return json(200,{admin,metrics,economics,economics_projection_500,alerts:alertsRes.data||[],platform:{foundationTotal:Number(platformRes.data?.value?.total||0)}});
     }
 
     if (event.httpMethod === 'GET' && action === 'shops') {

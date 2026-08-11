@@ -15,8 +15,14 @@
     "ai:install": "npm --prefix local-ai-bridge install",
     "ai:start": "npm --prefix local-ai-bridge start",
     "check": "node scripts/check.mjs",
+    "generate:floral-library-50": "node scripts/generate-everyday-library-50.mjs && node scripts/sync-floral-library-catalog.mjs",
+    "generate:floral-library-batch-2": "node scripts/generate-everyday-library-batch-2.mjs && node scripts/sync-floral-library-catalog.mjs",
+    "sync:floral-library": "node scripts/sync-floral-library-catalog.mjs",
+    "materialize:floral-library-images": "node scripts/materialize-floral-library-images.mjs",
     "verify:rollback-proof": "node scripts/verify-staging-rollback-proof.mjs",
     "test": "node --test tests/*.test.js",
+    "test:jest": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:all": "npm test && npm run test:jest",
     "test:foundation": "node --test tests/foundation-v1.test.js",
     "test:daily-loop-v2": "node --test tests/foundation-daily-loop-v2.test.js",
     "test:daily-loop-v3": "node --test tests/foundation-daily-loop-v3.test.js",
@@ -35,9 +41,16 @@
     "db:baseline:build": "node scripts/build-canonical-baseline.mjs",
     "db:baseline:check": "node scripts/build-canonical-baseline.mjs --check",
     "frontend:dev": "npm --prefix frontend run dev",
-    "frontend:build": "npm --prefix frontend run build"
+    "frontend:build": "npm --prefix frontend run build",
+    "verify:live-staging-smoke": "node scripts/verify-live-staging-smoke.mjs",
+    "seo:generate": "node scripts/generate-seo-files.mjs",
+    "seo:inject": "node scripts/inject-public-seo.mjs",
+    "verify:website-publish": "node scripts/verify-website-publish-smoke.mjs",
+    "verify:launch": "node scripts/verify-launch-readiness.mjs",
+    "test:ai-suite": "node --test tests/florisyn-ai-suite.test.js"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
     "pg": "^8.22.0"
   }
 }

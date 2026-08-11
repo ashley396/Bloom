@@ -1,18 +1,27 @@
 import Stripe from "stripe";
 import { authenticatedUser, env, fail, json } from "./_shared/saas.js";
+import { stripePriceId } from "./_shared/stripe-prices.js";
 
-const stripe = new Stripe(env("STRIPE_SECRET_KEY"));
-const priceMap = {
-  starter: process.env.STRIPE_PRICE_STARTER,
-  professional: process.env.STRIPE_PRICE_PROFESSIONAL,
-  premium: process.env.STRIPE_PRICE_PREMIUM
-};
+function stripeClient() {
+  return new Stripe(env("STRIPE_SECRET_KEY"));
+}
+
+function parseBody(event) {
+  try {
+    return event.body ? JSON.parse(event.body) : {};
+  } catch {
+    const e = new Error("Invalid request body");
+    e.statusCode = 400;
+    throw e;
+  }
+}
 
 export async function handler(event) {
   if (event.httpMethod !== "POST") return json(405, { error: "Method not allowed" });
   try {
-    const { planCode } = JSON.parse(event.body || "{}");
-    const price = priceMap[planCode];
+    const { planCode, billingInterval = "monthly" } = parseBody(event);
+    const interval = billingInterval === "annual" ? "annual" : "monthly";
+    const price = stripePriceId(planCode, interval);
     if (!price) throw Object.assign(new Error("That subscription plan is not configured"), { statusCode: 400 });
 
     const { client, user } = await authenticatedUser(event);
@@ -21,6 +30,7 @@ export async function handler(event) {
 
     const { data: subscription } = await client.from("shop_subscriptions").select("stripe_customer_id").eq("shop_id", profile.default_shop_id).maybeSingle();
     const siteUrl = env("SITE_URL").replace(/\/$/, "");
+    const stripe = stripeClient();
 
     const checkout = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -30,8 +40,8 @@ export async function handler(event) {
       allow_promotion_codes: true,
       success_url: `${siteUrl}/?subscription=success`,
       cancel_url: `${siteUrl}/?subscription=cancelled`,
-      metadata: { shop_id: profile.default_shop_id, user_id: user.id, plan_code: planCode },
-      subscription_data: { metadata: { shop_id: profile.default_shop_id, plan_code: planCode } }
+      metadata: { shop_id: profile.default_shop_id, user_id: user.id, plan_code: planCode, billing_interval: interval },
+      subscription_data: { metadata: { shop_id: profile.default_shop_id, plan_code: planCode, billing_interval: interval } }
     });
 
     return json(200, { url: checkout.url });

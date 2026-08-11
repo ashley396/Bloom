@@ -29,11 +29,11 @@ const fixtures = path.join(process.cwd(), "tests/fixtures/community-images");
 const tinyPng =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
-test("COMMUNITY_BETA flag defaults OFF; only explicit true enables", () => {
+test("COMMUNITY_BETA flag defaults ON at launch; explicit false disables", () => {
   const flags = getFeatureFlags({});
-  assert.equal(flags.COMMUNITY_BETA, false);
-  assert.equal(isFeatureEnabled("COMMUNITY_BETA", {}), false);
-  assert.equal(isFeatureEnabled("COMMUNITY_BETA", { FLORISYN_FLAG_COMMUNITY_BETA: "" }), false);
+  assert.equal(flags.COMMUNITY_BETA, true);
+  assert.equal(isFeatureEnabled("COMMUNITY_BETA", {}), true);
+  assert.equal(isFeatureEnabled("COMMUNITY_BETA", { FLORISYN_FLAG_COMMUNITY_BETA: "" }), true);
   assert.equal(isFeatureEnabled("COMMUNITY_BETA", { FLORISYN_FLAG_COMMUNITY_BETA: "false" }), false);
   assert.equal(isFeatureEnabled("COMMUNITY_BETA", { FLORISYN_FLAG_COMMUNITY_BETA: "true" }), true);
 });
@@ -44,6 +44,7 @@ test("community categories match product requirements", () => {
     "Business Advice",
     "Questions",
     "Celebrations",
+    "Arrangement Share",
   ]);
 });
 
@@ -271,7 +272,14 @@ test("florist-community function enforces flag, membership, signed URLs, RPCs", 
   assert.match(src, /florist_community_moderate_comment/);
   assert.match(src, /createSignedUrl/);
   assert.match(src, /moderatorForPost\(ctx, data, platformAdmin\)/);
-  assert.doesNotMatch(src, /canModerate:\s*true/);
+  assert.doesNotMatch(src, /community_admin_check_failed/);
+  assert.match(src, /community_admin_check_degraded/);
+  assert.match(src, /avatar_path/);
+  assert.match(src, /uploadPrevalidatedCommunityAvatar/);
+  assert.match(src, /generate_recipe/);
+  assert.match(src, /florist_community_recipes/);
+  assert.match(src, /validateProfileAvatarUpload/);
+  assert.doesNotMatch(src, /Unable to verify platform admin authorization/);
   assert.match(src, /validatePostBody/);
   assert.match(src, /uploadPrevalidatedCommunityImage/);
   assert.doesNotMatch(src, /validateCommunityImageUpload/);
@@ -326,7 +334,11 @@ test("community UI hides nav when disabled and keeps loading/empty/error states"
   const ui = fs.readFileSync(path.join(process.cwd(), "public/community-ui.js"), "utf8");
   assert.match(ui, /BloomCommunity/);
   assert.match(ui, /community-loading|Loading Florist Community/);
-  assert.match(ui, /community-empty|No posts yet/);
+  assert.match(ui, /community-empty|Your florist feed is quiet/);
+  assert.match(ui, /composerDraft/);
+  assert.match(ui, /captureComposerDraft/);
+  assert.match(ui, /updateComposerImagePreview/);
+  assert.doesNotMatch(ui, /reader\.onload = \(\) => \{\s*onDataUrl\(reader\.result\);\s*render\(\)/);
   assert.match(ui, /community-error|Something went wrong/);
 });
 
@@ -369,11 +381,12 @@ test("parseDataUrl enforces size before base64 decode", () => {
 
 test("create/update use prevalidated v.image once; storage module has no sharp", () => {
   const handler = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
-  assert.match(handler, /uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image\)/g);
+  assert.match(handler, /uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image,/g);
   assert.equal(
-    (handler.match(/uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image\)/g) || []).length,
+    (handler.match(/uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image,/g) || []).length,
     2
   );
+  assert.match(handler, /communityStorageClient\(\)/);
   const storage = fs.readFileSync(
     path.join(process.cwd(), "netlify/functions/_shared/florist-community-storage.js"),
     "utf8"

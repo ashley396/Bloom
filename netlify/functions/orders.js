@@ -3,6 +3,11 @@ import { currentUser, fail } from "./_shared/supabase.js";
 import { writeShopAudit } from "./_shared/production.js";
 import { validateOrderCreateBody, clampText, validateOrderPatchBody } from "./_shared/validation.js";
 import { normalizeOrderStatus, recordOrderStatusChange } from "./_shared/order-status.js";
+import { isFeatureEnabled } from "./_shared/feature-flags.js";
+import {
+  applyRecipeDeductions,
+  shouldDeductOnStatus,
+} from "../../lib/inventory/recipe-deduction.js";
 
 export const ORDER_PAYMENT_LEDGER_FIELDS = Object.freeze([
   "amount_paid",
@@ -138,6 +143,10 @@ export async function handleOrders(event, dependencies = {}) {
         product_id: body.product_id || null,
       };
 
+      if (isFeatureEnabled("INVENTORY_RECIPE_DEDUCTIONS")) {
+        payload.skip_recipe_deduction = true;
+      }
+
       const { data, error } = await client.rpc("create_order_atomic", {
         p_shop_id: shopId,
         p_order: payload,
@@ -206,6 +215,8 @@ export async function handleOrders(event, dependencies = {}) {
       }
       const { data, error } = await client.from("orders").update(payload).eq("id",body.id).eq("shop_id",shopId).select().single();
       if (error) throw error;
+      let inventoryAdjustments = [];
+      let inventoryWarnings = [];
       if ("status" in payload) {
         await recordStatusChange(client, {
           shopId,
@@ -214,6 +225,33 @@ export async function handleOrders(event, dependencies = {}) {
           toStatus: data.status,
           userId: user.id,
         });
+        const priorNorm = normalizeOrderStatus(priorOrder?.status);
+        const nextNorm = normalizeOrderStatus(data.status);
+        const recipeOnFulfill = isFeatureEnabled("INVENTORY_RECIPE_DEDUCTIONS");
+        const meta = data.metadata && typeof data.metadata === "object" ? data.metadata : {};
+        if (
+          recipeOnFulfill &&
+          priorNorm !== nextNorm &&
+          shouldDeductOnStatus(nextNorm) &&
+          data.product_id &&
+          !meta.recipe_deducted
+        ) {
+          const result = await applyRecipeDeductions(client, {
+            shopId,
+            productId: data.product_id,
+          });
+          inventoryAdjustments = result.adjustments || [];
+          inventoryWarnings = result.warnings || [];
+          if (inventoryAdjustments.length) {
+            await client
+              .from("orders")
+              .update({
+                metadata: { ...meta, recipe_deducted: true, recipe_deducted_at: new Date().toISOString() },
+              })
+              .eq("id", data.id)
+              .eq("shop_id", shopId);
+          }
+        }
       }
       const { data: existingDelivery } = await client.from("deliveries").select("id").eq("shop_id",shopId).eq("order_id",body.id).maybeSingle();
       await audit(client, {
@@ -225,7 +263,11 @@ export async function handleOrders(event, dependencies = {}) {
         metadata: { status: data.status, payment_status: data.payment_status }
       });
       if(data.fulfillment==="DELIVERY"&&data.delivery_address){const deliveryPayload={address:data.delivery_address,driver:data.driver||null,notes:data.delivery_instructions||null,round_trip_miles:Number(data.delivery_miles||0),drive_minutes:Number(data.drive_minutes||0),delivery_date:data.delivery_date||null,delivery_window:data.delivery_window||null,recipient_name:data.recipient_name||null,recipient_phone:data.recipient_phone||null};if(existingDelivery?.id)await client.from("deliveries").update(deliveryPayload).eq("id",existingDelivery.id).eq("shop_id",shopId);else await client.from("deliveries").insert({shop_id:shopId,order_id:data.id,status:"PENDING",...deliveryPayload})}else if(existingDelivery?.id)await client.from("deliveries").delete().eq("id",existingDelivery.id).eq("shop_id",shopId);
-      return json(200,{item:data});
+      return json(200, {
+        item: data,
+        inventoryAdjustments,
+        inventoryWarnings,
+      });
     }
 
     if (event.httpMethod === "DELETE") {

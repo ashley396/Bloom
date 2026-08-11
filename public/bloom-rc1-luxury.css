@@ -100,6 +100,25 @@ body.bloom-rc1 .editor-canvas {
   gap: var(--bloom-space-md);
   margin-top: var(--bloom-space-md);
 }
+body.bloom-rc1 .florist-ai-brief {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--bloom-space-md);
+  margin: var(--bloom-space-md) 0;
+}
+body.bloom-rc1 .florist-ai-brief textarea {
+  min-height: 74px;
+  resize: vertical;
+}
+body.bloom-rc1 .editor-add-section {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: min(100%, 260px);
+}
+body.bloom-rc1 .editor-add-section select {
+  min-width: 170px;
+}
 body.bloom-rc1 .editor-section {
   border: 1px dashed var(--bloom-border);
   padding: var(--bloom-space-md);

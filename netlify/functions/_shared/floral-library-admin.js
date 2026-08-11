@@ -4,7 +4,7 @@ import {
   validateLibraryProduct,
   detectDuplicateImageHash,
   assertMasterLibraryImmutable,
-  STARTER_FLORAL_LIBRARY,
+  getEverydayFloralLibraryCatalog,
   LIBRARY_CATEGORIES,
   IMAGE_LICENSE_SOURCES
 } from "./floral-library-core.js";
@@ -21,7 +21,7 @@ export function parseImportManifest(rows = []) {
     invalid_license: []
   };
   const seenNames = new Map();
-  const catalog = [...STARTER_FLORAL_LIBRARY];
+  const catalog = [...getEverydayFloralLibraryCatalog()];
   for (const row of rows) {
     const product = manifestRowToProduct(row);
     const validation = validateLibraryProduct(product);
@@ -101,7 +101,7 @@ export function approveImportBatch(batch, { approveIds = [], rejectIds = [] } = 
   };
 }
 
-export function duplicateReviewQueue(items = [], catalog = STARTER_FLORAL_LIBRARY) {
+export function duplicateReviewQueue(items = [], catalog = getEverydayFloralLibraryCatalog()) {
   return items.map((item) => ({
     id: item.id || item.batch_id,
     incoming: item.incoming_image,
@@ -124,7 +124,7 @@ export function duplicateReviewAction(queueItem, action, note = "") {
   };
 }
 
-export function libraryQualityDashboard(products = STARTER_FLORAL_LIBRARY) {
+export function libraryQualityDashboard(products = getEverydayFloralLibraryCatalog()) {
   const stats = {
     total: products.length,
     approved: 0,
