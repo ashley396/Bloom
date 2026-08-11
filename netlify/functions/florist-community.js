@@ -265,6 +265,16 @@ async function signedImageUrl(client, path) {
   return { url: data?.signedUrl || null, expiresIn: COMMUNITY_SIGNED_URL_SECONDS };
 }
 
+async function adminSignedImageUrl(path) {
+  const admin = communityStorageClient();
+  if (!admin || !path || !isStoragePath(path)) return null;
+  const { data, error } = await admin.storage
+    .from(COMMUNITY_IMAGE_BUCKET)
+    .createSignedUrl(path, COMMUNITY_SIGNED_URL_SECONDS);
+  if (error || !data?.signedUrl) return null;
+  return data.signedUrl;
+}
+
 async function auditPlatformModeration(userId, shopId, action, details) {
   const svc = adminIfConfigured();
   if (!svc) return;
@@ -931,13 +941,16 @@ export async function handler(event) {
       if (post.image_path) {
         try {
           const signedHint = String(body.image_url || "").trim();
+          const clientDataUrl = String(body.image_data_url || "").trim();
           const resolved = await resolveCommunityImageForVision(client, post.image_path, {
             adminClient: communityStorageClient(),
             signedUrlHint: signedHint,
+            clientDataUrl,
             createSignedUrl: async (path) => {
               const signed = await signedImageUrl(client, path);
               return signed.url;
             },
+            adminSignedUrl: adminSignedImageUrl,
           });
           if (resolved?.payload) {
             imageSource = resolved.source;

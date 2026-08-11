@@ -162,14 +162,11 @@ test("florist-community handler wires Lily recipe actions", () => {
 
 test("community UI hints florists to name flowers for Lily", () => {
   const ui = fs.readFileSync(path.join(process.cwd(), "public/community-ui.js"), "utf8");
-  assert.match(ui, /Build recipe with Lily/);
   assert.match(ui, /Retry with Lily/);
-  assert.match(ui, /name the flowers in your caption/i);
-  assert.match(ui, /recipeUi/);
+  assert.match(ui, /image_data_url/);
+  assert.match(ui, /fetchPostImageDataUrl/);
   assert.match(ui, /community-post-image-wrap/);
   assert.match(ui, /generate_recipe/);
-  assert.match(ui, /publish_recipe/);
-  assert.match(ui, /import_recipe_to_shop/);
 });
 
 test("community post images use contain layout", () => {

@@ -22,7 +22,8 @@ test("mobile shell fixes off-canvas drawer and full-width main", () => {
   assert.match(css, /--florisyn-mobile-nav-height/);
   assert.match(css, /repeat\(5, minmax\(0, 1fr\)\)/);
   assert.match(css, /pos-lux-checkout/);
-  assert.match(css, /lily-suggestion-actions/);
+  assert.match(css, /lily-fab img/);
+  assert.match(css, /52px/);
 });
 
 test("mobile bottom nav exposes five tabs including Community when beta is on", () => {

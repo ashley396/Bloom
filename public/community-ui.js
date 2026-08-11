@@ -621,15 +621,36 @@
       });
     });
 
+    async function fetchPostImageDataUrl(post) {
+      const url = String(post?.image_url || "").trim();
+      if (!url) return "";
+      try {
+        const response = await fetch(url);
+        if (!response.ok) return "";
+        const blob = await response.blob();
+        if (!blob.size || blob.size > 2 * 1024 * 1024) return "";
+        return await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => resolve("");
+          reader.readAsDataURL(blob);
+        });
+      } catch {
+        return "";
+      }
+    }
+
     async function runLilyRecipe(id, { rebuilding = false } = {}) {
       state.recipeUi[id] = { busy: true, error: "", notice: "" };
       render();
       try {
+        const post = state.items.find((p) => p.id === id);
+        const image_data_url = post?.image_url ? await fetchPostImageDataUrl(post) : "";
         const res = await api("generate_recipe", {
           post_id: id,
-          image_url: state.items.find((p) => p.id === id)?.image_url || "",
+          image_url: post?.image_url || "",
+          image_data_url,
         });
-        const post = state.items.find((p) => p.id === id);
         if (post) {
           post.recipe_draft = res.recipe_draft;
           post.recipe_status = res.item?.recipe_status || (rebuilding ? "published" : "draft");
@@ -767,6 +788,15 @@
         } catch (err) {
           box.innerHTML = `<p class="community-error-inline">${esc(err.message)}</p>`;
         }
+      });
+    });
+
+    el.querySelectorAll(".community-post-image").forEach((img) => {
+      img.addEventListener("error", async () => {
+        if (img.dataset.retried === "1") return;
+        img.dataset.retried = "1";
+        setStatus("Refreshing arrangement photo…");
+        await load({ keepCategory: true, keepComposer: true });
       });
     });
   }

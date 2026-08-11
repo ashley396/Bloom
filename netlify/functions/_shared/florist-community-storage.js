@@ -248,14 +248,38 @@ export async function fetchImageBufferFromUrl(url, { maxBytes = COMMUNITY_IMAGE_
   }
 }
 
+/** Parse a browser data URL from the client's already-loaded arrangement photo. */
+export function parseClientImageDataUrl(dataUrl, { maxBytes = COMMUNITY_IMAGE_MAX_BYTES } = {}) {
+  const raw = String(dataUrl || "").trim();
+  if (!/^data:image\//i.test(raw)) return null;
+  const mime = raw.match(/^data:([^;]+);/i)?.[1] || "image/jpeg";
+  const base64 = raw.replace(/^data:[^;]+;base64,/i, "");
+  try {
+    const buffer = Buffer.from(base64, "base64");
+    if (!buffer.length || buffer.length > maxBytes) return null;
+    return { buffer, mime, path: "" };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Resolve arrangement photo bytes for Lily vision — storage download, then URL fallbacks.
  */
 export async function resolveCommunityImageForVision(
   client,
   path,
-  { adminClient = null, signedUrlHint = "", createSignedUrl = null } = {}
+  {
+    adminClient = null,
+    signedUrlHint = "",
+    clientDataUrl = "",
+    createSignedUrl = null,
+    adminSignedUrl = null,
+  } = {}
 ) {
+  const fromClient = parseClientImageDataUrl(clientDataUrl);
+  if (fromClient) return { payload: fromClient, source: "client_data_url" };
+
   const fromStorage = await downloadCommunityImageBuffer(client, path, { adminClient });
   if (fromStorage) return { payload: fromStorage, source: "storage" };
 
@@ -269,6 +293,16 @@ export async function resolveCommunityImageForVision(
       if (fromSigned) return { payload: fromSigned, source: "signed_url" };
     } catch {
       /* try next path */
+    }
+  }
+
+  if (typeof adminSignedUrl === "function" && path) {
+    try {
+      const url = await adminSignedUrl(path);
+      const fromAdmin = await fetchImageBufferFromUrl(url);
+      if (fromAdmin) return { payload: fromAdmin, source: "admin_signed_url" };
+    } catch {
+      /* exhausted */
     }
   }
 

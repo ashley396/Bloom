@@ -280,15 +280,20 @@
     padding: 0 2px !important;
   }
 
-  /* No decorative portrait / hero photos on phone */
+  /* Small Rose & Lily avatars on phone — keep portraits, not full-bleed photos */
   body.florisyn-atelier .atelier-assist-rail .assistant-portrait,
   body.florisyn-atelier .rose-portrait,
-  body.florisyn-atelier .lily-portrait,
-  body.florisyn-atelier .community-post-image-wrap,
-  body.florisyn-atelier .community-image-preview,
-  body.florisyn-atelier #posPage .pos-lux-staff-avatar,
-  body.florisyn-atelier #posPage #posLuxCustomerAvatar {
-    display: none !important;
+  body.florisyn-atelier .lily-portrait {
+    display: block !important;
+    width: 52px !important;
+    height: 52px !important;
+    min-width: 52px !important;
+    max-height: 52px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+    object-position: center 18% !important;
+    align-self: start !important;
+    margin: 0 !important;
   }
 
   body.florisyn-atelier .atelier-inventory-alert {
@@ -299,17 +304,34 @@
 
   body.florisyn-atelier .rose-welcome-card,
   body.florisyn-atelier .lily-suggestion-card {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: 52px minmax(0, 1fr) !important;
+    align-items: start !important;
+    gap: 10px !important;
+    padding: 12px 14px !important;
     min-height: 0 !important;
   }
 
-  body.florisyn-atelier .lily-fab img {
-    display: none !important;
+  body.florisyn-atelier .rose-welcome-card .rose-action {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding-top: 4px !important;
+  }
+
+  body.florisyn-atelier .community-post-image-wrap {
+    display: block !important;
   }
 
   body.florisyn-atelier .lily-fab {
-    font-size: 18px !important;
-    letter-spacing: 0;
+    position: fixed !important;
+  }
+
+  body.florisyn-atelier .lily-fab img {
+    display: block !important;
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
   }
 
   /* Compact tap targets */

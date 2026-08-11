@@ -53,11 +53,28 @@ test("generateRecipeWithCloudflare tags vision-backed cloud drafts", async () =>
   assert.equal(out.draft.name, "Garden Bowl");
 });
 
+test("parseClientImageDataUrl accepts browser data URLs for Lily vision", async () => {
+  const { parseClientImageDataUrl } = await import(
+    "../netlify/functions/_shared/florist-community-storage.js"
+  );
+  const tiny = Buffer.from("fakejpeg").toString("base64");
+  const payload = parseClientImageDataUrl(`data:image/jpeg;base64,${tiny}`);
+  assert.ok(payload?.buffer?.length);
+  assert.equal(payload.mime, "image/jpeg");
+  assert.equal(parseClientImageDataUrl("not-an-image"), null);
+});
+
+test("signedImageUrl stays fail-closed without admin bypass in feed", () => {
+  const handler = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
+  assert.doesNotMatch(handler, /signedImageUrl\(client, p\.image_path, \{ adminClient/);
+  assert.match(handler, /adminSignedImageUrl/);
+});
+
 test("florist-community generate_recipe wires photo vision", () => {
   const handler = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
   assert.match(handler, /analyzeArrangementPhoto/);
   assert.match(handler, /resolveCommunityImageForVision/);
-  assert.match(handler, /image_url/);
+  assert.match(handler, /image_data_url/);
+  assert.match(handler, /adminSignedImageUrl/);
   assert.match(handler, /local_vision_fallback/);
-  assert.match(handler, /hadPhoto: true/);
 });

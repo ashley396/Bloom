@@ -391,6 +391,7 @@ test("create/update use prevalidated v.image once; storage module has no sharp",
     path.join(process.cwd(), "netlify/functions/_shared/florist-community-storage.js"),
     "utf8"
   );
-  assert.doesNotMatch(storage, /\bsharp\b|validateCommunityImageUpload|data_url|parseDataUrl/);
-  assert.doesNotMatch(storage, /upload\([^)]*dataUrl/);
+  assert.doesNotMatch(storage, /\bsharp\b|validateCommunityImageUpload|upload\([^)]*dataUrl/);
+  assert.doesNotMatch(storage, /\bparseDataUrl\b/);
+  assert.match(storage, /parseClientImageDataUrl/);
 });
