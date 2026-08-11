@@ -42,7 +42,10 @@
     }
     var tolerance = typeof options.tolerance === "number" ? options.tolerance : 30;
     var softness = typeof options.softness === "number" ? options.softness : 26;
-    var maxBorderSpread = typeof options.maxBorderSpread === "number" ? options.maxBorderSpread : 32;
+    var maxClusters = typeof options.maxClusters === "number" ? options.maxClusters : 6;
+    var clusterLink = typeof options.clusterLink === "number" ? options.clusterLink : 45;
+    var minCoverage = typeof options.minCoverage === "number" ? options.minCoverage : 0.55;
+    var shareFloor = typeof options.shareFloor === "number" ? options.shareFloor : 0.02;
     var total = width * height;
 
     // Photos that already carry meaningful transparency are treated as cut out.
@@ -59,58 +62,139 @@
       };
     }
 
-    // Estimate background colour from a 2px border ring.
+    // Estimate the background from a 2px border ring. Real studio photos have
+    // gradients / soft shadow bands on the wall, so we cluster the quantized
+    // border colours and accept clusters that chain from the dominant one.
+    // Subject petals crossing the frame edge form distant clusters and are
+    // rejected, as are busy multi-colour backgrounds (low accepted coverage).
     var ring = 2;
-    var n = 0, sr = 0, sg = 0, sb = 0, qr = 0, qg = 0, qb = 0;
-    var x, y, i;
+    var n = 0;
+    var bins = new Map();
+    var x, y, i, key, entry;
     for (y = 0; y < height; y++) {
       for (x = 0; x < width; x++) {
         if (x >= ring && x < width - ring && y >= ring && y < height - ring) continue;
         i = (y * width + x) * 4;
-        sr += src[i]; sg += src[i + 1]; sb += src[i + 2];
-        qr += src[i] * src[i]; qg += src[i + 1] * src[i + 1]; qb += src[i + 2] * src[i + 2];
+        key = ((src[i] >> 5) << 10) | ((src[i + 1] >> 5) << 5) | (src[i + 2] >> 5);
+        entry = bins.get(key);
+        if (!entry) { entry = { c: 0, r: 0, g: 0, b: 0 }; bins.set(key, entry); }
+        entry.c++; entry.r += src[i]; entry.g += src[i + 1]; entry.b += src[i + 2];
         n++;
       }
     }
-    var mr = sr / n, mg = sg / n, mb = sb / n;
-    var spread = (
-      Math.sqrt(Math.max(0, qr / n - mr * mr)) +
-      Math.sqrt(Math.max(0, qg / n - mg * mg)) +
-      Math.sqrt(Math.max(0, qb / n - mb * mb))
-    ) / 3;
-    if (spread > maxBorderSpread) {
-      return { ok: false, reason: "complex-background", removedRatio: 0, borderSpread: spread };
+    var sorted = [];
+    bins.forEach(function (e) { sorted.push(e); });
+    sorted.sort(function (a, b) { return b.c - a.c; });
+
+    var clusterDist = function (a, b) {
+      var dr = a.r - b.r, dg = a.g - b.g, db = a.b - b.b;
+      return Math.sqrt((dr * dr + dg * dg + db * db) / 3);
+    };
+    var clusters = [];
+    var coverage = 0;
+    for (var s = 0; s < sorted.length && clusters.length < maxClusters; s++) {
+      var mean = { r: sorted[s].r / sorted[s].c, g: sorted[s].g / sorted[s].c, b: sorted[s].b / sorted[s].c };
+      var share = sorted[s].c / n;
+      if (clusters.length && share < shareFloor) break;
+      if (clusters.length) {
+        var linked = false;
+        for (var c = 0; c < clusters.length; c++) {
+          if (clusterDist(mean, clusters[c]) <= clusterLink) { linked = true; break; }
+        }
+        if (!linked) continue;
+      }
+      clusters.push(mean);
+      coverage += share;
+    }
+    if (coverage < minCoverage) {
+      return { ok: false, reason: "complex-background", removedRatio: 0, borderCoverage: coverage, clusterCount: clusters.length };
     }
 
-    // Flood-fill from the border through background-coloured pixels.
+    var minDist = function (offset) {
+      var best = Infinity, dd;
+      for (var c = 0; c < clusters.length; c++) {
+        dd = colorDistance(src, offset, clusters[c].r, clusters[c].g, clusters[c].b);
+        if (dd < best) best = dd;
+      }
+      return best;
+    };
+
+    // Flood-fill from the border through background-coloured pixels. The flood
+    // refuses to cross strong luminance edges (drawn outlines, vase rims), so a
+    // white vase sitting on a white pedestal is not hollowed out even though it
+    // matches the background colour.
     var reach = tolerance + softness;
+    var edgeStop = typeof options.edgeStop === "number" ? options.edgeStop : 10;
     var out = new Uint8ClampedArray(src);
     var visited = new Uint8Array(total);
     var queue = new Int32Array(total);
     var head = 0, tail = 0;
     var p, px, py, d, alpha;
 
-    var seed = function (idx) {
+    var seed = function (idx, fromIdx) {
       if (visited[idx]) return;
-      d = colorDistance(src, idx * 4, mr, mg, mb);
+      if (fromIdx >= 0) {
+        var a4 = idx * 4, b4 = fromIdx * 4;
+        var step = Math.max(
+          Math.abs(src[a4] - src[b4]),
+          Math.abs(src[a4 + 1] - src[b4 + 1]),
+          Math.abs(src[a4 + 2] - src[b4 + 2])
+        );
+        if (step > edgeStop) return;
+      }
+      d = minDist(idx * 4);
       if (d > reach) return;
       visited[idx] = 1;
       queue[tail++] = idx;
     };
-    for (x = 0; x < width; x++) { seed(x); seed((height - 1) * width + x); }
-    for (y = 0; y < height; y++) { seed(y * width); seed(y * width + width - 1); }
+    for (x = 0; x < width; x++) { seed(x, -1); seed((height - 1) * width + x, -1); }
+    for (y = 0; y < height; y++) { seed(y * width, -1); seed(y * width + width - 1, -1); }
 
     while (head < tail) {
       p = queue[head++];
-      d = colorDistance(src, p * 4, mr, mg, mb);
+      d = minDist(p * 4);
       alpha = d <= tolerance ? 0 : Math.min(255, Math.round(((d - tolerance) / softness) * 255));
       if (alpha < out[p * 4 + 3]) out[p * 4 + 3] = alpha;
       px = p % width;
       py = (p - px) / width;
-      if (px > 0) seed(p - 1);
-      if (px < width - 1) seed(p + 1);
-      if (py > 0) seed(p - width);
-      if (py < height - 1) seed(p + width);
+      if (px > 0) seed(p - 1, p);
+      if (px < width - 1) seed(p + 1, p);
+      if (py > 0) seed(p - width, p);
+      if (py < height - 1) seed(p + width, p);
+    }
+
+    // Drop tiny disconnected leftovers (price signs, pedestal marks) that are
+    // clearly not part of the main arrangement.
+    var minIslandShare = typeof options.minIslandShare === "number" ? options.minIslandShare : 0.01;
+    // Components are traced over solid pixels (alpha > 64) so a feathered
+    // shadow smear cannot bridge junk to the arrangement and protect it.
+    var comp = new Int32Array(total);
+    var sizes = [0];
+    var label = 0;
+    var q2, h2, t2, cpx, cpy;
+    for (p = 0; p < total; p++) {
+      if (comp[p] || out[p * 4 + 3] <= 64) continue;
+      label++;
+      sizes.push(0);
+      comp[p] = label;
+      q2 = queue; q2[0] = p; h2 = 0; t2 = 1;
+      while (h2 < t2) {
+        var cp = q2[h2++];
+        sizes[label]++;
+        cpx = cp % width;
+        cpy = (cp - cpx) / width;
+        var neighbors = [cpx > 0 ? cp - 1 : -1, cpx < width - 1 ? cp + 1 : -1, cpy > 0 ? cp - width : -1, cpy < height - 1 ? cp + width : -1];
+        for (var nn = 0; nn < 4; nn++) {
+          var np = neighbors[nn];
+          if (np >= 0 && !comp[np] && out[np * 4 + 3] > 64) { comp[np] = label; q2[t2++] = np; }
+        }
+      }
+    }
+    var largest = 0;
+    for (var l = 1; l <= label; l++) if (sizes[l] > largest) largest = sizes[l];
+    var minKeep = Math.max(24, Math.round(largest * minIslandShare));
+    for (p = 0; p < total; p++) {
+      if (comp[p] && sizes[comp[p]] < minKeep) out[p * 4 + 3] = 0;
     }
 
     var removed = 0;

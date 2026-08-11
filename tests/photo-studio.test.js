@@ -62,21 +62,38 @@ test("keeps interior background-coloured regions (white petals) — flood is edg
 });
 
 test("preserves soft natural shadows with partial alpha instead of hard removal", () => {
-  // White background, red subject, medium-gray shadow strip beside it.
+  // White background, red subject, and a soft gradient shadow fading out beside
+  // it (real shadows ramp gradually — the flood walks down the gradient).
   const img = makeImage(60, 60, (x, y) => {
     if (x >= 20 && x < 36 && y >= 20 && y < 40) return [190, 30, 60];
-    if (x >= 36 && x < 42 && y >= 30 && y < 44) return [206, 204, 202]; // soft shadow
+    if (x >= 36 && x < 46 && y >= 30 && y < 44) {
+      const v = 208 + (x - 36) * 4; // 208 → 244 ramp
+      return [v, v - 2, v - 4];
+    }
     return [248, 246, 244];
   });
   const result = studio.removeBackgroundFromImageData(img);
   assert.equal(result.ok, true);
-  const shadowAlpha = alphaAt(result, 60, 38, 36);
+  const shadowAlpha = alphaAt(result, 60, 36, 36); // darkest shadow edge
   assert.ok(shadowAlpha > 0 && shadowAlpha < 255, `shadow should be feathered, got alpha=${shadowAlpha}`);
+});
+
+test("cleans up tiny disconnected leftovers while keeping the main subject", () => {
+  // Main red subject plus a distant 2x2 dark speck (like a price sign remnant).
+  const img = makeImage(80, 80, (x, y) => {
+    if (x >= 20 && x < 50 && y >= 20 && y < 60) return [190, 30, 60];
+    if (x >= 70 && x < 72 && y >= 70 && y < 72) return [40, 30, 25];
+    return [248, 246, 244];
+  });
+  const result = studio.removeBackgroundFromImageData(img);
+  assert.equal(result.ok, true);
+  assert.equal(alphaAt(result, 80, 30, 30), 255, "main subject kept");
+  assert.equal(alphaAt(result, 80, 71, 71), 0, "tiny disconnected leftover removed");
 });
 
 test("refuses busy backgrounds instead of pretending removal worked", () => {
   let seed = 42;
-  const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % 256; };
+  const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed >> 16) & 0xff; };
   const img = makeImage(48, 48, () => [rand(), rand(), rand()]);
   const result = studio.removeBackgroundFromImageData(img);
   assert.equal(result.ok, false);
