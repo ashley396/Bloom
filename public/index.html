@@ -52,6 +52,7 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
     <button type="button" class="active" data-route="/dashboard" data-page="dashboardPage">Dashboard</button>
     <button type="button" data-route="/pos" data-page="posPage">POS</button>
     <button type="button" data-route="/orders" data-page="ordersPage">Orders</button>
+    <button type="button" data-route="/inventory" data-page="inventoryPage">Inventory</button>
     <button type="button" data-route="/products" data-page="productsPage">Products</button>
     <button type="button" data-route="/bouquets" data-page="bouquetsPage">Bouquets</button>
     <button type="button" data-route="/customers" data-page="customersPage">Customers</button>
@@ -867,11 +868,11 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
 <section id="storesPage" class="page"><div class="heading"><div><p class="eyebrow">MULTI-LOCATION</p><h1>Your flower shops</h1></div><button class="primary" data-open="storeDialog">+ Add store</button></div><div id="storesList" class="cards"></div></section>
 </div></div></div></main>
 <nav class="mobile-nav atelier-mobile-nav" aria-label="Primary">
-  <button type="button" data-route="/dashboard" data-page="dashboardPage"><span class="mnav-ico" aria-hidden="true">◆</span><span>Home</span></button>
   <button type="button" data-route="/pos" data-page="posPage"><span class="mnav-ico" aria-hidden="true">⌂</span><span>POS</span></button>
   <button type="button" data-route="/orders" data-page="ordersPage"><span class="mnav-ico" aria-hidden="true">☰</span><span>Orders</span></button>
+  <button type="button" data-route="/inventory" data-page="inventoryPage" id="mobileNavInventory"><span class="mnav-ico" aria-hidden="true">▦</span><span>Inventory</span></button>
   <button type="button" data-route="/floral-library" data-page="libraryPage" id="mobileNavLibrary"><span class="mnav-ico" aria-hidden="true">✿</span><span>Library</span></button>
-  <button type="button" data-route="/community" data-page="communityPage" id="mobileNavCommunity" hidden><span class="mnav-ico" aria-hidden="true">✿</span><span>Community</span></button>
+  <button type="button" data-route="/community" data-page="communityPage" id="mobileNavCommunity" hidden><span class="mnav-ico" aria-hidden="true">◎</span><span>Community</span></button>
   <button type="button" id="mobileNavMore" aria-label="Open full menu"><span class="mnav-ico" aria-hidden="true">≡</span><span>Menu</span></button>
 </nav>
 

@@ -26,15 +26,29 @@ test("mobile shell fixes off-canvas drawer and full-width main", () => {
   assert.match(css, /52px/);
 });
 
-test("mobile bottom nav exposes five tabs including Community when beta is on", () => {
+test("mobile bottom nav exposes POS, Orders, Inventory, Library, and Menu slot", () => {
   const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
   assert.match(html, /id="mobileNavMore"/);
   assert.match(html, /id="mobileNavCommunity"/);
+  assert.match(html, /id="mobileNavInventory"/);
+  assert.match(html, /id="mobileNavLibrary"/);
   assert.match(html, /id="lilyRetryCommunityBtn"/);
-  assert.match(html, /data-page="dashboardPage"/);
   assert.match(html, /data-page="posPage"/);
   assert.match(html, /data-page="ordersPage"/);
+  assert.match(html, /data-page="inventoryPage"/);
   assert.match(html, /data-page="libraryPage"/);
+  assert.match(html, /data-page="communityPage"/);
+  const mobileNav = html.slice(html.indexOf('class="mobile-nav atelier-mobile-nav"'));
+  const mobileSection = mobileNav.slice(0, mobileNav.indexOf("</nav>"));
+  assert.doesNotMatch(mobileSection, /data-page="dashboardPage"/, "Dashboard belongs in hamburger only");
+});
+
+test("setCommunityNavVisible toggles Community vs Menu in bottom nav fifth slot", () => {
+  const appJs = fs.readFileSync(path.join(root, "public/app.js"), "utf8");
+  assert.match(appJs, /mobileNavCommunity/);
+  assert.match(appJs, /mobileNavMore/);
+  assert.doesNotMatch(appJs, /mobileNavLibrary[\s\S]{0,120}hidden=communityBetaEnabled/);
+  assert.match(appJs, /more\.hidden=communityBetaEnabled/);
 });
 
 test("POS critical CSS stacks register on phone widths", () => {
