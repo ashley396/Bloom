@@ -87,6 +87,20 @@ test("floral-library-admin handler quality dashboard initializes", async () => {
   assert.ok(body.dashboard.total >= 100);
 });
 
+test("featured arrangements: verified photos are real bouquets; placeholders are labeled", () => {
+  const catalog = getEverydayFloralLibraryCatalog();
+  const verified = catalog.filter((p) => !p.metadata?.needs_image_replacement);
+  const placeholders = catalog.filter((p) => p.metadata?.needs_image_replacement);
+  assert.ok(verified.length >= 26, `expected >=26 verified arrangement photos, got ${verified.length}`);
+  assert.ok(placeholders.length >= 1, "remaining slots use labeled placeholders until photographed");
+  for (const p of verified) {
+    assert.equal(p.metadata?.image_subject, "floral_arrangement", `${p.id} must be a floral arrangement`);
+  }
+  for (const p of placeholders) {
+    assert.equal(p.metadata?.image_subject, "placeholder_needs_replacement");
+  }
+});
+
 test("featured everyday arrangements have unique image file hashes", () => {
   const catalog = getEverydayFloralLibraryCatalog();
   const hashes = new Map();
@@ -98,9 +112,10 @@ test("featured everyday arrangements have unique image file hashes", () => {
       assert.fail(`duplicate image hash ${hash} for ${p.id} and ${hashes.get(hash)}`);
     }
     hashes.set(hash, p.id);
-    assert.notEqual(p.metadata?.needs_image_replacement, true, `${p.id} still needs replacement`);
   }
   assert.equal(hashes.size, catalog.length);
+  const verified = catalog.filter((p) => !p.metadata?.needs_image_replacement);
+  assert.equal(new Set(verified.map((p) => fileSha256(p.primary_image.url.replace(/^\//, "")))).size, verified.length);
 });
 
 test("ultra-realistic metadata is backed by unique image content", () => {
@@ -117,6 +132,8 @@ test("ultra-realistic metadata is backed by unique image content", () => {
   }
   assert.equal(urlHashes.size, catalog.length, "duplicate image URLs in featured catalog");
   assert.equal(contentHashes.size, catalog.length, "duplicate image blobs despite unique URLs");
+  const verified = catalog.filter((p) => !p.metadata?.needs_image_replacement);
+  assert.ok(verified.length >= 26);
 });
 
 test("no duplicate filenames or hashes in JSON batches", () => {
@@ -131,9 +148,21 @@ test("no duplicate filenames or hashes in JSON batches", () => {
     for (const a of data.arrangements || []) {
       imagePaths.push(a.image);
       if (a.content_sha256) shaFromJson.push(a.content_sha256);
-      assert.ok(a.pexels_photo_id, `${a.id} missing pexels_photo_id`);
+      if (a.needs_image_replacement) {
+        assert.equal(a.image_subject, "placeholder_needs_replacement", a.id);
+      } else {
+        assert.equal(a.image_subject, "floral_arrangement", a.id);
+      }
+      assert.ok(a.image_license?.source, `${a.id} missing image license`);
     }
   }
   assert.equal(new Set(imagePaths).size, imagePaths.length);
   assert.equal(new Set(shaFromJson).size, shaFromJson.length);
+  const verified = batchFiles.flatMap((rel) => {
+    const data = JSON.parse(readFileSync(path.join(publicDir, rel), "utf8"));
+    return (data.arrangements || []).filter((a) => !a.needs_image_replacement);
+  });
+  assert.ok(verified.length >= 26);
+  const verifiedHashes = new Set(verified.map((a) => a.content_sha256));
+  assert.equal(verifiedHashes.size, verified.length, "verified arrangement photos must have unique hashes");
 });

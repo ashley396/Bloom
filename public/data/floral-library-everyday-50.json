@@ -4,7 +4,7 @@
   "batch_size": 50,
   "target_total": 500,
   "collection": "Florisyn Everyday Ultra-Realistic",
-  "generated_at": "2026-08-11T12:40:51.190Z",
+  "generated_at": "2026-08-11T13:02:29.478Z",
   "arrangements": [
     {
       "id": "ed-01-sunshine-cube",
@@ -74,14 +74,15 @@
       "suggested_retail": 54.99,
       "image": "everyday/ed-01-sunshine-cube.jpg",
       "alt": "Sunshine Cube — ultra-realistic everyday floral arrangement in 5\" glass cube vase",
-      "pexels_photo_id": "931177",
-      "content_sha256": "4ef0c6b9c0f3df94ade78b07c2ef97b6aa45d0d334e5394fdb4c70dc2376a832",
+      "pexels_photo_id": null,
+      "content_sha256": "503ef0691b5f9e110e450aaeacb54c15c2a9f0d12695c912e13c6af6773904ea",
       "needs_image_replacement": false,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931177) — https://www.pexels.com/photo/931177/",
+        "source": "bloom_owned",
+        "attribution": "Florisyn arrangement photography — florisyn-everyday-sunny-bouquet.jpg",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-02-pink-meadow",
@@ -149,14 +150,15 @@
       "suggested_retail": 52.99,
       "image": "everyday/ed-02-pink-meadow.jpg",
       "alt": "Pink Meadow — ultra-realistic everyday floral arrangement in quart mason jar",
-      "pexels_photo_id": "1070850",
-      "content_sha256": "f052b2798796f6449e19cd1a997898fc03059bb20fd9a2350384aaa04a6d73d5",
+      "pexels_photo_id": null,
+      "content_sha256": "80f48c4c24fa1f9d277516feb77676eee3c5e7ee98c86269fda035b1d261a3ce",
       "needs_image_replacement": false,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 1070850) — https://www.pexels.com/photo/1070850/",
+        "source": "bloom_owned",
+        "attribution": "Florisyn arrangement photography — florisyn-everyday-spring-pastels.jpg",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-03-classic-rose-mix",
@@ -224,14 +226,15 @@
       "suggested_retail": 64.99,
       "image": "everyday/ed-03-classic-rose-mix.jpg",
       "alt": "Classic Rose Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "2111192",
-      "content_sha256": "4ab381641c13e1cbb61b87e661d2971fd0d93e524414a42fe26c431a6434f807",
+      "pexels_photo_id": null,
+      "content_sha256": "3f5d54a8d6a8b0148c13d2268fced4b1b702bbb2106ec4eb6bdc977b3c4808df",
       "needs_image_replacement": false,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 2111192) — https://www.pexels.com/photo/2111192/",
+        "source": "bloom_owned",
+        "attribution": "Florisyn arrangement photography — florisyn-everyday-rose-pitcher.jpg",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-04-cheerful-daisy-burst",
@@ -284,14 +287,15 @@
       "suggested_retail": 44.99,
       "image": "everyday/ed-04-cheerful-daisy-burst.jpg",
       "alt": "Cheerful Daisy Burst — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "pexels_photo_id": "169193",
-      "content_sha256": "e523c9b9c0b98d00180aa1fc50ce5f81979dfc485b28faa9f6d06df28d1a35a6",
+      "pexels_photo_id": null,
+      "content_sha256": "612c3c0130a8ad8d2ba0b809db3f88ecaf83150a680f081787163903f925ede3",
       "needs_image_replacement": false,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 169193) — https://www.pexels.com/photo/169193/",
+        "source": "bloom_owned",
+        "attribution": "Florisyn arrangement photography — florisyn-everyday-daisies-tulips.jpg",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-05-everyday-hydrangea-pop",
@@ -343,14 +347,15 @@
       "suggested_retail": 58.99,
       "image": "everyday/ed-05-everyday-hydrangea-pop.jpg",
       "alt": "Everyday Hydrangea Pop — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "pexels_photo_id": "931168",
-      "content_sha256": "f97707279a953feba4205b8f591686556e36f17c2c354516772ab104e93a93fa",
+      "pexels_photo_id": null,
+      "content_sha256": "f15347b3823db625b3aee4069f6104542c7fdfe4504e8670987401f5566ff916",
       "needs_image_replacement": false,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931168) — https://www.pexels.com/photo/931168/",
+        "source": "bloom_owned",
+        "attribution": "Florisyn arrangement photography — garden-harmony.jpg",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-06-soft-blush-garden",
@@ -408,14 +413,15 @@
       "suggested_retail": 59.99,
       "image": "everyday/ed-06-soft-blush-garden.jpg",
       "alt": "Soft Blush Garden — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "462402",
-      "content_sha256": "02d7e73b59e0cd0f7ba53d18c4bb3afd5b2e754ad8b966882ef0c5eaa730b63d",
+      "pexels_photo_id": null,
+      "content_sha256": "a76ec02ac360e320d5d492b25b7ac10b2b14bd8e0c3eedf6c9dd79e9eb8481b3",
       "needs_image_replacement": false,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 462402) — https://www.pexels.com/photo/462402/",
+        "source": "bloom_owned",
+        "attribution": "Florisyn arrangement photography — florisyn-everyday-garden-medley.jpg",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-07-rustic-mason-jar-mix",
@@ -472,14 +478,15 @@
       "suggested_retail": 48.99,
       "image": "everyday/ed-07-rustic-mason-jar-mix.jpg",
       "alt": "Rustic Mason Jar Mix — ultra-realistic everyday floral arrangement in quart mason jar",
-      "pexels_photo_id": "1308881",
-      "content_sha256": "f178358ee04dde59adb5cfbc0625174ce1af4b14536382cc02e9908ffe47fbb0",
+      "pexels_photo_id": null,
+      "content_sha256": "f928b883409f87062c92c327775bd8a248d575ca6eb8c91a22b8e762a4edc523",
       "needs_image_replacement": false,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 1308881) — https://www.pexels.com/photo/1308881/",
+        "source": "bloom_owned",
+        "attribution": "Florisyn arrangement photography — florisyn-everyday-market-wildflowers.jpg",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-08-bright-happy",
@@ -536,14 +543,15 @@
       "suggested_retail": 56.99,
       "image": "everyday/ed-08-bright-happy.jpg",
       "alt": "Bright & Happy — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "pexels_photo_id": "931167",
-      "content_sha256": "0047d75e16651f40a63260c1b9a3403494a1569d0f0cf6a5c3a28b82b7e7ba5f",
+      "pexels_photo_id": null,
+      "content_sha256": "5c20815f9230d287af03591ae0517089be71504b94d32fc29805a97248b4bf6e",
       "needs_image_replacement": false,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931167) — https://www.pexels.com/photo/931167/",
+        "source": "bloom_owned",
+        "attribution": "Florisyn arrangement photography — florisyn-arrangement-signature-blush.jpg",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-09-simple-whites",
@@ -600,14 +608,15 @@
       "suggested_retail": 62.99,
       "image": "everyday/ed-09-simple-whites.jpg",
       "alt": "Simple Whites — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "459335",
-      "content_sha256": "1ce0411c0c68cd21877e34cfef0dd8f825ef1e56af3554eb14cb48363b39f938",
+      "pexels_photo_id": null,
+      "content_sha256": "484aa8092e360c073161478eeee0750643b4f2d1da01c2322a14d7780cbf2a56",
       "needs_image_replacement": false,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 459335) — https://www.pexels.com/photo/459335/",
+        "source": "bloom_owned",
+        "attribution": "Florisyn arrangement photography — atelier-bouquet-hero.jpg",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-10-everyday-elegance",
@@ -664,14 +673,15 @@
       "suggested_retail": 68.99,
       "image": "everyday/ed-10-everyday-elegance.jpg",
       "alt": "Everyday Elegance — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "pexels_photo_id": "931162",
-      "content_sha256": "cda456239f7a8bf516823fe97bfc98cb7fe3bf83e278beedae1e1693df8246b4",
+      "pexels_photo_id": "17109130",
+      "content_sha256": "6941fbd590892e1e37267b8a8617e54774ff5ee809d2e86d049ad025603d552d",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931162) — https://www.pexels.com/photo/931162/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 17109130)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-11-morning-cheer",
@@ -726,14 +736,15 @@
       "suggested_retail": 39.99,
       "image": "everyday/ed-11-morning-cheer.jpg",
       "alt": "Morning Cheer — ultra-realistic everyday floral arrangement in pint mason jar",
-      "pexels_photo_id": "54200",
-      "content_sha256": "3d3a253b942dbf0534f002a3392372801b6bf4483724aad337b53233340332dd",
+      "pexels_photo_id": "17109132",
+      "content_sha256": "cc6719118e7a83f968ba4c485af1a8057b1a7007e9650678f027c8a34ff1ac45",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 54200) — https://www.pexels.com/photo/54200/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 17109132)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-12-fresh-start",
@@ -790,14 +801,15 @@
       "suggested_retail": 51.99,
       "image": "everyday/ed-12-fresh-start.jpg",
       "alt": "Fresh Start — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "pexels_photo_id": "736230",
-      "content_sha256": "0dd0dd322140fc353f6e0373449f91d3f1a42118d0c96e8095d24e90792f21c2",
+      "pexels_photo_id": "17109134",
+      "content_sha256": "b312f0e54d81c31fdd0330d71eef998faaa95f2edd1fcd1a75ccdc807bf5c5f5",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 736230) — https://www.pexels.com/photo/736230/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 17109134)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-13-daily-delight",
@@ -854,14 +866,15 @@
       "suggested_retail": 47.99,
       "image": "everyday/ed-13-daily-delight.jpg",
       "alt": "Daily Delight — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "pexels_photo_id": "568027",
-      "content_sha256": "30bdcd6de2cde6b1e70885839851bda63ee791535d0c1e923d1f446a4e4d5893",
+      "pexels_photo_id": "19300878",
+      "content_sha256": "7564b7e17b9f089105be1065ee2fd0e27a4b0d15142865bad570332fd940d329",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 568027) — https://www.pexels.com/photo/568027/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 19300878)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-14-lavender-breeze",
@@ -918,14 +931,15 @@
       "suggested_retail": 55.99,
       "image": "everyday/ed-14-lavender-breeze.jpg",
       "alt": "Lavender Breeze — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "931154",
-      "content_sha256": "b398ef94b37d9ccfad10485375f182b6c759f70ee145e3c578061780470eba6c",
+      "pexels_photo_id": "25287682",
+      "content_sha256": "d4a78e8df8751a7ac345bcebcaf5fc3e4d67e230162f8f322c2a98b45907ed4b",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931154) — https://www.pexels.com/photo/931154/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 25287682)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-15-peachy-keen",
@@ -981,14 +995,15 @@
       "suggested_retail": 57.99,
       "image": "everyday/ed-15-peachy-keen.jpg",
       "alt": "Peachy Keen — ultra-realistic everyday floral arrangement in quart mason jar",
-      "pexels_photo_id": "931159",
-      "content_sha256": "28f87c83234ea700e27a0a3c3a738d1f9e072d504b2e92ca494b22071e39482c",
+      "pexels_photo_id": "27952000",
+      "content_sha256": "fec524791375f1e4d5b03d8a5e2311f08d8d301a4141b5ead49db165829a3219",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931159) — https://www.pexels.com/photo/931159/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 27952000)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-16-hydrangea-friends",
@@ -1045,14 +1060,15 @@
       "suggested_retail": 61.99,
       "image": "everyday/ed-16-hydrangea-friends.jpg",
       "alt": "Hydrangea & Friends — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "1457812",
-      "content_sha256": "0714cb44c8b762ab08e5f099680e9f7a46a369ca577cebc9af57ede4a8ec3407",
+      "pexels_photo_id": "27952001",
+      "content_sha256": "d6ff1d72295c1a6b3d14561d2a43d9b751784a3d4cb1cb553e3d4873593630c4",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 1457812) — https://www.pexels.com/photo/1457812/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 27952001)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-17-rose-mum-harmony",
@@ -1109,14 +1125,15 @@
       "suggested_retail": 58.99,
       "image": "everyday/ed-17-rose-mum-harmony.jpg",
       "alt": "Rose & Mum Harmony — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "pexels_photo_id": "931165",
-      "content_sha256": "9bb9232b822c513a977b71d665512af7f692a31314073d3ac3b40ad759644e82",
+      "pexels_photo_id": "28739008",
+      "content_sha256": "b180564e3c9b7a20b894caa4b93f3bb787284b40a08a4509d388d73a4083a1cf",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931165) — https://www.pexels.com/photo/931165/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 28739008)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-18-alstroemeria-joy",
@@ -1167,14 +1184,15 @@
       "suggested_retail": 46.99,
       "image": "everyday/ed-18-alstroemeria-joy.jpg",
       "alt": "Alstroemeria Joy — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "pexels_photo_id": "931166",
-      "content_sha256": "18569ac6574f30e71fa98eafca777243b25e431ba42fcb14eeabd248eb12ee73",
+      "pexels_photo_id": "29657799",
+      "content_sha256": "f1ac31a6647b0eb865e51212bc6c50e38744959a0347a85f103ddcfdfe67797c",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931166) — https://www.pexels.com/photo/931166/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 29657799)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-19-sunflower-smile",
@@ -1225,14 +1243,15 @@
       "suggested_retail": 49.99,
       "image": "everyday/ed-19-sunflower-smile.jpg",
       "alt": "Sunflower Smile — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "pexels_photo_id": "4041381",
-      "content_sha256": "ff61681db2b43cafffc3e2aa723835baa73ce008b67a5f81f8becda5c9259802",
+      "pexels_photo_id": "34638178",
+      "content_sha256": "e4439e54ea697a3f598e812a02a4352ae208bfacb0eb81102440d1347084e5f5",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 4041381) — https://www.pexels.com/photo/4041381/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 34638178)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-20-gentle-pastels",
@@ -1288,14 +1307,15 @@
       "suggested_retail": 60.99,
       "image": "everyday/ed-20-gentle-pastels.jpg",
       "alt": "Gentle Pastels — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "568026",
-      "content_sha256": "a383b7244ae7aca0899971b7ec1a425dfe3db2a92853860ce168d1b119d0a4a0",
+      "pexels_photo_id": "36312278",
+      "content_sha256": "169a3d7a533d59702822617404b2218428bb4f136fdff1454956c16bdbf073eb",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 568026) — https://www.pexels.com/photo/568026/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 36312278)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-21-modern-whites",
@@ -1351,14 +1371,15 @@
       "suggested_retail": 63.99,
       "image": "everyday/ed-21-modern-whites.jpg",
       "alt": "Modern Whites — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "pexels_photo_id": "1121334",
-      "content_sha256": "047d15b76316efee8c5a2a19bc9ac0f36b2ba209785175761570a51993ab8c09",
+      "pexels_photo_id": "36787391",
+      "content_sha256": "5514b88af4613ead4fde62adf2d50a3debb7cad3c193ef447118fcac95d03dcf",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 1121334) — https://www.pexels.com/photo/1121334/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 36787391)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-22-compact-color-pop",
@@ -1414,14 +1435,15 @@
       "suggested_retail": 50.99,
       "image": "everyday/ed-22-compact-color-pop.jpg",
       "alt": "Compact Color Pop — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "pexels_photo_id": "931160",
-      "content_sha256": "29d43d29bcd3fb417c3491571b25506c8955d253e88947201ea056cd2e638d89",
+      "pexels_photo_id": "37320544",
+      "content_sha256": "150a1db7bcecb4142566c631177c59cd4f67f287a26fc40b0f7398b13026532c",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931160) — https://www.pexels.com/photo/931160/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 37320544)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-23-everyday-pink-mix",
@@ -1477,14 +1499,15 @@
       "suggested_retail": 56.99,
       "image": "everyday/ed-23-everyday-pink-mix.jpg",
       "alt": "Everyday Pink Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "931161",
-      "content_sha256": "64f2beaf145c2837d183b6fa1725ca5990cfdb0e8ab5f9cbb0b2fc4737f8c076",
+      "pexels_photo_id": "8264837",
+      "content_sha256": "725990d9f113399ea4e80ef7181d966c4036760f2c0c5d1f9de8355b1fdba058",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931161) — https://www.pexels.com/photo/931161/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 8264837)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-24-blue-white-classic",
@@ -1540,14 +1563,15 @@
       "suggested_retail": 65.99,
       "image": "everyday/ed-24-blue-white-classic.jpg",
       "alt": "Blue & White Classic — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "931163",
-      "content_sha256": "c30270b0a70a6f47868d2dcb583bcf30274f7f1032be97575a1b75f9febe71f6",
+      "pexels_photo_id": "8264839",
+      "content_sha256": "91c13f2e424fed4ca1cfaea59e6e19639fc63847eb252ab443f92b2bb88e4e43",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931163) — https://www.pexels.com/photo/931163/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 8264839)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-25-sweet-simple",
@@ -1596,14 +1620,15 @@
       "suggested_retail": 36.99,
       "image": "everyday/ed-25-sweet-simple.jpg",
       "alt": "Sweet & Simple — ultra-realistic everyday floral arrangement in pint mason jar",
-      "pexels_photo_id": "931164",
-      "content_sha256": "91b6e6a9b6225daef4379c7301e2fe178b1a14f2bd619140bfbd95e0755a3c32",
+      "pexels_photo_id": "8264841",
+      "content_sha256": "9d502e3e944d87a66cd47e994b4c27cddc20e44fb6b703708053e2339bebb7d4",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931164) — https://www.pexels.com/photo/931164/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 8264841)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-26-daily-sunshine",
@@ -1658,14 +1683,15 @@
       "suggested_retail": 53.99,
       "image": "everyday/ed-26-daily-sunshine.jpg",
       "alt": "Daily Sunshine — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "pexels_photo_id": "931169",
-      "content_sha256": "e1238cddea0d80a72f103587249b7a8f07b70c30ef9ff7e1e14ae97f554d63cf",
+      "pexels_photo_id": "8264842",
+      "content_sha256": "4f634df1e07ab1104b9efa6a615b02a194ec9e659a6ccd1c8759c3a03e767c9c",
       "needs_image_replacement": false,
       "image_license": {
         "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931169) — https://www.pexels.com/photo/931169/",
+        "attribution": "Pexels — verified vase/bouquet arrangement (photo 8264842)",
         "review_status": "approved"
-      }
+      },
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-27-soft-spring-mix",
@@ -1720,14 +1746,15 @@
       "suggested_retail": 57.99,
       "image": "everyday/ed-27-soft-spring-mix.jpg",
       "alt": "Soft Spring Mix — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "pexels_photo_id": "931170",
-      "content_sha256": "dca7b64de09b378572d10d739d3a73163fe9297c31f47c3e81f3d438ec5a8bd2",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "d6dc2eb3ed82c55399ec00500081e54b3159d39a40bfc7f25ab2df7ca00a53e3",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931170) — https://www.pexels.com/photo/931170/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-28-everyday-garden-vase",
@@ -1796,14 +1823,15 @@
       "suggested_retail": 59.99,
       "image": "everyday/ed-28-everyday-garden-vase.jpg",
       "alt": "Everyday Garden Vase — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "931171",
-      "content_sha256": "6cc8f19f9b51c5e33ac49fca08b59ed719c2c7621e134f8a0bfd488961212307",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "ebab8b1cc633cc7b5ac9d025c3ca6c1df83d94922bfb56d91f0ed3e69807d8ea",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931171) — https://www.pexels.com/photo/931171/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-29-bright-market-bunch",
@@ -1859,14 +1887,15 @@
       "suggested_retail": 42.99,
       "image": "everyday/ed-29-bright-market-bunch.jpg",
       "alt": "Bright Market Bunch — ultra-realistic everyday floral arrangement in hand-tie wrap (no vase)",
-      "pexels_photo_id": "4041392",
-      "content_sha256": "22049a51e693271f3598d34c6f3c0f2b3d93ed6584ae555d04a965ce5e910061",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "299f1d554df8c2f3940860bc9daca63384509c7e551e12f303d6bf73459c150f",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 4041392) — https://www.pexels.com/photo/4041392/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-30-calm-clean-whites",
@@ -1922,14 +1951,15 @@
       "suggested_retail": 66.99,
       "image": "everyday/ed-30-calm-clean-whites.jpg",
       "alt": "Calm & Clean Whites — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "1457813",
-      "content_sha256": "0a8cb9304a2c3a87853262c4c78013fe846191305e1f3e06028e6697a7c89bbe",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "7b8fe0c8fd0c11fdd1a1aa18edc937f13d46e9b6099409c3fb04b8631a629074",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 1457813) — https://www.pexels.com/photo/1457813/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-31-pink-peach-harmony",
@@ -1984,14 +2014,15 @@
       "suggested_retail": 58.99,
       "image": "everyday/ed-31-pink-peach-harmony.jpg",
       "alt": "Pink & Peach Harmony — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "pexels_photo_id": "4041382",
-      "content_sha256": "3c4d7d355230b18b9407cb2d5f371ab55464d4edd53350b114e19e87b2e48105",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "e583052fb86fe507b19214a0135a35ed2ef98f7ebb43460e902845d84df197a9",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 4041382) — https://www.pexels.com/photo/4041382/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-32-hydrangea-trio",
@@ -2045,14 +2076,15 @@
       "suggested_retail": 69.99,
       "image": "everyday/ed-32-hydrangea-trio.jpg",
       "alt": "Hydrangea Trio — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "4041383",
-      "content_sha256": "a04ef8d12deeb9a85099cc01f78c3e170456f85272f0d687d1b3c1cbf26b0ed9",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "cc05f913a6591fc11df7fbfbfa9ca3151134aa5efc6f1ed457c428ec7c6e0086",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 4041383) — https://www.pexels.com/photo/4041383/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-33-rose-daisy-blend",
@@ -2108,14 +2140,15 @@
       "suggested_retail": 54.99,
       "image": "everyday/ed-33-rose-daisy-blend.jpg",
       "alt": "Rose & Daisy Blend — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "pexels_photo_id": "4041384",
-      "content_sha256": "f5b3cdf02ad115741ccd3f21ee63fc086080fbf678afafd1d02681e05086d7c4",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "69e8762b85d426f210759b0999fe9e82fbf8c6ca3b03f821de407e0b23098330",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 4041384) — https://www.pexels.com/photo/4041384/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-34-everyday-mason-jar",
@@ -2170,14 +2203,15 @@
       "suggested_retail": 45.99,
       "image": "everyday/ed-34-everyday-mason-jar.jpg",
       "alt": "Everyday Mason Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "pexels_photo_id": "4041385",
-      "content_sha256": "bbb9ab9920c9e8bf2a0324a9af1b2f2ea1f98c871910be5f58af6e3c5aeecb2b",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "9d104af7b8b53d62196501947684cf6fe4a46a91791c1ebd971e269f677c3d83",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 4041385) — https://www.pexels.com/photo/4041385/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-35-simple-greens-whites",
@@ -2241,14 +2275,15 @@
       "suggested_retail": 52.99,
       "image": "everyday/ed-35-simple-greens-whites.jpg",
       "alt": "Simple Greens & Whites — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "4041386",
-      "content_sha256": "9139a6583b95edf8d7ed797234604e85a0c65e9dc953a4ffe7f42be66f37e1c2",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "5ef729b5c2f3f01301b8bbd99aa219c799159df220e6547781514688af98ec2b",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 4041386) — https://www.pexels.com/photo/4041386/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-36-happy-day-bouquet",
@@ -2303,14 +2338,15 @@
       "suggested_retail": 55.99,
       "image": "everyday/ed-36-happy-day-bouquet.jpg",
       "alt": "Happy Day Bouquet — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "1458694",
-      "content_sha256": "d93fb3ab1bfd34b3f379dace00fb2b19857348ddf1d9914b50ed87d736639023",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "99bf53b7c6f2bdc5325a34fd78949e88cc0f2cd25c2450337d070d2772aea934",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 1458694) — https://www.pexels.com/photo/1458694/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-37-classic-cylinder-mix",
@@ -2365,14 +2401,15 @@
       "suggested_retail": 61.99,
       "image": "everyday/ed-37-classic-cylinder-mix.jpg",
       "alt": "Classic Cylinder Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "1158783",
-      "content_sha256": "0506aa6c01df36bb23a5fbac1b8d92ef8882f1bc6a1421867e492c97026fadc9",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "05e563892673c3902dd9de82406bdf696afb3a01202f7163378121247e724371",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 1158783) — https://www.pexels.com/photo/1158783/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-38-everyday-color-burst",
@@ -2427,14 +2464,15 @@
       "suggested_retail": 48.99,
       "image": "everyday/ed-38-everyday-color-burst.jpg",
       "alt": "Everyday Color Burst — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "pexels_photo_id": "931180",
-      "content_sha256": "4340f5ce2e01d05337e7a63517257246f1dfa6a9e229f9eaa15871ae308508e0",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "ec2eb334add15b71626ba39aa91d2d43df63a175ec4d28ef5cae7dd1d6d344bd",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931180) — https://www.pexels.com/photo/931180/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-39-soft-neutral-mix",
@@ -2489,14 +2527,15 @@
       "suggested_retail": 58.99,
       "image": "everyday/ed-39-soft-neutral-mix.jpg",
       "alt": "Soft Neutral Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "169190",
-      "content_sha256": "b96a49123e5c6564985aedea3f6a5492e023244d338bdd92639d2bdf7a2a049c",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "2518523fe4231a1350667305e2a5bf5f6b2a5a0042bd015f2c16cc0bd29ab524",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 169190) — https://www.pexels.com/photo/169190/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-40-pink-petal-jar",
@@ -2550,14 +2589,15 @@
       "suggested_retail": 41.99,
       "image": "everyday/ed-40-pink-petal-jar.jpg",
       "alt": "Pink Petal Jar — ultra-realistic everyday floral arrangement in pint mason jar",
-      "pexels_photo_id": "1122639",
-      "content_sha256": "24938b3432f59b22081f32c5e3fd368b0fbe3f96bdcafeafafcc49b0387ab383",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "2e8b9f8c68349f17b7136127eafa9bf4ab05d04f2b1393d991a7564d8f54b8db",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 1122639) — https://www.pexels.com/photo/1122639/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-41-golden-glow",
@@ -2612,14 +2652,15 @@
       "suggested_retail": 57.99,
       "image": "everyday/ed-41-golden-glow.jpg",
       "alt": "Golden Glow — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "pexels_photo_id": "36865667",
-      "content_sha256": "776609b33158bb60b3a55b1ea50cf9875ef44d0a78e40f5a6217aefaf968ef1c",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "e9df26c49f662d371d93f67548b9adac23ed2545f07ed881bf8ef9175fe685f2",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 36865667) — https://www.pexels.com/photo/36865667/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-42-everyday-blush",
@@ -2674,14 +2715,15 @@
       "suggested_retail": 59.99,
       "image": "everyday/ed-42-everyday-blush.jpg",
       "alt": "Everyday Blush — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "pexels_photo_id": "36787391",
-      "content_sha256": "5514b88af4613ead4fde62adf2d50a3debb7cad3c193ef447118fcac95d03dcf",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "3f0f063eeca3c331c5a04007bd605c5f15b3a22db7c686c7328623b9777f53f4",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 36787391) — https://www.pexels.com/photo/36787391/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-43-daisy-mum-mix",
@@ -2736,14 +2778,15 @@
       "suggested_retail": 49.99,
       "image": "everyday/ed-43-daisy-mum-mix.jpg",
       "alt": "Daisy & Mum Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "37320544",
-      "content_sha256": "150a1db7bcecb4142566c631177c59cd4f67f287a26fc40b0f7398b13026532c",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "02e1aaeee511af8b0e9d504aaebbf41dd5b4dc2ae9d43cdd279e44d06b617c7d",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 37320544) — https://www.pexels.com/photo/37320544/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-44-rose-trio",
@@ -2798,14 +2841,15 @@
       "suggested_retail": 55.99,
       "image": "everyday/ed-44-rose-trio.jpg",
       "alt": "Rose Trio — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "pexels_photo_id": "31469197",
-      "content_sha256": "1b138f729d0df236fd8daf4edc4adbaa973be22b290ad47d08d1d9618207e42c",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "962863b730ceb1e3ce3457acd12890298bba99628ef1628f716c94a382660abf",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 31469197) — https://www.pexels.com/photo/31469197/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-45-hydrangea-accent",
@@ -2860,14 +2904,15 @@
       "suggested_retail": 56.99,
       "image": "everyday/ed-45-hydrangea-accent.jpg",
       "alt": "Hydrangea Accent — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "pexels_photo_id": "36312278",
-      "content_sha256": "169a3d7a533d59702822617404b2218428bb4f136fdff1454956c16bdbf073eb",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "71f555a532d1fa8220186774b4b93c5c78f358cb19e755e6587dba5d195cefc0",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 36312278) — https://www.pexels.com/photo/36312278/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-46-everyday-rustic",
@@ -2922,14 +2967,15 @@
       "suggested_retail": 51.99,
       "image": "everyday/ed-46-everyday-rustic.jpg",
       "alt": "Everyday Rustic — ultra-realistic everyday floral arrangement in quart mason jar",
-      "pexels_photo_id": "931178",
-      "content_sha256": "dd28f7945a295291a37e5febd1f742324fc9ea4d59c024f4af5d9fa1dd10d50f",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "af3d606b0a0b9caa0f010cd9112bb7c1f42a27391c9a226a577863af1cb4d4b7",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931178) — https://www.pexels.com/photo/931178/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-47-bright-tabletop",
@@ -2984,14 +3030,15 @@
       "suggested_retail": 50.99,
       "image": "everyday/ed-47-bright-tabletop.jpg",
       "alt": "Bright Tabletop — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "pexels_photo_id": "931179",
-      "content_sha256": "1a7bac7782b8b8b0829cf1a391f661b5a4de214df67639e53c025d4674972806",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "9e746c1418d6ae29100133f0945160a61456f728e12ebfebd050adc90c524853",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931179) — https://www.pexels.com/photo/931179/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-48-simple-cheer",
@@ -3046,14 +3093,15 @@
       "suggested_retail": 46.99,
       "image": "everyday/ed-48-simple-cheer.jpg",
       "alt": "Simple Cheer — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "pexels_photo_id": "931181",
-      "content_sha256": "872c2bc1ac6a4ad42c4ce38612a9bc602da23babc37e4cd0b1abc4ac6e7c8f1c",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "de8d280de53e449d52c8f80dd4d5e1243e098697a919a55280710d5b9a8e7401",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931181) — https://www.pexels.com/photo/931181/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-49-daily-pink-rose",
@@ -3108,14 +3156,15 @@
       "suggested_retail": 62.99,
       "image": "everyday/ed-49-daily-pink-rose.jpg",
       "alt": "Daily Pink Rose — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "931185",
-      "content_sha256": "1c6144d623171282f0275398f697f9a1b8b2e045126d2d8f49378a744a5c7ab0",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "67566797683f9195e89e4a931176f7ed5e40a17a0df503ddb58357f1c117187f",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931185) — https://www.pexels.com/photo/931185/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-50-everyday-florist-favorite",
@@ -3185,15 +3234,18 @@
       "suggested_retail": 64.99,
       "image": "everyday/ed-50-everyday-florist-favorite.jpg",
       "alt": "Everyday Florist Favorite — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "pexels_photo_id": "931186",
-      "content_sha256": "4129a7e5333663b9b55a78af29efe32530e44d9a6226f1bb1f44d7357c5d0b51",
-      "needs_image_replacement": false,
+      "pexels_photo_id": null,
+      "content_sha256": "e7114b31356be7fa62b50961444eebe69e8ffe08a6740465dffa5293600e5202",
+      "needs_image_replacement": true,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Photo on Pexels (ID 931186) — https://www.pexels.com/photo/931186/",
-        "review_status": "approved"
-      }
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     }
   ],
-  "image_source": "licensed_stock_pexels_unique"
+  "image_source": "florisyn_verified_arrangements_plus_placeholders",
+  "verified_arrangement_count": 26,
+  "placeholder_count": 24
 }
