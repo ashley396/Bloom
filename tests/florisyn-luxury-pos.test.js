@@ -72,7 +72,7 @@ test("luxury POS palette uses navy and rose without green CTAs", () => {
   assert.match(html, /pos-lux-main-row/);
   assert.match(html, /Luxury Catalog Categories/);
   assert.match(html, /florisyn-pos-critical/);
-  assert.match(html, /florisyn-luxury-pos\.css\?v=pos7/);
+  assert.match(html, /florisyn-luxury-pos\.css\?v=pos8/);
   assert.match(html, /cartSubtotal">\$0\.00/);
   assert.match(html, /cartTotal">\$0\.00/);
   assert.match(html, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);

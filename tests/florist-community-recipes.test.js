@@ -163,7 +163,7 @@ test("florist-community handler wires Lily recipe actions", () => {
 test("community UI hints florists to name flowers for Lily", () => {
   const ui = fs.readFileSync(path.join(process.cwd(), "public/community-ui.js"), "utf8");
   assert.match(ui, /Build recipe with Lily/);
-  assert.match(ui, /Rebuild with Lily/);
+  assert.match(ui, /Retry with Lily/);
   assert.match(ui, /name the flowers in your caption/i);
   assert.match(ui, /recipeUi/);
   assert.match(ui, /community-post-image-wrap/);

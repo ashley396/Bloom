@@ -227,11 +227,12 @@
               ${ui.busy ? `<p class="community-recipe-busy" role="status">Lily is re-reading your photo…</p>` : ""}
               ${ui.error ? `<p class="community-error-inline" role="alert">${esc(ui.error)}</p>` : ""}
               ${ui.notice ? `<p class="subtle">${esc(ui.notice)}</p>` : ""}
-              <button type="button" class="secondary community-rebuild-recipe" data-id="${esc(id)}"${ui.busy ? " disabled" : ""}>Rebuild with Lily</button>
+              <button type="button" class="primary community-rebuild-recipe community-retry-lily" data-id="${esc(id)}"${ui.busy ? " disabled" : ""}>Retry with Lily</button>
             </div>`
           : "";
       return `<div class="community-recipe panel community-recipe-published" data-recipe-panel="${esc(id)}">
         <p class="eyebrow">🌸 LILY RECIPE · SHARED</p>
+        ${post.is_mine ? `<p class="subtle">Wrong stems? Lily can re-read your arrangement photo.</p>` : ""}
         <h4>${esc(r.title)}</h4>
         ${r.suggested_retail ? `<p class="subtle">Suggested retail · $${Number(r.suggested_retail).toFixed(0)}</p>` : ""}
         ${stems ? `<ul class="community-recipe-stems">${stems}</ul>` : ""}
@@ -663,7 +664,7 @@
 
     el.querySelectorAll(".community-rebuild-recipe").forEach((btn) => {
       btn.addEventListener("click", () => {
-        if (!confirm("Rebuild this recipe from your photo? The shared stem list will update.")) return;
+        if (!confirm("Retry with Lily? She will re-read your photo and update the shared stem list.")) return;
         runLilyRecipe(btn.getAttribute("data-id"), { rebuilding: true });
       });
     });
