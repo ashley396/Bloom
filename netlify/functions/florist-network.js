@@ -14,9 +14,11 @@ import {
   canTransitionWire,
   WIRE_STATUS_LABELS,
   computeWireSettlement,
+  DEFAULT_RELAY_FEE_PERCENT,
   FLORISYN_WIRE_PLATFORM_FEE_PERCENT,
   WIRE_ZERO_PLATFORM_POLICY,
 } from "../../lib/florist-network/wire-orders.js";
+import { uploadWireReferencePhoto, attachWireReferencePhotoUrls } from "./_shared/florist-wire-photo.js";
 
 function featureGate() {
   if (!isFeatureEnabled("FLORIST_NETWORK")) {
@@ -46,6 +48,32 @@ function friendlyMissing() {
   throw e;
 }
 
+function filterPartners(items, { zip = "", city = "", state = "" } = {}) {
+  let result = items || [];
+  const zipQ = String(zip || "").trim();
+  const cityQ = String(city || "").trim().toLowerCase();
+  const stateQ = String(state || "").trim().toUpperCase();
+  if (zipQ) {
+    result = result.filter((p) => !p.service_zips?.length || p.service_zips.includes(zipQ));
+  }
+  if (cityQ) {
+    result = result.filter((p) => String(p.city || "").toLowerCase().includes(cityQ));
+  }
+  if (stateQ) {
+    result = result.filter((p) => String(p.state || "").toUpperCase() === stateQ);
+  }
+  return result;
+}
+
+async function mapWireRows(client, rows) {
+  const mapped = (rows || []).map((row) => ({
+    ...row,
+    status_label: WIRE_STATUS_LABELS[row.status] || row.status,
+    payment_label: wirePaymentLabel(row.payment_status),
+  }));
+  return attachWireReferencePhotoUrls(client, mapped);
+}
+
 function stripeRedirectBaseUrl() {
   const site = String(process.env.SITE_URL || process.env.URL || "").trim().replace(/\/$/, "");
   if (!site) {
@@ -67,12 +95,14 @@ export async function handler(event) {
 
     if (event.httpMethod === "GET" && action === "partners") {
       const zip = String(event.queryStringParameters?.zip || "").trim();
+      const city = String(event.queryStringParameters?.city || "").trim();
+      const state = String(event.queryStringParameters?.state || "").trim();
       let q = client
         .from("florist_network_profiles")
         .select("shop_id, display_name, city, state, service_zips, wire_fee_percent, bio, public_slug")
         .eq("is_active", true)
         .neq("shop_id", shopId)
-        .limit(50);
+        .limit(100);
       const { data, error } = await q;
       if (error) throw error;
       let items = data || [];
@@ -88,12 +118,8 @@ export async function handler(event) {
           can_receive_payments: partnerCanReceiveWirePayments(shopMap.get(p.shop_id)),
         }));
       }
-      if (zip) {
-        items = items.filter(
-          (p) => !p.service_zips?.length || p.service_zips.includes(zip)
-        );
-      }
-      return json(200, { items });
+      items = filterPartners(items, { zip, city, state });
+      return json(200, { items: items.slice(0, 50) });
     }
 
     if (event.httpMethod === "GET" && action === "profile") {
@@ -103,7 +129,7 @@ export async function handler(event) {
         .eq("shop_id", shopId)
         .maybeSingle();
       if (error) throw error;
-      return json(200, { profile: data, wire_policy: WIRE_ZERO_PLATFORM_POLICY });
+      return json(200, { profile: data, wire_policy: WIRE_ZERO_PLATFORM_POLICY, default_relay_fee_percent: DEFAULT_RELAY_FEE_PERCENT });
     }
 
     if (event.httpMethod === "GET") {
@@ -116,15 +142,13 @@ export async function handler(event) {
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
+      const items = await mapWireRows(client, data);
       return json(200, {
-        items: (data || []).map((row) => ({
-          ...row,
-          status_label: WIRE_STATUS_LABELS[row.status] || row.status,
-          payment_label: wirePaymentLabel(row.payment_status),
-        })),
+        items,
         view,
         wire_policy: WIRE_ZERO_PLATFORM_POLICY,
         florisyn_platform_fee_percent: FLORISYN_WIRE_PLATFORM_FEE_PERCENT,
+        default_relay_fee_percent: DEFAULT_RELAY_FEE_PERCENT,
       });
     }
 
@@ -144,8 +168,13 @@ export async function handler(event) {
         state: body.state || shop?.state || null,
         accepts_incoming_wires: body.accepts_incoming_wires !== false,
         sends_outgoing_wires: body.sends_outgoing_wires !== false,
-        service_zips: Array.isArray(body.service_zips) ? body.service_zips : [],
-        wire_fee_percent: Math.max(0, Number(body.wire_fee_percent || 0)),
+        service_zips: Array.isArray(body.service_zips)
+          ? body.service_zips
+          : String(body.service_zips || "")
+              .split(/[,\s]+/)
+              .map((z) => z.trim())
+              .filter(Boolean),
+        wire_fee_percent: Math.min(100, Math.max(0, Number(body.wire_fee_percent ?? DEFAULT_RELAY_FEE_PERCENT))),
         wire_fee_flat: Math.max(0, Number(body.wire_fee_flat || 0)),
         bio: body.bio || null,
         is_active: body.is_active !== false,
@@ -165,7 +194,17 @@ export async function handler(event) {
       if (!v.ok) return json(400, { error: v.error });
       const fulfilling_shop_id = body.fulfilling_shop_id;
       if (!fulfilling_shop_id) return json(400, { error: "Select a fulfilling florist." });
-      const settlement = computeWireSettlement(v.payload.wire_amount);
+      const relayPercent = Math.min(
+        100,
+        Math.max(0, Number(body.relay_fee_percent ?? body.wire_fee_percent ?? DEFAULT_RELAY_FEE_PERCENT))
+      );
+      const settlement = computeWireSettlement(v.payload.wire_amount, { relayPercent });
+      let reference_photo_url = null;
+      if (body.reference_photo_data_url) {
+        const upload = await uploadWireReferencePhoto(client, shopId, body.reference_photo_data_url);
+        if (!upload.ok) return json(400, { error: upload.error });
+        reference_photo_url = upload.path;
+      }
       const record = {
         wire_number: generateWireNumber(),
         sending_shop_id: shopId,
@@ -173,11 +212,14 @@ export async function handler(event) {
         source_order_id: body.source_order_id || null,
         status: body.send ? "sent" : "draft",
         ...v.payload,
+        relay_fee_percent: relayPercent,
+        reference_photo_url,
         payment_status: "unpaid",
         metadata: {
           florisyn_platform_fee: settlement.florisyn_platform_fee,
           fulfilling_shop_payout: settlement.fulfilling_shop_payout,
           partner_relay_fee: settlement.partner_relay_fee,
+          relay_fee_percent: relayPercent,
           wire_policy: WIRE_ZERO_PLATFORM_POLICY,
         },
         sent_at: body.send ? new Date().toISOString() : null,
