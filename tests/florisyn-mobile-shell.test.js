@@ -8,10 +8,11 @@ const root = process.cwd();
 test("mobile shell stylesheet loads after POS CSS and before critical inline block", () => {
   const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
   const posIdx = html.indexOf("florisyn-luxury-pos.css");
-  const shellIdx = html.indexOf("florisyn-mobile-shell.css?v=m7");
+  const shellIdx = html.indexOf("florisyn-mobile-shell.css");
   const criticalIdx = html.indexOf("florisyn-pos-critical");
   assert.ok(posIdx >= 0 && shellIdx > posIdx, "mobile shell should load after luxury POS CSS");
   assert.ok(shellIdx < criticalIdx, "mobile shell should load before POS critical inline CSS");
+  assert.match(html, /florisyn-mobile-shell\.css\?v=m8/);
 });
 
 test("mobile shell implements drawer, viewport stack, scroll lock, and five-tab grid", () => {
@@ -19,13 +20,47 @@ test("mobile shell implements drawer, viewport stack, scroll lock, and five-tab 
   assert.match(css, /max-width: 820px/);
   assert.match(css, /translateX\(-105%\)/);
   assert.match(css, /--florisyn-mobile-drawer-width/);
+  assert.match(css, /--florisyn-mobile-drawer-max/);
+  assert.match(css, /248px/);
   assert.match(css, /atelier-sidebar-brand/);
   assert.match(css, /florisyn-lux-main > \.content/);
   assert.match(css, /--florisyn-mobile-nav-height/);
   assert.match(css, /repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.match(css, /safe-area-inset-bottom/);
   assert.match(css, /#lilyPanel:not\(\[hidden\]\)/);
   assert.match(css, /#bloomDaisy/);
   assert.match(css, /\.lily-body/);
+  assert.match(css, /florisyn-mobile-drawer-open/);
+  assert.match(css, /overflow-wrap: anywhere/);
+});
+
+test("mobile drawer max width is constrained and nav labels wrap inside drawer", () => {
+  const css = fs.readFileSync(path.join(root, "public/florisyn-mobile-shell.css"), "utf8");
+  assert.match(css, /max-width: var\(--florisyn-mobile-drawer-max\)/);
+  assert.match(css, /#atelierSidebarDrawer \.florisyn-lux-nav > button/);
+  assert.match(css, /white-space: normal/);
+  assert.match(css, /rgba\(26, 31, 60, 0\.28\)/);
+});
+
+test("mobile shell hides Daisy floating assistant on phone", () => {
+  const css = fs.readFileSync(path.join(root, "public/florisyn-mobile-shell.css"), "utf8");
+  const ent = fs.readFileSync(path.join(root, "public/enterprise-mobile-nav.css"), "utf8");
+  assert.match(css, /#bloomDaisy[\s\S]*display: none !important/);
+  assert.match(ent, /#bloomDaisy/);
+});
+
+test("bottom nav keeps five columns with safe-area min-height", () => {
+  const css = fs.readFileSync(path.join(root, "public/florisyn-mobile-shell.css"), "utf8");
+  const ent = fs.readFileSync(path.join(root, "public/enterprise-mobile-nav.css"), "utf8");
+  assert.match(css, /min-height: var\(--florisyn-mobile-nav-height\)/);
+  assert.match(css, /calc\(68px \+ env\(safe-area-inset-bottom/);
+  assert.match(ent, /repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.match(ent, /safe-area-inset-bottom/);
+});
+
+test("desktop nav behavior unchanged — mobile shell only applies at 820px", () => {
+  const css = fs.readFileSync(path.join(root, "public/florisyn-mobile-shell.css"), "utf8");
+  assert.match(css, /@media \(min-width: 821px\)[\s\S]*\.mobile-nav\.atelier-mobile-nav[\s\S]*display: none !important/);
 });
 
 test("POS critical inline CSS is desktop-only (mobile defers to shell stylesheet)", () => {
@@ -60,12 +95,9 @@ test("setCommunityNavVisible toggles Community vs Menu in bottom nav fifth slot"
   assert.match(appJs, /scrollMobilePageToTop/);
   assert.match(appJs, /syncPageVisibility/);
   assert.match(appJs, /wireMobileLilyScrollLock/);
+  assert.match(appJs, /wireMobileDrawerScrollLock/);
+  assert.match(appJs, /hideMobileFloatingAssistants/);
   assert.match(appJs, /florisyn-lily-open/);
-});
-
-test("enterprise mobile nav CSS uses five equal columns on phone", () => {
-  const css = fs.readFileSync(path.join(root, "public/enterprise-mobile-nav.css"), "utf8");
-  assert.match(css, /repeat\(5, minmax\(0, 1fr\)\)/);
 });
 
 test("mobile mockup markers include hamburger drawer and bottom nav ids", () => {
