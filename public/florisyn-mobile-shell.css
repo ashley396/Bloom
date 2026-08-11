@@ -109,9 +109,17 @@
     touch-action: manipulation;
   }
 
-  body.florisyn-atelier.atelier-drawer-open .mobile-nav.atelier-mobile-nav #mobileNavMore {
-    color: var(--lux-navy, #1a1f3c) !important;
-    background: rgba(246, 223, 232, 0.65) !important;
+  /* Lock page scroll when drawer or Lily chat is open */
+  body.florisyn-atelier.atelier-drawer-open,
+  body.florisyn-atelier.florisyn-nav-locked,
+  body.florisyn-atelier:has(#lilyPanel:not([hidden])) {
+    overflow: hidden !important;
+    touch-action: none;
+  }
+
+  body.florisyn-atelier.atelier-drawer-open .florisyn-lux-main > .content,
+  body.florisyn-atelier:has(#lilyPanel:not([hidden])) .florisyn-lux-main > .content {
+    overflow: hidden !important;
   }
 
   /* Dashboard panels visible on phone (atelier-ui hid assist rail) */
@@ -295,7 +303,7 @@
   /* (scroll + flex assigned above) */
   body.florisyn-atelier .mobile-nav.atelier-mobile-nav {
     display: grid !important;
-    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
     position: fixed !important;
     left: 0 !important;
     right: 0 !important;
@@ -322,10 +330,6 @@
     background: rgba(246, 223, 232, 0.65) !important;
   }
 
-  body.florisyn-atelier #mobileNavMore {
-    color: var(--lux-navy, #1a1f3c) !important;
-  }
-
   /* Lily FAB + panel sit above the tab bar */
   body.florisyn-atelier .lily-fab,
   body.bloom-rc21 .lily-fab {
@@ -341,6 +345,36 @@
     right: 12px !important;
     width: auto !important;
     z-index: 80 !important;
+    max-height: min(78dvh, calc(100dvh - var(--florisyn-mobile-nav-height) - 24px)) !important;
+  }
+
+  body.florisyn-atelier .lily-panel:not([hidden]),
+  body.bloom-rc21 .lily-panel:not([hidden]) {
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  body.florisyn-atelier .lily-panel-head,
+  body.bloom-rc21 .lily-panel-head {
+    flex: 0 0 auto !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 3 !important;
+  }
+
+  body.florisyn-atelier .lily-compose,
+  body.bloom-rc21 .lily-compose {
+    flex: 0 0 auto !important;
+  }
+
+  body.florisyn-atelier .lily-body,
+  body.bloom-rc21 .lily-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
   body.florisyn-atelier #lilyClose.lily-close-btn,

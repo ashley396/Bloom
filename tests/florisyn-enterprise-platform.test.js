@@ -2,10 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-test("enterprise mobile nav exposes five tabs including More", () => {
+test("enterprise mobile nav exposes five primary tabs", () => {
   const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
-  assert.match(html, /id="mobileNavMore"/);
-  assert.match(html, /data-page="libraryPage"/);
+  const mobileNav = html.slice(html.indexOf('class="mobile-nav atelier-mobile-nav"'));
+  const mobileSection = mobileNav.slice(0, mobileNav.indexOf("</nav>"));
+  assert.match(mobileSection, /data-page="posPage"/);
+  assert.match(mobileSection, /data-page="ordersPage"/);
+  assert.match(mobileSection, /data-page="inventoryPage"/);
+  assert.match(mobileSection, /data-page="libraryPage"/);
+  assert.match(mobileSection, /data-page="communityPage"/);
+  assert.doesNotMatch(mobileSection, /id="mobileNavMore"/);
   assert.match(html, /enterprise-mobile-nav\.css/);
   assert.match(html, /core\/florisyn-platform\.js/);
 });

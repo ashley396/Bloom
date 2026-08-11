@@ -26,7 +26,8 @@ test("mobile mockup chrome matches founder phone layout markers", () => {
   assert.match(html, /atelier-mobile-topbar/);
   assert.match(html, /id="atelierMenuToggle"/);
   assert.match(html, /atelier-mobile-nav/);
-  assert.match(html, /id="mobileNavMore"/);
+  assert.match(html, /id="mobileNavCommunity"/);
+  assert.match(html, /id="mobileNavLibrary"/);
   assert.doesNotMatch(html, /id="moreMenu"/);
   assert.doesNotMatch(html, /atelier-mobile-add/);
   assert.match(html, /data-page="dashboardPage"/);

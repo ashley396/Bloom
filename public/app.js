@@ -142,7 +142,16 @@ let weddingWorkflowsEnabled=false;
 let floristNetworkEnabled=false;
 function setCommunityNavVisible(on){
   communityBetaEnabled=Boolean(on);
-  $$('[data-page="communityPage"]').forEach((el)=>{el.hidden=!communityBetaEnabled;el.style.display=communityBetaEnabled?"":"none"});
+  $$('[data-page="communityPage"]').forEach((el)=>{
+    if(el.closest(".mobile-nav"))return;
+    el.hidden=!communityBetaEnabled;
+    el.style.display=communityBetaEnabled?"":"none";
+  });
+  const retry=$("#lilyRetryCommunityBtn");
+  if(retry){
+    retry.hidden=!communityBetaEnabled;
+    retry.style.display=communityBetaEnabled?"":"none";
+  }
   const page=$("#communityPage");
   if(page&&!communityBetaEnabled){page.classList.remove("active");if(page.querySelector("#communityRoot"))page.querySelector("#communityRoot").innerHTML="";}
 }
