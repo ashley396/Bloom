@@ -40,11 +40,63 @@ const PEXELS_POOL = [
   "4041383",
   "4041384",
   "4041385",
-  "4041386"
+  "4041386",
+  "6641321",
+  "12246243",
+  "15583008",
+  "28871336",
+  "14438233",
+  "8793489",
+  "6913088",
+  "28871333",
+  "31788089",
+  "37023405",
+  "35556908",
+  "35348905",
+  "30248284",
+  "37222812",
+  "31792526",
+  "16812533",
+  "7185245",
+  "28571066",
+  "7875459",
+  "33617307",
+  "269220",
+  "34463054",
+  "35990366",
+  "35042836",
+  "36745140",
+  "15733233",
+  "11814563",
+  "8112797",
+  "2879819",
+  "6757651"
 ];
 
-const FLOWERS = ["Rose", "Hydrangea", "Lily", "Tulip", "Peony", "Ranunculus", "Dahlia", "Carnation", "Sunflower", "Orchid", "Snapdragon", "Delphinium", "Chrysanthemum", "Daisy", "Stock", "Anemone", "Freesia", "Iris", "Gerbera", "Alstroemeria"];
-const STYLES = ["Garden", "Classic", "Modern", "Romantic", "Luxury", "Petite", "Grand", "Seasonal", "Designer", "Market"];
+const EVERYDAY_RECIPES = [
+  ["Garden Hydrangea", [["Blue Hydrangea", 3], ["White Roses", 6], ["Seeded Eucalyptus", 5], ["Italian Ruscus", 4]]],
+  ["Blush Rose", [["Blush Roses", 10], ["Waxflower", 4], ["Silver Dollar Eucalyptus", 5], ["Limonium", 3]]],
+  ["Sunflower Meadow", [["Sunflowers", 5], ["Yellow Roses", 6], ["Solidago", 4], ["Leatherleaf", 5]]],
+  ["Peony Blush", [["Pink Peonies", 6], ["Cream Roses", 7], ["Dusty Miller", 4], ["Eucalyptus", 5]]],
+  ["Tulip Bowl", [["Tulips", 15], ["Hyacinth", 4], ["Bear Grass", 8], ["Moss", 1]]],
+  ["Lily Garden", [["Pink Lilies", 5], ["White Stock", 5], ["Alstroemeria", 7], ["Salal", 5]]],
+  ["Dahlia Glow", [["Dahlias", 7], ["Spray Roses", 6], ["Hypericum", 4], ["Ruscus", 5]]],
+  ["Ranunculus Charm", [["Ranunculus", 10], ["Sweet Pea", 6], ["Mini Carnations", 6], ["Eucalyptus", 4]]],
+  ["Freesia Morning", [["Freesia", 12], ["White Roses", 5], ["Green Trick Dianthus", 4], ["Pittosporum", 5]]],
+  ["Gerbera Cheer", [["Gerbera Daisies", 8], ["Button Mums", 6], ["Roses", 5], ["Leatherleaf", 5]]],
+  ["Orchid Accent", [["Cymbidium Orchids", 5], ["Roses", 7], ["Hydrangea", 2], ["Aspidistra", 4]]],
+  ["Stock & Snap", [["Snapdragons", 7], ["Stock", 6], ["Carnations", 7], ["Eucalyptus", 5]]],
+  ["Alstroemeria Fresh", [["Alstroemeria", 12], ["Spray Roses", 6], ["Monte Casino", 5], ["Salal", 5]]],
+  ["Iris Garden", [["Iris", 9], ["White Roses", 5], ["Delphinium", 5], ["Leatherleaf", 5]]],
+  ["Daisy Basket", [["Daisies", 12], ["Yellow Roses", 5], ["Solidago", 4], ["Tree Fern", 5]]],
+  ["Anemone Pop", [["Anemones", 9], ["Ranunculus", 7], ["Spray Roses", 5], ["Italian Ruscus", 5]]],
+  ["Carnation Cloud", [["Carnations", 14], ["Mini Carnations", 8], ["Baby's Breath", 4], ["Leatherleaf", 5]]],
+  ["Chrysanthemum Market", [["Chrysanthemums", 10], ["Roses", 6], ["Statice", 4], ["Salal", 5]]],
+  ["Delphinium Sky", [["Delphinium", 7], ["White Roses", 6], ["Hydrangea", 2], ["Eucalyptus", 4]]],
+  ["Rosemary Garden", [["Garden Roses", 8], ["Lisianthus", 6], ["Waxflower", 4], ["Rosemary", 5]]]
+];
+
+const STYLES = ["Garden", "Classic", "Modern", "Romantic", "Petite", "Grand", "Seasonal", "Designer", "Market", "Everyday"];
 const OCCASIONS = [
   { cat: "Everyday", slug: "everyday" },
   { cat: "Birthday", slug: "birthday" },
@@ -73,38 +125,38 @@ function hash(s) {
 }
 
 function mkProduct(index) {
-  const occ = OCCASIONS[index % OCCASIONS.length];
-  const flower = FLOWERS[index % FLOWERS.length];
-  const style = STYLES[Math.floor(index / FLOWERS.length) % STYLES.length];
-  const name = `${style} ${flower} ${occ.cat === "Everyday" ? "Bouquet" : occ.cat}`.replace(" bouquets", "");
+  const firstVisiblePage = index < 60;
+  const occ = firstVisiblePage ? OCCASIONS[0] : OCCASIONS[index % OCCASIONS.length];
+  const recipeTemplate = EVERYDAY_RECIPES[index % EVERYDAY_RECIPES.length];
+  const style = STYLES[Math.floor(index / EVERYDAY_RECIPES.length) % STYLES.length];
+  const baseName = firstVisiblePage
+    ? `${style} ${recipeTemplate[0]} Arrangement`
+    : `${style} ${recipeTemplate[0]} ${occ.cat === "Everyday" ? "Arrangement" : occ.cat}`.replace(" bouquets", "");
+  const name = `${baseName} ${index + 1}`;
   const id = `lib-rc2-${occ.slug}-${String(index).padStart(3, "0")}`;
   const photoId = PEXELS_POOL[index % PEXELS_POOL.length];
   const url = pexelsUrl(photoId);
   const price = 49.99 + (index % 12) * 7.5 + (occ.cat.includes("Luxury") || occ.cat.includes("Wedding") ? 40 : 0);
-  const description = `A ${style.toLowerCase()} ${flower.toLowerCase()} arrangement styled for ${occ.cat.toLowerCase()} — starter recipe and pricing included. Customize the photo and copy for your shop anytime.`;
-  const shortDescription = `${style} ${flower} for ${occ.cat.replace(/ bouquets$/i, "").toLowerCase()}. Ready to add to your catalog.`;
+  const description = `An ultra-realistic ${style.toLowerCase()} everyday floral arrangement with florist-ready recipe guidance and licensed starter photography; replace with your own shop work anytime.`;
   return {
     id,
     scope: "master",
     name,
-    categories: [occ.cat, flower + "s"],
+    categories: [occ.cat, recipeTemplate[0]],
     arrangement_type: occ.cat === "Plants" ? "plant" : "bouquet",
     suggested_retail: { default: Math.round(price * 100) / 100, min: price * 0.9, max: price * 1.25 },
     suggested_cost: Math.round(price * 0.42 * 100) / 100,
     description,
-    short_description: shortDescription,
-    primary_image: { url, alt: `${name} ultra-realistic floral arrangement photograph`, hash: hash(`${id}-${url}`) },
+    short_description: description.slice(0, 120),
+    primary_image: { url, alt: `${name} ultra-realistic everyday floral arrangement photograph`, hash: hash(`${id}-${url}`) },
     image_license: {
       source: "licensed_stock_pexels",
       attribution: "Pexels — verify license at import",
       review_status: "approved_starter"
     },
-    recipe: [
-      { name: flower, qty: 8 + (index % 6) },
-      { name: "Seasonal greenery", qty: 4 + (index % 3) }
-    ],
+    recipe: recipeTemplate[1].map(([name, qty]) => ({ name, qty })),
     publish_status: "published",
-    tags: [occ.slug, flower.toLowerCase(), "rc2_starter", "ultra_realistic"],
+    tags: [occ.slug, recipeTemplate[0].toLowerCase(), "everyday_arrangement", "rc2_starter", "ultra_realistic"],
     metadata: {
       image_standard: "ultra_realistic_professional_floral_photography",
       launch_quality: "starter_verified",
@@ -114,10 +166,10 @@ function mkProduct(index) {
   };
 }
 
-/** ~240 unique starter arrangements for founder review. */
+/** Starter arrangements are capped to the verified unique photo pool so the library never repeats pictures. */
 export function getBloomFloristCatalog(count = 240) {
-  const n = Math.max(1, Math.min(500, count));
+  const n = Math.max(1, Math.min(PEXELS_POOL.length, count));
   return Array.from({ length: n }, (_, i) => mkProduct(i));
 }
 
-export const BLOOM_RC2_CATALOG_SIZE = 240;
+export const BLOOM_RC2_CATALOG_SIZE = PEXELS_POOL.length;
