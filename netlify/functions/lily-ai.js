@@ -70,6 +70,7 @@ function buildResponseMessage(intent, permission, planned, confirmed) {
   }
   if (planned?.type === "navigate") return "Opening the right workspace for you.";
   if (intent.intent === "general.chat") return null;
+  // Florisyn's florist business assistant — customer-facing Lily identity copy.
   return "Here is what I prepared. Review the suggestion and confirm if Florisyn should take action.";
 }
 

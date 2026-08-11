@@ -26,5 +26,5 @@ test("dashboard icon controls have explicit button types and accessible names", 
 });
 
 test("signup form does not crash when submitted without event.submitter", () => {
-  assert.match(signupJs, /e\.submitter\|\|\$\('#signupForm button\[type="submit"\]'\)/);
+  assert.match(signupJs, /e\.submitter\s*\|\|\s*\$\(['"]#signupForm button\[type=['"]submit['"]\]['"]\)/);
 });

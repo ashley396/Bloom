@@ -109,13 +109,14 @@ test("upload accepts only prevalidated sanitized image; never data URL / sharp",
     path.join(process.cwd(), "netlify/functions/_shared/florist-community-storage.js"),
     "utf8"
   );
-  assert.doesNotMatch(src, /validateCommunityImageUpload|from ["']sharp["']|parseDataUrl|data_url/i);
-  assert.doesNotMatch(src, /function upload[^(]*\([^)]*dataUrl/);
+  assert.doesNotMatch(src, /validateCommunityImageUpload|from ["']sharp["']|function upload[^(]*\([^)]*dataUrl/);
+  assert.doesNotMatch(src, /source:\s*["']client_data_url["']/);
+  assert.match(src, /parseClientImageDataUrl/);
   assert.match(src, /assertPrevalidatedCommunityImage/);
   assert.match(src, /reconcileCommunityImageAfterWriteError/);
 
   const handler = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
-  assert.match(handler, /uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image\)/);
+  assert.match(handler, /uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image(?:,\s*\{[^}]*\})?\)/);
   assert.match(handler, /reconcileCommunityImageAfterWriteError\(client, uploadedPath\)/);
   assert.doesNotMatch(handler, /validateCommunityImageUpload/);
   assert.doesNotMatch(handler, /uploadPrevalidatedCommunityImage\([^)]*body\.image_data_url/);
@@ -182,7 +183,7 @@ test("create/update path processes image exactly once via validatePostBody → u
   assert.doesNotMatch(storage, /from ["']sharp["']/);
   assert.doesNotMatch(handler, /from ["']sharp["']/);
   assert.doesNotMatch(handler, /validateCommunityImageUpload/);
-  assert.match(handler, /uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image\)/);
+  assert.match(handler, /uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image(?:,\s*\{[^}]*\})?\)/);
   assert.equal(
     (handler.match(/reconcileCommunityImageAfterWriteError\(client, uploadedPath\)/g) || []).length,
     2

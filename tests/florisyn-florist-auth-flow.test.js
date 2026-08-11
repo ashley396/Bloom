@@ -23,7 +23,7 @@ test("florist login stores bloom_session and redirects home", () => {
   assert.match(loginJs, /fetch\('\/api\/auth-login'/);
   assert.doesNotMatch(loginJs, /\/\.netlify\/functions\/auth-login/);
   assert.match(loginJs, /localStorage\.setItem\('bloom_session'/);
-  assert.match(loginJs, /location\.href="\/"/);
+  assert.match(loginJs, /location\.href="\/dashboard"/);
   assert.doesNotMatch(loginJs, /admin-bootstrap|ownerSetup/);
 });
 

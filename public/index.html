@@ -62,6 +62,7 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
     <button type="button" data-route="/analytics" data-page="analyticsPage">Analytics</button>
     <button type="button" data-route="/reports" data-page="reportsPage">Reports</button>
     <button type="button" data-route="/expenses" data-page="expensesPage">Expenses</button>
+    <button type="button" data-route="/invoices" data-page="invoicesPage">Invoices</button>
     <button type="button" data-route="/photo-studio" data-page="bloomshotPage">Photo Studio</button>
     <button type="button" data-route="/website-studio" data-page="websitePage">Website Studio</button>
     <button type="button" data-route="/floral-library" data-page="libraryPage">Floral Library</button>
@@ -312,6 +313,8 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
           <button type="button" class="pos-lux-cat" data-pos-cat="Everyday" style="background-image:url('/assets/floral-library/florisyn-arrangement-signature-blush.jpg')">Luxury Vase</button>
         </div>
         <label class="visually-hidden" for="tileCategoryFilter">Product tile category</label>
+        <button type="button" aria-label="Show compact product tile grid">▦</button>
+        <button type="button" aria-label="Show spacious product tile grid">▤</button>
         <select id="tileCategoryFilter" class="visually-hidden" tabindex="-1" aria-hidden="true">
           <option value="all">All</option>
           <option value="Everyday">Everyday</option>

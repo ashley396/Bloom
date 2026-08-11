@@ -170,7 +170,9 @@
       btn.addEventListener("click", () => {
         const input = $("#bosPrompt");
         if (!input) return;
-        input.value = btn.dataset.bosChip || btn.textContent || "";
+        const chip = (btn.dataset.bosChip || btn.textContent || "").trim();
+        if (/pricing strategy/i.test(chip)) input.dataset.bosTopic = "pricing strategy";
+        input.value = chip;
         input.focus();
         input.setSelectionRange(input.value.length, input.value.length);
       });
