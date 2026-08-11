@@ -5,6 +5,7 @@ import fs from "node:fs";
 test("enterprise mobile nav exposes five tabs including More", () => {
   const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
   assert.match(html, /id="mobileNavMore"/);
+  assert.match(html, /id="mobileNavInventory"/);
   assert.match(html, /data-page="libraryPage"/);
   assert.match(html, /enterprise-mobile-nav\.css/);
   assert.match(html, /core\/florisyn-platform\.js/);
