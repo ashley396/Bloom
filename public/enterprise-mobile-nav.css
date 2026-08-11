@@ -8,7 +8,7 @@
   }
 
   body.florisyn-atelier .mobile-nav.atelier-mobile-nav:has(#mobileNavMore) {
-    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
   }
 
   body.florisyn-atelier .mobile-nav.atelier-mobile-nav:not(:has(#mobileNavMore)) {

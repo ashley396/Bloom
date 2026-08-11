@@ -20,14 +20,22 @@ test("mobile shell fixes off-canvas drawer and full-width main", () => {
   assert.match(css, /translateX\(-105%\)/);
   assert.match(css, /florisyn-lux-main > \.content/);
   assert.match(css, /--florisyn-mobile-nav-height/);
-  assert.match(css, /repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.match(css, /repeat\(6, minmax\(0, 1fr\)\)/);
 });
 
-test("mobile bottom nav exposes five tabs including Menu drawer", () => {
+test("mobile bottom nav exposes daily actions and Menu drawer", () => {
   const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
   assert.match(html, /id="mobileNavMore"/);
   assert.match(html, /data-page="dashboardPage"/);
   assert.match(html, /data-page="posPage"/);
   assert.match(html, /data-page="ordersPage"/);
-  assert.match(html, /data-page="libraryPage"/);
+  assert.match(html, /data-page="inventoryPage"/);
+  assert.match(html, /data-page="productsPage"/);
+  assert.match(html, /data-page="libraryPage"/, "library stays in sidebar menu");
+});
+
+test("showPage scrolls mobile viewport to top", () => {
+  const js = fs.readFileSync(path.join(root, "public/app.js"), "utf8");
+  assert.match(js, /scrollMobilePageToTop/);
+  assert.match(js, /closeMobileDrawer/);
 });
