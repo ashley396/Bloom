@@ -5,7 +5,7 @@
   "batch_offset": 50,
   "target_total": 500,
   "collection": "Florisyn Everyday Ultra-Realistic",
-  "generated_at": "2026-08-10T19:47:31.151Z",
+  "generated_at": "2026-08-11T13:02:30.036Z",
   "arrangements": [
     {
       "id": "ed-51-daily-pink-cylinder",
@@ -63,7 +63,16 @@
       "suggested_retail": 57.99,
       "image": "everyday/ed-51-daily-pink-cylinder.jpg",
       "alt": "Daily Pink Cylinder — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "435b9ca02cb89b802b3f7ec992dee7b083ed7634ddb13a3c0689c971ee702f42",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-52-soft-garden-morning",
@@ -120,7 +129,16 @@
       "suggested_retail": 58.99,
       "image": "everyday/ed-52-soft-garden-morning.jpg",
       "alt": "Soft Garden Morning — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "6f540eb2642733557d780ebf5ddcd727a6ca72ea9b9f79b1a5094d8baf405f9f",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-53-white-meadow-vase",
@@ -177,7 +195,16 @@
       "suggested_retail": 54.99,
       "image": "everyday/ed-53-white-meadow-vase.jpg",
       "alt": "White Meadow Vase — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "a520519b3d95fc37239e0ba8d090aa85c78e36de9fba329aaa3f289563af4ed6",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-54-everyday-citrus-mix",
@@ -233,7 +260,16 @@
       "suggested_retail": 52.99,
       "image": "everyday/ed-54-everyday-citrus-mix.jpg",
       "alt": "Everyday Citrus Mix — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "c4fe579fc4b3ce1053fe6c8ad84280db380f3dc7467f44351a7da5af384db633",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-55-hydrangea-cottage-jar",
@@ -289,7 +325,16 @@
       "suggested_retail": 51.99,
       "image": "everyday/ed-55-hydrangea-cottage-jar.jpg",
       "alt": "Hydrangea Cottage Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "6355cb895b782d436b0a4fcf5916b46f344bea3772ce8eba0dc9a745068f2c68",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-56-rose-stock-everyday",
@@ -345,7 +390,16 @@
       "suggested_retail": 59.99,
       "image": "everyday/ed-56-rose-stock-everyday.jpg",
       "alt": "Rose & Stock Everyday — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "ffc1045f61f1a315553a7d47642c1122f14bb950fd8e4ad2a6b36d0a6f6be68d",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-57-daisy-porch-jar",
@@ -400,7 +454,16 @@
       "suggested_retail": 43.99,
       "image": "everyday/ed-57-daisy-porch-jar.jpg",
       "alt": "Daisy Porch Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "2e169c947689c04255042a8c7a0a80746a571f328fe90799c07518b535247edd",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-58-blush-countertop-mix",
@@ -456,7 +519,16 @@
       "suggested_retail": 49.99,
       "image": "everyday/ed-58-blush-countertop-mix.jpg",
       "alt": "Blush Countertop Mix — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "ccec36efb5378970284940b6d9eafbdb155cce35d91c4ae0eb3bcb8e802ce430",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-59-neutral-rose-vase",
@@ -512,7 +584,16 @@
       "suggested_retail": 60.99,
       "image": "everyday/ed-59-neutral-rose-vase.jpg",
       "alt": "Neutral Rose Vase — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "4792565aa2138d686ebcf11556a59833079352720b55a3762cdff56189815adc",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-60-sunflower-simple-jar",
@@ -566,7 +647,16 @@
       "suggested_retail": 41.99,
       "image": "everyday/ed-60-sunflower-simple-jar.jpg",
       "alt": "Sunflower Simple Jar — ultra-realistic everyday floral arrangement in pint mason jar",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "c0fe33322682e947eb9f8d139928cfc330e7c3b321b9ffd280aa1d6adf6d7c55",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-61-clean-greens-whites",
@@ -630,7 +720,16 @@
       "suggested_retail": 53.99,
       "image": "everyday/ed-61-clean-greens-whites.jpg",
       "alt": "Clean Greens & Whites — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "b484df54bc4898fb994f4e0d37b0b0e5281d70188eafa427782936481c23cbd1",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-62-pink-breeze-vase",
@@ -686,7 +785,16 @@
       "suggested_retail": 48.99,
       "image": "everyday/ed-62-pink-breeze-vase.jpg",
       "alt": "Pink Breeze Vase — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "cfb0a7ca81a3259126d0d9abac436921a154facad02454f1e7dce978addfb3dc",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-63-everyday-hydrangea-cube",
@@ -737,7 +845,16 @@
       "suggested_retail": 62.99,
       "image": "everyday/ed-63-everyday-hydrangea-cube.jpg",
       "alt": "Everyday Hydrangea Cube — ultra-realistic everyday floral arrangement in 5\" glass cube vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "e4c739b09a8e9bd14af1962ff8db7dec87d125de8d81437ad465589c6ad6b1d5",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-64-soft-yellow-harmony",
@@ -792,7 +909,16 @@
       "suggested_retail": 55.99,
       "image": "everyday/ed-64-soft-yellow-harmony.jpg",
       "alt": "Soft Yellow Harmony — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "d0e7f62a63a2a0e58e6d4589569065e067f257c46f5cca6f5f87915362366c48",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-65-rose-mum-daily-vase",
@@ -848,7 +974,16 @@
       "suggested_retail": 56.99,
       "image": "everyday/ed-65-rose-mum-daily-vase.jpg",
       "alt": "Rose & Mum Daily Vase — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "06f82a6fc169d33af0d6d5f61813a0db27a7670d4962486a0eed7153c049ea5a",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-66-bright-market-jar",
@@ -903,7 +1038,16 @@
       "suggested_retail": 44.99,
       "image": "everyday/ed-66-bright-market-jar.jpg",
       "alt": "Bright Market Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "9b0367eec5bd24618b100b473f111c195d762fff160b799d2bed23c6c5fbbc0b",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-67-calm-white-garden",
@@ -958,7 +1102,16 @@
       "suggested_retail": 65.99,
       "image": "everyday/ed-67-calm-white-garden.jpg",
       "alt": "Calm White Garden — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "ebbd26074213f672d84131fbe5d446a39a3d6782fda566a1e05694a836fa1098",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-68-peach-pink-blend",
@@ -1013,7 +1166,16 @@
       "suggested_retail": 57.99,
       "image": "everyday/ed-68-peach-pink-blend.jpg",
       "alt": "Peach & Pink Blend — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "9098e8acc8073622d883c62d0d28fd8027d505392624b36ada8df740637159e7",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-69-hydrangea-daisy-mix",
@@ -1068,7 +1230,16 @@
       "suggested_retail": 55.99,
       "image": "everyday/ed-69-hydrangea-daisy-mix.jpg",
       "alt": "Hydrangea & Daisy Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "15cca478119fa2134e7994f93c2d44e8d8922d310d508bdf706a3c763b3bc653",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-70-everyday-rustic-cylinder",
@@ -1123,7 +1294,16 @@
       "suggested_retail": 52.99,
       "image": "everyday/ed-70-everyday-rustic-cylinder.jpg",
       "alt": "Everyday Rustic Cylinder — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "0b8693c75a33f7c8b1f1cb0ad5adc23e4ec03e48baa2e8036bdc82e8d49a5b82",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-71-modern-neutral-jar",
@@ -1177,7 +1357,16 @@
       "suggested_retail": 50.99,
       "image": "everyday/ed-71-modern-neutral-jar.jpg",
       "alt": "Modern Neutral Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "f83101885ed3d4ff56f8e4ebec7e0e30d5b4c8703960a6e41676e7a22da3e859",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-72-daily-blush-bouquet",
@@ -1241,7 +1430,16 @@
       "suggested_retail": 46.99,
       "image": "everyday/ed-72-daily-blush-bouquet.jpg",
       "alt": "Daily Blush Bouquet — ultra-realistic everyday floral arrangement in hand-tie wrap (no vase)",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "cf3f52d44e40c6447862d016ee24892acb422b3e8e8d1fae27f501b08f4afbf2",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-73-soft-lavender-mix",
@@ -1296,7 +1494,16 @@
       "suggested_retail": 54.99,
       "image": "everyday/ed-73-soft-lavender-mix.jpg",
       "alt": "Soft Lavender Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "948da2774d6fe8bb8251e1721bb6afd519fb354a08ecfd482008280f85640c11",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-74-rose-carnation-classic",
@@ -1351,7 +1558,16 @@
       "suggested_retail": 61.99,
       "image": "everyday/ed-74-rose-carnation-classic.jpg",
       "alt": "Rose & Carnation Classic — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "0013589ad3e4cfefb3a3d669b3e78f6e5e4c54e752f370aabeb927b67cd9ba1b",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-75-sunshine-table-vase",
@@ -1406,7 +1622,16 @@
       "suggested_retail": 47.99,
       "image": "everyday/ed-75-sunshine-table-vase.jpg",
       "alt": "Sunshine Table Vase — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "76a2a5cd450fb9071df41fb0f6694d9af941c2c9743c636699d8c76b46e8781a",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-76-gentle-white-trio",
@@ -1461,7 +1686,16 @@
       "suggested_retail": 58.99,
       "image": "everyday/ed-76-gentle-white-trio.jpg",
       "alt": "Gentle White Trio — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "b9c72cc0a00fcb1a2c68330db1e6b846760b5dc0c1c7f04586e00e83f9f25917",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-77-pink-market-bunch",
@@ -1516,7 +1750,16 @@
       "suggested_retail": 40.99,
       "image": "everyday/ed-77-pink-market-bunch.jpg",
       "alt": "Pink Market Bunch — ultra-realistic everyday floral arrangement in hand-tie wrap (no vase)",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "8640e11635b2af4102a0aa098eebb91b92cf9bc825710d34f8de191e21eda188",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-78-everyday-hydrangea-rose",
@@ -1571,7 +1814,16 @@
       "suggested_retail": 63.99,
       "image": "everyday/ed-78-everyday-hydrangea-rose.jpg",
       "alt": "Everyday Hydrangea Rose — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "14fa99a7779568b241798ca955ca82186551f20354181304d8acf2261c8e6613",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-79-daisy-stock-harmony",
@@ -1626,7 +1878,16 @@
       "suggested_retail": 51.99,
       "image": "everyday/ed-79-daisy-stock-harmony.jpg",
       "alt": "Daisy & Stock Harmony — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "412f73e72e8ffbe6ca2d62d9ef1da83fe7db4f4bdb42fa97a294f811516f3180",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-80-clean-color-pop",
@@ -1681,7 +1942,16 @@
       "suggested_retail": 49.99,
       "image": "everyday/ed-80-clean-color-pop.jpg",
       "alt": "Clean Color Pop — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "acbb0bf5aa6411fed7240b5049cfcc4a13db0ab5a475723dff6e4e85045ed4c0",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-81-soft-neutral-jar",
@@ -1735,7 +2005,16 @@
       "suggested_retail": 42.99,
       "image": "everyday/ed-81-soft-neutral-jar.jpg",
       "alt": "Soft Neutral Jar — ultra-realistic everyday floral arrangement in pint mason jar",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "68d8795fe967fba59710659ee6e30fd93da65bf4569e3ad30fd723213b86b81d",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-82-rose-garden-everyday",
@@ -1795,7 +2074,16 @@
       "suggested_retail": 58.99,
       "image": "everyday/ed-82-rose-garden-everyday.jpg",
       "alt": "Rose Garden Everyday — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "edea2969f2db4816e4b4c84557f8e058a8760e317e79f7f31c50c7bf16e9fdd6",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-83-hydrangea-greens-mix",
@@ -1864,7 +2152,16 @@
       "suggested_retail": 54.99,
       "image": "everyday/ed-83-hydrangea-greens-mix.jpg",
       "alt": "Hydrangea & Greens Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "4c37e9f1328bfb1482cf9c9d26da8e25d4301265bd33353694293c004f1739eb",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-84-bright-daily-cylinder",
@@ -1919,7 +2216,16 @@
       "suggested_retail": 47.99,
       "image": "everyday/ed-84-bright-daily-cylinder.jpg",
       "alt": "Bright Daily Cylinder — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "e480370a3fa214262cc0fd1c3a01ffa791c2aaf0236380bfa8c902002449fd0f",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-85-pink-white-everyday",
@@ -1980,7 +2286,16 @@
       "suggested_retail": 59.99,
       "image": "everyday/ed-85-pink-white-everyday.jpg",
       "alt": "Pink & White Everyday — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "6c2f4822c23796878a805397aa2fd18da8a24212af7c491a5e7db08bc705b314",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-86-sunflower-accent-vase",
@@ -2035,7 +2350,16 @@
       "suggested_retail": 50.99,
       "image": "everyday/ed-86-sunflower-accent-vase.jpg",
       "alt": "Sunflower Accent Vase — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "255536a0362f45ce3800248669b8df05b399e09cd7b69a1eb74d599b38e9c611",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-87-classic-rose-jar",
@@ -2090,7 +2414,16 @@
       "suggested_retail": 55.99,
       "image": "everyday/ed-87-classic-rose-jar.jpg",
       "alt": "Classic Rose Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "df77a4b83a17430ab306ec4ae9f72d9ead27b14310b86febc92df4b363f22e8e",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-88-soft-spring-color-mix",
@@ -2150,7 +2483,16 @@
       "suggested_retail": 56.99,
       "image": "everyday/ed-88-soft-spring-color-mix.jpg",
       "alt": "Soft Spring Color Mix — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "e99ef7b6078a18204b36d5e6ba785aa4017e92d5929624c922865f43166650d4",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-89-neutral-countertop-arrangement",
@@ -2205,7 +2547,16 @@
       "suggested_retail": 51.99,
       "image": "everyday/ed-89-neutral-countertop-arrangement.jpg",
       "alt": "Neutral Countertop Arrangement — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "3f1b62036bd8cda67801784d94ec1c484d4c88b61fcbf25f3f031b8a23eb9f33",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-90-blush-cream-harmony",
@@ -2260,7 +2611,16 @@
       "suggested_retail": 60.99,
       "image": "everyday/ed-90-blush-cream-harmony.jpg",
       "alt": "Blush & Cream Harmony — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "51577c0189c232cab6e64b640cdb388491a983e87465c771d081e7b32d2cfec3",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-91-daisy-sunshine-cube",
@@ -2315,7 +2675,16 @@
       "suggested_retail": 45.99,
       "image": "everyday/ed-91-daisy-sunshine-cube.jpg",
       "alt": "Daisy Sunshine Cube — ultra-realistic everyday floral arrangement in 5\" glass cube vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "f145e2c9ebca79388656799f2801f1179c0826c50ea5bc7b110a3f89ff6dc81f",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-92-everyday-rose-lily",
@@ -2370,7 +2739,16 @@
       "suggested_retail": 64.99,
       "image": "everyday/ed-92-everyday-rose-lily.jpg",
       "alt": "Everyday Rose & Lily — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "c9c9aba8ba5e195b29f25900f428f80bcda3e24dbada9866719d2f93f542e196",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-93-hydrangea-soft-blend",
@@ -2425,7 +2803,16 @@
       "suggested_retail": 61.99,
       "image": "everyday/ed-93-hydrangea-soft-blend.jpg",
       "alt": "Hydrangea Soft Blend — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "228fb1561eb6337a9e0d2d8442a5736cb6ef0bd97455933b691bc7e0e0336571",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-94-rustic-greens-whites",
@@ -2489,7 +2876,16 @@
       "suggested_retail": 49.99,
       "image": "everyday/ed-94-rustic-greens-whites.jpg",
       "alt": "Rustic Greens & Whites — ultra-realistic everyday floral arrangement in quart mason jar",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "0086ff21ec9c1b91c37bb65eacf28add84219e5fe7d732ccc91c6b240e079c6e",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-95-daily-pink-yellow",
@@ -2544,7 +2940,16 @@
       "suggested_retail": 46.99,
       "image": "everyday/ed-95-daily-pink-yellow.jpg",
       "alt": "Daily Pink & Yellow — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "6069735e8b03456f8a7f0852c9a33c497c2c5d8c3376a645025520e614a95225",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-96-bright-everyday-vase",
@@ -2599,7 +3004,16 @@
       "suggested_retail": 53.99,
       "image": "everyday/ed-96-bright-everyday-vase.jpg",
       "alt": "Bright Everyday Vase — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "c2cc6a261312744956600d9530fb68e57fee7452a6c9dc2992b7b804fb6391e2",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-97-soft-pastel-jar",
@@ -2653,7 +3067,16 @@
       "suggested_retail": 41.99,
       "image": "everyday/ed-97-soft-pastel-jar.jpg",
       "alt": "Soft Pastel Jar — ultra-realistic everyday floral arrangement in pint mason jar",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "33da10e2a38c503a7899fef42536ec3ce49ad4cd2b31e97061e5b2ab29d41cdb",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-98-rose-daisy-color-pop",
@@ -2708,7 +3131,16 @@
       "suggested_retail": 52.99,
       "image": "everyday/ed-98-rose-daisy-color-pop.jpg",
       "alt": "Rose & Daisy Color Pop — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "fdc83d13df7c94342cbe3e7aa6b7a196044aa7e7ddfc8aa31a3b90cae3ed714a",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-99-hydrangea-everyday-trio",
@@ -2762,7 +3194,16 @@
       "suggested_retail": 67.99,
       "image": "everyday/ed-99-hydrangea-everyday-trio.jpg",
       "alt": "Hydrangea Everyday Trio — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "3afb9455e4638d85037e35ab97854d20133d704194f928ad1dc4e4d7d51ac52d",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-100-florist-counter-classic",
@@ -2838,7 +3279,19 @@
       "suggested_retail": 58.99,
       "image": "everyday/ed-100-florist-counter-classic.jpg",
       "alt": "Florist Counter Classic — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "batch": 2
+      "batch": 2,
+      "pexels_photo_id": null,
+      "content_sha256": "97634223f78c8bc2b8fa61bc9562645138b951b6ad26a56723088a0a8f8fc9fd",
+      "needs_image_replacement": true,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Placeholder — unique arrangement photo pending replacement",
+        "review_status": "needs_replacement"
+      },
+      "image_subject": "placeholder_needs_replacement"
     }
-  ]
+  ],
+  "image_source": "florisyn_verified_arrangements_plus_placeholders",
+  "verified_arrangement_count": 26,
+  "placeholder_count": 74
 }
