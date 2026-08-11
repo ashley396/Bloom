@@ -160,12 +160,12 @@ export function initCommandCenter(deps) {
       )
       .join('');
     const issues = (d.known_issues || [])
-      .map((i) => `<article class="shop-row"><div><strong>${escapeHtml(i.title)}</strong><small>${escapeHtml(i.severity)}</small></div><p>${escapeHtml(i.detail)}</p></article>`)
+      .map((i) => `<article class="shop-row beta-toolkit-row"><div><strong>${escapeHtml(i.title)}</strong><small>${escapeHtml(i.severity)}</small><p>${escapeHtml(i.detail)}</p></div></article>`)
       .join('');
     const inbox = (d.feedback || [])
       .map(
         (f) =>
-          `<article class="shop-row"><div><strong>${escapeHtml(f.category)}</strong><small>${new Date(f.created_at).toLocaleString()} · shop ${escapeHtml(f.shop_id || '—')}</small></div><p>${escapeHtml(f.message)}</p></article>`
+          `<article class="shop-row beta-toolkit-row"><div><strong>${escapeHtml(f.category)}</strong><small>${new Date(f.created_at).toLocaleString()} · shop ${escapeHtml(f.shop_id || '—')}</small><p>${escapeHtml(f.message)}</p></div></article>`
       )
       .join('');
     const stored = readBetaChecks();
