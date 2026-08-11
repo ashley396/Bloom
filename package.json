@@ -32,6 +32,8 @@
     "test:community-rls": "node --test tests/integration/florist-community-rls.test.js",
     "test:floral-library-rls": "node --test tests/integration/floral-library-rls.test.js",
     "test:floral-library-crash": "node --test tests/floral-library-function-crash.test.js",
+    "test:floral-library-duplicate-hash": "node --test tests/floral-library-duplicate-image-hash.test.js",
+    "audit:floral-library-images": "node scripts/audit-floral-library-image-hashes.mjs",
     "test:live-schema-snapshot": "node --test tests/florisyn-live-schema-snapshot.test.js",
     "test:canonical-migrations": "node --test tests/p0-11-canonical-migration-chain.test.js",
     "test:tenant-isolation": "node --test tests/p0-12-closed-beta-tenant-isolation.test.js",
