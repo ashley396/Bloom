@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 /**
+ * @deprecated Use `node scripts/fetch-unique-everyday-images.mjs` for unique licensed photos.
+ * This legacy script copies from a 10-image pool and produces duplicate thumbnails.
  * Writes real JPG copies for every everyday library arrangement.
  * Required for Netlify static deploy (symlinks 404 → SPA fallback → one broken thumbnail).
  */
