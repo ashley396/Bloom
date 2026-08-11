@@ -247,7 +247,7 @@ async function ensureDefaultProfile(client, ctx) {
   return data;
 }
 
-async function signedImageUrl(client, path, { adminClient = null } = {}) {
+async function signedImageUrl(client, path) {
   if (!path || !isStoragePath(path)) {
     return { url: null, expiresIn: null };
   }
@@ -256,14 +256,6 @@ async function signedImageUrl(client, path, { adminClient = null } = {}) {
     p_path: path,
   });
   if (readErr || readable !== true) {
-    if (adminClient) {
-      const { data, error } = await adminClient.storage
-        .from(COMMUNITY_IMAGE_BUCKET)
-        .createSignedUrl(path, COMMUNITY_SIGNED_URL_SECONDS);
-      if (!error && data?.signedUrl) {
-        return { url: data.signedUrl, expiresIn: COMMUNITY_SIGNED_URL_SECONDS };
-      }
-    }
     return { url: null, expiresIn: null };
   }
   const { data, error } = await client.storage
@@ -377,7 +369,7 @@ async function feed(client, ctx, { category, platformAdmin }) {
   );
   return Promise.all(
     withAuthors.map(async (p) => {
-      const signed = await signedImageUrl(client, p.image_path, { adminClient: communityStorageClient() });
+      const signed = await signedImageUrl(client, p.image_path);
       const isMine = p.author_user_id === ctx.user.id;
       return publicPost(p, {
         liked: liked.has(p.id),
@@ -955,7 +947,7 @@ export async function handler(event) {
             signedUrlHint: signedHint,
             clientDataUrl,
             createSignedUrl: async (path) => {
-              const signed = await signedImageUrl(client, path, { adminClient: communityStorageClient() });
+              const signed = await signedImageUrl(client, path);
               return signed.url;
             },
             adminSignedUrl: adminSignedImageUrl,
