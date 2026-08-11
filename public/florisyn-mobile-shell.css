@@ -457,6 +457,8 @@
   body.florisyn-atelier .toast,
   body.bloom-rc21 .toast {
     bottom: calc(var(--florisyn-mobile-nav-height) + 8px) !important;
+    /* Toast is informational only — it sits over the Lily FAB, so it must never swallow taps */
+    pointer-events: none !important;
   }
 
   /* Dashboard: show desktop sections stacked (not a blank gray canvas) */

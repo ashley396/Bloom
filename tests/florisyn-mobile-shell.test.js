@@ -12,7 +12,7 @@ test("mobile shell stylesheet loads after POS CSS and before critical inline blo
   const criticalIdx = html.indexOf("florisyn-pos-critical");
   assert.ok(posIdx >= 0 && shellIdx > posIdx, "mobile shell should load after luxury POS CSS");
   assert.ok(shellIdx < criticalIdx, "mobile shell should load before POS critical inline CSS");
-  assert.match(html, /florisyn-mobile-shell\.css\?v=m8/);
+  assert.match(html, /florisyn-mobile-shell\.css\?v=m9/);
 });
 
 test("mobile shell implements drawer, viewport stack, scroll lock, and five-tab grid", () => {
@@ -139,6 +139,13 @@ test("drawer close releases the scroll lock (nav lock follows drawer-open state)
   const lockBlock = appJs.slice(appJs.indexOf("function wireMobileDrawerScrollLock"), appJs.indexOf("function wireMobileDrawerToggleFallback"));
   assert.match(lockBlock, /const drawerOpen=document\.body\.classList\.contains\("atelier-drawer-open"\)/);
   assert.match(lockBlock, /"florisyn-nav-locked",drawerOpen/, "nav lock must mirror drawer-open so closing the drawer unlocks scrolling");
+});
+
+test("mobile toast never blocks taps on the Lily FAB underneath it", () => {
+  const css = fs.readFileSync(path.join(root, "public/florisyn-mobile-shell.css"), "utf8");
+  const toastBlock = css.slice(css.indexOf("body.florisyn-atelier .toast"));
+  const rule = toastBlock.slice(0, toastBlock.indexOf("}"));
+  assert.match(rule, /pointer-events: none !important/, "toast overlaps the Lily FAB position and must be click-transparent");
 });
 
 test("Lily FAB and panel selectors exist and open path never requires backend", () => {
