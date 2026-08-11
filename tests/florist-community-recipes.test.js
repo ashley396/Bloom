@@ -10,6 +10,7 @@ import {
   buildLocalRecipeDraftFromPost,
   generateRecipeWithCloudflare,
   inferFlowersFromPostText,
+  recipeStemsFromVisionText,
   isGenericIngredientName,
 } from "../netlify/functions/_shared/florist-community-recipes.js";
 
@@ -114,11 +115,43 @@ test("generateRecipeWithCloudflare falls back when cloud AI fails", async () => 
   assert.equal(out.source, "unavailable");
 });
 
+test("generateRecipeWithCloudflare uses vision parse when cloud AI fails", async () => {
+  const out = await generateRecipeWithCloudflare(
+    async () => {
+      throw new Error("Cloud AI offline");
+    },
+    { caption: "Modern day", post_id: "p1" },
+    { visionText: "hydrangea, Freedom rose, snapdragon, eucalyptus" }
+  );
+  assert.equal(out.source, "local_vision_fallback");
+  assert.ok(out.draft.recipe.some((row) => /hydrangea|rose|snapdragon/i.test(row.name)));
+  assert.equal(
+    out.draft.recipe.some((row) => /oriental lily|lily grass|leather fern/i.test(row.name)),
+    false
+  );
+});
+
+test("recipeStemsFromVisionText parses unknown wholesale names", () => {
+  const stems = recipeStemsFromVisionText("delphinium, possibly stock, Israeli ruscus");
+  assert.ok(stems.some((row) => /delphinium|stock|ruscus/i.test(row.name)));
+});
+
+test("buildLocalRecipeDraftFromPost skips style presets when photo had no vision read", () => {
+  const draft = buildLocalRecipeDraftFromPost(
+    { caption: "Modern day", body: "", image_path: "shop/u/x.jpg" },
+    { hadPhoto: true }
+  );
+  assert.equal(draft.recipe.length, 0);
+  assert.match(draft.description, /could not read/i);
+});
+
 test("florist-community handler wires Lily recipe actions", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
   assert.match(src, /generate_recipe/);
   assert.match(src, /buildLocalRecipeDraftFromPost/);
   assert.match(src, /local_fallback/);
+  assert.match(src, /communityStorageClient/);
+  assert.match(src, /rebuilt_published/);
   assert.match(src, /save_recipe_draft/);
   assert.match(src, /publish_recipe/);
   assert.match(src, /import_recipe_to_shop/);
@@ -130,6 +163,7 @@ test("florist-community handler wires Lily recipe actions", () => {
 test("community UI hints florists to name flowers for Lily", () => {
   const ui = fs.readFileSync(path.join(process.cwd(), "public/community-ui.js"), "utf8");
   assert.match(ui, /Build recipe with Lily/);
+  assert.match(ui, /Retry with Lily/);
   assert.match(ui, /name the flowers in your caption/i);
   assert.match(ui, /recipeUi/);
   assert.match(ui, /community-post-image-wrap/);

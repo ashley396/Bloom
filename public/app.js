@@ -129,6 +129,19 @@ let floristNetworkEnabled=false;
 function setCommunityNavVisible(on){
   communityBetaEnabled=Boolean(on);
   $$('[data-page="communityPage"]').forEach((el)=>{el.hidden=!communityBetaEnabled;el.style.display=communityBetaEnabled?"":"none"});
+  const lib=$("#mobileNavLibrary");
+  const comm=$("#mobileNavCommunity");
+  const retry=$("#lilyRetryCommunityBtn");
+  if(lib&&comm){
+    lib.hidden=communityBetaEnabled;
+    lib.style.display=communityBetaEnabled?"none":"";
+    comm.hidden=!communityBetaEnabled;
+    comm.style.display=communityBetaEnabled?"":"none";
+  }
+  if(retry){
+    retry.hidden=!communityBetaEnabled;
+    retry.style.display=communityBetaEnabled?"":"none";
+  }
   const page=$("#communityPage");
   if(page&&!communityBetaEnabled){page.classList.remove("active");if(page.querySelector("#communityRoot"))page.querySelector("#communityRoot").innerHTML="";}
 }

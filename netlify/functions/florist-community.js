@@ -921,15 +921,16 @@ export async function handler(event) {
       const postId = String(body.post_id || "");
       if (!postId) return json(400, { error: "post_id is required." });
       const post = await requireOwnPostWithImage(client, user.id, postId);
-      if (post.recipe_status === "published") {
-        return json(400, { error: "This post already has a published recipe." });
-      }
+      const wasPublished = post.recipe_status === "published";
+      const publishedRecipeId = post.published_recipe_id || null;
       let draft;
       let lilySource = "cloudflare";
       let visionText = "";
       if (post.image_path) {
         try {
-          const imagePayload = await downloadCommunityImageBuffer(client, post.image_path);
+          const imagePayload = await downloadCommunityImageBuffer(client, post.image_path, {
+            adminClient: communityStorageClient(),
+          });
           if (imagePayload) {
             const vision = await analyzeArrangementPhoto(imagePayload, { caption: post.caption });
             visionText = vision?.text || "";
@@ -948,6 +949,7 @@ export async function handler(event) {
         caption: post.caption,
         body: post.body,
         category: post.category,
+        post_id: postId,
         has_arrangement_photo: true,
         note: "Estimate realistic stem counts florists can copy. No customer or order data.",
       }, {
@@ -965,15 +967,41 @@ export async function handler(event) {
       draft = generated.draft;
       if (draft) lilySource = generated.source;
       if (!draft) {
-        draft = buildLocalRecipeDraftFromPost(post, { visionText });
+        draft = buildLocalRecipeDraftFromPost(post, { visionText, hadPhoto: true });
         lilySource = visionText ? "local_vision_fallback" : "local_fallback";
       }
-      if (!draft) return json(502, { error: "Lily could not build a recipe from this post. Try again." });
+      if (!draft?.recipe?.length) {
+        return json(502, {
+          error: visionText
+            ? "Lily could not turn the photo read into a recipe. Edit the caption with flower names and try again."
+            : "Lily could not read this photo. Check Cloud AI settings or name flowers in the caption, then try again.",
+        });
+      }
+      const sanitized = sanitizeRecipeDraft(draft) || draft;
+      if (wasPublished && publishedRecipeId) {
+        const { error: recipeUpdateError } = await client
+          .from("florist_community_recipes")
+          .update({
+            title: sanitized.name,
+            description: sanitized.description,
+            category: sanitized.category,
+            recipe: sanitized.recipe,
+            instructions: sanitized.instructions,
+            suggested_retail: sanitized.suggested_retail,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", publishedRecipeId)
+          .eq("author_user_id", user.id);
+        if (recipeUpdateError) {
+          if (missingRelation(recipeUpdateError)) friendlyMissing();
+          throw recipeUpdateError;
+        }
+      }
       const { data, error } = await client
         .from("florist_community_posts")
         .update({
-          recipe_draft: draft,
-          recipe_status: "draft",
+          recipe_draft: sanitized,
+          recipe_status: wasPublished ? "published" : "draft",
           updated_at: new Date().toISOString(),
         })
         .eq("id", postId)
@@ -985,13 +1013,28 @@ export async function handler(event) {
         throw error;
       }
       const signed = await signedImageUrl(client, data.image_path);
+      let publishedRecipe = null;
+      if (wasPublished && publishedRecipeId) {
+        const { data: recipeRow, error: recipeReadError } = await client
+          .from("florist_community_recipes")
+          .select(RECIPE_COLUMNS)
+          .eq("id", publishedRecipeId)
+          .maybeSingle();
+        if (recipeReadError) {
+          if (missingRelation(recipeReadError)) friendlyMissing();
+          throw recipeReadError;
+        }
+        publishedRecipe = recipeRow ? publicRecipeSummary(recipeRow, { imageUrl: signed.url }) : null;
+      }
       return json(200, {
-        recipe_draft: draft,
+        recipe_draft: sanitized,
         lily_source: lilySource,
+        rebuilt_published: Boolean(wasPublished && publishedRecipe),
         item: publicPost(data, {
           isMine: true,
           imageUrl: signed.url,
           imageExpiresIn: signed.expiresIn,
+          publishedRecipe,
         }),
       });
     }

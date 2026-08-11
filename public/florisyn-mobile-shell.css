@@ -194,6 +194,90 @@
     flex: 1 1 auto !important;
     min-width: 0 !important;
   }
+
+  /* POS — full-width register (critical CSS keeps checkout at 340px without this) */
+  body.florisyn-atelier.florisyn-pos-active .shell > .content,
+  body.florisyn-atelier #posPage.active {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  body.florisyn-atelier.florisyn-pos-active .shell > .content {
+    padding-top: 0 !important;
+    padding-bottom: calc(var(--florisyn-mobile-nav-height) + 4px) !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux.pos-workspace.florisyn-pos-lux {
+    min-height: calc(100dvh - var(--florisyn-mobile-nav-height) - 56px) !important;
+    height: auto !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux .pos-lux-main-row {
+    flex-direction: column !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux .pos-lux-center {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux .pos-lux-checkout {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    flex: 0 0 auto !important;
+    border-left: 0 !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux .pos-lux-rail {
+    width: 100% !important;
+    max-width: none !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux #posLuxCategories.pos-lux-categories {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: none !important;
+  }
+
+  /* Dashboard — tighter assistant cards, clearer actions */
+  body.florisyn-atelier .atelier-assist-rail .rose-welcome-card,
+  body.florisyn-atelier .atelier-assist-rail .lily-suggestion-card {
+    border-radius: 16px !important;
+    margin-bottom: 0 !important;
+  }
+
+  body.florisyn-atelier .lily-suggestion-actions {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  body.florisyn-atelier .lily-suggestion-actions button {
+    width: 100% !important;
+    min-height: 44px !important;
+  }
+
+  body.florisyn-atelier .community-recipe-rebuild-wrap {
+    margin-top: 12px !important;
+  }
+
+  body.florisyn-atelier .community-retry-lily {
+    width: 100% !important;
+    min-height: 44px !important;
+  }
+
+  body.florisyn-atelier #communityPage .heading {
+    padding: 0 14px !important;
+  }
+
+  body.florisyn-atelier #communityPage #communityRoot {
+    padding: 0 2px !important;
+  }
 }
 
 @media (min-width: 821px) {

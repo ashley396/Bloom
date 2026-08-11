@@ -113,6 +113,42 @@ export function inferFlowersFromPostText(caption = "", body = "", vision = "") {
   return found.slice(0, 8);
 }
 
+/** Parse comma-separated vision output into stem lines (including unknown wholesale names). */
+export function recipeStemsFromVisionText(visionText = "") {
+  const vision = String(visionText || "").trim();
+  if (!vision) return [];
+  let recipe = inferFlowersFromPostText("", "", vision);
+  if (recipe.length >= 2) return recipe;
+  const tokens = vision
+    .split(/[,;\n•]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 2);
+  const used = new Set(recipe.map((r) => r.name.toLowerCase()));
+  for (const token of tokens) {
+    const lex = inferFlowersFromPostText("", "", token);
+    if (lex.length) {
+      for (const row of lex) {
+        const key = row.name.toLowerCase();
+        if (used.has(key)) continue;
+        used.add(key);
+        recipe.push(row);
+      }
+      continue;
+    }
+    const name = token.replace(/^possibly\s+/i, "").slice(0, 80);
+    if (!name || isGenericIngredientName(name)) continue;
+    const key = name.toLowerCase();
+    if (used.has(key)) continue;
+    used.add(key);
+    recipe.push({
+      name,
+      qty: /fern|ruscus|eucalyptus|leaf|foliage|grass|pittosporum/i.test(name) ? 3 : 4,
+      kind: /fern|ruscus|eucalyptus|leaf|foliage|grass|pittosporum/i.test(name) ? "foliage" : "flower",
+    });
+  }
+  return recipe.slice(0, 10);
+}
+
 export function sanitizeRecipeDraft(raw) {
   if (!raw || typeof raw !== "object") return null;
   const recipe = Array.isArray(raw.recipe)
@@ -171,7 +207,7 @@ export function publicRecipeSummary(row, { imageUrl = null } = {}) {
   };
 }
 
-export function buildLocalRecipeDraftFromPost(post = {}, { visionText = "" } = {}) {
+export function buildLocalRecipeDraftFromPost(post = {}, { visionText = "", hadPhoto = false } = {}) {
   const caption = String(post.caption || "Community arrangement").trim().slice(0, 120);
   const body = String(post.body || "").trim();
   const vision = String(visionText || "").trim();
@@ -180,8 +216,12 @@ export function buildLocalRecipeDraftFromPost(post = {}, { visionText = "" } = {
       ? "Everyday"
       : String(post.category || "Everyday").trim().slice(0, 80) || "Everyday";
 
-  let recipe = inferFlowersFromPostText(caption, body, vision);
-  if (!recipe.length) {
+  let recipe = vision
+    ? recipeStemsFromVisionText(vision)
+    : inferFlowersFromPostText(caption, body, "");
+  if (!recipe.length) recipe = inferFlowersFromPostText(caption, body, vision);
+  const photoAttached = hadPhoto || Boolean(post.image_path);
+  if (!recipe.length && !photoAttached) {
     const idx = simpleHash(`${caption}|${body}|${post.id || ""}`) % STYLE_PRESETS.length;
     recipe = STYLE_PRESETS[idx].map((row) => ({ ...row }));
   }
@@ -194,7 +234,9 @@ export function buildLocalRecipeDraftFromPost(post = {}, { visionText = "" } = {
       body.slice(0, 2000) ||
       (vision
         ? `Stem-count recipe from Lily's photo read: ${vision.slice(0, 400)}. Edit counts to match your design.`
-        : `Stem-count recipe inspired by "${caption || "your post"}". Lily inferred likely wholesale flowers — edit counts to match your design.`),
+        : photoAttached
+          ? `Lily could not read every stem from the photo — add flower names in the caption and edit counts below.`
+          : `Stem-count recipe inspired by "${caption || "your post"}". Edit wholesale names and counts to match your design.`),
     category,
     suggested_retail: retailBase,
     container: /vase|jar|basket|box/i.test(`${caption} ${body}`) ? "Designer vase" : "Clear glass vase",
@@ -241,6 +283,14 @@ export async function generateRecipeWithCloudflare(runGenerate, input, { onCloud
     }
   } catch (error) {
     if (typeof onCloudError === "function") onCloudError(error);
+  }
+  if (visionText) {
+    const local = buildLocalRecipeDraftFromPost(
+      { caption: input.caption, body: input.body, category: input.category, id: input.post_id },
+      { visionText, hadPhoto: true }
+    );
+    const fromVision = sanitizeRecipeDraft(local);
+    if (fromVision) return { draft: fromVision, source: "local_vision_fallback" };
   }
   return { draft: null, source: "unavailable" };
 }

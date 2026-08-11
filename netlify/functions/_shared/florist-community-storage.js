@@ -212,14 +212,21 @@ export async function reconcileCommunityImageAfterWriteError(client, imagePath) 
  * Download a community post image for server-side vision analysis.
  * Returns raw buffer + mime — never logged or returned to clients.
  */
-export async function downloadCommunityImageBuffer(client, path) {
+export async function downloadCommunityImageBuffer(client, path, { adminClient = null } = {}) {
   if (!path || !isStoragePath(path)) return null;
-  const { data, error } = await client.storage.from(COMMUNITY_IMAGE_BUCKET).download(path);
-  if (error || !data) return null;
-  const buffer = Buffer.from(await data.arrayBuffer());
-  if (!buffer.length || buffer.length > COMMUNITY_IMAGE_MAX_BYTES) return null;
-  const ext = String(path).split(".").pop()?.toLowerCase();
-  const mime =
-    ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
-  return { buffer, mime, path };
+  const clients = [client, adminClient].filter(Boolean);
+  const seen = new Set();
+  for (const storageClient of clients) {
+    if (seen.has(storageClient)) continue;
+    seen.add(storageClient);
+    const { data, error } = await storageClient.storage.from(COMMUNITY_IMAGE_BUCKET).download(path);
+    if (error || !data) continue;
+    const buffer = Buffer.from(await data.arrayBuffer());
+    if (!buffer.length || buffer.length > COMMUNITY_IMAGE_MAX_BYTES) return null;
+    const ext = String(path).split(".").pop()?.toLowerCase();
+    const mime =
+      ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+    return { buffer, mime, path };
+  }
+  return null;
 }
