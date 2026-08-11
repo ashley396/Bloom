@@ -16,6 +16,15 @@ let adminMfaPending={factorId:null,mode:null};
 const FEATURES=['dashboard','orders','deliveries','customers','inventory','products','bloomshot','website','library','invoices','payments','expenses','reports','staff','marketplace','stores','lily','rose'];
 const DEFAULT_NAV=['dashboardPage','ordersPage','deliveriesPage','customersPage','inventoryPage','productsPage','bloomshotPage','websitePage','libraryPage','invoicesPage','paymentsPage','expensesPage','reportsPage','staffPage','marketplacePage','storesPage','settingsPage'];
 function toast(t){const x=$('#adminToast');if(!x)return;x.textContent=t;x.hidden=false;setTimeout(()=>x.hidden=true,2800)}
+function relocateAdminOnboardingBanner(){
+  const app=$('#adminApp');
+  const host=app?.querySelector('#adminOnboardingHost')||app?.querySelector('.workspace');
+  const banner=app?.querySelector('.bloom-onboarding-banner[data-mode="admin"]');
+  if(!host||!banner||banner.parentElement===host)return;
+  host.insertBefore(banner,host.firstChild);
+  host.removeAttribute('aria-hidden');
+  banner.style.margin='0 0 16px';
+}
 async function call(path,opt={},auth=true){const headers={'Content-Type':'application/json',...(opt.headers||{})};if(auth&&session?.accessToken)headers.Authorization=`Bearer ${session.accessToken}`;const base=(String(path).startsWith("auth-")&&!String(path).startsWith("auth-refresh")&&!String(path).startsWith("auth-resend"))?`/api/${path}`:`/.netlify/functions/${path}`;const r=await fetch(base,{...opt,headers});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function saveSession(d){session={accessToken:d.accessToken,refreshToken:d.refreshToken,user:d.user,mfaVerified:Boolean(d.mfaVerified)};localStorage.setItem('bloom_admin_session',JSON.stringify(session))}
 function clearAdminSession(){session=null;adminMfaClient=null;adminMfaPending={factorId:null,mode:null};localStorage.removeItem('bloom_admin_session')}
@@ -146,6 +155,7 @@ function showApp(){
     if(window.__loadCommandView)window.__loadCommandView('overview');
     Promise.resolve(loadShops()).catch((err)=>toast(err.message||'Could not load shops'));
     window.BloomLaunchPolish?.init?.({mode:'admin',api:call});
+    relocateAdminOnboardingBanner();
     window.BloomLilyPlatform?.init?.({mode:'admin',api:call,toast});
     document.dispatchEvent(new CustomEvent('florisyn-admin-authenticated'));
   }catch(err){

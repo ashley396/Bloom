@@ -308,3 +308,53 @@ body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp .workspace > * {
     box-shadow: none;
   }
 }
+
+/* Layout containment — keep launch-polish / public-site globals out of the sidebar column. */
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp > aside {
+  grid-column: 1;
+  grid-row: 1;
+  z-index: 5;
+  isolation: isolate;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp > .workspace {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp > .bloom-onboarding-banner,
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp .admin-onboarding-host .bloom-onboarding-banner {
+  max-width: 100%;
+  margin-bottom: 16px;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell #commandDashboard,
+body.florisyn.admin-luxury.florisyn-atelier-shell #betaToolkitPanel,
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp .shop-list,
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp .shop-row,
+body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp .check-grid {
+  max-width: 100%;
+  min-width: 0;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell #betaToolkitPanel .shop-row {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+body.florisyn.admin-luxury.florisyn-atelier-shell.admin-locked #adminApp,
+body.florisyn.admin-luxury.florisyn-atelier-shell.admin-locked #adminApp .workspace,
+body.florisyn.admin-luxury.florisyn-atelier-shell.admin-locked #adminApp > aside {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}

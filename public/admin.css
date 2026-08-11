@@ -107,3 +107,84 @@ body.admin-luxury button:focus-visible{
 
 .editor-heading-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
 .editor-heading-actions .secondary{background:#fff;color:var(--ink);border:1px solid var(--line)}
+
+/* Stable two-column Admin shell — sidebar column must never share grid cells with workspace. */
+#adminApp{
+  display:grid;
+  grid-template-columns:250px minmax(0,1fr);
+  grid-template-rows:minmax(0,1fr);
+  min-height:100vh;
+  width:100%;
+  max-width:100vw;
+  overflow-x:hidden;
+  isolation:isolate;
+}
+#adminApp>aside{
+  grid-column:1;
+  grid-row:1;
+  position:sticky;
+  top:0;
+  align-self:start;
+  height:100vh;
+  max-height:100vh;
+  z-index:4;
+  min-width:0;
+  overflow:auto;
+}
+#adminApp>.workspace{
+  grid-column:2;
+  grid-row:1;
+  min-width:0;
+  max-width:100%;
+  overflow-x:hidden;
+  overflow-y:auto;
+  position:relative;
+  z-index:1;
+}
+#adminApp>.bloom-onboarding-banner{
+  grid-column:2;
+  grid-row:1;
+  align-self:start;
+  z-index:2;
+  max-width:100%;
+  margin:16px 34px 0;
+}
+#commandDashboard,#betaToolkitPanel,.workspace .shop-list,.workspace .shop-row,.workspace .check-grid{
+  max-width:100%;
+  min-width:0;
+}
+#betaToolkitPanel,.workspace .panel,.workspace .metric{
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+.workspace .shop-row{
+  grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto;
+}
+.workspace .shop-row p,.workspace .shop-row small,.workspace .shop-row strong{
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+.workspace .shop-row.beta-toolkit-row{
+  grid-template-columns:minmax(0,1fr);
+}
+.admin-onboarding-host:empty{display:none}
+body.admin-locked{
+  overflow:hidden;
+  height:100vh;
+  max-height:100vh;
+}
+body.admin-locked #adminApp{
+  position:fixed!important;
+  left:-100vw!important;
+  top:0!important;
+  width:0!important;
+  height:0!important;
+  overflow:hidden!important;
+  clip:rect(0,0,0,0)!important;
+}
+@media(max-width:900px){
+  #adminApp{grid-template-columns:1fr}
+  #adminApp>aside,#adminApp>.workspace,#adminApp>.bloom-onboarding-banner{grid-column:1}
+  #adminApp>aside{position:static;height:auto;max-height:none}
+  #adminApp>.bloom-onboarding-banner{margin:16px 20px 0}
+}
