@@ -26,8 +26,9 @@ import {
   removeCommunityImageQuietly,
   reconcileCommunityImageAfterWriteError,
   downloadCommunityImageBuffer,
+  resolveCommunityImageForVision,
 } from "./_shared/florist-community-storage.js";
-import { runCloudflareGenerate } from "./ai-assistant.js";
+import { runCloudflareGenerate, cloudflareAiToken } from "./ai-assistant.js";
 import { analyzeArrangementPhoto } from "./_shared/florist-ai-vision.js";
 import {
   sanitizeRecipeDraft,
@@ -926,20 +927,37 @@ export async function handler(event) {
       let draft;
       let lilySource = "cloudflare";
       let visionText = "";
+      let imageSource = "none";
       if (post.image_path) {
         try {
-          const imagePayload = await downloadCommunityImageBuffer(client, post.image_path, {
+          const signedHint = String(body.image_url || "").trim();
+          const resolved = await resolveCommunityImageForVision(client, post.image_path, {
             adminClient: communityStorageClient(),
+            signedUrlHint: signedHint,
+            createSignedUrl: async (path) => {
+              const signed = await signedImageUrl(client, path);
+              return signed.url;
+            },
           });
-          if (imagePayload) {
-            const vision = await analyzeArrangementPhoto(imagePayload, { caption: post.caption });
+          if (resolved?.payload) {
+            imageSource = resolved.source;
+            const vision = await analyzeArrangementPhoto(resolved.payload, { caption: post.caption });
             visionText = vision?.text || "";
+          } else {
+            console.warn(
+              JSON.stringify({
+                level: "warn",
+                message: "community_recipe_image_missing",
+                post_id: postId,
+              })
+            );
           }
         } catch (visionError) {
           console.warn(
             JSON.stringify({
               level: "warn",
               message: "community_recipe_vision_degraded",
+              image_source: imageSource,
               detail: String(visionError?.message || visionError).slice(0, 200),
             })
           );
@@ -971,10 +989,15 @@ export async function handler(event) {
         lilySource = visionText ? "local_vision_fallback" : "local_fallback";
       }
       if (!draft?.recipe?.length) {
+        const noCloud = !cloudflareAiToken();
         return json(502, {
           error: visionText
-            ? "Lily could not turn the photo read into a recipe. Edit the caption with flower names and try again."
-            : "Lily could not read this photo. Check Cloud AI settings or name flowers in the caption, then try again.",
+            ? "Lily could not turn the photo read into a recipe. Add flower names to the caption and try again."
+            : noCloud
+              ? "Photo vision needs Cloud AI in Netlify (CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_API_TOKEN). Add flower names to the caption and retry."
+              : "Lily could not download or read this photo. Pull to refresh, then retry — or name the flowers in the caption.",
+          vision_configured: !noCloud,
+          image_resolved: imageSource !== "none",
         });
       }
       const sanitized = sanitizeRecipeDraft(draft) || draft;

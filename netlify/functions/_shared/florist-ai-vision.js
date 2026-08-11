@@ -7,6 +7,7 @@ import { cloudflareAiToken, extractCloudflareText } from "../ai-assistant.js";
 
 const VISION_MODEL_DEFAULT = "@cf/meta/llama-3.2-11b-vision-instruct";
 const VISION_MODEL_FALLBACK = "@cf/llava-hf/llava-1.5-7b-hf";
+const VISION_MODEL_CAPTION = "@cf/unum/uform-gen2-qwen-500m";
 
 const ARRANGEMENT_VISION_PROMPT = `You are Lily, a professional florist studying an arrangement photo.
 List ONLY flowers and foliage you can clearly see — use real wholesale florist names
@@ -76,71 +77,72 @@ async function runVisionModel(model, imageVariants, prompt) {
   }
   const url = `https://api.cloudflare.com/client/v4/accounts/${account}/ai/run/${encodeURIComponent(model)}`;
   const isLlava = /llava/i.test(model);
+  const isUform = /uform/i.test(model);
   let lastError = null;
 
   for (const image of imageVariants) {
-    const body = isLlava
-      ? { prompt, image, max_tokens: 400 }
-      : {
-          messages: [
+    const imageValue = image.startsWith("data:") ? image : `data:image/jpeg;base64,${image}`;
+    const payloads = isUform
+      ? [{ prompt, image: image.replace(/^data:[^;]+;base64,/i, "") }]
+      : isLlava
+        ? [{ prompt, image: image.replace(/^data:[^;]+;base64,/i, "") }]
+        : [
             {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: image.startsWith("data:") ? image : `data:image/jpeg;base64,${image}` } },
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: prompt },
+                    { type: "image_url", image_url: { url: imageValue } },
+                  ],
+                },
               ],
+              max_tokens: 450,
             },
-          ],
-          max_tokens: 450,
-        };
-    try {
-      const r = await fetch(url, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      let d = {};
-      try {
-        d = await r.json();
-      } catch {
-        lastError = new Error(`Vision AI returned a non-JSON response (${r.status}).`);
-        continue;
-      }
-      if (!r.ok || d.success === false) {
-        lastError = new Error(
-          d.errors?.[0]?.message || d.errors?.[0]?.code || `Vision AI failed (${r.status})`
-        );
-        continue;
-      }
-      const text = extractVisionText(d.result);
-      if (text) return { text, model, provider: "Cloudflare Workers AI Vision" };
-      lastError = new Error("Vision AI returned an empty flower analysis.");
-    } catch (error) {
-      lastError = error;
-    }
-  }
+            {
+              messages: [{ role: "user", content: prompt }],
+              image: imageValue,
+              max_tokens: 450,
+            },
+            {
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: prompt },
+                    { type: "image", image: image.replace(/^data:[^;]+;base64,/i, "") },
+                  ],
+                },
+              ],
+              max_tokens: 450,
+            },
+          ];
 
-  // Legacy llama payload: top-level image field
-  if (!isLlava) {
-    for (const image of imageVariants) {
+    for (const body of payloads) {
+      if (!body.max_tokens && !isUform && !isLlava) body.max_tokens = 450;
+      if (isUform || isLlava) body.max_tokens = 400;
       try {
         const r = await fetch(url, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: [
-              { role: "system", content: "Identify florist flowers in photos using wholesale names only." },
-              { role: "user", content: prompt },
-            ],
-            image,
-            max_tokens: 450,
-          }),
+          body: JSON.stringify(body),
         });
-        const d = await r.json();
-        if (r.ok && d.success !== false) {
-          const text = extractVisionText(d.result);
-          if (text) return { text, model, provider: "Cloudflare Workers AI Vision" };
+        let d = {};
+        try {
+          d = await r.json();
+        } catch {
+          lastError = new Error(`Vision AI returned a non-JSON response (${r.status}).`);
+          continue;
         }
+        if (!r.ok || d.success === false) {
+          lastError = new Error(
+            d.errors?.[0]?.message || d.errors?.[0]?.code || `Vision AI failed (${r.status})`
+          );
+          continue;
+        }
+        const text = extractVisionText(d.result);
+        if (text) return { text, model, provider: "Cloudflare Workers AI Vision" };
+        lastError = new Error("Vision AI returned an empty flower analysis.");
       } catch (error) {
         lastError = error;
       }
@@ -168,11 +170,14 @@ export async function analyzeArrangementPhoto(imagePayload, { caption = "" } = {
   try {
     return await runVisionModel(primary, imageVariants, prompt);
   } catch (primaryError) {
-    if (primary === VISION_MODEL_FALLBACK) throw primaryError;
-    try {
-      return await runVisionModel(VISION_MODEL_FALLBACK, imageVariants, prompt);
-    } catch {
-      throw primaryError;
+    const fallbacks = [VISION_MODEL_FALLBACK, VISION_MODEL_CAPTION].filter((m) => m !== primary);
+    for (const model of fallbacks) {
+      try {
+        return await runVisionModel(model, imageVariants, prompt);
+      } catch {
+        /* next model */
+      }
     }
+    throw primaryError;
   }
 }
