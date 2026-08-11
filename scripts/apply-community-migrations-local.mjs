@@ -27,8 +27,8 @@ const mode = String(process.env.COMMUNITY_APPLY_MODE || "reset").toLowerCase();
 const root = process.cwd();
 
 const bootstrap = "tests/fixtures/community-rls-bootstrap.sql";
-const v1 = "supabase/migrations/20260731_florist_community_beta_v1.sql";
-const r1 = "supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql";
+const v1 = "supabase/legacy_migrations/20260731_florist_community_beta_v1.sql";
+const r1 = "supabase/legacy_migrations/20260731_florist_community_beta_v1_r1_security.sql";
 
 function cleanSql(sql) {
   return sql.replace(/notify pgrst,\s*'reload schema';/gi, "-- notify omitted in local apply");

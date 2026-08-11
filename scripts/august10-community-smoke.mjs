@@ -31,8 +31,8 @@ async function check(name, fn) {
   }
 }
 
-await check("feature flag defaults OFF", () => {
-  assert.equal(isFeatureEnabled("COMMUNITY_BETA", {}), false);
+await check("feature flag defaults ON at launch", () => {
+  assert.equal(isFeatureEnabled("COMMUNITY_BETA", {}), true);
 });
 
 await check("feature flag enables only with explicit true", () => {
@@ -138,16 +138,13 @@ await check("UI has loading, empty, error states", () => {
 });
 
 await check("R6 security migrations present; Staff A2 not bundled; v1 locked", () => {
-  assert.ok(fs.existsSync(path.join(root, "supabase/migrations/20260731_florist_community_beta_v1.sql")));
-  assert.ok(
-    fs.existsSync(path.join(root, "supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql"))
-  );
+  const v1Path = path.join(root, "supabase/legacy_migrations/20260731_florist_community_beta_v1.sql");
+  const r1Path = path.join(root, "supabase/legacy_migrations/20260731_florist_community_beta_v1_r1_security.sql");
+  assert.ok(fs.existsSync(v1Path));
+  assert.ok(fs.existsSync(r1Path));
   assert.ok(fs.existsSync(path.join(root, "netlify/functions/_shared/florist-community-storage.js")));
-  const v1 = fs.readFileSync(path.join(root, "supabase/migrations/20260731_florist_community_beta_v1.sql"), "utf8");
-  const r1 = fs.readFileSync(
-    path.join(root, "supabase/migrations/20260731_florist_community_beta_v1_r1_security.sql"),
-    "utf8"
-  );
+  const v1 = fs.readFileSync(v1Path, "utf8");
+  const r1 = fs.readFileSync(r1Path, "utf8");
   const handler = fs.readFileSync(path.join(root, "netlify/functions/florist-community.js"), "utf8");
   const storage = fs.readFileSync(
     path.join(root, "netlify/functions/_shared/florist-community-storage.js"),
@@ -161,7 +158,7 @@ await check("R6 security migrations present; Staff A2 not bundled; v1 locked", (
   assert.match(r1, /florist_community_moderate_report/);
   assert.match(r1, /found_statuses is distinct from expected_statuses/);
   assert.doesNotMatch(r1, /check_def !~\* 'active'/);
-  assert.match(handler, /uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image\)/);
+  assert.match(handler, /uploadPrevalidatedCommunityImage\(client, shopId, user\.id, v\.image(?:,\s*\{[^}]*\})?\)/);
   assert.match(handler, /reconcileCommunityImageAfterWriteError\(client, uploadedPath\)/);
   assert.doesNotMatch(handler, /validateCommunityImageUpload/);
   assert.doesNotMatch(storage, /from ["']sharp["']/);

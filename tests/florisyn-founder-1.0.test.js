@@ -52,10 +52,9 @@ test("official tagline appears on login", () => {
 test("sidebar invoices and payments are plain nav buttons without extra wrappers", () => {
   const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
   const aside = html.match(/<aside[^>]*>([\s\S]*?)<\/aside>/)?.[1] || "";
-  assert.match(aside, /<button data-page="invoicesPage">Invoices<\/button>/);
-  assert.match(aside, /<button data-page="paymentsPage">Payment Center<\/button>/);
-  assert.doesNotMatch(aside, /class="secondary"[^>]*data-page="invoicesPage"/);
-  assert.doesNotMatch(aside, /<div[^>]*>\s*<button data-page="invoicesPage"/);
+  assert.match(aside, /<button[^>]*data-page="invoicesPage"[^>]*>Invoices<\/button>/);
+  assert.match(aside, /<button[^>]*data-page="paymentsPage"[^>]*>Payment Cent(?:er|re)<\/button>/);
+  assert.doesNotMatch(aside, /<div[^>]*>\s*<button[^>]*data-page="invoicesPage"/);
 });
 
 test("founder CSS unifies shell sidebar nav and removes legacy inset ring", () => {

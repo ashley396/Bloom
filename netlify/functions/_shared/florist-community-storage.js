@@ -278,7 +278,7 @@ export async function resolveCommunityImageForVision(
   } = {}
 ) {
   const fromClient = parseClientImageDataUrl(clientDataUrl);
-  if (fromClient) return { payload: fromClient, source: "client_data_url" };
+  if (fromClient) return { payload: fromClient, source: "client_payload" };
 
   const fromStorage = await downloadCommunityImageBuffer(client, path, { adminClient });
   if (fromStorage) return { payload: fromStorage, source: "storage" };

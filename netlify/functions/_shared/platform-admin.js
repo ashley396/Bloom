@@ -152,6 +152,20 @@ function safeLogRequestId(requestId) {
   return typeof requestId === "string" && UUID_RE.test(requestId) ? requestId : null;
 }
 
+function safeUnexpectedDetail(error) {
+  let raw = String(error?.message || error || "");
+  raw = raw
+    .replace(/https?:\/\/[^\s"'<>]+/gi, "[redacted-url]")
+    .replace(/\bsk_(?:live|test)_[A-Za-z0-9_]+\b/gi, "[redacted-token]")
+    .replace(/postgres(?:ql)?:\/\/[^\s"'<>]+/gi, "[redacted-db-url]")
+    .replace(/platform_admins/gi, "[redacted-table]")
+    .replace(/\b42501\b/g, "[redacted-code]")
+    .replace(/relation\s+"[^"]+"/gi, "[redacted-relation]")
+    .replace(/table=[A-Za-z0-9_]+/gi, "table=[redacted]")
+    .replace(/\/var\/[^\s"'<>]+/g, "[redacted-path]");
+  return raw.slice(0, 220);
+}
+
 /** Private logger — allowlisted fields only; never logs caller-controlled strings. */
 function logPlatformAdminEvent(eventName, { category, status, requestId } = {}) {
   const payload = {
@@ -188,8 +202,8 @@ export function platformAdminErrorResponse(event, error) {
       event: "platform_admin_unexpected_detail",
       requestId,
       name: error?.name || null,
-      code: error?.code || error?.florisynCode || null,
-      message: String(error?.message || error || "").slice(0, 220)
+      code: null,
+      message: safeUnexpectedDetail(error)
     }));
   }
 
