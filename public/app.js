@@ -915,20 +915,58 @@ async function smartAi(payload){
     }catch(localError){throw new Error(`${cloudError.message} Local fallback: ${localError.message}`)}
   }
 }
-let shotImage=null,shotRotation=0,shotDraftTimer=null;
+let shotImage=null,shotRotation=0,shotDraftTimer=null,shotCutout=null,shotUseCutout=true,shotPresetBackground=null;
+/* Studio backgrounds for the four style options — drawn behind the cut-out arrangement. */
+const SHOT_PRESET_BACKGROUNDS={
+  clean:{type:"solid",color:"#ffffff"},
+  luxury:{type:"gradient",from:"#2a2338",to:"#4c3a56"},
+  warm:{type:"gradient",from:"#f7ead8",to:"#ecd7bb"},
+  true:{type:"solid",color:"#f6f3f1"}
+};
 const shotState=()=>({brightness:Number($("#shotBrightness")?.value||100),contrast:Number($("#shotContrast")?.value||100),saturation:Number($("#shotSaturation")?.value||100),warmth:Number($("#shotWarmth")?.value||0),background:$("#shotBackground")?.value||"#ffffff",size:$("#shotSize")?.value||"1200x1200",watermark:$("#shotWatermark")?.value||""});
 function loadBloomShot(){const draft=localStorage.getItem("bloomShotDraft");if(draft){try{const d=JSON.parse(draft);for(const [id,value] of Object.entries(d.fields||{})){const el=document.getElementById(id);if(el)el.value=value}if($("#shotStatus"))$("#shotStatus").textContent="Your last editable draft is available."}catch{}}drawBloomShot()}
 function shotCanvasSize(){return String($("#shotSize")?.value||"1200x1200").split("x").map(Number)}
-function drawBloomShot(){const canvas=$("#bloomshotCanvas");if(!canvas)return;const [w,h]=shotCanvasSize(),ctx=canvas.getContext("2d"),s=shotState();canvas.width=w;canvas.height=h;ctx.clearRect(0,0,w,h);if(s.background!=="transparent"){ctx.fillStyle=s.background;ctx.fillRect(0,0,w,h)}if(!shotImage){$("#bloomshotEmpty")?.removeAttribute("hidden");return}$("#bloomshotEmpty")?.setAttribute("hidden","");ctx.save();ctx.filter=`brightness(${s.brightness}%) contrast(${s.contrast}%) saturate(${s.saturation}%) sepia(${s.warmth}%)`;ctx.translate(w/2,h/2);ctx.rotate(shotRotation*Math.PI/180);const rotated=shotRotation%180!==0,iw=rotated?shotImage.height:shotImage.width,ih=rotated?shotImage.width:shotImage.height,scale=Math.min(w/iw,h/ih),dw=shotImage.width*scale,dh=shotImage.height*scale;ctx.drawImage(shotImage,-dw/2,-dh/2,dw,dh);ctx.restore();if(s.watermark){ctx.save();ctx.font=`700 ${Math.max(22,Math.round(w*.026))}px Georgia`;ctx.textAlign="right";ctx.fillStyle="rgba(255,255,255,.88)";ctx.shadowColor="rgba(0,0,0,.35)";ctx.shadowBlur=6;ctx.fillText(s.watermark,w-w*.035,h-h*.035);ctx.restore()}}
-function setShotPreset(name){const presets={clean:[108,106,112,0],luxury:[102,115,105,9],warm:[105,103,108,18],true:[100,100,100,0]},v=presets[name]||presets.true;["shotBrightness","shotContrast","shotSaturation","shotWarmth"].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=v[i]});syncShotOutputs();drawBloomShot()}
+function drawBloomShot(){const canvas=$("#bloomshotCanvas");if(!canvas)return;const [w,h]=shotCanvasSize(),ctx=canvas.getContext("2d"),s=shotState();canvas.width=w;canvas.height=h;ctx.clearRect(0,0,w,h);
+  /* Background layer first, then the cut-out arrangement on top so the new
+     background shows through the removed original background, not just outside
+     the photo rectangle. */
+  if(shotPresetBackground){if(shotPresetBackground.type==="gradient"){const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,shotPresetBackground.from);g.addColorStop(1,shotPresetBackground.to);ctx.fillStyle=g}else ctx.fillStyle=shotPresetBackground.color;ctx.fillRect(0,0,w,h)}
+  else if(s.background!=="transparent"){ctx.fillStyle=s.background;ctx.fillRect(0,0,w,h)}
+  if(!shotImage){$("#bloomshotEmpty")?.removeAttribute("hidden");return}$("#bloomshotEmpty")?.setAttribute("hidden","");const subject=(shotUseCutout&&shotCutout)?shotCutout:shotImage;ctx.save();ctx.filter=`brightness(${s.brightness}%) contrast(${s.contrast}%) saturate(${s.saturation}%) sepia(${s.warmth}%)`;ctx.translate(w/2,h/2);ctx.rotate(shotRotation*Math.PI/180);const rotated=shotRotation%180!==0,iw=rotated?subject.height:subject.width,ih=rotated?subject.width:subject.height,scale=Math.min(w/iw,h/ih),dw=subject.width*scale,dh=subject.height*scale;ctx.drawImage(subject,-dw/2,-dh/2,dw,dh);ctx.restore();if(s.watermark){ctx.save();ctx.font=`700 ${Math.max(22,Math.round(w*.026))}px Georgia`;ctx.textAlign="right";ctx.fillStyle="rgba(255,255,255,.88)";ctx.shadowColor="rgba(0,0,0,.35)";ctx.shadowBlur=6;ctx.fillText(s.watermark,w-w*.035,h-h*.035);ctx.restore()}}
+function setShotPreset(name){const presets={clean:[108,106,112,0],luxury:[102,115,105,9],warm:[105,103,108,18],true:[100,100,100,0]},v=presets[name]||presets.true;["shotBrightness","shotContrast","shotSaturation","shotWarmth"].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=v[i]});shotPresetBackground=SHOT_PRESET_BACKGROUNDS[name]||null;if(shotCutout)shotUseCutout=true;syncShotOutputs();drawBloomShot()}
+function prepareShotCutout(){
+  if(!shotImage||!window.FlorisynPhotoStudio?.removeBackground)return;
+  if($("#shotStatus"))$("#shotStatus").textContent="Removing the original background around the arrangement…";
+  /* Defer the pixel work one tick so the original photo paints immediately. */
+  setTimeout(()=>{
+    const failMessage=window.FlorisynPhotoStudio?.FAILURE_MESSAGE||"Background could not be fully removed. Try a cleaner product photo.";
+    try{
+      const result=window.FlorisynPhotoStudio.removeBackground(shotImage);
+      if(result.ok){
+        shotCutout=result.canvas;shotUseCutout=true;
+        if($("#shotStatus"))$("#shotStatus").textContent="Original background removed. Pick a style or background — the arrangement is placed on it.";
+      }else{
+        shotCutout=null;shotUseCutout=false;
+        if($("#shotStatus"))$("#shotStatus").textContent=failMessage;
+        toast(failMessage);
+      }
+    }catch{
+      shotCutout=null;shotUseCutout=false;
+      if($("#shotStatus"))$("#shotStatus").textContent=failMessage;
+      toast(failMessage);
+    }
+    drawBloomShot();
+  },30);
+}
 function syncShotOutputs(){$$(".bloomshot-controls label").forEach(l=>{const i=l.querySelector("input"),o=l.querySelector("output");if(i&&o)o.textContent=i.id==="shotWarmth"?i.value:`${i.value}%`})}
 function shotFields(){return Object.fromEntries(["shotProductName","shotOccasion","shotNotes","shotPrice","shotTone","shotDescription","shotCaption","shotSeo","shotAlt","shotWatermark"].map(id=>[id,document.getElementById(id)?.value||""]))}
 function saveShotDraft(silent=false){localStorage.setItem("bloomShotDraft",JSON.stringify({fields:shotFields(),savedAt:new Date().toISOString()}));if(!silent){$("#shotStatus").textContent="Draft saved on this device. Nothing was published.";toast("BloomShot draft saved")}}
-$("#bloomshotFile")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>12*1024*1024)return toast("Please choose an image under 12 MB");const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{shotImage=img;shotRotation=0;drawBloomShot();toast("Photo ready to edit")};img.src=reader.result};reader.readAsDataURL(file)});
+$("#bloomshotFile")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>12*1024*1024)return toast("Please choose an image under 12 MB");const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{shotImage=img;shotRotation=0;shotCutout=null;shotUseCutout=true;drawBloomShot();toast("Photo ready to edit");prepareShotCutout()};img.src=reader.result};reader.readAsDataURL(file)});
 $$('[data-shot-preset]').forEach(b=>b.addEventListener("click",()=>setShotPreset(b.dataset.shotPreset)));
 $$('#shotBrightness,#shotContrast,#shotSaturation,#shotWarmth,#shotBackground,#shotSize,#shotWatermark').forEach(el=>el.addEventListener("input",()=>{syncShotOutputs();drawBloomShot()}));
 $("#shotRotate")?.addEventListener("click",()=>{shotRotation=(shotRotation+90)%360;drawBloomShot()});
-$("#bloomshotRestore")?.addEventListener("click",()=>{shotRotation=0;setShotPreset("true");$("#shotBackground").value="#ffffff";drawBloomShot();toast("Original photo settings restored")});
+$("#shotBackground")?.addEventListener("input",()=>{shotPresetBackground=null});
+$("#bloomshotRestore")?.addEventListener("click",()=>{shotRotation=0;setShotPreset("true");shotUseCutout=false;shotPresetBackground=null;$("#shotBackground").value="#ffffff";drawBloomShot();toast("Original photo restored — pick a style to place it on a new background")});
 $("#bloomshotDownload")?.addEventListener("click",()=>{if(!shotImage)return toast("Choose a photo first");drawBloomShot();const a=document.createElement("a");a.download=`${($("#shotProductName")?.value||"bloomshot").replace(/[^a-z0-9]+/gi,"-").toLowerCase()}.png`;a.href=$("#bloomshotCanvas").toDataURL("image/png",.92);a.click()});
 $("#shotGenerate")?.addEventListener("click",async()=>{const b=$("#shotGenerate"),name=$("#shotProductName").value.trim(),notes=$("#shotNotes").value.trim();if(!name&&!notes)return toast("Add a product name or flower notes first");b.disabled=true;b.textContent="Lily is drafting…";$("#shotStatus").textContent="Using the lowest-cost available AI route…";try{const d=await smartAi({mode:"generate",task:"Create editable florist product content",input:{name,notes,occasion:$("#shotOccasion").value,tone:$("#shotTone").value,price:$("#shotPrice").value,shop:shopSettings||{}},schema:{description:"2 concise paragraphs",caption:"social caption with call to action",seo:"SEO title under 60 characters",alt:"accurate image alt text"}});const r=d.result||{};$("#shotDescription").value=r.description||r.text||"";$("#shotCaption").value=r.caption||"";$("#shotSeo").value=r.seo||name;$("#shotAlt").value=r.alt||`${name||"Floral arrangement"} by a local florist`;$("#shotApproved").checked=false;$("#shotStatus").textContent=`Draft created with ${d.provider||"AI"}. Review and edit every field before approval.`;saveShotDraft(true)}catch(e){$("#shotStatus").textContent=e.message;toast(e.message)}finally{b.disabled=false;b.textContent="✨ Ask Lily to draft content"}});
 $("#shotSaveDraft")?.addEventListener("click",()=>saveShotDraft(false));
