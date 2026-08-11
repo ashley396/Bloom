@@ -20,6 +20,7 @@
     "sync:floral-library": "node scripts/sync-floral-library-catalog.mjs",
     "materialize:floral-library-images": "node scripts/materialize-floral-library-images.mjs",
     "fetch:floral-library-images": "node scripts/fetch-unique-everyday-images.mjs",
+    "remap:floral-library-images": "node scripts/remap-everyday-floral-images.mjs && node scripts/sync-floral-library-catalog.mjs",
     "verify:rollback-proof": "node scripts/verify-staging-rollback-proof.mjs",
     "test": "node --test tests/*.test.js",
     "test:jest": "node --experimental-vm-modules node_modules/jest/bin/jest.js",

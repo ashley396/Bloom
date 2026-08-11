@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import {
   auditEverydayFloralLibraryImages,
   fileSha256Absolute,
+  normalizeAssetPath,
   resolveEverydayImagePath
 } from "../lib/floral-library/image-hash-audit.js";
 import { getEverydayFloralLibraryCatalog, getPublicFloralLibraryCatalog } from "../netlify/functions/_shared/floral-library-core.js";
@@ -44,7 +45,7 @@ test("featured arrangements have zero exact duplicate image file hashes", () => 
 
   const hashById = new Map();
   for (const p of featured) {
-    const rel = p.primary_image.url.replace(/^\//, "");
+    const rel = normalizeAssetPath(p.primary_image.url);
     const hash = fileSha256Absolute(path.join(publicDir, rel));
     if (hashById.has(hash)) {
       assert.fail(
@@ -76,6 +77,31 @@ test("ultra-realistic label only on verified featured arrangements", () => {
       assert.equal(p.metadata?.image_standard, "ultra_realistic_professional_floral_photography");
     }
   }
+});
+
+test("primary image URLs include content hash cache bust for hard refresh", () => {
+  const catalog = getEverydayFloralLibraryCatalog().slice(0, 20);
+  for (const p of catalog) {
+    assert.match(p.primary_image.url, /\?v=[a-f0-9]{16}$/, `${p.id} must cache-bust image URL`);
+    assert.equal(p.primary_image.hash, p.primary_image.url.split("?v=")[1], `${p.id} hash must match URL bust param`);
+  }
+});
+
+test("first 20 everyday cards use visually distinct image bytes", () => {
+  const catalog = getEverydayFloralLibraryCatalog().slice(0, 20);
+  const hashes = new Set();
+  for (const p of catalog) {
+    const rel = normalizeAssetPath(p.primary_image.url);
+    const hash = fileSha256Absolute(path.join(publicDir, rel));
+    assert.ok(!hashes.has(hash), `first-20 duplicate image for ${p.id}`);
+    hashes.add(hash);
+  }
+  assert.equal(hashes.size, 20);
+});
+
+test("everyday image map documents all 100 arrangements", () => {
+  const map = JSON.parse(readFileSync(path.join(publicDir, "data/floral-library-everyday-image-map.json"), "utf8"));
+  assert.equal(Object.keys(map.arrangements || {}).length, 100);
 });
 
 test("both batch JSON files are included in hash audit scope", () => {

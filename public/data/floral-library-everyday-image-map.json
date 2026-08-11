@@ -1,0 +1,580 @@
+{
+  "version": 2,
+  "generated_at": "2026-08-11T18:16:33.878Z",
+  "arrangements": {
+    "ed-01-sunshine-cube": {
+      "pexels_photo_id": "931177",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-05-everyday-hydrangea-pop": {
+      "pexels_photo_id": "931168",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-06-soft-blush-garden": {
+      "pexels_photo_id": "462402",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-08-bright-happy": {
+      "pexels_photo_id": "931167",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-10-everyday-elegance": {
+      "pexels_photo_id": "931162",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-15-peachy-keen": {
+      "pexels_photo_id": "931159",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-23-everyday-pink-mix": {
+      "pexels_photo_id": "931161",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-24-blue-white-classic": {
+      "pexels_photo_id": "931163",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-25-sweet-simple": {
+      "pexels_photo_id": "931164",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-26-daily-sunshine": {
+      "pexels_photo_id": "931169",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-28-everyday-garden-vase": {
+      "pexels_photo_id": "931171",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-31-pink-peach-harmony": {
+      "pexels_photo_id": "4041382",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-33-rose-daisy-blend": {
+      "pexels_photo_id": "4041384",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-37-classic-cylinder-mix": {
+      "pexels_photo_id": "1158783",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-38-everyday-color-burst": {
+      "pexels_photo_id": "931180",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-39-soft-neutral-mix": {
+      "pexels_photo_id": "169190",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-41-golden-glow": {
+      "pexels_photo_id": "36865667",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-42-everyday-blush": {
+      "pexels_photo_id": "36787391",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-43-daisy-mum-mix": {
+      "pexels_photo_id": "37320544",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-44-rose-trio": {
+      "pexels_photo_id": "31469197",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-45-hydrangea-accent": {
+      "pexels_photo_id": "36312278",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-46-everyday-rustic": {
+      "pexels_photo_id": "931178",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-47-bright-tabletop": {
+      "pexels_photo_id": "931179",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-49-daily-pink-rose": {
+      "pexels_photo_id": "931185",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-50-everyday-florist-favorite": {
+      "pexels_photo_id": "931186",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-52-soft-garden-morning": {
+      "pexels_photo_id": "931188",
+      "source": "visual_qa_pass",
+      "kept": true
+    },
+    "ed-02-pink-meadow": {
+      "pexels_photo_id": "8211577",
+      "source": "verified_pexels",
+      "match_score": 26,
+      "kept": false
+    },
+    "ed-03-classic-rose-mix": {
+      "pexels_photo_id": "16434315",
+      "source": "verified_pexels",
+      "match_score": 17,
+      "kept": false
+    },
+    "ed-04-cheerful-daisy-burst": {
+      "pexels_photo_id": "28739008",
+      "source": "verified_pexels",
+      "match_score": 20,
+      "kept": false
+    },
+    "ed-07-rustic-mason-jar-mix": {
+      "pexels_photo_id": "6913095",
+      "source": "verified_pexels",
+      "match_score": 23,
+      "kept": false
+    },
+    "ed-09-simple-whites": {
+      "pexels_photo_id": "6913091",
+      "source": "verified_pexels",
+      "match_score": 14,
+      "kept": false
+    },
+    "ed-11-morning-cheer": {
+      "pexels_photo_id": "6913090",
+      "source": "verified_pexels",
+      "match_score": 26,
+      "kept": false
+    },
+    "ed-12-fresh-start": {
+      "pexels_photo_id": "35001312",
+      "source": "verified_pexels",
+      "match_score": 12,
+      "kept": false
+    },
+    "ed-13-daily-delight": {
+      "pexels_photo_id": "6913086",
+      "source": "verified_pexels",
+      "match_score": 20,
+      "kept": false
+    },
+    "ed-14-lavender-breeze": {
+      "pexels_photo_id": "6913081",
+      "source": "verified_pexels",
+      "match_score": 20,
+      "kept": false
+    },
+    "ed-16-hydrangea-friends": {
+      "pexels_photo_id": "6913075",
+      "source": "verified_pexels",
+      "match_score": 20,
+      "kept": false
+    },
+    "ed-17-rose-mum-harmony": {
+      "pexels_photo_id": "36306211",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-18-alstroemeria-joy": {
+      "pexels_photo_id": "19300878",
+      "source": "verified_pexels",
+      "match_score": 18,
+      "kept": false
+    },
+    "ed-19-sunflower-smile": {
+      "pexels_photo_id": "6913101",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-20-gentle-pastels": {
+      "pexels_photo_id": "27952001",
+      "source": "verified_pexels",
+      "match_score": 21,
+      "kept": false
+    },
+    "ed-21-modern-whites": {
+      "pexels_photo_id": "6913099",
+      "source": "verified_pexels",
+      "match_score": 11,
+      "kept": false
+    },
+    "ed-22-compact-color-pop": {
+      "pexels_photo_id": "6913098",
+      "source": "verified_pexels",
+      "match_score": 20,
+      "kept": false
+    },
+    "ed-27-soft-spring-mix": {
+      "pexels_photo_id": "931173",
+      "source": "verified_pexels",
+      "match_score": 18,
+      "kept": false
+    },
+    "ed-29-bright-market-bunch": {
+      "pexels_photo_id": "931174",
+      "source": "verified_pexels",
+      "match_score": 18,
+      "kept": false
+    },
+    "ed-30-calm-clean-whites": {
+      "pexels_photo_id": "6913097",
+      "source": "verified_pexels",
+      "match_score": 11,
+      "kept": false
+    },
+    "ed-32-hydrangea-trio": {
+      "pexels_photo_id": "34638178",
+      "source": "verified_pexels",
+      "match_score": 12,
+      "kept": false
+    },
+    "ed-34-everyday-mason-jar": {
+      "pexels_photo_id": "6913096",
+      "source": "verified_pexels",
+      "match_score": 17,
+      "kept": false
+    },
+    "ed-35-simple-greens-whites": {
+      "pexels_photo_id": "6913094",
+      "source": "verified_pexels",
+      "match_score": 8,
+      "kept": false
+    },
+    "ed-36-happy-day-bouquet": {
+      "pexels_photo_id": "6913093",
+      "source": "verified_pexels",
+      "match_score": 20,
+      "kept": false
+    },
+    "ed-40-pink-petal-jar": {
+      "pexels_photo_id": "6913092",
+      "source": "verified_pexels",
+      "match_score": 20,
+      "kept": false
+    },
+    "ed-48-simple-cheer": {
+      "pexels_photo_id": "6913089",
+      "source": "verified_pexels",
+      "match_score": 17,
+      "kept": false
+    },
+    "ed-51-daily-pink-cylinder": {
+      "pexels_photo_id": "6913088",
+      "source": "verified_pexels",
+      "match_score": 17,
+      "kept": false
+    },
+    "ed-53-white-meadow-vase": {
+      "pexels_photo_id": "6913087",
+      "source": "verified_pexels",
+      "match_score": 8,
+      "kept": false
+    },
+    "ed-54-everyday-citrus-mix": {
+      "pexels_photo_id": "6913085",
+      "source": "verified_pexels",
+      "match_score": 14,
+      "kept": false
+    },
+    "ed-55-hydrangea-cottage-jar": {
+      "pexels_photo_id": "6913084",
+      "source": "verified_pexels",
+      "match_score": 26,
+      "kept": false
+    },
+    "ed-56-rose-stock-everyday": {
+      "pexels_photo_id": "6913083",
+      "source": "verified_pexels",
+      "match_score": 14,
+      "kept": false
+    },
+    "ed-57-daisy-porch-jar": {
+      "pexels_photo_id": "6913082",
+      "source": "verified_pexels",
+      "match_score": 23,
+      "kept": false
+    },
+    "ed-58-blush-countertop-mix": {
+      "pexels_photo_id": "6913080",
+      "source": "verified_pexels",
+      "match_score": 17,
+      "kept": false
+    },
+    "ed-59-neutral-rose-vase": {
+      "pexels_photo_id": "6913079",
+      "source": "verified_pexels",
+      "match_score": 14,
+      "kept": false
+    },
+    "ed-60-sunflower-simple-jar": {
+      "pexels_photo_id": "6913078",
+      "source": "verified_pexels",
+      "match_score": 20,
+      "kept": false
+    },
+    "ed-61-clean-greens-whites": {
+      "pexels_photo_id": "6913077",
+      "source": "verified_pexels",
+      "match_score": 11,
+      "kept": false
+    },
+    "ed-62-pink-breeze-vase": {
+      "pexels_photo_id": "6913076",
+      "source": "verified_pexels",
+      "match_score": 11,
+      "kept": false
+    },
+    "ed-63-everyday-hydrangea-cube": {
+      "pexels_photo_id": "6913074",
+      "source": "verified_pexels",
+      "match_score": 17,
+      "kept": false
+    },
+    "ed-64-soft-yellow-harmony": {
+      "pexels_photo_id": "6913073",
+      "source": "verified_pexels",
+      "match_score": 20,
+      "kept": false
+    },
+    "ed-65-rose-mum-daily-vase": {
+      "pexels_photo_id": "6913072",
+      "source": "verified_pexels",
+      "match_score": 14,
+      "kept": false
+    },
+    "ed-66-bright-market-jar": {
+      "pexels_photo_id": "6913071",
+      "source": "verified_pexels",
+      "match_score": 23,
+      "kept": false
+    },
+    "ed-67-calm-white-garden": {
+      "pexels_photo_id": "37309563",
+      "source": "verified_pexels",
+      "match_score": 12,
+      "kept": false
+    },
+    "ed-68-peach-pink-blend": {
+      "pexels_photo_id": "36222076",
+      "source": "verified_pexels",
+      "match_score": 12,
+      "kept": false
+    },
+    "ed-69-hydrangea-daisy-mix": {
+      "pexels_photo_id": "36133863",
+      "source": "verified_pexels",
+      "match_score": 21,
+      "kept": false
+    },
+    "ed-70-everyday-rustic-cylinder": {
+      "pexels_photo_id": "27952000",
+      "source": "verified_pexels",
+      "match_score": 12,
+      "kept": false
+    },
+    "ed-71-modern-neutral-jar": {
+      "pexels_photo_id": "27820568",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-72-daily-blush-bouquet": {
+      "pexels_photo_id": "8264842",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-73-soft-lavender-mix": {
+      "pexels_photo_id": "8264841",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-74-rose-carnation-classic": {
+      "pexels_photo_id": "8264839",
+      "source": "verified_pexels",
+      "match_score": 12,
+      "kept": false
+    },
+    "ed-75-sunshine-table-vase": {
+      "pexels_photo_id": "8264837",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-76-gentle-white-trio": {
+      "pexels_photo_id": "6913120",
+      "source": "verified_pexels",
+      "match_score": 9,
+      "kept": false
+    },
+    "ed-77-pink-market-bunch": {
+      "pexels_photo_id": "6913119",
+      "source": "verified_pexels",
+      "match_score": 9,
+      "kept": false
+    },
+    "ed-78-everyday-hydrangea-rose": {
+      "pexels_photo_id": "6913118",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-79-daisy-stock-harmony": {
+      "pexels_photo_id": "6913117",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-80-clean-color-pop": {
+      "pexels_photo_id": "6913116",
+      "source": "verified_pexels",
+      "match_score": 18,
+      "kept": false
+    },
+    "ed-81-soft-neutral-jar": {
+      "pexels_photo_id": "6913115",
+      "source": "verified_pexels",
+      "match_score": 21,
+      "kept": false
+    },
+    "ed-82-rose-garden-everyday": {
+      "pexels_photo_id": "6913114",
+      "source": "verified_pexels",
+      "match_score": 21,
+      "kept": false
+    },
+    "ed-83-hydrangea-greens-mix": {
+      "pexels_photo_id": "6913113",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-84-bright-daily-cylinder": {
+      "pexels_photo_id": "6913112",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-85-pink-white-everyday": {
+      "pexels_photo_id": "6913111",
+      "source": "verified_pexels",
+      "match_score": 12,
+      "kept": false
+    },
+    "ed-86-sunflower-accent-vase": {
+      "pexels_photo_id": "6913110",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-87-classic-rose-jar": {
+      "pexels_photo_id": "6913109",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-88-soft-spring-color-mix": {
+      "pexels_photo_id": "6913108",
+      "source": "verified_pexels",
+      "match_score": 21,
+      "kept": false
+    },
+    "ed-89-neutral-countertop-arrangement": {
+      "pexels_photo_id": "6913107",
+      "source": "verified_pexels",
+      "match_score": 9,
+      "kept": false
+    },
+    "ed-90-blush-cream-harmony": {
+      "pexels_photo_id": "6913106",
+      "source": "verified_pexels",
+      "match_score": 9,
+      "kept": false
+    },
+    "ed-91-daisy-sunshine-cube": {
+      "pexels_photo_id": "6913105",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-92-everyday-rose-lily": {
+      "pexels_photo_id": "6913104",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-93-hydrangea-soft-blend": {
+      "pexels_photo_id": "6913103",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-94-rustic-greens-whites": {
+      "pexels_photo_id": "6913102",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-95-daily-pink-yellow": {
+      "pexels_photo_id": "6913100",
+      "source": "verified_pexels",
+      "match_score": 12,
+      "kept": false
+    },
+    "ed-96-bright-everyday-vase": {
+      "pexels_photo_id": "4041361",
+      "source": "verified_pexels",
+      "match_score": 21,
+      "kept": false
+    },
+    "ed-97-soft-pastel-jar": {
+      "pexels_photo_id": "2111192",
+      "source": "verified_pexels",
+      "match_score": 21,
+      "kept": false
+    },
+    "ed-98-rose-daisy-color-pop": {
+      "pexels_photo_id": "1181265",
+      "source": "verified_pexels",
+      "match_score": 21,
+      "kept": false
+    },
+    "ed-99-hydrangea-everyday-trio": {
+      "pexels_photo_id": "1181264",
+      "source": "verified_pexels",
+      "match_score": 15,
+      "kept": false
+    },
+    "ed-100-florist-counter-classic": {
+      "pexels_photo_id": "1181263",
+      "source": "verified_pexels",
+      "match_score": 18,
+      "kept": false
+    }
+  }
+}

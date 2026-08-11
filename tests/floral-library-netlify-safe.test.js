@@ -11,6 +11,7 @@ import {
   getEverydayFloralLibraryCatalog,
   getPublicFloralLibraryCatalog
 } from "../netlify/functions/_shared/floral-library-core.js";
+import { normalizeAssetPath } from "../lib/floral-library/image-hash-audit.js";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(root, "../public");
@@ -91,7 +92,7 @@ test("featured everyday arrangements have unique image file hashes", () => {
   const catalog = getEverydayFloralLibraryCatalog();
   const hashes = new Map();
   for (const p of catalog) {
-    const url = p.primary_image.url.replace(/^\//, "");
+    const url = normalizeAssetPath(p.primary_image.url);
     assert.ok(existsSync(path.join(publicDir, url)), `missing image ${url}`);
     const hash = fileSha256(url);
     if (hashes.has(hash)) {
@@ -112,7 +113,7 @@ test("ultra-realistic metadata is backed by unique image content", () => {
     assert.ok(p.primary_image.url, `${p.id} missing url`);
     assert.ok(p.primary_image.hash, `${p.id} missing content hash`);
     urlHashes.add(p.primary_image.url);
-    const rel = p.primary_image.url.replace(/^\//, "");
+    const rel = normalizeAssetPath(p.primary_image.url);
     contentHashes.add(fileSha256(rel));
   }
   assert.equal(urlHashes.size, catalog.length, "duplicate image URLs in featured catalog");
