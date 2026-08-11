@@ -103,9 +103,11 @@ export function getFlorisynSignatureCatalog() {
   return getEverydayFloralLibraryCatalog();
 }
 
-/** Public catalog — 50 everyday ultra-realistic arrangements (batch 1 of 500). */
+/** Public starter catalog — verified everyday photos only (excludes needs_image_replacement). */
 export function getPublicFloralLibraryCatalog() {
-  return getEverydayFloralLibraryCatalog();
+  return getEverydayFloralLibraryCatalog().filter(
+    (p) => !p.metadata?.needs_image_replacement && p.metadata?.launch_quality !== "needs_photo_replacement"
+  );
 }
 
 /** @deprecated Legacy starters removed from public catalog — admin import only. */
