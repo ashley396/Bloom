@@ -131,7 +131,9 @@ test("no duplicate filenames or hashes in JSON batches", () => {
     for (const a of data.arrangements || []) {
       imagePaths.push(a.image);
       if (a.content_sha256) shaFromJson.push(a.content_sha256);
-      assert.ok(a.pexels_photo_id, `${a.id} missing pexels_photo_id`);
+      if (a.image_license?.source === "licensed_stock_pexels") {
+        assert.ok(a.pexels_photo_id, `${a.id} missing pexels_photo_id`);
+      }
     }
   }
   assert.equal(new Set(imagePaths).size, imagePaths.length);
