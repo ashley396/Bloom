@@ -10,7 +10,7 @@ test("mobile shell stylesheet is loaded last in the app shell", () => {
   const posIdx = html.indexOf("florisyn-luxury-pos.css");
   const shellIdx = html.indexOf("florisyn-mobile-shell.css");
   assert.ok(posIdx >= 0 && shellIdx > posIdx, "mobile shell should load after florisyn-luxury-pos.css");
-  assert.match(html, /florisyn-mobile-shell.css\?v=m6/);
+  assert.match(html, /florisyn-mobile-shell.css\?v=m7/);
 });
 
 test("mobile shell fixes off-canvas drawer and app viewport shell", () => {
@@ -21,7 +21,9 @@ test("mobile shell fixes off-canvas drawer and app viewport shell", () => {
   assert.match(css, /--florisyn-mobile-nav-height/);
   assert.match(css, /repeat\(6, minmax\(0, 1fr\)\)/);
   assert.match(css, /100dvh/);
-  assert.match(css, /overscroll-behavior: contain/);
+  assert.match(css, /--florisyn-mobile-drawer-width/);
+  assert.match(css, /44vw/);
+  assert.match(css, /bloom-pos-mobile-footer/);
 });
 
 test("critical POS inline CSS is desktop-only", () => {

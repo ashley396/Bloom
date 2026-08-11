@@ -103,7 +103,10 @@
         <div class="lily-head-tools">
           <button type="button" id="lilyThemeToggle" title="Theme">◐</button>
           <button type="button" id="lilyExpand" title="Expand">⤢</button>
-          <button type="button" id="lilyClose" title="Close">×</button>
+          <button type="button" id="lilyClose" class="lily-close-btn" title="Close Lily chat" aria-label="Close Lily chat">
+            <span class="lily-close-x" aria-hidden="true">×</span>
+            <span class="lily-close-label">Close</span>
+          </button>
         </div>
       </header>
       <nav class="lily-tabs">

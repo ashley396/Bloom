@@ -138,7 +138,20 @@ import {
       if (anchor) anchor.after(bar);
       else page.prepend(bar);
     }
-    bar.innerHTML = `
+    if (pageId === "posPage") {
+      bar.className = "bloom-page-help bloom-pos-mobile-footer";
+      bar.innerHTML = `
+        <div class="bloom-pos-footer-brand">
+          <strong>Florisyn</strong>
+          <p class="bloom-pos-footer-hint">${copy.body}</p>
+        </div>
+        <div class="bloom-pos-footer-actions bloom-page-help-actions">
+          <button type="button" class="bloom-pos-chip bloom-help-lily" data-page-help-lily aria-label="Ask Lily">Lily</button>
+          <a class="bloom-pos-chip" href="${copy.learn}" target="_blank" rel="noopener" aria-label="Open help guides">Help</a>
+        </div>`;
+    } else {
+      bar.className = "bloom-page-help";
+      bar.innerHTML = `
       <div>
         <p class="eyebrow">HELP</p>
         <strong>${copy.title}</strong>
@@ -148,6 +161,7 @@ import {
         <button type="button" class="secondary bloom-help-lily" data-page-help-lily>Ask Lily</button>
         <a class="secondary" href="${copy.learn}" target="_blank" rel="noopener">Learn more</a>
       </div>`;
+    }
     bar.querySelector("[data-page-help-lily]")?.addEventListener("click", () => {
       window.BloomLilyPlatform?.toggle?.(true);
     });
