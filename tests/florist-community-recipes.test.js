@@ -150,7 +150,7 @@ test("florist-community handler wires Lily recipe actions", () => {
   assert.match(src, /generate_recipe/);
   assert.match(src, /buildLocalRecipeDraftFromPost/);
   assert.match(src, /local_fallback/);
-  assert.match(src, /communityStorageClient/);
+  assert.match(src, /resolveCommunityImageForVision/);
   assert.match(src, /rebuilt_published/);
   assert.match(src, /save_recipe_draft/);
   assert.match(src, /publish_recipe/);

@@ -230,3 +230,47 @@ export async function downloadCommunityImageBuffer(client, path, { adminClient =
   }
   return null;
 }
+
+/** Fetch a signed or public image URL into a vision buffer (server-side only). */
+export async function fetchImageBufferFromUrl(url, { maxBytes = COMMUNITY_IMAGE_MAX_BYTES } = {}) {
+  const raw = String(url || "").trim();
+  if (!raw || !/^https?:\/\//i.test(raw)) return null;
+  try {
+    const response = await fetch(raw, { redirect: "follow" });
+    if (!response.ok) return null;
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (!buffer.length || buffer.length > maxBytes) return null;
+    const headerMime = String(response.headers.get("content-type") || "").split(";")[0].trim();
+    const mime = /^image\//i.test(headerMime) ? headerMime : "image/jpeg";
+    return { buffer, mime, path: "" };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve arrangement photo bytes for Lily vision — storage download, then URL fallbacks.
+ */
+export async function resolveCommunityImageForVision(
+  client,
+  path,
+  { adminClient = null, signedUrlHint = "", createSignedUrl = null } = {}
+) {
+  const fromStorage = await downloadCommunityImageBuffer(client, path, { adminClient });
+  if (fromStorage) return { payload: fromStorage, source: "storage" };
+
+  const fromHint = await fetchImageBufferFromUrl(signedUrlHint);
+  if (fromHint) return { payload: fromHint, source: "signed_url_hint" };
+
+  if (typeof createSignedUrl === "function" && path) {
+    try {
+      const signed = await createSignedUrl(path);
+      const fromSigned = await fetchImageBufferFromUrl(signed?.url || signed);
+      if (fromSigned) return { payload: fromSigned, source: "signed_url" };
+    } catch {
+      /* try next path */
+    }
+  }
+
+  return null;
+}

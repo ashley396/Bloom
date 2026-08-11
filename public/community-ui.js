@@ -625,7 +625,10 @@
       state.recipeUi[id] = { busy: true, error: "", notice: "" };
       render();
       try {
-        const res = await api("generate_recipe", { post_id: id });
+        const res = await api("generate_recipe", {
+          post_id: id,
+          image_url: state.items.find((p) => p.id === id)?.image_url || "",
+        });
         const post = state.items.find((p) => p.id === id);
         if (post) {
           post.recipe_draft = res.recipe_draft;
