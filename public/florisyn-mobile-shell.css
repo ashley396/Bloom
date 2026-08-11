@@ -112,12 +112,14 @@
   /* Lock page scroll when drawer or Lily chat is open */
   body.florisyn-atelier.atelier-drawer-open,
   body.florisyn-atelier.florisyn-nav-locked,
+  body.florisyn-atelier.florisyn-lily-open,
   body.florisyn-atelier:has(#lilyPanel:not([hidden])) {
     overflow: hidden !important;
     touch-action: none;
   }
 
   body.florisyn-atelier.atelier-drawer-open .florisyn-lux-main > .content,
+  body.florisyn-atelier.florisyn-lily-open .florisyn-lux-main > .content,
   body.florisyn-atelier:has(#lilyPanel:not([hidden])) .florisyn-lux-main > .content {
     overflow: hidden !important;
   }

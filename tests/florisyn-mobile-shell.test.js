@@ -59,6 +59,8 @@ test("setCommunityNavVisible toggles Community vs Menu in bottom nav fifth slot"
   assert.match(appJs, /closeMobileDrawer/);
   assert.match(appJs, /scrollMobilePageToTop/);
   assert.match(appJs, /syncPageVisibility/);
+  assert.match(appJs, /wireMobileLilyScrollLock/);
+  assert.match(appJs, /florisyn-lily-open/);
 });
 
 test("enterprise mobile nav CSS uses five equal columns on phone", () => {
