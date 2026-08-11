@@ -17,6 +17,7 @@ import {
   DEFAULT_RELAY_FEE_PERCENT,
   FLORISYN_WIRE_PLATFORM_FEE_PERCENT,
   WIRE_ZERO_PLATFORM_POLICY,
+  validateRelaySplitPercent,
 } from "../../lib/florist-network/wire-orders.js";
 import { uploadWireReferencePhoto, attachWireReferencePhotoUrls } from "./_shared/florist-wire-photo.js";
 
@@ -194,10 +195,11 @@ export async function handler(event) {
       if (!v.ok) return json(400, { error: v.error });
       const fulfilling_shop_id = body.fulfilling_shop_id;
       if (!fulfilling_shop_id) return json(400, { error: "Select a fulfilling florist." });
-      const relayPercent = Math.min(
-        100,
-        Math.max(0, Number(body.relay_fee_percent ?? body.wire_fee_percent ?? DEFAULT_RELAY_FEE_PERCENT))
+      const splitCheck = validateRelaySplitPercent(
+        body.relay_fee_percent ?? body.wire_fee_percent ?? DEFAULT_RELAY_FEE_PERCENT
       );
+      if (!splitCheck.ok) return json(400, { error: splitCheck.error });
+      const relayPercent = splitCheck.relayPercent;
       const settlement = computeWireSettlement(v.payload.wire_amount, { relayPercent });
       let reference_photo_url = null;
       if (body.reference_photo_data_url) {
@@ -320,6 +322,51 @@ export async function handler(event) {
       return json(200, { item: data });
     }
 
+    if (event.httpMethod === "POST" && action === "counter-wire") {
+      const { data: row, error: loadErr } = await client
+        .from("florist_wire_orders")
+        .select("*")
+        .eq("id", body.id)
+        .maybeSingle();
+      if (loadErr) throw loadErr;
+      if (!row) return json(404, { error: "Wire order not found." });
+      const isSender = row.sending_shop_id === shopId;
+      const isFulfiller = row.fulfilling_shop_id === shopId;
+      if (!isSender && !isFulfiller) return json(403, { error: "Not authorized for this wire." });
+      if (!["sent", "viewed", "countered"].includes(row.status)) {
+        return json(400, { error: "This wire cannot be countered in its current state." });
+      }
+      const splitCheck = validateRelaySplitPercent(body.relay_fee_percent ?? row.relay_fee_percent);
+      if (!splitCheck.ok) return json(400, { error: splitCheck.error });
+      const priorMeta = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+      const counter = {
+        at: new Date().toISOString(),
+        by_shop_id: shopId,
+        wire_amount: body.wire_amount != null ? Number(body.wire_amount) : row.wire_amount,
+        delivery_fee: body.delivery_fee != null ? Number(body.delivery_fee) : null,
+        delivery_date: body.delivery_date || row.delivery_date,
+        delivery_time_window: body.delivery_time_window || row.delivery_time_window,
+        arrangement_notes: body.arrangement_notes || null,
+        relay_fee_percent: splitCheck.relayPercent,
+        decline_reason: null,
+        message: String(body.message || body.counter_message || "").trim() || null,
+      };
+      const patch = {
+        status: "countered",
+        relay_fee_percent: splitCheck.relayPercent,
+        updated_at: new Date().toISOString(),
+        metadata: {
+          ...priorMeta,
+          counter_offers: [...(priorMeta.counter_offers || []), counter],
+          last_counter: counter,
+        },
+      };
+      if (body.wire_amount != null) patch.wire_amount = Math.max(0, Number(body.wire_amount));
+      const { data, error } = await client.from("florist_wire_orders").update(patch).eq("id", body.id).select().single();
+      if (error) throw error;
+      return json(200, { item: data });
+    }
+
     if (event.httpMethod === "POST" && action === "transition") {
       const { data: row, error: loadErr } = await client
         .from("florist_wire_orders")
@@ -336,8 +383,17 @@ export async function handler(event) {
         return json(400, { error: `Cannot move from ${row.status} to ${next}.` });
       }
       const patch = { status: next, updated_at: new Date().toISOString() };
+      if (next === "viewed" && isFulfiller && !row.viewed_at) patch.viewed_at = new Date().toISOString();
       if (next === "accepted") patch.accepted_at = new Date().toISOString();
       if (next === "delivered") patch.delivered_at = new Date().toISOString();
+      if (next === "completed") patch.completed_at = new Date().toISOString();
+      if (next === "declined") {
+        const priorMeta = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+        patch.metadata = {
+          ...priorMeta,
+          decline_reason: String(body.decline_reason || body.reason || "").trim() || null,
+        };
+      }
       const { data, error } = await client
         .from("florist_wire_orders")
         .update(patch)
