@@ -247,7 +247,7 @@ async function ensureDefaultProfile(client, ctx) {
   return data;
 }
 
-async function signedImageUrl(client, path) {
+async function signedImageUrl(client, path, { adminClient = null } = {}) {
   if (!path || !isStoragePath(path)) {
     return { url: null, expiresIn: null };
   }
@@ -256,6 +256,14 @@ async function signedImageUrl(client, path) {
     p_path: path,
   });
   if (readErr || readable !== true) {
+    if (adminClient) {
+      const { data, error } = await adminClient.storage
+        .from(COMMUNITY_IMAGE_BUCKET)
+        .createSignedUrl(path, COMMUNITY_SIGNED_URL_SECONDS);
+      if (!error && data?.signedUrl) {
+        return { url: data.signedUrl, expiresIn: COMMUNITY_SIGNED_URL_SECONDS };
+      }
+    }
     return { url: null, expiresIn: null };
   }
   const { data, error } = await client.storage
@@ -263,6 +271,16 @@ async function signedImageUrl(client, path) {
     .createSignedUrl(path, COMMUNITY_SIGNED_URL_SECONDS);
   if (error) return { url: null, expiresIn: null };
   return { url: data?.signedUrl || null, expiresIn: COMMUNITY_SIGNED_URL_SECONDS };
+}
+
+async function adminSignedImageUrl(path) {
+  const admin = communityStorageClient();
+  if (!admin || !path || !isStoragePath(path)) return null;
+  const { data, error } = await admin.storage
+    .from(COMMUNITY_IMAGE_BUCKET)
+    .createSignedUrl(path, COMMUNITY_SIGNED_URL_SECONDS);
+  if (error || !data?.signedUrl) return null;
+  return data.signedUrl;
 }
 
 async function auditPlatformModeration(userId, shopId, action, details) {
@@ -359,7 +377,7 @@ async function feed(client, ctx, { category, platformAdmin }) {
   );
   return Promise.all(
     withAuthors.map(async (p) => {
-      const signed = await signedImageUrl(client, p.image_path);
+      const signed = await signedImageUrl(client, p.image_path, { adminClient: communityStorageClient() });
       const isMine = p.author_user_id === ctx.user.id;
       return publicPost(p, {
         liked: liked.has(p.id),
@@ -931,13 +949,16 @@ export async function handler(event) {
       if (post.image_path) {
         try {
           const signedHint = String(body.image_url || "").trim();
+          const clientDataUrl = String(body.image_data_url || "").trim();
           const resolved = await resolveCommunityImageForVision(client, post.image_path, {
             adminClient: communityStorageClient(),
             signedUrlHint: signedHint,
+            clientDataUrl,
             createSignedUrl: async (path) => {
-              const signed = await signedImageUrl(client, path);
+              const signed = await signedImageUrl(client, path, { adminClient: communityStorageClient() });
               return signed.url;
             },
+            adminSignedUrl: adminSignedImageUrl,
           });
           if (resolved?.payload) {
             imageSource = resolved.source;

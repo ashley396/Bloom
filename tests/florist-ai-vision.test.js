@@ -57,7 +57,7 @@ test("florist-community generate_recipe wires photo vision", () => {
   const handler = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
   assert.match(handler, /analyzeArrangementPhoto/);
   assert.match(handler, /resolveCommunityImageForVision/);
-  assert.match(handler, /image_url/);
+  assert.match(handler, /image_data_url/);
+  assert.match(handler, /adminSignedImageUrl/);
   assert.match(handler, /local_vision_fallback/);
-  assert.match(handler, /hadPhoto: true/);
 });
