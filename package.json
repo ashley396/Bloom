@@ -31,6 +31,7 @@
     "test:rc1": "node --test tests/florisyn-rc1-readiness.test.js",
     "test:community-rls": "node --test tests/integration/florist-community-rls.test.js",
     "test:floral-library-rls": "node --test tests/integration/floral-library-rls.test.js",
+    "test:floral-library-crash": "node --test tests/floral-library-function-crash.test.js",
     "test:live-schema-snapshot": "node --test tests/florisyn-live-schema-snapshot.test.js",
     "test:canonical-migrations": "node --test tests/p0-11-canonical-migration-chain.test.js",
     "test:tenant-isolation": "node --test tests/p0-12-closed-beta-tenant-isolation.test.js",
