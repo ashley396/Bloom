@@ -9,6 +9,8 @@
 .lily-panel-head small{display:block;color:#796a74;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
 .lily-head-tools{display:flex;gap:6px;align-items:center}
 .lily-head-tools button{border:none;background:#fff;border-radius:10px;width:34px;height:34px;cursor:pointer;box-shadow:0 2px 8px #5b234014}
+.lily-close-btn .lily-close-label{display:none}
+.lily-close-btn .lily-close-x{font-size:22px;line-height:1;font-weight:700}
 .lily-tabs{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid var(--lily-border,#eadde5);background:var(--lily-panel-bg,#fffcfd)}
 .lily-tabs button{flex:1;border:none;background:transparent;padding:8px;border-radius:10px;font-size:12px;font-weight:700;color:#796a74;cursor:pointer}
 .lily-tabs button.active{background:#f3e6ec;color:#7e214e}

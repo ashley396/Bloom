@@ -84,11 +84,18 @@ function showApp(){loadPlatformSettings();refreshGrowthFeatureFlags();$("#auth")
 function closeMobileDrawer(){(window.FlorisynPlatform?.setDrawer||window.FlorisynAtelierChrome?.setDrawer)?.(false)}
 function scrollMobilePageToTop(){
   if(!window.matchMedia("(max-width: 820px)").matches)return;
-  window.scrollTo(0,0);
+  const scroller=document.querySelector(".florisyn-lux-main > .content")||document.querySelector(".shell > .content");
+  if(scroller)scroller.scrollTop=0;
   document.documentElement.scrollTop=0;
   document.body.scrollTop=0;
-  const main=document.querySelector(".florisyn-lux-main")||document.querySelector(".shell > .content");
-  if(main)main.scrollTop=0;
+  window.scrollTo(0,0);
+}
+function syncPageVisibility(activeId){
+  $$(".page").forEach(p=>{
+    const on=p.id===activeId;
+    p.hidden=!on;
+    p.classList.toggle("active",on);
+  });
 }
 function showPage(id){
   if(id==="communityPage"&&!communityBetaEnabled){
@@ -112,11 +119,7 @@ function showPage(id){
     return;
   }
   window.BloomLaunchPolish?.onPageStart?.(id);
-  $$(".page").forEach(p=>{
-    const on=p.id===id;
-    p.hidden=!on;
-    p.classList.toggle("active",on);
-  });
+  syncPageVisibility(id);
   document.body.classList.toggle("florisyn-pos-active", id==="posPage");
   const routePath=window.FlorisynRouter?.path||window.FlorisynRouter?.PAGE_PATH?.[id]||"";
   if(window.FlorisynRouter?.syncActiveNav&&routePath)window.FlorisynRouter.syncActiveNav(routePath);
