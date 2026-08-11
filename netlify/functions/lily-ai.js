@@ -8,6 +8,54 @@ import {
   sanitizeHistoryEntry,
   searchHistory
 } from "./_shared/lily-ai-engine.js";
+import { runTextChat } from "./_shared/ai-provider.js";
+import { aiUnavailableMessage } from "../../lib/ai/provider-config.js";
+
+async function loadConversationHistory(client, conversationId, userId, shopId, limit = 12) {
+  if (!conversationId) return [];
+  try {
+    const { data: conv } = await client
+      .from(CONVERSATIONS)
+      .select("id")
+      .eq("id", conversationId)
+      .eq("user_id", userId)
+      .eq("shop_id", shopId)
+      .maybeSingle();
+    if (!conv) return [];
+    const { data: msgs } = await client
+      .from(MESSAGES)
+      .select("role, content")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true })
+      .limit(limit);
+    return (msgs || [])
+      .filter((m) => m.content)
+      .map((m) => ({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content: String(m.content).slice(0, 2000),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+async function summarizeMemory(client, conversationId, userId, shopId) {
+  const history = await loadConversationHistory(client, conversationId, userId, shopId, 20);
+  if (history.length < 8) return null;
+  try {
+    const summary = await runTextChat({
+      persona: "Lily",
+      prompt: `Summarize this florist shop conversation in 3 bullet points for future context. Keep flower names and decisions.\n${history.map((h) => `${h.role}: ${h.content}`).join("\n")}`,
+      context: {},
+      history: [],
+      mode: "chat",
+      maxTokens: 220,
+    });
+    return summary.answer?.slice(0, 1200) || null;
+  } catch {
+    return null;
+  }
+}
 
 const CONVERSATIONS = "lily_conversations";
 const MESSAGES = "lily_messages";
@@ -60,6 +108,15 @@ async function logAction(client, { userId, shopId, intent, actionType, result, m
   }
 }
 
+function shouldUseGenerativeChat(intent, planned) {
+  if (intent.intent === "general.chat") return true;
+  if (intent.intent === "coach.business" && !planned?.type) return true;
+  if (intent.intent === "florist.photo_placeholder") return false;
+  if (planned?.type === "navigate" || planned?.type === "api" || planned?.requiresConfirmation) return false;
+  if (intent.confidence < 0.72 && !planned?.message) return true;
+  return false;
+}
+
 function buildResponseMessage(intent, permission, planned, confirmed) {
   if (!permission.allowed) {
     return "I can help with that, but your Florisyn role does not allow this action. Ask a shop owner or manager if you need access.";
@@ -95,7 +152,19 @@ export async function handler(event) {
       return json(200, { suggestions: buildCoachSuggestions(context) });
     }
 
-    if (!message && !["product-generate", "coach", "history-search"].includes(body.action)) {
+    if (event.httpMethod === "POST" && body.action === "clear-memory") {
+      if (conversationId) {
+        try {
+          await client.from(MESSAGES).delete().eq("conversation_id", conversationId).eq("user_id", user.id).eq("shop_id", shopId);
+          await client.from(CONVERSATIONS).delete().eq("id", conversationId).eq("user_id", user.id).eq("shop_id", shopId);
+        } catch {
+          /* optional tables */
+        }
+      }
+      return json(200, { cleared: true });
+    }
+
+    if (!message && !["product-generate", "coach", "history-search", "clear-memory"].includes(body.action)) {
       return json(400, { error: "Add a message for Lily." });
     }
 
@@ -134,18 +203,9 @@ export async function handler(event) {
       };
     }
 
-    const responseText =
+    let responseText =
       buildResponseMessage(intent, permission, planned, confirmed) ||
-      `I understand you want help with ${intent.domain.replace("_", " ")}. I can chat, suggest next steps, and prepare actions for your confirmation.`;
-
-    await logAction(client, {
-      userId: user.id,
-      shopId,
-      intent: intent.intent,
-      actionType: planned?.type || "chat",
-      result: permission.allowed ? (confirmed ? "confirmed" : "planned") : "denied",
-      metadata: { domain: intent.domain, confidence: intent.confidence }
-    });
+      `I understand you want help with ${intent.domain.replace(/_/g, " ")}. I can chat, suggest next steps, and prepare actions for your confirmation.`;
 
     let convId = conversationId;
     if (!convId) {
@@ -162,12 +222,49 @@ export async function handler(event) {
             JSON.stringify({
               level: "warn",
               message: "lily_conversation_create_skipped",
-              detail: String(error.message || error).slice(0, 200)
+              detail: String(error.message || error).slice(0, 200),
             })
           );
         }
       }
     }
+
+    if (permission.allowed && shouldUseGenerativeChat(intent, planned) && message) {
+      const history = await loadConversationHistory(client, convId, user.id, shopId);
+      const memorySummary = convId ? await summarizeMemory(client, convId, user.id, shopId) : null;
+      const enrichedContext = memorySummary ? { ...context, conversation_summary: memorySummary } : context;
+      try {
+        const persona = body.persona === "Rose" ? "Rose" : body.persona === "Daisy" ? "Daisy" : "Lily";
+        const ai = await runTextChat({
+          persona,
+          prompt: message,
+          context: enrichedContext,
+          history,
+          mode: "chat",
+        });
+        if (ai.answer) responseText = ai.answer;
+      } catch (aiError) {
+        console.warn(
+          JSON.stringify({
+            level: "warn",
+            message: "lily_generative_chat_fallback",
+            detail: String(aiError.message || aiError).slice(0, 200),
+          })
+        );
+        if (intent.intent === "general.chat") {
+          responseText = aiUnavailableMessage(String(aiError.message || ""));
+        }
+      }
+    }
+
+    await logAction(client, {
+      userId: user.id,
+      shopId,
+      intent: intent.intent,
+      actionType: planned?.type || "chat",
+      result: permission.allowed ? (confirmed ? "confirmed" : "planned") : "denied",
+      metadata: { domain: intent.domain, confidence: intent.confidence }
+    });
 
     if (convId) {
       await persistMessage(client, {

@@ -122,6 +122,8 @@
       <div id="lilyConfirm" class="lily-confirm" hidden></div>
       <div class="lily-toolbar" id="lilyToolbar"></div>
       <div class="lily-compose">
+        <input type="file" id="lilyPhotoInput" accept="image/jpeg,image/png,image/webp,image/heic" hidden>
+        <button type="button" class="lily-photo" title="Analyze arrangement photo" aria-label="Upload arrangement photo">📷</button>
         <button type="button" class="lily-voice" title="Hear Lily">🎙</button>
         <textarea id="lilyInput" rows="1" placeholder="Ask Lily anything about your shop…"></textarea>
         <button type="button" class="lily-send" id="lilySend">→</button>
@@ -139,6 +141,8 @@
       localStorage.setItem(THEME_KEY, next);
     };
     document.getElementById("lilySend").onclick = () => sendMessage();
+    document.getElementById("lilyPhotoInput").onchange = (e) => analyzeArrangementPhoto(e.target.files?.[0]);
+    document.querySelector(".lily-photo").onclick = () => document.getElementById("lilyPhotoInput").click();
     document.querySelector(".lily-voice").onclick = () => {
       window.FlorisynAssistantVoice?.speak?.(
         "Lily",
@@ -167,11 +171,33 @@
     });
   }
 
+  function lockPageScroll(locked) {
+    document.body.classList.toggle("lily-panel-open", locked);
+    if (locked) {
+      document.body.dataset.lilyScrollY = String(window.scrollY || 0);
+      document.body.style.top = `-${window.scrollY || 0}px`;
+      document.body.style.position = "fixed";
+      document.body.style.width = "100%";
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+    } else {
+      const y = Number(document.body.dataset.lilyScrollY || 0);
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+      delete document.body.dataset.lilyScrollY;
+      window.scrollTo(0, y);
+    }
+  }
+
   function togglePanel(force) {
     open = typeof force === "boolean" ? force : !open;
     const panel = document.getElementById("lilyPanel");
     if (!panel) return;
     panel.hidden = !open;
+    lockPageScroll(open);
     if (open) {
       renderChat();
       loadCoach();
@@ -239,6 +265,10 @@
     });
     document.getElementById("lilyClearHistory").onclick = () => {
       if (!confirm("Clear all Lily conversations on this device?")) return;
+      deps?.api?.("lily-ai", {
+        method: "POST",
+        body: JSON.stringify({ action: "clear-memory", conversation_id: conversationId }),
+      }).catch(() => {});
       localStorage.removeItem(STORAGE_KEY);
       conversationId = null;
       setTab("chat");
@@ -337,6 +367,40 @@
     });
   }
 
+  async function analyzeArrangementPhoto(file) {
+    if (!file || !deps?.api) return;
+    appendMessage("user", `[Uploaded arrangement photo: ${file.name}]`);
+    showTyping();
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const result = await deps.api("lily-arrangement-vision", {
+        method: "POST",
+        body: JSON.stringify({ image_data_url: dataUrl }),
+      });
+      const draft = result.draft || {};
+      const lines = (draft.recipe_lines || [])
+        .map((r) => `- ${r.qty || "?"} × ${r.name}${r.note ? ` (${r.note})` : ""}`)
+        .join("\n");
+      const text = `**Likely arrangement draft** (please review before saving):\n\n**Style:** ${draft.arrangement_style || "—"}\n**Colors:** ${(draft.color_palette || []).join(", ") || "—"}\n**Difficulty:** ${draft.difficulty || "—"}\n\n**Estimated recipe:**\n${lines || "_Add stems manually in Floral Library._"}\n\n**Wholesale (est.):** $${draft.estimated_wholesale_cost?.min ?? "—"}–$${draft.estimated_wholesale_cost?.max ?? "—"}\n**Retail (est.):** $${draft.suggested_retail_price?.min ?? "—"}–$${draft.suggested_retail_price?.max ?? "—"}\n\n_${draft.uncertainty || "Review all counts and pricing before saving."}_\n\nOpen **Floral Library** to edit and save when ready — nothing was saved automatically.`;
+      hideTyping();
+      await typeAssistantResponse(text);
+      if (draft.manual_fallback) {
+        deps.toast?.("Vision AI unavailable — use manual recipe builder");
+      }
+    } catch (err) {
+      hideTyping();
+      await typeAssistantResponse(friendlyLilyError(err));
+    } finally {
+      const input = document.getElementById("lilyPhotoInput");
+      if (input) input.value = "";
+    }
+  }
+
   async function sendMessage(confirm = false) {
     const input = document.getElementById("lilyInput");
     const message = (input?.value || "").trim();
@@ -360,8 +424,9 @@
           body: JSON.stringify({
             message: confirm && pendingAction ? pendingAction.message : message,
             confirm,
-            conversation_id: conversationId
-          })
+            conversation_id: conversationId,
+            persona: deps.assistantPersona || "Lily",
+          }),
         });
         conversationId = data.conversation_id || conversationId;
         if (data.coach?.length) {
@@ -391,21 +456,6 @@
               data.response += "\n\nI couldn't generate an AI draft just now. Check Cloudflare AI in Netlify, or try again in a moment.";
             }
           }
-        } else if (data.intent?.intent === "general.chat" && deps.smartAi && message) {
-          try {
-            const ctx = deps.loadAiContext ? await deps.loadAiContext() : {};
-            const chat = await deps.smartAi({
-              mode: "chat",
-              persona: "Lily",
-              prompt: `You are Lily, Florisyn's intelligent operating assistant (not a generic chatbot). Help the florist with shop operations. User: ${message}`,
-              context: ctx
-            });
-            const answer = chat.answer || chat.message || chat.result?.text;
-            if (answer) data.response = answer;
-          } catch {
-            /* keep rule-based response */
-          }
-        }
       }
       hideTyping();
       if (!data.permission?.allowed) {

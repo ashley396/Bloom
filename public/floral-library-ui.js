@@ -57,15 +57,48 @@
     return masterCache || [];
   }
 
+  function ensureLibraryFilters() {
+    const toolbar = document.querySelector("#libraryPage .library-toolbar");
+    if (!toolbar || document.getElementById("libraryStyleFilter")) return;
+    const styleLabel = document.createElement("label");
+    styleLabel.innerHTML =
+      'Style<select id="libraryStyleFilter"><option value="">All styles</option><option>Classic</option><option>Modern</option><option>Garden</option><option>Romantic</option><option>Sympathy</option></select>';
+    const colorLabel = document.createElement("label");
+    colorLabel.innerHTML =
+      'Color<select id="libraryColorFilter"><option value="">All colors</option><option>Blush</option><option>White</option><option>Pastel</option><option>Bright</option><option>Red</option><option>Purple</option></select>';
+    const marginLabel = document.createElement("label");
+    marginLabel.innerHTML =
+      'Min margin %<select id="libraryMarginFilter"><option value="0">Any</option><option value="35">35%+</option><option value="45">45%+</option><option value="55">55%+</option></select>';
+    toolbar.append(styleLabel, colorLabel, marginLabel);
+    ["libraryStyleFilter", "libraryColorFilter", "libraryMarginFilter"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("change", () => renderLibrary());
+    });
+  }
+
   async function renderLibrary() {
     const list = document.getElementById("libraryList");
     if (!list) return;
+    ensureLibraryFilters();
     const q = (document.getElementById("librarySearch")?.value || "").toLowerCase();
     const cat = document.getElementById("libraryCategory")?.value || "";
+    const style = document.getElementById("libraryStyleFilter")?.value || "";
+    const color = document.getElementById("libraryColorFilter")?.value || "";
+    const marginMin = Number(document.getElementById("libraryMarginFilter")?.value || 0);
     const products = getMaster();
     const rows = products.filter((p) => {
-      const text = `${p.name} ${(p.categories || []).join(" ")} ${p.description}`.toLowerCase();
-      return (!q || text.includes(q)) && (!cat || (p.categories || []).includes(cat));
+      const text = `${p.name} ${(p.categories || []).join(" ")} ${p.description} ${(p.tags || []).join(" ")}`.toLowerCase();
+      const meta = p.metadata || {};
+      const palette = (meta.color_palette || []).join(" ").toLowerCase();
+      const retail = Number(p.suggested_retail?.default || 0);
+      const cost = Number(p.suggested_cost || retail * 0.42);
+      const margin = retail > 0 ? ((retail - cost) / retail) * 100 : 0;
+      return (
+        (!q || text.includes(q) || palette.includes(q)) &&
+        (!cat || (p.categories || []).includes(cat)) &&
+        (!style || String(meta.style || "").toLowerCase() === style.toLowerCase()) &&
+        (!color || palette.includes(color.toLowerCase())) &&
+        (!marginMin || margin >= marginMin)
+      );
     });
     const visible = rows.slice(0, libraryVisible);
     list.innerHTML = visible.length
