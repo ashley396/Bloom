@@ -12,7 +12,7 @@ test("mobile shell stylesheet loads after POS CSS and before critical inline blo
   const criticalIdx = html.indexOf("florisyn-pos-critical");
   assert.ok(posIdx >= 0 && shellIdx > posIdx, "mobile shell should load after luxury POS CSS");
   assert.ok(shellIdx < criticalIdx, "mobile shell should load before POS critical inline CSS");
-  assert.match(html, /florisyn-mobile-shell\.css\?v=m9/);
+  assert.match(html, /florisyn-mobile-shell\.css\?v=m10/);
 });
 
 test("mobile shell implements drawer, viewport stack, scroll lock, and five-tab grid", () => {
@@ -146,6 +146,16 @@ test("mobile toast never blocks taps on the Lily FAB underneath it", () => {
   const toastBlock = css.slice(css.indexOf("body.florisyn-atelier .toast"));
   const rule = toastBlock.slice(0, toastBlock.indexOf("}"));
   assert.match(rule, /pointer-events: none !important/, "toast overlaps the Lily FAB position and must be click-transparent");
+});
+
+test("Lily panel close button stays tap-reachable on mobile", () => {
+  const css = fs.readFileSync(path.join(root, "public/florisyn-mobile-shell.css"), "utf8");
+  // polish-v20.2 hides `header > div:last-child` at 820px, which swallowed the
+  // Lily head tools (theme/expand/close); the shell must restore them.
+  assert.match(css, /\.lily-panel-head \.lily-head-tools[\s\S]{0,200}?display: flex !important/);
+  assert.match(css, /\.lily-head-tools button[\s\S]{0,200}?min-width: 44px !important/);
+  const lily = fs.readFileSync(path.join(root, "public/lily-platform.js"), "utf8");
+  assert.match(lily, /getElementById\("lilyClose"\)\.onclick = \(\) => togglePanel\(false\)/, "close button must close the panel");
 });
 
 test("Lily FAB and panel selectors exist and open path never requires backend", () => {
