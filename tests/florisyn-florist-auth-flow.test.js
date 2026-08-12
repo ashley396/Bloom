@@ -28,7 +28,8 @@ test("florist login stores bloom_session and redirects home", () => {
 });
 
 test("confirmed florist boot loads shop workflows from session", () => {
-  assert.match(appJs, /if\(session\?\.accessToken\)\{showApp\(\)/);
+  assert.match(appJs, /async function bootFloristApp\(/);
+  assert.match(appJs, /bootFloristApp\(\)/);
   assert.match(appJs, /loadDashboard\(\),loadInventory\(\),loadOrders\(\),loadProducts\(\)/);
   assert.match(appJs, /localStorage\.getItem\("bloom_session"\)/);
 });

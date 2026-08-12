@@ -853,6 +853,16 @@
   body.florisyn-atelier .page .secondary:last-child {
     margin-bottom: env(safe-area-inset-bottom, 0px) !important;
   }
+
+  body.florisyn-session-recovery #app,
+  body.florisyn-session-recovery .mobile-nav.atelier-mobile-nav,
+  body.florisyn-session-recovery .lily-fab {
+    display: none !important;
+  }
+
+  body.florisyn-session-recovery #auth {
+    display: block !important;
+  }
 }
 
 @media (min-width: 821px) {
