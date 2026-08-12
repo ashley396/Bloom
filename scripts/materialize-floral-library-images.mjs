@@ -7,7 +7,12 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { isRegularJpegFile, materializeEverydayImage } from "./floral-library-image-pool.mjs";
+
+function fileSha256(filePath) {
+  return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+}
 
 const root = process.cwd();
 const publicDir = path.join(root, "public");
@@ -26,8 +31,18 @@ for (const file of batchFiles) {
   }
   const data = JSON.parse(fs.readFileSync(file, "utf8"));
   for (const a of data.arrangements || []) {
-    const pool = materializeEverydayImage(publicDir, a, globalIndex);
     const target = path.join(publicDir, "assets/floral-library/everyday", `${a.id}.jpg`);
+    const expectedSha = a.content_sha256 ? String(a.content_sha256) : "";
+    if (
+      expectedSha &&
+      isRegularJpegFile(target) &&
+      fileSha256(target) === expectedSha
+    ) {
+      globalIndex += 1;
+      count += 1;
+      continue;
+    }
+    const pool = materializeEverydayImage(publicDir, a, globalIndex);
     if (!isRegularJpegFile(target)) {
       throw new Error(`Failed to materialize JPEG for ${a.id} from ${pool}`);
     }

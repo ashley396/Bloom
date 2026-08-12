@@ -43,9 +43,9 @@
     },
     "suggested_cost": 23.1,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-01-sunshine-cube.jpg",
+      "url": "/assets/floral-library/everyday/ed-01-sunshine-cube.jpg?v=4ef0c6b9c0f3df94",
       "alt": "Sunshine Cube — ultra-realistic everyday floral arrangement in 5\" glass cube vase",
-      "hash": "hed-01-sunshine-cube"
+      "hash": "4ef0c6b9c0f3df94"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -126,9 +126,9 @@
     },
     "suggested_cost": 22.26,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-02-pink-meadow.jpg",
+      "url": "/assets/floral-library/everyday/ed-02-pink-meadow.jpg?v=364fe3c2697c4d4e",
       "alt": "Pink Meadow — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "hed-02-pink-meadow"
+      "hash": "364fe3c2697c4d4e"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -207,9 +207,9 @@
     },
     "suggested_cost": 27.3,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-03-classic-rose-mix.jpg",
+      "url": "/assets/floral-library/everyday/ed-03-classic-rose-mix.jpg?v=a21227964a89ee09",
       "alt": "Classic Rose Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-03-classic-rose-mix"
+      "hash": "a21227964a89ee09"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -280,9 +280,9 @@
     },
     "suggested_cost": 18.9,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-04-cheerful-daisy-burst.jpg",
+      "url": "/assets/floral-library/everyday/ed-04-cheerful-daisy-burst.jpg?v=b180564e3c9b7a20",
       "alt": "Cheerful Daisy Burst — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "hash": "hed-04-cheerful-daisy-burst"
+      "hash": "b180564e3c9b7a20"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -348,9 +348,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-05-everyday-hydrangea-pop.jpg",
+      "url": "/assets/floral-library/everyday/ed-05-everyday-hydrangea-pop.jpg?v=f97707279a953feb",
       "alt": "Everyday Hydrangea Pop — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "hed-05-everyday-hydrangea-pop"
+      "hash": "f97707279a953feb"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -419,9 +419,9 @@
     },
     "suggested_cost": 25.2,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-06-soft-blush-garden.jpg",
+      "url": "/assets/floral-library/everyday/ed-06-soft-blush-garden.jpg?v=02d7e73b59e0cd0f",
       "alt": "Soft Blush Garden — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-06-soft-blush-garden"
+      "hash": "02d7e73b59e0cd0f"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -491,9 +491,9 @@
     },
     "suggested_cost": 20.58,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-07-rustic-mason-jar-mix.jpg",
+      "url": "/assets/floral-library/everyday/ed-07-rustic-mason-jar-mix.jpg?v=da6ec02df79402b5",
       "alt": "Rustic Mason Jar Mix — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "hed-07-rustic-mason-jar-mix"
+      "hash": "da6ec02df79402b5"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -562,9 +562,9 @@
     },
     "suggested_cost": 23.94,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-08-bright-happy.jpg",
+      "url": "/assets/floral-library/everyday/ed-08-bright-happy.jpg?v=0047d75e16651f40",
       "alt": "Bright & Happy — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "hed-08-bright-happy"
+      "hash": "0047d75e16651f40"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -633,9 +633,9 @@
     },
     "suggested_cost": 26.46,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-09-simple-whites.jpg",
+      "url": "/assets/floral-library/everyday/ed-09-simple-whites.jpg?v=26af61956d3cb77f",
       "alt": "Simple Whites — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-09-simple-whites"
+      "hash": "26af61956d3cb77f"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -704,9 +704,9 @@
     },
     "suggested_cost": 28.98,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-10-everyday-elegance.jpg",
+      "url": "/assets/floral-library/everyday/ed-10-everyday-elegance.jpg?v=cda456239f7a8bf5",
       "alt": "Everyday Elegance — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "hed-10-everyday-elegance"
+      "hash": "cda456239f7a8bf5"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -775,9 +775,9 @@
     },
     "suggested_cost": 16.8,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-11-morning-cheer.jpg",
+      "url": "/assets/floral-library/everyday/ed-11-morning-cheer.jpg?v=ccaff84006b0553f",
       "alt": "Morning Cheer — ultra-realistic everyday floral arrangement in pint mason jar",
-      "hash": "hed-11-morning-cheer"
+      "hash": "ccaff84006b0553f"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -844,9 +844,9 @@
     },
     "suggested_cost": 21.84,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-12-fresh-start.jpg",
+      "url": "/assets/floral-library/everyday/ed-12-fresh-start.jpg?v=129fc91e9bc8ee79",
       "alt": "Fresh Start — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "hed-12-fresh-start"
+      "hash": "129fc91e9bc8ee79"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -915,9 +915,9 @@
     },
     "suggested_cost": 20.16,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-13-daily-delight.jpg",
+      "url": "/assets/floral-library/everyday/ed-13-daily-delight.jpg?v=1c0a3fc7d6c6100f",
       "alt": "Daily Delight — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "hed-13-daily-delight"
+      "hash": "1c0a3fc7d6c6100f"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -986,9 +986,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-14-lavender-breeze.jpg",
+      "url": "/assets/floral-library/everyday/ed-14-lavender-breeze.jpg?v=566d1991b590f52b",
       "alt": "Lavender Breeze — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-14-lavender-breeze"
+      "hash": "566d1991b590f52b"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1057,9 +1057,9 @@
     },
     "suggested_cost": 24.36,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-15-peachy-keen.jpg",
+      "url": "/assets/floral-library/everyday/ed-15-peachy-keen.jpg?v=28f87c83234ea700",
       "alt": "Peachy Keen — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "hed-15-peachy-keen"
+      "hash": "28f87c83234ea700"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1127,9 +1127,9 @@
     },
     "suggested_cost": 26.04,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-16-hydrangea-friends.jpg",
+      "url": "/assets/floral-library/everyday/ed-16-hydrangea-friends.jpg?v=542eaafbdb07c6bf",
       "alt": "Hydrangea & Friends — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-16-hydrangea-friends"
+      "hash": "542eaafbdb07c6bf"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1198,9 +1198,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-17-rose-mum-harmony.jpg",
+      "url": "/assets/floral-library/everyday/ed-17-rose-mum-harmony.jpg?v=758999bff22e6764",
       "alt": "Rose & Mum Harmony — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "hed-17-rose-mum-harmony"
+      "hash": "758999bff22e6764"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1265,9 +1265,9 @@
     },
     "suggested_cost": 19.74,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-18-alstroemeria-joy.jpg",
+      "url": "/assets/floral-library/everyday/ed-18-alstroemeria-joy.jpg?v=7564b7e17b9f0891",
       "alt": "Alstroemeria Joy — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "hed-18-alstroemeria-joy"
+      "hash": "7564b7e17b9f0891"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1331,9 +1331,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-19-sunflower-smile.jpg",
+      "url": "/assets/floral-library/everyday/ed-19-sunflower-smile.jpg?v=9758702cfb3765b5",
       "alt": "Sunflower Smile — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "hash": "hed-19-sunflower-smile"
+      "hash": "9758702cfb3765b5"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1401,9 +1401,9 @@
     },
     "suggested_cost": 25.62,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-20-gentle-pastels.jpg",
+      "url": "/assets/floral-library/everyday/ed-20-gentle-pastels.jpg?v=d6ff1d72295c1a6b",
       "alt": "Gentle Pastels — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-20-gentle-pastels"
+      "hash": "d6ff1d72295c1a6b"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1471,9 +1471,9 @@
     },
     "suggested_cost": 26.88,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-21-modern-whites.jpg",
+      "url": "/assets/floral-library/everyday/ed-21-modern-whites.jpg?v=36f8d2af63ad24a2",
       "alt": "Modern Whites — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "hed-21-modern-whites"
+      "hash": "36f8d2af63ad24a2"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1541,9 +1541,9 @@
     },
     "suggested_cost": 21.42,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-22-compact-color-pop.jpg",
+      "url": "/assets/floral-library/everyday/ed-22-compact-color-pop.jpg?v=0019418b84b3090b",
       "alt": "Compact Color Pop — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "hed-22-compact-color-pop"
+      "hash": "0019418b84b3090b"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1611,9 +1611,9 @@
     },
     "suggested_cost": 23.94,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-23-everyday-pink-mix.jpg",
+      "url": "/assets/floral-library/everyday/ed-23-everyday-pink-mix.jpg?v=64f2beaf145c2837",
       "alt": "Everyday Pink Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-23-everyday-pink-mix"
+      "hash": "64f2beaf145c2837"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1681,9 +1681,9 @@
     },
     "suggested_cost": 27.72,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-24-blue-white-classic.jpg",
+      "url": "/assets/floral-library/everyday/ed-24-blue-white-classic.jpg?v=c30270b0a70a6f47",
       "alt": "Blue & White Classic — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-24-blue-white-classic"
+      "hash": "c30270b0a70a6f47"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1747,9 +1747,9 @@
     },
     "suggested_cost": 15.54,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-25-sweet-simple.jpg",
+      "url": "/assets/floral-library/everyday/ed-25-sweet-simple.jpg?v=91b6e6a9b6225dae",
       "alt": "Sweet & Simple — ultra-realistic everyday floral arrangement in pint mason jar",
-      "hash": "hed-25-sweet-simple"
+      "hash": "91b6e6a9b6225dae"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1815,9 +1815,9 @@
     },
     "suggested_cost": 22.68,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-26-daily-sunshine.jpg",
+      "url": "/assets/floral-library/everyday/ed-26-daily-sunshine.jpg?v=e1238cddea0d80a7",
       "alt": "Daily Sunshine — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "hed-26-daily-sunshine"
+      "hash": "e1238cddea0d80a7"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1884,9 +1884,9 @@
     },
     "suggested_cost": 24.36,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-27-soft-spring-mix.jpg",
+      "url": "/assets/floral-library/everyday/ed-27-soft-spring-mix.jpg?v=2134dda8b0287ab9",
       "alt": "Soft Spring Mix — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "hed-27-soft-spring-mix"
+      "hash": "2134dda8b0287ab9"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1961,9 +1961,9 @@
     },
     "suggested_cost": 25.2,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-28-everyday-garden-vase.jpg",
+      "url": "/assets/floral-library/everyday/ed-28-everyday-garden-vase.jpg?v=6cc8f19f9b51c5e3",
       "alt": "Everyday Garden Vase — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-28-everyday-garden-vase"
+      "hash": "6cc8f19f9b51c5e3"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2034,9 +2034,9 @@
     },
     "suggested_cost": 18.06,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-29-bright-market-bunch.jpg",
+      "url": "/assets/floral-library/everyday/ed-29-bright-market-bunch.jpg?v=b9df0c4e21756b6e",
       "alt": "Bright Market Bunch — ultra-realistic everyday floral arrangement in hand-tie wrap (no vase)",
-      "hash": "hed-29-bright-market-bunch"
+      "hash": "b9df0c4e21756b6e"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2104,9 +2104,9 @@
     },
     "suggested_cost": 28.14,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-30-calm-clean-whites.jpg",
+      "url": "/assets/floral-library/everyday/ed-30-calm-clean-whites.jpg?v=57e22309d970e42d",
       "alt": "Calm & Clean Whites — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-30-calm-clean-whites"
+      "hash": "57e22309d970e42d"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2174,9 +2174,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-31-pink-peach-harmony.jpg",
+      "url": "/assets/floral-library/everyday/ed-31-pink-peach-harmony.jpg?v=3c4d7d355230b18b",
       "alt": "Pink & Peach Harmony — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "hed-31-pink-peach-harmony"
+      "hash": "3c4d7d355230b18b"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2239,9 +2239,9 @@
     },
     "suggested_cost": 29.4,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-32-hydrangea-trio.jpg",
+      "url": "/assets/floral-library/everyday/ed-32-hydrangea-trio.jpg?v=e4439e54ea697a3f",
       "alt": "Hydrangea Trio — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-32-hydrangea-trio"
+      "hash": "e4439e54ea697a3f"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2312,9 +2312,9 @@
     },
     "suggested_cost": 23.1,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-33-rose-daisy-blend.jpg",
+      "url": "/assets/floral-library/everyday/ed-33-rose-daisy-blend.jpg?v=f5b3cdf02ad11574",
       "alt": "Rose & Daisy Blend — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "hed-33-rose-daisy-blend"
+      "hash": "f5b3cdf02ad11574"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2382,9 +2382,9 @@
     },
     "suggested_cost": 19.32,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-34-everyday-mason-jar.jpg",
+      "url": "/assets/floral-library/everyday/ed-34-everyday-mason-jar.jpg?v=69c2a6d261ea5705",
       "alt": "Everyday Mason Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "hed-34-everyday-mason-jar"
+      "hash": "69c2a6d261ea5705"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2455,9 +2455,9 @@
     },
     "suggested_cost": 22.26,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-35-simple-greens-whites.jpg",
+      "url": "/assets/floral-library/everyday/ed-35-simple-greens-whites.jpg?v=61fbe4d692c1de0c",
       "alt": "Simple Greens & Whites — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-35-simple-greens-whites"
+      "hash": "61fbe4d692c1de0c"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2528,9 +2528,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-36-happy-day-bouquet.jpg",
+      "url": "/assets/floral-library/everyday/ed-36-happy-day-bouquet.jpg?v=f7e39617a035d080",
       "alt": "Happy Day Bouquet — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-36-happy-day-bouquet"
+      "hash": "f7e39617a035d080"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2597,9 +2597,9 @@
     },
     "suggested_cost": 26.04,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-37-classic-cylinder-mix.jpg",
+      "url": "/assets/floral-library/everyday/ed-37-classic-cylinder-mix.jpg?v=0506aa6c01df36bb",
       "alt": "Classic Cylinder Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-37-classic-cylinder-mix"
+      "hash": "0506aa6c01df36bb"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2666,9 +2666,9 @@
     },
     "suggested_cost": 20.58,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-38-everyday-color-burst.jpg",
+      "url": "/assets/floral-library/everyday/ed-38-everyday-color-burst.jpg?v=4340f5ce2e01d053",
       "alt": "Everyday Color Burst — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "hash": "hed-38-everyday-color-burst"
+      "hash": "4340f5ce2e01d053"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2735,9 +2735,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-39-soft-neutral-mix.jpg",
+      "url": "/assets/floral-library/everyday/ed-39-soft-neutral-mix.jpg?v=b96a49123e5c6564",
       "alt": "Soft Neutral Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-39-soft-neutral-mix"
+      "hash": "b96a49123e5c6564"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2804,9 +2804,9 @@
     },
     "suggested_cost": 17.64,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-40-pink-petal-jar.jpg",
+      "url": "/assets/floral-library/everyday/ed-40-pink-petal-jar.jpg?v=b387b98b115e564b",
       "alt": "Pink Petal Jar — ultra-realistic everyday floral arrangement in pint mason jar",
-      "hash": "hed-40-pink-petal-jar"
+      "hash": "b387b98b115e564b"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2872,9 +2872,9 @@
     },
     "suggested_cost": 24.36,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-41-golden-glow.jpg",
+      "url": "/assets/floral-library/everyday/ed-41-golden-glow.jpg?v=776609b33158bb60",
       "alt": "Golden Glow — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "hed-41-golden-glow"
+      "hash": "776609b33158bb60"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2941,9 +2941,9 @@
     },
     "suggested_cost": 25.2,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-42-everyday-blush.jpg",
+      "url": "/assets/floral-library/everyday/ed-42-everyday-blush.jpg?v=5514b88af4613ead",
       "alt": "Everyday Blush — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "hed-42-everyday-blush"
+      "hash": "5514b88af4613ead"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3010,9 +3010,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-43-daisy-mum-mix.jpg",
+      "url": "/assets/floral-library/everyday/ed-43-daisy-mum-mix.jpg?v=150a1db7bcecb414",
       "alt": "Daisy & Mum Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-43-daisy-mum-mix"
+      "hash": "150a1db7bcecb414"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3079,9 +3079,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-44-rose-trio.jpg",
+      "url": "/assets/floral-library/everyday/ed-44-rose-trio.jpg?v=1b138f729d0df236",
       "alt": "Rose Trio — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "hed-44-rose-trio"
+      "hash": "1b138f729d0df236"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3148,9 +3148,9 @@
     },
     "suggested_cost": 23.94,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-45-hydrangea-accent.jpg",
+      "url": "/assets/floral-library/everyday/ed-45-hydrangea-accent.jpg?v=169a3d7a533d5970",
       "alt": "Hydrangea Accent — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "hed-45-hydrangea-accent"
+      "hash": "169a3d7a533d5970"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3217,9 +3217,9 @@
     },
     "suggested_cost": 21.84,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-46-everyday-rustic.jpg",
+      "url": "/assets/floral-library/everyday/ed-46-everyday-rustic.jpg?v=dd28f7945a295291",
       "alt": "Everyday Rustic — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "hed-46-everyday-rustic"
+      "hash": "dd28f7945a295291"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3286,9 +3286,9 @@
     },
     "suggested_cost": 21.42,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-47-bright-tabletop.jpg",
+      "url": "/assets/floral-library/everyday/ed-47-bright-tabletop.jpg?v=1a7bac7782b8b8b0",
       "alt": "Bright Tabletop — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "hed-47-bright-tabletop"
+      "hash": "1a7bac7782b8b8b0"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3355,9 +3355,9 @@
     },
     "suggested_cost": 19.74,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-48-simple-cheer.jpg",
+      "url": "/assets/floral-library/everyday/ed-48-simple-cheer.jpg?v=0cad5657d357a307",
       "alt": "Simple Cheer — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "hed-48-simple-cheer"
+      "hash": "0cad5657d357a307"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3424,9 +3424,9 @@
     },
     "suggested_cost": 26.46,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-49-daily-pink-rose.jpg",
+      "url": "/assets/floral-library/everyday/ed-49-daily-pink-rose.jpg?v=1c6144d623171282",
       "alt": "Daily Pink Rose — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-49-daily-pink-rose"
+      "hash": "1c6144d623171282"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3501,9 +3501,9 @@
     },
     "suggested_cost": 27.3,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-50-everyday-florist-favorite.jpg",
+      "url": "/assets/floral-library/everyday/ed-50-everyday-florist-favorite.jpg?v=4129a7e5333663b9",
       "alt": "Everyday Florist Favorite — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-50-everyday-florist-favorite"
+      "hash": "4129a7e5333663b9"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3575,9 +3575,9 @@
     },
     "suggested_cost": 24.36,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-51-daily-pink-cylinder.jpg",
+      "url": "/assets/floral-library/everyday/ed-51-daily-pink-cylinder.jpg?v=13412899193bc3bc",
       "alt": "Daily Pink Cylinder — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-51-daily-pink-cylinder"
+      "hash": "13412899193bc3bc"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3647,9 +3647,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-52-soft-garden-morning.jpg",
+      "url": "/assets/floral-library/everyday/ed-52-soft-garden-morning.jpg?v=2c0ceedf6102c204",
       "alt": "Soft Garden Morning — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "hed-52-soft-garden-morning"
+      "hash": "2c0ceedf6102c204"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3718,9 +3718,9 @@
     },
     "suggested_cost": 23.1,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-53-white-meadow-vase.jpg",
+      "url": "/assets/floral-library/everyday/ed-53-white-meadow-vase.jpg?v=e8d0f43a74d8f661",
       "alt": "White Meadow Vase — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-53-white-meadow-vase"
+      "hash": "e8d0f43a74d8f661"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3789,9 +3789,9 @@
     },
     "suggested_cost": 22.26,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-54-everyday-citrus-mix.jpg",
+      "url": "/assets/floral-library/everyday/ed-54-everyday-citrus-mix.jpg?v=12beafafb56806ab",
       "alt": "Everyday Citrus Mix — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "hed-54-everyday-citrus-mix"
+      "hash": "12beafafb56806ab"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3859,9 +3859,9 @@
     },
     "suggested_cost": 21.84,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-55-hydrangea-cottage-jar.jpg",
+      "url": "/assets/floral-library/everyday/ed-55-hydrangea-cottage-jar.jpg?v=7a5fbcda77d3b94e",
       "alt": "Hydrangea Cottage Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "hed-55-hydrangea-cottage-jar"
+      "hash": "7a5fbcda77d3b94e"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3929,9 +3929,9 @@
     },
     "suggested_cost": 25.2,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-56-rose-stock-everyday.jpg",
+      "url": "/assets/floral-library/everyday/ed-56-rose-stock-everyday.jpg?v=a9bf14c2a49c3d10",
       "alt": "Rose & Stock Everyday — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-56-rose-stock-everyday"
+      "hash": "a9bf14c2a49c3d10"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3999,9 +3999,9 @@
     },
     "suggested_cost": 18.48,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-57-daisy-porch-jar.jpg",
+      "url": "/assets/floral-library/everyday/ed-57-daisy-porch-jar.jpg?v=90becb94b3c015f8",
       "alt": "Daisy Porch Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "hed-57-daisy-porch-jar"
+      "hash": "90becb94b3c015f8"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4068,9 +4068,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-58-blush-countertop-mix.jpg",
+      "url": "/assets/floral-library/everyday/ed-58-blush-countertop-mix.jpg?v=90011e8acf0f8d94",
       "alt": "Blush Countertop Mix — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "hed-58-blush-countertop-mix"
+      "hash": "90011e8acf0f8d94"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4138,9 +4138,9 @@
     },
     "suggested_cost": 25.62,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-59-neutral-rose-vase.jpg",
+      "url": "/assets/floral-library/everyday/ed-59-neutral-rose-vase.jpg?v=9f557bc92856e54a",
       "alt": "Neutral Rose Vase — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-59-neutral-rose-vase"
+      "hash": "9f557bc92856e54a"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4208,9 +4208,9 @@
     },
     "suggested_cost": 17.64,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-60-sunflower-simple-jar.jpg",
+      "url": "/assets/floral-library/everyday/ed-60-sunflower-simple-jar.jpg?v=2b28080ff5916f12",
       "alt": "Sunflower Simple Jar — ultra-realistic everyday floral arrangement in pint mason jar",
-      "hash": "hed-60-sunflower-simple-jar"
+      "hash": "2b28080ff5916f12"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4280,9 +4280,9 @@
     },
     "suggested_cost": 22.68,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-61-clean-greens-whites.jpg",
+      "url": "/assets/floral-library/everyday/ed-61-clean-greens-whites.jpg?v=1fcd3291cbe0163d",
       "alt": "Clean Greens & Whites — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-61-clean-greens-whites"
+      "hash": "1fcd3291cbe0163d"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4353,9 +4353,9 @@
     },
     "suggested_cost": 20.58,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-62-pink-breeze-vase.jpg",
+      "url": "/assets/floral-library/everyday/ed-62-pink-breeze-vase.jpg?v=7b60be2364b2236f",
       "alt": "Pink Breeze Vase — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "hash": "hed-62-pink-breeze-vase"
+      "hash": "7b60be2364b2236f"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4419,9 +4419,9 @@
     },
     "suggested_cost": 26.46,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-63-everyday-hydrangea-cube.jpg",
+      "url": "/assets/floral-library/everyday/ed-63-everyday-hydrangea-cube.jpg?v=421db3e6d7fe1288",
       "alt": "Everyday Hydrangea Cube — ultra-realistic everyday floral arrangement in 5\" glass cube vase",
-      "hash": "hed-63-everyday-hydrangea-cube"
+      "hash": "421db3e6d7fe1288"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4489,9 +4489,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-64-soft-yellow-harmony.jpg",
+      "url": "/assets/floral-library/everyday/ed-64-soft-yellow-harmony.jpg?v=0ba76828701238e7",
       "alt": "Soft Yellow Harmony — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-64-soft-yellow-harmony"
+      "hash": "0ba76828701238e7"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4558,9 +4558,9 @@
     },
     "suggested_cost": 23.94,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-65-rose-mum-daily-vase.jpg",
+      "url": "/assets/floral-library/everyday/ed-65-rose-mum-daily-vase.jpg?v=64ea7416507e734b",
       "alt": "Rose & Mum Daily Vase — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-65-rose-mum-daily-vase"
+      "hash": "64ea7416507e734b"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4628,9 +4628,9 @@
     },
     "suggested_cost": 18.9,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-66-bright-market-jar.jpg",
+      "url": "/assets/floral-library/everyday/ed-66-bright-market-jar.jpg?v=83bcfde64e87ef82",
       "alt": "Bright Market Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "hed-66-bright-market-jar"
+      "hash": "83bcfde64e87ef82"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4697,9 +4697,9 @@
     },
     "suggested_cost": 27.72,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-67-calm-white-garden.jpg",
+      "url": "/assets/floral-library/everyday/ed-67-calm-white-garden.jpg?v=e989739de023d562",
       "alt": "Calm White Garden — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "hed-67-calm-white-garden"
+      "hash": "e989739de023d562"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4766,9 +4766,9 @@
     },
     "suggested_cost": 24.36,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-68-peach-pink-blend.jpg",
+      "url": "/assets/floral-library/everyday/ed-68-peach-pink-blend.jpg?v=9d23fb6708d28064",
       "alt": "Peach & Pink Blend — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-68-peach-pink-blend"
+      "hash": "9d23fb6708d28064"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4835,9 +4835,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-69-hydrangea-daisy-mix.jpg",
+      "url": "/assets/floral-library/everyday/ed-69-hydrangea-daisy-mix.jpg?v=92a22db14124006a",
       "alt": "Hydrangea & Daisy Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-69-hydrangea-daisy-mix"
+      "hash": "92a22db14124006a"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4904,9 +4904,9 @@
     },
     "suggested_cost": 22.26,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-70-everyday-rustic-cylinder.jpg",
+      "url": "/assets/floral-library/everyday/ed-70-everyday-rustic-cylinder.jpg?v=fec524791375f1e4",
       "alt": "Everyday Rustic Cylinder — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-70-everyday-rustic-cylinder"
+      "hash": "fec524791375f1e4"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4973,9 +4973,9 @@
     },
     "suggested_cost": 21.42,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-71-modern-neutral-jar.jpg",
+      "url": "/assets/floral-library/everyday/ed-71-modern-neutral-jar.jpg?v=c2d38f62057685f8",
       "alt": "Modern Neutral Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "hed-71-modern-neutral-jar"
+      "hash": "c2d38f62057685f8"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5045,9 +5045,9 @@
     },
     "suggested_cost": 19.74,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-72-daily-blush-bouquet.jpg",
+      "url": "/assets/floral-library/everyday/ed-72-daily-blush-bouquet.jpg?v=4f634df1e07ab110",
       "alt": "Daily Blush Bouquet — ultra-realistic everyday floral arrangement in hand-tie wrap (no vase)",
-      "hash": "hed-72-daily-blush-bouquet"
+      "hash": "4f634df1e07ab110"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5118,9 +5118,9 @@
     },
     "suggested_cost": 23.1,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-73-soft-lavender-mix.jpg",
+      "url": "/assets/floral-library/everyday/ed-73-soft-lavender-mix.jpg?v=9d502e3e944d87a6",
       "alt": "Soft Lavender Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-73-soft-lavender-mix"
+      "hash": "9d502e3e944d87a6"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5187,9 +5187,9 @@
     },
     "suggested_cost": 26.04,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-74-rose-carnation-classic.jpg",
+      "url": "/assets/floral-library/everyday/ed-74-rose-carnation-classic.jpg?v=91c13f2e424fed4c",
       "alt": "Rose & Carnation Classic — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-74-rose-carnation-classic"
+      "hash": "91c13f2e424fed4c"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5256,9 +5256,9 @@
     },
     "suggested_cost": 20.16,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-75-sunshine-table-vase.jpg",
+      "url": "/assets/floral-library/everyday/ed-75-sunshine-table-vase.jpg?v=725990d9f113399e",
       "alt": "Sunshine Table Vase — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "hed-75-sunshine-table-vase"
+      "hash": "725990d9f113399e"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5325,9 +5325,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-76-gentle-white-trio.jpg",
+      "url": "/assets/floral-library/everyday/ed-76-gentle-white-trio.jpg?v=3dc2d728f135e0f6",
       "alt": "Gentle White Trio — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "hed-76-gentle-white-trio"
+      "hash": "3dc2d728f135e0f6"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5394,9 +5394,9 @@
     },
     "suggested_cost": 17.22,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-77-pink-market-bunch.jpg",
+      "url": "/assets/floral-library/everyday/ed-77-pink-market-bunch.jpg?v=ab4fe651d9a417bc",
       "alt": "Pink Market Bunch — ultra-realistic everyday floral arrangement in hand-tie wrap (no vase)",
-      "hash": "hed-77-pink-market-bunch"
+      "hash": "ab4fe651d9a417bc"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5463,9 +5463,9 @@
     },
     "suggested_cost": 26.88,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-78-everyday-hydrangea-rose.jpg",
+      "url": "/assets/floral-library/everyday/ed-78-everyday-hydrangea-rose.jpg?v=f573634887635e7e",
       "alt": "Everyday Hydrangea Rose — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-78-everyday-hydrangea-rose"
+      "hash": "f573634887635e7e"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5532,9 +5532,9 @@
     },
     "suggested_cost": 21.84,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-79-daisy-stock-harmony.jpg",
+      "url": "/assets/floral-library/everyday/ed-79-daisy-stock-harmony.jpg?v=21e26720b9e6f9a3",
       "alt": "Daisy & Stock Harmony — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-79-daisy-stock-harmony"
+      "hash": "21e26720b9e6f9a3"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5601,9 +5601,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-80-clean-color-pop.jpg",
+      "url": "/assets/floral-library/everyday/ed-80-clean-color-pop.jpg?v=6721a612f6bd8778",
       "alt": "Clean Color Pop — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "hed-80-clean-color-pop"
+      "hash": "6721a612f6bd8778"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5670,9 +5670,9 @@
     },
     "suggested_cost": 18.06,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-81-soft-neutral-jar.jpg",
+      "url": "/assets/floral-library/everyday/ed-81-soft-neutral-jar.jpg?v=473bf6fac00ba339",
       "alt": "Soft Neutral Jar — ultra-realistic everyday floral arrangement in pint mason jar",
-      "hash": "hed-81-soft-neutral-jar"
+      "hash": "473bf6fac00ba339"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5742,9 +5742,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-82-rose-garden-everyday.jpg",
+      "url": "/assets/floral-library/everyday/ed-82-rose-garden-everyday.jpg?v=72f229906ecbf6a6",
       "alt": "Rose Garden Everyday — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-82-rose-garden-everyday"
+      "hash": "72f229906ecbf6a6"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5815,9 +5815,9 @@
     },
     "suggested_cost": 23.1,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-83-hydrangea-greens-mix.jpg",
+      "url": "/assets/floral-library/everyday/ed-83-hydrangea-greens-mix.jpg?v=640cea0900397448",
       "alt": "Hydrangea & Greens Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-83-hydrangea-greens-mix"
+      "hash": "640cea0900397448"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5893,9 +5893,9 @@
     },
     "suggested_cost": 20.16,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-84-bright-daily-cylinder.jpg",
+      "url": "/assets/floral-library/everyday/ed-84-bright-daily-cylinder.jpg?v=e42f6fab41f8738e",
       "alt": "Bright Daily Cylinder — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-84-bright-daily-cylinder"
+      "hash": "e42f6fab41f8738e"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5966,9 +5966,9 @@
     },
     "suggested_cost": 25.2,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-85-pink-white-everyday.jpg",
+      "url": "/assets/floral-library/everyday/ed-85-pink-white-everyday.jpg?v=1f6fa0db15f331b6",
       "alt": "Pink & White Everyday — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-85-pink-white-everyday"
+      "hash": "1f6fa0db15f331b6"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6036,9 +6036,9 @@
     },
     "suggested_cost": 21.42,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-86-sunflower-accent-vase.jpg",
+      "url": "/assets/floral-library/everyday/ed-86-sunflower-accent-vase.jpg?v=5224e28cab8feb49",
       "alt": "Sunflower Accent Vase — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "hash": "hed-86-sunflower-accent-vase"
+      "hash": "5224e28cab8feb49"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6105,9 +6105,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-87-classic-rose-jar.jpg",
+      "url": "/assets/floral-library/everyday/ed-87-classic-rose-jar.jpg?v=4cc5ec018ef28da7",
       "alt": "Classic Rose Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "hed-87-classic-rose-jar"
+      "hash": "4cc5ec018ef28da7"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6178,9 +6178,9 @@
     },
     "suggested_cost": 23.94,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-88-soft-spring-color-mix.jpg",
+      "url": "/assets/floral-library/everyday/ed-88-soft-spring-color-mix.jpg?v=c2478231a99eeced",
       "alt": "Soft Spring Color Mix — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "hed-88-soft-spring-color-mix"
+      "hash": "c2478231a99eeced"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6247,9 +6247,9 @@
     },
     "suggested_cost": 21.84,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-89-neutral-countertop-arrangement.jpg",
+      "url": "/assets/floral-library/everyday/ed-89-neutral-countertop-arrangement.jpg?v=9455d6386ce61677",
       "alt": "Neutral Countertop Arrangement — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "hed-89-neutral-countertop-arrangement"
+      "hash": "9455d6386ce61677"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6316,9 +6316,9 @@
     },
     "suggested_cost": 25.62,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-90-blush-cream-harmony.jpg",
+      "url": "/assets/floral-library/everyday/ed-90-blush-cream-harmony.jpg?v=db551a4905fd0acd",
       "alt": "Blush & Cream Harmony — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-90-blush-cream-harmony"
+      "hash": "db551a4905fd0acd"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6385,9 +6385,9 @@
     },
     "suggested_cost": 19.32,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-91-daisy-sunshine-cube.jpg",
+      "url": "/assets/floral-library/everyday/ed-91-daisy-sunshine-cube.jpg?v=930b37559cf654f2",
       "alt": "Daisy Sunshine Cube — ultra-realistic everyday floral arrangement in 5\" glass cube vase",
-      "hash": "hed-91-daisy-sunshine-cube"
+      "hash": "930b37559cf654f2"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6454,9 +6454,9 @@
     },
     "suggested_cost": 27.3,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-92-everyday-rose-lily.jpg",
+      "url": "/assets/floral-library/everyday/ed-92-everyday-rose-lily.jpg?v=6d3c7e44876b1aa2",
       "alt": "Everyday Rose & Lily — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-92-everyday-rose-lily"
+      "hash": "6d3c7e44876b1aa2"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6523,9 +6523,9 @@
     },
     "suggested_cost": 26.04,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-93-hydrangea-soft-blend.jpg",
+      "url": "/assets/floral-library/everyday/ed-93-hydrangea-soft-blend.jpg?v=a9f02e53b7c88851",
       "alt": "Hydrangea Soft Blend — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-93-hydrangea-soft-blend"
+      "hash": "a9f02e53b7c88851"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6596,9 +6596,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-94-rustic-greens-whites.jpg",
+      "url": "/assets/floral-library/everyday/ed-94-rustic-greens-whites.jpg?v=9b7db8110029df8f",
       "alt": "Rustic Greens & Whites — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "hed-94-rustic-greens-whites"
+      "hash": "9b7db8110029df8f"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6669,9 +6669,9 @@
     },
     "suggested_cost": 19.74,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-95-daily-pink-yellow.jpg",
+      "url": "/assets/floral-library/everyday/ed-95-daily-pink-yellow.jpg?v=f48f67f1fea7a7d3",
       "alt": "Daily Pink & Yellow — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "hed-95-daily-pink-yellow"
+      "hash": "f48f67f1fea7a7d3"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6738,9 +6738,9 @@
     },
     "suggested_cost": 22.68,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-96-bright-everyday-vase.jpg",
+      "url": "/assets/floral-library/everyday/ed-96-bright-everyday-vase.jpg?v=975206169a5c5544",
       "alt": "Bright Everyday Vase — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-96-bright-everyday-vase"
+      "hash": "975206169a5c5544"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6807,9 +6807,9 @@
     },
     "suggested_cost": 17.64,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-97-soft-pastel-jar.jpg",
+      "url": "/assets/floral-library/everyday/ed-97-soft-pastel-jar.jpg?v=4ab381641c13e1cb",
       "alt": "Soft Pastel Jar — ultra-realistic everyday floral arrangement in pint mason jar",
-      "hash": "hed-97-soft-pastel-jar"
+      "hash": "4ab381641c13e1cb"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6875,9 +6875,9 @@
     },
     "suggested_cost": 22.26,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-98-rose-daisy-color-pop.jpg",
+      "url": "/assets/floral-library/everyday/ed-98-rose-daisy-color-pop.jpg?v=8cb8aa0accb38f6b",
       "alt": "Rose & Daisy Color Pop — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "hed-98-rose-daisy-color-pop"
+      "hash": "8cb8aa0accb38f6b"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6940,9 +6940,9 @@
     },
     "suggested_cost": 28.56,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-99-hydrangea-everyday-trio.jpg",
+      "url": "/assets/floral-library/everyday/ed-99-hydrangea-everyday-trio.jpg?v=58e5379dcbdbb849",
       "alt": "Hydrangea Everyday Trio — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-99-hydrangea-everyday-trio"
+      "hash": "58e5379dcbdbb849"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -7025,9 +7025,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-100-florist-counter-classic.jpg",
+      "url": "/assets/floral-library/everyday/ed-100-florist-counter-classic.jpg?v=b55cb1fb9923a084",
       "alt": "Florist Counter Classic — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "hed-100-florist-counter-classic"
+      "hash": "b55cb1fb9923a084"
     },
     "image_license": {
       "source": "bloom_owned",

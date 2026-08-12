@@ -33,6 +33,8 @@ function loadBatches() {
 function toLibraryProduct(a) {
   const retail = Number(a.suggested_retail);
   const batch = a.batch ?? 1;
+  const contentHash = a.content_sha256 ? String(a.content_sha256).slice(0, 16) : `h${a.id}`;
+  const imageBase = `/assets/floral-library/${a.image}`;
   return {
     id: a.id,
     scope: "master",
@@ -49,9 +51,9 @@ function toLibraryProduct(a) {
     },
     suggested_cost: Math.round(retail * 0.42 * 100) / 100,
     primary_image: {
-      url: `/assets/floral-library/${a.image}`,
+      url: `${imageBase}?v=${contentHash}`,
       alt: a.alt || `${a.name} ultra-realistic everyday floral arrangement photograph`,
-      hash: `h${a.id}`
+      hash: contentHash
     },
     image_license: {
       source: "bloom_owned",
