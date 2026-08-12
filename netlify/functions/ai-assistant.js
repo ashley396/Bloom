@@ -42,9 +42,19 @@ function jsonWithinLimit(value,maxChars=MAX_PROMPT_CHARS){
   return JSON.stringify({notice:"Bloom trimmed oversized context for a safe AI request.",summary:safeText(text,maxChars-120)});
 }
 function systemPrompt(persona){return `${persona||"Lily"} is Bloom's florist business assistant. Be practical, warm, concise, and accurate. Never claim an action was saved, published, paid, or completed unless the app confirms it. Suggestions are editable and require florist approval. Avoid expensive or unnecessary services and favor low-cost workflows.`}
+export function deterministicAiFallback(payload={}){
+  const persona=String(payload.persona||"Lily").trim()||"Lily";
+  const prompt=String(payload.prompt||payload.task||"").toLowerCase();
+  let text="Tell me what needs to be finished, when it is due, and any order, inventory, customer, or budget details that matter. I will turn it into a short next-step checklist.";
+  if(/inventory|stock|reorder|stem/.test(prompt))text="Review low-stock items and oldest arrivals first, reserve stems for confirmed orders, then make a reorder list from the remaining demand.";
+  else if(/order|deliver|customer/.test(prompt))text="Check each open order's due time, payment status, card message, address, and delivery notes, then handle the earliest customer promise first.";
+  else if(/price|pricing|margin|profit|cost/.test(prompt))text="Add flower, hard-goods, and labor costs, divide by your target cost percentage, then compare the result with similar recent orders before discounting.";
+  if(payload.mode==="generate")return {result:{text},provider:"Florisyn local fallback",model:"deterministic"};
+  return {answer:text,persona,provider:"Florisyn local fallback",model:"deterministic"};
+}
 async function cloudflareAi(payload){
   const account=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_AI_API_TOKEN;
-  if(!account||!token){const e=new Error("Cloud AI is not configured; Bloom will try the free local AI fallback.");e.statusCode=503;throw e}
+  if(!account||!token)return deterministicAiFallback(payload);
   const model=process.env.CLOUDFLARE_AI_MODEL||MODEL_DEFAULT;
   const user=payload.mode==="generate"
     ?`Task: ${safeText(payload.task,1200)}\nInput: ${jsonWithinLimit(payload.input||{},30000)}\nReturn ONLY valid JSON matching this shape: ${jsonWithinLimit(payload.schema||{text:"result"},5000)}`

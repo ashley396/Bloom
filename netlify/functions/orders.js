@@ -225,14 +225,19 @@ export async function handler(event) {
       if ("customer_name" in payload && !String(payload.customer_name || "").trim()) return json(400, { error: "Customer name is required" });
       const { data: priorOrder } = await client
         .from("orders")
-        .select("status")
+        .select("status,subtotal,tax,delivery_fee,amount_paid,labor_charge,addon_total,discount")
         .eq("id", body.id)
         .eq("shop_id", shopId)
         .maybeSingle();
       if ("status" in payload && payload.status) payload.status = normalizeOrderStatus(payload.status);
-      const flowers=Number(payload.subtotal||0),labor=Number(payload.labor_charge||0),addons=Number(payload.addon_total||0),discount=Number(payload.discount||0);
-      payload.subtotal=Math.max(0,flowers+labor+addons-discount); payload.total=payload.subtotal+Number(payload.tax||0)+Number(payload.delivery_fee||0); payload.balance_due=Math.max(0,payload.total-Number(payload.amount_paid||0));
-      payload.payment_status=payload.balance_due<=0&&payload.total>0?"PAID":Number(payload.amount_paid||0)>0?"PARTIAL":"UNPAID";
+      const financialFields = ["subtotal","tax","delivery_fee","amount_paid","labor_charge","addon_total","discount"];
+      if (financialFields.some(field => field in body)) {
+        const value = field => Number(field in payload ? payload[field] : priorOrder?.[field] || 0);
+        const subtotal=Math.max(0,value("subtotal")+value("labor_charge")+value("addon_total")-value("discount"));
+        const total=subtotal+value("tax")+value("delivery_fee"),amountPaid=value("amount_paid"),balance=Math.max(0,total-amountPaid);
+        payload.subtotal=subtotal;payload.total=total;payload.balance_due=balance;
+        payload.payment_status=balance<=0&&total>0?"PAID":amountPaid>0?"PARTIAL":"UNPAID";
+      }
       const { data, error } = await client.from("orders").update(payload).eq("id",body.id).eq("shop_id",shopId).select().single();
       if (error) throw error;
       if ("status" in payload) {
