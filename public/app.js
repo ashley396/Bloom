@@ -125,20 +125,37 @@ function hideMobileFloatingAssistants(){
     window.BloomDaisy.__mobileRetired=true;
   }
 }
+function setClassIfChanged(el,cls,on){if(el&&el.classList.contains(cls)!==Boolean(on))el.classList.toggle(cls,Boolean(on))}
 function wireMobileDrawerScrollLock(){
   if(document.body.dataset.mobileDrawerLock)return;
   document.body.dataset.mobileDrawerLock="1";
   const sync=()=>{
-    const open=document.body.classList.contains("atelier-drawer-open")||document.body.classList.contains("florisyn-nav-locked");
-    document.documentElement.classList.toggle("florisyn-mobile-drawer-open",open&&isMobileShellViewport());
-    if(open&&isMobileShellViewport()){
-      document.body.classList.add("florisyn-nav-locked");
-      scrollMobilePageToTop();
-    }
+    /* Only write classes when state actually changes: the MutationObserver below
+       re-fires on any class attribute write (even a no-op classList.add), so an
+       unguarded add here would loop the observer forever and freeze the page. */
+    const drawerOpen=document.body.classList.contains("atelier-drawer-open");
+    setClassIfChanged(document.body,"florisyn-nav-locked",drawerOpen);
+    setClassIfChanged(document.documentElement,"florisyn-mobile-drawer-open",drawerOpen&&isMobileShellViewport());
+    if(drawerOpen&&isMobileShellViewport())scrollMobilePageToTop();
   };
   new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:["class"]});
   window.addEventListener("resize",()=>{hideMobileFloatingAssistants();sync()},{passive:true});
   sync();
+  wireMobileDrawerToggleFallback();
+}
+function wireMobileDrawerToggleFallback(){
+  /* florisyn-atelier-dashboard.js normally binds these; this fallback only fires
+     when that wiring is missing so the hamburger can never be a dead button. */
+  const toggle=document.getElementById("atelierMenuToggle");
+  const backdrop=document.getElementById("atelierSidebarBackdrop");
+  const setDrawer=(open)=>{
+    const fn=window.FlorisynPlatform?.setDrawer||window.FlorisynAtelierChrome?.setDrawer;
+    if(typeof fn==="function")return fn(open);
+    document.body.classList.toggle("atelier-drawer-open",Boolean(open));
+    if(backdrop)backdrop.hidden=!open;
+  };
+  if(toggle&&!toggle.dataset.atelierBound){toggle.dataset.atelierBound="1";toggle.addEventListener("click",()=>setDrawer(!document.body.classList.contains("atelier-drawer-open")))}
+  if(backdrop&&!backdrop.dataset.atelierBound){backdrop.dataset.atelierBound="1";backdrop.addEventListener("click",()=>setDrawer(false))}
 }
 function showPage(id){
   if(id==="communityPage"&&!communityBetaEnabled){

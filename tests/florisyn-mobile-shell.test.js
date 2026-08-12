@@ -12,7 +12,7 @@ test("mobile shell stylesheet loads after POS CSS and before critical inline blo
   const criticalIdx = html.indexOf("florisyn-pos-critical");
   assert.ok(posIdx >= 0 && shellIdx > posIdx, "mobile shell should load after luxury POS CSS");
   assert.ok(shellIdx < criticalIdx, "mobile shell should load before POS critical inline CSS");
-  assert.match(html, /florisyn-mobile-shell\.css\?v=m8/);
+  assert.match(html, /florisyn-mobile-shell\.css\?v=m10/);
 });
 
 test("mobile shell implements drawer, viewport stack, scroll lock, and five-tab grid", () => {
@@ -107,6 +107,71 @@ test("mobile mockup markers include hamburger drawer and bottom nav ids", () => 
   assert.match(html, /id="mobileNavCommunity"/);
   assert.match(html, /id="mobileNavLibrary"/);
   assert.match(html, /id="atelierSidebarDrawer"[\s\S]*data-page="customersPage"[\s\S]*data-page="settingsPage"/);
+});
+
+test("hamburger toggle exists in shell and JS binds the same selector", () => {
+  const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
+  assert.match(html, /id="atelierMenuToggle"/, "hamburger button must exist in index.html");
+  assert.match(html, /id="atelierSidebarBackdrop"/, "drawer backdrop must exist in index.html");
+  assert.match(html, /id="atelierSidebarDrawer"/, "drawer aside must exist in index.html");
+  const dashboard = fs.readFileSync(path.join(root, "public/florisyn-atelier-dashboard.js"), "utf8");
+  assert.match(dashboard, /#atelierMenuToggle/, "atelier dashboard must bind the real hamburger id");
+  const appJs = fs.readFileSync(path.join(root, "public/app.js"), "utf8");
+  assert.match(appJs, /atelierMenuToggle/, "app.js fallback must reference the real hamburger id");
+  assert.match(appJs, /wireMobileDrawerToggleFallback/, "app.js must wire a defensive drawer toggle fallback");
+});
+
+test("drawer scroll-lock sync is guarded against MutationObserver feedback loops", () => {
+  const appJs = fs.readFileSync(path.join(root, "public/app.js"), "utf8");
+  assert.match(appJs, /function setClassIfChanged/, "guarded class writer must exist");
+  assert.match(
+    appJs,
+    /setClassIfChanged\(document\.body,"florisyn-nav-locked"/,
+    "nav lock must be written through the guarded helper (unguarded classList.add re-fires the class observer forever and freezes the page)"
+  );
+  assert.match(appJs, /setClassIfChanged\(document\.documentElement,"florisyn-mobile-drawer-open"/);
+  const lockBlock = appJs.slice(appJs.indexOf("function wireMobileDrawerScrollLock"), appJs.indexOf("function wireMobileDrawerToggleFallback"));
+  assert.doesNotMatch(lockBlock, /classList\.add\("florisyn-nav-locked"\)/, "no unguarded nav-lock add inside the observer sync");
+});
+
+test("drawer close releases the scroll lock (nav lock follows drawer-open state)", () => {
+  const appJs = fs.readFileSync(path.join(root, "public/app.js"), "utf8");
+  const lockBlock = appJs.slice(appJs.indexOf("function wireMobileDrawerScrollLock"), appJs.indexOf("function wireMobileDrawerToggleFallback"));
+  assert.match(lockBlock, /const drawerOpen=document\.body\.classList\.contains\("atelier-drawer-open"\)/);
+  assert.match(lockBlock, /"florisyn-nav-locked",drawerOpen/, "nav lock must mirror drawer-open so closing the drawer unlocks scrolling");
+});
+
+test("mobile toast never blocks taps on the Lily FAB underneath it", () => {
+  const css = fs.readFileSync(path.join(root, "public/florisyn-mobile-shell.css"), "utf8");
+  const toastBlock = css.slice(css.indexOf("body.florisyn-atelier .toast"));
+  const rule = toastBlock.slice(0, toastBlock.indexOf("}"));
+  assert.match(rule, /pointer-events: none !important/, "toast overlaps the Lily FAB position and must be click-transparent");
+});
+
+test("Lily panel close button stays tap-reachable on mobile", () => {
+  const css = fs.readFileSync(path.join(root, "public/florisyn-mobile-shell.css"), "utf8");
+  // polish-v20.2 hides `header > div:last-child` at 820px, which swallowed the
+  // Lily head tools (theme/expand/close); the shell must restore them.
+  assert.match(css, /\.lily-panel-head \.lily-head-tools[\s\S]{0,200}?display: flex !important/);
+  assert.match(css, /\.lily-head-tools button[\s\S]{0,200}?min-width: 44px !important/);
+  const lily = fs.readFileSync(path.join(root, "public/lily-platform.js"), "utf8");
+  assert.match(lily, /getElementById\("lilyClose"\)\.onclick = \(\) => togglePanel\(false\)/, "close button must close the panel");
+});
+
+test("Lily FAB and panel selectors exist and open path never requires backend", () => {
+  const lily = fs.readFileSync(path.join(root, "public/lily-platform.js"), "utf8");
+  assert.match(lily, /fab\.id = "lilyFab"/, "Lily FAB id must exist");
+  assert.match(lily, /fab\.className = "lily-fab"/, "Lily FAB class must exist");
+  assert.match(lily, /panel\.id = "lilyPanel"/, "Lily panel id must exist");
+  assert.match(lily, /fab\.onclick = \(\) => togglePanel\(true\)/, "FAB click must open the panel");
+  const toggleBody = lily.slice(lily.indexOf("function togglePanel"), lily.indexOf("function setTab"));
+  assert.ok(
+    toggleBody.indexOf("panel.hidden = !open") < toggleBody.indexOf("loadCoach()"),
+    "panel must be unhidden before any backend call so open never blocks on the API"
+  );
+  const coachBody = lily.slice(lily.indexOf("async function loadCoach"), lily.indexOf("function renderCoachTab"));
+  assert.match(coachBody, /try \{/, "coach load must catch backend failures");
+  assert.match(coachBody, /catch/, "coach load must fall back safely when the backend is unavailable");
 });
 
 test("enterprise platform mobile nav wiring remains in shell", () => {

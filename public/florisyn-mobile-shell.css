@@ -434,8 +434,22 @@
     overscroll-behavior: contain;
   }
 
-  body.florisyn-atelier #lilyClose.lily-close-btn,
-  body.bloom-rc21 #lilyClose.lily-close-btn {
+  /* polish-v20.2 hides `header > div:last-child` on phones for the app top bar,
+     which collaterally hid the Lily panel head tools — restore them so the
+     close button stays tap-reachable. */
+  body.florisyn-atelier .lily-panel-head .lily-head-tools,
+  body.bloom-rc21 .lily-panel-head .lily-head-tools {
+    display: flex !important;
+  }
+
+  body.florisyn-atelier .lily-panel-head .lily-head-tools button,
+  body.bloom-rc21 .lily-panel-head .lily-head-tools button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  body.florisyn-atelier #lilyClose,
+  body.bloom-rc21 #lilyClose {
     width: auto !important;
     min-width: 44px !important;
     min-height: 44px !important;
@@ -457,6 +471,8 @@
   body.florisyn-atelier .toast,
   body.bloom-rc21 .toast {
     bottom: calc(var(--florisyn-mobile-nav-height) + 8px) !important;
+    /* Toast is informational only — it sits over the Lily FAB, so it must never swallow taps */
+    pointer-events: none !important;
   }
 
   /* Dashboard: show desktop sections stacked (not a blank gray canvas) */
