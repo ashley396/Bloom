@@ -26,7 +26,7 @@ const ALLOWED_CATEGORIES = new Set([
 
 test("collection is a non-empty array with unique ids", () => {
   assert.ok(Array.isArray(COLLECTION));
-  assert.equal(COLLECTION.length, 100, "expected 100 everyday designs");
+  assert.equal(COLLECTION.length, 21, "expected 21 visible vase everyday designs");
   const ids = COLLECTION.map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length, "ids must be unique");
   assert.ok(ids.every((id) => id.startsWith("ed-")), "everyday batch ids");

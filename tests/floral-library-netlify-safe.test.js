@@ -28,11 +28,11 @@ test("everyday library module imports without fs/path crash", () => {
   assert.ok(catalog.every((p) => p.primary_image?.url));
 });
 
-test("public floral library catalog returns 100 starter products", () => {
+test("public floral library catalog returns 21 visible vase starter products", () => {
   const catalog = getPublicFloralLibraryCatalog();
-  assert.equal(catalog.length, 100);
+  assert.equal(catalog.length, 21);
   const names = new Set(catalog.map((p) => p.name));
-  assert.equal(names.size, 100);
+  assert.equal(names.size, 21);
 });
 
 test("floral-library handler GET starter returns valid JSON products", async () => {
@@ -43,7 +43,7 @@ test("floral-library handler GET starter returns valid JSON products", async () 
   });
   assert.equal(res.statusCode, 200);
   const body = JSON.parse(res.body);
-  assert.equal(body.count, 100);
+  assert.equal(body.count, 21);
   assert.ok(Array.isArray(body.products));
   assert.ok(body.products.every((p) => p.id && p.name && p.primary_image?.url));
 });
@@ -88,8 +88,8 @@ test("floral-library-admin handler quality dashboard initializes", async () => {
   assert.ok(body.dashboard.total >= 100);
 });
 
-test("featured everyday arrangements have unique image file hashes", () => {
-  const catalog = getEverydayFloralLibraryCatalog();
+test("featured everyday arrangements have unique image file hashes among visible vase items", () => {
+  const catalog = getPublicFloralLibraryCatalog();
   const hashes = new Map();
   for (const p of catalog) {
     const url = normalizeAssetPath(p.primary_image.url);
@@ -99,13 +99,30 @@ test("featured everyday arrangements have unique image file hashes", () => {
       assert.fail(`duplicate image hash ${hash} for ${p.id} and ${hashes.get(hash)}`);
     }
     hashes.set(hash, p.id);
-    assert.notEqual(p.metadata?.needs_image_replacement, true, `${p.id} still needs replacement`);
+    assert.equal(p.metadata?.vase_arrangement_verified, true, `${p.id} must be verified`);
   }
   assert.equal(hashes.size, catalog.length);
 });
 
-test("ultra-realistic metadata is backed by unique image content", () => {
+test("master everyday catalog retains 100 arrangements with replacement flags", () => {
   const catalog = getEverydayFloralLibraryCatalog();
+  const hashes = new Map();
+  for (const p of catalog) {
+    const url = normalizeAssetPath(p.primary_image.url);
+    assert.ok(existsSync(path.join(publicDir, url)), `missing image ${url}`);
+    const hash = fileSha256(url);
+    if (!p.metadata?.needs_image_replacement) {
+      if (hashes.has(hash)) {
+        assert.fail(`duplicate image hash ${hash} for ${p.id} and ${hashes.get(hash)}`);
+      }
+      hashes.set(hash, p.id);
+    }
+  }
+  assert.equal(catalog.filter((p) => p.metadata?.needs_image_replacement).length, 79);
+});
+
+test("ultra-realistic metadata is backed by unique image content among visible items", () => {
+  const catalog = getPublicFloralLibraryCatalog();
   const urlHashes = new Set();
   const contentHashes = new Set();
   for (const p of catalog) {
@@ -116,8 +133,8 @@ test("ultra-realistic metadata is backed by unique image content", () => {
     const rel = normalizeAssetPath(p.primary_image.url);
     contentHashes.add(fileSha256(rel));
   }
-  assert.equal(urlHashes.size, catalog.length, "duplicate image URLs in featured catalog");
-  assert.equal(contentHashes.size, catalog.length, "duplicate image blobs despite unique URLs");
+  assert.equal(urlHashes.size, catalog.length, "duplicate image URLs in visible catalog");
+  assert.equal(contentHashes.size, catalog.length, "duplicate image blobs in visible catalog");
 });
 
 test("no duplicate filenames or hashes in JSON batches", () => {

@@ -161,15 +161,15 @@ test("batch 2 JSON adds 50 new arrangements without replacing batch 1", () => {
   }
 });
 
-test("server catalog exports 100 unique master products (both batches)", () => {
+test("server catalog exports 100 master products with 21 public vase arrangements", () => {
+  const full = getEverydayFloralLibraryCatalog();
   const catalog = getPublicFloralLibraryCatalog();
-  assert.equal(catalog.length, 100);
+  assert.equal(full.length, 100);
+  assert.equal(catalog.length, 21);
   const ids = catalog.map((p) => p.id);
-  assert.equal(new Set(ids).size, 100);
+  assert.equal(new Set(ids).size, 21);
   assert.ok(ids.every((id) => id.startsWith("ed-")), "all ids use ed- prefix");
-  assert.ok(catalog.some((p) => p.id === "ed-01-sunshine-cube"));
-  assert.ok(catalog.some((p) => p.id === "ed-51-daily-pink-cylinder"));
-  assert.ok(catalog.some((p) => p.name === "Florist Counter Classic"));
+  assert.ok(catalog.every((p) => p.metadata?.vase_arrangement_verified));
   assert.ok(!ids.some((id) => id.startsWith("sig-") || id.startsWith("lib-")), "no legacy ids");
 });
 

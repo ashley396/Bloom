@@ -15,6 +15,12 @@ import {
   resolveEverydayImagePath
 } from "../lib/floral-library/image-hash-audit.js";
 import { getEverydayFloralLibraryCatalog, getPublicFloralLibraryCatalog } from "../netlify/functions/_shared/floral-library-core.js";
+import {
+  FLORAL_LIBRARY_CSV_COLUMNS,
+  arrangementToCsvRow,
+  hasValidVase,
+  isPublicVaseArrangement,
+} from "../lib/floral-library/csv-standard.js";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(root, "../public");
@@ -34,14 +40,9 @@ test("JSON content_sha256 matches actual file bytes for every arrangement", () =
   );
 });
 
-test("featured arrangements have zero exact duplicate image file hashes", () => {
-  const report = auditEverydayFloralLibraryImages({ publicDir });
-  const featured = getEverydayFloralLibraryCatalog().filter((p) => !p.metadata?.needs_image_replacement);
-
-  assert.equal(report.duplicateHashGroupCount, 0, formatDuplicateReport(report));
-  assert.equal(report.uniqueImageFileHashes, report.imageFilenameCount);
-  assert.equal(report.featuredUniqueHashes, featured.length);
-  assert.equal(report.featuredCount, featured.length);
+test("featured visible vase arrangements have zero exact duplicate image file hashes", () => {
+  const featured = getPublicFloralLibraryCatalog();
+  assert.equal(featured.length, 21);
 
   const hashById = new Map();
   for (const p of featured) {
@@ -65,7 +66,32 @@ test("public starter catalog excludes arrangements marked needs_image_replacemen
     pub.every((p) => !p.metadata?.needs_image_replacement),
     "public catalog must not include needs_image_replacement items"
   );
+  assert.equal(pub.length, 21);
+  assert.equal(excluded.length, 79);
   assert.equal(pub.length, full.length - excluded.length);
+});
+
+test("every visible Everyday item satisfies CSV standard with a vase field", () => {
+  for (const p of getPublicFloralLibraryCatalog()) {
+    assert.ok(p.metadata?.vase || p.metadata?.container, `${p.id} must have vase/container metadata`);
+    assert.ok(hasValidVase({ container: p.metadata?.vase || p.metadata?.container }), `${p.id} vase invalid`);
+    assert.doesNotMatch(String(p.metadata?.vase || ""), /no vase/i, `${p.id} must not say no vase`);
+    assert.equal(p.metadata?.vase_arrangement_verified, true, `${p.id} must be vase-arrangement verified`);
+    assert.equal(p.metadata?.image_verified, true, `${p.id} image must be verified`);
+    const row = p.csv || arrangementToCsvRow({ ...p, container: p.metadata?.container, recipe: p.recipe });
+    for (const col of FLORAL_LIBRARY_CSV_COLUMNS) {
+      assert.ok(row[col] != null && row[col] !== "", `${p.id} missing CSV column ${col}`);
+    }
+  }
+});
+
+test("public catalog rejects non-vase or unverified images", () => {
+  const blocked = getEverydayFloralLibraryCatalog().filter((p) => !isPublicVaseArrangement(p));
+  assert.equal(blocked.length, 79);
+  for (const p of getPublicFloralLibraryCatalog()) {
+    assert.match(String(p.primary_image?.url || ""), /^\/assets\/floral-library\/everyday\/ed-/);
+    assert.doesNotMatch(String(p.primary_image?.url || ""), /pexels|computer|landscape|person|single-stem|hand-tie|no-vase/i);
+  }
 });
 
 test("ultra-realistic label only on verified featured arrangements", () => {

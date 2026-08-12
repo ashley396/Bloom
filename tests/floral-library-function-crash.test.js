@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { mkdirSync } from "node:fs";
 
 import { handler as floralLibraryHandler } from "../netlify/functions/floral-library.js";
 import { createFloralLibraryAdminHandler } from "../netlify/functions/floral-library-admin.js";
@@ -16,6 +17,32 @@ import { getEverydayFloralLibraryCatalog } from "../netlify/functions/_shared/fl
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(root, "..");
+const bundleOutDir = "/dev/shm/floral-library-bundles";
+
+async function loadEsbuild() {
+  try {
+    return await import("esbuild");
+  } catch {
+    return import("/dev/shm/esbuild-wasm/lib/main.js");
+  }
+}
+
+async function bundleEntry(entry, outfile) {
+  mkdirSync(path.dirname(outfile), { recursive: true });
+  const esbuild = await loadEsbuild();
+  await esbuild.build({
+    entryPoints: [entry],
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    outfile,
+  });
+}
+
+function runSmoke(script) {
+  const smoke = spawnSync(process.execPath, ["-e", script], { cwd: repoRoot, encoding: "utf8" });
+  assert.equal(smoke.status, 0, smoke.stderr || smoke.stdout);
+}
 
 const LOADER_CHAIN = [
   "netlify/functions/_shared/floral-library-everyday-50.js",
@@ -66,8 +93,8 @@ test("floral-library handler GET starter returns products JSON", async () => {
   });
   assert.equal(res.statusCode, 200);
   const body = JSON.parse(res.body);
-  assert.equal(body.count, 100);
-  assert.ok(Array.isArray(body.products) && body.products.length === 100);
+  assert.equal(body.count, 21);
+  assert.ok(Array.isArray(body.products) && body.products.length === 21);
 });
 
 test("floral-library-admin handler quality action initializes", async () => {
@@ -106,16 +133,11 @@ test("floral-library-admin handler quality action initializes", async () => {
   assert.ok(JSON.parse(res.body).dashboard);
 });
 
-test("esbuild bundle of floral-library.js loads and serves starter action", () => {
+test("esbuild bundle of floral-library.js loads and serves starter action", async () => {
   const entry = path.join(repoRoot, "netlify/functions/floral-library.js");
-  const outfile = "/tmp/floral-library.bundle.mjs";
-  const bundle = spawnSync(
-    "npx",
-    ["esbuild", entry, "--bundle", "--platform=node", "--format=esm", `--outfile=${outfile}`],
-    { cwd: repoRoot, encoding: "utf8" }
-  );
-  assert.equal(bundle.status, 0, bundle.stderr || bundle.stdout);
-  const smoke = spawnSync(process.execPath, ["-e", `
+  const outfile = path.join(bundleOutDir, "floral-library.bundle.mjs");
+  await bundleEntry(entry, outfile);
+  runSmoke(`
     import('file://${outfile}').then(async ({ handler }) => {
       const res = await handler({
         httpMethod: 'GET',
@@ -124,22 +146,16 @@ test("esbuild bundle of floral-library.js loads and serves starter action", () =
       });
       if (res.statusCode !== 200) process.exit(2);
       const body = JSON.parse(res.body);
-      if (body.count !== 100) process.exit(3);
+      if (body.count !== 21) process.exit(3);
     }).catch(() => process.exit(1));
-  `], { cwd: repoRoot, encoding: "utf8" });
-  assert.equal(smoke.status, 0, smoke.stderr || smoke.stdout);
+  `);
 });
 
-test("esbuild bundle of floral-library-admin.js loads quality dashboard", () => {
+test("esbuild bundle of floral-library-admin.js loads quality dashboard", async () => {
   const entry = path.join(repoRoot, "netlify/functions/floral-library-admin.js");
-  const outfile = "/tmp/floral-library-admin.bundle.mjs";
-  const bundle = spawnSync(
-    "npx",
-    ["esbuild", entry, "--bundle", "--platform=node", "--format=esm", `--outfile=${outfile}`],
-    { cwd: repoRoot, encoding: "utf8" }
-  );
-  assert.equal(bundle.status, 0, bundle.stderr || bundle.stdout);
-  const smoke = spawnSync(process.execPath, ["-e", `
+  const outfile = path.join(bundleOutDir, "floral-library-admin.bundle.mjs");
+  await bundleEntry(entry, outfile);
+  runSmoke(`
     import('file://${outfile}').then(async ({ createFloralLibraryAdminHandler }) => {
       const adminRow = { user_id: 'test-user', role: 'super_admin', active: true };
       const client = {
@@ -160,6 +176,5 @@ test("esbuild bundle of floral-library-admin.js loads quality dashboard", () => 
       const res = await handler({ httpMethod: 'GET', queryStringParameters: { action: 'quality' }, headers: { authorization: 'Bearer test' } });
       if (res.statusCode !== 200) process.exit(2);
     }).catch(() => process.exit(1));
-  `], { cwd: repoRoot, encoding: "utf8" });
-  assert.equal(smoke.status, 0, smoke.stderr || smoke.stdout);
+  `);
 });

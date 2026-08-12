@@ -1,6 +1,7 @@
 /** Bloom Floral Library — master catalog architecture (RC1). */
 
 import { getEverydayFloralLibraryCatalog, EVERYDAY_FLORAL_ARRANGEMENTS } from "./floral-library-everyday-50.js";
+import { isPublicVaseArrangement } from "../../../lib/floral-library/csv-standard.js";
 
 export { EVERYDAY_FLORAL_ARRANGEMENTS, getEverydayFloralLibraryCatalog };
 
@@ -103,11 +104,9 @@ export function getFlorisynSignatureCatalog() {
   return getEverydayFloralLibraryCatalog();
 }
 
-/** Public starter catalog — verified everyday photos only (excludes needs_image_replacement). */
+/** Public starter catalog — verified everyday vase arrangements only. */
 export function getPublicFloralLibraryCatalog() {
-  return getEverydayFloralLibraryCatalog().filter(
-    (p) => !p.metadata?.needs_image_replacement && p.metadata?.launch_quality !== "needs_photo_replacement"
-  );
+  return getEverydayFloralLibraryCatalog().filter(isPublicVaseArrangement);
 }
 
 /** @deprecated Legacy starters removed from public catalog — admin import only. */
