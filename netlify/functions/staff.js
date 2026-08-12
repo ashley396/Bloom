@@ -71,7 +71,23 @@ function pinRateLimit(event, staffId) {
   }
 }
 function hasAssignedValue(body, field) {
-  return Object.prototype.hasOwnProperty.call(body, field) && body[field] !== "" && body[field] != null;
+  if (!Object.prototype.hasOwnProperty.call(body, field)) return false;
+  const value = body[field];
+  if (value === "" || value == null) return false;
+  if (
+    [
+      "hourly_rate",
+      "federal_tax_rate",
+      "state_tax_rate",
+      "local_tax_rate",
+      "other_deduction_rate",
+      "fixed_deduction",
+    ].includes(field) &&
+    Number(value) === 0
+  ) {
+    return false;
+  }
+  return true;
 }
 function copyFields(body, fields, payload) {
   for (const f of fields) {

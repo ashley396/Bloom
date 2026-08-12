@@ -80,6 +80,10 @@ test("luxury POS palette uses navy and rose without green CTAs", () => {
   assert.match(html, /ID: REG-MAIN-001/);
   assert.match(html, /<small>CART<\/small>/);
   assert.equal((html.match(/class="pos-lux-cat(?:\s|")/g) || []).length, 8);
+  assert.match(css, /padding:\s*0 12px 12px 0/);
+  assert.match(css, /overflow:\s*hidden/);
+  assert.match(css, /pos-lux-pay-actions/);
+  assert.match(css, /flex:\s*0\s+0\s+auto/);
   assert.doesNotMatch(css, /\.pos-lux-charge[^{]*\{[^}]*#547428/i);
   assert.doesNotMatch(css, /background:\s*#547428|background:\s*#486329/i);
 });
