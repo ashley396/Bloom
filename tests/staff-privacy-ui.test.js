@@ -92,6 +92,17 @@ test("Staff front page stays name + Clock In/Out only", () => {
   assert.match(index, /id="staffTimeHistoryHost"/);
 });
 
+test("POST create ignores zero-value private numeric defaults", () => {
+  assert.match(staffApi, /Number\(value\) === 0/);
+  assert.match(staffApi, /hourly_rate/);
+});
+
+test("UI create sends only name, role, and PIN unless private fields are filled", () => {
+  assert.match(app, /staffPrivateFieldFilled/);
+  assert.match(app, /setAttribute\("required",""\)/);
+  assert.match(app, /Employee PIN must be 4–8 digits/);
+});
+
 test("UI sends private_file_pin after opening the private employee file", () => {
   assert.match(app, /lastPrivateFilePin/);
   assert.match(app, /private_file_pin:d\.pin|private_file_pin: lastPrivateFilePin|private_file_pin=lastPrivateFilePin|patch\.private_file_pin=lastPrivateFilePin/);
