@@ -1,129 +1,55 @@
 #!/usr/bin/env node
 /**
- * Merges all everyday library JSON batches into API products + client collection.js.
+ * Merges Floral Library JSON batches into API products + client collection.js.
  * Never deletes prior batch files — only additive merge.
  */
 import fs from "node:fs";
 import path from "node:path";
-import {
-  arrangementToCsvRow,
-  isPublicVaseArrangement,
-  stemCount,
-} from "../lib/floral-library/csv-standard.js";
+import { isPublicFloralLibraryProduct } from "../lib/floral-library/csv-standard.js";
+import { toLibraryProduct } from "../lib/floral-library/library-product-transform.js";
 
 const root = process.cwd();
 const publicDir = path.join(root, "public");
 const batchFiles = [
-  path.join(publicDir, "data/floral-library-everyday-50.json"),
-  path.join(publicDir, "data/floral-library-everyday-batch-2.json"),
+  { file: path.join(publicDir, "data/floral-library-everyday-50.json"), source: "florisyn_everyday", categoryDefault: "Everyday", batchTagPrefix: "florisyn_everyday_batch_" },
+  { file: path.join(publicDir, "data/floral-library-everyday-batch-2.json"), source: "florisyn_everyday", categoryDefault: "Everyday", batchTagPrefix: "florisyn_everyday_batch_" },
+  { file: path.join(publicDir, "data/floral-library-sympathy-10.json"), source: "florisyn_sympathy", categoryDefault: "Sympathy", batchTagPrefix: "florisyn_sympathy_batch_" },
 ];
-
-function resolveNeedsReplacement(a) {
-  if (a.needs_image_replacement) return true;
-  if (a.vase_arrangement_verified === false) return true;
-  return !isPublicVaseArrangement({
-    metadata: {
-      container: a.container,
-      vase_arrangement_verified: a.vase_arrangement_verified !== false && !a.needs_image_replacement,
-      needs_image_replacement: a.needs_image_replacement,
-      launch_quality: a.needs_image_replacement ? "needs_photo_replacement" : "everyday_verified",
-      image_verified: a.image_verified !== false && !a.needs_image_replacement,
-    },
-  });
-}
 
 function loadBatches() {
   const arrangements = [];
-  for (const file of batchFiles) {
-    if (!fs.existsSync(file)) {
-      console.warn(`sync: skip missing ${file}`);
+  for (const batch of batchFiles) {
+    if (!fs.existsSync(batch.file)) {
+      console.warn(`sync: skip missing ${batch.file}`);
       continue;
     }
-    const data = JSON.parse(fs.readFileSync(file, "utf8"));
-    arrangements.push(...(data.arrangements || []));
+    const data = JSON.parse(fs.readFileSync(batch.file, "utf8"));
+    for (const a of data.arrangements || []) {
+      arrangements.push({ a, batch });
+    }
   }
-  const ids = arrangements.map((a) => a.id);
+  const ids = arrangements.map(({ a }) => a.id);
   if (new Set(ids).size !== ids.length) {
     throw new Error("Duplicate arrangement ids across batches");
   }
   return arrangements;
 }
 
-function toLibraryProduct(a) {
-  const retail = Number(a.suggested_retail);
-  const batch = a.batch ?? 1;
-  const needsReplacement = resolveNeedsReplacement(a);
-  const verifiedPhoto = !needsReplacement;
-  const contentHash = a.content_sha256 ? String(a.content_sha256).slice(0, 16) : `h${a.id}`;
-  const imageBase = `/assets/floral-library/${a.image}`;
-  const csv = arrangementToCsvRow(a);
-  return {
-    id: a.id,
-    scope: "master",
-    source: "florisyn_everyday",
-    name: a.name,
-    sku: csv.SKU,
-    categories: a.categories || ["Everyday"],
-    occasion: csv.Occasion,
-    arrangement_type: a.arrangement_type || "vase_arrangement",
-    short_description: a.short_description,
-    description: a.description,
-    suggested_retail: {
-      default: retail,
-      min: Math.round(retail * 0.9 * 100) / 100,
-      max: Math.round(retail * 1.2 * 100) / 100,
-    },
-    suggested_cost: Math.round(retail * 0.42 * 100) / 100,
-    primary_image: {
-      url: `${imageBase}?v=${contentHash}`,
-      alt: a.alt || `${a.name} ultra-realistic vase arrangement product photograph`,
-      hash: contentHash,
-    },
-    image_license: a.image_license || {
-      source: "bloom_owned",
-      attribution: `Florisyn Everyday Collection — batch ${batch}`,
-      review_status: "approved",
-    },
-    recipe: (a.recipe || []).map((r) => ({ name: r.name, qty: r.qty })),
-    publish_status: "published",
-    tags: verifiedPhoto
-      ? ["everyday", "ultra_realistic", "vase_arrangement", a.style, `florisyn_everyday_batch_${batch}`]
-      : ["everyday", "needs_photo", a.style, `florisyn_everyday_batch_${batch}`],
-    csv,
-    metadata: {
-      image_standard: verifiedPhoto ? "ultra_realistic_professional_floral_photography" : null,
-      launch_quality: needsReplacement ? "needs_photo_replacement" : "everyday_verified",
-      replaceable_by_shop: true,
-      needs_image_replacement: needsReplacement,
-      vase_arrangement_verified: verifiedPhoto,
-      image_verified: verifiedPhoto,
-      style: a.style,
-      color_palette: a.color_palette,
-      container: a.container,
-      vase: a.container,
-      stem_count: stemCount(a.recipe),
-      sku: csv.SKU,
-      occasion: csv.Occasion,
-      visual_notes: csv["Visual Notes"],
-      image_prompt: csv["Image Prompt"],
-      flowers_recipe: csv["Flowers / recipe"],
-      mechanics: a.mechanics,
-      tools: a.tools,
-      foliage: a.foliage,
-      instructions: a.instructions,
-      why_it_works: a.why_it_works,
-      batch,
-    },
-  };
-}
-
-const arrangements = loadBatches();
-const products = arrangements.map(toLibraryProduct);
-const publicProducts = products.filter(isPublicVaseArrangement);
+const loaded = loadBatches();
+const products = loaded.map(({ a, batch }) =>
+  toLibraryProduct(a, {
+    source: batch.source,
+    categoryDefault: batch.categoryDefault,
+    batchTag: `${batch.batchTagPrefix}${a.batch ?? 1}`,
+  })
+);
+const publicProducts = products.filter(isPublicFloralLibraryProduct);
+const everydayPublic = publicProducts.filter((p) => (p.categories || []).includes("Everyday"));
+const sympathyPublic = publicProducts.filter((p) => (p.categories || []).includes("Sympathy"));
 
 const collectionJs = `/**
  * AUTO-GENERATED by scripts/sync-floral-library-catalog.mjs — do not edit.
- * Florisyn Everyday Ultra-Realistic Floral Library (${publicProducts.length} visible vase arrangements of ${products.length} total).
+ * Florisyn Floral Library (${everydayPublic.length} Everyday + ${sympathyPublic.length} Sympathy visible vase arrangements).
  */
 (function (global) {
   "use strict";
@@ -155,18 +81,22 @@ const collectionJs = `/**
 fs.writeFileSync(path.join(publicDir, "floral-library-collection.js"), collectionJs);
 
 const manifest = {
-  version: 2,
-  batches: batchFiles.filter((f) => fs.existsSync(f)).map((f) => path.basename(f)),
-  total: arrangements.length,
+  version: 3,
+  batches: batchFiles.filter((b) => fs.existsSync(b.file)).map((b) => path.basename(b.file)),
+  total: products.length,
+  everyday_total: products.filter((p) => (p.categories || []).includes("Everyday")).length,
+  sympathy_total: products.filter((p) => (p.categories || []).includes("Sympathy")).length,
   visible_vase_arrangements: publicProducts.length,
+  visible_everyday: everydayPublic.length,
+  visible_sympathy: sympathyPublic.length,
   hidden_needs_image_replacement: products.length - publicProducts.length,
   generated_at: new Date().toISOString(),
 };
 fs.writeFileSync(
-  path.join(publicDir, "data/floral-library-everyday-manifest.json"),
+  path.join(publicDir, "data/floral-library-manifest.json"),
   JSON.stringify(manifest, null, 2) + "\n"
 );
 
 console.log(
-  `sync-floral-library-catalog: ${publicProducts.length} visible / ${products.length} total → floral-library-collection.js`
+  `sync-floral-library-catalog: ${publicProducts.length} visible (${everydayPublic.length} everyday + ${sympathyPublic.length} sympathy) / ${products.length} total`
 );

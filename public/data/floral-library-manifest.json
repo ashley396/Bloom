@@ -1,0 +1,16 @@
+{
+  "version": 3,
+  "batches": [
+    "floral-library-everyday-50.json",
+    "floral-library-everyday-batch-2.json",
+    "floral-library-sympathy-10.json"
+  ],
+  "total": 110,
+  "everyday_total": 100,
+  "sympathy_total": 10,
+  "visible_vase_arrangements": 31,
+  "visible_everyday": 21,
+  "visible_sympathy": 10,
+  "hidden_needs_image_replacement": 79,
+  "generated_at": "2026-08-12T19:11:56.508Z"
+}

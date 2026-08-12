@@ -93,8 +93,8 @@ test("floral-library handler GET starter returns products JSON", async () => {
   });
   assert.equal(res.statusCode, 200);
   const body = JSON.parse(res.body);
-  assert.equal(body.count, 21);
-  assert.ok(Array.isArray(body.products) && body.products.length === 21);
+  assert.equal(body.count, 31);
+  assert.ok(Array.isArray(body.products) && body.products.length === 31);
 });
 
 test("floral-library-admin handler quality action initializes", async () => {
@@ -146,7 +146,7 @@ test("esbuild bundle of floral-library.js loads and serves starter action", asyn
       });
       if (res.statusCode !== 200) process.exit(2);
       const body = JSON.parse(res.body);
-      if (body.count !== 21) process.exit(3);
+      if (body.count !== 31) process.exit(3);
     }).catch(() => process.exit(1));
   `);
 });

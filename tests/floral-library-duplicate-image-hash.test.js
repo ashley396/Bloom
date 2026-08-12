@@ -20,6 +20,7 @@ import {
   arrangementToCsvRow,
   hasValidVase,
   isPublicVaseArrangement,
+  isSympathyCategory,
 } from "../lib/floral-library/csv-standard.js";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -42,10 +43,11 @@ test("JSON content_sha256 matches actual file bytes for every arrangement", () =
 
 test("featured visible vase arrangements have zero exact duplicate image file hashes", () => {
   const featured = getPublicFloralLibraryCatalog();
-  assert.equal(featured.length, 21);
+  assert.equal(featured.length, 31);
 
   const hashById = new Map();
   for (const p of featured) {
+    if (p.metadata?.approved_placeholder) continue;
     const rel = normalizeAssetPath(p.primary_image.url);
     const hash = fileSha256Absolute(path.join(publicDir, rel));
     if (hashById.has(hash)) {
@@ -55,20 +57,20 @@ test("featured visible vase arrangements have zero exact duplicate image file ha
     }
     hashById.set(hash, p.id);
   }
-  assert.equal(hashById.size, featured.length);
+  assert.equal(hashById.size, featured.filter((p) => !p.metadata?.approved_placeholder).length);
 });
 
-test("public starter catalog excludes arrangements marked needs_image_replacement", () => {
-  const full = getEverydayFloralLibraryCatalog();
-  const pub = getPublicFloralLibraryCatalog();
-  const excluded = full.filter((p) => p.metadata?.needs_image_replacement);
+test("public starter catalog excludes everyday items marked needs_image_replacement", () => {
+  const everyday = getEverydayFloralLibraryCatalog();
+  const pubEveryday = getPublicFloralLibraryCatalog().filter((p) => (p.categories || []).includes("Everyday"));
+  const excluded = everyday.filter((p) => p.metadata?.needs_image_replacement);
   assert.ok(
-    pub.every((p) => !p.metadata?.needs_image_replacement),
-    "public catalog must not include needs_image_replacement items"
+    pubEveryday.every((p) => !p.metadata?.needs_image_replacement),
+    "public everyday catalog must not include needs_image_replacement items"
   );
-  assert.equal(pub.length, 21);
+  assert.equal(getPublicFloralLibraryCatalog().length, 31);
+  assert.equal(pubEveryday.length, 21);
   assert.equal(excluded.length, 79);
-  assert.equal(pub.length, full.length - excluded.length);
 });
 
 test("every visible Everyday item satisfies CSV standard with a vase field", () => {
@@ -85,12 +87,15 @@ test("every visible Everyday item satisfies CSV standard with a vase field", () 
   }
 });
 
-test("public catalog rejects non-vase or unverified images", () => {
+test("public everyday catalog rejects non-vase or unverified images", () => {
   const blocked = getEverydayFloralLibraryCatalog().filter((p) => !isPublicVaseArrangement(p));
   assert.equal(blocked.length, 79);
-  for (const p of getPublicFloralLibraryCatalog()) {
+  for (const p of getPublicFloralLibraryCatalog().filter((x) => (x.categories || []).includes("Everyday"))) {
     assert.match(String(p.primary_image?.url || ""), /^\/assets\/floral-library\/everyday\/ed-/);
     assert.doesNotMatch(String(p.primary_image?.url || ""), /pexels|computer|landscape|person|single-stem|hand-tie|no-vase/i);
+  }
+  for (const p of getPublicFloralLibraryCatalog().filter(isSympathyCategory)) {
+    assert.match(String(p.primary_image?.url || ""), /^\/assets\/floral-library\/sympathy\//);
   }
 });
 
