@@ -74,12 +74,21 @@
       "suggested_retail": 54.99,
       "image": "everyday/ed-02-pink-meadow.jpg",
       "alt": "Sunshine Cube ultra-realistic vase arrangement photograph",
-      "content_sha256": "4ef0c6b9c0f3df94ade78b07c2ef97b6aa45d0d334e5394fdb4c70dc2376a832",
+      "content_sha256": "364fe3c2697c4d4ebc90bef67a605a3e0bdbfc78279719863b74b2d3118f493b",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-01-SUNSHINE-CUBE",
+      "occasion": "Everyday",
+      "visual_notes": "Sunflowers sell fast, stem counts stay low, and a cube arranges in under 15 minutes.",
+      "image_prompt": "Ultra-realistic professional product photograph of Sunshine Cube, finished bright floral arrangement in 5\" glass cube vase, yellow, orange, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 17,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-02-pink-meadow",
@@ -147,13 +156,21 @@
       "suggested_retail": 52.99,
       "image": "everyday/ed-03-classic-rose-mix.jpg",
       "alt": "Pink Meadow ultra-realistic vase arrangement photograph",
-      "content_sha256": "364fe3c2697c4d4ebc90bef67a605a3e0bdbfc78279719863b74b2d3118f493b",
+      "content_sha256": "a21227964a89ee09c5e8dc891012708bca969e07fdaa894cecfdc842981ea920",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-02-PINK-MEADOW",
+      "occasion": "Everyday",
+      "visual_notes": "Pink everyday designs move year-round with wholesale-friendly stems.",
+      "image_prompt": "Ultra-realistic professional product photograph of Pink Meadow, finished feminine floral arrangement in quart mason jar, blush pink, cream, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 21,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-03-classic-rose-mix",
@@ -221,13 +238,21 @@
       "suggested_retail": 64.99,
       "image": "everyday/ed-04-cheerful-daisy-burst.jpg",
       "alt": "Classic Rose Mix ultra-realistic vase arrangement photograph",
-      "content_sha256": "a21227964a89ee09c5e8dc891012708bca969e07fdaa894cecfdc842981ea920",
+      "content_sha256": "b180564e3c9b7a20b894caa4b93f3bb787284b40a08a4509d388d73a4083a1cf",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-03-CLASSIC-ROSE-MIX",
+      "occasion": "Everyday",
+      "visual_notes": "Tri-color roses are a counter staple with predictable cost and high perceived value.",
+      "image_prompt": "Ultra-realistic professional product photograph of Classic Rose Mix, finished classic floral arrangement in 8\" cylinder vase, red, pink, white palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 18,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-04-cheerful-daisy-burst",
@@ -280,13 +305,21 @@
       "suggested_retail": 44.99,
       "image": "everyday/ed-05-everyday-hydrangea-pop.jpg",
       "alt": "Cheerful Daisy Burst ultra-realistic vase arrangement photograph",
-      "content_sha256": "b180564e3c9b7a20b894caa4b93f3bb787284b40a08a4509d388d73a4083a1cf",
+      "content_sha256": "f97707279a953feba4205b8f591686556e36f17c2c354516772ab104e93a93fa",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-04-CHEERFUL-DAISY-BURST",
+      "occasion": "Everyday",
+      "visual_notes": "Daisies are inexpensive, forgiving, and perfect for walk-in sales.",
+      "image_prompt": "Ultra-realistic professional product photograph of Cheerful Daisy Burst, finished cheerful floral arrangement in 6\" ceramic vase, white, yellow, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 20,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-05-everyday-hydrangea-pop",
@@ -338,12 +371,21 @@
       "suggested_retail": 58.99,
       "image": "everyday/ed-14-lavender-breeze.jpg",
       "alt": "Everyday Hydrangea Pop ultra-realistic vase arrangement photograph",
-      "content_sha256": "f97707279a953feba4205b8f591686556e36f17c2c354516772ab104e93a93fa",
+      "content_sha256": "566d1991b590f52b75bf30648fffff57fd724b80e38fcdb2b8392879fa395409",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-05-EVERYDAY-HYDRANGEA-POP",
+      "occasion": "Everyday",
+      "visual_notes": "One hydrangea fills a cube quickly — strong margin on a compact design.",
+      "image_prompt": "Ultra-realistic professional product photograph of Everyday Hydrangea Pop, finished modern floral arrangement in 5\" cube vase, blue, white, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 9,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-06-soft-blush-garden",
@@ -401,12 +443,21 @@
       "suggested_retail": 59.99,
       "image": "everyday/ed-17-rose-mum-harmony.jpg",
       "alt": "Soft Blush Garden ultra-realistic vase arrangement photograph",
-      "content_sha256": "02d7e73b59e0cd0f7ba53d18c4bb3afd5b2e754ad8b966882ef0c5eaa730b63d",
+      "content_sha256": "758999bff22e676417d591c4669bcf5042bd00d056405d4e226ad39d0fa461d9",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-06-SOFT-BLUSH-GARDEN",
+      "occasion": "Everyday",
+      "visual_notes": "Soft pinks read premium while staying within everyday stem budgets.",
+      "image_prompt": "Ultra-realistic professional product photograph of Soft Blush Garden, finished feminine floral arrangement in 8\" cylinder vase, blush, cream, sage palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 19,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-07-rustic-mason-jar-mix",
@@ -463,13 +514,21 @@
       "suggested_retail": 48.99,
       "image": "everyday/ed-18-alstroemeria-joy.jpg",
       "alt": "Rustic Mason Jar Mix ultra-realistic vase arrangement photograph",
-      "content_sha256": "da6ec02df79402b540ce2e091ec2341049dbb11af9e78af3aef5cfbc6a9df9de",
+      "content_sha256": "7564b7e17b9f089105be1065ee2fd0e27a4b0d15142865bad570332fd940d329",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-07-RUSTIC-MASON-JAR-MIX",
+      "occasion": "Everyday",
+      "visual_notes": "Mason jars feel handmade and gift-ready with minimal labor.",
+      "image_prompt": "Ultra-realistic professional product photograph of Rustic Mason Jar Mix, finished rustic floral arrangement in quart mason jar, warm pink, peach, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 21,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-08-bright-happy",
@@ -526,12 +585,21 @@
       "suggested_retail": 56.99,
       "image": "everyday/ed-19-sunflower-smile.jpg",
       "alt": "Bright & Happy ultra-realistic vase arrangement photograph",
-      "content_sha256": "0047d75e16651f40a63260c1b9a3403494a1569d0f0cf6a5c3a28b82b7e7ba5f",
+      "content_sha256": "503ef0691b5f9e110e450aaeacb54c15c2a9f0d12695c912e13c6af6773904ea",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-08-BRIGHT-HAPPY",
+      "occasion": "Everyday",
+      "visual_notes": "High-energy colors sell for birthdays and congratulations.",
+      "image_prompt": "Ultra-realistic professional product photograph of Bright & Happy, finished bright floral arrangement in 6\" cylinder vase, yellow, hot pink, orange palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 16,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-09-simple-whites",
@@ -588,13 +656,21 @@
       "suggested_retail": 62.99,
       "image": "everyday/ed-20-gentle-pastels.jpg",
       "alt": "Simple Whites ultra-realistic vase arrangement photograph",
-      "content_sha256": "26af61956d3cb77f4b2c952b35dd8339ff5213c504d50103eca7af3208fd8400",
+      "content_sha256": "d6ff1d72295c1a6b3d14561d2a43d9b751784a3d4cb1cb553e3d4873593630c4",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-09-SIMPLE-WHITES",
+      "occasion": "Everyday",
+      "visual_notes": "All-white designs work for sympathy and everyday gifting with one recipe.",
+      "image_prompt": "Ultra-realistic professional product photograph of Simple Whites, finished classic floral arrangement in 8\" cylinder vase, white, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 19,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-10-everyday-elegance",
@@ -651,12 +727,21 @@
       "suggested_retail": 68.99,
       "image": "everyday/ed-25-sweet-simple.jpg",
       "alt": "Everyday Elegance ultra-realistic vase arrangement photograph",
-      "content_sha256": "cda456239f7a8bf516823fe97bfc98cb7fe3bf83e278beedae1e1693df8246b4",
+      "content_sha256": "91b6e6a9b6225daef4379c7301e2fe178b1a14f2bd619140bfbd95e0755a3c32",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-10-EVERYDAY-ELEGANCE",
+      "occasion": "Everyday",
+      "visual_notes": "Two lilies elevate the look without wedding-level stem counts.",
+      "image_prompt": "Ultra-realistic professional product photograph of Everyday Elegance, finished classic floral arrangement in 8\" ceramic vase, cream, blush, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 18,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-11-morning-cheer",
@@ -711,13 +796,21 @@
       "suggested_retail": 39.99,
       "image": "everyday/ed-27-soft-spring-mix.jpg",
       "alt": "Morning Cheer ultra-realistic vase arrangement photograph",
-      "content_sha256": "ccaff84006b0553f1bdbac97b7189cc67cf8afbbaeab07f8ec77e6e68a2037df",
+      "content_sha256": "2134dda8b0287ab9070529b3510c66ec329a9039be04ebaf5a1179329e7f30e7",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-11-MORNING-CHEER",
+      "occasion": "Everyday",
+      "visual_notes": "Small jar designs are fast fillers for the cooler door.",
+      "image_prompt": "Ultra-realistic professional product photograph of Morning Cheer, finished cheerful floral arrangement in pint mason jar, yellow, white, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 21,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-12-fresh-start",
@@ -774,13 +867,21 @@
       "suggested_retail": 51.99,
       "image": "everyday/ed-32-hydrangea-trio.jpg",
       "alt": "Fresh Start ultra-realistic vase arrangement photograph",
-      "content_sha256": "129fc91e9bc8ee795d677e240b444daaa1897175c6edf19d935f7d882b36fbdb",
+      "content_sha256": "e4439e54ea697a3f598e812a02a4352ae208bfacb0eb81102440d1347084e5f5",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-12-FRESH-START",
+      "occasion": "Everyday",
+      "visual_notes": "Snapdragon height adds perceived value in a compact cube.",
+      "image_prompt": "Ultra-realistic professional product photograph of Fresh Start, finished modern floral arrangement in 5\" cube vase, green, white, yellow palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 18,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-13-daily-delight",
@@ -837,13 +938,21 @@
       "suggested_retail": 47.99,
       "image": "everyday/ed-37-classic-cylinder-mix.jpg",
       "alt": "Daily Delight ultra-realistic vase arrangement photograph",
-      "content_sha256": "1c0a3fc7d6c6100f88b23b90072eb9fdee10844840207b2b7a71b3b1dcf7f5f9",
+      "content_sha256": "0506aa6c01df36bb23a5fbac1b8d92ef8882f1bc6a1421867e492c97026fadc9",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-13-DAILY-DELIGHT",
+      "occasion": "Everyday",
+      "visual_notes": "Tri-color carnation/daisy mix is a reliable daily seller.",
+      "image_prompt": "Ultra-realistic professional product photograph of Daily Delight, finished cheerful floral arrangement in 6\" cylinder vase, pink, yellow, white palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 19,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-14-lavender-breeze",
@@ -900,13 +1009,21 @@
       "suggested_retail": 55.99,
       "image": "everyday/ed-39-soft-neutral-mix.jpg",
       "alt": "Lavender Breeze ultra-realistic vase arrangement photograph",
-      "content_sha256": "566d1991b590f52b75bf30648fffff57fd724b80e38fcdb2b8392879fa395409",
+      "content_sha256": "b96a49123e5c6564985aedea3f6a5492e023244d338bdd92639d2bdf7a2a049c",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-14-LAVENDER-BREEZE",
+      "occasion": "Everyday",
+      "visual_notes": "Stock fragrance drives add-on sales at the counter.",
+      "image_prompt": "Ultra-realistic professional product photograph of Lavender Breeze, finished feminine floral arrangement in 8\" cylinder vase, lavender, white, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 20,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-15-peachy-keen",
@@ -962,12 +1079,21 @@
       "suggested_retail": 57.99,
       "image": "everyday/ed-40-pink-petal-jar.jpg",
       "alt": "Peachy Keen ultra-realistic vase arrangement photograph",
-      "content_sha256": "28f87c83234ea700e27a0a3c3a738d1f9e072d504b2e92ca494b22071e39482c",
+      "content_sha256": "b387b98b115e564b72e99b4c6182e84af48ea909aa243059e325d256cbf8fd8c",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-15-PEACHY-KEEN",
+      "occasion": "Everyday",
+      "visual_notes": "Peach palettes photograph well for website upsells.",
+      "image_prompt": "Ultra-realistic professional product photograph of Peachy Keen, finished cheerful floral arrangement in quart mason jar, peach, coral, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 18,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-16-hydrangea-friends",
@@ -1024,13 +1150,21 @@
       "suggested_retail": 61.99,
       "image": "everyday/ed-41-golden-glow.jpg",
       "alt": "Hydrangea & Friends ultra-realistic vase arrangement photograph",
-      "content_sha256": "542eaafbdb07c6bf45943ac2d83d4a692ab726fe64f3a93e58ec2c859b2f15c3",
+      "content_sha256": "776609b33158bb60b3a55b1ea50cf9875ef44d0a78e40f5a6217aefaf968ef1c",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-16-HYDRANGEA-FRIENDS",
+      "occasion": "Everyday",
+      "visual_notes": "Hydrangea plus filler blooms stretch perceived size.",
+      "image_prompt": "Ultra-realistic professional product photograph of Hydrangea & Friends, finished simple floral arrangement in 8\" cylinder vase, blue, pink, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 13,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-17-rose-mum-harmony",
@@ -1087,13 +1221,21 @@
       "suggested_retail": 58.99,
       "image": "everyday/ed-42-everyday-blush.jpg",
       "alt": "Rose & Mum Harmony ultra-realistic vase arrangement photograph",
-      "content_sha256": "758999bff22e676417d591c4669bcf5042bd00d056405d4e226ad39d0fa461d9",
+      "content_sha256": "5514b88af4613ead4fde62adf2d50a3debb7cad3c193ef447118fcac95d03dcf",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-17-ROSE-MUM-HARMONY",
+      "occasion": "Everyday",
+      "visual_notes": "Mums extend vase life and reduce waste on slower days.",
+      "image_prompt": "Ultra-realistic professional product photograph of Rose & Mum Harmony, finished classic floral arrangement in 8\" ceramic vase, pink, bronze, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 19,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-18-alstroemeria-joy",
@@ -1144,13 +1286,21 @@
       "suggested_retail": 46.99,
       "image": "everyday/ed-44-rose-trio.jpg",
       "alt": "Alstroemeria Joy ultra-realistic vase arrangement photograph",
-      "content_sha256": "7564b7e17b9f089105be1065ee2fd0e27a4b0d15142865bad570332fd940d329",
+      "content_sha256": "1b138f729d0df236fd8daf4edc4adbaa973be22b290ad47d08d1d9618207e42c",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-18-ALSTROEMERIA-JOY",
+      "occasion": "Everyday",
+      "visual_notes": "Alstroemeria-heavy designs are profitable and long-lasting.",
+      "image_prompt": "Ultra-realistic professional product photograph of Alstroemeria Joy, finished simple floral arrangement in 6\" cylinder vase, mixed brights palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 19,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-19-sunflower-smile",
@@ -1201,13 +1351,21 @@
       "suggested_retail": 49.99,
       "image": "everyday/ed-45-hydrangea-accent.jpg",
       "alt": "Sunflower Smile ultra-realistic vase arrangement photograph",
-      "content_sha256": "503ef0691b5f9e110e450aaeacb54c15c2a9f0d12695c912e13c6af6773904ea",
+      "content_sha256": "169a3d7a533d59702822617404b2218428bb4f136fdff1454956c16bdbf073eb",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-19-SUNFLOWER-SMILE",
+      "occasion": "Everyday",
+      "visual_notes": "Sunflower-only-plus-filler is a top impulse buy.",
+      "image_prompt": "Ultra-realistic professional product photograph of Sunflower Smile, finished bright floral arrangement in 6\" ceramic vase, yellow, brown, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 13,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-20-gentle-pastels",
@@ -1263,13 +1421,21 @@
       "suggested_retail": 60.99,
       "image": "everyday/ed-47-bright-tabletop.jpg",
       "alt": "Gentle Pastels ultra-realistic vase arrangement photograph",
-      "content_sha256": "d6ff1d72295c1a6b3d14561d2a43d9b751784a3d4cb1cb553e3d4873593630c4",
+      "content_sha256": "1a7bac7782b8b8b0829cf1a391f661b5a4de214df67639e53c025d4674972806",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-20-GENTLE-PASTELS",
+      "occasion": "Everyday",
+      "visual_notes": "Pastels suit new baby and thank-you without custom quoting.",
+      "image_prompt": "Ultra-realistic professional product photograph of Gentle Pastels, finished feminine floral arrangement in 8\" cylinder vase, pastel pink, lavender, cream palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 17,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-21-modern-whites",
@@ -1325,13 +1491,21 @@
       "suggested_retail": 63.99,
       "image": "everyday/ed-50-everyday-florist-favorite.jpg",
       "alt": "Modern Whites ultra-realistic vase arrangement photograph",
-      "content_sha256": "36f8d2af63ad24a2f514aeb187c78cef194a5af67764280807a1f2b5fb2a16ef",
+      "content_sha256": "4129a7e5333663b9b55a78af29efe32530e44d9a6226f1bb1f44d7357c5d0b51",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-21-MODERN-WHITES",
+      "occasion": "Everyday",
+      "visual_notes": "Modern white cubes fit corporate and sympathy add-on orders.",
+      "image_prompt": "Ultra-realistic professional product photograph of Modern Whites, finished modern floral arrangement in 5\" cube vase, white, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 17,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-22-compact-color-pop",
@@ -1387,13 +1561,21 @@
       "suggested_retail": 50.99,
       "image": "everyday/ed-53-white-meadow-vase.jpg",
       "alt": "Compact Color Pop ultra-realistic vase arrangement photograph",
-      "content_sha256": "0019418b84b3090b25a6231aea92e3c890c7abc94e6ac376ea09d830b4dd2521",
+      "content_sha256": "e8d0f43a74d8f6617820a27a3ddbd377686d1c8da7336ed890e5766de836d636",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-22-COMPACT-COLOR-POP",
+      "occasion": "Everyday",
+      "visual_notes": "Small footprint designs turn over quickly on busy Saturdays.",
+      "image_prompt": "Ultra-realistic professional product photograph of Compact Color Pop, finished bright floral arrangement in 5\" cube vase, fuchsia, orange, yellow palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 17,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-23-everyday-pink-mix",
@@ -1449,12 +1631,21 @@
       "suggested_retail": 56.99,
       "image": "everyday/ed-54-everyday-citrus-mix.jpg",
       "alt": "Everyday Pink Mix ultra-realistic vase arrangement photograph",
-      "content_sha256": "64f2beaf145c2837d183b6fa1725ca5990cfdb0e8ab5f9cbb0b2fc4737f8c076",
+      "content_sha256": "12beafafb56806ab0a743a8591d455e54d051e4144ed2338f34204edc76cec36",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-23-EVERYDAY-PINK-MIX",
+      "occasion": "Everyday",
+      "visual_notes": "Monochromatic pink is easy to upsell with chocolates.",
+      "image_prompt": "Ultra-realistic professional product photograph of Everyday Pink Mix, finished feminine floral arrangement in 8\" cylinder vase, pink, white, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 20,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-24-blue-white-classic",
@@ -1510,12 +1701,21 @@
       "suggested_retail": 65.99,
       "image": "everyday/ed-59-neutral-rose-vase.jpg",
       "alt": "Blue & White Classic ultra-realistic vase arrangement photograph",
-      "content_sha256": "c30270b0a70a6f47868d2dcb583bcf30274f7f1032be97575a1b75f9febe71f6",
+      "content_sha256": "9f557bc92856e54a99f65ffd11ce8b97ad08984727c3188b7efc30d5edfecb58",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-24-BLUE-WHITE-CLASSIC",
+      "occasion": "Everyday",
+      "visual_notes": "Blue-and-white reads crisp and works for everyday and sympathy.",
+      "image_prompt": "Ultra-realistic professional product photograph of Blue & White Classic, finished classic floral arrangement in 8\" cylinder vase, blue, white, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 15,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-25-sweet-simple",
@@ -1564,12 +1764,21 @@
       "suggested_retail": 36.99,
       "image": "everyday/ed-67-calm-white-garden.jpg",
       "alt": "Sweet & Simple ultra-realistic vase arrangement photograph",
-      "content_sha256": "91b6e6a9b6225daef4379c7301e2fe178b1a14f2bd619140bfbd95e0755a3c32",
+      "content_sha256": "e989739de023d5623287dc69bddab40b0cf78227db15cb4120dbc5b48bae2f77",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-25-SWEET-SIMPLE",
+      "occasion": "Everyday",
+      "visual_notes": "Entry price point for budget-conscious customers.",
+      "image_prompt": "Ultra-realistic professional product photograph of Sweet & Simple, finished simple floral arrangement in pint mason jar, pink, white palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 15,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-26-daily-sunshine",
@@ -1624,12 +1833,21 @@
       "suggested_retail": 53.99,
       "image": "everyday/ed-69-hydrangea-daisy-mix.jpg",
       "alt": "Daily Sunshine ultra-realistic vase arrangement photograph",
-      "content_sha256": "e1238cddea0d80a72f103587249b7a8f07b70c30ef9ff7e1e14ae97f554d63cf",
+      "content_sha256": "92a22db14124006ac34ad5f321f70d8fc88d4330cfb17658a4f8b437a3fccf0f",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-26-DAILY-SUNSHINE",
+      "occasion": "Everyday",
+      "visual_notes": "Repeatable recipe for cooler replenishment.",
+      "image_prompt": "Ultra-realistic professional product photograph of Daily Sunshine, finished bright floral arrangement in 6\" cylinder vase, yellow, white, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 17,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-27-soft-spring-mix",
@@ -1684,13 +1902,21 @@
       "suggested_retail": 57.99,
       "image": "everyday/ed-70-everyday-rustic-cylinder.jpg",
       "alt": "Soft Spring Mix ultra-realistic vase arrangement photograph",
-      "content_sha256": "2134dda8b0287ab9070529b3510c66ec329a9039be04ebaf5a1179329e7f30e7",
+      "content_sha256": "fec524791375f1e4d5b03d8a5e2311f08d8d301a4141b5ead49db165829a3219",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-27-SOFT-SPRING-MIX",
+      "occasion": "Everyday",
+      "visual_notes": "Seasonless 'spring' naming sells year-round.",
+      "image_prompt": "Ultra-realistic professional product photograph of Soft Spring Mix, finished feminine floral arrangement in 8\" ceramic vase, pink, yellow, white palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 16,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-28-everyday-garden-vase",
@@ -1759,12 +1985,21 @@
       "suggested_retail": 59.99,
       "image": "everyday/ed-71-modern-neutral-jar.jpg",
       "alt": "Everyday Garden Vase ultra-realistic vase arrangement photograph",
-      "content_sha256": "6cc8f19f9b51c5e33ac49fca08b59ed719c2c7621e134f8a0bfd488961212307",
+      "content_sha256": "c2d38f62057685f858893d6e58c1104d97eb46b7be2d4d7cb5478d622fcc6100",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-28-EVERYDAY-GARDEN-VASE",
+      "occasion": "Everyday",
+      "visual_notes": "Looks custom while using only cooler staples.",
+      "image_prompt": "Ultra-realistic professional product photograph of Everyday Garden Vase, finished rustic floral arrangement in 8\" cylinder vase, mixed garden tones palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 24,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-29-bright-market-bunch",
@@ -1821,13 +2056,21 @@
       "suggested_retail": 42.99,
       "image": "everyday/ed-76-gentle-white-trio.jpg",
       "alt": "Bright Market Bunch ultra-realistic vase arrangement photograph",
-      "content_sha256": "b9df0c4e21756b6e81138b5bc69d9c2b60916f83414633a4d46e76c4b093e3b6",
+      "content_sha256": "3dc2d728f135e0f614a1440ea1cdcca225c09c7a1296e719e8b319f23fc4e02b",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-29-BRIGHT-MARKET-BUNCH",
+      "occasion": "Everyday",
+      "visual_notes": "vase arrangement cost — strong margin on wrapped bunches.",
+      "image_prompt": "Ultra-realistic professional product photograph of Bright Market Bunch, finished bright floral arrangement in clear glass vase, rainbow brights palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 24,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-30-calm-clean-whites",
@@ -1883,13 +2126,21 @@
       "suggested_retail": 66.99,
       "image": "everyday/ed-84-bright-daily-cylinder.jpg",
       "alt": "Calm & Clean Whites ultra-realistic vase arrangement photograph",
-      "content_sha256": "57e22309d970e42df7a2b8ced0ce6b3dbe96dac824cdcf87baad46d4ac1f59a1",
+      "content_sha256": "e42f6fab41f8738e3b4cad707b0b9679ee612fe414ad7f11ed8e21f13fca2e4b",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-30-CALM-CLEAN-WHITES",
+      "occasion": "Everyday",
+      "visual_notes": "Sympathy-adjacent without funeral-specific styling.",
+      "image_prompt": "Ultra-realistic professional product photograph of Calm & Clean Whites, finished classic floral arrangement in 8\" cylinder vase, white, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 16,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-31-pink-peach-harmony",
@@ -1944,12 +2195,21 @@
       "suggested_retail": 58.99,
       "image": "everyday/ed-85-pink-white-everyday.jpg",
       "alt": "Pink & Peach Harmony ultra-realistic vase arrangement photograph",
-      "content_sha256": "3c4d7d355230b18b9407cb2d5f371ab55464d4edd53350b114e19e87b2e48105",
+      "content_sha256": "1f6fa0db15f331b6b9743cd24775faee481612b37e2825aa46772e2b966de9af",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-31-PINK-PEACH-HARMONY",
+      "occasion": "Everyday",
+      "visual_notes": "Harmony naming helps staff suggest paired gifts.",
+      "image_prompt": "Ultra-realistic professional product photograph of Pink & Peach Harmony, finished feminine floral arrangement in 8\" ceramic vase, pink, peach, cream palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 19,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-32-hydrangea-trio",
@@ -2003,13 +2263,21 @@
       "suggested_retail": 69.99,
       "image": "everyday/ed-97-soft-pastel-jar.jpg",
       "alt": "Hydrangea Trio ultra-realistic vase arrangement photograph",
-      "content_sha256": "e4439e54ea697a3f598e812a02a4352ae208bfacb0eb81102440d1347084e5f5",
+      "content_sha256": "4ab381641c13e1cbb61b87e661d2971fd0d93e524414a42fe26c431a6434f807",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-32-HYDRANGEA-TRIO",
+      "occasion": "Everyday",
+      "visual_notes": "Three stems, fast assembly, high basket average.",
+      "image_prompt": "Ultra-realistic professional product photograph of Hydrangea Trio, finished simple floral arrangement in 8\" cylinder vase, blue, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 9,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-33-rose-daisy-blend",
@@ -2065,12 +2333,21 @@
       "suggested_retail": 54.99,
       "image": "everyday/ed-02-pink-meadow.jpg",
       "alt": "Rose & Daisy Blend ultra-realistic vase arrangement photograph",
-      "content_sha256": "f5b3cdf02ad115741ccd3f21ee63fc086080fbf678afafd1d02681e05086d7c4",
+      "content_sha256": "364fe3c2697c4d4ebc90bef67a605a3e0bdbfc78279719863b74b2d3118f493b",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-33-ROSE-DAISY-BLEND",
+      "occasion": "Everyday",
+      "visual_notes": "Classic blend customers recognize immediately.",
+      "image_prompt": "Ultra-realistic professional product photograph of Rose & Daisy Blend, finished cheerful floral arrangement in 6\" cylinder vase, pink, white, yellow palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 19,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false,
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-34-everyday-mason-jar",
@@ -2125,13 +2402,21 @@
       "suggested_retail": 45.99,
       "image": "everyday/ed-03-classic-rose-mix.jpg",
       "alt": "Everyday Mason Jar ultra-realistic vase arrangement photograph",
-      "content_sha256": "69c2a6d261ea5705251760195972149e6ba6bc4f423450d6cfd4df8d282501b0",
+      "content_sha256": "a21227964a89ee09c5e8dc891012708bca969e07fdaa894cecfdc842981ea920",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-34-EVERYDAY-MASON-JAR",
+      "occasion": "Everyday",
+      "visual_notes": "Template recipe every designer can execute in 10 minutes.",
+      "image_prompt": "Ultra-realistic professional product photograph of Everyday Mason Jar, finished rustic floral arrangement in quart mason jar, mixed pinks palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 20,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-35-simple-greens-whites",
@@ -2195,13 +2480,21 @@
       "suggested_retail": 52.99,
       "image": "everyday/ed-04-cheerful-daisy-burst.jpg",
       "alt": "Simple Greens & Whites ultra-realistic vase arrangement photograph",
-      "content_sha256": "61fbe4d692c1de0c7b1001091c52c1fbef0e271695b613edb0de14ed1ccdee09",
+      "content_sha256": "b180564e3c9b7a20b894caa4b93f3bb787284b40a08a4509d388d73a4083a1cf",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-35-SIMPLE-GREENS-WHITES",
+      "occasion": "Everyday",
+      "visual_notes": "Extra greenery lowers flower cost while keeping size.",
+      "image_prompt": "Ultra-realistic professional product photograph of Simple Greens & Whites, finished classic floral arrangement in 8\" cylinder vase, white, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 25,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-36-happy-day-bouquet",
@@ -2256,13 +2549,21 @@
       "suggested_retail": 55.99,
       "image": "everyday/ed-05-everyday-hydrangea-pop.jpg",
       "alt": "Happy Day Bouquet ultra-realistic vase arrangement photograph",
-      "content_sha256": "f7e39617a035d0801f7abf1e651e941c57181129b328ac30f5d146c207fa78c2",
+      "content_sha256": "f97707279a953feba4205b8f591686556e36f17c2c354516772ab104e93a93fa",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-36-HAPPY-DAY-BOUQUET",
+      "occasion": "Everyday",
+      "visual_notes": "Named for birthdays — staff can suggest instantly.",
+      "image_prompt": "Ultra-realistic professional product photograph of Happy Day Bouquet, finished cheerful floral arrangement in 8\" cylinder vase, yellow, pink, orange palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 19,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-37-classic-cylinder-mix",
@@ -2317,12 +2618,21 @@
       "suggested_retail": 61.99,
       "image": "everyday/ed-14-lavender-breeze.jpg",
       "alt": "Classic Cylinder Mix ultra-realistic vase arrangement photograph",
-      "content_sha256": "0506aa6c01df36bb23a5fbac1b8d92ef8882f1bc6a1421867e492c97026fadc9",
+      "content_sha256": "566d1991b590f52b75bf30648fffff57fd724b80e38fcdb2b8392879fa395409",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-37-CLASSIC-CYLINDER-MIX",
+      "occasion": "Everyday",
+      "visual_notes": "Delivery-friendly foam design with everyday stems.",
+      "image_prompt": "Ultra-realistic professional product photograph of Classic Cylinder Mix, finished classic floral arrangement in 8\" cylinder vase, red, pink, white palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 17,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false,
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-38-everyday-color-burst",
@@ -2377,12 +2687,21 @@
       "suggested_retail": 48.99,
       "image": "everyday/ed-17-rose-mum-harmony.jpg",
       "alt": "Everyday Color Burst ultra-realistic vase arrangement photograph",
-      "content_sha256": "4340f5ce2e01d05337e7a63517257246f1dfa6a9e229f9eaa15871ae308508e0",
+      "content_sha256": "758999bff22e676417d591c4669bcf5042bd00d056405d4e226ad39d0fa461d9",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-38-EVERYDAY-COLOR-BURST",
+      "occasion": "Everyday",
+      "visual_notes": "Carnation-heavy = margin on volume orders.",
+      "image_prompt": "Ultra-realistic professional product photograph of Everyday Color Burst, finished bright floral arrangement in 6\" ceramic vase, multi bright palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 24,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false,
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-39-soft-neutral-mix",
@@ -2437,12 +2756,21 @@
       "suggested_retail": 58.99,
       "image": "everyday/ed-18-alstroemeria-joy.jpg",
       "alt": "Soft Neutral Mix ultra-realistic vase arrangement photograph",
-      "content_sha256": "b96a49123e5c6564985aedea3f6a5492e023244d338bdd92639d2bdf7a2a049c",
+      "content_sha256": "7564b7e17b9f089105be1065ee2fd0e27a4b0d15142865bad570332fd940d329",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-39-SOFT-NEUTRAL-MIX",
+      "occasion": "Everyday",
+      "visual_notes": "Neutrals cross-sell to home décor customers.",
+      "image_prompt": "Ultra-realistic professional product photograph of Soft Neutral Mix, finished simple floral arrangement in 8\" cylinder vase, cream, blush, sage palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 19,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-40-pink-petal-jar",
@@ -2496,13 +2824,21 @@
       "suggested_retail": 41.99,
       "image": "everyday/ed-19-sunflower-smile.jpg",
       "alt": "Pink Petal Jar ultra-realistic vase arrangement photograph",
-      "content_sha256": "b387b98b115e564b72e99b4c6182e84af48ea909aa243059e325d256cbf8fd8c",
+      "content_sha256": "503ef0691b5f9e110e450aaeacb54c15c2a9f0d12695c912e13c6af6773904ea",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-40-PINK-PETAL-JAR",
+      "occasion": "Everyday",
+      "visual_notes": "Small pink jar is a proven add-on at checkout.",
+      "image_prompt": "Ultra-realistic professional product photograph of Pink Petal Jar, finished feminine floral arrangement in pint mason jar, pink, white palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 17,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-41-golden-glow",
@@ -2557,12 +2893,21 @@
       "suggested_retail": 57.99,
       "image": "everyday/ed-20-gentle-pastels.jpg",
       "alt": "Golden Glow ultra-realistic vase arrangement photograph",
-      "content_sha256": "776609b33158bb60b3a55b1ea50cf9875ef44d0a78e40f5a6217aefaf968ef1c",
+      "content_sha256": "d6ff1d72295c1a6b3d14561d2a43d9b751784a3d4cb1cb553e3d4873593630c4",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-41-GOLDEN-GLOW",
+      "occasion": "Everyday",
+      "visual_notes": "Get-well and congratulations workhorse.",
+      "image_prompt": "Ultra-realistic professional product photograph of Golden Glow, finished bright floral arrangement in 6\" cylinder vase, gold, yellow, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 15,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-42-everyday-blush",
@@ -2617,13 +2962,21 @@
       "suggested_retail": 59.99,
       "image": "everyday/ed-25-sweet-simple.jpg",
       "alt": "Everyday Blush ultra-realistic vase arrangement photograph",
-      "content_sha256": "5514b88af4613ead4fde62adf2d50a3debb7cad3c193ef447118fcac95d03dcf",
+      "content_sha256": "91b6e6a9b6225daef4379c7301e2fe178b1a14f2bd619140bfbd95e0755a3c32",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-42-EVERYDAY-BLUSH",
+      "occasion": "Everyday",
+      "visual_notes": "Blush-on-blush reads intentional, not accidental.",
+      "image_prompt": "Ultra-realistic professional product photograph of Everyday Blush, finished feminine floral arrangement in 8\" ceramic vase, blush, cream palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 20,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-43-daisy-mum-mix",
@@ -2678,13 +3031,21 @@
       "suggested_retail": 49.99,
       "image": "everyday/ed-27-soft-spring-mix.jpg",
       "alt": "Daisy & Mum Mix ultra-realistic vase arrangement photograph",
-      "content_sha256": "150a1db7bcecb4142566c631177c59cd4f67f287a26fc40b0f7398b13026532c",
+      "content_sha256": "2134dda8b0287ab9070529b3510c66ec329a9039be04ebaf5a1179329e7f30e7",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "floral_arrangement",
+      "sku": "ED-43-DAISY-MUM-MIX",
+      "occasion": "Everyday",
+      "visual_notes": "Mums extend vase life for value-conscious buyers.",
+      "image_prompt": "Ultra-realistic professional product photograph of Daisy & Mum Mix, finished cheerful floral arrangement in 8\" cylinder vase, white, yellow, bronze palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 22,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true
     },
     {
       "id": "ed-44-rose-trio",
@@ -2739,12 +3100,21 @@
       "suggested_retail": 55.99,
       "image": "everyday/ed-32-hydrangea-trio.jpg",
       "alt": "Rose Trio ultra-realistic vase arrangement photograph",
-      "content_sha256": "1b138f729d0df236fd8daf4edc4adbaa973be22b290ad47d08d1d9618207e42c",
+      "content_sha256": "e4439e54ea697a3f598e812a02a4352ae208bfacb0eb81102440d1347084e5f5",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-44-ROSE-TRIO",
+      "occasion": "Everyday",
+      "visual_notes": "Dozen-alternative at a lower price point.",
+      "image_prompt": "Ultra-realistic professional product photograph of Rose Trio, finished classic floral arrangement in 6\" cylinder vase, red, pink, white palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 12,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-45-hydrangea-accent",
@@ -2799,12 +3169,21 @@
       "suggested_retail": 56.99,
       "image": "everyday/ed-37-classic-cylinder-mix.jpg",
       "alt": "Hydrangea Accent ultra-realistic vase arrangement photograph",
-      "content_sha256": "169a3d7a533d59702822617404b2218428bb4f136fdff1454956c16bdbf073eb",
+      "content_sha256": "0506aa6c01df36bb23a5fbac1b8d92ef8882f1bc6a1421867e492c97026fadc9",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-45-HYDRANGEA-ACCENT",
+      "occasion": "Everyday",
+      "visual_notes": "Low stem count, high impact — ideal for subscriptions.",
+      "image_prompt": "Ultra-realistic professional product photograph of Hydrangea Accent, finished modern floral arrangement in 5\" cube vase, blue, white palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 11,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-46-everyday-rustic",
@@ -2859,12 +3238,21 @@
       "suggested_retail": 51.99,
       "image": "everyday/ed-39-soft-neutral-mix.jpg",
       "alt": "Everyday Rustic ultra-realistic vase arrangement photograph",
-      "content_sha256": "dd28f7945a295291a37e5febd1f742324fc9ea4d59c024f4af5d9fa1dd10d50f",
+      "content_sha256": "b96a49123e5c6564985aedea3f6a5492e023244d338bdd92639d2bdf7a2a049c",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-46-EVERYDAY-RUSTIC",
+      "occasion": "Everyday",
+      "visual_notes": "Rustic styling without foraged or rare materials.",
+      "image_prompt": "Ultra-realistic professional product photograph of Everyday Rustic, finished rustic floral arrangement in quart mason jar, earth tones, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 17,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-47-bright-tabletop",
@@ -2919,12 +3307,21 @@
       "suggested_retail": 50.99,
       "image": "everyday/ed-40-pink-petal-jar.jpg",
       "alt": "Bright Tabletop ultra-realistic vase arrangement photograph",
-      "content_sha256": "1a7bac7782b8b8b0829cf1a391f661b5a4de214df67639e53c025d4674972806",
+      "content_sha256": "b387b98b115e564b72e99b4c6182e84af48ea909aa243059e325d256cbf8fd8c",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-47-BRIGHT-TABLETOP",
+      "occasion": "Everyday",
+      "visual_notes": "Tabletop size reduces stem cost vs. floor designs.",
+      "image_prompt": "Ultra-realistic professional product photograph of Bright Tabletop, finished bright floral arrangement in 5\" cube vase, yellow, fuchsia, orange palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 15,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false,
+      "image_subject": "placeholder_needs_replacement"
     },
     {
       "id": "ed-48-simple-cheer",
@@ -2979,13 +3376,21 @@
       "suggested_retail": 46.99,
       "image": "everyday/ed-41-golden-glow.jpg",
       "alt": "Simple Cheer ultra-realistic vase arrangement photograph",
-      "content_sha256": "0cad5657d357a307de57e259fc374632f87b2b0faf3391931b2f619ac00be8c3",
+      "content_sha256": "776609b33158bb60b3a55b1ea50cf9875ef44d0a78e40f5a6217aefaf968ef1c",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
       },
-      "image_subject": "floral_arrangement"
+      "image_subject": "placeholder_needs_replacement",
+      "sku": "ED-48-SIMPLE-CHEER",
+      "occasion": "Everyday",
+      "visual_notes": "Training-friendly recipe for new designers.",
+      "image_prompt": "Ultra-realistic professional product photograph of Simple Cheer, finished cheerful floral arrangement in 6\" cylinder vase, yellow, white, pink palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 21,
+      "needs_image_replacement": true,
+      "vase_arrangement_verified": false,
+      "image_verified": false
     },
     {
       "id": "ed-49-daily-pink-rose",
@@ -3040,12 +3445,21 @@
       "suggested_retail": 62.99,
       "image": "everyday/ed-42-everyday-blush.jpg",
       "alt": "Daily Pink Rose ultra-realistic vase arrangement photograph",
-      "content_sha256": "1c6144d623171282f0275398f697f9a1b8b2e045126d2d8f49378a744a5c7ab0",
+      "content_sha256": "5514b88af4613ead4fde62adf2d50a3debb7cad3c193ef447118fcac95d03dcf",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-49-DAILY-PINK-ROSE",
+      "occasion": "Everyday",
+      "visual_notes": "Rose count satisfies customers expecting roses.",
+      "image_prompt": "Ultra-realistic professional product photograph of Daily Pink Rose, finished feminine floral arrangement in 8\" cylinder vase, pink, green palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 17,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     },
     {
       "id": "ed-50-everyday-florist-favorite",
@@ -3115,12 +3529,21 @@
       "suggested_retail": 64.99,
       "image": "everyday/ed-44-rose-trio.jpg",
       "alt": "Everyday Florist Favorite ultra-realistic vase arrangement photograph",
-      "content_sha256": "4129a7e5333663b9b55a78af29efe32530e44d9a6226f1bb1f44d7357c5d0b51",
+      "content_sha256": "1b138f729d0df236fd8daf4edc4adbaa973be22b290ad47d08d1d9618207e42c",
       "image_license": {
         "source": "bloom_owned",
         "attribution": "Florisyn vetted vase-arrangement starter asset",
         "review_status": "approved"
-      }
+      },
+      "sku": "ED-50-EVERYDAY-FLORIST-FAVORITE",
+      "occasion": "Everyday",
+      "visual_notes": "Combines top-selling stems — the recipe staff reach for daily.",
+      "image_prompt": "Ultra-realistic professional product photograph of Everyday Florist Favorite, finished classic floral arrangement in 8\" cylinder vase, mixed bestsellers palette, centered composition, clean white studio background, completed vase arrangement, no people, no landscapes, no computers, no tools, no loose stems only, no hand-tie without vase",
+      "stem_count": 22,
+      "needs_image_replacement": false,
+      "vase_arrangement_verified": true,
+      "image_verified": true,
+      "image_subject": "floral_arrangement"
     }
   ],
   "image_source": "verified_florist_pexels_v2"
