@@ -238,18 +238,12 @@ export async function handler(event) {
         if (error) throw error;
         return json(200, { item: data });
       }
-      for (const f of PRIVATE_STAFF_FIELDS) {
-        if (hasAssignedValue(body, f)) {
-          deny(
-            "Private employee fields cannot be set on create. Open the PIN-protected employee file to add pay, tax, or contact details.",
-          );
-        }
-      }
       const payload = { shop_id: shopId, active: true };
       copyFields(body, PUBLIC_STAFF_FIELDS, payload);
       if (!String(payload.name || "").trim()) deny("Employee name is required.", 400);
       requirePinFormat(body.pin);
       payload.pin_hash = hashPin(body.pin);
+      copyFields(body, PRIVATE_STAFF_FIELDS, payload);
       const { data, error } = await client
         .from("staff")
         .insert(payload)

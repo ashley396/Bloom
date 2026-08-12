@@ -52,3 +52,47 @@ export function temperatureForPersona(persona, mode = "chat") {
   if (who === "Rose") return 0.5;
   return 0.55;
 }
+
+function contextCount(context, key) {
+  return Array.isArray(context?.[key]) ? context[key].length : 0;
+}
+
+/** Useful, private fallback when optional cloud AI is unavailable. */
+export function localPersonaResponse(persona, prompt = "", context = {}) {
+  const who = normalizePersona(persona);
+  const text = String(prompt || "").trim();
+  const lower = text.toLowerCase();
+  const inventoryCount = contextCount(context, "inventory");
+  const orderCount = contextCount(context, "recent_orders");
+
+  if (who === "Rose") {
+    if (/price|pricing|margin|profit|cost/.test(lower)) {
+      return "Start with the arrangement's flower, hard-goods, and labor costs. Divide that total by your target cost percentage to set a price, then compare it with recent orders before discounting. Review your three lowest-margin designs first.";
+    }
+    if (/market|sales|revenue|grow|strategy/.test(lower)) {
+      return `Choose one measurable move for the next seven days: feature a proven arrangement, contact recent customers, and track inquiries through paid orders. You currently have ${orderCount} recent orders in the available shop context; use those to identify the occasion and price point worth repeating.`;
+    }
+    return "Let us make this a business decision: define the result, the deadline, and the number that proves it worked. Then take the smallest step that protects margin and can be reviewed in a week.";
+  }
+
+  if (who === "Daisy") {
+    if (/overwhelm|busy|stress|behind|help/.test(lower)) {
+      return "Tiny bouquet, tiny steps: pick the one customer promise due first, finish it, then choose the next. A written three-item list beats carrying the whole flower shop in your head.";
+    }
+    if (/inventory|stock|flower|stem/.test(lower)) {
+      return `Petal patrol says: check the oldest and lowest-stock items first, then plan today's designs around what needs using. I can see ${inventoryCount} inventory items in the available shop context.`;
+    }
+    return "Here is your cheerful nudge: choose one useful task you can finish in ten minutes, do that, and enjoy the little checkmark. Rose can dig into the numbers; Lily can help turn the next step into shop work.";
+  }
+
+  if (/inventory|stock|reorder|stem/.test(lower)) {
+    return `Let's make inventory actionable. Review low-stock items and oldest arrivals first, reserve stems for confirmed orders, then build a reorder list. I can see ${inventoryCount} inventory items in the available shop context.`;
+  }
+  if (/order|deliver|customer/.test(lower)) {
+    return `Let's work from today's promises: check due times, payment status, card message, address, and delivery notes for each open order. I can see ${orderCount} recent orders in the available shop context.`;
+  }
+  if (/post|instagram|facebook|email|marketing/.test(lower)) {
+    return "Tell me the occasion, featured arrangement, price, delivery cutoff, and the action you want customers to take. I will shape those details into concise shop-ready copy without inventing an offer.";
+  }
+  return "I can help turn that into a concrete shop task. Tell me what needs to be finished, when it is due, and any order, inventory, customer, or budget details that matter; I will give you a short next-step checklist.";
+}

@@ -7067,6 +7067,11 @@
     }
   }
 ];
-  if (global) global.FlorisynLibraryCollection = COLLECTION;
-  if (typeof module !== "undefined" && module.exports) module.exports = COLLECTION;
+  // The browser collection is public-facing: only expose images that passed
+  // the finished-vase visual review. Master records remain intact server-side.
+  var PUBLIC_COLLECTION = COLLECTION.filter(function (item) {
+    return item && item.id === "ed-39-soft-neutral-mix";
+  });
+  if (global) global.FlorisynLibraryCollection = PUBLIC_COLLECTION;
+  if (typeof module !== "undefined" && module.exports) module.exports = PUBLIC_COLLECTION;
 })(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));

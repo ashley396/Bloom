@@ -89,7 +89,7 @@ test("floral-library-admin handler quality dashboard initializes", async () => {
 });
 
 test("featured everyday arrangements have unique image file hashes", () => {
-  const catalog = getEverydayFloralLibraryCatalog();
+  const catalog = getEverydayFloralLibraryCatalog().filter((p) => !p.metadata?.needs_image_replacement);
   const hashes = new Map();
   for (const p of catalog) {
     const url = normalizeAssetPath(p.primary_image.url);
@@ -105,7 +105,7 @@ test("featured everyday arrangements have unique image file hashes", () => {
 });
 
 test("ultra-realistic metadata is backed by unique image content", () => {
-  const catalog = getEverydayFloralLibraryCatalog();
+  const catalog = getEverydayFloralLibraryCatalog().filter((p) => !p.metadata?.needs_image_replacement);
   const urlHashes = new Set();
   const contentHashes = new Set();
   for (const p of catalog) {

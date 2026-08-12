@@ -68,6 +68,27 @@ test("public starter catalog excludes arrangements marked needs_image_replacemen
   assert.equal(pub.length, full.length - excluded.length);
 });
 
+test("public catalog is opt-in and contains only the reviewed finished vase arrangement", () => {
+  const pub = getPublicFloralLibraryCatalog();
+  assert.deepEqual(pub.map((p) => p.id), ["ed-39-soft-neutral-mix"]);
+
+  const hiddenExamples = new Set([
+    "ed-02-pink-meadow", // non-floral subject
+    "ed-15-peachy-keen", // hand-tied bouquet without a vase
+    "ed-21-modern-whites", // workbench/process photo
+    "ed-33-rose-daisy-blend", // single stem
+  ]);
+  assert.ok(getEverydayFloralLibraryCatalog()
+    .filter((p) => hiddenExamples.has(p.id))
+    .every((p) => p.metadata?.needs_image_replacement));
+});
+
+test("browser collection uses the same finished-vase public allowlist", async () => {
+  await import("../public/floral-library-collection.js");
+  const browserCollection = globalThis.FlorisynLibraryCollection;
+  assert.deepEqual(browserCollection.map((p) => p.id), ["ed-39-soft-neutral-mix"]);
+});
+
 test("ultra-realistic label only on verified featured arrangements", () => {
   for (const p of getEverydayFloralLibraryCatalog()) {
     if (p.metadata?.needs_image_replacement) {
