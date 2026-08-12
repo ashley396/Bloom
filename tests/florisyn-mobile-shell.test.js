@@ -12,7 +12,7 @@ test("mobile shell stylesheet loads after POS CSS and before critical inline blo
   const criticalIdx = html.indexOf("florisyn-pos-critical");
   assert.ok(posIdx >= 0 && shellIdx > posIdx, "mobile shell should load after luxury POS CSS");
   assert.ok(shellIdx < criticalIdx, "mobile shell should load before POS critical inline CSS");
-  assert.match(html, /florisyn-mobile-shell\.css\?v=m10/);
+  assert.match(html, /florisyn-mobile-shell\.css\?v=m11/);
 });
 
 test("mobile shell implements drawer, viewport stack, scroll lock, and five-tab grid", () => {
@@ -21,7 +21,7 @@ test("mobile shell implements drawer, viewport stack, scroll lock, and five-tab 
   assert.match(css, /translateX\(-105%\)/);
   assert.match(css, /--florisyn-mobile-drawer-width/);
   assert.match(css, /--florisyn-mobile-drawer-max/);
-  assert.match(css, /248px/);
+  assert.match(css, /188px/);
   assert.match(css, /atelier-sidebar-brand/);
   assert.match(css, /florisyn-lux-main > \.content/);
   assert.match(css, /--florisyn-mobile-nav-height/);
@@ -37,6 +37,7 @@ test("mobile shell implements drawer, viewport stack, scroll lock, and five-tab 
 test("mobile drawer max width is constrained and nav labels wrap inside drawer", () => {
   const css = fs.readFileSync(path.join(root, "public/florisyn-mobile-shell.css"), "utf8");
   assert.match(css, /max-width: var\(--florisyn-mobile-drawer-max\)/);
+  assert.match(css, /--florisyn-mobile-drawer-width: clamp\(156px, 42vw, 188px\)/);
   assert.match(css, /#atelierSidebarDrawer \.florisyn-lux-nav > button/);
   assert.match(css, /white-space: normal/);
   assert.match(css, /rgba\(26, 31, 60, 0\.28\)/);

@@ -28,6 +28,7 @@
     overflow-wrap: anywhere !important;
     word-break: break-word !important;
     max-width: 100% !important;
+    white-space: normal !important;
   }
 
   body.florisyn-atelier #bloomDaisy,
