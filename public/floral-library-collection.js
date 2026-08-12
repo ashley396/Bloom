@@ -1331,9 +1331,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-19-sunflower-smile.jpg?v=9758702cfb3765b5",
+      "url": "/assets/floral-library/everyday/ed-19-sunflower-smile.jpg?v=503ef0691b5f9e11",
       "alt": "Sunflower Smile — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "hash": "9758702cfb3765b5"
+      "hash": "503ef0691b5f9e11"
     },
     "image_license": {
       "source": "bloom_owned",
