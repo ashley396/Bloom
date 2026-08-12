@@ -89,6 +89,14 @@ export function productVisibleOnPublicSite(product, { publishedOnly = true } = {
   if (!product?.sync?.available_online) return false;
   if (publishedOnly && product.publish_status !== "published") return false;
   if (product.sync?.out_of_stock_behavior === "hide" && product.inventory?.available === 0) return false;
+  if (product.needs_image_replacement || product.metadata?.needs_image_replacement) return false;
+  const reviewStatus = product.image_license?.review_status || product.primary_image?.review_status;
+  if (reviewStatus && !["approved", "approved_starter"].includes(reviewStatus)) return false;
+  if (product.scope === "master") {
+    if (!["approved", "approved_starter"].includes(reviewStatus)) return false;
+    const type = String(product.arrangement_type || "").toLowerCase().replace(/[ -]+/g, "_");
+    if (!["vase", "vase_arrangement", "container_arrangement"].includes(type)) return false;
+  }
   return true;
 }
 
@@ -117,7 +125,7 @@ function mk(id, name, category, price, description, licenseSource, url, recipe) 
     scope: "master",
     name,
     categories: [category],
-    arrangement_type: "bouquet",
+    arrangement_type: ["lib-lily-mixed", "lib-luxury-garden"].includes(id) ? "vase_arrangement" : "bouquet",
     suggested_retail: { default: price, min: price * 0.9, max: price * 1.2 },
     suggested_cost: Math.round(price * 0.42 * 100) / 100,
     description,

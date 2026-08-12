@@ -4,9 +4,9 @@ import { systemHealthSnapshot } from "./command-center.js";
 
 export const ENV_GROUPS = {
   core: ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"],
-  payments: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],
+  payments: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_ORDER_WEBHOOK_SECRET"],
   connect: ["STRIPE_CONNECT_CLIENT_ID"],
-  ai: ["CLOUDFLARE_AI_TOKEN", "CLOUDFLARE_ACCOUNT_ID"],
+  ai: ["CLOUDFLARE_AI_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"],
   email: ["RESEND_API_KEY"]
 };
 
@@ -29,14 +29,17 @@ export function getProductionConfig(env = process.env) {
   const health = systemHealthSnapshot(env);
   const features = {
     payments: Boolean(env.STRIPE_SECRET_KEY),
-    stripe_webhooks: Boolean(env.STRIPE_WEBHOOK_SECRET),
+    stripe_webhooks: Boolean(env.STRIPE_WEBHOOK_SECRET && env.STRIPE_ORDER_WEBHOOK_SECRET),
+    stripe_subscription_webhooks: Boolean(env.STRIPE_WEBHOOK_SECRET),
+    stripe_order_webhooks: Boolean(env.STRIPE_ORDER_WEBHOOK_SECRET),
     connect: Boolean(env.STRIPE_CONNECT_CLIENT_ID),
-    ai_cloud: Boolean(env.CLOUDFLARE_AI_TOKEN && env.CLOUDFLARE_ACCOUNT_ID),
+    ai_cloud: Boolean((env.CLOUDFLARE_AI_API_TOKEN || env.CLOUDFLARE_AI_TOKEN) && env.CLOUDFLARE_ACCOUNT_ID),
     email: Boolean(env.RESEND_API_KEY)
   };
   const warnings = [];
   if (!features.payments) warnings.push("Stripe payments disabled — STRIPE_SECRET_KEY missing.");
-  if (features.payments && !features.stripe_webhooks) warnings.push("Stripe webhooks not verified — STRIPE_WEBHOOK_SECRET missing.");
+  if (features.payments && !features.stripe_subscription_webhooks) warnings.push("Stripe subscription webhooks not verified — STRIPE_WEBHOOK_SECRET missing.");
+  if (features.payments && !features.stripe_order_webhooks) warnings.push("Stripe order webhooks not verified — STRIPE_ORDER_WEBHOOK_SECRET missing.");
   if (!features.ai_cloud) warnings.push("Cloud AI optional — local AI bridge or Cloudflare token required for full AI.");
   return {
     ...health,
