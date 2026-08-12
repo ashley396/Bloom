@@ -43,9 +43,9 @@
     },
     "suggested_cost": 23.1,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-01-sunshine-cube.jpg?v=4ef0c6b9c0f3df94",
-      "alt": "Sunshine Cube — ultra-realistic everyday floral arrangement in 5\" glass cube vase",
-      "hash": "4ef0c6b9c0f3df94"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Sunshine Cube ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -96,7 +96,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday feminine design in a quart mason jar — blush pink, cream, green.",
-    "description": "Ultra-realistic everyday feminine design in a quart mason jar — blush pink, cream, green. Style: feminine. Color palette: blush pink, cream, green. Container: quart mason jar. Mechanics: hand-tie in jar. Tools: scissors, twine, mason jar. Recipe: 5 Pink Roses, 6 Pink Carnations, 4 Alstroemeria, 4 Eucalyptus, 2 Baby's Breath. Steps: Condition flowers; fill jar halfway with water. Hand-tie roses and carnations with eucalyptus. Add alstroemeria for line and movement. Place bouquet in jar; trim stems evenly. Fill with baby's breath for softness. Pink everyday designs move year-round with wholesale-friendly stems.",
+    "description": "Ultra-realistic everyday feminine design in a quart mason jar — blush pink, cream, green. Style: feminine. Color palette: blush pink, cream, green. Container: quart mason jar. Mechanics: vase arrangement in jar. Tools: scissors, twine, mason jar. Recipe: 5 Pink Roses, 6 Pink Carnations, 4 Alstroemeria, 4 Eucalyptus, 2 Baby's Breath. Steps: Condition flowers; fill jar halfway with water. vase arrangement roses and carnations with eucalyptus. Add alstroemeria for line and movement. Place bouquet in jar; trim stems evenly. Fill with baby's breath for softness. Pink everyday designs move year-round with wholesale-friendly stems.",
     "recipe": [
       {
         "name": "Pink Roses",
@@ -126,9 +126,9 @@
     },
     "suggested_cost": 22.26,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-02-pink-meadow.jpg?v=364fe3c2697c4d4e",
-      "alt": "Pink Meadow — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "364fe3c2697c4d4e"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Pink Meadow ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -160,7 +160,7 @@
       ],
       "instructions": [
         "Condition flowers; fill jar halfway with water.",
-        "Hand-tie roses and carnations with eucalyptus.",
+        "vase arrangement roses and carnations with eucalyptus.",
         "Add alstroemeria for line and movement.",
         "Place bouquet in jar; trim stems evenly.",
         "Fill with baby's breath for softness."
@@ -207,9 +207,9 @@
     },
     "suggested_cost": 27.3,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-03-classic-rose-mix.jpg?v=a21227964a89ee09",
-      "alt": "Classic Rose Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "a21227964a89ee09"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Classic Rose Mix ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -280,9 +280,9 @@
     },
     "suggested_cost": 18.9,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-04-cheerful-daisy-burst.jpg?v=b180564e3c9b7a20",
-      "alt": "Cheerful Daisy Burst — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "hash": "b180564e3c9b7a20"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Cheerful Daisy Burst ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -348,9 +348,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-05-everyday-hydrangea-pop.jpg?v=f97707279a953feb",
-      "alt": "Everyday Hydrangea Pop — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "f97707279a953feb"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Everyday Hydrangea Pop ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -419,9 +419,9 @@
     },
     "suggested_cost": 25.2,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-06-soft-blush-garden.jpg?v=02d7e73b59e0cd0f",
-      "alt": "Soft Blush Garden — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "02d7e73b59e0cd0f"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Soft Blush Garden ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -465,7 +465,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday rustic design in a quart mason jar — warm pink, peach, green.",
-    "description": "Ultra-realistic everyday rustic design in a quart mason jar — warm pink, peach, green. Style: rustic. Color palette: warm pink, peach, green. Container: quart mason jar. Mechanics: hand-tie. Tools: scissors, twine. Recipe: 8 Peach Carnations, 5 Pink Alstroemeria, 4 Yellow Daisies, 4 Pittosporum. Steps: Hand-tie carnations and alstroemeria. Add daisies for brightness. Bind with twine; set in jar. Frame with pittosporum. Mason jars feel handmade and gift-ready with minimal labor.",
+    "description": "Ultra-realistic everyday rustic design in a quart mason jar — warm pink, peach, green. Style: rustic. Color palette: warm pink, peach, green. Container: quart mason jar. Mechanics: vase arrangement. Tools: scissors, twine. Recipe: 8 Peach Carnations, 5 Pink Alstroemeria, 4 Yellow Daisies, 4 Pittosporum. Steps: vase arrangement carnations and alstroemeria. Add daisies for brightness. Bind with twine; set in jar. Frame with pittosporum. Mason jars feel handmade and gift-ready with minimal labor.",
     "recipe": [
       {
         "name": "Peach Carnations",
@@ -491,9 +491,9 @@
     },
     "suggested_cost": 20.58,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-07-rustic-mason-jar-mix.jpg?v=da6ec02df79402b5",
-      "alt": "Rustic Mason Jar Mix — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "da6ec02df79402b5"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Rustic Mason Jar Mix ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -519,7 +519,7 @@
         }
       ],
       "instructions": [
-        "Hand-tie carnations and alstroemeria.",
+        "vase arrangement carnations and alstroemeria.",
         "Add daisies for brightness.",
         "Bind with twine; set in jar.",
         "Frame with pittosporum."
@@ -562,9 +562,9 @@
     },
     "suggested_cost": 23.94,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-08-bright-happy.jpg?v=0047d75e16651f40",
-      "alt": "Bright & Happy — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "0047d75e16651f40"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Bright & Happy ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -633,9 +633,9 @@
     },
     "suggested_cost": 26.46,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-09-simple-whites.jpg?v=26af61956d3cb77f",
-      "alt": "Simple Whites — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "26af61956d3cb77f"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Simple Whites ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -704,9 +704,9 @@
     },
     "suggested_cost": 28.98,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-10-everyday-elegance.jpg?v=cda456239f7a8bf5",
-      "alt": "Everyday Elegance — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "cda456239f7a8bf5"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Everyday Elegance ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -749,7 +749,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday cheerful design in a pint mason jar — yellow, white, green.",
-    "description": "Ultra-realistic everyday cheerful design in a pint mason jar — yellow, white, green. Style: cheerful. Color palette: yellow, white, green. Container: pint mason jar. Mechanics: hand-tie. Tools: scissors. Recipe: 8 Yellow Daisies, 6 White Daisies, 4 Yellow Alstroemeria, 3 Pittosporum. Steps: Hand-tie daisy clusters. Add alstroemeria. Set in jar with pittosporum. Small jar designs are fast fillers for the cooler door.",
+    "description": "Ultra-realistic everyday cheerful design in a pint mason jar — yellow, white, green. Style: cheerful. Color palette: yellow, white, green. Container: pint mason jar. Mechanics: vase arrangement. Tools: scissors. Recipe: 8 Yellow Daisies, 6 White Daisies, 4 Yellow Alstroemeria, 3 Pittosporum. Steps: vase arrangement daisy clusters. Add alstroemeria. Set in jar with pittosporum. Small jar designs are fast fillers for the cooler door.",
     "recipe": [
       {
         "name": "Yellow Daisies",
@@ -775,9 +775,9 @@
     },
     "suggested_cost": 16.8,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-11-morning-cheer.jpg?v=ccaff84006b0553f",
-      "alt": "Morning Cheer — ultra-realistic everyday floral arrangement in pint mason jar",
-      "hash": "ccaff84006b0553f"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Morning Cheer ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -802,7 +802,7 @@
         }
       ],
       "instructions": [
-        "Hand-tie daisy clusters.",
+        "vase arrangement daisy clusters.",
         "Add alstroemeria.",
         "Set in jar with pittosporum."
       ],
@@ -844,9 +844,9 @@
     },
     "suggested_cost": 21.84,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-12-fresh-start.jpg?v=129fc91e9bc8ee79",
-      "alt": "Fresh Start — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "129fc91e9bc8ee79"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Fresh Start ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -915,9 +915,9 @@
     },
     "suggested_cost": 20.16,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-13-daily-delight.jpg?v=1c0a3fc7d6c6100f",
-      "alt": "Daily Delight — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "1c0a3fc7d6c6100f"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Daily Delight ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -986,9 +986,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-14-lavender-breeze.jpg?v=566d1991b590f52b",
-      "alt": "Lavender Breeze — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "566d1991b590f52b"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Lavender Breeze ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1031,7 +1031,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday cheerful design in a quart mason jar — peach, coral, green.",
-    "description": "Ultra-realistic everyday cheerful design in a quart mason jar — peach, coral, green. Style: cheerful. Color palette: peach, coral, green. Container: quart mason jar. Mechanics: hand-tie. Tools: scissors, twine. Recipe: 5 Peach Roses, 6 Peach Carnations, 4 Coral Alstroemeria, 3 Pittosporum. Steps: Hand-tie peach tones. Place in mason jar. Pittosporum frame. Peach palettes photograph well for website upsells.",
+    "description": "Ultra-realistic everyday cheerful design in a quart mason jar — peach, coral, green. Style: cheerful. Color palette: peach, coral, green. Container: quart mason jar. Mechanics: vase arrangement. Tools: scissors, twine. Recipe: 5 Peach Roses, 6 Peach Carnations, 4 Coral Alstroemeria, 3 Pittosporum. Steps: vase arrangement peach tones. Place in mason jar. Pittosporum frame. Peach palettes photograph well for website upsells.",
     "recipe": [
       {
         "name": "Peach Roses",
@@ -1057,9 +1057,9 @@
     },
     "suggested_cost": 24.36,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-15-peachy-keen.jpg?v=28f87c83234ea700",
-      "alt": "Peachy Keen — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "28f87c83234ea700"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Peachy Keen ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1085,7 +1085,7 @@
         }
       ],
       "instructions": [
-        "Hand-tie peach tones.",
+        "vase arrangement peach tones.",
         "Place in mason jar.",
         "Pittosporum frame."
       ],
@@ -1127,9 +1127,9 @@
     },
     "suggested_cost": 26.04,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-16-hydrangea-friends.jpg?v=542eaafbdb07c6bf",
-      "alt": "Hydrangea & Friends — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "542eaafbdb07c6bf"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Hydrangea & Friends ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1198,9 +1198,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-17-rose-mum-harmony.jpg?v=758999bff22e6764",
-      "alt": "Rose & Mum Harmony — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "758999bff22e6764"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Rose & Mum Harmony ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1265,9 +1265,9 @@
     },
     "suggested_cost": 19.74,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-18-alstroemeria-joy.jpg?v=7564b7e17b9f0891",
-      "alt": "Alstroemeria Joy — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "7564b7e17b9f0891"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Alstroemeria Joy ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1331,9 +1331,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-19-sunflower-smile.jpg?v=503ef0691b5f9e11",
-      "alt": "Sunflower Smile — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "hash": "503ef0691b5f9e11"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Sunflower Smile ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1401,9 +1401,9 @@
     },
     "suggested_cost": 25.62,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-20-gentle-pastels.jpg?v=d6ff1d72295c1a6b",
-      "alt": "Gentle Pastels — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "d6ff1d72295c1a6b"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Gentle Pastels ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1471,9 +1471,9 @@
     },
     "suggested_cost": 26.88,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-21-modern-whites.jpg?v=36f8d2af63ad24a2",
-      "alt": "Modern Whites — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "36f8d2af63ad24a2"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Modern Whites ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1541,9 +1541,9 @@
     },
     "suggested_cost": 21.42,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-22-compact-color-pop.jpg?v=0019418b84b3090b",
-      "alt": "Compact Color Pop — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "0019418b84b3090b"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Compact Color Pop ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1611,9 +1611,9 @@
     },
     "suggested_cost": 23.94,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-23-everyday-pink-mix.jpg?v=64f2beaf145c2837",
-      "alt": "Everyday Pink Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "64f2beaf145c2837"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Everyday Pink Mix ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1681,9 +1681,9 @@
     },
     "suggested_cost": 27.72,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-24-blue-white-classic.jpg?v=c30270b0a70a6f47",
-      "alt": "Blue & White Classic — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "c30270b0a70a6f47"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Blue & White Classic ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1725,7 +1725,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday simple design in a pint mason jar — pink, white.",
-    "description": "Ultra-realistic everyday simple design in a pint mason jar — pink, white. Style: simple. Color palette: pink, white. Container: pint mason jar. Mechanics: hand-tie. Tools: scissors. Recipe: 8 Pink Carnations, 5 White Daisies, 2 Baby's Breath. Steps: Hand-tie in jar. Minimal greens. Entry price point for budget-conscious customers.",
+    "description": "Ultra-realistic everyday simple design in a pint mason jar — pink, white. Style: simple. Color palette: pink, white. Container: pint mason jar. Mechanics: vase arrangement. Tools: scissors. Recipe: 8 Pink Carnations, 5 White Daisies, 2 Baby's Breath. Steps: vase arrangement in jar. Minimal greens. Entry price point for budget-conscious customers.",
     "recipe": [
       {
         "name": "Pink Carnations",
@@ -1747,9 +1747,9 @@
     },
     "suggested_cost": 15.54,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-25-sweet-simple.jpg?v=91b6e6a9b6225dae",
-      "alt": "Sweet & Simple — ultra-realistic everyday floral arrangement in pint mason jar",
-      "hash": "91b6e6a9b6225dae"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Sweet & Simple ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1774,7 +1774,7 @@
         }
       ],
       "instructions": [
-        "Hand-tie in jar.",
+        "vase arrangement in jar.",
         "Minimal greens."
       ],
       "why_it_works": "Entry price point for budget-conscious customers.",
@@ -1815,9 +1815,9 @@
     },
     "suggested_cost": 22.68,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-26-daily-sunshine.jpg?v=e1238cddea0d80a7",
-      "alt": "Daily Sunshine — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "e1238cddea0d80a7"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Daily Sunshine ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1884,9 +1884,9 @@
     },
     "suggested_cost": 24.36,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-27-soft-spring-mix.jpg?v=2134dda8b0287ab9",
-      "alt": "Soft Spring Mix — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "2134dda8b0287ab9"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Soft Spring Mix ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1961,9 +1961,9 @@
     },
     "suggested_cost": 25.2,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-28-everyday-garden-vase.jpg?v=6cc8f19f9b51c5e3",
-      "alt": "Everyday Garden Vase — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "6cc8f19f9b51c5e3"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Everyday Garden Vase ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2007,8 +2007,8 @@
     "categories": [
       "Everyday"
     ],
-    "short_description": "Ultra-realistic everyday bright design in a hand-tie wrap (no vase) — rainbow brights.",
-    "description": "Ultra-realistic everyday bright design in a hand-tie wrap (no vase) — rainbow brights. Style: bright. Color palette: rainbow brights. Container: hand-tie wrap (no vase). Mechanics: hand-tie. Tools: scissors, sleeve, twine. Recipe: 10 Mixed Carnations, 6 Yellow Daisies, 4 Orange Alstroemeria, 4 Leatherleaf. Steps: Hand-tie market bunch. Wrap in sleeve for grab-and-go. No vase cost — strong margin on wrapped bunches.",
+    "short_description": "Ultra-realistic everyday bright design in a clear glass vase — rainbow brights.",
+    "description": "Ultra-realistic everyday bright design in a clear glass vase — rainbow brights. Style: bright. Color palette: rainbow brights. Container: clear glass vase. Mechanics: vase arrangement. Tools: scissors, sleeve, twine. Recipe: 10 Mixed Carnations, 6 Yellow Daisies, 4 Orange Alstroemeria, 4 Leatherleaf. Steps: vase arrangement market bunch. Wrap in sleeve for grab-and-go. vase arrangement cost — strong margin on wrapped bunches.",
     "recipe": [
       {
         "name": "Mixed Carnations",
@@ -2034,9 +2034,9 @@
     },
     "suggested_cost": 18.06,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-29-bright-market-bunch.jpg?v=b9df0c4e21756b6e",
-      "alt": "Bright Market Bunch — ultra-realistic everyday floral arrangement in hand-tie wrap (no vase)",
-      "hash": "b9df0c4e21756b6e"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Bright Market Bunch ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2049,12 +2049,13 @@
       "replaceable_by_shop": true,
       "style": "bright",
       "color_palette": "rainbow brights",
-      "container": "hand-tie wrap (no vase)",
+      "container": "clear glass vase",
       "mechanics": "hand-tie",
       "tools": [
         "scissors",
         "sleeve",
-        "twine"
+        "twine",
+        "clear glass vase"
       ],
       "foliage": [
         {
@@ -2063,10 +2064,10 @@
         }
       ],
       "instructions": [
-        "Hand-tie market bunch.",
+        "vase arrangement market bunch.",
         "Wrap in sleeve for grab-and-go."
       ],
-      "why_it_works": "No vase cost — strong margin on wrapped bunches.",
+      "why_it_works": "vase arrangement cost — strong margin on wrapped bunches.",
       "batch": 1
     }
   },
@@ -2104,9 +2105,9 @@
     },
     "suggested_cost": 28.14,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-30-calm-clean-whites.jpg?v=57e22309d970e42d",
-      "alt": "Calm & Clean Whites — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "57e22309d970e42d"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Calm & Clean Whites ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2174,9 +2175,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-31-pink-peach-harmony.jpg?v=3c4d7d355230b18b",
-      "alt": "Pink & Peach Harmony — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "3c4d7d355230b18b"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Pink & Peach Harmony ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2239,9 +2240,9 @@
     },
     "suggested_cost": 29.4,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-32-hydrangea-trio.jpg?v=e4439e54ea697a3f",
-      "alt": "Hydrangea Trio — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "e4439e54ea697a3f"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Hydrangea Trio ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2312,9 +2313,9 @@
     },
     "suggested_cost": 23.1,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-33-rose-daisy-blend.jpg?v=f5b3cdf02ad11574",
-      "alt": "Rose & Daisy Blend — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "f5b3cdf02ad11574"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Rose & Daisy Blend ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2356,7 +2357,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday rustic design in a quart mason jar — mixed pinks.",
-    "description": "Ultra-realistic everyday rustic design in a quart mason jar — mixed pinks. Style: rustic. Color palette: mixed pinks. Container: quart mason jar. Mechanics: hand-tie. Tools: scissors, twine. Recipe: 9 Pink Carnations, 5 Pink Alstroemeria, 3 Baby's Breath, 3 Pittosporum. Steps: Jar hand-tie standard. Baby's breath finish. Template recipe every designer can execute in 10 minutes.",
+    "description": "Ultra-realistic everyday rustic design in a quart mason jar — mixed pinks. Style: rustic. Color palette: mixed pinks. Container: quart mason jar. Mechanics: vase arrangement. Tools: scissors, twine. Recipe: 9 Pink Carnations, 5 Pink Alstroemeria, 3 Baby's Breath, 3 Pittosporum. Steps: Jar vase arrangement standard. Baby's breath finish. Template recipe every designer can execute in 10 minutes.",
     "recipe": [
       {
         "name": "Pink Carnations",
@@ -2382,9 +2383,9 @@
     },
     "suggested_cost": 19.32,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-34-everyday-mason-jar.jpg?v=69c2a6d261ea5705",
-      "alt": "Everyday Mason Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "69c2a6d261ea5705"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Everyday Mason Jar ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2410,7 +2411,7 @@
         }
       ],
       "instructions": [
-        "Jar hand-tie standard.",
+        "Jar vase arrangement standard.",
         "Baby's breath finish."
       ],
       "why_it_works": "Template recipe every designer can execute in 10 minutes.",
@@ -2455,9 +2456,9 @@
     },
     "suggested_cost": 22.26,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-35-simple-greens-whites.jpg?v=61fbe4d692c1de0c",
-      "alt": "Simple Greens & Whites — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "61fbe4d692c1de0c"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Simple Greens & Whites ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2528,9 +2529,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-36-happy-day-bouquet.jpg?v=f7e39617a035d080",
-      "alt": "Happy Day Bouquet — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "f7e39617a035d080"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Happy Day Bouquet ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2597,9 +2598,9 @@
     },
     "suggested_cost": 26.04,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-37-classic-cylinder-mix.jpg?v=0506aa6c01df36bb",
-      "alt": "Classic Cylinder Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "0506aa6c01df36bb"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Classic Cylinder Mix ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2666,9 +2667,9 @@
     },
     "suggested_cost": 20.58,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-38-everyday-color-burst.jpg?v=4340f5ce2e01d053",
-      "alt": "Everyday Color Burst — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "hash": "4340f5ce2e01d053"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Everyday Color Burst ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2735,9 +2736,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-39-soft-neutral-mix.jpg?v=b96a49123e5c6564",
-      "alt": "Soft Neutral Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "b96a49123e5c6564"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Soft Neutral Mix ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2778,7 +2779,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday feminine design in a pint mason jar — pink, white.",
-    "description": "Ultra-realistic everyday feminine design in a pint mason jar — pink, white. Style: feminine. Color palette: pink, white. Container: pint mason jar. Mechanics: hand-tie. Tools: scissors. Recipe: 10 Pink Carnations, 3 Pink Roses, 2 Baby's Breath, 2 Pittosporum. Steps: All pink jar. Quick gift size. Small pink jar is a proven add-on at checkout.",
+    "description": "Ultra-realistic everyday feminine design in a pint mason jar — pink, white. Style: feminine. Color palette: pink, white. Container: pint mason jar. Mechanics: vase arrangement. Tools: scissors. Recipe: 10 Pink Carnations, 3 Pink Roses, 2 Baby's Breath, 2 Pittosporum. Steps: All pink jar. Quick gift size. Small pink jar is a proven add-on at checkout.",
     "recipe": [
       {
         "name": "Pink Carnations",
@@ -2804,9 +2805,9 @@
     },
     "suggested_cost": 17.64,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-40-pink-petal-jar.jpg?v=b387b98b115e564b",
-      "alt": "Pink Petal Jar — ultra-realistic everyday floral arrangement in pint mason jar",
-      "hash": "b387b98b115e564b"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Pink Petal Jar ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2872,9 +2873,9 @@
     },
     "suggested_cost": 24.36,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-41-golden-glow.jpg?v=776609b33158bb60",
-      "alt": "Golden Glow — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "776609b33158bb60"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Golden Glow ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2941,9 +2942,9 @@
     },
     "suggested_cost": 25.2,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-42-everyday-blush.jpg?v=5514b88af4613ead",
-      "alt": "Everyday Blush — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "5514b88af4613ead"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Everyday Blush ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3010,9 +3011,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-43-daisy-mum-mix.jpg?v=150a1db7bcecb414",
-      "alt": "Daisy & Mum Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "150a1db7bcecb414"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Daisy & Mum Mix ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3079,9 +3080,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-44-rose-trio.jpg?v=1b138f729d0df236",
-      "alt": "Rose Trio — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "1b138f729d0df236"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Rose Trio ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3148,9 +3149,9 @@
     },
     "suggested_cost": 23.94,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-45-hydrangea-accent.jpg?v=169a3d7a533d5970",
-      "alt": "Hydrangea Accent — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "169a3d7a533d5970"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Hydrangea Accent ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3191,7 +3192,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday rustic design in a quart mason jar — earth tones, green.",
-    "description": "Ultra-realistic everyday rustic design in a quart mason jar — earth tones, green. Style: rustic. Color palette: earth tones, green. Container: quart mason jar. Mechanics: hand-tie. Tools: scissors, twine. Recipe: 4 Peach Roses, 5 Bronze Mums, 4 Orange Alstroemeria, 4 Pittosporum. Steps: Rustic jar recipe. Earth-tone palette. Rustic styling without foraged or rare materials.",
+    "description": "Ultra-realistic everyday rustic design in a quart mason jar — earth tones, green. Style: rustic. Color palette: earth tones, green. Container: quart mason jar. Mechanics: vase arrangement. Tools: scissors, twine. Recipe: 4 Peach Roses, 5 Bronze Mums, 4 Orange Alstroemeria, 4 Pittosporum. Steps: Rustic jar recipe. Earth-tone palette. Rustic styling without foraged or rare materials.",
     "recipe": [
       {
         "name": "Peach Roses",
@@ -3217,9 +3218,9 @@
     },
     "suggested_cost": 21.84,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-46-everyday-rustic.jpg?v=dd28f7945a295291",
-      "alt": "Everyday Rustic — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "dd28f7945a295291"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Everyday Rustic ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3286,9 +3287,9 @@
     },
     "suggested_cost": 21.42,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-47-bright-tabletop.jpg?v=1a7bac7782b8b8b0",
-      "alt": "Bright Tabletop — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "1a7bac7782b8b8b0"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Bright Tabletop ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3355,9 +3356,9 @@
     },
     "suggested_cost": 19.74,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-48-simple-cheer.jpg?v=0cad5657d357a307",
-      "alt": "Simple Cheer — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "0cad5657d357a307"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Simple Cheer ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3424,9 +3425,9 @@
     },
     "suggested_cost": 26.46,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-49-daily-pink-rose.jpg?v=1c6144d623171282",
-      "alt": "Daily Pink Rose — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "1c6144d623171282"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Daily Pink Rose ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3501,9 +3502,9 @@
     },
     "suggested_cost": 27.3,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-50-everyday-florist-favorite.jpg?v=4129a7e5333663b9",
-      "alt": "Everyday Florist Favorite — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "4129a7e5333663b9"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Everyday Florist Favorite ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3575,9 +3576,9 @@
     },
     "suggested_cost": 24.36,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-51-daily-pink-cylinder.jpg?v=13412899193bc3bc",
-      "alt": "Daily Pink Cylinder — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "13412899193bc3bc"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Daily Pink Cylinder ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3647,9 +3648,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-52-soft-garden-morning.jpg?v=2c0ceedf6102c204",
-      "alt": "Soft Garden Morning — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "2c0ceedf6102c204"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Soft Garden Morning ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3718,9 +3719,9 @@
     },
     "suggested_cost": 23.1,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-53-white-meadow-vase.jpg?v=e8d0f43a74d8f661",
-      "alt": "White Meadow Vase — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "e8d0f43a74d8f661"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "White Meadow Vase ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3789,9 +3790,9 @@
     },
     "suggested_cost": 22.26,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-54-everyday-citrus-mix.jpg?v=12beafafb56806ab",
-      "alt": "Everyday Citrus Mix — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "12beafafb56806ab"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Everyday Citrus Mix ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3833,7 +3834,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday rustic design in a quart mason jar — blue, white, green.",
-    "description": "Ultra-realistic everyday rustic design in a quart mason jar — blue, white, green. Style: rustic. Color palette: blue, white, green. Container: quart mason jar. Mechanics: hand-tie. Tools: scissors, twine. Recipe: 1 Hydrangea, 6 White Daisies, 4 White Carnations, 3 Eucalyptus. Steps: Hand-tie around hydrangea. Set in cottage jar. Daisies tuck around base. Single hydrangea jar fills fast with high perceived value.",
+    "description": "Ultra-realistic everyday rustic design in a quart mason jar — blue, white, green. Style: rustic. Color palette: blue, white, green. Container: quart mason jar. Mechanics: vase arrangement. Tools: scissors, twine. Recipe: 1 Hydrangea, 6 White Daisies, 4 White Carnations, 3 Eucalyptus. Steps: vase arrangement around hydrangea. Set in cottage jar. Daisies tuck around base. Single hydrangea jar fills fast with high perceived value.",
     "recipe": [
       {
         "name": "Hydrangea",
@@ -3859,9 +3860,9 @@
     },
     "suggested_cost": 21.84,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-55-hydrangea-cottage-jar.jpg?v=7a5fbcda77d3b94e",
-      "alt": "Hydrangea Cottage Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "7a5fbcda77d3b94e"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Hydrangea Cottage Jar ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3887,7 +3888,7 @@
         }
       ],
       "instructions": [
-        "Hand-tie around hydrangea.",
+        "vase arrangement around hydrangea.",
         "Set in cottage jar.",
         "Daisies tuck around base."
       ],
@@ -3929,9 +3930,9 @@
     },
     "suggested_cost": 25.2,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-56-rose-stock-everyday.jpg?v=a9bf14c2a49c3d10",
-      "alt": "Rose & Stock Everyday — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "a9bf14c2a49c3d10"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Rose & Stock Everyday ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3973,7 +3974,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday cheerful design in a quart mason jar — white, yellow, green.",
-    "description": "Ultra-realistic everyday cheerful design in a quart mason jar — white, yellow, green. Style: cheerful. Color palette: white, yellow, green. Container: quart mason jar. Mechanics: hand-tie. Tools: scissors. Recipe: 8 White Daisies, 6 Yellow Daisies, 4 Yellow Carnations, 3 Pittosporum. Steps: Hand-tie daisy mix. Place in porch jar. Pittosporum wrap. Porch jar size is perfect for front-desk gifts.",
+    "description": "Ultra-realistic everyday cheerful design in a quart mason jar — white, yellow, green. Style: cheerful. Color palette: white, yellow, green. Container: quart mason jar. Mechanics: vase arrangement. Tools: scissors. Recipe: 8 White Daisies, 6 Yellow Daisies, 4 Yellow Carnations, 3 Pittosporum. Steps: vase arrangement daisy mix. Place in porch jar. Pittosporum wrap. Porch jar size is perfect for front-desk gifts.",
     "recipe": [
       {
         "name": "White Daisies",
@@ -3999,9 +4000,9 @@
     },
     "suggested_cost": 18.48,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-57-daisy-porch-jar.jpg?v=90becb94b3c015f8",
-      "alt": "Daisy Porch Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "90becb94b3c015f8"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Daisy Porch Jar ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4026,7 +4027,7 @@
         }
       ],
       "instructions": [
-        "Hand-tie daisy mix.",
+        "vase arrangement daisy mix.",
         "Place in porch jar.",
         "Pittosporum wrap."
       ],
@@ -4068,9 +4069,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-58-blush-countertop-mix.jpg?v=90011e8acf0f8d94",
-      "alt": "Blush Countertop Mix — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "90011e8acf0f8d94"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Blush Countertop Mix ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4138,9 +4139,9 @@
     },
     "suggested_cost": 25.62,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-59-neutral-rose-vase.jpg?v=9f557bc92856e54a",
-      "alt": "Neutral Rose Vase — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "9f557bc92856e54a"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Neutral Rose Vase ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4182,7 +4183,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday bright design in a pint mason jar — yellow, green.",
-    "description": "Ultra-realistic everyday bright design in a pint mason jar — yellow, green. Style: bright. Color palette: yellow, green. Container: pint mason jar. Mechanics: hand-tie. Tools: scissors. Recipe: 2 Sunflowers, 5 Yellow Daisies, 4 Yellow Carnations, 2 Leatherleaf. Steps: Two sunflowers anchor jar. Daisies and carnations fill. Minimal sunflower jar — fast and profitable.",
+    "description": "Ultra-realistic everyday bright design in a pint mason jar — yellow, green. Style: bright. Color palette: yellow, green. Container: pint mason jar. Mechanics: vase arrangement. Tools: scissors. Recipe: 2 Sunflowers, 5 Yellow Daisies, 4 Yellow Carnations, 2 Leatherleaf. Steps: Two sunflowers anchor jar. Daisies and carnations fill. Minimal sunflower jar — fast and profitable.",
     "recipe": [
       {
         "name": "Sunflowers",
@@ -4208,9 +4209,9 @@
     },
     "suggested_cost": 17.64,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-60-sunflower-simple-jar.jpg?v=2b28080ff5916f12",
-      "alt": "Sunflower Simple Jar — ultra-realistic everyday floral arrangement in pint mason jar",
-      "hash": "2b28080ff5916f12"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Sunflower Simple Jar ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4280,9 +4281,9 @@
     },
     "suggested_cost": 22.68,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-61-clean-greens-whites.jpg?v=1fcd3291cbe0163d",
-      "alt": "Clean Greens & Whites — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "1fcd3291cbe0163d"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Clean Greens & Whites ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4353,9 +4354,9 @@
     },
     "suggested_cost": 20.58,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-62-pink-breeze-vase.jpg?v=7b60be2364b2236f",
-      "alt": "Pink Breeze Vase — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "hash": "7b60be2364b2236f"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Pink Breeze Vase ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4419,9 +4420,9 @@
     },
     "suggested_cost": 26.46,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-63-everyday-hydrangea-cube.jpg?v=421db3e6d7fe1288",
-      "alt": "Everyday Hydrangea Cube — ultra-realistic everyday floral arrangement in 5\" glass cube vase",
-      "hash": "421db3e6d7fe1288"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Everyday Hydrangea Cube ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4489,9 +4490,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-64-soft-yellow-harmony.jpg?v=0ba76828701238e7",
-      "alt": "Soft Yellow Harmony — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "0ba76828701238e7"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Soft Yellow Harmony ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4558,9 +4559,9 @@
     },
     "suggested_cost": 23.94,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-65-rose-mum-daily-vase.jpg?v=64ea7416507e734b",
-      "alt": "Rose & Mum Daily Vase — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "64ea7416507e734b"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Rose & Mum Daily Vase ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4602,7 +4603,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday bright design in a quart mason jar — multi bright.",
-    "description": "Ultra-realistic everyday bright design in a quart mason jar — multi bright. Style: bright. Color palette: multi bright. Container: quart mason jar. Mechanics: hand-tie. Tools: scissors, twine. Recipe: 9 Mixed Carnations, 5 Yellow Daisies, 4 Orange Alstroemeria, 3 Pittosporum. Steps: Market-style hand-tie. Jar presentation. Market jar bundles move at farmers-market price points.",
+    "description": "Ultra-realistic everyday bright design in a quart mason jar — multi bright. Style: bright. Color palette: multi bright. Container: quart mason jar. Mechanics: vase arrangement. Tools: scissors, twine. Recipe: 9 Mixed Carnations, 5 Yellow Daisies, 4 Orange Alstroemeria, 3 Pittosporum. Steps: Market-style vase arrangement. Jar presentation. Market jar bundles move at farmers-market price points.",
     "recipe": [
       {
         "name": "Mixed Carnations",
@@ -4628,9 +4629,9 @@
     },
     "suggested_cost": 18.9,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-66-bright-market-jar.jpg?v=83bcfde64e87ef82",
-      "alt": "Bright Market Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "83bcfde64e87ef82"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Bright Market Jar ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4656,7 +4657,7 @@
         }
       ],
       "instructions": [
-        "Market-style hand-tie.",
+        "Market-style vase arrangement.",
         "Jar presentation."
       ],
       "why_it_works": "Market jar bundles move at farmers-market price points.",
@@ -4697,9 +4698,9 @@
     },
     "suggested_cost": 27.72,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-67-calm-white-garden.jpg?v=e989739de023d562",
-      "alt": "Calm White Garden — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "e989739de023d562"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Calm White Garden ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4766,9 +4767,9 @@
     },
     "suggested_cost": 24.36,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-68-peach-pink-blend.jpg?v=9d23fb6708d28064",
-      "alt": "Peach & Pink Blend — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "9d23fb6708d28064"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Peach & Pink Blend ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4835,9 +4836,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-69-hydrangea-daisy-mix.jpg?v=92a22db14124006a",
-      "alt": "Hydrangea & Daisy Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "92a22db14124006a"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Hydrangea & Daisy Mix ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4904,9 +4905,9 @@
     },
     "suggested_cost": 22.26,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-70-everyday-rustic-cylinder.jpg?v=fec524791375f1e4",
-      "alt": "Everyday Rustic Cylinder — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "fec524791375f1e4"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Everyday Rustic Cylinder ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4947,7 +4948,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday modern design in a quart mason jar — cream, sage, white.",
-    "description": "Ultra-realistic everyday modern design in a quart mason jar — cream, sage, white. Style: modern. Color palette: cream, sage, white. Container: quart mason jar. Mechanics: hand-tie. Tools: scissors. Recipe: 4 Cream Roses, 6 White Carnations, 2 White Stock, 4 Eucalyptus. Steps: Modern neutral hand-tie. Jar set. Modern neutral jar fits minimalist décor trends.",
+    "description": "Ultra-realistic everyday modern design in a quart mason jar — cream, sage, white. Style: modern. Color palette: cream, sage, white. Container: quart mason jar. Mechanics: vase arrangement. Tools: scissors. Recipe: 4 Cream Roses, 6 White Carnations, 2 White Stock, 4 Eucalyptus. Steps: Modern neutral vase arrangement. Jar set. Modern neutral jar fits minimalist décor trends.",
     "recipe": [
       {
         "name": "Cream Roses",
@@ -4973,9 +4974,9 @@
     },
     "suggested_cost": 21.42,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-71-modern-neutral-jar.jpg?v=c2d38f62057685f8",
-      "alt": "Modern Neutral Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "c2d38f62057685f8"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Modern Neutral Jar ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5000,7 +5001,7 @@
         }
       ],
       "instructions": [
-        "Modern neutral hand-tie.",
+        "Modern neutral vase arrangement.",
         "Jar set."
       ],
       "why_it_works": "Modern neutral jar fits minimalist décor trends.",
@@ -5014,8 +5015,8 @@
     "categories": [
       "Everyday"
     ],
-    "short_description": "Ultra-realistic everyday feminine design in a hand-tie wrap (no vase) — blush, pink, green.",
-    "description": "Ultra-realistic everyday feminine design in a hand-tie wrap (no vase) — blush, pink, green. Style: feminine. Color palette: blush, pink, green. Container: hand-tie wrap (no vase). Mechanics: hand-tie. Tools: scissors, sleeve. Recipe: 5 Blush Roses, 6 Pink Carnations, 4 Pink Alstroemeria, 2 Baby's Breath, 2 Eucalyptus. Steps: Hand-tie blush bouquet. Wrap for delivery. Wrapped blush bouquet — no vase cost, strong margin.",
+    "short_description": "Ultra-realistic everyday feminine design in a clear glass vase — blush, pink, green.",
+    "description": "Ultra-realistic everyday feminine design in a clear glass vase — blush, pink, green. Style: feminine. Color palette: blush, pink, green. Container: clear glass vase. Mechanics: vase arrangement. Tools: scissors, sleeve. Recipe: 5 Blush Roses, 6 Pink Carnations, 4 Pink Alstroemeria, 2 Baby's Breath, 2 Eucalyptus. Steps: vase arrangement blush bouquet. Wrap for delivery. Wrapped blush bouquet — vase arrangement cost, strong margin.",
     "recipe": [
       {
         "name": "Blush Roses",
@@ -5045,9 +5046,9 @@
     },
     "suggested_cost": 19.74,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-72-daily-blush-bouquet.jpg?v=4f634df1e07ab110",
-      "alt": "Daily Blush Bouquet — ultra-realistic everyday floral arrangement in hand-tie wrap (no vase)",
-      "hash": "4f634df1e07ab110"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Daily Blush Bouquet ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5060,11 +5061,12 @@
       "replaceable_by_shop": true,
       "style": "feminine",
       "color_palette": "blush, pink, green",
-      "container": "hand-tie wrap (no vase)",
+      "container": "clear glass vase",
       "mechanics": "hand-tie",
       "tools": [
         "scissors",
-        "sleeve"
+        "sleeve",
+        "clear glass vase"
       ],
       "foliage": [
         {
@@ -5077,10 +5079,10 @@
         }
       ],
       "instructions": [
-        "Hand-tie blush bouquet.",
+        "vase arrangement blush bouquet.",
         "Wrap for delivery."
       ],
-      "why_it_works": "Wrapped blush bouquet — no vase cost, strong margin.",
+      "why_it_works": "Wrapped blush bouquet — vase arrangement cost, strong margin.",
       "batch": 2
     }
   },
@@ -5118,9 +5120,9 @@
     },
     "suggested_cost": 23.1,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-73-soft-lavender-mix.jpg?v=9d502e3e944d87a6",
-      "alt": "Soft Lavender Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "9d502e3e944d87a6"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Soft Lavender Mix ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5187,9 +5189,9 @@
     },
     "suggested_cost": 26.04,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-74-rose-carnation-classic.jpg?v=91c13f2e424fed4c",
-      "alt": "Rose & Carnation Classic — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "91c13f2e424fed4c"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Rose & Carnation Classic ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5256,9 +5258,9 @@
     },
     "suggested_cost": 20.16,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-75-sunshine-table-vase.jpg?v=725990d9f113399e",
-      "alt": "Sunshine Table Vase — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "725990d9f113399e"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Sunshine Table Vase ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5325,9 +5327,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-76-gentle-white-trio.jpg?v=3dc2d728f135e0f6",
-      "alt": "Gentle White Trio — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "3dc2d728f135e0f6"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Gentle White Trio ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5367,8 +5369,8 @@
     "categories": [
       "Everyday"
     ],
-    "short_description": "Ultra-realistic everyday cheerful design in a hand-tie wrap (no vase) — pink, green.",
-    "description": "Ultra-realistic everyday cheerful design in a hand-tie wrap (no vase) — pink, green. Style: cheerful. Color palette: pink, green. Container: hand-tie wrap (no vase). Mechanics: hand-tie. Tools: scissors, sleeve. Recipe: 10 Pink Carnations, 5 Pink Alstroemeria, 2 Baby's Breath, 3 Leatherleaf. Steps: Pink market bunch. Sleeve and go. Grab-and-go pink bunch for cooler door.",
+    "short_description": "Ultra-realistic everyday cheerful design in a clear glass vase — pink, green.",
+    "description": "Ultra-realistic everyday cheerful design in a clear glass vase — pink, green. Style: cheerful. Color palette: pink, green. Container: clear glass vase. Mechanics: vase arrangement. Tools: scissors, sleeve. Recipe: 10 Pink Carnations, 5 Pink Alstroemeria, 2 Baby's Breath, 3 Leatherleaf. Steps: Pink market bunch. Sleeve and go. Grab-and-go pink bunch for cooler door.",
     "recipe": [
       {
         "name": "Pink Carnations",
@@ -5394,9 +5396,9 @@
     },
     "suggested_cost": 17.22,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-77-pink-market-bunch.jpg?v=ab4fe651d9a417bc",
-      "alt": "Pink Market Bunch — ultra-realistic everyday floral arrangement in hand-tie wrap (no vase)",
-      "hash": "ab4fe651d9a417bc"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Pink Market Bunch ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5409,11 +5411,12 @@
       "replaceable_by_shop": true,
       "style": "cheerful",
       "color_palette": "pink, green",
-      "container": "hand-tie wrap (no vase)",
+      "container": "clear glass vase",
       "mechanics": "hand-tie",
       "tools": [
         "scissors",
-        "sleeve"
+        "sleeve",
+        "clear glass vase"
       ],
       "foliage": [
         {
@@ -5463,9 +5466,9 @@
     },
     "suggested_cost": 26.88,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-78-everyday-hydrangea-rose.jpg?v=f573634887635e7e",
-      "alt": "Everyday Hydrangea Rose — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "f573634887635e7e"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Everyday Hydrangea Rose ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5532,9 +5535,9 @@
     },
     "suggested_cost": 21.84,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-79-daisy-stock-harmony.jpg?v=21e26720b9e6f9a3",
-      "alt": "Daisy & Stock Harmony — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "21e26720b9e6f9a3"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Daisy & Stock Harmony ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5601,9 +5604,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-80-clean-color-pop.jpg?v=6721a612f6bd8778",
-      "alt": "Clean Color Pop — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "6721a612f6bd8778"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Clean Color Pop ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5644,7 +5647,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday simple design in a pint mason jar — cream, blush, sage.",
-    "description": "Ultra-realistic everyday simple design in a pint mason jar — cream, blush, sage. Style: simple. Color palette: cream, blush, sage. Container: pint mason jar. Mechanics: hand-tie. Tools: scissors. Recipe: 3 Cream Roses, 6 Blush Carnations, 3 White Alstroemeria, 3 Eucalyptus. Steps: Soft neutral jar tie. Minimal stems. Neutral jar is a reliable everyday filler SKU.",
+    "description": "Ultra-realistic everyday simple design in a pint mason jar — cream, blush, sage. Style: simple. Color palette: cream, blush, sage. Container: pint mason jar. Mechanics: vase arrangement. Tools: scissors. Recipe: 3 Cream Roses, 6 Blush Carnations, 3 White Alstroemeria, 3 Eucalyptus. Steps: Soft neutral jar tie. Minimal stems. Neutral jar is a reliable everyday filler SKU.",
     "recipe": [
       {
         "name": "Cream Roses",
@@ -5670,9 +5673,9 @@
     },
     "suggested_cost": 18.06,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-81-soft-neutral-jar.jpg?v=473bf6fac00ba339",
-      "alt": "Soft Neutral Jar — ultra-realistic everyday floral arrangement in pint mason jar",
-      "hash": "473bf6fac00ba339"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Soft Neutral Jar ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5742,9 +5745,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-82-rose-garden-everyday.jpg?v=72f229906ecbf6a6",
-      "alt": "Rose Garden Everyday — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "72f229906ecbf6a6"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Rose Garden Everyday ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5815,9 +5818,9 @@
     },
     "suggested_cost": 23.1,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-83-hydrangea-greens-mix.jpg?v=640cea0900397448",
-      "alt": "Hydrangea & Greens Mix — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "640cea0900397448"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Hydrangea & Greens Mix ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5893,9 +5896,9 @@
     },
     "suggested_cost": 20.16,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-84-bright-daily-cylinder.jpg?v=e42f6fab41f8738e",
-      "alt": "Bright Daily Cylinder — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "e42f6fab41f8738e"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Bright Daily Cylinder ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5966,9 +5969,9 @@
     },
     "suggested_cost": 25.2,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-85-pink-white-everyday.jpg?v=1f6fa0db15f331b6",
-      "alt": "Pink & White Everyday — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "1f6fa0db15f331b6"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Pink & White Everyday ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6036,9 +6039,9 @@
     },
     "suggested_cost": 21.42,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-86-sunflower-accent-vase.jpg?v=5224e28cab8feb49",
-      "alt": "Sunflower Accent Vase — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "hash": "5224e28cab8feb49"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Sunflower Accent Vase ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6079,7 +6082,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday classic design in a quart mason jar — red, pink, cream.",
-    "description": "Ultra-realistic everyday classic design in a quart mason jar — red, pink, cream. Style: classic. Color palette: red, pink, cream. Container: quart mason jar. Mechanics: hand-tie. Tools: scissors, twine. Recipe: 3 Red Roses, 3 Pink Roses, 5 Cream Carnations, 3 Pittosporum. Steps: Classic rose jar. Tri-color tie. Rose jar hits gift price point under sixty dollars.",
+    "description": "Ultra-realistic everyday classic design in a quart mason jar — red, pink, cream. Style: classic. Color palette: red, pink, cream. Container: quart mason jar. Mechanics: vase arrangement. Tools: scissors, twine. Recipe: 3 Red Roses, 3 Pink Roses, 5 Cream Carnations, 3 Pittosporum. Steps: Classic rose jar. Tri-color tie. Rose jar hits gift price point under sixty dollars.",
     "recipe": [
       {
         "name": "Red Roses",
@@ -6105,9 +6108,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-87-classic-rose-jar.jpg?v=4cc5ec018ef28da7",
-      "alt": "Classic Rose Jar — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "4cc5ec018ef28da7"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Classic Rose Jar ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6178,9 +6181,9 @@
     },
     "suggested_cost": 23.94,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-88-soft-spring-color-mix.jpg?v=c2478231a99eeced",
-      "alt": "Soft Spring Color Mix — ultra-realistic everyday floral arrangement in 8\" ceramic vase",
-      "hash": "c2478231a99eeced"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Soft Spring Color Mix ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6247,9 +6250,9 @@
     },
     "suggested_cost": 21.84,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-89-neutral-countertop-arrangement.jpg?v=9455d6386ce61677",
-      "alt": "Neutral Countertop Arrangement — ultra-realistic everyday floral arrangement in 5\" cube vase",
-      "hash": "9455d6386ce61677"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Neutral Countertop Arrangement ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6316,9 +6319,9 @@
     },
     "suggested_cost": 25.62,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-90-blush-cream-harmony.jpg?v=db551a4905fd0acd",
-      "alt": "Blush & Cream Harmony — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "db551a4905fd0acd"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Blush & Cream Harmony ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6385,9 +6388,9 @@
     },
     "suggested_cost": 19.32,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-91-daisy-sunshine-cube.jpg?v=930b37559cf654f2",
-      "alt": "Daisy Sunshine Cube — ultra-realistic everyday floral arrangement in 5\" glass cube vase",
-      "hash": "930b37559cf654f2"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Daisy Sunshine Cube ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6454,9 +6457,9 @@
     },
     "suggested_cost": 27.3,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-92-everyday-rose-lily.jpg?v=6d3c7e44876b1aa2",
-      "alt": "Everyday Rose & Lily — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "6d3c7e44876b1aa2"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Everyday Rose & Lily ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6523,9 +6526,9 @@
     },
     "suggested_cost": 26.04,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-93-hydrangea-soft-blend.jpg?v=a9f02e53b7c88851",
-      "alt": "Hydrangea Soft Blend — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "a9f02e53b7c88851"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Hydrangea Soft Blend ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6566,7 +6569,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday rustic design in a quart mason jar — white, green.",
-    "description": "Ultra-realistic everyday rustic design in a quart mason jar — white, green. Style: rustic. Color palette: white, green. Container: quart mason jar. Mechanics: hand-tie. Tools: scissors, twine. Recipe: 7 White Carnations, 5 White Daisies, 2 White Stock, 5 Pittosporum, 3 Leatherleaf. Steps: Rustic green-white jar. Foliage-heavy. Extra greens stretch white designs on tight budgets.",
+    "description": "Ultra-realistic everyday rustic design in a quart mason jar — white, green. Style: rustic. Color palette: white, green. Container: quart mason jar. Mechanics: vase arrangement. Tools: scissors, twine. Recipe: 7 White Carnations, 5 White Daisies, 2 White Stock, 5 Pittosporum, 3 Leatherleaf. Steps: Rustic green-white jar. Foliage-heavy. Extra greens stretch white designs on tight budgets.",
     "recipe": [
       {
         "name": "White Carnations",
@@ -6596,9 +6599,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-94-rustic-greens-whites.jpg?v=9b7db8110029df8f",
-      "alt": "Rustic Greens & Whites — ultra-realistic everyday floral arrangement in quart mason jar",
-      "hash": "9b7db8110029df8f"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Rustic Greens & Whites ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6669,9 +6672,9 @@
     },
     "suggested_cost": 19.74,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-95-daily-pink-yellow.jpg?v=f48f67f1fea7a7d3",
-      "alt": "Daily Pink & Yellow — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "f48f67f1fea7a7d3"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Daily Pink & Yellow ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6738,9 +6741,9 @@
     },
     "suggested_cost": 22.68,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-96-bright-everyday-vase.jpg?v=975206169a5c5544",
-      "alt": "Bright Everyday Vase — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "975206169a5c5544"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Bright Everyday Vase ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6781,7 +6784,7 @@
       "Everyday"
     ],
     "short_description": "Ultra-realistic everyday feminine design in a pint mason jar — pastel pink, lavender, cream.",
-    "description": "Ultra-realistic everyday feminine design in a pint mason jar — pastel pink, lavender, cream. Style: feminine. Color palette: pastel pink, lavender, cream. Container: pint mason jar. Mechanics: hand-tie. Tools: scissors. Recipe: 8 Pastel Pink Carnations, 3 Lavender Stock, 3 White Alstroemeria, 2 Baby's Breath. Steps: Soft pastel jar. Light and airy. Pastel jar targets gift under forty-five dollars.",
+    "description": "Ultra-realistic everyday feminine design in a pint mason jar — pastel pink, lavender, cream. Style: feminine. Color palette: pastel pink, lavender, cream. Container: pint mason jar. Mechanics: vase arrangement. Tools: scissors. Recipe: 8 Pastel Pink Carnations, 3 Lavender Stock, 3 White Alstroemeria, 2 Baby's Breath. Steps: Soft pastel jar. Light and airy. Pastel jar targets gift under forty-five dollars.",
     "recipe": [
       {
         "name": "Pastel Pink Carnations",
@@ -6807,9 +6810,9 @@
     },
     "suggested_cost": 17.64,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-97-soft-pastel-jar.jpg?v=4ab381641c13e1cb",
-      "alt": "Soft Pastel Jar — ultra-realistic everyday floral arrangement in pint mason jar",
-      "hash": "4ab381641c13e1cb"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Soft Pastel Jar ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6875,9 +6878,9 @@
     },
     "suggested_cost": 22.26,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-98-rose-daisy-color-pop.jpg?v=8cb8aa0accb38f6b",
-      "alt": "Rose & Daisy Color Pop — ultra-realistic everyday floral arrangement in 6\" cylinder vase",
-      "hash": "8cb8aa0accb38f6b"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Rose & Daisy Color Pop ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6940,9 +6943,9 @@
     },
     "suggested_cost": 28.56,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-99-hydrangea-everyday-trio.jpg?v=58e5379dcbdbb849",
-      "alt": "Hydrangea Everyday Trio — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "58e5379dcbdbb849"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Hydrangea Everyday Trio ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -7025,9 +7028,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/everyday/ed-100-florist-counter-classic.jpg?v=b55cb1fb9923a084",
-      "alt": "Florist Counter Classic — ultra-realistic everyday floral arrangement in 8\" cylinder vase",
-      "hash": "b55cb1fb9923a084"
+      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "alt": "Florist Counter Classic ultra-realistic vase arrangement photograph",
+      "hash": "placeholder"
     },
     "image_license": {
       "source": "bloom_owned",
