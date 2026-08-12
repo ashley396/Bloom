@@ -173,6 +173,20 @@
     return key;
   }
 
+  function orderCancelDisabled(r) {
+    if (r.status === "cancelled" || r.status === "delivered") return true;
+    const raw = String(r.raw?.status || "").toUpperCase();
+    return ["CANCELLED", "CANCELED", "VOID", "DELIVERED", "COMPLETED"].includes(raw);
+  }
+
+  function orderCancelAction(r) {
+    if (orderCancelDisabled(r)) {
+      return `<button type="button" class="ord-cancel secondary" disabled>Cancel Order</button>`;
+    }
+    if (!r.raw?.id) return "";
+    return `<button type="button" class="ord-cancel secondary danger" data-cancel-order="${esc(r.raw.id)}">Cancel Order</button>`;
+  }
+
   function formatDate(value) {
     if (!value) return "—";
     const d = new Date(value);
@@ -328,7 +342,7 @@
           <td><span class="ord-status ${statusClass(r.status)}">${esc(statusLabel(r.status))}</span></td>
           <td>${esc(r.date)}</td>
           <td>${esc(r.delivery)}</td>
-          <td><button type="button" class="ord-actions" data-ord-menu="${esc(r.id)}" aria-label="Order actions">•••</button></td>
+          <td class="ord-row-actions">${orderCancelAction(r)}<button type="button" class="ord-actions" data-ord-menu="${esc(r.id)}" aria-label="Order actions">•••</button></td>
         </tr>`;
       })
       .join("");
@@ -434,6 +448,31 @@
         const row = state.rows.find((r) => r.id === menu.dataset.ordMenu);
         if (row?.raw?.id && typeof window.openOrder === "function") window.openOrder(row.raw);
         else window.toast?.(`${row?.order || "Order"} · ${row?.customer || ""}`);
+        return;
+      }
+      const cancelBtn = e.target.closest("[data-cancel-order]");
+      if (cancelBtn && !cancelBtn.disabled) {
+        const id = cancelBtn.dataset.cancelOrder;
+        const row = state.rows.find((r) => r.raw?.id === id);
+        if (!row || orderCancelDisabled(row)) return;
+        if (!confirm(`Cancel order ${row.order || ""}?`)) return;
+        const apiFn = window.api;
+        if (!apiFn) return window.toast?.("Sign in required.");
+        cancelBtn.disabled = true;
+        apiFn("orders", { method: "PATCH", body: JSON.stringify({ id, status: "CANCELLED" }) })
+          .then(async () => {
+            window.toast?.("Order cancelled");
+            if (typeof window.loadOrders === "function") await window.loadOrders();
+            else {
+              row.raw.status = "CANCELLED";
+              row.status = "cancelled";
+              render();
+            }
+          })
+          .catch((err) => {
+            window.toast?.(err?.message || "Could not cancel order");
+            cancelBtn.disabled = false;
+          });
       }
     });
 
