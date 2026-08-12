@@ -61,7 +61,7 @@ function scoreMatch(arrangement, photoId) {
   const text = arrangementKeywords(arrangement);
   let score = 0;
   const rules = [
-    [/sunflower|sunshine|golden|yellow|bright|citrus/, ["sunflower", "yellow", "bright", "6913095", "6913101"]],
+    [/sunflower|sunshine|golden|yellow|bright|citrus/, ["sunflower", "yellow", "bright", "6913095", "931177"]],
     [/hydrangea|blue, white|blue and white/, ["hydrangea", "blue", "white", "931168", "34638178"]],
     [/daisy|mum|cheerful/, ["daisy", "mum", "cheerful", "16434315", "36312278"]],
     [/rose|romance|pink meadow|classic rose/, ["rose", "pink", "romance", "27952001", "6913075"]],

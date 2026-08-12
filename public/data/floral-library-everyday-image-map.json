@@ -205,9 +205,9 @@
       "kept": false
     },
     "ed-19-sunflower-smile": {
-      "pexels_photo_id": "6913101",
-      "source": "verified_pexels",
-      "match_score": 15,
+      "pexels_photo_id": null,
+      "source": "bloom_owned",
+      "match_score": 0,
       "kept": false
     },
     "ed-20-gentle-pastels": {

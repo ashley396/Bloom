@@ -1237,12 +1237,12 @@
       "suggested_retail": 49.99,
       "image": "everyday/ed-19-sunflower-smile.jpg",
       "alt": "Sunflower Smile — ultra-realistic everyday floral arrangement in 6\" ceramic vase",
-      "pexels_photo_id": "6913101",
-      "content_sha256": "9758702cfb3765b5def1a008040cec3b7cd5aeb42ccd79eb696778d7c1237114",
+      "pexels_photo_id": null,
+      "content_sha256": "503ef0691b5f9e110e450aaeacb54c15c2a9f0d12695c912e13c6af6773904ea",
       "needs_image_replacement": false,
       "image_license": {
-        "source": "licensed_stock_pexels",
-        "attribution": "Pexels — verified vase/bouquet arrangement (photo 6913101)",
+        "source": "bloom_owned",
+        "attribution": "Florisyn arrangement photography — florisyn-everyday-sunny-bouquet.jpg",
         "review_status": "approved"
       },
       "image_subject": "floral_arrangement"
