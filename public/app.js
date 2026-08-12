@@ -50,10 +50,59 @@ let posCart=[];
 let savedQuotes=[];
 function readSession(){try{return JSON.parse(localStorage.getItem("bloom_session")||"null")}catch{return null}}
 function saveSession(d){session={accessToken:d.accessToken,refreshToken:d.refreshToken||session?.refreshToken,user:d.user||session?.user,expiresAt:d.expiresIn?Date.now()+Number(d.expiresIn)*1000:session?.expiresAt||null};localStorage.setItem("bloom_session",JSON.stringify(session))}
+function clearSession(){localStorage.removeItem("bloom_session");session=null;window.session=null;if(window.florisynSessionRefreshTimer){clearInterval(window.florisynSessionRefreshTimer);window.florisynSessionRefreshTimer=null}}
+function hasUsableSession(){return Boolean(session?.accessToken)&&!sessionRecoveryActive}
+function isSessionExpiredLocally(){return Boolean(session?.expiresAt&&Date.now()>=session.expiresAt)}
+function sessionExpiredError(message){const err=new Error(message||"Please sign in again.");err.code="session_expired";return err}
+let sessionRecoveryActive=false;
+let authFailureHandled=false;
+let lastAuthToastAt=0;
+const AUTH_TOAST_COOLDOWN_MS=8000;
+function isAuthToastMessage(message){return /sign in again|session expired|unauthorized/i.test(String(message||""))}
 async function refreshSessionIfNeeded(force=false){if(!session?.refreshToken)return false;if(!force&&session.expiresAt&&Date.now()<session.expiresAt-120000)return true;if(refreshInFlight)return refreshInFlight;refreshInFlight=(async()=>{try{const r=await fetch("/.netlify/functions/auth-refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refreshToken:session.refreshToken})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Session expired");saveSession({accessToken:d.accessToken,refreshToken:d.refreshToken,user:d.user||session.user,expiresIn:d.expiresIn});return true}catch{return false}finally{refreshInFlight=null}})();return refreshInFlight}
+function showSessionRecovery(message){
+  if(sessionRecoveryActive)return;
+  sessionRecoveryActive=true;
+  authFailureHandled=true;
+  closeMobileDrawer();
+  document.body.classList.remove("florisyn-lily-open","atelier-drawer-open","florisyn-nav-locked");
+  document.documentElement.classList.remove("florisyn-mobile-drawer-open");
+  if(window.florisynSessionRefreshTimer){clearInterval(window.florisynSessionRefreshTimer);window.florisynSessionRefreshTimer=null}
+  const lilyPanel=document.getElementById("lilyPanel");
+  if(lilyPanel)lilyPanel.hidden=true;
+  const app=$("#app");
+  if(app)app.hidden=true;
+  document.querySelector(".mobile-nav.atelier-mobile-nav")?.setAttribute("hidden","");
+  document.getElementById("lilyFab")?.setAttribute("hidden","");
+  const auth=$("#auth");
+  if(auth){
+    auth.hidden=false;
+    auth.className="auth florisyn-session-recovery";
+    auth.innerHTML=`<section class="auth-card florisyn-session-recovery-card" role="alertdialog" aria-labelledby="sessionRecoveryTitle" aria-describedby="sessionRecoveryBody"><p class="eyebrow">SESSION ENDED</p><h1 id="sessionRecoveryTitle">Sign in again</h1><p id="sessionRecoveryBody" class="subtle">${escapeHtml(message||"Your Florisyn session expired or is no longer valid on this device.")}</p><p class="subtle">Your shop data is safe. Sign in to continue, or clear this device session if you are switching accounts.</p><div class="actions" style="display:flex;flex-direction:column;gap:10px;margin-top:18px"><button type="button" id="sessionRecoverySignIn" class="primary wide">Sign in</button><button type="button" id="sessionRecoveryClear" class="secondary wide">Clear session / Sign out</button></div></section>`;
+    $("#sessionRecoverySignIn")?.addEventListener("click",()=>location.assign("/login"));
+    $("#sessionRecoveryClear")?.addEventListener("click",()=>{clearSession();location.assign("/login")});
+  }
+  document.body.classList.add("florisyn-session-recovery");
+  window.session=null;
+}
+function handleSessionInvalid(message){
+  if(!authFailureHandled)showSessionRecovery(message||"Your Florisyn session expired. Please sign in again.");
+}
+function requireActiveSession(action){
+  if(sessionRecoveryActive||!hasUsableSession()){handleSessionInvalid(action?`${action} requires a valid sign-in.`:"Your Florisyn session expired. Please sign in again.");return false}
+  return true;
+}
 function membershipRequiredError(message){const err=new Error(message||"Your Florisyn login works, but this account is not linked to an active flower shop yet.");err.code="shop_membership_required";return err}
 function showMembershipOnboarding(message){const auth=$("#auth"),app=$("#app");if(app)app.hidden=true;if(auth){auth.hidden=false;auth.innerHTML=`<section class="bloom-membership-gate" style="max-width:520px;margin:10vh auto;padding:28px;border:1px solid #e7ddd2;border-radius:8px;background:#fffcf8;box-shadow:0 14px 34px rgba(24,37,47,.08)"><p class="eyebrow" style="letter-spacing:.08em;color:#3d5c4a">SHOP SETUP NEEDED</p><h1 style="font-family:Georgia,serif;color:#18252f">Welcome to Florisyn</h1><p style="color:#66737a;line-height:1.55">${escapeHtml(message||"Your login works, but this account is not linked to an active flower shop yet.")}</p><p style="color:#66737a;line-height:1.55">Contact Florisyn support or finish owner onboarding so we can attach your shop membership. This is not an invalid password problem.</p><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:18px"><a class="primary" href="/help/contact/" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;padding:12px 18px;border-radius:8px;background:linear-gradient(145deg,#c9a962,#a8883f);color:#18252f;font-weight:600">Contact support</a><button type="button" id="membershipSignOut" class="secondary" style="padding:12px 18px;border-radius:8px">Sign out</button></div></section>`;$("#membershipSignOut")?.addEventListener("click",()=>{localStorage.removeItem("bloom_session");session=null;location.replace("/login")})}}
-async function api(path,opt={},auth=true){if(auth&&session?.refreshToken)await refreshSessionIfNeeded();const run=async(retry=false)=>{const h={"Content-Type":"application/json",...(opt.headers||{})};if(auth&&session?.accessToken)h.Authorization=`Bearer ${session.accessToken}`;const r=await fetch(`/.netlify/functions/${path}`,{...opt,headers:h});let d={};try{d=await r.json()}catch{}if(!r.ok){if(!retry&&auth&&r.status===401&&session?.refreshToken&&await refreshSessionIfNeeded(true))return run(true);window.BloomProductionMonitor?.reportApiFailure?.(path,r.status,d.error||r.statusText);if(d.code==="shop_membership_required"||/not linked to an active flower shop|active Florisyn shop membership/i.test(String(d.error||"")))throw membershipRequiredError(d.error);const err=new Error(d.error||`Request failed (${r.status})`);if(d.code)err.code=d.code;throw err}return d};return run(false)}
+async function api(path,opt={},auth=true){
+  if(auth){
+    if(!hasUsableSession()){handleSessionInvalid();throw sessionExpiredError()}
+    if(session?.refreshToken){
+      const refreshed=await refreshSessionIfNeeded();
+      if(!refreshed){handleSessionInvalid();throw sessionExpiredError()}
+    }
+  }
+  const run=async(retry=false)=>{const h={"Content-Type":"application/json",...(opt.headers||{})};if(auth&&session?.accessToken)h.Authorization=`Bearer ${session.accessToken}`;const r=await fetch(`/.netlify/functions/${path}`,{...opt,headers:h});let d={};try{d=await r.json()}catch{}if(!r.ok){if(!retry&&auth&&r.status===401&&session?.refreshToken&&await refreshSessionIfNeeded(true))return run(true);if(auth&&r.status===401){handleSessionInvalid();throw sessionExpiredError(d.error||"Please sign in again.")}window.BloomProductionMonitor?.reportApiFailure?.(path,r.status,d.error||r.statusText);if(d.code==="shop_membership_required"||/not linked to an active flower shop|active Florisyn shop membership/i.test(String(d.error||"")))throw membershipRequiredError(d.error);const err=new Error(d.error||`Request failed (${r.status})`);if(d.code)err.code=d.code;throw err}return d};return run(false)}
 const WALK_IN_CUSTOMER_NAME="Walk-in Customer";
 function firstNameFromIdentity(user=session?.user,settings=shopSettings){
   const raw=settings?.owner_name||settings?.contact_name||user?.user_metadata?.full_name||user?.full_name||user?.email?.split("@")[0]||"there";
@@ -70,15 +119,33 @@ function dateText(v){return v?new Date(v+"T12:00:00").toLocaleDateString():""}
 function inventoryFreshness(i){const received=i.received_at||i.arrival_date||String(i.created_at||"").slice(0,10);if(!received&&!i.use_by)return{age:0,score:100,label:"Fresh",useFirst:false};const age=received?Math.max(0,Math.floor((new Date().setHours(0,0,0,0)-new Date(`${received}T00:00:00`))/86400000)):0;const life=Math.max(1,Number(i.vase_life_days||7));let score=Math.max(0,Math.round((1-age/life)*100));if(i.use_by){const daysLeft=Math.ceil((new Date(`${i.use_by}T12:00:00`).getTime()-Date.now())/86400000);if(daysLeft<=1)score=Math.min(score,20);else if(daysLeft<=3)score=Math.min(score,50)}const useFirst=score<=25;return{age,score,label:useFirst?"Use first":score<=55?"Use soon":"Fresh",useFirst}}
 function contactPrefSummary(c){const p=c?.contact_preferences&&typeof c.contact_preferences==="object"?c.contact_preferences:{};const methods={phone:"Phone",text:"Text",email:"Email",none:"No preference"};const method=methods[String(p.preferred_method||"none").toLowerCase()]||"No preference";const marketing=p.marketing_opt_in?"Marketing: opted in":"Marketing: opted out";return `${method} · ${marketing}`}
 function inventoryFreshnessBucket(i){const f=inventoryFreshness(i);if(Number(i.quantity||0)<=0)return"archived";if(f.useFirst||f.score<=25)return"use_first";if(f.score<=55)return"expiring_soon";return"fresh"}
-function toast(m){const e=$("#toast");e.textContent=m;e.hidden=false;clearTimeout(window.bt);window.bt=setTimeout(()=>e.hidden=true,3200)}
+function toast(m){const msg=String(m||"");if(sessionRecoveryActive&&isAuthToastMessage(msg))return;if(isAuthToastMessage(msg)){const now=Date.now();if(now-lastAuthToastAt<AUTH_TOAST_COOLDOWN_MS)return;lastAuthToastAt=now}const e=$("#toast");e.textContent=msg;e.hidden=false;clearTimeout(window.bt);window.bt=setTimeout(()=>e.hidden=true,3200)}
 function empty(t){return window.BloomLaunchPolish?.emptyState?.(t)||`<div class="card subtle bloom-empty-state" role="status"><strong>${esc(t)}</strong></div>`}
 function bindForm(selector,handler){const form=$(selector);if(!form)return;form.onsubmit=async e=>{try{await handler(e)}catch(err){toast(err?.message||"Could not complete this action.")}}}
-function florisynUnhandledToast(err){toast(err?.message||"Florisyn ran into a temporary issue. Please try again.")}
+function florisynUnhandledToast(err){if(err?.code==="session_expired"||sessionRecoveryActive)return;toast(err?.message||"Florisyn ran into a temporary issue. Please try again.")}
 window.addEventListener("unhandledrejection",e=>florisynUnhandledToast(e.reason));
 window.addEventListener("error",e=>florisynUnhandledToast(e.error||e.message));
 function applyBranding(settings=shopSettings||{}){const root=document.documentElement;const primary=settings.primary_color||"#8f3f68",bg=settings.app_background_color||"#f8f3f6",sidebar=settings.sidebar_color||"#30232d",header=settings.header_color||"#ffffff",font=settings.app_font||"Elegant";root.style.setProperty("--brand-primary",primary);root.style.setProperty("--app-background",bg);root.style.setProperty("--sidebar-color",sidebar);root.style.setProperty("--header-color",header);document.body.dataset.appFont=font;const logo=settings.logo_url||"";const appLogo=$("#appLogo"),preview=$("#settingsLogoPreview"),placeholder=$("#logoPlaceholder"),webPreview=$("#websiteLogoPreview"),webPlaceholder=$("#websiteLogoPlaceholder");if(appLogo){appLogo.src=logo;appLogo.hidden=!logo}if(preview){preview.src=logo;preview.hidden=!logo}if(placeholder)placeholder.hidden=Boolean(logo);if(webPreview){webPreview.src=logo;webPreview.hidden=!logo}if(webPlaceholder)webPlaceholder.hidden=Boolean(logo);const dash=settings.dashboard_image_url||"",dashWrap=$("#dashboardWelcomePhoto"),dashImg=$("#dashboardWelcomeImage"),dashPreview=$("#dashboardImagePreview"),dashPlaceholder=$("#dashboardImagePlaceholder");if(dashImg){dashImg.src=dash;dashWrap.hidden=!dash}if(dashPreview){dashPreview.src=dash;dashPreview.hidden=!dash}if(dashPlaceholder)dashPlaceholder.hidden=Boolean(dash);const brandEl=document.querySelector(".brand");if(brandEl)brandEl.textContent=settings.name||"Florisyn";}
 function previewBrandingForm(){const f=$("#settingsForm");if(!f)return;const d=Object.fromEntries(new FormData(f));applyBranding({...shopSettings,...d});const p=$("#themePreview");if(p){p.style.background=d.app_background_color||"#f8f3f6";p.style.borderColor=d.primary_color||"#8f3f68";p.querySelector("span").style.color=d.primary_color||"#8f3f68";p.dataset.font=d.app_font||"Elegant"}}
 function showAuth(){location.replace("/login")}
+async function bootFloristApp(){
+  wireSignedOutInteractionGuards();
+  if(!session?.accessToken){showAuth();return}
+  if(isSessionExpiredLocally()&&!session?.refreshToken){showSessionRecovery("Your Florisyn session expired. Please sign in again.");return}
+  if(session?.refreshToken){
+    const refreshed=await refreshSessionIfNeeded(isSessionExpiredLocally());
+    if(!refreshed){showSessionRecovery("Your Florisyn session expired. Please sign in again.");return}
+  }
+  showApp();
+  try{
+    await Promise.all([loadDashboard(),loadInventory(),loadOrders(),loadProducts()]);
+    await finishStripeReturn();
+  }catch(err){
+    if(err?.code==="session_expired")return;
+    if(err?.code==="shop_membership_required"||/not linked to an active flower shop|active Florisyn shop membership/i.test(String(err?.message||""))){showMembershipOnboarding(err.message);return}
+    toast(err.message||"Could not load your shop workspace.");
+  }
+}
 async function loadPlatformSettings(){try{const d=await api('platform-settings');if($('#roseFoundationTotal'))$('#roseFoundationTotal').textContent=`${money(d.roseFoundationTotal||0)} raised`}catch{}}
 function showApp(){loadPlatformSettings();refreshGrowthFeatureFlags();$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";if(session?.refreshToken&&!window.florisynSessionRefreshTimer)window.florisynSessionRefreshTimer=setInterval(()=>refreshSessionIfNeeded(),5*60*1000);loadStores();loadRemoteAdminConfig();window.BloomLaunchPolish?.init?.({api,mode:"florist"});if(window.FlorisynRouter?.installShowPageBridge){window.showPage=window.FlorisynRouter.installShowPageBridge(showPage)}else window.showPage=showPage;window.BloomLilyPlatform?.init?.({api,toast:toast,showPage:window.showPage,smartAi,loadAiContext,prepareOrderBuilder,loadInventory,renderCustomers});wireMobileLilyScrollLock();wireMobileDrawerScrollLock();window.api=api;window.loadOrders=loadOrders;window.setPendingPaymentOrder=setPendingPaymentOrder;window.session=session;window.BloomPaymentHub&&(window.BloomPaymentHub.api=api);window.subscriptionCenterApi=api;window.recordLocalPayment=recordLocalPayment;window.BloomLaunchPolish?.refreshPageHelp?.("dashboardPage");if(isMobileShellViewport()){hideMobileFloatingAssistants()}else{window.BloomRose?.mount?.();window.BloomDaisy?.mount?.()}window.FlorisynAssistantVoice?.init?.({getScope:()=>{const shop=shopSettings?.shop_id||session?.shopId||session?.user?.default_shop_id||"shop";const user=session?.user?.id||"local";return `${shop}:${user}`},getSpeakEnabled:()=>{const el=$("#assistantSpeak");return el?el.checked:true}});window.BloomLilyVoice?.patchSpeakAssistant?.();window.BloomFirstRun?.showWelcome?.();window.BloomRC21?.initLoadingScreen?.();window.BloomRC21?.tuneLily?.();window.FlorisynRouter?.bootFromLocation?.({replace:true})||window.showPage("dashboardPage");hideMobileFloatingAssistants()}
 function closeMobileDrawer(){(window.FlorisynPlatform?.setDrawer||window.FlorisynAtelierChrome?.setDrawer)?.(false)}
@@ -149,6 +216,7 @@ function wireMobileDrawerToggleFallback(){
   const toggle=document.getElementById("atelierMenuToggle");
   const backdrop=document.getElementById("atelierSidebarBackdrop");
   const setDrawer=(open)=>{
+    if(sessionRecoveryActive||!hasUsableSession()){handleSessionInvalid("Open the menu after you sign in.");return}
     const fn=window.FlorisynPlatform?.setDrawer||window.FlorisynAtelierChrome?.setDrawer;
     if(typeof fn==="function")return fn(open);
     document.body.classList.toggle("atelier-drawer-open",Boolean(open));
@@ -157,7 +225,24 @@ function wireMobileDrawerToggleFallback(){
   if(toggle&&!toggle.dataset.atelierBound){toggle.dataset.atelierBound="1";toggle.addEventListener("click",()=>setDrawer(!document.body.classList.contains("atelier-drawer-open")))}
   if(backdrop&&!backdrop.dataset.atelierBound){backdrop.dataset.atelierBound="1";backdrop.addEventListener("click",()=>setDrawer(false))}
 }
+function wireSignedOutInteractionGuards(){
+  if(document.body.dataset.signedOutGuards)return;
+  document.body.dataset.signedOutGuards="1";
+  document.addEventListener("click",(e)=>{
+    if(sessionRecoveryActive||!hasUsableSession()){
+      const nav=e.target.closest?.(".mobile-nav button,.mobile-nav a,.mobile-nav.atelier-mobile-nav button");
+      if(nav){e.preventDefault();e.stopImmediatePropagation();handleSessionInvalid("Choose Sign in to continue.");return}
+    }
+    const lily=e.target.closest?.(".lily-fab,#lilyFab");
+    if(lily&&(sessionRecoveryActive||!hasUsableSession())){
+      e.preventDefault();e.stopImmediatePropagation();
+      if(sessionRecoveryActive)toast("Sign in to use Lily.");
+      else handleSessionInvalid("Sign in to use Lily.");
+    }
+  },true);
+}
 function showPage(id){
+  if(!requireActiveSession())return;
   if(id==="communityPage"&&!communityBetaEnabled){
     refreshGrowthFeatureFlags().then((on)=>{if(!on){toast("Florist Community Beta is disabled.");return}showPage("communityPage")});
     return;
@@ -887,7 +972,7 @@ $("#clearTelemetry")?.addEventListener("click",()=>{const log=$("#telemetryLog")
 $("#sendBetaFeedback")?.addEventListener("click",async()=>{const msg=$("#betaFeedbackMessage")?.value?.trim(),status=$("#betaFeedbackStatus");if(!msg)return toast("Add feedback first");if(status)status.textContent="Sending…";try{await api("beta-feedback",{method:"POST",body:JSON.stringify({message:msg,category:"florist_beta",path:location.pathname})});if(status)status.textContent="Thank you — your feedback was sent to Florisyn HQ.";$("#betaFeedbackMessage").value="";toast("Beta feedback sent")}catch(e){if(status)status.textContent=e.message;toast(e.message)}});
 loadPosTiles();initShiftButton();removeDuplicateControls();
 function enableSmartTyping(){document.documentElement.setAttribute("spellcheck","true");$$('input:not([type="password"]):not([type="email"]):not([type="number"]):not([type="date"]),textarea').forEach(el=>{el.spellcheck=true;if(!el.getAttribute("autocomplete"))el.setAttribute("autocomplete","on");el.setAttribute("autocapitalize","sentences")});const map={name:"name",phone:"tel",email:"email",address:"street-address",customer_name:"name",customer_phone:"tel",recipient_name:"name",recipient_phone:"tel"};$$('input[name],textarea[name]').forEach(el=>{if(map[el.name])el.setAttribute("autocomplete",map[el.name])})}
-enableSmartTyping();loadPosCart();try{pendingPaymentOrder=JSON.parse(localStorage.getItem("bloom_pending_payment_order")||"null")}catch{}renderPaymentCenterShell();if(session?.accessToken){showApp();Promise.all([loadDashboard(),loadInventory(),loadOrders(),loadProducts()]).then(finishStripeReturn).catch((err)=>{if(err?.code==="shop_membership_required"||/not linked to an active flower shop|active Florisyn shop membership/i.test(String(err?.message||""))){showMembershipOnboarding(err.message);return}toast(err.message||"Could not load your shop workspace.")})}else showAuth();
+enableSmartTyping();loadPosCart();try{pendingPaymentOrder=JSON.parse(localStorage.getItem("bloom_pending_payment_order")||"null")}catch{}renderPaymentCenterShell();bootFloristApp();
 
 
 
