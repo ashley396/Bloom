@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@imgly/background-removal": "^1.5.8",
     "@supabase/supabase-js": "^2.49.8",
+    "onnxruntime-web": "^1.21.0-dev.20250114-228dd16893",
     "sharp": "0.35.3",
     "stripe": "^17.7.0"
   },
@@ -18,6 +20,7 @@
     "generate:floral-library-50": "node scripts/generate-everyday-library-50.mjs && node scripts/sync-floral-library-catalog.mjs",
     "generate:floral-library-batch-2": "node scripts/generate-everyday-library-batch-2.mjs && node scripts/sync-floral-library-catalog.mjs",
     "sync:floral-library": "node scripts/sync-floral-library-catalog.mjs",
+    "sync:photo-studio-hq-vendor": "node scripts/sync-photo-studio-hq-vendor.mjs",
     "materialize:floral-library-images": "node scripts/materialize-floral-library-images.mjs",
     "fetch:floral-library-images": "node scripts/fetch-unique-everyday-images.mjs",
     "verify:rollback-proof": "node scripts/verify-staging-rollback-proof.mjs",

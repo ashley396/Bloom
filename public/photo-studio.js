@@ -20,6 +20,10 @@
  *      (holes / fragmentation inside the arrangement bbox), leftover islands
  *      near the subject, and rectangular photo-frame seams.
  *
+ * Optional HQ path (photo-studio-hq.mjs, lazy-loaded only when the fast flood
+ * path fails): local ONNX segmentation via @imgly/background-removal. Images
+ * stay on-device; HQ output must still pass assessMaskQuality.
+ *
  * The core works on plain ImageData-shaped objects so it is unit-testable in
  * Node without a DOM.
  */

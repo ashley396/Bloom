@@ -250,6 +250,19 @@ test("app wiring: upload triggers cut-out and failure shows the safe message wit
   assert.match(prep, /Background removal was not applied/, "clear fallback label present");
   assert.match(prep, /shotCutout=null;shotUseCutout=false/, "failure must fall back to the original photo, never a fake cut-out");
   assert.match(prep, /try\{/, "removal errors must be caught so the studio never breaks");
+  assert.match(prep, /import\("\/photo-studio-hq\.mjs"\)/, "HQ path is lazy-loaded only after fast path fails");
+  assert.match(prep, /removeBackgroundHq/, "HQ helper invoked before final failure");
+});
+
+test("HQ module is lazy-loaded, local-only, and still uses the quality gate", () => {
+  const hq = fs.readFileSync(path.join(root, "public/photo-studio-hq.mjs"), "utf8");
+  assert.match(hq, /imgly-background-removal\.mjs/);
+  assert.match(hq, /assessMaskQuality/);
+  assert.match(hq, /isnet_fp16/);
+  assert.doesNotMatch(hq, /openai|api\.openai|fetch\([^)]*upload/i);
+  const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
+  assert.doesNotMatch(html, /photo-studio-hq\.mjs/, "HQ module must not load globally — Photo Studio lazy import only");
+  assert.ok(fs.existsSync(path.join(root, "public/vendor/imgly-background-removal.mjs")), "vendor ONNX bundle present");
 });
 
 test("photo studio module is loaded by the shell", () => {

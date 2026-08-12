@@ -938,28 +938,28 @@ function prepareShotCutout(){
   if(!shotImage||!window.FlorisynPhotoStudio?.removeBackground)return;
   if($("#shotStatus"))$("#shotStatus").textContent="Removing the original background around the arrangement…";
   /* Defer the pixel work one tick so the original photo paints immediately. */
-  setTimeout(()=>{
+  setTimeout(async()=>{
     const failMessage=window.FlorisynPhotoStudio?.FAILURE_MESSAGE||"Background could not be fully removed. Try a cleaner product photo.";
     const fallbackLabel=window.FlorisynPhotoStudio?.FALLBACK_LABEL||"Background removal was not applied. Brightness, contrast, and color tools still work on the original photo.";
     const safeStatus=`${failMessage} ${fallbackLabel}`;
+    const applyFailure=()=>{shotCutout=null;shotUseCutout=false;if($("#shotStatus"))$("#shotStatus").textContent=safeStatus;toast(failMessage);drawBloomShot()};
+    const applySuccess=(canvas,methodLabel)=>{shotCutout=canvas;shotUseCutout=true;if($("#shotStatus"))$("#shotStatus").textContent=methodLabel||"Original background removed. Pick a style or background — the arrangement is placed on it.";drawBloomShot()};
     try{
-      const result=window.FlorisynPhotoStudio.removeBackground(shotImage);
-      if(result.ok){
-        shotCutout=result.canvas;shotUseCutout=true;
-        if($("#shotStatus"))$("#shotStatus").textContent="Original background removed. Pick a style or background — the arrangement is placed on it.";
-      }else{
-        /* Quality gate / segmentation failure: never show a rough mask. Keep the
-           original photo intact and leave brightness/contrast/color tools active. */
-        shotCutout=null;shotUseCutout=false;
-        if($("#shotStatus"))$("#shotStatus").textContent=safeStatus;
-        toast(failMessage);
-      }
+      let result=window.FlorisynPhotoStudio.removeBackground(shotImage);
+      if(result.ok){applySuccess(result.canvas);return}
+      /* Fast flood path failed — optionally try lazy-loaded local ONNX (still quality-gated). */
+      if($("#shotStatus"))$("#shotStatus").textContent="Trying higher-quality local removal on this device…";
+      try{
+        const hq=await import("/photo-studio-hq.mjs");
+        if(hq?.removeBackgroundHq){
+          const hqResult=await hq.removeBackgroundHq(shotImage);
+          if(hqResult.ok){applySuccess(hqResult.canvas,"Background removed with local high-quality processing. Pick a style or background.");return}
+        }
+      }catch{}
+      applyFailure();
     }catch{
-      shotCutout=null;shotUseCutout=false;
-      if($("#shotStatus"))$("#shotStatus").textContent=safeStatus;
-      toast(failMessage);
+      applyFailure();
     }
-    drawBloomShot();
   },30);
 }
 function syncShotOutputs(){$$(".bloomshot-controls label").forEach(l=>{const i=l.querySelector("input"),o=l.querySelector("output");if(i&&o)o.textContent=i.id==="shotWarmth"?i.value:`${i.value}%`})}
