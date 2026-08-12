@@ -28,7 +28,12 @@ body.florisyn-atelier #posPage.florisyn-pos-page.active,
 
 body.florisyn-atelier.florisyn-pos-active .shell > .content,
 body.florisyn-pos-active .shell > .content {
-  padding: 10px 12px 12px !important;
+  padding: 0 12px 12px 0 !important;
+}
+
+body.florisyn-atelier.florisyn-pos-active #posPage.florisyn-pos-page.active,
+body.florisyn-pos-active #posPage.florisyn-pos-page.active {
+  margin-left: 0 !important;
 }
 
 /* Workspace shell */
@@ -568,7 +573,8 @@ body.florisyn-atelier .pos-lux-checkout {
   display: flex !important;
   flex-direction: column !important;
   gap: 14px;
-  overflow: auto;
+  overflow: hidden;
+  min-height: 0;
   position: static !important;
   top: auto !important;
   visibility: visible !important;
@@ -666,11 +672,18 @@ body.florisyn-atelier .pos-lux-checkout {
   line-height: 1.15;
 }
 
+#posPage #florisynPosLux .pos-lux-customer-block {
+  flex: 0 0 auto;
+}
+
 #posPage #florisynPosLux .pos-lux-totals {
   border-top: 1px solid var(--pos-border, #eae6e8);
   padding-top: 12px;
   display: grid;
   gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 #posPage #florisynPosLux .pos-lux-line {
@@ -774,6 +787,8 @@ body.florisyn-pos-active #lilyFab {
   display: grid;
   gap: 8px;
   margin-top: auto;
+  flex: 0 0 auto;
+  padding-top: 8px;
 }
 
 #posPage #florisynPosLux .pos-lux-charge,

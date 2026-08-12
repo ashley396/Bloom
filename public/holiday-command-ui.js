@@ -6,7 +6,7 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
 
-  let state = { loading: false, error: null, items: [] };
+  let state = { loading: false, error: null, items: [], showForm: false };
 
   async function api(method, body) {
     const fn = window.bloomHolidayApi || window.api;
@@ -89,11 +89,15 @@
       state.items.length === 0
         ? `<div class="panel"><h3>No holiday peaks yet</h3><p class="subtle">Add Valentine’s, Mother’s Day, or local peak windows to track capacity and pause intake.</p></div>`
         : state.items.map(itemHtml).join("");
-    el.innerHTML = `${formHtml()}<div class="cards" id="holidayList">${list}</div>`;
+    el.innerHTML = `<div class="card-actions" style="margin-bottom:12px"><button type="button" class="primary" id="holidayShowFormBtn">+ Add new Holiday</button></div>${state.showForm ? formHtml() : ""}<div class="cards" id="holidayList">${list}</div>`;
     bind(el);
   }
 
   function bind(el) {
+    el.querySelector("#holidayShowFormBtn")?.addEventListener("click", () => {
+      state.showForm = true;
+      render();
+    });
     el.querySelector("#holidayPeakForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
@@ -104,6 +108,7 @@
       try {
         await api("POST", body);
         toast("Holiday peak added.");
+        state.showForm = false;
         await load();
       } catch (err) {
         toast(err.message || "Could not save peak.");
