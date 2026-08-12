@@ -1,8 +1,10 @@
 /** Bloom Floral Library — master catalog architecture (RC1). */
 
 import { getEverydayFloralLibraryCatalog, EVERYDAY_FLORAL_ARRANGEMENTS } from "./floral-library-everyday-50.js";
+import { getSympathyFloralLibraryCatalog, SYMPATHY_FLORAL_ARRANGEMENTS } from "./floral-library-sympathy.js";
+import { isPublicFloralLibraryProduct } from "../../../lib/floral-library/csv-standard.js";
 
-export { EVERYDAY_FLORAL_ARRANGEMENTS, getEverydayFloralLibraryCatalog };
+export { EVERYDAY_FLORAL_ARRANGEMENTS, getEverydayFloralLibraryCatalog, SYMPATHY_FLORAL_ARRANGEMENTS, getSympathyFloralLibraryCatalog };
 
 export const LIBRARY_CATEGORIES = [
   "Everyday",
@@ -103,11 +105,14 @@ export function getFlorisynSignatureCatalog() {
   return getEverydayFloralLibraryCatalog();
 }
 
-/** Public starter catalog — verified everyday photos only (excludes needs_image_replacement). */
+/** Full master catalog — Everyday + Sympathy batches. */
+export function getFloralLibraryMasterCatalog() {
+  return [...getEverydayFloralLibraryCatalog(), ...getSympathyFloralLibraryCatalog()];
+}
+
+/** Public starter catalog — verified vase arrangements (Everyday + Sympathy). */
 export function getPublicFloralLibraryCatalog() {
-  return getEverydayFloralLibraryCatalog().filter(
-    (p) => !p.metadata?.needs_image_replacement && p.metadata?.launch_quality !== "needs_photo_replacement"
-  );
+  return getFloralLibraryMasterCatalog().filter(isPublicFloralLibraryProduct);
 }
 
 /** @deprecated Legacy starters removed from public catalog — admin import only. */

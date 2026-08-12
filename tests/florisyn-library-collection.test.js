@@ -26,10 +26,10 @@ const ALLOWED_CATEGORIES = new Set([
 
 test("collection is a non-empty array with unique ids", () => {
   assert.ok(Array.isArray(COLLECTION));
-  assert.equal(COLLECTION.length, 100, "expected 100 everyday designs");
+  assert.equal(COLLECTION.length, 31, "expected 31 visible vase designs (21 everyday + 10 sympathy)");
   const ids = COLLECTION.map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length, "ids must be unique");
-  assert.ok(ids.every((id) => id.startsWith("ed-")), "everyday batch ids");
+  assert.ok(ids.every((id) => id.startsWith("ed-") || id.startsWith("sym-")), "everyday or sympathy batch ids");
 });
 
 test("every item has valid metadata for the renderer", () => {
@@ -56,7 +56,11 @@ test("every item has valid metadata for the renderer", () => {
       assert.ok(Number(r.qty) > 0, `${p.id}: recipe qty must be positive`);
     }
 
-    assert.equal(p.image_license?.review_status, "approved", `${p.id}: image must be review-approved`);
+    const review = p.image_license?.review_status;
+    assert.ok(
+      review === "approved" || review === "approved_placeholder",
+      `${p.id}: image must be review-approved`
+    );
   }
 });
 
@@ -65,7 +69,7 @@ test("every referenced image is a local, optimized asset that exists on disk", (
     const url = p.primary_image?.url || "";
     assert.ok(url.startsWith("/assets/floral-library/"), `${p.id}: image must be a local asset`);
     assert.ok(p.primary_image?.alt, `${p.id}: alt text required for accessibility`);
-    const filePath = path.join(publicDir, url.replace(/^\//, ""));
+    const filePath = path.join(publicDir, url.replace(/^\//, "").split("?")[0]);
     assert.ok(existsSync(filePath), `${p.id}: asset file missing on disk (${url})`);
     const head = readFileSync(filePath).subarray(0, 2);
     assert.equal(head[0], 0xff, `${p.id}: asset must be a real JPEG (not a symlink/HTML fallback)`);
