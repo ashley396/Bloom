@@ -27,11 +27,25 @@ test("catalog includes roses hydrangeas wedding sympathy", () => {
 
 test("first visible floral library page uses unique everyday arrangement photos", () => {
   const firstPage = getBloomFloristCatalog(60);
-  assert.equal(firstPage.length, 60);
+  assert.equal(firstPage.length, BLOOM_RC2_CATALOG_SIZE);
   assert.ok(firstPage.every((p) => p.categories.includes("Everyday")));
   assert.ok(firstPage.every((p) => /everyday floral arrangement/i.test(p.description)));
   const imageUrls = firstPage.map((p) => p.primary_image.url);
   assert.equal(new Set(imageUrls).size, imageUrls.length);
+});
+
+test("every visible floral library image is a vetted vase arrangement asset", () => {
+  const catalog = getBloomFloristCatalog(240);
+  const blocked = /pexels|computer|gaming|landscape|waterfall|person|model|single-stem|single-rose|hand-tie|no-vase/i;
+  assert.ok(catalog.length > 0);
+  for (const product of catalog) {
+    assert.match(product.primary_image.url, /^\/assets\/floral-library\/everyday\/ed-\d{2,3}-/);
+    assert.doesNotMatch(product.primary_image.url, blocked);
+    assert.doesNotMatch(`${product.name} ${product.description} ${product.short_description}`, blocked);
+    assert.match(product.description, /arrangement/i);
+    assert.notEqual(product.arrangement_type, "plant");
+    assert.equal(product.image_license.source, "bloom_owned");
+  }
 });
 
 test("first visible floral library recipes are florist-ready and not repeated filler", () => {
@@ -72,5 +86,5 @@ test("RC2 design system css linked from index", () => {
 });
 
 test("catalog default size constant", () => {
-  assert.ok(BLOOM_RC2_CATALOG_SIZE >= 60);
+  assert.ok(BLOOM_RC2_CATALOG_SIZE >= 30);
 });

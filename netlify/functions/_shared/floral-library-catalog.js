@@ -1,76 +1,38 @@
 /** Bloom RC2 — expanded licensed starter catalog (generated, unique names/images). */
 
-const PEXELS_POOL = [
-  "931177",
-  "1070850",
-  "2111192",
-  "169193",
-  "931168",
-  "462402",
-  "1308881",
-  "931167",
-  "459335",
-  "931162",
-  "54200",
-  "736230",
-  "2873966",
-  "568027",
-  "931154",
-  "931159",
-  "1457812",
-  "931165",
-  "931166",
-  "4041381",
-  "568026",
-  "931153",
-  "1121334",
-  "931160",
-  "931161",
-  "931163",
-  "931164",
-  "931169",
-  "931170",
-  "931171",
-  "568028",
-  "568029",
-  "4041392",
-  "2873967",
-  "1457813",
-  "4041382",
-  "4041383",
-  "4041384",
-  "4041385",
-  "4041386",
-  "6641321",
-  "12246243",
-  "15583008",
-  "28871336",
-  "14438233",
-  "8793489",
-  "6913088",
-  "28871333",
-  "31788089",
-  "37023405",
-  "35556908",
-  "35348905",
-  "30248284",
-  "37222812",
-  "31792526",
-  "16812533",
-  "7185245",
-  "28571066",
-  "7875459",
-  "33617307",
-  "269220",
-  "34463054",
-  "35990366",
-  "35042836",
-  "36745140",
-  "15733233",
-  "11814563",
-  "8112797",
-  "2879819",
-  "6757651"
+const VASE_IMAGE_POOL = [
+  "/assets/floral-library/everyday/ed-02-pink-meadow.jpg",
+  "/assets/floral-library/everyday/ed-03-classic-rose-mix.jpg",
+  "/assets/floral-library/everyday/ed-04-cheerful-daisy-burst.jpg",
+  "/assets/floral-library/everyday/ed-05-everyday-hydrangea-pop.jpg",
+  "/assets/floral-library/everyday/ed-14-lavender-breeze.jpg",
+  "/assets/floral-library/everyday/ed-17-rose-mum-harmony.jpg",
+  "/assets/floral-library/everyday/ed-18-alstroemeria-joy.jpg",
+  "/assets/floral-library/everyday/ed-19-sunflower-smile.jpg",
+  "/assets/floral-library/everyday/ed-20-gentle-pastels.jpg",
+  "/assets/floral-library/everyday/ed-25-sweet-simple.jpg",
+  "/assets/floral-library/everyday/ed-27-soft-spring-mix.jpg",
+  "/assets/floral-library/everyday/ed-32-hydrangea-trio.jpg",
+  "/assets/floral-library/everyday/ed-37-classic-cylinder-mix.jpg",
+  "/assets/floral-library/everyday/ed-39-soft-neutral-mix.jpg",
+  "/assets/floral-library/everyday/ed-40-pink-petal-jar.jpg",
+  "/assets/floral-library/everyday/ed-41-golden-glow.jpg",
+  "/assets/floral-library/everyday/ed-42-everyday-blush.jpg",
+  "/assets/floral-library/everyday/ed-44-rose-trio.jpg",
+  "/assets/floral-library/everyday/ed-45-hydrangea-accent.jpg",
+  "/assets/floral-library/everyday/ed-47-bright-tabletop.jpg",
+  "/assets/floral-library/everyday/ed-50-everyday-florist-favorite.jpg",
+  "/assets/floral-library/everyday/ed-53-white-meadow-vase.jpg",
+  "/assets/floral-library/everyday/ed-54-everyday-citrus-mix.jpg",
+  "/assets/floral-library/everyday/ed-59-neutral-rose-vase.jpg",
+  "/assets/floral-library/everyday/ed-67-calm-white-garden.jpg",
+  "/assets/floral-library/everyday/ed-69-hydrangea-daisy-mix.jpg",
+  "/assets/floral-library/everyday/ed-70-everyday-rustic-cylinder.jpg",
+  "/assets/floral-library/everyday/ed-71-modern-neutral-jar.jpg",
+  "/assets/floral-library/everyday/ed-76-gentle-white-trio.jpg",
+  "/assets/floral-library/everyday/ed-84-bright-daily-cylinder.jpg",
+  "/assets/floral-library/everyday/ed-85-pink-white-everyday.jpg",
+  "/assets/floral-library/everyday/ed-97-soft-pastel-jar.jpg"
 ];
 
 const EVERYDAY_RECIPES = [
@@ -114,10 +76,6 @@ const OCCASIONS = [
   { cat: "Christmas", slug: "christmas" }
 ];
 
-function pexelsUrl(id) {
-  return `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=1200`;
-}
-
 function hash(s) {
   let h = 0;
   for (let i = 0; i < String(s).length; i++) h = (h * 31 + String(s).charCodeAt(i)) >>> 0;
@@ -134,8 +92,7 @@ function mkProduct(index) {
     : `${style} ${recipeTemplate[0]} ${occ.cat === "Everyday" ? "Arrangement" : occ.cat}`.replace(" bouquets", "");
   const name = `${baseName} ${index + 1}`;
   const id = `lib-rc2-${occ.slug}-${String(index).padStart(3, "0")}`;
-  const photoId = PEXELS_POOL[index % PEXELS_POOL.length];
-  const url = pexelsUrl(photoId);
+  const url = VASE_IMAGE_POOL[index % VASE_IMAGE_POOL.length];
   const price = 49.99 + (index % 12) * 7.5 + (occ.cat.includes("Luxury") || occ.cat.includes("Wedding") ? 40 : 0);
   const description = `An ultra-realistic ${style.toLowerCase()} everyday floral arrangement with florist-ready recipe guidance and licensed starter photography; replace with your own shop work anytime.`;
   return {
@@ -150,8 +107,8 @@ function mkProduct(index) {
     short_description: description.slice(0, 120),
     primary_image: { url, alt: `${name} ultra-realistic everyday floral arrangement photograph`, hash: hash(`${id}-${url}`) },
     image_license: {
-      source: "licensed_stock_pexels",
-      attribution: "Pexels — verify license at import",
+      source: "bloom_owned",
+      attribution: "Florisyn vetted vase-arrangement starter asset",
       review_status: "approved_starter"
     },
     recipe: recipeTemplate[1].map(([name, qty]) => ({ name, qty })),
@@ -166,10 +123,10 @@ function mkProduct(index) {
   };
 }
 
-/** Starter arrangements are capped to the verified unique photo pool so the library never repeats pictures. */
+/** Starter arrangements are capped to the vetted vase-arrangement pool so bad subjects never appear. */
 export function getBloomFloristCatalog(count = 240) {
-  const n = Math.max(1, Math.min(PEXELS_POOL.length, count));
+  const n = Math.max(1, Math.min(VASE_IMAGE_POOL.length, count));
   return Array.from({ length: n }, (_, i) => mkProduct(i));
 }
 
-export const BLOOM_RC2_CATALOG_SIZE = PEXELS_POOL.length;
+export const BLOOM_RC2_CATALOG_SIZE = VASE_IMAGE_POOL.length;
