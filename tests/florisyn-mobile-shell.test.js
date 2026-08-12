@@ -12,7 +12,7 @@ test("mobile shell stylesheet loads after POS CSS and before critical inline blo
   const criticalIdx = html.indexOf("florisyn-pos-critical");
   assert.ok(posIdx >= 0 && shellIdx > posIdx, "mobile shell should load after luxury POS CSS");
   assert.ok(shellIdx < criticalIdx, "mobile shell should load before POS critical inline CSS");
-  assert.match(html, /florisyn-mobile-shell\.css\?v=m11/);
+  assert.match(html, /florisyn-mobile-shell\.css\?v=m12/);
 });
 
 test("mobile shell implements drawer, viewport stack, scroll lock, and five-tab grid", () => {
