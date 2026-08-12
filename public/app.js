@@ -940,19 +940,23 @@ function prepareShotCutout(){
   /* Defer the pixel work one tick so the original photo paints immediately. */
   setTimeout(()=>{
     const failMessage=window.FlorisynPhotoStudio?.FAILURE_MESSAGE||"Background could not be fully removed. Try a cleaner product photo.";
+    const fallbackLabel=window.FlorisynPhotoStudio?.FALLBACK_LABEL||"Background removal was not applied. Brightness, contrast, and color tools still work on the original photo.";
+    const safeStatus=`${failMessage} ${fallbackLabel}`;
     try{
       const result=window.FlorisynPhotoStudio.removeBackground(shotImage);
       if(result.ok){
         shotCutout=result.canvas;shotUseCutout=true;
         if($("#shotStatus"))$("#shotStatus").textContent="Original background removed. Pick a style or background — the arrangement is placed on it.";
       }else{
+        /* Quality gate / segmentation failure: never show a rough mask. Keep the
+           original photo intact and leave brightness/contrast/color tools active. */
         shotCutout=null;shotUseCutout=false;
-        if($("#shotStatus"))$("#shotStatus").textContent=failMessage;
+        if($("#shotStatus"))$("#shotStatus").textContent=safeStatus;
         toast(failMessage);
       }
     }catch{
       shotCutout=null;shotUseCutout=false;
-      if($("#shotStatus"))$("#shotStatus").textContent=failMessage;
+      if($("#shotStatus"))$("#shotStatus").textContent=safeStatus;
       toast(failMessage);
     }
     drawBloomShot();
