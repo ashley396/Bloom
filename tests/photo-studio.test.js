@@ -179,8 +179,7 @@ test("quality gate: subject damage over threshold must fail", () => {
     `expected subject-damage/excessive-subject-holes, got ${gate.reason}`
   );
   assert.ok(
-    gate.metrics.coreHoleRatio > studio.QUALITY_THRESHOLDS.maxCoreHoleRatio ||
-      gate.metrics.enclosedHoleRatio > studio.QUALITY_THRESHOLDS.maxEnclosedHoleRatio ||
+    gate.metrics.enclosedHoleRatio > studio.QUALITY_THRESHOLDS.maxEnclosedHoleRatio ||
       gate.metrics.fragLowerRatio > studio.QUALITY_THRESHOLDS.maxFragLowerRatio
   );
 });
@@ -196,7 +195,8 @@ test("quality gate: clean simple background must pass", () => {
   assert.equal(alphaAt(result, 80, 40, 40), 255);
   assert.ok(result.metrics, "metrics attached on success");
   assert.ok(result.metrics.stripeColRatio <= studio.QUALITY_THRESHOLDS.maxStripeColRatio);
-  assert.ok(result.metrics.coreHoleRatio <= studio.QUALITY_THRESHOLDS.maxCoreHoleRatio);
+  assert.ok(result.metrics.fragLowerRatio <= studio.QUALITY_THRESHOLDS.maxFragLowerRatio);
+  assert.ok(result.metrics.enclosedHoleRatio <= studio.QUALITY_THRESHOLDS.maxEnclosedHoleRatio);
 });
 
 test("quality gate: successful output must not keep a rectangular photo seam", () => {
@@ -263,8 +263,7 @@ test("photo studio module is loaded by the shell", () => {
 test("quality thresholds are exported for launch review", () => {
   const t = studio.QUALITY_THRESHOLDS;
   assert.equal(t.maxEnclosedHoleRatio, 0.04);
-  assert.equal(t.maxCoreHoleRatio, 0.16);
-  assert.equal(t.maxFragLowerRatio, 0.38);
+  assert.equal(t.maxFragLowerRatio, 0.32);
   assert.equal(t.maxStripeColRatio, 0.2);
   assert.equal(t.maxNearIslandRatio, 0.025);
   assert.equal(t.maxEdgeOpaqueRatio, 0.08);

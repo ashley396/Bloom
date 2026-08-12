@@ -33,8 +33,9 @@
   /** Launch-quality thresholds for the post-removal mask gate. */
   var QUALITY_THRESHOLDS = {
     maxEnclosedHoleRatio: 0.04,
-    maxCoreHoleRatio: 0.16,
-    maxFragLowerRatio: 0.38,
+    /* Lower-zone row fragmentation catches eaten vase/base regions without
+       punishing natural bouquet silhouettes (narrow vase under a wide head). */
+    maxFragLowerRatio: 0.32,
     maxStripeColRatio: 0.2,
     maxNearIslandRatio: 0.025,
     maxEdgeOpaqueRatio: 0.08,
@@ -123,22 +124,6 @@
     var enclosed = 0;
     for (p = 0; p < bbox; p++) if (inside[p] && !vis[p]) enclosed++;
     var enclosedHoleRatio = enclosed / bbox;
-
-    // Core damage: transparency inside an inset of the subject bbox (eaten vase).
-    var insetX = Math.max(1, Math.round(bw * 0.12));
-    var insetY = Math.max(1, Math.round(bh * 0.12));
-    var ix0 = minX + insetX, ix1 = maxX - insetX;
-    var iy0 = minY + insetY, iy1 = maxY - insetY;
-    var coreTot = 0, coreTr = 0;
-    if (ix1 > ix0 && iy1 > iy0) {
-      for (y = iy0; y <= iy1; y++) {
-        for (x = ix0; x <= ix1; x++) {
-          coreTot++;
-          if (data[(y * width + x) * 4 + 3] < opaqueCut) coreTr++;
-        }
-      }
-    }
-    var coreHoleRatio = coreTot ? coreTr / coreTot : 0;
 
     // Row fragmentation in the lower subject zone (vase / base damage).
     var fragLowerRows = 0, fragLowerCount = 0;
@@ -244,7 +229,6 @@
 
     var metrics = {
       enclosedHoleRatio: enclosedHoleRatio,
-      coreHoleRatio: coreHoleRatio,
       fragLowerRatio: fragLowerRatio,
       stripeColRatio: stripeColRatio,
       edgeOpaqueRatio: edgeOpaqueRatio,
@@ -279,7 +263,7 @@
     if (enclosedHoleRatio > t.maxEnclosedHoleRatio) {
       return { ok: false, reason: "excessive-subject-holes", metrics: metrics };
     }
-    if (coreHoleRatio > t.maxCoreHoleRatio || fragLowerRatio > t.maxFragLowerRatio) {
+    if (fragLowerRatio > t.maxFragLowerRatio) {
       return { ok: false, reason: "subject-damage", metrics: metrics };
     }
     if (nearIslandRatio > t.maxNearIslandRatio) {
