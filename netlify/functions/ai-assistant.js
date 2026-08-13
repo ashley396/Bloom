@@ -73,7 +73,9 @@ async function cloudflareAi(payload){
   const user=payload.mode==="generate"
     ?`Task: ${safeText(payload.task,1200)}\nInput: ${jsonWithinLimit(payload.input||{},30000)}\nReturn ONLY valid JSON matching this shape: ${jsonWithinLimit(payload.schema||{text:"result"},5000)}`
     :`Question: ${safeText(payload.prompt,4000)}\nRelevant Florisyn context: ${jsonWithinLimit(payload.context||{},32000)}`;
-  const url=`https://api.cloudflare.com/client/v4/accounts/${account}/ai/run/${encodeURIComponent(model)}`;
+  // Model slug (e.g. "@cf/meta/llama-3.1-8b-instruct-fast") must stay literal in the path —
+  // encodeURIComponent turns its "/" into "%2F", which Cloudflare rejects as "No route for that URI".
+  const url=`https://api.cloudflare.com/client/v4/accounts/${account}/ai/run/${model}`;
   const maxTokens=Math.min(1200,Math.max(400,Number(payload.max_tokens)||(mode==="generate"?800:550)));
   const temperature=temperatureForPersona(persona, mode);
   const r=await fetch(url,{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"system",content:systemPrompt(persona, mode)},{role:"user",content:user}],max_tokens:maxTokens,temperature})});

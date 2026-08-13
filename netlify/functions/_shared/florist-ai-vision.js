@@ -75,7 +75,9 @@ async function runVisionModel(model, imageVariants, prompt) {
     e.statusCode = 503;
     throw e;
   }
-  const url = `https://api.cloudflare.com/client/v4/accounts/${account}/ai/run/${encodeURIComponent(model)}`;
+  // Model slug must stay literal in the path — encodeURIComponent turns its "/" into "%2F",
+  // which Cloudflare rejects as "No route for that URI".
+  const url = `https://api.cloudflare.com/client/v4/accounts/${account}/ai/run/${model}`;
   const isLlava = /llava/i.test(model);
   const isUform = /uform/i.test(model);
   let lastError = null;
