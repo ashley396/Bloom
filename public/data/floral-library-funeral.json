@@ -1,0 +1,1026 @@
+{
+  "version": "1.0",
+  "collection": "florisyn_category_library",
+  "category": "Funeral",
+  "category_note": "Service pieces delivered to the funeral home/service (standing sprays, wreaths, casket sprays, easel designs) — distinct from Sympathy comfort flowers sent to the home.",
+  "target_count": 20,
+  "image_style": "professional florist e-commerce product photograph, single arrangement centered, pure white seamless studio background, soft even studio lighting, ultra-realistic, no text/people",
+  "arrangements": [
+    {
+      "id": "fn-01-standing-spray-white",
+      "name": "Cherished Farewell Standing Spray",
+      "style": "formal",
+      "color_palette": "white, green",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "standing spray on easel",
+      "container": "wire easel with floral foam cage",
+      "recipe": [
+        {
+          "name": "White Gladioli",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Football Chrysanthemums",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "White Oriental Lilies",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 12,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf",
+        "Emerald Palm"
+      ],
+      "short_description": "A grand all-white standing spray of remembrance.",
+      "description": "A stately all-white standing spray of gladioli, football mums, roses, and lilies on an easel — a dignified tribute for the service.",
+      "suggested_retail": 199.99,
+      "image": "everyday/fn-01-standing-spray-white.jpg",
+      "alt": "All-white funeral standing spray on an easel on a white background",
+      "content_sha256": "4cd2a352fed505a5f9f1b594df150f989b6abab4def59033edfd002fe998d2b9",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-02-casket-spray-roses",
+      "name": "Loving Tribute Casket Spray",
+      "style": "formal",
+      "color_palette": "red, white",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "casket spray",
+      "container": "casket saddle with floral foam",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 18,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 12,
+          "kind": "flower"
+        },
+        {
+          "name": "White Oriental Lilies",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Israeli Ruscus",
+          "qty": 12,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Israeli Ruscus",
+        "Salal"
+      ],
+      "short_description": "A full casket spray of red and white roses.",
+      "description": "A lush half-couch casket spray of red and white roses with lilies — a loving tribute to rest atop the casket.",
+      "suggested_retail": 299.99,
+      "image": "everyday/fn-02-casket-spray-roses.jpg",
+      "alt": "Red and white rose casket spray on a white background",
+      "content_sha256": "fbe6077f0f99fea351ccf8ea9c10ed03373d9361714410dc21fc46e00ba163b7",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-03-wreath-eternal",
+      "name": "Eternal Peace Wreath",
+      "style": "formal",
+      "color_palette": "white, green",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "wreath on easel",
+      "container": "18-inch foam wreath ring on easel",
+      "recipe": [
+        {
+          "name": "White Carnations",
+          "qty": 24,
+          "kind": "flower"
+        },
+        {
+          "name": "White Chrysanthemums",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 12,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A circular white wreath symbolizing eternal life.",
+      "description": "A full circular wreath of white carnations, mums, and roses — the timeless symbol of eternal life and remembrance.",
+      "suggested_retail": 189.99,
+      "image": "everyday/fn-03-wreath-eternal.jpg",
+      "alt": "White funeral wreath on an easel on a white background",
+      "content_sha256": "7d01166f1028473cc3fbb47487c3b6ec6c65b944eca36f298dd0b68b45de944e",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-04-standing-spray-mixed",
+      "name": "Gates of Heaven Standing Spray",
+      "style": "formal",
+      "color_palette": "pink, white, green",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "standing spray on easel",
+      "container": "wire easel with floral foam cage",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lilies",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Gladioli",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Snapdragons",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 12,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A soft pink and white standing tribute spray.",
+      "description": "A graceful standing spray of pink roses, white lilies, and gladioli — a soft, comforting tribute for the service.",
+      "suggested_retail": 189.99,
+      "image": "everyday/fn-04-standing-spray-mixed.jpg",
+      "alt": "Pink and white funeral standing spray on a white background",
+      "content_sha256": "bc214fa54277bb1e906ace189b75de6cb235056734c184c8701da765916e6aaa",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-05-heart-tribute-red",
+      "name": "Sacred Heart Tribute",
+      "style": "formal",
+      "color_palette": "red, white",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "floral heart on easel",
+      "container": "foam heart form on easel",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 20,
+          "kind": "flower"
+        },
+        {
+          "name": "White Carnations",
+          "qty": 16,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 10,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A solid heart of red roses and white carnations.",
+      "description": "A heart-shaped tribute of red roses bordered in white carnations — a heartfelt symbol of enduring love.",
+      "suggested_retail": 209.99,
+      "image": "everyday/fn-05-heart-tribute-red.jpg",
+      "alt": "Red rose and white carnation funeral heart on a white background",
+      "content_sha256": "7e0f9ab16296fa031c49735c35c7e01433f1518e0d4afd1c5cb87b3106f5bf08",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-06-casket-spray-white",
+      "name": "Peaceful White Casket Spray",
+      "style": "formal",
+      "color_palette": "white, green",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "casket spray",
+      "container": "casket saddle with floral foam",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 18,
+          "kind": "flower"
+        },
+        {
+          "name": "White Oriental Lilies",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Snapdragons",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Israeli Ruscus",
+          "qty": 12,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Israeli Ruscus"
+      ],
+      "short_description": "A serene all-white casket spray.",
+      "description": "A serene half-couch casket spray of white roses, lilies, and snapdragons — pure and peaceful for the final farewell.",
+      "suggested_retail": 289.99,
+      "image": "everyday/fn-06-casket-spray-white.jpg",
+      "alt": "All-white casket spray on a white background",
+      "content_sha256": "9f7ac792e5a6ea4fc1429ed01b5d48eb480ea6dbb3a21240f9b0cce8042b2ca1",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-07-standing-cross",
+      "name": "Blessed Cross",
+      "style": "formal",
+      "color_palette": "white, yellow",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "floral cross on easel",
+      "container": "foam cross form on easel",
+      "recipe": [
+        {
+          "name": "White Carnations",
+          "qty": 24,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Chrysanthemums",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 10,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A floral cross of faith and remembrance.",
+      "description": "A standing floral cross of white carnations accented with yellow roses — a reverent symbol of faith.",
+      "suggested_retail": 199.99,
+      "image": "everyday/fn-07-standing-cross.jpg",
+      "alt": "White and yellow funeral cross on an easel on a white background",
+      "content_sha256": "f8e6be33bb496f27943fcb7d2cb6a8d3b761f34d89305a143502770938cb8914",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-08-basket-tribute-mixed",
+      "name": "Fond Memories Basket",
+      "style": "traditional",
+      "color_palette": "mixed",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "funeral basket",
+      "container": "tall willow funeral basket",
+      "recipe": [
+        {
+          "name": "Yellow Chrysanthemums",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Bronze Chrysanthemums",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Gladioli",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 10,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A warm autumn-toned funeral basket.",
+      "description": "A warm tribute basket of golden and bronze mums, roses, and gladioli — celebrating a life warmly remembered.",
+      "suggested_retail": 149.99,
+      "image": "everyday/fn-08-basket-tribute-mixed.jpg",
+      "alt": "Autumn-toned funeral basket on a white background",
+      "content_sha256": "2bd4fcc7ac4fa2955f46f3b0d9d06885c1440ccdd0d71597095c4d70c9995432",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-09-standing-spray-red",
+      "name": "Deepest Sympathy Standing Spray",
+      "style": "formal",
+      "color_palette": "red, white",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "standing spray on easel",
+      "container": "wire easel with floral foam cage",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 12,
+          "kind": "flower"
+        },
+        {
+          "name": "White Football Chrysanthemums",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Red Carnations",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "White Gladioli",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 12,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A bold red and white standing spray.",
+      "description": "A striking standing spray of red roses and carnations with white mums and gladioli — a bold expression of deepest sympathy.",
+      "suggested_retail": 189.99,
+      "image": "everyday/fn-09-standing-spray-red.jpg",
+      "alt": "Red and white funeral standing spray on a white background",
+      "content_sha256": "a606c84aab90c52395c11688eb4913eff2ead66d7a624a5ba06623999e865b8f",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-10-wreath-mixed-pastel",
+      "name": "Garden of Grace Wreath",
+      "style": "garden",
+      "color_palette": "pastel, mixed",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "wreath on easel",
+      "container": "18-inch foam wreath ring on easel",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Lavender Stock",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 12,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A soft pastel garden-style wreath.",
+      "description": "A garden-style wreath of pink roses, hydrangea, and stock — a soft, natural circle of grace and peace.",
+      "suggested_retail": 199.99,
+      "image": "everyday/fn-10-wreath-mixed-pastel.jpg",
+      "alt": "Pastel garden funeral wreath on a white background",
+      "content_sha256": "7d81d4da2b715ca446ae73f129c4f935bf08435a406ac672740ed54e94d75f7c",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-11-casket-spray-pink",
+      "name": "Precious Memories Casket Spray",
+      "style": "formal",
+      "color_palette": "pink, white",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "casket spray",
+      "container": "casket saddle with floral foam",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 16,
+          "kind": "flower"
+        },
+        {
+          "name": "White Oriental Lilies",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Carnations",
+          "qty": 12,
+          "kind": "flower"
+        },
+        {
+          "name": "Israeli Ruscus",
+          "qty": 12,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Israeli Ruscus"
+      ],
+      "short_description": "A tender pink and white casket spray.",
+      "description": "A tender half-couch casket spray of pink roses, lilies, and carnations — precious memories in bloom.",
+      "suggested_retail": 289.99,
+      "image": "everyday/fn-11-casket-spray-pink.jpg",
+      "alt": "Pink and white casket spray on a white background",
+      "content_sha256": "be2f7ac3322b4ba712d2d90fe859be7ca7c4fcc9b8363f5eb2c5190bb3105e30",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-12-standing-easel-lilies",
+      "name": "White Lily Tribute Easel",
+      "style": "elegant",
+      "color_palette": "white, green",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "standing spray on easel",
+      "container": "wire easel with floral foam cage",
+      "recipe": [
+        {
+          "name": "White Oriental Lilies",
+          "qty": 12,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "Israeli Ruscus",
+          "qty": 12,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Israeli Ruscus"
+      ],
+      "short_description": "An elegant standing spray of white lilies.",
+      "description": "An elegant standing tribute of fragrant white lilies and roses — pure, graceful, and deeply comforting.",
+      "suggested_retail": 179.99,
+      "image": "everyday/fn-12-standing-easel-lilies.jpg",
+      "alt": "White lily funeral standing spray on a white background",
+      "content_sha256": "180268d3989b64c6230e469c9b8393d27db2ad66e30da42ed6a80b9a8a3ad41d",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-13-tribute-basket-white",
+      "name": "Serene Sanctuary Basket",
+      "style": "traditional",
+      "color_palette": "white, green",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "funeral basket",
+      "container": "tall willow funeral basket",
+      "recipe": [
+        {
+          "name": "White Gladioli",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Chrysanthemums",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 10,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A tall all-white funeral tribute basket.",
+      "description": "A tall willow basket of white gladioli, mums, and roses — a serene sanctuary of remembrance for the service.",
+      "suggested_retail": 149.99,
+      "image": "everyday/fn-13-tribute-basket-white.jpg",
+      "alt": "All-white funeral tribute basket on a white background",
+      "content_sha256": "558bd741b905c1ad9df307e3df6e821e3f2c36152c53c494caf28b8f4980ef70",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-14-standing-spray-blue",
+      "name": "Peaceful Blue Horizon Spray",
+      "style": "formal",
+      "color_palette": "blue, white",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "standing spray on easel",
+      "container": "wire easel with floral foam cage",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "Blue Delphinium",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Gladioli",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Dusty Miller",
+          "qty": 10,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Dusty Miller"
+      ],
+      "short_description": "A tranquil blue and white standing spray.",
+      "description": "A tranquil standing spray of blue hydrangea and delphinium with white roses — a peaceful horizon of comfort.",
+      "suggested_retail": 199.99,
+      "image": "everyday/fn-14-standing-spray-blue.jpg",
+      "alt": "Blue and white funeral standing spray on a white background",
+      "content_sha256": "4c1998a1383750d04cc388f46e98f1cc35f5bbf22271c9f7c2bc149e1a86d146",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-15-wreath-red-roses",
+      "name": "Honored Life Rose Wreath",
+      "style": "formal",
+      "color_palette": "red, green",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "wreath on easel",
+      "container": "18-inch foam wreath ring on easel",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 24,
+          "kind": "flower"
+        },
+        {
+          "name": "Salal",
+          "qty": 12,
+          "kind": "foliage"
+        },
+        {
+          "name": "Israeli Ruscus",
+          "qty": 8,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Salal",
+        "Israeli Ruscus"
+      ],
+      "short_description": "A full red rose wreath honoring a life.",
+      "description": "A full circular wreath of two dozen red roses on rich greenery — a bold, honored tribute to a cherished life.",
+      "suggested_retail": 229.99,
+      "image": "everyday/fn-15-wreath-red-roses.jpg",
+      "alt": "Red rose funeral wreath on a white background",
+      "content_sha256": "181f72258b409165b2c4f22b9759008a32b06f30707e4080ea2f2895922aea49",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-16-standing-spray-autumn",
+      "name": "Autumn Remembrance Spray",
+      "style": "seasonal",
+      "color_palette": "orange, bronze, yellow",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "standing spray on easel",
+      "container": "wire easel with floral foam cage",
+      "recipe": [
+        {
+          "name": "Bronze Football Chrysanthemums",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Gladioli",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Lilies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Oak Leaves",
+          "qty": 10,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Oak Leaves",
+        "Leatherleaf"
+      ],
+      "short_description": "A warm autumn standing tribute spray.",
+      "description": "A warm autumn spray of bronze mums, orange roses, and lilies — a golden tribute to a life warmly remembered.",
+      "suggested_retail": 189.99,
+      "image": "everyday/fn-16-standing-spray-autumn.jpg",
+      "alt": "Autumn-toned funeral standing spray on a white background",
+      "content_sha256": "1f1d18cb240ea8a355ac673af31eecc5b1450a94b28cab5302740d5146876c4e",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-17-casket-adornment",
+      "name": "Treasured Casket Adornment",
+      "style": "formal",
+      "color_palette": "white, pink",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "small casket adornment",
+      "container": "compact casket saddle",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Spray Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Israeli Ruscus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Israeli Ruscus"
+      ],
+      "short_description": "A petite casket adornment of white and pink.",
+      "description": "A treasured petite casket piece of white roses and pink spray roses — often chosen by grandchildren or close friends.",
+      "suggested_retail": 129.99,
+      "image": "everyday/fn-17-casket-adornment.jpg",
+      "alt": "White and pink casket adornment on a white background",
+      "content_sha256": "b272407af13955141fe19d0822c782307f81e5672ba9a991dd2d8b64098c3bab",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-18-standing-spray-sunflower",
+      "name": "Sunlit Memories Spray",
+      "style": "seasonal",
+      "color_palette": "yellow, white",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "standing spray on easel",
+      "container": "wire easel with floral foam cage",
+      "recipe": [
+        {
+          "name": "Sunflowers",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Football Chrysanthemums",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Gladioli",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 12,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A sunny sunflower standing tribute.",
+      "description": "A bright standing spray of sunflowers, white mums, and yellow roses — celebrating a warm, sunlit life.",
+      "suggested_retail": 189.99,
+      "image": "everyday/fn-18-standing-spray-sunflower.jpg",
+      "alt": "Sunflower funeral standing spray on a white background",
+      "content_sha256": "2f077af174b46c388cbeb970877ea87856ce65564692089a1b723aacc1e806db",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-19-wreath-white-green",
+      "name": "Circle of Life Wreath",
+      "style": "elegant",
+      "color_palette": "white, green",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "wreath on easel",
+      "container": "18-inch foam wreath ring on easel",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 12,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Seeded Eucalyptus",
+          "qty": 14,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Seeded Eucalyptus"
+      ],
+      "short_description": "An elegant white and green circle of life.",
+      "description": "An elegant wreath of white roses and hydrangea nestled in seeded eucalyptus — the peaceful circle of life.",
+      "suggested_retail": 209.99,
+      "image": "everyday/fn-19-wreath-white-green.jpg",
+      "alt": "White and green funeral wreath on a white background",
+      "content_sha256": "941c4d8ad50be4be6e759b92137f26aeeae10d8a22709ccb34d48fe8e145d86f",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "fn-20-standing-spray-lavender",
+      "name": "Lavender Serenity Spray",
+      "style": "formal",
+      "color_palette": "lavender, white",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "standing spray on easel",
+      "container": "wire easel with floral foam cage",
+      "recipe": [
+        {
+          "name": "Lavender Roses",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lilies",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Stock",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Gladioli",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 12,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A serene lavender and white standing spray.",
+      "description": "A calming standing spray of lavender roses, white lilies, and stock — serene and restful for the service.",
+      "suggested_retail": 189.99,
+      "image": "everyday/fn-20-standing-spray-lavender.jpg",
+      "alt": "Lavender and white funeral standing spray on a white background",
+      "content_sha256": "3cfb8cd34637579fbf877cfaee9dce4590c3612e6db301061e0123bfc85f0ab7",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    }
+  ],
+  "generated_at": "2026-08-13T14:36:33.420Z",
+  "image_source": "ai_generated_cloudflare_flux"
+}

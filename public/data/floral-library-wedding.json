@@ -1,0 +1,976 @@
+{
+  "version": "1.0",
+  "collection": "florisyn_category_library",
+  "category": "Wedding",
+  "target_count": 20,
+  "image_style": "professional florist e-commerce product photograph, single arrangement centered, pure white seamless studio background, soft even studio lighting, ultra-realistic, no text/people",
+  "arrangements": [
+    {
+      "id": "wd-01-classic-white-bridal",
+      "name": "Classic White Bridal Bouquet",
+      "style": "elegant",
+      "color_palette": "white, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "hand-tied bridal bouquet",
+      "container": "hand-tied with satin ribbon wrap",
+      "recipe": [
+        {
+          "name": "White Garden Roses",
+          "qty": 9,
+          "kind": "flower"
+        },
+        {
+          "name": "White Ranunculus",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Seeded Eucalyptus",
+          "qty": 8,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Seeded Eucalyptus",
+        "Italian Ruscus"
+      ],
+      "short_description": "A timeless all-white hand-tied bridal bouquet.",
+      "description": "A timeless bridal bouquet of white garden roses, ranunculus, and lisianthus with trailing eucalyptus — pure, elegant, and unforgettable.",
+      "suggested_retail": 189.99,
+      "image": "everyday/wd-01-classic-white-bridal.jpg",
+      "alt": "All-white bridal bouquet on a white background",
+      "content_sha256": "29ef44840f5da32f6630c98c111eb8411eae58220be1bcb76f7cfae88223100e",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-02-blush-garden-bridal",
+      "name": "Blush Garden Bridal Bouquet",
+      "style": "romantic",
+      "color_palette": "blush, cream, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "hand-tied bridal bouquet",
+      "container": "hand-tied with silk ribbon wrap",
+      "recipe": [
+        {
+          "name": "Blush Garden Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Cream Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Ranunculus",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Astilbe",
+          "qty": 5,
+          "kind": "filler"
+        },
+        {
+          "name": "Silver Dollar Eucalyptus",
+          "qty": 8,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Silver Dollar Eucalyptus"
+      ],
+      "short_description": "A soft blush garden-style bridal bouquet.",
+      "description": "A lush, romantic bouquet of blush and cream garden roses with ranunculus and feathery astilbe — soft, natural, and dreamy.",
+      "suggested_retail": 209.99,
+      "image": "everyday/wd-02-blush-garden-bridal.jpg",
+      "alt": "Blush garden bridal bouquet on a white background",
+      "content_sha256": "2401ac51bed092566a6033048792deeb7949d7819fad407942573ab2dc5f9be6",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-03-cascading-bridal",
+      "name": "Cascading Bridal Bouquet",
+      "style": "dramatic",
+      "color_palette": "white, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "cascade bridal bouquet",
+      "container": "cascade hand-tied with ribbon",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "White Phalaenopsis Orchids",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Stephanotis",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Trailing Ivy",
+          "qty": 8,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Trailing Ivy",
+        "Italian Ruscus"
+      ],
+      "short_description": "A dramatic cascading white orchid bouquet.",
+      "description": "A luxurious cascading bouquet of white roses and orchids trailing with ivy — a dramatic, romantic statement for the aisle.",
+      "suggested_retail": 259.99,
+      "image": "everyday/wd-03-cascading-bridal.jpg",
+      "alt": "Cascading white bridal bouquet on a white background",
+      "content_sha256": "7c142b529fdea40371dc8b0c1c2532599607501159f2230f338d50d22a02f60b",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-04-bridesmaid-blush",
+      "name": "Blush Bridesmaid Bouquet",
+      "style": "romantic",
+      "color_palette": "blush, pink, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "bridesmaid bouquet",
+      "container": "hand-tied with ribbon wrap",
+      "recipe": [
+        {
+          "name": "Blush Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Spray Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A petite blush bridesmaid bouquet.",
+      "description": "A softer, smaller companion bouquet of blush roses and lisianthus — perfect for the bridal party.",
+      "suggested_retail": 89.99,
+      "image": "everyday/wd-04-bridesmaid-blush.jpg",
+      "alt": "Blush bridesmaid bouquet on a white background",
+      "content_sha256": "0b5a9ce3ad5002eab4cf8a270ace560dea0dd1c8e9f99af51873859c82154724",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-05-romantic-red-bridal",
+      "name": "Romantic Red Bridal Bouquet",
+      "style": "dramatic",
+      "color_palette": "red, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "hand-tied bridal bouquet",
+      "container": "hand-tied with black satin ribbon",
+      "recipe": [
+        {
+          "name": "Red Garden Roses",
+          "qty": 12,
+          "kind": "flower"
+        },
+        {
+          "name": "Burgundy Ranunculus",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Italian Ruscus",
+          "qty": 8,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Italian Ruscus"
+      ],
+      "short_description": "A bold, romantic red bridal bouquet.",
+      "description": "A striking bouquet of red garden roses and burgundy ranunculus — bold, passionate romance for the bride.",
+      "suggested_retail": 199.99,
+      "image": "everyday/wd-05-romantic-red-bridal.jpg",
+      "alt": "Red bridal bouquet on a white background",
+      "content_sha256": "e0fb5917c87742902bf8c3cf0094dfa508f89e166ba43447218e990762c020a6",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-06-centerpiece-white-low",
+      "name": "White Low Centerpiece",
+      "style": "elegant",
+      "color_palette": "white, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "low reception centerpiece",
+      "container": "gold compote bowl",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Ranunculus",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 10,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A lush low white reception centerpiece.",
+      "description": "A lush low centerpiece of white roses, hydrangea, and ranunculus in a gold compote — elegant for every reception table.",
+      "suggested_retail": 129.99,
+      "image": "everyday/wd-06-centerpiece-white-low.jpg",
+      "alt": "White low wedding centerpiece in a gold compote on a white background",
+      "content_sha256": "506880832aa23e00f36266ffcbb6585a367bff78da4e8ecc5038fdd8b999fd2b",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-07-centerpiece-tall",
+      "name": "Tall Romance Centerpiece",
+      "style": "grand",
+      "color_palette": "blush, white, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "tall reception centerpiece",
+      "container": "tall glass trumpet vase",
+      "recipe": [
+        {
+          "name": "Blush Roses",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Stock",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 12,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus",
+        "Italian Ruscus"
+      ],
+      "short_description": "A dramatic tall blush and white centerpiece.",
+      "description": "A grand tall centerpiece of blush roses and white hydrangea cascading from a trumpet vase — romantic drama for head tables.",
+      "suggested_retail": 179.99,
+      "image": "everyday/wd-07-centerpiece-tall.jpg",
+      "alt": "Tall blush and white wedding centerpiece on a white background",
+      "content_sha256": "6bb59e820df1ac46653d6f6b1dcec9cfc7d8f6f1df4ad3b300698988ec36f33a",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-08-boutonniere-rose",
+      "name": "Classic Rose Boutonniere",
+      "style": "classic",
+      "color_palette": "white, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "boutonniere",
+      "container": "wired and taped with pin",
+      "recipe": [
+        {
+          "name": "White Spray Rose",
+          "qty": 1,
+          "kind": "flower"
+        },
+        {
+          "name": "Seeded Eucalyptus",
+          "qty": 1,
+          "kind": "foliage"
+        },
+        {
+          "name": "Wax Flower",
+          "qty": 1,
+          "kind": "filler"
+        }
+      ],
+      "foliage": [
+        "Seeded Eucalyptus"
+      ],
+      "short_description": "A classic single-rose boutonniere.",
+      "description": "A refined boutonniere of a single white spray rose with seeded eucalyptus — timeless for the groom and groomsmen.",
+      "suggested_retail": 18.99,
+      "image": "everyday/wd-08-boutonniere-rose.jpg",
+      "alt": "White rose boutonniere on a white background",
+      "content_sha256": "1d6806817f736de9a134a2cb0092782e167ec553b042dbb0876103b823bab9f6",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-09-corsage-wrist",
+      "name": "Blush Wrist Corsage",
+      "style": "romantic",
+      "color_palette": "blush, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "wrist corsage",
+      "container": "beaded wristlet",
+      "recipe": [
+        {
+          "name": "Blush Spray Roses",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 2,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A delicate blush wrist corsage.",
+      "description": "A delicate wrist corsage of blush spray roses and lisianthus on a beaded band — perfect for mothers and honored guests.",
+      "suggested_retail": 34.99,
+      "image": "everyday/wd-09-corsage-wrist.jpg",
+      "alt": "Blush wrist corsage on a white background",
+      "content_sha256": "cde585abd20a0588dbe3808a1b87e09d444e214c829ca76036b9d2191901d046",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-10-flower-crown",
+      "name": "Garden Flower Crown",
+      "style": "boho",
+      "color_palette": "pastel, mixed",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "floral crown",
+      "container": "wired crown base",
+      "recipe": [
+        {
+          "name": "Blush Spray Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Waxflower",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Pink Ranunculus",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A boho garden floral crown.",
+      "description": "A whimsical floral crown of blush roses, ranunculus, and waxflower — boho romance for the bride or flower girl.",
+      "suggested_retail": 59.99,
+      "image": "everyday/wd-10-flower-crown.jpg",
+      "alt": "Pastel floral crown on a white background",
+      "content_sha256": "589dff1aec1c808782cb9b84597fd6eb959bb2c4ee48ec318016628e7c23bbc0",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-11-bridal-white-orchid",
+      "name": "White Orchid Bridal Bouquet",
+      "style": "modern",
+      "color_palette": "white, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "hand-tied bridal bouquet",
+      "container": "hand-tied with ribbon",
+      "recipe": [
+        {
+          "name": "White Phalaenopsis Orchids",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Israeli Ruscus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Israeli Ruscus"
+      ],
+      "short_description": "A sleek modern white orchid bouquet.",
+      "description": "A sleek, modern bridal bouquet of white orchids and roses — minimalist elegance for the contemporary bride.",
+      "suggested_retail": 219.99,
+      "image": "everyday/wd-11-bridal-white-orchid.jpg",
+      "alt": "White orchid bridal bouquet on a white background",
+      "content_sha256": "a809975d3d5d54e56efa53f100807200f1f50439e4537267bb0a66d3fc1629cd",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-12-centerpiece-blush-garden",
+      "name": "Blush Garden Centerpiece",
+      "style": "garden",
+      "color_palette": "blush, peach, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "low reception centerpiece",
+      "container": "footed glass compote",
+      "recipe": [
+        {
+          "name": "Blush Garden Roses",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "Peach Ranunculus",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Silver Dollar Eucalyptus",
+          "qty": 10,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Silver Dollar Eucalyptus"
+      ],
+      "short_description": "A romantic blush and peach garden centerpiece.",
+      "description": "A romantic garden centerpiece of blush garden roses and peach ranunculus — soft, natural beauty for reception tables.",
+      "suggested_retail": 139.99,
+      "image": "everyday/wd-12-centerpiece-blush-garden.jpg",
+      "alt": "Blush and peach garden wedding centerpiece on a white background",
+      "content_sha256": "d67acaba749cf7b8ca61a2ab9a2a16b9953dc8ab0c71795614a58142416d1fc7",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-13-bridal-lavender",
+      "name": "Lavender Dream Bridal Bouquet",
+      "style": "romantic",
+      "color_palette": "lavender, white, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "hand-tied bridal bouquet",
+      "container": "hand-tied with ribbon",
+      "recipe": [
+        {
+          "name": "Lavender Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 8,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A dreamy lavender and white bridal bouquet.",
+      "description": "A dreamy bouquet of lavender and white roses with purple lisianthus — soft, enchanting romance for the bride.",
+      "suggested_retail": 199.99,
+      "image": "everyday/wd-13-bridal-lavender.jpg",
+      "alt": "Lavender and white bridal bouquet on a white background",
+      "content_sha256": "f0753f5ba60d4ac9fe07736764bdffa82907f9fea32ba0ecd84164099f45ddf0",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-14-centerpiece-candle-ring",
+      "name": "Rose Candle Ring Centerpiece",
+      "style": "elegant",
+      "color_palette": "white, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "candle ring centerpiece",
+      "container": "floral ring around a pillar candle",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Spray Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 8,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A white rose ring framing a pillar candle.",
+      "description": "A romantic candle-ring centerpiece of white roses encircling a glowing pillar candle — warm elegance for every table.",
+      "suggested_retail": 109.99,
+      "image": "everyday/wd-14-centerpiece-candle-ring.jpg",
+      "alt": "White rose candle ring wedding centerpiece on a white background",
+      "content_sha256": "af053df9dfee5c3e751d47160c9bc1e1a6919ec040888c3eaaa2fa9edd4d7f6a",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-15-bridal-sunflower-rustic",
+      "name": "Rustic Sunflower Bridal Bouquet",
+      "style": "rustic",
+      "color_palette": "yellow, white, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "hand-tied bridal bouquet",
+      "container": "hand-tied with burlap and lace wrap",
+      "recipe": [
+        {
+          "name": "Sunflowers",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A rustic sunflower and white rose bouquet.",
+      "description": "A charming rustic bouquet of sunflowers, white roses, and daisies wrapped in burlap and lace — perfect for a barn or country wedding.",
+      "suggested_retail": 149.99,
+      "image": "everyday/wd-15-bridal-sunflower-rustic.jpg",
+      "alt": "Rustic sunflower bridal bouquet on a white background",
+      "content_sha256": "42e02512b70230d933293798a371e0e810f6ebc7ac2a800f26c086a29a565318",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-16-centerpiece-greenery",
+      "name": "Modern Greenery Centerpiece",
+      "style": "modern",
+      "color_palette": "green, white",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "low reception centerpiece",
+      "container": "low ceramic bowl",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Seeded Eucalyptus",
+          "qty": 10,
+          "kind": "foliage"
+        },
+        {
+          "name": "Italian Ruscus",
+          "qty": 6,
+          "kind": "foliage"
+        },
+        {
+          "name": "Olive Branches",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Seeded Eucalyptus",
+        "Italian Ruscus",
+        "Olive Branches"
+      ],
+      "short_description": "A lush greenery-forward modern centerpiece.",
+      "description": "A modern greenery-forward centerpiece of mixed eucalyptus and olive with a few white roses — fresh, organic minimalism.",
+      "suggested_retail": 99.99,
+      "image": "everyday/wd-16-centerpiece-greenery.jpg",
+      "alt": "Greenery wedding centerpiece on a white background",
+      "content_sha256": "beb2983922092b454df1a5ac9ee46fd18da7ce5796288997e673f06857030059",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-17-toss-bouquet",
+      "name": "Bridal Toss Bouquet",
+      "style": "sweet",
+      "color_palette": "white, pink",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "toss bouquet",
+      "container": "petite hand-tied with ribbon",
+      "recipe": [
+        {
+          "name": "White Spray Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Spray Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Baby's Breath",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 4,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A petite bouquet for the toss.",
+      "description": "A petite, tossable bouquet of white and pink spray roses with baby's breath — a sweet keepsake moment.",
+      "suggested_retail": 49.99,
+      "image": "everyday/wd-17-toss-bouquet.jpg",
+      "alt": "Petite white and pink toss bouquet on a white background",
+      "content_sha256": "3a97a045b0f0793fb2bd54bc0e0bcde334f624db6918293324a96dd117049f68",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-18-flower-girl-basket",
+      "name": "Flower Girl Petal Basket",
+      "style": "sweet",
+      "color_palette": "blush, white",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "flower girl basket",
+      "container": "white wicker basket with petals",
+      "recipe": [
+        {
+          "name": "Blush Rose Petals",
+          "qty": 40,
+          "kind": "flower"
+        },
+        {
+          "name": "White Rose Petals",
+          "qty": 40,
+          "kind": "flower"
+        },
+        {
+          "name": "White Spray Roses",
+          "qty": 3,
+          "kind": "flower"
+        }
+      ],
+      "foliage": [],
+      "short_description": "A petal basket for the flower girl.",
+      "description": "A sweet white wicker basket filled with soft blush and white rose petals for the flower girl to scatter down the aisle.",
+      "suggested_retail": 39.99,
+      "image": "everyday/wd-18-flower-girl-basket.jpg",
+      "alt": "Flower girl petal basket on a white background",
+      "content_sha256": "f7327b6f36dd1952983bf27205a53a285a86d9d2e2d48cf533aa5807341c3e02",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-19-arch-corner-spray",
+      "name": "Ceremony Arch Corner Spray",
+      "style": "grand",
+      "color_palette": "white, blush, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "arch corner spray",
+      "container": "zip-tie foam cage for arch",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 12,
+          "kind": "flower"
+        },
+        {
+          "name": "Blush Garden Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 16,
+          "kind": "foliage"
+        },
+        {
+          "name": "Trailing Amaranthus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus",
+        "Trailing Amaranthus"
+      ],
+      "short_description": "A lush corner spray for the ceremony arch.",
+      "description": "A lush asymmetrical corner spray of white and blush roses with cascading greenery — a breathtaking accent for the ceremony arch.",
+      "suggested_retail": 249.99,
+      "image": "everyday/wd-19-arch-corner-spray.jpg",
+      "alt": "White and blush wedding arch corner spray on a white background",
+      "content_sha256": "11adb8387e54bc027ffec6c78679d80d9f1c57c1cd4fa1fa58d6b62409f67d3d",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "wd-20-bridal-all-greenery-white",
+      "name": "Ivory & Sage Bridal Bouquet",
+      "style": "organic",
+      "color_palette": "ivory, sage, green",
+      "categories": [
+        "Wedding"
+      ],
+      "arrangement_type": "hand-tied bridal bouquet",
+      "container": "hand-tied with raw silk ribbon",
+      "recipe": [
+        {
+          "name": "Ivory Garden Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Anemones",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Ranunculus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Sage Eucalyptus",
+          "qty": 10,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Sage Eucalyptus",
+        "Olive Branches"
+      ],
+      "short_description": "An organic ivory and sage bridal bouquet.",
+      "description": "An organic, editorial bouquet of ivory garden roses and white anemones nestled in sage eucalyptus — effortless, modern elegance.",
+      "suggested_retail": 209.99,
+      "image": "everyday/wd-20-bridal-all-greenery-white.jpg",
+      "alt": "Ivory and sage bridal bouquet on a white background",
+      "content_sha256": "d06d4b455fcd842d4c817249d7d1b9cfe101696a09389c80c357acd6ebde61e3",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    }
+  ],
+  "generated_at": "2026-08-13T14:35:46.721Z",
+  "image_source": "ai_generated_cloudflare_flux"
+}
