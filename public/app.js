@@ -715,8 +715,8 @@ function renderPosCart(){
   else if($("#weekSales"))$("#weekSales").textContent=money(subtotal);
   if($("#posLuxDiscountAmt"))$("#posLuxDiscountAmt").textContent=discount?`−$${Number(discount).toFixed(2)}`:"−$0.00";
   const discountLabel=$("#posLuxDiscountLine")?.querySelector("span");
-  if(discountLabel)discountLabel.textContent=discountPct?`Discount (${discountPct}% VIP coupon)`:"Discount (10% VIP coupon)";
-  if($("#posLuxServiceFee"))$("#posLuxServiceFee").textContent=money(service||(lux&&posCart.length?POS_LUX_SERVICE_FEE:lux?POS_LUX_SERVICE_FEE:0));
+  if(discountLabel)discountLabel.textContent=discountPct?`Discount (${discountPct}%)`:"Discount";
+  if($("#posLuxServiceFee"))$("#posLuxServiceFee").textContent=money(service||0);
   if($("#posLuxTax"))$("#posLuxTax").textContent=money(tax);
   else{
     const taxLine=$$(".checkout-lines span").find(x=>x.textContent.includes("Tax ("));
@@ -730,10 +730,9 @@ function renderPosCart(){
 }
 window.renderPosCart=renderPosCart;
 document.addEventListener("florisyn-pos-discount-apply",()=>{
-  const code=($("#posLuxDiscountCode")?.value||"").trim().toUpperCase();
-  if(code==="VIPGOLD10"){posLuxDiscountApplied=true;toast("VIPGOLD10 applied")}
-  else if(!code){posLuxDiscountApplied=false;toast("Discount cleared")}
-  else{posLuxDiscountApplied=false;toast("Unrecognized discount code")}
+  const code=($("#posLuxDiscountCode")?.value||"").trim();
+  posLuxDiscountApplied=false;
+  toast(code?"Discount codes aren't set up yet — coming soon.":"Enter a discount code.");
   renderPosCart();
 });
 
