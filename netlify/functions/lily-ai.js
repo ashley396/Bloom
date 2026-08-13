@@ -8,6 +8,7 @@ import {
   sanitizeHistoryEntry,
   searchHistory
 } from "./_shared/lily-ai-engine.js";
+import { systemPromptFor, suggestHandoff } from "./_shared/florist-ai-personas.js";
 
 const CONVERSATIONS = "lily_conversations";
 const MESSAGES = "lily_messages";
@@ -31,26 +32,16 @@ async function loadAiContext(client, shopId) {
 
 const AI_CHAT_MODEL = process.env.CLOUDFLARE_AI_MODEL || "@cf/meta/llama-3.1-8b-instruct-fast";
 
-function personaSystemPrompt(persona) {
-  const p = String(persona || "").toLowerCase();
-  if (p === "rose") {
-    return "You are Rose, an experienced, witty florist-business mentor inside Florisyn. Give direct, practical, specific advice on pricing, profit, margins, operations, and growth.";
-  }
-  if (p === "daisy") {
-    return "You are Daisy, Florisyn's cheerful shop mascot. Be upbeat, warm, and encouraging with a light touch of fun. Keep answers short and friendly.";
-  }
-  return "You are Lily, a warm, creative florist assistant inside Florisyn. Help with floral design, flower care, recipes, and everyday shop tasks. Be practical, concise, and encouraging.";
-}
-
 /**
  * Real conversational answer from Cloudflare Workers AI (persona-aware). Returns
  * null on any failure so the caller can fall back to a safe template.
+ * Persona identity comes from the single shared source (florist-ai-personas.js).
  */
 async function cloudflareChat(persona, message, context) {
   const account = process.env.CLOUDFLARE_ACCOUNT_ID;
   const token = process.env.CLOUDFLARE_AI_API_TOKEN;
   if (!account || !token || !message) return null;
-  const system = `${personaSystemPrompt(persona)} Never claim an action was saved, published, paid, ordered, or completed unless Florisyn confirms it. Your suggestions are editable and need florist approval. Protect private employee and customer information.`;
+  const system = `${systemPromptFor(persona, "chat")} Never claim an action was saved, published, paid, ordered, or completed unless Florisyn confirms it. Your suggestions are editable and need florist approval. Protect private employee and customer information.`;
   const ctx = JSON.stringify({
     shop: context.shop || {},
     inventory: (context.inventory || []).slice(0, 15),
@@ -195,6 +186,11 @@ export async function handler(event) {
         `I understand you want help with ${intent.domain.replace("_", " ")}. I can chat, suggest next steps, and prepare actions for your confirmation.`;
     }
 
+    // Option A: when the topic sits in another persona's lane, gently suggest a
+    // handoff (never blocks the answer or action). Front-end can offer a one-tap switch.
+    const handoff = permission.allowed ? suggestHandoff(persona, intent.domain, message) : null;
+    if (handoff && responseText) responseText += handoff.line;
+
     await logAction(client, {
       userId: user.id,
       shopId,
@@ -250,6 +246,7 @@ export async function handler(event) {
       intent,
       permission,
       response: responseText,
+      handoff: handoff ? { to: handoff.to, label: handoff.label } : null,
       client_action: permission.allowed && (!planned?.requiresConfirmation || confirmed) ? planned : planned?.requiresConfirmation && !confirmed ? { ...planned, pending: true } : null,
       generate,
       coach: buildCoachSuggestions(context),

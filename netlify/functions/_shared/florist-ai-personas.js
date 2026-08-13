@@ -19,10 +19,10 @@ const PERSONA_PROMPTS = {
 - Never invent exact dollar figures unless context supports them; use ranges and priorities instead.
 - Never claim actions were completed in the app unless confirmed.`,
 
-  Daisy: `You are Daisy, Florisyn's cheerful shop mascot and morale coach for florists.
+  Daisy: `You are Daisy, Florisyn's cheerful shop mascot, morale coach, and guide for florists.
 - Keep answers short, upbeat, and practical — one or two focused ideas.
 - Celebrate progress and reduce overwhelm. Avoid repeating the same pep talk every time.
-- When asked for depth, gently hand off: "Rose can dig into numbers" or "Lily can help with the design copy."
+- You are the router: when a question is really about money or design, name the right teammate and offer to bring them in — "That's Rose's specialty for pricing and margins — want me to bring her in?" or "Lily's your designer for that — shall I hand off?"
 - Never claim app actions were completed unless confirmed.`,
 };
 
@@ -51,4 +51,62 @@ export function temperatureForPersona(persona, mode = "chat") {
   if (who === "Daisy") return 0.62;
   if (who === "Rose") return 0.5;
   return 0.55;
+}
+
+/* -------------------------------------------------------------------------- *
+ * Persona lanes (Option A) — each assistant owns a real area of expertise.
+ * Used only to *suggest* a handoff; it never blocks an answer or an action.
+ * App commands (add inventory, create order, navigate, generate copy) still
+ * run for whichever persona is active — lanes shape advice/chat, not commands.
+ * -------------------------------------------------------------------------- */
+
+/** Short human label for what each persona is the go-to for. */
+export const PERSONA_EXPERTISE = Object.freeze({
+  Lily: "floral design & creative work",
+  Rose: "pricing, margins & the business side",
+  Daisy: "getting started & staying encouraged",
+});
+
+/** Advice intents that clearly belong to one persona (business/numbers = Rose). */
+const ADVICE_OWNER = Object.freeze({
+  reports: "Rose",
+  coach: "Rose",
+});
+
+/** Keyword hints for open chat, so "what should I charge?" points to Rose, etc. */
+const TOPIC_HINTS = [
+  { to: "Rose", re: /\b(pric(e|ing)|margin|profit|markup|revenue|charge|discount|payroll|wage|budget|taxe?s|cash ?flow|break ?even|upsell|labor cost|cost of goods|cogs)\b/i },
+  { to: "Lily", re: /\b(arrange(ment)?|bouquet|centerpiece|palette|colou?r scheme|recipe|foliage|boutonniere|corsage|which flowers|flower pairing|filler|vase|design idea)\b/i },
+];
+
+export function personaExpertise(persona) {
+  return PERSONA_EXPERTISE[normalizePersona(persona)] || "";
+}
+
+/**
+ * Decide whether the active persona should hand a topic to a teammate.
+ * Returns { to, label, line } or null. `line` is a gentle appended suggestion.
+ */
+export function suggestHandoff(persona, intentDomain = "general", text = "") {
+  const who = normalizePersona(persona);
+
+  // 1) Business-advice intents owned by Rose.
+  const owner = ADVICE_OWNER[intentDomain];
+  if (owner && owner !== who) {
+    return { to: owner, label: PERSONA_EXPERTISE[owner], line: handoffLine(owner, PERSONA_EXPERTISE[owner]) };
+  }
+
+  // 2) Open chat: infer topic from keywords.
+  if (intentDomain === "general") {
+    for (const hint of TOPIC_HINTS) {
+      if (hint.to !== who && hint.re.test(String(text || ""))) {
+        return { to: hint.to, label: PERSONA_EXPERTISE[hint.to], line: handoffLine(hint.to, PERSONA_EXPERTISE[hint.to]) };
+      }
+    }
+  }
+  return null;
+}
+
+function handoffLine(to, label) {
+  return `\n\nThat's really ${to}'s area — she's your go-to for ${label}. Want me to bring ${to} in?`;
 }

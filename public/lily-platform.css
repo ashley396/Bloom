@@ -45,3 +45,15 @@ body[data-lily-theme="dark"] .lily-compose textarea,body[data-lily-theme="dark"]
   .lily-panel{right:12px;left:12px;width:auto;bottom:78px;max-height:70vh}
   .lily-panel.lily-expanded{top:12px;max-height:none;height:calc(100vh - 24px)}
 }
+
+/* Persona lanes (Option A) — switch between Lily / Rose / Daisy */
+.lily-head-id{display:flex;align-items:center;gap:10px;min-width:0}
+.lily-head-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;box-shadow:0 2px 8px #5b234022;flex:0 0 auto}
+.lily-personas{display:flex;gap:6px;padding:8px 10px 0;background:var(--lily-panel-bg,#fffcfd)}
+.lily-personas button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--lily-border,#eadde5);background:#fff;border-radius:12px;padding:6px 4px;cursor:pointer;font-size:12px;font-weight:700;color:#796a74;transition:border-color .15s ease,background .15s ease,color .15s ease}
+.lily-personas button img{width:22px;height:22px;border-radius:50%;object-fit:cover}
+.lily-personas button.active{border-color:#a72f67;background:#f9edf2;color:#7e214e;box-shadow:0 2px 10px #a72f6722}
+.lily-personas button:focus-visible{outline:2px solid #a72f67;outline-offset:2px}
+body[data-lily-theme="dark"] .lily-personas{--lily-panel-bg:#2a2226}
+body[data-lily-theme="dark"] .lily-personas button{background:#342830;border-color:#4a3a42;color:#f5eef2}
+body[data-lily-theme="dark"] .lily-personas button.active{background:#43303a;border-color:#c76f9c;color:#ffd9e8}

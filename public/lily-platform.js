@@ -21,6 +21,19 @@
   let pendingAction = null;
   let typingTimer = null;
   let adminKpis = null;
+  let lastUserMessage = "";
+
+  // Option A — each assistant owns a real lane; the drawer can switch between them.
+  const PERSONAS = {
+    lily: { name: "Lily", tag: "Design & creative", img: "/assets/assistants/lily-portrait.png", placeholder: "Ask Lily about designs, recipes, or copy…" },
+    rose: { name: "Rose", tag: "Business & numbers", img: "/assets/assistants/rose-portrait.png", placeholder: "Ask Rose about pricing, margins, or growth…" },
+    daisy: { name: "Daisy", tag: "Getting started", img: "/assets/assistants/daisy-portrait.png", placeholder: "Ask Daisy where to begin…" }
+  };
+  const PERSONA_KEY = "bloom_lily_persona";
+  let persona = (() => {
+    try { return PERSONAS[localStorage.getItem(PERSONA_KEY)] ? localStorage.getItem(PERSONA_KEY) : "lily"; } catch { return "lily"; }
+  })();
+  const personaName = () => PERSONAS[persona]?.name || "Lily";
 
   function esc(v) {
     return String(v ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[m]));
@@ -99,13 +112,16 @@
     panel.hidden = true;
     panel.innerHTML = `
       <header class="lily-panel-head">
-        <div><strong>Lily</strong><small>Intelligent operating assistant</small></div>
+        <div class="lily-head-id"><img id="lilyHeadAvatar" class="lily-head-avatar" src="${PERSONAS[persona].img}" alt=""><div><strong id="lilyHeadName">${PERSONAS[persona].name}</strong><small id="lilyHeadTag">${PERSONAS[persona].tag}</small></div></div>
         <div class="lily-head-tools">
           <button type="button" id="lilyThemeToggle" title="Theme">◐</button>
           <button type="button" id="lilyExpand" title="Expand">⤢</button>
           <button type="button" id="lilyClose" title="Close">×</button>
         </div>
       </header>
+      <nav class="lily-personas" id="lilyPersonas">
+        ${Object.entries(PERSONAS).map(([key, p]) => `<button type="button" data-lily-persona="${key}" class="${key === persona ? "active" : ""}" title="${esc(p.name)} — ${esc(p.tag)}"><img src="${p.img}" alt=""><span>${esc(p.name)}</span></button>`).join("")}
+      </nav>
       <nav class="lily-tabs">
         <button type="button" data-lily-tab="chat" class="active">Chat</button>
         <button type="button" data-lily-tab="history">Recent</button>
@@ -152,7 +168,11 @@
     document.querySelectorAll("[data-lily-tab]").forEach((btn) => {
       btn.onclick = () => setTab(btn.dataset.lilyTab);
     });
+    document.querySelectorAll("[data-lily-persona]").forEach((btn) => {
+      btn.onclick = () => setPersona(btn.dataset.lilyPersona);
+    });
     document.getElementById("lilyHistorySearch").oninput = () => renderHistoryList();
+    applyPersonaChrome();
 
     const theme = localStorage.getItem(THEME_KEY);
     if (theme) document.body.dataset.lilyTheme = theme;
@@ -172,6 +192,35 @@
     if (open) {
       renderChat();
       loadCoach();
+    }
+  }
+
+  function applyPersonaChrome() {
+    const p = PERSONAS[persona] || PERSONAS.lily;
+    const avatar = document.getElementById("lilyHeadAvatar");
+    const name = document.getElementById("lilyHeadName");
+    const tag = document.getElementById("lilyHeadTag");
+    const input = document.getElementById("lilyInput");
+    const fab = document.getElementById("lilyFab");
+    if (avatar) avatar.src = p.img;
+    if (name) name.textContent = p.name;
+    if (tag) tag.textContent = p.tag;
+    if (input) input.placeholder = p.placeholder;
+    if (fab) { fab.title = `${p.name} — Florisyn assistant`; const img = fab.querySelector("img"); if (img) { img.src = p.img; img.alt = p.name; } }
+    document.querySelectorAll("[data-lily-persona]").forEach((b) => b.classList.toggle("active", b.dataset.lilyPersona === persona));
+  }
+
+  function setPersona(next, opts = {}) {
+    if (!PERSONAS[next]) return;
+    persona = next;
+    try { localStorage.setItem(PERSONA_KEY, persona); } catch { /* private mode */ }
+    applyPersonaChrome();
+    document.getElementById("lilyConfirm").hidden = true;
+    if (opts.resend && lastUserMessage) {
+      document.getElementById("lilyInput").value = lastUserMessage;
+      sendMessage();
+    } else if (opts.announce !== false) {
+      appendMessage("assistant", `Hi, I'm ${PERSONAS[persona].name} — your go-to for ${PERSONAS[persona].tag.toLowerCase()}. How can I help?`);
     }
   }
 
@@ -339,6 +388,7 @@
     const message = (input?.value || "").trim();
     if (!confirm && !message) return;
     if (!confirm) {
+      lastUserMessage = message;
       appendMessage("user", message);
       input.value = "";
     }
@@ -357,6 +407,7 @@
           body: JSON.stringify({
             message: confirm && pendingAction ? pendingAction.message : message,
             confirm,
+            persona,
             conversation_id: conversationId
           })
         });
@@ -371,7 +422,7 @@
           try {
             const gen = await deps.smartAi({
               mode: "generate",
-              persona: "Lily",
+              persona: personaName(),
               task: data.generate.task,
               input: data.generate.input,
               schema: data.generate.schema
@@ -393,8 +444,8 @@
             const ctx = deps.loadAiContext ? await deps.loadAiContext() : {};
             const chat = await deps.smartAi({
               mode: "chat",
-              persona: "Lily",
-              prompt: `You are Lily, Florisyn's intelligent operating assistant (not a generic chatbot). Help the florist with shop operations. User: ${message}`,
+              persona: personaName(),
+              prompt: message,
               context: ctx
             });
             const answer = chat.answer || chat.message || chat.result?.text;
@@ -412,6 +463,14 @@
         return;
       }
       await typeAssistantResponse(data.response || "Done.");
+      if (data.handoff?.to && PERSONAS[data.handoff.to.toLowerCase()]) {
+        const to = data.handoff.to;
+        const box = document.getElementById("lilyConfirm");
+        box.hidden = false;
+        box.innerHTML = `That's really ${esc(to)}'s area.<br><button type="button" class="primary" id="lilyHandoffYes">Bring in ${esc(to)}</button><button type="button" class="secondary" id="lilyHandoffNo">Stay with ${esc(personaName())}</button>`;
+        document.getElementById("lilyHandoffYes").onclick = () => { box.hidden = true; setPersona(to.toLowerCase(), { resend: true }); };
+        document.getElementById("lilyHandoffNo").onclick = () => { box.hidden = true; };
+      }
       const action = data.client_action;
       if (action?.pending && action.requiresConfirmation) {
         pendingAction = { message, action };
