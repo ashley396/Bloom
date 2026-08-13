@@ -84,10 +84,16 @@ async function runVisionModel(model, imageVariants, prompt) {
 
   for (const image of imageVariants) {
     const imageValue = image.startsWith("data:") ? image : `data:image/jpeg;base64,${image}`;
+    // llava / uform expect the image as an array of uint8 bytes, NOT a base64 string
+    // (base64 yields Cloudflare error 3016 "failed to decode u8").
+    const imageBytes =
+      isUform || isLlava
+        ? Array.from(Buffer.from(image.replace(/^data:[^;]+;base64,/i, ""), "base64"))
+        : null;
     const payloads = isUform
-      ? [{ prompt, image: image.replace(/^data:[^;]+;base64,/i, "") }]
+      ? [{ prompt, image: imageBytes }]
       : isLlava
-        ? [{ prompt, image: image.replace(/^data:[^;]+;base64,/i, "") }]
+        ? [{ prompt, image: imageBytes }]
         : [
             {
               messages: [
@@ -168,18 +174,21 @@ export async function analyzeArrangementPhoto(imagePayload, { caption = "" } = {
   const prompt = caption
     ? `${ARRANGEMENT_VISION_PROMPT}\nCaption hint (secondary to the photo): ${String(caption).slice(0, 280)}`
     : ARRANGEMENT_VISION_PROMPT;
-  const primary = process.env.CLOUDFLARE_VISION_MODEL || VISION_MODEL_DEFAULT;
-  try {
-    return await runVisionModel(primary, imageVariants, prompt);
-  } catch (primaryError) {
-    const fallbacks = [VISION_MODEL_FALLBACK, VISION_MODEL_CAPTION].filter((m) => m !== primary);
-    for (const model of fallbacks) {
-      try {
-        return await runVisionModel(model, imageVariants, prompt);
-      } catch {
-        /* next model */
-      }
+  // llama-3.2-vision is highest quality but requires a one-time Meta license acceptance on the
+  // account; llava/uform work with no agreement. Try the no-license models first (unless an
+  // explicit model is configured via CLOUDFLARE_VISION_MODEL), then llama as an optional upgrade.
+  const configured = process.env.CLOUDFLARE_VISION_MODEL;
+  const order = configured
+    ? [configured, VISION_MODEL_FALLBACK, VISION_MODEL_CAPTION, VISION_MODEL_DEFAULT]
+    : [VISION_MODEL_FALLBACK, VISION_MODEL_CAPTION, VISION_MODEL_DEFAULT];
+  const models = [...new Set(order.filter(Boolean))];
+  let lastError = null;
+  for (const model of models) {
+    try {
+      return await runVisionModel(model, imageVariants, prompt);
+    } catch (error) {
+      lastError = error;
     }
-    throw primaryError;
   }
+  throw lastError || new Error("Vision AI could not analyze this photo.");
 }
