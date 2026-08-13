@@ -83,10 +83,12 @@ export async function handler(event) {
         mode: "generate",
         persona: "Lily",
         task:
-          "You identified these flowers/foliage in an arrangement photo. Build a realistic florist recipe: " +
-          "each stem's real wholesale name, an estimated stem count for a standard hand-tied arrangement, and its role " +
-          "(focal, filler, or foliage). Only include stems from the list. Return strict JSON.",
-        input: { identified_flowers: flowerText, occasion: body.occasion || "" },
+          "Convert ONLY the flowers and foliage in this identified list into florist recipe rows. " +
+          "Do NOT add any flower that is not in the list — never invent a fuller arrangement. " +
+          "Keep each name as given (you may expand an obvious color like 'yellow rose' to a proper wholesale name). " +
+          "For each item estimate a realistic stem count for a standard hand-tied arrangement and its role " +
+          "(focal, filler, or foliage). If the list is vague or very short, return just those items. Return strict JSON.",
+        input: { identified_flowers: flowerText },
         schema: {
           recipe: [{ name: "string", qty: "number", kind: "focal|filler|foliage" }],
           design_notes: "string"
