@@ -22,9 +22,9 @@ function isMissingTableError(error) {
 async function loadAiContext(client, shopId) {
   const [{ data: shop }, { data: inventory }, { data: orders }, { data: deliveries }] = await Promise.all([
     client.from("shops").select("name,address,phone,tagline").eq("id", shopId).maybeSingle(),
-    client.from("inventory").select("name,color,quantity,low_stock_level,cost,price").eq("shop_id", shopId).is("deleted_at", null).order("updated_at", { ascending: false }).limit(40),
+    client.from("inventory").select("name,color,quantity,low_stock_level,cost,price").eq("shop_id", shopId).is("deleted_at", null).order("created_at", { ascending: false }).limit(40),
     client.from("orders").select("order_number,customer_name,total,payment_status,delivery_date,status,estimated_cost").eq("shop_id", shopId).order("created_at", { ascending: false }).limit(20),
-    client.from("deliveries").select("status,recipient_name,address,scheduled_date").eq("shop_id", shopId).order("scheduled_date", { ascending: true }).limit(15)
+    client.from("deliveries").select("status,recipient_name,address,delivery_date").eq("shop_id", shopId).order("delivery_date", { ascending: true }).limit(15)
   ]);
   return { shop: shop || {}, inventory: inventory || [], recent_orders: orders || [], deliveries: deliveries || [] };
 }

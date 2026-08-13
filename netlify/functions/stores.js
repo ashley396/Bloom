@@ -16,7 +16,7 @@ export async function handler(event){
   }
   if(event.httpMethod==="PATCH"){
    const body=bodyOf(event);if(!body.shop_id)throw new Error("Missing shop_id");
-   const {data:member}=await client.from("shop_members").select("id").eq("shop_id",body.shop_id).eq("user_id",user.id).maybeSingle();
+   const {data:member}=await client.from("shop_members").select("user_id").eq("shop_id",body.shop_id).eq("user_id",user.id).maybeSingle();
    if(!member)throw new Error("You do not have access to that shop");
    const {error}=await client.from("profiles").update({default_shop_id:body.shop_id}).eq("id",user.id);if(error)throw error;
    return json(200,{ok:true});

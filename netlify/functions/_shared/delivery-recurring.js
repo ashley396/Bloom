@@ -6,7 +6,7 @@ export async function createRecurringDelivery(client, { shopId, orderId, subscri
 
   let customer = null;
   if (customerId) {
-    const { data } = await client.from("customers").select("name,phone,address,delivery_notes").eq("id", customerId).eq("shop_id", shopId).maybeSingle();
+    const { data } = await client.from("customers").select("name,phone,address").eq("id", customerId).eq("shop_id", shopId).maybeSingle();
     customer = data;
   }
 

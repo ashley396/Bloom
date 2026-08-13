@@ -169,7 +169,7 @@ async function buildHubView(ctx, stripe) {
   since.setHours(0, 0, 0, 0);
   const { data: payments } = await client
     .from("payments")
-    .select("amount,method,payment_method,received_at,created_at,processor,metadata")
+    .select("amount,method,received_at,created_at,processor,metadata")
     .eq("shop_id", shopId)
     .gte("received_at", since.toISOString())
     .limit(500);
@@ -231,7 +231,7 @@ async function buildHubView(ctx, stripe) {
   try {
     const rp = await client
       .from("payments")
-      .select("id,order_id,amount,refunded_amount,method,payment_method,processor,status,received_at,created_at")
+      .select("id,order_id,amount,refunded_amount,method,processor,status,received_at,created_at")
       .eq("shop_id", shopId)
       .in("status", ["SUCCEEDED", "PARTIALLY_REFUNDED"])
       .order("received_at", { ascending: false, nullsFirst: false })
