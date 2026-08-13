@@ -43,9 +43,9 @@
     },
     "suggested_cost": 23.1,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-01-sunshine-cube.jpg?v=90effd7db96ffd4d",
       "alt": "Sunshine Cube ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "90effd7db96ffd4d"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -126,9 +126,9 @@
     },
     "suggested_cost": 22.26,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-02-pink-meadow.jpg?v=752fae4f967aa664",
       "alt": "Pink Meadow ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "752fae4f967aa664"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -207,9 +207,9 @@
     },
     "suggested_cost": 27.3,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-03-classic-rose-mix.jpg?v=79ea38b7f52e4d9c",
       "alt": "Classic Rose Mix ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "79ea38b7f52e4d9c"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -280,9 +280,9 @@
     },
     "suggested_cost": 18.9,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-04-cheerful-daisy-burst.jpg?v=d0713559958875c9",
       "alt": "Cheerful Daisy Burst ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "d0713559958875c9"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -348,9 +348,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-05-everyday-hydrangea-pop.jpg?v=8857a0724a9e7164",
       "alt": "Everyday Hydrangea Pop ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "8857a0724a9e7164"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -419,9 +419,9 @@
     },
     "suggested_cost": 25.2,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-06-soft-blush-garden.jpg?v=c62cfd418cf0f787",
       "alt": "Soft Blush Garden ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "c62cfd418cf0f787"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -491,9 +491,9 @@
     },
     "suggested_cost": 20.58,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-07-rustic-mason-jar-mix.jpg?v=dd503a63d8569f57",
       "alt": "Rustic Mason Jar Mix ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "dd503a63d8569f57"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -562,9 +562,9 @@
     },
     "suggested_cost": 23.94,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-08-bright-happy.jpg?v=affa039cedf87934",
       "alt": "Bright & Happy ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "affa039cedf87934"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -633,9 +633,9 @@
     },
     "suggested_cost": 26.46,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-09-simple-whites.jpg?v=67553db5323c9394",
       "alt": "Simple Whites ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "67553db5323c9394"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -704,9 +704,9 @@
     },
     "suggested_cost": 28.98,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-10-everyday-elegance.jpg?v=7edafdbcd939a6d5",
       "alt": "Everyday Elegance ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "7edafdbcd939a6d5"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -775,9 +775,9 @@
     },
     "suggested_cost": 16.8,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-11-morning-cheer.jpg?v=8115ac2a4f801489",
       "alt": "Morning Cheer ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "8115ac2a4f801489"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -844,9 +844,9 @@
     },
     "suggested_cost": 21.84,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-12-fresh-start.jpg?v=344fdf161bc931a0",
       "alt": "Fresh Start ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "344fdf161bc931a0"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -915,9 +915,9 @@
     },
     "suggested_cost": 20.16,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-13-daily-delight.jpg?v=716842078d6721ca",
       "alt": "Daily Delight ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "716842078d6721ca"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -986,9 +986,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-14-lavender-breeze.jpg?v=6da9fb534a64d379",
       "alt": "Lavender Breeze ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "6da9fb534a64d379"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1057,9 +1057,9 @@
     },
     "suggested_cost": 24.36,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-15-peachy-keen.jpg?v=437623eb9933c95f",
       "alt": "Peachy Keen ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "437623eb9933c95f"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1127,9 +1127,9 @@
     },
     "suggested_cost": 26.04,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-16-hydrangea-friends.jpg?v=7ff311aa16d784b1",
       "alt": "Hydrangea & Friends ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "7ff311aa16d784b1"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1198,9 +1198,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-17-rose-mum-harmony.jpg?v=f4dba15b01b25cac",
       "alt": "Rose & Mum Harmony ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "f4dba15b01b25cac"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1265,9 +1265,9 @@
     },
     "suggested_cost": 19.74,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-18-alstroemeria-joy.jpg?v=cab5754b76a2f9f9",
       "alt": "Alstroemeria Joy ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "cab5754b76a2f9f9"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1331,9 +1331,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-19-sunflower-smile.jpg?v=284f31b659d185f3",
       "alt": "Sunflower Smile ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "284f31b659d185f3"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1401,9 +1401,9 @@
     },
     "suggested_cost": 25.62,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-20-gentle-pastels.jpg?v=aa012e4a7f89f2c6",
       "alt": "Gentle Pastels ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "aa012e4a7f89f2c6"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1471,9 +1471,9 @@
     },
     "suggested_cost": 26.88,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-21-modern-whites.jpg?v=c7754af180910053",
       "alt": "Modern Whites ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "c7754af180910053"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1541,9 +1541,9 @@
     },
     "suggested_cost": 21.42,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-22-compact-color-pop.jpg?v=1b34a8b7f0db3f7f",
       "alt": "Compact Color Pop ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "1b34a8b7f0db3f7f"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1611,9 +1611,9 @@
     },
     "suggested_cost": 23.94,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-23-everyday-pink-mix.jpg?v=e42685624cecfcd3",
       "alt": "Everyday Pink Mix ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "e42685624cecfcd3"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1681,9 +1681,9 @@
     },
     "suggested_cost": 27.72,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-24-blue-white-classic.jpg?v=2eb36f94cb5e63d0",
       "alt": "Blue & White Classic ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "2eb36f94cb5e63d0"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1747,9 +1747,9 @@
     },
     "suggested_cost": 15.54,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-25-sweet-simple.jpg?v=3c87e2e5dfa981af",
       "alt": "Sweet & Simple ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "3c87e2e5dfa981af"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1815,9 +1815,9 @@
     },
     "suggested_cost": 22.68,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-26-daily-sunshine.jpg?v=70bd31a7fd9969c9",
       "alt": "Daily Sunshine ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "70bd31a7fd9969c9"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1884,9 +1884,9 @@
     },
     "suggested_cost": 24.36,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-27-soft-spring-mix.jpg?v=fe0f983e538b5b53",
       "alt": "Soft Spring Mix ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "fe0f983e538b5b53"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -1961,9 +1961,9 @@
     },
     "suggested_cost": 25.2,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-28-everyday-garden-vase.jpg?v=f5235102a1dc6a3e",
       "alt": "Everyday Garden Vase ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "f5235102a1dc6a3e"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2034,9 +2034,9 @@
     },
     "suggested_cost": 18.06,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-29-bright-market-bunch.jpg?v=c5a6974aec1c65af",
       "alt": "Bright Market Bunch ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "c5a6974aec1c65af"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2105,9 +2105,9 @@
     },
     "suggested_cost": 28.14,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-30-calm-clean-whites.jpg?v=1f533fe109b22230",
       "alt": "Calm & Clean Whites ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "1f533fe109b22230"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2175,9 +2175,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-31-pink-peach-harmony.jpg?v=f4701bc311b06279",
       "alt": "Pink & Peach Harmony ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "f4701bc311b06279"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2240,9 +2240,9 @@
     },
     "suggested_cost": 29.4,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-32-hydrangea-trio.jpg?v=753bd33a533fb025",
       "alt": "Hydrangea Trio ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "753bd33a533fb025"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2313,9 +2313,9 @@
     },
     "suggested_cost": 23.1,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-33-rose-daisy-blend.jpg?v=136da93d7165c3d2",
       "alt": "Rose & Daisy Blend ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "136da93d7165c3d2"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2383,9 +2383,9 @@
     },
     "suggested_cost": 19.32,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-34-everyday-mason-jar.jpg?v=84ddbe4ad192b73b",
       "alt": "Everyday Mason Jar ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "84ddbe4ad192b73b"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2456,9 +2456,9 @@
     },
     "suggested_cost": 22.26,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-35-simple-greens-whites.jpg?v=5331c775b4e4b571",
       "alt": "Simple Greens & Whites ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "5331c775b4e4b571"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2529,9 +2529,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-36-happy-day-bouquet.jpg?v=33e19bbabfc0fb30",
       "alt": "Happy Day Bouquet ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "33e19bbabfc0fb30"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2598,9 +2598,9 @@
     },
     "suggested_cost": 26.04,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-37-classic-cylinder-mix.jpg?v=709a188c8db2202e",
       "alt": "Classic Cylinder Mix ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "709a188c8db2202e"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2667,9 +2667,9 @@
     },
     "suggested_cost": 20.58,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-38-everyday-color-burst.jpg?v=488d488a0125d511",
       "alt": "Everyday Color Burst ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "488d488a0125d511"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2736,9 +2736,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-39-soft-neutral-mix.jpg?v=320e643b63c89e97",
       "alt": "Soft Neutral Mix ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "320e643b63c89e97"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2805,9 +2805,9 @@
     },
     "suggested_cost": 17.64,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-40-pink-petal-jar.jpg?v=039886beaa17d183",
       "alt": "Pink Petal Jar ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "039886beaa17d183"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2873,9 +2873,9 @@
     },
     "suggested_cost": 24.36,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-41-golden-glow.jpg?v=effb44154570b707",
       "alt": "Golden Glow ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "effb44154570b707"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -2942,9 +2942,9 @@
     },
     "suggested_cost": 25.2,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-42-everyday-blush.jpg?v=5c8c27b3a3c414b0",
       "alt": "Everyday Blush ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "5c8c27b3a3c414b0"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3011,9 +3011,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-43-daisy-mum-mix.jpg?v=ba65120111e34834",
       "alt": "Daisy & Mum Mix ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "ba65120111e34834"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3080,9 +3080,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-44-rose-trio.jpg?v=b33f44d362e9bd3c",
       "alt": "Rose Trio ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "b33f44d362e9bd3c"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3149,9 +3149,9 @@
     },
     "suggested_cost": 23.94,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-45-hydrangea-accent.jpg?v=7526432e19f54e3c",
       "alt": "Hydrangea Accent ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "7526432e19f54e3c"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3218,9 +3218,9 @@
     },
     "suggested_cost": 21.84,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-46-everyday-rustic.jpg?v=c4938d70f4b01f50",
       "alt": "Everyday Rustic ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "c4938d70f4b01f50"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3287,9 +3287,9 @@
     },
     "suggested_cost": 21.42,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-47-bright-tabletop.jpg?v=7d6e512243436d2e",
       "alt": "Bright Tabletop ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "7d6e512243436d2e"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3356,9 +3356,9 @@
     },
     "suggested_cost": 19.74,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-48-simple-cheer.jpg?v=93a92fd95c143d93",
       "alt": "Simple Cheer ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "93a92fd95c143d93"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3425,9 +3425,9 @@
     },
     "suggested_cost": 26.46,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-49-daily-pink-rose.jpg?v=096d5414c909145b",
       "alt": "Daily Pink Rose ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "096d5414c909145b"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3502,9 +3502,9 @@
     },
     "suggested_cost": 27.3,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-50-everyday-florist-favorite.jpg?v=4019e9fb80bc3afe",
       "alt": "Everyday Florist Favorite ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "4019e9fb80bc3afe"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3576,9 +3576,9 @@
     },
     "suggested_cost": 24.36,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-51-daily-pink-cylinder.jpg?v=f8584c71eac7061a",
       "alt": "Daily Pink Cylinder ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "f8584c71eac7061a"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3648,9 +3648,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-52-soft-garden-morning.jpg?v=ff6e4ffd572ea4dc",
       "alt": "Soft Garden Morning ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "ff6e4ffd572ea4dc"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3719,9 +3719,9 @@
     },
     "suggested_cost": 23.1,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-53-white-meadow-vase.jpg?v=32ab284a47477b8e",
       "alt": "White Meadow Vase ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "32ab284a47477b8e"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3790,9 +3790,9 @@
     },
     "suggested_cost": 22.26,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-54-everyday-citrus-mix.jpg?v=2aaf603b7877a210",
       "alt": "Everyday Citrus Mix ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "2aaf603b7877a210"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3860,9 +3860,9 @@
     },
     "suggested_cost": 21.84,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-55-hydrangea-cottage-jar.jpg?v=02651920a87b8108",
       "alt": "Hydrangea Cottage Jar ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "02651920a87b8108"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -3930,9 +3930,9 @@
     },
     "suggested_cost": 25.2,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-56-rose-stock-everyday.jpg?v=30ec5c14f23a27ab",
       "alt": "Rose & Stock Everyday ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "30ec5c14f23a27ab"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4000,9 +4000,9 @@
     },
     "suggested_cost": 18.48,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-57-daisy-porch-jar.jpg?v=12d0da68aeed8cee",
       "alt": "Daisy Porch Jar ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "12d0da68aeed8cee"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4069,9 +4069,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-58-blush-countertop-mix.jpg?v=18f65870847d6524",
       "alt": "Blush Countertop Mix ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "18f65870847d6524"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4139,9 +4139,9 @@
     },
     "suggested_cost": 25.62,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-59-neutral-rose-vase.jpg?v=6a5b8fe6c0fe596c",
       "alt": "Neutral Rose Vase ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "6a5b8fe6c0fe596c"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4209,9 +4209,9 @@
     },
     "suggested_cost": 17.64,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-60-sunflower-simple-jar.jpg?v=16cb080f5bdba24e",
       "alt": "Sunflower Simple Jar ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "16cb080f5bdba24e"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4281,9 +4281,9 @@
     },
     "suggested_cost": 22.68,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-61-clean-greens-whites.jpg?v=40c8abd7dad99701",
       "alt": "Clean Greens & Whites ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "40c8abd7dad99701"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4354,9 +4354,9 @@
     },
     "suggested_cost": 20.58,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-62-pink-breeze-vase.jpg?v=9c9d7b1ba7cf68f8",
       "alt": "Pink Breeze Vase ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "9c9d7b1ba7cf68f8"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4420,9 +4420,9 @@
     },
     "suggested_cost": 26.46,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-63-everyday-hydrangea-cube.jpg?v=fef53347ea308fcb",
       "alt": "Everyday Hydrangea Cube ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "fef53347ea308fcb"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4490,9 +4490,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-64-soft-yellow-harmony.jpg?v=24d2525dbcefa418",
       "alt": "Soft Yellow Harmony ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "24d2525dbcefa418"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4559,9 +4559,9 @@
     },
     "suggested_cost": 23.94,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-65-rose-mum-daily-vase.jpg?v=b77df38418607c83",
       "alt": "Rose & Mum Daily Vase ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "b77df38418607c83"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4629,9 +4629,9 @@
     },
     "suggested_cost": 18.9,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-66-bright-market-jar.jpg?v=50ecc95081d96a96",
       "alt": "Bright Market Jar ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "50ecc95081d96a96"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4698,9 +4698,9 @@
     },
     "suggested_cost": 27.72,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-67-calm-white-garden.jpg?v=879b53fee23012b1",
       "alt": "Calm White Garden ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "879b53fee23012b1"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4767,9 +4767,9 @@
     },
     "suggested_cost": 24.36,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-68-peach-pink-blend.jpg?v=2b58156586e04bcf",
       "alt": "Peach & Pink Blend ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "2b58156586e04bcf"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4836,9 +4836,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-69-hydrangea-daisy-mix.jpg?v=098290e4c53144dc",
       "alt": "Hydrangea & Daisy Mix ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "098290e4c53144dc"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4905,9 +4905,9 @@
     },
     "suggested_cost": 22.26,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-70-everyday-rustic-cylinder.jpg?v=abefb374e04966dd",
       "alt": "Everyday Rustic Cylinder ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "abefb374e04966dd"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -4974,9 +4974,9 @@
     },
     "suggested_cost": 21.42,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-71-modern-neutral-jar.jpg?v=a0e998a952557696",
       "alt": "Modern Neutral Jar ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "a0e998a952557696"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5046,9 +5046,9 @@
     },
     "suggested_cost": 19.74,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-72-daily-blush-bouquet.jpg?v=7a65ecbaed0757b0",
       "alt": "Daily Blush Bouquet ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "7a65ecbaed0757b0"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5120,9 +5120,9 @@
     },
     "suggested_cost": 23.1,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-73-soft-lavender-mix.jpg?v=850769ff63626b86",
       "alt": "Soft Lavender Mix ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "850769ff63626b86"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5189,9 +5189,9 @@
     },
     "suggested_cost": 26.04,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-74-rose-carnation-classic.jpg?v=44a86e1eca214ba4",
       "alt": "Rose & Carnation Classic ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "44a86e1eca214ba4"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5258,9 +5258,9 @@
     },
     "suggested_cost": 20.16,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-75-sunshine-table-vase.jpg?v=003f41d365a482c9",
       "alt": "Sunshine Table Vase ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "003f41d365a482c9"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5327,9 +5327,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-76-gentle-white-trio.jpg?v=e8eb41a829355c34",
       "alt": "Gentle White Trio ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "e8eb41a829355c34"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5396,9 +5396,9 @@
     },
     "suggested_cost": 17.22,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-77-pink-market-bunch.jpg?v=ca3635942a378120",
       "alt": "Pink Market Bunch ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "ca3635942a378120"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5466,9 +5466,9 @@
     },
     "suggested_cost": 26.88,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-78-everyday-hydrangea-rose.jpg?v=060612edf7436380",
       "alt": "Everyday Hydrangea Rose ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "060612edf7436380"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5535,9 +5535,9 @@
     },
     "suggested_cost": 21.84,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-79-daisy-stock-harmony.jpg?v=83026bd07d558b21",
       "alt": "Daisy & Stock Harmony ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "83026bd07d558b21"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5604,9 +5604,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-80-clean-color-pop.jpg?v=98912fd34afdf9e2",
       "alt": "Clean Color Pop ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "98912fd34afdf9e2"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5673,9 +5673,9 @@
     },
     "suggested_cost": 18.06,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-81-soft-neutral-jar.jpg?v=339ac413308b7558",
       "alt": "Soft Neutral Jar ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "339ac413308b7558"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5745,9 +5745,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-82-rose-garden-everyday.jpg?v=551a3a5e9271d014",
       "alt": "Rose Garden Everyday ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "551a3a5e9271d014"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5818,9 +5818,9 @@
     },
     "suggested_cost": 23.1,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-83-hydrangea-greens-mix.jpg?v=27b6f3f9d44d1d94",
       "alt": "Hydrangea & Greens Mix ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "27b6f3f9d44d1d94"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5896,9 +5896,9 @@
     },
     "suggested_cost": 20.16,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-84-bright-daily-cylinder.jpg?v=186979a1288505fe",
       "alt": "Bright Daily Cylinder ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "186979a1288505fe"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -5969,9 +5969,9 @@
     },
     "suggested_cost": 25.2,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-85-pink-white-everyday.jpg?v=0b6e40e571c855d5",
       "alt": "Pink & White Everyday ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "0b6e40e571c855d5"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6039,9 +6039,9 @@
     },
     "suggested_cost": 21.42,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-86-sunflower-accent-vase.jpg?v=6eb39940e8cc5eba",
       "alt": "Sunflower Accent Vase ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "6eb39940e8cc5eba"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6108,9 +6108,9 @@
     },
     "suggested_cost": 23.52,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-87-classic-rose-jar.jpg?v=ee0943b73b708a5a",
       "alt": "Classic Rose Jar ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "ee0943b73b708a5a"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6181,9 +6181,9 @@
     },
     "suggested_cost": 23.94,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-88-soft-spring-color-mix.jpg?v=dbeb22e4bf91fe06",
       "alt": "Soft Spring Color Mix ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "dbeb22e4bf91fe06"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6250,9 +6250,9 @@
     },
     "suggested_cost": 21.84,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-89-neutral-countertop-arrangement.jpg?v=78112d33396e3675",
       "alt": "Neutral Countertop Arrangement ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "78112d33396e3675"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6319,9 +6319,9 @@
     },
     "suggested_cost": 25.62,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-90-blush-cream-harmony.jpg?v=e373142ba2e0c1c5",
       "alt": "Blush & Cream Harmony ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "e373142ba2e0c1c5"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6388,9 +6388,9 @@
     },
     "suggested_cost": 19.32,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-91-daisy-sunshine-cube.jpg?v=605a2f6b7d6504c2",
       "alt": "Daisy Sunshine Cube ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "605a2f6b7d6504c2"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6457,9 +6457,9 @@
     },
     "suggested_cost": 27.3,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-92-everyday-rose-lily.jpg?v=35d6309332bb9949",
       "alt": "Everyday Rose & Lily ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "35d6309332bb9949"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6526,9 +6526,9 @@
     },
     "suggested_cost": 26.04,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-93-hydrangea-soft-blend.jpg?v=a3ae4c49ccc9ecd1",
       "alt": "Hydrangea Soft Blend ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "a3ae4c49ccc9ecd1"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6599,9 +6599,9 @@
     },
     "suggested_cost": 21,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-94-rustic-greens-whites.jpg?v=1e5b4a5dcc270986",
       "alt": "Rustic Greens & Whites ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "1e5b4a5dcc270986"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6672,9 +6672,9 @@
     },
     "suggested_cost": 19.74,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-95-daily-pink-yellow.jpg?v=f4a180a52c3bb7ef",
       "alt": "Daily Pink & Yellow ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "f4a180a52c3bb7ef"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6741,9 +6741,9 @@
     },
     "suggested_cost": 22.68,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-96-bright-everyday-vase.jpg?v=3c8ef928b5f3aca9",
       "alt": "Bright Everyday Vase ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "3c8ef928b5f3aca9"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6810,9 +6810,9 @@
     },
     "suggested_cost": 17.64,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-97-soft-pastel-jar.jpg?v=3b3160a025291742",
       "alt": "Soft Pastel Jar ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "3b3160a025291742"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6878,9 +6878,9 @@
     },
     "suggested_cost": 22.26,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-98-rose-daisy-color-pop.jpg?v=d991f27ca5ebc010",
       "alt": "Rose & Daisy Color Pop ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "d991f27ca5ebc010"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -6943,9 +6943,9 @@
     },
     "suggested_cost": 28.56,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-99-hydrangea-everyday-trio.jpg?v=fd7788ffadbf5f15",
       "alt": "Hydrangea Everyday Trio ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "fd7788ffadbf5f15"
     },
     "image_license": {
       "source": "bloom_owned",
@@ -7028,9 +7028,9 @@
     },
     "suggested_cost": 24.78,
     "primary_image": {
-      "url": "/assets/floral-library/placeholder.svg?v=placeholder",
+      "url": "/assets/floral-library/everyday/ed-100-florist-counter-classic.jpg?v=87350e4a6d11510a",
       "alt": "Florist Counter Classic ultra-realistic vase arrangement photograph",
-      "hash": "placeholder"
+      "hash": "87350e4a6d11510a"
     },
     "image_license": {
       "source": "bloom_owned",
