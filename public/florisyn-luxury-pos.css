@@ -448,12 +448,15 @@ body.florisyn-atelier .florisyn-pos-lux .pos-lux-pads .pad {
   line-height: 1;
   color: var(--pos-rose, #e06b85);
 }
-/* Hide decorative-category clutter — the color tiles ARE the catalog now */
-#posPage #florisynPosLux .pos-lux-categories,
-#posPage #florisynPosLux .pos-lux-cat-head,
+/* Hide decorative-category clutter — the color tiles ARE the catalog now.
+   Exact #posLuxCategories selector so it beats the existing display:grid rule. */
+#posPage #florisynPosLux #posLuxCategories.pos-lux-categories,
+#posPage #florisynPosLux #posLuxCategories,
 #posPage #florisynPosLux .pos-lux-top-block > button[aria-label*="tile grid"] {
   display: none !important;
 }
+/* Keep the "Quick shortcuts" header + Customize button visible above the tiles. */
+#posPage #florisynPosLux .pos-lux-cat-head { display: flex !important; }
 
 /* BOTTOM basket */
 #posPage #florisynPosLux .pos-lux-basket,
