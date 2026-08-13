@@ -402,36 +402,52 @@ body.florisyn-atelier .florisyn-pos-lux .pos-lux-pads {
   max-height: none !important;
   border: 0 !important;
 }
-/* IRIS-style solid color-coded product tiles */
+/* Photo product tiles — arrangement picture with a name over a soft gradient,
+   category color as the fallback if a tile has no photo. */
 #posPage #florisynPosLux .pos-lux-pads .pad,
 body.florisyn-atelier .florisyn-pos-lux .pos-lux-pads .pad {
   border: none !important;
   border-radius: 12px !important;
-  background: var(--cat, #d9694e) !important;
+  background-color: var(--cat, #d9694e) !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
   color: #fff !important;
-  padding: 12px 10px !important;
+  padding: 0 !important;
   overflow: hidden !important;
   cursor: pointer;
+  position: relative !important;
   display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  text-align: center;
+  align-items: flex-end !important;
+  justify-content: flex-start !important;
   height: auto !important;
-  min-height: 76px !important;
+  min-height: 86px !important;
   box-shadow: 0 2px 8px rgba(26, 31, 60, 0.16);
-  transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.1s ease;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+#posPage #florisynPosLux .pos-lux-pads .pad.has-photo::before {
+  content: "";
+  position: absolute !important;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.05) 30%, rgba(0,0,0,0.62));
+  pointer-events: none;
 }
 #posPage #florisynPosLux .pos-lux-pads .pad:hover {
   transform: translateY(-2px);
-  filter: brightness(1.06);
   box-shadow: 0 10px 22px rgba(26, 31, 60, 0.28);
 }
 #posPage #florisynPosLux .pos-lux-pads .pad:active { transform: translateY(0); }
 #posPage #florisynPosLux .pos-lux-pads .pad .pad-name {
+  position: relative;
+  z-index: 1;
   font-size: 13px;
   font-weight: 650;
   color: #fff !important;
-  line-height: 1.2;
+  line-height: 1.15;
+  padding: 8px 9px;
+  width: 100%;
+  text-align: left;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
 }
 #posPage #florisynPosLux .pos-lux-pads .pad-add {
   border: 1px dashed var(--pos-rose, #e06b85) !important;
@@ -439,23 +455,42 @@ body.florisyn-atelier .florisyn-pos-lux .pos-lux-pads .pad {
   background: #fff8fa !important;
   align-items: center !important;
   justify-content: center !important;
+  flex-direction: column;
   font-weight: 700;
-  min-height: 76px !important;
-  gap: 4px;
+  min-height: 86px !important;
+  gap: 2px;
 }
+#posPage #florisynPosLux .pos-lux-pads .pad-add::before { display: none !important; }
+#posPage #florisynPosLux .pos-lux-pads .pad-add .pad-name { color: var(--pos-rose, #e06b85) !important; text-shadow: none; padding: 0; text-align: center; }
 #posPage #florisynPosLux .pos-lux-pads .pad-add .pad-add-plus {
   font-size: 1.6rem;
   line-height: 1;
   color: var(--pos-rose, #e06b85);
 }
-/* Hide decorative-category clutter — the color tiles ARE the catalog now.
-   Exact #posLuxCategories selector so it beats the existing display:grid rule. */
-#posPage #florisynPosLux #posLuxCategories.pos-lux-categories,
-#posPage #florisynPosLux #posLuxCategories,
-#posPage #florisynPosLux .pos-lux-top-block > button[aria-label*="tile grid"] {
-  display: none !important;
+/* Category tabs (IRIS-style) */
+#posPage #florisynPosLux .pos-cat-tabs {
+  display: flex !important;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 6px 0 2px;
 }
-/* Keep the "Quick shortcuts" header + Customize button visible above the tiles. */
+#posPage #florisynPosLux .pos-cat-tab {
+  border: 1px solid var(--pos-border, #eae6e8) !important;
+  background: #fff !important;
+  color: var(--pos-ink, #26263a) !important;
+  border-radius: 999px !important;
+  padding: 5px 13px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+}
+#posPage #florisynPosLux .pos-cat-tab.active {
+  background: var(--pos-rose, #e06b85) !important;
+  border-color: var(--pos-rose, #e06b85) !important;
+  color: #fff !important;
+}
+/* Hide the leftover density-toggle buttons; keep the header + Customize button. */
+#posPage #florisynPosLux .pos-lux-top-block > button[aria-label*="tile grid"] { display: none !important; }
 #posPage #florisynPosLux .pos-lux-cat-head { display: flex !important; }
 
 /* BOTTOM basket */
