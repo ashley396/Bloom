@@ -6,7 +6,8 @@
 const DEFAULT_FLAGS = {
   /** Voice wake words / always-on mic — not production-ready */
   VOICE_WAKE: false,
-  VOICE_TTS_CLOUD: false,
+  /** Cloud (ElevenLabs) TTS for assistant voices — wired and live in production. */
+  VOICE_TTS_CLOUD: true,
   /** Wholesale marketplace browse + checkout — default on for Florisyn growth rollout. */
   MARKETPLACE_PUBLIC: true,
   WHOLESALE_SELLER: true,

@@ -12,7 +12,18 @@ export async function handler(event){
     if(error)throw error;
     if(!shop?.address?.trim()){const e=new Error("Add the shop address in Settings before calculating mileage.");e.statusCode=400;throw e;}
     const key=process.env.GOOGLE_MAPS_API_KEY;
-    if(!key){const e=new Error("GOOGLE_MAPS_API_KEY is not configured in Netlify.");e.statusCode=503;throw e;}
+    // Graceful degrade: mileage is an optional convenience. Without a maps key we return a
+    // clear "unavailable" state (200) so the order/delivery flow is never blocked or shown a
+    // raw config error. Enter mileage manually until a key is added in Netlify.
+    if(!key){
+      return json(200,{
+        configured:false,
+        origin:shop.address,
+        destination:destination.trim(),
+        oneWayMiles:null,roundTripMiles:null,driveMinutes:null,
+        message:"Automatic mileage is unavailable until a maps key is added. Enter delivery miles manually for now."
+      });
+    }
     const response=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{
       method:"POST",
       headers:{"Content-Type":"application/json","X-Goog-Api-Key":key,"X-Goog-FieldMask":"routes.distanceMeters,routes.duration"},
