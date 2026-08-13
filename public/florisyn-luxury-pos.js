@@ -82,18 +82,15 @@
     const name = opt?.dataset?.name || opt?.textContent || "";
     const isWalkIn = !value;
     nameEl.textContent = isWalkIn ? "Walk-in Customer" : name;
-    if (emailEl) {
-      emailEl.textContent = isWalkIn
-        ? "Select a customer for loyalty"
-        : `${String(name).toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.|\.$/g, "")}@email.com`;
-    }
-    if (vip) vip.hidden = isWalkIn;
+    // No fabricated email / VIP / loyalty points — only show what's real.
+    if (emailEl) emailEl.textContent = isWalkIn ? "Add a customer to this sale" : "Customer on this sale";
+    if (vip) vip.hidden = true;
     const ring = $("#posLuxLoyaltyRing");
-    if (ring) ring.style.setProperty("--lux-loyalty", isWalkIn ? "0" : "75");
+    if (ring) ring.style.setProperty("--lux-loyalty", "0");
     const pts = $("#posLuxLoyaltyPts");
-    if (pts) pts.textContent = isWalkIn ? "0 pts" : "4,300 pts";
+    if (pts) pts.textContent = "";
     const note = $("#posLuxLoyaltyNote");
-    if (note) note.textContent = isWalkIn ? "Assign a customer to unlock loyalty." : "$50.00 reward coupon available.";
+    if (note) note.textContent = isWalkIn ? "Walk-in sale — no customer attached." : "Customer attached to this sale.";
   }
 
   function syncStatusMetrics() {

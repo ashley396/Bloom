@@ -668,36 +668,21 @@ async function openQuickSalePad(button){
   const f=$("#quickPriceForm");f.reset();f.elements.tile_id.value=tile.id;f.elements.item_name.value=tile.name;f.elements.quantity.value=1;$("#quickPriceTitle").textContent=`Add ${tile.name}`;$("#quickPriceItemName").textContent=tile.name;$("#quickPriceImage").src=tile.image||"/assets/fresh.png";$("#quickPriceDialog").showModal();setTimeout(()=>{$("#quickPriceAmount").focus();$("#quickPriceAmount").select()},50)
 }
 let posLuxDiscountApplied=false;
-const POS_LUX_SERVICE_FEE=15;
-const POS_LUX_DEMO_CART=[
-  {id:"demo-blush",name:"Blush Serenity Bouquet",description:"Large Vase, Silk Wrap Ribbon",price:180,quantity:1},
-  {id:"demo-rose",name:"Rose Garden Arrangement",description:"Signature ceramic bowl, peach premium spray roses",price:150,quantity:2},
-  {id:"demo-wrap",name:"Gift Wrapping Service",description:"Embossed paper, handwritten gold foil card",price:12,quantity:1}
-];
 function savePosCart(){localStorage.setItem("bloom_pos_cart",JSON.stringify(posCart));renderPosCart()}
 function loadPosCart(){
+  /* One-time cleanup: wipe any previously seeded Figma demo basket so the register starts real + empty. */
+  if(localStorage.getItem("bloom_pos_cart_seeded")){localStorage.removeItem("bloom_pos_cart_seeded");localStorage.removeItem("bloom_pos_cart")}
   try{posCart=JSON.parse(localStorage.getItem("bloom_pos_cart")||"[]");if(!Array.isArray(posCart))posCart=[]}catch{posCart=[]}
-  if(!posCart.length&&document.getElementById("florisynPosLux")){
-    /* Always restore the Figma demo basket when the luxury register cart is empty */
-    posCart=structuredClone(POS_LUX_DEMO_CART);
-    localStorage.setItem("bloom_pos_cart",JSON.stringify(posCart));
-    localStorage.setItem("bloom_pos_cart_seeded","1");
-    posLuxDiscountApplied=true;
-  }
   try{savedQuotes=JSON.parse(localStorage.getItem("bloom_saved_quotes")||"[]");if(!Array.isArray(savedQuotes))savedQuotes=[]}catch{savedQuotes=[]}
-  if(document.getElementById("florisynPosLux")&&(document.querySelector("#posLuxDiscountCode")?.value||"").trim().toUpperCase()==="VIPGOLD10")posLuxDiscountApplied=true;
   renderPosCart();
   renderSavedQuotes();
 }
 function cartTotals(){
-  const lux=!!document.getElementById("florisynPosLux");
   const subtotal=posCart.reduce((s,x)=>s+(Number(x.price)||0)*(Number(x.quantity)||1),0);
-  const code=(document.querySelector("#posLuxDiscountCode")?.value||"").trim().toUpperCase();
-  const discountPct=lux&&posLuxDiscountApplied&&code==="VIPGOLD10"?10:0;
-  const discount=Math.round(subtotal*discountPct)/100;
-  const service=lux&&posCart.length?POS_LUX_SERVICE_FEE:0;
-  const rate=lux?10:Number(shopSettings?.tax_rate??6);
-  const tax=Math.round(subtotal*rate)/100;
+  // Real register: use the shop's own tax rate; no hardcoded service fee or fake discount.
+  const discount=0,discountPct=0,service=0;
+  const rate=Number(shopSettings?.tax_rate??6);
+  const tax=Math.round((subtotal-discount)*rate)/100;
   const total=Math.max(0,Math.round((subtotal-discount+service+tax)*100)/100);
   return{subtotal,tax,total,rate,discount,service,discountPct};
 }
@@ -705,13 +690,9 @@ function renderPosCustomerOptions(){
   const select=$("#posCustomerSelect");
   if(!select)return;
   const current=select.value;
-  const keepClara=current==="clara-kensington"||current==="";
-  const hasClaraCustomer=customers.some(c=>/clara\s*kensington/i.test(c.name||""));
   select.innerHTML='<option value="">Walk-in Customer</option>'+
-    (hasClaraCustomer?"":'<option value="clara-kensington" data-name="Clara Kensington">Clara Kensington</option>')+
     customers.map(c=>`<option value="${esc(c.id||c.name)}" data-name="${esc(c.name)}">${esc(c.name)}</option>`).join("");
   if([...select.options].some(o=>o.value===current))select.value=current;
-  else if(keepClara&&[...select.options].some(o=>o.value==="clara-kensington"))select.value="clara-kensington";
   window.FlorisynLuxuryPos?.syncCustomer?.();
 }
 function renderPosCart(){
