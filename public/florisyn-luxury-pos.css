@@ -392,13 +392,68 @@ body.florisyn-atelier .pos-lux-cat {
 #posPage #florisynPosLux .pos-lux-pads,
 body.florisyn-atelier .florisyn-pos-lux #productPadGrid,
 body.florisyn-atelier .florisyn-pos-lux .pos-lux-pads {
-  display: none !important;
-  height: 0 !important;
-  max-height: 0 !important;
-  overflow: hidden !important;
-  margin: 0 !important;
-  padding: 0 !important;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)) !important;
+  gap: 10px !important;
+  margin: 10px 0 0 !important;
+  padding: 2px !important;
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
   border: 0 !important;
+}
+#posPage #florisynPosLux .pos-lux-pads .pad,
+body.florisyn-atelier .florisyn-pos-lux .pos-lux-pads .pad {
+  border: 1px solid var(--pos-border, #eae6e8) !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  cursor: pointer;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  height: auto !important;
+  min-height: 0 !important;
+  box-shadow: 0 2px 8px rgba(26, 31, 60, 0.05);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+#posPage #florisynPosLux .pos-lux-pads .pad:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(26, 31, 60, 0.12);
+}
+#posPage #florisynPosLux .pos-lux-pads .pad img {
+  width: 100% !important;
+  height: 92px !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+#posPage #florisynPosLux .pos-lux-pads .pad .pad-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pos-ink, #26263a);
+  padding: 7px 9px;
+  text-align: left;
+  line-height: 1.25;
+}
+#posPage #florisynPosLux .pos-lux-pads .pad .tile-fallback {
+  font-size: 1.8rem;
+  padding: 20px;
+  text-align: center;
+}
+#posPage #florisynPosLux .pos-lux-pads .pad-add {
+  border: 1px dashed var(--pos-rose, #e06b85) !important;
+  color: var(--pos-rose, #e06b85) !important;
+  background: #fff8fa !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: 700;
+  min-height: 122px !important;
+  gap: 4px;
+}
+#posPage #florisynPosLux .pos-lux-pads .pad-add .pad-add-plus {
+  font-size: 1.7rem;
+  line-height: 1;
 }
 
 /* BOTTOM basket */
