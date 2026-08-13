@@ -718,6 +718,7 @@ function renderPosCart(){
   if(discountLabel)discountLabel.textContent=discountPct?`Discount (${discountPct}%)`:"Discount";
   if($("#posLuxServiceFee"))$("#posLuxServiceFee").textContent=money(service||0);
   if($("#posLuxTax"))$("#posLuxTax").textContent=money(tax);
+  if($("#posLuxTaxLabel"))$("#posLuxTaxLabel").textContent=`Tax (${Number(rate||0)}%)`;
   else{
     const taxLine=$$(".checkout-lines span").find(x=>x.textContent.includes("Tax ("));
     if(taxLine)taxLine.innerHTML=`Tax (${rate.toFixed(1)}%) <b>${money(tax)}</b>`;
@@ -772,7 +773,31 @@ function renderSplitPaymentRows(rows){const host=$("#splitPaymentRows");if(!host
 function readSplitRows(){return [...($("#splitPaymentRows")?.querySelectorAll(".split-part-row")||[])].map(row=>({amount:Number(row.querySelector("[data-split-amount]")?.value||0),method:row.querySelector("[data-split-method]")?.value||"Cash",note:row.querySelector("[data-split-note]")?.value||""}))}
 function updateSplitTotals(){const balance=Number($("#paymentTopSummary")?.dataset.balance||getPaymentBalance());const rows=readSplitRows();const splitTotal=Math.round(rows.reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;const manualTotal=Math.round(rows.filter(r=>r.method!=="Card").reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;const cardTotal=Math.round(rows.filter(r=>r.method==="Card").reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;if($("#splitTotalLive"))$("#splitTotalLive").textContent=money(splitTotal);if($("#splitRemainingLive"))$("#splitRemainingLive").textContent=money(Math.max(0,balance-manualTotal));const err=$("#splitPaymentError");if(err)err.textContent=splitTotal>balance+0.005?`Split total ${money(splitTotal)} exceeds balance ${money(balance)}.`:"";const notice=$("#splitCardNotice");if(notice){if(cardTotal>0){notice.hidden=false;notice.textContent=`Card total ${money(cardTotal)} opens Stripe for that amount after cash/check/other parts post.`}else notice.hidden=true}}
 function setPendingPaymentOrder(order){pendingPaymentOrder=order||null;if(order)localStorage.setItem("bloom_pending_payment_order",JSON.stringify(order));else{localStorage.removeItem("bloom_pending_payment_order");clearSplitSession()}renderPaymentCenterShell()}
-async function checkoutPosCart(){if(!posCart.length)return toast("Add an item first");const customerSelect=$("#posCustomerSelect"),option=customerSelect.selectedOptions[0],customerName=option?.dataset.name||"Walk-in Customer",note=$("#posOrderNote")?.value||"",{subtotal,tax,total,rate,discount,service}=cartTotals();const description=posCart.map(x=>`${x.quantity} × ${x.name}${x.description?` (${x.description})`:""}`).join("; ");try{const result=await api("orders",{method:"POST",body:JSON.stringify({customer_name:customerName,customer_phone:"",customer_type:"PERSONAL",payment_required:"YES",recipient_name:customerName,occasion:"",order_source:"Walk-in",arrangement_description:description,notes:note,fulfillment:service?"DELIVERY":"PICKUP",delivery_date:new Date().toISOString().slice(0,10),subtotal,labor_charge:0,delivery_fee:service||0,discount:discount||0,tax_rate:rate,tax,estimated_cost:0,total_preview:total})});const order=result.item||{};posCart=[];savePosCart();if($("#posOrderNote"))$("#posOrderNote").value="";toast("Order created — choose a payment method");await openPaymentCenterForOrder(order);loadOrders();loadDashboard()}catch(e){toast(e.message)}}
+function posFulfillMode(){return document.querySelector('#posFulfill [data-fulfill].active')?.dataset.fulfill||"PICKUP"}
+async function checkoutPosCart(){
+  if(!posCart.length)return toast("Add an item first");
+  const option=$("#posCustomerSelect")?.selectedOptions?.[0],customerName=option?.dataset.name||"Walk-in Customer",note=$("#posOrderNote")?.value||"";
+  const {subtotal,tax,total,rate,discount,service}=cartTotals();
+  const fulfillment=posFulfillMode(),isDelivery=fulfillment==="DELIVERY";
+  const recipientName=(isDelivery&&$("#posRecipientName")?.value?.trim())||customerName;
+  const recipientPhone=isDelivery?($("#posRecipientPhone")?.value?.trim()||""):"";
+  const deliveryAddress=isDelivery?($("#posDeliveryAddress")?.value?.trim()||""):"";
+  const deliveryDate=$("#posDeliveryDate")?.value||new Date().toISOString().slice(0,10);
+  const cardMessage=$("#posCardMessage")?.value?.trim()||"";
+  const occasion=$("#posOccasion")?.value?.trim()||"";
+  if(isDelivery&&!deliveryAddress)return toast("Add a delivery address, or switch to Pickup.");
+  const description=posCart.map(x=>`${x.quantity} × ${x.name}${x.description?` (${x.description})`:""}`).join("; ");
+  try{
+    const result=await api("orders",{method:"POST",body:JSON.stringify({customer_name:customerName,customer_phone:"",customer_type:"PERSONAL",payment_required:"YES",recipient_name:recipientName,recipient_phone:recipientPhone,delivery_address:deliveryAddress,card_message:cardMessage,occasion,order_source:"POS",arrangement_description:description,notes:note,fulfillment,delivery_date:deliveryDate,subtotal,labor_charge:0,delivery_fee:service||0,discount:discount||0,tax_rate:rate,tax,estimated_cost:0,total_preview:total})});
+    const order=result.item||{};
+    posCart=[];savePosCart();
+    ["posOrderNote","posRecipientName","posRecipientPhone","posDeliveryAddress","posCardMessage","posOccasion","posDeliveryDate"].forEach(id=>{const el=$("#"+id);if(el)el.value=""});
+    toast(isDelivery?"Delivery order created — choose a payment method":"Order created — choose a payment method");
+    await openPaymentCenterForOrder(order);
+    loadOrders();loadDashboard();
+  }catch(e){toast(e.message)}
+}
+document.addEventListener("click",e=>{const b=e.target.closest("#posFulfill [data-fulfill]");if(!b)return;document.querySelectorAll("#posFulfill [data-fulfill]").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-selected",on?"true":"false")});const del=b.dataset.fulfill==="DELIVERY";const f=$("#posDeliveryFields");if(f)f.hidden=!del});
 addPastelPageFrames();
 document.addEventListener('click',e=>{const pad=e.target.closest('.quick-sale-pad');if(pad){e.preventDefault();openQuickSalePad(pad)}});
 document.addEventListener("click",e=>{let t;if(t=e.target.closest("#manageTilesBtn,#addTileFromGrid")){renderTileEditor();$("#tileManagerDialog").showModal();return}if(t=e.target.closest("#addTileBtn")){openTileEditor();return}if(t=e.target.closest("[data-edit-tile]")){openTileEditor(posTiles.find(x=>x.id===t.dataset.editTile));return}if(t=e.target.closest("[data-delete-tile]")){if(confirm("Delete this product tile?")){posTiles=posTiles.filter(x=>x.id!==t.dataset.deleteTile);renderTileEditor()}return}if(t=e.target.closest("[data-tile-up]")){const i=Number(t.dataset.tileUp);if(i>0)[posTiles[i-1],posTiles[i]]=[posTiles[i],posTiles[i-1]];renderTileEditor();return}if(t=e.target.closest("[data-tile-down]")){const i=Number(t.dataset.tileDown);if(i<posTiles.length-1)[posTiles[i+1],posTiles[i]]=[posTiles[i],posTiles[i+1]];renderTileEditor();return}});

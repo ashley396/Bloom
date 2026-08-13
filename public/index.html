@@ -367,6 +367,20 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
         <p class="pos-lux-loyalty-note" id="posLuxLoyaltyNote">Assign a customer to unlock loyalty.</p>
       </div>
 
+      <div class="pos-fulfill" id="posFulfill">
+        <div class="pos-fulfill-toggle" role="tablist" aria-label="Fulfillment">
+          <button type="button" class="active" data-fulfill="PICKUP" role="tab" aria-selected="true">Pickup</button>
+          <button type="button" data-fulfill="DELIVERY" role="tab" aria-selected="false">Delivery</button>
+        </div>
+        <div class="pos-fulfill-fields" id="posDeliveryFields" hidden>
+          <input id="posRecipientName" placeholder="Recipient name" autocomplete="off">
+          <input id="posRecipientPhone" placeholder="Recipient phone" inputmode="tel" autocomplete="off">
+          <input id="posDeliveryAddress" placeholder="Delivery address" autocomplete="off">
+          <label class="pos-fulfill-date">Delivery date<input id="posDeliveryDate" type="date"></label>
+          <textarea id="posCardMessage" rows="2" placeholder="Card message (goes on the enclosure card)"></textarea>
+        </div>
+        <input id="posOccasion" class="pos-occasion" placeholder="Occasion (optional) — Birthday, Sympathy…" autocomplete="off">
+      </div>
       <div class="pos-lux-totals">
         <div class="pos-lux-line"><span>Subtotal</span><b id="cartSubtotal">$0.00</b></div>
         <div class="pos-lux-discount-row">
@@ -377,8 +391,8 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
           <button type="button" class="pos-lux-apply" id="posLuxApplyDiscount">Apply</button>
         </div>
         <div class="pos-lux-line rose" id="posLuxDiscountLine" hidden><span>Discount</span><b id="posLuxDiscountAmt">−$0.00</b></div>
-        <div class="pos-lux-line"><span>Service / White-Glove Delivery</span><b id="posLuxServiceFee">$0.00</b></div>
-        <div class="pos-lux-line checkout-lines"><span>Tax (VAT 10%)</span><b id="posLuxTax">$0.00</b></div>
+        <div class="pos-lux-line" id="posLuxServiceLine" hidden><span>Delivery fee</span><b id="posLuxServiceFee">$0.00</b></div>
+        <div class="pos-lux-line checkout-lines"><span id="posLuxTaxLabel">Tax</span><b id="posLuxTax">$0.00</b></div>
         <div class="pos-lux-grand"><span>Grand Total</span><strong id="cartTotal">$0.00</strong></div>
       </div>
 
