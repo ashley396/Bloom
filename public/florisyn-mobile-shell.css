@@ -691,26 +691,30 @@
     border-left: 0 !important;
   }
 
-  /* POS quick tools — small icon buttons fixed above Florisyn strip (outside help box) */
+  /* POS quick tools — in-flow horizontal toolbar. Previously position:fixed, which
+     leaked a desktop `top` value and floated a translucent bar over the top content on
+     mobile (looked like a stray "Clock Out"/floral overlay). Keep it in normal flow. */
   body.florisyn-atelier #posPage #florisynPosLux .pos-lux-rail {
-    position: fixed !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: calc(var(--florisyn-mobile-nav-height) + var(--florisyn-pos-footer-height) + 4px) !important;
+    position: static !important;
+    top: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
     width: 100% !important;
     max-width: none !important;
     flex: 0 0 auto !important;
     flex-direction: row !important;
-    justify-content: space-around !important;
+    justify-content: flex-start !important;
     align-items: center !important;
-    overflow: visible !important;
-    height: var(--florisyn-pos-quick-height) !important;
-    max-height: var(--florisyn-pos-quick-height) !important;
-    min-height: var(--florisyn-pos-quick-height) !important;
-    padding: 4px 8px !important;
-    gap: 4px !important;
-    z-index: 63 !important;
-    box-shadow: 0 -4px 16px rgba(26, 31, 60, 0.12) !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    padding: 8px !important;
+    gap: 6px !important;
+    z-index: auto !important;
+    box-shadow: none !important;
   }
 
   body.florisyn-atelier #posPage #florisynPosLux .pos-lux-main-row {
