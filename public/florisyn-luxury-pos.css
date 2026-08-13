@@ -26,8 +26,8 @@ body.florisyn-atelier #posPage.florisyn-pos-page.active,
   display: block !important;
 }
 
-body.florisyn-atelier.florisyn-pos-active .shell > .content,
-body.florisyn-pos-active .shell > .content {
+body.florisyn-atelier.florisyn-pos-active .florisyn-lux-main > .content,
+body.florisyn-pos-active .florisyn-lux-main > .content {
   padding: 0 12px 12px 0 !important;
 }
 

@@ -33,16 +33,13 @@ test("GET /staff returns summary only", () => {
   }
 });
 
-test("POST create accepts only public create fields plus PIN", () => {
+test("POST create saves public and private fields atomically behind the new PIN", () => {
   assert.match(staffApi, /PUBLIC_STAFF_FIELDS/);
   assert.match(staffApi, /PRIVATE_STAFF_FIELDS/);
-  assert.match(
-    staffApi,
-    /Private employee fields cannot be set on create/
-  );
   assert.match(staffApi, /copyFields\(body, PUBLIC_STAFF_FIELDS, payload\)/);
   assert.match(staffApi, /requirePinFormat\(body\.pin\)/);
   assert.match(staffApi, /payload\.pin_hash = hashPin\(body\.pin\)/);
+  assert.match(staffApi, /copyFields\(body, PRIVATE_STAFF_FIELDS, payload\)/);
 });
 
 test("PATCH sensitive fields require private_file_pin or current_pin", () => {
@@ -97,10 +94,13 @@ test("POST create ignores zero-value private numeric defaults", () => {
   assert.match(staffApi, /hourly_rate/);
 });
 
-test("UI create sends only name, role, and PIN unless private fields are filled", () => {
+test("UI create saves the employee with one atomic request", () => {
   assert.match(app, /staffPrivateFieldFilled/);
   assert.match(app, /setAttribute\("required",""\)/);
   assert.match(app, /Employee PIN must be 4–8 digits/);
+  assert.match(app, /const create=\{name:d\.name,role:d\.role,pin:d\.pin\}/);
+  assert.match(app, /method:"POST",body:JSON\.stringify\(create\)/);
+  assert.doesNotMatch(app, /const privatePatch=\{id:created\.item\.id/);
 });
 
 test("UI sends private_file_pin after opening the private employee file", () => {

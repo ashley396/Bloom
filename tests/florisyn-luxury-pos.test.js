@@ -81,6 +81,8 @@ test("luxury POS palette uses navy and rose without green CTAs", () => {
   assert.match(html, /<small>CART<\/small>/);
   assert.equal((html.match(/class="pos-lux-cat(?:\s|")/g) || []).length, 8);
   assert.match(css, /padding:\s*0 12px 12px 0/);
+  assert.match(css, /florisyn-pos-active \.florisyn-lux-main > \.content/);
+  assert.doesNotMatch(css, /florisyn-pos-active \.shell > \.content/);
   assert.match(css, /overflow:\s*hidden/);
   assert.match(css, /pos-lux-pay-actions/);
   assert.match(css, /flex:\s*0\s+0\s+auto/);

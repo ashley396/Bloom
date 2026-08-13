@@ -180,10 +180,9 @@
   }
 
   function orderCancelAction(r) {
-    if (orderCancelDisabled(r)) {
+    if (orderCancelDisabled(r) || !r.raw?.id) {
       return `<button type="button" class="ord-cancel secondary" disabled>Cancel Order</button>`;
     }
-    if (!r.raw?.id) return "";
     return `<button type="button" class="ord-cancel secondary danger" data-cancel-order="${esc(r.raw.id)}">Cancel Order</button>`;
   }
 

@@ -56,6 +56,7 @@ test("Orders table demo data and interactions are functional", () => {
   assert.match(js, /data-cancel-order/);
   assert.match(js, /status:\s*"CANCELLED"/);
   assert.match(js, /Cancel Order/);
+  assert.match(js, /orderCancelDisabled\(r\) \|\| !r\.raw\?\.id/);
+  assert.match(js, /class="ord-cancel secondary" disabled>Cancel Order/);
   assert.match(appJs, /FlorisynLuxuryOrders\?\.boot/);
-  assert.match(appJs, /data-cancel-order/);
 });

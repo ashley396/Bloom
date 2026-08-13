@@ -1,6 +1,6 @@
 import { json, preflight, methodNotAllowed, bodyOf } from "./_shared/http.js";
 import { currentUser } from "./_shared/supabase.js";
-import { systemPromptFor, temperatureForPersona, normalizePersona } from "./_shared/florist-ai-personas.js";
+import { systemPromptFor, temperatureForPersona, normalizePersona, localPersonaResponse } from "./_shared/florist-ai-personas.js";
 
 const MODEL_DEFAULT="@cf/meta/llama-3.1-8b-instruct-fast";
 const MAX_PROMPT_CHARS=42000;
@@ -66,7 +66,11 @@ export function extractCloudflareText(result) {
 async function cloudflareAi(payload){
   const account=String(process.env.CLOUDFLARE_ACCOUNT_ID||"").trim();
   const token=cloudflareAiToken();
-  if(!account||!token){const e=new Error("Cloud AI is not configured; Florisyn will try the free local AI fallback.");e.statusCode=503;throw e}
+  if(!account||!token){
+    const persona=normalizePersona(payload.persona);
+    if(payload.mode==="generate") return {result:{text:localPersonaResponse(persona,payload.task||payload.input?.prompt,payload.input||{})},provider:"Florisyn local fallback",model:"deterministic"};
+    return {answer:localPersonaResponse(persona,payload.prompt,payload.context||{}),persona,provider:"Florisyn local fallback",model:"deterministic"};
+  }
   const model=process.env.CLOUDFLARE_AI_MODEL||MODEL_DEFAULT;
   const persona = normalizePersona(payload.persona);
   const mode = payload.mode === "generate" ? "generate" : "chat";
