@@ -29,6 +29,56 @@ async function loadAiContext(client, shopId) {
   return { shop: shop || {}, inventory: inventory || [], recent_orders: orders || [], deliveries: deliveries || [] };
 }
 
+const AI_CHAT_MODEL = process.env.CLOUDFLARE_AI_MODEL || "@cf/meta/llama-3.1-8b-instruct-fast";
+
+function personaSystemPrompt(persona) {
+  const p = String(persona || "").toLowerCase();
+  if (p === "rose") {
+    return "You are Rose, an experienced, witty florist-business mentor inside Florisyn. Give direct, practical, specific advice on pricing, profit, margins, operations, and growth.";
+  }
+  if (p === "daisy") {
+    return "You are Daisy, Florisyn's cheerful shop mascot. Be upbeat, warm, and encouraging with a light touch of fun. Keep answers short and friendly.";
+  }
+  return "You are Lily, a warm, creative florist assistant inside Florisyn. Help with floral design, flower care, recipes, and everyday shop tasks. Be practical, concise, and encouraging.";
+}
+
+/**
+ * Real conversational answer from Cloudflare Workers AI (persona-aware). Returns
+ * null on any failure so the caller can fall back to a safe template.
+ */
+async function cloudflareChat(persona, message, context) {
+  const account = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const token = process.env.CLOUDFLARE_AI_API_TOKEN;
+  if (!account || !token || !message) return null;
+  const system = `${personaSystemPrompt(persona)} Never claim an action was saved, published, paid, ordered, or completed unless Florisyn confirms it. Your suggestions are editable and need florist approval. Protect private employee and customer information.`;
+  const ctx = JSON.stringify({
+    shop: context.shop || {},
+    inventory: (context.inventory || []).slice(0, 15),
+    recent_orders: (context.recent_orders || []).slice(0, 8),
+    upcoming_deliveries: (context.deliveries || []).slice(0, 8)
+  }).slice(0, 8000);
+  try {
+    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/ai/run/${AI_CHAT_MODEL}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: `My shop's current context (for reference only): ${ctx}\n\nMy question: ${message}` }
+        ],
+        max_tokens: 500,
+        temperature: 0.4
+      })
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || !data.success) return null;
+    const answer = String(data.result?.response || data.result?.result || "").trim();
+    return answer || null;
+  } catch {
+    return null;
+  }
+}
+
 async function persistMessage(client, { conversationId, userId, shopId, role, content, metadata }) {
   try {
     await client.from(MESSAGES).insert({
@@ -85,6 +135,7 @@ export async function handler(event) {
     const message = String(body.message || body.prompt || "").trim();
     const confirmed = Boolean(body.confirm);
     const conversationId = body.conversation_id || null;
+    const persona = body.persona || body.assistant || "lily";
 
     if (event.httpMethod === "POST" && body.action === "history-search") {
       const history = Array.isArray(body.history) ? body.history.map(sanitizeHistoryEntry) : [];
@@ -135,9 +186,14 @@ export async function handler(event) {
       };
     }
 
-    const responseText =
-      buildResponseMessage(intent, permission, planned, confirmed) ||
-      `I understand you want help with ${intent.domain.replace("_", " ")}. I can chat, suggest next steps, and prepare actions for your confirmation.`;
+    let responseText = buildResponseMessage(intent, permission, planned, confirmed);
+    if (responseText == null) {
+      // Conversational turn (general chat): answer with the real model, persona-aware,
+      // instead of a static template. Falls back to the template if AI is unavailable.
+      const aiAnswer = permission.allowed ? await cloudflareChat(persona, message, context) : null;
+      responseText = aiAnswer ||
+        `I understand you want help with ${intent.domain.replace("_", " ")}. I can chat, suggest next steps, and prepare actions for your confirmation.`;
+    }
 
     await logAction(client, {
       userId: user.id,
