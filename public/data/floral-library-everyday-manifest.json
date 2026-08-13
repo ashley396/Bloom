@@ -2,15 +2,18 @@
   "version": 2,
   "batches": [
     "floral-library-birthday.json",
+    "floral-library-congratulations.json",
     "floral-library-everyday-50.json",
     "floral-library-everyday-batch-2.json",
     "floral-library-funeral.json",
     "floral-library-get-well.json",
     "floral-library-hydrangeas.json",
     "floral-library-love-romance.json",
+    "floral-library-new-baby.json",
+    "floral-library-plants.json",
     "floral-library-sympathy.json",
     "floral-library-wedding.json"
   ],
-  "total": 240,
-  "generated_at": "2026-08-13T14:37:25.566Z"
+  "total": 286,
+  "generated_at": "2026-08-13T14:43:36.811Z"
 }
