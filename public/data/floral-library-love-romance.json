@@ -1,0 +1,939 @@
+{
+  "version": "1.0",
+  "collection": "florisyn_category_library",
+  "category": "Love & Romance",
+  "target_count": 20,
+  "image_style": "professional florist e-commerce product photograph, single arrangement centered, pure white seamless studio background, soft even studio lighting, ultra-realistic, no text/people",
+  "arrangements": [
+    {
+      "id": "lr-01-classic-red-dozen",
+      "name": "Classic Dozen Red Roses",
+      "style": "romantic",
+      "color_palette": "red, green",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass rose vase",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 12,
+          "kind": "flower"
+        },
+        {
+          "name": "Baby's Breath",
+          "qty": 5,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "The timeless dozen red roses of true love.",
+      "description": "A dozen velvety red roses framed with baby's breath and lush greenery — the timeless declaration of love.",
+      "suggested_retail": 89.99,
+      "image": "everyday/lr-01-classic-red-dozen.jpg",
+      "alt": "Dozen red roses in a glass vase on a white background",
+      "content_sha256": "b66659e17a7887306760c325f4485c78620defc12f6d889c90d44a31c5167efe",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-02-blush-romance",
+      "name": "Blush Romance",
+      "style": "romantic",
+      "color_palette": "blush, pink",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Blush Garden Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Peonies",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Soft blush roses and peonies for tender romance.",
+      "description": "Lush blush garden roses and full pink peonies with airy lisianthus — a soft, romantic gesture of adoration.",
+      "suggested_retail": 109.99,
+      "image": "everyday/lr-02-blush-romance.jpg",
+      "alt": "Blush roses and peonies in a glass vase on a white background",
+      "content_sha256": "bda4e8d76fa237bd7e805fe7c71c6548cc8887678a47bfeef9fc6b188d5b561c",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-03-two-dozen-red",
+      "name": "Two Dozen Red Roses",
+      "style": "grand",
+      "color_palette": "red, green",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "tall clear glass vase",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 24,
+          "kind": "flower"
+        },
+        {
+          "name": "Seeded Eucalyptus",
+          "qty": 8,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Seeded Eucalyptus"
+      ],
+      "short_description": "A grand two-dozen red rose statement of love.",
+      "description": "Two dozen premium red roses gathered in a tall vase with seeded eucalyptus — an unforgettable romantic statement.",
+      "suggested_retail": 149.99,
+      "image": "everyday/lr-03-two-dozen-red.jpg",
+      "alt": "Two dozen red roses in a tall glass vase on a white background",
+      "content_sha256": "2897b06d4f4b91f575d32083785d053f5af3a9d833feb1c5fdeb249b1bbf310b",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-04-red-white-passion",
+      "name": "Passion Red & White",
+      "style": "romantic",
+      "color_palette": "red, white",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Red Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Ruscus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Ruscus"
+      ],
+      "short_description": "Bold red and white roses of devoted passion.",
+      "description": "Deep red and pure white roses intertwined with alstroemeria — a striking expression of passionate devotion.",
+      "suggested_retail": 94.99,
+      "image": "everyday/lr-04-red-white-passion.jpg",
+      "alt": "Red and white rose arrangement on a white background",
+      "content_sha256": "a9b5f4d1c7c5f4af1673bfd91c86ea67e3b174cb74556b7de33e81a2382a0eff",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-05-pink-peony-love",
+      "name": "Peony Love",
+      "style": "lush",
+      "color_palette": "pink",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "footed glass compote",
+      "recipe": [
+        {
+          "name": "Pink Peonies",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "Blush Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Silver Dollar Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Silver Dollar Eucalyptus"
+      ],
+      "short_description": "A lush compote of romantic pink peonies.",
+      "description": "An indulgent compote overflowing with full pink peonies and blush roses — pure romance in bloom.",
+      "suggested_retail": 124.99,
+      "image": "everyday/lr-05-pink-peony-love.jpg",
+      "alt": "Pink peony arrangement in a compote on a white background",
+      "content_sha256": "3c66888fd071c76a5d1ee8ee6b8075534b9f668c1dc8ecb53b0251c683458ca6",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-06-lavender-love",
+      "name": "Lavender Love Letter",
+      "style": "romantic",
+      "color_palette": "lavender, pink",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Lavender Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Stock",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Dreamy lavender and pink roses of enchantment.",
+      "description": "Enchanting lavender roses with soft pink blooms and fragrant stock — a dreamy, romantic love letter in flowers.",
+      "suggested_retail": 99.99,
+      "image": "everyday/lr-06-lavender-love.jpg",
+      "alt": "Lavender and pink rose arrangement on a white background",
+      "content_sha256": "8b9b34c2f58ece92f3e8681b30166e6898d5f6d9e6681b1e1b8e4d9e9fa0ab20",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-07-red-rose-heart-box",
+      "name": "Red Rose Heart Box",
+      "style": "romantic",
+      "color_palette": "red",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "box arrangement",
+      "container": "white heart-shaped gift box",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 18,
+          "kind": "flower"
+        },
+        {
+          "name": "Salal",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Salal"
+      ],
+      "short_description": "Red roses arranged in a keepsake heart box.",
+      "description": "Velvety red roses arranged edge-to-edge in a heart-shaped keepsake box — an iconic romantic gift.",
+      "suggested_retail": 119.99,
+      "image": "everyday/lr-07-red-rose-heart-box.jpg",
+      "alt": "Red roses in a heart-shaped box on a white background",
+      "content_sha256": "6ce3ec7d87a8f34108da58c15c449cb9b3505d45c1cc6d4cff23b4f5980e16a6",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-08-sweetheart-pinks",
+      "name": "Sweetheart Pinks",
+      "style": "sweet",
+      "color_palette": "pink, white",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "White Spray Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Waxflower",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Sweet pink roses for a budding romance.",
+      "description": "Soft pink roses and delicate spray roses with pink waxflower — sweet and tender for a budding romance.",
+      "suggested_retail": 84.99,
+      "image": "everyday/lr-08-sweetheart-pinks.jpg",
+      "alt": "Pink and white rose arrangement on a white background",
+      "content_sha256": "7e9e0d5f8f4ef8d1d693aff8882e6146b0f48a336e0654cc6809545056f36ed2",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-09-burgundy-romance",
+      "name": "Burgundy Romance",
+      "style": "moody",
+      "color_palette": "burgundy, red",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "matte black ceramic vase",
+      "recipe": [
+        {
+          "name": "Burgundy Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Red Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Burgundy Dahlias",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Dark Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Dark Eucalyptus"
+      ],
+      "short_description": "Moody burgundy blooms for deep romance.",
+      "description": "Rich burgundy roses and dahlias in a matte black vessel — a moody, sophisticated take on romance.",
+      "suggested_retail": 114.99,
+      "image": "everyday/lr-09-burgundy-romance.jpg",
+      "alt": "Burgundy rose and dahlia arrangement in a black vase on a white background",
+      "content_sha256": "f818a70e23492d447f2631b3e93f6f0deaa6830653a1943b4b9f3d640340c9fa",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-10-you-and-me-red",
+      "name": "You & Me",
+      "style": "romantic",
+      "color_palette": "red, pink",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Hot Pink Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Baby's Breath",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "Red and hot-pink roses in a modern cube.",
+      "description": "Red and vibrant pink roses paired in a modern glass cube with a whisper of baby's breath — a bright romance.",
+      "suggested_retail": 79.99,
+      "image": "everyday/lr-10-you-and-me-red.jpg",
+      "alt": "Red and pink rose cube arrangement on a white background",
+      "content_sha256": "c95eb51a5bb8dddf84c42c01822c735d1ceaa2591477714635a7a33deae4ec58",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-11-white-elegance-love",
+      "name": "White Elegance",
+      "style": "elegant",
+      "color_palette": "white, green",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "tall clear glass vase",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 12,
+          "kind": "flower"
+        },
+        {
+          "name": "White Ranunculus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Italian Ruscus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Italian Ruscus"
+      ],
+      "short_description": "Elegant all-white roses for pure devotion.",
+      "description": "Pristine white roses and ranunculus in a tall vase — elegant and pure, for a refined romance.",
+      "suggested_retail": 104.99,
+      "image": "everyday/lr-11-white-elegance-love.jpg",
+      "alt": "All-white rose and ranunculus arrangement on a white background",
+      "content_sha256": "76514ada76e6f8aeb7966b0e1d98624a64eeb06c58dd0f100db5bd418ee7582c",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-12-tulip-sweetheart",
+      "name": "Tulip Sweetheart",
+      "style": "fresh",
+      "color_palette": "pink, red",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Pink Tulips",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "Red Tulips",
+          "qty": 10,
+          "kind": "flower"
+        }
+      ],
+      "foliage": [],
+      "short_description": "Fresh pink and red tulips of spring romance.",
+      "description": "A cheerful gathering of pink and red tulips — fresh, playful, and full of springtime romance.",
+      "suggested_retail": 74.99,
+      "image": "everyday/lr-12-tulip-sweetheart.jpg",
+      "alt": "Pink and red tulip arrangement on a white background",
+      "content_sha256": "f25c6e347200742fd36873454ed4e9a690d572c77dcb0453f3358995ab1ca6e6",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-13-orchid-affection",
+      "name": "Orchid Affection",
+      "style": "exotic",
+      "color_palette": "pink, green",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "tall clear glass vase",
+      "recipe": [
+        {
+          "name": "Pink Phalaenopsis Orchid Stems",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Roses",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "Israeli Ruscus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Israeli Ruscus"
+      ],
+      "short_description": "Exotic pink orchids and roses of affection.",
+      "description": "Graceful pink orchids arc over romantic roses — an exotic, upscale expression of affection.",
+      "suggested_retail": 129.99,
+      "image": "everyday/lr-13-orchid-affection.jpg",
+      "alt": "Pink orchid and rose arrangement on a white background",
+      "content_sha256": "66fd4828c518c9ef5a190acca4e04b46b7e038a923db1c0b9584dec652b19a24",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-14-cupids-garden",
+      "name": "Cupid's Garden",
+      "style": "garden",
+      "color_palette": "pink, red, white",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "footed glass compote",
+      "recipe": [
+        {
+          "name": "Red Garden Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Ranunculus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Astilbe",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A romantic garden blend of reds, pinks, and whites.",
+      "description": "A lush garden compote of red and pink roses with feathery astilbe — romance in full, natural bloom.",
+      "suggested_retail": 119.99,
+      "image": "everyday/lr-14-cupids-garden.jpg",
+      "alt": "Garden-style red, pink and white rose arrangement on a white background",
+      "content_sha256": "64679977f8101a53ac0b6feabe9b2b78f51d2161f0a062af1a127c3a9cc7c1c8",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-15-red-rose-lily-love",
+      "name": "Roses & Lilies in Love",
+      "style": "romantic",
+      "color_palette": "red, pink",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Oriental Lilies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Ruscus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Ruscus"
+      ],
+      "short_description": "Red roses and fragrant pink lilies entwined.",
+      "description": "Passionate red roses paired with fragrant pink Oriental lilies — a romantic duet of love's favorite blooms.",
+      "suggested_retail": 99.99,
+      "image": "everyday/lr-15-red-rose-lily-love.jpg",
+      "alt": "Red rose and pink lily arrangement on a white background",
+      "content_sha256": "1611817cdc89bf727861f44e3bf1d0fe367a635edbe19a242589daedb66790bc",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-16-first-kiss",
+      "name": "First Kiss",
+      "style": "sweet",
+      "color_palette": "blush, cream",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass bubble bowl",
+      "recipe": [
+        {
+          "name": "Cream Roses",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "Blush Spray Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Astilbe",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Soft cream and blush roses as sweet as a first kiss.",
+      "description": "Delicate cream and blush roses in a rounded bowl — as soft and sweet as a first kiss.",
+      "suggested_retail": 84.99,
+      "image": "everyday/lr-16-first-kiss.jpg",
+      "alt": "Cream and blush rose bubble bowl on a white background",
+      "content_sha256": "27d5083ae4d916bc7520e689bb0cb84b1bd3b55217dec40fbce5d0f288ec700c",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-17-eternal-flame",
+      "name": "Eternal Flame",
+      "style": "bold",
+      "color_palette": "red, orange",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 9,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Red Hypericum Berries",
+          "qty": 5,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "Fiery red and orange roses of enduring passion.",
+      "description": "Fiery red and sunset-orange roses accented with berries — a bold, enduring flame of passion.",
+      "suggested_retail": 94.99,
+      "image": "everyday/lr-17-eternal-flame.jpg",
+      "alt": "Red and orange rose arrangement on a white background",
+      "content_sha256": "4e2f18c6574df8f98a2a134ae5e84d5826f2a6f3be85ff80248cb8d8709334e5",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-18-forever-yours",
+      "name": "Forever Yours",
+      "style": "romantic",
+      "color_palette": "red, white",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "mirror-finish silver vase",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 18,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Seeded Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Seeded Eucalyptus"
+      ],
+      "short_description": "Eighteen red roses in a luxe silver vase.",
+      "description": "Eighteen radiant red roses with ivory lisianthus in a mirror-finish silver vase — a luxurious 'forever yours.'",
+      "suggested_retail": 139.99,
+      "image": "everyday/lr-18-forever-yours.jpg",
+      "alt": "Red roses in a silver vase on a white background",
+      "content_sha256": "616d7a7825421a5face6aefdadfa5faaa3955b47b7fcee779c86a6cf3bcc18f1",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-19-hopeless-romantic",
+      "name": "Hopeless Romantic",
+      "style": "dreamy",
+      "color_palette": "pink, lavender, white",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Lavender Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Waxflower",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A dreamy pastel blend for the hopeless romantic.",
+      "description": "A dreamy blend of pink and lavender roses with ivory lisianthus — soft, romantic, and utterly enchanting.",
+      "suggested_retail": 99.99,
+      "image": "everyday/lr-19-hopeless-romantic.jpg",
+      "alt": "Pink and lavender rose arrangement on a white background",
+      "content_sha256": "8df7a93f0fe8a610d47683596e855f0ab7bedbd506ae0628c27b0c32c1221660",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "lr-20-my-valentine",
+      "name": "My Valentine",
+      "style": "romantic",
+      "color_palette": "red, pink",
+      "categories": [
+        "Love & Romance"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "red ceramic vase",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 12,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Spray Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Baby's Breath",
+          "qty": 5,
+          "kind": "filler"
+        },
+        {
+          "name": "Ruscus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Ruscus"
+      ],
+      "short_description": "A dozen red roses with pink accents for your Valentine.",
+      "description": "A dozen classic red roses brightened with pink spray roses and baby's breath — the perfect Valentine.",
+      "suggested_retail": 94.99,
+      "image": "everyday/lr-20-my-valentine.jpg",
+      "alt": "Red roses with pink accents in a red vase on a white background",
+      "content_sha256": "b52c8ef529aaed5295db0e97d97f2247d723332962d6b1d2d24289fcd2e7286e",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    }
+  ],
+  "generated_at": "2026-08-13T14:24:45.382Z",
+  "image_source": "ai_generated_cloudflare_flux"
+}

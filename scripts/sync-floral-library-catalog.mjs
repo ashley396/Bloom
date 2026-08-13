@@ -8,10 +8,14 @@ import path from "node:path";
 
 const root = process.cwd();
 const publicDir = path.join(root, "public");
-const batchFiles = [
-  path.join(publicDir, "data/floral-library-everyday-50.json"),
-  path.join(publicDir, "data/floral-library-everyday-batch-2.json")
-];
+const dataDir = path.join(publicDir, "data");
+// Every floral-library-*.json holding an `arrangements` array (everyday + each
+// category file). Sorted for stable output; new categories are picked up on drop-in.
+const batchFiles = fs.readdirSync(dataDir)
+  .filter((f) => /^floral-library-.*\.json$/.test(f))
+  .sort()
+  .map((f) => path.join(dataDir, f))
+  .filter((f) => { try { return Array.isArray(JSON.parse(fs.readFileSync(f, "utf8")).arrangements); } catch { return false; } });
 
 function loadBatches() {
   const arrangements = [];

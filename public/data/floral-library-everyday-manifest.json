@@ -1,9 +1,12 @@
 {
   "version": 2,
   "batches": [
+    "floral-library-birthday.json",
     "floral-library-everyday-50.json",
-    "floral-library-everyday-batch-2.json"
+    "floral-library-everyday-batch-2.json",
+    "floral-library-love-romance.json",
+    "floral-library-sympathy.json"
   ],
-  "total": 100,
-  "generated_at": "2026-08-13T14:08:06.841Z"
+  "total": 160,
+  "generated_at": "2026-08-13T14:26:24.350Z"
 }

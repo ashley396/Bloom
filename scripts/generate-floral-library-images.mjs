@@ -26,10 +26,13 @@ import crypto from "node:crypto";
 const root = process.cwd();
 const publicDir = path.join(root, "public");
 const everydayDir = path.join(publicDir, "assets/floral-library/everyday");
-const batchFiles = [
-  path.join(publicDir, "data/floral-library-everyday-50.json"),
-  path.join(publicDir, "data/floral-library-everyday-batch-2.json")
-];
+const dataDir = path.join(publicDir, "data");
+// Every floral-library-*.json that holds an `arrangements` array — auto-includes
+// each category file (everyday, sympathy, …) so new categories just drop in.
+const batchFiles = fs.readdirSync(dataDir)
+  .filter((f) => /^floral-library-.*\.json$/.test(f))
+  .map((f) => path.join(dataDir, f))
+  .filter((f) => { try { return Array.isArray(JSON.parse(fs.readFileSync(f, "utf8")).arrangements); } catch { return false; } });
 
 // ── Minimal .env loader (no dependency) ──────────────────────────────────────
 function loadDotEnv() {
