@@ -402,34 +402,38 @@ body.florisyn-atelier .florisyn-pos-lux .pos-lux-pads {
   max-height: none !important;
   border: 0 !important;
 }
-/* Photo product tiles — arrangement picture with a name over a soft gradient,
-   category color as the fallback if a tile has no photo. */
+/* Photo product tiles — real <img> fill + name over a gradient. Explicit
+   tile height so the grid can never collapse the tiles to 0. */
 #posPage #florisynPosLux .pos-lux-pads .pad,
 body.florisyn-atelier .florisyn-pos-lux .pos-lux-pads .pad {
   border: none !important;
   border-radius: 12px !important;
   background-color: var(--cat, #d9694e) !important;
-  background-size: cover !important;
-  background-position: center !important;
-  background-repeat: no-repeat !important;
   color: #fff !important;
   padding: 0 !important;
   overflow: hidden !important;
   cursor: pointer;
   position: relative !important;
-  display: flex !important;
-  align-items: flex-end !important;
-  justify-content: flex-start !important;
-  height: auto !important;
-  min-height: 86px !important;
+  display: block !important;
+  width: 100% !important;
+  height: 92px !important;
+  min-height: 92px !important;
   box-shadow: 0 2px 8px rgba(26, 31, 60, 0.16);
   transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
-#posPage #florisynPosLux .pos-lux-pads .pad.has-photo::before {
+#posPage #florisynPosLux .pos-lux-pads .pad .pad-photo {
+  position: absolute !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+#posPage #florisynPosLux .pos-lux-pads .pad::after {
   content: "";
   position: absolute !important;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0.05) 30%, rgba(0,0,0,0.62));
+  background: linear-gradient(180deg, rgba(0,0,0,0.04) 35%, rgba(0,0,0,0.6));
   pointer-events: none;
 }
 #posPage #florisynPosLux .pos-lux-pads .pad:hover {
@@ -438,30 +442,30 @@ body.florisyn-atelier .florisyn-pos-lux .pos-lux-pads .pad {
 }
 #posPage #florisynPosLux .pos-lux-pads .pad:active { transform: translateY(0); }
 #posPage #florisynPosLux .pos-lux-pads .pad .pad-name {
-  position: relative;
-  z-index: 1;
+  position: absolute !important;
+  left: 0; right: 0; bottom: 0;
+  z-index: 2;
   font-size: 13px;
   font-weight: 650;
   color: #fff !important;
   line-height: 1.15;
-  padding: 8px 9px;
-  width: 100%;
+  padding: 7px 9px;
   text-align: left;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7);
 }
 #posPage #florisynPosLux .pos-lux-pads .pad-add {
   border: 1px dashed var(--pos-rose, #e06b85) !important;
   color: var(--pos-rose, #e06b85) !important;
   background: #fff8fa !important;
+  display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   flex-direction: column;
   font-weight: 700;
-  min-height: 86px !important;
   gap: 2px;
 }
-#posPage #florisynPosLux .pos-lux-pads .pad-add::before { display: none !important; }
-#posPage #florisynPosLux .pos-lux-pads .pad-add .pad-name { color: var(--pos-rose, #e06b85) !important; text-shadow: none; padding: 0; text-align: center; }
+#posPage #florisynPosLux .pos-lux-pads .pad-add::after { display: none !important; }
+#posPage #florisynPosLux .pos-lux-pads .pad-add .pad-name { position: static !important; color: var(--pos-rose, #e06b85) !important; text-shadow: none; padding: 0; text-align: center; }
 #posPage #florisynPosLux .pos-lux-pads .pad-add .pad-add-plus {
   font-size: 1.6rem;
   line-height: 1;
