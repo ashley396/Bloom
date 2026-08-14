@@ -679,6 +679,8 @@ body.florisyn-atelier .pos-lux-checkout {
   width: 340px !important;
   min-width: 340px !important;
   max-width: 340px !important;
+  height: 100% !important;
+  max-height: 100% !important;
   background: #fff !important;
   border-left: 1px solid var(--pos-border, #eae6e8);
   padding: 16px;
