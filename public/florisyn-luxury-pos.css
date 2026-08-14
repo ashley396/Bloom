@@ -807,14 +807,21 @@ body.florisyn-atelier .pos-lux-checkout {
   flex: 0 0 auto;
 }
 
+#posPage #florisynPosLux .pos-fulfill {
+  flex: 0 0 auto;
+}
+
 #posPage #florisynPosLux .pos-lux-totals {
   border-top: 1px solid var(--pos-border, #eae6e8);
   padding-top: 12px;
   display: grid;
   gap: 8px;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
+  /* Never shrink below natural size — when Delivery mode adds its extra
+     fields above, this used to be the one flexible item and would get
+     squeezed down to an unreadable sliver. Let the whole checkout column
+     scroll instead (.pos-lux-checkout has overflow-y:auto) so every
+     section always renders at full, legible size. */
+  flex: 0 0 auto;
 }
 
 #posPage #florisynPosLux .pos-lux-line {
