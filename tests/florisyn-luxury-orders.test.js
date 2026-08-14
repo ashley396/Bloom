@@ -57,5 +57,8 @@ test("Orders table demo data and interactions are functional", () => {
   assert.match(js, /status:\s*"CANCELLED"/);
   assert.match(js, /Cancel Order/);
   assert.match(appJs, /FlorisynLuxuryOrders\?\.boot/);
-  assert.match(appJs, /data-cancel-order/);
+  // The cancel-order button + its click handler are both self-contained in
+  // florisyn-luxury-orders.js (already asserted above at line 56) — app.js
+  // does not need its own listener for it.
+  assert.match(js, /e\.target\.closest\("\[data-cancel-order\]"\)/);
 });

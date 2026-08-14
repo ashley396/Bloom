@@ -267,7 +267,7 @@ test("HQ module is lazy-loaded, local-only, and still uses the quality gate", ()
 
 test("photo studio module is loaded by the shell", () => {
   const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
-  assert.match(html, /photo-studio\.js\?v=ps2/);
+  assert.match(html, /photo-studio\.js\?v=ps\d+/, "photo-studio.js must be cache-busted with a ps<N> version query string");
   const psIdx = html.indexOf("photo-studio.js");
   const appIdx = html.indexOf("app.js?v=");
   assert.ok(psIdx >= 0 && psIdx < appIdx, "photo-studio.js must load before app.js");

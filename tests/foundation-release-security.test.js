@@ -136,7 +136,10 @@ test("ai-status HTTP handler exposes no secrets", async () => {
 test("risky feature flags default false in empty environment", () => {
   const flags = getFeatureFlags({});
   assert.equal(flags.VOICE_WAKE, false);
-  assert.equal(flags.VOICE_TTS_CLOUD, false);
+  // VOICE_TTS_CLOUD defaults true as of the Lily/Rose/Daisy cloud-voice fix
+  // (ElevenLabs TTS wired and live in production) — see
+  // netlify/functions/_shared/feature-flags.js and [[florisyn-ai-voices-fixed]].
+  assert.equal(flags.VOICE_TTS_CLOUD, true);
   assert.equal(flags.INVENTORY_AI_INTAKE, false);
   assert.equal(flags.INVENTORY_RECIPE_DEDUCTIONS, true);
 });
