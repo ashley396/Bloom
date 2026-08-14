@@ -24,7 +24,19 @@ export const LIBRARY_CATEGORIES = [
   "Christmas"
 ];
 
-export const IMAGE_LICENSE_SOURCES = ["bloom_owned", "licensed_stock_pexels", "shop_upload", "generated_tracked", "supplier_approved"];
+export const IMAGE_LICENSE_SOURCES = [
+  "bloom_owned",
+  "licensed_stock_pexels",
+  "shop_upload",
+  "generated_tracked",
+  "supplier_approved",
+  // The actual value scripts/generate-floral-library-images.mjs (and every
+  // per-category generator script) writes for the 286-image AI-generated
+  // library — "generated_tracked" above was clearly meant to cover this,
+  // but the literal string never matched, so every real library image
+  // failed image licensing validation.
+  "ai_generated_cloudflare_flux",
+];
 
 export function validateLibraryProduct(p = {}) {
   const errors = [];

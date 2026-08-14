@@ -17,12 +17,21 @@ test("atelier CSS does not force inactive Dashboard into layout", () => {
 
 test("showPage hides inactive pages immediately without transitionTo delay", () => {
   const app = read("public/app.js");
+  // The immediate hide/show toggle was extracted into its own helper,
+  // syncPageVisibility, which showPage calls synchronously (no
+  // transitionTo-style animation delay in between).
+  const syncStart = app.indexOf("function syncPageVisibility(");
+  assert.ok(syncStart >= 0, "syncPageVisibility must exist");
+  const syncEnd = app.indexOf("\nfunction ", syncStart + 1);
+  const syncFn = app.slice(syncStart, syncEnd > syncStart ? syncEnd : syncStart + 300);
+  assert.match(syncFn, /p\.hidden=!on/);
+  assert.match(syncFn, /classList\.toggle\("active",on\)/);
+
   const start = app.indexOf("function showPage(id)");
   assert.ok(start >= 0);
   const end = app.indexOf("\nasync function loadPaymentsPage", start);
-  const fn = app.slice(start, end > start ? end : start + 700);
-  assert.match(fn, /p\.hidden=!on/);
-  assert.match(fn, /classList\.toggle\("active",on\)/);
+  const fn = app.slice(start, end > start ? end : start + 900);
+  assert.match(fn, /syncPageVisibility\(id\)/, "showPage must call syncPageVisibility synchronously");
   assert.doesNotMatch(fn, /BloomLaunchPolish\?\.transitionTo|transitionTo\(id,/);
 });
 

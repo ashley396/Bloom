@@ -204,7 +204,9 @@ test("image assets exist for all 100 arrangements", () => {
   for (const p of getEverydayFloralLibraryCatalog()) {
     const url = p.primary_image.url;
     assert.match(url, /^\/assets\/floral-library\/everyday\/ed-/);
-    const filePath = path.join(publicDir, url.replace(/^\//, ""));
+    // Image URLs carry a content-hash cache-busting query string
+    // (?v=<hash>) — strip it before checking the file on disk.
+    const filePath = path.join(publicDir, url.replace(/^\//, "").split("?")[0]);
     assert.ok(existsSync(filePath), `missing image for ${p.id}`);
     const stat = readFileSync(filePath).subarray(0, 2);
     assert.equal(stat[0], 0xff, `${p.id}: must be a real JPEG file (Netlify-safe)`);
