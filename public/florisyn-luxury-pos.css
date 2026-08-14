@@ -685,7 +685,8 @@ body.florisyn-atelier .pos-lux-checkout {
   display: flex !important;
   flex-direction: column !important;
   gap: 14px;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
   position: static !important;
   top: auto !important;
