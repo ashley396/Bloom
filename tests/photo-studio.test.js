@@ -265,6 +265,29 @@ test("HQ module is lazy-loaded, local-only, and still uses the quality gate", ()
   assert.ok(fs.existsSync(path.join(root, "public/vendor/imgly-background-removal.mjs")), "vendor ONNX bundle present");
 });
 
+test("HQ path always hands imgly a real Blob, never a raw DOM element", () => {
+  // @imgly/background-removal's imageSourceToImageData() only recognizes
+  // string/URL/Blob/ArrayBuffer input. An HTMLImageElement or
+  // HTMLCanvasElement falls through every branch unconverted, and its own
+  // runInference() then throws "undefined is not iterable (cannot read
+  // property Symbol(Symbol.iterator))" trying to destructure the missing
+  // .shape — a hard crash on every single HQ attempt, live-reproduced and
+  // root-caused on 2026-08-14. sourceToBlob() must run before the call.
+  const hq = fs.readFileSync(path.join(root, "public/photo-studio-hq.mjs"), "utf8");
+  assert.match(hq, /function sourceToBlob\(/, "must convert the source to a Blob before calling imgly");
+  assert.match(hq, /canvas\.toBlob\(/, "conversion must go through canvas.toBlob, not pass the element through");
+  const callSite = hq.slice(hq.indexOf("export async function removeBackgroundHq"));
+  const sourceBlobIdx = callSite.indexOf("sourceToBlob(scaled.source)");
+  const imglyCallIdx = callSite.indexOf("imglyRemoveBackground(");
+  assert.ok(sourceBlobIdx >= 0, "removeBackgroundHq must call sourceToBlob on the scaled source");
+  assert.ok(imglyCallIdx > sourceBlobIdx, "sourceToBlob must run before imglyRemoveBackground is called");
+  assert.match(
+    callSite.slice(imglyCallIdx, imglyCallIdx + 60),
+    /imglyRemoveBackground\(sourceBlob,/,
+    "imgly must receive the converted Blob, not scaled.source directly"
+  );
+});
+
 test("photo studio module is loaded by the shell", () => {
   const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
   assert.match(html, /photo-studio\.js\?v=ps\d+/, "photo-studio.js must be cache-busted with a ps<N> version query string");

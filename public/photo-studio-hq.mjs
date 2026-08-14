@@ -27,6 +27,32 @@ function scaledSource(source, maxEdge) {
   return { source: canvas, width: w, height: h };
 }
 
+/**
+ * @imgly/background-removal's imageSourceToImageData() only recognizes
+ * string/URL/Blob/ArrayBuffer input — an HTMLImageElement or
+ * HTMLCanvasElement passed straight through falls out of every branch
+ * unconverted, then a bare `.shape` read inside its own runInference()
+ * throws "undefined is not iterable (cannot read property
+ * Symbol(Symbol.iterator))" deep inside the ONNX pipeline. Always hand it
+ * a real Blob instead of a DOM element.
+ */
+function sourceToBlob(source) {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = (source && (source.naturalWidth || source.width)) || 0;
+    canvas.height = (source && (source.naturalHeight || source.height)) || 0;
+    if (!canvas.width || !canvas.height) {
+      reject(new Error("HQ source image has no usable dimensions"));
+      return;
+    }
+    canvas.getContext("2d").drawImage(source, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Could not encode HQ source image"));
+    }, "image/png");
+  });
+}
+
 function blobToCanvas(blob) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob);
@@ -59,9 +85,16 @@ export async function removeBackgroundHq(source) {
   const scaled = scaledSource(source, maxEdge);
   if (!scaled.source) return { ok: false, reason: "empty-image", removedRatio: 0 };
 
+  let sourceBlob;
+  try {
+    sourceBlob = await sourceToBlob(scaled.source);
+  } catch (err) {
+    return { ok: false, reason: "hq-encode-failed", removedRatio: 0, error: String(err?.message || err) };
+  }
+
   let blob;
   try {
-    blob = await imglyRemoveBackground(scaled.source, {
+    blob = await imglyRemoveBackground(sourceBlob, {
       model: HQ_MODEL,
       output: { format: "image/png", quality: 1 },
     });
