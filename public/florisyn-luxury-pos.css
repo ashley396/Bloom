@@ -487,28 +487,6 @@ body.florisyn-atelier .florisyn-pos-lux .pos-lux-pads .pad {
   line-height: 1;
   color: var(--pos-rose, #e06b85);
 }
-/* "+ Custom item" — always the first tile, for an open-price sale that
-   isn't in the catalog. Navy (a sale action) rather than rose (which is
-   reserved for the tile-manager "+ Add tile" control) so the two dashed
-   tiles read as different kinds of action at a glance. */
-#posPage #florisynPosLux .pos-lux-pads .pad-custom {
-  border: 1px dashed var(--pos-navy, #1a1f3c) !important;
-  color: var(--pos-navy, #1a1f3c) !important;
-  background: #f4f5f8 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex-direction: column;
-  font-weight: 700;
-  font-size: 13px;
-  gap: 2px;
-  order: -1;
-}
-#posPage #florisynPosLux .pos-lux-pads .pad-custom .pad-add-plus {
-  font-size: 1.6rem;
-  line-height: 1;
-  color: var(--pos-navy, #1a1f3c);
-}
 /* Category tabs (IRIS-style) */
 #posPage #florisynPosLux .pos-cat-tabs {
   display: flex !important;
