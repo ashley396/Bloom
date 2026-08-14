@@ -23,7 +23,7 @@
       customer: "Michael Cooper",
       items: [
         { name: "Eternal Summer Bouquet", qty: 1, image: "/assets/atelier-bouquet-hero.jpg" },
-        { name: "Gift Wrap", qty: 1, image: "/assets/chocolates.png" }
+        { name: "Gift Wrap", qty: 1, image: "/assets/chocolates.jpg" }
       ],
       total: 132,
       status: "in-progress",
@@ -47,8 +47,8 @@
       order: "#FLR-7339",
       customer: "Emma Taylor",
       items: [
-        { name: "Lavender Dreams", qty: 1, image: "/assets/orchid.png" },
-        { name: "Card", qty: 1, image: "/assets/fresh.png" }
+        { name: "Lavender Dreams", qty: 1, image: "/assets/orchid.jpg" },
+        { name: "Card", qty: 1, image: "/assets/fresh.jpg" }
       ],
       total: 187,
       status: "pending",
@@ -61,7 +61,7 @@
       order: "#FLR-7338",
       customer: "Clara Kensington",
       items: [
-        { name: "Crimson Velvet", qty: 3, image: "/assets/rose-arr.png" },
+        { name: "Crimson Velvet", qty: 3, image: "/assets/rose-arr.jpg" },
         { name: "Rose Garden", qty: 1, image: "/assets/atelier-floral-corner.jpg" }
       ],
       total: 810,
@@ -85,7 +85,7 @@
       id: "demo-7336",
       order: "#FLR-7336",
       customer: "Sophie Adams",
-      items: [{ name: "Tropical Paradise", qty: 1, image: "/assets/orchid.png" }],
+      items: [{ name: "Tropical Paradise", qty: 1, image: "/assets/orchid.jpg" }],
       total: 195,
       status: "cancelled",
       date: "May 9",
@@ -96,7 +96,7 @@
       id: "demo-7335",
       order: "#FLR-7335",
       customer: "Oliver Chen",
-      items: [{ name: "Dried Preserved Collection", qty: 2, image: "/assets/spray.png" }],
+      items: [{ name: "Dried Preserved Collection", qty: 2, image: "/assets/spray.jpg" }],
       total: 340,
       status: "delivered",
       date: "May 9",
@@ -197,11 +197,11 @@
   function thumbFor(text) {
     const t = String(text || "").toLowerCase();
     if (t.includes("wedding")) return "/assets/atelier-lilies-corner.jpg";
-    if (t.includes("dried") || t.includes("preserved")) return "/assets/spray.png";
-    if (t.includes("tropical")) return "/assets/orchid.png";
-    if (t.includes("rose") || t.includes("crimson") || t.includes("velvet")) return "/assets/rose-arr.png";
-    if (t.includes("lavender")) return "/assets/orchid.png";
-    if (t.includes("gift") || t.includes("wrap") || t.includes("card")) return "/assets/chocolates.png";
+    if (t.includes("dried") || t.includes("preserved")) return "/assets/spray.jpg";
+    if (t.includes("tropical")) return "/assets/orchid.jpg";
+    if (t.includes("rose") || t.includes("crimson") || t.includes("velvet")) return "/assets/rose-arr.jpg";
+    if (t.includes("lavender")) return "/assets/orchid.jpg";
+    if (t.includes("gift") || t.includes("wrap") || t.includes("card")) return "/assets/chocolates.jpg";
     return "/assets/pink-bouquet.jpg";
   }
 

@@ -29,20 +29,20 @@ const LIBRARY=[
 ["Celebration Brights","Congratulations",89.99,"🎉","Bold color and joyful flowers for graduations, promotions, and big moments.",[["Gerbera Daisies",7],["Roses",6],["Greenery",6]],"https://images.pexels.com/photos/462402/pexels-photo-462402.jpeg?auto=compress&cs=tinysrgb&w=1000"]
 ];
 const DEFAULT_POS_TILES=[
- {id:"fresh",name:"Fresh Arrangement",label:"",category:"Everyday",image:"/assets/fresh.png"},
- {id:"basket",name:"Basket Arrangement",label:"",category:"Everyday",image:"/assets/basket.png"},
- {id:"rose-arr",name:"Rose Arrangement",label:"",category:"Everyday",image:"/assets/rose-arr.png"},
- {id:"loose",name:"Loose Flowers",label:"",category:"Everyday",image:"/assets/tulips.png"},
- {id:"chocolate",name:"Chocolates & Gifts",label:"",category:"Gifts",image:"/assets/chocolates.png"},
- {id:"corsage",name:"Corsage",label:"",category:"Wedding",image:"/assets/corsage.png"},
- {id:"boutonniere",name:"Boutonniere",label:"",category:"Wedding",image:"/assets/boutonniere.png"},
- {id:"sympathy",name:"Sympathy Arrangement",label:"",category:"Sympathy",image:"/assets/sympathy.png"},
- {id:"spray",name:"Sympathy Spray",label:"",category:"Sympathy",image:"/assets/spray.png"},
- {id:"sympathy-basket",name:"Sympathy Basket",label:"",category:"Sympathy",image:"/assets/basket2.png"},
- {id:"blooming",name:"Blooming Plant",label:"",category:"Plants",image:"/assets/plant.png"},
- {id:"orchid",name:"Orchid Plant",label:"",category:"Plants",image:"/assets/orchid.png"},
- {id:"green",name:"Green Plant",label:"",category:"Plants",image:"/assets/green.png"},
- {id:"dish",name:"Dish Garden",label:"",category:"Plants",image:"/assets/dish.png"},
+ {id:"fresh",name:"Fresh Arrangement",label:"",category:"Everyday",image:"/assets/fresh.jpg"},
+ {id:"basket",name:"Basket Arrangement",label:"",category:"Everyday",image:"/assets/basket.jpg"},
+ {id:"rose-arr",name:"Rose Arrangement",label:"",category:"Everyday",image:"/assets/rose-arr.jpg"},
+ {id:"loose",name:"Loose Flowers",label:"",category:"Everyday",image:"/assets/tulips.jpg"},
+ {id:"chocolate",name:"Chocolates & Gifts",label:"",category:"Gifts",image:"/assets/chocolates.jpg"},
+ {id:"corsage",name:"Corsage",label:"",category:"Wedding",image:"/assets/corsage.jpg"},
+ {id:"boutonniere",name:"Boutonniere",label:"",category:"Wedding",image:"/assets/boutonniere.jpg"},
+ {id:"sympathy",name:"Sympathy Arrangement",label:"",category:"Sympathy",image:"/assets/sympathy.jpg"},
+ {id:"spray",name:"Sympathy Spray",label:"",category:"Sympathy",image:"/assets/spray.jpg"},
+ {id:"sympathy-basket",name:"Sympathy Basket",label:"",category:"Sympathy",image:"/assets/basket2.jpg"},
+ {id:"blooming",name:"Blooming Plant",label:"",category:"Plants",image:"/assets/plant.jpg"},
+ {id:"orchid",name:"Orchid Plant",label:"",category:"Plants",image:"/assets/orchid.jpg"},
+ {id:"green",name:"Green Plant",label:"",category:"Plants",image:"/assets/green.jpg"},
+ {id:"dish",name:"Dish Garden",label:"",category:"Plants",image:"/assets/dish.jpg"},
  {id:"misc",name:"Misc Item",label:"Misc",category:"Other",image:""}
 ];
 let posTiles=[];
@@ -654,7 +654,7 @@ $("#switchMode")?.addEventListener("click",()=>location.href="/signup.html");
 setAuthMode(false);
 
 
-function loadPosTiles(){try{const version=localStorage.getItem("bloom_pos_tiles_version");const saved=JSON.parse(localStorage.getItem("bloom_pos_tiles")||"null");if(version!=="13.4"||!Array.isArray(saved)||saved.length<5){posTiles=structuredClone(DEFAULT_POS_TILES);localStorage.setItem("bloom_pos_tiles",JSON.stringify(posTiles));localStorage.setItem("bloom_pos_tiles_version","13.4")}else posTiles=saved}catch{posTiles=structuredClone(DEFAULT_POS_TILES)}renderPosTiles()}
+function loadPosTiles(){try{const version=localStorage.getItem("bloom_pos_tiles_version");const saved=JSON.parse(localStorage.getItem("bloom_pos_tiles")||"null");if(version!=="13.5"||!Array.isArray(saved)||saved.length<5){posTiles=structuredClone(DEFAULT_POS_TILES);localStorage.setItem("bloom_pos_tiles",JSON.stringify(posTiles));localStorage.setItem("bloom_pos_tiles_version","13.5")}else posTiles=saved}catch{posTiles=structuredClone(DEFAULT_POS_TILES)}renderPosTiles()}
 function savePosTiles(){localStorage.setItem("bloom_pos_tiles",JSON.stringify(posTiles));renderPosTiles();renderTileEditor();toast("Product tiles saved")}
 function posTileColor(cat){return{Everyday:"#d9694e",Sympathy:"#37659c",Plants:"#5a8f4f",Wedding:"#c2953b",Gifts:"#a83b52",Other:"#4f9a8c"}[cat]||"#d9694e"}
 function renderPosTiles(){const grid=$("#productPadGrid");if(!grid)return;if(!Array.isArray(posTiles)||!posTiles.length){try{posTiles=structuredClone(DEFAULT_POS_TILES)}catch{posTiles=[]}}renderPosCatTabs();const filter=$("#tileCategoryFilter")?.value||"all";const visible=(!filter||filter==="all")?posTiles:posTiles.filter(tile=>tile.category===filter);grid.innerHTML=visible.map(tile=>`<button class="pad quick-sale-pad" type="button" style="--cat:${posTileColor(tile.category)}" data-tile-id="${esc(tile.id)}" data-sale-item="${esc(tile.name)}" aria-label="${esc(tile.name)}">${tile.image?`<img class="pad-photo" src="${esc(tile.image)}" alt="" loading="lazy">`:""}<span class="pad-name">${esc(tile.name)}</span></button>`).join("")+`<button class="pad pad-add" id="addTileFromGrid" type="button"><span class="pad-add-plus">＋</span>Add tile</button>`}
@@ -668,7 +668,7 @@ function removeDuplicateControls(){const roseButtons=$$("#speakRoseBriefing");ro
 function addPastelPageFrames(){Object.keys({customersPage:1,ordersPage:1,deliveriesPage:1,inventoryPage:1,productsPage:1,bouquetsPage:1,websitePage:1,libraryPage:1,invoicesPage:1,paymentsPage:1,expensesPage:1,reportsPage:1,analyticsPage:1,staffPage:1,marketplacePage:1,wholesaleSellerPage:1,storesPage:1,settingsPage:1,subscriptionPage:1,ecosystemPage:1,posSettingsPage:1}).forEach(id=>document.getElementById(id)?.classList.add("pastel-matched-page"))}
 async function openQuickSalePad(button){
   const tile=posTiles.find(x=>x.id===button.dataset.tileId)||{id:"custom",name:button.dataset.saleItem||"Custom item",image:""};
-  const f=$("#quickPriceForm");f.reset();f.elements.tile_id.value=tile.id;f.elements.item_name.value=tile.name;f.elements.quantity.value=1;$("#quickPriceTitle").textContent=`Add ${tile.name}`;$("#quickPriceItemName").textContent=tile.name;$("#quickPriceImage").src=tile.image||"/assets/fresh.png";$("#quickPriceDialog").showModal();setTimeout(()=>{$("#quickPriceAmount").focus();$("#quickPriceAmount").select()},50)
+  const f=$("#quickPriceForm");f.reset();f.elements.tile_id.value=tile.id;f.elements.item_name.value=tile.name;f.elements.quantity.value=1;$("#quickPriceTitle").textContent=`Add ${tile.name}`;$("#quickPriceItemName").textContent=tile.name;$("#quickPriceImage").src=tile.image||"/assets/fresh.jpg";$("#quickPriceDialog").showModal();setTimeout(()=>{$("#quickPriceAmount").focus();$("#quickPriceAmount").select()},50)
 }
 let posLuxDiscountApplied=false;
 function savePosCart(){localStorage.setItem("bloom_pos_cart",JSON.stringify(posCart));renderPosCart()}
