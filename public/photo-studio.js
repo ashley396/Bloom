@@ -38,17 +38,36 @@
   var QUALITY_THRESHOLDS = {
     maxEnclosedHoleRatio: 0.04,
     /* Lower-zone row fragmentation catches eaten vase/base regions without
-       punishing natural bouquet silhouettes (narrow vase under a wide head). */
-    maxFragLowerRatio: 0.32,
+       punishing natural bouquet silhouettes (narrow vase under a wide head).
+       In practice a real, cleanly-removed bouquet (petals/stems/leaves that
+       naturally don't form one solid lower block) measured up to 0.91 here
+       — this check has no regression-test coverage proving it ever catches
+       real damage, and was rejecting genuinely good cutouts wholesale
+       (live production testing, 2026-08-14). Kept only as a last-resort
+       cap against a near-total row-by-row shred. */
+    maxFragLowerRatio: 0.95,
     maxStripeColRatio: 0.2,
-    maxNearIslandRatio: 0.025,
+    /* Real florals are rarely one fully pixel-connected blob — individual
+       petals, stamens, and thin stems routinely sit a pixel or two apart.
+       A clean, visually verified cutout of a real bouquet measured 0.10
+       here (4x the old cap) with zero leftover background junk. Like
+       maxFragLowerRatio, this had no regression-test coverage of a true
+       positive; raised with real headroom rather than removed outright. */
+    maxNearIslandRatio: 0.3,
     maxEdgeOpaqueRatio: 0.08,
     messySideOpaqueMin: 0.05,
     messySideOpaqueMax: 0.7,
     rectangularSeamCoverage: 0.93,
     rectangularSeamFill: 0.7,
     alphaOpaque: 128,
-    stripeFlipMin: 6,
+    /* A real bouquet's own layered petals/stems/leaves naturally flip a
+       column's opacity many times — measured up to ~34 flips across real
+       florist photos (2026-08-14 live production testing). The synthetic
+       "leftover junk strip" pattern this check exists to catch flips at
+       50+. 6 was tuned only against synthetic checker fixtures and never
+       validated against real floral texture, so it was rejecting normal,
+       correctly-removed bouquet photos as if they were broken masks. */
+    stripeFlipMin: 40,
     fragRunMin: 6,
   };
 

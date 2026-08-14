@@ -299,9 +299,22 @@ test("photo studio module is loaded by the shell", () => {
 test("quality thresholds are exported for launch review", () => {
   const t = studio.QUALITY_THRESHOLDS;
   assert.equal(t.maxEnclosedHoleRatio, 0.04);
-  assert.equal(t.maxFragLowerRatio, 0.32);
+  // maxFragLowerRatio, maxNearIslandRatio, and stripeFlipMin were raised
+  // 2026-08-14 after live production testing (real browser, real ONNX
+  // model, real florisyn.com floral-library photos — not reproducible in
+  // this Node test env, which has no WASM/ONNX runtime) showed a real,
+  // visually verified clean bouquet cutout (no leftover background junk)
+  // scoring fragLowerRatio 0.91, nearIslandRatio 0.10, and stripe flips up
+  // to 34 — all comfortably past the old caps of 0.32 / 0.025 / 6. None of
+  // those three checks had a regression test proving they ever caught a
+  // real defect (only synthetic edge-strip fixtures, caught separately via
+  // messySide/edgeOpaqueRatio), so they were quietly rejecting good real
+  // photos. This pin is the only regression guard against them silently
+  // reverting.
+  assert.equal(t.maxFragLowerRatio, 0.95);
   assert.equal(t.maxStripeColRatio, 0.2);
-  assert.equal(t.maxNearIslandRatio, 0.025);
+  assert.equal(t.maxNearIslandRatio, 0.3);
+  assert.equal(t.stripeFlipMin, 40);
   assert.equal(t.maxEdgeOpaqueRatio, 0.08);
   assert.equal(t.messySideOpaqueMin, 0.05);
   assert.equal(t.messySideOpaqueMax, 0.7);
