@@ -487,6 +487,28 @@ body.florisyn-atelier .florisyn-pos-lux .pos-lux-pads .pad {
   line-height: 1;
   color: var(--pos-rose, #e06b85);
 }
+/* "+ Custom item" — always the first tile, for an open-price sale that
+   isn't in the catalog. Navy (a sale action) rather than rose (which is
+   reserved for the tile-manager "+ Add tile" control) so the two dashed
+   tiles read as different kinds of action at a glance. */
+#posPage #florisynPosLux .pos-lux-pads .pad-custom {
+  border: 1px dashed var(--pos-navy, #1a1f3c) !important;
+  color: var(--pos-navy, #1a1f3c) !important;
+  background: #f4f5f8 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-direction: column;
+  font-weight: 700;
+  font-size: 13px;
+  gap: 2px;
+  order: -1;
+}
+#posPage #florisynPosLux .pos-lux-pads .pad-custom .pad-add-plus {
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--pos-navy, #1a1f3c);
+}
 /* Category tabs (IRIS-style) */
 #posPage #florisynPosLux .pos-cat-tabs {
   display: flex !important;
@@ -884,8 +906,39 @@ body.florisyn-atelier .pos-lux-checkout {
   white-space: nowrap;
 }
 
-#posPage #florisynPosLux .pos-lux-search {
-  display: none !important;
+#posPage #florisynPosLux .pos-lux-cat-head + .pos-lux-search {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: none;
+  flex: 0 0 auto;
+  background: #f3f1f4;
+  border-radius: 10px;
+  padding: 0 12px;
+  min-height: 40px;
+  margin: 10px 0;
+  color: var(--pos-muted, #666670);
+  cursor: text;
+}
+
+#posPage #florisynPosLux .pos-lux-cat-head + .pos-lux-search svg {
+  flex: 0 0 auto;
+  opacity: 0.6;
+}
+
+#posPage #florisynPosLux .pos-lux-cat-head + .pos-lux-search input {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none;
+  width: 100%;
+  font-size: 14px;
+  color: var(--pos-ink, #26263a);
+}
+
+#posPage #florisynPosLux .pos-lux-cat-head + .pos-lux-search input::-webkit-search-cancel-button {
+  cursor: pointer;
 }
 
 body:has(#posPage.active) #lilyFab,
