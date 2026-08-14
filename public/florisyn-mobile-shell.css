@@ -689,6 +689,41 @@
     min-width: 0 !important;
     flex: 0 0 auto !important;
     border-left: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+  }
+
+  /* Force every direct child of the checkout column (customer card, fulfillment
+     fields, totals, payment buttons) to its own full-width row. On mobile these
+     were rendering as a horizontal row instead of stacking — totals on the left,
+     Charge/Cash/Split buttons cut off past the right edge of the screen. */
+  body.florisyn-atelier #posPage #florisynPosLux .pos-lux-checkout > * {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 auto !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux .pos-lux-totals {
+    flex: 1 1 auto !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux .pos-lux-pay-actions {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux .pos-lux-pay-actions > * {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  body.florisyn-atelier #posPage #florisynPosLux .pos-lux-pay-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    width: 100% !important;
   }
 
   /* POS quick tools — in-flow horizontal toolbar. Previously position:fixed, which
