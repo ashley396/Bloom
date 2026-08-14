@@ -691,6 +691,24 @@ body.florisyn-atelier .pos-lux-checkout {
   position: static !important;
   top: auto !important;
   visibility: visible !important;
+  /* Always-visible scrollbar — some OS/browser combos hide overlay
+     scrollbars until hover, which made this column look like it simply
+     ended after "Charge Card" with no hint that Cash/Split/Hold were
+     one scroll away. */
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--pos-rose, #e06b85) #f2eef0 !important;
+}
+
+/* Chrome/Edge/Safari scrollbar (scrollbar-width/-color above are Firefox-only) */
+#posPage #florisynPosLux .pos-lux-checkout::-webkit-scrollbar {
+  width: 8px;
+}
+#posPage #florisynPosLux .pos-lux-checkout::-webkit-scrollbar-track {
+  background: #f2eef0;
+}
+#posPage #florisynPosLux .pos-lux-checkout::-webkit-scrollbar-thumb {
+  background: var(--pos-rose, #e06b85);
+  border-radius: 8px;
 }
 
 #posPage #florisynPosLux .pos-lux-customer-head {
