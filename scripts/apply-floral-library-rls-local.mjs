@@ -23,7 +23,17 @@ const mode = String(process.env.FLORAL_LIBRARY_APPLY_MODE || "reset").toLowerCas
 const root = process.cwd();
 
 const bootstrap = "tests/fixtures/floral-library-rls-bootstrap.sql";
-const lock = "supabase/migrations/20260801_p0_01_floral_library_schema_lock_v1.sql";
+// The original P0-01/R1 individual migration (20260801_p0_01_floral_library_
+// schema_lock_v1.sql) was folded into the canonical greenfield baseline and
+// removed from the executable production migration chain (commit 5546ab5,
+// "Remove archived migrations from executable chain"). This test harness
+// still needs it as a standalone file though: the bootstrap fixture above
+// deliberately recreates the *insecure* pre-lock schema so this lock's
+// insecure->secure transition can be verified, which the baseline can't
+// exercise (it's never in the insecure state). Restored verbatim as a test
+// fixture — see tests/fixtures/floral-library-rls-lock.sql for the full
+// history note.
+const lock = "tests/fixtures/floral-library-rls-lock.sql";
 
 async function applyFile(client, rel) {
   const sql = fs.readFileSync(path.join(root, rel), "utf8");

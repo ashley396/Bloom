@@ -167,7 +167,11 @@ async function assertApprovedOnlyNoWrites(client, userId, label) {
 test("P0-01 R1 migration applies cleanly on a fresh database", () => {
   const out = applyMigrations("reset");
   assert.match(out, /Floral library P0-01 migrations applied successfully/);
-  assert.match(out, /20260801_p0_01_floral_library_schema_lock_v1\.sql/);
+  // The individual P0-01 migration file was removed from the executable
+  // production chain and consolidated into the canonical greenfield baseline
+  // (commit 5546ab5) — this test harness keeps a verbatim copy as a fixture
+  // instead. See scripts/apply-floral-library-rls-local.mjs.
+  assert.match(out, /floral-library-rls-lock\.sql/);
 });
 
 test("P0-01 R1 migration is idempotent (lock-again) and retires obsolete helper", async () => {
@@ -489,8 +493,10 @@ test("P0-02 fixed: direct authenticated-JWT SELECT on platform_admins remains de
 });
 
 test("migration SQL uses capability helper; no Community helpers; no authenticated writes", () => {
+  // See tests/fixtures/floral-library-rls-lock.sql for why this lives here
+  // as a fixture rather than in supabase/migrations/.
   const sql = fs.readFileSync(
-    path.join(process.cwd(), "supabase/migrations/20260801_p0_01_floral_library_schema_lock_v1.sql"),
+    path.join(process.cwd(), "tests/fixtures/floral-library-rls-lock.sql"),
     "utf8"
   );
   assert.match(sql, /drop function if exists public\.is_active_platform_admin/);
