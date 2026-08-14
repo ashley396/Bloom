@@ -4,6 +4,20 @@
  * Categories: 6×2 grid (152×56) · Navy #1a1f3c · Rose #E06B85 · Blush #FBF6F7
  */
 
+/* Native iOS/Android control chrome reset — buttons and inputs across the
+   POS were missing appearance:none, so the OS added its own padding/height/
+   rounding on top of our CSS. That's what made the discount "Apply" button
+   not match the input's height and let button rows overflow their row on
+   mobile Safari. box-sizing:border-box keeps padding from adding to the
+   heights/widths we set explicitly. */
+#posPage #florisynPosLux button,
+#posPage #florisynPosLux input,
+#posPage #florisynPosLux select {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+}
+
 /* Daisy must never cover the register */
 body:has(#posPage.active) #bloomDaisy,
 body.florisyn-pos-active #bloomDaisy,
@@ -401,6 +415,8 @@ body.florisyn-atelier .florisyn-pos-lux .pos-lux-pads {
   height: auto !important;
   max-height: none !important;
   border: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
 }
 /* Photo product tiles — real <img> fill + name over a gradient. Explicit
    tile height so the grid can never collapse the tiles to 0. */
@@ -913,18 +929,26 @@ body.florisyn-pos-active #lilyFab {
 
 #posPage #florisynPosLux .pos-lux-pay-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
+  width: 100%;
 }
 
 #posPage #florisynPosLux .pos-lux-outline {
   min-height: 40px;
+  width: 100%;
+  min-width: 0;
   border: 1px solid var(--pos-border, #eae6e8) !important;
   border-radius: 8px !important;
   background: #fff !important;
   color: var(--pos-ink, #26263a) !important;
   font-weight: 600 !important;
+  font-size: 13px !important;
   box-shadow: none !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 6px;
 }
 
 /* Status bar */
