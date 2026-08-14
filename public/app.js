@@ -1053,7 +1053,7 @@ async function smartAi(payload){
     }catch(localError){throw new Error(`${cloudError.message} Local fallback: ${localError.message}`)}
   }
 }
-let shotImage=null,shotRotation=0,shotDraftTimer=null,shotCutout=null,shotUseCutout=true,shotPresetBackground=null,shotRecipe=null;
+let shotImage=null,shotRotation=0,shotDraftTimer=null,shotCutout=null,shotUseCutout=true,shotPresetBackground=null,shotRecipe=null,shotRejectedCutout=null;
 /* Studio backgrounds for the four style options — drawn behind the cut-out arrangement. */
 const SHOT_PRESET_BACKGROUNDS={
   clean:{type:"solid",color:"#ffffff"},
@@ -1074,17 +1074,35 @@ function drawBloomShot(){const canvas=$("#bloomshotCanvas");if(!canvas)return;co
 function setShotPreset(name){const presets={clean:[108,106,112,0],luxury:[102,115,105,9],warm:[105,103,108,18],true:[100,100,100,0]},v=presets[name]||presets.true;["shotBrightness","shotContrast","shotSaturation","shotWarmth"].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=v[i]});shotPresetBackground=SHOT_PRESET_BACKGROUNDS[name]||null;if(shotCutout)shotUseCutout=true;syncShotOutputs();drawBloomShot()}
 function prepareShotCutout(){
   if(!shotImage||!window.FlorisynPhotoStudio?.removeBackground)return;
+  shotRejectedCutout=null;
+  const row=$("#bloomshotCutoutRow"),useBtn=$("#bloomshotUseAnyway"),cutoutStatus=$("#bloomshotCutoutStatus");
+  if(row)row.hidden=true;
+  if(useBtn)useBtn.hidden=true;
   if($("#shotStatus"))$("#shotStatus").textContent="Removing the original background around the arrangement…";
   /* Defer the pixel work one tick so the original photo paints immediately. */
   setTimeout(async()=>{
     const failMessage=window.FlorisynPhotoStudio?.FAILURE_MESSAGE||"Background could not be fully removed. Try a cleaner product photo.";
     const fallbackLabel=window.FlorisynPhotoStudio?.FALLBACK_LABEL||"Background removal was not applied. Brightness, contrast, and color tools still work on the original photo.";
-    const safeStatus=`${failMessage} ${fallbackLabel}`;
-    const applyFailure=()=>{shotCutout=null;shotUseCutout=false;if($("#shotStatus"))$("#shotStatus").textContent=safeStatus;toast(failMessage);drawBloomShot()};
-    const applySuccess=(canvas,methodLabel)=>{shotCutout=canvas;shotUseCutout=true;if($("#shotStatus"))$("#shotStatus").textContent=methodLabel||"Original background removed. Pick a style or background — the arrangement is placed on it.";drawBloomShot()};
+    const applyFailure=(rejectedCanvas)=>{
+      shotCutout=null;shotUseCutout=false;
+      shotRejectedCutout=rejectedCanvas||null;
+      if($("#shotStatus"))$("#shotStatus").textContent=fallbackLabel;
+      if(row)row.hidden=false;
+      if(cutoutStatus)cutoutStatus.textContent=failMessage;
+      if(useBtn)useBtn.hidden=!shotRejectedCutout;
+      toast(failMessage);
+      drawBloomShot();
+    };
+    const applySuccess=(canvas,methodLabel)=>{
+      shotCutout=canvas;shotUseCutout=true;shotRejectedCutout=null;
+      if($("#shotStatus"))$("#shotStatus").textContent=methodLabel||"Original background removed. Pick a style or background — the arrangement is placed on it.";
+      if(row)row.hidden=true;
+      drawBloomShot();
+    };
     try{
       let result=window.FlorisynPhotoStudio.removeBackground(shotImage);
       if(result.ok){applySuccess(result.canvas);return}
+      let bestRejected=result.rejectedCanvas||null;
       /* Fast flood path failed — optionally try lazy-loaded local ONNX (still quality-gated). */
       if($("#shotStatus"))$("#shotStatus").textContent="Trying higher-quality local removal on this device…";
       try{
@@ -1092,14 +1110,23 @@ function prepareShotCutout(){
         if(hq?.removeBackgroundHq){
           const hqResult=await hq.removeBackgroundHq(shotImage);
           if(hqResult.ok){applySuccess(hqResult.canvas,"Background removed with local high-quality processing. Pick a style or background.");return}
+          if(hqResult.rejectedCanvas)bestRejected=hqResult.rejectedCanvas;
         }
       }catch{}
-      applyFailure();
+      applyFailure(bestRejected);
     }catch{
       applyFailure();
     }
   },30);
 }
+$("#bloomshotUseAnyway")?.addEventListener("click",()=>{
+  if(!shotRejectedCutout)return;
+  shotCutout=shotRejectedCutout;shotUseCutout=true;
+  if($("#shotStatus"))$("#shotStatus").textContent="Using this cut-out as-is — check the edges and touch up in a photo app if needed.";
+  const row=$("#bloomshotCutoutRow");if(row)row.hidden=true;
+  drawBloomShot();
+  toast("Using the cut-out background removal");
+});
 function syncShotOutputs(){$$(".bloomshot-controls label").forEach(l=>{const i=l.querySelector("input"),o=l.querySelector("output");if(i&&o)o.textContent=i.id==="shotWarmth"?i.value:`${i.value}%`})}
 function shotFields(){return Object.fromEntries(["shotProductName","shotOccasion","shotNotes","shotPrice","shotTone","shotDescription","shotCaption","shotSeo","shotAlt","shotWatermark"].map(id=>[id,document.getElementById(id)?.value||""]))}
 function saveShotDraft(silent=false){localStorage.setItem("bloomShotDraft",JSON.stringify({fields:shotFields(),savedAt:new Date().toISOString()}));if(!silent){$("#shotStatus").textContent="Draft saved on this device. Nothing was published.";toast("BloomShot draft saved")}}

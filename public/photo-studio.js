@@ -315,6 +315,9 @@
             reason: passGate.reason || "mask-quality",
             removedRatio: passthrough.removedRatio,
             metrics: passGate.metrics,
+            data: passthrough.data,
+            width: width,
+            height: height,
           };
         }
         passthrough.metrics = passGate.metrics;
@@ -476,6 +479,13 @@
           reason: gate.reason || "mask-quality",
           removedRatio: ratio,
           metrics: gate.metrics,
+          /* Kept even on gate failure so a "remove background anyway" control
+             can still offer this cut-out instead of leaving the photographer
+             with nothing — the gate is a launch-quality suggestion, not the
+             only judge of a usable result. */
+          data: out,
+          width: width,
+          height: height,
         };
       }
       candidate.metrics = gate.metrics;
@@ -503,7 +513,19 @@
       return { ok: false, reason: "canvas-blocked", removedRatio: 0 };
     }
     var result = removeBackgroundFromImageData(imageData, options);
-    if (!result.ok) return result;
+    if (!result.ok) {
+      /* The gate rejected this one, but if a mask was actually computed,
+         hand back a canvas anyway so the UI can offer "Remove background
+         anyway" instead of forcing the original, un-cut photo. */
+      if (result.data && result.width && result.height) {
+        var rejectedCanvas = document.createElement("canvas");
+        rejectedCanvas.width = result.width;
+        rejectedCanvas.height = result.height;
+        rejectedCanvas.getContext("2d").putImageData(new ImageData(result.data, result.width, result.height), 0, 0);
+        result.rejectedCanvas = rejectedCanvas;
+      }
+      return result;
+    }
     ctx.putImageData(new ImageData(result.data, w, h), 0, 0);
     return {
       ok: true,
