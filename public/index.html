@@ -573,7 +573,7 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
 </section>
 
 <section id="bloomshotPage" class="page bloomshot-page">
-  <div class="heading"><div><p class="eyebrow">PRO PHOTO + PRODUCT STUDIO</p><h1>Florisyn Photo Studio</h1><p class="subtle">Turn one arrangement photo into editable, website-ready and social-ready content. Nothing saves or publishes until you approve it.</p></div><div class="actions"><button id="bloomshotRestore" class="secondary" type="button">Restore original</button><button id="bloomshotDownload" class="primary" type="button">Download image</button></div></div>
+  <div class="heading"><div><p class="eyebrow">PRO PHOTO + PRODUCT STUDIO</p><h1>Florisyn Photo Studio</h1><p class="subtle">Turn one arrangement photo into editable, website-ready and social-ready content. Nothing saves or publishes until you approve it.</p></div><div class="actions"><button id="bloomshotRestore" class="secondary" type="button">Restore original</button><button id="bloomshotRemovePhoto" class="secondary" type="button">Remove photo</button><button id="bloomshotDownload" class="primary" type="button">Download image</button></div></div>
   <div class="bloomshot-workspace">
     <section class="panel bloomshot-editor">
       <div class="bloomshot-upload"><input id="bloomshotFile" type="file" accept="image/*"><strong>Choose or take an arrangement photo</strong><span>Processing stays in this browser for the free editing tools.</span></div>
@@ -604,7 +604,14 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
       <label>SEO title<input id="shotSeo"></label>
       <label>Alt text<input id="shotAlt"></label>
       <div class="approval-box"><label><input id="shotApproved" type="checkbox"> I reviewed and approve this content</label><small>Florisyn never publishes AI output automatically.</small></div>
-      <div class="actions"><button id="shotSaveDraft" class="secondary" type="button">Save draft on this device</button><button id="shotAddProduct" class="primary" type="button">Add to Products</button></div>
+      <div class="actions"><button id="shotSaveDraft" class="secondary" type="button">Save draft (this device)</button><button id="shotAddProduct" class="primary" type="button">💾 Save to Products</button></div>
+      <div class="bloomshot-post-block">
+        <p class="eyebrow">POST TO</p>
+        <label class="bloomshot-post-check"><input id="shotPostWebsite" type="checkbox"> Website / online store</label>
+        <label class="bloomshot-post-check"><input id="shotPostCommunity" type="checkbox"> Florist Community feed</label>
+        <label class="bloomshot-post-check"><input id="shotPostSocial" type="checkbox"> Prepare for social (download image + copy caption)</label>
+        <button id="shotPost" class="primary wide" type="button">🚀 Post</button>
+      </div>
       <p id="shotStatus" class="subtle" aria-live="polite"></p>
     </aside>
   </div>
