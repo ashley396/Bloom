@@ -1,6 +1,6 @@
 import { json,bodyOf,preflight,methodNotAllowed } from "./_shared/http.js";
 import { currentUser,fail,requireRoles } from "./_shared/supabase.js";
-const fields=["name","phone","email","address","tagline","slug","logo_url","primary_color","accent_color","website_font","website_style","hero_title","hero_text","hero_image_url","about_text","social_facebook","social_instagram","custom_domain","website_published","homepage_sections","delivery_radius","default_delivery_fee","tax_rate","timezone","app_background_color","app_font","sidebar_color","header_color","dashboard_image_url"];
+const fields=["name","phone","email","address","tagline","slug","logo_url","primary_color","accent_color","website_font","website_style","hero_title","hero_text","hero_image_url","about_text","social_facebook","social_instagram","custom_domain","website_published","homepage_sections","delivery_radius","default_delivery_fee","tax_rate","timezone","app_background_color","app_font","sidebar_color","header_color","dashboard_image_url","pos_tiles"];
 const writableFields=fields.filter((field)=>field!=="website_published");
 export async function handler(event){
  const ready=preflight(event);if(ready)return ready;
