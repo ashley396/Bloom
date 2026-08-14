@@ -1061,6 +1061,16 @@ const SHOT_PRESET_BACKGROUNDS={
   warm:{type:"gradient",from:"#f7ead8",to:"#ecd7bb"},
   true:{type:"solid",color:"#f6f3f1"}
 };
+/* Named backgrounds selectable from the Background dropdown. Anything not
+   listed here (the plain hex values and "transparent") falls back to being
+   used directly as a CSS color, so existing selections keep working. */
+const SHOT_BACKGROUND_STYLES={
+  "luxury-charcoal":{type:"gradient",from:"#2a2338",to:"#4c3a56"},
+  "luxury-champagne":{type:"gradient",from:"#f4e6c8",to:"#caa15c"},
+  "luxury-emerald":{type:"gradient",from:"#0f2b22",to:"#1f4a3a"},
+  "luxury-marble":{type:"gradient",from:"#f5f2ee",to:"#ddd4c8"},
+  "luxury-noir":{type:"gradient",from:"#0a0a0d",to:"#232128"}
+};
 const shotState=()=>({brightness:Number($("#shotBrightness")?.value||100),contrast:Number($("#shotContrast")?.value||100),saturation:Number($("#shotSaturation")?.value||100),warmth:Number($("#shotWarmth")?.value||0),background:$("#shotBackground")?.value||"#ffffff",size:$("#shotSize")?.value||"1200x1200",watermark:$("#shotWatermark")?.value||""});
 function loadBloomShot(){const draft=localStorage.getItem("bloomShotDraft");if(draft){try{const d=JSON.parse(draft);for(const [id,value] of Object.entries(d.fields||{})){const el=document.getElementById(id);if(el)el.value=value}if($("#shotStatus"))$("#shotStatus").textContent="Your last editable draft is available."}catch{}}drawBloomShot()}
 function shotCanvasSize(){return String($("#shotSize")?.value||"1200x1200").split("x").map(Number)}
@@ -1068,8 +1078,9 @@ function drawBloomShot(){const canvas=$("#bloomshotCanvas");if(!canvas)return;co
   /* Background layer first, then the cut-out arrangement on top so the new
      background shows through the removed original background, not just outside
      the photo rectangle. */
-  if(shotPresetBackground){if(shotPresetBackground.type==="gradient"){const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,shotPresetBackground.from);g.addColorStop(1,shotPresetBackground.to);ctx.fillStyle=g}else ctx.fillStyle=shotPresetBackground.color;ctx.fillRect(0,0,w,h)}
-  else if(s.background!=="transparent"){ctx.fillStyle=s.background;ctx.fillRect(0,0,w,h)}
+  const fillBackground=(style)=>{if(style.type==="gradient"){const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,style.from);g.addColorStop(1,style.to);ctx.fillStyle=g}else ctx.fillStyle=style.color;ctx.fillRect(0,0,w,h)};
+  if(shotPresetBackground)fillBackground(shotPresetBackground);
+  else if(s.background!=="transparent"){const named=SHOT_BACKGROUND_STYLES[s.background];fillBackground(named||{type:"solid",color:s.background})}
   if(!shotImage){$("#bloomshotEmpty")?.removeAttribute("hidden");return}$("#bloomshotEmpty")?.setAttribute("hidden","");const subject=(shotUseCutout&&shotCutout)?shotCutout:shotImage;ctx.save();ctx.filter=`brightness(${s.brightness}%) contrast(${s.contrast}%) saturate(${s.saturation}%) sepia(${s.warmth}%)`;ctx.translate(w/2,h/2);ctx.rotate(shotRotation*Math.PI/180);const rotated=shotRotation%180!==0,iw=rotated?subject.height:subject.width,ih=rotated?subject.width:subject.height,scale=Math.min(w/iw,h/ih),dw=subject.width*scale,dh=subject.height*scale;ctx.drawImage(subject,-dw/2,-dh/2,dw,dh);ctx.restore();if(s.watermark){ctx.save();ctx.font=`700 ${Math.max(22,Math.round(w*.026))}px Georgia`;ctx.textAlign="right";ctx.fillStyle="rgba(255,255,255,.88)";ctx.shadowColor="rgba(0,0,0,.35)";ctx.shadowBlur=6;ctx.fillText(s.watermark,w-w*.035,h-h*.035);ctx.restore()}}
 function setShotPreset(name){const presets={clean:[108,106,112,0],luxury:[102,115,105,9],warm:[105,103,108,18],true:[100,100,100,0]},v=presets[name]||presets.true;["shotBrightness","shotContrast","shotSaturation","shotWarmth"].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=v[i]});shotPresetBackground=SHOT_PRESET_BACKGROUNDS[name]||null;if(shotCutout)shotUseCutout=true;syncShotOutputs();drawBloomShot()}
 function prepareShotCutout(){

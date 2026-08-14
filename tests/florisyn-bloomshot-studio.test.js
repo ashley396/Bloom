@@ -14,6 +14,36 @@ function bloomshotSection() {
   return html.slice(start, end);
 }
 
+test("Background dropdown keeps the classic options and adds a Luxury group", () => {
+  const select = html.slice(html.indexOf('id="shotBackground"'), html.indexOf("</select>", html.indexOf('id="shotBackground"')));
+  assert.match(select, /value="#ffffff">White studio</, "White studio must stay the default first option");
+  assert.match(select, /value="#f8f3f6">Soft blush</);
+  assert.match(select, /value="#f3efe8">Warm ivory</);
+  assert.match(select, /value="#eef3ea">Soft garden</);
+  assert.match(select, /value="transparent">Transparent</);
+  assert.match(select, /<optgroup label="Luxury">/);
+  for (const key of ["luxury-charcoal", "luxury-champagne", "luxury-emerald", "luxury-marble", "luxury-noir"]) {
+    assert.match(select, new RegExp(`value="${key}"`), `${key} option must exist`);
+  }
+  // White studio option must come before the Luxury group, not replace it.
+  assert.ok(select.indexOf('value="#ffffff"') < select.indexOf("<optgroup"));
+});
+
+test("Luxury background dropdown values resolve to real gradients, not raw CSS colors", () => {
+  const stylesStart = app.indexOf("const SHOT_BACKGROUND_STYLES=");
+  assert.ok(stylesStart >= 0, "SHOT_BACKGROUND_STYLES must exist");
+  const stylesBlock = app.slice(stylesStart, app.indexOf("};", stylesStart) + 2);
+  for (const key of ["luxury-charcoal", "luxury-champagne", "luxury-emerald", "luxury-marble", "luxury-noir"]) {
+    assert.match(stylesBlock, new RegExp(`"${key}":\\{type:"gradient"`), `${key} must be a defined gradient`);
+  }
+  // drawBloomShot must look named styles up instead of using the dropdown
+  // value directly as a CSS color (which would render "luxury-charcoal"
+  // as an invalid/black fill).
+  const drawStart = app.indexOf("function drawBloomShot(");
+  const drawFn = app.slice(drawStart, drawStart + 900);
+  assert.match(drawFn, /SHOT_BACKGROUND_STYLES\[s\.background\]/);
+});
+
 test("Photo Studio has a clear Remove photo control alongside Restore original", () => {
   const section = bloomshotSection();
   assert.match(section, /id="bloomshotRestore"[^>]*>Restore original</);
