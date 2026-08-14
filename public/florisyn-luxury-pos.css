@@ -897,16 +897,20 @@ body.florisyn-pos-active #lilyFab {
 }
 
 #posPage #florisynPosLux .pos-lux-pay-actions {
-  display: grid;
+  display: flex !important;
+  flex-direction: column !important;
   gap: 8px;
   margin-top: auto;
   flex: 0 0 auto;
   padding-top: 8px;
+  width: 100%;
 }
 
 #posPage #florisynPosLux .pos-lux-charge,
 #posPage #florisynPosLux .pos-lux-cash {
-  display: inline-flex !important;
+  display: flex !important;
+  flex: 0 0 auto !important;
+  width: 100%;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -933,6 +937,7 @@ body.florisyn-pos-active #lilyFab {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
   width: 100%;
+  flex: 0 0 auto !important;
 }
 
 #posPage #florisynPosLux .pos-lux-outline {
