@@ -459,3 +459,47 @@
   color: var(--danger, #a33);
   border-color: var(--danger, #a33);
 }
+
+/* Version history dialog */
+.editor-history-dialog {
+  width: min(560px, 92vw);
+  max-height: 80vh;
+  border: none;
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow, 0 20px 60px rgba(0,0,0,.2));
+}
+.editor-history-dialog::backdrop {
+  background: rgba(20, 16, 20, 0.5);
+}
+.editor-history-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+.editor-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border, #e8e0e4);
+}
+.editor-history-row:last-child {
+  border-bottom: none;
+}
+.editor-history-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.85rem;
+}
+.editor-history-empty {
+  list-style: none;
+  padding: 1.5rem 0.5rem;
+  text-align: center;
+  color: var(--muted, #7c6d74);
+  font-size: 0.85rem;
+}

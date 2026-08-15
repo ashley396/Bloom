@@ -604,9 +604,94 @@ export async function handler(event) {
       return json(200, { sections });
     }
 
+    if (action === "list_page_versions") {
+      if (!body.slug) return json(400, { error: "Page slug required." });
+      try {
+        const { data: proj, error: projectError } = await client.from("bloom_website_projects").select("id").eq("shop_id", shopId).maybeSingle();
+        if (projectError) throw projectError;
+        if (!proj) return json(200, { versions: [] });
+        const { data: page, error: pageError } = await client.from("bloom_website_pages").select("id,updated_at").eq("shop_id", shopId).eq("project_id", proj.id).eq("slug", body.slug).maybeSingle();
+        if (pageError) throw pageError;
+        if (!page) return json(200, { versions: [] });
+        const { data: rows, error } = await client
+          .from("bloom_website_page_versions")
+          .select("id,created_at,snapshot")
+          .eq("shop_id", shopId)
+          .eq("page_id", page.id)
+          .order("created_at", { ascending: false })
+          .limit(30);
+        if (error) throw error;
+        const versions = (rows || []).map((r) => ({
+          id: r.id,
+          created_at: r.created_at,
+          sections_count: Array.isArray(r.snapshot?.sections) ? r.snapshot.sections.length : 0,
+          preview_title: r.snapshot?.sections?.[0]?.props?.title || r.snapshot?.content?.seo_title || null
+        }));
+        return json(200, { versions, page_updated_at: page.updated_at });
+      } catch (e) {
+        if (missingTable(e)) return json(200, { versions: [], note: "Version history not migrated yet." });
+        throw e;
+      }
+    }
+
     if (action === "restore_version") {
-      const page = restorePageVersion(body.page, body.version);
-      return json(200, { page });
+      if (!body.slug) return json(400, { error: "Page slug required." });
+      if (!body.version_id) return json(400, { error: "version_id required." });
+      try {
+        const { data: proj, error: projectError } = await client.from("bloom_website_projects").select("id").eq("shop_id", shopId).maybeSingle();
+        if (projectError) throw projectError;
+        if (!proj) return json(404, { error: "Website project not found." });
+        const { data: current, error: currentError } = await client
+          .from("bloom_website_pages")
+          .select("*")
+          .eq("shop_id", shopId)
+          .eq("project_id", proj.id)
+          .eq("slug", body.slug)
+          .maybeSingle();
+        if (currentError) throw currentError;
+        if (!current) return json(404, { error: "Page not found." });
+        const { data: versionRow, error: versionError } = await client
+          .from("bloom_website_page_versions")
+          .select("*")
+          .eq("id", body.version_id)
+          .eq("shop_id", shopId)
+          .eq("page_id", current.id)
+          .maybeSingle();
+        if (versionError) throw versionError;
+        if (!versionRow) return json(404, { error: "That version was not found." });
+
+        // Snapshot the current (about-to-be-overwritten) state first, so
+        // restoring an old version is itself undoable — never a one-way trip.
+        const { error: snapshotError } = await client.from("bloom_website_page_versions").insert({
+          shop_id: shopId,
+          page_id: current.id,
+          snapshot: { content: current.content, sections: current.sections }
+        });
+        if (snapshotError) throw snapshotError;
+
+        const restored = restorePageVersion(current, versionRow.snapshot);
+        const { data: savedPage, error: saveError } = await client
+          .from("bloom_website_pages")
+          .update({ content: restored.content, sections: restored.sections, updated_at: new Date().toISOString() })
+          .eq("id", current.id)
+          .eq("shop_id", shopId)
+          .select("*")
+          .maybeSingle();
+        if (saveError) throw saveError;
+        if (!savedPage) return json(503, { error: "Restore could not be confirmed. Your current draft is unchanged." });
+        await writeShopAudit(client, {
+          shopId,
+          userId: user.id,
+          eventType: "website_page_version_restored",
+          entityType: "website_page",
+          entityId: current.id,
+          metadata: { slug: body.slug, restored_version_id: body.version_id }
+        });
+        return json(200, { page: savedPage });
+      } catch (e) {
+        if (missingTable(e)) return json(503, { error: "Version history not migrated." });
+        throw e;
+      }
     }
 
     if (action === "health_score") {

@@ -46,6 +46,7 @@
           <button type="button" class="secondary" id="editorAddSection">Add</button>
           <button type="button" class="secondary" id="editorUndo">Undo</button>
           <button type="button" class="secondary" id="editorRedo">Redo</button>
+          <button type="button" class="secondary" id="editorHistory">History</button>
           <button type="button" class="secondary" id="editorSave">Save draft</button>
           <button type="button" class="secondary" id="editorOpenPreview">Open draft preview</button>
           <button type="button" class="secondary" id="editorPreviewDesktop">Desktop</button>
@@ -58,7 +59,16 @@
           <aside id="editorInspector" class="editor-inspector panel" aria-label="Section properties"></aside>
         </div>
         <p id="editorStatus" class="subtle" aria-live="polite"></p>
-      </div>`
+      </div>
+      <dialog id="editorHistoryDialog" class="editor-history-dialog">
+        <div class="media-library-head">
+          <h3>Version history — <span id="editorHistoryPageName"></span></h3>
+          <button type="button" class="secondary" id="editorHistoryClose">Close</button>
+        </div>
+        <p class="subtle">Every save keeps the version before it. Restoring saves your current draft as a version too, so restoring is never a one-way trip.</p>
+        <ul class="editor-history-list" id="editorHistoryList"></ul>
+        <p id="editorHistoryStatus" class="subtle" aria-live="polite"></p>
+      </dialog>`
     );
 
     const history = createHistory();
@@ -334,6 +344,71 @@
         live("Redo.");
       }
     });
+    function formatVersionDate(iso) {
+      try {
+        return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+      } catch {
+        return iso;
+      }
+    }
+
+    async function loadHistory() {
+      const list = root.querySelector("#editorHistoryList");
+      const status = root.querySelector("#editorHistoryStatus");
+      root.querySelector("#editorHistoryPageName").textContent = currentPage()?.title || activeSlug;
+      list.innerHTML = `<li class="editor-history-empty">Loading…</li>`;
+      status.textContent = "";
+      try {
+        const d = await api("list_page_versions", { slug: activeSlug });
+        const versions = d.versions || [];
+        if (!versions.length) {
+          list.innerHTML = `<li class="editor-history-empty">No earlier versions yet — they'll appear here after your next save.</li>`;
+          return;
+        }
+        list.innerHTML = versions
+          .map(
+            (v, i) => `<li class="editor-history-row">
+              <div class="editor-history-meta">
+                <strong>${esc(formatVersionDate(v.created_at))}</strong>
+                <span class="subtle">${v.sections_count} section${v.sections_count === 1 ? "" : "s"}${v.preview_title ? ` · ${esc(v.preview_title)}` : ""}${i === 0 ? " · most recent" : ""}</span>
+              </div>
+              <button type="button" class="secondary" data-restore-version="${esc(v.id)}">Restore this version</button>
+            </li>`
+          )
+          .join("");
+      } catch (e) {
+        list.innerHTML = `<li class="editor-history-empty">${esc(e.message || "Could not load version history.")}</li>`;
+      }
+    }
+
+    root.querySelector("#editorHistory")?.addEventListener("click", () => {
+      root.querySelector("#editorHistoryDialog").showModal();
+      loadHistory();
+    });
+    root.querySelector("#editorHistoryClose")?.addEventListener("click", () => {
+      root.querySelector("#editorHistoryDialog").close();
+    });
+    root.querySelector("#editorHistoryList")?.addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-restore-version]");
+      if (!btn) return;
+      if (!confirm("Restore this version? Your current draft is saved as a version too, so you can always come back to it.")) return;
+      const status = root.querySelector("#editorHistoryStatus");
+      status.textContent = "Restoring…";
+      try {
+        const d = await api("restore_version", { slug: activeSlug, version_id: btn.dataset.restoreVersion });
+        rememberSavedPage(d.page);
+        sections = [...(d.page.sections || [])].sort((a, b) => a.order - b.order);
+        history.reset({ sections });
+        renderCanvas();
+        root.querySelector("#editorHistoryDialog").close();
+        live("Version restored.");
+        root.querySelector("#editorStatus").textContent = "Version restored — your previous draft was saved to history too.";
+        window.toast?.("Version restored");
+      } catch (err) {
+        status.textContent = err.message || "Could not restore that version. Your current draft is unchanged.";
+      }
+    });
+
     root.querySelector("#editorAddSection")?.addEventListener("click", () => {
       syncTextEdits();
       sections = [...sections, newSection(root.querySelector("#editorSectionType")?.value)].map((s, order) => ({ ...s, order }));
