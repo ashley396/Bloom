@@ -62,3 +62,16 @@ test("Orders table demo data and interactions are functional", () => {
   // does not need its own listener for it.
   assert.match(js, /e\.target\.closest\("\[data-cancel-order\]"\)/);
 });
+
+test("mobile date-range/filter buttons wrap onto their own row instead of being squeezed and clipped", () => {
+  // .ord-date has white-space:nowrap and no min-width:0, so a shared flex
+  // row with .ord-search left it squeezed to ~45px against a ~154px text
+  // content need (live-measured 2026-08-15) — "May 1 - May 12, 2026" was
+  // effectively invisible/clipped on narrow screens.
+  const start = css.indexOf("@media (max-width: 900px)");
+  const end = css.indexOf("@media", start + 1);
+  const block = css.slice(start, end > start ? end : start + 1200);
+  assert.match(block, /\.ord-tools\s*\{[^}]*flex-wrap:\s*wrap/s, "tools row must be allowed to wrap");
+  assert.match(block, /\.ord-search\s*\{[^}]*flex:\s*1 1 100%/s, "search takes the full first row");
+  assert.match(block, /\.ord-date,[^{]*\.ord-filter-btn\s*\{[^}]*flex:\s*0 0 auto/s, "date/filter buttons size to their own content on the wrapped row");
+});

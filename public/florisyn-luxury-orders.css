@@ -395,9 +395,22 @@ body.florisyn-atelier #ordersPage.florisyn-lux-orders #telemetryLog {
   body.florisyn-atelier #ordersPage .ord-tools {
     width: 100%;
     margin-left: 0;
+    /* Search + the "May 1 - May 12, 2026" date chip + filter button no
+       longer fit in one unwrappable row on narrow screens — .ord-date has
+       white-space:nowrap and no min-width:0, so flexbox refused to shrink
+       it below its ~154px content width, and it got squeezed down to
+       45px and clipped instead (live-measured 2026-08-15). Let the date
+       and filter buttons wrap onto their own row below the search box
+       instead of overflowing. */
+    flex-wrap: wrap;
   }
 
   body.florisyn-atelier #ordersPage .ord-search {
-    flex: 1;
+    flex: 1 1 100%;
+  }
+
+  body.florisyn-atelier #ordersPage .ord-date,
+  body.florisyn-atelier #ordersPage .ord-filter-btn {
+    flex: 0 0 auto;
   }
 }
