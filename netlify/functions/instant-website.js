@@ -557,7 +557,7 @@ export async function handler(event) {
         const shop = await loadShopProfile(client, shopId);
         const { data: existing, error: loadError } = await client
           .from("bloom_website_projects")
-          .select("id,status")
+          .select("id,status,commerce_settings,seo_settings")
           .eq("shop_id", shopId)
           .maybeSingle();
         if (loadError) throw loadError;
@@ -572,6 +572,39 @@ export async function handler(event) {
           .order("nav_order");
         if (pagesError) throw pagesError;
         pages = pageRows || [];
+
+        // Commerce-safety gate: a broken/empty site must not go live silently.
+        // Mirrors the blueprint's own rule — "Publish My Website (only when
+        // blockers resolved or explicitly acknowledged)" — so this blocks by
+        // default but still lets the florist proceed on purpose via
+        // override_checklist, same as the visible Launch checklist panel.
+        if (!body.override_checklist) {
+          let products = [];
+          try {
+            const { data: productRows } = await client.from("products").select("publish_status,sync,primary_image").eq("shop_id", shopId).limit(500);
+            products = productRows || [];
+          } catch {
+            /* products table optional here — checklist degrades gracefully */
+          }
+          const checklist = buildPublishChecklist({
+            project: existing,
+            pages,
+            products,
+            commerce: existing.commerce_settings || {},
+            shop,
+            seo: existing.seo_settings || {}
+          });
+          if (!checklist.ready) {
+            const failing = checklist.items.filter((i) => !i.optional && !i.pass);
+            return json(409, {
+              error: `This site isn't ready to publish yet: ${failing.map((i) => i.label).join("; ")}.`,
+              code: "checklist_blocked",
+              checklist_blocked: true,
+              items: failing
+            });
+          }
+        }
+
         const visiblePages = pages.filter((p) => p.visible !== false);
         const seo_settings = buildPublishedSeoBundle(shop, visiblePages, { env: process.env, preview: false });
 
@@ -590,7 +623,7 @@ export async function handler(event) {
           eventType: "website_published",
           entityType: "website",
           entityId: project.id,
-          metadata: { approved: true, source: "website_editor", seo_refreshed: true }
+          metadata: { approved: true, source: "website_editor", seo_refreshed: true, checklist_overridden: Boolean(body.override_checklist) }
         });
         return json(200, {
           published: true,

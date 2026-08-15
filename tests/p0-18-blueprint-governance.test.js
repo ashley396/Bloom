@@ -121,12 +121,21 @@ test("governance preserves hosted-write and production approval boundaries", () 
 });
 
 test("website publishing confirms persistence and creates an audit event", () => {
-  assert.match(instantWebsiteHandler, /\.select\("id,status"\)/);
+  // select() now also pulls commerce_settings/seo_settings so the
+  // pre-publish checklist gate (added after this test was written) can
+  // evaluate readiness without a second round-trip — id/status remain.
+  assert.match(instantWebsiteHandler, /\.select\("id,status,commerce_settings,seo_settings"\)/);
   assert.match(instantWebsiteHandler, /if \(error\) throw error/);
   assert.match(instantWebsiteHandler, /Create and save a website draft before publishing/);
   assert.match(instantWebsiteHandler, /Website publish could not be confirmed/);
   assert.match(instantWebsiteHandler, /eventType: "website_published"/);
   assert.match(instantWebsiteHandler, /entityId: project\.id/);
+});
+
+test("publish is blocked by the pre-publish checklist unless explicitly overridden (commerce-safety gate)", () => {
+  assert.match(instantWebsiteHandler, /buildPublishChecklist\(/);
+  assert.match(instantWebsiteHandler, /if \(!body\.override_checklist\)/);
+  assert.match(instantWebsiteHandler, /code: "checklist_blocked"/);
 });
 
 test("website generation is low-cost and settings never claim an unconfirmed save", () => {

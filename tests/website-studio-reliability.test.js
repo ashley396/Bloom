@@ -14,6 +14,7 @@ import {
   assertPageNotStale,
   confirmThemePersistence
 } from "../netlify/functions/_shared/bloom-website-editor.js";
+import { buildPublishChecklist } from "../lib/website-studio/publish-checklist.js";
 
 const editor = fs.readFileSync(new URL("../public/website-editor-ui.js", import.meta.url), "utf8");
 const storefrontPublic = fs.readFileSync(
@@ -157,4 +158,54 @@ test("website builder exposes florist AI-style brief and add-section controls", 
 
 test("theme persistence action remains available on website API", () => {
   assert.match(instantWebsite, /switch_theme/);
+});
+
+test("publish is blocked by the pre-publish checklist by default, and only skips the gate with an explicit override", () => {
+  // Regression guard for the commerce-safety gap found in audit: the
+  // publish_checklist endpoint used to be purely informational — the real
+  // Publish button never consulted it, so a florist could publish an empty
+  // site with no products, no SEO, and no contact info with zero warning.
+  const publishBlock = instantWebsite.slice(instantWebsite.indexOf('action === "publish"'), instantWebsite.indexOf('action === "commerce_settings"'));
+  assert.match(publishBlock, /buildPublishChecklist\(/, "publish handler must run the same checklist the Launch checklist panel shows");
+  assert.match(publishBlock, /if \(!body\.override_checklist\)/, "checklist must run unless explicitly overridden");
+  assert.match(publishBlock, /if \(!checklist\.ready\)/);
+  assert.match(publishBlock, /json\(409,/, "blocked publish must be a distinct 409, not a generic failure");
+  assert.match(publishBlock, /code: "checklist_blocked"/);
+  assert.match(publishBlock, /items: failing/);
+  assert.match(publishBlock, /checklist_overridden: Boolean\(body\.override_checklist\)/, "override must be recorded in the audit trail, not silent");
+});
+
+test("publish button surfaces exactly what's missing and asks before publishing an unready site, never fails silently", () => {
+  assert.match(editor, /e\.code === "checklist_blocked"/);
+  assert.match(editor, /confirm\(/, "florist must be asked, not auto-overridden");
+  assert.match(editor, /override_checklist: true/);
+  assert.match(editor, /Publish stopped — nothing is live yet/, "declining must clearly state nothing published");
+});
+
+test("global api() helper forwards structured error detail (items) so callers can render specifics, not just a message string", () => {
+  const appJs = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(appJs, /if\(d\.items\)err\.items=d\.items/);
+});
+
+test("buildPublishChecklist: a bare fresh project fails required items; a stocked, described shop passes", () => {
+  const empty = buildPublishChecklist({ project: {}, pages: [{ slug: "home", visible: true, sections: [] }], products: [], shop: {} });
+  assert.equal(empty.ready, false);
+  assert.ok(empty.items.some((i) => i.id === "home_sections" && !i.pass));
+  assert.ok(empty.items.some((i) => i.id === "products_online" && !i.pass));
+
+  const ready = buildPublishChecklist({
+    project: { seo_settings: { title: "Ashley's Flowers — Springfield Florist", meta_description: "Fresh local flowers delivered same-day in Springfield and nearby towns." } },
+    pages: [
+      { slug: "home", visible: true, sections: [{ id: "1" }, { id: "2" }, { id: "3" }] },
+      { slug: "shop", visible: true, sections: [] },
+      { slug: "contact", visible: true, sections: [] }
+    ],
+    products: [
+      { publish_status: "published", sync: { available_online: true } },
+      { publish_status: "published", sync: { available_online: true } },
+      { publish_status: "published", sync: { available_online: true } }
+    ],
+    shop: { phone: "555-1234" }
+  });
+  assert.equal(ready.ready, true);
 });

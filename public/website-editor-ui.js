@@ -256,7 +256,31 @@
         const saved = await api("save_page", pagePayload());
         if (!saved?.saved || !saved?.page?.id) throw new Error("Website draft save could not be confirmed. Publishing was stopped.");
         rememberSavedPage(saved.page);
-        const published = await api("publish", { approved: true, saved: true, lily_draft: false });
+        let published;
+        try {
+          published = await api("publish", { approved: true, saved: true, lily_draft: false });
+        } catch (e) {
+          // Commerce-safety gate: the server blocks publish when required
+          // launch-checklist items are missing (no products, no SEO, no
+          // contact info, etc.) rather than letting a broken site go live
+          // silently. Show exactly what's missing and let the florist
+          // decide to fix it or publish anyway — never publish silently.
+          if (e.code === "checklist_blocked") {
+            const items = Array.isArray(e.items) ? e.items : [];
+            const lines = items.map((i) => `• ${i.label}${i.fix ? ` — ${i.fix}` : ""}`).join("\n");
+            const proceed = confirm(
+              `This site isn't ready to publish yet:\n\n${lines}\n\nPublish anyway? You can fix these and republish later.`
+            );
+            if (!proceed) {
+              status.textContent = "Publish stopped — nothing is live yet. Fix the items above and try again.";
+              live("Publish stopped.");
+              return;
+            }
+            published = await api("publish", { approved: true, saved: true, lily_draft: false, override_checklist: true });
+          } else {
+            throw e;
+          }
+        }
         if (!published?.published || published?.status !== "published") throw new Error("Website publish could not be confirmed. Your saved draft is safe.");
         live("Site published.");
         status.textContent = "Website published.";
