@@ -449,3 +449,18 @@ dialog{border:1px solid rgba(255,255,255,.75);border-radius:26px;box-shadow:var(
 .pos-fulfill-date{display:flex;flex-direction:column;font-size:11px;color:#7c6d74;gap:3px;text-transform:uppercase;letter-spacing:.04em}
 .pos-fulfill-date input{text-transform:none;letter-spacing:normal}
 body[data-lily-theme="dark"] .pos-fulfill-toggle,body.florisyn-dark .pos-fulfill-fields{background:#2a2226;border-color:#4a3a42}
+/* POS Settings — Checkout defaults were static <strong> text (1.35rem,
+   "REG-MAIN-001" etc.) that could crowd a narrow grid cell; real <input>
+   fields inherit the app-wide input{width:100%} rule so they always fit
+   their container. Quick links reused the shared .actions class
+   (flex, no wrap, justify-content:flex-end), which is fine in dialog
+   footers with 2 short buttons but runs 4 longer labels ("Subscription
+   Center", "Edit tax & delivery") off the right edge on narrow phones
+   since flex-wrap defaults to nowrap — scoped here rather than changed
+   on .actions itself, which many other panels/dialogs also rely on. */
+#posSettingsPage .settings-grid label{margin-bottom:0}
+@media(max-width:480px){
+  #posSettingsPage .settings-grid .two{grid-template-columns:1fr}
+  #posSettingsPage .pos-settings-quicklinks{flex-wrap:wrap;justify-content:flex-start}
+  #posSettingsPage .pos-settings-quicklinks button{flex:1 1 calc(50% - 5px)}
+}

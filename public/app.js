@@ -389,11 +389,32 @@ async function loadAnalyticsPage(){
   pairs.forEach(([from,to])=>{const a=$(from),b=$(to);if(a&&b)b.textContent=a.textContent});
 }
 function loadPosSettingsPage(){
-  const tax=Number(shopSettings?.tax_rate??6);
-  const fee=Number(shopSettings?.default_delivery_fee??10);
-  if($("#posSettingsTax"))$("#posSettingsTax").textContent=`${tax}%`;
-  if($("#posSettingsDelivery"))$("#posSettingsDelivery").textContent=money(fee);
+  if($("#posSettingsTaxInput"))$("#posSettingsTaxInput").value=Number(shopSettings?.tax_rate??6);
+  if($("#posSettingsDeliveryInput"))$("#posSettingsDeliveryInput").value=Number(shopSettings?.default_delivery_fee??10).toFixed(2);
+  if($("#posSettingsRegisterName"))$("#posSettingsRegisterName").value=shopSettings?.register_name||"";
+  if($("#posSettingsRegisterId"))$("#posSettingsRegisterId").value=shopSettings?.register_id||"";
+  if($("#posSettingsSaveStatus"))$("#posSettingsSaveStatus").textContent="";
 }
+$("#posSettingsSaveBtn")?.addEventListener("click",async()=>{
+  const btn=$("#posSettingsSaveBtn"),status=$("#posSettingsSaveStatus"),orig=btn.textContent;
+  const payload={
+    tax_rate:Number($("#posSettingsTaxInput")?.value||0),
+    default_delivery_fee:Number($("#posSettingsDeliveryInput")?.value||0),
+    register_name:($("#posSettingsRegisterName")?.value||"").trim(),
+    register_id:($("#posSettingsRegisterId")?.value||"").trim()
+  };
+  btn.disabled=true;btn.textContent="Saving…";
+  try{
+    shopSettings=(await api("settings",{method:"PATCH",body:JSON.stringify(payload)})).item;
+    if(status)status.textContent="Saved — applies to new orders, receipts, and the register.";
+    toast("Checkout defaults saved");
+  }catch(e){
+    if(status)status.textContent=e.message;
+    toast(e.message);
+  }finally{
+    btn.disabled=false;btn.textContent=orig;
+  }
+});
 
 async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,bouquetsPage:()=>{},expensesPage:loadExpenses,reportsPage:loadReports,analyticsPage:loadAnalyticsPage,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,floristNetworkPage:loadFloristNetworkPage,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,communityPage:loadCommunityPage,holidayPage:loadHolidayPage,emailCampaignsPage:loadEmailCampaignsPage,weddingsPage:loadWeddingsPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,posSettingsPage:loadPosSettingsPage,posPage:()=>{window.FlorisynLuxuryPos?.syncStatusMetrics?.();window.FlorisynLuxuryPos?.syncCustomer?.();if(typeof renderPosTiles==="function")renderPosTiles();},aiStudioPage:()=>refreshAiStatus()};try{if(m[id])await m[id]()}catch(e){toast(e.message);const box=document.querySelector(`#${id} .cards, #${id}List, #${id.replace("Page","")}List, #communityRoot, #holidayRoot, #emailCampaignsRoot, #weddingsRoot, #floristNetworkRoot`);if(box&&window.BloomLaunchPolish?.errorState)box.innerHTML=window.BloomLaunchPolish.errorState({message:e.message})}}
 const ORDER_STATUS_DEFS=[

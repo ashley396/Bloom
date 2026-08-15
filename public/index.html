@@ -550,17 +550,19 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
   <div class="settings-grid">
     <section class="panel">
       <h2>Checkout defaults</h2>
-      <p class="subtle">These values follow your saved shop settings. Update them in Settings → Shop information.</p>
-      <div class="report-summary">
-        <div><small>Default sales tax</small><strong id="posSettingsTax">6%</strong></div>
-        <div><small>Default delivery fee</small><strong id="posSettingsDelivery">$10.00</strong></div>
-        <div><small>Register name</small><strong>Front Counter</strong></div>
-        <div><small>Register ID</small><strong>REG-MAIN-001</strong></div>
-      </div>
+      <p class="subtle">Applied to new orders, receipts, and the register. Saved directly from here.</p>
+      <form id="posSettingsForm" class="two">
+        <label>Default sales tax (%)<input id="posSettingsTaxInput" name="tax_rate" type="number" min="0" max="100" step="0.01" inputmode="decimal"></label>
+        <label>Default delivery fee ($)<input id="posSettingsDeliveryInput" name="default_delivery_fee" type="number" min="0" step="0.01" inputmode="decimal"></label>
+        <label>Register name<input id="posSettingsRegisterName" name="register_name" placeholder="Front Counter"></label>
+        <label>Register ID<input id="posSettingsRegisterId" name="register_id" placeholder="REG-MAIN-001"></label>
+      </form>
+      <div class="actions"><button type="button" class="primary" id="posSettingsSaveBtn">Save checkout defaults</button></div>
+      <p id="posSettingsSaveStatus" class="subtle" aria-live="polite"></p>
     </section>
     <section class="panel">
       <h2>Quick links</h2>
-      <div class="actions">
+      <div class="actions pos-settings-quicklinks">
         <button type="button" class="secondary" data-route="/settings" data-page="settingsPage">Edit tax &amp; delivery</button>
         <button type="button" class="secondary" data-route="/subscription" data-page="subscriptionPage">Subscription Center</button>
         <button type="button" class="secondary" data-route="/inventory" data-page="inventoryPage">Inventory</button>
