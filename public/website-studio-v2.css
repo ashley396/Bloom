@@ -215,3 +215,71 @@
   font-size: 0.85em;
   word-break: break-all;
 }
+
+/* Website Studio shell — one calm tabbed surface instead of five stacked
+   full-length panels (Lily quick start, Instant Website wizard, Theme
+   gallery, Website Studio V2, Website Editor) every time the page loads. */
+.ws-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.ws-shell-tabs {
+  display: flex;
+  gap: 0.35rem;
+  border-bottom: 1px solid var(--line, #eadfe2);
+  padding-bottom: 0;
+  overflow-x: auto;
+}
+.ws-shell-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--muted, #7c6d74);
+  padding: 0.65rem 1rem;
+  border-radius: 10px 10px 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.ws-shell-tab:hover {
+  color: var(--ink, #40343a);
+  background: var(--accent-soft, #f8f3f6);
+}
+.ws-shell-tab.active {
+  color: var(--brand-primary, #f05686);
+  border-bottom-color: var(--brand-primary, #f05686);
+}
+.ws-shell-tab:focus-visible {
+  outline: 2px solid var(--brand-primary, #f05686);
+  outline-offset: 2px;
+}
+.ws-shell-panel[hidden] {
+  display: none;
+}
+/* The five original panels no longer need their own top margin/border once
+   they live inside a ws-shell-panel — avoid doubled spacing. */
+.ws-shell-panel > .lily-wizard-shell,
+.ws-shell-panel > .instant-wizard-shell,
+.ws-shell-panel > .theme-gallery-shell,
+.ws-shell-panel > .website-studio-v2,
+.ws-shell-panel > .website-editor-shell {
+  margin-top: 0;
+}
+.ws-shell-panel[data-panel="editor"] {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.ws-shell-panel[data-panel="editor"][hidden] {
+  display: none;
+}
+@media (max-width: 640px) {
+  .ws-shell-tab {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.9rem;
+  }
+}
