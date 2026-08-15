@@ -11,10 +11,20 @@
  * go back to stacking exactly as before.
  */
 (function () {
+  const START_INTRO = `
+    <div class="ws-shell-start-intro">
+      <p class="eyebrow">THREE WAYS TO START</p>
+      <ol>
+        <li><strong>Let Lily build it</strong> — answer a few questions, Lily drafts the whole site.</li>
+        <li><button type="button" class="linklike" id="wsIntroTemplatesLink"><strong>Browse templates</strong></button> — pick a ready-made look, then customize it.</li>
+        <li><button type="button" class="linklike" id="wsIntroEditorLink"><strong>Build it yourself</strong></button> — start from a blank page in the Editor.</li>
+      </ol>
+    </div>`;
+
   const TABS = [
     { id: "start", label: "Get started" },
     { id: "editor", label: "Editor" },
-    { id: "look", label: "Look & feel" }
+    { id: "look", label: "Templates" }
   ];
 
   // Which already-mounted panel (by the class its own module gives it)
@@ -40,10 +50,16 @@
         ).join("")}
       </div>
       ${TABS.map(
-        (t) => `<div class="ws-shell-panel" id="wsPanel-${t.id}" data-panel="${t.id}" role="tabpanel" aria-labelledby="wsTab-${t.id}"></div>`
+        (t) => `<div class="ws-shell-panel" id="wsPanel-${t.id}" data-panel="${t.id}" role="tabpanel" aria-labelledby="wsTab-${t.id}">${t.id === "start" ? START_INTRO : ""}</div>`
       ).join("")}
     `;
     root.insertBefore(shell, root.firstChild);
+    // Wire the intro's "Browse templates" / "Build it yourself" links to
+    // switch tabs, once — added because "I can't find the templates or how
+    // to do it" was reported: templates lived under an unlabeled "Look &
+    // feel" tab with no pointer to it from the first screen a florist sees.
+    shell.querySelector("#wsIntroTemplatesLink")?.addEventListener("click", () => selectTab(shell, "look"));
+    shell.querySelector("#wsIntroEditorLink")?.addEventListener("click", () => selectTab(shell, "editor"));
     return shell;
   }
 

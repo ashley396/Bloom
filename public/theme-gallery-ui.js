@@ -64,13 +64,27 @@
       dlg.showModal();
     }
 
+    // Readable style description per fontPair id — every template card was
+    // previously showing the identical hardcoded caption ("Serif + sans ·
+    // product cards · soft buttons") regardless of which template it was,
+    // with no name anywhere. Eight anonymous gradient blocks with the same
+    // subtitle is why templates were hard to find/tell apart.
+    const FONT_PAIR_DESCRIPTIONS = {
+      elegant_serif_sans: "Cormorant Garamond + Source Sans",
+      romantic_script_accent: "Cormorant Garamond + script accent",
+      modern_luxury_serif: "Playfair Display + Inter",
+      traditional_florist: "Libre Baskerville + Nunito Sans",
+      clean_contemporary: "Clean, contemporary sans"
+    };
+
     function renderCards() {
       const grid = root.querySelector("#themeGalleryGrid");
       grid.innerHTML = modes
         .map(
           (m) => `<article class="theme-card panel" data-id="${esc(m.id)}">
             <div class="theme-card-preview" style="background:linear-gradient(145deg,${m.palette.join(",")});min-height:100px;border-radius:12px"></div>
-            <p class="subtle">Serif + sans · product cards · soft buttons</p>
+            <h3 class="theme-card-name">${esc(m.label || m.id)}</h3>
+            <p class="subtle">${esc(FONT_PAIR_DESCRIPTIONS[m.fontPair] || "Serif + sans")} · product cards · soft buttons</p>
             <div class="card-actions">
               <button type="button" class="secondary" data-preview="${esc(m.id)}">Preview</button>
               <button type="button" class="primary" data-apply="${esc(m.id)}">Apply theme</button>

@@ -267,6 +267,41 @@
   word-break: break-all;
 }
 
+/* Template (theme) gallery cards — previously showed only a color gradient
+   with no name and an identical caption on every card. */
+.theme-card-name {
+  margin: 0.6rem 0 0.15rem;
+  font-size: 1rem;
+}
+
+/* "Three ways to start" intro on the Get Started tab — added because
+   templates lived under an unlabeled tab with no pointer to them. */
+.ws-shell-start-intro {
+  background: var(--card, #fff);
+  border: 1px solid var(--border, #e8e0e4);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+}
+.ws-shell-start-intro ol {
+  margin: 0.4rem 0 0;
+  padding-left: 1.2rem;
+}
+.ws-shell-start-intro li {
+  margin-bottom: 0.4rem;
+  line-height: 1.4;
+}
+.linklike {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--brand-primary, #f05686);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* Website Studio shell — one calm tabbed surface instead of five stacked
    full-length panels (Lily quick start, Instant Website wizard, Theme
    gallery, Website Studio V2, Website Editor) every time the page loads. */
