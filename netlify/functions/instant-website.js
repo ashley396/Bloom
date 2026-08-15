@@ -40,6 +40,7 @@ import {
 import { tenantIsolationCheck } from "./_shared/bloom-storefront-core.js";
 import { buildWebsiteCatalogSeeds, shouldSeedWebsiteCatalog } from "./_shared/bloom-website-catalog-seed.js";
 import { writeShopAudit } from "./_shared/production.js";
+import { uploadWebsiteMedia, publicWebsiteMediaUrl, findMediaUsage, WEBSITE_MEDIA_BUCKET } from "./_shared/website-media.js";
 
 const ROLES = ["owner", "manager", "designer", "cashier"];
 
@@ -387,6 +388,130 @@ export async function handler(event) {
         return json(200, { pages: reordered });
       } catch (e) {
         if (missingTable(e)) return json(503, { error: "Website tables not migrated." });
+        throw e;
+      }
+    }
+
+    if (action === "upload_media") {
+      try {
+        const uploaded = await uploadWebsiteMedia(client, shopId, { dataUrl: body.data_url, filename: body.filename });
+        if (!uploaded.ok) return json(400, { error: uploaded.error });
+        const { data: row, error } = await client
+          .from("website_media")
+          .insert({
+            shop_id: shopId,
+            storage_path: uploaded.path,
+            filename: uploaded.filename,
+            alt_text: String(body.alt_text || "").slice(0, 240),
+            label: String(body.label || "").slice(0, 120),
+            source: ["upload", "brand_asset", "generated", "library"].includes(body.source) ? body.source : "upload",
+            mime: uploaded.mime,
+            size_bytes: uploaded.sizeBytes
+          })
+          .select("*")
+          .single();
+        if (error) throw error;
+        await writeShopAudit(client, {
+          shopId,
+          userId: user.id,
+          eventType: "website_media_uploaded",
+          entityType: "website_media",
+          entityId: row.id,
+          metadata: { filename: row.filename, size_bytes: row.size_bytes }
+        });
+        return json(200, { media: { ...row, url: publicWebsiteMediaUrl(client, row.storage_path), used_in: [] } });
+      } catch (e) {
+        if (missingTable(e)) return json(503, { error: "Media library not migrated." });
+        throw e;
+      }
+    }
+
+    if (action === "list_media") {
+      try {
+        const { data: rows, error } = await client
+          .from("website_media")
+          .select("*")
+          .eq("shop_id", shopId)
+          .order("created_at", { ascending: false })
+          .limit(200);
+        if (error) throw error;
+        let pages = [];
+        try {
+          const { data: proj } = await client.from("bloom_website_projects").select("id").eq("shop_id", shopId).maybeSingle();
+          if (proj?.id) {
+            const { data: pageRows } = await client.from("bloom_website_pages").select("slug,title,sections").eq("shop_id", shopId).eq("project_id", proj.id);
+            pages = pageRows || [];
+          }
+        } catch {
+          /* usage annotation is best-effort — an empty list still browses fine */
+        }
+        const media = (rows || []).map((row) => ({
+          ...row,
+          url: publicWebsiteMediaUrl(client, row.storage_path),
+          used_in: findMediaUsage(pages, row.storage_path)
+        }));
+        return json(200, { media, bucket: WEBSITE_MEDIA_BUCKET });
+      } catch (e) {
+        if (missingTable(e)) return json(200, { media: [], note: "Media library not migrated yet." });
+        throw e;
+      }
+    }
+
+    if (action === "update_media") {
+      if (!body.id) return json(400, { error: "Media id required." });
+      try {
+        const { data: row, error } = await client
+          .from("website_media")
+          .update({
+            alt_text: body.alt_text != null ? String(body.alt_text).slice(0, 240) : undefined,
+            label: body.label != null ? String(body.label).slice(0, 120) : undefined,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", body.id)
+          .eq("shop_id", shopId)
+          .select("*")
+          .maybeSingle();
+        if (error) throw error;
+        if (!row) return json(404, { error: "Image not found." });
+        return json(200, { media: { ...row, url: publicWebsiteMediaUrl(client, row.storage_path) } });
+      } catch (e) {
+        if (missingTable(e)) return json(503, { error: "Media library not migrated." });
+        throw e;
+      }
+    }
+
+    if (action === "delete_media") {
+      if (!body.id) return json(400, { error: "Media id required." });
+      try {
+        const { data: row, error: rowError } = await client.from("website_media").select("*").eq("id", body.id).eq("shop_id", shopId).maybeSingle();
+        if (rowError) throw rowError;
+        if (!row) return json(404, { error: "Image not found." });
+        if (!body.confirmed) {
+          let pages = [];
+          const { data: proj } = await client.from("bloom_website_projects").select("id").eq("shop_id", shopId).maybeSingle();
+          if (proj?.id) {
+            const { data: pageRows } = await client.from("bloom_website_pages").select("slug,title,sections").eq("shop_id", shopId).eq("project_id", proj.id);
+            pages = pageRows || [];
+          }
+          const usage = findMediaUsage(pages, row.storage_path);
+          if (usage.length) return json(409, { error: "This image is used on your site.", needsConfirmation: true, used_in: usage });
+          return json(400, { error: "Confirm image deletion.", needsConfirmation: true });
+        }
+        const { error: storageError } = await client.storage.from(WEBSITE_MEDIA_BUCKET).remove([row.storage_path]);
+        if (storageError && !/not found/i.test(storageError.message || "")) throw storageError;
+        const { error: deleteError } = await client.from("website_media").delete().eq("id", row.id).eq("shop_id", shopId);
+        if (deleteError) throw deleteError;
+        await writeShopAudit(client, {
+          shopId,
+          userId: user.id,
+          eventType: "website_media_deleted",
+          entityType: "website_media",
+          entityId: row.id,
+          metadata: { filename: row.filename }
+        });
+        return json(200, { deleted: true, id: row.id });
+      } catch (e) {
+        if (missingTable(e)) return json(503, { error: "Media library not migrated." });
         throw e;
       }
     }

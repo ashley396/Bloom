@@ -195,6 +195,7 @@
           (s, idx) => `<article class="editor-section${s.id === selectedSectionId ? " selected" : ""}" data-id="${esc(s.id)}" draggable="true">
             <div class="editor-section-tools">
               <button type="button" class="secondary editor-select" data-select="${esc(s.id)}" aria-label="Edit section properties">Edit</button>
+              <button type="button" class="secondary" data-image="${esc(s.id)}" aria-label="Change photo for this section">Change photo</button>
               <button type="button" class="secondary" data-move="up" data-id="${esc(s.id)}" aria-label="Move section up">↑</button>
               <button type="button" class="secondary" data-move="down" data-id="${esc(s.id)}" aria-label="Move section down">↓</button>
               <button type="button" class="secondary" data-dup="${esc(s.id)}">Duplicate</button>
@@ -401,19 +402,28 @@
       }
       if (e.target.closest("[data-image]")) {
         const id = e.target.closest("[data-image]").dataset.image;
-        const url = prompt("Image URL (https or shop path):");
-        if (!url) return;
-        const alt = prompt("Alt text:") || "";
-        const d = await api("edit_image", {
-          sections,
-          section_id: id,
-          path: "image",
-          media: { url, alt, source: "shop_upload", license: "shop_owned" }
+        if (!window.BloomWebsiteMedia?.openPicker) {
+          live("Media library is unavailable right now.");
+          return;
+        }
+        window.BloomWebsiteMedia.openPicker(async (item) => {
+          try {
+            const d = await api("edit_image", {
+              sections,
+              section_id: id,
+              path: "image",
+              media: { url: item.url, alt: item.alt_text || "", source: "shop_upload", license: "shop_owned" }
+            });
+            sections = d.sections;
+            pushHistory();
+            renderCanvas();
+            live("Photo updated.");
+          } catch (err) {
+            live("Photo could not be updated.");
+            root.querySelector("#editorStatus").textContent = err.message;
+          }
         });
-        sections = d.sections;
-        pushHistory();
-        renderCanvas();
-        live("Image updated.");
+        return;
       }
     });
 

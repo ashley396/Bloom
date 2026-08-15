@@ -22,6 +22,7 @@
         <p class="eyebrow">PAGES</p>
         <h3>Site structure</h3>
         <button type="button" class="secondary ws2-add-page" id="ws2AddPage">+ Add page</button>
+        <button type="button" class="secondary ws2-add-page" id="ws2OpenMediaLibrary">🖼 Media library</button>
         <ul class="ws2-page-list" id="ws2PageList"></ul>
         <p id="ws2PagesStatus" class="subtle" aria-live="polite"></p>
       </div>
@@ -212,6 +213,10 @@
       } catch (e) {
         pagesStatus(e.message);
       }
+    });
+
+    shell.querySelector("#ws2OpenMediaLibrary")?.addEventListener("click", () => {
+      window.BloomWebsiteMedia?.openBrowse?.();
     });
 
     function fillSeoFields() {
