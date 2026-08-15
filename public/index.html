@@ -444,27 +444,25 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
     </div>
   </div>
 
-  <div class="ord-table-card">
-    <div class="ord-table-wrap">
-      <table class="ord-table" id="ordTable">
-        <thead>
-          <tr>
-            <th scope="col"><input class="ord-check" type="checkbox" id="ordSelectAll" aria-label="Select all orders"></th>
-            <th scope="col" data-ord-sort="order">Order #</th>
-            <th scope="col" data-ord-sort="customer">Customer</th>
-            <th scope="col" data-ord-sort="items">Items</th>
-            <th scope="col" data-ord-sort="total">Total</th>
-            <th scope="col" data-ord-sort="status">Status</th>
-            <th scope="col" data-ord-sort="date">Date</th>
-            <th scope="col" data-ord-sort="delivery">Delivery</th>
-            <th scope="col">Actions</th>
-          </tr>
-        </thead>
-        <tbody id="ordTableBody"></tbody>
-      </table>
+  <div class="ord-table-card" id="ordTable">
+    <div class="ord-tile-toolbar">
+      <label class="ord-select-all"><input class="ord-check" type="checkbox" id="ordSelectAll" aria-label="Select all orders"> Select all</label>
+      <label class="ord-sort-control">Sort by
+        <select id="ordSortSelect" aria-label="Sort orders">
+          <option value="order-desc">Order # (newest)</option>
+          <option value="order-asc">Order # (oldest)</option>
+          <option value="customer-asc">Customer (A–Z)</option>
+          <option value="total-desc">Total (high–low)</option>
+          <option value="total-asc">Total (low–high)</option>
+          <option value="date-desc">Date (newest)</option>
+          <option value="date-asc">Date (oldest)</option>
+          <option value="status-asc">Status</option>
+        </select>
+      </label>
     </div>
+    <div class="ord-tile-grid" id="ordTableBody"></div>
     <div class="ord-pager">
-      <div class="ord-pager-meta" id="ordPagerMeta">Showing 1-8 of 186 orders</div>
+      <div class="ord-pager-meta" id="ordPagerMeta"></div>
       <div class="ord-pages" id="ordPages" aria-label="Pagination"></div>
     </div>
   </div>

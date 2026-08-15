@@ -3,117 +3,6 @@
  */
 (function () {
   const PAGE_SIZE = 8;
-  const DEMO_TOTAL = 186;
-
-  const DEMO_ROWS = [
-    {
-      id: "demo-7342",
-      order: "#FLR-7342",
-      customer: "Sarah Johnson",
-      items: [{ name: "Blush Serenity Bouquet", qty: 1, image: "/assets/pink-bouquet.jpg" }],
-      total: 180,
-      status: "delivered",
-      date: "May 12",
-      dateKey: "2026-05-12",
-      delivery: "Delivery"
-    },
-    {
-      id: "demo-7341",
-      order: "#FLR-7341",
-      customer: "Michael Cooper",
-      items: [
-        { name: "Eternal Summer Bouquet", qty: 1, image: "/assets/atelier-bouquet-hero.jpg" },
-        { name: "Gift Wrap", qty: 1, image: "/assets/chocolates.jpg" }
-      ],
-      total: 132,
-      status: "in-progress",
-      date: "May 12",
-      dateKey: "2026-05-12",
-      delivery: "Pickup"
-    },
-    {
-      id: "demo-7340",
-      order: "#FLR-7340",
-      customer: "David Wilson",
-      items: [{ name: "Pure Elegance Arrangement", qty: 2, image: "/assets/atelier-lilies-corner.jpg" }],
-      total: 290,
-      status: "ready",
-      date: "May 11",
-      dateKey: "2026-05-11",
-      delivery: "Delivery"
-    },
-    {
-      id: "demo-7339",
-      order: "#FLR-7339",
-      customer: "Emma Taylor",
-      items: [
-        { name: "Lavender Dreams", qty: 1, image: "/assets/orchid.jpg" },
-        { name: "Card", qty: 1, image: "/assets/fresh.jpg" }
-      ],
-      total: 187,
-      status: "pending",
-      date: "May 11",
-      dateKey: "2026-05-11",
-      delivery: "Delivery"
-    },
-    {
-      id: "demo-7338",
-      order: "#FLR-7338",
-      customer: "Clara Kensington",
-      items: [
-        { name: "Crimson Velvet", qty: 3, image: "/assets/rose-arr.jpg" },
-        { name: "Rose Garden", qty: 1, image: "/assets/atelier-floral-corner.jpg" }
-      ],
-      total: 810,
-      status: "delivered",
-      date: "May 10",
-      dateKey: "2026-05-10",
-      delivery: "White-Glove"
-    },
-    {
-      id: "demo-7337",
-      order: "#FLR-7337",
-      customer: "James Wright",
-      items: [{ name: "Wedding Package — Bridal + 6 Bridesmaids", qty: 1, image: "/assets/atelier-lilies-corner.jpg" }],
-      total: 2400,
-      status: "in-progress",
-      date: "May 10",
-      dateKey: "2026-05-10",
-      delivery: "Venue Setup"
-    },
-    {
-      id: "demo-7336",
-      order: "#FLR-7336",
-      customer: "Sophie Adams",
-      items: [{ name: "Tropical Paradise", qty: 1, image: "/assets/orchid.jpg" }],
-      total: 195,
-      status: "cancelled",
-      date: "May 9",
-      dateKey: "2026-05-09",
-      delivery: "—"
-    },
-    {
-      id: "demo-7335",
-      order: "#FLR-7335",
-      customer: "Oliver Chen",
-      items: [{ name: "Dried Preserved Collection", qty: 2, image: "/assets/spray.jpg" }],
-      total: 340,
-      status: "delivered",
-      date: "May 9",
-      dateKey: "2026-05-09",
-      delivery: "Delivery"
-    }
-  ];
-
-  const TAB_COUNTS = {
-    all: DEMO_TOTAL,
-    pending: 12,
-    "in-progress": 8,
-    ready: 5,
-    delivery: 3,
-    completed: 156,
-    cancelled: 2
-  };
 
   const state = {
     tab: "all",
@@ -122,8 +11,7 @@
     sortKey: "order",
     sortDir: "desc",
     selected: new Set(),
-    rows: DEMO_ROWS.slice(),
-    usingDemo: true
+    rows: []
   };
 
   function $(sel, root) {
@@ -180,11 +68,15 @@
   }
 
   function orderCancelAction(r) {
+    // Labeled "Delete" per the owner's request, but — deliberately — this
+    // still only cancels the order (status: CANCELLED via data-cancel-
+    // order below), never a hard delete. Orders are financial records;
+    // this keeps them for accounting/history instead of destroying them.
     if (orderCancelDisabled(r)) {
-      return `<button type="button" class="ord-cancel secondary" disabled>Cancel Order</button>`;
+      return `<button type="button" class="ord-cancel secondary" disabled>Delete</button>`;
     }
     if (!r.raw?.id) return "";
-    return `<button type="button" class="ord-cancel secondary danger" data-cancel-order="${esc(r.raw.id)}">Cancel Order</button>`;
+    return `<button type="button" class="ord-cancel secondary danger" data-cancel-order="${esc(r.raw.id)}">Delete</button>`;
   }
 
   function formatDate(value) {
@@ -207,10 +99,8 @@
 
   function normalizeOrders(apiOrders) {
     if (!Array.isArray(apiOrders) || !apiOrders.length) {
-      state.usingDemo = true;
-      return DEMO_ROWS.slice();
+      return [];
     }
-    state.usingDemo = false;
     return apiOrders.map((o, i) => {
       const desc = o.arrangement_description || o.notes || o.occasion || "Floral arrangement";
       const parts = String(desc)
@@ -279,7 +169,6 @@
   }
 
   function tabCount(key) {
-    if (state.usingDemo) return TAB_COUNTS[key] ?? 0;
     if (key === "all") return state.rows.length;
     if (key === "delivery") {
       return state.rows.filter((r) => r.status === "delivery" || /delivery|white-glove|venue/i.test(r.delivery)).length;
@@ -314,47 +203,62 @@
     const body = $("#ordTableBody");
     if (!body) return;
     const rows = filteredRows();
-    const total = state.usingDemo && state.tab === "all" && !state.query ? DEMO_TOTAL : rows.length;
-    const pages = Math.max(1, Math.ceil((state.usingDemo && state.tab === "all" && !state.query ? DEMO_TOTAL : rows.length) / PAGE_SIZE));
+    const total = rows.length;
+    const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
     if (state.page > pages) state.page = pages;
     const start = (state.page - 1) * PAGE_SIZE;
-    const pageRows =
-      state.usingDemo && state.tab === "all" && !state.query
-        ? rows.slice(0, PAGE_SIZE)
-        : rows.slice(start, start + PAGE_SIZE);
+    const pageRows = rows.slice(start, start + PAGE_SIZE);
 
-    body.innerHTML = pageRows
-      .map((r) => {
-        const checked = state.selected.has(r.id) ? "checked" : "";
-        const selected = state.selected.has(r.id) ? " is-selected" : "";
-        const items = r.items
-          .map(
-            (it) =>
-              `<div class="ord-item"><img class="ord-thumb" src="${esc(it.image)}" alt="" width="28" height="28"><span>${esc(it.name)} (x${Number(it.qty) || 1})</span></div>`
-          )
-          .join("");
-        return `<tr class="${selected.trim()}" data-ord-id="${esc(r.id)}">
-          <td><input class="ord-check" type="checkbox" data-ord-select="${esc(r.id)}" ${checked} aria-label="Select ${esc(r.order)}"></td>
-          <td><span class="ord-num">${esc(r.order)}</span></td>
-          <td>${esc(r.customer)}</td>
-          <td>${items}</td>
-          <td><span class="ord-total">${money(r.total)}</span></td>
-          <td><span class="ord-status ${statusClass(r.status)}">${esc(statusLabel(r.status))}</span></td>
-          <td>${esc(r.date)}</td>
-          <td>${esc(r.delivery)}</td>
-          <td class="ord-row-actions">${orderCancelAction(r)}<button type="button" class="ord-actions" data-ord-menu="${esc(r.id)}" aria-label="Order actions">•••</button></td>
-        </tr>`;
-      })
-      .join("");
+    if (!pageRows.length) {
+      const noOrdersAtAll = !state.rows.length;
+      body.innerHTML = `<div class="ord-empty">
+        <p class="ord-empty-title">${noOrdersAtAll ? "No orders yet" : "No orders match this view"}</p>
+        <p class="ord-empty-sub">${
+          noOrdersAtAll
+            ? "New orders you create will show up here as tiles."
+            : "Try a different tab, search term, or date range."
+        }</p>
+      </div>`;
+    } else {
+      body.innerHTML = pageRows
+        .map((r) => {
+          const checked = state.selected.has(r.id) ? "checked" : "";
+          const selected = state.selected.has(r.id) ? " is-selected" : "";
+          const items = r.items
+            .map(
+              (it) =>
+                `<div class="ord-item"><img class="ord-thumb" src="${esc(it.image)}" alt="" width="28" height="28"><span>${esc(it.name)} (x${Number(it.qty) || 1})</span></div>`
+            )
+            .join("");
+          const editBtn = r.raw?.id
+            ? `<button type="button" class="secondary" data-edit-order="${esc(r.raw.id)}">Edit</button>`
+            : "";
+          return `<article class="ord-tile${selected}" data-ord-id="${esc(r.id)}">
+            <label class="ord-tile-select"><input class="ord-check" type="checkbox" data-ord-select="${esc(r.id)}" ${checked} aria-label="Select ${esc(r.order)}"></label>
+            <div class="ord-tile-head">
+              <span class="ord-num">${esc(r.order)}</span>
+              <span class="ord-status ${statusClass(r.status)}">${esc(statusLabel(r.status))}</span>
+            </div>
+            <div class="ord-tile-customer">${esc(r.customer)}</div>
+            <div class="ord-tile-items">${items}</div>
+            <div class="ord-tile-meta"><span>${esc(r.date)}</span><span>${esc(r.delivery)}</span></div>
+            <div class="ord-tile-foot">
+              <span class="ord-total">${money(r.total)}</span>
+              <div class="ord-tile-actions">${editBtn}${orderCancelAction(r)}</div>
+            </div>
+          </article>`;
+        })
+        .join("");
+    }
 
     const shownFrom = total ? start + 1 : 0;
     const shownTo = Math.min(start + pageRows.length, total);
     const meta = $("#ordPagerMeta");
-    if (meta) meta.textContent = `Showing ${shownFrom}-${shownTo} of ${total} orders`;
+    if (meta) meta.textContent = total ? `Showing ${shownFrom}-${shownTo} of ${total} orders` : "";
 
     const pagesHost = $("#ordPages");
     if (pagesHost) {
-      const maxPage = state.usingDemo && state.tab === "all" && !state.query ? 24 : pages;
+      const maxPage = pages;
       const buttons = [];
       buttons.push(`<button type="button" data-ord-page="prev" ${state.page <= 1 ? "disabled" : ""}>Previous</button>`);
       const seq = maxPage <= 5 ? [...Array(maxPage)].map((_, i) => i + 1) : [1, 2, 3, "…", maxPage];
@@ -363,13 +267,11 @@
         else buttons.push(`<button type="button" data-ord-page="${p}" class="${state.page === p ? "active" : ""}">${p}</button>`);
       }
       buttons.push(`<button type="button" data-ord-page="next" ${state.page >= maxPage ? "disabled" : ""}>Next</button>`);
-      pagesHost.innerHTML = buttons.join("");
+      pagesHost.innerHTML = total ? buttons.join("") : "";
     }
 
-    $$("#ordTable thead th[data-ord-sort]").forEach((th) => {
-      th.classList.toggle("is-asc", th.dataset.ordSort === state.sortKey && state.sortDir === "asc");
-      th.classList.toggle("is-desc", th.dataset.ordSort === state.sortKey && state.sortDir === "desc");
-    });
+    const sortSelect = $("#ordSortSelect");
+    if (sortSelect) sortSelect.value = `${state.sortKey}-${state.sortDir}`;
 
     const all = $("#ordSelectAll");
     if (all) {
@@ -431,25 +333,14 @@
       window.toast?.("Orders exported");
     });
 
+    $("#ordSortSelect")?.addEventListener("change", (e) => {
+      const [key, dir] = String(e.target.value || "order-desc").split("-");
+      state.sortKey = key;
+      state.sortDir = dir === "asc" ? "asc" : "desc";
+      renderTable();
+    });
+
     $("#ordTable")?.addEventListener("click", (e) => {
-      const sortTh = e.target.closest("th[data-ord-sort]");
-      if (sortTh) {
-        const key = sortTh.dataset.ordSort;
-        if (state.sortKey === key) state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
-        else {
-          state.sortKey = key;
-          state.sortDir = key === "total" || key === "date" || key === "order" ? "desc" : "asc";
-        }
-        renderTable();
-        return;
-      }
-      const menu = e.target.closest("[data-ord-menu]");
-      if (menu) {
-        const row = state.rows.find((r) => r.id === menu.dataset.ordMenu);
-        if (row?.raw?.id && typeof window.openOrder === "function") window.openOrder(row.raw);
-        else window.toast?.(`${row?.order || "Order"} · ${row?.customer || ""}`);
-        return;
-      }
       const cancelBtn = e.target.closest("[data-cancel-order]");
       if (cancelBtn && !cancelBtn.disabled) {
         const id = cancelBtn.dataset.cancelOrder;
@@ -497,7 +388,7 @@
       const btn = e.target.closest("[data-ord-page]");
       if (!btn || btn.disabled) return;
       const val = btn.dataset.ordPage;
-      const maxPage = state.usingDemo && state.tab === "all" && !state.query ? 24 : Math.max(1, Math.ceil(filteredRows().length / PAGE_SIZE));
+      const maxPage = Math.max(1, Math.ceil(filteredRows().length / PAGE_SIZE));
       if (val === "prev") state.page = Math.max(1, state.page - 1);
       else if (val === "next") state.page = Math.min(maxPage, state.page + 1);
       else state.page = Number(val) || 1;

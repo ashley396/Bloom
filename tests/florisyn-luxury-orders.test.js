@@ -25,9 +25,15 @@ test("Orders Figma shell and assets are wired", () => {
   assert.match(pageHtml, /ord-table-card/);
   assert.match(pageHtml, /id="ordTable"/);
   assert.match(pageHtml, /id="ordTableBody"/);
-  assert.match(pageHtml, /Showing 1-8 of 186 orders/);
-  assert.match(pageHtml, /data-ord-sort="total"/);
   assert.match(pageHtml, /data-open="orderDialog"/);
+  // Table replaced by a rectangle-tile grid 2026-08-15 (owner request) —
+  // no more <table>/<thead> with clickable sort-header columns.
+  assert.doesNotMatch(pageHtml, /<table/);
+  assert.doesNotMatch(pageHtml, /<thead/);
+  assert.doesNotMatch(pageHtml, /data-ord-sort=/);
+  assert.match(pageHtml, /ord-tile-grid/);
+  assert.match(pageHtml, /id="ordSortSelect"/);
+  assert.match(pageHtml, /id="ordSelectAll"/);
 });
 
 test("Orders palette uses navy/rose tokens without green CTAs", () => {
@@ -43,24 +49,62 @@ test("Orders palette uses navy/rose tokens without green CTAs", () => {
   assert.doesNotMatch(css, /\.ord-new[^{]*\{[^}]*#547428/i);
 });
 
-test("Orders table demo data and interactions are functional", () => {
+test("no fabricated demo orders remain — a shop with zero real orders gets an honest empty state", () => {
+  // Removed 2026-08-15: normalizeOrders() used to silently fall back to
+  // fake customers/order numbers/a fake 186-order total whenever the real
+  // API returned empty, with nothing distinguishing it from real data —
+  // a real shop with zero orders was seeing 100% fabricated content.
+  assert.doesNotMatch(js, /FLR-7342/);
+  assert.doesNotMatch(js, /Sarah Johnson/);
+  assert.doesNotMatch(js, /Clara Kensington/);
+  assert.doesNotMatch(js, /Wedding Package/);
+  assert.doesNotMatch(js, /Blush Serenity Bouquet/);
+  assert.doesNotMatch(js, /DEMO_ROWS/);
+  assert.doesNotMatch(js, /DEMO_TOTAL/);
+  assert.doesNotMatch(js, /TAB_COUNTS/);
+  assert.doesNotMatch(js, /usingDemo/);
+
+  const normStart = js.indexOf("function normalizeOrders(");
+  const normBody = js.slice(normStart, js.indexOf("\n  }", normStart));
+  assert.match(normBody, /return \[\];/, "empty/invalid input must normalize to a real empty array, not fake rows");
+
+  const renderStart = js.indexOf("function renderTable(");
+  const renderBody = js.slice(renderStart, js.indexOf("\n  function render(", renderStart));
+  assert.match(renderBody, /ord-empty/, "renderTable must render a real empty state when there's nothing to show");
+  assert.match(renderBody, /No orders yet/);
+});
+
+test("orders render as tiles with real Edit + Delete actions, not a demo table", () => {
   assert.match(js, /FlorisynLuxuryOrders/);
-  assert.match(js, /FLR-7342/);
-  assert.match(js, /Sarah Johnson/);
-  assert.match(js, /Clara Kensington/);
-  assert.match(js, /Wedding Package/);
-  assert.match(js, /Blush Serenity Bouquet/);
   assert.match(js, /data-ord-tab/);
   assert.match(js, /ordExportBtn/);
   assert.match(js, /PAGE_SIZE/);
+  assert.match(appJs, /FlorisynLuxuryOrders\?\.boot/);
+
+  const renderStart = js.indexOf("function renderTable(");
+  const renderBody = js.slice(renderStart, js.indexOf("\n  function render(", renderStart));
+  assert.match(renderBody, /class="ord-tile\$\{selected\}"/, "each order renders as a .ord-tile card");
+  assert.match(renderBody, /data-edit-order="\$\{esc\(r\.raw\.id\)\}"/, "Edit button must carry the real order id so app.js's existing data-edit-order handler (openOrderEditor) can find it");
+  assert.match(renderBody, />Edit</);
+
+  // "Delete" is a deliberate relabel of the existing safe cancel flow
+  // (status: CANCELLED), never a hard delete of a financial record —
+  // per explicit owner choice 2026-08-15.
   assert.match(js, /data-cancel-order/);
   assert.match(js, /status:\s*"CANCELLED"/);
-  assert.match(js, /Cancel Order/);
-  assert.match(appJs, /FlorisynLuxuryOrders\?\.boot/);
-  // The cancel-order button + its click handler are both self-contained in
-  // florisyn-luxury-orders.js (already asserted above at line 56) — app.js
-  // does not need its own listener for it.
+  assert.match(js, />Delete</);
+  assert.doesNotMatch(js, /Cancel Order/, "button must be relabeled Delete, not the old Cancel Order text");
   assert.match(js, /e\.target\.closest\("\[data-cancel-order\]"\)/);
+  assert.match(js, /never a hard delete/i, "the safety trade-off must stay documented in source, not just in the commit message");
+});
+
+test("sort control replaces clickable column headers and drives real comparator state", () => {
+  assert.match(js, /#ordSortSelect/);
+  const wireStart = js.indexOf("function wire(");
+  const wireBody = js.slice(wireStart, js.indexOf("\n  function boot(", wireStart));
+  assert.match(wireBody, /ordSortSelect.*addEventListener\("change"/s);
+  assert.match(wireBody, /state\.sortKey\s*=\s*key/);
+  assert.match(wireBody, /state\.sortDir\s*=\s*dir === "asc" \? "asc" : "desc"/);
 });
 
 test("mobile date-range/filter buttons wrap onto their own row instead of being squeezed and clipped", () => {
