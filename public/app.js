@@ -475,7 +475,24 @@ async function loadInvoices(){if(!orders.length)await loadOrders();const outstan
 function openInvoice(o){if(!o)return;openReceipt(o)}
 function emailInvoice(o){if(!o)return;const subject=encodeURIComponent(`Invoice ${o.order_number||""} from ${shopSettings?.name||"Florisyn"}`);const body=encodeURIComponent(`Hello ${o.customer_name||""},\n\nYour floral invoice total is ${money(o.total)}. Payment status: ${o.payment_status||"UNPAID"}.\n\nThank you,\n${shopSettings?.name||"Florisyn"}`);location.href=`mailto:?subject=${subject}&body=${body}`}
 
+async function loadDashboardAvatar(){
+  const img=$("#dashboardUserAvatar"),fallback=$("#dashboardUserAvatarFallback");
+  if(!img||!fallback)return;
+  const initial=firstNameFromIdentity(session?.user,shopSettings).trim().charAt(0).toUpperCase()||"F";
+  fallback.textContent=initial;
+  try{
+    const d=await api("florist-community",{method:"POST",body:JSON.stringify({action:"profile"})});
+    const url=d?.profile?.avatar_url;
+    if(url){img.src=url;img.hidden=false;fallback.hidden=true}
+    else{img.hidden=true;fallback.hidden=false}
+  }catch{
+    // No Community profile yet, or the call failed — the initials fallback
+    // (real name, not a mascot) is already showing, so fail quiet here.
+    img.hidden=true;fallback.hidden=false;
+  }
+}
 async function loadDashboard(){
+  loadDashboardAvatar();
   const d=await api("dashboard");
   const date=new Date();
   $("#dashboardDate").textContent=date.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});

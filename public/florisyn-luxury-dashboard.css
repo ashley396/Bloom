@@ -503,6 +503,32 @@ body.florisyn-atelier .florisyn-lux-user-avatar {
   box-shadow: 0 2px 8px rgba(26, 31, 60, 0.1);
 }
 
+/* Wraps the avatar image + initials fallback in one tappable control that
+   deep-links to Community, where the real upload/change/remove flow
+   already lives — no second upload system for the same photo. */
+body.florisyn-atelier .florisyn-lux-user-avatar-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  border-radius: 999px;
+}
+body.florisyn-atelier .florisyn-lux-user-avatar-btn:focus-visible {
+  outline: 2px solid var(--brand-primary, #f05686);
+  outline-offset: 2px;
+}
+body.florisyn-atelier .florisyn-lux-user-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-primary-soft, #ffdce7);
+  color: var(--brand-primary, #f05686);
+  font-weight: 700;
+  font-size: 15px;
+}
+
 /* —— KPI cards —— */
 body.florisyn-atelier .atelier-kpi-row {
   display: grid !important;
