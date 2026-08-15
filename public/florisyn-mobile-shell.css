@@ -987,6 +987,15 @@
     min-height: 0 !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
+    /* The header above is z-index:1300 (raised above the drawer, see comment
+       above) and physically 72px tall on real devices. Without this, the
+       drawer's first nav item (Dashboard) renders directly underneath that
+       opaque header and is both invisible and unclickable — confirmed live:
+       elementFromPoint() on "Dashboard" resolved to the header's logo, not
+       the button. Push the whole list down past the header instead of
+       fighting z-index further. */
+    padding-top: 76px !important;
+    scroll-padding-top: 76px !important;
   }
   /* Premium card pinned at the bottom. */
   body.florisyn-atelier .shell > aside#atelierSidebarDrawer .florisyn-premium-badge {

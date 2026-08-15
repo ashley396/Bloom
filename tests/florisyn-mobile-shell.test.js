@@ -210,3 +210,24 @@ test("header stays above the mobile sidebar drawer so the logo/hamburger/bell re
   assert.ok(headerZIdx >= 0, "header must have an explicit higher z-index than the drawer");
   assert.ok(headerZIdx > drawerZIdx, "header z-index override must load after (and therefore win over) the drawer's z-index at equal specificity");
 });
+
+test("drawer nav content is pushed below the raised header, so the first nav item (Dashboard) isn't physically hidden underneath it", () => {
+  // Regression: raising the header above the drawer (previous test) fixed
+  // the header itself being covered, but left the drawer's own first nav
+  // item sitting directly underneath that now-opaque, higher-z-index
+  // header — invisible AND unclickable. Confirmed live: elementFromPoint()
+  // on the Dashboard button's screen position resolved to the header's
+  // logo div, not the button. A user reported "I can't click dashboard on
+  // mobile" — this is that bug.
+  const css = fs.readFileSync(path.join(root, "public/florisyn-mobile-shell.css"), "utf8");
+  // Two separate rule blocks in this file share this exact selector — anchor
+  // on the fix's own comment so this test targets the one actually edited,
+  // not the unrelated earlier block with the same selector.
+  const commentIdx = css.indexOf("physically 72px tall on real devices");
+  assert.ok(commentIdx >= 0, "fix comment must be present");
+  const navBlockStart = css.indexOf("aside#atelierSidebarDrawer .florisyn-lux-nav {", commentIdx - 400);
+  assert.ok(navBlockStart >= 0 && navBlockStart < commentIdx, "drawer nav rule must exist near the fix comment");
+  const block = css.slice(navBlockStart, css.indexOf("}", commentIdx));
+  assert.match(block, /padding-top:\s*76px\s*!important/, "nav content must be pushed down clear of the 72px header, not just visually assumed to fit");
+  assert.match(block, /scroll-padding-top:\s*76px\s*!important/, "scroll-padding-top too, so scrolling back to top via anchor/focus doesn't re-hide the first item under the header");
+});
