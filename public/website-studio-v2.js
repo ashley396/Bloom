@@ -21,7 +21,9 @@
       <div class="ws2-panel ws2-panel-pages">
         <p class="eyebrow">PAGES</p>
         <h3>Site structure</h3>
+        <button type="button" class="secondary ws2-add-page" id="ws2AddPage">+ Add page</button>
         <ul class="ws2-page-list" id="ws2PageList"></ul>
+        <p id="ws2PagesStatus" class="subtle" aria-live="polite"></p>
       </div>
       <div class="ws2-panel ws2-panel-canvas">
         <p class="eyebrow">VISUAL EDITOR</p>
@@ -86,14 +88,29 @@
 
     function renderPageList() {
       const list = shell.querySelector("#ws2PageList");
-      const navPages = pages.filter((p) => p.visible !== false).slice(0, 24);
-      list.innerHTML = navPages
-        .map(
-          (p) =>
-            `<li><button type="button" data-slug="${esc(p.slug)}" class="${p.slug === activeSlug ? "active" : ""}">${esc(p.title)}<span class="slug">/${esc(p.slug === "home" ? "" : p.slug)}</span></button></li>`
-        )
+      // Shows every page, including hidden ones (e.g. a fresh duplicate,
+      // which starts hidden on purpose) — a florist managing pages needs to
+      // see and re-show/delete hidden pages, not just what's live in nav.
+      const sorted = [...pages].sort((a, b) => (a.nav_order ?? 0) - (b.nav_order ?? 0)).slice(0, 60);
+      list.innerHTML = sorted
+        .map((p, i) => {
+          const isHome = p.slug === "home";
+          return `<li class="ws2-page-row${p.visible === false ? " ws2-page-hidden" : ""}">
+            <button type="button" data-slug="${esc(p.slug)}" class="ws2-page-select${p.slug === activeSlug ? " active" : ""}">
+              ${esc(p.title)}${p.visible === false ? ' <span class="ws2-hidden-tag">Hidden</span>' : ""}
+              <span class="slug">/${esc(isHome ? "" : p.slug)}</span>
+            </button>
+            <div class="ws2-page-actions">
+              <button type="button" class="icon-btn" data-page-move="up" data-slug="${esc(p.slug)}" ${i === 0 ? "disabled" : ""} aria-label="Move ${esc(p.title)} up">↑</button>
+              <button type="button" class="icon-btn" data-page-move="down" data-slug="${esc(p.slug)}" ${i === sorted.length - 1 ? "disabled" : ""} aria-label="Move ${esc(p.title)} down">↓</button>
+              <button type="button" class="icon-btn" data-page-rename="${esc(p.slug)}" aria-label="Rename ${esc(p.title)}">Rename</button>
+              <button type="button" class="icon-btn" data-page-duplicate="${esc(p.slug)}" aria-label="Duplicate ${esc(p.title)}">Duplicate</button>
+              ${isHome ? "" : `<button type="button" class="icon-btn danger" data-page-delete="${esc(p.slug)}" aria-label="Delete ${esc(p.title)}">Delete</button>`}
+            </div>
+          </li>`;
+        })
         .join("");
-      list.querySelectorAll("button[data-slug]").forEach((btn) => {
+      list.querySelectorAll("[data-slug].ws2-page-select").forEach((btn) => {
         btn.addEventListener("click", () => {
           activeSlug = btn.dataset.slug;
           renderPageList();
@@ -101,7 +118,101 @@
           if (window.BloomWebsiteEditor?.selectPage) window.BloomWebsiteEditor.selectPage(activeSlug);
         });
       });
+      wirePageActionButtons(list);
     }
+
+    function pagesStatus(msg) {
+      const el = shell.querySelector("#ws2PagesStatus");
+      if (el) el.textContent = msg;
+    }
+
+    function wirePageActionButtons(list) {
+      list.querySelectorAll("[data-page-move]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const sorted = [...pages].sort((a, b) => (a.nav_order ?? 0) - (b.nav_order ?? 0));
+          const idx = sorted.findIndex((p) => p.slug === btn.dataset.slug);
+          const to = btn.dataset.pageMove === "up" ? idx - 1 : idx + 1;
+          if (idx < 0 || to < 0 || to >= sorted.length) return;
+          const reordered = [...sorted];
+          [reordered[idx], reordered[to]] = [reordered[to], reordered[idx]];
+          pagesStatus("Reordering pages…");
+          try {
+            const d = await api("reorder_pages", { ordered_slugs: reordered.map((p) => p.slug) });
+            pages = d.pages || pages;
+            pagesStatus("Page order saved.");
+            renderPageList();
+          } catch (e) {
+            pagesStatus(e.message);
+          }
+        });
+      });
+
+      list.querySelectorAll("[data-page-rename]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const page = pages.find((p) => p.slug === btn.dataset.pageRename);
+          const next = window.prompt("Rename this page:", page?.title || "");
+          if (next == null || !next.trim() || next.trim() === page?.title) return;
+          pagesStatus("Renaming…");
+          try {
+            const d = await api("rename_page", { slug: page.slug, title: next.trim() });
+            const idx = pages.findIndex((p) => p.slug === page.slug);
+            if (idx >= 0) pages[idx] = { ...pages[idx], title: d.page.title };
+            pagesStatus(`Renamed to "${d.page.title}".`);
+            renderPageList();
+          } catch (e) {
+            pagesStatus(e.message);
+          }
+        });
+      });
+
+      list.querySelectorAll("[data-page-duplicate]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          pagesStatus("Duplicating page…");
+          try {
+            const d = await api("duplicate_page", { slug: btn.dataset.pageDuplicate });
+            pages = [...pages, d.page];
+            pagesStatus(`Duplicated as "${d.page.title}" — hidden from nav until you review and show it.`);
+            renderPageList();
+          } catch (e) {
+            pagesStatus(e.message);
+          }
+        });
+      });
+
+      list.querySelectorAll("[data-page-delete]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const page = pages.find((p) => p.slug === btn.dataset.pageDelete);
+          if (!confirm(`Delete "${page?.title || btn.dataset.pageDelete}"? This can't be undone.`)) return;
+          pagesStatus("Deleting page…");
+          try {
+            await api("delete_page", { slug: btn.dataset.pageDelete, confirmed: true });
+            pages = pages.filter((p) => p.slug !== btn.dataset.pageDelete);
+            if (activeSlug === btn.dataset.pageDelete) activeSlug = "home";
+            pagesStatus("Page deleted.");
+            renderPageList();
+          } catch (e) {
+            pagesStatus(e.message);
+          }
+        });
+      });
+    }
+
+    shell.querySelector("#ws2AddPage")?.addEventListener("click", async () => {
+      const title = window.prompt("New page name (e.g. \"Weddings\", \"FAQ\"):");
+      if (!title || !title.trim()) return;
+      pagesStatus("Adding page…");
+      try {
+        const d = await api("add_page", { title: title.trim() });
+        pages = [...pages, d.page];
+        activeSlug = d.page.slug;
+        pagesStatus(`"${d.page.title}" added.`);
+        renderPageList();
+        fillPageSeoFields();
+        if (window.BloomWebsiteEditor?.selectPage) window.BloomWebsiteEditor.selectPage(activeSlug);
+      } catch (e) {
+        pagesStatus(e.message);
+      }
+    });
 
     function fillSeoFields() {
       const seo = project?.seo_settings || {};

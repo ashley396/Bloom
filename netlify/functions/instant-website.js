@@ -29,7 +29,13 @@ import {
   restoreThemeSettings,
   normalizeSectionOrder,
   assertPageNotStale,
-  confirmThemePersistence
+  confirmThemePersistence,
+  buildNewPage,
+  duplicatePageContent,
+  guardPageDeletion,
+  sanitizePageTitle,
+  reorderPages,
+  HOMEPAGE_SLUG
 } from "./_shared/bloom-website-editor.js";
 import { tenantIsolationCheck } from "./_shared/bloom-storefront-core.js";
 import { buildWebsiteCatalogSeeds, shouldSeedWebsiteCatalog } from "./_shared/bloom-website-catalog-seed.js";
@@ -210,6 +216,175 @@ export async function handler(event) {
           metadata: { slug: savedPage.slug }
         });
         return json(200, { saved: true, page: savedPage });
+      } catch (e) {
+        if (missingTable(e)) return json(503, { error: "Website tables not migrated." });
+        throw e;
+      }
+    }
+
+    if (action === "add_page") {
+      try {
+        const { data: proj, error: projectError } = await client.from("bloom_website_projects").select("id").eq("shop_id", shopId).maybeSingle();
+        if (projectError) throw projectError;
+        if (!proj) return json(404, { error: "Create a website draft before adding pages." });
+        const { data: existingPages, error: pagesError } = await client.from("bloom_website_pages").select("slug,nav_order").eq("project_id", proj.id);
+        if (pagesError) throw pagesError;
+        const rows = existingPages || [];
+        const newPage = buildNewPage({
+          title: body.title,
+          template: body.template,
+          existingSlugs: rows.map((p) => p.slug),
+          navOrder: rows.reduce((max, p) => Math.max(max, p.nav_order ?? 0), -1) + 1
+        });
+        const { data: savedPage, error: saveError } = await client
+          .from("bloom_website_pages")
+          .insert({ shop_id: shopId, project_id: proj.id, ...newPage })
+          .select("*")
+          .single();
+        if (saveError) throw saveError;
+        if (!savedPage) return json(503, { error: "Page could not be created. Try again." });
+        await writeShopAudit(client, {
+          shopId,
+          userId: user.id,
+          eventType: "website_page_added",
+          entityType: "website_page",
+          entityId: savedPage.id,
+          metadata: { slug: savedPage.slug, title: savedPage.title }
+        });
+        return json(200, { page: savedPage });
+      } catch (e) {
+        if (missingTable(e)) return json(503, { error: "Website tables not migrated." });
+        throw e;
+      }
+    }
+
+    if (action === "rename_page") {
+      const nameCheck = sanitizePageTitle(body.title);
+      if (!nameCheck.ok) return json(400, { error: nameCheck.error });
+      if (!body.slug) return json(400, { error: "Page slug required." });
+      try {
+        const { data: proj, error: projectError } = await client.from("bloom_website_projects").select("id").eq("shop_id", shopId).maybeSingle();
+        if (projectError) throw projectError;
+        if (!proj) return json(404, { error: "Website project not found." });
+        const { data: savedPage, error } = await client
+          .from("bloom_website_pages")
+          .update({ title: nameCheck.title, updated_at: new Date().toISOString() })
+          .eq("shop_id", shopId)
+          .eq("project_id", proj.id)
+          .eq("slug", body.slug)
+          .select("id,slug,title,updated_at")
+          .maybeSingle();
+        if (error) throw error;
+        if (!savedPage) return json(404, { error: "Page not found." });
+        await writeShopAudit(client, {
+          shopId,
+          userId: user.id,
+          eventType: "website_page_renamed",
+          entityType: "website_page",
+          entityId: savedPage.id,
+          metadata: { slug: savedPage.slug, title: savedPage.title }
+        });
+        return json(200, { page: savedPage });
+      } catch (e) {
+        if (missingTable(e)) return json(503, { error: "Website tables not migrated." });
+        throw e;
+      }
+    }
+
+    if (action === "duplicate_page") {
+      if (!body.slug) return json(400, { error: "Page slug required." });
+      try {
+        const { data: proj, error: projectError } = await client.from("bloom_website_projects").select("id").eq("shop_id", shopId).maybeSingle();
+        if (projectError) throw projectError;
+        if (!proj) return json(404, { error: "Website project not found." });
+        const { data: source, error: sourceError } = await client
+          .from("bloom_website_pages")
+          .select("*")
+          .eq("shop_id", shopId)
+          .eq("project_id", proj.id)
+          .eq("slug", body.slug)
+          .maybeSingle();
+        if (sourceError) throw sourceError;
+        if (!source) return json(404, { error: "Page not found." });
+        const { data: existingPages, error: pagesError } = await client.from("bloom_website_pages").select("slug").eq("project_id", proj.id);
+        if (pagesError) throw pagesError;
+        const copy = duplicatePageContent(source, (existingPages || []).map((p) => p.slug));
+        const { data: savedPage, error: saveError } = await client
+          .from("bloom_website_pages")
+          .insert({ shop_id: shopId, project_id: proj.id, ...copy })
+          .select("*")
+          .single();
+        if (saveError) throw saveError;
+        if (!savedPage) return json(503, { error: "Page could not be duplicated. Try again." });
+        await writeShopAudit(client, {
+          shopId,
+          userId: user.id,
+          eventType: "website_page_duplicated",
+          entityType: "website_page",
+          entityId: savedPage.id,
+          metadata: { from_slug: source.slug, slug: savedPage.slug }
+        });
+        return json(200, { page: savedPage });
+      } catch (e) {
+        if (missingTable(e)) return json(503, { error: "Website tables not migrated." });
+        throw e;
+      }
+    }
+
+    if (action === "delete_page") {
+      if (!body.slug) return json(400, { error: "Page slug required." });
+      try {
+        const { data: proj, error: projectError } = await client.from("bloom_website_projects").select("id").eq("shop_id", shopId).maybeSingle();
+        if (projectError) throw projectError;
+        if (!proj) return json(404, { error: "Website project not found." });
+        const { data: pages, error: pagesError } = await client.from("bloom_website_pages").select("id,slug").eq("shop_id", shopId).eq("project_id", proj.id);
+        if (pagesError) throw pagesError;
+        const guard = guardPageDeletion({ slug: body.slug, pages: pages || [], confirmed: !!body.confirmed });
+        if (!guard.ok) {
+          if (guard.needsConfirmation) return json(400, { error: "Confirm page deletion.", needsConfirmation: true });
+          return json(409, { error: guard.error });
+        }
+        const target = (pages || []).find((p) => p.slug === body.slug);
+        const { error: deleteError } = await client.from("bloom_website_pages").delete().eq("id", target.id).eq("shop_id", shopId);
+        if (deleteError) throw deleteError;
+        await writeShopAudit(client, {
+          shopId,
+          userId: user.id,
+          eventType: "website_page_deleted",
+          entityType: "website_page",
+          entityId: target.id,
+          metadata: { slug: body.slug }
+        });
+        return json(200, { deleted: true, slug: body.slug });
+      } catch (e) {
+        if (missingTable(e)) return json(503, { error: "Website tables not migrated." });
+        throw e;
+      }
+    }
+
+    if (action === "reorder_pages") {
+      const orderedSlugs = Array.isArray(body.ordered_slugs) ? body.ordered_slugs.filter(Boolean) : [];
+      if (!orderedSlugs.length) return json(400, { error: "ordered_slugs required." });
+      try {
+        const { data: proj, error: projectError } = await client.from("bloom_website_projects").select("id").eq("shop_id", shopId).maybeSingle();
+        if (projectError) throw projectError;
+        if (!proj) return json(404, { error: "Website project not found." });
+        const { data: pages, error: pagesError } = await client.from("bloom_website_pages").select("id,slug,nav_order").eq("shop_id", shopId).eq("project_id", proj.id);
+        if (pagesError) throw pagesError;
+        const reordered = reorderPages(pages || [], orderedSlugs);
+        for (const p of reordered) {
+          const { error } = await client.from("bloom_website_pages").update({ nav_order: p.nav_order }).eq("id", p.id).eq("shop_id", shopId);
+          if (error) throw error;
+        }
+        await writeShopAudit(client, {
+          shopId,
+          userId: user.id,
+          eventType: "website_pages_reordered",
+          entityType: "website_project",
+          entityId: proj.id,
+          metadata: { order: orderedSlugs }
+        });
+        return json(200, { pages: reordered });
       } catch (e) {
         if (missingTable(e)) return json(503, { error: "Website tables not migrated." });
         throw e;

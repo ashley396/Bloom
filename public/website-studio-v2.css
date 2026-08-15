@@ -30,12 +30,23 @@
   margin: 0 0 0.75rem;
   font-size: 1rem;
 }
+.ws2-add-page {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
 .ws2-page-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
-.ws2-page-list li button {
+.ws2-page-row {
+  border-radius: 8px;
+  margin-bottom: 0.25rem;
+}
+.ws2-page-row.ws2-page-hidden {
+  opacity: 0.75;
+}
+.ws2-page-select {
   width: 100%;
   text-align: left;
   padding: 0.5rem 0.65rem;
@@ -45,14 +56,54 @@
   cursor: pointer;
   font: inherit;
 }
-.ws2-page-list li button.active,
-.ws2-page-list li button:hover {
+.ws2-page-select.active,
+.ws2-page-select:hover {
   background: var(--accent-soft, #f8f3f6);
 }
 .ws2-page-list .slug {
   display: block;
   font-size: 0.75rem;
   opacity: 0.65;
+}
+.ws2-hidden-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted, #7c6d74);
+  background: var(--accent-soft, #f8f3f6);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  margin-left: 0.35rem;
+}
+.ws2-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0 0.3rem 0.5rem;
+}
+.ws2-page-actions .icon-btn {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.55rem;
+  min-height: 30px;
+  border: 1px solid var(--border, #e8e0e4);
+  background: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--ink, #40343a);
+}
+.ws2-page-actions .icon-btn:hover {
+  background: var(--accent-soft, #f8f3f6);
+}
+.ws2-page-actions .icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ws2-page-actions .icon-btn.danger {
+  color: var(--danger, #a33);
+  border-color: var(--danger, #a33);
+}
+.ws2-page-actions .icon-btn.danger:hover {
+  background: #fdeceb;
 }
 .ws2-toolbar {
   display: flex;
