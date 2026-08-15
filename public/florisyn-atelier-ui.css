@@ -1087,7 +1087,11 @@ body.florisyn-atelier .page > .heading h1 {
   body.florisyn-atelier .atelier-mobile-logo {
     display: flex;
     align-items: center;
-    justify-content: center;
+    /* Left-align so the logo sits right next to the hamburger instead of
+       floating centered in the header (its box already fills the full
+       flexible middle grid column regardless of this value — this only
+       controls where the icon+wordmark sit within that column). */
+    justify-content: flex-start;
     gap: 8px;
   }
   body.florisyn-atelier .atelier-mobile-logo .atelier-mark-f {

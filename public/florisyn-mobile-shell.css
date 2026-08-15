@@ -887,15 +887,25 @@
     flex: 1 1 auto !important;
   }
 
+  /* Rose/Lily used to render as a narrow 52x120 sliver instead of a round
+     avatar: this rule's own height:52px/max-height:52px was correct, but
+     without a matching min-height, the grid item's automatic minimum size
+     (a replaced element's intrinsic-ratio-based auto min-height) won out
+     over the explicit height and stretched the box back to ~120px, so
+     object-fit:cover cropped almost the entire width of the (square)
+     source photo down to a thin vertical strip — cutting off the sides of
+     the face. Pinning min-height closes that gap. */
   body.florisyn-atelier .atelier-assist-rail .assistant-portrait,
   body.florisyn-atelier .rose-portrait,
   body.florisyn-atelier .lily-portrait {
     width: 52px !important;
     height: 52px !important;
     min-width: 52px !important;
+    min-height: 52px !important;
     max-height: 52px !important;
     border-radius: 50% !important;
     object-fit: cover !important;
+    object-position: center 20% !important;
   }
 
   body.florisyn-atelier .sticky-actions,
@@ -956,6 +966,15 @@
   body.florisyn-atelier.atelier-drawer-open .shell > aside#atelierSidebarDrawer.florisyn-lux-sidebar {
     transform: translateX(0) !important;
     box-shadow: 0 18px 60px rgba(26, 31, 60, 0.4) !important;
+  }
+
+  /* The drawer (z-index:1200 above) starts at top:0, so it and its own
+     "Florisyn" brand row cover the real header — including the hamburger,
+     logo, and notification bell — the instant it opens. Keep the header
+     above the drawer/backdrop so the logo (and the button that closes the
+     menu) stay visible and tappable at all times. */
+  body.florisyn-atelier .florisyn-lux-header {
+    z-index: 1300 !important;
   }
 
   /* "Florisyn" brand pinned at the top — stays put. */

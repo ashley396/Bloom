@@ -183,3 +183,30 @@ test("enterprise platform mobile nav wiring remains in shell", () => {
   assert.match(js, /setDrawer/);
   assert.match(js, /mobileNavMore/);
 });
+
+test("Rose/Lily mobile avatars pin min-height so a grid item's automatic minimum size can't stretch them into a narrow oval crop", () => {
+  const css = fs.readFileSync(path.join(root, "public/florisyn-mobile-shell.css"), "utf8");
+  const start = css.indexOf(".atelier-assist-rail .assistant-portrait");
+  const block = css.slice(Math.max(0, start - 20), start + 500);
+  assert.match(block, /width:\s*52px\s*!important/);
+  assert.match(block, /height:\s*52px\s*!important/);
+  assert.match(block, /min-height:\s*52px\s*!important/, "min-height must be pinned or the box can stretch past the explicit height (live-verified 2026-08-15: without it, height computed to 120px against a 52px-wide box)");
+  assert.match(block, /max-height:\s*52px\s*!important/);
+});
+
+test("mobile logo sits left-aligned next to the hamburger, not centered in the header", () => {
+  const css = fs.readFileSync(path.join(root, "public/florisyn-atelier-ui.css"), "utf8");
+  const start = css.indexOf(".atelier-mobile-logo {");
+  const block = css.slice(start, css.indexOf("}", start));
+  assert.match(block, /justify-content:\s*flex-start/, "logo content must hug the start of its flexible grid column, not center within it");
+  assert.doesNotMatch(block, /justify-content:\s*center/);
+});
+
+test("header stays above the mobile sidebar drawer so the logo/hamburger/bell remain visible and tappable while it's open", () => {
+  const css = fs.readFileSync(path.join(root, "public/florisyn-mobile-shell.css"), "utf8");
+  const drawerZIdx = css.indexOf("z-index: 1200 !important");
+  assert.ok(drawerZIdx >= 0, "drawer z-index rule must exist");
+  const headerZIdx = css.search(/\.florisyn-lux-header\s*\{\s*z-index:\s*1300\s*!important;/);
+  assert.ok(headerZIdx >= 0, "header must have an explicit higher z-index than the drawer");
+  assert.ok(headerZIdx > drawerZIdx, "header z-index override must load after (and therefore win over) the drawer's z-index at equal specificity");
+});
