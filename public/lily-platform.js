@@ -10,7 +10,8 @@
     { label: "Reports", page: "reportsPage" },
     { label: "Facebook Post", prompt: "Write a Facebook post for today's featured arrangement" },
     { label: "Website", page: "websitePage" },
-    { label: "Support", prompt: "How do I contact Florisyn support?" }
+    { label: "Support", prompt: "How do I contact Florisyn support?" },
+    { label: "Delivery", action: "deliveryLookup" }
   ];
 
   let deps = null;
@@ -545,6 +546,38 @@
       togglePanel(true);
       document.getElementById("lilyInput").value = item.prompt;
       sendMessage();
+      return;
+    }
+    if (item.action === "deliveryLookup") {
+      togglePanel(true);
+      runDeliveryLookup();
+    }
+  }
+
+  /** Quick mileage lookup — asks for a delivery address, calls the same
+   * route-distance endpoint the order builder's "Calculate driving route"
+   * already uses (shop address as origin, from Settings), and posts the
+   * result into the chat instead of requiring an order to be open first. */
+  async function runDeliveryLookup() {
+    const address = window.prompt("Delivery address to calculate mileage from your shop:");
+    if (!address || !address.trim()) return;
+    const trimmed = address.trim();
+    appendMessage("user", `Calculate delivery mileage to: ${trimmed}`);
+    showTyping();
+    try {
+      const d = await deps.api("route-distance", { method: "POST", body: JSON.stringify({ destination: trimmed }) });
+      hideTyping();
+      if (!d || d.configured === false || d.roundTripMiles == null) {
+        appendMessage("assistant", d?.message || "Automatic mileage isn't set up yet. Enter delivery miles manually on the order for now.");
+        return;
+      }
+      appendMessage(
+        "assistant",
+        `**${Number(d.oneWayMiles).toFixed(1)} miles** one way from your shop (${d.origin}) to ${d.destination} — **${Number(d.roundTripMiles).toFixed(1)} miles round trip**, about **${Math.round(Number(d.driveMinutes))} minutes** drive time.`
+      );
+    } catch (e) {
+      hideTyping();
+      appendMessage("assistant", e?.message || "Could not calculate the delivery route. Try again in a moment.");
     }
   }
 
