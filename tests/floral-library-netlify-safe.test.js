@@ -22,17 +22,22 @@ function fileSha256(relativeFromPublic) {
   return createHash("sha256").update(buf).digest("hex");
 }
 
+// 290 = 100 "everyday" arrangements + 190 across nine occasion-specific
+// batches (Funeral, Sympathy, Birthday, Wedding, Congratulations, Get
+// Well, Hydrangeas, Love & Romance, New Baby, Plants) merged in
+// alongside them. 216 = 290 minus 74 "everyday" images that failed a
+// real visual QA audit and are now correctly excluded from what's served.
 test("everyday library module imports without fs/path crash", () => {
   const catalog = getEverydayFloralLibraryCatalog();
-  assert.equal(catalog.length, 100);
+  assert.equal(catalog.length, 290);
   assert.ok(catalog.every((p) => p.primary_image?.url));
 });
 
-test("public floral library catalog returns 100 starter products", () => {
+test("public floral library catalog returns 216 QA-passed starter products", () => {
   const catalog = getPublicFloralLibraryCatalog();
-  assert.equal(catalog.length, 100);
+  assert.equal(catalog.length, 216);
   const names = new Set(catalog.map((p) => p.name));
-  assert.equal(names.size, 100);
+  assert.equal(names.size, 216);
 });
 
 test("floral-library handler GET starter returns valid JSON products", async () => {
@@ -43,7 +48,7 @@ test("floral-library handler GET starter returns valid JSON products", async () 
   });
   assert.equal(res.statusCode, 200);
   const body = JSON.parse(res.body);
-  assert.equal(body.count, 100);
+  assert.equal(body.count, 216);
   assert.ok(Array.isArray(body.products));
   assert.ok(body.products.every((p) => p.id && p.name && p.primary_image?.url));
 });
@@ -88,8 +93,12 @@ test("floral-library-admin handler quality dashboard initializes", async () => {
   assert.ok(body.dashboard.total >= 100);
 });
 
-test("featured everyday arrangements have unique image file hashes", () => {
-  const catalog = getEverydayFloralLibraryCatalog();
+// Scoped to getPublicFloralLibraryCatalog() (the served/"featured" set),
+// not the raw getEverydayFloralLibraryCatalog() — the raw catalog
+// legitimately includes the 74 QA-failed everyday images, correctly
+// marked needs_image_replacement so they're excluded from what ships.
+test("featured (served) arrangements have unique image file hashes", () => {
+  const catalog = getPublicFloralLibraryCatalog();
   const hashes = new Map();
   for (const p of catalog) {
     const url = normalizeAssetPath(p.primary_image.url);
@@ -105,7 +114,7 @@ test("featured everyday arrangements have unique image file hashes", () => {
 });
 
 test("ultra-realistic metadata is backed by unique image content", () => {
-  const catalog = getEverydayFloralLibraryCatalog();
+  const catalog = getPublicFloralLibraryCatalog();
   const urlHashes = new Set();
   const contentHashes = new Set();
   for (const p of catalog) {

@@ -34,9 +34,14 @@ test("JSON content_sha256 matches actual file bytes for every arrangement", () =
   );
 });
 
-test("featured arrangements have zero exact duplicate image file hashes", () => {
+// auditEverydayFloralLibraryImages() is intentionally scoped to just the
+// two "everyday" JSON batches (see EVERYDAY_BATCH_FILES) — compare it
+// against the matching ed-* subset of the now-larger merged catalog, not
+// the full catalog (which also carries the 9 occasion batches).
+test("featured everyday-batch arrangements have zero exact duplicate image file hashes", () => {
   const report = auditEverydayFloralLibraryImages({ publicDir });
-  const featured = getEverydayFloralLibraryCatalog().filter((p) => !p.metadata?.needs_image_replacement);
+  const featured = getEverydayFloralLibraryCatalog()
+    .filter((p) => p.id.startsWith("ed-") && !p.metadata?.needs_image_replacement);
 
   assert.equal(report.duplicateHashGroupCount, 0, formatDuplicateReport(report));
   assert.equal(report.uniqueImageFileHashes, report.imageFilenameCount);
@@ -55,6 +60,25 @@ test("featured arrangements have zero exact duplicate image file hashes", () => 
     hashById.set(hash, p.id);
   }
   assert.equal(hashById.size, featured.length);
+});
+
+// The everyday batches now sit alongside nine occasion-specific batches
+// (Funeral, Sympathy, Birthday, Wedding, Congratulations, Get Well,
+// Hydrangeas, Love & Romance, New Baby, Plants) in the served catalog —
+// checked separately here since the scoped audit above can't see them.
+test("every served library item across all categories has a byte-unique image", () => {
+  const served = getPublicFloralLibraryCatalog();
+  assert.equal(served.length, 26 + 190);
+  const hashById = new Map();
+  for (const p of served) {
+    const rel = normalizeAssetPath(p.primary_image.url);
+    const hash = fileSha256Absolute(path.join(publicDir, rel));
+    if (hashById.has(hash)) {
+      assert.fail(`duplicate image hash ${hash.slice(0, 16)}… for ${p.id} and ${hashById.get(hash)}`);
+    }
+    hashById.set(hash, p.id);
+  }
+  assert.equal(hashById.size, served.length);
 });
 
 test("public starter catalog excludes arrangements marked needs_image_replacement", () => {

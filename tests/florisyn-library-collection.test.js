@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import vm from "node:vm";
+import { getPublicFloralLibraryCatalog } from "../netlify/functions/_shared/floral-library-core.js";
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "../public");
 const source = readFileSync(path.join(publicDir, "floral-library-collection.js"), "utf8");
@@ -26,11 +27,15 @@ const ALLOWED_CATEGORIES = new Set([
 
 test("collection is a non-empty array with unique ids", () => {
   assert.ok(Array.isArray(COLLECTION));
-  // Started as 100 everyday-only designs; the library has since grown to
-  // its documented full size — 286 arrangements across all 11 categories
-  // (Everyday, Birthday, Sympathy, Wedding, Hydrangeas, Love & Romance,
-  // Funeral, Get Well, New Baby, Congratulations, Plants).
-  assert.equal(COLLECTION.length, 286, "expected the full 286-item library");
+  // This bundle is regenerated (scripts/sync-floral-library-catalog.mjs)
+  // from getPublicFloralLibraryCatalog() — the same QA-gated, served
+  // catalog the server returns — specifically so this file can never
+  // drift from what's actually shipped the way it used to (it previously
+  // reimplemented its own mapping, which unconditionally claimed every
+  // image was "bloom_owned"/"approved" and included the 74 images a real
+  // visual QA audit had flagged as off-subject). 216 = 26 QA-passed
+  // everyday images + 190 across the occasion-specific batches.
+  assert.equal(COLLECTION.length, 216, "expected the QA-gated served library size");
   const ids = COLLECTION.map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length, "ids must be unique");
 });
@@ -59,7 +64,35 @@ test("every item has valid metadata for the renderer", () => {
       assert.ok(Number(r.qty) > 0, `${p.id}: recipe qty must be positive`);
     }
 
-    assert.equal(p.image_license?.review_status, "approved", `${p.id}: image must be review-approved`);
+    // Honest status, not a blanket claim: AI-generated images are legitimately
+    // "needs_review" (the model that made them was never a human reviewer),
+    // and the few real, user-provided photos are "approved". Both are valid;
+    // what's not valid is every image claiming "approved" regardless of truth
+    // (the bug this bundle used to have — see the count test above).
+    assert.ok(
+      ["approved", "needs_review"].includes(p.image_license?.review_status),
+      `${p.id}: must declare a real review status`
+    );
+    assert.ok(p.image_license?.source, `${p.id}: must declare a real license source`);
+  }
+});
+
+// The bundle is loaded client-side and preferred over the live server
+// fetch by id (see floral-library-ui.js's mergeCatalog) — so if it ever
+// drifts from what the server actually serves, the client-side bundle
+// silently wins and the server-side fix (e.g. a QA gate) never reaches
+// real users. Regenerate with `node scripts/sync-floral-library-catalog.mjs`
+// whenever the served catalog changes.
+test("bundle exactly matches the live served catalog (run the sync script if this fails)", () => {
+  const served = getPublicFloralLibraryCatalog();
+  const bundleIds = new Set(COLLECTION.map((p) => p.id));
+  const servedIds = new Set(served.map((p) => p.id));
+  assert.equal(bundleIds.size, servedIds.size, "bundle and server must serve the same number of items");
+  for (const id of servedIds) {
+    assert.ok(bundleIds.has(id), `server serves ${id} but the client bundle is missing it — bundle is stale`);
+  }
+  for (const id of bundleIds) {
+    assert.ok(servedIds.has(id), `client bundle serves ${id} but the server no longer does — bundle is stale`);
   }
 });
 

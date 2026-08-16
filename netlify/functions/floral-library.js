@@ -14,7 +14,7 @@ export async function handler(event) {
       return json(200, {
         products: catalog,
         count: catalog.length,
-        note: "Florisyn Everyday Ultra-Realistic Collection — batches 1–2 (100 arrangements toward 500)."
+        note: "Florisyn Ultra-Realistic Collection — Everyday plus Funeral, Sympathy, Wedding, Birthday, Congratulations, Get Well, Hydrangeas, Love & Romance, New Baby, and Plants."
       });
     }
 

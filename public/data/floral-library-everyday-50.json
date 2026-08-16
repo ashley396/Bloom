@@ -154,10 +154,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-03-classic-rose-mix",
@@ -230,10 +230,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-04-cheerful-daisy-burst",
@@ -291,10 +291,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-05-everyday-hydrangea-pop",
@@ -480,10 +480,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-08-bright-happy",
@@ -609,10 +609,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-10-everyday-elegance",
@@ -736,10 +736,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-12-fresh-start",
@@ -801,10 +801,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-13-daily-delight",
@@ -866,10 +866,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-14-lavender-breeze",
@@ -931,10 +931,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-15-peachy-keen",
@@ -1059,10 +1059,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-17-rose-mum-harmony",
@@ -1124,10 +1124,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-18-alstroemeria-joy",
@@ -1183,10 +1183,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-19-sunflower-smile",
@@ -1242,10 +1242,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-20-gentle-pastels",
@@ -1306,10 +1306,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-21-modern-whites",
@@ -1370,10 +1370,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-22-compact-color-pop",
@@ -1434,10 +1434,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-23-everyday-pink-mix",
@@ -1741,10 +1741,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-28-everyday-garden-vase",
@@ -1882,10 +1882,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-30-calm-clean-whites",
@@ -1946,10 +1946,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-31-pink-peach-harmony",
@@ -2070,10 +2070,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-33-rose-daisy-blend",
@@ -2196,10 +2196,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-35-simple-greens-whites",
@@ -2268,10 +2268,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-36-happy-day-bouquet",
@@ -2331,10 +2331,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-37-classic-cylinder-mix",
@@ -2579,10 +2579,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-41-golden-glow",
@@ -3078,10 +3078,10 @@
         "source": "ai_generated_cloudflare_flux",
         "model": "@cf/black-forest-labs/flux-1-schnell",
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
-        "review_status": "needs_review"
+        "review_status": "rejected_visual_qa"
       },
       "image_subject": "floral_arrangement",
-      "needs_image_replacement": false
+      "needs_image_replacement": true
     },
     {
       "id": "ed-49-daily-pink-rose",
