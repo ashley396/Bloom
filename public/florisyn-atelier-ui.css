@@ -1387,7 +1387,7 @@ body.florisyn-atelier #reportsPage > .heading,
 body.florisyn-atelier #staffPage > .heading,
 body.florisyn-atelier #settingsPage > .heading,
 body.florisyn-atelier #libraryPage > .heading,
-body.florisyn-atelier #websitePage > .heading,
+body.florisyn-atelier #websitePage .legacy-website-editor-shell > .heading,
 body.florisyn-atelier #paymentsPage > .heading {
   display: flex;
   align-items: flex-end;

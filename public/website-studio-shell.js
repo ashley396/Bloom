@@ -13,24 +13,33 @@
 (function () {
   const START_INTRO = `
     <div class="ws-shell-start-intro">
-      <p class="eyebrow">THREE WAYS TO START</p>
+      <p class="eyebrow">WAYS TO START</p>
       <ol>
         <li><strong>Let Lily build it</strong> — answer a few questions, Lily drafts the whole site.</li>
         <li><button type="button" class="linklike" id="wsIntroTemplatesLink"><strong>Browse templates</strong></button> — pick a ready-made look, then customize it.</li>
+        <li><button type="button" class="linklike" id="wsIntroBrandLink"><strong>Set your brand & header photo</strong></button> — shop name, colors, hero photo, and contact details.</li>
         <li><button type="button" class="linklike" id="wsIntroEditorLink"><strong>Build it yourself</strong></button> — start from a blank page in the Editor.</li>
       </ol>
     </div>`;
 
   const TABS = [
     { id: "start", label: "Get started" },
+    { id: "brand", label: "Brand & photos" },
     { id: "editor", label: "Editor" },
     { id: "look", label: "Templates" }
   ];
 
   // Which already-mounted panel (by the class its own module gives it)
-  // belongs in which tab.
+  // belongs in which tab. ".legacy-website-editor-shell" is the older,
+  // still fully-functional standalone builder (brand info, hero photo
+  // picker, shop details, save/preview) that predates this tab shell and
+  // was never folded into it — it used to render unconditionally below
+  // every tab, which is what made the page look like a jumbled mess of
+  // two builders stacked on top of each other. Giving it its own tab
+  // keeps it working exactly as-is while containing it properly.
   const PLACEMENT = {
     start: [".lily-wizard-shell", ".instant-wizard-shell"],
+    brand: [".legacy-website-editor-shell"],
     editor: [".website-studio-v2", ".website-editor-shell"],
     look: [".theme-gallery-shell"]
   };
@@ -59,6 +68,7 @@
     // to do it" was reported: templates lived under an unlabeled "Look &
     // feel" tab with no pointer to it from the first screen a florist sees.
     shell.querySelector("#wsIntroTemplatesLink")?.addEventListener("click", () => selectTab(shell, "look"));
+    shell.querySelector("#wsIntroBrandLink")?.addEventListener("click", () => selectTab(shell, "brand"));
     shell.querySelector("#wsIntroEditorLink")?.addEventListener("click", () => selectTab(shell, "editor"));
     return shell;
   }
