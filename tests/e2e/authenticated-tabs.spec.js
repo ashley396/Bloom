@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { mockBackend, withFakeSession } from "./fixtures.mjs";
 
 /**
  * Clicks through every sidebar tab with a simulated logged-in session and
@@ -13,39 +14,6 @@ import { test, expect } from "@playwright/test";
  * exception (page.on('pageerror')) is what would actually break the tab
  * for a real florist, so that's the hard failure condition.
  */
-
-const FAKE_SESSION = {
-  accessToken: "fake-access-token-for-smoke-test",
-  refreshToken: "fake-refresh-token-for-smoke-test",
-  user: { id: "smoke-test-user", email: "smoke-test@example.invalid" },
-  expiresAt: Date.now() + 60 * 60 * 1000,
-};
-
-async function mockBackend(page) {
-  await page.route(/fonts\.googleapis\.com/, (route) =>
-    route.fulfill({ status: 200, contentType: "text/css", body: "" }),
-  );
-  await page.route(/fonts\.gstatic\.com/, (route) =>
-    route.fulfill({ status: 200, contentType: "font/woff2", body: Buffer.alloc(0) }),
-  );
-  await page.route(/images\.pexels\.com/, (route) =>
-    route.fulfill({ status: 200, contentType: "image/png", body: Buffer.alloc(0) }),
-  );
-  // A generic, empty-but-valid JSON body for every Netlify Function call.
-  // The load functions in app.js are defensively coded (`.items || []`,
-  // optional chaining throughout) specifically so a thin/missing response
-  // degrades to an empty state instead of throwing — this exercises that
-  // same contract.
-  await page.route("**/.netlify/functions/**", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: "{}" }),
-  );
-}
-
-async function withFakeSession(page) {
-  await page.addInitScript((session) => {
-    localStorage.setItem("bloom_session", JSON.stringify(session));
-  }, FAKE_SESSION);
-}
 
 // The 28 primary sidebar items, read directly from
 // nav.florisyn-lux-nav in public/index.html — reachable with one click
@@ -82,13 +50,19 @@ const NAV_TABS = [
 ];
 
 // Two more pages exist but are deliberately not top-level sidebar items —
-// they're reached via a button inside another page (Stores → "Open seller
-// dashboard", Business OS → "Open Subscription Center"), matching the
+// they're reached via a button inside another page, matching the
 // "SELLER DASHBOARD" / "SUBSCRIPTION" sub-items in the sidebar spec. Each
-// entry names the page that hosts its entry-point button.
+// entry names the page that actually hosts its entry-point button
+// (verified against public/index.html directly — Marketplace's "Sell"
+// panel has "Open seller dashboard", and Settings' billing panel has
+// "Open Subscription Center"; Stores and Business OS were both a
+// reasonable-looking but wrong first guess). wholesaleSellerPage's button
+// additionally sits inside a "Sell" sub-tab of Marketplace that isn't
+// active by default (public/marketplace-experience.js toggles it via
+// #marketplaceTabSell), hence the optional preClick.
 const SECONDARY_TABS = [
-  { id: "wholesaleSellerPage", fromTab: "storesPage" },
-  { id: "subscriptionPage", fromTab: "ecosystemPage" },
+  { id: "wholesaleSellerPage", fromTab: "marketplacePage", preClick: "#marketplaceTabSell" },
+  { id: "subscriptionPage", fromTab: "settingsPage" },
 ];
 
 test.describe("Florisyn authenticated sidebar tabs (simulated session)", () => {
@@ -132,7 +106,7 @@ test.describe("Florisyn authenticated sidebar tabs (simulated session)", () => {
     });
   }
 
-  for (const { id, fromTab } of SECONDARY_TABS) {
+  for (const { id, fromTab, preClick } of SECONDARY_TABS) {
     test(`secondary page "${id}" (reached from "${fromTab}") activates without an uncaught script error`, async ({
       page,
     }) => {
@@ -147,6 +121,10 @@ test.describe("Florisyn authenticated sidebar tabs (simulated session)", () => {
 
       await page.locator(`nav.florisyn-lux-nav button[data-page="${fromTab}"]`).click();
       await expect(page.locator(`#${fromTab}`)).toHaveClass(/active/, { timeout: 5_000 });
+
+      if (preClick) {
+        await page.locator(preClick).click();
+      }
 
       const entryButton = page.locator(`#${fromTab} [data-page="${id}"]`).first();
       await expect(entryButton).toBeVisible({ timeout: 5_000 });
