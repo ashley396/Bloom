@@ -4,12 +4,14 @@ import {
   mergeFeatureFlags,
   validateAnnouncementPayload,
   systemHealthSnapshot,
+  summarizeClientErrors,
   buildMonthlySeries,
   auditRecordFromRow,
   sanitizeSubscriptionForAdmin,
   DEFAULT_FEATURE_FLAGS
 } from "../netlify/functions/_shared/command-center.js";
 import { createAdminCommandCenterHandler } from "../netlify/functions/admin-command-center.js";
+import { createFakeSupabaseClient } from "./helpers/fake-supabase-client.mjs";
 import fs from "node:fs";
 
 const adminHtml = () => fs.readFileSync(new URL("../public/admin.html", import.meta.url), "utf8");
@@ -44,6 +46,61 @@ test("systemHealthSnapshot flags missing env vars", () => {
   const health = systemHealthSnapshot({});
   assert.equal(health.environment_valid, false);
   assert.ok(health.missing_env.length > 0);
+});
+
+test("systemHealthSnapshot no longer claims health for a queue that doesn't exist", () => {
+  const health = systemHealthSnapshot({});
+  assert.equal("queue" in health, false);
+});
+
+test("summarizeClientErrors groups real client_error audit rows by type and page", () => {
+  const summary = summarizeClientErrors([
+    { created_at: "2026-08-16T12:00:00Z", shop_id: "shop-a", metadata: { type: "api", path: "/ordersPage", message: "Request failed (500)", status: 500 } },
+    { created_at: "2026-08-16T11:59:00Z", shop_id: "shop-a", metadata: { type: "api", path: "/ordersPage", message: "Request failed (500)", status: 500 } },
+    { created_at: "2026-08-16T11:00:00Z", shop_id: "shop-b", metadata: { type: "uncaught", path: "/inventoryPage", message: "x is not a function" } },
+  ]);
+  assert.equal(summary.total, 3);
+  assert.equal(summary.shops_affected, 2);
+  assert.equal(summary.by_type.api, 2);
+  assert.equal(summary.by_type.uncaught, 1);
+  assert.deepEqual(summary.top_paths[0], { path: "/ordersPage", count: 2 });
+  assert.equal(summary.most_recent_at, "2026-08-16T12:00:00Z");
+  assert.equal(summary.recent.length, 3);
+});
+
+test("summarizeClientErrors is a clean empty state, not an error, when nothing went wrong", () => {
+  const summary = summarizeClientErrors([]);
+  assert.equal(summary.total, 0);
+  assert.equal(summary.shops_affected, 0);
+  assert.equal(summary.most_recent_at, null);
+  assert.deepEqual(summary.top_paths, []);
+});
+
+test("system-health action surfaces real client_error audit rows, not a hardcoded empty array", async () => {
+  const client = createFakeSupabaseClient([
+    { data: { user_id: "u1", role: "super_admin", active: true }, error: null }, // platform_admins lookup
+    {
+      data: [
+        { created_at: "2026-08-16T12:00:00Z", shop_id: "shop-a", metadata: { type: "api", path: "/paymentsPage", message: "Payment Hub could not load.", status: 503 } },
+      ],
+      error: null,
+    }, // audit_events select
+  ]);
+  const handler = createAdminCommandCenterHandler({
+    authenticate: async () => ({ user: { id: "u1" } }),
+    createServerClient: () => client,
+  });
+  const res = await handler({ httpMethod: "GET", queryStringParameters: { action: "system-health" }, headers: {} });
+  assert.equal(res.statusCode, 200);
+  const body = JSON.parse(res.body);
+  assert.equal(body.recent_errors.total, 1);
+  assert.equal(body.recent_errors.recent[0].path, "/paymentsPage");
+  assert.equal("queue" in body.health, false);
+
+  const auditCall = client.calls.find((c) => c.table === "audit_events");
+  assert.ok(auditCall, "expected a real audit_events query, not a hardcoded response");
+  const eqOp = auditCall.ops.find(([name]) => name === "eq");
+  assert.deepEqual(eqOp[1], ["event_type", "client_error"]);
 });
 
 test("buildMonthlySeries aggregates rows by month", () => {

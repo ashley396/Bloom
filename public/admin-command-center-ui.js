@@ -201,6 +201,27 @@ export function initCommandCenter(deps) {
       .filter(([k]) => !Array.isArray(h[k]))
       .map(([k, v]) => `<div class="health-row"><span>${k.replaceAll('_', ' ')}</span><strong class="${v === 'ok' ? 'ok' : 'warn'}">${escapeHtml(String(v))}</strong></div>`)
       .join('');
+    const errors = healthRes.recent_errors || { total: 0, shops_affected: 0, by_type: {}, top_paths: [], recent: [] };
+    const errorTypeSummary = Object.entries(errors.by_type || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, count]) => `<span class="badge warn">${escapeHtml(type)}: ${count}</span>`)
+      .join(' ');
+    const errorTopPaths = (errors.top_paths || [])
+      .map((p) => `<li><strong>${p.count}×</strong> ${escapeHtml(p.path)}</li>`)
+      .join('');
+    const errorRecent = (errors.recent || []).slice(0, 10)
+      .map((e) => `<div class="audit-item"><span>${new Date(e.at).toLocaleString()}</span><strong>${escapeHtml(e.type)}${e.status ? ` · ${e.status}` : ''}</strong><code>${escapeHtml(e.path || '')} ${escapeHtml(e.message || '')}</code></div>`)
+      .join('');
+    const errorPanel = `
+      <h3>Client errors — last 7 days</h3>
+      ${errors.total
+        ? `<p class="quiet">${errors.total} error${errors.total === 1 ? '' : 's'} across ${errors.shops_affected} shop${errors.shops_affected === 1 ? '' : 's'}. Catching this here — before a florist has to file a ticket about it — is the point.</p>
+           ${errorTypeSummary ? `<p>${errorTypeSummary}</p>` : ''}
+           ${errorTopPaths ? `<h4>Most-hit pages</h4><ul>${errorTopPaths}</ul>` : ''}
+           <h4>Most recent</h4>
+           ${errorRecent}`
+        : `<p class="quiet ok">No client errors reported in the last 7 days.</p>`}
+    `;
     const warnings = (betaRes?.config?.warnings || [])
       .map((w) => `<li>${escapeHtml(w)}</li>`)
       .join('');
@@ -216,6 +237,7 @@ export function initCommandCenter(deps) {
       .join('');
     $('#systemHealthPanel').innerHTML = `
       <h2>System health</h2>${rows}
+      ${errorPanel}
       ${warnings ? `<h3>Configuration warnings</h3><ul>${warnings}</ul>` : ''}
       <h3>Beta readiness checklist</h3>
       <p class="quiet">Track manual QA before inviting florists. Saved in this browser only.</p>

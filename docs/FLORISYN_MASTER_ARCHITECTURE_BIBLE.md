@@ -280,6 +280,7 @@ Website Studio SEO and legal page starters **require attorney review** before cu
 8. Website Studio: follow blueprint phases — **no surprise full builds**.
 9. AI features: preview + Accept/Edit/Reject — **never silent mutations** (**Gold Standard §4**).
 10. Prefer recovery (undo, audit, rollback) over raw speed for orders, payments, and publish (**Gold Standard §6**).
+11. For the specific question of what an agent may fix on its own versus what needs a human first — including any future support-ticket-triggered fix flow — see **`FLORISYN_AI_AGENT_AUTONOMY_POLICY.md`**. Rule 3 above (no deploy, no migrations) is the floor; that document is more specific, not more permissive.
 
 ---
 
@@ -294,6 +295,7 @@ Website Studio SEO and legal page starters **require attorney review** before cu
 | **`FLORISYN_DESIGN_SYSTEM.md`** | **v1.0 UI tokens, components, layout patterns** |
 | **`FLORISYN_ECOSYSTEM_PORTALS_STANDARD.md`** | **Florist / Wholesaler / Platform Owner portal model** |
 | **`FLORISYN_PORTAL_OWNERSHIP_MATRIX.md`** | **Shared service ownership by portal** |
+| **`FLORISYN_AI_AGENT_AUTONOMY_POLICY.md`** | **What an AI agent may fix without human approval, and what it may never do** |
 | `FLORISYN_MASTER_BUILD_CHECKLIST.md` | Ship status by product area |
 | `FLORISYN_WEBSITE_STUDIO_BLUEPRINT.md` | Permanent Website Studio specification |
 | `FLORISYN_REPOSITORY_AUDIT.md` | Codebase inventory |

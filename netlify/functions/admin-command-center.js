@@ -14,6 +14,7 @@ import {
   mergeFeatureFlags,
   PLATFORM_FEATURE_FLAGS,
   sanitizeSubscriptionForAdmin,
+  summarizeClientErrors,
   systemHealthSnapshot,
   validateAnnouncementPayload
 } from "./_shared/command-center.js";
@@ -306,9 +307,24 @@ export function createAdminCommandCenterHandler(deps = {}) {
     }
 
     if (event.httpMethod === "GET" && action === "system-health") {
+      // Was hardcoded to recent_errors: [] — always empty regardless of
+      // what florists were actually hitting. The data has existed all
+      // along (client-errors.js writes every uncaught error, failed API
+      // call, and permission denial to audit_events as event_type
+      // "client_error"); nothing ever read it back. This is the "know
+      // before the ticket" signal.
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const errorRows = await safeSelect(client, "audit_events", (q) =>
+        q
+          .select("created_at,shop_id,metadata")
+          .eq("event_type", "client_error")
+          .gte("created_at", since)
+          .order("created_at", { ascending: false })
+          .limit(200)
+      );
       return json(200, {
         health: systemHealthSnapshot(),
-        recent_errors: []
+        recent_errors: summarizeClientErrors(errorRows)
       });
     }
 
