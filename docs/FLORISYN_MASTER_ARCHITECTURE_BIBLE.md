@@ -123,15 +123,25 @@ Defined in `netlify/functions/_shared/feature-flags.js`. Override: `FLORISYN_FLA
 | Flag | Default | Meaning |
 |------|---------|---------|
 | `VOICE_WAKE` | false | Risky — off in production |
+| `VOICE_TTS_CLOUD` | true | Cloud (ElevenLabs) TTS for assistant voices — shipped |
 | `INVENTORY_AI_INTAKE` | false | Risky — off |
-| `INVENTORY_RECIPE_DEDUCTIONS` | false | Risky — off |
+| `INVENTORY_RECIPE_DEDUCTIONS` | true | Deducts recipe ingredients at production-ready status — shipped 2026-08 |
 | `REACT_ORDERS_PREVIEW` | false | React orders API preview |
 | `INSTANT_WEBSITE` | true | Shipped RC1 instant website module |
-| **`WEBSITE_STUDIO_V2`** | **false** | **Future full Website Studio editor (see §6)** |
+| **`WEBSITE_STUDIO_V2`** | **true** (flipped 2026-08-16) | **Tabbed builder shell, whole-page CRUD, media library, revision history, enforced pre-publish checklist — shipped 2026-08-15, flag now matches reality (see §6)** |
 | `DELIVERY_MAPS` | true | Route distance (degrades without API key) |
 | `MARKETPLACE_PUBLIC` | true | Shipped marketplace browse |
+| `WHOLESALE_SELLER` | true | Shipped wholesale seller dashboard |
+| `BUSINESS_ECOSYSTEM` | true | Subscriptions, loyalty, finance hub, Lily business coach |
+| `LILY_SERVER_PERSISTENCE` | true | Lily drawer state persisted server-side |
+| `COMMUNITY_BETA` | true | Florist Community social feed — shipped |
+| `HOLIDAY_COMMAND_CENTER` | true | Shipped, graceful-degrades if migration not yet applied |
+| `EMAIL_CAMPAIGNS` | true | Shipped; requires `RESEND_API_KEY` to actually send |
+| `WEDDING_WORKFLOWS` | true | Shipped wedding project workflows |
+| `FLORIST_NETWORK` | true | Shipped florist-to-florist wire orders + directory |
+| `PEAK_READINESS` | true | Mother's Day readiness checklist on dashboard |
 
-Expose via `GET /.netlify/functions/production-health`.
+Expose via `GET /.netlify/functions/production-health`. (Table refreshed 2026-08-16 against the live `_shared/feature-flags.js` — most flags in this system now default `true`; treat `false` as the exception, not the norm.)
 
 ---
 

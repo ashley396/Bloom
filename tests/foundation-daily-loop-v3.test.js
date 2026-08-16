@@ -248,7 +248,12 @@ test("launch feature flags match growth rollout defaults", () => {
   assert.equal(flags.BUSINESS_ECOSYSTEM, true);
   assert.equal(flags.INVENTORY_AI_INTAKE, false);
   assert.equal(flags.INVENTORY_RECIPE_DEDUCTIONS, true);
-  assert.equal(flags.WEBSITE_STUDIO_V2, false);
+  // Flipped true 2026-08-16: the tabbed shell, page CRUD, media library,
+  // revision history, and enforced pre-publish checklist shipped 2026-08-15
+  // and were already live for every florist with no flag enforcement
+  // anywhere in the code — the flag now matches reality instead of
+  // contradicting it.
+  assert.equal(flags.WEBSITE_STUDIO_V2, true);
 });
 
 test("customer UI includes contact preference fields", () => {
