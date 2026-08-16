@@ -311,7 +311,10 @@ function setView(name){
   };
   $('#viewTitle').textContent=titles[name]||name;
   if(window.__loadCommandView)window.__loadCommandView(name);
-  if(name==='floralLibraryAdmin')window.BloomLibraryAdmin?.mount?.(document.getElementById('floralLibraryAdminRoot'));
+  if(name==='floralLibraryAdmin'){
+    window.BloomLibraryAdmin?.mount?.(document.getElementById('floralLibraryAdminRoot'));
+    window.BloomPhotoManager?.mount?.(document.getElementById('photoManagerRoot'));
+  }
   if(name==='uiDesignMode')window.FlorisynUiEditor?.mountAdminPanel?.(document.getElementById('uiDesignModeRoot'));
 }
 async function loadOverview(){
