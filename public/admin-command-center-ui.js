@@ -97,10 +97,27 @@ export function initCommandCenter(deps) {
 
   async function loadSupport() {
     const d = await ccCall('admin-command-center?action=support');
-    $('#supportList').innerHTML = (d.items || []).map((item) => `<article class="panel support-item"><div class="panel-head"><div><h3>${escapeHtml(item.subject)}</h3><p>${escapeHtml(item.item_type)} · ${escapeHtml(item.status)}</p></div></div><p>${escapeHtml(item.body)}</p><div class="card-actions"><button data-support-id="${item.id}" data-status="assigned">Assign</button><button data-support-id="${item.id}" data-status="resolved" class="secondary">Resolve</button><button data-support-id="${item.id}" data-status="closed" class="secondary">Close</button></div></article>`).join('') || '<p class="quiet">No support items yet.</p>';
+    const deliveryLabel = { delivered: 'sent', webhook_error: 'endpoint rejected it', not_configured: 'no endpoint connected' };
+    $('#supportList').innerHTML = (d.items || []).map((item) => {
+      const fixRequests = (item.notes || []).filter((n) => n.type === 'fix_request');
+      const lastFixRequest = fixRequests[fixRequests.length - 1];
+      const fixHistory = lastFixRequest
+        ? `<p class="quiet">Last fix request: ${new Date(lastFixRequest.at).toLocaleString()} — ${escapeHtml(deliveryLabel[lastFixRequest.delivery] || lastFixRequest.delivery)}.</p>`
+        : '';
+      return `<article class="panel support-item"><div class="panel-head"><div><h3>${escapeHtml(item.subject)}</h3><p>${escapeHtml(item.item_type)} · ${escapeHtml(item.status)}</p></div></div><p>${escapeHtml(item.body)}</p>${fixHistory}<div class="card-actions"><button data-support-id="${item.id}" data-status="assigned">Assign</button><button data-support-id="${item.id}" data-status="resolved" class="secondary">Resolve</button><button data-support-id="${item.id}" data-status="closed" class="secondary">Close</button><button data-request-fix-id="${item.id}" class="secondary">Request Claude Code fix</button></div></article>`;
+    }).join('') || '<p class="quiet">No support items yet.</p>';
     $$('[data-support-id]').forEach((b) => b.onclick = async () => {
       await ccCall('admin-command-center', { method: 'POST', body: JSON.stringify({ action: 'support-update', id: b.dataset.supportId, status: b.dataset.status, note: 'Updated from Command Center' }) });
       toast('Support item updated'); loadSupport();
+    });
+    $$('[data-request-fix-id]').forEach((b) => b.onclick = async () => {
+      b.disabled = true;
+      try {
+        const result = await ccCall('admin-command-center', { method: 'POST', body: JSON.stringify({ action: 'support-request-fix', id: b.dataset.requestFixId }) });
+        toast(result.message || 'Fix request recorded');
+      } finally {
+        loadSupport();
+      }
     });
   }
 

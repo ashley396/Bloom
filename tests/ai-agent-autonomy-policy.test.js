@@ -11,9 +11,18 @@ test("AI Agent Autonomy Policy exists and defines the three tiers", () => {
   assert.match(policy, /## Never/);
   // The core distinction the whole policy rests on.
   assert.match(policy, /Diagnosing and preparing a fix is not the same action as shipping it/);
-  // No live support-ticket-to-agent trigger exists yet — the doc must say
-  // so plainly, not read like a description of a system already running.
-  assert.match(policy, /no live trigger connecting a support ticket/);
+  // The support-ticket trigger is real (admin-initiated) but the receiving
+  // endpoint is not pre-wired to anything — the doc must say so plainly,
+  // not read like a fully automatic pipeline already exists.
+  assert.match(policy, /No endpoint is configured by default/);
+  assert.match(policy, /support-request-fix/);
+});
+
+test("the support-request-fix action the policy describes actually exists in the code", () => {
+  const src = read("../netlify/functions/admin-command-center.js");
+  assert.match(src, /action === "support-request-fix"/);
+  assert.match(src, /CLAUDE_CODE_FIX_WEBHOOK_URL/);
+  assert.match(src, /FLORISYN_AI_AGENT_AUTONOMY_POLICY\.md/);
 });
 
 test("Governance Map and Architecture Bible both point to the autonomy policy", () => {

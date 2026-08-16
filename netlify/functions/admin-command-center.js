@@ -607,6 +607,109 @@ export function createAdminCommandCenterHandler(deps = {}) {
       return json(200, { item: data });
     }
 
+    if (action === "support-request-fix") {
+      requireSuperAdmin(admin);
+      const id = body.id;
+      if (!id) return json(400, { error: "id is required" });
+
+      const { data: ticket, error: loadError } = await client
+        .from("platform_support_items")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (loadError) throw loadError;
+      if (!ticket) return json(404, { error: "Support item not found." });
+
+      // Recent errors from the same shop turn "florist says X is broken"
+      // into "here's what actually happened" — real context, not a guess,
+      // reusing the same audit_events data System Health now surfaces.
+      let recentShopErrors = null;
+      if (ticket.shop_id) {
+        const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const errorRows = await safeSelect(client, "audit_events", (q) =>
+          q
+            .select("created_at,shop_id,metadata")
+            .eq("event_type", "client_error")
+            .eq("shop_id", ticket.shop_id)
+            .gte("created_at", since)
+            .order("created_at", { ascending: false })
+            .limit(50)
+        );
+        recentShopErrors = summarizeClientErrors(errorRows);
+      }
+
+      const requestedAt = new Date().toISOString();
+      const fixRequest = {
+        ticket_id: ticket.id,
+        item_type: ticket.item_type,
+        subject: ticket.subject,
+        body: ticket.body,
+        shop_id: ticket.shop_id,
+        requested_by: user.id,
+        requested_at: requestedAt,
+        recent_shop_errors: recentShopErrors,
+        // Whatever picks this request up must follow this policy, not
+        // invent its own idea of what's safe to do without asking.
+        policy_doc: "docs/FLORISYN_AI_AGENT_AUTONOMY_POLICY.md",
+        policy_summary:
+          "Tier 1 only unless a human explicitly authorizes otherwise for this ticket: work on a branch, run tests, open a diff for human review. Never auto-merge. Never deploy. Never touch payments, auth, migrations, feature flag defaults, or legal copy without asking first."
+      };
+
+      // This webhook URL is a bring-your-own-endpoint seam, not a
+      // pre-wired connection to a specific service — nothing calls
+      // itself "Claude Code" here on its own. Until CLAUDE_CODE_FIX_WEBHOOK_URL
+      // is set, the request is recorded on the ticket and nothing is
+      // sent anywhere; that's a deliberate, visible "not configured yet"
+      // state, not a silent no-op.
+      const webhookUrl = process.env.CLAUDE_CODE_FIX_WEBHOOK_URL;
+      let delivery = "not_configured";
+      if (webhookUrl) {
+        try {
+          const headers = { "Content-Type": "application/json" };
+          if (process.env.CLAUDE_CODE_FIX_WEBHOOK_TOKEN) {
+            headers.Authorization = `Bearer ${process.env.CLAUDE_CODE_FIX_WEBHOOK_TOKEN}`;
+          }
+          const response = await fetch(webhookUrl, { method: "POST", headers, body: JSON.stringify(fixRequest) });
+          delivery = response.ok ? "delivered" : "webhook_error";
+        } catch (hookError) {
+          console.error("Claude Code fix-request webhook failed:", hookError);
+          delivery = "webhook_error";
+        }
+      }
+
+      const deliveryMessage = {
+        delivered: "Fix request sent to the connected endpoint.",
+        webhook_error: "Fix request recorded, but the configured endpoint did not accept it.",
+        not_configured: "Fix request recorded. No CLAUDE_CODE_FIX_WEBHOOK_URL is configured, so nothing was actually sent anywhere yet."
+      }[delivery];
+
+      const existingNotes = Array.isArray(ticket.notes) ? ticket.notes : [];
+      const notes = [
+        ...existingNotes,
+        { type: "fix_request", text: deliveryMessage, admin_id: user.id, at: requestedAt, delivery }
+      ];
+      const { data, error } = await client
+        .from("platform_support_items")
+        .update({
+          notes,
+          status: ticket.status === "open" ? "assigned" : ticket.status,
+          updated_at: requestedAt
+        })
+        .eq("id", id)
+        .select("*")
+        .single();
+      if (error) throw error;
+
+      await writeCommandAudit(client, user.id, "support_request_fix", {
+        targetType: "support_item",
+        targetId: id,
+        ip,
+        delivery
+      });
+
+      return json(200, { item: data, delivery, message: deliveryMessage });
+    }
+
     if (action === "create-announcement") {
       requireSuperAdmin(admin);
       const validation = validateAnnouncementPayload(body);
