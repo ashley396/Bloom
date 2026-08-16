@@ -1,0 +1,20 @@
+{
+  "all": true,
+  "include": [
+    "netlify/functions/**/*.js",
+    "lib/**/*.js"
+  ],
+  "exclude": [
+    "netlify/functions/**/*.test.js",
+    "netlify/edge-functions/**",
+    "**/node_modules/**"
+  ],
+  "reporter": ["text", "html", "lcov"],
+  "reports-dir": "coverage",
+  "clean": true,
+  "check-coverage": true,
+  "statements": 38,
+  "branches": 55,
+  "functions": 60,
+  "lines": 38
+}

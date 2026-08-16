@@ -15,3 +15,5 @@ supabase/production_reconciliation/
 florisyn-codex-staging-bundle.patch
 test-results/
 playwright-report/
+coverage/
+frontend/coverage/
