@@ -41,6 +41,7 @@ const CONTENT_TYPES = {
   ".webmanifest": "application/manifest+json",
   ".ico": "image/x-icon",
   ".woff2": "font/woff2",
+  ".pdf": "application/pdf",
 };
 
 function resolveFile(urlPath) {
