@@ -9,7 +9,10 @@
  * by hand each time: every filter chip has a real category of matching
  * photos, every photo declares a category that has a chip, and every
  * photo URL is a well-formed Pexels photo URL with a unique ID (no
- * accidental duplicates or copy-paste IDs).
+ * accidental duplicates or copy-paste IDs). A "Signature" category was
+ * later added using real local photos the platform owner provided
+ * directly (not stock) — those are checked against the file on disk
+ * instead of the Pexels URL pattern.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -56,16 +59,27 @@ test("every photo declares a category that has a matching filter chip", () => {
   }
 });
 
-test("every photo URL is a well-formed, unique Pexels photo URL", () => {
+// Two valid sources: Pexels stock photos (external, identified by numeric
+// photo ID) and local assets the platform owner provided directly
+// (public/assets/website-studio/hero/*.jpg — no external dependency, so
+// these are checked against the actual file on disk instead).
+test("every photo URL is either a well-formed unique Pexels photo URL or a real local asset", () => {
   const pics = photos(section);
   assert.ok(pics.length >= 24, "expected a substantially larger curated set than the original 12 photos");
-  const seen = new Set();
+  const seenPexelsIds = new Set();
+  const seenLocalPaths = new Set();
   for (const p of pics) {
+    if (p.url.startsWith("/assets/")) {
+      assert.ok(!seenLocalPaths.has(p.url), `duplicate local asset ${p.url} used more than once in the picker`);
+      seenLocalPaths.add(p.url);
+      const filePath = path.join(process.cwd(), "public", p.url);
+      assert.ok(fs.existsSync(filePath), `local asset does not exist on disk: ${p.url}`);
+      continue;
+    }
     assert.match(p.url, /^https:\/\/images\.pexels\.com\/photos\/\d+\/pexels-photo-\d+\.jpeg\?/, `not a well-formed Pexels photo URL: ${p.url}`);
-    const idMatch = p.url.match(/\/photos\/(\d+)\//);
-    const id = idMatch[1];
-    assert.ok(!seen.has(id), `duplicate photo ID ${id} used more than once in the picker`);
-    seen.add(id);
+    const id = p.url.match(/\/photos\/(\d+)\//)[1];
+    assert.ok(!seenPexelsIds.has(id), `duplicate Pexels photo ID ${id} used more than once in the picker`);
+    seenPexelsIds.add(id);
   }
 });
 
@@ -73,6 +87,10 @@ test("thumbnail preview and full hero-image URL point at the same photo", () => 
   const buttons = [...section.matchAll(/data-hero-image="([^"]+)" style="background-image:url\('([^']+)'\)"/g)];
   assert.ok(buttons.length >= 24);
   for (const [, full, thumb] of buttons) {
+    if (full.startsWith("/assets/")) {
+      assert.equal(full, thumb, `local asset hero image and its thumbnail must be the same file: ${full} vs ${thumb}`);
+      continue;
+    }
     const fullId = full.match(/\/photos\/(\d+)\//)?.[1];
     const thumbId = thumb.match(/\/photos\/(\d+)\//)?.[1];
     assert.equal(fullId, thumbId, `hero image and its thumbnail reference different photo IDs: ${full} vs ${thumb}`);
