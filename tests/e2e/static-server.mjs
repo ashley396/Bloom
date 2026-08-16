@@ -23,6 +23,8 @@ const EXPLICIT_REDIRECTS = {
   "/login/": "/login.html",
   "/signup": "/signup.html",
   "/signup/": "/signup.html",
+  "/admin": "/admin.html",
+  "/admin/": "/admin.html",
 };
 
 const CONTENT_TYPES = {

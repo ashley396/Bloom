@@ -77,3 +77,53 @@ export async function withFakeSession(page) {
     localStorage.setItem("bloom_first_run_rc2_done", "1");
   }, FAKE_SESSION);
 }
+
+// --- Platform Owner admin console (public/admin.html) ---
+// A separate app, a separate session key, and a real Supabase Auth MFA
+// SDK dance (see ensureAdminMfaBeforeDashboard in public/admin.js) that
+// this suite deliberately doesn't try to simulate end to end — it mocks
+// admin-mfa-config to report mfaSkipAllowed: true instead, which is the
+// same staging-only skip path that function already supports for real
+// (see admin-mfa-config.test.js), so the MFA SDK is never touched at
+// all rather than being faked badly.
+
+export const ADMIN_FAKE_SESSION = {
+  accessToken: "fake-admin-access-token-for-smoke-test",
+  refreshToken: "fake-admin-refresh-token-for-smoke-test",
+  user: { id: "smoke-test-admin", email: "smoke-test-admin@example.invalid" },
+  mfaVerified: true,
+};
+
+export async function mockAdminBackend(page) {
+  await page.route(/fonts\.googleapis\.com/, (route) =>
+    route.fulfill({ status: 200, contentType: "text/css", body: "" }),
+  );
+  await page.route(/fonts\.gstatic\.com/, (route) =>
+    route.fulfill({ status: 200, contentType: "font/woff2", body: Buffer.alloc(0) }),
+  );
+  // Generic catch-all registered first — see the route-order note above.
+  await page.route("**/.netlify/functions/**", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: "{}" }),
+  );
+  await page.route("**/.netlify/functions/admin-bootstrap*", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ownerExists: true }) }),
+  );
+  await page.route("**/.netlify/functions/admin-mfa-config*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        supabaseUrl: "https://smoke-test.supabase.co",
+        anonKey: "smoke-test-anon-key",
+        mfaRequiredForAdmin: false,
+        mfaSkipAllowed: true,
+      }),
+    }),
+  );
+}
+
+export async function withFakeAdminSession(page) {
+  await page.addInitScript((session) => {
+    localStorage.setItem("bloom_admin_session", JSON.stringify(session));
+  }, ADMIN_FAKE_SESSION);
+}
