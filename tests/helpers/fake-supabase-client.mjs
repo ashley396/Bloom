@@ -15,7 +15,7 @@
  * what the handler actually does — not just assert on source text.
  */
 
-export function createFakeSupabaseClient(responses = []) {
+export function createFakeSupabaseClient(responses = [], { storage } = {}) {
   const queue = [...responses];
   const calls = [];
 
@@ -76,6 +76,10 @@ export function createFakeSupabaseClient(responses = []) {
         record.payload = payload;
         return builder;
       },
+      delete(...args) {
+        record.ops.push(["delete", args]);
+        return builder;
+      },
       maybeSingle() {
         return Promise.resolve(nextResponse());
       },
@@ -100,6 +104,42 @@ export function createFakeSupabaseClient(responses = []) {
       calls.push({ rpc: name, args });
       return Promise.resolve(nextResponse());
     },
+    storage: storage || {
+      from() {
+        throw new Error("fake client has no storage configured — pass { storage } to createFakeSupabaseClient");
+      },
+    },
     calls,
+  };
+}
+
+/**
+ * Minimal fake for the `.storage.from(bucket)` surface (upload/remove/
+ * getPublicUrl) — pass as the `storage` option to createFakeSupabaseClient
+ * for handlers that touch Supabase Storage. Queues are consumed in call
+ * order per method, same pattern as the row-response queue above.
+ */
+export function createFakeSupabaseStorage({ uploadResponses = [], removeResponses = [], publicUrl } = {}) {
+  const uploadQueue = [...uploadResponses];
+  const removeQueue = [...removeResponses];
+  const calls = [];
+  return {
+    calls,
+    from(bucket) {
+      return {
+        upload(path, body, options) {
+          calls.push({ op: "upload", bucket, path, options });
+          return Promise.resolve(uploadQueue.length ? uploadQueue.shift() : { data: { path }, error: null });
+        },
+        remove(paths) {
+          calls.push({ op: "remove", bucket, paths });
+          return Promise.resolve(removeQueue.length ? removeQueue.shift() : { data: paths, error: null });
+        },
+        getPublicUrl(path) {
+          calls.push({ op: "getPublicUrl", bucket, path });
+          return { data: { publicUrl: publicUrl ? publicUrl(path) : `https://fake.storage/${bucket}/${path}` } };
+        },
+      };
+    },
   };
 }

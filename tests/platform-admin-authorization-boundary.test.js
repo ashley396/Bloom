@@ -31,6 +31,10 @@ import {
   handler as floralLibraryAdminHandler,
   createFloralLibraryAdminHandler,
 } from "../netlify/functions/floral-library-admin.js";
+import {
+  handler as adminPhotoManagerHandler,
+  createAdminPhotoManagerHandler,
+} from "../netlify/functions/admin-photo-manager.js";
 import { TABLE as VERIFICATION_TABLE } from "../netlify/functions/_shared/marketplace-verification.js";
 
 const VERIFIED_USER_ID = "11111111-1111-1111-1111-111111111111";
@@ -541,6 +545,7 @@ test("no service-role key or secret pattern in frontend/src", () => {
 const EXPECTED_PLATFORM_ADMIN_CALL_SITES = [
   "admin-console.js",
   "admin-command-center.js",
+  "admin-photo-manager.js",
   "marketplace-verification-admin.js",
   "floral-library-admin.js",
 ];
@@ -620,6 +625,19 @@ test("floral-library-admin.js mutation actions have requireSuperAdmin before wri
   for (const action of ["approve_batch", "duplicate_review"]) {
     assert.match(src, new RegExp(`if \\(action === "${action}"\\) \\{\\s*requireSuperAdmin\\(admin\\);`));
   }
+});
+
+test("admin-photo-manager.js mutations each have requireSuperAdmin immediately before write", () => {
+  const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/admin-photo-manager.js"), "utf8");
+  for (const action of ["upload", "update", "delete"]) {
+    assert.match(
+      src,
+      new RegExp(`if \\(action === "${action}" && event\\.httpMethod === "POST"\\) \\{\\s*requireSuperAdmin\\(admin\\);`)
+    );
+  }
+  // public_list is intentionally unauthenticated — read-only, mirrors
+  // content florists already see in the static Floral Library.
+  assert.match(src, /action === "public_list" && event\.httpMethod === "GET"/);
 });
 
 test("platform-admin.js never trusts browser-provided identity or request IDs", () => {
@@ -1085,6 +1103,7 @@ const PRODUCTION_HANDLERS = [
   ["admin-command-center", adminCommandCenterHandler],
   ["marketplace-verification-admin", marketplaceVerificationAdminHandler],
   ["floral-library-admin", floralLibraryAdminHandler],
+  ["admin-photo-manager", adminPhotoManagerHandler],
 ];
 
 for (const [name, productionHandler] of PRODUCTION_HANDLERS) {
