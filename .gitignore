@@ -13,3 +13,5 @@ docs/production/FLORISYN-FULL-SYSTEM-AUDIT-*.md
 docs/production/P0-*-*.md
 supabase/production_reconciliation/
 florisyn-codex-staging-bundle.patch
+test-results/
+playwright-report/
