@@ -5,7 +5,19 @@ import { postStripePaymentLink } from "./_shared/post-stripe-payment-link.js";
 import { markFloristWirePaidFromCheckout } from "./_shared/florist-wire-payment.js";
 import { assertStripeLivemodeMatchesKey } from "./_shared/stripe-mode.js";
 
-export async function handler(event) {
+/**
+ * Core webhook logic, dependency-injectable for handler-level tests (see
+ * tests/stripe-order-webhook.test.js) without a real Stripe/Supabase
+ * connection. `handler` below is the thin Netlify entrypoint that always
+ * uses the real dependencies.
+ */
+export async function handleStripeOrderWebhook(event, dependencies = {}) {
+  const getClient = dependencies.admin || admin;
+  const createStripe = dependencies.createStripe || ((key) => new Stripe(key));
+  const postPayment = dependencies.postStripePayment || postStripePayment;
+  const postPaymentLink = dependencies.postStripePaymentLink || postStripePaymentLink;
+  const markWirePaid = dependencies.markFloristWirePaidFromCheckout || markFloristWirePaidFromCheckout;
+
   try {
     if (event.httpMethod !== "POST") return { statusCode: 405, body: "Method Not Allowed" };
     if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_ORDER_WEBHOOK_SECRET) {
@@ -13,7 +25,7 @@ export async function handler(event) {
       e.statusCode = 503;
       throw e;
     }
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const stripe = createStripe(process.env.STRIPE_SECRET_KEY);
     const signature = event.headers["stripe-signature"] || event.headers["Stripe-Signature"];
     const raw = event.isBase64Encoded ? Buffer.from(event.body || "", "base64") : event.body || "";
     let stripeEvent;
@@ -32,13 +44,13 @@ export async function handler(event) {
       return { statusCode: 400, body: JSON.stringify({ error: modeCheck.reason }) };
     }
 
-    const client = admin();
+    const client = getClient();
     if (stripeEvent.type === "checkout.session.completed" || stripeEvent.type === "checkout.session.async_payment_succeeded") {
       const session = stripeEvent.data.object;
       const meta = session.metadata || {};
       if (meta.florist_network === "wire" && meta.florist_wire_id) {
         try {
-          await markFloristWirePaidFromCheckout(client, session);
+          await markWirePaid(client, session);
         } catch (wireErr) {
           console.warn(JSON.stringify({ level: "warn", message: "florist_wire_payment_skipped", reason: String(wireErr?.message || wireErr) }));
         }
@@ -59,9 +71,9 @@ export async function handler(event) {
           console.warn(JSON.stringify({ level: "warn", message: "marketplace_wholesale_order_update_skipped", reason: String(marketErr?.message || marketErr) }));
         }
       } else if (meta.bloom_payment_link_id) {
-        await postStripePaymentLink(client, session, stripeEvent.id);
+        await postPaymentLink(client, session, stripeEvent.id);
       } else if (meta.bloom_order_id && meta.bloom_shop_id) {
-        await postStripePayment(client, session);
+        await postPayment(client, session);
       }
     }
 
@@ -73,4 +85,8 @@ export async function handler(event) {
   } catch (error) {
     return fail(error);
   }
+}
+
+export async function handler(event) {
+  return handleStripeOrderWebhook(event);
 }

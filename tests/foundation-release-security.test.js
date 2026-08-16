@@ -343,14 +343,10 @@ test("Stripe redirect URLs never trust request origin headers", () => {
   }
 });
 
-test("postStripePayment uses idempotency key in RPC", () => {
-  const src = fs.readFileSync(
-    path.join(process.cwd(), "netlify/functions/_shared/post-stripe-payment.js"),
-    "utf8",
-  );
-  assert.match(src, /p_idempotency_key/);
-  assert.match(src, /stripe-session:/);
-});
+// Real behavior coverage (not just "does this string appear in the file")
+// lives in tests/post-stripe-payment.test.js — it invokes postStripePayment
+// against a fake Supabase client and asserts on the actual RPC call,
+// including the exact idempotency key value.
 
 test("Stripe secret not present in public client bundle", () => {
   const appJs = fs.readFileSync(path.join(process.cwd(), "public/app.js"), "utf8");
