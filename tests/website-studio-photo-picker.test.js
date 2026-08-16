@@ -83,8 +83,27 @@ test("every photo URL is either a well-formed unique Pexels photo URL or a real 
   }
 });
 
+// Two of the "Signature" photos are AI-generated/AI-edited (a ChatGPT
+// image, a Canva "make it blue and white" edit) rather than real
+// photographs like the rest of that category — the user explicitly asked
+// for a visible "AI" label on those specifically, not a silent swap.
+test("every photo marked data-ai-generated shows a visible AI badge", () => {
+  const buttons = [...section.matchAll(/<button[^>]*>[\s\S]*?<\/button>/g)].map((m) => m[0]);
+  const aiButtons = buttons.filter((b) => /data-ai-generated="true"/.test(b));
+  assert.ok(aiButtons.length >= 1, "expected at least one AI-flagged photo to exist");
+  for (const b of aiButtons) {
+    assert.match(b, /class="ai-badge"/, `data-ai-generated button missing a visible AI badge: ${b.slice(0, 120)}`);
+  }
+  // And the inverse — nothing shows the badge without actually being flagged.
+  const badgedButtons = buttons.filter((b) => /class="ai-badge"/.test(b));
+  for (const b of badgedButtons) {
+    assert.match(b, /data-ai-generated="true"/, `button shows an AI badge without data-ai-generated: ${b.slice(0, 120)}`);
+  }
+});
+
 test("thumbnail preview and full hero-image URL point at the same photo", () => {
-  const buttons = [...section.matchAll(/data-hero-image="([^"]+)" style="background-image:url\('([^']+)'\)"/g)];
+  const buttons = [...section.matchAll(/data-hero-image="([^"]+)"[^>]*style="background-image:url\('([^']+)'\)"/g)];
+  assert.equal(buttons.length, photos(section).length, "every photo button must be matched — check for attributes breaking the regex");
   assert.ok(buttons.length >= 24);
   for (const [, full, thumb] of buttons) {
     if (full.startsWith("/assets/")) {
