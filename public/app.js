@@ -550,16 +550,35 @@ function renderDashboardUpcomingDeliveriesPanel(d){
   const rows=(d?.upcomingDeliveries?.length?d.upcomingDeliveries:deliveries).slice(0,4);
   box.innerHTML=rows.length?rows.map(o=>`<article><div><strong>${esc(o.recipient_name||o.customer_name||"Delivery")}</strong><small>${esc(o.order_number||"")} · ${dateText(o.delivery_date)}</small></div><span class="badge ${(o.status==="COMPLETED"||o.status==="DELIVERED")?"good":"warn"}">${esc(o.status||"PENDING")}</span></article>`).join(""):empty("No upcoming deliveries.");
 }
+let dashboardCalendarMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1);
 function renderDashboardCalendar(){
   const box=$("#dashboardCalendar");if(!box)return;
-  const today=new Date();
-  const startOfWeek=new Date(today);startOfWeek.setDate(today.getDate()-today.getDay());
-  const days=[...Array(7)].map((_,i)=>{const dd=new Date(startOfWeek);dd.setDate(startOfWeek.getDate()+i);return dd});
-  const dayKey=dd=>dd.toISOString().slice(0,10);
+  const year=dashboardCalendarMonth.getFullYear(),month=dashboardCalendarMonth.getMonth();
+  const firstDay=new Date(year,month,1);
+  const gridStart=new Date(year,month,1-firstDay.getDay());
+  const cells=[...Array(42)].map((_,i)=>{const dd=new Date(gridStart);dd.setDate(gridStart.getDate()+i);return dd});
+  const dayKey=dd=>`${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,"0")}-${String(dd.getDate()).padStart(2,"0")}`;
   const eventsByDay={};
   orders.forEach(o=>{const k=String(o.delivery_date||"").slice(0,10);if(!k)return;(eventsByDay[k]=eventsByDay[k]||[]).push(o)});
-  const todayKey=dayKey(today);
-  box.innerHTML=days.map(dd=>{const k=dayKey(dd);const evts=(eventsByDay[k]||[]).slice(0,3);const isToday=k===todayKey;return `<div class="cal-day${isToday?" is-today":""}"><div class="cal-day-head"><span>${dd.toLocaleDateString("en-US",{weekday:"short"})}</span><b>${dd.getDate()}</b></div>${evts.length?evts.map(o=>`<div class="cal-event">${esc(o.customer_name||o.order_number||"Order")}</div>`).join(""):""}</div>`}).join("");
+  const todayKey=dayKey(new Date());
+  const monthLabel=dashboardCalendarMonth.toLocaleDateString("en-US",{month:"long",year:"numeric"});
+  const weekdayLabels=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const head=`<div class="cal-month-head"><h4>${esc(monthLabel)}</h4><div class="cal-month-nav"><button type="button" class="cal-nav" data-cal-nav="today">Today</button><button type="button" class="cal-nav cal-nav-arrow" data-cal-nav="-1" aria-label="Previous month">‹</button><button type="button" class="cal-nav cal-nav-arrow" data-cal-nav="1" aria-label="Next month">›</button></div></div>`;
+  const weekdayRow=`<div class="cal-weekday-row">${weekdayLabels.map(w=>`<span>${w}</span>`).join("")}</div>`;
+  const grid=`<div class="cal-month-grid">${cells.map(dd=>{
+    const k=dayKey(dd);
+    const inMonth=dd.getMonth()===month;
+    const isToday=k===todayKey;
+    const evts=eventsByDay[k]||[];
+    const shown=evts.slice(0,2);
+    return `<div class="cal-cell${inMonth?"":" is-outside"}${isToday?" is-today":""}"><span class="cal-cell-date">${dd.getDate()}</span>${shown.map(o=>`<button type="button" class="cal-chip" data-page="ordersPage">${esc(o.customer_name||o.order_number||"Order")}</button>`).join("")}${evts.length>2?`<button type="button" class="cal-more" data-page="ordersPage">+${evts.length-2} more</button>`:""}</div>`;
+  }).join("")}</div>`;
+  box.innerHTML=head+weekdayRow+grid;
+  box.querySelectorAll("[data-cal-nav]").forEach(btn=>btn.addEventListener("click",()=>{
+    const nav=btn.dataset.calNav;
+    dashboardCalendarMonth=nav==="today"?new Date(new Date().getFullYear(),new Date().getMonth(),1):new Date(year,month+Number(nav),1);
+    renderDashboardCalendar();
+  }));
 }
 async function loadStores(){try{const {items}=await api("stores");try{shopSettings=(await api("settings")).item;applyBranding(shopSettings);syncPosTilesFromServer()}catch{};$("#shopSwitcher").innerHTML=items.map(s=>`<option value="${s.id}" ${s.active?"selected":""}>${esc(s.name)}</option>`).join("");const active=items.find(x=>x.active);const hour=new Date().getHours(),daypart=hour<12?"Good morning":hour<17?"Good afternoon":"Good evening",firstName=firstNameFromIdentity(session?.user,shopSettings);$("#greeting").textContent=`${daypart}, ${firstName}!`;if($("#lilySuggestionGreeting"))$("#lilySuggestionGreeting").textContent=`Hi ${firstName}!`;if($("#atelierUserName"))$("#atelierUserName").textContent=firstName;if($("#storesList"))$("#storesList").innerHTML=items.length?items.map(s=>`<article class="card"><div class="card-top"><div><h3>${esc(s.name)}</h3><div class="meta">${esc(s.address||"Address not set")} · ${esc(s.role)}</div></div>${s.active?'<span class="badge good">ACTIVE</span>':""}</div>${!s.active?`<div class="card-actions"><button class="primary" data-switch-shop="${s.id}">Open this shop</button></div>`:""}</article>`).join(""):empty("No stores.")}catch(e){if($("#storesList"))$("#storesList").innerHTML=window.BloomLaunchPolish?.errorState?.({message:e.message})||empty(e.message||"Could not load locations.");toast(e.message||"Could not load shop locations.")}}
 async function loadCustomers(){customers=(await api("customers")).items||[];renderCustomers();refreshOrderCustomerOptions()}

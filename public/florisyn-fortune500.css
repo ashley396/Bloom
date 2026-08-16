@@ -1067,56 +1067,144 @@ body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .das
   margin: 16px 0 !important;
 }
 
-/* Calendar */
-body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-week {
-  display: grid !important;
-  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+
+/* Calendar — a real month grid, not a strip of chips */
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-month-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 12px !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-month-head h4 {
+  margin: 0 !important;
+  font-family: var(--atelier-font-display, "Playfair Display", Georgia, serif) !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: var(--f5-ink) !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-month-nav {
+  display: flex !important;
+  align-items: center !important;
   gap: 6px !important;
 }
-body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-day {
-  background: var(--f5-ivory) !important;
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-nav {
+  background: var(--f5-card) !important;
   border: 1px solid var(--f5-border) !important;
   border-radius: var(--f5-radius-sm) !important;
-  padding: 6px !important;
-  min-height: 92px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 4px !important;
+  color: var(--f5-ink) !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  padding: 5px 10px !important;
+  cursor: pointer;
 }
-body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-day.is-today {
-  background: var(--f5-navy) !important;
-  border-color: var(--f5-navy) !important;
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-nav:hover {
+  border-color: var(--f5-gold) !important;
 }
-body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-day-head {
-  display: flex !important;
-  flex-direction: column !important;
-  font-size: 10px !important;
-  color: var(--f5-muted) !important;
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-nav-arrow {
+  padding: 5px 11px !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-weekday-row {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  margin-bottom: 4px !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-weekday-row span {
+  text-align: center !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.04em !important;
+  color: var(--f5-muted) !important;
+  padding: 4px 0 !important;
 }
-body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-day-head b {
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-month-grid {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  grid-auto-rows: minmax(84px, auto) !important;
+  gap: 1px !important;
+  background: var(--f5-border) !important;
+  border: 1px solid var(--f5-border) !important;
+  border-radius: var(--f5-radius-md) !important;
+  overflow: hidden !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell {
+  background: var(--f5-card) !important;
+  padding: 6px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  min-width: 0 !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell.is-outside {
+  background: var(--f5-ivory) !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell.is-outside .cal-cell-date {
+  color: var(--f5-muted) !important;
+  opacity: 0.55 !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell.is-today {
+  background: var(--f5-navy) !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell-date {
   font-family: var(--atelier-font-display, "Playfair Display", Georgia, serif) !important;
-  font-size: 15px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
   color: var(--f5-ink) !important;
 }
-body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-day.is-today .cal-day-head,
-body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-day.is-today .cal-day-head b {
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell.is-today .cal-cell-date {
   color: #fdfbf8 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 50% !important;
+  background: var(--f5-gold) !important;
+  color: var(--f5-navy-deep) !important;
 }
-body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-event {
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-chip {
+  display: block !important;
+  width: 100% !important;
   background: var(--f5-blush) !important;
   color: var(--f5-ink) !important;
-  border-radius: 6px !important;
+  border: 0 !important;
+  border-radius: 5px !important;
   padding: 2px 5px !important;
   font-size: 10px !important;
   font-weight: 600 !important;
+  text-align: left !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
+  cursor: pointer;
+  font-family: inherit !important;
 }
-body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-day.is-today .cal-event {
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell.is-today .cal-chip {
   background: rgba(201, 169, 98, 0.85) !important;
   color: var(--f5-navy-deep) !important;
 }
-
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-more {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--f5-rose) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  padding: 0 2px !important;
+  text-align: left !important;
+  cursor: pointer;
+  font-family: inherit !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell.is-today .cal-more {
+  color: #fdfbf8 !important;
+}
+@media (max-width: 760px) {
+  body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-month-grid {
+    grid-auto-rows: minmax(56px, auto) !important;
+  }
+  body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-chip,
+  body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-more {
+    display: none !important;
+  }
+}
