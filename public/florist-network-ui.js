@@ -56,10 +56,18 @@
         ? `<button type="button" class="primary" data-wire-pay="${esc(row.id)}">Pay partner via Stripe</button>
            <button type="button" class="secondary" data-wire-offline="${esc(row.id)}">Mark paid offline</button>`
         : "";
+    const sendingPercent = Number(row.sending_shop_percent ?? 20);
+    const meta = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+    const sendingAmount = Number(meta.sending_shop_amount ?? (Number(row.wire_amount || 0) * (sendingPercent / 100)));
+    const fulfillingAmount = Number(meta.fulfilling_shop_amount ?? (Number(row.wire_amount || 0) - sendingAmount));
+    const splitLabel =
+      view === "outbox"
+        ? `Your cut: $${sendingAmount.toFixed(2)} (${sendingPercent}%) · Partner gets $${fulfillingAmount.toFixed(2)} · Florisyn $0`
+        : `Sending shop keeps $${sendingAmount.toFixed(2)} (${sendingPercent}%) · You get $${fulfillingAmount.toFixed(2)} · Florisyn $0`;
     return `<article class="panel wire-card">
       <div class="panel-heading"><div><p class="eyebrow">${esc(row.wire_number)} ${paymentBadge}</p><h3>${esc(row.recipient_name)}</h3>
       <p class="subtle">${esc(row.delivery_date)} · ${esc(row.status_label || row.status)}</p></div>
-      <strong>$${Number(row.wire_amount || 0).toFixed(2)}</strong><small class="subtle"> · 100% to partner · $0 Florisyn</small></div>
+      <strong>$${Number(row.wire_amount || 0).toFixed(2)}</strong><small class="subtle"> · ${esc(splitLabel)}</small></div>
       <p>${esc(row.product_description)}</p>
       <p class="subtle">${esc(row.delivery_address)}</p>
       ${row.card_message ? `<p class="subtle"><em>${esc(row.card_message)}</em></p>` : ""}
@@ -87,8 +95,8 @@
         <article class="panel">
           <p class="eyebrow">FLORISYN FLORIST NETWORK</p>
           <h2>Florist-to-florist wires</h2>
-          <p class="subtle">Send overflow orders to trusted partner shops. <strong>Florisyn charges $0 on wires</strong> — your partner receives 100% of the wire amount via Stripe Connect (or you can mark paid offline).</p>
-          <p class="subtle fn-zero-fee-banner">Production-ready at launch · Pay partners in-app · No Florisyn cut on wire sales</p>
+          <p class="subtle"><strong>Florisyn charges $0 on wires</strong> — you keep the customer's payment you already took in-shop. When you send a wire, you keep your agreed commission and only your partner's share is charged via Stripe Connect (or you can mark paid offline).</p>
+          <p class="subtle fn-zero-fee-banner">Production-ready at launch · You set the split with each partner · No Florisyn cut on wire sales</p>
           <p class="subtle">Partners receiving card payments must connect Stripe in <a href="#" data-page="paymentsPage">Payment Center</a>.</p>
           <form id="wireForm" class="form-grid two">
             <label class="wide">Fulfilling florist<select name="fulfilling_shop_id" required>${partnerOptions || '<option value="">Join the network to see partners</option>'}</select></label>
@@ -97,8 +105,10 @@
             <label class="wide">Delivery address<input name="delivery_address" required></label>
             <label>Delivery date<input name="delivery_date" type="date" required></label>
             <label>Wire amount ($)<input name="wire_amount" type="number" min="1" step="0.01" required></label>
+            <label>Your commission (%)<input name="sending_shop_percent" type="number" min="0" max="100" step="1" value="${Number(profile.profile?.wire_fee_percent ?? 20)}" required></label>
             <label class="wide">Arrangement description<textarea name="product_description" rows="2" required></textarea></label>
             <label class="wide">Card message<textarea name="card_message" rows="2"></textarea></label>
+            <p class="subtle wide">You keep your commission from what you already collected — it's never charged again here. Only your partner's share is charged when you pay them.</p>
             <div class="card-actions wide"><button type="submit" class="primary">Send wire order</button></div>
           </form>
         </article>
@@ -110,6 +120,8 @@
           <h3>Your network profile</h3>
           <p class="subtle">${profile.profile ? `${esc(profile.profile.display_name)} · ${profile.profile.accepts_incoming_wires ? "Accepting wires" : "Not accepting"}` : "Create your profile so other florists can wire orders to you."}</p>
           ${profile.profile ? `<p class="subtle fn-rating">${profile.rating_count ? `Your reputation: ${stars(profile.rating_average)} (${profile.rating_count} rating${profile.rating_count === 1 ? "" : "s"})` : "No ratings yet — they'll show up here once a partner rates a delivered wire."}</p>` : ""}
+          <label>Your standard commission when you send a wire (%)<input id="fnWireFeePercent" type="number" min="0" max="100" step="1" value="${Number(profile.profile?.wire_fee_percent ?? 20)}"></label>
+          <p class="subtle">Used as the default split on new wires — you can still change it per wire. Florisyn never takes a cut.</p>
           <div class="card-actions">
             <button type="button" class="secondary" id="fnActivateProfile">${profile.profile ? "Update profile" : "Join Florist Network"}</button>
             <button type="button" class="secondary" data-page="paymentsPage">Connect Stripe to receive wires</button>
@@ -128,7 +140,14 @@
         try {
           const sent = await netApi("send-wire", { ...Object.fromEntries(fd.entries()), send: true });
           window.toast?.("Wire order sent");
-          if (sent?.item?.id && window.confirm("Pay your partner now? 100% goes to them — Florisyn fee is $0.")) {
+          const settlement = sent?.settlement;
+          if (
+            sent?.item?.id &&
+            settlement &&
+            window.confirm(
+              `Pay your partner now? You keep your ${settlement.sending_shop_percent}% commission ($${Number(settlement.sending_shop_amount).toFixed(2)}) — only their share ($${Number(settlement.fulfilling_shop_amount).toFixed(2)}) is charged. Florisyn fee is $0.`
+            )
+          ) {
             await payWire(sent.item.id);
             return;
           }
@@ -140,7 +159,12 @@
 
       root.querySelector("#fnActivateProfile")?.addEventListener("click", async () => {
         try {
-          await netApi("save-profile", { is_active: true, accepts_incoming_wires: true });
+          const wireFeePercent = Number(root.querySelector("#fnWireFeePercent")?.value);
+          await netApi("save-profile", {
+            is_active: true,
+            accepts_incoming_wires: true,
+            wire_fee_percent: Number.isFinite(wireFeePercent) ? wireFeePercent : 20,
+          });
           window.toast?.("Florist Network profile saved");
           load(root);
         } catch (err) {

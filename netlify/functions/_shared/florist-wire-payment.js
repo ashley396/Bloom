@@ -2,8 +2,15 @@ import {
   stripeApplicationFeeCents,
   buildWireCheckoutMetadata,
 } from "../../../lib/florist-network/wire-payment.js";
-import { computeWireSettlement } from "../../../lib/florist-network/wire-orders.js";
+import { computeWireSplit } from "../../../lib/florist-network/wire-orders.js";
 
+/**
+ * Only the fulfilling shop's share is ever charged here — the sending
+ * shop's commission is kept from what they already collected from their
+ * own customer and never passes through Florisyn at all. This is the
+ * "the % just comes straight out of the sending shop's account" model:
+ * the sending florist pays out exactly the partner's cut, nothing more.
+ */
 export async function createFloristWireCheckoutSession(stripe, {
   wire,
   sendingShopId,
@@ -12,10 +19,9 @@ export async function createFloristWireCheckoutSession(stripe, {
   customerEmail,
   siteUrl,
 }) {
-  const amount = Math.max(0, Number(wire.wire_amount || 0));
-  const cents = Math.round(amount * 100);
-  const settlement = computeWireSettlement(amount);
-  const applicationFee = stripeApplicationFeeCents(amount);
+  const split = computeWireSplit(wire.wire_amount, wire.sending_shop_percent);
+  const cents = Math.round(split.fulfilling_shop_amount * 100);
+  const applicationFee = stripeApplicationFeeCents();
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
@@ -28,7 +34,7 @@ export async function createFloristWireCheckoutSession(stripe, {
           unit_amount: cents,
           product_data: {
             name: `Florist Network wire ${wire.wire_number}`,
-            description: `100% to partner florist ($${settlement.fulfilling_shop_payout.toFixed(2)}) — Florisyn fee $0`,
+            description: `Partner's share ($${split.fulfilling_shop_amount.toFixed(2)}, ${(100 - split.sending_shop_percent).toFixed(0)}%) — your ${split.sending_shop_percent.toFixed(0)}% commission ($${split.sending_shop_amount.toFixed(2)}) stays with you. Florisyn fee $0.`,
           },
         },
       },
@@ -43,7 +49,7 @@ export async function createFloristWireCheckoutSession(stripe, {
     cancel_url: `${siteUrl}/?florist_wire=cancelled&wire=${encodeURIComponent(wire.id)}`,
   });
 
-  return { session, settlement };
+  return { session, settlement: split };
 }
 
 export async function markFloristWirePaidFromCheckout(client, session) {

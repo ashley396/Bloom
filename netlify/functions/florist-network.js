@@ -13,9 +13,10 @@ import {
   generateWireNumber,
   canTransitionWire,
   WIRE_STATUS_LABELS,
-  computeWireSettlement,
+  computeWireSplit,
   FLORISYN_WIRE_PLATFORM_FEE_PERCENT,
   WIRE_ZERO_PLATFORM_POLICY,
+  DEFAULT_SENDING_SHOP_PERCENT,
   validateWireRatingPayload,
   canRateWire,
   aggregateRatingsByShop,
@@ -196,7 +197,18 @@ export async function handler(event) {
       if (!v.ok) return json(400, { error: v.error });
       const fulfilling_shop_id = body.fulfilling_shop_id;
       if (!fulfilling_shop_id) return json(400, { error: "Select a fulfilling florist." });
-      const settlement = computeWireSettlement(v.payload.wire_amount);
+      // Your commission — defaults to your own network profile's standard
+      // rate if you didn't set one for this specific wire.
+      let sendingShopPercent = v.payload.sending_shop_percent;
+      if (sendingShopPercent === null) {
+        const { data: myProfile } = await client
+          .from("florist_network_profiles")
+          .select("wire_fee_percent")
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        sendingShopPercent = myProfile?.wire_fee_percent ?? DEFAULT_SENDING_SHOP_PERCENT;
+      }
+      const settlement = computeWireSplit(v.payload.wire_amount, sendingShopPercent);
       const record = {
         wire_number: generateWireNumber(),
         sending_shop_id: shopId,
@@ -204,11 +216,12 @@ export async function handler(event) {
         source_order_id: body.source_order_id || null,
         status: body.send ? "sent" : "draft",
         ...v.payload,
+        sending_shop_percent: settlement.sending_shop_percent,
         payment_status: "unpaid",
         metadata: {
           florisyn_platform_fee: settlement.florisyn_platform_fee,
-          fulfilling_shop_payout: settlement.fulfilling_shop_payout,
-          partner_relay_fee: settlement.partner_relay_fee,
+          sending_shop_amount: settlement.sending_shop_amount,
+          fulfilling_shop_amount: settlement.fulfilling_shop_amount,
           wire_policy: WIRE_ZERO_PLATFORM_POLICY,
         },
         sent_at: body.send ? new Date().toISOString() : null,
