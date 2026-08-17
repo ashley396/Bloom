@@ -10,11 +10,13 @@
   "characters": {
     "Lily": { "name": "", "title": "", "blurb": "" },
     "Rose": { "name": "", "title": "", "blurb": "" },
-    "Daisy": { "name": "", "title": "", "blurb": "" }
+    "Daisy": { "name": "", "title": "", "blurb": "" },
+    "Bud": { "name": "", "title": "", "blurb": "" }
   },
   "voices": {
     "Lily": null,
     "Rose": null,
-    "Daisy": null
+    "Daisy": null,
+    "Bud": null
   }
 }

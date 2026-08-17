@@ -16,9 +16,27 @@ test("design overrides JSON is visual-only config", () => {
   const doc = JSON.parse(overrides);
   assert.equal(doc.version, 1);
   assert.ok(doc.cssVars && doc.texts && doc.styles && doc.images && doc.layout && doc.voices);
-  assert.ok(doc.characters && doc.characters.Lily && doc.characters.Rose && doc.characters.Daisy);
+  assert.ok(doc.characters && doc.characters.Lily && doc.characters.Rose && doc.characters.Daisy && doc.characters.Bud);
   assert.ok(Array.isArray(doc.library));
-  assert.ok("Lily" in doc.voices && "Rose" in doc.voices && "Daisy" in doc.voices);
+  assert.ok("Lily" in doc.voices && "Rose" in doc.voices && "Daisy" in doc.voices && "Bud" in doc.voices);
+});
+
+/**
+ * Bud joined Lily, Rose, and Daisy as a 4th assistant persona (see
+ * florist-ai-personas / lily-platform.js), but the admin's character
+ * text/voice editor still had a hardcoded 3-persona list — Bud had no
+ * card to edit his display name/title/blurb, and no way for an admin to
+ * upload a custom voice sample for him, unlike his three siblings.
+ */
+test("admin character/voice editor includes Bud alongside Lily, Rose, and Daisy", () => {
+  assert.match(editorJs, /const PERSONAS = \[.*"Bud".*\]/);
+  assert.match(editorJs, /Bud: \{ name: "", title: "", blurb: "" \}/);
+  assert.match(editorJs, /voices: \{ Lily: null, Rose: null, Daisy: null, Bud: null \}/);
+  // The characters merge must be driven by PERSONAS, not a hardcoded
+  // Lily/Rose/Daisy trio, so a partially-saved Bud entry still gets
+  // defaults for any missing name/title/blurb field the same way his
+  // siblings do.
+  assert.match(editorJs, /characters: PERSONAS\.reduce/);
 });
 
 test("UI editor is admin-gated and visual-only", () => {

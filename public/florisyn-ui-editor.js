@@ -8,7 +8,7 @@
   const MAX_VOICE_BYTES = 3.5 * 1024 * 1024;
   const MAX_IMAGE_BYTES = 2.5 * 1024 * 1024;
 
-  const PERSONAS = ["Lily", "Rose", "Daisy"];
+  const PERSONAS = ["Lily", "Rose", "Daisy", "Bud"];
   const TEXT_SAFE_TAGS = new Set(["H1", "H2", "H3", "H4", "H5", "H6", "P", "SPAN", "LABEL", "B", "STRONG", "SMALL", "EM", "A", "LI", "FIGCAPTION", "BUTTON"]);
   const FORBIDDEN_TEXT_SELECTOR_RE =
     /(?:^|[\s>+~])(html|body|main|aside|nav|form|section|article|header|footer|dialog)(?:$|[\s.[:#>])|#adminApp\b|#adminAuth\b|#ownerSetup\b|#uiDesignModeRoot\b|#uiDesignModeView\b|#florisynDesignBar\b|#florisynDesignInspector\b|\.shell\b|\.admin-shell\b|\.view\b|\.page\b|\.sidebar\b|\.workspace\b|\.panel\b|\.florisyn-design-admin-panel\b/i;
@@ -27,9 +27,10 @@
     characters: {
       Lily: { name: "", title: "", blurb: "" },
       Rose: { name: "", title: "", blurb: "" },
-      Daisy: { name: "", title: "", blurb: "" }
+      Daisy: { name: "", title: "", blurb: "" },
+      Bud: { name: "", title: "", blurb: "" }
     },
-    voices: { Lily: null, Rose: null, Daisy: null }
+    voices: { Lily: null, Rose: null, Daisy: null, Bud: null }
   });
 
   function isForbiddenTextSelector(sel) {
@@ -84,13 +85,10 @@
       layout,
       images,
       voices: { ...base.voices, ...(next.voices || {}) },
-      characters: {
-        ...base.characters,
-        ...(next.characters || {}),
-        Lily: { ...base.characters.Lily, ...(next.characters?.Lily || {}) },
-        Rose: { ...base.characters.Rose, ...(next.characters?.Rose || {}) },
-        Daisy: { ...base.characters.Daisy, ...(next.characters?.Daisy || {}) }
-      },
+      characters: PERSONAS.reduce(
+        (acc, p) => ({ ...acc, [p]: { ...base.characters[p], ...(next.characters?.[p] || {}) } }),
+        { ...base.characters, ...(next.characters || {}) }
+      ),
       library: Array.isArray(next.library) ? next.library : []
     };
   }
@@ -1149,7 +1147,7 @@
       </article>
       <article class="panel florisyn-design-admin-panel" style="margin-top:16px">
         <h2>Character text & personality</h2>
-        <p class="subtle">Edit Lily, Rose, and Daisy display name, title, and personality blurb. Visual copy only.</p>
+        <p class="subtle">Edit Lily, Rose, Daisy, and Bud display name, title, and personality blurb. Visual copy only.</p>
         <div class="voice-upload-grid">
           ${PERSONAS.map((p) => {
             const c = doc.characters?.[p] || {};
@@ -1167,7 +1165,7 @@
       </article>
       <article class="panel florisyn-design-admin-panel" style="margin-top:16px">
         <h2>Character voices</h2>
-        <p class="subtle">Upload custom audio for Lily, Rose, and Daisy (mp3/wav/ogg/m4a, under 3.5 MB).</p>
+        <p class="subtle">Upload custom audio for Lily, Rose, Daisy, and Bud (mp3/wav/ogg/m4a, under 3.5 MB).</p>
         <div class="voice-upload-grid">
           ${PERSONAS.map(
             (p) => `<div class="voice-card" data-voice-card="${p}">
