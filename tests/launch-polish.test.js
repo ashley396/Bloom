@@ -37,6 +37,23 @@ test("parseProductImages supports multiple urls and gallery fields", () => {
   assert.ok(urls.includes("https://example.com/a.jpg"));
 });
 
+test("parseProductImages accepts site-relative photo paths, not just absolute http(s) URLs", () => {
+  // Regression: a product added via Floral Library "Add to shop" can carry
+  // a real, working local photo (public/assets/floral-library/...), but
+  // the old http(s)-only check silently dropped it, so a real photo was
+  // shown as a flower-emoji placeholder everywhere this is used (dashboard
+  // Top Bouquets, Products grid, marketplace listings).
+  const urls = parseProductImages({ image_url: "/assets/floral-library/funeral/fn-21-casket-spray-red-white-silver.jpg" });
+  assert.deepEqual(urls, ["/assets/floral-library/funeral/fn-21-casket-spray-red-white-silver.jpg"]);
+});
+
+test("parseProductImages accepts data URIs and still drops garbage values", () => {
+  const withDataUri = parseProductImages({ image_url: "data:image/png;base64,iVBORw0KGgo=" });
+  assert.equal(withDataUri.length, 1);
+  const withGarbage = parseProductImages({ image_url: "not a real image reference" });
+  assert.equal(withGarbage.length, 0);
+});
+
 test("empty and error states include accessible roles", () => {
   const empty = bloomEmptyState({ title: "No orders", message: "Create one to begin." });
   assert.match(empty, /role="status"/);
