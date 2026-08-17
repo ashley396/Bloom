@@ -480,9 +480,10 @@
       loadCart();
       renderPage(route);
       bindEvents(route);
-      document.getElementById("storefrontFooter").innerHTML = `<p>${esc(state.site.site.shop.name)}</p><p class="subtle">Domain status: ${state.site.domain?.connected ? "Custom domain pending verification" : "Florisyn temporary address"} — not a purchase confirmation.</p>`;
+      document.getElementById("storefrontFooter").innerHTML = `<p>${esc(state.site.site.shop.name)}</p><p class="subtle">© ${new Date().getFullYear()} ${esc(state.site.site.shop.name)}. Powered by Florisyn.</p>`;
     } catch (err) {
-      document.getElementById("main").innerHTML = `<div class="empty-state"><h1>Unavailable</h1><p>${esc(err.message)}</p></div>`;
+      console.error("Storefront failed to load:", err);
+      document.getElementById("main").innerHTML = `<div class="empty-state"><h1>We're having trouble loading this shop</h1><p>Please try again in a moment, or contact the florist directly if this continues.</p></div>`;
     }
   }
 
