@@ -1238,6 +1238,60 @@ export async function handler(event) {
       });
     }
 
+    // "Add to my library" — one click on any post's photo saves it as a
+    // draft product in the caller's own Floral Library/Products, ready to
+    // price and publish. Deliberately not gated behind Lily's recipe
+    // build (import_recipe_to_shop above) — a florist should be able to
+    // grab a photo they like for inspiration without waiting on that.
+    if (action === "save_post_to_library") {
+      requireParticipant(ctx);
+      const postId = String(body.post_id || "");
+      if (!postId) return json(400, { error: "post_id is required." });
+      const { data: post, error: postErr } = await client
+        .from("florist_community_posts")
+        .select(POST_COLUMNS)
+        .eq("id", postId)
+        .eq("status", "active")
+        .maybeSingle();
+      if (postErr) {
+        if (missingRelation(postErr)) friendlyMissing();
+        throw postErr;
+      }
+      if (!post) return json(404, { error: "Post not found." });
+      if (!post.image_path) return json(400, { error: "This post doesn't have a photo to save." });
+      const imageDataUrl = String(body.image_data_url || "").trim();
+      if (!imageDataUrl.startsWith("data:image/")) {
+        return json(400, { error: "Could not read that photo. Try again." });
+      }
+      const name = String(post.caption || "Community arrangement").slice(0, 120);
+      const productPayload = {
+        shop_id: shopId,
+        name,
+        // Community post categories (Design Help, Questions, …) aren't
+        // product categories, so this always lands in a safe default —
+        // the florist can recategorize when they price/publish it.
+        category: "Everyday",
+        description: String(post.body || `Saved from Florist Community: ${name}`).slice(0, 2000),
+        image_url: imageDataUrl,
+        price: 0,
+        active: false,
+        featured: false,
+        available_online: false,
+      };
+      const { data: product, error: pe } = await client
+        .from("products")
+        .insert(productPayload)
+        .select("id,name")
+        .single();
+      if (pe) throw pe;
+      return json(201, {
+        ok: true,
+        product_id: product.id,
+        product_name: product.name,
+        message: `${product.name} was saved to your Floral Library — price and publish it any time in Products.`,
+      });
+    }
+
     return json(400, { error: "Unknown community action." });
   } catch (error) {
     return fail(error);
