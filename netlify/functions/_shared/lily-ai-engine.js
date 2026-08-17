@@ -77,6 +77,9 @@ export function detectIntent(message = "") {
   if (/new users today|marketplace growth|pending approvals|support backlog|system health/i.test(lower)) {
     return { domain: "admin", intent: "admin.insights", confidence: 0.7, slots: { prompt: text } };
   }
+  if (/\b(bug|broken|not working|isn'?t working|error message|crash(ed|ing)?|glitch|won'?t (save|load|open)|keeps? (failing|erroring)|stuck on|something'?s wrong)\b/i.test(lower)) {
+    return { domain: "support", intent: "support.report_issue", confidence: 0.86, slots: { prompt: text } };
+  }
 
   return { domain: "general", intent: "general.chat", confidence: 0.4, slots: { prompt: text } };
 }
@@ -109,6 +112,7 @@ const PERMISSIONS = {
   "florist.photo_placeholder": ["owner", "manager", "staff", "designer"],
   "navigation.open": ["owner", "manager", "staff", "designer", "driver", "employee"],
   "general.chat": ["owner", "manager", "staff", "designer", "driver", "employee"],
+  "support.report_issue": ["owner", "manager", "staff", "designer", "driver", "employee"],
   "admin.insights": ["super_admin", "support", "billing", "designer"]
 };
 
@@ -198,6 +202,16 @@ export function planClientAction(intent, slots = {}) {
       };
     case "admin.insights":
       return { type: "admin", requiresConfirmation: false, navigate: "admin_command_center" };
+    case "support.report_issue":
+      return {
+        type: "api",
+        requiresConfirmation: true,
+        label: "Send this to Bud so he can look into it",
+        successMessage: "Bud sent that in — Florisyn will follow up.",
+        endpoint: "support-ticket",
+        method: "POST",
+        body: { action: "create", subject: String(slots.prompt || "").slice(0, 120), body: slots.prompt }
+      };
     default:
       return null;
   }

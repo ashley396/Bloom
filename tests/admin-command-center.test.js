@@ -235,6 +235,67 @@ test("support-request-fix: an unknown ticket id returns 404, not a crash", async
   assert.equal(res.statusCode, 404);
 });
 
+test("bud-queue-list: surfaces queued fix requests so 'delivered' isn't just a trust-me status", async () => {
+  const client = createFakeSupabaseClient([
+    { data: { user_id: "u1", role: "super_admin", active: true }, error: null }, // platform_admins
+    { data: [{ id: "fix_1", subject: "Delete button broken", status: "queued" }], error: null }, // list
+  ]);
+  const handler = createAdminCommandCenterHandler({
+    authenticate: async () => ({ user: { id: "u1" } }),
+    createServerClient: () => client,
+  });
+  const res = await handler({
+    httpMethod: "POST",
+    queryStringParameters: {},
+    headers: {},
+    body: JSON.stringify({ action: "bud-queue-list" }),
+  });
+  assert.equal(res.statusCode, 200);
+  const body = JSON.parse(res.body);
+  assert.equal(body.items.length, 1);
+  assert.equal(body.items[0].id, "fix_1");
+});
+
+test("bud-queue-update: rejects a status outside the known set", async () => {
+  const client = createFakeSupabaseClient([
+    { data: { user_id: "u1", role: "super_admin", active: true }, error: null },
+  ]);
+  const handler = createAdminCommandCenterHandler({
+    authenticate: async () => ({ user: { id: "u1" } }),
+    createServerClient: () => client,
+  });
+  const res = await handler({
+    httpMethod: "POST",
+    queryStringParameters: {},
+    headers: {},
+    body: JSON.stringify({ action: "bud-queue-update", id: "fix_1", status: "not_a_real_status" }),
+  });
+  assert.equal(res.statusCode, 400);
+});
+
+test("bud-queue-update: moves a request's status and records an audit event", async () => {
+  const client = createFakeSupabaseClient([
+    { data: { user_id: "u1", role: "super_admin", active: true }, error: null },
+    { data: { id: "fix_1", status: "investigating" }, error: null }, // update
+  ]);
+  const handler = createAdminCommandCenterHandler({
+    authenticate: async () => ({ user: { id: "u1" } }),
+    createServerClient: () => client,
+  });
+  const res = await handler({
+    httpMethod: "POST",
+    queryStringParameters: {},
+    headers: {},
+    body: JSON.stringify({ action: "bud-queue-update", id: "fix_1", status: "investigating" }),
+  });
+  assert.equal(res.statusCode, 200);
+  const body = JSON.parse(res.body);
+  assert.equal(body.item.status, "investigating");
+  const updateCall = client.calls.find((c) => c.table === "platform_agent_fix_requests" && c.ops.some(([op]) => op === "update"));
+  assert.ok(updateCall, "expected an update against platform_agent_fix_requests");
+  assert.equal(updateCall.payload.status, "investigating");
+});
+
 test("buildMonthlySeries aggregates rows by month", () => {
   const series = buildMonthlySeries([{ created_at: new Date().toISOString() }], { months: 3 });
   assert.equal(series.length, 3);

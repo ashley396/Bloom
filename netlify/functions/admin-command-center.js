@@ -710,6 +710,51 @@ export function createAdminCommandCenterHandler(deps = {}) {
       return json(200, { item: data, delivery, message: deliveryMessage });
     }
 
+    // Bud's Fix Queue — where a "Request Claude Code fix" click above
+    // actually lands once CLAUDE_CODE_FIX_WEBHOOK_URL points at
+    // claude-code-fix-intake.js. Visible here so "delivered" isn't just a
+    // trust-me status — an admin can see the request queued and update it
+    // as it moves through investigation → diff ready → shipped.
+    if (action === "bud-queue-list") {
+      requireSuperAdmin(admin);
+      const { data, error } = await client
+        .from("platform_agent_fix_requests")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return json(200, { items: data || [] });
+    }
+
+    if (action === "bud-queue-update") {
+      requireSuperAdmin(admin);
+      const id = body.id;
+      if (!id) return json(400, { error: "id is required" });
+      const allowedStatuses = ["queued", "investigating", "diff_ready", "awaiting_approval", "shipped", "dismissed"];
+      const patch = { updated_at: new Date().toISOString() };
+      if (body.status !== undefined) {
+        if (!allowedStatuses.includes(body.status)) return json(400, { error: "Invalid status." });
+        patch.status = body.status;
+      }
+      if (body.assignee_note !== undefined) {
+        patch.assignee_note = String(body.assignee_note || "").slice(0, 2000);
+      }
+      const { data, error } = await client
+        .from("platform_agent_fix_requests")
+        .update(patch)
+        .eq("id", id)
+        .select("*")
+        .single();
+      if (error) throw error;
+      await writeCommandAudit(client, user.id, "bud_queue_update", {
+        targetType: "agent_fix_request",
+        targetId: id,
+        ip,
+        status: body.status
+      });
+      return json(200, { item: data });
+    }
+
     if (action === "create-announcement") {
       requireSuperAdmin(admin);
       const validation = validateAnnouncementPayload(body);
