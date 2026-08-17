@@ -1169,7 +1169,20 @@ const SHOT_BACKGROUND_STYLES={
   "luxury-noir":{type:"gradient",from:"#0a0a0d",to:"#232128"}
 };
 const shotState=()=>({brightness:Number($("#shotBrightness")?.value||100),contrast:Number($("#shotContrast")?.value||100),saturation:Number($("#shotSaturation")?.value||100),warmth:Number($("#shotWarmth")?.value||0),background:$("#shotBackground")?.value||"#ffffff",size:$("#shotSize")?.value||"1200x1200",watermark:$("#shotWatermark")?.value||""});
-function loadBloomShot(){const draft=localStorage.getItem("bloomShotDraft");if(draft){try{const d=JSON.parse(draft);for(const [id,value] of Object.entries(d.fields||{})){const el=document.getElementById(id);if(el)el.value=value}if($("#shotStatus"))$("#shotStatus").textContent="Your last editable draft is available."}catch{}}drawBloomShot()}
+function loadBloomShot(){const draft=localStorage.getItem("bloomShotDraft");if(draft){try{const d=JSON.parse(draft);for(const [id,value] of Object.entries(d.fields||{})){const el=document.getElementById(id);if(el)el.value=value}
+  /* Restore the uploaded photo itself, not just the text fields — a refresh
+     used to silently wipe the whole in-progress edit (upload, background
+     choice, sliders, rotation) while text fields survived, with no warning.
+     Re-run the same free client-side background removal a fresh upload gets
+     instead of also persisting the cutout separately. */
+  if(d.image){
+    shotRotation=Number(d.rotation)||0;
+    const img=new Image();
+    img.onload=()=>{shotImage=img;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;drawBloomShot();prepareShotCutout();if($("#shotStatus"))$("#shotStatus").textContent="Your last photo and edits were restored on this device."};
+    img.onerror=()=>{if($("#shotStatus"))$("#shotStatus").textContent="Your last editable draft is available.";};
+    img.src=d.image;
+  }else if($("#shotStatus"))$("#shotStatus").textContent="Your last editable draft is available.";
+  }catch{}}drawBloomShot()}
 function shotCanvasSize(){return String($("#shotSize")?.value||"1200x1200").split("x").map(Number)}
 function drawBloomShot(){const canvas=$("#bloomshotCanvas");if(!canvas)return;const [w,h]=shotCanvasSize(),ctx=canvas.getContext("2d"),s=shotState();canvas.width=w;canvas.height=h;ctx.clearRect(0,0,w,h);
   /* Background layer first, then the cut-out arrangement on top so the new
@@ -1236,17 +1249,44 @@ $("#bloomshotUseAnyway")?.addEventListener("click",()=>{
   toast("Using the cut-out background removal");
 });
 function syncShotOutputs(){$$(".bloomshot-controls label").forEach(l=>{const i=l.querySelector("input"),o=l.querySelector("output");if(i&&o)o.textContent=i.id==="shotWarmth"?i.value:`${i.value}%`})}
-function shotFields(){return Object.fromEntries(["shotProductName","shotOccasion","shotNotes","shotPrice","shotTone","shotDescription","shotCaption","shotSeo","shotAlt","shotWatermark"].map(id=>[id,document.getElementById(id)?.value||""]))}
-function saveShotDraft(silent=false){localStorage.setItem("bloomShotDraft",JSON.stringify({fields:shotFields(),savedAt:new Date().toISOString()}));if(!silent){$("#shotStatus").textContent="Draft saved on this device. Nothing was published.";toast("BloomShot draft saved")}}
-$("#bloomshotFile")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>12*1024*1024)return toast("Please choose an image under 12 MB");const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{shotImage=img;shotRotation=0;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}drawBloomShot();toast("Photo ready to edit");prepareShotCutout()};img.src=reader.result};reader.readAsDataURL(file)});
-$("#bloomshotRemovePhoto")?.addEventListener("click",()=>{shotImage=null;shotCutout=null;shotRejectedCutout=null;shotUseCutout=true;shotRotation=0;shotRecipe=null;shotSavedProductId=null;const file=$("#bloomshotFile");if(file)file.value="";const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}const cutRow=$("#bloomshotCutoutRow");if(cutRow){cutRow.hidden=true}const cutStatus=$("#bloomshotCutoutStatus");if(cutStatus)cutStatus.textContent="";drawBloomShot();if($("#shotStatus"))$("#shotStatus").textContent="Photo removed. Choose a new arrangement photo to start over.";toast("Photo removed — choose a new one")});
-$$('[data-shot-preset]').forEach(b=>b.addEventListener("click",()=>setShotPreset(b.dataset.shotPreset)));
-$$('#shotBrightness,#shotContrast,#shotSaturation,#shotWarmth,#shotBackground,#shotSize,#shotWatermark').forEach(el=>el.addEventListener("input",()=>{syncShotOutputs();drawBloomShot()}));
-$("#shotRotate")?.addEventListener("click",()=>{shotRotation=(shotRotation+90)%360;drawBloomShot()});
+function shotFields(){return Object.fromEntries(["shotProductName","shotOccasion","shotNotes","shotPrice","shotTone","shotDescription","shotCaption","shotSeo","shotAlt","shotWatermark","shotBackground","shotSize","shotBrightness","shotContrast","shotSaturation","shotWarmth"].map(id=>[id,document.getElementById(id)?.value||""]))}
+function shotDraftImage(){
+  if(!shotImage)return null;
+  /* Downscale to the same edge cap the background-removal engine already
+     uses (photo-studio.js MAX_WORK_EDGE) — plenty for on-device recovery
+     without risking localStorage's ~5-10MB per-origin quota on a single
+     saved photo. */
+  const maxEdge=1600,scale=Math.min(1,maxEdge/Math.max(shotImage.width,shotImage.height));
+  const tmp=document.createElement("canvas");
+  tmp.width=Math.max(1,Math.round(shotImage.width*scale));
+  tmp.height=Math.max(1,Math.round(shotImage.height*scale));
+  tmp.getContext("2d").drawImage(shotImage,0,0,tmp.width,tmp.height);
+  return tmp.toDataURL("image/jpeg",.85);
+}
+function saveShotDraft(silent=false){
+  const base={fields:shotFields(),rotation:shotRotation,savedAt:new Date().toISOString()};
+  try{
+    localStorage.setItem("bloomShotDraft",JSON.stringify({...base,image:shotDraftImage()}));
+  }catch(e){
+    /* Quota exceeded (large photo) or storage unavailable — never let that
+       take down the rest of the draft save; fields/rotation still matter
+       even if the photo itself couldn't be cached for recovery this time. */
+    try{localStorage.setItem("bloomShotDraft",JSON.stringify(base))}catch{}
+  }
+  if(!silent){$("#shotStatus").textContent="Draft saved on this device. Nothing was published.";toast("BloomShot draft saved")}
+}
+/* Debounced autosave for continuous controls (sliders) so dragging a slider
+   doesn't re-encode and write the photo to localStorage on every tick. */
+function scheduleShotDraftSave(){clearTimeout(shotDraftTimer);shotDraftTimer=setTimeout(()=>saveShotDraft(true),800)}
+$("#bloomshotFile")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>12*1024*1024)return toast("Please choose an image under 12 MB");const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{shotImage=img;shotRotation=0;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}drawBloomShot();toast("Photo ready to edit");prepareShotCutout();saveShotDraft(true)};img.src=reader.result};reader.readAsDataURL(file)});
+$("#bloomshotRemovePhoto")?.addEventListener("click",()=>{shotImage=null;shotCutout=null;shotRejectedCutout=null;shotUseCutout=true;shotRotation=0;shotRecipe=null;shotSavedProductId=null;const file=$("#bloomshotFile");if(file)file.value="";const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}const cutRow=$("#bloomshotCutoutRow");if(cutRow){cutRow.hidden=true}const cutStatus=$("#bloomshotCutoutStatus");if(cutStatus)cutStatus.textContent="";drawBloomShot();if($("#shotStatus"))$("#shotStatus").textContent="Photo removed. Choose a new arrangement photo to start over.";toast("Photo removed — choose a new one");saveShotDraft(true)});
+$$('[data-shot-preset]').forEach(b=>b.addEventListener("click",()=>{setShotPreset(b.dataset.shotPreset);if(shotImage)scheduleShotDraftSave()}));
+$$('#shotBrightness,#shotContrast,#shotSaturation,#shotWarmth,#shotBackground,#shotSize,#shotWatermark').forEach(el=>el.addEventListener("input",()=>{syncShotOutputs();drawBloomShot();if(shotImage)scheduleShotDraftSave()}));
+$("#shotRotate")?.addEventListener("click",()=>{shotRotation=(shotRotation+90)%360;drawBloomShot();if(shotImage)scheduleShotDraftSave()});
 function shotImageForVision(max=1024){if(!shotImage)return null;const iw=shotImage.width||max,ih=shotImage.height||max,scale=Math.min(1,max/Math.max(iw,ih)),c=document.createElement("canvas");c.width=Math.max(1,Math.round(iw*scale));c.height=Math.max(1,Math.round(ih*scale));c.getContext("2d").drawImage(shotImage,0,0,c.width,c.height);return c.toDataURL("image/jpeg",.85)}
 $("#shotRecipe")?.addEventListener("click",async()=>{if(!shotImage)return toast("Upload an arrangement photo first");const btn=$("#shotRecipe"),out=$("#shotRecipeOut"),orig=btn.textContent;btn.disabled=true;btn.textContent="Lily is studying the photo…";if($("#shotStatus"))$("#shotStatus").textContent="Lily is identifying the flowers in your photo…";try{const image_base64=shotImageForVision();const d=await api("photo-recipe",{method:"POST",body:JSON.stringify({image_base64,occasion:$("#shotOccasion")?.value||"",notes:$("#shotNotes")?.value||""})});if(!d.ok){shotRecipe=null;if(out){out.hidden=false;out.innerHTML=`<p class="subtle">${esc(d.message||"Lily couldn't read this photo. Try a clearer, closer shot of the arrangement.")}</p>`}if($("#shotStatus"))$("#shotStatus").textContent=d.message||"Lily couldn't identify the flowers.";return}shotRecipe=(d.recipe||[]).map(r=>({ingredient_name:r.name,quantity:r.qty,unit:"stem",kind:r.kind}));const rows=(d.recipe||[]).map(r=>`<li><b>${Number(r.qty||0)}</b> ${esc(r.name)}${r.kind?` <em>${esc(r.kind)}</em>`:""}</li>`).join("");if(out){out.hidden=false;out.innerHTML=`<h3>Lily's recipe <small>${Number(d.stems||0)} stems</small></h3><ul class="shot-recipe-list">${rows}</ul>${d.design_notes?`<p class="subtle">${esc(d.design_notes)}</p>`:""}<p class="subtle">Draft — edit the stems as needed. Saved into the product recipe when you click "Add to Products".</p>`}if(!$("#shotNotes")?.value?.trim()&&$("#shotNotes"))$("#shotNotes").value=(d.recipe||[]).map(r=>`${r.qty} ${r.name}`).join(", ");if($("#shotStatus"))$("#shotStatus").textContent="Lily built a recipe from your photo. Review and edit before saving.";toast("Lily identified the flowers 🌸")}catch(e){if($("#shotStatus"))$("#shotStatus").textContent=e.message;toast(e.message)}finally{btn.disabled=false;btn.textContent=orig}});
 $("#shotBackground")?.addEventListener("input",()=>{shotPresetBackground=null});
-$("#bloomshotRestore")?.addEventListener("click",()=>{shotRotation=0;setShotPreset("true");shotUseCutout=false;shotPresetBackground=null;$("#shotBackground").value="#ffffff";drawBloomShot();toast("Original photo restored — pick a style to place it on a new background")});
+$("#bloomshotRestore")?.addEventListener("click",()=>{shotRotation=0;setShotPreset("true");shotUseCutout=false;shotPresetBackground=null;$("#shotBackground").value="#ffffff";drawBloomShot();toast("Original photo restored — pick a style to place it on a new background");if(shotImage)scheduleShotDraftSave()});
 $("#bloomshotDownload")?.addEventListener("click",()=>{if(!shotImage)return toast("Choose a photo first");drawBloomShot();const a=document.createElement("a");a.download=`${($("#shotProductName")?.value||"bloomshot").replace(/[^a-z0-9]+/gi,"-").toLowerCase()}.png`;a.href=$("#bloomshotCanvas").toDataURL("image/png",.92);a.click()});
 $("#shotGenerate")?.addEventListener("click",async()=>{const b=$("#shotGenerate"),name=$("#shotProductName").value.trim(),notes=$("#shotNotes").value.trim();if(!name&&!notes)return toast("Add a product name or flower notes first");b.disabled=true;b.textContent="Lily is drafting…";$("#shotStatus").textContent="Using the lowest-cost available AI route…";try{const d=await smartAi({mode:"generate",task:"Create editable florist product content",input:{name,notes,occasion:$("#shotOccasion").value,tone:$("#shotTone").value,price:$("#shotPrice").value,shop:shopSettings||{}},schema:{description:"2 concise paragraphs",caption:"social caption with call to action",seo:"SEO title under 60 characters",alt:"accurate image alt text"}});const r=d.result||{};$("#shotDescription").value=r.description||r.text||"";$("#shotCaption").value=r.caption||"";$("#shotSeo").value=r.seo||name;$("#shotAlt").value=r.alt||`${name||"Floral arrangement"} by a local florist`;$("#shotApproved").checked=false;$("#shotStatus").textContent=`Draft created with ${d.provider||"AI"}. Review and edit every field before approval.`;saveShotDraft(true)}catch(e){$("#shotStatus").textContent=e.message;toast(e.message)}finally{b.disabled=false;b.textContent="✨ Ask Lily to draft content"}});
 $("#shotSaveDraft")?.addEventListener("click",()=>saveShotDraft(false));

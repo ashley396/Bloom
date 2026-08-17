@@ -242,7 +242,7 @@ test("app wiring: background layer first, cut-out subject on top, dimensions log
 
 test("app wiring: upload triggers cut-out and failure shows the safe message without faking success", () => {
   const appJs = fs.readFileSync(path.join(root, "public/app.js"), "utf8");
-  assert.match(appJs, /prepareShotCutout\(\)\};img\.src=reader\.result/, "upload handler must start background removal");
+  assert.match(appJs, /prepareShotCutout\(\);saveShotDraft\(true\)\};img\.src=reader\.result/, "upload handler must start background removal and autosave the photo for refresh recovery");
   const prep = appJs.slice(appJs.indexOf("function prepareShotCutout"), appJs.indexOf('$("#bloomshotFile")'));
   assert.match(prep, /FAILURE_MESSAGE/, "uses the module's failure message");
   assert.match(prep, /FALLBACK_LABEL/, "labels that background removal was not applied");
