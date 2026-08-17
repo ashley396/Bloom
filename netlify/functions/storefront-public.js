@@ -228,6 +228,19 @@ async function createWebCommerceOrder(client, { shop, bundle, body, event }) {
     if (!process.env.STRIPE_SECRET_KEY) {
       return json(503, { error: "Card payments are not configured for this shop." });
     }
+    // Without this check, the Checkout Session below would still be
+    // created and the customer would still be able to pay — just with no
+    // transfer_data.destination, which means the money settles into
+    // Florisyn's own platform Stripe balance instead of this shop's.
+    // That's silent and effectively impossible for the florist to notice
+    // until they go looking for a payout that never comes, so it's
+    // blocked here instead of left to fail invisibly downstream.
+    if (!shop.stripe_connect_account_id) {
+      return json(409, {
+        error: "This shop hasn't finished setting up card payments yet. Please choose pay-at-delivery, or contact the florist directly to arrange payment.",
+        code: "stripe_connect_required"
+      });
+    }
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const siteBase = (process.env.SITE_URL || process.env.URL || event.headers?.origin || "").replace(/\/$/, "");
     if (!siteBase) return json(503, { error: "SITE_URL is not configured." });
