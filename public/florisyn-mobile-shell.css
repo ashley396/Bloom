@@ -218,6 +218,14 @@
   body.florisyn-atelier .shell > aside {
     display: flex !important;
     flex-direction: column !important;
+    /* A legacy bloom-rc2-design-system.css rule (`body.bloom-rc2 aside`,
+       @media max-width:900px) sets flex-wrap:wrap for the old horizontal
+       chip-style mobile nav. Nothing here ever reset it back for this
+       drawer, so flex-direction:column + flex-wrap:wrap made the browser
+       start a new *column* the instant nav content ran taller than the
+       drawer — shoving the nav to the right of the brand row and off the
+       visible edge, clipping labels like "Payment Centre" mid-word. */
+    flex-wrap: nowrap !important;
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -958,6 +966,10 @@
     z-index: 1200 !important;
     display: flex !important;
     flex-direction: column !important;
+    /* See the flex-wrap note on the @media(max-width:820px) drawer rule
+       above — same legacy bloom-rc2 leak, same fix, this is the block
+       that's actually active for 821-979px viewports. */
+    flex-wrap: nowrap !important;
     overflow: hidden !important;
     box-shadow: none !important;
   }

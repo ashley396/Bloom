@@ -204,3 +204,8 @@ test("admin-mfa-config exposes only public anon settings", () => {
   assert.match(src, /anonKey/);
   assert.doesNotMatch(src, /SERVICE_ROLE|service_role|requireServerKey/);
 });
+
+// The environment-vs-skip-flag decision this handler actually makes
+// (production always requires MFA, staging can opt out with an explicit
+// flag) is behavior-tested against the real handler in
+// tests/admin-mfa-config.test.js — not just grepped for here.

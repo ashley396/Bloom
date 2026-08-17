@@ -119,6 +119,19 @@ Defines:
 
 ---
 
+### What can an AI coding agent fix without asking first?
+
+➡ **`FLORISYN_AI_AGENT_AUTONOMY_POLICY.md`**
+
+Defines:
+
+- Which fixes an agent may prepare and propose immediately (still human-approved before shipping)
+- Which fixes require a human's go-ahead before the agent even starts
+- What no agent may ever do without a human saying so in the moment
+- The rules any future support-ticket-to-agent trigger must obey
+
+---
+
 ## Documentation hierarchy
 
 Read top-down. Lower documents must not contradict higher ones.
@@ -132,6 +145,7 @@ Read top-down. Lower documents must not contradict higher ones.
    Portal Ownership Matrix       ← who owns each shared service (companion)
 6. Website Studio Blueprint      ← Website Studio permanent spec
 7. Master Build Checklist        ← ship status & release gates
+8. AI Agent Autonomy Policy      ← what an agent may fix without asking first
 ```
 
 Together these documents form the **permanent constitution for Florisyn**.

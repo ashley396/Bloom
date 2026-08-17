@@ -346,13 +346,14 @@
 .ws-shell-panel[hidden] {
   display: none;
 }
-/* The five original panels no longer need their own top margin/border once
+/* The original panels no longer need their own top margin/border once
    they live inside a ws-shell-panel — avoid doubled spacing. */
 .ws-shell-panel > .lily-wizard-shell,
 .ws-shell-panel > .instant-wizard-shell,
 .ws-shell-panel > .theme-gallery-shell,
 .ws-shell-panel > .website-studio-v2,
-.ws-shell-panel > .website-editor-shell {
+.ws-shell-panel > .website-editor-shell,
+.ws-shell-panel > .legacy-website-editor-shell {
   margin-top: 0;
 }
 .ws-shell-panel[data-panel="editor"] {

@@ -52,12 +52,19 @@ test("floral library loader chain avoids runtime fs + import.meta.url JSON reads
   assert.match(loader, /import\s+batch2\s+from\s+["'].*floral-library-everyday-batch-2\.json["']\s+with\s*\{\s*type:\s*["']json["']\s*\}/);
 });
 
+// 290 = the original 100 "everyday" arrangements + 190 across nine
+// occasion-specific batches (Funeral, Sympathy, Birthday, Wedding,
+// Congratulations, Get Well, Hydrangeas, Love & Romance, New Baby,
+// Plants) merged in alongside them — see everyday-arrangements.js.
 test("everyday library shared module imports without path crash", () => {
   const catalog = getEverydayFloralLibraryCatalog();
-  assert.equal(catalog.length, 100);
+  assert.equal(catalog.length, 290);
   assert.ok(catalog[0]?.id?.startsWith("ed-"));
 });
 
+// 216 = 290 total minus 74 "everyday" images that failed a real visual
+// QA audit (public/data/floral-library-visual-qa-results.json) and are
+// now correctly excluded via needs_image_replacement.
 test("floral-library handler GET starter returns products JSON", async () => {
   const res = await floralLibraryHandler({
     httpMethod: "GET",
@@ -66,8 +73,8 @@ test("floral-library handler GET starter returns products JSON", async () => {
   });
   assert.equal(res.statusCode, 200);
   const body = JSON.parse(res.body);
-  assert.equal(body.count, 100);
-  assert.ok(Array.isArray(body.products) && body.products.length === 100);
+  assert.equal(body.count, 216);
+  assert.ok(Array.isArray(body.products) && body.products.length === 216);
 });
 
 test("floral-library-admin handler quality action initializes", async () => {
@@ -124,7 +131,7 @@ test("esbuild bundle of floral-library.js loads and serves starter action", () =
       });
       if (res.statusCode !== 200) process.exit(2);
       const body = JSON.parse(res.body);
-      if (body.count !== 100) process.exit(3);
+      if (body.count !== 216) process.exit(3);
     }).catch(() => process.exit(1));
   `], { cwd: repoRoot, encoding: "utf8" });
   assert.equal(smoke.status, 0, smoke.stderr || smoke.stdout);

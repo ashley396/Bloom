@@ -14,8 +14,14 @@ const DEFAULT_FLAGS = {
   /** Subscriptions, loyalty, finance hub, Lily business coach — default on at public launch. */
   BUSINESS_ECOSYSTEM: true,
   INSTANT_WEBSITE: true,
-  /** Full Website Studio v2 (Lily quick start, visual editor, checkout) — not production until phased rollout */
-  WEBSITE_STUDIO_V2: false,
+  /**
+   * Full Website Studio v2 (tabbed shell, whole-page CRUD, image upload +
+   * media library, revision history, enforced pre-publish checklist) —
+   * built, migrated, and already mounting unconditionally in production
+   * for every florist since 2026-08-15. Default true so the flag reflects
+   * what's actually shipping instead of contradicting it.
+   */
+  WEBSITE_STUDIO_V2: true,
   INVENTORY_AI_INTAKE: false,
   /** Deduct recipe ingredients when orders reach production-ready status (not at entry). */
   INVENTORY_RECIPE_DEDUCTIONS: true,

@@ -20,8 +20,7 @@ import {
   applyProductSyncToggle,
   validateLibraryProduct,
   detectDuplicateImageHash,
-  getPublicFloralLibraryCatalog,
-  getEverydayFloralLibraryCatalog
+  getPublicFloralLibraryCatalog
 } from "../netlify/functions/_shared/floral-library-core.js";
 
 test("website generation from shop profile", () => {
@@ -164,32 +163,43 @@ test("everyday library includes hydrangea and roses", () => {
   assert.match(names, /rose/);
 });
 
-test("public floral library serves 100 everyday ultra-realistic arrangements", () => {
+// Counts below reflect two fixes made after a real per-image visual QA
+// audit (public/data/floral-library-visual-qa-results.json) turned out to
+// have never been applied: 74 of the original 100 "everyday" images were
+// off-subject (fish, a cake, portraits, landscapes) and are now excluded
+// via needs_image_replacement; nine occasion-specific batches (Funeral,
+// Sympathy, Birthday, Wedding, Congratulations, Get Well, Hydrangeas,
+// Love & Romance, New Baby, Plants — 190 items) existed fully generated
+// on disk but were never merged into the served catalog, so they're
+// included now too.
+test("public floral library serves the QA-passed everyday set plus every occasion batch", () => {
   const catalog = getPublicFloralLibraryCatalog();
-  assert.equal(catalog.length, 100);
+  assert.equal(catalog.length, 26 + 190);
   assert.ok(catalog.some((p) => p.id === "ed-01-sunshine-cube"));
-  assert.ok(catalog.some((p) => p.id === "ed-100-florist-counter-classic"));
+  assert.ok(!catalog.some((p) => p.id === "ed-100-florist-counter-classic"), "QA-failed image (rusted light fixture) must be excluded");
   assert.ok(catalog.some((p) => p.name === "Everyday Florist Favorite"));
   assert.ok(catalog.every((p) => p.primary_image?.url));
   assert.ok(catalog.every((p) => !String(p.id).startsWith("lib-rc2-")), "catalog must not include RC2 filler grid");
   assert.ok(!catalog.some((p) => p.name === "Garden Rose Bouquet"), "no auto-generated Garden Rose filler");
   assert.ok(!catalog.some((p) => p.image_license?.source === "licensed_stock_pexels"), "no legacy Pexels starters");
   assert.ok(!catalog.some((p) => p.id.startsWith("sig-")), "no legacy signature ids");
+  assert.ok(catalog.some((p) => p.categories?.includes("Funeral")), "Funeral occasion batch is live");
   const ids = catalog.map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length);
 });
 
-test("everyday library is marked for ultra-realistic launch quality", () => {
-  const catalog = getEverydayFloralLibraryCatalog();
-  assert.equal(catalog.length, 100);
+test("served library items are marked for ultra-realistic launch quality", () => {
+  const catalog = getPublicFloralLibraryCatalog();
+  assert.equal(catalog.length, 26 + 190);
   for (const product of catalog) {
     assert.equal(product.metadata?.image_standard, "ultra_realistic_professional_floral_photography");
     assert.equal(product.metadata?.launch_quality, "everyday_verified");
-    assert.match(product.primary_image.alt, /ultra-realistic/i);
-    assert.match(product.description, /ultra-realistic/i);
+    assert.ok(String(product.primary_image.alt || "").length > 5, `${product.id}: must have real alt text`);
     assert.ok(product.tags.includes("ultra_realistic"));
-    assert.ok(product.categories.includes("Everyday"));
+    assert.ok(Array.isArray(product.categories) && product.categories.length > 0, `${product.id}: must declare a real category`);
   }
+  assert.ok(catalog.filter((p) => p.id.startsWith("ed-")).every((p) => p.categories.includes("Everyday")));
+  assert.ok(catalog.filter((p) => p.id.startsWith("fn-")).every((p) => p.categories.includes("Funeral")));
 });
 
 test("POS payment regression guard — create-checkout path unchanged", () => {

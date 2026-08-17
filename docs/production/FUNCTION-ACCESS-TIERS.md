@@ -74,6 +74,7 @@ names, categories, and HTTP statuses only.
 | `admin-command-center` | `super_admin` only — `platformAdmin(event, ["super_admin"])` | All POST actions → `requireSuperAdmin(admin)` immediately before write | |
 | `marketplace-verification-admin` | `super_admin` only — `platformAdmin(event, ["super_admin"])` | Verification review (POST) → `requireSuperAdmin(admin)` | |
 | `floral-library-admin` | `super_admin` only — `platformAdmin(event, ["super_admin"])` | Import/approve/duplicate-review → `requireSuperAdmin(admin)` before each write | |
+| `admin-photo-manager` | `super_admin` only — `platformAdmin(event, ["super_admin"])` | Upload/update/delete → `requireSuperAdmin(admin)` before each write | `public_list` action is intentionally unauthenticated (read-only, mirrors the Floral Library/Website Studio content it serves) |
 
 Every mutation branch above calls `requireSuperAdmin(admin)` immediately before its database
 write — an explicit, greppable/testable role gate, not an implicit assumption. Broader

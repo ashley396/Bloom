@@ -161,20 +161,40 @@ test("batch 2 JSON adds 50 new arrangements without replacing batch 1", () => {
   }
 });
 
-test("server catalog exports 100 unique master products (both batches)", () => {
+// A real per-image visual QA audit (public/data/floral-library-visual-qa-results.json,
+// dated 2026-08-11) found 74 of the 100 "everyday" (ed-) images were
+// completely off-subject — fish on ice, a two-tier cake, portraits,
+// landscapes, dropper bottles — despite every one claiming "ultra
+// realistic" launch quality. The audit had been sitting unapplied: every
+// image was still being served live. Fixed by writing the audit's "fail"
+// verdicts back as needs_image_replacement so the existing filter in
+// getPublicFloralLibraryCatalog() actually excludes them — 26 pass.
+// Separately, nine occasion-specific batches (Funeral, Sympathy, Birthday,
+// Wedding, Congratulations, Get Well, Hydrangeas, Love & Romance, New
+// Baby, Plants — 190 items) existed fully generated on disk since the
+// same date but were never merged into the served catalog, so the live
+// Floral Library was "Everyday" only regardless of the occasion filter
+// the UI already offered.
+const EXPECTED_EVERYDAY_QA_PASS_COUNT = 26;
+const EXPECTED_OCCASION_BATCH_COUNT = 190;
+
+test("server catalog exports the full merged multi-category library, everyday subset QA-gated to real images", () => {
   const catalog = getPublicFloralLibraryCatalog();
-  assert.equal(catalog.length, 100);
-  const ids = catalog.map((p) => p.id);
-  assert.equal(new Set(ids).size, 100);
-  assert.ok(ids.every((id) => id.startsWith("ed-")), "all ids use ed- prefix");
+  const everydayIds = catalog.filter((p) => p.id.startsWith("ed-")).map((p) => p.id);
+  assert.equal(everydayIds.length, EXPECTED_EVERYDAY_QA_PASS_COUNT, "only QA-passed everyday images are served");
+  assert.equal(new Set(catalog.map((p) => p.id)).size, catalog.length, "no duplicate ids across categories");
+  assert.equal(catalog.length, EXPECTED_EVERYDAY_QA_PASS_COUNT + EXPECTED_OCCASION_BATCH_COUNT);
   assert.ok(catalog.some((p) => p.id === "ed-01-sunshine-cube"));
-  assert.ok(catalog.some((p) => p.id === "ed-51-daily-pink-cylinder"));
-  assert.ok(catalog.some((p) => p.name === "Florist Counter Classic"));
-  assert.ok(!ids.some((id) => id.startsWith("sig-") || id.startsWith("lib-")), "no legacy ids");
+  assert.ok(!catalog.some((p) => p.id === "ed-02-pink-meadow"), "QA-failed image (cake, not flowers) must be excluded");
+  assert.ok(catalog.some((p) => p.categories?.includes("Funeral")), "Funeral batch is served");
+  assert.ok(catalog.some((p) => p.categories?.includes("Sympathy")), "Sympathy batch is served");
+  assert.ok(!catalog.some((p) => p.id.startsWith("sig-") || p.id.startsWith("lib-")), "no legacy ids");
 });
 
-test("each arrangement includes production metadata", () => {
-  for (const a of EVERYDAY_FLORAL_ARRANGEMENTS) {
+test("each everyday-batch arrangement includes production metadata (occasion batches use a lighter schema by design)", () => {
+  const everydayOnly = EVERYDAY_FLORAL_ARRANGEMENTS.filter((a) => a.id.startsWith("ed-"));
+  assert.equal(everydayOnly.length, 100);
+  for (const a of everydayOnly) {
     assert.ok(a.style, `${a.name}: style`);
     assert.ok(a.color_palette, `${a.name}: palette`);
     assert.ok(a.container, `${a.name}: container`);
@@ -189,8 +209,9 @@ test("each arrangement includes production metadata", () => {
   }
 });
 
-test("everyday catalog uses only approved wholesale flower types", () => {
-  for (const a of EVERYDAY_FLORAL_ARRANGEMENTS) {
+test("everyday batch uses only approved wholesale flower types (occasion batches — e.g. funeral gladioli — have their own recipes)", () => {
+  const everydayOnly = EVERYDAY_FLORAL_ARRANGEMENTS.filter((a) => a.id.startsWith("ed-"));
+  for (const a of everydayOnly) {
     for (const r of a.recipe) {
       const key = String(r.name).toLowerCase();
       const ok = [...ALLOWED_FLOWERS].some((f) => key.includes(f));
@@ -199,11 +220,13 @@ test("everyday catalog uses only approved wholesale flower types", () => {
   }
 });
 
-test("image assets exist for all 100 arrangements", () => {
+test("image assets exist for every served (QA-passed) library arrangement", () => {
   const publicDir = path.join(root, "../public");
-  for (const p of getEverydayFloralLibraryCatalog()) {
+  const catalog = getEverydayFloralLibraryCatalog().filter((p) => !p.metadata?.needs_image_replacement);
+  assert.ok(catalog.length >= EXPECTED_EVERYDAY_QA_PASS_COUNT + EXPECTED_OCCASION_BATCH_COUNT);
+  for (const p of catalog) {
     const url = p.primary_image.url;
-    assert.match(url, /^\/assets\/floral-library\/everyday\/ed-/);
+    assert.match(url, /^\/assets\/floral-library\/[a-z]+\/[a-z]{2}-/);
     // Image URLs carry a content-hash cache-busting query string
     // (?v=<hash>) — strip it before checking the file on disk.
     const filePath = path.join(publicDir, url.replace(/^\//, "").split("?")[0]);

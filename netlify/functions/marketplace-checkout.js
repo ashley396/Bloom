@@ -32,13 +32,23 @@ function normalizeCart(body = {}) {
   return [];
 }
 
-export async function handler(event) {
+/**
+ * Core handler logic, dependency-injectable for handler-level tests (see
+ * tests/marketplace-checkout.test.js) without a real Stripe/Supabase
+ * connection. `handler` below is the thin Netlify entrypoint that always
+ * uses the real dependencies.
+ */
+export async function handleMarketplaceCheckout(event, dependencies = {}) {
+  const authenticate = dependencies.currentUser || currentUser;
+  const createStripe = dependencies.createStripe || ((key) => new Stripe(key));
+  const isEnabled = dependencies.isFeatureEnabled || isFeatureEnabled;
+
   const ready = preflight(event);
   if (ready) return ready;
   if (event.httpMethod !== "POST") return methodNotAllowed();
 
   try {
-    if (!isFeatureEnabled("MARKETPLACE_PUBLIC")) {
+    if (!isEnabled("MARKETPLACE_PUBLIC")) {
       return json(503, { error: "Wholesale marketplace is disabled." });
     }
     if (!process.env.STRIPE_SECRET_KEY) {
@@ -47,8 +57,8 @@ export async function handler(event) {
       throw e;
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const { client, user, shopId } = await currentUser(event);
+    const stripe = createStripe(process.env.STRIPE_SECRET_KEY);
+    const { client, user, shopId } = await authenticate(event);
     const body = bodyOf(event);
     const cart = normalizeCart(body);
     if (!cart.length) return json(400, { error: "Cart is empty." });
@@ -176,4 +186,8 @@ export async function handler(event) {
   } catch (error) {
     return fail(error);
   }
+}
+
+export async function handler(event) {
+  return handleMarketplaceCheckout(event);
 }

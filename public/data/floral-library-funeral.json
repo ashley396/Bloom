@@ -3,7 +3,7 @@
   "collection": "florisyn_category_library",
   "category": "Funeral",
   "category_note": "Service pieces delivered to the funeral home/service (standing sprays, wreaths, casket sprays, easel designs) — distinct from Sympathy comfort flowers sent to the home.",
-  "target_count": 20,
+  "target_count": 24,
   "image_style": "professional florist e-commerce product photograph, single arrangement centered, pure white seamless studio background, soft even studio lighting, ultra-realistic, no text/people",
   "arrangements": [
     {
@@ -1019,8 +1019,214 @@
         "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
         "review_status": "needs_review"
       }
+    },
+    {
+      "id": "fn-21-casket-spray-red-white-silver",
+      "name": "Timeless Devotion Casket Spray",
+      "style": "traditional",
+      "color_palette": "red, white",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "casket spray",
+      "container": "casket saddle with floral foam",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 20,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 16,
+          "kind": "flower"
+        },
+        {
+          "name": "Baby's Breath",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Israeli Ruscus",
+          "qty": 10,
+          "kind": "foliage"
+        },
+        {
+          "name": "Leatherleaf Fern",
+          "qty": 8,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Israeli Ruscus",
+        "Leatherleaf Fern"
+      ],
+      "short_description": "A full half-couch casket spray of red and white roses with a wine-red ribbon.",
+      "description": "A traditional half-couch casket spray of red and white roses over lush greenery, finished with a flowing wine-red ribbon — a classic, dignified tribute.",
+      "suggested_retail": 349.99,
+      "image": "funeral/fn-21-casket-spray-red-white-silver.jpg",
+      "alt": "Red and white rose casket spray with a red ribbon on a silver casket",
+      "content_sha256": "c285984e36385da1f0e8dcfc729f28ce462cbf4e5f4bddbe5e71855026fce5da",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Provided by the Florisyn platform owner (Canva) — real florist product photography",
+        "review_status": "approved"
+      }
+    },
+    {
+      "id": "fn-22-casket-spray-red-white-lilies",
+      "name": "Enduring Love Casket Spray",
+      "style": "formal",
+      "color_palette": "red, white",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "casket spray",
+      "container": "casket saddle with floral foam",
+      "recipe": [
+        {
+          "name": "White Oriental Lilies",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "Red Roses",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "White Chrysanthemums",
+          "qty": 14,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf Fern",
+          "qty": 10,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf Fern"
+      ],
+      "short_description": "White oriental lilies and red roses over a bed of white chrysanthemums.",
+      "description": "White oriental lilies rise above red roses and a full bed of white chrysanthemums — a formal casket spray built for a dignified farewell.",
+      "suggested_retail": 314.99,
+      "image": "funeral/fn-22-casket-spray-red-white-lilies.jpg",
+      "alt": "White lily and red rose casket spray with white chrysanthemums",
+      "content_sha256": "ccfc9c6892f63b722fcfd06260eacde9f422981fbb59460fc5dfc4e8df32ecd1",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Provided by the Florisyn platform owner (Canva) — real florist product photography",
+        "review_status": "approved"
+      }
+    },
+    {
+      "id": "fn-23-standing-spray-pink-lilies-church",
+      "name": "Gentle Grace Standing Spray",
+      "style": "soft",
+      "color_palette": "pink, white",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "standing spray",
+      "container": "standing spray easel",
+      "recipe": [
+        {
+          "name": "Pink Stargazer Lilies",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Roses",
+          "qty": 12,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Snapdragons",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf Fern",
+          "qty": 10,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf Fern"
+      ],
+      "short_description": "A soft standing spray of pink stargazer lilies, pink roses, and white hydrangea.",
+      "description": "Pink stargazer lilies and roses rise over white hydrangea and pink snapdragons in a tall standing spray — a gentle, graceful service piece for church or chapel.",
+      "suggested_retail": 259.99,
+      "image": "funeral/fn-23-standing-spray-pink-lilies-church.jpg",
+      "alt": "Pink lily and rose standing spray with white hydrangea in a church setting",
+      "content_sha256": "5e0aec84e20b5de2726f7097ad78bb0c52c79d5cf9f851abd47b018d0ff39665",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Provided by the Florisyn platform owner (Canva) — real florist product photography",
+        "review_status": "approved"
+      }
+    },
+    {
+      "id": "fn-24-casket-spray-lavender-purple",
+      "name": "Lavender Grace Casket Spray",
+      "style": "soft",
+      "color_palette": "lavender, purple, white",
+      "categories": [
+        "Funeral"
+      ],
+      "arrangement_type": "casket spray",
+      "container": "casket saddle with floral foam",
+      "recipe": [
+        {
+          "name": "Lavender Roses",
+          "qty": 14,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Aster",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Snapdragons",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Waxflower",
+          "qty": 6,
+          "kind": "flower"
+        }
+      ],
+      "foliage": [],
+      "short_description": "A soft casket spray of lavender roses, white hydrangea, and purple aster, with a matching companion vase.",
+      "description": "Lavender roses and white hydrangea mingle with purple aster and trailing snapdragons in a soft, garden-style casket spray, paired with a matching companion arrangement.",
+      "suggested_retail": 339.99,
+      "image": "funeral/fn-24-casket-spray-lavender-purple.jpg",
+      "alt": "Lavender and purple rose casket spray with white hydrangea on a wood casket",
+      "content_sha256": "93aecc58061bea44cc91c96a93133ada5e4524c0312fee98194714c212104d60",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "bloom_owned",
+        "attribution": "Provided by the Florisyn platform owner (Canva) — real florist product photography",
+        "review_status": "approved"
+      }
     }
   ],
-  "generated_at": "2026-08-13T14:36:33.420Z",
+  "generated_at": "2026-08-16T17:58:23.088Z",
   "image_source": "ai_generated_cloudflare_flux"
 }
