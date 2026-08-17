@@ -370,11 +370,6 @@
           }`;
 
     el.innerHTML = `<div class="community-shell">
-      <div class="community-hero">
-        <p class="eyebrow">FLORIST SOCIAL <span class="community-beta-pill">Beta</span></p>
-        <h2>Your florist feed</h2>
-        <p class="subtle">Profile photos, arrangement posts, Lily recipes, encourages, and comments — like Instagram or Facebook, built only for flower shops.</p>
-      </div>
       ${guidelinesHtml(state.guidelines)}
       ${tabBar(tab)}
       <p id="communityStatus" class="subtle" aria-live="polite"></p>

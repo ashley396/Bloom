@@ -23,6 +23,7 @@ body[data-admin-theme="dark"] nav button.active,body[data-admin-theme="dark"] na
 .executive-grid{grid-template-columns:repeat(5,1fr)}
 .charts-grid .chart-panel h3{margin-top:0}
 .chart-bars{display:grid;gap:10px;margin-top:12px}
+.chart-empty{margin:12px 0 4px;font-size:13px;color:var(--muted)}
 .chart-bar{display:grid;grid-template-columns:70px 1fr 60px;gap:10px;align-items:center;font-size:12px}
 .bar-track{height:10px;background:#f1e7eb;border-radius:999px;overflow:hidden}
 .bar-track i{display:block;height:100%;background:linear-gradient(90deg,#547428,#e94178);border-radius:inherit}

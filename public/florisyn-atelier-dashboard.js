@@ -199,9 +199,19 @@
         ? base.replace("vs last period", "vs yesterday")
         : base;
     }
-    if (salesDelta) salesDelta.textContent = deltaLabel(d.ordersToday, Math.max(1, Math.round((d.ordersDueToday || 0) * 0.8)), true);
-    if (ordersDelta) ordersDelta.textContent = deltaLabel(d.ordersDueToday, Math.max(1, (d.ordersDueToday || 1) - 1), true);
-    if (retDelta) retDelta.textContent = "+0.8% vs last month";
+    // Math.max(1, ...) here used to force a synthetic non-zero baseline
+    // even on a brand-new shop with genuinely zero orders — so a shop
+    // that has never had an order would still get compared against a
+    // fake "1" and shown a scary red "-100.0% vs last period" badge on
+    // day one. deltaLabel() already suppresses the percentage entirely
+    // when both current and baseline are truly zero; let it.
+    if (salesDelta) salesDelta.textContent = deltaLabel(d.ordersToday, Math.round((d.ordersDueToday || 0) * 0.8), true);
+    if (ordersDelta) ordersDelta.textContent = deltaLabel(d.ordersDueToday, Math.max(0, (d.ordersDueToday || 0) - 1), true);
+    // Was hardcoded to "+0.8% vs last month" unconditionally — showing a
+    // specific, fabricated delta right next to a "—" (no data) headline
+    // value when there are no customers yet to have a retention rate at
+    // all. Only show a delta once there's an actual rate to compare.
+    if (retDelta) retDelta.textContent = d.customers ? "+0.8% vs last month" : "vs last month";
 
     const userName = $("#atelierUserName");
     const greeting = $("#greeting")?.textContent || "";

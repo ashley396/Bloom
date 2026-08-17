@@ -28,13 +28,18 @@
 
   function renderDashboard(hooks, data) {
     const k = data.kpis || data.stats || {};
+    // Published/Draft/Low-stock already show "—" only for genuinely
+    // missing data (?? on undefined leaves a real 0 alone). Revenue and
+    // Orders used to collapse missing data to a fake "$0"/"0" via `|| 0`
+    // — showing "—" and "$0" side by side in the same row for the exact
+    // same underlying reason (no data yet).
     return `${renderNav(hooks, 'dashboard')}
       <div class="report-summary wholesale-kpi-row">
         ${kpiCard('Published products', k.published_count ?? '—')}
         ${kpiCard('Draft products', k.draft_count ?? '—')}
         ${kpiCard('Low-stock alerts', k.low_stock_count ?? '—')}
-        ${kpiCard('Wholesale revenue', hooks.money(k.revenue_total || 0))}
-        ${kpiCard('Orders', k.order_count ?? 0, `${k.pending_order_count || 0} pending`)}
+        ${kpiCard('Wholesale revenue', k.revenue_total == null ? '—' : hooks.money(k.revenue_total))}
+        ${kpiCard('Orders', k.order_count ?? '—', k.pending_order_count == null ? '' : `${k.pending_order_count} pending`)}
       </div>
       <div class="wholesale-seller-grid">
         <section class="panel"><h2>Verification</h2><p>Status: <strong>${hooks.esc(data.verification_status || 'unknown')}</strong></p><button type="button" class="secondary" data-wholesale-verify>Review verification</button></section>
