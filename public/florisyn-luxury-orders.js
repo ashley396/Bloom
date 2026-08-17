@@ -346,23 +346,45 @@
         const id = cancelBtn.dataset.cancelOrder;
         const row = state.rows.find((r) => r.raw?.id === id);
         if (!row || orderCancelDisabled(row)) return;
-        if (!confirm(`Cancel order ${row.order || ""}?`)) return;
+        // Try a real delete first — it only succeeds for an order with no
+        // payment history. If it's blocked (financial record protection,
+        // see netlify/functions/orders.js), fall back to marking the order
+        // Cancelled instead, and say so explicitly: a button labeled
+        // "Delete" that silently just changes a status badge, with the
+        // order still sitting right there in the list, reads exactly like
+        // "the delete button doesn't work."
+        if (!confirm(`Delete order ${row.order || ""}? Orders with payment history are kept for your records and marked Cancelled instead.`)) return;
         const apiFn = window.api;
         if (!apiFn) return window.toast?.("Sign in required.");
         cancelBtn.disabled = true;
-        apiFn("orders", { method: "PATCH", body: JSON.stringify({ id, status: "CANCELLED" }) })
+        apiFn("orders", { method: "DELETE", body: JSON.stringify({ id }) })
           .then(async () => {
-            window.toast?.("Order cancelled");
+            window.toast?.("Order deleted");
             if (typeof window.loadOrders === "function") await window.loadOrders();
             else {
-              row.raw.status = "CANCELLED";
-              row.status = "cancelled";
+              state.rows = state.rows.filter((r) => r.raw?.id !== id);
               render();
             }
           })
-          .catch((err) => {
-            window.toast?.(err?.message || "Could not cancel order");
-            cancelBtn.disabled = false;
+          .catch(async (deleteErr) => {
+            if (!/payment history/i.test(deleteErr?.message || "")) {
+              window.toast?.(deleteErr?.message || "Could not delete order");
+              cancelBtn.disabled = false;
+              return;
+            }
+            try {
+              await apiFn("orders", { method: "PATCH", body: JSON.stringify({ id, status: "CANCELLED" }) });
+              alert(`Order ${row.order || ""} has payment history, so Florisyn kept it and marked it Cancelled instead of deleting it — this protects your financial records. Refund or adjust the payment in Payment Center if you need to remove it from your books.`);
+              if (typeof window.loadOrders === "function") await window.loadOrders();
+              else {
+                row.raw.status = "CANCELLED";
+                row.status = "cancelled";
+                render();
+              }
+            } catch (cancelErr) {
+              window.toast?.(cancelErr?.message || "Could not cancel order");
+              cancelBtn.disabled = false;
+            }
           });
       }
     });

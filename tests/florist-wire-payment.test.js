@@ -24,6 +24,26 @@ test("sending shop can pay unpaid sent wires", () => {
   assert.equal(canInitiateWirePayment({ sending_shop_id: "shop-b", wire_amount: 80 }, "shop-a").ok, false);
 });
 
+test("only charges the fulfilling shop's share, not the full wire amount — the sending shop keeps its commission", () => {
+  const ok = canInitiateWirePayment(
+    { id: "w1", sending_shop_id: "shop-a", status: "sent", wire_amount: 100, sending_shop_percent: 20, payment_status: "unpaid" },
+    "shop-a"
+  );
+  assert.equal(ok.ok, true);
+  assert.equal(ok.amount, 80);
+  assert.equal(ok.split.sending_shop_amount, 20);
+  assert.equal(ok.split.fulfilling_shop_amount, 80);
+});
+
+test("rejects online payment when the partner's share is below the $0.50 Stripe minimum", () => {
+  const blocked = canInitiateWirePayment(
+    { id: "w1", sending_shop_id: "shop-a", status: "sent", wire_amount: 1, sending_shop_percent: 90, payment_status: "unpaid" },
+    "shop-a"
+  );
+  assert.equal(blocked.ok, false);
+  assert.match(blocked.error, /\$0\.50/);
+});
+
 test("partner Stripe Connect required to receive online wire pay", () => {
   assert.equal(partnerCanReceiveWirePayments({ stripe_connect_account_id: "acct_123" }), true);
   assert.equal(partnerCanReceiveWirePayments({ stripe_connect_account_id: "" }), false);

@@ -13,6 +13,7 @@
     items: [],
     profile: null,
     guidelines: [],
+    tab: "feed",
     category: "",
     comments: {},
     openComments: null,
@@ -196,6 +197,13 @@
     </form>`;
   }
 
+  function tabBar(active) {
+    return `<div class="community-tabs" role="tablist" aria-label="Florist Community sections">
+      <button type="button" class="community-tab${active === "feed" ? " active" : ""}" data-tab="feed" role="tab" aria-selected="${active === "feed"}">Feed</button>
+      <button type="button" class="community-tab${active === "profile" ? " active" : ""}" data-tab="profile" role="tab" aria-selected="${active === "profile"}">My Profile</button>
+    </div>`;
+  }
+
   function filterBar(active) {
     const chips = [`<button type="button" class="community-chip${active ? "" : " active"}" data-cat="">All</button>`]
       .concat(
@@ -309,6 +317,7 @@
           💬 ${Number(post.comment_count || 0)}
         </button>
         <button type="button" class="secondary community-report" data-id="${esc(post.id)}">Report</button>
+        ${post.image_url ? `<button type="button" class="secondary community-save-to-library" data-id="${esc(post.id)}">📌 Add to my library</button>` : ""}
         ${mine}
         ${mod}
       </div>
@@ -344,10 +353,21 @@
       return;
     }
     captureComposerDraft();
-    const feed =
-      state.items.length === 0
-        ? renderEmpty()
-        : `<div class="community-feed">${state.items.map(postCard).join("")}</div>`;
+    const tab = state.tab || "feed";
+    const mainContent =
+      tab === "profile"
+        ? (() => {
+            const mine = state.items.filter((p) => p.is_mine);
+            const myPosts = mine.length
+              ? `<div class="community-feed">${mine.map(postCard).join("")}</div>`
+              : `<div class="community-state community-empty"><h3>You haven't posted yet</h3><p>Share your first arrangement from the Feed tab — it'll show up here.</p></div>`;
+            return `${profileForm(state.profile)}<h3 class="community-my-posts-heading">Your posts</h3>${myPosts}`;
+          })()
+        : `${composerHtml()}${filterBar(state.category)}${
+            state.items.length === 0
+              ? renderEmpty()
+              : `<div class="community-feed">${state.items.map(postCard).join("")}</div>`
+          }`;
 
     el.innerHTML = `<div class="community-shell">
       <div class="community-hero">
@@ -356,11 +376,9 @@
         <p class="subtle">Profile photos, arrangement posts, Lily recipes, encourages, and comments — like Instagram or Facebook, built only for flower shops.</p>
       </div>
       ${guidelinesHtml(state.guidelines)}
-      ${profileForm(state.profile)}
-      ${composerHtml()}
-      ${filterBar(state.category)}
+      ${tabBar(tab)}
       <p id="communityStatus" class="subtle" aria-live="polite"></p>
-      ${feed}
+      ${mainContent}
     </div>`;
     bind();
   }
@@ -415,6 +433,15 @@
   function bind() {
     const el = root();
     if (!el) return;
+
+    el.querySelectorAll(".community-tab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tab = btn.dataset.tab;
+        if (tab === state.tab) return;
+        state.tab = tab;
+        render();
+      });
+    });
 
     el.querySelector("#communityProfileForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -617,6 +644,28 @@
           setStatus(res.message || "Report submitted.");
         } catch (err) {
           setStatus(err.message);
+        }
+      });
+    });
+
+    el.querySelectorAll(".community-save-to-library").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-id");
+        const post = state.items.find((p) => p.id === id);
+        if (!post) return;
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Saving…";
+        try {
+          const image_data_url = await fetchPostImageDataUrl(post);
+          if (!image_data_url) throw new Error("Could not read that photo. Try again.");
+          const res = await api("save_post_to_library", { post_id: id, image_data_url });
+          btn.textContent = "✓ Added";
+          window.toast?.(res.message || "Saved to your Floral Library.");
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = original;
+          window.toast?.(err.message || "Could not save this photo.");
         }
       });
     });

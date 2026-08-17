@@ -464,3 +464,4 @@ body[data-lily-theme="dark"] .pos-fulfill-toggle,body.florisyn-dark .pos-fulfill
   #posSettingsPage .pos-settings-quicklinks{flex-wrap:wrap;justify-content:flex-start}
   #posSettingsPage .pos-settings-quicklinks button{flex:1 1 calc(50% - 5px)}
 }
+.premium-preview h1,.premium-preview h2,.premium-preview h3,.premium-preview p{color:var(--site-text,#2c2230)}.premium-preview .hero-copy h1,.premium-preview .hero-copy h2,.premium-preview .hero-copy p,.premium-preview .hero-copy div{color:#fff}

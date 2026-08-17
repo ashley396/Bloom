@@ -47,6 +47,44 @@
   padding: 1.15rem 1.25rem;
 }
 
+.community-tabs {
+  display: flex;
+  gap: 0.4rem;
+  border-bottom: 1px solid #e0d3db;
+  padding-bottom: 0;
+}
+
+.community-tab {
+  border: 0;
+  background: transparent;
+  padding: 0.7rem 0.2rem;
+  margin-right: 1rem;
+  font-weight: 750;
+  font-size: 0.95rem;
+  color: #857680;
+  cursor: pointer;
+  border-bottom: 2.5px solid transparent;
+}
+
+.community-tab.active,
+.community-tab:hover {
+  color: #2f5d3a;
+}
+
+.community-tab.active {
+  border-bottom-color: #2f5d3a;
+}
+
+.community-my-posts-heading {
+  margin: 0.5rem 0 0;
+  font-size: 1rem;
+}
+
+.community-save-to-library {
+  color: #2f5d3a;
+  border-color: #bcd6c2;
+}
+
 .community-filters {
   display: flex;
   flex-wrap: wrap;
