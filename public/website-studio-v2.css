@@ -364,6 +364,16 @@
 .ws-shell-panel[data-panel="editor"][hidden] {
   display: none;
 }
+
+/* Editor tab: the actual section editor (website-editor-ui.js's shell —
+   toolbar, canvas, undo/redo, properties inspector) sits directly below
+   v2's pages/preview/SEO bar as its own full-width block, so its internal
+   canvas | inspector grid gets real width instead of being squeezed
+   inside v2's own narrow middle column (measured collapsing to ~96px
+   when nested there, wrapping words mid-letter). */
+.website-editor-shell {
+  margin-top: 1.25rem;
+}
 @media (max-width: 640px) {
   .ws-shell-tab {
     padding: 0.6rem 0.75rem;

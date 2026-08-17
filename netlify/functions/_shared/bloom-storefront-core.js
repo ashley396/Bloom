@@ -190,7 +190,22 @@ export function fallbackSiteFromProfile(shop = {}) {
   const site = buildSiteFromShopProfile(shop, { status: "draft" });
   return {
     project: { ...site.project, status: "draft" },
-    pages: site.pages,
+    // buildSiteFromShopProfile() returns the home page's hero/featured-
+    // arrangements/etc. blocks as a *top-level* `sections` array, sibling
+    // to `pages` — not nested onto the home page itself. instant-website.js
+    // does this same nesting step (`sections: page.slug === "home" ?
+    // site.sections : []`) when it first generates a real saved project,
+    // but this fallback path — used for any shop that hasn't built or
+    // saved a site yet, i.e. the storefront a brand-new florist's
+    // customers see by default — never did, so storefront.js's
+    // `home?.sections` was always empty and every new shop's home page
+    // rendered as a bare "Welcome — browse our shop to order." instead of
+    // the intended hero + featured arrangements + occasions + delivery +
+    // about + hours + CTA sections.
+    pages: site.pages.map((page) => ({
+      ...page,
+      sections: page.slug === "home" ? site.sections : page.sections || []
+    })),
     theme_settings: site.theme_settings,
     seo_settings: site.seo
   };

@@ -68,7 +68,14 @@
         return `<section class="sf-section faq"><h2>${esc(props.title || "FAQ")}</h2>${faqs.map((f) => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join("")}</section>`;
       }
       case "cta_banner":
-        return `<section class="sf-section cta"><p>${esc(props.text || "Order flowers for delivery or pickup")}</p><a class="primary" href="/store/${esc(shop)}/shop">Shop now</a></section>`;
+        // Not named "cta" — storefront/index.html's <body> carries the
+        // shared florisyn-atelier-shell class (the whole app's chrome
+        // styling), and body.florisyn-atelier-shell .cta is a pill-shaped
+        // *button* gradient meant for actual buttons elsewhere in the
+        // app. A <section class="cta"> picked it up too, painting the
+        // whole banner section as a dark pill with its own text and the
+        // real "Shop now" button both fighting for the same space.
+        return `<section class="sf-section sf-cta-banner"><p>${esc(props.text || "Order flowers for delivery or pickup")}</p><a class="primary" href="/store/${esc(shop)}/shop">Shop now</a></section>`;
       default:
         return `<section class="sf-section"><h2>${esc(String(section.type || "section").replace(/_/g, " "))}</h2><p>${esc(props.text || props.title || "")}</p></section>`;
     }

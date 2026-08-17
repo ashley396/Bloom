@@ -38,8 +38,18 @@ test("shell does not rewrite any of the five original panels — it only reorgan
   assert.doesNotMatch(shellJs, /insertAdjacentHTML/, "shell must not inject its own copies of panel markup");
   assert.match(shellJs, /appendChild\(node\)/, "shell must move existing nodes, not clone them");
   const placementBlock = shellJs.slice(shellJs.indexOf("const PLACEMENT"), shellJs.indexOf("};", shellJs.indexOf("const PLACEMENT")));
-  [".lily-wizard-shell", ".instant-wizard-shell", ".website-studio-v2", ".website-editor-shell", ".theme-gallery-shell"].forEach((sel) => {
+  [".lily-wizard-shell", ".instant-wizard-shell", ".theme-gallery-shell"].forEach((sel) => {
     assert.ok(placementBlock.includes(sel), `PLACEMENT must account for ${sel}`);
+  });
+  // The editor tab's two panels — website-studio-v2.js's pages/preview/
+  // SEO grid and website-editor-ui.js's section-canvas shell — used to be
+  // in PLACEMENT too, but were simply stacked as two full-width cards
+  // both headed "VISUAL EDITOR". buildEditorIde() places them instead:
+  // still real appendChild moves of already-mounted nodes, never new
+  // markup for either module.
+  const ideBlock = shellJs.slice(shellJs.indexOf("function buildEditorIde"));
+  [".website-studio-v2", ".website-editor-shell"].forEach((sel) => {
+    assert.ok(ideBlock.includes(sel), `buildEditorIde must account for ${sel}`);
   });
 });
 
