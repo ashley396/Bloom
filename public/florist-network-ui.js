@@ -21,6 +21,21 @@
     window.toast?.("Could not start wire payment.");
   }
 
+  function stars(n) {
+    const full = Math.round(Number(n) || 0);
+    return "★★★★★".slice(0, full) + "☆☆☆☆☆".slice(0, 5 - full);
+  }
+
+  function ratingRow(row) {
+    if (row.my_rating) {
+      return `<p class="subtle fn-rating">You rated this shop: ${stars(row.my_rating)}</p>`;
+    }
+    if (row.can_rate) {
+      return `<button type="button" class="secondary fn-rate-wire" data-wire-id="${esc(row.id)}" data-shop-name="${esc(row.recipient_name || "this shop")}">⭐ Rate this shop</button>`;
+    }
+    return "";
+  }
+
   function wireCard(row, view) {
     const paid = row.payment_status === "paid";
     const paymentBadge = `<span class="badge ${paid ? "good" : "warn"}">${esc(row.payment_label || row.payment_status || "unpaid")}</span>`;
@@ -48,7 +63,7 @@
       <p>${esc(row.product_description)}</p>
       <p class="subtle">${esc(row.delivery_address)}</p>
       ${row.card_message ? `<p class="subtle"><em>${esc(row.card_message)}</em></p>` : ""}
-      <div class="card-actions">${inboxActions}${outboxPay}</div>
+      <div class="card-actions">${inboxActions}${outboxPay}${ratingRow(row)}</div>
     </article>`;
   }
 
@@ -65,7 +80,7 @@
       const partnerOptions = (partners.items || [])
         .map(
           (p) =>
-            `<option value="${esc(p.shop_id)}">${esc(p.display_name)} — ${esc(p.city || "")} ${esc(p.state || "")}${p.can_receive_payments ? " · Stripe ready" : " · offline pay"}</option>`
+            `<option value="${esc(p.shop_id)}">${esc(p.display_name)} — ${esc(p.city || "")} ${esc(p.state || "")}${p.can_receive_payments ? " · Stripe ready" : " · offline pay"}${p.rating_count ? ` · ${stars(p.rating_average)} (${p.rating_count})` : " · Not yet rated"}</option>`
         )
         .join("");
       root.innerHTML = `<div class="fn-layout">
@@ -94,6 +109,7 @@
         <article class="panel">
           <h3>Your network profile</h3>
           <p class="subtle">${profile.profile ? `${esc(profile.profile.display_name)} · ${profile.profile.accepts_incoming_wires ? "Accepting wires" : "Not accepting"}` : "Create your profile so other florists can wire orders to you."}</p>
+          ${profile.profile ? `<p class="subtle fn-rating">${profile.rating_count ? `Your reputation: ${stars(profile.rating_average)} (${profile.rating_count} rating${profile.rating_count === 1 ? "" : "s"})` : "No ratings yet — they'll show up here once a partner rates a delivered wire."}</p>` : ""}
           <div class="card-actions">
             <button type="button" class="secondary" id="fnActivateProfile">${profile.profile ? "Update profile" : "Join Florist Network"}</button>
             <button type="button" class="secondary" data-page="paymentsPage">Connect Stripe to receive wires</button>
@@ -148,6 +164,27 @@
         btn.addEventListener("click", async () => {
           try {
             await payWire(btn.dataset.wirePay);
+          } catch (err) {
+            window.toast?.(err.message);
+          }
+        });
+      });
+
+      root.querySelectorAll(".fn-rate-wire").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const shopName = btn.dataset.shopName || "this shop";
+          const raw = window.prompt(`Rate your experience with ${shopName} — 1 (poor) to 5 (excellent):`, "5");
+          if (raw === null) return;
+          const rating = Number(raw);
+          if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+            window.toast?.("Enter a whole number from 1 to 5.");
+            return;
+          }
+          const comment = window.prompt("Optional comment (quality, timeliness, communication)?") || "";
+          try {
+            await netApi("rate-wire", { wire_id: btn.dataset.wireId, rating, comment });
+            window.toast?.("Thanks — your rating helps the whole network.");
+            load(root);
           } catch (err) {
             window.toast?.(err.message);
           }

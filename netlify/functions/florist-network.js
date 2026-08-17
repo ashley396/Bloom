@@ -16,6 +16,10 @@ import {
   computeWireSettlement,
   FLORISYN_WIRE_PLATFORM_FEE_PERCENT,
   WIRE_ZERO_PLATFORM_POLICY,
+  validateWireRatingPayload,
+  canRateWire,
+  aggregateRatingsByShop,
+  aggregateShopRatings,
 } from "../../lib/florist-network/wire-orders.js";
 
 function featureGate() {
@@ -83,9 +87,16 @@ export async function handler(event) {
           .select("id, stripe_connect_account_id")
           .in("id", shopIds);
         const shopMap = new Map((shops || []).map((s) => [s.id, s]));
+        const { data: ratingRows } = await client
+          .from("florist_wire_ratings")
+          .select("ratee_shop_id, rating")
+          .in("ratee_shop_id", shopIds);
+        const ratingsByShop = aggregateRatingsByShop(ratingRows || []);
         items = items.map((p) => ({
           ...p,
           can_receive_payments: partnerCanReceiveWirePayments(shopMap.get(p.shop_id)),
+          rating_average: ratingsByShop.get(p.shop_id)?.average ?? null,
+          rating_count: ratingsByShop.get(p.shop_id)?.count ?? 0,
         }));
       }
       if (zip) {
@@ -103,7 +114,14 @@ export async function handler(event) {
         .eq("shop_id", shopId)
         .maybeSingle();
       if (error) throw error;
-      return json(200, { profile: data, wire_policy: WIRE_ZERO_PLATFORM_POLICY });
+      const { data: myRatings } = await client.from("florist_wire_ratings").select("rating").eq("ratee_shop_id", shopId);
+      const rating = aggregateShopRatings(myRatings || []);
+      return json(200, {
+        profile: data,
+        wire_policy: WIRE_ZERO_PLATFORM_POLICY,
+        rating_average: rating.average,
+        rating_count: rating.count,
+      });
     }
 
     if (event.httpMethod === "GET") {
@@ -116,11 +134,24 @@ export async function handler(event) {
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
+      const rows = data || [];
+      const deliveredIds = rows.filter((row) => canRateWire(row)).map((row) => row.id);
+      let myRatingByWire = new Map();
+      if (deliveredIds.length) {
+        const { data: myRatings } = await client
+          .from("florist_wire_ratings")
+          .select("wire_id, rating")
+          .eq("rater_shop_id", shopId)
+          .in("wire_id", deliveredIds);
+        myRatingByWire = new Map((myRatings || []).map((r) => [r.wire_id, r.rating]));
+      }
       return json(200, {
-        items: (data || []).map((row) => ({
+        items: rows.map((row) => ({
           ...row,
           status_label: WIRE_STATUS_LABELS[row.status] || row.status,
           payment_label: wirePaymentLabel(row.payment_status),
+          can_rate: canRateWire(row) && !myRatingByWire.has(row.id),
+          my_rating: myRatingByWire.get(row.id) ?? null,
         })),
         view,
         wire_policy: WIRE_ZERO_PLATFORM_POLICY,
@@ -304,6 +335,33 @@ export async function handler(event) {
         .single();
       if (error) throw error;
       return json(200, { item: data });
+    }
+
+    if (event.httpMethod === "POST" && action === "rate-wire") {
+      const { errors, wire_id, rating, comment } = validateWireRatingPayload(body);
+      if (errors.length) return json(400, { error: errors.join(" ") });
+      const { data: wire, error: wireErr } = await client
+        .from("florist_wire_orders")
+        .select("id, status, sending_shop_id, fulfilling_shop_id")
+        .eq("id", wire_id)
+        .maybeSingle();
+      if (wireErr) throw wireErr;
+      if (!wire) return json(404, { error: "Wire order not found." });
+      const isSender = wire.sending_shop_id === shopId;
+      const isFulfiller = wire.fulfilling_shop_id === shopId;
+      if (!isSender && !isFulfiller) return json(403, { error: "Not authorized for this wire." });
+      if (!canRateWire(wire)) return json(400, { error: "Only a delivered wire can be rated." });
+      const rateeShopId = isSender ? wire.fulfilling_shop_id : wire.sending_shop_id;
+      const { data, error } = await client
+        .from("florist_wire_ratings")
+        .insert({ wire_id, rater_shop_id: shopId, ratee_shop_id: rateeShopId, rating, comment })
+        .select()
+        .single();
+      if (error) {
+        if (error.code === "23505") return json(409, { error: "You already rated this wire." });
+        throw error;
+      }
+      return json(201, { item: data });
     }
 
     return json(400, { error: "Unknown florist network action." });
