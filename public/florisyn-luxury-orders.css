@@ -121,6 +121,12 @@ body.florisyn-atelier #ordersPage .ord-tools {
 }
 
 body.florisyn-atelier #ordersPage .ord-search {
+  /* Same missing flex-direction gap as .atelier-global-search — a
+     generic body.bloom-rc2 label rule sets flex-direction: column for
+     stacked form fields and is the only rule declaring that property
+     here, so the search icon stacked above the input instead of beside
+     it. */
+  flex-direction: row;
   display: flex;
   align-items: center;
   gap: 8px;

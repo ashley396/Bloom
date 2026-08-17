@@ -319,21 +319,26 @@ function setView(name){
 }
 async function loadOverview(){
   const d=await call('admin-console?action=overview');
+  // A thin/incomplete response (feature not migrated yet, a network
+  // hiccup) used to throw "Cannot read properties of undefined" straight
+  // from d.metrics.* with no guard — surfaced as a raw-error toast on the
+  // very first screen an admin sees. Default the whole metrics object.
+  const metrics=d.metrics||{};
   const money=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
   $('#adminMetrics').innerHTML=[
-    ['Florist accounts',d.metrics.shops],
-    ['Active subscriptions',d.metrics.activeSubscriptions],
-    ['New this month',d.metrics.newThisMonth],
-    ['Estimated monthly revenue',money(d.metrics.estimatedMrr)]
-  ].map(([a,b])=>`<article class="metric"><small>${a}</small><strong>${typeof b==='number'?Number(b).toLocaleString():b}</strong></article>`).join('');
+    ['Florist accounts',metrics.shops],
+    ['Active subscriptions',metrics.activeSubscriptions],
+    ['New this month',metrics.newThisMonth],
+    ['Estimated monthly revenue',money(metrics.estimatedMrr)]
+  ].map(([a,b])=>`<article class="metric"><small>${a}</small><strong>${typeof b==='number'?Number(b).toLocaleString():(b??0)}</strong></article>`).join('');
   if($('#foundationTotal'))$('#foundationTotal').value=Number(d.platform?.foundationTotal||0).toFixed(2);
   $('#subscriptionSnapshot').innerHTML=[
-    ['Free trials',d.metrics.trials],
-    ['Starter',d.metrics.starter],
-    ['Pro',d.metrics.professional],
-    ['Premium',d.metrics.premium],
-    ['Canceling',d.metrics.canceling],
-    ['Canceled this month',d.metrics.canceledThisMonth]
+    ['Free trials',metrics.trials],
+    ['Starter',metrics.starter],
+    ['Pro',metrics.professional],
+    ['Premium',metrics.premium],
+    ['Canceling',metrics.canceling],
+    ['Canceled this month',metrics.canceledThisMonth]
   ].map(([a,b])=>`<div><span>${a}</span><strong>${Number(b||0).toLocaleString()}</strong></div>`).join('');
   const alerts=d.alerts||[];
   $('#subscriberAlerts').innerHTML=alerts.length?alerts.map(a=>`<button class="subscriber-alert ${a.read_at?'':'unread'}" data-alert-shop="${a.shop_id||''}"><span class="alert-dot"></span><div><strong>${escapeHtml(a.title)}</strong><p>${escapeHtml(a.message||'')}</p><small>${new Date(a.created_at).toLocaleString()}</small></div></button>`).join(''):'<p class="quiet">No subscriber activity yet.</p>';
@@ -341,7 +346,10 @@ async function loadOverview(){
 }
 function escapeHtml(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
-async function loadShops(){const q=encodeURIComponent($('#shopSearch').value||'');const d=await call(`admin-console?action=shops&search=${q}`);$('#shopList').innerHTML=d.shops.length?d.shops.map(s=>{const sub=s.shop_subscriptions?.[0]||{};const cfg=s.shop_admin_config?.[0]||{};return `<article class="shop-row"><div><strong>${escapeHtml(s.name)}</strong><small>${escapeHtml(s.email||s.slug||'')}</small></div><span>${escapeHtml(s.city||'')}${s.state?`, ${escapeHtml(s.state)}`:''}</span><span class="badge">${escapeHtml(sub.plan_code||'trial')}</span><span class="badge ${cfg.account_status==='suspended'?'danger':cfg.account_status==='maintenance'?'warn':''}">${escapeHtml(cfg.account_status||'active')}</span><button data-open-shop="${s.id}">Manage</button></article>`}).join(''):'<p>No florist accounts found.</p>';$$('[data-open-shop]').forEach(b=>b.onclick=()=>openShop(b.dataset.openShop))}
+// Same unguarded-property gap as loadOverview above — d.shops.length with
+// no fallback threw "Cannot read properties of undefined (reading
+// 'length')" on any thin response, surfaced as a raw-error toast.
+async function loadShops(){const q=encodeURIComponent($('#shopSearch').value||'');const d=await call(`admin-console?action=shops&search=${q}`);const shops=d.shops||[];$('#shopList').innerHTML=shops.length?shops.map(s=>{const sub=s.shop_subscriptions?.[0]||{};const cfg=s.shop_admin_config?.[0]||{};return `<article class="shop-row"><div><strong>${escapeHtml(s.name)}</strong><small>${escapeHtml(s.email||s.slug||'')}</small></div><span>${escapeHtml(s.city||'')}${s.state?`, ${escapeHtml(s.state)}`:''}</span><span class="badge">${escapeHtml(sub.plan_code||'trial')}</span><span class="badge ${cfg.account_status==='suspended'?'danger':cfg.account_status==='maintenance'?'warn':''}">${escapeHtml(cfg.account_status||'active')}</span><button data-open-shop="${s.id}">Manage</button></article>`}).join(''):'<p>No florist accounts found.</p>';$$('[data-open-shop]').forEach(b=>b.onclick=()=>openShop(b.dataset.openShop))}
 $('#saveFoundation')?.addEventListener('click',async()=>{await call('admin-console',{method:'POST',body:JSON.stringify({action:'save-platform-settings',foundationTotal:Number($('#foundationTotal').value||0)})});toast('Rose Foundation amount saved');loadOverview()});
 $('#markAlertsRead').onclick=async()=>{await call('admin-console',{method:'POST',body:JSON.stringify({action:'mark-alerts-read'})});toast('Subscriber alerts marked read');loadOverview()};
 $('#shopSearch').oninput=()=>{clearTimeout(window.st);window.st=setTimeout(loadShops,350)};$('#refreshAdmin').onclick=()=>{loadOverview();loadShops();if(window.__loadCommandView)window.__loadCommandView($('nav button.active')?.dataset.view||'overview');if(selectedShop)openShop(selectedShop)};

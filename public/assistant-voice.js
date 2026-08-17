@@ -230,7 +230,13 @@
   }
 
   function mountPersonaPanel(root, persona) {
-    const id = persona === "Rose" ? "roseVoicePanel" : "lilyVoicePanel";
+    // Was a hardcoded Rose/else-Lily ternary — every other persona
+    // (Daisy, and later Bud) collided on "lilyVoicePanel", so once
+    // Lily's panel existed, mountPersonaPanel(host, "Bud") found that id
+    // already taken and silently returned without ever adding Bud's
+    // panel, despite the section heading above already saying "LILY,
+    // ROSE & BUD".
+    const id = `${persona.toLowerCase()}VoicePanel`;
     if (!root || root.querySelector(`#${id}`)) return;
     const cfg = loadSettings(persona);
     const def = Core.VOICE_DEFAULTS[persona];

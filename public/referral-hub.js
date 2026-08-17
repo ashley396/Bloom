@@ -13,6 +13,16 @@
         method: "POST",
         body: JSON.stringify({ action: "load" })
       });
+      // A partial or empty backend response (feature not yet configured,
+      // migration not applied, a network hiccup) used to throw here —
+      // `d.reward.label` with no guard — and the catch below would show
+      // the raw JS error text ("Cannot read properties of undefined...")
+      // directly in the settings page. Default every field instead so a
+      // thin response degrades to a working, if less specific, card.
+      if (!d?.reward || !d?.share) {
+        root.innerHTML = `<p class="subtle">Referral program isn't set up for this shop yet. Check back soon.</p>`;
+        return;
+      }
       root.innerHTML = `<article class="panel referral-hub">
         <p class="eyebrow">GROW FLORISYN</p>
         <h2>Refer a florist — ${esc(d.reward.label)}</h2>
@@ -34,7 +44,9 @@
         loadReferralHub(root);
       });
     } catch (e) {
-      root.innerHTML = `<p class="subtle">${esc(e.message)}</p>`;
+      // Never surface a raw exception message to a florist — always a
+      // plain-English fallback, regardless of what actually broke.
+      root.innerHTML = `<p class="subtle">Referral program is temporarily unavailable. Try again in a moment.</p>`;
     }
   }
 

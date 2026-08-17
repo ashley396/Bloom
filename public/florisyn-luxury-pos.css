@@ -266,6 +266,12 @@ body.florisyn-atelier .pos-lux-topbar {
 }
 
 #posPage #florisynPosLux .pos-lux-search {
+  /* This <label> wraps a search icon + input as a row, but a generic
+     body.bloom-rc2 label rule (meant for stacked form fields) sets
+     flex-direction: column and is the only rule declaring that property,
+     so it wins regardless of this rule's own higher ID-based specificity
+     for the properties it does declare. Needs its own explicit row. */
+  flex-direction: row;
   flex: 1 1 320px;
   max-width: 420px;
   display: flex;
@@ -846,6 +852,8 @@ body.florisyn-atelier .pos-lux-checkout {
 }
 
 #posPage #florisynPosLux .pos-lux-code {
+  /* Same missing flex-direction gap as .pos-lux-search above. */
+  flex-direction: row;
   flex: 1 1 72%;
   min-width: 0;
   display: flex;

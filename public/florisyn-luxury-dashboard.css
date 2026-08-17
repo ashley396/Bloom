@@ -290,6 +290,14 @@ body.florisyn-atelier .florisyn-os-badge {
 }
 
 body.florisyn-atelier .atelier-global-search {
+  /* A generic `body.bloom-rc2 label { flex-direction: column }` rule
+     (meant for stacked "Label text above input" form fields) has higher
+     specificity than this rule and was the only declaration setting
+     flex-direction at all, so it won by default: the search icon and
+     input stacked vertically (icon on top) instead of sitting side by
+     side. This is a <label> reused as an icon+input row, not a form
+     field label, so it needs its own explicit row direction. */
+  flex-direction: row !important;
   flex: 1;
   max-width: 520px;
   margin: 0 auto;
