@@ -117,6 +117,54 @@ export function initCommandCenter(deps) {
         toast(result.message || 'Fix request recorded');
       } finally {
         loadSupport();
+        loadBudQueue();
+      }
+    });
+    await loadBudQueue();
+  }
+
+  const BUD_STATUSES = ['queued', 'investigating', 'diff_ready', 'awaiting_approval', 'shipped', 'dismissed'];
+  const BUD_STATUS_LABELS = { queued: 'Queued', investigating: 'Investigating', diff_ready: 'Diff ready', awaiting_approval: 'Awaiting approval', shipped: 'Shipped', dismissed: 'Dismissed' };
+
+  // Bud's Fix Queue — where a "Request Claude Code fix" click above
+  // actually lands once CLAUDE_CODE_FIX_WEBHOOK_URL is configured. Shows
+  // the request is real and queued rather than just trusting the
+  // "delivered" toast.
+  async function loadBudQueue() {
+    const root = $('#budQueueRoot');
+    if (!root) return;
+    let d;
+    try {
+      d = await ccCall('admin-command-center', { method: 'POST', body: JSON.stringify({ action: 'bud-queue-list' }) });
+    } catch (err) {
+      root.innerHTML = `<p class="quiet">${escapeHtml(err.message)}</p>`;
+      return;
+    }
+    const items = d.items || [];
+    root.innerHTML = `<div class="panel-head bud-queue-head"><img src="/assets/assistants/bud-portrait.webp" alt="" class="bud-queue-avatar"><div><h3>Bud's Fix Queue</h3><p class="quiet">Every "Request Claude Code fix" click lands here — nothing is fixed automatically; an agent session picks these up per docs/FLORISYN_AI_AGENT_AUTONOMY_POLICY.md.</p></div></div>` +
+      (items.length
+        ? items.map((it) => `<article class="panel bud-queue-item">
+            <div class="panel-head"><div><h4>${escapeHtml(it.subject)}</h4><p class="quiet">Requested ${new Date(it.requested_at || it.created_at).toLocaleString()}${it.shop_id ? ` · shop ${escapeHtml(it.shop_id)}` : ''}</p></div></div>
+            ${it.body ? `<p>${escapeHtml(it.body)}</p>` : ''}
+            <div class="card-actions">
+              <select data-bud-status-select="${it.id}">${BUD_STATUSES.map((s) => `<option value="${s}" ${s === it.status ? 'selected' : ''}>${BUD_STATUS_LABELS[s]}</option>`).join('')}</select>
+              <input type="text" data-bud-note="${it.id}" placeholder="Note (e.g. PR link)" value="${escapeHtml(it.assignee_note || '')}">
+              <button data-bud-save="${it.id}" class="secondary">Save</button>
+            </div>
+          </article>`).join('')
+        : '<p class="quiet">Nothing queued yet.</p>');
+    $$('[data-bud-save]').forEach((b) => b.onclick = async () => {
+      const id = b.dataset.budSave;
+      const status = root.querySelector(`[data-bud-status-select="${id}"]`)?.value;
+      const assignee_note = root.querySelector(`[data-bud-note="${id}"]`)?.value;
+      b.disabled = true;
+      try {
+        await ccCall('admin-command-center', { method: 'POST', body: JSON.stringify({ action: 'bud-queue-update', id, status, assignee_note }) });
+        toast('Fix request updated');
+      } catch (err) {
+        toast(err.message);
+      } finally {
+        loadBudQueue();
       }
     });
   }

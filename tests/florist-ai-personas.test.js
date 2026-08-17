@@ -9,10 +9,11 @@ import {
   temperatureForPersona
 } from "../netlify/functions/_shared/florist-ai-personas.js";
 
-test("normalizePersona accepts Lily, Rose, and Daisy", () => {
+test("normalizePersona accepts Lily, Rose, Daisy, and Bud", () => {
   assert.equal(normalizePersona("lily"), "Lily");
   assert.equal(normalizePersona("ROSE"), "Rose");
   assert.equal(normalizePersona("Daisy"), "Daisy");
+  assert.equal(normalizePersona("bud"), "Bud");
   assert.equal(normalizePersona(""), "Lily");
   assert.equal(normalizePersona("unknown"), "Lily");
 });
@@ -32,7 +33,15 @@ test("systemPromptFor includes business guidance for Rose", () => {
 test("temperatureForPersona varies by persona and mode", () => {
   assert.ok(temperatureForPersona("Lily", "generate") > 0);
   assert.ok(temperatureForPersona("Daisy", "chat") >= temperatureForPersona("Rose", "chat"));
-  assert.equal(FLORIST_PERSONAS.length, 3);
+  assert.equal(FLORIST_PERSONAS.length, 4);
+});
+
+test("Bud is Florisyn's problem-solving persona — plain language, no false claims of an already-shipped fix", () => {
+  const prompt = systemPromptFor("Bud", "chat");
+  assert.match(prompt, /problem solver/i);
+  assert.match(prompt, /I gotcha/);
+  assert.match(prompt, /don't ever say it's already fixed/i);
+  assert.ok(temperatureForPersona("Bud", "chat") > 0);
 });
 
 test("local AI bridge imports shared persona module", () => {

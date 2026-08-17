@@ -28,7 +28,8 @@
   const PERSONAS = {
     lily: { name: "Lily", tag: "Design & creative", img: "/assets/assistants/lily-portrait.png", placeholder: "Ask Lily about designs, recipes, or copy…" },
     rose: { name: "Rose", tag: "Business & numbers", img: "/assets/assistants/rose-portrait.png", placeholder: "Ask Rose about pricing, margins, or growth…" },
-    daisy: { name: "Daisy", tag: "Getting started", img: "/assets/assistants/daisy-portrait.png", placeholder: "Ask Daisy where to begin…" }
+    daisy: { name: "Daisy", tag: "Getting started", img: "/assets/assistants/daisy-portrait.png", placeholder: "Ask Daisy where to begin…" },
+    bud: { name: "Bud", tag: "Something broken?", img: "/assets/assistants/bud-portrait.webp", placeholder: "Tell Bud what's not working…" }
   };
   const PERSONA_KEY = "bloom_lily_persona";
   let persona = (() => {
@@ -154,11 +155,14 @@
     };
     document.getElementById("lilySend").onclick = () => sendMessage();
     document.querySelector(".lily-voice").onclick = () => {
-      window.FlorisynAssistantVoice?.speak?.(
-        "Lily",
-        "Hi, I'm Lily. I'm here to help with your shop, and I'll keep things simple.",
-        { force: true, respectToggle: false }
-      );
+      // Was hardcoded to always say "Hi, I'm Lily" here regardless of which
+      // assistant was actually active — switching to Rose, Daisy, or Bud
+      // and hitting the mic button still played Lily's line. Use the
+      // active persona's own name and preview line instead.
+      const active = PERSONAS[persona] || PERSONAS.lily;
+      const preview = window.FlorisynAssistantVoiceCore?.VOICE_DEFAULTS?.[active.name]?.preview
+        || `Hi, I'm ${active.name}. I'm here to help with your shop, and I'll keep things simple.`;
+      window.FlorisynAssistantVoice?.speak?.(active.name, preview, { force: true, respectToggle: false });
     };
     document.getElementById("lilyInput").addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
@@ -208,6 +212,8 @@
     if (tag) tag.textContent = p.tag;
     if (input) input.placeholder = p.placeholder;
     if (fab) { fab.title = `${p.name} — Florisyn assistant`; const img = fab.querySelector("img"); if (img) { img.src = p.img; img.alt = p.name; } }
+    const voiceBtn = document.querySelector(".lily-voice");
+    if (voiceBtn) voiceBtn.title = `Hear ${p.name}`;
     document.querySelectorAll("[data-lily-persona]").forEach((b) => b.classList.toggle("active", b.dataset.lilyPersona === persona));
   }
 
@@ -520,8 +526,8 @@
     if (action.type === "api" && confirmed && deps.api) {
       try {
         await deps.api(action.endpoint, { method: action.method || "POST", body: JSON.stringify(action.body || {}) });
-        deps.toast?.("Florisyn updated inventory.");
-        deps.loadInventory?.();
+        deps.toast?.(action.successMessage || "Florisyn updated inventory.");
+        if (action.endpoint === "inventory") deps.loadInventory?.();
       } catch (e) {
         deps.toast?.(e.message);
       }

@@ -21,6 +21,13 @@
       volume: 0.9,
       preview:
         "Hi! I'm Daisy — cheerful, funny, and here with a little shop sparkle whenever you need a smile."
+    },
+    Bud: {
+      rate: 0.92,
+      pitch: 0.9,
+      volume: 0.95,
+      preview:
+        "Hey there, I'm Bud. Something acting up? Tell me what's going on and I gotcha — let's get it fixed."
     }
   };
 
@@ -68,9 +75,16 @@
     } else if (persona === "Daisy") {
       if (/ava|emma|sara|aria|jenny/i.test(name)) score += 24;
       if (/child|kid|junior|david|guy|mark|james|male/i.test(name)) score -= 55;
+    } else if (persona === "Bud") {
+      if (/guy|david|mark|james|male|christopher|eric|ryan|tony/i.test(name)) score += 28;
+      if (/female|woman|zira|samantha|aria|jenny|susan|victoria|ava|emma/i.test(name)) score -= 45;
     }
     if (ROBOTIC.test(name)) score -= 25;
-    if (/female|woman/i.test(name)) score += 6;
+    if (persona === "Bud") {
+      if (/male/i.test(name)) score += 6;
+    } else if (/female|woman/i.test(name)) {
+      score += 6;
+    }
     return score;
   }
 

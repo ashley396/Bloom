@@ -201,7 +201,9 @@
   }
 
   async function speak(persona, text, options = {}) {
-    const who = persona === "Rose" ? "Rose" : persona === "Daisy" ? "Daisy" : "Lily";
+    // Was a hardcoded 3-way check that silently folded any other persona
+    // name into "Lily" — calling speak("Bud", …) actually spoke as Lily.
+    const who = ["Rose", "Daisy", "Bud"].includes(persona) ? persona : "Lily";
     const force = Boolean(options.force);
     const respectToggle = options.respectToggle !== false;
     if (respectToggle && !force && ctx.getSpeakEnabled?.() === false) return false;
@@ -237,7 +239,9 @@
         ? "Upbeat, warm, and creative — a young partner who makes shop work feel fun."
         : persona === "Daisy"
           ? "Cheerful and funny shop-pup energy — short, playful encouragement."
-          : "Wise, steady, and kindly experienced — a calm older advisor.";
+          : persona === "Bud"
+            ? "Calm, friendly, and down-to-earth — a good buddy who's got it handled."
+            : "Wise, steady, and kindly experienced — a calm older advisor.";
 
     root.insertAdjacentHTML(
       "beforeend",
@@ -333,14 +337,15 @@
       host.insertAdjacentHTML(
         "afterbegin",
         `<div id="assistantVoiceSettingsIntro" class="assistant-voice-intro">
-          <p class="eyebrow">LILY &amp; ROSE</p>
+          <p class="eyebrow">LILY, ROSE &amp; BUD</p>
           <h2>Assistant voices</h2>
-          <p class="subtle">Tune how Lily and Rose sound on this device. Settings are saved per shop and user.</p>
+          <p class="subtle">Tune how Lily, Rose, and Bud sound on this device. Settings are saved per shop and user.</p>
         </div>`
       );
     }
     mountPersonaPanel(host, "Lily");
     mountPersonaPanel(host, "Rose");
+    mountPersonaPanel(host, "Bud");
     const legacyLily = host.querySelector("#lilyVoiceRc2");
     if (legacyLily) legacyLily.remove();
   }

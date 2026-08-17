@@ -7,6 +7,7 @@
  *   ELEVENLABS_VOICE_LILY         — ElevenLabs Voice ID for Lily
  *   ELEVENLABS_VOICE_ROSE         — ElevenLabs Voice ID for Rose
  *   ELEVENLABS_VOICE_DAISY        — ElevenLabs Voice ID for Daisy
+ *   ELEVENLABS_VOICE_BUD          — ElevenLabs Voice ID for Bud
  *   ELEVENLABS_MODEL (optional)   — defaults to eleven_multilingual_v2
  */
 import { json, preflight, methodNotAllowed, bodyOf } from "./_shared/http.js";
@@ -18,6 +19,7 @@ function personaKey(persona) {
   const p = String(persona || "").toLowerCase();
   if (p === "rose") return "Rose";
   if (p === "daisy") return "Daisy";
+  if (p === "bud") return "Bud";
   return "Lily";
 }
 

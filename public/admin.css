@@ -188,3 +188,7 @@ body.admin-locked #adminApp{
   #adminApp>aside{position:static;height:auto;max-height:none}
   #adminApp>.bloom-onboarding-banner{margin:16px 20px 0}
 }
+.bud-queue-head{align-items:center;margin-bottom:10px}
+.bud-queue-avatar{width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.bud-queue-item .card-actions{align-items:center;flex-wrap:wrap}
+.bud-queue-item .card-actions input[type="text"]{flex:1;min-width:160px;padding:6px 10px;border:1px solid var(--line);border-radius:8px}
