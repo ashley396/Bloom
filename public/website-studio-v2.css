@@ -217,6 +217,42 @@
   transform: scale(0.98);
   transform-origin: top center;
 }
+/* editor-section-tools was previously unstyled — buttons wrapped with no
+   spacing. The drag handle (⠿) reuses .editor-drag-handle's existing
+   grab-cursor styling from the block-reorder inspector below. */
+.editor-section-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.editor-section {
+  position: relative;
+  transition: opacity 0.15s ease;
+}
+.editor-section.dragging {
+  opacity: 0.5;
+}
+/* Insertion indicator: a clear line showing exactly where a dragged
+   section will land, instead of an ambiguous "drop anywhere on the
+   card" target. Placed on a pseudo-element so it doesn't shift layout. */
+.editor-section.drop-before::before,
+.editor-section.drop-after::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent, #8f3f68);
+}
+.editor-section.drop-before::before {
+  top: -0.5rem;
+}
+.editor-section.drop-after::after {
+  bottom: -0.5rem;
+}
 .editor-block-row {
   display: flex;
   gap: 0.5rem;
