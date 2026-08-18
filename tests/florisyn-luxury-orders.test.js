@@ -21,7 +21,19 @@ test("Orders Figma shell and assets are wired", () => {
   assert.match(pageHtml, /\+ New Order/);
   assert.match(pageHtml, /ordTabs/);
   assert.match(pageHtml, /Search orders\.\.\./);
-  assert.match(pageHtml, /May 1 - May 12, 2026/);
+  // The date-range button used to hardcode "May 1 - May 12, 2026" as
+  // permanent, unchanging label text — a completely fake control that
+  // never filtered anything. It's now a real popover with a dynamic
+  // label (defaults to "All dates") and real from/to date inputs.
+  assert.doesNotMatch(pageHtml, /May 1 - May 12, 2026/);
+  assert.match(pageHtml, /id="ordDateRangeLabel"/);
+  assert.match(pageHtml, />All dates</);
+  assert.match(pageHtml, /id="ordDatePanel"/);
+  assert.match(pageHtml, /id="ordDateFrom"/);
+  assert.match(pageHtml, /id="ordDateTo"/);
+  assert.match(pageHtml, /id="ordFilterPanel"/);
+  assert.match(pageHtml, /id="ordFilterFulfillment"/);
+  assert.match(pageHtml, /id="ordFilterPayment"/);
   assert.match(pageHtml, /ord-table-card/);
   assert.match(pageHtml, /id="ordTable"/);
   assert.match(pageHtml, /id="ordTableBody"/);
