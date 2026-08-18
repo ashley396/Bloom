@@ -26,6 +26,11 @@
   };
   let pendingImageDataUrl = null;
   let pendingAvatarDataUrl = null;
+  // Set right before a render() that must NOT re-snapshot the composer's
+  // still-live (not yet re-rendered) DOM input over a draft that was just
+  // intentionally reset — e.g. right after a successful post. Self-clears
+  // after one use so it never suppresses an unrelated later capture.
+  let skipNextComposerCapture = false;
 
   async function api(action, extra = {}, method = "POST") {
     const fn = window.bloomCommunityApi || window.api;
@@ -71,6 +76,10 @@
   }
 
   function captureComposerDraft() {
+    if (skipNextComposerCapture) {
+      skipNextComposerCapture = false;
+      return;
+    }
     const form = root()?.querySelector("#communityComposer");
     if (!form) return;
     const fd = new FormData(form);
@@ -909,6 +918,12 @@
     if (!el) return;
     if (!opts.keepCategory) state.category = state.category || "";
     if (opts.keepComposer !== false) captureComposerDraft();
+    // render() below (via its own state.loading branch) calls
+    // captureComposerDraft() again unconditionally — without this, that
+    // second call re-reads the composer's still-live DOM value (the
+    // loading-state render hasn't wiped it yet) and overwrites whatever
+    // resetComposerDraft() just set, undoing the caller's intent.
+    else skipNextComposerCapture = true;
     state.loading = true;
     state.error = null;
     render();
