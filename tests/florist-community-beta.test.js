@@ -22,6 +22,8 @@ import {
   assertCommunitySafePayload,
   communityImagePath,
   communityImagePublicUrl,
+  SHARE_PERMISSION_TIERS,
+  permissionAtLeast,
 } from "../netlify/functions/_shared/florist-community.js";
 import { getFeatureFlags, isFeatureEnabled } from "../netlify/functions/_shared/feature-flags.js";
 
@@ -77,6 +79,50 @@ test("post validation requires category and caption", async () => {
     body: "Condition overnight.",
   });
   assert.equal(ok.valid, true);
+});
+
+test("post validation defaults to the most restrictive share permission — never assumes commercial permission", async () => {
+  // No share_permission sent at all — the common case for every category
+  // except Arrangement Share, and for any client that predates this field.
+  const noPermission = await validatePostBody({ category: "Arrangement Share", caption: "Blush compote" });
+  assert.equal(noPermission.sanitized.share_permission, "inspiration_only");
+  assert.equal(noPermission.sanitized.allow_photo_use, false);
+
+  // An unrecognized value fails closed to the safest tier rather than
+  // erroring the whole post or silently granting more than intended.
+  const bogus = await validatePostBody({ category: "Arrangement Share", caption: "X", share_permission: "give_it_all_away" });
+  assert.equal(bogus.sanitized.share_permission, "inspiration_only");
+
+  // A real, valid tier passes through untouched.
+  const granted = await validatePostBody({
+    category: "Arrangement Share",
+    caption: "X",
+    share_permission: "allow_shop_use",
+    allow_photo_use: true,
+  });
+  assert.equal(granted.sanitized.share_permission, "allow_shop_use");
+  assert.equal(granted.sanitized.allow_photo_use, true);
+});
+
+test("permissionAtLeast: escalating tiers, each includes everything below it", () => {
+  assert.equal(SHARE_PERMISSION_TIERS[0], "inspiration_only");
+  assert.equal(SHARE_PERMISSION_TIERS[SHARE_PERMISSION_TIERS.length - 1], "allow_website_use");
+
+  assert.equal(permissionAtLeast("inspiration_only", "save_to_library"), false);
+  assert.equal(permissionAtLeast("allow_shop_use", "save_to_library"), true, "a higher tier satisfies a lower requirement");
+  assert.equal(permissionAtLeast("allow_shop_use", "allow_website_use"), false);
+  assert.equal(permissionAtLeast(undefined, "save_to_library"), false, "missing permission defaults to the safest tier, not the most permissive");
+  assert.equal(permissionAtLeast("not_a_real_tier", "inspiration_only"), false, "unknown tier fails closed");
+});
+
+test("publicPost exposes share_permission and allow_photo_use, sanitizing an invalid stored value", () => {
+  const row = { id: "p1", category: "Arrangement Share", caption: "X", share_permission: "allow_recreation", allow_photo_use: true };
+  const clean = publicPost(row, {});
+  assert.equal(clean.share_permission, "allow_recreation");
+  assert.equal(clean.allow_photo_use, true);
+
+  const corrupted = publicPost({ ...row, share_permission: "not-a-tier" }, {});
+  assert.equal(corrupted.share_permission, "inspiration_only", "an invalid stored tier is never surfaced as-is");
 });
 
 test("sharp fully decodes/re-encodes valid images and rejects corrupt fixtures", async () => {

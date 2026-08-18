@@ -370,6 +370,63 @@
   margin-bottom: 0.45rem;
 }
 
+/* Arrangement Share permission — the creator's explicit ceiling on how
+   far a design may travel, shown as a badge so other florists know what
+   they're allowed to do before they try, and as a compact composer
+   section (see #communitySharePermission) so posting stays easy while
+   sharing something more than "inspiration only" stays a deliberate
+   choice. */
+.community-permission-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-weight: 700;
+  background: #f1eaea;
+  color: #6d5b60;
+  vertical-align: middle;
+}
+
+.community-permission-save_to_library,
+.community-permission-allow_recreation,
+.community-permission-allow_shop_use,
+.community-permission-allow_website_use {
+  background: #e8f0ea;
+  color: #2f5d3a;
+}
+
+.community-share-permission {
+  margin: 0.75rem 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #eadde5;
+  border-radius: 10px;
+  background: #fdf8fa;
+}
+
+.community-share-permission label {
+  display: block;
+  margin-top: 0.4rem;
+}
+
+.community-photo-permission-check {
+  display: flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.community-photo-permission-check input {
+  width: auto;
+}
+
+.community-permission-note {
+  margin: 0.5rem 0 0;
+  font-style: italic;
+}
+
 @media (max-width: 760px) {
   #communityPage .heading {
     flex-direction: column;

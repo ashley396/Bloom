@@ -7,6 +7,35 @@
       .replace(/"/g, "&quot;");
 
   const CATEGORIES = ["Design Help", "Business Advice", "Questions", "Celebrations", "Arrangement Share"];
+
+  // Mirrors SHARE_PERMISSION_TIERS in netlify/functions/_shared/florist-community.js
+  // (escalating scope, least to most permissive). Kept in sync manually —
+  // both sides validate independently, and the server is the real gate.
+  const SHARE_PERMISSION_OPTIONS = [
+    { value: "inspiration_only", label: "View for inspiration only (default)" },
+    { value: "save_to_library", label: "Save this arrangement to their library" },
+    { value: "allow_recreation", label: "Recreate this design" },
+    { value: "allow_shop_use", label: "Add this as a product in their shop" },
+    { value: "allow_website_use", label: "Publish their version on their website" },
+  ];
+  const SHARE_PERMISSION_BADGE_LABEL = {
+    inspiration_only: "Inspiration only",
+    save_to_library: "Save to library",
+    allow_recreation: "Recreation allowed",
+    allow_shop_use: "Shop use allowed",
+    allow_website_use: "Website use allowed",
+  };
+  const SHARE_PERMISSION_TIER_ORDER = SHARE_PERMISSION_OPTIONS.map((o) => o.value);
+  // UI-side convenience gate only, so a florist never sees a button that's
+  // certain to fail — the server (permissionAtLeast in
+  // netlify/functions/_shared/florist-community.js) is the real, only
+  // trusted enforcement.
+  function permissionAtLeast(actual, required) {
+    const a = SHARE_PERMISSION_TIER_ORDER.indexOf(actual || "inspiration_only");
+    const r = SHARE_PERMISSION_TIER_ORDER.indexOf(required);
+    if (a < 0 || r < 0) return false;
+    return a >= r;
+  }
   let state = {
     loading: false,
     error: null,
@@ -21,6 +50,8 @@
       category: CATEGORIES[0],
       caption: "",
       body: "",
+      share_permission: "inspiration_only",
+      allow_photo_use: false,
     },
     recipeUi: {},
   };
@@ -87,11 +118,13 @@
       category: String(fd.get("category") || state.composerDraft.category || CATEGORIES[0]),
       caption: String(fd.get("caption") || ""),
       body: String(fd.get("body") || ""),
+      share_permission: String(fd.get("share_permission") || state.composerDraft.share_permission || "inspiration_only"),
+      allow_photo_use: fd.get("allow_photo_use") === "on",
     };
   }
 
   function resetComposerDraft() {
-    state.composerDraft = { category: CATEGORIES[0], caption: "", body: "" };
+    state.composerDraft = { category: CATEGORIES[0], caption: "", body: "", share_permission: "inspiration_only", allow_photo_use: false };
     pendingImageDataUrl = null;
   }
 
@@ -183,6 +216,11 @@
     const previewAttrs = pendingImageDataUrl
       ? `src="${esc(pendingImageDataUrl)}"`
       : 'hidden aria-hidden="true"';
+    const isArrangementShare = selectedCategory === "Arrangement Share";
+    const permission = draft.share_permission || "inspiration_only";
+    const permOpts = SHARE_PERMISSION_OPTIONS.map(
+      (o) => `<option value="${esc(o.value)}"${o.value === permission ? " selected" : ""}>${esc(o.label)}</option>`
+    ).join("");
     return `<form id="communityComposer" class="community-composer panel">
       <div class="community-composer-head">
         ${avatarHtml(p, { size: "sm", alt: "Your profile" })}
@@ -191,7 +229,7 @@
           <h3>Share with florists</h3>
         </div>
       </div>
-      <label>Category<select name="category" required>${opts}</select></label>
+      <label>Category<select name="category" id="communityComposerCategory" required>${opts}</select></label>
       <label>Caption<input name="caption" required maxlength="280" placeholder="Modern blush garden — Freedom roses, spray roses, eucalyptus…" value="${esc(draft.caption || "")}"></label>
       <p class="subtle community-caption-hint">Tip: name the flowers in your caption so Lily can build a specific stem-count recipe.</p>
       <label>Details (optional)<textarea name="body" maxlength="4000" rows="3" placeholder="Stem counts, mechanics, variety notes — no customer info.">${esc(draft.body || "")}</textarea></label>
@@ -200,6 +238,12 @@
         <input type="file" id="communityImageInput" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp">
       </label>
       <img id="communityImagePreview" class="community-image-preview" alt="Arrangement preview" ${previewAttrs}>
+      <div class="community-share-permission" id="communitySharePermission"${isArrangementShare ? "" : " hidden"}>
+        <p class="eyebrow">SHARING PERMISSION</p>
+        <p class="subtle">You decide how far this design may travel. This never changes what happens to the post itself — only what other florists may do with the design.</p>
+        <label>Other florists may<select name="share_permission">${permOpts}</select></label>
+        <label class="community-photo-permission-check"><input type="checkbox" name="allow_photo_use"${draft.allow_photo_use ? " checked" : ""}> Also allow florists to use my original photo (not just the design)</label>
+      </div>
       <div class="card-actions">
         <button type="submit" class="primary">Post</button>
       </div>
@@ -234,9 +278,11 @@
         .map((row) => `<li>${esc(row.qty || row.quantity)} × ${esc(row.name)}</li>`)
         .join("");
       const importBtn =
-        !post.is_mine && r.id
+        !post.is_mine && r.id && permissionAtLeast(post.share_permission, "allow_shop_use")
           ? `<button type="button" class="primary community-import-recipe" data-recipe-id="${esc(r.id)}">Add to My Shop</button>`
-          : "";
+          : !post.is_mine && r.id
+            ? `<p class="subtle community-permission-note">The florist who shared this hasn't allowed it to be added to another shop yet.</p>`
+            : "";
       const ui = state.recipeUi[id] || {};
       const rebuildBtn =
         post.is_mine && post.image_url
@@ -304,13 +350,22 @@
     const mine = post.is_mine
       ? `<button type="button" class="secondary danger community-delete" data-id="${esc(post.id)}">Delete</button>`
       : "";
+    const permBadge =
+      post.category === "Arrangement Share"
+        ? `<span class="community-permission-badge community-permission-${esc(post.share_permission || "inspiration_only")}">${esc(SHARE_PERMISSION_BADGE_LABEL[post.share_permission] || SHARE_PERMISSION_BADGE_LABEL.inspiration_only)}</span>`
+        : "";
+    // "Never assume commercial permission" — own posts are always saveable;
+    // another florist's post only shows the button once the creator has
+    // allowed at least that much, so nobody sees an action guaranteed to
+    // be refused server-side.
+    const canSaveToLibrary = post.is_mine || permissionAtLeast(post.share_permission, "save_to_library");
     return `<article class="community-post panel" data-post-id="${esc(post.id)}">
       <header class="community-post-head">
         ${avatarHtml(author, { size: "md", alt: `${author.display_name || "Florist"} profile photo` })}
         <div class="community-post-author">
           <strong>${esc(author.display_name || "Florist")}</strong>
           <span class="subtle">${esc(author.shop_display_name || "")}${author.city ? ` · ${esc(author.city)}` : ""}</span>
-          <p class="community-category">${esc(post.category)}</p>
+          <p class="community-category">${esc(post.category)} ${permBadge}</p>
         </div>
         <time class="subtle community-post-time" datetime="${esc(post.created_at || "")}">${esc(formatWhen(post.created_at))}</time>
       </header>
@@ -326,7 +381,7 @@
           💬 ${Number(post.comment_count || 0)}
         </button>
         <button type="button" class="secondary community-report" data-id="${esc(post.id)}">Report</button>
-        ${post.image_url ? `<button type="button" class="secondary community-save-to-library" data-id="${esc(post.id)}">📌 Add to my library</button>` : ""}
+        ${post.image_url && canSaveToLibrary ? `<button type="button" class="secondary community-save-to-library" data-id="${esc(post.id)}">📌 Add to my library</button>` : ""}
         ${mine}
         ${mod}
       </div>
@@ -555,6 +610,11 @@
       pendingImageDataUrl = url;
     }, "#communityImagePreview");
 
+    el.querySelector("#communityComposerCategory")?.addEventListener("change", (e) => {
+      const block = el.querySelector("#communitySharePermission");
+      if (block) block.hidden = e.target.value !== "Arrangement Share";
+    });
+
     el.querySelector("#communityComposer")?.addEventListener("submit", async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
@@ -569,6 +629,8 @@
           category: fd.get("category"),
           caption,
           body: fd.get("body"),
+          share_permission: fd.get("share_permission") || "inspiration_only",
+          allow_photo_use: fd.get("allow_photo_use") === "on",
         };
         if (pendingImageDataUrl) payload.image_data_url = pendingImageDataUrl;
         await api("create_post", payload);

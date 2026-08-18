@@ -13,6 +13,38 @@ export const COMMUNITY_CATEGORIES = Object.freeze([
   "Arrangement Share",
 ]);
 
+/**
+ * Arrangement Share permission ceiling — the creator's explicit choice for
+ * how far their design may travel. An escalating scope (each tier includes
+ * everything below it) kept as ONE control rather than five separate
+ * toggles, so sharing stays easy for a florist who just wants to post a
+ * photo. Never assume commercial permission: the default is the most
+ * restrictive tier. See supabase/migrations/20260818000000_florist_community_share_permissions.sql.
+ */
+export const SHARE_PERMISSION_TIERS = Object.freeze([
+  "inspiration_only",
+  "save_to_library",
+  "allow_recreation",
+  "allow_shop_use",
+  "allow_website_use",
+]);
+
+export const SHARE_PERMISSION_LABELS = Object.freeze({
+  inspiration_only: "Inspiration only — view and save the post, not the design",
+  save_to_library: "Save to Library — other florists may save this arrangement",
+  allow_recreation: "Allow Design Recreation — other florists may recreate this design",
+  allow_shop_use: "Allow Shop Use — other florists may import this as a shop product",
+  allow_website_use: "Allow Website Use — other florists may publish their version on their storefront",
+});
+
+/** True when `actual` grants at least as much access as `required`. Fails closed on an unknown tier. */
+export function permissionAtLeast(actual, required) {
+  const a = SHARE_PERMISSION_TIERS.indexOf(String(actual || "inspiration_only"));
+  const r = SHARE_PERMISSION_TIERS.indexOf(String(required || ""));
+  if (a < 0 || r < 0) return false;
+  return a >= r;
+}
+
 export const COMMUNITY_GUIDELINES = Object.freeze([
   "Share florist-to-florist advice only — never customer names, phone numbers, addresses, or order details.",
   "Be kind. Encourage fellow florists; disagree respectfully.",
@@ -351,10 +383,19 @@ export async function validatePostBody(body = {}) {
     image = await validateCommunityImageUpload({ dataUrl: body.image_data_url });
     if (!image.valid) errors.push(image.error);
   }
+  // Only meaningful for Arrangement Share posts with a photo, but accepted
+  // generally (falls back to the safe default) so the field never needs a
+  // conditional branch elsewhere. An invalid/unknown value fails closed to
+  // the most restrictive tier rather than erroring the whole post.
+  const sharePermissionRaw = String(body.share_permission || "").trim();
+  const share_permission = SHARE_PERMISSION_TIERS.includes(sharePermissionRaw)
+    ? sharePermissionRaw
+    : "inspiration_only";
+  const allow_photo_use = body.allow_photo_use === true;
   return {
     valid: errors.length === 0,
     errors,
-    sanitized: { category, caption, body: text },
+    sanitized: { category, caption, body: text, share_permission, allow_photo_use },
     image,
   };
 }
@@ -443,6 +484,8 @@ export function publicPost(
     image_path: row.image_path || null,
     image_url: imageUrl,
     image_url_expires_in: imageExpiresIn,
+    share_permission: SHARE_PERMISSION_TIERS.includes(row.share_permission) ? row.share_permission : "inspiration_only",
+    allow_photo_use: Boolean(row.allow_photo_use),
     status: row.status,
     like_count: Number(row.like_count || 0),
     comment_count: Number(row.comment_count || 0),

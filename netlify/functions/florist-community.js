@@ -19,6 +19,7 @@ import {
   canEditOwnContent,
   assertCommunitySafePayload,
   isStoragePath,
+  permissionAtLeast,
 } from "./_shared/florist-community.js";
 import {
   uploadPrevalidatedCommunityImage,
@@ -181,7 +182,7 @@ const PROFILE_COLUMNS =
   "user_id,shop_id,display_name,shop_display_name,city,region,bio,avatar_path,updated_at";
 
 const POST_COLUMNS =
-  "id,author_user_id,shop_id,category,caption,body,image_path,status,like_count,comment_count,created_at,updated_at,recipe_draft,recipe_status,published_recipe_id";
+  "id,author_user_id,shop_id,category,caption,body,image_path,status,like_count,comment_count,created_at,updated_at,recipe_draft,recipe_status,published_recipe_id,share_permission,allow_photo_use";
 
 const RECIPE_COLUMNS =
   "id,post_id,author_user_id,author_shop_id,title,description,category,recipe,instructions,suggested_retail,image_path,status,import_count,created_at,updated_at";
@@ -615,6 +616,8 @@ export async function handler(event) {
         caption: v.sanitized.caption,
         body: v.sanitized.body,
         image_path: imagePath,
+        share_permission: v.sanitized.share_permission,
+        allow_photo_use: v.sanitized.allow_photo_use,
         status: "active",
         like_count: 0,
         comment_count: 0,
@@ -653,7 +656,7 @@ export async function handler(event) {
       if (!id) return json(400, { error: "Post id is required." });
       const { data: existing, error: ge } = await client
         .from("florist_community_posts")
-        .select("id,author_user_id,shop_id,category,caption,body,image_path,status")
+        .select("id,author_user_id,shop_id,category,caption,body,image_path,status,share_permission,allow_photo_use")
         .eq("id", id)
         .maybeSingle();
       if (ge) throw ge;
@@ -669,6 +672,8 @@ export async function handler(event) {
         caption: body.caption ?? existing.caption,
         body: body.body ?? existing.body,
         image_data_url: body.image_data_url,
+        share_permission: body.share_permission ?? existing.share_permission,
+        allow_photo_use: body.allow_photo_use ?? existing.allow_photo_use,
       });
       if (!v.valid) return json(400, { error: v.errors.join(" ") });
       // Only editable content fields — never counters/status/ownership
@@ -676,6 +681,8 @@ export async function handler(event) {
         category: v.sanitized.category,
         caption: v.sanitized.caption,
         body: v.sanitized.body,
+        share_permission: v.sanitized.share_permission,
+        allow_photo_use: v.sanitized.allow_photo_use,
         updated_at: new Date().toISOString(),
       };
       let uploadedPath = null;
@@ -1171,6 +1178,29 @@ export async function handler(event) {
         throw re;
       }
       if (!recipe) return json(404, { error: "Recipe not found." });
+      const isOwnRecipe = recipe.author_user_id === user.id;
+      if (!isOwnRecipe) {
+        // The creator's explicit ceiling gates shop import too — fetched
+        // fresh via the recipe's own post link rather than trusted from
+        // the client. A recipe whose post was deleted (post_id null) has
+        // no permission to check, so it fails closed rather than assuming
+        // it's fine, matching this file's existing fail-closed pattern.
+        let sharePermission = null;
+        if (recipe.post_id) {
+          const { data: linkedPost, error: lpErr } = await client
+            .from("florist_community_posts")
+            .select("share_permission")
+            .eq("id", recipe.post_id)
+            .maybeSingle();
+          if (lpErr) throw lpErr;
+          sharePermission = linkedPost?.share_permission || null;
+        }
+        if (!permissionAtLeast(sharePermission, "allow_shop_use")) {
+          return json(403, {
+            error: "The florist who shared this recipe hasn't allowed it to be added to another shop yet.",
+          });
+        }
+      }
       const draft = sanitizeRecipeDraft({
         name: recipe.title,
         description: recipe.description,
@@ -1259,11 +1289,25 @@ export async function handler(event) {
       }
       if (!post) return json(404, { error: "Post not found." });
       if (!post.image_path) return json(400, { error: "This post doesn't have a photo to save." });
+      const isOwnPost = post.author_user_id === user.id;
+      // The creator's explicit ceiling — saving your own post never needs
+      // permission, but another florist's post is gated on what they
+      // allowed. "Never assume commercial permission."
+      if (!isOwnPost && !permissionAtLeast(post.share_permission, "save_to_library")) {
+        return json(403, {
+          error: "The florist who shared this marked it inspiration-only — you can view it, but it can't be saved to your library.",
+        });
+      }
       const imageDataUrl = String(body.image_data_url || "").trim();
       if (!imageDataUrl.startsWith("data:image/")) {
         return json(400, { error: "Could not read that photo. Try again." });
       }
       const name = String(post.caption || "Community arrangement").slice(0, 120);
+      // Design permission (checked above) never implies photo permission —
+      // those are separate creator choices. Only carry the original
+      // photograph over when the creator explicitly allowed photo reuse,
+      // or it's the florist's own post.
+      const usePhoto = isOwnPost || Boolean(post.allow_photo_use);
       const productPayload = {
         shop_id: shopId,
         name,
@@ -1272,7 +1316,7 @@ export async function handler(event) {
         // the florist can recategorize when they price/publish it.
         category: "Everyday",
         description: String(post.body || `Saved from Florist Community: ${name}`).slice(0, 2000),
-        image_url: imageDataUrl,
+        image_url: usePhoto ? imageDataUrl : "",
         price: 0,
         active: false,
         featured: false,
@@ -1288,7 +1332,9 @@ export async function handler(event) {
         ok: true,
         product_id: product.id,
         product_name: product.name,
-        message: `${product.name} was saved to your Floral Library — price and publish it any time in Products.`,
+        message: usePhoto
+          ? `${product.name} was saved to your Floral Library — price and publish it any time in Products.`
+          : `${product.name} was saved to your Floral Library. The original photo isn't licensed for your shop — photograph your own version in Photo Studio, then attach it before publishing.`,
       });
     }
 
