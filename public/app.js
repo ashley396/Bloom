@@ -128,7 +128,18 @@ function explainOrderDeleteFailure(err,orderNumber){
 }
 function toast(m){const msg=String(m||"");if(sessionRecoveryActive&&isAuthToastMessage(msg))return;if(isAuthToastMessage(msg)){const now=Date.now();if(now-lastAuthToastAt<AUTH_TOAST_COOLDOWN_MS)return;lastAuthToastAt=now}const e=$("#toast");e.textContent=msg;e.hidden=false;clearTimeout(window.bt);window.bt=setTimeout(()=>e.hidden=true,3200)}
 function empty(t){return window.BloomLaunchPolish?.emptyState?.(t)||`<div class="card subtle bloom-empty-state" role="status"><strong>${esc(t)}</strong></div>`}
-function bindForm(selector,handler){const form=$(selector);if(!form)return;form.onsubmit=async e=>{try{await handler(e)}catch(err){toast(err?.message||"Could not complete this action.")}}}
+function bindForm(selector,handler){const form=$(selector);if(!form)return;form.onsubmit=async e=>{
+  // Guard every save/create form against double-submit: a florist double-clicking (or
+  // double-tapping) "Create order"/"Save product" etc. during a busy rush must not fire
+  // the async save handler twice and create a duplicate record.
+  if(form.dataset.submitting==="1")return;
+  const submitBtn=form.querySelector('button[type="submit"],button:not([type])');
+  form.dataset.submitting="1";
+  if(submitBtn)submitBtn.disabled=true;
+  try{await handler(e)}
+  catch(err){toast(err?.message||"Could not complete this action.")}
+  finally{form.dataset.submitting="";if(submitBtn)submitBtn.disabled=false}
+}}
 function florisynUnhandledToast(err){if(err?.code==="session_expired"||sessionRecoveryActive)return;toast(err?.message||"Florisyn ran into a temporary issue. Please try again.")}
 window.addEventListener("unhandledrejection",e=>florisynUnhandledToast(e.reason));
 window.addEventListener("error",e=>florisynUnhandledToast(e.error||e.message));
@@ -879,7 +890,12 @@ function readSplitRows(){return [...($("#splitPaymentRows")?.querySelectorAll(".
 function updateSplitTotals(){const balance=Number($("#paymentTopSummary")?.dataset.balance||getPaymentBalance());const rows=readSplitRows();const splitTotal=Math.round(rows.reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;const manualTotal=Math.round(rows.filter(r=>r.method!=="Card").reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;const cardTotal=Math.round(rows.filter(r=>r.method==="Card").reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;if($("#splitTotalLive"))$("#splitTotalLive").textContent=money(splitTotal);if($("#splitRemainingLive"))$("#splitRemainingLive").textContent=money(Math.max(0,balance-manualTotal));const err=$("#splitPaymentError");if(err)err.textContent=splitTotal>balance+0.005?`Split total ${money(splitTotal)} exceeds balance ${money(balance)}.`:"";const notice=$("#splitCardNotice");if(notice){if(cardTotal>0){notice.hidden=false;notice.textContent=`Card total ${money(cardTotal)} opens Stripe for that amount after cash/check/other parts post.`}else notice.hidden=true}}
 function setPendingPaymentOrder(order){pendingPaymentOrder=order||null;if(order)localStorage.setItem("bloom_pending_payment_order",JSON.stringify(order));else{localStorage.removeItem("bloom_pending_payment_order");clearSplitSession()}renderPaymentCenterShell()}
 function posFulfillMode(){return document.querySelector('#posFulfill [data-fulfill].active')?.dataset.fulfill||"PICKUP"}
+let posCheckoutInFlight=false;
 async function checkoutPosCart(){
+  // A POS device gets tapped fast and sometimes twice — guard against firing
+  // two "create order" requests from one checkout tap (same class of bug as
+  // bindForm's double-submit fix, but this button isn't a <form> submit).
+  if(posCheckoutInFlight)return;
   if(!posCart.length)return toast("Add an item first");
   const option=$("#posCustomerSelect")?.selectedOptions?.[0],customerName=option?.dataset.name||"Walk-in Customer",note=$("#posOrderNote")?.value||"";
   const {subtotal,tax,total,rate,discount,service}=cartTotals();
@@ -892,6 +908,9 @@ async function checkoutPosCart(){
   const occasion=$("#posOccasion")?.value?.trim()||"";
   if(isDelivery&&!deliveryAddress)return toast("Add a delivery address, or switch to Pickup.");
   const description=posCart.map(x=>`${x.quantity} × ${x.name}${x.description?` (${x.description})`:""}`).join("; ");
+  posCheckoutInFlight=true;
+  const checkoutBtn=$("#posChargeCardBtn");
+  if(checkoutBtn)checkoutBtn.disabled=true;
   try{
     const result=await api("orders",{method:"POST",body:JSON.stringify({customer_name:customerName,customer_phone:"",customer_type:"PERSONAL",payment_required:"YES",recipient_name:recipientName,recipient_phone:recipientPhone,delivery_address:deliveryAddress,card_message:cardMessage,occasion,order_source:"POS",arrangement_description:description,notes:note,fulfillment,delivery_date:deliveryDate,subtotal,labor_charge:0,delivery_fee:service||0,discount:discount||0,tax_rate:rate,tax,estimated_cost:0,total_preview:total})});
     const order=result.item||{};
@@ -901,6 +920,7 @@ async function checkoutPosCart(){
     await openPaymentCenterForOrder(order);
     loadOrders();loadDashboard();
   }catch(e){toast(e.message)}
+  finally{posCheckoutInFlight=false;if(checkoutBtn)checkoutBtn.disabled=false}
 }
 document.addEventListener("click",e=>{const b=e.target.closest("#posFulfill [data-fulfill]");if(!b)return;document.querySelectorAll("#posFulfill [data-fulfill]").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-selected",on?"true":"false")});const del=b.dataset.fulfill==="DELIVERY";const f=$("#posDeliveryFields");if(f)f.hidden=!del});
 addPastelPageFrames();
