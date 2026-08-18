@@ -887,7 +887,12 @@
     const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `florisyn-design-overrides-${new Date().toISOString().slice(0, 10)}.json`;
+    // UTC-based date stamp — export timestamps aren't schedule-critical
+    // like an order/expense date, but keep the local calendar day for
+    // consistency with the rest of the app's date handling.
+    const now = new Date();
+    const localDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    a.download = `florisyn-design-overrides-${localDateStr}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
     toast("Visual config JSON downloaded");
