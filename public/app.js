@@ -554,7 +554,12 @@ async function loadDashboard(){
 }
 function renderDashboardTodayOrders(){
   const box=$("#atelierTodayOrders");if(!box)return;
-  const todayStr=new Date().toISOString().slice(0,10);
+  // toISOString() is always UTC — comparing against it made an order due
+  // today vanish (or the wrong day's orders appear) for hours around local
+  // midnight in every negative-UTC-offset (i.e. every US) timezone. Use the
+  // browser's own local calendar date instead.
+  const n=new Date();
+  const todayStr=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`;
   const rows=orders.filter(o=>String(o.delivery_date||o.created_at||"").slice(0,10)===todayStr).slice(0,5);
   box.innerHTML=rows.length?rows.map(o=>`<div class="atelier-row"><div><strong>${esc(o.order_number||"Order")}</strong><small>${esc(o.customer_name||"Customer")} · ${esc(orderStatusLabel(canonicalOrderStatus(o.status)))}</small></div><b>${money(o.total)}</b></div>`).join(""):empty("No orders yet today.");
 }

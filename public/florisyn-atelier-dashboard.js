@@ -22,6 +22,15 @@
 
   function localDate(value) {
     if (!value) return "";
+    // A bare "YYYY-MM-DD" (how Postgres `date` columns like delivery_date
+    // serialize) is already the exact calendar day the florist picked —
+    // it has no time component to convert. Routing it through `new
+    // Date()` reads it as UTC midnight, and every US timezone then reads
+    // that back one calendar day early via the local getters below,
+    // making an order due today quietly vanish from "today" on the
+    // actual delivery date. Full timestamps (created_at etc.) do carry
+    // real timezone info and still need the Date-based conversion.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return value;
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return String(value).slice(0, 10);
     const y = d.getFullYear();
