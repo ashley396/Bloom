@@ -5,18 +5,29 @@ import { buildRecurringBillingPlan } from "./payment-hub-experience.js";
 import { chargeSavedStripeMethod, sanitizeChargeResultForClient } from "./payment-saved-charge.js";
 import { reserveInventoryForOrder } from "./inventory-reservation.js";
 import { createRecurringDelivery } from "./delivery-recurring.js";
+import { shopDateStr } from "./shop-time.js";
 
-export function buildRecurringRunKey(subscription, billingDate) {
-  const date = billingDate || subscription.next_delivery_date || new Date().toISOString().slice(0, 10);
+// The run key is what actually prevents a subscription from being
+// double-charged if this endpoint is invoked twice for the same billing
+// cycle (see executeRecurringSubscriptionRun's skipIfExists check below).
+// When next_delivery_date isn't set yet, the fallback "today" it folds in
+// must be the shop's own calendar day — a UTC day would let two calls
+// straddling UTC midnight (but landing on the same shop-local day) mint
+// two different keys and charge the customer twice.
+export function buildRecurringRunKey(subscription, billingDate, timezone) {
+  const date = billingDate || subscription.next_delivery_date || shopDateStr(timezone);
   return `${subscription.id}:${subscription.shop_id}:${date}`;
 }
 
-export function subscriptionDueForBilling(sub, asOf = new Date()) {
+export function subscriptionDueForBilling(sub, asOf = new Date(), timezone) {
   if (sub.status !== "active") return false;
   if (!sub.next_delivery_date) return true;
-  const due = new Date(sub.next_delivery_date);
-  due.setHours(23, 59, 59, 999);
-  return due.getTime() <= asOf.getTime();
+  // Compare calendar days directly in the shop's timezone rather than
+  // building a UTC-anchored "end of day" instant — simpler, and correct
+  // regardless of which timezone the due date and "now" each land in.
+  const dueDateStr = String(sub.next_delivery_date).slice(0, 10);
+  const todayStr = shopDateStr(timezone, asOf);
+  return todayStr >= dueDateStr;
 }
 
 export function computeRecurringOrderTotals(sub, shopSettings = {}) {
@@ -30,7 +41,7 @@ export function computeRecurringOrderTotals(sub, shopSettings = {}) {
 
 export async function executeRecurringSubscriptionRun(ctx) {
   const { client, stripe, shop, sub, settings, skipIfExists = true } = ctx;
-  const runKey = buildRecurringRunKey(sub);
+  const runKey = buildRecurringRunKey(sub, null, shop?.timezone);
   if (skipIfExists) {
     const { data: existing } = await client
       .from("payment_hub_recurring_runs")
@@ -82,7 +93,7 @@ export async function executeRecurringSubscriptionRun(ctx) {
   const inv = await reserveInventoryForOrder(client, { shopId: sub.shop_id, orderId, subscription: sub });
   let inventoryStatus = inv.ok ? "reserved" : "inventory_attention_required";
 
-  const del = await createRecurringDelivery(client, { shopId: sub.shop_id, orderId, subscription: sub, customerId: sub.customer_id });
+  const del = await createRecurringDelivery(client, { shopId: sub.shop_id, orderId, subscription: sub, customerId: sub.customer_id, timezone: shop?.timezone });
   let deliveryStatus = del.ok ? "scheduled" : "delivery_attention_required";
 
   let paymentOutcome = "payment_failed";

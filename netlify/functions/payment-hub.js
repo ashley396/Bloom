@@ -73,7 +73,7 @@ const HUB_ROLES = ["owner", "manager", "cashier", "accountant"];
 async function loadShop(client, shopId) {
   const { data, error } = await client
     .from("shops")
-    .select("id,name,stripe_connect_account_id")
+    .select("id,name,stripe_connect_account_id,timezone")
     .eq("id", shopId)
     .single();
   if (error) throw error;
@@ -1259,6 +1259,10 @@ export async function handler(event) {
 
     if (action === "recurring_billing_process") {
       requireRoles(ctx, ["owner", "manager"]);
+      // Loaded before the due-for-billing filter now (was after) — that
+      // filter needs shop.timezone to judge "due" against the shop's own
+      // calendar day, not the server's UTC one.
+      const shop = await loadShop(client, shopId);
       const subId = body.subscription_id;
       let subs = [];
       if (subId) {
@@ -1273,9 +1277,8 @@ export async function handler(event) {
           .eq("status", "active")
           .limit(25);
         if (error && error.code !== "42P01") throw error;
-        subs = (data || []).filter((s) => subscriptionDueForBilling(s));
+        subs = (data || []).filter((s) => subscriptionDueForBilling(s, new Date(), shop?.timezone));
       }
-      const shop = await loadShop(client, shopId);
       const settings = await loadHubSettings(client, shopId);
       const results = [];
       for (const sub of subs) {

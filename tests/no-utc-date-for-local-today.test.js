@@ -54,13 +54,20 @@ test("no public/ frontend code uses new Date().toISOString().slice(0, 10) for a 
 // (verified via grep — dead code, not a live day-boundary bug). Adding a
 // new file here requires the same justification, not just silencing the
 // test.
+//
+// Correction: delivery-recurring.js and recurring-billing-execute.js were
+// listed here as "no live caller" too, on a grep that only checked direct
+// imports from netlify/functions/*.js. They're both reachable —
+// payment-hub.js's "recurring_billing_process" action calls
+// executeRecurringSubscriptionRun(), which calls both — real, Stripe-
+// charging code. Fixed for real and removed from this list; a plain grep
+// isn't sufficient proof of "dead code" for anything exported from a
+// _shared/ module, only for files with zero importers anywhere.
 const BACKEND_ALLOWED = {
   "admin-command-center.js": "platform-wide admin aggregates (AI usage quota, payment-ops report) — no single shop's timezone applies",
   "payment-operations-admin.js": "Bloom SaaS platform-wide subscription metrics across all shops — same reasoning",
   "bloom-guided-order.js": "buildOrderBodyFromGuided() is exported but has no live caller anywhere in netlify/functions or public/",
-  "bloom-storefront-core.js": "webOrderPayloadFromCart() is exported but has no live caller — storefront-public.js builds its order row independently",
-  "delivery-recurring.js": "createRecurringDelivery() is exported but has no live caller anywhere in netlify/functions",
-  "recurring-billing-execute.js": "buildRecurringRunKey()'s fallback branch is an idempotency-key detail, and the module has no live caller"
+  "bloom-storefront-core.js": "webOrderPayloadFromCart() is exported but has no live caller — storefront-public.js builds its order row independently"
 };
 
 test("no netlify/functions backend code uses new Date().toISOString().slice(0, 10) for a 'today' value, outside the documented allowlist", () => {
