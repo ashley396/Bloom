@@ -144,6 +144,31 @@ export function groupListingsForComparison(items = []) {
     .sort((a, b) => b.seller_count - a.seller_count);
 }
 
+/**
+ * REVIEWS & TRUST from the marketplace vision — a real average built
+ * only from real reviews. An empty review list produces an honest
+ * "no reviews yet" shape (count 0, average null), never a fabricated
+ * starting score.
+ */
+export function summarizeSellerReviews(reviews = []) {
+  const list = Array.isArray(reviews) ? reviews : [];
+  if (!list.length) {
+    return { count: 0, average: null, fulfillment_average: null, communication_average: null, accuracy_average: null };
+  }
+  const avg = (key) => {
+    const values = list.map((r) => Number(r[key])).filter((n) => Number.isFinite(n));
+    if (!values.length) return null;
+    return Math.round((values.reduce((sum, n) => sum + n, 0) / values.length) * 10) / 10;
+  };
+  return {
+    count: list.length,
+    average: avg("rating"),
+    fulfillment_average: avg("fulfillment_rating"),
+    communication_average: avg("communication_rating"),
+    accuracy_average: avg("accuracy_rating")
+  };
+}
+
 export function validateFloralAttributes(attrs = {}) {
   const errors = [];
   if (attrs.stem_length_in != null && attrs.stem_length_in !== "" && !(Number(attrs.stem_length_in) > 0)) {

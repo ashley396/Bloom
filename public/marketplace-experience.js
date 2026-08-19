@@ -209,13 +209,22 @@
     const receiveAction = order.can_receive
       ? `<button type="button" class="primary" data-market-receive-order="${hooks.esc(order.id)}">Add to my inventory</button>`
       : (order.inventory_synced_at ? '<span class="badge good">Added to inventory</span>' : '');
+    const reviewAction = order.can_review
+      ? `<button type="button" class="secondary" data-market-review-order="${hooks.esc(order.id)}">Rate this order</button>`
+      : '';
     return `<article class="card marketplace-order-card">
       <div class="card-top">
         <div><h3>${hooks.esc(order.seller_display_name || 'Wholesale order')}</h3><p class="meta">${hooks.esc(statusLabel)} · ${hooks.esc((order.created_at || '').slice(0, 10))}</p></div>
         <strong>${hooks.money(order.total)}</strong>
       </div>
       <p class="subtle">${itemLines || 'No items on file.'}</p>
-      <div class="card-actions">${receiveAction}<button type="button" class="secondary" data-market-reorder="${hooks.esc(order.id)}">Reorder</button></div>
+      <div class="card-actions">${receiveAction}<button type="button" class="secondary" data-market-reorder="${hooks.esc(order.id)}">Reorder</button>${reviewAction}</div>
+      <form class="marketplace-review-form" data-market-review-form="${hooks.esc(order.id)}" hidden>
+        <label>Overall rating<select name="rating" required><option value="">Choose…</option><option value="5">5 — Excellent</option><option value="4">4 — Good</option><option value="3">3 — Okay</option><option value="2">2 — Poor</option><option value="1">1 — Very poor</option></select></label>
+        <div class="three"><label>Fulfillment<select name="fulfillment_rating"><option value="">—</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select></label><label>Communication<select name="communication_rating"><option value="">—</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select></label><label>Accurate descriptions<select name="accuracy_rating"><option value="">—</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select></label></div>
+        <label>Comment<textarea name="comment" rows="2" placeholder="Optional"></textarea></label>
+        <button type="submit" class="primary">Submit review</button>
+      </form>
     </article>`;
   }
 
@@ -257,6 +266,17 @@
     const featured = (data.featured || []).map((item) => productCard(item, hooks, { verifiedSeller: data.verified_seller })).join('');
     const allItems = (data.items || []).map((item) => productCard(item, hooks, { verifiedSeller: data.verified_seller })).join('');
 
+    const summary = data.reviews_summary || {};
+    const reviewsHeader = summary.count
+      ? `⭐ ${summary.average} average (${summary.count} review${summary.count === 1 ? '' : 's'})`
+      : 'No reviews yet — reviews come from florists who’ve actually completed an order.';
+    const reviewRows = (data.reviews || []).map((r) => `
+      <div class="marketplace-review-row">
+        <strong>⭐ ${hooks.esc(r.rating)}/5</strong>
+        <span class="subtle">${hooks.esc((r.created_at || '').slice(0, 10))}</span>
+        ${r.comment ? `<p>${hooks.esc(r.comment)}</p>` : ''}
+      </div>`).join('');
+
     return `<div class="marketplace-storefront">
       <button type="button" class="secondary" data-market-detail-close aria-label="Close storefront">Close</button>
       <h2>${hooks.esc(seller.display_name || 'Wholesale seller')}</h2>
@@ -267,6 +287,7 @@
       ${seller.ordering_policy ? `<p class="subtle"><strong>Ordering policy:</strong> ${hooks.esc(seller.ordering_policy)}</p>` : ''}
       ${featured ? `<section><h3>Featured</h3><div class="product-grid compact">${featured}</div></section>` : ''}
       <section><h3>All products</h3><div class="product-grid compact">${allItems || hooks.empty('No published products yet.')}</div></section>
+      <section><h3>Reviews</h3><p class="subtle">${hooks.esc(reviewsHeader)}</p>${reviewRows}</section>
     </div>`;
   }
 
@@ -276,8 +297,11 @@
     panel.hidden = false;
     panel.innerHTML = '<p class="subtle">Loading storefront…</p>';
     try {
-      const data = await hooks.api(`marketplace-catalog?shopId=${encodeURIComponent(shopId)}`);
-      panel.innerHTML = storefrontHtml(hooks, data);
+      const [data, reviewsData] = await Promise.all([
+        hooks.api(`marketplace-catalog?shopId=${encodeURIComponent(shopId)}`),
+        hooks.api(`marketplace-catalog?resource=seller-reviews&shopId=${encodeURIComponent(shopId)}`).catch(() => ({ reviews: [] }))
+      ]);
+      panel.innerHTML = storefrontHtml(hooks, { ...data, reviews: reviewsData.reviews || [] });
     } catch (error) {
       panel.innerHTML = `<p class="subtle">${hooks.esc(error.message)}</p>`;
     }
@@ -485,6 +509,34 @@
     });
     hooks.$('#marketplaceTabSell')?.addEventListener('click', () => showMarketplacePanel(hooks, '#marketplaceSellPanel'));
 
+    hooks.$('#marketplaceOrdersList')?.addEventListener('submit', async (event) => {
+      const form = event.target.closest('[data-market-review-form]');
+      if (!form) return;
+      event.preventDefault();
+      const fd = new FormData(form);
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+      try {
+        await hooks.api('marketplace-catalog', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'submit_review',
+            order_id: form.dataset.marketReviewForm,
+            rating: fd.get('rating'),
+            fulfillment_rating: fd.get('fulfillment_rating') || undefined,
+            communication_rating: fd.get('communication_rating') || undefined,
+            accuracy_rating: fd.get('accuracy_rating') || undefined,
+            comment: fd.get('comment') || ''
+          })
+        });
+        hooks.toast('Review submitted. Thank you.');
+        loadMyOrders(hooks, state);
+      } catch (error) {
+        hooks.toast(error.message);
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+
     hooks.$('#marketplaceOrdersList')?.addEventListener('click', async (event) => {
       const receiveBtn = event.target.closest('[data-market-receive-order]');
       if (receiveBtn) {
@@ -503,6 +555,14 @@
           receiveBtn.disabled = false;
           receiveBtn.textContent = 'Add to my inventory';
         }
+        return;
+      }
+
+      const reviewBtn = event.target.closest('[data-market-review-order]');
+      if (reviewBtn) {
+        event.preventDefault();
+        const form = hooks.$(`[data-market-review-form="${CSS.escape(reviewBtn.dataset.marketReviewOrder)}"]`);
+        if (form) form.hidden = !form.hidden;
         return;
       }
 
