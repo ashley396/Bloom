@@ -75,6 +75,55 @@ export async function handleStripeOrderWebhook(event, dependencies = {}) {
       } else if (meta.bloom_order_id && meta.bloom_shop_id) {
         await postPayment(client, session);
       }
+    } else if (stripeEvent.type === "charge.refunded") {
+      // Reactive only — this records what Stripe already did (a refund
+      // issued from the seller's own Connect Express dashboard, per the
+      // marketplace vision's payment-hardening approach), it never
+      // triggers a refund itself. A partial refund updates the amount
+      // without touching status; only a full refund moves the order to
+      // "refunded".
+      const charge = stripeEvent.data.object;
+      if (charge.payment_intent) {
+        try {
+          const refundedAmount = Number(charge.amount_refunded || 0) / 100;
+          const fullyRefunded = Number(charge.amount_refunded || 0) >= Number(charge.amount || 0);
+          const update = { refunded_amount: refundedAmount, refunded_at: new Date().toISOString() };
+          if (fullyRefunded) update.status = "refunded";
+          await client
+            .from("marketplace_wholesale_orders")
+            .update(update)
+            .eq("metadata->>stripe_payment_intent", charge.payment_intent);
+        } catch (refundErr) {
+          console.warn(JSON.stringify({ level: "warn", message: "marketplace_wholesale_order_refund_update_skipped", reason: String(refundErr?.message || refundErr) }));
+        }
+      }
+    } else if (stripeEvent.type === "charge.dispute.created") {
+      const dispute = stripeEvent.data.object;
+      if (dispute.payment_intent) {
+        try {
+          await client
+            .from("marketplace_wholesale_orders")
+            .update({ status: "disputed", disputed_at: new Date().toISOString() })
+            .eq("metadata->>stripe_payment_intent", dispute.payment_intent);
+        } catch (disputeErr) {
+          console.warn(JSON.stringify({ level: "warn", message: "marketplace_wholesale_order_dispute_update_skipped", reason: String(disputeErr?.message || disputeErr) }));
+        }
+      }
+    } else if (stripeEvent.type === "charge.dispute.closed") {
+      // Only reverts an order this webhook itself put into "disputed" —
+      // never overwrites a status this event didn't cause.
+      const dispute = stripeEvent.data.object;
+      if (dispute.payment_intent && dispute.status === "won") {
+        try {
+          await client
+            .from("marketplace_wholesale_orders")
+            .update({ status: "paid" })
+            .eq("metadata->>stripe_payment_intent", dispute.payment_intent)
+            .eq("status", "disputed");
+        } catch (disputeErr) {
+          console.warn(JSON.stringify({ level: "warn", message: "marketplace_wholesale_order_dispute_close_skipped", reason: String(disputeErr?.message || disputeErr) }));
+        }
+      }
     }
 
     return {

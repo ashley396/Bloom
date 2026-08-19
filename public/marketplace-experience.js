@@ -212,18 +212,26 @@
     const reviewAction = order.can_review
       ? `<button type="button" class="secondary" data-market-review-order="${hooks.esc(order.id)}">Rate this order</button>`
       : '';
+    const refundAction = order.can_request_refund
+      ? `<button type="button" class="secondary" data-market-refund-order="${hooks.esc(order.id)}">Request refund</button>`
+      : (order.refund_requested_at ? '<span class="badge warn">Refund requested</span>' : '');
     return `<article class="card marketplace-order-card">
       <div class="card-top">
         <div><h3>${hooks.esc(order.seller_display_name || 'Wholesale order')}</h3><p class="meta">${hooks.esc(statusLabel)} · ${hooks.esc((order.created_at || '').slice(0, 10))}</p></div>
         <strong>${hooks.money(order.total)}</strong>
       </div>
       <p class="subtle">${itemLines || 'No items on file.'}</p>
-      <div class="card-actions">${receiveAction}<button type="button" class="secondary" data-market-reorder="${hooks.esc(order.id)}">Reorder</button>${reviewAction}</div>
+      <div class="card-actions">${receiveAction}<button type="button" class="secondary" data-market-reorder="${hooks.esc(order.id)}">Reorder</button>${reviewAction}${refundAction}</div>
       <form class="marketplace-review-form" data-market-review-form="${hooks.esc(order.id)}" hidden>
         <label>Overall rating<select name="rating" required><option value="">Choose…</option><option value="5">5 — Excellent</option><option value="4">4 — Good</option><option value="3">3 — Okay</option><option value="2">2 — Poor</option><option value="1">1 — Very poor</option></select></label>
         <div class="three"><label>Fulfillment<select name="fulfillment_rating"><option value="">—</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select></label><label>Communication<select name="communication_rating"><option value="">—</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select></label><label>Accurate descriptions<select name="accuracy_rating"><option value="">—</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select></label></div>
         <label>Comment<textarea name="comment" rows="2" placeholder="Optional"></textarea></label>
         <button type="submit" class="primary">Submit review</button>
+      </form>
+      <form class="marketplace-refund-form" data-market-refund-form="${hooks.esc(order.id)}" hidden>
+        <label>What's wrong with this order?<textarea name="reason" rows="2" required placeholder="e.g. flowers arrived damaged, wrong variety, order never arrived"></textarea></label>
+        <p class="subtle">This notifies the seller — they process any refund from their own Stripe dashboard.</p>
+        <button type="submit" class="primary">Send refund request</button>
       </form>
     </article>`;
   }
@@ -537,6 +545,26 @@
       }
     });
 
+    hooks.$('#marketplaceOrdersList')?.addEventListener('submit', async (event) => {
+      const refundForm = event.target.closest('[data-market-refund-form]');
+      if (!refundForm) return;
+      event.preventDefault();
+      const fd = new FormData(refundForm);
+      const submitBtn = refundForm.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+      try {
+        await hooks.api('marketplace-catalog', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'request_refund', order_id: refundForm.dataset.marketRefundForm, reason: fd.get('reason') })
+        });
+        hooks.toast('Refund request sent to the seller.');
+        loadMyOrders(hooks, state);
+      } catch (error) {
+        hooks.toast(error.message);
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+
     hooks.$('#marketplaceOrdersList')?.addEventListener('click', async (event) => {
       const receiveBtn = event.target.closest('[data-market-receive-order]');
       if (receiveBtn) {
@@ -562,6 +590,14 @@
       if (reviewBtn) {
         event.preventDefault();
         const form = hooks.$(`[data-market-review-form="${CSS.escape(reviewBtn.dataset.marketReviewOrder)}"]`);
+        if (form) form.hidden = !form.hidden;
+        return;
+      }
+
+      const refundBtn = event.target.closest('[data-market-refund-order]');
+      if (refundBtn) {
+        event.preventDefault();
+        const form = hooks.$(`[data-market-refund-form="${CSS.escape(refundBtn.dataset.marketRefundOrder)}"]`);
         if (form) form.hidden = !form.hidden;
         return;
       }
@@ -627,6 +663,15 @@
           window.location.href = result.urls[0];
         }
       } catch (error) {
+        // A 409 with structured item detail means specific cart lines are
+        // now stale (sold out, deactivated, seller not onboarded) — clear
+        // just those so the buyer can immediately retry with what's left,
+        // instead of re-discovering the same block on a second attempt.
+        if (Array.isArray(error.items) && error.items.length) {
+          const staleIds = new Set(error.items.map((row) => row.listing_id).filter(Boolean));
+          writeCart(readCart().filter((row) => !staleIds.has(row.id)));
+          renderCartBadge(hooks);
+        }
         hooks.toast(error.message);
       }
     });

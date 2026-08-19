@@ -96,17 +96,35 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
     if (error) throw error;
 
     const listingMap = new Map((listingRows || []).map((row) => [row.id, mapCheckoutListing(row)]));
+
+    // List every unavailable line by name in one response instead of
+    // aborting on the first one — a buyer with several stale cart items
+    // should be able to fix the whole cart in one pass, not discover
+    // each problem one checkout attempt at a time.
+    const unavailable = cart
+      .map((line) => {
+        const listing = listingMap.get(line.listing_id);
+        if (!listing) return { listing_id: line.listing_id, name: "An item", reason: "no longer exists" };
+        if (!listing.active) return { listing_id: line.listing_id, name: listing.name, reason: "is no longer available" };
+        if (!listing.stripe_connect_account_id) return { listing_id: line.listing_id, name: listing.name, reason: "seller hasn't completed Stripe Connect onboarding" };
+        return null;
+      })
+      .filter(Boolean);
+    if (unavailable.length) {
+      // `items` (not a bespoke field name) so this rides the existing
+      // generic err.items passthrough in app.js's api() helper, the same
+      // mechanism already used elsewhere for structured error detail.
+      return json(409, {
+        error: `${unavailable.length} item${unavailable.length === 1 ? "" : "s"} in your cart can't be purchased right now: ${unavailable.map((u) => `${u.name} (${u.reason})`).join("; ")}.`,
+        items: unavailable
+      });
+    }
+
     const bySeller = new Map();
 
     for (const line of cart) {
       const listing = listingMap.get(line.listing_id);
-      if (!listing?.active) {
-        return json(409, { error: "One or more marketplace listings are no longer available." });
-      }
       const destination = listing.stripe_connect_account_id;
-      if (!destination) {
-        return json(409, { error: `${listing.name || "A supplier"} has not completed Stripe Connect onboarding.` });
-      }
       const sellerKey = String(listing.shop_id || listing.seller_shop_id || destination);
       if (!bySeller.has(sellerKey)) {
         bySeller.set(sellerKey, { destination, sellerShopId: listing.shop_id, lines: [] });

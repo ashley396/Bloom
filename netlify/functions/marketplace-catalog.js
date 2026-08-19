@@ -4,6 +4,7 @@ import { normalizeMarketplaceCategory, MARKETPLACE_CATEGORIES } from "./_shared/
 import { canBrowseListing, resolveDisplayPrice, isCurrentlyAvailable, availabilityStatusLabel, groupListingsForComparison, summarizeSellerReviews } from "./_shared/marketplace-products.js";
 import { matchRecipeToInventory } from "../../lib/floral-library/recipe-intelligence.js";
 import { shopDateStr } from "./_shared/shop-time.js";
+import { notifyMarketplaceUser } from "./_shared/marketplace-notifications.js";
 
 const LISTINGS = "marketplace_listings";
 const IMAGES = "marketplace_listing_images";
@@ -139,7 +140,8 @@ async function loadBuyerOrders(client, user, shopId) {
       seller_display_name: sellerNames[order.seller_shop_id] || null,
       can_receive: canReceive,
       inventory_preview: preview ? preview.recipe : null,
-      can_review: REVIEWABLE_ORDER_STATUSES.includes(order.status) && !reviewedOrderIds.has(order.id)
+      can_review: REVIEWABLE_ORDER_STATUSES.includes(order.status) && !reviewedOrderIds.has(order.id),
+      can_request_refund: RECEIVABLE_ORDER_STATUSES.includes(order.status) && !order.refund_requested_at
     };
   });
 
@@ -332,6 +334,64 @@ async function submitSellerReview(client, user, shopId, body) {
     .single();
   if (error) throw error;
   return { review: data };
+}
+
+/**
+ * A structured, tracked "please look into this" signal from buyer to
+ * seller — never a refund itself. Actual refund execution stays on
+ * Stripe's own Connect Express dashboard (stripe-connect.js's existing
+ * login-link action), which already handles the application-fee math
+ * correctly; this endpoint only records the request and notifies the
+ * seller so nothing silently sits unresolved.
+ */
+async function submitRefundRequest(client, user, body) {
+  if (!body.order_id || !String(body.reason || "").trim()) {
+    const error = new Error("order_id and a reason are required.");
+    error.statusCode = 400;
+    throw error;
+  }
+  const { data: order, error: orderError } = await client
+    .from(ORDERS)
+    .select("id, buyer_user_id, seller_shop_id, status, refund_requested_at")
+    .eq("id", body.order_id)
+    .maybeSingle();
+  if (orderError) throw orderError;
+  if (!order || order.buyer_user_id !== user.id) {
+    const error = new Error("Order not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+  if (!RECEIVABLE_ORDER_STATUSES.includes(order.status)) {
+    const error = new Error("This order hasn't been paid yet — nothing to refund.");
+    error.statusCode = 409;
+    throw error;
+  }
+  if (order.refund_requested_at) {
+    const error = new Error("A refund has already been requested for this order.");
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const reason = String(body.reason).trim().slice(0, 2000);
+  const { data, error } = await client
+    .from(ORDERS)
+    .update({ refund_requested_at: new Date().toISOString(), refund_requested_reason: reason })
+    .eq("id", order.id)
+    .select("*")
+    .single();
+  if (error) throw error;
+
+  const { data: seller } = await client.from("shops").select("owner_user_id").eq("id", order.seller_shop_id).maybeSingle();
+  if (seller?.owner_user_id) {
+    await notifyMarketplaceUser(
+      seller.owner_user_id,
+      "refund_requested",
+      `A florist requested a refund on an order: "${reason}"`,
+      { orderId: order.id }
+    );
+  }
+
+  return { order: data };
 }
 
 export async function handler(event) {
@@ -566,6 +626,9 @@ export async function handler(event) {
 
     if (event.httpMethod === "POST") {
       const body = bodyOf(event);
+      if (body.action === "request_refund") {
+        return json(200, await submitRefundRequest(client, user, body));
+      }
       if (body.action === "submit_review") {
         return json(201, await submitSellerReview(client, user, shopId, body));
       }

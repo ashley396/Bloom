@@ -21,7 +21,7 @@ test("notifyMarketplaceUser refuses to write a notification with no recipient, a
   await assert.doesNotReject(notifyMarketplaceUser(null, "order_status_changed", "hi"));
   await assert.doesNotReject(notifyMarketplaceUser("user-1", "not_a_real_type", "hi"));
   await assert.doesNotReject(notifyMarketplaceUser("user-1", "order_status_changed", ""));
-  assert.deepEqual(NOTIFICATION_TYPES, ["order_status_changed", "back_in_stock"]);
+  assert.deepEqual(NOTIFICATION_TYPES, ["order_status_changed", "back_in_stock", "refund_requested"]);
 });
 
 test("marketplace-seller.js notifies the buyer only on a real status change, using the seller's real display name", () => {
