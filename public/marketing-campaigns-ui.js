@@ -19,6 +19,12 @@
     { value: "social", label: "Social" },
     { value: "text", label: "Text" },
   ];
+  const PROMO_TYPES = [
+    { value: "percentage_off", label: "Percentage off" },
+    { value: "dollar_off", label: "Dollar amount off" },
+    { value: "free_delivery", label: "Free delivery" },
+    { value: "minimum_purchase", label: "Minimum purchase required" },
+  ];
 
   let state = {
     loading: false,
@@ -32,6 +38,9 @@
     lilyDrafting: false,
     lilyDraft: null,
     lilyError: null,
+    promotions: [],
+    promotionsLoaded: false,
+    promotionsError: null,
   };
 
   async function api(payload, method = "POST") {
@@ -45,6 +54,13 @@
     const fn = window.bloomMarketingApi || window.api;
     if (!fn) throw new Error("Sign in required.");
     return fn("marketing-campaigns?action=audiences");
+  }
+
+  async function promoApi(payload, method = "POST") {
+    const fn = window.bloomMarketingApi || window.api;
+    if (!fn) throw new Error("Sign in required.");
+    if (method === "GET") return fn("marketing-promotions");
+    return fn("marketing-promotions", { method: "POST", body: JSON.stringify(payload || {}) });
   }
 
   /**
@@ -164,11 +180,12 @@
     </form>`;
   }
 
-  function campaignProductNames(item) {
-    const ids = new Set(item.product_ids || []);
+  function productNamesFor(productIds) {
+    const ids = new Set(productIds || []);
     if (!ids.size) return [];
     return (window.__bloomProducts || []).filter((p) => ids.has(p.id)).map((p) => p.name);
   }
+  const campaignProductNames = (item) => productNamesFor(item.product_ids);
 
   function campaignCardHtml(item) {
     const nextStatus = { draft: "ready", ready: "scheduled", scheduled: "active", active: "completed" }[item.status];
@@ -258,6 +275,69 @@
     </div>`;
   }
 
+  function promoValueLabel(p) {
+    if (p.promo_type === "percentage_off") return `${p.value}% off`;
+    if (p.promo_type === "dollar_off") return `$${Number(p.value).toFixed(2)} off`;
+    if (p.promo_type === "free_delivery") return "Free delivery";
+    if (p.promo_type === "minimum_purchase") return `Minimum purchase $${Number(p.value).toFixed(2)}`;
+    return p.promo_type;
+  }
+
+  function promotionFormHtml() {
+    const typeOpts = PROMO_TYPES.map((t) => `<option value="${esc(t.value)}">${esc(t.label)}</option>`).join("");
+    return `<form id="marketingPromotionForm" class="panel">
+      <p class="eyebrow">NEW PROMOTION</p>
+      <div class="two">
+        <label>Name<input name="name" required maxlength="120" placeholder="Mother's Day free delivery"></label>
+        <label>Type<select name="promo_type">${typeOpts}</select></label>
+      </div>
+      <div class="two">
+        <label>Value<input name="value" type="number" min="0" step="0.01" value="0" placeholder="e.g. 15 for 15% off"></label>
+        <label>Campaign<select name="campaign_id"><option value="">None</option>${state.items.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>
+      </div>
+      <div class="two">
+        <label>Starts<input name="starts_on" type="date"></label>
+        <label>Ends<input name="ends_on" type="date"></label>
+      </div>
+      <label>Description<textarea name="description" rows="2" maxlength="1000" placeholder="How this works, any eligibility rules…"></textarea></label>
+      <fieldset class="marketing-channel-fieldset marketing-product-fieldset"><legend>Products this applies to (leave blank for storewide)</legend>${(window.__bloomProducts || [])
+        .slice(0, 50)
+        .map((p) => `<label class="check"><input type="checkbox" name="promo_product_ids" value="${esc(p.id)}"> ${esc(p.name)}</label>`)
+        .join("") || `<p class="subtle">No products loaded yet — visit Products first.</p>`}</fieldset>
+      <p class="subtle">Draft only — activating this still requires an explicit review of what it discounts, matching the checkout's real numeric-discount field. This does not create a redeemable promo code.</p>
+      <div class="card-actions"><button type="submit" class="primary">Save draft</button></div>
+    </form>`;
+  }
+
+  function promotionCardHtml(p) {
+    return `<article class="panel" data-promotion-id="${esc(p.id)}">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">${esc(String(p.status || "").toUpperCase())}</p>
+          <h3>${esc(p.name)}</h3>
+          <p class="subtle">${esc(promoValueLabel(p))}</p>
+        </div>
+      </div>
+      ${p.starts_on || p.ends_on ? `<p class="subtle">${esc(p.starts_on || "?")} → ${esc(p.ends_on || "?")}</p>` : ""}
+      ${p.description ? `<p class="subtle">${esc(p.description)}</p>` : ""}
+      <div class="card-actions">
+        ${p.status === "draft" ? `<button type="button" class="primary" data-promotion-act="activate">Activate</button>` : ""}
+        ${p.status === "active" ? `<button type="button" class="secondary" data-promotion-act="end">End promotion</button>` : ""}
+        ${p.status === "draft" ? `<button type="button" class="secondary" data-promotion-act="delete">Delete</button>` : ""}
+      </div>
+    </article>`;
+  }
+
+  function promotionsTabHtml() {
+    if (state.promotionsError) {
+      return `<div class="panel" role="alert"><p class="subtle">${esc(state.promotionsError)}</p><button type="button" class="secondary" id="marketingPromotionsRetry">Try again</button></div>`;
+    }
+    const list = state.promotions.length
+      ? `<div class="cards">${state.promotions.map(promotionCardHtml).join("")}</div>`
+      : `<div class="panel"><h3>No promotions yet</h3><p class="subtle">Define one below — a florist reviews it before it's marked active.</p></div>`;
+    return `${promotionFormHtml()}${list}`;
+  }
+
   function render() {
     const el = root();
     if (!el) return;
@@ -274,8 +354,17 @@
       <button type="button" class="marketing-tab${state.tab === "overview" ? " active" : ""}" data-marketing-tab="overview" role="tab" aria-selected="${state.tab === "overview"}">Overview</button>
       <button type="button" class="marketing-tab${state.tab === "campaigns" ? " active" : ""}" data-marketing-tab="campaigns" role="tab" aria-selected="${state.tab === "campaigns"}">Campaigns</button>
       <button type="button" class="marketing-tab${state.tab === "audiences" ? " active" : ""}" data-marketing-tab="audiences" role="tab" aria-selected="${state.tab === "audiences"}">Audiences</button>
+      <button type="button" class="marketing-tab${state.tab === "promotions" ? " active" : ""}" data-marketing-tab="promotions" role="tab" aria-selected="${state.tab === "promotions"}">Promotions</button>
     </div>
-    <div class="marketing-tab-panel">${state.tab === "campaigns" ? campaignsTabHtml() : state.tab === "audiences" ? audiencesTabHtml() : overviewHtml()}</div>`;
+    <div class="marketing-tab-panel">${
+      state.tab === "campaigns"
+        ? campaignsTabHtml()
+        : state.tab === "audiences"
+          ? audiencesTabHtml()
+          : state.tab === "promotions"
+            ? promotionsTabHtml()
+            : overviewHtml()
+    }</div>`;
     bind(el);
     if (state.tab === "campaigns" && state.formPrefill) {
       const form = el.querySelector("#marketingCampaignForm");
@@ -306,6 +395,19 @@
     }
   }
 
+  async function loadPromotions() {
+    state.promotionsError = null;
+    try {
+      const d = await promoApi(null, "GET");
+      state.promotions = d.items || [];
+      state.promotionsLoaded = true;
+      render();
+    } catch (err) {
+      state.promotionsError = err.message || "Could not load promotions.";
+      render();
+    }
+  }
+
   function bind(el) {
     el.querySelectorAll("[data-marketing-tab]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -314,6 +416,7 @@
         // Lazy-load on first visit — a florist who never opens Audiences
         // never pays for the customers+orders query.
         if (state.tab === "audiences" && !state.audiences && !state.audiencesLoading) loadAudiences();
+        if (state.tab === "promotions" && !state.promotionsLoaded) loadPromotions();
       });
     });
     el.querySelector("#marketingAudiencesRetry")?.addEventListener("click", () => loadAudiences());
@@ -417,6 +520,60 @@
           await load();
         } catch (err) {
           toast(err.message || "Campaign update failed.");
+        }
+      });
+    });
+    el.querySelector("#marketingPromotionsRetry")?.addEventListener("click", () => loadPromotions());
+    el.querySelector("#marketingPromotionForm")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const body = {
+        name: fd.get("name"),
+        promo_type: fd.get("promo_type"),
+        value: fd.get("value"),
+        campaign_id: fd.get("campaign_id") || null,
+        starts_on: fd.get("starts_on"),
+        ends_on: fd.get("ends_on"),
+        description: fd.get("description"),
+        product_ids: fd.getAll("promo_product_ids"),
+      };
+      try {
+        await promoApi({ action: "create", ...body });
+        toast("Promotion saved as a draft.");
+        await loadPromotions();
+      } catch (err) {
+        toast(err.message || "Could not save promotion.");
+      }
+    });
+    el.querySelectorAll("[data-promotion-act]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.closest("[data-promotion-id]")?.getAttribute("data-promotion-id");
+        const act = btn.getAttribute("data-promotion-act");
+        if (!id) return;
+        const promo = state.promotions.find((p) => p.id === id);
+        try {
+          if (act === "delete") {
+            if (!confirm("Delete this draft promotion?")) return;
+            await promoApi({ action: "delete", id });
+          } else if (act === "end") {
+            if (!confirm(`End "${promo?.name || "this promotion"}"? It will stop being offered.`)) return;
+            await promoApi({ action: "end", id });
+          } else if (act === "activate") {
+            // The required safety preview — real products affected (or
+            // storewide), the actual discount, and the dates — shown
+            // before this ever calls the server, not after.
+            const names = promo ? productNamesFor(promo.product_ids) : [];
+            const scope = names.length ? `Products affected: ${names.join(", ")}` : "Applies storewide (no specific products selected).";
+            const dates = promo?.starts_on || promo?.ends_on ? `Dates: ${promo.starts_on || "now"} → ${promo.ends_on || "no end date"}` : "Dates: no start/end set.";
+            const ok = confirm(
+              `Activate "${promo?.name}"?\n\nDiscount: ${promoValueLabel(promo || {})}\n${scope}\n${dates}\n\nThis makes the promotion active — remember checkout still needs the matching discount entered manually until code-based redemption is built.`
+            );
+            if (!ok) return;
+            await promoApi({ action: "activate", id });
+          }
+          await loadPromotions();
+        } catch (err) {
+          toast(err.message || "Promotion update failed.");
         }
       });
     });
