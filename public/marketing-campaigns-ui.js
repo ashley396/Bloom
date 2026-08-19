@@ -41,6 +41,12 @@
     promotions: [],
     promotionsLoaded: false,
     promotionsError: null,
+    calendar: null,
+    calendarLoading: false,
+    calendarError: null,
+    analytics: null,
+    analyticsLoading: false,
+    analyticsError: null,
   };
 
   async function api(payload, method = "POST") {
@@ -61,6 +67,18 @@
     if (!fn) throw new Error("Sign in required.");
     if (method === "GET") return fn("marketing-promotions");
     return fn("marketing-promotions", { method: "POST", body: JSON.stringify(payload || {}) });
+  }
+
+  async function fetchCalendar() {
+    const fn = window.bloomMarketingApi || window.api;
+    if (!fn) throw new Error("Sign in required.");
+    return fn("marketing-campaigns?action=calendar");
+  }
+
+  async function fetchAnalytics() {
+    const fn = window.bloomMarketingApi || window.api;
+    if (!fn) throw new Error("Sign in required.");
+    return fn("marketing-campaigns?action=analytics");
   }
 
   /**
@@ -338,6 +356,60 @@
     return `${promotionFormHtml()}${list}`;
   }
 
+  const EVENT_TYPE_LABELS = { campaign: "Campaign", promotion: "Promotion", holiday: "Holiday peak" };
+  const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+  function monthTitle(monthKey) {
+    const [y, m] = monthKey.split("-").map(Number);
+    return `${MONTH_NAMES[m - 1]} ${y}`;
+  }
+
+  function calendarTabHtml() {
+    if (state.calendarLoading) return `<div class="panel" role="status"><p class="subtle">Building your calendar from real campaigns, promotions, and holiday peaks…</p></div>`;
+    if (state.calendarError) {
+      return `<div class="panel" role="alert"><p class="subtle">${esc(state.calendarError)}</p><button type="button" class="secondary" id="marketingCalendarRetry">Try again</button></div>`;
+    }
+    if (!state.calendar) return "";
+    const { months } = state.calendar;
+    if (!months.length) {
+      return `<div class="panel"><h3>Nothing scheduled yet</h3><p class="subtle">Add dates to a campaign, promotion, or holiday peak and they'll show up here.</p></div>`;
+    }
+    return months
+      .map(
+        (g) => `<div class="panel marketing-calendar-month">
+          <p class="eyebrow">${esc(monthTitle(g.month))}</p>
+          <ul class="marketing-calendar-list">
+            ${g.items
+              .map(
+                (e) => `<li><span class="marketing-calendar-date">${esc(e.date.slice(8, 10))}</span><span class="marketing-calendar-type">${esc(EVENT_TYPE_LABELS[e.type] || e.type)}</span><span>${esc(e.label)}${e.edge === "start" ? " (starts)" : e.edge === "end" ? " (ends)" : ""}</span></li>`
+              )
+              .join("")}
+          </ul>
+        </div>`
+      )
+      .join("");
+  }
+
+  function analyticsTabHtml() {
+    if (state.analyticsLoading) return `<div class="panel" role="status"><p class="subtle">Counting your real campaigns, promotions, and subscribers…</p></div>`;
+    if (state.analyticsError) {
+      return `<div class="panel" role="alert"><p class="subtle">${esc(state.analyticsError)}</p><button type="button" class="secondary" id="marketingAnalyticsRetry">Try again</button></div>`;
+    }
+    if (!state.analytics) return "";
+    const a = state.analytics;
+    return `<div class="cards marketing-overview-cards">
+      <article class="panel"><p class="eyebrow">CAMPAIGNS</p><h2>${a.campaignsTotal}</h2><p class="subtle">${a.campaignsByStatus.active} active · ${a.campaignsByStatus.completed} completed</p></article>
+      <article class="panel"><p class="eyebrow">PROMOTIONS</p><h2>${a.promotionsTotal}</h2><p class="subtle">${a.promotionsByStatus.active} active · ${a.promotionsByStatus.ended} ended</p></article>
+      <article class="panel"><p class="eyebrow">HOLIDAY PEAKS</p><h2>${a.holidayPeaksTotal}</h2><p class="subtle">Tracked in Holiday Command Center</p></article>
+      <article class="panel"><p class="eyebrow">SUBSCRIBERS</p><h2>${a.subscriberCount}</h2><p class="subtle">Opted in to marketing</p></article>
+    </div>
+    <div class="panel" role="note">
+      <p class="eyebrow">REVENUE & ROI</p>
+      <h3>Not available yet — and that's stated honestly, not hidden</h3>
+      <p class="subtle">Florisyn doesn't yet link orders back to the campaign or promotion that drove them, so revenue, ROI, conversion rate, and "best product/channel" would all be guesses if shown here. Rather than fabricate numbers, this stays counts-only until real order attribution is built.</p>
+    </div>`;
+  }
+
   function render() {
     const el = root();
     if (!el) return;
@@ -355,6 +427,8 @@
       <button type="button" class="marketing-tab${state.tab === "campaigns" ? " active" : ""}" data-marketing-tab="campaigns" role="tab" aria-selected="${state.tab === "campaigns"}">Campaigns</button>
       <button type="button" class="marketing-tab${state.tab === "audiences" ? " active" : ""}" data-marketing-tab="audiences" role="tab" aria-selected="${state.tab === "audiences"}">Audiences</button>
       <button type="button" class="marketing-tab${state.tab === "promotions" ? " active" : ""}" data-marketing-tab="promotions" role="tab" aria-selected="${state.tab === "promotions"}">Promotions</button>
+      <button type="button" class="marketing-tab${state.tab === "calendar" ? " active" : ""}" data-marketing-tab="calendar" role="tab" aria-selected="${state.tab === "calendar"}">Calendar</button>
+      <button type="button" class="marketing-tab${state.tab === "analytics" ? " active" : ""}" data-marketing-tab="analytics" role="tab" aria-selected="${state.tab === "analytics"}">Analytics</button>
     </div>
     <div class="marketing-tab-panel">${
       state.tab === "campaigns"
@@ -363,7 +437,11 @@
           ? audiencesTabHtml()
           : state.tab === "promotions"
             ? promotionsTabHtml()
-            : overviewHtml()
+            : state.tab === "calendar"
+              ? calendarTabHtml()
+              : state.tab === "analytics"
+                ? analyticsTabHtml()
+                : overviewHtml()
     }</div>`;
     bind(el);
     if (state.tab === "campaigns" && state.formPrefill) {
@@ -408,6 +486,37 @@
     }
   }
 
+  async function loadCalendar() {
+    state.calendarLoading = true;
+    state.calendarError = null;
+    render();
+    try {
+      const d = await fetchCalendar();
+      state.calendar = { events: d.events || [], months: d.months || [] };
+      state.calendarLoading = false;
+      render();
+    } catch (err) {
+      state.calendarLoading = false;
+      state.calendarError = err.message || "Could not build the calendar.";
+      render();
+    }
+  }
+
+  async function loadAnalytics() {
+    state.analyticsLoading = true;
+    state.analyticsError = null;
+    render();
+    try {
+      state.analytics = await fetchAnalytics();
+      state.analyticsLoading = false;
+      render();
+    } catch (err) {
+      state.analyticsLoading = false;
+      state.analyticsError = err.message || "Could not load analytics.";
+      render();
+    }
+  }
+
   function bind(el) {
     el.querySelectorAll("[data-marketing-tab]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -417,6 +526,8 @@
         // never pays for the customers+orders query.
         if (state.tab === "audiences" && !state.audiences && !state.audiencesLoading) loadAudiences();
         if (state.tab === "promotions" && !state.promotionsLoaded) loadPromotions();
+        if (state.tab === "calendar" && !state.calendar && !state.calendarLoading) loadCalendar();
+        if (state.tab === "analytics" && !state.analytics && !state.analyticsLoading) loadAnalytics();
       });
     });
     el.querySelector("#marketingAudiencesRetry")?.addEventListener("click", () => loadAudiences());
@@ -524,6 +635,8 @@
       });
     });
     el.querySelector("#marketingPromotionsRetry")?.addEventListener("click", () => loadPromotions());
+    el.querySelector("#marketingCalendarRetry")?.addEventListener("click", () => loadCalendar());
+    el.querySelector("#marketingAnalyticsRetry")?.addEventListener("click", () => loadAnalytics());
     el.querySelector("#marketingPromotionForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);

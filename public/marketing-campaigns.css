@@ -71,3 +71,36 @@
   flex-direction: column;
   align-items: flex-start;
 }
+
+.marketing-calendar-month {
+  margin-bottom: 0.75rem;
+}
+
+.marketing-calendar-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.marketing-calendar-list li {
+  display: grid;
+  grid-template-columns: 2.2rem auto 1fr;
+  gap: 0.6rem;
+  align-items: baseline;
+  font-size: 0.92rem;
+}
+
+.marketing-calendar-date {
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+  color: #a72f67;
+}
+
+.marketing-calendar-type {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #857680;
+}

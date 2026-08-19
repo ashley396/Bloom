@@ -3,6 +3,8 @@ import { currentUser, fail } from "./_shared/supabase.js";
 import { isFeatureEnabled } from "./_shared/feature-flags.js";
 import { validateMarketingCampaignBody } from "./_shared/marketing-campaigns.js";
 import { buildAudienceSegments } from "../../lib/marketing/audience-segments.js";
+import { buildCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
+import { buildMarketingAnalyticsSummary } from "../../lib/marketing/analytics-summary.js";
 
 function featureGate() {
   if (!isFeatureEnabled("MARKETING_CAMPAIGNS")) {
@@ -70,6 +72,48 @@ export async function handler(event) {
         subscriberCount,
         segments: segments.map(({ key, label, count }) => ({ key, label, count })),
       });
+    }
+
+    if (action === "calendar") {
+      const [{ data: campaigns, error: cErr }, { data: promotions, error: pErr }, { data: holidayPeaks, error: hErr }] = await Promise.all([
+        client.from("marketing_campaigns").select("id,name,status,starts_on,ends_on").eq("shop_id", shopId),
+        client.from("marketing_promotions").select("id,name,status,starts_on,ends_on").eq("shop_id", shopId),
+        client.from("holiday_peaks").select("id,name,status,starts_on,ends_on").eq("shop_id", shopId),
+      ]);
+      if (cErr) throw cErr;
+      if (hErr) throw hErr;
+      // marketing_promotions is a newer table than marketing_campaigns —
+      // treat it missing the same as friendlyMissing() would, but degrade
+      // instead of failing the whole calendar, since campaigns/holiday
+      // dates are still real and useful on their own.
+      const safePromotions = pErr ? (missingRelation(pErr) ? [] : (() => { throw pErr; })()) : promotions || [];
+      const events = buildCalendarEvents({ campaigns: campaigns || [], promotions: safePromotions, holidayPeaks: holidayPeaks || [] });
+      return json(200, { events, months: groupCalendarEventsByMonth(events) });
+    }
+
+    if (action === "analytics") {
+      const [
+        { data: campaigns, error: cErr },
+        { data: promotions, error: pErr },
+        { data: holidayPeaks, error: hErr },
+        { data: customers, error: custErr },
+      ] = await Promise.all([
+        client.from("marketing_campaigns").select("status").eq("shop_id", shopId),
+        client.from("marketing_promotions").select("status").eq("shop_id", shopId),
+        client.from("holiday_peaks").select("id").eq("shop_id", shopId),
+        client.from("customers").select("id,contact_preferences").eq("shop_id", shopId).is("deleted_at", null),
+      ]);
+      if (cErr) throw cErr;
+      if (hErr) throw hErr;
+      if (custErr) throw custErr;
+      const { subscriberCount } = buildAudienceSegments({ customers: customers || [], orders: [] });
+      const summary = buildMarketingAnalyticsSummary({
+        campaigns: campaigns || [],
+        promotions: pErr ? [] : promotions || [],
+        holidayPeaks: holidayPeaks || [],
+        subscriberCount,
+      });
+      return json(200, summary);
     }
 
     if (method === "GET" || action === "list") {
