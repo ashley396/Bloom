@@ -1,6 +1,7 @@
 /** Lily AI Platform v1 — intent, permissions, and action planning (server-side). */
 
 import { buildLilyBusinessCoach } from "./business-ecosystem.js";
+import { isMarketplaceSourcingMessage, detectFlowerMentions } from "./marketplace-lily-sourcing.js";
 
 export const LILY_DOMAINS = [
   "inventory",
@@ -65,15 +66,19 @@ export function detectIntent(message = "") {
   if (/today'?s deliveries|show deliveries/i.test(lower)) {
     return { domain: "orders", intent: "deliveries.today", confidence: 0.86, slots: {} };
   }
+  // Checked before customers.find's own "find ..." pattern below — "find
+  // me 100 white roses for Friday" is a real flower name plus real
+  // sourcing language, not a customer search, and must never fall
+  // through to searching customers for a flower's name.
+  if (/find\s+.+(carnation|wholesale|marketplace)|compare wholesale prices/i.test(lower) || isMarketplaceSourcingMessage(text)) {
+    return { domain: "marketplace", intent: "marketplace.search", confidence: 0.84, slots: { query: text, flowers: detectFlowerMentions(text) } };
+  }
   if (/find\s+.+/i.test(lower) && !/marketplace|wholesale|carnation/i.test(lower)) {
     const m = text.match(/find\s+(.+)/i);
     return { domain: "customers", intent: "customers.find", confidence: 0.8, slots: { query: m?.[1]?.trim() } };
   }
   if (/facebook post|instagram|google business|email campaign|create an email|sms|blog post|holiday campaign/i.test(lower)) {
     return { domain: "marketing", intent: "marketing.generate", confidence: 0.85, slots: { channel: inferMarketingChannel(lower), prompt: text } };
-  }
-  if (/find\s+.+(carnation|wholesale|marketplace)|compare wholesale prices/i.test(lower)) {
-    return { domain: "marketplace", intent: "marketplace.search", confidence: 0.84, slots: { query: text } };
   }
   if (/publish this product|create product description|wholesale description/i.test(lower)) {
     return { domain: "wholesale", intent: "wholesale.product", confidence: 0.83, slots: { prompt: text } };

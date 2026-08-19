@@ -24,8 +24,13 @@ export const RECIPE_AI_SCHEMA = {
 const GENERIC_INGREDIENT =
   /^(seasonal focal|accent bloom|filler flower|accent flower|focal flower|seasonal flower|mixed greenery|greenery stems?|flower stems?|focal blooms?|accent blooms?|filler blooms?|seasonal blooms?)$/i;
 
-/** Common florist wholesale names detected in caption/body text. */
-const FLOWER_LEXICON = [
+/**
+ * Common florist wholesale names detected in caption/body text. Exported
+ * so Lily's marketplace-sourcing intent detection (Marketplace vision:
+ * "LILY + WHOLESALE MARKETPLACE") can reuse the same real flower
+ * vocabulary instead of a second, drifting copy.
+ */
+export const FLOWER_LEXICON = [
   { re: /\bspray\s+roses?\b/i, name: "Spray rose", qty: 5, kind: "flower" },
   { re: /\bgarden\s+roses?\b/i, name: "Garden rose", qty: 5, kind: "flower" },
   { re: /\broses?\b/i, name: "Freedom rose", qty: 6, kind: "flower" },
