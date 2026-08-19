@@ -29,14 +29,24 @@ test("loadVerifiedSellerShopIds returns an empty set immediately for an empty in
   assert.equal(queried, false);
 });
 
-test("marketplace-catalog.js gates the main browse list, the direct-listingId fallback, and reuses canPurchaseWithVerification rather than a second parallel check", () => {
+test("marketplace-catalog.js gates the main browse list and the direct-listingId fallback via the one shared loadVerifiedSellerShopIds check, not a second parallel one", () => {
   const src = fs.readFileSync(path.join(root, "netlify/functions/marketplace-catalog.js"), "utf8");
-  assert.match(src, /canPurchaseWithVerification/);
+  // loadVerifiedSellerShopIds itself (and the canPurchaseWithVerification
+  // check it wraps) now lives in _shared/marketplace-verification.js, so
+  // every consumer imports the same function rather than each function
+  // file reinventing — or re-importing — the underlying check directly.
+  assert.match(src, /import \{ loadVerifiedSellerShopIds \} from "\.\/_shared\/marketplace-verification\.js"/);
   assert.match(src, /loadVerifiedSellerShopIds\(\(data \|\| \[\]\)\.map\(\(row\) => row\.shop_id\)\)/);
   assert.match(src, /\.filter\(\(row\) => verifiedShopIds\.has\(row\.shop_id\)\)/);
   // The listingId fallback (for a direct/bookmarked link) must not bypass
   // the same gates the main list applies.
   assert.match(src, /verifiedShopIds\.has\(fallbackRow\.shop_id\)/);
+});
+
+test("loadVerifiedSellerShopIds lives in the shared verification module and reuses canPurchaseWithVerification rather than a second parallel check", () => {
+  const src = fs.readFileSync(path.join(root, "netlify/functions/_shared/marketplace-verification.js"), "utf8");
+  const fn = src.slice(src.indexOf("export async function loadVerifiedSellerShopIds"));
+  assert.match(fn, /canPurchaseWithVerification\(application\)\.allowed/);
 });
 
 test("canPurchaseWithVerification is documented as the one shared check for both buyer and seller authorization, not duplicated", () => {

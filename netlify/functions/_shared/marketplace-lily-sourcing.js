@@ -10,6 +10,7 @@
  */
 import { FLOWER_LEXICON } from "./florist-community-recipes.js";
 import { canBrowseListing, resolveDisplayPrice, isCurrentlyAvailable } from "./marketplace-products.js";
+import { loadVerifiedSellerShopIds } from "./marketplace-verification.js";
 
 const SOURCING_VERBS =
   /\b(find|source|sourcing|who has|which (?:wholesaler|supplier)s?|cheapest|least expensive|locally grown|available)\b/i;
@@ -44,7 +45,7 @@ export function isMarketplaceSourcingMessage(text = "") {
  * isCurrentlyAvailable) the buyer browse UI already uses, so Lily's
  * answer can never disagree with what the Marketplace page itself shows.
  */
-export async function searchMarketplaceForLily(client, flowerNames = [], { limit = 5 } = {}) {
+export async function searchMarketplaceForLily(client, flowerNames = [], { limit = 5, adminClient } = {}) {
   if (!flowerNames.length) return [];
   const { data, error } = await client
     .from("marketplace_listings")
@@ -55,12 +56,22 @@ export async function searchMarketplaceForLily(client, flowerNames = [], { limit
   if (error || !data) return [];
 
   const needles = flowerNames.map((n) => n.toLowerCase());
-  const matches = data
+  const candidates = data
     .filter((row) => canBrowseListing(row))
     .filter((row) => {
       const haystack = [row.product_name, row.variety, row.supplier_name].filter(Boolean).join(" ").toLowerCase();
       return needles.some((n) => haystack.includes(n));
-    })
+    });
+
+  // SUPPLIER VERIFICATION: Lily must never point a florist toward a
+  // seller the buyer catalog itself would hide — same
+  // loadVerifiedSellerShopIds() check as the catalog, Reorder, and
+  // Standing Orders gates, not a fourth parallel one. Computed only over
+  // this message's candidate shops, not every listing in the table.
+  const verifiedShopIds = await loadVerifiedSellerShopIds(candidates.map((row) => row.shop_id), { adminClient });
+
+  const matches = candidates
+    .filter((row) => verifiedShopIds.has(row.shop_id))
     .filter((row) => isCurrentlyAvailable(row))
     .map((row) => {
       const display = resolveDisplayPrice(row);
