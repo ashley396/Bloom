@@ -22,6 +22,7 @@
       ['profile', 'Store Profile'],
       ['shipping', 'Shipping'],
       ['pricing', 'Pricing tiers'],
+      ['specials', 'Specials'],
       ['import', 'CSV import']
     ];
     return `<div class="wholesale-seller-nav">${items.map(([id, label]) => `<button type="button" class="secondary${active === id ? ' active' : ''}" data-wholesale-section="${id}">${label}</button>`).join('')}</div>`;
@@ -116,6 +117,31 @@
       <div class="cards">${tiers.length ? tiers.map((t) => `<article class="card"><h3>${hooks.esc(t.name)}</h3><p class="meta">${t.discount_percent}% off at ${t.min_quantity}+ units</p></article>`).join('') : hooks.empty('No pricing tiers yet.')}</div>`;
   }
 
+  function renderSpecials(hooks, data) {
+    const specials = data.promotions || [];
+    // Real state only, computed the same way the buyer catalog computes
+    // it — "Active" here means the row's own active flag AND inside its
+    // real starts_at/ends_at window right now, not just "flag is on".
+    const now = Date.now();
+    const isLive = (p) => {
+      if (p.active === false) return false;
+      if (p.starts_at && Date.parse(p.starts_at) > now) return false;
+      if (p.ends_at && Date.parse(p.ends_at) < now) return false;
+      return true;
+    };
+    return `${renderNav(hooks, 'specials')}
+      <section class="panel"><h2>Create a special</h2><p class="subtle">Verified buyers browsing the marketplace see a real, currently-active special automatically — no separate step to publish it. Enter it once at checkout time and buyers can redeem the code for the duration you set.</p>
+      <form id="wholesaleSpecialForm" class="verification-grid">
+        <label>Code<input name="code" required placeholder="SPRING15" maxlength="40"></label>
+        <label>Discount %<input name="percent_off" type="number" step="0.01" min="0.01" max="100" value="10" required></label>
+        <label>Description<input name="description" placeholder="15% off spring stock"></label>
+        <label>Starts<input name="starts_at" type="date"></label>
+        <label>Ends<input name="ends_at" type="date"></label>
+        <button type="submit" class="primary">Save special</button>
+      </form></section>
+      <div class="cards">${specials.length ? specials.map((p) => `<article class="card"><h3>${hooks.esc(p.code)}${isLive(p) ? ' <span class="badge">Live</span>' : ' <span class="badge warn">Not active</span>'}</h3><p class="meta">${p.percent_off}% off${p.ends_at ? ` · ends ${hooks.esc(new Date(p.ends_at).toLocaleDateString())}` : ''}</p>${p.description ? `<p class="subtle">${hooks.esc(p.description)}</p>` : ''}<div class="card-actions"><button type="button" class="secondary" data-wholesale-special-toggle="${hooks.esc(p.id)}" data-active="${p.active}">${p.active ? 'Deactivate' : 'Reactivate'}</button></div></article>`).join('') : hooks.empty('No specials yet — create one above and verified buyers will see it in the marketplace.')}</div>`;
+  }
+
   function renderImport(hooks) {
     return `${renderNav(hooks, 'import')}
       <section class="panel wide"><h2>Bulk CSV import</h2><p class="subtle">Import draft products with SKU, inventory, and optional publish status.</p>
@@ -137,6 +163,7 @@
       profile: renderProfile,
       shipping: renderShipping,
       pricing: renderPricing,
+      specials: renderSpecials,
       import: renderImport
     }[state.section]?.(hooks, data) || renderDashboard(hooks, data);
     mount.innerHTML = html;
@@ -362,6 +389,38 @@
       await hooks.api('marketplace-seller', { method: 'POST', body: JSON.stringify({ action: 'save-tier', name: fd.get('name'), min_quantity: fd.get('min_quantity'), discount_percent: fd.get('discount_percent') }) });
       hooks.toast('Pricing tier saved.');
       reload(hooks);
+    });
+    hooks.$('#wholesaleSpecialForm')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const fd = new FormData(event.currentTarget);
+      try {
+        await hooks.api('marketplace-seller', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'save-promotion',
+            code: fd.get('code'),
+            percent_off: fd.get('percent_off'),
+            description: fd.get('description') || '',
+            starts_at: fd.get('starts_at') || null,
+            ends_at: fd.get('ends_at') || null
+          })
+        });
+        hooks.toast('Special saved.');
+        reload(hooks);
+      } catch (error) {
+        hooks.toast(error.message);
+      }
+    });
+    document.querySelectorAll('[data-wholesale-special-toggle]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const active = btn.dataset.active === 'true';
+        await hooks.api('marketplace-seller', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'toggle-promotion', id: btn.dataset.wholesaleSpecialToggle, active: !active })
+        });
+        hooks.toast(active ? 'Special deactivated.' : 'Special reactivated.');
+        reload(hooks);
+      });
     });
     hooks.$('[data-wholesale-csv-template]')?.addEventListener('click', async () => {
       const data = await hooks.api('marketplace-seller?resource=csv-template');
