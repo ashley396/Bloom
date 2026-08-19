@@ -394,106 +394,18 @@
     }
   }
 
-  async function loadSellerDashboard(hooks, state) {
-    const mount = hooks.$('#marketplaceSellerDashboard');
-    if (!mount) return;
-    mount.innerHTML = '<p class="subtle">Loading seller dashboard…</p>';
-    try {
-      const data = await hooks.api('marketplace-seller');
-      state.seller = data;
-      const verification = data.verification_status || 'unknown';
-      const products = data.products || [];
-      mount.innerHTML = `<div class="marketplace-seller-grid">
-        <section class="panel"><h2>Store profile</h2><p class="subtle">${hooks.esc(data.profile?.display_name || data.profile?.bio || 'Add your storefront profile after migration apply.')}</p>
-          <label>Display name<input id="sellerDisplayName" value="${hooks.esc(data.profile?.display_name || '')}"></label>
-          <label>Bio<textarea id="sellerBio" rows="3">${hooks.esc(data.profile?.bio || '')}</textarea></label>
-          <label>Minimum order ($)<input id="sellerMinOrder" type="number" step="0.01" value="${hooks.esc(data.profile?.minimum_order_amount ?? 0)}"></label>
-          <button type="button" class="primary" id="sellerSaveProfile">Save profile</button>
-        </section>
-        <section class="panel"><h2>Verification</h2><p>Status: <strong>${hooks.esc(verification)}</strong></p><button type="button" class="secondary" id="sellerOpenVerification">Review verification</button></section>
-        <section class="panel"><h2>Revenue summary</h2><p class="subtle">Estimated catalog value (not paid orders): <strong>${hooks.money(data.stats?.revenue_estimate || 0)}</strong></p><p class="subtle">Active products: ${data.stats?.product_count || 0}</p></section>
-        <section class="panel"><h2>Low stock</h2>${(data.low_stock || []).length ? `<ul>${data.low_stock.map((p) => `<li>${hooks.esc(p.product_name)} (${p.available_quantity} left)</li>`).join('')}</ul>` : hooks.empty('No low-stock alerts.')}</section>
-        <section class="panel wide"><h2>Products</h2><div class="seller-product-table">${products.length ? products.map((p) => `<article class="card"><div class="card-top"><div><h3>${hooks.esc(p.product_name)}</h3><p class="meta">${hooks.esc(p.category || '')} · Qty ${p.available_quantity ?? 0}</p></div><strong>${hooks.money(p.price)}</strong></div><div class="card-actions"><button type="button" class="secondary" data-seller-edit="${hooks.esc(p.id)}">Edit</button><button type="button" class="secondary danger" data-seller-archive="${hooks.esc(p.id)}">Archive</button></div></article>`).join('') : hooks.empty('No products yet.')}</div></section>
-        <section class="panel"><h2>Best sellers</h2>${(data.best_sellers || []).length ? `<ul>${data.best_sellers.map((p) => `<li>${hooks.esc(p.product_name)}</li>`).join('')}</ul>` : hooks.empty('No sales data yet.')}</section>
-        <section class="panel"><h2>Coupons</h2>${(data.promotions || []).length ? `<ul>${data.promotions.map((p) => `<li>${hooks.esc(p.code)} · ${p.percent_off}%</li>`).join('')}</ul>` : hooks.empty('No promotions configured.')}</section>
-        <section class="panel"><h2>Shipping profiles</h2>${(data.shipping_profiles || []).length ? `<ul>${data.shipping_profiles.map((p) => `<li>${hooks.esc(p.name)}</li>`).join('')}</ul>` : hooks.empty('Add shipping profiles after migration apply.')}</section>
-        <section class="panel"><h2>Pricing tiers</h2>${(data.pricing_tiers || []).length ? `<ul>${data.pricing_tiers.map((p) => `<li>${hooks.esc(p.name)} · ${p.discount_percent}% at ${p.min_quantity}+</li>`).join('')}</ul>` : hooks.empty('No pricing tiers yet.')}</section>
-        <section class="panel wide"><h2>Bulk CSV import</h2><p class="subtle">Download the template, fill in products, then validate and import.</p>
-          <div class="card-actions"><button type="button" class="secondary" id="sellerCsvTemplate">Download CSV template</button></div>
-          <label>CSV file<input type="file" id="sellerCsvFile" accept=".csv,text/csv"></label>
-          <textarea id="sellerCsvPreview" rows="6" placeholder="CSV preview appears here after validation."></textarea>
-          <div class="card-actions"><button type="button" class="secondary" id="sellerCsvValidate">Validate CSV</button><button type="button" class="primary" id="sellerCsvImport">Import products</button></div>
-        </section>
-      </div>`;
-      bindSellerDashboard(hooks, state);
-    } catch (error) {
-      mount.innerHTML = `<div class="panel"><p class="subtle">${hooks.esc(error.message)}</p></div>`;
-    }
-  }
-
-  function bindSellerDashboard(hooks, state) {
-    hooks.$('#sellerOpenVerification')?.addEventListener('click', () => hooks.openVerificationDialog?.());
-    hooks.$('#sellerSaveProfile')?.addEventListener('click', async () => {
-      try {
-        await hooks.api('marketplace-seller', {
-          method: 'PUT',
-          body: JSON.stringify({
-            display_name: hooks.$('#sellerDisplayName')?.value || '',
-            bio: hooks.$('#sellerBio')?.value || '',
-            minimum_order_amount: hooks.$('#sellerMinOrder')?.value || 0
-          })
-        });
-        hooks.toast('Seller profile saved.');
-        loadSellerDashboard(hooks, state);
-      } catch (error) {
-        hooks.toast(error.message);
-      }
-    });
-    hooks.$('#sellerCsvTemplate')?.addEventListener('click', async () => {
-      try {
-        const data = await hooks.api('marketplace-seller?resource=csv-template');
-        const blob = new Blob([data.csv || ''], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'bloom-marketplace-products.csv';
-        link.click();
-        URL.revokeObjectURL(url);
-      } catch (error) {
-        hooks.toast(error.message);
-      }
-    });
-    hooks.$('#sellerCsvValidate')?.addEventListener('click', async () => {
-      const file = hooks.$('#sellerCsvFile')?.files?.[0];
-      if (!file) return hooks.toast('Choose a CSV file first.');
-      const csv = await file.text();
-      const result = await hooks.api('marketplace-seller', { method: 'POST', body: JSON.stringify({ action: 'validate-csv', csv }) });
-      hooks.$('#sellerCsvPreview').value = result.valid ? `Valid ${result.rows.length} rows.` : result.errors.join('\n');
-    });
-    hooks.$('#sellerCsvImport')?.addEventListener('click', async () => {
-      const file = hooks.$('#sellerCsvFile')?.files?.[0];
-      if (!file) return hooks.toast('Choose a CSV file first.');
-      const csv = await file.text();
-      try {
-        const result = await hooks.api('marketplace-seller', { method: 'POST', body: JSON.stringify({ action: 'import-csv', csv }) });
-        hooks.toast(`Imported ${result.imported} products.`);
-        loadSellerDashboard(hooks, state);
-      } catch (error) {
-        hooks.toast(error.message);
-      }
-    });
-    document.querySelectorAll('[data-seller-archive]').forEach((button) => {
-      button.addEventListener('click', async () => {
-        try {
-          await hooks.api('marketplace-seller', { method: 'POST', body: JSON.stringify({ action: 'archive', id: button.dataset.sellerArchive }) });
-          hooks.toast('Product archived.');
-          loadSellerDashboard(hooks, state);
-        } catch (error) {
-          hooks.toast(error.message);
-        }
-      });
-    });
-  }
+  // Note: this file used to carry a second, complete seller-dashboard
+  // implementation here (loadSellerDashboard/bindSellerDashboard,
+  // mounted at #marketplaceSellerDashboard) — but the "Sell" tab's real
+  // markup in index.html was replaced at some point with a stub that
+  // just links to the dedicated wholesaleSellerPage
+  // (wholesale-seller-dashboard.js), and nothing ever called that
+  // function again. It was ~100 lines of dead code: a second, drifted
+  // copy of the seller product/profile/CSV UI that could never run and
+  // that a reader could easily mistake for live functionality. Removed
+  // rather than left to rot further out of sync with the real
+  // wholesale-seller-dashboard.js (which already has all of this, plus
+  // the Specials section that dead copy never got).
 
   function bindMarketplaceEvents(hooks, state) {
     document.getElementById('marketplacePage')?.addEventListener('click', async (event) => {
