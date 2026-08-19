@@ -439,7 +439,7 @@ Florisyn must exceed traditional florist website products through:
 2. Track phases in Master Build Checklist.
 3. **Do not build complete Website Studio during Daily Loop branches** unless explicitly assigned.
 4. Architect daily-loop work to **integrate later** (shared services, no duplicate CRM/orders/inventory/payments).
-5. Keep unfinished Website Studio behind **`WEBSITE_STUDIO_V2`** feature flag (default `false`).
+5. Keep unfinished Website Studio work behind **`WEBSITE_STUDIO_V2`** feature flag. (Note 2026-08-16: the shell, whole-page CRUD, media library, revision history, and enforced pre-publish checklist shipped 2026-08-15 and were already live for every florist with no flag enforcement anywhere in the code — the flag has been flipped to `true` to match. Re-apply this rule for whatever WS phase work starts next.)
 6. Preserve approved UI foundations — **do not redesign Today page**.
 7. Document every implementation phase before large code changes.
 

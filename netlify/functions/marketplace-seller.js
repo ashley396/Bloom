@@ -9,10 +9,16 @@ import {
   nextPublishTransition,
   normalizePublishStatus,
   validateProductImages,
-  validateProductVariants
+  validateProductVariants,
+  normalizeAvailabilityStatus,
+  normalizeSeasonalMonths,
+  validateFloralAttributes,
+  isCurrentlyAvailable
 } from "./_shared/marketplace-products.js";
 import { sanitizeApplicationRecord, TABLE as VERIFICATION_TABLE } from "./_shared/marketplace-verification.js";
+import { normalizePromoCode } from "./_shared/marketplace-promotions.js";
 import { writeShopAudit } from "./_shared/production.js";
+import { notifyMarketplaceUser, notifyFavoritersBackInStock } from "./_shared/marketplace-notifications.js";
 
 const LISTINGS = "marketplace_listings";
 const IMAGES = "marketplace_listing_images";
@@ -42,7 +48,30 @@ const LISTING_FIELDS = [
   "low_stock_threshold",
   "allows_shipping",
   "allows_local_pickup",
-  "publish_status"
+  "publish_status",
+  // Floral-specific wholesale attributes (Marketplace vision phase 1).
+  "variety",
+  "color",
+  "stem_length_in",
+  "grade",
+  "grower_name",
+  "origin",
+  "stems_per_bunch",
+  "bunches_per_box",
+  "case_quantity",
+  "price_per_stem",
+  "price_per_bunch",
+  "price_per_box",
+  "price_per_case",
+  "availability_status",
+  "available_from",
+  "available_until",
+  "seasonal_months",
+  "lead_time_days",
+  "delivery_region",
+  "pickup_city",
+  "pickup_state",
+  "substitution_note"
 ];
 
 function isMissingTableError(error) {
@@ -67,6 +96,21 @@ function buildListingPayload(body, shopId) {
   }
   if (body.publish_status !== undefined) {
     payload.publish_status = normalizePublishStatus(body.publish_status);
+  }
+  if (body.availability_status !== undefined) {
+    payload.availability_status = normalizeAvailabilityStatus(body.availability_status);
+  }
+  if (body.seasonal_months !== undefined) {
+    payload.seasonal_months = normalizeSeasonalMonths(body.seasonal_months);
+  }
+  // Empty-string dates/numbers from a form should clear the column, not
+  // get sent to Postgres as "" and fail the numeric/date cast.
+  for (const field of [
+    "stem_length_in", "stems_per_bunch", "bunches_per_box", "case_quantity",
+    "price_per_stem", "price_per_bunch", "price_per_box", "price_per_case",
+    "lead_time_days", "available_from", "available_until"
+  ]) {
+    if (payload[field] === "") payload[field] = null;
   }
   if (body.category && !body.category_slug) {
     const normalized = normalizeMarketplaceCategory(body.category);
@@ -237,7 +281,7 @@ async function loadDashboard(client, shopId, userId) {
     if (!profileResult.error) profile = profileResult.data;
     const categoriesResult = await client.from(SELLER_CATEGORIES).select("category_slug").eq("shop_id", shopId);
     if (!categoriesResult.error) categories = (categoriesResult.data || []).map((row) => row.category_slug);
-    const promoResult = await client.from(PROMOTIONS).select("id, code, percent_off, active, description").eq("shop_id", shopId);
+    const promoResult = await client.from(PROMOTIONS).select("id, code, percent_off, active, description, starts_at, ends_at").eq("shop_id", shopId);
     if (!promoResult.error) promotions = promoResult.data || [];
     const shipResult = await client.from(SHIPPING).select("id, name, rules, active").eq("shop_id", shopId);
     if (!shipResult.error) shippingProfiles = shipResult.data || [];
@@ -277,6 +321,12 @@ async function loadDashboard(client, shopId, userId) {
 async function saveProduct(client, shopId, body) {
   const images = Array.isArray(body.images) ? body.images : [];
   const variants = Array.isArray(body.variants) ? body.variants : [];
+  const floralValidation = validateFloralAttributes(body);
+  if (!floralValidation.valid) {
+    const error = new Error(floralValidation.errors.join(" "));
+    error.statusCode = 400;
+    throw error;
+  }
   const publishStatus = normalizePublishStatus(body.publish_status, "draft");
   const payload = buildListingPayload({ ...body, publish_status: publishStatus }, shopId);
   if (!payload.image_url && images[0]?.url) payload.image_url = images[0].url;
@@ -284,10 +334,12 @@ async function saveProduct(client, shopId, body) {
   payload.available_quantity = computeListingInventory(payload, variants);
 
   let listing;
+  let wasAvailable = null;
   if (body.id) {
-    const { data: existing, error: existingError } = await client.from(LISTINGS).select("id, shop_id").eq("id", body.id).maybeSingle();
+    const { data: existing, error: existingError } = await client.from(LISTINGS).select("*").eq("id", body.id).maybeSingle();
     if (existingError) throw existingError;
     assertListingOwnership(existing, shopId);
+    wasAvailable = existing.active !== false && isCurrentlyAvailable(existing);
     delete payload.shop_id;
     const { data, error } = await client.from(LISTINGS).update(payload).eq("id", body.id).eq("shop_id", shopId).select("*").single();
     if (error) throw error;
@@ -300,6 +352,16 @@ async function saveProduct(client, shopId, body) {
 
   const savedImages = await replaceListingImages(client, shopId, listing.id, images);
   const savedVariants = await replaceListingVariants(client, shopId, listing.id, variants);
+
+  // "A saved flower is back in stock" (Marketplace vision: NOTIFICATIONS)
+  // — only fires on a real false->true transition, never on every save.
+  if (wasAvailable === false) {
+    const nowAvailable = listing.active !== false && isCurrentlyAvailable(listing);
+    if (nowAvailable) {
+      await notifyFavoritersBackInStock(client, listing.id, `${listing.product_name} is back in stock.`);
+    }
+  }
+
   return enrichProduct(listing, savedImages, savedVariants);
 }
 
@@ -448,6 +510,71 @@ export async function handler(event) {
         return json(200, { pricing_tier: data });
       }
 
+      if (body.action === "save-promotion") {
+        // MARKETPLACE SPECIALS: marketplace_promotions has existed since
+        // the greenfield baseline but this is the first action that ever
+        // let a seller actually create one — previously a dormant table,
+        // read-only, and always empty. Code is normalized (trim+uppercase)
+        // here at the one point of entry so buyer checkout's lookup and
+        // this save both compare the same real form, never a
+        // case-mismatch that silently fails to redeem.
+        const code = normalizePromoCode(body.code);
+        if (!code) {
+          const error = new Error("A promo code is required.");
+          error.statusCode = 400;
+          throw error;
+        }
+        const percentOff = Number(body.percent_off);
+        if (!Number.isFinite(percentOff) || percentOff <= 0 || percentOff > 100) {
+          const error = new Error("percent_off must be a real number greater than 0 and no more than 100.");
+          error.statusCode = 400;
+          throw error;
+        }
+        const startsAt = body.starts_at ? new Date(body.starts_at).toISOString() : null;
+        const endsAt = body.ends_at ? new Date(body.ends_at).toISOString() : null;
+        if (startsAt && endsAt && Date.parse(endsAt) < Date.parse(startsAt)) {
+          const error = new Error("A special can't end before it starts.");
+          error.statusCode = 400;
+          throw error;
+        }
+        const row = {
+          shop_id: shopId,
+          code,
+          description: body.description || null,
+          percent_off: percentOff,
+          active: body.active !== false,
+          starts_at: startsAt,
+          ends_at: endsAt
+        };
+        // (shop_id, code) is unique — an id-less save upserts on that key
+        // so re-submitting the same code edits the existing special
+        // instead of erroring on the constraint or silently creating a
+        // duplicate.
+        const query = body.id
+          ? client.from(PROMOTIONS).update(row).eq("id", body.id).eq("shop_id", shopId)
+          : client.from(PROMOTIONS).upsert(row, { onConflict: "shop_id,code" });
+        const { data, error } = await query.select("*").single();
+        if (error) throw error;
+        return json(200, { promotion: data });
+      }
+
+      if (body.action === "toggle-promotion" && body.id) {
+        // A dedicated action for the one-click deactivate/reactivate, not
+        // a partial save-promotion — save-promotion's row is a full
+        // replace (code/percent_off/description/dates all required or
+        // nulled), so routing a toggle through it would silently wipe
+        // whatever the seller wasn't re-submitting.
+        const { data, error } = await client
+          .from(PROMOTIONS)
+          .update({ active: body.active !== false })
+          .eq("id", body.id)
+          .eq("shop_id", shopId)
+          .select("*")
+          .single();
+        if (error) throw error;
+        return json(200, { promotion: data });
+      }
+
       if (body.action === "save-customer") {
         const row = {
           seller_shop_id: shopId,
@@ -467,7 +594,7 @@ export async function handler(event) {
       }
 
       if (body.action === "update-order" && body.id) {
-        const { data: existing, error: existingError } = await client.from(ORDERS).select("id, seller_shop_id").eq("id", body.id).maybeSingle();
+        const { data: existing, error: existingError } = await client.from(ORDERS).select("id, seller_shop_id, buyer_user_id, status").eq("id", body.id).maybeSingle();
         if (existingError) throw existingError;
         if (!existing || existing.seller_shop_id !== shopId) {
           return json(403, { error: "You do not have access to this order." });
@@ -480,6 +607,18 @@ export async function handler(event) {
           .select("*")
           .single();
         if (error) throw error;
+
+        if (existing.buyer_user_id && body.status && body.status !== existing.status) {
+          const { data: sellerProfile } = await client.from(SELLER_PROFILES).select("display_name").eq("shop_id", shopId).maybeSingle();
+          const sellerName = sellerProfile?.display_name || "Your wholesale supplier";
+          await notifyMarketplaceUser(
+            existing.buyer_user_id,
+            "order_status_changed",
+            `${sellerName} updated your order to "${body.status}."`,
+            { orderId: body.id }
+          );
+        }
+
         return json(200, { order: data });
       }
 
@@ -520,8 +659,35 @@ export async function handler(event) {
         website: body.website || null,
         minimum_order_amount: body.minimum_order_amount != null ? Number(body.minimum_order_amount) : 0,
         settings: body.settings && typeof body.settings === "object" ? body.settings : {},
+        // Wholesaler storefront (Marketplace vision: WHOLESALER STOREFRONTS).
+        location_city: body.location_city || null,
+        location_state: body.location_state || null,
+        location_country: body.location_country || null,
+        delivery_area: body.delivery_area || null,
+        delivery_radius_miles: body.delivery_radius_miles !== "" && body.delivery_radius_miles != null ? Number(body.delivery_radius_miles) : null,
+        pickup_available: Boolean(body.pickup_available),
+        pickup_address: body.pickup_address || null,
+        pickup_hours: body.pickup_hours || null,
+        ordering_policy: body.ordering_policy || null,
+        order_deadline_note: body.order_deadline_note || null,
+        contact_email: body.contact_email || null,
+        contact_phone: body.contact_phone || null,
         updated_at: new Date().toISOString()
       };
+
+      if (Array.isArray(body.featured_listing_ids)) {
+        // A seller can only feature their own listings — never trust a
+        // client-supplied ID list without checking ownership first.
+        const ids = [...new Set(body.featured_listing_ids.filter(Boolean))].slice(0, 12);
+        if (ids.length) {
+          const { data: owned, error: ownedError } = await client.from(LISTINGS).select("id").eq("shop_id", shopId).in("id", ids);
+          if (ownedError) throw ownedError;
+          profilePayload.featured_listing_ids = (owned || []).map((row) => row.id);
+        } else {
+          profilePayload.featured_listing_ids = [];
+        }
+      }
+
       const { data, error } = await client.from(SELLER_PROFILES).upsert(profilePayload, { onConflict: "shop_id" }).select("*").single();
       if (error) {
         if (isMissingTableError(error)) {

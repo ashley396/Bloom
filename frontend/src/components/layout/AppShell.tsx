@@ -19,7 +19,7 @@ export function AppShell({ children, sidebar, header }: AppShellProps) {
       <div className="mx-auto flex min-h-svh max-w-[1600px] flex-col lg:flex-row">
         <aside
           className={cn(
-            "border-b border-florisyn-sage-100 bg-florisyn-surface lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-r dark:border-florisyn-sage-100",
+            "border-b border-florisyn-border bg-florisyn-surface lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-r",
             "px-4 py-4 lg:sticky lg:top-0 lg:h-svh lg:overflow-y-auto",
           )}
           aria-label="Primary"
@@ -28,7 +28,7 @@ export function AppShell({ children, sidebar, header }: AppShellProps) {
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
           {header ? (
-            <header className="border-b border-florisyn-sage-100 bg-florisyn-surface px-4 py-3 md:px-6 dark:border-florisyn-sage-100">
+            <header className="border-b border-florisyn-border bg-florisyn-surface px-4 py-3 md:px-6">
               {header}
             </header>
           ) : null}

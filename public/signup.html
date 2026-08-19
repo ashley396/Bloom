@@ -1,46 +1,75 @@
 <!doctype html>
 <html lang="en">
-<head>
+<head><script src="/seo/florisyn-seo.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#faf7f2">
+  <meta name="theme-color" content="#1a2b48">
   <meta name="description" content="Create your Florisyn account — 14-day free trial for independent florists.">
   <title>Create account | Florisyn</title>
-  <link rel="icon" href="/assets/florisyn/favicon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/assets/florisyn/florisyn-mark.svg">
+  <link rel="icon" href="/assets/florisyn/florisyn-favicon-32.png?v=official1" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/assets/florisyn/florisyn-apple-touch-180.png?v=official1">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="/bloom-auth.css">
   <link rel="stylesheet" href="/florisyn-brand.css">
   <link rel="stylesheet" href="/florisyn-founder-1.0.css">
+  <link rel="stylesheet" href="/florisyn-atelier-auth.css?v=authhero2">
+  <link rel="stylesheet" href="/pricing.css?v=teststamp1234">
+  <script src="/florisyn-build.js?v=teststamp1234"></script>
 </head>
-<body class="bloom-auth florisyn">
-  <header class="bloom-auth-top">
-    <a class="bloom-auth-brand" href="/login">
-      <img src="/assets/florisyn/florisyn-mark.svg" width="44" height="44" alt="">
-      <span><strong>Florisyn</strong><small>The Operating System for Modern Florists</small></span>
+<body class="bloom-auth florisyn florisyn-atelier-auth florisyn-auth-hero florisyn-signup-hero">
+  <div class="auth-hero-atmosphere" aria-hidden="true">
+    <span class="auth-orb auth-orb-a"></span>
+    <span class="auth-orb auth-orb-b"></span>
+    <span class="auth-orb auth-orb-c"></span>
+    <img class="auth-petals auth-petals-a" src="/assets/florisyn/florisyn-auth-petals.png?v=authhero2" alt="">
+    <img class="auth-petals auth-petals-b" src="/assets/florisyn/florisyn-auth-petals.png?v=authhero2" alt="">
+    <img class="auth-petals auth-petals-c" src="/assets/florisyn/florisyn-auth-petals.png?v=authhero2" alt="">
+  </div>
+
+  <header class="auth-hero-nav">
+    <a class="auth-hero-logo" href="/login">
+      <img src="/assets/florisyn/florisyn-mark.png?v=official1" width="48" height="48" alt="">
+      <strong>Florisyn</strong>
     </a>
-    <nav class="bloom-auth-nav"><a href="/login">Sign in</a></nav>
+    <nav class="auth-hero-links" aria-label="Marketing">
+      <a href="/company/services/">Product</a>
+      <a href="/company/pricing/">Pricing</a>
+      <a href="/help/">Resources</a>
+      <a href="/company/about/">About</a>
+    </nav>
+    <div class="auth-hero-nav-actions">
+      <a class="auth-nav-login" href="/login">Login</a>
+      <a class="auth-nav-cta" href="/company/pricing/">View plans</a>
+    </div>
   </header>
-  <main class="bloom-auth-signup-shell">
-    <section class="bloom-auth-visual">
-      <img src="/assets/auth/luxury-florist-workspace.jpg" alt="Luxury floral design workspace" width="1600" height="1067" loading="lazy">
-      <div class="bloom-auth-visual-copy">
-        <p class="eyebrow">14-day free trial</p>
-        <h1>Create your Florisyn account</h1>
-        <p>No setup fee · No contract · Florist-first from day one.</p>
-      </div>
-    </section>
-    <div class="bloom-auth-signup-main">
-      <form id="signupForm">
-        <section class="bloom-auth-plans" id="pricing" aria-label="Choose a plan">
-          <label class="bloom-auth-plan"><input type="radio" name="plan" value="starter" data-price="39"><h3>Starter</h3><strong>$39<small>/mo</small></strong><p>Essential POS, orders, and inventory.</p></label>
-          <label class="bloom-auth-plan"><span class="popular">Popular</span><input type="radio" name="plan" value="pro" data-price="79" checked><h3>Pro</h3><strong>$79<small>/mo</small></strong><p>Reporting, deliveries, Lily &amp; Rose.</p></label>
-          <label class="bloom-auth-plan"><input type="radio" name="plan" value="premium" data-price="129"><h3>Premium</h3><strong>$129<small>/mo</small></strong><p>Multi-store, wholesale, priority support.</p></label>
+
+  <main class="auth-hero-shell auth-signup-shell">
+    <section class="auth-hero-copy" aria-labelledby="signupHeading">
+      <p class="auth-eyebrow-pill">The operating system for modern florists</p>
+      <h1 id="signupHeading">Run Your Floral Business <em>with Beauty &amp; Intelligence</em></h1>
+      <p class="auth-hero-lead">Create your Florisyn account — 14-day free trial, no setup fee, florist-first from day one.</p>
+      <p id="referralSignupNote" class="compare-highlight" hidden style="margin:12px 0;padding:12px 16px;border-radius:12px;font-size:14px">You were referred by a Florisyn florist — you both get a free month when you subscribe.</p>
+      <p class="atelier-auth-tagline visually-hidden">Where Your Passion Flowers</p>
+
+      <form id="signupForm" class="auth-hero-form auth-signup-form">
+        <section class="signup-pricing" id="pricing" aria-labelledby="signupPlanHeading">
+          <div class="signup-pricing-head">
+            <p class="signup-pricing-eyebrow" id="signupPlanHeading">Choose your plan</p>
+            <div class="pricing-toggle-wrap pricing-signup-toggle" data-pricing-toggle>
+              <div class="pricing-toggle" role="group" aria-label="Billing interval">
+                <button type="button" data-billing-interval="monthly" aria-pressed="true">Monthly</button>
+                <button type="button" data-billing-interval="annual" aria-pressed="false">Annual</button>
+              </div>
+              <span class="pricing-save-pill">Annual billing · <span data-pricing-save>Save 2 months</span></span>
+            </div>
+          </div>
+          <div class="signup-plan-grid" id="pricingPlansSignup" role="radiogroup" aria-labelledby="signupPlanHeading"></div>
         </section>
-        <div class="bloom-auth-card" style="width:100%;max-width:none">
+
+        <div class="auth-signup-card">
           <p class="eyebrow">Your shop</p>
           <h2>Tell us about your flower shop</h2>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 16px">
+          <div class="auth-signup-grid">
             <label>Your full name<input id="fullName" required autocomplete="name"></label>
             <label>Flower shop name<input id="shopName" required autocomplete="organization"></label>
             <label>Business email<input id="email" type="email" required autocomplete="email"></label>
@@ -49,21 +78,34 @@
             <label>Business type<select id="businessType"><option>Retail flower shop</option><option>Event florist</option><option>Wedding florist</option><option>Home-based florist</option><option>Other</option></select></label>
           </div>
           <label>Street address<input id="businessAddress" required autocomplete="street-address"></label>
-          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px">
+          <div class="auth-signup-city-row">
             <label>City<input id="businessCity" required></label>
             <label>State<input id="businessState" required maxlength="2" placeholder="KY"></label>
             <label>ZIP<input id="businessZip" required inputmode="numeric"></label>
           </div>
-          <label class="check" style="flex-direction:row;align-items:flex-start;gap:10px;font-weight:500"><input id="agreeTerms" type="checkbox" required><span>I agree to the <a href="/legal/terms/" target="_blank" rel="noopener">Terms</a> and <a href="/legal/privacy/" target="_blank" rel="noopener">Privacy Policy</a>.</span></label>
-          <button type="submit" class="bloom-auth-btn">Start my free trial</button>
+          <label class="check auth-terms"><input id="agreeTerms" type="checkbox" required><span>I agree to the <a href="/legal/terms/" target="_blank" rel="noopener">Terms</a> and <a href="/legal/privacy/" target="_blank" rel="noopener">Privacy Policy</a>.</span></label>
+          <button type="submit" class="bloom-auth-btn login-submit">Start Your Free Trial</button>
           <p id="signupMessage" class="bloom-auth-message" aria-live="polite"></p>
-          <p class="bloom-auth-links"><a href="/login">Already have an account? Sign in</a></p>
+          <p class="login-footer-link">Already have an account? <a href="/login"><strong>Sign in</strong></a></p>
         </div>
       </form>
-    </div>
+    </section>
+
+    <section class="auth-hero-visual" aria-label="Florisyn product preview">
+      <div class="auth-hero-stage">
+        <img class="auth-hero-devices" src="/assets/florisyn/florisyn-auth-hero-devices.png?v=authhero2" width="1200" height="900" alt="Florisyn dashboard on laptop and phone with fresh floral arrangement">
+        <img class="auth-hero-bloom-float" src="/assets/florisyn/florisyn-auth-bouquet.png?v=authhero2" alt="">
+      </div>
+      <div class="auth-hero-visual-copy">
+        <p class="eyebrow">14-day free trial</p>
+        <h2>Beauty meets the operating system for modern florists.</h2>
+      </div>
+    </section>
   </main>
-  <footer class="bloom-auth-footer">© <span data-current-year></span> Florisyn Technologies</footer>
-  <script src="/signup.js" type="module"></script>
+
+  <footer class="bloom-auth-footer auth-hero-footer">© <span data-current-year></span> Florisyn Technologies</footer>
+  <script src="/pricing.js?v=teststamp1234" type="module"></script>
+  <script src="/signup.js?v=teststamp1234" type="module"></script>
   <script src="/bloom-auth-common.js" defer></script>
 </body>
 </html>

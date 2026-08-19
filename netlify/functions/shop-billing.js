@@ -19,6 +19,7 @@ import {
   buildCancellationSummary,
   subscriptionEventType
 } from "./_shared/subscription-center.js";
+import { stripePriceId } from "./_shared/stripe-prices.js";
 
 async function loadSubscription(client, shopId) {
   const { data, error } = await client.from("shop_subscriptions").select("*").eq("shop_id", shopId).maybeSingle();
@@ -46,6 +47,16 @@ async function logSubscriptionEvent(client, { shopId, userId, eventType, reasonC
     entityId: shopId,
     metadata: { reason_code: reasonCode, ...metadata }
   });
+}
+
+function stripeRedirectBaseUrl() {
+  const site = String(process.env.SITE_URL || process.env.URL || "").trim().replace(/\/$/, "");
+  if (!site) {
+    const e = new Error("SITE_URL is not configured in Netlify.");
+    e.statusCode = 503;
+    throw e;
+  }
+  return site;
 }
 
 async function loadBillingHistory(client, shopId, sub, stripe) {
@@ -266,14 +277,10 @@ export async function handler(event) {
         return json(400, { error: "That plan change is not available." });
       }
       if (!stripe) return json(503, { error: "Stripe billing is not configured." });
-      const priceMap = {
-        starter: process.env.STRIPE_PRICE_STARTER,
-        professional: process.env.STRIPE_PRICE_PROFESSIONAL,
-        premium: process.env.STRIPE_PRICE_PREMIUM
-      };
-      const price = priceMap[planCode];
-      if (!price) return json(503, { error: `Stripe price for ${planCode} is not configured.` });
-      const site = (process.env.SITE_URL || event.headers.origin || "").replace(/\/$/, "");
+      const interval = body.billing_interval === "annual" ? "annual" : "monthly";
+      const price = stripePriceId(planCode, interval);
+      if (!price) return json(503, { error: `Stripe price for ${planCode} (${interval}) is not configured.` });
+      const site = stripeRedirectBaseUrl();
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
         customer: sub.stripe_customer_id || undefined,
@@ -281,8 +288,8 @@ export async function handler(event) {
         line_items: [{ price, quantity: 1 }],
         success_url: `${site}/?page=subscriptionPage&subscription=success`,
         cancel_url: `${site}/?page=subscriptionPage&subscription=cancelled`,
-        metadata: { bloom_shop_id: String(shopId), plan_code: planCode },
-        subscription_data: { metadata: { shop_id: shopId, plan_code: planCode } }
+        metadata: { bloom_shop_id: String(shopId), plan_code: planCode, billing_interval: interval },
+        subscription_data: { metadata: { shop_id: shopId, plan_code: planCode, billing_interval: interval } }
       });
       await logSubscriptionEvent(client, { shopId, userId: user.id, eventType: action, metadata: { plan_code: planCode } });
       return json(200, { url: session.url, plan_code: planCode });
@@ -292,7 +299,7 @@ export async function handler(event) {
       if (!stripe || !sub.stripe_customer_id) {
         return json(400, { error: "No billing profile yet. Choose a paid plan first." });
       }
-      const site = (process.env.SITE_URL || event.headers.origin || "").replace(/\/$/, "");
+      const site = stripeRedirectBaseUrl();
       const portal = await stripe.billingPortal.sessions.create({
         customer: sub.stripe_customer_id,
         return_url: `${site}/?page=subscriptionPage`

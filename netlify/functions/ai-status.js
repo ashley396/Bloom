@@ -16,6 +16,7 @@ export async function handler(event) {
     feature_flags: {
       voice_wake: flags.VOICE_WAKE,
       voice_tts_cloud: flags.VOICE_TTS_CLOUD,
+      community_beta: flags.COMMUNITY_BETA,
     },
   });
 }

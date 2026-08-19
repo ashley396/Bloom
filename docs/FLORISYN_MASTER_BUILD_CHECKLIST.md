@@ -1,10 +1,12 @@
 # Florisyn Master Build Checklist
 
-**Last updated:** 2026-07-30  
+**Last updated:** 2026-08-16 (ground-truth refresh — rows below were re-verified against the real codebase, not just carried forward)  
 **Branch:** `cursor/florisyn-daily-loop-v3` (Daily Loop v3 on top of v2 → Foundation v1)  
 **Legend:** ✅ COMPLETE · 🟡 IN PROGRESS · ⚪ PLANNED · 🔒 FUTURE · ⛔ BLOCKED
 
 Each entry includes status, relevant files, dependencies, and verification method.
+
+**2026-08-16 note:** this doc had drifted well behind the code — several rows below were marked `⚪ PLANNED` / `🔒 FUTURE` for features that had already shipped and were live by default. The rows in this pass were corrected against the actual files, not assumed. Re-verify anything not touched in this pass before trusting its status blindly.
 
 ---
 
@@ -41,7 +43,7 @@ Each entry includes status, relevant files, dependencies, and verification metho
 | Customer contact preferences UI | ✅ COMPLETE | `customer-preferences.js`, `customers.js`, `public/index.html` | Foundation `contact_preferences` column | CRM + order builder summary |
 | Delivery proof capture UI + API | ✅ COMPLETE | `delivery-proof.js`, `deliveries.js`, proof dialog | Private `delivery-proofs` bucket | Capture proof smoke in QA doc |
 | Inventory freshness fields + filters | ✅ COMPLETE | `inventory-freshness.js`, `inventory.js`, inventory UI | Foundation inventory columns | Use First filter + save dates |
-| Order audit log (full entity diff) | ⚪ PLANNED | `audit_events` table | Migration + handler wiring | Inspect audit_events |
+| Order audit log (full entity diff) | 🟡 IN PROGRESS | `audit_events` table, `_shared/production.js` | Migration + handler wiring | Best-effort insert exists (with structured-log fallback on failure); not yet a full before/after diff — inspect `audit_events` |
 
 ---
 
@@ -69,7 +71,7 @@ Each entry includes status, relevant files, dependencies, and verification metho
 | Split / deposit / balance | ✅ COMPLETE | Split session in `app.js`, `payment-hub.js` | — | Partial then remainder |
 | Manual cash/check/Zelle | ✅ COMPLETE | `payments.js` | — | Record manual payment |
 | Missing env → clear admin error | ✅ COMPLETE | `payment-hub.js` 503 + message | — | Unset Stripe keys |
-| Refunds / partial refunds | 🟡 IN PROGRESS | Stripe webhook handlers | Stripe dashboard | Refund in Stripe → webhook |
+| Refunds / partial refunds | ✅ COMPLETE | `payment-hub.js` (`refund_create` action, `reserve_payment_refund` RPC) | Stripe dashboard | Permission-checked, ledger-safe reservation, not a stub — refund in Payment Center |
 | Never auto-switch test→live | ✅ COMPLETE | Env-only mode | Owner sets keys | Confirm test keys in staging |
 
 ---
@@ -79,15 +81,15 @@ Each entry includes status, relevant files, dependencies, and verification metho
 | Item | Status | Files | Dependencies | Verification |
 |------|--------|-------|--------------|--------------|
 | Save inventory reliably | ✅ COMPLETE | `inventory.js`, `public/app.js` | RLS | Add/edit item |
-| Item kinds (flower, container, etc.) | 🟡 IN PROGRESS | Migration `item_kind` column | Migration | Set kind on item |
-| Color-level tracking | 🟡 IN PROGRESS | Migration `color` column | Migration | Rose color field |
-| Markup multiplier (3× default) | 🟡 IN PROGRESS | Migration `markup_multiplier` | Migration | Default 3.0 on new rows |
+| Item kinds (flower, container, etc.) | ✅ COMPLETE | Migration `item_kind` column, `inventory.js` | Migration | Set kind on item |
+| Color-level tracking | ✅ COMPLETE | Migration `color` column, `inventory.js` (color sort) | Migration | Rose color field |
+| Markup multiplier (3× default) | ✅ COMPLETE | Migration `markup_multiplier`, `inventory.js` | Migration | Default 3.0 on new rows |
 | Freshness / use-first dates | ✅ COMPLETE | `received_at`, `use_by`, v3 UI/filters | Migration | Use First filter |
 | Manual intake | ✅ COMPLETE | Inventory form | — | Add row manually |
 | Barcode intake | ✅ COMPLETE | Scanner hooks in app | Hardware optional | Scan SKU |
 | Voice intake | 🔒 FUTURE | Feature flag `INVENTORY_AI_INTAKE` off | AI + STT | — |
 | Receipt/invoice photo intake | 🔒 FUTURE | `inventory-scan.js` partial | AI vision | Flag off |
-| Recipe-driven deductions | 🔒 FUTURE | `recipes.js`, flag `INVENTORY_RECIPE_DEDUCTIONS` | Recipes linked | Flag off until tested |
+| Recipe-driven deductions | ✅ COMPLETE | `recipes.js`, flag `INVENTORY_RECIPE_DEDUCTIONS` | Recipes linked | Flag now default **true** — deducts at production-ready status, not at order entry |
 
 ---
 
@@ -118,24 +120,29 @@ Each entry includes status, relevant files, dependencies, and verification metho
 
 **Permanent specification:** `docs/FLORISYN_WEBSITE_STUDIO_BLUEPRINT.md`  
 **Architecture:** `docs/FLORISYN_MASTER_ARCHITECTURE_BIBLE.md` §6  
-**Feature flag:** `WEBSITE_STUDIO_V2` default `false` (RC1 `INSTANT_WEBSITE` remains for shipped module)
+**Feature flag:** `WEBSITE_STUDIO_V2` default **`true`** as of 2026-08-16 (flipped to match reality — it was already mounting unconditionally for every florist regardless of the old `false` default; nothing enforced the flag client- or server-side, so the flag now reflects what's actually shipping instead of contradicting it). RC1 `INSTANT_WEBSITE` remains for the shipped module underneath it.
+
+The five stacked builder panels (Lily Quick Start, Instant Website wizard, Theme Gallery, Website Studio V2, Editor) were consolidated into one tabbed shell on 2026-08-15 (`website-studio-shell.js`) — Get started / Editor / Templates.
 
 | Item | Status | Files | Dependencies | Verification |
 |------|--------|-------|--------------|--------------|
-| **WS-0** Architecture (pages, sections, themes, domains, versioning) | ⚪ PLANNED | Blueprint § Build phases | Unify `website_pages` + `bloom_website_*` | Architecture review |
-| **WS-1** Lily Quick Start (interview → draft site) | ⚪ PLANNED | Lily + `instant-website.js` extension | WS-0 models | 30-min setup QA |
-| **WS-2** Visual Editor (canvas, contextual panels) | ⚪ PLANNED | New editor shell | WS-0, WS-1 | Click-to-edit smoke |
-| **WS-3** Products & Checkout (publish → Orders OS) | ⚪ PLANNED | `products`, Stripe, `orders.js` | WS-0, payments | Web order in board |
-| **WS-4** Inventory & Holiday Command Center | ⚪ PLANNED | `inventory-freshness.js`, holiday module | WS-3, inventory API | Low-stock hide smoke |
-| **WS-5** SEO, Analytics, Publishing | ⚪ PLANNED | `SEO_FOUNDATION.md`, domains | WS-0 versioning | Pre-publish checklist |
+| **WS-0** Architecture (pages, sections, themes, domains, versioning) | 🟡 IN PROGRESS | `bloom-website-editor.js`, `bloom_website_*` tables | Unify `website_pages` + `bloom_website_*` | Architecture review |
+| **WS-1** Lily Quick Start (interview → draft site) | ✅ COMPLETE | `lily-website-wizard.js`, `instant-website.js` | WS-0 models | 30-min setup QA |
+| **WS-2** Visual Editor (canvas, contextual panels) | ✅ COMPLETE | `website-studio-v2.js`, `website-editor-ui.js`, `website-section-inspector.js` | WS-0, WS-1 | Click-to-edit smoke |
+| **WS-3** Products & Checkout (publish → Orders OS) | 🟡 IN PROGRESS | `products`, Stripe, `orders.js` | WS-0, payments | Web order in board |
+| **WS-4** Inventory & Holiday Command Center | 🟡 IN PROGRESS | `inventory-freshness.js`, `holiday-command.js` | WS-3, inventory API | Low-stock hide smoke |
+| **WS-5** SEO, Analytics, Publishing | 🟡 IN PROGRESS | `SEO_FOUNDATION.md`, domains, pre-publish checklist | WS-0 versioning | Pre-publish checklist |
 | **WS-6** Import, Mobile Editor, Advanced Lily | ⚪ PLANNED | Import adapter, mobile UI | WS-2–WS-5 | Import does not auto-publish |
 | RC1 Instant Website (precursor) | ✅ COMPLETE | `bloom-instant-website.js`, `instant-website.js` | Shop settings | Preview site |
-| RC1 Website editor shell | 🟡 IN PROGRESS | `website-editor-ui.js` | RC1 projects | Section reorder |
+| RC1 Website editor shell | ✅ COMPLETE | `website-editor-ui.js`, `website-studio-shell.js` (tabbed, 2026-08-15) | RC1 projects | Section reorder |
+| Whole-page CRUD (add/rename/duplicate/delete/reorder) | ✅ COMPLETE | `_shared/bloom-website-editor.js` (2026-08-15) | WS-0 | Add a page, duplicate it, reorder |
+| Image upload + media library | ✅ COMPLETE | `_shared/website-media.js`, `website-media-library.js`, migration `20260815000000_website_media_library.sql` (applied to live Staging DB) | Public `website-media` storage bucket | Upload image, insert into section |
+| Page revision history + restore | ✅ COMPLETE | `instant-website.js` (`list_page_versions`, `restore_version`), `bloom_website_page_versions` | Prior saves | Open a page's history, restore a version |
 | Public storefront | ✅ COMPLETE | `storefront-public.js` | Tenant slug | `/store/{slug}` |
 | Per-shop sitemap | 🟡 IN PROGRESS | `storefront-public.js?action=sitemap` | Published pages | Fetch sitemap XML |
-| Four quick-start entry paths | ⚪ PLANNED | WS-1 UI | WS-1 | Lily / Design / Import / Blank |
-| Pre-publish checklist | ⚪ PLANNED | WS-5 | All WS phases | Block publish on critical gaps |
-| Holiday Command Center | ⚪ PLANNED | WS-4 | New module | Single control center |
+| Four quick-start entry paths | ✅ COMPLETE | "Get started" tab (Lily / templates / blank editor) | WS-1 | Lily / Design / Import / Blank |
+| Pre-publish checklist | ✅ COMPLETE | `instant-website.js` publish action (2026-08-15) | All WS phases | Publish blocked with a 409 + specific failing items unless `override_checklist:true`; checklist is a real commerce-safety gate, not just an informational panel |
+| Holiday Command Center | ✅ COMPLETE | `holiday-command.js`, flag `HOLIDAY_COMMAND_CENTER` (default true) | New module | `holidayPage` in sidebar, flag-gated with graceful "apply the migration" 503 if tables are missing |
 
 ---
 
@@ -144,7 +151,7 @@ Each entry includes status, relevant files, dependencies, and verification metho
 | Item | Status | Files | Dependencies | Verification |
 |------|--------|-------|--------------|--------------|
 | Reports page + KPI export | ✅ COMPLETE | `reportsPage`, `finance.js` | Order/payment data | Open Reports |
-| Production reporting | ⚪ PLANNED | — | Order history migration | — |
+| Production reporting | ✅ COMPLETE | `production-report.js`, `lib/ops/production-report.js` | Order history migration | GET production-report |
 
 ---
 
@@ -166,7 +173,8 @@ Each entry includes status, relevant files, dependencies, and verification metho
 | Honest Lily/Rose status | 🟡 IN PROGRESS | `ai-status.js`, `_shared/ai-status.js`, `refreshAiStatus()` | Cloudflare or OpenAI env | Settings → AI dashboard |
 | Cloudflare Workers AI path | ✅ COMPLETE | `ai-assistant.js` | `CLOUDFLARE_*` env | Chat when configured |
 | Local Ollama fallback (dev) | ✅ COMPLETE | `local-ai-bridge/` | Local bridge | Dev only |
-| Voice wake words | 🔒 FUTURE | Flag `VOICE_WAKE: false` | Browser STT | Disabled in prod |
+| Voice wake words | 🔒 FUTURE | Flag `VOICE_WAKE: false` | Browser STT | Disabled in prod — still accurate, this is the one voice flag still off |
+| Cloud TTS (assistant voices) | ✅ COMPLETE | Flag `VOICE_TTS_CLOUD: true` | ElevenLabs | Wired and live in production — was undocumented before this pass |
 | Lily platform drawer | 🟡 IN PROGRESS | `lily-platform.js`, `lily-ai.js` | Optional DB tables | Open Lily drawer |
 | No sensitive data in AI logs | ✅ COMPLETE | Structured logs truncate | — | Review function logs |
 
@@ -188,10 +196,10 @@ Each entry includes status, relevant files, dependencies, and verification metho
 |------|--------|-------|--------------|--------------|
 | RLS on shop tables | ✅ COMPLETE | Supabase migrations | `is_shop_member()` | Cross-tenant query fails |
 | Server-side validation | ✅ COMPLETE | `_shared/validation.js` | — | Invalid payload → 400 |
-| Rate limits (auth, PIN) | ✅ COMPLETE | `_shared/rate-limit.js` | — | Brute force blocked |
-| Feature flags for unfinished modules | 🟡 IN PROGRESS | `_shared/feature-flags.js` | Env overrides | GET production-health |
+| Rate limits (auth, PIN) | ✅ COMPLETE | `_shared/production.js`, `_shared/enterprise-handler.js`, `_shared/platform-bootstrap.js`, `_shared/auth-email.js` (no standalone `rate-limit.js` — corrected file reference) | — | Brute force blocked |
+| Feature flags for unfinished modules | ✅ COMPLETE | `_shared/feature-flags.js`, checked client-side for Community/Holiday/Email/Weddings/Network in `app.js`; Website Studio V2 flag flipped to match reality 2026-08-16 | Env overrides | GET production-health |
 | Session refresh | ✅ COMPLETE | `auth-refresh.js`, `refreshSessionIfNeeded()` in `app.js` | — | Token refresh before expiry |
-| MFA for platform admins | 🔒 FUTURE | — | Supabase MFA | — |
+| MFA for platform admins | ✅ COMPLETE | `admin-mfa-config.js` | Supabase MFA | `mfaRequiredForAdmin` true in production, staging-only skip flag |
 
 See `docs/SECURITY_REVIEW.md` for full findings.
 
@@ -225,7 +233,7 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 
 | Item | Status | Files | Dependencies | Verification |
 |------|--------|-------|--------------|--------------|
-| Browse + checkout | 🟡 IN PROGRESS | `marketplace*.js` | Verification + Stripe | Flag `MARKETPLACE_PUBLIC` |
+| Browse + checkout | 🟡 IN PROGRESS | `marketplace*.js` | Verification + Stripe | Flag `MARKETPLACE_PUBLIC` now default **true** — live, not gated off |
 | Seller verification | 🟡 IN PROGRESS | `marketplace-verification*.js` | Migrations | Submit verification |
 
 ---
@@ -234,7 +242,7 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 
 | Item | Status | Files | Dependencies | Verification |
 |------|--------|-------|--------------|--------------|
-| Wholesale seller dashboard | 🟡 IN PROGRESS | `wholesale-seller-dashboard.js`, `marketplace-seller.js` | Flag `WHOLESALE_SELLER` | Open wholesale page |
+| Wholesale seller dashboard | 🟡 IN PROGRESS | `wholesale-seller-dashboard.js`, `marketplace-seller.js` | Flag `WHOLESALE_SELLER` now default **true** | Open wholesale page |
 
 ---
 
@@ -242,7 +250,7 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 
 | Item | Status | Files | Dependencies | Verification |
 |------|--------|-------|--------------|--------------|
-| Wedding project workflows | 🔒 FUTURE | — | Orders foundation stable | — |
+| Wedding project workflows | ✅ COMPLETE | `weddings.js` (full CRUD + checklist actions), `weddingsPage`, `weddings-ui.js` | Flag `WEDDING_WORKFLOWS` default true | Open Weddings in sidebar |
 
 ---
 
@@ -251,7 +259,7 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 | Item | Status | Files | Dependencies | Verification |
 |------|--------|-------|--------------|--------------|
 | BloomShot / social assets | ✅ COMPLETE | `bloomshotPage` | — | Generate asset |
-| Email campaigns | 🔒 FUTURE | — | Transactional email domain | — |
+| Email campaigns | ✅ COMPLETE | `email-campaigns.js`, `emailCampaignsPage`, `email-campaigns-ui.js` | Flag `EMAIL_CAMPAIGNS` default true; `RESEND_API_KEY` for sending (clear 503 if unset) | Open Email Campaigns in sidebar |
 
 ---
 
@@ -259,7 +267,9 @@ See `docs/RELIABILITY_AND_RECOVERY.md`.
 
 | Item | Status | Files | Dependencies | Verification |
 |------|--------|-------|--------------|--------------|
-| Florist learning community | 🔒 FUTURE | — | Content platform | — |
+| Florist Community (social feed) | ✅ COMPLETE | `florist-community.js` (1,245 lines), `communityPage`, `community-ui.js` | Flag `COMMUNITY_BETA` default true | Open Florist Community in sidebar |
+| Florist Network (florist-to-florist wire orders + partner directory) | ✅ COMPLETE | `florist-network.js`, `floristNetworkPage`, `florist-network-ui.js` | Flag `FLORIST_NETWORK` default true | Open Florist Network in sidebar |
+| Florist learning community (structured courses/content platform) | 🔒 FUTURE | — | Content platform | — (distinct from the social feed above, which is live) |
 
 ---
 

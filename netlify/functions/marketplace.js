@@ -2,7 +2,10 @@ import { json,bodyOf,preflight,methodNotAllowed } from "./_shared/http.js";
 import { currentUser,fail } from "./_shared/supabase.js";
 
 const TABLE = "marketplace_listings";
-const FIELDS = ["supplier_name", "product_name", "category", "category_slug", "unit", "price", "minimum_quantity", "available_quantity", "image_url", "description", "delivery_notes", "active", "sku", "low_stock_threshold", "allows_shipping", "allows_local_pickup"];
+const FIELDS = ["supplier_name", "product_name", "category", "category_slug", "unit", "price", "minimum_quantity", "available_quantity", "image_url", "description", "delivery_notes", "active", "sku", "low_stock_threshold", "allows_shipping", "allows_local_pickup",
+  "variety", "color", "stem_length_in", "grade", "grower_name", "origin", "stems_per_bunch", "bunches_per_box", "case_quantity",
+  "price_per_stem", "price_per_bunch", "price_per_box", "price_per_case", "availability_status", "available_from", "available_until",
+  "seasonal_months", "lead_time_days", "delivery_region", "pickup_city", "pickup_state", "substitution_note"];
 const ORDER = "created_at";
 
 export async function handler(event){

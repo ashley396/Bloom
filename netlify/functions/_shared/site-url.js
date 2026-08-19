@@ -30,10 +30,10 @@ export function isNetlifyPreviewUrl(url) {
 
 export function resolvePublicSiteUrl(env = process.env, requestOrigin = "") {
   const candidates = [
-    env.DEPLOY_PRIME_URL,
     env.SITE_URL,
     env.URL,
-    String(requestOrigin || "").trim(),
+    env.DEPLOY_PRIME_URL,
+    isNetlifyPreviewUrl(requestOrigin) ? String(requestOrigin || "").trim() : "",
   ]
     .map((value) => String(value || "").trim().replace(/\/$/, ""))
     .filter(Boolean);
@@ -44,7 +44,7 @@ export function resolvePublicSiteUrl(env = process.env, requestOrigin = "") {
     return url;
   }
 
-  return "https://bloom-technologies.netlify.app";
+  return "https://florisyn-staging.netlify.app";
 }
 
 export function getSiteUrlDiagnostics(env = process.env, requestOrigin = "") {
@@ -55,7 +55,7 @@ export function getSiteUrlDiagnostics(env = process.env, requestOrigin = "") {
 
   if (!hasSiteUrl && !hasDeployPreview) {
     warnings.push(
-      "SITE_URL is not configured — auth emails use fallback https://bloom-technologies.netlify.app unless a non-localhost request origin is available.",
+      "SITE_URL is not configured — auth emails use URL, DEPLOY_PRIME_URL, a Netlify preview origin, or the safe fallback domain.",
     );
   }
   if (hasSiteUrl && LOCALHOST_RE.test(String(env.SITE_URL))) {
@@ -72,7 +72,7 @@ export function getSiteUrlDiagnostics(env = process.env, requestOrigin = "") {
       ? "SITE_URL"
       : isNetlifyPreviewUrl(origin)
         ? "request_origin_preview"
-        : resolved.includes("bloom-technologies.netlify.app")
+        : resolved.includes("florisyn-staging.netlify.app") || resolved.includes("bloom-technologies.netlify.app")
           ? "fallback"
           : "URL_or_origin";
 

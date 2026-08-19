@@ -1,12 +1,23 @@
-import { json, fail } from './_shared/saas.js';
-import { platformAdmin, writeAdminAudit, requireSuperAdmin } from './_shared/platform-admin.js';
+import { json } from './_shared/saas.js';
+import {
+  platformAdmin,
+  writeAdminAudit,
+  requireSuperAdmin,
+  platformAdminErrorResponse,
+  platformAdminError,
+  parsePlatformAdminJsonBody
+} from './_shared/platform-admin.js';
+import { planPrice } from './_shared/shop-billing.js';
+import { buildPlatformEconomics, economicsScenario } from '../../lib/platform/platform-economics.js';
 
 const safeObject = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
-export async function handler(event) {
+/** Test seam — production uses bound real dependencies via exported `handler`. */
+export function createAdminConsoleHandler(deps = {}) {
+  return async function handler(event, _context) {
   try {
-    const { client, user, admin } = await platformAdmin(event);
-    const body = event.body ? JSON.parse(event.body) : {};
+    const { client, user, admin } = await platformAdmin(event, ["super_admin"], deps);
+    const body = parsePlatformAdminJsonBody(event);
     const action = body.action || event.queryStringParameters?.action || 'overview';
 
     if (event.httpMethod === 'GET' && action === 'overview') {
@@ -21,7 +32,6 @@ export async function handler(event) {
       ]);
       if (subsRes.error) throw subsRes.error;
       const subs=subsRes.data||[], active=subs.filter(x=>['trialing','active'].includes(x.status));
-      const price={starter:39,professional:79,premium:129};
       const countPlan=plan=>active.filter(x=>x.plan_code===plan).length;
       const metrics={
         shops:shopsRes.count||0,members:membersRes.count||0,orders:ordersRes.count||0,
@@ -31,9 +41,11 @@ export async function handler(event) {
         canceling:active.filter(x=>x.cancel_at_period_end).length,
         newThisMonth:subs.filter(x=>new Date(x.created_at)>=monthStart).length,
         canceledThisMonth:subs.filter(x=>x.status==='canceled'&&new Date(x.updated_at)>=monthStart).length,
-        estimatedMrr:active.filter(x=>x.status==='active').reduce((sum,x)=>sum+(price[x.plan_code]||0),0)
+        estimatedMrr:active.filter(x=>x.status==='active').reduce((sum,x)=>sum+(planPrice(x.plan_code)||0),0)
       };
-      return json(200,{admin,metrics,alerts:alertsRes.data||[],platform:{foundationTotal:Number(platformRes.data?.value?.total||0)}});
+      const economics = buildPlatformEconomics(metrics);
+      const economics_projection_500 = economicsScenario(500);
+      return json(200,{admin,metrics,economics,economics_projection_500,alerts:alertsRes.data||[],platform:{foundationTotal:Number(platformRes.data?.value?.total||0)}});
     }
 
     if (event.httpMethod === 'GET' && action === 'shops') {
@@ -47,7 +59,7 @@ export async function handler(event) {
 
     if (event.httpMethod === 'GET' && action === 'shop') {
       const shopId = event.queryStringParameters?.shopId;
-      if (!shopId) throw Object.assign(new Error('shopId is required'), { statusCode: 400 });
+      if (!shopId) throw platformAdminError('missing_shop_id');
       const [shopRes, configRes, membersRes, auditRes] = await Promise.all([
         client.from('shops').select('*').eq('id', shopId).single(),
         client.from('shop_admin_config').select('*').eq('shop_id', shopId).maybeSingle(),
@@ -69,12 +81,13 @@ export async function handler(event) {
       return json(200,{ok:true,foundationTotal});
     }
     if (action === 'mark-alerts-read') {
+      requireSuperAdmin(admin);
       const { error } = await client.from('platform_admin_notifications').update({read_at:new Date().toISOString()}).is('read_at',null);
       if (error) throw error;
       return json(200,{ok:true});
     }
     const shopId = body.shopId;
-    if (!shopId) throw Object.assign(new Error('shopId is required'), { statusCode: 400 });
+    if (!shopId) throw platformAdminError('missing_shop_id');
 
     if (action === 'save-config') {
       requireSuperAdmin(admin);
@@ -126,5 +139,9 @@ export async function handler(event) {
     }
 
     return json(400, { error: 'Unknown admin action' });
-  } catch (error) { return fail(error); }
+  } catch (error) { return platformAdminErrorResponse(event, error); }
+  };
 }
+
+/** Production Netlify entry — ignores context for auth/service-role overrides. */
+export const handler = createAdminConsoleHandler();

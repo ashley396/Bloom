@@ -1,0 +1,1009 @@
+{
+  "version": "1.0",
+  "collection": "florisyn_category_library",
+  "category": "Get Well",
+  "target_count": 20,
+  "image_style": "professional florist e-commerce product photograph, single arrangement centered, pure white seamless studio background, soft even studio lighting, ultra-realistic, no text/people",
+  "arrangements": [
+    {
+      "id": "gw-01-get-well-sunshine",
+      "name": "Get Well Sunshine",
+      "style": "cheerful",
+      "color_palette": "yellow, orange, white",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Sunflowers",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "Sunny yellows to brighten a recovery.",
+      "description": "Cheerful sunflowers, yellow roses, and white daisies — a burst of sunshine to lift spirits and speed recovery.",
+      "suggested_retail": 74.99,
+      "image": "everyday/gw-01-get-well-sunshine.jpg",
+      "alt": "Sunny yellow get well arrangement on a white background",
+      "content_sha256": "0578084a754947a0d47e2c7fb056e6878fff1de1316d3813acfcbf10ecc38e87",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-02-brighter-days",
+      "name": "Brighter Days Ahead",
+      "style": "vibrant",
+      "color_palette": "orange, pink, yellow",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Orange Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Solidago",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A bright, hopeful mix for brighter days.",
+      "description": "A hopeful, colorful mix of gerberas, roses, and alstroemeria — a cheerful wish for brighter days ahead.",
+      "suggested_retail": 74.99,
+      "image": "everyday/gw-02-brighter-days.jpg",
+      "alt": "Bright orange, pink and yellow get well arrangement on a white background",
+      "content_sha256": "b80008dc576fcdb364c8a7c255958dcec4f01e63b2fa52f1ba53bee8408d2da3",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-03-daisy-pick-me-up",
+      "name": "Daisy Pick-Me-Up",
+      "style": "cheerful",
+      "color_palette": "white, yellow",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "rustic mason jar",
+      "recipe": [
+        {
+          "name": "White Gerbera Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisy Chrysanthemums",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Solidago",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Happy daisies in a cheerful mason jar.",
+      "description": "A simple, happy jar of white and yellow daisies — an instant pick-me-up to say 'feel better soon.'",
+      "suggested_retail": 59.99,
+      "image": "everyday/gw-03-daisy-pick-me-up.jpg",
+      "alt": "White and yellow daisy get well mason jar on a white background",
+      "content_sha256": "7dff496c0622471b626aa2a06aac0d29708bcfff833fd9d3f278f5936d11a94f",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-04-citrus-cheer",
+      "name": "Citrus Cheer",
+      "style": "vibrant",
+      "color_palette": "orange, yellow, green",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Orange Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Green Button Poms",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Lemon Leaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Lemon Leaf"
+      ],
+      "short_description": "A zesty citrus get-well boost.",
+      "description": "Zesty orange roses, yellow gerberas, and green poms — a refreshing citrus boost of get-well cheer.",
+      "suggested_retail": 69.99,
+      "image": "everyday/gw-04-citrus-cheer.jpg",
+      "alt": "Orange and yellow citrus get well arrangement on a white background",
+      "content_sha256": "55ba3d7c121594749db7aa9c882bbd6b515333c9576963d5eba77948014b24ce",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-05-pink-pick-me-up",
+      "name": "Pretty Pink Wishes",
+      "style": "sweet",
+      "color_palette": "pink, white",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Soft pink wishes for a speedy recovery.",
+      "description": "Soft pink roses and gerberas with white carnations — pretty, gentle wishes for a speedy recovery.",
+      "suggested_retail": 69.99,
+      "image": "everyday/gw-05-pink-pick-me-up.jpg",
+      "alt": "Pink and white get well arrangement on a white background",
+      "content_sha256": "058649e165177359f14189710ed14f42d0052c3a6d4919f064ed974214eba95a",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-06-rainbow-recovery",
+      "name": "Rainbow Recovery",
+      "style": "playful",
+      "color_palette": "mixed bright",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass gathering vase",
+      "recipe": [
+        {
+          "name": "Red Gerbera Daisies",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Alstroemeria",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A rainbow of blooms for a speedy recovery.",
+      "description": "A joyful rainbow of gerberas, roses, and alstroemeria — every color of cheer to brighten a recovery.",
+      "suggested_retail": 74.99,
+      "image": "everyday/gw-06-rainbow-recovery.jpg",
+      "alt": "Rainbow-colored get well arrangement on a white background",
+      "content_sha256": "4149b010b395a77bcd01f1915b2652075f43c606ddb7e1cfd9e446f194e519a6",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-07-tulip-tonic",
+      "name": "Tulip Tonic",
+      "style": "fresh",
+      "color_palette": "yellow, pink",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cylinder vase",
+      "recipe": [
+        {
+          "name": "Yellow Tulips",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Tulips",
+          "qty": 10,
+          "kind": "flower"
+        }
+      ],
+      "foliage": [],
+      "short_description": "Fresh tulips as a cheerful tonic.",
+      "description": "A fresh, cheerful bunch of yellow and pink tulips — a simple tonic to lift the spirits.",
+      "suggested_retail": 69.99,
+      "image": "everyday/gw-07-tulip-tonic.jpg",
+      "alt": "Yellow and pink tulip get well arrangement on a white background",
+      "content_sha256": "fef9de6d1b6ed80f57d74bf63a54a1d4a31ec0fe2d5be2316ebdcf116ec386f0",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-08-sunflower-smiles-gw",
+      "name": "Sunflower Smiles",
+      "style": "cheerful",
+      "color_palette": "yellow, orange",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Sunflowers",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Solidago",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "Sunflowers to bring a big smile.",
+      "description": "Big, happy sunflowers with orange roses — guaranteed to bring a smile to anyone feeling under the weather.",
+      "suggested_retail": 74.99,
+      "image": "everyday/gw-08-sunflower-smiles-gw.jpg",
+      "alt": "Sunflower get well arrangement on a white background",
+      "content_sha256": "bcdfa8eb56a8671de68e107549039e5fa2a9cf37b44f99bc341d1757a25939fe",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-09-lavender-calm-gw",
+      "name": "Calming Lavender",
+      "style": "tranquil",
+      "color_palette": "lavender, white",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "frosted glass vase",
+      "recipe": [
+        {
+          "name": "Lavender Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Stock",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Soothing lavender for rest and recovery.",
+      "description": "Calming lavender roses and stock with ivory lisianthus — soothing, restful blooms for peaceful recovery.",
+      "suggested_retail": 79.99,
+      "image": "everyday/gw-09-lavender-calm-gw.jpg",
+      "alt": "Lavender and white get well arrangement on a white background",
+      "content_sha256": "811f7cbe43debc4d870fd9a245e1f8ffd49883f1b7b83dfb1d01af874e32baa4",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-10-thinking-of-you-gw",
+      "name": "Thinking of You",
+      "style": "soft",
+      "color_palette": "peach, cream",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Peach Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Cream Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Peach Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Soft peach blooms saying 'thinking of you.'",
+      "description": "Soft peach and cream roses with alstroemeria — a gentle, caring way to say you're thinking of them.",
+      "suggested_retail": 79.99,
+      "image": "everyday/gw-10-thinking-of-you-gw.jpg",
+      "alt": "Peach and cream get well arrangement on a white background",
+      "content_sha256": "d13b0a7bc8208b10d26fbfef97de993793f051114d4f883bdb4fb12b5ade5f5a",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-11-cheerful-carnations",
+      "name": "Cheerful Carnations",
+      "style": "classic",
+      "color_palette": "mixed bright",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Hot Pink Carnations",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A long-lasting mix of bright carnations.",
+      "description": "A cheerful, long-lasting mix of hot pink, orange, and yellow carnations — bright value that lasts through recovery.",
+      "suggested_retail": 59.99,
+      "image": "everyday/gw-11-cheerful-carnations.jpg",
+      "alt": "Bright mixed carnation get well arrangement on a white background",
+      "content_sha256": "6c8342c48cc6c58ee1b4598838eaeab32f92b947ea12436fe321657b7a8bdf28",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-12-lily-lift",
+      "name": "Lily Lift",
+      "style": "elegant",
+      "color_palette": "yellow, white",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Yellow Asiatic Lilies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Solidago",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "Bright lilies to lift the spirits.",
+      "description": "Cheerful yellow lilies with white roses — a bright, fragrant lift for a hospital room or home recovery.",
+      "suggested_retail": 79.99,
+      "image": "everyday/gw-12-lily-lift.jpg",
+      "alt": "Yellow lily and white rose get well arrangement on a white background",
+      "content_sha256": "c550409882cc667e906ff65dfecd6f7dfe6540eafb11fdd1bed3ab75e2b2a29d",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-13-happy-hues",
+      "name": "Happy Hues",
+      "style": "vibrant",
+      "color_palette": "pink, orange, purple",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass gathering vase",
+      "recipe": [
+        {
+          "name": "Hot Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Solidago",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "Bold happy hues for a cheerful boost.",
+      "description": "Bold pink roses, orange gerberas, and purple alstroemeria — happy hues to boost anyone's day.",
+      "suggested_retail": 74.99,
+      "image": "everyday/gw-13-happy-hues.jpg",
+      "alt": "Bright pink, orange and purple get well arrangement on a white background",
+      "content_sha256": "165d406e010d900466a76f24cdeb904567d988af525a8e092fe4592ba9e19684",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-14-fresh-start",
+      "name": "Fresh Start",
+      "style": "fresh",
+      "color_palette": "green, white",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Green Chrysanthemums",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Crisp green and white for a fresh start.",
+      "description": "Crisp white roses, green mums, and daisies — a clean, refreshing wish for health and a fresh start.",
+      "suggested_retail": 69.99,
+      "image": "everyday/gw-14-fresh-start.jpg",
+      "alt": "Green and white get well arrangement on a white background",
+      "content_sha256": "6ebccbb62e5a01524e48db56d8b7de79d962a00f8cf3f6deb18a133892bbfc92",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-15-berry-bright",
+      "name": "Berry Bright Wishes",
+      "style": "rich",
+      "color_palette": "magenta, purple",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Magenta Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Hot Pink Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "Juicy berry brights for cheerful wishes.",
+      "description": "Juicy magenta roses and purple carnations with hot-pink gerberas — bold, berry-bright get-well wishes.",
+      "suggested_retail": 74.99,
+      "image": "everyday/gw-15-berry-bright.jpg",
+      "alt": "Magenta and purple berry-bright get well arrangement on a white background",
+      "content_sha256": "4d372063b130683d9b0c51ad28c89c8862f281187c0632de80d2ff945c9c37ad",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-16-warm-wishes",
+      "name": "Warm Wishes",
+      "style": "warm",
+      "color_palette": "orange, red, yellow",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Solidago",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "Warm sunset tones of caring wishes.",
+      "description": "Warm red and orange roses with sunny gerberas — a heartfelt bundle of warm get-well wishes.",
+      "suggested_retail": 74.99,
+      "image": "everyday/gw-16-warm-wishes.jpg",
+      "alt": "Warm red, orange and yellow get well arrangement on a white background",
+      "content_sha256": "217dd03193da2dd222f0c9e8cf24366adf3c1d7b37cb308529837bb93c6c23aa",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-17-simply-cheerful",
+      "name": "Simply Cheerful",
+      "style": "cheerful",
+      "color_palette": "yellow, white, pink",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "rustic mason jar",
+      "recipe": [
+        {
+          "name": "Yellow Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A simple, cheerful jar of feel-better blooms.",
+      "description": "A simply cheerful mason jar of yellow roses, daisies, and pink alstroemeria — sweet and uplifting.",
+      "suggested_retail": 64.99,
+      "image": "everyday/gw-17-simply-cheerful.jpg",
+      "alt": "Cheerful yellow, white and pink get well mason jar on a white background",
+      "content_sha256": "c5362053ebdfcf0e90e0e21438f5d9cc597af111a8d40ca82982a43e6f58e81e",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-18-tropical-tonic",
+      "name": "Tropical Tonic",
+      "style": "exotic",
+      "color_palette": "pink, orange, green",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "tall clear glass vase",
+      "recipe": [
+        {
+          "name": "Hot Pink Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Green Anthurium",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Monstera Leaves",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Monstera Leaves"
+      ],
+      "short_description": "An exotic tropical tonic of brights.",
+      "description": "Vivid pink gerberas, orange roses, and green anthurium — an exotic tropical tonic to chase the blues away.",
+      "suggested_retail": 84.99,
+      "image": "everyday/gw-18-tropical-tonic.jpg",
+      "alt": "Tropical get well arrangement with anthurium on a white background",
+      "content_sha256": "e90edbc4a275a9711ef2b09286278b1b9a87dc9e5571664d5988f69959a71dc1",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-19-feel-better-blooms",
+      "name": "Feel Better Blooms",
+      "style": "classic",
+      "color_palette": "mixed",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Statice",
+          "qty": 3,
+          "kind": "filler"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A cheerful mixed bunch to feel better.",
+      "description": "A friendly mixed bunch of roses, alstroemeria, and daisies — a classic 'feel better soon' bouquet.",
+      "suggested_retail": 69.99,
+      "image": "everyday/gw-19-feel-better-blooms.jpg",
+      "alt": "Mixed cheerful get well arrangement on a white background",
+      "content_sha256": "680c88e95e7ea61aaf995365c2866c7e8dc30934750ff27c2eb638fbc12e5698",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "gw-20-sunny-basket",
+      "name": "Sunny Get Well Basket",
+      "style": "garden",
+      "color_palette": "yellow, orange, white",
+      "categories": [
+        "Get Well"
+      ],
+      "arrangement_type": "basket arrangement",
+      "container": "natural woven basket",
+      "recipe": [
+        {
+          "name": "Sunflowers",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A sunny basket to brighten any room.",
+      "description": "A sunny basket of sunflowers, yellow roses, and daisies — a cheerful gift to brighten any hospital room or home.",
+      "suggested_retail": 84.99,
+      "image": "everyday/gw-20-sunny-basket.jpg",
+      "alt": "Sunny yellow get well basket on a white background",
+      "content_sha256": "1a1ed9125b2935e6371a8471edae10a0b263aaa53e4952a14c8885e7fd409a1b",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    }
+  ],
+  "generated_at": "2026-08-13T14:37:25.385Z",
+  "image_source": "ai_generated_cloudflare_flux"
+}

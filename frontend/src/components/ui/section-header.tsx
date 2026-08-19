@@ -22,7 +22,7 @@ export function SectionHeader({
       )}
     >
       <div className="max-w-xl">
-        <h2 className="font-display text-xl font-semibold tracking-tight text-florisyn-ink md:text-2xl">
+        <h2 className="font-serif-display text-xl font-semibold tracking-tight text-florisyn-ink md:text-2xl">
           {title}
         </h2>
         {description ? (

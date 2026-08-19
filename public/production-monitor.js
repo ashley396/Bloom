@@ -14,7 +14,8 @@
     flushing = true;
     const batch = queue.splice(0, 5);
     try {
-      const token = JSON.parse(localStorage.getItem("bloom_session") || "null")?.accessToken;
+      let token = null;
+      try { token = JSON.parse(localStorage.getItem("bloom_session") || "null")?.accessToken || null; } catch { token = null; }
       await fetch(ENDPOINT, {
         method: "POST",
         headers: {

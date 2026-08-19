@@ -1,0 +1,994 @@
+{
+  "version": "1.0",
+  "collection": "florisyn_category_library",
+  "category": "New Baby",
+  "target_count": 20,
+  "image_style": "professional florist e-commerce product photograph, single arrangement centered, pure white seamless studio background, soft even studio lighting, ultra-realistic, no text/people",
+  "arrangements": [
+    {
+      "id": "nb-01-baby-boy-blue",
+      "name": "Baby Boy Blue",
+      "style": "sweet",
+      "color_palette": "blue, white",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "blue ceramic cube vase",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Soft blues and whites to welcome a baby boy.",
+      "description": "Gentle blue hydrangea with white roses and daisies in a blue cube — a sweet welcome for the new little man.",
+      "suggested_retail": 74.99,
+      "image": "everyday/nb-01-baby-boy-blue.jpg",
+      "alt": "Blue and white new baby boy arrangement on a white background",
+      "content_sha256": "4f232671bcff5f1220d6f2f1cb36671e217aaa1aecb44f162ad9369d462f816a",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-02-baby-girl-pink",
+      "name": "Baby Girl Pink",
+      "style": "sweet",
+      "color_palette": "pink, white",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "pink ceramic cube vase",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Soft pinks and whites for a baby girl.",
+      "description": "Sweet pink roses and gerberas with white carnations in a pink cube — a darling welcome for the new little lady.",
+      "suggested_retail": 74.99,
+      "image": "everyday/nb-02-baby-girl-pink.jpg",
+      "alt": "Pink and white new baby girl arrangement on a white background",
+      "content_sha256": "5179bc14f43e020503190bdeb3f86a3fbace77d95f90887bd8a195842e4ecfa8",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-03-welcome-little-one",
+      "name": "Welcome Little One",
+      "style": "soft",
+      "color_palette": "pastel, mixed",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Light Pink Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Blue Delphinium",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A gender-neutral pastel welcome.",
+      "description": "A soft pastel mix of pink, blue, and yellow — a gender-neutral welcome for any precious new arrival.",
+      "suggested_retail": 74.99,
+      "image": "everyday/nb-03-welcome-little-one.jpg",
+      "alt": "Pastel gender-neutral new baby arrangement on a white background",
+      "content_sha256": "cd40c013d2b75582568388fa17689be02eddfcfcc89bea567b958e37ac4c455c",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-04-sweet-dreams-blue",
+      "name": "Sweet Dreams Boy",
+      "style": "soft",
+      "color_palette": "blue, green, white",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "basket arrangement",
+      "container": "small white wicker basket",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Blue Delphinium",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A dreamy blue basket for baby boy.",
+      "description": "A dreamy little basket of blue hydrangea and white roses — sweet dreams for the newborn boy.",
+      "suggested_retail": 69.99,
+      "image": "everyday/nb-04-sweet-dreams-blue.jpg",
+      "alt": "Blue new baby boy basket on a white background",
+      "content_sha256": "63bb8f1384568b8b7e0d5ea19aac1a8aecfe9861cd496d66ff7e4e14d12028f4",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-05-sweet-dreams-pink",
+      "name": "Sweet Dreams Girl",
+      "style": "soft",
+      "color_palette": "pink, white",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "basket arrangement",
+      "container": "small white wicker basket",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Spray Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Waxflower",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A dreamy pink basket for baby girl.",
+      "description": "A dreamy little basket of soft pink roses and waxflower — sweet dreams for the newborn girl.",
+      "suggested_retail": 69.99,
+      "image": "everyday/nb-05-sweet-dreams-pink.jpg",
+      "alt": "Pink new baby girl basket on a white background",
+      "content_sha256": "cd098718128ff283b91a6d99d6ef3c5c2d8dc6ff2db5382026002326df226a3d",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-06-little-blessing-neutral",
+      "name": "Little Blessing",
+      "style": "soft",
+      "color_palette": "yellow, green, white",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Yellow Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Green Button Poms",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A cheerful neutral welcome for a little blessing.",
+      "description": "Soft yellow roses, white daisies, and green poms — a cheerful, neutral welcome for a precious little blessing.",
+      "suggested_retail": 69.99,
+      "image": "everyday/nb-06-little-blessing-neutral.jpg",
+      "alt": "Yellow, green and white new baby arrangement on a white background",
+      "content_sha256": "ab60fd582c158b82e71a0063595871870fd4a30606b7ab249912e90c2290150f",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-07-bundle-of-joy-blue",
+      "name": "Bundle of Joy Blue",
+      "style": "cheerful",
+      "color_palette": "blue, yellow, white",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass gathering vase",
+      "recipe": [
+        {
+          "name": "Blue Delphinium",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A bright bundle of joy for baby boy.",
+      "description": "Bright blue delphinium, yellow roses, and white daisies — a joyful bundle to celebrate a baby boy.",
+      "suggested_retail": 74.99,
+      "image": "everyday/nb-07-bundle-of-joy-blue.jpg",
+      "alt": "Blue and yellow new baby boy arrangement on a white background",
+      "content_sha256": "b4012d8fca58c8364caad7f1806570c33eb953ad5057753fa32fbc072f26a22e",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-08-bundle-of-joy-pink",
+      "name": "Bundle of Joy Pink",
+      "style": "cheerful",
+      "color_palette": "pink, yellow, white",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass gathering vase",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A bright bundle of joy for baby girl.",
+      "description": "Cheerful pink roses, yellow daisies, and white carnations — a joyful bundle to celebrate a baby girl.",
+      "suggested_retail": 74.99,
+      "image": "everyday/nb-08-bundle-of-joy-pink.jpg",
+      "alt": "Pink and yellow new baby girl arrangement on a white background",
+      "content_sha256": "59dd349f8141c0913ebaaf164a64db760939faf8432a2db10e8641750bb66e99",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-09-precious-pastels",
+      "name": "Precious Pastels",
+      "style": "soft",
+      "color_palette": "pastel, mixed",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass bubble bowl",
+      "recipe": [
+        {
+          "name": "Blush Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Light Blue Delphinium",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pale Yellow Ranunculus",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A precious bowl of soft pastels.",
+      "description": "A precious rounded bowl of blush, blue, and pale yellow pastels — soft and sweet for any new arrival.",
+      "suggested_retail": 79.99,
+      "image": "everyday/nb-09-precious-pastels.jpg",
+      "alt": "Pastel new baby bubble bowl on a white background",
+      "content_sha256": "26aeeb24b9503ac8a412ad88462e2894a83a47db43f40082abcd73106a5506ce",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-10-hello-baby-boy",
+      "name": "Hello Baby Boy",
+      "style": "sweet",
+      "color_palette": "blue, white",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Spray Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Blue Statice",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A soft blue hello for baby boy.",
+      "description": "Soft blue hydrangea and white spray roses with blue statice — a gentle hello for the newborn boy.",
+      "suggested_retail": 74.99,
+      "image": "everyday/nb-10-hello-baby-boy.jpg",
+      "alt": "Blue and white new baby boy cube arrangement on a white background",
+      "content_sha256": "4d88a78cf73ec181d5793048259a5ce5324104526656ed5272ceef1f05603edf",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-11-hello-baby-girl",
+      "name": "Hello Baby Girl",
+      "style": "sweet",
+      "color_palette": "pink, white",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Pink Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Spray Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Waxflower",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A soft pink hello for baby girl.",
+      "description": "Soft pink hydrangea and white spray roses with pink waxflower — a gentle hello for the newborn girl.",
+      "suggested_retail": 74.99,
+      "image": "everyday/nb-11-hello-baby-girl.jpg",
+      "alt": "Pink and white new baby girl cube arrangement on a white background",
+      "content_sha256": "01189f9af25bc0812fe26df5c11d77c66abbd1089b80e6fc94b6198e3554e06a",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-12-twinkle-little-star",
+      "name": "Twinkle Little Star",
+      "style": "soft",
+      "color_palette": "yellow, white, green",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Pale Yellow Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Craspedia",
+          "qty": 5,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A soft yellow star for the newest little one.",
+      "description": "Pale yellow roses, white daisies, and cheerful craspedia — twinkling and sweet for the newest little star.",
+      "suggested_retail": 69.99,
+      "image": "everyday/nb-12-twinkle-little-star.jpg",
+      "alt": "Yellow and white new baby arrangement on a white background",
+      "content_sha256": "e959d2e0a7b11316d2f5985c28a23735980f4cdca65a62ce298a436213bf6dbe",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-13-baby-boy-basket",
+      "name": "Baby Boy Blooms Basket",
+      "style": "garden",
+      "color_palette": "blue, white, green",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "basket arrangement",
+      "container": "natural woven basket",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Blue Delphinium",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A garden basket to welcome baby boy.",
+      "description": "A natural basket of blue hydrangea, white roses, and daisies — a garden-fresh welcome for the baby boy.",
+      "suggested_retail": 84.99,
+      "image": "everyday/nb-13-baby-boy-basket.jpg",
+      "alt": "Blue and white new baby boy basket on a white background",
+      "content_sha256": "5d5af908990e845c34a6abbbd1edaaa4e5052a1e38b206e93beaff6217fba6ea",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-14-baby-girl-basket",
+      "name": "Baby Girl Blooms Basket",
+      "style": "garden",
+      "color_palette": "pink, white, green",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "basket arrangement",
+      "container": "natural woven basket",
+      "recipe": [
+        {
+          "name": "Pink Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A garden basket to welcome baby girl.",
+      "description": "A natural basket of pink hydrangea, roses, and lisianthus — a garden-fresh welcome for the baby girl.",
+      "suggested_retail": 84.99,
+      "image": "everyday/nb-14-baby-girl-basket.jpg",
+      "alt": "Pink and white new baby girl basket on a white background",
+      "content_sha256": "c7e2689dbec281cd92d7ccda3f49b494bd578bc51997ad3df13113914e2ee6d1",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-15-oh-baby-neutral",
+      "name": "Oh Baby!",
+      "style": "cheerful",
+      "color_palette": "mint, peach, white",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Peach Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Green Button Poms",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A fresh mint and peach neutral welcome.",
+      "description": "Soft peach roses with white daisies and mint-green poms — a fresh, modern, gender-neutral 'oh baby!' welcome.",
+      "suggested_retail": 74.99,
+      "image": "everyday/nb-15-oh-baby-neutral.jpg",
+      "alt": "Peach and mint new baby arrangement on a white background",
+      "content_sha256": "621844140f63b706bec51b4e90893a25a4f8b35dd332393b93b13e2ff39c66bf",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-16-little-prince",
+      "name": "Little Prince",
+      "style": "sweet",
+      "color_palette": "blue, white, silver",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "silver mint julep cup",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Dusty Miller",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Dusty Miller"
+      ],
+      "short_description": "A regal blue and silver welcome for a little prince.",
+      "description": "Blue hydrangea and white roses with silvery dusty miller in a julep cup — a regal welcome for the little prince.",
+      "suggested_retail": 79.99,
+      "image": "everyday/nb-16-little-prince.jpg",
+      "alt": "Blue and white little prince new baby arrangement on a white background",
+      "content_sha256": "28f7d8aea940db5e7a58330044527f2815d5c24a2f4fea50530e25f0e7c417b0",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-17-little-princess",
+      "name": "Little Princess",
+      "style": "sweet",
+      "color_palette": "pink, white, silver",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "silver mint julep cup",
+      "recipe": [
+        {
+          "name": "Pink Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Blush Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Dusty Miller",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Dusty Miller"
+      ],
+      "short_description": "A dainty pink and silver welcome for a little princess.",
+      "description": "Pink hydrangea and blush roses with silvery dusty miller in a julep cup — a dainty welcome for the little princess.",
+      "suggested_retail": 79.99,
+      "image": "everyday/nb-17-little-princess.jpg",
+      "alt": "Pink and white little princess new baby arrangement on a white background",
+      "content_sha256": "e150318270d77fd87032b48a25f251082ee4e2000615e941f752d7e9b9490d91",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-18-baby-blooms-tulips",
+      "name": "Baby Blooms Tulips",
+      "style": "fresh",
+      "color_palette": "pink, white",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cylinder vase",
+      "recipe": [
+        {
+          "name": "Light Pink Tulips",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "White Tulips",
+          "qty": 10,
+          "kind": "flower"
+        }
+      ],
+      "foliage": [],
+      "short_description": "Fresh pink and white tulips for the new arrival.",
+      "description": "A fresh, cheerful gathering of light pink and white tulips — soft and simple for the newest little bloom.",
+      "suggested_retail": 69.99,
+      "image": "everyday/nb-18-baby-blooms-tulips.jpg",
+      "alt": "Pink and white tulip new baby arrangement on a white background",
+      "content_sha256": "18e4ac10c04575b376b7c76fe5f32c99c20a5e65878ab87177f36cd57d990129",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-19-congrats-new-parents",
+      "name": "Congrats New Parents",
+      "style": "cheerful",
+      "color_palette": "pink, blue, white",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass gathering vase",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Blue Delphinium",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Pink and blue to congratulate new parents.",
+      "description": "A joyful mix of pink roses and blue delphinium with white blooms — congratulations to the happy new parents.",
+      "suggested_retail": 79.99,
+      "image": "everyday/nb-19-congrats-new-parents.jpg",
+      "alt": "Pink and blue new baby arrangement on a white background",
+      "content_sha256": "d97e897ebc2c1514c94a96dced1ad2dd6b03db9a8bae4ac5c55c8cff15ab8984",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "nb-20-cuddles-cream",
+      "name": "Cuddles in Cream",
+      "style": "soft",
+      "color_palette": "cream, blush, green",
+      "categories": [
+        "New Baby"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass bubble bowl",
+      "recipe": [
+        {
+          "name": "Cream Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Blush Spray Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Astilbe",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Soft cream and blush as gentle as a cuddle.",
+      "description": "Cream roses and blush spray roses with feathery astilbe — as soft and gentle as a newborn's first cuddle.",
+      "suggested_retail": 74.99,
+      "image": "everyday/nb-20-cuddles-cream.jpg",
+      "alt": "Cream and blush new baby bubble bowl on a white background",
+      "content_sha256": "d64155ba69125fb53872c52c23db05cdcd3589df4cd442c6b0adfcb2dba31fda",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    }
+  ],
+  "generated_at": "2026-08-13T14:43:09.131Z",
+  "image_source": "ai_generated_cloudflare_flux"
+}

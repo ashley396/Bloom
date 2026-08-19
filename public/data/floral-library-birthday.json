@@ -1,0 +1,1026 @@
+{
+  "version": "1.0",
+  "collection": "florisyn_category_library",
+  "category": "Birthday",
+  "target_count": 20,
+  "image_style": "professional florist e-commerce product photograph, single arrangement centered, pure white seamless studio background, soft even studio lighting, ultra-realistic, no text/people",
+  "arrangements": [
+    {
+      "id": "bd-01-birthday-brights",
+      "name": "Birthday Brights",
+      "style": "vibrant",
+      "color_palette": "hot pink, orange, yellow",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Hot Pink Gerbera Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Solidago",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A punchy pop of pink, orange, and yellow.",
+      "description": "Bold hot-pink gerberas, orange roses, and sunny solidago — a vibrant birthday burst of color and joy.",
+      "suggested_retail": 79.99,
+      "image": "everyday/bd-01-birthday-brights.jpg",
+      "alt": "Bright pink, orange and yellow birthday arrangement on a white background",
+      "content_sha256": "a93402efa4fc0c10cefad20a95f8d4eecf6c11e577ca96c7bdda0f880aa499d3",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-02-confetti-celebration",
+      "name": "Confetti Celebration",
+      "style": "playful",
+      "color_palette": "mixed bright",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Carnations",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A colorful confetti mix to celebrate the day.",
+      "description": "A festive confetti-bright medley of roses, daisies, and carnations — a cheerful celebration in a vase.",
+      "suggested_retail": 74.99,
+      "image": "everyday/bd-02-confetti-celebration.jpg",
+      "alt": "Colorful mixed birthday arrangement on a white background",
+      "content_sha256": "8fd995d87f4af8c2bc07afcf02cc1910d87990cd978137cbb6fa4e9f21eba619",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-03-sunny-day-wishes",
+      "name": "Sunny Day Wishes",
+      "style": "cheerful",
+      "color_palette": "yellow, white",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass gathering vase",
+      "recipe": [
+        {
+          "name": "Sunflowers",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Pittosporum"
+      ],
+      "short_description": "Sunflowers and daisies for a sunny birthday.",
+      "description": "Cheerful sunflowers, white daisies, and yellow roses — bright birthday wishes as warm as sunshine.",
+      "suggested_retail": 74.99,
+      "image": "everyday/bd-03-sunny-day-wishes.jpg",
+      "alt": "Sunflower and daisy birthday arrangement on a white background",
+      "content_sha256": "c5e732b2d9f5e3e261a3b124aa06a50c2f1bd1f43276df3f270db53889437251",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-04-pretty-in-pink",
+      "name": "Pretty in Pink",
+      "style": "sweet",
+      "color_palette": "pink",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "An all-pink birthday charmer.",
+      "description": "Shades of pink roses, gerberas, and carnations gathered together — pretty, playful, and perfectly girly.",
+      "suggested_retail": 79.99,
+      "image": "everyday/bd-04-pretty-in-pink.jpg",
+      "alt": "All-pink birthday arrangement on a white background",
+      "content_sha256": "1e8721d3c6d142c5f1c665ed2627bab5a8b399a2a1578f98bf3087723e0ff6f1",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-05-birthday-balloon-blooms",
+      "name": "Birthday Bloom Party",
+      "style": "festive",
+      "color_palette": "rainbow",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Green Chrysanthemums",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Statice",
+          "qty": 3,
+          "kind": "filler"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A rainbow of blooms for a birthday party.",
+      "description": "A joyful rainbow of roses, daisies, and mums — every color of celebration in one happy cube.",
+      "suggested_retail": 84.99,
+      "image": "everyday/bd-05-birthday-balloon-blooms.jpg",
+      "alt": "Rainbow-colored birthday arrangement in a cube on a white background",
+      "content_sha256": "75943661a66a229d7ff53ea17f15e4b7e7f2142beb45539fc011a3bd759a63b9",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-06-tropical-birthday",
+      "name": "Tropical Birthday",
+      "style": "exotic",
+      "color_palette": "orange, pink, green",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "tall clear glass vase",
+      "recipe": [
+        {
+          "name": "Orange Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Green Anthurium",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Monstera Leaves",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Monstera Leaves"
+      ],
+      "short_description": "An exotic tropical birthday escape.",
+      "description": "Vivid orange roses, pink gerberas, and green anthurium with tropical foliage — a birthday getaway in bloom.",
+      "suggested_retail": 89.99,
+      "image": "everyday/bd-06-tropical-birthday.jpg",
+      "alt": "Tropical birthday arrangement with anthurium on a white background",
+      "content_sha256": "22b0f2d3481387ba7201ce33d038e5be7a164f3a8141e229a9ebf774a40e808f",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-07-make-a-wish",
+      "name": "Make a Wish",
+      "style": "cheerful",
+      "color_palette": "purple, pink, white",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Purple Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Dreamy purples and pinks to make a wish.",
+      "description": "Soft purple roses, pink lisianthus, and white daisies — a dreamy birthday wish come true.",
+      "suggested_retail": 79.99,
+      "image": "everyday/bd-07-make-a-wish.jpg",
+      "alt": "Purple and pink birthday arrangement on a white background",
+      "content_sha256": "a2ad7d060f67aa247c65cb698dc264be0ac2e5df54966dde47fe2de575a6e30c",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-08-citrus-splash",
+      "name": "Citrus Splash",
+      "style": "vibrant",
+      "color_palette": "orange, yellow, green",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Orange Gerbera Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Green Button Poms",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Lemon Leaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Lemon Leaf"
+      ],
+      "short_description": "A zesty citrus-bright birthday splash.",
+      "description": "Zesty orange gerberas, yellow roses, and green poms — a refreshing citrus splash of birthday cheer.",
+      "suggested_retail": 74.99,
+      "image": "everyday/bd-08-citrus-splash.jpg",
+      "alt": "Orange, yellow and green citrus birthday arrangement on a white background",
+      "content_sha256": "f474c29a78f6a266fe0731b420220702529afc918f7ab0cf1bfd5895c6c99394",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-09-birthday-roses",
+      "name": "Birthday Roses",
+      "style": "classic",
+      "color_palette": "mixed roses",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass rose vase",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Baby's Breath",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A cheerful mix of birthday roses.",
+      "description": "A dozen roses in pink, yellow, and orange with baby's breath — a classic, colorful birthday gift.",
+      "suggested_retail": 84.99,
+      "image": "everyday/bd-09-birthday-roses.jpg",
+      "alt": "Mixed-color rose birthday arrangement on a white background",
+      "content_sha256": "3a9676a3dafe50079c6b1f1eb26ef87fbda8238eeb727db7c5fafc9bb1fc1855",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-10-cupcake-cutie",
+      "name": "Cupcake Cutie",
+      "style": "sweet",
+      "color_palette": "pink, white",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "pink ceramic vase",
+      "recipe": [
+        {
+          "name": "Pink Carnations",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Spray Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Waxflower",
+          "qty": 4,
+          "kind": "filler"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A sweet, frosted-cupcake pink posy.",
+      "description": "Fluffy pink carnations and white spray roses in a sweet pink vase — as cute as a birthday cupcake.",
+      "suggested_retail": 64.99,
+      "image": "everyday/bd-10-cupcake-cutie.jpg",
+      "alt": "Pink and white carnation birthday posy on a white background",
+      "content_sha256": "5298c54f22c5ea05a4d11baefa137fc2849604f67c2ae68964b58f314bfdbee7",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-11-fiesta-mix",
+      "name": "Fiesta Mix",
+      "style": "festive",
+      "color_palette": "red, orange, yellow",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass gathering vase",
+      "recipe": [
+        {
+          "name": "Red Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Sunflowers",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Solidago",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A warm fiesta of reds, oranges, and yellows.",
+      "description": "A warm fiesta of red gerberas, orange roses, and sunflowers — a lively, festive birthday celebration.",
+      "suggested_retail": 79.99,
+      "image": "everyday/bd-11-fiesta-mix.jpg",
+      "alt": "Red, orange and yellow fiesta birthday arrangement on a white background",
+      "content_sha256": "6fc2e8e79a6f03b4ebf78e2fb1b756eb2746634560668f61af313dc20a32676e",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-12-birthday-blush",
+      "name": "Birthday Blush",
+      "style": "soft",
+      "color_palette": "blush, peach",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Peach Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Blush Ranunculus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Peach Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Soft peach and blush for an elegant birthday.",
+      "description": "Peach roses and blush ranunculus in a soft, elegant palette — an understated, chic birthday bouquet.",
+      "suggested_retail": 89.99,
+      "image": "everyday/bd-12-birthday-blush.jpg",
+      "alt": "Peach and blush birthday arrangement on a white background",
+      "content_sha256": "28e3d105785be10ffdab0d67b7d4f843a3d408d8b901351181401b2cf18e8ee8",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-13-happy-daisies",
+      "name": "Happy Daisies",
+      "style": "cheerful",
+      "color_palette": "white, yellow",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "White Gerbera Daisies",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisy Chrysanthemums",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Solidago",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A simple, happy bunch of daisies.",
+      "description": "Cheerful white gerberas and yellow daisies — a simple, sunny way to say happy birthday.",
+      "suggested_retail": 64.99,
+      "image": "everyday/bd-13-happy-daisies.jpg",
+      "alt": "White and yellow daisy birthday arrangement on a white background",
+      "content_sha256": "9caf3857d3a8dffdab906c200f35d4a0d62683bdfef2a39a598640f88206919c",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-14-purple-party",
+      "name": "Purple Party",
+      "style": "vibrant",
+      "color_palette": "purple, lavender",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Purple Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Statice",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Lavender Stock",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "An all-purple birthday party in a vase.",
+      "description": "Rich purple roses, stock, and alstroemeria — a bold, regal birthday party of purples.",
+      "suggested_retail": 84.99,
+      "image": "everyday/bd-14-purple-party.jpg",
+      "alt": "All-purple birthday arrangement on a white background",
+      "content_sha256": "09421860e586677dd14aa0a6b46c9a9277f44927d571e8f63b6369c88d67cc81",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-15-birthday-sunflower-smile",
+      "name": "Sunflower Smile",
+      "style": "cheerful",
+      "color_palette": "yellow, orange",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "rustic mason jar",
+      "recipe": [
+        {
+          "name": "Sunflowers",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Solidago",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Sunflowers in a mason jar for a big smile.",
+      "description": "Happy sunflowers and orange roses in a rustic mason jar — guaranteed to bring a birthday smile.",
+      "suggested_retail": 69.99,
+      "image": "everyday/bd-15-birthday-sunflower-smile.jpg",
+      "alt": "Sunflower mason jar birthday arrangement on a white background",
+      "content_sha256": "46def6d2e3b8778a311fb2f7f3a7387d34d5d4f1887a28453aef73692fef041e",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-16-berry-birthday",
+      "name": "Berry Birthday",
+      "style": "rich",
+      "color_palette": "magenta, purple",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Magenta Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Hot Pink Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Juicy berry tones for a rich birthday treat.",
+      "description": "Magenta roses, purple lisianthus, and hot-pink carnations — a rich, berry-toned birthday indulgence.",
+      "suggested_retail": 84.99,
+      "image": "everyday/bd-16-berry-birthday.jpg",
+      "alt": "Magenta and purple berry-toned birthday arrangement on a white background",
+      "content_sha256": "a00282796d800a1ae577a9d3db4079abe0e38d507587396ceca8413594f7cf71",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-17-birthday-lilies",
+      "name": "Birthday Lilies",
+      "style": "elegant",
+      "color_palette": "pink, white",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Pink Oriental Lilies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Ruscus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Ruscus"
+      ],
+      "short_description": "Fragrant lilies and roses for a graceful birthday.",
+      "description": "Fragrant pink lilies with white roses and alstroemeria — a graceful, elegant birthday tribute.",
+      "suggested_retail": 89.99,
+      "image": "everyday/bd-17-birthday-lilies.jpg",
+      "alt": "Pink lily and white rose birthday arrangement on a white background",
+      "content_sha256": "1db7c335cd4864ffdbfaf2603207b5e5571a94b1f3c94a0b55aa7e38187e3f87",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-18-cotton-candy",
+      "name": "Cotton Candy",
+      "style": "sweet",
+      "color_palette": "pink, lavender, white",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass bubble bowl",
+      "recipe": [
+        {
+          "name": "Light Pink Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Lavender Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Soft pinks and lavender like spun sugar.",
+      "description": "Light pink and lavender roses with ivory lisianthus — soft and sweet as cotton candy.",
+      "suggested_retail": 74.99,
+      "image": "everyday/bd-18-cotton-candy.jpg",
+      "alt": "Pink and lavender cotton-candy birthday bowl on a white background",
+      "content_sha256": "bf15513bfa2ca5c004633f8f55a838eed75af555e2557fb8cc03ed8e3d82a2ba",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-19-birthday-wildflower",
+      "name": "Birthday Wildflower",
+      "style": "garden",
+      "color_palette": "mixed pastel",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass gathering vase",
+      "recipe": [
+        {
+          "name": "Pink Ranunculus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Larkspur",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Craspedia",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A whimsical wildflower birthday gathering.",
+      "description": "A whimsical wildflower gathering of ranunculus, daisies, and larkspur — a charming, garden-fresh birthday.",
+      "suggested_retail": 79.99,
+      "image": "everyday/bd-19-birthday-wildflower.jpg",
+      "alt": "Wildflower-style pastel birthday arrangement on a white background",
+      "content_sha256": "56b0c2930801f142c75f5feefb6496f92e4cedc310f3a73d21c9bebde8f5d810",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "bd-20-big-birthday-bouquet",
+      "name": "Big Birthday Bouquet",
+      "style": "grand",
+      "color_palette": "mixed bright",
+      "categories": [
+        "Birthday"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "tall clear glass vase",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Gerbera Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Alstroemeria",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Sunflowers",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Solidago",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A big, abundant bouquet for a milestone birthday.",
+      "description": "An abundant, colorful bouquet of roses, gerberas, sunflowers, and alstroemeria — a grand birthday statement.",
+      "suggested_retail": 99.99,
+      "image": "everyday/bd-20-big-birthday-bouquet.jpg",
+      "alt": "Large mixed bright birthday bouquet on a white background",
+      "content_sha256": "8109e0d312daa06319d2c90a064928ce6ff29e8edcbdf534306d412a994be817",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    }
+  ],
+  "generated_at": "2026-08-13T14:24:05.022Z",
+  "image_source": "ai_generated_cloudflare_flux"
+}

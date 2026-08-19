@@ -16,7 +16,7 @@ export async function handler(event){
   if(customerError)throw customerError;
   const [{data:orders,error:ordersError},{data:payments,error:paymentsError}]=await Promise.all([
    client.from("orders").select("*").eq("shop_id",shopId).order("created_at",{ascending:false}),
-   client.from("payments").select("order_id,amount,refunded_amount,status,received_at,payment_method").eq("shop_id",shopId).eq("status","SUCCEEDED")
+   client.from("payments").select("order_id,amount,refunded_amount,status,received_at,method").eq("shop_id",shopId).eq("status","SUCCEEDED")
   ]);
   if(ordersError)throw ordersError;
   const wantedName=clean(customer.name),wantedPhone=phoneDigits(customer.phone);

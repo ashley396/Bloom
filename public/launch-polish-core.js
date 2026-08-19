@@ -71,9 +71,17 @@ export function bloomLoadingSkeleton(variant = "cards", count = 3) {
 
 export function parseProductImages(product = {}) {
   const urls = [];
+  // Accept absolute http(s) URLs (Pexels, Supabase Storage, a custom
+  // domain), site-relative paths (/assets/... — the Floral Library's own
+  // local photos, including everything added via "Add to shop"), and data
+  // URIs. Real product photos in any of these forms were previously
+  // silently dropped here (only http(s):// passed), which is why a
+  // product with a genuine, working local image still fell back to an
+  // emoji placeholder on the dashboard and elsewhere.
   const push = (u) => {
     const s = String(u || "").trim();
-    if (s && /^https?:\/\//i.test(s) && !urls.includes(s)) urls.push(s);
+    if (!s || urls.includes(s)) return;
+    if (/^https?:\/\//i.test(s) || /^data:image\//i.test(s) || s.startsWith("/")) urls.push(s);
   };
   if (Array.isArray(product.images)) {
     product.images.forEach((x) => push(typeof x === "string" ? x : x?.url));

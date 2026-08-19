@@ -4,12 +4,13 @@ import { writeShopAudit } from "./_shared/production.js";
 import { validateInventoryItemBody } from "./_shared/validation.js";
 import { validateInventoryFreshnessFields } from "./_shared/inventory-freshness.js";
 import { requireRowShopId } from "./_shared/shop-scope.js";
+import { shopDateStr } from "./_shared/shop-time.js";
 
 function cleanText(value, fallback = "") {
   return String(value ?? fallback).trim();
 }
 
-function payloadOf(body, shopId) {
+function payloadOf(body, shopId, todayStr) {
   const category = cleanText(body.category, "Flowers") || "Flowers";
   const cost = Math.max(0, Number(body.cost || 0));
   const enteredPrice = Math.max(0, Number(body.price || 0));
@@ -24,10 +25,13 @@ function payloadOf(body, shopId) {
           ? Number((cost * markup).toFixed(2))
           : enteredPrice;
 
+  // A brand-new item with no explicit arrival date defaults to "today" —
+  // that must be the shop's own calendar day (arrival_date drives the
+  // freshness/age scoring on the dashboard), not the server's UTC day.
   const received_at =
     freshness.sanitized.received_at ||
     cleanText(body.arrival_date) ||
-    (body.id ? null : new Date().toISOString().slice(0, 10));
+    (body.id ? null : todayStr);
 
   return {
     shop_id: shopId,
@@ -76,7 +80,9 @@ export async function handler(event) {
         const fresh = validateInventoryFreshnessFields(item);
         if (!fresh.valid) return json(400, { error: fresh.errors[0] });
       }
-      const payloads = sourceItems.map((item) => payloadOf(item, shopId)).filter((item) => item.name);
+      const { data: shop } = await client.from("shops").select("timezone").eq("id", shopId).maybeSingle();
+      const todayStr = shopDateStr(shop?.timezone);
+      const payloads = sourceItems.map((item) => payloadOf(item, shopId, todayStr)).filter((item) => item.name);
       if (!payloads.length) return json(400, { error: "Item name is required" });
       const { data, error } = await client.from("inventory").insert(payloads).select();
       if (error) throw error;

@@ -62,6 +62,8 @@ test("payment link expiration status", () => {
 
 test("email configured detection", () => {
   assert.equal(emailProviderConfigured({ BLOOM_EMAIL_PROVIDER: "sendgrid", SENDGRID_API_KEY: "x" }).configured, true);
+  assert.equal(emailProviderConfigured({ RESEND_API_KEY: "re_test" }).configured, true);
+  assert.equal(emailProviderConfigured({ RESEND_API_KEY: "re_test" }).provider, "resend");
 });
 
 test("email not configured", () => {
@@ -153,7 +155,7 @@ test("customer portal isolation", () => {
 
 test("Bloom SaaS revenue separated from florist volume", () => {
   const m = buildPaymentOperationsMetrics({
-    shopSubscriptions: [{ status: "active", plan_code: "professional", metadata: { mrr: 79 } }],
+    shopSubscriptions: [{ status: "active", plan_code: "professional", metadata: { mrr: 99 } }],
     floristPayments: [{ amount: 200, received_at: "2026-07-28T12:00:00Z" }],
     flowerSubs: [{ status: "active", amount: 45 }]
   });

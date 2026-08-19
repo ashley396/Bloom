@@ -8,9 +8,17 @@ import {
   buildSeoBundle,
   tenantIsolationCheck
 } from "./bloom-instant-website.js";
+import {
+  buildPublishedSeoBundle,
+  resolvePublishedSiteBaseUrl,
+  renderPublishedPageMeta,
+  buildPublishedSitemapXml,
+  publishedRobotsTxt,
+  productJsonLd as publishedProductJsonLd,
+} from "../../../lib/seo/published-site-seo.js";
 import { productVisibleOnPublicSite } from "./floral-library-core.js";
 
-export { tenantIsolationCheck };
+export { buildPublishedSitemapXml, publishedRobotsTxt, resolvePublishedSiteBaseUrl, tenantIsolationCheck };
 
 export const COLLECTION_SLUGS = [
   "shop",
@@ -27,10 +35,11 @@ export const COLLECTION_SLUGS = [
 ];
 
 export function previewTokenSecret(env = process.env) {
-  return env.BLOOM_STOREFRONT_PREVIEW_SECRET || env.PAYMENT_HUB_TOKEN_KEY || "bloom-preview-dev-only";
+  return env.BLOOM_STOREFRONT_PREVIEW_SECRET || env.PAYMENT_HUB_TOKEN_KEY || null;
 }
 
 export function signPreviewToken(shopId, expiresAtMs, secret = previewTokenSecret()) {
+  if (!secret) throw new Error("Storefront preview is not configured.");
   const payload = `${shopId}:${expiresAtMs}`;
   const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
   return Buffer.from(`${payload}:${sig}`).toString("base64url");
@@ -38,13 +47,18 @@ export function signPreviewToken(shopId, expiresAtMs, secret = previewTokenSecre
 
 export function verifyPreviewToken(token, shopId, now = Date.now(), secret = previewTokenSecret()) {
   if (!token) return { valid: false, error: "Preview token required." };
+  if (!secret) return { valid: false, error: "Storefront preview is not configured." };
   try {
     const raw = Buffer.from(token, "base64url").toString("utf8");
     const [sid, exp, sig] = raw.split(":");
     if (sid !== String(shopId)) return { valid: false, error: "Token shop mismatch." };
     if (Number(exp) < now) return { valid: false, error: "Preview token expired." };
     const expected = crypto.createHmac("sha256", secret).update(`${sid}:${exp}`).digest("hex");
-    if (sig !== expected) return { valid: false, error: "Invalid preview token." };
+    const actualBuffer = Buffer.from(sig || "", "utf8");
+    const expectedBuffer = Buffer.from(expected, "utf8");
+    if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) {
+      return { valid: false, error: "Invalid preview token." };
+    }
     return { valid: true, mode: "preview" };
   } catch {
     return { valid: false, error: "Malformed preview token." };
@@ -134,12 +148,19 @@ export function resolvePublishedSite(project, pages, shop, { preview = false } =
   const mode = LAUNCH_MODES.find((m) => m.id === (project?.theme_id || project?.launch_mode)) || LAUNCH_MODES[0];
   const fonts = FONT_PAIRINGS.find((f) => f.id === project?.theme_settings?.font_pairing) || FONT_PAIRINGS[0];
   const visiblePages = (pages || []).filter((p) => p.visible !== false);
+  const baseUrl = resolvePublishedSiteBaseUrl(shop);
+  const seo =
+    project?.seo_settings && Object.keys(project.seo_settings).length
+      ? { ...project.seo_settings, base_url: project.seo_settings.base_url || baseUrl }
+      : buildPublishedSeoBundle(shop, visiblePages, { preview });
+  if (preview) seo.robots = "noindex,nofollow";
   return {
     allowed: true,
     project,
     theme: { mode, fonts, settings: project?.theme_settings || {} },
     pages: visiblePages,
-    seo: project?.seo_settings || buildSeoBundle(shop, pages?.[0]),
+    seo,
+    base_url: baseUrl,
     shop: sanitizePublicShop(shop)
   };
 }
@@ -169,35 +190,42 @@ export function fallbackSiteFromProfile(shop = {}) {
   const site = buildSiteFromShopProfile(shop, { status: "draft" });
   return {
     project: { ...site.project, status: "draft" },
-    pages: site.pages,
+    // buildSiteFromShopProfile() returns the home page's hero/featured-
+    // arrangements/etc. blocks as a *top-level* `sections` array, sibling
+    // to `pages` — not nested onto the home page itself. instant-website.js
+    // does this same nesting step (`sections: page.slug === "home" ?
+    // site.sections : []`) when it first generates a real saved project,
+    // but this fallback path — used for any shop that hasn't built or
+    // saved a site yet, i.e. the storefront a brand-new florist's
+    // customers see by default — never did, so storefront.js's
+    // `home?.sections` was always empty and every new shop's home page
+    // rendered as a bare "Welcome — browse our shop to order." instead of
+    // the intended hero + featured arrangements + occasions + delivery +
+    // about + hours + CTA sections.
+    pages: site.pages.map((page) => ({
+      ...page,
+      sections: page.slug === "home" ? site.sections : page.sections || []
+    })),
     theme_settings: site.theme_settings,
     seo_settings: site.seo
   };
 }
 
 export function renderPageMeta(page, siteSeo, baseUrl) {
-  const title = page?.content?.seo_title || `${page?.title || "Page"} — ${siteSeo?.title || "Florist"}`;
-  const description = page?.content?.meta_description || siteSeo?.meta_description || "";
-  const canonical = baseUrl ? `${baseUrl.replace(/\/$/, "")}/${page?.slug === "home" ? "" : page?.slug}` : null;
-  return { title, description, canonical, og_image: siteSeo?.og_image };
+  const meta = renderPublishedPageMeta(page, siteSeo, baseUrl || siteSeo?.base_url);
+  return {
+    title: meta.title,
+    description: meta.description,
+    canonical: meta.canonical,
+    og_image: meta.og?.image || siteSeo?.og_image,
+    robots: meta.robots,
+    og: meta.og,
+    twitter: meta.twitter,
+  };
 }
 
-export function productJsonLd(product, shop) {
-  if (!product?.sync?.show_price_online) return null;
-  return {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: product.name,
-    description: product.short_description || product.description,
-    image: product.primary_image?.url,
-    offers: {
-      "@type": "Offer",
-      priceCurrency: "USD",
-      price: product.retail_price,
-      availability: "https://schema.org/InStock"
-    },
-    brand: { "@type": "Florist", name: shop?.name }
-  };
+export function productJsonLd(product, shop, baseUrl) {
+  return publishedProductJsonLd(product, shop, baseUrl || resolvePublishedSiteBaseUrl(shop));
 }
 
 export function buildSitemapEntries(baseUrl, pages) {
@@ -210,8 +238,11 @@ export function buildSitemapEntries(baseUrl, pages) {
     }));
 }
 
-export function robotsTxt({ allowIndex = true } = {}) {
-  return allowIndex ? "User-agent: *\nAllow: /\n" : "User-agent: *\nDisallow: /\n";
+export function robotsTxt({ allowIndex = true, sitemapUrl = null } = {}) {
+  if (!allowIndex) return "User-agent: *\nDisallow: /\n";
+  const lines = ["User-agent: *", "Allow: /"];
+  if (sitemapUrl) lines.push("", `Sitemap: ${sitemapUrl}`);
+  return `${lines.join("\n")}\n`;
 }
 
 export function breadcrumbTrail(slug, pages) {

@@ -9,7 +9,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-blush-500 text-white shadow-sm hover:bg-blush-600 active:scale-[0.99] motion-safe:hover:shadow-card dark:bg-blush-500 dark:hover:bg-blush-600",
+          "bg-gradient-brand text-white shadow-button ring-1 ring-inset ring-white/15 hover:brightness-[1.04] active:scale-[0.99] active:brightness-100 motion-safe:hover:shadow-card-hover",
         secondary:
           "bg-warm-white text-charcoal shadow-card ring-1 ring-florisyn-border hover:bg-warm-ivory dark:bg-florisyn-surface",
         ghost: "text-charcoal-muted hover:bg-sage-pale/90 hover:text-charcoal",

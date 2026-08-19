@@ -1,5 +1,5 @@
 import { json,bodyOf,preflight,methodNotAllowed } from "./_shared/http.js";
-import { currentUser,fail,requireServerKeyFor } from "./_shared/supabase.js";
+import { admin,currentUser,fail,requireServerKeyFor } from "./_shared/supabase.js";
 export async function handler(event){
  const ready=preflight(event);if(ready)return ready;
  try{
@@ -11,13 +11,12 @@ export async function handler(event){
   if(event.httpMethod==="POST"){
    requireServerKeyFor("add_store");
    const body=bodyOf(event);if(!body.name)throw new Error("Shop name is required");
-   const {data:shop,error}=await client.from("shops").insert({owner_id:user.id,name:body.name,phone:body.phone||null,email:body.email||null,address:body.address||null}).select("*").single();if(error)throw error;
-   const {error:memberError}=await client.from("shop_members").insert({shop_id:shop.id,user_id:user.id,role:"owner"});if(memberError)throw memberError;
+   const {data:shop,error}=await admin().rpc("create_additional_shop_atomic",{p_owner_id:user.id,p_shop:{name:body.name,phone:body.phone||null,email:body.email||null,address:body.address||null}});if(error)throw error;
    return json(201,{item:shop});
   }
   if(event.httpMethod==="PATCH"){
    const body=bodyOf(event);if(!body.shop_id)throw new Error("Missing shop_id");
-   const {data:member}=await client.from("shop_members").select("id").eq("shop_id",body.shop_id).eq("user_id",user.id).maybeSingle();
+   const {data:member}=await client.from("shop_members").select("user_id").eq("shop_id",body.shop_id).eq("user_id",user.id).maybeSingle();
    if(!member)throw new Error("You do not have access to that shop");
    const {error}=await client.from("profiles").update({default_shop_id:body.shop_id}).eq("id",user.id);if(error)throw error;
    return json(200,{ok:true});

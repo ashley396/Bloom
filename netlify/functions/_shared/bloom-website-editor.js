@@ -127,6 +127,51 @@ export function publishRequiresApproval({ lilyDraft = false, approved = false, s
   return { ok: true };
 }
 
+/** Persist a contiguous order index so public and editor reads agree. */
+export function normalizeSectionOrder(sections = []) {
+  return [...(sections || [])]
+    .map((s, i) => ({
+      s,
+      i,
+      order: Number.isFinite(Number(s?.order)) ? Number(s.order) : Number.POSITIVE_INFINITY
+    }))
+    .sort((a, b) => a.order - b.order || a.i - b.i)
+    .map(({ s }, i) => ({ ...s, order: i }));
+}
+
+/**
+ * Optimistic concurrency for draft saves.
+ * When the client sends a known base timestamp that no longer matches the DB row, reject.
+ */
+export function assertPageNotStale({ expectedUpdatedAt, currentUpdatedAt } = {}) {
+  if (!expectedUpdatedAt) return { ok: true };
+  if (!currentUpdatedAt) return { ok: true };
+  const expected = String(expectedUpdatedAt);
+  const current = String(currentUpdatedAt);
+  if (expected === current) return { ok: true };
+  return {
+    ok: false,
+    code: "stale_draft",
+    error: "This draft changed elsewhere. Reload the latest version before saving again."
+  };
+}
+
+/** Confirm theme persistence returned the expected theme id and settings payload. */
+export function confirmThemePersistence(project, expected = {}) {
+  if (!project) return { ok: false, error: "Create a website draft before changing its theme." };
+  if (expected.theme_id != null && project.theme_id !== expected.theme_id) {
+    return { ok: false, error: "Theme change could not be confirmed. Your current design remains safe." };
+  }
+  if (expected.theme_settings != null) {
+    const got = JSON.stringify(project.theme_settings ?? null);
+    const want = JSON.stringify(expected.theme_settings ?? null);
+    if (got !== want) {
+      return { ok: false, error: "Theme settings could not be confirmed. Your current design remains safe." };
+    }
+  }
+  return { ok: true };
+}
+
 export function themeGalleryCard(mode, shopContent = {}) {
   return {
     id: mode.id,
@@ -159,4 +204,89 @@ export function validateMediaForPublish(media = {}) {
     return { ok: false, error: "Master library media requires approved license." };
   }
   return { ok: true };
+}
+
+// ---- Whole-page CRUD (pure helpers; instant-website.js does the DB I/O) ----
+
+function baseSlugify(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 48);
+}
+
+/** Pick a slug that doesn't collide with any existing page in the project. */
+export function nextUniqueSlug(desired, existingSlugs = []) {
+  const taken = new Set(existingSlugs);
+  const base = baseSlugify(desired) || "page";
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base}-${n}`)) n += 1;
+  return `${base}-${n}`;
+}
+
+/**
+ * "home" is a structural requirement, not just another page — the storefront
+ * root, the editor's default page, and the publish checklist all key off the
+ * literal slug "home". Every florist site must always have exactly one.
+ */
+export const HOMEPAGE_SLUG = "home";
+
+export function buildNewPage({ title, template = "custom", existingSlugs = [], navOrder = 0 } = {}) {
+  const cleanTitle = String(title || "").trim().slice(0, 80) || "New page";
+  const slug = nextUniqueSlug(cleanTitle, existingSlugs);
+  return {
+    slug,
+    title: cleanTitle,
+    visible: true,
+    nav_order: navOrder,
+    template,
+    content: {},
+    sections: []
+  };
+}
+
+/** New pages start hidden from nav so a duplicate never silently appears on the live site. */
+export function duplicatePageContent(page, existingSlugs = []) {
+  const slug = nextUniqueSlug(`${page.slug}-copy`, existingSlugs);
+  return {
+    slug,
+    title: `${page.title} (Copy)`.slice(0, 80),
+    visible: false,
+    nav_order: (page.nav_order ?? 0) + 1,
+    template: page.template || "custom",
+    content: structuredClone(page.content || {}),
+    sections: structuredClone(page.sections || []).map((s, i) => ({ ...s, id: `${s.type || "section"}-${Date.now()}-${i}`, order: i }))
+  };
+}
+
+/**
+ * Guard whole-page deletion the same way section deletion is guarded
+ * (explicit confirmed flag), plus two structural rules sections don't need:
+ * never delete the homepage, and never delete the last remaining page.
+ */
+export function guardPageDeletion({ slug, pages = [], confirmed = false } = {}) {
+  if (slug === HOMEPAGE_SLUG) return { ok: false, error: "The Home page can't be deleted — hide it or edit its content instead." };
+  if (pages.length <= 1) return { ok: false, error: "A website needs at least one page." };
+  if (!pages.some((p) => p.slug === slug)) return { ok: false, error: "Page not found." };
+  if (!confirmed) return { ok: false, needsConfirmation: true };
+  return { ok: true };
+}
+
+/** Renaming changes the display title only — the slug (and therefore any
+ * shared/indexed URL) never changes silently through a rename. */
+export function sanitizePageTitle(title) {
+  const clean = String(title || "").trim().slice(0, 80);
+  if (!clean) return { ok: false, error: "Page name can't be empty." };
+  return { ok: true, title: clean };
+}
+
+/** Bulk nav_order assignment from an ordered list of slugs. */
+export function reorderPages(pages = [], orderedSlugs = []) {
+  const orderIndex = new Map(orderedSlugs.map((slug, i) => [slug, i]));
+  return [...pages]
+    .map((p) => ({ ...p, nav_order: orderIndex.has(p.slug) ? orderIndex.get(p.slug) : p.nav_order ?? 0 }))
+    .sort((a, b) => a.nav_order - b.nav_order);
 }

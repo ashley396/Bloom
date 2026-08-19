@@ -1,0 +1,72 @@
+/* Enterprise mobile navigation — 5-tab bar + drawer polish.
+   Loaded after atelier-ui; additive only. */
+
+@media (max-width: 820px) {
+  body.florisyn-nav-locked,
+  html.florisyn-mobile-drawer-open {
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  body.florisyn-atelier .mobile-nav.atelier-mobile-nav {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    min-height: calc(68px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  body.florisyn-atelier .mobile-nav.atelier-mobile-nav > button {
+    min-height: 52px;
+    font-size: 10px !important;
+    line-height: 1.15 !important;
+  }
+
+  body.florisyn-atelier .mobile-nav.atelier-mobile-nav > button .mnav-ico {
+    font-size: 15px;
+  }
+
+  body.florisyn-atelier .shell > aside#atelierSidebarDrawer .florisyn-lux-nav > button[data-page] {
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+  }
+
+  body.florisyn-atelier #bloomDaisy,
+  body.florisyn-atelier .bloom-daisy {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  /* Official premium logo in mobile header */
+  body.florisyn-atelier .atelier-mobile-logo .florisyn-official-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    object-fit: cover;
+    flex: none;
+  }
+
+  body.florisyn-atelier .atelier-mobile-logo .atelier-mark-f {
+    display: none;
+  }
+
+  body.florisyn-atelier .atelier-sidebar-brand .florisyn-official-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    object-fit: cover;
+  }
+
+  body.florisyn-atelier .atelier-sidebar-brand .atelier-mark-f {
+    display: none;
+  }
+}
+
+/* Loading screen — premium official icon */
+.florisyn-loading-mark {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  object-fit: cover;
+}

@@ -241,11 +241,19 @@ test("Payment Center sidebar label preserved", () => {
   assert.match(html, /paymentsPage.*Payment Center|Payment Center/);
 });
 
-test("risky inventory AI flags remain false by default", () => {
+test("launch feature flags match growth rollout defaults", () => {
   const flags = getFeatureFlags({});
+  assert.equal(flags.MARKETPLACE_PUBLIC, true);
+  assert.equal(flags.WHOLESALE_SELLER, true);
+  assert.equal(flags.BUSINESS_ECOSYSTEM, true);
   assert.equal(flags.INVENTORY_AI_INTAKE, false);
-  assert.equal(flags.INVENTORY_RECIPE_DEDUCTIONS, false);
-  assert.equal(flags.WEBSITE_STUDIO_V2, false);
+  assert.equal(flags.INVENTORY_RECIPE_DEDUCTIONS, true);
+  // Flipped true 2026-08-16: the tabbed shell, page CRUD, media library,
+  // revision history, and enforced pre-publish checklist shipped 2026-08-15
+  // and were already live for every florist with no flag enforcement
+  // anywhere in the code — the flag now matches reality instead of
+  // contradicting it.
+  assert.equal(flags.WEBSITE_STUDIO_V2, true);
 });
 
 test("customer UI includes contact preference fields", () => {

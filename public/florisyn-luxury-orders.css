@@ -1,0 +1,535 @@
+/**
+ * Florisyn Luxury Orders — Figma order table
+ * Navy #1a1f3c · Rose #E06B85 · Blush #FBF6F7 · Inter
+ */
+
+body.florisyn-atelier #ordersPage.florisyn-lux-orders {
+  --ord-navy: #1a1f3c;
+  --ord-rose: #e06b85;
+  --ord-blush: #fbf6f7;
+  --ord-ink: #26263a;
+  --ord-muted: #666670;
+  --ord-border: #eae6e8;
+  --ord-card: #ffffff;
+  --ord-radius: 8px;
+  --ord-pill: 20px;
+  font-family: Inter, system-ui, sans-serif;
+  background: transparent;
+  max-width: none;
+  padding-bottom: 28px;
+  color: var(--ord-ink);
+}
+
+body.florisyn-atelier #ordersPage.florisyn-lux-orders .ord-heading {
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+body.florisyn-atelier #ordersPage.florisyn-lux-orders .ord-heading h1 {
+  margin: 0 0 6px;
+  color: var(--ord-navy);
+  font-size: clamp(1.85rem, 2.6vw, 2.25rem);
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+body.florisyn-atelier #ordersPage.florisyn-lux-orders .ord-heading .subtle {
+  margin: 0;
+  color: var(--ord-muted);
+  font-size: 14px;
+}
+
+body.florisyn-atelier #ordersPage.florisyn-lux-orders .ord-heading-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+body.florisyn-atelier #ordersPage.florisyn-lux-orders .ord-export {
+  border: 1px solid var(--ord-navy) !important;
+  background: #fff !important;
+  color: var(--ord-navy) !important;
+  border-radius: var(--ord-pill) !important;
+  min-height: 40px;
+  padding: 0 18px !important;
+  font-weight: 650 !important;
+  box-shadow: none !important;
+}
+
+body.florisyn-atelier #ordersPage.florisyn-lux-orders .ord-new {
+  border: 0 !important;
+  background: var(--ord-navy) !important;
+  color: #fff !important;
+  border-radius: var(--ord-pill) !important;
+  min-height: 40px;
+  padding: 0 18px !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+/* Filter row */
+body.florisyn-atelier #ordersPage .ord-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+body.florisyn-atelier #ordersPage .ord-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+body.florisyn-atelier #ordersPage .ord-tabs button {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--ord-muted) !important;
+  border-radius: var(--ord-pill) !important;
+  padding: 8px 14px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+}
+
+body.florisyn-atelier #ordersPage .ord-tabs button em {
+  font-style: normal;
+  color: var(--ord-rose);
+  font-weight: 700;
+}
+
+body.florisyn-atelier #ordersPage .ord-tabs button.active {
+  background: var(--ord-navy) !important;
+  color: #fff !important;
+}
+
+body.florisyn-atelier #ordersPage .ord-tabs button.active em {
+  color: #fff;
+}
+
+body.florisyn-atelier #ordersPage .ord-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+body.florisyn-atelier #ordersPage .ord-search {
+  /* Same missing flex-direction gap as .atelier-global-search — a
+     generic body.bloom-rc2 label rule sets flex-direction: column for
+     stacked form fields and is the only rule declaring that property
+     here, so the search icon stacked above the input instead of beside
+     it. */
+  flex-direction: row;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid var(--ord-border);
+  border-radius: var(--ord-pill);
+  padding: 0 14px;
+  min-height: 40px;
+  min-width: min(240px, 100%);
+  color: var(--ord-muted);
+}
+
+body.florisyn-atelier #ordersPage .ord-search input {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  width: 100%;
+  font-size: 13px;
+  color: var(--ord-ink);
+}
+
+body.florisyn-atelier #ordersPage .ord-date,
+body.florisyn-atelier #ordersPage .ord-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  border: 1px solid var(--ord-border) !important;
+  background: #fff !important;
+  color: var(--ord-ink) !important;
+  border-radius: var(--ord-pill) !important;
+  padding: 0 14px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  white-space: nowrap;
+}
+
+body.florisyn-atelier #ordersPage .ord-filter-btn {
+  width: 40px;
+  padding: 0 !important;
+  justify-content: center;
+  border-radius: 10px !important;
+}
+
+body.florisyn-atelier #ordersPage .ord-date.has-value,
+body.florisyn-atelier #ordersPage .ord-filter-btn.has-value {
+  border-color: var(--ord-navy) !important;
+  color: var(--ord-navy) !important;
+}
+
+body.florisyn-atelier #ordersPage .ord-popover-anchor {
+  position: relative;
+}
+
+body.florisyn-atelier #ordersPage .ord-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--ord-card);
+  border: 1px solid var(--ord-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(20, 20, 40, 0.16);
+}
+
+body.florisyn-atelier #ordersPage .ord-popover label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ord-muted);
+}
+
+body.florisyn-atelier #ordersPage .ord-popover input,
+body.florisyn-atelier #ordersPage .ord-popover select {
+  min-height: 36px;
+  border: 1px solid var(--ord-border) !important;
+  border-radius: 8px !important;
+  padding: 0 10px !important;
+  font-size: 13px;
+  color: var(--ord-ink);
+  background: #fff !important;
+}
+
+body.florisyn-atelier #ordersPage .ord-popover-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+/* Table card */
+body.florisyn-atelier #ordersPage .ord-table-card {
+  background: var(--ord-card);
+  border: 1px solid var(--ord-border);
+  border-radius: var(--ord-radius);
+  overflow: hidden;
+}
+
+/* Rectangle-tile order grid (replaced the table 2026-08-15, per owner
+   request — same layout on desktop and mobile, each tile carries its own
+   Edit + Delete actions instead of a row in a wide scrolling table). */
+body.florisyn-atelier #ordersPage .ord-tile-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--ord-border);
+}
+
+body.florisyn-atelier #ordersPage .ord-select-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ord-muted);
+  cursor: pointer;
+}
+
+body.florisyn-atelier #ordersPage .ord-sort-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ord-muted);
+}
+
+body.florisyn-atelier #ordersPage .ord-sort-control select {
+  border: 1px solid var(--ord-border) !important;
+  border-radius: var(--ord-pill) !important;
+  padding: 6px 12px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--ord-ink) !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+body.florisyn-atelier #ordersPage .ord-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  padding: 16px;
+}
+
+body.florisyn-atelier #ordersPage .ord-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--ord-border);
+  border-radius: var(--ord-radius);
+  padding: 14px;
+  background: #fff;
+}
+
+body.florisyn-atelier #ordersPage .ord-tile.is-selected {
+  background: rgba(224, 107, 133, 0.06);
+  border-color: var(--ord-rose);
+}
+
+body.florisyn-atelier #ordersPage .ord-tile-select {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+body.florisyn-atelier #ordersPage .ord-tile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-right: 26px;
+}
+
+body.florisyn-atelier #ordersPage .ord-tile-customer {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ord-ink);
+}
+
+body.florisyn-atelier #ordersPage .ord-tile-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+body.florisyn-atelier #ordersPage .ord-tile-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ord-muted);
+}
+
+body.florisyn-atelier #ordersPage .ord-tile-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--ord-border);
+}
+
+body.florisyn-atelier #ordersPage .ord-tile-actions {
+  display: flex;
+  gap: 8px;
+}
+
+body.florisyn-atelier #ordersPage .ord-tile-actions button {
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  border-radius: var(--ord-pill) !important;
+  box-shadow: none !important;
+}
+
+body.florisyn-atelier #ordersPage .ord-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 48px 16px;
+}
+
+body.florisyn-atelier #ordersPage .ord-empty-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ord-ink);
+  margin: 0 0 6px;
+}
+
+body.florisyn-atelier #ordersPage .ord-empty-sub {
+  font-size: 13px;
+  color: var(--ord-muted);
+  margin: 0;
+}
+
+body.florisyn-atelier #ordersPage .ord-check {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--ord-rose);
+  cursor: pointer;
+}
+
+body.florisyn-atelier #ordersPage .ord-num {
+  font-weight: 700;
+  color: var(--ord-ink);
+  white-space: nowrap;
+}
+
+body.florisyn-atelier #ordersPage .ord-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+body.florisyn-atelier #ordersPage .ord-item + .ord-item {
+  margin-top: 6px;
+}
+
+body.florisyn-atelier #ordersPage .ord-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #f3eef1;
+}
+
+body.florisyn-atelier #ordersPage .ord-item span {
+  min-width: 0;
+  line-height: 1.3;
+}
+
+body.florisyn-atelier #ordersPage .ord-total {
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+body.florisyn-atelier #ordersPage .ord-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 16px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+body.florisyn-atelier #ordersPage .ord-status.delivered {
+  background: #e8f5f0;
+  color: #2d8b6f;
+}
+
+body.florisyn-atelier #ordersPage .ord-status.in-progress {
+  background: #fff3e0;
+  color: #c8860a;
+}
+
+body.florisyn-atelier #ordersPage .ord-status.ready {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+body.florisyn-atelier #ordersPage .ord-status.pending {
+  background: #f5f5f5;
+  color: #666670;
+}
+
+body.florisyn-atelier #ordersPage .ord-status.cancelled {
+  background: #ffebee;
+  color: #c62828;
+}
+
+/* Pagination */
+body.florisyn-atelier #ordersPage .ord-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--ord-border);
+  flex-wrap: wrap;
+}
+
+body.florisyn-atelier #ordersPage .ord-pager-meta {
+  color: var(--ord-muted);
+  font-size: 13px;
+}
+
+body.florisyn-atelier #ordersPage .ord-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+body.florisyn-atelier #ordersPage .ord-pages button {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--ord-muted) !important;
+  min-width: 34px;
+  height: 34px;
+  border-radius: 999px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  padding: 0 10px !important;
+}
+
+body.florisyn-atelier #ordersPage .ord-pages button.active {
+  background: var(--ord-navy) !important;
+  color: #fff !important;
+}
+
+body.florisyn-atelier #ordersPage .ord-pages button:disabled {
+  opacity: 0.4;
+}
+
+/* Keep legacy board/list out of the luxury layout */
+body.florisyn-atelier #ordersPage.florisyn-lux-orders .order-command-layout,
+body.florisyn-atelier #ordersPage.florisyn-lux-orders #ordersBoard,
+body.florisyn-atelier #ordersPage.florisyn-lux-orders #ordersList,
+body.florisyn-atelier #ordersPage.florisyn-lux-orders #telemetryLog {
+  display: none !important;
+}
+
+@media (max-width: 900px) {
+  body.florisyn-atelier #ordersPage .ord-toolbar {
+    align-items: stretch;
+  }
+
+  body.florisyn-atelier #ordersPage .ord-tools {
+    width: 100%;
+    margin-left: 0;
+    /* Search + the "May 1 - May 12, 2026" date chip + filter button no
+       longer fit in one unwrappable row on narrow screens — .ord-date has
+       white-space:nowrap and no min-width:0, so flexbox refused to shrink
+       it below its ~154px content width, and it got squeezed down to
+       45px and clipped instead (live-measured 2026-08-15). Let the date
+       and filter buttons wrap onto their own row below the search box
+       instead of overflowing. */
+    flex-wrap: wrap;
+  }
+
+  body.florisyn-atelier #ordersPage .ord-search {
+    flex: 1 1 100%;
+  }
+
+  body.florisyn-atelier #ordersPage .ord-date,
+  body.florisyn-atelier #ordersPage .ord-filter-btn {
+    flex: 0 0 auto;
+  }
+}

@@ -17,6 +17,11 @@ test("flower subscription schedule advances weekly", () => {
   assert.equal(n, "2026-01-08");
 });
 
+test("flower subscription date-only scheduling is timezone stable", () => {
+  assert.equal(nextDeliveryDate("weekly", "2026-01-01T23:30:00-08:00"), "2026-01-08");
+  assert.equal(nextDeliveryDate("biweekly", "2026-03-08"), "2026-03-22");
+});
+
 test("validate flower subscription requires customer and amount", () => {
   assert.equal(validateFlowerSubscription({ schedule: "weekly", amount: 50, customer_name: "A" }).valid, true);
   assert.equal(validateFlowerSubscription({ schedule: "bad" }).valid, false);

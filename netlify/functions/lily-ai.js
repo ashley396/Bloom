@@ -8,6 +8,9 @@ import {
   sanitizeHistoryEntry,
   searchHistory
 } from "./_shared/lily-ai-engine.js";
+import { suggestHandoff } from "./_shared/florist-ai-personas.js";
+import { runCloudflareGenerate } from "./ai-assistant.js";
+import { searchMarketplaceForLily, buildMarketplaceSourcingAnswer } from "./_shared/marketplace-lily-sourcing.js";
 
 const CONVERSATIONS = "lily_conversations";
 const MESSAGES = "lily_messages";
@@ -22,11 +25,44 @@ function isMissingTableError(error) {
 async function loadAiContext(client, shopId) {
   const [{ data: shop }, { data: inventory }, { data: orders }, { data: deliveries }] = await Promise.all([
     client.from("shops").select("name,address,phone,tagline").eq("id", shopId).maybeSingle(),
-    client.from("inventory").select("name,color,quantity,low_stock_level,cost,price").eq("shop_id", shopId).is("deleted_at", null).order("updated_at", { ascending: false }).limit(40),
+    client.from("inventory").select("name,color,quantity,low_stock_level,cost,price").eq("shop_id", shopId).is("deleted_at", null).order("created_at", { ascending: false }).limit(40),
     client.from("orders").select("order_number,customer_name,total,payment_status,delivery_date,status,estimated_cost").eq("shop_id", shopId).order("created_at", { ascending: false }).limit(20),
-    client.from("deliveries").select("status,recipient_name,address,scheduled_date").eq("shop_id", shopId).order("scheduled_date", { ascending: true }).limit(15)
+    client.from("deliveries").select("status,recipient_name,address,delivery_date").eq("shop_id", shopId).order("delivery_date", { ascending: true }).limit(15)
   ]);
   return { shop: shop || {}, inventory: inventory || [], recent_orders: orders || [], deliveries: deliveries || [] };
+}
+
+/**
+ * Real conversational answer from Cloudflare Workers AI (persona-aware). Returns
+ * null on any failure so the caller can fall back to a safe template.
+ *
+ * Routed through the shared ai-assistant.js provider layer (not a bespoke fetch)
+ * so Lily's chat gets the same input sanitization every other Florisyn AI surface
+ * gets — BLOCKED_KEY/DATA_URL scrubbing and size-limited context — instead of a
+ * second, independently-truncated Cloudflare call path.
+ */
+export async function cloudflareChat(persona, message, context) {
+  if (!message) return null;
+  try {
+    const result = await runCloudflareGenerate({
+      mode: "chat",
+      persona,
+      prompt: message,
+      context: {
+        shop: context.shop || {},
+        inventory: context.inventory || [],
+        recent_orders: context.recent_orders || [],
+        upcoming_deliveries: context.deliveries || []
+      },
+      max_tokens: 500,
+      // Persona prompts already say not to claim unconfirmed actions; add the
+      // one guardrail that's specific to a live business-context chat turn.
+      systemSuffix: "Protect private employee and customer information — never repeat it outside its business purpose."
+    });
+    return result?.answer?.trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 async function persistMessage(client, { conversationId, userId, shopId, role, content, metadata }) {
@@ -60,17 +96,23 @@ async function logAction(client, { userId, shopId, intent, actionType, result, m
   }
 }
 
-function buildResponseMessage(intent, permission, planned, confirmed) {
+export function buildResponseMessage(intent, permission, planned, confirmed) {
   if (!permission.allowed) {
-    return "I can help with that, but your Bloom role does not allow this action. Ask a shop owner or manager if you need access.";
+    return "I can help with that, but your Florisyn role does not allow this action. Ask a shop owner or manager if you need access.";
   }
   if (planned?.message) return planned.message;
   if (planned?.requiresConfirmation && !confirmed) {
-    return `I can ${planned.label || "do that"}. Confirm below and I will guide Bloom — I will not change anything without your approval.`;
+    return `I can ${planned.label || "do that"}. Confirm below and I will guide Florisyn — I will not change anything without your approval.`;
+  }
+  // Already confirmed: the earlier "confirm below" line is stale here — Florisyn
+  // is acting on it right now, so say that instead of asking to confirm again.
+  if (planned?.requiresConfirmation && confirmed) {
+    return `Got it — sending "${planned.label || "that"}" to Florisyn now.`;
   }
   if (planned?.type === "navigate") return "Opening the right workspace for you.";
   if (intent.intent === "general.chat") return null;
-  return "Here is what I prepared. Review the suggestion and confirm if Bloom should take action.";
+  // Florisyn's florist business assistant — customer-facing Lily identity copy.
+  return "Here is what I prepared. Review the suggestion and confirm if Florisyn should take action.";
 }
 
 export async function handler(event) {
@@ -84,6 +126,7 @@ export async function handler(event) {
     const message = String(body.message || body.prompt || "").trim();
     const confirmed = Boolean(body.confirm);
     const conversationId = body.conversation_id || null;
+    const persona = body.persona || body.assistant || "lily";
 
     if (event.httpMethod === "POST" && body.action === "history-search") {
       const history = Array.isArray(body.history) ? body.history.map(sanitizeHistoryEntry) : [];
@@ -134,9 +177,29 @@ export async function handler(event) {
       };
     }
 
-    const responseText =
-      buildResponseMessage(intent, permission, planned, confirmed) ||
-      `I understand you want help with ${intent.domain.replace("_", " ")}. I can chat, suggest next steps, and prepare actions for your confirmation.`;
+    // Marketplace vision: "Lily should use REAL marketplace information.
+    // Never invent supplier availability or pricing." — a real DB search
+    // against marketplace_listings composed into a deterministic answer,
+    // never handed to the freeform LLM chat path where pricing/
+    // availability could be paraphrased into something that isn't real.
+    if (intent.intent === "marketplace.search" && permission.allowed && intent.slots.flowers?.length) {
+      const matches = await searchMarketplaceForLily(client, intent.slots.flowers);
+      planned.message = buildMarketplaceSourcingAnswer(matches, intent.slots.flowers);
+    }
+
+    let responseText = buildResponseMessage(intent, permission, planned, confirmed);
+    if (responseText == null) {
+      // Conversational turn (general chat): answer with the real model, persona-aware,
+      // instead of a static template. Falls back to the template if AI is unavailable.
+      const aiAnswer = permission.allowed ? await cloudflareChat(persona, message, context) : null;
+      responseText = aiAnswer ||
+        `I understand you want help with ${intent.domain.replace("_", " ")}. I can chat, suggest next steps, and prepare actions for your confirmation.`;
+    }
+
+    // Option A: when the topic sits in another persona's lane, gently suggest a
+    // handoff (never blocks the answer or action). Front-end can offer a one-tap switch.
+    const handoff = permission.allowed ? suggestHandoff(persona, intent.domain, message) : null;
+    if (handoff && responseText) responseText += handoff.line;
 
     await logAction(client, {
       userId: user.id,
@@ -157,7 +220,15 @@ export async function handler(event) {
           .single();
         convId = data?.id || null;
       } catch (error) {
-        if (!isMissingTableError(error)) throw error;
+        if (!isMissingTableError(error)) {
+          console.warn(
+            JSON.stringify({
+              level: "warn",
+              message: "lily_conversation_create_skipped",
+              detail: String(error.message || error).slice(0, 200)
+            })
+          );
+        }
       }
     }
 
@@ -185,6 +256,7 @@ export async function handler(event) {
       intent,
       permission,
       response: responseText,
+      handoff: handoff ? { to: handoff.to, label: handoff.label } : null,
       client_action: permission.allowed && (!planned?.requiresConfirmation || confirmed) ? planned : planned?.requiresConfirmation && !confirmed ? { ...planned, pending: true } : null,
       generate,
       coach: buildCoachSuggestions(context),

@@ -1,0 +1,1032 @@
+{
+  "version": "1.0",
+  "collection": "florisyn_category_library",
+  "category": "Congratulations",
+  "target_count": 20,
+  "image_style": "professional florist e-commerce product photograph, single arrangement centered, pure white seamless studio background, soft even studio lighting, ultra-realistic, no text/people",
+  "arrangements": [
+    {
+      "id": "cg-01-congrats-celebration",
+      "name": "Congratulations Celebration",
+      "style": "vibrant",
+      "color_palette": "mixed bright",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass gathering vase",
+      "recipe": [
+        {
+          "name": "Hot Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Sunflowers",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A vibrant burst to celebrate the win.",
+      "description": "A vibrant celebration of roses, gerberas, and sunflowers — a colorful cheer for any well-earned achievement.",
+      "suggested_retail": 84.99,
+      "image": "everyday/cg-01-congrats-celebration.jpg",
+      "alt": "Bright mixed congratulations arrangement on a white background",
+      "content_sha256": "5f9155d31ef1e64baadaeea91dab7188bcbaefc21b87136fd3dd33154e663387",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-02-bravo-brights",
+      "name": "Bravo Brights",
+      "style": "vibrant",
+      "color_palette": "orange, pink, yellow",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Orange Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Hot Pink Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "Bold brights that shout 'bravo!'",
+      "description": "Bold orange roses, pink gerberas, and yellow alstroemeria — a lively 'bravo!' for a job well done.",
+      "suggested_retail": 79.99,
+      "image": "everyday/cg-02-bravo-brights.jpg",
+      "alt": "Bright orange, pink and yellow congratulations arrangement on a white background",
+      "content_sha256": "9198737bffd0cf11f7e06fd522b62efb9ddd738f8b20a08a89be12a4aee34874",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-03-well-done-roses",
+      "name": "Well Done Roses",
+      "style": "classic",
+      "color_palette": "mixed roses",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass rose vase",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Baby's Breath",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A cheerful dozen to say 'well done.'",
+      "description": "A dozen roses in pink, orange, and yellow with baby's breath — a classic, cheerful 'well done!'",
+      "suggested_retail": 84.99,
+      "image": "everyday/cg-03-well-done-roses.jpg",
+      "alt": "Mixed-color rose congratulations arrangement on a white background",
+      "content_sha256": "5949e5537fab7082d2ab7a7fe5a198188196faa82bbefdf7e7db32b74807fa09",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-04-you-did-it-sunflowers",
+      "name": "You Did It!",
+      "style": "cheerful",
+      "color_palette": "yellow, orange",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass gathering vase",
+      "recipe": [
+        {
+          "name": "Sunflowers",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Solidago",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "Sunny sunflowers to say 'you did it!'",
+      "description": "Big, bright sunflowers with orange roses — a sunny, confident 'you did it!' for graduations and big wins.",
+      "suggested_retail": 79.99,
+      "image": "everyday/cg-04-you-did-it-sunflowers.jpg",
+      "alt": "Sunflower congratulations arrangement on a white background",
+      "content_sha256": "0f1fae7c5142942ae2d9a9c77a359d8237c70f364aef01c9bddf482ecba13419",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-05-new-home-fresh",
+      "name": "New Home Fresh",
+      "style": "garden",
+      "color_palette": "green, white, yellow",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Green Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Craspedia",
+          "qty": 5,
+          "kind": "filler"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A fresh, homey welcome for a new home.",
+      "description": "Crisp white roses, green hydrangea, and cheerful craspedia — a fresh, welcoming 'congrats on the new home.'",
+      "suggested_retail": 84.99,
+      "image": "everyday/cg-05-new-home-fresh.jpg",
+      "alt": "Green and white new home congratulations arrangement on a white background",
+      "content_sha256": "fa7d5347d12d0b0c05d4e34dfb03a050b624e3ee53949e2310da05247299823c",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-06-champagne-toast",
+      "name": "Champagne Toast",
+      "style": "elegant",
+      "color_palette": "cream, gold, blush",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "gold mercury glass vase",
+      "recipe": [
+        {
+          "name": "Cream Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Champagne Spray Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Gold-tipped Ruscus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Gold-tipped Ruscus"
+      ],
+      "short_description": "An elegant cream-and-gold toast to success.",
+      "description": "Cream and champagne roses in a gold mercury vase — an elegant toast to promotions, engagements, and milestones.",
+      "suggested_retail": 99.99,
+      "image": "everyday/cg-06-champagne-toast.jpg",
+      "alt": "Cream and gold congratulations arrangement on a white background",
+      "content_sha256": "4f6bc67b860d6c8c30077e97750f0be8f18a242c513a7e254f6d0e245192ec35",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-07-engagement-blush",
+      "name": "Engagement Blush",
+      "style": "romantic",
+      "color_palette": "blush, white, gold",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "footed glass compote",
+      "recipe": [
+        {
+          "name": "Blush Garden Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Ranunculus",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A romantic blush toast to the newly engaged.",
+      "description": "Lush blush garden roses and ranunculus in a footed compote — a romantic congratulations for the newly engaged.",
+      "suggested_retail": 109.99,
+      "image": "everyday/cg-07-engagement-blush.jpg",
+      "alt": "Blush engagement congratulations arrangement on a white background",
+      "content_sha256": "1d01e72a0d003c86c8ed891e7a5128b108949cafc9d67481ae20f56358f7f457",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-08-grad-brights",
+      "name": "Graduation Brights",
+      "style": "vibrant",
+      "color_palette": "red, blue, yellow",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Blue Delphinium",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "Bold school-spirit brights for the grad.",
+      "description": "Bold red, blue, and yellow blooms — a school-spirited celebration for the proud new graduate.",
+      "suggested_retail": 79.99,
+      "image": "everyday/cg-08-grad-brights.jpg",
+      "alt": "Red, blue and yellow graduation arrangement on a white background",
+      "content_sha256": "ee8df61ab4fe2b96b217fddefe4a20e0d4e3373621860881ef9667198a370648",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-09-purple-praise",
+      "name": "Purple Praise",
+      "style": "rich",
+      "color_palette": "purple, lavender",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Purple Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Lavender Stock",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Regal purples in praise of an achievement.",
+      "description": "Rich purple roses, stock, and alstroemeria — a regal salute to a distinguished accomplishment.",
+      "suggested_retail": 84.99,
+      "image": "everyday/cg-09-purple-praise.jpg",
+      "alt": "Purple congratulations arrangement on a white background",
+      "content_sha256": "fcb2c76aeea62eafc6432432ea7e2910715326cc0dab901aa749a52db960fc86",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-10-promotion-power",
+      "name": "Promotion Power",
+      "style": "bold",
+      "color_palette": "red, orange",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "tall clear glass vase",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Red Hypericum Berries",
+          "qty": 5,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "Powerful reds and oranges for a promotion.",
+      "description": "Confident red and orange roses with berries — a powerful, professional congratulations for a big promotion.",
+      "suggested_retail": 94.99,
+      "image": "everyday/cg-10-promotion-power.jpg",
+      "alt": "Red and orange congratulations arrangement on a white background",
+      "content_sha256": "f7a4aa550f2f7002028498ee6a0a66360ca91dbfbf168619c5507cd2c4da4547",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-11-cheerful-gerberas",
+      "name": "Cheerful Gerbera Cheers",
+      "style": "playful",
+      "color_palette": "mixed bright",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Hot Pink Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A playful pop of cheerful gerberas.",
+      "description": "A playful pop of pink, orange, and yellow gerbera daisies — pure cheerful energy to say congratulations.",
+      "suggested_retail": 74.99,
+      "image": "everyday/cg-11-cheerful-gerberas.jpg",
+      "alt": "Mixed bright gerbera congratulations arrangement on a white background",
+      "content_sha256": "b19249c7eaca846d2f449b9080d482c1374fef47d37086d53e9fc1ae4a20fc76",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-12-elegant-white-gold",
+      "name": "Elegant White & Gold",
+      "style": "elegant",
+      "color_palette": "white, gold, green",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "gold compote bowl",
+      "recipe": [
+        {
+          "name": "White Garden Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "White Ranunculus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Gold-tipped Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Gold-tipped Eucalyptus"
+      ],
+      "short_description": "An elegant white and gold statement.",
+      "description": "White garden roses and hydrangea with gold-tipped greenery in a gold compote — refined congratulations for a milestone.",
+      "suggested_retail": 104.99,
+      "image": "everyday/cg-12-elegant-white-gold.jpg",
+      "alt": "White and gold congratulations arrangement on a white background",
+      "content_sha256": "8eca8e40066d8070c4d717619662390397366c2bf490c456978b6d8dee552c1b",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-13-tropical-triumph",
+      "name": "Tropical Triumph",
+      "style": "exotic",
+      "color_palette": "orange, pink, green",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "tall clear glass vase",
+      "recipe": [
+        {
+          "name": "Orange Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Hot Pink Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Green Anthurium",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Bird of Paradise",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Monstera Leaves",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Monstera Leaves"
+      ],
+      "short_description": "An exotic tropical triumph.",
+      "description": "Vivid orange roses, anthurium, and bird of paradise — an exotic, triumphant congratulations statement.",
+      "suggested_retail": 99.99,
+      "image": "everyday/cg-13-tropical-triumph.jpg",
+      "alt": "Tropical congratulations arrangement with bird of paradise on a white background",
+      "content_sha256": "0417c92fc260498d0a4b34730e68dad8c2188e4a025d2706a85de4df40e895a4",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-14-new-venture",
+      "name": "New Venture Greens",
+      "style": "modern",
+      "color_palette": "green, white",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "low ceramic bowl",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Green Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Green Chrysanthemums",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Seeded Eucalyptus",
+          "qty": 8,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Seeded Eucalyptus"
+      ],
+      "short_description": "Fresh greens for a new business or venture.",
+      "description": "Fresh white roses and green hydrangea in a modern bowl — a sophisticated 'congrats on the new venture.'",
+      "suggested_retail": 89.99,
+      "image": "everyday/cg-14-new-venture.jpg",
+      "alt": "Green and white new venture congratulations arrangement on a white background",
+      "content_sha256": "d2fb394a76a3c2d8766771ac5017313d65f1b8fb094ffdad7c9f3e6f58325113",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-15-pink-proud",
+      "name": "Pretty & Proud",
+      "style": "sweet",
+      "color_palette": "pink, white",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Pretty pinks for a proud accomplishment.",
+      "description": "Soft pink roses and lisianthus with alstroemeria — pretty and proud congratulations for a special someone.",
+      "suggested_retail": 84.99,
+      "image": "everyday/cg-15-pink-proud.jpg",
+      "alt": "Pink and white congratulations arrangement on a white background",
+      "content_sha256": "534bf79505a6b66c2d1afb31f471c9e531939b158a89a07e7669049de4c0cb12",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-16-sunset-success",
+      "name": "Sunset Success",
+      "style": "warm",
+      "color_palette": "orange, red, yellow",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass gathering vase",
+      "recipe": [
+        {
+          "name": "Orange Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Red Gerbera Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Sunflowers",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Solidago",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "Warm sunset tones toasting success.",
+      "description": "Warm orange, red, and yellow blooms glowing like a sunset — a heartfelt toast to hard-won success.",
+      "suggested_retail": 84.99,
+      "image": "everyday/cg-16-sunset-success.jpg",
+      "alt": "Warm sunset-toned congratulations arrangement on a white background",
+      "content_sha256": "faee2bd17dcb42e73a21a3f89390d46565cda96916c8d9fc4a81578175c09166",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-17-blue-brilliant",
+      "name": "Brilliant Blue",
+      "style": "cool",
+      "color_palette": "blue, white",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Blue Delphinium",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Cool blues celebrating a brilliant achievement.",
+      "description": "Brilliant blue hydrangea and delphinium with white roses — a cool, confident congratulations.",
+      "suggested_retail": 89.99,
+      "image": "everyday/cg-17-blue-brilliant.jpg",
+      "alt": "Blue and white congratulations arrangement on a white background",
+      "content_sha256": "1ab33965dda506dcf450282ca4a706b6f3dfbb8683779a2d43b734332b98827f",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-18-big-cheers-bouquet",
+      "name": "Big Cheers Bouquet",
+      "style": "grand",
+      "color_palette": "mixed bright",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "tall clear glass vase",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Gerbera Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Alstroemeria",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Sunflowers",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Solidago",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A big, abundant bouquet of cheers.",
+      "description": "An abundant, colorful bouquet of roses, gerberas, and sunflowers — big cheers for a big accomplishment.",
+      "suggested_retail": 99.99,
+      "image": "everyday/cg-18-big-cheers-bouquet.jpg",
+      "alt": "Large mixed bright congratulations bouquet on a white background",
+      "content_sha256": "b538e8bd0ca3a34fb942ae6c54af4bcfa134825a0fc2578071393bb1a64f51fc",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-19-classy-calla",
+      "name": "Classy Calla Congrats",
+      "style": "modern",
+      "color_palette": "orange, green",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "tall cylinder vase",
+      "recipe": [
+        {
+          "name": "Orange Calla Lilies",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Israeli Ruscus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Israeli Ruscus",
+        "Bear Grass"
+      ],
+      "short_description": "Sleek orange callas for a modern congrats.",
+      "description": "Sleek orange calla lilies with yellow roses in a tall vase — a modern, sophisticated congratulations.",
+      "suggested_retail": 109.99,
+      "image": "everyday/cg-19-classy-calla.jpg",
+      "alt": "Orange calla lily congratulations arrangement on a white background",
+      "content_sha256": "eaf81d44fc2b919abc13d598117ff738f8b169409ab99cee6c91f3a344f53168",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "cg-20-rainbow-cheer-congrats",
+      "name": "Rainbow of Cheer",
+      "style": "playful",
+      "color_palette": "rainbow",
+      "categories": [
+        "Congratulations"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Gerbera Daisies",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Green Button Poms",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Blue Delphinium",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Statice",
+          "qty": 3,
+          "kind": "filler"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A full rainbow of celebratory cheer.",
+      "description": "Every color of the rainbow in one joyful cube — a vibrant, all-out celebration of congratulations.",
+      "suggested_retail": 84.99,
+      "image": "everyday/cg-20-rainbow-cheer-congrats.jpg",
+      "alt": "Rainbow congratulations arrangement in a cube on a white background",
+      "content_sha256": "056b99f5c49786d50ab70f62441e17af9d36153f02475bd6c09449a8f1e8f1be",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    }
+  ],
+  "generated_at": "2026-08-13T14:42:26.800Z",
+  "image_source": "ai_generated_cloudflare_flux"
+}

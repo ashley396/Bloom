@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" role="img" aria-label="Florisyn — studio photograph in production">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#faf7f2"/>
+      <stop offset="1" stop-color="#f0e4e4"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="50%" cy="42%" r="42%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.65"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1000" height="1000" fill="url(#bg)"/>
+  <rect width="1000" height="1000" fill="url(#halo)"/>
+
+  <!-- delicate bloom emblem -->
+  <g transform="translate(500 430)" fill="none" stroke="#c4a4a4" stroke-width="6" stroke-linecap="round">
+    <g>
+      <ellipse cx="0" cy="-96" rx="34" ry="66"/>
+      <ellipse cx="0" cy="-96" rx="34" ry="66" transform="rotate(60)"/>
+      <ellipse cx="0" cy="-96" rx="34" ry="66" transform="rotate(120)"/>
+      <ellipse cx="0" cy="-96" rx="34" ry="66" transform="rotate(180)"/>
+      <ellipse cx="0" cy="-96" rx="34" ry="66" transform="rotate(240)"/>
+      <ellipse cx="0" cy="-96" rx="34" ry="66" transform="rotate(300)"/>
+    </g>
+    <circle cx="0" cy="0" r="30" fill="#c9a962" stroke="none"/>
+    <!-- stem + leaves -->
+    <path d="M0 30 C 2 120, -2 170, 0 210" stroke="#b9c3a8"/>
+    <path d="M0 120 C -46 108, -74 132, -86 170 C -44 172, -12 158, 0 128 Z" fill="#b9c3a8" stroke="none" opacity="0.85"/>
+    <path d="M0 158 C 46 146, 74 170, 86 208 C 44 210, 12 196, 0 166 Z" fill="#b9c3a8" stroke="none" opacity="0.85"/>
+  </g>
+
+  <!-- hairline -->
+  <line x1="410" y1="710" x2="590" y2="710" stroke="#c9a962" stroke-width="2"/>
+
+  <text x="500" y="770" text-anchor="middle" font-family="'Crimson Pro', Georgia, 'Times New Roman', serif"
+        font-size="58" letter-spacing="14" fill="#1a1f3c">FLORISYN</text>
+  <text x="500" y="812" text-anchor="middle" font-family="Inter, Arial, sans-serif"
+        font-size="21" letter-spacing="7" fill="#9c8a86">STUDIO PHOTOGRAPH IN PRODUCTION</text>
+</svg>

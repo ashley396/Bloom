@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { validateVerificationProfile } from "./marketplace-verification-rules.js";
+import { adminIfConfigured } from "./supabase.js";
 
 export const BUCKET = "marketplace-verification-documents";
 export const TABLE = "marketplace_verification_applications";
@@ -174,6 +175,15 @@ export function adminDecisionToStatus(decision) {
   }
 }
 
+/**
+ * Same check used on both sides of the marketplace: an "approved, not
+ * expired" verification application is what makes an account authorized
+ * to transact — as a buyer, or, per the marketplace vision's SUPPLIER
+ * VERIFICATION section ("only authorized sellers should be allowed to
+ * publicly sell through the marketplace"), as a seller. There's one
+ * verification system in this platform, not two — reused, not
+ * duplicated, even though this function predates the seller-side use.
+ */
 export function canPurchaseWithVerification(application, now = Date.now()) {
   if (!application) {
     return { allowed: false, reason: "missing_application" };
@@ -194,8 +204,63 @@ export function canPurchaseWithVerification(application, now = Date.now()) {
   return { allowed: true, reason: null };
 }
 
+/**
+ * SUPPLIER VERIFICATION from the marketplace vision: "Do not allow
+ * anybody to pretend to be a wholesaler... Only authorized sellers
+ * should be allowed to publicly sell through the marketplace." This
+ * platform already has exactly one real identity-verification system —
+ * marketplace_verification_applications, keyed by user_id, with a real
+ * admin review lifecycle (submitted/approved/rejected/suspended) — and
+ * the seller dashboard already displays it. Reuses
+ * canPurchaseWithVerification()'s exact approved-and-not-expired check;
+ * does not invent a second, parallel verification concept.
+ *
+ * Lives here (not in a single netlify/functions/*.js file) so every
+ * consumer that needs to gate on real seller verification — the buyer
+ * catalog, Reorder, Standing Orders, and Lily's marketplace-sourcing
+ * search — can import the one shared check instead of each function
+ * file reinventing it or reaching into a sibling function file.
+ */
+export async function loadVerifiedSellerShopIds(shopIds, { adminClient } = {}) {
+  const ids = [...new Set((shopIds || []).filter(Boolean))];
+  if (!ids.length) return new Set();
+
+  // A buyer's own RLS-scoped client can only ever read their own
+  // verification row (marketplace_verification_applications' RLS policy
+  // is strictly auth.uid() = user_id) — checking OTHER sellers'
+  // verification status requires the service-role client. If it isn't
+  // configured, fail closed (nothing verified, nothing shown) rather
+  // than silently treating every seller as authorized. adminClient is an
+  // injectable test seam (same pattern as handleStripeOrderWebhook's
+  // `admin` dependency) — production always resolves it fresh via
+  // adminIfConfigured().
+  const svc = adminClient !== undefined ? adminClient : adminIfConfigured();
+  if (!svc) return new Set();
+
+  const { data: shops, error: shopsError } = await svc.from("shops").select("id, owner_user_id").in("id", ids);
+  if (shopsError || !shops?.length) return new Set();
+
+  const ownerByShop = new Map(shops.map((s) => [s.id, s.owner_user_id]));
+  const ownerIds = [...new Set(shops.map((s) => s.owner_user_id).filter(Boolean))];
+  if (!ownerIds.length) return new Set();
+
+  const { data: applications, error: appsError } = await svc
+    .from(TABLE)
+    .select("user_id, status, documents_expire_at, approval_expires_at, profile_data")
+    .in("user_id", ownerIds);
+  if (appsError) return new Set();
+
+  const applicationByOwner = new Map((applications || []).map((a) => [a.user_id, a]));
+  const verified = new Set();
+  for (const [shopId, ownerId] of ownerByShop) {
+    const application = applicationByOwner.get(ownerId);
+    if (canPurchaseWithVerification(application).allowed) verified.add(shopId);
+  }
+  return verified;
+}
+
 export function checkoutListingSelectFields() {
-  return "id, product_name, price, shop_id, active, shops(stripe_connect_account_id)";
+  return "id, product_name, price, unit, shop_id, active, shops(stripe_connect_account_id)";
 }
 
 export function mapCheckoutListing(item) {
@@ -204,6 +269,7 @@ export function mapCheckoutListing(item) {
     id: item.id,
     name: item.product_name,
     price: item.price,
+    unit: item.unit,
     shop_id: item.shop_id,
     active: item.active,
     stripe_connect_account_id: item.shops?.stripe_connect_account_id || null

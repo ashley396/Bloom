@@ -1,0 +1,966 @@
+{
+  "version": "1.0",
+  "collection": "florisyn_category_library",
+  "category": "Hydrangeas",
+  "target_count": 20,
+  "image_style": "professional florist e-commerce product photograph, single arrangement centered, pure white seamless studio background, soft even studio lighting, ultra-realistic, no text/people",
+  "arrangements": [
+    {
+      "id": "hy-01-blue-hydrangea-classic",
+      "name": "Blue Hydrangea Classic",
+      "style": "classic",
+      "color_palette": "blue, white",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Full blue hydrangea with crisp white roses.",
+      "description": "Full, mophead blue hydrangea paired with crisp white roses in a clean glass cube — a fresh, classic favorite.",
+      "suggested_retail": 84.99,
+      "image": "everyday/hy-01-blue-hydrangea-classic.jpg",
+      "alt": "Blue hydrangea and white rose arrangement in a cube on a white background",
+      "content_sha256": "3d4b94fa6d26d8a09250639cef0eb022dd2ed857a6c255a73ec96d9259cc9e9d",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-02-white-hydrangea-elegance",
+      "name": "White Hydrangea Elegance",
+      "style": "elegant",
+      "color_palette": "white, green",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "footed glass compote",
+      "recipe": [
+        {
+          "name": "White Hydrangea",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Seeded Eucalyptus",
+          "qty": 8,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Seeded Eucalyptus"
+      ],
+      "short_description": "Pure white hydrangea in an elegant compote.",
+      "description": "Lush white hydrangea and garden roses spilling from a footed compote — understated, elegant, and endlessly versatile.",
+      "suggested_retail": 94.99,
+      "image": "everyday/hy-02-white-hydrangea-elegance.jpg",
+      "alt": "White hydrangea arrangement in a compote on a white background",
+      "content_sha256": "cbff063c5f8d53c1631354aa6409762eceaa65ce511c00a38b0f085b174c5795",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-03-pink-hydrangea-blush",
+      "name": "Blush Pink Hydrangea",
+      "style": "soft",
+      "color_palette": "pink, blush",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Pink Hydrangea",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Blush Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Lisianthus",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Soft pink hydrangea with blush roses.",
+      "description": "Romantic pink hydrangea nestled with blush roses and lisianthus — soft, feminine, and full.",
+      "suggested_retail": 89.99,
+      "image": "everyday/hy-03-pink-hydrangea-blush.jpg",
+      "alt": "Pink hydrangea and blush rose arrangement on a white background",
+      "content_sha256": "04cc3613bba83e1fbe704eddde06beed1628a61c28e909adf5065a9dee9ca4a7",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-04-antique-hydrangea",
+      "name": "Antique Hydrangea",
+      "style": "vintage",
+      "color_palette": "mauve, green, antique",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "mercury glass vase",
+      "recipe": [
+        {
+          "name": "Antique Green Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Mauve Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Dusty Pink Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Moody antique-toned hydrangea blend.",
+      "description": "Vintage antique green and mauve hydrangea with dusty roses in mercury glass — a moody, sophisticated palette.",
+      "suggested_retail": 104.99,
+      "image": "everyday/hy-04-antique-hydrangea.jpg",
+      "alt": "Antique-toned hydrangea arrangement in mercury glass on a white background",
+      "content_sha256": "da0efd8820287ddcc03bb062ce830668ad88b98b08f5eafe798b060ca9f94983",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-05-hydrangea-monobotanical-blue",
+      "name": "Blue Hydrangea Abundance",
+      "style": "modern",
+      "color_palette": "blue",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass bubble bowl",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "Salal",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Salal"
+      ],
+      "short_description": "An abundant all-blue hydrangea bowl.",
+      "description": "A generous, monobotanical bowl of pure blue hydrangea — a bold, modern statement of a single beautiful bloom.",
+      "suggested_retail": 99.99,
+      "image": "everyday/hy-05-hydrangea-monobotanical-blue.jpg",
+      "alt": "All-blue hydrangea bubble bowl on a white background",
+      "content_sha256": "8be6b72324c4b6ca4b2391b93be20ab1620130af003b34d6e2de7c3c352961f3",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-06-hydrangea-white-mono",
+      "name": "White Hydrangea Abundance",
+      "style": "modern",
+      "color_palette": "white, green",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cylinder vase",
+      "recipe": [
+        {
+          "name": "White Hydrangea",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "Seeded Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Seeded Eucalyptus"
+      ],
+      "short_description": "An abundant all-white hydrangea cylinder.",
+      "description": "A cloud of pure white hydrangea in a clean cylinder — simple, fresh, and effortlessly elegant.",
+      "suggested_retail": 99.99,
+      "image": "everyday/hy-06-hydrangea-white-mono.jpg",
+      "alt": "All-white hydrangea cylinder arrangement on a white background",
+      "content_sha256": "35db5d4a20ec8227e3f68b15adf47294528f745d06040d107f2f4ba7f7da88da",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-07-hydrangea-mixed-garden",
+      "name": "Hydrangea Garden Gathering",
+      "style": "garden",
+      "color_palette": "blue, pink, white",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass gathering vase",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A garden gathering of mixed hydrangeas.",
+      "description": "A lush garden gathering of blue, pink, and white hydrangea with roses — like a summer hydrangea hedge in bloom.",
+      "suggested_retail": 109.99,
+      "image": "everyday/hy-07-hydrangea-mixed-garden.jpg",
+      "alt": "Mixed blue, pink and white hydrangea arrangement on a white background",
+      "content_sha256": "7706040358528ad040975556969244728c77299e0d84e0c958f74f683b947b4b",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-08-hydrangea-purple",
+      "name": "Purple Hydrangea Majesty",
+      "style": "rich",
+      "color_palette": "purple, green",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Purple Hydrangea",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Lisianthus",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Regal purple hydrangea and roses.",
+      "description": "Rich purple hydrangea with roses and lisianthus — a regal, jewel-toned hydrangea statement.",
+      "suggested_retail": 94.99,
+      "image": "everyday/hy-08-hydrangea-purple.jpg",
+      "alt": "Purple hydrangea and rose arrangement on a white background",
+      "content_sha256": "c927642594bee54f990069a8799cf9253cadf1dd1422fc52dc94858b78371780",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-09-hydrangea-sunflower",
+      "name": "Hydrangea & Sunflower Charm",
+      "style": "cheerful",
+      "color_palette": "blue, yellow, white",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "rustic mason jar",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Sunflowers",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Blue hydrangea and sunflowers in a mason jar.",
+      "description": "Cheerful blue hydrangea with sunflowers and daisies in a rustic mason jar — a charming country-fresh combination.",
+      "suggested_retail": 79.99,
+      "image": "everyday/hy-09-hydrangea-sunflower.jpg",
+      "alt": "Blue hydrangea and sunflower mason jar arrangement on a white background",
+      "content_sha256": "67bbac42e88872e26b8a91082b923b6705cebef5e32b866e0a000590536ed56f",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-10-hydrangea-peony",
+      "name": "Hydrangea & Peony Luxe",
+      "style": "lush",
+      "color_palette": "blush, pink, green",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "footed glass compote",
+      "recipe": [
+        {
+          "name": "Pink Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Peonies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Blush Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Silver Dollar Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Silver Dollar Eucalyptus"
+      ],
+      "short_description": "Luxe hydrangea and peony compote.",
+      "description": "An indulgent compote of pink hydrangea and full peonies with blush roses — pure floral luxury.",
+      "suggested_retail": 129.99,
+      "image": "everyday/hy-10-hydrangea-peony.jpg",
+      "alt": "Pink hydrangea and peony arrangement in a compote on a white background",
+      "content_sha256": "e1cebe64278ef2f8465bbf5bd7e3e004d9c675acf28805206e6b0377e3821e11",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-11-hydrangea-green",
+      "name": "Green Hydrangea Fresh",
+      "style": "modern",
+      "color_palette": "green, white",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Green Hydrangea",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Israeli Ruscus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Israeli Ruscus"
+      ],
+      "short_description": "Fresh green hydrangea and white roses.",
+      "description": "Cool green hydrangea with white roses in a modern cube — crisp, fresh, and beautifully understated.",
+      "suggested_retail": 84.99,
+      "image": "everyday/hy-11-hydrangea-green.jpg",
+      "alt": "Green hydrangea and white rose cube arrangement on a white background",
+      "content_sha256": "bd9c7def0360a56b614abc9014e61d08ed82c653baf5f73933fc7f5c52141a07",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-12-hydrangea-lavender-mix",
+      "name": "Hydrangea Lavender Fields",
+      "style": "soft",
+      "color_palette": "blue, lavender, white",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Lavender Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Stock",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Blue hydrangea with lavender roses and stock.",
+      "description": "Serene blue hydrangea with lavender roses and fragrant stock — a soft, dreamy lavender-fields palette.",
+      "suggested_retail": 94.99,
+      "image": "everyday/hy-12-hydrangea-lavender-mix.jpg",
+      "alt": "Blue hydrangea and lavender rose arrangement on a white background",
+      "content_sha256": "7a21c1bc4901f03cf7077f5549f767b4e2bb55a36d2a744068e0392a07d97d7f",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-13-hydrangea-red-white-blue",
+      "name": "Patriotic Hydrangea",
+      "style": "seasonal",
+      "color_palette": "red, white, blue",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cube vase",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Red Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A red, white, and blue hydrangea design.",
+      "description": "Patriotic blue hydrangea with red roses and white daisies — a festive design for summer holidays and celebrations.",
+      "suggested_retail": 84.99,
+      "image": "everyday/hy-13-hydrangea-red-white-blue.jpg",
+      "alt": "Red, white and blue hydrangea arrangement on a white background",
+      "content_sha256": "1d3283d5d8f530f4128d5ab1f8d9496ff3e4f716f4c76b349fc1c5515bd9cbcb",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-14-hydrangea-basket",
+      "name": "Hydrangea Garden Basket",
+      "style": "garden",
+      "color_palette": "blue, white, pink",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "basket arrangement",
+      "container": "natural woven basket",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A garden basket brimming with hydrangeas.",
+      "description": "A natural basket brimming with blue and white hydrangea, pink roses, and daisies — a garden gathered for gifting.",
+      "suggested_retail": 99.99,
+      "image": "everyday/hy-14-hydrangea-basket.jpg",
+      "alt": "Hydrangea garden basket on a white background",
+      "content_sha256": "165e08e83916c7382cde4a6be2515b9010c688d5ca68a776abd411a675d25dea",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-15-hydrangea-white-blue-nautical",
+      "name": "Coastal Blue & White Hydrangea",
+      "style": "coastal",
+      "color_palette": "blue, white",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass cylinder vase",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Breezy coastal blue and white hydrangea.",
+      "description": "Breezy blue and white hydrangea with white roses — a fresh, coastal palette that feels like a summer by the sea.",
+      "suggested_retail": 99.99,
+      "image": "everyday/hy-15-hydrangea-white-blue-nautical.jpg",
+      "alt": "Blue and white coastal hydrangea arrangement on a white background",
+      "content_sha256": "3cbf2a046a9150e9ae942ec534a2aeb6facdbd7a15be9e7f5ad374d2d4b63423",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-16-hydrangea-pink-white-sweet",
+      "name": "Sweet Pink & White Hydrangea",
+      "style": "sweet",
+      "color_palette": "pink, white",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass bubble bowl",
+      "recipe": [
+        {
+          "name": "Pink Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Spray Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Sweet pink and white hydrangea bowl.",
+      "description": "Soft pink and white hydrangea with dainty spray roses in a rounded bowl — sweet, full, and pretty.",
+      "suggested_retail": 89.99,
+      "image": "everyday/hy-16-hydrangea-pink-white-sweet.jpg",
+      "alt": "Pink and white hydrangea bubble bowl on a white background",
+      "content_sha256": "ebdea7524764b071bec7f72b2076ce0fa85b435b7c695b024a7489090f0a149c",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-17-hydrangea-tall-statement",
+      "name": "Tall Hydrangea Statement",
+      "style": "grand",
+      "color_palette": "blue, white, green",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "tall glass trumpet vase",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 10,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A tall, dramatic hydrangea statement piece.",
+      "description": "A grand trumpet-vase design overflowing with blue and white hydrangea and roses — a dramatic entryway or event statement.",
+      "suggested_retail": 149.99,
+      "image": "everyday/hy-17-hydrangea-tall-statement.jpg",
+      "alt": "Tall blue and white hydrangea statement arrangement on a white background",
+      "content_sha256": "ba12628e418890339e106c99ed32a13ea1905ccc1afb55f5946c7f7438659e72",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-18-hydrangea-succulent",
+      "name": "Hydrangea & Succulent Modern",
+      "style": "modern",
+      "color_palette": "green, white",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "low ceramic bowl",
+      "recipe": [
+        {
+          "name": "Green Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Succulents",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Seeded Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Seeded Eucalyptus"
+      ],
+      "short_description": "Green hydrangea with modern succulents.",
+      "description": "Cool green hydrangea paired with rosette succulents and white roses — an organic, modern, on-trend design.",
+      "suggested_retail": 104.99,
+      "image": "everyday/hy-18-hydrangea-succulent.jpg",
+      "alt": "Green hydrangea and succulent arrangement on a white background",
+      "content_sha256": "c188b9268b0b120a3a7a1f997b61576598be498d7ef3aff141f7243ffb654417",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-19-hydrangea-autumn",
+      "name": "Autumn Hydrangea Harvest",
+      "style": "seasonal",
+      "color_palette": "burgundy, green, orange",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "bronze ceramic vase",
+      "recipe": [
+        {
+          "name": "Antique Green Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Burgundy Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Oak Leaves",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Oak Leaves"
+      ],
+      "short_description": "Rich autumn-toned hydrangea harvest.",
+      "description": "Antique green and burgundy hydrangea with orange roses and oak — a rich, seasonal hydrangea harvest.",
+      "suggested_retail": 99.99,
+      "image": "everyday/hy-19-hydrangea-autumn.jpg",
+      "alt": "Autumn burgundy and green hydrangea arrangement on a white background",
+      "content_sha256": "4ad5ae7225bbdb2eaed46430fca907a76d6978737153cdd67cbfbe4cc09b080a",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "hy-20-hydrangea-all-white-luxe",
+      "name": "White Hydrangea & Rose Luxe",
+      "style": "luxe",
+      "color_palette": "white, green",
+      "categories": [
+        "Hydrangeas"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "mirror-finish silver vase",
+      "recipe": [
+        {
+          "name": "White Hydrangea",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Garden Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Ranunculus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Silver Dollar Eucalyptus",
+          "qty": 8,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Silver Dollar Eucalyptus"
+      ],
+      "short_description": "Luxe all-white hydrangea and garden roses.",
+      "description": "Full white hydrangea with garden roses and ranunculus in a silver vase — a luxe, all-white showpiece.",
+      "suggested_retail": 139.99,
+      "image": "everyday/hy-20-hydrangea-all-white-luxe.jpg",
+      "alt": "White hydrangea and garden rose luxe arrangement in a silver vase on a white background",
+      "content_sha256": "4708cf329a371134eb3561cb4d18a60a2b93208224f114f2e14c29e5eb37b864",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    }
+  ],
+  "generated_at": "2026-08-13T14:35:01.876Z",
+  "image_source": "ai_generated_cloudflare_flux"
+}

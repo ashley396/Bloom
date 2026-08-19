@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  ACTION_TIERS,
   buildCoachSuggestions,
   checkLilyPermission,
   detectIntent,
   mapAdminInsight,
   planClientAction,
+  requiresConfirmationForTier,
   sanitizeHistoryEntry,
   searchHistory
 } from "../netlify/functions/_shared/lily-ai-engine.js";
@@ -46,6 +48,50 @@ test("planClientAction marks destructive inventory changes as confirmed", () => 
   const planned = planClientAction("inventory.add", { quantity: "3", item: "hydrangeas" });
   assert.equal(planned.requiresConfirmation, true);
   assert.equal(planned.endpoint, "inventory");
+});
+
+test("requiresConfirmationForTier only gates IMPORTANT and DESTRUCTIVE (Lily Step 76)", () => {
+  assert.equal(requiresConfirmationForTier("READ"), false);
+  assert.equal(requiresConfirmationForTier("LOW"), false);
+  assert.equal(requiresConfirmationForTier("IMPORTANT"), true);
+  assert.equal(requiresConfirmationForTier("DESTRUCTIVE"), true);
+  assert.deepEqual(ACTION_TIERS, ["READ", "LOW", "IMPORTANT", "DESTRUCTIVE"]);
+});
+
+test("every planClientAction case reports a real tier, and requiresConfirmation always matches that tier — never hand-drifted", () => {
+  const cases = [
+    ["inventory.add", { quantity: "3", item: "roses" }, "IMPORTANT"],
+    ["inventory.remove", { quantity: "3", item: "roses" }, "IMPORTANT"],
+    ["orders.create", { customer_name: "Sarah" }, "IMPORTANT"],
+    ["support.report_issue", { prompt: "checkout is broken" }, "IMPORTANT"],
+    ["deliveries.today", {}, "READ"],
+    ["customers.find", { query: "Sarah" }, "READ"],
+    ["marketplace.search", { query: "carnations" }, "READ"],
+    ["wholesale.product", {}, "READ"],
+    ["website.update", {}, "READ"],
+    ["reports.insights", {}, "READ"],
+    ["employees.clock_in", { name: "Jamie" }, "READ"],
+    ["employees.payroll", {}, "READ"],
+    ["admin.insights", {}, "READ"],
+    ["florist.photo_placeholder", {}, "READ"],
+    ["marketing.generate", { prompt: "post" }, "LOW"],
+    ["product_ai.generate", { prompt: "describe" }, "LOW"]
+  ];
+  for (const [intent, slots, expectedTier] of cases) {
+    const planned = planClientAction(intent, slots);
+    assert.equal(planned.tier, expectedTier, `${intent} should be tier ${expectedTier}`);
+    assert.equal(
+      planned.requiresConfirmation,
+      requiresConfirmationForTier(expectedTier),
+      `${intent}'s requiresConfirmation must match its tier, not drift from it`
+    );
+  }
+});
+
+test("the flower-photo intent no longer claims the feature is 'coming soon' — it's real (Step 66/75)", () => {
+  const planned = planClientAction("florist.photo_placeholder", {});
+  assert.doesNotMatch(planned.message, /coming soon/i);
+  assert.match(planned.message, /Build recipe with Lily/);
 });
 
 test("conversation history sanitize and search", () => {
