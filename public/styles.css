@@ -242,6 +242,12 @@ aside button{font-size:14px!important;padding:10px 12px!important;color:#312c2f!
 .marketplace-compare-price{font-weight:800;color:#8f2758}
 .marketplace-compare-meta{font-size:12px;color:#7e707a}
 @media(max-width:700px){.marketplace-compare-row{grid-template-columns:1fr 1fr}}
+.marketplace-notif-bell{position:relative}
+.marketplace-notif-count{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#c43c6b;color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center}
+.marketplace-notif-panel{position:fixed;top:78px;right:24px;width:min(340px,90vw);max-height:400px;overflow-y:auto;background:#fff;border:1px solid #eadde5;border-radius:14px;box-shadow:0 18px 50px rgba(42,26,35,.16);padding:10px;z-index:30}
+.marketplace-notif-row{padding:9px 10px;border-radius:10px;margin-bottom:4px}
+.marketplace-notif-row p{margin:0 0 3px;font-size:13px}
+.marketplace-notif-row.unread{background:#fdf2f6}
 .wholesale-seller-root{display:grid;gap:16px}
 .wholesale-seller-nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
 .wholesale-seller-nav button.active{background:#c43c6b;color:#fff;border-color:#c43c6b}

@@ -11,6 +11,7 @@ const FAVORITES = "marketplace_favorites";
 const SELLER_PROFILES = "marketplace_seller_profiles";
 const ORDERS = "marketplace_wholesale_orders";
 const INVENTORY = "inventory";
+const NOTIFICATIONS = "marketplace_notifications";
 
 const RECEIVABLE_ORDER_STATUSES = ["paid", "fulfilled", "completed"];
 
@@ -286,6 +287,20 @@ export async function handler(event) {
         return json(200, await reorderPreview(client, user, params.order_id));
       }
 
+      if (params.resource === "notifications") {
+        const { data: notes, error: notesError } = await client
+          .from(NOTIFICATIONS)
+          .select("*")
+          .eq("recipient_user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (notesError) throw notesError;
+        return json(200, {
+          notifications: notes || [],
+          unread_count: (notes || []).filter((n) => !n.read_at).length
+        });
+      }
+
       let query = client
         .from(LISTINGS)
         .select("*")
@@ -468,6 +483,12 @@ export async function handler(event) {
 
     if (event.httpMethod === "POST") {
       const body = bodyOf(event);
+      if (body.action === "mark_notifications_read") {
+        const query = client.from(NOTIFICATIONS).update({ read_at: new Date().toISOString() }).eq("recipient_user_id", user.id).is("read_at", null);
+        const { error } = body.id ? await query.eq("id", body.id) : await query;
+        if (error) throw error;
+        return json(200, { ok: true });
+      }
       if (body.action === "receive_order") {
         if (!body.order_id) return json(400, { error: "order_id is required." });
         const result = await receiveOrderIntoInventory(client, user, shopId, body.order_id);
