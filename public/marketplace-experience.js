@@ -188,7 +188,7 @@
         <strong>${hooks.money(order.total)}</strong>
       </div>
       <p class="subtle">${itemLines || 'No items on file.'}</p>
-      <div class="card-actions">${receiveAction}</div>
+      <div class="card-actions">${receiveAction}<button type="button" class="secondary" data-market-reorder="${hooks.esc(order.id)}">Reorder</button></div>
     </article>`;
   }
 
@@ -460,21 +460,62 @@
 
     hooks.$('#marketplaceOrdersList')?.addEventListener('click', async (event) => {
       const receiveBtn = event.target.closest('[data-market-receive-order]');
-      if (!receiveBtn) return;
-      event.preventDefault();
-      receiveBtn.disabled = true;
-      receiveBtn.textContent = 'Adding to inventory…';
-      try {
-        const result = await hooks.api('marketplace-catalog', {
-          method: 'POST',
-          body: JSON.stringify({ action: 'receive_order', order_id: receiveBtn.dataset.marketReceiveOrder })
-        });
-        hooks.toast(`Added to inventory: ${result.matched_count} updated, ${result.created_count} new.`);
-        loadMyOrders(hooks, state);
-      } catch (error) {
-        hooks.toast(error.message);
-        receiveBtn.disabled = false;
-        receiveBtn.textContent = 'Add to my inventory';
+      if (receiveBtn) {
+        event.preventDefault();
+        receiveBtn.disabled = true;
+        receiveBtn.textContent = 'Adding to inventory…';
+        try {
+          const result = await hooks.api('marketplace-catalog', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'receive_order', order_id: receiveBtn.dataset.marketReceiveOrder })
+          });
+          hooks.toast(`Added to inventory: ${result.matched_count} updated, ${result.created_count} new.`);
+          loadMyOrders(hooks, state);
+        } catch (error) {
+          hooks.toast(error.message);
+          receiveBtn.disabled = false;
+          receiveBtn.textContent = 'Add to my inventory';
+        }
+        return;
+      }
+
+      const reorderBtn = event.target.closest('[data-market-reorder]');
+      if (reorderBtn) {
+        event.preventDefault();
+        reorderBtn.disabled = true;
+        reorderBtn.textContent = 'Checking current availability…';
+        try {
+          // Never resubmit last time's price/availability blindly — every
+          // line is re-checked against the listing's current state first.
+          const preview = await hooks.api(`marketplace-catalog?resource=reorder-preview&order_id=${encodeURIComponent(reorderBtn.dataset.marketReorder)}`);
+          const cart = readCart();
+          let added = 0;
+          const unavailable = [];
+          for (const item of preview.items || []) {
+            if (!item.available || !item.listing_id) {
+              unavailable.push(item.name);
+              continue;
+            }
+            if (!cart.some((row) => row.id === item.listing_id)) {
+              cart.push({ id: item.listing_id, product_name: item.name, price: item.current_price, quantity: item.quantity });
+              added += 1;
+            }
+          }
+          writeCart(cart);
+          renderCartBadge(hooks);
+          if (added && !unavailable.length) {
+            hooks.toast(`Added ${added} item(s) to your cart at today's price.`);
+          } else if (added) {
+            hooks.toast(`Added ${added} item(s) at today's price. No longer available: ${unavailable.join(', ')}.`);
+          } else {
+            hooks.toast(`None of these items are still available: ${unavailable.join(', ')}.`);
+          }
+        } catch (error) {
+          hooks.toast(error.message);
+        } finally {
+          reorderBtn.disabled = false;
+          reorderBtn.textContent = 'Reorder';
+        }
       }
     });
 
