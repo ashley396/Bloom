@@ -5,6 +5,12 @@
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
+  // `new Date().toISOString().slice(0,10)` is UTC "today", not local
+  // "today" — wrong for hours around local midnight in every US timezone.
+  function localTodayStr() {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+  }
 
   let state = {};
   let stepIndex = 0;
@@ -65,7 +71,7 @@
       fields.innerHTML = `<label>Fulfillment<select name="fulfillment"><option value="PICKUP">Pickup</option><option value="DELIVERY" ${state.fulfillment === "DELIVERY" ? "selected" : ""}>Delivery</option></select></label>`;
     } else if (step === "delivery_details") {
       fields.innerHTML = `<label>Delivery address<textarea name="delivery_address">${esc(state.delivery_address || "")}</textarea></label>
-        <label>Date<input type="date" name="delivery_date" value="${esc(state.delivery_date || new Date().toISOString().slice(0, 10))}"></label>
+        <label>Date<input type="date" name="delivery_date" value="${esc(state.delivery_date || localTodayStr())}"></label>
         <label>Instructions<textarea name="delivery_instructions">${esc(state.delivery_instructions || "")}</textarea></label>`;
     } else if (step === "pricing") {
       fields.innerHTML = `<label>Subtotal<input type="number" step="0.01" name="subtotal" value="${esc(state.subtotal || "0")}"></label>

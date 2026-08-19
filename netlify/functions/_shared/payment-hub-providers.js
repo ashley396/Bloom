@@ -110,7 +110,17 @@ export function createProviderAdapter(providerId, { stripeClient, shop = {}, env
           const account = await stripeClient.accounts.retrieve(shop.stripe_connect_account_id);
           return {
             connected: true,
-            mode: account.livemode ? "live" : "test",
+            // Not account.livemode: confirmed live in production that a
+            // connected Express account's own `livemode` field reads false
+            // here even when it was created by, and is actively processing
+            // real charges through, a genuine sk_live_ platform key (a real
+            // card succeeded end to end while this kept reporting "test").
+            // Every other branch in this function already derives mode from
+            // the platform key itself, not a per-account flag — the mode
+            // that matters is which mode the *platform* is operating in,
+            // since that's what actually determines whether any operation
+            // on this connected account moves real money. Match them.
+            mode: live ? "live" : "test",
             charges_enabled: account.charges_enabled,
             payouts_enabled: account.payouts_enabled,
             provider_ref: account.id,

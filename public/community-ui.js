@@ -7,6 +7,35 @@
       .replace(/"/g, "&quot;");
 
   const CATEGORIES = ["Design Help", "Business Advice", "Questions", "Celebrations", "Arrangement Share"];
+
+  // Mirrors SHARE_PERMISSION_TIERS in netlify/functions/_shared/florist-community.js
+  // (escalating scope, least to most permissive). Kept in sync manually —
+  // both sides validate independently, and the server is the real gate.
+  const SHARE_PERMISSION_OPTIONS = [
+    { value: "inspiration_only", label: "View for inspiration only (default)" },
+    { value: "save_to_library", label: "Save this arrangement to their library" },
+    { value: "allow_recreation", label: "Recreate this design" },
+    { value: "allow_shop_use", label: "Add this as a product in their shop" },
+    { value: "allow_website_use", label: "Publish their version on their website" },
+  ];
+  const SHARE_PERMISSION_BADGE_LABEL = {
+    inspiration_only: "Inspiration only",
+    save_to_library: "Save to library",
+    allow_recreation: "Recreation allowed",
+    allow_shop_use: "Shop use allowed",
+    allow_website_use: "Website use allowed",
+  };
+  const SHARE_PERMISSION_TIER_ORDER = SHARE_PERMISSION_OPTIONS.map((o) => o.value);
+  // UI-side convenience gate only, so a florist never sees a button that's
+  // certain to fail — the server (permissionAtLeast in
+  // netlify/functions/_shared/florist-community.js) is the real, only
+  // trusted enforcement.
+  function permissionAtLeast(actual, required) {
+    const a = SHARE_PERMISSION_TIER_ORDER.indexOf(actual || "inspiration_only");
+    const r = SHARE_PERMISSION_TIER_ORDER.indexOf(required);
+    if (a < 0 || r < 0) return false;
+    return a >= r;
+  }
   let state = {
     loading: false,
     error: null,
@@ -15,17 +44,28 @@
     guidelines: [],
     tab: "feed",
     category: "",
+    search: "",
     comments: {},
     openComments: null,
     composerDraft: {
       category: CATEGORIES[0],
       caption: "",
       body: "",
+      share_permission: "inspiration_only",
+      allow_photo_use: false,
     },
     recipeUi: {},
+    // Community Step 68 — real notifications (new like/comment/follow),
+    // fetched once on load and refreshed after the bell is opened.
+    notifications: { items: [], unreadCount: 0, open: false, loaded: false },
   };
   let pendingImageDataUrl = null;
   let pendingAvatarDataUrl = null;
+  // Set right before a render() that must NOT re-snapshot the composer's
+  // still-live (not yet re-rendered) DOM input over a draft that was just
+  // intentionally reset — e.g. right after a successful post. Self-clears
+  // after one use so it never suppresses an unrelated later capture.
+  let skipNextComposerCapture = false;
 
   async function api(action, extra = {}, method = "POST") {
     const fn = window.bloomCommunityApi || window.api;
@@ -71,6 +111,10 @@
   }
 
   function captureComposerDraft() {
+    if (skipNextComposerCapture) {
+      skipNextComposerCapture = false;
+      return;
+    }
     const form = root()?.querySelector("#communityComposer");
     if (!form) return;
     const fd = new FormData(form);
@@ -78,11 +122,13 @@
       category: String(fd.get("category") || state.composerDraft.category || CATEGORIES[0]),
       caption: String(fd.get("caption") || ""),
       body: String(fd.get("body") || ""),
+      share_permission: String(fd.get("share_permission") || state.composerDraft.share_permission || "inspiration_only"),
+      allow_photo_use: fd.get("allow_photo_use") === "on",
     };
   }
 
   function resetComposerDraft() {
-    state.composerDraft = { category: CATEGORIES[0], caption: "", body: "" };
+    state.composerDraft = { category: CATEGORIES[0], caption: "", body: "", share_permission: "inspiration_only", allow_photo_use: false };
     pendingImageDataUrl = null;
   }
 
@@ -98,6 +144,18 @@
     }
   }
   function renderEmpty() {
+    if (state.tab === "following") {
+      return `<div class="community-state community-empty">
+        <h3>You're not following anyone yet</h3>
+        <p>Tap Follow on a florist's post in the Feed to see their new posts here.</p>
+      </div>`;
+    }
+    if (state.search) {
+      return `<div class="community-state community-empty">
+        <h3>No posts match "${esc(state.search)}"</h3>
+        <p>Try a different search, or clear it to see the full feed.</p>
+      </div>`;
+    }
     return `<div class="community-state community-empty">
       <h3>Your florist feed is quiet</h3>
       <p>Share an arrangement photo, design tip, or question — the way you would on social, but florist-only.</p>
@@ -174,6 +232,11 @@
     const previewAttrs = pendingImageDataUrl
       ? `src="${esc(pendingImageDataUrl)}"`
       : 'hidden aria-hidden="true"';
+    const isArrangementShare = selectedCategory === "Arrangement Share";
+    const permission = draft.share_permission || "inspiration_only";
+    const permOpts = SHARE_PERMISSION_OPTIONS.map(
+      (o) => `<option value="${esc(o.value)}"${o.value === permission ? " selected" : ""}>${esc(o.label)}</option>`
+    ).join("");
     return `<form id="communityComposer" class="community-composer panel">
       <div class="community-composer-head">
         ${avatarHtml(p, { size: "sm", alt: "Your profile" })}
@@ -182,7 +245,7 @@
           <h3>Share with florists</h3>
         </div>
       </div>
-      <label>Category<select name="category" required>${opts}</select></label>
+      <label>Category<select name="category" id="communityComposerCategory" required>${opts}</select></label>
       <label>Caption<input name="caption" required maxlength="280" placeholder="Modern blush garden — Freedom roses, spray roses, eucalyptus…" value="${esc(draft.caption || "")}"></label>
       <p class="subtle community-caption-hint">Tip: name the flowers in your caption so Lily can build a specific stem-count recipe.</p>
       <label>Details (optional)<textarea name="body" maxlength="4000" rows="3" placeholder="Stem counts, mechanics, variety notes — no customer info.">${esc(draft.body || "")}</textarea></label>
@@ -191,6 +254,12 @@
         <input type="file" id="communityImageInput" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp">
       </label>
       <img id="communityImagePreview" class="community-image-preview" alt="Arrangement preview" ${previewAttrs}>
+      <div class="community-share-permission" id="communitySharePermission"${isArrangementShare ? "" : " hidden"}>
+        <p class="eyebrow">SHARING PERMISSION</p>
+        <p class="subtle">You decide how far this design may travel. This never changes what happens to the post itself — only what other florists may do with the design.</p>
+        <label>Other florists may<select name="share_permission">${permOpts}</select></label>
+        <label class="community-photo-permission-check"><input type="checkbox" name="allow_photo_use"${draft.allow_photo_use ? " checked" : ""}> Also allow florists to use my original photo (not just the design)</label>
+      </div>
       <div class="card-actions">
         <button type="submit" class="primary">Post</button>
       </div>
@@ -198,10 +267,41 @@
   }
 
   function tabBar(active) {
-    return `<div class="community-tabs" role="tablist" aria-label="Florist Community sections">
-      <button type="button" class="community-tab${active === "feed" ? " active" : ""}" data-tab="feed" role="tab" aria-selected="${active === "feed"}">Feed</button>
-      <button type="button" class="community-tab${active === "profile" ? " active" : ""}" data-tab="profile" role="tab" aria-selected="${active === "profile"}">My Profile</button>
-    </div>`;
+    return `<div class="community-tabs-row">
+      <div class="community-tabs" role="tablist" aria-label="Florist Community sections">
+        <button type="button" class="community-tab${active === "feed" ? " active" : ""}" data-tab="feed" role="tab" aria-selected="${active === "feed"}">Feed</button>
+        <button type="button" class="community-tab${active === "following" ? " active" : ""}" data-tab="following" role="tab" aria-selected="${active === "following"}">Following</button>
+        <button type="button" class="community-tab${active === "profile" ? " active" : ""}" data-tab="profile" role="tab" aria-selected="${active === "profile"}">My Profile</button>
+      </div>
+      ${notificationsBellHtml()}
+    </div>
+    ${notificationsPanelHtml()}`;
+  }
+
+  function notificationsBellHtml() {
+    const n = state.notifications;
+    return `<button type="button" id="communityNotificationsBell" class="community-notif-bell" aria-label="Notifications" aria-expanded="${n.open ? "true" : "false"}">
+      🔔${n.unreadCount > 0 ? `<span class="community-notif-badge">${n.unreadCount > 9 ? "9+" : n.unreadCount}</span>` : ""}
+    </button>`;
+  }
+
+  function notificationLabel(n) {
+    const name = esc(n.actor?.display_name || "A florist");
+    if (n.type === "like") return `${name} encouraged your post`;
+    if (n.type === "comment") return `${name} commented on your post`;
+    if (n.type === "follow") return `${name} started following you`;
+    return `${name} did something on Florist Community`;
+  }
+
+  function notificationsPanelHtml() {
+    const n = state.notifications;
+    if (!n.open) return "";
+    const items = n.items.length
+      ? `<ul class="community-notif-list">${n.items
+          .map((x) => `<li class="${x.read ? "" : "unread"}"><span>${notificationLabel(x)}</span><time>${esc(formatWhen(x.created_at))}</time></li>`)
+          .join("")}</ul>`
+      : `<p class="subtle community-notif-empty">No notifications yet — you'll see likes, comments, and new followers here.</p>`;
+    return `<div id="communityNotificationsPanel" class="community-notif-panel">${items}</div>`;
   }
 
   function filterBar(active) {
@@ -213,21 +313,56 @@
         )
       )
       .join("");
-    return `<div class="community-filters" role="toolbar" aria-label="Filter by category">${chips}</div>`;
+    return `<div class="community-filters" role="toolbar" aria-label="Filter by category">${chips}</div>
+    <label class="community-search visually-hidden" for="communitySearch">Search posts</label>
+    <input type="search" id="communitySearch" class="community-search" placeholder="Search Florist Community…" value="${esc(state.search)}" autocomplete="off">`;
   }
+
+    /** Recipe Step 66/75: renders one size's stems with confidence badges
+     * and curated substitute hints — real data from publicRecipeSummary,
+     * never client-computed. */
+    function stemListHtml(rows) {
+      return (rows || [])
+        .slice(0, 8)
+        .map((row) => {
+          const estimated = row.confidence === "estimated"
+            ? ` <span class="community-recipe-confidence" title="Lily wasn't fully certain about this stem from the photo — check it before ordering">~estimated</span>`
+            : "";
+          const subs = (row.substitutes || []).length
+            ? ` <span class="community-recipe-sub">or substitute: ${esc(row.substitutes.join(", "))}</span>`
+            : "";
+          return `<li>${esc(row.qty || row.quantity)} × ${esc(row.name)}${estimated}${subs}</li>`;
+        })
+        .join("");
+    }
+
+    function designDnaHtml(dna) {
+      if (!dna || !dna.stemCount) return "";
+      const tags = (dna.styleTags || []).map((t) => t.charAt(0).toUpperCase() + t.slice(1));
+      const ratio = dna.focalToFoliageRatio != null ? `${dna.focalToFoliageRatio}% focal / ${100 - dna.focalToFoliageRatio}% foliage` : `${dna.stemCount} stems`;
+      return `<p class="subtle community-recipe-dna">${tags.length ? esc(tags.join(" · ")) + " · " : ""}${esc(ratio)}</p>`;
+    }
 
   function recipePanel(post) {
     const id = post.id;
     if (post.published_recipe) {
       const r = post.published_recipe;
-      const stems = (r.recipe || [])
-        .slice(0, 8)
-        .map((row) => `<li>${esc(row.qty || row.quantity)} × ${esc(row.name)}</li>`)
-        .join("");
+      const variants = { standard: r.recipe || [], smaller: r.scaled_variants?.smaller || [], larger: r.scaled_variants?.larger || [] };
+      const activeSize = state.recipeUi[id]?.size || "standard";
+      const stems = stemListHtml(variants[activeSize] || variants.standard);
+      const sizeToggle = r.scaled_variants
+        ? `<div class="community-recipe-sizes" role="tablist" aria-label="Recipe size">
+            <button type="button" data-recipe-size="smaller" data-id="${esc(id)}" class="${activeSize === "smaller" ? "active" : ""}">Smaller (0.75×)</button>
+            <button type="button" data-recipe-size="standard" data-id="${esc(id)}" class="${activeSize === "standard" ? "active" : ""}">Standard</button>
+            <button type="button" data-recipe-size="larger" data-id="${esc(id)}" class="${activeSize === "larger" ? "active" : ""}">Larger (1.5×)</button>
+          </div>`
+        : "";
       const importBtn =
-        !post.is_mine && r.id
+        !post.is_mine && r.id && permissionAtLeast(post.share_permission, "allow_shop_use")
           ? `<button type="button" class="primary community-import-recipe" data-recipe-id="${esc(r.id)}">Add to My Shop</button>`
-          : "";
+          : !post.is_mine && r.id
+            ? `<p class="subtle community-permission-note">The florist who shared this hasn't allowed it to be added to another shop yet.</p>`
+            : "";
       const ui = state.recipeUi[id] || {};
       const rebuildBtn =
         post.is_mine && post.image_url
@@ -243,6 +378,8 @@
         ${post.is_mine ? `<p class="subtle">Wrong stems? Lily can re-read your arrangement photo.</p>` : ""}
         <h4>${esc(r.title)}</h4>
         ${r.suggested_retail ? `<p class="subtle">Suggested retail · $${Number(r.suggested_retail).toFixed(0)}</p>` : ""}
+        ${designDnaHtml(r.design_dna)}
+        ${sizeToggle}
         ${stems ? `<ul class="community-recipe-stems">${stems}</ul>` : ""}
         ${importBtn}
         ${rebuildBtn}
@@ -295,14 +432,24 @@
     const mine = post.is_mine
       ? `<button type="button" class="secondary danger community-delete" data-id="${esc(post.id)}">Delete</button>`
       : "";
+    const permBadge =
+      post.category === "Arrangement Share"
+        ? `<span class="community-permission-badge community-permission-${esc(post.share_permission || "inspiration_only")}">${esc(SHARE_PERMISSION_BADGE_LABEL[post.share_permission] || SHARE_PERMISSION_BADGE_LABEL.inspiration_only)}</span>`
+        : "";
+    // "Never assume commercial permission" — own posts are always saveable;
+    // another florist's post only shows the button once the creator has
+    // allowed at least that much, so nobody sees an action guaranteed to
+    // be refused server-side.
+    const canSaveToLibrary = post.is_mine || permissionAtLeast(post.share_permission, "save_to_library");
     return `<article class="community-post panel" data-post-id="${esc(post.id)}">
       <header class="community-post-head">
         ${avatarHtml(author, { size: "md", alt: `${author.display_name || "Florist"} profile photo` })}
         <div class="community-post-author">
           <strong>${esc(author.display_name || "Florist")}</strong>
           <span class="subtle">${esc(author.shop_display_name || "")}${author.city ? ` · ${esc(author.city)}` : ""}</span>
-          <p class="community-category">${esc(post.category)}</p>
+          <p class="community-category">${esc(post.category)} ${permBadge}${post.category === "Questions" && post.answered_comment_id ? ` <span class="community-answered-tag">✓ Answered</span>` : ""}</p>
         </div>
+        ${post.is_mine ? "" : `<button type="button" class="community-follow-btn${post.author_followed ? " following" : ""}" data-follow-author="${esc(author.user_id || "")}" aria-pressed="${post.author_followed ? "true" : "false"}">${post.author_followed ? "Following" : "+ Follow"}</button>`}
         <time class="subtle community-post-time" datetime="${esc(post.created_at || "")}">${esc(formatWhen(post.created_at))}</time>
       </header>
       ${img}
@@ -317,7 +464,8 @@
           💬 ${Number(post.comment_count || 0)}
         </button>
         <button type="button" class="secondary community-report" data-id="${esc(post.id)}">Report</button>
-        ${post.image_url ? `<button type="button" class="secondary community-save-to-library" data-id="${esc(post.id)}">📌 Add to my library</button>` : ""}
+        ${post.image_url && canSaveToLibrary ? `<button type="button" class="secondary community-save-to-library" data-id="${esc(post.id)}">📌 Add to my library</button>` : ""}
+        ${post.is_mine && post.image_url ? `<button type="button" class="secondary community-edit-in-studio" data-id="${esc(post.id)}">🎨 Edit in Photo Studio</button>` : ""}
         ${mine}
         ${mod}
       </div>
@@ -363,18 +511,13 @@
               : `<div class="community-state community-empty"><h3>You haven't posted yet</h3><p>Share your first arrangement from the Feed tab — it'll show up here.</p></div>`;
             return `${profileForm(state.profile)}<h3 class="community-my-posts-heading">Your posts</h3>${myPosts}`;
           })()
-        : `${composerHtml()}${filterBar(state.category)}${
+        : `${tab === "feed" ? composerHtml() : ""}${filterBar(state.category)}${
             state.items.length === 0
               ? renderEmpty()
               : `<div class="community-feed">${state.items.map(postCard).join("")}</div>`
           }`;
 
     el.innerHTML = `<div class="community-shell">
-      <div class="community-hero">
-        <p class="eyebrow">FLORIST SOCIAL <span class="community-beta-pill">Beta</span></p>
-        <h2>Your florist feed</h2>
-        <p class="subtle">Profile photos, arrangement posts, Lily recipes, encourages, and comments — like Instagram or Facebook, built only for flower shops.</p>
-      </div>
       ${guidelinesHtml(state.guidelines)}
       ${tabBar(tab)}
       <p id="communityStatus" class="subtle" aria-live="polite"></p>
@@ -439,7 +582,46 @@
         const tab = btn.dataset.tab;
         if (tab === state.tab) return;
         state.tab = tab;
-        render();
+        // Following is a real server-side filter (a different feed() call,
+        // not a client-side slice of whatever's already loaded), and
+        // switching back to Feed/My Profile needs the unfiltered feed
+        // again — so every tab switch reloads, keeping state.items always
+        // scoped correctly for the active tab.
+        load({ keepCategory: true });
+      });
+    });
+
+    el.querySelector("#communityNotificationsBell")?.addEventListener("click", async () => {
+      state.notifications.open = !state.notifications.open;
+      render();
+      if (state.notifications.open) await loadNotifications();
+    });
+
+    let searchDebounce = null;
+    el.querySelector("#communitySearch")?.addEventListener("input", (e) => {
+      const value = e.target.value;
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(() => {
+        state.search = value;
+        load({ keepCategory: true });
+      }, 350);
+    });
+
+    el.querySelectorAll("[data-follow-author]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const authorId = btn.getAttribute("data-follow-author");
+        if (!authorId) return;
+        btn.disabled = true;
+        try {
+          const res = await api("toggle_follow", { author_user_id: authorId });
+          state.items = state.items.map((p) =>
+            p.author?.user_id === authorId ? { ...p, author_followed: Boolean(res.following) } : p
+          );
+          render();
+        } catch (err) {
+          setStatus(err.message || "Could not update follow.");
+          btn.disabled = false;
+        }
       });
     });
 
@@ -551,6 +733,11 @@
       pendingImageDataUrl = url;
     }, "#communityImagePreview");
 
+    el.querySelector("#communityComposerCategory")?.addEventListener("change", (e) => {
+      const block = el.querySelector("#communitySharePermission");
+      if (block) block.hidden = e.target.value !== "Arrangement Share";
+    });
+
     el.querySelector("#communityComposer")?.addEventListener("submit", async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
@@ -565,6 +752,8 @@
           category: fd.get("category"),
           caption,
           body: fd.get("body"),
+          share_permission: fd.get("share_permission") || "inspiration_only",
+          allow_photo_use: fd.get("allow_photo_use") === "on",
         };
         if (pendingImageDataUrl) payload.image_data_url = pendingImageDataUrl;
         await api("create_post", payload);
@@ -666,6 +855,30 @@
           btn.disabled = false;
           btn.textContent = original;
           window.toast?.(err.message || "Could not save this photo.");
+        }
+      });
+    });
+
+    el.querySelectorAll(".community-edit-in-studio").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-id");
+        const post = state.items.find((p) => p.id === id);
+        if (!post) return;
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Loading…";
+        try {
+          const image_data_url = await fetchPostImageDataUrl(post);
+          if (!image_data_url) throw new Error("Could not read that photo. Try again.");
+          const loaded = window.BloomShotLoadImage ? await window.BloomShotLoadImage(image_data_url, { caption: post.caption }) : false;
+          if (!loaded) throw new Error("Photo Studio isn't available right now.");
+          window.showPage?.("bloomshotPage");
+          window.toast?.("Photo loaded into Photo Studio — keep editing.");
+        } catch (err) {
+          window.toast?.(err.message || "Could not open this photo in Photo Studio.");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = original;
         }
       });
     });
@@ -816,6 +1029,15 @@
       });
     });
 
+    el.querySelectorAll("[data-recipe-size]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-id");
+        const size = btn.getAttribute("data-recipe-size");
+        state.recipeUi[id] = { ...(state.recipeUi[id] || {}), size };
+        render();
+      });
+    });
+
     el.querySelectorAll(".community-toggle-comments").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const id = btn.getAttribute("data-id");
@@ -851,13 +1073,19 @@
   }
 
   function renderComments(postId, items) {
+    const post = state.items.find((p) => p.id === postId);
+    // Only the asker, and only on a Questions post, can mark an answer —
+    // a real behavioral difference for that post type, not a label.
+    const canMarkAnswered = Boolean(post?.is_mine && post?.category === "Questions");
     const list =
       (items || [])
-        .map(
-          (c) => `<div class="community-comment">
+        .map((c) => {
+          const isAnswer = post?.answered_comment_id === c.id;
+          return `<div class="community-comment${isAnswer ? " community-comment-answer" : ""}">
           ${avatarHtml(c.author || {}, { size: "xs", alt: "" })}
           <div class="community-comment-body">
             <strong>${esc(c.author?.display_name || "Florist")}</strong>
+            ${isAnswer ? `<span class="community-answer-badge">✓ Answer</span>` : ""}
             <span class="subtle"> · ${esc(formatWhen(c.created_at))}</span>
             <p>${esc(c.body)}</p>
             ${
@@ -865,9 +1093,14 @@
                 ? `<button type="button" class="secondary community-delete-comment" data-id="${esc(c.id)}">Delete</button>`
                 : ""
             }
+            ${
+              canMarkAnswered && !isAnswer
+                ? `<button type="button" class="secondary community-mark-answer" data-post="${esc(postId)}" data-comment="${esc(c.id)}">Mark as answer</button>`
+                : ""
+            }
           </div>
-        </div>`
-        )
+        </div>`;
+        })
         .join("") || `<p class="subtle">No comments yet.</p>`;
     return `${list}
       <form class="community-comment-form" data-post="${esc(postId)}">
@@ -907,6 +1140,33 @@
         }
       });
     });
+    box.querySelectorAll(".community-mark-answer").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const commentId = btn.getAttribute("data-comment");
+        btn.disabled = true;
+        try {
+          await api("mark_answered", { post_id: postId, comment_id: commentId });
+          const post = state.items.find((p) => p.id === postId);
+          if (post) post.answered_comment_id = commentId;
+          box.innerHTML = renderComments(postId, state.comments[postId]);
+          bindCommentForm(box, postId);
+          // Patch the header tag directly instead of a full render() —
+          // a full re-render would collapse this comments box back to
+          // hidden (state.openComments isn't replayed on render()).
+          const categoryLine = root()?.querySelector(`[data-post-id="${postId}"] .community-category`);
+          if (categoryLine && !categoryLine.querySelector(".community-answered-tag")) {
+            const tag = document.createElement("span");
+            tag.className = "community-answered-tag";
+            tag.textContent = " ✓ Answered";
+            categoryLine.appendChild(tag);
+          }
+          setStatus("Marked as the answer.");
+        } catch (err) {
+          setStatus(err.message || "Could not mark this as the answer.");
+          btn.disabled = false;
+        }
+      });
+    });
   }
 
   async function load(opts = {}) {
@@ -914,6 +1174,12 @@
     if (!el) return;
     if (!opts.keepCategory) state.category = state.category || "";
     if (opts.keepComposer !== false) captureComposerDraft();
+    // render() below (via its own state.loading branch) calls
+    // captureComposerDraft() again unconditionally — without this, that
+    // second call re-reads the composer's still-live DOM value (the
+    // loading-state render hasn't wiped it yet) and overwrites whatever
+    // resetComposerDraft() just set, undoing the caller's intent.
+    else skipNextComposerCapture = true;
     state.loading = true;
     state.error = null;
     render();
@@ -922,6 +1188,8 @@
       if (!fn) throw new Error("Sign in required.");
       const params = new URLSearchParams();
       if (state.category) params.set("category", state.category);
+      if (state.search) params.set("q", state.search);
+      if (state.tab === "following") params.set("following", "1");
       const path = params.toString() ? `florist-community?${params}` : "florist-community";
       const data = await fn(path);
       state.profile = data.profile;
@@ -930,10 +1198,32 @@
       state.loading = false;
       state.error = null;
       render();
+      // Fire-and-forget so the bell's unread badge is real on first paint
+      // without blocking the feed on a second round-trip.
+      loadNotifications({ silent: true }).catch(() => {});
     } catch (err) {
       state.loading = false;
       state.error = err.message || "Could not load Community.";
       render();
+    }
+  }
+
+  /** Community Step 68 — real notifications (likes, comments, new followers). */
+  async function loadNotifications({ silent = false } = {}) {
+    const fn = window.bloomCommunityApi || window.api;
+    if (!fn) return;
+    try {
+      const data = await fn("florist-community?action=notifications");
+      state.notifications.items = data.items || [];
+      state.notifications.unreadCount = Number(data.unread_count || 0);
+      if (!silent) {
+        await fn("florist-community", { method: "POST", body: JSON.stringify({ action: "mark_notifications_read" }) });
+        state.notifications.unreadCount = 0;
+        state.notifications.items = state.notifications.items.map((n) => ({ ...n, read: true }));
+      }
+      render();
+    } catch {
+      /* notifications are a bonus surface — never blocks the feed */
     }
   }
 

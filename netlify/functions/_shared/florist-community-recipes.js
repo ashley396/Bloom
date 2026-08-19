@@ -2,6 +2,8 @@
  * Florist Community shared recipes — Lily draft, publish, and shop import.
  */
 
+import { parseVisionStemToken, mergeConfidence, buildDesignDna, scaleRecipe, suggestSubstitutes } from "../../../lib/floral-library/recipe-intelligence.js";
+
 export const RECIPE_AI_SCHEMA = {
   name: "arrangement title",
   description: "2 short paragraphs for florists",
@@ -104,11 +106,18 @@ export function inferFlowersFromPostText(caption = "", body = "", vision = "") {
   const found = [];
   const used = new Set();
   for (const row of FLOWER_LEXICON) {
-    if (!row.re.test(text)) continue;
+    const match = row.re.exec(text);
+    if (!match) continue;
     const key = row.name.toLowerCase();
     if (used.has(key)) continue;
     used.add(key);
-    found.push({ name: row.name, qty: row.qty, kind: row.kind });
+    // The vision prompt (ARRANGEMENT_VISION_PROMPT in
+    // _shared/florist-ai-vision.js) asks the model to prefix an uncertain
+    // read with "possibly" — carry that through as a real confidence
+    // label instead of discarding it.
+    const preceding = text.slice(Math.max(0, match.index - 12), match.index);
+    const confidence = /possibly\s*$/i.test(preceding) ? "estimated" : "confirmed";
+    found.push({ name: row.name, qty: row.qty, kind: row.kind, confidence });
   }
   return found.slice(0, 8);
 }
@@ -135,15 +144,16 @@ export function recipeStemsFromVisionText(visionText = "") {
       }
       continue;
     }
-    const name = token.replace(/^possibly\s+/i, "").slice(0, 80);
+    const { name, confidence } = parseVisionStemToken(token.slice(0, 90));
     if (!name || isGenericIngredientName(name)) continue;
     const key = name.toLowerCase();
     if (used.has(key)) continue;
     used.add(key);
     recipe.push({
-      name,
+      name: name.slice(0, 80),
       qty: /fern|ruscus|eucalyptus|leaf|foliage|grass|pittosporum/i.test(name) ? 3 : 4,
       kind: /fern|ruscus|eucalyptus|leaf|foliage|grass|pittosporum/i.test(name) ? "foliage" : "flower",
+      confidence,
     });
   }
   return recipe.slice(0, 10);
@@ -158,6 +168,11 @@ export function sanitizeRecipeDraft(raw) {
           name: String(row?.name || "").trim().slice(0, 120),
           qty: Math.max(0, Number(row?.qty ?? row?.quantity ?? 0) || 0),
           kind: String(row?.kind || "flower").slice(0, 24),
+          // "confirmed" is the honest default for a florist-authored or
+          // AI-text-generated row — the "estimated" label is earned only
+          // by an actual uncertain vision-model read (see
+          // parseVisionStemToken / inferFlowersFromPostText above).
+          confidence: row?.confidence === "estimated" ? "estimated" : "confirmed",
         }))
         .filter((row) => row.name && row.qty > 0 && !isGenericIngredientName(row.name))
     : [];
@@ -191,19 +206,36 @@ export function recipeToProductItems(draft) {
 
 export function publicRecipeSummary(row, { imageUrl = null } = {}) {
   if (!row) return null;
+  const recipe = (row.recipe || []).map((r) => ({
+    ...r,
+    // Real, curated same-kind swaps — see SUBSTITUTION_MAP in
+    // lib/floral-library/recipe-intelligence.js. Empty when nothing
+    // curated matches; never an AI guess.
+    substitutes: suggestSubstitutes(r.name),
+  }));
   return {
     id: row.id,
     post_id: row.post_id,
     title: row.title,
     description: row.description || null,
     category: row.category || null,
-    recipe: row.recipe || [],
+    recipe,
     instructions: row.instructions || [],
     suggested_retail: Number(row.suggested_retail || 0),
     image_url: imageUrl,
     import_count: Number(row.import_count || 0),
     author_user_id: row.author_user_id,
     created_at: row.created_at,
+    // Real, computed style profile — see lib/floral-library/recipe-intelligence.js.
+    // Never AI-generated prose; identical recipes always produce an identical profile.
+    design_dna: buildDesignDna(recipe),
+    // Precomputed, proportional convenience sizes (never fabricated
+    // "wedding size" marketing labels — just honest multipliers) so a
+    // florist can size up or down without doing the math themselves.
+    scaled_variants: {
+      smaller: scaleRecipe(recipe, { multiplier: 0.75 }),
+      larger: scaleRecipe(recipe, { multiplier: 1.5 }),
+    },
   };
 }
 

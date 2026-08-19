@@ -1,5 +1,6 @@
 import { json,bodyOf,preflight,methodNotAllowed } from "./_shared/http.js";
 import { currentUser,fail } from "./_shared/supabase.js";
+import { shopDateStr } from "./_shared/shop-time.js";
 
 function parseDataUrl(value){
   const match=String(value||"").match(/^data:([^;]+);base64,(.+)$/);
@@ -27,7 +28,15 @@ export async function handler(event){
     if(event.httpMethod==="POST"){
       const body=bodyOf(event);if(!body.amount||Number(body.amount)<=0)return json(400,{error:"Expense amount is required"});
       const receiptPath=await uploadReceipt(client,shopId,body.receipt_data_url);
-      const payload={shop_id:shopId,expense_date:body.expense_date||new Date().toISOString().slice(0,10),category:body.category||"Other",vendor:body.vendor||null,amount:Number(body.amount),notes:body.notes||null,receipt_path:receiptPath};
+      let expenseDate=body.expense_date;
+      if(!expenseDate){
+        // No date supplied — default to the shop's own today, not the
+        // server's UTC day (an evening entry in any US timezone would
+        // otherwise get dated tomorrow).
+        const {data:shop}=await client.from("shops").select("timezone").eq("id",shopId).maybeSingle();
+        expenseDate=shopDateStr(shop?.timezone);
+      }
+      const payload={shop_id:shopId,expense_date:expenseDate,category:body.category||"Other",vendor:body.vendor||null,amount:Number(body.amount),notes:body.notes||null,receipt_path:receiptPath};
       const {data,error}=await client.from("expenses").insert(payload).select().single();if(error)throw error;return json(201,{item:data});
     }
     if(event.httpMethod==="PATCH"){

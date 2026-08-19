@@ -29,6 +29,17 @@ test("Background dropdown keeps the classic options and adds a Luxury group", ()
   assert.ok(select.indexOf('value="#ffffff"') < select.indexOf("<optgroup"));
 });
 
+test("Canvas size dropdown includes a true wide website hero ratio and a story/reel ratio", () => {
+  // Every existing size (square, IG portrait, Facebook/Google, Pinterest)
+  // was portrait or square — there was no landscape option at all, despite
+  // Website Studio X needing wide hero banners and the product explicitly
+  // being positioned as feeding Website Studio's hero sections.
+  const select = html.slice(html.indexOf('id="shotSize"'), html.indexOf("</select>", html.indexOf('id="shotSize"')));
+  assert.match(select, /value="1200x1200">Website square</, "existing default must stay");
+  assert.match(select, /value="1920x1080">Website hero \(16:9\)</, "true 16:9 landscape hero option must exist");
+  assert.match(select, /value="1080x1920">Story \/ Reel \(9:16\)</, "story/reel portrait option must exist");
+});
+
 test("Luxury background dropdown values resolve to real gradients, not raw CSS colors", () => {
   const stylesStart = app.indexOf("const SHOT_BACKGROUND_STYLES=");
   assert.ok(stylesStart >= 0, "SHOT_BACKGROUND_STYLES must exist");

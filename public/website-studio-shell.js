@@ -37,10 +37,23 @@
   // every tab, which is what made the page look like a jumbled mess of
   // two builders stacked on top of each other. Giving it its own tab
   // keeps it working exactly as-is while containing it properly.
+  //
+  // The "editor" tab is special-cased below (see buildEditorIde): it's
+  // two separately-built, fully real, correctly-coordinated modules —
+  // website-studio-v2.js (pages list + a read-only live-preview iframe +
+  // SEO/domain settings) and website-editor-ui.js (the actual editable
+  // section canvas + properties inspector), page-selection kept in sync
+  // between them via window.BloomWebsiteEditor.selectPage(). Neither is
+  // dead code. But both were simply stacked as two full-width cards, each
+  // headed "VISUAL EDITOR", each with its own Desktop/Tablet/Mobile
+  // toggle controlling a *different* thing (the preview iframe's width vs.
+  // the editable canvas's width) — exactly the "jumbled" reading the
+  // legacy-builder fix above already diagnosed once for the whole page.
+  // buildEditorIde re-parents their pieces (still no logic changes) into
+  // one Pages / Canvas / Properties+SEO layout instead of PLACEMENT.
   const PLACEMENT = {
     start: [".lily-wizard-shell", ".instant-wizard-shell"],
     brand: [".legacy-website-editor-shell"],
-    editor: [".website-studio-v2", ".website-editor-shell"],
     look: [".theme-gallery-shell"]
   };
 
@@ -120,6 +133,48 @@
     });
   }
 
+  // Builds the "editor" tab's layout by re-parenting the two already-
+  // mounted modules — same move-not-clone technique as reorganize() above.
+  //
+  // Important constraint that shaped this: website-studio-v2.js scopes
+  // ALL of its own DOM lookups to its own `shell` (the .website-studio-v2
+  // div it built) — e.g. shell.querySelector("#ws2SeoStatus"). Moving any
+  // of its three child panels (.ws2-panel-pages/-canvas/-seo) OUT of that
+  // div would silently break every one of its own event handlers for that
+  // panel (querySelector scoped to `shell` stops finding a descendant
+  // that's no longer inside it) — confirmed live: async loadProject()
+  // failure crashed with "Cannot set properties of null" trying to reach
+  // #ws2SeoStatus after an earlier draft of this function relocated it
+  // out of v2's own shell. So v2's own pages | canvas | SEO grid stays
+  // completely untouched here — only its "VISUAL EDITOR" eyebrow label
+  // (on its read-only live-preview iframe column) is retexted to stop
+  // reading as a second, competing editor.
+  //
+  // website-editor-ui.js's shell (the actual section canvas + toolbar +
+  // properties inspector) has its own internal 2-column grid
+  // (canvas | inspector) that needs real width to lay out — nesting it
+  // inside v2's already-narrow middle grid column was tried and measured
+  // live: the canvas track collapsed to ~96px (v2's own 3-column split
+  // leaves little room, then the inspector's 240px floor eats most of
+  // what's left), wrapping "Unpublished" as "Unpublis" / "hed". So it's
+  // placed as its own full-width block below v2's bar instead — same
+  // relative order as before this pass, just no longer double-labeled.
+  function buildEditorIde(root, shell) {
+    const panel = shell.querySelector("#wsPanel-editor");
+    if (!panel) return;
+
+    const v2 = root.querySelector(".website-studio-v2");
+    const editorShell = root.querySelector(".website-editor-shell");
+    if (v2 && v2.parentElement !== panel) panel.appendChild(v2);
+
+    const canvasPanel = v2?.querySelector(".ws2-panel-canvas");
+    if (canvasPanel) {
+      const eyebrow = canvasPanel.querySelector("p.eyebrow");
+      if (eyebrow && eyebrow.textContent.trim() === "VISUAL EDITOR") eyebrow.textContent = "READ-ONLY PREVIEW";
+    }
+    if (editorShell && editorShell.parentElement !== panel) panel.appendChild(editorShell);
+  }
+
   async function pickDefaultTab(shell) {
     try {
       const d = await api("get_project");
@@ -136,6 +191,7 @@
     const shell = buildShell(root);
     wireTabs(shell);
     reorganize(root, shell);
+    buildEditorIde(root, shell);
     if (!shell.dataset.tabPicked) {
       shell.dataset.tabPicked = "1";
       await pickDefaultTab(shell);

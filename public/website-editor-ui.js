@@ -42,6 +42,17 @@
             <option value="shop_hours">Hours</option>
             <option value="contact_form">Contact form</option>
             <option value="cta_banner">Call to action</option>
+            <!-- The storefront renderer (lib/storefront/section-renderer.js) has
+                 always supported these — a florist just had no way to add one,
+                 since this dropdown was never updated to match. -->
+            <option value="testimonials">Testimonials</option>
+            <option value="faq">FAQ</option>
+            <option value="instagram">Instagram</option>
+            <option value="map">Map / location</option>
+            <option value="newsletter">Newsletter signup</option>
+            <option value="announcement_bar">Announcement bar</option>
+            <option value="seasonal_banner">Seasonal feature</option>
+            <option value="custom_text_image">Custom text + image</option>
           </select></label>
           <button type="button" class="secondary" id="editorAddSection">Add</button>
           <button type="button" class="secondary" id="editorUndo">Undo</button>
@@ -202,8 +213,16 @@
       }
       canvas.innerHTML = sections
         .map(
-          (s, idx) => `<article class="editor-section${s.id === selectedSectionId ? " selected" : ""}" data-id="${esc(s.id)}" draggable="true">
+          // draggable lives on the handle only, not the article: the article
+          // also contains buttons and a contenteditable text block, and an
+          // article-wide draggable="true" meant every text selection inside
+          // it risked starting a whole-section HTML5 drag instead. The
+          // handle carries the drag; dragstart below points the drag image
+          // back at the full card so it still looks/feels like the section
+          // is what's moving.
+          (s, idx) => `<article class="editor-section${s.id === selectedSectionId ? " selected" : ""}" data-id="${esc(s.id)}">
             <div class="editor-section-tools">
+              <span class="editor-drag-handle" draggable="true" tabindex="-1" aria-hidden="true" title="Drag to reorder">⠿</span>
               <button type="button" class="secondary editor-select" data-select="${esc(s.id)}" aria-label="Edit section properties">Edit</button>
               <button type="button" class="secondary" data-image="${esc(s.id)}" aria-label="Change photo for this section">Change photo</button>
               <button type="button" class="secondary" data-move="up" data-id="${esc(s.id)}" aria-label="Move section up">↑</button>
@@ -502,19 +521,61 @@
       }
     });
 
+    // Drag-and-drop reordering. Only the ⠿ handle in each section's
+    // toolbar is draggable="true" (see renderCanvas) — the drag itself
+    // still moves the whole section, via setDragImage below, but never
+    // fires from a button click or from selecting text in the editable
+    // area. While dragging, a 3px insertion line shows exactly where the
+    // section will land (above or below whichever card is under the
+    // pointer, based on which half of that card the pointer is over)
+    // instead of an ambiguous "drop anywhere on this card" target.
+    function clearDropIndicators() {
+      root.querySelectorAll(".editor-section.drop-before, .editor-section.drop-after").forEach((el) => {
+        el.classList.remove("drop-before", "drop-after");
+      });
+    }
     root.querySelector("#editorCanvas")?.addEventListener("dragstart", (e) => {
+      const handle = e.target.closest(".editor-drag-handle");
       const sec = e.target.closest(".editor-section");
-      if (sec) e.dataTransfer.setData("text/plain", sec.dataset.id);
+      if (!handle || !sec) {
+        e.preventDefault();
+        return;
+      }
+      e.dataTransfer.setData("text/plain", sec.dataset.id);
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setDragImage(sec, 24, 24);
+      sec.classList.add("dragging");
     });
-    root.querySelector("#editorCanvas")?.addEventListener("dragover", (e) => e.preventDefault());
-    root.querySelector("#editorCanvas")?.addEventListener("drop", async (e) => {
-      e.preventDefault();
-      const id = e.dataTransfer.getData("text/plain");
+    root.querySelector("#editorCanvas")?.addEventListener("dragover", (e) => {
       const target = e.target.closest(".editor-section");
+      if (!target) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const rect = target.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+      clearDropIndicators();
+      target.classList.add(before ? "drop-before" : "drop-after");
+    });
+    root.querySelector("#editorCanvas")?.addEventListener("dragleave", (e) => {
+      if (!e.relatedTarget || !root.querySelector("#editorCanvas")?.contains(e.relatedTarget)) clearDropIndicators();
+    });
+    root.querySelector("#editorCanvas")?.addEventListener("dragend", (e) => {
+      e.target.closest(".editor-section")?.classList.remove("dragging");
+      clearDropIndicators();
+    });
+    root.querySelector("#editorCanvas")?.addEventListener("drop", async (e) => {
+      const target = e.target.closest(".editor-section");
+      const before = target?.classList.contains("drop-before");
+      e.preventDefault();
+      root.querySelector(".editor-section.dragging")?.classList.remove("dragging");
+      clearDropIndicators();
+      const id = e.dataTransfer.getData("text/plain");
       if (!id || !target) return;
       const from = sections.findIndex((s) => s.id === id);
-      const to = sections.findIndex((s) => s.id === target.dataset.id);
-      if (from < 0 || to < 0) return;
+      const targetIndex = sections.findIndex((s) => s.id === target.dataset.id);
+      if (from < 0 || targetIndex < 0 || from === targetIndex) return;
+      let to = before ? targetIndex : targetIndex + 1;
+      if (from < to) to -= 1; // removing `from` first shifts every later index down by one
       const d = await api("reorder_sections", { sections, from, to });
       sections = d.sections;
       pushHistory();

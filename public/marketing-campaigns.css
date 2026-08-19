@@ -1,0 +1,106 @@
+/* Marketing Command Center */
+.marketing-tabs {
+  display: flex;
+  gap: 0.4rem;
+  border-bottom: 1px solid #e0d3db;
+  padding-bottom: 0;
+  margin-bottom: 1rem;
+}
+
+.marketing-tab {
+  border: 0;
+  background: transparent;
+  padding: 0.7rem 0.2rem;
+  margin-right: 1rem;
+  font-weight: 750;
+  font-size: 0.95rem;
+  color: #857680;
+  cursor: pointer;
+  border-bottom: 2.5px solid transparent;
+}
+
+.marketing-tab.active,
+.marketing-tab:hover {
+  color: #a72f67;
+}
+
+.marketing-tab.active {
+  border-bottom-color: #a72f67;
+}
+
+.marketing-overview-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.marketing-overview-cards h2 {
+  margin: 0.2rem 0;
+  font-size: 2rem;
+}
+
+.marketing-channel-fieldset {
+  border: 1px solid #e0d3db;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+}
+
+.marketing-channel-fieldset legend {
+  padding: 0 0.4rem;
+  font-weight: 750;
+  font-size: 0.85rem;
+  color: #857680;
+}
+
+.marketing-channel-fieldset label.check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 500;
+}
+
+.marketing-product-fieldset {
+  max-height: 220px;
+  overflow-y: auto;
+  flex-wrap: nowrap;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.marketing-calendar-month {
+  margin-bottom: 0.75rem;
+}
+
+.marketing-calendar-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.marketing-calendar-list li {
+  display: grid;
+  grid-template-columns: 2.2rem auto 1fr;
+  gap: 0.6rem;
+  align-items: baseline;
+  font-size: 0.92rem;
+}
+
+.marketing-calendar-date {
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+  color: #a72f67;
+}
+
+.marketing-calendar-type {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #857680;
+}

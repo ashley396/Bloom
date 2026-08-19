@@ -22,6 +22,8 @@ import {
   assertCommunitySafePayload,
   communityImagePath,
   communityImagePublicUrl,
+  SHARE_PERMISSION_TIERS,
+  permissionAtLeast,
 } from "../netlify/functions/_shared/florist-community.js";
 import { getFeatureFlags, isFeatureEnabled } from "../netlify/functions/_shared/feature-flags.js";
 
@@ -77,6 +79,130 @@ test("post validation requires category and caption", async () => {
     body: "Condition overnight.",
   });
   assert.equal(ok.valid, true);
+});
+
+test("post validation defaults to the most restrictive share permission — never assumes commercial permission", async () => {
+  // No share_permission sent at all — the common case for every category
+  // except Arrangement Share, and for any client that predates this field.
+  const noPermission = await validatePostBody({ category: "Arrangement Share", caption: "Blush compote" });
+  assert.equal(noPermission.sanitized.share_permission, "inspiration_only");
+  assert.equal(noPermission.sanitized.allow_photo_use, false);
+
+  // An unrecognized value fails closed to the safest tier rather than
+  // erroring the whole post or silently granting more than intended.
+  const bogus = await validatePostBody({ category: "Arrangement Share", caption: "X", share_permission: "give_it_all_away" });
+  assert.equal(bogus.sanitized.share_permission, "inspiration_only");
+
+  // A real, valid tier passes through untouched.
+  const granted = await validatePostBody({
+    category: "Arrangement Share",
+    caption: "X",
+    share_permission: "allow_shop_use",
+    allow_photo_use: true,
+  });
+  assert.equal(granted.sanitized.share_permission, "allow_shop_use");
+  assert.equal(granted.sanitized.allow_photo_use, true);
+});
+
+test("permissionAtLeast: escalating tiers, each includes everything below it", () => {
+  assert.equal(SHARE_PERMISSION_TIERS[0], "inspiration_only");
+  assert.equal(SHARE_PERMISSION_TIERS[SHARE_PERMISSION_TIERS.length - 1], "allow_website_use");
+
+  assert.equal(permissionAtLeast("inspiration_only", "save_to_library"), false);
+  assert.equal(permissionAtLeast("allow_shop_use", "save_to_library"), true, "a higher tier satisfies a lower requirement");
+  assert.equal(permissionAtLeast("allow_shop_use", "allow_website_use"), false);
+  assert.equal(permissionAtLeast(undefined, "save_to_library"), false, "missing permission defaults to the safest tier, not the most permissive");
+  assert.equal(permissionAtLeast("not_a_real_tier", "inspiration_only"), false, "unknown tier fails closed");
+});
+
+test("publicPost exposes share_permission and allow_photo_use, sanitizing an invalid stored value", () => {
+  const row = { id: "p1", category: "Arrangement Share", caption: "X", share_permission: "allow_recreation", allow_photo_use: true };
+  const clean = publicPost(row, {});
+  assert.equal(clean.share_permission, "allow_recreation");
+  assert.equal(clean.allow_photo_use, true);
+
+  const corrupted = publicPost({ ...row, share_permission: "not-a-tier" }, {});
+  assert.equal(corrupted.share_permission, "inspiration_only", "an invalid stored tier is never surfaced as-is");
+});
+
+test("publicPost exposes author_followed, and it's always false on your own post (Community Step 68)", () => {
+  const row = { id: "p1", author_user_id: "u1", category: "Design Help", caption: "X" };
+  const followed = publicPost(row, { authorFollowed: true });
+  assert.equal(followed.author_followed, true);
+
+  const notFollowed = publicPost(row, { authorFollowed: false });
+  assert.equal(notFollowed.author_followed, false);
+
+  // Following yourself isn't a real relationship — isMine always wins,
+  // even if a bug ever passed authorFollowed: true for your own post.
+  const own = publicPost(row, { authorFollowed: true, isMine: true });
+  assert.equal(own.author_followed, false);
+});
+
+test("publicPost exposes answered_comment_id — a real behavioral difference for Questions posts", () => {
+  const row = { id: "p1", author_user_id: "u1", category: "Questions", caption: "X", answered_comment_id: "c1" };
+  assert.equal(publicPost(row, {}).answered_comment_id, "c1");
+  assert.equal(publicPost({ ...row, answered_comment_id: null }, {}).answered_comment_id, null);
+});
+
+test("Community Step 69 — Edit in Photo Studio only offers on your own photo post, and reuses the real image (no second fetch pipeline)", () => {
+  const ui = fs.readFileSync(path.join(process.cwd(), "public/community-ui.js"), "utf8");
+  assert.match(ui, /post\.is_mine && post\.image_url[\s\S]{0,80}community-edit-in-studio/);
+  const handlerStart = ui.indexOf('el.querySelectorAll(".community-edit-in-studio")');
+  const handlerEnd = ui.indexOf("async function fetchPostImageDataUrl(post)");
+  const handler = ui.slice(handlerStart, handlerEnd);
+  // Reuses the same fetchPostImageDataUrl already used by "Add to my
+  // library" — not a second image-fetching pipeline for Photo Studio.
+  assert.match(handler, /fetchPostImageDataUrl\(post\)/);
+  assert.match(handler, /window\.BloomShotLoadImage/);
+  assert.match(handler, /window\.showPage\?\.\("bloomshotPage"\)/);
+
+  const appJs = fs.readFileSync(path.join(process.cwd(), "public/app.js"), "utf8");
+  assert.match(appJs, /window\.BloomShotLoadImage\s*=\s*loadShotImageFromDataUrl/);
+  // The caption must be set into the DOM before saveShotDraft() persists
+  // the draft, or a later loadBloomShot() (fired by the showPage()
+  // navigation above) restores the stale, caption-less draft over it.
+  const fnStart = appJs.indexOf("function loadShotImageFromDataUrl(");
+  const fnBody = appJs.slice(fnStart, appJs.indexOf("window.BloomShotLoadImage", fnStart));
+  const captionIdx = fnBody.indexOf("shotCaption");
+  const saveDraftIdx = fnBody.indexOf("saveShotDraft(true)");
+  assert.ok(captionIdx > 0 && saveDraftIdx > 0 && captionIdx < saveDraftIdx, "caption must be set before the draft is saved");
+});
+
+test("mark_answered is gated to the post's own author and verifies the comment belongs to that post (Community Step 68)", () => {
+  const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
+  const block = src.slice(src.indexOf('if (action === "mark_answered")'), src.indexOf('if (action === "toggle_like")'));
+  assert.match(block, /post\.author_user_id !== user\.id/);
+  assert.match(block, /Only the person who asked can mark an answer/);
+  assert.match(block, /\.eq\("id", commentId\)[\s\S]{0,40}\.eq\("post_id", postId\)/);
+});
+
+test("Community Step 68 — real Following, Search, and Notifications are wired server-side", () => {
+  const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
+
+  // Search: a real ILIKE filter on caption/body, not a client-side slice.
+  assert.match(src, /caption\.ilike\.%\$\{escaped\}%,body\.ilike\.%\$\{escaped\}%/);
+
+  // Following: a real follows table drives both the feed filter and the
+  // author_followed flag — not a fake client-only toggle.
+  assert.match(src, /loadFollowingSet/);
+  assert.match(src, /followingOnly/);
+  assert.match(src, /action === "toggle_follow"/);
+  assert.match(src, /florist_community_follows/);
+
+  // Notifications: written server-side (never by the acting florist's own
+  // RLS-scoped client — see the migration's RLS comment) and readable/
+  // markable-read only by the recipient.
+  assert.match(src, /action === "notifications"/);
+  assert.match(src, /action === "mark_notifications_read"/);
+  assert.match(src, /florist_community_notifications/);
+  assert.match(src, /async function notify\(/);
+
+  // Real events actually call notify() — not just a defined-but-unused helper.
+  const likeBlock = src.slice(src.indexOf('if (action === "toggle_like")'), src.indexOf('if (action === "add_comment")'));
+  assert.match(likeBlock, /notify\(postRow\.author_user_id, user\.id, shopId, "like"/);
+  const commentBlock = src.slice(src.indexOf('if (action === "add_comment")'), src.indexOf('if (action === "delete_comment")'));
+  assert.match(commentBlock, /notify\(post\.author_user_id, user\.id, shopId, "comment"/);
 });
 
 test("sharp fully decodes/re-encodes valid images and rejects corrupt fixtures", async () => {

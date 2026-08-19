@@ -40,6 +40,7 @@
 .lily-compose .lily-send{width:42px;height:42px;border-radius:12px;border:none;background:#7e214e;color:#fff;font-weight:800;cursor:pointer}
 .lily-confirm{margin:0 12px 8px;padding:10px;border-radius:12px;background:#fff7eb;border:1px solid #f0d9b8;font-size:13px}
 .lily-confirm button{margin-top:8px;margin-right:6px}
+.lily-confirm-destructive{color:#a72f2f}
 .lily-history-list{display:flex;flex-direction:column;gap:6px;padding:4px}
 .lily-history-list button{text-align:left;border:1px solid #eadde5;background:#fff;border-radius:12px;padding:10px;cursor:pointer}
 .lily-history-list small{color:#796a74;display:block;margin-top:4px}

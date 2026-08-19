@@ -290,6 +290,14 @@ body.florisyn-atelier .florisyn-os-badge {
 }
 
 body.florisyn-atelier .atelier-global-search {
+  /* A generic `body.bloom-rc2 label { flex-direction: column }` rule
+     (meant for stacked "Label text above input" form fields) has higher
+     specificity than this rule and was the only declaration setting
+     flex-direction at all, so it won by default: the search icon and
+     input stacked vertically (icon on top) instead of sitting side by
+     side. This is a <label> reused as an icon+input row, not a form
+     field label, so it needs its own explicit row direction. */
+  flex-direction: row !important;
   flex: 1;
   max-width: 520px;
   margin: 0 auto;
@@ -620,6 +628,19 @@ body.florisyn-atelier .atelier-panel-head h3 {
   font-size: 15px;
   font-weight: 650;
   color: var(--lux-ink);
+}
+
+/* Lily Step 73 — real "Needs Attention" panel: a 4th card in a 3-column
+   grid reads as an orphaned narrow box, so it spans the full row instead. */
+body.florisyn-atelier .atelier-needs-attention {
+  grid-column: 1 / -1 !important;
+}
+
+body.florisyn-atelier .needs-attention-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 body.florisyn-atelier .atelier-view-all,

@@ -22,6 +22,11 @@ const OTHER_POST = {
   comment_count: 0,
   liked: false,
   author: { display_name: "Jamie", shop_display_name: "Petal & Vine", city: "Dallas" },
+  // The creator explicitly allowed saving — this test is about the save
+  // mechanism itself, not the permission gate (see
+  // community-share-permission.spec.js for that).
+  share_permission: "save_to_library",
+  allow_photo_use: true,
 };
 const MY_POST = { ...OTHER_POST, id: "post-2", author_user_id: "me", is_mine: true, caption: "My own post" };
 

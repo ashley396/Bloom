@@ -33,7 +33,15 @@
           <button type="button" class="secondary" data-device="desktop">Desktop</button>
           <button type="button" class="secondary" data-device="tablet">Tablet</button>
           <button type="button" class="secondary" data-device="mobile">Mobile</button>
-          <button type="button" class="primary" id="ws2RunChecklist">Launch checklist</button>
+          <!-- "Launch checklist" only reads readiness (calls publish_checklist,
+               a read-only check) — it never publishes. Was class="primary",
+               the same dark pill as the real "Publish (approved)" button in
+               website-editor-ui.js's toolbar below, so a florist had no
+               visual cue that these were two different kinds of action —
+               one a diagnostic, one the actual irreversible-feeling "go
+               live" step. secondary here leaves exactly one dark/primary
+               button in the whole Editor tab: the real Publish. -->
+          <button type="button" class="secondary" id="ws2RunChecklist" title="Checks readiness — publishing happens with the Publish button in the section editor below">Launch checklist</button>
         </div>
         <div class="ws2-live-preview" id="ws2LivePreview" data-device="desktop">
           <iframe id="ws2PreviewFrame" title="Live storefront preview" loading="lazy" height="480"></iframe>

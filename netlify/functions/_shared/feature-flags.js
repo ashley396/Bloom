@@ -55,6 +55,12 @@ const DEFAULT_FLAGS = {
    * Peak readiness checklist (Mother's Day) on dashboard — default on.
    */
   PEAK_READINESS: true,
+  /**
+   * Marketing Campaigns — the connective layer over Email Campaigns,
+   * Holiday Command Center, and (later) social/text/promotion content, so
+   * Marketing is one command center instead of disconnected tools.
+   */
+  MARKETING_CAMPAIGNS: true,
 };
 
 function envFlag(name, fallback, env = process.env) {

@@ -30,7 +30,8 @@ const SIDEBAR_ORDER = [
   ["/floral-library", "libraryPage"],
   ["/community", "communityPage"],
   ["/florist-network", "floristNetworkPage"],
-  ["/marketing", "emailCampaignsPage"],
+  ["/marketing", "marketingPage"],
+  ["/marketing/email-campaigns", "emailCampaignsPage"],
   ["/weddings", "weddingsPage"],
   ["/holiday-command", "holidayPage"],
   ["/staff", "staffPage"],
@@ -79,7 +80,7 @@ test("sidebar lists every required route in exact order", () => {
   assert.match(nav, /florisyn-lux-nav-label">SELLER DASHBOARD</);
   assert.match(nav, /florisyn-lux-nav-label">SUBSCRIPTION</);
   assert.match(nav, /POS Settings/);
-  assert.equal(routes.length, 28);
+  assert.equal(routes.length, 29);
   assert.match(html, /florisyn-premium-badge/);
   assert.match(html, /PREMIUM PLAN/);
   const premiumStart = html.indexOf("florisyn-premium-badge");

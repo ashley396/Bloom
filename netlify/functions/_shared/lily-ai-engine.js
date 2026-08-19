@@ -20,6 +20,32 @@ export const LILY_DOMAINS = [
 
 const ROLE_RANK = { staff: 1, designer: 1, driver: 1, employee: 1, manager: 2, owner: 3, admin: 4 };
 
+/**
+ * Ecosystem action tiers (Lily Step 76) — a real, testable classification
+ * of every action Lily can plan, not just a hand-authored true/false:
+ *
+ *   READ        pure lookup/navigation — no side effect, never confirmed.
+ *   LOW         content Lily hands to the florist to review before it goes
+ *               anywhere (a marketing draft, a product description) — not
+ *               a change to shop data, never confirmed.
+ *   IMPORTANT   a real write to shop data (add inventory, start an order,
+ *               file a support ticket) — always confirmed before Florisyn
+ *               acts.
+ *   DESTRUCTIVE removes or cancels data, or can't be undone. Nothing is
+ *               wired at this tier today — every remove/cancel intent
+ *               (e.g. inventory.remove) hands off to a guided screen for
+ *               the florist to do it themselves, instead of Lily acting
+ *               directly. Defined now so a future destructive action has
+ *               a real tier — and the extra confirmation friction that
+ *               comes with it — to land in, rather than being bolted on
+ *               as a one-off special case.
+ */
+export const ACTION_TIERS = ["READ", "LOW", "IMPORTANT", "DESTRUCTIVE"];
+
+export function requiresConfirmationForTier(tier) {
+  return tier === "IMPORTANT" || tier === "DESTRUCTIVE";
+}
+
 export function detectIntent(message = "") {
   const text = String(message || "").trim();
   const lower = text.toLowerCase();
@@ -130,11 +156,18 @@ export function checkLilyPermission(intent, role, { isPlatformAdmin = false } = 
 }
 
 export function planClientAction(intent, slots = {}) {
+  const plan = planClientActionByTier(intent, slots);
+  if (!plan) return null;
+  const { tier, ...rest } = plan;
+  return { ...rest, tier, requiresConfirmation: requiresConfirmationForTier(tier) };
+}
+
+function planClientActionByTier(intent, slots = {}) {
   switch (intent) {
     case "inventory.add":
       return {
+        tier: "IMPORTANT",
         type: "api",
-        requiresConfirmation: true,
         label: `Add ${slots.quantity} ${slots.item} to inventory`,
         navigate: "inventoryPage",
         endpoint: "inventory",
@@ -142,70 +175,61 @@ export function planClientAction(intent, slots = {}) {
         body: { name: slots.item, quantity: Number(slots.quantity || 0) }
       };
     case "inventory.remove":
+      // Lily never removes stock directly — she hands off to a guided
+      // screen for the florist to do it themselves, so this is IMPORTANT
+      // (a confirmed handoff), not DESTRUCTIVE (nothing is deleted here).
       return {
+        tier: "IMPORTANT",
         type: "guided",
-        requiresConfirmation: true,
         label: "Adjust inventory manually",
         navigate: "inventoryPage",
         message: `Open inventory to remove ${slots.quantity} ${slots.item}. Lily will not delete stock without your confirmation.`
       };
     case "orders.create":
       return {
+        tier: "IMPORTANT",
         type: "guided",
-        requiresConfirmation: true,
         label: `Start order for ${slots.customer_name}`,
         navigate: "ordersPage",
         openDialog: "orderDialog",
         prefill: { customer_name: slots.customer_name }
       };
     case "deliveries.today":
-      return { type: "navigate", requiresConfirmation: false, navigate: "deliveriesPage" };
+      return { tier: "READ", type: "navigate", navigate: "deliveriesPage" };
     case "customers.find":
-      return {
-        type: "navigate",
-        requiresConfirmation: false,
-        navigate: "customersPage",
-        prefill: { search: slots.query }
-      };
+      return { tier: "READ", type: "navigate", navigate: "customersPage", prefill: { search: slots.query } };
     case "marketplace.search":
-      return {
-        type: "navigate",
-        requiresConfirmation: false,
-        navigate: "marketplacePage",
-        prefill: { search: slots.query }
-      };
+      return { tier: "READ", type: "navigate", navigate: "marketplacePage", prefill: { search: slots.query } };
     case "wholesale.product":
-      return { type: "navigate", requiresConfirmation: false, navigate: "wholesaleSellerPage" };
+      return { tier: "READ", type: "navigate", navigate: "wholesaleSellerPage" };
     case "website.update":
-      return { type: "navigate", requiresConfirmation: false, navigate: "websitePage" };
+      return { tier: "READ", type: "navigate", navigate: "websitePage" };
     case "reports.insights":
-      return { type: "navigate", requiresConfirmation: false, navigate: "reportsPage" };
+      return { tier: "READ", type: "navigate", navigate: "reportsPage" };
     case "employees.clock_in":
-      return { type: "navigate", requiresConfirmation: false, navigate: "staffPage", prefill: { staff: slots.name } };
+      return { tier: "READ", type: "navigate", navigate: "staffPage", prefill: { staff: slots.name } };
     case "employees.payroll":
-      return { type: "navigate", requiresConfirmation: false, navigate: "staffPage" };
+      return { tier: "READ", type: "navigate", navigate: "staffPage" };
     case "marketing.generate":
-      return {
-        type: "generate",
-        requiresConfirmation: false,
-        mode: "marketing",
-        channel: slots.channel,
-        prompt: slots.prompt
-      };
+      return { tier: "LOW", type: "generate", mode: "marketing", channel: slots.channel, prompt: slots.prompt };
     case "product_ai.generate":
-      return { type: "generate", requiresConfirmation: false, mode: "product", prompt: slots.prompt };
+      return { tier: "LOW", type: "generate", mode: "product", prompt: slots.prompt };
     case "florist.photo_placeholder":
       return {
+        tier: "READ",
         type: "message",
-        requiresConfirmation: false,
-        message: "Photo-based flower recognition and recipe estimation are coming soon. For now, use Florisyn Photo Studio or Products to describe the arrangement."
+        // This used to say the feature was "coming soon" — it's real now
+        // (see lib/floral-library/recipe-intelligence.js and Florist
+        // Community's "Build recipe with Lily" flow, which already does
+        // confidence-labeled flower ID + a stem-count recipe from a photo).
+        message: "I can already read flowers from a photo — post it to Florist Community and tap \"Build recipe with Lily\" for a confidence-labeled, editable stem-count recipe."
       };
     case "admin.insights":
-      return { type: "admin", requiresConfirmation: false, navigate: "admin_command_center" };
+      return { tier: "READ", type: "admin", navigate: "admin_command_center" };
     case "support.report_issue":
       return {
+        tier: "IMPORTANT",
         type: "api",
-        requiresConfirmation: true,
         label: "Send this to Bud so he can look into it",
         successMessage: "Bud sent that in — Florisyn will follow up.",
         endpoint: "support-ticket",

@@ -263,3 +263,24 @@ h2 {
   padding-left: 1rem;
 }
 
+.sf-cta-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem 1.75rem;
+  border-radius: 16px;
+  background: var(--sf-accent);
+  color: #fff;
+}
+.sf-cta-banner p {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+.sf-cta-banner a.primary {
+  background: #fff;
+  color: var(--sf-accent);
+}
+

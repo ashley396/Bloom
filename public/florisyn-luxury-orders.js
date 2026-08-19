@@ -11,7 +11,11 @@
     sortKey: "order",
     sortDir: "desc",
     selected: new Set(),
-    rows: []
+    rows: [],
+    dateFrom: "",
+    dateTo: "",
+    fulfillment: "",
+    paymentStatus: ""
   };
 
   function $(sel, root) {
@@ -81,6 +85,19 @@
 
   function formatDate(value) {
     if (!value) return "—";
+    // A bare "YYYY-MM-DD" (how a Postgres `date` column like delivery_date
+    // serializes) has no time component — it's already the exact day the
+    // florist picked. Routing it through `new Date()` reads it as UTC
+    // midnight, and every negative-UTC-offset (i.e. every US) timezone
+    // then reads that back as the *previous* local day, showing every
+    // order's delivery date one day early in this table. Full timestamps
+    // (created_at etc.) do carry real timezone info and still need the
+    // Date-based conversion below.
+    const bareDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
+    if (bareDate) {
+      const d = new Date(Number(bareDate[1]), Number(bareDate[2]) - 1, Number(bareDate[3]));
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    }
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return String(value);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -151,6 +168,13 @@
       rows = rows.filter((r) =>
         [r.order, r.customer, r.delivery, ...r.items.map((i) => i.name)].join(" ").toLowerCase().includes(q)
       );
+    }
+
+    if (state.dateFrom) rows = rows.filter((r) => r.dateKey && r.dateKey >= state.dateFrom);
+    if (state.dateTo) rows = rows.filter((r) => r.dateKey && r.dateKey <= state.dateTo);
+    if (state.fulfillment) rows = rows.filter((r) => r.delivery === state.fulfillment);
+    if (state.paymentStatus) {
+      rows = rows.filter((r) => String(r.raw?.payment_status || "UNPAID").toUpperCase() === state.paymentStatus);
     }
 
     const dir = state.sortDir === "asc" ? 1 : -1;
@@ -304,12 +328,116 @@
       renderTable();
     });
 
-    $("#ordDateRange")?.addEventListener("click", () => {
-      window.toast?.("Date range: May 1 – May 12, 2026");
+    // Real date-range and fulfillment/payment filters — these used to be
+    // fake: the date button's label was hardcoded HTML text ("May 1 - May
+    // 12, 2026") that never changed and never filtered anything, and the
+    // filter button only ever toasted "coming soon."
+    function togglePopover(btn, panel) {
+      const opening = panel.hidden;
+      closePopovers();
+      if (!opening) return;
+      panel.hidden = false;
+      btn.setAttribute("aria-expanded", "true");
+    }
+
+    function closePopovers() {
+      $$(".ord-popover").forEach((panel) => (panel.hidden = true));
+      $$(".ord-popover-anchor > button").forEach((btn) => btn.setAttribute("aria-expanded", "false"));
+    }
+
+    document.addEventListener("click", (e) => {
+      if (e.target.closest(".ord-popover-anchor")) return;
+      closePopovers();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closePopovers();
     });
 
-    $("#ordFilterBtn")?.addEventListener("click", () => {
-      window.toast?.("More filters coming soon");
+    function updateDateRangeLabel() {
+      const label = $("#ordDateRangeLabel");
+      const btn = $("#ordDateRange");
+      if (!label || !btn) return;
+      const has = Boolean(state.dateFrom || state.dateTo);
+      btn.classList.toggle("has-value", has);
+      if (!has) {
+        label.textContent = "All dates";
+        return;
+      }
+      const fmt = (v) => formatDate(v);
+      if (state.dateFrom && state.dateTo) label.textContent = `${fmt(state.dateFrom)} - ${fmt(state.dateTo)}`;
+      else if (state.dateFrom) label.textContent = `From ${fmt(state.dateFrom)}`;
+      else label.textContent = `Through ${fmt(state.dateTo)}`;
+    }
+
+    function updateFilterButtonState() {
+      const btn = $("#ordFilterBtn");
+      if (btn) btn.classList.toggle("has-value", Boolean(state.fulfillment || state.paymentStatus));
+    }
+
+    $("#ordDateRange")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const panel = $("#ordDatePanel");
+      if (!panel) return;
+      if (panel.hidden) {
+        $("#ordDateFrom").value = state.dateFrom;
+        $("#ordDateTo").value = state.dateTo;
+      }
+      togglePopover($("#ordDateRange"), panel);
+    });
+
+    $("#ordDatePanel")?.addEventListener("click", (e) => e.stopPropagation());
+
+    $("#ordDateApply")?.addEventListener("click", () => {
+      state.dateFrom = $("#ordDateFrom")?.value || "";
+      state.dateTo = $("#ordDateTo")?.value || "";
+      state.page = 1;
+      closePopovers();
+      updateDateRangeLabel();
+      renderTable();
+    });
+
+    $("#ordDateClear")?.addEventListener("click", () => {
+      state.dateFrom = "";
+      state.dateTo = "";
+      if ($("#ordDateFrom")) $("#ordDateFrom").value = "";
+      if ($("#ordDateTo")) $("#ordDateTo").value = "";
+      state.page = 1;
+      closePopovers();
+      updateDateRangeLabel();
+      renderTable();
+    });
+
+    $("#ordFilterBtn")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const panel = $("#ordFilterPanel");
+      if (!panel) return;
+      if (panel.hidden) {
+        $("#ordFilterFulfillment").value = state.fulfillment;
+        $("#ordFilterPayment").value = state.paymentStatus;
+      }
+      togglePopover($("#ordFilterBtn"), panel);
+    });
+
+    $("#ordFilterPanel")?.addEventListener("click", (e) => e.stopPropagation());
+
+    $("#ordFilterApply")?.addEventListener("click", () => {
+      state.fulfillment = $("#ordFilterFulfillment")?.value || "";
+      state.paymentStatus = $("#ordFilterPayment")?.value || "";
+      state.page = 1;
+      closePopovers();
+      updateFilterButtonState();
+      renderTable();
+    });
+
+    $("#ordFilterClear")?.addEventListener("click", () => {
+      state.fulfillment = "";
+      state.paymentStatus = "";
+      if ($("#ordFilterFulfillment")) $("#ordFilterFulfillment").value = "";
+      if ($("#ordFilterPayment")) $("#ordFilterPayment").value = "";
+      state.page = 1;
+      closePopovers();
+      updateFilterButtonState();
+      renderTable();
     });
 
     $("#ordExportBtn")?.addEventListener("click", () => {

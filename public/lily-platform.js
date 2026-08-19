@@ -483,7 +483,14 @@
         pendingAction = { message, action };
         const box = document.getElementById("lilyConfirm");
         box.hidden = false;
-        box.innerHTML = `${esc(action.label || "Confirm this action?")}<br><button type="button" class="primary" id="lilyConfirmYes">Confirm</button><button type="button" class="secondary" id="lilyConfirmNo">Cancel</button>`;
+        // Ecosystem action tiers (Lily Step 76, see ACTION_TIERS in
+        // _shared/lily-ai-engine.js): every confirm box already means
+        // IMPORTANT or DESTRUCTIVE (READ/LOW never reach this branch —
+        // requiresConfirmationForTier is false for both), so a
+        // DESTRUCTIVE action gets a visibly stronger warning instead of
+        // looking identical to a routine IMPORTANT write.
+        const tierBadge = action.tier === "DESTRUCTIVE" ? `<strong class="lily-confirm-destructive">⚠ This can't be undone.</strong><br>` : "";
+        box.innerHTML = `${tierBadge}${esc(action.label || "Confirm this action?")}<br><button type="button" class="primary" id="lilyConfirmYes">Confirm</button><button type="button" class="secondary" id="lilyConfirmNo">Cancel</button>`;
         document.getElementById("lilyConfirmYes").onclick = () => {
           box.hidden = true;
           executeClientAction(action, true);

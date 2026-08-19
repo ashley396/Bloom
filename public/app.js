@@ -7,7 +7,7 @@ let createMode=false,session=readSession(),customers=[],inventory=[],orders=[],p
 const BLOOM_AI_BRIDGE="http://127.0.0.1:11435";
 function selectedAiModel(){return localStorage.getItem("bloomAiModel")||"llama3.1:latest"}
 async function localAi(path,opt={}){const r=await fetch(`${BLOOM_AI_BRIDGE}${path}`,{...opt,headers:{"Content-Type":"application/json",...(opt.headers||{})}});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Local AI request failed (${r.status})`);return d}
-async function loadAiContext(){try{return (await api("ai-context",{method:"GET"})).context||{}}catch{return {shop:shopSettings||{},inventory,recent_orders:orders,deliveries}}}
+async function loadAiContext(){try{return (await api("ai-context",{method:"GET"})).context||{}}catch{return {shop:shopSettings||{},inventory,recent_orders:orders,deliveries,products,customers,staff:staffMembers}}}
 async function refreshAiStatus(){const badge=$("#aiHealthBadge"),msg=$("#aiDiagnosticMessage"),modelSelect=$("#aiModelSelect");try{const cloud=await fetch("/.netlify/functions/ai-status").then(r=>r.ok?r.json():null).catch(()=>null);if(cloud&&cloud.state){if($("#aiBridgeStatus"))$("#aiBridgeStatus").textContent=cloud.provider||"—";if($("#aiOllamaStatus"))$("#aiOllamaStatus").textContent=cloud.lily==="online"?"Lily online":cloud.lily==="limited"?"Lily limited":"Lily offline";if(badge){badge.textContent=cloud.label||cloud.state;badge.className=`badge ${cloud.state==="online"?"good":cloud.state==="offline"||cloud.state==="configuration_required"?"warn":"warn"}`}if(msg)msg.textContent=cloud.message||"";if(cloud.state==="online"||cloud.state==="limited")return cloud}}catch{}try{const d=await localAi("/health");$("#aiBridgeStatus").textContent=d.bridge?"Local bridge":"Offline";$("#aiOllamaStatus").textContent=d.ollama?"Ollama running":"Not running";if(modelSelect){const names=(d.models||[]).map(x=>x.name);const selected=selectedAiModel();modelSelect.innerHTML=[...new Set([selected,"llama3.1:latest",...names])].map(n=>`<option value="${esc(n)}" ${n===selected?"selected":""}>${esc(n)}</option>`).join("")}badge.textContent=d.healthy?"Local AI Ready":"Needs attention";badge.className=`badge ${d.healthy?"good":"warn"}`;msg.textContent=d.healthy?(d.defaultAvailable?"Florisyn Local AI is healthy on this computer.":"Ollama is running, but the recommended model is not installed."):(d.error||"Ollama is not running on this computer.");return d}catch(e){if($("#aiBridgeStatus"))$("#aiBridgeStatus").textContent="Offline";if($("#aiOllamaStatus"))$("#aiOllamaStatus").textContent="Unknown";if(badge){badge.textContent="Configuration Required";badge.className="badge warn"}if(msg)msg.textContent="Cloud AI is not configured in Netlify, and the local bridge is unavailable. POS, orders, payments, and inventory remain fully available.";return null}}
 
 const LIBRARY=[
@@ -116,6 +116,12 @@ function paymentBadgeClass(status){return String(status||"UNPAID").toUpperCase()
 function money(v){return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(v||0))}
 function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function dateText(v){return v?new Date(v+"T12:00:00").toLocaleDateString():""}
+// `new Date().toISOString().slice(0,10)` reads as UTC "today", not local
+// "today" — in any negative-UTC-offset (i.e. every US) timezone it's
+// tomorrow's date for the last several hours of every local day. Used to
+// default order/expense date fields, that silently pre-filled the wrong
+// day in the evening. Use local calendar getters instead.
+function localTodayStr(){const n=new Date();return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`}
 function inventoryFreshness(i){const received=i.received_at||i.arrival_date||String(i.created_at||"").slice(0,10);if(!received&&!i.use_by)return{age:0,score:100,label:"Fresh",useFirst:false};const age=received?Math.max(0,Math.floor((new Date().setHours(0,0,0,0)-new Date(`${received}T00:00:00`))/86400000)):0;const life=Math.max(1,Number(i.vase_life_days||7));let score=Math.max(0,Math.round((1-age/life)*100));if(i.use_by){const daysLeft=Math.ceil((new Date(`${i.use_by}T12:00:00`).getTime()-Date.now())/86400000);if(daysLeft<=1)score=Math.min(score,20);else if(daysLeft<=3)score=Math.min(score,50)}const useFirst=score<=25;return{age,score,label:useFirst?"Use first":score<=55?"Use soon":"Fresh",useFirst}}
 function contactPrefSummary(c){const p=c?.contact_preferences&&typeof c.contact_preferences==="object"?c.contact_preferences:{};const methods={phone:"Phone",text:"Text",email:"Email",none:"No preference"};const method=methods[String(p.preferred_method||"none").toLowerCase()]||"No preference";const marketing=p.marketing_opt_in?"Marketing: opted in":"Marketing: opted out";return `${method} · ${marketing}`}
 function inventoryFreshnessBucket(i){const f=inventoryFreshness(i);if(Number(i.quantity||0)<=0)return"archived";if(f.useFirst||f.score<=25)return"use_first";if(f.score<=55)return"expiring_soon";return"fresh"}
@@ -128,7 +134,18 @@ function explainOrderDeleteFailure(err,orderNumber){
 }
 function toast(m){const msg=String(m||"");if(sessionRecoveryActive&&isAuthToastMessage(msg))return;if(isAuthToastMessage(msg)){const now=Date.now();if(now-lastAuthToastAt<AUTH_TOAST_COOLDOWN_MS)return;lastAuthToastAt=now}const e=$("#toast");e.textContent=msg;e.hidden=false;clearTimeout(window.bt);window.bt=setTimeout(()=>e.hidden=true,3200)}
 function empty(t){return window.BloomLaunchPolish?.emptyState?.(t)||`<div class="card subtle bloom-empty-state" role="status"><strong>${esc(t)}</strong></div>`}
-function bindForm(selector,handler){const form=$(selector);if(!form)return;form.onsubmit=async e=>{try{await handler(e)}catch(err){toast(err?.message||"Could not complete this action.")}}}
+function bindForm(selector,handler){const form=$(selector);if(!form)return;form.onsubmit=async e=>{
+  // Guard every save/create form against double-submit: a florist double-clicking (or
+  // double-tapping) "Create order"/"Save product" etc. during a busy rush must not fire
+  // the async save handler twice and create a duplicate record.
+  if(form.dataset.submitting==="1")return;
+  const submitBtn=form.querySelector('button[type="submit"],button:not([type])');
+  form.dataset.submitting="1";
+  if(submitBtn)submitBtn.disabled=true;
+  try{await handler(e)}
+  catch(err){toast(err?.message||"Could not complete this action.")}
+  finally{form.dataset.submitting="";if(submitBtn)submitBtn.disabled=false}
+}}
 function florisynUnhandledToast(err){if(err?.code==="session_expired"||sessionRecoveryActive)return;toast(err?.message||"Florisyn ran into a temporary issue. Please try again.")}
 window.addEventListener("unhandledrejection",e=>florisynUnhandledToast(e.reason));
 window.addEventListener("error",e=>florisynUnhandledToast(e.error||e.message));
@@ -154,7 +171,7 @@ async function bootFloristApp(){
   }
 }
 async function loadPlatformSettings(){try{const d=await api('platform-settings');if($('#roseFoundationTotal'))$('#roseFoundationTotal').textContent=`${money(d.roseFoundationTotal||0)} raised`}catch{}}
-function showApp(){loadPlatformSettings();refreshGrowthFeatureFlags();$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";if(session?.refreshToken&&!window.florisynSessionRefreshTimer)window.florisynSessionRefreshTimer=setInterval(()=>refreshSessionIfNeeded(),5*60*1000);loadStores();loadRemoteAdminConfig();window.BloomLaunchPolish?.init?.({api,mode:"florist"});if(window.FlorisynRouter?.installShowPageBridge){window.showPage=window.FlorisynRouter.installShowPageBridge(showPage)}else window.showPage=showPage;window.BloomLilyPlatform?.init?.({api,toast:toast,showPage:window.showPage,smartAi,loadAiContext,prepareOrderBuilder,loadInventory,renderCustomers});wireMobileLilyScrollLock();wireMobileDrawerScrollLock();window.api=api;window.loadOrders=loadOrders;window.setPendingPaymentOrder=setPendingPaymentOrder;window.session=session;window.BloomPaymentHub&&(window.BloomPaymentHub.api=api);window.subscriptionCenterApi=api;window.recordLocalPayment=recordLocalPayment;window.BloomLaunchPolish?.refreshPageHelp?.("dashboardPage");if(isMobileShellViewport()){hideMobileFloatingAssistants()}else{window.BloomRose?.mount?.();window.BloomDaisy?.mount?.()}window.FlorisynAssistantVoice?.init?.({getScope:()=>{const shop=shopSettings?.shop_id||session?.shopId||session?.user?.default_shop_id||"shop";const user=session?.user?.id||"local";return `${shop}:${user}`},getSpeakEnabled:()=>{const el=$("#assistantSpeak");return el?el.checked:true}});window.BloomLilyVoice?.patchSpeakAssistant?.();window.BloomFirstRun?.showWelcome?.();window.BloomRC21?.initLoadingScreen?.();window.BloomRC21?.tuneLily?.();window.FlorisynRouter?.bootFromLocation?.({replace:true})||window.showPage("dashboardPage");hideMobileFloatingAssistants()}
+function showApp(){loadPlatformSettings();refreshGrowthFeatureFlags();$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";if(session?.user?.email)$("#accountEmail").title=session.user.email;if(session?.refreshToken&&!window.florisynSessionRefreshTimer)window.florisynSessionRefreshTimer=setInterval(()=>refreshSessionIfNeeded(),5*60*1000);loadStores();loadRemoteAdminConfig();window.BloomLaunchPolish?.init?.({api,mode:"florist"});if(window.FlorisynRouter?.installShowPageBridge){window.showPage=window.FlorisynRouter.installShowPageBridge(showPage)}else window.showPage=showPage;window.BloomLilyPlatform?.init?.({api,toast:toast,showPage:window.showPage,smartAi,loadAiContext,prepareOrderBuilder,loadInventory,renderCustomers});wireMobileLilyScrollLock();wireMobileDrawerScrollLock();window.api=api;window.loadOrders=loadOrders;window.setPendingPaymentOrder=setPendingPaymentOrder;window.session=session;window.BloomPaymentHub&&(window.BloomPaymentHub.api=api);window.subscriptionCenterApi=api;window.recordLocalPayment=recordLocalPayment;window.BloomLaunchPolish?.refreshPageHelp?.("dashboardPage");if(isMobileShellViewport()){hideMobileFloatingAssistants()}else{window.BloomRose?.mount?.();window.BloomDaisy?.mount?.()}window.FlorisynAssistantVoice?.init?.({getScope:()=>{const shop=shopSettings?.shop_id||session?.shopId||session?.user?.default_shop_id||"shop";const user=session?.user?.id||"local";return `${shop}:${user}`},getSpeakEnabled:()=>{const el=$("#assistantSpeak");return el?el.checked:true}});window.BloomLilyVoice?.patchSpeakAssistant?.();window.BloomFirstRun?.showWelcome?.();window.BloomRC21?.initLoadingScreen?.();window.BloomRC21?.tuneLily?.();window.FlorisynRouter?.bootFromLocation?.({replace:true})||window.showPage("dashboardPage");hideMobileFloatingAssistants()}
 function closeMobileDrawer(){(window.FlorisynPlatform?.setDrawer||window.FlorisynAtelierChrome?.setDrawer)?.(false)}
 function scrollMobilePageToTop(){
   if(!window.matchMedia("(max-width: 820px)").matches)return;
@@ -262,6 +279,10 @@ function showPage(id){
     refreshGrowthFeatureFlags().then(()=>{if(!emailCampaignsEnabled){toast("Email Campaigns is disabled.");return}showPage("emailCampaignsPage")});
     return;
   }
+  if(id==="marketingPage"&&!marketingCampaignsEnabled){
+    refreshGrowthFeatureFlags().then(()=>{if(!marketingCampaignsEnabled){toast("Marketing is disabled.");return}showPage("marketingPage")});
+    return;
+  }
   if(id==="weddingsPage"&&!weddingWorkflowsEnabled){
     refreshGrowthFeatureFlags().then(()=>{if(!weddingWorkflowsEnabled){toast("Wedding Workflows is disabled.");return}showPage("weddingsPage")});
     return;
@@ -292,6 +313,7 @@ let holidayCommandEnabled=false;
 let emailCampaignsEnabled=false;
 let weddingWorkflowsEnabled=false;
 let floristNetworkEnabled=false;
+let marketingCampaignsEnabled=false;
 function setCommunityNavVisible(on){
   communityBetaEnabled=Boolean(on);
   $$('[data-page="communityPage"]').forEach((el)=>{el.hidden=!communityBetaEnabled;el.style.display=communityBetaEnabled?"":"none"});
@@ -322,6 +344,7 @@ function setHolidayNavVisible(on){holidayCommandEnabled=setFlaggedNavVisible("ho
 function setEmailCampaignsNavVisible(on){emailCampaignsEnabled=setFlaggedNavVisible("emailCampaignsPage",on,"#emailCampaignsRoot")}
 function setWeddingsNavVisible(on){weddingWorkflowsEnabled=setFlaggedNavVisible("weddingsPage",on,"#weddingsRoot")}
 function setFloristNetworkNavVisible(on){floristNetworkEnabled=setFlaggedNavVisible("floristNetworkPage",on,"#floristNetworkRoot")}
+function setMarketingNavVisible(on){marketingCampaignsEnabled=setFlaggedNavVisible("marketingPage",on,"#marketingRoot")}
 async function refreshGrowthFeatureFlags(){
   try{
     const d=await fetch("/.netlify/functions/production-health").then((r)=>r.ok?r.json():null).catch(()=>null);
@@ -331,6 +354,7 @@ async function refreshGrowthFeatureFlags(){
     setEmailCampaignsNavVisible(Boolean(d?.feature_flags?.EMAIL_CAMPAIGNS));
     setWeddingsNavVisible(Boolean(d?.feature_flags?.WEDDING_WORKFLOWS));
     setFloristNetworkNavVisible(Boolean(d?.feature_flags?.FLORIST_NETWORK));
+    setMarketingNavVisible(Boolean(d?.feature_flags?.MARKETING_CAMPAIGNS));
     return on;
   }catch{
     setCommunityNavVisible(false);
@@ -338,6 +362,7 @@ async function refreshGrowthFeatureFlags(){
     setEmailCampaignsNavVisible(false);
     setWeddingsNavVisible(false);
     setFloristNetworkNavVisible(false);
+    setMarketingNavVisible(false);
     return false;
   }
 }
@@ -351,6 +376,15 @@ async function loadCommunityPage(){
     return;
   }
   if(window.BloomCommunity){window.bloomCommunityApi=api;await window.BloomCommunity.load()}
+}
+async function loadMarketingPage(){
+  await refreshGrowthFeatureFlags();
+  if(!marketingCampaignsEnabled){
+    const root=$("#marketingRoot");
+    if(root)root.innerHTML=`<div class="panel" role="alert"><h3>Unavailable</h3><p class="subtle">Marketing is disabled.</p></div>`;
+    return;
+  }
+  if(window.BloomMarketingCampaigns){window.bloomMarketingApi=api;await window.BloomMarketingCampaigns.load()}
 }
 async function loadHolidayPage(){
   await refreshGrowthFeatureFlags();
@@ -423,7 +457,7 @@ $("#posSettingsSaveBtn")?.addEventListener("click",async()=>{
   }
 });
 
-async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,bouquetsPage:()=>{},expensesPage:loadExpenses,reportsPage:loadReports,analyticsPage:loadAnalyticsPage,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,floristNetworkPage:loadFloristNetworkPage,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,communityPage:loadCommunityPage,holidayPage:loadHolidayPage,emailCampaignsPage:loadEmailCampaignsPage,weddingsPage:loadWeddingsPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,posSettingsPage:loadPosSettingsPage,posPage:()=>{window.FlorisynLuxuryPos?.syncStatusMetrics?.();window.FlorisynLuxuryPos?.syncCustomer?.();if(typeof renderPosTiles==="function")renderPosTiles();},aiStudioPage:()=>refreshAiStatus()};try{if(m[id])await m[id]()}catch(e){toast(e.message);const box=document.querySelector(`#${id} .cards, #${id}List, #${id.replace("Page","")}List, #communityRoot, #holidayRoot, #emailCampaignsRoot, #weddingsRoot, #floristNetworkRoot`);if(box&&window.BloomLaunchPolish?.errorState)box.innerHTML=window.BloomLaunchPolish.errorState({message:e.message})}}
+async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,bouquetsPage:()=>{},expensesPage:loadExpenses,reportsPage:loadReports,analyticsPage:loadAnalyticsPage,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,floristNetworkPage:loadFloristNetworkPage,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,communityPage:loadCommunityPage,holidayPage:loadHolidayPage,emailCampaignsPage:loadEmailCampaignsPage,marketingPage:loadMarketingPage,weddingsPage:loadWeddingsPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,posSettingsPage:loadPosSettingsPage,posPage:()=>{window.FlorisynLuxuryPos?.syncStatusMetrics?.();window.FlorisynLuxuryPos?.syncCustomer?.();if(typeof renderPosTiles==="function")renderPosTiles();},aiStudioPage:()=>refreshAiStatus()};try{if(m[id])await m[id]()}catch(e){toast(e.message);const box=document.querySelector(`#${id} .cards, #${id}List, #${id.replace("Page","")}List, #communityRoot, #holidayRoot, #emailCampaignsRoot, #weddingsRoot, #floristNetworkRoot, #marketingRoot`);if(box&&window.BloomLaunchPolish?.errorState)box.innerHTML=window.BloomLaunchPolish.errorState({message:e.message})}}
 const ORDER_STATUS_DEFS=[
   {id:"PENDING",label:"Pending",legacy:["NEW","PENDING"]},
   {id:"CONFIRMED",label:"Confirmed",legacy:["CONFIRMED"]},
@@ -488,7 +522,7 @@ async function loadDashboardAvatar(){
   const initial=firstNameFromIdentity(session?.user,shopSettings).trim().charAt(0).toUpperCase()||"F";
   fallback.textContent=initial;
   try{
-    const d=await api("florist-community",{method:"POST",body:JSON.stringify({action:"profile"})});
+    const d=await api("florist-community?action=profile");
     const url=d?.profile?.avatar_url;
     if(url){img.src=url;img.hidden=false;fallback.hidden=true}
     else{img.hidden=true;fallback.hidden=false}
@@ -498,9 +532,26 @@ async function loadDashboardAvatar(){
     img.hidden=true;fallback.hidden=false;
   }
 }
+// Lily Step 73: renders the real "needs attention" list dashboard.js
+// computes from live order/inventory/payment data (netlify/functions/dashboard.js
+// + lib/assistants/needs-attention.js) — replaces the old static "I found
+// new floral ideas that match your inventory" placeholder that showed
+// regardless of whether anything actually needed attention.
+function renderNeedsAttention(na){
+  // Rendered in two places: the always-visible dashboard panel
+  // (.atelier-dash-columns, desktop and mobile) and the Lily card in the
+  // assist rail (visible on narrower layouts) — one real computation,
+  // shown wherever the UI has room for it. See lib/assistants/needs-attention.js.
+  const items=na?.items||[];
+  const summary=na?.summary||(items.length?`${items.length} things need a look.`:"You're all caught up — nothing needs attention right now.");
+  const actionsHtml=items.map(i=>`<button type="button" class="florisyn-rose-btn" data-page="${esc(i.page)}">${esc(i.label)}</button>`).join("");
+  $$(".needs-attention-summary").forEach(el=>el.textContent=summary);
+  $$(".needs-attention-actions").forEach(el=>el.innerHTML=actionsHtml);
+}
 async function loadDashboard(){
   loadDashboardAvatar();
   const d=await api("dashboard");
+  renderNeedsAttention(d.needsAttention);
   const date=new Date();
   $("#dashboardDate").textContent=date.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   $("#todaySales").textContent=money(d.todaySales);const dailyGoal=Number(shopSettings?.daily_sales_goal||1000),goalPct=Math.max(0,Math.min(100,Math.round(Number(d.todaySales||0)/Math.max(1,dailyGoal)*100))),ring=$(".progress-ring");if(ring){ring.style.setProperty("--progress",`${goalPct}%`);const strong=ring.querySelector("strong");if(strong)strong.textContent=`${goalPct}%`;const small=ring.querySelector("small");if(small)small.textContent=`of ${money(dailyGoal)} goal`;}
@@ -543,7 +594,12 @@ async function loadDashboard(){
 }
 function renderDashboardTodayOrders(){
   const box=$("#atelierTodayOrders");if(!box)return;
-  const todayStr=new Date().toISOString().slice(0,10);
+  // toISOString() is always UTC — comparing against it made an order due
+  // today vanish (or the wrong day's orders appear) for hours around local
+  // midnight in every negative-UTC-offset (i.e. every US) timezone. Use the
+  // browser's own local calendar date instead.
+  const n=new Date();
+  const todayStr=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`;
   const rows=orders.filter(o=>String(o.delivery_date||o.created_at||"").slice(0,10)===todayStr).slice(0,5);
   box.innerHTML=rows.length?rows.map(o=>`<div class="atelier-row"><div><strong>${esc(o.order_number||"Order")}</strong><small>${esc(o.customer_name||"Customer")} · ${esc(orderStatusLabel(canonicalOrderStatus(o.status)))}</small></div><b>${money(o.total)}</b></div>`).join(""):empty("No orders yet today.");
 }
@@ -587,7 +643,7 @@ function renderDashboardCalendar(){
     renderDashboardCalendar();
   }));
 }
-async function loadStores(){try{const {items=[]}=await api("stores");try{shopSettings=(await api("settings")).item;applyBranding(shopSettings);syncPosTilesFromServer()}catch{};$("#shopSwitcher").innerHTML=items.map(s=>`<option value="${s.id}" ${s.active?"selected":""}>${esc(s.name)}</option>`).join("");const active=items.find(x=>x.active);const hour=new Date().getHours(),daypart=hour<12?"Good morning":hour<17?"Good afternoon":"Good evening",firstName=firstNameFromIdentity(session?.user,shopSettings);$("#greeting").textContent=`${daypart}, ${firstName}!`;if($("#lilySuggestionGreeting"))$("#lilySuggestionGreeting").textContent=`Hi ${firstName}!`;if($("#atelierUserName"))$("#atelierUserName").textContent=firstName;if($("#storesList"))$("#storesList").innerHTML=items.length?items.map(s=>`<article class="card"><div class="card-top"><div><h3>${esc(s.name)}</h3><div class="meta">${esc(s.address||"Address not set")} · ${esc(s.role)}</div></div>${s.active?'<span class="badge good">ACTIVE</span>':""}</div>${!s.active?`<div class="card-actions"><button class="primary" data-switch-shop="${s.id}">Open this shop</button></div>`:""}</article>`).join(""):empty("No stores.")}catch(e){if($("#storesList"))$("#storesList").innerHTML=window.BloomLaunchPolish?.errorState?.({message:e.message})||empty(e.message||"Could not load locations.");toast(e.message||"Could not load shop locations.")}}
+async function loadStores(){try{const {items=[]}=await api("stores");try{shopSettings=(await api("settings")).item;applyBranding(shopSettings);syncPosTilesFromServer()}catch{};$("#shopSwitcher").innerHTML=items.map(s=>`<option value="${s.id}" ${s.active?"selected":""}>${esc(s.name)}</option>`).join("");const active=items.find(x=>x.active);const hour=new Date().getHours(),daypart=hour<12?"Good morning":hour<17?"Good afternoon":"Good evening",firstName=firstNameFromIdentity(session?.user,shopSettings);$("#greeting").textContent=`${daypart}, ${firstName}!`;if($("#atelierUserName"))$("#atelierUserName").textContent=firstName;if($("#storesList"))$("#storesList").innerHTML=items.length?items.map(s=>`<article class="card"><div class="card-top"><div><h3>${esc(s.name)}</h3><div class="meta">${esc(s.address||"Address not set")} · ${esc(s.role)}</div></div>${s.active?'<span class="badge good">ACTIVE</span>':""}</div>${!s.active?`<div class="card-actions"><button class="primary" data-switch-shop="${s.id}">Open this shop</button></div>`:""}</article>`).join(""):empty("No stores.")}catch(e){if($("#storesList"))$("#storesList").innerHTML=window.BloomLaunchPolish?.errorState?.({message:e.message})||empty(e.message||"Could not load locations.");toast(e.message||"Could not load shop locations.")}}
 async function loadCustomers(){customers=(await api("customers")).items||[];renderCustomers();refreshOrderCustomerOptions()}
 function renderCustomers(){renderPosCustomerOptions();const q=$("#customerSearch").value.toLowerCase();const rows=customers.filter(x=>[x.name,x.phone,x.email,x.favorite_flowers,x.favorite_colors].join(" ").toLowerCase().includes(q));const legacyCard=c=>`<article class="card"><div class="card-top"><div><h3>${c.vip?"★ ":""}${esc(c.name)}</h3><div class="meta">${esc(c.phone||"")} ${c.email?`· ${esc(c.email)}`:""}</div></div>${c.vip?'<span class="badge">VIP</span>':""}${c.is_business?'<span class="badge good">BUSINESS</span>':""}${c.is_house_account?'<span class="badge good">HOUSE</span>':""}</div><p class="subtle">${esc(contactPrefSummary(c))}</p>${c.favorite_flowers?`<p>Favorites: ${esc(c.favorite_flowers)} ${c.favorite_colors?`· ${esc(c.favorite_colors)}`:""}</p>`:""}<div class="card-actions"><button class="secondary" data-view-customer="${c.id}">Profile</button><button class="secondary" data-edit-customer="${c.id}">Edit</button><button class="secondary" data-delete-customer="${c.id}">Delete</button></div></article>`;$("#customersList").innerHTML=rows.length?rows.map(c=>window.BloomRC21?.customerCard?.(c,orders)||legacyCard(c)).join(""):empty("No customers found.");window.BloomCustomerProfile?.init?.({customers,orders,session,showPage})}
 async function loadOrders(){orderTelemetry("GET /.netlify/functions/orders → requesting active order state");orders=(await api("orders")).items||[];window.orders=orders;renderOrderBoard();window.FlorisynLuxuryOrders?.boot?.(orders);window.BloomRC21?.mountOrdersToolbar?.();if($("#ordersList"))$("#ordersList").innerHTML=orders.length?orders.map(renderOrder).join(""):empty("No orders.");if($("#deliveryOrder"))$("#deliveryOrder").innerHTML=orders.map(o=>`<option value="${o.id}" data-address="${esc(o.delivery_address||"")}">${esc(o.order_number)} · ${esc(o.customer_name)}</option>`).join("");syncDeliveryStopAddress();window.BloomGuidedOrder?.mountToggle?.();orderTelemetry(`GET orders → ${orders.length} record${orders.length===1?"":"s"} synchronized`,"success")}
@@ -700,7 +756,7 @@ function renderExpenses(){const rows=filteredExpenses(),total=rows.reduce((sum,x
 async function loadExpenses(){const result=await api("expenses");expenses=result.items||[];renderExpenses()}
 function monthLabel(value){if(!/^\d{4}-\d{2}$/.test(String(value||"")))return value||"Period";const [year,month]=value.split("-");return new Date(Number(year),Number(month)-1,1).toLocaleDateString(undefined,{month:"long",year:"numeric"})}
 async function loadReports(){reportData=await api("finance");const a=reportData.items||[],totals=reportData.totals||{};$("#reportRevenue").textContent=money(totals.revenue||0);$("#reportExpenses").textContent=money(totals.expenses||0);$("#reportProfit").textContent=money(totals.profit||0);$("#reportMargin").textContent=`${Number(totals.margin||0).toFixed(1)}%`;$("#financeList").innerHTML=a.length?a.map(x=>`<div class="report-row"><strong>${esc(monthLabel(x.month))}</strong><span>Revenue ${money(x.revenue)}</span><span>Expenses ${money(x.expenses)}</span><span>Profit ${money(x.profit)}</span></div>`).join(""):empty("No report data yet. Add paid orders or expenses to begin.");const categories=reportData.categories||[];$("#expenseCategoryReport").innerHTML=categories.length?categories.map(x=>`<div class="report-row"><strong>${esc(x.category||"Other")}</strong><span>${money(x.amount)}</span><span>${Number(x.percent||0).toFixed(1)}%</span></div>`).join(""):empty("No expense categories yet.")}
-function exportReportsCsv(){const rows=[["Period","Revenue","Expenses","Profit"],...(reportData.items||[]).map(x=>[monthLabel(x.month),Number(x.revenue||0).toFixed(2),Number(x.expenses||0).toFixed(2),Number(x.profit||0).toFixed(2)])];rows.push(["TOTAL",Number(reportData.totals?.revenue||0).toFixed(2),Number(reportData.totals?.expenses||0).toFixed(2),Number(reportData.totals?.profit||0).toFixed(2)]);const csv=rows.map(row=>row.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n"),blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`bloom-financial-report-${new Date().toISOString().slice(0,10)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+function exportReportsCsv(){const rows=[["Period","Revenue","Expenses","Profit"],...(reportData.items||[]).map(x=>[monthLabel(x.month),Number(x.revenue||0).toFixed(2),Number(x.expenses||0).toFixed(2),Number(x.profit||0).toFixed(2)])];rows.push(["TOTAL",Number(reportData.totals?.revenue||0).toFixed(2),Number(reportData.totals?.expenses||0).toFixed(2),Number(reportData.totals?.profit||0).toFixed(2)]);const csv=rows.map(row=>row.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n"),blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`bloom-financial-report-${localTodayStr()}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 async function loadWebsite(){shopSettings=(await api("settings")).item;const f=$("#websiteForm");for(const[k,v]of Object.entries(shopSettings||{})){if(!f.elements[k])continue;if(f.elements[k].type==="checkbox")f.elements[k].checked=Boolean(v);else f.elements[k].value=v??""}applyBranding(shopSettings);renderWebsite();await window.BloomLilyWebsiteWizard?.load?.();await window.BloomInstantWebsite?.load?.();await window.BloomThemeGallery?.load?.();await window.BloomWebsiteStudioV2?.load?.();await window.BloomWebsiteEditor?.load?.();await window.BloomWebsiteStudioShell?.load?.();await window.BloomWebsiteStudioDynamicPhotos?.load?.()}
 
 async function loadSettings(){shopSettings=(await api("settings")).item;window.shopSettings=shopSettings;const f=$("#settingsForm");for(const[k,v]of Object.entries(shopSettings||{})){if(f.elements[k])f.elements[k].value=v??""}applyBranding(shopSettings);previewBrandingForm();$("#mapsStatus").textContent="Shop defaults loaded. Use Calculate mileage on a delivery order to test the route service.";if(window.BloomSubscriptionCenter){window.subscriptionCenterApi=api;await window.BloomSubscriptionCenter.load(document.getElementById("shopBillingRoot"))}window.BloomMigrationWizard?.mount?.(document.getElementById("migrationWizardRoot"));window.BloomReferralHub?.load?.();window.BloomRose?.mountSettings?.(document.getElementById("settingsPage"));window.BloomDaisy?.mountSettings?.(document.getElementById("settingsPage"));window.FlorisynAssistantVoice?.mountSettings?.(document.getElementById("settingsPage"));window.BloomLilyVoice?.mountSettings?.(document.getElementById("settingsPage"))}
@@ -710,7 +766,7 @@ function openCustomer(x=null){const f=$("#customerForm");if(!f)return toast("Cus
 function updateInventoryPrice(force=false){const f=$("#inventoryForm"),category=f.elements.category.value,cost=Number(f.elements.cost.value||0),quantity=Number(f.elements.quantity.value||0),markup=Math.max(0.1,Number(f.elements.markup_multiplier?.value||3));if(category==="Flowers"&&(force||!f.elements.price.dataset.manual))f.elements.price.value=(cost*markup).toFixed(2);$("#inventoryMarkupNote").textContent=category==="Flowers"?`Flowers automatically price at ${markup}× wholesale.`:"Set the retail price for this item.";$("#wholesaleStockValue").textContent=money(cost*quantity);$("#retailStockValue").textContent=money(Number(f.elements.price.value||0)*quantity)}
 function openInventory(x=null){const f=$("#inventoryForm");if(!f)return toast("Inventory form unavailable. Refresh Florisyn and try again.");f.reset();f.elements.price.dataset.manual="";for(const k of["id","name","category","color","variety","quantity","low_stock_level","unit","cost","price","arrival_date","received_at","use_by","vase_life_days","supplier","lot_code","markup_multiplier","item_kind"])if(f.elements[k])f.elements[k].value=x?.[k]??(k==="unit"?"stems":k==="markup_multiplier"?"3":k==="item_kind"?"flower":"");if(x)f.elements.price.dataset.manual="1";$("#inventoryDialogTitle").textContent=x?"Edit inventory":"Add inventory";updateInventoryPrice(!x);$("#inventoryDialog").showModal()}
 function addRecipeRow(x={}){const r=document.createElement("div");r.className="recipe-row";r.innerHTML=`<label>Flower / supply<input placeholder="Example: Red Rose" value="${esc(x.ingredient_name||"")}"></label><label>Quantity<input type="number" step=".01" value="${x.quantity||1}"></label><label>Unit<input placeholder="stem" value="${esc(x.unit||"stem")}"></label><label>Unit cost ($)<input type="number" step=".01" value="${x.unit_cost||0}"></label><button type="button" class="secondary recipe-remove" title="Remove ingredient">×</button>`;r.lastChild.onclick=()=>r.remove();$("#recipeRows").append(r)}
-function openExpense(x=null){const f=$("#expenseForm");f.reset();receiptDataUrl=null;f.elements.id.value=x?.id||"";f.elements.expense_date.value=x?.expense_date||new Date().toISOString().slice(0,10);f.elements.category.value=x?.category||"Flowers";f.elements.vendor.value=x?.vendor||"";f.elements.amount.value=x?.amount??"";f.elements.notes.value=x?.notes||"";$("#expenseDialogTitle").textContent=x?"Edit expense":"Add expense";$("#expenseSaveButton").textContent=x?"Save changes":"Save expense";const preview=$("#receiptPreview");if(x?.receipt_url){preview.src=x.receipt_url;preview.hidden=false}else{preview.removeAttribute("src");preview.hidden=true}$("#expenseDialog").showModal()}
+function openExpense(x=null){const f=$("#expenseForm");f.reset();receiptDataUrl=null;f.elements.id.value=x?.id||"";f.elements.expense_date.value=x?.expense_date||localTodayStr();f.elements.category.value=x?.category||"Flowers";f.elements.vendor.value=x?.vendor||"";f.elements.amount.value=x?.amount??"";f.elements.notes.value=x?.notes||"";$("#expenseDialogTitle").textContent=x?"Edit expense":"Add expense";$("#expenseSaveButton").textContent=x?"Save changes":"Save expense";const preview=$("#receiptPreview");if(x?.receipt_url){preview.src=x.receipt_url;preview.hidden=false}else{preview.removeAttribute("src");preview.hidden=true}$("#expenseDialog").showModal()}
 function libraryRecipeRows(recipe){return recipe.map((r,i)=>`<div class="library-recipe-row"><label>Flower or supply<input data-library-ingredient value="${esc(r[0])}"></label><label>Quantity<input data-library-quantity type="number" min="0" step=".1" value="${Number(r[1])}"></label><button type="button" class="secondary danger" data-remove-library-line="${i}">Delete line</button></div>`).join("")}
 function openLibraryDesign(index){selectedLibraryIndex=Number(index);const p=LIBRARY[selectedLibraryIndex];if(!p)return;const f=$("#libraryDesignForm");f.elements.name.value=p[0];f.elements.category.value=p[1];f.elements.price.value=p[2];f.elements.description.value=p[4];f.elements.image_url.value=p[6]||"";$("#libraryDesignImage").src=p[6]||"";$("#libraryDesignImage").hidden=!p[6];$("#libraryRecipeRows").innerHTML=libraryRecipeRows(p[5]);$("#libraryDesignDialog").showModal()}
 function libraryDialogPayload(){const f=$("#libraryDesignForm");return {name:f.elements.name.value.trim(),category:f.elements.category.value.trim()||"Everyday",price:Number(f.elements.price.value||0),description:f.elements.description.value.trim(),image_url:f.elements.image_url.value.trim(),items:[...document.querySelectorAll("#libraryRecipeRows .library-recipe-row")].map(row=>({ingredient_name:row.querySelector("[data-library-ingredient]").value.trim(),quantity:Number(row.querySelector("[data-library-quantity]").value||1),unit:"stem",unit_cost:0})).filter(x=>x.ingredient_name)}}
@@ -879,7 +935,12 @@ function readSplitRows(){return [...($("#splitPaymentRows")?.querySelectorAll(".
 function updateSplitTotals(){const balance=Number($("#paymentTopSummary")?.dataset.balance||getPaymentBalance());const rows=readSplitRows();const splitTotal=Math.round(rows.reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;const manualTotal=Math.round(rows.filter(r=>r.method!=="Card").reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;const cardTotal=Math.round(rows.filter(r=>r.method==="Card").reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;if($("#splitTotalLive"))$("#splitTotalLive").textContent=money(splitTotal);if($("#splitRemainingLive"))$("#splitRemainingLive").textContent=money(Math.max(0,balance-manualTotal));const err=$("#splitPaymentError");if(err)err.textContent=splitTotal>balance+0.005?`Split total ${money(splitTotal)} exceeds balance ${money(balance)}.`:"";const notice=$("#splitCardNotice");if(notice){if(cardTotal>0){notice.hidden=false;notice.textContent=`Card total ${money(cardTotal)} opens Stripe for that amount after cash/check/other parts post.`}else notice.hidden=true}}
 function setPendingPaymentOrder(order){pendingPaymentOrder=order||null;if(order)localStorage.setItem("bloom_pending_payment_order",JSON.stringify(order));else{localStorage.removeItem("bloom_pending_payment_order");clearSplitSession()}renderPaymentCenterShell()}
 function posFulfillMode(){return document.querySelector('#posFulfill [data-fulfill].active')?.dataset.fulfill||"PICKUP"}
+let posCheckoutInFlight=false;
 async function checkoutPosCart(){
+  // A POS device gets tapped fast and sometimes twice — guard against firing
+  // two "create order" requests from one checkout tap (same class of bug as
+  // bindForm's double-submit fix, but this button isn't a <form> submit).
+  if(posCheckoutInFlight)return;
   if(!posCart.length)return toast("Add an item first");
   const option=$("#posCustomerSelect")?.selectedOptions?.[0],customerName=option?.dataset.name||"Walk-in Customer",note=$("#posOrderNote")?.value||"";
   const {subtotal,tax,total,rate,discount,service}=cartTotals();
@@ -887,11 +948,14 @@ async function checkoutPosCart(){
   const recipientName=(isDelivery&&$("#posRecipientName")?.value?.trim())||customerName;
   const recipientPhone=isDelivery?($("#posRecipientPhone")?.value?.trim()||""):"";
   const deliveryAddress=isDelivery?($("#posDeliveryAddress")?.value?.trim()||""):"";
-  const deliveryDate=$("#posDeliveryDate")?.value||new Date().toISOString().slice(0,10);
+  const deliveryDate=$("#posDeliveryDate")?.value||localTodayStr();
   const cardMessage=$("#posCardMessage")?.value?.trim()||"";
   const occasion=$("#posOccasion")?.value?.trim()||"";
   if(isDelivery&&!deliveryAddress)return toast("Add a delivery address, or switch to Pickup.");
   const description=posCart.map(x=>`${x.quantity} × ${x.name}${x.description?` (${x.description})`:""}`).join("; ");
+  posCheckoutInFlight=true;
+  const checkoutBtn=$("#posChargeCardBtn");
+  if(checkoutBtn)checkoutBtn.disabled=true;
   try{
     const result=await api("orders",{method:"POST",body:JSON.stringify({customer_name:customerName,customer_phone:"",customer_type:"PERSONAL",payment_required:"YES",recipient_name:recipientName,recipient_phone:recipientPhone,delivery_address:deliveryAddress,card_message:cardMessage,occasion,order_source:"POS",arrangement_description:description,notes:note,fulfillment,delivery_date:deliveryDate,subtotal,labor_charge:0,delivery_fee:service||0,discount:discount||0,tax_rate:rate,tax,estimated_cost:0,total_preview:total})});
     const order=result.item||{};
@@ -901,6 +965,7 @@ async function checkoutPosCart(){
     await openPaymentCenterForOrder(order);
     loadOrders();loadDashboard();
   }catch(e){toast(e.message)}
+  finally{posCheckoutInFlight=false;if(checkoutBtn)checkoutBtn.disabled=false}
 }
 document.addEventListener("click",e=>{const b=e.target.closest("#posFulfill [data-fulfill]");if(!b)return;document.querySelectorAll("#posFulfill [data-fulfill]").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-selected",on?"true":"false")});const del=b.dataset.fulfill==="DELIVERY";const f=$("#posDeliveryFields");if(f)f.hidden=!del});
 addPastelPageFrames();
@@ -935,6 +1000,7 @@ $("#refreshCommunity")?.addEventListener("click",()=>loadCommunityPage());
 $("#refreshHoliday")?.addEventListener("click",()=>loadHolidayPage());
 $("#refreshFloristNetwork")?.addEventListener("click",()=>loadFloristNetworkPage());
 $("#refreshEmailCampaigns")?.addEventListener("click",()=>loadEmailCampaignsPage());
+$("#refreshMarketing")?.addEventListener("click",()=>loadMarketingPage());
 $("#refreshWeddings")?.addEventListener("click",()=>loadWeddingsPage());
 $("#shopSwitcher").onchange=async e=>{await api("stores",{method:"PATCH",body:JSON.stringify({shop_id:e.target.value})});location.reload()};
 $("#customerForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));d.vip=f.elements.vip.checked;d.is_business=f.elements.is_business.checked;if(f.elements.is_house_account)d.is_house_account=f.elements.is_house_account.checked;d.contact_preferences={preferred_method:f.elements.preferred_method?.value||"none",marketing_opt_in:Boolean(f.elements.marketing_opt_in?.checked)};try{await api("customers",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)})}catch(err){return toast(err.message)}f.reset();$("#customerDialog").close();toast("Customer saved");loadCustomers()};
@@ -951,7 +1017,7 @@ function syncOrderFormUi(isEdit=false){const submit=$("#orderFormSubmit"),del=$(
 function showOrderCustomerPreference(name){const section=$("#orderCustomerPreferenceSection"),text=$("#orderCustomerPreferenceText");if(!section||!text)return;const c=customers.find(x=>x.name.toLowerCase()===String(name||"").trim().toLowerCase());if(!c){section.hidden=true;return}section.hidden=false;text.textContent=contactPrefSummary(c)}
 async function loadOrderDeliveryProof(orderId){const section=$("#orderDeliveryProofSection"),box=$("#orderDeliveryProofSummary");if(!section||!box||!orderId){if(section)section.hidden=true;return}try{const result=await api(`deliveries?order_id=${encodeURIComponent(orderId)}`);const proof=(result.items||[]).find(x=>x.proof_signed_url||x.signature_name||x.proof_captured_at);if(!proof){section.hidden=false;box.textContent="No delivery proof on file yet.";return}section.hidden=false;box.innerHTML=`${proof.proof_signed_url?`<p><img src="${esc(proof.proof_signed_url)}" alt="Delivery proof" class="receipt-preview" loading="lazy"></p>`:""}<p>Signed by: ${esc(proof.signature_name||proof.recipient_name||"—")}</p><p>Captured: ${proof.proof_captured_at?new Date(proof.proof_captured_at).toLocaleString():"—"}</p>${proof.notes?`<p>${esc(proof.notes)}</p>`:""}`}catch{section.hidden=true}}
 function openOrderEditor(order){if(!order)return;const f=$("#orderForm");f.reset();for(const[key,value]of Object.entries(order)){if(!f.elements[key])continue;if(f.elements[key].type==="checkbox")f.elements[key].checked=Boolean(value);else f.elements[key].value=value??""}if(f.elements.subtotal)f.elements.subtotal.value=Math.max(0,Number(order.subtotal||0)-Number(order.labor_charge||0)-Number(order.addon_total||0)+Number(order.discount||0));f.elements.id.value=order.id;populateOrderStatusSelect(order.status);const title=$("#orderDialogTitle");if(title)title.textContent=`Edit ${order.order_number||"order"}`;syncOrderFormUi(true);toggleDeliveryFields();updateOrderBuilder();loadOrderStatusHistory(order.id);showOrderCustomerPreference(order.customer_name);loadOrderDeliveryProof(order.id);$("#orderDialog").showModal()}
-async function prepareOrderBuilder(){const f=$("#orderForm");if(!f)return toast("Order form unavailable. Refresh Florisyn and try again.");f.reset();f.elements.id.value="";const title=$("#orderDialogTitle");if(title)title.textContent="New florist order";syncOrderFormUi(false);populateOrderStatusSelect("PENDING");f.elements.delivery_date.value=new Date().toISOString().slice(0,10);if(!shopSettings)try{shopSettings=(await api("settings")).item}catch{};f.elements.tax_rate.value=Number(shopSettings?.tax_rate??6);f.elements.fulfillment.value="PICKUP";f.elements.delivery_fee.value="0.00";if(f.elements.payment_required)f.elements.payment_required.value="YES";if(!customers.length)try{await loadCustomers()}catch{};if(!products.length)try{await loadProducts()}catch{};refreshOrderCustomerOptions();toggleDeliveryFields();updateOrderBuilder();showOrderCustomerPreference("");if($("#orderDeliveryProofSection"))$("#orderDeliveryProofSection").hidden=true}
+async function prepareOrderBuilder(){const f=$("#orderForm");if(!f)return toast("Order form unavailable. Refresh Florisyn and try again.");f.reset();f.elements.id.value="";const title=$("#orderDialogTitle");if(title)title.textContent="New florist order";syncOrderFormUi(false);populateOrderStatusSelect("PENDING");f.elements.delivery_date.value=localTodayStr();if(!shopSettings)try{shopSettings=(await api("settings")).item}catch{};f.elements.tax_rate.value=Number(shopSettings?.tax_rate??6);f.elements.fulfillment.value="PICKUP";f.elements.delivery_fee.value="0.00";if(f.elements.payment_required)f.elements.payment_required.value="YES";if(!customers.length)try{await loadCustomers()}catch{};if(!products.length)try{await loadProducts()}catch{};refreshOrderCustomerOptions();toggleDeliveryFields();updateOrderBuilder();showOrderCustomerPreference("");if($("#orderDeliveryProofSection"))$("#orderDeliveryProofSection").hidden=true}
 function toggleDeliveryFields(){const delivery=$("#orderFulfillment")?.value==="DELIVERY";$("#deliveryFields")?.classList.toggle("is-hidden",!delivery);const addr=$("#orderDeliveryAddress");if(addr)addr.required=false}
 $("#orderCustomerName").onchange=e=>{const c=customers.find(x=>x.name.toLowerCase()===e.target.value.trim().toLowerCase());if(c)$("#orderForm").elements.customer_phone.value=c.phone||"";showOrderCustomerPreference(e.target.value)};
 $("#orderFulfillment").onchange=()=>{const f=$("#orderForm");toggleDeliveryFields();if(f.elements.fulfillment.value==="DELIVERY"&&Number(f.elements.delivery_fee.value||0)===0)f.elements.delivery_fee.value=Number(shopSettings?.default_delivery_fee??0).toFixed(2);if(f.elements.fulfillment.value==="PICKUP")f.elements.delivery_fee.value="0.00";updateOrderBuilder()};
@@ -1169,7 +1235,20 @@ const SHOT_BACKGROUND_STYLES={
   "luxury-noir":{type:"gradient",from:"#0a0a0d",to:"#232128"}
 };
 const shotState=()=>({brightness:Number($("#shotBrightness")?.value||100),contrast:Number($("#shotContrast")?.value||100),saturation:Number($("#shotSaturation")?.value||100),warmth:Number($("#shotWarmth")?.value||0),background:$("#shotBackground")?.value||"#ffffff",size:$("#shotSize")?.value||"1200x1200",watermark:$("#shotWatermark")?.value||""});
-function loadBloomShot(){const draft=localStorage.getItem("bloomShotDraft");if(draft){try{const d=JSON.parse(draft);for(const [id,value] of Object.entries(d.fields||{})){const el=document.getElementById(id);if(el)el.value=value}if($("#shotStatus"))$("#shotStatus").textContent="Your last editable draft is available."}catch{}}drawBloomShot()}
+function loadBloomShot(){const draft=localStorage.getItem("bloomShotDraft");if(draft){try{const d=JSON.parse(draft);for(const [id,value] of Object.entries(d.fields||{})){const el=document.getElementById(id);if(el)el.value=value}
+  /* Restore the uploaded photo itself, not just the text fields — a refresh
+     used to silently wipe the whole in-progress edit (upload, background
+     choice, sliders, rotation) while text fields survived, with no warning.
+     Re-run the same free client-side background removal a fresh upload gets
+     instead of also persisting the cutout separately. */
+  if(d.image){
+    shotRotation=Number(d.rotation)||0;
+    const img=new Image();
+    img.onload=()=>{shotImage=img;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;drawBloomShot();prepareShotCutout();if($("#shotStatus"))$("#shotStatus").textContent="Your last photo and edits were restored on this device."};
+    img.onerror=()=>{if($("#shotStatus"))$("#shotStatus").textContent="Your last editable draft is available.";};
+    img.src=d.image;
+  }else if($("#shotStatus"))$("#shotStatus").textContent="Your last editable draft is available.";
+  }catch{}}drawBloomShot()}
 function shotCanvasSize(){return String($("#shotSize")?.value||"1200x1200").split("x").map(Number)}
 function drawBloomShot(){const canvas=$("#bloomshotCanvas");if(!canvas)return;const [w,h]=shotCanvasSize(),ctx=canvas.getContext("2d"),s=shotState();canvas.width=w;canvas.height=h;ctx.clearRect(0,0,w,h);
   /* Background layer first, then the cut-out arrangement on top so the new
@@ -1236,17 +1315,60 @@ $("#bloomshotUseAnyway")?.addEventListener("click",()=>{
   toast("Using the cut-out background removal");
 });
 function syncShotOutputs(){$$(".bloomshot-controls label").forEach(l=>{const i=l.querySelector("input"),o=l.querySelector("output");if(i&&o)o.textContent=i.id==="shotWarmth"?i.value:`${i.value}%`})}
-function shotFields(){return Object.fromEntries(["shotProductName","shotOccasion","shotNotes","shotPrice","shotTone","shotDescription","shotCaption","shotSeo","shotAlt","shotWatermark"].map(id=>[id,document.getElementById(id)?.value||""]))}
-function saveShotDraft(silent=false){localStorage.setItem("bloomShotDraft",JSON.stringify({fields:shotFields(),savedAt:new Date().toISOString()}));if(!silent){$("#shotStatus").textContent="Draft saved on this device. Nothing was published.";toast("BloomShot draft saved")}}
-$("#bloomshotFile")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>12*1024*1024)return toast("Please choose an image under 12 MB");const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{shotImage=img;shotRotation=0;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}drawBloomShot();toast("Photo ready to edit");prepareShotCutout()};img.src=reader.result};reader.readAsDataURL(file)});
-$("#bloomshotRemovePhoto")?.addEventListener("click",()=>{shotImage=null;shotCutout=null;shotRejectedCutout=null;shotUseCutout=true;shotRotation=0;shotRecipe=null;shotSavedProductId=null;const file=$("#bloomshotFile");if(file)file.value="";const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}const cutRow=$("#bloomshotCutoutRow");if(cutRow){cutRow.hidden=true}const cutStatus=$("#bloomshotCutoutStatus");if(cutStatus)cutStatus.textContent="";drawBloomShot();if($("#shotStatus"))$("#shotStatus").textContent="Photo removed. Choose a new arrangement photo to start over.";toast("Photo removed — choose a new one")});
-$$('[data-shot-preset]').forEach(b=>b.addEventListener("click",()=>setShotPreset(b.dataset.shotPreset)));
-$$('#shotBrightness,#shotContrast,#shotSaturation,#shotWarmth,#shotBackground,#shotSize,#shotWatermark').forEach(el=>el.addEventListener("input",()=>{syncShotOutputs();drawBloomShot()}));
-$("#shotRotate")?.addEventListener("click",()=>{shotRotation=(shotRotation+90)%360;drawBloomShot()});
+function shotFields(){return Object.fromEntries(["shotProductName","shotOccasion","shotNotes","shotPrice","shotTone","shotDescription","shotCaption","shotSeo","shotAlt","shotWatermark","shotBackground","shotSize","shotBrightness","shotContrast","shotSaturation","shotWarmth"].map(id=>[id,document.getElementById(id)?.value||""]))}
+function shotDraftImage(){
+  if(!shotImage)return null;
+  /* Downscale to the same edge cap the background-removal engine already
+     uses (photo-studio.js MAX_WORK_EDGE) — plenty for on-device recovery
+     without risking localStorage's ~5-10MB per-origin quota on a single
+     saved photo. */
+  const maxEdge=1600,scale=Math.min(1,maxEdge/Math.max(shotImage.width,shotImage.height));
+  const tmp=document.createElement("canvas");
+  tmp.width=Math.max(1,Math.round(shotImage.width*scale));
+  tmp.height=Math.max(1,Math.round(shotImage.height*scale));
+  tmp.getContext("2d").drawImage(shotImage,0,0,tmp.width,tmp.height);
+  return tmp.toDataURL("image/jpeg",.85);
+}
+function saveShotDraft(silent=false){
+  const base={fields:shotFields(),rotation:shotRotation,savedAt:new Date().toISOString()};
+  try{
+    localStorage.setItem("bloomShotDraft",JSON.stringify({...base,image:shotDraftImage()}));
+  }catch(e){
+    /* Quota exceeded (large photo) or storage unavailable — never let that
+       take down the rest of the draft save; fields/rotation still matter
+       even if the photo itself couldn't be cached for recovery this time. */
+    try{localStorage.setItem("bloomShotDraft",JSON.stringify(base))}catch{}
+  }
+  if(!silent){$("#shotStatus").textContent="Draft saved on this device. Nothing was published.";toast("BloomShot draft saved")}
+}
+/* Debounced autosave for continuous controls (sliders) so dragging a slider
+   doesn't re-encode and write the photo to localStorage on every tick. */
+function scheduleShotDraftSave(){clearTimeout(shotDraftTimer);shotDraftTimer=setTimeout(()=>saveShotDraft(true),800)}
+$("#bloomshotFile")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>12*1024*1024)return toast("Please choose an image under 12 MB");const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{shotImage=img;shotRotation=0;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}drawBloomShot();toast("Photo ready to edit");prepareShotCutout();saveShotDraft(true)};img.src=reader.result};reader.readAsDataURL(file)});
+// Community Step 69 — the reverse of the existing Photo Studio → Community
+// "Post to Community feed" checkbox: pull a real photo (already resolved
+// to a data URL by the caller, e.g. Community's own fetchPostImageDataUrl)
+// back into Photo Studio for further editing. Same reset/draw sequence as
+// the file-upload handler above, so it behaves exactly like choosing that
+// photo from disk.
+function loadShotImageFromDataUrl(dataUrl,{caption}={}){
+  if(!dataUrl)return Promise.resolve(false);
+  return new Promise((resolve)=>{
+    const img=new Image();
+    img.onload=()=>{shotImage=img;shotRotation=0;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}drawBloomShot();prepareShotCutout();if(caption&&$("#shotCaption")&&!$("#shotCaption").value.trim())$("#shotCaption").value=caption;saveShotDraft(true);resolve(true)};
+    img.onerror=()=>{toast("Could not load that photo into Photo Studio.");resolve(false)};
+    img.src=dataUrl;
+  });
+}
+window.BloomShotLoadImage=loadShotImageFromDataUrl;
+$("#bloomshotRemovePhoto")?.addEventListener("click",()=>{shotImage=null;shotCutout=null;shotRejectedCutout=null;shotUseCutout=true;shotRotation=0;shotRecipe=null;shotSavedProductId=null;const file=$("#bloomshotFile");if(file)file.value="";const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}const cutRow=$("#bloomshotCutoutRow");if(cutRow){cutRow.hidden=true}const cutStatus=$("#bloomshotCutoutStatus");if(cutStatus)cutStatus.textContent="";drawBloomShot();if($("#shotStatus"))$("#shotStatus").textContent="Photo removed. Choose a new arrangement photo to start over.";toast("Photo removed — choose a new one");saveShotDraft(true)});
+$$('[data-shot-preset]').forEach(b=>b.addEventListener("click",()=>{setShotPreset(b.dataset.shotPreset);if(shotImage)scheduleShotDraftSave()}));
+$$('#shotBrightness,#shotContrast,#shotSaturation,#shotWarmth,#shotBackground,#shotSize,#shotWatermark').forEach(el=>el.addEventListener("input",()=>{syncShotOutputs();drawBloomShot();if(shotImage)scheduleShotDraftSave()}));
+$("#shotRotate")?.addEventListener("click",()=>{shotRotation=(shotRotation+90)%360;drawBloomShot();if(shotImage)scheduleShotDraftSave()});
 function shotImageForVision(max=1024){if(!shotImage)return null;const iw=shotImage.width||max,ih=shotImage.height||max,scale=Math.min(1,max/Math.max(iw,ih)),c=document.createElement("canvas");c.width=Math.max(1,Math.round(iw*scale));c.height=Math.max(1,Math.round(ih*scale));c.getContext("2d").drawImage(shotImage,0,0,c.width,c.height);return c.toDataURL("image/jpeg",.85)}
 $("#shotRecipe")?.addEventListener("click",async()=>{if(!shotImage)return toast("Upload an arrangement photo first");const btn=$("#shotRecipe"),out=$("#shotRecipeOut"),orig=btn.textContent;btn.disabled=true;btn.textContent="Lily is studying the photo…";if($("#shotStatus"))$("#shotStatus").textContent="Lily is identifying the flowers in your photo…";try{const image_base64=shotImageForVision();const d=await api("photo-recipe",{method:"POST",body:JSON.stringify({image_base64,occasion:$("#shotOccasion")?.value||"",notes:$("#shotNotes")?.value||""})});if(!d.ok){shotRecipe=null;if(out){out.hidden=false;out.innerHTML=`<p class="subtle">${esc(d.message||"Lily couldn't read this photo. Try a clearer, closer shot of the arrangement.")}</p>`}if($("#shotStatus"))$("#shotStatus").textContent=d.message||"Lily couldn't identify the flowers.";return}shotRecipe=(d.recipe||[]).map(r=>({ingredient_name:r.name,quantity:r.qty,unit:"stem",kind:r.kind}));const rows=(d.recipe||[]).map(r=>`<li><b>${Number(r.qty||0)}</b> ${esc(r.name)}${r.kind?` <em>${esc(r.kind)}</em>`:""}</li>`).join("");if(out){out.hidden=false;out.innerHTML=`<h3>Lily's recipe <small>${Number(d.stems||0)} stems</small></h3><ul class="shot-recipe-list">${rows}</ul>${d.design_notes?`<p class="subtle">${esc(d.design_notes)}</p>`:""}<p class="subtle">Draft — edit the stems as needed. Saved into the product recipe when you click "Add to Products".</p>`}if(!$("#shotNotes")?.value?.trim()&&$("#shotNotes"))$("#shotNotes").value=(d.recipe||[]).map(r=>`${r.qty} ${r.name}`).join(", ");if($("#shotStatus"))$("#shotStatus").textContent="Lily built a recipe from your photo. Review and edit before saving.";toast("Lily identified the flowers 🌸")}catch(e){if($("#shotStatus"))$("#shotStatus").textContent=e.message;toast(e.message)}finally{btn.disabled=false;btn.textContent=orig}});
 $("#shotBackground")?.addEventListener("input",()=>{shotPresetBackground=null});
-$("#bloomshotRestore")?.addEventListener("click",()=>{shotRotation=0;setShotPreset("true");shotUseCutout=false;shotPresetBackground=null;$("#shotBackground").value="#ffffff";drawBloomShot();toast("Original photo restored — pick a style to place it on a new background")});
+$("#bloomshotRestore")?.addEventListener("click",()=>{shotRotation=0;setShotPreset("true");shotUseCutout=false;shotPresetBackground=null;$("#shotBackground").value="#ffffff";drawBloomShot();toast("Original photo restored — pick a style to place it on a new background");if(shotImage)scheduleShotDraftSave()});
 $("#bloomshotDownload")?.addEventListener("click",()=>{if(!shotImage)return toast("Choose a photo first");drawBloomShot();const a=document.createElement("a");a.download=`${($("#shotProductName")?.value||"bloomshot").replace(/[^a-z0-9]+/gi,"-").toLowerCase()}.png`;a.href=$("#bloomshotCanvas").toDataURL("image/png",.92);a.click()});
 $("#shotGenerate")?.addEventListener("click",async()=>{const b=$("#shotGenerate"),name=$("#shotProductName").value.trim(),notes=$("#shotNotes").value.trim();if(!name&&!notes)return toast("Add a product name or flower notes first");b.disabled=true;b.textContent="Lily is drafting…";$("#shotStatus").textContent="Using the lowest-cost available AI route…";try{const d=await smartAi({mode:"generate",task:"Create editable florist product content",input:{name,notes,occasion:$("#shotOccasion").value,tone:$("#shotTone").value,price:$("#shotPrice").value,shop:shopSettings||{}},schema:{description:"2 concise paragraphs",caption:"social caption with call to action",seo:"SEO title under 60 characters",alt:"accurate image alt text"}});const r=d.result||{};$("#shotDescription").value=r.description||r.text||"";$("#shotCaption").value=r.caption||"";$("#shotSeo").value=r.seo||name;$("#shotAlt").value=r.alt||`${name||"Floral arrangement"} by a local florist`;$("#shotApproved").checked=false;$("#shotStatus").textContent=`Draft created with ${d.provider||"AI"}. Review and edit every field before approval.`;saveShotDraft(true)}catch(e){$("#shotStatus").textContent=e.message;toast(e.message)}finally{b.disabled=false;b.textContent="✨ Ask Lily to draft content"}});
 $("#shotSaveDraft")?.addEventListener("click",()=>saveShotDraft(false));

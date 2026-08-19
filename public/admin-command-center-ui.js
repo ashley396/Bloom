@@ -11,6 +11,9 @@ function readBetaChecks() {
 }
 
 function chartBars(series = [], label) {
+  if (!series.length) {
+    return `<article class="panel chart-panel"><h3>${label}</h3><p class="chart-empty">No data yet — this fills in once activity comes in.</p></article>`;
+  }
   const max = Math.max(1, ...series.map((s) => Number(s.value || 0)));
   return `<article class="panel chart-panel"><h3>${label}</h3><div class="chart-bars">${series.map((s) => `<div class="chart-bar"><span>${s.label}</span><div class="bar-track"><i style="width:${Math.round((Number(s.value || 0) / max) * 100)}%"></i></div><strong>${Number(s.value || 0).toLocaleString()}</strong></div>`).join('')}</div></article>`;
 }
@@ -36,7 +39,12 @@ export function initCommandCenter(deps) {
     try {
       const d = await ccCall('admin-command-center?action=dashboard');
       const k = d.kpis || {};
-      const money = (n) => Number(n || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+      // Every count card above already uses `?? '—'`, showing a dash only
+      // for genuinely missing data and a real 0 for a known zero. This
+      // used to always format to "$0" instead — even for missing data —
+      // so a thin response showed "—" and "$0" side by side in the same
+      // row of peer cards for the exact same underlying reason.
+      const money = (n) => n == null ? '—' : Number(n || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
       mount.innerHTML = `
         <div class="metric-grid executive-grid">
           ${[

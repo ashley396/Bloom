@@ -123,11 +123,13 @@
     const pickups = Number(d.ordersDueToday || 0);
     const strip = document.createElement("section");
     strip.className = "bloom-command-center";
-    strip.setAttribute("aria-label", "Today at a glance");
+    // Used to repeat revenue/orders/deliveries here too, right below the
+    // dashboard's own Total Revenue / Orders Today / Deliveries Today
+    // KPI cards — the same three numbers shown twice, in two different
+    // card styles, one screen apart. Trimmed to only what isn't already
+    // on the dashboard: what still needs the florist's attention today.
+    strip.setAttribute("aria-label", "Needs your attention today");
     strip.innerHTML = `
-      <article><small>Today's revenue</small><strong>${money(d.todaySales)}</strong></article>
-      <article><small>Orders today</small><strong>${Number(d.ordersToday || 0)}</strong></article>
-      <article><small>Deliveries</small><strong>${Number(d.deliveriesToday || 0)}</strong></article>
       <article><small>Pickups due</small><strong>${pickups}</strong></article>
       <article><small>Inventory alerts</small><strong>${Number(d.lowStock || 0)}</strong></article>
       <article><small>Outstanding</small><strong>${money(d.unpaidTotal)}</strong></article>`;

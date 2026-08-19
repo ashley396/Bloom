@@ -59,6 +59,32 @@ test("publicRecipeSummary omits internal fields", () => {
   assert.equal("image_path" in summary, false);
 });
 
+test("publicRecipeSummary attaches real design DNA, curated substitutes, and precomputed scaled variants (Step 66/75)", () => {
+  const row = {
+    id: "r2",
+    title: "Peony Garden",
+    recipe: [
+      { name: "Peony", qty: 4, kind: "flower" },
+      { name: "Israeli ruscus", qty: 3, kind: "foliage" },
+    ],
+    instructions: [],
+    suggested_retail: 90,
+    import_count: 0,
+    author_user_id: "u1",
+    created_at: "2026-08-10T00:00:00Z",
+  };
+  const summary = publicRecipeSummary(row);
+
+  assert.equal(summary.design_dna.stemCount, 7);
+  assert.ok(summary.design_dna.styleTags.includes("romantic"));
+
+  const peony = summary.recipe.find((r) => r.name === "Peony");
+  assert.deepEqual(peony.substitutes, ["Garden rose", "Ranunculus"]);
+
+  assert.equal(summary.scaled_variants.smaller.find((r) => r.name === "Peony").qty, 3);
+  assert.equal(summary.scaled_variants.larger.find((r) => r.name === "Peony").qty, 6);
+});
+
 test("RECIPE_AI_SCHEMA documents Lily output shape", () => {
   assert.ok(RECIPE_AI_SCHEMA.name);
   assert.ok(Array.isArray(RECIPE_AI_SCHEMA.recipe));
@@ -160,6 +186,48 @@ test("florist-community handler wires Lily recipe actions", () => {
   assert.match(src, /action === "recipes"/);
 });
 
+test("save_post_to_library and import_recipe_to_shop both gate on the creator's share permission, bypassed only for the author's own content", () => {
+  const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
+
+  const saveBlock = src.slice(
+    src.indexOf('if (action === "save_post_to_library")'),
+    src.indexOf('return json(400, { error: "Unknown community action." });')
+  );
+  assert.match(saveBlock, /isOwnPost\s*=\s*post\.author_user_id\s*===\s*user\.id/);
+  assert.match(saveBlock, /!isOwnPost && !permissionAtLeast\(post\.share_permission, "save_to_library"\)/);
+  // Design permission never implies photo permission — the photo is only
+  // carried into the new product when explicitly allowed (or it's the
+  // florist's own post).
+  assert.match(saveBlock, /usePhoto\s*=\s*isOwnPost\s*\|\|\s*Boolean\(post\.allow_photo_use\)/);
+  assert.match(saveBlock, /image_url:\s*usePhoto\s*\?\s*imageDataUrl\s*:\s*""/);
+
+  const importBlock = src.slice(
+    src.indexOf('if (action === "import_recipe_to_shop")'),
+    src.indexOf('if (action === "save_post_to_library")')
+  );
+  assert.match(importBlock, /isOwnRecipe\s*=\s*recipe\.author_user_id\s*===\s*user\.id/);
+  assert.match(importBlock, /permissionAtLeast\(sharePermission, "allow_shop_use"\)/);
+  // A recipe whose linked post can't be found (deleted, or post_id null)
+  // must fail closed, not assume permission because it can't check.
+  assert.match(importBlock, /sharePermission\s*=\s*null/);
+});
+
+test("import_recipe_to_shop matches against the importing shop's own inventory for real costing (Community Step 67)", () => {
+  const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
+  const importBlock = src.slice(
+    src.indexOf('if (action === "import_recipe_to_shop")'),
+    src.indexOf('if (action === "save_post_to_library")')
+  );
+  assert.match(importBlock, /client\s*\.from\("inventory"\)[\s\S]{0,120}\.eq\("shop_id",\s*shopId\)/);
+  assert.match(importBlock, /matchRecipeToInventory\(draft\.recipe,\s*shopInventory\s*\|\|\s*\[\]\)/);
+  // Every product_recipes row uses the matcher's real cost/inventory link
+  // — never a hardcoded unit_cost: 0 / inventory_id: null regardless of
+  // whether the shop already stocks the ingredient.
+  assert.match(importBlock, /inventory_id:\s*x\.matched_inventory_id/);
+  assert.match(importBlock, /unit_cost:\s*x\.unit_cost/);
+  assert.match(importBlock, /cost_match:\s*costMatch/);
+});
+
 test("community UI hints florists to name flowers for Lily", () => {
   const ui = fs.readFileSync(path.join(process.cwd(), "public/community-ui.js"), "utf8");
   assert.match(ui, /Retry with Lily/);
@@ -183,4 +251,17 @@ test("avatar migration includes community recipes tables", () => {
   assert.match(sql, /florist_community_recipes/);
   assert.match(sql, /recipe_draft/);
   assert.match(sql, /recipe_status/);
+});
+
+test("share permissions migration adds both columns with a restrictive default and a real check constraint", () => {
+  const sql = fs.readFileSync(
+    path.join(process.cwd(), "supabase/migrations/20260818000000_florist_community_share_permissions.sql"),
+    "utf8"
+  );
+  assert.match(sql, /add column if not exists share_permission text not null default 'inspiration_only'/);
+  assert.match(sql, /add column if not exists allow_photo_use boolean not null default false/);
+  assert.match(sql, /florist_community_posts_share_permission_check/);
+  for (const tier of ["inspiration_only", "save_to_library", "allow_recreation", "allow_shop_use", "allow_website_use"]) {
+    assert.match(sql, new RegExp(tier));
+  }
 });

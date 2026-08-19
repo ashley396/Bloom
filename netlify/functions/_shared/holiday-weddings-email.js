@@ -90,9 +90,15 @@ export function validateHolidayPeakBody(body = {}, { partial = false } = {}) {
   if (body.target_orders !== undefined || !partial) sanitized.target_orders = target_orders;
   if (body.current_orders !== undefined || !partial) sanitized.current_orders = current_orders;
   if (body.alert_threshold !== undefined || !partial) sanitized.alert_threshold = alert_threshold;
+  // is_paused (order-intake pause) is intentionally independent of status
+  // (planning/active/paused/archived lifecycle) — it used to force
+  // status to "paused" here, which meant there was no way to record what
+  // the peak's actual status had been, so resuming could only ever guess
+  // "active" and silently overwrote a peak that was still "planning" (or
+  // "archived"). Pausing/resuming intake never touches status now; a
+  // florist sets status explicitly.
   if (is_paused !== undefined) {
     sanitized.is_paused = is_paused;
-    if (is_paused) sanitized.status = "paused";
   }
 
   return { valid: true, sanitized };

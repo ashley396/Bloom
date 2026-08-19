@@ -42,8 +42,10 @@ function jsonWithinLimit(value,maxChars=MAX_PROMPT_CHARS){
   if(text.length<=maxChars)return text;
   return JSON.stringify({notice:"Florisyn trimmed oversized context for a safe AI request.",summary:safeText(text,maxChars-120)});
 }
-function systemPrompt(persona, mode = "chat") {
-  return systemPromptFor(persona, mode);
+function systemPrompt(persona, mode = "chat", suffix = "") {
+  const base = systemPromptFor(persona, mode);
+  const extra = String(suffix || "").trim();
+  return extra ? `${base}\n${extra}` : base;
 }
 
 export function cloudflareAiToken(env = process.env) {
@@ -78,7 +80,7 @@ async function cloudflareAi(payload){
   const url=`https://api.cloudflare.com/client/v4/accounts/${account}/ai/run/${model}`;
   const maxTokens=Math.min(1200,Math.max(400,Number(payload.max_tokens)||(mode==="generate"?800:550)));
   const temperature=temperatureForPersona(persona, mode);
-  const r=await fetch(url,{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"system",content:systemPrompt(persona, mode)},{role:"user",content:user}],max_tokens:maxTokens,temperature})});
+  const r=await fetch(url,{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"system",content:systemPrompt(persona, mode, payload.systemSuffix)},{role:"user",content:user}],max_tokens:maxTokens,temperature})});
   let d={};
   try{d=await r.json()}catch{
     const e=new Error(`Cloud AI returned a non-JSON response (${r.status}).`);

@@ -1,7 +1,7 @@
 .pricing-hero-lead {
   max-width: 640px;
   margin: 12px auto 0;
-  color: var(--muted);
+  color: var(--muted, #6d7385);
   font-size: 17px;
 }
 
@@ -19,7 +19,7 @@
   gap: 0;
   padding: 5px;
   border-radius: 999px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line, rgba(26, 43, 72, .1));
   background: #fff;
   box-shadow: 0 10px 30px rgba(26, 43, 72, 0.06);
 }
@@ -33,11 +33,11 @@
   padding: 10px 18px;
   border-radius: 999px;
   cursor: pointer;
-  color: var(--muted);
+  color: var(--muted, #6d7385);
 }
 
 .pricing-toggle button.is-active {
-  background: var(--sage);
+  background: var(--sage, #1a2b48);
   color: #fff;
 }
 
@@ -49,7 +49,7 @@
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--rose-dark);
+  color: var(--rose-dark, #a84864);
 }
 
 .pricing-grid {
@@ -63,7 +63,7 @@
 
 .pricing-card {
   position: relative;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line, rgba(26, 43, 72, .1));
   border-radius: 22px;
   background: #fff;
   padding: 28px 24px 26px;
@@ -82,7 +82,7 @@
   top: -11px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--rose);
+  background: var(--rose, #c45d7a);
   color: #fff;
   border-radius: 999px;
   padding: 5px 12px;
@@ -100,7 +100,7 @@
 
 .pricing-summary {
   margin: 10px 0 0;
-  color: var(--muted);
+  color: var(--muted, #6d7385);
   font-size: 14px;
   min-height: 44px;
 }
@@ -117,14 +117,14 @@
 
 .pricing-amount small {
   font-size: 14px;
-  color: var(--muted);
+  color: var(--muted, #6d7385);
   margin-left: 4px;
 }
 
 .pricing-billed-note {
   margin: 0 0 18px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted, #6d7385);
   min-height: 34px;
 }
 
@@ -163,7 +163,7 @@
 }
 
 .pricing-faq article {
-  border: 1px solid var(--line);
+  border: 1px solid var(--line, rgba(26, 43, 72, .1));
   border-radius: 16px;
   background: #fff;
   padding: 18px 20px;

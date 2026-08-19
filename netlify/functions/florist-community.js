@@ -19,6 +19,7 @@ import {
   canEditOwnContent,
   assertCommunitySafePayload,
   isStoragePath,
+  permissionAtLeast,
 } from "./_shared/florist-community.js";
 import {
   uploadPrevalidatedCommunityImage,
@@ -34,9 +35,9 @@ import {
   sanitizeRecipeDraft,
   generateRecipeWithCloudflare,
   buildLocalRecipeDraftFromPost,
-  recipeToProductItems,
   publicRecipeSummary,
 } from "./_shared/florist-community-recipes.js";
+import { matchRecipeToInventory } from "../../lib/floral-library/recipe-intelligence.js";
 
 function featureGate() {
   if (!isFeatureEnabled("COMMUNITY_BETA")) {
@@ -181,7 +182,7 @@ const PROFILE_COLUMNS =
   "user_id,shop_id,display_name,shop_display_name,city,region,bio,avatar_path,updated_at";
 
 const POST_COLUMNS =
-  "id,author_user_id,shop_id,category,caption,body,image_path,status,like_count,comment_count,created_at,updated_at,recipe_draft,recipe_status,published_recipe_id";
+  "id,author_user_id,shop_id,category,caption,body,image_path,status,like_count,comment_count,created_at,updated_at,recipe_draft,recipe_status,published_recipe_id,share_permission,allow_photo_use,answered_comment_id";
 
 const RECIPE_COLUMNS =
   "id,post_id,author_user_id,author_shop_id,title,description,category,recipe,instructions,suggested_retail,image_path,status,import_count,created_at,updated_at";
@@ -309,6 +310,44 @@ async function loadLikesForUser(client, userId, postIds) {
   return new Set((data || []).map((r) => r.post_id));
 }
 
+/** Community Step 68 — who the caller follows, for author_followed and the Following feed filter. */
+async function loadFollowingSet(client, userId) {
+  const { data, error } = await client
+    .from("florist_community_follows")
+    .select("followed_user_id")
+    .eq("follower_user_id", userId);
+  if (error) {
+    if (missingRelation(error)) return new Set();
+    throw error;
+  }
+  return new Set((data || []).map((r) => r.followed_user_id));
+}
+
+/**
+ * Best-effort notification write — a notification is always about
+ * *someone else's* action on your content, so it's written with the
+ * service-role client (same pattern as the import_count update above),
+ * never blocking the real action (like/comment/follow) if it fails or
+ * the migration hasn't been applied yet.
+ */
+async function notify(recipientUserId, actorUserId, shopId, type, { postId = null, commentId = null } = {}) {
+  if (!recipientUserId || recipientUserId === actorUserId) return;
+  const svc = adminIfConfigured();
+  if (!svc) return;
+  try {
+    await svc.from("florist_community_notifications").insert({
+      recipient_user_id: recipientUserId,
+      actor_user_id: actorUserId,
+      shop_id: shopId,
+      type,
+      post_id: postId,
+      comment_id: commentId,
+    });
+  } catch {
+    /* non-blocking; table may not exist until migration is applied */
+  }
+}
+
 async function requireActivePost(client, postId) {
   const { data, error } = await client
     .from("florist_community_posts")
@@ -342,7 +381,7 @@ async function loadPublishedRecipes(client, recipeIds) {
   return map;
 }
 
-async function feed(client, ctx, { category, platformAdmin }) {
+async function feed(client, ctx, { category, platformAdmin, q, followingOnly }) {
   let query = client
     .from("florist_community_posts")
     .select(POST_COLUMNS)
@@ -351,6 +390,22 @@ async function feed(client, ctx, { category, platformAdmin }) {
     .limit(50);
   if (category && COMMUNITY_CATEGORIES.includes(category)) {
     query = query.eq("category", category);
+  }
+  // Community Step 68 — real search over caption/body, not a client-side
+  // filter over whatever page of posts happened to already be loaded.
+  const term = String(q || "").trim().slice(0, 120);
+  if (term) {
+    const escaped = term.replace(/[%_]/g, (c) => `\\${c}`);
+    query = query.or(`caption.ilike.%${escaped}%,body.ilike.%${escaped}%`);
+  }
+  const followingSet = await loadFollowingSet(client, ctx.user.id);
+  if (followingOnly) {
+    const ids = [...followingSet];
+    // An empty IN-list would match nothing via .in([]) inconsistently
+    // across PostgREST versions — short-circuit to an honest empty feed
+    // instead of relying on that.
+    if (!ids.length) return [];
+    query = query.in("author_user_id", ids);
   }
   const { data, error } = await query;
   if (error) {
@@ -378,6 +433,7 @@ async function feed(client, ctx, { category, platformAdmin }) {
         imageUrl: signed.url,
         imageExpiresIn: signed.expiresIn,
         publishedRecipe: p.published_recipe_id ? recipeMap.get(p.published_recipe_id) || null : null,
+        authorFollowed: followingSet.has(p.author_user_id),
       });
     })
   );
@@ -499,6 +555,44 @@ export async function handler(event) {
           ),
         });
       }
+      if (action === "notifications") {
+        requireParticipant(ctx);
+        const { data: notifications, error } = await client
+          .from("florist_community_notifications")
+          .select("id,type,actor_user_id,post_id,comment_id,read_at,created_at")
+          .eq("recipient_user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (error) {
+          // Not-yet-migrated is a real, honest empty state — never a hard failure.
+          if (missingRelation(error)) return json(200, { items: [], unread_count: 0 });
+          throw error;
+        }
+        const actorIds = [...new Set((notifications || []).map((n) => n.actor_user_id).filter(Boolean))];
+        let actorMap = new Map();
+        if (actorIds.length) {
+          const { data: actors, error: ae } = await client
+            .from("florist_community_profiles")
+            .select(PROFILE_COLUMNS)
+            .in("user_id", actorIds);
+          if (ae) throw ae;
+          const resolved = await Promise.all((actors || []).map((row) => profileForApi(client, row)));
+          actorMap = new Map(resolved.filter(Boolean).map((p) => [p.user_id, p]));
+        }
+        const items = (notifications || []).map((n) => ({
+          id: n.id,
+          type: n.type,
+          actor: actorMap.get(n.actor_user_id) || null,
+          post_id: n.post_id,
+          comment_id: n.comment_id,
+          read: Boolean(n.read_at),
+          created_at: n.created_at,
+        }));
+        return json(200, {
+          items,
+          unread_count: items.filter((n) => !n.read).length,
+        });
+      }
       if (action === "moderation") {
         if (!platformAdmin) return json(403, { error: "Platform admin moderation only." });
         const { data: reports, error } = await client
@@ -531,7 +625,9 @@ export async function handler(event) {
       }
       requireParticipant(ctx);
       const category = event.queryStringParameters?.category || "";
-      const items = await feed(client, ctx, { category, platformAdmin });
+      const q = event.queryStringParameters?.q || "";
+      const followingOnly = String(event.queryStringParameters?.following || "") === "1";
+      const items = await feed(client, ctx, { category, platformAdmin, q, followingOnly });
       const profile = await ensureDefaultProfile(client, ctx);
       return json(
         200,
@@ -615,6 +711,8 @@ export async function handler(event) {
         caption: v.sanitized.caption,
         body: v.sanitized.body,
         image_path: imagePath,
+        share_permission: v.sanitized.share_permission,
+        allow_photo_use: v.sanitized.allow_photo_use,
         status: "active",
         like_count: 0,
         comment_count: 0,
@@ -653,7 +751,7 @@ export async function handler(event) {
       if (!id) return json(400, { error: "Post id is required." });
       const { data: existing, error: ge } = await client
         .from("florist_community_posts")
-        .select("id,author_user_id,shop_id,category,caption,body,image_path,status")
+        .select("id,author_user_id,shop_id,category,caption,body,image_path,status,share_permission,allow_photo_use")
         .eq("id", id)
         .maybeSingle();
       if (ge) throw ge;
@@ -669,6 +767,8 @@ export async function handler(event) {
         caption: body.caption ?? existing.caption,
         body: body.body ?? existing.body,
         image_data_url: body.image_data_url,
+        share_permission: body.share_permission ?? existing.share_permission,
+        allow_photo_use: body.allow_photo_use ?? existing.allow_photo_use,
       });
       if (!v.valid) return json(400, { error: v.errors.join(" ") });
       // Only editable content fields — never counters/status/ownership
@@ -676,6 +776,8 @@ export async function handler(event) {
         category: v.sanitized.category,
         caption: v.sanitized.caption,
         body: v.sanitized.body,
+        share_permission: v.sanitized.share_permission,
+        allow_photo_use: v.sanitized.allow_photo_use,
         updated_at: new Date().toISOString(),
       };
       let uploadedPath = null;
@@ -758,6 +860,90 @@ export async function handler(event) {
       return json(200, { ok: true, ...(modResult || {}) });
     }
 
+    if (action === "toggle_follow") {
+      requireParticipant(ctx);
+      const authorUserId = String(body.author_user_id || "");
+      if (!authorUserId) return json(400, { error: "author_user_id is required." });
+      if (authorUserId === user.id) return json(400, { error: "You can't follow yourself." });
+      const { data: existing, error: existingErr } = await client
+        .from("florist_community_follows")
+        .select("follower_user_id")
+        .eq("follower_user_id", user.id)
+        .eq("followed_user_id", authorUserId)
+        .maybeSingle();
+      if (existingErr) {
+        if (missingRelation(existingErr)) friendlyMissing();
+        throw existingErr;
+      }
+      if (existing) {
+        const { error } = await client
+          .from("florist_community_follows")
+          .delete()
+          .eq("follower_user_id", user.id)
+          .eq("followed_user_id", authorUserId);
+        if (error) throw error;
+        return json(200, { following: false });
+      }
+      const { error } = await client
+        .from("florist_community_follows")
+        .insert({ follower_user_id: user.id, followed_user_id: authorUserId, shop_id: shopId });
+      if (error) throw error;
+      await notify(authorUserId, user.id, shopId, "follow", {});
+      return json(200, { following: true });
+    }
+
+    if (action === "mark_notifications_read") {
+      requireParticipant(ctx);
+      const { error } = await client
+        .from("florist_community_notifications")
+        .update({ read_at: new Date().toISOString() })
+        .eq("recipient_user_id", user.id)
+        .is("read_at", null);
+      if (error) {
+        if (missingRelation(error)) return json(200, { ok: true });
+        throw error;
+      }
+      return json(200, { ok: true });
+    }
+
+    // Community Step 68 (structured post types) — a real behavioral
+    // difference for Questions posts: only the asker can mark an answer,
+    // and only a comment that's actually on this post qualifies. This is
+    // the difference between a real "knowledge area" workflow and a
+    // cosmetic category label.
+    if (action === "mark_answered") {
+      requireParticipant(ctx);
+      const postId = String(body.post_id || "");
+      const commentId = String(body.comment_id || "");
+      if (!postId || !commentId) return json(400, { error: "post_id and comment_id are required." });
+      const { data: post, error: postErr } = await client
+        .from("florist_community_posts")
+        .select("id,author_user_id,category,status")
+        .eq("id", postId)
+        .maybeSingle();
+      if (postErr) throw postErr;
+      if (!post || post.status !== "active") return json(404, { error: "This post is not available." });
+      if (post.author_user_id !== user.id) return json(403, { error: "Only the person who asked can mark an answer." });
+      const { data: comment, error: commentErr } = await client
+        .from("florist_community_comments")
+        .select("id")
+        .eq("id", commentId)
+        .eq("post_id", postId)
+        .eq("status", "active")
+        .maybeSingle();
+      if (commentErr) throw commentErr;
+      if (!comment) return json(404, { error: "That comment could not be found on this post." });
+      const { error } = await client
+        .from("florist_community_posts")
+        .update({ answered_comment_id: commentId, updated_at: new Date().toISOString() })
+        .eq("id", postId);
+      if (error) {
+        if (missingRelation(error)) friendlyMissing();
+        throw error;
+      }
+      return json(200, { ok: true, answered_comment_id: commentId });
+    }
+
     if (action === "toggle_like") {
       requireParticipant(ctx);
       const postId = String(body.post_id || "");
@@ -773,6 +959,14 @@ export async function handler(event) {
         if (/membership|42501|authenticated/i.test(msg)) return json(403, { error: msg });
         throw error;
       }
+      if (data?.liked) {
+        const { data: postRow } = await client
+          .from("florist_community_posts")
+          .select("author_user_id")
+          .eq("id", postId)
+          .maybeSingle();
+        if (postRow) await notify(postRow.author_user_id, user.id, shopId, "like", { postId });
+      }
       return json(200, {
         liked: Boolean(data?.liked),
         like_count: Number(data?.like_count || 0),
@@ -785,7 +979,7 @@ export async function handler(event) {
       const v = validateCommentBody(body);
       if (!postId) return json(400, { error: "post_id is required." });
       if (!v.valid) return json(400, { error: v.errors.join(" ") });
-      await requireActivePost(client, postId);
+      const post = await requireActivePost(client, postId);
       await ensureDefaultProfile(client, ctx);
       const { data, error } = await client
         .from("florist_community_comments")
@@ -802,6 +996,7 @@ export async function handler(event) {
         if (missingRelation(error)) friendlyMissing();
         throw error;
       }
+      await notify(post.author_user_id, user.id, shopId, "comment", { postId, commentId: data.id });
       const profile = await loadProfile(client, user.id);
       return json(201, {
         item: publicComment({ ...data, author: profile }, { isMine: true }),
@@ -1171,6 +1366,29 @@ export async function handler(event) {
         throw re;
       }
       if (!recipe) return json(404, { error: "Recipe not found." });
+      const isOwnRecipe = recipe.author_user_id === user.id;
+      if (!isOwnRecipe) {
+        // The creator's explicit ceiling gates shop import too — fetched
+        // fresh via the recipe's own post link rather than trusted from
+        // the client. A recipe whose post was deleted (post_id null) has
+        // no permission to check, so it fails closed rather than assuming
+        // it's fine, matching this file's existing fail-closed pattern.
+        let sharePermission = null;
+        if (recipe.post_id) {
+          const { data: linkedPost, error: lpErr } = await client
+            .from("florist_community_posts")
+            .select("share_permission")
+            .eq("id", recipe.post_id)
+            .maybeSingle();
+          if (lpErr) throw lpErr;
+          sharePermission = linkedPost?.share_permission || null;
+        }
+        if (!permissionAtLeast(sharePermission, "allow_shop_use")) {
+          return json(403, {
+            error: "The florist who shared this recipe hasn't allowed it to be added to another shop yet.",
+          });
+        }
+      }
       const draft = sanitizeRecipeDraft({
         name: recipe.title,
         description: recipe.description,
@@ -1197,15 +1415,25 @@ export async function handler(event) {
         .select("id,name")
         .single();
       if (pe) throw pe;
-      const items = recipeToProductItems(draft);
-      if (items.length) {
-        const rows = items.map((x) => ({
+      // Community Step 67 — compare against the *importing* shop's own
+      // inventory (real wholesale costs they've already entered) instead
+      // of inserting unit_cost: 0 for every ingredient regardless of
+      // whether the shop already stocks it.
+      const { data: shopInventory, error: invErr } = await client
+        .from("inventory")
+        .select("id,name,cost")
+        .eq("shop_id", shopId)
+        .is("deleted_at", null);
+      if (invErr) throw invErr;
+      const costMatch = matchRecipeToInventory(draft.recipe, shopInventory || []);
+      if (costMatch.recipe.length) {
+        const rows = costMatch.recipe.map((x) => ({
           shop_id: shopId,
           product_id: product.id,
-          inventory_id: null,
-          ingredient_name: x.ingredient_name,
-          quantity: x.quantity,
-          unit: x.unit,
+          inventory_id: x.matched_inventory_id,
+          ingredient_name: x.name,
+          quantity: x.qty,
+          unit: "stem",
           unit_cost: x.unit_cost,
         }));
         const { error: recipeErr } = await client.from("product_recipes").insert(rows);
@@ -1230,11 +1458,18 @@ export async function handler(event) {
           /* non-blocking */
         }
       }
+      const costMessage =
+        costMatch.matchedCount > 0
+          ? ` Matched ${costMatch.matchedCount} of ${costMatch.totalCount} ingredients to your own inventory — estimated cost $${costMatch.estimatedCost.toFixed(2)}.${costMatch.unmatchedNames.length ? ` Add ${costMatch.unmatchedNames.join(", ")} to Inventory for full costing.` : ""}`
+          : costMatch.totalCount > 0
+            ? ` None of the ${costMatch.totalCount} ingredients matched your inventory yet — add them there for real costing.`
+            : "";
       return json(201, {
         ok: true,
         product_id: product.id,
         product_name: product.name,
-        message: `${product.name} was added to Products & Recipe Builder.`,
+        cost_match: costMatch,
+        message: `${product.name} was added to Products & Recipe Builder.${costMessage}`,
       });
     }
 
@@ -1259,11 +1494,25 @@ export async function handler(event) {
       }
       if (!post) return json(404, { error: "Post not found." });
       if (!post.image_path) return json(400, { error: "This post doesn't have a photo to save." });
+      const isOwnPost = post.author_user_id === user.id;
+      // The creator's explicit ceiling — saving your own post never needs
+      // permission, but another florist's post is gated on what they
+      // allowed. "Never assume commercial permission."
+      if (!isOwnPost && !permissionAtLeast(post.share_permission, "save_to_library")) {
+        return json(403, {
+          error: "The florist who shared this marked it inspiration-only — you can view it, but it can't be saved to your library.",
+        });
+      }
       const imageDataUrl = String(body.image_data_url || "").trim();
       if (!imageDataUrl.startsWith("data:image/")) {
         return json(400, { error: "Could not read that photo. Try again." });
       }
       const name = String(post.caption || "Community arrangement").slice(0, 120);
+      // Design permission (checked above) never implies photo permission —
+      // those are separate creator choices. Only carry the original
+      // photograph over when the creator explicitly allowed photo reuse,
+      // or it's the florist's own post.
+      const usePhoto = isOwnPost || Boolean(post.allow_photo_use);
       const productPayload = {
         shop_id: shopId,
         name,
@@ -1272,7 +1521,7 @@ export async function handler(event) {
         // the florist can recategorize when they price/publish it.
         category: "Everyday",
         description: String(post.body || `Saved from Florist Community: ${name}`).slice(0, 2000),
-        image_url: imageDataUrl,
+        image_url: usePhoto ? imageDataUrl : "",
         price: 0,
         active: false,
         featured: false,
@@ -1288,7 +1537,9 @@ export async function handler(event) {
         ok: true,
         product_id: product.id,
         product_name: product.name,
-        message: `${product.name} was saved to your Floral Library — price and publish it any time in Products.`,
+        message: usePhoto
+          ? `${product.name} was saved to your Floral Library — price and publish it any time in Products.`
+          : `${product.name} was saved to your Floral Library. The original photo isn't licensed for your shop — photograph your own version in Photo Studio, then attach it before publishing.`,
       });
     }
 

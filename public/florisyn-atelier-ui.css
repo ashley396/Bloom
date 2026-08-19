@@ -727,7 +727,10 @@ body.florisyn-atelier .atelier-user-chip small {
   font-size: 11px;
 }
 body.florisyn-atelier .atelier-account-email {
-  max-width: 140px;
+  /* 140px cut most real emails off mid-domain ("smoke-test@example.i…").
+     Give it more room to breathe on desktop widths; the full address is
+     still available on hover via its title attribute (see app.js). */
+  max-width: clamp(140px, 16vw, 220px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

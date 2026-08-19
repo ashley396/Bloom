@@ -121,6 +121,12 @@ body.florisyn-atelier #ordersPage .ord-tools {
 }
 
 body.florisyn-atelier #ordersPage .ord-search {
+  /* Same missing flex-direction gap as .atelier-global-search — a
+     generic body.bloom-rc2 label rule sets flex-direction: column for
+     stacked form fields and is the only rule declaring that property
+     here, so the search icon stacked above the input instead of beside
+     it. */
+  flex-direction: row;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -164,6 +170,59 @@ body.florisyn-atelier #ordersPage .ord-filter-btn {
   padding: 0 !important;
   justify-content: center;
   border-radius: 10px !important;
+}
+
+body.florisyn-atelier #ordersPage .ord-date.has-value,
+body.florisyn-atelier #ordersPage .ord-filter-btn.has-value {
+  border-color: var(--ord-navy) !important;
+  color: var(--ord-navy) !important;
+}
+
+body.florisyn-atelier #ordersPage .ord-popover-anchor {
+  position: relative;
+}
+
+body.florisyn-atelier #ordersPage .ord-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--ord-card);
+  border: 1px solid var(--ord-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(20, 20, 40, 0.16);
+}
+
+body.florisyn-atelier #ordersPage .ord-popover label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ord-muted);
+}
+
+body.florisyn-atelier #ordersPage .ord-popover input,
+body.florisyn-atelier #ordersPage .ord-popover select {
+  min-height: 36px;
+  border: 1px solid var(--ord-border) !important;
+  border-radius: 8px !important;
+  padding: 0 10px !important;
+  font-size: 13px;
+  color: var(--ord-ink);
+  background: #fff !important;
+}
+
+body.florisyn-atelier #ordersPage .ord-popover-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 /* Table card */

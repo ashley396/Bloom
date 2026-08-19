@@ -34,10 +34,23 @@
     let previousTheme = null;
     let currentSite = null;
 
-    api("launch_modes").then((d) => {
-      modes = d.modes || [];
-      renderCards();
-    });
+    // Every other api() call in this file catches its own failure and
+    // shows it inline via #themeGalleryStatus — this one didn't, so any
+    // transient failure (network blip, session refresh racing this
+    // request, a backend hiccup) became an unhandled promise rejection.
+    // app.js's global window.addEventListener("unhandledrejection", ...)
+    // turns that into an unrelated-looking toast the moment a florist
+    // opens Website Builder, with no obvious cause and no way to retry —
+    // exactly the "Error occurred" report this fixes.
+    api("launch_modes")
+      .then((d) => {
+        modes = d.modes || [];
+        renderCards();
+      })
+      .catch((e) => {
+        const status = root.querySelector("#themeGalleryStatus");
+        if (status) status.textContent = e.message || "Website templates could not be loaded. Try again.";
+      });
 
     function deviceMock(mode, device) {
       const w = device === "mobile" ? "100%" : device === "tablet" ? "768px" : "100%";

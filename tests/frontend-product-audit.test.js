@@ -8,12 +8,17 @@ const signupJs = fs.readFileSync(new URL("../public/signup.js", import.meta.url)
 
 test("florist dashboard greeting is tenant/user derived, not hardcoded to one founder", () => {
   assert.match(appHtml, /id="atelierUserName">Florist<\/b>/);
-  assert.match(appHtml, /id="lilySuggestionGreeting">Hi there!<\/h2>/);
+  // The old "Hi there!" card (id="lilySuggestionGreeting") was itself a
+  // fabrication — static copy claiming "I found new floral ideas that
+  // match your inventory" regardless of real data (Lily Step 73). It's
+  // now a real "Needs Attention" panel with no name in it at all, which
+  // satisfies the no-hardcoded-founder-name guarantee even more directly
+  // than a per-user greeting would.
+  assert.match(appHtml, /id="lilySuggestionGreeting">Needs Attention<\/h2>/);
   assert.doesNotMatch(appHtml, /Hi Ashley!/);
   assert.doesNotMatch(appHtml, /id="atelierUserName">Ashley<\/b>/);
   assert.match(appJs, /function firstNameFromIdentity/);
   assert.match(appJs, /user_metadata\?\.full_name/);
-  assert.match(appJs, /#lilySuggestionGreeting/);
   assert.match(appJs, /#atelierUserName/);
   assert.doesNotMatch(appJs, /Good evening",daypart[\s\S]*Ashley!/);
   assert.doesNotMatch(appJs, /Hi Ashley!/);

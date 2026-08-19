@@ -8,7 +8,7 @@ import {
   verifyDomainDns
 } from "../lib/website-studio/domain-verification.js";
 import { buildWizardPayload, LILY_INTERVIEW_STEPS, styleToLaunchMode } from "../lib/website-studio/lily-interview.js";
-import { setPropValue, schemaForSectionType } from "../lib/website-studio/section-props-schema.js";
+import { setPropValue, getPropValue, schemaForSectionType } from "../lib/website-studio/section-props-schema.js";
 
 test("normalizeDomain strips protocol and www", () => {
   assert.equal(normalizeDomain("https://WWW.Shop.COM/path"), "shop.com");
@@ -52,6 +52,73 @@ test("section props schema sets occasions array", () => {
 
 test("hero schema has image field", () => {
   assert.ok(schemaForSectionType("hero").some((f) => f.path === "image"));
+});
+
+/**
+ * WBX highest-value gap: the storefront renderer (lib/storefront/
+ * section-renderer.js) has always supported testimonials, faq,
+ * instagram, newsletter, map, announcement_bar, and seasonal_banner
+ * sections, but a florist had no way to add or edit one — the editor's
+ * "Add section" dropdown and this schema never covered them.
+ */
+test("every section type the storefront renderer supports now has a schema with a field matching its actual content", () => {
+  const expectedField = {
+    testimonials: "items",
+    faq: "faqs",
+    instagram: "handle",
+    newsletter: "text",
+    map: "address",
+    announcement_bar: "text",
+    seasonal_banner: "text"
+  };
+  for (const [type, path] of Object.entries(expectedField)) {
+    const schema = schemaForSectionType(type);
+    assert.ok(schema.some((f) => f.path === path), `${type} schema should include a "${path}" field`);
+  }
+});
+
+test("testimonials quotes round-trip through setPropValue/getPropValue as Quote — Author lines", () => {
+  const s = setPropValue(
+    { type: "testimonials", props: {} },
+    "items",
+    "Beautiful arrangement, on time every time. — Jamie\nMy go-to florist for years. — Pat"
+  );
+  assert.deepEqual(s.props.items, [
+    { quote: "Beautiful arrangement, on time every time.", author: "Jamie" },
+    { quote: "My go-to florist for years.", author: "Pat" }
+  ]);
+  assert.equal(
+    getPropValue(s, "items"),
+    "Beautiful arrangement, on time every time. — Jamie\nMy go-to florist for years. — Pat"
+  );
+});
+
+test("a quote with no ' — Author' separator keeps the whole line as the quote instead of being dropped", () => {
+  const s = setPropValue({ type: "testimonials", props: {} }, "items", "Just lovely flowers.");
+  assert.deepEqual(s.props.items, [{ quote: "Just lovely flowers.", author: "" }]);
+});
+
+test("faq pairs round-trip through setPropValue/getPropValue as Question | Answer lines", () => {
+  const s = setPropValue(
+    { type: "faq", props: {} },
+    "faqs",
+    "Do you deliver same day? | Yes, before noon in our delivery area.\nDo you take custom orders? | Yes, call the shop."
+  );
+  assert.deepEqual(s.props.faqs, [
+    { q: "Do you deliver same day?", a: "Yes, before noon in our delivery area." },
+    { q: "Do you take custom orders?", a: "Yes, call the shop." }
+  ]);
+  assert.equal(
+    getPropValue(s, "faqs"),
+    "Do you deliver same day? | Yes, before noon in our delivery area.\nDo you take custom orders? | Yes, call the shop."
+  );
+});
+
+test("Editor's Add-section dropdown offers every section type the storefront renderer supports", () => {
+  const editorHtml = fs.readFileSync(new URL("../public/website-editor-ui.js", import.meta.url), "utf8");
+  for (const type of ["testimonials", "faq", "instagram", "newsletter", "map", "announcement_bar", "seasonal_banner", "custom_text_image"]) {
+    assert.match(editorHtml, new RegExp(`option value="${type}"`), `Add-section dropdown is missing "${type}"`);
+  }
 });
 
 test("Lily wizard and inspector assets wired in index.html", () => {

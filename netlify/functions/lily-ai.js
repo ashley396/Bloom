@@ -8,7 +8,8 @@ import {
   sanitizeHistoryEntry,
   searchHistory
 } from "./_shared/lily-ai-engine.js";
-import { systemPromptFor, suggestHandoff } from "./_shared/florist-ai-personas.js";
+import { suggestHandoff } from "./_shared/florist-ai-personas.js";
+import { runCloudflareGenerate } from "./ai-assistant.js";
 
 const CONVERSATIONS = "lily_conversations";
 const MESSAGES = "lily_messages";
@@ -30,41 +31,34 @@ async function loadAiContext(client, shopId) {
   return { shop: shop || {}, inventory: inventory || [], recent_orders: orders || [], deliveries: deliveries || [] };
 }
 
-const AI_CHAT_MODEL = process.env.CLOUDFLARE_AI_MODEL || "@cf/meta/llama-3.1-8b-instruct-fast";
-
 /**
  * Real conversational answer from Cloudflare Workers AI (persona-aware). Returns
  * null on any failure so the caller can fall back to a safe template.
- * Persona identity comes from the single shared source (florist-ai-personas.js).
+ *
+ * Routed through the shared ai-assistant.js provider layer (not a bespoke fetch)
+ * so Lily's chat gets the same input sanitization every other Florisyn AI surface
+ * gets — BLOCKED_KEY/DATA_URL scrubbing and size-limited context — instead of a
+ * second, independently-truncated Cloudflare call path.
  */
-async function cloudflareChat(persona, message, context) {
-  const account = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const token = process.env.CLOUDFLARE_AI_API_TOKEN;
-  if (!account || !token || !message) return null;
-  const system = `${systemPromptFor(persona, "chat")} Never claim an action was saved, published, paid, ordered, or completed unless Florisyn confirms it. Your suggestions are editable and need florist approval. Protect private employee and customer information.`;
-  const ctx = JSON.stringify({
-    shop: context.shop || {},
-    inventory: (context.inventory || []).slice(0, 15),
-    recent_orders: (context.recent_orders || []).slice(0, 8),
-    upcoming_deliveries: (context.deliveries || []).slice(0, 8)
-  }).slice(0, 8000);
+export async function cloudflareChat(persona, message, context) {
+  if (!message) return null;
   try {
-    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/ai/run/${AI_CHAT_MODEL}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: `My shop's current context (for reference only): ${ctx}\n\nMy question: ${message}` }
-        ],
-        max_tokens: 500,
-        temperature: 0.4
-      })
+    const result = await runCloudflareGenerate({
+      mode: "chat",
+      persona,
+      prompt: message,
+      context: {
+        shop: context.shop || {},
+        inventory: context.inventory || [],
+        recent_orders: context.recent_orders || [],
+        upcoming_deliveries: context.deliveries || []
+      },
+      max_tokens: 500,
+      // Persona prompts already say not to claim unconfirmed actions; add the
+      // one guardrail that's specific to a live business-context chat turn.
+      systemSuffix: "Protect private employee and customer information — never repeat it outside its business purpose."
     });
-    const data = await res.json().catch(() => null);
-    if (!res.ok || !data || !data.success) return null;
-    const answer = String(data.result?.response || data.result?.result || "").trim();
-    return answer || null;
+    return result?.answer?.trim() || null;
   } catch {
     return null;
   }
@@ -101,13 +95,18 @@ async function logAction(client, { userId, shopId, intent, actionType, result, m
   }
 }
 
-function buildResponseMessage(intent, permission, planned, confirmed) {
+export function buildResponseMessage(intent, permission, planned, confirmed) {
   if (!permission.allowed) {
     return "I can help with that, but your Florisyn role does not allow this action. Ask a shop owner or manager if you need access.";
   }
   if (planned?.message) return planned.message;
   if (planned?.requiresConfirmation && !confirmed) {
     return `I can ${planned.label || "do that"}. Confirm below and I will guide Florisyn — I will not change anything without your approval.`;
+  }
+  // Already confirmed: the earlier "confirm below" line is stale here — Florisyn
+  // is acting on it right now, so say that instead of asking to confirm again.
+  if (planned?.requiresConfirmation && confirmed) {
+    return `Got it — sending "${planned.label || "that"}" to Florisyn now.`;
   }
   if (planned?.type === "navigate") return "Opening the right workspace for you.";
   if (intent.intent === "general.chat") return null;

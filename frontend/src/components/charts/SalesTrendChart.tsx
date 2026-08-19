@@ -16,7 +16,7 @@ export function SalesTrendChart({ data, className }: SalesTrendChartProps) {
       <Suspense
         fallback={
           <div
-            className="flex h-[220px] items-center justify-center rounded-lg bg-florisyn-sage-50 text-sm text-florisyn-muted dark:bg-florisyn-sage-900/40"
+            className="flex h-[220px] items-center justify-center rounded-lg bg-charcoal/[0.04] text-sm text-florisyn-muted"
             aria-busy="true"
           >
             Loading chart…
