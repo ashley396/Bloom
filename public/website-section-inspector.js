@@ -40,7 +40,41 @@
     ],
     featured_arrangements: [{ path: "title", label: "Section title", type: "text" }],
     product_collection: [{ path: "title", label: "Section title", type: "text" }],
-    contact_form: [{ path: "title", label: "Title", type: "text" }]
+    contact_form: [{ path: "title", label: "Title", type: "text" }],
+    // The storefront renderer (lib/storefront/section-renderer.js) has always
+    // supported these section types — this inspector just never had a
+    // schema for them, so a florist who added one (once the "Add section"
+    // dropdown offers them) had no way to edit their content.
+    testimonials: [
+      { path: "title", label: "Title", type: "text" },
+      { path: "items", label: "Quotes (one per line: Quote — Author)", type: "quotes" }
+    ],
+    faq: [
+      { path: "title", label: "Title", type: "text" },
+      { path: "faqs", label: "Questions (one per line: Question | Answer)", type: "faqs" }
+    ],
+    instagram: [
+      { path: "title", label: "Title", type: "text" },
+      { path: "handle", label: "Instagram handle (without @)", type: "text" }
+    ],
+    newsletter: [
+      { path: "title", label: "Title", type: "text" },
+      { path: "text", label: "Description", type: "textarea" }
+    ],
+    map: [
+      { path: "title", label: "Title", type: "text" },
+      { path: "address", label: "Address", type: "text" }
+    ],
+    announcement_bar: [{ path: "text", label: "Announcement text", type: "textarea" }],
+    seasonal_banner: [
+      { path: "title", label: "Title", type: "text" },
+      { path: "text", label: "Description", type: "textarea" }
+    ],
+    custom_text_image: [
+      { path: "title", label: "Title", type: "text" },
+      { path: "text", label: "Body", type: "textarea" },
+      { path: "image", label: "Image URL", type: "image" }
+    ]
   };
 
   function esc(s) {
@@ -58,6 +92,16 @@
     if (path === "image") {
       const img = section?.props?.image;
       return typeof img === "object" ? img?.url || "" : img || "";
+    }
+    if (path === "items") {
+      const items = section?.props?.items;
+      if (!Array.isArray(items)) return "";
+      return items.map((t) => `${t.quote || ""} — ${t.author || ""}`.replace(/^ — $/, "")).join("\n");
+    }
+    if (path === "faqs") {
+      const faqs = section?.props?.faqs;
+      if (!Array.isArray(faqs)) return "";
+      return faqs.map((f) => `${f.q || ""} | ${f.a || ""}`.replace(/^ \| $/, "")).join("\n");
     }
     return section?.props?.[path] ?? "";
   }
@@ -77,6 +121,31 @@
         typeof prev === "object" && prev
           ? { ...prev, url: value.trim() }
           : { url: value.trim(), alt: s.props.title || "", source: "shop_upload" };
+    } else if (path === "items") {
+      // Testimonials, one per line: "Quote text — Author Name". A line with
+      // no " — " separator keeps the quote with no attributed author rather
+      // than being dropped.
+      s.props.items = String(value)
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .slice(0, 12)
+        .map((line) => {
+          const idx = line.lastIndexOf(" — ");
+          if (idx === -1) return { quote: line, author: "" };
+          return { quote: line.slice(0, idx).trim(), author: line.slice(idx + 3).trim() };
+        });
+    } else if (path === "faqs") {
+      s.props.faqs = String(value)
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .slice(0, 20)
+        .map((line) => {
+          const idx = line.indexOf("|");
+          if (idx === -1) return { q: line, a: "" };
+          return { q: line.slice(0, idx).trim(), a: line.slice(idx + 1).trim() };
+        });
     } else {
       s.props[path] = value;
     }
@@ -131,6 +200,7 @@
             .map((f) => {
               const v = getVal(section, f.path);
               if (f.type === "textarea") return `<label>${esc(f.label)}<textarea data-prop="${esc(f.path)}" rows="2">${esc(v)}</textarea></label>`;
+              if (f.type === "quotes" || f.type === "faqs") return `<label>${esc(f.label)}<textarea data-prop="${esc(f.path)}" rows="4">${esc(v)}</textarea></label>`;
               if (f.type === "tags") return `<label>${esc(f.label)}<input data-prop="${esc(f.path)}" value="${esc(v)}"></label>`;
               if (f.type === "image") return `<label>${esc(f.label)}<input data-prop="${esc(f.path)}" value="${esc(v)}" placeholder="https://…"></label>`;
               return `<label>${esc(f.label)}<input data-prop="${esc(f.path)}" value="${esc(v)}"></label>`;

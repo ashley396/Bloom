@@ -42,6 +42,17 @@
             <option value="shop_hours">Hours</option>
             <option value="contact_form">Contact form</option>
             <option value="cta_banner">Call to action</option>
+            <!-- The storefront renderer (lib/storefront/section-renderer.js) has
+                 always supported these — a florist just had no way to add one,
+                 since this dropdown was never updated to match. -->
+            <option value="testimonials">Testimonials</option>
+            <option value="faq">FAQ</option>
+            <option value="instagram">Instagram</option>
+            <option value="map">Map / location</option>
+            <option value="newsletter">Newsletter signup</option>
+            <option value="announcement_bar">Announcement bar</option>
+            <option value="seasonal_banner">Seasonal feature</option>
+            <option value="custom_text_image">Custom text + image</option>
           </select></label>
           <button type="button" class="secondary" id="editorAddSection">Add</button>
           <button type="button" class="secondary" id="editorUndo">Undo</button>
