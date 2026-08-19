@@ -12,10 +12,12 @@ import {
   validateProductVariants,
   normalizeAvailabilityStatus,
   normalizeSeasonalMonths,
-  validateFloralAttributes
+  validateFloralAttributes,
+  isCurrentlyAvailable
 } from "./_shared/marketplace-products.js";
 import { sanitizeApplicationRecord, TABLE as VERIFICATION_TABLE } from "./_shared/marketplace-verification.js";
 import { writeShopAudit } from "./_shared/production.js";
+import { notifyMarketplaceUser, notifyFavoritersBackInStock } from "./_shared/marketplace-notifications.js";
 
 const LISTINGS = "marketplace_listings";
 const IMAGES = "marketplace_listing_images";
@@ -331,10 +333,12 @@ async function saveProduct(client, shopId, body) {
   payload.available_quantity = computeListingInventory(payload, variants);
 
   let listing;
+  let wasAvailable = null;
   if (body.id) {
-    const { data: existing, error: existingError } = await client.from(LISTINGS).select("id, shop_id").eq("id", body.id).maybeSingle();
+    const { data: existing, error: existingError } = await client.from(LISTINGS).select("*").eq("id", body.id).maybeSingle();
     if (existingError) throw existingError;
     assertListingOwnership(existing, shopId);
+    wasAvailable = existing.active !== false && isCurrentlyAvailable(existing);
     delete payload.shop_id;
     const { data, error } = await client.from(LISTINGS).update(payload).eq("id", body.id).eq("shop_id", shopId).select("*").single();
     if (error) throw error;
@@ -347,6 +351,16 @@ async function saveProduct(client, shopId, body) {
 
   const savedImages = await replaceListingImages(client, shopId, listing.id, images);
   const savedVariants = await replaceListingVariants(client, shopId, listing.id, variants);
+
+  // "A saved flower is back in stock" (Marketplace vision: NOTIFICATIONS)
+  // — only fires on a real false->true transition, never on every save.
+  if (wasAvailable === false) {
+    const nowAvailable = listing.active !== false && isCurrentlyAvailable(listing);
+    if (nowAvailable) {
+      await notifyFavoritersBackInStock(client, listing.id, `${listing.product_name} is back in stock.`);
+    }
+  }
+
   return enrichProduct(listing, savedImages, savedVariants);
 }
 
@@ -514,7 +528,7 @@ export async function handler(event) {
       }
 
       if (body.action === "update-order" && body.id) {
-        const { data: existing, error: existingError } = await client.from(ORDERS).select("id, seller_shop_id").eq("id", body.id).maybeSingle();
+        const { data: existing, error: existingError } = await client.from(ORDERS).select("id, seller_shop_id, buyer_user_id, status").eq("id", body.id).maybeSingle();
         if (existingError) throw existingError;
         if (!existing || existing.seller_shop_id !== shopId) {
           return json(403, { error: "You do not have access to this order." });
@@ -527,6 +541,18 @@ export async function handler(event) {
           .select("*")
           .single();
         if (error) throw error;
+
+        if (existing.buyer_user_id && body.status && body.status !== existing.status) {
+          const { data: sellerProfile } = await client.from(SELLER_PROFILES).select("display_name").eq("shop_id", shopId).maybeSingle();
+          const sellerName = sellerProfile?.display_name || "Your wholesale supplier";
+          await notifyMarketplaceUser(
+            existing.buyer_user_id,
+            "order_status_changed",
+            `${sellerName} updated your order to "${body.status}."`,
+            { orderId: body.id }
+          );
+        }
+
         return json(200, { order: data });
       }
 

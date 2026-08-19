@@ -585,12 +585,63 @@
     select.innerHTML = `<option value="">All categories</option>${categories.map((c) => `<option value="${hooks.esc(c.label)}">${hooks.esc(c.label)}</option>`).join('')}`;
   }
 
+  function notificationRowHtml(hooks, note) {
+    return `<div class="marketplace-notif-row${note.read_at ? '' : ' unread'}">
+      <p>${hooks.esc(note.message)}</p>
+      <small class="subtle">${hooks.esc((note.created_at || '').slice(0, 10))}</small>
+    </div>`;
+  }
+
+  async function loadNotifications(hooks, state) {
+    try {
+      const data = await hooks.api('marketplace-catalog?resource=notifications');
+      state.notifications = data.notifications || [];
+      const countEl = hooks.$('#marketplaceNotifCount');
+      if (countEl) {
+        countEl.hidden = !data.unread_count;
+        countEl.textContent = String(data.unread_count || 0);
+      }
+    } catch {
+      state.notifications = [];
+    }
+  }
+
+  function renderNotifPanel(hooks, state) {
+    const panel = hooks.$('#marketplaceNotifPanel');
+    if (!panel) return;
+    panel.innerHTML = (state.notifications || []).length
+      ? (state.notifications || []).map((note) => notificationRowHtml(hooks, note)).join('')
+      : '<p class="subtle">No notifications yet.</p>';
+  }
+
+  function bindNotifBell(hooks, state) {
+    hooks.$('#marketplaceNotifBell')?.addEventListener('click', async () => {
+      const panel = hooks.$('#marketplaceNotifPanel');
+      if (!panel) return;
+      const opening = panel.hidden;
+      panel.hidden = !opening;
+      if (!opening) return;
+      renderNotifPanel(hooks, state);
+      if ((state.notifications || []).some((n) => !n.read_at)) {
+        try {
+          await hooks.api('marketplace-catalog', { method: 'POST', body: JSON.stringify({ action: 'mark_notifications_read' }) });
+          const countEl = hooks.$('#marketplaceNotifCount');
+          if (countEl) countEl.hidden = true;
+        } catch {
+          // best-effort — an unread badge that doesn't clear isn't worth surfacing an error for.
+        }
+      }
+    });
+  }
+
   async function load(hooks) {
-    const state = { items: [], orders: [], compare: [], q: '', category: '', seller: '', minPrice: '', maxPrice: '', inStock: false, shipping: '', variety: '', color: '', availability: '', byDate: '' };
+    const state = { items: [], orders: [], compare: [], notifications: [], q: '', category: '', seller: '', minPrice: '', maxPrice: '', inStock: false, shipping: '', variety: '', color: '', availability: '', byDate: '' };
     renderCategoryOptions(hooks);
     renderCartBadge(hooks);
     bindMarketplaceEvents(hooks, state);
+    bindNotifBell(hooks, state);
     await loadBrowse(hooks, state);
+    await loadNotifications(hooks, state);
   }
 
   return { load, readCart, writeCart };
