@@ -141,7 +141,7 @@
   function renderPricing(hooks, data) {
     const tiers = data.pricing_tiers || [];
     return `${renderNav(hooks, 'pricing')}
-      <section class="panel"><h2>Customer pricing tiers</h2><form id="wholesaleTierForm" class="verification-grid"><label>Tier name<input name="name" required placeholder="Volume florist"></label><label>Minimum quantity<input name="min_quantity" type="number" step="0.01" value="10"></label><label>Discount %<input name="discount_percent" type="number" step="0.01" value="5"></label><button type="submit" class="primary">Save pricing tier</button></form></section>
+      <section class="panel"><h2>Customer pricing tiers</h2><p class="subtle">Buyers are automatically charged the best qualifying tier based on total quantity they order from you in one checkout — no separate step to activate it. A tier never stacks with a buyer's promo code; whichever discount is larger applies.</p><form id="wholesaleTierForm" class="verification-grid"><label>Tier name<input name="name" required placeholder="Volume florist"></label><label>Minimum quantity<input name="min_quantity" type="number" step="0.01" value="10"></label><label>Discount %<input name="discount_percent" type="number" step="0.01" value="5"></label><button type="submit" class="primary">Save pricing tier</button></form></section>
       <div class="cards">${tiers.length ? tiers.map((t) => `<article class="card"><h3>${hooks.esc(t.name)}</h3><p class="meta">${t.discount_percent}% off at ${t.min_quantity}+ units</p></article>`).join('') : hooks.empty('No pricing tiers yet.')}</div>`;
   }
 

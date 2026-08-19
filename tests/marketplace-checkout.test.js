@@ -48,6 +48,7 @@ function baseDependencies({ application = approvedApplication(), listings = [lis
   const client = createFakeSupabaseClient([
     { data: application, error: null }, // marketplace_verification_applications lookup
     { data: listings, error: null }, // marketplace_listings lookup
+    { data: [], error: null }, // pricing tier lookup (per seller) — no tiers configured by default
     { data: null, error: null }, // best-effort marketplace_wholesale_orders insert (per seller)
   ]);
   let sessionIndex = 0;
@@ -170,11 +171,12 @@ test("marketplace checkout: a valid single-seller cart builds one Stripe session
 test("marketplace checkout: a valid promo code discounts that seller's line items and is recorded on the session and order", () =>
   withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app", BLOOM_MARKETPLACE_FEE_PERCENT: "5" }, async () => {
     const deps = baseDependencies({ listings: [listingRow({ price: 20 })] });
-    // Response queue order: application, listings, promo lookup, order insert.
+    // Response queue order: application, listings, promo lookup, tier lookup, order insert.
     const extraClient = createFakeSupabaseClient([
       { data: approvedApplication(), error: null },
       { data: [listingRow({ price: 20 })], error: null },
       { data: [{ shop_id: "seller_shop_1", code: "SPRING10", percent_off: 10, active: true, starts_at: null, ends_at: null }], error: null },
+      { data: [], error: null },
       { data: null, error: null },
     ]);
     const deps2 = {
@@ -276,4 +278,149 @@ test("marketplace checkout: a cart spanning two sellers creates one session per 
       .map((c) => c.stripeCheckoutCreate.payment_intent_data.transfer_data.destination)
       .sort();
     assert.deepEqual(destinations, ["acct_a", "acct_b"]);
+  }));
+
+// MARKETPLACE VOLUME PRICING: marketplace_pricing_tiers has existed since
+// the greenfield baseline and the seller dashboard's Pricing tab has
+// always let a seller create real tiers, but checkout never read one back
+// until now — a buyer ordering any quantity always paid full listing
+// price. These tests prove the tier lookup is actually wired in, applies
+// the correct (highest-threshold-met) tier, and never stacks with a promo
+// code.
+
+test("marketplace checkout: a cart quantity crossing a seller's pricing tier threshold is discounted", () =>
+  withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app", BLOOM_MARKETPLACE_FEE_PERCENT: "5" }, async () => {
+    // Response queue order: application, listings, tier lookup, order insert.
+    // No promo_code in the request, so the promotions table is never touched.
+    const extraClient = createFakeSupabaseClient([
+      { data: approvedApplication(), error: null },
+      { data: [listingRow({ price: 20 })], error: null },
+      { data: [{ id: "tier_1", name: "Volume florist", min_quantity: 10, discount_percent: 15, active: true }], error: null },
+      { data: null, error: null },
+    ]);
+    const stripeSessions = [];
+    let sessionIndex = 0;
+    const response = await handleMarketplaceCheckout(
+      postEvent({ items: [{ listing_id: "listing_1", quantity: 10 }] }),
+      {
+        client: extraClient,
+        currentUser: async () => ({ client: extraClient, user: USER, shopId: SHOP_ID }),
+        createStripe: () => ({
+          checkout: {
+            sessions: {
+              create: async (params) => {
+                const session = stripeSessions[sessionIndex] || { id: `cs_${sessionIndex}`, url: `https://stripe.test/session/${sessionIndex}` };
+                sessionIndex += 1;
+                extraClient.calls.push({ stripeCheckoutCreate: params });
+                return session;
+              },
+            },
+          },
+        }),
+        isFeatureEnabled: () => true,
+      },
+    );
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.sessions[0].pricing_tier_applied, "Volume florist");
+    assert.equal(body.sessions[0].total, 170); // 20 * 10 = 200, 15% off = 170
+
+    const stripeCall = extraClient.calls.find((c) => c.stripeCheckoutCreate)?.stripeCheckoutCreate;
+    assert.equal(stripeCall.line_items[0].price_data.unit_amount, 1700); // $20 - 15% = $17.00
+    assert.equal(stripeCall.metadata.pricing_tier, "Volume florist");
+    assert.equal(stripeCall.metadata.pricing_tier_min_quantity, "10");
+    assert.equal(stripeCall.metadata.discount_percent, "15");
+    assert.equal(stripeCall.metadata.promotion_code, undefined);
+  }));
+
+test("marketplace checkout: a cart quantity below every tier's threshold pays full price", () =>
+  withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app" }, async () => {
+    const extraClient = createFakeSupabaseClient([
+      { data: approvedApplication(), error: null },
+      { data: [listingRow({ price: 20 })], error: null },
+      { data: [{ id: "tier_1", name: "Volume florist", min_quantity: 50, discount_percent: 15, active: true }], error: null },
+      { data: null, error: null },
+    ]);
+    const response = await handleMarketplaceCheckout(
+      postEvent({ items: [{ listing_id: "listing_1", quantity: 5 }] }),
+      {
+        client: extraClient,
+        currentUser: async () => ({ client: extraClient, user: USER, shopId: SHOP_ID }),
+        createStripe: () => ({ checkout: { sessions: { create: async (params) => { extraClient.calls.push({ stripeCheckoutCreate: params }); return { id: "cs_0", url: "https://stripe.test/session/0" }; } } } }),
+        isFeatureEnabled: () => true,
+      },
+    );
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.sessions[0].pricing_tier_applied, null);
+    assert.equal(body.sessions[0].total, 100); // 20 * 5, no discount
+
+    const stripeCall = extraClient.calls.find((c) => c.stripeCheckoutCreate)?.stripeCheckoutCreate;
+    assert.equal(stripeCall.line_items[0].price_data.unit_amount, 2000);
+    assert.equal(stripeCall.metadata.discount_percent, undefined);
+    assert.equal(stripeCall.metadata.pricing_tier, undefined);
+  }));
+
+test("marketplace checkout: a pricing tier and a promo code never stack — the buyer gets whichever discount is larger", () =>
+  withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app" }, async () => {
+    // Tier (20%) beats the promo (10%): the tier should win, and the
+    // promo's own 10% must never be added on top of it.
+    const extraClient = createFakeSupabaseClient([
+      { data: approvedApplication(), error: null },
+      { data: [listingRow({ price: 10 })], error: null },
+      { data: [{ shop_id: "seller_shop_1", code: "SPRING10", percent_off: 10, active: true, starts_at: null, ends_at: null }], error: null },
+      { data: [{ id: "tier_1", name: "Big volume", min_quantity: 10, discount_percent: 20, active: true }], error: null },
+      { data: null, error: null },
+    ]);
+    const response = await handleMarketplaceCheckout(
+      postEvent({ items: [{ listing_id: "listing_1", quantity: 10 }], promo_code: "spring10" }),
+      {
+        client: extraClient,
+        currentUser: async () => ({ client: extraClient, user: USER, shopId: SHOP_ID }),
+        createStripe: () => ({ checkout: { sessions: { create: async (params) => { extraClient.calls.push({ stripeCheckoutCreate: params }); return { id: "cs_0", url: "https://stripe.test/session/0" }; } } } }),
+        isFeatureEnabled: () => true,
+      },
+    );
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    // 10 * 10 = 100, 20% off (the tier, not the promo) = 80 — never 100 * (1 - 0.30) = 70.
+    assert.equal(body.sessions[0].total, 80);
+    assert.equal(body.sessions[0].pricing_tier_applied, "Big volume");
+    assert.equal(body.sessions[0].promo_applied, false);
+
+    const stripeCall = extraClient.calls.find((c) => c.stripeCheckoutCreate)?.stripeCheckoutCreate;
+    assert.equal(stripeCall.metadata.discount_percent, "20");
+    assert.equal(stripeCall.metadata.pricing_tier, "Big volume");
+    assert.equal(stripeCall.metadata.promotion_code, undefined);
+  }));
+
+test("marketplace checkout: when the promo code beats the tier, the promo wins and the tier is never applied", () =>
+  withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app" }, async () => {
+    const extraClient = createFakeSupabaseClient([
+      { data: approvedApplication(), error: null },
+      { data: [listingRow({ price: 10 })], error: null },
+      { data: [{ shop_id: "seller_shop_1", code: "BIGSALE", percent_off: 30, active: true, starts_at: null, ends_at: null }], error: null },
+      { data: [{ id: "tier_1", name: "Small volume", min_quantity: 10, discount_percent: 5, active: true }], error: null },
+      { data: null, error: null },
+    ]);
+    const response = await handleMarketplaceCheckout(
+      postEvent({ items: [{ listing_id: "listing_1", quantity: 10 }], promo_code: "bigsale" }),
+      {
+        client: extraClient,
+        currentUser: async () => ({ client: extraClient, user: USER, shopId: SHOP_ID }),
+        createStripe: () => ({ checkout: { sessions: { create: async (params) => { extraClient.calls.push({ stripeCheckoutCreate: params }); return { id: "cs_0", url: "https://stripe.test/session/0" }; } } } }),
+        isFeatureEnabled: () => true,
+      },
+    );
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    // 10 * 10 = 100, 30% off (the promo, not the tier) = 70.
+    assert.equal(body.sessions[0].total, 70);
+    assert.equal(body.sessions[0].promo_applied, true);
+    assert.equal(body.sessions[0].pricing_tier_applied, null);
+
+    const stripeCall = extraClient.calls.find((c) => c.stripeCheckoutCreate)?.stripeCheckoutCreate;
+    assert.equal(stripeCall.metadata.discount_percent, "30");
+    assert.equal(stripeCall.metadata.promotion_code, "BIGSALE");
+    assert.equal(stripeCall.metadata.pricing_tier, undefined);
   }));
