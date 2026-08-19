@@ -278,6 +278,8 @@ test("florist-community function enforces flag, membership, signed URLs, RPCs", 
   assert.match(src, /uploadPrevalidatedCommunityAvatar/);
   assert.match(src, /generate_recipe/);
   assert.match(src, /florist_community_recipes/);
+  assert.match(src, /POST_COLUMNS_LEGACY/);
+  assert.match(src, /isExtendedSchemaError/);
   assert.match(src, /validateProfileAvatarUpload/);
   assert.doesNotMatch(src, /Unable to verify platform admin authorization/);
   assert.match(src, /validatePostBody/);
