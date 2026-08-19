@@ -45,8 +45,16 @@ test("loadStandingOrders computes due_today from the shop's own local weekday, n
   assert.match(fn, /weekdayLabel\(/);
   assert.match(fn, /dueToday = row\.active && row\.cadence_weekday === todayCode/);
   // Only computes (and therefore only queries listings for) a due-today
-  // order — never wastes a query recomputing a preview for every row.
-  assert.match(fn, /if \(dueToday\)/);
+  // order from a still-verified seller — never wastes a query recomputing
+  // a preview for every row, and never previews a lapsed seller's items.
+  assert.match(fn, /if \(dueToday && sellerVerified\)/);
+});
+
+test("loadStandingOrders re-checks every referenced seller's CURRENT verification status, not just at setup time", () => {
+  const src = fs.readFileSync(path.join(root, "netlify/functions/marketplace-catalog.js"), "utf8");
+  const fn = src.slice(src.indexOf("async function loadStandingOrders"), src.indexOf("async function saveStandingOrder"));
+  assert.match(fn, /verifiedShopIds = await loadVerifiedSellerShopIds\(sellerIds\)/);
+  assert.match(fn, /seller_verified: sellerVerified/);
 });
 
 test("saveStandingOrder rejects a request with no real items, no label, or an invalid cadence", () => {
@@ -74,4 +82,16 @@ test("buyer UI never auto-adds a standing order to the cart — only a real butt
   const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
   assert.match(html, /id="marketplaceStandingOrderForm"/);
   assert.match(html, /id="marketplaceStandingOrdersList"/);
+});
+
+test("standing order card tells the buyer plainly when the seller has lost verification, instead of silently offering a dead add-to-cart button", () => {
+  const js = fs.readFileSync(path.join(root, "public/marketplace-experience.js"), "utf8");
+  const fn = js.slice(js.indexOf("function standingOrderCardHtml"), js.indexOf("function standingOrderCardHtml") + 2000);
+  assert.match(fn, /!so\.seller_verified/);
+  assert.match(fn, /this seller is no longer verified/i);
+  // A lapsed seller must never still offer the add-to-cart action, even if
+  // a stale preview from before the lapse is still present on the row.
+  const dueTodayBranchIndex = fn.indexOf("so.due_today && !so.seller_verified");
+  const addButtonIndex = fn.indexOf("data-market-standing-order-add");
+  assert.ok(dueTodayBranchIndex !== -1 && dueTodayBranchIndex < addButtonIndex, "the seller-verified check must be branched on before the add-to-cart button is ever rendered");
 });
