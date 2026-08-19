@@ -1039,6 +1039,7 @@ test("canonical executable migrations have unique timestamp identities", () => {
     "20260819260000_marketplace_multiple_permissive_policies.sql",
     "20260819270000_marketplace_drop_redundant_index.sql",
     "20260819280000_drop_duplicate_shop_indexes.sql",
+    "20260819290000_platform_rls_initplan_cleanup.sql",
   ]);
   const versions = files.map((name) => name.match(/^(\d{14})_/i)?.[1]);
   assert.ok(versions.every(Boolean), "every executable migration must use a 14-digit timestamp");
