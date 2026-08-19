@@ -1,0 +1,17 @@
+{
+  "name": "stripe-connect-sample",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone sample Stripe Connect marketplace integration — onboarding, product creation, a storefront, destination-charge checkout, and thin-event webhooks. Not wired into the main Florisyn app; copy the pieces you need.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "stripe": "^22.5.0"
+  }
+}

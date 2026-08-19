@@ -2,12 +2,12 @@
 function escapeHtml(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-let createMode=false,session=readSession(),customers=[],inventory=[],orders=[],products=[],deliveries=[],expenses=[],reportData={items:[],categories:[],totals:{}},shopSettings=null,receiptDataUrl=null,scannedInventoryItems=[],assistantPersona="Lily",selectedLibraryIndex=null,pendingPaymentOrder=null,paymentCenterProcessing=false,paymentReturnOrderId=null,splitPaymentSession=null;
+let createMode=false,session=readSession(),customers=[],inventory=[],orders=[],products=[],deliveries=[],expenses=[],reportData={items:[],categories:[],totals:{}},shopSettings=null,receiptDataUrl=null,scannedInventoryItems=[],assistantPersona="Lily",selectedLibraryIndex=null,pendingPaymentOrder=null,paymentCenterProcessing=false,paymentReturnOrderId=null,splitPaymentSession=null,refreshInFlight=null;
 
 const BLOOM_AI_BRIDGE="http://127.0.0.1:11435";
 function selectedAiModel(){return localStorage.getItem("bloomAiModel")||"llama3.1:latest"}
 async function localAi(path,opt={}){const r=await fetch(`${BLOOM_AI_BRIDGE}${path}`,{...opt,headers:{"Content-Type":"application/json",...(opt.headers||{})}});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Local AI request failed (${r.status})`);return d}
-async function loadAiContext(){try{return (await api("ai-context",{method:"GET"})).context||{}}catch{return {shop:shopSettings||{},inventory,recent_orders:orders,deliveries}}}
+async function loadAiContext(){try{return (await api("ai-context",{method:"GET"})).context||{}}catch{return {shop:shopSettings||{},inventory,recent_orders:orders,deliveries,products,customers,staff:staffMembers}}}
 async function refreshAiStatus(){const badge=$("#aiHealthBadge"),msg=$("#aiDiagnosticMessage"),modelSelect=$("#aiModelSelect");try{const cloud=await fetch("/.netlify/functions/ai-status").then(r=>r.ok?r.json():null).catch(()=>null);if(cloud&&cloud.state){if($("#aiBridgeStatus"))$("#aiBridgeStatus").textContent=cloud.provider||"—";if($("#aiOllamaStatus"))$("#aiOllamaStatus").textContent=cloud.lily==="online"?"Lily online":cloud.lily==="limited"?"Lily limited":"Lily offline";if(badge){badge.textContent=cloud.label||cloud.state;badge.className=`badge ${cloud.state==="online"?"good":cloud.state==="offline"||cloud.state==="configuration_required"?"warn":"warn"}`}if(msg)msg.textContent=cloud.message||"";if(cloud.state==="online"||cloud.state==="limited")return cloud}}catch{}try{const d=await localAi("/health");$("#aiBridgeStatus").textContent=d.bridge?"Local bridge":"Offline";$("#aiOllamaStatus").textContent=d.ollama?"Ollama running":"Not running";if(modelSelect){const names=(d.models||[]).map(x=>x.name);const selected=selectedAiModel();modelSelect.innerHTML=[...new Set([selected,"llama3.1:latest",...names])].map(n=>`<option value="${esc(n)}" ${n===selected?"selected":""}>${esc(n)}</option>`).join("")}badge.textContent=d.healthy?"Local AI Ready":"Needs attention";badge.className=`badge ${d.healthy?"good":"warn"}`;msg.textContent=d.healthy?(d.defaultAvailable?"Florisyn Local AI is healthy on this computer.":"Ollama is running, but the recommended model is not installed."):(d.error||"Ollama is not running on this computer.");return d}catch(e){if($("#aiBridgeStatus"))$("#aiBridgeStatus").textContent="Offline";if($("#aiOllamaStatus"))$("#aiOllamaStatus").textContent="Unknown";if(badge){badge.textContent="Configuration Required";badge.className="badge warn"}if(msg)msg.textContent="Cloud AI is not configured in Netlify, and the local bridge is unavailable. POS, orders, payments, and inventory remain fully available.";return null}}
 
 const LIBRARY=[
@@ -29,20 +29,20 @@ const LIBRARY=[
 ["Celebration Brights","Congratulations",89.99,"🎉","Bold color and joyful flowers for graduations, promotions, and big moments.",[["Gerbera Daisies",7],["Roses",6],["Greenery",6]],"https://images.pexels.com/photos/462402/pexels-photo-462402.jpeg?auto=compress&cs=tinysrgb&w=1000"]
 ];
 const DEFAULT_POS_TILES=[
- {id:"fresh",name:"Fresh Arrangement",label:"",category:"Everyday",image:"/assets/fresh.png"},
- {id:"basket",name:"Basket Arrangement",label:"",category:"Everyday",image:"/assets/basket.png"},
- {id:"rose-arr",name:"Rose Arrangement",label:"",category:"Everyday",image:"/assets/rose-arr.png"},
- {id:"loose",name:"Loose Flowers",label:"",category:"Everyday",image:"/assets/tulips.png"},
- {id:"chocolate",name:"Chocolates & Gifts",label:"",category:"Gifts",image:"/assets/chocolates.png"},
- {id:"corsage",name:"Corsage",label:"",category:"Wedding",image:"/assets/corsage.png"},
- {id:"boutonniere",name:"Boutonniere",label:"",category:"Wedding",image:"/assets/boutonniere.png"},
- {id:"sympathy",name:"Sympathy Arrangement",label:"",category:"Sympathy",image:"/assets/sympathy.png"},
- {id:"spray",name:"Sympathy Spray",label:"",category:"Sympathy",image:"/assets/spray.png"},
- {id:"sympathy-basket",name:"Sympathy Basket",label:"",category:"Sympathy",image:"/assets/basket2.png"},
- {id:"blooming",name:"Blooming Plant",label:"",category:"Plants",image:"/assets/plant.png"},
- {id:"orchid",name:"Orchid Plant",label:"",category:"Plants",image:"/assets/orchid.png"},
- {id:"green",name:"Green Plant",label:"",category:"Plants",image:"/assets/green.png"},
- {id:"dish",name:"Dish Garden",label:"",category:"Plants",image:"/assets/dish.png"},
+ {id:"fresh",name:"Fresh Arrangement",label:"",category:"Everyday",image:"/assets/fresh.jpg"},
+ {id:"basket",name:"Basket Arrangement",label:"",category:"Everyday",image:"/assets/basket.jpg"},
+ {id:"rose-arr",name:"Rose Arrangement",label:"",category:"Everyday",image:"/assets/rose-arr.jpg"},
+ {id:"loose",name:"Loose Flowers",label:"",category:"Everyday",image:"/assets/tulips.jpg"},
+ {id:"chocolate",name:"Chocolates & Gifts",label:"",category:"Gifts",image:"/assets/chocolates.jpg"},
+ {id:"corsage",name:"Corsage",label:"",category:"Wedding",image:"/assets/corsage.jpg"},
+ {id:"boutonniere",name:"Boutonniere",label:"",category:"Wedding",image:"/assets/boutonniere.jpg"},
+ {id:"sympathy",name:"Sympathy Arrangement",label:"",category:"Sympathy",image:"/assets/sympathy.jpg"},
+ {id:"spray",name:"Sympathy Spray",label:"",category:"Sympathy",image:"/assets/spray.jpg"},
+ {id:"sympathy-basket",name:"Sympathy Basket",label:"",category:"Sympathy",image:"/assets/basket2.jpg"},
+ {id:"blooming",name:"Blooming Plant",label:"",category:"Plants",image:"/assets/plant.jpg"},
+ {id:"orchid",name:"Orchid Plant",label:"",category:"Plants",image:"/assets/orchid.jpg"},
+ {id:"green",name:"Green Plant",label:"",category:"Plants",image:"/assets/green.jpg"},
+ {id:"dish",name:"Dish Garden",label:"",category:"Plants",image:"/assets/dish.jpg"},
  {id:"misc",name:"Misc Item",label:"Misc",category:"Other",image:""}
 ];
 let posTiles=[];
@@ -50,10 +50,65 @@ let posCart=[];
 let savedQuotes=[];
 function readSession(){try{return JSON.parse(localStorage.getItem("bloom_session")||"null")}catch{return null}}
 function saveSession(d){session={accessToken:d.accessToken,refreshToken:d.refreshToken||session?.refreshToken,user:d.user||session?.user,expiresAt:d.expiresIn?Date.now()+Number(d.expiresIn)*1000:session?.expiresAt||null};localStorage.setItem("bloom_session",JSON.stringify(session))}
-async function refreshSessionIfNeeded(force=false){if(!session?.refreshToken)return false;if(!force&&session.expiresAt&&Date.now()<session.expiresAt-120000)return true;try{const r=await fetch("/.netlify/functions/auth-refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refreshToken:session.refreshToken})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Session expired");saveSession({accessToken:d.accessToken,refreshToken:d.refreshToken,user:d.user||session.user,expiresIn:d.expiresIn});return true}catch{return false}}
-async function api(path,opt={},auth=true){if(auth&&session?.refreshToken)await refreshSessionIfNeeded();const run=async(retry=false)=>{const h={"Content-Type":"application/json",...(opt.headers||{})};if(auth&&session?.accessToken)h.Authorization=`Bearer ${session.accessToken}`;const r=await fetch(`/.netlify/functions/${path}`,{...opt,headers:h});let d={};try{d=await r.json()}catch{}if(!r.ok){if(!retry&&auth&&r.status===401&&session?.refreshToken&&await refreshSessionIfNeeded(true))return run(true);window.BloomProductionMonitor?.reportApiFailure?.(path,r.status,d.error||r.statusText);throw new Error(d.error||`Request failed (${r.status})`)}return d};return run(false)}
+function clearSession(){localStorage.removeItem("bloom_session");session=null;window.session=null;if(window.florisynSessionRefreshTimer){clearInterval(window.florisynSessionRefreshTimer);window.florisynSessionRefreshTimer=null}}
+function hasUsableSession(){return Boolean(session?.accessToken)&&!sessionRecoveryActive}
+function isSessionExpiredLocally(){return Boolean(session?.expiresAt&&Date.now()>=session.expiresAt)}
+function sessionExpiredError(message){const err=new Error(message||"Please sign in again.");err.code="session_expired";return err}
+let sessionRecoveryActive=false;
+let authFailureHandled=false;
+let lastAuthToastAt=0;
+const AUTH_TOAST_COOLDOWN_MS=8000;
+function isAuthToastMessage(message){return /sign in again|session expired|unauthorized/i.test(String(message||""))}
+async function refreshSessionIfNeeded(force=false){if(!session?.refreshToken)return false;if(!force&&session.expiresAt&&Date.now()<session.expiresAt-120000)return true;if(refreshInFlight)return refreshInFlight;refreshInFlight=(async()=>{try{const r=await fetch("/.netlify/functions/auth-refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refreshToken:session.refreshToken})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Session expired");saveSession({accessToken:d.accessToken,refreshToken:d.refreshToken,user:d.user||session.user,expiresIn:d.expiresIn});return true}catch{return false}finally{refreshInFlight=null}})();return refreshInFlight}
+function showSessionRecovery(message){
+  if(sessionRecoveryActive)return;
+  sessionRecoveryActive=true;
+  authFailureHandled=true;
+  closeMobileDrawer();
+  document.body.classList.remove("florisyn-lily-open","atelier-drawer-open","florisyn-nav-locked");
+  document.documentElement.classList.remove("florisyn-mobile-drawer-open");
+  if(window.florisynSessionRefreshTimer){clearInterval(window.florisynSessionRefreshTimer);window.florisynSessionRefreshTimer=null}
+  const lilyPanel=document.getElementById("lilyPanel");
+  if(lilyPanel)lilyPanel.hidden=true;
+  const app=$("#app");
+  if(app)app.hidden=true;
+  document.querySelector(".mobile-nav.atelier-mobile-nav")?.setAttribute("hidden","");
+  document.getElementById("lilyFab")?.setAttribute("hidden","");
+  const auth=$("#auth");
+  if(auth){
+    auth.hidden=false;
+    auth.className="auth florisyn-session-recovery";
+    auth.innerHTML=`<section class="auth-card florisyn-session-recovery-card" role="alertdialog" aria-labelledby="sessionRecoveryTitle" aria-describedby="sessionRecoveryBody"><p class="eyebrow">SESSION ENDED</p><h1 id="sessionRecoveryTitle">Sign in again</h1><p id="sessionRecoveryBody" class="subtle">${escapeHtml(message||"Your Florisyn session expired or is no longer valid on this device.")}</p><p class="subtle">Your shop data is safe. Sign in to continue, or clear this device session if you are switching accounts.</p><div class="actions" style="display:flex;flex-direction:column;gap:10px;margin-top:18px"><button type="button" id="sessionRecoverySignIn" class="primary wide">Sign in</button><button type="button" id="sessionRecoveryClear" class="secondary wide">Clear session / Sign out</button></div></section>`;
+    $("#sessionRecoverySignIn")?.addEventListener("click",()=>location.assign("/login"));
+    $("#sessionRecoveryClear")?.addEventListener("click",()=>{clearSession();location.assign("/login")});
+  }
+  document.body.classList.add("florisyn-session-recovery");
+  window.session=null;
+}
+function handleSessionInvalid(message){
+  if(!authFailureHandled)showSessionRecovery(message||"Your Florisyn session expired. Please sign in again.");
+}
+function requireActiveSession(action){
+  if(sessionRecoveryActive||!hasUsableSession()){handleSessionInvalid(action?`${action} requires a valid sign-in.`:"Your Florisyn session expired. Please sign in again.");return false}
+  return true;
+}
+function membershipRequiredError(message){const err=new Error(message||"Your Florisyn login works, but this account is not linked to an active flower shop yet.");err.code="shop_membership_required";return err}
+function showMembershipOnboarding(message){const auth=$("#auth"),app=$("#app");if(app)app.hidden=true;if(auth){auth.hidden=false;auth.innerHTML=`<section class="bloom-membership-gate" style="max-width:520px;margin:10vh auto;padding:28px;border:1px solid #e7ddd2;border-radius:8px;background:#fffcf8;box-shadow:0 14px 34px rgba(24,37,47,.08)"><p class="eyebrow" style="letter-spacing:.08em;color:#3d5c4a">SHOP SETUP NEEDED</p><h1 style="font-family:Georgia,serif;color:#18252f">Welcome to Florisyn</h1><p style="color:#66737a;line-height:1.55">${escapeHtml(message||"Your login works, but this account is not linked to an active flower shop yet.")}</p><p style="color:#66737a;line-height:1.55">Contact Florisyn support or finish owner onboarding so we can attach your shop membership. This is not an invalid password problem.</p><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:18px"><a class="primary" href="/help/contact/" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;padding:12px 18px;border-radius:8px;background:linear-gradient(145deg,#c9a962,#a8883f);color:#18252f;font-weight:600">Contact support</a><button type="button" id="membershipSignOut" class="secondary" style="padding:12px 18px;border-radius:8px">Sign out</button></div></section>`;$("#membershipSignOut")?.addEventListener("click",()=>{localStorage.removeItem("bloom_session");session=null;location.replace("/login")})}}
+async function api(path,opt={},auth=true){
+  if(auth){
+    if(!hasUsableSession()){handleSessionInvalid();throw sessionExpiredError()}
+    if(session?.refreshToken){
+      const refreshed=await refreshSessionIfNeeded();
+      if(!refreshed){handleSessionInvalid();throw sessionExpiredError()}
+    }
+  }
+  const run=async(retry=false)=>{const h={"Content-Type":"application/json",...(opt.headers||{})};if(auth&&session?.accessToken)h.Authorization=`Bearer ${session.accessToken}`;const r=await fetch(`/.netlify/functions/${path}`,{...opt,headers:h});let d={};try{d=await r.json()}catch{}if(!r.ok){if(!retry&&auth&&r.status===401&&session?.refreshToken&&await refreshSessionIfNeeded(true))return run(true);if(auth&&r.status===401){handleSessionInvalid();throw sessionExpiredError(d.error||"Please sign in again.")}window.BloomProductionMonitor?.reportApiFailure?.(path,r.status,d.error||r.statusText);if(d.code==="shop_membership_required"||/not linked to an active flower shop|active Florisyn shop membership/i.test(String(d.error||"")))throw membershipRequiredError(d.error);const err=new Error(d.error||`Request failed (${r.status})`);if(d.code)err.code=d.code;if(d.items)err.items=d.items;throw err}return d};return run(false)}
 const WALK_IN_CUSTOMER_NAME="Walk-in Customer";
-function normalizeOrderFormPayload(raw){const d={...raw};if(!String(d.customer_name||"").trim())d.customer_name=WALK_IN_CUSTOMER_NAME;return d}
+function firstNameFromIdentity(user=session?.user,settings=shopSettings){
+  const raw=settings?.owner_name||settings?.contact_name||user?.user_metadata?.full_name||user?.full_name||user?.email?.split("@")[0]||"there";
+  return String(raw).trim().split(/\s+/)[0]||"there";
+}
+function normalizeOrderFormPayload(raw){const d={...raw};for(const field of["amount_paid","balance_due","payment_status","payment_method","paid_at"])delete d[field];if(!String(d.customer_name||"").trim())d.customer_name=WALK_IN_CUSTOMER_NAME;return d}
 function validateOrderFormPayload(d){const errors=[];const fulfillment=String(d.fulfillment||"PICKUP").toUpperCase();if(!String(d.delivery_date||"").trim())errors.push("Choose a due, pickup, or delivery date.");const hasItem=Boolean(String(d.product_id||"").trim())||Boolean(String(d.arrangement_description||"").trim())||Number(d.subtotal||0)>0;if(!hasItem)errors.push("Add at least one item — select a product, describe the arrangement, or enter a product amount.");if(fulfillment==="DELIVERY"&&!String(d.delivery_address||"").trim())errors.push("Enter a delivery address for delivery orders.");if(!["YES","NO"].includes(String(d.payment_required||"YES").toUpperCase()))errors.push("Choose whether to take payment now or skip payment for later.");return errors}
 function applyWalkInCustomerDefaults(){const f=$("#orderForm");if(!f)return;f.elements.customer_name.value=WALK_IN_CUSTOMER_NAME;if(f.elements.order_source)f.elements.order_source.value="Walk-in";if(f.elements.customer_phone)f.elements.customer_phone.value="";if(f.elements.recipient_name)f.elements.recipient_name.value="";if(f.elements.recipient_phone)f.elements.recipient_phone.value="";toast("Walk-in customer applied — add an item and save when ready")}
 function orderPaymentView(o){const total=Math.max(0,Number(o?.total||0)),paid=Math.max(0,Number(o?.amount_paid||0));let balance=o?.balance_due;if(balance==null||balance===undefined)balance=Math.max(0,Math.round((total-paid)*100)/100);else balance=Math.max(0,Number(balance));let status=String(o?.payment_status||"UNPAID").trim().toUpperCase();if(status==="OPEN")status="UNPAID";if(status!=="REFUNDED"){if(balance<=0&&total>0&&paid>=total-0.005)status="PAID";else if(paid>0&&balance>0.005)status="PARTIAL";else if(paid<=0)status="UNPAID"}return{total,paid,balance,status}}
@@ -61,26 +116,348 @@ function paymentBadgeClass(status){return String(status||"UNPAID").toUpperCase()
 function money(v){return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(v||0))}
 function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function dateText(v){return v?new Date(v+"T12:00:00").toLocaleDateString():""}
+// `new Date().toISOString().slice(0,10)` reads as UTC "today", not local
+// "today" — in any negative-UTC-offset (i.e. every US) timezone it's
+// tomorrow's date for the last several hours of every local day. Used to
+// default order/expense date fields, that silently pre-filled the wrong
+// day in the evening. Use local calendar getters instead.
+function localTodayStr(){const n=new Date();return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`}
 function inventoryFreshness(i){const received=i.received_at||i.arrival_date||String(i.created_at||"").slice(0,10);if(!received&&!i.use_by)return{age:0,score:100,label:"Fresh",useFirst:false};const age=received?Math.max(0,Math.floor((new Date().setHours(0,0,0,0)-new Date(`${received}T00:00:00`))/86400000)):0;const life=Math.max(1,Number(i.vase_life_days||7));let score=Math.max(0,Math.round((1-age/life)*100));if(i.use_by){const daysLeft=Math.ceil((new Date(`${i.use_by}T12:00:00`).getTime()-Date.now())/86400000);if(daysLeft<=1)score=Math.min(score,20);else if(daysLeft<=3)score=Math.min(score,50)}const useFirst=score<=25;return{age,score,label:useFirst?"Use first":score<=55?"Use soon":"Fresh",useFirst}}
 function contactPrefSummary(c){const p=c?.contact_preferences&&typeof c.contact_preferences==="object"?c.contact_preferences:{};const methods={phone:"Phone",text:"Text",email:"Email",none:"No preference"};const method=methods[String(p.preferred_method||"none").toLowerCase()]||"No preference";const marketing=p.marketing_opt_in?"Marketing: opted in":"Marketing: opted out";return `${method} · ${marketing}`}
 function inventoryFreshnessBucket(i){const f=inventoryFreshness(i);if(Number(i.quantity||0)<=0)return"archived";if(f.useFirst||f.score<=25)return"use_first";if(f.score<=55)return"expiring_soon";return"fresh"}
-function toast(m){const e=$("#toast");e.textContent=m;e.hidden=false;clearTimeout(window.bt);window.bt=setTimeout(()=>e.hidden=true,3200)}
+function explainOrderDeleteFailure(err,orderNumber){
+  if(/payment history/i.test(err.message||"")){
+    alert(`Order ${orderNumber||""} can't be deleted — it has payment history, so Florisyn keeps it to protect your financial records.\n\nInstead, either:\n• Mark it Cancelled (Quick edit → Status)\n• Or refund/adjust the payment in Payment Center first, then delete`);
+    return;
+  }
+  toast(err.message);
+}
+function toast(m){const msg=String(m||"");if(sessionRecoveryActive&&isAuthToastMessage(msg))return;if(isAuthToastMessage(msg)){const now=Date.now();if(now-lastAuthToastAt<AUTH_TOAST_COOLDOWN_MS)return;lastAuthToastAt=now}const e=$("#toast");e.textContent=msg;e.hidden=false;clearTimeout(window.bt);window.bt=setTimeout(()=>e.hidden=true,3200)}
 function empty(t){return window.BloomLaunchPolish?.emptyState?.(t)||`<div class="card subtle bloom-empty-state" role="status"><strong>${esc(t)}</strong></div>`}
+function bindForm(selector,handler){const form=$(selector);if(!form)return;form.onsubmit=async e=>{
+  // Guard every save/create form against double-submit: a florist double-clicking (or
+  // double-tapping) "Create order"/"Save product" etc. during a busy rush must not fire
+  // the async save handler twice and create a duplicate record.
+  if(form.dataset.submitting==="1")return;
+  const submitBtn=form.querySelector('button[type="submit"],button:not([type])');
+  form.dataset.submitting="1";
+  if(submitBtn)submitBtn.disabled=true;
+  try{await handler(e)}
+  catch(err){toast(err?.message||"Could not complete this action.")}
+  finally{form.dataset.submitting="";if(submitBtn)submitBtn.disabled=false}
+}}
+function florisynUnhandledToast(err){if(err?.code==="session_expired"||sessionRecoveryActive)return;toast(err?.message||"Florisyn ran into a temporary issue. Please try again.")}
+window.addEventListener("unhandledrejection",e=>florisynUnhandledToast(e.reason));
+window.addEventListener("error",e=>florisynUnhandledToast(e.error||e.message));
 function applyBranding(settings=shopSettings||{}){const root=document.documentElement;const primary=settings.primary_color||"#8f3f68",bg=settings.app_background_color||"#f8f3f6",sidebar=settings.sidebar_color||"#30232d",header=settings.header_color||"#ffffff",font=settings.app_font||"Elegant";root.style.setProperty("--brand-primary",primary);root.style.setProperty("--app-background",bg);root.style.setProperty("--sidebar-color",sidebar);root.style.setProperty("--header-color",header);document.body.dataset.appFont=font;const logo=settings.logo_url||"";const appLogo=$("#appLogo"),preview=$("#settingsLogoPreview"),placeholder=$("#logoPlaceholder"),webPreview=$("#websiteLogoPreview"),webPlaceholder=$("#websiteLogoPlaceholder");if(appLogo){appLogo.src=logo;appLogo.hidden=!logo}if(preview){preview.src=logo;preview.hidden=!logo}if(placeholder)placeholder.hidden=Boolean(logo);if(webPreview){webPreview.src=logo;webPreview.hidden=!logo}if(webPlaceholder)webPlaceholder.hidden=Boolean(logo);const dash=settings.dashboard_image_url||"",dashWrap=$("#dashboardWelcomePhoto"),dashImg=$("#dashboardWelcomeImage"),dashPreview=$("#dashboardImagePreview"),dashPlaceholder=$("#dashboardImagePlaceholder");if(dashImg){dashImg.src=dash;dashWrap.hidden=!dash}if(dashPreview){dashPreview.src=dash;dashPreview.hidden=!dash}if(dashPlaceholder)dashPlaceholder.hidden=Boolean(dash);const brandEl=document.querySelector(".brand");if(brandEl)brandEl.textContent=settings.name||"Florisyn";}
 function previewBrandingForm(){const f=$("#settingsForm");if(!f)return;const d=Object.fromEntries(new FormData(f));applyBranding({...shopSettings,...d});const p=$("#themePreview");if(p){p.style.background=d.app_background_color||"#f8f3f6";p.style.borderColor=d.primary_color||"#8f3f68";p.querySelector("span").style.color=d.primary_color||"#8f3f68";p.dataset.font=d.app_font||"Elegant"}}
 function showAuth(){location.replace("/login")}
+async function bootFloristApp(){
+  wireSignedOutInteractionGuards();
+  if(!session?.accessToken){showAuth();return}
+  if(isSessionExpiredLocally()&&!session?.refreshToken){showSessionRecovery("Your Florisyn session expired. Please sign in again.");return}
+  if(session?.refreshToken){
+    const refreshed=await refreshSessionIfNeeded(isSessionExpiredLocally());
+    if(!refreshed){showSessionRecovery("Your Florisyn session expired. Please sign in again.");return}
+  }
+  showApp();
+  try{
+    await Promise.all([loadDashboard(),loadInventory(),loadOrders(),loadProducts()]);
+    await finishStripeReturn();
+  }catch(err){
+    if(err?.code==="session_expired")return;
+    if(err?.code==="shop_membership_required"||/not linked to an active flower shop|active Florisyn shop membership/i.test(String(err?.message||""))){showMembershipOnboarding(err.message);return}
+    toast(err.message||"Could not load your shop workspace.");
+  }
+}
 async function loadPlatformSettings(){try{const d=await api('platform-settings');if($('#roseFoundationTotal'))$('#roseFoundationTotal').textContent=`${money(d.roseFoundationTotal||0)} raised`}catch{}}
-function showApp(){loadPlatformSettings();$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";if(session?.refreshToken&&!window.florisynSessionRefreshTimer)window.florisynSessionRefreshTimer=setInterval(()=>refreshSessionIfNeeded(),5*60*1000);loadStores();loadRemoteAdminConfig();window.BloomLaunchPolish?.init?.({api,mode:"florist"});window.BloomLilyPlatform?.init?.({api,toast,showPage,smartAi,loadAiContext,prepareOrderBuilder,loadInventory,renderCustomers});window.showPage=showPage;window.api=api;window.loadOrders=loadOrders;window.setPendingPaymentOrder=setPendingPaymentOrder;window.session=session;window.BloomPaymentHub&&(window.BloomPaymentHub.api=api);window.subscriptionCenterApi=api;window.recordLocalPayment=recordLocalPayment;window.BloomLaunchPolish?.refreshPageHelp?.("dashboardPage");window.BloomRose?.mount?.();window.BloomDaisy?.mount?.();window.FlorisynAssistantVoice?.init?.({getScope:()=>{const shop=shopSettings?.shop_id||session?.shopId||session?.user?.default_shop_id||"shop";const user=session?.user?.id||"local";return `${shop}:${user}`},getSpeakEnabled:()=>{const el=$("#assistantSpeak");return el?el.checked:true}});window.BloomLilyVoice?.patchSpeakAssistant?.();window.BloomFirstRun?.showWelcome?.();window.BloomRC21?.initLoadingScreen?.();window.BloomRC21?.tuneLily?.();const qp=new URLSearchParams(location.search);if(qp.get("page"))showPage(qp.get("page"))}
+function showApp(){loadPlatformSettings();refreshGrowthFeatureFlags();$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";if(session?.user?.email)$("#accountEmail").title=session.user.email;if(session?.refreshToken&&!window.florisynSessionRefreshTimer)window.florisynSessionRefreshTimer=setInterval(()=>refreshSessionIfNeeded(),5*60*1000);loadStores();loadRemoteAdminConfig();window.BloomLaunchPolish?.init?.({api,mode:"florist"});if(window.FlorisynRouter?.installShowPageBridge){window.showPage=window.FlorisynRouter.installShowPageBridge(showPage)}else window.showPage=showPage;window.BloomLilyPlatform?.init?.({api,toast:toast,showPage:window.showPage,smartAi,loadAiContext,prepareOrderBuilder,loadInventory,renderCustomers});wireMobileLilyScrollLock();wireMobileDrawerScrollLock();window.api=api;window.loadOrders=loadOrders;window.setPendingPaymentOrder=setPendingPaymentOrder;window.session=session;window.BloomPaymentHub&&(window.BloomPaymentHub.api=api);window.subscriptionCenterApi=api;window.recordLocalPayment=recordLocalPayment;window.BloomLaunchPolish?.refreshPageHelp?.("dashboardPage");if(isMobileShellViewport()){hideMobileFloatingAssistants()}else{window.BloomRose?.mount?.();window.BloomDaisy?.mount?.()}window.FlorisynAssistantVoice?.init?.({getScope:()=>{const shop=shopSettings?.shop_id||session?.shopId||session?.user?.default_shop_id||"shop";const user=session?.user?.id||"local";return `${shop}:${user}`},getSpeakEnabled:()=>{const el=$("#assistantSpeak");return el?el.checked:true}});window.BloomLilyVoice?.patchSpeakAssistant?.();window.BloomFirstRun?.showWelcome?.();window.BloomRC21?.initLoadingScreen?.();window.BloomRC21?.tuneLily?.();window.FlorisynRouter?.bootFromLocation?.({replace:true})||window.showPage("dashboardPage");hideMobileFloatingAssistants()}
+function closeMobileDrawer(){(window.FlorisynPlatform?.setDrawer||window.FlorisynAtelierChrome?.setDrawer)?.(false)}
+function scrollMobilePageToTop(){
+  if(!window.matchMedia("(max-width: 820px)").matches)return;
+  const scroller=document.querySelector(".florisyn-lux-main > .content")||document.querySelector(".shell > .content");
+  if(scroller)scroller.scrollTop=0;
+  document.documentElement.scrollTop=0;
+  document.body.scrollTop=0;
+  window.scrollTo(0,0);
+}
+function syncPageVisibility(activeId){
+  $$(".page").forEach(p=>{
+    const on=p.id===activeId;
+    p.hidden=!on;
+    p.classList.toggle("active",on);
+  });
+}
+function wireMobileLilyScrollLock(){
+  if(document.body.dataset.lilyScrollLock)return;
+  document.body.dataset.lilyScrollLock="1";
+  const sync=()=>{
+    const panel=document.getElementById("lilyPanel");
+    document.body.classList.toggle("florisyn-lily-open",Boolean(panel&&!panel.hidden));
+  };
+  const panel=document.getElementById("lilyPanel");
+  if(panel)new MutationObserver(sync).observe(panel,{attributes:true,attributeFilter:["hidden"]});
+  else{
+    const boot=document.body;
+    if(!boot.dataset.lilyScrollPoll){
+      boot.dataset.lilyScrollPoll="1";
+      const wait=setInterval(()=>{const p=document.getElementById("lilyPanel");if(!p)return;clearInterval(wait);new MutationObserver(sync).observe(p,{attributes:true,attributeFilter:["hidden"]});sync()},200);
+    }
+  }
+  sync();
+}
+function isMobileShellViewport(){return window.matchMedia("(max-width: 820px)").matches}
+function hideMobileFloatingAssistants(){
+  if(!isMobileShellViewport())return;
+  ["bloomDaisy","bloomDog"].forEach((id)=>document.getElementById(id)?.remove());
+  if(window.BloomDaisy&&!window.BloomDaisy.__mobileRetired){
+    const priorMount=window.BloomDaisy.mount;
+    window.BloomDaisy.mount=function(){document.getElementById("bloomDaisy")?.remove();return priorMount?.call?.(this)};
+    window.BloomDaisy.__mobileRetired=true;
+  }
+}
+function setClassIfChanged(el,cls,on){if(el&&el.classList.contains(cls)!==Boolean(on))el.classList.toggle(cls,Boolean(on))}
+function wireMobileDrawerScrollLock(){
+  if(document.body.dataset.mobileDrawerLock)return;
+  document.body.dataset.mobileDrawerLock="1";
+  const sync=()=>{
+    /* Only write classes when state actually changes: the MutationObserver below
+       re-fires on any class attribute write (even a no-op classList.add), so an
+       unguarded add here would loop the observer forever and freeze the page. */
+    const drawerOpen=document.body.classList.contains("atelier-drawer-open");
+    setClassIfChanged(document.body,"florisyn-nav-locked",drawerOpen);
+    setClassIfChanged(document.documentElement,"florisyn-mobile-drawer-open",drawerOpen&&isMobileShellViewport());
+    if(drawerOpen&&isMobileShellViewport())scrollMobilePageToTop();
+  };
+  new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:["class"]});
+  window.addEventListener("resize",()=>{hideMobileFloatingAssistants();sync()},{passive:true});
+  sync();
+  wireMobileDrawerToggleFallback();
+}
+function wireMobileDrawerToggleFallback(){
+  /* florisyn-atelier-dashboard.js normally binds these; this fallback only fires
+     when that wiring is missing so the hamburger can never be a dead button. */
+  const toggle=document.getElementById("atelierMenuToggle");
+  const backdrop=document.getElementById("atelierSidebarBackdrop");
+  const setDrawer=(open)=>{
+    if(sessionRecoveryActive||!hasUsableSession()){handleSessionInvalid("Open the menu after you sign in.");return}
+    const fn=window.FlorisynPlatform?.setDrawer||window.FlorisynAtelierChrome?.setDrawer;
+    if(typeof fn==="function")return fn(open);
+    document.body.classList.toggle("atelier-drawer-open",Boolean(open));
+    if(backdrop)backdrop.hidden=!open;
+  };
+  if(toggle&&!toggle.dataset.atelierBound){toggle.dataset.atelierBound="1";toggle.addEventListener("click",()=>setDrawer(!document.body.classList.contains("atelier-drawer-open")))}
+  if(backdrop&&!backdrop.dataset.atelierBound){backdrop.dataset.atelierBound="1";backdrop.addEventListener("click",()=>setDrawer(false))}
+}
+function wireSignedOutInteractionGuards(){
+  if(document.body.dataset.signedOutGuards)return;
+  document.body.dataset.signedOutGuards="1";
+  document.addEventListener("click",(e)=>{
+    if(sessionRecoveryActive||!hasUsableSession()){
+      const nav=e.target.closest?.(".mobile-nav button,.mobile-nav a,.mobile-nav.atelier-mobile-nav button");
+      if(nav){e.preventDefault();e.stopImmediatePropagation();handleSessionInvalid("Choose Sign in to continue.");return}
+    }
+    const lily=e.target.closest?.(".lily-fab,#lilyFab");
+    if(lily&&(sessionRecoveryActive||!hasUsableSession())){
+      e.preventDefault();e.stopImmediatePropagation();
+      if(sessionRecoveryActive)toast("Sign in to use Lily.");
+      else handleSessionInvalid("Sign in to use Lily.");
+    }
+  },true);
+}
 function showPage(id){
-  const run=()=>{$$(".page").forEach(p=>p.classList.toggle("active",p.id===id));$$("#app aside button[data-page], .mobile-nav button[data-page], .assistant-mini-dock button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));loadPage(id)};
+  if(!requireActiveSession())return;
+  if(id==="communityPage"&&!communityBetaEnabled){
+    refreshGrowthFeatureFlags().then((on)=>{if(!on){toast("Florist Community Beta is disabled.");return}showPage("communityPage")});
+    return;
+  }
+  if(id==="holidayPage"&&!holidayCommandEnabled){
+    refreshGrowthFeatureFlags().then(()=>{if(!holidayCommandEnabled){toast("Holiday Command Center is disabled.");return}showPage("holidayPage")});
+    return;
+  }
+  if(id==="emailCampaignsPage"&&!emailCampaignsEnabled){
+    refreshGrowthFeatureFlags().then(()=>{if(!emailCampaignsEnabled){toast("Email Campaigns is disabled.");return}showPage("emailCampaignsPage")});
+    return;
+  }
+  if(id==="marketingPage"&&!marketingCampaignsEnabled){
+    refreshGrowthFeatureFlags().then(()=>{if(!marketingCampaignsEnabled){toast("Marketing is disabled.");return}showPage("marketingPage")});
+    return;
+  }
+  if(id==="weddingsPage"&&!weddingWorkflowsEnabled){
+    refreshGrowthFeatureFlags().then(()=>{if(!weddingWorkflowsEnabled){toast("Wedding Workflows is disabled.");return}showPage("weddingsPage")});
+    return;
+  }
+  if(id==="floristNetworkPage"&&!floristNetworkEnabled){
+    refreshGrowthFeatureFlags().then(()=>{if(!floristNetworkEnabled){toast("Florist Network is disabled.");return}showPage("floristNetworkPage")});
+    return;
+  }
   window.BloomLaunchPolish?.onPageStart?.(id);
-  if(window.BloomLaunchPolish?.transitionTo)window.BloomLaunchPolish.transitionTo(id,run);
-  else run();
+  syncPageVisibility(id);
+  document.body.classList.toggle("florisyn-pos-active", id==="posPage");
+  const routePath=window.FlorisynRouter?.path||window.FlorisynRouter?.PAGE_PATH?.[id]||"";
+  if(window.FlorisynRouter?.syncActiveNav&&routePath)window.FlorisynRouter.syncActiveNav(routePath);
+  else $$("#app aside button[data-page], .mobile-nav button[data-page], .assistant-mini-dock button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));
+  loadPage(id);
+  if(id==="posPage"){
+    window.FlorisynLuxuryPos?.boot?.();
+    window.renderPosCart?.();
+  }
+  window.BloomLaunchPolish?.refreshPageHelp?.(id);
+  closeMobileDrawer();
+  scrollMobilePageToTop();
 }
 async function loadPaymentsPage(){try{pendingPaymentOrder=pendingPaymentOrder||JSON.parse(localStorage.getItem("bloom_pending_payment_order")||"null")}catch{}renderPaymentCenterShell();if(window.BloomPaymentHub){window.BloomPaymentHub.api=api;try{await window.BloomPaymentHub.load(true)}catch(e){const msg=e?.message||"Payment Hub could not load.";if($("#paymentStatus"))$("#paymentStatus").textContent=msg;toast(msg)}}await applyPaymentHubCheckout()}
-async function loadEcosystemPage(){if(window.BloomEcosystem){window.bloomEcosystemApi=api;await window.BloomEcosystem.load()}}
+async function loadEcosystemPage(){window.FlorisynBusinessOs?.boot?.();if(window.BloomEcosystem){window.bloomEcosystemApi=api;try{await window.BloomEcosystem.load()}catch{}}}
+let communityBetaEnabled=false;
+let holidayCommandEnabled=false;
+let emailCampaignsEnabled=false;
+let weddingWorkflowsEnabled=false;
+let floristNetworkEnabled=false;
+let marketingCampaignsEnabled=false;
+function setCommunityNavVisible(on){
+  communityBetaEnabled=Boolean(on);
+  $$('[data-page="communityPage"]').forEach((el)=>{el.hidden=!communityBetaEnabled;el.style.display=communityBetaEnabled?"":"none"});
+  const comm=$("#mobileNavCommunity");
+  const more=$("#mobileNavMore");
+  const retry=$("#lilyRetryCommunityBtn");
+  if(comm&&more){
+    comm.hidden=!communityBetaEnabled;
+    comm.style.display=communityBetaEnabled?"":"none";
+    more.hidden=communityBetaEnabled;
+    more.style.display=communityBetaEnabled?"none":"";
+  }
+  if(retry){
+    retry.hidden=!communityBetaEnabled;
+    retry.style.display=communityBetaEnabled?"":"none";
+  }
+  const page=$("#communityPage");
+  if(page&&!communityBetaEnabled){page.classList.remove("active");if(page.querySelector("#communityRoot"))page.querySelector("#communityRoot").innerHTML="";}
+}
+function setFlaggedNavVisible(pageId,enabled,rootSelector){
+  const on=Boolean(enabled);
+  $$(`[data-page="${pageId}"]`).forEach((el)=>{el.hidden=!on;el.style.display=on?"":"none"});
+  const page=$(`#${pageId}`);
+  if(page&&!on){page.classList.remove("active");page.hidden=true;const root=rootSelector?page.querySelector(rootSelector):null;if(root)root.innerHTML=""}
+  return on;
+}
+function setHolidayNavVisible(on){holidayCommandEnabled=setFlaggedNavVisible("holidayPage",on,"#holidayRoot")}
+function setEmailCampaignsNavVisible(on){emailCampaignsEnabled=setFlaggedNavVisible("emailCampaignsPage",on,"#emailCampaignsRoot")}
+function setWeddingsNavVisible(on){weddingWorkflowsEnabled=setFlaggedNavVisible("weddingsPage",on,"#weddingsRoot")}
+function setFloristNetworkNavVisible(on){floristNetworkEnabled=setFlaggedNavVisible("floristNetworkPage",on,"#floristNetworkRoot")}
+function setMarketingNavVisible(on){marketingCampaignsEnabled=setFlaggedNavVisible("marketingPage",on,"#marketingRoot")}
+async function refreshGrowthFeatureFlags(){
+  try{
+    const d=await fetch("/.netlify/functions/production-health").then((r)=>r.ok?r.json():null).catch(()=>null);
+    const on=Boolean(d?.feature_flags?.COMMUNITY_BETA);
+    setCommunityNavVisible(on);
+    setHolidayNavVisible(Boolean(d?.feature_flags?.HOLIDAY_COMMAND_CENTER));
+    setEmailCampaignsNavVisible(Boolean(d?.feature_flags?.EMAIL_CAMPAIGNS));
+    setWeddingsNavVisible(Boolean(d?.feature_flags?.WEDDING_WORKFLOWS));
+    setFloristNetworkNavVisible(Boolean(d?.feature_flags?.FLORIST_NETWORK));
+    setMarketingNavVisible(Boolean(d?.feature_flags?.MARKETING_CAMPAIGNS));
+    return on;
+  }catch{
+    setCommunityNavVisible(false);
+    setHolidayNavVisible(false);
+    setEmailCampaignsNavVisible(false);
+    setWeddingsNavVisible(false);
+    setFloristNetworkNavVisible(false);
+    setMarketingNavVisible(false);
+    return false;
+  }
+}
+/** @deprecated use refreshGrowthFeatureFlags */
+async function refreshCommunityFeatureFlag(){return refreshGrowthFeatureFlags()}
+async function loadCommunityPage(){
+  const on=await refreshGrowthFeatureFlags();
+  if(!on){
+    const root=$("#communityRoot");
+    if(root)root.innerHTML=`<div class="community-state community-error" role="alert"><h3>Community unavailable</h3><p>Florist Community Beta is disabled.</p></div>`;
+    return;
+  }
+  if(window.BloomCommunity){window.bloomCommunityApi=api;await window.BloomCommunity.load()}
+}
+async function loadMarketingPage(){
+  await refreshGrowthFeatureFlags();
+  if(!marketingCampaignsEnabled){
+    const root=$("#marketingRoot");
+    if(root)root.innerHTML=`<div class="panel" role="alert"><h3>Unavailable</h3><p class="subtle">Marketing is disabled.</p></div>`;
+    return;
+  }
+  if(window.BloomMarketingCampaigns){window.bloomMarketingApi=api;await window.BloomMarketingCampaigns.load()}
+}
+async function loadHolidayPage(){
+  await refreshGrowthFeatureFlags();
+  if(!holidayCommandEnabled){
+    const root=$("#holidayRoot");
+    if(root)root.innerHTML=`<div class="panel" role="alert"><h3>Unavailable</h3><p class="subtle">Holiday Command Center is disabled.</p></div>`;
+    return;
+  }
+  if(window.BloomHolidayCommand){window.bloomHolidayApi=api;await window.BloomHolidayCommand.load()}
+}
+async function loadEmailCampaignsPage(){
+  await refreshGrowthFeatureFlags();
+  if(!emailCampaignsEnabled){
+    const root=$("#emailCampaignsRoot");
+    if(root)root.innerHTML=`<div class="panel" role="alert"><h3>Unavailable</h3><p class="subtle">Email Campaigns is disabled.</p></div>`;
+    return;
+  }
+  if(window.BloomEmailCampaigns){window.bloomEmailCampaignsApi=api;await window.BloomEmailCampaigns.load()}
+}
+async function loadWeddingsPage(){
+  await refreshGrowthFeatureFlags();
+  if(!weddingWorkflowsEnabled){
+    const root=$("#weddingsRoot");
+    if(root)root.innerHTML=`<div class="panel" role="alert"><h3>Unavailable</h3><p class="subtle">Wedding Workflows is disabled.</p></div>`;
+    return;
+  }
+  if(window.BloomWeddings){window.bloomWeddingsApi=api;await window.BloomWeddings.load()}
+}
+async function loadFloristNetworkPage(){
+  await refreshGrowthFeatureFlags();
+  if(!floristNetworkEnabled){
+    const root=$("#floristNetworkRoot");
+    if(root)root.innerHTML=`<div class="panel" role="alert"><h3>Unavailable</h3><p class="subtle">Florist Network is disabled.</p></div>`;
+    return;
+  }
+  window.BloomFloristNetwork?.load?.();
+}
 async function loadSubscriptionPage(){if(window.BloomSubscriptionCenter){window.subscriptionCenterApi=api;await window.BloomSubscriptionCenter.load(document.getElementById("subscriptionCenterRoot"))}}
-async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,expensesPage:loadExpenses,reportsPage:loadReports,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,aiStudioPage:()=>refreshAiStatus()};try{if(m[id])await m[id]()}catch(e){toast(e.message);const box=document.querySelector(`#${id} .cards, #${id}List, #${id.replace("Page","")}List`);if(box&&window.BloomLaunchPolish?.errorState)box.innerHTML=window.BloomLaunchPolish.errorState({message:e.message})}}
+
+async function loadAnalyticsPage(){
+  await loadReports();
+  const pairs=[["reportRevenue","analyticsRevenue"],["reportExpenses","analyticsExpenses"],["reportProfit","analyticsProfit"],["reportMargin","analyticsMargin"]];
+  pairs.forEach(([from,to])=>{const a=$(from),b=$(to);if(a&&b)b.textContent=a.textContent});
+}
+function loadPosSettingsPage(){
+  if($("#posSettingsTaxInput"))$("#posSettingsTaxInput").value=Number(shopSettings?.tax_rate??6);
+  if($("#posSettingsDeliveryInput"))$("#posSettingsDeliveryInput").value=Number(shopSettings?.default_delivery_fee??10).toFixed(2);
+  if($("#posSettingsRegisterName"))$("#posSettingsRegisterName").value=shopSettings?.register_name||"";
+  if($("#posSettingsRegisterId"))$("#posSettingsRegisterId").value=shopSettings?.register_id||"";
+  if($("#posSettingsSaveStatus"))$("#posSettingsSaveStatus").textContent="";
+}
+$("#posSettingsSaveBtn")?.addEventListener("click",async()=>{
+  const btn=$("#posSettingsSaveBtn"),status=$("#posSettingsSaveStatus"),orig=btn.textContent;
+  const payload={
+    tax_rate:Number($("#posSettingsTaxInput")?.value||0),
+    default_delivery_fee:Number($("#posSettingsDeliveryInput")?.value||0),
+    register_name:($("#posSettingsRegisterName")?.value||"").trim(),
+    register_id:($("#posSettingsRegisterId")?.value||"").trim()
+  };
+  btn.disabled=true;btn.textContent="Saving…";
+  try{
+    shopSettings=(await api("settings",{method:"PATCH",body:JSON.stringify(payload)})).item;
+    if(status)status.textContent="Saved — applies to new orders, receipts, and the register.";
+    toast("Checkout defaults saved");
+  }catch(e){
+    if(status)status.textContent=e.message;
+    toast(e.message);
+  }finally{
+    btn.disabled=false;btn.textContent=orig;
+  }
+});
+
+async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,bouquetsPage:()=>{},expensesPage:loadExpenses,reportsPage:loadReports,analyticsPage:loadAnalyticsPage,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,floristNetworkPage:loadFloristNetworkPage,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,communityPage:loadCommunityPage,holidayPage:loadHolidayPage,emailCampaignsPage:loadEmailCampaignsPage,marketingPage:loadMarketingPage,weddingsPage:loadWeddingsPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,posSettingsPage:loadPosSettingsPage,posPage:()=>{window.FlorisynLuxuryPos?.syncStatusMetrics?.();window.FlorisynLuxuryPos?.syncCustomer?.();if(typeof renderPosTiles==="function")renderPosTiles();},aiStudioPage:()=>refreshAiStatus()};try{if(m[id])await m[id]()}catch(e){toast(e.message);const box=document.querySelector(`#${id} .cards, #${id}List, #${id.replace("Page","")}List, #communityRoot, #holidayRoot, #emailCampaignsRoot, #weddingsRoot, #floristNetworkRoot, #marketingRoot`);if(box&&window.BloomLaunchPolish?.errorState)box.innerHTML=window.BloomLaunchPolish.errorState({message:e.message})}}
 const ORDER_STATUS_DEFS=[
   {id:"PENDING",label:"Pending",legacy:["NEW","PENDING"]},
   {id:"CONFIRMED",label:"Confirmed",legacy:["CONFIRMED"]},
@@ -139,8 +516,42 @@ async function loadInvoices(){if(!orders.length)await loadOrders();const outstan
 function openInvoice(o){if(!o)return;openReceipt(o)}
 function emailInvoice(o){if(!o)return;const subject=encodeURIComponent(`Invoice ${o.order_number||""} from ${shopSettings?.name||"Florisyn"}`);const body=encodeURIComponent(`Hello ${o.customer_name||""},\n\nYour floral invoice total is ${money(o.total)}. Payment status: ${o.payment_status||"UNPAID"}.\n\nThank you,\n${shopSettings?.name||"Florisyn"}`);location.href=`mailto:?subject=${subject}&body=${body}`}
 
+async function loadDashboardAvatar(){
+  const img=$("#dashboardUserAvatar"),fallback=$("#dashboardUserAvatarFallback");
+  if(!img||!fallback)return;
+  const initial=firstNameFromIdentity(session?.user,shopSettings).trim().charAt(0).toUpperCase()||"F";
+  fallback.textContent=initial;
+  try{
+    const d=await api("florist-community?action=profile");
+    const url=d?.profile?.avatar_url;
+    if(url){img.src=url;img.hidden=false;fallback.hidden=true}
+    else{img.hidden=true;fallback.hidden=false}
+  }catch{
+    // No Community profile yet, or the call failed — the initials fallback
+    // (real name, not a mascot) is already showing, so fail quiet here.
+    img.hidden=true;fallback.hidden=false;
+  }
+}
+// Lily Step 73: renders the real "needs attention" list dashboard.js
+// computes from live order/inventory/payment data (netlify/functions/dashboard.js
+// + lib/assistants/needs-attention.js) — replaces the old static "I found
+// new floral ideas that match your inventory" placeholder that showed
+// regardless of whether anything actually needed attention.
+function renderNeedsAttention(na){
+  // Rendered in two places: the always-visible dashboard panel
+  // (.atelier-dash-columns, desktop and mobile) and the Lily card in the
+  // assist rail (visible on narrower layouts) — one real computation,
+  // shown wherever the UI has room for it. See lib/assistants/needs-attention.js.
+  const items=na?.items||[];
+  const summary=na?.summary||(items.length?`${items.length} things need a look.`:"You're all caught up — nothing needs attention right now.");
+  const actionsHtml=items.map(i=>`<button type="button" class="florisyn-rose-btn" data-page="${esc(i.page)}">${esc(i.label)}</button>`).join("");
+  $$(".needs-attention-summary").forEach(el=>el.textContent=summary);
+  $$(".needs-attention-actions").forEach(el=>el.innerHTML=actionsHtml);
+}
 async function loadDashboard(){
+  loadDashboardAvatar();
   const d=await api("dashboard");
+  renderNeedsAttention(d.needsAttention);
   const date=new Date();
   $("#dashboardDate").textContent=date.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   $("#todaySales").textContent=money(d.todaySales);const dailyGoal=Number(shopSettings?.daily_sales_goal||1000),goalPct=Math.max(0,Math.min(100,Math.round(Number(d.todaySales||0)/Math.max(1,dailyGoal)*100))),ring=$(".progress-ring");if(ring){ring.style.setProperty("--progress",`${goalPct}%`);const strong=ring.querySelector("strong");if(strong)strong.textContent=`${goalPct}%`;const small=ring.querySelector("small");if(small)small.textContent=`of ${money(dailyGoal)} goal`;}
@@ -154,7 +565,7 @@ async function loadDashboard(){
   $("#customerCount").textContent=d.customers||0;
   $("#weekSales").textContent=money(d.weekSales);
   $("#ordersTodayLabel").textContent=`${d.ordersToday||0} order${d.ordersToday===1?"":"s"} created today`;
-  $("#deliveriesStatus").textContent=`${d.deliveries||0} still active`;$("#briefOrders").textContent=d.ordersDueToday||0;$("#briefDeliveries").textContent=d.deliveries||0;$("#briefLowStock").textContent=d.lowStock||0;$("#briefUnpaid").textContent=money(d.unpaidTotal);const needs=[];if(d.ordersDueToday)needs.push(`${d.ordersDueToday} order${d.ordersDueToday===1?" is":"s are"} due`);if(d.deliveries)needs.push(`${d.deliveries} active deliver${d.deliveries===1?"y":"ies"}`);if(d.lowStock)needs.push(`${d.lowStock} low-stock item${d.lowStock===1?"":"s"}`);if(Number(d.unpaidTotal||0)>0)needs.push(`${money(d.unpaidTotal)} outstanding`);const roseMessage=needs.length?`All right, honey—today we have ${needs.join(", ")}. Let’s handle the urgent flowers first, then follow up on the money.`:"Well look at you—nothing urgent is waving a red flag. This is a good time to prep, market, or tidy inventory.";$("#roseBriefingText").textContent=roseMessage;$("#roseBriefingText").dataset.spoken=`${roseMessage} Bouquets are pretty, but paid invoices are prettier.`;
+  $("#deliveriesStatus").textContent=`${d.deliveries||0} still active`;$("#briefOrders").textContent=d.ordersDueToday||0;$("#briefDeliveries").textContent=d.deliveries||0;$("#briefLowStock").textContent=d.lowStock||0;$("#briefUnpaid").textContent=money(d.unpaidTotal);const needs=[];if(d.ordersDueToday)needs.push(`${d.ordersDueToday} order${d.ordersDueToday===1?" is":"s are"} due`);if(d.deliveries)needs.push(`${d.deliveries} active deliver${d.deliveries===1?"y":"ies"}`);if(d.lowStock)needs.push(`${d.lowStock} low-stock item${d.lowStock===1?"":"s"}`);if(Number(d.unpaidTotal||0)>0)needs.push(`${money(d.unpaidTotal)} outstanding`);const roseMessage=needs.length?`All right, honey—today we have ${needs.join(", ")}. Let’s handle the urgent flowers first, then follow up on the money.`:"Well look at you—nothing urgent is waving a red flag. This is a good time to prep, market, or tidy inventory.";$("#roseBriefingText").textContent=roseMessage;$("#roseBriefingText").dataset.spoken=`${roseMessage} Bouquets are pretty, but paid invoices are prettier.`;maybeEnrichRoseBriefing(d);
   const pi=d.profitIntelligence||{};
   if($("#bloomProfitScore"))$("#bloomProfitScore").textContent=pi.profitScore??"--";
   if($("#freshnessScore"))$("#freshnessScore").textContent=`${pi.freshnessScore??"--"}%`;
@@ -174,11 +585,68 @@ async function loadDashboard(){
   $("#upcomingDeliveries").innerHTML=d.upcomingDeliveries?.length?d.upcomingDeliveries.map(o=>`<article><div><strong>${esc(o.recipient_name||o.customer_name||"Delivery")}</strong><small>${esc(o.order_number||"")} · ${dateText(o.delivery_date)}</small></div><span class="badge ${o.status==="COMPLETED"?"good":"warn"}">${esc(o.status||"PENDING")}</span></article>`).join(""):empty("No upcoming deliveries.");
   window.BloomRC2?.enhanceDashboard?.(d);
   window.BloomRC21?.enhanceCommandCenter?.(d);
+  Promise.all([orders.length?null:loadOrders().catch(()=>{}),products.length?null:loadProducts().catch(()=>{}),deliveries.length?null:loadDeliveries().catch(()=>{})]).then(()=>{
+    renderDashboardTodayOrders();
+    renderDashboardTopBouquets();
+    renderDashboardUpcomingDeliveriesPanel(d);
+    renderDashboardCalendar();
+  });
 }
-async function loadStores(){try{const {items}=await api("stores");try{shopSettings=(await api("settings")).item;applyBranding(shopSettings)}catch{};$("#shopSwitcher").innerHTML=items.map(s=>`<option value="${s.id}" ${s.active?"selected":""}>${esc(s.name)}</option>`).join("");const active=items.find(x=>x.active);const hour=new Date().getHours(),daypart=hour<12?"Good morning":hour<17?"Good afternoon":"Good evening";$("#greeting").textContent=`${daypart}, Ashley!`;if($("#storesList"))$("#storesList").innerHTML=items.length?items.map(s=>`<article class="card"><div class="card-top"><div><h3>${esc(s.name)}</h3><div class="meta">${esc(s.address||"Address not set")} · ${esc(s.role)}</div></div>${s.active?'<span class="badge good">ACTIVE</span>':""}</div>${!s.active?`<div class="card-actions"><button class="primary" data-switch-shop="${s.id}">Open this shop</button></div>`:""}</article>`).join(""):empty("No stores.")}catch(e){if($("#storesList"))$("#storesList").innerHTML=window.BloomLaunchPolish?.errorState?.({message:e.message})||empty(e.message||"Could not load locations.");toast(e.message||"Could not load shop locations.")}}
+function renderDashboardTodayOrders(){
+  const box=$("#atelierTodayOrders");if(!box)return;
+  // toISOString() is always UTC — comparing against it made an order due
+  // today vanish (or the wrong day's orders appear) for hours around local
+  // midnight in every negative-UTC-offset (i.e. every US) timezone. Use the
+  // browser's own local calendar date instead.
+  const n=new Date();
+  const todayStr=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`;
+  const rows=orders.filter(o=>String(o.delivery_date||o.created_at||"").slice(0,10)===todayStr).slice(0,5);
+  box.innerHTML=rows.length?rows.map(o=>`<div class="atelier-row"><div><strong>${esc(o.order_number||"Order")}</strong><small>${esc(o.customer_name||"Customer")} · ${esc(orderStatusLabel(canonicalOrderStatus(o.status)))}</small></div><b>${money(o.total)}</b></div>`).join(""):empty("No orders yet today.");
+}
+function renderDashboardTopBouquets(){
+  const box=$("#atelierTopBouquets");if(!box)return;
+  const rows=products.slice(0,4);
+  box.innerHTML=rows.length?rows.map(p=>{const urls=window.BloomLaunchPolish?.parseProductImages?.(p)||(p.image_url?[p.image_url]:[]);const img=urls[0];return `<button type="button" class="atelier-bouquet-tile" data-page="productsPage">${img?`<img src="${esc(img)}" alt="${esc(p.name)}" loading="lazy">`:'<div class="atelier-bouquet-art">💐</div>'}<div><strong>${esc(p.name)}</strong><small>${money(p.price)}</small></div></button>`}).join(""):empty("Add products to feature your bouquets here.");
+}
+function renderDashboardUpcomingDeliveriesPanel(d){
+  const box=$("#atelierUpcomingDeliveries");if(!box)return;
+  const rows=(d?.upcomingDeliveries?.length?d.upcomingDeliveries:deliveries).slice(0,4);
+  box.innerHTML=rows.length?rows.map(o=>`<article><div><strong>${esc(o.recipient_name||o.customer_name||"Delivery")}</strong><small>${esc(o.order_number||"")} · ${dateText(o.delivery_date)}</small></div><span class="badge ${(o.status==="COMPLETED"||o.status==="DELIVERED")?"good":"warn"}">${esc(o.status||"PENDING")}</span></article>`).join(""):empty("No upcoming deliveries.");
+}
+let dashboardCalendarMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1);
+function renderDashboardCalendar(){
+  const box=$("#dashboardCalendar");if(!box)return;
+  const year=dashboardCalendarMonth.getFullYear(),month=dashboardCalendarMonth.getMonth();
+  const firstDay=new Date(year,month,1);
+  const gridStart=new Date(year,month,1-firstDay.getDay());
+  const cells=[...Array(42)].map((_,i)=>{const dd=new Date(gridStart);dd.setDate(gridStart.getDate()+i);return dd});
+  const dayKey=dd=>`${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,"0")}-${String(dd.getDate()).padStart(2,"0")}`;
+  const eventsByDay={};
+  orders.forEach(o=>{const k=String(o.delivery_date||"").slice(0,10);if(!k)return;(eventsByDay[k]=eventsByDay[k]||[]).push(o)});
+  const todayKey=dayKey(new Date());
+  const monthLabel=dashboardCalendarMonth.toLocaleDateString("en-US",{month:"long",year:"numeric"});
+  const weekdayLabels=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const head=`<div class="cal-month-head"><h4>${esc(monthLabel)}</h4><div class="cal-month-nav"><button type="button" class="cal-nav" data-cal-nav="today">Today</button><button type="button" class="cal-nav cal-nav-arrow" data-cal-nav="-1" aria-label="Previous month">‹</button><button type="button" class="cal-nav cal-nav-arrow" data-cal-nav="1" aria-label="Next month">›</button></div></div>`;
+  const weekdayRow=`<div class="cal-weekday-row">${weekdayLabels.map(w=>`<span>${w}</span>`).join("")}</div>`;
+  const grid=`<div class="cal-month-grid">${cells.map(dd=>{
+    const k=dayKey(dd);
+    const inMonth=dd.getMonth()===month;
+    const isToday=k===todayKey;
+    const evts=eventsByDay[k]||[];
+    const shown=evts.slice(0,2);
+    return `<div class="cal-cell${inMonth?"":" is-outside"}${isToday?" is-today":""}"><span class="cal-cell-date">${dd.getDate()}</span>${shown.map(o=>`<button type="button" class="cal-chip" data-page="ordersPage">${esc(o.customer_name||o.order_number||"Order")}</button>`).join("")}${evts.length>2?`<button type="button" class="cal-more" data-page="ordersPage">+${evts.length-2} more</button>`:""}</div>`;
+  }).join("")}</div>`;
+  box.innerHTML=head+weekdayRow+grid;
+  box.querySelectorAll("[data-cal-nav]").forEach(btn=>btn.addEventListener("click",()=>{
+    const nav=btn.dataset.calNav;
+    dashboardCalendarMonth=nav==="today"?new Date(new Date().getFullYear(),new Date().getMonth(),1):new Date(year,month+Number(nav),1);
+    renderDashboardCalendar();
+  }));
+}
+async function loadStores(){try{const {items=[]}=await api("stores");try{shopSettings=(await api("settings")).item;applyBranding(shopSettings);syncPosTilesFromServer()}catch{};$("#shopSwitcher").innerHTML=items.map(s=>`<option value="${s.id}" ${s.active?"selected":""}>${esc(s.name)}</option>`).join("");const active=items.find(x=>x.active);const hour=new Date().getHours(),daypart=hour<12?"Good morning":hour<17?"Good afternoon":"Good evening",firstName=firstNameFromIdentity(session?.user,shopSettings);$("#greeting").textContent=`${daypart}, ${firstName}!`;if($("#atelierUserName"))$("#atelierUserName").textContent=firstName;if($("#storesList"))$("#storesList").innerHTML=items.length?items.map(s=>`<article class="card"><div class="card-top"><div><h3>${esc(s.name)}</h3><div class="meta">${esc(s.address||"Address not set")} · ${esc(s.role)}</div></div>${s.active?'<span class="badge good">ACTIVE</span>':""}</div>${!s.active?`<div class="card-actions"><button class="primary" data-switch-shop="${s.id}">Open this shop</button></div>`:""}</article>`).join(""):empty("No stores.")}catch(e){if($("#storesList"))$("#storesList").innerHTML=window.BloomLaunchPolish?.errorState?.({message:e.message})||empty(e.message||"Could not load locations.");toast(e.message||"Could not load shop locations.")}}
 async function loadCustomers(){customers=(await api("customers")).items||[];renderCustomers();refreshOrderCustomerOptions()}
 function renderCustomers(){renderPosCustomerOptions();const q=$("#customerSearch").value.toLowerCase();const rows=customers.filter(x=>[x.name,x.phone,x.email,x.favorite_flowers,x.favorite_colors].join(" ").toLowerCase().includes(q));const legacyCard=c=>`<article class="card"><div class="card-top"><div><h3>${c.vip?"★ ":""}${esc(c.name)}</h3><div class="meta">${esc(c.phone||"")} ${c.email?`· ${esc(c.email)}`:""}</div></div>${c.vip?'<span class="badge">VIP</span>':""}${c.is_business?'<span class="badge good">BUSINESS</span>':""}${c.is_house_account?'<span class="badge good">HOUSE</span>':""}</div><p class="subtle">${esc(contactPrefSummary(c))}</p>${c.favorite_flowers?`<p>Favorites: ${esc(c.favorite_flowers)} ${c.favorite_colors?`· ${esc(c.favorite_colors)}`:""}</p>`:""}<div class="card-actions"><button class="secondary" data-view-customer="${c.id}">Profile</button><button class="secondary" data-edit-customer="${c.id}">Edit</button><button class="secondary" data-delete-customer="${c.id}">Delete</button></div></article>`;$("#customersList").innerHTML=rows.length?rows.map(c=>window.BloomRC21?.customerCard?.(c,orders)||legacyCard(c)).join(""):empty("No customers found.");window.BloomCustomerProfile?.init?.({customers,orders,session,showPage})}
-async function loadOrders(){orderTelemetry("GET /.netlify/functions/orders → requesting active order state");orders=(await api("orders")).items||[];renderOrderBoard();window.BloomRC21?.mountOrdersToolbar?.();if($("#ordersList"))$("#ordersList").innerHTML=orders.length?orders.map(renderOrder).join(""):empty("No orders.");if($("#deliveryOrder"))$("#deliveryOrder").innerHTML=orders.map(o=>`<option value="${o.id}" data-address="${esc(o.delivery_address||"")}">${esc(o.order_number)} · ${esc(o.customer_name)}</option>`).join("");syncDeliveryStopAddress();window.BloomGuidedOrder?.mountToggle?.();orderTelemetry(`GET orders → ${orders.length} record${orders.length===1?"":"s"} synchronized`,"success")}
+async function loadOrders(){orderTelemetry("GET /.netlify/functions/orders → requesting active order state");orders=(await api("orders")).items||[];window.orders=orders;renderOrderBoard();window.FlorisynLuxuryOrders?.boot?.(orders);window.BloomRC21?.mountOrdersToolbar?.();if($("#ordersList"))$("#ordersList").innerHTML=orders.length?orders.map(renderOrder).join(""):empty("No orders.");if($("#deliveryOrder"))$("#deliveryOrder").innerHTML=orders.map(o=>`<option value="${o.id}" data-address="${esc(o.delivery_address||"")}">${esc(o.order_number)} · ${esc(o.customer_name)}</option>`).join("");syncDeliveryStopAddress();window.BloomGuidedOrder?.mountToggle?.();orderTelemetry(`GET orders → ${orders.length} record${orders.length===1?"":"s"} synchronized`,"success")}
 async function advanceOrderState(id,currentStatus){
   const next=nextAdvanceStatus(currentStatus);if(!next)return;
   const card=document.querySelector(`[data-order-card="${CSS.escape(id)}"]`);card?.classList.add("is-moving");
@@ -230,13 +698,23 @@ function productCard(p){
   const urls=window.BloomLaunchPolish?.parseProductImages?.(p)||(p.image_url?[p.image_url]:[]);
   const media=urls.length&&window.BloomLaunchPolish?.productGalleryThumbHtml?window.BloomLaunchPolish.productGalleryThumbHtml(urls,p.name):p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" decoding="async">`:`<div class="product-art">💐</div>`;
   return `<article class="product-card">${media}<div class="body"><span class="badge">${esc(p.category)}</span><h3>${esc(p.name)}</h3><p class="meta">${esc(p.description||"")}</p><div class="price">${money(p.price)}</div><div class="product-status"><span class="badge ${p.available_online?'good':'warn'}">${p.available_online?'ONLINE':'NOT ONLINE'}</span></div><div class="card-actions"><button class="secondary" data-edit-product="${p.id}">Edit + recipe</button><button class="secondary" data-duplicate-product="${p.id}">Duplicate</button><button class="secondary" data-publish-product="${p.id}">${p.available_online?'Remove from website':'Publish to website'}</button><button class="secondary danger" data-delete-product="${p.id}">Delete</button></div></div></article>`}
-function renderLibrary(){if(window.BloomFloralLibraryUI?.init){window.BloomFloralLibraryUI.init();return}const q=( $("#librarySearch")?.value||"").toLowerCase(),cat=$("#libraryCategory")?.value||"";const rows=LIBRARY.map((p,i)=>({p,i})).filter(({p})=>(!q||`${p[0]} ${p[1]} ${p[4]} ${p[5].map(r=>r[0]).join(" ")}`.toLowerCase().includes(q))&&(!cat||p[1]===cat));$("#libraryList").innerHTML=rows.length?rows.map(({p,i})=>`<article class="product-card floral-library-card" data-library-card="${i}">${p[6]?`<img src="${esc(p[6])}" alt="${esc(p[0])} floral arrangement" loading="lazy">`:`<div class="product-art">${p[3]}</div>`}<div class="body"><span class="badge">${esc(p[1])}</span><h3>${esc(p[0])}</h3><p>${esc(p[4])}</p><div class="price">${money(p[2])}</div><div class="recipe-preview"><strong>Starter recipe</strong><span>${p[5].map(r=>`${r[1]} ${esc(r[0])}`).join(" · ")}</span></div><div class="card-actions"><button type="button" class="secondary" data-preview-library="${i}">View & edit</button><button type="button" class="primary" data-add-library="${i}">Add to my products</button></div></div></article>`).join(""):empty("No floral designs match that search.")}
-let staffMembers=[],staffTimeEntries=[];
+async function renderLibrary(){
+  const list=$("#libraryList");
+  if(window.BloomFloralLibraryUI?.init){
+    if(list&&!window.BloomFloralLibraryUI.getMaster?.()?.length&&window.FlorisynLibraryCollection?.length){
+      list.innerHTML=window.BloomLaunchPolish?.loadingSkeleton?.("cards",3)||`<p class="subtle">Loading Florisyn Signature Collection…</p>`;
+    }
+    await window.BloomFloralLibraryUI.init();
+    return;
+  }
+  if(list)list.innerHTML=empty("Floral Library is loading. Please refresh in a moment.");
+}
+let staffMembers=[],staffTimeEntries=[],lastPrivateFilePin="";
 function staffHours(id){return staffTimeEntries.filter(x=>x.staff_id===id).reduce((n,x)=>n+Number(x.hours_worked||0),0)}
 function staffCard(x){const entries=staffTimeEntries.filter(e=>e.staff_id===x.id),open=entries.find(e=>!e.clock_out);return `<article class="card employee-card private-summary bloom-staff-list-card"><h3 class="bloom-staff-name-only" data-edit-staff="${x.id}" role="button" tabindex="0" title="Open private employee file (PIN required)">${esc(x.name)}</h3><div class="card-actions"><button class="primary" data-staff-clock="${x.id}" data-clock-action="${open?"CLOCK_OUT":"CLOCK_IN"}">${open?"Clock Out":"Clock In"}</button></div></article>`}
-async function loadStaff(){const d=await api("staff");staffMembers=d.items||[];staffTimeEntries=d.time_entries||[];$("#staffList").innerHTML=staffMembers.length?staffMembers.map(staffCard).join(""):empty("No employees yet. Add your first employee.")}
-function openStaffEditor(x=null){const f=$("#staffForm"),dialog=$("#staffDialog");if(!f||!dialog)return toast("Employee form could not be opened. Please refresh Florisyn.");f.reset();f.elements.id.value=x?.id||"";for(const[k,v]of Object.entries(x||{}))if(f.elements[k])f.elements[k].value=v??"";const title=$("#staffDialogTitle");if(title)title.textContent=x?"Edit employee":"Add employee";const histHost=$("#staffTimeHistoryHost"),histList=$("#staffTimeHistoryList"),delBtn=$("#deleteStaffButton");if(x?.id){const rows=staffTimeEntries.filter(e=>e.staff_id===x.id).slice(0,24);if(histHost&&histList){histHost.hidden=!rows.length;histList.innerHTML=rows.length?rows.map(e=>`<p>${new Date(e.clock_in).toLocaleString()} — ${e.clock_out?`${Number(e.hours_worked||0).toFixed(2)} hrs`:"(open shift)"}</p>`).join(""):"No time entries yet."}if(delBtn)delBtn.hidden=false}else{if(histHost)histHost.hidden=true;if(histList)histList.innerHTML="";if(delBtn)delBtn.hidden=true}dialog.showModal()}
-function initStaffControls(){const button=$("#addStaffButton");if(button&&!button.dataset.bound){button.dataset.bound="1";button.addEventListener("click",()=>openStaffEditor())}}
+async function loadStaff(){const d=await api("staff");staffMembers=d.items||[];staffTimeEntries=d.open_shifts||[];$("#staffList").innerHTML=staffMembers.length?staffMembers.map(staffCard).join(""):empty("No employees yet. Add your first employee.")}
+function openStaffEditor(x=null){const f=$("#staffForm"),dialog=$("#staffDialog");if(!f||!dialog)return toast("Employee form could not be opened. Please refresh Florisyn.");f.reset();f.elements.id.value=x?.id||"";for(const[k,v]of Object.entries(x||{}))if(f.elements[k])f.elements[k].value=v??"";if(f.elements.pin){if(x?.id){f.elements.pin.removeAttribute("required")}else{f.elements.pin.setAttribute("required","")}}const title=$("#staffDialogTitle");if(title)title.textContent=x?"Edit employee":"Add employee";const histHost=$("#staffTimeHistoryHost"),histList=$("#staffTimeHistoryList"),delBtn=$("#deleteStaffButton");if(x?.id){const rows=staffTimeEntries.filter(e=>e.staff_id===x.id).slice(0,24);if(histHost&&histList){histHost.hidden=!rows.length;histList.innerHTML=rows.length?rows.map(e=>`<p>${new Date(e.clock_in).toLocaleString()} — ${e.clock_out?`${Number(e.hours_worked||0).toFixed(2)} hrs`:"(open shift)"}</p>`).join(""):"No time entries yet."}if(delBtn)delBtn.hidden=false}else{lastPrivateFilePin="";if(histHost)histHost.hidden=true;if(histList)histList.innerHTML="";if(delBtn)delBtn.hidden=true}dialog.showModal()}
+function initStaffControls(){const button=$("#addStaffButton");if(button&&!button.dataset.bound){button.dataset.bound="1";button.addEventListener("click",()=>{lastPrivateFilePin="";openStaffEditor()})}}
 initStaffControls();
 
 $("#createDailySpecial")?.addEventListener("click",async()=>{const special=window.bloomDailySpecial;if(!special)return toast("No use-up special is needed today");const material=special.items.reduce((a,i)=>a+Number(i.quantity||0)*Number(i.cost||0),0),price=Math.ceil(Math.max(35,material*3)/5)*5;try{const {item}=await api("products",{method:"POST",body:JSON.stringify({name:special.name,category:"Daily Special",price,description:`A fresh, limited-quantity arrangement created to feature today's best blooms: ${special.items.map(i=>`${i.color?i.color+' ':''}${i.name}`).join(', ')}.`,labor_cost:12,active:true,featured:true,available_online:false})});await api("recipes",{method:"POST",body:JSON.stringify({product_id:item.id,items:special.items.map(i=>({ingredient_name:`${i.color?i.color+' ':''}${i.name}`,quantity:i.quantity,unit:i.unit||"stem",unit_cost:i.cost||0}))})});toast(`${special.name} created at ${money(price)}`);showPage("productsPage")}catch(err){toast(err.message)}});
@@ -256,11 +734,11 @@ function renderMarketplaceVerificationCard(){const profile=loadMarketplaceVerifi
 function buildMarketplaceVerificationFieldMarkup(){const profile=marketplaceVerificationProfile||loadMarketplaceVerificationProfile();return `<div class="verification-grid"><label>Legal business name<input name="legal_name" value="${esc(profile.legal_name||"")}" autocomplete="organization" spellcheck="true" required></label><label>DBA / business display name (optional)<input name="doing_business_as" value="${esc(profile.doing_business_as||"")}" autocomplete="organization" spellcheck="true"></label><label>Owner or authorized representative<input name="owner_name" value="${esc(profile.owner_name||"")}" autocomplete="name" spellcheck="true" required></label><label>Business address<textarea name="business_address" rows="2" spellcheck="true" required>${esc(profile.business_address||"")}</textarea></label><label>Email address<input name="email" type="email" value="${esc(profile.email||"")}" autocomplete="email" required></label><label>Phone number<input name="phone" type="tel" value="${esc(profile.phone||"")}" autocomplete="tel" required></label></div>`}
 function buildMarketplaceVerificationTaxMarkup(){const profile=marketplaceVerificationProfile||loadMarketplaceVerificationProfile();return `<div class="verification-grid"><label>State sales-tax permit number<input name="sales_tax_permit_number" value="${esc(profile.sales_tax_permit_number||"")}" spellcheck="true" required></label><label>EIN number (optional)<input name="tax_id" value="${esc(profile.tax_id||"")}" inputmode="numeric" autocomplete="off"></label><label>Business website (optional)<input name="website" type="url" value="${esc(profile.website||"")}" autocomplete="url" placeholder="https://"></label><label>Resale certificate number (optional reference)<input name="resale_certificate_number" value="${esc(profile.resale_certificate_number||"")}" spellcheck="true"></label></div>`}
 function buildMarketplaceVerificationDocumentsMarkup(){const profile=marketplaceVerificationProfile||loadMarketplaceVerificationProfile();const accept=window.BloomMarketplaceVerification?.VERIFICATION_UPLOAD_ACCEPT||"application/pdf,image/*";const docKeys=[["resale_certificate","Resale certificate (required)"],["government_id","Government-issued state ID (required)"]];const rows=docKeys.map(([key,label])=>{const doc=profile.documents?.[key]||null;return `<label class="upload-photo"><strong>${esc(label)}</strong><input type="file" data-document="${esc(key)}" accept="${esc(accept)}" capture="environment"><small>${doc?`Uploaded: ${esc(doc.name||"file")}`:"PDF, JPG, JPEG, PNG, or HEIC when supported. Mobile camera upload supported."}</small></label>`}).join("");return `<div class="verification-grid"><p class="subtle">Only your resale certificate and state ID are required. Florisyn stores documents privately and never exposes public document URLs.</p>${rows}</div>`}
-function buildMarketplaceVerificationReviewMarkup(){const profile=marketplaceVerificationProfile||loadMarketplaceVerificationProfile();const progress=getMarketplaceVerificationProgress();const missingFields=progress.missingFields||[];const missingDocuments=progress.missingDocuments||[];const validation=window.BloomMarketplaceVerification?.validateMarketplaceVerificationProfile?window.BloomMarketplaceVerification.validateMarketplaceVerificationProfile(profile,marketplaceVerificationRules()):{errors:[],missingFields:[],missingDocuments:[]};const summary=[["Legal business name",profile.legal_name],["Owner",profile.owner_name],["Email",profile.email],["Phone",profile.phone],["Business address",profile.business_address],["Tax ID",profile.tax_id?`${window.BloomMarketplaceVerification?.maskTaxId(profile.tax_id)||profile.tax_id}`:"Not provided"]].filter(([,v])=>Boolean(v)).map(([label,value])=>`<li><strong>${esc(label)}:</strong> ${esc(value)}</li>`).join("");const timeline=(profile.review_history||[]).length?`<div class="verification-history"><strong>Review history</strong><ul>${(profile.review_history||[]).map(item=>`<li>${esc(item.label||item.note||item.status||"Update")}${item.timestamp?` · ${esc(item.timestamp)}`:""}</li>`).join("")}</ul></div>`:"";return `<div class="verification-grid"><p class="subtle">Review, confirm, and submit. Bloom will only share your business verification details with wholesalers you explicitly apply to purchase from.</p><ul class="verification-summary-list">${summary||"<li>No details captured yet.</li>"}</ul>${missingFields.length||missingDocuments.length?`<div class="verification-missing"><strong>What is still needed</strong><ul>${missingFields.map(x=>`<li>Missing field: ${esc(x)}</li>`).join("")}${missingDocuments.map(x=>`<li>Missing document: ${esc(x)}</li>`).join("")}</ul></div>`:`<div class="verification-missing"><strong>Everything looks ready</strong><p class="subtle">You can submit the application for review.</p></div>`}${validation.errors.length?`<div class="verification-missing"><strong>Validation issues</strong><ul>${validation.errors.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}${timeline}<label class="verification-consent"><input name="consent_confirmed" type="checkbox" ${profile.consent_confirmed?"checked":""}> I confirm the information is accurate, I am authorized to submit it, and Bloom may share required verification information with the wholesalers I apply to purchase from.</label><p class="subtle">Consent is time-stamped locally so the application stays clear and auditable.</p></div>`}
+function buildMarketplaceVerificationReviewMarkup(){const profile=marketplaceVerificationProfile||loadMarketplaceVerificationProfile();const progress=getMarketplaceVerificationProgress();const missingFields=progress.missingFields||[];const missingDocuments=progress.missingDocuments||[];const validation=window.BloomMarketplaceVerification?.validateMarketplaceVerificationProfile?window.BloomMarketplaceVerification.validateMarketplaceVerificationProfile(profile,marketplaceVerificationRules()):{errors:[],missingFields:[],missingDocuments:[]};const summary=[["Legal business name",profile.legal_name],["Owner",profile.owner_name],["Email",profile.email],["Phone",profile.phone],["Business address",profile.business_address],["Tax ID",profile.tax_id?`${window.BloomMarketplaceVerification?.maskTaxId(profile.tax_id)||profile.tax_id}`:"Not provided"]].filter(([,v])=>Boolean(v)).map(([label,value])=>`<li><strong>${esc(label)}:</strong> ${esc(value)}</li>`).join("");const timeline=(profile.review_history||[]).length?`<div class="verification-history"><strong>Review history</strong><ul>${(profile.review_history||[]).map(item=>`<li>${esc(item.label||item.note||item.status||"Update")}${item.timestamp?` · ${esc(item.timestamp)}`:""}</li>`).join("")}</ul></div>`:"";return `<div class="verification-grid"><p class="subtle">Review, confirm, and submit. Florisyn will only share your business verification details with wholesalers you explicitly apply to purchase from.</p><ul class="verification-summary-list">${summary||"<li>No details captured yet.</li>"}</ul>${missingFields.length||missingDocuments.length?`<div class="verification-missing"><strong>What is still needed</strong><ul>${missingFields.map(x=>`<li>Missing field: ${esc(x)}</li>`).join("")}${missingDocuments.map(x=>`<li>Missing document: ${esc(x)}</li>`).join("")}</ul></div>`:`<div class="verification-missing"><strong>Everything looks ready</strong><p class="subtle">You can submit the application for review.</p></div>`}${validation.errors.length?`<div class="verification-missing"><strong>Validation issues</strong><ul>${validation.errors.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}${timeline}<label class="verification-consent"><input name="consent_confirmed" type="checkbox" ${profile.consent_confirmed?"checked":""}> I confirm the information is accurate, I am authorized to submit it, and Florisyn may share required verification information with the wholesalers I apply to purchase from.</label><p class="subtle">Consent is time-stamped locally so the application stays clear and auditable.</p></div>`}
 function renderMarketplaceVerificationDialog(){const form=$("#marketplaceVerificationForm");const stepContent=$("#verificationStepContent");const title=form?.querySelector("h2");const nextBtn=$("#verificationNextBtn");const prevBtn=$("#verificationPrevBtn");if(!form||!stepContent)return;const stepTitles=["Business information","Tax & optional details","Document upload","Review & submit"];if(title)title.textContent=`${stepTitles[marketplaceVerificationStep]}`;if(prevBtn)prevBtn.disabled=marketplaceVerificationStep===0;const stepMarkup=[buildMarketplaceVerificationFieldMarkup,buildMarketplaceVerificationTaxMarkup,buildMarketplaceVerificationDocumentsMarkup,buildMarketplaceVerificationReviewMarkup][marketplaceVerificationStep]();stepContent.innerHTML=stepMarkup;const loadingMessage=stepContent.querySelector("[data-loading]");if(loadingMessage)loadingMessage.hidden=false;nextBtn.disabled=false;nextBtn.textContent=marketplaceVerificationStep===3?"Submit application":"Next";renderMarketplaceVerificationCard();setTimeout(()=>{stepContent.querySelectorAll('input[type="file"]').forEach(input=>{input.addEventListener("change",async e=>{const file=e.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{marketplaceVerificationProfile=loadMarketplaceVerificationProfile();marketplaceVerificationProfile.documents=marketplaceVerificationProfile.documents||{};marketplaceVerificationProfile.documents[e.target.dataset.document]={name:file.name,type:file.type,size:file.size,dataUrl:reader.result};saveMarketplaceVerificationProfile();syncMarketplaceVerificationApplicationToServer(marketplaceVerificationProfile).catch(()=>{});toast(`${file.name} uploaded`);};reader.readAsDataURL(file);});});stepContent.querySelectorAll("input,textarea,select").forEach(el=>{el.addEventListener("input",()=>{marketplaceVerificationProfile=collectMarketplaceVerificationValues();saveMarketplaceVerificationProfile();clearTimeout(window.__bloomVerificationAutosave);window.__bloomVerificationAutosave=setTimeout(()=>{syncMarketplaceVerificationApplicationToServer(marketplaceVerificationProfile).catch(()=>{})},800);});});},0)}
 function openMarketplaceVerificationDialog(){marketplaceVerificationProfile=loadMarketplaceVerificationProfile();marketplaceVerificationStep=0;renderMarketplaceVerificationDialog();$("#marketplaceVerificationDialog")?.showModal();}
 function collectMarketplaceVerificationValues(){const form=$("#marketplaceVerificationForm");if(!form)return{};const entries=Object.fromEntries(new FormData(form));const profile=loadMarketplaceVerificationProfile();Object.assign(profile,entries);profile.consent_confirmed=Boolean(entries.consent_confirmed);profile.status="draft";return profile}
-async function handleMarketplaceVerificationSubmit(e){e.preventDefault();const form=$("#marketplaceVerificationForm");if(!form)return;const currentProfile=collectMarketplaceVerificationValues();marketplaceVerificationProfile=currentProfile;saveMarketplaceVerificationProfile();if(marketplaceVerificationStep<3){marketplaceVerificationStep+=1;renderMarketplaceVerificationDialog();return;}const validation=window.BloomMarketplaceVerification?.validateMarketplaceVerificationProfile?window.BloomMarketplaceVerification.validateMarketplaceVerificationProfile(marketplaceVerificationProfile,marketplaceVerificationRules()):{valid:true,errors:[]};const nextStatus=validation.valid?"submitted":"more_info_required";marketplaceVerificationProfile.status=nextStatus;marketplaceVerificationProfile.review_history=[...(marketplaceVerificationProfile.review_history||[]),{status:nextStatus,label:nextStatus==="submitted"?"Application submitted":"Validation issues detected",timestamp:new Date().toISOString()}];if(nextStatus==="submitted")marketplaceVerificationProfile.submitted_at=new Date().toISOString();saveMarketplaceVerificationProfile();try{await syncMarketplaceVerificationApplicationToServer(marketplaceVerificationProfile,{status:nextStatus,submit:nextStatus==="submitted"});}catch(error){toast(error.message||"Could not sync your verification to Bloom.");return;}if(nextStatus==="submitted"){toast("Your business profile has been submitted for review.");$("#marketplaceVerificationDialog")?.close();return;}toast("Please correct the validation issues before submitting.");renderMarketplaceVerificationDialog();}
+async function handleMarketplaceVerificationSubmit(e){e.preventDefault();const form=$("#marketplaceVerificationForm");if(!form)return;const currentProfile=collectMarketplaceVerificationValues();marketplaceVerificationProfile=currentProfile;saveMarketplaceVerificationProfile();if(marketplaceVerificationStep<3){marketplaceVerificationStep+=1;renderMarketplaceVerificationDialog();return;}const validation=window.BloomMarketplaceVerification?.validateMarketplaceVerificationProfile?window.BloomMarketplaceVerification.validateMarketplaceVerificationProfile(marketplaceVerificationProfile,marketplaceVerificationRules()):{valid:true,errors:[]};const nextStatus=validation.valid?"submitted":"more_info_required";marketplaceVerificationProfile.status=nextStatus;marketplaceVerificationProfile.review_history=[...(marketplaceVerificationProfile.review_history||[]),{status:nextStatus,label:nextStatus==="submitted"?"Application submitted":"Validation issues detected",timestamp:new Date().toISOString()}];if(nextStatus==="submitted")marketplaceVerificationProfile.submitted_at=new Date().toISOString();saveMarketplaceVerificationProfile();try{await syncMarketplaceVerificationApplicationToServer(marketplaceVerificationProfile,{status:nextStatus,submit:nextStatus==="submitted"});}catch(error){toast(error.message||"Could not sync your verification to Florisyn.");return;}if(nextStatus==="submitted"){toast("Your business profile has been submitted for review.");$("#marketplaceVerificationDialog")?.close();return;}toast("Please correct the validation issues before submitting.");renderMarketplaceVerificationDialog();}
 
 $("#marketplaceVerificationBtn")?.addEventListener("click",openMarketplaceVerificationDialog);
 $("#verificationPrevBtn")?.addEventListener("click",()=>{if(marketplaceVerificationStep>0){marketplaceVerificationStep-=1;renderMarketplaceVerificationDialog();}});
@@ -278,17 +756,17 @@ function renderExpenses(){const rows=filteredExpenses(),total=rows.reduce((sum,x
 async function loadExpenses(){const result=await api("expenses");expenses=result.items||[];renderExpenses()}
 function monthLabel(value){if(!/^\d{4}-\d{2}$/.test(String(value||"")))return value||"Period";const [year,month]=value.split("-");return new Date(Number(year),Number(month)-1,1).toLocaleDateString(undefined,{month:"long",year:"numeric"})}
 async function loadReports(){reportData=await api("finance");const a=reportData.items||[],totals=reportData.totals||{};$("#reportRevenue").textContent=money(totals.revenue||0);$("#reportExpenses").textContent=money(totals.expenses||0);$("#reportProfit").textContent=money(totals.profit||0);$("#reportMargin").textContent=`${Number(totals.margin||0).toFixed(1)}%`;$("#financeList").innerHTML=a.length?a.map(x=>`<div class="report-row"><strong>${esc(monthLabel(x.month))}</strong><span>Revenue ${money(x.revenue)}</span><span>Expenses ${money(x.expenses)}</span><span>Profit ${money(x.profit)}</span></div>`).join(""):empty("No report data yet. Add paid orders or expenses to begin.");const categories=reportData.categories||[];$("#expenseCategoryReport").innerHTML=categories.length?categories.map(x=>`<div class="report-row"><strong>${esc(x.category||"Other")}</strong><span>${money(x.amount)}</span><span>${Number(x.percent||0).toFixed(1)}%</span></div>`).join(""):empty("No expense categories yet.")}
-function exportReportsCsv(){const rows=[["Period","Revenue","Expenses","Profit"],...(reportData.items||[]).map(x=>[monthLabel(x.month),Number(x.revenue||0).toFixed(2),Number(x.expenses||0).toFixed(2),Number(x.profit||0).toFixed(2)])];rows.push(["TOTAL",Number(reportData.totals?.revenue||0).toFixed(2),Number(reportData.totals?.expenses||0).toFixed(2),Number(reportData.totals?.profit||0).toFixed(2)]);const csv=rows.map(row=>row.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n"),blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`bloom-financial-report-${new Date().toISOString().slice(0,10)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-async function loadWebsite(){shopSettings=(await api("settings")).item;const f=$("#websiteForm");for(const[k,v]of Object.entries(shopSettings||{})){if(!f.elements[k])continue;if(f.elements[k].type==="checkbox")f.elements[k].checked=Boolean(v);else f.elements[k].value=v??""}applyBranding(shopSettings);renderWebsite();await window.BloomInstantWebsite?.load?.();await window.BloomThemeGallery?.load?.();await window.BloomWebsiteEditor?.load?.()}
+function exportReportsCsv(){const rows=[["Period","Revenue","Expenses","Profit"],...(reportData.items||[]).map(x=>[monthLabel(x.month),Number(x.revenue||0).toFixed(2),Number(x.expenses||0).toFixed(2),Number(x.profit||0).toFixed(2)])];rows.push(["TOTAL",Number(reportData.totals?.revenue||0).toFixed(2),Number(reportData.totals?.expenses||0).toFixed(2),Number(reportData.totals?.profit||0).toFixed(2)]);const csv=rows.map(row=>row.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n"),blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`bloom-financial-report-${localTodayStr()}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+async function loadWebsite(){shopSettings=(await api("settings")).item;const f=$("#websiteForm");for(const[k,v]of Object.entries(shopSettings||{})){if(!f.elements[k])continue;if(f.elements[k].type==="checkbox")f.elements[k].checked=Boolean(v);else f.elements[k].value=v??""}applyBranding(shopSettings);renderWebsite();await window.BloomLilyWebsiteWizard?.load?.();await window.BloomInstantWebsite?.load?.();await window.BloomThemeGallery?.load?.();await window.BloomWebsiteStudioV2?.load?.();await window.BloomWebsiteEditor?.load?.();await window.BloomWebsiteStudioShell?.load?.();await window.BloomWebsiteStudioDynamicPhotos?.load?.()}
 
-async function loadSettings(){shopSettings=(await api("settings")).item;window.shopSettings=shopSettings;const f=$("#settingsForm");for(const[k,v]of Object.entries(shopSettings||{})){if(f.elements[k])f.elements[k].value=v??""}applyBranding(shopSettings);previewBrandingForm();$("#mapsStatus").textContent="Shop defaults loaded. Use Calculate mileage on a delivery order to test the route service.";if(window.BloomSubscriptionCenter){window.subscriptionCenterApi=api;await window.BloomSubscriptionCenter.load(document.getElementById("shopBillingRoot"))}window.BloomRose?.mountSettings?.(document.getElementById("settingsPage"));window.BloomDaisy?.mountSettings?.(document.getElementById("settingsPage"));window.FlorisynAssistantVoice?.mountSettings?.(document.getElementById("settingsPage"));window.BloomLilyVoice?.mountSettings?.(document.getElementById("settingsPage"))}
-async function calculateRoute(showMessage=true){const f=$("#orderForm"),address=f.elements.delivery_address.value.trim();if(!address){if(showMessage)toast("Enter the delivery address first");return null}const result=$("#routeResult");result.textContent="Calculating driving route…";try{const d=await api("route-distance",{method:"POST",body:JSON.stringify({destination:address})});f.elements.delivery_miles.value=Number(d.roundTripMiles||0).toFixed(1);f.elements.drive_minutes.value=Math.round(Number(d.driveMinutes||0));result.textContent=`${Number(d.oneWayMiles).toFixed(1)} miles one way · ${Number(d.roundTripMiles).toFixed(1)} round trip · about ${Math.round(Number(d.driveMinutes))} minutes`;return d}catch(e){result.textContent=e.message;if(showMessage)toast(e.message);return null}}
-function renderWebsite(){const f=$("#websiteForm"),d=Object.fromEntries(new FormData(f)),main=d.primary_color||"#a72f67",accent=d.accent_color||"#6f8f72",hero=d.hero_image_url?`url('${d.hero_image_url}')`:`linear-gradient(135deg,${main},${accent})`;const pv=$("#websitePreview");pv.style.setProperty("--site-main",main);pv.style.setProperty("--site-accent",accent);pv.style.setProperty("--hero-image",hero);const online=products.filter(p=>p.available_online).slice(0,6);const cards=(online.length?online:[{name:"Hydrangea Garden",price:85,image_url:"https://images.pexels.com/photos/931177/pexels-photo-931177.jpeg?auto=compress&cs=tinysrgb&w=700"},{name:"Seasonal Designer's Choice",price:75,image_url:"https://images.pexels.com/photos/1458694/pexels-photo-1458694.jpeg?auto=compress&cs=tinysrgb&w=700"},{name:"Romantic Roses",price:95,image_url:"https://images.pexels.com/photos/1070850/pexels-photo-1070850.jpeg?auto=compress&cs=tinysrgb&w=700"}]);pv.innerHTML=`<div class="preview-announcement">Fresh flowers · Thoughtful design · Local delivery</div><div class="preview-nav">${d.logo_url?`<img src="${esc(d.logo_url)}">`:""}<strong>${esc(d.name||"Your Flower Shop")}</strong><span>Shop Flowers · Occasions · Weddings · Sympathy · About</span><button>Order flowers</button></div><div class="preview-hero"><div class="hero-copy"><p>${esc(d.tagline||d.website_style||"Local florist")}</p><h2>${esc(d.hero_title||"Flowers made beautifully for every moment")}</h2><div>${esc(d.hero_text||"Thoughtful floral designs, gifts, and local delivery.")}</div><button>Shop the collection</button></div></div><section class="preview-occasions"><span>Birthday</span><span>Love & Romance</span><span>Sympathy</span><span>Wedding</span></section><section class="preview-featured"><p class="eyebrow">SHOP OUR FAVORITES</p><h3>Featured arrangements</h3><div class="preview-product-grid">${cards.map(p=>`<article>${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}">`:`<div class="preview-product-placeholder">Fresh Flowers</div>`}<strong>${esc(p.name)}</strong><small>${money(p.price||0)}</small><button>View arrangement</button></article>`).join("")}</div></section><section class="preview-story"><div><p class="eyebrow">DESIGNED LOCALLY</p><h3>Flowers with heart</h3><p>${esc(d.about_text||"Every arrangement is designed by hand with fresh flowers and personal attention.")}</p></div><div class="preview-story-card"><b>Local delivery</b><span>${esc(d.address||"Your delivery area")}</span><b>Talk to a florist</b><span>${esc(d.phone||"Your phone number")}</span></div></section><footer><strong>${esc(d.name||"Your Flower Shop")}</strong><span>${esc(d.phone||"Phone")} · ${esc(d.address||"Local delivery")}</span>${d.custom_domain?`<span>${esc(d.custom_domain)}</span>`:""}</footer>`}
-function openCustomer(x=null){const f=$("#customerForm");f.reset();for(const k of["id","name","phone","email","address","birthday","anniversary","favorite_flowers","favorite_colors","notes"])f.elements[k].value=x?.[k]||"";f.elements.vip.checked=Boolean(x?.vip);f.elements.is_business.checked=Boolean(x?.is_business);if(f.elements.is_house_account)f.elements.is_house_account.checked=Boolean(x?.is_house_account);const prefs=x?.contact_preferences&&typeof x.contact_preferences==="object"?x.contact_preferences:{};if(f.elements.preferred_method)f.elements.preferred_method.value=prefs.preferred_method||"none";if(f.elements.marketing_opt_in)f.elements.marketing_opt_in.checked=Boolean(prefs.marketing_opt_in);$("#customerDialogTitle").textContent=x?"Edit customer":"Add customer";$("#customerDialog").showModal()}
+async function loadSettings(){shopSettings=(await api("settings")).item;window.shopSettings=shopSettings;const f=$("#settingsForm");for(const[k,v]of Object.entries(shopSettings||{})){if(f.elements[k])f.elements[k].value=v??""}applyBranding(shopSettings);previewBrandingForm();$("#mapsStatus").textContent="Shop defaults loaded. Use Calculate mileage on a delivery order to test the route service.";if(window.BloomSubscriptionCenter){window.subscriptionCenterApi=api;await window.BloomSubscriptionCenter.load(document.getElementById("shopBillingRoot"))}window.BloomMigrationWizard?.mount?.(document.getElementById("migrationWizardRoot"));window.BloomReferralHub?.load?.();window.BloomRose?.mountSettings?.(document.getElementById("settingsPage"));window.BloomDaisy?.mountSettings?.(document.getElementById("settingsPage"));window.FlorisynAssistantVoice?.mountSettings?.(document.getElementById("settingsPage"));window.BloomLilyVoice?.mountSettings?.(document.getElementById("settingsPage"))}
+async function calculateRoute(showMessage=true){const f=$("#orderForm"),address=f.elements.delivery_address.value.trim();if(!address){if(showMessage)toast("Enter the delivery address first");return null}const result=$("#routeResult");result.textContent="Calculating driving route…";try{const d=await api("route-distance",{method:"POST",body:JSON.stringify({destination:address})});if(d&&(d.configured===false||d.roundTripMiles==null)){result.textContent=d.message||"Automatic mileage is unavailable — enter delivery miles manually.";if(showMessage)toast(result.textContent);return null}f.elements.delivery_miles.value=Number(d.roundTripMiles||0).toFixed(1);f.elements.drive_minutes.value=Math.round(Number(d.driveMinutes||0));result.textContent=`${Number(d.oneWayMiles).toFixed(1)} miles one way · ${Number(d.roundTripMiles).toFixed(1)} round trip · about ${Math.round(Number(d.driveMinutes))} minutes`;return d}catch(e){result.textContent=e.message;if(showMessage)toast(e.message);return null}}
+function renderWebsite(){const f=$("#websiteForm"),d=Object.fromEntries(new FormData(f)),main=d.primary_color||"#a72f67",accent=d.accent_color||"#6f8f72",text=d.text_color||"#2c2230",hero=d.hero_image_url?`url('${d.hero_image_url}')`:`linear-gradient(135deg,${main},${accent})`;const pv=$("#websitePreview");pv.style.setProperty("--site-main",main);pv.style.setProperty("--site-accent",accent);pv.style.setProperty("--site-text",text);pv.style.setProperty("--hero-image",hero);const online=products.filter(p=>p.available_online).slice(0,6);const cards=(online.length?online:[{name:"Hydrangea Garden",price:85,image_url:"https://images.pexels.com/photos/931177/pexels-photo-931177.jpeg?auto=compress&cs=tinysrgb&w=700"},{name:"Seasonal Designer's Choice",price:75,image_url:"https://images.pexels.com/photos/1458694/pexels-photo-1458694.jpeg?auto=compress&cs=tinysrgb&w=700"},{name:"Romantic Roses",price:95,image_url:"https://images.pexels.com/photos/1070850/pexels-photo-1070850.jpeg?auto=compress&cs=tinysrgb&w=700"}]);pv.innerHTML=`<div class="preview-announcement">Fresh flowers · Thoughtful design · Local delivery</div><div class="preview-nav">${d.logo_url?`<img src="${esc(d.logo_url)}">`:""}<strong>${esc(d.name||"Your Flower Shop")}</strong><span>Shop Flowers · Occasions · Weddings · Sympathy · About</span><button>Order flowers</button></div><div class="preview-hero"><div class="hero-copy"><p>${esc(d.tagline||d.website_style||"Local florist")}</p><h2>${esc(d.hero_title||"Flowers made beautifully for every moment")}</h2><div>${esc(d.hero_text||"Thoughtful floral designs, gifts, and local delivery.")}</div><button>Shop the collection</button></div></div><section class="preview-occasions"><span>Birthday</span><span>Love & Romance</span><span>Sympathy</span><span>Wedding</span></section><section class="preview-featured"><p class="eyebrow">SHOP OUR FAVORITES</p><h3>Featured arrangements</h3><div class="preview-product-grid">${cards.map(p=>`<article>${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}">`:`<div class="preview-product-placeholder">Fresh Flowers</div>`}<strong>${esc(p.name)}</strong><small>${money(p.price||0)}</small><button>View arrangement</button></article>`).join("")}</div></section><section class="preview-story"><div><p class="eyebrow">DESIGNED LOCALLY</p><h3>Flowers with heart</h3><p>${esc(d.about_text||"Every arrangement is designed by hand with fresh flowers and personal attention.")}</p></div><div class="preview-story-card"><b>Local delivery</b><span>${esc(d.address||"Your delivery area")}</span><b>Talk to a florist</b><span>${esc(d.phone||"Your phone number")}</span></div></section><footer><strong>${esc(d.name||"Your Flower Shop")}</strong><span>${esc(d.phone||"Phone")} · ${esc(d.address||"Local delivery")}</span>${d.custom_domain?`<span>${esc(d.custom_domain)}</span>`:""}</footer>`}
+function openCustomer(x=null){const f=$("#customerForm");if(!f)return toast("Customer form unavailable. Refresh Florisyn and try again.");f.reset();for(const k of["id","name","phone","email","address","birthday","anniversary","favorite_flowers","favorite_colors","notes"])f.elements[k].value=x?.[k]||"";f.elements.vip.checked=Boolean(x?.vip);f.elements.is_business.checked=Boolean(x?.is_business);if(f.elements.is_house_account)f.elements.is_house_account.checked=Boolean(x?.is_house_account);const prefs=x?.contact_preferences&&typeof x.contact_preferences==="object"?x.contact_preferences:{};if(f.elements.preferred_method)f.elements.preferred_method.value=prefs.preferred_method||"none";if(f.elements.marketing_opt_in)f.elements.marketing_opt_in.checked=Boolean(prefs.marketing_opt_in);$("#customerDialogTitle").textContent=x?"Edit customer":"Add customer";$("#customerDialog").showModal()}
 function updateInventoryPrice(force=false){const f=$("#inventoryForm"),category=f.elements.category.value,cost=Number(f.elements.cost.value||0),quantity=Number(f.elements.quantity.value||0),markup=Math.max(0.1,Number(f.elements.markup_multiplier?.value||3));if(category==="Flowers"&&(force||!f.elements.price.dataset.manual))f.elements.price.value=(cost*markup).toFixed(2);$("#inventoryMarkupNote").textContent=category==="Flowers"?`Flowers automatically price at ${markup}× wholesale.`:"Set the retail price for this item.";$("#wholesaleStockValue").textContent=money(cost*quantity);$("#retailStockValue").textContent=money(Number(f.elements.price.value||0)*quantity)}
-function openInventory(x=null){const f=$("#inventoryForm");f.reset();f.elements.price.dataset.manual="";for(const k of["id","name","category","color","variety","quantity","low_stock_level","unit","cost","price","arrival_date","received_at","use_by","vase_life_days","supplier","lot_code","markup_multiplier","item_kind"])if(f.elements[k])f.elements[k].value=x?.[k]??(k==="unit"?"stems":k==="markup_multiplier"?"3":k==="item_kind"?"flower":"");if(x)f.elements.price.dataset.manual="1";$("#inventoryDialogTitle").textContent=x?"Edit inventory":"Add inventory";updateInventoryPrice(!x);$("#inventoryDialog").showModal()}
+function openInventory(x=null){const f=$("#inventoryForm");if(!f)return toast("Inventory form unavailable. Refresh Florisyn and try again.");f.reset();f.elements.price.dataset.manual="";for(const k of["id","name","category","color","variety","quantity","low_stock_level","unit","cost","price","arrival_date","received_at","use_by","vase_life_days","supplier","lot_code","markup_multiplier","item_kind"])if(f.elements[k])f.elements[k].value=x?.[k]??(k==="unit"?"stems":k==="markup_multiplier"?"3":k==="item_kind"?"flower":"");if(x)f.elements.price.dataset.manual="1";$("#inventoryDialogTitle").textContent=x?"Edit inventory":"Add inventory";updateInventoryPrice(!x);$("#inventoryDialog").showModal()}
 function addRecipeRow(x={}){const r=document.createElement("div");r.className="recipe-row";r.innerHTML=`<label>Flower / supply<input placeholder="Example: Red Rose" value="${esc(x.ingredient_name||"")}"></label><label>Quantity<input type="number" step=".01" value="${x.quantity||1}"></label><label>Unit<input placeholder="stem" value="${esc(x.unit||"stem")}"></label><label>Unit cost ($)<input type="number" step=".01" value="${x.unit_cost||0}"></label><button type="button" class="secondary recipe-remove" title="Remove ingredient">×</button>`;r.lastChild.onclick=()=>r.remove();$("#recipeRows").append(r)}
-function openExpense(x=null){const f=$("#expenseForm");f.reset();receiptDataUrl=null;f.elements.id.value=x?.id||"";f.elements.expense_date.value=x?.expense_date||new Date().toISOString().slice(0,10);f.elements.category.value=x?.category||"Flowers";f.elements.vendor.value=x?.vendor||"";f.elements.amount.value=x?.amount??"";f.elements.notes.value=x?.notes||"";$("#expenseDialogTitle").textContent=x?"Edit expense":"Add expense";$("#expenseSaveButton").textContent=x?"Save changes":"Save expense";const preview=$("#receiptPreview");if(x?.receipt_url){preview.src=x.receipt_url;preview.hidden=false}else{preview.removeAttribute("src");preview.hidden=true}$("#expenseDialog").showModal()}
+function openExpense(x=null){const f=$("#expenseForm");f.reset();receiptDataUrl=null;f.elements.id.value=x?.id||"";f.elements.expense_date.value=x?.expense_date||localTodayStr();f.elements.category.value=x?.category||"Flowers";f.elements.vendor.value=x?.vendor||"";f.elements.amount.value=x?.amount??"";f.elements.notes.value=x?.notes||"";$("#expenseDialogTitle").textContent=x?"Edit expense":"Add expense";$("#expenseSaveButton").textContent=x?"Save changes":"Save expense";const preview=$("#receiptPreview");if(x?.receipt_url){preview.src=x.receipt_url;preview.hidden=false}else{preview.removeAttribute("src");preview.hidden=true}$("#expenseDialog").showModal()}
 function libraryRecipeRows(recipe){return recipe.map((r,i)=>`<div class="library-recipe-row"><label>Flower or supply<input data-library-ingredient value="${esc(r[0])}"></label><label>Quantity<input data-library-quantity type="number" min="0" step=".1" value="${Number(r[1])}"></label><button type="button" class="secondary danger" data-remove-library-line="${i}">Delete line</button></div>`).join("")}
 function openLibraryDesign(index){selectedLibraryIndex=Number(index);const p=LIBRARY[selectedLibraryIndex];if(!p)return;const f=$("#libraryDesignForm");f.elements.name.value=p[0];f.elements.category.value=p[1];f.elements.price.value=p[2];f.elements.description.value=p[4];f.elements.image_url.value=p[6]||"";$("#libraryDesignImage").src=p[6]||"";$("#libraryDesignImage").hidden=!p[6];$("#libraryRecipeRows").innerHTML=libraryRecipeRows(p[5]);$("#libraryDesignDialog").showModal()}
 function libraryDialogPayload(){const f=$("#libraryDesignForm");return {name:f.elements.name.value.trim(),category:f.elements.category.value.trim()||"Everyday",price:Number(f.elements.price.value||0),description:f.elements.description.value.trim(),image_url:f.elements.image_url.value.trim(),items:[...document.querySelectorAll("#libraryRecipeRows .library-recipe-row")].map(row=>({ingredient_name:row.querySelector("[data-library-ingredient]").value.trim(),quantity:Number(row.querySelector("[data-library-quantity]").value||1),unit:"stem",unit_cost:0})).filter(x=>x.ingredient_name)}}
@@ -329,24 +807,97 @@ $("#switchMode")?.addEventListener("click",()=>location.href="/signup.html");
 setAuthMode(false);
 
 
-function loadPosTiles(){try{const version=localStorage.getItem("bloom_pos_tiles_version");const saved=JSON.parse(localStorage.getItem("bloom_pos_tiles")||"null");if(version!=="13.4"||!Array.isArray(saved)||saved.length<5){posTiles=structuredClone(DEFAULT_POS_TILES);localStorage.setItem("bloom_pos_tiles",JSON.stringify(posTiles));localStorage.setItem("bloom_pos_tiles_version","13.4")}else posTiles=saved}catch{posTiles=structuredClone(DEFAULT_POS_TILES)}renderPosTiles()}
-function savePosTiles(){localStorage.setItem("bloom_pos_tiles",JSON.stringify(posTiles));renderPosTiles();renderTileEditor();toast("Product tiles saved")}
-function renderPosTiles(){const grid=$("#productPadGrid");if(!grid)return;const filter=$("#tileCategoryFilter")?.value||"Everyday";const visible=posTiles.filter(tile=>filter==="Everyday"?true:tile.category===filter);grid.innerHTML=visible.map(tile=>{const image=tile.image?`<img src="${esc(tile.image)}" alt="${esc(tile.name)}">`:`<span class="tile-fallback">🧺</span>`;return `<button class="pad quick-sale-pad no-label" type="button" data-tile-id="${esc(tile.id)}" data-sale-item="${esc(tile.name)}" title="${esc(tile.name)}" aria-label="${esc(tile.name)}">${image}</button>`}).join("")+`<button class="pad pad-add" id="addTileFromGrid" type="button">＋<br>Add tile</button>`}
+function loadPosTiles(){try{const version=localStorage.getItem("bloom_pos_tiles_version");const saved=JSON.parse(localStorage.getItem("bloom_pos_tiles")||"null");if(version!=="13.5"||!Array.isArray(saved)||saved.length<5){posTiles=structuredClone(DEFAULT_POS_TILES);localStorage.setItem("bloom_pos_tiles",JSON.stringify(posTiles));localStorage.setItem("bloom_pos_tiles_version","13.5")}else posTiles=saved}catch{posTiles=structuredClone(DEFAULT_POS_TILES)}renderPosTiles()}
+// Pulls tiles saved to the shop's account (added from any other device) and
+// applies them locally. Called once shopSettings has loaded. Local edits
+// made before the server ever had a saved set are left alone.
+function syncPosTilesFromServer(){const serverTiles=shopSettings?.pos_tiles;if(!Array.isArray(serverTiles)||!serverTiles.length)return;posTiles=serverTiles;localStorage.setItem("bloom_pos_tiles",JSON.stringify(posTiles));localStorage.setItem("bloom_pos_tiles_version","13.5");renderPosTiles();renderTileEditor()}
+async function savePosTiles(){localStorage.setItem("bloom_pos_tiles",JSON.stringify(posTiles));renderPosTiles();renderTileEditor();try{shopSettings=(await api("settings",{method:"PATCH",body:JSON.stringify({pos_tiles:posTiles})})).item;toast("Product tiles saved — synced to all your devices")}catch(e){toast("Saved on this device, but couldn't sync to your account: "+(e.message||"try again"))}}
+function posTileColor(cat){return{Everyday:"#d9694e",Sympathy:"#37659c",Plants:"#5a8f4f",Wedding:"#c2953b",Gifts:"#a83b52",Other:"#4f9a8c"}[cat]||"#d9694e"}
+function renderPosTiles(){const grid=$("#productPadGrid");if(!grid)return;if(!Array.isArray(posTiles)||!posTiles.length){try{posTiles=structuredClone(DEFAULT_POS_TILES)}catch{posTiles=[]}}renderPosCatTabs();const filter=$("#tileCategoryFilter")?.value||"all";const q=($("#posProductSearch")?.value||"").trim().toLowerCase();let visible=(!filter||filter==="all")?posTiles:posTiles.filter(tile=>tile.category===filter);if(q)visible=visible.filter(tile=>tile.name.toLowerCase().includes(q));grid.innerHTML=visible.map(tile=>`<button class="pad quick-sale-pad" type="button" style="--cat:${posTileColor(tile.category)}" data-tile-id="${esc(tile.id)}" data-sale-item="${esc(tile.name)}" aria-label="${esc(tile.name)}">${tile.image?`<img class="pad-photo" src="${esc(tile.image)}" alt="" loading="lazy">`:""}<span class="pad-name">${esc(tile.name)}</span></button>`).join("")+`<button class="pad pad-add" id="addTileFromGrid" type="button"><span class="pad-add-plus">＋</span>Add tile</button>`}
+function renderPosCatTabs(){const host=$("#posCatTabs");if(!host)return;const seen=[];for(const t of posTiles){const c=t.category||"Other";if(!seen.includes(c))seen.push(c)}const cats=["all",...seen];const active=$("#tileCategoryFilter")?.value||"all";host.innerHTML=cats.map(c=>`<button type="button" class="pos-cat-tab${c===active?" active":""}" data-cat-tab="${esc(c)}">${c==="all"?"All":esc(c)}</button>`).join("")}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-cat-tab]");if(!b)return;const sel=$("#tileCategoryFilter");if(sel){if(![...sel.options].some(o=>o.value===b.dataset.catTab)){const o=document.createElement("option");o.value=b.dataset.catTab;o.textContent=b.dataset.catTab;sel.appendChild(o)}sel.value=b.dataset.catTab}renderPosTiles()});
 function renderTileEditor(){const box=$("#tileEditorList");if(!box)return;box.innerHTML=posTiles.map((tile,index)=>`<div class="tile-editor-row" data-tile-row="${esc(tile.id)}">${tile.image?`<img src="${esc(tile.image)}" alt="">`:`<div class="tile-fallback">🧺</div>`}<div><strong>${esc(tile.name)}</strong><small>${esc(tile.category||"Everyday")} · Picture only</small></div><div class="tile-editor-actions"><button class="secondary" type="button" data-tile-up="${index}">↑</button><button class="secondary" type="button" data-tile-down="${index}">↓</button><button class="secondary" type="button" data-edit-tile="${esc(tile.id)}">Edit</button><button class="secondary" type="button" data-delete-tile="${esc(tile.id)}">Delete</button></div></div>`).join("")}
 function openTileEditor(tile=null){const f=$("#tileEditForm");f.reset();f.elements.tile_id.value=tile?.id||"";f.elements.name.value=tile?.name||"";f.elements.category.value=tile?.category||"Everyday";f.elements.image.value=tile?.image||"";$("#tileEditTitle").textContent=tile?"Edit tile":"Add tile";$("#tileImagePreview").src=tile?.image||"";$("#tileImagePreview").style.visibility=tile?.image?"visible":"hidden";$("#tileEditDialog").showModal()}
 function initShiftButton(){const button=$("#shiftButton");if(!button)return;const clockedIn=localStorage.getItem("bloom_shift_active")==="1";button.classList.toggle("clocked-in",clockedIn);button.textContent=clockedIn?"⇥ Clock Out":"⇥ Clock In";const status=$("#shiftStatusText");if(status)status.textContent=clockedIn?`Shift started ${localStorage.getItem("bloom_shift_started")||"earlier"}.`:"No active shift on this device."}
 function toggleShift(){const active=localStorage.getItem("bloom_shift_active")==="1";const now=new Date();if(active){const start=localStorage.getItem("bloom_shift_started");localStorage.setItem("bloom_last_shift",JSON.stringify({started:start,ended:now.toISOString()}));localStorage.removeItem("bloom_shift_active");localStorage.removeItem("bloom_shift_started");toast("Clocked out successfully") }else{localStorage.setItem("bloom_shift_active","1");localStorage.setItem("bloom_shift_started",now.toISOString());toast("Clocked in successfully")}initShiftButton()}
 function removeDuplicateControls(){const roseButtons=$$("#speakRoseBriefing");roseButtons.slice(1).forEach(x=>x.remove());const clocks=$$("#shiftButton,.shift-button");clocks.slice(1).forEach(x=>x.remove())}
-function addPastelPageFrames(){Object.keys({customersPage:1,ordersPage:1,deliveriesPage:1,inventoryPage:1,productsPage:1,websitePage:1,libraryPage:1,invoicesPage:1,paymentsPage:1,expensesPage:1,reportsPage:1,staffPage:1,marketplacePage:1,wholesaleSellerPage:1,storesPage:1,settingsPage:1,subscriptionPage:1,ecosystemPage:1}).forEach(id=>document.getElementById(id)?.classList.add("pastel-matched-page"))}
+function addPastelPageFrames(){Object.keys({customersPage:1,ordersPage:1,deliveriesPage:1,inventoryPage:1,productsPage:1,bouquetsPage:1,websitePage:1,libraryPage:1,invoicesPage:1,paymentsPage:1,expensesPage:1,reportsPage:1,analyticsPage:1,staffPage:1,marketplacePage:1,wholesaleSellerPage:1,storesPage:1,settingsPage:1,subscriptionPage:1,ecosystemPage:1,posSettingsPage:1}).forEach(id=>document.getElementById(id)?.classList.add("pastel-matched-page"))}
 async function openQuickSalePad(button){
   const tile=posTiles.find(x=>x.id===button.dataset.tileId)||{id:"custom",name:button.dataset.saleItem||"Custom item",image:""};
-  const f=$("#quickPriceForm");f.reset();f.elements.tile_id.value=tile.id;f.elements.item_name.value=tile.name;f.elements.quantity.value=1;$("#quickPriceTitle").textContent=`Add ${tile.name}`;$("#quickPriceItemName").textContent=tile.name;$("#quickPriceImage").src=tile.image||"/assets/fresh.png";$("#quickPriceDialog").showModal();setTimeout(()=>{$("#quickPriceAmount").focus();$("#quickPriceAmount").select()},50)
+  const f=$("#quickPriceForm");f.reset();f.elements.tile_id.value=tile.id;f.elements.item_name.value=tile.name;f.elements.quantity.value=1;$("#quickPriceTitle").textContent=`Add ${tile.name}`;$("#quickPriceItemName").textContent=tile.name;$("#quickPriceImage").src=tile.image||"/assets/fresh.jpg";$("#quickPriceDialog").showModal();setTimeout(()=>{$("#quickPriceAmount").focus();$("#quickPriceAmount").select()},50)
 }
+let posLuxDiscountApplied=false;
 function savePosCart(){localStorage.setItem("bloom_pos_cart",JSON.stringify(posCart));renderPosCart()}
-function loadPosCart(){try{posCart=JSON.parse(localStorage.getItem("bloom_pos_cart")||"[]");if(!Array.isArray(posCart))posCart=[]}catch{posCart=[]}try{savedQuotes=JSON.parse(localStorage.getItem("bloom_saved_quotes")||"[]");if(!Array.isArray(savedQuotes))savedQuotes=[]}catch{savedQuotes=[]}renderPosCart();renderSavedQuotes()}
-function cartTotals(){const subtotal=posCart.reduce((s,x)=>s+(Number(x.price)||0)*(Number(x.quantity)||1),0),rate=Number(shopSettings?.tax_rate??6),tax=Math.round(subtotal*rate)/100,total=subtotal+tax;return{subtotal,tax,total,rate}}
-function renderPosCustomerOptions(){const select=$("#posCustomerSelect");if(!select)return;const current=select.value;select.innerHTML='<option value="">Walk-in Customer</option>'+customers.map(c=>`<option value="${esc(c.id||c.name)}" data-name="${esc(c.name)}">${esc(c.name)}</option>`).join("");select.value=[...select.options].some(o=>o.value===current)?current:""}
-function renderPosCart(){const box=$("#queue");if(!box)return;const {subtotal,tax,total,rate}=cartTotals();$("#cartItemCount").textContent=`${posCart.reduce((s,x)=>s+Number(x.quantity||1),0)} items`;box.innerHTML=posCart.length?`<div class="cart-table"><div class="cart-table-head"><span>Item</span><span>Qty</span><span>Price</span><span>Total</span><span></span></div>${posCart.map((x,i)=>`<div class="cart-row"><span><strong>${esc(x.name)}</strong>${x.description?`<small>${esc(x.description)}</small>`:""}</span><span class="qty-control"><button data-cart-minus="${i}">−</button><b>${Number(x.quantity)||1}</b><button data-cart-plus="${i}">+</button></span><span><input data-cart-price="${i}" type="number" min="0" step=".01" value="${Number(x.price||0).toFixed(2)}"></span><span><b>${money((Number(x.price)||0)*(Number(x.quantity)||1))}</b></span><span><button class="icon-delete" data-cart-remove="${i}" aria-label="Remove">🗑</button></span></div>`).join("")}</div>`:empty("Tap a product picture, enter the price, and it will appear here.");$("#weekSales").textContent=money(subtotal);const taxLine=$$(".checkout-lines span").find(x=>x.textContent.includes("Tax ("));if(taxLine)taxLine.innerHTML=`Tax (${rate.toFixed(1)}%) <b>${money(tax)}</b>`;$("#totalSales").textContent=money(total);const pay=$(".process-payment");if(pay){pay.disabled=!posCart.length;pay.dataset.cartCheckout="1"}}
+function loadPosCart(){
+  /* One-time cleanup: wipe any previously seeded Figma demo basket so the register starts real + empty. */
+  if(localStorage.getItem("bloom_pos_cart_seeded")){localStorage.removeItem("bloom_pos_cart_seeded");localStorage.removeItem("bloom_pos_cart")}
+  try{posCart=JSON.parse(localStorage.getItem("bloom_pos_cart")||"[]");if(!Array.isArray(posCart))posCart=[]}catch{posCart=[]}
+  try{savedQuotes=JSON.parse(localStorage.getItem("bloom_saved_quotes")||"[]");if(!Array.isArray(savedQuotes))savedQuotes=[]}catch{savedQuotes=[]}
+  renderPosCart();
+  renderSavedQuotes();
+}
+function cartTotals(){
+  const subtotal=posCart.reduce((s,x)=>s+(Number(x.price)||0)*(Number(x.quantity)||1),0);
+  // Real register: use the shop's own tax rate; delivery fee is the florist-entered amount.
+  const discount=0,discountPct=0;
+  const service=Math.max(0,Number(document.querySelector("#posDeliveryFee")?.value||0));
+  const rate=Number(shopSettings?.tax_rate??6);
+  const tax=Math.round((subtotal-discount)*rate)/100;
+  const total=Math.max(0,Math.round((subtotal-discount+service+tax)*100)/100);
+  return{subtotal,tax,total,rate,discount,service,discountPct};
+}
+function renderPosCustomerOptions(){
+  const select=$("#posCustomerSelect");
+  if(!select)return;
+  const current=select.value;
+  select.innerHTML='<option value="">Walk-in Customer</option>'+
+    customers.map(c=>`<option value="${esc(c.id||c.name)}" data-name="${esc(c.name)}">${esc(c.name)}</option>`).join("");
+  if([...select.options].some(o=>o.value===current))select.value=current;
+  window.FlorisynLuxuryPos?.syncCustomer?.();
+}
+function renderPosCart(){
+  const box=$("#queue");
+  if(!box)return;
+  const {subtotal,tax,total,rate,discount,service,discountPct}=cartTotals();
+  const itemCount=posCart.reduce((s,x)=>s+Number(x.quantity||1),0);
+  if($("#cartItemCount"))$("#cartItemCount").textContent=`${itemCount} items`;
+  const lux=!!document.getElementById("florisynPosLux");
+  if(lux){
+    box.innerHTML=posCart.length
+      ?`<div class="cart-table pos-lux-cart-table"><div class="cart-table-head"><span>QTY</span><span>ITEM DESCRIPTION</span><span>UNIT PRICE</span><span>LINE TOTAL</span></div>${posCart.map((x,i)=>`<div class="cart-row"><span class="qty-control"><button type="button" data-cart-minus="${i}" aria-label="Decrease quantity">−</button><b>${Number(x.quantity)||1}</b><button type="button" data-cart-plus="${i}" aria-label="Increase quantity">+</button></span><span class="pos-lux-item"><strong>${esc(x.name)}</strong>${x.description?`<small>${esc(x.description)}</small>`:""}</span><span class="pos-lux-unit"><input data-cart-price="${i}" type="number" min="0" step=".01" value="${Number(x.price||0).toFixed(2)}" aria-label="Unit price"></span><span class="pos-lux-line-total"><b>${money((Number(x.price)||0)*(Number(x.quantity)||1))}</b><button type="button" class="icon-delete" data-cart-remove="${i}" aria-label="Remove">×</button></span></div>`).join("")}</div>`
+      :`<div class="pos-lux-empty">Scan or select items to begin a sale.</div>`;
+  }else{
+    box.innerHTML=posCart.length
+      ?`<div class="cart-table"><div class="cart-table-head"><span>Item</span><span>Qty</span><span>Price</span><span>Total</span><span></span></div>${posCart.map((x,i)=>`<div class="cart-row"><span><strong>${esc(x.name)}</strong>${x.description?`<small>${esc(x.description)}</small>`:""}</span><span class="qty-control"><button data-cart-minus="${i}">−</button><b>${Number(x.quantity)||1}</b><button data-cart-plus="${i}">+</button></span><span><input data-cart-price="${i}" type="number" min="0" step=".01" value="${Number(x.price||0).toFixed(2)}"></span><span><b>${money((Number(x.price)||0)*(Number(x.quantity)||1))}</b></span><span><button class="icon-delete" data-cart-remove="${i}" aria-label="Remove">🗑</button></span></div>`).join("")}</div>`
+      :empty("Tap a product picture, enter the price, and it will appear here.");
+  }
+  if($("#cartSubtotal"))$("#cartSubtotal").textContent=money(subtotal);
+  else if($("#weekSales"))$("#weekSales").textContent=money(subtotal);
+  if($("#posLuxDiscountAmt"))$("#posLuxDiscountAmt").textContent=discount?`−$${Number(discount).toFixed(2)}`:"−$0.00";
+  const discountLabel=$("#posLuxDiscountLine")?.querySelector("span");
+  if(discountLabel)discountLabel.textContent=discountPct?`Discount (${discountPct}%)`:"Discount";
+  if($("#posLuxServiceFee"))$("#posLuxServiceFee").textContent=money(service||0);
+  if($("#posLuxTax"))$("#posLuxTax").textContent=money(tax);
+  if($("#posLuxTaxLabel"))$("#posLuxTaxLabel").textContent=`Tax (${Number(rate||0)}%)`;
+  else{
+    const taxLine=$$(".checkout-lines span").find(x=>x.textContent.includes("Tax ("));
+    if(taxLine)taxLine.innerHTML=`Tax (${rate.toFixed(1)}%) <b>${money(tax)}</b>`;
+  }
+  if($("#cartTotal"))$("#cartTotal").textContent=money(total);
+  else if($("#totalSales"))$("#totalSales").textContent=money(total);
+  const pay=$(".process-payment");
+  if(pay){pay.disabled=!posCart.length;pay.dataset.cartCheckout="1"}
+  document.dispatchEvent(new CustomEvent("florisyn-pos-refresh-cart",{detail:{subtotal,tax,total,discount,service}}));
+}
+window.renderPosCart=renderPosCart;
+document.addEventListener("florisyn-pos-discount-apply",()=>{
+  const code=($("#posLuxDiscountCode")?.value||"").trim();
+  posLuxDiscountApplied=false;
+  toast(code?"Discount codes aren't set up yet — coming soon.":"Enter a discount code.");
+  renderPosCart();
+});
+
 function persistSavedQuotes(){localStorage.setItem("bloom_saved_quotes",JSON.stringify(savedQuotes));renderSavedQuotes()}
 function renderSavedQuotes(){const count=$("#savedQuoteCount");if(count)count.textContent=String(savedQuotes.length);const box=$("#savedQuotesList");if(!box)return;box.innerHTML=savedQuotes.length?savedQuotes.map(q=>`<article class="saved-quote-card"><div><strong>${esc(q.name)}</strong><small>${new Date(q.createdAt).toLocaleString()} · ${q.cart.reduce((n,x)=>n+Number(x.quantity||1),0)} items · ${money(q.total)}</small></div><div><button class="primary" data-load-quote="${q.id}" type="button">Resume</button><button class="secondary" data-delete-quote="${q.id}" type="button">Delete</button></div></article>`).join(""):empty("No saved quotes on this device.")}
 function saveCurrentQuote(){if(!posCart.length)return toast("Add an item before saving a quote");const customerOption=$("#posCustomerSelect")?.selectedOptions?.[0],customerName=customerOption?.dataset?.name||"Walk-in Customer",name=prompt("Quote name",`${customerName} quote`)?.trim();if(!name)return;const totals=cartTotals();savedQuotes.unshift({id:`quote-${Date.now()}`,name,createdAt:new Date().toISOString(),customerId:$("#posCustomerSelect")?.value||"",note:$("#posOrderNote")?.value||"",cart:structuredClone(posCart),total:totals.total});savedQuotes=savedQuotes.slice(0,25);persistSavedQuotes();toast("Quote saved on this register")}
@@ -383,16 +934,57 @@ function renderSplitPaymentRows(rows){const host=$("#splitPaymentRows");if(!host
 function readSplitRows(){return [...($("#splitPaymentRows")?.querySelectorAll(".split-part-row")||[])].map(row=>({amount:Number(row.querySelector("[data-split-amount]")?.value||0),method:row.querySelector("[data-split-method]")?.value||"Cash",note:row.querySelector("[data-split-note]")?.value||""}))}
 function updateSplitTotals(){const balance=Number($("#paymentTopSummary")?.dataset.balance||getPaymentBalance());const rows=readSplitRows();const splitTotal=Math.round(rows.reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;const manualTotal=Math.round(rows.filter(r=>r.method!=="Card").reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;const cardTotal=Math.round(rows.filter(r=>r.method==="Card").reduce((s,r)=>s+Number(r.amount||0),0)*100)/100;if($("#splitTotalLive"))$("#splitTotalLive").textContent=money(splitTotal);if($("#splitRemainingLive"))$("#splitRemainingLive").textContent=money(Math.max(0,balance-manualTotal));const err=$("#splitPaymentError");if(err)err.textContent=splitTotal>balance+0.005?`Split total ${money(splitTotal)} exceeds balance ${money(balance)}.`:"";const notice=$("#splitCardNotice");if(notice){if(cardTotal>0){notice.hidden=false;notice.textContent=`Card total ${money(cardTotal)} opens Stripe for that amount after cash/check/other parts post.`}else notice.hidden=true}}
 function setPendingPaymentOrder(order){pendingPaymentOrder=order||null;if(order)localStorage.setItem("bloom_pending_payment_order",JSON.stringify(order));else{localStorage.removeItem("bloom_pending_payment_order");clearSplitSession()}renderPaymentCenterShell()}
-async function checkoutPosCart(){if(!posCart.length)return toast("Add an item first");const customerSelect=$("#posCustomerSelect"),option=customerSelect.selectedOptions[0],customerName=option?.dataset.name||"Walk-in Customer",note=$("#posOrderNote")?.value||"",{subtotal,tax,total,rate}=cartTotals();const description=posCart.map(x=>`${x.quantity} × ${x.name}${x.description?` (${x.description})`:""}`).join("; ");try{const result=await api("orders",{method:"POST",body:JSON.stringify({customer_name:customerName,customer_phone:"",customer_type:"PERSONAL",payment_required:"YES",recipient_name:customerName,occasion:"",order_source:"Walk-in",arrangement_description:description,notes:note,fulfillment:"PICKUP",delivery_date:new Date().toISOString().slice(0,10),subtotal,labor_charge:0,delivery_fee:0,discount:0,tax_rate:rate,tax,estimated_cost:0,payment_status:"UNPAID",payment_method:null,amount_paid:0,total_preview:total})});const order=result.item||{};posCart=[];savePosCart();if($("#posOrderNote"))$("#posOrderNote").value="";toast("Order created — choose a payment method");await openPaymentCenterForOrder(order);loadOrders();loadDashboard()}catch(e){toast(e.message)}}
+function posFulfillMode(){return document.querySelector('#posFulfill [data-fulfill].active')?.dataset.fulfill||"PICKUP"}
+let posCheckoutInFlight=false;
+async function checkoutPosCart(){
+  // A POS device gets tapped fast and sometimes twice — guard against firing
+  // two "create order" requests from one checkout tap (same class of bug as
+  // bindForm's double-submit fix, but this button isn't a <form> submit).
+  if(posCheckoutInFlight)return;
+  if(!posCart.length)return toast("Add an item first");
+  const option=$("#posCustomerSelect")?.selectedOptions?.[0],customerName=option?.dataset.name||"Walk-in Customer",note=$("#posOrderNote")?.value||"";
+  const {subtotal,tax,total,rate,discount,service}=cartTotals();
+  const fulfillment=posFulfillMode(),isDelivery=fulfillment==="DELIVERY";
+  const recipientName=(isDelivery&&$("#posRecipientName")?.value?.trim())||customerName;
+  const recipientPhone=isDelivery?($("#posRecipientPhone")?.value?.trim()||""):"";
+  const deliveryAddress=isDelivery?($("#posDeliveryAddress")?.value?.trim()||""):"";
+  const deliveryDate=$("#posDeliveryDate")?.value||localTodayStr();
+  const cardMessage=$("#posCardMessage")?.value?.trim()||"";
+  const occasion=$("#posOccasion")?.value?.trim()||"";
+  if(isDelivery&&!deliveryAddress)return toast("Add a delivery address, or switch to Pickup.");
+  const description=posCart.map(x=>`${x.quantity} × ${x.name}${x.description?` (${x.description})`:""}`).join("; ");
+  posCheckoutInFlight=true;
+  const checkoutBtn=$("#posChargeCardBtn");
+  if(checkoutBtn)checkoutBtn.disabled=true;
+  try{
+    const result=await api("orders",{method:"POST",body:JSON.stringify({customer_name:customerName,customer_phone:"",customer_type:"PERSONAL",payment_required:"YES",recipient_name:recipientName,recipient_phone:recipientPhone,delivery_address:deliveryAddress,card_message:cardMessage,occasion,order_source:"POS",arrangement_description:description,notes:note,fulfillment,delivery_date:deliveryDate,subtotal,labor_charge:0,delivery_fee:service||0,discount:discount||0,tax_rate:rate,tax,estimated_cost:0,total_preview:total})});
+    const order=result.item||{};
+    posCart=[];savePosCart();
+    ["posOrderNote","posRecipientName","posRecipientPhone","posDeliveryAddress","posCardMessage","posOccasion","posDeliveryDate"].forEach(id=>{const el=$("#"+id);if(el)el.value=""});
+    toast(isDelivery?"Delivery order created — choose a payment method":"Order created — choose a payment method");
+    await openPaymentCenterForOrder(order);
+    loadOrders();loadDashboard();
+  }catch(e){toast(e.message)}
+  finally{posCheckoutInFlight=false;if(checkoutBtn)checkoutBtn.disabled=false}
+}
+document.addEventListener("click",e=>{const b=e.target.closest("#posFulfill [data-fulfill]");if(!b)return;document.querySelectorAll("#posFulfill [data-fulfill]").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-selected",on?"true":"false")});const del=b.dataset.fulfill==="DELIVERY";const f=$("#posDeliveryFields");if(f)f.hidden=!del});
 addPastelPageFrames();
-document.addEventListener('click',e=>{const pad=e.target.closest('.quick-sale-pad');if(pad){e.preventDefault();openQuickSalePad(pad)}});
+document.addEventListener('click',e=>{const pad=e.target.closest('.quick-sale-pad');if(!pad)return;e.preventDefault();/* IRIS-style: tapping a tile drops it into the ticket with an editable $0.00 price. */const tile=posTiles.find(x=>x.id===pad.dataset.tileId)||{id:"custom",name:pad.dataset.saleItem||"Custom item",image:""};posCart.push({id:`cart-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,tileId:tile.id,name:tile.name,image:tile.image||"",price:0,quantity:1,description:""});savePosCart();const inp=document.querySelector('[data-cart-price="'+(posCart.length-1)+'"]');if(inp){inp.focus();try{inp.select()}catch{}}});
 document.addEventListener("click",e=>{let t;if(t=e.target.closest("#manageTilesBtn,#addTileFromGrid")){renderTileEditor();$("#tileManagerDialog").showModal();return}if(t=e.target.closest("#addTileBtn")){openTileEditor();return}if(t=e.target.closest("[data-edit-tile]")){openTileEditor(posTiles.find(x=>x.id===t.dataset.editTile));return}if(t=e.target.closest("[data-delete-tile]")){if(confirm("Delete this product tile?")){posTiles=posTiles.filter(x=>x.id!==t.dataset.deleteTile);renderTileEditor()}return}if(t=e.target.closest("[data-tile-up]")){const i=Number(t.dataset.tileUp);if(i>0)[posTiles[i-1],posTiles[i]]=[posTiles[i],posTiles[i-1]];renderTileEditor();return}if(t=e.target.closest("[data-tile-down]")){const i=Number(t.dataset.tileDown);if(i<posTiles.length-1)[posTiles[i+1],posTiles[i]]=[posTiles[i],posTiles[i+1]];renderTileEditor();return}});
 $("#saveTilesBtn")?.addEventListener("click",()=>{$("#tileManagerDialog").close();savePosTiles()});
 $("#tileEditForm")?.addEventListener("submit",e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f)),id=d.tile_id||`tile-${Date.now()}`,tile={id,name:d.name.trim(),label:"",category:d.category,image:d.image};const i=posTiles.findIndex(x=>x.id===id);if(i>=0)posTiles[i]=tile;else posTiles.push(tile);$("#tileEditDialog").close();renderTileEditor()});
-$("#tileImageUpload")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>1500000){toast("Please choose an image smaller than 1.5 MB");e.target.value="";return}const r=new FileReader();r.onload=()=>{$("#tileEditForm").elements.image.value=r.result;$("#tileImagePreview").src=r.result;$("#tileImagePreview").style.visibility="visible"};r.readAsDataURL(file)});
+function resizeImageFile(file,maxDim=640,quality=0.82){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(new Error("Could not read that file"));reader.onload=()=>{const img=new Image();img.onerror=()=>reject(new Error("Could not read that image"));img.onload=()=>{let{width:w,height:h}=img;if(w>maxDim||h>maxDim){const scale=maxDim/Math.max(w,h);w=Math.round(w*scale);h=Math.round(h*scale)}const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;const ctx=canvas.getContext("2d");ctx.drawImage(img,0,0,w,h);try{resolve(canvas.toDataURL("image/jpeg",quality))}catch(err){reject(err)}};img.src=reader.result};reader.readAsDataURL(file)})}
+$("#tileImageUpload")?.addEventListener("change",async e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>15000000){toast("Please choose a photo smaller than 15 MB");e.target.value="";return}try{const dataUrl=await resizeImageFile(file);$("#tileEditForm").elements.image.value=dataUrl;$("#tileImagePreview").src=dataUrl;$("#tileImagePreview").style.visibility="visible"}catch(err){toast("Couldn't use that photo — try a different one.")}});
+function renderTileLibraryPicker(q=""){const grid=$("#tileLibraryGrid");if(!grid)return;const lib=Array.isArray(window.FlorisynLibraryCollection)?window.FlorisynLibraryCollection:[];const ql=q.trim().toLowerCase();const items=lib.filter(p=>{const url=p?.primary_image?.url;if(!url)return false;if(!ql)return true;return `${p.name||""} ${(p.categories||[]).join(" ")}`.toLowerCase().includes(ql)});grid.innerHTML=items.length?items.slice(0,150).map(p=>`<button type="button" class="tile-lib-pick" data-lib-img="${esc(p.primary_image.url)}" title="${esc(p.name||"")}"><img src="${esc(p.primary_image.url)}" alt="${esc(p.name||"")}" loading="lazy"><span>${esc(p.name||"")}</span></button>`).join(""):`<p class="subtle">No library pictures match “${esc(q)}”.</p>`}
+$("#tilePickLibraryBtn")?.addEventListener("click",()=>{renderTileLibraryPicker($("#tileLibrarySearch")?.value||"");$("#tileLibraryDialog")?.showModal()});
+$("#tileLibrarySearch")?.addEventListener("input",e=>renderTileLibraryPicker(e.target.value));
+$("#tileLibraryGrid")?.addEventListener("click",e=>{const b=e.target.closest("[data-lib-img]");if(!b)return;const url=b.dataset.libImg;const f=$("#tileEditForm");if(f)f.elements.image.value=url;if($("#tileImagePreview")){$("#tileImagePreview").src=url;$("#tileImagePreview").style.visibility="visible"}$("#tileLibraryDialog")?.close();toast("Picture chosen from your library")});
 $("#quickPriceForm")?.addEventListener("submit",e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.currentTarget)),tile=posTiles.find(x=>x.id===d.tile_id);posCart.push({id:`cart-${Date.now()}`,tileId:d.tile_id,name:d.item_name||tile?.name||"Custom item",image:tile?.image||"",price:Number(d.price||0),quantity:Number(d.quantity||1),description:(d.description||"").trim()});$("#quickPriceDialog").close();savePosCart();toast("Item added to current order")});
 $("#tileCategoryFilter")?.addEventListener("change",renderPosTiles);
-$("#clearCartBtn")?.addEventListener("click",()=>{if(!posCart.length||confirm("Clear the current order?")){posCart=[];savePosCart()}});
+$("#posProductSearch")?.addEventListener("input",renderPosTiles);
+document.querySelector('.pos-lux-rail-btn[data-pos-tool="lookup"]')?.addEventListener("click",()=>{const s=$("#posProductSearch");if(s){s.focus();s.select()}});
+$("#clearCartBtn")?.addEventListener("click",()=>{if(!posCart.length||confirm("Clear the current order?")){posCart=[];if($("#posDeliveryFee"))$("#posDeliveryFee").value="0.00";savePosCart()}});
+document.addEventListener("input",e=>{if(e.target&&e.target.id==="posDeliveryFee")renderPosCart()});
 $("#saveCartQuoteBtn")?.addEventListener("click",saveCurrentQuote);
 $("#loadCartQuoteBtn")?.addEventListener("click",()=>{$("#savedQuotesDialog")?.showModal();renderSavedQuotes()});
 $("#printCartBtn")?.addEventListener("click",()=>window.print());
@@ -403,11 +995,17 @@ document.addEventListener("click",e=>{let t;if(t=e.target.closest("[data-load-qu
 $("#shiftButton")?.addEventListener("click",toggleShift);
 
 
-$("#logout").onclick=()=>{localStorage.removeItem("bloom_session");session=null;location.replace("/login")};$$("[data-page]").forEach(b=>b.onclick=()=>showPage(b.dataset.page));$$("[data-open]").forEach(b=>b.onclick=async()=>{if(b.dataset.open==="expenseDialog")return openExpense();const dialog=document.getElementById(b.dataset.open);if(b.dataset.open==="orderDialog")await prepareOrderBuilder();dialog.showModal()});$$(".close").forEach(b=>b.onclick=()=>b.closest("dialog").close());$("#customerSearch").oninput=renderCustomers;$("#addRecipeRow").onclick=()=>addRecipeRow();$("#refreshInvoices")?.addEventListener("click",loadInvoices);
+$("#logout").onclick=()=>{localStorage.removeItem("bloom_session");session=null;location.replace("/login")};/* page navigation owned by FlorisynRouter click delegation */$$("[data-open]").forEach(b=>b.onclick=async()=>{if(b.dataset.open==="expenseDialog")return openExpense();const dialog=document.getElementById(b.dataset.open);if(!dialog)return toast("This Florisyn panel is unavailable. Refresh and try again.");if(b.dataset.open==="orderDialog")await prepareOrderBuilder();dialog.showModal()});$$(".close").forEach(b=>b.onclick=()=>b.closest("dialog").close());$("#customerSearch").oninput=renderCustomers;$("#addRecipeRow").onclick=()=>addRecipeRow();$("#refreshInvoices")?.addEventListener("click",loadInvoices);
+$("#refreshCommunity")?.addEventListener("click",()=>loadCommunityPage());
+$("#refreshHoliday")?.addEventListener("click",()=>loadHolidayPage());
+$("#refreshFloristNetwork")?.addEventListener("click",()=>loadFloristNetworkPage());
+$("#refreshEmailCampaigns")?.addEventListener("click",()=>loadEmailCampaignsPage());
+$("#refreshMarketing")?.addEventListener("click",()=>loadMarketingPage());
+$("#refreshWeddings")?.addEventListener("click",()=>loadWeddingsPage());
 $("#shopSwitcher").onchange=async e=>{await api("stores",{method:"PATCH",body:JSON.stringify({shop_id:e.target.value})});location.reload()};
 $("#customerForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));d.vip=f.elements.vip.checked;d.is_business=f.elements.is_business.checked;if(f.elements.is_house_account)d.is_house_account=f.elements.is_house_account.checked;d.contact_preferences={preferred_method:f.elements.preferred_method?.value||"none",marketing_opt_in:Boolean(f.elements.marketing_opt_in?.checked)};try{await api("customers",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)})}catch(err){return toast(err.message)}f.reset();$("#customerDialog").close();toast("Customer saved");loadCustomers()};
 $("#inventoryForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));const save=f.querySelector('button.primary');save.disabled=true;save.textContent="Saving…";try{const result=await api("inventory",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)});f.reset();$("#inventoryDialog").close();toast(`${result.item?.name||"Inventory"} saved`);await loadInventory();await loadDashboard()}catch(err){toast(err.message)}finally{save.disabled=false;save.textContent="Save inventory"}};
-for(const eventName of ["input","change"]){$("#inventoryWholesaleCost").addEventListener(eventName,()=>updateInventoryPrice(true));$("#inventoryForm").elements.quantity.addEventListener(eventName,()=>updateInventoryPrice(false));$("#inventoryForm").elements.category.addEventListener(eventName,()=>updateInventoryPrice(true));$("#inventoryForm").elements.markup_multiplier?.addEventListener(eventName,()=>updateInventoryPrice(true));$("#inventoryRetailPrice").addEventListener(eventName,()=>{$("#inventoryRetailPrice").dataset.manual="1";updateInventoryPrice(false)})}
+for(const eventName of ["input","change"]){$("#inventoryWholesaleCost")?.addEventListener(eventName,()=>updateInventoryPrice(true));$("#inventoryForm")?.elements.quantity?.addEventListener(eventName,()=>updateInventoryPrice(false));$("#inventoryForm")?.elements.category?.addEventListener(eventName,()=>updateInventoryPrice(true));$("#inventoryForm")?.elements.markup_multiplier?.addEventListener(eventName,()=>updateInventoryPrice(true));$("#inventoryRetailPrice")?.addEventListener(eventName,()=>{$("#inventoryRetailPrice").dataset.manual="1";updateInventoryPrice(false)})}
 $("#inventorySearch")?.addEventListener("input",renderInventory);$("#inventoryColorFilter")?.addEventListener("change",()=>{loadInventory()});$("#inventoryFreshnessFilter")?.addEventListener("change",renderInventory);
 function openInventoryScanner(){scannedInventoryItems=[];$("#inventoryScanForm").reset();$("#inventoryScanResults").innerHTML="";$("#inventoryScanStatus").hidden=true;$("#importScannedInventory").hidden=true;$("#inventoryScanDialog").showModal()}
 $("#scanInventoryBtn")?.addEventListener("click",openInventoryScanner);
@@ -418,17 +1016,17 @@ function updateOrderBuilder(){const f=$("#orderForm");if(!f)return;const subtota
 function syncOrderFormUi(isEdit=false){const submit=$("#orderFormSubmit"),del=$("#deleteOrderButton");if(submit)submit.textContent=isEdit?"Save order changes":"Create order";if(del)del.hidden=!isEdit;const statusSection=$("#orderStatusEditSection"),historySection=$("#orderStatusHistorySection");if(statusSection)isEdit?statusSection.removeAttribute("hidden"):statusSection.setAttribute("hidden","");if(historySection)isEdit?historySection.removeAttribute("hidden"):historySection.setAttribute("hidden","");if(!isEdit&&$("#orderStatusHistory"))$("#orderStatusHistory").innerHTML=""}
 function showOrderCustomerPreference(name){const section=$("#orderCustomerPreferenceSection"),text=$("#orderCustomerPreferenceText");if(!section||!text)return;const c=customers.find(x=>x.name.toLowerCase()===String(name||"").trim().toLowerCase());if(!c){section.hidden=true;return}section.hidden=false;text.textContent=contactPrefSummary(c)}
 async function loadOrderDeliveryProof(orderId){const section=$("#orderDeliveryProofSection"),box=$("#orderDeliveryProofSummary");if(!section||!box||!orderId){if(section)section.hidden=true;return}try{const result=await api(`deliveries?order_id=${encodeURIComponent(orderId)}`);const proof=(result.items||[]).find(x=>x.proof_signed_url||x.signature_name||x.proof_captured_at);if(!proof){section.hidden=false;box.textContent="No delivery proof on file yet.";return}section.hidden=false;box.innerHTML=`${proof.proof_signed_url?`<p><img src="${esc(proof.proof_signed_url)}" alt="Delivery proof" class="receipt-preview" loading="lazy"></p>`:""}<p>Signed by: ${esc(proof.signature_name||proof.recipient_name||"—")}</p><p>Captured: ${proof.proof_captured_at?new Date(proof.proof_captured_at).toLocaleString():"—"}</p>${proof.notes?`<p>${esc(proof.notes)}</p>`:""}`}catch{section.hidden=true}}
-function openOrderEditor(order){if(!order)return;const f=$("#orderForm");f.reset();for(const[key,value]of Object.entries(order)){if(!f.elements[key])continue;if(f.elements[key].type==="checkbox")f.elements[key].checked=Boolean(value);else f.elements[key].value=value??""}f.elements.id.value=order.id;populateOrderStatusSelect(order.status);const title=$("#orderDialogTitle");if(title)title.textContent=`Edit ${order.order_number||"order"}`;syncOrderFormUi(true);toggleDeliveryFields();updateOrderBuilder();loadOrderStatusHistory(order.id);showOrderCustomerPreference(order.customer_name);loadOrderDeliveryProof(order.id);$("#orderDialog").showModal()}
-async function prepareOrderBuilder(){const f=$("#orderForm");f.reset();f.elements.id.value="";const title=$("#orderDialogTitle");if(title)title.textContent="New florist order";syncOrderFormUi(false);populateOrderStatusSelect("PENDING");f.elements.delivery_date.value=new Date().toISOString().slice(0,10);if(!shopSettings)try{shopSettings=(await api("settings")).item}catch{};f.elements.tax_rate.value=Number(shopSettings?.tax_rate??6);f.elements.fulfillment.value="PICKUP";f.elements.delivery_fee.value="0.00";if(f.elements.payment_required)f.elements.payment_required.value="YES";if(!customers.length)try{await loadCustomers()}catch{};if(!products.length)try{await loadProducts()}catch{};refreshOrderCustomerOptions();toggleDeliveryFields();updateOrderBuilder();showOrderCustomerPreference("");if($("#orderDeliveryProofSection"))$("#orderDeliveryProofSection").hidden=true}
+function openOrderEditor(order){if(!order)return;const f=$("#orderForm");f.reset();for(const[key,value]of Object.entries(order)){if(!f.elements[key])continue;if(f.elements[key].type==="checkbox")f.elements[key].checked=Boolean(value);else f.elements[key].value=value??""}if(f.elements.subtotal)f.elements.subtotal.value=Math.max(0,Number(order.subtotal||0)-Number(order.labor_charge||0)-Number(order.addon_total||0)+Number(order.discount||0));f.elements.id.value=order.id;populateOrderStatusSelect(order.status);const title=$("#orderDialogTitle");if(title)title.textContent=`Edit ${order.order_number||"order"}`;syncOrderFormUi(true);toggleDeliveryFields();updateOrderBuilder();loadOrderStatusHistory(order.id);showOrderCustomerPreference(order.customer_name);loadOrderDeliveryProof(order.id);$("#orderDialog").showModal()}
+async function prepareOrderBuilder(){const f=$("#orderForm");if(!f)return toast("Order form unavailable. Refresh Florisyn and try again.");f.reset();f.elements.id.value="";const title=$("#orderDialogTitle");if(title)title.textContent="New florist order";syncOrderFormUi(false);populateOrderStatusSelect("PENDING");f.elements.delivery_date.value=localTodayStr();if(!shopSettings)try{shopSettings=(await api("settings")).item}catch{};f.elements.tax_rate.value=Number(shopSettings?.tax_rate??6);f.elements.fulfillment.value="PICKUP";f.elements.delivery_fee.value="0.00";if(f.elements.payment_required)f.elements.payment_required.value="YES";if(!customers.length)try{await loadCustomers()}catch{};if(!products.length)try{await loadProducts()}catch{};refreshOrderCustomerOptions();toggleDeliveryFields();updateOrderBuilder();showOrderCustomerPreference("");if($("#orderDeliveryProofSection"))$("#orderDeliveryProofSection").hidden=true}
 function toggleDeliveryFields(){const delivery=$("#orderFulfillment")?.value==="DELIVERY";$("#deliveryFields")?.classList.toggle("is-hidden",!delivery);const addr=$("#orderDeliveryAddress");if(addr)addr.required=false}
 $("#orderCustomerName").onchange=e=>{const c=customers.find(x=>x.name.toLowerCase()===e.target.value.trim().toLowerCase());if(c)$("#orderForm").elements.customer_phone.value=c.phone||"";showOrderCustomerPreference(e.target.value)};
 $("#orderFulfillment").onchange=()=>{const f=$("#orderForm");toggleDeliveryFields();if(f.elements.fulfillment.value==="DELIVERY"&&Number(f.elements.delivery_fee.value||0)===0)f.elements.delivery_fee.value=Number(shopSettings?.default_delivery_fee??0).toFixed(2);if(f.elements.fulfillment.value==="PICKUP")f.elements.delivery_fee.value="0.00";updateOrderBuilder()};
 $$(".order-money").forEach(i=>i.oninput=updateOrderBuilder);
 $("#orderProduct").onchange=e=>{const o=e.target.selectedOptions[0],f=$("#orderForm");if(o?.dataset.price)f.elements.subtotal.value=o.dataset.price;if(o?.dataset.cost)f.elements.estimated_cost.value=o.dataset.cost;updateOrderBuilder()};
 $("#orderWalkInCustomer")?.addEventListener("click",applyWalkInCustomerDefaults);
-$("#orderForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,isEdit=Boolean(f.elements.id.value);let d=normalizeOrderFormPayload(Object.fromEntries(new FormData(f)));if(isEdit){if(String(d.fulfillment||"").toUpperCase()==="DELIVERY"&&!String(d.delivery_address||"").trim())return toast("Enter a delivery address for delivery orders.")}else{const clientErrors=validateOrderFormPayload(d);if(clientErrors.length)return toast(clientErrors[0])}if(d.fulfillment==="DELIVERY"&&d.delivery_address?.trim()&&!Number(d.delivery_miles||0))await calculateRoute(false);d.total_preview=Number(String($("#orderLiveTotal").textContent).replace(/[^0-9.-]/g,""));const result=await api("orders",{method:isEdit?"PATCH":"POST",body:JSON.stringify(d)});const order=result.item||{};if(!isEdit)setPendingPaymentOrder(order);if(result.inventoryAdjustments?.length)toast(`Inventory updated for ${result.inventoryAdjustments.length} recipe item${result.inventoryAdjustments.length===1?"":"s"}`);if(result.inventoryWarnings?.length)toast(`Order saved. Inventory note: ${result.inventoryWarnings[0]}`);const amountPaid=Number(d.amount_paid||0);const balance=Math.max(0,Number(order.total||d.total_preview||0)-amountPaid);const goToPayment=!isEdit&&d.customer_type!=="BUSINESS"&&String(d.payment_required||"YES").toUpperCase()!=="NO";f.reset();syncOrderFormUi(false);$("#orderDialog").close();toast(isEdit?"Order updated":goToPayment?"Order created — opening Payment Center":d.customer_type==="BUSINESS"?"Order saved — invoice this business account when ready":String(d.payment_required||"").toUpperCase()==="NO"?"Order saved — pay later when ready":"Order created");await Promise.all([loadOrders(),loadDashboard(),loadInvoices()]);if(goToPayment){await openPaymentCenterForOrder(order)}};
-$("#deleteOrderButton")?.addEventListener("click",async()=>{const id=$("#orderForm")?.elements?.id?.value;if(!id)return;const order=orders.find(x=>x.id===id);if(!confirm(`Delete order ${order?.order_number||""}? This cannot be undone.`))return;try{await api("orders",{method:"DELETE",body:JSON.stringify({id})});$("#orderDialog").close();toast("Order deleted");await Promise.all([loadOrders(),loadDashboard(),loadInvoices()])}catch(err){toast(err.message)}});
-$("#productForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));for(const k of["featured","available_online","active"])d[k]=f.elements[k].checked;const {item}=await api("products",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)});await api("recipes",{method:"POST",body:JSON.stringify({product_id:item.id,items:recipePayload()})});$("#productDialog").close();toast("Product and recipe saved");loadProducts()};
+bindForm("#orderForm",async e=>{e.preventDefault();const f=e.currentTarget,isEdit=Boolean(f.elements.id.value);let d=normalizeOrderFormPayload(Object.fromEntries(new FormData(f)));if(isEdit){if(String(d.fulfillment||"").toUpperCase()==="DELIVERY"&&!String(d.delivery_address||"").trim())return toast("Enter a delivery address for delivery orders.")}else{const clientErrors=validateOrderFormPayload(d);if(clientErrors.length)return toast(clientErrors[0])}if(d.fulfillment==="DELIVERY"&&d.delivery_address?.trim()&&!Number(d.delivery_miles||0))await calculateRoute(false);d.total_preview=Number(String($("#orderLiveTotal").textContent).replace(/[^0-9.-]/g,""));const result=await api("orders",{method:isEdit?"PATCH":"POST",body:JSON.stringify(d)});const order=result.item||{};if(!isEdit)setPendingPaymentOrder(order);if(result.inventoryAdjustments?.length)toast(`Inventory updated for ${result.inventoryAdjustments.length} recipe item${result.inventoryAdjustments.length===1?"":"s"}`);if(result.inventoryWarnings?.length)toast(`Order saved. Inventory note: ${result.inventoryWarnings[0]}`);const goToPayment=!isEdit&&d.customer_type!=="BUSINESS"&&String(d.payment_required||"YES").toUpperCase()!=="NO";f.reset();syncOrderFormUi(false);$("#orderDialog").close();toast(isEdit?"Order updated":goToPayment?"Order created — opening Payment Center":d.customer_type==="BUSINESS"?"Order saved — invoice this business account when ready":String(d.payment_required||"").toUpperCase()==="NO"?"Order saved — pay later when ready":"Order created");await Promise.all([loadOrders(),loadDashboard(),loadInvoices()]);if(goToPayment){await openPaymentCenterForOrder(order)}});
+$("#deleteOrderButton")?.addEventListener("click",async()=>{const id=$("#orderForm")?.elements?.id?.value;if(!id)return;const order=orders.find(x=>x.id===id);if(!confirm(`Delete order ${order?.order_number||""}? This cannot be undone.`))return;try{await api("orders",{method:"DELETE",body:JSON.stringify({id})});$("#orderDialog").close();toast("Order deleted");await Promise.all([loadOrders(),loadDashboard(),loadInvoices()])}catch(err){explainOrderDeleteFailure(err,order?.order_number)}});
+bindForm("#productForm",async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));for(const k of["featured","available_online","active"])d[k]=f.elements[k].checked;const {item}=await api("products",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)});await api("recipes",{method:"POST",body:JSON.stringify({product_id:item.id,items:recipePayload()})});$("#productDialog").close();toast("Product and recipe saved");loadProducts()});
 function parseInventoryCsv(text){const lines=text.split(/\r?\n/).filter(Boolean);if(!lines.length)return[];const parse=line=>{const out=[];let cur="",quoted=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'&&line[i+1]==='"'){cur+='"';i++}else if(ch==='"')quoted=!quoted;else if(ch===','&&!quoted){out.push(cur.trim());cur=""}else cur+=ch}out.push(cur.trim());return out};const headers=parse(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]+/g,"_"));return lines.slice(1).map(line=>{const cells=parse(line),obj={};headers.forEach((h,i)=>obj[h]=cells[i]||"");const category=obj.category||"Flowers",cost=Number(obj.wholesale_price||obj.wholesale||obj.cost||0);return{name:obj.name||obj.item||obj.flower||obj.description||"",category,color:obj.color||"",variety:obj.variety||"",quantity:Number(obj.quantity||obj.qty||obj.count||0),unit:obj.unit||"stems",cost,price:Number(obj.retail_price||obj.price||0)||(category.toLowerCase()==="flowers"?cost*3:0),low_stock_level:Number(obj.low_stock_level||obj.low_stock||5)}}).filter(x=>x.name)}
 function renderScannedInventory(){const box=$("#inventoryScanResults");box.innerHTML=scannedInventoryItems.length?scannedInventoryItems.map((x,i)=>`<label class="scan-row"><input type="checkbox" data-scan-select="${i}" checked><span><strong>${esc(x.name)}</strong><small>${esc(x.color||"No color")} · ${Number(x.quantity||0)} ${esc(x.unit||"stems")} · ${money(x.cost)} wholesale → ${money(x.price)} retail</small></span></label>`).join(""):empty("No inventory items found in this file.");$("#importScannedInventory").hidden=!scannedInventoryItems.length}
 $("#analyzeInventoryFile")?.addEventListener("click",async()=>{const file=$("#inventoryScanFile").files?.[0],status=$("#inventoryScanStatus");if(!file)return toast("Choose an inventory file first");if(file.size>8*1024*1024)return toast("Inventory file must be under 8 MB");status.hidden=false;status.textContent="Scanning inventory file…";try{if(file.name.toLowerCase().endsWith(".csv")||file.type.includes("csv")){scannedInventoryItems=parseInventoryCsv(await file.text())}else{const dataUrl=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)});scannedInventoryItems=(await api("inventory-scan",{method:"POST",body:JSON.stringify({file_name:file.name,file_type:file.type,data_url:dataUrl})})).items||[]}status.textContent=`Found ${scannedInventoryItems.length} inventory item${scannedInventoryItems.length===1?"":"s"}. Review before importing.`;renderScannedInventory()}catch(err){status.textContent=err.message;toast(err.message)}});
@@ -437,7 +1035,8 @@ $("#receiptFile").onchange=async e=>{const file=e.target.files?.[0];if(!file)ret
 $("#expenseSearch")?.addEventListener("input",renderExpenses);$("#expenseCategoryFilter")?.addEventListener("change",renderExpenses);$("#expenseMonthFilter")?.addEventListener("change",renderExpenses);$("#clearExpenseFilters")?.addEventListener("click",()=>{$("#expenseSearch").value="";$("#expenseCategoryFilter").value="";$("#expenseMonthFilter").value="";renderExpenses()});$("#refreshReports")?.addEventListener("click",async()=>{try{await loadReports();toast("Reports refreshed")}catch(err){toast(err.message)}});$("#exportReportsCsv")?.addEventListener("click",exportReportsCsv);
 $("#expenseForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f)),btn=$("#expenseSaveButton");if(!d.expense_date)return toast("Choose an expense date.");if(!(Number(d.amount)>0))return toast("Enter an expense amount greater than $0.00.");d.receipt_data_url=receiptDataUrl;btn.disabled=true;btn.textContent="Saving…";try{await api("expenses",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)});f.reset();receiptDataUrl=null;$("#receiptPreview").removeAttribute("src");$("#receiptPreview").hidden=true;$("#expenseDialog").close();toast(d.id?"Expense updated":"Expense saved");await Promise.all([loadExpenses(),loadDashboard()])}catch(err){toast(err.message)}finally{btn.disabled=false;btn.textContent="Save expense"}};
 $("#deleteStaffButton")?.addEventListener("click",async()=>{const id=$("#staffForm")?.elements?.id?.value;if(!id)return;if(!confirm("Delete this employee and their time history?"))return;try{await api("staff",{method:"DELETE",body:JSON.stringify({id})});$("#staffDialog").close();toast("Employee deleted");await loadStaff()}catch(err){toast(err.message)}});
-$("#staffForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f)),btn=$("#staffSaveButton");btn.disabled=true;btn.textContent="Saving…";try{await api("staff",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)});f.reset();$("#staffDialog").close();toast("Employee saved");await loadStaff()}catch(err){toast(err.message)}finally{btn.disabled=false;btn.textContent="Save employee"}};
+function staffPrivateFieldFilled(key,value){if(value===""||value==null)return false;if(["hourly_rate","federal_tax_rate","state_tax_rate","local_tax_rate","other_deduction_rate","fixed_deduction"].includes(key))return Number(value)!==0;return true}
+$("#staffForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f)),btn=$("#staffSaveButton");btn.disabled=true;btn.textContent="Saving…";try{const privateFields=["email","phone","hourly_rate","hire_date","federal_tax_rate","state_tax_rate","local_tax_rate","other_deduction_rate","fixed_deduction"];if(d.id){const patch={id:d.id,name:d.name,role:d.role};for(const key of privateFields)if(staffPrivateFieldFilled(key,d[key]))patch[key]=d[key];if(d.pin)patch.pin=d.pin;if(lastPrivateFilePin)patch.private_file_pin=lastPrivateFilePin;await api("staff",{method:"PATCH",body:JSON.stringify(patch)});if(d.pin)lastPrivateFilePin=d.pin}else{if(!/^\d{4,8}$/.test(String(d.pin||""))){toast("Employee PIN must be 4–8 digits.");return}const created=await api("staff",{method:"POST",body:JSON.stringify({name:d.name,role:d.role,pin:d.pin})});const privatePatch={id:created.item.id,private_file_pin:d.pin};let hasPrivate=false;for(const key of privateFields){if(staffPrivateFieldFilled(key,d[key])){privatePatch[key]=d[key];hasPrivate=true}}if(hasPrivate)await api("staff",{method:"PATCH",body:JSON.stringify(privatePatch)});lastPrivateFilePin=""}f.reset();$("#staffDialog").close();toast("Employee saved");await loadStaff()}catch(err){toast(err.message)}finally{btn.disabled=false;btn.textContent="Save employee"}};
 function syncDeliveryStopAddress(){const select=$("#deliveryOrder"),field=$("#deliveryStopAddress"),link=$("#deliveryStopNavigate");if(!select||!field)return;const address=select.selectedOptions[0]?.dataset.address||"";if(address&&!field.value.trim())field.value=address;const current=field.value.trim();if(link){link.hidden=!current;if(current)link.href=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(current)}`}}
 $("#deliveryOrder").onchange=()=>{const field=$("#deliveryStopAddress");if(field)field.value="";syncDeliveryStopAddress()};
 $("#deliveryStopAddress").oninput=syncDeliveryStopAddress;
@@ -446,10 +1045,10 @@ function openDeliveryProof(delivery,viewOnly=false){const f=$("#deliveryProofFor
 $("#deliveryProofPhoto")?.addEventListener("change",async e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>5*1024*1024)return toast("Delivery photo must be under 5 MB");deliveryProofDataUrl=await new Promise((a,b)=>{const r=new FileReader();r.onload=()=>a(r.result);r.onerror=b;r.readAsDataURL(file)});const preview=$("#deliveryProofPreview");if(preview&&file.type.startsWith("image/")){preview.src=deliveryProofDataUrl;preview.hidden=false}});
 $("#deliveryProofForm")?.elements.delivered_without_photo?.addEventListener("change",e=>{const wrap=$("#noPhotoReasonWrap");if(wrap)wrap.hidden=!e.target.checked});
 $("#deliveryProofForm")?.addEventListener("submit",async e=>{e.preventDefault();const f=e.currentTarget,btn=$("#deliveryProofSave");const body={id:f.elements.id.value,action:"capture_proof",recipient_name:f.elements.recipient_name.value,signature_name:f.elements.signature_name.value,delivery_note:f.elements.delivery_note.value,mark_delivered:true,delivered_without_photo:Boolean(f.elements.delivered_without_photo?.checked),no_photo_reason:f.elements.no_photo_reason?.value||"",proof_data_url:deliveryProofDataUrl};btn.disabled=true;btn.textContent="Saving…";try{const result=await api("deliveries",{method:"POST",body:JSON.stringify(body)});if(result.status_unchanged||result.proof_saved===false){toast(result.error||"Proof was not saved. Delivery status unchanged.");return}$("#deliveryProofDialog").close();toast(result.marked_delivered?"Delivery proof saved and marked delivered":"Delivery proof saved");await loadDeliveries()}catch(err){toast(err.message||"Could not save delivery proof")}finally{btn.disabled=false;btn.textContent="Save proof & mark delivered"}});
-$("#deliveryForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget;await api("deliveries",{method:"POST",body:JSON.stringify(Object.fromEntries(new FormData(f)))});f.reset();$("#deliveryDialog").close();toast("Delivery stop saved");loadDeliveries()};
-$("#marketplaceForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget;const body=Object.fromEntries(new FormData(f));body.allows_shipping=Boolean(f.querySelector('[name="allows_shipping"]')?.checked);body.allows_local_pickup=Boolean(f.querySelector('[name="allows_local_pickup"]')?.checked);await api("marketplace",{method:"POST",body:JSON.stringify(body)});f.reset();$("#marketplaceDialog").close();loadMarketplace()};
-$("#storeForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget;await api("stores",{method:"POST",body:JSON.stringify(Object.fromEntries(new FormData(f)))});f.reset();$("#storeDialog").close();loadStores()};
-$("#websiteForm").oninput=renderWebsite;$("#saveWebsite").onclick=async()=>{const f=$("#websiteForm"),d=Object.fromEntries(new FormData(f));d.website_published=f.elements.website_published.checked;shopSettings=(await api("settings",{method:"PATCH",body:JSON.stringify(d)})).item;toast("Website saved")};$("#previewWebsite")?.addEventListener("click",()=>$("#websitePreview").scrollIntoView({behavior:"smooth",block:"start"}));$$("[data-preview]").forEach(b=>b.onclick=()=>{$$("[data-preview]").forEach(x=>x.classList.remove("active"));b.classList.add("active");$("#websitePreview").classList.toggle("mobile",b.dataset.preview==="mobile")});
+bindForm("#deliveryForm",async e=>{e.preventDefault();const f=e.currentTarget;await api("deliveries",{method:"POST",body:JSON.stringify(Object.fromEntries(new FormData(f)))});f.reset();$("#deliveryDialog").close();toast("Delivery stop saved");loadDeliveries()});
+bindForm("#marketplaceForm",async e=>{e.preventDefault();const f=e.currentTarget;const body=Object.fromEntries(new FormData(f));body.allows_shipping=Boolean(f.querySelector('[name="allows_shipping"]')?.checked);body.allows_local_pickup=Boolean(f.querySelector('[name="allows_local_pickup"]')?.checked);await api("marketplace",{method:"POST",body:JSON.stringify(body)});f.reset();$("#marketplaceDialog").close();loadMarketplace()});
+bindForm("#storeForm",async e=>{e.preventDefault();const f=e.currentTarget;await api("stores",{method:"POST",body:JSON.stringify(Object.fromEntries(new FormData(f)))});f.reset();$("#storeDialog").close();loadStores()});
+$("#websiteForm").oninput=renderWebsite;$("#saveWebsite").onclick=async()=>{const f=$("#websiteForm"),d=Object.fromEntries(new FormData(f));shopSettings=(await api("settings",{method:"PATCH",body:JSON.stringify(d)})).item;toast("Website details saved as a draft")};$("#previewWebsite")?.addEventListener("click",()=>$("#websitePreview").scrollIntoView({behavior:"smooth",block:"start"}));$$("[data-preview]").forEach(b=>b.onclick=()=>{$$("[data-preview]").forEach(x=>x.classList.remove("active"));b.classList.add("active");$("#websitePreview").classList.toggle("mobile",b.dataset.preview==="mobile")});
 $("#saveSettings").onclick=async()=>{const f=$("#settingsForm"),d=Object.fromEntries(new FormData(f));try{shopSettings=(await api("settings",{method:"PATCH",body:JSON.stringify(d)})).item;applyBranding(shopSettings);toast("Shop settings saved");$("#mapsStatus").textContent="Saved. This address will be used as the starting point for delivery routes."}catch(e){toast(e.message);$("#mapsStatus").textContent=e.message}};
 $("#calculateRoute").onclick=()=>calculateRoute(true);
 $("#orderDeliveryAddress").addEventListener("blur",()=>{if($("#orderFulfillment").value==="DELIVERY")calculateRoute(false)});
@@ -460,6 +1059,20 @@ async function duplicateProduct(id){const source=products.find(x=>x.id===id);if(
 async function toggleProductPublish(id){const product=products.find(x=>x.id===id);if(!product)return;await api("products",{method:"PATCH",body:JSON.stringify({id,available_online:!product.available_online,active:true})});await loadProducts();renderWebsite();toast(product.available_online?"Removed from website":"Published to website")}
 function setAssistantPersona(name){assistantPersona=name;$$('[data-persona]').forEach(b=>b.classList.toggle('active',b.dataset.persona===name));const input=$("#assistantPrompt");if(input&&!input.value.trim())input.placeholder=name==="Lily"?"Lily, what should we tackle next?":"Rose, what needs your business eye today?"}
 function speakAssistant(text,persona,force=false){const who=persona==="Rose"?"Rose":"Lily";if(window.FlorisynAssistantVoice?.speak)return window.FlorisynAssistantVoice.speak(who,text,{force,respectToggle:!force});const safe=aiGeneratedText(text);if((!force&&!$("#assistantSpeak")?.checked)||!window.speechSynthesis||!safe)return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(safe);u.rate=who==="Rose"?0.92:0.94;u.pitch=who==="Rose"?0.98:1.06;u.volume=0.93;u.lang="en-US";window.speechSynthesis.speak(u)}
+async function maybeEnrichRoseBriefing(d){
+  try{
+    const el=$("#roseBriefingText");
+    if(!el||typeof smartAi!=="function")return;
+    const kpis={ordersDue:d.ordersDueToday||0,activeDeliveries:d.deliveries||0,lowStock:d.lowStock||0,unpaid:Number(d.unpaidTotal||0),weekSales:Number(d.weekSales||0),profit:Number(d.profit||0)};
+    const sig=`${new Date().toDateString()}|${kpis.ordersDue}|${kpis.activeDeliveries}|${kpis.lowStock}|${Math.round(kpis.unpaid)}`;
+    const cacheKey="bloom_rose_brief_v1";
+    try{const c=JSON.parse(sessionStorage.getItem(cacheKey)||"null");if(c&&c.sig===sig&&c.text){el.textContent=c.text;el.dataset.spoken=c.text;return;}}catch{}
+    const prompt=`Give me a warm two-sentence morning briefing for my flower shop from today's numbers, then one prioritized recommendation. Today: ${kpis.ordersDue} orders due, ${kpis.activeDeliveries} active deliveries, ${kpis.lowStock} low-stock items, ${money(kpis.unpaid)} unpaid, ${money(kpis.weekSales)} in sales this week. Be specific and encouraging, no fluff.`;
+    const res=await smartAi({mode:"chat",persona:"Rose",prompt,context:{kpis}});
+    const text=aiGeneratedText(res?.answer??res?.message??res?.result??res);
+    if(text&&text.trim().length>20){el.textContent=text.trim();el.dataset.spoken=text.trim();try{sessionStorage.setItem(cacheKey,JSON.stringify({sig,text:text.trim()}));}catch{}}
+  }catch{/* keep the instant static briefing */}
+}
 async function runAssistant(rawPrompt,persona=assistantPersona){let prompt=(rawPrompt??$("#assistantPrompt")?.value??"").trim();if(!prompt)return toast("Ask Lily or Rose a question first");setAssistantPersona(persona);if(!new RegExp(`^${persona}\\b`,"i").test(prompt))prompt=`${persona}, ${prompt}`;const out=$("#assistantAnswer");if(!out)return toast("Assistant panel is not available on this page");out.textContent=persona==="Rose"?"Rose is looking over the numbers…":"Lily is thinking about the flowers…";try{const context=await loadAiContext();const d=await smartAi({mode:"chat",prompt,persona,model:selectedAiModel(),context});const answer=aiGeneratedText(d?.answer??d?.message??d?.result??d);out.textContent=answer||"Lily returned an empty response. Please try again.";speakAssistant(answer,d.persona||persona)}catch(e){out.textContent=persona==="Rose"?`Rose is stepping in with a practical note: ${e.message}`:`Lily is having a little hiccup, but the shop is still running smoothly. ${e.message}`}}
 $$('[data-persona]').forEach(b=>b.onclick=()=>{setAssistantPersona(b.dataset.persona);$("#assistantPrompt")?.focus()});
 $$('[data-assistant-prompt]').forEach(b=>b.onclick=()=>{const prompt=b.dataset.assistantPrompt;assistantPersona=/^Rose\b/i.test(prompt)?"Rose":"Lily";setAssistantPersona(assistantPersona);const input=$("#assistantPrompt");if(input){input.value=prompt;input.focus()}});
@@ -503,16 +1116,15 @@ if(t=e.target.closest("[data-invoice-view]")){if(!shopSettings)shopSettings=(awa
 if(t=e.target.closest("[data-invoice-email]")){return emailInvoice(orders.find(x=>x.id===t.dataset.invoiceEmail))}
 if(t=e.target.closest("[data-advance-order]")){return advanceOrderState(t.dataset.advanceOrder,t.dataset.currentStatus)}
 if(t=e.target.closest("[data-edit-order]")){return openOrderEditor(orders.find(x=>x.id===t.dataset.editOrder))}
-if(t=e.target.closest("[data-delete-order]")){const order=orders.find(x=>x.id===t.dataset.deleteOrder);if(!order)return;if(!confirm(`Delete order ${order.order_number||""}? This cannot be undone.`))return;try{await api("orders",{method:"DELETE",body:JSON.stringify({id:order.id})});toast("Order deleted");await Promise.all([loadOrders(),loadDashboard(),loadInvoices()])}catch(err){toast(err.message)}return}
+if(t=e.target.closest("[data-delete-order]")){const order=orders.find(x=>x.id===t.dataset.deleteOrder);if(!order)return;if(!confirm(`Delete order ${order.order_number||""}? This cannot be undone.`))return;try{await api("orders",{method:"DELETE",body:JSON.stringify({id:order.id})});toast("Order deleted");await Promise.all([loadOrders(),loadDashboard(),loadInvoices()])}catch(err){explainOrderDeleteFailure(err,order.order_number)}return}
 if(t=e.target.closest("[data-receipt]")){if(!shopSettings)shopSettings=(await api("settings")).item;return openReceipt(orders.find(x=>x.id===t.dataset.receipt))}
 if(t=e.target.closest("[data-pay],[data-manage-payment]")){const id=t.dataset.pay||t.dataset.managePayment;const order=orders.find(o=>String(o.id)===String(id));if(!order){toast("Order not found — refresh orders and try again.");return}openPaymentCenterForOrder(order);return}
-if(t=e.target.closest("[data-unpay]")){await api("orders",{method:"PATCH",body:JSON.stringify({id:t.dataset.unpay,action:"MARK_UNPAID"})});loadOrders();loadDashboard();return}
-if(t=e.target.closest("[data-switch-shop]")){await api("stores",{method:"PATCH",body:JSON.stringify({shop_id:t.dataset.switchShop})});location.reload()}
+if(t=e.target.closest("[data-switch-shop]")){t.disabled=true;try{await api("stores",{method:"PATCH",body:JSON.stringify({shop_id:t.dataset.switchShop})});location.reload()}catch(err){toast(err.message||"Could not switch shops.")}finally{t.disabled=false}}
 if(t=e.target.closest("[data-advance-delivery]")){const a=["PENDING","ROUTED","OUT_FOR_DELIVERY","DELIVERED"],n=a[Math.min(a.indexOf(t.dataset.status)+1,3)];if(n==="DELIVERED"){const d=deliveries.find(x=>x.id===t.dataset.advanceDelivery);if(d)return openDeliveryProof(d);return toast("Capture delivery proof before marking delivered.")}await api("deliveries",{method:"PATCH",body:JSON.stringify({id:t.dataset.advanceDelivery,status:n})});loadDeliveries()}
 if(t=e.target.closest("[data-capture-proof]")){const d=deliveries.find(x=>x.id===t.dataset.captureProof);if(d)return openDeliveryProof(d);return toast("Delivery not found")}
 if(t=e.target.closest("[data-view-proof]")){const d=deliveries.find(x=>x.id===t.dataset.viewProof);if(d)return openDeliveryProof(d,true);return toast("Delivery not found")}
 if(t=e.target.closest("[data-staff-clock]")){const pin=prompt("Enter your employee PIN");if(pin===null)return;if(!/^\d{4,8}$/.test(pin))return toast("PIN must be 4–8 digits");await api("staff",{method:"POST",body:JSON.stringify({action:t.dataset.clockAction,staff_id:t.dataset.staffClock,pin})});toast(t.dataset.clockAction==="CLOCK_IN"?"Employee clocked in":"Employee clocked out");await loadStaff();return}
-if(t=e.target.closest("[data-edit-staff]")){const summary=staffMembers.find(x=>x.id===t.dataset.editStaff);if(!summary)return toast("Employee could not be found");let pin="";if(summary.pin_set){pin=prompt("Enter this employee’s PIN to open their private file");if(pin===null)return;if(!/^\d{4,8}$/.test(pin))return toast("PIN must be 4–8 digits")}const result=await api("staff",{method:"POST",body:JSON.stringify({action:"OPEN_FILE",staff_id:summary.id,pin})});if(result.setup_required)toast("No PIN is set yet. Create one before closing this employee file.");openStaffEditor(result.item);return}
+if(t=e.target.closest("[data-edit-staff]")){const summary=staffMembers.find(x=>x.id===t.dataset.editStaff);if(!summary)return toast("Employee could not be found");let pin="";if(summary.pin_set){pin=prompt("Enter this employee’s PIN to open their private file");if(pin===null)return;if(!/^\d{4,8}$/.test(pin))return toast("PIN must be 4–8 digits")}const result=await api("staff",{method:"POST",body:JSON.stringify({action:"OPEN_FILE",staff_id:summary.id,pin})});if(result.setup_required)toast("No PIN is set yet. Create one before closing this employee file.");staffTimeEntries=result.time_entries||[];lastPrivateFilePin=pin||"";openStaffEditor(result.item);return}
 if(t=e.target.closest("[data-delete-staff]")){if(confirm("Delete this employee and their time history?")){await api("staff",{method:"DELETE",body:JSON.stringify({id:t.dataset.deleteStaff})});await loadStaff();toast("Employee deleted")}return}
 if(t=e.target.closest("[data-market-request]"))toast("Purchase request created. Live supplier checkout comes with Stripe Connect.");
 });
@@ -542,8 +1154,8 @@ async function sendOrderPaymentLink(mode){if(!pendingPaymentOrder?.id)return toa
 $("#paymentLinkCopy")?.addEventListener("click",()=>sendOrderPaymentLink("copy"));
 $("#paymentLinkEmail")?.addEventListener("click",()=>sendOrderPaymentLink("email"));
 $("#paymentLinkSms")?.addEventListener("click",()=>sendOrderPaymentLink("sms"));
-$("#checkout").onclick=async()=>{const button=$("#checkout"),status=$("#paymentStatus"),amount=Number($("#cardPaymentAmount")?.value||$("#paymentAmount")?.value||0),description=$("#paymentDescription").value.trim();if(amount<0.50){status.textContent="Enter a payment amount of at least $0.50.";$("#cardPaymentAmount")?.focus();return}try{pendingPaymentOrder=pendingPaymentOrder||JSON.parse(localStorage.getItem("bloom_pending_payment_order")||"null")}catch{}if(!pendingPaymentOrder?.id){status.textContent="Choose an order first.";toast("Link an order before Stripe checkout.");return}if(paymentCenterProcessing)return;setPaymentProcessing(true);button.textContent="Opening Stripe…";status.textContent="Creating a secure checkout session…";$("#paymentAmount").value=amount.toFixed(2);try{const d=await api("create-checkout",{method:"POST",body:JSON.stringify({amount,description,order_id:pendingPaymentOrder.id,order_number:pendingPaymentOrder.order_number||""})});if(!d.url)throw new Error("Stripe did not return a checkout link.");status.textContent=`Stripe ready — charging ${money(d.amount||amount)}.`;location.assign(d.url)}catch(err){status.textContent=err.message;toast(err.message);setPaymentProcessing(false);button.textContent="Take Card Payment"}};
-async function finishStripeReturn(){const q=new URLSearchParams(location.search),result=q.get("payment"),sessionId=q.get("session_id");if(!result)return;const splitStripeReturn=sessionStorage.getItem("bloom_split_stripe_return");if(result==="cancelled"){if(splitStripeReturn){sessionStorage.removeItem("bloom_split_stripe_return");loadSplitSessionFromStorage();toast("Card payment cancelled — continue split payment");showPage("paymentsPage");renderSplitWorkflowStep(pendingPaymentOrder,"Stripe cancelled. Remaining balance shown above — add the next tender.");history.replaceState({},"",location.pathname);return}toast("Stripe payment was cancelled. The order is still unpaid.");$("#paymentStatus").textContent="Stripe checkout was cancelled. The order balance is unchanged.";showPage("paymentsPage");setPaymentCenterMode("card");history.replaceState({},"",location.pathname);return}if(result==="success"&&sessionId){try{const d=await api(`verify-checkout?session_id=${encodeURIComponent(sessionId)}`);if(d.paid||d.payment_status==="paid"){const order=d.order||(d.order_id?orders.find(o=>o.id===d.order_id):null)||pendingPaymentOrder;if(order)setPendingPaymentOrder(order);toast(`Payment received${d.amount?` — ${money(d.amount)}`:""}`);if(splitStripeReturn){sessionStorage.removeItem("bloom_split_stripe_return");await handleSplitAfterStripe(order||pendingPaymentOrder);showPage("paymentsPage");history.replaceState({},"",location.pathname);return}await Promise.all([loadOrders(),loadDashboard(),loadInvoices()]);showPaymentSuccessPanel({detail:`Card payment ${money(d.amount||0)} recorded.<br>Remaining balance: ${money(order?.balance_due||0)}`,order:order||pendingPaymentOrder});showPage("paymentsPage")}else{$("#paymentStatus").textContent="Stripe returned, but the payment is not marked paid yet.";toast("Payment not marked paid yet")}}catch(err){toast(`Payment verification needs attention: ${err.message}`);$("#paymentStatus").textContent=err.message}finally{history.replaceState({},"",location.pathname)}}}
+if($("#checkout"))$("#checkout").onclick=async()=>{const button=$("#checkout"),status=$("#paymentStatus"),amount=Number($("#cardPaymentAmount")?.value||$("#paymentAmount")?.value||0),description=$("#paymentDescription")?.value.trim()||"";if(amount<0.50){if(status)status.textContent="Enter a payment amount of at least $0.50.";$("#cardPaymentAmount")?.focus();return}try{pendingPaymentOrder=pendingPaymentOrder||JSON.parse(localStorage.getItem("bloom_pending_payment_order")||"null")}catch{}if(!pendingPaymentOrder?.id){if(status)status.textContent="Choose an order first.";toast("Link an order before Stripe checkout.");return}if(paymentCenterProcessing)return;setPaymentProcessing(true);button.textContent="Opening Stripe…";if(status)status.textContent="Creating a secure checkout session…";$("#paymentAmount").value=amount.toFixed(2);try{const d=await api("create-checkout",{method:"POST",body:JSON.stringify({amount,description,order_id:pendingPaymentOrder.id,order_number:pendingPaymentOrder.order_number||""})});if(!d.url)throw new Error("Stripe did not return a checkout link.");if(status)status.textContent=`Stripe ready — charging ${money(d.amount||amount)}.`;location.assign(d.url)}catch(err){if(status)status.textContent=err.message;toast(err.message);setPaymentProcessing(false);button.textContent="Take Card Payment"}};
+async function finishStripeReturn(){const q=new URLSearchParams(location.search),result=q.get("payment"),sessionId=q.get("session_id");if(!result)return;const splitStripeReturn=sessionStorage.getItem("bloom_split_stripe_return");if(result==="cancelled"){if(splitStripeReturn){sessionStorage.removeItem("bloom_split_stripe_return");loadSplitSessionFromStorage();toast("Card payment cancelled — continue split payment");showPage("paymentsPage");renderSplitWorkflowStep(pendingPaymentOrder,"Stripe cancelled. Remaining balance shown above — add the next tender.");history.replaceState({},"",location.pathname);return}toast("Stripe payment was cancelled. The order is still unpaid.");if($("#paymentStatus"))$("#paymentStatus").textContent="Stripe checkout was cancelled. The order balance is unchanged.";showPage("paymentsPage");setPaymentCenterMode("card");history.replaceState({},"",location.pathname);return}if(result==="success"&&sessionId){try{const d=await api(`verify-checkout?session_id=${encodeURIComponent(sessionId)}`);if(d.paid||d.payment_status==="paid"){const order=d.order||(d.order_id?orders.find(o=>o.id===d.order_id):null)||pendingPaymentOrder;if(order)setPendingPaymentOrder(order);toast(`Payment received${d.amount?` — ${money(d.amount)}`:""}`);if(splitStripeReturn){sessionStorage.removeItem("bloom_split_stripe_return");await handleSplitAfterStripe(order||pendingPaymentOrder);showPage("paymentsPage");history.replaceState({},"",location.pathname);return}await Promise.all([loadOrders(),loadDashboard(),loadInvoices()]);showPaymentSuccessPanel({detail:`Card payment ${money(d.amount||0)} recorded.<br>Remaining balance: ${money(order?.balance_due||0)}`,order:order||pendingPaymentOrder});showPage("paymentsPage")}else{if($("#paymentStatus"))$("#paymentStatus").textContent="Stripe returned, but the payment is not marked paid yet.";toast("Payment not marked paid yet")}}catch(err){toast(`Payment verification needs attention: ${err.message}`);if($("#paymentStatus"))$("#paymentStatus").textContent=err.message}finally{history.replaceState({},"",location.pathname)}}}
 $("#settingsForm")?.addEventListener("input",previewBrandingForm);
 $("#logoUpload")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>1500000){toast("Please choose a logo smaller than 1.5 MB.");e.target.value="";return}const reader=new FileReader();reader.onload=()=>{$("#logoUrl").value=reader.result;previewBrandingForm()};reader.readAsDataURL(file)});
 $("#removeLogo")?.addEventListener("click",()=>{$("#logoUrl").value="";$("#logoUpload").value="";previewBrandingForm()});
@@ -553,13 +1165,13 @@ $("#removeWebsiteLogo")?.addEventListener("click",()=>{$("#websiteLogoUrl").valu
 $("#dashboardImageUpload")?.addEventListener("change",e=>readBrandImage(e.target.files?.[0],"#dashboardImageUrl",1800000));
 $("#removeDashboardImage")?.addEventListener("click",()=>{$("#dashboardImageUrl").value="";$("#dashboardImageUpload").value="";previewBrandingForm()});
 $("#speakRoseBriefing")?.addEventListener("click",()=>{const text=$("#roseBriefingText")?.dataset.spoken||$("#roseBriefingText")?.textContent||"";if(!window.FlorisynAssistantVoice?.speak&&!window.speechSynthesis)return toast("Voice playback is not supported in this browser.");speakAssistant(text,"Rose",true)});
-$("#moreMenu").onclick=()=>{const p=prompt("Open customers, inventory, expenses, reports, staff, delivery, wholesale or stores","customers"),m={customers:"customersPage",inventory:"inventoryPage",expenses:"expensesPage",reports:"reportsPage",staff:"staffPage",delivery:"deliveriesPage",wholesale:"marketplacePage",stores:"storesPage",settings:"settingsPage"};if(m[p?.toLowerCase()])showPage(m[p.toLowerCase()])};
+$("#moreMenu")?.addEventListener("click",()=>{const hint=communityBetaEnabled?"Open customers, inventory, expenses, reports, staff, delivery, wholesale, community or stores":"Open customers, inventory, expenses, reports, staff, delivery, wholesale or stores";const p=prompt(hint,"customers"),m={customers:"customersPage",inventory:"inventoryPage",expenses:"expensesPage",reports:"reportsPage",staff:"staffPage",delivery:"deliveriesPage",wholesale:"marketplacePage",stores:"storesPage",settings:"settingsPage"};if(communityBetaEnabled)m.community="communityPage";if(m[p?.toLowerCase()])showPage(m[p.toLowerCase()])});
 $("#refreshOrderBoard")?.addEventListener("click",()=>loadOrders());
 $("#clearTelemetry")?.addEventListener("click",()=>{const log=$("#telemetryLog");if(log)log.innerHTML="<p><time>READY</time><span>Activity log cleared.</span></p>"});
 $("#sendBetaFeedback")?.addEventListener("click",async()=>{const msg=$("#betaFeedbackMessage")?.value?.trim(),status=$("#betaFeedbackStatus");if(!msg)return toast("Add feedback first");if(status)status.textContent="Sending…";try{await api("beta-feedback",{method:"POST",body:JSON.stringify({message:msg,category:"florist_beta",path:location.pathname})});if(status)status.textContent="Thank you — your feedback was sent to Florisyn HQ.";$("#betaFeedbackMessage").value="";toast("Beta feedback sent")}catch(e){if(status)status.textContent=e.message;toast(e.message)}});
 loadPosTiles();initShiftButton();removeDuplicateControls();
 function enableSmartTyping(){document.documentElement.setAttribute("spellcheck","true");$$('input:not([type="password"]):not([type="email"]):not([type="number"]):not([type="date"]),textarea').forEach(el=>{el.spellcheck=true;if(!el.getAttribute("autocomplete"))el.setAttribute("autocomplete","on");el.setAttribute("autocapitalize","sentences")});const map={name:"name",phone:"tel",email:"email",address:"street-address",customer_name:"name",customer_phone:"tel",recipient_name:"name",recipient_phone:"tel"};$$('input[name],textarea[name]').forEach(el=>{if(map[el.name])el.setAttribute("autocomplete",map[el.name])})}
-enableSmartTyping();loadPosCart();try{pendingPaymentOrder=JSON.parse(localStorage.getItem("bloom_pending_payment_order")||"null")}catch{}renderPaymentCenterShell();if(session?.accessToken){showApp();Promise.all([loadDashboard(),loadInventory(),loadOrders(),loadProducts()]).then(finishStripeReturn)}else showAuth();
+enableSmartTyping();loadPosCart();try{pendingPaymentOrder=JSON.parse(localStorage.getItem("bloom_pending_payment_order")||"null")}catch{}renderPaymentCenterShell();bootFloristApp();
 
 
 
@@ -604,28 +1216,199 @@ async function smartAi(payload){
     }catch(localError){throw new Error(`${cloudError.message} Local fallback: ${localError.message}`)}
   }
 }
-let shotImage=null,shotRotation=0,shotDraftTimer=null;
+let shotImage=null,shotRotation=0,shotDraftTimer=null,shotCutout=null,shotUseCutout=true,shotPresetBackground=null,shotRecipe=null,shotRejectedCutout=null,shotSavedProductId=null,shotSavedListingId=null;
+/* Studio backgrounds for the four style options — drawn behind the cut-out arrangement. */
+const SHOT_PRESET_BACKGROUNDS={
+  clean:{type:"solid",color:"#ffffff"},
+  luxury:{type:"gradient",from:"#2a2338",to:"#4c3a56"},
+  warm:{type:"gradient",from:"#f7ead8",to:"#ecd7bb"},
+  true:{type:"solid",color:"#f6f3f1"}
+};
+/* Named backgrounds selectable from the Background dropdown. Anything not
+   listed here (the plain hex values and "transparent") falls back to being
+   used directly as a CSS color, so existing selections keep working. */
+const SHOT_BACKGROUND_STYLES={
+  "luxury-charcoal":{type:"gradient",from:"#2a2338",to:"#4c3a56"},
+  "luxury-champagne":{type:"gradient",from:"#f4e6c8",to:"#caa15c"},
+  "luxury-emerald":{type:"gradient",from:"#0f2b22",to:"#1f4a3a"},
+  "luxury-marble":{type:"gradient",from:"#f5f2ee",to:"#ddd4c8"},
+  "luxury-noir":{type:"gradient",from:"#0a0a0d",to:"#232128"}
+};
 const shotState=()=>({brightness:Number($("#shotBrightness")?.value||100),contrast:Number($("#shotContrast")?.value||100),saturation:Number($("#shotSaturation")?.value||100),warmth:Number($("#shotWarmth")?.value||0),background:$("#shotBackground")?.value||"#ffffff",size:$("#shotSize")?.value||"1200x1200",watermark:$("#shotWatermark")?.value||""});
-function loadBloomShot(){const draft=localStorage.getItem("bloomShotDraft");if(draft){try{const d=JSON.parse(draft);for(const [id,value] of Object.entries(d.fields||{})){const el=document.getElementById(id);if(el)el.value=value}if($("#shotStatus"))$("#shotStatus").textContent="Your last editable draft is available."}catch{}}drawBloomShot()}
+function loadBloomShot(){const draft=localStorage.getItem("bloomShotDraft");if(draft){try{const d=JSON.parse(draft);for(const [id,value] of Object.entries(d.fields||{})){const el=document.getElementById(id);if(el)el.value=value}
+  /* Restore the uploaded photo itself, not just the text fields — a refresh
+     used to silently wipe the whole in-progress edit (upload, background
+     choice, sliders, rotation) while text fields survived, with no warning.
+     Re-run the same free client-side background removal a fresh upload gets
+     instead of also persisting the cutout separately. */
+  if(d.image){
+    shotRotation=Number(d.rotation)||0;
+    const img=new Image();
+    img.onload=()=>{shotImage=img;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;shotSavedListingId=null;drawBloomShot();prepareShotCutout();if($("#shotStatus"))$("#shotStatus").textContent="Your last photo and edits were restored on this device."};
+    img.onerror=()=>{if($("#shotStatus"))$("#shotStatus").textContent="Your last editable draft is available.";};
+    img.src=d.image;
+  }else if($("#shotStatus"))$("#shotStatus").textContent="Your last editable draft is available.";
+  }catch{}}drawBloomShot()}
 function shotCanvasSize(){return String($("#shotSize")?.value||"1200x1200").split("x").map(Number)}
-function drawBloomShot(){const canvas=$("#bloomshotCanvas");if(!canvas)return;const [w,h]=shotCanvasSize(),ctx=canvas.getContext("2d"),s=shotState();canvas.width=w;canvas.height=h;ctx.clearRect(0,0,w,h);if(s.background!=="transparent"){ctx.fillStyle=s.background;ctx.fillRect(0,0,w,h)}if(!shotImage){$("#bloomshotEmpty")?.removeAttribute("hidden");return}$("#bloomshotEmpty")?.setAttribute("hidden","");ctx.save();ctx.filter=`brightness(${s.brightness}%) contrast(${s.contrast}%) saturate(${s.saturation}%) sepia(${s.warmth}%)`;ctx.translate(w/2,h/2);ctx.rotate(shotRotation*Math.PI/180);const rotated=shotRotation%180!==0,iw=rotated?shotImage.height:shotImage.width,ih=rotated?shotImage.width:shotImage.height,scale=Math.min(w/iw,h/ih),dw=shotImage.width*scale,dh=shotImage.height*scale;ctx.drawImage(shotImage,-dw/2,-dh/2,dw,dh);ctx.restore();if(s.watermark){ctx.save();ctx.font=`700 ${Math.max(22,Math.round(w*.026))}px Georgia`;ctx.textAlign="right";ctx.fillStyle="rgba(255,255,255,.88)";ctx.shadowColor="rgba(0,0,0,.35)";ctx.shadowBlur=6;ctx.fillText(s.watermark,w-w*.035,h-h*.035);ctx.restore()}}
-function setShotPreset(name){const presets={clean:[108,106,112,0],luxury:[102,115,105,9],warm:[105,103,108,18],true:[100,100,100,0]},v=presets[name]||presets.true;["shotBrightness","shotContrast","shotSaturation","shotWarmth"].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=v[i]});syncShotOutputs();drawBloomShot()}
+function drawBloomShot(){const canvas=$("#bloomshotCanvas");if(!canvas)return;const [w,h]=shotCanvasSize(),ctx=canvas.getContext("2d"),s=shotState();canvas.width=w;canvas.height=h;ctx.clearRect(0,0,w,h);
+  /* Background layer first, then the cut-out arrangement on top so the new
+     background shows through the removed original background, not just outside
+     the photo rectangle. */
+  const fillBackground=(style)=>{if(style.type==="gradient"){const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,style.from);g.addColorStop(1,style.to);ctx.fillStyle=g}else ctx.fillStyle=style.color;ctx.fillRect(0,0,w,h)};
+  if(shotPresetBackground)fillBackground(shotPresetBackground);
+  else if(s.background!=="transparent"){const named=SHOT_BACKGROUND_STYLES[s.background];fillBackground(named||{type:"solid",color:s.background})}
+  if(!shotImage){$("#bloomshotEmpty")?.removeAttribute("hidden");return}$("#bloomshotEmpty")?.setAttribute("hidden","");const subject=(shotUseCutout&&shotCutout)?shotCutout:shotImage;ctx.save();ctx.filter=`brightness(${s.brightness}%) contrast(${s.contrast}%) saturate(${s.saturation}%) sepia(${s.warmth}%)`;ctx.translate(w/2,h/2);ctx.rotate(shotRotation*Math.PI/180);const rotated=shotRotation%180!==0,iw=rotated?subject.height:subject.width,ih=rotated?subject.width:subject.height,scale=Math.min(w/iw,h/ih),dw=subject.width*scale,dh=subject.height*scale;ctx.drawImage(subject,-dw/2,-dh/2,dw,dh);ctx.restore();if(s.watermark){ctx.save();ctx.font=`700 ${Math.max(22,Math.round(w*.026))}px Georgia`;ctx.textAlign="right";ctx.fillStyle="rgba(255,255,255,.88)";ctx.shadowColor="rgba(0,0,0,.35)";ctx.shadowBlur=6;ctx.fillText(s.watermark,w-w*.035,h-h*.035);ctx.restore()}}
+function setShotPreset(name){const presets={clean:[108,106,112,0],luxury:[102,115,105,9],warm:[105,103,108,18],true:[100,100,100,0]},v=presets[name]||presets.true;["shotBrightness","shotContrast","shotSaturation","shotWarmth"].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=v[i]});shotPresetBackground=SHOT_PRESET_BACKGROUNDS[name]||null;if(shotCutout)shotUseCutout=true;syncShotOutputs();drawBloomShot()}
+function prepareShotCutout(){
+  if(!shotImage||!window.FlorisynPhotoStudio?.removeBackground)return;
+  shotRejectedCutout=null;
+  const row=$("#bloomshotCutoutRow"),useBtn=$("#bloomshotUseAnyway"),cutoutStatus=$("#bloomshotCutoutStatus");
+  if(row)row.hidden=true;
+  if(useBtn)useBtn.hidden=true;
+  if($("#shotStatus"))$("#shotStatus").textContent="Removing the original background around the arrangement…";
+  /* Defer the pixel work one tick so the original photo paints immediately. */
+  setTimeout(async()=>{
+    const failMessage=window.FlorisynPhotoStudio?.FAILURE_MESSAGE||"Background could not be fully removed. Try a cleaner product photo.";
+    const fallbackLabel=window.FlorisynPhotoStudio?.FALLBACK_LABEL||"Background removal was not applied. Brightness, contrast, and color tools still work on the original photo.";
+    const applyFailure=(rejectedCanvas)=>{
+      shotCutout=null;shotUseCutout=false;
+      shotRejectedCutout=rejectedCanvas||null;
+      if($("#shotStatus"))$("#shotStatus").textContent=fallbackLabel;
+      if(row)row.hidden=false;
+      if(cutoutStatus)cutoutStatus.textContent=failMessage;
+      if(useBtn)useBtn.hidden=!shotRejectedCutout;
+      toast(failMessage);
+      drawBloomShot();
+    };
+    const applySuccess=(canvas,methodLabel)=>{
+      shotCutout=canvas;shotUseCutout=true;shotRejectedCutout=null;
+      if($("#shotStatus"))$("#shotStatus").textContent=methodLabel||"Original background removed. Pick a style or background — the arrangement is placed on it.";
+      if(row)row.hidden=true;
+      drawBloomShot();
+    };
+    try{
+      let result=window.FlorisynPhotoStudio.removeBackground(shotImage);
+      if(result.ok){applySuccess(result.canvas);return}
+      let bestRejected=result.rejectedCanvas||null;
+      /* Fast flood path failed — optionally try lazy-loaded local ONNX (still quality-gated). */
+      if($("#shotStatus"))$("#shotStatus").textContent="Trying higher-quality local removal on this device…";
+      try{
+        const hq=await import("/photo-studio-hq.mjs");
+        if(hq?.removeBackgroundHq){
+          const hqResult=await hq.removeBackgroundHq(shotImage);
+          if(hqResult.ok){applySuccess(hqResult.canvas,"Background removed with local high-quality processing. Pick a style or background.");return}
+          if(hqResult.rejectedCanvas)bestRejected=hqResult.rejectedCanvas;
+        }
+      }catch{}
+      applyFailure(bestRejected);
+    }catch{
+      applyFailure();
+    }
+  },30);
+}
+$("#bloomshotUseAnyway")?.addEventListener("click",()=>{
+  if(!shotRejectedCutout)return;
+  shotCutout=shotRejectedCutout;shotUseCutout=true;
+  if($("#shotStatus"))$("#shotStatus").textContent="Using this cut-out as-is — check the edges and touch up in a photo app if needed.";
+  const row=$("#bloomshotCutoutRow");if(row)row.hidden=true;
+  drawBloomShot();
+  toast("Using the cut-out background removal");
+});
 function syncShotOutputs(){$$(".bloomshot-controls label").forEach(l=>{const i=l.querySelector("input"),o=l.querySelector("output");if(i&&o)o.textContent=i.id==="shotWarmth"?i.value:`${i.value}%`})}
-function shotFields(){return Object.fromEntries(["shotProductName","shotOccasion","shotNotes","shotPrice","shotTone","shotDescription","shotCaption","shotSeo","shotAlt","shotWatermark"].map(id=>[id,document.getElementById(id)?.value||""]))}
-function saveShotDraft(silent=false){localStorage.setItem("bloomShotDraft",JSON.stringify({fields:shotFields(),savedAt:new Date().toISOString()}));if(!silent){$("#shotStatus").textContent="Draft saved on this device. Nothing was published.";toast("BloomShot draft saved")}}
-$("#bloomshotFile")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>12*1024*1024)return toast("Please choose an image under 12 MB");const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{shotImage=img;shotRotation=0;drawBloomShot();toast("Photo ready to edit")};img.src=reader.result};reader.readAsDataURL(file)});
-$$('[data-shot-preset]').forEach(b=>b.addEventListener("click",()=>setShotPreset(b.dataset.shotPreset)));
-$$('#shotBrightness,#shotContrast,#shotSaturation,#shotWarmth,#shotBackground,#shotSize,#shotWatermark').forEach(el=>el.addEventListener("input",()=>{syncShotOutputs();drawBloomShot()}));
-$("#shotRotate")?.addEventListener("click",()=>{shotRotation=(shotRotation+90)%360;drawBloomShot()});
-$("#bloomshotRestore")?.addEventListener("click",()=>{shotRotation=0;setShotPreset("true");$("#shotBackground").value="#ffffff";drawBloomShot();toast("Original photo settings restored")});
+function shotFields(){return Object.fromEntries(["shotProductName","shotOccasion","shotNotes","shotPrice","shotTone","shotDescription","shotCaption","shotSeo","shotAlt","shotWatermark","shotBackground","shotSize","shotBrightness","shotContrast","shotSaturation","shotWarmth"].map(id=>[id,document.getElementById(id)?.value||""]))}
+function shotDraftImage(){
+  if(!shotImage)return null;
+  /* Downscale to the same edge cap the background-removal engine already
+     uses (photo-studio.js MAX_WORK_EDGE) — plenty for on-device recovery
+     without risking localStorage's ~5-10MB per-origin quota on a single
+     saved photo. */
+  const maxEdge=1600,scale=Math.min(1,maxEdge/Math.max(shotImage.width,shotImage.height));
+  const tmp=document.createElement("canvas");
+  tmp.width=Math.max(1,Math.round(shotImage.width*scale));
+  tmp.height=Math.max(1,Math.round(shotImage.height*scale));
+  tmp.getContext("2d").drawImage(shotImage,0,0,tmp.width,tmp.height);
+  return tmp.toDataURL("image/jpeg",.85);
+}
+function saveShotDraft(silent=false){
+  const base={fields:shotFields(),rotation:shotRotation,savedAt:new Date().toISOString()};
+  try{
+    localStorage.setItem("bloomShotDraft",JSON.stringify({...base,image:shotDraftImage()}));
+  }catch(e){
+    /* Quota exceeded (large photo) or storage unavailable — never let that
+       take down the rest of the draft save; fields/rotation still matter
+       even if the photo itself couldn't be cached for recovery this time. */
+    try{localStorage.setItem("bloomShotDraft",JSON.stringify(base))}catch{}
+  }
+  if(!silent){$("#shotStatus").textContent="Draft saved on this device. Nothing was published.";toast("BloomShot draft saved")}
+}
+/* Debounced autosave for continuous controls (sliders) so dragging a slider
+   doesn't re-encode and write the photo to localStorage on every tick. */
+function scheduleShotDraftSave(){clearTimeout(shotDraftTimer);shotDraftTimer=setTimeout(()=>saveShotDraft(true),800)}
+$("#bloomshotFile")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>12*1024*1024)return toast("Please choose an image under 12 MB");const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{shotImage=img;shotRotation=0;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;shotSavedListingId=null;const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}drawBloomShot();toast("Photo ready to edit");prepareShotCutout();saveShotDraft(true)};img.src=reader.result};reader.readAsDataURL(file)});
+// Community Step 69 — the reverse of the existing Photo Studio → Community
+// "Post to Community feed" checkbox: pull a real photo (already resolved
+// to a data URL by the caller, e.g. Community's own fetchPostImageDataUrl)
+// back into Photo Studio for further editing. Same reset/draw sequence as
+// the file-upload handler above, so it behaves exactly like choosing that
+// photo from disk.
+function loadShotImageFromDataUrl(dataUrl,{caption}={}){
+  if(!dataUrl)return Promise.resolve(false);
+  return new Promise((resolve)=>{
+    const img=new Image();
+    img.onload=()=>{shotImage=img;shotRotation=0;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;shotSavedListingId=null;const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}drawBloomShot();prepareShotCutout();if(caption&&$("#shotCaption")&&!$("#shotCaption").value.trim())$("#shotCaption").value=caption;saveShotDraft(true);resolve(true)};
+    img.onerror=()=>{toast("Could not load that photo into Photo Studio.");resolve(false)};
+    img.src=dataUrl;
+  });
+}
+window.BloomShotLoadImage=loadShotImageFromDataUrl;
+$("#bloomshotRemovePhoto")?.addEventListener("click",()=>{shotImage=null;shotCutout=null;shotRejectedCutout=null;shotUseCutout=true;shotRotation=0;shotRecipe=null;shotSavedProductId=null;shotSavedListingId=null;const file=$("#bloomshotFile");if(file)file.value="";const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}const cutRow=$("#bloomshotCutoutRow");if(cutRow){cutRow.hidden=true}const cutStatus=$("#bloomshotCutoutStatus");if(cutStatus)cutStatus.textContent="";drawBloomShot();if($("#shotStatus"))$("#shotStatus").textContent="Photo removed. Choose a new arrangement photo to start over.";toast("Photo removed — choose a new one");saveShotDraft(true)});
+$$('[data-shot-preset]').forEach(b=>b.addEventListener("click",()=>{setShotPreset(b.dataset.shotPreset);if(shotImage)scheduleShotDraftSave()}));
+$$('#shotBrightness,#shotContrast,#shotSaturation,#shotWarmth,#shotBackground,#shotSize,#shotWatermark').forEach(el=>el.addEventListener("input",()=>{syncShotOutputs();drawBloomShot();if(shotImage)scheduleShotDraftSave()}));
+$("#shotRotate")?.addEventListener("click",()=>{shotRotation=(shotRotation+90)%360;drawBloomShot();if(shotImage)scheduleShotDraftSave()});
+function shotImageForVision(max=1024){if(!shotImage)return null;const iw=shotImage.width||max,ih=shotImage.height||max,scale=Math.min(1,max/Math.max(iw,ih)),c=document.createElement("canvas");c.width=Math.max(1,Math.round(iw*scale));c.height=Math.max(1,Math.round(ih*scale));c.getContext("2d").drawImage(shotImage,0,0,c.width,c.height);return c.toDataURL("image/jpeg",.85)}
+$("#shotRecipe")?.addEventListener("click",async()=>{if(!shotImage)return toast("Upload an arrangement photo first");const btn=$("#shotRecipe"),out=$("#shotRecipeOut"),orig=btn.textContent;btn.disabled=true;btn.textContent="Lily is studying the photo…";if($("#shotStatus"))$("#shotStatus").textContent="Lily is identifying the flowers in your photo…";try{const image_base64=shotImageForVision();const d=await api("photo-recipe",{method:"POST",body:JSON.stringify({image_base64,occasion:$("#shotOccasion")?.value||"",notes:$("#shotNotes")?.value||""})});if(!d.ok){shotRecipe=null;if(out){out.hidden=false;out.innerHTML=`<p class="subtle">${esc(d.message||"Lily couldn't read this photo. Try a clearer, closer shot of the arrangement.")}</p>`}if($("#shotStatus"))$("#shotStatus").textContent=d.message||"Lily couldn't identify the flowers.";return}shotRecipe=(d.recipe||[]).map(r=>({ingredient_name:r.name,quantity:r.qty,unit:"stem",kind:r.kind}));const rows=(d.recipe||[]).map(r=>`<li><b>${Number(r.qty||0)}</b> ${esc(r.name)}${r.kind?` <em>${esc(r.kind)}</em>`:""}</li>`).join("");if(out){out.hidden=false;out.innerHTML=`<h3>Lily's recipe <small>${Number(d.stems||0)} stems</small></h3><ul class="shot-recipe-list">${rows}</ul>${d.design_notes?`<p class="subtle">${esc(d.design_notes)}</p>`:""}<p class="subtle">Draft — edit the stems as needed. Saved into the product recipe when you click "Add to Products".</p>`}if(!$("#shotNotes")?.value?.trim()&&$("#shotNotes"))$("#shotNotes").value=(d.recipe||[]).map(r=>`${r.qty} ${r.name}`).join(", ");if($("#shotStatus"))$("#shotStatus").textContent="Lily built a recipe from your photo. Review and edit before saving.";toast("Lily identified the flowers 🌸")}catch(e){if($("#shotStatus"))$("#shotStatus").textContent=e.message;toast(e.message)}finally{btn.disabled=false;btn.textContent=orig}});
+$("#shotBackground")?.addEventListener("input",()=>{shotPresetBackground=null});
+$("#bloomshotRestore")?.addEventListener("click",()=>{shotRotation=0;setShotPreset("true");shotUseCutout=false;shotPresetBackground=null;$("#shotBackground").value="#ffffff";drawBloomShot();toast("Original photo restored — pick a style to place it on a new background");if(shotImage)scheduleShotDraftSave()});
 $("#bloomshotDownload")?.addEventListener("click",()=>{if(!shotImage)return toast("Choose a photo first");drawBloomShot();const a=document.createElement("a");a.download=`${($("#shotProductName")?.value||"bloomshot").replace(/[^a-z0-9]+/gi,"-").toLowerCase()}.png`;a.href=$("#bloomshotCanvas").toDataURL("image/png",.92);a.click()});
 $("#shotGenerate")?.addEventListener("click",async()=>{const b=$("#shotGenerate"),name=$("#shotProductName").value.trim(),notes=$("#shotNotes").value.trim();if(!name&&!notes)return toast("Add a product name or flower notes first");b.disabled=true;b.textContent="Lily is drafting…";$("#shotStatus").textContent="Using the lowest-cost available AI route…";try{const d=await smartAi({mode:"generate",task:"Create editable florist product content",input:{name,notes,occasion:$("#shotOccasion").value,tone:$("#shotTone").value,price:$("#shotPrice").value,shop:shopSettings||{}},schema:{description:"2 concise paragraphs",caption:"social caption with call to action",seo:"SEO title under 60 characters",alt:"accurate image alt text"}});const r=d.result||{};$("#shotDescription").value=r.description||r.text||"";$("#shotCaption").value=r.caption||"";$("#shotSeo").value=r.seo||name;$("#shotAlt").value=r.alt||`${name||"Floral arrangement"} by a local florist`;$("#shotApproved").checked=false;$("#shotStatus").textContent=`Draft created with ${d.provider||"AI"}. Review and edit every field before approval.`;saveShotDraft(true)}catch(e){$("#shotStatus").textContent=e.message;toast(e.message)}finally{b.disabled=false;b.textContent="✨ Ask Lily to draft content"}});
 $("#shotSaveDraft")?.addEventListener("click",()=>saveShotDraft(false));
-$("#shotAddProduct")?.addEventListener("click",async()=>{if(!$("#shotApproved").checked)return toast("Review the content and check approval first");const name=$("#shotProductName").value.trim();if(!name)return toast("Enter a product name");const payload={name,category:$("#shotOccasion").value,price:Number($("#shotPrice").value||0),description:$("#shotDescription").value,image_url:shotImage?$("#bloomshotCanvas").toDataURL("image/jpeg",.86):"",available_online:false,featured:false,active:true};try{await api("products",{method:"POST",body:JSON.stringify(payload)});toast("Product added as an unpublished draft");$("#shotStatus").textContent="Saved to Products as a draft. It is not online until you publish it.";await loadProducts()}catch(e){toast(e.message)}});
+async function shotSaveToProducts({availableOnline=false}={}){const name=$("#shotProductName").value.trim();if(!name)throw new Error("Enter a product name");const imageUrl=shotImage?$("#bloomshotCanvas").toDataURL("image/jpeg",.86):"";if(shotSavedProductId){const payload={id:shotSavedProductId,name,category:$("#shotOccasion").value,price:Number($("#shotPrice").value||0),description:$("#shotDescription").value,available_online:availableOnline,active:true};if(imageUrl)payload.image_url=imageUrl;const{item}=await api("products",{method:"PATCH",body:JSON.stringify(payload)});return item}const payload={name,category:$("#shotOccasion").value,price:Number($("#shotPrice").value||0),description:$("#shotDescription").value,image_url:imageUrl,available_online:availableOnline,featured:false,active:true};const{item}=await api("products",{method:"POST",body:JSON.stringify(payload)});if(item?.id){shotSavedProductId=item.id;if(shotRecipe?.length){try{await api("recipes",{method:"POST",body:JSON.stringify({product_id:item.id,items:shotRecipe.map(r=>({ingredient_name:r.ingredient_name,quantity:r.quantity,unit:r.unit||"stem"}))})})}catch{}}}return item}
+$("#shotAddProduct")?.addEventListener("click",async()=>{if(!$("#shotApproved").checked)return toast("Review the content and check approval first");try{await shotSaveToProducts({availableOnline:false});toast(shotRecipe?.length?"Product + Lily's recipe added as a draft":"Product added as an unpublished draft");$("#shotStatus").textContent="Saved to Products as a draft. It is not online until you publish it.";await loadProducts()}catch(e){toast(e.message)}});
+// Wholesale Marketplace vision: "Photo Studio integration" — a seller's
+// edited arrangement photo becomes a real marketplace_listings row via
+// the same save-product action the Seller Dashboard's own product form
+// uses, never a second parallel write path. ALWAYS saved as a draft
+// (publish_status: "draft") regardless of the "Post to" destination
+// semantics used for Website/Community, which do go live immediately —
+// a wholesale listing is buyer-facing, money-moving inventory, not a
+// storefront photo, so it always waits for the seller's own review and
+// explicit Publish click in the Seller Dashboard (mirrors shotAddProduct's
+// same "unpublished draft" discipline).
+async function shotSaveToMarketplace(){const name=$("#shotProductName").value.trim();if(!name)throw new Error("Enter a product name");const imageUrl=shotImage?$("#bloomshotCanvas").toDataURL("image/jpeg",.86):"";const payload={id:shotSavedListingId||undefined,product_name:name,category:"Fresh Flowers",price:Number($("#shotPrice").value||0),unit:"each",description:$("#shotDescription").value,publish_status:"draft",active:true};if(imageUrl)payload.image_url=imageUrl;const{product}=await api("marketplace-seller",{method:"POST",body:JSON.stringify({action:"save-product",...payload})});if(product?.id)shotSavedListingId=product.id;return product}
+$("#shotPost")?.addEventListener("click",async()=>{const toWebsite=$("#shotPostWebsite")?.checked,toCommunity=$("#shotPostCommunity")?.checked,toMarketplace=$("#shotPostMarketplace")?.checked,toSocial=$("#shotPostSocial")?.checked;if(!toWebsite&&!toCommunity&&!toMarketplace&&!toSocial)return toast("Choose at least one place to post to");if(!$("#shotApproved").checked)return toast("Review the content and check approval first");if(!shotImage)return toast("Upload an arrangement photo first");const btn=$("#shotPost"),orig=btn.textContent;btn.disabled=true;btn.textContent="Posting…";const done=[],failed=[];try{if(toWebsite){try{await shotSaveToProducts({availableOnline:true});await loadProducts();renderWebsite?.();done.push("Website")}catch(e){failed.push(`Website (${e.message})`)}}
+  if(toCommunity){try{const caption=($("#shotCaption")?.value||"").trim()||($("#shotProductName")?.value||"New arrangement").trim();await api("florist-community",{method:"POST",body:JSON.stringify({action:"create_post",category:"Arrangement Share",caption,body:$("#shotDescription")?.value||"",image_data_url:$("#bloomshotCanvas").toDataURL("image/jpeg",.86)})});done.push("Community feed")}catch(e){failed.push(`Community feed (${e.message})`)}}
+  if(toMarketplace){try{await shotSaveToMarketplace();done.push("Wholesale Marketplace (draft)")}catch(e){failed.push(`Wholesale Marketplace (${e.message})`)}}
+  if(toSocial){try{const a=document.createElement("a");a.download=`${($("#shotProductName")?.value||"bloomshot").replace(/[^a-z0-9]+/gi,"-").toLowerCase()}.png`;a.href=$("#bloomshotCanvas").toDataURL("image/png",.92);a.click();const caption=($("#shotCaption")?.value||"").trim();if(caption&&navigator.clipboard?.writeText){await navigator.clipboard.writeText(caption);done.push("Social (image downloaded + caption copied)")}else{done.push("Social (image downloaded)")}}catch(e){failed.push(`Social (${e.message})`)}}
+  const msg=[done.length?`Posted to: ${done.join(", ")}.`:"",failed.length?`Failed: ${failed.join(", ")}.`:""].filter(Boolean).join(" ");if($("#shotStatus"))$("#shotStatus").textContent=msg||"Nothing was posted.";toast(failed.length?"Some destinations failed — see status below":"Posted ✅")}finally{btn.disabled=false;btn.textContent=orig}});
 syncShotOutputs();
 
 
 // Bloom v20.5 remote administration configuration.
+function safeRemoteImageUrl(value){
+  const raw=String(value||"").trim();
+  if(!raw)return"";
+  if(raw.startsWith("/")&&!raw.startsWith("//"))return raw;
+  try{const url=new URL(raw);return url.protocol==="https:"?url.href:""}catch{return""}
+}
+function applyRemoteLabels(labels={},selectorPrefix=""){
+  if(!labels||typeof labels!=="object")return;
+  Object.entries(labels).forEach(([key,label])=>{
+    const text=String(label||"").trim();
+    if(!key||!text)return;
+    const target=document.querySelector(`${selectorPrefix}[data-page="${CSS.escape(key)}"],${selectorPrefix}[data-open="${CSS.escape(key)}"]`);
+    if(target)target.textContent=text;
+  });
+}
 async function loadRemoteAdminConfig(){
   try{
     const shopId=localStorage.getItem("bloom_active_shop_id")||"";
@@ -642,6 +1425,20 @@ function applyRemoteAdminConfig(config={}){
   if(theme.sidebar)root.style.setProperty("--admin-sidebar",theme.sidebar);
   if(theme.radius)root.style.setProperty("--admin-radius",`${Number(theme.radius)}px`);
   document.body.dataset.adminDensity=theme.density||"comfortable";
+  const content=config.content||{};
+  document.body.dataset.remoteLayout=content.layout_mode||"classic";
+  const bg=safeRemoteImageUrl(content.app_background_image);
+  if(bg)document.body.style.setProperty("--remote-app-background-image",`url("${bg.replace(/"/g,"%22")}")`);
+  const logo=safeRemoteImageUrl(content.logo_image);
+  if(logo){
+    document.querySelectorAll("#appLogo,.app-logo").forEach(img=>{img.src=logo;img.hidden=false});
+  }
+  const dash=safeRemoteImageUrl(content.dashboard_image);
+  if(dash){
+    const dashImg=$("#dashboardWelcomeImage");
+    const dashWrap=$("#dashboardWelcomePhoto");
+    if(dashImg){dashImg.src=dash;if(dashWrap)dashWrap.hidden=false}
+  }
   const aside=document.querySelector("#app aside");
   if(aside){
     const nav=config.navigation||{},buttons=[...aside.querySelectorAll("button[data-page]")];
@@ -650,6 +1447,12 @@ function applyRemoteAdminConfig(config={}){
     const hidden=new Set(nav.hidden||[]);
     buttons.forEach(b=>b.hidden=hidden.has(b.dataset.page));
   }
+  applyRemoteLabels(content.button_labels||{},"");
+  const tabLabels=content.tab_labels||{};
+  document.querySelectorAll("#app aside p").forEach((node)=>{
+    const key=String(node.textContent||"").toLowerCase().replace(/[^a-z]+/g,"_").replace(/^_|_$/g,"");
+    if(tabLabels[key])node.textContent=String(tabLabels[key]);
+  });
   const featurePage={dashboard:"dashboardPage",orders:"ordersPage",deliveries:"deliveriesPage",customers:"customersPage",inventory:"inventoryPage",products:"productsPage",bloomshot:"bloomshotPage",website:"websitePage",library:"libraryPage",invoices:"invoicesPage",payments:"paymentsPage",expenses:"expensesPage",reports:"reportsPage",staff:"staffPage",marketplace:"marketplacePage",stores:"storesPage"};
   Object.entries(config.features||{}).forEach(([feature,enabled])=>{
     const page=featurePage[feature];if(!page||enabled!==false)return;
@@ -672,6 +1475,7 @@ function applyRemoteAdminConfig(config={}){
 /* Florisyn Studio — Lily AI Studio */
 let aiStudioDraft=null;
 let aiStudioPrevious=null;
+let aiStudioLastPrompt=null;
 let aiStudioVoiceEnabled=localStorage.getItem("bloomLilyVoice")!=="off";
 const aiStudioFieldMap={
   tagline:"websiteTagline",hero_title:"websiteHeroTitle",hero_text:"websiteHeroText",about_text:"websiteAboutText"
@@ -684,11 +1488,32 @@ function lilyVoice(text){
   const u=new SpeechSynthesisUtterance(String(clean).replace(/[🌸💕✨💐😂🌷]/g,""));
   u.rate=0.94;u.pitch=1.06;u.volume=.92;u.lang="en-US";speechSynthesis.speak(u);
 }
-function aiStudioMessage(role,text){
+function aiStudioMessage(role,text,opts={}){
   const wrap=$("#aiStudioMessages");if(!wrap)return;
   const article=document.createElement("article");article.className=`ai-message ${role}`;
-  article.innerHTML=`<span class="message-avatar">${role==="user"?"💬":"🌸"}</span><div><strong>${role==="user"?"You":"Lily"}</strong><p></p></div>`;
-  article.querySelector("p").textContent=aiGeneratedText(text)||"";wrap.appendChild(article);wrap.scrollTop=wrap.scrollHeight;
+  const avatar=role==="assistant"
+    ?`<img class="message-avatar lux-ai-avatar" src="/assets/assistants/lily-portrait.png" alt="" width="40" height="40">`
+    :`<span class="message-avatar lux-ai-avatar" aria-hidden="true">You</span>`;
+  article.innerHTML=`${avatar}<div class="lux-ai-bubble"><strong>${role==="user"?"You":"Lily"}</strong><p></p></div>`;
+  article.querySelector("p").textContent=aiGeneratedText(text)||"";
+  if(role==="assistant"&&opts.canRegenerate){
+    $$("#aiStudioMessages .ai-regenerate").forEach(b=>b.remove());
+    const btn=document.createElement("button");
+    btn.type="button";btn.className="ai-regenerate";btn.textContent="🔄 Regenerate";
+    btn.title="Ask Lily to try a different answer to your last message";
+    btn.addEventListener("click",()=>regenerateAiStudioReply(article));
+    article.querySelector(".lux-ai-bubble").appendChild(btn);
+  }
+  wrap.appendChild(article);wrap.scrollTop=wrap.scrollHeight;
+}
+function syncAiStudioMock(draft){
+  const title=$("#aiStudioMockHeroTitle"), text=$("#aiStudioMockHeroText");
+  if(!title||!text)return;
+  const w=draft?.website||{};
+  title.textContent=aiGeneratedText(w.hero_title)||"Luxury Blooms";
+  text.textContent=aiGeneratedText(w.hero_text||w.tagline)||"Handcrafted arrangements for every occasion.";
+  const pName=aiGeneratedText(draft?.product?.name||"");
+  if(pName&&$("#aiStudioMockP1"))$("#aiStudioMockP1").textContent=pName;
 }
 function aiStudioTasks(items=[],active=-1){
   const q=$("#aiStudioTaskQueue");if(!q)return;q.hidden=!items.length;
@@ -702,7 +1527,7 @@ function normalizedStudioDraft(raw={}){
 }
 function renderAiStudioDraft(){
   const list=$("#aiStudioChangeList"),badge=$("#aiStudioDraftBadge");if(!list)return;
-  if(!aiStudioDraft){badge.textContent="No draft";list.innerHTML='<div class="ai-empty-state"><span>🌷</span><strong>Your draft will appear here</strong><p>Ask Lily to improve the website, write a product, or prepare marketing.</p></div>';$("#aiStudioApply").disabled=true;$("#aiStudioUndo").disabled=!aiStudioPrevious;return}
+  if(!aiStudioDraft){badge.textContent="No draft";badge.className="badge lux-ai-draft-badge";list.innerHTML='<div class="ai-empty-state"><strong>Your draft will appear here</strong><p>Ask Lily to improve the website, write a product, or prepare marketing.</p></div>';list.hidden=true;$("#aiStudioApply").disabled=true;$("#aiStudioUndo").disabled=!aiStudioPrevious;syncAiStudioMock(null);return}
   const cards=[];
   const labels={tagline:"Tagline",hero_title:"Hero headline",hero_text:"Hero message",about_text:"About section",seo_title:"SEO title",seo_description:"SEO description"};
   for(const [k,v] of Object.entries(aiStudioDraft.website||{}))if(v)cards.push(`<article class="ai-change-card"><small>Website · ${labels[k]||k.replaceAll("_"," ")}</small><p>${escapeHtml(aiGeneratedText(v))}</p></article>`);
@@ -710,21 +1535,44 @@ function renderAiStudioDraft(){
   for(const [k,v] of Object.entries(aiStudioDraft.marketing||{}))if(v)cards.push(`<article class="ai-change-card"><small>Marketing · ${k.replaceAll("_"," ")}</small><p>${escapeHtml(aiGeneratedText(v))}</p></article>`);
   if(aiStudioDraft.image_prompt)cards.push(`<article class="ai-change-card"><small>Image concept</small><p>${escapeHtml(aiGeneratedText(aiStudioDraft.image_prompt))}</p></article>`);
   list.innerHTML=cards.join("")||'<div class="ai-empty-state"><span>🌸</span><strong>Lily answered</strong><p>No editable fields were included in this draft.</p></div>';
-  badge.textContent=`${cards.length} suggested change${cards.length===1?"":"s"}`;badge.className="badge good";$("#aiStudioApply").disabled=!cards.length;$("#aiStudioUndo").disabled=!aiStudioPrevious;
+  badge.textContent=`${cards.length} suggested change${cards.length===1?"":"s"}`;badge.className="badge good lux-ai-draft-badge";$("#aiStudioApply").disabled=!cards.length;$("#aiStudioUndo").disabled=!aiStudioPrevious;const changeList=$("#aiStudioChangeList");if(changeList)changeList.hidden=!cards.length;syncAiStudioMock(aiStudioDraft);
+}
+window.smartAi=smartAi;window.loadAiContext=loadAiContext;
+function generateAiStudioReply(prompt){
+  return smartAi({mode:"generate",persona:"Lily",task:`Act as Lily, Florisyn's sweet, bubbly, lightly funny creative florist assistant. Respond to this request: ${prompt}. Create only relevant fields. Never claim anything was saved or published.`,input:{shop:{name:shopSettings?.name||"",city:shopSettings?.city||"",address:shopSettings?.address||"",website_style:shopSettings?.website_style||"",delivery_area:shopSettings?.delivery_area||""},currentWebsite:{tagline:$("#websiteTagline")?.value||"",hero_title:$("#websiteHeroTitle")?.value||"",hero_text:$("#websiteHeroText")?.value||"",about_text:$("#websiteAboutText")?.value||""}},schema:{message:"one sweet, bubbly sentence explaining the draft",website:{tagline:"optional",hero_title:"optional",hero_text:"optional",about_text:"optional",seo_title:"optional",seo_description:"optional"},product:{name:"optional",category:"optional",price:"optional number",description:"optional",seo_title:"optional",seo_description:"optional"},marketing:{facebook:"optional",instagram:"optional",google_business:"optional"},image_prompt:"optional photorealistic floral product image prompt"}});
 }
 async function runAiStudio(prompt){
+  aiStudioLastPrompt=prompt;
   const tasks=["Reading your request","Writing the creative draft","Preparing your approval preview"];
   aiStudioTasks(tasks,0);aiStudioMessage("user",prompt);
   try{
     await new Promise(r=>setTimeout(r,180));aiStudioTasks(tasks,1);
-    const d=await smartAi({mode:"generate",persona:"Lily",task:`Act as Lily, Florisyn's sweet, bubbly, lightly funny creative florist assistant. Respond to this request: ${prompt}. Create only relevant fields. Never claim anything was saved or published.`,input:{shop:{name:shopSettings?.name||"",city:shopSettings?.city||"",address:shopSettings?.address||"",website_style:shopSettings?.website_style||"",delivery_area:shopSettings?.delivery_area||""},currentWebsite:{tagline:$("#websiteTagline")?.value||"",hero_title:$("#websiteHeroTitle")?.value||"",hero_text:$("#websiteHeroText")?.value||"",about_text:$("#websiteAboutText")?.value||""}},schema:{message:"one sweet, bubbly sentence explaining the draft",website:{tagline:"optional",hero_title:"optional",hero_text:"optional",about_text:"optional",seo_title:"optional",seo_description:"optional"},product:{name:"optional",category:"optional",price:"optional number",description:"optional",seo_title:"optional",seo_description:"optional"},marketing:{facebook:"optional",instagram:"optional",google_business:"optional"},image_prompt:"optional photorealistic floral product image prompt"}});
+    const d=await generateAiStudioReply(prompt);
     aiStudioTasks(tasks,2);aiStudioPrevious=aiStudioDraft;aiStudioDraft=normalizedStudioDraft(d.result||{});renderAiStudioDraft();
-    const reply=aiStudioDraft.message;aiStudioMessage("assistant",reply);lilyVoice(reply);aiStudioTasks(tasks,3);setTimeout(()=>aiStudioTasks([],0),900);
+    const reply=aiStudioDraft.message;aiStudioMessage("assistant",reply,{canRegenerate:true});lilyVoice(reply);aiStudioTasks(tasks,3);setTimeout(()=>aiStudioTasks([],0),900);
     localStorage.setItem("bloomAiStudioDraft",JSON.stringify(aiStudioDraft));
-  }catch(e){aiStudioTasks([],0);aiStudioMessage("assistant",`Oops—my petals got a little tangled. ${e.message}`);toast(e.message)}
+  }catch(e){aiStudioTasks([],0);aiStudioMessage("assistant",`Oops—my petals got a little tangled. ${e.message}`,{canRegenerate:true});toast(e.message)}
+}
+async function regenerateAiStudioReply(article){
+  if(!aiStudioLastPrompt)return;
+  const btn=article.querySelector(".ai-regenerate"),p=article.querySelector("p");
+  if(btn){btn.disabled=true;btn.textContent="Regenerating…"}
+  try{
+    const d=await generateAiStudioReply(aiStudioLastPrompt);
+    aiStudioPrevious=aiStudioDraft;aiStudioDraft=normalizedStudioDraft(d.result||{});renderAiStudioDraft();
+    const reply=aiStudioDraft.message;
+    if(p)p.textContent=aiGeneratedText(reply)||"";
+    lilyVoice(reply);
+    localStorage.setItem("bloomAiStudioDraft",JSON.stringify(aiStudioDraft));
+    toast("Lily wrote a new version");
+  }catch(e){
+    toast(`Could not regenerate: ${e.message}`);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent="🔄 Regenerate"}
+  }
 }
 $("#aiStudioForm")?.addEventListener("submit",e=>{e.preventDefault();const input=$("#aiStudioPrompt"),prompt=input.value.trim();if(!prompt)return toast("Tell Lily what you want to create");input.value="";runAiStudio(prompt)});
-$$('[data-ai-prompt]').forEach(b=>b.addEventListener("click",()=>runAiStudio(b.dataset.aiPrompt)));
+$$("#aiStudioPage [data-ai-prompt]").forEach(b=>b.addEventListener("click",()=>{const input=$("#aiStudioPrompt");if(!input)return;input.value=b.dataset.aiPrompt||b.textContent||"";input.focus();input.setSelectionRange(input.value.length,input.value.length)}));
 $("#aiStudioApply")?.addEventListener("click",()=>{
   if(!aiStudioDraft)return;
   let applied=0;
@@ -734,8 +1582,18 @@ $("#aiStudioApply")?.addEventListener("click",()=>{
   if(applied){showPage("websitePage");toast("Lily's approved draft was applied. Save the website when ready.")}else toast("This draft is ready to copy, but it has no website fields to apply.");
 });
 $("#aiStudioUndo")?.addEventListener("click",()=>{if(!aiStudioPrevious)return;const current=aiStudioDraft;aiStudioDraft=aiStudioPrevious;aiStudioPrevious=current;renderAiStudioDraft();toast("Draft restored")});
-$("#aiStudioClear")?.addEventListener("click",()=>{aiStudioPrevious=aiStudioDraft;aiStudioDraft=null;localStorage.removeItem("bloomAiStudioDraft");renderAiStudioDraft();$("#aiStudioMessages").innerHTML='<article class="ai-message assistant"><span class="message-avatar">🌸</span><div><strong>Lily</strong><p>Fresh page, fresh flowers! What are we making? 💕</p></div></article>'});
-$("#aiStudioVoiceToggle")?.addEventListener("click",e=>{aiStudioVoiceEnabled=!aiStudioVoiceEnabled;localStorage.setItem("bloomLilyVoice",aiStudioVoiceEnabled?"on":"off");e.currentTarget.textContent=aiStudioVoiceEnabled?"🔊 Voice on":"🔇 Voice off";if(aiStudioVoiceEnabled)lilyVoice("Yay! You can hear me again.")});
-if($("#aiStudioVoiceToggle"))$("#aiStudioVoiceToggle").textContent=aiStudioVoiceEnabled?"🔊 Voice on":"🔇 Voice off";
+$("#aiStudioClear")?.addEventListener("click",()=>{aiStudioPrevious=aiStudioDraft;aiStudioDraft=null;aiStudioLastPrompt=null;localStorage.removeItem("bloomAiStudioDraft");renderAiStudioDraft();$("#aiStudioMessages").innerHTML='<article class="ai-message assistant"><img class="message-avatar lux-ai-avatar" src="/assets/assistants/lily-portrait.png" alt="" width="40" height="40"><div class="lux-ai-bubble"><p>Hi! I\'m so happy you\'re here! Tell me what you want to create, and I\'ll make a draft you can preview before anything changes. 💜</p></div></article>'});
+$("#aiStudioVoiceToggle")?.addEventListener("click",e=>{aiStudioVoiceEnabled=!aiStudioVoiceEnabled;localStorage.setItem("bloomLilyVoice",aiStudioVoiceEnabled?"on":"off");e.currentTarget.textContent=aiStudioVoiceEnabled?"Voice on":"Voice off";if(aiStudioVoiceEnabled)lilyVoice("Yay! You can hear me again.")});
+if($("#aiStudioVoiceToggle"))$("#aiStudioVoiceToggle").textContent=aiStudioVoiceEnabled?"Voice on":"Voice off";
+$("#aiStudioReplyBtn")?.addEventListener("click",()=>{$("#aiStudioPrompt")?.focus()});
+$("#aiStudioLearnMore")?.addEventListener("click",()=>toast("Lily drafts website, product, and marketing copy — preview on the right, then Apply to Store."));
+$("#aiStudioMockViewAll")?.addEventListener("click",e=>{e.preventDefault()});
+document.querySelectorAll("#aiStudioPage .lux-ai-tabs [data-lux-ai-tab]").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll("#aiStudioPage .lux-ai-tabs [data-lux-ai-tab]").forEach(b=>{b.classList.toggle("active",b===btn);if(b===btn)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
+    if(btn.dataset.luxAiTab==="website"&&btn.dataset.route&&window.FlorisynRouter)window.FlorisynRouter.navigate(btn.dataset.route);
+    if(btn.dataset.luxAiTab==="ask")$("#aiStudioPrompt")?.focus();
+  });
+});
 try{const saved=JSON.parse(localStorage.getItem("bloomAiStudioDraft")||"null");if(saved){aiStudioDraft=saved;renderAiStudioDraft()}}catch{}
 const dog=$("#bloomDog");let dogPetTimer=null;function petBloomDog(){if(!dog)return;dog.classList.remove("pet");void dog.offsetWidth;dog.classList.add("pet");if(dogPetTimer)window.clearTimeout(dogPetTimer);dogPetTimer=window.setTimeout(()=>dog.classList.remove("pet"),1100);lilyVoice("Oh, that’s so sweet. She loves the attention.")}dog?.addEventListener("click",petBloomDog);dog?.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" ")petBloomDog()});

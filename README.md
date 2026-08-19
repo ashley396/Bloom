@@ -87,8 +87,11 @@ New:
 - `STRIPE_PRICE_STARTER`
 - `STRIPE_PRICE_PROFESSIONAL`
 - `STRIPE_PRICE_PREMIUM`
+- `STRIPE_PRICE_STARTER_ANNUAL`
+- `STRIPE_PRICE_PROFESSIONAL_ANNUAL`
+- `STRIPE_PRICE_PREMIUM_ANNUAL`
 
-Create three recurring prices in Stripe and place their `price_...` IDs in Netlify.
+Create six recurring prices in Stripe (monthly + annual for each tier) and place their `price_...` IDs in Netlify. Annual plans bill once per year at ten months of the monthly rate (two months free).
 
 ### 6. Stripe webhook
 

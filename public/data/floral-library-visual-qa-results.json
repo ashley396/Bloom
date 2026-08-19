@@ -1,0 +1,702 @@
+[
+  {
+    "id": "ed-01-sunshine-cube",
+    "name": "Sunshine Cube",
+    "verdict": "pass",
+    "reason": "Real ranunculus bouquet close-up",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-02-pink-meadow",
+    "name": "Pink Meadow",
+    "verdict": "fail",
+    "reason": "Two-tier cake with floral accents — food subject",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-03-classic-rose-mix",
+    "name": "Classic Rose Mix",
+    "verdict": "fail",
+    "reason": "Flower market stall, not arrangement product",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-04-cheerful-daisy-burst",
+    "name": "Cheerful Daisy Burst",
+    "verdict": "fail",
+    "reason": "Beach wedding landscape",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-05-everyday-hydrangea-pop",
+    "name": "Everyday Hydrangea Pop",
+    "verdict": "pass",
+    "reason": "Hat-box mixed arrangement",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-06-soft-blush-garden",
+    "name": "Soft Blush Garden",
+    "verdict": "pass",
+    "reason": "Orange rose bouquet close-up",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-07-rustic-mason-jar-mix",
+    "name": "Rustic Mason Jar Mix",
+    "verdict": "fail",
+    "reason": "Portrait with flowering tree",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-08-bright-happy",
+    "name": "Bright & Happy",
+    "verdict": "pass",
+    "reason": "Garden rose bouquet",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-09-simple-whites",
+    "name": "Simple Whites",
+    "verdict": "fail",
+    "reason": "Flat lay cut stems on paper",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-10-everyday-elegance",
+    "name": "Everyday Elegance",
+    "verdict": "pass",
+    "reason": "Mixed peony/rose arrangement in container",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-11-morning-cheer",
+    "name": "Morning Cheer",
+    "verdict": "fail",
+    "reason": "Winter portrait, no flowers",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-12-fresh-start",
+    "name": "Fresh Start",
+    "verdict": "fail",
+    "reason": "Single garden rose on stem outdoors",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-13-daily-delight",
+    "name": "Daily Delight",
+    "verdict": "fail",
+    "reason": "Portrait, no floral content",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-14-lavender-breeze",
+    "name": "Lavender Breeze",
+    "verdict": "fail",
+    "reason": "AI artifacts: gibberish label text",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-15-peachy-keen",
+    "name": "Peachy Keen",
+    "verdict": "pass",
+    "reason": "Hand-tied wrapped bouquet",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-16-hydrangea-friends",
+    "name": "Hydrangea & Friends",
+    "verdict": "fail",
+    "reason": "Tropical beach landscape",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-17-rose-mum-harmony",
+    "name": "Rose & Mum Harmony",
+    "verdict": "fail",
+    "reason": "Neon stylized single bloom",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-18-alstroemeria-joy",
+    "name": "Alstroemeria Joy",
+    "verdict": "fail",
+    "reason": "Shop inventory buckets",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-19-sunflower-smile",
+    "name": "Sunflower Smile",
+    "verdict": "fail",
+    "reason": "Loose petals in bowl",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-20-gentle-pastels",
+    "name": "Gentle Pastels",
+    "verdict": "fail",
+    "reason": "Portrait with cow in field",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-21-modern-whites",
+    "name": "Modern Whites",
+    "verdict": "fail",
+    "reason": "Workshop spray-painting chair",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-22-compact-color-pop",
+    "name": "Compact Color Pop",
+    "verdict": "fail",
+    "reason": "Jewelry flat lay with stems",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-23-everyday-pink-mix",
+    "name": "Everyday Pink Mix",
+    "verdict": "pass",
+    "reason": "Wrapped tulip bouquet",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-24-blue-white-classic",
+    "name": "Blue & White Classic",
+    "verdict": "pass",
+    "reason": "Ranunculus hand bouquet",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-25-sweet-simple",
+    "name": "Sweet & Simple",
+    "verdict": "pass",
+    "reason": "Hand-tied sunset bouquet",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-26-daily-sunshine",
+    "name": "Daily Sunshine",
+    "verdict": "pass",
+    "reason": "Hand-held branch bouquet with sleeve",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-27-soft-spring-mix",
+    "name": "Soft Spring Mix",
+    "verdict": "fail",
+    "reason": "Single poppy stem only",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-28-everyday-garden-vase",
+    "name": "Everyday Garden Vase",
+    "verdict": "pass",
+    "reason": "Heart-box rose/ranunculus arrangement",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-29-bright-market-bunch",
+    "name": "Bright Market Bunch",
+    "verdict": "fail",
+    "reason": "Skincare product flat lay",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-30-calm-clean-whites",
+    "name": "Calm & Clean Whites",
+    "verdict": "fail",
+    "reason": "Coastal landscape",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-31-pink-peach-harmony",
+    "name": "Pink & Peach Harmony",
+    "verdict": "pass",
+    "reason": "Peach roses in glass vase",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-32-hydrangea-trio",
+    "name": "Hydrangea Trio",
+    "verdict": "fail",
+    "reason": "Loose petals in wooden dish",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-33-rose-daisy-blend",
+    "name": "Rose & Daisy Blend",
+    "verdict": "pass",
+    "reason": "Single rose in hobnail vase",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-34-everyday-mason-jar",
+    "name": "Everyday Mason Jar",
+    "verdict": "fail",
+    "reason": "Essential oil product shot",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-35-simple-greens-whites",
+    "name": "Simple Greens & Whites",
+    "verdict": "fail",
+    "reason": "Dropper bottle product shot",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-36-happy-day-bouquet",
+    "name": "Happy Day Bouquet",
+    "verdict": "fail",
+    "reason": "Vegetable harvest still life",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-37-classic-cylinder-mix",
+    "name": "Classic Cylinder Mix",
+    "verdict": "pass",
+    "reason": "Dense chrysanthemum arrangement",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-38-everyday-color-burst",
+    "name": "Everyday Color Burst",
+    "verdict": "pass",
+    "reason": "Round mixed hand bouquet",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-39-soft-neutral-mix",
+    "name": "Soft Neutral Mix",
+    "verdict": "pass",
+    "reason": "Event table centerpieces in cylinders",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-40-pink-petal-jar",
+    "name": "Pink Petal Jar",
+    "verdict": "fail",
+    "reason": "Rose bush in garden",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-41-golden-glow",
+    "name": "Golden Glow",
+    "verdict": "pass",
+    "reason": "Wrapped everyday mixed bouquet",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-42-everyday-blush",
+    "name": "Everyday Blush",
+    "verdict": "pass",
+    "reason": "Gift-bag mixed arrangement",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-43-daisy-mum-mix",
+    "name": "Daisy & Mum Mix",
+    "verdict": "pass",
+    "reason": "Mixed bouquet in vase",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-44-rose-trio",
+    "name": "Rose Trio",
+    "verdict": "pass",
+    "reason": "Close-up mixed bouquet",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-45-hydrangea-accent",
+    "name": "Hydrangea Accent",
+    "verdict": "pass",
+    "reason": "Wrapped mixed bouquet",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-46-everyday-rustic",
+    "name": "Everyday Rustic",
+    "verdict": "pass",
+    "reason": "Dense ranunculus arrangement",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-47-bright-tabletop",
+    "name": "Bright Tabletop",
+    "verdict": "pass",
+    "reason": "Mixed tabletop arrangement",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-48-simple-cheer",
+    "name": "Simple Cheer",
+    "verdict": "fail",
+    "reason": "Magnolia on tree branch",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-49-daily-pink-rose",
+    "name": "Daily Pink Rose",
+    "verdict": "pass",
+    "reason": "Peach roses in gold-rim vase",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-50-everyday-florist-favorite",
+    "name": "Everyday Florist Favorite",
+    "verdict": "pass",
+    "reason": "Designer arrangement in fluted vase",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-51-daily-pink-cylinder",
+    "name": "Daily Pink Cylinder",
+    "verdict": "fail",
+    "reason": "Magazine flat lay, not arrangement",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-52-soft-garden-morning",
+    "name": "Soft Garden Morning",
+    "verdict": "pass",
+    "reason": "Large pink peony bouquet",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-53-white-meadow-vase",
+    "name": "White Meadow Vase",
+    "verdict": "fail",
+    "reason": "Tree bark close-up",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-54-everyday-citrus-mix",
+    "name": "Everyday Citrus Mix",
+    "verdict": "fail",
+    "reason": "Park gazebo landscape",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-55-hydrangea-cottage-jar",
+    "name": "Hydrangea Cottage Jar",
+    "verdict": "fail",
+    "reason": "Human shadow on pavement",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-56-rose-stock-everyday",
+    "name": "Rose & Stock Everyday",
+    "verdict": "fail",
+    "reason": "Hillside landscape",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-57-daisy-porch-jar",
+    "name": "Daisy Porch Jar",
+    "verdict": "fail",
+    "reason": "Green leaf macro only",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-58-blush-countertop-mix",
+    "name": "Blush Countertop Mix",
+    "verdict": "fail",
+    "reason": "Skincare product flat lay",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-59-neutral-rose-vase",
+    "name": "Neutral Rose Vase",
+    "verdict": "fail",
+    "reason": "Dropper bottle product shot",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-60-sunflower-simple-jar",
+    "name": "Sunflower Simple Jar",
+    "verdict": "fail",
+    "reason": "Dropper bottle duplicate product shot",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-61-clean-greens-whites",
+    "name": "Clean Greens & Whites",
+    "verdict": "fail",
+    "reason": "Rose petals in bowl only",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-62-pink-breeze-vase",
+    "name": "Pink Breeze Vase",
+    "verdict": "fail",
+    "reason": "Product/lifestyle dropper bottle",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-63-everyday-hydrangea-cube",
+    "name": "Everyday Hydrangea Cube",
+    "verdict": "fail",
+    "reason": "Petals in bowl, not arrangement",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-64-soft-yellow-harmony",
+    "name": "Soft Yellow Harmony",
+    "verdict": "fail",
+    "reason": "Rose close-up without composed arrangement",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-65-rose-mum-daily-vase",
+    "name": "Rose & Mum Daily Vase",
+    "verdict": "fail",
+    "reason": "Petals in bowl only",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-66-bright-market-jar",
+    "name": "Bright Market Jar",
+    "verdict": "fail",
+    "reason": "Pussy willow catkin macro",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-67-calm-white-garden",
+    "name": "Calm White Garden",
+    "verdict": "fail",
+    "reason": "Waterfall landscape",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-68-peach-pink-blend",
+    "name": "Peach & Pink Blend",
+    "verdict": "fail",
+    "reason": "Mountain sunrise landscape",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-69-hydrangea-daisy-mix",
+    "name": "Hydrangea & Daisy Mix",
+    "verdict": "fail",
+    "reason": "Prague street scene",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-70-everyday-rustic-cylinder",
+    "name": "Everyday Rustic Cylinder",
+    "verdict": "fail",
+    "reason": "Portrait in sunflower field",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-71-modern-neutral-jar",
+    "name": "Modern Neutral Jar",
+    "verdict": "fail",
+    "reason": "Cooked vegetables food photo",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-72-daily-blush-bouquet",
+    "name": "Daily Blush Bouquet",
+    "verdict": "fail",
+    "reason": "Portrait, no flowers",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-73-soft-lavender-mix",
+    "name": "Soft Lavender Mix",
+    "verdict": "fail",
+    "reason": "Portrait duplicate",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-74-rose-carnation-classic",
+    "name": "Rose & Carnation Classic",
+    "verdict": "fail",
+    "reason": "Youth football sports photo",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-75-sunshine-table-vase",
+    "name": "Sunshine Table Vase",
+    "verdict": "fail",
+    "reason": "Prague cityscape",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-76-gentle-white-trio",
+    "name": "Gentle White Trio",
+    "verdict": "fail",
+    "reason": "Fashion portrait",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-77-pink-market-bunch",
+    "name": "Pink Market Bunch",
+    "verdict": "fail",
+    "reason": "Fashion portrait",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-78-everyday-hydrangea-rose",
+    "name": "Everyday Hydrangea Rose",
+    "verdict": "fail",
+    "reason": "Lake landscape",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-79-daisy-stock-harmony",
+    "name": "Daisy & Stock Harmony",
+    "verdict": "fail",
+    "reason": "Portrait",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-80-clean-color-pop",
+    "name": "Clean Color Pop",
+    "verdict": "fail",
+    "reason": "Portrait with glasses",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-81-soft-neutral-jar",
+    "name": "Soft Neutral Jar",
+    "verdict": "fail",
+    "reason": "Portrait",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-82-rose-garden-everyday",
+    "name": "Rose Garden Everyday",
+    "verdict": "fail",
+    "reason": "Canada goose on grass",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-83-hydrangea-greens-mix",
+    "name": "Hydrangea & Greens Mix",
+    "verdict": "fail",
+    "reason": "Woodworking factory scene",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-84-bright-daily-cylinder",
+    "name": "Bright Daily Cylinder",
+    "verdict": "fail",
+    "reason": "Stacked wooden chair parts",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-85-pink-white-everyday",
+    "name": "Pink & White Everyday",
+    "verdict": "fail",
+    "reason": "Wooden planks",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-86-sunflower-accent-vase",
+    "name": "Sunflower Accent Vase",
+    "verdict": "fail",
+    "reason": "Woodworker assembling chair",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-87-classic-rose-jar",
+    "name": "Classic Rose Jar",
+    "verdict": "fail",
+    "reason": "Furniture workshop",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-88-soft-spring-color-mix",
+    "name": "Soft Spring Color Mix",
+    "verdict": "fail",
+    "reason": "Woodworker gluing chair",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-89-neutral-countertop-arrangement",
+    "name": "Neutral Countertop Arrangement",
+    "verdict": "fail",
+    "reason": "Rusty wrenches on wall",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-90-blush-cream-harmony",
+    "name": "Blush & Cream Harmony",
+    "verdict": "fail",
+    "reason": "Office interior portrait",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-91-daisy-sunshine-cube",
+    "name": "Daisy Sunshine Cube",
+    "verdict": "fail",
+    "reason": "Infinity pool at sunset",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-92-everyday-rose-lily",
+    "name": "Everyday Rose & Lily",
+    "verdict": "fail",
+    "reason": "Forest road with bus",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-93-hydrangea-soft-blend",
+    "name": "Hydrangea Soft Blend",
+    "verdict": "fail",
+    "reason": "Farmyard landscape",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-94-rustic-greens-whites",
+    "name": "Rustic Greens & Whites",
+    "verdict": "fail",
+    "reason": "Rusty hay rake in field",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-95-daily-pink-yellow",
+    "name": "Daily Pink & Yellow",
+    "verdict": "fail",
+    "reason": "Wooden barrel in barn",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-96-bright-everyday-vase",
+    "name": "Bright Everyday Vase",
+    "verdict": "fail",
+    "reason": "Seafood fish on ice",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-97-soft-pastel-jar",
+    "name": "Soft Pastel Jar",
+    "verdict": "fail",
+    "reason": "Harbor cityscape",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-98-rose-daisy-color-pop",
+    "name": "Rose & Daisy Color Pop",
+    "verdict": "fail",
+    "reason": "Seafood market display",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-99-hydrangea-everyday-trio",
+    "name": "Hydrangea Everyday Trio",
+    "verdict": "fail",
+    "reason": "Whole fish on ice",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  },
+  {
+    "id": "ed-100-florist-counter-classic",
+    "name": "Florist Counter Classic",
+    "verdict": "fail",
+    "reason": "Rusted outdoor light fixture",
+    "reviewed_at": "2026-08-11T15:00:00.000Z"
+  }
+]

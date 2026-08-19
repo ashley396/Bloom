@@ -6,7 +6,7 @@ export async function handler(event){
   const {client,shopId}=await currentUser(event);
   const productId=event.queryStringParameters?.product_id;
   if(event.httpMethod==="GET"){
-   if(!productId)throw new Error("Missing product_id");
+   if(!productId)return json(400,{error:"Missing product_id"});
    const {data,error}=await client.from("product_recipes").select("*").eq("shop_id",shopId).eq("product_id",productId).order("created_at");
    if(error)throw error;return json(200,{items:data||[]});
   }

@@ -12,6 +12,35 @@
 2. Re-run Netlify deploy if functions depend on new schema (match migration state to code tag).
 3. Verify `GET /.netlify/functions/health` and `production-health`.
 
+## Staging bundle rollback proof
+
+Run this locally before publishing a staging bundle:
+
+```bash
+npm run verify:rollback-proof
+npm run check
+node --test tests/*.test.js
+npm --prefix frontend run build
+```
+
+Record before deploy:
+
+| Item | Value |
+|------|-------|
+| Git branch | `beta/august10-stabilization` |
+| Git commit | current `git rev-parse --short=7 HEAD` |
+| Netlify site | `florisyn-staging` |
+| Previous published deploy ID | Owner records in Netlify UI |
+| Supabase backup/PITR timestamp | Owner records in Supabase |
+
+Rollback order for staging incidents:
+
+1. **Application first:** Netlify → Deploys → publish the previous known-good deploy ID.
+2. **Config second:** restore env vars from the secure vault if the incident is configuration-only.
+3. **Database last:** use Supabase backup/PITR only for data corruption or failed migration state.
+
+Do not forward-apply rollback SQL. Rollback SQL files are emergency references only.
+
 ## Environment recovery
 
 1. Re-create Netlify env vars from secure vault (see ENVIRONMENT.md).

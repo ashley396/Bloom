@@ -1,0 +1,1210 @@
+/* ==========================================================================
+   Florisyn — Fortune 500 visual system
+   ==========================================================================
+   Presentation-only layer, loaded last. Recolors and polishes the existing
+   product; does not touch markup, routes, data-page values, or JS behavior.
+
+   1. Unifies ~160 legacy CSS custom properties (--atelier-*, --lux-*, --pos-*,
+      --ord-*, --bos-*, --auth-*, --bloom-*, --florisyn-*, --community-*, …)
+      onto one navy / blush / gold palette — every page that already consumes
+      these variables inherits the new system automatically.
+   2. Neutralizes literal (non-variable) green hex values still hardcoded in
+      ~65 rules across the legacy layers.
+   3. Gives the sidebar nav a consistent icon per item, clear grouping, and an
+      unambiguous active state.
+   4. Standardizes cards, buttons, inputs, dialogs, badges, and tables to one
+      shadow / radius / spacing system site-wide.
+   5. Restyles Lily / Rose / Daisy into the new palette — never hides, renames,
+      or removes them.
+   ========================================================================== */
+
+:root {
+  /* Canonical Fortune-500 palette (used by the rules this file writes). */
+  --f5-navy-deep: #0f1830;
+  --f5-navy: #1a2544;
+  --f5-navy-soft: #2c3c66;
+  --f5-ink: #1c2333;
+  --f5-muted: #6b6f80;
+  --f5-border: #e3e0e6;
+  --f5-ivory: #faf8f6;
+  --f5-card: #ffffff;
+  --f5-blush: #eccdd6;
+  --f5-blush-deep: #d99cae;
+  --f5-rose: #c4708a;
+  --f5-gold: #c9a962;
+  --f5-gold-deep: #a9853f;
+  --f5-sidebar-text: #b7bcd6;
+
+  --f5-radius-lg: 18px;
+  --f5-radius-md: 12px;
+  --f5-radius-sm: 8px;
+
+  --f5-shadow-card: 0 1px 2px rgba(26, 37, 68, 0.05), 0 10px 28px -16px rgba(26, 37, 68, 0.22);
+  --f5-shadow-card-hover: 0 2px 6px rgba(26, 37, 68, 0.06), 0 18px 36px -16px rgba(26, 37, 68, 0.28);
+  --f5-shadow-elevated: 0 20px 48px -18px rgba(15, 24, 48, 0.42);
+  --f5-shadow-button: 0 1px 1px rgba(15, 24, 48, 0.08), 0 8px 20px -8px rgba(26, 37, 68, 0.35);
+  --f5-shadow-gold: 0 1px 1px rgba(74, 58, 20, 0.1), 0 8px 18px -8px rgba(169, 133, 63, 0.4);
+}
+
+:root {
+  --app-background: #faf8f6 !important;
+  --atelier-blush: #eccdd6 !important;
+  --atelier-blush-deep: #d99cae !important;
+  --atelier-canvas: #faf8f6 !important;
+  --atelier-card: #ffffff !important;
+  --atelier-champagne: #c9a962 !important;
+  --atelier-cream: #faf8f6 !important;
+  --atelier-gold: #c9a962 !important;
+  --atelier-ink: #1c2333 !important;
+  --atelier-ink-soft: #1c2333 !important;
+  --atelier-ivory: #faf8f6 !important;
+  --atelier-muted: #6b6f80 !important;
+  --atelier-navy: #1a2544 !important;
+  --atelier-navy-deep: #0f1830 !important;
+  --atelier-navy-soft: #2c3c66 !important;
+  --atelier-petal: #eccdd6 !important;
+  --atelier-pink: #c4708a !important;
+  --atelier-tan: #c9a962 !important;
+  --atelier-tan-deep: #a9853f !important;
+  --auth-blush: #eccdd6 !important;
+  --auth-border: #e3e0e6 !important;
+  --auth-champagne: #c9a962 !important;
+  --auth-charcoal: #1c2333 !important;
+  --auth-ivory: #faf8f6 !important;
+  --auth-muted: #6b6f80 !important;
+  --auth-navy: #1a2544 !important;
+  --auth-rose: #c4708a !important;
+  --auth-rose-deep: #d99cae !important;
+  --auth-sage: #a9853f !important;
+  --auth-white: #ffffff !important;
+  --bloom-berry: #c4708a !important;
+  --bloom-bg: #eccdd6 !important;
+  --bloom-blush: #eccdd6 !important;
+  --bloom-border: #e3e0e6 !important;
+  --bloom-botanical: #a9853f !important;
+  --bloom-brand-deep: #1a2544 !important;
+  --bloom-canvas: #faf8f6 !important;
+  --bloom-charcoal: #1c2333 !important;
+  --bloom-cream: #faf8f6 !important;
+  --bloom-dusty-rose: #c4708a !important;
+  --bloom-error: #a83b56 !important;
+  --bloom-focus: #2c3c66 !important;
+  --bloom-gold: #c9a962 !important;
+  --bloom-green: #a9853f !important;
+  --bloom-green-dark: #a9853f !important;
+  --bloom-green-soft: #eccdd6 !important;
+  --bloom-info: #2c3c66 !important;
+  --bloom-ink: #1c2333 !important;
+  --bloom-ivory: #faf8f6 !important;
+  --bloom-lilac: #eccdd6 !important;
+  --bloom-line: #e3e0e6 !important;
+  --bloom-moss: #a9853f !important;
+  --bloom-muted: #6b6f80 !important;
+  --bloom-petal: #eccdd6 !important;
+  --bloom-pink: #c4708a !important;
+  --bloom-pink-soft: #eccdd6 !important;
+  --bloom-plum: #c4708a !important;
+  --bloom-rc21-brand-deep: #1a2544 !important;
+  --bloom-rc21-warn: #c9a962 !important;
+  --bloom-rose: #c4708a !important;
+  --bloom-sage: #a9853f !important;
+  --bloom-sage-soft: #eccdd6 !important;
+  --bloom-success: #8a6a2f !important;
+  --bloom-surface: #ffffff !important;
+  --bloom-text-muted: #6b6f80 !important;
+  --bloom-warm-white: #faf8f6 !important;
+  --bloom-warning: #c9a962 !important;
+  --bloom-white: #ffffff !important;
+  --blush: #eccdd6 !important;
+  --bos-blush: #eccdd6 !important;
+  --bos-border: #e3e0e6 !important;
+  --bos-card: #ffffff !important;
+  --bos-gold: #c9a962 !important;
+  --bos-ink: #1c2333 !important;
+  --bos-lily: #c4708a !important;
+  --bos-muted: #6b6f80 !important;
+  --bos-navy: #1a2544 !important;
+  --brand-primary: #1a2544 !important;
+  --brand-primary-soft: #eccdd6 !important;
+  --brand-secondary: #c4708a !important;
+  --brand-secondary-soft: #eccdd6 !important;
+  --card: #ffffff !important;
+  --cream: #faf8f6 !important;
+  --florisyn-blush: #eccdd6 !important;
+  --florisyn-champagne: #c9a962 !important;
+  --florisyn-charcoal: #1c2333 !important;
+  --florisyn-gold: #c9a962 !important;
+  --florisyn-ivory: #faf8f6 !important;
+  --florisyn-navy: #1a2544 !important;
+  --florisyn-rose: #c4708a !important;
+  --florisyn-sage: #a9853f !important;
+  --florisyn-sage-deep: #a9853f !important;
+  --green: #a9853f !important;
+  --green2: #a9853f !important;
+  --header-color: #ffffff !important;
+  --hero-cream: #faf8f6 !important;
+  --hero-ink: #1c2333 !important;
+  --hero-magenta: #c4708a !important;
+  --hero-muted: #6b6f80 !important;
+  --hero-navy: #1a2544 !important;
+  --ink: #1c2333 !important;
+  --lavender: #eccdd6 !important;
+  --lily-border: #e3e0e6 !important;
+  --lily-deep: #c4708a !important;
+  --lily-panel-bg: #eccdd6 !important;
+  --lily-pink: #c4708a !important;
+  --lily-toolbar-bg: #eccdd6 !important;
+  --line: #e3e0e6 !important;
+  --login-blush: #eccdd6 !important;
+  --login-cream: #faf8f6 !important;
+  --login-green: #a9853f !important;
+  --login-ink: #1c2333 !important;
+  --login-pink: #c4708a !important;
+  --lux-ai-blush: #eccdd6 !important;
+  --lux-ai-border: #e3e0e6 !important;
+  --lux-ai-card: #ffffff !important;
+  --lux-ai-ink: #1c2333 !important;
+  --lux-ai-muted: #6b6f80 !important;
+  --lux-ai-navy: #1a2544 !important;
+  --lux-ai-rose: #c4708a !important;
+  --lux-blush: #eccdd6 !important;
+  --lux-ink: #1c2333 !important;
+  --lux-muted: #6b6f80 !important;
+  --lux-navy: #1a2544 !important;
+  --lux-rose: #c4708a !important;
+  --lux-sidebar-text: #b7bcd6 !important;
+  --lux-white: #ffffff !important;
+  --muted: #6b6f80 !important;
+  --ord-blush: #eccdd6 !important;
+  --ord-border: #e3e0e6 !important;
+  --ord-card: #ffffff !important;
+  --ord-ink: #1c2333 !important;
+  --ord-muted: #6b6f80 !important;
+  --ord-navy: #1a2544 !important;
+  --ord-rose: #c4708a !important;
+  --panel: #ffffff !important;
+  --peach: #eccdd6 !important;
+  --pink: #c4708a !important;
+  --pink-soft: #eccdd6 !important;
+  --pos-blush: #eccdd6 !important;
+  --pos-border: #e3e0e6 !important;
+  --pos-ink: #1c2333 !important;
+  --pos-muted: #6b6f80 !important;
+  --pos-navy: #1a2544 !important;
+  --pos-rose: #c4708a !important;
+  --rose: #c4708a !important;
+  --rose-cream: #eccdd6 !important;
+  --rose-dark: #d99cae !important;
+  --sage: #a9853f !important;
+  --sage-soft: #eccdd6 !important;
+  --secondary-surface-ivory: #faf8f6 !important;
+  --secondary-surface-line: #e3e0e6 !important;
+  --secondary-surface-navy: #1a2544 !important;
+  --sidebar-color: #1a2544 !important;
+  --surface-blush: #eccdd6 !important;
+  --surface-botanical: #a9853f !important;
+  --surface-gold: #c9a962 !important;
+  --surface-ivory: #faf8f6 !important;
+  --surface-navy: #1a2544 !important;
+}
+/* Neutralize residual literal green from legacy layers (source selector noted per rule). */
+
+/* was green in florisyn-luxury-orders.css */
+body.florisyn-atelier #ordersPage .ord-status.delivered {
+  color: #a9853f !important;
+}
+
+/* was green in payment-hub.css */
+.ph-badge.live {
+  color: #a9853f !important;
+}
+
+/* was green in styles.css */
+.badge.good {
+  color: #a9853f !important;
+  color: #a9853f !important;
+}
+
+/* was green in styles.css */
+.lily-card .persona-mark {
+  color: #c4708a !important;
+}
+
+/* was green in styles.css */
+.lily-card span {
+  color: #c4708a !important;
+}
+
+/* was green in styles.css */
+.wake-controls.active button {
+  border-color: #c9a962 !important;
+  color: #a9853f !important;
+}
+
+/* was green in styles.css */
+.lily-suggestion-card h2 {
+  color: #c4708a !important;
+}
+
+/* was green in styles.css */
+.soft-green {
+  border: 1px solid #c9a962 !important;
+  color: #a9853f !important;
+}
+
+/* was green in styles.css */
+.green-dot {
+  background: #c9a962 !important;
+}
+
+/* was green in styles.css */
+.process-payment {
+  background: linear-gradient(90deg,#c9a962,#a9853f) !important;
+}
+
+/* was green in styles.css */
+.shared-lily h3 {
+  color: #c4708a !important;
+}
+
+/* was green in styles.css */
+.pastel-matched-page .badge.good {
+  color: #a9853f !important;
+}
+
+/* was green in styles.css */
+.shift-button.clocked-in {
+  border-color: #c9a962!important;
+  color: #a9853f!important;
+}
+
+/* was green in styles.css */
+.encouragement-line {
+  color: #a9853f!important;
+}
+
+/* was green in styles.css */
+.badge.verified {
+  color: #a9853f !important;
+}
+
+/* was green in styles.css */
+.cogs-meter span {
+  background: #c9a962 !important;
+}
+
+/* was green in styles.css */
+.cogs-good {
+  color: #a9853f !important;
+}
+
+/* was green in styles.css */
+.telemetry-dot {
+  background: #c9a962 !important;
+}
+
+/* was green in styles.css */
+.telemetry-log .success span {
+  color: #a9853f !important;
+}
+
+/* was green in styles.css */
+.freshness-meter .good {
+  color: #a9853f !important;
+}
+
+/* was green in styles.css */
+.approval-box {
+  border: 1px solid #c9a962 !important;
+}
+
+/* was green in styles.css */
+.approval-box small {
+  color: #a9853f !important;
+}
+
+/* was green in polish-v20.4.css */
+.auth-trust-row span {
+  color: #a9853f!important;
+}
+
+/* was green in polish-v20.4.css */
+.price-option:has(input:checked) {
+  border-color: #c9a962!important;
+}
+
+/* was green in polish-v20.4.css */
+.login-only-shell .auth-logo {
+  color: #a9853f!important;
+}
+
+/* was green in polish-v20.4.css */
+.login-only-shell .auth-trust-row span {
+  color: #a9853f!important;
+}
+
+/* was green in polish-v20.4.css */
+.login-assistants strong {
+  color: #a9853f !important;
+}
+
+/* was green in polish-v20.4.css */
+.assistant-mini-dock b {
+  color: #a9853f !important;
+}
+
+/* was green in florisyn-luxury-dashboard.css */
+body.florisyn-atelier .florisyn-os-badge {
+  color: #a9853f !important;
+}
+
+/* was green in florisyn-luxury-dashboard.css */
+body.florisyn-atelier .atelier-kpi .kpi-delta {
+  color: #a9853f !important;
+}
+
+/* was green in florisyn-luxury-dashboard.css */
+body.florisyn-atelier .atelier-delivery-badge.pending {
+  color: #a9853f !important;
+}
+
+/* was green in florisyn-live-avatars.css */
+.assistant-mini-dock button::after, .lily-fab::after {
+  background: #eccdd6 !important;
+}
+
+/* was green in florisyn-luxury-pos.css */
+#posPage #florisynPosLux .pos-lux-scanner i {
+  background: #c9a962 !important;
+}
+
+/* was green in florisyn-luxury-pos.css */
+#posPage #florisynPosLux .pos-lux-status-left i {
+  background: #c9a962 !important;
+}
+
+/* was green in admin.css */
+.admin-brand strong {
+  color: #a9853f !important;
+}
+
+/* was green in admin.css */
+.badge {
+  color: #a9853f !important;
+}
+
+/* was green in admin.css */
+.theme-preview button {
+  background: var(--preview-primary,#a9853f) !important;
+}
+
+/* was green in admin.css */
+.bar-track i {
+  background: linear-gradient(90deg,#a9853f,#e94178) !important;
+}
+
+/* was green in admin.css */
+.health-row .ok {
+  color: #a9853f !important;
+}
+
+/* was green in admin.css */
+body.admin-luxury {
+  --green: #a9853f !important;
+}
+
+/* was green in admin.css */
+body.admin-luxury button {
+  background: linear-gradient(145deg,#c9a962,#a9853f) !important;
+}
+
+/* was green in admin.css */
+body.admin-luxury .badge {
+  color: #a9853f !important;
+}
+
+/* was green in florisyn-founder-1.0.css */
+body.florisyn .shell > aside button[data-page].active {
+  box-shadow: inset 3px 0 0 var(--florisyn-sage, #c9a962) !important;
+}
+
+/* was green in florisyn-founder-1.0.css */
+body.florisyn .shell > aside button[data-page]:focus-visible {
+  outline: 2px solid var(--florisyn-sage, #a9853f) !important;
+}
+
+/* was green in polish-flow.css */
+.ot-pill--ready {
+  color: #a9853f !important;
+}
+
+/* was green in polish-flow.css */
+.ot-pill--delivered, .ot-pill--completed {
+  color: #a9853f !important;
+}
+
+/* was green in community.css */
+.community-chip.active, .community-chip:hover {
+  background: #a9853f !important;
+  border-color: #a9853f !important;
+}
+
+/* was green in community.css */
+.community-category {
+  color: #a9853f !important;
+}
+
+/* was green in community.css */
+.community-like.liked {
+  border-color: #c9a962 !important;
+  color: #a9853f !important;
+}
+
+/* was green in community.css */
+.community-spinner {
+  border-top-color: #a9853f !important;
+}
+
+/* was green in community.css */
+.community-avatar {
+  color: #a9853f !important;
+}
+
+/* was green in community.css */
+.community-recipe-busy {
+  color: #a9853f !important;
+}
+
+/* was green in florisyn-rc2.2-founder-polish.css */
+body.florisyn-rc22 .assistant-mini-dock button.active {
+  box-shadow: inset 3px 0 0 var(--florisyn-sage, #c9a962) !important;
+}
+
+/* was green in florisyn-rc2.2-founder-polish.css */
+body.florisyn-rc22 .studio-title > span {
+  background: var(--florisyn-sage, #c9a962) !important;
+}
+
+/* was green in signup.css */
+.plan:has(input:checked) {
+  border-color: #c9a962 !important;
+}
+
+/* was green in signup.css */
+input:focus,select:focus {
+  border-color: #c9a962 !important;
+}
+
+/* was green in florisyn-atelier-ui.css */
+body.florisyn-atelier .atelier-kpi .kpi-delta {
+  color: #a9853f !important;
+}
+
+/* was green in florisyn-atelier-ui.css */
+body.florisyn-atelier .kpi-orders .atelier-spark {
+  color: #a9853f !important;
+}
+
+/* was green in florisyn-atelier-ui.css */
+body.florisyn-atelier .cogs-meter span {
+  background: linear-gradient(90deg, #c9a962, #c9a27a) !important;
+}
+
+/* was green in florisyn-atelier-ui.css */
+body.florisyn-atelier .freshness-meter progress {
+  accent-color: #c9a962 !important;
+}
+
+/* was green in polish-v20.2.css */
+.free-plan-badge {
+  color: #a9853f !important;
+}
+
+/* was green in polish-v20.2.css */
+.free-plan-card li:before {
+  color: #a9853f !important;
+}
+
+/* was green in bloom-v23.css */
+.assistant-online {
+  color: #a9853f !important;
+}
+
+/* was green in bloom-v23.css */
+.ai-task-row.done {
+  color: #a9853f !important;
+}
+
+/* was green in platform-v21.1.css */
+.footer-brand strong {
+  color: #a9853f !important;
+}
+
+/* was green in website-studio-v2.css */
+.ws2-checklist li.pass::before {
+  color: var(--success, #a9853f) !important;
+}
+.florisyn-lux-nav button[data-page="dashboardPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%227%22%20height%3D%229%22%20rx%3D%221.5%22%2F%3E%3Crect%20x%3D%2214%22%20y%3D%223%22%20width%3D%227%22%20height%3D%225%22%20rx%3D%221.5%22%2F%3E%3Crect%20x%3D%2214%22%20y%3D%2212%22%20width%3D%227%22%20height%3D%229%22%20rx%3D%221.5%22%2F%3E%3Crect%20x%3D%223%22%20y%3D%2216%22%20width%3D%227%22%20height%3D%225%22%20rx%3D%221.5%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="posPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20x%3D%223%22%20y%3D%227%22%20width%3D%2218%22%20height%3D%2212%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M8%207V5a2%202%200%200%201%202-2h4a2%202%200%200%201%202%202v2%22%2F%3E%3Cpath%20d%3D%22M3%2012h18%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="ordersPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%22M4%204h16l-1.4%2013.3a2%202%200%200%201-2%201.7H7.4a2%202%200%200%201-2-1.7L4%204Z%22%2F%3E%3Cpath%20d%3D%22M8%204V3.5A2.5%202.5%200%200%201%2010.5%201h3A2.5%202.5%200%200%201%2016%203.5V4%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="inventoryPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%22M3%208l9-5%209%205-9%205-9-5Z%22%2F%3E%3Cpath%20d%3D%22M3%208v8l9%205%209-5V8%22%2F%3E%3Cpath%20d%3D%22M12%2013v8%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="productsPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%228%22%20height%3D%228%22%20rx%3D%221.5%22%2F%3E%3Crect%20x%3D%2213%22%20y%3D%223%22%20width%3D%228%22%20height%3D%228%22%20rx%3D%221.5%22%2F%3E%3Crect%20x%3D%223%22%20y%3D%2213%22%20width%3D%228%22%20height%3D%228%22%20rx%3D%221.5%22%2F%3E%3Crect%20x%3D%2213%22%20y%3D%2213%22%20width%3D%228%22%20height%3D%228%22%20rx%3D%221.5%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="bouquetsPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%22M12%2021V10%22%2F%3E%3Cpath%20d%3D%22M12%2010c0-4-3-6-6-6%200%204%202%206%206%206Z%22%2F%3E%3Cpath%20d%3D%22M12%2010c0-4%203-6%206-6%200%204-2%206-6%206Z%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%226.5%22%20r%3D%221.4%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="customersPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Ccircle%20cx%3D%229%22%20cy%3D%228%22%20r%3D%223.2%22%2F%3E%3Cpath%20d%3D%22M3%2020c0-3.6%202.7-6%206-6s6%202.4%206%206%22%2F%3E%3Cpath%20d%3D%22M16%208.2a3%203%200%201%201%203.6%204.4%22%2F%3E%3Cpath%20d%3D%22M21%2020c-.2-2.4-1.4-4.2-3.2-5.2%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="deliveriesPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%22M3%207h11v9H3z%22%2F%3E%3Cpath%20d%3D%22M14%2010h4l3%203v3h-7z%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%2218.2%22%20r%3D%221.6%22%2F%3E%3Ccircle%20cx%3D%2218%22%20cy%3D%2218.2%22%20r%3D%221.6%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="paymentsPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20x%3D%222%22%20y%3D%226%22%20width%3D%2220%22%20height%3D%2213%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M2%2010h20%22%2F%3E%3Cpath%20d%3D%22M6%2015h4%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="aiStudioPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%22M12%203v3M12%2018v3M3%2012h3M18%2012h3M6%206l2%202M16%2016l2%202M6%2018l2-2M16%208l2-2%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%223.2%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="analyticsPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%22M4%2020V10M11%2020V4M18%2020v-7%22%2F%3E%3Cpath%20d%3D%22M2.5%2020h19%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="reportsPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%22M6%202h9l4%204v16H6V2Z%22%2F%3E%3Cpath%20d%3D%22M15%202v4h4%22%2F%3E%3Cpath%20d%3D%22M9%2012h6M9%2015.5h6M9%208.8h3%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="expensesPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22%2F%3E%3Cpath%20d%3D%22M12%207v10M9.5%209.3c0-1.3%201.1-2.1%202.5-2.1s2.5.8%202.5%202c0%203-5%201.7-5%204.6%200%201.3%201.1%202.2%202.5%202.2s2.5-.9%202.5-2.1%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="invoicesPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%22M6%202h9l4%204v16H6V2Z%22%2F%3E%3Cpath%20d%3D%22M15%202v4h4%22%2F%3E%3Cpath%20d%3D%22M9%209h6M9%2012.5h6M9%2016h4%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="bloomshotPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20x%3D%222.5%22%20y%3D%226.5%22%20width%3D%2219%22%20height%3D%2213.5%22%20rx%3D%222%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2213.2%22%20r%3D%224%22%2F%3E%3Cpath%20d%3D%22M8.5%206.5%2010%204h4l1.5%202.5%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="websitePage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22%2F%3E%3Cpath%20d%3D%22M3%2012h18M12%203c2.5%202.6%203.8%205.7%203.8%209s-1.3%206.4-3.8%209c-2.5-2.6-3.8-5.7-3.8-9S9.5%205.6%2012%203Z%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="libraryPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%22M4%2019.5V6a2%202%200%200%201%202-2h12a1%201%200%200%201%201%201v14.5%22%2F%3E%3Cpath%20d%3D%22M6%2020a1.5%201.5%200%200%201%200-3h13%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="communityPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Ccircle%20cx%3D%228%22%20cy%3D%229%22%20r%3D%223%22%2F%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%229.5%22%20r%3D%222.6%22%2F%3E%3Cpath%20d%3D%22M2.5%2020c.3-3.4%202.7-5.8%205.5-5.8s5.2%202.4%205.5%205.8%22%2F%3E%3Cpath%20d%3D%22M14.2%2014.6c2.4.4%204.2%202.6%204.5%205.4%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="floristNetworkPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Ccircle%20cx%3D%225%22%20cy%3D%226%22%20r%3D%222.2%22%2F%3E%3Ccircle%20cx%3D%2219%22%20cy%3D%226%22%20r%3D%222.2%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2219%22%20r%3D%222.2%22%2F%3E%3Cpath%20d%3D%22M6.8%207.4%2010.5%2017M17.2%207.4%2013.5%2017M7.2%206h9.6%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="emailCampaignsPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20x%3D%222.5%22%20y%3D%225%22%20width%3D%2219%22%20height%3D%2214%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M3%206.5%2012%2013l9-6.5%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="weddingsPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Ccircle%20cx%3D%228.5%22%20cy%3D%229%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%2215.5%22%20cy%3D%229%22%20r%3D%223.5%22%2F%3E%3Cpath%20d%3D%22M9%2015.2%207%2021h10l-2-5.8%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="holidayPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%22M12%203v18M12%203l-3.5%203.5M12%203l3.5%203.5%22%2F%3E%3Cpath%20d%3D%22M6%2012h12M6%2012l3-3.2M6%2012l3%203.2M18%2012l-3-3.2M18%2012l-3%203.2%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2220.2%22%20r%3D%221.1%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="staffPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%228%22%20r%3D%223.4%22%2F%3E%3Cpath%20d%3D%22M5%2020c0-4%203-6.5%207-6.5s7%202.5%207%206.5%22%2F%3E%3Cpath%20d%3D%22M12%204.5V2M12%2014v-1%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="marketplacePage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%22M3%209%204.5%204h15L21%209%22%2F%3E%3Cpath%20d%3D%22M4%209v10a1%201%200%200%200%201%201h14a1%201%200%200%200%201-1V9%22%2F%3E%3Cpath%20d%3D%22M9%2020v-6h6v6%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="storesPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%22M3%209%204.5%204h15L21%209%22%2F%3E%3Cpath%20d%3D%22M4%209.5v10a1%201%200%200%200%201%201h14a1%201%200%200%200%201-1V9.5%22%2F%3E%3Cpath%20d%3D%22M4%209.5h16%22%2F%3E%3Cpath%20d%3D%22M9.5%2020v-5h5v5%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="ecosystemPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%223%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%224%22%20r%3D%221.7%22%2F%3E%3Ccircle%20cx%3D%2219.5%22%20cy%3D%228.5%22%20r%3D%221.7%22%2F%3E%3Ccircle%20cx%3D%2219.5%22%20cy%3D%2215.5%22%20r%3D%221.7%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2220%22%20r%3D%221.7%22%2F%3E%3Ccircle%20cx%3D%224.5%22%20cy%3D%2215.5%22%20r%3D%221.7%22%2F%3E%3Ccircle%20cx%3D%224.5%22%20cy%3D%228.5%22%20r%3D%221.7%22%2F%3E%3Cpath%20d%3D%22M12%206.8v2.5M17.9%209.4l-2.3%201.2M17.9%2014.6l-2.3-1.2M12%2017.2v-2.5M6.1%2014.6l2.3-1.2M6.1%209.4l2.3%201.2%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="posSettingsPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20x%3D%223%22%20y%3D%227%22%20width%3D%2218%22%20height%3D%2212%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M8%207V5a2%202%200%200%201%202-2h4a2%202%200%200%201%202%202v2%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2213%22%20r%3D%222.2%22%2F%3E%3C%2Fsvg%3E");
+}
+.florisyn-lux-nav button[data-page="settingsPage"]::before {
+  --f5-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%223%22%2F%3E%3Cpath%20d%3D%22M19.4%2013.5a7.6%207.6%200%200%200%200-3l1.9-1.5-2-3.4-2.2.9a7.4%207.4%200%200%200-2.6-1.5L14%202.5h-4l-.5%202.5a7.4%207.4%200%200%200-2.6%201.5l-2.2-.9-2%203.4L4.6%2010.5a7.6%207.6%200%200%200%200%203L2.7%2015l2%203.4%202.2-.9c.8.7%201.6%201.2%202.6%201.5l.5%202.5h4l.5-2.5a7.4%207.4%200%200%200%202.6-1.5l2.2.9%202-3.4-1.9-1.5Z%22%2F%3E%3C%2Fsvg%3E");
+}
+/* --------------------------------------------------------------------------
+   Typography — reinforce the existing Playfair Display / Figtree pairing
+   -------------------------------------------------------------------------- */
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier {
+  font-family: var(--atelier-font-ui, Figtree, "Segoe UI", sans-serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier h1,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier h2,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .heading h1,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .eyebrow + h1,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .dashboard-hero h1 {
+  font-family: var(--atelier-font-display, "Playfair Display", Georgia, serif);
+  letter-spacing: -0.01em;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .eyebrow {
+  font-family: var(--atelier-font-ui, Figtree, sans-serif) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.12em !important;
+  color: var(--f5-gold-deep) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar — grouped, iconed, unambiguous active state
+   -------------------------------------------------------------------------- */
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .shell > aside#atelierSidebarDrawer.florisyn-lux-sidebar {
+  background: linear-gradient(175deg, var(--f5-navy) 0%, var(--f5-navy-deep) 100%) !important;
+  border-right: 1px solid rgba(201, 169, 98, 0.14) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-sidebar-brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 11px !important;
+  padding: 4px 6px 16px !important;
+  margin-bottom: 10px !important;
+  border-bottom: 1px solid rgba(250, 248, 246, 0.1) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-sidebar-mark {
+  border-radius: 9px;
+  box-shadow: var(--f5-shadow-elevated);
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-sidebar-brand strong {
+  font-family: var(--atelier-font-display, "Playfair Display", Georgia, serif) !important;
+  font-size: 19px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em;
+  color: #fdfbf8 !important;
+}
+
+/* Group headings — GROWTH / BUSINESS / SELLER DASHBOARD / SUBSCRIPTION */
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .florisyn-lux-nav-label {
+  font-family: var(--atelier-font-ui, Figtree, sans-serif) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.14em !important;
+  color: var(--f5-gold) !important;
+  opacity: 0.82;
+  margin: 20px 10px 7px !important;
+  padding: 0 !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .florisyn-lux-nav-divider {
+  border: none !important;
+  border-top: 1px solid rgba(250, 248, 246, 0.1) !important;
+  margin: 14px 6px !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .florisyn-lux-nav {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+  padding: 0 6px !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .florisyn-lux-nav button[data-page] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  text-align: left !important;
+  padding: 9px 11px !important;
+  border: 0 !important;
+  border-radius: var(--f5-radius-sm) !important;
+  background: transparent !important;
+  color: var(--f5-sidebar-text) !important;
+  font-family: var(--atelier-font-ui, Figtree, sans-serif) !important;
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  position: relative;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* Icon box — the per-page icon URI is set on ::before by icon-rules.css via --f5-icon */
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .florisyn-lux-nav button[data-page]::before {
+  content: "" !important;
+  display: inline-block !important;
+  flex-shrink: 0 !important;
+  width: 17px !important;
+  height: 17px !important;
+  -webkit-mask: var(--f5-icon) center / contain no-repeat !important;
+  mask: var(--f5-icon) center / contain no-repeat !important;
+  background-color: currentColor !important;
+  opacity: 0.78 !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .florisyn-lux-nav button[data-page]:hover {
+  background: rgba(250, 248, 246, 0.06) !important;
+  color: #fdfbf8 !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .florisyn-lux-nav button[data-page]:hover::before {
+  opacity: 1 !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .florisyn-lux-nav button[data-page].active {
+  background: linear-gradient(90deg, rgba(201, 169, 98, 0.16), rgba(201, 169, 98, 0.05)) !important;
+  color: #fdfbf8 !important;
+  font-weight: 600 !important;
+  box-shadow: inset 2.5px 0 0 var(--f5-gold) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .florisyn-lux-nav button[data-page].active::before {
+  opacity: 1 !important;
+  background-color: var(--f5-gold) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .florisyn-lux-nav button[data-page]:focus-visible {
+  outline: 2px solid var(--f5-gold) !important;
+  outline-offset: 1px;
+}
+
+/* --------------------------------------------------------------------------
+   Header / topbar
+   -------------------------------------------------------------------------- */
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier header {
+  background: var(--f5-card) !important;
+  border-bottom: 1px solid var(--f5-border) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .search,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier header input[type="search"] {
+  border-radius: 999px !important;
+  border: 1px solid var(--f5-border) !important;
+  box-shadow: var(--f5-shadow-card);
+}
+
+/* --------------------------------------------------------------------------
+   Buttons — one consistent system
+   -------------------------------------------------------------------------- */
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .primary,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .process-payment,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier button[type="submit"].primary {
+  background: linear-gradient(135deg, var(--f5-navy) 0%, var(--f5-navy-deep) 100%) !important;
+  color: #fdfbf8 !important;
+  border: 1px solid rgba(201, 169, 98, 0.35) !important;
+  border-radius: var(--f5-radius-sm) !important;
+  box-shadow: var(--f5-shadow-button) !important;
+  font-weight: 600 !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .primary:hover,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .process-payment:hover {
+  filter: brightness(1.08);
+  box-shadow: var(--f5-shadow-card-hover) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .secondary {
+  background: var(--f5-card) !important;
+  border: 1px solid var(--f5-border) !important;
+  color: var(--f5-ink) !important;
+  border-radius: var(--f5-radius-sm) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .secondary:hover {
+  border-color: var(--f5-gold) !important;
+  background: var(--f5-ivory) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .soft-green,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .button-link {
+  border-radius: var(--f5-radius-sm) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Cards / panels — one shadow + radius + border language everywhere
+   -------------------------------------------------------------------------- */
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .card,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .panel,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .ai-card,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .stats article,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .kpi-card,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .metric-box,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .product-card,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .floral-library-card,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .assistant-persona,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .delivery-summary article,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .report-row {
+  border-radius: var(--f5-radius-lg) !important;
+  border: 1px solid var(--f5-border) !important;
+  box-shadow: var(--f5-shadow-card) !important;
+  background: var(--f5-card) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .floral-library-card:hover,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .product-card:hover {
+  box-shadow: var(--f5-shadow-card-hover) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .badge {
+  border-radius: 999px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .badge.good,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .badge.verified {
+  background: rgba(201, 169, 98, 0.16) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .badge.warn {
+  background: rgba(196, 112, 138, 0.14) !important;
+  color: var(--f5-rose) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Forms — consistent border / focus ring
+   -------------------------------------------------------------------------- */
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier input,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier select,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier textarea {
+  border: 1px solid var(--f5-border) !important;
+  border-radius: var(--f5-radius-sm) !important;
+  background: var(--f5-card) !important;
+  color: var(--f5-ink) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier input:focus,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier select:focus,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier textarea:focus {
+  border-color: var(--f5-gold) !important;
+  box-shadow: 0 0 0 3px rgba(201, 169, 98, 0.18) !important;
+  outline: none;
+}
+
+/* --------------------------------------------------------------------------
+   Dialogs / toasts
+   -------------------------------------------------------------------------- */
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier dialog {
+  border-radius: 22px !important;
+  border: none !important;
+  box-shadow: var(--f5-shadow-elevated) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier dialog::backdrop {
+  background: rgba(15, 24, 48, 0.55) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .toast {
+  background: var(--f5-navy) !important;
+  border-radius: var(--f5-radius-md) !important;
+  box-shadow: var(--f5-shadow-elevated) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Lily, Rose & Daisy — restyled into the new palette, never hidden
+   -------------------------------------------------------------------------- */
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .lily-card,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .lily-suggestion-card {
+  background: linear-gradient(150deg, #ffffff, var(--f5-blush) 220%) !important;
+  border-color: var(--f5-blush-deep) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .lily-card .persona-mark {
+  background: var(--f5-blush) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .rose-card,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .rose-welcome-card,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .rose-top-assistant {
+  background: linear-gradient(150deg, #ffffff, rgba(201, 169, 98, 0.12) 220%) !important;
+  border-color: rgba(201, 169, 98, 0.3) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .rose-card .persona-mark {
+  background: rgba(201, 169, 98, 0.22) !important;
+  color: var(--f5-gold-deep) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .rose-top-controls strong,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .rose-name {
+  color: var(--f5-gold-deep) !important;
+}
+
+/* --------------------------------------------------------------------------
+   New dashboard modules — Order Pipeline, Calendar, CRM, Marketing, Website
+   preview — plus the pre-existing-but-unwired Today's Orders / Top Bouquets
+   / Upcoming Deliveries panels, now that app.js populates them.
+   -------------------------------------------------------------------------- */
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .dash-card,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-panel {
+  background: var(--f5-card) !important;
+  border: 1px solid var(--f5-border) !important;
+  border-radius: var(--f5-radius-lg) !important;
+  box-shadow: var(--f5-shadow-card) !important;
+  padding: 20px !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .dash-card-head,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-panel-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin-bottom: 14px !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .dash-card-head h3,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-panel-head h3 {
+  font-family: var(--atelier-font-display, "Playfair Display", Georgia, serif) !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  margin: 0 !important;
+  color: var(--f5-ink) !important;
+}
+
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-panel-more,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-view-all {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--f5-rose) !important;
+  font-weight: 600 !important;
+  font-size: 12.5px !important;
+  padding: 4px 2px !important;
+  cursor: pointer;
+}
+
+/* Today's Orders / CRM rows */
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-row,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .crm-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  width: 100% !important;
+  text-align: left !important;
+  padding: 10px 0 !important;
+  border: 0 !important;
+  border-top: 1px solid var(--f5-border) !important;
+  background: transparent !important;
+  font-family: inherit !important;
+  cursor: pointer;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-row:first-child,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .crm-row:first-child {
+  border-top: 0 !important;
+  padding-top: 2px !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-row strong,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .crm-row strong {
+  display: block !important;
+  font-size: 13.5px !important;
+  color: var(--f5-ink) !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-row small,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .crm-row small {
+  color: var(--f5-muted) !important;
+  font-size: 12px !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-row b {
+  font-family: var(--atelier-font-display, "Playfair Display", Georgia, serif) !important;
+  color: var(--f5-ink) !important;
+}
+
+/* Top Bouquets image tiles */
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-list {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 10px !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-bouquet-tile {
+  display: flex !important;
+  flex-direction: column !important;
+  border: 1px solid var(--f5-border) !important;
+  border-radius: var(--f5-radius-md) !important;
+  overflow: hidden !important;
+  background: var(--f5-card) !important;
+  padding: 0 !important;
+  cursor: pointer;
+  text-align: left !important;
+  font-family: inherit !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-bouquet-tile img,
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-bouquet-art {
+  width: 100% !important;
+  height: 84px !important;
+  object-fit: cover !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: var(--f5-blush) !important;
+  font-size: 28px !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-bouquet-tile div {
+  padding: 8px 10px !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-bouquet-tile strong {
+  display: block !important;
+  font-size: 12.5px !important;
+  color: var(--f5-ink) !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .atelier-bouquet-tile small {
+  color: var(--f5-gold-deep) !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+}
+
+/* Growth grid layout */
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .dashboard-growth-grid {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 16px !important;
+  margin: 16px 0 !important;
+}
+
+
+/* Calendar — a real month grid, not a strip of chips */
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-month-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 12px !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-month-head h4 {
+  margin: 0 !important;
+  font-family: var(--atelier-font-display, "Playfair Display", Georgia, serif) !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: var(--f5-ink) !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-month-nav {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-nav {
+  background: var(--f5-card) !important;
+  border: 1px solid var(--f5-border) !important;
+  border-radius: var(--f5-radius-sm) !important;
+  color: var(--f5-ink) !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  padding: 5px 10px !important;
+  cursor: pointer;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-nav:hover {
+  border-color: var(--f5-gold) !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-nav-arrow {
+  padding: 5px 11px !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-weekday-row {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  margin-bottom: 4px !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-weekday-row span {
+  text-align: center !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--f5-muted) !important;
+  padding: 4px 0 !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-month-grid {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  grid-auto-rows: minmax(84px, auto) !important;
+  gap: 1px !important;
+  background: var(--f5-border) !important;
+  border: 1px solid var(--f5-border) !important;
+  border-radius: var(--f5-radius-md) !important;
+  overflow: hidden !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell {
+  background: var(--f5-card) !important;
+  padding: 6px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  min-width: 0 !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell.is-outside {
+  background: var(--f5-ivory) !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell.is-outside .cal-cell-date {
+  color: var(--f5-muted) !important;
+  opacity: 0.55 !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell.is-today {
+  background: var(--f5-navy) !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell-date {
+  font-family: var(--atelier-font-display, "Playfair Display", Georgia, serif) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--f5-ink) !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell.is-today .cal-cell-date {
+  color: #fdfbf8 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 50% !important;
+  background: var(--f5-gold) !important;
+  color: var(--f5-navy-deep) !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-chip {
+  display: block !important;
+  width: 100% !important;
+  background: var(--f5-blush) !important;
+  color: var(--f5-ink) !important;
+  border: 0 !important;
+  border-radius: 5px !important;
+  padding: 2px 5px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  text-align: left !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  cursor: pointer;
+  font-family: inherit !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell.is-today .cal-chip {
+  background: rgba(201, 169, 98, 0.85) !important;
+  color: var(--f5-navy-deep) !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-more {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--f5-rose) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  padding: 0 2px !important;
+  text-align: left !important;
+  cursor: pointer;
+  font-family: inherit !important;
+}
+body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-cell.is-today .cal-more {
+  color: #fdfbf8 !important;
+}
+@media (max-width: 760px) {
+  body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-month-grid {
+    grid-auto-rows: minmax(56px, auto) !important;
+  }
+  body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-chip,
+  body.bloom-rc1.bloom-rc2.bloom-rc21.florisyn.florisyn-rc22.florisyn-atelier .cal-more {
+    display: none !important;
+  }
+}

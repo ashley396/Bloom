@@ -1,9 +1,9 @@
 import Stripe from "stripe";
 import crypto from "node:crypto";
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
-import { currentUser, fail, requireRoles } from "./_shared/supabase.js";
+import { admin, currentUser, fail, requireRoles } from "./_shared/supabase.js";
 import { requireRowShopId } from "./_shared/shop-scope.js";
-import { writeShopAudit } from "./_shared/production.js";
+import { structuredLog, writeShopAudit } from "./_shared/production.js";
 import {
   PROVIDER_CATALOG,
   PROVIDER_IDS,
@@ -73,7 +73,7 @@ const HUB_ROLES = ["owner", "manager", "cashier", "accountant"];
 async function loadShop(client, shopId) {
   const { data, error } = await client
     .from("shops")
-    .select("id,name,stripe_connect_account_id")
+    .select("id,name,stripe_connect_account_id,timezone")
     .eq("id", shopId)
     .single();
   if (error) throw error;
@@ -169,7 +169,7 @@ async function buildHubView(ctx, stripe) {
   since.setHours(0, 0, 0, 0);
   const { data: payments } = await client
     .from("payments")
-    .select("amount,method,payment_method,received_at,created_at,processor,metadata")
+    .select("amount,method,received_at,created_at,processor,metadata")
     .eq("shop_id", shopId)
     .gte("received_at", since.toISOString())
     .limit(500);
@@ -227,6 +227,38 @@ async function buildHubView(ctx, stripe) {
     refundsHistory = [];
   }
 
+  let refundablePayments = [];
+  try {
+    const rp = await client
+      .from("payments")
+      .select("id,order_id,amount,refunded_amount,method,processor,status,received_at,created_at")
+      .eq("shop_id", shopId)
+      .in("status", ["SUCCEEDED", "PARTIALLY_REFUNDED"])
+      .order("received_at", { ascending: false, nullsFirst: false })
+      .limit(50);
+    if (!rp.error) {
+      refundablePayments = (rp.data || [])
+        .map((payment) => {
+          const amount = Number(payment.amount || 0);
+          const refunded = Number(payment.refunded_amount || 0);
+          return {
+            id: payment.id,
+            order_id: payment.order_id,
+            amount,
+            refunded_amount: refunded,
+            refundable_amount: Math.max(0, amount - refunded),
+            method: payment.payment_method || payment.method,
+            processor: payment.processor,
+            status: payment.status,
+            received_at: payment.received_at || payment.created_at
+          };
+        })
+        .filter((payment) => payment.refundable_amount > 0);
+    }
+  } catch {
+    refundablePayments = [];
+  }
+
   let setupWizard = settings.setup_wizard || {};
   if (!setupWizard.completed && !setupWizard.skipped) setupWizard.show_wizard = true;
 
@@ -276,7 +308,7 @@ async function buildHubView(ctx, stripe) {
       outstanding_balances: houseAccounts.reduce((s, a) => s + Number(a.balance || 0), 0),
       aging: buildHouseAgingReport(houseAccounts, [])
     },
-    refunds: { reasons: REFUND_REASONS, history: refundsHistory },
+    refunds: { reasons: REFUND_REASONS, history: refundsHistory, payments: refundablePayments },
     experience: {
       terminals: TERMINAL_CATALOG,
       reports: experience_reports,
@@ -753,45 +785,102 @@ export async function handler(event) {
         e.statusCode = 403;
         throw e;
       }
-      const providerId = String(body.provider_id || "stripe");
-      const paymentAmount = Number(body.payment_amount || body.amount || 0);
-      const v = validateRefundRequest({ amount: body.amount, paymentAmount, partial: body.partial });
+      const idempotencyKey = String(body.idempotency_key || "").trim();
+      if (!idempotencyKey) return json(400, { error: "Refund idempotency key is required." });
+      const providerId = String(body.provider_id || "stripe").trim().toLowerCase();
+      const paymentId = String(body.payment_id || "").trim();
+      if (!paymentId) return json(400, { error: "Payment is required." });
+      const requestedAmount = Number(body.amount);
+      const v = validateRefundRequest({ amount: requestedAmount, paymentAmount: Number.MAX_SAFE_INTEGER, partial: body.partial });
       if (!v.valid) return json(400, { error: v.error });
       const shop = await loadShop(client, shopId);
       const adapter = createProviderAdapter(providerId, { stripeClient: stripe, shop });
-      let providerResult = { ok: true, provider_ref: body.provider_ref || null };
-      if (body.payment_intent_id && providerId === "stripe") {
-        providerResult = await adapter.refund({
-          paymentIntentId: body.payment_intent_id,
-          amount: v.amount,
-          reason: body.reason
-        });
-        if (!providerResult.ok) return json(400, providerResult);
+      const ledgerClient = admin();
+      const { data: reservation, error: reservationError } = await ledgerClient.rpc("reserve_payment_refund", {
+        p_shop_id: shopId,
+        p_payment_id: paymentId,
+        p_idempotency_key: idempotencyKey,
+        p_amount: v.amount,
+        p_reason: body.reason || "customer_request",
+        p_notes: body.notes || null,
+        p_actor_user_id: user.id,
+        p_provider_id: providerId
+      });
+      if (reservationError) {
+        if (/Payment not found/i.test(reservationError.message || "")) return json(404, { error: "Payment not found." });
+        if (/exceeds remaining refundable balance/i.test(reservationError.message || "")) {
+          return json(409, { error: "Refund exceeds the remaining refundable balance." });
+        }
+        if (/idempotency key conflicts/i.test(reservationError.message || "")) {
+          return json(409, { error: "Refund idempotency key conflicts with an existing request." });
+        }
+        throw reservationError;
       }
-      const row = {
-        shop_id: shopId,
-        provider_id: providerId,
-        payment_id: body.payment_id || null,
-        provider_ref: providerResult.refund_id || body.provider_ref,
-        amount: v.amount,
-        reason: body.reason || "customer_request",
-        notes: body.notes || null,
-        status: providerResult.ok ? "completed" : "pending",
-        partial: v.partial,
-        actor_user_id: user.id,
-        metadata: { payment_intent_id: body.payment_intent_id || null, notes: body.notes || null }
-      };
-      const { data: refundRow, error } = await client.from("payment_hub_refunds").insert(row).select("*").single();
-      if (error && error.code !== "42P01") throw error;
+      const reservedRefund = reservation?.refund;
+      if (!reservedRefund?.id) throw new Error("Refund reservation was not confirmed.");
+      if (reservedRefund.status === "completed") {
+        return json(200, { refund: reservedRefund, duplicate: true });
+      }
+
+      const paymentIntentId = reservedRefund.metadata?.payment_intent_id;
+      let providerResult;
+      try {
+        providerResult = await adapter.refund({
+          paymentIntentId,
+          amount: v.amount,
+          reason: body.reason,
+          idempotencyKey
+        });
+        if (!providerResult.ok) {
+          const providerError = new Error(providerResult.error || "Refund provider rejected the request.");
+          providerError.code = "provider_rejected";
+          throw providerError;
+        }
+      } catch (providerError) {
+        const { error: failError } = await ledgerClient.rpc("fail_payment_refund", {
+          p_shop_id: shopId,
+          p_refund_id: reservedRefund.id,
+          p_error_code: providerError.code || providerError.type || "provider_error"
+        });
+        structuredLog("error", "payment_refund_provider_failed", {
+          shop_id: shopId,
+          refund_id: reservedRefund.id,
+          error_code: providerError.code || providerError.type || "provider_error",
+          reservation_update_failed: Boolean(failError)
+        });
+        if (failError) throw failError;
+        return json(502, { error: "The refund provider did not complete the refund. It is safe to retry with the same key." });
+      }
+
+      const { data: completion, error: completionError } = await ledgerClient.rpc("complete_payment_refund", {
+        p_shop_id: shopId,
+        p_refund_id: reservedRefund.id,
+        p_provider_ref: providerResult.refund_id,
+        p_provider_status: providerResult.status || "succeeded"
+      });
+      if (completionError || !completion?.refund?.id) {
+        structuredLog("error", "payment_refund_reconciliation_required", {
+          shop_id: shopId,
+          refund_id: reservedRefund.id,
+          provider_ref: providerResult.refund_id,
+          error_code: completionError?.code || "completion_not_confirmed"
+        });
+        return json(202, {
+          status: "reconciliation_required",
+          refund_id: reservedRefund.id,
+          provider_ref: providerResult.refund_id
+        });
+      }
+      const refundRow = completion.refund;
       await writeShopAudit(client, {
         shopId,
         userId: user.id,
         eventType: "payment_refund",
         entityType: "refund",
-        entityId: refundRow?.id || body.payment_id || "refund",
-        metadata: buildRefundAuditEntry(refundRow || row, { userId: user.id })
+        entityId: refundRow.id,
+        metadata: buildRefundAuditEntry(refundRow, { userId: user.id })
       });
-      return json(201, { refund: refundRow || row, provider: providerResult });
+      return json(reservation?.duplicate ? 200 : 201, { refund: refundRow, provider: providerResult });
     }
 
     if (action === "refund_void") {
@@ -1170,6 +1259,10 @@ export async function handler(event) {
 
     if (action === "recurring_billing_process") {
       requireRoles(ctx, ["owner", "manager"]);
+      // Loaded before the due-for-billing filter now (was after) — that
+      // filter needs shop.timezone to judge "due" against the shop's own
+      // calendar day, not the server's UTC one.
+      const shop = await loadShop(client, shopId);
       const subId = body.subscription_id;
       let subs = [];
       if (subId) {
@@ -1184,9 +1277,8 @@ export async function handler(event) {
           .eq("status", "active")
           .limit(25);
         if (error && error.code !== "42P01") throw error;
-        subs = (data || []).filter((s) => subscriptionDueForBilling(s));
+        subs = (data || []).filter((s) => subscriptionDueForBilling(s, new Date(), shop?.timezone));
       }
-      const shop = await loadShop(client, shopId);
       const settings = await loadHubSettings(client, shopId);
       const results = [];
       for (const sub of subs) {

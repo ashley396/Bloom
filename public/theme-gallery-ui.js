@@ -34,10 +34,23 @@
     let previousTheme = null;
     let currentSite = null;
 
-    api("launch_modes").then((d) => {
-      modes = d.modes || [];
-      renderCards();
-    });
+    // Every other api() call in this file catches its own failure and
+    // shows it inline via #themeGalleryStatus — this one didn't, so any
+    // transient failure (network blip, session refresh racing this
+    // request, a backend hiccup) became an unhandled promise rejection.
+    // app.js's global window.addEventListener("unhandledrejection", ...)
+    // turns that into an unrelated-looking toast the moment a florist
+    // opens Website Builder, with no obvious cause and no way to retry —
+    // exactly the "Error occurred" report this fixes.
+    api("launch_modes")
+      .then((d) => {
+        modes = d.modes || [];
+        renderCards();
+      })
+      .catch((e) => {
+        const status = root.querySelector("#themeGalleryStatus");
+        if (status) status.textContent = e.message || "Website templates could not be loaded. Try again.";
+      });
 
     function deviceMock(mode, device) {
       const w = device === "mobile" ? "100%" : device === "tablet" ? "768px" : "100%";
@@ -64,13 +77,27 @@
       dlg.showModal();
     }
 
+    // Readable style description per fontPair id — every template card was
+    // previously showing the identical hardcoded caption ("Serif + sans ·
+    // product cards · soft buttons") regardless of which template it was,
+    // with no name anywhere. Eight anonymous gradient blocks with the same
+    // subtitle is why templates were hard to find/tell apart.
+    const FONT_PAIR_DESCRIPTIONS = {
+      elegant_serif_sans: "Cormorant Garamond + Source Sans",
+      romantic_script_accent: "Cormorant Garamond + script accent",
+      modern_luxury_serif: "Playfair Display + Inter",
+      traditional_florist: "Libre Baskerville + Nunito Sans",
+      clean_contemporary: "Clean, contemporary sans"
+    };
+
     function renderCards() {
       const grid = root.querySelector("#themeGalleryGrid");
       grid.innerHTML = modes
         .map(
           (m) => `<article class="theme-card panel" data-id="${esc(m.id)}">
             <div class="theme-card-preview" style="background:linear-gradient(145deg,${m.palette.join(",")});min-height:100px;border-radius:12px"></div>
-            <p class="subtle">Serif + sans · product cards · soft buttons</p>
+            <h3 class="theme-card-name">${esc(m.label || m.id)}</h3>
+            <p class="subtle">${esc(FONT_PAIR_DESCRIPTIONS[m.fontPair] || "Serif + sans")} · product cards · soft buttons</p>
             <div class="card-actions">
               <button type="button" class="secondary" data-preview="${esc(m.id)}">Preview</button>
               <button type="button" class="primary" data-apply="${esc(m.id)}">Apply theme</button>

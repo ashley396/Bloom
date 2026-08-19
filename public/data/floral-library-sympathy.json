@@ -1,0 +1,1023 @@
+{
+  "version": "1.0",
+  "collection": "florisyn_category_library",
+  "category": "Sympathy",
+  "category_note": "Comfort flowers sent to the home or family (vases, baskets) — distinct from Funeral service pieces (sprays, wreaths).",
+  "target_count": 20,
+  "image_style": "professional florist e-commerce product photograph, single arrangement centered, pure white seamless studio background, soft even studio lighting, ultra-realistic, no text/people",
+  "arrangements": [
+    {
+      "id": "sy-01-peaceful-white-lilies",
+      "name": "Peaceful White Lilies",
+      "style": "serene",
+      "color_palette": "white, green",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass gathering vase",
+      "recipe": [
+        {
+          "name": "White Oriental Lilies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Stock",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Seeded Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Seeded Eucalyptus",
+        "Italian Ruscus"
+      ],
+      "short_description": "Serene all-white lilies and roses offering quiet comfort.",
+      "description": "A calm, all-white tribute of fragrant Oriental lilies, garden roses, and stock, framed in soft eucalyptus — a gentle expression of sympathy for the home.",
+      "suggested_retail": 89.99,
+      "image": "everyday/sy-01-peaceful-white-lilies.jpg",
+      "alt": "All-white sympathy arrangement of lilies and roses in a clear glass vase on a white background",
+      "content_sha256": "f818e2605d99407afeaf5f3ca5cec5c6d1a3a3cee14b6f999e1fc981d4cab4b2",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-02-comfort-grace-basket",
+      "name": "Comfort & Grace Basket",
+      "style": "soft",
+      "color_palette": "white, blush, green",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "basket arrangement",
+      "container": "natural woven basket",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Blush Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Salal",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Salal",
+        "Leatherleaf"
+      ],
+      "short_description": "A gentle basket of blush and white blooms for the home.",
+      "description": "Soft blush and ivory roses gathered with hydrangea and lisianthus in a natural basket — an easy, comforting piece to receive at home.",
+      "suggested_retail": 99.99,
+      "image": "everyday/sy-02-comfort-grace-basket.jpg",
+      "alt": "Blush and white sympathy basket of roses and hydrangea on a white background",
+      "content_sha256": "601785b29b109f96963a9b5ad8d3aa70074b9520aa75ff1a5b26425fdc76efd9",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-03-serene-blue-reflections",
+      "name": "Serene Blue Reflections",
+      "style": "tranquil",
+      "color_palette": "blue, white",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "matte ceramic vase",
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "Blue Delphinium",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Dusty Miller",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Dusty Miller",
+        "Eucalyptus"
+      ],
+      "short_description": "Tranquil blue hydrangea and white roses for peaceful calm.",
+      "description": "Cool blue hydrangea and delphinium meet crisp white roses and silvery dusty miller — a tranquil, restful expression of comfort.",
+      "suggested_retail": 94.99,
+      "image": "everyday/sy-03-serene-blue-reflections.jpg",
+      "alt": "Blue hydrangea and white rose sympathy arrangement in a ceramic vase on a white background",
+      "content_sha256": "cb25898d2fdf6b9f1e9fb9d5db78afb600eb9ee9d969550657f03682ae4b7c21",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-04-loving-remembrance-urn",
+      "name": "Loving Remembrance",
+      "style": "classic",
+      "color_palette": "white, green",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "urn arrangement",
+      "container": "white footed urn",
+      "recipe": [
+        {
+          "name": "White Chrysanthemums",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Gladioli",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 8,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf",
+        "Myrtle"
+      ],
+      "short_description": "A stately all-white urn of chrysanthemums and gladioli.",
+      "description": "Classic white chrysanthemums, gladioli, and roses arranged in a footed urn — a dignified, enduring tribute of remembrance.",
+      "suggested_retail": 109.99,
+      "image": "everyday/sy-04-loving-remembrance-urn.jpg",
+      "alt": "All-white chrysanthemum and gladioli sympathy urn arrangement on a white background",
+      "content_sha256": "cec9f977ef8119c154198d0c89a69148e3b2e01a7a5805638239c589951af48f",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-05-gentle-blush-sympathy",
+      "name": "Gentle Blush Sympathy",
+      "style": "soft",
+      "color_palette": "blush, white",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "glass cylinder vase",
+      "recipe": [
+        {
+          "name": "Blush Roses",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Seeded Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Seeded Eucalyptus"
+      ],
+      "short_description": "Soft blush roses and lisianthus for tender comfort.",
+      "description": "Tender blush roses, ivory lisianthus, and pink alstroemeria in a clean glass cylinder — a soft, heartfelt way to send comfort.",
+      "suggested_retail": 84.99,
+      "image": "everyday/sy-05-gentle-blush-sympathy.jpg",
+      "alt": "Blush rose and lisianthus sympathy arrangement in a glass cylinder on a white background",
+      "content_sha256": "5fd676355b95ccae02ffb2d7a4c890c53f31197373cd361c8851263bf69d29ee",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-06-eternal-peace-orchids",
+      "name": "Eternal Peace Orchids",
+      "style": "elegant",
+      "color_palette": "white, green",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "tall clear glass vase",
+      "recipe": [
+        {
+          "name": "White Phalaenopsis Orchid Stems",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Israeli Ruscus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Israeli Ruscus"
+      ],
+      "short_description": "Elegant white orchids and roses for a graceful tribute.",
+      "description": "Graceful white phalaenopsis orchids arc over garden roses and hydrangea — an elegant, upscale expression of sympathy.",
+      "suggested_retail": 124.99,
+      "image": "everyday/sy-06-eternal-peace-orchids.jpg",
+      "alt": "White orchid and rose sympathy arrangement in a tall glass vase on a white background",
+      "content_sha256": "37a34494eb417ea76e44fad1ba7f9180a4983e909ac5d35d7067c888791ad895",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-07-cherished-memories",
+      "name": "Cherished Memories",
+      "style": "classic",
+      "color_palette": "white, blush, green",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Snapdragons",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Waxflower",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Soft white and pink roses with airy snapdragons.",
+      "description": "White and pink roses lifted by graceful snapdragons and delicate waxflower — a soft, cherished tribute of love and remembrance.",
+      "suggested_retail": 89.99,
+      "image": "everyday/sy-07-cherished-memories.jpg",
+      "alt": "White and pink rose sympathy arrangement with snapdragons on a white background",
+      "content_sha256": "d408af88efb44578c1736e83a3800d5e4b88fafc30043fe9527fecb8e22de6d4",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-08-whispering-white-garden",
+      "name": "Whispering White Garden",
+      "style": "garden",
+      "color_palette": "white, green",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "footed glass compote",
+      "recipe": [
+        {
+          "name": "White Garden Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Ranunculus",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Silver Dollar Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Silver Dollar Eucalyptus"
+      ],
+      "short_description": "A lush white garden compote of roses and ranunculus.",
+      "description": "A gently overflowing compote of white garden roses, ranunculus, and lisianthus — a serene, garden-style gesture of comfort.",
+      "suggested_retail": 104.99,
+      "image": "everyday/sy-08-whispering-white-garden.jpg",
+      "alt": "White garden-style sympathy compote of roses and ranunculus on a white background",
+      "content_sha256": "b7c088f655f00c44bbee68d72add716189ff10034e4387442026824cab91cdd8",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-09-lavender-serenity",
+      "name": "Lavender Serenity",
+      "style": "tranquil",
+      "color_palette": "lavender, white",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "frosted glass vase",
+      "recipe": [
+        {
+          "name": "Lavender Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Stock",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Limonium",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Calming lavender and white for quiet reflection.",
+      "description": "Soft lavender roses and purple stock with ivory lisianthus create a calming, reflective palette of comfort and peace.",
+      "suggested_retail": 92.99,
+      "image": "everyday/sy-09-lavender-serenity.jpg",
+      "alt": "Lavender and white sympathy arrangement in a frosted vase on a white background",
+      "content_sha256": "907184045ef45df59211f6eb44112a22e3a86b0e1bb8721f15cbd44672b4a82a",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-10-golden-light-tribute",
+      "name": "Golden Light Tribute",
+      "style": "warm",
+      "color_palette": "yellow, white, green",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisy Chrysanthemums",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Solidago",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "Warm white and gold for hope and remembrance.",
+      "description": "Bright white and buttery yellow roses with cheerful daisies — a warm, hopeful tribute that celebrates a life well lived.",
+      "suggested_retail": 84.99,
+      "image": "everyday/sy-10-golden-light-tribute.jpg",
+      "alt": "White and yellow sympathy arrangement with daisies on a white background",
+      "content_sha256": "3f91272684b83db8deeeb119b3361248a6e4eff8ee7bd7e2c1f3a6aace0dbd39",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-11-tender-heart-pinks",
+      "name": "Tender Heart Pinks",
+      "style": "soft",
+      "color_palette": "pink, white",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Carnations",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Baby's Breath",
+          "qty": 4,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "Gentle pinks and white for a tender embrace.",
+      "description": "Soft pink roses and carnations with airy alstroemeria and baby's breath — a tender, comforting embrace of blooms.",
+      "suggested_retail": 79.99,
+      "image": "everyday/sy-11-tender-heart-pinks.jpg",
+      "alt": "Pink and white sympathy arrangement with carnations on a white background",
+      "content_sha256": "eac16944b484606c063a77c60a8c3dc4ee83d6dddbcc16aecd3a4ca69a57eebd",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-12-quiet-strength-greens",
+      "name": "Quiet Strength",
+      "style": "modern",
+      "color_palette": "white, green",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "matte white ceramic vase",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "White Anthurium",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Green Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Monstera Leaves",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Monstera Leaves",
+        "Israeli Ruscus"
+      ],
+      "short_description": "A modern white and green tribute of quiet strength.",
+      "description": "Sculptural white anthurium and roses with green hydrangea and bold foliage — a modern, understated show of quiet strength.",
+      "suggested_retail": 114.99,
+      "image": "everyday/sy-12-quiet-strength-greens.jpg",
+      "alt": "Modern white and green sympathy arrangement with anthurium on a white background",
+      "content_sha256": "09732d0b925f210bc00dc465f69483dd0dab80d9f2850c16f375726b24c5c75a",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-13-morning-dove-whites",
+      "name": "Morning Dove",
+      "style": "serene",
+      "color_palette": "white, cream, green",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass gathering vase",
+      "recipe": [
+        {
+          "name": "Cream Roses",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Freesia",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Seeded Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Seeded Eucalyptus"
+      ],
+      "short_description": "Cream and white blooms as soft as morning light.",
+      "description": "Cream roses, ivory lisianthus, and fragrant freesia in a soft, luminous gathering — as gentle and hopeful as morning light.",
+      "suggested_retail": 89.99,
+      "image": "everyday/sy-13-morning-dove-whites.jpg",
+      "alt": "Cream and white sympathy arrangement with freesia on a white background",
+      "content_sha256": "0b89c00e1502766994649f415199e359b7c8bfb4214648134529339dceaeacf2",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-14-heartfelt-roses-dozen",
+      "name": "Heartfelt White Roses",
+      "style": "classic",
+      "color_palette": "white, green",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass rose vase",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 12,
+          "kind": "flower"
+        },
+        {
+          "name": "Baby's Breath",
+          "qty": 5,
+          "kind": "filler"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "A timeless dozen white roses of heartfelt sympathy.",
+      "description": "One dozen pristine white roses with a soft cloud of baby's breath — a timeless, heartfelt way to say you care.",
+      "suggested_retail": 79.99,
+      "image": "everyday/sy-14-heartfelt-roses-dozen.jpg",
+      "alt": "Dozen white roses sympathy arrangement in a glass vase on a white background",
+      "content_sha256": "9c46b3afd636fb9468355c2b04fcde3d75172f9ba8551247d132c7ae886731e9",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-15-graceful-calla-tribute",
+      "name": "Graceful Calla Tribute",
+      "style": "elegant",
+      "color_palette": "white, green",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "tall cylinder vase",
+      "recipe": [
+        {
+          "name": "White Calla Lilies",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Israeli Ruscus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Israeli Ruscus",
+        "Bear Grass"
+      ],
+      "short_description": "Sculptural white callas for a refined tribute.",
+      "description": "Elegant white calla lilies rise above garden roses in a tall clean vase — a refined, contemporary tribute of grace.",
+      "suggested_retail": 119.99,
+      "image": "everyday/sy-15-graceful-calla-tribute.jpg",
+      "alt": "White calla lily sympathy arrangement in a tall vase on a white background",
+      "content_sha256": "3945986496fd481d937906d7a91db99e930feadb802794c92a7ae678107a11f8",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-16-fields-of-comfort",
+      "name": "Fields of Comfort",
+      "style": "garden",
+      "color_palette": "white, blue, green",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "basket arrangement",
+      "container": "low woven basket",
+      "recipe": [
+        {
+          "name": "White Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Blue Delphinium",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A gathered garden basket of white and soft blue.",
+      "description": "A low garden basket brimming with hydrangea, roses, delphinium, and daisies — like a peaceful field gathered for comfort.",
+      "suggested_retail": 99.99,
+      "image": "everyday/sy-16-fields-of-comfort.jpg",
+      "alt": "White and blue garden sympathy basket on a white background",
+      "content_sha256": "8398ec85b005e60315b4db183916a5640db1e83b561acc84009e16bc20c0b2ee",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-17-devoted-red-roses",
+      "name": "Devoted Red Roses",
+      "style": "classic",
+      "color_palette": "red, white, green",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Stock",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Leatherleaf"
+      ],
+      "short_description": "Deep red and white roses expressing devoted love.",
+      "description": "Rich red roses paired with pure white blooms and fragrant stock — a devoted, loving tribute for someone deeply missed.",
+      "suggested_retail": 94.99,
+      "image": "everyday/sy-17-devoted-red-roses.jpg",
+      "alt": "Red and white rose sympathy arrangement on a white background",
+      "content_sha256": "a57866bb77db102fe01bc8beb5d8cd637ed1658732930b94348374c0ca8c59a3",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-18-peaceful-pastel-mix",
+      "name": "Peaceful Pastels",
+      "style": "soft",
+      "color_palette": "pastel, mixed",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass vase",
+      "recipe": [
+        {
+          "name": "Blush Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Lavender Stock",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Peach Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lisianthus",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A soft pastel medley for gentle comfort.",
+      "description": "A soothing medley of blush, lavender, and peach blooms — a gentle pastel embrace to comfort the heart.",
+      "suggested_retail": 84.99,
+      "image": "everyday/sy-18-peaceful-pastel-mix.jpg",
+      "alt": "Pastel mixed sympathy arrangement on a white background",
+      "content_sha256": "16884dd75490d5d610cce0df478ff1f3216b7a22f9d9b3c6204f3b6b01df06f9",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-19-tranquil-white-plants-mix",
+      "name": "Tranquil Blossoms",
+      "style": "tranquil",
+      "color_palette": "white, green",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass gathering vase",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lilies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Chrysanthemums",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Solidago",
+          "qty": 3,
+          "kind": "filler"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Eucalyptus"
+      ],
+      "short_description": "A gathered white mix of roses, lilies, and mums.",
+      "description": "A generous gathering of white roses, lilies, and chrysanthemums — a tranquil, all-white expression of enduring peace.",
+      "suggested_retail": 89.99,
+      "image": "everyday/sy-19-tranquil-white-plants-mix.jpg",
+      "alt": "All-white mixed sympathy arrangement of roses and lilies on a white background",
+      "content_sha256": "816e9bd4559898966912b823b4ea36493766009e8292e7b543ea56281c1e0339",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "sy-20-simple-elegance-whites",
+      "name": "Simple Elegance",
+      "style": "modern",
+      "color_palette": "white, green",
+      "categories": [
+        "Sympathy"
+      ],
+      "arrangement_type": "vase arrangement",
+      "container": "clear glass bubble bowl",
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 9,
+          "kind": "flower"
+        },
+        {
+          "name": "White Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Seeded Eucalyptus",
+          "qty": 6,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        "Seeded Eucalyptus"
+      ],
+      "short_description": "A compact, elegant white rose and hydrangea bowl.",
+      "description": "A softly rounded bowl of white roses and hydrangea in seeded eucalyptus — simple, modern, and quietly elegant.",
+      "suggested_retail": 79.99,
+      "image": "everyday/sy-20-simple-elegance-whites.jpg",
+      "alt": "White rose and hydrangea sympathy bubble bowl on a white background",
+      "content_sha256": "4a0e826a62c882c37b238b6f801a23f3f49dd3111d065143f7f838a7930044bd",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    }
+  ],
+  "generated_at": "2026-08-13T14:25:29.742Z",
+  "image_source": "ai_generated_cloudflare_flux"
+}

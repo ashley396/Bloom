@@ -445,8 +445,20 @@ body.bloom-rc21 .bloom-daisy {
   max-width: 100px;
 }
 
+/* The mobile media query below already reserves room so .lily-fab (fixed
+   bottom-right, 58px tall, 22px off the bottom edge) doesn't sit on top of
+   real content — but that reservation only applied under 820px. Desktop
+   viewports had none, so the last row of a scrolled page (e.g. the
+   Inventory page's flower-color filter tabs, or an order card's action
+   buttons) could end up hidden under the avatar bubble. */
+body.bloom-rc21 .content,
+body.florisyn-atelier .florisyn-lux-main > .content {
+  padding-bottom: max(48px, calc(100px + env(safe-area-inset-bottom, 0px))) !important;
+}
+
 @media (max-width: 820px) {
-  body.bloom-rc21 .content {
+  body.bloom-rc21 .content,
+  body.florisyn-atelier .florisyn-lux-main > .content {
     padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
@@ -475,6 +487,15 @@ body.bloom-rc21 .bloom-daisy {
     left: 12px;
     right: 12px;
     bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* The Dashboard's full-bleed photo "Inventory Alert" banner runs edge to
+     edge, right where the fab (52px, right:12px) floats — two overlapping
+     photographic circles/rectangles reads as a rendering glitch even
+     though no text is actually obscured. Give it a little breathing room
+     on the side the avatar sits on. */
+  body.bloom-rc21 .atelier-inventory-alert {
+    width: calc(100% - 64px) !important;
   }
 
   body.bloom-rc21 .mobile-nav {

@@ -69,7 +69,7 @@ export function createProviderAdapter(providerId, { stripeClient, shop = {}, env
         return { ok: true, needs_onboarding: true, message: "Use Connect onboarding via stripe-connect function." };
       },
       async disconnect() {
-        return { ok: true, message: "Disconnect clears Bloom reference only; revoke in Stripe Dashboard." };
+        return { ok: true, message: "Disconnect clears the Florisyn reference only; revoke access in Stripe Dashboard." };
       },
       async reconnect() {
         return this.connect();
@@ -110,7 +110,17 @@ export function createProviderAdapter(providerId, { stripeClient, shop = {}, env
           const account = await stripeClient.accounts.retrieve(shop.stripe_connect_account_id);
           return {
             connected: true,
-            mode: account.livemode ? "live" : "test",
+            // Not account.livemode: confirmed live in production that a
+            // connected Express account's own `livemode` field reads false
+            // here even when it was created by, and is actively processing
+            // real charges through, a genuine sk_live_ platform key (a real
+            // card succeeded end to end while this kept reporting "test").
+            // Every other branch in this function already derives mode from
+            // the platform key itself, not a per-account flag — the mode
+            // that matters is which mode the *platform* is operating in,
+            // since that's what actually determines whether any operation
+            // on this connected account moves real money. Match them.
+            mode: live ? "live" : "test",
             charges_enabled: account.charges_enabled,
             payouts_enabled: account.payouts_enabled,
             provider_ref: account.id,
@@ -144,20 +154,25 @@ export function createProviderAdapter(providerId, { stripeClient, shop = {}, env
       async capture({ sessionId }) {
         return { ok: true, processor: "stripe", captured: Boolean(sessionId), message: "Capture handled by Stripe Checkout webhook." };
       },
-      async refund({ paymentIntentId, amount, reason }) {
-        if (!stripeClient || !paymentIntentId) return { ok: false, error: "Payment reference required" };
-        const refund = await stripeClient.refunds.create({
-          payment_intent: paymentIntentId,
-          amount: amount ? Math.round(Number(amount) * 100) : undefined,
-          metadata: reason ? { bloom_reason: String(reason).slice(0, 64) } : undefined
-        });
+      async refund({ paymentIntentId, amount, reason, idempotencyKey }) {
+        if (!stripeClient || !paymentIntentId || !idempotencyKey) {
+          return { ok: false, error: "Payment reference and idempotency key are required." };
+        }
+        const refund = await stripeClient.refunds.create(
+          {
+            payment_intent: paymentIntentId,
+            amount: Math.round(Number(amount) * 100),
+            metadata: reason ? { florisyn_reason: String(reason).slice(0, 64) } : undefined
+          },
+          { idempotencyKey }
+        );
         return { ok: true, processor: "stripe", refund_id: refund.id, status: refund.status };
       },
       async void() {
         return { ok: false, error: "Use refund for Stripe Checkout payments." };
       },
       async tokenize() {
-        return { ok: true, processor: "stripe", message: "Use Stripe Checkout or Elements — Bloom stores provider refs only." };
+        return { ok: true, processor: "stripe", message: "Use Stripe Checkout or Elements — Florisyn stores provider references only." };
       },
       async listTransactions({ limit = 25 } = {}) {
         if (!stripeClient) return { ok: false, error: "Stripe client unavailable" };

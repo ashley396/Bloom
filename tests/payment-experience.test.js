@@ -65,10 +65,10 @@ test("experience reports compute success rate", () => {
     payments: [{ amount: 10 }, { amount: 0, status: "failed", metadata: { status: "failed" } }],
     links: [],
     refunds: [{ amount: 5 }],
-    subscriptions: [{ status: "active", amount: 79 }]
+    subscriptions: [{ status: "active", amount: 99 }]
   });
   assert.ok(r.payment_success_rate >= 0);
-  assert.equal(r.recurring_revenue, 79);
+  assert.equal(r.recurring_revenue, 99);
 });
 
 test("refund audit entry captures notes", () => {

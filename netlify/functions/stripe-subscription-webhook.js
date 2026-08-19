@@ -1,13 +1,29 @@
 import Stripe from "stripe";
 import { admin, env } from "./_shared/saas.js";
 
-const stripe = new Stripe(env("STRIPE_SECRET_KEY"));
+function stripeClient() {
+  return new Stripe(env("STRIPE_SECRET_KEY"));
+}
 
-export async function handler(event) {
+/**
+ * Core webhook logic, dependency-injectable for handler-level tests (see
+ * tests/stripe-subscription-webhook.test.js) without a real Stripe/Supabase
+ * connection. `handler` below is the thin Netlify entrypoint that always
+ * uses the real dependencies.
+ */
+export async function handleStripeSubscriptionWebhook(event, dependencies = {}) {
+  const createStripe = dependencies.createStripe || stripeClient;
+  const getClient = dependencies.admin || admin;
+  const getWebhookSecret = dependencies.env || env;
+
   try {
-    const signature = event.headers["stripe-signature"];
-    const stripeEvent = stripe.webhooks.constructEvent(event.body, signature, env("STRIPE_WEBHOOK_SECRET"));
-    const client = admin();
+    const signature = event.headers["stripe-signature"] || event.headers["Stripe-Signature"];
+    if (!signature) {
+      return { statusCode: 400, headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" }, body: "Webhook error" };
+    }
+    const stripe = createStripe();
+    const stripeEvent = stripe.webhooks.constructEvent(event.body, signature, getWebhookSecret("STRIPE_WEBHOOK_SECRET"));
+    const client = getClient();
 
     if (stripeEvent.type === "checkout.session.completed") {
       const session = stripeEvent.data.object;
@@ -43,9 +59,13 @@ export async function handler(event) {
       }
     }
 
-    return { statusCode: 200, body: "ok" };
+    return { statusCode: 200, headers: { "Cache-Control": "no-store" }, body: "ok" };
   } catch (error) {
-    console.error(error);
-    return { statusCode: 400, body: `Webhook error: ${error.message}` };
+    console.error("stripe-subscription-webhook", error?.message || error);
+    return { statusCode: 400, headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" }, body: "Webhook error" };
   }
+}
+
+export async function handler(event) {
+  return handleStripeSubscriptionWebhook(event);
 }

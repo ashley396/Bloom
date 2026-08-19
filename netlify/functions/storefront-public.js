@@ -10,8 +10,9 @@ import {
   mergeCatalogProducts,
   verifyPreviewToken,
   signPreviewToken,
-  buildSitemapEntries,
-  robotsTxt
+  buildPublishedSitemapXml,
+  publishedRobotsTxt,
+  resolvePublishedSiteBaseUrl
 } from "./_shared/bloom-storefront-core.js";
 import {
   mergeCommerceSettings,
@@ -44,9 +45,20 @@ async function shopBySlug(client, slug) {
 
 async function loadWebsiteBundle(client, shopId) {
   try {
-    const { data: project } = await client.from("bloom_website_projects").select("*").eq("shop_id", shopId).maybeSingle();
+    const { data: project, error: projectError } = await client
+      .from("bloom_website_projects")
+      .select("*")
+      .eq("shop_id", shopId)
+      .maybeSingle();
+    if (projectError) throw projectError;
     if (!project) return null;
-    const { data: pages } = await client.from("bloom_website_pages").select("*").eq("shop_id", shopId).order("nav_order");
+    const { data: pages, error: pagesError } = await client
+      .from("bloom_website_pages")
+      .select("*")
+      .eq("shop_id", shopId)
+      .eq("project_id", project.id)
+      .order("nav_order");
+    if (pagesError) throw pagesError;
     return { project, pages: pages || [] };
   } catch (e) {
     if (missingTable(e)) return null;
@@ -57,7 +69,8 @@ async function loadWebsiteBundle(client, shopId) {
 async function loadPublicProducts(client, shopId) {
   const legacy = [];
   try {
-    const { data } = await client.from("products").select("*").eq("shop_id", shopId);
+    const { data, error } = await client.from("products").select("*").eq("shop_id", shopId);
+    if (error) throw error;
     (data || []).forEach((p) => {
       legacy.push({
         id: p.id,
@@ -75,7 +88,8 @@ async function loadPublicProducts(client, shopId) {
   }
   let catalog = [];
   try {
-    const { data } = await client.from("bloom_shop_catalog_products").select("*").eq("shop_id", shopId);
+    const { data, error } = await client.from("bloom_shop_catalog_products").select("*").eq("shop_id", shopId);
+    if (error) throw error;
     catalog = data || [];
   } catch (e) {
     if (!missingTable(e)) throw e;
@@ -214,6 +228,19 @@ async function createWebCommerceOrder(client, { shop, bundle, body, event }) {
     if (!process.env.STRIPE_SECRET_KEY) {
       return json(503, { error: "Card payments are not configured for this shop." });
     }
+    // Without this check, the Checkout Session below would still be
+    // created and the customer would still be able to pay — just with no
+    // transfer_data.destination, which means the money settles into
+    // Florisyn's own platform Stripe balance instead of this shop's.
+    // That's silent and effectively impossible for the florist to notice
+    // until they go looking for a payout that never comes, so it's
+    // blocked here instead of left to fail invisibly downstream.
+    if (!shop.stripe_connect_account_id) {
+      return json(409, {
+        error: "This shop hasn't finished setting up card payments yet. Please choose pay-at-delivery, or contact the florist directly to arrange payment.",
+        code: "stripe_connect_required"
+      });
+    }
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const siteBase = (process.env.SITE_URL || process.env.URL || event.headers?.origin || "").replace(/\/$/, "");
     if (!siteBase) return json(503, { error: "SITE_URL is not configured." });
@@ -273,7 +300,13 @@ export async function handler(event) {
       const shop = slug ? await shopBySlug(client, slug) : null;
       const bundle = shop ? await loadWebsiteBundle(client, shop.id) : null;
       const allow = bundle?.project?.status === "published";
-      return { statusCode: 200, headers: { "Content-Type": "text/plain" }, body: robotsTxt({ allowIndex: allow }) };
+      const baseUrl = shop ? resolvePublishedSiteBaseUrl(shop) : null;
+      const sitemapUrl = baseUrl ? `${baseUrl.replace(/\/$/, "")}/sitemap.xml` : null;
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+        body: publishedRobotsTxt({ allowIndex: allow, sitemapUrl: allow ? sitemapUrl : null })
+      };
     }
 
     if (action === "sitemap" && event.httpMethod === "GET") {
@@ -283,10 +316,16 @@ export async function handler(event) {
       const shop = await shopBySlug(client, slug);
       if (!shop) return json(404, { error: "Shop not found." });
       const bundle = await loadWebsiteBundle(client, shop.id);
-      const base = `https://${shop.slug || slug}.bloom-sites.com`;
-      const pages = bundle?.pages?.length ? bundle.pages : buildSiteFromShopProfile(shop).pages;
       if (bundle?.project?.status !== "published") return json(403, { error: "Sitemap available when published." });
-      return json(200, { entries: buildSitemapEntries(base, pages) });
+      const baseUrl = resolvePublishedSiteBaseUrl(shop);
+      const pages = bundle?.pages?.length ? bundle.pages : buildSiteFromShopProfile(shop).pages;
+      const products = filterPublicProducts(await loadPublicProducts(client, shop.id));
+      const xml = buildPublishedSitemapXml(baseUrl, pages, products);
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "application/xml; charset=utf-8" },
+        body: xml
+      };
     }
 
     if (event.httpMethod === "GET") {
@@ -334,6 +373,7 @@ export async function handler(event) {
         },
         domain: {
           host: shop.slug ? `${shop.slug}.bloom-sites.com` : null,
+          base_url: resolved.base_url,
           purchased: false,
           connected: !!shop.custom_domain,
           status: shop.custom_domain ? "pending_verification" : "bloom_subdomain"
@@ -370,6 +410,7 @@ export async function handler(event) {
 }
 
 async function loadShopProfile(client, shopId) {
-  const { data } = await client.from("shops").select("slug,name").eq("id", shopId).maybeSingle();
+  const { data, error } = await client.from("shops").select("slug,name").eq("id", shopId).maybeSingle();
+  if (error) throw error;
   return data;
 }

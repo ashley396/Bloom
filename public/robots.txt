@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pay
+Disallow: /onboarding
+Disallow: /.netlify/
+
+Sitemap: https://www.florisyn.com/sitemap.xml

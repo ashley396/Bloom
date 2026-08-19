@@ -56,7 +56,7 @@ function PhotoEmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-1 bg-warm-cream-deep text-charcoal-subtle ring-1 ring-inset ring-florisyn-border/60 dark:bg-florisyn-sage-900/40",
+        "flex flex-col items-center justify-center gap-1 bg-charcoal/[0.06] text-charcoal-subtle ring-1 ring-inset ring-florisyn-border/60",
         aspect !== "auto" && aspectClass[aspect ?? "video"],
         className,
       )}
@@ -120,7 +120,7 @@ export function PhotoAsset({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-lg bg-sage-pale dark:bg-florisyn-sage-900/50",
+        "overflow-hidden rounded-lg bg-charcoal/[0.06]",
         aspect !== "auto" && aspectClass[aspect],
         className,
       )}

@@ -85,6 +85,16 @@ export async function handler(event) {
         }
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         const { data: shop } = await client.from("shops").select("name,stripe_connect_account_id").eq("id", link.shop_id).maybeSingle();
+        // Without this check the Checkout Session below still gets
+        // created with no transfer_data.destination when the shop hasn't
+        // connected Stripe — the customer's payment would silently land
+        // in Florisyn's own platform balance instead of this shop's.
+        if (!shop?.stripe_connect_account_id) {
+          return json(409, {
+            error: "This shop hasn't finished setting up card payments yet. Please contact them directly to arrange payment.",
+            code: "stripe_connect_required"
+          });
+        }
         const siteBase = (body.return_url || resolvePublicSiteUrl(process.env, event.headers?.origin || "")).replace(/\/$/, "");
         const sessionParams = {
           mode: "payment",
@@ -93,7 +103,7 @@ export async function handler(event) {
               price_data: {
                 currency: "usd",
                 unit_amount: Math.round(v.amount * 100),
-                product_data: { name: `Order payment — ${shop?.name || "Bloom florist"}` }
+                product_data: { name: `Order payment — ${shop?.name || "Florisyn florist"}` }
               },
               quantity: 1
             }

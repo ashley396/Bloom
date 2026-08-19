@@ -1,0 +1,224 @@
+{
+  "version": "1.0",
+  "collection": "florisyn_category_library",
+  "category": "Plants",
+  "target_count": 6,
+  "image_style": "professional florist e-commerce product photograph, single potted plant centered, pure white seamless studio background, soft even studio lighting, ultra-realistic, no text/people",
+  "arrangements": [
+    {
+      "id": "pl-01-peace-lily",
+      "name": "Peace Lily Plant",
+      "style": "classic",
+      "color_palette": "white, green",
+      "categories": [
+        "Plants"
+      ],
+      "arrangement_type": "green blooming plant",
+      "container": "woven basket with liner",
+      "recipe": [
+        {
+          "name": "Peace Lily (Spathiphyllum)",
+          "qty": 1,
+          "kind": "plant"
+        }
+      ],
+      "foliage": [
+        "Peace Lily"
+      ],
+      "short_description": "A classic, easy-care peace lily.",
+      "description": "A lush peace lily with glossy green leaves and white spathe blooms in a woven basket — an easy-care classic for home or sympathy.",
+      "suggested_retail": 64.99,
+      "image": "everyday/pl-01-peace-lily.jpg",
+      "alt": "Potted peace lily plant in a basket on a white background",
+      "content_sha256": "9e2b6a18db16e16686abd1566b4e7a480dd0b408aefa3ed04f474cb2ac992ab4",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "pl-02-orchid-plant-white",
+      "name": "White Orchid Plant",
+      "style": "elegant",
+      "color_palette": "white, green",
+      "categories": [
+        "Plants"
+      ],
+      "arrangement_type": "blooming orchid plant",
+      "container": "ceramic cachepot",
+      "recipe": [
+        {
+          "name": "White Phalaenopsis Orchid Plant",
+          "qty": 1,
+          "kind": "plant"
+        }
+      ],
+      "foliage": [
+        "Phalaenopsis"
+      ],
+      "short_description": "An elegant double-stem white orchid.",
+      "description": "A graceful double-stem white phalaenopsis orchid in a modern ceramic cachepot — long-lasting, elegant, and effortless.",
+      "suggested_retail": 89.99,
+      "image": "everyday/pl-02-orchid-plant-white.jpg",
+      "alt": "Potted white phalaenopsis orchid plant on a white background",
+      "content_sha256": "f15ca2d1c28bca42183a1da7d589bf7d4b8f5765a59262614be5d50cc171c504",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "pl-03-succulent-garden",
+      "name": "Succulent Garden",
+      "style": "modern",
+      "color_palette": "green, mixed",
+      "categories": [
+        "Plants"
+      ],
+      "arrangement_type": "succulent dish garden",
+      "container": "low modern ceramic bowl",
+      "recipe": [
+        {
+          "name": "Assorted Succulents",
+          "qty": 5,
+          "kind": "plant"
+        }
+      ],
+      "foliage": [
+        "Succulents"
+      ],
+      "short_description": "A modern low-maintenance succulent garden.",
+      "description": "An assortment of rosette and trailing succulents in a low ceramic bowl — a modern, low-maintenance living gift.",
+      "suggested_retail": 59.99,
+      "image": "everyday/pl-03-succulent-garden.jpg",
+      "alt": "Potted succulent garden in a ceramic bowl on a white background",
+      "content_sha256": "1456e9b22e9e4fafb74504641411ed89dbe3e8f758ad391a149d5caca3e52229",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "pl-04-dish-garden-mixed",
+      "name": "Green Dish Garden",
+      "style": "classic",
+      "color_palette": "green",
+      "categories": [
+        "Plants"
+      ],
+      "arrangement_type": "green dish garden",
+      "container": "natural woven basket",
+      "recipe": [
+        {
+          "name": "Assorted Green Foliage Plants",
+          "qty": 4,
+          "kind": "plant"
+        }
+      ],
+      "foliage": [
+        "Pothos",
+        "Dracaena",
+        "Ivy",
+        "Fern"
+      ],
+      "short_description": "A lush mixed green dish garden.",
+      "description": "A lush blend of pothos, dracaena, ivy, and fern in a woven basket — a classic green dish garden for any occasion.",
+      "suggested_retail": 69.99,
+      "image": "everyday/pl-04-dish-garden-mixed.jpg",
+      "alt": "Green mixed dish garden in a basket on a white background",
+      "content_sha256": "caff1240b717b7f412f38c01862f3f93066866018ead2129be62aac5d1b06899",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "pl-05-blooming-azalea",
+      "name": "Blooming Azalea Plant",
+      "style": "cheerful",
+      "color_palette": "pink, green",
+      "categories": [
+        "Plants"
+      ],
+      "arrangement_type": "blooming plant",
+      "container": "decorative pot cover",
+      "recipe": [
+        {
+          "name": "Pink Azalea Plant",
+          "qty": 1,
+          "kind": "plant"
+        }
+      ],
+      "foliage": [
+        "Azalea"
+      ],
+      "short_description": "A cheerful pink blooming azalea.",
+      "description": "A vibrant pink azalea covered in blooms in a decorative pot — a cheerful, long-blooming plant gift.",
+      "suggested_retail": 59.99,
+      "image": "everyday/pl-05-blooming-azalea.jpg",
+      "alt": "Potted pink blooming azalea plant on a white background",
+      "content_sha256": "0eca201cab70a549d2f064029d174edc18aa9751ed4555c6d562fcdab3e4c14e",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    },
+    {
+      "id": "pl-06-luxe-orchid-double-pink",
+      "name": "Pink Orchid Garden",
+      "style": "luxe",
+      "color_palette": "pink, green",
+      "categories": [
+        "Plants"
+      ],
+      "arrangement_type": "blooming orchid plant",
+      "container": "footed ceramic cachepot",
+      "recipe": [
+        {
+          "name": "Pink Phalaenopsis Orchid Plant",
+          "qty": 1,
+          "kind": "plant"
+        },
+        {
+          "name": "Assorted Succulents",
+          "qty": 3,
+          "kind": "plant"
+        }
+      ],
+      "foliage": [
+        "Phalaenopsis",
+        "Succulents"
+      ],
+      "short_description": "A luxe pink orchid and succulent garden.",
+      "description": "A luxe pink phalaenopsis orchid underplanted with succulents in a footed cachepot — a designer living arrangement.",
+      "suggested_retail": 109.99,
+      "image": "everyday/pl-06-luxe-orchid-double-pink.jpg",
+      "alt": "Potted pink orchid and succulent garden on a white background",
+      "content_sha256": "524d2ede87581071398f178d0e8876c848ad37f94e4d25bde79d539d2bdb569d",
+      "needs_image_replacement": false,
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      }
+    }
+  ],
+  "generated_at": "2026-08-13T14:43:22.259Z",
+  "image_source": "ai_generated_cloudflare_flux"
+}

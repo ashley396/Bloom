@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   resolvePublishedSite,
   filterPublicProducts,
+  previewTokenSecret,
   verifyPreviewToken,
   signPreviewToken,
   mergeCatalogProducts,
@@ -42,6 +43,23 @@ test("public storefront hides draft project", () => {
   assert.equal(r.allowed, false);
 });
 
+test("public storefront serves published site but hides draft without preview", () => {
+  const pages = [{ slug: "home", visible: true }, { slug: "hidden", visible: false }];
+  const published = resolvePublishedSite({ status: "published" }, pages, { name: "Petals" });
+  assert.equal(published.allowed, true);
+  assert.equal(published.pages.length, 1);
+  const draft = resolvePublishedSite({ status: "draft" }, pages, { name: "Petals" });
+  assert.equal(draft.allowed, false);
+  assert.equal(draft.error, "Site not published.");
+});
+
+test("public storefront preview may render draft only with preview mode", () => {
+  const pages = [{ slug: "home", visible: true }, { slug: "private", visible: false }];
+  const r = resolvePublishedSite({ status: "draft" }, pages, { name: "Petals" }, { preview: true });
+  assert.equal(r.allowed, true);
+  assert.deepEqual(r.pages.map((p) => p.slug), ["home"]);
+});
+
 test("published content resolves theme", () => {
   const r = resolvePublishedSite({ status: "published", theme_id: "luxury_boutique" }, [{ slug: "home", visible: true }], { name: "Petals" });
   assert.equal(r.allowed, true);
@@ -53,6 +71,26 @@ test("preview authorization token", () => {
   const token = signPreviewToken("shop-1", exp, "test-secret");
   assert.equal(verifyPreviewToken(token, "shop-1", Date.now(), "test-secret").valid, true);
   assert.equal(verifyPreviewToken(token, "shop-2", Date.now(), "test-secret").valid, false);
+});
+
+test("preview token rejects other shops and expired tokens", () => {
+  const now = Date.now();
+  const token = signPreviewToken("shop-a", now + 60000, "test-secret");
+  assert.equal(verifyPreviewToken(token, "shop-b", now, "test-secret").error, "Token shop mismatch.");
+  const expired = signPreviewToken("shop-a", now - 1, "test-secret");
+  assert.equal(verifyPreviewToken(expired, "shop-a", now, "test-secret").error, "Preview token expired.");
+});
+
+test("storefront preview fails closed without a configured secret", () => {
+  assert.equal(previewTokenSecret({}), null);
+  assert.throws(
+    () => signPreviewToken("shop-1", Date.now() + 60000, null),
+    /Storefront preview is not configured/
+  );
+  assert.deepEqual(
+    verifyPreviewToken("attacker-token", "shop-1", Date.now(), null),
+    { valid: false, error: "Storefront preview is not configured." }
+  );
 });
 
 test("draft products hidden on public site", () => {
@@ -100,6 +138,12 @@ test("publish approval gate blocks lily draft", () => {
   assert.equal(publishRequiresApproval({ approved: true, saved: true }).ok, true);
 });
 
+test("publish gate preserves draft when save was not confirmed", () => {
+  const r = publishRequiresApproval({ approved: true, saved: false });
+  assert.equal(r.ok, false);
+  assert.equal(r.error, "Save your draft before publishing.");
+});
+
 test("theme restore", () => {
   const r = restoreThemeSettings({ palette: ["#fff"] }, { palette: ["#000"], font_pairing: "a" });
   assert.equal(r.restored, true);
@@ -133,7 +177,27 @@ test("guided order body matches orders API shape", () => {
     fulfillment: "PICKUP"
   });
   assert.equal(body.customer_name, "Sam");
-  assert.ok(body.tax >= 0);
+  assert.equal(body.tax, 6);
+  for (const field of ["amount_paid", "balance_due", "payment_status", "payment_method", "paid_at"]) {
+    assert.equal(field in body, false);
+  }
+});
+
+test("guided order keeps product amount separate from labor for server pricing", () => {
+  const body = buildOrderBodyFromGuided({
+    customer_name: "Sam",
+    recipient_name: "Sam",
+    subtotal: 100,
+    labor_charge: 20,
+    discount: 10,
+    tax_rate: 10,
+    fulfillment: "PICKUP"
+  });
+  assert.equal(body.subtotal, 100);
+  assert.equal(body.labor_charge, 20);
+  assert.equal(body.discount, 10);
+  assert.equal(body.tax, 11);
+  assert.equal(body.total_preview, 121);
 });
 
 test("payment handoff regression guard", () => {

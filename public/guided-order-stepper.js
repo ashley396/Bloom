@@ -5,6 +5,12 @@
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
+  // `new Date().toISOString().slice(0,10)` is UTC "today", not local
+  // "today" — wrong for hours around local midnight in every US timezone.
+  function localTodayStr() {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+  }
 
   let state = {};
   let stepIndex = 0;
@@ -65,7 +71,7 @@
       fields.innerHTML = `<label>Fulfillment<select name="fulfillment"><option value="PICKUP">Pickup</option><option value="DELIVERY" ${state.fulfillment === "DELIVERY" ? "selected" : ""}>Delivery</option></select></label>`;
     } else if (step === "delivery_details") {
       fields.innerHTML = `<label>Delivery address<textarea name="delivery_address">${esc(state.delivery_address || "")}</textarea></label>
-        <label>Date<input type="date" name="delivery_date" value="${esc(state.delivery_date || new Date().toISOString().slice(0, 10))}"></label>
+        <label>Date<input type="date" name="delivery_date" value="${esc(state.delivery_date || localTodayStr())}"></label>
         <label>Instructions<textarea name="delivery_instructions">${esc(state.delivery_instructions || "")}</textarea></label>`;
     } else if (step === "pricing") {
       fields.innerHTML = `<label>Subtotal<input type="number" step="0.01" name="subtotal" value="${esc(state.subtotal || "0")}"></label>
@@ -73,8 +79,8 @@
         <label>Delivery fee<input type="number" step="0.01" name="delivery_fee" value="${esc(state.delivery_fee || "0")}"></label>
         <label>Discount<input type="number" step="0.01" name="discount" value="${esc(state.discount || "0")}"></label>`;
     } else if (step === "payment") {
-      fields.innerHTML = `<label>Deposit<input type="number" step="0.01" name="deposit" value="${esc(state.deposit || "0")}"></label>
-        <label>Payment method<select name="payment_method"><option value="">Due later</option><option value="CARD">Card (after create)</option><option value="HOUSE">House account</option></select></label>`;
+      fields.innerHTML = `<label>After creating this order<select name="payment_choice"><option value="PAY_NOW">Personal — open Payment Center</option><option value="PAY_LATER">Personal — pay later</option><option value="HOUSE">Business / house account — invoice later</option></select></label>
+        <p class="subtle">Deposits and payments are recorded securely in Payment Center after the order is created.</p>`;
     } else {
       fields.innerHTML = `<p><strong>${esc(state.customer_name)}</strong> → ${esc(state.recipient_name)}</p>
         <p>${esc(state.arrangement_description || "Custom arrangement")}</p>
@@ -126,9 +132,6 @@
       if (!String(state.delivery_date || "").trim()) errors.push("Choose a due date.");
       if (state.fulfillment === "DELIVERY" && !state.delivery_address?.trim()) errors.push("Delivery address is required.");
     }
-    if (step === "payment" && !state.payment_method && state.deposit === undefined) {
-      /* deposit optional — due later is valid */
-    }
     return errors;
   }
 
@@ -139,13 +142,13 @@
     const taxRate = Number(state.tax_rate || 0);
     const tax = Math.round(taxable * (taxRate / 100) * 100) / 100;
     const deliveryFee = Number(state.delivery_fee || 0);
-    const deposit = Number(state.deposit || 0);
     const total = taxable + tax + deliveryFee;
+    const paymentChoice = String(state.payment_choice || "PAY_NOW");
     const body = {
       customer_name: state.customer_name?.trim() || "Walk-in Customer",
       customer_phone: state.customer_phone,
-      customer_type: state.payment_method === "HOUSE" ? "BUSINESS" : "PERSONAL",
-      payment_required: state.payment_method === "HOUSE" || state.payment_method === "" ? "NO" : "YES",
+      customer_type: paymentChoice === "HOUSE" ? "BUSINESS" : "PERSONAL",
+      payment_required: paymentChoice === "PAY_NOW" ? "YES" : "NO",
       recipient_name: state.recipient_name,
       arrangement_description: state.arrangement_description,
       card_message: state.card_message,
@@ -158,9 +161,6 @@
       tax_rate: taxRate,
       tax,
       delivery_fee: deliveryFee,
-      amount_paid: deposit,
-      payment_status: deposit >= total ? "PAID" : deposit > 0 ? "PARTIAL" : "UNPAID",
-      payment_method: state.payment_method || null,
       order_source: "Guided Order",
       total_preview: total
     };
@@ -170,7 +170,7 @@
       const order = result.item || result.order || {};
       dlg.close();
       window.toast?.("Order created");
-      if (typeof window.setPendingPaymentOrder === "function" && Number(order.balance_due ?? total - deposit) >= 0.5) {
+      if (paymentChoice === "PAY_NOW" && typeof window.setPendingPaymentOrder === "function" && Number(order.balance_due ?? total) >= 0.5) {
         window.setPendingPaymentOrder(order);
         window.showPage?.("paymentsPage");
       }

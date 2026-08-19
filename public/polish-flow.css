@@ -1,0 +1,130 @@
+/* Florisyn flow polish — additive only, no redesign.
+   Goals: nothing important is cut off, arrangement photos aren't cropped short,
+   and everything flows on desktop + mobile. Loaded last so it can refine the
+   existing layered styles without replacing them. */
+
+/* --- Card text: wrap instead of clipping (no cut-off words) --- */
+.product-card .body h3,
+.floral-library-card .body h3,
+.product-card .body p,
+.floral-library-card .body p {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow: visible;
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  max-height: none;
+}
+
+/* --- Arrangement imagery: consistent 4:3 so bouquet tops aren't "cut short".
+   Matches FLORISYN_DESIGN_SYSTEM.md ("Product Cards — 4:3 imagery"). --- */
+.product-card > img,
+.floral-library-card > img {
+  width: 100%;
+  height: auto !important;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+
+/* Guard against accidental horizontal overflow anywhere on small screens. */
+@media (max-width: 760px) {
+  .content { overflow-x: hidden; }
+}
+
+/* Assistant dock (Lily · Rose · Daisy): keep all three tidy and readable when
+   the top strip gets narrow, rather than squeezing or clipping labels. */
+@media (max-width: 1024px) {
+  body.florisyn-rc22 .assistant-mini-dock { gap: 8px; }
+  body.florisyn-rc22 .assistant-mini-dock small { display: none; }
+}
+
+/* Retire the floating dog mascots completely (Daisy lives in the top dock). */
+#bloomDaisy, .bloom-daisy, #bloomDog, .bloom-dog { display: none !important; }
+
+/* Mobile nav drawer must actually slide in when opened. The default off-screen
+   rule is scoped to `aside#atelierSidebarDrawer` (ID = higher specificity), so
+   the open-state rule needs matching specificity (+!important) to win. Without
+   this, tapping the menu shows the backdrop but the drawer stays off-screen. */
+body.florisyn-atelier.atelier-drawer-open .shell > aside#atelierSidebarDrawer,
+body.florisyn-atelier.atelier-drawer-open .shell > aside {
+  transform: translateX(0) !important;
+}
+
+/* Sidebar nav labels must never be cut off — allow them to wrap. */
+body.florisyn-atelier .shell > aside button,
+.shell > aside button {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  height: auto !important;
+  line-height: 1.25 !important;
+  text-align: left !important;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Orders — table layout (matches the approved mockup). */
+#ordersBoard.order-board { display: block !important; }
+.orders-table-wrap {
+  background: #fff;
+  border: 1px solid #ece5da;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(112, 77, 90, 0.06);
+  overflow-x: auto;
+}
+.orders-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.orders-table thead th {
+  text-align: left;
+  padding: 14px 16px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8b7d84;
+  border-bottom: 1px solid #efe7ea;
+  white-space: nowrap;
+}
+.orders-table td { padding: 14px 16px; border-bottom: 1px solid #f3edf0; vertical-align: middle; }
+.orders-table tbody tr { cursor: pointer; transition: background 0.12s ease; }
+.orders-table tbody tr:hover { background: #fbf6f8; }
+.orders-table tbody tr:last-child td { border-bottom: 0; }
+.ot-customer { display: flex; align-items: center; gap: 10px; }
+.ot-avatar {
+  display: inline-grid; place-items: center;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg, #f4c4d4, #cbe0cf);
+  color: #5a3f4c; font-weight: 800; font-size: 12px; flex: none;
+}
+.ot-item small { display: block; color: #8b7d84; font-size: 12px; }
+.ot-total .badge { margin-left: 6px; }
+.ot-actions { text-align: right; white-space: nowrap; }
+.ot-pill {
+  display: inline-block; padding: 4px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; background: #f1ecec; color: #5a4a52;
+}
+.ot-pill--pending { background: #fff4e5; color: #8a5a1a; }
+.ot-pill--designing { background: #eef2fb; color: #3a4f86; }
+.ot-pill--ready { background: #eaf5ef; color: #2f7a52; }
+.ot-pill--out_for_delivery { background: #e8f0fb; color: #2f5a9a; }
+.ot-pill--delivered, .ot-pill--completed { background: #e7f6ec; color: #247341; }
+.ot-pill--on_hold, .ot-pill--issue { background: #fdeaea; color: #9b2335; }
+.ot-pill--cancelled { background: #f1ecec; color: #7c6d74; }
+.orders-table-empty { padding: 40px 20px; text-align: center; }
+@media (max-width: 760px) {
+  .orders-table .ot-item, .orders-table thead th:nth-child(3) { display: none; }
+  .orders-table td, .orders-table thead th { padding: 12px 10px; }
+}
+
+/* Settings → AI status: replace the harsh terminal-black box with a soft info
+   card that matches the premium design (readable, not monospace). */
+.ai-diagnostic {
+  background: #f7f4ef !important;
+  color: #4b3f36 !important;
+  border: 1px solid #ece5da !important;
+  border-radius: 13px !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  padding: 12px 14px !important;
+}

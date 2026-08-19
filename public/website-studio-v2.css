@@ -1,0 +1,587 @@
+/* Website Studio V2 — 3-panel florist builder */
+.website-studio-v2 {
+  display: grid;
+  grid-template-columns: minmax(200px, 240px) 1fr minmax(260px, 320px);
+  gap: 1rem;
+  margin-top: 1rem;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .website-studio-v2 {
+    grid-template-columns: 1fr;
+  }
+  .ws2-panel-pages,
+  .ws2-panel-seo {
+    order: 2;
+  }
+  .ws2-panel-canvas {
+    order: 1;
+  }
+}
+.ws2-panel {
+  background: var(--card, #fff);
+  border: 1px solid var(--border, #e8e0e4);
+  border-radius: 12px;
+  padding: 1rem;
+  max-height: min(80vh, 900px);
+  overflow: auto;
+}
+.ws2-panel h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+.ws2-add-page {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+.ws2-page-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ws2-page-row {
+  border-radius: 8px;
+  margin-bottom: 0.25rem;
+}
+.ws2-page-row.ws2-page-hidden {
+  opacity: 0.75;
+}
+.ws2-page-select {
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.65rem;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+.ws2-page-select.active,
+.ws2-page-select:hover {
+  background: var(--accent-soft, #f8f3f6);
+}
+.ws2-page-list .slug {
+  display: block;
+  font-size: 0.75rem;
+  opacity: 0.65;
+}
+.ws2-hidden-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted, #7c6d74);
+  background: var(--accent-soft, #f8f3f6);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  margin-left: 0.35rem;
+}
+.ws2-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0 0.3rem 0.5rem;
+}
+.ws2-page-actions .icon-btn {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.55rem;
+  min-height: 30px;
+  border: 1px solid var(--border, #e8e0e4);
+  background: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--ink, #40343a);
+}
+.ws2-page-actions .icon-btn:hover {
+  background: var(--accent-soft, #f8f3f6);
+}
+.ws2-page-actions .icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ws2-page-actions .icon-btn.danger {
+  color: var(--danger, #a33);
+  border-color: var(--danger, #a33);
+}
+.ws2-page-actions .icon-btn.danger:hover {
+  background: #fdeceb;
+}
+.ws2-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.ws2-toolbar button,
+.ws2-toolbar select {
+  min-height: 44px;
+}
+.ws2-live-preview {
+  border: 1px solid var(--border, #e8e0e4);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f4f4f4;
+  min-height: 200px;
+}
+.ws2-live-preview iframe {
+  width: 100%;
+  border: 0;
+  display: block;
+  background: #fff;
+}
+.ws2-live-preview[data-device="mobile"] iframe {
+  max-width: 390px;
+  margin: 0 auto;
+}
+.ws2-live-preview[data-device="tablet"] iframe {
+  max-width: 768px;
+  margin: 0 auto;
+}
+.ws2-seo-field label {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+.ws2-seo-field input,
+.ws2-seo-field textarea {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+.ws2-char-count {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+.ws2-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+}
+.ws2-checklist li {
+  padding: 0.35rem 0;
+  font-size: 0.875rem;
+}
+.ws2-checklist li.fail {
+  color: var(--danger, #a33);
+}
+.ws2-checklist li.pass::before {
+  content: "✓ ";
+  color: var(--success, #2d6a4f);
+}
+.ws2-checklist li.fail::before {
+  content: "○ ";
+}
+.ws2-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+.ws2-kpi {
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: var(--accent-soft, #f8f3f6);
+  text-align: center;
+}
+.ws2-kpi strong {
+  display: block;
+  font-size: 1.25rem;
+}
+.ws2-autosave {
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.editor-layout {
+  display: grid;
+  grid-template-columns: 1fr minmax(240px, 300px);
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .editor-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.editor-inspector {
+  position: sticky;
+  top: 1rem;
+  max-height: 70vh;
+  overflow: auto;
+}
+.editor-section.selected {
+  outline: 2px solid var(--accent, #8f3f68);
+  outline-offset: 2px;
+}
+.editor-section-preview {
+  pointer-events: none;
+  opacity: 0.95;
+  transform: scale(0.98);
+  transform-origin: top center;
+}
+/* editor-section-tools was previously unstyled — buttons wrapped with no
+   spacing. The drag handle (⠿) reuses .editor-drag-handle's existing
+   grab-cursor styling from the block-reorder inspector below. */
+.editor-section-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.editor-section {
+  position: relative;
+  transition: opacity 0.15s ease;
+}
+.editor-section.dragging {
+  opacity: 0.5;
+}
+/* Insertion indicator: a clear line showing exactly where a dragged
+   section will land, instead of an ambiguous "drop anywhere on the
+   card" target. Placed on a pseudo-element so it doesn't shift layout. */
+.editor-section.drop-before::before,
+.editor-section.drop-after::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent, #8f3f68);
+}
+.editor-section.drop-before::before {
+  top: -0.5rem;
+}
+.editor-section.drop-after::after {
+  bottom: -0.5rem;
+}
+.editor-block-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+  padding: 0.35rem;
+  border-radius: 8px;
+  background: var(--accent-soft, #f8f3f6);
+}
+.editor-drag-handle {
+  cursor: grab;
+  padding: 0.25rem;
+}
+.lily-wizard-head {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.lily-wizard-dialog {
+  max-width: 520px;
+  border: none;
+  border-radius: 16px;
+  padding: 1.25rem;
+}
+.lily-wizard-progress {
+  height: 6px;
+  background: #eee;
+  border-radius: 999px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+.lily-wizard-progress div {
+  height: 100%;
+  background: var(--accent, #8f3f68);
+  width: 0;
+  transition: width 0.2s ease;
+}
+.lily-bubble {
+  background: var(--accent-soft, #f8f3f6);
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-style: italic;
+}
+.ws2-domain-field code {
+  font-size: 0.85em;
+  word-break: break-all;
+}
+
+/* Template (theme) gallery cards — previously showed only a color gradient
+   with no name and an identical caption on every card. */
+.theme-card-name {
+  margin: 0.6rem 0 0.15rem;
+  font-size: 1rem;
+}
+
+/* "Three ways to start" intro on the Get Started tab — added because
+   templates lived under an unlabeled tab with no pointer to them. */
+.ws-shell-start-intro {
+  background: var(--card, #fff);
+  border: 1px solid var(--border, #e8e0e4);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+}
+.ws-shell-start-intro ol {
+  margin: 0.4rem 0 0;
+  padding-left: 1.2rem;
+}
+.ws-shell-start-intro li {
+  margin-bottom: 0.4rem;
+  line-height: 1.4;
+}
+.linklike {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--brand-primary, #f05686);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Website Studio shell — one calm tabbed surface instead of five stacked
+   full-length panels (Lily quick start, Instant Website wizard, Theme
+   gallery, Website Studio V2, Website Editor) every time the page loads. */
+.ws-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.ws-shell-tabs {
+  display: flex;
+  gap: 0.35rem;
+  border-bottom: 1px solid var(--line, #eadfe2);
+  padding-bottom: 0;
+  overflow-x: auto;
+}
+.ws-shell-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--muted, #7c6d74);
+  padding: 0.65rem 1rem;
+  border-radius: 10px 10px 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.ws-shell-tab:hover {
+  color: var(--ink, #40343a);
+  background: var(--accent-soft, #f8f3f6);
+}
+.ws-shell-tab.active {
+  color: var(--brand-primary, #f05686);
+  border-bottom-color: var(--brand-primary, #f05686);
+}
+.ws-shell-tab:focus-visible {
+  outline: 2px solid var(--brand-primary, #f05686);
+  outline-offset: 2px;
+}
+.ws-shell-panel[hidden] {
+  display: none;
+}
+/* The original panels no longer need their own top margin/border once
+   they live inside a ws-shell-panel — avoid doubled spacing. */
+.ws-shell-panel > .lily-wizard-shell,
+.ws-shell-panel > .instant-wizard-shell,
+.ws-shell-panel > .theme-gallery-shell,
+.ws-shell-panel > .website-studio-v2,
+.ws-shell-panel > .website-editor-shell,
+.ws-shell-panel > .legacy-website-editor-shell {
+  margin-top: 0;
+}
+.ws-shell-panel[data-panel="editor"] {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.ws-shell-panel[data-panel="editor"][hidden] {
+  display: none;
+}
+
+/* Editor tab: the actual section editor (website-editor-ui.js's shell —
+   toolbar, canvas, undo/redo, properties inspector) sits directly below
+   v2's pages/preview/SEO bar as its own full-width block, so its internal
+   canvas | inspector grid gets real width instead of being squeezed
+   inside v2's own narrow middle column (measured collapsing to ~96px
+   when nested there, wrapping words mid-letter). */
+.website-editor-shell {
+  margin-top: 1.25rem;
+}
+@media (max-width: 640px) {
+  .ws-shell-tab {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Media library dialog */
+.media-library-dialog {
+  width: min(720px, 92vw);
+  max-height: 85vh;
+  border: none;
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow, 0 20px 60px rgba(0,0,0,.2));
+}
+.media-library-dialog::backdrop {
+  background: rgba(20, 16, 20, 0.5);
+}
+.media-library-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.media-library-head h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.media-upload-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: 2px dashed var(--border, #e8e0e4);
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 12px 0 6px;
+  cursor: pointer;
+  text-align: center;
+  color: var(--ink, #40343a);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.media-upload-drop:hover {
+  background: var(--accent-soft, #f8f3f6);
+}
+.media-upload-drop small {
+  font-weight: 400;
+  color: var(--muted, #7c6d74);
+  font-size: 0.75rem;
+}
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+.media-empty {
+  grid-column: 1/-1;
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--muted, #7c6d74);
+  font-size: 0.85rem;
+}
+.media-card {
+  border: 1px solid var(--border, #e8e0e4);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--card, #fff);
+}
+.media-thumb {
+  aspect-ratio: 1;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--accent-soft, #f8f3f6);
+}
+.media-meta {
+  padding: 6px 8px 0;
+}
+.media-filename {
+  font-size: 0.78rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.media-alt {
+  font-size: 0.72rem;
+  color: var(--muted, #7c6d74);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.media-alt-missing {
+  color: var(--danger, #a33);
+}
+.media-used-tag {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: var(--accent-soft, #f8f3f6);
+  color: var(--ink, #40343a);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.media-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px;
+  margin-top: auto;
+}
+.media-actions button {
+  font-size: 0.7rem;
+  padding: 5px 8px;
+  min-height: 28px;
+  border-radius: 8px;
+}
+.media-actions button.primary {
+  flex-basis: 100%;
+}
+.media-actions button.danger {
+  color: var(--danger, #a33);
+  border-color: var(--danger, #a33);
+}
+
+/* Version history dialog */
+.editor-history-dialog {
+  width: min(560px, 92vw);
+  max-height: 80vh;
+  border: none;
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow, 0 20px 60px rgba(0,0,0,.2));
+}
+.editor-history-dialog::backdrop {
+  background: rgba(20, 16, 20, 0.5);
+}
+.editor-history-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+.editor-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border, #e8e0e4);
+}
+.editor-history-row:last-child {
+  border-bottom: none;
+}
+.editor-history-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.85rem;
+}
+.editor-history-empty {
+  list-style: none;
+  padding: 1.5rem 0.5rem;
+  text-align: center;
+  color: var(--muted, #7c6d74);
+  font-size: 0.85rem;
+}

@@ -89,13 +89,65 @@ export function systemHealthSnapshot(env = process.env) {
   if (!env.SUPABASE_SERVICE_ROLE_KEY && !env.SUPABASE_SECRET_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
   return {
     database: missing.length ? "degraded" : "ok",
+    // Self-evidently true: a running Netlify Function answered this
+    // request, so the functions runtime itself is up. Real signal, just
+    // a weak one — Netlify's own deploy/function logs are the actual
+    // source of truth for function-level failures, not this snapshot.
     netlify_functions: "ok",
     storage: env.SUPABASE_URL ? "ok" : "unknown",
     api: missing.length ? "misconfigured" : "ok",
-    queue: "ok",
+    // Deliberately no "queue" field — there is no job/message queue
+    // anywhere in this codebase. The old value ("ok", hardcoded) claimed
+    // health for a subsystem that doesn't exist, which is worse than no
+    // field at all.
     environment_valid: missing.length === 0,
     missing_env: missing,
     checked_at: new Date().toISOString()
+  };
+}
+
+/**
+ * Turns raw `audit_events` rows (event_type = "client_error", written by
+ * netlify/functions/client-errors.js from every florist's browser via
+ * public/production-monitor.js) into an actionable summary for the
+ * platform owner — grouped by error type and by page, so a real pattern
+ * ("6 people hit an API failure on Orders in the last hour") is visible
+ * before anyone files a support ticket about it, instead of only after.
+ */
+export function summarizeClientErrors(rows = []) {
+  const items = (rows || []).map((row) => {
+    const metadata = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+    return {
+      at: row.created_at,
+      shop_id: row.shop_id || null,
+      type: metadata.type || "client",
+      message: String(metadata.message || "").slice(0, 200),
+      path: metadata.path || null,
+      status: metadata.status ?? null
+    };
+  });
+
+  const byType = {};
+  const byPath = {};
+  const shopsAffected = new Set();
+  for (const item of items) {
+    byType[item.type] = (byType[item.type] || 0) + 1;
+    if (item.path) byPath[item.path] = (byPath[item.path] || 0) + 1;
+    if (item.shop_id) shopsAffected.add(item.shop_id);
+  }
+
+  const topPaths = Object.entries(byPath)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([path, count]) => ({ path, count }));
+
+  return {
+    total: items.length,
+    shops_affected: shopsAffected.size,
+    by_type: byType,
+    top_paths: topPaths,
+    most_recent_at: items[0]?.at || null,
+    recent: items.slice(0, 25)
   };
 }
 

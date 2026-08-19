@@ -24,13 +24,23 @@
 .lily-suggestions{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 8px}
 .lily-suggestions button{border:1px solid #eadde5;background:#fff;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:700;color:#5c4a54;cursor:pointer}
 .lily-toolbar{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px 12px;border-top:1px solid var(--lily-border,#eadde5);background:var(--lily-toolbar-bg,#faf6f8)}
-.lily-toolbar button{border:1px solid #eadde5;background:#fff;border-radius:12px;padding:8px 6px;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#5c4a54;cursor:pointer}
+/* Uppercase + letter-spacing widened labels like "Find Customer" and
+   "Facebook Post" enough that they wrapped onto an uneven second line
+   while shorter labels stayed on one — cramped, inconsistent row heights
+   (live-measured 2026-08-15). Normal case reads narrower at the same
+   visual weight; a shared min-height + centered multi-line text keeps
+   every button the same size whether its label needs one line or two,
+   so the wrap (when it still happens) reads as intentional, not broken.
+   Shared across Lily/Rose/Daisy — same panel, persona-switched. */
+.lily-toolbar button{border:1px solid #eadde5;background:#fff;border-radius:12px;padding:8px 6px;min-height:42px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.25;white-space:normal;font-size:11.5px;font-weight:700;letter-spacing:normal;text-transform:none;color:#5c4a54;cursor:pointer}
 .lily-compose{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--lily-border,#eadde5);align-items:flex-end;background:var(--lily-panel-bg,#fffcfd)}
 .lily-compose textarea{flex:1;resize:none;min-height:42px;max-height:120px;border-radius:14px;border:1px solid #eadde5;padding:10px 12px;font:inherit;background:#fff}
-.lily-compose .lily-voice{width:42px;height:42px;border-radius:12px;border:1px dashed #c9b5c0;background:#fff;cursor:not-allowed;opacity:.65}
+.lily-compose .lily-voice{width:42px;height:42px;border-radius:12px;border:1px solid #eadde5;background:#fff;cursor:pointer;opacity:1}
+.lily-compose .lily-voice:hover{background:#fff7fb;box-shadow:0 4px 14px #5b234014}
 .lily-compose .lily-send{width:42px;height:42px;border-radius:12px;border:none;background:#7e214e;color:#fff;font-weight:800;cursor:pointer}
 .lily-confirm{margin:0 12px 8px;padding:10px;border-radius:12px;background:#fff7eb;border:1px solid #f0d9b8;font-size:13px}
 .lily-confirm button{margin-top:8px;margin-right:6px}
+.lily-confirm-destructive{color:#a72f2f}
 .lily-history-list{display:flex;flex-direction:column;gap:6px;padding:4px}
 .lily-history-list button{text-align:left;border:1px solid #eadde5;background:#fff;border-radius:12px;padding:10px;cursor:pointer}
 .lily-history-list small{color:#796a74;display:block;margin-top:4px}
@@ -44,3 +54,15 @@ body[data-lily-theme="dark"] .lily-compose textarea,body[data-lily-theme="dark"]
   .lily-panel{right:12px;left:12px;width:auto;bottom:78px;max-height:70vh}
   .lily-panel.lily-expanded{top:12px;max-height:none;height:calc(100vh - 24px)}
 }
+
+/* Persona lanes (Option A) — switch between Lily / Rose / Daisy */
+.lily-head-id{display:flex;align-items:center;gap:10px;min-width:0}
+.lily-head-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;box-shadow:0 2px 8px #5b234022;flex:0 0 auto}
+.lily-personas{display:flex;gap:6px;padding:8px 10px 0;background:var(--lily-panel-bg,#fffcfd)}
+.lily-personas button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--lily-border,#eadde5);background:#fff;border-radius:12px;padding:6px 4px;cursor:pointer;font-size:12px;font-weight:700;color:#796a74;transition:border-color .15s ease,background .15s ease,color .15s ease}
+.lily-personas button img{width:22px;height:22px;border-radius:50%;object-fit:cover}
+.lily-personas button.active{border-color:#a72f67;background:#f9edf2;color:#7e214e;box-shadow:0 2px 10px #a72f6722}
+.lily-personas button:focus-visible{outline:2px solid #a72f67;outline-offset:2px}
+body[data-lily-theme="dark"] .lily-personas{--lily-panel-bg:#2a2226}
+body[data-lily-theme="dark"] .lily-personas button{background:#342830;border-color:#4a3a42;color:#f5eef2}
+body[data-lily-theme="dark"] .lily-personas button.active{background:#43303a;border-color:#c76f9c;color:#ffd9e8}

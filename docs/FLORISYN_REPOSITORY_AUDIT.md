@@ -218,7 +218,28 @@ Many functions catch missing-table errors (e.g. `lily-ai.js`, `payment-link-publ
 
 ### Platform admin auth
 
-Separate path via `platformAdmin()` in `_shared/platform-admin.js` — requires active row in `platform_admins`. Mutations often require `super_admin` role.
+Separate path via `platformAdmin()` in `_shared/platform-admin.js` — a **server authorization
+boundary**, not a browser database-access mechanism. `public.platform_admins` has no grants or
+RLS policies for `anon`/`authenticated` (P0-01 / P0-01 R1); only `platformAdmin()`'s
+service-role client may read it, and that client is created only *after* the caller's bearer
+token is verified via `authenticatedUser()`. The only trusted identity is the verified
+`user.id` — never an ID/role from the request body, query string, other headers, or
+`user_metadata`/`raw_user_meta_data`. Requires an active row in `platform_admins` and (per
+endpoint) an allowed role; `super_admin` is always permitted as an explicit override. The
+service-role client is handed to downstream admin code only after authorization succeeds
+(P0-02). **Founding Beta (P0-02 R1):** all current platform-admin endpoints require
+`super_admin` only; `platformAdmin(event, ["super_admin"])` is called explicitly at every
+handler; missing/empty `allowedRoles` fails closed to `super_admin`. Mutations require an
+explicit `requireSuperAdmin(admin)` call immediately before their database write. Handlers use
+the shared `platformAdminErrorResponse()` boundary with a Florisyn-owned public error catalog
+(P0-02 R2 / P0-02 R3 / P0-02 R4): only errors created by `platformAdminError()` (private module
+brand) may select non-500 public wording; forged `florisynCode` values, prototype-key codes, and
+unknown/provider errors become generic 500 via `Object.hasOwn` catalog lookup; the catalog is
+deeply frozen; all four handlers parse bodies via `parsePlatformAdminJsonBody()`; marketplace
+verification missing-table errors return the fixed `verification_schema_unavailable` 503
+(handler resolves). Production handlers are factory-bound and cannot accept authentication or
+service-role dependency overrides through Netlify context. Logs carry a server-generated request
+ID (never browser headers) and enforce allowlisted event/category/status fields.
 
 ---
 
@@ -481,6 +502,25 @@ not ok 157 - sidebar invoices and payments are plain nav buttons without extra w
 ### Frontend tests
 
 **None.** React app has lint/verify scripts only (`verify-floral-asset-consumption.mjs`, `verify-floral-catalog-files.mjs`).
+
+### Pull-request CI (P0-03 / P0-03 R1)
+
+`.github/workflows/p0-required-checks.yml` runs on `pull_request` → `main` (and `workflow_dispatch`) with
+`permissions: contents: read` only. Core job: unit tests, syntax check, frontend build, root
+`npm audit --audit-level=high`, frontend policy `scripts/audit-frontend-security.mjs`, community smoke.
+Database job: digest-pinned PostgreSQL 16 runs `test:community-rls` and `test:floral-library-rls`
+sequentially. No deploy steps and no production / Netlify / Stripe / hosted Supabase credentials.
+Source/policy regressions: `tests/p0-required-checks-workflow.test.js`.
+
+Frontend audit truth: root audit reports zero findings; frontend temporarily accepts only
+`GHSA-qwww-vcr4-c8h2` affecting `react-router` and `react-router-dom` (both exact **7.18.2**),
+because Netlify publishes `public/` (not `frontend/dist`) and the React app is client-only
+`BrowserRouter` with no RSC/server-router usage. This is **not** a claim of zero total
+vulnerabilities. Exception expires **2026-08-15** (UTC) or at React production migration,
+whichever first. **P0-03 R2:** exception gates apply only while that advisory is present; a
+clean high/critical-free audit does not require the pin/expiry/publish/RSC restrictions.
+Review owner: Technical Director. Automated checks only — not confirmed as GitHub
+branch-protection required checks.
 
 ---
 

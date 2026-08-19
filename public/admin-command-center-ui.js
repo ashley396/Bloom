@@ -1,6 +1,19 @@
 const ccCall = (path, opt) => window.__adminCall(path, opt);
 
+function readBetaChecks() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('bloom_beta_readiness_checks') || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    localStorage.removeItem('bloom_beta_readiness_checks');
+    return {};
+  }
+}
+
 function chartBars(series = [], label) {
+  if (!series.length) {
+    return `<article class="panel chart-panel"><h3>${label}</h3><p class="chart-empty">No data yet — this fills in once activity comes in.</p></article>`;
+  }
   const max = Math.max(1, ...series.map((s) => Number(s.value || 0)));
   return `<article class="panel chart-panel"><h3>${label}</h3><div class="chart-bars">${series.map((s) => `<div class="chart-bar"><span>${s.label}</span><div class="bar-track"><i style="width:${Math.round((Number(s.value || 0) / max) * 100)}%"></i></div><strong>${Number(s.value || 0).toLocaleString()}</strong></div>`).join('')}</div></article>`;
 }
@@ -26,7 +39,12 @@ export function initCommandCenter(deps) {
     try {
       const d = await ccCall('admin-command-center?action=dashboard');
       const k = d.kpis || {};
-      const money = (n) => Number(n || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+      // Every count card above already uses `?? '—'`, showing a dash only
+      // for genuinely missing data and a real 0 for a known zero. This
+      // used to always format to "$0" instead — even for missing data —
+      // so a thin response showed "—" and "$0" side by side in the same
+      // row of peer cards for the exact same underlying reason.
+      const money = (n) => n == null ? '—' : Number(n || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
       mount.innerHTML = `
         <div class="metric-grid executive-grid">
           ${[
@@ -87,10 +105,75 @@ export function initCommandCenter(deps) {
 
   async function loadSupport() {
     const d = await ccCall('admin-command-center?action=support');
-    $('#supportList').innerHTML = (d.items || []).map((item) => `<article class="panel support-item"><div class="panel-head"><div><h3>${escapeHtml(item.subject)}</h3><p>${escapeHtml(item.item_type)} · ${escapeHtml(item.status)}</p></div></div><p>${escapeHtml(item.body)}</p><div class="card-actions"><button data-support-id="${item.id}" data-status="assigned">Assign</button><button data-support-id="${item.id}" data-status="resolved" class="secondary">Resolve</button><button data-support-id="${item.id}" data-status="closed" class="secondary">Close</button></div></article>`).join('') || '<p class="quiet">No support items yet.</p>';
+    const deliveryLabel = { delivered: 'sent', webhook_error: 'endpoint rejected it', not_configured: 'no endpoint connected' };
+    $('#supportList').innerHTML = (d.items || []).map((item) => {
+      const fixRequests = (item.notes || []).filter((n) => n.type === 'fix_request');
+      const lastFixRequest = fixRequests[fixRequests.length - 1];
+      const fixHistory = lastFixRequest
+        ? `<p class="quiet">Last fix request: ${new Date(lastFixRequest.at).toLocaleString()} — ${escapeHtml(deliveryLabel[lastFixRequest.delivery] || lastFixRequest.delivery)}.</p>`
+        : '';
+      return `<article class="panel support-item"><div class="panel-head"><div><h3>${escapeHtml(item.subject)}</h3><p>${escapeHtml(item.item_type)} · ${escapeHtml(item.status)}</p></div></div><p>${escapeHtml(item.body)}</p>${fixHistory}<div class="card-actions"><button data-support-id="${item.id}" data-status="assigned">Assign</button><button data-support-id="${item.id}" data-status="resolved" class="secondary">Resolve</button><button data-support-id="${item.id}" data-status="closed" class="secondary">Close</button><button data-request-fix-id="${item.id}" class="secondary">Request Claude Code fix</button></div></article>`;
+    }).join('') || '<p class="quiet">No support items yet.</p>';
     $$('[data-support-id]').forEach((b) => b.onclick = async () => {
       await ccCall('admin-command-center', { method: 'POST', body: JSON.stringify({ action: 'support-update', id: b.dataset.supportId, status: b.dataset.status, note: 'Updated from Command Center' }) });
       toast('Support item updated'); loadSupport();
+    });
+    $$('[data-request-fix-id]').forEach((b) => b.onclick = async () => {
+      b.disabled = true;
+      try {
+        const result = await ccCall('admin-command-center', { method: 'POST', body: JSON.stringify({ action: 'support-request-fix', id: b.dataset.requestFixId }) });
+        toast(result.message || 'Fix request recorded');
+      } finally {
+        loadSupport();
+        loadBudQueue();
+      }
+    });
+    await loadBudQueue();
+  }
+
+  const BUD_STATUSES = ['queued', 'investigating', 'diff_ready', 'awaiting_approval', 'shipped', 'dismissed'];
+  const BUD_STATUS_LABELS = { queued: 'Queued', investigating: 'Investigating', diff_ready: 'Diff ready', awaiting_approval: 'Awaiting approval', shipped: 'Shipped', dismissed: 'Dismissed' };
+
+  // Bud's Fix Queue — where a "Request Claude Code fix" click above
+  // actually lands once CLAUDE_CODE_FIX_WEBHOOK_URL is configured. Shows
+  // the request is real and queued rather than just trusting the
+  // "delivered" toast.
+  async function loadBudQueue() {
+    const root = $('#budQueueRoot');
+    if (!root) return;
+    let d;
+    try {
+      d = await ccCall('admin-command-center', { method: 'POST', body: JSON.stringify({ action: 'bud-queue-list' }) });
+    } catch (err) {
+      root.innerHTML = `<p class="quiet">${escapeHtml(err.message)}</p>`;
+      return;
+    }
+    const items = d.items || [];
+    root.innerHTML = `<div class="panel-head bud-queue-head"><img src="/assets/assistants/bud-portrait.webp" alt="" class="bud-queue-avatar"><div><h3>Bud's Fix Queue</h3><p class="quiet">Every "Request Claude Code fix" click lands here — nothing is fixed automatically; an agent session picks these up per docs/FLORISYN_AI_AGENT_AUTONOMY_POLICY.md.</p></div></div>` +
+      (items.length
+        ? items.map((it) => `<article class="panel bud-queue-item">
+            <div class="panel-head"><div><h4>${escapeHtml(it.subject)}</h4><p class="quiet">Requested ${new Date(it.requested_at || it.created_at).toLocaleString()}${it.shop_id ? ` · shop ${escapeHtml(it.shop_id)}` : ''}</p></div></div>
+            ${it.body ? `<p>${escapeHtml(it.body)}</p>` : ''}
+            <div class="card-actions">
+              <select data-bud-status-select="${it.id}">${BUD_STATUSES.map((s) => `<option value="${s}" ${s === it.status ? 'selected' : ''}>${BUD_STATUS_LABELS[s]}</option>`).join('')}</select>
+              <input type="text" data-bud-note="${it.id}" placeholder="Note (e.g. PR link)" value="${escapeHtml(it.assignee_note || '')}">
+              <button data-bud-save="${it.id}" class="secondary">Save</button>
+            </div>
+          </article>`).join('')
+        : '<p class="quiet">Nothing queued yet.</p>');
+    $$('[data-bud-save]').forEach((b) => b.onclick = async () => {
+      const id = b.dataset.budSave;
+      const status = root.querySelector(`[data-bud-status-select="${id}"]`)?.value;
+      const assignee_note = root.querySelector(`[data-bud-note="${id}"]`)?.value;
+      b.disabled = true;
+      try {
+        await ccCall('admin-command-center', { method: 'POST', body: JSON.stringify({ action: 'bud-queue-update', id, status, assignee_note }) });
+        toast('Fix request updated');
+      } catch (err) {
+        toast(err.message);
+      } finally {
+        loadBudQueue();
+      }
     });
   }
 
@@ -150,15 +233,15 @@ export function initCommandCenter(deps) {
       )
       .join('');
     const issues = (d.known_issues || [])
-      .map((i) => `<article class="shop-row"><div><strong>${escapeHtml(i.title)}</strong><small>${escapeHtml(i.severity)}</small></div><p>${escapeHtml(i.detail)}</p></article>`)
+      .map((i) => `<article class="shop-row beta-toolkit-row"><div><strong>${escapeHtml(i.title)}</strong><small>${escapeHtml(i.severity)}</small><p>${escapeHtml(i.detail)}</p></div></article>`)
       .join('');
     const inbox = (d.feedback || [])
       .map(
         (f) =>
-          `<article class="shop-row"><div><strong>${escapeHtml(f.category)}</strong><small>${new Date(f.created_at).toLocaleString()} · shop ${escapeHtml(f.shop_id || '—')}</small></div><p>${escapeHtml(f.message)}</p></article>`
+          `<article class="shop-row beta-toolkit-row"><div><strong>${escapeHtml(f.category)}</strong><small>${new Date(f.created_at).toLocaleString()} · shop ${escapeHtml(f.shop_id || '—')}</small><p>${escapeHtml(f.message)}</p></div></article>`
       )
       .join('');
-    const stored = JSON.parse(localStorage.getItem('bloom_beta_readiness_checks') || '{}');
+    const stored = readBetaChecks();
     const checks = (d.checklist || [])
       .map(
         (c) =>
@@ -174,7 +257,7 @@ export function initCommandCenter(deps) {
       <h3>Feedback inbox</h3><div class="shop-list">${inbox || '<p class="quiet">No feedback yet.</p>'}</div>`;
     $$('[data-beta-check]').forEach((input) => {
       input.onchange = () => {
-        const next = JSON.parse(localStorage.getItem('bloom_beta_readiness_checks') || '{}');
+        const next = readBetaChecks();
         next[input.dataset.betaCheck] = input.checked;
         localStorage.setItem('bloom_beta_readiness_checks', JSON.stringify(next));
       };
@@ -191,13 +274,34 @@ export function initCommandCenter(deps) {
       .filter(([k]) => !Array.isArray(h[k]))
       .map(([k, v]) => `<div class="health-row"><span>${k.replaceAll('_', ' ')}</span><strong class="${v === 'ok' ? 'ok' : 'warn'}">${escapeHtml(String(v))}</strong></div>`)
       .join('');
+    const errors = healthRes.recent_errors || { total: 0, shops_affected: 0, by_type: {}, top_paths: [], recent: [] };
+    const errorTypeSummary = Object.entries(errors.by_type || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, count]) => `<span class="badge warn">${escapeHtml(type)}: ${count}</span>`)
+      .join(' ');
+    const errorTopPaths = (errors.top_paths || [])
+      .map((p) => `<li><strong>${p.count}×</strong> ${escapeHtml(p.path)}</li>`)
+      .join('');
+    const errorRecent = (errors.recent || []).slice(0, 10)
+      .map((e) => `<div class="audit-item"><span>${new Date(e.at).toLocaleString()}</span><strong>${escapeHtml(e.type)}${e.status ? ` · ${e.status}` : ''}</strong><code>${escapeHtml(e.path || '')} ${escapeHtml(e.message || '')}</code></div>`)
+      .join('');
+    const errorPanel = `
+      <h3>Client errors — last 7 days</h3>
+      ${errors.total
+        ? `<p class="quiet">${errors.total} error${errors.total === 1 ? '' : 's'} across ${errors.shops_affected} shop${errors.shops_affected === 1 ? '' : 's'}. Catching this here — before a florist has to file a ticket about it — is the point.</p>
+           ${errorTypeSummary ? `<p>${errorTypeSummary}</p>` : ''}
+           ${errorTopPaths ? `<h4>Most-hit pages</h4><ul>${errorTopPaths}</ul>` : ''}
+           <h4>Most recent</h4>
+           ${errorRecent}`
+        : `<p class="quiet ok">No client errors reported in the last 7 days.</p>`}
+    `;
     const warnings = (betaRes?.config?.warnings || [])
       .map((w) => `<li>${escapeHtml(w)}</li>`)
       .join('');
     const checklist = (betaRes?.checklist || [])
       .map((c) => `<li><strong>${escapeHtml(c.area)}</strong> — ${escapeHtml(c.item)}</li>`)
       .join('');
-    const stored = JSON.parse(localStorage.getItem('bloom_beta_readiness_checks') || '{}');
+    const stored = readBetaChecks();
     const checks = (betaRes?.checklist || [])
       .map(
         (c) =>
@@ -206,6 +310,7 @@ export function initCommandCenter(deps) {
       .join('');
     $('#systemHealthPanel').innerHTML = `
       <h2>System health</h2>${rows}
+      ${errorPanel}
       ${warnings ? `<h3>Configuration warnings</h3><ul>${warnings}</ul>` : ''}
       <h3>Beta readiness checklist</h3>
       <p class="quiet">Track manual QA before inviting florists. Saved in this browser only.</p>
@@ -213,7 +318,7 @@ export function initCommandCenter(deps) {
       <p class="quiet">${escapeHtml(betaRes?.tests?.command || 'node --test tests/*.test.js')}</p>`;
     $$('[data-beta-check]').forEach((input) => {
       input.onchange = () => {
-        const next = JSON.parse(localStorage.getItem('bloom_beta_readiness_checks') || '{}');
+        const next = readBetaChecks();
         next[input.dataset.betaCheck] = input.checked;
         localStorage.setItem('bloom_beta_readiness_checks', JSON.stringify(next));
       };
@@ -279,7 +384,7 @@ export function initCommandCenter(deps) {
   };
 
   $('#userSearch')?.addEventListener('input', () => clearTimeout(window.userSearchTimer) || (window.userSearchTimer = setTimeout(loadUsers, 300)));
-  $('#userRoleFilter')?.change(loadUsers);
+  $('#userRoleFilter')?.addEventListener('change', loadUsers);
   $('#auditFilter')?.addEventListener('input', () => clearTimeout(window.auditTimer) || (window.auditTimer = setTimeout(loadAuditLog, 300)));
 
   $('#announcementForm')?.addEventListener('submit', async (e) => {

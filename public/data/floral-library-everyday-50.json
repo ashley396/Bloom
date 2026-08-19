@@ -1,0 +1,3227 @@
+{
+  "version": 1,
+  "batch": 1,
+  "batch_size": 50,
+  "target_total": 500,
+  "collection": "Florisyn Everyday Ultra-Realistic",
+  "generated_at": "2026-08-13T14:05:54.249Z",
+  "arrangements": [
+    {
+      "id": "ed-01-sunshine-cube",
+      "name": "Sunshine Cube",
+      "style": "bright",
+      "color_palette": "yellow, orange, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "5\" glass cube vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape",
+        "cube vase"
+      ],
+      "recipe": [
+        {
+          "name": "Sunflowers",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Carnations",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 3,
+          "kind": "foliage"
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 2,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 3
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 2
+        }
+      ],
+      "instructions": [
+        "Fill cube with fresh water and floral preservative.",
+        "Build a tape grid across the cube opening.",
+        "Cut sunflowers to staggered heights; place center-back.",
+        "Add daisies around sunflowers for brightness.",
+        "Tuck carnations between focal blooms.",
+        "Frame with leatherleaf and pittosporum.",
+        "Check water level and wipe vase."
+      ],
+      "why_it_works": "Sunflowers sell fast, stem counts stay low, and a cube arranges in under 15 minutes.",
+      "short_description": "Ultra-realistic everyday bright design in a 5\" glass cube vase — yellow, orange, green.",
+      "description": "Ultra-realistic everyday bright design in a 5\" glass cube vase — yellow, orange, green. Style: bright. Color palette: yellow, orange, green. Container: 5\" glass cube vase. Mechanics: tape grid. Tools: scissors, floral tape, cube vase. Recipe: 3 Sunflowers, 5 Yellow Daisies, 4 Orange Carnations, 3 Leatherleaf, 2 Pittosporum. Steps: Fill cube with fresh water and floral preservative. Build a tape grid across the cube opening. Cut sunflowers to staggered heights; place center-back. Add daisies around sunflowers for brightness. Tuck carnations between focal blooms. Frame with leatherleaf and pittosporum. Check water level and wipe vase. Sunflowers sell fast, stem counts stay low, and a cube arranges in under 15 minutes.",
+      "suggested_retail": 54.99,
+      "image": "everyday/ed-01-sunshine-cube.jpg",
+      "alt": "Sunshine Cube ultra-realistic vase arrangement photograph",
+      "content_sha256": "90effd7db96ffd4dce269d8d139126799c77b6f110236b02364f04ec6ee1d168",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-02-pink-meadow",
+      "name": "Pink Meadow",
+      "style": "feminine",
+      "color_palette": "blush pink, cream, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "quart mason jar",
+      "mechanics": "hand-tie in jar",
+      "tools": [
+        "scissors",
+        "twine",
+        "mason jar"
+      ],
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Carnations",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Alstroemeria",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 4,
+          "kind": "foliage"
+        },
+        {
+          "name": "Baby's Breath",
+          "qty": 2,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 4
+        },
+        {
+          "name": "Baby's Breath",
+          "qty": 2
+        }
+      ],
+      "instructions": [
+        "Condition flowers; fill jar halfway with water.",
+        "vase arrangement roses and carnations with eucalyptus.",
+        "Add alstroemeria for line and movement.",
+        "Place bouquet in jar; trim stems evenly.",
+        "Fill with baby's breath for softness."
+      ],
+      "why_it_works": "Pink everyday designs move year-round with wholesale-friendly stems.",
+      "short_description": "Ultra-realistic everyday feminine design in a quart mason jar — blush pink, cream, green.",
+      "description": "Ultra-realistic everyday feminine design in a quart mason jar — blush pink, cream, green. Style: feminine. Color palette: blush pink, cream, green. Container: quart mason jar. Mechanics: vase arrangement in jar. Tools: scissors, twine, mason jar. Recipe: 5 Pink Roses, 6 Pink Carnations, 4 Alstroemeria, 4 Eucalyptus, 2 Baby's Breath. Steps: Condition flowers; fill jar halfway with water. vase arrangement roses and carnations with eucalyptus. Add alstroemeria for line and movement. Place bouquet in jar; trim stems evenly. Fill with baby's breath for softness. Pink everyday designs move year-round with wholesale-friendly stems.",
+      "suggested_retail": 52.99,
+      "image": "everyday/ed-02-pink-meadow.jpg",
+      "alt": "Pink Meadow ultra-realistic vase arrangement photograph",
+      "content_sha256": "752fae4f967aa6646219c34fb2f0c64d5ba6c922888c4dc3e6013c9abf0223b5",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-03-classic-rose-mix",
+      "name": "Classic Rose Mix",
+      "style": "classic",
+      "color_palette": "red, pink, white",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "foam in cylinder",
+      "tools": [
+        "scissors",
+        "wet foam",
+        "cylinder vase"
+      ],
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 4,
+          "kind": "foliage"
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 4
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Soak foam and secure in cylinder.",
+        "Create triangle with red roses at three points.",
+        "Fill between with pink and white roses.",
+        "Add leatherleaf around rim.",
+        "Finish with pittosporum for depth."
+      ],
+      "why_it_works": "Tri-color roses are a counter staple with predictable cost and high perceived value.",
+      "short_description": "Ultra-realistic everyday classic design in a 8\" cylinder vase — red, pink, white.",
+      "description": "Ultra-realistic everyday classic design in a 8\" cylinder vase — red, pink, white. Style: classic. Color palette: red, pink, white. Container: 8\" cylinder vase. Mechanics: foam in cylinder. Tools: scissors, wet foam, cylinder vase. Recipe: 4 Red Roses, 4 Pink Roses, 3 White Roses, 4 Leatherleaf, 3 Pittosporum. Steps: Soak foam and secure in cylinder. Create triangle with red roses at three points. Fill between with pink and white roses. Add leatherleaf around rim. Finish with pittosporum for depth. Tri-color roses are a counter staple with predictable cost and high perceived value.",
+      "suggested_retail": 64.99,
+      "image": "everyday/ed-03-classic-rose-mix.jpg",
+      "alt": "Classic Rose Mix ultra-realistic vase arrangement photograph",
+      "content_sha256": "79ea38b7f52e4d9ca8031edf800d98384bdc50693d7aa92cc8f4b0cac3eab6f7",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-04-cheerful-daisy-burst",
+      "name": "Cheerful Daisy Burst",
+      "style": "cheerful",
+      "color_palette": "white, yellow, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "6\" ceramic vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "White Daisies",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 4,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 4
+        }
+      ],
+      "instructions": [
+        "Tape grid on ceramic vase.",
+        "Cluster white daisies as the mass.",
+        "Add yellow daisies for pop.",
+        "Frame with leatherleaf.",
+        "Adjust for round, full silhouette."
+      ],
+      "why_it_works": "Daisies are inexpensive, forgiving, and perfect for walk-in sales.",
+      "short_description": "Ultra-realistic everyday cheerful design in a 6\" ceramic vase — white, yellow, green.",
+      "description": "Ultra-realistic everyday cheerful design in a 6\" ceramic vase — white, yellow, green. Style: cheerful. Color palette: white, yellow, green. Container: 6\" ceramic vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 10 White Daisies, 6 Yellow Daisies, 4 Leatherleaf. Steps: Tape grid on ceramic vase. Cluster white daisies as the mass. Add yellow daisies for pop. Frame with leatherleaf. Adjust for round, full silhouette. Daisies are inexpensive, forgiving, and perfect for walk-in sales.",
+      "suggested_retail": 44.99,
+      "image": "everyday/ed-04-cheerful-daisy-burst.jpg",
+      "alt": "Cheerful Daisy Burst ultra-realistic vase arrangement photograph",
+      "content_sha256": "d0713559958875c90cb389057d746524eac4b09ddc38c5e774a1a5549e099486",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-05-everyday-hydrangea-pop",
+      "name": "Everyday Hydrangea Pop",
+      "style": "modern",
+      "color_palette": "blue, white, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "5\" cube vase",
+      "mechanics": "chicken wire ball",
+      "tools": [
+        "scissors",
+        "chicken wire"
+      ],
+      "recipe": [
+        {
+          "name": "Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "White Carnations",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Place chicken wire ball in cube with water.",
+        "Insert hydrangea as focal mass.",
+        "Add carnations for contrast at base.",
+        "Tuck eucalyptus for finish."
+      ],
+      "why_it_works": "One hydrangea fills a cube quickly — strong margin on a compact design.",
+      "short_description": "Ultra-realistic everyday modern design in a 5\" cube vase — blue, white, green.",
+      "description": "Ultra-realistic everyday modern design in a 5\" cube vase — blue, white, green. Style: modern. Color palette: blue, white, green. Container: 5\" cube vase. Mechanics: chicken wire ball. Tools: scissors, chicken wire. Recipe: 2 Hydrangea, 4 White Carnations, 3 Eucalyptus. Steps: Place chicken wire ball in cube with water. Insert hydrangea as focal mass. Add carnations for contrast at base. Tuck eucalyptus for finish. One hydrangea fills a cube quickly — strong margin on a compact design.",
+      "suggested_retail": 58.99,
+      "image": "everyday/ed-05-everyday-hydrangea-pop.jpg",
+      "alt": "Everyday Hydrangea Pop ultra-realistic vase arrangement photograph",
+      "content_sha256": "8857a0724a9e71645ea32f8503a376b429b78922dfd3241f94034c27b8a1c46c",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-06-soft-blush-garden",
+      "name": "Soft Blush Garden",
+      "style": "feminine",
+      "color_palette": "blush, cream, sage",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Stock",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 4,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 4
+        }
+      ],
+      "instructions": [
+        "Build tape grid in cylinder.",
+        "Place pink roses in soft spiral.",
+        "Add stock for height and fragrance.",
+        "Weave alstroemeria through.",
+        "Finish with eucalyptus collar."
+      ],
+      "why_it_works": "Soft pinks read premium while staying within everyday stem budgets.",
+      "short_description": "Ultra-realistic everyday feminine design in a 8\" cylinder vase — blush, cream, sage.",
+      "description": "Ultra-realistic everyday feminine design in a 8\" cylinder vase — blush, cream, sage. Style: feminine. Color palette: blush, cream, sage. Container: 8\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 6 Pink Roses, 4 White Stock, 5 Pink Alstroemeria, 4 Eucalyptus. Steps: Build tape grid in cylinder. Place pink roses in soft spiral. Add stock for height and fragrance. Weave alstroemeria through. Finish with eucalyptus collar. Soft pinks read premium while staying within everyday stem budgets.",
+      "suggested_retail": 59.99,
+      "image": "everyday/ed-06-soft-blush-garden.jpg",
+      "alt": "Soft Blush Garden ultra-realistic vase arrangement photograph",
+      "content_sha256": "c62cfd418cf0f7878c93401220d6ba3e92a21c9dbbba41da84b2a04a3649d3fe",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-07-rustic-mason-jar-mix",
+      "name": "Rustic Mason Jar Mix",
+      "style": "rustic",
+      "color_palette": "warm pink, peach, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "quart mason jar",
+      "mechanics": "hand-tie",
+      "tools": [
+        "scissors",
+        "twine"
+      ],
+      "recipe": [
+        {
+          "name": "Peach Carnations",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 4,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Pittosporum",
+          "qty": 4
+        }
+      ],
+      "instructions": [
+        "vase arrangement carnations and alstroemeria.",
+        "Add daisies for brightness.",
+        "Bind with twine; set in jar.",
+        "Frame with pittosporum."
+      ],
+      "why_it_works": "Mason jars feel handmade and gift-ready with minimal labor.",
+      "short_description": "Ultra-realistic everyday rustic design in a quart mason jar — warm pink, peach, green.",
+      "description": "Ultra-realistic everyday rustic design in a quart mason jar — warm pink, peach, green. Style: rustic. Color palette: warm pink, peach, green. Container: quart mason jar. Mechanics: vase arrangement. Tools: scissors, twine. Recipe: 8 Peach Carnations, 5 Pink Alstroemeria, 4 Yellow Daisies, 4 Pittosporum. Steps: vase arrangement carnations and alstroemeria. Add daisies for brightness. Bind with twine; set in jar. Frame with pittosporum. Mason jars feel handmade and gift-ready with minimal labor.",
+      "suggested_retail": 48.99,
+      "image": "everyday/ed-07-rustic-mason-jar-mix.jpg",
+      "alt": "Rustic Mason Jar Mix ultra-realistic vase arrangement photograph",
+      "content_sha256": "dd503a63d8569f57812d39bd1320b87e4fafcb23896e6175b460900f73f50d37",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-08-bright-happy",
+      "name": "Bright & Happy",
+      "style": "bright",
+      "color_palette": "yellow, hot pink, orange",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "6\" cylinder vase",
+      "mechanics": "foam",
+      "tools": [
+        "scissors",
+        "wet foam"
+      ],
+      "recipe": [
+        {
+          "name": "Sunflowers",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Hot Pink Carnations",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Anchor sunflowers in foam.",
+        "Surround with carnations.",
+        "Add orange roses for contrast.",
+        "Green with leatherleaf."
+      ],
+      "why_it_works": "High-energy colors sell for birthdays and congratulations.",
+      "short_description": "Ultra-realistic everyday bright design in a 6\" cylinder vase — yellow, hot pink, orange.",
+      "description": "Ultra-realistic everyday bright design in a 6\" cylinder vase — yellow, hot pink, orange. Style: bright. Color palette: yellow, hot pink, orange. Container: 6\" cylinder vase. Mechanics: foam. Tools: scissors, wet foam. Recipe: 2 Sunflowers, 8 Hot Pink Carnations, 3 Orange Roses, 3 Leatherleaf. Steps: Anchor sunflowers in foam. Surround with carnations. Add orange roses for contrast. Green with leatherleaf. High-energy colors sell for birthdays and congratulations.",
+      "suggested_retail": 56.99,
+      "image": "everyday/ed-08-bright-happy.jpg",
+      "alt": "Bright & Happy ultra-realistic vase arrangement photograph",
+      "content_sha256": "affa039cedf8793447f40acb2ed4549e0da60b159346b27965c09d2e93fca2ef",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-09-simple-whites",
+      "name": "Simple Whites",
+      "style": "classic",
+      "color_palette": "white, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Carnations",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Stock",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 4,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 4
+        }
+      ],
+      "instructions": [
+        "Tape grid in cylinder.",
+        "Layer white roses and carnations.",
+        "Add stock for line.",
+        "Frame with leatherleaf."
+      ],
+      "why_it_works": "All-white designs work for sympathy and everyday gifting with one recipe.",
+      "short_description": "Ultra-realistic everyday classic design in a 8\" cylinder vase — white, green.",
+      "description": "Ultra-realistic everyday classic design in a 8\" cylinder vase — white, green. Style: classic. Color palette: white, green. Container: 8\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 6 White Roses, 6 White Carnations, 3 White Stock, 4 Leatherleaf. Steps: Tape grid in cylinder. Layer white roses and carnations. Add stock for line. Frame with leatherleaf. All-white designs work for sympathy and everyday gifting with one recipe.",
+      "suggested_retail": 62.99,
+      "image": "everyday/ed-09-simple-whites.jpg",
+      "alt": "Simple Whites ultra-realistic vase arrangement photograph",
+      "content_sha256": "67553db5323c9394d7fcd7cb06a973851ca97f9a70c01136187ad5890a3a5e15",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-10-everyday-elegance",
+      "name": "Everyday Elegance",
+      "style": "classic",
+      "color_palette": "cream, blush, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" ceramic vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Cream Roses",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "Blush Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lilies",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 4,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 4
+        }
+      ],
+      "instructions": [
+        "Place lilies for height first.",
+        "Spiral cream roses around.",
+        "Fill with blush carnations.",
+        "Eucalyptus finish."
+      ],
+      "why_it_works": "Two lilies elevate the look without wedding-level stem counts.",
+      "short_description": "Ultra-realistic everyday classic design in a 8\" ceramic vase — cream, blush, green.",
+      "description": "Ultra-realistic everyday classic design in a 8\" ceramic vase — cream, blush, green. Style: classic. Color palette: cream, blush, green. Container: 8\" ceramic vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 7 Cream Roses, 5 Blush Carnations, 2 White Lilies, 4 Eucalyptus. Steps: Place lilies for height first. Spiral cream roses around. Fill with blush carnations. Eucalyptus finish. Two lilies elevate the look without wedding-level stem counts.",
+      "suggested_retail": 68.99,
+      "image": "everyday/ed-10-everyday-elegance.jpg",
+      "alt": "Everyday Elegance ultra-realistic vase arrangement photograph",
+      "content_sha256": "7edafdbcd939a6d5cbb7071be9f4032b006ec5f3dae2491969aae448fa3e3db0",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-11-morning-cheer",
+      "name": "Morning Cheer",
+      "style": "cheerful",
+      "color_palette": "yellow, white, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "pint mason jar",
+      "mechanics": "hand-tie",
+      "tools": [
+        "scissors"
+      ],
+      "recipe": [
+        {
+          "name": "Yellow Daisies",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Alstroemeria",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Pittosporum",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "vase arrangement daisy clusters.",
+        "Add alstroemeria.",
+        "Set in jar with pittosporum."
+      ],
+      "why_it_works": "Small jar designs are fast fillers for the cooler door.",
+      "short_description": "Ultra-realistic everyday cheerful design in a pint mason jar — yellow, white, green.",
+      "description": "Ultra-realistic everyday cheerful design in a pint mason jar — yellow, white, green. Style: cheerful. Color palette: yellow, white, green. Container: pint mason jar. Mechanics: vase arrangement. Tools: scissors. Recipe: 8 Yellow Daisies, 6 White Daisies, 4 Yellow Alstroemeria, 3 Pittosporum. Steps: vase arrangement daisy clusters. Add alstroemeria. Set in jar with pittosporum. Small jar designs are fast fillers for the cooler door.",
+      "suggested_retail": 39.99,
+      "image": "everyday/ed-11-morning-cheer.jpg",
+      "alt": "Morning Cheer ultra-realistic vase arrangement photograph",
+      "content_sha256": "8115ac2a4f801489482d636775e3608d7379c5fbd9562079e368b73899d2ba6d",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-12-fresh-start",
+      "name": "Fresh Start",
+      "style": "modern",
+      "color_palette": "green, white, yellow",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "5\" cube vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "White Carnations",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Snapdragons",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Stock",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Build grid in cube.",
+        "Mass carnations low.",
+        "Snapdragons for vertical line.",
+        "Stock and eucalyptus finish."
+      ],
+      "why_it_works": "Snapdragon height adds perceived value in a compact cube.",
+      "short_description": "Ultra-realistic everyday modern design in a 5\" cube vase — green, white, yellow.",
+      "description": "Ultra-realistic everyday modern design in a 5\" cube vase — green, white, yellow. Style: modern. Color palette: green, white, yellow. Container: 5\" cube vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 8 White Carnations, 4 Yellow Snapdragons, 3 White Stock, 3 Eucalyptus. Steps: Build grid in cube. Mass carnations low. Snapdragons for vertical line. Stock and eucalyptus finish. Snapdragon height adds perceived value in a compact cube.",
+      "suggested_retail": 51.99,
+      "image": "everyday/ed-12-fresh-start.jpg",
+      "alt": "Fresh Start ultra-realistic vase arrangement photograph",
+      "content_sha256": "344fdf161bc931a0bb6fbcd060ad47dc7c9c7dc000e91762d606aad1ea18fdc2",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-13-daily-delight",
+      "name": "Daily Delight",
+      "style": "cheerful",
+      "color_palette": "pink, yellow, white",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "6\" cylinder vase",
+      "mechanics": "foam",
+      "tools": [
+        "scissors",
+        "wet foam"
+      ],
+      "recipe": [
+        {
+          "name": "Pink Carnations",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Alstroemeria",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Foam in cylinder.",
+        "Pink carnation base.",
+        "Daisies and alstroemeria accents.",
+        "Leatherleaf rim."
+      ],
+      "why_it_works": "Tri-color carnation/daisy mix is a reliable daily seller.",
+      "short_description": "Ultra-realistic everyday cheerful design in a 6\" cylinder vase — pink, yellow, white.",
+      "description": "Ultra-realistic everyday cheerful design in a 6\" cylinder vase — pink, yellow, white. Style: cheerful. Color palette: pink, yellow, white. Container: 6\" cylinder vase. Mechanics: foam. Tools: scissors, wet foam. Recipe: 7 Pink Carnations, 5 Yellow Daisies, 4 White Alstroemeria, 3 Leatherleaf. Steps: Foam in cylinder. Pink carnation base. Daisies and alstroemeria accents. Leatherleaf rim. Tri-color carnation/daisy mix is a reliable daily seller.",
+      "suggested_retail": 47.99,
+      "image": "everyday/ed-13-daily-delight.jpg",
+      "alt": "Daily Delight ultra-realistic vase arrangement photograph",
+      "content_sha256": "716842078d6721ca60e233b0d4d885c420d495fbc1b85a0e2a3d27ecec38c064",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-14-lavender-breeze",
+      "name": "Lavender Breeze",
+      "style": "feminine",
+      "color_palette": "lavender, white, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Lavender Stock",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Carnations",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Purple Alstroemeria",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 4,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 4
+        }
+      ],
+      "instructions": [
+        "Stock sets the scent story.",
+        "White carnations fill.",
+        "Alstroemeria for movement.",
+        "Eucalyptus collar."
+      ],
+      "why_it_works": "Stock fragrance drives add-on sales at the counter.",
+      "short_description": "Ultra-realistic everyday feminine design in a 8\" cylinder vase — lavender, white, green.",
+      "description": "Ultra-realistic everyday feminine design in a 8\" cylinder vase — lavender, white, green. Style: feminine. Color palette: lavender, white, green. Container: 8\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 6 Lavender Stock, 6 White Carnations, 4 Purple Alstroemeria, 4 Eucalyptus. Steps: Stock sets the scent story. White carnations fill. Alstroemeria for movement. Eucalyptus collar. Stock fragrance drives add-on sales at the counter.",
+      "suggested_retail": 55.99,
+      "image": "everyday/ed-14-lavender-breeze.jpg",
+      "alt": "Lavender Breeze ultra-realistic vase arrangement photograph",
+      "content_sha256": "6da9fb534a64d379af9304a438504639daeca187e3cd4f59bc4b056327c85a62",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-15-peachy-keen",
+      "name": "Peachy Keen",
+      "style": "cheerful",
+      "color_palette": "peach, coral, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "quart mason jar",
+      "mechanics": "hand-tie",
+      "tools": [
+        "scissors",
+        "twine"
+      ],
+      "recipe": [
+        {
+          "name": "Peach Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Peach Carnations",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Coral Alstroemeria",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Pittosporum",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "vase arrangement peach tones.",
+        "Place in mason jar.",
+        "Pittosporum frame."
+      ],
+      "why_it_works": "Peach palettes photograph well for website upsells.",
+      "short_description": "Ultra-realistic everyday cheerful design in a quart mason jar — peach, coral, green.",
+      "description": "Ultra-realistic everyday cheerful design in a quart mason jar — peach, coral, green. Style: cheerful. Color palette: peach, coral, green. Container: quart mason jar. Mechanics: vase arrangement. Tools: scissors, twine. Recipe: 5 Peach Roses, 6 Peach Carnations, 4 Coral Alstroemeria, 3 Pittosporum. Steps: vase arrangement peach tones. Place in mason jar. Pittosporum frame. Peach palettes photograph well for website upsells.",
+      "suggested_retail": 57.99,
+      "image": "everyday/ed-15-peachy-keen.jpg",
+      "alt": "Peachy Keen ultra-realistic vase arrangement photograph",
+      "content_sha256": "437623eb9933c95f01f04b449112e9422d3d305f166e9e878137477f494d6896",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-16-hydrangea-friends",
+      "name": "Hydrangea & Friends",
+      "style": "simple",
+      "color_palette": "blue, pink, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "chicken wire",
+      "tools": [
+        "scissors",
+        "chicken wire"
+      ],
+      "recipe": [
+        {
+          "name": "Hydrangea",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Carnations",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Wire ball in cylinder.",
+        "Hydrangea mass.",
+        "Roses and carnations tucked in.",
+        "Leatherleaf finish."
+      ],
+      "why_it_works": "Hydrangea plus filler blooms stretch perceived size.",
+      "short_description": "Ultra-realistic everyday simple design in a 8\" cylinder vase — blue, pink, green.",
+      "description": "Ultra-realistic everyday simple design in a 8\" cylinder vase — blue, pink, green. Style: simple. Color palette: blue, pink, green. Container: 8\" cylinder vase. Mechanics: chicken wire. Tools: scissors, chicken wire. Recipe: 2 Hydrangea, 4 Pink Roses, 4 Pink Carnations, 3 Leatherleaf. Steps: Wire ball in cylinder. Hydrangea mass. Roses and carnations tucked in. Leatherleaf finish. Hydrangea plus filler blooms stretch perceived size.",
+      "suggested_retail": 61.99,
+      "image": "everyday/ed-16-hydrangea-friends.jpg",
+      "alt": "Hydrangea & Friends ultra-realistic vase arrangement photograph",
+      "content_sha256": "7ff311aa16d784b1b9236f2adf9adddb5eab48f5e20ad93cc268c5318e4c9cbe",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-17-rose-mum-harmony",
+      "name": "Rose & Mum Harmony",
+      "style": "classic",
+      "color_palette": "pink, bronze, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" ceramic vase",
+      "mechanics": "foam",
+      "tools": [
+        "scissors",
+        "wet foam"
+      ],
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Bronze Mums",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Carnations",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 4,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 4
+        }
+      ],
+      "instructions": [
+        "Roses as focal.",
+        "Mums for round mass.",
+        "Carnations fill gaps.",
+        "Leatherleaf edge."
+      ],
+      "why_it_works": "Mums extend vase life and reduce waste on slower days.",
+      "short_description": "Ultra-realistic everyday classic design in a 8\" ceramic vase — pink, bronze, green.",
+      "description": "Ultra-realistic everyday classic design in a 8\" ceramic vase — pink, bronze, green. Style: classic. Color palette: pink, bronze, green. Container: 8\" ceramic vase. Mechanics: foam. Tools: scissors, wet foam. Recipe: 5 Pink Roses, 6 Bronze Mums, 4 Pink Carnations, 4 Leatherleaf. Steps: Roses as focal. Mums for round mass. Carnations fill gaps. Leatherleaf edge. Mums extend vase life and reduce waste on slower days.",
+      "suggested_retail": 58.99,
+      "image": "everyday/ed-17-rose-mum-harmony.jpg",
+      "alt": "Rose & Mum Harmony ultra-realistic vase arrangement photograph",
+      "content_sha256": "f4dba15b01b25cacfc11b8377a4e7daae853aa3381ab1e522a582a1454f818ab",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-18-alstroemeria-joy",
+      "name": "Alstroemeria Joy",
+      "style": "simple",
+      "color_palette": "mixed brights",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "6\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Alstroemeria",
+          "qty": 12,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Pittosporum",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Mass alstroemeria in grid.",
+        "Daisies for pop.",
+        "Pittosporum frame."
+      ],
+      "why_it_works": "Alstroemeria-heavy designs are profitable and long-lasting.",
+      "short_description": "Ultra-realistic everyday simple design in a 6\" cylinder vase — mixed brights.",
+      "description": "Ultra-realistic everyday simple design in a 6\" cylinder vase — mixed brights. Style: simple. Color palette: mixed brights. Container: 6\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 12 Alstroemeria, 4 Yellow Daisies, 3 Pittosporum. Steps: Mass alstroemeria in grid. Daisies for pop. Pittosporum frame. Alstroemeria-heavy designs are profitable and long-lasting.",
+      "suggested_retail": 46.99,
+      "image": "everyday/ed-18-alstroemeria-joy.jpg",
+      "alt": "Alstroemeria Joy ultra-realistic vase arrangement photograph",
+      "content_sha256": "cab5754b76a2f9f982d0ed34969e0d58a6704908c8bf754672414d1127a5e5b7",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-19-sunflower-smile",
+      "name": "Sunflower Smile",
+      "style": "bright",
+      "color_palette": "yellow, brown, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "6\" ceramic vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Sunflowers",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Carnations",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Sunflowers focal.",
+        "Carnations surround.",
+        "Leatherleaf base."
+      ],
+      "why_it_works": "Sunflower-only-plus-filler is a top impulse buy.",
+      "short_description": "Ultra-realistic everyday bright design in a 6\" ceramic vase — yellow, brown, green.",
+      "description": "Ultra-realistic everyday bright design in a 6\" ceramic vase — yellow, brown, green. Style: bright. Color palette: yellow, brown, green. Container: 6\" ceramic vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 4 Sunflowers, 6 Yellow Carnations, 3 Leatherleaf. Steps: Sunflowers focal. Carnations surround. Leatherleaf base. Sunflower-only-plus-filler is a top impulse buy.",
+      "suggested_retail": 49.99,
+      "image": "everyday/ed-19-sunflower-smile.jpg",
+      "alt": "Sunflower Smile ultra-realistic vase arrangement photograph",
+      "content_sha256": "284f31b659d185f32807eab4ebe8cf406f0e2672ed938ca42ef5922dfe88f456",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-20-gentle-pastels",
+      "name": "Gentle Pastels",
+      "style": "feminine",
+      "color_palette": "pastel pink, lavender, cream",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Pastel Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Lavender Stock",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Soft spiral of pastels.",
+        "Stock for scent.",
+        "Eucalyptus finish."
+      ],
+      "why_it_works": "Pastels suit new baby and thank-you without custom quoting.",
+      "short_description": "Ultra-realistic everyday feminine design in a 8\" cylinder vase — pastel pink, lavender, cream.",
+      "description": "Ultra-realistic everyday feminine design in a 8\" cylinder vase — pastel pink, lavender, cream. Style: feminine. Color palette: pastel pink, lavender, cream. Container: 8\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 5 Pastel Pink Roses, 4 Lavender Stock, 5 White Carnations, 3 Eucalyptus. Steps: Soft spiral of pastels. Stock for scent. Eucalyptus finish. Pastels suit new baby and thank-you without custom quoting.",
+      "suggested_retail": 60.99,
+      "image": "everyday/ed-20-gentle-pastels.jpg",
+      "alt": "Gentle Pastels ultra-realistic vase arrangement photograph",
+      "content_sha256": "aa012e4a7f89f2c6a81847a0a089da9a616d2a112e7d0e47d3e15660fad334f3",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-21-modern-whites",
+      "name": "Modern Whites",
+      "style": "modern",
+      "color_palette": "white, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "5\" cube vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "White Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Carnations",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Snapdragons",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Clean lines in cube.",
+        "Snapdragons for architecture.",
+        "Minimal greenery."
+      ],
+      "why_it_works": "Modern white cubes fit corporate and sympathy add-on orders.",
+      "short_description": "Ultra-realistic everyday modern design in a 5\" cube vase — white, green.",
+      "description": "Ultra-realistic everyday modern design in a 5\" cube vase — white, green. Style: modern. Color palette: white, green. Container: 5\" cube vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 5 White Roses, 6 White Carnations, 3 White Snapdragons, 3 Eucalyptus. Steps: Clean lines in cube. Snapdragons for architecture. Minimal greenery. Modern white cubes fit corporate and sympathy add-on orders.",
+      "suggested_retail": 63.99,
+      "image": "everyday/ed-21-modern-whites.jpg",
+      "alt": "Modern Whites ultra-realistic vase arrangement photograph",
+      "content_sha256": "c7754af18091005301df57d9f1e4b81ceec3b3204a7ab9cf253577b46871cdcb",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-22-compact-color-pop",
+      "name": "Compact Color Pop",
+      "style": "bright",
+      "color_palette": "fuchsia, orange, yellow",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "5\" cube vase",
+      "mechanics": "foam",
+      "tools": [
+        "scissors",
+        "wet foam"
+      ],
+      "recipe": [
+        {
+          "name": "Hot Pink Carnations",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Roses",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 2,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Pittosporum",
+          "qty": 2
+        }
+      ],
+      "instructions": [
+        "Bold carnation mass.",
+        "Rose and daisy accents.",
+        "Tight cube silhouette."
+      ],
+      "why_it_works": "Small footprint designs turn over quickly on busy Saturdays.",
+      "short_description": "Ultra-realistic everyday bright design in a 5\" cube vase — fuchsia, orange, yellow.",
+      "description": "Ultra-realistic everyday bright design in a 5\" cube vase — fuchsia, orange, yellow. Style: bright. Color palette: fuchsia, orange, yellow. Container: 5\" cube vase. Mechanics: foam. Tools: scissors, wet foam. Recipe: 8 Hot Pink Carnations, 3 Orange Roses, 4 Yellow Daisies, 2 Pittosporum. Steps: Bold carnation mass. Rose and daisy accents. Tight cube silhouette. Small footprint designs turn over quickly on busy Saturdays.",
+      "suggested_retail": 50.99,
+      "image": "everyday/ed-22-compact-color-pop.jpg",
+      "alt": "Compact Color Pop ultra-realistic vase arrangement photograph",
+      "content_sha256": "1b34a8b7f0db3f7f44a72acd3e29bb87697c333dc9fc5751d3ff5efc43136f41",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-23-everyday-pink-mix",
+      "name": "Everyday Pink Mix",
+      "style": "feminine",
+      "color_palette": "pink, white, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Carnations",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "All-pink blend.",
+        "Roses focal.",
+        "Carnations and alstro fill."
+      ],
+      "why_it_works": "Monochromatic pink is easy to upsell with chocolates.",
+      "short_description": "Ultra-realistic everyday feminine design in a 8\" cylinder vase — pink, white, green.",
+      "description": "Ultra-realistic everyday feminine design in a 8\" cylinder vase — pink, white, green. Style: feminine. Color palette: pink, white, green. Container: 8\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 4 Pink Roses, 8 Pink Carnations, 5 Pink Alstroemeria, 3 Leatherleaf. Steps: All-pink blend. Roses focal. Carnations and alstro fill. Monochromatic pink is easy to upsell with chocolates.",
+      "suggested_retail": 56.99,
+      "image": "everyday/ed-23-everyday-pink-mix.jpg",
+      "alt": "Everyday Pink Mix ultra-realistic vase arrangement photograph",
+      "content_sha256": "e42685624cecfcd35c1442bc597fbe7326c67bcf44ada698cfa487e18b513bcb",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-24-blue-white-classic",
+      "name": "Blue & White Classic",
+      "style": "classic",
+      "color_palette": "blue, white, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "chicken wire",
+      "tools": [
+        "scissors",
+        "chicken wire"
+      ],
+      "recipe": [
+        {
+          "name": "Blue Hydrangea",
+          "qty": 1,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 4,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 4
+        }
+      ],
+      "instructions": [
+        "Hydrangea base.",
+        "White roses and carnations.",
+        "Eucalyptus collar."
+      ],
+      "why_it_works": "Blue-and-white reads crisp and works for everyday and sympathy.",
+      "short_description": "Ultra-realistic everyday classic design in a 8\" cylinder vase — blue, white, green.",
+      "description": "Ultra-realistic everyday classic design in a 8\" cylinder vase — blue, white, green. Style: classic. Color palette: blue, white, green. Container: 8\" cylinder vase. Mechanics: chicken wire. Tools: scissors, chicken wire. Recipe: 1 Blue Hydrangea, 5 White Roses, 5 White Carnations, 4 Eucalyptus. Steps: Hydrangea base. White roses and carnations. Eucalyptus collar. Blue-and-white reads crisp and works for everyday and sympathy.",
+      "suggested_retail": 65.99,
+      "image": "everyday/ed-24-blue-white-classic.jpg",
+      "alt": "Blue & White Classic ultra-realistic vase arrangement photograph",
+      "content_sha256": "2eb36f94cb5e63d04e9cb1145d3c998d7e1f24ab345221f06e63373cdaff3f45",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-25-sweet-simple",
+      "name": "Sweet & Simple",
+      "style": "simple",
+      "color_palette": "pink, white",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "pint mason jar",
+      "mechanics": "hand-tie",
+      "tools": [
+        "scissors"
+      ],
+      "recipe": [
+        {
+          "name": "Pink Carnations",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Baby's Breath",
+          "qty": 2,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Baby's Breath",
+          "qty": 2
+        }
+      ],
+      "instructions": [
+        "vase arrangement in jar.",
+        "Minimal greens."
+      ],
+      "why_it_works": "Entry price point for budget-conscious customers.",
+      "short_description": "Ultra-realistic everyday simple design in a pint mason jar — pink, white.",
+      "description": "Ultra-realistic everyday simple design in a pint mason jar — pink, white. Style: simple. Color palette: pink, white. Container: pint mason jar. Mechanics: vase arrangement. Tools: scissors. Recipe: 8 Pink Carnations, 5 White Daisies, 2 Baby's Breath. Steps: vase arrangement in jar. Minimal greens. Entry price point for budget-conscious customers.",
+      "suggested_retail": 36.99,
+      "image": "everyday/ed-25-sweet-simple.jpg",
+      "alt": "Sweet & Simple ultra-realistic vase arrangement photograph",
+      "content_sha256": "3c87e2e5dfa981af72d9c14ee424ffe88538e1264f8369eb87567ac94af44174",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-26-daily-sunshine",
+      "name": "Daily Sunshine",
+      "style": "bright",
+      "color_palette": "yellow, white, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "6\" cylinder vase",
+      "mechanics": "foam",
+      "tools": [
+        "scissors",
+        "wet foam"
+      ],
+      "recipe": [
+        {
+          "name": "Sunflowers",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Alstroemeria",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Sunflower triangle.",
+        "Alstro and carnations fill."
+      ],
+      "why_it_works": "Repeatable recipe for cooler replenishment.",
+      "short_description": "Ultra-realistic everyday bright design in a 6\" cylinder vase — yellow, white, green.",
+      "description": "Ultra-realistic everyday bright design in a 6\" cylinder vase — yellow, white, green. Style: bright. Color palette: yellow, white, green. Container: 6\" cylinder vase. Mechanics: foam. Tools: scissors, wet foam. Recipe: 3 Sunflowers, 6 White Alstroemeria, 5 Yellow Carnations, 3 Leatherleaf. Steps: Sunflower triangle. Alstro and carnations fill. Repeatable recipe for cooler replenishment.",
+      "suggested_retail": 53.99,
+      "image": "everyday/ed-26-daily-sunshine.jpg",
+      "alt": "Daily Sunshine ultra-realistic vase arrangement photograph",
+      "content_sha256": "70bd31a7fd9969c98bf6a7721732bf1e0d465343cc26b82c3b192fe92d8a4b8f",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-27-soft-spring-mix",
+      "name": "Soft Spring Mix",
+      "style": "feminine",
+      "color_palette": "pink, yellow, white",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" ceramic vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Stock",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Spring palette spiral.",
+        "Stock scent layer."
+      ],
+      "why_it_works": "Seasonless 'spring' naming sells year-round.",
+      "short_description": "Ultra-realistic everyday feminine design in a 8\" ceramic vase — pink, yellow, white.",
+      "description": "Ultra-realistic everyday feminine design in a 8\" ceramic vase — pink, yellow, white. Style: feminine. Color palette: pink, yellow, white. Container: 8\" ceramic vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 4 Pink Roses, 6 Yellow Daisies, 3 White Stock, 3 Eucalyptus. Steps: Spring palette spiral. Stock scent layer. Seasonless 'spring' naming sells year-round.",
+      "suggested_retail": 57.99,
+      "image": "everyday/ed-27-soft-spring-mix.jpg",
+      "alt": "Soft Spring Mix ultra-realistic vase arrangement photograph",
+      "content_sha256": "fe0f983e538b5b537e50d7cb9202046e3195d295f13d1349f8138903c228d0d6",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-28-everyday-garden-vase",
+      "name": "Everyday Garden Vase",
+      "style": "rustic",
+      "color_palette": "mixed garden tones",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Carnations",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 4,
+          "kind": "foliage"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 2,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Pittosporum",
+          "qty": 4
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 2
+        }
+      ],
+      "instructions": [
+        "Garden-gathered look.",
+        "Mixed stems at varied heights."
+      ],
+      "why_it_works": "Looks custom while using only cooler staples.",
+      "short_description": "Ultra-realistic everyday rustic design in a 8\" cylinder vase — mixed garden tones.",
+      "description": "Ultra-realistic everyday rustic design in a 8\" cylinder vase — mixed garden tones. Style: rustic. Color palette: mixed garden tones. Container: 8\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 4 Pink Roses, 5 Orange Alstroemeria, 5 Yellow Daisies, 4 Pink Carnations, 4 Pittosporum, 2 Eucalyptus. Steps: Garden-gathered look. Mixed stems at varied heights. Looks custom while using only cooler staples.",
+      "suggested_retail": 59.99,
+      "image": "everyday/ed-28-everyday-garden-vase.jpg",
+      "alt": "Everyday Garden Vase ultra-realistic vase arrangement photograph",
+      "content_sha256": "f5235102a1dc6a3e6649b066ba13c11309fcbb3547f51848156e23fc7f054a4e",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-29-bright-market-bunch",
+      "name": "Bright Market Bunch",
+      "style": "bright",
+      "color_palette": "rainbow brights",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "clear glass vase",
+      "mechanics": "hand-tie",
+      "tools": [
+        "scissors",
+        "sleeve",
+        "twine",
+        "clear glass vase"
+      ],
+      "recipe": [
+        {
+          "name": "Mixed Carnations",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Alstroemeria",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 4,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 4
+        }
+      ],
+      "instructions": [
+        "vase arrangement market bunch.",
+        "Wrap in sleeve for grab-and-go."
+      ],
+      "why_it_works": "vase arrangement cost — strong margin on wrapped bunches.",
+      "short_description": "Ultra-realistic everyday bright design in a clear glass vase — rainbow brights.",
+      "description": "Ultra-realistic everyday bright design in a clear glass vase — rainbow brights. Style: bright. Color palette: rainbow brights. Container: clear glass vase. Mechanics: vase arrangement. Tools: scissors, sleeve, twine. Recipe: 10 Mixed Carnations, 6 Yellow Daisies, 4 Orange Alstroemeria, 4 Leatherleaf. Steps: vase arrangement market bunch. Wrap in sleeve for grab-and-go. vase arrangement cost — strong margin on wrapped bunches.",
+      "suggested_retail": 42.99,
+      "image": "everyday/ed-29-bright-market-bunch.jpg",
+      "alt": "Bright Market Bunch ultra-realistic vase arrangement photograph",
+      "content_sha256": "c5a6974aec1c65aff1a7196b268efa68ea34148644a42edc4f0206d436629598",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-30-calm-clean-whites",
+      "name": "Calm & Clean Whites",
+      "style": "classic",
+      "color_palette": "white, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "White Lilies",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 4,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 4
+        }
+      ],
+      "instructions": [
+        "Lilies for line.",
+        "Roses and carnations fill.",
+        "Clean white mass."
+      ],
+      "why_it_works": "Sympathy-adjacent without funeral-specific styling.",
+      "short_description": "Ultra-realistic everyday classic design in a 8\" cylinder vase — white, green.",
+      "description": "Ultra-realistic everyday classic design in a 8\" cylinder vase — white, green. Style: classic. Color palette: white, green. Container: 8\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 3 White Lilies, 4 White Roses, 5 White Carnations, 4 Leatherleaf. Steps: Lilies for line. Roses and carnations fill. Clean white mass. Sympathy-adjacent without funeral-specific styling.",
+      "suggested_retail": 66.99,
+      "image": "everyday/ed-30-calm-clean-whites.jpg",
+      "alt": "Calm & Clean Whites ultra-realistic vase arrangement photograph",
+      "content_sha256": "1f533fe109b222304e84ed2979509d90fcbd4d1526cf950a9dc17a5d95c903c5",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-31-pink-peach-harmony",
+      "name": "Pink & Peach Harmony",
+      "style": "feminine",
+      "color_palette": "pink, peach, cream",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" ceramic vase",
+      "mechanics": "foam",
+      "tools": [
+        "scissors",
+        "wet foam"
+      ],
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Peach Carnations",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "Peach Alstroemeria",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Peach-pink gradient.",
+        "Foam for stability."
+      ],
+      "why_it_works": "Harmony naming helps staff suggest paired gifts.",
+      "short_description": "Ultra-realistic everyday feminine design in a 8\" ceramic vase — pink, peach, cream.",
+      "description": "Ultra-realistic everyday feminine design in a 8\" ceramic vase — pink, peach, cream. Style: feminine. Color palette: pink, peach, cream. Container: 8\" ceramic vase. Mechanics: foam. Tools: scissors, wet foam. Recipe: 5 Pink Roses, 7 Peach Carnations, 4 Peach Alstroemeria, 3 Eucalyptus. Steps: Peach-pink gradient. Foam for stability. Harmony naming helps staff suggest paired gifts.",
+      "suggested_retail": 58.99,
+      "image": "everyday/ed-31-pink-peach-harmony.jpg",
+      "alt": "Pink & Peach Harmony ultra-realistic vase arrangement photograph",
+      "content_sha256": "f4701bc311b06279431d4f7a44f229409f4973b20ca839cee9645d7c8086a98f",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-32-hydrangea-trio",
+      "name": "Hydrangea Trio",
+      "style": "simple",
+      "color_palette": "blue, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "chicken wire",
+      "tools": [
+        "scissors",
+        "chicken wire"
+      ],
+      "recipe": [
+        {
+          "name": "Hydrangea",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 4,
+          "kind": "foliage"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 2,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 4
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 2
+        }
+      ],
+      "instructions": [
+        "Three hydrangea at staggered heights.",
+        "Minimal filler — hydrangea does the work."
+      ],
+      "why_it_works": "Three stems, fast assembly, high basket average.",
+      "short_description": "Ultra-realistic everyday simple design in a 8\" cylinder vase — blue, green.",
+      "description": "Ultra-realistic everyday simple design in a 8\" cylinder vase — blue, green. Style: simple. Color palette: blue, green. Container: 8\" cylinder vase. Mechanics: chicken wire. Tools: scissors, chicken wire. Recipe: 3 Hydrangea, 4 Leatherleaf, 2 Eucalyptus. Steps: Three hydrangea at staggered heights. Minimal filler — hydrangea does the work. Three stems, fast assembly, high basket average.",
+      "suggested_retail": 69.99,
+      "image": "everyday/ed-32-hydrangea-trio.jpg",
+      "alt": "Hydrangea Trio ultra-realistic vase arrangement photograph",
+      "content_sha256": "753bd33a533fb0255414a796514d2c2dec747000017e58d1f959b154f195869b",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-33-rose-daisy-blend",
+      "name": "Rose & Daisy Blend",
+      "style": "cheerful",
+      "color_palette": "pink, white, yellow",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "6\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Daisies",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Pittosporum",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Roses focal.",
+        "Daisies for cheer.",
+        "Pittosporum frame."
+      ],
+      "why_it_works": "Classic blend customers recognize immediately.",
+      "short_description": "Ultra-realistic everyday cheerful design in a 6\" cylinder vase — pink, white, yellow.",
+      "description": "Ultra-realistic everyday cheerful design in a 6\" cylinder vase — pink, white, yellow. Style: cheerful. Color palette: pink, white, yellow. Container: 6\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 5 Pink Roses, 7 White Daisies, 4 Yellow Daisies, 3 Pittosporum. Steps: Roses focal. Daisies for cheer. Pittosporum frame. Classic blend customers recognize immediately.",
+      "suggested_retail": 54.99,
+      "image": "everyday/ed-33-rose-daisy-blend.jpg",
+      "alt": "Rose & Daisy Blend ultra-realistic vase arrangement photograph",
+      "content_sha256": "136da93d7165c3d2a96fd03fad802cd9534661f2ea6de9a076846204ff5673a8",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-34-everyday-mason-jar",
+      "name": "Everyday Mason Jar",
+      "style": "rustic",
+      "color_palette": "mixed pinks",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "quart mason jar",
+      "mechanics": "hand-tie",
+      "tools": [
+        "scissors",
+        "twine"
+      ],
+      "recipe": [
+        {
+          "name": "Pink Carnations",
+          "qty": 9,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Baby's Breath",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Pittosporum",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Jar vase arrangement standard.",
+        "Baby's breath finish."
+      ],
+      "why_it_works": "Template recipe every designer can execute in 10 minutes.",
+      "short_description": "Ultra-realistic everyday rustic design in a quart mason jar — mixed pinks.",
+      "description": "Ultra-realistic everyday rustic design in a quart mason jar — mixed pinks. Style: rustic. Color palette: mixed pinks. Container: quart mason jar. Mechanics: vase arrangement. Tools: scissors, twine. Recipe: 9 Pink Carnations, 5 Pink Alstroemeria, 3 Baby's Breath, 3 Pittosporum. Steps: Jar vase arrangement standard. Baby's breath finish. Template recipe every designer can execute in 10 minutes.",
+      "suggested_retail": 45.99,
+      "image": "everyday/ed-34-everyday-mason-jar.jpg",
+      "alt": "Everyday Mason Jar ultra-realistic vase arrangement photograph",
+      "content_sha256": "84ddbe4ad192b73b0d8724c60ac11d307e02794665a0af3986d3dcc8c93b3b20",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-35-simple-greens-whites",
+      "name": "Simple Greens & Whites",
+      "style": "classic",
+      "color_palette": "white, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "White Carnations",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "White Stock",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Snapdragons",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 5,
+          "kind": "foliage"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 5
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Green-forward white design.",
+        "Extra foliage for value."
+      ],
+      "why_it_works": "Extra greenery lowers flower cost while keeping size.",
+      "short_description": "Ultra-realistic everyday classic design in a 8\" cylinder vase — white, green.",
+      "description": "Ultra-realistic everyday classic design in a 8\" cylinder vase — white, green. Style: classic. Color palette: white, green. Container: 8\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 10 White Carnations, 4 White Stock, 3 White Snapdragons, 5 Leatherleaf, 3 Eucalyptus. Steps: Green-forward white design. Extra foliage for value. Extra greenery lowers flower cost while keeping size.",
+      "suggested_retail": 52.99,
+      "image": "everyday/ed-35-simple-greens-whites.jpg",
+      "alt": "Simple Greens & Whites ultra-realistic vase arrangement photograph",
+      "content_sha256": "5331c775b4e4b571eeff44aec700d18c2989a80557c075edbc6e1ab2b2dd02b5",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-36-happy-day-bouquet",
+      "name": "Happy Day Bouquet",
+      "style": "cheerful",
+      "color_palette": "yellow, pink, orange",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Yellow Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Carnations",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Alstroemeria",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Happy tri-color spiral.",
+        "Birthday-ready naming."
+      ],
+      "why_it_works": "Named for birthdays — staff can suggest instantly.",
+      "short_description": "Ultra-realistic everyday cheerful design in a 8\" cylinder vase — yellow, pink, orange.",
+      "description": "Ultra-realistic everyday cheerful design in a 8\" cylinder vase — yellow, pink, orange. Style: cheerful. Color palette: yellow, pink, orange. Container: 8\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 4 Yellow Roses, 7 Orange Carnations, 5 Pink Alstroemeria, 3 Leatherleaf. Steps: Happy tri-color spiral. Birthday-ready naming. Named for birthdays — staff can suggest instantly.",
+      "suggested_retail": 55.99,
+      "image": "everyday/ed-36-happy-day-bouquet.jpg",
+      "alt": "Happy Day Bouquet ultra-realistic vase arrangement photograph",
+      "content_sha256": "33e19bbabfc0fb30813233a51f936c7f43fa0310b36d3c4fe81c1c11917591d6",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-37-classic-cylinder-mix",
+      "name": "Classic Cylinder Mix",
+      "style": "classic",
+      "color_palette": "red, pink, white",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "foam",
+      "tools": [
+        "scissors",
+        "wet foam"
+      ],
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Carnations",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 4,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 4
+        }
+      ],
+      "instructions": [
+        "Cylinder standard mix.",
+        "Foam for delivery stability."
+      ],
+      "why_it_works": "Delivery-friendly foam design with everyday stems.",
+      "short_description": "Ultra-realistic everyday classic design in a 8\" cylinder vase — red, pink, white.",
+      "description": "Ultra-realistic everyday classic design in a 8\" cylinder vase — red, pink, white. Style: classic. Color palette: red, pink, white. Container: 8\" cylinder vase. Mechanics: foam. Tools: scissors, wet foam. Recipe: 3 Red Roses, 4 Pink Roses, 6 White Carnations, 4 Leatherleaf. Steps: Cylinder standard mix. Foam for delivery stability. Delivery-friendly foam design with everyday stems.",
+      "suggested_retail": 61.99,
+      "image": "everyday/ed-37-classic-cylinder-mix.jpg",
+      "alt": "Classic Cylinder Mix ultra-realistic vase arrangement photograph",
+      "content_sha256": "709a188c8db2202e31ebc7d0d59dad129b121fb550878f9ed18a9276b82f7805",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-38-everyday-color-burst",
+      "name": "Everyday Color Burst",
+      "style": "bright",
+      "color_palette": "multi bright",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "6\" ceramic vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Mixed Carnations",
+          "qty": 12,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Alstroemeria",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Pittosporum",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Maximum color per stem.",
+        "Ceramic upgrades perceived value."
+      ],
+      "why_it_works": "Carnation-heavy = margin on volume orders.",
+      "short_description": "Ultra-realistic everyday bright design in a 6\" ceramic vase — multi bright.",
+      "description": "Ultra-realistic everyday bright design in a 6\" ceramic vase — multi bright. Style: bright. Color palette: multi bright. Container: 6\" ceramic vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 12 Mixed Carnations, 5 Yellow Daisies, 4 Orange Alstroemeria, 3 Pittosporum. Steps: Maximum color per stem. Ceramic upgrades perceived value. Carnation-heavy = margin on volume orders.",
+      "suggested_retail": 48.99,
+      "image": "everyday/ed-38-everyday-color-burst.jpg",
+      "alt": "Everyday Color Burst ultra-realistic vase arrangement photograph",
+      "content_sha256": "488d488a0125d511d4798df8a8a4be4f2b763fb6f7d0569bf79ca3dfff7ddfb2",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-39-soft-neutral-mix",
+      "name": "Soft Neutral Mix",
+      "style": "simple",
+      "color_palette": "cream, blush, sage",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Cream Roses",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Blush Carnations",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "White Stock",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 5,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 5
+        }
+      ],
+      "instructions": [
+        "Neutral palette for any recipient.",
+        "Extra eucalyptus for spa feel."
+      ],
+      "why_it_works": "Neutrals cross-sell to home décor customers.",
+      "short_description": "Ultra-realistic everyday simple design in a 8\" cylinder vase — cream, blush, sage.",
+      "description": "Ultra-realistic everyday simple design in a 8\" cylinder vase — cream, blush, sage. Style: simple. Color palette: cream, blush, sage. Container: 8\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 5 Cream Roses, 6 Blush Carnations, 3 White Stock, 5 Eucalyptus. Steps: Neutral palette for any recipient. Extra eucalyptus for spa feel. Neutrals cross-sell to home décor customers.",
+      "suggested_retail": 58.99,
+      "image": "everyday/ed-39-soft-neutral-mix.jpg",
+      "alt": "Soft Neutral Mix ultra-realistic vase arrangement photograph",
+      "content_sha256": "320e643b63c89e97b46a6b8d1c3ccc2e1f124e283b4ddfbf8d1a908fa3482b8e",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-40-pink-petal-jar",
+      "name": "Pink Petal Jar",
+      "style": "feminine",
+      "color_palette": "pink, white",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "pint mason jar",
+      "mechanics": "hand-tie",
+      "tools": [
+        "scissors"
+      ],
+      "recipe": [
+        {
+          "name": "Pink Carnations",
+          "qty": 10,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Roses",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Baby's Breath",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 2,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Pittosporum",
+          "qty": 2
+        }
+      ],
+      "instructions": [
+        "All pink jar.",
+        "Quick gift size."
+      ],
+      "why_it_works": "Small pink jar is a proven add-on at checkout.",
+      "short_description": "Ultra-realistic everyday feminine design in a pint mason jar — pink, white.",
+      "description": "Ultra-realistic everyday feminine design in a pint mason jar — pink, white. Style: feminine. Color palette: pink, white. Container: pint mason jar. Mechanics: vase arrangement. Tools: scissors. Recipe: 10 Pink Carnations, 3 Pink Roses, 2 Baby's Breath, 2 Pittosporum. Steps: All pink jar. Quick gift size. Small pink jar is a proven add-on at checkout.",
+      "suggested_retail": 41.99,
+      "image": "everyday/ed-40-pink-petal-jar.jpg",
+      "alt": "Pink Petal Jar ultra-realistic vase arrangement photograph",
+      "content_sha256": "039886beaa17d183d5bc43dd55fc4d15cfa4a1778fd014b1c5e50e5d1bbb6fd9",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-41-golden-glow",
+      "name": "Golden Glow",
+      "style": "bright",
+      "color_palette": "gold, yellow, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "6\" cylinder vase",
+      "mechanics": "foam",
+      "tools": [
+        "scissors",
+        "wet foam"
+      ],
+      "recipe": [
+        {
+          "name": "Sunflowers",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Golden focal sunflowers.",
+        "Yellow rose accents."
+      ],
+      "why_it_works": "Get-well and congratulations workhorse.",
+      "short_description": "Ultra-realistic everyday bright design in a 6\" cylinder vase — gold, yellow, green.",
+      "description": "Ultra-realistic everyday bright design in a 6\" cylinder vase — gold, yellow, green. Style: bright. Color palette: gold, yellow, green. Container: 6\" cylinder vase. Mechanics: foam. Tools: scissors, wet foam. Recipe: 3 Sunflowers, 4 Yellow Roses, 5 Yellow Carnations, 3 Leatherleaf. Steps: Golden focal sunflowers. Yellow rose accents. Get-well and congratulations workhorse.",
+      "suggested_retail": 57.99,
+      "image": "everyday/ed-41-golden-glow.jpg",
+      "alt": "Golden Glow ultra-realistic vase arrangement photograph",
+      "content_sha256": "effb44154570b707ddd42e06e803fc4dc358a7cea3631be93ff1b0f290d6fb9a",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-42-everyday-blush",
+      "name": "Everyday Blush",
+      "style": "feminine",
+      "color_palette": "blush, cream",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" ceramic vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Blush Roses",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Blush Carnations",
+          "qty": 7,
+          "kind": "flower"
+        },
+        {
+          "name": "White Alstroemeria",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "All blush story.",
+        "Ceramic vase included."
+      ],
+      "why_it_works": "Blush-on-blush reads intentional, not accidental.",
+      "short_description": "Ultra-realistic everyday feminine design in a 8\" ceramic vase — blush, cream.",
+      "description": "Ultra-realistic everyday feminine design in a 8\" ceramic vase — blush, cream. Style: feminine. Color palette: blush, cream. Container: 8\" ceramic vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 6 Blush Roses, 7 Blush Carnations, 4 White Alstroemeria, 3 Eucalyptus. Steps: All blush story. Ceramic vase included. Blush-on-blush reads intentional, not accidental.",
+      "suggested_retail": 59.99,
+      "image": "everyday/ed-42-everyday-blush.jpg",
+      "alt": "Everyday Blush ultra-realistic vase arrangement photograph",
+      "content_sha256": "5c8c27b3a3c414b0a984cd510d53f25ad235b46032f4476249cfcf995e9446e4",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-43-daisy-mum-mix",
+      "name": "Daisy & Mum Mix",
+      "style": "cheerful",
+      "color_palette": "white, yellow, bronze",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "White Daisies",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Yellow Mums",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "White Carnations",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 4,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 4
+        }
+      ],
+      "instructions": [
+        "Daisy mum combo.",
+        "Long-lasting mums."
+      ],
+      "why_it_works": "Mums extend vase life for value-conscious buyers.",
+      "short_description": "Ultra-realistic everyday cheerful design in a 8\" cylinder vase — white, yellow, bronze.",
+      "description": "Ultra-realistic everyday cheerful design in a 8\" cylinder vase — white, yellow, bronze. Style: cheerful. Color palette: white, yellow, bronze. Container: 8\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 8 White Daisies, 5 Yellow Mums, 5 White Carnations, 4 Leatherleaf. Steps: Daisy mum combo. Long-lasting mums. Mums extend vase life for value-conscious buyers.",
+      "suggested_retail": 49.99,
+      "image": "everyday/ed-43-daisy-mum-mix.jpg",
+      "alt": "Daisy & Mum Mix ultra-realistic vase arrangement photograph",
+      "content_sha256": "ba65120111e3483410d9e88447b3c789ebe0544dbaaba37a6b0a0f7840266660",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-44-rose-trio",
+      "name": "Rose Trio",
+      "style": "classic",
+      "color_palette": "red, pink, white",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "6\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Red Roses",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Roses",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 3,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Nine rose tri-color.",
+        "Compact cylinder."
+      ],
+      "why_it_works": "Dozen-alternative at a lower price point.",
+      "short_description": "Ultra-realistic everyday classic design in a 6\" cylinder vase — red, pink, white.",
+      "description": "Ultra-realistic everyday classic design in a 6\" cylinder vase — red, pink, white. Style: classic. Color palette: red, pink, white. Container: 6\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 3 Red Roses, 3 Pink Roses, 3 White Roses, 3 Eucalyptus. Steps: Nine rose tri-color. Compact cylinder. Dozen-alternative at a lower price point.",
+      "suggested_retail": 55.99,
+      "image": "everyday/ed-44-rose-trio.jpg",
+      "alt": "Rose Trio ultra-realistic vase arrangement photograph",
+      "content_sha256": "b33f44d362e9bd3cfaa9ac0736decb1a6d9a18770ba910117ca6ce98e30515b5",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-45-hydrangea-accent",
+      "name": "Hydrangea Accent",
+      "style": "modern",
+      "color_palette": "blue, white",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "5\" cube vase",
+      "mechanics": "chicken wire",
+      "tools": [
+        "scissors",
+        "chicken wire"
+      ],
+      "recipe": [
+        {
+          "name": "Hydrangea",
+          "qty": 1,
+          "kind": "flower"
+        },
+        {
+          "name": "White Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Carnations",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 2,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 2
+        }
+      ],
+      "instructions": [
+        "Single hydrangea cube.",
+        "Rose accents only."
+      ],
+      "why_it_works": "Low stem count, high impact — ideal for subscriptions.",
+      "short_description": "Ultra-realistic everyday modern design in a 5\" cube vase — blue, white.",
+      "description": "Ultra-realistic everyday modern design in a 5\" cube vase — blue, white. Style: modern. Color palette: blue, white. Container: 5\" cube vase. Mechanics: chicken wire. Tools: scissors, chicken wire. Recipe: 1 Hydrangea, 4 White Roses, 4 White Carnations, 2 Eucalyptus. Steps: Single hydrangea cube. Rose accents only. Low stem count, high impact — ideal for subscriptions.",
+      "suggested_retail": 56.99,
+      "image": "everyday/ed-45-hydrangea-accent.jpg",
+      "alt": "Hydrangea Accent ultra-realistic vase arrangement photograph",
+      "content_sha256": "7526432e19f54e3c1069d62598ff1d19f0dca7115abeb4ad6704242cb3d9ef7e",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-46-everyday-rustic",
+      "name": "Everyday Rustic",
+      "style": "rustic",
+      "color_palette": "earth tones, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "quart mason jar",
+      "mechanics": "hand-tie",
+      "tools": [
+        "scissors",
+        "twine"
+      ],
+      "recipe": [
+        {
+          "name": "Peach Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Bronze Mums",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Alstroemeria",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 4,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Pittosporum",
+          "qty": 4
+        }
+      ],
+      "instructions": [
+        "Rustic jar recipe.",
+        "Earth-tone palette."
+      ],
+      "why_it_works": "Rustic styling without foraged or rare materials.",
+      "short_description": "Ultra-realistic everyday rustic design in a quart mason jar — earth tones, green.",
+      "description": "Ultra-realistic everyday rustic design in a quart mason jar — earth tones, green. Style: rustic. Color palette: earth tones, green. Container: quart mason jar. Mechanics: vase arrangement. Tools: scissors, twine. Recipe: 4 Peach Roses, 5 Bronze Mums, 4 Orange Alstroemeria, 4 Pittosporum. Steps: Rustic jar recipe. Earth-tone palette. Rustic styling without foraged or rare materials.",
+      "suggested_retail": 51.99,
+      "image": "everyday/ed-46-everyday-rustic.jpg",
+      "alt": "Everyday Rustic ultra-realistic vase arrangement photograph",
+      "content_sha256": "c4938d70f4b01f50fd3c84d9506f52ee945c185e33b1de06c9595441504b07a3",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-47-bright-tabletop",
+      "name": "Bright Tabletop",
+      "style": "bright",
+      "color_palette": "yellow, fuchsia, orange",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "5\" cube vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Sunflowers",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Hot Pink Carnations",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Orange Daisies",
+          "qty": 5,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 2,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 2
+        }
+      ],
+      "instructions": [
+        "Tabletop cube bright.",
+        "Low height for dining tables."
+      ],
+      "why_it_works": "Tabletop size reduces stem cost vs. floor designs.",
+      "short_description": "Ultra-realistic everyday bright design in a 5\" cube vase — yellow, fuchsia, orange.",
+      "description": "Ultra-realistic everyday bright design in a 5\" cube vase — yellow, fuchsia, orange. Style: bright. Color palette: yellow, fuchsia, orange. Container: 5\" cube vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 2 Sunflowers, 6 Hot Pink Carnations, 5 Orange Daisies, 2 Leatherleaf. Steps: Tabletop cube bright. Low height for dining tables. Tabletop size reduces stem cost vs. floor designs.",
+      "suggested_retail": 50.99,
+      "image": "everyday/ed-47-bright-tabletop.jpg",
+      "alt": "Bright Tabletop ultra-realistic vase arrangement photograph",
+      "content_sha256": "7d6e512243436d2e1f2e1fa0e1d3f3d5c9cee50fbb078118f555580ff5eb4f49",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-48-simple-cheer",
+      "name": "Simple Cheer",
+      "style": "cheerful",
+      "color_palette": "yellow, white, pink",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "6\" cylinder vase",
+      "mechanics": "foam",
+      "tools": [
+        "scissors",
+        "wet foam"
+      ],
+      "recipe": [
+        {
+          "name": "Yellow Daisies",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "White Carnations",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Alstroemeria",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Pittosporum",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Pittosporum",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Cheerful everyday cylinder.",
+        "Foam for beginners."
+      ],
+      "why_it_works": "Training-friendly recipe for new designers.",
+      "short_description": "Ultra-realistic everyday cheerful design in a 6\" cylinder vase — yellow, white, pink.",
+      "description": "Ultra-realistic everyday cheerful design in a 6\" cylinder vase — yellow, white, pink. Style: cheerful. Color palette: yellow, white, pink. Container: 6\" cylinder vase. Mechanics: foam. Tools: scissors, wet foam. Recipe: 8 Yellow Daisies, 6 White Carnations, 4 Pink Alstroemeria, 3 Pittosporum. Steps: Cheerful everyday cylinder. Foam for beginners. Training-friendly recipe for new designers.",
+      "suggested_retail": 46.99,
+      "image": "everyday/ed-48-simple-cheer.jpg",
+      "alt": "Simple Cheer ultra-realistic vase arrangement photograph",
+      "content_sha256": "93a92fd95c143d93041d98a76d91d34cd82f94c0663e1ba24095533dc89c97a7",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "rejected_visual_qa"
+      },
+      "image_subject": "floral_arrangement",
+      "needs_image_replacement": true
+    },
+    {
+      "id": "ed-49-daily-pink-rose",
+      "name": "Daily Pink Rose",
+      "style": "feminine",
+      "color_palette": "pink, green",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 8,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Carnations",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Baby's Breath",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 3,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Eucalyptus",
+          "qty": 3
+        }
+      ],
+      "instructions": [
+        "Rose-forward pink.",
+        "Minimal filler."
+      ],
+      "why_it_works": "Rose count satisfies customers expecting roses.",
+      "short_description": "Ultra-realistic everyday feminine design in a 8\" cylinder vase — pink, green.",
+      "description": "Ultra-realistic everyday feminine design in a 8\" cylinder vase — pink, green. Style: feminine. Color palette: pink, green. Container: 8\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 8 Pink Roses, 4 Pink Carnations, 2 Baby's Breath, 3 Eucalyptus. Steps: Rose-forward pink. Minimal filler. Rose count satisfies customers expecting roses.",
+      "suggested_retail": 62.99,
+      "image": "everyday/ed-49-daily-pink-rose.jpg",
+      "alt": "Daily Pink Rose ultra-realistic vase arrangement photograph",
+      "content_sha256": "096d5414c909145b7ee00e54e0be1e37374610fd51d5c6a5c31cb53518c425f9",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    },
+    {
+      "id": "ed-50-everyday-florist-favorite",
+      "name": "Everyday Florist Favorite",
+      "style": "classic",
+      "color_palette": "mixed bestsellers",
+      "categories": [
+        "Everyday"
+      ],
+      "arrangement_type": "bouquet",
+      "container": "8\" cylinder vase",
+      "mechanics": "tape grid",
+      "tools": [
+        "scissors",
+        "floral tape"
+      ],
+      "recipe": [
+        {
+          "name": "Pink Roses",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "White Lilies",
+          "qty": 2,
+          "kind": "flower"
+        },
+        {
+          "name": "Pink Carnations",
+          "qty": 6,
+          "kind": "flower"
+        },
+        {
+          "name": "Alstroemeria",
+          "qty": 4,
+          "kind": "flower"
+        },
+        {
+          "name": "Leatherleaf",
+          "qty": 4,
+          "kind": "foliage"
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 2,
+          "kind": "foliage"
+        }
+      ],
+      "foliage": [
+        {
+          "name": "Leatherleaf",
+          "qty": 4
+        },
+        {
+          "name": "Eucalyptus",
+          "qty": 2
+        }
+      ],
+      "instructions": [
+        "Shop-standard best seller mix.",
+        "Balance focal, filler, and line.",
+        "Quality check and ribbon optional."
+      ],
+      "why_it_works": "Combines top-selling stems — the recipe staff reach for daily.",
+      "short_description": "Ultra-realistic everyday classic design in a 8\" cylinder vase — mixed bestsellers.",
+      "description": "Ultra-realistic everyday classic design in a 8\" cylinder vase — mixed bestsellers. Style: classic. Color palette: mixed bestsellers. Container: 8\" cylinder vase. Mechanics: tape grid. Tools: scissors, floral tape. Recipe: 4 Pink Roses, 2 White Lilies, 6 Pink Carnations, 4 Alstroemeria, 4 Leatherleaf, 2 Eucalyptus. Steps: Shop-standard best seller mix. Balance focal, filler, and line. Quality check and ribbon optional. Combines top-selling stems — the recipe staff reach for daily.",
+      "suggested_retail": 64.99,
+      "image": "everyday/ed-50-everyday-florist-favorite.jpg",
+      "alt": "Everyday Florist Favorite ultra-realistic vase arrangement photograph",
+      "content_sha256": "4019e9fb80bc3afe361f0f7a27093fd267b926fcbc15c53ced9200d1e88ea359",
+      "image_license": {
+        "source": "ai_generated_cloudflare_flux",
+        "model": "@cf/black-forest-labs/flux-1-schnell",
+        "attribution": "AI-generated for Florisyn (Cloudflare Workers AI)",
+        "review_status": "needs_review"
+      },
+      "needs_image_replacement": false
+    }
+  ],
+  "image_source": "ai_generated_cloudflare_flux"
+}

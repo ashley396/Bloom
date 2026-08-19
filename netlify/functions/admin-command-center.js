@@ -1,5 +1,12 @@
-import { json, fail } from "./_shared/saas.js";
-import { platformAdmin, writeCommandAudit, requireSuperAdmin } from "./_shared/platform-admin.js";
+import { json } from "./_shared/saas.js";
+import {
+  platformAdmin,
+  writeCommandAudit,
+  requireSuperAdmin,
+  platformAdminErrorResponse,
+  platformAdminError,
+  parsePlatformAdminJsonBody
+} from "./_shared/platform-admin.js";
 import {
   auditRecordFromRow,
   buildMonthlySeries,
@@ -7,6 +14,7 @@ import {
   mergeFeatureFlags,
   PLATFORM_FEATURE_FLAGS,
   sanitizeSubscriptionForAdmin,
+  summarizeClientErrors,
   systemHealthSnapshot,
   validateAnnouncementPayload
 } from "./_shared/command-center.js";
@@ -32,6 +40,15 @@ function isMissingTableError(error) {
   return message.includes("does not exist") || message.includes("could not find the table");
 }
 
+/** Soft-fail HQ reads when a table is missing OR the DB role lacks grants (42501). */
+function isSoftReadError(error) {
+  if (!error) return false;
+  if (isMissingTableError(error)) return true;
+  const code = String(error.code || "");
+  const message = String(error.message || error.details || "").toLowerCase();
+  return code === "42501" || message.includes("permission denied");
+}
+
 function clientIp(event) {
   return event.headers["x-forwarded-for"]?.split(",")[0]?.trim() || event.headers["client-ip"] || "unknown";
 }
@@ -39,46 +56,88 @@ function clientIp(event) {
 async function safeCount(client, table) {
   try {
     const { count, error } = await client.from(table).select("*", { count: "exact", head: true });
-    if (error) throw error;
+    if (error) {
+      if (isSoftReadError(error)) return null;
+      console.error(JSON.stringify({
+        event: "admin_command_center_safe_count_error",
+        table,
+        code: error.code || null,
+        message: String(error.message || "").slice(0, 180)
+      }));
+      return null;
+    }
     return count || 0;
   } catch (error) {
-    if (isMissingTableError(error)) return null;
-    throw error;
+    if (isSoftReadError(error)) return null;
+    console.error(JSON.stringify({
+      event: "admin_command_center_safe_count_throw",
+      table,
+      message: String(error?.message || error).slice(0, 180)
+    }));
+    return null;
   }
 }
 
-export async function handler(event) {
+async function safeSelect(client, table, build) {
   try {
-    const { client, user, admin } = await platformAdmin(event);
-    const body = event.body ? JSON.parse(event.body) : {};
+    const query = build(client.from(table));
+    const result = await query;
+    if (result.error) {
+      if (isSoftReadError(result.error)) return [];
+      console.error(JSON.stringify({
+        event: "admin_command_center_safe_select_error",
+        table,
+        code: result.error.code || null,
+        message: String(result.error.message || "").slice(0, 180)
+      }));
+      return [];
+    }
+    return result.data || [];
+  } catch (error) {
+    if (isSoftReadError(error)) return [];
+    console.error(JSON.stringify({
+      event: "admin_command_center_safe_select_throw",
+      table,
+      message: String(error?.message || error).slice(0, 180)
+    }));
+    return [];
+  }
+}
+
+/** Test seam — production uses bound real dependencies via exported `handler`. */
+export function createAdminCommandCenterHandler(deps = {}) {
+  return async function handler(event, _context) {
+  try {
+    const { client, user, admin } = await platformAdmin(event, ["super_admin"], deps);
+    const body = parsePlatformAdminJsonBody(event);
     const action = body.action || event.queryStringParameters?.action || "dashboard";
     const ip = clientIp(event);
 
     if (event.httpMethod === "GET" && action === "dashboard") {
-      const monthStart = new Date();
-      monthStart.setUTCDate(1);
-      monthStart.setUTCHours(0, 0, 0, 0);
-
       const [
         shopsCount,
         membersCount,
         ordersCount,
         listingsCount,
         sellerProfilesCount,
-        subsRes,
-        shopsRes,
-        ordersRes,
-        aiTodayRes
+        subs,
+        shops,
+        orders,
+        aiTodayRows
       ] = await Promise.all([
         safeCount(client, "shops"),
         safeCount(client, "shop_members"),
         safeCount(client, "orders"),
         safeCount(client, "marketplace_listings"),
         safeCount(client, "marketplace_seller_profiles"),
-        client.from("shop_subscriptions").select("shop_id,plan_code,status,cancel_at_period_end,created_at,updated_at,stripe_customer_id,current_period_ends_at"),
-        client.from("shops").select("id,created_at").order("created_at", { ascending: false }).limit(500),
-        client.from("orders").select("id,total,created_at").order("created_at", { ascending: false }).limit(500),
-        client.from("platform_ai_usage_daily").select("request_count").eq("usage_date", new Date().toISOString().slice(0, 10)).maybeSingle()
+        safeSelect(client, "shop_subscriptions", (q) =>
+          q.select("shop_id,plan_code,status,cancel_at_period_end,created_at,updated_at,stripe_customer_id,current_period_ends_at")
+        ),
+        safeSelect(client, "shops", (q) => q.select("id,created_at").order("created_at", { ascending: false }).limit(500)),
+        safeSelect(client, "orders", (q) => q.select("id,total,created_at").order("created_at", { ascending: false }).limit(500)),
+        safeSelect(client, "platform_ai_usage_daily", (q) =>
+          q.select("request_count").eq("usage_date", new Date().toISOString().slice(0, 10)).limit(1)
+        )
       ]);
 
       let pendingFloristVerifications = null;
@@ -103,34 +162,23 @@ export async function handler(event) {
         pendingSellerVerifications = null;
       }
 
-      const subs = subsRes.error ? [] : subsRes.data || [];
-      const active = subs.filter((x) => ["trialing", "active"].includes(x.status));
+      const active = (subs || []).filter((x) => ["trialing", "active"].includes(x.status));
       const price = { starter: 39, professional: 79, premium: 129 };
       const mrr = active.filter((x) => x.status === "active").reduce((sum, x) => sum + (price[x.plan_code] || 0), 0);
 
-      let wholesaleOrders = [];
-      let grossMarketplace = 0;
-      try {
-        const wRes = await client.from("marketplace_wholesale_orders").select("total,created_at,status").limit(500);
-        if (!wRes.error) {
-          wholesaleOrders = wRes.data || [];
-          grossMarketplace = wholesaleOrders
-            .filter((o) => ["paid", "fulfilled", "completed"].includes(String(o.status).toLowerCase()))
-            .reduce((sum, o) => sum + Number(o.total || 0), 0);
-        }
-      } catch {
-        wholesaleOrders = [];
-      }
-
-      const shops = shopsRes.error ? [] : shopsRes.data || [];
-      const orders = ordersRes.error ? [] : ordersRes.data || [];
+      const wholesaleOrders = await safeSelect(client, "marketplace_wholesale_orders", (q) =>
+        q.select("total,created_at,status").limit(500)
+      );
+      const grossMarketplace = wholesaleOrders
+        .filter((o) => ["paid", "fulfilled", "completed"].includes(String(o.status).toLowerCase()))
+        .reduce((sum, o) => sum + Number(o.total || 0), 0);
 
       const charts = {
         revenue: buildRevenueSeries(orders),
         new_customers: buildMonthlySeries(shops),
         marketplace_orders: buildMonthlySeries(wholesaleOrders),
         subscription_growth: buildMonthlySeries(
-          subs.map((s) => ({ created_at: s.created_at })),
+          (subs || []).map((s) => ({ created_at: s.created_at })),
           { months: 6 }
         )
       };
@@ -150,8 +198,9 @@ export async function handler(event) {
           marketplace_revenue: grossMarketplace,
           monthly_recurring_revenue: mrr,
           active_subscriptions: active.length,
-          ai_requests_today: aiTodayRes.error ? null : Number(aiTodayRes.data?.request_count || 0),
-          online_users: null
+          ai_requests_today: aiTodayRows[0] ? Number(aiTodayRows[0].request_count || 0) : null,
+          online_users: null,
+          members_count: membersCount
         },
         charts
       });
@@ -160,65 +209,55 @@ export async function handler(event) {
     if (event.httpMethod === "GET" && action === "users") {
       const search = String(event.queryStringParameters?.search || body.search || "").trim();
       const roleFilter = String(event.queryStringParameters?.role || "").trim();
-      let query = client
-        .from("shop_members")
-        .select("user_id,shop_id,role,status,created_at,shops(name,email,city,state)")
-        .eq("status", "active")
-        .limit(200);
-      if (roleFilter) query = query.eq("role", roleFilter);
-      const { data, error } = await query;
-      if (error) throw error;
-      let rows = data || [];
+      let rows = await safeSelect(client, "shop_members", (q) => {
+        let query = q
+          .select("user_id,shop_id,role,status,created_at,shops(name,email,city,state)")
+          .eq("status", "active")
+          .limit(200);
+        if (roleFilter) query = query.eq("role", roleFilter);
+        return query;
+      });
       if (search) rows = rows.filter((row) => JSON.stringify(row).toLowerCase().includes(search.toLowerCase()));
-      const admins = await client.from("platform_admins").select("user_id,role,display_name,active");
-      return json(200, { users: rows, admins: admins.data || [] });
+      const admins = await safeSelect(client, "platform_admins", (q) =>
+        q.select("user_id,role,display_name,active")
+      );
+      return json(200, { users: rows, admins });
     }
 
     if (event.httpMethod === "GET" && action === "marketplace") {
-      const listingsRes = await client
-        .from("marketplace_listings")
-        .select("id,shop_id,product_name,supplier_name,active,publish_status,admin_review_status,featured_at,admin_suspended_at,created_at")
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (listingsRes.error && !isMissingTableError(listingsRes.error)) throw listingsRes.error;
-      let applications = [];
-      try {
-        const appRes = await client
-          .from(VERIFICATION_TABLE)
+      const listings = await safeSelect(client, "marketplace_listings", (q) =>
+        q
+          .select("id,shop_id,product_name,supplier_name,active,publish_status,admin_review_status,featured_at,admin_suspended_at,created_at")
+          .order("created_at", { ascending: false })
+          .limit(200)
+      );
+      const applications = await safeSelect(client, VERIFICATION_TABLE, (q) =>
+        q
           .select("id,user_id,florist_shop_id,wholesaler_shop_id,status,submitted_at,created_at")
           .order("created_at", { ascending: false })
-          .limit(200);
-        if (!appRes.error) applications = appRes.data || [];
-      } catch {
-        applications = [];
-      }
+          .limit(200)
+      );
       return json(200, {
-        listings: listingsRes.data || [],
+        listings,
         verifications: applications
       });
     }
 
     if (event.httpMethod === "GET" && action === "support") {
-      const { data, error } = await client
-        .from("platform_support_items")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (error) {
-        if (isMissingTableError(error)) return json(200, { items: [] });
-        throw error;
-      }
-      return json(200, { items: data || [] });
+      const items = await safeSelect(client, "platform_support_items", (q) =>
+        q.select("*").order("created_at", { ascending: false }).limit(200)
+      );
+      return json(200, { items });
     }
 
     if (event.httpMethod === "GET" && action === "subscriptions") {
-      const { data, error } = await client
-        .from("shop_subscriptions")
-        .select("shop_id,plan_code,status,trial_ends_at,current_period_ends_at,cancel_at_period_end,stripe_customer_id,created_at,updated_at,shops(name,email)")
-        .order("updated_at", { ascending: false })
-        .limit(300);
-      if (error) throw error;
-      const rows = (data || []).map((row) => ({
+      const data = await safeSelect(client, "shop_subscriptions", (q) =>
+        q
+          .select("shop_id,plan_code,status,trial_ends_at,current_period_ends_at,cancel_at_period_end,stripe_customer_id,created_at,updated_at,shops(name,email)")
+          .order("updated_at", { ascending: false })
+          .limit(300)
+      );
+      const rows = data.map((row) => ({
         ...sanitizeSubscriptionForAdmin(row),
         shop_name: row.shops?.name,
         shop_email: row.shops?.email
@@ -235,68 +274,68 @@ export async function handler(event) {
     }
 
     if (event.httpMethod === "GET" && action === "announcements") {
-      const { data, error } = await client
-        .from("platform_announcements")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) {
-        if (isMissingTableError(error)) return json(200, { announcements: [] });
-        throw error;
-      }
-      return json(200, { announcements: data || [] });
+      const announcements = await safeSelect(client, "platform_announcements", (q) =>
+        q.select("*").order("created_at", { ascending: false }).limit(100)
+      );
+      return json(200, { announcements });
     }
 
     if (event.httpMethod === "GET" && action === "feature-flags") {
-      const { data, error } = await client.from("platform_feature_flags").select("flag_key,enabled,description,updated_at");
-      if (error) {
-        if (isMissingTableError(error)) {
-          return json(200, { flags: mergeFeatureFlags({}) });
-        }
-        throw error;
-      }
+      const data = await safeSelect(client, "platform_feature_flags", (q) =>
+        q.select("flag_key,enabled,description,updated_at")
+      );
       const map = {};
-      (data || []).forEach((row) => {
+      data.forEach((row) => {
         map[row.flag_key] = row.enabled;
       });
       return json(200, { flags: mergeFeatureFlags(map), catalog: PLATFORM_FEATURE_FLAGS });
     }
 
     if (event.httpMethod === "GET" && action === "analytics") {
-      const [ordersRes, shopsRes, listingsRes] = await Promise.all([
-        client.from("orders").select("total,created_at").order("created_at", { ascending: false }).limit(300),
-        client.from("shop_members").select("shop_id,created_at").order("created_at", { ascending: false }).limit(300),
-        client.from("marketplace_listings").select("id,product_name,shop_id,created_at").order("created_at", { ascending: false }).limit(100)
+      const [orders, shops, listings] = await Promise.all([
+        safeSelect(client, "orders", (q) => q.select("total,created_at").order("created_at", { ascending: false }).limit(300)),
+        safeSelect(client, "shop_members", (q) => q.select("shop_id,created_at").order("created_at", { ascending: false }).limit(300)),
+        safeSelect(client, "marketplace_listings", (q) => q.select("id,product_name,shop_id,created_at").order("created_at", { ascending: false }).limit(100))
       ]);
       return json(200, {
-        revenue_by_month: buildRevenueSeries(ordersRes.data || []),
-        customer_growth: buildMonthlySeries(shopsRes.data || []),
-        marketplace_growth: buildMonthlySeries(listingsRes.data || []),
-        top_products: (listingsRes.data || []).slice(0, 10),
+        revenue_by_month: buildRevenueSeries(orders),
+        customer_growth: buildMonthlySeries(shops),
+        marketplace_growth: buildMonthlySeries(listings),
+        top_products: listings.slice(0, 10),
         ai_usage_note: "Connect platform_ai_usage_daily for live AI analytics after migration apply."
       });
     }
 
     if (event.httpMethod === "GET" && action === "system-health") {
+      // Was hardcoded to recent_errors: [] — always empty regardless of
+      // what florists were actually hitting. The data has existed all
+      // along (client-errors.js writes every uncaught error, failed API
+      // call, and permission denial to audit_events as event_type
+      // "client_error"); nothing ever read it back. This is the "know
+      // before the ticket" signal.
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const errorRows = await safeSelect(client, "audit_events", (q) =>
+        q
+          .select("created_at,shop_id,metadata")
+          .eq("event_type", "client_error")
+          .gte("created_at", since)
+          .order("created_at", { ascending: false })
+          .limit(200)
+      );
       return json(200, {
         health: systemHealthSnapshot(),
-        recent_errors: []
+        recent_errors: summarizeClientErrors(errorRows)
       });
     }
 
     if (event.httpMethod === "GET" && action === "subscription-analytics") {
-      const { data: subs, error: subErr } = await client
-        .from("shop_subscriptions")
-        .select("shop_id,plan_code,status,cancel_at_period_end,current_period_ends_at");
-      if (subErr && !isMissingTableError(subErr)) throw subErr;
-      let events = [];
-      try {
-        const ev = await client.from("shop_subscription_events").select("shop_id,event_type,reason_code,created_at").limit(1000);
-        if (!ev.error) events = ev.data || [];
-      } catch {
-        events = [];
-      }
-      const metrics = computeAdminSubscriptionMetrics(subs || [], events);
+      const subs = await safeSelect(client, "shop_subscriptions", (q) =>
+        q.select("shop_id,plan_code,status,cancel_at_period_end,current_period_ends_at")
+      );
+      const events = await safeSelect(client, "shop_subscription_events", (q) =>
+        q.select("shop_id,event_type,reason_code,created_at").limit(1000)
+      );
+      const metrics = computeAdminSubscriptionMetrics(subs, events);
       const recent = events.slice(0, 50).map((e) => ({
         shop_id: e.shop_id,
         event_type: e.event_type,
@@ -437,11 +476,16 @@ export async function handler(event) {
           .select("id,shop_id,user_id,category,message,app_version,created_at")
           .order("created_at", { ascending: false })
           .limit(200);
-        if (error) throw error;
+        if (error) {
+          if (isSoftReadError(error)) {
+            return json(200, { feedback: [], note: "Feedback inbox unavailable until database grants/migrations are repaired." });
+          }
+          throw error;
+        }
         return json(200, { feedback: data || [] });
       } catch (error) {
-        if (isMissingTableError(error)) {
-          return json(200, { feedback: [], note: "Apply 20260728_release_candidate_v1.sql to enable inbox storage." });
+        if (isSoftReadError(error)) {
+          return json(200, { feedback: [], note: "Feedback inbox unavailable until database grants/migrations are repaired." });
         }
         throw error;
       }
@@ -458,12 +502,14 @@ export async function handler(event) {
     }
 
     if (event.httpMethod === "GET" && action === "audit-log") {
-      const filter = String(event.queryStringParameters?.filter || "").trim();
-      let query = client.from("platform_admin_audit").select("*").order("created_at", { ascending: false }).limit(200);
-      if (filter) query = query.ilike("action", `%${filter}%`);
-      const { data, error } = await query;
-      if (error) throw error;
-      return json(200, { audit: (data || []).map(auditRecordFromRow) });
+      const filter = String(event.queryStringParameters?.filter || "").trim().toLowerCase();
+      const rows = await safeSelect(client, "platform_admin_audit", (q) =>
+        q.select("*").order("created_at", { ascending: false }).limit(200)
+      );
+      const audit = rows
+        .map((row) => auditRecordFromRow(row))
+        .filter((row) => !filter || JSON.stringify(row).toLowerCase().includes(filter));
+      return json(200, { audit });
     }
 
     if (event.httpMethod !== "POST") {
@@ -499,6 +545,7 @@ export async function handler(event) {
     }
 
     if (action === "password-reset-workflow") {
+      requireSuperAdmin(admin);
       await writeCommandAudit(client, user.id, "password_reset_workflow", {
         targetType: "user",
         targetId: body.user_id || body.email,
@@ -543,6 +590,7 @@ export async function handler(event) {
     }
 
     if (action === "support-update") {
+      requireSuperAdmin(admin);
       const id = body.id;
       if (!id) return json(400, { error: "id is required" });
       const notes = Array.isArray(body.notes) ? body.notes : [];
@@ -556,6 +604,154 @@ export async function handler(event) {
       const { data, error } = await client.from("platform_support_items").update(patch).eq("id", id).select("*").single();
       if (error) throw error;
       await writeCommandAudit(client, user.id, "support_update", { targetType: "support_item", targetId: id, ip, status: body.status });
+      return json(200, { item: data });
+    }
+
+    if (action === "support-request-fix") {
+      requireSuperAdmin(admin);
+      const id = body.id;
+      if (!id) return json(400, { error: "id is required" });
+
+      const { data: ticket, error: loadError } = await client
+        .from("platform_support_items")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (loadError) throw loadError;
+      if (!ticket) return json(404, { error: "Support item not found." });
+
+      // Recent errors from the same shop turn "florist says X is broken"
+      // into "here's what actually happened" — real context, not a guess,
+      // reusing the same audit_events data System Health now surfaces.
+      let recentShopErrors = null;
+      if (ticket.shop_id) {
+        const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const errorRows = await safeSelect(client, "audit_events", (q) =>
+          q
+            .select("created_at,shop_id,metadata")
+            .eq("event_type", "client_error")
+            .eq("shop_id", ticket.shop_id)
+            .gte("created_at", since)
+            .order("created_at", { ascending: false })
+            .limit(50)
+        );
+        recentShopErrors = summarizeClientErrors(errorRows);
+      }
+
+      const requestedAt = new Date().toISOString();
+      const fixRequest = {
+        ticket_id: ticket.id,
+        item_type: ticket.item_type,
+        subject: ticket.subject,
+        body: ticket.body,
+        shop_id: ticket.shop_id,
+        requested_by: user.id,
+        requested_at: requestedAt,
+        recent_shop_errors: recentShopErrors,
+        // Whatever picks this request up must follow this policy, not
+        // invent its own idea of what's safe to do without asking.
+        policy_doc: "docs/FLORISYN_AI_AGENT_AUTONOMY_POLICY.md",
+        policy_summary:
+          "Tier 1 only unless a human explicitly authorizes otherwise for this ticket: work on a branch, run tests, open a diff for human review. Never auto-merge. Never deploy. Never touch payments, auth, migrations, feature flag defaults, or legal copy without asking first."
+      };
+
+      // This webhook URL is a bring-your-own-endpoint seam, not a
+      // pre-wired connection to a specific service — nothing calls
+      // itself "Claude Code" here on its own. Until CLAUDE_CODE_FIX_WEBHOOK_URL
+      // is set, the request is recorded on the ticket and nothing is
+      // sent anywhere; that's a deliberate, visible "not configured yet"
+      // state, not a silent no-op.
+      const webhookUrl = process.env.CLAUDE_CODE_FIX_WEBHOOK_URL;
+      let delivery = "not_configured";
+      if (webhookUrl) {
+        try {
+          const headers = { "Content-Type": "application/json" };
+          if (process.env.CLAUDE_CODE_FIX_WEBHOOK_TOKEN) {
+            headers.Authorization = `Bearer ${process.env.CLAUDE_CODE_FIX_WEBHOOK_TOKEN}`;
+          }
+          const response = await fetch(webhookUrl, { method: "POST", headers, body: JSON.stringify(fixRequest) });
+          delivery = response.ok ? "delivered" : "webhook_error";
+        } catch (hookError) {
+          console.error("Claude Code fix-request webhook failed:", hookError);
+          delivery = "webhook_error";
+        }
+      }
+
+      const deliveryMessage = {
+        delivered: "Fix request sent to the connected endpoint.",
+        webhook_error: "Fix request recorded, but the configured endpoint did not accept it.",
+        not_configured: "Fix request recorded. No CLAUDE_CODE_FIX_WEBHOOK_URL is configured, so nothing was actually sent anywhere yet."
+      }[delivery];
+
+      const existingNotes = Array.isArray(ticket.notes) ? ticket.notes : [];
+      const notes = [
+        ...existingNotes,
+        { type: "fix_request", text: deliveryMessage, admin_id: user.id, at: requestedAt, delivery }
+      ];
+      const { data, error } = await client
+        .from("platform_support_items")
+        .update({
+          notes,
+          status: ticket.status === "open" ? "assigned" : ticket.status,
+          updated_at: requestedAt
+        })
+        .eq("id", id)
+        .select("*")
+        .single();
+      if (error) throw error;
+
+      await writeCommandAudit(client, user.id, "support_request_fix", {
+        targetType: "support_item",
+        targetId: id,
+        ip,
+        delivery
+      });
+
+      return json(200, { item: data, delivery, message: deliveryMessage });
+    }
+
+    // Bud's Fix Queue — where a "Request Claude Code fix" click above
+    // actually lands once CLAUDE_CODE_FIX_WEBHOOK_URL points at
+    // claude-code-fix-intake.js. Visible here so "delivered" isn't just a
+    // trust-me status — an admin can see the request queued and update it
+    // as it moves through investigation → diff ready → shipped.
+    if (action === "bud-queue-list") {
+      requireSuperAdmin(admin);
+      const { data, error } = await client
+        .from("platform_agent_fix_requests")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return json(200, { items: data || [] });
+    }
+
+    if (action === "bud-queue-update") {
+      requireSuperAdmin(admin);
+      const id = body.id;
+      if (!id) return json(400, { error: "id is required" });
+      const allowedStatuses = ["queued", "investigating", "diff_ready", "awaiting_approval", "shipped", "dismissed"];
+      const patch = { updated_at: new Date().toISOString() };
+      if (body.status !== undefined) {
+        if (!allowedStatuses.includes(body.status)) return json(400, { error: "Invalid status." });
+        patch.status = body.status;
+      }
+      if (body.assignee_note !== undefined) {
+        patch.assignee_note = String(body.assignee_note || "").slice(0, 2000);
+      }
+      const { data, error } = await client
+        .from("platform_agent_fix_requests")
+        .update(patch)
+        .eq("id", id)
+        .select("*")
+        .single();
+      if (error) throw error;
+      await writeCommandAudit(client, user.id, "bud_queue_update", {
+        targetType: "agent_fix_request",
+        targetId: id,
+        ip,
+        status: body.status
+      });
       return json(200, { item: data });
     }
 
@@ -606,6 +802,7 @@ export async function handler(event) {
     }
 
     if (action === "lily-query") {
+      requireSuperAdmin(admin);
       const message = String(body.message || "").trim();
       if (!message) return json(400, { error: "Add a message for Lily." });
       const intent = detectIntent(message);
@@ -626,6 +823,7 @@ export async function handler(event) {
     }
 
     if (action === "record-ai-request") {
+      requireSuperAdmin(admin);
       const today = new Date().toISOString().slice(0, 10);
       try {
         const { data: existing } = await client.from("platform_ai_usage_daily").select("request_count").eq("usage_date", today).maybeSingle();
@@ -642,6 +840,10 @@ export async function handler(event) {
 
     return json(400, { error: "Unknown command center action" });
   } catch (error) {
-    return fail(error);
+    return platformAdminErrorResponse(event, error);
   }
+  };
 }
+
+/** Production Netlify entry — ignores context for auth/service-role overrides. */
+export const handler = createAdminCommandCenterHandler();

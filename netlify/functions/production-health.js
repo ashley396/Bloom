@@ -10,7 +10,7 @@ export async function handler(event) {
   const config = getProductionConfig(process.env);
   return json(config.environment_valid ? 200 : 503, {
     ok: config.environment_valid,
-    app: "Bloom Production Readiness",
+    app: "Florisyn Production Readiness",
     config,
     ai: getAiProviderStatus(process.env),
     feature_flags: getFeatureFlags(process.env),

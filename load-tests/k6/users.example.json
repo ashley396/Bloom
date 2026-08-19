@@ -1,0 +1,8 @@
+{
+  "users": [
+    {
+      "email": "synthetic-load-user-0001@example.invalid",
+      "password": "replace-with-a-staging-only-password"
+    }
+  ]
+}

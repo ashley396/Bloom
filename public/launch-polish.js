@@ -129,6 +129,13 @@ import {
   function injectPageHelp(pageId) {
     const page = document.getElementById(pageId);
     if (!page) return;
+    if (pageId === "posPage") {
+      // The register already has its own toolbar + "Ask Lily" access, and the
+      // fixed-height checkout column means this generic bar can overlap the
+      // payment buttons instead of sitting cleanly below them. Skip it here.
+      page.querySelector(".bloom-page-help")?.remove();
+      return;
+    }
     const copy = helpCopyForPage(pageId);
     let bar = page.querySelector(".bloom-page-help");
     if (!bar) {

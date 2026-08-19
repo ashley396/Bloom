@@ -26,7 +26,7 @@ test("requireRowShopId ignores null row", () => {
 test("A2 migration file exists for staff_time_entries RLS", () => {
   const file = path.join(
     process.cwd(),
-    "supabase/migrations/20260729_phase2a_a2_staff_time_entries_rls_v1.sql"
+    "supabase/legacy_migrations/20260729_phase2a_a2_staff_time_entries_rls_v1.sql"
   );
   const sql = fs.readFileSync(file, "utf8");
   assert.match(sql, /staff_time_entries/i);

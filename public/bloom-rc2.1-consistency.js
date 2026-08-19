@@ -1,25 +1,14 @@
 (function () {
   /** RC2.1 §10 — lightweight DOM passes (no data/logic changes). */
 
-  function wireOrdersSearch() {
-    const page = document.getElementById("ordersPage");
-    if (!page || page.querySelector(".bloom-orders-toolbar")) return;
-    const bar = document.createElement("div");
-    bar.className = "bloom-orders-toolbar panel";
-    bar.innerHTML = `<label class="visually-hidden" for="bloomOrderSearch">Search orders</label>
-      <input type="search" id="bloomOrderSearch" placeholder="Search customer, order #, recipient…">`;
-    const layout = page.querySelector(".order-command-layout");
-    (layout || page.querySelector(".heading"))?.before(bar);
-    bar.querySelector("#bloomOrderSearch")?.addEventListener("input", () => {
-      const q = bar.querySelector("#bloomOrderSearch").value.toLowerCase();
-      document.querySelectorAll("[data-order-card]").forEach((el) => {
-        el.style.display = el.textContent.toLowerCase().includes(q) ? "" : "none";
-      });
-    });
-    document.getElementById("refreshOrderBoard")?.addEventListener("click", () => {
-      window.loadOrders?.();
-    });
-  }
+  // Orders already ships its own search box (#ordSearch, wired in
+  // florisyn-luxury-orders.js) and its own refresh button listener
+  // (#refreshOrderBoard, wired in app.js). This used to inject a second,
+  // unstyled search input (.bloom-orders-toolbar / #bloomOrderSearch)
+  // above the real one on every order-board refresh — kept as a no-op so
+  // callers (app.js, bloom-rc2.1-founder-polish.js) can still call it
+  // safely without re-introducing the duplicate.
+  function wireOrdersSearch() {}
 
   function normalizeDialogs() {
     document.querySelectorAll("dialog").forEach((dlg) => {
