@@ -1216,7 +1216,7 @@ async function smartAi(payload){
     }catch(localError){throw new Error(`${cloudError.message} Local fallback: ${localError.message}`)}
   }
 }
-let shotImage=null,shotRotation=0,shotDraftTimer=null,shotCutout=null,shotUseCutout=true,shotPresetBackground=null,shotRecipe=null,shotRejectedCutout=null,shotSavedProductId=null;
+let shotImage=null,shotRotation=0,shotDraftTimer=null,shotCutout=null,shotUseCutout=true,shotPresetBackground=null,shotRecipe=null,shotRejectedCutout=null,shotSavedProductId=null,shotSavedListingId=null;
 /* Studio backgrounds for the four style options — drawn behind the cut-out arrangement. */
 const SHOT_PRESET_BACKGROUNDS={
   clean:{type:"solid",color:"#ffffff"},
@@ -1244,7 +1244,7 @@ function loadBloomShot(){const draft=localStorage.getItem("bloomShotDraft");if(d
   if(d.image){
     shotRotation=Number(d.rotation)||0;
     const img=new Image();
-    img.onload=()=>{shotImage=img;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;drawBloomShot();prepareShotCutout();if($("#shotStatus"))$("#shotStatus").textContent="Your last photo and edits were restored on this device."};
+    img.onload=()=>{shotImage=img;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;shotSavedListingId=null;drawBloomShot();prepareShotCutout();if($("#shotStatus"))$("#shotStatus").textContent="Your last photo and edits were restored on this device."};
     img.onerror=()=>{if($("#shotStatus"))$("#shotStatus").textContent="Your last editable draft is available.";};
     img.src=d.image;
   }else if($("#shotStatus"))$("#shotStatus").textContent="Your last editable draft is available.";
@@ -1344,7 +1344,7 @@ function saveShotDraft(silent=false){
 /* Debounced autosave for continuous controls (sliders) so dragging a slider
    doesn't re-encode and write the photo to localStorage on every tick. */
 function scheduleShotDraftSave(){clearTimeout(shotDraftTimer);shotDraftTimer=setTimeout(()=>saveShotDraft(true),800)}
-$("#bloomshotFile")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>12*1024*1024)return toast("Please choose an image under 12 MB");const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{shotImage=img;shotRotation=0;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}drawBloomShot();toast("Photo ready to edit");prepareShotCutout();saveShotDraft(true)};img.src=reader.result};reader.readAsDataURL(file)});
+$("#bloomshotFile")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>12*1024*1024)return toast("Please choose an image under 12 MB");const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{shotImage=img;shotRotation=0;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;shotSavedListingId=null;const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}drawBloomShot();toast("Photo ready to edit");prepareShotCutout();saveShotDraft(true)};img.src=reader.result};reader.readAsDataURL(file)});
 // Community Step 69 — the reverse of the existing Photo Studio → Community
 // "Post to Community feed" checkbox: pull a real photo (already resolved
 // to a data URL by the caller, e.g. Community's own fetchPostImageDataUrl)
@@ -1355,13 +1355,13 @@ function loadShotImageFromDataUrl(dataUrl,{caption}={}){
   if(!dataUrl)return Promise.resolve(false);
   return new Promise((resolve)=>{
     const img=new Image();
-    img.onload=()=>{shotImage=img;shotRotation=0;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}drawBloomShot();prepareShotCutout();if(caption&&$("#shotCaption")&&!$("#shotCaption").value.trim())$("#shotCaption").value=caption;saveShotDraft(true);resolve(true)};
+    img.onload=()=>{shotImage=img;shotRotation=0;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;shotSavedListingId=null;const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}drawBloomShot();prepareShotCutout();if(caption&&$("#shotCaption")&&!$("#shotCaption").value.trim())$("#shotCaption").value=caption;saveShotDraft(true);resolve(true)};
     img.onerror=()=>{toast("Could not load that photo into Photo Studio.");resolve(false)};
     img.src=dataUrl;
   });
 }
 window.BloomShotLoadImage=loadShotImageFromDataUrl;
-$("#bloomshotRemovePhoto")?.addEventListener("click",()=>{shotImage=null;shotCutout=null;shotRejectedCutout=null;shotUseCutout=true;shotRotation=0;shotRecipe=null;shotSavedProductId=null;const file=$("#bloomshotFile");if(file)file.value="";const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}const cutRow=$("#bloomshotCutoutRow");if(cutRow){cutRow.hidden=true}const cutStatus=$("#bloomshotCutoutStatus");if(cutStatus)cutStatus.textContent="";drawBloomShot();if($("#shotStatus"))$("#shotStatus").textContent="Photo removed. Choose a new arrangement photo to start over.";toast("Photo removed — choose a new one");saveShotDraft(true)});
+$("#bloomshotRemovePhoto")?.addEventListener("click",()=>{shotImage=null;shotCutout=null;shotRejectedCutout=null;shotUseCutout=true;shotRotation=0;shotRecipe=null;shotSavedProductId=null;shotSavedListingId=null;const file=$("#bloomshotFile");if(file)file.value="";const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}const cutRow=$("#bloomshotCutoutRow");if(cutRow){cutRow.hidden=true}const cutStatus=$("#bloomshotCutoutStatus");if(cutStatus)cutStatus.textContent="";drawBloomShot();if($("#shotStatus"))$("#shotStatus").textContent="Photo removed. Choose a new arrangement photo to start over.";toast("Photo removed — choose a new one");saveShotDraft(true)});
 $$('[data-shot-preset]').forEach(b=>b.addEventListener("click",()=>{setShotPreset(b.dataset.shotPreset);if(shotImage)scheduleShotDraftSave()}));
 $$('#shotBrightness,#shotContrast,#shotSaturation,#shotWarmth,#shotBackground,#shotSize,#shotWatermark').forEach(el=>el.addEventListener("input",()=>{syncShotOutputs();drawBloomShot();if(shotImage)scheduleShotDraftSave()}));
 $("#shotRotate")?.addEventListener("click",()=>{shotRotation=(shotRotation+90)%360;drawBloomShot();if(shotImage)scheduleShotDraftSave()});
@@ -1374,8 +1374,20 @@ $("#shotGenerate")?.addEventListener("click",async()=>{const b=$("#shotGenerate"
 $("#shotSaveDraft")?.addEventListener("click",()=>saveShotDraft(false));
 async function shotSaveToProducts({availableOnline=false}={}){const name=$("#shotProductName").value.trim();if(!name)throw new Error("Enter a product name");const imageUrl=shotImage?$("#bloomshotCanvas").toDataURL("image/jpeg",.86):"";if(shotSavedProductId){const payload={id:shotSavedProductId,name,category:$("#shotOccasion").value,price:Number($("#shotPrice").value||0),description:$("#shotDescription").value,available_online:availableOnline,active:true};if(imageUrl)payload.image_url=imageUrl;const{item}=await api("products",{method:"PATCH",body:JSON.stringify(payload)});return item}const payload={name,category:$("#shotOccasion").value,price:Number($("#shotPrice").value||0),description:$("#shotDescription").value,image_url:imageUrl,available_online:availableOnline,featured:false,active:true};const{item}=await api("products",{method:"POST",body:JSON.stringify(payload)});if(item?.id){shotSavedProductId=item.id;if(shotRecipe?.length){try{await api("recipes",{method:"POST",body:JSON.stringify({product_id:item.id,items:shotRecipe.map(r=>({ingredient_name:r.ingredient_name,quantity:r.quantity,unit:r.unit||"stem"}))})})}catch{}}}return item}
 $("#shotAddProduct")?.addEventListener("click",async()=>{if(!$("#shotApproved").checked)return toast("Review the content and check approval first");try{await shotSaveToProducts({availableOnline:false});toast(shotRecipe?.length?"Product + Lily's recipe added as a draft":"Product added as an unpublished draft");$("#shotStatus").textContent="Saved to Products as a draft. It is not online until you publish it.";await loadProducts()}catch(e){toast(e.message)}});
-$("#shotPost")?.addEventListener("click",async()=>{const toWebsite=$("#shotPostWebsite")?.checked,toCommunity=$("#shotPostCommunity")?.checked,toSocial=$("#shotPostSocial")?.checked;if(!toWebsite&&!toCommunity&&!toSocial)return toast("Choose at least one place to post to");if(!$("#shotApproved").checked)return toast("Review the content and check approval first");if(!shotImage)return toast("Upload an arrangement photo first");const btn=$("#shotPost"),orig=btn.textContent;btn.disabled=true;btn.textContent="Posting…";const done=[],failed=[];try{if(toWebsite){try{await shotSaveToProducts({availableOnline:true});await loadProducts();renderWebsite?.();done.push("Website")}catch(e){failed.push(`Website (${e.message})`)}}
+// Wholesale Marketplace vision: "Photo Studio integration" — a seller's
+// edited arrangement photo becomes a real marketplace_listings row via
+// the same save-product action the Seller Dashboard's own product form
+// uses, never a second parallel write path. ALWAYS saved as a draft
+// (publish_status: "draft") regardless of the "Post to" destination
+// semantics used for Website/Community, which do go live immediately —
+// a wholesale listing is buyer-facing, money-moving inventory, not a
+// storefront photo, so it always waits for the seller's own review and
+// explicit Publish click in the Seller Dashboard (mirrors shotAddProduct's
+// same "unpublished draft" discipline).
+async function shotSaveToMarketplace(){const name=$("#shotProductName").value.trim();if(!name)throw new Error("Enter a product name");const imageUrl=shotImage?$("#bloomshotCanvas").toDataURL("image/jpeg",.86):"";const payload={id:shotSavedListingId||undefined,product_name:name,category:"Fresh Flowers",price:Number($("#shotPrice").value||0),unit:"each",description:$("#shotDescription").value,publish_status:"draft",active:true};if(imageUrl)payload.image_url=imageUrl;const{product}=await api("marketplace-seller",{method:"POST",body:JSON.stringify({action:"save-product",...payload})});if(product?.id)shotSavedListingId=product.id;return product}
+$("#shotPost")?.addEventListener("click",async()=>{const toWebsite=$("#shotPostWebsite")?.checked,toCommunity=$("#shotPostCommunity")?.checked,toMarketplace=$("#shotPostMarketplace")?.checked,toSocial=$("#shotPostSocial")?.checked;if(!toWebsite&&!toCommunity&&!toMarketplace&&!toSocial)return toast("Choose at least one place to post to");if(!$("#shotApproved").checked)return toast("Review the content and check approval first");if(!shotImage)return toast("Upload an arrangement photo first");const btn=$("#shotPost"),orig=btn.textContent;btn.disabled=true;btn.textContent="Posting…";const done=[],failed=[];try{if(toWebsite){try{await shotSaveToProducts({availableOnline:true});await loadProducts();renderWebsite?.();done.push("Website")}catch(e){failed.push(`Website (${e.message})`)}}
   if(toCommunity){try{const caption=($("#shotCaption")?.value||"").trim()||($("#shotProductName")?.value||"New arrangement").trim();await api("florist-community",{method:"POST",body:JSON.stringify({action:"create_post",category:"Arrangement Share",caption,body:$("#shotDescription")?.value||"",image_data_url:$("#bloomshotCanvas").toDataURL("image/jpeg",.86)})});done.push("Community feed")}catch(e){failed.push(`Community feed (${e.message})`)}}
+  if(toMarketplace){try{await shotSaveToMarketplace();done.push("Wholesale Marketplace (draft)")}catch(e){failed.push(`Wholesale Marketplace (${e.message})`)}}
   if(toSocial){try{const a=document.createElement("a");a.download=`${($("#shotProductName")?.value||"bloomshot").replace(/[^a-z0-9]+/gi,"-").toLowerCase()}.png`;a.href=$("#bloomshotCanvas").toDataURL("image/png",.92);a.click();const caption=($("#shotCaption")?.value||"").trim();if(caption&&navigator.clipboard?.writeText){await navigator.clipboard.writeText(caption);done.push("Social (image downloaded + caption copied)")}else{done.push("Social (image downloaded)")}}catch(e){failed.push(`Social (${e.message})`)}}
   const msg=[done.length?`Posted to: ${done.join(", ")}.`:"",failed.length?`Failed: ${failed.join(", ")}.`:""].filter(Boolean).join(" ");if($("#shotStatus"))$("#shotStatus").textContent=msg||"Nothing was posted.";toast(failed.length?"Some destinations failed — see status below":"Posted ✅")}finally{btn.disabled=false;btn.textContent=orig}});
 syncShotOutputs();

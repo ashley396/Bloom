@@ -50,6 +50,34 @@
       </div>`;
   }
 
+  /**
+   * Wholesale Marketplace vision: "Photo Studio integration." A listing's
+   * image_url may be a data: URL (saved earlier from Photo Studio itself)
+   * or a real http(s) URL (hosted separately) — either way, Photo Studio's
+   * canvas needs a data: URL to load. Mirrors Community's own
+   * fetchPostImageDataUrl exactly (same 2MB cap) — same problem, same
+   * fix, not a fourth parallel implementation.
+   */
+  async function fetchListingImageDataUrl(url) {
+    const trimmed = String(url || '').trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('data:')) return trimmed;
+    try {
+      const response = await fetch(trimmed);
+      if (!response.ok) return '';
+      const blob = await response.blob();
+      if (!blob.size || blob.size > 2 * 1024 * 1024) return '';
+      return await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return '';
+    }
+  }
+
   function floralMetaLine(hooks, p) {
     const bits = [p.variety, p.color, p.grade].filter(Boolean);
     const availability = p.availability_status && p.availability_status !== 'available_now'
@@ -63,7 +91,7 @@
     const rows = (data.products || []).filter((p) => !p.archived_at);
     return `${renderNav(hooks, 'products')}
       <div class="heading-actions wholesale-toolbar"><button type="button" class="primary" data-wholesale-new-product>+ New product</button></div>
-      <div class="cards">${rows.length ? rows.map((p) => `<article class="card"><div class="card-top"><div><h3>${hooks.esc(p.product_name)}</h3><p class="meta">${hooks.esc(p.sku || 'No SKU')} · ${statusBadge(p.publish_status)}${p.low_stock ? ' · Low stock' : ''}</p>${floralMetaLine(hooks, p)}</div><strong>${hooks.money(p.price)}</strong></div><p class="subtle">Inventory: ${p.inventory_total ?? p.available_quantity ?? 0} · ${(p.images || []).length} image(s) · ${(p.variants || []).length} variant(s)</p><div class="card-actions"><button type="button" class="secondary" data-wholesale-edit="${hooks.esc(p.id)}">Edit</button><button type="button" class="secondary" data-wholesale-preview="${hooks.esc(p.id)}">Preview</button><button type="button" class="primary" data-wholesale-publish="${hooks.esc(p.id)}">Publish</button><button type="button" class="secondary danger" data-wholesale-archive="${hooks.esc(p.id)}">Archive</button></div></article>`).join('') : hooks.empty('No products yet. Create your first wholesale listing.')}</div>`;
+      <div class="cards">${rows.length ? rows.map((p) => `<article class="card"><div class="card-top"><div><h3>${hooks.esc(p.product_name)}</h3><p class="meta">${hooks.esc(p.sku || 'No SKU')} · ${statusBadge(p.publish_status)}${p.low_stock ? ' · Low stock' : ''}</p>${floralMetaLine(hooks, p)}</div><strong>${hooks.money(p.price)}</strong></div><p class="subtle">Inventory: ${p.inventory_total ?? p.available_quantity ?? 0} · ${(p.images || []).length} image(s) · ${(p.variants || []).length} variant(s)</p><div class="card-actions"><button type="button" class="secondary" data-wholesale-edit="${hooks.esc(p.id)}">Edit</button><button type="button" class="secondary" data-wholesale-preview="${hooks.esc(p.id)}">Preview</button><button type="button" class="primary" data-wholesale-publish="${hooks.esc(p.id)}">Publish</button><button type="button" class="secondary danger" data-wholesale-archive="${hooks.esc(p.id)}">Archive</button>${p.image_url ? `<button type="button" class="secondary" data-wholesale-edit-in-studio="${hooks.esc(p.id)}">🎨 Edit in Photo Studio</button>` : ''}</div></article>`).join('') : hooks.empty('No products yet. Create your first wholesale listing.')}</div>`;
   }
 
   function renderOrders(hooks, data) {
@@ -319,6 +347,29 @@
         await hooks.api('marketplace-seller', { method: 'POST', body: JSON.stringify({ action: 'archive', id: button.dataset.wholesaleArchive }) });
         hooks.toast('Product archived.');
         reload(hooks);
+      });
+    });
+    document.querySelectorAll('[data-wholesale-edit-in-studio]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const id = button.dataset.wholesaleEditInStudio;
+        const product = (state.data?.products || []).find((p) => p.id === id);
+        if (!product?.image_url) return;
+        const original = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Loading…';
+        try {
+          const image_data_url = await fetchListingImageDataUrl(product.image_url);
+          if (!image_data_url) throw new Error('Could not read that photo. Try again.');
+          const loaded = window.BloomShotLoadImage ? await window.BloomShotLoadImage(image_data_url, { caption: product.product_name }) : false;
+          if (!loaded) throw new Error('Photo Studio is not available right now.');
+          window.showPage?.('bloomshotPage');
+          hooks.toast('Photo loaded into Photo Studio — keep editing.');
+        } catch (error) {
+          hooks.toast(error.message || 'Could not open this photo in Photo Studio.');
+        } finally {
+          button.disabled = false;
+          button.textContent = original;
+        }
       });
     });
     document.querySelectorAll('[data-wholesale-order-status]').forEach((button) => {
