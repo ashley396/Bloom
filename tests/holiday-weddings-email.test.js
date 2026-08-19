@@ -77,6 +77,24 @@ test("holiday capacity alert levels", () => {
   );
 });
 
+test("pausing/resuming order intake never overwrites a peak's actual status", () => {
+  // A peak still in "planning" (hasn't started yet) gets paused, then
+  // resumed — is_paused round-trips, but status is never the validator's
+  // business to touch. A real "Resume" click used to hardcode
+  // status:"active" on top of this, silently promoting a peak that hadn't
+  // even started; that's a UI concern this test can't see, but the
+  // validator itself must not force status either way.
+  const paused = validateHolidayPeakBody({ id: "x", is_paused: true }, { partial: true });
+  assert.equal(paused.valid, true);
+  assert.equal(paused.sanitized.is_paused, true);
+  assert.equal("status" in paused.sanitized, false);
+
+  const resumed = validateHolidayPeakBody({ id: "x", is_paused: false }, { partial: true });
+  assert.equal(resumed.valid, true);
+  assert.equal(resumed.sanitized.is_paused, false);
+  assert.equal("status" in resumed.sanitized, false);
+});
+
 test("email campaign validation and status set", () => {
   assert.equal(validateEmailCampaignBody({}).valid, false);
   const ok = validateEmailCampaignBody({

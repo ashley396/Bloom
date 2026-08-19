@@ -6,7 +6,7 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
 
-  let state = { loading: false, error: null, items: [], send_enabled: false };
+  let state = { loading: false, error: null, items: [], send_enabled: false, real_send: false };
 
   async function api(payload, method = "POST") {
     const fn = window.bloomEmailCampaignsApi || window.api;
@@ -108,7 +108,13 @@
             if (when === null) return;
             await api({ action: "schedule", id, scheduled_at: when || new Date().toISOString() });
           } else if (act === "send") {
-            if (!confirm("Mark this campaign as sent? (local stub — no external email yet)")) return;
+            // Tell the florist the truth about what this click actually
+            // does — when a real provider is configured this sends real
+            // email to real, opted-in customers, not a local stub.
+            const msg = state.real_send
+              ? "Send this campaign to your real, marketing-opted-in customers now? This can't be undone."
+              : "Mark this campaign as sent? (local stub — no email provider configured, nothing is actually sent)";
+            if (!confirm(msg)) return;
             await api({ action: "send", id });
           }
           await load();
@@ -129,6 +135,7 @@
       const d = await api(null, "GET");
       state.items = d.items || [];
       state.send_enabled = Boolean(d.send_enabled);
+      state.real_send = Boolean(d.real_send);
       state.loading = false;
       render();
     } catch (err) {

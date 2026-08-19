@@ -75,6 +75,11 @@ export async function handler(event) {
       return json(200, {
         items: data || [],
         send_enabled: sendEnabled(),
+        // Whether "Mark sent" will actually dispatch real email through a
+        // configured provider, vs. the local-stub flag that only flips the
+        // status without sending anything. The UI's confirm dialog needs
+        // this to tell a florist the truth about what a click will do.
+        real_send: emailProviderConfigured(process.env).configured,
       });
     }
 

@@ -128,11 +128,11 @@
             toast("Peak removed.");
           } else if (act === "pause") {
             const next = !(item.is_paused || item.status === "paused");
-            await api("PATCH", {
-              id,
-              is_paused: next,
-              status: next ? "paused" : "active",
-            });
+            // Only send is_paused — it's independent of status now.
+            // Hardcoding status:"active"/"paused" here used to clobber a
+            // peak's real status (e.g. "planning") on every pause/resume,
+            // even for a peak that hadn't started yet.
+            await api("PATCH", { id, is_paused: next });
             toast(next ? "Orders paused for this peak." : "Orders resumed.");
           } else if (act === "bump") {
             await api("PATCH", { id, current_orders: Number(item.current_orders || 0) + 1 });
