@@ -428,16 +428,29 @@ async function loadStandingOrders(client, user, shopId) {
     const { data: sellers } = await client.from(SELLER_PROFILES).select("shop_id, display_name").in("shop_id", sellerIds);
     sellerNames = Object.fromEntries((sellers || []).map((s) => [s.shop_id, s.display_name]));
   }
+  // A standing order is a continuation of a relationship with a specific
+  // seller — but that seller can lose verification after the standing
+  // order was set up. Computed once for every seller referenced, not
+  // just the ones due today, so the list is honest even before the next
+  // due date.
+  const verifiedShopIds = await loadVerifiedSellerShopIds(sellerIds);
 
   const enriched = [];
   for (const row of standingOrders || []) {
+    const sellerVerified = verifiedShopIds.has(row.seller_shop_id);
     const dueToday = row.active && row.cadence_weekday === todayCode;
     let preview = null;
-    if (dueToday) {
+    if (dueToday && sellerVerified) {
       const { data: listings } = await client.from(LISTINGS).select("*").eq("shop_id", row.seller_shop_id);
       preview = matchStandingOrderItems(row.items, listings || []);
     }
-    enriched.push({ ...row, seller_display_name: sellerNames[row.seller_shop_id] || null, due_today: dueToday, preview });
+    enriched.push({
+      ...row,
+      seller_display_name: sellerNames[row.seller_shop_id] || null,
+      seller_verified: sellerVerified,
+      due_today: dueToday,
+      preview
+    });
   }
   return { standing_orders: enriched };
 }

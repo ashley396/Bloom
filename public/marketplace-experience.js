@@ -269,11 +269,15 @@
   function standingOrderCardHtml(hooks, so) {
     const itemLines = (so.items || []).map((i) => `${i.quantity} × ${hooks.esc(i.name)}`).join(', ');
     let action = '';
-    if (so.due_today && Array.isArray(so.preview)) {
+    if (so.due_today && !so.seller_verified) {
+      action = '<span class="badge warn">Due today — this seller is no longer verified</span>';
+    } else if (so.due_today && Array.isArray(so.preview)) {
       const anyAvailable = so.preview.some((p) => p.available);
       action = anyAvailable
         ? `<button type="button" class="primary" data-market-standing-order-add="${hooks.esc(so.id)}">Add today's order to cart</button>`
         : '<span class="badge warn">Due today — nothing currently available from this seller</span>';
+    } else if (!so.seller_verified) {
+      action = '<span class="badge warn">This seller is no longer verified</span>';
     }
     return `<article class="card marketplace-order-card">
       <div class="card-top">
