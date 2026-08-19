@@ -220,6 +220,50 @@ async function receiveOrderIntoInventory(client, user, shopId, orderId) {
   return { order_id: orderId, matched_count: matchedCount, created_count: createdCount };
 }
 
+/**
+ * "Reorder" never resubmits the old order blindly — fresh flowers make
+ * that unsafe. Every line item is re-checked against the listing's
+ * CURRENT price, active state, and availability_status; a listing that
+ * was archived, deactivated, or gone seasonal since the original
+ * purchase is flagged, never silently re-added at last time's price.
+ */
+async function reorderPreview(client, user, orderId) {
+  const { data: order, error: orderError } = await client.from(ORDERS).select("id, buyer_user_id, items").eq("id", orderId).maybeSingle();
+  if (orderError) throw orderError;
+  if (!order || order.buyer_user_id !== user.id) {
+    const error = new Error("Order not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const items = Array.isArray(order.items) ? order.items : [];
+  const listingIds = [...new Set(items.map((i) => i.listing_id).filter(Boolean))];
+  let listingsById = {};
+  if (listingIds.length) {
+    const { data: listings, error: listingsError } = await client.from(LISTINGS).select("*").in("id", listingIds);
+    if (listingsError) throw listingsError;
+    listingsById = Object.fromEntries((listings || []).map((row) => [row.id, sanitizeListing(row)]));
+  }
+
+  const preview = items.map((item) => {
+    const current = item.listing_id ? listingsById[item.listing_id] : null;
+    const stillAvailable = Boolean(current) && current.active && current.currently_available;
+    return {
+      listing_id: item.listing_id || null,
+      name: item.name,
+      quantity: item.quantity,
+      original_unit_price: item.unit_price,
+      current_price: current?.display_price ?? current?.price ?? null,
+      current_unit: current?.display_price_unit || current?.unit || item.unit || "each",
+      availability_status: current?.availability_status || null,
+      price_changed: current ? Number(current.display_price ?? current.price) !== Number(item.unit_price) : null,
+      available: stillAvailable
+    };
+  });
+
+  return { order_id: orderId, items: preview };
+}
+
 export async function handler(event) {
   const ready = preflight(event);
   if (ready) return ready;
@@ -235,6 +279,11 @@ export async function handler(event) {
 
       if (params.resource === "my-orders") {
         return json(200, await loadBuyerOrders(client, user, shopId));
+      }
+
+      if (params.resource === "reorder-preview") {
+        if (!params.order_id) return json(400, { error: "order_id is required." });
+        return json(200, await reorderPreview(client, user, params.order_id));
       }
 
       let query = client
