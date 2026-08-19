@@ -14,6 +14,7 @@ import {
   isPromotionActive,
   normalizePromoCode
 } from "./_shared/marketplace-promotions.js";
+import { PRICING_TIERS_TABLE, bestPricingTierFor } from "./_shared/marketplace-pricing-tiers.js";
 
 function stripeRedirectBaseUrl() {
   const site = String(process.env.SITE_URL || process.env.URL || "").trim().replace(/\/$/, "");
@@ -172,18 +173,48 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
     for (const [, sellerCart] of bySeller) {
       const promo = promoByShop.get(sellerCart.sellerShopId) || null;
 
+      // MARKETPLACE VOLUME PRICING: marketplace_pricing_tiers has existed
+      // since the greenfield baseline, and the seller dashboard's "Pricing"
+      // tab has always let a seller create real tiers — but this is the
+      // first time checkout ever reads one back. The tier is chosen by the
+      // real total quantity being bought from THIS seller across every
+      // line in the cart (tiers are shop-scoped, not per-listing), the
+      // same "best fit, not first match" logic every consumer should share
+      // via bestPricingTierFor().
+      const totalQuantity = sellerCart.lines.reduce((sum, { quantity }) => sum + quantity, 0);
+      const { data: tierRows } = await client
+        .from(PRICING_TIERS_TABLE)
+        .select("id, name, min_quantity, discount_percent")
+        .eq("shop_id", sellerCart.sellerShopId)
+        .eq("active", true);
+      const tier = bestPricingTierFor(tierRows || [], totalQuantity);
+
+      // A promo code and a volume tier are never stacked — the buyer gets
+      // whichever discount is larger, not both compounded. A promo code is
+      // something the buyer chose to type in; a volume tier is something
+      // that applies automatically based on quantity. Compounding them
+      // would silently give a bigger discount than either the seller who
+      // configured the tier or the promo's own percent_off ever specified
+      // on its own, which is exactly the kind of unintended-side-effect
+      // pricing bug this checkout has been careful to avoid throughout.
+      const promoPercent = promo ? Number(promo.percent_off) || 0 : 0;
+      const tierPercent = tier ? Number(tier.discount_percent) || 0 : 0;
+      const discountPercent = Math.max(promoPercent, tierPercent);
+      const appliedTier = discountPercent > 0 && tierPercent >= promoPercent ? tier : null;
+      const appliedPromo = discountPercent > 0 && promoPercent > tierPercent ? promo : null;
+
       // Two computation paths, deliberately kept separate rather than
-      // unified into one formula: the no-promo path is byte-for-byte the
-      // original per-cart-line rounding (price * quantity rounded once),
-      // preserving every existing checkout test's exact expected totals.
-      // The promo path rounds the discounted PER-UNIT cents first (via
-      // applyPercentOffCents, the same bounded 0-100% helper the buyer
-      // catalog's specials listing uses) so the Stripe line item's own
-      // unit_amount and the amount used for the platform fee can never
-      // silently disagree.
+      // unified into one formula: the no-discount path is byte-for-byte
+      // the original per-cart-line rounding (price * quantity rounded
+      // once), preserving every existing checkout test's exact expected
+      // totals. The discounted path rounds the discounted PER-UNIT cents
+      // first (via applyPercentOffCents, the same bounded 0-100% helper
+      // the buyer catalog's specials listing uses) so the Stripe line
+      // item's own unit_amount and the amount used for the platform fee
+      // can never silently disagree.
       const lineItems = sellerCart.lines.map(({ listing, quantity }) => {
         const rawUnitAmount = Math.round(Number(listing.price) * 100);
-        const unitAmount = promo ? applyPercentOffCents(rawUnitAmount, promo.percent_off) : rawUnitAmount;
+        const unitAmount = discountPercent > 0 ? applyPercentOffCents(rawUnitAmount, discountPercent) : rawUnitAmount;
         return {
           quantity,
           price_data: {
@@ -193,7 +224,7 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
           }
         };
       });
-      const amount = promo
+      const amount = discountPercent > 0
         ? lineItems.reduce((sum, li, idx) => sum + li.price_data.unit_amount * sellerCart.lines[idx].quantity, 0)
         : sellerCart.lines.reduce((sum, { listing, quantity }) => sum + Math.round(Number(listing.price) * quantity * 100), 0);
       const fee = Math.round(amount * (feePercent / 100));
@@ -201,10 +232,10 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
         listing_id: listing.id,
         name: listing.name,
         quantity,
-        unit_price: promo ? lineItems[idx].price_data.unit_amount / 100 : listing.price,
+        unit_price: discountPercent > 0 ? lineItems[idx].price_data.unit_amount / 100 : listing.price,
         unit: listing.unit || "each"
       }));
-      const orderTotal = promo
+      const orderTotal = discountPercent > 0
         ? amount / 100
         : sellerCart.lines.reduce((sum, { listing, quantity }) => sum + Number(listing.price) * quantity, 0);
 
@@ -224,7 +255,9 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
           seller_shop_id: String(sellerCart.sellerShopId || ""),
           listing_ids: orderItems.map((i) => i.listing_id).join(","),
           quantity: String(orderItems.reduce((n, i) => n + i.quantity, 0)),
-          ...(promo ? { promotion_code: promo.code, discount_percent: String(promo.percent_off) } : {})
+          ...(appliedPromo ? { promotion_code: appliedPromo.code } : {}),
+          ...(appliedTier ? { pricing_tier: appliedTier.name, pricing_tier_min_quantity: String(appliedTier.min_quantity) } : {}),
+          ...(discountPercent > 0 ? { discount_percent: String(discountPercent) } : {})
         }
       });
 
@@ -246,14 +279,22 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
           items: orderItems,
           metadata: {
             stripe_checkout_session_id: session.id,
-            ...(promo ? { promotion_code: promo.code, discount_percent: promo.percent_off } : {})
+            ...(appliedPromo ? { promotion_code: appliedPromo.code } : {}),
+            ...(appliedTier ? { pricing_tier: appliedTier.name } : {}),
+            ...(discountPercent > 0 ? { discount_percent: discountPercent } : {})
           }
         });
       } catch {
         /* table may not exist pre-migration */
       }
 
-      sessions.push({ url: session.url, seller_shop_id: sellerCart.sellerShopId, total: orderTotal, promo_applied: Boolean(promo) });
+      sessions.push({
+        url: session.url,
+        seller_shop_id: sellerCart.sellerShopId,
+        total: orderTotal,
+        promo_applied: Boolean(appliedPromo),
+        pricing_tier_applied: appliedTier ? appliedTier.name : null
+      });
     }
 
     if (sessions.length === 1) {
