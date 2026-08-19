@@ -41,7 +41,7 @@ test("marketplace_seller_reviews migration ties eligibility to a real paid order
 
 test("submitSellerReview derives seller_shop_id from the real order, never from client input, and rejects a duplicate/unpaid review", () => {
   const src = fs.readFileSync(path.join(root, "netlify/functions/marketplace-catalog.js"), "utf8");
-  const fn = src.slice(src.indexOf("async function submitSellerReview"), src.indexOf("export async function handler"));
+  const fn = src.slice(src.indexOf("async function submitSellerReview"), src.indexOf("async function submitRefundRequest"));
   assert.match(fn, /order\.buyer_user_id !== user\.id/);
   assert.match(fn, /REVIEWABLE_ORDER_STATUSES\.includes\(order\.status\)/);
   assert.match(fn, /existingReview/);

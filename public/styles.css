@@ -248,7 +248,10 @@ aside button{font-size:14px!important;padding:10px 12px!important;color:#312c2f!
 .marketplace-notif-row{padding:9px 10px;border-radius:10px;margin-bottom:4px}
 .marketplace-notif-row p{margin:0 0 3px;font-size:13px}
 .marketplace-notif-row.unread{background:#fdf2f6}
-.marketplace-review-form,.marketplace-refund-form{margin-top:10px;padding:12px;border:1px solid #eadde5;border-radius:12px;display:grid;gap:10px}
+.marketplace-review-form,.marketplace-refund-form,.marketplace-standing-order-form{margin-top:10px;padding:12px;border:1px solid #eadde5;border-radius:12px;display:grid;gap:10px}
+.marketplace-standing-orders{margin-bottom:22px;padding-bottom:18px;border-bottom:1px solid #eadde5}
+.marketplace-standing-orders .heading-actions{justify-content:space-between;margin-bottom:6px}
+.marketplace-standing-orders .heading-actions h3{margin:0}
 .marketplace-review-row{padding:9px 0;border-bottom:1px solid #f0e4ea}
 .marketplace-review-row:last-child{border-bottom:0}
 .marketplace-review-row p{margin:4px 0 0}

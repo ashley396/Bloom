@@ -169,6 +169,45 @@ export function summarizeSellerReviews(reviews = []) {
   };
 }
 
+/**
+ * STANDING ORDERS from the marketplace vision: "different from blindly
+ * repeating ecommerce purchases because fresh-flower availability can
+ * change." A standing order's items are stored by name/quantity, not a
+ * frozen listing_id — every match is against the seller's CURRENT
+ * published, currently-available listings, using the same
+ * canBrowseListing/isCurrentlyAvailable/resolveDisplayPrice logic the
+ * buyer browse UI and Reorder already use. An item with no current match
+ * is flagged unavailable, never silently dropped or priced from memory.
+ */
+export function matchStandingOrderItems(items = [], listings = []) {
+  const rows = Array.isArray(items) ? items : [];
+  const candidates = (Array.isArray(listings) ? listings : [])
+    .filter((row) => canBrowseListing(row))
+    .filter((row) => isCurrentlyAvailable(row));
+  return rows.map((item) => {
+    const needle = String(item.name || "").trim().toLowerCase();
+    const match = needle
+      ? candidates.find((row) => {
+          const haystack = [row.product_name, row.variety].filter(Boolean).join(" ").toLowerCase();
+          return haystack.includes(needle) || (haystack && needle.includes(haystack));
+        })
+      : null;
+    if (!match) {
+      return { name: item.name, quantity: item.quantity, listing_id: null, available: false };
+    }
+    const display = resolveDisplayPrice(match);
+    return {
+      name: item.name,
+      quantity: item.quantity,
+      listing_id: match.id,
+      matched_product_name: match.product_name,
+      current_price: display.price,
+      current_unit: display.unit,
+      available: true
+    };
+  });
+}
+
 export function validateFloralAttributes(attrs = {}) {
   const errors = [];
   if (attrs.stem_length_in != null && attrs.stem_length_in !== "" && !(Number(attrs.stem_length_in) > 0)) {

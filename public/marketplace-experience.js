@@ -249,6 +249,81 @@
     } catch (error) {
       mount.innerHTML = `<p class="subtle">${hooks.esc(error.message)}</p>`;
     }
+    populateStandingOrderSellerOptions(hooks, state);
+  }
+
+  const CADENCE_LABELS = { sun: 'Sunday', mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday' };
+
+  function populateStandingOrderSellerOptions(hooks, state) {
+    const select = hooks.$('#marketplaceStandingOrderForm')?.elements.seller_shop_id;
+    if (!select) return;
+    const sellers = new Map();
+    (state.orders || []).forEach((o) => {
+      if (o.seller_shop_id) sellers.set(o.seller_shop_id, o.seller_display_name || 'Wholesale seller');
+    });
+    select.innerHTML = sellers.size
+      ? [...sellers.entries()].map(([id, name]) => `<option value="${hooks.esc(id)}">${hooks.esc(name)}</option>`).join('')
+      : '<option value="">Buy from a seller first to set up a standing order</option>';
+  }
+
+  function standingOrderCardHtml(hooks, so) {
+    const itemLines = (so.items || []).map((i) => `${i.quantity} × ${hooks.esc(i.name)}`).join(', ');
+    let action = '';
+    if (so.due_today && Array.isArray(so.preview)) {
+      const anyAvailable = so.preview.some((p) => p.available);
+      action = anyAvailable
+        ? `<button type="button" class="primary" data-market-standing-order-add="${hooks.esc(so.id)}">Add today's order to cart</button>`
+        : '<span class="badge warn">Due today — nothing currently available from this seller</span>';
+    }
+    return `<article class="card marketplace-order-card">
+      <div class="card-top">
+        <div><h3>${hooks.esc(so.label)}${so.due_today ? ' <span class="badge good">Due today</span>' : ''}</h3><p class="meta">${hooks.esc(so.seller_display_name || 'Wholesale seller')} · Every ${CADENCE_LABELS[so.cadence_weekday] || so.cadence_weekday}${so.active ? '' : ' · Paused'}</p></div>
+      </div>
+      <p class="subtle">${itemLines}</p>
+      <div class="card-actions">${action}<button type="button" class="secondary" data-market-edit-standing-order="${hooks.esc(so.id)}">Edit</button><button type="button" class="secondary danger" data-market-delete-standing-order="${hooks.esc(so.id)}">Delete</button></div>
+    </article>`;
+  }
+
+  async function loadStandingOrdersList(hooks, state) {
+    const mount = hooks.$('#marketplaceStandingOrdersList');
+    if (!mount) return;
+    try {
+      const data = await hooks.api('marketplace-catalog?resource=standing-orders');
+      state.standingOrders = data.standing_orders || [];
+      mount.innerHTML = state.standingOrders.length
+        ? state.standingOrders.map((so) => standingOrderCardHtml(hooks, so)).join('')
+        : hooks.empty('No standing orders yet.');
+    } catch (error) {
+      mount.innerHTML = `<p class="subtle">${hooks.esc(error.message)}</p>`;
+    }
+  }
+
+  function openStandingOrderForm(hooks, so) {
+    const form = hooks.$('#marketplaceStandingOrderForm');
+    if (!form) return;
+    form.hidden = false;
+    form.reset();
+    if (so) {
+      form.elements.id.value = so.id;
+      form.elements.label.value = so.label || '';
+      form.elements.seller_shop_id.value = so.seller_shop_id || '';
+      form.elements.cadence_weekday.value = so.cadence_weekday || 'mon';
+      form.elements.items.value = (so.items || []).map((i) => `${i.quantity}, ${i.name}`).join('\n');
+    } else {
+      form.elements.id.value = '';
+    }
+  }
+
+  function parseStandingOrderItems(text) {
+    return String(text || '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const m = line.match(/^(\d+(?:\.\d+)?)\s*[,x×]?\s*(.+)$/i);
+        return m ? { quantity: Number(m[1]), name: m[2].trim() } : null;
+      })
+      .filter(Boolean);
   }
 
   /**
@@ -511,11 +586,87 @@
       });
     }
     hooks.$('#marketplaceTabBrowse')?.addEventListener('click', () => showMarketplacePanel(hooks, '#marketplaceBrowsePanel'));
-    hooks.$('#marketplaceTabOrders')?.addEventListener('click', () => {
+    hooks.$('#marketplaceTabOrders')?.addEventListener('click', async () => {
       showMarketplacePanel(hooks, '#marketplaceOrdersPanel');
-      loadMyOrders(hooks, state);
+      await loadMyOrders(hooks, state);
+      loadStandingOrdersList(hooks, state);
     });
     hooks.$('#marketplaceTabSell')?.addEventListener('click', () => showMarketplacePanel(hooks, '#marketplaceSellPanel'));
+
+    hooks.$('[data-market-new-standing-order]')?.addEventListener('click', () => openStandingOrderForm(hooks, null));
+    hooks.$('[data-market-cancel-standing-order]')?.addEventListener('click', () => {
+      const form = hooks.$('#marketplaceStandingOrderForm');
+      if (form) form.hidden = true;
+    });
+    hooks.$('#marketplaceStandingOrderForm')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const fd = new FormData(form);
+      const items = parseStandingOrderItems(fd.get('items'));
+      if (!items.length) return hooks.toast('Add at least one item as "quantity, name".');
+      try {
+        await hooks.api('marketplace-catalog', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'save_standing_order',
+            id: fd.get('id') || undefined,
+            label: fd.get('label'),
+            seller_shop_id: fd.get('seller_shop_id'),
+            cadence_weekday: fd.get('cadence_weekday'),
+            items
+          })
+        });
+        form.hidden = true;
+        hooks.toast('Standing order saved.');
+        loadStandingOrdersList(hooks, state);
+      } catch (error) {
+        hooks.toast(error.message);
+      }
+    });
+
+    hooks.$('#marketplaceStandingOrdersList')?.addEventListener('click', async (event) => {
+      const editBtn = event.target.closest('[data-market-edit-standing-order]');
+      if (editBtn) {
+        const so = (state.standingOrders || []).find((row) => row.id === editBtn.dataset.marketEditStandingOrder);
+        if (so) openStandingOrderForm(hooks, so);
+        return;
+      }
+      const deleteBtn = event.target.closest('[data-market-delete-standing-order]');
+      if (deleteBtn) {
+        if (!window.confirm('Delete this standing order?')) return;
+        try {
+          await hooks.api('marketplace-catalog', { method: 'POST', body: JSON.stringify({ action: 'delete_standing_order', id: deleteBtn.dataset.marketDeleteStandingOrder }) });
+          hooks.toast('Standing order deleted.');
+          loadStandingOrdersList(hooks, state);
+        } catch (error) {
+          hooks.toast(error.message);
+        }
+        return;
+      }
+      const addBtn = event.target.closest('[data-market-standing-order-add]');
+      if (addBtn) {
+        const so = (state.standingOrders || []).find((row) => row.id === addBtn.dataset.marketStandingOrderAdd);
+        if (!so?.preview) return;
+        const cart = readCart();
+        let added = 0;
+        const unavailable = [];
+        for (const item of so.preview) {
+          if (!item.available || !item.listing_id) {
+            unavailable.push(item.name);
+            continue;
+          }
+          if (!cart.some((row) => row.id === item.listing_id)) {
+            cart.push({ id: item.listing_id, product_name: item.matched_product_name || item.name, price: item.current_price, quantity: item.quantity });
+            added += 1;
+          }
+        }
+        writeCart(cart);
+        renderCartBadge(hooks);
+        hooks.toast(unavailable.length
+          ? `Added ${added} item(s) at today's price. Not currently available: ${unavailable.join(', ')}.`
+          : `Added ${added} item(s) to your cart at today's price.`);
+      }
+    });
 
     hooks.$('#marketplaceOrdersList')?.addEventListener('submit', async (event) => {
       const form = event.target.closest('[data-market-review-form]');
@@ -740,7 +891,7 @@
   }
 
   async function load(hooks) {
-    const state = { items: [], orders: [], compare: [], notifications: [], q: '', category: '', seller: '', minPrice: '', maxPrice: '', inStock: false, shipping: '', variety: '', color: '', availability: '', byDate: '' };
+    const state = { items: [], orders: [], compare: [], notifications: [], standingOrders: [], q: '', category: '', seller: '', minPrice: '', maxPrice: '', inStock: false, shipping: '', variety: '', color: '', availability: '', byDate: '' };
     renderCategoryOptions(hooks);
     renderCartBadge(hooks);
     bindMarketplaceEvents(hooks, state);
