@@ -522,7 +522,7 @@ async function loadDashboardAvatar(){
   const initial=firstNameFromIdentity(session?.user,shopSettings).trim().charAt(0).toUpperCase()||"F";
   fallback.textContent=initial;
   try{
-    const d=await api("florist-community",{method:"POST",body:JSON.stringify({action:"profile"})});
+    const d=await api("florist-community?action=profile");
     const url=d?.profile?.avatar_url;
     if(url){img.src=url;img.hidden=false;fallback.hidden=true}
     else{img.hidden=true;fallback.hidden=false}

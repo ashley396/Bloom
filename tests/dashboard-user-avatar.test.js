@@ -35,8 +35,22 @@ test("loadDashboardAvatar fetches the florist's own Community profile and reuses
   const start = appJs.indexOf("async function loadDashboardAvatar(");
   assert.ok(start >= 0, "loadDashboardAvatar must exist");
   const body = appJs.slice(start, appJs.indexOf("\nasync function loadDashboard(", start));
-  assert.match(body, /api\("florist-community",\{method:"POST",body:JSON\.stringify\(\{action:"profile"\}\)\}\)/);
+  // The backend (netlify/functions/florist-community.js) only recognizes
+  // action:"profile" inside its GET branch (query string) — there is no
+  // POST-body "profile" action, so a POST call here always 400s with
+  // "Unknown community action." Regression: this call used to be a POST
+  // with a JSON body and silently failed every load (caught by the
+  // catch{} below, so the florist just saw the initials fallback forever).
+  assert.match(body, /api\("florist-community\?action=profile"\)/);
   assert.match(body, /d\?\.profile\?\.avatar_url/);
+});
+
+test("loadDashboardAvatar's request actually matches an action the backend recognizes on GET", () => {
+  const backend = fs.readFileSync(new URL("../netlify/functions/florist-community.js", import.meta.url), "utf8");
+  const getBlockStart = backend.indexOf('if (method === "GET")');
+  const getBlockEnd = backend.indexOf("\n    const action = String(body.action", getBlockStart);
+  const getBlock = backend.slice(getBlockStart, getBlockEnd);
+  assert.match(getBlock, /action === "profile"/, 'backend must still support GET ?action=profile for this call to work');
 });
 
 test("avatar falls back to the florist's real initial, never a mascot or a blank broken image, and fails quiet on error", () => {
