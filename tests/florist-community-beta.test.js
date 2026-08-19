@@ -145,6 +145,30 @@ test("publicPost exposes answered_comment_id — a real behavioral difference fo
   assert.equal(publicPost({ ...row, answered_comment_id: null }, {}).answered_comment_id, null);
 });
 
+test("Community Step 69 — Edit in Photo Studio only offers on your own photo post, and reuses the real image (no second fetch pipeline)", () => {
+  const ui = fs.readFileSync(path.join(process.cwd(), "public/community-ui.js"), "utf8");
+  assert.match(ui, /post\.is_mine && post\.image_url[\s\S]{0,80}community-edit-in-studio/);
+  const handlerStart = ui.indexOf('el.querySelectorAll(".community-edit-in-studio")');
+  const handlerEnd = ui.indexOf("async function fetchPostImageDataUrl(post)");
+  const handler = ui.slice(handlerStart, handlerEnd);
+  // Reuses the same fetchPostImageDataUrl already used by "Add to my
+  // library" — not a second image-fetching pipeline for Photo Studio.
+  assert.match(handler, /fetchPostImageDataUrl\(post\)/);
+  assert.match(handler, /window\.BloomShotLoadImage/);
+  assert.match(handler, /window\.showPage\?\.\("bloomshotPage"\)/);
+
+  const appJs = fs.readFileSync(path.join(process.cwd(), "public/app.js"), "utf8");
+  assert.match(appJs, /window\.BloomShotLoadImage\s*=\s*loadShotImageFromDataUrl/);
+  // The caption must be set into the DOM before saveShotDraft() persists
+  // the draft, or a later loadBloomShot() (fired by the showPage()
+  // navigation above) restores the stale, caption-less draft over it.
+  const fnStart = appJs.indexOf("function loadShotImageFromDataUrl(");
+  const fnBody = appJs.slice(fnStart, appJs.indexOf("window.BloomShotLoadImage", fnStart));
+  const captionIdx = fnBody.indexOf("shotCaption");
+  const saveDraftIdx = fnBody.indexOf("saveShotDraft(true)");
+  assert.ok(captionIdx > 0 && saveDraftIdx > 0 && captionIdx < saveDraftIdx, "caption must be set before the draft is saved");
+});
+
 test("mark_answered is gated to the post's own author and verifies the comment belongs to that post (Community Step 68)", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
   const block = src.slice(src.indexOf('if (action === "mark_answered")'), src.indexOf('if (action === "toggle_like")'));

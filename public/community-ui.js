@@ -465,6 +465,7 @@
         </button>
         <button type="button" class="secondary community-report" data-id="${esc(post.id)}">Report</button>
         ${post.image_url && canSaveToLibrary ? `<button type="button" class="secondary community-save-to-library" data-id="${esc(post.id)}">📌 Add to my library</button>` : ""}
+        ${post.is_mine && post.image_url ? `<button type="button" class="secondary community-edit-in-studio" data-id="${esc(post.id)}">🎨 Edit in Photo Studio</button>` : ""}
         ${mine}
         ${mod}
       </div>
@@ -854,6 +855,30 @@
           btn.disabled = false;
           btn.textContent = original;
           window.toast?.(err.message || "Could not save this photo.");
+        }
+      });
+    });
+
+    el.querySelectorAll(".community-edit-in-studio").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-id");
+        const post = state.items.find((p) => p.id === id);
+        if (!post) return;
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Loading…";
+        try {
+          const image_data_url = await fetchPostImageDataUrl(post);
+          if (!image_data_url) throw new Error("Could not read that photo. Try again.");
+          const loaded = window.BloomShotLoadImage ? await window.BloomShotLoadImage(image_data_url, { caption: post.caption }) : false;
+          if (!loaded) throw new Error("Photo Studio isn't available right now.");
+          window.showPage?.("bloomshotPage");
+          window.toast?.("Photo loaded into Photo Studio — keep editing.");
+        } catch (err) {
+          window.toast?.(err.message || "Could not open this photo in Photo Studio.");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = original;
         }
       });
     });

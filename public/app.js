@@ -1345,6 +1345,22 @@ function saveShotDraft(silent=false){
    doesn't re-encode and write the photo to localStorage on every tick. */
 function scheduleShotDraftSave(){clearTimeout(shotDraftTimer);shotDraftTimer=setTimeout(()=>saveShotDraft(true),800)}
 $("#bloomshotFile")?.addEventListener("change",e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>12*1024*1024)return toast("Please choose an image under 12 MB");const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{shotImage=img;shotRotation=0;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}drawBloomShot();toast("Photo ready to edit");prepareShotCutout();saveShotDraft(true)};img.src=reader.result};reader.readAsDataURL(file)});
+// Community Step 69 — the reverse of the existing Photo Studio → Community
+// "Post to Community feed" checkbox: pull a real photo (already resolved
+// to a data URL by the caller, e.g. Community's own fetchPostImageDataUrl)
+// back into Photo Studio for further editing. Same reset/draw sequence as
+// the file-upload handler above, so it behaves exactly like choosing that
+// photo from disk.
+function loadShotImageFromDataUrl(dataUrl,{caption}={}){
+  if(!dataUrl)return Promise.resolve(false);
+  return new Promise((resolve)=>{
+    const img=new Image();
+    img.onload=()=>{shotImage=img;shotRotation=0;shotCutout=null;shotUseCutout=true;shotRecipe=null;shotSavedProductId=null;const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}drawBloomShot();prepareShotCutout();if(caption&&$("#shotCaption")&&!$("#shotCaption").value.trim())$("#shotCaption").value=caption;saveShotDraft(true);resolve(true)};
+    img.onerror=()=>{toast("Could not load that photo into Photo Studio.");resolve(false)};
+    img.src=dataUrl;
+  });
+}
+window.BloomShotLoadImage=loadShotImageFromDataUrl;
 $("#bloomshotRemovePhoto")?.addEventListener("click",()=>{shotImage=null;shotCutout=null;shotRejectedCutout=null;shotUseCutout=true;shotRotation=0;shotRecipe=null;shotSavedProductId=null;const file=$("#bloomshotFile");if(file)file.value="";const _ro=$("#shotRecipeOut");if(_ro){_ro.hidden=true;_ro.innerHTML=""}const cutRow=$("#bloomshotCutoutRow");if(cutRow){cutRow.hidden=true}const cutStatus=$("#bloomshotCutoutStatus");if(cutStatus)cutStatus.textContent="";drawBloomShot();if($("#shotStatus"))$("#shotStatus").textContent="Photo removed. Choose a new arrangement photo to start over.";toast("Photo removed — choose a new one");saveShotDraft(true)});
 $$('[data-shot-preset]').forEach(b=>b.addEventListener("click",()=>{setShotPreset(b.dataset.shotPreset);if(shotImage)scheduleShotDraftSave()}));
 $$('#shotBrightness,#shotContrast,#shotSaturation,#shotWarmth,#shotBackground,#shotSize,#shotWatermark').forEach(el=>el.addEventListener("input",()=>{syncShotOutputs();drawBloomShot();if(shotImage)scheduleShotDraftSave()}));
