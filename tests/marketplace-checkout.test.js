@@ -48,6 +48,7 @@ function baseDependencies({ application = approvedApplication(), listings = [lis
   const client = createFakeSupabaseClient([
     { data: application, error: null }, // marketplace_verification_applications lookup
     { data: listings, error: null }, // marketplace_listings lookup
+    { data: [], error: null }, // seller profile lookup (minimum order) — no profile/minimum configured by default
     { data: [], error: null }, // pricing tier lookup (per seller) — no tiers configured by default
     { data: null, error: null }, // best-effort marketplace_wholesale_orders insert (per seller)
   ]);
@@ -171,10 +172,11 @@ test("marketplace checkout: a valid single-seller cart builds one Stripe session
 test("marketplace checkout: a valid promo code discounts that seller's line items and is recorded on the session and order", () =>
   withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app", BLOOM_MARKETPLACE_FEE_PERCENT: "5" }, async () => {
     const deps = baseDependencies({ listings: [listingRow({ price: 20 })] });
-    // Response queue order: application, listings, promo lookup, tier lookup, order insert.
+    // Response queue order: application, listings, seller profile (minimum order), promo lookup, tier lookup, order insert.
     const extraClient = createFakeSupabaseClient([
       { data: approvedApplication(), error: null },
       { data: [listingRow({ price: 20 })], error: null },
+      { data: [], error: null },
       { data: [{ shop_id: "seller_shop_1", code: "SPRING10", percent_off: 10, active: true, starts_at: null, ends_at: null }], error: null },
       { data: [], error: null },
       { data: null, error: null },
@@ -207,6 +209,7 @@ test("marketplace checkout: a promo code that matches no seller in the cart is r
     const extraClient = createFakeSupabaseClient([
       { data: approvedApplication(), error: null },
       { data: [listingRow({ price: 20 })], error: null },
+      { data: [], error: null }, // seller profile lookup — no minimum configured
       { data: [], error: null }, // no promo rows match this seller
     ]);
     const response = await handleMarketplaceCheckout(
@@ -227,6 +230,7 @@ test("marketplace checkout: an expired promo code is treated as invalid, never a
     const extraClient = createFakeSupabaseClient([
       { data: approvedApplication(), error: null },
       { data: [listingRow({ price: 20 })], error: null },
+      { data: [], error: null }, // seller profile lookup — no minimum configured
       { data: [{ shop_id: "seller_shop_1", code: "OLDCODE", percent_off: 50, active: true, ends_at: "2000-01-01T00:00:00.000Z" }], error: null },
     ]);
     const response = await handleMarketplaceCheckout(
@@ -290,11 +294,13 @@ test("marketplace checkout: a cart spanning two sellers creates one session per 
 
 test("marketplace checkout: a cart quantity crossing a seller's pricing tier threshold is discounted", () =>
   withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app", BLOOM_MARKETPLACE_FEE_PERCENT: "5" }, async () => {
-    // Response queue order: application, listings, tier lookup, order insert.
-    // No promo_code in the request, so the promotions table is never touched.
+    // Response queue order: application, listings, seller profile (minimum
+    // order), tier lookup, order insert. No promo_code in the request, so
+    // the promotions table is never touched.
     const extraClient = createFakeSupabaseClient([
       { data: approvedApplication(), error: null },
       { data: [listingRow({ price: 20 })], error: null },
+      { data: [], error: null },
       { data: [{ id: "tier_1", name: "Volume florist", min_quantity: 10, discount_percent: 15, active: true }], error: null },
       { data: null, error: null },
     ]);
@@ -338,6 +344,7 @@ test("marketplace checkout: a cart quantity below every tier's threshold pays fu
     const extraClient = createFakeSupabaseClient([
       { data: approvedApplication(), error: null },
       { data: [listingRow({ price: 20 })], error: null },
+      { data: [], error: null },
       { data: [{ id: "tier_1", name: "Volume florist", min_quantity: 50, discount_percent: 15, active: true }], error: null },
       { data: null, error: null },
     ]);
@@ -368,6 +375,7 @@ test("marketplace checkout: a pricing tier and a promo code never stack — the 
     const extraClient = createFakeSupabaseClient([
       { data: approvedApplication(), error: null },
       { data: [listingRow({ price: 10 })], error: null },
+      { data: [], error: null },
       { data: [{ shop_id: "seller_shop_1", code: "SPRING10", percent_off: 10, active: true, starts_at: null, ends_at: null }], error: null },
       { data: [{ id: "tier_1", name: "Big volume", min_quantity: 10, discount_percent: 20, active: true }], error: null },
       { data: null, error: null },
@@ -399,6 +407,7 @@ test("marketplace checkout: when the promo code beats the tier, the promo wins a
     const extraClient = createFakeSupabaseClient([
       { data: approvedApplication(), error: null },
       { data: [listingRow({ price: 10 })], error: null },
+      { data: [], error: null },
       { data: [{ shop_id: "seller_shop_1", code: "BIGSALE", percent_off: 30, active: true, starts_at: null, ends_at: null }], error: null },
       { data: [{ id: "tier_1", name: "Small volume", min_quantity: 10, discount_percent: 5, active: true }], error: null },
       { data: null, error: null },
@@ -423,4 +432,108 @@ test("marketplace checkout: when the promo code beats the tier, the promo wins a
     assert.equal(stripeCall.metadata.discount_percent, "30");
     assert.equal(stripeCall.metadata.promotion_code, "BIGSALE");
     assert.equal(stripeCall.metadata.pricing_tier, undefined);
+  }));
+
+// MINIMUM ORDER AMOUNT: a seller's storefront profile has always let them
+// set and display a minimum order ($) — shown to buyers on the storefront
+// detail panel since the storefront-enrichment phase — but checkout never
+// enforced it. These tests prove the check is actually wired in, blocks
+// checkout entirely (no Stripe session at all) when a seller's minimum
+// isn't met, and is evaluated against the pre-discount subtotal so a
+// promo/tier discount can never be used to slip an order under it.
+
+test("marketplace checkout: a cart below a seller's minimum order amount is rejected with 409 before any Stripe session is created", () =>
+  withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app" }, async () => {
+    // Response queue order: application, listings, seller profile (minimum order).
+    const extraClient = createFakeSupabaseClient([
+      { data: approvedApplication(), error: null },
+      { data: [listingRow({ price: 20 })], error: null },
+      { data: [{ shop_id: "seller_shop_1", display_name: "Rose Co", minimum_order_amount: 150 }], error: null },
+    ]);
+    const response = await handleMarketplaceCheckout(
+      postEvent({ items: [{ listing_id: "listing_1", quantity: 1 }] }), // $20, well under the $150 minimum
+      {
+        client: extraClient,
+        currentUser: async () => ({ client: extraClient, user: USER, shopId: SHOP_ID }),
+        createStripe: () => ({ checkout: { sessions: { create: async () => { throw new Error("must not create a Stripe session below the seller's minimum order"); } } } }),
+        isFeatureEnabled: () => true,
+      },
+    );
+    assert.equal(response.statusCode, 409);
+    const body = JSON.parse(response.body);
+    assert.match(body.error, /Rose Co/);
+    assert.match(body.error, /minimum order of 150\.00/);
+    assert.equal(body.items[0].seller_shop_id, "seller_shop_1");
+    assert.equal(body.items[0].minimum, 150);
+    assert.equal(body.items[0].subtotal, 20);
+  }));
+
+test("marketplace checkout: a cart at or above a seller's minimum order amount checks out normally", () =>
+  withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app" }, async () => {
+    const extraClient = createFakeSupabaseClient([
+      { data: approvedApplication(), error: null },
+      { data: [listingRow({ price: 20 })], error: null },
+      { data: [{ shop_id: "seller_shop_1", display_name: "Rose Co", minimum_order_amount: 150 }], error: null },
+      { data: [], error: null }, // tier lookup
+      { data: null, error: null }, // order insert
+    ]);
+    const response = await handleMarketplaceCheckout(
+      postEvent({ items: [{ listing_id: "listing_1", quantity: 10 }] }), // $200, above the $150 minimum
+      {
+        client: extraClient,
+        currentUser: async () => ({ client: extraClient, user: USER, shopId: SHOP_ID }),
+        createStripe: () => ({ checkout: { sessions: { create: async (params) => { extraClient.calls.push({ stripeCheckoutCreate: params }); return { id: "cs_0", url: "https://stripe.test/session/0" }; } } } }),
+        isFeatureEnabled: () => true,
+      },
+    );
+    assert.equal(response.statusCode, 200);
+    assert.equal(JSON.parse(response.body).sessions[0].total, 200);
+  }));
+
+test("marketplace checkout: a promo/tier discount can never be used to slip an order under a seller's minimum — the minimum is checked pre-discount", () =>
+  withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app" }, async () => {
+    // $200 subtotal meets the $150 minimum, but a 50% promo would bring
+    // the actual charge down to $100 — still checks out, because the
+    // minimum is evaluated against the cart's real subtotal, not the
+    // post-discount amount.
+    const extraClient = createFakeSupabaseClient([
+      { data: approvedApplication(), error: null },
+      { data: [listingRow({ price: 20 })], error: null },
+      { data: [{ shop_id: "seller_shop_1", display_name: "Rose Co", minimum_order_amount: 150 }], error: null },
+      { data: [{ shop_id: "seller_shop_1", code: "HALFOFF", percent_off: 50, active: true, starts_at: null, ends_at: null }], error: null },
+      { data: [], error: null }, // tier lookup
+      { data: null, error: null }, // order insert
+    ]);
+    const response = await handleMarketplaceCheckout(
+      postEvent({ items: [{ listing_id: "listing_1", quantity: 10 }], promo_code: "halfoff" }),
+      {
+        client: extraClient,
+        currentUser: async () => ({ client: extraClient, user: USER, shopId: SHOP_ID }),
+        createStripe: () => ({ checkout: { sessions: { create: async (params) => { extraClient.calls.push({ stripeCheckoutCreate: params }); return { id: "cs_0", url: "https://stripe.test/session/0" }; } } } }),
+        isFeatureEnabled: () => true,
+      },
+    );
+    assert.equal(response.statusCode, 200);
+    assert.equal(JSON.parse(response.body).sessions[0].total, 100); // $200 - 50% = $100, below the $150 minimum, but the gate already passed on the $200 subtotal
+  }));
+
+test("marketplace checkout: a seller with no minimum_order_amount configured never blocks checkout", () =>
+  withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app" }, async () => {
+    const extraClient = createFakeSupabaseClient([
+      { data: approvedApplication(), error: null },
+      { data: [listingRow({ price: 1 })], error: null },
+      { data: [{ shop_id: "seller_shop_1", display_name: "Rose Co", minimum_order_amount: 0 }], error: null },
+      { data: [], error: null }, // tier lookup
+      { data: null, error: null }, // order insert
+    ]);
+    const response = await handleMarketplaceCheckout(
+      postEvent({ items: [{ listing_id: "listing_1", quantity: 1 }] }),
+      {
+        client: extraClient,
+        currentUser: async () => ({ client: extraClient, user: USER, shopId: SHOP_ID }),
+        createStripe: () => ({ checkout: { sessions: { create: async (params) => { extraClient.calls.push({ stripeCheckoutCreate: params }); return { id: "cs_0", url: "https://stripe.test/session/0" }; } } } }),
+        isFeatureEnabled: () => true,
+      },
+    );
+    assert.equal(response.statusCode, 200);
   }));

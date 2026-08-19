@@ -139,6 +139,43 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
       bySeller.get(sellerKey).lines.push({ listing, quantity: line.quantity });
     }
 
+    // MINIMUM ORDER AMOUNT: a seller's storefront profile has always let
+    // them set and display a minimum order ($) — the buyer-facing detail
+    // panel has shown it since the storefront-enrichment phase — but
+    // nothing ever enforced it. A buyer could see "Minimum order: $150"
+    // on a seller's page and check out with a $12 order anyway. Checked
+    // against the cart's real subtotal for that seller BEFORE any promo
+    // or volume-tier discount — a minimum order is a gate on how much is
+    // actually in the cart, not on what the buyer ends up paying after a
+    // discount, so a big enough tier or promo can never be used to slip
+    // an order under a seller's stated minimum.
+    const sellerShopIdsInCart = [...bySeller.values()].map((s) => s.sellerShopId).filter(Boolean);
+    const { data: sellerProfileRows, error: sellerProfileError } = await client
+      .from("marketplace_seller_profiles")
+      .select("shop_id, display_name, minimum_order_amount")
+      .in("shop_id", sellerShopIdsInCart);
+    if (sellerProfileError) throw sellerProfileError;
+    const sellerProfileByShop = new Map((sellerProfileRows || []).map((row) => [row.shop_id, row]));
+
+    const belowMinimum = [...bySeller.entries()]
+      .map(([, sellerCart]) => {
+        const profile = sellerProfileByShop.get(sellerCart.sellerShopId);
+        const minimum = Number(profile?.minimum_order_amount) || 0;
+        if (minimum <= 0) return null;
+        const subtotal = sellerCart.lines.reduce((sum, { listing, quantity }) => sum + Number(listing.price) * quantity, 0);
+        if (subtotal >= minimum) return null;
+        return { seller_shop_id: sellerCart.sellerShopId, seller_name: profile?.display_name || "This seller", minimum, subtotal };
+      })
+      .filter(Boolean);
+    if (belowMinimum.length) {
+      return json(409, {
+        error: belowMinimum
+          .map((b) => `${b.seller_name} requires a minimum order of ${(Number(b.minimum)).toFixed(2)} (your cart has ${b.subtotal.toFixed(2)} from them)`)
+          .join("; ") + ".",
+        items: belowMinimum
+      });
+    }
+
     // MARKETPLACE SPECIALS: a promo code is scoped to one seller
     // (shop_id + code is the table's real unique key), so it's looked up
     // once against every seller actually present in this cart, never
