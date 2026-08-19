@@ -89,12 +89,40 @@ test("an action that changes data is gated behind Confirm — never runs on the 
 
   await expect(page.locator("#lilyConfirm")).toBeVisible();
   await expect(page.locator("#lilyConfirm")).toContainText("Add 12 roses to inventory?");
+  // A routine IMPORTANT write shouldn't carry the same warning as a DESTRUCTIVE one.
+  await expect(page.locator(".lily-confirm-destructive")).toHaveCount(0);
   expect(confirmedCalls).toBe(0);
 
   await page.locator("#lilyConfirmYes").click();
   await expect(page.locator("#lilyConfirm")).toBeHidden();
   await expect(page.locator(".lily-msg.assistant").last()).toHaveText("Done — inventory updated.", { timeout: 10_000 });
   expect(confirmedCalls).toBe(1);
+});
+
+test("a DESTRUCTIVE-tier action shows a stronger, visibly different warning than a routine confirm (Lily Step 76)", async ({ page }) => {
+  await mockBackend(page);
+  await page.route("**/.netlify/functions/lily-ai**", async (route) => {
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        response: "This will permanently cancel every open order.",
+        permission: { allowed: true },
+        client_action: { pending: true, requiresConfirmation: true, tier: "DESTRUCTIVE", label: "Cancel all open orders?" }
+      })
+    });
+  });
+  await withFakeSession(page);
+  await page.goto("/");
+  await expect(page.locator("#app")).toBeVisible({ timeout: 10_000 });
+  await page.locator("#lilyFab").click();
+  await expect(page.locator("#lilyPanel")).toBeVisible();
+
+  await page.locator("#lilyInput").fill("cancel all my orders");
+  await page.locator("#lilySend").click();
+
+  await expect(page.locator("#lilyConfirm")).toContainText("Cancel all open orders?");
+  await expect(page.locator(".lily-confirm-destructive")).toContainText("can't be undone");
 });
 
 test("Cancel on a pending action dismisses it without ever confirming", async ({ page }) => {
