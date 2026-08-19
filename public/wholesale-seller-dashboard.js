@@ -48,11 +48,20 @@
       </div>`;
   }
 
+  function floralMetaLine(hooks, p) {
+    const bits = [p.variety, p.color, p.grade].filter(Boolean);
+    const availability = p.availability_status && p.availability_status !== 'available_now'
+      ? `<span class="availability-badge status-${hooks.esc(p.availability_status)}">${hooks.esc((p.availability_status || '').replace(/_/g, ' '))}</span>`
+      : '';
+    if (!bits.length && !availability) return "";
+    return `<p class="marketplace-floral-meta">${bits.map((b) => hooks.esc(b)).join(' · ')}${availability}</p>`;
+  }
+
   function renderProducts(hooks, data) {
     const rows = (data.products || []).filter((p) => !p.archived_at);
     return `${renderNav(hooks, 'products')}
       <div class="heading-actions wholesale-toolbar"><button type="button" class="primary" data-wholesale-new-product>+ New product</button></div>
-      <div class="cards">${rows.length ? rows.map((p) => `<article class="card"><div class="card-top"><div><h3>${hooks.esc(p.product_name)}</h3><p class="meta">${hooks.esc(p.sku || 'No SKU')} · ${statusBadge(p.publish_status)}${p.low_stock ? ' · Low stock' : ''}</p></div><strong>${hooks.money(p.price)}</strong></div><p class="subtle">Inventory: ${p.inventory_total ?? p.available_quantity ?? 0} · ${(p.images || []).length} image(s) · ${(p.variants || []).length} variant(s)</p><div class="card-actions"><button type="button" class="secondary" data-wholesale-edit="${hooks.esc(p.id)}">Edit</button><button type="button" class="secondary" data-wholesale-preview="${hooks.esc(p.id)}">Preview</button><button type="button" class="primary" data-wholesale-publish="${hooks.esc(p.id)}">Publish</button><button type="button" class="secondary danger" data-wholesale-archive="${hooks.esc(p.id)}">Archive</button></div></article>`).join('') : hooks.empty('No products yet. Create your first wholesale listing.')}</div>`;
+      <div class="cards">${rows.length ? rows.map((p) => `<article class="card"><div class="card-top"><div><h3>${hooks.esc(p.product_name)}</h3><p class="meta">${hooks.esc(p.sku || 'No SKU')} · ${statusBadge(p.publish_status)}${p.low_stock ? ' · Low stock' : ''}</p>${floralMetaLine(hooks, p)}</div><strong>${hooks.money(p.price)}</strong></div><p class="subtle">Inventory: ${p.inventory_total ?? p.available_quantity ?? 0} · ${(p.images || []).length} image(s) · ${(p.variants || []).length} variant(s)</p><div class="card-actions"><button type="button" class="secondary" data-wholesale-edit="${hooks.esc(p.id)}">Edit</button><button type="button" class="secondary" data-wholesale-preview="${hooks.esc(p.id)}">Preview</button><button type="button" class="primary" data-wholesale-publish="${hooks.esc(p.id)}">Publish</button><button type="button" class="secondary danger" data-wholesale-archive="${hooks.esc(p.id)}">Archive</button></div></article>`).join('') : hooks.empty('No products yet. Create your first wholesale listing.')}</div>`;
   }
 
   function renderOrders(hooks, data) {
@@ -115,6 +124,21 @@
     renderSection(hooks);
   }
 
+  const FLORAL_TEXT_FIELDS = ['variety', 'color', 'grade', 'grower_name', 'origin', 'delivery_region', 'pickup_city', 'pickup_state', 'substitution_note'];
+  const FLORAL_NUMBER_FIELDS = ['stem_length_in', 'stems_per_bunch', 'bunches_per_box', 'case_quantity', 'price_per_stem', 'price_per_bunch', 'price_per_box', 'price_per_case', 'lead_time_days'];
+  const FLORAL_DATE_FIELDS = ['available_from', 'available_until'];
+
+  function setSeasonalMonths(months) {
+    const set = new Set((months || []).map((m) => String(m)));
+    document.querySelectorAll('#wholesaleSeasonalMonths input[type="checkbox"]').forEach((box) => {
+      box.checked = set.has(box.value);
+    });
+  }
+
+  function readSeasonalMonths() {
+    return Array.from(document.querySelectorAll('#wholesaleSeasonalMonths input[type="checkbox"]:checked')).map((box) => Number(box.value));
+  }
+
   function openProductDialog(hooks, product) {
     const dialog = hooks.$('#wholesaleProductDialog');
     const form = hooks.$('#wholesaleProductForm');
@@ -135,11 +159,17 @@
       hooks.$('#wholesaleImageUrls').value = (product.images || []).map((img) => img.url).join('\n');
       hooks.$('#wholesaleVariantsJson').value = JSON.stringify(product.variants || [], null, 2);
       hooks.$('#wholesalePublishStatus').textContent = statusBadge(product.publish_status);
+      FLORAL_TEXT_FIELDS.forEach((field) => { if (form.elements[field]) form.elements[field].value = product[field] || ''; });
+      FLORAL_NUMBER_FIELDS.forEach((field) => { if (form.elements[field]) form.elements[field].value = product[field] ?? ''; });
+      FLORAL_DATE_FIELDS.forEach((field) => { if (form.elements[field]) form.elements[field].value = product[field] || ''; });
+      if (form.elements.availability_status) form.elements.availability_status.value = product.availability_status || 'available_now';
+      setSeasonalMonths(product.seasonal_months);
     } else {
       form.elements.id.value = '';
       hooks.$('#wholesaleImageUrls').value = '';
       hooks.$('#wholesaleVariantsJson').value = '[]';
       hooks.$('#wholesalePublishStatus').textContent = 'Draft';
+      setSeasonalMonths([]);
     }
     dialog.showModal();
   }
@@ -175,8 +205,14 @@
       publish_status: 'draft',
       images,
       variants,
-      image_url: images[0]?.url || ''
+      image_url: images[0]?.url || '',
+      availability_status: fd.get('availability_status') || 'available_now',
+      seasonal_months: readSeasonalMonths()
     };
+    FLORAL_TEXT_FIELDS.concat(FLORAL_NUMBER_FIELDS, FLORAL_DATE_FIELDS).forEach((field) => {
+      const value = fd.get(field);
+      if (value !== null) body[field] = value;
+    });
     await hooks.api('marketplace-seller', { method: 'POST', body: JSON.stringify(body) });
     hooks.$('#wholesaleProductDialog')?.close();
     hooks.toast('Product saved.');

@@ -1,7 +1,7 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail } from "./_shared/supabase.js";
 import { normalizeMarketplaceCategory, MARKETPLACE_CATEGORIES } from "./_shared/marketplace-categories.js";
-import { canBrowseListing } from "./_shared/marketplace-products.js";
+import { canBrowseListing, resolveDisplayPrice, isCurrentlyAvailable, availabilityStatusLabel } from "./_shared/marketplace-products.js";
 
 const LISTINGS = "marketplace_listings";
 const IMAGES = "marketplace_listing_images";
@@ -18,6 +18,7 @@ function isMissingTableError(error) {
 function sanitizeListing(row) {
   if (!row) return null;
   const category = normalizeMarketplaceCategory(row.category_slug || row.category);
+  const display = resolveDisplayPrice(row);
   return {
     id: row.id,
     shop_id: row.shop_id,
@@ -36,7 +37,36 @@ function sanitizeListing(row) {
     allows_shipping: row.allows_shipping !== false,
     allows_local_pickup: Boolean(row.allows_local_pickup),
     active: row.active !== false,
-    low_stock: Number(row.available_quantity ?? 0) <= Number(row.low_stock_threshold ?? 5)
+    low_stock: Number(row.available_quantity ?? 0) <= Number(row.low_stock_threshold ?? 5),
+    // Floral-specific wholesale attributes (Marketplace vision phase 1).
+    variety: row.variety || "",
+    color: row.color || "",
+    stem_length_in: row.stem_length_in ?? null,
+    grade: row.grade || "",
+    grower_name: row.grower_name || "",
+    origin: row.origin || "",
+    stems_per_bunch: row.stems_per_bunch ?? null,
+    bunches_per_box: row.bunches_per_box ?? null,
+    case_quantity: row.case_quantity ?? null,
+    display_price: display.price,
+    display_price_unit: display.unit,
+    unit_prices: [
+      row.price_per_stem != null ? { unit: "stem", price: Number(row.price_per_stem) } : null,
+      row.price_per_bunch != null ? { unit: "bunch", price: Number(row.price_per_bunch) } : null,
+      row.price_per_box != null ? { unit: "box", price: Number(row.price_per_box) } : null,
+      row.price_per_case != null ? { unit: "case", price: Number(row.price_per_case) } : null
+    ].filter(Boolean),
+    availability_status: row.availability_status || "available_now",
+    availability_label: availabilityStatusLabel(row.availability_status),
+    currently_available: isCurrentlyAvailable(row),
+    available_from: row.available_from || null,
+    available_until: row.available_until || null,
+    seasonal_months: row.seasonal_months || null,
+    lead_time_days: row.lead_time_days ?? null,
+    delivery_region: row.delivery_region || "",
+    pickup_city: row.pickup_city || "",
+    pickup_state: row.pickup_state || "",
+    substitution_note: row.substitution_note || ""
   };
 }
 
@@ -68,11 +98,57 @@ export async function handler(event) {
       const q = String(params.q || "").trim().toLowerCase();
       if (q) {
         items = items.filter((item) =>
-          [item.product_name, item.supplier_name, item.category, item.description]
+          [item.product_name, item.supplier_name, item.category, item.description, item.variety, item.color, item.grower_name, item.origin]
             .join(" ")
             .toLowerCase()
             .includes(q)
         );
+      }
+
+      const varietyFilter = String(params.variety || "").trim().toLowerCase();
+      if (varietyFilter) {
+        items = items.filter((item) => item.variety?.toLowerCase().includes(varietyFilter));
+      }
+
+      const colorFilter = String(params.color || "").trim().toLowerCase();
+      if (colorFilter) {
+        items = items.filter((item) => item.color?.toLowerCase() === colorFilter);
+      }
+
+      const growerFilter = String(params.grower || "").trim().toLowerCase();
+      if (growerFilter) {
+        items = items.filter((item) => item.grower_name?.toLowerCase().includes(growerFilter));
+      }
+
+      const originFilter = String(params.origin || "").trim().toLowerCase();
+      if (originFilter) {
+        items = items.filter((item) => item.origin?.toLowerCase().includes(originFilter));
+      }
+
+      const availabilityFilter = String(params.availability || "").trim().toLowerCase();
+      if (availabilityFilter) {
+        items = items.filter((item) => item.availability_status === availabilityFilter);
+      }
+
+      if (params.availableOnly === "true") {
+        items = items.filter((item) => item.currently_available);
+      }
+
+      const minStemLength = params.minStemLength != null && params.minStemLength !== "" ? Number(params.minStemLength) : null;
+      if (minStemLength != null && !Number.isNaN(minStemLength)) {
+        items = items.filter((item) => Number(item.stem_length_in) >= minStemLength);
+      }
+
+      // A florist searching "flowers for Friday" means available by that
+      // date — a listing scheduled to start after it, or that has already
+      // stopped, is not a real answer.
+      const byDate = params.byDate ? new Date(params.byDate) : null;
+      if (byDate && !Number.isNaN(byDate.getTime())) {
+        items = items.filter((item) => {
+          if (item.available_from && new Date(item.available_from) > byDate) return false;
+          if (item.available_until && new Date(item.available_until) < byDate) return false;
+          return true;
+        });
       }
 
       const categoryFilter = params.category || "";

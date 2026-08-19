@@ -1,9 +1,9 @@
 import { getAssistant, resolveAssistantNavigation, ASSISTANT_LIST } from "../lib/assistants/registry.js";
 
 describe("assistants registry", () => {
-  test("lists Lily, Rose, and Daisy", () => {
+  test("lists Lily, Rose, Daisy, and Bud", () => {
     const ids = ASSISTANT_LIST.map((a) => a.id);
-    expect(ids).toEqual(["lily", "rose", "daisy"]);
+    expect(ids).toEqual(["lily", "rose", "daisy", "bud"]);
   });
 
   test("Lily routes to AI Studio and opens panel", () => {

@@ -234,6 +234,24 @@ aside button{font-size:14px!important;padding:10px 12px!important;color:#312c2f!
 .wholesale-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
 .wholesale-toolbar{margin:0 0 12px}
 
+/* Florisyn Wholesale Marketplace — floral-specific product data model */
+.four{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.wholesale-floral-fields{border:1px solid #eadde5;border-radius:16px;padding:16px;margin:0 0 16px;display:grid;gap:12px}
+.wholesale-floral-fields legend{font-weight:800;color:#8f2758;padding:0 6px}
+.wholesale-month-checks{display:flex;flex-wrap:wrap;gap:10px}
+.wholesale-month-checks label{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;margin:0}
+.wholesale-month-checks input{width:auto}
+.marketplace-floral-meta{display:flex;flex-wrap:wrap;gap:5px 10px;font-size:12px;color:#7e707a;margin:2px 0}
+.availability-badge{display:inline-block;border-radius:999px;padding:3px 9px;font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase}
+.availability-badge.status-available_now{background:#e4f2e8;color:#2d7040}
+.availability-badge.status-limited,.availability-badge.status-preorder,.availability-badge.status-scheduled{background:#fff0d9;color:#9a5d00}
+.availability-badge.status-seasonal{background:#eaf1fb;color:#2a5da0}
+.availability-badge.status-sold_out{background:#fbe4e4;color:#9a2d2d}
+.marketplace-spec-sheet{display:grid;gap:6px;margin:10px 0;font-size:13px}
+.marketplace-spec-sheet dt{font-weight:700;color:#4b3c47;display:inline}
+.marketplace-spec-sheet dd{display:inline;margin:0 0 0 4px;color:#7e707a}
+@media(max-width:700px){.four{grid-template-columns:1fr 1fr}}
+
 /* Bloom v14.1 — state-driven florist production board */
 .order-command-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
 .order-board{display:grid;grid-template-columns:repeat(9,minmax(200px,1fr));gap:14px;overflow-x:auto;padding:2px 2px 14px;scroll-snap-type:x proximity}
