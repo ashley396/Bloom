@@ -358,6 +358,51 @@
   font-size: 0.92rem;
 }
 
+/* Recipe Step 66/75 — real confidence labels, Design DNA, and scaled sizes. */
+.community-recipe-dna {
+  margin: 0.1rem 0 0.5rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #a72f67;
+}
+
+.community-recipe-sizes {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0 0 0.5rem;
+}
+
+.community-recipe-sizes button {
+  border: 1px solid #eadde5;
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #6b5560;
+  cursor: pointer;
+}
+
+.community-recipe-sizes button.active {
+  background: #a72f67;
+  border-color: #a72f67;
+  color: #fff;
+}
+
+.community-recipe-confidence {
+  font-size: 0.78rem;
+  font-style: italic;
+  color: #a5793c;
+}
+
+.community-recipe-sub {
+  display: block;
+  font-size: 0.78rem;
+  color: #857680;
+  margin-left: 1.4rem;
+}
+
 .community-recipe-row {
   display: grid;
   grid-template-columns: 1fr 5rem;

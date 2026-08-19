@@ -59,6 +59,32 @@ test("publicRecipeSummary omits internal fields", () => {
   assert.equal("image_path" in summary, false);
 });
 
+test("publicRecipeSummary attaches real design DNA, curated substitutes, and precomputed scaled variants (Step 66/75)", () => {
+  const row = {
+    id: "r2",
+    title: "Peony Garden",
+    recipe: [
+      { name: "Peony", qty: 4, kind: "flower" },
+      { name: "Israeli ruscus", qty: 3, kind: "foliage" },
+    ],
+    instructions: [],
+    suggested_retail: 90,
+    import_count: 0,
+    author_user_id: "u1",
+    created_at: "2026-08-10T00:00:00Z",
+  };
+  const summary = publicRecipeSummary(row);
+
+  assert.equal(summary.design_dna.stemCount, 7);
+  assert.ok(summary.design_dna.styleTags.includes("romantic"));
+
+  const peony = summary.recipe.find((r) => r.name === "Peony");
+  assert.deepEqual(peony.substitutes, ["Garden rose", "Ranunculus"]);
+
+  assert.equal(summary.scaled_variants.smaller.find((r) => r.name === "Peony").qty, 3);
+  assert.equal(summary.scaled_variants.larger.find((r) => r.name === "Peony").qty, 6);
+});
+
 test("RECIPE_AI_SCHEMA documents Lily output shape", () => {
   assert.ok(RECIPE_AI_SCHEMA.name);
   assert.ok(Array.isArray(RECIPE_AI_SCHEMA.recipe));

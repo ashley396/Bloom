@@ -269,14 +269,45 @@
     return `<div class="community-filters" role="toolbar" aria-label="Filter by category">${chips}</div>`;
   }
 
+    /** Recipe Step 66/75: renders one size's stems with confidence badges
+     * and curated substitute hints — real data from publicRecipeSummary,
+     * never client-computed. */
+    function stemListHtml(rows) {
+      return (rows || [])
+        .slice(0, 8)
+        .map((row) => {
+          const estimated = row.confidence === "estimated"
+            ? ` <span class="community-recipe-confidence" title="Lily wasn't fully certain about this stem from the photo — check it before ordering">~estimated</span>`
+            : "";
+          const subs = (row.substitutes || []).length
+            ? ` <span class="community-recipe-sub">or substitute: ${esc(row.substitutes.join(", "))}</span>`
+            : "";
+          return `<li>${esc(row.qty || row.quantity)} × ${esc(row.name)}${estimated}${subs}</li>`;
+        })
+        .join("");
+    }
+
+    function designDnaHtml(dna) {
+      if (!dna || !dna.stemCount) return "";
+      const tags = (dna.styleTags || []).map((t) => t.charAt(0).toUpperCase() + t.slice(1));
+      const ratio = dna.focalToFoliageRatio != null ? `${dna.focalToFoliageRatio}% focal / ${100 - dna.focalToFoliageRatio}% foliage` : `${dna.stemCount} stems`;
+      return `<p class="subtle community-recipe-dna">${tags.length ? esc(tags.join(" · ")) + " · " : ""}${esc(ratio)}</p>`;
+    }
+
   function recipePanel(post) {
     const id = post.id;
     if (post.published_recipe) {
       const r = post.published_recipe;
-      const stems = (r.recipe || [])
-        .slice(0, 8)
-        .map((row) => `<li>${esc(row.qty || row.quantity)} × ${esc(row.name)}</li>`)
-        .join("");
+      const variants = { standard: r.recipe || [], smaller: r.scaled_variants?.smaller || [], larger: r.scaled_variants?.larger || [] };
+      const activeSize = state.recipeUi[id]?.size || "standard";
+      const stems = stemListHtml(variants[activeSize] || variants.standard);
+      const sizeToggle = r.scaled_variants
+        ? `<div class="community-recipe-sizes" role="tablist" aria-label="Recipe size">
+            <button type="button" data-recipe-size="smaller" data-id="${esc(id)}" class="${activeSize === "smaller" ? "active" : ""}">Smaller (0.75×)</button>
+            <button type="button" data-recipe-size="standard" data-id="${esc(id)}" class="${activeSize === "standard" ? "active" : ""}">Standard</button>
+            <button type="button" data-recipe-size="larger" data-id="${esc(id)}" class="${activeSize === "larger" ? "active" : ""}">Larger (1.5×)</button>
+          </div>`
+        : "";
       const importBtn =
         !post.is_mine && r.id && permissionAtLeast(post.share_permission, "allow_shop_use")
           ? `<button type="button" class="primary community-import-recipe" data-recipe-id="${esc(r.id)}">Add to My Shop</button>`
@@ -298,6 +329,8 @@
         ${post.is_mine ? `<p class="subtle">Wrong stems? Lily can re-read your arrangement photo.</p>` : ""}
         <h4>${esc(r.title)}</h4>
         ${r.suggested_retail ? `<p class="subtle">Suggested retail · $${Number(r.suggested_retail).toFixed(0)}</p>` : ""}
+        ${designDnaHtml(r.design_dna)}
+        ${sizeToggle}
         ${stems ? `<ul class="community-recipe-stems">${stems}</ul>` : ""}
         ${importBtn}
         ${rebuildBtn}
@@ -879,6 +912,15 @@
         } finally {
           btn.disabled = false;
         }
+      });
+    });
+
+    el.querySelectorAll("[data-recipe-size]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-id");
+        const size = btn.getAttribute("data-recipe-size");
+        state.recipeUi[id] = { ...(state.recipeUi[id] || {}), size };
+        render();
       });
     });
 
