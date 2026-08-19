@@ -10,10 +10,61 @@ const MAX_OBJECT_KEYS=40;
 const BLOCKED_KEY=/^(?:logo|logo_url|image|image_url|hero_image_url|receipt_data_url|photo|photo_url|data_url|file|attachment|canvas|base64)$/i;
 const DATA_URL=/^data:[^;]+;base64,/i;
 
-function cleanJson(text){
+// String-aware brace scanner: walks the text once, tracking JSON-string
+// state so braces inside quoted values never confuse the depth counter,
+// and collects every top-level balanced {...} span it finds (there can be
+// more than one — see cleanJson below). `remainder` is what's left after
+// removing those spans, used as a clean fallback message when no span
+// parses as JSON at all.
+function scanJson(text){
+  const objects=[];
+  let out="",depth=0,start=-1,inStr=false,esc=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(depth===0&&!inStr){
+      if(c==="{"){depth=1;start=i;continue}
+      out+=c;continue;
+    }
+    if(inStr){
+      if(esc)esc=false;
+      else if(c==="\\")esc=true;
+      else if(c==='"')inStr=false;
+      continue;
+    }
+    if(c==='"'){inStr=true;continue}
+    if(c==="{")depth++;
+    else if(c==="}"){
+      depth--;
+      if(depth===0){
+        try{objects.push(JSON.parse(text.slice(start,i+1)))}catch{}
+        start=-1;
+      }
+    }
+  }
+  return {objects,remainder:out.replace(/\s+/g," ").trim()};
+}
+function mergeDeep(target,source){
+  for(const [k,v] of Object.entries(source)){
+    if(v&&typeof v==="object"&&!Array.isArray(v)&&target[k]&&typeof target[k]==="object"&&!Array.isArray(target[k]))target[k]=mergeDeep({...target[k]},v);
+    else target[k]=v;
+  }
+  return target;
+}
+export function cleanJson(text){
   const raw=String(text||"").trim().replace(/^```(?:json)?/i,"").replace(/```$/i,"").trim();
   try{return JSON.parse(raw)}catch{}
-  const match=raw.match(/\{[\s\S]*\}/);if(match)try{return JSON.parse(match[0])}catch{}
+  // Workers AI (llama-3.1-8b) sometimes replies with a sentence followed by
+  // one or more separate {...} blocks instead of a single object matching
+  // the requested schema — observed live: `Here's a draft tagline: ...
+  // {"message":"..."} ... {"website":{"tagline":"..."}}`. The previous
+  // single greedy /\{[\s\S]*\}/ regex spanned first-brace-to-last-brace
+  // across BOTH blocks, which isn't valid JSON as one document, so it
+  // always failed to parse and fell back to dumping the raw text —
+  // literal unparsed JSON syntax included — straight into the chat bubble
+  // and Lily's spoken voice, while the real website/product patch was
+  // silently lost. Scan for every balanced span instead and merge them.
+  const {objects}=scanJson(raw);
+  if(objects.length)return objects.reduce((acc,o)=>mergeDeep(acc,o),{});
   return null;
 }
 function safeText(value,max=MAX_STRING_CHARS){
@@ -94,7 +145,18 @@ async function cloudflareAi(payload){
   }
   const text=extractCloudflareText(d.result);
   if(!text.trim()) throw new Error("Cloud AI returned an empty response. Check CLOUDFLARE_AI_API_TOKEN Workers AI permissions.");
-  if(payload.mode==="generate")return {result:cleanJson(text)||{text},provider:"Cloudflare Workers AI",model,promptChars:user.length};
+  if(payload.mode==="generate"){
+    const parsed=cleanJson(text);
+    let result=parsed;
+    if(!result){
+      // No parseable JSON at all — fall back to plain prose, but strip any
+      // stray unmatched {...} fragments first so the fallback never shows
+      // raw JSON syntax in the chat bubble or Lily's spoken reply.
+      const fallback=scanJson(text).remainder||text;
+      result={text:fallback,message:fallback};
+    }
+    return {result,provider:"Cloudflare Workers AI",model,promptChars:user.length};
+  }
   return {answer:text,persona,provider:"Cloudflare Workers AI",model,promptChars:user.length};
 }
 
