@@ -40,7 +40,7 @@ test("detectIntent still routes a genuine customer search correctly — the mark
   assert.equal(detectIntent("Find John Smith.").intent, "customers.find");
 });
 
-test("searchMarketplaceForLily only returns real, currently-available listings, matched, sorted cheapest-first", async () => {
+test("searchMarketplaceForLily only returns real, currently-available listings from VERIFIED sellers, matched, sorted cheapest-first", async () => {
   const client = createFakeSupabaseClient([
     {
       data: [
@@ -52,10 +52,45 @@ test("searchMarketplaceForLily only returns real, currently-available listings, 
       error: null
     }
   ]);
-  const matches = await searchMarketplaceForLily(client, ["Freedom rose"]);
+  // s1 and s2 are the only candidate shops (s3/s4 are filtered out before
+  // verification is even checked — sold-out and non-matching, respectively)
+  // — both verified here so the pre-existing name/availability behavior
+  // stays covered independently of the new gate.
+  const adminClient = createFakeSupabaseClient([
+    { data: [{ id: "s1", owner_user_id: "u1" }, { id: "s2", owner_user_id: "u2" }], error: null },
+    { data: [{ user_id: "u1", status: "approved" }, { user_id: "u2", status: "approved" }], error: null }
+  ]);
+  const matches = await searchMarketplaceForLily(client, ["Freedom rose"], { adminClient });
   assert.deepEqual(matches.map((m) => m.supplier_name), ["Garden Co", "Bloom Wholesale"]);
   assert.equal(matches.some((m) => m.supplier_name === "Sold Out Supply"), false, "a sold-out listing must never be recommended");
   assert.equal(matches.some((m) => m.supplier_name === "Unrelated Co"), false, "a non-matching flower must never appear");
+});
+
+test("searchMarketplaceForLily never recommends a seller who has lost verification, even with real matching, available stock", async () => {
+  const client = createFakeSupabaseClient([
+    {
+      data: [
+        { id: "l1", shop_id: "s1", supplier_name: "Verified Farms", product_name: "Freedom Rose", price: 3, unit: "stem", active: true, archived_at: null, publish_status: "published" },
+        { id: "l2", shop_id: "s2", supplier_name: "Lapsed Farms", product_name: "Freedom Rose", price: 1, unit: "stem", active: true, archived_at: null, publish_status: "published" },
+      ],
+      error: null
+    }
+  ]);
+  const adminClient = createFakeSupabaseClient([
+    { data: [{ id: "s1", owner_user_id: "u1" }, { id: "s2", owner_user_id: "u2" }], error: null },
+    { data: [{ user_id: "u1", status: "approved" }, { user_id: "u2", status: "suspended" }], error: null }
+  ]);
+  const matches = await searchMarketplaceForLily(client, ["Freedom rose"], { adminClient });
+  assert.deepEqual(matches.map((m) => m.supplier_name), ["Verified Farms"]);
+  assert.equal(matches.some((m) => m.supplier_name === "Lapsed Farms"), false, "a lapsed/suspended seller must never be recommended, even at the lowest price");
+});
+
+test("searchMarketplaceForLily fails closed — recommends nothing rather than everything — when the service-role client isn't configured", async () => {
+  const client = createFakeSupabaseClient([
+    { data: [{ id: "l1", shop_id: "s1", supplier_name: "Bloom Wholesale", product_name: "Freedom Rose", price: 3, unit: "stem", active: true, archived_at: null, publish_status: "published" }], error: null }
+  ]);
+  const matches = await searchMarketplaceForLily(client, ["Freedom rose"], { adminClient: null });
+  assert.deepEqual(matches, []);
 });
 
 test("buildMarketplaceSourcingAnswer is honest when nothing real was found — never invents a supplier", () => {
@@ -71,6 +106,13 @@ test("buildMarketplaceSourcingAnswer states only real prices/sellers/units actua
   );
   assert.match(text, /Garden Co/);
   assert.match(text, /\$2\.00\/stem/);
+});
+
+test("searchMarketplaceForLily gates candidates through the one shared loadVerifiedSellerShopIds check, not a fourth parallel one", () => {
+  const src = fs.readFileSync(path.join(root, "netlify/functions/_shared/marketplace-lily-sourcing.js"), "utf8");
+  assert.match(src, /import \{ loadVerifiedSellerShopIds \} from "\.\/marketplace-verification\.js"/);
+  assert.match(src, /verifiedShopIds = await loadVerifiedSellerShopIds\(candidates\.map\(\(row\) => row\.shop_id\), \{ adminClient \}\)/);
+  assert.match(src, /\.filter\(\(row\) => verifiedShopIds\.has\(row\.shop_id\)\)/);
 });
 
 test("lily-ai.js routes marketplace.search through the real deterministic search path, never the freeform LLM chat, when a real flower was detected", () => {
