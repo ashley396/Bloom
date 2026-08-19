@@ -207,6 +207,55 @@
     }
   }
 
+  /**
+   * The real wholesaler storefront (Marketplace vision: WHOLESALER
+   * STOREFRONTS) — location, delivery/pickup, ordering policy, contact,
+   * and the seller's own featured products, not just a filtered product
+   * grid with the seller's name typed into the search box.
+   */
+  function storefrontHtml(hooks, data) {
+    const seller = data.seller || {};
+    const location = [seller.location_city, seller.location_state, seller.location_country].filter(Boolean).join(', ');
+    const facts = [
+      location ? ['Location', location] : null,
+      seller.delivery_area ? ['Delivery area', seller.delivery_area] : null,
+      seller.delivery_radius_miles ? ['Delivery radius', `${seller.delivery_radius_miles} miles`] : null,
+      seller.pickup_available ? ['Pickup', [seller.pickup_address, seller.pickup_hours].filter(Boolean).join(' · ') || 'Available'] : null,
+      data.seller?.minimum_order_amount ? ['Minimum order', hooks.money(data.seller.minimum_order_amount)] : null,
+      seller.order_deadline_note ? ['Order deadline', seller.order_deadline_note] : null,
+      seller.contact_email ? ['Email', seller.contact_email] : null,
+      seller.contact_phone ? ['Phone', seller.contact_phone] : null
+    ].filter(Boolean);
+
+    const featured = (data.featured || []).map((item) => productCard(item, hooks, { verifiedSeller: data.verified_seller })).join('');
+    const allItems = (data.items || []).map((item) => productCard(item, hooks, { verifiedSeller: data.verified_seller })).join('');
+
+    return `<div class="marketplace-storefront">
+      <button type="button" class="secondary" data-market-detail-close aria-label="Close storefront">Close</button>
+      <h2>${hooks.esc(seller.display_name || 'Wholesale seller')}</h2>
+      ${data.verified_seller ? '<span class="badge verified">Verified seller</span>' : ''}
+      ${seller.bio ? `<p>${hooks.esc(seller.bio)}</p>` : ''}
+      ${seller.website ? `<p class="subtle"><a href="${hooks.esc(seller.website)}" target="_blank" rel="noopener">${hooks.esc(seller.website)}</a></p>` : ''}
+      ${facts.length ? `<dl class="marketplace-spec-sheet">${facts.map(([k, v]) => `<div><dt>${hooks.esc(k)}</dt><dd>${hooks.esc(String(v))}</dd></div>`).join('')}</dl>` : ''}
+      ${seller.ordering_policy ? `<p class="subtle"><strong>Ordering policy:</strong> ${hooks.esc(seller.ordering_policy)}</p>` : ''}
+      ${featured ? `<section><h3>Featured</h3><div class="product-grid compact">${featured}</div></section>` : ''}
+      <section><h3>All products</h3><div class="product-grid compact">${allItems || hooks.empty('No published products yet.')}</div></section>
+    </div>`;
+  }
+
+  async function openStorefront(hooks, state, shopId) {
+    const panel = hooks.$('#marketplaceDetailPanel');
+    if (!panel || !shopId) return;
+    panel.hidden = false;
+    panel.innerHTML = '<p class="subtle">Loading storefront…</p>';
+    try {
+      const data = await hooks.api(`marketplace-catalog?shopId=${encodeURIComponent(shopId)}`);
+      panel.innerHTML = storefrontHtml(hooks, data);
+    } catch (error) {
+      panel.innerHTML = `<p class="subtle">${hooks.esc(error.message)}</p>`;
+    }
+  }
+
   async function loadSellerDashboard(hooks, state) {
     const mount = hooks.$('#marketplaceSellerDashboard');
     if (!mount) return;
@@ -374,9 +423,7 @@
       const storefront = event.target.closest('[data-market-storefront]');
       if (storefront) {
         event.preventDefault();
-        hooks.$('#marketplaceSellerFilter').value = storefront.dataset.marketStorefront;
-        state.seller = storefront.dataset.marketStorefront;
-        loadBrowse(hooks, state);
+        openStorefront(hooks, state, storefront.dataset.marketStorefront);
       }
     });
 

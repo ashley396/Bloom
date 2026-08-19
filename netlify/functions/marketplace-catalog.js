@@ -14,6 +14,18 @@ const INVENTORY = "inventory";
 
 const RECEIVABLE_ORDER_STATUSES = ["paid", "fulfilled", "completed"];
 
+// The full wholesaler storefront profile a buyer sees (Marketplace vision:
+// WHOLESALER STOREFRONTS) — location, delivery/pickup, ordering policy,
+// contact, and which of the seller's own listings they've chosen to
+// feature. Kept as one constant so the two places a buyer can reach a
+// seller profile (a listing's detail panel, and the storefront view
+// itself) never silently drift out of sync.
+const SELLER_PROFILE_FIELDS =
+  "shop_id, display_name, bio, website, verified_at, minimum_order_amount, " +
+  "location_city, location_state, location_country, delivery_area, delivery_radius_miles, " +
+  "pickup_available, pickup_address, pickup_hours, ordering_policy, order_deadline_note, " +
+  "contact_email, contact_phone, featured_listing_ids";
+
 function isMissingTableError(error) {
   if (!error) return false;
   const message = String(error.message || error.details || "").toLowerCase();
@@ -352,7 +364,7 @@ export async function handler(event) {
         if (listing?.shop_id) {
           const sellerResult = await client
             .from(SELLER_PROFILES)
-            .select("shop_id, display_name, bio, website, verified_at, minimum_order_amount")
+            .select(SELLER_PROFILE_FIELDS)
             .eq("shop_id", listing.shop_id)
             .maybeSingle();
           if (!sellerResult.error && sellerResult.data) {
@@ -377,14 +389,19 @@ export async function handler(event) {
         let seller = null;
         const sellerResult = await client
           .from(SELLER_PROFILES)
-          .select("shop_id, display_name, bio, website, verified_at, minimum_order_amount")
+          .select(SELLER_PROFILE_FIELDS)
           .eq("shop_id", params.shopId)
           .maybeSingle();
         if (!sellerResult.error) seller = sellerResult.data;
+        const featuredIds = seller?.featured_listing_ids || [];
+        const featured = featuredIds.length
+          ? featuredIds.map((id) => storefrontItems.find((item) => item.id === id)).filter(Boolean)
+          : [];
         return json(200, {
           items: storefrontItems,
           seller,
-          verified_seller: Boolean(seller?.verified_at)
+          verified_seller: Boolean(seller?.verified_at),
+          featured
         });
       }
 

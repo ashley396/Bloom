@@ -567,8 +567,35 @@ export async function handler(event) {
         website: body.website || null,
         minimum_order_amount: body.minimum_order_amount != null ? Number(body.minimum_order_amount) : 0,
         settings: body.settings && typeof body.settings === "object" ? body.settings : {},
+        // Wholesaler storefront (Marketplace vision: WHOLESALER STOREFRONTS).
+        location_city: body.location_city || null,
+        location_state: body.location_state || null,
+        location_country: body.location_country || null,
+        delivery_area: body.delivery_area || null,
+        delivery_radius_miles: body.delivery_radius_miles !== "" && body.delivery_radius_miles != null ? Number(body.delivery_radius_miles) : null,
+        pickup_available: Boolean(body.pickup_available),
+        pickup_address: body.pickup_address || null,
+        pickup_hours: body.pickup_hours || null,
+        ordering_policy: body.ordering_policy || null,
+        order_deadline_note: body.order_deadline_note || null,
+        contact_email: body.contact_email || null,
+        contact_phone: body.contact_phone || null,
         updated_at: new Date().toISOString()
       };
+
+      if (Array.isArray(body.featured_listing_ids)) {
+        // A seller can only feature their own listings — never trust a
+        // client-supplied ID list without checking ownership first.
+        const ids = [...new Set(body.featured_listing_ids.filter(Boolean))].slice(0, 12);
+        if (ids.length) {
+          const { data: owned, error: ownedError } = await client.from(LISTINGS).select("id").eq("shop_id", shopId).in("id", ids);
+          if (ownedError) throw ownedError;
+          profilePayload.featured_listing_ids = (owned || []).map((row) => row.id);
+        } else {
+          profilePayload.featured_listing_ids = [];
+        }
+      }
+
       const { data, error } = await client.from(SELLER_PROFILES).upsert(profilePayload, { onConflict: "shop_id" }).select("*").single();
       if (error) {
         if (isMissingTableError(error)) {

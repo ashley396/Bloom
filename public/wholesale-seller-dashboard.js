@@ -19,6 +19,7 @@
       ['products', 'Products'],
       ['orders', 'Orders'],
       ['customers', 'Customers'],
+      ['profile', 'Store Profile'],
       ['shipping', 'Shipping'],
       ['pricing', 'Pricing tiers'],
       ['import', 'CSV import']
@@ -77,6 +78,30 @@
       <div class="cards">${customers.length ? customers.map((c) => `<article class="card"><h3>${hooks.esc(c.company_name)}</h3><p class="meta">${hooks.esc(c.contact_name || '')} · ${hooks.esc(c.email || '')} · ${hooks.esc(c.phone || '')}</p>${c.notes ? `<p>${hooks.esc(c.notes)}</p>` : ''}</article>`).join('') : hooks.empty('Track florist and buyer accounts you sell to.')}</div>`;
   }
 
+  function renderProfile(hooks, data) {
+    const p = data.profile || {};
+    const published = (data.products || []).filter((prod) => !prod.archived_at && prod.publish_status === 'published');
+    const featuredSet = new Set(p.featured_listing_ids || []);
+    return `${renderNav(hooks, 'profile')}
+      <section class="panel wide"><h2>Store profile</h2><p class="subtle">This is what florists see when they open your storefront in the Wholesale Marketplace.</p>
+      <form id="wholesaleProfileForm" class="verification-grid">
+        <div class="two"><label>Display name<input name="display_name" value="${hooks.esc(p.display_name || '')}"></label><label>Website<input name="website" value="${hooks.esc(p.website || '')}" placeholder="https://..."></label></div>
+        <label>Bio<textarea name="bio" rows="3">${hooks.esc(p.bio || '')}</textarea></label>
+        <div class="three"><label>City<input name="location_city" value="${hooks.esc(p.location_city || '')}"></label><label>State<input name="location_state" value="${hooks.esc(p.location_state || '')}"></label><label>Country<input name="location_country" value="${hooks.esc(p.location_country || '')}"></label></div>
+        <div class="two"><label>Delivery area<input name="delivery_area" value="${hooks.esc(p.delivery_area || '')}" placeholder="e.g. Dallas–Fort Worth, TX + OK"></label><label>Delivery radius (miles)<input name="delivery_radius_miles" type="number" step="1" min="0" value="${hooks.esc(p.delivery_radius_miles ?? '')}"></label></div>
+        <label class="check"><input name="pickup_available" type="checkbox" ${p.pickup_available ? 'checked' : ''}> Local pickup available</label>
+        <div class="two"><label>Pickup address<input name="pickup_address" value="${hooks.esc(p.pickup_address || '')}"></label><label>Pickup hours<input name="pickup_hours" value="${hooks.esc(p.pickup_hours || '')}" placeholder="Mon–Fri 7am–2pm"></label></div>
+        <div class="two"><label>Minimum order ($)<input name="minimum_order_amount" type="number" step="0.01" min="0" value="${hooks.esc(p.minimum_order_amount ?? 0)}"></label><label>Order deadline<input name="order_deadline_note" value="${hooks.esc(p.order_deadline_note || '')}" placeholder="Order by 2pm for next-day"></label></div>
+        <label>Ordering policy<textarea name="ordering_policy" rows="2" placeholder="Lead times, cancellations, substitutions...">${hooks.esc(p.ordering_policy || '')}</textarea></label>
+        <div class="two"><label>Contact email<input name="contact_email" type="email" value="${hooks.esc(p.contact_email || '')}"></label><label>Contact phone<input name="contact_phone" value="${hooks.esc(p.contact_phone || '')}"></label></div>
+        <label>Featured products <span class="subtle">(shown first on your storefront — pick up to 12 published products)</span>
+          <span class="wholesale-featured-picker">${published.length ? published.map((prod) => `<label class="check"><input type="checkbox" name="featured_listing_ids" value="${hooks.esc(prod.id)}" ${featuredSet.has(prod.id) ? 'checked' : ''}> ${hooks.esc(prod.product_name)}</label>`).join('') : '<span class="subtle">Publish a product first to feature it.</span>'}</span>
+        </label>
+        <button type="submit" class="primary">Save store profile</button>
+      </form>
+      </section>`;
+  }
+
   function renderShipping(hooks, data) {
     const profiles = data.shipping_profiles || [];
     return `${renderNav(hooks, 'shipping')}
@@ -109,6 +134,7 @@
       products: renderProducts,
       orders: renderOrders,
       customers: renderCustomers,
+      profile: renderProfile,
       shipping: renderShipping,
       pricing: renderPricing,
       import: renderImport
@@ -268,6 +294,40 @@
       await hooks.api('marketplace-seller', { method: 'POST', body: JSON.stringify({ action: 'save-customer', company_name }) });
       hooks.toast('Customer saved.');
       reload(hooks);
+    });
+    hooks.$('#wholesaleProfileForm')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const fd = new FormData(form);
+      const featured_listing_ids = Array.from(form.querySelectorAll('input[name="featured_listing_ids"]:checked')).map((box) => box.value);
+      try {
+        await hooks.api('marketplace-seller', {
+          method: 'PUT',
+          body: JSON.stringify({
+            display_name: fd.get('display_name') || '',
+            bio: fd.get('bio') || '',
+            website: fd.get('website') || '',
+            minimum_order_amount: fd.get('minimum_order_amount') || 0,
+            location_city: fd.get('location_city') || '',
+            location_state: fd.get('location_state') || '',
+            location_country: fd.get('location_country') || '',
+            delivery_area: fd.get('delivery_area') || '',
+            delivery_radius_miles: fd.get('delivery_radius_miles') || '',
+            pickup_available: form.elements.pickup_available?.checked || false,
+            pickup_address: fd.get('pickup_address') || '',
+            pickup_hours: fd.get('pickup_hours') || '',
+            ordering_policy: fd.get('ordering_policy') || '',
+            order_deadline_note: fd.get('order_deadline_note') || '',
+            contact_email: fd.get('contact_email') || '',
+            contact_phone: fd.get('contact_phone') || '',
+            featured_listing_ids
+          })
+        });
+        hooks.toast('Store profile saved.');
+        reload(hooks);
+      } catch (error) {
+        hooks.toast(error.message);
+      }
     });
     hooks.$('#wholesaleShippingForm')?.addEventListener('submit', async (event) => {
       event.preventDefault();
