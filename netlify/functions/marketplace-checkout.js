@@ -136,7 +136,8 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
         listing_id: listing.id,
         name: listing.name,
         quantity,
-        unit_price: listing.price
+        unit_price: listing.price,
+        unit: listing.unit || "each"
       }));
       const orderTotal = sellerCart.lines.reduce(
         (sum, { listing, quantity }) => sum + Number(listing.price) * quantity,
@@ -163,11 +164,19 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
       });
 
       try {
+        // buyer_user_id is required for the buyer to ever see this order
+        // again — the "marketplace wholesale orders buyer read" RLS policy
+        // matches on buyer_user_id = auth.uid(), not buyer_shop_id.
+        // status must be one of the table's check-constraint values
+        // ('pending', 'processing', 'paid', 'fulfilled', 'completed',
+        // 'cancelled') — "pending_payment" is not one of them and was
+        // silently failing every insert (caught below).
         await client.from("marketplace_wholesale_orders").insert({
           seller_shop_id: sellerCart.sellerShopId,
           buyer_shop_id: shopId,
+          buyer_user_id: user.id,
           listing_id: orderItems[0]?.listing_id || null,
-          status: "pending_payment",
+          status: "pending",
           total: orderTotal,
           items: orderItems,
           metadata: { stripe_checkout_session_id: session.id }

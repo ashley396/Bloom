@@ -195,7 +195,7 @@ export function canPurchaseWithVerification(application, now = Date.now()) {
 }
 
 export function checkoutListingSelectFields() {
-  return "id, product_name, price, shop_id, active, shops(stripe_connect_account_id)";
+  return "id, product_name, price, unit, shop_id, active, shops(stripe_connect_account_id)";
 }
 
 export function mapCheckoutListing(item) {
@@ -204,6 +204,7 @@ export function mapCheckoutListing(item) {
     id: item.id,
     name: item.product_name,
     price: item.price,
+    unit: item.unit,
     shop_id: item.shop_id,
     active: item.active,
     stripe_connect_account_id: item.shops?.stripe_connect_account_id || null

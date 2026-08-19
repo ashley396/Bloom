@@ -228,6 +228,8 @@ aside button{font-size:14px!important;padding:10px 12px!important;color:#312c2f!
 .product-grid.compact{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
 .marketplace-card-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 @media(max-width:700px){.marketplace-toolbar{grid-template-columns:1fr}.marketplace-card-actions{grid-template-columns:1fr}}
+.marketplace-orders-list{display:grid;gap:12px}
+.marketplace-order-card .card-actions{margin-top:10px}
 .wholesale-seller-root{display:grid;gap:16px}
 .wholesale-seller-nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
 .wholesale-seller-nav button.active{background:#c43c6b;color:#fff;border-color:#c43c6b}

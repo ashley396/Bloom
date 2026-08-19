@@ -126,6 +126,13 @@ test("checkoutListingSelectFields and mapCheckoutListing match live listings sch
   assert.equal(mapped.stripe_connect_account_id, "acct_123");
 });
 
+test("checkoutListingSelectFields carries unit through so a receipted order can be re-added to inventory correctly", () => {
+  const fields = checkoutListingSelectFields();
+  assert.match(fields, /\bunit\b/);
+  const mapped = mapCheckoutListing({ id: "listing-1", product_name: "Roses", price: 2.5, unit: "stem", shop_id: "shop-1", active: true });
+  assert.equal(mapped.unit, "stem");
+});
+
 test("assertSignedDocumentPathForUser rejects cross-user paths", () => {
   assert.equal(assertSignedDocumentPathForUser("user-1", "user-1/2026/resale.pdf"), "user-1/2026/resale.pdf");
   assert.throws(
