@@ -1,9 +1,9 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail } from "./_shared/supabase.js";
 import { normalizeMarketplaceCategory, MARKETPLACE_CATEGORIES } from "./_shared/marketplace-categories.js";
-import { canBrowseListing, resolveDisplayPrice, isCurrentlyAvailable, availabilityStatusLabel, groupListingsForComparison, summarizeSellerReviews } from "./_shared/marketplace-products.js";
+import { canBrowseListing, resolveDisplayPrice, isCurrentlyAvailable, availabilityStatusLabel, groupListingsForComparison, summarizeSellerReviews, matchStandingOrderItems } from "./_shared/marketplace-products.js";
 import { matchRecipeToInventory } from "../../lib/floral-library/recipe-intelligence.js";
-import { shopDateStr } from "./_shared/shop-time.js";
+import { shopDateStr, weekdayLabel } from "./_shared/shop-time.js";
 import { notifyMarketplaceUser } from "./_shared/marketplace-notifications.js";
 
 const LISTINGS = "marketplace_listings";
@@ -15,6 +15,8 @@ const INVENTORY = "inventory";
 const NOTIFICATIONS = "marketplace_notifications";
 const REVIEWS = "marketplace_seller_reviews";
 const REVIEWABLE_ORDER_STATUSES = ["paid", "fulfilled", "completed"];
+const STANDING_ORDERS = "marketplace_standing_orders";
+const WEEKDAY_CODES = { Sun: "sun", Mon: "mon", Tue: "tue", Wed: "wed", Thu: "thu", Fri: "fri", Sat: "sat" };
 
 const RECEIVABLE_ORDER_STATUSES = ["paid", "fulfilled", "completed"];
 
@@ -394,6 +396,94 @@ async function submitRefundRequest(client, user, body) {
   return { order: data };
 }
 
+/**
+ * A buyer's recurring want-lists, each with a live "is this due today,
+ * and what would it cost right now" check — never a stored price, never
+ * an automatic cart/charge. shopDateStr()/weekdayLabel() give the shop's
+ * own local weekday, not the server's UTC one (the exact bug class an
+ * earlier audit this session found and fixed elsewhere).
+ */
+async function loadStandingOrders(client, user, shopId) {
+  const { data: standingOrders, error } = await client
+    .from(STANDING_ORDERS)
+    .select("*")
+    .eq("buyer_user_id", user.id)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const { data: shopRow } = shopId ? await client.from("shops").select("timezone").eq("id", shopId).maybeSingle() : { data: null };
+  const todayCode = WEEKDAY_CODES[weekdayLabel(shopDateStr(shopRow?.timezone))] || null;
+
+  const sellerIds = [...new Set((standingOrders || []).map((s) => s.seller_shop_id).filter(Boolean))];
+  let sellerNames = {};
+  if (sellerIds.length) {
+    const { data: sellers } = await client.from(SELLER_PROFILES).select("shop_id, display_name").in("shop_id", sellerIds);
+    sellerNames = Object.fromEntries((sellers || []).map((s) => [s.shop_id, s.display_name]));
+  }
+
+  const enriched = [];
+  for (const row of standingOrders || []) {
+    const dueToday = row.active && row.cadence_weekday === todayCode;
+    let preview = null;
+    if (dueToday) {
+      const { data: listings } = await client.from(LISTINGS).select("*").eq("shop_id", row.seller_shop_id);
+      preview = matchStandingOrderItems(row.items, listings || []);
+    }
+    enriched.push({ ...row, seller_display_name: sellerNames[row.seller_shop_id] || null, due_today: dueToday, preview });
+  }
+  return { standing_orders: enriched };
+}
+
+async function saveStandingOrder(client, user, shopId, body) {
+  const items = Array.isArray(body.items) ? body.items.filter((i) => String(i?.name || "").trim() && Number(i?.quantity) > 0) : [];
+  if (!body.seller_shop_id || !String(body.label || "").trim() || !items.length) {
+    const error = new Error("A seller, a label, and at least one real item with a quantity are required.");
+    error.statusCode = 400;
+    throw error;
+  }
+  if (!Object.values(WEEKDAY_CODES).includes(body.cadence_weekday)) {
+    const error = new Error("cadence_weekday must be one of sun/mon/tue/wed/thu/fri/sat.");
+    error.statusCode = 400;
+    throw error;
+  }
+  const payload = {
+    buyer_shop_id: shopId,
+    buyer_user_id: user.id,
+    seller_shop_id: body.seller_shop_id,
+    label: String(body.label).trim().slice(0, 200),
+    cadence_weekday: body.cadence_weekday,
+    items: items.map((i) => ({ name: String(i.name).trim().slice(0, 200), quantity: Number(i.quantity) })),
+    active: body.active !== false,
+    updated_at: new Date().toISOString()
+  };
+  let query;
+  if (body.id) {
+    const { data: existing } = await client.from(STANDING_ORDERS).select("id, buyer_user_id").eq("id", body.id).maybeSingle();
+    if (!existing || existing.buyer_user_id !== user.id) {
+      const error = new Error("Standing order not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+    query = client.from(STANDING_ORDERS).update(payload).eq("id", body.id).select("*").single();
+  } else {
+    query = client.from(STANDING_ORDERS).insert(payload).select("*").single();
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  return { standing_order: data };
+}
+
+async function deleteStandingOrder(client, user, body) {
+  if (!body.id) {
+    const error = new Error("id is required.");
+    error.statusCode = 400;
+    throw error;
+  }
+  const { error } = await client.from(STANDING_ORDERS).delete().eq("id", body.id).eq("buyer_user_id", user.id);
+  if (error) throw error;
+  return { ok: true };
+}
+
 export async function handler(event) {
   const ready = preflight(event);
   if (ready) return ready;
@@ -426,6 +516,10 @@ export async function handler(event) {
           .limit(50);
         if (reviewsError) throw reviewsError;
         return json(200, { reviews: reviews || [], summary: summarizeSellerReviews(reviews || []) });
+      }
+
+      if (params.resource === "standing-orders") {
+        return json(200, await loadStandingOrders(client, user, shopId));
       }
 
       if (params.resource === "notifications") {
@@ -626,6 +720,12 @@ export async function handler(event) {
 
     if (event.httpMethod === "POST") {
       const body = bodyOf(event);
+      if (body.action === "save_standing_order") {
+        return json(200, await saveStandingOrder(client, user, shopId, body));
+      }
+      if (body.action === "delete_standing_order") {
+        return json(200, await deleteStandingOrder(client, user, body));
+      }
       if (body.action === "request_refund") {
         return json(200, await submitRefundRequest(client, user, body));
       }
