@@ -1,7 +1,7 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail } from "./_shared/supabase.js";
 import { normalizeMarketplaceCategory, MARKETPLACE_CATEGORIES } from "./_shared/marketplace-categories.js";
-import { canBrowseListing, resolveDisplayPrice, isCurrentlyAvailable, availabilityStatusLabel, groupListingsForComparison } from "./_shared/marketplace-products.js";
+import { canBrowseListing, resolveDisplayPrice, isCurrentlyAvailable, availabilityStatusLabel, groupListingsForComparison, summarizeSellerReviews } from "./_shared/marketplace-products.js";
 import { matchRecipeToInventory } from "../../lib/floral-library/recipe-intelligence.js";
 import { shopDateStr } from "./_shared/shop-time.js";
 
@@ -12,6 +12,8 @@ const SELLER_PROFILES = "marketplace_seller_profiles";
 const ORDERS = "marketplace_wholesale_orders";
 const INVENTORY = "inventory";
 const NOTIFICATIONS = "marketplace_notifications";
+const REVIEWS = "marketplace_seller_reviews";
+const REVIEWABLE_ORDER_STATUSES = ["paid", "fulfilled", "completed"];
 
 const RECEIVABLE_ORDER_STATUSES = ["paid", "fulfilled", "completed"];
 
@@ -121,6 +123,13 @@ async function loadBuyerOrders(client, user, shopId) {
     shopInventory = inv || [];
   }
 
+  const orderIds = (orders || []).map((o) => o.id);
+  let reviewedOrderIds = new Set();
+  if (orderIds.length) {
+    const { data: reviewed } = await client.from(REVIEWS).select("order_id").eq("buyer_user_id", user.id).in("order_id", orderIds);
+    reviewedOrderIds = new Set((reviewed || []).map((r) => r.order_id));
+  }
+
   const enriched = (orders || []).map((order) => {
     const items = Array.isArray(order.items) ? order.items : [];
     const canReceive = RECEIVABLE_ORDER_STATUSES.includes(order.status) && !order.inventory_synced_at;
@@ -129,7 +138,8 @@ async function loadBuyerOrders(client, user, shopId) {
       ...order,
       seller_display_name: sellerNames[order.seller_shop_id] || null,
       can_receive: canReceive,
-      inventory_preview: preview ? preview.recipe : null
+      inventory_preview: preview ? preview.recipe : null,
+      can_review: REVIEWABLE_ORDER_STATUSES.includes(order.status) && !reviewedOrderIds.has(order.id)
     };
   });
 
@@ -265,6 +275,65 @@ async function reorderPreview(client, user, orderId) {
   return { order_id: orderId, items: preview };
 }
 
+/**
+ * Rating a seller is only possible from a real, paid order with them —
+ * seller_shop_id and buyer identity are both derived from that order
+ * server-side, never taken from the client. The unique constraint on
+ * order_id (one review per order, ever) is the backstop; this check
+ * gives a real 409 instead of a raw constraint-violation error.
+ */
+async function submitSellerReview(client, user, shopId, body) {
+  const rating = Number(body.rating);
+  if (!body.order_id || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+    const error = new Error("A valid order_id and a rating from 1-5 are required.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const { data: order, error: orderError } = await client.from(ORDERS).select("id, buyer_user_id, seller_shop_id, status").eq("id", body.order_id).maybeSingle();
+  if (orderError) throw orderError;
+  if (!order || order.buyer_user_id !== user.id) {
+    const error = new Error("Order not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+  if (!REVIEWABLE_ORDER_STATUSES.includes(order.status)) {
+    const error = new Error("This order hasn't been paid yet — nothing to review.");
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const { data: existingReview } = await client.from(REVIEWS).select("id").eq("order_id", order.id).maybeSingle();
+  if (existingReview) {
+    const error = new Error("You've already reviewed this order.");
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const subRating = (value) => {
+    const n = Number(value);
+    return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+  };
+
+  const { data, error } = await client
+    .from(REVIEWS)
+    .insert({
+      order_id: order.id,
+      seller_shop_id: order.seller_shop_id,
+      buyer_user_id: user.id,
+      buyer_shop_id: shopId || null,
+      rating,
+      fulfillment_rating: subRating(body.fulfillment_rating),
+      communication_rating: subRating(body.communication_rating),
+      accuracy_rating: subRating(body.accuracy_rating),
+      comment: String(body.comment || "").trim().slice(0, 2000) || null
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return { review: data };
+}
+
 export async function handler(event) {
   const ready = preflight(event);
   if (ready) return ready;
@@ -285,6 +354,18 @@ export async function handler(event) {
       if (params.resource === "reorder-preview") {
         if (!params.order_id) return json(400, { error: "order_id is required." });
         return json(200, await reorderPreview(client, user, params.order_id));
+      }
+
+      if (params.resource === "seller-reviews") {
+        if (!params.shopId) return json(400, { error: "shopId is required." });
+        const { data: reviews, error: reviewsError } = await client
+          .from(REVIEWS)
+          .select("*")
+          .eq("seller_shop_id", params.shopId)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (reviewsError) throw reviewsError;
+        return json(200, { reviews: reviews || [], summary: summarizeSellerReviews(reviews || []) });
       }
 
       if (params.resource === "notifications") {
@@ -461,11 +542,13 @@ export async function handler(event) {
         const featured = featuredIds.length
           ? featuredIds.map((id) => storefrontItems.find((item) => item.id === id)).filter(Boolean)
           : [];
+        const { data: sellerReviews } = await client.from(REVIEWS).select("rating").eq("seller_shop_id", params.shopId);
         return json(200, {
           items: storefrontItems,
           seller,
           verified_seller: Boolean(seller?.verified_at),
-          featured
+          featured,
+          reviews_summary: summarizeSellerReviews(sellerReviews || [])
         });
       }
 
@@ -483,6 +566,9 @@ export async function handler(event) {
 
     if (event.httpMethod === "POST") {
       const body = bodyOf(event);
+      if (body.action === "submit_review") {
+        return json(201, await submitSellerReview(client, user, shopId, body));
+      }
       if (body.action === "mark_notifications_read") {
         const query = client.from(NOTIFICATIONS).update({ read_at: new Date().toISOString() }).eq("recipient_user_id", user.id).is("read_at", null);
         const { error } = body.id ? await query.eq("id", body.id) : await query;
