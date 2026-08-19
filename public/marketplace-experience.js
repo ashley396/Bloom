@@ -166,6 +166,47 @@
     }
   }
 
+  const ORDER_STATUS_LABELS = {
+    pending: 'Awaiting payment',
+    processing: 'Processing',
+    paid: 'Paid — not yet shipped',
+    fulfilled: 'Fulfilled',
+    completed: 'Completed',
+    cancelled: 'Cancelled'
+  };
+
+  function orderCardHtml(hooks, order) {
+    const items = Array.isArray(order.items) ? order.items : [];
+    const itemLines = items.map((i) => `${hooks.esc(i.name)} × ${i.quantity}${i.unit ? ` ${hooks.esc(i.unit)}` : ''}`).join(', ');
+    const statusLabel = ORDER_STATUS_LABELS[order.status] || order.status;
+    const receiveAction = order.can_receive
+      ? `<button type="button" class="primary" data-market-receive-order="${hooks.esc(order.id)}">Add to my inventory</button>`
+      : (order.inventory_synced_at ? '<span class="badge good">Added to inventory</span>' : '');
+    return `<article class="card marketplace-order-card">
+      <div class="card-top">
+        <div><h3>${hooks.esc(order.seller_display_name || 'Wholesale order')}</h3><p class="meta">${hooks.esc(statusLabel)} · ${hooks.esc((order.created_at || '').slice(0, 10))}</p></div>
+        <strong>${hooks.money(order.total)}</strong>
+      </div>
+      <p class="subtle">${itemLines || 'No items on file.'}</p>
+      <div class="card-actions">${receiveAction}</div>
+    </article>`;
+  }
+
+  async function loadMyOrders(hooks, state) {
+    const mount = hooks.$('#marketplaceOrdersList');
+    if (!mount) return;
+    mount.innerHTML = '<p class="subtle">Loading your wholesale orders…</p>';
+    try {
+      const data = await hooks.api('marketplace-catalog?resource=my-orders');
+      state.orders = data.orders || [];
+      mount.innerHTML = state.orders.length
+        ? state.orders.map((order) => orderCardHtml(hooks, order)).join('')
+        : hooks.empty("You haven't purchased anything from the Wholesale Marketplace yet.");
+    } catch (error) {
+      mount.innerHTML = `<p class="subtle">${hooks.esc(error.message)}</p>`;
+    }
+  }
+
   async function loadSellerDashboard(hooks, state) {
     const mount = hooks.$('#marketplaceSellerDashboard');
     if (!mount) return;
@@ -356,13 +397,38 @@
       });
     });
 
-    hooks.$('#marketplaceTabBrowse')?.addEventListener('click', () => {
-      hooks.$('#marketplaceBrowsePanel')?.classList.add('active');
-      hooks.$('#marketplaceSellPanel')?.classList.remove('active');
+    const marketplacePanels = ['#marketplaceBrowsePanel', '#marketplaceOrdersPanel', '#marketplaceSellPanel'];
+    function showMarketplacePanel(hooks, activeId) {
+      marketplacePanels.forEach((id) => hooks.$(id)?.classList.toggle('active', id === activeId));
+      [hooks.$('#marketplaceTabBrowse'), hooks.$('#marketplaceTabOrders'), hooks.$('#marketplaceTabSell')].forEach((btn, i) => {
+        btn?.classList.toggle('active', marketplacePanels[i] === activeId);
+      });
+    }
+    hooks.$('#marketplaceTabBrowse')?.addEventListener('click', () => showMarketplacePanel(hooks, '#marketplaceBrowsePanel'));
+    hooks.$('#marketplaceTabOrders')?.addEventListener('click', () => {
+      showMarketplacePanel(hooks, '#marketplaceOrdersPanel');
+      loadMyOrders(hooks, state);
     });
-    hooks.$('#marketplaceTabSell')?.addEventListener('click', () => {
-      hooks.$('#marketplaceBrowsePanel')?.classList.remove('active');
-      hooks.$('#marketplaceSellPanel')?.classList.add('active');
+    hooks.$('#marketplaceTabSell')?.addEventListener('click', () => showMarketplacePanel(hooks, '#marketplaceSellPanel'));
+
+    hooks.$('#marketplaceOrdersList')?.addEventListener('click', async (event) => {
+      const receiveBtn = event.target.closest('[data-market-receive-order]');
+      if (!receiveBtn) return;
+      event.preventDefault();
+      receiveBtn.disabled = true;
+      receiveBtn.textContent = 'Adding to inventory…';
+      try {
+        const result = await hooks.api('marketplace-catalog', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'receive_order', order_id: receiveBtn.dataset.marketReceiveOrder })
+        });
+        hooks.toast(`Added to inventory: ${result.matched_count} updated, ${result.created_count} new.`);
+        loadMyOrders(hooks, state);
+      } catch (error) {
+        hooks.toast(error.message);
+        receiveBtn.disabled = false;
+        receiveBtn.textContent = 'Add to my inventory';
+      }
     });
 
     hooks.$('#marketplaceCartCheckout')?.addEventListener('click', async () => {
@@ -405,7 +471,7 @@
   }
 
   async function load(hooks) {
-    const state = { items: [], q: '', category: '', seller: '', minPrice: '', maxPrice: '', inStock: false, shipping: '', variety: '', color: '', availability: '', byDate: '' };
+    const state = { items: [], orders: [], q: '', category: '', seller: '', minPrice: '', maxPrice: '', inStock: false, shipping: '', variety: '', color: '', availability: '', byDate: '' };
     renderCategoryOptions(hooks);
     renderCartBadge(hooks);
     bindMarketplaceEvents(hooks, state);
