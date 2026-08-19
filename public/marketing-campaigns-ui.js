@@ -60,7 +60,7 @@
     const gen = window.smartAi;
     if (typeof gen !== "function") throw new Error("Lily is unavailable right now.");
     const shop = window.shopSettings || {};
-    const productList = (window.products || [])
+    const productList = (window.__bloomProducts || [])
       .slice(0, 8)
       .map((p) => ({ name: p.name, category: p.category, price: p.price }));
     const audienceList = (state.audiences?.segments || [])
@@ -136,6 +136,16 @@
     const channelBoxes = CHANNELS.map(
       (c) => `<label class="check"><input type="checkbox" name="channels" value="${esc(c.value)}"> ${esc(c.label)}</label>`
     ).join("");
+    const realProducts = (window.__bloomProducts || []).filter((p) => p.id);
+    const productBoxes = realProducts.length
+      ? realProducts
+          .slice(0, 50)
+          .map(
+            (p) =>
+              `<label class="check"><input type="checkbox" name="product_ids" value="${esc(p.id)}"> ${esc(p.name)}${p.category ? ` <span class="label-optional">${esc(p.category)}</span>` : ""}</label>`
+          )
+          .join("")
+      : `<p class="subtle">No products loaded yet — visit Products first, or create the campaign without linking products.</p>`;
     return `<form id="marketingCampaignForm" class="panel">
       <p class="eyebrow">NEW CAMPAIGN</p>
       <div class="two">
@@ -149,13 +159,21 @@
       <label>Audience<input name="audience_note" maxlength="500" placeholder="Past Mother's Day buyers, VIP customers"></label>
       <label>Notes<textarea name="notes" rows="2" maxlength="4000" placeholder="Anything else worth remembering about this campaign…"></textarea></label>
       <fieldset class="marketing-channel-fieldset"><legend>Channels</legend>${channelBoxes}</fieldset>
+      <fieldset class="marketing-channel-fieldset marketing-product-fieldset"><legend>Products featured in this campaign</legend>${productBoxes}</fieldset>
       <div class="card-actions"><button type="submit" class="primary">Create campaign</button></div>
     </form>`;
+  }
+
+  function campaignProductNames(item) {
+    const ids = new Set(item.product_ids || []);
+    if (!ids.size) return [];
+    return (window.__bloomProducts || []).filter((p) => ids.has(p.id)).map((p) => p.name);
   }
 
   function campaignCardHtml(item) {
     const nextStatus = { draft: "ready", ready: "scheduled", scheduled: "active", active: "completed" }[item.status];
     const channels = (item.channels || []).map((c) => CHANNELS.find((x) => x.value === c)?.label || c).join(", ");
+    const productNames = campaignProductNames(item);
     return `<article class="panel" data-campaign-id="${esc(item.id)}">
       <div class="panel-heading">
         <div>
@@ -167,9 +185,12 @@
       ${item.starts_on || item.ends_on ? `<p class="subtle">${esc(item.starts_on || "?")} → ${esc(item.ends_on || "?")}</p>` : ""}
       ${item.audience_note ? `<p class="subtle">Audience: ${esc(item.audience_note)}</p>` : ""}
       ${channels ? `<p class="subtle">Channels: ${esc(channels)}</p>` : ""}
+      ${productNames.length ? `<p class="subtle">Products: ${esc(productNames.join(", "))}</p>` : ""}
       <div class="card-actions">
         ${nextStatus ? `<button type="button" class="secondary" data-campaign-act="advance" data-next="${esc(nextStatus)}">Mark ${esc(nextStatus)}</button>` : ""}
         ${item.status === "paused" ? `<button type="button" class="secondary" data-campaign-act="resume">Resume</button>` : item.status !== "completed" ? `<button type="button" class="secondary" data-campaign-act="pause">Pause</button>` : ""}
+        <button type="button" class="secondary" data-campaign-act="prepare-website">Prepare website</button>
+        <button type="button" class="secondary" data-campaign-act="create-image">Create campaign image</button>
         <button type="button" class="secondary" data-campaign-act="delete">Delete</button>
       </div>
     </article>`;
@@ -349,6 +370,7 @@
         audience_note: fd.get("audience_note"),
         notes: fd.get("notes"),
         channels: fd.getAll("channels"),
+        product_ids: fd.getAll("product_ids"),
       };
       try {
         await api({ action: "create", ...body });
@@ -375,6 +397,22 @@
             await api({ action: "update", id, status: "paused" });
           } else if (act === "resume") {
             await api({ action: "update", id, status: "active" });
+          } else if (act === "prepare-website" || act === "create-image") {
+            // Deliberately a hand-off, not a second website builder or a
+            // duplicate image pipeline inside Marketing — the real work
+            // (and its existing publish-checklist safety gate) stays in
+            // Website Studio / Photo Studio, where it's already built,
+            // tested, and reviewed before anything goes live.
+            const item = state.items.find((c) => c.id === id);
+            const names = item ? campaignProductNames(item) : [];
+            const dest = act === "prepare-website" ? "websitePage" : "bloomshotPage";
+            toast(
+              names.length
+                ? `Heading to ${act === "prepare-website" ? "Website Studio" : "Photo Studio"} — feature: ${names.join(", ")}`
+                : `Heading to ${act === "prepare-website" ? "Website Studio" : "Photo Studio"} — add products to this campaign first to see them here.`
+            );
+            goToPage(dest);
+            return;
           }
           await load();
         } catch (err) {

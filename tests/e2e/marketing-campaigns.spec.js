@@ -31,6 +31,7 @@ async function routeMarketing(page, state) {
         ends_on: body.ends_on || null,
         audience_note: body.audience_note || null,
         channels: body.channels || [],
+        product_ids: body.product_ids || [],
       };
       state.items.unshift(item);
       return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ item }) });
@@ -211,6 +212,57 @@ test("Lily drafts a campaign from real shop data and only fills the form — nev
   expect(state.items).toHaveLength(0);
   await page.locator("#marketingCampaignForm button[type=submit]").click();
   await expect(page.locator('[data-campaign-id="camp-1"]')).toBeVisible();
+
+  expect(consoleErrors).toEqual([]);
+});
+
+test("a campaign can carry real products, and 'Prepare website'/'Create campaign image' hand off to those real tools", async ({ page }) => {
+  const consoleErrors = [];
+  page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
+  page.on("pageerror", (e) => consoleErrors.push(`PAGEERROR: ${e.message}`));
+
+  await mockBackend(page);
+  await withFakeSession(page);
+  const state = buildState();
+  await routeMarketing(page, state);
+  await page.route("**/.netlify/functions/products", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          { id: "prod-1", name: "Rose Garden Bouquet", category: "Everyday", price: 65 },
+          { id: "prod-2", name: "Sympathy Standing Spray", category: "Sympathy", price: 150 },
+        ],
+      }),
+    }),
+  );
+
+  await page.goto("/");
+  await expect(page.locator("#app")).toBeVisible({ timeout: 10_000 });
+
+  // Visit Products first — real app behavior: the global product list is
+  // populated by loadProducts(), same as Marketing's own form relies on.
+  await page.locator('nav.florisyn-lux-nav button[data-page="productsPage"]').click();
+  await expect(page.locator("#productsList")).toContainText("Rose Garden Bouquet");
+
+  await page.locator('nav.florisyn-lux-nav button[data-page="marketingPage"]').click();
+  await page.locator('[data-marketing-tab="campaigns"]').click();
+
+  await page.locator('#marketingCampaignForm input[name="name"]').fill("Mother's Day 2027");
+  await page.locator('#marketingCampaignForm input[name="product_ids"][value="prod-1"]').check();
+  await page.locator("#marketingCampaignForm button[type=submit]").click();
+
+  const card = page.locator('[data-campaign-id="camp-1"]');
+  await expect(card).toContainText("Products: Rose Garden Bouquet");
+  await expect(card).not.toContainText("Sympathy Standing Spray");
+
+  await page.locator('[data-campaign-act="prepare-website"]').click();
+  await expect(page.locator("#websitePage")).toHaveClass(/active/);
+
+  await page.locator('nav.florisyn-lux-nav button[data-page="marketingPage"]').click();
+  await page.locator('[data-campaign-act="create-image"]').click();
+  await expect(page.locator("#bloomshotPage")).toHaveClass(/active/);
 
   expect(consoleErrors).toEqual([]);
 });
