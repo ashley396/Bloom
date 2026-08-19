@@ -28,7 +28,10 @@
     audiences: null,
     audiencesLoading: false,
     audiencesError: null,
-    prefillAudience: "",
+    formPrefill: null,
+    lilyDrafting: false,
+    lilyDraft: null,
+    lilyError: null,
   };
 
   async function api(payload, method = "POST") {
@@ -42,6 +45,52 @@
     const fn = window.bloomMarketingApi || window.api;
     if (!fn) throw new Error("Sign in required.");
     return fn("marketing-campaigns?action=audiences");
+  }
+
+  /**
+   * Lily drafts a campaign concept from real-but-non-identifying shop
+   * context: shop name/style, up to 8 real product names/categories
+   * (never a customer record), and — if the florist already opened
+   * Audiences this visit — real segment labels and counts. Never a raw
+   * customer name, email, phone, or address; smartAi's own payload
+   * scrubbing only strips media/base64, so keeping PII out of `input` is
+   * this function's job, not the transport's.
+   */
+  async function draftCampaignWithLily(idea) {
+    const gen = window.smartAi;
+    if (typeof gen !== "function") throw new Error("Lily is unavailable right now.");
+    const shop = window.shopSettings || {};
+    const productList = (window.products || [])
+      .slice(0, 8)
+      .map((p) => ({ name: p.name, category: p.category, price: p.price }));
+    const audienceList = (state.audiences?.segments || [])
+      .filter((s) => s.count > 0)
+      .map((s) => ({ label: s.label, count: s.count }));
+    const d = await gen({
+      mode: "generate",
+      persona: "Lily",
+      task: `Act as Lily, Florisyn's warm, capable marketing director for a local flower shop. Draft a real, specific campaign concept for: ${idea}. Use the shop's own products and real audience segments where relevant. Never use generic phrases like "elevate your special occasion" or "where beauty meets elegance" — be concrete about products, timing, and the shop's own voice.`,
+      input: {
+        shop: { name: shop.name || "", style: shop.website_style || "", tagline: shop.tagline || "", city: shop.city || "" },
+        products: productList,
+        audiences: audienceList,
+      },
+      schema: {
+        message: "one sweet, specific sentence about the concept",
+        name: "campaign name, e.g. Mother's Day 2027",
+        goal: "one specific, concrete goal — not generic",
+        audience_note: "who this should target, using the real audience labels above if any fit",
+        channels: "array from: email, holiday, website, social, text — only the ones that make sense",
+      },
+    });
+    const raw = d?.result ?? d;
+    return {
+      message: raw?.message || "Here's a draft — review it and adjust anything before creating the campaign.",
+      name: raw?.name || "",
+      goal: raw?.goal || "",
+      audience_note: raw?.audience_note || "",
+      channels: Array.isArray(raw?.channels) ? raw.channels.filter((c) => CHANNELS.some((x) => x.value === c)) : [],
+    };
   }
 
   function root() {
@@ -126,12 +175,42 @@
     </article>`;
   }
 
+  function lilyDraftHtml() {
+    if (state.lilyDrafting) {
+      return `<div class="panel" role="status"><p class="subtle">Lily is drafting a concept…</p></div>`;
+    }
+    if (state.lilyError) {
+      return `<div class="panel" role="alert"><p class="subtle">${esc(state.lilyError)}</p></div>`;
+    }
+    if (!state.lilyDraft) {
+      return `<div class="panel">
+        <p class="eyebrow">LILY, MARKETING DIRECTOR</p>
+        <h3>Tell Lily what you're planning</h3>
+        <p class="subtle">Lily drafts a name, goal, audience, and channels from your real products and audience segments — nothing is created until you review and apply it.</p>
+        <div class="card-actions"><button type="button" class="primary" id="marketingAskLily">Draft with Lily</button></div>
+      </div>`;
+    }
+    const d = state.lilyDraft;
+    return `<div class="panel">
+      <p class="eyebrow">LILY'S DRAFT — REVIEW BEFORE USING</p>
+      <p>${esc(d.message)}</p>
+      <p><strong>${esc(d.name || "(no name suggested)")}</strong></p>
+      ${d.goal ? `<p class="subtle">Goal: ${esc(d.goal)}</p>` : ""}
+      ${d.audience_note ? `<p class="subtle">Audience: ${esc(d.audience_note)}</p>` : ""}
+      ${d.channels.length ? `<p class="subtle">Channels: ${esc(d.channels.map((c) => CHANNELS.find((x) => x.value === c)?.label || c).join(", "))}</p>` : ""}
+      <div class="card-actions">
+        <button type="button" class="primary" id="marketingApplyLily">Apply to form</button>
+        <button type="button" class="secondary" id="marketingDismissLily">Discard</button>
+      </div>
+    </div>`;
+  }
+
   function campaignsTabHtml() {
     const list =
       state.items.length === 0
         ? `<div class="panel"><h3>No campaigns yet</h3><p class="subtle">Create your first campaign below.</p></div>`
         : `<div class="cards">${state.items.map(campaignCardHtml).join("")}</div>`;
-    return `${formHtml()}${list}`;
+    return `${lilyDraftHtml()}${formHtml()}${list}`;
   }
 
   function audiencesTabHtml() {
@@ -177,10 +256,16 @@
     </div>
     <div class="marketing-tab-panel">${state.tab === "campaigns" ? campaignsTabHtml() : state.tab === "audiences" ? audiencesTabHtml() : overviewHtml()}</div>`;
     bind(el);
-    if (state.tab === "campaigns" && state.prefillAudience) {
-      const field = el.querySelector('#marketingCampaignForm input[name="audience_note"]');
-      if (field) field.value = state.prefillAudience;
-      state.prefillAudience = "";
+    if (state.tab === "campaigns" && state.formPrefill) {
+      const form = el.querySelector("#marketingCampaignForm");
+      const p = state.formPrefill;
+      if (form) {
+        if (p.name) form.elements.name.value = p.name;
+        if (p.goal) form.elements.goal.value = p.goal;
+        if (p.audience_note) form.elements.audience_note.value = p.audience_note;
+        if (p.channels) form.querySelectorAll('input[name="channels"]').forEach((cb) => { cb.checked = p.channels.includes(cb.value) });
+      }
+      state.formPrefill = null;
     }
   }
 
@@ -216,13 +301,42 @@
         const key = btn.getAttribute("data-audience-use");
         const seg = state.audiences?.segments.find((s) => s.key === key);
         if (!seg) return;
-        state.prefillAudience = `${seg.label} (${seg.count})`;
+        state.formPrefill = { audience_note: `${seg.label} (${seg.count})` };
         state.tab = "campaigns";
         render();
       });
     });
     el.querySelectorAll("[data-marketing-goto]").forEach((btn) => {
       btn.addEventListener("click", () => goToPage(btn.getAttribute("data-marketing-goto")));
+    });
+    el.querySelector("#marketingAskLily")?.addEventListener("click", async () => {
+      const idea = prompt("What are we planning? (e.g. Mother's Day, wedding season, sympathy)", "");
+      if (idea === null || !idea.trim()) return;
+      state.lilyDrafting = true;
+      state.lilyError = null;
+      render();
+      try {
+        state.lilyDraft = await draftCampaignWithLily(idea.trim());
+      } catch (err) {
+        state.lilyError = err.message || "Lily couldn't draft that right now.";
+      }
+      state.lilyDrafting = false;
+      render();
+    });
+    el.querySelector("#marketingDismissLily")?.addEventListener("click", () => {
+      state.lilyDraft = null;
+      state.lilyError = null;
+      render();
+    });
+    el.querySelector("#marketingApplyLily")?.addEventListener("click", () => {
+      // Fills the form only — the florist still has to hit "Create
+      // campaign" themselves. Lily never creates or publishes anything.
+      const d = state.lilyDraft;
+      if (!d) return;
+      state.formPrefill = { name: d.name, goal: d.goal, audience_note: d.audience_note, channels: d.channels };
+      toast("Lily's draft filled in the form below — review it, then create the campaign.");
+      state.lilyDraft = null;
+      render();
     });
     el.querySelector("#marketingCampaignForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();

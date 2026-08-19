@@ -153,6 +153,68 @@ test("Audiences tab shows real segment counts and prefills the campaign form fro
   expect(consoleErrors).toEqual([]);
 });
 
+test("Lily drafts a campaign from real shop data and only fills the form — never auto-creates it", async ({ page }) => {
+  const consoleErrors = [];
+  page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
+  page.on("pageerror", (e) => consoleErrors.push(`PAGEERROR: ${e.message}`));
+
+  await mockBackend(page);
+  await withFakeSession(page);
+  const state = buildState();
+  await routeMarketing(page, state);
+
+  let capturedInput = null;
+  await page.route("**/.netlify/functions/ai-assistant**", async (route) => {
+    const body = route.request().postDataJSON();
+    if (body?.mode !== "generate") return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    capturedInput = body.input;
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        result: {
+          message: "Your roses are the star for Mother's Day this year.",
+          name: "Mother's Day 2027",
+          goal: "Sell out the Rose Garden Bouquet",
+          audience_note: "VIP customers (4)",
+          channels: ["email", "social"],
+        },
+      }),
+    });
+  });
+
+  page.on("dialog", (dialog) => dialog.accept("Mother's Day"));
+
+  await page.goto("/");
+  await expect(page.locator("#app")).toBeVisible({ timeout: 10_000 });
+  await page.locator('nav.florisyn-lux-nav button[data-page="marketingPage"]').click();
+  await page.locator('[data-marketing-tab="campaigns"]').click();
+
+  await page.locator("#marketingAskLily").click();
+  await expect(page.locator("#marketingApplyLily")).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator("#marketingRoot")).toContainText("Mother's Day 2027");
+
+  // Never a raw customer record in what Lily was actually sent.
+  expect(capturedInput).not.toBeNull();
+  expect(JSON.stringify(capturedInput)).not.toMatch(/@|\d{3}-\d{4}/); // no email, no phone-shaped strings
+
+  // Nothing created yet — only after Apply, then the florist's own submit.
+  expect(state.items).toHaveLength(0);
+
+  await page.locator("#marketingApplyLily").click();
+  await expect(page.locator('#marketingCampaignForm input[name="name"]')).toHaveValue("Mother's Day 2027");
+  await expect(page.locator('#marketingCampaignForm input[name="audience_note"]')).toHaveValue("VIP customers (4)");
+  await expect(page.locator('#marketingCampaignForm input[name="channels"][value="email"]')).toBeChecked();
+  await expect(page.locator('#marketingCampaignForm input[name="channels"][value="text"]')).not.toBeChecked();
+
+  // Still nothing created until the florist explicitly submits.
+  expect(state.items).toHaveLength(0);
+  await page.locator("#marketingCampaignForm button[type=submit]").click();
+  await expect(page.locator('[data-campaign-id="camp-1"]')).toBeVisible();
+
+  expect(consoleErrors).toEqual([]);
+});
+
 test("Overview's channel links jump straight to Email Campaigns", async ({ page }) => {
   await mockBackend(page);
   await withFakeSession(page);
