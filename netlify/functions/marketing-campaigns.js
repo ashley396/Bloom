@@ -2,6 +2,7 @@ import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail } from "./_shared/supabase.js";
 import { isFeatureEnabled } from "./_shared/feature-flags.js";
 import { validateMarketingCampaignBody } from "./_shared/marketing-campaigns.js";
+import { buildAudienceSegments } from "../../lib/marketing/audience-segments.js";
 
 function featureGate() {
   if (!isFeatureEnabled("MARKETING_CAMPAIGNS")) {
@@ -42,6 +43,34 @@ export async function handler(event) {
     const qs = event.queryStringParameters || {};
     const body = method === "GET" ? {} : bodyOf(event);
     const action = String(body.action || qs.action || "").toLowerCase();
+
+    // Checked before the generic GET/list branch below — that branch
+    // matches any GET request regardless of action, which would otherwise
+    // shadow "GET ?action=audiences" and silently return the campaign
+    // list instead (same route-precedence gotcha as elsewhere in this
+    // codebase: the more specific handler has to run first).
+    if (action === "audiences") {
+      // Only the columns segmentation actually needs — never fetch a
+      // customer's name, phone, email, address, or notes here. Every
+      // segment definition itself starts from marketing_opt_in, but this
+      // is the belt to that suspenders: even a bug in buildAudienceSegments
+      // couldn't leak PII this endpoint never asked for.
+      const [{ data: customers, error: cErr }, { data: orders, error: oErr }] = await Promise.all([
+        client
+          .from("customers")
+          .select("id,vip,birthday,anniversary,created_at,contact_preferences")
+          .eq("shop_id", shopId)
+          .is("deleted_at", null),
+        client.from("orders").select("customer_id,total,occasion,fulfillment,created_at").eq("shop_id", shopId),
+      ]);
+      if (cErr) throw cErr;
+      if (oErr) throw oErr;
+      const { segments, subscriberCount } = buildAudienceSegments({ customers: customers || [], orders: orders || [] });
+      return json(200, {
+        subscriberCount,
+        segments: segments.map(({ key, label, count }) => ({ key, label, count })),
+      });
+    }
 
     if (method === "GET" || action === "list") {
       const { data, error } = await client

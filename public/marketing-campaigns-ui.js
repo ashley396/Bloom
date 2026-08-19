@@ -20,13 +20,28 @@
     { value: "text", label: "Text" },
   ];
 
-  let state = { loading: false, error: null, items: [], tab: "overview" };
+  let state = {
+    loading: false,
+    error: null,
+    items: [],
+    tab: "overview",
+    audiences: null,
+    audiencesLoading: false,
+    audiencesError: null,
+    prefillAudience: "",
+  };
 
   async function api(payload, method = "POST") {
     const fn = window.bloomMarketingApi || window.api;
     if (!fn) throw new Error("Sign in required.");
     if (method === "GET") return fn("marketing-campaigns");
     return fn("marketing-campaigns", { method: "POST", body: JSON.stringify(payload || {}) });
+  }
+
+  async function fetchAudiences() {
+    const fn = window.bloomMarketingApi || window.api;
+    if (!fn) throw new Error("Sign in required.");
+    return fn("marketing-campaigns?action=audiences");
   }
 
   function root() {
@@ -119,6 +134,30 @@
     return `${formHtml()}${list}`;
   }
 
+  function audiencesTabHtml() {
+    if (state.audiencesLoading) return `<div class="panel" role="status"><p class="subtle">Building audiences from your real customers and orders…</p></div>`;
+    if (state.audiencesError) {
+      return `<div class="panel" role="alert"><h3>Couldn't build audiences</h3><p class="subtle">${esc(state.audiencesError)}</p><button type="button" class="secondary" id="marketingAudiencesRetry">Try again</button></div>`;
+    }
+    if (!state.audiences) return "";
+    const { subscriberCount, segments } = state.audiences;
+    if (subscriberCount === 0) {
+      return `<div class="panel"><h3>No marketing subscribers yet</h3><p class="subtle">Audiences are built only from customers who explicitly opted in to marketing under Customers. Nobody has opted in yet, so every segment here is empty by design — not a bug.</p></div>`;
+    }
+    return `<div class="panel"><p class="eyebrow">CONSENT</p><p class="subtle">${subscriberCount} customer${subscriberCount === 1 ? "" : "s"} opted in to marketing. Every segment below is built only from that list — nobody who hasn't opted in ever appears here.</p></div>
+    <div class="cards">
+      ${segments
+        .map(
+          (s) => `<article class="panel" data-audience-key="${esc(s.key)}">
+            <p class="eyebrow">${esc(s.label.toUpperCase())}</p>
+            <h2>${s.count}</h2>
+            <div class="card-actions"><button type="button" class="secondary" data-audience-use="${esc(s.key)}" ${s.count === 0 ? "disabled" : ""}>Use for a campaign</button></div>
+          </article>`
+        )
+        .join("")}
+    </div>`;
+  }
+
   function render() {
     const el = root();
     if (!el) return;
@@ -134,15 +173,51 @@
     el.innerHTML = `<div class="marketing-tabs" role="tablist" aria-label="Marketing sections">
       <button type="button" class="marketing-tab${state.tab === "overview" ? " active" : ""}" data-marketing-tab="overview" role="tab" aria-selected="${state.tab === "overview"}">Overview</button>
       <button type="button" class="marketing-tab${state.tab === "campaigns" ? " active" : ""}" data-marketing-tab="campaigns" role="tab" aria-selected="${state.tab === "campaigns"}">Campaigns</button>
+      <button type="button" class="marketing-tab${state.tab === "audiences" ? " active" : ""}" data-marketing-tab="audiences" role="tab" aria-selected="${state.tab === "audiences"}">Audiences</button>
     </div>
-    <div class="marketing-tab-panel">${state.tab === "campaigns" ? campaignsTabHtml() : overviewHtml()}</div>`;
+    <div class="marketing-tab-panel">${state.tab === "campaigns" ? campaignsTabHtml() : state.tab === "audiences" ? audiencesTabHtml() : overviewHtml()}</div>`;
     bind(el);
+    if (state.tab === "campaigns" && state.prefillAudience) {
+      const field = el.querySelector('#marketingCampaignForm input[name="audience_note"]');
+      if (field) field.value = state.prefillAudience;
+      state.prefillAudience = "";
+    }
+  }
+
+  async function loadAudiences() {
+    state.audiencesLoading = true;
+    state.audiencesError = null;
+    render();
+    try {
+      const d = await fetchAudiences();
+      state.audiences = { subscriberCount: d.subscriberCount || 0, segments: d.segments || [] };
+      state.audiencesLoading = false;
+      render();
+    } catch (err) {
+      state.audiencesLoading = false;
+      state.audiencesError = err.message || "Could not build audiences.";
+      render();
+    }
   }
 
   function bind(el) {
     el.querySelectorAll("[data-marketing-tab]").forEach((btn) => {
       btn.addEventListener("click", () => {
         state.tab = btn.getAttribute("data-marketing-tab");
+        render();
+        // Lazy-load on first visit — a florist who never opens Audiences
+        // never pays for the customers+orders query.
+        if (state.tab === "audiences" && !state.audiences && !state.audiencesLoading) loadAudiences();
+      });
+    });
+    el.querySelector("#marketingAudiencesRetry")?.addEventListener("click", () => loadAudiences());
+    el.querySelectorAll("[data-audience-use]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.getAttribute("data-audience-use");
+        const seg = state.audiences?.segments.find((s) => s.key === key);
+        if (!seg) return;
+        state.prefillAudience = `${seg.label} (${seg.count})`;
+        state.tab = "campaigns";
         render();
       });
     });

@@ -93,6 +93,21 @@ test("migration adds shop-scoped RLS for marketing_campaigns and links existing 
   assert.match(sql, /add column if not exists campaign_id uuid references public\.marketing_campaigns\(id\) on delete set null/);
 });
 
+test("marketing-campaigns.js checks the audiences action before the generic GET/list branch", () => {
+  const src = fs.readFileSync(path.join(root, "netlify/functions/marketing-campaigns.js"), "utf8");
+  const audiencesIdx = src.indexOf('action === "audiences"');
+  const listIdx = src.indexOf('method === "GET" || action === "list"');
+  assert.ok(audiencesIdx > -1 && listIdx > -1);
+  assert.ok(
+    audiencesIdx < listIdx,
+    "the audiences branch must be checked first — method===\"GET\" alone would otherwise shadow ?action=audiences"
+  );
+  // Only the columns segmentation needs — never the customer's name,
+  // phone, email, address, or notes.
+  assert.match(src, /\.from\("customers"\)\s*\n?\s*\.select\("id,vip,birthday,anniversary,created_at,contact_preferences"\)/);
+  assert.doesNotMatch(src, /select\("[^"]*\b(name|phone|email|address|notes)\b[^"]*"\)[^)]*customers/);
+});
+
 test("Marketing nav stays hidden until the flag enables it, same as its connected tools", () => {
   const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
   assert.match(html, /data-page="marketingPage"[^>]*hidden/);

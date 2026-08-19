@@ -107,6 +107,52 @@ test("a paused campaign can be resumed back to active", async ({ page }) => {
   await expect(card.locator(".eyebrow")).toHaveText("ACTIVE");
 });
 
+test("Audiences tab shows real segment counts and prefills the campaign form from a segment", async ({ page }) => {
+  const consoleErrors = [];
+  page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
+  page.on("pageerror", (e) => consoleErrors.push(`PAGEERROR: ${e.message}`));
+
+  await mockBackend(page);
+  await withFakeSession(page);
+  await routeMarketing(page, buildState());
+
+  let audiencesRequested = false;
+  await page.route("**/.netlify/functions/marketing-campaigns?action=audiences", (route) => {
+    audiencesRequested = true;
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        subscriberCount: 12,
+        segments: [
+          { key: "vip", label: "VIP customers", count: 4 },
+          { key: "wedding_customers", label: "Wedding customers", count: 0 },
+        ],
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await expect(page.locator("#app")).toBeVisible({ timeout: 10_000 });
+  await page.locator('nav.florisyn-lux-nav button[data-page="marketingPage"]').click();
+
+  // Not fetched until the tab is actually opened.
+  expect(audiencesRequested).toBe(false);
+
+  await page.locator('[data-marketing-tab="audiences"]').click();
+  await expect(page.locator('[data-audience-key="vip"] h2')).toHaveText("4");
+  expect(audiencesRequested).toBe(true);
+
+  // A segment with zero opted-in customers can't be used for a campaign.
+  await expect(page.locator('[data-audience-use="wedding_customers"]')).toBeDisabled();
+
+  await page.locator('[data-audience-use="vip"]').click();
+  await expect(page.locator("#marketingRoot .marketing-tab.active")).toHaveText("Campaigns");
+  await expect(page.locator('#marketingCampaignForm input[name="audience_note"]')).toHaveValue("VIP customers (4)");
+
+  expect(consoleErrors).toEqual([]);
+});
+
 test("Overview's channel links jump straight to Email Campaigns", async ({ page }) => {
   await mockBackend(page);
   await withFakeSession(page);
