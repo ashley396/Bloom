@@ -256,15 +256,21 @@ async function reorderPreview(client, user, orderId) {
   const items = Array.isArray(order.items) ? order.items : [];
   const listingIds = [...new Set(items.map((i) => i.listing_id).filter(Boolean))];
   let listingsById = {};
+  let verifiedShopIds = new Set();
   if (listingIds.length) {
     const { data: listings, error: listingsError } = await client.from(LISTINGS).select("*").in("id", listingIds);
     if (listingsError) throw listingsError;
     listingsById = Object.fromEntries((listings || []).map((row) => [row.id, sanitizeListing(row)]));
+    // Reordering is a continuation of a real past purchase, but the
+    // seller could have lost verification since then — a lapsed or
+    // suspended seller must not be silently reorderable, same real
+    // gate the buyer catalog itself applies.
+    verifiedShopIds = await loadVerifiedSellerShopIds((listings || []).map((row) => row.shop_id));
   }
 
   const preview = items.map((item) => {
     const current = item.listing_id ? listingsById[item.listing_id] : null;
-    const stillAvailable = Boolean(current) && current.active && current.currently_available;
+    const stillAvailable = Boolean(current) && current.active && current.currently_available && verifiedShopIds.has(current.shop_id);
     return {
       listing_id: item.listing_id || null,
       name: item.name,
