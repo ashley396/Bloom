@@ -49,6 +49,7 @@ test("P0-11 executable chain keeps one baseline followed by uniquely versioned f
     "20260819190000_marketplace_seller_storefront.sql",
     "20260819200000_marketplace_notifications.sql",
     "20260819210000_marketplace_seller_reviews.sql",
+    "20260819220000_marketplace_order_refunds_disputes.sql",
   ]);
   const versions = files.map((name) => name.match(/^(\d{14})_/)?.[1]);
   assert.ok(versions.every(Boolean));

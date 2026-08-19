@@ -68,7 +68,7 @@
   function renderOrders(hooks, data) {
     const orders = data.orders || [];
     return `${renderNav(hooks, 'orders')}
-      <div class="cards">${orders.length ? orders.map((o) => `<article class="card"><div class="card-top"><div><h3>Order ${hooks.esc(String(o.id).slice(0, 8))}</h3><p class="meta">${hooks.esc(o.status)} · ${hooks.esc(o.created_at || '')}</p></div><strong>${hooks.money(o.total)}</strong></div><div class="card-actions"><button type="button" class="secondary" data-wholesale-order-status="${hooks.esc(o.id)}" data-status="processing">Mark processing</button><button type="button" class="secondary" data-wholesale-order-status="${hooks.esc(o.id)}" data-status="fulfilled">Mark fulfilled</button></div></article>`).join('') : hooks.empty('No wholesale orders yet.')}</div>`;
+      <div class="cards">${orders.length ? orders.map((o) => `<article class="card"><div class="card-top"><div><h3>Order ${hooks.esc(String(o.id).slice(0, 8))}</h3><p class="meta">${hooks.esc(o.status)} · ${hooks.esc(o.created_at || '')}</p></div><strong>${hooks.money(o.total)}</strong></div>${o.refund_requested_at ? `<p class="badge warn">Refund requested: ${hooks.esc(o.refund_requested_reason || '')}</p>` : ''}<div class="card-actions"><button type="button" class="secondary" data-wholesale-order-status="${hooks.esc(o.id)}" data-status="processing">Mark processing</button><button type="button" class="secondary" data-wholesale-order-status="${hooks.esc(o.id)}" data-status="fulfilled">Mark fulfilled</button>${o.refund_requested_at ? `<button type="button" class="secondary" data-wholesale-stripe-dashboard>Open Stripe dashboard to refund</button>` : ''}</div></article>`).join('') : hooks.empty('No wholesale orders yet.')}</div>`;
   }
 
   function renderCustomers(hooks, data) {
@@ -253,6 +253,19 @@
       });
     });
     document.querySelector('[data-wholesale-verify]')?.addEventListener('click', () => hooks.openVerificationDialog?.());
+    document.querySelectorAll('[data-wholesale-stripe-dashboard]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        try {
+          // Refunds are executed on Stripe's own Express Connect
+          // dashboard, not inside Florisyn — it already gets the
+          // application-fee math right for a destination charge.
+          const result = await hooks.api('stripe-connect', { method: 'POST', body: JSON.stringify({ action: 'dashboard' }) });
+          if (result.url) window.open(result.url, '_blank', 'noopener');
+        } catch (error) {
+          hooks.toast(error.message);
+        }
+      });
+    });
     hooks.$('[data-wholesale-new-product]')?.addEventListener('click', () => openProductDialog(hooks, null));
     document.querySelectorAll('[data-wholesale-edit]').forEach((button) => {
       button.addEventListener('click', async () => {

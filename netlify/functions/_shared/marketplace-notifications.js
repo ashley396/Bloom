@@ -1,7 +1,7 @@
 import { adminIfConfigured } from "./supabase.js";
 
 const TABLE = "marketplace_notifications";
-export const NOTIFICATION_TYPES = ["order_status_changed", "back_in_stock"];
+export const NOTIFICATION_TYPES = ["order_status_changed", "back_in_stock", "refund_requested"];
 
 /**
  * Writes a real, already-happened marketplace event — never speculative,
