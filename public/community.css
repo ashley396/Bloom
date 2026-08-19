@@ -59,6 +59,15 @@
   display: flex;
   gap: 0.4rem;
   padding-bottom: 0;
+  /* Same overflow-shrink bug as .marketing-tabs (see marketing-campaigns.css):
+     bloom-rc2-design-system.css's generic `body.bloom-rc2 button` rule
+     out-specifies .community-tab's own padding and imposes a 44px
+     min-width floor, which flexbox will shrink every tab down to on a
+     phone-width viewport shared with the notif bell — squeezing "My
+     Profile" onto wrapped, overlapping lines. Scroll instead of shrink. */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 .community-notif-bell {
@@ -180,6 +189,8 @@
   font-size: 0.95rem;
   color: #857680;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   border-bottom: 2.5px solid transparent;
 }
 
