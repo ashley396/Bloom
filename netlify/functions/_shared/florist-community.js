@@ -472,6 +472,7 @@ export function publicPost(
     imageUrl = null,
     imageExpiresIn = null,
     publishedRecipe = null,
+    authorFollowed = false,
   } = {}
 ) {
   if (!row) return null;
@@ -493,6 +494,12 @@ export function publicPost(
     updated_at: row.updated_at,
     liked: Boolean(liked),
     is_mine: Boolean(isMine),
+    // Never true for your own posts — following yourself isn't a real
+    // relationship, and the UI never needs to offer it.
+    author_followed: Boolean(isMine ? false : authorFollowed),
+    // Community Step 68 — a real behavioral difference for Questions
+    // posts, not a cosmetic label. null until the asker marks a comment.
+    answered_comment_id: row.answered_comment_id || null,
     can_moderate: Boolean(canModerate),
     recipe_status: recipeStatus,
     can_build_recipe: Boolean(

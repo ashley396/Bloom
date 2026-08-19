@@ -47,11 +47,128 @@
   padding: 1.15rem 1.25rem;
 }
 
+.community-tabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  border-bottom: 1px solid #e0d3db;
+}
+
 .community-tabs {
   display: flex;
   gap: 0.4rem;
-  border-bottom: 1px solid #e0d3db;
   padding-bottom: 0;
+}
+
+.community-notif-bell {
+  position: relative;
+  border: 0;
+  background: transparent;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.4rem 0.5rem;
+  line-height: 1;
+}
+
+.community-notif-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #a72f2f;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 0.05rem 0.32rem;
+  line-height: 1.3;
+}
+
+.community-notif-panel {
+  border: 1px solid #e0d3db;
+  border-top: 0;
+  background: #fff;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.community-notif-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.community-notif-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #f3ebef;
+}
+
+.community-notif-list li.unread {
+  background: #fdf3f7;
+  font-weight: 650;
+}
+
+.community-notif-list li time {
+  color: #857680;
+  font-weight: 400;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.community-notif-empty {
+  padding: 0.85rem;
+  margin: 0;
+}
+
+.community-search {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid #e0d3db;
+  border-radius: 10px;
+  font-size: 0.92rem;
+}
+
+.community-follow-btn {
+  border: 1px solid #a72f67;
+  background: #fff;
+  color: #a72f67;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+  align-self: center;
+}
+
+.community-follow-btn.following {
+  background: #a72f67;
+  color: #fff;
+}
+
+.community-answered-tag {
+  color: #2f5d3a;
+  font-weight: 750;
+}
+
+.community-comment-answer {
+  background: #f0f7f1;
+  border-radius: 8px;
+  padding: 0.4rem;
+}
+
+.community-answer-badge {
+  background: #dcecdf;
+  color: #2f5d3a;
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 750;
+  margin-left: 0.3rem;
 }
 
 .community-tab {

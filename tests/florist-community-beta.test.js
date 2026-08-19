@@ -125,6 +125,62 @@ test("publicPost exposes share_permission and allow_photo_use, sanitizing an inv
   assert.equal(corrupted.share_permission, "inspiration_only", "an invalid stored tier is never surfaced as-is");
 });
 
+test("publicPost exposes author_followed, and it's always false on your own post (Community Step 68)", () => {
+  const row = { id: "p1", author_user_id: "u1", category: "Design Help", caption: "X" };
+  const followed = publicPost(row, { authorFollowed: true });
+  assert.equal(followed.author_followed, true);
+
+  const notFollowed = publicPost(row, { authorFollowed: false });
+  assert.equal(notFollowed.author_followed, false);
+
+  // Following yourself isn't a real relationship — isMine always wins,
+  // even if a bug ever passed authorFollowed: true for your own post.
+  const own = publicPost(row, { authorFollowed: true, isMine: true });
+  assert.equal(own.author_followed, false);
+});
+
+test("publicPost exposes answered_comment_id — a real behavioral difference for Questions posts", () => {
+  const row = { id: "p1", author_user_id: "u1", category: "Questions", caption: "X", answered_comment_id: "c1" };
+  assert.equal(publicPost(row, {}).answered_comment_id, "c1");
+  assert.equal(publicPost({ ...row, answered_comment_id: null }, {}).answered_comment_id, null);
+});
+
+test("mark_answered is gated to the post's own author and verifies the comment belongs to that post (Community Step 68)", () => {
+  const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
+  const block = src.slice(src.indexOf('if (action === "mark_answered")'), src.indexOf('if (action === "toggle_like")'));
+  assert.match(block, /post\.author_user_id !== user\.id/);
+  assert.match(block, /Only the person who asked can mark an answer/);
+  assert.match(block, /\.eq\("id", commentId\)[\s\S]{0,40}\.eq\("post_id", postId\)/);
+});
+
+test("Community Step 68 — real Following, Search, and Notifications are wired server-side", () => {
+  const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
+
+  // Search: a real ILIKE filter on caption/body, not a client-side slice.
+  assert.match(src, /caption\.ilike\.%\$\{escaped\}%,body\.ilike\.%\$\{escaped\}%/);
+
+  // Following: a real follows table drives both the feed filter and the
+  // author_followed flag — not a fake client-only toggle.
+  assert.match(src, /loadFollowingSet/);
+  assert.match(src, /followingOnly/);
+  assert.match(src, /action === "toggle_follow"/);
+  assert.match(src, /florist_community_follows/);
+
+  // Notifications: written server-side (never by the acting florist's own
+  // RLS-scoped client — see the migration's RLS comment) and readable/
+  // markable-read only by the recipient.
+  assert.match(src, /action === "notifications"/);
+  assert.match(src, /action === "mark_notifications_read"/);
+  assert.match(src, /florist_community_notifications/);
+  assert.match(src, /async function notify\(/);
+
+  // Real events actually call notify() — not just a defined-but-unused helper.
+  const likeBlock = src.slice(src.indexOf('if (action === "toggle_like")'), src.indexOf('if (action === "add_comment")'));
+  assert.match(likeBlock, /notify\(postRow\.author_user_id, user\.id, shopId, "like"/);
+  const commentBlock = src.slice(src.indexOf('if (action === "add_comment")'), src.indexOf('if (action === "delete_comment")'));
+  assert.match(commentBlock, /notify\(post\.author_user_id, user\.id, shopId, "comment"/);
+});
+
 test("sharp fully decodes/re-encodes valid images and rejects corrupt fixtures", async () => {
   const png = fs.readFileSync(path.join(fixtures, "valid-1x1.png"));
   const jpg = fs.readFileSync(path.join(fixtures, "valid-1x1.jpg"));

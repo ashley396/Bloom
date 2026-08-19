@@ -182,7 +182,7 @@ const PROFILE_COLUMNS =
   "user_id,shop_id,display_name,shop_display_name,city,region,bio,avatar_path,updated_at";
 
 const POST_COLUMNS =
-  "id,author_user_id,shop_id,category,caption,body,image_path,status,like_count,comment_count,created_at,updated_at,recipe_draft,recipe_status,published_recipe_id,share_permission,allow_photo_use";
+  "id,author_user_id,shop_id,category,caption,body,image_path,status,like_count,comment_count,created_at,updated_at,recipe_draft,recipe_status,published_recipe_id,share_permission,allow_photo_use,answered_comment_id";
 
 const RECIPE_COLUMNS =
   "id,post_id,author_user_id,author_shop_id,title,description,category,recipe,instructions,suggested_retail,image_path,status,import_count,created_at,updated_at";
@@ -310,6 +310,44 @@ async function loadLikesForUser(client, userId, postIds) {
   return new Set((data || []).map((r) => r.post_id));
 }
 
+/** Community Step 68 — who the caller follows, for author_followed and the Following feed filter. */
+async function loadFollowingSet(client, userId) {
+  const { data, error } = await client
+    .from("florist_community_follows")
+    .select("followed_user_id")
+    .eq("follower_user_id", userId);
+  if (error) {
+    if (missingRelation(error)) return new Set();
+    throw error;
+  }
+  return new Set((data || []).map((r) => r.followed_user_id));
+}
+
+/**
+ * Best-effort notification write — a notification is always about
+ * *someone else's* action on your content, so it's written with the
+ * service-role client (same pattern as the import_count update above),
+ * never blocking the real action (like/comment/follow) if it fails or
+ * the migration hasn't been applied yet.
+ */
+async function notify(recipientUserId, actorUserId, shopId, type, { postId = null, commentId = null } = {}) {
+  if (!recipientUserId || recipientUserId === actorUserId) return;
+  const svc = adminIfConfigured();
+  if (!svc) return;
+  try {
+    await svc.from("florist_community_notifications").insert({
+      recipient_user_id: recipientUserId,
+      actor_user_id: actorUserId,
+      shop_id: shopId,
+      type,
+      post_id: postId,
+      comment_id: commentId,
+    });
+  } catch {
+    /* non-blocking; table may not exist until migration is applied */
+  }
+}
+
 async function requireActivePost(client, postId) {
   const { data, error } = await client
     .from("florist_community_posts")
@@ -343,7 +381,7 @@ async function loadPublishedRecipes(client, recipeIds) {
   return map;
 }
 
-async function feed(client, ctx, { category, platformAdmin }) {
+async function feed(client, ctx, { category, platformAdmin, q, followingOnly }) {
   let query = client
     .from("florist_community_posts")
     .select(POST_COLUMNS)
@@ -352,6 +390,22 @@ async function feed(client, ctx, { category, platformAdmin }) {
     .limit(50);
   if (category && COMMUNITY_CATEGORIES.includes(category)) {
     query = query.eq("category", category);
+  }
+  // Community Step 68 — real search over caption/body, not a client-side
+  // filter over whatever page of posts happened to already be loaded.
+  const term = String(q || "").trim().slice(0, 120);
+  if (term) {
+    const escaped = term.replace(/[%_]/g, (c) => `\\${c}`);
+    query = query.or(`caption.ilike.%${escaped}%,body.ilike.%${escaped}%`);
+  }
+  const followingSet = await loadFollowingSet(client, ctx.user.id);
+  if (followingOnly) {
+    const ids = [...followingSet];
+    // An empty IN-list would match nothing via .in([]) inconsistently
+    // across PostgREST versions — short-circuit to an honest empty feed
+    // instead of relying on that.
+    if (!ids.length) return [];
+    query = query.in("author_user_id", ids);
   }
   const { data, error } = await query;
   if (error) {
@@ -379,6 +433,7 @@ async function feed(client, ctx, { category, platformAdmin }) {
         imageUrl: signed.url,
         imageExpiresIn: signed.expiresIn,
         publishedRecipe: p.published_recipe_id ? recipeMap.get(p.published_recipe_id) || null : null,
+        authorFollowed: followingSet.has(p.author_user_id),
       });
     })
   );
@@ -500,6 +555,44 @@ export async function handler(event) {
           ),
         });
       }
+      if (action === "notifications") {
+        requireParticipant(ctx);
+        const { data: notifications, error } = await client
+          .from("florist_community_notifications")
+          .select("id,type,actor_user_id,post_id,comment_id,read_at,created_at")
+          .eq("recipient_user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (error) {
+          // Not-yet-migrated is a real, honest empty state — never a hard failure.
+          if (missingRelation(error)) return json(200, { items: [], unread_count: 0 });
+          throw error;
+        }
+        const actorIds = [...new Set((notifications || []).map((n) => n.actor_user_id).filter(Boolean))];
+        let actorMap = new Map();
+        if (actorIds.length) {
+          const { data: actors, error: ae } = await client
+            .from("florist_community_profiles")
+            .select(PROFILE_COLUMNS)
+            .in("user_id", actorIds);
+          if (ae) throw ae;
+          const resolved = await Promise.all((actors || []).map((row) => profileForApi(client, row)));
+          actorMap = new Map(resolved.filter(Boolean).map((p) => [p.user_id, p]));
+        }
+        const items = (notifications || []).map((n) => ({
+          id: n.id,
+          type: n.type,
+          actor: actorMap.get(n.actor_user_id) || null,
+          post_id: n.post_id,
+          comment_id: n.comment_id,
+          read: Boolean(n.read_at),
+          created_at: n.created_at,
+        }));
+        return json(200, {
+          items,
+          unread_count: items.filter((n) => !n.read).length,
+        });
+      }
       if (action === "moderation") {
         if (!platformAdmin) return json(403, { error: "Platform admin moderation only." });
         const { data: reports, error } = await client
@@ -532,7 +625,9 @@ export async function handler(event) {
       }
       requireParticipant(ctx);
       const category = event.queryStringParameters?.category || "";
-      const items = await feed(client, ctx, { category, platformAdmin });
+      const q = event.queryStringParameters?.q || "";
+      const followingOnly = String(event.queryStringParameters?.following || "") === "1";
+      const items = await feed(client, ctx, { category, platformAdmin, q, followingOnly });
       const profile = await ensureDefaultProfile(client, ctx);
       return json(
         200,
@@ -765,6 +860,90 @@ export async function handler(event) {
       return json(200, { ok: true, ...(modResult || {}) });
     }
 
+    if (action === "toggle_follow") {
+      requireParticipant(ctx);
+      const authorUserId = String(body.author_user_id || "");
+      if (!authorUserId) return json(400, { error: "author_user_id is required." });
+      if (authorUserId === user.id) return json(400, { error: "You can't follow yourself." });
+      const { data: existing, error: existingErr } = await client
+        .from("florist_community_follows")
+        .select("follower_user_id")
+        .eq("follower_user_id", user.id)
+        .eq("followed_user_id", authorUserId)
+        .maybeSingle();
+      if (existingErr) {
+        if (missingRelation(existingErr)) friendlyMissing();
+        throw existingErr;
+      }
+      if (existing) {
+        const { error } = await client
+          .from("florist_community_follows")
+          .delete()
+          .eq("follower_user_id", user.id)
+          .eq("followed_user_id", authorUserId);
+        if (error) throw error;
+        return json(200, { following: false });
+      }
+      const { error } = await client
+        .from("florist_community_follows")
+        .insert({ follower_user_id: user.id, followed_user_id: authorUserId, shop_id: shopId });
+      if (error) throw error;
+      await notify(authorUserId, user.id, shopId, "follow", {});
+      return json(200, { following: true });
+    }
+
+    if (action === "mark_notifications_read") {
+      requireParticipant(ctx);
+      const { error } = await client
+        .from("florist_community_notifications")
+        .update({ read_at: new Date().toISOString() })
+        .eq("recipient_user_id", user.id)
+        .is("read_at", null);
+      if (error) {
+        if (missingRelation(error)) return json(200, { ok: true });
+        throw error;
+      }
+      return json(200, { ok: true });
+    }
+
+    // Community Step 68 (structured post types) — a real behavioral
+    // difference for Questions posts: only the asker can mark an answer,
+    // and only a comment that's actually on this post qualifies. This is
+    // the difference between a real "knowledge area" workflow and a
+    // cosmetic category label.
+    if (action === "mark_answered") {
+      requireParticipant(ctx);
+      const postId = String(body.post_id || "");
+      const commentId = String(body.comment_id || "");
+      if (!postId || !commentId) return json(400, { error: "post_id and comment_id are required." });
+      const { data: post, error: postErr } = await client
+        .from("florist_community_posts")
+        .select("id,author_user_id,category,status")
+        .eq("id", postId)
+        .maybeSingle();
+      if (postErr) throw postErr;
+      if (!post || post.status !== "active") return json(404, { error: "This post is not available." });
+      if (post.author_user_id !== user.id) return json(403, { error: "Only the person who asked can mark an answer." });
+      const { data: comment, error: commentErr } = await client
+        .from("florist_community_comments")
+        .select("id")
+        .eq("id", commentId)
+        .eq("post_id", postId)
+        .eq("status", "active")
+        .maybeSingle();
+      if (commentErr) throw commentErr;
+      if (!comment) return json(404, { error: "That comment could not be found on this post." });
+      const { error } = await client
+        .from("florist_community_posts")
+        .update({ answered_comment_id: commentId, updated_at: new Date().toISOString() })
+        .eq("id", postId);
+      if (error) {
+        if (missingRelation(error)) friendlyMissing();
+        throw error;
+      }
+      return json(200, { ok: true, answered_comment_id: commentId });
+    }
+
     if (action === "toggle_like") {
       requireParticipant(ctx);
       const postId = String(body.post_id || "");
@@ -780,6 +959,14 @@ export async function handler(event) {
         if (/membership|42501|authenticated/i.test(msg)) return json(403, { error: msg });
         throw error;
       }
+      if (data?.liked) {
+        const { data: postRow } = await client
+          .from("florist_community_posts")
+          .select("author_user_id")
+          .eq("id", postId)
+          .maybeSingle();
+        if (postRow) await notify(postRow.author_user_id, user.id, shopId, "like", { postId });
+      }
       return json(200, {
         liked: Boolean(data?.liked),
         like_count: Number(data?.like_count || 0),
@@ -792,7 +979,7 @@ export async function handler(event) {
       const v = validateCommentBody(body);
       if (!postId) return json(400, { error: "post_id is required." });
       if (!v.valid) return json(400, { error: v.errors.join(" ") });
-      await requireActivePost(client, postId);
+      const post = await requireActivePost(client, postId);
       await ensureDefaultProfile(client, ctx);
       const { data, error } = await client
         .from("florist_community_comments")
@@ -809,6 +996,7 @@ export async function handler(event) {
         if (missingRelation(error)) friendlyMissing();
         throw error;
       }
+      await notify(post.author_user_id, user.id, shopId, "comment", { postId, commentId: data.id });
       const profile = await loadProfile(client, user.id);
       return json(201, {
         item: publicComment({ ...data, author: profile }, { isMine: true }),

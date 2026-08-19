@@ -44,6 +44,7 @@
     guidelines: [],
     tab: "feed",
     category: "",
+    search: "",
     comments: {},
     openComments: null,
     composerDraft: {
@@ -54,6 +55,9 @@
       allow_photo_use: false,
     },
     recipeUi: {},
+    // Community Step 68 — real notifications (new like/comment/follow),
+    // fetched once on load and refreshed after the bell is opened.
+    notifications: { items: [], unreadCount: 0, open: false, loaded: false },
   };
   let pendingImageDataUrl = null;
   let pendingAvatarDataUrl = null;
@@ -140,6 +144,18 @@
     }
   }
   function renderEmpty() {
+    if (state.tab === "following") {
+      return `<div class="community-state community-empty">
+        <h3>You're not following anyone yet</h3>
+        <p>Tap Follow on a florist's post in the Feed to see their new posts here.</p>
+      </div>`;
+    }
+    if (state.search) {
+      return `<div class="community-state community-empty">
+        <h3>No posts match "${esc(state.search)}"</h3>
+        <p>Try a different search, or clear it to see the full feed.</p>
+      </div>`;
+    }
     return `<div class="community-state community-empty">
       <h3>Your florist feed is quiet</h3>
       <p>Share an arrangement photo, design tip, or question — the way you would on social, but florist-only.</p>
@@ -251,10 +267,41 @@
   }
 
   function tabBar(active) {
-    return `<div class="community-tabs" role="tablist" aria-label="Florist Community sections">
-      <button type="button" class="community-tab${active === "feed" ? " active" : ""}" data-tab="feed" role="tab" aria-selected="${active === "feed"}">Feed</button>
-      <button type="button" class="community-tab${active === "profile" ? " active" : ""}" data-tab="profile" role="tab" aria-selected="${active === "profile"}">My Profile</button>
-    </div>`;
+    return `<div class="community-tabs-row">
+      <div class="community-tabs" role="tablist" aria-label="Florist Community sections">
+        <button type="button" class="community-tab${active === "feed" ? " active" : ""}" data-tab="feed" role="tab" aria-selected="${active === "feed"}">Feed</button>
+        <button type="button" class="community-tab${active === "following" ? " active" : ""}" data-tab="following" role="tab" aria-selected="${active === "following"}">Following</button>
+        <button type="button" class="community-tab${active === "profile" ? " active" : ""}" data-tab="profile" role="tab" aria-selected="${active === "profile"}">My Profile</button>
+      </div>
+      ${notificationsBellHtml()}
+    </div>
+    ${notificationsPanelHtml()}`;
+  }
+
+  function notificationsBellHtml() {
+    const n = state.notifications;
+    return `<button type="button" id="communityNotificationsBell" class="community-notif-bell" aria-label="Notifications" aria-expanded="${n.open ? "true" : "false"}">
+      🔔${n.unreadCount > 0 ? `<span class="community-notif-badge">${n.unreadCount > 9 ? "9+" : n.unreadCount}</span>` : ""}
+    </button>`;
+  }
+
+  function notificationLabel(n) {
+    const name = esc(n.actor?.display_name || "A florist");
+    if (n.type === "like") return `${name} encouraged your post`;
+    if (n.type === "comment") return `${name} commented on your post`;
+    if (n.type === "follow") return `${name} started following you`;
+    return `${name} did something on Florist Community`;
+  }
+
+  function notificationsPanelHtml() {
+    const n = state.notifications;
+    if (!n.open) return "";
+    const items = n.items.length
+      ? `<ul class="community-notif-list">${n.items
+          .map((x) => `<li class="${x.read ? "" : "unread"}"><span>${notificationLabel(x)}</span><time>${esc(formatWhen(x.created_at))}</time></li>`)
+          .join("")}</ul>`
+      : `<p class="subtle community-notif-empty">No notifications yet — you'll see likes, comments, and new followers here.</p>`;
+    return `<div id="communityNotificationsPanel" class="community-notif-panel">${items}</div>`;
   }
 
   function filterBar(active) {
@@ -266,7 +313,9 @@
         )
       )
       .join("");
-    return `<div class="community-filters" role="toolbar" aria-label="Filter by category">${chips}</div>`;
+    return `<div class="community-filters" role="toolbar" aria-label="Filter by category">${chips}</div>
+    <label class="community-search visually-hidden" for="communitySearch">Search posts</label>
+    <input type="search" id="communitySearch" class="community-search" placeholder="Search Florist Community…" value="${esc(state.search)}" autocomplete="off">`;
   }
 
     /** Recipe Step 66/75: renders one size's stems with confidence badges
@@ -398,8 +447,9 @@
         <div class="community-post-author">
           <strong>${esc(author.display_name || "Florist")}</strong>
           <span class="subtle">${esc(author.shop_display_name || "")}${author.city ? ` · ${esc(author.city)}` : ""}</span>
-          <p class="community-category">${esc(post.category)} ${permBadge}</p>
+          <p class="community-category">${esc(post.category)} ${permBadge}${post.category === "Questions" && post.answered_comment_id ? ` <span class="community-answered-tag">✓ Answered</span>` : ""}</p>
         </div>
+        ${post.is_mine ? "" : `<button type="button" class="community-follow-btn${post.author_followed ? " following" : ""}" data-follow-author="${esc(author.user_id || "")}" aria-pressed="${post.author_followed ? "true" : "false"}">${post.author_followed ? "Following" : "+ Follow"}</button>`}
         <time class="subtle community-post-time" datetime="${esc(post.created_at || "")}">${esc(formatWhen(post.created_at))}</time>
       </header>
       ${img}
@@ -460,7 +510,7 @@
               : `<div class="community-state community-empty"><h3>You haven't posted yet</h3><p>Share your first arrangement from the Feed tab — it'll show up here.</p></div>`;
             return `${profileForm(state.profile)}<h3 class="community-my-posts-heading">Your posts</h3>${myPosts}`;
           })()
-        : `${composerHtml()}${filterBar(state.category)}${
+        : `${tab === "feed" ? composerHtml() : ""}${filterBar(state.category)}${
             state.items.length === 0
               ? renderEmpty()
               : `<div class="community-feed">${state.items.map(postCard).join("")}</div>`
@@ -531,7 +581,46 @@
         const tab = btn.dataset.tab;
         if (tab === state.tab) return;
         state.tab = tab;
-        render();
+        // Following is a real server-side filter (a different feed() call,
+        // not a client-side slice of whatever's already loaded), and
+        // switching back to Feed/My Profile needs the unfiltered feed
+        // again — so every tab switch reloads, keeping state.items always
+        // scoped correctly for the active tab.
+        load({ keepCategory: true });
+      });
+    });
+
+    el.querySelector("#communityNotificationsBell")?.addEventListener("click", async () => {
+      state.notifications.open = !state.notifications.open;
+      render();
+      if (state.notifications.open) await loadNotifications();
+    });
+
+    let searchDebounce = null;
+    el.querySelector("#communitySearch")?.addEventListener("input", (e) => {
+      const value = e.target.value;
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(() => {
+        state.search = value;
+        load({ keepCategory: true });
+      }, 350);
+    });
+
+    el.querySelectorAll("[data-follow-author]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const authorId = btn.getAttribute("data-follow-author");
+        if (!authorId) return;
+        btn.disabled = true;
+        try {
+          const res = await api("toggle_follow", { author_user_id: authorId });
+          state.items = state.items.map((p) =>
+            p.author?.user_id === authorId ? { ...p, author_followed: Boolean(res.following) } : p
+          );
+          render();
+        } catch (err) {
+          setStatus(err.message || "Could not update follow.");
+          btn.disabled = false;
+        }
       });
     });
 
@@ -959,13 +1048,19 @@
   }
 
   function renderComments(postId, items) {
+    const post = state.items.find((p) => p.id === postId);
+    // Only the asker, and only on a Questions post, can mark an answer —
+    // a real behavioral difference for that post type, not a label.
+    const canMarkAnswered = Boolean(post?.is_mine && post?.category === "Questions");
     const list =
       (items || [])
-        .map(
-          (c) => `<div class="community-comment">
+        .map((c) => {
+          const isAnswer = post?.answered_comment_id === c.id;
+          return `<div class="community-comment${isAnswer ? " community-comment-answer" : ""}">
           ${avatarHtml(c.author || {}, { size: "xs", alt: "" })}
           <div class="community-comment-body">
             <strong>${esc(c.author?.display_name || "Florist")}</strong>
+            ${isAnswer ? `<span class="community-answer-badge">✓ Answer</span>` : ""}
             <span class="subtle"> · ${esc(formatWhen(c.created_at))}</span>
             <p>${esc(c.body)}</p>
             ${
@@ -973,9 +1068,14 @@
                 ? `<button type="button" class="secondary community-delete-comment" data-id="${esc(c.id)}">Delete</button>`
                 : ""
             }
+            ${
+              canMarkAnswered && !isAnswer
+                ? `<button type="button" class="secondary community-mark-answer" data-post="${esc(postId)}" data-comment="${esc(c.id)}">Mark as answer</button>`
+                : ""
+            }
           </div>
-        </div>`
-        )
+        </div>`;
+        })
         .join("") || `<p class="subtle">No comments yet.</p>`;
     return `${list}
       <form class="community-comment-form" data-post="${esc(postId)}">
@@ -1015,6 +1115,33 @@
         }
       });
     });
+    box.querySelectorAll(".community-mark-answer").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const commentId = btn.getAttribute("data-comment");
+        btn.disabled = true;
+        try {
+          await api("mark_answered", { post_id: postId, comment_id: commentId });
+          const post = state.items.find((p) => p.id === postId);
+          if (post) post.answered_comment_id = commentId;
+          box.innerHTML = renderComments(postId, state.comments[postId]);
+          bindCommentForm(box, postId);
+          // Patch the header tag directly instead of a full render() —
+          // a full re-render would collapse this comments box back to
+          // hidden (state.openComments isn't replayed on render()).
+          const categoryLine = root()?.querySelector(`[data-post-id="${postId}"] .community-category`);
+          if (categoryLine && !categoryLine.querySelector(".community-answered-tag")) {
+            const tag = document.createElement("span");
+            tag.className = "community-answered-tag";
+            tag.textContent = " ✓ Answered";
+            categoryLine.appendChild(tag);
+          }
+          setStatus("Marked as the answer.");
+        } catch (err) {
+          setStatus(err.message || "Could not mark this as the answer.");
+          btn.disabled = false;
+        }
+      });
+    });
   }
 
   async function load(opts = {}) {
@@ -1036,6 +1163,8 @@
       if (!fn) throw new Error("Sign in required.");
       const params = new URLSearchParams();
       if (state.category) params.set("category", state.category);
+      if (state.search) params.set("q", state.search);
+      if (state.tab === "following") params.set("following", "1");
       const path = params.toString() ? `florist-community?${params}` : "florist-community";
       const data = await fn(path);
       state.profile = data.profile;
@@ -1044,10 +1173,32 @@
       state.loading = false;
       state.error = null;
       render();
+      // Fire-and-forget so the bell's unread badge is real on first paint
+      // without blocking the feed on a second round-trip.
+      loadNotifications({ silent: true }).catch(() => {});
     } catch (err) {
       state.loading = false;
       state.error = err.message || "Could not load Community.";
       render();
+    }
+  }
+
+  /** Community Step 68 — real notifications (likes, comments, new followers). */
+  async function loadNotifications({ silent = false } = {}) {
+    const fn = window.bloomCommunityApi || window.api;
+    if (!fn) return;
+    try {
+      const data = await fn("florist-community?action=notifications");
+      state.notifications.items = data.items || [];
+      state.notifications.unreadCount = Number(data.unread_count || 0);
+      if (!silent) {
+        await fn("florist-community", { method: "POST", body: JSON.stringify({ action: "mark_notifications_read" }) });
+        state.notifications.unreadCount = 0;
+        state.notifications.items = state.notifications.items.map((n) => ({ ...n, read: true }));
+      }
+      render();
+    } catch {
+      /* notifications are a bonus surface — never blocks the feed */
     }
   }
 
