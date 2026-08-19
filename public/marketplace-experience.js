@@ -533,7 +533,7 @@
         if (!cart.some((row) => row.id === item.id)) cart.push({ id: item.id, product_name: item.product_name, price: item.price, quantity: 1 });
         writeCart(cart);
         hooks.toast('Saved to cart.');
-        renderCartBadge(hooks);
+        refreshCartUI(hooks, state);
         return;
       }
       const checkoutBtn = event.target.closest('[data-market-checkout]');
@@ -666,7 +666,7 @@
           }
         }
         writeCart(cart);
-        renderCartBadge(hooks);
+        refreshCartUI(hooks, state);
         hooks.toast(unavailable.length
           ? `Added ${added} item(s) at today's price. Not currently available: ${unavailable.join(', ')}.`
           : `Added ${added} item(s) to your cart at today's price.`);
@@ -781,7 +781,7 @@
             }
           }
           writeCart(cart);
-          renderCartBadge(hooks);
+          refreshCartUI(hooks, state);
           if (added && !unavailable.length) {
             hooks.toast(`Added ${added} item(s) to your cart at today's price.`);
           } else if (added) {
@@ -798,18 +798,93 @@
       }
     });
 
-    hooks.$('#marketplaceCartCheckout')?.addEventListener('click', async () => {
-      const cart = readCart();
-      if (!cart.length) return hooks.toast('Add items to your cart first.');
+    // The real cart-review panel (view/edit/remove/checkout) is rendered
+    // and rebound by renderCartPanel()/bindCartBtn() — see below. It owns
+    // the one real "Checkout" button for a multi-item cart; there used to
+    // be a listener bound directly to a #marketplaceCartCheckout element
+    // that no static markup ever provided, so it silently never fired.
+  }
+
+  function renderCartBadge(hooks) {
+    const badge = hooks.$('#marketplaceCartCount');
+    if (!badge) return;
+    badge.textContent = String(readCart().length);
+  }
+
+  function cartLineTotal(row) {
+    return Number(row.price || 0) * Number(row.quantity || 1);
+  }
+
+  /** Updates the badge count and, only if the cart panel is currently open, re-renders its contents too — an item added while the panel is open should show up in it immediately, not just bump the count. */
+  function refreshCartUI(hooks, state) {
+    renderCartBadge(hooks);
+    const panel = hooks.$('#marketplaceCartPanel');
+    if (panel && !panel.hidden) renderCartPanel(hooks, state);
+  }
+
+  function renderCartPanel(hooks, state) {
+    const panel = hooks.$('#marketplaceCartPanel');
+    if (!panel) return;
+    // A quantity/remove edit re-renders this whole panel — preserve
+    // whatever promo code the buyer already typed instead of silently
+    // clearing it out from under them.
+    const priorPromo = hooks.$('#marketplaceCartPromo')?.value || '';
+    const cart = readCart();
+    if (!cart.length) {
+      panel.innerHTML = '<div class="marketplace-cart-empty">Your cart is empty. Add items while you browse.</div>';
+      return;
+    }
+    const subtotal = cart.reduce((sum, row) => sum + cartLineTotal(row), 0);
+    panel.innerHTML = `
+      <div class="marketplace-cart-items">${cart.map((row) => `
+        <div class="marketplace-cart-line" data-cart-line="${hooks.esc(row.id)}">
+          <div class="marketplace-cart-line-info"><strong>${hooks.esc(row.product_name || 'Item')}</strong><span class="subtle">${hooks.money(row.price)} each</span></div>
+          <input type="number" min="1" step="1" value="${Number(row.quantity || 1)}" class="marketplace-cart-qty" data-cart-qty="${hooks.esc(row.id)}" aria-label="Quantity">
+          <span class="marketplace-cart-line-total">${hooks.money(cartLineTotal(row))}</span>
+          <button type="button" class="secondary danger" data-cart-remove="${hooks.esc(row.id)}" aria-label="Remove from cart">✕</button>
+        </div>`).join('')}</div>
+      <div class="marketplace-cart-summary">
+        <label>Promo code<input type="text" id="marketplaceCartPromo" placeholder="Optional"></label>
+        <div class="marketplace-cart-subtotal">Subtotal: <strong>${hooks.money(subtotal)}</strong></div>
+        <button type="button" class="primary wide" id="marketplaceCartCheckout">Checkout</button>
+      </div>`;
+    if (priorPromo) {
+      const promoInput = panel.querySelector('#marketplaceCartPromo');
+      if (promoInput) promoInput.value = priorPromo;
+    }
+
+    panel.querySelectorAll('[data-cart-remove]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        writeCart(readCart().filter((row) => row.id !== btn.dataset.cartRemove));
+        renderCartBadge(hooks);
+        renderCartPanel(hooks, state);
+      });
+    });
+    panel.querySelectorAll('[data-cart-qty]').forEach((input) => {
+      input.addEventListener('change', () => {
+        const qty = Math.max(1, Math.floor(Number(input.value) || 1));
+        const next = readCart().map((row) => (row.id === input.dataset.cartQty ? { ...row, quantity: qty } : row));
+        writeCart(next);
+        renderCartPanel(hooks, state);
+      });
+    });
+    panel.querySelector('#marketplaceCartCheckout')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      const currentCart = readCart();
+      if (!currentCart.length) return;
       if (hooks.getVerificationStatus?.() !== 'approved') {
         hooks.openVerificationDialog?.();
         return hooks.toast('Complete wholesale verification before checkout.');
       }
+      const promoCode = (hooks.$('#marketplaceCartPromo')?.value || '').trim();
+      button.disabled = true;
       try {
-        const promoCode = (state.specials || []).length ? (window.prompt('Promo code (optional) — leave blank to skip:', '') || '').trim() : '';
         const result = await hooks.api('marketplace-checkout', {
           method: 'POST',
-          body: JSON.stringify({ items: cart.map((row) => ({ listing_id: row.id, quantity: row.quantity || 1 })), ...(promoCode ? { promo_code: promoCode } : {}) })
+          body: JSON.stringify({
+            items: currentCart.map((row) => ({ listing_id: row.id, quantity: row.quantity || 1 })),
+            ...(promoCode ? { promo_code: promoCode } : {})
+          })
         });
         if (result.url) {
           writeCart([]);
@@ -828,16 +903,27 @@
           const staleIds = new Set(error.items.map((row) => row.listing_id).filter(Boolean));
           writeCart(readCart().filter((row) => !staleIds.has(row.id)));
           renderCartBadge(hooks);
+          renderCartPanel(hooks, state);
         }
         hooks.toast(error.message);
+      } finally {
+        button.disabled = false;
       }
     });
   }
 
-  function renderCartBadge(hooks) {
-    const badge = hooks.$('#marketplaceCartCount');
-    if (!badge) return;
-    badge.textContent = String(readCart().length);
+  function bindCartBtn(hooks, state) {
+    hooks.$('#marketplaceCartBtn')?.addEventListener('click', () => {
+      const panel = hooks.$('#marketplaceCartPanel');
+      if (!panel) return;
+      const opening = panel.hidden;
+      // Only one dropdown panel open at a time — opening the cart closes
+      // notifications, and vice versa (see bindNotifBell).
+      const notifPanel = hooks.$('#marketplaceNotifPanel');
+      if (notifPanel) notifPanel.hidden = true;
+      panel.hidden = !opening;
+      if (opening) renderCartPanel(hooks, state);
+    });
   }
 
   function renderCategoryOptions(hooks) {
@@ -913,6 +999,8 @@
       const panel = hooks.$('#marketplaceNotifPanel');
       if (!panel) return;
       const opening = panel.hidden;
+      const cartPanel = hooks.$('#marketplaceCartPanel');
+      if (cartPanel) cartPanel.hidden = true;
       panel.hidden = !opening;
       if (!opening) return;
       renderNotifPanel(hooks, state);
@@ -934,6 +1022,7 @@
     renderCartBadge(hooks);
     bindMarketplaceEvents(hooks, state);
     bindNotifBell(hooks, state);
+    bindCartBtn(hooks, state);
     await loadBrowse(hooks, state);
     await loadNotifications(hooks, state);
     await loadSpecials(hooks, state);
