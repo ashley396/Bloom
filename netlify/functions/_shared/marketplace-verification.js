@@ -174,6 +174,15 @@ export function adminDecisionToStatus(decision) {
   }
 }
 
+/**
+ * Same check used on both sides of the marketplace: an "approved, not
+ * expired" verification application is what makes an account authorized
+ * to transact — as a buyer, or, per the marketplace vision's SUPPLIER
+ * VERIFICATION section ("only authorized sellers should be allowed to
+ * publicly sell through the marketplace"), as a seller. There's one
+ * verification system in this platform, not two — reused, not
+ * duplicated, even though this function predates the seller-side use.
+ */
 export function canPurchaseWithVerification(application, now = Date.now()) {
   if (!application) {
     return { allowed: false, reason: "missing_application" };

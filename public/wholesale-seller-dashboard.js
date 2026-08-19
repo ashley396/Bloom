@@ -43,7 +43,7 @@
         ${kpiCard('Orders', k.order_count ?? '—', k.pending_order_count == null ? '' : `${k.pending_order_count} pending`)}
       </div>
       <div class="wholesale-seller-grid">
-        <section class="panel"><h2>Verification</h2><p>Status: <strong>${hooks.esc(data.verification_status || 'unknown')}</strong></p><button type="button" class="secondary" data-wholesale-verify>Review verification</button></section>
+        <section class="panel"><h2>Verification</h2><p>Status: <strong>${hooks.esc(data.verification_status || 'unknown')}</strong></p><p class="subtle">${data.verification_status === 'approved' ? 'Your products are visible to buyers in the Wholesale Marketplace.' : 'Buyers cannot see your products in the Wholesale Marketplace until your verification is approved — this protects florists from unverified sellers.'}</p><button type="button" class="secondary" data-wholesale-verify>Review verification</button></section>
         <section class="panel"><h2>Best sellers</h2>${(data.best_sellers || []).length ? `<ul>${data.best_sellers.map((p) => `<li>${hooks.esc(p.product_name)}</li>`).join('')}</ul>` : hooks.empty('Publish products to see performance.')}</section>
         <section class="panel wide"><h2>Low-stock alerts</h2>${(data.low_stock || []).length ? `<ul>${data.low_stock.map((p) => `<li>${hooks.esc(p.product_name)} · ${p.available_quantity ?? p.inventory_total ?? 0} left</li>`).join('')}</ul>` : hooks.empty('Inventory levels look healthy.')}</section>
       </div>`;
