@@ -1,0 +1,65 @@
+/* Marketing Command Center */
+.marketing-tabs {
+  display: flex;
+  gap: 0.4rem;
+  border-bottom: 1px solid #e0d3db;
+  padding-bottom: 0;
+  margin-bottom: 1rem;
+}
+
+.marketing-tab {
+  border: 0;
+  background: transparent;
+  padding: 0.7rem 0.2rem;
+  margin-right: 1rem;
+  font-weight: 750;
+  font-size: 0.95rem;
+  color: #857680;
+  cursor: pointer;
+  border-bottom: 2.5px solid transparent;
+}
+
+.marketing-tab.active,
+.marketing-tab:hover {
+  color: #a72f67;
+}
+
+.marketing-tab.active {
+  border-bottom-color: #a72f67;
+}
+
+.marketing-overview-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.marketing-overview-cards h2 {
+  margin: 0.2rem 0;
+  font-size: 2rem;
+}
+
+.marketing-channel-fieldset {
+  border: 1px solid #e0d3db;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+}
+
+.marketing-channel-fieldset legend {
+  padding: 0 0.4rem;
+  font-weight: 750;
+  font-size: 0.85rem;
+  color: #857680;
+}
+
+.marketing-channel-fieldset label.check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 500;
+}

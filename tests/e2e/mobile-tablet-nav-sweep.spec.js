@@ -23,7 +23,7 @@ const VIEWPORTS = [
   { name: "tablet", width: 820, height: 1180 },
 ];
 
-// Same 28 primary sidebar items as authenticated-tabs.spec.js.
+// Same 29 primary sidebar items as authenticated-tabs.spec.js.
 const NAV_TABS = [
   "dashboardPage",
   "posPage",
@@ -44,6 +44,7 @@ const NAV_TABS = [
   "libraryPage",
   "communityPage",
   "floristNetworkPage",
+  "marketingPage",
   "emailCampaignsPage",
   "weddingsPage",
   "holidayPage",

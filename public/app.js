@@ -279,6 +279,10 @@ function showPage(id){
     refreshGrowthFeatureFlags().then(()=>{if(!emailCampaignsEnabled){toast("Email Campaigns is disabled.");return}showPage("emailCampaignsPage")});
     return;
   }
+  if(id==="marketingPage"&&!marketingCampaignsEnabled){
+    refreshGrowthFeatureFlags().then(()=>{if(!marketingCampaignsEnabled){toast("Marketing is disabled.");return}showPage("marketingPage")});
+    return;
+  }
   if(id==="weddingsPage"&&!weddingWorkflowsEnabled){
     refreshGrowthFeatureFlags().then(()=>{if(!weddingWorkflowsEnabled){toast("Wedding Workflows is disabled.");return}showPage("weddingsPage")});
     return;
@@ -309,6 +313,7 @@ let holidayCommandEnabled=false;
 let emailCampaignsEnabled=false;
 let weddingWorkflowsEnabled=false;
 let floristNetworkEnabled=false;
+let marketingCampaignsEnabled=false;
 function setCommunityNavVisible(on){
   communityBetaEnabled=Boolean(on);
   $$('[data-page="communityPage"]').forEach((el)=>{el.hidden=!communityBetaEnabled;el.style.display=communityBetaEnabled?"":"none"});
@@ -339,6 +344,7 @@ function setHolidayNavVisible(on){holidayCommandEnabled=setFlaggedNavVisible("ho
 function setEmailCampaignsNavVisible(on){emailCampaignsEnabled=setFlaggedNavVisible("emailCampaignsPage",on,"#emailCampaignsRoot")}
 function setWeddingsNavVisible(on){weddingWorkflowsEnabled=setFlaggedNavVisible("weddingsPage",on,"#weddingsRoot")}
 function setFloristNetworkNavVisible(on){floristNetworkEnabled=setFlaggedNavVisible("floristNetworkPage",on,"#floristNetworkRoot")}
+function setMarketingNavVisible(on){marketingCampaignsEnabled=setFlaggedNavVisible("marketingPage",on,"#marketingRoot")}
 async function refreshGrowthFeatureFlags(){
   try{
     const d=await fetch("/.netlify/functions/production-health").then((r)=>r.ok?r.json():null).catch(()=>null);
@@ -348,6 +354,7 @@ async function refreshGrowthFeatureFlags(){
     setEmailCampaignsNavVisible(Boolean(d?.feature_flags?.EMAIL_CAMPAIGNS));
     setWeddingsNavVisible(Boolean(d?.feature_flags?.WEDDING_WORKFLOWS));
     setFloristNetworkNavVisible(Boolean(d?.feature_flags?.FLORIST_NETWORK));
+    setMarketingNavVisible(Boolean(d?.feature_flags?.MARKETING_CAMPAIGNS));
     return on;
   }catch{
     setCommunityNavVisible(false);
@@ -355,6 +362,7 @@ async function refreshGrowthFeatureFlags(){
     setEmailCampaignsNavVisible(false);
     setWeddingsNavVisible(false);
     setFloristNetworkNavVisible(false);
+    setMarketingNavVisible(false);
     return false;
   }
 }
@@ -368,6 +376,15 @@ async function loadCommunityPage(){
     return;
   }
   if(window.BloomCommunity){window.bloomCommunityApi=api;await window.BloomCommunity.load()}
+}
+async function loadMarketingPage(){
+  await refreshGrowthFeatureFlags();
+  if(!marketingCampaignsEnabled){
+    const root=$("#marketingRoot");
+    if(root)root.innerHTML=`<div class="panel" role="alert"><h3>Unavailable</h3><p class="subtle">Marketing is disabled.</p></div>`;
+    return;
+  }
+  if(window.BloomMarketingCampaigns){window.bloomMarketingApi=api;await window.BloomMarketingCampaigns.load()}
 }
 async function loadHolidayPage(){
   await refreshGrowthFeatureFlags();
@@ -440,7 +457,7 @@ $("#posSettingsSaveBtn")?.addEventListener("click",async()=>{
   }
 });
 
-async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,bouquetsPage:()=>{},expensesPage:loadExpenses,reportsPage:loadReports,analyticsPage:loadAnalyticsPage,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,floristNetworkPage:loadFloristNetworkPage,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,communityPage:loadCommunityPage,holidayPage:loadHolidayPage,emailCampaignsPage:loadEmailCampaignsPage,weddingsPage:loadWeddingsPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,posSettingsPage:loadPosSettingsPage,posPage:()=>{window.FlorisynLuxuryPos?.syncStatusMetrics?.();window.FlorisynLuxuryPos?.syncCustomer?.();if(typeof renderPosTiles==="function")renderPosTiles();},aiStudioPage:()=>refreshAiStatus()};try{if(m[id])await m[id]()}catch(e){toast(e.message);const box=document.querySelector(`#${id} .cards, #${id}List, #${id.replace("Page","")}List, #communityRoot, #holidayRoot, #emailCampaignsRoot, #weddingsRoot, #floristNetworkRoot`);if(box&&window.BloomLaunchPolish?.errorState)box.innerHTML=window.BloomLaunchPolish.errorState({message:e.message})}}
+async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,bouquetsPage:()=>{},expensesPage:loadExpenses,reportsPage:loadReports,analyticsPage:loadAnalyticsPage,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,floristNetworkPage:loadFloristNetworkPage,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,communityPage:loadCommunityPage,holidayPage:loadHolidayPage,emailCampaignsPage:loadEmailCampaignsPage,marketingPage:loadMarketingPage,weddingsPage:loadWeddingsPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,posSettingsPage:loadPosSettingsPage,posPage:()=>{window.FlorisynLuxuryPos?.syncStatusMetrics?.();window.FlorisynLuxuryPos?.syncCustomer?.();if(typeof renderPosTiles==="function")renderPosTiles();},aiStudioPage:()=>refreshAiStatus()};try{if(m[id])await m[id]()}catch(e){toast(e.message);const box=document.querySelector(`#${id} .cards, #${id}List, #${id.replace("Page","")}List, #communityRoot, #holidayRoot, #emailCampaignsRoot, #weddingsRoot, #floristNetworkRoot, #marketingRoot`);if(box&&window.BloomLaunchPolish?.errorState)box.innerHTML=window.BloomLaunchPolish.errorState({message:e.message})}}
 const ORDER_STATUS_DEFS=[
   {id:"PENDING",label:"Pending",legacy:["NEW","PENDING"]},
   {id:"CONFIRMED",label:"Confirmed",legacy:["CONFIRMED"]},
@@ -966,6 +983,7 @@ $("#refreshCommunity")?.addEventListener("click",()=>loadCommunityPage());
 $("#refreshHoliday")?.addEventListener("click",()=>loadHolidayPage());
 $("#refreshFloristNetwork")?.addEventListener("click",()=>loadFloristNetworkPage());
 $("#refreshEmailCampaigns")?.addEventListener("click",()=>loadEmailCampaignsPage());
+$("#refreshMarketing")?.addEventListener("click",()=>loadMarketingPage());
 $("#refreshWeddings")?.addEventListener("click",()=>loadWeddingsPage());
 $("#shopSwitcher").onchange=async e=>{await api("stores",{method:"PATCH",body:JSON.stringify({shop_id:e.target.value})});location.reload()};
 $("#customerForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));d.vip=f.elements.vip.checked;d.is_business=f.elements.is_business.checked;if(f.elements.is_house_account)d.is_house_account=f.elements.is_house_account.checked;d.contact_preferences={preferred_method:f.elements.preferred_method?.value||"none",marketing_opt_in:Boolean(f.elements.marketing_opt_in?.checked)};try{await api("customers",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)})}catch(err){return toast(err.message)}f.reset();$("#customerDialog").close();toast("Customer saved");loadCustomers()};

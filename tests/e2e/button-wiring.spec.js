@@ -39,6 +39,7 @@ const NAV_TABS = [
   "libraryPage",
   "communityPage",
   "floristNetworkPage",
+  "marketingPage",
   "emailCampaignsPage",
   "weddingsPage",
   "holidayPage",

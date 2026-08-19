@@ -32,7 +32,8 @@
     "/subscription": { page: "subscriptionPage" },
     "/community": { page: "communityPage" },
     "/florist-network": { page: "floristNetworkPage" },
-    "/marketing": { page: "emailCampaignsPage" },
+    "/marketing": { page: "marketingPage" },
+    "/marketing/email-campaigns": { page: "emailCampaignsPage" },
     "/weddings": { page: "weddingsPage" },
     "/holiday-command": { page: "holidayPage" },
     "/wholesale/seller": { page: "wholesaleSellerPage" }
@@ -66,7 +67,8 @@
     subscriptionPage: "/subscription",
     communityPage: "/community",
     floristNetworkPage: "/florist-network",
-    emailCampaignsPage: "/marketing",
+    marketingPage: "/marketing",
+    emailCampaignsPage: "/marketing/email-campaigns",
     weddingsPage: "/weddings",
     holidayPage: "/holiday-command",
     wholesaleSellerPage: "/wholesale/seller"
