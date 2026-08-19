@@ -16,6 +16,46 @@
     localStorage.setItem(CART_KEY, JSON.stringify(items));
   }
 
+  function availabilityBadgeHtml(hooks, item) {
+    if (!item.availability_status || item.availability_status === 'available_now') return '';
+    const label = item.availability_label || item.availability_status.replace(/_/g, ' ');
+    return `<span class="availability-badge status-${hooks.esc(item.availability_status)}">${hooks.esc(label)}</span>`;
+  }
+
+  function floralMetaHtml(hooks, item) {
+    const bits = [item.variety, item.color, item.stem_length_in ? `${item.stem_length_in}" stems` : '', item.grower_name].filter(Boolean);
+    return bits.length ? `<p class="marketplace-floral-meta">${bits.map((b) => hooks.esc(b)).join(' · ')}</p>` : '';
+  }
+
+  function specSheetHtml(hooks, item) {
+    const rows = [
+      ['Variety', item.variety],
+      ['Color', item.color],
+      ['Grade', item.grade],
+      ['Stem length', item.stem_length_in ? `${item.stem_length_in}"` : ''],
+      ['Grower', item.grower_name],
+      ['Origin', item.origin],
+      ['Stems per bunch', item.stems_per_bunch],
+      ['Bunches per box', item.bunches_per_box],
+      ['Case quantity', item.case_quantity],
+      ['Lead time', item.lead_time_days ? `${item.lead_time_days} day(s)` : ''],
+      ['Delivery region', item.delivery_region],
+      ['Pickup', [item.pickup_city, item.pickup_state].filter(Boolean).join(', ')],
+      ['Substitutions', item.substitution_note]
+    ].filter(([, value]) => value !== null && value !== undefined && value !== '');
+    if (!rows.length && !(item.unit_prices || []).length) return '';
+    const priceRows = (item.unit_prices || [])
+      .map((p) => `<div><dt>Price / ${hooks.esc(p.unit)}</dt><dd>${hooks.money(p.price)}</dd></div>`)
+      .join('');
+    return `<dl class="marketplace-spec-sheet">${priceRows}${rows.map(([label, value]) => `<div><dt>${hooks.esc(label)}</dt><dd>${hooks.esc(String(value))}</dd></div>`).join('')}</dl>`;
+  }
+
+  function cardDisplayPrice(hooks, item) {
+    const price = item.display_price ?? item.price;
+    const unit = item.display_price_unit || item.unit || 'each';
+    return `${hooks.money(price)} / ${hooks.esc(unit)}`;
+  }
+
   function productCard(item, hooks, options = {}) {
     const verifiedBadge = item.verified_seller || options.verifiedSeller
       ? '<span class="badge verified">Verified seller</span>'
@@ -31,10 +71,11 @@
     return `<article class="product-card marketplace-product" data-listing-id="${hooks.esc(item.id)}">
       ${media}
       <div class="body">
-        <div class="marketplace-card-badges">${verifiedBadge}<span class="badge">${hooks.esc(item.category || 'Marketplace')}</span>${lowStock}</div>
+        <div class="marketplace-card-badges">${verifiedBadge}<span class="badge">${hooks.esc(item.category || 'Marketplace')}</span>${lowStock}${availabilityBadgeHtml(hooks, item)}</div>
         <h3>${hooks.esc(item.product_name)}</h3>
         <p class="subtle">${hooks.esc(item.supplier_name || 'Seller')}</p>
-        <div class="price">${hooks.money(item.price)} / ${hooks.esc(item.unit || 'each')}</div>
+        ${floralMetaHtml(hooks, item)}
+        <div class="price">${cardDisplayPrice(hooks, item)}</div>
         <p class="meta">Min ${item.minimum_quantity || 1}${item.allows_local_pickup ? ' · Pickup' : ''}${item.allows_shipping === false ? '' : ' · Ships'}</p>
         <div class="card-actions marketplace-card-actions">
           <button type="button" class="secondary" data-market-detail="${hooks.esc(item.id)}">Details</button>
@@ -55,6 +96,10 @@
     if (state.maxPrice) params.set('maxPrice', state.maxPrice);
     if (state.inStock) params.set('inStock', 'true');
     if (state.shipping) params.set('shipping', state.shipping);
+    if (state.variety) params.set('variety', state.variety);
+    if (state.color) params.set('color', state.color);
+    if (state.availability) params.set('availability', state.availability);
+    if (state.byDate) params.set('byDate', state.byDate);
     const path = `marketplace-catalog${params.toString() ? `?${params}` : ''}`;
     let data;
     try {
@@ -105,9 +150,10 @@
         <button type="button" class="secondary" data-market-detail-close aria-label="Close product details">Close</button>
         ${gallery}
         <h2>${hooks.esc(item.product_name)}</h2>
-        ${data.verified_seller ? '<span class="badge verified">Verified seller</span>' : ''}
+        ${data.verified_seller ? '<span class="badge verified">Verified seller</span>' : ''}${availabilityBadgeHtml(hooks, item)}
         <p>${hooks.esc(item.description || 'No description yet.')}</p>
-        <p class="price">${hooks.money(item.price)} / ${hooks.esc(item.unit || 'each')}</p>
+        <p class="price">${cardDisplayPrice(hooks, item)}</p>
+        ${specSheetHtml(hooks, item)}
         <p class="subtle">Sold by ${hooks.esc(item.supplier_name || 'Seller')}</p>
         <div class="card-actions">
           <button type="button" class="primary" data-market-checkout="${hooks.esc(item.id)}">Checkout</button>
@@ -293,7 +339,7 @@
       }
     });
 
-    ['marketplaceSearch', 'marketplaceCategory', 'marketplaceSellerFilter', 'marketplaceMinPrice', 'marketplaceMaxPrice', 'marketplaceInStock', 'marketplaceShipping'].forEach((id) => {
+    ['marketplaceSearch', 'marketplaceCategory', 'marketplaceSellerFilter', 'marketplaceMinPrice', 'marketplaceMaxPrice', 'marketplaceInStock', 'marketplaceShipping', 'marketplaceVariety', 'marketplaceColor', 'marketplaceAvailability', 'marketplaceByDate'].forEach((id) => {
       hooks.$(`#${id}`)?.addEventListener('change', () => {
         state.q = hooks.$('#marketplaceSearch')?.value || '';
         state.category = hooks.$('#marketplaceCategory')?.value || '';
@@ -302,6 +348,10 @@
         state.maxPrice = hooks.$('#marketplaceMaxPrice')?.value || '';
         state.inStock = Boolean(hooks.$('#marketplaceInStock')?.checked);
         state.shipping = hooks.$('#marketplaceShipping')?.value || '';
+        state.variety = hooks.$('#marketplaceVariety')?.value || '';
+        state.color = hooks.$('#marketplaceColor')?.value || '';
+        state.availability = hooks.$('#marketplaceAvailability')?.value || '';
+        state.byDate = hooks.$('#marketplaceByDate')?.value || '';
         loadBrowse(hooks, state);
       });
     });
@@ -355,7 +405,7 @@
   }
 
   async function load(hooks) {
-    const state = { items: [], q: '', category: '', seller: '', minPrice: '', maxPrice: '', inStock: false, shipping: '' };
+    const state = { items: [], q: '', category: '', seller: '', minPrice: '', maxPrice: '', inStock: false, shipping: '', variety: '', color: '', availability: '', byDate: '' };
     renderCategoryOptions(hooks);
     renderCartBadge(hooks);
     bindMarketplaceEvents(hooks, state);

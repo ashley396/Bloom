@@ -9,7 +9,10 @@ import {
   nextPublishTransition,
   normalizePublishStatus,
   validateProductImages,
-  validateProductVariants
+  validateProductVariants,
+  normalizeAvailabilityStatus,
+  normalizeSeasonalMonths,
+  validateFloralAttributes
 } from "./_shared/marketplace-products.js";
 import { sanitizeApplicationRecord, TABLE as VERIFICATION_TABLE } from "./_shared/marketplace-verification.js";
 import { writeShopAudit } from "./_shared/production.js";
@@ -42,7 +45,30 @@ const LISTING_FIELDS = [
   "low_stock_threshold",
   "allows_shipping",
   "allows_local_pickup",
-  "publish_status"
+  "publish_status",
+  // Floral-specific wholesale attributes (Marketplace vision phase 1).
+  "variety",
+  "color",
+  "stem_length_in",
+  "grade",
+  "grower_name",
+  "origin",
+  "stems_per_bunch",
+  "bunches_per_box",
+  "case_quantity",
+  "price_per_stem",
+  "price_per_bunch",
+  "price_per_box",
+  "price_per_case",
+  "availability_status",
+  "available_from",
+  "available_until",
+  "seasonal_months",
+  "lead_time_days",
+  "delivery_region",
+  "pickup_city",
+  "pickup_state",
+  "substitution_note"
 ];
 
 function isMissingTableError(error) {
@@ -67,6 +93,21 @@ function buildListingPayload(body, shopId) {
   }
   if (body.publish_status !== undefined) {
     payload.publish_status = normalizePublishStatus(body.publish_status);
+  }
+  if (body.availability_status !== undefined) {
+    payload.availability_status = normalizeAvailabilityStatus(body.availability_status);
+  }
+  if (body.seasonal_months !== undefined) {
+    payload.seasonal_months = normalizeSeasonalMonths(body.seasonal_months);
+  }
+  // Empty-string dates/numbers from a form should clear the column, not
+  // get sent to Postgres as "" and fail the numeric/date cast.
+  for (const field of [
+    "stem_length_in", "stems_per_bunch", "bunches_per_box", "case_quantity",
+    "price_per_stem", "price_per_bunch", "price_per_box", "price_per_case",
+    "lead_time_days", "available_from", "available_until"
+  ]) {
+    if (payload[field] === "") payload[field] = null;
   }
   if (body.category && !body.category_slug) {
     const normalized = normalizeMarketplaceCategory(body.category);
@@ -277,6 +318,12 @@ async function loadDashboard(client, shopId, userId) {
 async function saveProduct(client, shopId, body) {
   const images = Array.isArray(body.images) ? body.images : [];
   const variants = Array.isArray(body.variants) ? body.variants : [];
+  const floralValidation = validateFloralAttributes(body);
+  if (!floralValidation.valid) {
+    const error = new Error(floralValidation.errors.join(" "));
+    error.statusCode = 400;
+    throw error;
+  }
   const publishStatus = normalizePublishStatus(body.publish_status, "draft");
   const payload = buildListingPayload({ ...body, publish_status: publishStatus }, shopId);
   if (!payload.image_url && images[0]?.url) payload.image_url = images[0].url;
