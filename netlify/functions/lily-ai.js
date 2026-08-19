@@ -10,6 +10,7 @@ import {
 } from "./_shared/lily-ai-engine.js";
 import { suggestHandoff } from "./_shared/florist-ai-personas.js";
 import { runCloudflareGenerate } from "./ai-assistant.js";
+import { searchMarketplaceForLily, buildMarketplaceSourcingAnswer } from "./_shared/marketplace-lily-sourcing.js";
 
 const CONVERSATIONS = "lily_conversations";
 const MESSAGES = "lily_messages";
@@ -174,6 +175,16 @@ export async function handler(event) {
         input: { prompt: message, shop: context.shop },
         schema: { text: "string", headline: "string", cta: "string" }
       };
+    }
+
+    // Marketplace vision: "Lily should use REAL marketplace information.
+    // Never invent supplier availability or pricing." — a real DB search
+    // against marketplace_listings composed into a deterministic answer,
+    // never handed to the freeform LLM chat path where pricing/
+    // availability could be paraphrased into something that isn't real.
+    if (intent.intent === "marketplace.search" && permission.allowed && intent.slots.flowers?.length) {
+      const matches = await searchMarketplaceForLily(client, intent.slots.flowers);
+      planned.message = buildMarketplaceSourcingAnswer(matches, intent.slots.flowers);
     }
 
     let responseText = buildResponseMessage(intent, permission, planned, confirmed);
