@@ -630,6 +630,19 @@ body.florisyn-atelier .atelier-panel-head h3 {
   color: var(--lux-ink);
 }
 
+/* Lily Step 73 — real "Needs Attention" panel: a 4th card in a 3-column
+   grid reads as an orphaned narrow box, so it spans the full row instead. */
+body.florisyn-atelier .atelier-needs-attention {
+  grid-column: 1 / -1 !important;
+}
+
+body.florisyn-atelier .needs-attention-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 body.florisyn-atelier .atelier-view-all,
 body.florisyn-atelier .atelier-panel-more {
   border: 0 !important;

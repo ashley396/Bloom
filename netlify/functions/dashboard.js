@@ -1,6 +1,7 @@
 import { json,preflight,methodNotAllowed } from "./_shared/http.js";
 import { currentUser,fail } from "./_shared/supabase.js";
 import { shopDateStr,shopDateStrDaysAgo,weekdayLabel } from "./_shared/shop-time.js";
+import { buildNeedsAttentionItems,needsAttentionSummaryText } from "../../lib/assistants/needs-attention.js";
 
 export function localDate(value){return value?String(value).slice(0,10):""}
 // todayStr comes from shopDateStr(shop.timezone) — the shop's own calendar
@@ -39,6 +40,11 @@ export async function handler(event){
   const profitScore=Math.max(0,Math.min(100,Math.round(freshnessScore*.45+marginHealth*.45+(wasteRisk==='Low'?100:wasteRisk==='Medium'?65:30)*.10)));
   const chosen=useFirst.slice(0,3);const dailySpecial=chosen.length?{name:`Fresh Pick ${chosen[0].color||chosen[0].name} Special`,items:chosen.map(i=>({name:i.name,color:i.color,quantity:Math.min(Number(i.quantity||0),i.category==='Greenery'?3:5),unit:i.unit,cost:i.cost})),wastePrevented:Number(chosen.reduce((a,i)=>a+Math.min(Number(i.quantity||0),5)*Number(i.cost||0),0).toFixed(2))}:null;
   const weeklySales=[];for(let n=6;n>=0;n--){const key=shopDateStrDaysAgo(timezone,n);weeklySales.push({label:weekdayLabel(key),total:ledger?ledger.filter(p=>localDate(p.received_at)===key).reduce((a,p)=>a+netPayment(p),0):paid.filter(o=>localDate(o.paid_at||o.created_at)===key).reduce((a,o)=>a+Number(o.total||0),0)})}
-  return json(200,{todaySales,totalSales,totalExpenses,profit:totalSales-totalExpenses,unpaidTotal:unpaid,ordersDueToday:dueToday.length,deliveriesToday:activeDeliveries.length,deliveries:activeDeliveries.length,lowStock,customers:(customers.data||[]).length,weekSales:weeklySales.reduce((a,x)=>a+x.total,0),ordersToday:allOrders.filter(o=>localDate(o.created_at)===today).length,weeklySales,upcomingDeliveries:activeDeliveries.slice(0,5),profitIntelligence:{profitScore,freshnessScore,marginHealth,wasteRisk,wasteValue,useFirst,dailySpecial}});
+  // Lily Step 73 — the same real numbers below (ordersDueToday, deliveries,
+  // lowStock, unpaidTotal) also drive a structured "needs attention" list,
+  // not just Rose's spoken briefing. Single source of truth: computed once
+  // here, never recomputed client-side.
+  const needsAttentionItems=buildNeedsAttentionItems({ordersDueToday:dueToday.length,deliveries:activeDeliveries.length,lowStock,unpaidTotal:unpaid});
+  return json(200,{todaySales,totalSales,totalExpenses,profit:totalSales-totalExpenses,unpaidTotal:unpaid,ordersDueToday:dueToday.length,deliveriesToday:activeDeliveries.length,deliveries:activeDeliveries.length,lowStock,customers:(customers.data||[]).length,weekSales:weeklySales.reduce((a,x)=>a+x.total,0),ordersToday:allOrders.filter(o=>localDate(o.created_at)===today).length,weeklySales,upcomingDeliveries:activeDeliveries.slice(0,5),profitIntelligence:{profitScore,freshnessScore,marginHealth,wasteRisk,wasteValue,useFirst,dailySpecial},needsAttention:{items:needsAttentionItems,summary:needsAttentionSummaryText(needsAttentionItems)}});
  }catch(error){return fail(error)}
 }

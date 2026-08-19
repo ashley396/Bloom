@@ -213,6 +213,13 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
             </span>
           </button>
         </div>
+        <div class="atelier-panel atelier-needs-attention" aria-labelledby="atelierNeedsAttentionHeading">
+          <div class="atelier-panel-head">
+            <h3 id="atelierNeedsAttentionHeading">Needs Attention</h3>
+          </div>
+          <p id="needsAttentionSummary" class="subtle needs-attention-summary">Checking your shop…</p>
+          <div id="needsAttentionActions" class="needs-attention-actions"></div>
+        </div>
       </div>
     </div>
 
@@ -235,7 +242,7 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
       </div>
       <div class="lily-suggestion-card">
         <img src="/assets/assistants/lily-portrait.png" class="assistant-portrait lily-portrait" alt="Lily assistant">
-        <div><h2 id="lilySuggestionGreeting">Hi there!</h2><p>I found new floral ideas that match your inventory.</p><div class="lily-suggestion-actions"><button class="florisyn-rose-btn" data-page="libraryPage">View suggestions</button><button type="button" class="primary lily-retry-community" data-page="communityPage" id="lilyRetryCommunityBtn" hidden>Retry with Lily</button></div></div>
+        <div><h2 id="lilySuggestionGreeting">Needs Attention</h2><p class="needs-attention-summary">Checking your shop…</p><div class="lily-suggestion-actions"><div class="needs-attention-actions"></div><button type="button" class="primary lily-retry-community" data-page="communityPage" id="lilyRetryCommunityBtn" hidden>Retry with Lily</button></div></div>
       </div>
     </aside>
   </div>
