@@ -112,6 +112,38 @@ export function isCurrentlyAvailable(listing = {}, now = new Date()) {
   return true;
 }
 
+/**
+ * "MULTIPLE WHOLESALERS" from the marketplace vision: a florist searching
+ * one variety should be able to compare real supplier options side by
+ * side (price, availability, fulfillment) instead of hunting through a
+ * flat list. Groups already-matched search results by variety (falling
+ * back to product name when variety isn't set) and sorts each group by
+ * price — real listings only, never a fabricated comparison. Groups with
+ * only one seller are still returned (nothing hidden), but
+ * `seller_count` lets the UI decide whether a comparison view is worth
+ * showing.
+ */
+export function groupListingsForComparison(items = []) {
+  const groups = new Map();
+  for (const item of items) {
+    const key = String(item.variety || item.product_name || "").trim().toLowerCase();
+    if (!key) continue;
+    if (!groups.has(key)) {
+      groups.set(key, { key, label: item.variety || item.product_name, items: [] });
+    }
+    groups.get(key).items.push(item);
+  }
+  return [...groups.values()]
+    .map((group) => {
+      const sorted = [...group.items].sort(
+        (a, b) => Number(a.display_price ?? a.price ?? Infinity) - Number(b.display_price ?? b.price ?? Infinity)
+      );
+      const sellerCount = new Set(sorted.map((row) => row.shop_id)).size;
+      return { ...group, items: sorted, seller_count: sellerCount };
+    })
+    .sort((a, b) => b.seller_count - a.seller_count);
+}
+
 export function validateFloralAttributes(attrs = {}) {
   const errors = [];
   if (attrs.stem_length_in != null && attrs.stem_length_in !== "" && !(Number(attrs.stem_length_in) > 0)) {

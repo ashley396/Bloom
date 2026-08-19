@@ -1,7 +1,7 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail } from "./_shared/supabase.js";
 import { normalizeMarketplaceCategory, MARKETPLACE_CATEGORIES } from "./_shared/marketplace-categories.js";
-import { canBrowseListing, resolveDisplayPrice, isCurrentlyAvailable, availabilityStatusLabel } from "./_shared/marketplace-products.js";
+import { canBrowseListing, resolveDisplayPrice, isCurrentlyAvailable, availabilityStatusLabel, groupListingsForComparison } from "./_shared/marketplace-products.js";
 import { matchRecipeToInventory } from "../../lib/floral-library/recipe-intelligence.js";
 import { shopDateStr } from "./_shared/shop-time.js";
 
@@ -454,7 +454,16 @@ export async function handler(event) {
         });
       }
 
-      return json(200, { items, favorites });
+      // Cross-supplier comparison (Marketplace vision: MULTIPLE
+      // WHOLESALERS) — only worth computing when the buyer is actually
+      // searching for something specific; an unfiltered full-catalog
+      // browse has no single "compared item" to group around.
+      const hasActiveSearch = Boolean(q || varietyFilter);
+      const compare = hasActiveSearch
+        ? groupListingsForComparison(items).filter((group) => group.seller_count > 1)
+        : [];
+
+      return json(200, { items, favorites, compare });
     }
 
     if (event.httpMethod === "POST") {
