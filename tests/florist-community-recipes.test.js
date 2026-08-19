@@ -212,6 +212,22 @@ test("save_post_to_library and import_recipe_to_shop both gate on the creator's 
   assert.match(importBlock, /sharePermission\s*=\s*null/);
 });
 
+test("import_recipe_to_shop matches against the importing shop's own inventory for real costing (Community Step 67)", () => {
+  const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/florist-community.js"), "utf8");
+  const importBlock = src.slice(
+    src.indexOf('if (action === "import_recipe_to_shop")'),
+    src.indexOf('if (action === "save_post_to_library")')
+  );
+  assert.match(importBlock, /client\s*\.from\("inventory"\)[\s\S]{0,120}\.eq\("shop_id",\s*shopId\)/);
+  assert.match(importBlock, /matchRecipeToInventory\(draft\.recipe,\s*shopInventory\s*\|\|\s*\[\]\)/);
+  // Every product_recipes row uses the matcher's real cost/inventory link
+  // — never a hardcoded unit_cost: 0 / inventory_id: null regardless of
+  // whether the shop already stocks the ingredient.
+  assert.match(importBlock, /inventory_id:\s*x\.matched_inventory_id/);
+  assert.match(importBlock, /unit_cost:\s*x\.unit_cost/);
+  assert.match(importBlock, /cost_match:\s*costMatch/);
+});
+
 test("community UI hints florists to name flowers for Lily", () => {
   const ui = fs.readFileSync(path.join(process.cwd(), "public/community-ui.js"), "utf8");
   assert.match(ui, /Retry with Lily/);

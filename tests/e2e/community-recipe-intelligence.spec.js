@@ -94,6 +94,48 @@ test("a published recipe shows real Design DNA, a confidence badge on an estimat
   await expect(card.locator(".community-recipe-stems li").filter({ hasText: "3 × Peony" })).toHaveCount(1);
 });
 
+test("importing a recipe shows the real inventory cost-match message, not a generic confirmation", async ({ page }) => {
+  const post = makePost({
+    id: "post-import",
+    published_recipe: {
+      id: "recipe-import",
+      title: "Blush Garden Compote",
+      suggested_retail: 85,
+      recipe: [{ name: "Peony", qty: 4, kind: "flower" }],
+    },
+  });
+  await mockBackend(page);
+  await page.route("**/.netlify/functions/florist-community**", async (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ profile: PROFILE, guidelines: [], items: [post] }) });
+    }
+    const body = route.request().postDataJSON();
+    if (body?.action === "import_recipe_to_shop") {
+      return route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          product_id: "prod-1",
+          product_name: "Blush Garden Compote",
+          cost_match: { matchedCount: 1, totalCount: 1, unmatchedNames: [], estimatedCost: 18 },
+          message: "Blush Garden Compote was added to Products & Recipe Builder. Matched 1 of 1 ingredients to your own inventory — estimated cost $18.00.",
+        }),
+      });
+    }
+    return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  });
+  await withFakeSession(page);
+  await page.goto("/");
+  await expect(page.locator("#app")).toBeVisible({ timeout: 10_000 });
+  await page.locator('nav.florisyn-lux-nav button[data-page="communityPage"]').click();
+  await expect(page.locator("#communityRoot .community-shell")).toBeVisible();
+
+  await page.locator('[data-post-id="post-import"] .community-import-recipe').click();
+  await expect(page.locator("#communityStatus")).toContainText("Matched 1 of 1 ingredients");
+  await expect(page.locator("#communityStatus")).toContainText("estimated cost $18.00");
+});
+
 test("a recipe with no design DNA or scaled variants (legacy data) renders without the new controls, not an error", async ({ page }) => {
   const post = makePost({
     id: "post-legacy",

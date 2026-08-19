@@ -35,9 +35,9 @@ import {
   sanitizeRecipeDraft,
   generateRecipeWithCloudflare,
   buildLocalRecipeDraftFromPost,
-  recipeToProductItems,
   publicRecipeSummary,
 } from "./_shared/florist-community-recipes.js";
+import { matchRecipeToInventory } from "../../lib/floral-library/recipe-intelligence.js";
 
 function featureGate() {
   if (!isFeatureEnabled("COMMUNITY_BETA")) {
@@ -1227,15 +1227,25 @@ export async function handler(event) {
         .select("id,name")
         .single();
       if (pe) throw pe;
-      const items = recipeToProductItems(draft);
-      if (items.length) {
-        const rows = items.map((x) => ({
+      // Community Step 67 — compare against the *importing* shop's own
+      // inventory (real wholesale costs they've already entered) instead
+      // of inserting unit_cost: 0 for every ingredient regardless of
+      // whether the shop already stocks it.
+      const { data: shopInventory, error: invErr } = await client
+        .from("inventory")
+        .select("id,name,cost")
+        .eq("shop_id", shopId)
+        .is("deleted_at", null);
+      if (invErr) throw invErr;
+      const costMatch = matchRecipeToInventory(draft.recipe, shopInventory || []);
+      if (costMatch.recipe.length) {
+        const rows = costMatch.recipe.map((x) => ({
           shop_id: shopId,
           product_id: product.id,
-          inventory_id: null,
-          ingredient_name: x.ingredient_name,
-          quantity: x.quantity,
-          unit: x.unit,
+          inventory_id: x.matched_inventory_id,
+          ingredient_name: x.name,
+          quantity: x.qty,
+          unit: "stem",
           unit_cost: x.unit_cost,
         }));
         const { error: recipeErr } = await client.from("product_recipes").insert(rows);
@@ -1260,11 +1270,18 @@ export async function handler(event) {
           /* non-blocking */
         }
       }
+      const costMessage =
+        costMatch.matchedCount > 0
+          ? ` Matched ${costMatch.matchedCount} of ${costMatch.totalCount} ingredients to your own inventory — estimated cost $${costMatch.estimatedCost.toFixed(2)}.${costMatch.unmatchedNames.length ? ` Add ${costMatch.unmatchedNames.join(", ")} to Inventory for full costing.` : ""}`
+          : costMatch.totalCount > 0
+            ? ` None of the ${costMatch.totalCount} ingredients matched your inventory yet — add them there for real costing.`
+            : "";
       return json(201, {
         ok: true,
         product_id: product.id,
         product_name: product.name,
-        message: `${product.name} was added to Products & Recipe Builder.`,
+        cost_match: costMatch,
+        message: `${product.name} was added to Products & Recipe Builder.${costMessage}`,
       });
     }
 
