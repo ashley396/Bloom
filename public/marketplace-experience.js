@@ -114,12 +114,39 @@
       })) };
     }
     state.items = data.items || [];
+    state.compare = data.compare || [];
     renderBrowse(hooks, state);
+  }
+
+  /**
+   * "MULTIPLE WHOLESALERS" from the marketplace vision: when a search
+   * matches the same variety from more than one seller, show a real
+   * side-by-side comparison instead of making the florist scan a flat
+   * grid to notice it themselves. Only real matched listings — never a
+   * fabricated comparison.
+   */
+  function compareSectionHtml(hooks, groups) {
+    if (!groups.length) return '';
+    return groups.map((group) => `
+      <section class="marketplace-compare-group">
+        <h3>${hooks.esc(group.label)} — ${group.seller_count} sellers</h3>
+        <div class="marketplace-compare-rows">
+          ${group.items.map((item) => `
+            <div class="marketplace-compare-row" data-market-detail="${hooks.esc(item.id)}">
+              <span class="marketplace-compare-seller">${hooks.esc(item.supplier_name || 'Seller')}</span>
+              <span class="marketplace-compare-price">${cardDisplayPrice(hooks, item)}</span>
+              <span class="marketplace-compare-meta">${item.allows_local_pickup ? 'Pickup' : ''}${item.allows_local_pickup && item.allows_shipping !== false ? ' · ' : ''}${item.allows_shipping !== false ? 'Ships' : ''}</span>
+              ${availabilityBadgeHtml(hooks, item)}
+            </div>`).join('')}
+        </div>
+      </section>`).join('');
   }
 
   function renderBrowse(hooks, state) {
     const grid = hooks.$('#marketplaceBrowseGrid');
     const empty = hooks.$('#marketplaceBrowseEmpty');
+    const compareSection = hooks.$('#marketplaceCompareSection');
+    if (compareSection) compareSection.innerHTML = compareSectionHtml(hooks, state.compare || []);
     if (!grid) return;
     if (!state.items.length) {
       grid.innerHTML = '';
@@ -559,7 +586,7 @@
   }
 
   async function load(hooks) {
-    const state = { items: [], orders: [], q: '', category: '', seller: '', minPrice: '', maxPrice: '', inStock: false, shipping: '', variety: '', color: '', availability: '', byDate: '' };
+    const state = { items: [], orders: [], compare: [], q: '', category: '', seller: '', minPrice: '', maxPrice: '', inStock: false, shipping: '', variety: '', color: '', availability: '', byDate: '' };
     renderCategoryOptions(hooks);
     renderCartBadge(hooks);
     bindMarketplaceEvents(hooks, state);
