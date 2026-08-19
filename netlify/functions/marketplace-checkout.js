@@ -8,6 +8,12 @@ import {
   isMissingVerificationTableError,
   mapCheckoutListing
 } from "./_shared/marketplace-verification.js";
+import {
+  PROMOTIONS_TABLE,
+  applyPercentOffCents,
+  isPromotionActive,
+  normalizePromoCode
+} from "./_shared/marketplace-promotions.js";
 
 function stripeRedirectBaseUrl() {
   const site = String(process.env.SITE_URL || process.env.URL || "").trim().replace(/\/$/, "");
@@ -132,35 +138,75 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
       bySeller.get(sellerKey).lines.push({ listing, quantity: line.quantity });
     }
 
+    // MARKETPLACE SPECIALS: a promo code is scoped to one seller
+    // (shop_id + code is the table's real unique key), so it's looked up
+    // once against every seller actually present in this cart, never
+    // trusted from the client as already-applied. A code the buyer typed
+    // that matches NO seller in the cart is a real error worth surfacing
+    // (silently charging full price after ignoring their input would be
+    // its own kind of dishonesty); a code that matches SOME sellers in a
+    // multi-seller cart is applied only to those sessions — the others
+    // were never going to be discounted by another seller's code.
+    const promoByShop = new Map();
+    const promoCode = normalizePromoCode(body.promo_code);
+    if (promoCode) {
+      const sellerShopIds = [...bySeller.values()].map((s) => s.sellerShopId).filter(Boolean);
+      const { data: promoRows, error: promoError } = await client
+        .from(PROMOTIONS_TABLE)
+        .select("*")
+        .eq("code", promoCode)
+        .in("shop_id", sellerShopIds);
+      if (promoError) throw promoError;
+      for (const row of promoRows || []) {
+        if (isPromotionActive(row)) promoByShop.set(row.shop_id, row);
+      }
+      if (!promoByShop.size) {
+        return json(400, { error: `Promo code "${promoCode}" isn't valid for the items in your cart.` });
+      }
+    }
+
     const site = stripeRedirectBaseUrl();
     const feePercent = Number(process.env.BLOOM_MARKETPLACE_FEE_PERCENT || 5);
     const sessions = [];
 
     for (const [, sellerCart] of bySeller) {
-      const lineItems = sellerCart.lines.map(({ listing, quantity }) => ({
-        quantity,
-        price_data: {
-          currency: "usd",
-          unit_amount: Math.round(Number(listing.price) * 100),
-          product_data: { name: listing.name }
-        }
-      }));
-      const amount = sellerCart.lines.reduce(
-        (sum, { listing, quantity }) => sum + Math.round(Number(listing.price) * quantity * 100),
-        0
-      );
+      const promo = promoByShop.get(sellerCart.sellerShopId) || null;
+
+      // Two computation paths, deliberately kept separate rather than
+      // unified into one formula: the no-promo path is byte-for-byte the
+      // original per-cart-line rounding (price * quantity rounded once),
+      // preserving every existing checkout test's exact expected totals.
+      // The promo path rounds the discounted PER-UNIT cents first (via
+      // applyPercentOffCents, the same bounded 0-100% helper the buyer
+      // catalog's specials listing uses) so the Stripe line item's own
+      // unit_amount and the amount used for the platform fee can never
+      // silently disagree.
+      const lineItems = sellerCart.lines.map(({ listing, quantity }) => {
+        const rawUnitAmount = Math.round(Number(listing.price) * 100);
+        const unitAmount = promo ? applyPercentOffCents(rawUnitAmount, promo.percent_off) : rawUnitAmount;
+        return {
+          quantity,
+          price_data: {
+            currency: "usd",
+            unit_amount: unitAmount,
+            product_data: { name: listing.name }
+          }
+        };
+      });
+      const amount = promo
+        ? lineItems.reduce((sum, li, idx) => sum + li.price_data.unit_amount * sellerCart.lines[idx].quantity, 0)
+        : sellerCart.lines.reduce((sum, { listing, quantity }) => sum + Math.round(Number(listing.price) * quantity * 100), 0);
       const fee = Math.round(amount * (feePercent / 100));
-      const orderItems = sellerCart.lines.map(({ listing, quantity }) => ({
+      const orderItems = sellerCart.lines.map(({ listing, quantity }, idx) => ({
         listing_id: listing.id,
         name: listing.name,
         quantity,
-        unit_price: listing.price,
+        unit_price: promo ? lineItems[idx].price_data.unit_amount / 100 : listing.price,
         unit: listing.unit || "each"
       }));
-      const orderTotal = sellerCart.lines.reduce(
-        (sum, { listing, quantity }) => sum + Number(listing.price) * quantity,
-        0
-      );
+      const orderTotal = promo
+        ? amount / 100
+        : sellerCart.lines.reduce((sum, { listing, quantity }) => sum + Number(listing.price) * quantity, 0);
 
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
@@ -177,7 +223,8 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
           buyer_shop_id: String(shopId || ""),
           seller_shop_id: String(sellerCart.sellerShopId || ""),
           listing_ids: orderItems.map((i) => i.listing_id).join(","),
-          quantity: String(orderItems.reduce((n, i) => n + i.quantity, 0))
+          quantity: String(orderItems.reduce((n, i) => n + i.quantity, 0)),
+          ...(promo ? { promotion_code: promo.code, discount_percent: String(promo.percent_off) } : {})
         }
       });
 
@@ -197,13 +244,16 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
           status: "pending",
           total: orderTotal,
           items: orderItems,
-          metadata: { stripe_checkout_session_id: session.id }
+          metadata: {
+            stripe_checkout_session_id: session.id,
+            ...(promo ? { promotion_code: promo.code, discount_percent: promo.percent_off } : {})
+          }
         });
       } catch {
         /* table may not exist pre-migration */
       }
 
-      sessions.push({ url: session.url, seller_shop_id: sellerCart.sellerShopId, total: orderTotal });
+      sessions.push({ url: session.url, seller_shop_id: sellerCart.sellerShopId, total: orderTotal, promo_applied: Boolean(promo) });
     }
 
     if (sessions.length === 1) {

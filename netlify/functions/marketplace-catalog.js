@@ -6,6 +6,7 @@ import { matchRecipeToInventory } from "../../lib/floral-library/recipe-intellig
 import { shopDateStr, weekdayLabel } from "./_shared/shop-time.js";
 import { notifyMarketplaceUser } from "./_shared/marketplace-notifications.js";
 import { loadVerifiedSellerShopIds } from "./_shared/marketplace-verification.js";
+import { PROMOTIONS_TABLE, isPromotionActive, sanitizePromotionForBuyer } from "./_shared/marketplace-promotions.js";
 
 const LISTINGS = "marketplace_listings";
 const IMAGES = "marketplace_listing_images";
@@ -504,6 +505,36 @@ async function deleteStandingOrder(client, user, body) {
   return { ok: true };
 }
 
+/**
+ * MARKETPLACE SPECIALS from the marketplace vision: real, currently-active
+ * seller promo codes, buyer-visible only from a VERIFIED seller (same
+ * loadVerifiedSellerShopIds() gate as every other buyer-facing surface —
+ * not a fifth parallel check) and only inside their real starts_at/ends_at
+ * window (isPromotionActive(), re-checked here even though the RLS policy
+ * already filters on it, so an application-layer bug can never surface a
+ * lapsed promo the database itself would already refuse to hand back).
+ */
+async function loadCurrentSpecials(client) {
+  const { data: promos, error } = await client.from(PROMOTIONS_TABLE).select("*");
+  if (error) throw error;
+
+  const live = (promos || []).filter((p) => isPromotionActive(p));
+  const shopIds = [...new Set(live.map((p) => p.shop_id))];
+  const verifiedShopIds = await loadVerifiedSellerShopIds(shopIds);
+  const verified = live.filter((p) => verifiedShopIds.has(p.shop_id));
+
+  let sellerNames = {};
+  if (verified.length) {
+    const { data: sellers } = await client
+      .from(SELLER_PROFILES)
+      .select("shop_id, display_name")
+      .in("shop_id", [...new Set(verified.map((p) => p.shop_id))]);
+    sellerNames = Object.fromEntries((sellers || []).map((s) => [s.shop_id, s.display_name]));
+  }
+
+  return { specials: verified.map((p) => sanitizePromotionForBuyer(p, sellerNames[p.shop_id])) };
+}
+
 // SUPPLIER VERIFICATION: loadVerifiedSellerShopIds() now lives in
 // _shared/marketplace-verification.js so every consumer — this file,
 // and Lily's marketplace-sourcing search — can import the one shared
@@ -548,6 +579,10 @@ export async function handler(event) {
 
       if (params.resource === "standing-orders") {
         return json(200, await loadStandingOrders(client, user, shopId));
+      }
+
+      if (params.resource === "specials") {
+        return json(200, await loadCurrentSpecials(client));
       }
 
       if (params.resource === "notifications") {

@@ -167,6 +167,90 @@ test("marketplace checkout: a valid single-seller cart builds one Stripe session
     assert.equal(stripeCall.metadata.buyer_shop_id, SHOP_ID);
   }));
 
+test("marketplace checkout: a valid promo code discounts that seller's line items and is recorded on the session and order", () =>
+  withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app", BLOOM_MARKETPLACE_FEE_PERCENT: "5" }, async () => {
+    const deps = baseDependencies({ listings: [listingRow({ price: 20 })] });
+    // Response queue order: application, listings, promo lookup, order insert.
+    const extraClient = createFakeSupabaseClient([
+      { data: approvedApplication(), error: null },
+      { data: [listingRow({ price: 20 })], error: null },
+      { data: [{ shop_id: "seller_shop_1", code: "SPRING10", percent_off: 10, active: true, starts_at: null, ends_at: null }], error: null },
+      { data: null, error: null },
+    ]);
+    const deps2 = {
+      client: extraClient,
+      currentUser: async () => ({ client: extraClient, user: USER, shopId: SHOP_ID }),
+      createStripe: deps.createStripe,
+    };
+    const response = await handleMarketplaceCheckout(
+      postEvent({ items: [{ listing_id: "listing_1", quantity: 2 }], promo_code: "spring10" }),
+      { ...deps2, isFeatureEnabled: () => true },
+    );
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.sessions[0].promo_applied, true);
+    assert.equal(body.sessions[0].total, 36); // 20 * 2 = 40, 10% off = 36
+
+    // createStripe's fake session.create() records calls onto the client it
+    // closed over (deps.client, from baseDependencies), not extraClient.
+    const stripeCall = deps.client.calls.find((c) => c.stripeCheckoutCreate)?.stripeCheckoutCreate;
+    assert.equal(stripeCall.line_items[0].price_data.unit_amount, 1800); // $20 - 10% = $18.00 = 1800 cents
+    assert.equal(stripeCall.payment_intent_data.application_fee_amount, 180); // 5% of 3600 cents
+    assert.equal(stripeCall.metadata.promotion_code, "SPRING10");
+    assert.equal(stripeCall.metadata.discount_percent, "10");
+  }));
+
+test("marketplace checkout: a promo code that matches no seller in the cart is rejected with 400 instead of silently charging full price", () =>
+  withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app" }, async () => {
+    const extraClient = createFakeSupabaseClient([
+      { data: approvedApplication(), error: null },
+      { data: [listingRow({ price: 20 })], error: null },
+      { data: [], error: null }, // no promo rows match this seller
+    ]);
+    const response = await handleMarketplaceCheckout(
+      postEvent({ items: [{ listing_id: "listing_1", quantity: 1 }], promo_code: "NOTREAL" }),
+      {
+        client: extraClient,
+        currentUser: async () => ({ client: extraClient, user: USER, shopId: SHOP_ID }),
+        createStripe: () => ({ checkout: { sessions: { create: async () => { throw new Error("must not create a Stripe session for a rejected code"); } } } }),
+        isFeatureEnabled: () => true,
+      },
+    );
+    assert.equal(response.statusCode, 400);
+    assert.match(JSON.parse(response.body).error, /isn't valid for the items in your cart/);
+  }));
+
+test("marketplace checkout: an expired promo code is treated as invalid, never applied", () =>
+  withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app" }, async () => {
+    const extraClient = createFakeSupabaseClient([
+      { data: approvedApplication(), error: null },
+      { data: [listingRow({ price: 20 })], error: null },
+      { data: [{ shop_id: "seller_shop_1", code: "OLDCODE", percent_off: 50, active: true, ends_at: "2000-01-01T00:00:00.000Z" }], error: null },
+    ]);
+    const response = await handleMarketplaceCheckout(
+      postEvent({ items: [{ listing_id: "listing_1", quantity: 1 }], promo_code: "OLDCODE" }),
+      {
+        client: extraClient,
+        currentUser: async () => ({ client: extraClient, user: USER, shopId: SHOP_ID }),
+        createStripe: () => ({ checkout: { sessions: { create: async () => { throw new Error("must not create a Stripe session for an expired code"); } } } }),
+        isFeatureEnabled: () => true,
+      },
+    );
+    assert.equal(response.statusCode, 400);
+  }));
+
+test("marketplace checkout: no promo_code in the request never touches the promotions table and behaves exactly as before", () =>
+  withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app" }, async () => {
+    const deps = baseDependencies({ listings: [listingRow({ price: 20 })] });
+    const response = await handleMarketplaceCheckout(
+      postEvent({ items: [{ listing_id: "listing_1", quantity: 1 }] }),
+      { ...deps, isFeatureEnabled: () => true },
+    );
+    assert.equal(response.statusCode, 200);
+    const promoCalls = deps.client.calls.filter((c) => c.table === "marketplace_promotions");
+    assert.equal(promoCalls.length, 0);
+  }));
+
 test("marketplace checkout: a cart spanning two sellers creates one session per seller", () =>
   withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app" }, async () => {
     const listings = [

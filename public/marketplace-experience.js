@@ -545,9 +545,10 @@
           return;
         }
         try {
+          const promoCode = (state.specials || []).length ? (window.prompt('Promo code (optional) — leave blank to skip:', '') || '').trim() : '';
           const result = await hooks.api('marketplace-checkout', {
             method: 'POST',
-            body: JSON.stringify({ listing_id: checkoutBtn.dataset.marketCheckout, quantity: 1 })
+            body: JSON.stringify({ listing_id: checkoutBtn.dataset.marketCheckout, quantity: 1, ...(promoCode ? { promo_code: promoCode } : {}) })
           });
           if (result.url) window.location.href = result.url;
           else if (result.urls?.length) {
@@ -805,9 +806,10 @@
         return hooks.toast('Complete wholesale verification before checkout.');
       }
       try {
+        const promoCode = (state.specials || []).length ? (window.prompt('Promo code (optional) — leave blank to skip:', '') || '').trim() : '';
         const result = await hooks.api('marketplace-checkout', {
           method: 'POST',
-          body: JSON.stringify({ items: cart.map((row) => ({ listing_id: row.id, quantity: row.quantity || 1 })) })
+          body: JSON.stringify({ items: cart.map((row) => ({ listing_id: row.id, quantity: row.quantity || 1 })), ...(promoCode ? { promo_code: promoCode } : {}) })
         });
         if (result.url) {
           writeCart([]);
@@ -850,6 +852,38 @@
       <p>${hooks.esc(note.message)}</p>
       <small class="subtle">${hooks.esc((note.created_at || '').slice(0, 10))}</small>
     </div>`;
+  }
+
+  async function loadSpecials(hooks, state) {
+    const mount = hooks.$('#marketplaceSpecialsSection');
+    if (!mount) return;
+    try {
+      // Real, currently-active, VERIFIED-seller specials only — the
+      // backend already applies isPromotionActive() and
+      // loadVerifiedSellerShopIds(), so nothing here is redisplayed or
+      // re-filtered, just rendered as-is.
+      const data = await hooks.api('marketplace-catalog?resource=specials');
+      state.specials = data.specials || [];
+    } catch {
+      state.specials = [];
+    }
+    if (!state.specials.length) {
+      mount.innerHTML = '';
+      return;
+    }
+    mount.innerHTML = `<section class="panel marketplace-specials"><h2>Current specials</h2><div class="cards">${state.specials.map((s) => `
+      <article class="card"><h3>${hooks.esc(s.percent_off)}% off</h3><p class="subtle">${hooks.esc(s.seller_display_name || 'A seller')}${s.description ? ` — ${hooks.esc(s.description)}` : ''}</p><p class="meta">Code <strong>${hooks.esc(s.code)}</strong>${s.ends_at ? ` · ends ${hooks.esc(new Date(s.ends_at).toLocaleDateString())}` : ''}</p><div class="card-actions"><button type="button" class="secondary" data-market-copy-promo="${hooks.esc(s.code)}">Copy code</button></div></article>`).join('')}</div></section>`;
+    mount.querySelectorAll('[data-market-copy-promo]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const code = btn.dataset.marketCopyPromo;
+        try {
+          await navigator.clipboard?.writeText(code);
+          hooks.toast(`Copied "${code}" — enter it at checkout.`);
+        } catch {
+          hooks.toast(`Code: ${code} — enter it at checkout.`);
+        }
+      });
+    });
   }
 
   async function loadNotifications(hooks, state) {
@@ -895,13 +929,14 @@
   }
 
   async function load(hooks) {
-    const state = { items: [], orders: [], compare: [], notifications: [], standingOrders: [], q: '', category: '', seller: '', minPrice: '', maxPrice: '', inStock: false, shipping: '', variety: '', color: '', availability: '', byDate: '' };
+    const state = { items: [], orders: [], compare: [], notifications: [], standingOrders: [], specials: [], q: '', category: '', seller: '', minPrice: '', maxPrice: '', inStock: false, shipping: '', variety: '', color: '', availability: '', byDate: '' };
     renderCategoryOptions(hooks);
     renderCartBadge(hooks);
     bindMarketplaceEvents(hooks, state);
     bindNotifBell(hooks, state);
     await loadBrowse(hooks, state);
     await loadNotifications(hooks, state);
+    await loadSpecials(hooks, state);
   }
 
   return { load, readCart, writeCart };

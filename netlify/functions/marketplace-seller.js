@@ -16,6 +16,7 @@ import {
   isCurrentlyAvailable
 } from "./_shared/marketplace-products.js";
 import { sanitizeApplicationRecord, TABLE as VERIFICATION_TABLE } from "./_shared/marketplace-verification.js";
+import { normalizePromoCode } from "./_shared/marketplace-promotions.js";
 import { writeShopAudit } from "./_shared/production.js";
 import { notifyMarketplaceUser, notifyFavoritersBackInStock } from "./_shared/marketplace-notifications.js";
 
@@ -280,7 +281,7 @@ async function loadDashboard(client, shopId, userId) {
     if (!profileResult.error) profile = profileResult.data;
     const categoriesResult = await client.from(SELLER_CATEGORIES).select("category_slug").eq("shop_id", shopId);
     if (!categoriesResult.error) categories = (categoriesResult.data || []).map((row) => row.category_slug);
-    const promoResult = await client.from(PROMOTIONS).select("id, code, percent_off, active, description").eq("shop_id", shopId);
+    const promoResult = await client.from(PROMOTIONS).select("id, code, percent_off, active, description, starts_at, ends_at").eq("shop_id", shopId);
     if (!promoResult.error) promotions = promoResult.data || [];
     const shipResult = await client.from(SHIPPING).select("id, name, rules, active").eq("shop_id", shopId);
     if (!shipResult.error) shippingProfiles = shipResult.data || [];
@@ -507,6 +508,71 @@ export async function handler(event) {
         const { data, error } = await query.select("*").single();
         if (error) throw error;
         return json(200, { pricing_tier: data });
+      }
+
+      if (body.action === "save-promotion") {
+        // MARKETPLACE SPECIALS: marketplace_promotions has existed since
+        // the greenfield baseline but this is the first action that ever
+        // let a seller actually create one — previously a dormant table,
+        // read-only, and always empty. Code is normalized (trim+uppercase)
+        // here at the one point of entry so buyer checkout's lookup and
+        // this save both compare the same real form, never a
+        // case-mismatch that silently fails to redeem.
+        const code = normalizePromoCode(body.code);
+        if (!code) {
+          const error = new Error("A promo code is required.");
+          error.statusCode = 400;
+          throw error;
+        }
+        const percentOff = Number(body.percent_off);
+        if (!Number.isFinite(percentOff) || percentOff <= 0 || percentOff > 100) {
+          const error = new Error("percent_off must be a real number greater than 0 and no more than 100.");
+          error.statusCode = 400;
+          throw error;
+        }
+        const startsAt = body.starts_at ? new Date(body.starts_at).toISOString() : null;
+        const endsAt = body.ends_at ? new Date(body.ends_at).toISOString() : null;
+        if (startsAt && endsAt && Date.parse(endsAt) < Date.parse(startsAt)) {
+          const error = new Error("A special can't end before it starts.");
+          error.statusCode = 400;
+          throw error;
+        }
+        const row = {
+          shop_id: shopId,
+          code,
+          description: body.description || null,
+          percent_off: percentOff,
+          active: body.active !== false,
+          starts_at: startsAt,
+          ends_at: endsAt
+        };
+        // (shop_id, code) is unique — an id-less save upserts on that key
+        // so re-submitting the same code edits the existing special
+        // instead of erroring on the constraint or silently creating a
+        // duplicate.
+        const query = body.id
+          ? client.from(PROMOTIONS).update(row).eq("id", body.id).eq("shop_id", shopId)
+          : client.from(PROMOTIONS).upsert(row, { onConflict: "shop_id,code" });
+        const { data, error } = await query.select("*").single();
+        if (error) throw error;
+        return json(200, { promotion: data });
+      }
+
+      if (body.action === "toggle-promotion" && body.id) {
+        // A dedicated action for the one-click deactivate/reactivate, not
+        // a partial save-promotion — save-promotion's row is a full
+        // replace (code/percent_off/description/dates all required or
+        // nulled), so routing a toggle through it would silently wipe
+        // whatever the seller wasn't re-submitting.
+        const { data, error } = await client
+          .from(PROMOTIONS)
+          .update({ active: body.active !== false })
+          .eq("id", body.id)
+          .eq("shop_id", shopId)
+          .select("*")
+          .single();
+        if (error) throw error;
+        return json(200, { promotion: data });
       }
 
       if (body.action === "save-customer") {
