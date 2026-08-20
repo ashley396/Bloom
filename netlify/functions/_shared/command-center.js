@@ -151,6 +151,107 @@ export function summarizeClientErrors(rows = []) {
   };
 }
 
+/**
+ * Marketing-site analytics (SEO/GEO brief, Section 22): summarizes the
+ * anonymous site_pageview/site_cta_click/site_signup_conversion audit
+ * events (entity_type "marketing_site") into referrer sources, top
+ * landing pages, and conversion counts. Recognizes AI-assistant and
+ * search-engine referrers by hostname so "organic Google/Bing/ChatGPT/
+ * AI referral sources" (the brief's exact wording) is a real, visible
+ * breakdown, not something buried in a raw hostname list.
+ */
+const KNOWN_REFERRER_LABELS = {
+  "google.com": "Google",
+  "bing.com": "Bing",
+  "duckduckgo.com": "DuckDuckGo",
+  "chatgpt.com": "ChatGPT",
+  "chat.openai.com": "ChatGPT",
+  "perplexity.ai": "Perplexity",
+  "claude.ai": "Claude",
+  "www.bing.com": "Bing",
+  "gemini.google.com": "Gemini",
+  "copilot.microsoft.com": "Microsoft Copilot"
+};
+
+function labelReferrer(host) {
+  if (!host) return "Direct / unknown";
+  return KNOWN_REFERRER_LABELS[host] || host;
+}
+
+export function summarizeSiteAnalytics(rows = []) {
+  const items = (rows || []).map((row) => {
+    const metadata = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+    return {
+      at: row.created_at,
+      event_type: row.event_type,
+      path: metadata.path || null,
+      referrer_host: metadata.referrer_host || null,
+      landing_path: metadata.landing_path || null,
+      landing_referrer_host: metadata.landing_referrer_host || null,
+      utm_source: metadata.utm_source || null,
+      cta_id: metadata.cta_id || null
+    };
+  });
+
+  const pageviews = items.filter((i) => i.event_type === "site_pageview");
+  const ctaClicks = items.filter((i) => i.event_type === "site_cta_click");
+  const conversions = items.filter((i) => i.event_type === "site_signup_conversion");
+
+  const byReferrer = {};
+  for (const pv of pageviews) {
+    const label = labelReferrer(pv.referrer_host);
+    byReferrer[label] = (byReferrer[label] || 0) + 1;
+  }
+  const topReferrers = Object.entries(byReferrer)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([source, count]) => ({ source, count }));
+
+  const byLandingPage = {};
+  for (const pv of pageviews) {
+    const path = pv.landing_path || pv.path;
+    if (!path) continue;
+    byLandingPage[path] = (byLandingPage[path] || 0) + 1;
+  }
+  const topLandingPages = Object.entries(byLandingPage)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([path, count]) => ({ path, count }));
+
+  const byCta = {};
+  for (const c of ctaClicks) {
+    const id = c.cta_id || "unlabeled";
+    byCta[id] = (byCta[id] || 0) + 1;
+  }
+  const topCtas = Object.entries(byCta)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15)
+    .map(([cta_id, count]) => ({ cta_id, count }));
+
+  const conversionsByLandingReferrer = {};
+  for (const c of conversions) {
+    const label = labelReferrer(c.landing_referrer_host);
+    conversionsByLandingReferrer[label] = (conversionsByLandingReferrer[label] || 0) + 1;
+  }
+
+  const foundingFloristConversions = conversions.filter(
+    (c) => c.landing_path === "/company/founding-florists/"
+  ).length;
+
+  return {
+    pageviews: pageviews.length,
+    cta_clicks: ctaClicks.length,
+    signup_conversions: conversions.length,
+    founding_florist_landing_conversions: foundingFloristConversions,
+    top_referrers: topReferrers,
+    top_landing_pages: topLandingPages,
+    top_ctas: topCtas,
+    conversions_by_landing_referrer: Object.entries(conversionsByLandingReferrer)
+      .sort((a, b) => b[1] - a[1])
+      .map(([source, count]) => ({ source, count }))
+  };
+}
+
 export function auditRecordFromRow(row) {
   const details = row.details && typeof row.details === "object" ? row.details : {};
   return {

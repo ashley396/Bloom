@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/florisyn-founder-1.0.css">
   <link rel="stylesheet" href="/florisyn-atelier-auth.css?v=authhero2">
   <script src="/florisyn-build.js?v=teststamp1234"></script>
-</head>
+<script src="/site-analytics.js" defer></script></head>
 <body class="bloom-auth florisyn florisyn-atelier-auth florisyn-auth-hero florisyn-login-hero">
   <div class="auth-hero-atmosphere" aria-hidden="true">
     <span class="auth-orb auth-orb-a"></span>
@@ -32,13 +32,13 @@
     </a>
     <nav class="auth-hero-links" aria-label="Marketing">
       <a href="/company/services/">Product</a>
-      <a href="/signup#pricing">Pricing</a>
+      <a href="/signup#pricing" data-cta="signup-link">Pricing</a>
       <a href="/help/">Resources</a>
       <a href="/company/about/">About</a>
     </nav>
     <div class="auth-hero-nav-actions">
       <a class="auth-nav-login is-active" href="/login">Login</a>
-      <a class="auth-nav-cta" href="/signup">Start Free Trial</a>
+      <a class="auth-nav-cta" href="/signup" data-cta="nav-signup">Start Free Trial</a>
     </div>
   </header>
 
@@ -71,7 +71,7 @@
       <p id="authMessage" class="bloom-auth-message" role="status" aria-live="polite"></p>
 
       <div class="auth-hero-secondary-actions">
-        <p class="login-footer-link">New to Florisyn? <a href="/signup"><strong>Create account</strong></a></p>
+        <p class="login-footer-link">New to Florisyn? <a href="/signup" data-cta="signup-link"><strong>Create account</strong></a></p>
       </div>
 
       <div class="login-divider" role="separator"><span>or continue with</span></div>
