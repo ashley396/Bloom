@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildResponseMessage, cloudflareChat, personaDisabled } from "../netlify/functions/lily-ai.js";
+import { buildResponseMessage, cloudflareChat, personaDisabled, formatJobResponse } from "../netlify/functions/lily-ai.js";
 
 test("buildResponseMessage: pre-confirmation text asks the florist to confirm", () => {
   const permission = { allowed: true };
@@ -177,4 +177,78 @@ test("personaDisabled: persona name is case-insensitive, same as normalizePerson
 test("personaDisabled: Daisy/Bud are never gated by lily_enabled/rose_enabled", () => {
   assert.equal(personaDisabled("daisy", { lily_enabled: false, rose_enabled: false }), false);
   assert.equal(personaDisabled("bud", { lily_enabled: false, rose_enabled: false }), false);
+});
+
+test("formatJobResponse: a completed post job reads as a real formatted preview, never a JSON.stringify dump", () => {
+  const job = {
+    status: "completed",
+    result: {
+      steps: [
+        {
+          tool: "marketing.createSocialPost",
+          status: "completed",
+          result: {
+            content: {
+              platform: "facebook",
+              headline: "Homecoming season is here!",
+              body: "Order your Homecoming corsage by Wednesday for Friday pickup.",
+              cta: "Order by Wednesday",
+              hashtags: ["#homecoming"]
+            }
+          }
+        },
+        { tool: "creative.generateImage", status: "completed", result: { url: "https://fake.storage/x.jpg" } }
+      ]
+    }
+  };
+  const text = formatJobResponse(job);
+  assert.doesNotMatch(text, /^\s*\{/); // never opens like a raw JSON object
+  assert.doesNotMatch(text, /"headline":|"body":|"cta":/); // never leaks raw field names
+  assert.match(text, /Order your Homecoming corsage/);
+  assert.match(text, /#homecoming/);
+  assert.match(text, /draft/i); // presented as a reviewable draft, not a fait accompli
+});
+
+test("formatJobResponse: a completed campaign job names the campaign, the post, and the website section — never just a navigate", () => {
+  const job = {
+    status: "completed",
+    result: {
+      steps: [
+        { tool: "marketing.createCampaign", status: "completed", result: { campaign_id: "c1" } },
+        { tool: "marketing.createSocialPost", status: "completed", result: { content: { platform: "facebook", body: "Order your Homecoming flowers today.", headline: "", cta: "", hashtags: [] } } },
+        { tool: "marketing.createWebsiteSectionDraft", status: "completed", result: { content: { headline: "Homecoming Flowers, Ready When You Are", subheadline: "", cta_label: "Order now" } } }
+      ]
+    }
+  };
+  const text = formatJobResponse(job);
+  assert.match(text, /Campaign created/i);
+  assert.match(text, /Facebook post/i);
+  assert.match(text, /Website section/i);
+  assert.doesNotMatch(text, /^\s*\{/);
+});
+
+test("formatJobResponse: a video job states rendering is unavailable, never claims a finished video", () => {
+  const job = {
+    status: "completed",
+    result: { steps: [{ tool: "marketing.createVideoConcept", status: "completed", result: { content: { concept: "A quick behind-the-counter look." } } }] }
+  };
+  const text = formatJobResponse(job);
+  assert.match(text, /rendering not connected/i);
+});
+
+test("formatJobResponse: a partial failure names what failed and preserves the rest, never silently drops it", () => {
+  const job = {
+    status: "partially_completed",
+    result: {
+      steps: [
+        { tool: "marketing.createSocialPost", status: "completed", result: { content: { platform: "facebook", body: "Order today.", headline: "", cta: "", hashtags: [] } } },
+        { tool: "creative.generateImage", status: "failed", label: "Generate the matching image", error: "model overloaded" }
+      ]
+    }
+  };
+  const text = formatJobResponse(job);
+  assert.match(text, /Order today/);
+  assert.match(text, /couldn't finish/i);
+  assert.match(text, /retry/i);
+  assert.match(text, /model overloaded/);
 });
