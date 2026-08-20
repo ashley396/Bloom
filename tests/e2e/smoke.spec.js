@@ -113,6 +113,24 @@ test.describe("Florisyn public smoke", () => {
     await expect(page.locator(".rc-quicklook table")).toBeVisible();
   });
 
+  test("the Founding Florists page states the real 14-day trial and no fabricated spot cap", async ({ page }) => {
+    await blockExternalCalls(page);
+    const errors = collectPageErrors(page);
+
+    await page.goto("/company/founding-florists/");
+
+    await expect(page).toHaveTitle(/Founding Florists/);
+    await expect(page.locator("h1")).toContainText("made from the florist's side of the counter");
+    await expect(page.getByText("14-day free trial", { exact: false }).first()).toBeVisible();
+    // The page correctly explains what it ISN'T ("it isn't a special
+    // 30-day trial") — that's a deliberate disclaimer, not the claim
+    // itself. What must never appear is the fabricated claim as a
+    // positive promise.
+    await expect(page.getByText("30 days free", { exact: false })).toHaveCount(0);
+    await expect(page.getByText("20 Founding Florists", { exact: false })).toHaveCount(0);
+    expect(errors, `unexpected console/page errors: ${errors.map((e) => e.message).join("; ")}`).toHaveLength(0);
+  });
+
   test("the main app bundle boots end to end without a fatal script error, then shows the public marketing homepage to an unauthenticated visitor", async ({
     page,
   }) => {
