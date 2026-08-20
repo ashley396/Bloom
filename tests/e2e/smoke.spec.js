@@ -139,6 +139,19 @@ test.describe("Florisyn public smoke", () => {
     expect(errors, `unexpected console/page errors: ${errors.map((e) => e.message).join("; ")}`).toHaveLength(0);
   });
 
+  test("the florist glossary defines every term and links to the pages that expand on them", async ({ page }) => {
+    await blockExternalCalls(page);
+    const errors = collectPageErrors(page);
+
+    await page.goto("/resources/florist-glossary/");
+
+    await expect(page).toHaveTitle(/Florist Business Glossary/);
+    await expect(page.locator("#cogs")).toBeVisible();
+    await expect(page.locator("#wire-service")).toBeVisible();
+    await expect(page.locator(".rc-faq-item")).toHaveCount(15);
+    expect(errors, `unexpected console/page errors: ${errors.map((e) => e.message).join("; ")}`).toHaveLength(0);
+  });
+
   test("the Founding Florists page states the real 14-day trial and no fabricated spot cap", async ({ page }) => {
     await blockExternalCalls(page);
     const errors = collectPageErrors(page);
