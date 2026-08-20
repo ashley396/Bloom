@@ -41,8 +41,16 @@ export function createFakeSupabaseClient(responses = [], { storage } = {}) {
         record.ops.push(["is", args]);
         return builder;
       },
+      gt(...args) {
+        record.ops.push(["gt", args]);
+        return builder;
+      },
       gte(...args) {
         record.ops.push(["gte", args]);
+        return builder;
+      },
+      lt(...args) {
+        record.ops.push(["lt", args]);
         return builder;
       },
       lte(...args) {

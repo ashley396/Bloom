@@ -79,6 +79,40 @@ test.describe("Florisyn public smoke", () => {
     await expect(page.getByText(/reviewed by a qualified attorney/i)).toBeVisible();
   });
 
+  test("the /resources hub renders all 14 category cards and links resolve", async ({ page }) => {
+    await blockExternalCalls(page);
+    const errors = collectPageErrors(page);
+
+    await page.goto("/resources/");
+
+    await expect(page).toHaveTitle(/Florist Business Resources \| Florisyn/);
+    await expect(page.locator(".rc-hub-card")).toHaveCount(14);
+    expect(errors, `unexpected console/page errors: ${errors.map((e) => e.message).join("; ")}`).toHaveLength(0);
+  });
+
+  test("a high-intent landing page renders its hero, features, and FAQ", async ({ page }) => {
+    await blockExternalCalls(page);
+    const errors = collectPageErrors(page);
+
+    await page.goto("/florist-pos/");
+
+    await expect(page).toHaveTitle(/Florist POS Software/);
+    await expect(page.locator("h1")).toContainText("point-of-sale system");
+    await expect(page.locator(".info-card")).not.toHaveCount(0);
+    await expect(page.locator(".rc-faq-item")).not.toHaveCount(0);
+    expect(errors, `unexpected console/page errors: ${errors.map((e) => e.message).join("; ")}`).toHaveLength(0);
+  });
+
+  test("a resource article renders as a standalone guide, not just a product pitch", async ({ page }) => {
+    await blockExternalCalls(page);
+
+    await page.goto("/resources/how-to-price-floral-arrangements/");
+
+    await expect(page).toHaveTitle(/How to Price Floral Arrangements/);
+    await expect(page.locator("h1")).toHaveText("How to price floral arrangements");
+    await expect(page.locator(".rc-quicklook table")).toBeVisible();
+  });
+
   test("the main app bundle boots end to end without a fatal script error, then shows the public marketing homepage to an unauthenticated visitor", async ({
     page,
   }) => {
