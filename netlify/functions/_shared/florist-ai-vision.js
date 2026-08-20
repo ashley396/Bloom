@@ -160,23 +160,10 @@ async function runVisionModel(model, imageVariants, prompt) {
   throw lastError || new Error("Vision AI could not analyze this photo.");
 }
 
-/**
- * Analyze an arrangement photo and return a comma-separated wholesale flower list.
- */
-export async function analyzeArrangementPhoto(imagePayload, { caption = "" } = {}) {
-  let buffer = imagePayload?.buffer;
-  if (Buffer.isBuffer(buffer)) {
-    buffer = await prepareVisionImageBuffer(buffer);
-  }
-  const imageDataUrl = toVisionImagePayload({ ...imagePayload, buffer, mime: "image/jpeg" });
-  if (!imageDataUrl) return null;
-  const imageVariants = imagePayloadVariants(imageDataUrl);
-  const prompt = caption
-    ? `${ARRANGEMENT_VISION_PROMPT}\nCaption hint (secondary to the photo): ${String(caption).slice(0, 280)}`
-    : ARRANGEMENT_VISION_PROMPT;
-  // llama-3.2-vision is highest quality but requires a one-time Meta license acceptance on the
-  // account; llava/uform work with no agreement. Try the no-license models first (unless an
-  // explicit model is configured via CLOUDFLARE_VISION_MODEL), then llama as an optional upgrade.
+/** Same no-license-first, llama-as-upgrade fallback order every vision
+ * call in this module uses — factored out so a second vision task
+ * (photo-quality assessment) doesn't duplicate it. */
+async function runVisionWithFallback(imageVariants, prompt) {
   const configured = process.env.CLOUDFLARE_VISION_MODEL;
   const order = configured
     ? [configured, VISION_MODEL_FALLBACK, VISION_MODEL_CAPTION, VISION_MODEL_DEFAULT]
@@ -191,4 +178,44 @@ export async function analyzeArrangementPhoto(imagePayload, { caption = "" } = {
     }
   }
   throw lastError || new Error("Vision AI could not analyze this photo.");
+}
+
+function preparedImageVariants(imagePayload) {
+  return (async () => {
+    let buffer = imagePayload?.buffer;
+    if (Buffer.isBuffer(buffer)) {
+      buffer = await prepareVisionImageBuffer(buffer);
+    }
+    const imageDataUrl = toVisionImagePayload({ ...imagePayload, buffer, mime: "image/jpeg" });
+    if (!imageDataUrl) return null;
+    return imagePayloadVariants(imageDataUrl);
+  })();
+}
+
+/**
+ * Analyze an arrangement photo and return a comma-separated wholesale flower list.
+ */
+export async function analyzeArrangementPhoto(imagePayload, { caption = "" } = {}) {
+  const imageVariants = await preparedImageVariants(imagePayload);
+  if (!imageVariants) return null;
+  const prompt = caption
+    ? `${ARRANGEMENT_VISION_PROMPT}\nCaption hint (secondary to the photo): ${String(caption).slice(0, 280)}`
+    : ARRANGEMENT_VISION_PROMPT;
+  return runVisionWithFallback(imageVariants, prompt);
+}
+
+const PHOTO_QUALITY_VISION_PROMPT = `You are a professional product photographer reviewing a florist's arrangement photo before it goes on their website or social media.
+Describe ONLY what you can actually see: lighting (too dark/bright/uneven/good), color balance (warm/cool/neutral cast), background (busy/plain/cluttered), and framing (centered/off-center/too close/too far).
+Reply with one short paragraph. Do not invent details you cannot see. Do not suggest photographing a different arrangement.`;
+
+/** Vision assessment of photo QUALITY (lighting/color/background/framing) —
+ * a different task from analyzeArrangementPhoto's flower identification,
+ * reusing the same model fallback order and image-prep pipeline. Feeds
+ * Photo Studio's "make this look professional" suggestion, which maps the
+ * result onto the studio's own existing presets/sliders rather than
+ * generating or editing any pixels. */
+export async function assessPhotoQuality(imagePayload) {
+  const imageVariants = await preparedImageVariants(imagePayload);
+  if (!imageVariants) return null;
+  return runVisionWithFallback(imageVariants, PHOTO_QUALITY_VISION_PROMPT);
 }
