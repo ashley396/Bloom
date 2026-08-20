@@ -79,14 +79,14 @@ test.describe("Florisyn public smoke", () => {
     await expect(page.getByText(/reviewed by a qualified attorney/i)).toBeVisible();
   });
 
-  test("the /resources hub renders all 14 category cards and links resolve", async ({ page }) => {
+  test("the /resources hub renders all 15 category cards and links resolve", async ({ page }) => {
     await blockExternalCalls(page);
     const errors = collectPageErrors(page);
 
     await page.goto("/resources/");
 
     await expect(page).toHaveTitle(/Florist Business Resources \| Florisyn/);
-    await expect(page.locator(".rc-hub-card")).toHaveCount(14);
+    await expect(page.locator(".rc-hub-card")).toHaveCount(15);
     expect(errors, `unexpected console/page errors: ${errors.map((e) => e.message).join("; ")}`).toHaveLength(0);
   });
 
@@ -111,6 +111,19 @@ test.describe("Florisyn public smoke", () => {
     await expect(page).toHaveTitle(/How to Price Floral Arrangements/);
     await expect(page.locator("h1")).toHaveText("How to price floral arrangements");
     await expect(page.locator(".rc-quicklook table")).toBeVisible();
+  });
+
+  test("a seasonal-authority article gives real operational guidance, not just promotion", async ({ page }) => {
+    await blockExternalCalls(page);
+    const errors = collectPageErrors(page);
+
+    await page.goto("/resources/valentines-day-prep/");
+
+    await expect(page).toHaveTitle(/Valentine's Day Prep/);
+    await expect(page.locator("h1")).toHaveText("Valentine's Day prep for flower shops");
+    await expect(page.locator(".rc-step")).not.toHaveCount(0);
+    await expect(page.locator(".rc-checklist li")).not.toHaveCount(0);
+    expect(errors, `unexpected console/page errors: ${errors.map((e) => e.message).join("; ")}`).toHaveLength(0);
   });
 
   test("the comparison page cites real sources and doesn't claim Florisyn wins every category", async ({ page }) => {
