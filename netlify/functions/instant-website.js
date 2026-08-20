@@ -38,6 +38,7 @@ import {
   HOMEPAGE_SLUG
 } from "./_shared/bloom-website-editor.js";
 import { tenantIsolationCheck } from "./_shared/bloom-storefront-core.js";
+import { formatShopHoursSummary } from "./_shared/shop-time.js";
 import { buildWebsiteCatalogSeeds, shouldSeedWebsiteCatalog } from "./_shared/bloom-website-catalog-seed.js";
 import { writeShopAudit } from "./_shared/production.js";
 import { uploadWebsiteMedia, publicWebsiteMediaUrl, findMediaUsage, WEBSITE_MEDIA_BUCKET } from "./_shared/website-media.js";
@@ -51,7 +52,21 @@ function missingTable(e) {
 async function loadShopProfile(client, shopId) {
   const { data, error } = await client.from("shops").select("*").eq("id", shopId).maybeSingle();
   if (error) throw error;
-  return data || {};
+  const shop = data || {};
+  // shops has no "hours" column of its own — this seeds the "Hours"
+  // website section's default text from the shop's real structured
+  // shop_hours (set in Settings), instead of buildSiteFromShopProfile's
+  // hardcoded "Mon–Sat 9–6" fallback firing every single time.
+  try {
+    const { data: hoursRows, error: hoursError } = await client.from("shop_hours").select("weekday,is_closed,opens_at,closes_at").eq("shop_id", shopId);
+    if (!hoursError) {
+      const summary = formatShopHoursSummary(hoursRows || []);
+      if (summary) shop.hours = summary;
+    }
+  } catch {
+    /* non-fatal — falls back to buildSiteFromShopProfile's default text */
+  }
+  return shop;
 }
 
 async function seedWebsiteCatalogIfEmpty(client, shopId) {
