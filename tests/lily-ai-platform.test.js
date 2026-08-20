@@ -25,9 +25,35 @@ test("detectIntent routes orders and customers", () => {
   assert.equal(detectIntent("Find John Smith.").intent, "customers.find");
 });
 
-test("detectIntent routes marketing and marketplace", () => {
-  assert.equal(detectIntent("Write a Facebook post.").intent, "marketing.generate");
+test("detectIntent routes marketplace sourcing (still a fast, deterministic path — real data, never paraphrased)", () => {
   assert.equal(detectIntent("Find white carnations.").intent, "marketplace.search");
+});
+
+// AI-OS Phase 2: marketing creation requests ("Write a Facebook post",
+// "Create an email for Mother's Day") deliberately no longer resolve here.
+// detectIntent() only owns the small set of genuinely unambiguous
+// single-purpose commands; everything else — including all marketing
+// creation — now falls through to general.chat here, then gets real
+// understanding one layer up from classifyRequest() in
+// ai-intent-router.js (see lily-ai.js), which reads the whole sentence
+// instead of matching a keyword fragment. This is the direct fix for the
+// documented "create a Facebook post becomes a paraphrase" failure.
+test("detectIntent no longer classifies marketing creation itself — that now requires real sentence understanding, not a keyword match", () => {
+  assert.equal(detectIntent("Write a Facebook post.").intent, "general.chat");
+  assert.equal(detectIntent("Create an email for Mother's Day").intent, "general.chat");
+});
+
+// The other confirmed root cause: the bare word "website" anywhere in a
+// message used to hijack the whole request into a content-free navigate,
+// regardless of what the rest of the sentence asked for. Only the two
+// genuinely unambiguous website phrases still fast-path here.
+test("detectIntent: the bare word 'website' no longer hijacks a longer request into a navigate", () => {
+  assert.notEqual(
+    detectIntent("Make a campaign for Facebook and my website telling students to order Homecoming flowers.").intent,
+    "website.update"
+  );
+  assert.equal(detectIntent("update homepage").intent, "website.update");
+  assert.equal(detectIntent("add this product").intent, "website.update");
 });
 
 test("permission enforcement blocks payroll for staff", () => {
@@ -74,7 +100,10 @@ test("every planClientAction case reports a real tier, and requiresConfirmation 
     ["employees.payroll", {}, "READ"],
     ["admin.insights", {}, "READ"],
     ["florist.photo_placeholder", {}, "READ"],
-    ["marketing.generate", { prompt: "post" }, "LOW"],
+    // marketing.generate intentionally has no planClientAction case
+    // anymore — real marketing creation runs through the
+    // classifyRequest()/runJob() pipeline (ai-orchestrator.js), which has
+    // its own real per-step execution state, not a single static tier.
     ["product_ai.generate", { prompt: "describe" }, "LOW"]
   ];
   for (const [intent, slots, expectedTier] of cases) {
@@ -124,7 +153,6 @@ test("buildCoachSuggestions surfaces reorder guidance", () => {
   assert.ok(suggestions.some((s) => s.id === "reorder"));
 });
 
-test("product and marketing generation intents", () => {
+test("product_ai.generate is still a fast-path regex intent (unchanged, out of scope for the AI-OS rebuild)", () => {
   assert.equal(detectIntent("Generate product title and SEO").intent, "product_ai.generate");
-  assert.equal(detectIntent("Create an email for Mother's Day").intent, "marketing.generate");
 });
