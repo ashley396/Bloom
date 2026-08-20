@@ -8,7 +8,7 @@ import {
   sanitizeHistoryEntry,
   searchHistory
 } from "./_shared/lily-ai-engine.js";
-import { normalizePersona, shopVoiceSuffix, suggestHandoff } from "./_shared/florist-ai-personas.js";
+import { normalizePersona, shopVoiceSuffix, suggestHandoff, domainOwner } from "./_shared/florist-ai-personas.js";
 import { runCloudflareGenerate } from "./ai-assistant.js";
 import { searchMarketplaceForLily, buildMarketplaceSourcingAnswer } from "./_shared/marketplace-lily-sourcing.js";
 import { classifyRequest } from "./_shared/ai-intent-router.js";
@@ -126,6 +126,39 @@ async function logAction(client, { userId, shopId, intent, actionType, result, m
   } catch {
     // optional audit table
   }
+}
+
+/**
+ * AI-OS Wave 4: real programmatic delegation for the domains that
+ * unambiguously belong to one specialist (business/reports questions are
+ * Rose's, no matter which persona the florist happens to be talking to),
+ * instead of only a client-side "want me to bring her in?" suggestion the
+ * florist has to notice and tap before getting any real content.
+ *
+ * Deliberately narrow: this only fires for domainOwner() — a structured
+ * signal detectIntent() already resolved. The fuzzy open-chat keyword
+ * hints in suggestHandoff() (TOPIC_HINTS) stay suggest-only; a keyword
+ * match inside free chat isn't a confident enough signal to silently swap
+ * who's answering, so those keep the deliberate manual tap-to-switch flow.
+ * Also never fires on an action that still needs the florist's own
+ * confirmation — swapping personas mid-confirmation would break the
+ * pending-action resend, which is keyed to the persona that proposed it.
+ */
+export function shouldDelegate({ persona, intentDomain, permission, planned } = {}) {
+  const owner = domainOwner(intentDomain);
+  if (!owner) return null;
+  if (owner === normalizePersona(persona)) return null;
+  if (!permission?.allowed) return null;
+  if (planned?.requiresConfirmation) return null;
+  return owner;
+}
+
+/** Plainly attributes a delegated answer to the specialist who actually
+ * wrote it — the active persona never passes off another's voice as its
+ * own, and the florist always knows who they're really hearing from. */
+export function formatDelegatedAnswer(owner, activePersona, answerText) {
+  const who = normalizePersona(activePersona);
+  return `**${who} brought in ${owner} for this one:**\n\n${answerText}`;
 }
 
 export function buildResponseMessage(intent, permission, planned, confirmed) {
@@ -380,7 +413,23 @@ export async function handler(event) {
       planned.message = buildMarketplaceSourcingAnswer(matches, intent.slots.flowers);
     }
 
-    let responseText = buildResponseMessage(intent, permission, planned, confirmed);
+    // AI-OS Wave 4: for the domains that unambiguously belong to one
+    // specialist, actually get that specialist's real answer in this same
+    // turn — through the exact shared cloudflareChat() any persona uses —
+    // instead of leaving the florist with a generic placeholder and a
+    // suggestion they have to tap before getting real content.
+    let responseText = null;
+    let answeredBy = null;
+    const delegateTo = shouldDelegate({ persona, intentDomain: intent.domain, permission, planned });
+    if (delegateTo && !personaDisabled(delegateTo, context.ai_profile)) {
+      const delegatedAnswer = await cloudflareChat(delegateTo, message, context);
+      if (delegatedAnswer) {
+        responseText = formatDelegatedAnswer(delegateTo, persona, delegatedAnswer);
+        answeredBy = delegateTo;
+      }
+    }
+
+    if (responseText == null) responseText = buildResponseMessage(intent, permission, planned, confirmed);
     if (responseText == null) {
       if (personaDisabled(persona, context.ai_profile)) {
         // A shop can turn a persona off (ai_shop_profiles.lily_enabled /
@@ -397,7 +446,9 @@ export async function handler(event) {
 
     // Option A: when the topic sits in another persona's lane, gently suggest a
     // handoff (never blocks the answer or action). Front-end can offer a one-tap switch.
-    const handoff = permission.allowed ? suggestHandoff(persona, intent.domain, message) : null;
+    // Skipped when this turn already delegated — the specialist just answered
+    // directly, so suggesting a switch to reach them again would be redundant.
+    const handoff = !answeredBy && permission.allowed ? suggestHandoff(persona, intent.domain, message) : null;
     if (handoff && responseText) responseText += handoff.line;
 
     await logAction(client, {
@@ -446,7 +497,7 @@ export async function handler(event) {
         shopId,
         role: "assistant",
         content: responseText,
-        metadata: { planned, permission: permission.allowed }
+        metadata: { planned, permission: permission.allowed, answered_by: answeredBy }
       });
     }
 
@@ -455,6 +506,10 @@ export async function handler(event) {
       intent,
       permission,
       response: responseText,
+      // Real programmatic delegation (AI-OS Wave 4) — set only when another
+      // persona actually wrote this answer, so the client can attribute it
+      // honestly without permanently switching who the florist is chatting with.
+      answered_by: answeredBy,
       handoff: handoff ? { to: handoff.to, label: handoff.label } : null,
       client_action: permission.allowed && (!planned?.requiresConfirmation || confirmed) ? planned : planned?.requiresConfirmation && !confirmed ? { ...planned, pending: true } : null,
       generate,
