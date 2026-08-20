@@ -1,0 +1,288 @@
+/* Shared styling for /resources hub, its category articles, and the
+   high-intent landing pages (/florist-pos, /florist-software, etc). Loaded
+   alongside the existing public-site.css + florisyn-atelier-shell.css on
+   those pages — every selector here is prefixed rc- (checked against
+   public-site.css/florisyn-atelier-shell.css/styles.css for collisions)
+   so it only ever adds to that shared look, never overrides it. */
+
+.rc-crumbs {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 18px 24px 0;
+  font-size: 12px;
+  color: var(--muted, #6d7385);
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rc-crumbs a {
+  color: var(--sage, #1a2b48);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.rc-crumbs a:hover {
+  text-decoration: underline;
+}
+
+.rc-tag-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 14px 0 0;
+}
+
+.rc-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--rose-dark, #a84864);
+  background: var(--sage-soft, #f6dfe8);
+  border-radius: 999px;
+  padding: 5px 12px;
+}
+
+.rc-callout {
+  background: #fff;
+  border: 1px solid var(--line, rgba(26, 43, 72, 0.1));
+  border-left: 4px solid var(--rose, #c45d7a);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin: 22px 0;
+}
+
+.rc-callout p {
+  margin: 0;
+}
+
+.rc-checklist {
+  list-style: none;
+  margin: 18px 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.rc-checklist li {
+  position: relative;
+  padding-left: 30px;
+}
+
+.rc-checklist li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--rose-dark, #a84864);
+  font-weight: 800;
+}
+
+.rc-steps {
+  list-style: none;
+  margin: 24px 0;
+  padding: 0;
+  counter-reset: rc-step;
+  display: grid;
+  gap: 16px;
+}
+
+.rc-step {
+  counter-increment: rc-step;
+  position: relative;
+  padding: 16px 20px 16px 58px;
+  border: 1px solid var(--line, rgba(26, 43, 72, 0.1));
+  border-radius: 14px;
+  background: #fff;
+}
+
+.rc-step::before {
+  content: counter(rc-step);
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--sage, #1a2b48);
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rc-step h3 {
+  margin: 0 0 6px;
+}
+
+.rc-step p {
+  margin: 0;
+}
+
+.rc-quicklook {
+  overflow-x: auto;
+  margin: 22px 0;
+  border: 1px solid var(--line, rgba(26, 43, 72, 0.1));
+  border-radius: 14px;
+}
+
+.rc-quicklook table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 480px;
+  font-size: 14px;
+}
+
+.rc-quicklook th,
+.rc-quicklook td {
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line, rgba(26, 43, 72, 0.1));
+}
+
+.rc-quicklook th {
+  background: var(--blush, #fff2f6);
+  font-weight: 800;
+}
+
+.rc-quicklook tr:last-child td {
+  border-bottom: none;
+}
+
+.rc-faq {
+  display: grid;
+  gap: 18px;
+  margin: 24px 0;
+}
+
+.rc-faq-item h3 {
+  margin: 0 0 6px;
+}
+
+.rc-faq-item p {
+  margin: 0;
+}
+
+.rc-cta-band {
+  margin: 48px auto 0;
+  max-width: 900px;
+  text-align: center;
+  padding: 36px 28px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #1a2b48, #2a3f66);
+  color: #fff;
+}
+
+.rc-cta-band h2 {
+  color: #fff;
+  margin: 0 0 10px;
+}
+
+.rc-cta-band p {
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 20px;
+}
+
+.rc-cta-band .primary-btn {
+  display: inline-flex;
+  width: auto;
+  padding: 0 28px;
+}
+
+.rc-related {
+  margin: 40px 0 0;
+  padding: 20px 22px;
+  border: 1px solid var(--line, rgba(26, 43, 72, 0.1));
+  border-radius: 14px;
+  background: var(--cream, #fffafb);
+}
+
+.rc-related h2 {
+  margin-top: 0 !important;
+}
+
+.rc-related ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.rc-related li {
+  margin: 6px 0;
+}
+
+.rc-article-meta {
+  color: var(--muted, #6d7385);
+  font-size: 13px;
+  margin: 6px 0 0;
+}
+
+/* /resources hub index — category grid */
+
+.rc-hub-intro {
+  max-width: 760px;
+  margin: 0 auto;
+  text-align: center;
+  padding: 0 24px;
+}
+
+.rc-hub-grid {
+  max-width: 1100px;
+  margin: 40px auto 0;
+  padding: 0 24px 70px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.rc-hub-card {
+  border: 1px solid var(--line, rgba(26, 43, 72, 0.1));
+  border-radius: 16px;
+  padding: 22px;
+  background: #fff;
+}
+
+.rc-hub-card h3 {
+  margin: 0 0 8px;
+  font: 600 19px "Playfair Display", serif;
+  color: #1a2b48;
+}
+
+.rc-hub-card p {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--muted, #6d7385);
+}
+
+.rc-hub-card ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.rc-hub-card li {
+  margin: 6px 0;
+}
+
+.rc-hub-card .rc-soon {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted, #6d7385);
+  background: #f1efec;
+  border-radius: 999px;
+  padding: 3px 9px;
+  margin-left: 8px;
+}
+
+@media (max-width: 650px) {
+  .rc-hub-grid {
+    grid-template-columns: 1fr;
+  }
+}
