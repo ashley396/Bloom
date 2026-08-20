@@ -33,8 +33,8 @@ test("marketplace-seller.js PUT profile persists the full storefront and only le
   const src = fs.readFileSync(path.join(root, "netlify/functions/marketplace-seller.js"), "utf8");
   for (const field of [
     "location_city", "location_state", "location_country", "delivery_area", "delivery_radius_miles",
-    "pickup_available", "pickup_address", "pickup_hours", "ordering_policy", "order_deadline_note",
-    "contact_email", "contact_phone",
+    "pickup_available", "pickup_address", "pickup_hours", "shipping_flat_fee", "free_shipping_over",
+    "ordering_policy", "order_deadline_note", "contact_email", "contact_phone",
   ]) {
     assert.match(src, new RegExp(`${field}:`), `PUT profile missing field ${field}`);
   }

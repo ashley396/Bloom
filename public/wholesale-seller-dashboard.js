@@ -20,7 +20,6 @@
       ['orders', 'Orders'],
       ['customers', 'Customers'],
       ['profile', 'Store Profile'],
-      ['shipping', 'Shipping'],
       ['pricing', 'Pricing tiers'],
       ['specials', 'Specials'],
       ['import', 'CSV import']
@@ -121,6 +120,8 @@
         <label class="check"><input name="pickup_available" type="checkbox" ${p.pickup_available ? 'checked' : ''}> Local pickup available</label>
         <div class="two"><label>Pickup address<input name="pickup_address" value="${hooks.esc(p.pickup_address || '')}"></label><label>Pickup hours<input name="pickup_hours" value="${hooks.esc(p.pickup_hours || '')}" placeholder="Mon–Fri 7am–2pm"></label></div>
         <div class="two"><label>Minimum order ($)<input name="minimum_order_amount" type="number" step="0.01" min="0" value="${hooks.esc(p.minimum_order_amount ?? 0)}"></label><label>Order deadline<input name="order_deadline_note" value="${hooks.esc(p.order_deadline_note || '')}" placeholder="Order by 2pm for next-day"></label></div>
+        <div class="two"><label>Shipping flat fee ($)<input name="shipping_flat_fee" type="number" step="0.01" min="0" value="${hooks.esc(p.shipping_flat_fee ?? '')}" placeholder="Leave blank for no shipping charge"></label><label>Free shipping over ($)<input name="free_shipping_over" type="number" step="0.01" min="0" value="${hooks.esc(p.free_shipping_over ?? '')}" placeholder="Optional"></label></div>
+        <p class="subtle">Charged automatically at checkout when you don't offer local pickup — buyers see it as its own line item. If pickup is available, no shipping fee is ever charged (there's no way yet for a buyer to say they want to ship instead of pick up).</p>
         <label>Ordering policy<textarea name="ordering_policy" rows="2" placeholder="Lead times, cancellations, substitutions...">${hooks.esc(p.ordering_policy || '')}</textarea></label>
         <div class="two"><label>Contact email<input name="contact_email" type="email" value="${hooks.esc(p.contact_email || '')}"></label><label>Contact phone<input name="contact_phone" value="${hooks.esc(p.contact_phone || '')}"></label></div>
         <label>Featured products <span class="subtle">(shown first on your storefront — pick up to 12 published products)</span>
@@ -129,13 +130,6 @@
         <button type="submit" class="primary">Save store profile</button>
       </form>
       </section>`;
-  }
-
-  function renderShipping(hooks, data) {
-    const profiles = data.shipping_profiles || [];
-    return `${renderNav(hooks, 'shipping')}
-      <section class="panel"><h2>Shipping profiles</h2><form id="wholesaleShippingForm" class="verification-grid"><label>Name<input name="name" required placeholder="Regional cold chain"></label><label>Rules (JSON)<textarea name="rules" rows="3" placeholder='{"regions":["TX","OK"],"flat_rate":18}'></textarea></label><button type="submit" class="primary">Save shipping profile</button></form></section>
-      <div class="cards">${profiles.length ? profiles.map((p) => `<article class="card"><h3>${hooks.esc(p.name)}</h3><p class="subtle">${hooks.esc(JSON.stringify(p.rules || {}))}</p></article>`).join('') : hooks.empty('No shipping profiles yet.')}</div>`;
   }
 
   function renderPricing(hooks, data) {
@@ -189,7 +183,6 @@
       orders: renderOrders,
       customers: renderCustomers,
       profile: renderProfile,
-      shipping: renderShipping,
       pricing: renderPricing,
       specials: renderSpecials,
       import: renderImport
@@ -407,6 +400,8 @@
             pickup_available: form.elements.pickup_available?.checked || false,
             pickup_address: fd.get('pickup_address') || '',
             pickup_hours: fd.get('pickup_hours') || '',
+            shipping_flat_fee: fd.get('shipping_flat_fee') || '',
+            free_shipping_over: fd.get('free_shipping_over') || '',
             ordering_policy: fd.get('ordering_policy') || '',
             order_deadline_note: fd.get('order_deadline_note') || '',
             contact_email: fd.get('contact_email') || '',
@@ -419,20 +414,6 @@
       } catch (error) {
         hooks.toast(error.message);
       }
-    });
-    hooks.$('#wholesaleShippingForm')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const fd = new FormData(event.currentTarget);
-      let rules = {};
-      try {
-        rules = JSON.parse(fd.get('rules') || '{}');
-      } catch {
-        hooks.toast('Rules must be valid JSON.');
-        return;
-      }
-      await hooks.api('marketplace-seller', { method: 'POST', body: JSON.stringify({ action: 'save-shipping', name: fd.get('name'), rules }) });
-      hooks.toast('Shipping profile saved.');
-      reload(hooks);
     });
     hooks.$('#wholesaleTierForm')?.addEventListener('submit', async (event) => {
       event.preventDefault();
