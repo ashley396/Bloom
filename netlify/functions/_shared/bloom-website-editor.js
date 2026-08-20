@@ -68,6 +68,16 @@ export function duplicateSection(section, sections) {
   return [...sections, copy].map((s, i) => ({ ...s, order: i }));
 }
 
+/** Appends a brand-new section (e.g. AI-generated campaign content) onto
+ * an existing section list — same id/order convention as duplicateSection,
+ * so it behaves identically to a section a florist added by hand (visible
+ * in the editor, reorderable, deletable, no special-cased type). */
+export function insertGeneratedSection(sections = [], { type, props, hidden = false } = {}) {
+  const id = `${type}-${Date.now()}`;
+  const section = { id, type, props: structuredClone(props || {}), hidden, order: sections.length };
+  return normalizeSectionOrder([...sections, section]);
+}
+
 export function toggleSectionVisibility(section, visible) {
   return { ...section, hidden: visible === false };
 }

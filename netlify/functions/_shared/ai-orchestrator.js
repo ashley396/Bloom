@@ -18,6 +18,7 @@ import {
   persistGeneratedAsset
 } from "./ai-creative-engine.js";
 import { generateImage, buildImagePrompt } from "./ai-image-engine.js";
+import { applyGeneratedWebsiteSection, buildWebsiteSectionPayload } from "./website-campaign-section.js";
 
 const POSTABLE_CHANNELS = ["facebook", "instagram", "google_business", "email", "sms", "blog"];
 const CHANNEL_TO_CAMPAIGN_CHANNEL = {
@@ -54,10 +55,15 @@ export function planJob(routed, { requestText } = {}) {
     for (const channel of postChannels.length ? postChannels : ["facebook"]) {
       steps.push({ id: `post_${channel}`, tool: "marketing.createSocialPost", channel, label: `Write the ${channel} post`, optional: false });
     }
+    // Image before website_section (when both are planned) so the section
+    // step can carry the finished image URL into the hero it applies —
+    // order here is deliberate, not incidental.
     if (wantsWebsite) {
-      steps.push({ id: "website_section", tool: "marketing.createWebsiteSectionDraft", label: "Draft the website campaign section", optional: false });
+      steps.push({ id: "image", tool: "creative.generateImage", label: "Generate the campaign image", optional: true });
+      steps.push({ id: "website_section", tool: "marketing.createWebsiteSectionDraft", label: "Draft and apply the website campaign section", optional: false });
+    } else {
+      steps.push({ id: "image", tool: "creative.generateImage", label: "Generate the campaign image", optional: true });
     }
-    steps.push({ id: "image", tool: "creative.generateImage", label: "Generate the campaign image", optional: true });
     return steps;
   }
 
@@ -132,12 +138,28 @@ async function runStep(client, step, ctx) {
       });
       return { ok: false, error: gen.error };
     }
+
+    // AI-OS Wave 3: apply the content to the real Website Builder X draft
+    // (a real hero section on the shop's home page, undoable via the same
+    // version-snapshot every manual edit gets) instead of only generating
+    // it. Never publishes — bloom_website_pages is the draft layer; the
+    // florist still takes their own separate publish action.
+    const sectionPayload = buildWebsiteSectionPayload(gen.content, { imageUrl: ctx.imageUrl });
+    const applied = await applyGeneratedWebsiteSection(client, { shopId, userId, section: sectionPayload });
+    const content = { ...gen.content, appliedToLivePage: false, appliedToDraft: Boolean(applied.ok && applied.applied) };
+
     const persisted = await persistGeneratedAsset(client, {
       shopId, userId, persona, jobId, campaignId,
-      assetType: "website_section", model: gen.model, content: gen.content, status: "completed"
+      assetType: "website_section", model: gen.model, content, status: "completed"
     });
     if (!persisted.ok) return { ok: false, error: persisted.error };
-    return { ok: true, result: { asset_id: persisted.asset.id, content: gen.content } };
+    if (!applied.ok) {
+      // The generated content is still real and persisted above — a
+      // failure to apply it to the live draft doesn't erase the copy,
+      // it just means the florist adds it by hand this time.
+      return { ok: true, result: { asset_id: persisted.asset.id, content, applied: false, applyError: applied.error } };
+    }
+    return { ok: true, result: { asset_id: persisted.asset.id, content, applied: applied.applied, applyReason: applied.reason || null } };
   }
 
   if (step.tool === "marketing.createVideoConcept") {
@@ -221,16 +243,18 @@ export async function runJob(client, { shopId, userId, persona, routed, requestT
   if (createError) return { ok: false, error: createError.message };
 
   let campaignId = null;
-  const ctx = { shopId, userId, persona, routed, requestText, shop, inventory, jobId: job.id, get campaignId() { return campaignId; } };
+  let imageUrl = null;
+  const ctx = { shopId, userId, persona, routed, requestText, shop, inventory, jobId: job.id };
 
   for (let i = 0; i < plan.length; i += 1) {
     plan[i].status = "running";
     // eslint-disable-next-line no-await-in-loop
-    const outcome = await runStep(client, plan[i], { ...ctx, campaignId });
+    const outcome = await runStep(client, plan[i], { ...ctx, campaignId, imageUrl });
     if (outcome.ok) {
       plan[i].status = "completed";
       plan[i].result = outcome.result || null;
       if (outcome.result?.campaign_id) campaignId = outcome.result.campaign_id;
+      if (plan[i].tool === "creative.generateImage" && outcome.result?.url) imageUrl = outcome.result.url;
     } else {
       plan[i].status = "failed";
       plan[i].error = outcome.error || "Unknown error";
@@ -273,9 +297,14 @@ export async function retryJobStep(client, { shopId, userId, persona, jobId, ste
   if (idx === -1) return { ok: false, error: "Step not found on this job." };
 
   const routed = { action_type: job.job_type, domain: "marketing", occasion: null, audience: null, channels: [], summary: job.title };
+  // A retried website_section step still wants the image an earlier,
+  // already-completed image step produced — read it back from the job's
+  // own steps rather than leaving the retry image-less.
+  const imageStep = plan.find((s) => s.tool === "creative.generateImage" && s.status === "completed");
   plan[idx] = { ...plan[idx], status: "running", error: null };
   const outcome = await runStep(client, plan[idx], {
-    shopId, userId, persona, routed, requestText: job.request_text, shop: {}, inventory: [], jobId: job.id, campaignId: job.campaign_id
+    shopId, userId, persona, routed, requestText: job.request_text, shop: {}, inventory: [], jobId: job.id,
+    campaignId: job.campaign_id, imageUrl: imageStep?.result?.url || null
   });
   plan[idx].status = outcome.ok ? "completed" : "failed";
   plan[idx].result = outcome.ok ? outcome.result || null : null;
