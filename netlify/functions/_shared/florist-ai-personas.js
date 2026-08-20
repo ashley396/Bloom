@@ -48,6 +48,24 @@ export function systemPromptFor(persona, mode = "chat") {
   return `${base}\n${modeHint}`;
 }
 
+/**
+ * A shop's onboarding-collected voice/notes (ai_shop_profiles), turned into
+ * an explicit instruction rather than left as passive JSON the model may or
+ * may not weight. Empty/default values produce no line — a shop that never
+ * customized anything behaves exactly as it did before this existed.
+ */
+export function shopVoiceSuffix(aiProfile) {
+  if (!aiProfile) return "";
+  const lines = [];
+  const tone = String(aiProfile.shop_tone || "").trim();
+  if (tone) lines.push(`This shop's voice: ${tone}. Match it.`);
+  const delivery = String(aiProfile.delivery_notes || "").trim();
+  if (delivery) lines.push(`Delivery notes from the florist: ${delivery}`);
+  const marketing = String(aiProfile.marketing_notes || "").trim();
+  if (marketing) lines.push(`Marketing/brand notes from the florist: ${marketing}`);
+  return lines.join("\n");
+}
+
 export function temperatureForPersona(persona, mode = "chat") {
   const who = normalizePersona(persona);
   if (mode === "generate") {
