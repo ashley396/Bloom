@@ -8,7 +8,7 @@ import {
   sanitizeHistoryEntry,
   searchHistory
 } from "./_shared/lily-ai-engine.js";
-import { suggestHandoff } from "./_shared/florist-ai-personas.js";
+import { normalizePersona, shopVoiceSuffix, suggestHandoff } from "./_shared/florist-ai-personas.js";
 import { runCloudflareGenerate } from "./ai-assistant.js";
 import { searchMarketplaceForLily, buildMarketplaceSourcingAnswer } from "./_shared/marketplace-lily-sourcing.js";
 
@@ -23,13 +23,35 @@ function isMissingTableError(error) {
 }
 
 async function loadAiContext(client, shopId) {
-  const [{ data: shop }, { data: inventory }, { data: orders }, { data: deliveries }] = await Promise.all([
+  const [{ data: shop }, { data: inventory }, { data: orders }, { data: deliveries }, { data: aiProfile }] = await Promise.all([
     client.from("shops").select("name,address,phone,tagline").eq("id", shopId).maybeSingle(),
     client.from("inventory").select("name,color,quantity,low_stock_level,cost,price").eq("shop_id", shopId).is("deleted_at", null).order("created_at", { ascending: false }).limit(40),
     client.from("orders").select("order_number,customer_name,total,payment_status,delivery_date,status,estimated_cost").eq("shop_id", shopId).order("created_at", { ascending: false }).limit(20),
-    client.from("deliveries").select("status,recipient_name,address,delivery_date").eq("shop_id", shopId).order("delivery_date", { ascending: true }).limit(15)
+    client.from("deliveries").select("status,recipient_name,address,delivery_date").eq("shop_id", shopId).order("delivery_date", { ascending: true }).limit(15),
+    // The florist tells Florisyn how the shop should sound (and any delivery/
+    // marketing notes) during onboarding step 4 ("Meet Lily and Rose") — this
+    // row is where that lands. Read it here so the promise made at onboarding
+    // is actually kept, not just stored.
+    client.from("ai_shop_profiles").select("lily_enabled,rose_enabled,shop_tone,delivery_notes,marketing_notes").eq("shop_id", shopId).maybeSingle()
   ]);
-  return { shop: shop || {}, inventory: inventory || [], recent_orders: orders || [], deliveries: deliveries || [] };
+  return {
+    shop: shop || {},
+    inventory: inventory || [],
+    recent_orders: orders || [],
+    deliveries: deliveries || [],
+    ai_profile: aiProfile || null
+  };
+}
+
+/** Has this florist turned the persona off? Only an explicit false counts —
+ * a missing profile row (not yet onboarded, or the table isn't reachable)
+ * must never be treated as "disabled". */
+export function personaDisabled(persona, aiProfile) {
+  if (!aiProfile) return false;
+  const who = normalizePersona(persona);
+  if (who === "Lily") return aiProfile.lily_enabled === false;
+  if (who === "Rose") return aiProfile.rose_enabled === false;
+  return false;
 }
 
 /**
@@ -44,6 +66,8 @@ async function loadAiContext(client, shopId) {
 export async function cloudflareChat(persona, message, context) {
   if (!message) return null;
   try {
+    const guardrail = "Protect private employee and customer information — never repeat it outside its business purpose.";
+    const voice = shopVoiceSuffix(context.ai_profile);
     const result = await runCloudflareGenerate({
       mode: "chat",
       persona,
@@ -56,8 +80,9 @@ export async function cloudflareChat(persona, message, context) {
       },
       max_tokens: 500,
       // Persona prompts already say not to claim unconfirmed actions; add the
-      // one guardrail that's specific to a live business-context chat turn.
-      systemSuffix: "Protect private employee and customer information — never repeat it outside its business purpose."
+      // one guardrail that's specific to a live business-context chat turn,
+      // plus this shop's own voice/notes from onboarding, when it has any.
+      systemSuffix: voice ? `${guardrail}\n${voice}` : guardrail
     });
     return result?.answer?.trim() || null;
   } catch {
@@ -189,11 +214,17 @@ export async function handler(event) {
 
     let responseText = buildResponseMessage(intent, permission, planned, confirmed);
     if (responseText == null) {
-      // Conversational turn (general chat): answer with the real model, persona-aware,
-      // instead of a static template. Falls back to the template if AI is unavailable.
-      const aiAnswer = permission.allowed ? await cloudflareChat(persona, message, context) : null;
-      responseText = aiAnswer ||
-        `I understand you want help with ${intent.domain.replace("_", " ")}. I can chat, suggest next steps, and prepare actions for your confirmation.`;
+      if (personaDisabled(persona, context.ai_profile)) {
+        // A shop can turn a persona off (ai_shop_profiles.lily_enabled /
+        // rose_enabled); say so plainly instead of quietly answering anyway.
+        responseText = `${normalizePersona(persona)} is turned off for this shop right now. Contact Florisyn support if you'd like her re-enabled.`;
+      } else {
+        // Conversational turn (general chat): answer with the real model, persona-aware,
+        // instead of a static template. Falls back to the template if AI is unavailable.
+        const aiAnswer = permission.allowed ? await cloudflareChat(persona, message, context) : null;
+        responseText = aiAnswer ||
+          `I understand you want help with ${intent.domain.replace("_", " ")}. I can chat, suggest next steps, and prepare actions for your confirmation.`;
+      }
     }
 
     // Option A: when the topic sits in another persona's lane, gently suggest a
