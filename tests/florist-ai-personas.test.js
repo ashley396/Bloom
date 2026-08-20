@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   FLORIST_PERSONAS,
   normalizePersona,
+  shopVoiceSuffix,
   systemPromptFor,
   temperatureForPersona
 } from "../netlify/functions/_shared/florist-ai-personas.js";
@@ -49,4 +50,31 @@ test("local AI bridge imports shared persona module", () => {
   assert.match(src, /florist-ai-personas\.js/);
   assert.match(src, /systemPromptFor/);
   assert.match(src, /normalizePersona/);
+});
+
+test("shopVoiceSuffix: no profile row produces no instruction (default experience unchanged)", () => {
+  assert.equal(shopVoiceSuffix(null), "");
+  assert.equal(shopVoiceSuffix(undefined), "");
+});
+
+test("shopVoiceSuffix: a blank/never-customized profile produces no instruction", () => {
+  assert.equal(shopVoiceSuffix({ shop_tone: "", delivery_notes: null, marketing_notes: undefined }), "");
+});
+
+test("shopVoiceSuffix: real onboarding answers become explicit instructions, not silently dropped", () => {
+  const suffix = shopVoiceSuffix({
+    shop_tone: "bright, upbeat, modern",
+    delivery_notes: "No deliveries after 3pm on Saturdays.",
+    marketing_notes: "Keep it playful, avoid formal language."
+  });
+  assert.match(suffix, /bright, upbeat, modern/);
+  assert.match(suffix, /No deliveries after 3pm on Saturdays/);
+  assert.match(suffix, /Keep it playful, avoid formal language/);
+});
+
+test("shopVoiceSuffix: only the fields actually filled in produce a line", () => {
+  const suffix = shopVoiceSuffix({ shop_tone: "warm, capable, florist-friendly", delivery_notes: "", marketing_notes: "" });
+  assert.match(suffix, /warm, capable, florist-friendly/);
+  assert.doesNotMatch(suffix, /delivery notes/i);
+  assert.doesNotMatch(suffix, /marketing/i);
 });
