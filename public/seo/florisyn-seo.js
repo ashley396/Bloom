@@ -39,7 +39,7 @@
       robots: "index,follow",
     },
     "/company/about/": {
-      title: "About Florisyn | Built by a Florist, for Florists",
+      title: "About Florisyn | Made from the Florist's Side of the Counter",
       description:
         "Florisyn helps independent flower shops protect profits, serve customers beautifully, and compete with confidence — without expensive wire-service fees.",
     },
