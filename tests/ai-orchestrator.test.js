@@ -77,8 +77,8 @@ test("planJob: a multi-channel campaign plans a campaign + a post per channel + 
   assert.deepEqual(tools, [
     "marketing.createCampaign",
     "marketing.createSocialPost",
-    "marketing.createWebsiteSectionDraft",
-    "creative.generateImage"
+    "creative.generateImage",
+    "marketing.createWebsiteSectionDraft"
   ]);
   assert.equal(steps.find((s) => s.tool === "marketing.createSocialPost").channel, "facebook");
   // The old bug was the literal word "website" hijacking the whole plan
@@ -143,9 +143,14 @@ test("TEST 2 (from the AI-OS spec): 'Make a campaign for Facebook and my website
       { data: { id: "job-2", status: "running", plan: [] }, error: null }, // job insert
       { data: { id: "campaign-1", name: "Homecoming campaign", channels: ["social", "website"] }, error: null }, // campaign insert
       { data: { id: "asset-post-1" }, error: null }, // facebook post asset
-      { data: { id: "asset-website-1" }, error: null }, // website section asset
       { data: { id: "media-1" }, error: null }, // website_media insert (image)
       { data: { id: "asset-image-1" }, error: null }, // image asset
+      { data: { id: "project-1" }, error: null }, // bloom_website_projects select — a project already exists
+      { data: { id: "page-1", sections: [{ id: "hero-1", type: "hero", order: 0 }], content: {} }, error: null }, // bloom_website_pages select — a real home page already exists
+      { data: { id: "version-1" }, error: null }, // bloom_website_page_versions insert (undo snapshot)
+      { data: { id: "page-1", slug: "home", updated_at: "2026-08-20T00:00:00Z" }, error: null }, // bloom_website_pages update
+      { data: null, error: null }, // audit_events insert (writeShopAudit, fire-and-forget)
+      { data: { id: "asset-website-1" }, error: null }, // website section asset
       { data: { id: "job-2", status: "completed", campaign_id: "campaign-1" }, error: null } // job update
     ]);
     const routed = {
@@ -182,6 +187,10 @@ test("TEST 2 (from the AI-OS spec): 'Make a campaign for Facebook and my website
     const websiteStep = payload.result.steps.find((s) => s.tool === "marketing.createWebsiteSectionDraft");
     assert.equal(websiteStep.status, "completed");
     assert.ok(websiteStep.result.content.headline.length > 0);
+    // Actually applied to the shop's real Website Builder X draft, not just generated text.
+    assert.equal(websiteStep.result.applied, true);
+    assert.equal(websiteStep.result.content.appliedToDraft, true);
+    assert.equal(websiteStep.result.content.appliedToLivePage, false);
 
     const imageStep = payload.result.steps.find((s) => s.tool === "creative.generateImage");
     assert.equal(imageStep.status, "completed");
@@ -191,6 +200,20 @@ test("TEST 2 (from the AI-OS spec): 'Make a campaign for Facebook and my website
     assert.ok(campaignInsert);
     assert.deepEqual(campaignInsert.payload.channels.sort(), ["social", "website"]);
     assert.equal(campaignInsert.payload.shop_id, "shop-1");
+
+    // The website draft's home page actually got updated — a real hero
+    // section carrying the finished image URL, appended alongside the
+    // existing section rather than replacing it, and a version snapshot
+    // was taken first so the change is undoable.
+    const versionInsert = client.calls.find((c) => c.table === "bloom_website_page_versions" && c.ops.some(([op]) => op === "insert"));
+    assert.ok(versionInsert);
+    const pageUpdate = client.calls.find((c) => c.table === "bloom_website_pages" && c.ops.some(([op]) => op === "update"));
+    assert.ok(pageUpdate);
+    assert.equal(pageUpdate.payload.sections.length, 2);
+    const heroSection = pageUpdate.payload.sections.find((s) => s.type === "hero" && s.id !== "hero-1");
+    assert.ok(heroSection);
+    assert.match(heroSection.props.image, /^https:\/\/fake\.storage\//);
+    assert.ok(heroSection.props.title.length > 0);
   } finally {
     mock.restore();
   }
