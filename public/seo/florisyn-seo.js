@@ -114,8 +114,6 @@
   };
 
   var NOINDEX = {
-    "/": 1,
-    "/index.html": 1,
     "/admin": 1,
     "/admin.html": 1,
     "/forgot-password": 1,
@@ -216,7 +214,19 @@
     };
   }
 
+  function hasStaticSeo() {
+    // Content pages that already ship real canonical/OG/Twitter/JSON-LD
+    // baked directly into their HTML (so crawlers that don't execute JS
+    // still see accurate metadata) must not have this script overwrite
+    // that real data or bolt on a second, possibly-fabricated JSON-LD
+    // block (e.g. this script's placeholder $0 SoftwareApplication offer)
+    // next to it. A pre-existing canonical link is the signal a page was
+    // already converted.
+    return !!document.querySelector('link[rel="canonical"]');
+  }
+
   function apply() {
+    if (hasStaticSeo()) return;
     var path = location.pathname;
     var seo = resolve(path);
     if (seo.title) document.title = seo.title;

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { mockBackend, withFakeSession } from "./fixtures.mjs";
 
 /**
  * These block genuinely external hosts (fonts, and the Netlify Functions
@@ -78,23 +79,40 @@ test.describe("Florisyn public smoke", () => {
     await expect(page.getByText(/reviewed by a qualified attorney/i)).toBeVisible();
   });
 
-  test("the main app bundle boots end to end without a fatal script error, then routes an unauthenticated visitor to login", async ({
+  test("the main app bundle boots end to end without a fatal script error, then shows the public marketing homepage to an unauthenticated visitor", async ({
     page,
   }) => {
     await blockExternalCalls(page);
     const errors = collectPageErrors(page);
 
     // "/" has no session in localStorage, so app.js's own bootFloristApp()
-    // calls showAuth() -> location.replace("/login"). Reaching that
-    // redirect at all means every one of the ~60 <script> tags in
-    // index.html parsed and executed without throwing — this is the
-    // single highest-value regression check available without real
-    // Supabase/Stripe credentials: it exercises the whole load-order
-    // chain, not just one file in isolation.
+    // calls showAuth(), which now leaves the visitor on "/" and reveals
+    // the static #publicHome marketing section instead of redirecting to
+    // /login. Reaching that visible, populated state at all means every
+    // one of the ~60 <script> tags in index.html parsed and executed
+    // without throwing — this is the single highest-value regression
+    // check available without real Supabase/Stripe credentials: it
+    // exercises the whole load-order chain, not just one file in
+    // isolation. The URL must stay on "/" (no redirect), and the
+    // authenticated app shell must stay hidden.
     await page.goto("/");
-    await page.waitForURL(/\/login/, { timeout: 10_000 });
 
-    await expect(page).toHaveTitle(/Sign In \| Florisyn/);
+    await expect(page.locator("#publicHome")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("#publicHome h1")).toContainText("Florisyn");
+    await expect(page.locator("#app")).toBeHidden();
+    await expect(page.locator("#auth")).toBeHidden();
+    expect(page.url()).toMatch(/\/$/);
+
     expect(errors, `unexpected console/page errors while booting: ${errors.map((e) => e.message).join("; ")}`).toHaveLength(0);
+  });
+
+  test("an authenticated visitor never sees the public marketing homepage", async ({ page }) => {
+    await blockExternalCalls(page);
+    await mockBackend(page);
+    await withFakeSession(page);
+
+    await page.goto("/");
+    await expect(page.locator("#app")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("#publicHome")).toBeHidden();
   });
 });
