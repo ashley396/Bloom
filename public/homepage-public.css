@@ -323,7 +323,151 @@
   flex-wrap: wrap;
 }
 
+#publicHome .ph-about-teaser {
+  text-align: center;
+}
+
+#publicHome .ph-about-teaser .ph-eyebrow {
+  display: inline-block;
+}
+
+/* Illustrative product preview — a styled mockup of the real Florisyn
+   workspace layout, not a captured screenshot. */
+#publicHome .ph-mockup {
+  max-width: 880px;
+  margin: 32px auto 0;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--ph-line);
+  box-shadow: 0 30px 70px rgba(111, 42, 77, 0.16);
+}
+
+#publicHome .ph-mockup-chrome {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #f3e9ee;
+  border-bottom: 1px solid var(--ph-line);
+}
+
+#publicHome .ph-mockup-chrome span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e3c7d3;
+  display: inline-block;
+}
+
+#publicHome .ph-mockup-chrome em {
+  margin-left: 10px;
+  font-style: normal;
+  font-size: 0.78rem;
+  color: var(--ph-muted);
+  background: #fff;
+  border: 1px solid var(--ph-line);
+  border-radius: 999px;
+  padding: 3px 12px;
+}
+
+#publicHome .ph-mockup-body {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  min-height: 320px;
+  background: #fff;
+}
+
+#publicHome .ph-mockup-side {
+  background: var(--ph-plum);
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#publicHome .ph-mockup-side-item {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 9px 12px;
+  border-radius: 10px;
+}
+
+#publicHome .ph-mockup-side-active {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+#publicHome .ph-mockup-main {
+  padding: 24px;
+}
+
+#publicHome .ph-mockup-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+#publicHome .ph-mockup-stats div {
+  background: var(--ph-cream);
+  border: 1px solid var(--ph-line);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+#publicHome .ph-mockup-stats span {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--ph-muted);
+  margin-bottom: 6px;
+}
+
+#publicHome .ph-mockup-stats strong {
+  font-family: Georgia, serif;
+  font-size: 1.4rem;
+  color: var(--ph-plum);
+}
+
+#publicHome .ph-mockup-rows {
+  display: grid;
+  gap: 8px;
+}
+
+#publicHome .ph-mockup-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--ph-line);
+  border-radius: 10px;
+  font-size: 0.86rem;
+}
+
+#publicHome .ph-mockup-row em {
+  font-style: normal;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--ph-berry);
+  background: var(--ph-berry-soft);
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
 @media (max-width: 720px) {
+  #publicHome .ph-mockup-body {
+    grid-template-columns: 1fr;
+  }
+  #publicHome .ph-mockup-side {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  #publicHome .ph-mockup-stats {
+    grid-template-columns: 1fr;
+  }
+
   #publicHome .ph-topbar {
     padding: 14px 18px;
   }

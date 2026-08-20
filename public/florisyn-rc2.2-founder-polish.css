@@ -588,7 +588,7 @@ body.florisyn-rc22 #expensesPage .expense-toolbar,
 body.florisyn-rc22 #reportsPage .report-summary,
 body.florisyn-rc22 #reportsPage .report-grid > section,
 body.florisyn-rc22 #deliveriesPage .delivery-summary article,
-body.florisyn-rc22 #settingsPage .settings-grid > section {
+body.florisyn-rc22 #settingsPage .settings-tab-panel > section {
   border: 1px solid var(--secondary-surface-line) !important;
   border-radius: 8px !important;
   background: rgba(255, 252, 248, 0.96) !important;

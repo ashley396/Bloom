@@ -31,7 +31,10 @@ const SIDEBAR_ORDER = [
   ["/community", "communityPage"],
   ["/florist-network", "floristNetworkPage"],
   ["/marketing", "marketingPage"],
-  ["/marketing/email-campaigns", "emailCampaignsPage"],
+  // Marketing navigation cleanup: Email Campaigns no longer has its own
+  // standalone sidebar entry — Marketing's own Overview tab already links
+  // out to it (data-marketing-goto="emailCampaignsPage"). The route and
+  // page still exist; only the redundant sidebar entry point is gone.
   ["/weddings", "weddingsPage"],
   ["/holiday-command", "holidayPage"],
   ["/staff", "staffPage"],
@@ -80,7 +83,7 @@ test("sidebar lists every required route in exact order", () => {
   assert.match(nav, /florisyn-lux-nav-label">SELLER DASHBOARD</);
   assert.match(nav, /florisyn-lux-nav-label">SUBSCRIPTION</);
   assert.match(nav, /POS Settings/);
-  assert.equal(routes.length, 29);
+  assert.equal(routes.length, 28);
   assert.match(html, /florisyn-premium-badge/);
   assert.match(html, /PREMIUM PLAN/);
   const premiumStart = html.indexOf("florisyn-premium-badge");

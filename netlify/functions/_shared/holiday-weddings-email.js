@@ -230,3 +230,14 @@ export function validateWeddingChecklistBody(body = {}) {
     },
   };
 }
+
+/** UX cleanup Part D — wedding inspiration board. The image itself is
+ * validated by website-media.js's own upload validator (JPEG/PNG/WebP/GIF,
+ * size ceiling); this only covers the caption/ordering fields this table
+ * adds on top of an already-uploaded image. */
+export function validateInspirationPhotoBody(body = {}) {
+  const caption = trimStr(body.caption, 300);
+  const sort_order = parseIntNonNeg(body.sort_order, 0);
+  if (sort_order === null) return { valid: false, error: "Invalid sort order." };
+  return { valid: true, sanitized: { caption, sort_order } };
+}

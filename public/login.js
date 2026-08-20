@@ -48,7 +48,7 @@ async function bloomLogin(event){
     }
     form.dataset.submitting='false';
     button.disabled=false;
-    button.textContent='Sign in';
+    button.textContent='Sign In';
   }
 }
 form?.addEventListener('submit',bloomLogin,{capture:true});

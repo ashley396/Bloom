@@ -37,6 +37,17 @@
     return n.toLocaleString(undefined, { style: "currency", currency: "USD" });
   }
 
+  const INSPIRATION_MAX_BYTES = 8 * 1024 * 1024;
+
+  function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Could not read that image."));
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.readAsDataURL(file);
+    });
+  }
+
   function formHtml() {
     const opts = STATUSES.map((s) => `<option value="${esc(s)}">${esc(s.replace(/_/g, " "))}</option>`).join("");
     return `<form id="weddingForm" class="panel">
@@ -76,6 +87,32 @@
     </div>`;
   }
 
+  function inspirationHtml(item) {
+    const photos = item.inspiration_photos || [];
+    const thumbs = photos
+      .map(
+        (p) => `<figure class="inspiration-thumb">
+          <img src="${esc(p.url)}" alt="${esc(p.caption || "Wedding inspiration photo")}" loading="lazy">
+          ${p.caption ? `<figcaption>${esc(p.caption)}</figcaption>` : ""}
+          <button type="button" class="inspiration-remove" data-inspiration-remove="${esc(p.id)}" aria-label="Remove photo">&times;</button>
+        </figure>`
+      )
+      .join("");
+    return `<div class="wedding-inspiration">
+      <p class="eyebrow">INSPIRATION BOARD</p>
+      <div class="inspiration-grid">
+        ${thumbs || `<p class="subtle">No inspiration photos yet. Add a few to start the mood board.</p>`}
+      </div>
+      <div class="two">
+        <input type="text" data-inspiration-caption placeholder="Optional caption" maxlength="300">
+        <label class="secondary inspiration-upload-btn">
+          Add photo
+          <input type="file" accept="image/*" data-inspiration-file hidden>
+        </label>
+      </div>
+    </div>`;
+  }
+
   function itemHtml(item) {
     const statusOpts = STATUSES.map(
       (s) =>
@@ -93,6 +130,7 @@
       ${item.notes ? `<p>${esc(item.notes)}</p>` : ""}
       <label>Status<select data-wedding-status>${statusOpts}</select></label>
       ${checklistHtml(item)}
+      ${inspirationHtml(item)}
       <div class="card-actions">
         <button type="button" class="secondary" data-wedding-act="delete">Remove</button>
       </div>
@@ -185,6 +223,53 @@
           }
         } catch (err) {
           toast(err.message || "Update failed.");
+        }
+      });
+    });
+
+    el.querySelectorAll("[data-inspiration-file]").forEach((input) => {
+      input.addEventListener("change", async () => {
+        const card = input.closest("[data-wedding-id]");
+        const wedding_id = card?.getAttribute("data-wedding-id");
+        const file = input.files && input.files[0];
+        if (!wedding_id || !file) return;
+        if (file.size > INSPIRATION_MAX_BYTES) {
+          toast("That photo is too large. Please choose one under 8 MB.");
+          input.value = "";
+          return;
+        }
+        const captionInput = card.querySelector("[data-inspiration-caption]");
+        const caption = String(captionInput?.value || "").trim();
+        try {
+          const data_url = await fileToDataUrl(file);
+          await api({
+            action: "add_inspiration_photo",
+            wedding_id,
+            data_url,
+            filename: file.name,
+            caption,
+          });
+          toast("Inspiration photo added.");
+          await load();
+        } catch (err) {
+          toast(err.message || "Could not add that photo.");
+        } finally {
+          input.value = "";
+        }
+      });
+    });
+
+    el.querySelectorAll("[data-inspiration-remove]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-inspiration-remove");
+        if (!id) return;
+        if (!confirm("Remove this inspiration photo?")) return;
+        try {
+          await api({ action: "remove_inspiration_photo", id });
+          toast("Photo removed.");
+          await load();
+        } catch (err) {
+          toast(err.message || "Could not remove that photo.");
         }
       });
     });
