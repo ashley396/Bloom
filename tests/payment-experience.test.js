@@ -76,8 +76,11 @@ test("refund audit entry captures notes", () => {
   assert.equal(a.notes, "VIP");
 });
 
-test("terminals are coming soon", () => {
-  assert.ok(TERMINAL_CATALOG.every((t) => t.status === "coming_soon"));
+test("terminals: Stripe Terminal is real (Switching Barrier Register Wave 6); Square/Clover remain coming soon", () => {
+  const byId = Object.fromEntries(TERMINAL_CATALOG.map((t) => [t.id, t.status]));
+  assert.equal(byId.stripe_terminal, "available");
+  assert.equal(byId.square_terminal, "coming_soon");
+  assert.equal(byId.clover_terminal, "coming_soon");
 });
 
 test("security checklist documents tenant isolation", () => {

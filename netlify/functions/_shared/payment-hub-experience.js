@@ -6,7 +6,10 @@ import { nextDeliveryDate } from "./business-ecosystem.js";
 export const PAYMENT_LINK_STATUSES = ["active", "viewed", "partially_paid", "paid", "expired", "canceled"];
 
 export const TERMINAL_CATALOG = [
-  { id: "stripe_terminal", label: "Stripe Terminal", provider_id: "stripe", status: "coming_soon" },
+  // Switching Barrier Register Wave 6 — see netlify/functions/payment-terminal.js
+  // for the real connection-token/reader/PaymentIntent flow this now
+  // reflects. Square/Clover terminals remain unbuilt.
+  { id: "stripe_terminal", label: "Stripe Terminal", provider_id: "stripe", status: "available" },
   { id: "square_terminal", label: "Square Terminal", provider_id: "square", status: "coming_soon" },
   { id: "clover_terminal", label: "Clover Terminal", provider_id: "clover", status: "coming_soon" }
 ];

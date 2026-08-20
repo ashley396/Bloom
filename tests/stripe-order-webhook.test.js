@@ -223,3 +223,71 @@ test("stripe order webhook: unrelated Stripe event types are acknowledged withou
     assert.equal(response.statusCode, 200);
     assert.equal(client.calls.length, 0);
   }));
+
+function paymentIntentSucceededEvent(metadata, overrides = {}) {
+  return {
+    id: "evt_terminal_1",
+    type: "payment_intent.succeeded",
+    livemode: false,
+    data: {
+      object: {
+        id: "pi_terminal_1",
+        status: "succeeded",
+        amount: 4550,
+        metadata,
+        ...overrides,
+      },
+    },
+  };
+}
+
+test("stripe order webhook: a terminal-channel payment_intent.succeeded routes to postStripeTerminalPayment (Wave 6 backstop)", () =>
+  withEnv({ STRIPE_SECRET_KEY: TEST_KEY, STRIPE_ORDER_WEBHOOK_SECRET: ORDER_WEBHOOK_SECRET }, async () => {
+    const event = paymentIntentSucceededEvent({ bloom_order_id: "order_1", bloom_shop_id: "shop_1", channel: "terminal" });
+    let received;
+    const response = await handleStripeOrderWebhook(postEvent(), {
+      createStripe: fakeStripe(event),
+      admin: () => createFakeSupabaseClient(),
+      postStripeTerminalPayment: async (client, intent) => {
+        received = intent;
+        return { paid: true, amount: 45.5 };
+      },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(received.id, "pi_terminal_1");
+  }));
+
+test("stripe order webhook: a payment_intent.succeeded WITHOUT channel:terminal is ignored — never double-posts a card-not-present Checkout payment", () =>
+  withEnv({ STRIPE_SECRET_KEY: TEST_KEY, STRIPE_ORDER_WEBHOOK_SECRET: ORDER_WEBHOOK_SECRET }, async () => {
+    // A Checkout Session's own underlying PaymentIntent carries the same
+    // bloom_order_id/bloom_shop_id metadata (create-checkout.js sets it on
+    // payment_intent_data too) and fires this same event type — without
+    // the channel:"terminal" gate this would double-dispatch alongside
+    // checkout.session.completed.
+    const event = paymentIntentSucceededEvent({ bloom_order_id: "order_1", bloom_shop_id: "shop_1" });
+    const client = createFakeSupabaseClient();
+    let called = false;
+    const response = await handleStripeOrderWebhook(postEvent(), {
+      createStripe: fakeStripe(event),
+      admin: () => client,
+      postStripeTerminalPayment: async () => {
+        called = true;
+        return { paid: true };
+      },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(called, false);
+  }));
+
+test("stripe order webhook: unlike wire/marketplace, a postStripeTerminalPayment failure is NOT swallowed", () =>
+  withEnv({ STRIPE_SECRET_KEY: TEST_KEY, STRIPE_ORDER_WEBHOOK_SECRET: ORDER_WEBHOOK_SECRET }, async () => {
+    const event = paymentIntentSucceededEvent({ bloom_order_id: "order_1", bloom_shop_id: "shop_1", channel: "terminal" });
+    const response = await handleStripeOrderWebhook(postEvent(), {
+      createStripe: fakeStripe(event),
+      admin: () => createFakeSupabaseClient(),
+      postStripeTerminalPayment: async () => {
+        throw new Error("ledger RPC failed");
+      },
+    });
+    assert.equal(response.statusCode, 500);
+  }));
