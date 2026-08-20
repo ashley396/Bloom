@@ -9,7 +9,8 @@ import {
   systemPromptFor,
   temperatureForPersona,
   domainOwner,
-  suggestHandoff
+  suggestHandoff,
+  jobDomainOwner
 } from "../netlify/functions/_shared/florist-ai-personas.js";
 
 test("normalizePersona accepts Lily, Rose, Daisy, and Bud", () => {
@@ -105,4 +106,14 @@ test("suggestHandoff: Rose asking herself a reports question never suggests hand
 test("suggestHandoff: open chat about a bug points to Bud, the fuzzy topic-hint owner", () => {
   const handoff = suggestHandoff("Lily", "general", "the checkout button keeps erroring when I click it");
   assert.equal(handoff.to, "Bud");
+});
+
+test("jobDomainOwner: marketing/creative jobs are always Lily's — Florisyn's designated creative director", () => {
+  assert.equal(jobDomainOwner("marketing"), "Lily");
+});
+
+test("jobDomainOwner: a domain with no declared job owner returns null, never an invented author", () => {
+  assert.equal(jobDomainOwner("support"), null);
+  assert.equal(jobDomainOwner("reports"), null);
+  assert.equal(jobDomainOwner(""), null);
 });
