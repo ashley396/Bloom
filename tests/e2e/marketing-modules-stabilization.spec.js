@@ -30,7 +30,12 @@ test.describe("Email Campaigns: 'Mark sent' confirm tells the truth about what i
 
     await page.goto("/");
     await expect(page.locator("#app")).toBeVisible({ timeout: 10_000 });
-    await page.locator('nav.florisyn-lux-nav button[data-page="emailCampaignsPage"]').click();
+    // Marketing navigation cleanup: Email Campaigns no longer has its own
+    // standalone sidebar entry (Marketing is the one central marketing
+    // workspace) — reach it the same way a florist now does, through
+    // Marketing's own Overview tab link-out.
+    await page.locator('nav.florisyn-lux-nav button[data-page="marketingPage"]').click();
+    await page.locator('[data-marketing-goto="emailCampaignsPage"]').click();
     await expect(page.locator('[data-campaign-id="camp-1"]')).toBeVisible();
   }
 
