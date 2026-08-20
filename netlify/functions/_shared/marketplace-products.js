@@ -200,6 +200,7 @@ export function matchStandingOrderItems(items = [], listings = []) {
       name: item.name,
       quantity: item.quantity,
       listing_id: match.id,
+      shop_id: match.shop_id,
       matched_product_name: match.product_name,
       current_price: display.price,
       current_unit: display.unit,
