@@ -15,7 +15,7 @@ import {
   normalizePromoCode
 } from "./_shared/marketplace-promotions.js";
 import { PRICING_TIERS_TABLE, bestPricingTierFor } from "./_shared/marketplace-pricing-tiers.js";
-import { shippingFeeFor } from "./_shared/marketplace-shipping.js";
+import { shippingFeeFor, isPickupFulfillment } from "./_shared/marketplace-shipping.js";
 
 function stripeRedirectBaseUrl() {
   const site = String(process.env.SITE_URL || process.env.URL || "").trim().replace(/\/$/, "");
@@ -70,6 +70,10 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
     const body = bodyOf(event);
     const cart = normalizeCart(body);
     if (!cart.length) return json(400, { error: "Cart is empty." });
+    // { [seller_shop_id]: "pickup" | "shipping" } — only meaningful for a
+    // seller who actually offers pickup (verified server-side below via
+    // that seller's own profile row); anything else is ignored.
+    const fulfillmentByShop = body.fulfillment && typeof body.fulfillment === "object" ? body.fulfillment : {};
 
     const { data: application, error: applicationError } = await client
       .from("marketplace_verification_applications")
@@ -298,12 +302,20 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
       // application_fee_amount above) — shipping is a pass-through cost,
       // not marketplace revenue.
       const profile = sellerProfileByShop.get(sellerCart.sellerShopId);
+      // A buyer can only ever request "shipping" for a seller who might
+      // otherwise default to pickup — the cart shows this choice only
+      // when the seller's own profile (looked up above, never trusted
+      // from the client) says pickup_available. Anything else in this
+      // map is ignored.
+      const buyerFulfillmentChoice = fulfillmentByShop[sellerCart.sellerShopId];
       const shippingFee = shippingFeeFor({
         pickupAvailable: Boolean(profile?.pickup_available),
+        buyerFulfillmentChoice,
         shippingFlatFee: profile?.shipping_flat_fee,
         freeShippingOver: profile?.free_shipping_over,
         subtotal: rawSubtotalByShop.get(sellerCart.sellerShopId) || 0
       });
+      const fulfillmentMethod = isPickupFulfillment({ pickupAvailable: Boolean(profile?.pickup_available), buyerFulfillmentChoice }) ? "pickup" : "shipping";
       const stripeLineItems = shippingFee > 0
         ? [...lineItems, { quantity: 1, price_data: { currency: "usd", unit_amount: Math.round(shippingFee * 100), product_data: { name: "Shipping" } } }]
         : lineItems;
@@ -328,7 +340,8 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
           ...(appliedPromo ? { promotion_code: appliedPromo.code } : {}),
           ...(appliedTier ? { pricing_tier: appliedTier.name, pricing_tier_min_quantity: String(appliedTier.min_quantity) } : {}),
           ...(discountPercent > 0 ? { discount_percent: String(discountPercent) } : {}),
-          ...(shippingFee > 0 ? { shipping_fee: String(shippingFee) } : {})
+          ...(shippingFee > 0 ? { shipping_fee: String(shippingFee) } : {}),
+          fulfillment_method: fulfillmentMethod
         }
       });
 
@@ -353,7 +366,8 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
             ...(appliedPromo ? { promotion_code: appliedPromo.code } : {}),
             ...(appliedTier ? { pricing_tier: appliedTier.name } : {}),
             ...(discountPercent > 0 ? { discount_percent: discountPercent } : {}),
-            ...(shippingFee > 0 ? { shipping_fee: shippingFee } : {})
+            ...(shippingFee > 0 ? { shipping_fee: shippingFee } : {}),
+            fulfillment_method: fulfillmentMethod
           }
         });
       } catch {
@@ -365,6 +379,7 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
         seller_shop_id: sellerCart.sellerShopId,
         total: orderTotalWithShipping,
         shipping_fee: shippingFee,
+        fulfillment_method: fulfillmentMethod,
         promo_applied: Boolean(appliedPromo),
         pricing_tier_applied: appliedTier ? appliedTier.name : null
       });
