@@ -16,6 +16,24 @@
     localStorage.setItem(CART_KEY, JSON.stringify(items));
   }
 
+  // Per-seller fulfillment choice ("pickup" or "shipping"), only ever
+  // meaningful for a seller who offers both — the cart panel shows the
+  // choice, checkout re-verifies it against that seller's own profile
+  // server-side. { [shop_id]: "pickup" | "shipping" }
+  const FULFILLMENT_KEY = 'bloom_marketplace_fulfillment';
+
+  function readFulfillment() {
+    try {
+      return JSON.parse(localStorage.getItem(FULFILLMENT_KEY) || '{}');
+    } catch {
+      return {};
+    }
+  }
+
+  function writeFulfillment(map) {
+    localStorage.setItem(FULFILLMENT_KEY, JSON.stringify(map));
+  }
+
   function availabilityBadgeHtml(hooks, item) {
     if (!item.availability_status || item.availability_status === 'available_now') return '';
     const label = item.availability_label || item.availability_status.replace(/_/g, ' ');
@@ -442,7 +460,7 @@
         const item = state.items.find((row) => row.id === cartBtn.dataset.marketCart);
         if (!item) return;
         const cart = readCart();
-        if (!cart.some((row) => row.id === item.id)) cart.push({ id: item.id, product_name: item.product_name, price: item.price, quantity: 1 });
+        if (!cart.some((row) => row.id === item.id)) cart.push({ id: item.id, shop_id: item.shop_id, product_name: item.product_name, price: item.price, quantity: 1 });
         writeCart(cart);
         hooks.toast('Saved to cart.');
         refreshCartUI(hooks, state);
@@ -573,7 +591,7 @@
             continue;
           }
           if (!cart.some((row) => row.id === item.listing_id)) {
-            cart.push({ id: item.listing_id, product_name: item.matched_product_name || item.name, price: item.current_price, quantity: item.quantity });
+            cart.push({ id: item.listing_id, shop_id: item.shop_id, product_name: item.matched_product_name || item.name, price: item.current_price, quantity: item.quantity });
             added += 1;
           }
         }
@@ -688,7 +706,7 @@
               continue;
             }
             if (!cart.some((row) => row.id === item.listing_id)) {
-              cart.push({ id: item.listing_id, product_name: item.name, price: item.current_price, quantity: item.quantity });
+              cart.push({ id: item.listing_id, shop_id: item.shop_id, product_name: item.name, price: item.current_price, quantity: item.quantity });
               added += 1;
             }
           }
@@ -731,7 +749,30 @@
   function refreshCartUI(hooks, state) {
     renderCartBadge(hooks);
     const panel = hooks.$('#marketplaceCartPanel');
-    if (panel && !panel.hidden) renderCartPanel(hooks, state);
+    if (panel && !panel.hidden) {
+      renderCartPanel(hooks, state);
+      loadCartShipping(hooks, state).then(() => {
+        if (!panel.hidden) renderCartPanel(hooks, state);
+      });
+    }
+  }
+
+  /**
+   * Fetches pickup/shipping info for any seller currently in the cart that
+   * isn't already cached in state.cartShipping — best-effort: if it fails,
+   * the cart still works, just without a fulfillment choice shown (the
+   * same as before this feature existed).
+   */
+  async function loadCartShipping(hooks, state) {
+    const shopIds = [...new Set(readCart().map((row) => row.shop_id).filter(Boolean))];
+    const missing = shopIds.filter((id) => !(state.cartShipping || {})[id]);
+    if (!missing.length) return;
+    try {
+      const data = await hooks.api(`marketplace-catalog?resource=cart-shipping&shop_ids=${missing.map(encodeURIComponent).join(',')}`);
+      state.cartShipping = { ...(state.cartShipping || {}), ...Object.fromEntries((data.sellers || []).map((row) => [row.shop_id, row])) };
+    } catch {
+      /* best-effort */
+    }
   }
 
   function renderCartPanel(hooks, state) {
@@ -747,17 +788,58 @@
       return;
     }
     const subtotal = cart.reduce((sum, row) => sum + cartLineTotal(row), 0);
-    panel.innerHTML = `
-      <div class="marketplace-cart-items">${cart.map((row) => `
+
+    // Fulfillment (pickup vs. shipping) is a per-SELLER choice, not
+    // per-line, and only shown at all when that seller's profile
+    // (fetched by loadCartShipping — see bindCartBtn/refreshCartUI) says
+    // they offer both pickup and a real shipping fee. A seller who's
+    // ship-only, or who never set a fee, has nothing for the buyer to
+    // choose — checkout resolves those cases entirely server-side.
+    const shipping = state.cartShipping || {};
+    const fulfillment = readFulfillment();
+    const groups = [];
+    const groupIndex = new Map();
+    for (const row of cart) {
+      const key = row.shop_id || '';
+      if (!groupIndex.has(key)) {
+        groupIndex.set(key, groups.length);
+        groups.push({ shopId: key, rows: [] });
+      }
+      groups[groupIndex.get(key)].rows.push(row);
+    }
+    const cartLineHtml = (row) => `
         <div class="marketplace-cart-line" data-cart-line="${hooks.esc(row.id)}">
           <div class="marketplace-cart-line-info"><strong>${hooks.esc(row.product_name || 'Item')}</strong><span class="subtle">${hooks.money(row.price)} each</span></div>
           <input type="number" min="1" step="1" value="${Number(row.quantity || 1)}" class="marketplace-cart-qty" data-cart-qty="${hooks.esc(row.id)}" aria-label="Quantity">
           <span class="marketplace-cart-line-total">${hooks.money(cartLineTotal(row))}</span>
           <button type="button" class="secondary danger" data-cart-remove="${hooks.esc(row.id)}" aria-label="Remove from cart">✕</button>
-        </div>`).join('')}</div>
+        </div>`;
+    const cartGroupHtml = (group) => {
+      const seller = group.shopId ? shipping[group.shopId] : null;
+      const linesHtml = group.rows.map(cartLineHtml).join('');
+      if (!seller || !seller.pickup_available || !Number(seller.shipping_flat_fee)) {
+        return `<div class="marketplace-cart-seller-group">${linesHtml}</div>`;
+      }
+      const groupSubtotal = group.rows.reduce((sum, row) => sum + cartLineTotal(row), 0);
+      const freeOver = Number(seller.free_shipping_over) || 0;
+      const feeLabel = freeOver > 0 && groupSubtotal >= freeOver ? 'Free' : hooks.money(seller.shipping_flat_fee);
+      const chosen = fulfillment[group.shopId] === 'shipping' ? 'shipping' : 'pickup';
+      return `<div class="marketplace-cart-seller-group">
+        <p class="marketplace-cart-seller-name">${hooks.esc(seller.display_name || 'This seller')}</p>
+        ${linesHtml}
+        <fieldset class="marketplace-cart-fulfillment" data-fulfillment-shop="${hooks.esc(group.shopId)}">
+          <legend>How would you like this order?</legend>
+          <label><input type="radio" name="fulfillment-${hooks.esc(group.shopId)}" value="pickup" ${chosen === 'pickup' ? 'checked' : ''}> Local pickup (free)</label>
+          <label><input type="radio" name="fulfillment-${hooks.esc(group.shopId)}" value="shipping" ${chosen === 'shipping' ? 'checked' : ''}> Ship (${feeLabel})</label>
+        </fieldset>
+      </div>`;
+    };
+    panel.innerHTML = `
+      <div class="marketplace-cart-items">${groups.map(cartGroupHtml).join('')}</div>
       <div class="marketplace-cart-summary">
         <label>Promo code<input type="text" id="marketplaceCartPromo" placeholder="Optional"></label>
         <div class="marketplace-cart-subtotal">Subtotal: <strong>${hooks.money(subtotal)}</strong></div>
+        <p class="subtle">Shipping, if it applies, is added at checkout.</p>
         <button type="button" class="primary wide" id="marketplaceCartCheckout">Checkout</button>
       </div>`;
     if (priorPromo) {
@@ -780,6 +862,15 @@
         renderCartPanel(hooks, state);
       });
     });
+    panel.querySelectorAll('[data-fulfillment-shop]').forEach((fieldset) => {
+      fieldset.addEventListener('change', (event) => {
+        const input = event.target.closest('input[type="radio"]');
+        if (!input) return;
+        const map = readFulfillment();
+        map[fieldset.dataset.fulfillmentShop] = input.value;
+        writeFulfillment(map);
+      });
+    });
     panel.querySelector('#marketplaceCartCheckout')?.addEventListener('click', async (event) => {
       const button = event.currentTarget;
       const currentCart = readCart();
@@ -795,6 +886,7 @@
           method: 'POST',
           body: JSON.stringify({
             items: currentCart.map((row) => ({ listing_id: row.id, quantity: row.quantity || 1 })),
+            fulfillment: readFulfillment(),
             ...(promoCode ? { promo_code: promoCode } : {})
           })
         });
@@ -834,7 +926,12 @@
       const notifPanel = hooks.$('#marketplaceNotifPanel');
       if (notifPanel) notifPanel.hidden = true;
       panel.hidden = !opening;
-      if (opening) renderCartPanel(hooks, state);
+      if (opening) {
+        renderCartPanel(hooks, state);
+        loadCartShipping(hooks, state).then(() => {
+          if (!panel.hidden) renderCartPanel(hooks, state);
+        });
+      }
     });
   }
 
@@ -929,7 +1026,7 @@
   }
 
   async function load(hooks) {
-    const state = { items: [], orders: [], compare: [], notifications: [], standingOrders: [], specials: [], q: '', category: '', seller: '', minPrice: '', maxPrice: '', inStock: false, shipping: '', variety: '', color: '', availability: '', byDate: '' };
+    const state = { items: [], orders: [], compare: [], notifications: [], standingOrders: [], specials: [], cartShipping: {}, q: '', category: '', seller: '', minPrice: '', maxPrice: '', inStock: false, shipping: '', variety: '', color: '', availability: '', byDate: '' };
     renderCategoryOptions(hooks);
     renderCartBadge(hooks);
     bindMarketplaceEvents(hooks, state);

@@ -254,6 +254,12 @@ aside button{font-size:14px!important;padding:10px 12px!important;color:#312c2f!
 .marketplace-cart-line-info strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .marketplace-cart-qty{width:56px;padding:4px 6px;border-radius:8px;border:1px solid #e5d3dc;font-variant-numeric:tabular-nums}
 .marketplace-cart-line-total{font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.marketplace-cart-seller-group{display:flex;flex-direction:column}
+.marketplace-cart-seller-group+.marketplace-cart-seller-group{margin-top:6px;padding-top:6px;border-top:1px dashed #eadde5}
+.marketplace-cart-seller-name{margin:0 0 2px;font-size:.78rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#a85d80}
+.marketplace-cart-fulfillment{display:flex;flex-wrap:wrap;gap:10px 16px;margin:6px 0 2px;padding:8px 10px;border:0;border-radius:10px;background:#faf3f6}
+.marketplace-cart-fulfillment legend{padding:0 0 4px;font-size:.78rem;font-weight:700;color:#6b3452}
+.marketplace-cart-fulfillment label{display:flex;align-items:center;gap:6px;font-size:.88rem;font-weight:600;color:#4b3c47}
 .marketplace-cart-summary{display:flex;flex-direction:column;gap:8px;padding-top:6px;border-top:1px solid #eadde5}
 .marketplace-cart-subtotal{display:flex;justify-content:space-between;font-size:1rem}
 .marketplace-notif-row{padding:9px 10px;border-radius:10px;margin-bottom:4px}

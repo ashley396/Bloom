@@ -630,3 +630,89 @@ test("marketplace checkout: a free-shipping threshold waives a ship-only seller'
     assert.equal(body.sessions[0].shipping_fee, 0);
     assert.equal(body.sessions[0].total, 200); // no shipping added — subtotal already meets the threshold
   }));
+
+// MARKETPLACE FULFILLMENT CHOICE: a seller who offers both pickup and
+// shipping used to never be charged shipping at all (the cart had no way
+// to ask which the buyer wanted). These tests prove the real choice now
+// works: pickup stays the safe default when the buyer says nothing, but
+// explicitly choosing to ship charges the seller's real fee — and a
+// buyer can never talk their way into pickup for a seller who never
+// offered it, no matter what the client sends.
+
+test("marketplace checkout: a buyer who explicitly chooses shipping for a pickup-capable seller is charged that seller's fee", () =>
+  withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app" }, async () => {
+    const extraClient = createFakeSupabaseClient([
+      { data: approvedApplication(), error: null },
+      { data: [listingRow({ price: 20 })], error: null },
+      { data: [{ shop_id: "seller_shop_1", display_name: "Rose Co", pickup_available: true, shipping_flat_fee: 12, free_shipping_over: null }], error: null },
+      { data: [], error: null }, // tier lookup
+      { data: null, error: null }, // order insert
+    ]);
+    const response = await handleMarketplaceCheckout(
+      postEvent({ items: [{ listing_id: "listing_1", quantity: 2 }], fulfillment: { seller_shop_1: "shipping" } }),
+      {
+        client: extraClient,
+        currentUser: async () => ({ client: extraClient, user: USER, shopId: SHOP_ID }),
+        createStripe: () => ({ checkout: { sessions: { create: async (params) => { extraClient.calls.push({ stripeCheckoutCreate: params }); return { id: "cs_0", url: "https://stripe.test/session/0" }; } } } }),
+        isFeatureEnabled: () => true,
+      },
+    );
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.sessions[0].shipping_fee, 12);
+    assert.equal(body.sessions[0].total, 52);
+    assert.equal(body.sessions[0].fulfillment_method, "shipping");
+
+    const stripeCall = extraClient.calls.find((c) => c.stripeCheckoutCreate)?.stripeCheckoutCreate;
+    assert.equal(stripeCall.metadata.fulfillment_method, "shipping");
+  }));
+
+test("marketplace checkout: a buyer who explicitly chooses pickup for a pickup-capable seller pays nothing extra, same as saying nothing", () =>
+  withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app" }, async () => {
+    const extraClient = createFakeSupabaseClient([
+      { data: approvedApplication(), error: null },
+      { data: [listingRow({ price: 20 })], error: null },
+      { data: [{ shop_id: "seller_shop_1", display_name: "Rose Co", pickup_available: true, shipping_flat_fee: 12, free_shipping_over: null }], error: null },
+      { data: [], error: null }, // tier lookup
+      { data: null, error: null }, // order insert
+    ]);
+    const response = await handleMarketplaceCheckout(
+      postEvent({ items: [{ listing_id: "listing_1", quantity: 2 }], fulfillment: { seller_shop_1: "pickup" } }),
+      {
+        client: extraClient,
+        currentUser: async () => ({ client: extraClient, user: USER, shopId: SHOP_ID }),
+        createStripe: () => ({ checkout: { sessions: { create: async (params) => { extraClient.calls.push({ stripeCheckoutCreate: params }); return { id: "cs_0", url: "https://stripe.test/session/0" }; } } } }),
+        isFeatureEnabled: () => true,
+      },
+    );
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.sessions[0].shipping_fee, 0);
+    assert.equal(body.sessions[0].fulfillment_method, "pickup");
+  }));
+
+test("marketplace checkout: choosing \"pickup\" for a ship-only seller is ignored — that seller's own profile always wins", () =>
+  withEnv({ STRIPE_SECRET_KEY: "sk_test_x", SITE_URL: "https://florisyn-staging.netlify.app" }, async () => {
+    const extraClient = createFakeSupabaseClient([
+      { data: approvedApplication(), error: null },
+      { data: [listingRow({ price: 20 })], error: null },
+      { data: [{ shop_id: "seller_shop_1", display_name: "Rose Co", pickup_available: false, shipping_flat_fee: 12, free_shipping_over: null }], error: null },
+      { data: [], error: null }, // tier lookup
+      { data: null, error: null }, // order insert
+    ]);
+    const response = await handleMarketplaceCheckout(
+      // A malicious or stale client claiming pickup for a seller who
+      // never offered it must not escape the shipping fee.
+      postEvent({ items: [{ listing_id: "listing_1", quantity: 2 }], fulfillment: { seller_shop_1: "pickup" } }),
+      {
+        client: extraClient,
+        currentUser: async () => ({ client: extraClient, user: USER, shopId: SHOP_ID }),
+        createStripe: () => ({ checkout: { sessions: { create: async (params) => { extraClient.calls.push({ stripeCheckoutCreate: params }); return { id: "cs_0", url: "https://stripe.test/session/0" }; } } } }),
+        isFeatureEnabled: () => true,
+      },
+    );
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.sessions[0].shipping_fee, 12);
+    assert.equal(body.sessions[0].fulfillment_method, "shipping");
+  }));
