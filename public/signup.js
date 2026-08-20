@@ -53,6 +53,7 @@ $("#signupForm").addEventListener("submit", async (e) => {
       referralCode
     };
     const d = await api("auth-signup", { method: "POST", body: JSON.stringify(payload) });
+    window.FlorisynAnalytics?.trackConversion("signup");
     if (d.confirmationRequired) {
       sessionStorage.setItem("florisyn_pending_email", payload.email);
       location.href = `/verify-email?pending=1&email=${encodeURIComponent(payload.email)}`;

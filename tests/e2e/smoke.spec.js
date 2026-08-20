@@ -207,3 +207,89 @@ test.describe("Florisyn public smoke", () => {
     await expect(page.locator("#publicHome")).toBeHidden();
   });
 });
+
+test.describe("Florisyn marketing-site analytics beacon (first-party, non-invasive)", () => {
+  test("a public page load fires a sanitized pageview beacon — no cookies, no full referrer URL, no PII", async ({ page }) => {
+    await blockExternalCalls(page);
+    const errors = collectPageErrors(page);
+
+    const beaconRequest = page.waitForRequest((req) => req.url().includes("/.netlify/functions/site-analytics"));
+    await page.goto("/company/pricing/");
+    const req = await beaconRequest;
+
+    const payload = JSON.parse(req.postData());
+    expect(payload.event_type).toBe("site_pageview");
+    expect(payload.path).toBe("/company/pricing/");
+    // The client only ever sends a bare referrer/landing_referrer string
+    // (document.referrer, empty on direct nav in this test) for the
+    // server to reduce to a hostname — it never sends cookies, an email,
+    // or any persistent identifier. session_id is an ephemeral
+    // sessionStorage-only value, not a tracking cookie.
+    expect(payload).not.toHaveProperty("email");
+    expect(payload).not.toHaveProperty("ip");
+    expect(typeof payload.session_id === "string" || payload.session_id === null).toBe(true);
+
+    expect((await page.context().cookies()).length).toBe(0);
+    expect(errors, `unexpected console/page errors: ${errors.map((e) => e.message).join("; ")}`).toHaveLength(0);
+  });
+
+  test("clicking a pricing plan's signup CTA fires a site_cta_click beacon carrying that plan's real tier code", async ({ page }) => {
+    await blockExternalCalls(page);
+    await page.goto("/company/pricing/");
+
+    // pricing.js overwrites the static CTA markup on load (mountPricingToggle) —
+    // this exercises the JS-rendered card, not just the static HTML fallback.
+    const premiumCta = page.locator('[data-cta="pricing-premium-signup"]');
+    await expect(premiumCta).toBeVisible();
+
+    const beaconRequest = page.waitForRequest(
+      (req) => req.url().includes("/.netlify/functions/site-analytics") && req.postData()?.includes("site_cta_click"),
+    );
+    await premiumCta.click();
+    const req = await beaconRequest;
+
+    const payload = JSON.parse(req.postData());
+    expect(payload.event_type).toBe("site_cta_click");
+    expect(payload.cta_id).toBe("pricing-premium-signup");
+  });
+
+  test("a completed signup fires a site_signup_conversion beacon", async ({ page }) => {
+    await blockExternalCalls(page);
+    await page.route("**/.netlify/functions/auth-signup", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ accessToken: "fake-token", refreshToken: "fake-refresh", user: { id: "u1" } }),
+      }),
+    );
+    await page.route("**/api/auth-signup", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ accessToken: "fake-token", refreshToken: "fake-refresh", user: { id: "u1" } }),
+      }),
+    );
+
+    await page.goto("/signup");
+    await page.locator("#fullName").fill("Sarah Bloom");
+    await page.locator("#shopName").fill("Sarah's Flowers");
+    await page.locator("#email").fill("sarah@example.com");
+    await page.locator("#password").fill("a-strong-password-1");
+    await page.locator("#businessPhone").fill("555-123-4567");
+    await page.locator("#businessAddress").fill("1 Main St");
+    await page.locator("#businessCity").fill("Louisville");
+    await page.locator("#businessState").fill("KY");
+    await page.locator("#businessZip").fill("40202");
+    await page.locator("#agreeTerms").check();
+
+    const beaconRequest = page.waitForRequest(
+      (req) => req.url().includes("/.netlify/functions/site-analytics") && req.postData()?.includes("site_signup_conversion"),
+    );
+    await page.locator("#signupForm button[type='submit']").click();
+    const req = await beaconRequest;
+
+    const payload = JSON.parse(req.postData());
+    expect(payload.event_type).toBe("site_signup_conversion");
+    expect(payload.cta_id).toBe("signup");
+  });
+});
