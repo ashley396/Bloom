@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { handleOrders, ORDER_PAYMENT_LEDGER_FIELDS } from "../netlify/functions/orders.js";
+import { handleOrders, ORDER_PAYMENT_LEDGER_FIELDS, sanitizeOrderMetadata } from "../netlify/functions/orders.js";
 
 const SHOP_ID = "shop-a";
 const USER = { id: "user-a" };
@@ -159,4 +159,73 @@ test("status-only PATCH preserves every financial value and remains tenant-scope
   for (const field of ["subtotal", "tax", "delivery_fee", "total", "amount_paid", "balance_due", "payment_status"]) {
     assert.equal(item[field], priorOrder[field], `${field} changed during status-only PATCH`);
   }
+});
+
+// Switching Barrier Register, Wave 7: wire order manual intake. create_order_atomic
+// already stores whatever JSON is passed as p_order.metadata verbatim on the order
+// row (see supabase/migrations/20260810140000_competitive_parity_v2.sql) — these
+// guard that the POST handler actually forwards it, so a wire order's service name,
+// their reference number, and the commission owed don't silently vanish.
+test("sanitizeOrderMetadata keeps a real plain object and rejects arrays, non-objects, and oversized payloads", () => {
+  assert.deepEqual(sanitizeOrderMetadata({ wire_service: "FTD", wire_cost: 9.6 }), { wire_service: "FTD", wire_cost: 9.6 });
+  assert.deepEqual(sanitizeOrderMetadata(null), {});
+  assert.deepEqual(sanitizeOrderMetadata(undefined), {});
+  assert.deepEqual(sanitizeOrderMetadata("not an object"), {});
+  assert.deepEqual(sanitizeOrderMetadata(["array", "not", "object"]), {});
+  assert.deepEqual(sanitizeOrderMetadata({ blob: "x".repeat(5000) }), {});
+});
+
+test("POST forwards a wire order's metadata (service, their reference number, commission) to create_order_atomic", async () => {
+  let rpcArgs;
+  const client = {
+    async rpc(name, args) {
+      rpcArgs = args;
+      return {
+        data: { item: { id: "order-wire-1", ...args.p_order }, delivery: null, inventoryAdjustments: [], inventoryWarnings: [] },
+        error: null,
+      };
+    },
+  };
+  const response = await handleOrders(event("POST", {
+    customer_name: "FTD wire order",
+    arrangement_description: "Dozen red roses in a clear glass vase",
+    fulfillment: "DELIVERY",
+    delivery_address: "123 Main St",
+    delivery_date: "2026-08-21",
+    subtotal: 65,
+    order_source: "Wire — FTD",
+    metadata: { wire_service: "FTD", wire_reference_number: "123456789", wire_cost: 9.6 },
+  }), {
+    currentUser: async () => ({ client, shopId: SHOP_ID, user: USER }),
+    writeShopAudit: async () => {},
+    recordOrderStatusChange: async () => {},
+  });
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(rpcArgs.p_order.metadata, { wire_service: "FTD", wire_reference_number: "123456789", wire_cost: 9.6 });
+  assert.equal(rpcArgs.p_order.order_source, "Wire — FTD");
+});
+
+test("POST never lets an oversized or malformed metadata blob reach create_order_atomic", async () => {
+  let rpcArgs;
+  const client = {
+    async rpc(name, args) {
+      rpcArgs = args;
+      return { data: { item: { id: "order-wire-2", ...args.p_order } }, error: null };
+    },
+  };
+  const response = await handleOrders(event("POST", {
+    customer_name: "FTD wire order",
+    arrangement_description: "Dozen red roses",
+    fulfillment: "PICKUP",
+    delivery_date: "2026-08-21",
+    subtotal: 65,
+    metadata: "a raw string, not an object",
+  }), {
+    currentUser: async () => ({ client, shopId: SHOP_ID, user: USER }),
+    writeShopAudit: async () => {},
+    recordOrderStatusChange: async () => {},
+  });
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(rpcArgs.p_order.metadata, {});
 });

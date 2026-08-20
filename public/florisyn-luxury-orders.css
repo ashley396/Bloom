@@ -319,6 +319,21 @@ body.florisyn-atelier #ordersPage .ord-tile-customer {
   color: var(--ord-ink);
 }
 
+body.florisyn-atelier #ordersPage .ord-wire-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--ord-navy);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
 body.florisyn-atelier #ordersPage .ord-tile-items {
   display: flex;
   flex-direction: column;

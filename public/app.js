@@ -1003,7 +1003,7 @@ document.addEventListener("click",e=>{let t;if(t=e.target.closest("[data-load-qu
 $("#shiftButton")?.addEventListener("click",toggleShift);
 
 
-$("#logout").onclick=()=>{localStorage.removeItem("bloom_session");session=null;location.replace("/login")};/* page navigation owned by FlorisynRouter click delegation */$$("[data-open]").forEach(b=>b.onclick=async()=>{if(b.dataset.open==="expenseDialog")return openExpense();const dialog=document.getElementById(b.dataset.open);if(!dialog)return toast("This Florisyn panel is unavailable. Refresh and try again.");if(b.dataset.open==="orderDialog")await prepareOrderBuilder();dialog.showModal()});$$(".close").forEach(b=>b.onclick=()=>b.closest("dialog").close());$("#customerSearch").oninput=renderCustomers;$("#addRecipeRow").onclick=()=>addRecipeRow();$("#refreshInvoices")?.addEventListener("click",loadInvoices);
+$("#logout").onclick=()=>{localStorage.removeItem("bloom_session");session=null;location.replace("/login")};/* page navigation owned by FlorisynRouter click delegation */$$("[data-open]").forEach(b=>b.onclick=async()=>{if(b.dataset.open==="expenseDialog")return openExpense();const dialog=document.getElementById(b.dataset.open);if(!dialog)return toast("This Florisyn panel is unavailable. Refresh and try again.");if(b.dataset.open==="orderDialog")await prepareOrderBuilder();if(b.dataset.open==="wireOrderDialog"){const f=$("#wireOrderForm");f?.reset();$("#wireOrderAddressLabel")?.classList.remove("is-hidden");if(f?.elements.delivery_address)f.elements.delivery_address.required=true;if(f?.elements.delivery_date)f.elements.delivery_date.value=localTodayStr()}dialog.showModal()});$$(".close").forEach(b=>b.onclick=()=>b.closest("dialog").close());$("#customerSearch").oninput=renderCustomers;$("#addRecipeRow").onclick=()=>addRecipeRow();$("#refreshInvoices")?.addEventListener("click",loadInvoices);
 $("#refreshCommunity")?.addEventListener("click",()=>loadCommunityPage());
 $("#refreshHoliday")?.addEventListener("click",()=>loadHolidayPage());
 $("#refreshFloristNetwork")?.addEventListener("click",()=>loadFloristNetworkPage());
@@ -1042,6 +1042,39 @@ $("#inventoryScanForm")?.addEventListener("submit",async e=>{e.preventDefault();
 $("#receiptFile").onchange=async e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>5*1024*1024)return toast("Receipt must be under 5 MB");receiptDataUrl=await new Promise((a,b)=>{const r=new FileReader();r.onload=()=>a(r.result);r.onerror=b;r.readAsDataURL(file)});if(file.type.startsWith("image/")){$("#receiptPreview").src=receiptDataUrl;$("#receiptPreview").hidden=false}};
 $("#expenseSearch")?.addEventListener("input",renderExpenses);$("#expenseCategoryFilter")?.addEventListener("change",renderExpenses);$("#expenseMonthFilter")?.addEventListener("change",renderExpenses);$("#clearExpenseFilters")?.addEventListener("click",()=>{$("#expenseSearch").value="";$("#expenseCategoryFilter").value="";$("#expenseMonthFilter").value="";renderExpenses()});$("#refreshReports")?.addEventListener("click",async()=>{try{await loadReports();toast("Reports refreshed")}catch(err){toast(err.message)}});$("#exportReportsCsv")?.addEventListener("click",exportReportsCsv);
 $("#expenseForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f)),btn=$("#expenseSaveButton");if(!d.expense_date)return toast("Choose an expense date.");if(!(Number(d.amount)>0))return toast("Enter an expense amount greater than $0.00.");d.receipt_data_url=receiptDataUrl;btn.disabled=true;btn.textContent="Saving…";try{await api("expenses",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)});f.reset();receiptDataUrl=null;$("#receiptPreview").removeAttribute("src");$("#receiptPreview").hidden=true;$("#expenseDialog").close();toast(d.id?"Expense updated":"Expense saved");await Promise.all([loadExpenses(),loadDashboard()])}catch(err){toast(err.message)}finally{btn.disabled=false;btn.textContent="Save expense"}};
+$("#wireOrderPickup")?.addEventListener("change",e=>{const pickup=e.target.checked;$("#wireOrderAddressLabel")?.classList.toggle("is-hidden",pickup);const addr=$("#wireOrderAddress");if(addr)addr.required=!pickup});
+$("#wireOrderForm").onsubmit=async e=>{
+  e.preventDefault();
+  const f=e.currentTarget,d=Object.fromEntries(new FormData(f)),btn=$("#wireOrderSaveButton");
+  const isPickup=Boolean(f.elements.is_pickup?.checked);
+  if(!isPickup&&!String(d.delivery_address||"").trim())return toast("Enter a delivery address, or check pickup.");
+  if(!(Number(d.subtotal)>0))return toast("Enter the order value.");
+  const wireService=d.wire_service||"Other";
+  const payload={
+    customer_name:`${wireService} wire order`,
+    fulfillment:isPickup?"PICKUP":"DELIVERY",
+    delivery_address:isPickup?"":(d.delivery_address||""),
+    delivery_date:d.delivery_date,
+    delivery_window:d.delivery_window||"",
+    recipient_name:d.recipient_name,
+    recipient_phone:d.recipient_phone||"",
+    card_message:d.card_message||"",
+    arrangement_description:d.arrangement_description,
+    subtotal:Number(d.subtotal||0),
+    priority:d.priority||"NORMAL",
+    order_source:`Wire — ${wireService}`,
+    metadata:{wire_service:wireService,wire_reference_number:d.wire_reference_number||"",wire_cost:Number(d.wire_cost||0)}
+  };
+  btn.disabled=true;btn.textContent="Saving…";
+  try{
+    await api("orders",{method:"POST",body:JSON.stringify(payload)});
+    f.reset();
+    $("#wireOrderDialog").close();
+    toast("Wire order added to your board");
+    await Promise.all([loadOrders(),loadDashboard()]);
+  }catch(err){toast(err.message)}
+  finally{btn.disabled=false;btn.textContent="Save wire order"}
+};
 $("#deleteStaffButton")?.addEventListener("click",async()=>{const id=$("#staffForm")?.elements?.id?.value;if(!id)return;if(!confirm("Delete this employee and their time history?"))return;try{await api("staff",{method:"DELETE",body:JSON.stringify({id})});$("#staffDialog").close();toast("Employee deleted");await loadStaff()}catch(err){toast(err.message)}});
 function staffPrivateFieldFilled(key,value){if(value===""||value==null)return false;if(["hourly_rate","federal_tax_rate","state_tax_rate","local_tax_rate","other_deduction_rate","fixed_deduction"].includes(key))return Number(value)!==0;return true}
 $("#staffForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f)),btn=$("#staffSaveButton");btn.disabled=true;btn.textContent="Saving…";try{const privateFields=["email","phone","hourly_rate","hire_date","federal_tax_rate","state_tax_rate","local_tax_rate","other_deduction_rate","fixed_deduction"];if(d.id){const patch={id:d.id,name:d.name,role:d.role};for(const key of privateFields)if(staffPrivateFieldFilled(key,d[key]))patch[key]=d[key];if(d.pin)patch.pin=d.pin;if(lastPrivateFilePin)patch.private_file_pin=lastPrivateFilePin;await api("staff",{method:"PATCH",body:JSON.stringify(patch)});if(d.pin)lastPrivateFilePin=d.pin}else{if(!/^\d{4,8}$/.test(String(d.pin||""))){toast("Employee PIN must be 4–8 digits.");return}const created=await api("staff",{method:"POST",body:JSON.stringify({name:d.name,role:d.role,pin:d.pin})});const privatePatch={id:created.item.id,private_file_pin:d.pin};let hasPrivate=false;for(const key of privateFields){if(staffPrivateFieldFilled(key,d[key])){privatePatch[key]=d[key];hasPrivate=true}}if(hasPrivate)await api("staff",{method:"PATCH",body:JSON.stringify(privatePatch)});lastPrivateFilePin=""}f.reset();$("#staffDialog").close();toast("Employee saved");await loadStaff()}catch(err){toast(err.message)}finally{btn.disabled=false;btn.textContent="Save employee"}};
@@ -1126,6 +1159,7 @@ if(t=e.target.closest("[data-invoice-view]")){if(!shopSettings)shopSettings=(awa
 if(t=e.target.closest("[data-invoice-email]")){return emailInvoice(orders.find(x=>x.id===t.dataset.invoiceEmail))}
 if(t=e.target.closest("[data-advance-order]")){return advanceOrderState(t.dataset.advanceOrder,t.dataset.currentStatus)}
 if(t=e.target.closest("[data-edit-order]")){return openOrderEditor(orders.find(x=>x.id===t.dataset.editOrder))}
+if(t=e.target.closest("[data-log-wire-expense]")){const order=orders.find(x=>x.id===t.dataset.logWireExpense);const wire=order?.metadata?.wire_service?order.metadata:null;if(!wire)return toast("Wire details not found for this order.");return openExpense({vendor:wire.wire_service,amount:Number(wire.wire_cost||0),category:"Other",notes:`Wire commission — ${order.order_number||""}${wire.wire_reference_number?` · their ref ${wire.wire_reference_number}`:""}`.trim()})}
 if(t=e.target.closest("[data-delete-order]")){const order=orders.find(x=>x.id===t.dataset.deleteOrder);if(!order)return;if(!confirm(`Delete order ${order.order_number||""}? This cannot be undone.`))return;try{await api("orders",{method:"DELETE",body:JSON.stringify({id:order.id})});toast("Order deleted");await Promise.all([loadOrders(),loadDashboard(),loadInvoices()])}catch(err){explainOrderDeleteFailure(err,order.order_number)}return}
 if(t=e.target.closest("[data-receipt]")){if(!shopSettings)shopSettings=(await api("settings")).item;return openReceipt(orders.find(x=>x.id===t.dataset.receipt))}
 if(t=e.target.closest("[data-pay],[data-manage-payment]")){const id=t.dataset.pay||t.dataset.managePayment;const order=orders.find(o=>String(o.id)===String(id));if(!order){toast("Order not found — refresh orders and try again.");return}openPaymentCenterForOrder(order);return}
