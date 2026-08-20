@@ -39,7 +39,6 @@ const NAV_TABS = [
   "communityPage",
   "floristNetworkPage",
   "marketingPage",
-  "emailCampaignsPage",
   "weddingsPage",
   "holidayPage",
   "staffPage",
@@ -63,7 +62,12 @@ const NAV_TABS = [
 // #marketplaceTabSell), hence the optional preClick.
 const SECONDARY_TABS = [
   { id: "wholesaleSellerPage", fromTab: "marketplacePage", preClick: "#marketplaceTabSell" },
-  { id: "subscriptionPage", fromTab: "settingsPage" },
+  // Settings reorganization (UX cleanup Part C): "Open Subscription Center"
+  // now lives inside the Billing tab, not the default Shop tab.
+  { id: "subscriptionPage", fromTab: "settingsPage", preClick: '#settingsPage [data-settings-tab="billing"]' },
+  // Marketing navigation cleanup: Email Campaigns no longer has its own
+  // standalone sidebar entry — reached via Marketing's own Overview tab.
+  { id: "emailCampaignsPage", fromTab: "marketingPage", entrySelector: '[data-marketing-goto="emailCampaignsPage"]' },
 ];
 
 test.describe("Florisyn authenticated sidebar tabs (simulated session)", () => {
@@ -107,7 +111,7 @@ test.describe("Florisyn authenticated sidebar tabs (simulated session)", () => {
     });
   }
 
-  for (const { id, fromTab, preClick } of SECONDARY_TABS) {
+  for (const { id, fromTab, preClick, entrySelector } of SECONDARY_TABS) {
     test(`secondary page "${id}" (reached from "${fromTab}") activates without an uncaught script error`, async ({
       page,
     }) => {
@@ -127,7 +131,7 @@ test.describe("Florisyn authenticated sidebar tabs (simulated session)", () => {
         await page.locator(preClick).click();
       }
 
-      const entryButton = page.locator(`#${fromTab} [data-page="${id}"]`).first();
+      const entryButton = page.locator(entrySelector || `#${fromTab} [data-page="${id}"]`).first();
       await expect(entryButton).toBeVisible({ timeout: 5_000 });
       await entryButton.click();
       await expect(page.locator(`#${id}`)).toHaveClass(/active/, { timeout: 5_000 });
