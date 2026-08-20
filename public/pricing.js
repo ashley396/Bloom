@@ -47,7 +47,7 @@ function renderPriceCard(tier, interval) {
     </p>
     <p class="pricing-billed-note">${headline.note}</p>
     <ul class="pricing-features">${tier.features.map((f) => `<li>${f}</li>`).join("")}</ul>
-    <a class="primary-btn pricing-cta" href="${signupHref(tier, interval)}">Start free trial</a>
+    <a class="primary-btn pricing-cta" href="${signupHref(tier, interval)}" data-cta="pricing-${tier.code}-signup">Start free trial</a>
   </article>`;
 }
 

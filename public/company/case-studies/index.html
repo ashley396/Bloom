@@ -11,11 +11,11 @@
   <link rel="stylesheet" href="/florisyn-atelier-shell.css">
   <link rel="stylesheet" href="/resources-content.css">
   <link rel="stylesheet" href="/pricing.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.florisyn.com/"}, {"@type": "ListItem", "position": 2, "name": "Case Studies", "item": "https://www.florisyn.com/company/case-studies/"}]}</script></head>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.florisyn.com/"}, {"@type": "ListItem", "position": 2, "name": "Case Studies", "item": "https://www.florisyn.com/company/case-studies/"}]}</script><script src="/site-analytics.js" defer></script></head>
 <body class="florisyn-atelier-shell">
   <header class="public-topbar">
     <a class="public-logo" href="/login"><img src="/assets/florisyn/florisyn-mark.png?v=official1" alt=""><span><strong>Florisyn</strong><small>The Operating System for Modern Florists</small></span></a>
-    <nav class="public-nav"><a href="/company/about/">About</a><a href="/company/pricing/">Pricing</a><a href="/company/case-studies/" aria-current="page">Case studies</a><a href="/help/">Help</a><a href="/login">Sign In</a><a class="nav-cta" href="/signup">Start Free Trial</a></nav>
+    <nav class="public-nav"><a href="/company/about/">About</a><a href="/company/pricing/">Pricing</a><a href="/company/case-studies/" aria-current="page">Case studies</a><a href="/help/">Help</a><a href="/login">Sign In</a><a class="nav-cta" href="/signup" data-cta="nav-signup">Start Free Trial</a></nav>
   </header>
 <nav class="rc-crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>/</span><span>Company</span><span>/</span><span>Case Studies</span></nav>
   <main class="content-page">
@@ -28,7 +28,7 @@
     <section class="pricing-faq">
       <h2>Refer a florist</h2>
       <p>Already on Florisyn? Open <strong>Settings → Refer a florist</strong> in your shop dashboard for your personal link. You each get a free month when they subscribe.</p>
-      <a class="primary-btn" style="max-width:320px;margin:24px auto 0" href="/signup">Start your free trial</a>
+      <a class="primary-btn" style="max-width:320px;margin:24px auto 0" href="/signup" data-cta="band-signup">Start your free trial</a>
     </section>
   </main>
   <footer class="site-footer">
@@ -64,11 +64,11 @@
       <p><strong>${s.headline}</strong></p>
       <blockquote style="margin:16px 0;font-style:italic;color:#5f585c">“${s.quote}”</blockquote>
       <ul class="pricing-features">${(s.metrics || []).map((m) => `<li>${m}</li>`).join("")}</ul>
-      <a class="primary-btn pricing-cta" href="/signup">Start free trial</a>
+      <a class="primary-btn pricing-cta" href="/signup" data-cta="band-signup">Start free trial</a>
     </article>`).join("");
       })
       .catch(() => {
-        caseStudiesGrid.innerHTML = `<p class="pricing-hero-lead">Case studies are temporarily unavailable — check back soon, or <a href="/signup">start your free trial</a> today.</p>`;
+        caseStudiesGrid.innerHTML = `<p class="pricing-hero-lead">Case studies are temporarily unavailable — check back soon, or <a href="/signup" data-cta="signup-link">start your free trial</a> today.</p>`;
       });
   </script>
 </body>
