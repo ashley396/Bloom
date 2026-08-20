@@ -1044,6 +1044,7 @@ test("canonical executable migrations have unique timestamp identities", () => {
     "20260819310000_marketplace_pricing_tiers_buyer_read.sql",
     "20260820000000_marketplace_seller_shipping_fee.sql",
     "20260820020000_ai_operating_system_v1.sql",
+    "20260820030000_stripe_terminal_location.sql",
     "20260821000000_order_atomic_cross_shop_fk_guard.sql",
     "20260821030000_signup_metadata_not_discarded.sql",
     "20260821040000_missing_grants_notifications_reviews_standing_orders_photos.sql",

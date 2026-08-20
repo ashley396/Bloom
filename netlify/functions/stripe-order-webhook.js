@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { admin, fail } from "./_shared/supabase.js";
 import { postStripePayment } from "./_shared/post-stripe-payment.js";
+import { postStripeTerminalPayment } from "./_shared/post-stripe-terminal-payment.js";
 import { postStripePaymentLink } from "./_shared/post-stripe-payment-link.js";
 import { markFloristWirePaidFromCheckout } from "./_shared/florist-wire-payment.js";
 import { assertStripeLivemodeMatchesKey } from "./_shared/stripe-mode.js";
@@ -15,6 +16,7 @@ export async function handleStripeOrderWebhook(event, dependencies = {}) {
   const getClient = dependencies.admin || admin;
   const createStripe = dependencies.createStripe || ((key) => new Stripe(key));
   const postPayment = dependencies.postStripePayment || postStripePayment;
+  const postTerminalPayment = dependencies.postStripeTerminalPayment || postStripeTerminalPayment;
   const postPaymentLink = dependencies.postStripePaymentLink || postStripePaymentLink;
   const markWirePaid = dependencies.markFloristWirePaidFromCheckout || markFloristWirePaidFromCheckout;
 
@@ -74,6 +76,23 @@ export async function handleStripeOrderWebhook(event, dependencies = {}) {
         await postPaymentLink(client, session, stripeEvent.id);
       } else if (meta.bloom_order_id && meta.bloom_shop_id) {
         await postPayment(client, session);
+      }
+    } else if (stripeEvent.type === "payment_intent.succeeded") {
+      // Backstop only — payment-terminal.js's "confirm" action is the
+      // primary path (the POS calls it synchronously right after the
+      // reader finishes, so the cashier isn't left waiting on webhook
+      // delivery). This exists for the case a confirm call never lands —
+      // tab closed, network dropped mid-transaction — so the payment
+      // still gets recorded. Gated on channel:"terminal" specifically:
+      // a Checkout Session's own underlying PaymentIntent also fires this
+      // same event and already carries bloom_order_id/bloom_shop_id, so
+      // without this gate a card-not-present sale would double-dispatch
+      // (once here, once via checkout.session.completed above). The
+      // ledger RPC's idempotency key would prevent it being double
+      // *recorded*, but there's no reason to invoke it twice at all.
+      const intent = stripeEvent.data.object;
+      if (intent.metadata?.channel === "terminal" && intent.metadata?.bloom_order_id && intent.metadata?.bloom_shop_id) {
+        await postTerminalPayment(client, intent);
       }
     } else if (stripeEvent.type === "charge.refunded") {
       // Reactive only — this records what Stripe already did (a refund

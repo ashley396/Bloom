@@ -96,6 +96,25 @@
   display: none !important;
 }
 
+#paymentsPage .payment-terminal-panel {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px dashed var(--border, #dec9d4);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+#paymentsPage .payment-terminal-panel[hidden] {
+  display: none !important;
+}
+
+#paymentsPage .payment-terminal-panel .card-actions {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0;
+  flex-wrap: wrap;
+}
+
 #paymentsPage .cash-quick-row {
   display: flex;
   flex-wrap: wrap;
