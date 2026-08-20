@@ -8,7 +8,7 @@ import {
   sanitizeHistoryEntry,
   searchHistory
 } from "./_shared/lily-ai-engine.js";
-import { normalizePersona, shopVoiceSuffix, suggestHandoff, domainOwner } from "./_shared/florist-ai-personas.js";
+import { normalizePersona, shopVoiceSuffix, suggestHandoff, domainOwner, jobDomainOwner } from "./_shared/florist-ai-personas.js";
 import { runCloudflareGenerate } from "./ai-assistant.js";
 import { searchMarketplaceForLily, buildMarketplaceSourcingAnswer } from "./_shared/marketplace-lily-sourcing.js";
 import { classifyRequest } from "./_shared/ai-intent-router.js";
@@ -159,6 +159,24 @@ export function shouldDelegate({ persona, intentDomain, permission, planned } = 
 export function formatDelegatedAnswer(owner, activePersona, answerText) {
   const who = normalizePersona(activePersona);
   return `**${who} brought in ${owner} for this one:**\n\n${answerText}`;
+}
+
+/**
+ * AI-OS Wave 5: which persona should actually AUTHOR a job-producing
+ * request (runJob()'s persona, not just the chat reply). A marketing/
+ * creative job always executes as Lily — Florisyn's designated creative
+ * director — even when Bud, Rose, or Daisy is the one the florist is
+ * chatting with, so "make me a Facebook post" asked of Bud comes back
+ * written in Lily's real creative voice, not paraphrased in Bud's.
+ * Returns { author, delegated } — author is always a real persona name
+ * (falls back to the active persona when the domain has no owner), and
+ * delegated is true only when that author differs from who's chatting.
+ */
+export function resolveJobPersona(persona, domain) {
+  const who = normalizePersona(persona);
+  const owner = jobDomainOwner(domain);
+  if (!owner || owner === who) return { author: who, delegated: false };
+  return { author: owner, delegated: true };
 }
 
 export function buildResponseMessage(intent, permission, planned, confirmed) {
@@ -319,10 +337,15 @@ export async function handler(event) {
           });
         }
 
+        // AI-OS Wave 5: this job runs as its real author, not necessarily
+        // the persona the florist happens to be chatting with — see
+        // resolveJobPersona()'s docstring.
+        const { author: jobAuthor, delegated: jobDelegated } = resolveJobPersona(persona, routed.domain);
+
         const ran = await runJob(client, {
           shopId,
           userId: user.id,
-          persona: normalizePersona(persona),
+          persona: jobAuthor,
           routed,
           requestText: message,
           shop: context.shop,
@@ -330,7 +353,9 @@ export async function handler(event) {
         });
 
         const responseText = ran.ok
-          ? formatJobResponse(ran.job, { requestSummary: routed.summary })
+          ? jobDelegated
+            ? formatDelegatedAnswer(jobAuthor, persona, formatJobResponse(ran.job, { requestSummary: routed.summary }))
+            : formatJobResponse(ran.job, { requestSummary: routed.summary })
           : `I ran into a problem starting that: ${ran.error}`;
 
         await logAction(client, {
@@ -339,7 +364,7 @@ export async function handler(event) {
           intent: `marketing.${routed.action_type}`,
           actionType: "job",
           result: ran.ok ? ran.job.status : "failed",
-          metadata: { domain: routed.domain, channels: routed.channels, job_id: ran.job?.id || null }
+          metadata: { domain: routed.domain, channels: routed.channels, job_id: ran.job?.id || null, answered_by: jobDelegated ? jobAuthor : null }
         });
 
         let convId = conversationId;
@@ -357,7 +382,7 @@ export async function handler(event) {
         }
         if (convId) {
           await persistMessage(client, { conversationId: convId, userId: user.id, shopId, role: "user", content: message, metadata: { intent: `marketing.${routed.action_type}` } });
-          await persistMessage(client, { conversationId: convId, userId: user.id, shopId, role: "assistant", content: responseText, metadata: { job_id: ran.job?.id || null } });
+          await persistMessage(client, { conversationId: convId, userId: user.id, shopId, role: "assistant", content: responseText, metadata: { job_id: ran.job?.id || null, answered_by: jobDelegated ? jobAuthor : null } });
         }
 
         return json(200, {
@@ -365,6 +390,9 @@ export async function handler(event) {
           intent: { domain: routed.domain, intent: `marketing.${routed.action_type}`, confidence: 0.9, slots: routed },
           permission: marketingPermission,
           response: responseText,
+          // Real programmatic delegation (AI-OS Wave 5) — set only when
+          // another persona actually authored this job's content.
+          answered_by: jobDelegated ? jobAuthor : null,
           client_action: null,
           generate: null,
           job: ran.ok ? ran.job : null,
