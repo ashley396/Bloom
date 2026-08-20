@@ -36,7 +36,8 @@
     audiencesError: null,
     formPrefill: null,
     lilyDrafting: false,
-    lilyDraft: null,
+    lilyJob: null,
+    lilyResponse: null,
     lilyError: null,
     promotions: [],
     promotionsLoaded: false,
@@ -81,50 +82,46 @@
     return fn("marketing-campaigns?action=analytics");
   }
 
+  // Platform-level channels Lily can actually write content for (used only
+  // to compose the request to her — CHANNELS above is the campaign
+  // record's own broader channel vocabulary, which "social"/"website"
+  // aggregate up to; ai-orchestrator.js maps between the two).
+  const LILY_CHANNELS = [
+    { value: "facebook", label: "Facebook" },
+    { value: "instagram", label: "Instagram" },
+    { value: "google_business", label: "Google Business Profile" },
+    { value: "website", label: "Website" },
+    { value: "email", label: "Email" },
+    { value: "sms", label: "Text (SMS)" },
+  ];
+
   /**
-   * Lily drafts a campaign concept from real-but-non-identifying shop
-   * context: shop name/style, up to 8 real product names/categories
-   * (never a customer record), and — if the florist already opened
-   * Audiences this visit — real segment labels and counts. Never a raw
-   * customer name, email, phone, or address; smartAi's own payload
-   * scrubbing only strips media/base64, so keeping PII out of `input` is
-   * this function's job, not the transport's.
+   * Runs the idea through Florisyn's real AI core — the exact same
+   * classify → plan → run pipeline Lily's chat uses (lily-ai.js +
+   * _shared/ai-orchestrator.js) — instead of a client-side "generate" call
+   * that only ever produced form metadata for the florist to re-type into
+   * a blank campaign. This actually creates the campaign record, writes
+   * the real post copy for each channel, generates the image, and applies
+   * the website section to the shop's real Website Builder X draft.
+   * Marketing Command Center is a second front door onto the one AI core,
+   * not a second implementation of it.
    */
-  async function draftCampaignWithLily(idea) {
-    const gen = window.smartAi;
-    if (typeof gen !== "function") throw new Error("Lily is unavailable right now.");
-    const shop = window.shopSettings || {};
-    const productList = (window.__bloomProducts || [])
-      .slice(0, 8)
-      .map((p) => ({ name: p.name, category: p.category, price: p.price }));
-    const audienceList = (state.audiences?.segments || [])
-      .filter((s) => s.count > 0)
-      .map((s) => ({ label: s.label, count: s.count }));
-    const d = await gen({
-      mode: "generate",
-      persona: "Lily",
-      task: `Act as Lily, Florisyn's warm, capable marketing director for a local flower shop. Draft a real, specific campaign concept for: ${idea}. Use the shop's own products and real audience segments where relevant. Never use generic phrases like "elevate your special occasion" or "where beauty meets elegance" — be concrete about products, timing, and the shop's own voice.`,
-      input: {
-        shop: { name: shop.name || "", style: shop.website_style || "", tagline: shop.tagline || "", city: shop.city || "" },
-        products: productList,
-        audiences: audienceList,
-      },
-      schema: {
-        message: "one sweet, specific sentence about the concept",
-        name: "campaign name, e.g. Mother's Day 2027",
-        goal: "one specific, concrete goal — not generic",
-        audience_note: "who this should target, using the real audience labels above if any fit",
-        channels: "array from: email, holiday, website, social, text — only the ones that make sense",
-      },
+  async function runCampaignWithLily({ idea, channels }) {
+    const fn = window.bloomMarketingApi || window.api;
+    if (typeof fn !== "function") throw new Error("Lily is unavailable right now.");
+    const channelLabels = channels.map((c) => LILY_CHANNELS.find((x) => x.value === c)?.label || c);
+    const message = `Make a full marketing campaign about ${idea.trim()} for ${channelLabels.join(" and ")}.`;
+    const data = await fn("lily-ai", {
+      method: "POST",
+      body: JSON.stringify({ message, persona: "Lily", confirm: false }),
     });
-    const raw = d?.result ?? d;
-    return {
-      message: raw?.message || "Here's a draft — review it and adjust anything before creating the campaign.",
-      name: raw?.name || "",
-      goal: raw?.goal || "",
-      audience_note: raw?.audience_note || "",
-      channels: Array.isArray(raw?.channels) ? raw.channels.filter((c) => CHANNELS.some((x) => x.value === c)) : [],
-    };
+    if (!data?.permission?.allowed) {
+      throw new Error(data?.response || "Your Florisyn role doesn't allow creating campaigns with Lily.");
+    }
+    if (!data?.job) {
+      throw new Error(data?.response || "Lily couldn't start that campaign this time.");
+    }
+    return data;
   }
 
   function root() {
@@ -231,33 +228,66 @@
     </article>`;
   }
 
+  const LILY_JOB_STATUS_LABEL = {
+    planned: "Planned",
+    running: "Working…",
+    waiting_for_user: "Needs your input",
+    waiting_for_approval: "Awaiting approval",
+    completed: "Ready",
+    partially_completed: "Partly ready",
+    failed: "Failed",
+  };
+
+  // Same minimal markdown Lily's chat panel renders (lily-platform.js) —
+  // formatJobResponse() on the server writes **bold** section labels and
+  // blank-line-separated paragraphs, never raw JSON.
+  function renderMarkdownLite(text) {
+    const safe = esc(text || "");
+    return safe
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\n{2,}/g, "</p><p>")
+      .replace(/\n/g, "<br>")
+      .replace(/^(.+)$/s, (m) => (m.includes("<p>") ? m : `<p>${m}</p>`));
+  }
+
+  function lilyJobResultHtml() {
+    const job = state.lilyJob;
+    const steps = job.result?.steps || [];
+    const imageStep = steps.find((s) => s.tool === "creative.generateImage" && s.status === "completed" && s.result?.url);
+    const imageHtml = imageStep ? `<img class="lily-job-image" src="${esc(imageStep.result.url)}" alt="AI-generated campaign image">` : "";
+    const failedSteps = steps.filter((s) => s.status === "failed");
+    const retryButtons = failedSteps
+      .map((s) => `<button type="button" class="secondary" data-lily-retry-step="${esc(s.id)}">Retry: ${esc(s.label || s.id)}</button>`)
+      .join("");
+    return `<div class="panel">
+      <div class="lily-job-head"><strong>${esc(job.title || "Campaign")}</strong><span class="lily-job-status lily-job-status-${esc(job.status || "")}">${esc(LILY_JOB_STATUS_LABEL[job.status] || job.status || "")}</span></div>
+      ${renderMarkdownLite(state.lilyResponse)}
+      ${imageHtml}
+      ${failedSteps.length ? `<div class="lily-job-actions">${retryButtons}</div>` : ""}
+      <div class="card-actions"><button type="button" class="secondary" id="marketingLilyNewCampaign">Start another campaign with Lily</button></div>
+    </div>`;
+  }
+
   function lilyDraftHtml() {
     if (state.lilyDrafting) {
-      return `<div class="panel" role="status"><p class="subtle">Lily is drafting a concept…</p></div>`;
+      return `<div class="panel" role="status"><p class="subtle">Lily is building your campaign — writing the post, generating the image, and preparing the website section…</p></div>`;
     }
     if (state.lilyError) {
-      return `<div class="panel" role="alert"><p class="subtle">${esc(state.lilyError)}</p></div>`;
+      return `<div class="panel" role="alert"><p class="subtle">${esc(state.lilyError)}</p><div class="card-actions"><button type="button" class="secondary" id="marketingLilyNewCampaign">Try again</button></div></div>`;
     }
-    if (!state.lilyDraft) {
-      return `<div class="panel">
-        <p class="eyebrow">LILY, MARKETING DIRECTOR</p>
-        <h3>Tell Lily what you're planning</h3>
-        <p class="subtle">Lily drafts a name, goal, audience, and channels from your real products and audience segments — nothing is created until you review and apply it.</p>
-        <div class="card-actions"><button type="button" class="primary" id="marketingAskLily">Draft with Lily</button></div>
-      </div>`;
-    }
-    const d = state.lilyDraft;
+    if (state.lilyJob) return lilyJobResultHtml();
+    const channelBoxes = LILY_CHANNELS.map(
+      (c) => `<label class="check"><input type="checkbox" name="lily_channels" value="${esc(c.value)}"${c.value === "facebook" || c.value === "website" ? " checked" : ""}> ${esc(c.label)}</label>`
+    ).join("");
     return `<div class="panel">
-      <p class="eyebrow">LILY'S DRAFT — REVIEW BEFORE USING</p>
-      <p>${esc(d.message)}</p>
-      <p><strong>${esc(d.name || "(no name suggested)")}</strong></p>
-      ${d.goal ? `<p class="subtle">Goal: ${esc(d.goal)}</p>` : ""}
-      ${d.audience_note ? `<p class="subtle">Audience: ${esc(d.audience_note)}</p>` : ""}
-      ${d.channels.length ? `<p class="subtle">Channels: ${esc(d.channels.map((c) => CHANNELS.find((x) => x.value === c)?.label || c).join(", "))}</p>` : ""}
-      <div class="card-actions">
-        <button type="button" class="primary" id="marketingApplyLily">Apply to form</button>
-        <button type="button" class="secondary" id="marketingDismissLily">Discard</button>
-      </div>
+      <p class="eyebrow">LILY, MARKETING DIRECTOR</p>
+      <h3>Tell Lily what you're planning</h3>
+      <p class="subtle">Lily writes the real post for each channel below, generates a matching image, and — if Website is checked — adds the section to your site's home page draft. Everything lands as a draft you review before it goes live.</p>
+      <form id="marketingLilyForm">
+        <label>What's the campaign about?<textarea name="idea" rows="2" maxlength="300" placeholder="Homecoming orders — high school students and parents" required></textarea></label>
+        <fieldset class="marketing-channel-fieldset"><legend>Channels</legend>${channelBoxes}</fieldset>
+        <div class="card-actions"><button type="submit" class="primary">Draft with Lily</button></div>
+      </form>
     </div>`;
   }
 
@@ -544,34 +574,66 @@
     el.querySelectorAll("[data-marketing-goto]").forEach((btn) => {
       btn.addEventListener("click", () => goToPage(btn.getAttribute("data-marketing-goto")));
     });
-    el.querySelector("#marketingAskLily")?.addEventListener("click", async () => {
-      const idea = prompt("What are we planning? (e.g. Mother's Day, wedding season, sympathy)", "");
-      if (idea === null || !idea.trim()) return;
+    el.querySelector("#marketingLilyForm")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const idea = String(fd.get("idea") || "").trim();
+      const channels = fd.getAll("lily_channels");
+      if (!idea || !channels.length) {
+        toast(!idea ? "Tell Lily what the campaign is about." : "Pick at least one channel.");
+        return;
+      }
       state.lilyDrafting = true;
       state.lilyError = null;
       render();
       try {
-        state.lilyDraft = await draftCampaignWithLily(idea.trim());
+        const data = await runCampaignWithLily({ idea, channels });
+        state.lilyJob = data.job;
+        state.lilyResponse = data.response;
+        // The campaign this just created (and any post/image/website work)
+        // is a real row now, not form metadata waiting to be submitted —
+        // reload so it shows up in the Campaigns list immediately.
+        await load();
+        state.tab = "campaigns";
       } catch (err) {
-        state.lilyError = err.message || "Lily couldn't draft that right now.";
+        state.lilyError = err.message || "Lily couldn't build that campaign right now.";
       }
       state.lilyDrafting = false;
       render();
     });
-    el.querySelector("#marketingDismissLily")?.addEventListener("click", () => {
-      state.lilyDraft = null;
+    el.querySelector("#marketingLilyNewCampaign")?.addEventListener("click", () => {
+      state.lilyJob = null;
+      state.lilyResponse = null;
       state.lilyError = null;
       render();
     });
-    el.querySelector("#marketingApplyLily")?.addEventListener("click", () => {
-      // Fills the form only — the florist still has to hit "Create
-      // campaign" themselves. Lily never creates or publishes anything.
-      const d = state.lilyDraft;
-      if (!d) return;
-      state.formPrefill = { name: d.name, goal: d.goal, audience_note: d.audience_note, channels: d.channels };
-      toast("Lily's draft filled in the form below — review it, then create the campaign.");
-      state.lilyDraft = null;
-      render();
+    el.querySelectorAll("[data-lily-retry-step]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const job = state.lilyJob;
+        if (!job) return;
+        btn.disabled = true;
+        const original = btn.textContent;
+        btn.textContent = "Retrying…";
+        try {
+          const fn = window.bloomMarketingApi || window.api;
+          const data = await fn("lily-ai", {
+            method: "POST",
+            body: JSON.stringify({ action: "retry-job-step", job_id: job.id, step_id: btn.getAttribute("data-lily-retry-step"), persona: "Lily" }),
+          });
+          if (data?.job) {
+            state.lilyJob = data.job;
+            if (data.response) state.lilyResponse = data.response;
+            await load();
+            render();
+          } else {
+            btn.disabled = false;
+            btn.textContent = original;
+          }
+        } catch {
+          btn.disabled = false;
+          btn.textContent = original;
+        }
+      });
     });
     el.querySelector("#marketingCampaignForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();

@@ -154,7 +154,7 @@ test("Audiences tab shows real segment counts and prefills the campaign form fro
   expect(consoleErrors).toEqual([]);
 });
 
-test("Lily drafts a campaign from real shop data and only fills the form — never auto-creates it", async ({ page }) => {
+test("Draft with Lily runs the real AI campaign job — a real campaign, real post copy, and a generated image, never just form metadata", async ({ page }) => {
   const consoleErrors = [];
   page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
   page.on("pageerror", (e) => consoleErrors.push(`PAGEERROR: ${e.message}`));
@@ -164,56 +164,88 @@ test("Lily drafts a campaign from real shop data and only fills the form — nev
   const state = buildState();
   await routeMarketing(page, state);
 
-  let capturedInput = null;
-  await page.route("**/.netlify/functions/ai-assistant**", async (route) => {
+  let capturedMessage = null;
+  await page.route("**/.netlify/functions/lily-ai", async (route) => {
     const body = route.request().postDataJSON();
-    if (body?.mode !== "generate") return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
-    capturedInput = body.input;
+    if (body.action === "coach") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ suggestions: [] }) });
+    capturedMessage = body.message;
+    // The real backend (ai-orchestrator.js) would have inserted a real
+    // marketing_campaigns row by this point — mirror that here so the
+    // subsequent campaign-list reload (GET) reflects it, same as a real run.
+    state.items.unshift({
+      id: "camp-1",
+      name: "Homecoming campaign",
+      goal: "Fill Homecoming orders",
+      status: "draft",
+      audience_note: "high school students and parents",
+      channels: ["social", "website"],
+      product_ids: [],
+    });
     return route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        result: {
-          message: "Your roses are the star for Mother's Day this year.",
-          name: "Mother's Day 2027",
-          goal: "Sell out the Rose Garden Bouquet",
-          audience_note: "VIP customers (4)",
-          channels: ["email", "social"],
+        conversation_id: "conv-1",
+        permission: { allowed: true },
+        answered_by: null,
+        response:
+          "**Campaign created** — saved as a draft in Marketing Command Center.\n\n**Facebook post (draft):**\nHomecoming orders are open!\n\n**Image generated** — see the preview below.\n\n**Website section (draft):**\nGet your Homecoming flowers today.",
+        job: {
+          id: "job-1",
+          title: "Homecoming campaign",
+          status: "completed",
+          campaign_id: "camp-1",
+          result: {
+            campaign_id: "camp-1",
+            steps: [
+              { id: "campaign", tool: "marketing.createCampaign", status: "completed" },
+              { id: "post_facebook", tool: "marketing.createSocialPost", status: "completed", result: { content: { platform: "facebook", body: "Homecoming orders are open!" } } },
+              { id: "image", tool: "creative.generateImage", status: "completed", result: { url: "https://fake.storage/homecoming.jpg" } },
+              { id: "website_section", tool: "marketing.createWebsiteSectionDraft", status: "completed", result: { content: { headline: "Get your Homecoming flowers today." }, applied: true } },
+            ],
+          },
         },
+        handoff: null,
+        client_action: null,
+        generate: null,
+        coach: [],
+        stream: false,
       }),
     });
   });
-
-  page.on("dialog", (dialog) => dialog.accept("Mother's Day"));
 
   await page.goto("/");
   await expect(page.locator("#app")).toBeVisible({ timeout: 10_000 });
   await page.locator('nav.florisyn-lux-nav button[data-page="marketingPage"]').click();
   await page.locator('[data-marketing-tab="campaigns"]').click();
 
-  await page.locator("#marketingAskLily").click();
-  await expect(page.locator("#marketingApplyLily")).toBeVisible({ timeout: 10_000 });
-  await expect(page.locator("#marketingRoot")).toContainText("Mother's Day 2027");
-
-  // Never a raw customer record in what Lily was actually sent.
-  expect(capturedInput).not.toBeNull();
-  expect(JSON.stringify(capturedInput)).not.toMatch(/@|\d{3}-\d{4}/); // no email, no phone-shaped strings
-
-  // Nothing created yet — only after Apply, then the florist's own submit.
+  // Nothing created yet — the form hasn't been submitted.
   expect(state.items).toHaveLength(0);
 
-  await page.locator("#marketingApplyLily").click();
-  await expect(page.locator('#marketingCampaignForm input[name="name"]')).toHaveValue("Mother's Day 2027");
-  await expect(page.locator('#marketingCampaignForm input[name="audience_note"]')).toHaveValue("VIP customers (4)");
-  await expect(page.locator('#marketingCampaignForm input[name="channels"][value="email"]')).toBeChecked();
-  await expect(page.locator('#marketingCampaignForm input[name="channels"][value="text"]')).not.toBeChecked();
+  await page.locator('#marketingLilyForm textarea[name="idea"]').fill("Homecoming orders — high school students and parents");
+  // Facebook + Website are checked by default; leave them as-is.
+  await page.locator("#marketingLilyForm button[type=submit]").click();
 
-  // Still nothing created until the florist explicitly submits.
-  expect(state.items).toHaveLength(0);
-  await page.locator("#marketingCampaignForm button[type=submit]").click();
+  // A finished, formatted preview — never raw JSON, never a bare "saved a date".
+  await expect(page.locator("#marketingRoot")).toContainText("Campaign created");
+  await expect(page.locator("#marketingRoot")).toContainText("Homecoming orders are open!");
+  await expect(page.locator("#marketingRoot")).toContainText("Get your Homecoming flowers today.");
+  await expect(page.locator("#marketingRoot .lily-job-image")).toBeVisible();
+
+  // Lily was told explicitly which channels to write for — not a bare idea
+  // that could get hijacked into a single-channel or content-free result.
+  expect(capturedMessage).toMatch(/campaign/i);
+  expect(capturedMessage).toMatch(/Facebook/);
+  expect(capturedMessage).toMatch(/Website/);
+
+  // A real campaign now exists on the Campaigns list — this ran for real,
+  // it didn't just fill out a form waiting on a second manual submit.
   await expect(page.locator('[data-campaign-id="camp-1"]')).toBeVisible();
 
-  expect(consoleErrors).toEqual([]);
+  // Same fake-external-image-host allowance as photo-studio-refresh-
+  // persistence.spec.js — the sandbox can't resolve a fake storage host's
+  // <img src>, which is an environment artifact, not an app bug.
+  expect(consoleErrors.filter((e) => !e.includes("ERR_TUNNEL"))).toEqual([]);
 });
 
 test("a campaign can carry real products, and 'Prepare website'/'Create campaign image' hand off to those real tools", async ({ page }) => {
