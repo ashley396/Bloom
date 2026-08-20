@@ -491,6 +491,15 @@ dialog{border:1px solid rgba(255,255,255,.75);border-radius:26px;box-shadow:var(
 .bloomshot-recipe-out{margin-top:10px;padding:12px 14px;border:1px solid var(--line,#eee1e4);border-radius:14px;background:var(--panel,#fff)}
 .bloomshot-recipe-out h3{margin:0 0 8px;font-size:16px;font-family:Georgia,serif}
 .bloomshot-recipe-out h3 small{color:var(--muted,#7c6d74);font-weight:400;margin-left:6px}
+.bloomshot-enhance{margin:12px 0}
+.bloomshot-enhance-out{margin-top:10px;padding:12px 14px;border:1px solid var(--line,#eee1e4);border-radius:14px;background:var(--panel,#fff);font-size:13px}
+.bloomshot-enhance-out .enhance-reason{color:var(--muted,#7c6d74);margin:6px 0 10px}
+.bloomshot-generate{margin-top:16px}
+.bloomshot-generate label{display:block;font-size:12px;font-weight:800;margin-bottom:8px}
+.bloomshot-generate select{width:100%;margin-top:4px}
+.bloomshot-generate-out{margin-top:10px}
+.bloomshot-generate-out img{display:block;width:100%;max-width:320px;border-radius:14px;border:1px solid var(--line,#eee1e4)}
+.bloomshot-generate-out .generate-label{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted,#7c6d74);margin:8px 0 4px}
 .shot-recipe-list{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:5px}
 .shot-recipe-list li{display:flex;gap:10px;align-items:baseline;font-size:14px}
 .shot-recipe-list li b{min-width:26px;text-align:right;color:#7e214e;font-variant-numeric:tabular-nums}

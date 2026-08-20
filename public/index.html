@@ -942,6 +942,10 @@ document.querySelectorAll('#publicHome a[href^="#"]').forEach((a)=>{
       <div class="bloomshot-canvas-wrap"><canvas id="bloomshotCanvas" width="1200" height="1200"></canvas><div id="bloomshotEmpty" class="bloomshot-empty">📸<b>Your photo will appear here</b><span>Upload a JPG, PNG, or phone photo.</span></div></div>
       <div class="bloomshot-cutout-row" id="bloomshotCutoutRow" hidden><span id="bloomshotCutoutStatus" class="subtle" aria-live="polite"></span><button id="bloomshotUseAnyway" class="secondary" type="button" hidden>Use this cutout anyway</button></div>
       <div class="bloomshot-presets"><button type="button" data-shot-preset="clean">Clean & bright</button><button type="button" data-shot-preset="luxury">Luxury</button><button type="button" data-shot-preset="warm">Warm shop</button><button type="button" data-shot-preset="true">True color</button></div>
+      <div class="bloomshot-enhance">
+        <button id="shotEnhance" class="secondary wide" type="button">✨ Ask Lily to make this look professional</button>
+        <div id="shotEnhanceOut" class="bloomshot-enhance-out" hidden></div>
+      </div>
       <div class="bloomshot-controls">
         <label>Brightness <input id="shotBrightness" type="range" min="50" max="150" value="100"><output>100%</output></label>
         <label>Contrast <input id="shotContrast" type="range" min="50" max="150" value="100"><output>100%</output></label>
@@ -952,6 +956,12 @@ document.querySelectorAll('#publicHome a[href^="#"]').forEach((a)=>{
       <div class="bloomshot-recipe">
         <button id="shotRecipe" class="soft-green wide" type="button">🌸 Ask Lily to identify the flowers &amp; build a recipe</button>
         <div id="shotRecipeOut" class="bloomshot-recipe-out" hidden></div>
+      </div>
+      <div class="bloomshot-generate">
+        <label>New AI-generated image style<select id="shotGenStyle"><option value="website_hero">Website hero (16:9)</option><option value="social_square">Social square</option><option value="story">Story / Reel (9:16)</option><option value="pinterest">Pinterest</option></select></label>
+        <button id="shotGenerateImage" class="soft-green wide" type="button">🖼️ Generate a marketing image with Lily</button>
+        <p class="subtle">Creates a brand-new AI image inspired by this arrangement's flowers — it does not edit your uploaded photo.</p>
+        <div id="shotGenerateImageOut" class="bloomshot-generate-out" hidden></div>
       </div>
     </section>
     <aside class="panel bloomshot-product">
