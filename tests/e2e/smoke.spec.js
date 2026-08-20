@@ -113,6 +113,19 @@ test.describe("Florisyn public smoke", () => {
     await expect(page.locator(".rc-quicklook table")).toBeVisible();
   });
 
+  test("the comparison page cites real sources and doesn't claim Florisyn wins every category", async ({ page }) => {
+    await blockExternalCalls(page);
+    const errors = collectPageErrors(page);
+
+    await page.goto("/company/compare/");
+
+    await expect(page).toHaveTitle(/Compare Florisyn/);
+    await expect(page.getByRole("heading", { name: "Where Florisyn doesn't win" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "References", exact: true })).toBeVisible();
+    await expect(page.locator(".compare-table .strength")).not.toHaveCount(0);
+    expect(errors, `unexpected console/page errors: ${errors.map((e) => e.message).join("; ")}`).toHaveLength(0);
+  });
+
   test("the Founding Florists page states the real 14-day trial and no fabricated spot cap", async ({ page }) => {
     await blockExternalCalls(page);
     const errors = collectPageErrors(page);
