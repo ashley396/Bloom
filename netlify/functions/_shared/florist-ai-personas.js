@@ -120,6 +120,25 @@ export function domainOwner(intentDomain) {
 }
 
 /**
+ * Which persona actually AUTHORS a job-producing request in a given
+ * domain (AI-OS Wave 5) — distinct from domainOwner() above, which is
+ * only for chat *answers*. This governs who ai-orchestrator.js's runJob()
+ * actually generates content as. Only marketing/creative generation is a
+ * job-producing domain today: Lily is Florisyn's designated creative
+ * director, so a Facebook post or campaign asked of Bud or Daisy should
+ * still come out written by Lily, not paraphrased in whichever persona
+ * happened to be chatting — the same "shared core, right specialist"
+ * principle as domainOwner(), applied to job execution instead of chat.
+ */
+const JOB_DOMAIN_OWNER = Object.freeze({
+  marketing: "Lily",
+});
+
+export function jobDomainOwner(domain) {
+  return JOB_DOMAIN_OWNER[domain] || null;
+}
+
+/**
  * Decide whether the active persona should hand a topic to a teammate.
  * Returns { to, label, line } or null. `line` is a gentle appended suggestion.
  */

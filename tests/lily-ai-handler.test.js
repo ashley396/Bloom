@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildResponseMessage, cloudflareChat, personaDisabled, formatJobResponse, shouldDelegate, formatDelegatedAnswer } from "../netlify/functions/lily-ai.js";
+import { buildResponseMessage, cloudflareChat, personaDisabled, formatJobResponse, shouldDelegate, formatDelegatedAnswer, resolveJobPersona } from "../netlify/functions/lily-ai.js";
 
 test("buildResponseMessage: pre-confirmation text asks the florist to confirm", () => {
   const permission = { allowed: true };
@@ -300,4 +300,31 @@ test("formatDelegatedAnswer: plainly attributes the answer to who actually wrote
   const text = formatDelegatedAnswer("Rose", "Bud", "Focus on your top 3 margin arrangements this week.");
   assert.match(text, /Bud brought in Rose/);
   assert.match(text, /Focus on your top 3 margin arrangements/);
+});
+
+// AI-OS Wave 5: job-producing requests (runJob) execute as their real
+// domain author, not necessarily the persona the florist is chatting with.
+
+test("resolveJobPersona: a marketing job asked of Bud is authored by Lily, Florisyn's creative director", () => {
+  const result = resolveJobPersona("Bud", "marketing");
+  assert.equal(result.author, "Lily");
+  assert.equal(result.delegated, true);
+});
+
+test("resolveJobPersona: a marketing job asked of Daisy is also authored by Lily", () => {
+  const result = resolveJobPersona("Daisy", "marketing");
+  assert.equal(result.author, "Lily");
+  assert.equal(result.delegated, true);
+});
+
+test("resolveJobPersona: a marketing job Lily is already asked to do is never reported as delegated to herself", () => {
+  const result = resolveJobPersona("Lily", "marketing");
+  assert.equal(result.author, "Lily");
+  assert.equal(result.delegated, false);
+});
+
+test("resolveJobPersona: a domain with no declared job owner falls back to whoever's actually chatting, never an invented author", () => {
+  const result = resolveJobPersona("Bud", "support");
+  assert.equal(result.author, "Bud");
+  assert.equal(result.delegated, false);
 });
