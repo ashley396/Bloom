@@ -111,6 +111,14 @@ export function personaExpertise(persona) {
   return PERSONA_EXPERTISE[normalizePersona(persona)] || "";
 }
 
+/** Which persona owns a domain outright — a structured, unambiguous signal
+ * (detectIntent() already resolved it to a specific business domain, unlike
+ * the fuzzy open-chat TOPIC_HINTS below matched against raw free text).
+ * Safe to use for real programmatic delegation, not just a suggestion. */
+export function domainOwner(intentDomain) {
+  return ADVICE_OWNER[intentDomain] || null;
+}
+
 /**
  * Decide whether the active persona should hand a topic to a teammate.
  * Returns { to, label, line } or null. `line` is a gentle appended suggestion.

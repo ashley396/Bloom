@@ -7,7 +7,9 @@ import {
   normalizePersona,
   shopVoiceSuffix,
   systemPromptFor,
-  temperatureForPersona
+  temperatureForPersona,
+  domainOwner,
+  suggestHandoff
 } from "../netlify/functions/_shared/florist-ai-personas.js";
 
 test("normalizePersona accepts Lily, Rose, Daisy, and Bud", () => {
@@ -77,4 +79,30 @@ test("shopVoiceSuffix: only the fields actually filled in produce a line", () =>
   assert.match(suffix, /warm, capable, florist-friendly/);
   assert.doesNotMatch(suffix, /delivery notes/i);
   assert.doesNotMatch(suffix, /marketing/i);
+});
+
+test("domainOwner: reports and coach questions are structurally Rose's — a real, unambiguous signal, not a keyword guess", () => {
+  assert.equal(domainOwner("reports"), "Rose");
+  assert.equal(domainOwner("coach"), "Rose");
+});
+
+test("domainOwner: a domain with no declared owner returns null, never an invented persona", () => {
+  assert.equal(domainOwner("marketing"), null);
+  assert.equal(domainOwner("general"), null);
+  assert.equal(domainOwner(""), null);
+});
+
+test("suggestHandoff: a reports question asked of Bud names Rose as the owner", () => {
+  const handoff = suggestHandoff("Bud", "reports", "what made the most profit this month");
+  assert.equal(handoff.to, "Rose");
+  assert.match(handoff.line, /Rose/);
+});
+
+test("suggestHandoff: Rose asking herself a reports question never suggests handing off to herself", () => {
+  assert.equal(suggestHandoff("Rose", "reports", "what made the most profit this month"), null);
+});
+
+test("suggestHandoff: open chat about a bug points to Bud, the fuzzy topic-hint owner", () => {
+  const handoff = suggestHandoff("Lily", "general", "the checkout button keeps erroring when I click it");
+  assert.equal(handoff.to, "Bud");
 });

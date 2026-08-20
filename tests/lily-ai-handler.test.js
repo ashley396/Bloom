@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildResponseMessage, cloudflareChat, personaDisabled, formatJobResponse } from "../netlify/functions/lily-ai.js";
+import { buildResponseMessage, cloudflareChat, personaDisabled, formatJobResponse, shouldDelegate, formatDelegatedAnswer } from "../netlify/functions/lily-ai.js";
 
 test("buildResponseMessage: pre-confirmation text asks the florist to confirm", () => {
   const permission = { allowed: true };
@@ -251,4 +251,53 @@ test("formatJobResponse: a partial failure names what failed and preserves the r
   assert.match(text, /couldn't finish/i);
   assert.match(text, /retry/i);
   assert.match(text, /model overloaded/);
+});
+
+// AI-OS Wave 4: real programmatic delegation for domain-owner questions
+// (business/reports questions are Rose's, no matter who's active).
+
+test("shouldDelegate: a reports question asked of Bud delegates to Rose, the domain owner", () => {
+  const owner = shouldDelegate({
+    persona: "Bud",
+    intentDomain: "reports",
+    permission: { allowed: true },
+    planned: { tier: "READ", type: "navigate", navigate: "reportsPage" }
+  });
+  assert.equal(owner, "Rose");
+});
+
+test("shouldDelegate: a coach/business question asked of Daisy delegates to Rose", () => {
+  const owner = shouldDelegate({ persona: "Daisy", intentDomain: "coach", permission: { allowed: true }, planned: null });
+  assert.equal(owner, "Rose");
+});
+
+test("shouldDelegate: never delegates when Rose herself is already the one asked", () => {
+  const owner = shouldDelegate({ persona: "Rose", intentDomain: "reports", permission: { allowed: true }, planned: null });
+  assert.equal(owner, null);
+});
+
+test("shouldDelegate: never delegates a domain with no structured owner (fuzzy open chat stays suggest-only)", () => {
+  const owner = shouldDelegate({ persona: "Bud", intentDomain: "general", permission: { allowed: true }, planned: null });
+  assert.equal(owner, null);
+});
+
+test("shouldDelegate: never delegates when the florist's role doesn't have permission at all", () => {
+  const owner = shouldDelegate({ persona: "Bud", intentDomain: "reports", permission: { allowed: false }, planned: null });
+  assert.equal(owner, null);
+});
+
+test("shouldDelegate: never delegates mid-confirmation — swapping personas would break the pending-action resend", () => {
+  const owner = shouldDelegate({
+    persona: "Bud",
+    intentDomain: "reports",
+    permission: { allowed: true },
+    planned: { requiresConfirmation: true, label: "do something" }
+  });
+  assert.equal(owner, null);
+});
+
+test("formatDelegatedAnswer: plainly attributes the answer to who actually wrote it, never lets one persona's voice pass as another's", () => {
+  const text = formatDelegatedAnswer("Rose", "Bud", "Focus on your top 3 margin arrangements this week.");
+  assert.match(text, /Bud brought in Rose/);
+  assert.match(text, /Focus on your top 3 margin arrangements/);
 });
