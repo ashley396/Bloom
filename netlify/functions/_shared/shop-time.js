@@ -58,3 +58,35 @@ export function weekdayLabel(dateStr) {
   // reads it back consistently regardless of server timezone.
   return new Date(y, (m || 1) - 1, d || 1).toLocaleDateString("en-US", { weekday: "short" });
 }
+
+const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function format12Hour(hhmm) {
+  const [h, m] = String(hhmm || "").slice(0, 5).split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return "";
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
+/**
+ * Formats public.shop_hours rows ({weekday, is_closed, opens_at, closes_at})
+ * into a readable one-line summary, e.g. "Mon–Fri 9:00 AM–5:00 PM, Sat
+ * 10:00 AM–2:00 PM, Sun Closed". Used to seed the Website Studio "Hours"
+ * section with the shop's real hours instead of a generic placeholder —
+ * see instant-website.js's loadShopProfile().
+ */
+export function formatShopHoursSummary(rows) {
+  if (!Array.isArray(rows) || !rows.length) return "";
+  const byWeekday = new Map(rows.map((r) => [Number(r.weekday), r]));
+  return WEEKDAY_SHORT.map((label, weekday) => {
+    const row = byWeekday.get(weekday);
+    if (!row) return null;
+    if (row.is_closed) return `${label} Closed`;
+    const open = format12Hour(row.opens_at);
+    const close = format12Hour(row.closes_at);
+    return open && close ? `${label} ${open}–${close}` : null;
+  })
+    .filter(Boolean)
+    .join(", ");
+}
