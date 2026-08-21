@@ -1,5 +1,7 @@
 /** Bloom Business Ecosystem v1 — pure domain logic (POS, payments, wholesale, Lily). */
 
+import { shopDateStr } from "./shop-time.js";
+
 export const FLOWER_SCHEDULES = ["weekly", "biweekly", "monthly", "quarterly", "custom"];
 export const FLOWER_SUBSCRIPTION_TYPES = [
   { key: "fresh_flowers", label: "Fresh flowers" },
@@ -127,6 +129,22 @@ export function buildBusinessDashboardKpis(base = {}, ecosystem = {}) {
     marketplace_sales: Number(ecosystem.marketplace_sales || 0),
     employee_productivity: ecosystem.employee_productivity || null
   };
+}
+
+// Beta-blocker repair: waste_risk used to be hardcoded ("Medium") for every
+// shop regardless of its real state. The inventory table already carries
+// real received_at/use_by freshness-tracking columns (added specifically
+// for "use-first" waste tracking) — this only evaluates currently-stocked
+// items that actually have a use_by date set, so a shop that has never
+// used freshness tracking gets an honest `null` (no real signal) instead
+// of a guess. "High" only when a meaningful share of tracked items are
+// already at or past their use-by date while still in stock.
+export function computeWasteRisk(inventoryRows = [], timezone) {
+  const tracked = inventoryRows.filter((i) => i.use_by && Number(i.quantity) > 0);
+  if (tracked.length === 0) return null;
+  const today = shopDateStr(timezone);
+  const atRisk = tracked.filter((i) => String(i.use_by).slice(0, 10) <= today).length;
+  return atRisk / tracked.length >= 0.2 ? "High" : "Low";
 }
 
 export function buildLilyBusinessCoach(context = {}) {

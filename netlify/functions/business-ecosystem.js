@@ -16,6 +16,7 @@ import {
   buildFinanceCenter,
   buildBusinessDashboardKpis,
   buildLilyBusinessCoach,
+  computeWasteRisk,
   portalCapabilities
 } from "./_shared/business-ecosystem.js";
 
@@ -116,20 +117,46 @@ export async function handler(event) {
     }
 
     if (action === "lily_coach") {
-      const inv = await client.from("inventory").select("quantity,low_stock_level").eq("shop_id", shopId).limit(100);
-      const low = (inv.data || []).filter((i) => Number(i.quantity) <= Number(i.low_stock_level || 5)).length;
+      const inv = await client.from("inventory").select("quantity,low_stock_level,use_by").eq("shop_id", shopId).limit(100);
+      const invRows = inv.data || [];
+      const low = invRows.filter((i) => Number(i.quantity) <= Number(i.low_stock_level || 5)).length;
       const subs = await safeSelect(client, "bloom_customer_subscriptions", shopId);
       const ord = await client.from("orders").select("payment_status,total,amount_paid").eq("shop_id", shopId).limit(50);
       let unpaid = 0;
       for (const o of ord.data || []) {
         if (String(o.payment_status).toUpperCase() !== "PAID") unpaid += Math.max(0, Number(o.total) - Number(o.amount_paid || 0));
       }
+
+      // Beta-blocker repair: waste_risk/margin_health used to be hardcoded
+      // ("Medium"/70) regardless of the shop's real state, which silently
+      // suppressed buildLilyBusinessCoach()'s "reduce waste"/"improve
+      // margins" suggestions for every shop that actually needed them and
+      // fabricated a healthy-looking state for shops that didn't. Both are
+      // now real, or null when there isn't enough real data to say
+      // anything — buildLilyBusinessCoach() already treats a falsy/non-
+      // "High" waste_risk and a null margin_health as "no suggestion,"
+      // never a fabricated interpretation. See computeWasteRisk() for the
+      // real freshness-tracking signal behind waste_risk. Uses the shop's
+      // own timezone (shop-time.js), same as dashboard.js, so "today" is
+      // the florist's calendar day, not the server's UTC day.
+      const shopRow = await client.from("shops").select("timezone").eq("id", shopId).maybeSingle();
+      const waste_risk = computeWasteRisk(invRows, shopRow.data?.timezone);
+
+      // margin_health: the shop's real gross margin, from the same
+      // buildFinanceCenter() figure used everywhere else in the app
+      // (real orders revenue minus real expenses) — null when the shop
+      // has no real revenue yet, since a 0%-margin reading on an empty
+      // shop is an absence of data, not a margin problem to flag.
+      const hub = await buildHub(client, shopId);
+      const revenue = Number(hub.finance_center?.profit_and_loss?.revenue || 0);
+      const margin_health = revenue > 0 ? hub.finance_center.profit_and_loss.margin : null;
+
       const coach = buildLilyBusinessCoach({
         low_stock_count: low,
         subscription_count: subs.filter((s) => s.status === "active").length,
         unpaid_total: unpaid,
-        waste_risk: "Medium",
-        margin_health: 70
+        waste_risk,
+        margin_health
       });
       return json(200, { suggestions: coach });
     }
