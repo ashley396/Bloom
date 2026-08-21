@@ -25,6 +25,8 @@ const EXPLICIT_REDIRECTS = {
   "/signup/": "/signup.html",
   "/admin": "/admin.html",
   "/admin/": "/admin.html",
+  "/verify-email": "/verify-email.html",
+  "/verify-email/": "/verify-email.html",
 };
 
 const CONTENT_TYPES = {

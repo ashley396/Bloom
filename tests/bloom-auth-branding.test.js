@@ -56,19 +56,34 @@ test("verify email page can resend confirmation email", () => {
   assert.match(fn, /mapAuthProviderFailure\(response, data, \{ flow: "resend" \}\)/);
   assert.match(fn, /authRedirectPath\(process\.env, origin, "\/verify-email\?confirmed=1"\)/);
   assert.match(fn, /If this email has an unconfirmed Florisyn account/);
+  // Same token race as the old signup flow: Supabase's own /auth/v1/resend
+  // sends its own default email with a fresh token, and
+  // sendSignupConfirmationEmail (generate_link) issues another fresh token
+  // for the branded email — only one of the two can still work. When a
+  // branded provider is configured, /auth/v1/resend must not run at all.
+  assert.match(fn, /emailProviderConfigured/);
+  assert.match(fn, /if\s*\(!provider\.configured\)\s*\{[\s\S]*auth\/v1\/resend/);
 });
 
-test("signup requests Supabase confirmation email and sends branded confirmation when configured", () => {
+test("signup prefers a single-token branded confirmation and falls back to Supabase's own signup+email", () => {
   const signup = fs.readFileSync(new URL("../netlify/functions/auth-signup.js", import.meta.url), "utf8");
   const helper = fs.readFileSync(new URL("../netlify/functions/_shared/auth-confirmation-email.js", import.meta.url), "utf8");
   const mailer = fs.readFileSync(new URL("../netlify/functions/_shared/notification-email.js", import.meta.url), "utf8");
   const mapper = fs.readFileSync(new URL("../netlify/functions/_shared/auth-email.js", import.meta.url), "utf8");
+  // Preferred path: admin-create the user (no Supabase default email, so no
+  // second/competing token) then send one branded email.
+  assert.match(signup, /signUpWithBrandedConfirmation/);
+  assert.match(signup, /account_already_registered/);
+  assert.match(signup, /confirmationRequired:true/);
+  // Legacy fallback: unchanged, still Supabase's own signup + default email
+  // when no branded provider is configured or nothing was created yet.
   assert.match(signup, /auth\/v1\/signup\?redirect_to=\$\{encodeURIComponent\(confirmUrl\)\}/);
   assert.match(signup, /authRedirectPath\(process\.env,origin,"\/verify-email\?confirmed=1"\)/);
   assert.match(signup, /mapAuthProviderFailure\(response,data,\{flow:"signup"\}\)/);
   assert.match(signup, /confirmationRequired:!data\.access_token/);
-  assert.match(signup, /sendSignupConfirmationEmail/);
   assert.match(signup, /confirmationEmailSent/);
+  assert.match(helper, /auth\.admin\.createUser/);
+  assert.match(helper, /email_confirm:\s*false/);
   assert.match(helper, /admin\/generate_link/);
   assert.match(helper, /type:\s*"signup"/);
   assert.match(mailer, /RESEND_API_KEY/);
