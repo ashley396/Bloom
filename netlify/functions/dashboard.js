@@ -10,6 +10,21 @@ export function localDate(value){return value?String(value).slice(0,10):""}
 // portable regardless of what timezone this Node process happens to run in.
 export function ageDays(date,todayStr){if(!date)return 0;const arrived=new Date(`${localDate(date)}T00:00:00Z`);const today=new Date(`${todayStr}T00:00:00Z`);return Math.max(0,Math.floor((today-arrived)/86400000))}
 export function freshness(item,todayStr){const life=Math.max(1,Number(item.vase_life_days||7)),age=ageDays(item.arrival_date||item.created_at,todayStr);return Math.max(0,Math.round((1-age/life)*100))}
+// Real day-over-day comparisons and a real repeat-customer rate, replacing
+// dashboard KPI deltas that used to be fabricated (a "Customer Happiness"
+// score synthesized purely from customer *count*, an unconditional
+// "+0.8% vs last month", and sales/delivery deltas compared against
+// made-up fractions of today's own numbers instead of any real history).
+// Pure and exported so the real math is unit-testable without a Supabase
+// client (currentUser() talks to the real network and can't be injected
+// into this handler the way orders.js's handleOrders can).
+export function retentionMetrics(allOrders){
+ const customerOrderCounts={};for(const o of allOrders)if(o.customer_id)customerOrderCounts[o.customer_id]=(customerOrderCounts[o.customer_id]||0)+1;
+ const customersWithOrders=Object.keys(customerOrderCounts).length;
+ const repeatCustomers=Object.values(customerOrderCounts).filter(n=>n>1).length;
+ const retentionRate=customersWithOrders?Math.round((repeatCustomers/customersWithOrders)*1000)/10:null;
+ return {customersWithOrders,repeatCustomers,retentionRate};
+}
 
 export async function handler(event){
  const ready=preflight(event);if(ready)return ready;if(event.httpMethod!=="GET")return methodNotAllowed();
@@ -40,11 +55,15 @@ export async function handler(event){
   const profitScore=Math.max(0,Math.min(100,Math.round(freshnessScore*.45+marginHealth*.45+(wasteRisk==='Low'?100:wasteRisk==='Medium'?65:30)*.10)));
   const chosen=useFirst.slice(0,3);const dailySpecial=chosen.length?{name:`Fresh Pick ${chosen[0].color||chosen[0].name} Special`,items:chosen.map(i=>({name:i.name,color:i.color,quantity:Math.min(Number(i.quantity||0),i.category==='Greenery'?3:5),unit:i.unit,cost:i.cost})),wastePrevented:Number(chosen.reduce((a,i)=>a+Math.min(Number(i.quantity||0),5)*Number(i.cost||0),0).toFixed(2))}:null;
   const weeklySales=[];for(let n=6;n>=0;n--){const key=shopDateStrDaysAgo(timezone,n);weeklySales.push({label:weekdayLabel(key),total:ledger?ledger.filter(p=>localDate(p.received_at)===key).reduce((a,p)=>a+netPayment(p),0):paid.filter(o=>localDate(o.paid_at||o.created_at)===key).reduce((a,o)=>a+Number(o.total||0),0)})}
+  const yesterday=shopDateStrDaysAgo(timezone,1);
+  const ordersYesterday=allOrders.filter(o=>localDate(o.created_at)===yesterday).length;
+  const dueYesterday=allOrders.filter(o=>localDate(o.delivery_date)===yesterday).length;
+  const {customersWithOrders,repeatCustomers,retentionRate}=retentionMetrics(allOrders);
   // Lily Step 73 — the same real numbers below (ordersDueToday, deliveries,
   // lowStock, unpaidTotal) also drive a structured "needs attention" list,
   // not just Rose's spoken briefing. Single source of truth: computed once
   // here, never recomputed client-side.
   const needsAttentionItems=buildNeedsAttentionItems({ordersDueToday:dueToday.length,deliveries:activeDeliveries.length,lowStock,unpaidTotal:unpaid});
-  return json(200,{todaySales,totalSales,totalExpenses,profit:totalSales-totalExpenses,unpaidTotal:unpaid,ordersDueToday:dueToday.length,deliveriesToday:activeDeliveries.length,deliveries:activeDeliveries.length,lowStock,customers:(customers.data||[]).length,weekSales:weeklySales.reduce((a,x)=>a+x.total,0),ordersToday:allOrders.filter(o=>localDate(o.created_at)===today).length,weeklySales,upcomingDeliveries:activeDeliveries.slice(0,5),profitIntelligence:{profitScore,freshnessScore,marginHealth,wasteRisk,wasteValue,useFirst,dailySpecial},needsAttention:{items:needsAttentionItems,summary:needsAttentionSummaryText(needsAttentionItems)}});
+  return json(200,{todaySales,totalSales,totalExpenses,profit:totalSales-totalExpenses,unpaidTotal:unpaid,ordersDueToday:dueToday.length,dueYesterday,deliveriesToday:activeDeliveries.length,deliveries:activeDeliveries.length,lowStock,customers:(customers.data||[]).length,customersWithOrders,repeatCustomers,retentionRate,weekSales:weeklySales.reduce((a,x)=>a+x.total,0),ordersToday:allOrders.filter(o=>localDate(o.created_at)===today).length,ordersYesterday,weeklySales,upcomingDeliveries:activeDeliveries.slice(0,5),profitIntelligence:{profitScore,freshnessScore,marginHealth,wasteRisk,wasteValue,useFirst,dailySpecial},needsAttention:{items:needsAttentionItems,summary:needsAttentionSummaryText(needsAttentionItems)}});
  }catch(error){return fail(error)}
 }

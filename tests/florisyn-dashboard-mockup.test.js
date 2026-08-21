@@ -39,7 +39,7 @@ test("mobile mockup chrome matches founder phone layout markers", () => {
   assert.match(html, /Here’s what’s blooming today/);
   assert.match(html, /kpi-label-mobile">Orders/);
   assert.match(html, /kpi-label-mobile">Delivered/);
-  assert.match(html, /kpi-label-mobile">Happiness/);
+  assert.match(html, /kpi-label-mobile">Repeat/);
   assert.match(html, /florisyn-mobile-shell\.css/);
   const shellCss = fs.readFileSync(path.join(root, "public/florisyn-mobile-shell.css"), "utf8");
   assert.match(shellCss, /repeat\(5, minmax\(0, 1fr\)\)/);
