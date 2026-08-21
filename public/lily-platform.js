@@ -675,5 +675,17 @@
     deps = null;
   }
 
-  window.BloomLilyPlatform = { init, destroy, toggle: () => togglePanel() };
+  // Beta polish: the top-dock "Daisy" button had no way to actually reach
+  // Daisy — she only exists as one of this panel's four personas, with no
+  // page of her own. Lily/Rose's dock buttons open a real page each; this
+  // gives Daisy's (and any persona's) dock button a real destination: open
+  // this panel already switched to that persona, instead of silently
+  // falling back to whatever page the button happened to carry a stale
+  // data-route for.
+  function openPersona(name) {
+    if (name && PERSONAS[name] && name !== persona) setPersona(name);
+    togglePanel(true);
+  }
+
+  window.BloomLilyPlatform = { init, destroy, toggle: () => togglePanel(), open: openPersona };
 })();

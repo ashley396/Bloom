@@ -211,14 +211,18 @@
     const clean = Core.prepareAssistantSpeechText(text);
     if (!clean && !options.preferUploadedVoice) return false;
 
-    // Admin-uploaded custom voice samples (visual studio) — play when requested or for Daisy.
+    // Admin-uploaded custom voice samples (visual studio) — play when
+    // requested, or first for Daisy if one exists (an uploaded Daisy
+    // sample is treated as her chosen voice). Daisy used to stop here
+    // unconditionally — with no sample uploaded she was permanently
+    // silent even though a real ELEVENLABS_VOICE_DAISY cloud voice is
+    // configured on the backend. She now falls through to the same real
+    // cloud/browser pipeline every other persona already uses.
     if (options.preferUploadedVoice || options.sampleOnly || who === "Daisy") {
       const uploaded = await playUploadedVoice(who);
       if (uploaded) return true;
-      if (options.sampleOnly || who === "Daisy") return false;
+      if (options.sampleOnly) return false;
     }
-
-    if (who === "Daisy") return false; // Daisy uses uploaded sample voice only
 
     const cfg = loadSettings(who);
     if (cfg.engine === "cloud") {
@@ -285,7 +289,7 @@
         </label>
         <button type="button" class="secondary" data-play-upload="${persona}">Play upload</button>
       </div>
-      <p class="subtle" data-upload-voice-meta="${persona}">Custom uploads are managed in Admin → UI Design Mode.</p>`
+      <p class="subtle" data-upload-voice-meta="${persona}">Uploads are stored in this browser and play back when previewed here (or in Admin → UI Design Mode). Lily, Rose, and Bud's real spoken replies keep using the cloud/device voice settings above — this upload doesn't change that. Daisy is the one exception: if you've uploaded a sample for her, her real replies use it; without one she uses the same cloud/device voice as the others.</p>`
     );
 
     function fillSelect() {

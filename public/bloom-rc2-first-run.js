@@ -26,7 +26,6 @@
     document.body.appendChild(overlay);
     overlay.showModal();
     window.BloomLilyVoice?.speakLily?.(overlay.querySelector("#firstRunLilyLine")?.textContent);
-    window.BloomRose?.gentleWag?.("Welcome");
     window.BloomDaisy?.gentleWag?.("Welcome");
     overlay.querySelector("#firstRunContinue")?.addEventListener("click", () => {
       markDone();
