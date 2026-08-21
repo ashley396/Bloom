@@ -299,6 +299,32 @@ export function wholesalerCanAccessApplication(application, { shopId } = {}) {
   return wholesalerShopId === shopId;
 }
 
+/**
+ * Pass #3 wholesale audit: the review screen listed applications and their
+ * document *metadata* (file name, upload date) but never a URL to actually
+ * open the file — sanitizeApplicationForClient() strips storage paths down
+ * to metadata only, and the applicant-side signing helper
+ * (assertSignedDocumentPathForUser) deliberately refuses anyone but the
+ * uploader. A wholesaler could see "w9.pdf uploaded" and nothing else,
+ * making the review step impossible to actually perform. Callers here have
+ * already verified wholesalerCanAccessApplication() before invoking this —
+ * it does not re-check authorization itself, matching how
+ * attachSignedUrls() also trusts its own caller's prior check.
+ */
+export async function attachSignedUrlsForReviewer(client, documents = {}) {
+  if (!documents || typeof documents !== "object") return documents;
+  const next = {};
+  for (const [key, value] of Object.entries(documents)) {
+    if (!value || typeof value !== "object" || !value.storage_path) {
+      next[key] = value;
+      continue;
+    }
+    const { data, error } = await client.storage.from(BUCKET).createSignedUrl(value.storage_path, 3600);
+    next[key] = { ...value, signedUrl: error ? null : data?.signedUrl || null };
+  }
+  return next;
+}
+
 export async function loadTaxMetaForApplication(client, applicationId) {
   const { data, error } = await client
     .from(TAX_TABLE)
