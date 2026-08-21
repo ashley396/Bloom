@@ -3,6 +3,7 @@ import { currentUser, fail, requireRoles } from "./_shared/supabase.js";
 import {
   TABLE,
   adminDecisionToStatus,
+  attachSignedUrlsForReviewer,
   buildApprovalExpiryDate,
   enqueueVerificationEmail,
   isMissingVerificationTableError,
@@ -11,6 +12,21 @@ import {
   wholesalerCanAccessApplication,
   writeVerificationAudit
 } from "./_shared/marketplace-verification.js";
+
+/** Access to `application` must already be verified before calling this —
+ * "list" is pre-filtered by wholesaler_shop_id, "review" calls
+ * assertWholesalerAccess first. See attachSignedUrlsForReviewer()'s
+ * docstring for why it doesn't re-check authorization itself. */
+async function withReviewerDocuments(client, application) {
+  if (!application?.profile_data?.documents) return application;
+  return {
+    ...application,
+    profile_data: {
+      ...application.profile_data,
+      documents: await attachSignedUrlsForReviewer(client, application.profile_data.documents)
+    }
+  };
+}
 
 const APPLICATION_SELECT =
   "id, user_id, florist_shop_id, wholesaler_shop_id, status, consent_confirmed, consent_at, profile_data, review_history, review_notes, submitted_at, reviewed_at, documents_expire_at, approval_expires_at, created_at, updated_at";
@@ -44,7 +60,7 @@ export async function handler(event) {
         .order("submitted_at", { ascending: false, nullsFirst: false });
       if (error) throw error;
       const applications = await Promise.all(
-        (data || []).map((row) => sanitizeApplicationRecord(client, row))
+        (data || []).map(async (row) => withReviewerDocuments(client, await sanitizeApplicationRecord(client, row)))
       );
       return json(200, { applications });
     }
@@ -117,7 +133,7 @@ export async function handler(event) {
         payload: { decision, status: nextStatus, review_notes: reviewEntry.notes }
       });
 
-      const sanitized = await sanitizeApplicationRecord(client, updated);
+      const sanitized = await withReviewerDocuments(client, await sanitizeApplicationRecord(client, updated));
       return json(200, { application: sanitized });
     }
 

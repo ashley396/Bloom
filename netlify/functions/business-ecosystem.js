@@ -183,9 +183,24 @@ export async function handler(event) {
     }
 
     if (action === "loyalty_earn") {
+      // Pass #3 security review: bloom_loyalty_accounts.customer_id is the
+      // table's real primary key (not a (shop_id, customer_id) composite),
+      // and this upsert's onConflict target is that bare customer_id. The
+      // ownership check below only ever *read* with a shop_id filter — a
+      // caller could still submit another shop's real customer_id, and the
+      // upsert would hit that row's PK and attempt to overwrite its
+      // shop_id to the caller's own shop, reassigning another shop's real
+      // customer loyalty account (balance, tier, lifetime points) to the
+      // attacker's shop. RLS may well block that specific write today, but
+      // this must not be the only thing standing between one shop's
+      // customer data and another's — verify ownership explicitly, the
+      // same way every other write in this file does.
+      const owner = await client.from("bloom_loyalty_accounts").select("*").eq("customer_id", body.customer_id).maybeSingle();
+      if (!owner.error && owner.data && owner.data.shop_id !== shopId) {
+        return json(403, { error: "That customer does not belong to this shop." });
+      }
       const earned = computeLoyaltyEarn(body.amount, body.tier);
-      const existing = await client.from("bloom_loyalty_accounts").select("*").eq("customer_id", body.customer_id).eq("shop_id", shopId).maybeSingle();
-      const prev = existing.error ? null : existing.data;
+      const prev = owner.error ? null : owner.data;
       const balance = Number(prev?.points_balance || 0) + earned;
       const lifetime = Number(prev?.lifetime_points || 0) + earned;
       const { data, error } = await client
@@ -258,6 +273,7 @@ export async function handler(event) {
         .from("bloom_purchase_orders")
         .update({ status: body.status, updated_at: new Date().toISOString() })
         .eq("id", body.id)
+        .eq("shop_id", shopId)
         .select("*")
         .single();
       if (error) throw error;
