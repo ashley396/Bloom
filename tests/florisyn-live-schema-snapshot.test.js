@@ -1048,6 +1048,7 @@ test("canonical executable migrations have unique timestamp identities", () => {
     "20260820020000_ai_operating_system_v1.sql",
     "20260820030000_stripe_terminal_location.sql",
     "20260820040000_wedding_inspiration_photos.sql",
+    "20260821000000_order_atomic_cross_shop_fk_guard.sql",
   ]);
   const versions = files.map((name) => name.match(/^(\d{14})_/i)?.[1]);
   assert.ok(versions.every(Boolean), "every executable migration must use a 14-digit timestamp");

@@ -46,6 +46,19 @@ test("finance center builds P and L", () => {
   assert.equal(f.profit_and_loss.profit, 600);
 });
 
+test("finance center never fabricates a budget or bank-deposits figure off revenue", () => {
+  // Pass #3: these used to default to 85%/90% of revenue whenever no real
+  // figure was supplied — a guessed number shown in the same shape as
+  // every real one. No budget-setting or bank-reconciliation source exists
+  // yet, so an honest null (not a formula) is the only correct default.
+  const f = buildFinanceCenter({ revenue: 1000, expenses: 400 });
+  assert.equal(f.budgets.monthly, null);
+  assert.equal(f.bank_deposits, null);
+  const withReal = buildFinanceCenter({ revenue: 1000, expenses: 400 }, { bank_deposits: 950, budgets: { monthly: 800, actual: 400 } });
+  assert.equal(withReal.bank_deposits, 950);
+  assert.equal(withReal.budgets.monthly, 800);
+});
+
 test("membership discount percent", () => {
   assert.equal(membershipDiscountPercent("bloom_platinum"), 15);
 });

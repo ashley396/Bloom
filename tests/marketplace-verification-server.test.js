@@ -8,6 +8,7 @@ import {
   sanitizeApplicationForClient,
   checkoutListingSelectFields,
   assertSignedDocumentPathForUser,
+  attachSignedUrlsForReviewer,
   isMissingVerificationTableError,
   mapCheckoutListing,
   stripTaxIdFromProfileData,
@@ -139,6 +140,45 @@ test("assertSignedDocumentPathForUser rejects cross-user paths", () => {
     () => assertSignedDocumentPathForUser("user-1", "user-2/2026/resale.pdf"),
     (error) => error.statusCode === 403
   );
+});
+
+test("attachSignedUrlsForReviewer signs every document's storage_path, regardless of whose id-prefix it carries", async () => {
+  // Pass #3: the wholesaler review screen used to receive document
+  // *metadata* only (sanitizeApplicationForClient strips storage paths) —
+  // there was no way for a reviewer to actually open the applicant's
+  // uploaded file. Unlike assertSignedDocumentPathForUser (applicant-only,
+  // rejects a cross-user path), this signs on behalf of an already
+  // access-checked reviewer, so it must NOT reject the applicant's own
+  // user-id-prefixed path.
+  const signedPaths = [];
+  const fakeClient = {
+    storage: {
+      from: () => ({
+        createSignedUrl: async (path) => {
+          signedPaths.push(path);
+          return { data: { signedUrl: `https://signed.example/${path}` }, error: null };
+        }
+      })
+    }
+  };
+  const documents = {
+    w9: { name: "w9.pdf", storage_path: "applicant-user-id/2026/w9-w9.pdf" },
+    resale_cert: { name: "resale.pdf", storage_path: "applicant-user-id/2026/resale.pdf" },
+    note: "not a document object"
+  };
+  const signed = await attachSignedUrlsForReviewer(fakeClient, documents);
+  assert.equal(signed.w9.signedUrl, "https://signed.example/applicant-user-id/2026/w9-w9.pdf");
+  assert.equal(signed.resale_cert.signedUrl, "https://signed.example/applicant-user-id/2026/resale.pdf");
+  assert.equal(signed.note, "not a document object");
+  assert.deepEqual(signedPaths, ["applicant-user-id/2026/w9-w9.pdf", "applicant-user-id/2026/resale.pdf"]);
+});
+
+test("attachSignedUrlsForReviewer degrades to a null signedUrl (never throws) when storage signing fails", async () => {
+  const fakeClient = {
+    storage: { from: () => ({ createSignedUrl: async () => ({ data: null, error: new Error("not found") }) }) }
+  };
+  const signed = await attachSignedUrlsForReviewer(fakeClient, { w9: { storage_path: "u/1/w9.pdf" } });
+  assert.equal(signed.w9.signedUrl, null);
 });
 
 test("isMissingVerificationTableError recognizes schema-missing failures", () => {

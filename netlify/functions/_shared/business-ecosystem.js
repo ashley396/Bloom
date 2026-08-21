@@ -103,8 +103,15 @@ export function buildFinanceCenter(financeTotals = {}, extras = {}) {
     sales_tax: Number(extras.sales_tax || 0),
     payroll_summary: Number(extras.payroll_summary || 0),
     invoice_aging: extras.invoice_aging || { current: 0, days_30: 0, days_60: 0, days_90_plus: 0 },
-    budgets: extras.budgets || { monthly: revenue * 0.85, actual: expenses },
-    bank_deposits: Number(extras.bank_deposits || revenue * 0.9)
+    // Florisyn functional-completion pass #3: these used to fall back to a
+    // formula guessed off revenue (85% of revenue as a "monthly budget",
+    // 90% as "bank deposits") whenever no real figure was supplied — a made
+    // -up number presented in the same shape as every other real field
+    // here. No budget-setting feature or bank-reconciliation source exists
+    // yet, so there is no real value to compute; `null` says exactly that
+    // instead of manufacturing one.
+    budgets: extras.budgets || { monthly: null, actual: expenses },
+    bank_deposits: extras.bank_deposits != null ? Number(extras.bank_deposits) : null
   };
 }
 
