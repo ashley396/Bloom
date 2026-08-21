@@ -76,12 +76,11 @@ test("no leftover dead calls through the removed BloomRose global anywhere the D
   assert.match(firstRun, /BloomDaisy\?\.gentleWag\?\.\("Welcome"\)/);
 });
 
-test("custom voice upload copy is honest: local preview only, and Daisy is the one real exception", () => {
+test("custom voice upload copy is honest: local preview for Lily/Rose/Bud, and Daisy is the one real exception", () => {
   const florist = fs.readFileSync(path.join(root, "public/assistant-voice.js"), "utf8");
   const admin = fs.readFileSync(path.join(root, "public/florisyn-ui-editor.js"), "utf8");
   for (const src of [florist, admin]) {
-    assert.match(src, /preview only|preview them here/i, "must say this is a preview, not a real voice change");
-    assert.match(src, /Daisy speaks only from/i, "must call out Daisy as the real exception");
+    assert.match(src, /Daisy is the one exception/i, "must call out Daisy as the real exception");
     assert.match(src, /doesn't change that|unaffected by this upload/i, "must say plainly that Lily/Rose/Bud's real spoken replies are unaffected");
   }
 });
@@ -92,4 +91,15 @@ test("existing custom-voice-upload mechanics are untouched by the copy fix", () 
   assert.match(src, /window\.FlorisynUiEditor\s*=\s*\{[\s\S]*uploadVoice/, "uploadVoice must still be exported for assistant-voice.js to call");
   const voiceJs = fs.readFileSync(path.join(root, "public/assistant-voice.js"), "utf8");
   assert.match(voiceJs, /window\.FlorisynUiEditor\?\.uploadVoice\?\.\(persona, file\)/);
+});
+
+test("Daisy is no longer hard-blocked from the real cloud/browser voice pipeline when no sample is uploaded", () => {
+  const src = fs.readFileSync(path.join(root, "public/assistant-voice.js"), "utf8");
+  const fn = src.slice(src.indexOf("async function speak("), src.indexOf("\n  }", src.indexOf("async function speak(")));
+  assert.doesNotMatch(fn, /who === "Daisy"\) return false/, "Daisy must no longer dead-end with no real voice when she has no uploaded sample");
+  // An uploaded sample must still be tried first for Daisy specifically.
+  assert.match(fn, /options\.preferUploadedVoice \|\| options\.sampleOnly \|\| who === "Daisy"/);
+  // But falling through to the real cloud/browser pipeline (loadSettings + tryCloudSpeak/speakBrowser) must not be Daisy-blocked any more.
+  const afterUploadBlock = fn.slice(fn.indexOf("const cfg = loadSettings"));
+  assert.doesNotMatch(afterUploadBlock, /Daisy/, "no Daisy-specific gate should remain after the upload-sample attempt");
 });
