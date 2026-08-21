@@ -35,6 +35,15 @@ test("Business OS Rose advisor shell is wired on /business-os", () => {
   assert.match(router, /"\/business-os":\s*\{\s*page:\s*"ecosystemPage"/);
 });
 
+test("Beta-blocker repair: fabricated Business OS statistics are gone from the page", () => {
+  assert.doesNotMatch(pageHtml, /23%/, "fabricated 'bookings up 23%' claim must not remain anywhere on the page");
+  assert.doesNotMatch(pageHtml, /15%/, "fabricated 15% price-increase recommendation must not remain");
+  assert.doesNotMatch(pageHtml, /40% more engagement/i, "fabricated competitor-engagement claim must not remain");
+  assert.doesNotMatch(pageHtml, /avoid stockout/i, "fabricated stockout alert (not tied to real inventory) must not remain");
+  assert.doesNotMatch(pageHtml, /Revenue Opportunity|Marketing Suggestion|Operational Alert/, "the specific fabricated card titles must not remain");
+  assert.doesNotMatch(pageHtml, /<time datetime="">/, "no more fake empty-datetime timestamps implying fresh analysis with nothing behind them");
+});
+
 test("Business OS uses gold/amber Rose tokens without green CTAs", () => {
   assert.match(css, /#1a1f3c/);
   assert.match(css, /#c8860a/i);
@@ -86,6 +95,19 @@ test("Rose's welcome message no longer claims to have already analyzed the shop 
   assert.doesNotMatch(welcomeFn, /23%/);
   assert.doesNotMatch(welcomeFn, /analyzing your shop performance/i);
   assert.doesNotMatch(welcomeFn, /already have.*ready for you/i);
+});
+
+test("Action items only persist real suggestion content, and legacy fabricated items are purged on load", () => {
+  assert.match(js, /function isLegacyFabricatedItem/);
+  assert.match(js, /LEGACY_FABRICATED_ITEM_NEEDLES/);
+  const needlesBlock = js.slice(js.indexOf("LEGACY_FABRICATED_ITEM_NEEDLES"), js.indexOf("function isLegacyFabricatedItem"));
+  assert.match(needlesBlock, /23%/);
+  assert.match(needlesBlock, /15%/);
+  assert.match(needlesBlock, /40% more engagement/i);
+  assert.match(needlesBlock, /stockout/i);
+  const loadFn = js.slice(js.indexOf("function loadActionItems"), js.indexOf("function saveActionItems"));
+  assert.match(loadFn, /isLegacyFabricatedItem/, "loadActionItems must filter out any pre-fix fabricated entries");
+  assert.match(appJs, /FlorisynBusinessOs\?\.boot/);
 });
 
 test("insight cards act on the real fetched suggestion, not a static apply/create-post claim of an executed action", () => {
