@@ -37,8 +37,13 @@ async function safeSelect(client, table, shopId, order = "created_at") {
   }
 }
 
+// Real orders "actually paid" for either side of a wholesale/marketplace
+// transaction — excludes pending/processing (not yet real revenue/spend)
+// and cancelled.
+const REALIZED_WHOLESALE_STATUSES = ["paid", "fulfilled", "completed"];
+
 export async function buildHub(client, shopId) {
-  const [subs, loyalty, plans, vendors, pos, deliveries, orders, expenses] = await Promise.all([
+  const [subs, loyalty, plans, vendors, pos, deliveries, orders, expenses, marketplaceSold, marketplaceBought] = await Promise.all([
     safeSelect(client, "bloom_customer_subscriptions", shopId),
     safeSelect(client, "bloom_loyalty_accounts", shopId, "updated_at"),
     safeSelect(client, "bloom_membership_plans", shopId),
@@ -46,7 +51,12 @@ export async function buildHub(client, shopId) {
     safeSelect(client, "bloom_purchase_orders", shopId),
     safeSelect(client, "bloom_delivery_details", shopId, "updated_at"),
     client.from("orders").select("total,payment_status,status,amount_paid").eq("shop_id", shopId).limit(300),
-    client.from("expenses").select("amount").eq("shop_id", shopId).limit(300)
+    client.from("expenses").select("amount").eq("shop_id", shopId).limit(300),
+    // This shop as a wholesale/marketplace *seller* — real revenue earned.
+    client.from("marketplace_wholesale_orders").select("total,status").eq("seller_shop_id", shopId).in("status", REALIZED_WHOLESALE_STATUSES).limit(500),
+    // This shop as a wholesale/marketplace *buyer* — real spend, not a KPI
+    // this shop earned but one the Business OS overview still shows.
+    client.from("marketplace_wholesale_orders").select("total,status").eq("buyer_shop_id", shopId).in("status", REALIZED_WHOLESALE_STATUSES).limit(500)
   ]);
 
   const orderRows = orders.error ? [] : orders.data || [];
@@ -59,6 +69,13 @@ export async function buildHub(client, shopId) {
   }
   const expTotal = expenseRows.reduce((s, e) => s + Number(e.amount || 0), 0);
   const recurring = subs.filter((s) => s.status === "active").reduce((sum, s) => sum + Number(s.amount || 0), 0);
+  // Was hardcoded to 0 regardless of a shop's real wholesale/marketplace
+  // activity — an inactive-looking "$0" for a shop with real completed
+  // orders on either side.
+  const marketplaceSoldRows = marketplaceSold.error ? [] : marketplaceSold.data || [];
+  const marketplaceBoughtRows = marketplaceBought.error ? [] : marketplaceBought.data || [];
+  const marketplaceSales = marketplaceSoldRows.reduce((s, o) => s + Number(o.total || 0), 0);
+  const wholesaleSpend = marketplaceBoughtRows.reduce((s, o) => s + Number(o.total || 0), 0);
 
   const finance = buildFinanceCenter({ revenue, expenses: expTotal, profit: revenue - expTotal }, { accounts_receivable: ar });
 
@@ -73,7 +90,7 @@ export async function buildHub(client, shopId) {
     delivery_management: deliveries,
     customer_portal: { capabilities: portalCapabilities(), note: "Customer-facing portal uses secure links; preview in shop." },
     reports: REPORT_CATALOG,
-    kpis: buildBusinessDashboardKpis({}, { recurring_revenue: recurring, wholesale_sales: 0, marketplace_sales: 0 })
+    kpis: buildBusinessDashboardKpis({}, { recurring_revenue: recurring, wholesale_sales: wholesaleSpend, marketplace_sales: marketplaceSales })
   };
 }
 
