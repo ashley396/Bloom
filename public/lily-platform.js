@@ -675,11 +675,15 @@
     deps = null;
   }
 
-  // Opens the panel already switched to the requested persona — Daisy has no
-  // page of her own, so her dock button needs a real way in rather than a
-  // stale route.
+  // Beta polish: the top-dock "Daisy" button had no way to actually reach
+  // Daisy — she only exists as one of this panel's four personas, with no
+  // page of her own. Lily/Rose's dock buttons open a real page each; this
+  // gives Daisy's (and any persona's) dock button a real destination: open
+  // this panel already switched to that persona, instead of silently
+  // falling back to whatever page the button happened to carry a stale
+  // data-route for.
   function openPersona(name) {
-    setPersona(name);
+    if (name && PERSONAS[name] && name !== persona) setPersona(name);
     togglePanel(true);
   }
 
