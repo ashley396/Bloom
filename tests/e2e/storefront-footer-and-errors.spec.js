@@ -25,7 +25,10 @@ function buildFixture() {
     site: resolved,
     products: [],
     commerce: { online_ordering_enabled: true, stripe_checkout_enabled: false, pay_later_enabled: true, stripe_available: false, payment_modes: ["pay_later"] },
-    domain: { host: "rose-and-co.bloom-sites.com", base_url: resolved.base_url, purchased: false, connected: false, status: "bloom_subdomain" },
+    // Matches the real backend shape post launch-repair: host is derived
+    // from base_url (the site's actual routable address), not a separate
+    // hardcoded bloom-sites.com string with no DNS/routing behind it.
+    domain: { host: resolved.base_url.replace(/^https?:\/\//i, ""), base_url: resolved.base_url, purchased: false, connected: false, status: "bloom_subdomain" },
   };
 }
 

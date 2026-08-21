@@ -9,6 +9,8 @@
  *   /verify-email     -> /verify-email.html
  *   /forgot-password  -> /forgot-password.html
  *   /reset-password   -> /reset-password.html
+ *   /store/*             -> /storefront/index.html
+ *   /storefront-preview/* -> /storefront/index.html
  *   /*                -> /index.html   (SPA catch-all, matches netlify.toml)
  *
  * Netlify Functions are not served here — there is no Supabase/Stripe
@@ -54,8 +56,17 @@ const CONTENT_TYPES = {
   ".pdf": "application/pdf",
 };
 
+// `/store/*` and `/storefront-preview/*` are the storefront SPA's own
+// client-side routes (shop slug, page slug, product id) — never real
+// files. netlify.toml redirects both prefixes to /storefront/index.html;
+// mirror that here too, not just the exact-match EXPLICIT_REDIRECTS.
+function isStorefrontRoute(cleanPath) {
+  return /^\/store\//.test(cleanPath) || /^\/storefront-preview\//.test(cleanPath);
+}
+
 function resolveFile(urlPath) {
   const clean = urlPath.split("?")[0].split("#")[0];
+  if (isStorefrontRoute(clean)) return path.join(ROOT, "storefront", "index.html");
   const mapped = EXPLICIT_REDIRECTS[clean] || clean;
   let filePath = path.join(ROOT, decodeURIComponent(mapped));
 

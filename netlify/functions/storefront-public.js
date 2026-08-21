@@ -372,7 +372,15 @@ export async function handler(event) {
           ]
         },
         domain: {
-          host: shop.slug ? `${shop.slug}.bloom-sites.com` : null,
+          // Launch-repair: this used to hardcode `${slug}.bloom-sites.com`
+          // — a pre-rebrand domain with no real DNS/routing behind it at
+          // all (there's no bloom-sites.com redirect anywhere in this
+          // project). The site's actual, working temporary address is
+          // exactly what `base_url` already resolves to (a florisyn.com
+          // path, or the shop's connected custom domain) — derive `host`
+          // from that instead of a second, independently-hardcoded string
+          // that had drifted out of sync with the real routing.
+          host: resolved.base_url ? resolved.base_url.replace(/^https?:\/\//i, "") : null,
           base_url: resolved.base_url,
           purchased: false,
           connected: !!shop.custom_domain,
