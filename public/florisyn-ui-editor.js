@@ -1170,7 +1170,7 @@
       </article>
       <article class="panel florisyn-design-admin-panel" style="margin-top:16px">
         <h2>Character voices</h2>
-        <p class="subtle">Upload custom audio for Lily, Rose, Daisy, and Bud (mp3/wav/ogg/m4a, under 3.5 MB).</p>
+        <p class="subtle">Upload custom audio for Lily, Rose, Daisy, and Bud (mp3/wav/ogg/m4a, under 3.5 MB). Stored in this browser for local preview only — Daisy speaks only from her uploaded sample; Lily, Rose, and Bud's real spoken replies use their Florisyn cloud voice, unaffected by this upload.</p>
         <div class="voice-upload-grid">
           ${PERSONAS.map(
             (p) => `<div class="voice-card" data-voice-card="${p}">

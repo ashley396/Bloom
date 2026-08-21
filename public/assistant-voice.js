@@ -285,7 +285,7 @@
         </label>
         <button type="button" class="secondary" data-play-upload="${persona}">Play upload</button>
       </div>
-      <p class="subtle" data-upload-voice-meta="${persona}">Custom uploads are managed in Admin → UI Design Mode.</p>`
+      <p class="subtle" data-upload-voice-meta="${persona}">Uploads play back only when you preview them here or in Admin → UI Design Mode, and are stored in this browser. Daisy speaks only from an uploaded sample; Lily, Rose, and Bud's real spoken replies keep using the cloud/device voice settings above — this upload doesn't change that.</p>`
     );
 
     function fillSelect() {
