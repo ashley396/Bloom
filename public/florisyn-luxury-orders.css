@@ -547,4 +547,15 @@ body.florisyn-atelier #ordersPage.florisyn-lux-orders #telemetryLog {
   body.florisyn-atelier #ordersPage .ord-filter-btn {
     flex: 0 0 auto;
   }
+
+  /* Pre-launch QA: these toolbar/pagination controls measured under the
+     44x44px touch-target floor on phone/tablet. */
+  body.florisyn-atelier #ordersPage #ordExportBtn,
+  body.florisyn-atelier #ordersPage #ordNewOrderBtn,
+  body.florisyn-atelier #ordersPage #ordDateRange,
+  body.florisyn-atelier #ordersPage #ordFilterBtn,
+  body.florisyn-atelier #ordersPage #ordPages button {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }

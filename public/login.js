@@ -23,6 +23,7 @@ async function bloomLogin(event){
     if(!response.ok){
       const err=new Error(data.error || `Sign in failed (${response.status})`);
       err.code=data.code||'';
+      err.isApiError=true;
       throw err;
     }
     const session={accessToken:data.accessToken,refreshToken:data.refreshToken,user:data.user,expiresAt:data.expiresIn?Date.now()+Number(data.expiresIn)*1000:null};
@@ -33,7 +34,14 @@ async function bloomLogin(event){
     const detail=String(error.message||'');
     const code=String(error.code||'');
     const emailParam=encodeURIComponent(email||'');
-    if(code==='shop_membership_required'||/not linked to an active flower shop/i.test(detail)){
+    // Pre-launch QA: a genuine network failure (fetch() itself rejecting —
+    // offline, DNS, connection refused/reset) never reaches the response.ok
+    // check above, so it has no code and its message is a raw browser
+    // string like "Failed to fetch" — that used to surface to the florist
+    // verbatim instead of a real, friendly message.
+    if(!error.isApiError){
+      message.textContent='Could not reach Florisyn. Check your connection and try again.';
+    }else if(code==='shop_membership_required'||/not linked to an active flower shop/i.test(detail)){
       message.textContent=detail;
     }else if(code==='membership_check_unavailable'){
       message.textContent=detail || 'Sign in is temporarily unavailable while Florisyn verifies shop access. Please try again shortly.';
