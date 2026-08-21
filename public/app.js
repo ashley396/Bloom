@@ -759,6 +759,52 @@ async function loadExpenses(){const result=await api("expenses");expenses=result
 function monthLabel(value){if(!/^\d{4}-\d{2}$/.test(String(value||"")))return value||"Period";const [year,month]=value.split("-");return new Date(Number(year),Number(month)-1,1).toLocaleDateString(undefined,{month:"long",year:"numeric"})}
 async function loadReports(){reportData=await api("finance");const a=reportData.items||[],totals=reportData.totals||{};$("#reportRevenue").textContent=money(totals.revenue||0);$("#reportExpenses").textContent=money(totals.expenses||0);$("#reportProfit").textContent=money(totals.profit||0);$("#reportMargin").textContent=`${Number(totals.margin||0).toFixed(1)}%`;$("#financeList").innerHTML=a.length?a.map(x=>`<div class="report-row"><strong>${esc(monthLabel(x.month))}</strong><span>Revenue ${money(x.revenue)}</span><span>Expenses ${money(x.expenses)}</span><span>Profit ${money(x.profit)}</span></div>`).join(""):empty("No report data yet. Add paid orders or expenses to begin.");const categories=reportData.categories||[];$("#expenseCategoryReport").innerHTML=categories.length?categories.map(x=>`<div class="report-row"><strong>${esc(x.category||"Other")}</strong><span>${money(x.amount)}</span><span>${Number(x.percent||0).toFixed(1)}%</span></div>`).join(""):empty("No expense categories yet.")}
 function exportReportsCsv(){const rows=[["Period","Revenue","Expenses","Profit"],...(reportData.items||[]).map(x=>[monthLabel(x.month),Number(x.revenue||0).toFixed(2),Number(x.expenses||0).toFixed(2),Number(x.profit||0).toFixed(2)])];rows.push(["TOTAL",Number(reportData.totals?.revenue||0).toFixed(2),Number(reportData.totals?.expenses||0).toFixed(2),Number(reportData.totals?.profit||0).toFixed(2)]);const csv=rows.map(row=>row.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n"),blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`bloom-financial-report-${localTodayStr()}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+// Switching Barrier Register, Wave 8: minimum-viable QuickBooks path — a real
+// Date/Description/Amount CSV shaped for QuickBooks Online's own generic
+// bank/register CSV import (the format QBO accepts with no custom app,
+// OAuth, or partner relationship). A full QuickBooks Online API sync is a
+// larger, separate project that needs a real Intuit developer app + OAuth
+// credentials this environment doesn't have — deferred rather than faked.
+function quickBooksCsvDate(isoDate){const s=String(isoDate||"").slice(0,10),m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?`${m[2]}/${m[3]}/${m[1]}`:s}
+function buildQuickBooksCsvRows(ordersList,expensesList){
+  const rows=[["Date","Description","Amount"]];
+  const revenueByDay={};
+  for(const o of ordersList||[]){
+    const paid=Number(o.amount_paid||0);
+    if(!(paid>0))continue;
+    const day=String(o.created_at||"").slice(0,10);
+    if(!day)continue;
+    revenueByDay[day]=(revenueByDay[day]||0)+paid;
+  }
+  Object.keys(revenueByDay).sort().forEach(day=>{
+    rows.push([quickBooksCsvDate(day),`Florisyn sales — ${day}`,revenueByDay[day].toFixed(2)]);
+  });
+  (expensesList||[])
+    .slice()
+    .sort((a,b)=>String(a.expense_date||"").localeCompare(String(b.expense_date||"")))
+    .forEach(e=>{
+      const amt=Number(e.amount||0);
+      if(!(amt>0))return;
+      const desc=[e.category,e.vendor].filter(Boolean).join(" — ")||"Business expense";
+      rows.push([quickBooksCsvDate(e.expense_date),desc,(-amt).toFixed(2)]);
+    });
+  return rows;
+}
+async function exportQuickBooksCsv(){
+  const btn=$("#exportQuickBooksCsv");
+  if(btn){btn.disabled=true;btn.textContent="Preparing…"}
+  try{
+    const [ordersResult,expensesResult]=await Promise.all([api("orders"),api("expenses")]);
+    const rows=buildQuickBooksCsvRows(ordersResult.items||[],expensesResult.items||[]);
+    if(rows.length<=1)return toast("No paid sales or expenses yet to export.");
+    const csv=rows.map(row=>row.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+    a.href=url;a.download=`florisyn-quickbooks-import-${localTodayStr()}.csv`;a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    toast("Downloaded — in QuickBooks Online, import this as a bank/register CSV (Date, Description, Amount).");
+  }catch(err){toast(err.message||"Could not build the QuickBooks export.")}
+  finally{if(btn){btn.disabled=false;btn.textContent="Export for QuickBooks"}}
+}
 async function loadWebsite(){shopSettings=(await api("settings")).item;const f=$("#websiteForm");for(const[k,v]of Object.entries(shopSettings||{})){if(!f.elements[k])continue;if(f.elements[k].type==="checkbox")f.elements[k].checked=Boolean(v);else f.elements[k].value=v??""}applyBranding(shopSettings);renderWebsite();await window.BloomLilyWebsiteWizard?.load?.();await window.BloomInstantWebsite?.load?.();await window.BloomThemeGallery?.load?.();await window.BloomWebsiteStudioV2?.load?.();await window.BloomWebsiteEditor?.load?.();await window.BloomWebsiteStudioShell?.load?.();await window.BloomWebsiteStudioDynamicPhotos?.load?.()}
 
 async function loadSettings(){shopSettings=(await api("settings")).item;window.shopSettings=shopSettings;const f=$("#settingsForm");for(const[k,v]of Object.entries(shopSettings||{})){if(f.elements[k])f.elements[k].value=v??""}applyBranding(shopSettings);previewBrandingForm();$("#mapsStatus").textContent="Shop defaults loaded. Use Calculate mileage on a delivery order to test the route service.";if(window.BloomSubscriptionCenter){window.subscriptionCenterApi=api;await window.BloomSubscriptionCenter.load(document.getElementById("shopBillingRoot"))}window.BloomMigrationWizard?.mount?.(document.getElementById("migrationWizardRoot"));window.BloomReferralHub?.load?.();window.BloomRose?.mountSettings?.(document.getElementById("daisySettingsHost"));window.BloomDaisy?.mountSettings?.(document.getElementById("daisySettingsHost"));window.FlorisynAssistantVoice?.mountSettings?.(document.getElementById("settingsPage"));window.BloomLilyVoice?.mountSettings?.(document.getElementById("settingsPage"));loadShopHours()}
@@ -1040,7 +1086,7 @@ function renderScannedInventory(){const box=$("#inventoryScanResults");box.inner
 $("#analyzeInventoryFile")?.addEventListener("click",async()=>{const file=$("#inventoryScanFile").files?.[0],status=$("#inventoryScanStatus");if(!file)return toast("Choose an inventory file first");if(file.size>8*1024*1024)return toast("Inventory file must be under 8 MB");status.hidden=false;status.textContent="Scanning inventory file…";try{if(file.name.toLowerCase().endsWith(".csv")||file.type.includes("csv")){scannedInventoryItems=parseInventoryCsv(await file.text())}else{const dataUrl=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)});scannedInventoryItems=(await api("inventory-scan",{method:"POST",body:JSON.stringify({file_name:file.name,file_type:file.type,data_url:dataUrl})})).items||[]}status.textContent=`Found ${scannedInventoryItems.length} inventory item${scannedInventoryItems.length===1?"":"s"}. Review before importing.`;renderScannedInventory()}catch(err){status.textContent=err.message;toast(err.message)}});
 $("#inventoryScanForm")?.addEventListener("submit",async e=>{e.preventDefault();const selected=[...$$('[data-scan-select]:checked')].map(cb=>scannedInventoryItems[Number(cb.dataset.scanSelect)]).filter(Boolean);if(!selected.length)return toast("Select at least one item");const btn=$("#importScannedInventory");btn.disabled=true;btn.textContent="Importing…";try{await api("inventory",{method:"POST",body:JSON.stringify({items:selected})});$("#inventoryScanDialog").close();toast(`${selected.length} inventory item${selected.length===1?"":"s"} imported`);await loadInventory();await loadDashboard()}catch(err){toast(err.message)}finally{btn.disabled=false;btn.textContent="Import selected items"}});
 $("#receiptFile").onchange=async e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>5*1024*1024)return toast("Receipt must be under 5 MB");receiptDataUrl=await new Promise((a,b)=>{const r=new FileReader();r.onload=()=>a(r.result);r.onerror=b;r.readAsDataURL(file)});if(file.type.startsWith("image/")){$("#receiptPreview").src=receiptDataUrl;$("#receiptPreview").hidden=false}};
-$("#expenseSearch")?.addEventListener("input",renderExpenses);$("#expenseCategoryFilter")?.addEventListener("change",renderExpenses);$("#expenseMonthFilter")?.addEventListener("change",renderExpenses);$("#clearExpenseFilters")?.addEventListener("click",()=>{$("#expenseSearch").value="";$("#expenseCategoryFilter").value="";$("#expenseMonthFilter").value="";renderExpenses()});$("#refreshReports")?.addEventListener("click",async()=>{try{await loadReports();toast("Reports refreshed")}catch(err){toast(err.message)}});$("#exportReportsCsv")?.addEventListener("click",exportReportsCsv);
+$("#expenseSearch")?.addEventListener("input",renderExpenses);$("#expenseCategoryFilter")?.addEventListener("change",renderExpenses);$("#expenseMonthFilter")?.addEventListener("change",renderExpenses);$("#clearExpenseFilters")?.addEventListener("click",()=>{$("#expenseSearch").value="";$("#expenseCategoryFilter").value="";$("#expenseMonthFilter").value="";renderExpenses()});$("#refreshReports")?.addEventListener("click",async()=>{try{await loadReports();toast("Reports refreshed")}catch(err){toast(err.message)}});$("#exportReportsCsv")?.addEventListener("click",exportReportsCsv);$("#exportQuickBooksCsv")?.addEventListener("click",exportQuickBooksCsv);
 $("#expenseForm").onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f)),btn=$("#expenseSaveButton");if(!d.expense_date)return toast("Choose an expense date.");if(!(Number(d.amount)>0))return toast("Enter an expense amount greater than $0.00.");d.receipt_data_url=receiptDataUrl;btn.disabled=true;btn.textContent="Saving…";try{await api("expenses",{method:d.id?"PATCH":"POST",body:JSON.stringify(d)});f.reset();receiptDataUrl=null;$("#receiptPreview").removeAttribute("src");$("#receiptPreview").hidden=true;$("#expenseDialog").close();toast(d.id?"Expense updated":"Expense saved");await Promise.all([loadExpenses(),loadDashboard()])}catch(err){toast(err.message)}finally{btn.disabled=false;btn.textContent="Save expense"}};
 $("#wireOrderPickup")?.addEventListener("change",e=>{const pickup=e.target.checked;$("#wireOrderAddressLabel")?.classList.toggle("is-hidden",pickup);const addr=$("#wireOrderAddress");if(addr)addr.required=!pickup});
 $("#wireOrderForm").onsubmit=async e=>{
