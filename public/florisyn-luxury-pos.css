@@ -1140,13 +1140,48 @@ body.florisyn-atelier .pos-lux-statusbar {
     grid-template-rows: none !important;
   }
 
+  /* Pre-launch QA: this used to hide UNIT PRICE outright (nth-child(3))
+     to fit the row in a narrow width — the only place a cart line's price
+     is visible or editable at all. A Quick Sale tile always adds at
+     price:0 by design (editable once in the cart) — on phone/tablet that
+     left every tapped item stuck at $0.00 with no way to see or correct
+     it. Wraps to two lines instead of dropping the data. */
   #posPage #florisynPosLux .pos-lux-queue .cart-table-head,
   #posPage #florisynPosLux .pos-lux-queue .cart-row {
-    grid-template-columns: 80px minmax(0, 1fr) 88px;
+    grid-template-columns: 72px minmax(0, 1fr) auto;
+    grid-template-areas: "qty item item" "qty price total";
+    row-gap: 6px;
+  }
+
+  #posPage #florisynPosLux .pos-lux-queue .cart-table-head span:nth-child(1),
+  #posPage #florisynPosLux .pos-lux-queue .cart-row > .qty-control {
+    grid-area: qty;
+  }
+
+  #posPage #florisynPosLux .pos-lux-queue .cart-table-head span:nth-child(2),
+  #posPage #florisynPosLux .pos-lux-queue .cart-row > .pos-lux-item {
+    grid-area: item;
   }
 
   #posPage #florisynPosLux .pos-lux-queue .cart-table-head span:nth-child(3),
-  #posPage #florisynPosLux .pos-lux-queue .cart-row > span:nth-child(3) {
-    display: none;
+  #posPage #florisynPosLux .pos-lux-queue .cart-row > .pos-lux-unit {
+    grid-area: price;
+    display: flex !important;
+    align-items: center;
+  }
+
+  #posPage #florisynPosLux .pos-lux-queue .cart-table-head span:nth-child(4),
+  #posPage #florisynPosLux .pos-lux-queue .cart-row > .pos-lux-line-total {
+    grid-area: total;
+  }
+
+  #posPage #florisynPosLux .pos-lux-queue input[data-cart-price] {
+    width: 100%;
+  }
+
+  /* Pre-launch QA: 2px under the 44x44px touch-target floor. */
+  #posSplitPayBtn,
+  #posHoldOrderBtn2 {
+    min-height: 44px;
   }
 }

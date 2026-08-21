@@ -1,7 +1,15 @@
 const $ = (s) => document.querySelector(s);
 async function api(path, opt = {}) {
   const base = path.startsWith("auth-") ? `/api/${path}` : `/.netlify/functions/${path}`;
-  const r = await fetch(base, { ...opt, headers: { "Content-Type": "application/json", ...(opt.headers || {}) } });
+  let r;
+  try {
+    r = await fetch(base, { ...opt, headers: { "Content-Type": "application/json", ...(opt.headers || {}) } });
+  } catch {
+    // Pre-launch QA: fetch() itself rejecting (offline, DNS, connection
+    // refused/reset) used to surface as the raw browser string "Failed to
+    // fetch" instead of a real, friendly message.
+    throw new Error("Could not reach Florisyn. Check your connection and try again.");
+  }
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(d.error || `Request failed (${r.status})`);
   return d;
@@ -55,7 +63,13 @@ $("#signupForm").addEventListener("submit", async (e) => {
     const d = await api("auth-signup", { method: "POST", body: JSON.stringify(payload) });
     if (d.confirmationRequired) {
       sessionStorage.setItem("florisyn_pending_email", payload.email);
-      location.href = `/verify-email?pending=1&email=${encodeURIComponent(payload.email)}`;
+      // Pre-launch QA: the backend already knows whether a confirmation
+      // email actually sent (confirmationEmailSent) — that signal used to
+      // be thrown away here, so /verify-email always showed the same
+      // unconditional "check your inbox" message even when sending failed
+      // for a real reason (not just "no provider configured yet").
+      const sentParam = d.confirmationEmailSent ? "1" : "0";
+      location.href = `/verify-email?pending=1&sent=${sentParam}&email=${encodeURIComponent(payload.email)}`;
       return;
     }
     if (d.accessToken) {
