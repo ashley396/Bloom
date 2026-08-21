@@ -122,3 +122,50 @@ test.describe("Holiday Command Center: pausing/resuming order intake preserves t
     await expect(card.locator(".eyebrow")).toHaveText("PLANNING");
   });
 });
+
+test.describe("Holiday Command Center: double-clicking 'Add peak' does not create a duplicate holiday", () => {
+  test("a slow-connection double-click on Add peak sends exactly one POST — the real cause of 'duplicate holiday cards'", async ({ page }) => {
+    await mockBackend(page);
+    await withFakeSession(page);
+
+    let postCount = 0;
+    const items = [];
+    await page.route("**/.netlify/functions/holiday-command", async (route) => {
+      const req = route.request();
+      if (req.method() === "GET") {
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items }) });
+      }
+      if (req.method() === "POST") {
+        postCount += 1;
+        // Simulate a slow connection — this is the window a real double-click
+        // used to race through and fire the handler twice.
+        await new Promise((r) => setTimeout(r, 400));
+        const body = JSON.parse(req.postData() || "{}");
+        items.push({ id: `peak-${postCount}`, ...body, capacity: { level: "ok", pct: 0, message: "" } });
+        return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ item: items[items.length - 1] }) });
+      }
+      return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    });
+
+    await page.goto("/");
+    await expect(page.locator("#app")).toBeVisible({ timeout: 10_000 });
+    await page.locator('nav.florisyn-lux-nav button[data-page="holidayPage"]').click();
+    await page.locator("#holidayShowFormBtn").click();
+
+    await page.fill('#holidayPeakForm [name="name"]', "Valentine's Day");
+    await page.fill('#holidayPeakForm [name="starts_on"]', "2027-02-01");
+    await page.fill('#holidayPeakForm [name="ends_on"]', "2027-02-14");
+
+    // Two real, back-to-back submit events dispatched before either has a
+    // chance to yield to the network — exactly what a fast real-world
+    // double-click produces, and exactly what form.dataset.submitting is
+    // meant to guard against.
+    await page.evaluate(() => {
+      const form = document.getElementById("holidayPeakForm");
+      form.requestSubmit();
+      form.requestSubmit();
+    });
+    await expect(page.locator('[data-holiday-id^="peak-"]')).toHaveCount(1, { timeout: 5_000 });
+    expect(postCount).toBe(1);
+  });
+});
