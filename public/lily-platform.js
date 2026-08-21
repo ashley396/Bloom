@@ -614,5 +614,13 @@
     deps = null;
   }
 
-  window.BloomLilyPlatform = { init, destroy, toggle: () => togglePanel() };
+  // Opens the panel already switched to the requested persona — Daisy has no
+  // page of her own, so her dock button needs a real way in rather than a
+  // stale route.
+  function openPersona(name) {
+    setPersona(name);
+    togglePanel(true);
+  }
+
+  window.BloomLilyPlatform = { init, destroy, toggle: () => togglePanel(), open: openPersona };
 })();

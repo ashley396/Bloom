@@ -89,14 +89,21 @@
     root.querySelector("#daisySeasonal")?.addEventListener("change", persist);
   }
 
-  window.BloomRose = {
+  // Naming cleanup: this file's own settings panel, storage key, and every
+  // label in it say "DAISY" — but the primary global it exported was named
+  // after Rose instead (with BloomDaisy only aliased second), and app.js
+  // booted the Daisy mascot through that Rose-named global. That collided
+  // in name (though never in behavior — the real Rose business advisor
+  // lives entirely separately in florisyn-luxury-business-os.js's
+  // window.FlorisynBusinessOs) with an assistant this file has nothing to
+  // do with. BloomDaisy is now the real export.
+  window.BloomDaisy = {
     mount,
     mountSettings,
     gentleWag,
     load,
     save
   };
-  window.BloomDaisy = window.BloomRose;
 
   document.addEventListener("DOMContentLoaded", () => {
     if (document.getElementById("app") && !document.getElementById("app").hidden) mount();

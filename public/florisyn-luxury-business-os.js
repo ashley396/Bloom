@@ -1,44 +1,20 @@
 /**
  * Florisyn Business OS — Rose AI Business Advisor chat + pulse panel.
+ *
+ * Beta-blocker repair: the "Business Pulse" / "Business Insights" cards and
+ * Rose's welcome message used to be hardcoded fabricated statistics ("your
+ * wedding season bookings are up 23%", a fake 15% price-increase
+ * recommendation, a fake competitor-engagement claim, a stockout alert not
+ * tied to any real inventory) shown to every shop regardless of its real
+ * data — styled and timestamped exactly like real AI analysis. They now
+ * render the real, shop-scoped suggestions the business-ecosystem backend
+ * already computes (netlify/functions/business-ecosystem.js, action
+ * "lily_coach") — the same real pipeline business-ecosystem-ui.js's
+ * "Lily coach" tab already used, just not previously shown here. If that
+ * call fails or returns nothing, an honest empty/unavailable state is
+ * shown — never invented numbers.
  */
 (function () {
-  const TOPIC_REPLIES = {
-    pricing: [
-      "Wedding demand is strong — lift signature packages 12–15% while holding steady on weekday everyday price points. Protect entry volume; capture margin where consults are already booked.",
-      "Before a blanket price bump, tier by labor: hand-tied everyday stays flat, premium vase and bridal installs move up first. That protects walk-in volume while you recover design time.",
-      "Check stem cost on your top three wedding SKUs this week. If rose or hydrangea landed higher, adjust package pricing now instead of eating margin on Saturday rush orders."
-    ],
-    marketing: [
-      "Lead with behind-the-scenes Reels — process content is outperforming static posts in your market. End each clip with one clear CTA: wedding consult or midweek everyday pickup.",
-      "This week, pair one educational carousel (care tips, vase sizing) with one social-proof post (review screenshot, delivery moment). Alternate formats so the feed does not feel repetitive.",
-      "Repurpose your best recent arrangement as three assets: feed photo, Story poll on color preference, and a short caption with delivery-area keywords for local search."
-    ],
-    competitors: [
-      "Nearby shops are discounting hard on premium vase work. Your edge is service story — highlight white-glove delivery and consult quality instead of matching coupon wars.",
-      "Competitors are under-indexing on sympathy professionalism. A calm, consistent sympathy landing page and clear standing-spray tiers can win trust without racing to the bottom.",
-      "If rivals push free delivery, counter with value: timed delivery windows, photo proof, and upgrade stems — not a margin-killing free zone."
-    ],
-    review: [
-      "Month-to-date: wedding bookings trending up, average ticket stable, rose usage hot for the weekend. Reorder high-velocity stems by Thursday and confirm VIP bridal consults.",
-      "Quick pulse: track unpaid balances and delivery-heavy days first — those two usually explain cash-flow surprises before month end.",
-      "Scan last month's top five SKUs by margin, not just revenue. Promote the winners in POS favorites and trim the slow movers from standing cooler commitments."
-    ],
-    general: [
-      "Three moves for this week: protect wedding package margin, schedule one midweek marketing push, and reorder fast-moving roses before the weekend rush.",
-      "Start with what is due today — unpaid orders, delivery prep, and cooler gaps — then ask me to go deeper on pricing, marketing, competitors, or a monthly review.",
-      "Pick one profit lever and one visibility lever this week. Rose can walk you through either if you name the goal (more weddings, higher AOV, or better weekday traffic)."
-    ]
-  };
-
-  function simpleHash(text) {
-    let h = 2166136261;
-    for (let i = 0; i < text.length; i++) {
-      h ^= text.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return h >>> 0;
-  }
-
   function $(sel, root) {
     return (root || document).querySelector(sel);
   }
@@ -65,8 +41,10 @@
     return "Ashley";
   }
 
+  // No fabricated stat — Rose no longer claims to have "already analyzed"
+  // anything before a florist has asked her a single question.
   function welcomeCopy() {
-    return `Hello ${floristName()}! I have been analyzing your shop performance. Your wedding season bookings are up 23% — shall I suggest pricing adjustments to maximize revenue? I also have 3 new marketing ideas ready for you.`;
+    return `Hello ${floristName()}! I'm Rose, your business advisor. Ask me about pricing, marketing, or operations, or check Business Pulse for a few suggestions based on your shop's real numbers.`;
   }
 
   function appendMessage(role, text) {
@@ -91,16 +69,15 @@
     appendMessage("assistant", welcomeCopy());
   }
 
-  function replyFor(prompt) {
-    const clean = String(prompt || "").trim();
-    let topic = "general";
-    if (/price|pricing|wedding|package|margin|markup/i.test(clean)) topic = "pricing";
-    else if (/market|instagram|social|content|reel|post|promo/i.test(clean)) topic = "marketing";
-    else if (/competitor|rival|nearby|compare/i.test(clean)) topic = "competitors";
-    else if (/month|review|report|kpi|pulse|week/i.test(clean)) topic = "review";
-    const variants = TOPIC_REPLIES[topic] || TOPIC_REPLIES.general;
-    return variants[simpleHash(clean.toLowerCase()) % variants.length];
-  }
+  // Beta-blocker repair: askRose() used to silently substitute a canned,
+  // hash-selected paragraph from a hardcoded template bank whenever the
+  // real AI call failed — rendered in the identical bubble as a genuine
+  // answer, with no indication it wasn't real. Rose now matches Lily's
+  // honest-failure pattern (public/lily-platform.js friendlyLilyError):
+  // say plainly that the AI service is unavailable, never fabricate an
+  // answer in its place.
+  const ROSE_UNAVAILABLE =
+    "Rose's AI business analysis is temporarily unavailable. Please try again in a moment — the Business Pulse suggestions are still based on your shop's real numbers.";
 
   async function askRose(prompt) {
     const clean = (prompt || "").trim();
@@ -111,36 +88,29 @@
     appendMessage("user", clean);
     const send = $("#bosSendBtn");
     if (send) send.disabled = true;
+    const smartAi = typeof window.smartAi === "function" ? window.smartAi : null;
+    if (!smartAi) {
+      appendMessage("assistant", ROSE_UNAVAILABLE);
+      if (send) send.disabled = false;
+      return;
+    }
+    const thinking = document.createElement("article");
+    thinking.className = "bos-msg assistant bos-thinking";
+    thinking.innerHTML = `<img class="bos-msg-avatar" src="/assets/assistants/rose-portrait.png" alt="" width="28" height="28"><div class="bos-bubble"><p>Rose is reviewing your numbers…</p></div>`;
+    $("#bosMessages")?.appendChild(thinking);
     try {
-      const smartAi = typeof window.smartAi === "function" ? window.smartAi : null;
-      if (smartAi) {
-        const thinking = document.createElement("article");
-        thinking.className = "bos-msg assistant bos-thinking";
-        thinking.innerHTML = `<img class="bos-msg-avatar" src="/assets/assistants/rose-portrait.png" alt="" width="28" height="28"><div class="bos-bubble"><p>Rose is reviewing your numbers…</p></div>`;
-        $("#bosMessages")?.appendChild(thinking);
-        try {
-          const context = typeof window.loadAiContext === "function" ? await window.loadAiContext() : {};
-          const d = await smartAi({
-            mode: "chat",
-            persona: "Rose",
-            prompt: clean,
-            context
-          });
-          thinking.remove();
-          const answer =
-            d?.answer ||
-            d?.message ||
-            d?.result?.message ||
-            (typeof d?.result === "string" ? d.result : "") ||
-            replyFor(clean);
-          appendMessage("assistant", String(answer).trim() || replyFor(clean));
-          return;
-        } catch {
-          thinking.remove();
-        }
-      }
-      await new Promise((r) => setTimeout(r, 280));
-      appendMessage("assistant", replyFor(clean));
+      const context = typeof window.loadAiContext === "function" ? await window.loadAiContext() : {};
+      const d = await smartAi({ mode: "chat", persona: "Rose", prompt: clean, context });
+      thinking.remove();
+      const answer =
+        d?.answer ||
+        d?.message ||
+        d?.result?.message ||
+        (typeof d?.result === "string" ? d.result : "");
+      appendMessage("assistant", String(answer || "").trim() || ROSE_UNAVAILABLE);
+    } catch {
+      thinking.remove();
+      appendMessage("assistant", ROSE_UNAVAILABLE);
     } finally {
       if (send) send.disabled = false;
     }
@@ -156,6 +126,71 @@
     $$("[data-bos-panel]").forEach((panel) => {
       panel.classList.toggle("active", panel.dataset.bosPanel === id);
     });
+  }
+
+  // ---- Real, shop-scoped Business Pulse / Business Insights ----
+  // Same backend action business-ecosystem-ui.js's "Lily coach" tab
+  // already calls (netlify/functions/business-ecosystem.js, action
+  // "lily_coach") — real inventory/order/subscription/margin signals,
+  // never a hardcoded statistic. Cached only so the two render targets
+  // (pulse aside + Business Insights tab) and the Ask Rose/Add-to-Tasks
+  // buttons share one fetch per page load.
+  let insightsCache = null;
+
+  async function fetchInsights() {
+    const fn = window.bloomEcosystemApi || window.api;
+    if (typeof fn !== "function") throw new Error("Sign in required.");
+    const d = await fn("business-ecosystem", { method: "POST", body: JSON.stringify({ action: "lily_coach" }) });
+    return Array.isArray(d?.suggestions) ? d.suggestions : [];
+  }
+
+  function emptyPulseState(message) {
+    return `<p class="bos-empty subtle">${esc(message)}</p>`;
+  }
+
+  function insightCard(suggestion, fetchedAtIso) {
+    return `<article class="bos-insight" data-bos-suggestion-id="${esc(suggestion.id)}">
+      <h3>${esc(suggestion.title)}</h3>
+      <p>${esc(suggestion.detail)}</p>
+      <div class="bos-insight-actions">
+        <button type="button" data-bos-action="ask">Ask Rose</button>
+        <button type="button" data-bos-action="add-task">Add to Tasks</button>
+        <time datetime="${esc(fetchedAtIso)}">Just now</time>
+      </div>
+    </article>`;
+  }
+
+  function renderInsights(target, suggestions, fetchedAtIso) {
+    if (!target) return;
+    if (!suggestions.length) {
+      target.innerHTML = emptyPulseState("No specific recommendations right now — your shop's core numbers look steady.");
+      return;
+    }
+    target.innerHTML = suggestions.map((s) => insightCard(s, fetchedAtIso)).join("");
+  }
+
+  async function loadInsights() {
+    const pulse = $("#bosPulseInsights");
+    const tab = $("#bosInsightsTabList");
+    if (!pulse && !tab) return;
+    if (pulse) pulse.innerHTML = emptyPulseState("Loading Rose's suggestions…");
+    if (tab) tab.innerHTML = emptyPulseState("Loading Rose's suggestions…");
+    try {
+      const suggestions = await fetchInsights();
+      const fetchedAtIso = new Date().toISOString();
+      insightsCache = { suggestions, fetchedAtIso };
+      renderInsights(pulse, suggestions, fetchedAtIso);
+      renderInsights(tab, suggestions, fetchedAtIso);
+    } catch (e) {
+      insightsCache = null;
+      const msg = `Rose couldn't load your shop's numbers right now${e?.message ? `: ${e.message}` : "."}`;
+      if (pulse) pulse.innerHTML = emptyPulseState(msg);
+      if (tab) tab.innerHTML = emptyPulseState(msg);
+    }
+  }
+
+  function findSuggestion(id) {
+    return insightsCache?.suggestions?.find((s) => s.id === id) || null;
   }
 
   function wireActions() {
@@ -187,23 +222,23 @@
       askRose(prompt);
     });
 
-    $$("#ecosystemPage [data-bos-action]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const action = btn.dataset.bosAction;
-        const title = btn.closest(".bos-insight")?.querySelector("h3")?.textContent || "Insight";
-        if (action === "apply") {
-          window.toast?.(`Rose applied: ${title}`);
-          addActionItem(`Applied — ${title}`, "Done");
-        } else if (action === "create-post") {
-          window.toast?.("Opening Lily AI Studio to design the Instagram post…");
-          if (window.FlorisynRouter?.navigate) window.FlorisynRouter.navigate("/lily-ai-studio");
-          else window.showPage?.("aiStudioPage");
-        } else if (action === "add-task") {
-          window.toast?.("Added to Action Items");
-          addActionItem(btn.closest(".bos-insight")?.querySelector("p")?.textContent || title, "Open");
-          setTab("actions");
-        }
-      });
+    // Delegated: insight cards are rendered dynamically from real data, so
+    // there's no static button to bind at wire-time.
+    $("#ecosystemPage")?.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-bos-action]");
+      if (!btn) return;
+      const card = btn.closest("[data-bos-suggestion-id]");
+      const suggestion = card ? findSuggestion(card.dataset.bosSuggestionId) : null;
+      if (!suggestion) return;
+      const action = btn.dataset.bosAction;
+      if (action === "ask") {
+        setTab("chat");
+        askRose(suggestion.prompt || suggestion.title);
+      } else if (action === "add-task") {
+        window.toast?.("Added to Action Items");
+        addActionItem(`${suggestion.title} — ${suggestion.detail}`, "Open");
+        setTab("actions");
+      }
     });
   }
 
@@ -222,9 +257,10 @@
     wireActions();
     ensureWelcome();
     setTab("chat");
+    loadInsights();
   }
 
-  window.FlorisynBusinessOs = { boot, askRose, setTab };
+  window.FlorisynBusinessOs = { boot, askRose, setTab, loadInsights };
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       if ($("#ecosystemPage")?.classList.contains("active")) boot();
