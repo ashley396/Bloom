@@ -160,7 +160,12 @@
   function bind(el) {
     el.querySelector("#weddingForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const fd = new FormData(e.target);
+      const form = e.currentTarget;
+      if (form.dataset.submitting === "1") return;
+      form.dataset.submitting = "1";
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+      const fd = new FormData(form);
       const body = Object.fromEntries(fd.entries());
       const dollars = Number(body.budget_dollars || 0);
       body.budget_cents = Number.isFinite(dollars) ? Math.round(dollars * 100) : 0;
@@ -174,6 +179,9 @@
         await load();
       } catch (err) {
         toast(err.message || "Could not save wedding.");
+      } finally {
+        form.dataset.submitting = "";
+        if (submitBtn) submitBtn.disabled = false;
       }
     });
 

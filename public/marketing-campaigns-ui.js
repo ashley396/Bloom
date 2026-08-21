@@ -576,13 +576,18 @@
     });
     el.querySelector("#marketingLilyForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const fd = new FormData(e.target);
+      const form = e.currentTarget;
+      if (form.dataset.submitting === "1") return;
+      const fd = new FormData(form);
       const idea = String(fd.get("idea") || "").trim();
       const channels = fd.getAll("lily_channels");
       if (!idea || !channels.length) {
         toast(!idea ? "Tell Lily what the campaign is about." : "Pick at least one channel.");
         return;
       }
+      form.dataset.submitting = "1";
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
       state.lilyDrafting = true;
       state.lilyError = null;
       render();
@@ -637,7 +642,12 @@
     });
     el.querySelector("#marketingCampaignForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const fd = new FormData(e.target);
+      const form = e.currentTarget;
+      if (form.dataset.submitting === "1") return;
+      form.dataset.submitting = "1";
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+      const fd = new FormData(form);
       const body = {
         name: fd.get("name"),
         goal: fd.get("goal"),
@@ -656,6 +666,9 @@
         render();
       } catch (err) {
         toast(err.message || "Could not create campaign.");
+      } finally {
+        form.dataset.submitting = "";
+        if (submitBtn) submitBtn.disabled = false;
       }
     });
     el.querySelectorAll("[data-campaign-act]").forEach((btn) => {
@@ -701,7 +714,12 @@
     el.querySelector("#marketingAnalyticsRetry")?.addEventListener("click", () => loadAnalytics());
     el.querySelector("#marketingPromotionForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const fd = new FormData(e.target);
+      const form = e.currentTarget;
+      if (form.dataset.submitting === "1") return;
+      form.dataset.submitting = "1";
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+      const fd = new FormData(form);
       const body = {
         name: fd.get("name"),
         promo_type: fd.get("promo_type"),
@@ -718,6 +736,9 @@
         await loadPromotions();
       } catch (err) {
         toast(err.message || "Could not save promotion.");
+      } finally {
+        form.dataset.submitting = "";
+        if (submitBtn) submitBtn.disabled = false;
       }
     });
     el.querySelectorAll("[data-promotion-act]").forEach((btn) => {
