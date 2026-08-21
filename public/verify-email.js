@@ -19,8 +19,20 @@ if (params.get("confirmed") === "1") {
   sessionStorage.removeItem("florisyn_pending_email");
 } else if (params.get("pending") === "1") {
   title.textContent = "Confirm your email";
-  lead.textContent = "Your account was created. We sent a confirmation link — check your inbox (and spam folder).";
-  msg.textContent = "If it does not arrive, use the resend button below.";
+  // Pre-launch QA: this used to claim "We sent a confirmation link"
+  // unconditionally, even on the one path signup itself can already tell
+  // apart — a real send failure (not just "no email provider configured
+  // yet", which auth-signup.js treats as a soft, expected case). Absent
+  // `sent` param (e.g. a bookmarked/older link) keeps the original
+  // friendly assumption rather than implying a failure we don't know
+  // happened.
+  if (params.get("sent") === "0") {
+    lead.textContent = "Your account was created, but we could not confirm the confirmation email sent just now.";
+    msg.textContent = "Use the resend button below — if it still does not arrive, contact Florisyn support.";
+  } else {
+    lead.textContent = "Your account was created. We sent a confirmation link — check your inbox (and spam folder).";
+    msg.textContent = "If it does not arrive, use the resend button below.";
+  }
   msg.classList.add("success");
   if (resendForm) resendForm.hidden = false;
 } else if (params.get("error") === "1") {

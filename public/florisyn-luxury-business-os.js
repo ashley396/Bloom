@@ -207,20 +207,66 @@
     });
   }
 
+  // Pre-launch QA: "Apply"/"Add to Tasks" only ever prepended a DOM row —
+  // no persistence at all, so the toast ("Rose applied: X" / "Added to
+  // Action Items") claimed something was saved when it vanished the
+  // instant the florist left this tab or refreshed. This is a personal,
+  // per-device reminder list (not shared business data), so localStorage
+  // — scoped per shop, same key convention as bloom_active_shop_id — is a
+  // real fix here without a new backend table/migration.
+  function actionItemsKey() {
+    const shopId = localStorage.getItem("bloom_active_shop_id") || "default";
+    return `bloom_bos_action_items:${shopId}`;
+  }
+
+  function loadActionItems() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(actionItemsKey()) || "[]");
+      return Array.isArray(raw) ? raw : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveActionItems(items) {
+    try {
+      localStorage.setItem(actionItemsKey(), JSON.stringify(items.slice(0, 50)));
+    } catch {
+      /* storage unavailable/full — the item still shows for this session */
+    }
+  }
+
+  function renderActionItem(list, item) {
+    const row = document.createElement("div");
+    row.className = "bos-action-item";
+    row.innerHTML = `<span>${esc(item.text)}</span><em>${esc(item.status)}</em>`;
+    list.prepend(row);
+  }
+
+  function renderActionItems() {
+    const list = $("#bosActionList");
+    if (!list) return;
+    const items = loadActionItems();
+    if (!items.length) return;
+    list.querySelector(".bos-empty")?.remove();
+    for (const item of [...items].reverse()) renderActionItem(list, item);
+  }
+
   function addActionItem(text, status) {
     const list = $("#bosActionList");
     if (!list) return;
-    const empty = list.querySelector(".bos-empty");
-    empty?.remove();
-    const row = document.createElement("div");
-    row.className = "bos-action-item";
-    row.innerHTML = `<span>${esc(text)}</span><em>${esc(status)}</em>`;
-    list.prepend(row);
+    list.querySelector(".bos-empty")?.remove();
+    const item = { text, status, at: new Date().toISOString() };
+    const items = loadActionItems();
+    items.push(item);
+    saveActionItems(items);
+    renderActionItem(list, item);
   }
 
   function boot() {
     wireActions();
     ensureWelcome();
+    renderActionItems();
     setTab("chat");
   }
 

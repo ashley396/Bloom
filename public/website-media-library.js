@@ -97,6 +97,7 @@
       const delBtn = e.target.closest("[data-delete-media]");
       if (delBtn) {
         const item = media.find((m) => m.id === delBtn.dataset.deleteMedia);
+        if (!confirm("Delete this image? This can't be undone.")) return;
         try {
           await api("delete_media", { id: item.id });
           media = media.filter((m) => m.id !== item.id);
