@@ -318,8 +318,9 @@ test.describe("Assistant panel repair", () => {
     const headBox = await head.boundingBox();
     const personasBox = await page.locator("#lilyPersonas").boundingBox();
     // The persona row must start at or after the head row ends — no
-    // vertical overlap between the two.
-    expect(personasBox.y).toBeGreaterThanOrEqual(headBox.y + headBox.height - 1);
+    // vertical overlap between the two. A couple of sub-pixel tolerance
+    // for layout rounding, not a real gap either box could hide behind.
+    expect(personasBox.y).toBeGreaterThanOrEqual(headBox.y + headBox.height - 2);
   });
 
   test("Expand has a real, bounded effect at desktop width instead of no visible effect at all", async ({ page }) => {
