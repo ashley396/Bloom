@@ -4,15 +4,33 @@
 .lily-panel{position:fixed;z-index:9001;right:22px;bottom:92px;width:min(420px,calc(100vw - 24px));max-height:min(78vh,720px);display:flex;flex-direction:column;border-radius:22px;overflow:hidden;background:var(--lily-panel-bg,#fffcfd);border:1px solid var(--lily-border,#eadde5);box-shadow:0 24px 70px #3d1a2e26;transform-origin:bottom right;animation:lilyIn .22s ease}
 .lily-panel[hidden]{display:none!important}
 @keyframes lilyIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
-.lily-panel-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(135deg,#fff 10%,#f7e5ee 70%);border-bottom:1px solid var(--lily-border,#eadde5)}
-.lily-panel-head strong{font-family:Georgia,serif;font-size:18px}
-.lily-panel-head small{display:block;color:#796a74;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
-.lily-head-tools{display:flex;gap:6px;align-items:center}
-.lily-head-tools button{border:none;background:#fff;border-radius:10px;width:34px;height:34px;cursor:pointer;box-shadow:0 2px 8px #5b234014}
+/* flex-wrap:nowrap and the min-width:0 on .lily-head-id (below, under
+   "Persona lanes") are both load-bearing: at phone widths the name+tag
+   column and the 3 fixed 34px tool buttons don't both fit at natural
+   size, and a page-wide `body.bloom-rc2 label{flex-wrap:...}`-style rule
+   elsewhere is not involved here, but the *default* initial value some
+   ancestor utility class sets can still coax a row into wrapping — that
+   turned this header into two visually stacked rows (name row, then a
+   tools row sitting hard against the persona nav below it) instead of
+   one, wasting vertical space and reading as broken instead of compact. */
+.lily-panel-head{display:flex;flex-wrap:nowrap!important;align-items:center;justify-content:space-between;gap:8px;padding:14px 16px;background:linear-gradient(135deg,#fff 10%,#f7e5ee 70%);border-bottom:1px solid var(--lily-border,#eadde5)}
+.lily-panel-head strong{font-family:Georgia,serif;font-size:18px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lily-panel-head small{display:block;color:#796a74;font-size:11px;letter-spacing:.08em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lily-head-tools{display:flex;flex:0 0 auto;gap:6px;align-items:center}
+.lily-head-tools button{flex:0 0 auto;border:none;background:#fff;border-radius:10px;width:34px;height:34px;cursor:pointer;box-shadow:0 2px 8px #5b234014}
 .lily-tabs{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid var(--lily-border,#eadde5);background:var(--lily-panel-bg,#fffcfd)}
 .lily-tabs button{flex:1;border:none;background:transparent;padding:8px;border-radius:10px;font-size:12px;font-weight:700;color:#796a74;cursor:pointer}
 .lily-tabs button.active{background:#f3e6ec;color:#7e214e}
 .lily-body{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:220px}
+/* A brand-new conversation (or one just cleared from history) renders no
+   .lily-msg children at all — renderChat() sets innerHTML from an empty
+   messages array. flex:1 above still claims all remaining panel height
+   regardless, so the whole panel rendered at its full max-height with a
+   big blank pink rectangle where messages would go. Letting the empty
+   body size to a small, friendly minimum instead of growing lets the
+   *panel* shrink to fit its actual content — the persona/tabs/toolbar/
+   compose rows are unaffected either way. */
+.lily-body:empty{flex:0 1 auto;min-height:64px}
 .lily-msg{max-width:92%;padding:10px 12px;border-radius:14px;font-size:14px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
 .lily-msg.user{align-self:flex-end;background:linear-gradient(145deg,#a72f67,#8f3f68);color:#fff;border-bottom-right-radius:4px}
 .lily-msg.assistant{align-self:flex-start;background:#fff;border:1px solid #eadde5;border-bottom-left-radius:4px}
@@ -49,6 +67,16 @@
 body[data-lily-theme="dark"] .lily-panel,body[data-lily-theme="dark"] .lily-tabs,body[data-lily-theme="dark"] .lily-compose{--lily-panel-bg:#2a2226;--lily-border:#4a3a42;--lily-toolbar-bg:#241c20;color:#f5eef2}
 body[data-lily-theme="dark"] .lily-msg.assistant{background:#342830;border-color:#4a3a42;color:#f5eef2}
 body[data-lily-theme="dark"] .lily-compose textarea,body[data-lily-theme="dark"] .lily-toolbar button,body[data-lily-theme="dark"] .lily-suggestions button{background:#342830;border-color:#4a3a42;color:#f5eef2}
+/* "Expand" (#lilyExpand) toggled the .lily-expanded class with no rule
+   for it above 640px — Chat/Recent/Coach's Expand button visibly did
+   nothing at tablet, narrow-desktop, or desktop widths. It needs *some*
+   larger-but-bounded state at those sizes too, not just at phone width
+   (where a near-fullscreen sheet is the right call and stays below). A
+   moderately bigger panel, not a page takeover: it must never approach
+   viewport size and hide the shop screen behind it. */
+@media(min-width:641px){
+  .lily-panel.lily-expanded{width:min(480px,calc(100vw - 48px));max-height:min(86vh,820px)}
+}
 @media(max-width:640px){
   .lily-fab{right:16px;bottom:16px;width:54px;height:54px}
   .lily-panel{right:12px;left:12px;width:auto;bottom:78px;max-height:70vh}

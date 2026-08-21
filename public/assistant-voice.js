@@ -249,11 +249,17 @@
             ? "Calm, friendly, and down-to-earth — a good buddy who's got it handled."
             : "Wise, steady, and kindly experienced — a calm older advisor.";
 
+    // Settings UI repair: three of these full panels (Lily, Rose, Bud) used
+    // to render open, back to back — a select, two sliders, two buttons,
+    // an upload row and a caption each — which is most of why the
+    // Branding card ran far longer than its "Shop information" neighbor
+    // in the two-column grid. <details> keeps every control (still the
+    // same elements/ids/handlers below) but lets a florist who doesn't
+    // need to retune voices leave all three collapsed to one line.
     root.insertAdjacentHTML(
       "beforeend",
-      `<section class="panel assistant-voice-panel" id="${id}" data-persona="${persona}">
-        <p class="eyebrow">${persona.toUpperCase()} VOICE</p>
-        <h2>Natural speech</h2>
+      `<details class="panel assistant-voice-panel" id="${id}" data-persona="${persona}">
+        <summary><span class="eyebrow">${persona.toUpperCase()} VOICE</span><strong>${esc(persona)}</strong><span class="subtle">Speed, pitch, preview &amp; uploads</span></summary>
         <p class="subtle">${blurb} Uses your device's best English voice when cloud voice is unavailable.</p>
         <label>${persona} voice
           <select class="assistant-voice-select" data-persona="${persona}">
@@ -272,7 +278,7 @@
           <button type="button" class="secondary assistant-voice-preview" data-persona="${persona}">Preview ${persona}</button>
           <button type="button" class="secondary assistant-voice-restore" data-persona="${persona}">Restore defaults</button>
         </div>
-      </section>`
+      </details>`
     );
 
     const panel = root.querySelector(`#${id}`);
@@ -285,7 +291,7 @@
         </label>
         <button type="button" class="secondary" data-play-upload="${persona}">Play upload</button>
       </div>
-      <p class="subtle" data-upload-voice-meta="${persona}">Custom uploads are managed in Admin → UI Design Mode.</p>`
+      <p class="subtle" data-upload-voice-meta="${persona}">Saved for this shop and used everywhere Florisyn plays ${esc(persona)}'s voice.</p>`
     );
 
     function fillSelect() {
