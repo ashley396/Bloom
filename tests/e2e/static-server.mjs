@@ -3,9 +3,13 @@
  * static hosting + redirects during the Playwright smoke test. It only
  * implements the handful of `netlify.toml` [[redirects]] rules the smoke
  * test actually needs (extend this list if a new smoke test needs more):
- *   /login   -> /login.html
- *   /signup  -> /signup.html
- *   /*       -> /index.html   (SPA catch-all, matches netlify.toml)
+ *   /login            -> /login.html
+ *   /signup           -> /signup.html
+ *   /admin            -> /admin.html
+ *   /verify-email     -> /verify-email.html
+ *   /forgot-password  -> /forgot-password.html
+ *   /reset-password   -> /reset-password.html
+ *   /*                -> /index.html   (SPA catch-all, matches netlify.toml)
  *
  * Netlify Functions are not served here — there is no Supabase/Stripe
  * connection in this sandbox to serve them against. Tests that need a
@@ -27,6 +31,10 @@ const EXPLICIT_REDIRECTS = {
   "/admin/": "/admin.html",
   "/verify-email": "/verify-email.html",
   "/verify-email/": "/verify-email.html",
+  "/forgot-password": "/forgot-password.html",
+  "/forgot-password/": "/forgot-password.html",
+  "/reset-password": "/reset-password.html",
+  "/reset-password/": "/reset-password.html",
 };
 
 const CONTENT_TYPES = {
