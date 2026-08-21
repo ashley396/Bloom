@@ -93,6 +93,20 @@ test("storefront preview fails closed without a configured secret", () => {
   );
 });
 
+test("missing-secret preview error is a real 503, not the generic 500 fallback", () => {
+  // Regression: without a statusCode, the shared fail() helper collapses any
+  // thrown error into "Unexpected Florisyn error" for the florist, hiding a
+  // plain missing-env-var condition a founder needs to actually see and fix.
+  try {
+    signPreviewToken("shop-1", Date.now() + 60000, null);
+    assert.fail("expected signPreviewToken to throw");
+  } catch (error) {
+    assert.equal(error.statusCode, 503);
+    assert.equal(error.code, "storefront_preview_not_configured");
+    assert.match(error.message, /Storefront preview is not configured/);
+  }
+});
+
 test("draft products hidden on public site", () => {
   const products = [
     { id: "1", publish_status: "draft", sync: { available_online: true } },

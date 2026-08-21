@@ -128,7 +128,7 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
   <div class="assistant-mini-dock">
     <button type="button" data-assistant="lily" data-route="/lily-ai-studio" data-page="aiStudioPage"><img src="/assets/assistants/lily-portrait.png" alt="Lily"><span><b>Lily</b><small>Creative Assistant</small></span></button>
     <button type="button" data-assistant="rose" data-route="/reports" data-page="reportsPage"><img src="/assets/assistants/rose-portrait.png" alt="Rose"><span><b>Rose</b><small>Business Advisor</small></span></button>
-    <button type="button" data-assistant="daisy" class="daisy-dock-btn" data-route="/dashboard" data-page="dashboardPage" title="Daisy"><img src="/assets/assistants/daisy-portrait.png" alt="Daisy"><span><b>Daisy</b><small>Shop Mascot</small></span></button>
+    <button type="button" data-assistant="daisy" class="daisy-dock-btn" title="Daisy"><img src="/assets/assistants/daisy-portrait.png" alt="Daisy"><span><b>Daisy</b><small>Shop Mascot</small></span></button>
   </div>
 </div>
 <div class="content">
@@ -877,35 +877,10 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
           <h2>Business Pulse</h2>
           <p>Rose's latest recommendations</p>
         </div>
-        <div class="bos-insights">
-          <article class="bos-insight">
-            <h3>Revenue Opportunity</h3>
-            <p>Increase wedding package prices by 15% based on demand analysis.</p>
-            <div class="bos-insight-actions">
-              <button type="button" data-bos-action="apply">Apply</button>
-              <time datetime="">Just now</time>
-            </div>
-          </article>
-          <article class="bos-insight">
-            <h3>Marketing Suggestion</h3>
-            <p>Post behind-the-scenes content on Instagram — competitors see 40% more engagement.</p>
-            <div class="bos-insight-actions">
-              <button type="button" data-bos-action="create-post">Create Post</button>
-              <time datetime="">Just now</time>
-            </div>
-          </article>
-          <article class="bos-insight">
-            <h3>Operational Alert</h3>
-            <p>Reorder roses from supplier by Thursday to avoid stockout for weekend orders.</p>
-            <div class="bos-insight-actions">
-              <button type="button" data-bos-action="add-task">Add to Tasks</button>
-              <time datetime="">Just now</time>
-            </div>
-          </article>
-        </div>
+        <div class="bos-insights" id="bosPulseInsights"><p class="bos-empty subtle">Loading Rose's suggestions…</p></div>
         <div class="bos-lily-tip">
           <img src="/assets/assistants/lily-portrait.png" alt="" width="32" height="32">
-          <p><strong>Lily says:</strong> "I can help design the Instagram post Rose suggested! Just say the word."</p>
+          <p><strong>Lily says:</strong> "Ask me to turn any of Rose's suggestions into content — I can help draft the post."</p>
         </div>
       </aside>
     </div>
@@ -913,12 +888,8 @@ body:has(#posPage.active) #bloomDaisy,body.florisyn-pos-active #bloomDaisy{displ
 
   <div class="bos-panel bos-secondary" data-bos-panel="insights">
     <h2>Business Insights</h2>
-    <p>Rose synthesizes POS, booking, and inventory signals into a living pulse. Open <strong>Chat with Rose</strong> for strategy, or act on recommendations in Business Pulse.</p>
-    <div class="bos-insights" style="margin-top:16px">
-      <article class="bos-insight"><h3>Wedding demand</h3><p>Bookings are up 23% season-to-date — capacity and package pricing are the levers.</p></article>
-      <article class="bos-insight"><h3>Stem velocity</h3><p>Premium roses are the weekend bottleneck. Reorder cadence should move earlier in the week.</p></article>
-      <article class="bos-insight"><h3>Marketing gap</h3><p>Process content outperforms polished catalog posts for nearby competitors this month.</p></article>
-    </div>
+    <p>Rose reviews your real inventory, orders, and subscription data to surface a few practical suggestions. Open <strong>Chat with Rose</strong> for strategy, or act on recommendations below.</p>
+    <div class="bos-insights" id="bosInsightsTabList" style="margin-top:16px"><p class="bos-empty subtle">Loading Rose's suggestions…</p></div>
   </div>
 
   <div class="bos-panel bos-secondary" data-bos-panel="actions">

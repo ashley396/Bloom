@@ -45,7 +45,11 @@ export async function probeMigrationStatus(client) {
   for (const row of MIGRATION_MANIFEST) {
     let status = "unknown";
     try {
-      const { error } = await client.from(row.probe).select("id", { head: true, count: "exact" }).limit(1);
+      // select("*") rather than a named column — the manifest only asserts a
+      // probe *table* exists, and tables like platform_feature_flags have no
+      // "id" column (its key is flag_key), which previously made a real,
+      // applied migration misreport as "error".
+      const { error } = await client.from(row.probe).select("*", { head: true, count: "exact" }).limit(1);
       if (error) {
         const msg = String(error.message || "").toLowerCase();
         status = msg.includes("does not exist") || msg.includes("could not find") ? "missing" : "error";

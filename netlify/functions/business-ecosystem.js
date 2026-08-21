@@ -16,6 +16,7 @@ import {
   buildFinanceCenter,
   buildBusinessDashboardKpis,
   buildLilyBusinessCoach,
+  computeWasteRisk,
   portalCapabilities
 } from "./_shared/business-ecosystem.js";
 
@@ -36,7 +37,7 @@ async function safeSelect(client, table, shopId, order = "created_at") {
   }
 }
 
-async function buildHub(client, shopId) {
+export async function buildHub(client, shopId) {
   const [subs, loyalty, plans, vendors, pos, deliveries, orders, expenses] = await Promise.all([
     safeSelect(client, "bloom_customer_subscriptions", shopId),
     safeSelect(client, "bloom_loyalty_accounts", shopId, "updated_at"),
@@ -99,20 +100,46 @@ export async function handler(event) {
     }
 
     if (action === "lily_coach") {
-      const inv = await client.from("inventory").select("quantity,low_stock_level").eq("shop_id", shopId).limit(100);
-      const low = (inv.data || []).filter((i) => Number(i.quantity) <= Number(i.low_stock_level || 5)).length;
+      const inv = await client.from("inventory").select("quantity,low_stock_level,use_by").eq("shop_id", shopId).limit(100);
+      const invRows = inv.data || [];
+      const low = invRows.filter((i) => Number(i.quantity) <= Number(i.low_stock_level || 5)).length;
       const subs = await safeSelect(client, "bloom_customer_subscriptions", shopId);
       const ord = await client.from("orders").select("payment_status,total,amount_paid").eq("shop_id", shopId).limit(50);
       let unpaid = 0;
       for (const o of ord.data || []) {
         if (String(o.payment_status).toUpperCase() !== "PAID") unpaid += Math.max(0, Number(o.total) - Number(o.amount_paid || 0));
       }
+
+      // Beta-blocker repair: waste_risk/margin_health used to be hardcoded
+      // ("Medium"/70) regardless of the shop's real state, which silently
+      // suppressed buildLilyBusinessCoach()'s "reduce waste"/"improve
+      // margins" suggestions for every shop that actually needed them and
+      // fabricated a healthy-looking state for shops that didn't. Both are
+      // now real, or null when there isn't enough real data to say
+      // anything — buildLilyBusinessCoach() already treats a falsy/non-
+      // "High" waste_risk and a null margin_health as "no suggestion,"
+      // never a fabricated interpretation. See computeWasteRisk() for the
+      // real freshness-tracking signal behind waste_risk. Uses the shop's
+      // own timezone (shop-time.js), same as dashboard.js, so "today" is
+      // the florist's calendar day, not the server's UTC day.
+      const shopRow = await client.from("shops").select("timezone").eq("id", shopId).maybeSingle();
+      const waste_risk = computeWasteRisk(invRows, shopRow.data?.timezone);
+
+      // margin_health: the shop's real gross margin, from the same
+      // buildFinanceCenter() figure used everywhere else in the app
+      // (real orders revenue minus real expenses) — null when the shop
+      // has no real revenue yet, since a 0%-margin reading on an empty
+      // shop is an absence of data, not a margin problem to flag.
+      const hub = await buildHub(client, shopId);
+      const revenue = Number(hub.finance_center?.profit_and_loss?.revenue || 0);
+      const margin_health = revenue > 0 ? hub.finance_center.profit_and_loss.margin : null;
+
       const coach = buildLilyBusinessCoach({
         low_stock_count: low,
         subscription_count: subs.filter((s) => s.status === "active").length,
         unpaid_total: unpaid,
-        waste_risk: "Medium",
-        margin_health: 70
+        waste_risk,
+        margin_health
       });
       return json(200, { suggestions: coach });
     }
@@ -156,9 +183,24 @@ export async function handler(event) {
     }
 
     if (action === "loyalty_earn") {
+      // Pass #3 security review: bloom_loyalty_accounts.customer_id is the
+      // table's real primary key (not a (shop_id, customer_id) composite),
+      // and this upsert's onConflict target is that bare customer_id. The
+      // ownership check below only ever *read* with a shop_id filter — a
+      // caller could still submit another shop's real customer_id, and the
+      // upsert would hit that row's PK and attempt to overwrite its
+      // shop_id to the caller's own shop, reassigning another shop's real
+      // customer loyalty account (balance, tier, lifetime points) to the
+      // attacker's shop. RLS may well block that specific write today, but
+      // this must not be the only thing standing between one shop's
+      // customer data and another's — verify ownership explicitly, the
+      // same way every other write in this file does.
+      const owner = await client.from("bloom_loyalty_accounts").select("*").eq("customer_id", body.customer_id).maybeSingle();
+      if (!owner.error && owner.data && owner.data.shop_id !== shopId) {
+        return json(403, { error: "That customer does not belong to this shop." });
+      }
       const earned = computeLoyaltyEarn(body.amount, body.tier);
-      const existing = await client.from("bloom_loyalty_accounts").select("*").eq("customer_id", body.customer_id).eq("shop_id", shopId).maybeSingle();
-      const prev = existing.error ? null : existing.data;
+      const prev = owner.error ? null : owner.data;
       const balance = Number(prev?.points_balance || 0) + earned;
       const lifetime = Number(prev?.lifetime_points || 0) + earned;
       const { data, error } = await client
@@ -231,6 +273,7 @@ export async function handler(event) {
         .from("bloom_purchase_orders")
         .update({ status: body.status, updated_at: new Date().toISOString() })
         .eq("id", body.id)
+        .eq("shop_id", shopId)
         .select("*")
         .single();
       if (error) throw error;

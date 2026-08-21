@@ -343,6 +343,14 @@ body.bloom-rc21 .bloom-staff-name-only {
   margin: 0;
   font-size: 1.05rem;
   cursor: pointer;
+  /* Pre-launch QA: this is the only control that opens an employee's
+     PIN-protected private file — it measured well under the 44x44px
+     touch-target floor on phone/tablet. Padding grows the tap target
+     without changing the visible text size. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 4px 0;
 }
 body.bloom-rc21 .bloom-staff-list-card .card-actions {
   margin: 0;

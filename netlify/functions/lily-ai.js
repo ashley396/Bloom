@@ -75,7 +75,11 @@ async function persistMessage(client, { conversationId, userId, shopId, role, co
       content,
       metadata: metadata || {}
     });
-    await client.from(CONVERSATIONS).update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
+    // Pass #3 security review: conversationId comes straight from the
+    // client body with nothing else here confirming it's this shop's own
+    // conversation — scope the touch explicitly rather than lean only on
+    // RLS to keep a stray id from bumping another shop's row.
+    await client.from(CONVERSATIONS).update({ updated_at: new Date().toISOString() }).eq("id", conversationId).eq("shop_id", shopId);
   } catch {
     // Tables may not exist until migration is applied.
   }
@@ -125,7 +129,16 @@ export async function handler(event) {
     const body = bodyOf(event);
     const message = String(body.message || body.prompt || "").trim();
     const confirmed = Boolean(body.confirm);
-    const conversationId = body.conversation_id || null;
+    // Pass #3 security review: a raw client-supplied conversation_id used
+    // to be trusted outright — reused as-is to append messages and bump
+    // updated_at. Verify it's actually this shop's own conversation before
+    // treating it as one; otherwise fall back to starting a fresh
+    // conversation, same as if none had been supplied.
+    let conversationId = body.conversation_id || null;
+    if (conversationId) {
+      const owned = await client.from(CONVERSATIONS).select("id").eq("id", conversationId).eq("shop_id", shopId).maybeSingle();
+      if (owned.error || !owned.data) conversationId = null;
+    }
     const persona = body.persona || body.assistant || "lily";
 
     if (event.httpMethod === "POST" && body.action === "history-search") {
