@@ -192,7 +192,19 @@ import {
       localStorage.setItem(key, "done");
       return;
     }
-    const host = mode === "admin" ? $("#adminApp") : $("#app");
+    // Confirmed regression: this used to prepend() straight onto the app
+    // root (#app / #adminApp) — the element that also wraps the sidebar
+    // and header, not just the page content — so the banner landed above
+    // the entire application shell (header, sidebar, everything) rather
+    // than above just the current page's content, on every route, not
+    // only the dashboard the checklist otherwise implies. #adminApp even
+    // already ships a purpose-built host for exactly this (.content's
+    // admin equivalent, #adminOnboardingHost — it already has its own
+    // CSS, including a `:empty{display:none}` rule) that this code was
+    // never actually using. Mount into the real content containers
+    // instead — everything else about the banner (checklist state,
+    // dismiss, step navigation) is unchanged.
+    const host = mode === "admin" ? $("#adminOnboardingHost") : $("#app .content");
     if (!host || host.querySelector(`.bloom-onboarding-banner[data-mode="${mode}"]`)) return;
     const banner = document.createElement("div");
     banner.className = "bloom-onboarding-banner";
@@ -214,6 +226,7 @@ import {
       </div>
       <button type="button" class="secondary" id="bloomDismissOnboarding">Dismiss</button>`;
     host.prepend(banner);
+    if (host.hasAttribute("aria-hidden")) host.removeAttribute("aria-hidden");
     banner.querySelectorAll("[data-onboard-id]").forEach((cb) => {
       cb.onchange = () => {
         const id = cb.dataset.onboardId;
