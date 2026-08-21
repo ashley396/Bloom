@@ -776,6 +776,25 @@ body.florisyn-atelier .pos-lux-checkout {
   margin: 8px 0 0;
 }
 
+/* Launch-repair: this select used to sit inside a permanently hidden
+   legacy block (.pos-lux-ops[hidden]) with no visible way to reach it —
+   the "By Customer" tab above only called .focus() on a hidden element,
+   which does nothing. It's the same real control app.js already reads
+   at checkout (customer_name comes straight from its selected option),
+   just given an actual, reachable spot in the customer card instead of
+   a second custom picker UI. */
+#posPage #florisynPosLux .pos-lux-customer-select {
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--pos-border, #eae6e8);
+  background: #fff;
+  color: var(--pos-ink, #26263a);
+  font-size: 13px;
+  cursor: pointer;
+}
+
 #posPage #florisynPosLux .pos-lux-loyalty {
   margin: 0 0 0 auto;
 }

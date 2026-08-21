@@ -123,7 +123,14 @@
     document.querySelectorAll("[data-pos-mode]").forEach((btn) => {
       btn.addEventListener("click", () => {
         document.querySelectorAll("[data-pos-mode]").forEach((b) => b.classList.toggle("active", b === btn));
-        if (btn.dataset.posMode === "customer") $("#posCustomerSelect")?.focus();
+        if (btn.dataset.posMode === "customer") {
+          const select = $("#posCustomerSelect");
+          // showPicker() actually opens the dropdown where supported;
+          // focus() alone (the old behavior) just moves keyboard focus
+          // without opening anything, which looked like nothing happened.
+          if (select?.showPicker) { try { select.showPicker(); } catch { select.focus(); } }
+          else select?.focus();
+        }
         else $("#atelierGlobalSearch")?.focus();
       });
     });

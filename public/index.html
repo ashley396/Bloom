@@ -655,7 +655,6 @@ document.querySelectorAll('#publicHome a[href^="#"]').forEach((a)=>{
           <button type="button" id="loadCartQuoteBtn">Recall quotes</button>
           <button type="button" id="printCartBtn">Print</button>
           <span id="savedQuoteCount">0</span>
-          <select id="posCustomerSelect"><option value="" selected>Walk-in Customer</option></select>
           <textarea id="posOrderNote"></textarea>
         </div>
       </section>
@@ -678,6 +677,7 @@ document.querySelectorAll('#publicHome a[href^="#"]').forEach((a)=>{
           </div>
         </div>
         <p class="pos-lux-loyalty-note" id="posLuxLoyaltyNote">Assign a customer to unlock loyalty.</p>
+        <select id="posCustomerSelect" class="pos-lux-customer-select" aria-label="Attach a customer to this sale"><option value="" selected>Walk-in Customer</option></select>
       </div>
 
       <div class="pos-fulfill" id="posFulfill">
