@@ -1,9 +1,17 @@
 /** Signup confirmation email via generate_link + transactional mailer (Resend/SendGrid/etc). */
 
+import { createClient } from "@supabase/supabase-js";
 import { authRedirectPath } from "./site-url.js";
 import { resolveSupabaseServerKey } from "./supabase.js";
 import { fetchWithTimeout } from "./upstream.js";
 import { emailProviderConfigured, dispatchEmail } from "./notification-email.js";
+
+function adminClient(env) {
+  const supabaseUrl = String(env.SUPABASE_URL || "").replace(/\/$/, "");
+  const serverKey = resolveSupabaseServerKey(env)?.value;
+  if (!supabaseUrl || !serverKey) return null;
+  return createClient(supabaseUrl, serverKey, { auth: { persistSession: false, autoRefreshToken: false } });
+}
 
 export function renderSignupConfirmationEmail({ confirmUrl, shopName, fullName }) {
   const greeting = fullName ? `Hi ${fullName},` : "Hi there,";
@@ -64,7 +72,94 @@ export async function generateSignupConfirmLink({ email, redirectTo, env = proce
 }
 
 /**
+ * Create a brand-new, not-yet-confirmed Supabase Auth user via the Admin API
+ * (email_confirm: false). Admin-created users never trigger Supabase's own
+ * built-in confirmation mailer — only our own branded email (below) will,
+ * from a single token.
+ */
+export async function createUnconfirmedSignupUser({ email, password, userMetadata, env = process.env }) {
+  const client = adminClient(env);
+  if (!client) return { ok: false, code: "supabase_server_key_missing" };
+
+  const { data, error } = await client.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: false,
+    user_metadata: userMetadata || {}
+  });
+
+  if (error || !data?.user) {
+    const raw = String(error?.message || "").toLowerCase();
+    const alreadyRegistered =
+      error?.code === "email_exists" || /already.*(registered|exists)|user already/.test(raw);
+    return {
+      ok: false,
+      code: alreadyRegistered ? "account_already_registered" : "create_user_failed",
+      status: error?.status || null,
+      message: error?.message || null
+    };
+  }
+  return { ok: true, user: data.user };
+}
+
+/**
+ * Full new-signup path used when a branded email provider is configured.
+ *
+ * This exists to close a token-invalidation race in the old flow: calling
+ * Supabase's public /auth/v1/signup endpoint makes GoTrue send its own
+ * default "Confirm signup" email (token A) *synchronously*, before any of
+ * our code runs. Immediately calling admin/generate_link afterward (the old
+ * flow, still used for resends of an *existing* user below) regenerates
+ * that user's stored confirmation token (token B) so it can be emailed in
+ * our own branded template — which silently invalidates token A after
+ * Supabase had already mailed it out. Whichever email the recipient
+ * actually opened, it was a coin flip whether its token still worked.
+ *
+ * Creating the user via the Admin API instead (email_confirm: false) never
+ * makes Supabase send anything on its own, so there is only ever one
+ * token issued for the whole signup, and it always matches the one link we
+ * actually email.
+ *
+ * Returns { ok, user, sent, provider, code, message }. `user` is populated
+ * as soon as the Supabase account exists, even if a later step (link
+ * generation or email dispatch) fails — callers must treat that as "the
+ * account was created, but tell the user how to get a working confirmation
+ * link" rather than retrying account creation.
+ */
+export async function signUpWithBrandedConfirmation({
+  email,
+  password,
+  userMetadata,
+  fullName,
+  shopName,
+  origin,
+  env = process.env
+}) {
+  const provider = emailProviderConfigured(env);
+  if (!provider.configured) return { ok: false, code: "provider_not_configured" };
+
+  const created = await createUnconfirmedSignupUser({ email, password, userMetadata, env });
+  if (!created.ok) return created;
+
+  const redirectTo = authRedirectPath(env, origin || "", "/verify-email?confirmed=1");
+  const link = await generateSignupConfirmLink({ email, redirectTo, env });
+  if (!link.ok) {
+    return { ok: false, code: link.code, message: link.message, user: created.user };
+  }
+
+  const tpl = renderSignupConfirmationEmail({ confirmUrl: link.actionLink, shopName, fullName });
+  const result = await dispatchEmail(env, { to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
+  if (!result.ok) {
+    return { ok: false, code: result.code || "provider_error", user: created.user };
+  }
+  return { ok: true, user: created.user, sent: true, provider: result.provider || provider.provider };
+}
+
+/**
  * Send confirmation email when a transactional provider is configured.
+ * Used for resending an *existing* unconfirmed user's confirmation link
+ * (the user was already created earlier, so there is no "first" Supabase
+ * email left to race against — generate_link is the only token issued).
  * Returns { sent, provider, reason }.
  */
 export async function sendSignupConfirmationEmail({

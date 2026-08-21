@@ -6,6 +6,7 @@ import { authRedirectPath } from "./_shared/site-url.js";
 import { fetchWithTimeout, requestIdOf } from "./_shared/upstream.js";
 import { logAuthEvent, mapAuthProviderFailure, jsonAuthError } from "./_shared/auth-email.js";
 import { sendSignupConfirmationEmail } from "./_shared/auth-confirmation-email.js";
+import { emailProviderConfigured } from "./_shared/notification-email.js";
 
 export async function handler(event) {
   const requestId = requestIdOf(event);
@@ -21,33 +22,59 @@ export async function handler(event) {
     const emailCheck = validateEmail(body.email, { required: true });
     if (!emailCheck.ok) return json(400, { error: emailCheck.error, code: emailCheck.code || "invalid_email" });
 
-    const { url, anonKey } = publicSettings();
     const origin = event.headers?.origin || event.headers?.Origin || "";
-    const redirectTo = authRedirectPath(process.env, origin, "/verify-email?confirmed=1");
-    const response = await fetchWithTimeout(`${url}/auth/v1/resend`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: anonKey,
-        Authorization: `Bearer ${anonKey}`
-      },
-      body: JSON.stringify({
-        type: "signup",
-        email: emailCheck.value,
-        options: { email_redirect_to: redirectTo, emailRedirectTo: redirectTo }
-      })
-    }, { timeoutMs: 5_000, service: "Email confirmation service" });
-    const data = await response.json().catch(() => ({}));
-    const mapped = mapAuthProviderFailure(response, data, { flow: "resend" });
-    if (mapped.statusCode >= 500 || mapped.code === "auth_rate_limited") {
-      logAuthEvent("error", mapped.code === "auth_rate_limited" ? "auth_resend_rate_limited" : "auth_resend_provider_unavailable", {
+    const provider = emailProviderConfigured(process.env);
+
+    // When a branded provider is configured, skip Supabase's own
+    // /auth/v1/resend call entirely — it sends Supabase's own default
+    // "Confirm signup" email with a fresh token, and sendSignupConfirmationEmail
+    // below (via generate_link) issues *another* fresh token for our own
+    // branded email. Calling both races two tokens against each other for
+    // the same account, the same bug this fixed in the signup flow itself
+    // (see auth-confirmation-email.js) — generate_link alone is enough to
+    // produce one valid link.
+    if (!provider.configured) {
+      const { url, anonKey } = publicSettings();
+      const redirectTo = authRedirectPath(process.env, origin, "/verify-email?confirmed=1");
+      const response = await fetchWithTimeout(`${url}/auth/v1/resend`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: anonKey,
+          Authorization: `Bearer ${anonKey}`
+        },
+        body: JSON.stringify({
+          type: "signup",
+          email: emailCheck.value,
+          options: { email_redirect_to: redirectTo, emailRedirectTo: redirectTo }
+        })
+      }, { timeoutMs: 5_000, service: "Email confirmation service" });
+      const data = await response.json().catch(() => ({}));
+      const mapped = mapAuthProviderFailure(response, data, { flow: "resend" });
+      if (mapped.statusCode >= 500 || mapped.code === "auth_rate_limited") {
+        logAuthEvent("error", mapped.code === "auth_rate_limited" ? "auth_resend_rate_limited" : "auth_resend_provider_unavailable", {
+          email_domain: emailCheck.value.split("@")[1],
+          provider_status: response.status,
+          code: mapped.code,
+          request_id: requestId
+        }, event);
+        return jsonAuthError(mapped);
+      }
+      logAuthEvent("info", "auth_resend_accepted", {
         email_domain: emailCheck.value.split("@")[1],
         provider_status: response.status,
-        code: mapped.code,
+        confirmation_email_sent: false,
+        confirmation_email_provider: null,
         request_id: requestId
       }, event);
-      return jsonAuthError(mapped);
+      return json(200, {
+        ok: true,
+        code: "resend_accepted",
+        confirmationEmailSent: false,
+        message: "If this email has an unconfirmed Florisyn account, a new confirmation link will arrive shortly. Already confirmed? Use Forgot Password instead."
+      });
     }
+
     const emailResult = await sendSignupConfirmationEmail({
       email: emailCheck.value,
       origin,
@@ -63,7 +90,6 @@ export async function handler(event) {
     }
     logAuthEvent("info", "auth_resend_accepted", {
       email_domain: emailCheck.value.split("@")[1],
-      provider_status: response.status,
       confirmation_email_sent: Boolean(emailResult.sent),
       confirmation_email_provider: emailResult.provider || null,
       request_id: requestId
