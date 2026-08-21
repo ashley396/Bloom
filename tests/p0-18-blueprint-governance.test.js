@@ -151,7 +151,9 @@ test("website generation is low-cost and settings never claim an unconfirmed sav
 test("public storefront previews fail closed and database read failures stay visible", () => {
   assert.match(storefrontCore, /BLOOM_STOREFRONT_PREVIEW_SECRET \|\| env\.PAYMENT_HUB_TOKEN_KEY \|\| null/);
   assert.doesNotMatch(storefrontCore, /bloom-preview-dev-only/);
-  assert.match(storefrontCore, /if \(!secret\) throw new Error\("Storefront preview is not configured\."\)/);
+  assert.match(storefrontCore, /if \(!secret\) \{/);
+  assert.match(storefrontCore, /err\.statusCode = 503;/);
+  assert.match(storefrontCore, /err\.code = "storefront_preview_not_configured";/);
   assert.match(storefrontCore, /crypto\.timingSafeEqual/);
   assert.match(storefrontPublic, /if \(projectError\) throw projectError/);
   assert.match(storefrontPublic, /if \(pagesError\) throw pagesError/);

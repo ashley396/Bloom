@@ -39,7 +39,16 @@ export function previewTokenSecret(env = process.env) {
 }
 
 export function signPreviewToken(shopId, expiresAtMs, secret = previewTokenSecret()) {
-  if (!secret) throw new Error("Storefront preview is not configured.");
+  if (!secret) {
+    // Without statusCode, the shared fail() helper treats this as an
+    // unexpected 500 and shows the florist a generic "Unexpected Florisyn
+    // error" — masking a plain missing-env-var condition that a founder
+    // fixing it needs to actually see.
+    const err = new Error("Storefront preview is not configured.");
+    err.statusCode = 503;
+    err.code = "storefront_preview_not_configured";
+    throw err;
+  }
   const payload = `${shopId}:${expiresAtMs}`;
   const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
   return Buffer.from(`${payload}:${sig}`).toString("base64url");
