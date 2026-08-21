@@ -30,6 +30,34 @@
       <div><h4>Invoice history</h4><ul class="sub-list">${invoices || "<li>No invoices yet.</li>"}</ul></div></div>`;
   }
 
+  /**
+   * Settings UI repair: this used to render every possible subscription
+   * action at once (Upgrade, Downgrade, Pause, Resume, Reactivate, Cancel)
+   * and just `disabled` whichever ones the current plan/state didn't
+   * support — so a shop with a pending cancellation saw a live "Cancel
+   * subscription" button next to a "Reactivate" button, both real actions,
+   * pointing opposite directions at once. Only render the actions that are
+   * actually possible from where the subscription is right now; "Download
+   * my data" always applies, so it always renders.
+   */
+  function renderActions(c) {
+    const buttons = [];
+    if (c.upgrade_plan) buttons.push(`<button type="button" class="primary" id="subUpgrade">Upgrade</button>`);
+    if (c.downgrade_plan) buttons.push(`<button type="button" class="secondary" id="subDowngrade">Downgrade</button>`);
+    const pendingCancel = Boolean(c.cancel_at_period_end) || c.status === "canceled";
+    if (pendingCancel) {
+      if (c.can_reactivate) buttons.push(`<button type="button" class="primary" id="subReactivate">Reactivate</button>`);
+    } else if (c.paused) {
+      if (c.can_resume) buttons.push(`<button type="button" class="primary" id="subResume">Resume</button>`);
+      buttons.push(`<button type="button" class="secondary sub-cancel-btn" id="subCancel">Cancel subscription</button>`);
+    } else {
+      buttons.push(`<button type="button" class="secondary" id="subPause">Pause</button>`);
+      buttons.push(`<button type="button" class="secondary sub-cancel-btn" id="subCancel">Cancel subscription</button>`);
+    }
+    buttons.push(`<button type="button" class="secondary" id="subExport">Download my data</button>`);
+    return `<div class="shop-billing-actions sub-actions">${buttons.join("")}</div>`;
+  }
+
   function render(root, data) {
     const c = data.center || data.billing || {};
     const p = c.current_plan || {};
@@ -52,19 +80,7 @@
             : ""
         }
       </div>
-      ${
-        can
-          ? `<div class="shop-billing-actions sub-actions">
-        <button type="button" class="primary" id="subUpgrade" ${c.upgrade_plan ? "" : "disabled"}>Upgrade</button>
-        <button type="button" class="secondary" id="subDowngrade" ${c.downgrade_plan ? "" : "disabled"}>Downgrade</button>
-        <button type="button" class="secondary" id="subPause" ${c.paused ? "disabled" : ""}>Pause</button>
-        <button type="button" class="secondary" id="subResume" ${c.can_resume ? "" : "disabled"}>Resume</button>
-        <button type="button" class="secondary" id="subReactivate" ${c.can_reactivate ? "" : "disabled"}>Reactivate</button>
-        <button type="button" class="secondary sub-cancel-btn" id="subCancel">Cancel subscription</button>
-        <button type="button" class="secondary" id="subExport">Download my data</button>
-      </div>`
-          : `<p class="subtle">Only the shop owner can change the Florisyn subscription.</p>`
-      }
+      ${can ? renderActions(c) : `<p class="subtle">Only the shop owner can change the Florisyn subscription.</p>`}
       <div class="shop-billing-links sub-links">
         <button type="button" id="subInvoices">Billing history (portal)</button>
         <button type="button" id="subPaymentMethods">Payment methods</button>

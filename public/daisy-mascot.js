@@ -56,9 +56,19 @@
   }
 
   function mountSettings(root) {
-    if (!root || root.querySelector("#daisySettingsPanel")) return;
+    if (!root) return;
+    // Settings UI repair: this used to insertAdjacentHTML directly onto
+    // #settingsPage (the outer <section>), landing the whole Daisy card as
+    // a sibling *after* </form> instead of a member of the
+    // .settings-grid two-column layout every other settings card lives
+    // in — so it rendered full-width, disconnected from the rest of the
+    // page's grouping. #settingsForm *is* .settings-grid; mounting into it
+    // (like the AI-status card that's already a direct child) makes Daisy
+    // a normal grid item instead of a stray block.
+    const host = root.querySelector("#settingsForm") || root;
+    if (host.querySelector("#daisySettingsPanel")) return;
     const s = load();
-    root.insertAdjacentHTML(
+    host.insertAdjacentHTML(
       "beforeend",
       `<section class="panel bloom-daisy-settings" id="daisySettingsPanel">
         <p class="eyebrow">DAISY</p>
