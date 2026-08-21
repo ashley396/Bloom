@@ -11,9 +11,11 @@ server automatically before the tests run.
 
 It answers one question: **does the shipped bundle actually boot in a real
 browser** — every `<script>` tag loads and executes without throwing, the
-real unauthenticated entry points (login, signup, a legal page) render
-their real content, and the SPA's own auth gate correctly routes an
-unauthenticated visitor to `/login`.
+real unauthenticated entry points (login, signup, the public marketing
+homepage at `/`, a legal page) render their real content, and the SPA's
+own auth gate correctly shows the public homepage to an unauthenticated
+visitor (never the app shell) while an authenticated visitor gets the app
+shell (never the public homepage).
 
 It does **not** exercise authenticated app flows (Orders, POS, Payment
 Center, Website Studio, ...) — those need a real Supabase session and
