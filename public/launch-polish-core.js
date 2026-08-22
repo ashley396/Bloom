@@ -109,8 +109,8 @@ export function onboardingProgress(checklist, completedIds = []) {
 export function helpCopyForPage(pageId = "") {
   const map = {
     dashboardPage: {
-      title: "Point of Sale",
-      body: "Ring up orders, track today’s progress, and use product pads for fast sales.",
+      title: "Dashboard",
+      body: "Today’s revenue, orders, and deliveries at a glance, plus your order and bouquet queues.",
       learn: "/help/index.html"
     },
     ordersPage: { title: "Orders", body: "Track production from new order through delivery.", learn: "/help/order-delivery/index.html" },
