@@ -315,13 +315,18 @@
 
   function paintBrandBackground(ctx, width, height, template, brand, style) {
     var colors = effectivePaletteColors(brand, style);
+    // Whether THIS render actually carries a color revision — the
+    // sympathy template's quiet default muted tone must survive an
+    // untouched flyer; effectivePaletteColors() only needs to override it
+    // once the florist has actually asked for a color change.
+    var hasRevision = Boolean(style && ((style.paletteInclude && style.paletteInclude.length) || (style.paletteExclude && style.paletteExclude.length)));
     if (template.palette.background === "brand_gradient") {
       var g = ctx.createLinearGradient(0, 0, width, height);
       g.addColorStop(0, colors.primary);
       g.addColorStop(1, colors.accent);
       ctx.fillStyle = g;
     } else if (template.palette.background === "muted") {
-      ctx.fillStyle = "#efe9e6";
+      ctx.fillStyle = hasRevision ? colors.primary : "#efe9e6";
     } else {
       ctx.fillStyle = colors.primary;
     }
@@ -385,6 +390,7 @@
     needsScrim: needsScrim,
     scaleMultiplier: scaleMultiplier,
     effectivePaletteColors: effectivePaletteColors,
+    paintBrandBackground: paintBrandBackground,
     compositeSubjectOnBackground: compositeSubjectOnBackground,
     renderFlyer: renderFlyer
   };

@@ -26,10 +26,17 @@
   // Visual Creation Studio: a photo attached in the composer, waiting to
   // be sent. { dataUrl, name } or null. The turn's attached photo (if any)
   // is threaded explicitly through renderJobCard()/mountVisualPreview()
-  // rather than kept here — a module-level "last attached image" would
-  // get overwritten by a second send before the first send's async job
-  // response comes back and reads it.
+  // rather than kept in a single module-level variable — a bare "last
+  // attached image" would get overwritten by a second send before the
+  // first send's async job response comes back and reads it.
   let pendingImage = null;
+  // The one exception: a step retry re-renders the SAME job (same id) the
+  // original send already produced, with no new photo of its own to
+  // attach — so it's fine, and necessary, to remember by job id which
+  // photo that job's own creation turn used. Only ever holds one entry
+  // (the most recently created job), which is correct since retry only
+  // ever targets the currently-visible card.
+  let lastJobImage = { jobId: null, dataUrl: null };
 
   // Option A — each assistant owns a real lane; the drawer can switch between them.
   const PERSONAS = {
@@ -401,7 +408,11 @@
             body: JSON.stringify({ action: "retry-job-step", job_id: btn.dataset.jobId, step_id: btn.dataset.stepId, persona })
           });
           if (data.response) await typeAssistantResponse(data.response);
-          renderJobCard(data.job || null);
+          // A retry re-runs a step of the SAME job (same id) — no new
+          // photo of its own to attach, so recover whichever photo that
+          // job's original creation turn used, if any.
+          const retryImage = data.job?.id && data.job.id === lastJobImage.jobId ? lastJobImage.dataUrl : undefined;
+          renderJobCard(data.job || null, retryImage);
         } catch {
           btn.disabled = false;
           btn.textContent = original;
@@ -812,6 +823,7 @@
         }
       }
       hideTyping();
+      if (data.job?.id) lastJobImage = { jobId: data.job.id, dataUrl: imageForThisTurn };
       renderJobCard(data.job || null, imageForThisTurn);
       if (!data.permission?.allowed) {
         await typeAssistantResponse(data.response || "You do not have permission for that action.");

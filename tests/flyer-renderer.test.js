@@ -149,3 +149,28 @@ test("effectivePaletteColors: an unrecognized color name in paletteInclude falls
   const colors = renderer.effectivePaletteColors({ primaryColor: "#123456" }, { paletteInclude: ["not_a_real_color"], paletteExclude: [] });
   assert.equal(colors.primary, "#123456");
 });
+
+function fakeCtx() {
+  return { fillStyle: null, fillRect() {}, createLinearGradient: () => ({ addColorStop() {} }) };
+}
+
+test("paintBrandBackground: an untouched sympathy (muted) flyer keeps its quiet default tone, ignoring the shop's own brand colors", () => {
+  const ctx = fakeCtx();
+  renderer.paintBrandBackground(ctx, 1080, 1080, { palette: { background: "muted" } }, { primaryColor: "#123456" }, { paletteInclude: [], paletteExclude: [] });
+  assert.equal(ctx.fillStyle, "#efe9e6");
+});
+
+test("paintBrandBackground: a color revision on a muted (sympathy) flyer actually changes the background — the bug this test guards against had it silently staying #efe9e6 forever", () => {
+  const ctx = fakeCtx();
+  renderer.paintBrandBackground(ctx, 1080, 1080, { palette: { background: "muted" } }, { primaryColor: "#123456" }, { paletteInclude: ["cream"], paletteExclude: [] });
+  assert.equal(ctx.fillStyle, "#f3ead9");
+  assert.notEqual(ctx.fillStyle, "#efe9e6");
+});
+
+test("paintBrandBackground: a brand_gradient template with no revision uses the shop's own brand colors via the gradient", () => {
+  const ctx = fakeCtx();
+  let stops = [];
+  ctx.createLinearGradient = () => ({ addColorStop: (offset, color) => stops.push(color) });
+  renderer.paintBrandBackground(ctx, 1080, 1080, { palette: { background: "brand_gradient" } }, { primaryColor: "#123456", accentColor: "#abcdef" }, { paletteInclude: [], paletteExclude: [] });
+  assert.deepEqual(stops, ["#123456", "#abcdef"]);
+});
