@@ -382,12 +382,18 @@ export async function handler(event) {
     // worked. Re-runs exactly one step in place.
     if (event.httpMethod === "POST" && body.action === "retry-job-step") {
       if (!body.job_id || !body.step_id) return json(400, { error: "job_id and step_id are required." });
+      // A retried background/flyer step blends the shop's CURRENT style, not
+      // a snapshot from whenever the job first ran — see runJob()'s own
+      // docstring for why styleSummary is deliberately never persisted on
+      // the job row itself.
+      const { preferences: retryPrefs } = await loadStyleMemory(client, shopId);
       const retried = await retryJobStep(client, {
         shopId,
         userId: user.id,
         persona: normalizePersona(persona),
         jobId: body.job_id,
-        stepId: body.step_id
+        stepId: body.step_id,
+        styleSummary: buildStyleSummary(retryPrefs)
       });
       if (!retried.ok) return json(422, { error: retried.error });
       return json(200, {
