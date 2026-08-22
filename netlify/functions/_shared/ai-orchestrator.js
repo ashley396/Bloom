@@ -20,7 +20,7 @@ import {
 } from "./ai-creative-engine.js";
 import { generateImage, buildImagePrompt, buildBackgroundPrompt } from "./ai-image-engine.js";
 import { applyGeneratedWebsiteSection, buildWebsiteSectionPayload } from "./website-campaign-section.js";
-import { pickFlyerTemplate, pickAspectRatio } from "./flyer-templates.js";
+import { pickFlyerTemplate, pickAspectRatio, ASPECT_RATIOS } from "./flyer-templates.js";
 import { applyRevisionDeltas, defaultVisualStyle } from "./ai-visual-revisions.js";
 import { buildVisualBrief } from "./ai-intent-router.js";
 
@@ -300,7 +300,15 @@ async function runStep(client, step, ctx) {
       // buildVisualBrief() result, once/if that optional step runs — see
       // the post-loop patch in runJob().
       traits_used: [],
-      style: defaultVisualStyle()
+      style: defaultVisualStyle(),
+      // The client-side renderer (public/flyer-renderer.js) draws the
+      // actual flyer canvas — it needs the full layout, not just an id, so
+      // the server stays the single source of truth for region placement
+      // rather than a second, drift-prone copy of flyer-templates.js
+      // living in the browser bundle.
+      regions: template.regions,
+      palette: template.palette,
+      canvas: ASPECT_RATIOS[aspectRatio]
     };
     const persisted = await persistGeneratedAsset(client, {
       shopId, userId, persona, jobId, campaignId,

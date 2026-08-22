@@ -23,6 +23,12 @@
   let typingTimer = null;
   let adminKpis = null;
   let lastUserMessage = "";
+  // Visual Creation Studio: a photo attached in the composer, waiting to
+  // be sent. { dataUrl, name } or null. sentImageDataUrl is the same value
+  // captured at SEND time (pendingImage is cleared right after) so
+  // renderJobCard() can still composite it once the job comes back.
+  let pendingImage = null;
+  let sentImageDataUrl = null;
 
   // Option A — each assistant owns a real lane; the drawer can switch between them.
   const PERSONAS = {
@@ -108,12 +114,246 @@
     failed: "Failed"
   };
 
+  /** Refreshes the attach chip shown between the toolbar and composer for
+   * a photo waiting to be sent — the one place pendingImage's UI lives. */
+  function renderAttachChip() {
+    const chip = document.getElementById("lilyAttachChip");
+    if (!chip) return;
+    if (!pendingImage) {
+      chip.hidden = true;
+      chip.innerHTML = "";
+      return;
+    }
+    chip.hidden = false;
+    chip.innerHTML = `<img src="${esc(pendingImage.dataUrl)}" alt=""><span>${esc(pendingImage.name)}</span><button type="button" id="lilyAttachRemove" title="Remove photo">×</button>`;
+    document.getElementById("lilyAttachRemove").onclick = () => {
+      pendingImage = null;
+      renderAttachChip();
+    };
+  }
+
+  /** background_change/style vs flyer are told apart by shape, not a
+   * separate field — a flyer's content always carries template_id, a
+   * background's always carries a plain url. Works for both a fresh
+   * generation and a creative.reviseVisual result (same content shapes,
+   * see ai-orchestrator.js). */
+  function assetKind(content) {
+    if (!content) return null;
+    if (content.template_id) return "flyer";
+    if (content.url) return "background";
+    return null;
+  }
+
+  function loadImageEl(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("image load failed"));
+      img.src = src;
+    });
+  }
+
+  /** Shop identity for the flyer renderer's brand lockup — reuses the same
+   * loadAiContext() the rest of the chat already depends on rather than a
+   * second fetch, so this stays in sync with whatever Settings → Branding
+   * currently has saved. */
+  async function brandInfo() {
+    try {
+      const ctx = deps.loadAiContext ? await deps.loadAiContext() : {};
+      const shop = ctx.shop || {};
+      return {
+        shopName: shop.name || "",
+        phone: shop.phone || "",
+        website: shop.website || shop.custom_domain || "",
+        primaryColor: shop.primary_color || null,
+        accentColor: shop.accent_color || null,
+        logoUrl: shop.logo_url || null
+      };
+    } catch {
+      return {};
+    }
+  }
+
+  /** Turns a persisted visual asset's `content` into a single finished
+   * image (a data URL) for the job card — either a fully-rendered flyer
+   * (text/logo/contact drawn on top of its background) or a background,
+   * composited with the photo attached on the same turn when there was
+   * one. Never throws — falls back to the raw generated image URL, and
+   * ultimately to null (card shows a plain status note instead of an
+   * image) rather than leaving the compositor's failure unhandled. */
+  async function buildVisualPreview(content) {
+    const kind = assetKind(content);
+    if (kind === "flyer") {
+      if (!window.FlorisynFlyerRenderer || !content.regions) return content.background_url || null;
+      try {
+        const brand = await brandInfo();
+        const canvas = await window.FlorisynFlyerRenderer.renderFlyer({
+          template: { regions: content.regions, palette: content.palette },
+          content: { headline: content.headline, body: content.body, cta: content.cta },
+          style: content.style,
+          brand,
+          backgroundUrl: content.background_url,
+          width: content.canvas?.width || 1080,
+          height: content.canvas?.height || 1080
+        });
+        return canvas.toDataURL("image/png", 0.92);
+      } catch {
+        return content.background_url || null;
+      }
+    }
+    if (kind === "background") {
+      // A photo attached on THIS turn gets segmented client-side and
+      // composited over the generated backdrop — the honest
+      // segment+generate+composite substitute for true inpainting (this
+      // Cloudflare account has no verified image-editing model). Without
+      // an attached photo, the generated backdrop IS the finished visual.
+      if (sentImageDataUrl && window.FlorisynPhotoStudio?.removeBackground && window.FlorisynFlyerRenderer) {
+        try {
+          const img = await loadImageEl(sentImageDataUrl);
+          const cut = window.FlorisynPhotoStudio.removeBackground(img);
+          if (cut.ok && cut.canvas) {
+            const canvas = await window.FlorisynFlyerRenderer.compositeSubjectOnBackground({
+              subjectCanvas: cut.canvas,
+              backgroundUrl: content.url,
+              outWidth: 1200,
+              outHeight: 1200
+            });
+            return canvas.toDataURL("image/jpeg", 0.92);
+          }
+        } catch {
+          /* fall through to the plain generated backdrop below */
+        }
+      }
+      return content.url || null;
+    }
+    return null;
+  }
+
+  /** Fills in a job/asset card's image asynchronously once
+   * buildVisualPreview() resolves — separated from the card's synchronous
+   * HTML so the card (status, retry buttons, Save/Undo) never waits on
+   * compositing to appear. */
+  function mountVisualPreview(content) {
+    const imgEl = document.getElementById("lilyJobVisual");
+    const noteEl = document.getElementById("lilyJobVisualNote");
+    buildVisualPreview(content).then((src) => {
+      if (!imgEl) return; // the card was replaced (e.g. by a later message) before this resolved
+      if (src) {
+        imgEl.src = src;
+        noteEl?.remove();
+      } else {
+        imgEl.remove();
+        if (noteEl) noteEl.textContent = "Preview isn't available right now — the generated visual is saved and ready.";
+      }
+    });
+  }
+
+  /** Save/Download/Undo — shared between a freshly-run job's card
+   * (renderJobCard) and a version restored via Undo (renderAssetCard), so
+   * the two never drift into two different action implementations. */
+  function wireVisualCardActions({ assetId, content, title }) {
+    const traitsUsed = content?.traits_used || [];
+    const saveBtn = document.getElementById("lilyJobSave");
+    if (saveBtn) {
+      saveBtn.onclick = async () => {
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Saved ✓";
+        saveBtn.classList.add("lily-job-saved");
+        try {
+          // Reinforces the shop-style traits this generation actually used
+          // (see ai-style-memory.js's recordApprovalSignal()) — a no-op,
+          // not an error, when the generation used none.
+          await deps.api("ai-style-memory", { method: "POST", body: JSON.stringify({ action: "record-outcome", signal: "saved", traits_used: traitsUsed }) });
+        } catch {
+          /* the visual itself is already saved server-side; a failed
+             reinforcement signal isn't worth surfacing as an error */
+        }
+      };
+    }
+    const downloadBtn = document.getElementById("lilyJobDownload");
+    if (downloadBtn) {
+      downloadBtn.onclick = () => {
+        const imgEl = document.getElementById("lilyJobVisual");
+        if (!imgEl?.src) return;
+        const a = document.createElement("a");
+        a.download = `${(title || "florisyn-visual").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.png`;
+        a.href = imgEl.src;
+        a.click();
+      };
+    }
+    const undoBtn = document.getElementById("lilyJobUndo");
+    if (undoBtn) {
+      undoBtn.onclick = async () => {
+        undoBtn.disabled = true;
+        undoBtn.textContent = "Undoing…";
+        try {
+          await deps.api("ai-style-memory", { method: "POST", body: JSON.stringify({ action: "record-outcome", signal: "undone", traits_used: traitsUsed }) });
+          const current = await deps.api("lily-ai", { method: "POST", body: JSON.stringify({ action: "get-asset", asset_id: assetId }) });
+          const parentId = current.asset?.parent_asset_id;
+          if (!parentId) {
+            deps.toast?.("This is already the first version — nothing earlier to undo to.");
+            undoBtn.disabled = false;
+            undoBtn.textContent = "↩ Undo to previous version";
+            return;
+          }
+          const prev = await deps.api("lily-ai", { method: "POST", body: JSON.stringify({ action: "get-asset", asset_id: parentId }) });
+          if (prev.asset) renderAssetCard(prev.asset, title);
+        } catch (err) {
+          deps.toast?.(err?.message || "Couldn't undo right now.");
+          undoBtn.disabled = false;
+          undoBtn.textContent = "↩ Undo to previous version";
+        }
+      };
+    }
+  }
+
+  /** Renders a restored prior version (from Undo) the same way a freshly-
+   * run job's visual renders — same preview compositing, same Save/
+   * Download/Undo actions, chained further back via its own
+   * parent_asset_id if it has one. */
+  function renderAssetCard(asset, title) {
+    const mount = document.getElementById("lilyJobCard");
+    if (!mount || !asset) return;
+    const content = asset.content || {};
+    mount.hidden = false;
+    mount.innerHTML = `
+      <div class="lily-job-head"><strong>${esc(title || "Previous version")}</strong><span class="lily-job-status lily-job-status-completed">Restored</span></div>
+      <img class="lily-job-image" id="lilyJobVisual" alt="">
+      <p class="lily-job-note" id="lilyJobVisualNote">Composing your preview…</p>
+      <div class="lily-job-actions">
+        <button type="button" id="lilyJobSave">💾 Save</button>
+        <button type="button" id="lilyJobDownload">⬇ Download</button>
+        ${asset.parent_asset_id ? `<button type="button" id="lilyJobUndo">↩ Undo to previous version</button>` : ""}
+      </div>`;
+    mountVisualPreview(content);
+    wireVisualCardActions({ assetId: asset.id, content, title });
+  }
+
+  /** Picks the one step whose result IS the visual the florist is looking
+   * at — a flyer (which already carries its own background, if any) over
+   * a bare background step when a job produced both (Tier A flyer +
+   * flyer_background), otherwise whichever visual step actually
+   * completed. A creative.reviseVisual step's content shape mirrors
+   * whichever asset type it revised (see assetKind()). */
+  function findVisualStep(steps) {
+    const candidates = steps.filter(
+      (s) =>
+        ["creative.generateBackground", "creative.renderFlyerContent", "creative.reviseVisual"].includes(s.tool) &&
+        s.status === "completed" &&
+        s.result?.asset_id
+    );
+    if (!candidates.length) return null;
+    const flyer = candidates.find((s) => assetKind(s.result.content) === "flyer");
+    return flyer || candidates[candidates.length - 1];
+  }
+
   /** Renders a real preview card for a finished (or partially finished)
-   * AI job — the generated image if one exists, and a retry button per
-   * failed step. This is what replaced the old raw-JSON chat dump: a job's
-   * text summary types out in the chat bubble via formatJobResponse() on
-   * the server, and this card holds the parts text can't show (images,
-   * per-step retry actions). */
+   * AI job — the generated image if one exists, a composited/rendered
+   * Visual Creation Studio preview (background or flyer) if the job made
+   * one, and a retry button per failed step. This is what replaced the
+   * old raw-JSON chat dump: a job's text summary types out in the chat
+   * bubble via formatJobResponse() on the server, and this card holds the
+   * parts text can't show (images, per-step retry, Save/Undo). */
   function renderJobCard(job) {
     const mount = document.getElementById("lilyJobCard");
     if (!mount) return;
@@ -125,6 +365,17 @@
     const steps = job.result?.steps || [];
     const imageStep = steps.find((s) => s.tool === "creative.generateImage" && s.status === "completed" && s.result?.url);
     const imageHtml = imageStep ? `<img class="lily-job-image" src="${esc(imageStep.result.url)}" alt="AI-generated image">` : "";
+    const visual = findVisualStep(steps);
+    const visualContent = visual?.result?.content || null;
+    const visualAssetId = visual?.result?.asset_id || null;
+    const visualHtml = visualAssetId
+      ? `<img class="lily-job-image" id="lilyJobVisual" alt=""><p class="lily-job-note" id="lilyJobVisualNote">Composing your preview…</p>
+         <div class="lily-job-actions">
+           <button type="button" id="lilyJobSave">💾 Save</button>
+           <button type="button" id="lilyJobDownload">⬇ Download</button>
+           <button type="button" id="lilyJobUndo">↩ Undo to previous version</button>
+         </div>`
+      : "";
     const failedSteps = steps.filter((s) => s.status === "failed");
     const retryButtons = failedSteps
       .map(
@@ -136,6 +387,7 @@
     mount.innerHTML = `
       <div class="lily-job-head"><strong>${esc(job.title || "Job")}</strong><span class="lily-job-status lily-job-status-${esc(job.status || "")}">${esc(JOB_STATUS_LABEL[job.status] || job.status || "")}</span></div>
       ${imageHtml}
+      ${visualHtml}
       ${retryButtons ? `<div class="lily-job-actions">${retryButtons}</div>` : ""}`;
     mount.querySelectorAll("[data-job-id]").forEach((btn) => {
       btn.onclick = async () => {
@@ -155,6 +407,10 @@
         }
       };
     });
+    if (visualAssetId && visualContent) {
+      mountVisualPreview(visualContent);
+      wireVisualCardActions({ assetId: visualAssetId, content: visualContent, title: job.title });
+    }
   }
 
   function mountShell() {
@@ -196,7 +452,10 @@
       <div id="lilyConfirm" class="lily-confirm" hidden></div>
       <div id="lilyJobCard" class="lily-job-card" hidden></div>
       <div class="lily-toolbar" id="lilyToolbar"></div>
+      <div id="lilyAttachChip" class="lily-attach-chip" hidden></div>
       <div class="lily-compose">
+        <button type="button" class="lily-attach" id="lilyAttach" title="Attach a photo">📎</button>
+        <input type="file" id="lilyAttachFile" accept="image/*" hidden>
         <button type="button" class="lily-voice" title="Hear Lily">🎙</button>
         <textarea id="lilyInput" rows="1" placeholder="Ask Lily anything about your shop…"></textarea>
         <button type="button" class="lily-send" id="lilySend">→</button>
@@ -214,6 +473,22 @@
       localStorage.setItem(THEME_KEY, next);
     };
     document.getElementById("lilySend").onclick = () => sendMessage();
+    document.getElementById("lilyAttach").onclick = () => document.getElementById("lilyAttachFile").click();
+    document.getElementById("lilyAttachFile").addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file) return;
+      if (file.size > 12 * 1024 * 1024) {
+        deps?.toast?.("Please choose a photo under 12 MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        pendingImage = { dataUrl: reader.result, name: file.name || "photo" };
+        renderAttachChip();
+      };
+      reader.readAsDataURL(file);
+    });
     document.querySelector(".lily-voice").onclick = () => {
       // Was hardcoded to always say "Hi, I'm Lily" here regardless of which
       // assistant was actually active — switching to Rose, Daisy, or Bud
@@ -454,10 +729,18 @@
     const input = document.getElementById("lilyInput");
     const message = (input?.value || "").trim();
     if (!confirm && !message) return;
+    // Captured before pendingImage is cleared below, so buildVisualPreview()
+    // can still composite it once this turn's job comes back — and reset
+    // on every real (non-confirm) turn so a photo attached two messages
+    // ago never silently reattaches itself to an unrelated later job.
+    if (!confirm) sentImageDataUrl = pendingImage?.dataUrl || null;
+    const imageForThisTurn = pendingImage?.dataUrl || null;
     if (!confirm) {
       lastUserMessage = message;
       appendMessage("user", message);
       input.value = "";
+      pendingImage = null;
+      renderAttachChip();
     }
     showTyping();
     try {
@@ -475,7 +758,8 @@
             message: confirm && pendingAction ? pendingAction.message : message,
             confirm,
             persona,
-            conversation_id: conversationId
+            conversation_id: conversationId,
+            ...(imageForThisTurn ? { image_base64: imageForThisTurn } : {})
           })
         });
         conversationId = data.conversation_id || conversationId;
@@ -659,6 +943,13 @@
     deps = { mode: "florist", ...options };
     mountShell();
     if (deps.mode === "admin") {
+      // Visual Creation Studio (image_base64, generated backgrounds/
+      // flyers) only exists on the shop-scoped lily-ai path — admin mode
+      // routes every message through admin-command-center instead, which
+      // has no such job to run, so a florist-facing attach button here
+      // would just silently drop whatever photo was picked.
+      const attachBtn = document.getElementById("lilyAttach");
+      if (attachBtn) attachBtn.hidden = true;
       deps.api("admin-command-center?action=dashboard")
         .then((d) => {
           adminKpis = d.kpis;

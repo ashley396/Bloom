@@ -402,7 +402,25 @@ export async function handler(event) {
       });
     }
 
-    if (!message && !["product-generate", "coach", "history-search"].includes(body.action)) {
+    // Visual Creation Studio: "Undo to previous version" needs to fetch a
+    // specific prior asset by id (its parent_asset_id, read off the asset
+    // the florist is currently looking at) — a plain scoped read, not a
+    // job re-run, so it's its own tiny action rather than routed through
+    // classifyRequest()/runJob().
+    if (event.httpMethod === "POST" && body.action === "get-asset") {
+      if (!body.asset_id) return json(400, { error: "asset_id is required." });
+      const { data: asset, error } = await client
+        .from("ai_generated_assets")
+        .select("*")
+        .eq("id", body.asset_id)
+        .eq("shop_id", shopId)
+        .maybeSingle();
+      if (error) return json(500, { error: error.message });
+      if (!asset) return json(404, { error: "That version couldn't be found." });
+      return json(200, { asset });
+    }
+
+    if (!message && !["product-generate", "coach", "history-search", "get-asset"].includes(body.action)) {
       return json(400, { error: "Add a message for Lily." });
     }
 
