@@ -1720,7 +1720,16 @@ document.querySelectorAll("#aiStudioPage .lux-ai-tabs [data-lux-ai-tab]").forEac
     document.querySelectorAll("#aiStudioPage .lux-ai-tabs [data-lux-ai-tab]").forEach(b=>{b.classList.toggle("active",b===btn);if(b===btn)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
     if(btn.dataset.luxAiTab==="website"&&btn.dataset.route&&window.FlorisynRouter)window.FlorisynRouter.navigate(btn.dataset.route);
     if(btn.dataset.luxAiTab==="ask")$("#aiStudioPrompt")?.focus();
+    // "Create" is its own panel (Visual Creation Studio's intro + a way in
+    // to the real thing — the Lily drawer, which already does the full
+    // attach-a-photo/generate/composite/Save-Undo flow) — every other tab
+    // keeps sharing the existing website-editing split pane.
+    const showCreate=btn.dataset.luxAiTab==="create";
+    const shell=$("#aiStudioShell"),createPanel=$("#aiStudioCreatePanel");
+    if(shell)shell.hidden=showCreate;
+    if(createPanel)createPanel.hidden=!showCreate;
   });
 });
+$("#aiStudioCreateOpen")?.addEventListener("click",()=>window.BloomLilyPlatform?.open?.("lily"));
 try{const saved=JSON.parse(localStorage.getItem("bloomAiStudioDraft")||"null");if(saved){aiStudioDraft=saved;renderAiStudioDraft()}}catch{}
 const dog=$("#bloomDog");let dogPetTimer=null;function petBloomDog(){if(!dog)return;dog.classList.remove("pet");void dog.offsetWidth;dog.classList.add("pet");if(dogPetTimer)window.clearTimeout(dogPetTimer);dogPetTimer=window.setTimeout(()=>dog.classList.remove("pet"),1100);lilyVoice("Oh, that’s so sweet. She loves the attention.")}dog?.addEventListener("click",petBloomDog);dog?.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" ")petBloomDog()});

@@ -1006,11 +1006,30 @@ document.querySelectorAll('#publicHome a[href^="#"]').forEach((a)=>{
   <nav class="lux-ai-tabs" aria-label="Studio sections">
     <button type="button" class="active" data-lux-ai-tab="studio" aria-current="page">Lily AI Studio</button>
     <button type="button" data-lux-ai-tab="ask" data-page="aiStudioPage" data-route="/lily-ai-studio">Ask Lily</button>
+    <button type="button" data-lux-ai-tab="create">Create</button>
     <button type="button" data-lux-ai-tab="website" data-page="websitePage" data-route="/website-studio">Website Studio</button>
     <button type="button" data-lux-ai-tab="learn" id="aiStudioLearnMore">Learn More</button>
   </nav>
 
-  <div class="ai-studio-shell lux-ai-shell">
+  <section class="panel lux-ai-create" id="aiStudioCreatePanel" hidden>
+    <div class="lux-ai-create-intro">
+      <p class="eyebrow">VISUAL CREATION STUDIO</p>
+      <h2>Ask Lily. She creates it.</h2>
+      <p class="subtle">One prompt, a finished visual — Lily uses your saved logo, colors, and shop info automatically. Preview, tweak with a follow-up ("less pink," "bigger text"), then save.</p>
+    </div>
+    <div class="lux-ai-create-examples">
+      <div><strong>📷 Product photos</strong><span>Swap or clean up a backdrop behind a real arrangement photo.</span></div>
+      <div><strong>🗞️ Flyers &amp; notices</strong><span>Sales, holidays, closing notices — sized for print or social.</span></div>
+      <div><strong>📱 Social posts</strong><span>Facebook, Instagram, Google Business — copy and a matching image.</span></div>
+      <div><strong>🎉 Sale &amp; holiday graphics</strong><span>Seasonal campaigns in your shop's own colors.</span></div>
+      <div><strong>🪧 Store signs</strong><span>Hours, closings, quick announcements — built for legibility.</span></div>
+      <div><strong>💌 Sympathy &amp; banners</strong><span>A quieter, respectful tone when it's needed, or a website banner.</span></div>
+    </div>
+    <button type="button" class="primary lux-ai-create-open" id="aiStudioCreateOpen">Open Lily to create →</button>
+    <p class="subtle lux-ai-create-note">Lily also learns your shop's style over time — review or edit it anytime in Settings → AI &amp; Assistants → My Style.</p>
+  </section>
+
+  <div class="ai-studio-shell lux-ai-shell" id="aiStudioShell">
     <section class="panel ai-conversation-panel lux-ai-chat" aria-label="Chat with Lily">
       <div class="assistant-profile lily-profile lux-ai-lily-head">
         <img src="/assets/assistants/lily-portrait.png" alt="Lily, Creative Assistant" width="40" height="40">
