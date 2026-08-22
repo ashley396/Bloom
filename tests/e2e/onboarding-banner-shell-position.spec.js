@@ -69,6 +69,38 @@ test.describe("onboarding checklist banner stays inside the app shell", () => {
     await expect(checkbox).not.toBeChecked();
   });
 
+  test("the checklist stays compact enough that it never pushes POS's register below the fold at 1440x900", async ({ page }) => {
+    // Billion-dollar design pass, confirmed regression: body.bloom-rc2 label
+    // (bloom-rc2-design-system.css) has higher specificity than
+    // .bloom-onboarding-steps label (an extra "body" element selector beats
+    // the class-count tie) and forced flex-direction:column on every
+    // checklist row — the exact same specificity trap PR #169 already fixed
+    // once for Daisy's checkboxes, recurring here. That stretched the
+    // banner to ~490px tall, which on POS specifically pushed the entire
+    // register (product grid, cart, customer panel) below the fold on a
+    // 1440x900 screen — a real usability regression on the single most
+    // time-critical page in the app, not just a cosmetic one.
+    await mockBackend(page);
+    await withFakeSession(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await page.waitForSelector("#app:not([hidden])", { timeout: 10_000 });
+    await page.evaluate(() => window.showPage && window.showPage("posPage"));
+    await page.waitForTimeout(300);
+
+    const banner = page.locator(".bloom-onboarding-banner");
+    await expect(banner).toBeVisible();
+    const bannerBox = await banner.boundingBox();
+    expect(bannerBox.height, "the checklist card must stay compact, not balloon to a near-full-screen block").toBeLessThan(220);
+
+    // The register itself (its search/quick-shortcuts area) must be
+    // visible on screen without scrolling.
+    const register = page.locator("#posPage .pos-lux-checkout, #posPage #productPadGrid").first();
+    await expect(register).toBeVisible();
+    const registerBox = await register.boundingBox();
+    expect(registerBox.y, "POS's own register must be on-screen at 900px tall, not pushed below the fold").toBeLessThan(900);
+  });
+
   test("admin: banner mounts into the dedicated #adminOnboardingHost, never #adminApp directly", async ({ page }) => {
     await mockAdminBackend(page);
     await withFakeAdminSession(page);

@@ -174,17 +174,31 @@ dialog::backdrop {
 }
 .bloom-onboarding-steps {
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 20px;
+  row-gap: 8px;
   margin-top: 12px;
 }
 .bloom-onboarding-steps label {
+  /* Billion-dollar design pass: body.bloom-rc2 label (bloom-rc2-design-
+     system.css) has higher specificity (0,1,2 vs this rule's 0,1,1 — an
+     extra "body" element selector beats the class-count tie) and forces
+     flex-direction:column + a 14px margin-bottom onto every <label> in
+     the app, including these. That stretched each checklist row to
+     ~75px tall and the whole banner to ~490px — on POS specifically,
+     tall enough to push the entire register below the fold on a
+     1440x900 screen. Same trap, same fix PR #169 already used for
+     Daisy's checkboxes (.check{flex-direction:row!important}): win on
+     !important rather than trying to out-specificity a "body.*" rule
+     that will keep growing new class combinations. */
   display: flex;
-  align-items: center;
+  flex-direction: row !important;
+  align-items: center !important;
   gap: 10px;
   font-weight: 600;
-  margin: 0;
+  margin: 0 !important;
 }
-.bloom-onboarding-steps input { width: auto; }
+.bloom-onboarding-steps input { width: auto; flex: 0 0 auto; }
 
 .bloom-toast-success::before {
   content: "✓ ";
@@ -280,6 +294,7 @@ dialog .actions button { min-height: 44px; min-width: 44px; }
   dialog { width: 100%; max-width: none; margin: 0; border-radius: 18px 18px 0 0; align-self: end; }
   .bloom-page-help { margin-bottom: 12px; }
   .bloom-onboarding-banner { flex-direction: column; align-items: stretch; }
+  .bloom-onboarding-steps { grid-template-columns: 1fr; }
   .lily-panel { bottom: calc(78px + env(safe-area-inset-bottom, 0)); }
   .lily-fab { bottom: calc(16px + env(safe-area-inset-bottom, 0)); }
 }
