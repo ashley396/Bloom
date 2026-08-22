@@ -297,6 +297,22 @@ body.bloom-auth {
   gap: 10px;
 }
 
+/* Modifier for a link row meant to read as one inline sentence (e.g. "Return
+   to sign in · Request a new link") rather than stacked action lines. A
+   "·" separator sitting directly between two <a> tags becomes its own
+   anonymous flex item under the base class's column layout, so it renders
+   on its own line instead of inline. Row + wrap keeps everything on one
+   line where there's room and wraps the whole group together — separator
+   included — at narrow widths instead of stranding it alone. */
+.bloom-auth-links-inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 10px;
+  text-align: center;
+}
+
 .bloom-auth-footer {
   padding: 24px clamp(16px, 4vw, 32px);
   text-align: center;

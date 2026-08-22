@@ -153,7 +153,7 @@ window.addEventListener("unhandledrejection",e=>florisynUnhandledToast(e.reason)
 window.addEventListener("error",e=>florisynUnhandledToast(e.error||e.message));
 function applyBranding(settings=shopSettings||{}){const root=document.documentElement;const primary=settings.primary_color||"#8f3f68",bg=settings.app_background_color||"#f8f3f6",sidebar=settings.sidebar_color||"#30232d",header=settings.header_color||"#ffffff",font=settings.app_font||"Elegant";root.style.setProperty("--brand-primary",primary);root.style.setProperty("--app-background",bg);root.style.setProperty("--sidebar-color",sidebar);root.style.setProperty("--header-color",header);document.body.dataset.appFont=font;const logo=settings.logo_url||"";const appLogo=$("#appLogo"),preview=$("#settingsLogoPreview"),placeholder=$("#logoPlaceholder"),webPreview=$("#websiteLogoPreview"),webPlaceholder=$("#websiteLogoPlaceholder");if(appLogo){appLogo.src=logo;appLogo.hidden=!logo}if(preview){preview.src=logo;preview.hidden=!logo}if(placeholder)placeholder.hidden=Boolean(logo);if(webPreview){webPreview.src=logo;webPreview.hidden=!logo}if(webPlaceholder)webPlaceholder.hidden=Boolean(logo);const dash=settings.dashboard_image_url||"",dashWrap=$("#dashboardWelcomePhoto"),dashImg=$("#dashboardWelcomeImage"),dashPreview=$("#dashboardImagePreview"),dashPlaceholder=$("#dashboardImagePlaceholder");if(dashImg){dashImg.src=dash;dashWrap.hidden=!dash}if(dashPreview){dashPreview.src=dash;dashPreview.hidden=!dash}if(dashPlaceholder)dashPlaceholder.hidden=Boolean(dash);const brandEl=document.querySelector(".brand");if(brandEl)brandEl.textContent=settings.name||"Florisyn";}
 function previewBrandingForm(){const f=$("#settingsForm");if(!f)return;const d=Object.fromEntries(new FormData(f));applyBranding({...shopSettings,...d});const p=$("#themePreview");if(p){p.style.background=d.app_background_color||"#f8f3f6";p.style.borderColor=d.primary_color||"#8f3f68";p.querySelector("span").style.color=d.primary_color||"#8f3f68";p.dataset.font=d.app_font||"Elegant"}}
-function showAuth(){const app=$("#app"),auth=$("#auth"),pub=$("#publicHome");if(app)app.hidden=true;if(auth)auth.hidden=true;if(pub)pub.hidden=false}
+function showAuth(){const app=$("#app"),auth=$("#auth"),pub=$("#publicHome");if(app)app.hidden=true;if(auth)auth.hidden=true;if(pub)pub.hidden=false;$("#bloomLoadingScreen")?.classList.add("is-hidden")}
 async function bootFloristApp(){
   wireSignedOutInteractionGuards();
   if(!session?.accessToken){showAuth();return}
@@ -299,12 +299,20 @@ function showPage(id){
   const routePath=window.FlorisynRouter?.path||window.FlorisynRouter?.PAGE_PATH?.[id]||"";
   if(window.FlorisynRouter?.syncActiveNav&&routePath)window.FlorisynRouter.syncActiveNav(routePath);
   else $$("#app aside button[data-page], .mobile-nav button[data-page], .assistant-mini-dock button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===id));
-  loadPage(id);
+  const pageLoaded=loadPage(id);
   if(id==="posPage"){
     window.FlorisynLuxuryPos?.boot?.();
     window.renderPosCart?.();
   }
-  window.BloomLaunchPolish?.refreshPageHelp?.(id);
+  // Billion-dollar design pass: refreshPageHelp used to run synchronously
+  // right after firing loadPage(id) off, but loadPage awaits an async,
+  // page-specific loader (e.g. Website Studio's loadWebsite, which mounts
+  // its tabbed shell and moves DOM nodes into it once ready) that loadPage
+  // itself already catches errors from, so this can't skip the help bar.
+  // Waiting for that promise first means every page's DOM has settled
+  // into its final shape before injectPageHelp picks where the bar goes,
+  // instead of anchoring to a heading that's about to be relocated.
+  pageLoaded.then(()=>window.BloomLaunchPolish?.refreshPageHelp?.(id));
   closeMobileDrawer();
   scrollMobilePageToTop();
 }

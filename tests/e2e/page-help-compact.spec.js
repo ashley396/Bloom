@@ -15,18 +15,8 @@ import { withFakeSession, mockBackend } from "./fixtures.mjs";
  * checklist banner, not here.
  */
 
-const IMAGE_FORWARD_ROUTES = ["libraryPage", "aiStudioPage"];
+const IMAGE_FORWARD_ROUTES = ["libraryPage", "aiStudioPage", "websitePage"];
 const OTHER_ROUTES = ["dashboardPage", "ordersPage", "customersPage", "inventoryPage", "settingsPage"];
-
-// websitePage is deliberately excluded here: injectPageHelp's anchor logic
-// (`page.querySelector(".heading") || page.firstElementChild`) finds a
-// `.heading` that lives inside Website Studio's own hidden "Brand" tab
-// panel (#wsPanel-brand, display:none until that tab is selected) and
-// inserts the whole bar there — a pre-existing, unrelated mis-anchor bug
-// that predates this pass (confirmed present on the beta baseline before
-// any of these changes) and made the help bar invisible on this page
-// under both the old always-open markup and the new compact one. Left
-// unfixed per "do not make unrelated changes"; flagged separately.
 
 test.describe("per-page Help bar is compact and collapsed by default", () => {
   for (const pageId of [...IMAGE_FORWARD_ROUTES, ...OTHER_ROUTES]) {
@@ -90,6 +80,42 @@ test.describe("per-page Help bar is compact and collapsed by default", () => {
     await page.waitForTimeout(300);
 
     await expect(page.locator("#posPage .bloom-page-help")).toHaveCount(0);
+  });
+
+  test("Website Studio: the help bar lands as a direct, visible child of the page, not trapped inside the hidden Brand tab panel", async ({ page }) => {
+    // Confirmed pre-existing bug, root-caused and fixed in this pass:
+    // Website Studio's own shell (website-studio-shell.js) re-parents its
+    // legacy builder — heading included — into one of its own tab panels
+    // (#wsPanel-brand) once that shell finishes loading. showPage() used
+    // to call refreshPageHelp(id) synchronously right after firing off
+    // loadPage(id) without awaiting it, so injectPageHelp anchored to
+    // whatever heading existed *before* Website Studio's own async load
+    // had reorganized the page — landing the bar inside a container that
+    // then got moved into a hidden tab panel right along with it. Fixed
+    // by (1) awaiting loadPage's promise before refreshing the help bar
+    // and (2) only trusting a heading that's already a direct child of
+    // the page itself, never one nested inside a tab/panel a page may
+    // reorganize on its own.
+    await mockBackend(page);
+    await withFakeSession(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await page.waitForSelector("#app:not([hidden])", { timeout: 10_000 });
+    await page.evaluate(() => window.showPage && window.showPage("websitePage"));
+    await page.waitForTimeout(500);
+
+    const help = page.locator("#websitePage .bloom-page-help");
+    await expect(help).toBeVisible();
+
+    const parentId = await help.evaluate((el) => el.parentElement.id);
+    expect(parentId, "the help bar must be a direct child of #websitePage, not nested inside the legacy builder's own shell").toBe("websitePage");
+
+    const trapped = await page.locator("#wsPanel-brand .bloom-page-help, .legacy-website-editor-shell .bloom-page-help").count();
+    expect(trapped, "the help bar must never end up inside the hidden Brand tab panel").toBe(0);
+
+    const box = await help.boundingBox();
+    expect(box.height, "collapsed, the help bar must stay a single compact row").toBeLessThan(60);
+    expect(box.y, "the help bar must render above the fold, ahead of the Website Studio tab shell").toBeLessThan(900);
   });
 
   for (const [name, viewport] of Object.entries({

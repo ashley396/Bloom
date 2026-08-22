@@ -173,6 +173,21 @@
   font-weight: 800;
 }
 
+/* Hero product visual — the real Florisyn dashboard on laptop/phone, the
+   same shot already used on the login/signup hero, reused here for a
+   consistent visual language across the funnel rather than new stock art. */
+#publicHome .ph-hero-visual {
+  margin: 12px auto 0;
+}
+
+#publicHome .ph-hero-visual img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 28px;
+  filter: drop-shadow(0 28px 50px rgba(26, 43, 72, 0.18));
+}
+
 #publicHome .ph-section {
   padding: 56px 32px;
   max-width: 1080px;
@@ -476,6 +491,10 @@
   }
   #publicHome .ph-hero {
     padding: 48px 20px 40px;
+  }
+  #publicHome .ph-hero-visual img {
+    border-radius: 18px;
+    filter: drop-shadow(0 16px 28px rgba(26, 43, 72, 0.16));
   }
   #publicHome .ph-section {
     padding: 40px 20px;

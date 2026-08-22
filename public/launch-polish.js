@@ -149,7 +149,31 @@ import {
       // Ask Lily and Learn more are unchanged — just one click further in.
       bar = document.createElement("details");
       bar.className = "bloom-page-help";
-      const anchor = page.querySelector(".heading") || page.firstElementChild;
+      // Billion-dollar design pass, confirmed pre-existing bug: picking the
+      // first ".heading" in document order isn't enough. Website Studio's
+      // own shell (website-studio-shell.js) re-parents its legacy builder —
+      // heading included — into one of its own tab panels *after* this
+      // runs (transitionTo calls run() without awaiting it, then calls us
+      // synchronously — the shell's async reorganize() lands later). Since
+      // "anchor.after(bar)" makes bar a *sibling of the heading inside its
+      // own container*, not a sibling of that container inside the page,
+      // the bar got carried along into the hidden panel with it.
+      //
+      // Fix at the mounting logic, not with a per-page special case: only
+      // trust a heading that is already a direct child of the page itself
+      // (a real top-level page heading, not one nested inside some inner
+      // shell/tab/panel a page may reorganize on its own later) and that
+      // is currently visible. That's timing-safe too — Website Studio's
+      // heading is nested one level inside ".legacy-website-editor-shell"
+      // even in the original markup, so this check excludes it correctly
+      // whether reorganize() has run yet or not. If no such heading
+      // exists, prepend onto the page directly — a plain child of the
+      // page can never get swept into a container's own internal
+      // reshuffling the way a nested sibling can.
+      let anchor = null;
+      for (const h of page.querySelectorAll(".heading")) {
+        if (h.parentElement === page && h.offsetParent !== null) { anchor = h; break; }
+      }
       if (anchor) anchor.after(bar);
       else page.prepend(bar);
     }
@@ -273,9 +297,25 @@ import {
   function transitionTo(pageId, run) {
     const prev = document.querySelector(".page.active");
     if (prev) prev.classList.add("bloom-page-exit");
-    setTimeout(() => {
+    setTimeout(async () => {
       if (prev) prev.classList.remove("bloom-page-exit");
-      run();
+      // Billion-dollar design pass: run() used to fire-and-forget here, so
+      // for a page whose own render is async (Website Studio awaits its
+      // shell/editor modules, which re-parent DOM nodes into tab panels
+      // once they're ready), injectPageHelp ran against a DOM snapshot
+      // from *before* that reorganizing had happened — anchoring correctly
+      // in the moment, then getting swept along when the page's own
+      // shell moved its container afterward. Awaiting run() first means
+      // every page's DOM has already settled into its final shape by the
+      // time we pick where the help bar goes. run() staying resilient to
+      // its own internal failures (never throwing here) is what every
+      // other caller already relies on; catch defensively so a broken
+      // page render still doesn't skip mounting/refreshing the help bar.
+      try {
+        await run();
+      } catch (err) {
+        console.error(err);
+      }
       injectPageHelp(pageId);
     }, 80);
   }
