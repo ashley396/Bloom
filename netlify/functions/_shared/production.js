@@ -64,6 +64,14 @@ export function safePublicError(error) {
   if (error?.code === "shop_membership_required") {
     return "Your Florisyn login works, but this account is not linked to an active flower shop yet. Finish onboarding or contact Florisyn support so we can attach your shop membership.";
   }
+  // Without this, the generic `status === 403` branch below would swallow
+  // the gate's actual "upgrade to Premium" message and replace it with a
+  // plain permission-denied string — leaving the caller's own
+  // plan_upgrade_required handling (see wholesale-seller-dashboard.js)
+  // with no real message to show.
+  if (error?.code === "plan_upgrade_required") {
+    return error?.message || "This feature requires a plan upgrade.";
+  }
   if (status === 401) return "Please sign in again.";
   if (status === 403) return "You do not have permission to perform this action.";
   if (status === 400) return error?.message || "Invalid request.";

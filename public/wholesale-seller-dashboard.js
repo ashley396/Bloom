@@ -194,7 +194,15 @@
   async function reload(hooks) {
     const mount = hooks.$('#wholesaleSellerRoot');
     if (mount) mount.innerHTML = '<p class="subtle">Loading wholesale seller dashboard…</p>';
-    state.data = await hooks.api('marketplace-seller');
+    try {
+      state.data = await hooks.api('marketplace-seller');
+    } catch (error) {
+      if (error?.code === 'plan_upgrade_required' && mount) {
+        mount.innerHTML = `<article class="report-summary wholesale-kpi" style="max-width:520px"><div><small>PREMIUM FEATURE</small><strong>Wholesale seller tools</strong><p class="subtle">${hooks.esc(error.message)}</p><a class="primary" href="/company/pricing/" target="_blank" rel="noopener" style="display:inline-flex;margin-top:12px">See plans &amp; pricing</a></div></article>`;
+        return;
+      }
+      throw error;
+    }
     renderSection(hooks);
   }
 
