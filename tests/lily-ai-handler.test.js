@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildResponseMessage, cloudflareChat, personaDisabled, formatJobResponse, shouldDelegate, formatDelegatedAnswer, resolveJobPersona } from "../netlify/functions/lily-ai.js";
+import { buildResponseMessage, cloudflareChat, personaDisabled, formatJobResponse, shouldDelegate, formatDelegatedAnswer, resolveJobPersona, shouldRunJob, describePreferenceAck } from "../netlify/functions/lily-ai.js";
 
 test("buildResponseMessage: pre-confirmation text asks the florist to confirm", () => {
   const permission = { allowed: true };
@@ -327,4 +327,62 @@ test("resolveJobPersona: a domain with no declared job owner falls back to whoev
   const result = resolveJobPersona("Bud", "support");
   assert.equal(result.author, "Bud");
   assert.equal(result.delegated, false);
+});
+
+// ---- Visual Creation Studio ----
+
+test("shouldRunJob: null/undefined routed never runs a job", () => {
+  assert.equal(shouldRunJob(null), false);
+  assert.equal(shouldRunJob(undefined), false);
+});
+
+test("shouldRunJob: create/campaign/video always run a job regardless of domain", () => {
+  assert.equal(shouldRunJob({ action_type: "create", domain: "marketing" }), true);
+  assert.equal(shouldRunJob({ action_type: "campaign", domain: "marketing" }), true);
+  assert.equal(shouldRunJob({ action_type: "video", domain: "marketing" }), true);
+});
+
+test("shouldRunJob: a photo-domain edit with a real visual_op runs a job", () => {
+  for (const visual_op of ["background_change", "style", "revise", "flyer"]) {
+    assert.equal(shouldRunJob({ action_type: "edit", domain: "photo", visual_op }), true, `visual_op=${visual_op}`);
+  }
+});
+
+test("shouldRunJob: a photo-domain edit with visual_op 'crop' or 'none' never runs a job — pure client resize / no server work", () => {
+  assert.equal(shouldRunJob({ action_type: "edit", domain: "photo", visual_op: "crop" }), false);
+  assert.equal(shouldRunJob({ action_type: "edit", domain: "photo", visual_op: "none" }), false);
+});
+
+test("shouldRunJob: an edit to something other than a photo never runs a job", () => {
+  assert.equal(shouldRunJob({ action_type: "edit", domain: "website", visual_op: "background_change" }), false);
+});
+
+test("shouldRunJob: a bare 'general' classification (e.g. a standalone preference statement) never runs a job", () => {
+  assert.equal(shouldRunJob({ action_type: "general", domain: "photo", visual_op: "none", preference_statement: true }), false);
+});
+
+test("describePreferenceAck: a single positive trait is acknowledged plainly", () => {
+  const text = describePreferenceAck([{ category: "background_style", text: "soft luxury", polarity: "positive" }]);
+  assert.match(text, /I'll remember you like soft luxury/);
+  assert.match(text, /My Style/);
+});
+
+test("describePreferenceAck: a negative trait is acknowledged as something to avoid, not something liked", () => {
+  const text = describePreferenceAck([{ category: "colors", text: "neon pink", polarity: "negative" }]);
+  assert.match(text, /steer away from neon pink/);
+  assert.doesNotMatch(text, /I'll remember you like neon pink/);
+});
+
+test("describePreferenceAck: mixed positive and negative traits both appear", () => {
+  const text = describePreferenceAck([
+    { category: "colors", text: "cream", polarity: "positive" },
+    { category: "colors", text: "neon pink", polarity: "negative" }
+  ]);
+  assert.match(text, /like cream/);
+  assert.match(text, /steer away from neon pink/);
+});
+
+test("describePreferenceAck: an empty list still returns a safe, honest fallback rather than an empty string", () => {
+  assert.equal(describePreferenceAck([]), "Got it — noted for next time.");
+  assert.equal(describePreferenceAck(), "Got it — noted for next time.");
 });
