@@ -48,6 +48,24 @@ export function systemPromptFor(persona, mode = "chat") {
   return `${base}\n${modeHint}`;
 }
 
+/**
+ * A shop's onboarding-collected voice/notes (ai_shop_profiles), turned into
+ * an explicit instruction rather than left as passive JSON the model may or
+ * may not weight. Empty/default values produce no line — a shop that never
+ * customized anything behaves exactly as it did before this existed.
+ */
+export function shopVoiceSuffix(aiProfile) {
+  if (!aiProfile) return "";
+  const lines = [];
+  const tone = String(aiProfile.shop_tone || "").trim();
+  if (tone) lines.push(`This shop's voice: ${tone}. Match it.`);
+  const delivery = String(aiProfile.delivery_notes || "").trim();
+  if (delivery) lines.push(`Delivery notes from the florist: ${delivery}`);
+  const marketing = String(aiProfile.marketing_notes || "").trim();
+  if (marketing) lines.push(`Marketing/brand notes from the florist: ${marketing}`);
+  return lines.join("\n");
+}
+
 export function temperatureForPersona(persona, mode = "chat") {
   const who = normalizePersona(persona);
   if (mode === "generate") {
@@ -91,6 +109,33 @@ const TOPIC_HINTS = [
 
 export function personaExpertise(persona) {
   return PERSONA_EXPERTISE[normalizePersona(persona)] || "";
+}
+
+/** Which persona owns a domain outright — a structured, unambiguous signal
+ * (detectIntent() already resolved it to a specific business domain, unlike
+ * the fuzzy open-chat TOPIC_HINTS below matched against raw free text).
+ * Safe to use for real programmatic delegation, not just a suggestion. */
+export function domainOwner(intentDomain) {
+  return ADVICE_OWNER[intentDomain] || null;
+}
+
+/**
+ * Which persona actually AUTHORS a job-producing request in a given
+ * domain (AI-OS Wave 5) — distinct from domainOwner() above, which is
+ * only for chat *answers*. This governs who ai-orchestrator.js's runJob()
+ * actually generates content as. Only marketing/creative generation is a
+ * job-producing domain today: Lily is Florisyn's designated creative
+ * director, so a Facebook post or campaign asked of Bud or Daisy should
+ * still come out written by Lily, not paraphrased in whichever persona
+ * happened to be chatting — the same "shared core, right specialist"
+ * principle as domainOwner(), applied to job execution instead of chat.
+ */
+const JOB_DOMAIN_OWNER = Object.freeze({
+  marketing: "Lily",
+});
+
+export function jobDomainOwner(domain) {
+  return JOB_DOMAIN_OWNER[domain] || null;
 }
 
 /**

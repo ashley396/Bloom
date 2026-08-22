@@ -15,6 +15,7 @@ import {
   normalizePromoCode
 } from "./_shared/marketplace-promotions.js";
 import { PRICING_TIERS_TABLE, bestPricingTierFor } from "./_shared/marketplace-pricing-tiers.js";
+import { shippingFeeFor, isPickupFulfillment } from "./_shared/marketplace-shipping.js";
 
 function stripeRedirectBaseUrl() {
   const site = String(process.env.SITE_URL || process.env.URL || "").trim().replace(/\/$/, "");
@@ -69,6 +70,10 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
     const body = bodyOf(event);
     const cart = normalizeCart(body);
     if (!cart.length) return json(400, { error: "Cart is empty." });
+    // { [seller_shop_id]: "pickup" | "shipping" } — only meaningful for a
+    // seller who actually offers pickup (verified server-side below via
+    // that seller's own profile row); anything else is ignored.
+    const fulfillmentByShop = body.fulfillment && typeof body.fulfillment === "object" ? body.fulfillment : {};
 
     const { data: application, error: applicationError } = await client
       .from("marketplace_verification_applications")
@@ -152,17 +157,28 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
     const sellerShopIdsInCart = [...bySeller.values()].map((s) => s.sellerShopId).filter(Boolean);
     const { data: sellerProfileRows, error: sellerProfileError } = await client
       .from("marketplace_seller_profiles")
-      .select("shop_id, display_name, minimum_order_amount")
+      .select("shop_id, display_name, minimum_order_amount, pickup_available, shipping_flat_fee, free_shipping_over")
       .in("shop_id", sellerShopIdsInCart);
     if (sellerProfileError) throw sellerProfileError;
     const sellerProfileByShop = new Map((sellerProfileRows || []).map((row) => [row.shop_id, row]));
+
+    // Pre-discount subtotal per seller — shared by the minimum-order gate
+    // below and the free-shipping threshold in the checkout loop further
+    // down, so both are checked against the same real cart value a promo
+    // code or volume tier can never be used to slip under.
+    const rawSubtotalByShop = new Map(
+      [...bySeller.entries()].map(([, sellerCart]) => [
+        sellerCart.sellerShopId,
+        sellerCart.lines.reduce((sum, { listing, quantity }) => sum + Number(listing.price) * quantity, 0)
+      ])
+    );
 
     const belowMinimum = [...bySeller.entries()]
       .map(([, sellerCart]) => {
         const profile = sellerProfileByShop.get(sellerCart.sellerShopId);
         const minimum = Number(profile?.minimum_order_amount) || 0;
         if (minimum <= 0) return null;
-        const subtotal = sellerCart.lines.reduce((sum, { listing, quantity }) => sum + Number(listing.price) * quantity, 0);
+        const subtotal = rawSubtotalByShop.get(sellerCart.sellerShopId) || 0;
         if (subtotal >= minimum) return null;
         return { seller_shop_id: sellerCart.sellerShopId, seller_name: profile?.display_name || "This seller", minimum, subtotal };
       })
@@ -276,10 +292,39 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
         ? amount / 100
         : sellerCart.lines.reduce((sum, { listing, quantity }) => sum + Number(listing.price) * quantity, 0);
 
+      // MARKETPLACE SHIPPING: marketplace_seller_profiles has always let a
+      // seller set pickup_available — but nothing ever charged for the
+      // shipping alternative. Only applied when the seller offers no
+      // pickup option at all (see shippingFeeFor's own comment for why),
+      // checked against the same pre-discount subtotal as the minimum-
+      // order gate above. Shown as its own visible Stripe line item and
+      // deliberately excluded from `amount` (and therefore the platform
+      // application_fee_amount above) — shipping is a pass-through cost,
+      // not marketplace revenue.
+      const profile = sellerProfileByShop.get(sellerCart.sellerShopId);
+      // A buyer can only ever request "shipping" for a seller who might
+      // otherwise default to pickup — the cart shows this choice only
+      // when the seller's own profile (looked up above, never trusted
+      // from the client) says pickup_available. Anything else in this
+      // map is ignored.
+      const buyerFulfillmentChoice = fulfillmentByShop[sellerCart.sellerShopId];
+      const shippingFee = shippingFeeFor({
+        pickupAvailable: Boolean(profile?.pickup_available),
+        buyerFulfillmentChoice,
+        shippingFlatFee: profile?.shipping_flat_fee,
+        freeShippingOver: profile?.free_shipping_over,
+        subtotal: rawSubtotalByShop.get(sellerCart.sellerShopId) || 0
+      });
+      const fulfillmentMethod = isPickupFulfillment({ pickupAvailable: Boolean(profile?.pickup_available), buyerFulfillmentChoice }) ? "pickup" : "shipping";
+      const stripeLineItems = shippingFee > 0
+        ? [...lineItems, { quantity: 1, price_data: { currency: "usd", unit_amount: Math.round(shippingFee * 100), product_data: { name: "Shipping" } } }]
+        : lineItems;
+      const orderTotalWithShipping = orderTotal + shippingFee;
+
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
         customer_email: user.email,
-        line_items: lineItems,
+        line_items: stripeLineItems,
         payment_intent_data: {
           application_fee_amount: fee,
           transfer_data: { destination: sellerCart.destination }
@@ -294,7 +339,9 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
           quantity: String(orderItems.reduce((n, i) => n + i.quantity, 0)),
           ...(appliedPromo ? { promotion_code: appliedPromo.code } : {}),
           ...(appliedTier ? { pricing_tier: appliedTier.name, pricing_tier_min_quantity: String(appliedTier.min_quantity) } : {}),
-          ...(discountPercent > 0 ? { discount_percent: String(discountPercent) } : {})
+          ...(discountPercent > 0 ? { discount_percent: String(discountPercent) } : {}),
+          ...(shippingFee > 0 ? { shipping_fee: String(shippingFee) } : {}),
+          fulfillment_method: fulfillmentMethod
         }
       });
 
@@ -312,13 +359,15 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
           buyer_user_id: user.id,
           listing_id: orderItems[0]?.listing_id || null,
           status: "pending",
-          total: orderTotal,
+          total: orderTotalWithShipping,
           items: orderItems,
           metadata: {
             stripe_checkout_session_id: session.id,
             ...(appliedPromo ? { promotion_code: appliedPromo.code } : {}),
             ...(appliedTier ? { pricing_tier: appliedTier.name } : {}),
-            ...(discountPercent > 0 ? { discount_percent: discountPercent } : {})
+            ...(discountPercent > 0 ? { discount_percent: discountPercent } : {}),
+            ...(shippingFee > 0 ? { shipping_fee: shippingFee } : {}),
+            fulfillment_method: fulfillmentMethod
           }
         });
       } catch {
@@ -328,7 +377,9 @@ export async function handleMarketplaceCheckout(event, dependencies = {}) {
       sessions.push({
         url: session.url,
         seller_shop_id: sellerCart.sellerShopId,
-        total: orderTotal,
+        total: orderTotalWithShipping,
+        shipping_fee: shippingFee,
+        fulfillment_method: fulfillmentMethod,
         promo_applied: Boolean(appliedPromo),
         pricing_tier_applied: appliedTier ? appliedTier.name : null
       });

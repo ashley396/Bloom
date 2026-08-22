@@ -26,7 +26,6 @@ const VARIANTS = "marketplace_listing_variants";
 const SELLER_PROFILES = "marketplace_seller_profiles";
 const SELLER_CATEGORIES = "marketplace_seller_categories";
 const PROMOTIONS = "marketplace_promotions";
-const SHIPPING = "marketplace_shipping_profiles";
 const TIERS = "marketplace_pricing_tiers";
 const CUSTOMERS = "marketplace_wholesale_customers";
 const ORDERS = "marketplace_wholesale_orders";
@@ -272,7 +271,6 @@ async function loadDashboard(client, shopId, userId) {
   let profile = null;
   let categories = [];
   let promotions = [];
-  let shippingProfiles = [];
   let pricingTiers = [];
   let customers = [];
 
@@ -283,8 +281,6 @@ async function loadDashboard(client, shopId, userId) {
     if (!categoriesResult.error) categories = (categoriesResult.data || []).map((row) => row.category_slug);
     const promoResult = await client.from(PROMOTIONS).select("id, code, percent_off, active, description, starts_at, ends_at").eq("shop_id", shopId);
     if (!promoResult.error) promotions = promoResult.data || [];
-    const shipResult = await client.from(SHIPPING).select("id, name, rules, active").eq("shop_id", shopId);
-    if (!shipResult.error) shippingProfiles = shipResult.data || [];
     const tierResult = await client.from(TIERS).select("id, name, min_quantity, discount_percent, active").eq("shop_id", shopId);
     if (!tierResult.error) pricingTiers = tierResult.data || [];
     const customerResult = await client.from(CUSTOMERS).select("*").eq("seller_shop_id", shopId).order("company_name");
@@ -313,7 +309,6 @@ async function loadDashboard(client, shopId, userId) {
     low_stock: lowStock,
     categories,
     promotions,
-    shipping_profiles: shippingProfiles,
     pricing_tiers: pricingTiers
   };
 }
@@ -477,21 +472,6 @@ export async function handler(event) {
           .single();
         if (error) throw error;
         return json(200, { item: data });
-      }
-
-      if (body.action === "save-shipping") {
-        const row = {
-          shop_id: shopId,
-          name: body.name,
-          rules: body.rules && typeof body.rules === "object" ? body.rules : {},
-          active: body.active !== false
-        };
-        const query = body.id
-          ? client.from(SHIPPING).update(row).eq("id", body.id).eq("shop_id", shopId)
-          : client.from(SHIPPING).insert(row);
-        const { data, error } = await query.select("*").single();
-        if (error) throw error;
-        return json(200, { shipping_profile: data });
       }
 
       if (body.action === "save-tier") {
@@ -668,6 +648,8 @@ export async function handler(event) {
         pickup_available: Boolean(body.pickup_available),
         pickup_address: body.pickup_address || null,
         pickup_hours: body.pickup_hours || null,
+        shipping_flat_fee: body.shipping_flat_fee !== "" && body.shipping_flat_fee != null ? Number(body.shipping_flat_fee) : null,
+        free_shipping_over: body.free_shipping_over !== "" && body.free_shipping_over != null ? Number(body.free_shipping_over) : null,
         ordering_policy: body.ordering_policy || null,
         order_deadline_note: body.order_deadline_note || null,
         contact_email: body.contact_email || null,

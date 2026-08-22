@@ -131,3 +131,50 @@ test("mobile date-range/filter buttons wrap onto their own row instead of being 
   assert.match(block, /\.ord-search\s*\{[^}]*flex:\s*1 1 100%/s, "search takes the full first row");
   assert.match(block, /\.ord-date,[^{]*\.ord-filter-btn\s*\{[^}]*flex:\s*0 0 auto/s, "date/filter buttons size to their own content on the wrapped row");
 });
+
+// Switching Barrier Register, Wave 7: wire order manual intake screen — a real
+// entry point for orders received by phone/fax/legacy wire portal from
+// FTD/Teleflora/BloomNet/FSN, so they flow into the same board, inventory,
+// and delivery pipeline as any other order instead of living outside Florisyn.
+test("Orders page has a real Wire Order intake entry point and dialog", () => {
+  assert.match(pageHtml, /\+ Wire Order/);
+  assert.match(pageHtml, /data-open="wireOrderDialog"/);
+  const dialogStart = html.indexOf('id="wireOrderDialog"');
+  const dialogEnd = html.indexOf("</dialog>", dialogStart);
+  const dialog = html.slice(dialogStart, dialogEnd);
+  assert.match(dialog, /id="wireOrderForm"/);
+  assert.match(dialog, /name="wire_service"/);
+  assert.match(dialog, /<option value="FTD">FTD<\/option>/);
+  assert.match(dialog, /<option value="Teleflora">Teleflora<\/option>/);
+  assert.match(dialog, /<option value="BloomNet">BloomNet<\/option>/);
+  assert.match(dialog, /name="wire_reference_number"/);
+  assert.match(dialog, /name="wire_cost"/);
+  assert.match(dialog, /name="recipient_name" required/);
+  assert.match(dialog, /name="subtotal" type="number" min="0" step="\.01" required/);
+  // Must not silently pretend Florisyn's own payment ledger settles a wire
+  // order — the wire service, not a card/cash tender through Florisyn, does.
+  assert.match(dialog, /settled by the wire service, not through Florisyn/);
+});
+
+test("wire order submit builds a real order payload (order_source + metadata) instead of a fake local-only record", () => {
+  assert.match(appJs, /\$\("#wireOrderForm"\)\.onsubmit=async e=>\{/);
+  const start = appJs.indexOf('$("#wireOrderForm").onsubmit=async e=>{');
+  const end = appJs.indexOf('"Save wire order"}\n};', start) + '"Save wire order"}\n};'.length;
+  const body = appJs.slice(start, end);
+  assert.match(body, /api\("orders",\{method:"POST"/, "must create a real order through the existing orders API, not a parallel table");
+  assert.match(body, /order_source:`Wire — \$\{wireService\}`/);
+  assert.match(body, /metadata:\{wire_service:wireService,wire_reference_number:d\.wire_reference_number\|\|"",wire_cost:Number\(d\.wire_cost\|\|0\)\}/);
+  assert.match(body, /loadOrders\(\)/, "board must refresh so the new wire order actually shows up");
+});
+
+test("a wire order's tile shows a real service badge and a one-click path to log its commission as an expense", () => {
+  assert.match(js, /o\.metadata && o\.metadata\.wire_service/);
+  assert.match(js, /class="ord-wire-badge"/);
+  assert.match(js, /data-log-wire-expense="\$\{esc\(r\.raw\.id\)\}"/);
+  assert.match(css, /\.ord-wire-badge\s*\{/);
+
+  assert.match(appJs, /data-log-wire-expense/);
+  const start = appJs.indexOf('data-log-wire-expense]")){');
+  const line = appJs.slice(start, appJs.indexOf("return openExpense(", start) + 400);
+  assert.match(line, /openExpense\(\{vendor:wire\.wire_service,amount:Number\(wire\.wire_cost\|\|0\)/, "must hand off to the real existing Expenses feature, not a new parallel one");
+});

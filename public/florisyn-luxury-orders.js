@@ -139,6 +139,16 @@
       else if (fulfillment.includes("PICK")) delivery = "Pickup";
       else if (fulfillment.includes("VENUE") || fulfillment.includes("SETUP")) delivery = "Venue Setup";
       else if (o.delivery_address) delivery = "Delivery";
+      // Wire order manual intake (Switching Barrier Register, Wave 7): orders
+      // keyed in from FTD/Teleflora/BloomNet/FSN/etc. carry their wire details
+      // in the order's own metadata jsonb — see wireOrderForm in app.js.
+      const wire = o.metadata && o.metadata.wire_service
+        ? {
+            service: String(o.metadata.wire_service),
+            ref: o.metadata.wire_reference_number ? String(o.metadata.wire_reference_number) : "",
+            cost: Number(o.metadata.wire_cost || 0)
+          }
+        : null;
       return {
         id: o.id || `api-${i}`,
         order: o.order_number ? (String(o.order_number).startsWith("#") ? o.order_number : `#${o.order_number}`) : `#FLR-${1000 + i}`,
@@ -149,6 +159,7 @@
         date: formatDate(o.delivery_date || o.created_at),
         dateKey: String(o.delivery_date || o.created_at || "").slice(0, 10),
         delivery,
+        wire,
         raw: o
       };
     });
@@ -257,18 +268,24 @@
           const editBtn = r.raw?.id
             ? `<button type="button" class="secondary" data-edit-order="${esc(r.raw.id)}">Edit</button>`
             : "";
+          const wireBadge = r.wire
+            ? `<span class="ord-wire-badge" title="${esc(`Wire order via ${r.wire.service}${r.wire.ref ? ` · their ref ${r.wire.ref}` : ""}`)}">Wire · ${esc(r.wire.service)}</span>`
+            : "";
+          const logWireExpenseBtn = r.wire && r.wire.cost > 0 && r.raw?.id
+            ? `<button type="button" class="secondary" data-log-wire-expense="${esc(r.raw.id)}">Log ${money(r.wire.cost)} fee</button>`
+            : "";
           return `<article class="ord-tile${selected}" data-ord-id="${esc(r.id)}">
             <label class="ord-tile-select"><input class="ord-check" type="checkbox" data-ord-select="${esc(r.id)}" ${checked} aria-label="Select ${esc(r.order)}"></label>
             <div class="ord-tile-head">
               <span class="ord-num">${esc(r.order)}</span>
               <span class="ord-status ${statusClass(r.status)}">${esc(statusLabel(r.status))}</span>
             </div>
-            <div class="ord-tile-customer">${esc(r.customer)}</div>
+            <div class="ord-tile-customer">${esc(r.customer)}${wireBadge}</div>
             <div class="ord-tile-items">${items}</div>
             <div class="ord-tile-meta"><span>${esc(r.date)}</span><span>${esc(r.delivery)}</span></div>
             <div class="ord-tile-foot">
               <span class="ord-total">${money(r.total)}</span>
-              <div class="ord-tile-actions">${editBtn}${orderCancelAction(r)}</div>
+              <div class="ord-tile-actions">${editBtn}${logWireExpenseBtn}${orderCancelAction(r)}</div>
             </div>
           </article>`;
         })

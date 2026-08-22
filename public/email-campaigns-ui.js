@@ -82,7 +82,12 @@
   function bind(el) {
     el.querySelector("#emailCampaignForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const fd = new FormData(e.target);
+      const form = e.currentTarget;
+      if (form.dataset.submitting === "1") return;
+      form.dataset.submitting = "1";
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+      const fd = new FormData(form);
       const body = Object.fromEntries(fd.entries());
       try {
         await api({ action: "create", ...body });
@@ -90,6 +95,9 @@
         await load();
       } catch (err) {
         toast(err.message || "Could not save campaign.");
+      } finally {
+        form.dataset.submitting = "";
+        if (submitBtn) submitBtn.disabled = false;
       }
     });
     el.querySelectorAll("[data-campaign-act]").forEach((btn) => {

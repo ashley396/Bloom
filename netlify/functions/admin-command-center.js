@@ -15,6 +15,7 @@ import {
   PLATFORM_FEATURE_FLAGS,
   sanitizeSubscriptionForAdmin,
   summarizeClientErrors,
+  summarizeSiteAnalytics,
   systemHealthSnapshot,
   validateAnnouncementPayload
 } from "./_shared/command-center.js";
@@ -304,6 +305,25 @@ export function createAdminCommandCenterHandler(deps = {}) {
         top_products: listings.slice(0, 10),
         ai_usage_note: "Connect platform_ai_usage_daily for live AI analytics after migration apply."
       });
+    }
+
+    if (event.httpMethod === "GET" && action === "site-analytics") {
+      // Section 22 of the SEO/GEO brief: track organic Google/Bing/
+      // ChatGPT/AI referral sources, landing pages, and signup/
+      // Founding-Florist conversions for florisyn.com's own marketing
+      // pages. Same audit_events table client-error reports already
+      // use for anonymous visitors (entity_type "marketing_site"),
+      // written by netlify/functions/site-analytics.js.
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const rows = await safeSelect(client, "audit_events", (q) =>
+        q
+          .select("created_at,event_type,metadata")
+          .eq("entity_type", "marketing_site")
+          .gte("created_at", since)
+          .order("created_at", { ascending: false })
+          .limit(5000)
+      );
+      return json(200, { window_days: 30, ...summarizeSiteAnalytics(rows) });
     }
 
     if (event.httpMethod === "GET" && action === "system-health") {

@@ -212,12 +212,35 @@ export function initCommandCenter(deps) {
   }
 
   async function loadAnalytics() {
-    const d = await ccCall('admin-command-center?action=analytics');
+    const [d, siteRes] = await Promise.all([
+      ccCall('admin-command-center?action=analytics'),
+      ccCall('admin-command-center?action=site-analytics').catch(() => null)
+    ]);
     $('#analyticsPanels').innerHTML = `
       ${chartBars(d.revenue_by_month || [], 'Revenue by month')}
       ${chartBars(d.customer_growth || [], 'Customer growth')}
       ${chartBars(d.marketplace_growth || [], 'Marketplace growth')}
       <article class="panel"><h3>Top products</h3><ul>${(d.top_products || []).map((p) => `<li>${escapeHtml(p.product_name || p.id)}</li>`).join('') || '<li>No data</li>'}</ul><p class="quiet">${escapeHtml(d.ai_usage_note || '')}</p></article>`;
+
+    const siteMount = $('#siteAnalyticsPanels');
+    if (!siteMount) return;
+    if (!siteRes) {
+      siteMount.innerHTML = '<p class="quiet">Site analytics unavailable.</p>';
+      return;
+    }
+    const metric = (label, value) => `<article class="metric"><small>${label}</small><strong>${Number(value || 0).toLocaleString()}</strong></article>`;
+    const list = (title, rows, renderRow) => `<article class="panel"><h3>${title}</h3>${rows.length ? `<ul>${rows.map(renderRow).join('')}</ul>` : '<p class="quiet">No data yet — this fills in once visitors arrive.</p>'}</article>`;
+    siteMount.innerHTML = `
+      <div class="metric-grid">
+        ${metric(`Pageviews (${siteRes.window_days || 30}d)`, siteRes.pageviews)}
+        ${metric('CTA clicks', siteRes.cta_clicks)}
+        ${metric('Signup conversions', siteRes.signup_conversions)}
+        ${metric('Founding Florist landing conversions', siteRes.founding_florist_landing_conversions)}
+      </div>
+      ${list('Top referral sources', siteRes.top_referrers || [], (r) => `<li><strong>${r.count}×</strong> ${escapeHtml(r.source)}</li>`)}
+      ${list('Top landing pages', siteRes.top_landing_pages || [], (p) => `<li><strong>${p.count}×</strong> ${escapeHtml(p.path)}</li>`)}
+      ${list('Top CTA clicks', siteRes.top_ctas || [], (c) => `<li><strong>${c.count}×</strong> ${escapeHtml(c.cta_id)}</li>`)}
+      ${list('Conversions by landing referrer', siteRes.conversions_by_landing_referrer || [], (r) => `<li><strong>${r.count}×</strong> ${escapeHtml(r.source)}</li>`)}`;
   }
 
   async function loadBetaToolkit() {

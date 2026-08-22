@@ -154,3 +154,56 @@ export function sanitizeClientErrorPayload(body = {}) {
   }
   return out;
 }
+
+// Marketing-site analytics (Section 22 of the SEO/GEO brief): a fixed,
+// known shape rather than a generic blocklist — nothing outside this
+// allowlist ever reaches audit_events.metadata, no matter what a caller
+// sends. Never accepts an IP, email, name, or anything identifying —
+// this is deliberately anonymous, no-invasive-tracking analytics.
+const SITE_ANALYTICS_EVENT_TYPES = new Set([
+  "site_pageview",
+  "site_cta_click",
+  "site_signup_conversion",
+]);
+
+function truncateStr(value, max) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, max) : null;
+}
+
+/** Pulls just the registrable host out of a referrer URL, e.g.
+ * "https://www.google.com/search?q=..." -> "google.com". Never stores
+ * the full referrer URL (which can carry a search query or another
+ * site's path) — only which site sent the visitor. */
+export function referrerHost(referrer) {
+  if (!referrer || typeof referrer !== "string") return null;
+  try {
+    const host = new URL(referrer).hostname.toLowerCase().replace(/^www\./, "");
+    return host ? host.slice(0, 100) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function sanitizeSiteAnalyticsPayload(body = {}) {
+  if (!body || typeof body !== "object") return null;
+  const eventType = SITE_ANALYTICS_EVENT_TYPES.has(body.event_type) ? body.event_type : null;
+  if (!eventType) return null;
+  const path = truncateStr(body.path, 200);
+  if (!path || !path.startsWith("/")) return null;
+  return {
+    eventType,
+    metadata: {
+      path,
+      referrer_host: referrerHost(body.referrer),
+      landing_path: truncateStr(body.landing_path, 200),
+      landing_referrer_host: referrerHost(body.landing_referrer),
+      utm_source: truncateStr(body.utm_source, 100),
+      utm_medium: truncateStr(body.utm_medium, 100),
+      utm_campaign: truncateStr(body.utm_campaign, 100),
+      cta_id: truncateStr(body.cta_id, 100),
+      session_id: truncateStr(body.session_id, 40),
+    },
+  };
+}

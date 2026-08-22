@@ -254,13 +254,38 @@
     return `bloom_bos_action_items:${shopId}`;
   }
 
+  // Beta-blocker repair: any action item saved before this fix could be
+  // "Applied — Revenue Opportunity" or similar, referencing one of the
+  // fabricated cards that no longer exist. Strip those out the first time
+  // they're loaded so an old fake recommendation never survives as a
+  // real-looking, still-actionable task list entry.
+  const LEGACY_FABRICATED_ITEM_NEEDLES = [
+    "wedding season bookings are up 23%",
+    "bookings are up 23%",
+    "applied — revenue opportunity",
+    "applied — marketing suggestion",
+    "applied — operational alert",
+    "increase wedding package prices by 15%",
+    "competitors see 40% more engagement",
+    "reorder roses from supplier by thursday to avoid stockout"
+  ];
+
+  function isLegacyFabricatedItem(text) {
+    const t = String(text || "").toLowerCase();
+    return LEGACY_FABRICATED_ITEM_NEEDLES.some((needle) => t.includes(needle));
+  }
+
   function loadActionItems() {
+    let raw;
     try {
-      const raw = JSON.parse(localStorage.getItem(actionItemsKey()) || "[]");
-      return Array.isArray(raw) ? raw : [];
+      raw = JSON.parse(localStorage.getItem(actionItemsKey()) || "[]");
     } catch {
       return [];
     }
+    const items = Array.isArray(raw) ? raw : [];
+    const cleaned = items.filter((item) => !isLegacyFabricatedItem(item?.text));
+    if (cleaned.length !== items.length) saveActionItems(cleaned);
+    return cleaned;
   }
 
   function saveActionItems(items) {

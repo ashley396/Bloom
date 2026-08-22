@@ -19,7 +19,7 @@ test("luxury Figma shell chrome is wired", () => {
   assert.match(html, /\+ New Order/);
   assert.match(html, /Orders Today/);
   assert.match(html, /Deliveries Today/);
-  assert.match(html, /Customer Happiness/);
+  assert.match(html, /Repeat Customers/);
   assert.match(html, /Payment Centre/);
   assert.match(html, /PREMIUM PLAN|Premium Plan/i);
 });

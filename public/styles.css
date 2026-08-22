@@ -2,6 +2,7 @@
 @media(max-width:1100px){.stats{grid-template-columns:repeat(3,1fr)}.product-grid{grid-template-columns:repeat(2,1fr)}.builder,.dashboard-grid{grid-template-columns:1fr}.kanban{grid-template-columns:repeat(2,1fr)}}@media(max-width:760px){header{padding:0 14px}.shell{display:block}aside{display:none}.content{padding:18px 14px 86px}.stats{grid-template-columns:repeat(2,1fr)}.product-grid,.two,.three,.kanban{grid-template-columns:1fr}.heading{align-items:flex-start}.mobile-nav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #ded1d9;z-index:40}.mobile-nav button{border:0;background:#fff;padding:13px 4px}.preview-products{grid-template-columns:1fr}.recipe-row{grid-template-columns:1fr 1fr}.report-row{grid-template-columns:1fr 1fr}#accountEmail{display:none}}/* Receipt thermal printing — see /receipt-print.css (body.print-receipt-mode) */
 /* Bloom v8 Florist Order Builder */
 .order-builder-dialog{width:min(1180px,calc(100% - 24px))}.order-builder-dialog form{padding:0;max-height:92vh}.order-builder-head{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;padding:24px 26px 18px;border-bottom:1px solid #eadde5;background:linear-gradient(135deg,#fff,#fbf4f8)}.order-builder-head h2{font-size:32px;margin:0}.order-live-total{text-align:right;min-width:190px;background:#30232d;color:#fff;border-radius:17px;padding:14px 16px}.order-live-total span,.order-live-total small{display:block;color:#dccdd7}.order-live-total strong{font:800 28px Georgia,serif;display:block;margin:3px 0}.order-builder-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:560px}.order-builder-main{padding:22px 24px;display:grid;gap:16px;background:#faf7f9}.builder-section{background:#fff;border:1px solid #eadde5;border-radius:18px;padding:18px}.builder-section h3,.order-builder-summary h3{margin:0 0 15px;font-size:19px}.order-builder-summary{position:sticky;top:0;height:max-content;padding:22px;background:#fff;border-left:1px solid #eadde5}.order-builder-summary hr{border:0;border-top:1px solid #eadde5;margin:16px 0}.summary-row{display:flex;justify-content:space-between;gap:12px;margin:10px 0}.summary-row strong{font-size:18px}.inventory-advice{background:#f5eaf0;border-radius:14px;padding:13px;margin-top:16px}.inventory-advice p{margin:6px 0 0;font-size:13px;line-height:1.45}.sticky-actions{position:sticky;bottom:0;background:#fff;border-top:1px solid #eadde5;padding:14px 24px;margin:0;z-index:3}.order-builder-dialog #deliveryFields.is-hidden{display:none}
+#wireOrderAddressLabel.is-hidden{display:none}
 @media(max-width:900px){.order-builder-grid{grid-template-columns:1fr}.order-builder-summary{position:static;border-left:0;border-top:1px solid #eadde5}.order-builder-head{align-items:stretch}.order-live-total{min-width:160px}}
 @media(max-width:620px){.order-builder-head{display:block;padding:18px}.order-live-total{text-align:left;margin-top:14px}.order-builder-main{padding:12px}.builder-section{padding:14px}.order-builder-dialog{width:100%;max-width:none;margin:0;border-radius:18px 18px 0 0}.order-builder-dialog form{max-height:96vh}}
 
@@ -254,6 +255,12 @@ aside button{font-size:14px!important;padding:10px 12px!important;color:#312c2f!
 .marketplace-cart-line-info strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .marketplace-cart-qty{width:56px;padding:4px 6px;border-radius:8px;border:1px solid #e5d3dc;font-variant-numeric:tabular-nums}
 .marketplace-cart-line-total{font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.marketplace-cart-seller-group{display:flex;flex-direction:column}
+.marketplace-cart-seller-group+.marketplace-cart-seller-group{margin-top:6px;padding-top:6px;border-top:1px dashed #eadde5}
+.marketplace-cart-seller-name{margin:0 0 2px;font-size:.78rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#a85d80}
+.marketplace-cart-fulfillment{display:flex;flex-wrap:wrap;gap:10px 16px;margin:6px 0 2px;padding:8px 10px;border:0;border-radius:10px;background:#faf3f6}
+.marketplace-cart-fulfillment legend{padding:0 0 4px;font-size:.78rem;font-weight:700;color:#6b3452}
+.marketplace-cart-fulfillment label{display:flex;align-items:center;gap:6px;font-size:.88rem;font-weight:600;color:#4b3c47}
 .marketplace-cart-summary{display:flex;flex-direction:column;gap:8px;padding-top:6px;border-top:1px solid #eadde5}
 .marketplace-cart-subtotal{display:flex;justify-content:space-between;font-size:1rem}
 .marketplace-notif-row{padding:9px 10px;border-radius:10px;margin-bottom:4px}
@@ -485,6 +492,15 @@ dialog{border:1px solid rgba(255,255,255,.75);border-radius:26px;box-shadow:var(
 .bloomshot-recipe-out{margin-top:10px;padding:12px 14px;border:1px solid var(--line,#eee1e4);border-radius:14px;background:var(--panel,#fff)}
 .bloomshot-recipe-out h3{margin:0 0 8px;font-size:16px;font-family:Georgia,serif}
 .bloomshot-recipe-out h3 small{color:var(--muted,#7c6d74);font-weight:400;margin-left:6px}
+.bloomshot-enhance{margin:12px 0}
+.bloomshot-enhance-out{margin-top:10px;padding:12px 14px;border:1px solid var(--line,#eee1e4);border-radius:14px;background:var(--panel,#fff);font-size:13px}
+.bloomshot-enhance-out .enhance-reason{color:var(--muted,#7c6d74);margin:6px 0 10px}
+.bloomshot-generate{margin-top:16px}
+.bloomshot-generate label{display:block;font-size:12px;font-weight:800;margin-bottom:8px}
+.bloomshot-generate select{width:100%;margin-top:4px}
+.bloomshot-generate-out{margin-top:10px}
+.bloomshot-generate-out img{display:block;width:100%;max-width:320px;border-radius:14px;border:1px solid var(--line,#eee1e4)}
+.bloomshot-generate-out .generate-label{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted,#7c6d74);margin:8px 0 4px}
 .shot-recipe-list{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:5px}
 .shot-recipe-list li{display:flex;gap:10px;align-items:baseline;font-size:14px}
 .shot-recipe-list li b{min-width:26px;text-align:right;color:#7e214e;font-variant-numeric:tabular-nums}
@@ -522,3 +538,12 @@ body[data-lily-theme="dark"] .pos-fulfill-toggle,body.florisyn-dark .pos-fulfill
   #posSettingsPage .pos-settings-quicklinks button{flex:1 1 calc(50% - 5px)}
 }
 .premium-preview h1,.premium-preview h2,.premium-preview h3,.premium-preview p{color:var(--site-text,#2c2230)}.premium-preview .hero-copy h1,.premium-preview .hero-copy h2,.premium-preview .hero-copy p,.premium-preview .hero-copy div{color:#fff}
+.hours-grid{display:flex;flex-direction:column;gap:8px;margin:14px 0}
+.hours-row{display:grid;grid-template-columns:110px 1fr auto auto;align-items:center;gap:12px;padding:8px 10px;border:1px solid #eee1e4;border-radius:8px}
+.hours-day-label{font-weight:600}
+.hours-closed-toggle{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500}
+.hours-closed-toggle input{width:auto}
+.hours-time-field{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted,#6d7385)}
+.hours-time-field input{width:auto;min-width:0}
+.hours-row.hours-row-closed .hours-time-field{opacity:.45;pointer-events:none}
+@media(max-width:650px){.hours-row{grid-template-columns:1fr;text-align:left}}
