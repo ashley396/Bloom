@@ -139,22 +139,34 @@ import {
     const copy = helpCopyForPage(pageId);
     let bar = page.querySelector(".bloom-page-help");
     if (!bar) {
-      bar = document.createElement("div");
+      // Billion-dollar design pass: this used to be an always-open <div> —
+      // a two-line title+body block plus an actions row on every page,
+      // ~90-120px of vertical space pushed in above the real content on
+      // every navigation. Rebuilt as a native <details> so it renders as a
+      // single compact row (title only) by default and reveals the body +
+      // actions on click/keyboard activation, same collapsed-by-default
+      // pattern already used for the assistant voice panels in Settings.
+      // Ask Lily and Learn more are unchanged — just one click further in.
+      bar = document.createElement("details");
       bar.className = "bloom-page-help";
       const anchor = page.querySelector(".heading") || page.firstElementChild;
       if (anchor) anchor.after(bar);
       else page.prepend(bar);
     }
+    const wasOpen = bar.open;
     bar.innerHTML = `
-      <div>
-        <p class="eyebrow">HELP</p>
-        <strong>${copy.title}</strong>
+      <summary>
+        <span class="bloom-page-help-label"><span class="eyebrow">Help</span> ${copy.title}</span>
+        <span class="bloom-page-help-chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="bloom-page-help-panel">
         <p>${copy.body}</p>
-      </div>
-      <div class="bloom-page-help-actions">
-        <button type="button" class="secondary bloom-help-lily" data-page-help-lily>Ask Lily</button>
-        <a class="secondary" href="${copy.learn}" target="_blank" rel="noopener">Learn more</a>
+        <div class="bloom-page-help-actions">
+          <button type="button" class="secondary bloom-help-lily" data-page-help-lily>Ask Lily</button>
+          <a class="secondary" href="${copy.learn}" target="_blank" rel="noopener">Learn more</a>
+        </div>
       </div>`;
+    bar.open = wasOpen;
     bar.querySelector("[data-page-help-lily]")?.addEventListener("click", () => {
       window.BloomLilyPlatform?.toggle?.(true);
     });
