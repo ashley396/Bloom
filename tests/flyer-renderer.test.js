@@ -122,3 +122,30 @@ test("scaleMultiplier: an unrecognized scale key falls back to 'normal' (1×) ra
   assert.equal(renderer.scaleMultiplier("not_a_real_scale"), 1);
   assert.equal(renderer.scaleMultiplier(undefined), 1);
 });
+
+test("scaleMultiplier: every one of the five SCALE_STEPS is a distinct value — no two steps render the same size", () => {
+  const values = ["small", "normal", "large", "x-large", "xx-large"].map((k) => renderer.scaleMultiplier(k));
+  assert.equal(new Set(values).size, 5, `expected 5 distinct multipliers, got ${JSON.stringify(values)}`);
+});
+
+test("effectivePaletteColors: with no style, uses the shop's own brand colors unchanged", () => {
+  const colors = renderer.effectivePaletteColors({ primaryColor: "#123456", accentColor: "#abcdef" }, null);
+  assert.equal(colors.primary, "#123456");
+  assert.equal(colors.accent, "#abcdef");
+});
+
+test("effectivePaletteColors: paletteInclude (e.g. 'use more cream') overrides the brand colors with the named color", () => {
+  const colors = renderer.effectivePaletteColors({ primaryColor: "#123456" }, { paletteInclude: ["cream"], paletteExclude: [] });
+  assert.equal(colors.primary, "#f3ead9");
+});
+
+test("effectivePaletteColors: paletteExclude alone ('less pink') with nothing to use instead moves off the brand colors rather than silently keeping them", () => {
+  const colors = renderer.effectivePaletteColors({ primaryColor: "#123456", accentColor: "#654321" }, { paletteInclude: [], paletteExclude: ["pink"] });
+  assert.notEqual(colors.primary, "#123456");
+  assert.notEqual(colors.accent, "#654321");
+});
+
+test("effectivePaletteColors: an unrecognized color name in paletteInclude falls back to the brand color rather than a broken value", () => {
+  const colors = renderer.effectivePaletteColors({ primaryColor: "#123456" }, { paletteInclude: ["not_a_real_color"], paletteExclude: [] });
+  assert.equal(colors.primary, "#123456");
+});

@@ -31,7 +31,12 @@ export const STYLE_CATEGORIES = Object.freeze([
 ]);
 
 const PROMOTE_THRESHOLD = 3; // repeated SAVED signals before an inferred trait becomes active
-const DEMOTE_TO_REMOVE = 3; // repeated UNDONE signals before a never-explicit candidate is dropped
+// There's no separate demote-to-remove threshold constant: removal is
+// evidence_count reaching 0 (see recordApprovalSignal() below), so a
+// candidate removes after exactly as many UNDONE signals as it took SAVED
+// signals to accumulate — one save + one undo removes a brand-new
+// candidate; a trait that had built up toward PROMOTE_THRESHOLD needs
+// that many undos to fully reverse.
 
 function emptyCategory() {
   return { traits: [] };

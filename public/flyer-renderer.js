@@ -33,7 +33,10 @@
 (function (global) {
   "use strict";
 
-  var SCALE_MULTIPLIER = { small: 0.72, normal: 1, "x-large": 1.28, large: 1.28, "xx-large": 1.56 };
+  // Matches ai-visual-revisions.js's SCALE_STEPS ["small","normal","large",
+  // "x-large","xx-large"] — five distinct steps need five distinct
+  // multipliers, or two consecutive "bigger" revisions render identically.
+  var SCALE_MULTIPLIER = { small: 0.72, normal: 1, large: 1.18, "x-large": 1.4, "xx-large": 1.62 };
 
   /** Converts a template region (fractions 0–1 of the canvas) into real
    * pixel coordinates for a given canvas size. Pure. */
@@ -276,18 +279,51 @@
       .catch(function () { /* logo is optional — a flyer must still render without it */ });
   }
 
-  function paintBrandBackground(ctx, width, height, template, brand) {
+  // Matches ai-visual-revisions.js's COLOR_WORDS — a Tier-B (brand-palette)
+  // background is the only place a color revision ("use more cream",
+  // "less pink") has anywhere to land, since there's no generated image to
+  // regenerate. Named, not exhaustive: good enough to make a revision
+  // visibly do something, not a full color-naming system.
+  var COLOR_NAME_HEX = {
+    pink: "#e8a3c0", red: "#c0392b", blue: "#3468a0", green: "#3c6b3f",
+    yellow: "#e2c04a", purple: "#7c3a8a", orange: "#d97a34", black: "#2a2226",
+    white: "#ffffff", cream: "#f3ead9", blush: "#f0c6d3", burgundy: "#6e1f2e",
+    gold: "#c8a24a", silver: "#c7c7c7", neon: "#39ff14", navy: "#1a2b4c",
+    teal: "#2a7f7a", brown: "#6b4423"
+  };
+
+  /** Picks the two colors a Tier-B background actually paints with —
+   * style.paletteInclude (a revision like "use more cream") always wins
+   * when present; style.paletteExclude with nothing specified to use
+   * instead falls back to the template's own neutral pair rather than
+   * silently keeping the very brand colors the florist just asked to move
+   * away from; with neither, the shop's own brand colors are unchanged. */
+  function effectivePaletteColors(brand, style) {
     var primary = brand.primaryColor || "#7c3a58";
     var accent = brand.accentColor || "#c98fae";
+    var include = (style && style.paletteInclude) || [];
+    var exclude = (style && style.paletteExclude) || [];
+    if (include.length) {
+      primary = COLOR_NAME_HEX[include[0]] || primary;
+      accent = COLOR_NAME_HEX[include[1] || include[0]] || accent;
+    } else if (exclude.length) {
+      primary = "#f3ead9"; // cream
+      accent = "#f0c6d3"; // blush
+    }
+    return { primary: primary, accent: accent };
+  }
+
+  function paintBrandBackground(ctx, width, height, template, brand, style) {
+    var colors = effectivePaletteColors(brand, style);
     if (template.palette.background === "brand_gradient") {
       var g = ctx.createLinearGradient(0, 0, width, height);
-      g.addColorStop(0, primary);
-      g.addColorStop(1, accent);
+      g.addColorStop(0, colors.primary);
+      g.addColorStop(1, colors.accent);
       ctx.fillStyle = g;
     } else if (template.palette.background === "muted") {
       ctx.fillStyle = "#efe9e6";
     } else {
-      ctx.fillStyle = primary;
+      ctx.fillStyle = colors.primary;
     }
     ctx.fillRect(0, 0, width, height);
   }
@@ -332,11 +368,11 @@
           return finish(safeGetImageData(ctx, width, height));
         })
         .catch(function () {
-          paintBrandBackground(ctx, width, height, template, brand);
+          paintBrandBackground(ctx, width, height, template, brand, style);
           return finish(safeGetImageData(ctx, width, height));
         });
     }
-    paintBrandBackground(ctx, width, height, template, brand);
+    paintBrandBackground(ctx, width, height, template, brand, style);
     return Promise.resolve().then(function () { return finish(safeGetImageData(ctx, width, height)); });
   }
 
@@ -348,6 +384,7 @@
     pickTextColor: pickTextColor,
     needsScrim: needsScrim,
     scaleMultiplier: scaleMultiplier,
+    effectivePaletteColors: effectivePaletteColors,
     compositeSubjectOnBackground: compositeSubjectOnBackground,
     renderFlyer: renderFlyer
   };

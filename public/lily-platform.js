@@ -24,11 +24,12 @@
   let adminKpis = null;
   let lastUserMessage = "";
   // Visual Creation Studio: a photo attached in the composer, waiting to
-  // be sent. { dataUrl, name } or null. sentImageDataUrl is the same value
-  // captured at SEND time (pendingImage is cleared right after) so
-  // renderJobCard() can still composite it once the job comes back.
+  // be sent. { dataUrl, name } or null. The turn's attached photo (if any)
+  // is threaded explicitly through renderJobCard()/mountVisualPreview()
+  // rather than kept here — a module-level "last attached image" would
+  // get overwritten by a second send before the first send's async job
+  // response comes back and reads it.
   let pendingImage = null;
-  let sentImageDataUrl = null;
 
   // Option A — each assistant owns a real lane; the drawer can switch between them.
   const PERSONAS = {
@@ -181,7 +182,7 @@
    * one. Never throws — falls back to the raw generated image URL, and
    * ultimately to null (card shows a plain status note instead of an
    * image) rather than leaving the compositor's failure unhandled. */
-  async function buildVisualPreview(content) {
+  async function buildVisualPreview(content, attachedImage) {
     const kind = assetKind(content);
     if (kind === "flyer") {
       if (!window.FlorisynFlyerRenderer || !content.regions) return content.background_url || null;
@@ -207,9 +208,9 @@
       // segment+generate+composite substitute for true inpainting (this
       // Cloudflare account has no verified image-editing model). Without
       // an attached photo, the generated backdrop IS the finished visual.
-      if (sentImageDataUrl && window.FlorisynPhotoStudio?.removeBackground && window.FlorisynFlyerRenderer) {
+      if (attachedImage && window.FlorisynPhotoStudio?.removeBackground && window.FlorisynFlyerRenderer) {
         try {
-          const img = await loadImageEl(sentImageDataUrl);
+          const img = await loadImageEl(attachedImage);
           const cut = window.FlorisynPhotoStudio.removeBackground(img);
           if (cut.ok && cut.canvas) {
             const canvas = await window.FlorisynFlyerRenderer.compositeSubjectOnBackground({
@@ -233,10 +234,10 @@
    * buildVisualPreview() resolves — separated from the card's synchronous
    * HTML so the card (status, retry buttons, Save/Undo) never waits on
    * compositing to appear. */
-  function mountVisualPreview(content) {
+  function mountVisualPreview(content, attachedImage) {
     const imgEl = document.getElementById("lilyJobVisual");
     const noteEl = document.getElementById("lilyJobVisualNote");
-    buildVisualPreview(content).then((src) => {
+    buildVisualPreview(content, attachedImage).then((src) => {
       if (!imgEl) return; // the card was replaced (e.g. by a later message) before this resolved
       if (src) {
         imgEl.src = src;
@@ -354,7 +355,7 @@
    * old raw-JSON chat dump: a job's text summary types out in the chat
    * bubble via formatJobResponse() on the server, and this card holds the
    * parts text can't show (images, per-step retry, Save/Undo). */
-  function renderJobCard(job) {
+  function renderJobCard(job, attachedImage) {
     const mount = document.getElementById("lilyJobCard");
     if (!mount) return;
     if (!job) {
@@ -408,7 +409,7 @@
       };
     });
     if (visualAssetId && visualContent) {
-      mountVisualPreview(visualContent);
+      mountVisualPreview(visualContent, attachedImage);
       wireVisualCardActions({ assetId: visualAssetId, content: visualContent, title: job.title });
     }
   }
@@ -729,11 +730,11 @@
     const input = document.getElementById("lilyInput");
     const message = (input?.value || "").trim();
     if (!confirm && !message) return;
-    // Captured before pendingImage is cleared below, so buildVisualPreview()
-    // can still composite it once this turn's job comes back — and reset
-    // on every real (non-confirm) turn so a photo attached two messages
-    // ago never silently reattaches itself to an unrelated later job.
-    if (!confirm) sentImageDataUrl = pendingImage?.dataUrl || null;
+    // Captured before pendingImage is cleared below, then threaded
+    // explicitly through this call's own renderJobCard() — never stored on
+    // module state, so a second message sent before this one's async job
+    // response arrives can never overwrite the photo this specific turn
+    // attached (see buildVisualPreview()'s attachedImage parameter).
     const imageForThisTurn = pendingImage?.dataUrl || null;
     if (!confirm) {
       lastUserMessage = message;
@@ -759,7 +760,11 @@
             confirm,
             persona,
             conversation_id: conversationId,
-            ...(imageForThisTurn ? { image_base64: imageForThisTurn } : {})
+            // Only a boolean crosses the wire — the actual bytes never
+            // leave the browser (compositing is entirely client-side, via
+            // buildVisualPreview() below); the server's only use for this
+            // is a classification signal (see ai-intent-router.js).
+            ...(imageForThisTurn ? { has_image: true } : {})
           })
         });
         conversationId = data.conversation_id || conversationId;
@@ -807,7 +812,7 @@
         }
       }
       hideTyping();
-      renderJobCard(data.job || null);
+      renderJobCard(data.job || null, imageForThisTurn);
       if (!data.permission?.allowed) {
         await typeAssistantResponse(data.response || "You do not have permission for that action.");
         pendingAction = null;
@@ -943,7 +948,7 @@
     deps = { mode: "florist", ...options };
     mountShell();
     if (deps.mode === "admin") {
-      // Visual Creation Studio (image_base64, generated backgrounds/
+      // Visual Creation Studio (has_image, generated backgrounds/
       // flyers) only exists on the shop-scoped lily-ai path — admin mode
       // routes every message through admin-command-center instead, which
       // has no such job to run, so a florist-facing attach button here

@@ -217,28 +217,36 @@ export function resolveJobPersona(persona, domain) {
  * thread should never get silently revised. Returns null (never throws) on
  * any lookup failure or when there's no prior visual to find.
  */
-async function findLastVisualAsset(client, { shopId, conversationId }) {
+export async function findLastVisualAsset(client, { shopId, conversationId }) {
   if (!conversationId) return null;
   try {
-    const { data: job } = await client
+    // Scans back through several recent photo-domain jobs, not just the
+    // single most recent one — the latest job in the conversation might
+    // itself have failed (e.g. an image-gen error) and produced zero
+    // completed visual steps, which would otherwise hide an earlier,
+    // perfectly revisable asset from a follow-up like "make it bigger".
+    const { data: jobs } = await client
       .from("ai_execution_jobs")
       .select("id, result")
       .eq("shop_id", shopId)
       .eq("conversation_id", conversationId)
       .eq("context->>domain", "photo")
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!job) return null;
-    const steps = job.result?.steps || [];
-    const visualSteps = steps.filter(
-      (s) =>
-        s.status === "completed" &&
-        ["creative.generateBackground", "creative.renderFlyerContent", "creative.reviseVisual"].includes(s.tool) &&
-        s.result?.asset_id
-    );
-    const last = visualSteps[visualSteps.length - 1];
-    return last ? { assetId: last.result.asset_id, jobId: job.id } : null;
+      .limit(8);
+    for (const job of jobs || []) {
+      const steps = job.result?.steps || [];
+      const visualSteps = steps.filter(
+        (s) =>
+          s.status === "completed" &&
+          ["creative.generateBackground", "creative.renderFlyerContent", "creative.reviseVisual"].includes(s.tool) &&
+          s.result?.asset_id
+      );
+      if (visualSteps.length) {
+        const last = visualSteps[visualSteps.length - 1];
+        return { assetId: last.result.asset_id, jobId: job.id };
+      }
+    }
+    return null;
   } catch {
     return null;
   }
@@ -355,6 +363,12 @@ export async function handler(event) {
     const body = bodyOf(event);
     const message = String(body.message || body.prompt || "").trim();
     const confirmed = Boolean(body.confirm);
+    // Visual Creation Studio: whether a photo is attached to THIS turn.
+    // Only a boolean crosses the wire — the actual bytes never leave the
+    // browser (compositing is entirely client-side, see lily-platform.js's
+    // buildVisualPreview()), so there's nothing for the server to do with
+    // the raw image except use its presence as a classification signal.
+    const hasImage = Boolean(body.has_image);
     // Pass #3 security review: a raw client-supplied conversation_id used
     // to be trusted outright — reused as-is to append messages and bump
     // updated_at. Verify it's actually this shop's own conversation before
@@ -466,7 +480,7 @@ export async function handler(event) {
             preference_updates: [],
             source: "deterministic"
           }
-        : await classifyRequest(message);
+        : await classifyRequest(message, { hasImage });
 
       // Shop style memory: an explicit standing statement ("I like soft
       // luxury backgrounds") writes immediately — regardless of whether

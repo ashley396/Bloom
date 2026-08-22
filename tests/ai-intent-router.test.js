@@ -114,6 +114,28 @@ test("classifyRequest: returns null (never throws) on a provider failure, so the
   }
 });
 
+test("classifyRequest: a photo attached on this turn is passed through as image_attached in the input, not just dropped", async () => {
+  const mock = mockCloudflareOnce({ action_type: "edit", domain: "photo", channels: [], occasion: null, audience: null, summary: "x", visual_op: "background_change" });
+  try {
+    await classifyRequest("make this nicer", { hasImage: true });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /"image_attached":true/);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("classifyRequest: no attached photo never adds image_attached to the input", async () => {
+  const mock = mockCloudflareOnce({ action_type: "general", domain: "general", channels: [], occasion: null, audience: null, summary: "x" });
+  try {
+    await classifyRequest("hello");
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.doesNotMatch(userMessage, /image_attached/);
+  } finally {
+    mock.restore();
+  }
+});
+
 test("classifyRequest: returns null for an empty message without calling the provider", async () => {
   const originalFetch = globalThis.fetch;
   let called = false;

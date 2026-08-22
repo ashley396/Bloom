@@ -113,7 +113,7 @@ function normalizeClassification(raw, message) {
  * (never throws) on any provider failure so the caller can fall back to
  * plain chat rather than surface an error for a conversational turn.
  */
-export async function classifyRequest(message) {
+export async function classifyRequest(message, { hasImage = false } = {}) {
   const text = String(message || "").trim();
   if (!text) return null;
   try {
@@ -121,7 +121,13 @@ export async function classifyRequest(message) {
       mode: "generate",
       persona: "Lily",
       task: CLASSIFY_TASK,
-      input: { message: text },
+      // image_attached isn't counted against CLASSIFY_TASK's 1200-char
+      // budget (that limit is on `task`, not `input`) — CLASSIFY_TASK
+      // already tells the model "edit=change to something existing (incl.
+      // attached photo)", so this one field is what lets a weak-signal
+      // message like "make this nicer" with a photo attached actually
+      // resolve to domain=photo instead of being read as plain chat.
+      input: hasImage ? { message: text, image_attached: true } : { message: text },
       schema: CLASSIFY_SCHEMA,
       max_tokens: 450
     });

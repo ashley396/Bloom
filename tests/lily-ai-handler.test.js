@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildResponseMessage, cloudflareChat, personaDisabled, formatJobResponse, shouldDelegate, formatDelegatedAnswer, resolveJobPersona, shouldRunJob, describePreferenceAck } from "../netlify/functions/lily-ai.js";
+import { buildResponseMessage, cloudflareChat, personaDisabled, formatJobResponse, shouldDelegate, formatDelegatedAnswer, resolveJobPersona, shouldRunJob, describePreferenceAck, findLastVisualAsset } from "../netlify/functions/lily-ai.js";
+import { createFakeSupabaseClient } from "./helpers/fake-supabase-client.mjs";
 
 test("buildResponseMessage: pre-confirmation text asks the florist to confirm", () => {
   const permission = { allowed: true };
@@ -385,4 +386,57 @@ test("describePreferenceAck: mixed positive and negative traits both appear", ()
 test("describePreferenceAck: an empty list still returns a safe, honest fallback rather than an empty string", () => {
   assert.equal(describePreferenceAck([]), "Got it — noted for next time.");
   assert.equal(describePreferenceAck(), "Got it — noted for next time.");
+});
+
+test("findLastVisualAsset: returns null immediately without querying when there's no conversation", async () => {
+  const client = createFakeSupabaseClient([]);
+  const result = await findLastVisualAsset(client, { shopId: "shop-1", conversationId: null });
+  assert.equal(result, null);
+});
+
+test("findLastVisualAsset: finds the completed visual step in the most recent job when it has one", async () => {
+  const client = createFakeSupabaseClient([
+    {
+      data: [
+        {
+          id: "job-2",
+          result: { steps: [{ tool: "creative.generateBackground", status: "completed", result: { asset_id: "asset-2" } }] }
+        }
+      ],
+      error: null
+    }
+  ]);
+  const result = await findLastVisualAsset(client, { shopId: "shop-1", conversationId: "conv-1" });
+  assert.deepEqual(result, { assetId: "asset-2", jobId: "job-2" });
+});
+
+test("findLastVisualAsset: the most recent job failed (zero completed visual steps) — falls back to an earlier job in the same conversation instead of giving up", async () => {
+  const client = createFakeSupabaseClient([
+    {
+      data: [
+        { id: "job-3", result: { steps: [{ tool: "creative.generateBackground", status: "failed", result: null }] } }, // most recent, failed
+        {
+          id: "job-1",
+          result: { steps: [{ tool: "creative.generateBackground", status: "completed", result: { asset_id: "asset-1" } }] }
+        } // earlier, succeeded
+      ],
+      error: null
+    }
+  ]);
+  const result = await findLastVisualAsset(client, { shopId: "shop-1", conversationId: "conv-1" });
+  assert.deepEqual(result, { assetId: "asset-1", jobId: "job-1" });
+});
+
+test("findLastVisualAsset: no photo-domain job has any completed visual step — returns null, never throws", async () => {
+  const client = createFakeSupabaseClient([
+    { data: [{ id: "job-4", result: { steps: [] } }, { id: "job-5", result: null }], error: null }
+  ]);
+  const result = await findLastVisualAsset(client, { shopId: "shop-1", conversationId: "conv-1" });
+  assert.equal(result, null);
+});
+
+test("findLastVisualAsset: a query failure never throws — returns null so the caller falls back to plain classification", async () => {
+  const client = { from: () => ({ select: () => { throw new Error("db down"); } }) };
+  const result = await findLastVisualAsset(client, { shopId: "shop-1", conversationId: "conv-1" });
+  assert.equal(result, null);
 });
