@@ -156,6 +156,18 @@ dialog::backdrop {
 }
 .bloom-page-help summary::-webkit-details-marker { display: none; }
 .bloom-page-help summary::marker { content: ""; }
+/* Billion-dollar design pass, confirmed bug: Settings' own collapsible
+   sections (e.g. "Advanced: connection & local AI bridge") use a broad,
+   page-wide rule — #settingsPage details>summary::before{content:"▸"} in
+   styles.css — to draw their triangle, since native <summary> markers
+   were already suppressed above. But .bloom-page-help is itself a
+   <details> that lives inside #settingsPage, so that broad selector also
+   matched its <summary> and injected a second, stray plum triangle at the
+   Help bar's far-left edge — disconnected from the Help bar's own
+   .bloom-page-help-chevron on the right. #settingsPage's rule has an ID,
+   so a plain override here would lose on specificity regardless of file
+   order; !important wins outright. */
+#settingsPage .bloom-page-help summary::before { content: "" !important; display: none !important; }
 .bloom-page-help-label {
   display: flex;
   align-items: center;

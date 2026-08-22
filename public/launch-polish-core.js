@@ -118,13 +118,33 @@ export function helpCopyForPage(pageId = "") {
     customersPage: { title: "Customers", body: "CRM for walk-ins, VIPs, and business accounts.", learn: "/help/faqs/index.html" },
     inventoryPage: { title: "Inventory", body: "Stem counts, vase life, and low-stock alerts.", learn: "/help/faqs/index.html" },
     productsPage: { title: "Products", body: "Customer-facing items plus internal recipes.", learn: "/help/faqs/index.html" },
+    bouquetsPage: { title: "Bouquets", body: "Signature bouquet designs for your shop floor and storefront.", learn: "/help/faqs/index.html" },
     marketplacePage: { title: "Wholesale marketplace", body: "Browse verified suppliers and manage verification.", learn: "/help/faqs/index.html" },
     wholesaleSellerPage: { title: "Seller dashboard", body: "Draft, preview, and publish wholesale products.", learn: "/help/faqs/index.html" },
     reportsPage: { title: "Reports", body: "Revenue, expenses, and margin at a glance.", learn: "/help/faqs/index.html" },
     websitePage: { title: "Website studio", body: "Edit homepage, SEO, and online product presentation.", learn: "/help/faqs/index.html" },
     aiStudioPage: { title: "Lily AI Studio", body: "Draft marketing and website copy with Lily.", learn: "/help/chat/index.html" },
     staffPage: { title: "Staff", body: "Employees, clock-in, and payroll fields.", learn: "/help/faqs/index.html" },
-    settingsPage: { title: "Settings", body: "Branding, tax, and shop profile.", learn: "/help/contact/index.html" }
+    settingsPage: { title: "Settings", body: "Branding, tax, and shop profile.", learn: "/help/contact/index.html" },
+    // Billion-dollar design pass: these pages had no entry at all, so every
+    // one of them silently fell back to the generic "Florisyn / Use Lily
+    // for quick actions" copy instead of describing the page you're on.
+    paymentsPage: { title: "Payment Center", body: "Fast checkout for walk-ins and phone orders.", learn: "/help/faqs/index.html" },
+    invoicesPage: { title: "Invoices", body: "Create, review, print, and email invoices from florist orders.", learn: "/help/faqs/index.html" },
+    expensesPage: { title: "Expenses", body: "Save, search, edit, and verify every business expense.", learn: "/help/faqs/index.html" },
+    analyticsPage: { title: "Analytics", body: "A quick pulse on revenue, profit, and shop performance.", learn: "/help/faqs/index.html" },
+    ecosystemPage: { title: "Rose", body: "Your AI business strategist — advice on pricing, marketing, operations, and growth.", learn: "/help/chat/index.html" },
+    libraryPage: { title: "Floral Library", body: "200+ florist-friendly designs with realistic stem counts and recipes.", learn: "/help/faqs/index.html" },
+    bloomshotPage: { title: "Photo Studio", body: "Turn one arrangement photo into editable, website-ready content.", learn: "/help/faqs/index.html" },
+    weddingsPage: { title: "Wedding Workflows", body: "Track wedding projects from inquiry to delivery alongside your orders.", learn: "/help/faqs/index.html" },
+    holidayPage: { title: "Holiday Command Center", body: "Plan peak windows, watch capacity, and pause intake when you're full.", learn: "/help/faqs/index.html" },
+    communityPage: { title: "Florist Community", body: "Profile photos and arrangement posts — encourage, comment, and learn together.", learn: "/help/faqs/index.html" },
+    floristNetworkPage: { title: "Florist Network", body: "Wire overflow orders to partner shops and accept incoming wires.", learn: "/help/faqs/index.html" },
+    marketingPage: { title: "Marketing", body: "Plan one campaign — products, dates, audience, and channels.", learn: "/help/faqs/index.html" },
+    emailCampaignsPage: { title: "Email Campaigns", body: "Draft and schedule shop emails to your customer list.", learn: "/help/faqs/index.html" },
+    posSettingsPage: { title: "POS Settings", body: "Configure tax, delivery fees, receipts, and register defaults.", learn: "/help/faqs/index.html" },
+    storesPage: { title: "Your flower shops", body: "Manage every location from one Florisyn account.", learn: "/help/faqs/index.html" },
+    subscriptionPage: { title: "Subscription", body: "Manage your Florisyn plan, billing, and data.", learn: "/help/contact/index.html" }
   };
   return (
     map[pageId] || {

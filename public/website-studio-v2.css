@@ -363,7 +363,21 @@
   padding: 0.65rem 1rem;
   border-radius: 10px 10px 0 0;
   cursor: pointer;
-  white-space: nowrap;
+  /* Billion-dollar design pass, confirmed bug: bloom-rc2-design-system.css
+     has a broad accessible-tap-target rule — "body.bloom-rc2 button,
+     body.bloom-rc2 .primary, body.bloom-rc2 .secondary, body.bloom-rc2
+     aside button" — that sets white-space:normal on every plain <button>
+     app-wide (specificity 0,1,1). It was never written with this tab row
+     in mind, but .ws-shell-tab is a <button> too, and its own
+     white-space:nowrap here (specificity 0,1,0) loses regardless of file
+     load order. With wrapping allowed and the default flex-shrink:1 still
+     shrinking each tab below its own text's width, "Get started" and
+     "Brand & photos" wrapped to two ragged lines on narrow screens and
+     "Templates" ran off the edge. !important + flex-shrink:0 win by
+     specificity and keep every tab a single line at its natural width, so
+     .ws-shell-tabs's own overflow-x:auto does the scrolling instead. */
+  white-space: nowrap !important;
+  flex-shrink: 0;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
 }

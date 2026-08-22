@@ -72,6 +72,18 @@ body.florisyn-atelier #ecosystemPage .bos-tabs button {
   border-radius: 0 !important;
   border-bottom: 3px solid transparent !important;
   white-space: nowrap;
+  /* Billion-dollar design pass, confirmed bug: .bos-tabs sets
+     overflow-x:auto specifically so this row scrolls instead of
+     squeezing on narrow screens, but flex items default to
+     flex-shrink:1 — so at 375px, where "Chat with Rose" + "Business
+     Insights" + "Action Items" + their 22px gaps don't fit, the browser
+     shrank each button's box below its own text's needed width before
+     ever engaging the scroll. white-space:nowrap kept the text from
+     wrapping, so it overflowed its own shrunk box instead — "Business
+     Insights" and "Action Items" visually ran into each other. Fix is
+     flex-shrink:0: keep every tab at its natural width and let
+     overflow-x:auto do the one job it was already set up to do. */
+  flex-shrink: 0;
 }
 
 body.florisyn-atelier #ecosystemPage .bos-tabs button.active {

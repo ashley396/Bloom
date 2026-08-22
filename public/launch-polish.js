@@ -247,9 +247,20 @@ import {
     banner.dataset.mode = mode;
     banner.setAttribute("role", "region");
     banner.setAttribute("aria-label", "Getting started checklist");
+    // Billion-dollar design pass, confirmed bug: the general florist
+    // checklist mounts once at app boot and stays until dismissed or
+    // completed, on every page. loadWholesaleSeller() mounts a second,
+    // wholesaler-specific banner into the same host when visiting the
+    // Seller Dashboard — a real, independent checklist, not a duplicate —
+    // but both used the identical "WELCOME TO FLORISYN" eyebrow, so two
+    // stacked cards with the same headline read as a rendering bug rather
+    // than two intentional checklists. Giving the wholesaler banner its
+    // own eyebrow keeps both checklists (nothing removed) while making it
+    // clear they're separate.
+    const eyebrow = mode === "wholesaler" ? "WHOLESALE SETUP" : "WELCOME TO FLORISYN";
     banner.innerHTML = `
       <div style="flex:1">
-        <p class="eyebrow">WELCOME TO FLORISYN</p>
+        <p class="eyebrow">${eyebrow}</p>
         <strong>Setup checklist · ${prog.complete}/${prog.total} complete</strong>
         <progress max="100" value="${prog.percent}"></progress>
         <div class="bloom-onboarding-steps">${prog.remaining
