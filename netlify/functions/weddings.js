@@ -4,7 +4,9 @@ import { isFeatureEnabled } from "./_shared/feature-flags.js";
 import {
   validateWeddingProjectBody,
   validateWeddingChecklistBody,
+  validateInspirationPhotoBody,
 } from "./_shared/holiday-weddings-email.js";
+import { uploadWebsiteMedia, publicWebsiteMediaUrl } from "./_shared/website-media.js";
 
 function featureGate() {
   if (!isFeatureEnabled("WEDDING_WORKFLOWS")) {
@@ -49,7 +51,7 @@ export async function handler(event) {
     if (method === "GET" || action === "list") {
       const { data, error } = await client
         .from("wedding_projects")
-        .select("*, wedding_checklist_items(*)")
+        .select("*, wedding_checklist_items(*), wedding_inspiration_photos(*)")
         .eq("shop_id", shopId)
         .order("event_date", { ascending: true, nullsFirst: false });
       if (error) {
@@ -60,8 +62,11 @@ export async function handler(event) {
         const checklist = (row.wedding_checklist_items || []).sort(
           (a, b) => (a.sort_order || 0) - (b.sort_order || 0)
         );
-        const { wedding_checklist_items, ...rest } = row;
-        return { ...rest, checklist };
+        const inspiration = (row.wedding_inspiration_photos || [])
+          .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+          .map((photo) => ({ ...photo, url: publicWebsiteMediaUrl(client, photo.storage_path) }));
+        const { wedding_checklist_items, wedding_inspiration_photos, ...rest } = row;
+        return { ...rest, checklist, inspiration_photos: inspiration };
       });
       return json(200, { items });
     }
@@ -199,6 +204,65 @@ export async function handler(event) {
         .single();
       if (error) throw error;
       return json(200, { item: data });
+    }
+
+    if (method === "POST" && action === "add_inspiration_photo") {
+      if (!body.wedding_id) return json(400, { error: "Missing wedding id." });
+      const v = validateInspirationPhotoBody(body);
+      if (!v.valid) return json(400, { error: v.error });
+      const { data: wedding, error: wErr } = await client
+        .from("wedding_projects")
+        .select("id")
+        .eq("id", body.wedding_id)
+        .eq("shop_id", shopId)
+        .maybeSingle();
+      if (wErr) {
+        if (missingRelation(wErr)) friendlyMissing();
+        throw wErr;
+      }
+      if (!wedding) return json(404, { error: "Wedding not found." });
+
+      // Reuses Website Studio's own upload pipeline (same bucket, same
+      // validation, same public-URL convention) rather than a second
+      // storage system — see website-media.js.
+      const uploaded = await uploadWebsiteMedia(client, shopId, {
+        dataUrl: body.data_url,
+        filename: body.filename
+      });
+      if (!uploaded.ok) return json(400, { error: uploaded.error });
+
+      const payload = {
+        shop_id: shopId,
+        wedding_id: body.wedding_id,
+        storage_path: uploaded.path,
+        caption: v.sanitized.caption,
+        sort_order: v.sanitized.sort_order,
+        created_by: user?.id || null
+      };
+      const { data, error } = await client
+        .from("wedding_inspiration_photos")
+        .insert(payload)
+        .select()
+        .single();
+      if (error) {
+        if (missingRelation(error)) friendlyMissing();
+        throw error;
+      }
+      return json(201, { item: { ...data, url: publicWebsiteMediaUrl(client, data.storage_path) } });
+    }
+
+    if (method === "POST" && action === "remove_inspiration_photo") {
+      if (!body.id) return json(400, { error: "Missing inspiration photo id." });
+      const { error } = await client
+        .from("wedding_inspiration_photos")
+        .delete()
+        .eq("id", body.id)
+        .eq("shop_id", shopId);
+      if (error) {
+        if (missingRelation(error)) friendlyMissing();
+        throw error;
+      }
+      return json(200, { ok: true });
     }
 
     if (method === "DELETE" || (method === "POST" && action === "delete")) {

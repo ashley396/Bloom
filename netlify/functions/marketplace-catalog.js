@@ -273,6 +273,7 @@ async function reorderPreview(client, user, orderId) {
     const stillAvailable = Boolean(current) && current.active && current.currently_available && verifiedShopIds.has(current.shop_id);
     return {
       listing_id: item.listing_id || null,
+      shop_id: current?.shop_id ?? null,
       name: item.name,
       quantity: item.quantity,
       original_unit_price: item.unit_price,
@@ -583,6 +584,23 @@ export async function handler(event) {
 
       if (params.resource === "specials") {
         return json(200, await loadCurrentSpecials(client));
+      }
+
+      if (params.resource === "cart-shipping") {
+        // The cart panel needs to know, for each seller currently in the
+        // buyer's cart, whether that seller offers pickup at all — that's
+        // what decides whether a real fulfillment choice (and therefore a
+        // shipping fee) applies. Same public storefront fields already
+        // shown on a seller's own storefront page, just batched by shop_id
+        // instead of fetched one seller at a time.
+        const shopIds = [...new Set(String(params.shop_ids || "").split(",").map((id) => id.trim()).filter(Boolean))];
+        if (!shopIds.length) return json(200, { sellers: [] });
+        const { data: sellers, error: sellersError } = await client
+          .from(SELLER_PROFILES)
+          .select("shop_id, display_name, pickup_available, shipping_flat_fee, free_shipping_over")
+          .in("shop_id", shopIds);
+        if (sellersError) throw sellersError;
+        return json(200, { sellers: sellers || [] });
       }
 
       if (params.resource === "notifications") {

@@ -77,13 +77,18 @@ export function detectIntent(message = "") {
     const m = text.match(/find\s+(.+)/i);
     return { domain: "customers", intent: "customers.find", confidence: 0.8, slots: { query: m?.[1]?.trim() } };
   }
-  if (/facebook post|instagram|google business|email campaign|create an email|sms|blog post|holiday campaign/i.test(lower)) {
-    return { domain: "marketing", intent: "marketing.generate", confidence: 0.85, slots: { channel: inferMarketingChannel(lower), prompt: text } };
-  }
   if (/publish this product|create product description|wholesale description/i.test(lower)) {
     return { domain: "wholesale", intent: "wholesale.product", confidence: 0.83, slots: { prompt: text } };
   }
-  if (/update homepage|add this product|website/i.test(lower)) {
+  // Narrowed on purpose (AI-OS Phase 2): this used to also match the bare
+  // word "website" anywhere in the message, which hijacked real creation/
+  // campaign requests ("make a campaign for Facebook and my website...")
+  // into a content-free navigate the instant "website" appeared, no matter
+  // what the rest of the sentence asked for. "update homepage" and "add
+  // this product" are genuinely unambiguous single-purpose navigation
+  // requests; anything else now falls through to the LLM classifier in
+  // ai-intent-router.js, which reads the whole sentence instead of one word.
+  if (/update homepage|add this product/i.test(lower)) {
     return { domain: "website", intent: "website.update", confidence: 0.78, slots: { prompt: text } };
   }
   if (/reorder|reduce waste|improve margin|subscription growth|vendor savings|holiday planning/i.test(lower)) {
@@ -215,8 +220,11 @@ function planClientActionByTier(intent, slots = {}) {
       return { tier: "READ", type: "navigate", navigate: "staffPage", prefill: { staff: slots.name } };
     case "employees.payroll":
       return { tier: "READ", type: "navigate", navigate: "staffPage" };
-    case "marketing.generate":
-      return { tier: "LOW", type: "generate", mode: "marketing", channel: slots.channel, prompt: slots.prompt };
+    // marketing.generate intentionally has no case here anymore — real
+    // marketing creation runs through classifyRequest()/runJob() in
+    // lily-ai.js (AI-OS Phase 2/4), which plans and persists a finished
+    // asset instead of handing back a bare "generate" directive. The
+    // PERMISSIONS entry above is still used directly by that path.
     case "product_ai.generate":
       return { tier: "LOW", type: "generate", mode: "product", prompt: slots.prompt };
     case "florist.photo_placeholder":

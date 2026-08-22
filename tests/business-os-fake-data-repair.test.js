@@ -6,16 +6,16 @@ import { computeWasteRisk, buildLilyBusinessCoach } from "../netlify/functions/_
 import { buildHub } from "../netlify/functions/business-ecosystem.js";
 
 /**
- * Florisyn launch recovery batch — hand-ported from main PR #161 (Business
- * OS fake-data removal). The visible "Rose" advisor page showed hardcoded,
- * unconditional fabricated statistics (a 23% wedding-booking claim, a 15%
- * price-increase recommendation, a 40% competitor-engagement claim, a
- * stockout alert not tied to real inventory) styled and timestamped exactly
- * like real AI analysis, while a real, shop-scoped data pipeline for the
- * same page already existed and worked. Also: Rose's chat silently
- * substituted canned generic advice when the real AI call failed, and
- * business-ecosystem.js's lily_coach action fed the coach hardcoded
- * waste_risk/margin_health inputs regardless of the shop's real state.
+ * Business OS beta-blocker repair. The visible "Rose" advisor page showed
+ * hardcoded, unconditional fabricated statistics (a 23% wedding-booking
+ * claim, a 15% price-increase recommendation, a 40% competitor-engagement
+ * claim, a stockout alert not tied to real inventory) styled and
+ * timestamped exactly like real AI analysis, while a real, shop-scoped
+ * data pipeline for the same page already existed and worked. Also: Rose's
+ * chat silently substituted canned generic advice when the real AI call
+ * failed, and business-ecosystem.js's lily_coach action fed the coach
+ * hardcoded waste_risk/margin_health inputs regardless of the shop's real
+ * state.
  */
 
 const root = process.cwd();
@@ -31,7 +31,9 @@ test("computeWasteRisk returns null (no fabricated interpretation) when no stock
 test("computeWasteRisk reports High only when a real share of tracked, in-stock items are already at/past their use-by date", () => {
   // Fixed, far-past/far-future dates — deliberately not computed relative
   // to "now" so this test can't go flaky depending on the shop-timezone
-  // "today" boundary the function itself now correctly respects.
+  // "today" boundary the function itself now correctly respects (it was
+  // exactly that UTC-vs-local-day mismatch this repo's own
+  // no-utc-date-for-local-today.test.js guards against).
   const wellInThePast = "2020-01-01";
   const wellInTheFuture = "2099-01-01";
 
@@ -101,7 +103,8 @@ test("lily_coach's margin_health is null for a shop with no real revenue (buildH
     bloom_purchase_orders: { data: [], error: null },
     bloom_delivery_details: { data: [], error: null },
     orders: { data: [], error: null },
-    expenses: { data: [], error: null }
+    expenses: { data: [], error: null },
+    marketplace_wholesale_orders: { data: [], error: null }
   });
   const hub = await buildHub(client, "shop-1");
   assert.equal(hub.finance_center.profit_and_loss.revenue, 0);
@@ -143,10 +146,11 @@ test("Rose's chat honestly reports AI unavailability instead of substituting can
   assert.match(js, /ROSE_UNAVAILABLE/);
 });
 
-test("existing Business OS functionality remains operational: chat, tabs, and action items are all still present", () => {
+test("existing Business OS functionality remains operational: chat, tabs, and per-shop action-item persistence are all still present", () => {
   assert.match(js, /async function askRose/);
   assert.match(js, /function setTab/);
-  assert.match(js, /function addActionItem/);
+  assert.match(js, /function actionItemsKey/);
+  assert.match(js, /localStorage\.setItem\(actionItemsKey\(\)/);
   assert.match(js, /function wireActions/);
   assert.match(js, /function boot/);
   assert.match(pageHtml, /id="bosChatForm"/);

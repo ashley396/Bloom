@@ -118,3 +118,130 @@
   text-transform: uppercase;
   color: #857680;
 }
+
+/* Wedding Workflows: inspiration board (UX cleanup Part D) */
+.wedding-inspiration {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--bloom-border, #e5ddd4);
+}
+
+.inspiration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 0.6rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.inspiration-thumb {
+  position: relative;
+  margin: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bloom-ivory, #faf7f2);
+  border: 1px solid var(--bloom-border, #e5ddd4);
+}
+
+.inspiration-thumb img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+.inspiration-thumb figcaption {
+  padding: 0.3rem 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--bloom-muted, #6b6166);
+  background: #fff;
+}
+
+.inspiration-remove {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  line-height: 1;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(47, 42, 44, 0.72);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.inspiration-remove:hover {
+  background: var(--florisyn-charcoal, #2f2a2c);
+}
+
+.inspiration-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-align: center;
+}
+
+/* Settings: tabbed sub-navigation (UX cleanup Part C). Single-column
+   panels inside each tab — the old two-up .settings-grid let a short
+   panel sit beside a tall one, leaving a wide blank gap; only one tab is
+   ever visible at a time now, so that mismatch can't happen. */
+.settings-tabs {
+  display: flex;
+  gap: 0.4rem;
+  border-bottom: 1px solid #e0d3db;
+  padding-bottom: 0;
+  margin: 1rem 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.settings-tab {
+  border: 0;
+  background: transparent;
+  padding: 0.7rem 0.2rem;
+  margin-right: 1rem;
+  font-weight: 750;
+  font-size: 0.95rem;
+  color: #857680;
+  cursor: pointer;
+  border-bottom: 2.5px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.settings-tab.active,
+.settings-tab:hover {
+  color: #a72f67;
+}
+
+.settings-tab.active {
+  border-bottom-color: #a72f67;
+}
+
+.settings-tab-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.settings-authoritative-note {
+  margin-top: 10px;
+}
+
+.ai-advanced summary {
+  cursor: pointer;
+  font-weight: 750;
+  color: #857680;
+  margin-top: 10px;
+}
+
+.ai-advanced[open] summary {
+  margin-bottom: 10px;
+}

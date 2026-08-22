@@ -81,3 +81,19 @@ test("frontend fallback (when the network call itself fails) stays in sync with 
   assert.match(line, /customers/);
   assert.match(line, /staff/);
 });
+
+test("ai-context now includes ai_profile (ai_shop_profiles) — the shop's onboarding voice/notes, previously written and never read anywhere", () => {
+  assert.match(src, /client\.from\("ai_shop_profiles"\)/);
+  const match = src.match(/client\.from\("ai_shop_profiles"\)\.select\("([^"]+)"\)/);
+  assert.ok(match, "ai_shop_profiles query must exist");
+  const fields = match[1].split(",");
+  for (const expected of ["lily_enabled", "rose_enabled", "shop_tone", "delivery_notes", "marketing_notes"]) {
+    assert.ok(fields.includes(expected), `ai_shop_profiles context is missing ${expected}`);
+  }
+  // memory/pricing_notes/lily_voice/rose_voice were never captured by the
+  // onboarding form (see public/onboarding.html) — no reason to fetch them yet.
+  for (const notYetUsed of ["memory", "pricing_notes", "lily_voice", "rose_voice"]) {
+    assert.ok(!fields.includes(notYetUsed));
+  }
+  assert.match(src, /ai_profile:\s*aiProfile\s*\|\|\s*null/);
+});

@@ -25,6 +25,19 @@ function roundMoney(value) {
   return Math.round(Number(value || 0) * 100) / 100;
 }
 
+// create_order_atomic already stores whatever JSON is passed as p_order.metadata
+// verbatim on the order row — this just keeps that passthrough honest (a plain
+// object, capped so nobody can wedge an unbounded blob onto an order).
+export function sanitizeOrderMetadata(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  try {
+    if (JSON.stringify(value).length > 4000) return {};
+  } catch {
+    return {};
+  }
+  return value;
+}
+
 function paymentStateForTotal(total, amountPaid, priorStatus) {
   const normalizedPriorStatus = String(priorStatus || "UNPAID").trim().toUpperCase();
   const paid = Math.max(0, roundMoney(amountPaid));
@@ -141,6 +154,7 @@ export async function handleOrders(event, dependencies = {}) {
         discount: Number(body.discount || 0),
         estimated_cost: Number(body.estimated_cost || 0),
         product_id: body.product_id || null,
+        metadata: sanitizeOrderMetadata(body.metadata),
       };
 
       if (isFeatureEnabled("INVENTORY_RECIPE_DEDUCTIONS")) {

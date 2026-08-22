@@ -78,7 +78,7 @@
   function renderExperience(experience) {
     const r = experience?.reports || {};
     const terminals = (experience?.terminals || [])
-      .map((t) => `<span class="ph-badge soon">${esc(t.label)}</span>`)
+      .map((t) => `<span class="ph-badge ${t.status === "available" ? "live" : "soon"}">${esc(t.label)}</span>`)
       .join(" ");
     return `<h3>Payments experience (v1.2)</h3>
       <div class="ph-metrics">

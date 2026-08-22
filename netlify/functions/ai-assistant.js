@@ -1,6 +1,6 @@
 import { json, preflight, methodNotAllowed, bodyOf } from "./_shared/http.js";
 import { currentUser } from "./_shared/supabase.js";
-import { systemPromptFor, temperatureForPersona, normalizePersona } from "./_shared/florist-ai-personas.js";
+import { systemPromptFor, temperatureForPersona, normalizePersona, shopVoiceSuffix } from "./_shared/florist-ai-personas.js";
 
 const MODEL_DEFAULT="@cf/meta/llama-3.1-8b-instruct-fast";
 const MAX_PROMPT_CHARS=42000;
@@ -167,6 +167,23 @@ export async function runCloudflareGenerate(payload) {
 
 export async function handler(event){
   const ready=preflight(event);if(ready)return ready;if(event.httpMethod!=="POST")return methodNotAllowed();
-  try{await currentUser(event);const payload=bodyOf(event);if(!payload.prompt&&!payload.task)return json(400,{error:"Add a prompt or task."});return json(200,await cloudflareAi(payload))}
+  try{
+    await currentUser(event);
+    const payload=bodyOf(event);
+    if(!payload.prompt&&!payload.task)return json(400,{error:"Add a prompt or task."});
+    // Direct callers of this endpoint (the dashboard assistant panel, via
+    // smartAi()) never set systemSuffix themselves — this is the one place
+    // that turns the shop's onboarding-collected voice/notes (fetched into
+    // context.ai_profile by ai-context.js) into an instruction for a plain
+    // chat turn. Structured "generate" calls (product/marketing copy) skip
+    // it — that's a different, schema-driven task, not a conversational
+    // reply the shop's voice should color.
+    const mode=payload.mode==="generate"?"generate":"chat";
+    if(mode==="chat"&&!payload.systemSuffix){
+      const voice=shopVoiceSuffix(payload.context?.ai_profile);
+      if(voice)payload.systemSuffix=voice;
+    }
+    return json(200,await cloudflareAi(payload))
+  }
   catch(error){return json(error.statusCode||500,{error:error.message||"AI unavailable"})}
 }

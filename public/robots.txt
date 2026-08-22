@@ -9,4 +9,173 @@ Disallow: /pay
 Disallow: /onboarding
 Disallow: /.netlify/
 
+# Named allow rules for AI answer-engine and assistant crawlers. Robots.txt
+# parsers use the single most specific matching group for a given
+# user-agent rather than merging it with User-agent: * — so each of these
+# repeats the same Disallow list above rather than relying on the
+# wildcard block to still apply.
+
+# OpenAI (ChatGPT search + browsing)
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pay
+Disallow: /onboarding
+Disallow: /.netlify/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pay
+Disallow: /onboarding
+Disallow: /.netlify/
+
+User-agent: GPTBot
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pay
+Disallow: /onboarding
+Disallow: /.netlify/
+
+# Anthropic (Claude search + browsing)
+User-agent: ClaudeBot
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pay
+Disallow: /onboarding
+Disallow: /.netlify/
+
+User-agent: Claude-User
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pay
+Disallow: /onboarding
+Disallow: /.netlify/
+
+User-agent: Claude-SearchBot
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pay
+Disallow: /onboarding
+Disallow: /.netlify/
+
+# Perplexity
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pay
+Disallow: /onboarding
+Disallow: /.netlify/
+
+User-agent: Perplexity-User
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pay
+Disallow: /onboarding
+Disallow: /.netlify/
+
+# Google's AI training/grounding crawler (separate opt-in from Googlebot itself)
+User-agent: Google-Extended
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pay
+Disallow: /onboarding
+Disallow: /.netlify/
+
+# Microsoft Copilot / Bing
+User-agent: Bingbot
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pay
+Disallow: /onboarding
+Disallow: /.netlify/
+
+# Common Crawl (widely used as LLM pretraining source)
+User-agent: CCBot
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pay
+Disallow: /onboarding
+Disallow: /.netlify/
+
+# Meta AI
+User-agent: meta-externalagent
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pay
+Disallow: /onboarding
+Disallow: /.netlify/
+
+# Amazon (Alexa+/Rufus)
+User-agent: Amazonbot
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pay
+Disallow: /onboarding
+Disallow: /.netlify/
+
+# Apple (Siri/Spotlight AI features)
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pay
+Disallow: /onboarding
+Disallow: /.netlify/
+
 Sitemap: https://www.florisyn.com/sitemap.xml

@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/florisyn-founder-1.0.css">
   <link rel="stylesheet" href="/florisyn-atelier-auth.css?v=authhero2">
   <script src="/florisyn-build.js?v=teststamp1234"></script>
-</head>
+<script src="/site-analytics.js" defer></script></head>
 <body class="bloom-auth florisyn florisyn-atelier-auth florisyn-auth-hero florisyn-login-hero">
   <div class="auth-hero-atmosphere" aria-hidden="true">
     <span class="auth-orb auth-orb-a"></span>
@@ -32,13 +32,13 @@
     </a>
     <nav class="auth-hero-links" aria-label="Marketing">
       <a href="/company/services/">Product</a>
-      <a href="/signup#pricing">Pricing</a>
+      <a href="/signup#pricing" data-cta="signup-link">Pricing</a>
       <a href="/help/">Resources</a>
       <a href="/company/about/">About</a>
     </nav>
     <div class="auth-hero-nav-actions">
       <a class="auth-nav-login is-active" href="/login">Login</a>
-      <a class="auth-nav-cta" href="/signup">Start Free Trial</a>
+      <a class="auth-nav-cta" href="/signup" data-cta="nav-signup">Start Free Trial</a>
     </div>
   </header>
 
@@ -65,13 +65,13 @@
           <label class="check"><input type="checkbox" name="remember" checked> Remember me</label>
           <a href="/forgot-password">Forgot password?</a>
         </div>
-        <button type="submit" class="bloom-auth-btn login-submit" id="authButton">Start Your Free Session</button>
+        <button type="submit" class="bloom-auth-btn login-submit" id="authButton">Sign In</button>
       </form>
 
       <p id="authMessage" class="bloom-auth-message" role="status" aria-live="polite"></p>
 
       <div class="auth-hero-secondary-actions">
-        <p class="login-footer-link">New to Florisyn? <a href="/signup"><strong>Create account</strong></a></p>
+        <p class="login-footer-link">New to Florisyn? <a href="/signup" data-cta="signup-link"><strong>Create account</strong></a></p>
       </div>
 
       <div class="login-divider" role="separator"><span>or continue with</span></div>
@@ -89,7 +89,6 @@
 
       <p class="login-help-links">
         <a href="/verify-email">Email verification help</a>
-        <a href="/admin">Florisyn HQ admin</a>
       </p>
     </section>
 
@@ -100,7 +99,7 @@
     </section>
   </main>
 
-  <footer class="bloom-auth-footer auth-hero-footer">© <span data-current-year></span> Florisyn Technologies · Built by a florist, designed for florists</footer>
+  <footer class="bloom-auth-footer auth-hero-footer">© <span data-current-year></span> Florisyn Technologies · Made from the florist's side of the counter</footer>
   <script src="/login.js" defer></script>
   <script src="/bloom-auth-common.js" defer></script>
   <script>

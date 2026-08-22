@@ -43,11 +43,15 @@
     return localDate(new Date());
   }
 
-  function retentionLabel(customerCount) {
-    const n = Number(customerCount || 0);
-    if (!n) return "—";
-    const pct = Math.min(99.7, 92 + Math.min(7.5, n * 0.12));
-    return `${pct.toFixed(1)}%`;
+  function retentionLabel(retentionRate) {
+    // Was: a fabricated percentage synthesized purely from raw customer
+    // *count* (92 + up to 7.5, capped near 99.7%) — every shop with
+    // customers saw a fake "Customer Happiness" score climbing toward
+    // 100%, with nothing behind it. Now a real repeat-customer rate
+    // (customers with more than one order, computed server-side) or a
+    // plain "—" until there's a real order history to compute one from.
+    if (retentionRate === null || retentionRate === undefined) return "—";
+    return `${Number(retentionRate).toFixed(1)}%`;
   }
 
   function deltaLabel(current, baseline, asPercent) {
@@ -58,6 +62,22 @@
     const pct = ((c - b) / Math.max(1, Math.abs(b))) * 100;
     const sign = pct >= 0 ? "+" : "";
     return `${sign}${pct.toFixed(1)}% vs last period`;
+  }
+
+  // The .up/.down class on a KPI delta was hardcoded "up" (green) in the
+  // static HTML and never actually toggled — a genuinely declining metric
+  // still displayed with a positive-looking green badge. This sets both
+  // the text and the real direction together.
+  function applyDelta(el, current, baseline, asPercent, suffixReplace) {
+    if (!el) return;
+    let text = deltaLabel(current, baseline, asPercent);
+    if (suffixReplace) text = text.replace("vs last period", suffixReplace);
+    el.textContent = text;
+    const c = Number(current || 0);
+    const b = Number(baseline || 0);
+    el.classList.remove("up", "down");
+    if (c > b) el.classList.add("up");
+    else if (c < b) el.classList.add("down");
   }
 
   function productThumb(p) {
@@ -199,28 +219,34 @@
     const retDelta = $("#kpiRetentionDelta");
     if (revenue) revenue.textContent = money(d.todaySales ?? d.totalSales ?? 0);
     if (sales) sales.textContent = String(d.ordersToday ?? 0);
-    if (retention) retention.textContent = retentionLabel(d.customers);
+    if (retention) retention.textContent = retentionLabel(d.retentionRate);
     const week = Number(d.weekSales || 0);
     const day = Number(d.todaySales || 0);
-    if (revDelta) {
-      const base = deltaLabel(day, week / 7, true);
-      revDelta.textContent = window.matchMedia("(max-width: 820px)").matches
-        ? base.replace("vs last period", "vs yesterday")
-        : base;
+    applyDelta(
+      revDelta,
+      day,
+      week / 7,
+      true,
+      window.matchMedia("(max-width: 820px)").matches ? "vs yesterday" : undefined
+    );
+    // Were compared against synthetic baselines derived from today's own
+    // numbers (80% of today's due orders; today's due orders minus one) —
+    // not a real trend, just a formula guaranteed to always look like one.
+    // Now a real day-over-day comparison against yesterday's real counts.
+    applyDelta(salesDelta, d.ordersToday, d.ordersYesterday, true, "vs yesterday");
+    applyDelta(ordersDelta, d.ordersDueToday, d.dueYesterday, true, "vs yesterday");
+    // Was hardcoded to "+0.8% vs last month" unconditionally — a specific,
+    // fabricated delta with nothing behind it, always styled with the
+    // positive/green "up" badge no matter what. There's no historical
+    // retention snapshot to compare against, so rather than invent one,
+    // show the real counts the rate above is built from (not a directional
+    // trend, so no up/down badge).
+    if (retDelta) {
+      retDelta.classList.remove("up", "down");
+      retDelta.textContent = d.customersWithOrders
+        ? `${d.repeatCustomers} of ${d.customersWithOrders} repeat`
+        : "No orders yet";
     }
-    // Math.max(1, ...) here used to force a synthetic non-zero baseline
-    // even on a brand-new shop with genuinely zero orders — so a shop
-    // that has never had an order would still get compared against a
-    // fake "1" and shown a scary red "-100.0% vs last period" badge on
-    // day one. deltaLabel() already suppresses the percentage entirely
-    // when both current and baseline are truly zero; let it.
-    if (salesDelta) salesDelta.textContent = deltaLabel(d.ordersToday, Math.round((d.ordersDueToday || 0) * 0.8), true);
-    if (ordersDelta) ordersDelta.textContent = deltaLabel(d.ordersDueToday, Math.max(0, (d.ordersDueToday || 0) - 1), true);
-    // Was hardcoded to "+0.8% vs last month" unconditionally — showing a
-    // specific, fabricated delta right next to a "—" (no data) headline
-    // value when there are no customers yet to have a retention rate at
-    // all. Only show a delta once there's an actual rate to compare.
-    if (retDelta) retDelta.textContent = d.customers ? "+0.8% vs last month" : "vs last month";
 
     const userName = $("#atelierUserName");
     const greeting = $("#greeting")?.textContent || "";

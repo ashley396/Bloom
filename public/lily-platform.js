@@ -98,6 +98,65 @@
     return `**Draft (edit before posting):**\n\n${topic.charAt(0).toUpperCase() + topic.slice(1)} — from ${shopName}. Fresh, local, and ready for your next celebration.`;
   }
 
+  const JOB_STATUS_LABEL = {
+    planned: "Planned",
+    running: "Working…",
+    waiting_for_user: "Needs your input",
+    waiting_for_approval: "Awaiting approval",
+    completed: "Ready",
+    partially_completed: "Partly ready",
+    failed: "Failed"
+  };
+
+  /** Renders a real preview card for a finished (or partially finished)
+   * AI job — the generated image if one exists, and a retry button per
+   * failed step. This is what replaced the old raw-JSON chat dump: a job's
+   * text summary types out in the chat bubble via formatJobResponse() on
+   * the server, and this card holds the parts text can't show (images,
+   * per-step retry actions). */
+  function renderJobCard(job) {
+    const mount = document.getElementById("lilyJobCard");
+    if (!mount) return;
+    if (!job) {
+      mount.hidden = true;
+      mount.innerHTML = "";
+      return;
+    }
+    const steps = job.result?.steps || [];
+    const imageStep = steps.find((s) => s.tool === "creative.generateImage" && s.status === "completed" && s.result?.url);
+    const imageHtml = imageStep ? `<img class="lily-job-image" src="${esc(imageStep.result.url)}" alt="AI-generated image">` : "";
+    const failedSteps = steps.filter((s) => s.status === "failed");
+    const retryButtons = failedSteps
+      .map(
+        (s) =>
+          `<button type="button" class="secondary lily-job-retry" data-job-id="${esc(job.id)}" data-step-id="${esc(s.id)}">Retry: ${esc(s.label || s.id)}</button>`
+      )
+      .join("");
+    mount.hidden = false;
+    mount.innerHTML = `
+      <div class="lily-job-head"><strong>${esc(job.title || "Job")}</strong><span class="lily-job-status lily-job-status-${esc(job.status || "")}">${esc(JOB_STATUS_LABEL[job.status] || job.status || "")}</span></div>
+      ${imageHtml}
+      ${retryButtons ? `<div class="lily-job-actions">${retryButtons}</div>` : ""}`;
+    mount.querySelectorAll("[data-job-id]").forEach((btn) => {
+      btn.onclick = async () => {
+        btn.disabled = true;
+        const original = btn.textContent;
+        btn.textContent = "Retrying…";
+        try {
+          const data = await deps.api("lily-ai", {
+            method: "POST",
+            body: JSON.stringify({ action: "retry-job-step", job_id: btn.dataset.jobId, step_id: btn.dataset.stepId, persona })
+          });
+          if (data.response) await typeAssistantResponse(data.response);
+          renderJobCard(data.job || null);
+        } catch {
+          btn.disabled = false;
+          btn.textContent = original;
+        }
+      };
+    });
+  }
+
   function mountShell() {
     if (document.getElementById("lilyFab")) return;
     const fab = document.createElement("button");
@@ -135,6 +194,7 @@
       <div class="lily-body" id="lilyBody"></div>
       <div class="lily-suggestions" id="lilySuggestions"></div>
       <div id="lilyConfirm" class="lily-confirm" hidden></div>
+      <div id="lilyJobCard" class="lily-job-card" hidden></div>
       <div class="lily-toolbar" id="lilyToolbar"></div>
       <div class="lily-compose">
         <button type="button" class="lily-voice" title="Hear Lily">🎙</button>
@@ -463,6 +523,7 @@
         }
       }
       hideTyping();
+      renderJobCard(data.job || null);
       if (!data.permission?.allowed) {
         await typeAssistantResponse(data.response || "You do not have permission for that action.");
         pendingAction = null;
@@ -614,11 +675,15 @@
     deps = null;
   }
 
-  // Opens the panel already switched to the requested persona — Daisy has no
-  // page of her own, so her dock button needs a real way in rather than a
-  // stale route.
+  // Beta polish: the top-dock "Daisy" button had no way to actually reach
+  // Daisy — she only exists as one of this panel's four personas, with no
+  // page of her own. Lily/Rose's dock buttons open a real page each; this
+  // gives Daisy's (and any persona's) dock button a real destination: open
+  // this panel already switched to that persona, instead of silently
+  // falling back to whatever page the button happened to carry a stale
+  // data-route for.
   function openPersona(name) {
-    setPersona(name);
+    if (name && PERSONAS[name] && name !== persona) setPersona(name);
     togglePanel(true);
   }
 

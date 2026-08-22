@@ -1,0 +1,98 @@
+/**
+ * Florisyn AI Core — shared creative engine, image generation (Phase 5 of
+ * the AI-OS rebuild).
+ *
+ * The exact model that already generated all 286 Floral Library product
+ * photos (see scripts/generate-floral-library-images.mjs) — proven working
+ * on this Cloudflare account, just never called from a live request path
+ * before. This turns that into a secure, server-side, tenant-aware
+ * capability any authorized Florisyn workflow can call (Lily, Marketing
+ * Command Center, Photo Studio, Website Builder X, product workflows) —
+ * one shared implementation, not a copy per caller. Credentials never
+ * leave the server; callers only ever get back a public image URL.
+ */
+
+import { cloudflareAiToken } from "../ai-assistant.js";
+import { uploadWebsiteMedia, publicWebsiteMediaUrl } from "./website-media.js";
+
+const IMAGE_MODEL_DEFAULT = "@cf/black-forest-labs/flux-1-schnell";
+
+/** Real error, not a guess: distinguishes "not configured" from "the
+ * provider call itself failed" so callers can show the right message. */
+export function imageGenerationConfigured(env = process.env) {
+  return Boolean(String(env.CLOUDFLARE_ACCOUNT_ID || "").trim() && cloudflareAiToken(env));
+}
+
+/**
+ * Calls Cloudflare Workers AI (flux-1-schnell) for one image, uploads the
+ * result through the existing website-media pipeline (same bucket, same
+ * shop-scoped path convention, same RLS as every other florist-uploaded
+ * image), and returns a usable public URL. Never throws — always returns
+ * { ok, ... } so a failed image never takes down the rest of a job.
+ */
+export async function generateImage(client, shopId, { prompt, filename } = {}) {
+  const cleanPrompt = String(prompt || "").trim().slice(0, 1200);
+  if (!cleanPrompt) return { ok: false, error: "No image prompt provided." };
+  if (!imageGenerationConfigured()) {
+    return { ok: false, error: "Image generation is not configured (Cloudflare AI credentials missing)." };
+  }
+
+  const account = String(process.env.CLOUDFLARE_ACCOUNT_ID || "").trim();
+  const token = cloudflareAiToken();
+  const model = process.env.CLOUDFLARE_IMAGE_MODEL || IMAGE_MODEL_DEFAULT;
+  const url = `https://api.cloudflare.com/client/v4/accounts/${account}/ai/run/${model}`;
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: cleanPrompt, steps: 8 })
+    });
+  } catch (error) {
+    return { ok: false, error: `Image generation request failed: ${String(error?.message || error).slice(0, 200)}` };
+  }
+
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch {
+    return { ok: false, error: `Image generation returned a non-JSON response (${response.status}).` };
+  }
+  if (!response.ok || payload.success === false) {
+    const detail = payload.errors?.[0]?.message || payload.errors?.[0]?.code || `Image generation failed (${response.status})`;
+    return { ok: false, error: detail };
+  }
+  const base64 = payload.result?.image;
+  if (!base64) return { ok: false, error: "Image generation returned no image data." };
+
+  const uploaded = await uploadWebsiteMedia(client, shopId, {
+    dataUrl: `data:image/jpeg;base64,${base64}`,
+    filename: filename || "ai-generated-image.jpg"
+  });
+  if (!uploaded.ok) return { ok: false, error: uploaded.error };
+
+  return {
+    ok: true,
+    path: uploaded.path,
+    url: publicWebsiteMediaUrl(client, uploaded.path),
+    provider: "cloudflare",
+    model,
+    prompt: cleanPrompt
+  };
+}
+
+/** Turns campaign/post context into a concrete visual prompt — never a
+ * vague placeholder, per the brief's own "no vague placeholders" rule for
+ * florist-facing creative. */
+export function buildImagePrompt({ occasion, products = [], shopName, visualBrief } = {}) {
+  const parts = [];
+  if (visualBrief) parts.push(visualBrief);
+  else {
+    parts.push("Professional florist marketing photograph, bright natural light, clean background.");
+    if (occasion) parts.push(`Theme: ${occasion}.`);
+    if (products.length) parts.push(`Featuring: ${products.slice(0, 4).join(", ")}.`);
+    if (shopName) parts.push(`Style suitable for ${shopName}'s social media and website.`);
+  }
+  return parts.join(" ").slice(0, 1200);
+}

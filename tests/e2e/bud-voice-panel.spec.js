@@ -15,6 +15,9 @@ test("Settings renders a voice panel for Lily, Rose, and Bud — not just two of
   await page.goto("/");
   await expect(page.locator("#app")).toBeVisible({ timeout: 10_000 });
   await page.evaluate(() => window.showPage?.("settingsPage"));
+  // Settings reorganization (UX cleanup Part C): assistant voice settings
+  // moved out of the Branding panel into the "AI & Assistants" tab.
+  await page.locator('#settingsPage [data-settings-tab="ai"]').click();
 
   await expect(page.locator("#lilyVoicePanel")).toBeVisible();
   await expect(page.locator("#roseVoicePanel")).toBeVisible();

@@ -8,7 +8,8 @@ export async function handler(event){
     const {client,shopId}=await currentUser(event);
     const [
       {data:shop},{data:inventory},{data:orders},{data:deliveries},
-      {data:products},{data:customers},{data:recipeRows},{data:staff}
+      {data:products},{data:customers},{data:recipeRows},{data:staff},
+      {data:aiProfile}
     ]=await Promise.all([
       client.from("shops").select("name,address,phone,tagline").eq("id",shopId).maybeSingle(),
       client.from("inventory").select("name,color,variety,quantity,unit,low_stock_level,cost,price,arrival_date,vase_life_days").eq("shop_id",shopId).order("created_at",{ascending:false}).limit(30),
@@ -29,7 +30,11 @@ export async function handler(event){
       client.from("product_recipes").select("ingredient_name,quantity,unit,unit_cost,products(name)").eq("shop_id",shopId).order("created_at",{ascending:false}).limit(60),
       // Public staff-front-page fields only (see staff.js
       // PUBLIC_STAFF_FIELDS) — never pay/tax/contact/PIN.
-      client.from("staff").select("name").eq("shop_id",shopId).eq("active",true).order("created_at",{ascending:false}).limit(20)
+      client.from("staff").select("name").eq("shop_id",shopId).eq("active",true).order("created_at",{ascending:false}).limit(20),
+      // The florist's onboarding-collected shop voice + delivery/marketing
+      // notes (see complete-florist-onboarding.js) — was captured and never
+      // read anywhere; included here so it reaches the assistant chat path.
+      client.from("ai_shop_profiles").select("lily_enabled,rose_enabled,shop_tone,delivery_notes,marketing_notes").eq("shop_id",shopId).maybeSingle()
     ]);
     const recipes=(recipeRows||[]).map(r=>({
       product_name:r.products?.name||null,
@@ -46,7 +51,8 @@ export async function handler(event){
       products:products||[],
       customers:customers||[],
       recipes,
-      staff:staff||[]
+      staff:staff||[],
+      ai_profile:aiProfile||null
     }});
   }catch(error){return fail(error)}
 }
