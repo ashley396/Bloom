@@ -87,6 +87,11 @@ test("safePublicError hides internal 500 details", () => {
   assert.equal(safePublicError({ statusCode: 403, message: "nope" }), "You do not have permission to perform this action.");
 });
 
+test("safePublicError surfaces a plan_upgrade_required message instead of the generic 403 text", () => {
+  const msg = "Wholesale marketplace seller tools are available on the Premium plan. Upgrade your plan to list products for sale in the wholesale marketplace.";
+  assert.equal(safePublicError({ statusCode: 403, code: "plan_upgrade_required", message: msg }), msg);
+});
+
 test("checkRateLimit blocks excessive calls", () => {
   const event = { headers: { "x-forwarded-for": "1.2.3.4" } };
   let last = { allowed: true };

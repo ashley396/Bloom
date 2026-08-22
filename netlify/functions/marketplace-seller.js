@@ -19,6 +19,7 @@ import { sanitizeApplicationRecord, TABLE as VERIFICATION_TABLE } from "./_share
 import { normalizePromoCode } from "./_shared/marketplace-promotions.js";
 import { writeShopAudit } from "./_shared/production.js";
 import { notifyMarketplaceUser, notifyFavoritersBackInStock } from "./_shared/marketplace-notifications.js";
+import { requireMarketplaceSellerPlan } from "./_shared/marketplace-plan-gate.js";
 
 const LISTINGS = "marketplace_listings";
 const IMAGES = "marketplace_listing_images";
@@ -397,6 +398,7 @@ export async function handler(event) {
   try {
     const context = await currentUser(event);
     const { client, user, shopId } = context;
+    await requireMarketplaceSellerPlan(client, shopId);
     const params = event.queryStringParameters || {};
     const body = event.httpMethod === "GET" ? {} : bodyOf(event);
 
