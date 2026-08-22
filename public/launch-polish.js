@@ -139,22 +139,58 @@ import {
     const copy = helpCopyForPage(pageId);
     let bar = page.querySelector(".bloom-page-help");
     if (!bar) {
-      bar = document.createElement("div");
+      // Billion-dollar design pass: this used to be an always-open <div> —
+      // a two-line title+body block plus an actions row on every page,
+      // ~90-120px of vertical space pushed in above the real content on
+      // every navigation. Rebuilt as a native <details> so it renders as a
+      // single compact row (title only) by default and reveals the body +
+      // actions on click/keyboard activation, same collapsed-by-default
+      // pattern already used for the assistant voice panels in Settings.
+      // Ask Lily and Learn more are unchanged — just one click further in.
+      bar = document.createElement("details");
       bar.className = "bloom-page-help";
-      const anchor = page.querySelector(".heading") || page.firstElementChild;
+      // Billion-dollar design pass, confirmed pre-existing bug: picking the
+      // first ".heading" in document order isn't enough. Website Studio's
+      // own shell (website-studio-shell.js) re-parents its legacy builder —
+      // heading included — into one of its own tab panels *after* this
+      // runs (transitionTo calls run() without awaiting it, then calls us
+      // synchronously — the shell's async reorganize() lands later). Since
+      // "anchor.after(bar)" makes bar a *sibling of the heading inside its
+      // own container*, not a sibling of that container inside the page,
+      // the bar got carried along into the hidden panel with it.
+      //
+      // Fix at the mounting logic, not with a per-page special case: only
+      // trust a heading that is already a direct child of the page itself
+      // (a real top-level page heading, not one nested inside some inner
+      // shell/tab/panel a page may reorganize on its own later) and that
+      // is currently visible. That's timing-safe too — Website Studio's
+      // heading is nested one level inside ".legacy-website-editor-shell"
+      // even in the original markup, so this check excludes it correctly
+      // whether reorganize() has run yet or not. If no such heading
+      // exists, prepend onto the page directly — a plain child of the
+      // page can never get swept into a container's own internal
+      // reshuffling the way a nested sibling can.
+      let anchor = null;
+      for (const h of page.querySelectorAll(".heading")) {
+        if (h.parentElement === page && h.offsetParent !== null) { anchor = h; break; }
+      }
       if (anchor) anchor.after(bar);
       else page.prepend(bar);
     }
+    const wasOpen = bar.open;
     bar.innerHTML = `
-      <div>
-        <p class="eyebrow">HELP</p>
-        <strong>${copy.title}</strong>
+      <summary>
+        <span class="bloom-page-help-label"><span class="eyebrow">Help</span> ${copy.title}</span>
+        <span class="bloom-page-help-chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="bloom-page-help-panel">
         <p>${copy.body}</p>
-      </div>
-      <div class="bloom-page-help-actions">
-        <button type="button" class="secondary bloom-help-lily" data-page-help-lily>Ask Lily</button>
-        <a class="secondary" href="${copy.learn}" target="_blank" rel="noopener">Learn more</a>
+        <div class="bloom-page-help-actions">
+          <button type="button" class="secondary bloom-help-lily" data-page-help-lily>Ask Lily</button>
+          <a class="secondary" href="${copy.learn}" target="_blank" rel="noopener">Learn more</a>
+        </div>
       </div>`;
+    bar.open = wasOpen;
     bar.querySelector("[data-page-help-lily]")?.addEventListener("click", () => {
       window.BloomLilyPlatform?.toggle?.(true);
     });
@@ -211,9 +247,20 @@ import {
     banner.dataset.mode = mode;
     banner.setAttribute("role", "region");
     banner.setAttribute("aria-label", "Getting started checklist");
+    // Billion-dollar design pass, confirmed bug: the general florist
+    // checklist mounts once at app boot and stays until dismissed or
+    // completed, on every page. loadWholesaleSeller() mounts a second,
+    // wholesaler-specific banner into the same host when visiting the
+    // Seller Dashboard — a real, independent checklist, not a duplicate —
+    // but both used the identical "WELCOME TO FLORISYN" eyebrow, so two
+    // stacked cards with the same headline read as a rendering bug rather
+    // than two intentional checklists. Giving the wholesaler banner its
+    // own eyebrow keeps both checklists (nothing removed) while making it
+    // clear they're separate.
+    const eyebrow = mode === "wholesaler" ? "WHOLESALE SETUP" : "WELCOME TO FLORISYN";
     banner.innerHTML = `
       <div style="flex:1">
-        <p class="eyebrow">WELCOME TO FLORISYN</p>
+        <p class="eyebrow">${eyebrow}</p>
         <strong>Setup checklist · ${prog.complete}/${prog.total} complete</strong>
         <progress max="100" value="${prog.percent}"></progress>
         <div class="bloom-onboarding-steps">${prog.remaining
@@ -261,9 +308,25 @@ import {
   function transitionTo(pageId, run) {
     const prev = document.querySelector(".page.active");
     if (prev) prev.classList.add("bloom-page-exit");
-    setTimeout(() => {
+    setTimeout(async () => {
       if (prev) prev.classList.remove("bloom-page-exit");
-      run();
+      // Billion-dollar design pass: run() used to fire-and-forget here, so
+      // for a page whose own render is async (Website Studio awaits its
+      // shell/editor modules, which re-parent DOM nodes into tab panels
+      // once they're ready), injectPageHelp ran against a DOM snapshot
+      // from *before* that reorganizing had happened — anchoring correctly
+      // in the moment, then getting swept along when the page's own
+      // shell moved its container afterward. Awaiting run() first means
+      // every page's DOM has already settled into its final shape by the
+      // time we pick where the help bar goes. run() staying resilient to
+      // its own internal failures (never throwing here) is what every
+      // other caller already relies on; catch defensively so a broken
+      // page render still doesn't skip mounting/refreshing the help bar.
+      try {
+        await run();
+      } catch (err) {
+        console.error(err);
+      }
       injectPageHelp(pageId);
     }, 80);
   }

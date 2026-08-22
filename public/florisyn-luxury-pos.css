@@ -184,6 +184,23 @@ body.florisyn-atelier .pos-lux-center {
 #posPage #florisynPosLux .pos-lux-topbar,
 body.florisyn-atelier .pos-lux-topbar {
   display: flex !important;
+  /* Billion-dollar design pass, confirmed bug: at <=820px, polish-v20.4.css
+     carries an unconditional (no media query) `header{height:72px!important}`
+     rule that outranks polish-v20.2.css's mobile-only `header{height:auto
+     !important}` by load order — both are bare "header" selectors, same
+     specificity, so the later file wins regardless of viewport. This
+     <header> (the register's own topbar, not the app's account bar those
+     rules were written for) also gets `header{flex-wrap:wrap!important}`
+     from polish-v20.2.css at that width, since "By Product/By Customer"
+     plus the register name don't fit on one line at 375px. Wrapping to a
+     second line while pinned to a hard 72px height meant that second line
+     rendered outside the header's own box, overlapping the icon rail
+     immediately below it (the rail's pink "Lookup" button was what showed
+     through). Fixing here, at higher specificity than any bare "header"
+     rule, so it wins regardless of file order: let the box actually grow
+     to fit its wrapped content instead of hard-coding a height that
+     assumes it never wraps.  */
+  height: auto !important;
   align-items: center;
   gap: 16px;
   background: #fff !important;

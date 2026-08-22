@@ -77,6 +77,16 @@ body.florisyn-atelier #aiStudioPage .lux-ai-tabs button {
   border-radius: 0 !important;
   border-bottom: 3px solid transparent !important;
   white-space: nowrap;
+  /* Billion-dollar design pass, confirmed bug: same pattern as .bos-tabs
+     (Rose/Business OS) — .lux-ai-tabs sets overflow-x:auto so this row
+     scrolls instead of squeezing on narrow screens, but flex items
+     default to flex-shrink:1, so at 375px each tab's box shrank below its
+     own text's width before the scroll ever engaged. white-space:nowrap
+     stopped the text from wrapping, so it overflowed its shrunk box into
+     the next tab instead ("Lily AI Studio" measured 78px wide against
+     107px of text). flex-shrink:0 keeps every tab at its natural width
+     and lets overflow-x:auto do the one job it was already set up to do. */
+  flex-shrink: 0;
 }
 
 body.florisyn-atelier #aiStudioPage .lux-ai-tabs button.active,

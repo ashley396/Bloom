@@ -125,20 +125,71 @@ dialog::backdrop {
   100% { background-position: -100% 0; }
 }
 
+/* Billion-dollar design pass: compact, collapsed-by-default treatment.
+   Was an always-expanded title+body+actions block (~90-120px) pushed in
+   above every page's real content on every navigation — on image-forward
+   pages (Floral Library, Photo Studio, Website Studio, the dashboard) that
+   was enough to push the page's own hero/gallery content below the fold
+   at 1440x900. Ask Lily and Learn more still work exactly as before; they
+   just live one click into a <summary> row now, matching the same
+   collapsed-by-default pattern already used for the assistant voice
+   panels in Settings. POS still opts out entirely (see injectPageHelp). */
 .bloom-page-help {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
   margin: -8px 0 16px;
-  padding: 12px 14px;
   border-radius: var(--bloom-radius-md);
   background: #faf6f8;
   border: 1px solid var(--bloom-border);
+  overflow: hidden;
 }
-.bloom-page-help p {
-  margin: 4px 0 0;
+.bloom-page-help summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 14px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: #4b3c47;
+}
+.bloom-page-help summary::-webkit-details-marker { display: none; }
+.bloom-page-help summary::marker { content: ""; }
+/* Billion-dollar design pass, confirmed bug: Settings' own collapsible
+   sections (e.g. "Advanced: connection & local AI bridge") use a broad,
+   page-wide rule — #settingsPage details>summary::before{content:"▸"} in
+   styles.css — to draw their triangle, since native <summary> markers
+   were already suppressed above. But .bloom-page-help is itself a
+   <details> that lives inside #settingsPage, so that broad selector also
+   matched its <summary> and injected a second, stray plum triangle at the
+   Help bar's far-left edge — disconnected from the Help bar's own
+   .bloom-page-help-chevron on the right. #settingsPage's rule has an ID,
+   so a plain override here would lose on specificity regardless of file
+   order; !important wins outright. */
+#settingsPage .bloom-page-help summary::before { content: "" !important; display: none !important; }
+.bloom-page-help-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.bloom-page-help-label .eyebrow { margin: 0; }
+.bloom-page-help-chevron {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-right: 2px solid var(--bloom-text-muted);
+  border-bottom: 2px solid var(--bloom-text-muted);
+  transform: rotate(45deg);
+  transition: transform var(--bloom-motion-fast) ease;
+}
+.bloom-page-help[open] .bloom-page-help-chevron { transform: rotate(-135deg); }
+.bloom-page-help-panel {
+  padding: 0 14px 12px;
+}
+.bloom-page-help-panel p {
+  margin: 0 0 10px;
   font-size: 13px;
   color: var(--bloom-text-muted);
   max-width: 62ch;
@@ -174,17 +225,31 @@ dialog::backdrop {
 }
 .bloom-onboarding-steps {
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 20px;
+  row-gap: 8px;
   margin-top: 12px;
 }
 .bloom-onboarding-steps label {
+  /* Billion-dollar design pass: body.bloom-rc2 label (bloom-rc2-design-
+     system.css) has higher specificity (0,1,2 vs this rule's 0,1,1 — an
+     extra "body" element selector beats the class-count tie) and forces
+     flex-direction:column + a 14px margin-bottom onto every <label> in
+     the app, including these. That stretched each checklist row to
+     ~75px tall and the whole banner to ~490px — on POS specifically,
+     tall enough to push the entire register below the fold on a
+     1440x900 screen. Same trap, same fix PR #169 already used for
+     Daisy's checkboxes (.check{flex-direction:row!important}): win on
+     !important rather than trying to out-specificity a "body.*" rule
+     that will keep growing new class combinations. */
   display: flex;
-  align-items: center;
+  flex-direction: row !important;
+  align-items: center !important;
   gap: 10px;
   font-weight: 600;
-  margin: 0;
+  margin: 0 !important;
 }
-.bloom-onboarding-steps input { width: auto; }
+.bloom-onboarding-steps input { width: auto; flex: 0 0 auto; }
 
 .bloom-toast-success::before {
   content: "✓ ";
@@ -280,6 +345,7 @@ dialog .actions button { min-height: 44px; min-width: 44px; }
   dialog { width: 100%; max-width: none; margin: 0; border-radius: 18px 18px 0 0; align-self: end; }
   .bloom-page-help { margin-bottom: 12px; }
   .bloom-onboarding-banner { flex-direction: column; align-items: stretch; }
+  .bloom-onboarding-steps { grid-template-columns: 1fr; }
   .lily-panel { bottom: calc(78px + env(safe-area-inset-bottom, 0)); }
   .lily-fab { bottom: calc(16px + env(safe-area-inset-bottom, 0)); }
 }
