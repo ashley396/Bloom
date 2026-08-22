@@ -5,6 +5,18 @@
   border-bottom: 1px solid #e0d3db;
   padding-bottom: 0;
   margin-bottom: 1rem;
+  /* Six tabs don't fit a phone-width viewport. Without this, the generic
+     touch-target rule in bloom-rc2-design-system.css (`body.bloom-rc2
+     button { min-width: 44px }`) out-specifies .marketing-tab's own
+     padding and lets flexbox shrink each tab down toward that 44px floor
+     — nowhere near enough room for words like "Campaigns" or "Promotions",
+     so labels wrapped onto squeezed lines and ran into each other, with
+     the last tab clipped past the screen edge entirely. Scrolling instead
+     of shrinking (same fix already used for .product-tabs on POS) keeps
+     every label intact and reachable. */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 .marketing-tab {
@@ -17,6 +29,8 @@
   color: #857680;
   cursor: pointer;
   border-bottom: 2.5px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .marketing-tab.active,
