@@ -132,6 +132,10 @@ export function domainOwner(intentDomain) {
  */
 const JOB_DOMAIN_OWNER = Object.freeze({
   marketing: "Lily",
+  // Visual Creation Studio: a background/flyer request made of Bud, Rose,
+  // or Daisy still executes as Lily's real work, same reasoning as
+  // marketing above — Lily is Florisyn's designated creative director.
+  photo: "Lily",
 });
 
 export function jobDomainOwner(domain) {
