@@ -30,6 +30,15 @@
  * before. Social publishing (Stage E) remains entirely not-live; only the
  * AI Clone side has a real, activatable provider today.
  *
+ * upload_clone_reference_photo is a small convenience action used only by
+ * the admin console's enrollment form: HeyGen's Photo Avatar Group API
+ * needs real, publicly-fetchable photo URLs (not uploaded blobs), so this
+ * hosts each reference photo in the public website-media bucket first and
+ * returns its URL for request_clone_enrollment's reference_photo_urls.
+ * clone_job_status polls a HeyGen video render started by generateVideo/
+ * preview's video path (public/marketing-studio-admin.js is the first real
+ * admin UI for any of this — Stages A-F shipped server-side only).
+ *
  * Access control is two layers, both required (Section 5: admin-only must
  * be enforced server-side, not UI-hidden):
  *   1. isFeatureEnabled("MARKETING_STUDIO") — the kill switch.
@@ -72,7 +81,7 @@ import {
   notLiveSocialProvider
 } from "./_shared/marketing-social-providers.js";
 import { selectCloneProvider, notLiveCloneProvider, buildConfiguredCloneProviderRegistry } from "./_shared/marketing-clone-providers.js";
-import { uploadClonedVoiceAudio } from "./_shared/website-media.js";
+import { uploadClonedVoiceAudio, uploadWebsiteMedia, publicWebsiteMediaUrl } from "./_shared/website-media.js";
 import { parseDataUrl } from "./_shared/upload-validation.js";
 import {
   classifyPublishFailure,
@@ -654,6 +663,22 @@ export function createMarketingStudioHandler(deps = {}) {
       // everything else in Stages B/D — today that router has no
       // configured provider, so every enrollment attempt honestly comes
       // back not_live. No fake 'ready'/'training' profile is ever created.
+      // Convenience upload used only by the AI Clone enrollment form: HeyGen's
+      // Photo Avatar Group API requires real, publicly-fetchable photo URLs
+      // (not uploaded blobs), so the admin console uploads each reference
+      // photo here first and passes the returned URL into
+      // request_clone_enrollment's reference_photo_urls. Reuses the same
+      // public website-media bucket as Website Studio images — this is not
+      // a Website Studio asset and never appears in that library.
+      if (action === "upload_clone_reference_photo" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.data_url) return json(400, { error: "data_url is required." });
+        const uploaded = await uploadWebsiteMedia(client, shopId, { dataUrl: body.data_url, filename: body.filename });
+        if (!uploaded.ok) return json(400, { error: uploaded.error });
+        return json(200, { url: publicWebsiteMediaUrl(client, uploaded.path) });
+      }
+
       if (action === "request_clone_enrollment" && method === "POST") {
         requireSuperAdmin(admin);
         const shopId = requireShopId(qs, body);
@@ -813,6 +838,28 @@ export function createMarketingStudioHandler(deps = {}) {
             return json(200, { kind: "audio", audioBase64: result.audioBuffer.toString("base64"), mime: result.mime });
           }
           return json(200, { kind: "video", jobId: result.jobId, status: result.status });
+        } catch (error) {
+          return json(502, { error: error.message });
+        }
+      }
+
+      // Polls a HeyGen video-render job started by generateVideo/preview's
+      // video path. Voice-only previews never produce a jobId (synthesis is
+      // synchronous), so this only ever matters for the avatar-video path.
+      if (action === "clone_job_status") {
+        const shopId = requireShopId(qs, body);
+        if (!qs.job_id && !body.job_id) return json(400, { error: "job_id is required." });
+        const cloneRegistry = buildConfiguredCloneProviderRegistry({
+          env: process.env,
+          uploadAudio: (buffer, filename) => uploadClonedVoiceAudio(client, shopId, buffer, filename)
+        });
+        const provider = selectCloneProvider({}, cloneRegistry);
+        if (provider === notLiveCloneProvider) {
+          return json(200, { note: "NOT LIVE — PROVIDER CONNECTION REQUIRED. No avatar/voice provider is connected yet." });
+        }
+        try {
+          const result = await provider.getJobStatus(qs.job_id || body.job_id);
+          return json(200, result);
         } catch (error) {
           return json(502, { error: error.message });
         }

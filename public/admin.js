@@ -317,7 +317,7 @@ function setView(name){
   $$('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
   $$('.view').forEach(v=>v.classList.toggle('active',v.id===`${name}View`));
   const titles={
-    overview:'Executive dashboard',betaToolkit:'Beta toolkit — RC1',users:'User management',marketplaceAdmin:'Marketplace admin',support:'Support center',subscriptions:'Subscriptions',announcements:'Announcements',featureFlags:'Feature flags',analytics:'Analytics',paymentHub:'Payment platform',systemHealth:'System health',shops:'Florist accounts',editor:'Remote account editor',auditLog:'Audit log',floralLibraryAdmin:'Floral Library import & quality',uiDesignMode:'UI Design Mode — visual studio',audit:'Shop change history'
+    overview:'Executive dashboard',betaToolkit:'Beta toolkit — RC1',users:'User management',marketplaceAdmin:'Marketplace admin',support:'Support center',subscriptions:'Subscriptions',announcements:'Announcements',featureFlags:'Feature flags',analytics:'Analytics',paymentHub:'Payment platform',systemHealth:'System health',shops:'Florist accounts',editor:'Remote account editor',auditLog:'Audit log',floralLibraryAdmin:'Floral Library import & quality',uiDesignMode:'UI Design Mode — visual studio',audit:'Shop change history',marketingStudio:'Marketing Studio — Founding Beta'
   };
   $('#viewTitle').textContent=titles[name]||name;
   if(window.__loadCommandView)window.__loadCommandView(name);
@@ -326,6 +326,7 @@ function setView(name){
     window.BloomPhotoManager?.mount?.(document.getElementById('photoManagerRoot'));
   }
   if(name==='uiDesignMode')window.FlorisynUiEditor?.mountAdminPanel?.(document.getElementById('uiDesignModeRoot'));
+  if(name==='marketingStudio')window.BloomMarketingStudio?.mount?.(document.getElementById('marketingStudioRoot'));
 }
 async function loadOverview(){
   const d=await call('admin-console?action=overview');
@@ -363,7 +364,7 @@ async function loadShops(){const q=encodeURIComponent($('#shopSearch').value||''
 $('#saveFoundation')?.addEventListener('click',async()=>{await call('admin-console',{method:'POST',body:JSON.stringify({action:'save-platform-settings',foundationTotal:Number($('#foundationTotal').value||0)})});toast('Rose Foundation amount saved');loadOverview()});
 $('#markAlertsRead').onclick=async()=>{await call('admin-console',{method:'POST',body:JSON.stringify({action:'mark-alerts-read'})});toast('Subscriber alerts marked read');loadOverview()};
 $('#shopSearch').oninput=()=>{clearTimeout(window.st);window.st=setTimeout(loadShops,350)};$('#refreshAdmin').onclick=()=>{loadOverview();loadShops();if(window.__loadCommandView)window.__loadCommandView($('nav button.active')?.dataset.view||'overview');if(selectedShop)openShop(selectedShop)};
-async function openShop(id){selectedShop=id;selectedData=await call(`admin-console?action=shop&shopId=${id}`);fillEditor();setView('editor')}
+async function openShop(id){selectedShop=id;window.BloomAdminSelectedShopId=id;selectedData=await call(`admin-console?action=shop&shopId=${id}`);fillEditor();setView('editor')}
 function val(name,v){const el=$(`[name="${name}"]`);if(!el)return;if(el.type==='checkbox')el.checked=Boolean(v);else el.value=v??''}
 function isoLocal(v){if(!v)return'';const d=new Date(v);return new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,16)}
 function fillEditor(){const {shop,config={},subscription={}}=selectedData;$('#emptyEditor').hidden=true;$('#shopEditor').hidden=false;$('#editingShopName').textContent=shop.name;$('#editingShopId').textContent=shop.id;['name','email','phone','website','address_line_1','city','state','postal_code','tax_rate','default_delivery_fee'].forEach(k=>val(k,shop[k]));const t=config.theme||{};val('primary',t.primary||'#547428');val('accent',t.accent||'#e94178');val('background',t.background||'#fbf8f6');val('sidebar',t.sidebar||'#ffffff');val('radius',t.radius||18);val('density',t.density||'comfortable');val('announcement',config.announcement);val('support_message',config.support_message);val('nav_order',(config.navigation?.order||DEFAULT_NAV).join('\n'));val('nav_hidden',(config.navigation?.hidden||[]).join(', '));const c=config.content||{};val('app_background_image',c.app_background_image||'');val('dashboard_image',c.dashboard_image||'');val('logo_image',c.logo_image||'');val('layout_mode',c.layout_mode||'classic');val('button_labels',JSON.stringify(c.button_labels||{},null,2));val('tab_labels',JSON.stringify(c.tab_labels||{},null,2));val('plan_code',subscription.plan_code||'trial');val('subscription_status',subscription.status||'trialing');val('trial_ends_at',isoLocal(subscription.trial_ends_at));val('current_period_ends_at',isoLocal(subscription.current_period_ends_at));val('cancel_at_period_end',subscription.cancel_at_period_end);val('account_status',config.account_status||'active');$('#featureChecks').innerHTML=FEATURES.map(f=>`<label class="feature-check"><input type="checkbox" data-feature="${f}" ${(config.features?.[f]??true)?'checked':''}> ${f[0].toUpperCase()+f.slice(1)}</label>`).join('');renderPreview();renderAudit()}
