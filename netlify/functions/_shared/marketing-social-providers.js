@@ -97,3 +97,27 @@ export function isPlatformLive(_platform) {
   // each is wired in Stage E.
   return false;
 }
+
+/** The two env vars a real OAuth adapter for this platform would need
+ * (app/client id + secret), named by a consistent convention so setting
+ * up a new platform is "add these two env vars", not a one-off. Real
+ * per-platform authorize/token endpoints and scopes are NOT built here —
+ * every provider's OAuth details differ enough (and are untestable
+ * without a real registered, approved app) that guessing them would risk
+ * exactly the "claim an integration works before it does" mistake Section
+ * 40 prohibits. This only ever answers "is Florisyn even configured to
+ * try" — never constructs a redirect URL. */
+export function platformOAuthEnvVarNames(platform) {
+  const key = String(platform || "").toUpperCase();
+  return { clientIdVar: `FLORISYN_SOCIAL_${key}_CLIENT_ID`, clientSecretVar: `FLORISYN_SOCIAL_${key}_CLIENT_SECRET` };
+}
+
+/** Real, honest check — true only once BOTH env vars for this platform
+ * are actually set. Every platform reads false today because no OAuth
+ * app has been registered for any of them yet; this flips to true the
+ * moment real credentials are configured, with no code change needed. */
+export function isPlatformConfigured(platform, env = process.env) {
+  if (!SUPPORTED_PLATFORMS.includes(platform)) return false;
+  const { clientIdVar, clientSecretVar } = platformOAuthEnvVarNames(platform);
+  return Boolean(String(env[clientIdVar] || "").trim()) && Boolean(String(env[clientSecretVar] || "").trim());
+}

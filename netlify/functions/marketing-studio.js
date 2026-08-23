@@ -1,15 +1,19 @@
 /**
  * Florisyn Marketing Studio — Founding Beta (admin-only) API surface.
  *
- * Stage B+C+D: Brand Brain read/write, connection status (never tokens),
+ * Stage B+C+D+E: Brand Brain read/write, connection status (never tokens),
  * usage/cost ledger summary, an honest `status` action, Stage C's monthly
  * content planner/calendar/approval workflow (plan_month/content_calendar/
- * list_content/approve_content), and Stage D's real creative generation
+ * list_content/approve_content), Stage D's real creative generation
  * (generate_content — real image+copy today, real script/storyboard for
  * video) plus AI Clone consent capture (request_clone_enrollment/
- * list_clone_consent/revoke_clone_consent). Actual video rendering,
- * avatar/voice training, and publishing land in Stage E — this file
- * intentionally does not fake any of that here.
+ * list_clone_consent/revoke_clone_consent), and Stage E's reliable
+ * publishing queue (enqueue_publish/run_publishing_queue/publishing_health/
+ * connect_platform/disconnect_platform) — real retry/backoff/dead-letter
+ * machinery, but every actual publish attempt fails honestly today because
+ * no platform has a live, approved adapter (see
+ * _shared/marketing-social-providers.js). Nothing here ever reports a post
+ * as published unless a real provider actually says so.
  *
  * Access control is two layers, both required (Section 5: admin-only must
  * be enforced server-side, not UI-hidden):
@@ -45,8 +49,20 @@ import {
   resetPreferences,
   buildBrandSummary
 } from "./_shared/marketing-brand-brain.js";
-import { SUPPORTED_PLATFORMS, isPlatformLive } from "./_shared/marketing-social-providers.js";
+import {
+  SUPPORTED_PLATFORMS,
+  isPlatformLive,
+  isPlatformConfigured,
+  platformOAuthEnvVarNames,
+  notLiveSocialProvider
+} from "./_shared/marketing-social-providers.js";
 import { selectCloneProvider, notLiveCloneProvider } from "./_shared/marketing-clone-providers.js";
+import {
+  classifyPublishFailure,
+  nextJobStateAfterFailure,
+  isJobDue,
+  buildIdempotencyKey
+} from "./_shared/marketing-publishing-queue.js";
 import { COST_CONFIG_VERSION, DEFAULT_MONTHLY_ALLOWANCE, estimateCostCents } from "./_shared/marketing-cost-config.js";
 import {
   buildMonthlyContentPlan,
@@ -709,6 +725,236 @@ export function createMarketingStudioHandler(deps = {}) {
           targetId: body.consent_id
         });
         return json(200, { ok: true, consent_id: body.consent_id });
+      }
+
+      // Stage E — the reliable-publishing queue. Approving content queues
+      // it; running the queue actually attempts to publish. Every attempt
+      // fails honestly today (no platform adapter is live — see
+      // _shared/marketing-social-providers.js) and settles to 'failed'
+      // immediately rather than retry-looping against a provider that
+      // structurally doesn't exist (marketing-publishing-queue.js's
+      // classifyPublishFailure). Nothing here ever claims a post published.
+      if (action === "enqueue_publish" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.content_item_id) return json(400, { error: "content_item_id is required." });
+
+        const currentItem = await client
+          .from("marketing_content_items")
+          .select("id,status")
+          .eq("id", body.content_item_id)
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        if (currentItem.error) {
+          if (missingRelation(currentItem.error)) throw friendlyMissing();
+          throw currentItem.error;
+        }
+        if (!currentItem.data) return json(404, { error: "Content item not found." });
+        if (currentItem.data.status !== "approved") {
+          return json(400, { error: `Only an 'approved' content item can be queued for publishing (current status: '${currentItem.data.status}').` });
+        }
+
+        const variantsResult = await client
+          .from("marketing_platform_variants")
+          .select("id,platform,scheduled_at,asset_id")
+          .eq("content_item_id", body.content_item_id)
+          .eq("shop_id", shopId);
+        if (variantsResult.error) throw variantsResult.error;
+        const variants = variantsResult.data || [];
+        if (!variants.length) return json(400, { error: "This content item has no platform variants to publish." });
+
+        const jobRows = variants.map((v) => ({
+          shop_id: shopId,
+          platform_variant_id: v.id,
+          idempotency_key: buildIdempotencyKey(v.id),
+          status: "queued",
+          next_attempt_at: v.scheduled_at || new Date().toISOString()
+        }));
+        // ignoreDuplicates makes this safe to call twice for the same
+        // content item — a variant already queued keeps its existing job
+        // (and its attempt history) instead of getting a silent second one.
+        const jobsInserted = await client
+          .from("marketing_publishing_jobs")
+          .upsert(jobRows, { onConflict: "idempotency_key", ignoreDuplicates: true })
+          .select("id,platform_variant_id");
+        if (jobsInserted.error) {
+          if (missingRelation(jobsInserted.error)) throw friendlyMissing();
+          throw jobsInserted.error;
+        }
+
+        await client
+          .from("marketing_platform_variants")
+          .update({ status: "scheduled" })
+          .eq("content_item_id", body.content_item_id)
+          .eq("shop_id", shopId);
+        const updatedItem = await client
+          .from("marketing_content_items")
+          .update({ status: "scheduled", updated_at: new Date().toISOString() })
+          .eq("id", body.content_item_id)
+          .eq("shop_id", shopId)
+          .select("id,status")
+          .single();
+        if (updatedItem.error) throw updatedItem.error;
+
+        await writeCommandAudit(client, user.id, "marketing_publish_enqueued", {
+          shopId,
+          targetType: "marketing_content_items",
+          targetId: body.content_item_id,
+          variantCount: variants.length
+        });
+        return json(200, { item: updatedItem.data, jobs_queued: jobsInserted.data?.length ?? 0 });
+      }
+
+      if (action === "run_publishing_queue" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        const limit = Math.min(100, Math.max(1, Number(body.limit) || 25));
+
+        const now = new Date();
+        const dueResult = await client
+          .from("marketing_publishing_jobs")
+          .select("id,platform_variant_id,status,attempts,max_attempts,next_attempt_at")
+          .eq("shop_id", shopId)
+          .eq("status", "queued")
+          .lte("next_attempt_at", now.toISOString())
+          .order("next_attempt_at", { ascending: true })
+          .limit(limit);
+        if (dueResult.error) {
+          if (missingRelation(dueResult.error)) throw friendlyMissing();
+          throw dueResult.error;
+        }
+        const dueJobs = (dueResult.data || []).filter((j) => isJobDue(j, now));
+
+        const results = [];
+        for (const job of dueJobs) {
+          const variantResult = await client
+            .from("marketing_platform_variants")
+            .select("id,platform,caption,scheduled_at")
+            .eq("id", job.platform_variant_id)
+            .maybeSingle();
+          const variant = variantResult.data;
+          const platform = variant?.platform;
+          const provider = notLiveSocialProvider(platform);
+
+          let outcome;
+          try {
+            await provider.publish(variant || {});
+            // Unreachable today (every provider is not-live), kept so a
+            // real adapter's success path is already wired correctly.
+            await client.from("marketing_publishing_jobs").update({ status: "succeeded", attempts: job.attempts + 1, updated_at: new Date().toISOString() }).eq("id", job.id);
+            await client.from("marketing_platform_variants").update({ status: "published", published_at: new Date().toISOString() }).eq("id", job.platform_variant_id);
+            outcome = "succeeded";
+          } catch (error) {
+            const kind = classifyPublishFailure(error);
+            const next = nextJobStateAfterFailure({ attempts: job.attempts, maxAttempts: job.max_attempts, kind });
+            const nextAttemptAt = next.delaySeconds != null ? new Date(now.getTime() + next.delaySeconds * 1000).toISOString() : job.next_attempt_at;
+            await client
+              .from("marketing_publishing_jobs")
+              .update({
+                status: next.status,
+                attempts: next.attempts,
+                next_attempt_at: nextAttemptAt,
+                last_error: String(error?.message || error).slice(0, 500),
+                last_error_code: kind,
+                updated_at: new Date().toISOString()
+              })
+              .eq("id", job.id);
+            if (next.status === "failed" || next.status === "dead_letter") {
+              await client
+                .from("marketing_platform_variants")
+                .update({ status: "failed", last_error: String(error?.message || error).slice(0, 500) })
+                .eq("id", job.platform_variant_id);
+            }
+            outcome = next.status;
+          }
+          results.push({ job_id: job.id, platform_variant_id: job.platform_variant_id, platform: platform || null, outcome });
+        }
+
+        return json(200, {
+          processed: results.length,
+          results,
+          note: "NOT LIVE — every attempt above fails honestly (social_provider_not_live) because no platform adapter is connected yet. This exercises the real queue/retry/dead-letter machinery, not a fake success path."
+        });
+      }
+
+      if (action === "publishing_health") {
+        const shopId = requireShopId(qs, body);
+        const jobsResult = await client.from("marketing_publishing_jobs").select("status").eq("shop_id", shopId).limit(5000);
+        if (jobsResult.error) {
+          if (missingRelation(jobsResult.error)) throw friendlyMissing();
+          throw jobsResult.error;
+        }
+        const jobStatusCounts = {};
+        for (const row of jobsResult.data || []) jobStatusCounts[row.status] = (jobStatusCounts[row.status] || 0) + 1;
+
+        return json(200, {
+          job_status_counts: jobStatusCounts,
+          platforms: SUPPORTED_PLATFORMS.map((platform) => ({
+            platform,
+            live: isPlatformLive(platform),
+            configured: isPlatformConfigured(platform)
+          })),
+          note: "NOT LIVE — PROVIDER CONNECTION REQUIRED for every platform. 'configured' reflects whether OAuth env credentials are present; 'live' additionally requires a working, approved adapter, which none of the 7 platforms have yet."
+        });
+      }
+
+      if (action === "connect_platform" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        const platform = String(body.platform || "").trim();
+        if (!SUPPORTED_PLATFORMS.includes(platform)) {
+          return json(400, { error: `platform must be one of: ${SUPPORTED_PLATFORMS.join(", ")}.` });
+        }
+        const configured = isPlatformConfigured(platform);
+        await client.from("marketing_social_connections").upsert(
+          {
+            shop_id: shopId,
+            platform,
+            status: configured ? "connecting" : "not_connected",
+            last_checked_at: new Date().toISOString(),
+            last_error: configured ? null : "OAuth credentials not configured for this platform yet."
+          },
+          { onConflict: "shop_id,platform" }
+        );
+        if (!configured) {
+          return json(200, {
+            configured: false,
+            required_env: platformOAuthEnvVarNames(platform),
+            message: `NOT LIVE — PROVIDER CONNECTION REQUIRED. Set ${platformOAuthEnvVarNames(platform).clientIdVar} and ${platformOAuthEnvVarNames(platform).clientSecretVar} to enable connecting ${platform}.`
+          });
+        }
+        // Credentials exist, but the real OAuth authorize/callback exchange
+        // for this platform isn't implemented — guessing at each
+        // platform's exact authorize URL/scopes without a real registered,
+        // approved app to test against risks claiming an integration works
+        // before it does (Section 40). Building this out is the next real
+        // step once real credentials are actually configured.
+        return json(200, {
+          configured: true,
+          message: `Credentials are present for ${platform}, but the OAuth connect flow itself is not implemented yet — this is the next real step, not a working connection.`
+        });
+      }
+
+      if (action === "disconnect_platform" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        const platform = String(body.platform || "").trim();
+        if (!SUPPORTED_PLATFORMS.includes(platform)) {
+          return json(400, { error: `platform must be one of: ${SUPPORTED_PLATFORMS.join(", ")}.` });
+        }
+        const updated = await client
+          .from("marketing_social_connections")
+          .update({ status: "disconnected", connected_at: null, expires_at: null, updated_at: new Date().toISOString() })
+          .eq("shop_id", shopId)
+          .eq("platform", platform)
+          .select("id")
+          .maybeSingle();
+        if (updated.error) throw updated.error;
+        if (updated.data?.id) {
+          await client.from("marketing_social_connection_secrets").delete().eq("connection_id", updated.data.id);
+        }
+        await writeCommandAudit(client, user.id, "marketing_platform_disconnected", { shopId, targetType: "marketing_social_connections", targetId: platform });
+        return json(200, { ok: true, platform });
       }
 
       return methodNotAllowed();

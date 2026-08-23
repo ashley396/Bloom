@@ -10,7 +10,9 @@ import {
   SUPPORTED_PLATFORMS,
   notLiveSocialProvider,
   buildSocialProviderRegistry,
-  isPlatformLive
+  isPlatformLive,
+  platformOAuthEnvVarNames,
+  isPlatformConfigured
 } from "../netlify/functions/_shared/marketing-social-providers.js";
 
 // ── AI Clone adapter contract ──────────────────────────────────────────
@@ -113,4 +115,35 @@ test("isPlatformLive: no platform is reported live yet — Stage E has connected
   for (const platform of SUPPORTED_PLATFORMS) {
     assert.equal(isPlatformLive(platform), false, `${platform} must not be reported live until a real adapter is wired`);
   }
+});
+
+test("platformOAuthEnvVarNames: names two distinct, consistently-prefixed env vars per platform", () => {
+  const { clientIdVar, clientSecretVar } = platformOAuthEnvVarNames("facebook");
+  assert.equal(clientIdVar, "FLORISYN_SOCIAL_FACEBOOK_CLIENT_ID");
+  assert.equal(clientSecretVar, "FLORISYN_SOCIAL_FACEBOOK_CLIENT_SECRET");
+  assert.notEqual(clientIdVar, clientSecretVar);
+});
+
+test("isPlatformConfigured: false for every platform when no env vars are set (today's real state)", () => {
+  for (const platform of SUPPORTED_PLATFORMS) {
+    assert.equal(isPlatformConfigured(platform, {}), false);
+  }
+});
+
+test("isPlatformConfigured: true only once BOTH the client id and secret env vars are set", () => {
+  const { clientIdVar, clientSecretVar } = platformOAuthEnvVarNames("pinterest");
+  assert.equal(isPlatformConfigured("pinterest", { [clientIdVar]: "id-only" }), false, "an id with no secret must not count as configured");
+  assert.equal(isPlatformConfigured("pinterest", { [clientSecretVar]: "secret-only" }), false, "a secret with no id must not count as configured");
+  assert.equal(isPlatformConfigured("pinterest", { [clientIdVar]: "id", [clientSecretVar]: "secret" }), true);
+});
+
+test("isPlatformConfigured: an unsupported platform name is never configured, regardless of env contents", () => {
+  assert.equal(isPlatformConfigured("myspace", { FLORISYN_SOCIAL_MYSPACE_CLIENT_ID: "x", FLORISYN_SOCIAL_MYSPACE_CLIENT_SECRET: "y" }), false);
+});
+
+test("isPlatformConfigured: a real config check never confuses one platform's credentials for another's", () => {
+  const fbVars = platformOAuthEnvVarNames("facebook");
+  const env = { [fbVars.clientIdVar]: "id", [fbVars.clientSecretVar]: "secret" };
+  assert.equal(isPlatformConfigured("facebook", env), true);
+  assert.equal(isPlatformConfigured("instagram", env), false);
 });
