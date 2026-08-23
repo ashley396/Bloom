@@ -301,3 +301,192 @@ test("retryJobStep: an unknown step id fails clearly instead of silently no-oppi
   assert.equal(result.ok, false);
   assert.match(result.error, /not found/i);
 });
+
+// ---- Visual Creation Studio ----
+
+test("planJob: a background-change/style photo edit plans exactly one generateBackground step", () => {
+  const routed = { action_type: "edit", domain: "photo", visual_op: "background_change", visual_brief: "white marble counter" };
+  const steps = planJob(routed, { requestText: "put this on a white marble counter" });
+  assert.deepEqual(steps.map((s) => s.tool), ["creative.generateBackground"]);
+  assert.equal(steps[0].optional, false);
+});
+
+test("planJob: a plain flyer request (no aesthetic signal) skips image generation entirely — Tier B", () => {
+  const routed = { action_type: "create", domain: "photo", visual_op: "flyer", visual_style_signal: false };
+  const steps = planJob(routed, { requestText: "make a flyer saying we close at 2:30" });
+  assert.deepEqual(steps.map((s) => s.tool), ["creative.renderFlyerContent"]);
+});
+
+test("planJob: a flyer request WITH aesthetic signal also plans a background generation step — Tier A", () => {
+  const routed = { action_type: "create", domain: "photo", visual_op: "flyer", visual_style_signal: true };
+  const steps = planJob(routed, { requestText: "make a luxurious Mother's Day flyer with peonies" });
+  assert.deepEqual(steps.map((s) => s.tool), ["creative.renderFlyerContent", "creative.generateBackground"]);
+  assert.equal(steps[1].optional, true, "the visual is a nice-to-have — the flyer must still be usable if image generation fails");
+});
+
+test("planJob: a deterministic revision plans exactly one reviseVisual step, regardless of anything else on routed", () => {
+  const routed = { action_type: "edit", domain: "photo", visual_op: "revise" };
+  const steps = planJob(routed, { requestText: "make the phone number bigger" });
+  assert.deepEqual(steps.map((s) => s.tool), ["creative.reviseVisual"]);
+});
+
+test("planJob: a crop request needs no server step at all — pure client-side resize", () => {
+  const routed = { action_type: "edit", domain: "photo", visual_op: "crop" };
+  assert.deepEqual(planJob(routed, { requestText: "make this square" }), []);
+});
+
+test("runJob: 'put this on a white marble counter' generates a background-only image and persists a 'background' asset linked to the job", async () => {
+  const mock = mockAllCloudflareCalls();
+  try {
+    const client = makeClient([
+      { data: { id: "job-bg-1", status: "running", plan: [] }, error: null }, // job insert
+      { data: { id: "media-bg-1" }, error: null }, // website_media insert
+      { data: { id: "asset-bg-1" }, error: null }, // background asset insert
+      { data: { id: "job-bg-1", status: "completed" }, error: null } // job update
+    ]);
+    const routed = {
+      action_type: "edit", domain: "photo", visual_op: "background_change",
+      // visual_brief/traits_used are always null/[] on routed by design now —
+      // creative.generateBackground calls buildVisualBrief() itself (inside
+      // runStep), which is what actually hits the mocked Cloudflare call
+      // below and returns mockAllCloudflareCalls()'s textResult.visual_brief.
+      visual_brief: null, traits_used: []
+    };
+    const ran = await runJob(client, {
+      shopId: "shop-1", userId: "user-1", persona: "Lily", routed,
+      requestText: "put this on a white marble counter", shop: { name: "Test Blooms", primary_color: "#8f3f68" }, inventory: [],
+      conversationId: "conv-1", styleSummary: "background style: soft luxury"
+    });
+    assert.equal(ran.ok, true);
+    const payload = jobUpdatePayload(client);
+    assert.equal(payload.status, "completed");
+    const bgStep = payload.result.steps.find((s) => s.tool === "creative.generateBackground");
+    assert.equal(bgStep.status, "completed");
+    assert.match(bgStep.result.url, /^https:\/\/fake\.storage\//);
+    assert.equal(bgStep.result.content.visual_brief, "A red spray rose corsage on a wrist, shot in natural light.", "the brief comes from buildVisualBrief()'s own call, not a stale routed.visual_brief");
+    assert.deepEqual(bgStep.result.content.traits_used, []);
+
+    const jobInsert = client.calls.find((c) => c.table === "ai_execution_jobs" && c.ops.some(([op]) => op === "insert"));
+    assert.equal(jobInsert.payload.conversation_id, "conv-1");
+    assert.equal(jobInsert.payload.context.visual_op, "background_change");
+
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some(([op]) => op === "insert"));
+    assert.equal(assetInsert.payload.asset_type, "background");
+    assert.equal(assetInsert.payload.parent_asset_id, null);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("runJob: a plain closing-notice flyer never calls image generation at all — Tier B, fast and free", async () => {
+  const mock = mockAllCloudflareCalls();
+  try {
+    const client = makeClient([
+      { data: { id: "job-fly-1", status: "running", plan: [] }, error: null }, // job insert
+      { data: { id: "asset-fly-1" }, error: null }, // flyer content asset insert
+      { data: { id: "job-fly-1", status: "completed" }, error: null } // job update
+    ]);
+    const routed = { action_type: "create", domain: "photo", visual_op: "flyer", visual_style_signal: false, occasion: "closing" };
+    const ran = await runJob(client, {
+      shopId: "shop-1", userId: "user-1", persona: "Lily", routed,
+      requestText: "make a flyer saying we close at 2:30 today, call 606-506-4039", shop: { name: "Test Blooms" }, inventory: []
+    });
+    assert.equal(ran.ok, true);
+    const payload = jobUpdatePayload(client);
+    const flyerStep = payload.result.steps.find((s) => s.tool === "creative.renderFlyerContent");
+    assert.equal(flyerStep.status, "completed");
+    assert.equal(flyerStep.result.content.style_tier, "template");
+    assert.equal(flyerStep.result.content.template_id, "notice");
+    assert.equal(flyerStep.result.content.background_url, null, "Tier B never runs image generation, so there is no background to attach");
+
+    // No website_media insert at all — confirms image generation genuinely
+    // never ran for a plain operational notice.
+    const mediaInsert = client.calls.find((c) => c.table === "website_media");
+    assert.equal(mediaInsert, undefined);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("runJob: a flyer WITH aesthetic direction gets a generated background attached to its content after both steps complete", async () => {
+  const mock = mockAllCloudflareCalls();
+  try {
+    const client = makeClient([
+      { data: { id: "job-fly-2", status: "running", plan: [] }, error: null }, // job insert
+      { data: { id: "asset-fly-2" }, error: null }, // flyer content asset insert
+      { data: { id: "media-fly-2" }, error: null }, // website_media insert (flyer background)
+      { data: { id: "asset-bg-2" }, error: null }, // background asset insert
+      { data: null, error: null }, // ai_generated_assets update — patches the flyer's content.background_url
+      { data: { id: "job-fly-2", status: "completed" }, error: null } // job update
+    ]);
+    const routed = { action_type: "create", domain: "photo", visual_op: "flyer", visual_style_signal: true, occasion: "Mother's Day" };
+    const ran = await runJob(client, {
+      shopId: "shop-1", userId: "user-1", persona: "Lily", routed,
+      requestText: "make a luxurious Mother's Day flyer with peonies in my shop colors", shop: { name: "Test Blooms", primary_color: "#8f3f68" }, inventory: []
+    });
+    assert.equal(ran.ok, true);
+    const payload = jobUpdatePayload(client);
+    const flyerStep = payload.result.steps.find((s) => s.tool === "creative.renderFlyerContent");
+    assert.equal(flyerStep.result.content.style_tier, "generated");
+    assert.match(flyerStep.result.content.background_url, /^https:\/\/fake\.storage\//, "the generated background must be attached back onto the flyer asset's content");
+
+    const contentPatch = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some(([op]) => op === "update"));
+    assert.ok(contentPatch, "the flyer asset row itself must be patched with the background url, not just the in-memory job result");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("runJob: creative.reviseVisual on a flyer applies the deterministic style delta with no new AI-generation call, linked via parent_asset_id", async () => {
+  const parentFlyer = {
+    id: "flyer-parent-1",
+    shop_id: "shop-1",
+    asset_type: "flyer",
+    model: "cloudflare-model",
+    content: { headline: "Closing Early Today", body: "2:30 PM", cta: "Call 606-506-4039", template_id: "notice", aspect_ratio: "square", style_tier: "template", background_url: null, traits_used: [], style: { scale: { headline: "normal", body: "normal", cta: "normal" }, paletteExclude: [], paletteInclude: ["pink"] } }
+  };
+  const client = makeClient([
+    { data: { id: "job-rev-1", status: "running", plan: [] }, error: null }, // job insert
+    { data: parentFlyer, error: null }, // load parent asset
+    { data: { id: "asset-rev-1" }, error: null }, // revised flyer asset insert
+    { data: { id: "job-rev-1", status: "completed" }, error: null } // job update
+  ]);
+  const routed = { action_type: "edit", domain: "photo", visual_op: "revise" };
+  const ran = await runJob(client, {
+    shopId: "shop-1", userId: "user-1", persona: "Lily", routed,
+    requestText: "make the phone number bigger and use less pink", shop: {}, inventory: [],
+    parentAssetId: "flyer-parent-1",
+    revisionDeltas: { scale: { cta: 1 }, colorsAdd: [], colorsRemove: ["pink"], backgroundHint: null }
+  });
+  assert.equal(ran.ok, true);
+  const payload = jobUpdatePayload(client);
+  const reviseStep = payload.result.steps.find((s) => s.tool === "creative.reviseVisual");
+  assert.equal(reviseStep.status, "completed");
+  assert.equal(reviseStep.result.content.style.scale.cta, "large");
+  assert.deepEqual(reviseStep.result.content.style.paletteExclude, ["pink"]);
+  assert.deepEqual(reviseStep.result.content.style.paletteInclude, [], "the pink that was previously included must be cleared, not left dangling alongside the exclusion");
+  // Untouched facts — a revision never rewrites the phone number/time text itself.
+  assert.equal(reviseStep.result.content.cta, "Call 606-506-4039");
+
+  const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some(([op]) => op === "insert"));
+  assert.equal(assetInsert.payload.parent_asset_id, "flyer-parent-1");
+  // No Cloudflare mock was installed for this test at all (no globalThis.fetch
+  // stub) — the job still completes successfully, which is the real proof
+  // that a pure style/text delta never makes a new AI-generation call.
+});
+
+test("runJob: creative.reviseVisual with no parent asset fails with a clear, honest message instead of silently doing nothing", async () => {
+  const client = makeClient([
+    { data: { id: "job-rev-2", status: "running", plan: [] }, error: null },
+    { data: { id: "job-rev-2", status: "failed" }, error: null }
+  ]);
+  const routed = { action_type: "edit", domain: "photo", visual_op: "revise" };
+  const ran = await runJob(client, {
+    shopId: "shop-1", userId: "user-1", persona: "Lily", routed,
+    requestText: "make it bigger", shop: {}, inventory: [], parentAssetId: null, revisionDeltas: { scale: { cta: 1 } }
+  });
+  assert.equal(ran.ok, true);
+  const payload = jobUpdatePayload(client);
+  assert.equal(payload.status, "failed");
+  assert.match(payload.result.steps[0].error, /nothing to revise/i);
+});

@@ -15,6 +15,26 @@
  * commands (kept exactly as-is — they're correct and don't need an LLM),
  * and an LLM classification call for everything else, so the model reads
  * the whole sentence instead of a fragment of it.
+ *
+ * Visual Creation Studio extension: two things were added, deliberately
+ * kept as TWO separate calls rather than one bigger one — every
+ * runCloudflareGenerate "task" string is hard-truncated at 1200 chars
+ * (ai-assistant.js's safeText), and the full visual-brief instructions
+ * (blending the current message with the shop's learned style, per
+ * priority rule) don't fit alongside general routing in that budget:
+ *
+ *   classifyRequest()   — general routing, now also detects a lightweight
+ *                          visual_op/aesthetic-signal/aspect-ratio hint and
+ *                          whether the message is a standing style
+ *                          preference statement. Runs on every message.
+ *
+ *   buildVisualBrief()  — the actual backdrop description, blending this
+ *                          message with the shop's learned style
+ *                          (_shared/ai-style-memory.js's buildStyleSummary()
+ *                          output). Only called when a step is actually
+ *                          about to generate an image, so the extra call
+ *                          is never spent on a message that doesn't need
+ *                          one (a plain "crop this" or a Tier-B flyer).
  */
 
 import { runCloudflareGenerate } from "../ai-assistant.js";
@@ -33,15 +53,16 @@ export const ACTION_TYPES = Object.freeze([
   "general" // small talk / anything else
 ]);
 
-const CLASSIFY_TASK = `Classify what a florist wants Florisyn's AI to do. Read the ENTIRE sentence before deciding — never classify from a single keyword. A sentence that mentions "website" is not automatically navigation; a sentence that mentions "Facebook" is not automatically a single post if it also asks for a campaign or more than one channel.
+export const VISUAL_OPS = Object.freeze(["background_change", "style", "crop", "flyer", "none"]);
 
-Return JSON with:
-- action_type: one of question, create, campaign, video, edit, diagnosis, navigation, scheduling, publishing, data_retrieval, general. Use "campaign" whenever the request spans more than one channel or more than one deliverable (e.g. a post AND a website section). Use "create" for one finished piece of content on one channel. Use "video" for any Reel/video/short-form-video request, even inside a larger campaign — video always gets this label so Florisyn can note it separately.
-- domain: which part of Florisyn this concerns — marketing, website, photo, inventory, orders, customers, events, wholesale, reports, employees, support, or general.
-- channels: array from facebook, instagram, google_business, email, sms, website, blog — every channel mentioned or clearly implied. Empty array if none.
-- occasion: the event/holiday/theme this is about (e.g. "Homecoming"), or null.
-- audience: who this should reach, in the user's own words, or null.
-- summary: one sentence restating exactly what Florisyn should produce or do — written as an instruction to actually do it, not a description of the request.`;
+const CLASSIFY_TASK = `Classify what a florist wants Florisyn's AI to do. Read the whole sentence — never classify from a single keyword. "website" is not automatically navigation; "Facebook" is not automatically a single post if the sentence asks for more.
+
+Return JSON:
+- action_type: question|create|campaign|video|edit|diagnosis|navigation|scheduling|publishing|data_retrieval|general (campaign=multi-channel).
+- domain: marketing|website|photo|inventory|orders|customers|events|wholesale|reports|employees|support|general (photo=image/background/flyer).
+- channels: facebook,instagram,google_business,email,sms,website,blog or []. occasion/audience: string|null. summary: one sentence.
+- domain=photo only — visual_op: background_change|style|crop|flyer|none. visual_style_signal: true only if it has real aesthetic language. target_aspect_ratio_hint: string|null.
+- preference_statement: true only for a standing statement ("I like X"/"use this from now on"), never one-off. preference_updates: [{category,text,polarity}] if true else []. category: background_style,materials,lighting,colors,mood,typography,flyer_style,product_photo_style,social_post_style,floral_decoration_level,realism_level,general_avoid.`;
 
 const CLASSIFY_SCHEMA = {
   action_type: "string",
@@ -49,7 +70,12 @@ const CLASSIFY_SCHEMA = {
   channels: ["string"],
   occasion: "string|null",
   audience: "string|null",
-  summary: "string"
+  summary: "string",
+  visual_op: "string",
+  visual_style_signal: "boolean",
+  target_aspect_ratio_hint: "string|null",
+  preference_statement: "boolean",
+  preference_updates: [{ category: "string", text: "string", polarity: "string" }]
 };
 
 function normalizeClassification(raw, message) {
@@ -58,6 +84,7 @@ function normalizeClassification(raw, message) {
   const channels = Array.isArray(raw?.channels)
     ? [...new Set(raw.channels.map((c) => String(c || "").toLowerCase().trim()).filter(Boolean))]
     : [];
+  const visualOp = VISUAL_OPS.includes(raw?.visual_op) ? raw.visual_op : "none";
   return {
     action_type: actionType,
     domain,
@@ -65,6 +92,18 @@ function normalizeClassification(raw, message) {
     occasion: raw?.occasion ? String(raw.occasion).trim() : null,
     audience: raw?.audience ? String(raw.audience).trim() : null,
     summary: raw?.summary ? String(raw.summary).trim() : message,
+    visual_op: visualOp,
+    visual_brief: null, // filled in at execution time by buildVisualBrief(), only when actually generating an image
+    visual_style_signal: Boolean(raw?.visual_style_signal),
+    target_aspect_ratio_hint: raw?.target_aspect_ratio_hint ? String(raw.target_aspect_ratio_hint).trim().slice(0, 80) : null,
+    traits_used: [], // filled in at execution time alongside visual_brief
+    preference_statement: Boolean(raw?.preference_statement),
+    preference_updates: Boolean(raw?.preference_statement) && Array.isArray(raw?.preference_updates)
+      ? raw.preference_updates
+          .filter((u) => u?.category && u?.text)
+          .slice(0, 10)
+          .map((u) => ({ category: String(u.category), text: String(u.text).slice(0, 120), polarity: u.polarity === "negative" ? "negative" : "positive" }))
+      : [],
     source: "llm"
   };
 }
@@ -74,7 +113,7 @@ function normalizeClassification(raw, message) {
  * (never throws) on any provider failure so the caller can fall back to
  * plain chat rather than surface an error for a conversational turn.
  */
-export async function classifyRequest(message) {
+export async function classifyRequest(message, { hasImage = false } = {}) {
   const text = String(message || "").trim();
   if (!text) return null;
   try {
@@ -82,13 +121,68 @@ export async function classifyRequest(message) {
       mode: "generate",
       persona: "Lily",
       task: CLASSIFY_TASK,
-      input: { message: text },
+      // image_attached isn't counted against CLASSIFY_TASK's 1200-char
+      // budget (that limit is on `task`, not `input`) — CLASSIFY_TASK
+      // already tells the model "edit=change to something existing (incl.
+      // attached photo)", so this one field is what lets a weak-signal
+      // message like "make this nicer" with a photo attached actually
+      // resolve to domain=photo instead of being read as plain chat.
+      input: hasImage ? { message: text, image_attached: true } : { message: text },
       schema: CLASSIFY_SCHEMA,
-      max_tokens: 400
+      max_tokens: 450
     });
     if (!result?.result) return null;
     return normalizeClassification(result.result, text);
   } catch {
     return null;
+  }
+}
+
+function visualBriefTask({ styleSummary } = {}) {
+  return `Write a concrete, photographic backdrop description for an image-generation model — never vague ("a nice background" is unacceptable). This is for compositing: a real photo cutout of the florist's actual arrangement gets placed on top, so describe ONLY the empty background/surface/mood — never flowers, a bouquet, or any product.
+
+Blend what THIS message asks for with the shop's usual style below — the current message always wins for anything it states; only use the shop's style to fill in what it left unsaid. If the message contradicts the shop's usual style ("dark and dramatic this time"), honor the message — that's a one-time choice, not a change to their standing style.
+
+${styleSummary ? `This shop's usual style: ${styleSummary}` : "No learned style yet — use only the message, plus good taste."}
+
+Return JSON:
+- visual_brief: the finished backdrop description.
+- traits_used: [{category,text}] — only shop-style traits from above that you actually wove in, [] if none.`;
+}
+
+const VISUAL_BRIEF_SCHEMA = {
+  visual_brief: "string",
+  traits_used: [{ category: "string", text: "string" }]
+};
+
+/**
+ * The style-blending call — see this module's docstring for why it's
+ * split from classifyRequest(). `occasion` (if any) is folded into the
+ * message so the model has the full picture without a third field.
+ * Returns a safe, non-null fallback (never throws) so a provider hiccup
+ * degrades to "use the message as-is" rather than blocking generation.
+ */
+export async function buildVisualBrief(message, { styleSummary, occasion } = {}) {
+  const text = String(message || "").trim();
+  const withOccasion = occasion ? `${text} (occasion: ${occasion})` : text;
+  try {
+    const result = await runCloudflareGenerate({
+      mode: "generate",
+      persona: "Lily",
+      task: visualBriefTask({ styleSummary }),
+      input: { message: withOccasion },
+      schema: VISUAL_BRIEF_SCHEMA,
+      max_tokens: 350
+    });
+    const brief = result?.result?.visual_brief ? String(result.result.visual_brief).trim().slice(0, 1200) : null;
+    const traitsUsed = Array.isArray(result?.result?.traits_used)
+      ? result.result.traits_used
+          .filter((t) => t?.category && t?.text)
+          .slice(0, 20)
+          .map((t) => ({ category: String(t.category), text: String(t.text).slice(0, 120) }))
+      : [];
+    return { visual_brief: brief || text, traits_used: traitsUsed };
+  } catch {
+    return { visual_brief: text, traits_used: [] };
   }
 }

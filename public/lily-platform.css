@@ -53,9 +53,15 @@
 .lily-toolbar button{border:1px solid #eadde5;background:#fff;border-radius:12px;padding:8px 6px;min-height:42px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.25;white-space:normal;font-size:11.5px;font-weight:700;letter-spacing:normal;text-transform:none;color:#5c4a54;cursor:pointer}
 .lily-compose{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--lily-border,#eadde5);align-items:flex-end;background:var(--lily-panel-bg,#fffcfd)}
 .lily-compose textarea{flex:1;resize:none;min-height:42px;max-height:120px;border-radius:14px;border:1px solid #eadde5;padding:10px 12px;font:inherit;background:#fff}
-.lily-compose .lily-voice{width:42px;height:42px;border-radius:12px;border:1px solid #eadde5;background:#fff;cursor:pointer;opacity:1}
-.lily-compose .lily-voice:hover{background:#fff7fb;box-shadow:0 4px 14px #5b234014}
+.lily-compose .lily-voice,.lily-compose .lily-attach{width:42px;height:42px;border-radius:12px;border:1px solid #eadde5;background:#fff;cursor:pointer;opacity:1;flex:0 0 auto;font-size:16px}
+.lily-compose .lily-voice:hover,.lily-compose .lily-attach:hover{background:#fff7fb;box-shadow:0 4px 14px #5b234014}
 .lily-compose .lily-send{width:42px;height:42px;border-radius:12px;border:none;background:#7e214e;color:#fff;font-weight:800;cursor:pointer}
+/* Visual Creation Studio: the attached-photo chip shown above the
+   composer between picking a photo and sending — mirrors .lily-job-card's
+   spacing/radius so it reads as part of the same compose area. */
+.lily-attach-chip{display:flex;align-items:center;gap:8px;margin:0 12px 8px;padding:6px 8px;border-radius:12px;background:#fff7fb;border:1px solid #eadde5;font-size:12px;color:#5c4a54}
+.lily-attach-chip img{width:32px;height:32px;border-radius:8px;object-fit:cover;flex:0 0 auto}
+.lily-attach-chip button{margin-left:auto;border:none;background:transparent;color:#a72f2f;font-weight:800;cursor:pointer;font-size:15px;line-height:1;padding:2px 6px}
 .lily-confirm{margin:0 12px 8px;padding:10px;border-radius:12px;background:#fff7eb;border:1px solid #f0d9b8;font-size:13px}
 .lily-confirm button{margin-top:8px;margin-right:6px}
 .lily-confirm-destructive{color:#a72f2f}
@@ -68,6 +74,8 @@
 .lily-job-image{display:block;width:100%;max-width:280px;border-radius:10px;margin-top:8px}
 .lily-job-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .lily-job-actions button{font-size:12px;padding:6px 10px}
+.lily-job-actions button.lily-job-saved{background:#eef6ea;border-color:#bfe0b6;color:#3c6b3f;cursor:default}
+.lily-job-note{font-size:11px;color:#796a74;margin-top:6px}
 .lily-history-list{display:flex;flex-direction:column;gap:6px;padding:4px}
 .lily-history-list button{text-align:left;border:1px solid #eadde5;background:#fff;border-radius:12px;padding:10px;cursor:pointer}
 .lily-history-list small{color:#796a74;display:block;margin-top:4px}
@@ -75,7 +83,7 @@
 .lily-search input{width:100%;border-radius:12px;border:1px solid #eadde5;padding:8px 10px}
 body[data-lily-theme="dark"] .lily-panel,body[data-lily-theme="dark"] .lily-tabs,body[data-lily-theme="dark"] .lily-compose{--lily-panel-bg:#2a2226;--lily-border:#4a3a42;--lily-toolbar-bg:#241c20;color:#f5eef2}
 body[data-lily-theme="dark"] .lily-msg.assistant{background:#342830;border-color:#4a3a42;color:#f5eef2}
-body[data-lily-theme="dark"] .lily-compose textarea,body[data-lily-theme="dark"] .lily-toolbar button,body[data-lily-theme="dark"] .lily-suggestions button{background:#342830;border-color:#4a3a42;color:#f5eef2}
+body[data-lily-theme="dark"] .lily-compose textarea,body[data-lily-theme="dark"] .lily-toolbar button,body[data-lily-theme="dark"] .lily-suggestions button,body[data-lily-theme="dark"] .lily-attach-chip{background:#342830;border-color:#4a3a42;color:#f5eef2}
 /* "Expand" (#lilyExpand) toggled the .lily-expanded class with no rule
    for it above 640px — Chat/Recent/Coach's Expand button visibly did
    nothing at tablet, narrow-desktop, or desktop widths. It needs *some*

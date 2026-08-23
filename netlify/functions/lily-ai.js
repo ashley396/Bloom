@@ -14,6 +14,8 @@ import { searchMarketplaceForLily, buildMarketplaceSourcingAnswer } from "./_sha
 import { classifyRequest } from "./_shared/ai-intent-router.js";
 import { runJob, retryJobStep } from "./_shared/ai-orchestrator.js";
 import { getVideoProvider } from "./_shared/ai-video-provider.js";
+import { parseRevisionDeltas } from "./_shared/ai-visual-revisions.js";
+import { loadStyleMemory, buildStyleSummary, applyExplicitPreferenceUpdates, saveStyleMemory } from "./_shared/ai-style-memory.js";
 
 const CONVERSATIONS = "lily_conversations";
 const MESSAGES = "lily_messages";
@@ -113,6 +115,33 @@ async function persistMessage(client, { conversationId, userId, shopId, role, co
   }
 }
 
+/** Finds or creates this turn's conversation row. Shared by every response
+ * path (job, preference-only, plain chat) so a fresh chat always gets a
+ * real conversation_id to persist against and to key visual revisions off
+ * of, without three near-duplicate insert blocks drifting out of sync. */
+async function ensureConversation(client, { conversationId, userId, shopId, message }) {
+  if (conversationId) return conversationId;
+  try {
+    const { data } = await client
+      .from(CONVERSATIONS)
+      .insert({ user_id: userId, shop_id: shopId, title: message.slice(0, 80) || "Lily chat" })
+      .select("id")
+      .single();
+    return data?.id || null;
+  } catch (error) {
+    if (!isMissingTableError(error)) {
+      console.warn(
+        JSON.stringify({
+          level: "warn",
+          message: "lily_conversation_create_skipped",
+          detail: String(error.message || error).slice(0, 200)
+        })
+      );
+    }
+    return null;
+  }
+}
+
 async function logAction(client, { userId, shopId, intent, actionType, result, metadata }) {
   try {
     await client.from(AUDIT).insert({
@@ -177,6 +206,79 @@ export function resolveJobPersona(persona, domain) {
   const owner = jobDomainOwner(domain);
   if (!owner || owner === who) return { author: who, delegated: false };
   return { author: owner, delegated: true };
+}
+
+/**
+ * Visual Creation Studio: finds the most recent visual (background/flyer/
+ * revision) this conversation produced, so a follow-up like "make it bigger"
+ * or "use less pink" — deterministic or not — chains onto it via
+ * parent_asset_id instead of starting a disconnected new asset. Scoped to
+ * the SAME conversation deliberately: a florist's other, unrelated chat
+ * thread should never get silently revised. Returns null (never throws) on
+ * any lookup failure or when there's no prior visual to find.
+ */
+export async function findLastVisualAsset(client, { shopId, conversationId }) {
+  if (!conversationId) return null;
+  try {
+    // Scans back through several recent photo-domain jobs, not just the
+    // single most recent one — the latest job in the conversation might
+    // itself have failed (e.g. an image-gen error) and produced zero
+    // completed visual steps, which would otherwise hide an earlier,
+    // perfectly revisable asset from a follow-up like "make it bigger".
+    const { data: jobs } = await client
+      .from("ai_execution_jobs")
+      .select("id, result")
+      .eq("shop_id", shopId)
+      .eq("conversation_id", conversationId)
+      .eq("context->>domain", "photo")
+      .order("created_at", { ascending: false })
+      .limit(8);
+    for (const job of jobs || []) {
+      const steps = job.result?.steps || [];
+      const visualSteps = steps.filter(
+        (s) =>
+          s.status === "completed" &&
+          ["creative.generateBackground", "creative.renderFlyerContent", "creative.reviseVisual"].includes(s.tool) &&
+          s.result?.asset_id
+      );
+      if (visualSteps.length) {
+        const last = visualSteps[visualSteps.length - 1];
+        return { assetId: last.result.asset_id, jobId: job.id };
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether a classified (or synthetic deterministic-revision) request should
+ * actually run through runJob() — the traditional marketing create/campaign/
+ * video actions, plus Visual Creation Studio's photo-domain edits
+ * (background_change/style/revise/flyer). A pure decision function, kept
+ * separate from the handler so the "what counts as a job" rule is directly
+ * testable without a fake Supabase client.
+ */
+export function shouldRunJob(routed) {
+  if (!routed) return false;
+  if (["create", "campaign", "video"].includes(routed.action_type)) return true;
+  if (routed.action_type !== "edit") return false;
+  return routed.domain === "photo" && ["background_change", "style", "revise", "flyer"].includes(routed.visual_op);
+}
+
+/** Plain acknowledgment for a standing style preference Lily just learned —
+ * per the shop-style-memory rule, this ONLY fires for an explicit statement
+ * ("I like soft luxury backgrounds"), never a one-time override, so telling
+ * the florist it was remembered is always accurate. */
+export function describePreferenceAck(updates = []) {
+  const positives = updates.filter((u) => u.polarity !== "negative").map((u) => u.text);
+  const negatives = updates.filter((u) => u.polarity === "negative").map((u) => u.text);
+  const parts = [];
+  if (positives.length) parts.push(`I'll remember you like ${positives.join(", ")}`);
+  if (negatives.length) parts.push(`I'll steer away from ${negatives.join(", ")}`);
+  if (!parts.length) return "Got it — noted for next time.";
+  return `Got it — ${parts.join(", and ")}. You can review or change this anytime under My Style.`;
 }
 
 export function buildResponseMessage(intent, permission, planned, confirmed) {
@@ -261,6 +363,12 @@ export async function handler(event) {
     const body = bodyOf(event);
     const message = String(body.message || body.prompt || "").trim();
     const confirmed = Boolean(body.confirm);
+    // Visual Creation Studio: whether a photo is attached to THIS turn.
+    // Only a boolean crosses the wire — the actual bytes never leave the
+    // browser (compositing is entirely client-side, see lily-platform.js's
+    // buildVisualPreview()), so there's nothing for the server to do with
+    // the raw image except use its presence as a classification signal.
+    const hasImage = Boolean(body.has_image);
     // Pass #3 security review: a raw client-supplied conversation_id used
     // to be trusted outright — reused as-is to append messages and bump
     // updated_at. Verify it's actually this shop's own conversation before
@@ -288,12 +396,18 @@ export async function handler(event) {
     // worked. Re-runs exactly one step in place.
     if (event.httpMethod === "POST" && body.action === "retry-job-step") {
       if (!body.job_id || !body.step_id) return json(400, { error: "job_id and step_id are required." });
+      // A retried background/flyer step blends the shop's CURRENT style, not
+      // a snapshot from whenever the job first ran — see runJob()'s own
+      // docstring for why styleSummary is deliberately never persisted on
+      // the job row itself.
+      const { preferences: retryPrefs } = await loadStyleMemory(client, shopId);
       const retried = await retryJobStep(client, {
         shopId,
         userId: user.id,
         persona: normalizePersona(persona),
         jobId: body.job_id,
-        stepId: body.step_id
+        stepId: body.step_id,
+        styleSummary: buildStyleSummary(retryPrefs)
       });
       if (!retried.ok) return json(422, { error: retried.error });
       return json(200, {
@@ -302,7 +416,25 @@ export async function handler(event) {
       });
     }
 
-    if (!message && !["product-generate", "coach", "history-search"].includes(body.action)) {
+    // Visual Creation Studio: "Undo to previous version" needs to fetch a
+    // specific prior asset by id (its parent_asset_id, read off the asset
+    // the florist is currently looking at) — a plain scoped read, not a
+    // job re-run, so it's its own tiny action rather than routed through
+    // classifyRequest()/runJob().
+    if (event.httpMethod === "POST" && body.action === "get-asset") {
+      if (!body.asset_id) return json(400, { error: "asset_id is required." });
+      const { data: asset, error } = await client
+        .from("ai_generated_assets")
+        .select("*")
+        .eq("id", body.asset_id)
+        .eq("shop_id", shopId)
+        .maybeSingle();
+      if (error) return json(500, { error: error.message });
+      if (!asset) return json(404, { error: "That version couldn't be found." });
+      return json(200, { asset });
+    }
+
+    if (!message && !["product-generate", "coach", "history-search", "get-asset"].includes(body.action)) {
       return json(400, { error: "Add a message for Lily." });
     }
 
@@ -319,8 +451,53 @@ export async function handler(event) {
     // a paraphrase) and "make a campaign for Facebook and my website"
     // (used to either hijack on the word "website" or vanish into chat).
     if (intent.intent === "general.chat" && message && !confirmed) {
-      const routed = await classifyRequest(message);
-      if (routed && ["create", "campaign", "video"].includes(routed.action_type)) {
+      // Visual Creation Studio: a deterministic follow-up ("make the phone
+      // number bigger", "use less pink", "use a marble background instead")
+      // never needs classifyRequest at all when this conversation has a
+      // recent visual to revise — parse it directly and skip straight to a
+      // synthetic "revise" routed object. See ai-visual-revisions.js's
+      // docstring for why this is safe (and free) to do; when there's
+      // nothing recent to revise, fall through to real classification like
+      // any other message (a bare "make it bigger" with no visual history
+      // isn't a revision, it's just chat).
+      const deterministicDeltas = parseRevisionDeltas(message);
+      const priorVisual = deterministicDeltas ? await findLastVisualAsset(client, { shopId, conversationId }) : null;
+
+      const routed = priorVisual
+        ? {
+            action_type: "edit",
+            domain: "photo",
+            channels: [],
+            occasion: null,
+            audience: null,
+            summary: message,
+            visual_op: "revise",
+            visual_brief: null,
+            visual_style_signal: false,
+            target_aspect_ratio_hint: null,
+            traits_used: [],
+            preference_statement: false,
+            preference_updates: [],
+            source: "deterministic"
+          }
+        : await classifyRequest(message, { hasImage });
+
+      // Shop style memory: an explicit standing statement ("I like soft
+      // luxury backgrounds") writes immediately — regardless of whether
+      // this same message also asks for a job — never a one-time override.
+      // See ai-style-memory.js's docstring for the explicit-vs-inferred
+      // distinction classifyRequest()'s preference_statement flag enforces.
+      let preferenceAck = null;
+      if (routed?.preference_statement && routed.preference_updates?.length) {
+        const { preferences: currentPrefs } = await loadStyleMemory(client, shopId);
+        const nextPrefs = applyExplicitPreferenceUpdates(currentPrefs, routed.preference_updates);
+        await saveStyleMemory(client, shopId, nextPrefs);
+        preferenceAck = describePreferenceAck(routed.preference_updates);
+      }
+
+      const runsJob = shouldRunJob(routed);
+
+      if (runsJob) {
         const marketingPermission = checkLilyPermission("marketing.generate", membership?.role || role, { isPlatformAdmin: false });
         if (!marketingPermission.allowed) {
           const denied = "I can help with that, but your Florisyn role does not allow this action. Ask a shop owner or manager if you need access.";
@@ -342,6 +519,23 @@ export async function handler(event) {
         // resolveJobPersona()'s docstring.
         const { author: jobAuthor, delegated: jobDelegated } = resolveJobPersona(persona, routed.domain);
 
+        // Photo-domain-only: the shop's learned style (priority: current
+        // message > saved style > generic defaults, enforced inside
+        // buildVisualBrief()) and the visual this conversation was already
+        // working on, if any — so "make it bigger" or a fresh "change the
+        // background" both chain onto it via parent_asset_id instead of
+        // starting a disconnected new asset.
+        let styleSummary = null;
+        let parentAssetId = typeof body.parent_asset_id === "string" ? body.parent_asset_id : priorVisual?.assetId || null;
+        if (routed.domain === "photo") {
+          const { preferences: currentPrefs } = await loadStyleMemory(client, shopId);
+          styleSummary = buildStyleSummary(currentPrefs);
+          if (!parentAssetId) {
+            const found = await findLastVisualAsset(client, { shopId, conversationId });
+            parentAssetId = found?.assetId || null;
+          }
+        }
+
         const ran = await runJob(client, {
           shopId,
           userId: user.id,
@@ -349,14 +543,19 @@ export async function handler(event) {
           routed,
           requestText: message,
           shop: context.shop,
-          inventory: context.inventory
+          inventory: context.inventory,
+          conversationId,
+          parentAssetId,
+          revisionDeltas: routed.visual_op === "revise" ? deterministicDeltas : null,
+          styleSummary
         });
 
-        const responseText = ran.ok
+        let responseText = ran.ok
           ? jobDelegated
             ? formatDelegatedAnswer(jobAuthor, persona, formatJobResponse(ran.job, { requestSummary: routed.summary }))
             : formatJobResponse(ran.job, { requestSummary: routed.summary })
           : `I ran into a problem starting that: ${ran.error}`;
+        if (preferenceAck) responseText = `${preferenceAck}\n\n${responseText}`;
 
         await logAction(client, {
           userId: user.id,
@@ -367,19 +566,7 @@ export async function handler(event) {
           metadata: { domain: routed.domain, channels: routed.channels, job_id: ran.job?.id || null, answered_by: jobDelegated ? jobAuthor : null }
         });
 
-        let convId = conversationId;
-        if (!convId) {
-          try {
-            const { data } = await client
-              .from(CONVERSATIONS)
-              .insert({ user_id: user.id, shop_id: shopId, title: message.slice(0, 80) || "Lily chat" })
-              .select("id")
-              .single();
-            convId = data?.id || null;
-          } catch {
-            /* Tables may not exist until migration is applied. */
-          }
-        }
+        const convId = await ensureConversation(client, { conversationId, userId: user.id, shopId, message });
         if (convId) {
           await persistMessage(client, { conversationId: convId, userId: user.id, shopId, role: "user", content: message, metadata: { intent: `marketing.${routed.action_type}` } });
           await persistMessage(client, { conversationId: convId, userId: user.id, shopId, role: "assistant", content: responseText, metadata: { job_id: ran.job?.id || null, answered_by: jobDelegated ? jobAuthor : null } });
@@ -397,6 +584,37 @@ export async function handler(event) {
           generate: null,
           job: ran.ok ? ran.job : null,
           video_provider: routed.action_type === "video" ? getVideoProvider().name : undefined,
+          coach: buildCoachSuggestions(context),
+          stream: false
+        });
+      }
+
+      if (preferenceAck) {
+        // A standing style statement with nothing else to do this turn (no
+        // job requested) — acknowledge it directly rather than routing a
+        // real preference save through the generic chat model, which could
+        // paraphrase or second-guess something that's already been saved.
+        await logAction(client, {
+          userId: user.id,
+          shopId,
+          intent: "photo.preference",
+          actionType: "preference",
+          result: "saved",
+          metadata: { updates: routed.preference_updates }
+        });
+        const convId = await ensureConversation(client, { conversationId, userId: user.id, shopId, message });
+        if (convId) {
+          await persistMessage(client, { conversationId: convId, userId: user.id, shopId, role: "user", content: message, metadata: { intent: "photo.preference" } });
+          await persistMessage(client, { conversationId: convId, userId: user.id, shopId, role: "assistant", content: preferenceAck, metadata: {} });
+        }
+        return json(200, {
+          conversation_id: convId,
+          intent: { domain: routed.domain, intent: "photo.preference", confidence: 0.9, slots: routed },
+          permission,
+          response: preferenceAck,
+          client_action: null,
+          generate: null,
+          job: null,
           coach: buildCoachSuggestions(context),
           stream: false
         });
@@ -488,27 +706,7 @@ export async function handler(event) {
       metadata: { domain: intent.domain, confidence: intent.confidence }
     });
 
-    let convId = conversationId;
-    if (!convId) {
-      try {
-        const { data } = await client
-          .from(CONVERSATIONS)
-          .insert({ user_id: user.id, shop_id: shopId, title: message.slice(0, 80) || "Lily chat" })
-          .select("id")
-          .single();
-        convId = data?.id || null;
-      } catch (error) {
-        if (!isMissingTableError(error)) {
-          console.warn(
-            JSON.stringify({
-              level: "warn",
-              message: "lily_conversation_create_skipped",
-              detail: String(error.message || error).slice(0, 200)
-            })
-          );
-        }
-      }
-    }
+    const convId = await ensureConversation(client, { conversationId, userId: user.id, shopId, message });
 
     if (convId) {
       await persistMessage(client, {

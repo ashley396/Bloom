@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildResponseMessage, cloudflareChat, personaDisabled, formatJobResponse, shouldDelegate, formatDelegatedAnswer, resolveJobPersona } from "../netlify/functions/lily-ai.js";
+import { buildResponseMessage, cloudflareChat, personaDisabled, formatJobResponse, shouldDelegate, formatDelegatedAnswer, resolveJobPersona, shouldRunJob, describePreferenceAck, findLastVisualAsset } from "../netlify/functions/lily-ai.js";
+import { createFakeSupabaseClient } from "./helpers/fake-supabase-client.mjs";
 
 test("buildResponseMessage: pre-confirmation text asks the florist to confirm", () => {
   const permission = { allowed: true };
@@ -327,4 +328,115 @@ test("resolveJobPersona: a domain with no declared job owner falls back to whoev
   const result = resolveJobPersona("Bud", "support");
   assert.equal(result.author, "Bud");
   assert.equal(result.delegated, false);
+});
+
+// ---- Visual Creation Studio ----
+
+test("shouldRunJob: null/undefined routed never runs a job", () => {
+  assert.equal(shouldRunJob(null), false);
+  assert.equal(shouldRunJob(undefined), false);
+});
+
+test("shouldRunJob: create/campaign/video always run a job regardless of domain", () => {
+  assert.equal(shouldRunJob({ action_type: "create", domain: "marketing" }), true);
+  assert.equal(shouldRunJob({ action_type: "campaign", domain: "marketing" }), true);
+  assert.equal(shouldRunJob({ action_type: "video", domain: "marketing" }), true);
+});
+
+test("shouldRunJob: a photo-domain edit with a real visual_op runs a job", () => {
+  for (const visual_op of ["background_change", "style", "revise", "flyer"]) {
+    assert.equal(shouldRunJob({ action_type: "edit", domain: "photo", visual_op }), true, `visual_op=${visual_op}`);
+  }
+});
+
+test("shouldRunJob: a photo-domain edit with visual_op 'crop' or 'none' never runs a job — pure client resize / no server work", () => {
+  assert.equal(shouldRunJob({ action_type: "edit", domain: "photo", visual_op: "crop" }), false);
+  assert.equal(shouldRunJob({ action_type: "edit", domain: "photo", visual_op: "none" }), false);
+});
+
+test("shouldRunJob: an edit to something other than a photo never runs a job", () => {
+  assert.equal(shouldRunJob({ action_type: "edit", domain: "website", visual_op: "background_change" }), false);
+});
+
+test("shouldRunJob: a bare 'general' classification (e.g. a standalone preference statement) never runs a job", () => {
+  assert.equal(shouldRunJob({ action_type: "general", domain: "photo", visual_op: "none", preference_statement: true }), false);
+});
+
+test("describePreferenceAck: a single positive trait is acknowledged plainly", () => {
+  const text = describePreferenceAck([{ category: "background_style", text: "soft luxury", polarity: "positive" }]);
+  assert.match(text, /I'll remember you like soft luxury/);
+  assert.match(text, /My Style/);
+});
+
+test("describePreferenceAck: a negative trait is acknowledged as something to avoid, not something liked", () => {
+  const text = describePreferenceAck([{ category: "colors", text: "neon pink", polarity: "negative" }]);
+  assert.match(text, /steer away from neon pink/);
+  assert.doesNotMatch(text, /I'll remember you like neon pink/);
+});
+
+test("describePreferenceAck: mixed positive and negative traits both appear", () => {
+  const text = describePreferenceAck([
+    { category: "colors", text: "cream", polarity: "positive" },
+    { category: "colors", text: "neon pink", polarity: "negative" }
+  ]);
+  assert.match(text, /like cream/);
+  assert.match(text, /steer away from neon pink/);
+});
+
+test("describePreferenceAck: an empty list still returns a safe, honest fallback rather than an empty string", () => {
+  assert.equal(describePreferenceAck([]), "Got it — noted for next time.");
+  assert.equal(describePreferenceAck(), "Got it — noted for next time.");
+});
+
+test("findLastVisualAsset: returns null immediately without querying when there's no conversation", async () => {
+  const client = createFakeSupabaseClient([]);
+  const result = await findLastVisualAsset(client, { shopId: "shop-1", conversationId: null });
+  assert.equal(result, null);
+});
+
+test("findLastVisualAsset: finds the completed visual step in the most recent job when it has one", async () => {
+  const client = createFakeSupabaseClient([
+    {
+      data: [
+        {
+          id: "job-2",
+          result: { steps: [{ tool: "creative.generateBackground", status: "completed", result: { asset_id: "asset-2" } }] }
+        }
+      ],
+      error: null
+    }
+  ]);
+  const result = await findLastVisualAsset(client, { shopId: "shop-1", conversationId: "conv-1" });
+  assert.deepEqual(result, { assetId: "asset-2", jobId: "job-2" });
+});
+
+test("findLastVisualAsset: the most recent job failed (zero completed visual steps) — falls back to an earlier job in the same conversation instead of giving up", async () => {
+  const client = createFakeSupabaseClient([
+    {
+      data: [
+        { id: "job-3", result: { steps: [{ tool: "creative.generateBackground", status: "failed", result: null }] } }, // most recent, failed
+        {
+          id: "job-1",
+          result: { steps: [{ tool: "creative.generateBackground", status: "completed", result: { asset_id: "asset-1" } }] }
+        } // earlier, succeeded
+      ],
+      error: null
+    }
+  ]);
+  const result = await findLastVisualAsset(client, { shopId: "shop-1", conversationId: "conv-1" });
+  assert.deepEqual(result, { assetId: "asset-1", jobId: "job-1" });
+});
+
+test("findLastVisualAsset: no photo-domain job has any completed visual step — returns null, never throws", async () => {
+  const client = createFakeSupabaseClient([
+    { data: [{ id: "job-4", result: { steps: [] } }, { id: "job-5", result: null }], error: null }
+  ]);
+  const result = await findLastVisualAsset(client, { shopId: "shop-1", conversationId: "conv-1" });
+  assert.equal(result, null);
+});
+
+test("findLastVisualAsset: a query failure never throws — returns null so the caller falls back to plain classification", async () => {
+  const client = { from: () => ({ select: () => { throw new Error("db down"); } }) };
+  const result = await findLastVisualAsset(client, { shopId: "shop-1", conversationId: "conv-1" });
+  assert.equal(result, null);
 });

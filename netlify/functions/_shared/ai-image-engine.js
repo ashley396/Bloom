@@ -96,3 +96,22 @@ export function buildImagePrompt({ occasion, products = [], shopName, visualBrie
   }
   return parts.join(" ").slice(0, 1200);
 }
+
+/**
+ * Visual Creation Studio: a backdrop-ONLY prompt, distinct from
+ * buildImagePrompt() above (which produces a full marketing photo that
+ * may include products). The client already has a real, segmented cutout
+ * of the florist's actual arrangement (photo-studio.js's cutout — genuine
+ * background removal, not a fake "edit") and composites it over whatever
+ * background this returns. Generating a SECOND arrangement here would
+ * double up on flowers in the final composite, so the prompt explicitly
+ * excludes any subject — this call's only job is the empty backdrop.
+ */
+export function buildBackgroundPrompt({ visualBrief, brandColor } = {}) {
+  const parts = [];
+  parts.push(visualBrief || "Clean, softly lit neutral backdrop, professional product-photography studio.");
+  parts.push("Empty background only — absolutely no flowers, bouquet, vase, product, people, or text in the frame.");
+  parts.push("Photographic, shallow depth of field, soft realistic lighting, no harsh shadows.");
+  if (brandColor) parts.push(`If a color choice isn't otherwise specified, lean toward tones that complement ${brandColor}.`);
+  return parts.join(" ").slice(0, 1200);
+}

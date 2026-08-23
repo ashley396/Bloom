@@ -15,10 +15,14 @@ import {
   generateSocialPost,
   generateVideoConcept,
   generateWebsiteSectionDraft,
+  generateFlyerContent,
   persistGeneratedAsset
 } from "./ai-creative-engine.js";
-import { generateImage, buildImagePrompt } from "./ai-image-engine.js";
+import { generateImage, buildImagePrompt, buildBackgroundPrompt } from "./ai-image-engine.js";
 import { applyGeneratedWebsiteSection, buildWebsiteSectionPayload } from "./website-campaign-section.js";
+import { pickFlyerTemplate, pickAspectRatio, ASPECT_RATIOS } from "./flyer-templates.js";
+import { applyRevisionDeltas, defaultVisualStyle } from "./ai-visual-revisions.js";
+import { buildVisualBrief } from "./ai-intent-router.js";
 
 const POSTABLE_CHANNELS = ["facebook", "instagram", "google_business", "email", "sms", "blog"];
 const CHANNEL_TO_CAMPAIGN_CHANNEL = {
@@ -80,6 +84,33 @@ export function planJob(routed, { requestText } = {}) {
     return steps;
   }
 
+  // Visual Creation Studio. A deterministic follow-up ("make the phone
+  // number bigger", "less pink") never reaches classifyRequest at all —
+  // lily-ai.js catches it first and calls runJob with this synthetic
+  // visual_op directly, so this branch only has to plan the one step.
+  if (routed.domain === "photo") {
+    if (routed.visual_op === "revise") {
+      return [{ id: "revise", tool: "creative.reviseVisual", label: "Update the visual", optional: false }];
+    }
+    if (routed.action_type === "edit" && (routed.visual_op === "background_change" || routed.visual_op === "style")) {
+      return [{ id: "background", tool: "creative.generateBackground", label: "Generate the new background", optional: false }];
+    }
+    if (routed.visual_op === "flyer") {
+      const flyerSteps = [{ id: "flyer_content", tool: "creative.renderFlyerContent", label: "Write the flyer content", optional: false }];
+      // Only spend an image-generation call when the message itself carried
+      // real aesthetic direction — a plain operational notice (closing
+      // time, phone number) gets the reliable template background instead,
+      // per flyer-templates.js's Tier-B fallback design.
+      if (routed.visual_style_signal) {
+        flyerSteps.push({ id: "flyer_background", tool: "creative.generateBackground", label: "Generate the flyer's visual background", optional: true });
+      }
+      return flyerSteps;
+    }
+    // "crop" is a pure client-side resize (no new pixels, no AI call) and
+    // "none"/unrecognized photo requests need no server step at all.
+    return [];
+  }
+
   // Anything else that reaches the orchestrator (shouldn't normally happen —
   // callers should only invoke this for create/campaign/video) gets a
   // single best-effort content step rather than silently doing nothing.
@@ -88,7 +119,7 @@ export function planJob(routed, { requestText } = {}) {
 }
 
 async function runStep(client, step, ctx) {
-  const { shopId, userId, persona, routed, requestText, shop, jobId, campaignId } = ctx;
+  const { shopId, userId, persona, routed, requestText, shop, jobId, campaignId, styleSummary } = ctx;
 
   if (step.tool === "marketing.createCampaign") {
     const name = routed.occasion ? `${routed.occasion} campaign` : (requestText || "New campaign").slice(0, 80);
@@ -207,6 +238,140 @@ async function runStep(client, step, ctx) {
     return { ok: true, result: { asset_id: persisted.asset.id, url: gen.url } };
   }
 
+  if (step.tool === "creative.generateBackground") {
+    // The actual style-blended backdrop description is built here, not in
+    // classifyRequest() — see ai-intent-router.js's module docstring for
+    // why that call is deliberately deferred to the one step that's
+    // actually about to spend an image generation (a plain "crop this" or
+    // a Tier-B flyer never reaches this line, so it never pays for it).
+    const brief = await buildVisualBrief(requestText, { styleSummary, occasion: routed.occasion });
+    // Backdrop-only, deliberately — the client already has a real,
+    // segmented cutout of the florist's actual arrangement (or no photo at
+    // all, for a flyer's visual background) and composites it on top of
+    // whatever this returns; see buildBackgroundPrompt()'s own docstring
+    // for why a second subject here would double up in the final image.
+    const prompt = buildBackgroundPrompt({ visualBrief: brief.visual_brief, brandColor: shop?.primary_color });
+    const gen = await generateImage(client, shopId, { prompt, filename: `background-${Date.now()}.jpg` });
+    if (!gen.ok) {
+      await persistGeneratedAsset(client, {
+        shopId, userId, persona, jobId, campaignId,
+        assetType: "background", model: "unknown", prompt, status: "failed", error: gen.error, parentAssetId: ctx.parentAssetId || null
+      });
+      return { ok: false, error: gen.error };
+    }
+    const { data: mediaRow } = await client
+      .from("website_media")
+      .insert({ shop_id: shopId, storage_path: gen.path, filename: gen.path.split("/").pop(), source: "generated", mime: "image/jpeg" })
+      .select()
+      .single();
+    const content = { url: gen.url, visual_brief: brief.visual_brief, traits_used: brief.traits_used };
+    const persisted = await persistGeneratedAsset(client, {
+      shopId, userId, persona, jobId, campaignId,
+      assetType: "background", provider: gen.provider, model: gen.model, prompt: gen.prompt,
+      content, mediaId: mediaRow?.id || null, parentAssetId: ctx.parentAssetId || null, status: "completed"
+    });
+    if (!persisted.ok) return { ok: false, error: persisted.error };
+    return { ok: true, result: { asset_id: persisted.asset.id, url: gen.url, content } };
+  }
+
+  if (step.tool === "creative.renderFlyerContent") {
+    const gen = await generateFlyerContent({
+      persona, message: requestText, occasion: routed.occasion, visualStyleSignal: routed.visual_style_signal, shop
+    });
+    if (!gen.ok) {
+      await persistGeneratedAsset(client, {
+        shopId, userId, persona, jobId, campaignId,
+        assetType: "flyer", model: "unknown", status: "failed", error: gen.error, parentAssetId: ctx.parentAssetId || null
+      });
+      return { ok: false, error: gen.error };
+    }
+    const template = pickFlyerTemplate({ occasion: routed.occasion });
+    const aspectRatio = pickAspectRatio(routed.target_aspect_ratio_hint);
+    const content = {
+      ...gen.content,
+      template_id: template.id,
+      aspect_ratio: aspectRatio,
+      // Tier A (a real generated visual) when the message itself carried
+      // aesthetic direction; Tier B (the template's own brand-color
+      // background) when it didn't — flyer-templates.js's fallback design.
+      style_tier: routed.visual_style_signal ? "generated" : "template",
+      background_url: null,
+      // Populated after the fact from the flyer_background step's own
+      // buildVisualBrief() result, once/if that optional step runs — see
+      // the post-loop patch in runJob().
+      traits_used: [],
+      style: defaultVisualStyle(),
+      // The client-side renderer (public/flyer-renderer.js) draws the
+      // actual flyer canvas — it needs the full layout, not just an id, so
+      // the server stays the single source of truth for region placement
+      // rather than a second, drift-prone copy of flyer-templates.js
+      // living in the browser bundle.
+      regions: template.regions,
+      palette: template.palette,
+      canvas: ASPECT_RATIOS[aspectRatio]
+    };
+    const persisted = await persistGeneratedAsset(client, {
+      shopId, userId, persona, jobId, campaignId,
+      assetType: "flyer", model: gen.model, content, parentAssetId: ctx.parentAssetId || null, status: "completed"
+    });
+    if (!persisted.ok) return { ok: false, error: persisted.error };
+    return { ok: true, result: { asset_id: persisted.asset.id, content } };
+  }
+
+  if (step.tool === "creative.reviseVisual") {
+    const parentId = ctx.parentAssetId;
+    if (!parentId) return { ok: false, error: "There's nothing to revise yet — describe what you'd like Lily to create first." };
+    const { data: parentAsset, error: loadError } = await client
+      .from("ai_generated_assets")
+      .select("*")
+      .eq("id", parentId)
+      .eq("shop_id", shopId)
+      .maybeSingle();
+    if (loadError || !parentAsset) return { ok: false, error: "Couldn't find the previous version to revise." };
+    const deltas = ctx.revisionDeltas || {};
+
+    if (parentAsset.asset_type === "flyer") {
+      const nextStyle = applyRevisionDeltas(parentAsset.content?.style || defaultVisualStyle(), deltas);
+      const content = { ...parentAsset.content, style: nextStyle };
+      const persisted = await persistGeneratedAsset(client, {
+        shopId, userId, persona, jobId, campaignId,
+        assetType: "flyer", model: parentAsset.model, content, parentAssetId: parentId, status: "completed"
+      });
+      if (!persisted.ok) return { ok: false, error: persisted.error };
+      return { ok: true, result: { asset_id: persisted.asset.id, content, revised: true } };
+    }
+
+    if (parentAsset.asset_type === "background") {
+      if (!deltas.backgroundHint) {
+        return { ok: false, error: "Tell me specifically what to change about the background (a color, a material, a mood) and I'll update it." };
+      }
+      const prompt = buildBackgroundPrompt({ visualBrief: `${deltas.backgroundHint} background, matching the same overall composition`, brandColor: shop?.primary_color });
+      const gen = await generateImage(client, shopId, { prompt, filename: `background-${Date.now()}.jpg` });
+      if (!gen.ok) {
+        await persistGeneratedAsset(client, {
+          shopId, userId, persona, jobId, campaignId,
+          assetType: "background", model: "unknown", prompt, status: "failed", error: gen.error, parentAssetId: parentId
+        });
+        return { ok: false, error: gen.error };
+      }
+      const { data: mediaRow } = await client
+        .from("website_media")
+        .insert({ shop_id: shopId, storage_path: gen.path, filename: gen.path.split("/").pop(), source: "generated", mime: "image/jpeg" })
+        .select()
+        .single();
+      const content = { url: gen.url, visual_brief: prompt, traits_used: [] };
+      const persisted = await persistGeneratedAsset(client, {
+        shopId, userId, persona, jobId, campaignId,
+        assetType: "background", provider: gen.provider, model: gen.model, prompt: gen.prompt,
+        content, mediaId: mediaRow?.id || null, parentAssetId: parentId, status: "completed"
+      });
+      if (!persisted.ok) return { ok: false, error: persisted.error };
+      return { ok: true, result: { asset_id: persisted.asset.id, url: gen.url, content } };
+    }
+
+    return { ok: false, error: `Revising a "${parentAsset.asset_type}" asset isn't supported yet.` };
+  }
+
   return { ok: false, error: `Unknown tool: ${step.tool}` };
 }
 
@@ -222,9 +387,31 @@ function summarizeStatus(plan) {
 
 /** Runs every step of a plan in order, persisting job state as it goes so
  * a job that dies partway through (function timeout, provider outage)
- * still shows accurate per-step status rather than silently vanishing. */
-export async function runJob(client, { shopId, userId, persona, routed, requestText, shop, inventory }) {
+ * still shows accurate per-step status rather than silently vanishing.
+ *
+ * `conversationId` links the job to its Lily chat conversation (so a later
+ * follow-up in the same conversation can find "the last visual" without
+ * guessing from message text). `parentAssetId`/`revisionDeltas` carry a
+ * revision's link back to what it's revising — both null for a fresh
+ * request. `context` persists the visual-relevant slice of `routed` onto
+ * the job row itself, so a later retry or lookup has real data to work
+ * from instead of re-deriving it from job_type alone. `styleSummary` (from
+ * ai-style-memory.js's buildStyleSummary()) is passed through to any
+ * creative.generateBackground step, which calls buildVisualBrief() itself —
+ * see that function's own docstring for why the brief is built there and
+ * not here. It's intentionally NOT persisted in `context`: a retry should
+ * blend the shop's *current* style, not a frozen copy from job creation. */
+export async function runJob(client, { shopId, userId, persona, routed, requestText, shop, inventory, conversationId = null, parentAssetId = null, revisionDeltas = null, styleSummary = null }) {
   const plan = planJob(routed, { requestText }).map((s) => ({ ...s, status: "planned", result: null, error: null }));
+
+  const context = {
+    domain: routed.domain,
+    visual_op: routed.visual_op,
+    visual_style_signal: routed.visual_style_signal,
+    target_aspect_ratio_hint: routed.target_aspect_ratio_hint,
+    occasion: routed.occasion,
+    parent_asset_id: parentAssetId
+  };
 
   const { data: job, error: createError } = await client
     .from("ai_execution_jobs")
@@ -236,7 +423,9 @@ export async function runJob(client, { shopId, userId, persona, routed, requestT
       title: routed.summary || requestText.slice(0, 120),
       status: "running",
       request_text: requestText,
-      plan
+      plan,
+      conversation_id: conversationId,
+      context
     })
     .select()
     .single();
@@ -244,7 +433,10 @@ export async function runJob(client, { shopId, userId, persona, routed, requestT
 
   let campaignId = null;
   let imageUrl = null;
-  const ctx = { shopId, userId, persona, routed, requestText, shop, inventory, jobId: job.id };
+  let flyerAssetId = null;
+  let flyerBackgroundUrl = null;
+  let flyerBackgroundTraits = [];
+  const ctx = { shopId, userId, persona, routed, requestText, shop, inventory, jobId: job.id, parentAssetId, revisionDeltas, styleSummary };
 
   for (let i = 0; i < plan.length; i += 1) {
     plan[i].status = "running";
@@ -255,9 +447,29 @@ export async function runJob(client, { shopId, userId, persona, routed, requestT
       plan[i].result = outcome.result || null;
       if (outcome.result?.campaign_id) campaignId = outcome.result.campaign_id;
       if (plan[i].tool === "creative.generateImage" && outcome.result?.url) imageUrl = outcome.result.url;
+      if (plan[i].tool === "creative.renderFlyerContent" && outcome.result?.asset_id) flyerAssetId = outcome.result.asset_id;
+      if (plan[i].id === "flyer_background" && outcome.result?.url) {
+        flyerBackgroundUrl = outcome.result.url;
+        flyerBackgroundTraits = outcome.result?.content?.traits_used || [];
+      }
     } else {
       plan[i].status = "failed";
       plan[i].error = outcome.error || "Unknown error";
+    }
+  }
+
+  // The flyer's own generated background (and the shop-style traits woven
+  // into it) isn't known until AFTER its content step already persisted the
+  // flyer asset — attach both now with one follow-up update rather than
+  // restructuring step order (image generation is intentionally
+  // optional/best-effort here, so the flyer must exist and be usable even
+  // when this step is skipped or fails).
+  if (flyerAssetId && flyerBackgroundUrl) {
+    const flyerStep = plan.find((s) => s.tool === "creative.renderFlyerContent");
+    if (flyerStep?.result?.content) {
+      const content = { ...flyerStep.result.content, background_url: flyerBackgroundUrl, traits_used: flyerBackgroundTraits };
+      flyerStep.result = { ...flyerStep.result, content };
+      await client.from("ai_generated_assets").update({ content }).eq("id", flyerAssetId).eq("shop_id", shopId);
     }
   }
 
@@ -283,7 +495,7 @@ export async function runJob(client, { shopId, userId, persona, routed, requestT
  * other step's already-completed result. This is the "allow retry of the
  * failed step" requirement — a partial failure never forces redoing work
  * that already succeeded. */
-export async function retryJobStep(client, { shopId, userId, persona, jobId, stepId }) {
+export async function retryJobStep(client, { shopId, userId, persona, jobId, stepId, styleSummary = null }) {
   const { data: job, error: loadError } = await client
     .from("ai_execution_jobs")
     .select("*")
@@ -296,7 +508,26 @@ export async function retryJobStep(client, { shopId, userId, persona, jobId, ste
   const idx = plan.findIndex((s) => s.id === stepId);
   if (idx === -1) return { ok: false, error: "Step not found on this job." };
 
-  const routed = { action_type: job.job_type, domain: "marketing", occasion: null, audience: null, channels: [], summary: job.title };
+  // Visual-relevant fields (visual_op, occasion, ...) are persisted on the
+  // job row precisely so a retry has real context instead of re-guessing it
+  // from job_type alone — see runJob()'s `context` write. visual_brief is
+  // deliberately NOT among them: a retried background step calls
+  // buildVisualBrief() itself (inside runStep), blending the request text
+  // with the CURRENT styleSummary rather than replaying a frozen one.
+  const savedContext = job.context && typeof job.context === "object" ? job.context : {};
+  const routed = {
+    action_type: job.job_type,
+    domain: savedContext.domain || "marketing",
+    occasion: savedContext.occasion || null,
+    audience: null,
+    channels: [],
+    summary: job.title,
+    visual_op: savedContext.visual_op || "none",
+    visual_brief: null,
+    visual_style_signal: Boolean(savedContext.visual_style_signal),
+    target_aspect_ratio_hint: savedContext.target_aspect_ratio_hint || null,
+    traits_used: []
+  };
   // A retried website_section step still wants the image an earlier,
   // already-completed image step produced — read it back from the job's
   // own steps rather than leaving the retry image-less.
@@ -304,7 +535,8 @@ export async function retryJobStep(client, { shopId, userId, persona, jobId, ste
   plan[idx] = { ...plan[idx], status: "running", error: null };
   const outcome = await runStep(client, plan[idx], {
     shopId, userId, persona, routed, requestText: job.request_text, shop: {}, inventory: [], jobId: job.id,
-    campaignId: job.campaign_id, imageUrl: imageStep?.result?.url || null
+    campaignId: job.campaign_id, imageUrl: imageStep?.result?.url || null,
+    parentAssetId: savedContext.parent_asset_id || null, styleSummary
   });
   plan[idx].status = outcome.ok ? "completed" : "failed";
   plan[idx].result = outcome.ok ? outcome.result || null : null;

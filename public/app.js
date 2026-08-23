@@ -825,7 +825,7 @@ async function exportQuickBooksCsv(){
 }
 async function loadWebsite(){shopSettings=(await api("settings")).item;const f=$("#websiteForm");for(const[k,v]of Object.entries(shopSettings||{})){if(!f.elements[k])continue;if(f.elements[k].type==="checkbox")f.elements[k].checked=Boolean(v);else f.elements[k].value=v??""}applyBranding(shopSettings);renderWebsite();await window.BloomLilyWebsiteWizard?.load?.();await window.BloomInstantWebsite?.load?.();await window.BloomThemeGallery?.load?.();await window.BloomWebsiteStudioV2?.load?.();await window.BloomWebsiteEditor?.load?.();await window.BloomWebsiteStudioShell?.load?.();await window.BloomWebsiteStudioDynamicPhotos?.load?.()}
 
-async function loadSettings(){shopSettings=(await api("settings")).item;window.shopSettings=shopSettings;const f=$("#settingsForm");for(const[k,v]of Object.entries(shopSettings||{})){if(f.elements[k])f.elements[k].value=v??""}applyBranding(shopSettings);previewBrandingForm();$("#mapsStatus").textContent="Shop defaults loaded. Use Calculate mileage on a delivery order to test the route service.";if(window.BloomSubscriptionCenter){window.subscriptionCenterApi=api;await window.BloomSubscriptionCenter.load(document.getElementById("shopBillingRoot"))}window.BloomMigrationWizard?.mount?.(document.getElementById("migrationWizardRoot"));window.BloomReferralHub?.load?.();window.BloomDaisy?.mountSettings?.(document.getElementById("daisySettingsHost"));window.FlorisynAssistantVoice?.mountSettings?.(document.getElementById("settingsPage"));window.BloomLilyVoice?.mountSettings?.(document.getElementById("settingsPage"));loadShopHours()}
+async function loadSettings(){shopSettings=(await api("settings")).item;window.shopSettings=shopSettings;const f=$("#settingsForm");for(const[k,v]of Object.entries(shopSettings||{})){if(f.elements[k])f.elements[k].value=v??""}applyBranding(shopSettings);previewBrandingForm();$("#mapsStatus").textContent="Shop defaults loaded. Use Calculate mileage on a delivery order to test the route service.";if(window.BloomSubscriptionCenter){window.subscriptionCenterApi=api;await window.BloomSubscriptionCenter.load(document.getElementById("shopBillingRoot"))}window.BloomMigrationWizard?.mount?.(document.getElementById("migrationWizardRoot"));window.BloomReferralHub?.load?.();window.BloomDaisy?.mountSettings?.(document.getElementById("daisySettingsHost"));window.FlorisynAssistantVoice?.mountSettings?.(document.getElementById("settingsPage"));window.BloomLilyVoice?.mountSettings?.(document.getElementById("settingsPage"));window.BloomLilyStyleMemory?.mountSettings?.(document.getElementById("settingsPage"));loadShopHours()}
 const HOURS_WEEKDAY_SHORT=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 function formatHoursTime(hhmm){if(!hhmm)return"";const[h,m]=hhmm.split(":").map(Number);const period=h>=12?"PM":"AM";const hour12=h%12||12;return`${hour12}:${String(m).padStart(2,"0")} ${period}`}
 function summarizeShopHours(hours){if(!Array.isArray(hours)||!hours.length)return"";return hours.map(h=>h.is_closed?`${HOURS_WEEKDAY_SHORT[h.weekday]} Closed`:`${HOURS_WEEKDAY_SHORT[h.weekday]} ${formatHoursTime(h.opens_at)}–${formatHoursTime(h.closes_at)}`).join(", ")}
@@ -1720,7 +1720,16 @@ document.querySelectorAll("#aiStudioPage .lux-ai-tabs [data-lux-ai-tab]").forEac
     document.querySelectorAll("#aiStudioPage .lux-ai-tabs [data-lux-ai-tab]").forEach(b=>{b.classList.toggle("active",b===btn);if(b===btn)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
     if(btn.dataset.luxAiTab==="website"&&btn.dataset.route&&window.FlorisynRouter)window.FlorisynRouter.navigate(btn.dataset.route);
     if(btn.dataset.luxAiTab==="ask")$("#aiStudioPrompt")?.focus();
+    // "Create" is its own panel (Visual Creation Studio's intro + a way in
+    // to the real thing — the Lily drawer, which already does the full
+    // attach-a-photo/generate/composite/Save-Undo flow) — every other tab
+    // keeps sharing the existing website-editing split pane.
+    const showCreate=btn.dataset.luxAiTab==="create";
+    const shell=$("#aiStudioShell"),createPanel=$("#aiStudioCreatePanel");
+    if(shell)shell.hidden=showCreate;
+    if(createPanel)createPanel.hidden=!showCreate;
   });
 });
+$("#aiStudioCreateOpen")?.addEventListener("click",()=>window.BloomLilyPlatform?.open?.("lily"));
 try{const saved=JSON.parse(localStorage.getItem("bloomAiStudioDraft")||"null");if(saved){aiStudioDraft=saved;renderAiStudioDraft()}}catch{}
 const dog=$("#bloomDog");let dogPetTimer=null;function petBloomDog(){if(!dog)return;dog.classList.remove("pet");void dog.offsetWidth;dog.classList.add("pet");if(dogPetTimer)window.clearTimeout(dogPetTimer);dogPetTimer=window.setTimeout(()=>dog.classList.remove("pet"),1100);lilyVoice("Oh, that’s so sweet. She loves the attention.")}dog?.addEventListener("click",petBloomDog);dog?.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" ")petBloomDog()});

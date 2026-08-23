@@ -176,6 +176,58 @@ Never invent products, prices, or promises Florisyn can't confirm.`,
   }
 }
 
+function buildFlyerContentTask({ occasion, visualStyleSignal }) {
+  return `You are writing the ACTUAL, FINISHED text content for a flyer/graphic a florist will show customers today — not a description of the flyer. Write real, ready-to-display content.
+
+${occasion ? `Occasion/theme: ${occasion}.` : ""}
+${visualStyleSignal ? "This request carries real aesthetic direction — a mood/material/color/theme." : "This request is plain and operational (a notice, a closing time, a phone number) — keep the content minimal and direct, no invented flourish."}
+
+Rules:
+- ANY concrete fact the florist gave you verbatim — a time, a phone number, a price, a date, a percentage — must appear in your output EXACTLY as given. Never paraphrase, round, or reformat a number or time. This is the single most important rule here.
+- headline: short, bold, the first thing read.
+- body: the supporting line(s) — can be empty string if the headline says everything.
+- cta: the one action line (a phone number to call, "Order online," "Stop by today," etc).
+- Never invent a price, discount, date, or promise Florisyn can't confirm — if the florist didn't give you a fact, don't make one up.`;
+}
+
+const FLYER_CONTENT_SCHEMA = {
+  headline: "string",
+  body: "string",
+  cta: "string"
+};
+
+/** Generates the finished text content for a flyer/graphic — never the
+ * pixels. The client-side renderer (public/flyer-renderer.js) turns this,
+ * plus the shop's brand and either a generated background or this
+ * template's own palette, into the actual image. Keeping content and
+ * rendering separate is what makes a revision like "make the phone number
+ * bigger" free — it re-renders the same content, no new AI call. */
+export async function generateFlyerContent({ persona = "Lily", message, occasion, visualStyleSignal, shop } = {}) {
+  try {
+    const result = await runCloudflareGenerate({
+      mode: "generate",
+      persona,
+      task: buildFlyerContentTask({ occasion, visualStyleSignal }),
+      input: { request: message, shop: shop || {} },
+      schema: FLYER_CONTENT_SCHEMA,
+      max_tokens: 400
+    });
+    const content = result?.result;
+    if (!content || !content.headline) return { ok: false, error: "The AI didn't return usable flyer content. Try again." };
+    return {
+      ok: true,
+      content: {
+        headline: String(content.headline || "").slice(0, 140),
+        body: String(content.body || "").slice(0, 400),
+        cta: String(content.cta || "").slice(0, 140)
+      },
+      model: result.model
+    };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error).slice(0, 300) };
+  }
+}
+
 /** Persists one generated asset (success or failure) so results are
  * reusable across sessions and a failed step can be retried without
  * losing the successful ones around it. */
@@ -191,6 +243,7 @@ export async function persistGeneratedAsset(client, {
   prompt = null,
   content = null,
   mediaId = null,
+  parentAssetId = null,
   status = "completed",
   error = null
 }) {
@@ -208,6 +261,7 @@ export async function persistGeneratedAsset(client, {
       prompt,
       content,
       media_id: mediaId,
+      parent_asset_id: parentAssetId,
       status,
       error
     })
