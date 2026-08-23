@@ -548,6 +548,7 @@ const EXPECTED_PLATFORM_ADMIN_CALL_SITES = [
   "admin-photo-manager.js",
   "marketplace-verification-admin.js",
   "floral-library-admin.js",
+  "marketing-studio.js",
 ];
 
 function findPlatformAdminCallSites() {

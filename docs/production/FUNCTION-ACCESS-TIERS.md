@@ -75,6 +75,7 @@ names, categories, and HTTP statuses only.
 | `marketplace-verification-admin` | `super_admin` only — `platformAdmin(event, ["super_admin"])` | Verification review (POST) → `requireSuperAdmin(admin)` | |
 | `floral-library-admin` | `super_admin` only — `platformAdmin(event, ["super_admin"])` | Import/approve/duplicate-review → `requireSuperAdmin(admin)` before each write | |
 | `admin-photo-manager` | `super_admin` only — `platformAdmin(event, ["super_admin"])` | Upload/update/delete → `requireSuperAdmin(admin)` before each write | `public_list` action is intentionally unauthenticated (read-only, mirrors the Floral Library/Website Studio content it serves) |
+| `marketing-studio` | `super_admin` only — `platformAdmin(event, ["super_admin"])`, additionally gated behind the `MARKETING_STUDIO` feature flag (default off) | Brand Brain update/forget/reset → `requireSuperAdmin(admin)` before each write | Founding Beta / Stage B foundation only — no content generation, publishing, or AI Clone execution lands here yet; `status` action reports every social/AI provider as not-live until Stage D/E connect real credentials |
 
 Every mutation branch above calls `requireSuperAdmin(admin)` immediately before its database
 write — an explicit, greppable/testable role gate, not an implicit assumption. Broader
