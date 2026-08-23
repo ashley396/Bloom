@@ -121,6 +121,63 @@
         <h2>Consent grants</h2>
         <div id="msConsentList" class="shop-list"></div>
       </div>
+
+      <div class="panel">
+        <h2>Personal Brand Studio</h2>
+        <p class="help">How this florist wants THEMSELVES represented in marketing — separate from the shop's general brand voice. Nothing here uses an avatar/voice provider by itself; Digital Twin rendering is a separate, consent-gated step below.</p>
+        <form id="pbProfileForm" class="form-grid">
+          <label>Display name<input name="display_name" placeholder="e.g. Jordan Lee"></label>
+          <label>Founder title<input name="founder_title" placeholder="e.g. Owner & Lead Designer"></label>
+          <label>Tone default
+            <select name="professional_casual_balance">
+              <option value="professional">Professional</option>
+              <option value="balanced" selected>Balanced</option>
+              <option value="casual">Casual</option>
+            </select>
+          </label>
+          <label>Humor level
+            <select name="humor_level">
+              <option value="serious">Serious</option>
+              <option value="light" selected>Light</option>
+              <option value="playful">Playful</option>
+            </select>
+          </label>
+          <label class="wide">Founder story (used for Founder Story mode — your own words, never invented)<textarea name="founder_story" rows="3" maxlength="4000"></textarea></label>
+          <button type="submit" class="wide">Save profile</button>
+        </form>
+        <p id="pbProfileStatus" class="help"></p>
+        <p id="pbStyleSummary" class="help"></p>
+
+        <h3>Ask Lily</h3>
+        <p class="help">e.g. "Make me a professional founder portrait", "Make a funny post about being a florist", "I don't dress like that, remember it."</p>
+        <div class="form-grid">
+          <label class="wide">Message<input id="pbCommandInput" placeholder="Tell Lily what you want…"></label>
+        </div>
+        <button type="button" id="pbCommandBtn">Send to Lily</button>
+        <p id="pbCommandStatus" class="help"></p>
+        <div id="pbCommandResult"></div>
+
+        <h3>Reference photos</h3>
+        <p class="help">Three separate permissions per photo: store it, use it for image generation, use it to train an avatar. Uploading without consenting to store is refused.</p>
+        <form id="pbPhotoForm" class="form-grid">
+          <label class="wide">Photo<input type="file" id="pbPhotoFile" accept="image/jpeg,image/png,image/webp"></label>
+          <label>Label
+            <select name="label">
+              <option value="approved_likeness_reference" selected>Approved likeness reference</option>
+              <option value="favorite_reference">Favorite reference</option>
+              <option value="professional_reference">Professional reference</option>
+              <option value="casual_reference">Casual reference</option>
+              <option value="do_not_use">Do not use</option>
+            </select>
+          </label>
+          <label class="check">${checkboxRow("consent", "store", "Consent to store this photo")}</label>
+          <label class="check">${checkboxRow("consent", "image", "Allow use for image generation")}</label>
+          <label class="check">${checkboxRow("consent", "avatar", "Allow use for avatar training")}</label>
+          <button type="submit" class="wide">Upload photo</button>
+        </form>
+        <p id="pbPhotoStatus" class="help"></p>
+        <div id="pbPhotoList" class="shop-list"></div>
+      </div>
     `;
 
     const statusPanel = root.querySelector("#msStatusPanel");
@@ -140,6 +197,18 @@
     const previewStatus = root.querySelector("#msPreviewStatus");
     const previewResult = root.querySelector("#msPreviewResult");
     const consentList = root.querySelector("#msConsentList");
+    const pbProfileForm = root.querySelector("#pbProfileForm");
+    const pbProfileStatus = root.querySelector("#pbProfileStatus");
+    const pbStyleSummary = root.querySelector("#pbStyleSummary");
+    const pbCommandInput = root.querySelector("#pbCommandInput");
+    const pbCommandStatus = root.querySelector("#pbCommandStatus");
+    const pbCommandResult = root.querySelector("#pbCommandResult");
+    const pbPhotoForm = root.querySelector("#pbPhotoForm");
+    const pbPhotoFile = root.querySelector("#pbPhotoFile");
+    const pbPhotoStatus = root.querySelector("#pbPhotoStatus");
+    const pbPhotoList = root.querySelector("#pbPhotoList");
+    let pbLastAssetId = null;
+    let pbLastMode = null;
 
     avatarPermission.onchange = () => { avatarPhotosField.hidden = !avatarPermission.checked; };
     voicePermission.onchange = () => { voiceAudioField.hidden = !voicePermission.checked; };
@@ -205,6 +274,73 @@
       }
     }
 
+    async function loadPersonalBrandProfile() {
+      const shopId = shopIdInput.value.trim();
+      if (!shopId) return;
+      try {
+        const d = await adminApi("get_personal_brand_profile", { method: "GET", query: `shop_id=${encodeURIComponent(shopId)}` });
+        pbProfileForm.display_name.value = d.profile.display_name || "";
+        pbProfileForm.founder_title.value = d.profile.founder_title || "";
+        pbProfileForm.founder_story.value = d.profile.founder_story || "";
+        pbProfileForm.professional_casual_balance.value = d.profile.professional_casual_balance || "balanced";
+        pbProfileForm.humor_level.value = d.profile.humor_level || "light";
+        pbStyleSummary.textContent = d.style_summary ? `Learned style: ${d.style_summary}` : "No learned personal-presentation preferences yet.";
+      } catch (err) {
+        pbProfileStatus.textContent = `Could not load profile: ${err.message}`;
+      }
+    }
+
+    async function loadReferencePhotos() {
+      const shopId = shopIdInput.value.trim();
+      if (!shopId) {
+        pbPhotoList.innerHTML = `<p class="quiet">Enter a shop ID and click Load.</p>`;
+        return;
+      }
+      try {
+        const d = await adminApi("list_personal_brand_reference_photos", { method: "GET", query: `shop_id=${encodeURIComponent(shopId)}` });
+        const items = d.items || [];
+        pbPhotoList.innerHTML = items.length
+          ? items
+              .map(
+                (p) => `
+              <div class="shop-row">
+                <div>
+                  <img src="${esc(p.media_url)}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:4px;">
+                  <small>${esc(p.label)} · ${p.allow_image_generation ? "image-gen " : ""}${p.allow_avatar_generation ? "avatar-gen" : ""}</small>
+                </div>
+                <span class="badge ${p.revoked_at ? "danger" : "good"}">${p.revoked_at ? "revoked" : "active"}</span>
+                <button type="button" class="secondary" data-revoke-photo="${esc(p.id)}" ${p.revoked_at ? "disabled" : ""}>Revoke</button>
+                <button type="button" class="secondary" data-delete-photo="${esc(p.id)}">Delete</button>
+              </div>`
+              )
+              .join("")
+          : `<p class="quiet">No reference photos on file for this shop yet.</p>`;
+        pbPhotoList.querySelectorAll("[data-revoke-photo]").forEach((btn) => {
+          btn.onclick = async () => {
+            try {
+              await adminApi("update_personal_brand_reference_photo", { body: { shop_id: shopId, photo_id: btn.dataset.revokePhoto, revoked: true } });
+              loadReferencePhotos();
+            } catch (err) {
+              alert(err.message);
+            }
+          };
+        });
+        pbPhotoList.querySelectorAll("[data-delete-photo]").forEach((btn) => {
+          btn.onclick = async () => {
+            if (!confirm("Permanently delete this reference photo? This cannot be undone.")) return;
+            try {
+              await adminApi("delete_personal_brand_reference_photo", { body: { shop_id: shopId, photo_id: btn.dataset.deletePhoto } });
+              loadReferencePhotos();
+            } catch (err) {
+              alert(err.message);
+            }
+          };
+        });
+      } catch (err) {
+        pbPhotoList.innerHTML = `<p class="help">Could not load reference photos: ${esc(err.message)}</p>`;
+      }
+    }
+
     root.querySelector("#msUseOpenShop").onclick = () => {
       const openId = window.BloomAdminSelectedShopId || null;
       if (!openId) {
@@ -213,8 +349,122 @@
       }
       shopIdInput.value = openId;
       loadConsent();
+      loadPersonalBrandProfile();
+      loadReferencePhotos();
     };
-    root.querySelector("#msLoadShop").onclick = loadConsent;
+    root.querySelector("#msLoadShop").onclick = () => {
+      loadConsent();
+      loadPersonalBrandProfile();
+      loadReferencePhotos();
+    };
+
+    pbProfileForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const shopId = shopIdInput.value.trim();
+      if (!shopId) return (pbProfileStatus.textContent = "Enter a shop ID above first.");
+      pbProfileStatus.textContent = "Saving…";
+      try {
+        await adminApi("update_personal_brand_profile", {
+          body: {
+            shop_id: shopId,
+            fields: {
+              display_name: pbProfileForm.display_name.value,
+              founder_title: pbProfileForm.founder_title.value,
+              founder_story: pbProfileForm.founder_story.value,
+              professional_casual_balance: pbProfileForm.professional_casual_balance.value,
+              humor_level: pbProfileForm.humor_level.value
+            }
+          }
+        });
+        pbProfileStatus.textContent = "Saved.";
+      } catch (err) {
+        pbProfileStatus.textContent = err.message;
+      }
+    };
+
+    root.querySelector("#pbCommandBtn").onclick = async () => {
+      const shopId = shopIdInput.value.trim();
+      if (!shopId) return (pbCommandStatus.textContent = "Enter a shop ID above first.");
+      const message = pbCommandInput.value.trim();
+      if (!message) return (pbCommandStatus.textContent = "Type a message for Lily first.");
+      pbCommandStatus.textContent = "Lily is working on it…";
+      pbCommandResult.innerHTML = "";
+      pbLastAssetId = null;
+      try {
+        const result = await adminApi("personal_brand_command", { body: { shop_id: shopId, message } });
+        if (!result.understood) {
+          pbCommandStatus.textContent = result.note || "Lily didn't understand that.";
+          return;
+        }
+        pbCommandStatus.textContent = result.memory_ack || (result.asset ? "Here's what Lily made:" : "Got it — nothing to generate from that message.");
+        if (result.asset && result.content) {
+          pbLastAssetId = result.asset.id;
+          pbLastMode = result.classification.mode;
+          pbCommandResult.innerHTML = `
+            <div class="panel">
+              <p><strong>${esc(result.content.headline)}</strong></p>
+              <p>${esc(result.content.body)}</p>
+              <p class="help">${esc(result.content.cta)}</p>
+              <p class="help">Founder presence: ${esc(result.content.founder_presence_brief)}</p>
+              <div class="header-actions">
+                <button type="button" id="pbApproveBtn">Love this</button>
+                <button type="button" id="pbSendToStudioBtn">Send to Marketing Studio</button>
+              </div>
+            </div>`;
+          pbCommandResult.querySelector("#pbApproveBtn").onclick = async () => {
+            try {
+              await adminApi("submit_personal_brand_feedback", { body: { shop_id: shopId, asset_id: pbLastAssetId, reason: "love_this" } });
+              alert("Thanks — Lily will remember this.");
+            } catch (err) {
+              alert(err.message);
+            }
+          };
+          pbCommandResult.querySelector("#pbSendToStudioBtn").onclick = async () => {
+            try {
+              const handoff = await adminApi("personal_brand_concept_to_content_item", {
+                body: { shop_id: shopId, asset_id: pbLastAssetId, mode: pbLastMode, platforms: result.suggested_platforms }
+              });
+              alert(`Sent to Marketing Studio as a draft content item (${handoff.variants.length} platform variant(s)). Generate the real copy/image from the content calendar.`);
+            } catch (err) {
+              alert(err.message);
+            }
+          };
+        }
+        loadPersonalBrandProfile();
+      } catch (err) {
+        pbCommandStatus.textContent = err.message;
+      }
+    };
+
+    pbPhotoForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const shopId = shopIdInput.value.trim();
+      if (!shopId) return (pbPhotoStatus.textContent = "Enter a shop ID above first.");
+      const file = pbPhotoFile.files?.[0];
+      if (!file) return (pbPhotoStatus.textContent = "Choose a photo first.");
+      const consentedToStore = root.querySelector('[data-consent="store"]')?.checked;
+      if (!consentedToStore) return (pbPhotoStatus.textContent = "Consent to store this photo is required.");
+      pbPhotoStatus.textContent = "Uploading…";
+      try {
+        const dataUrl = await fileToDataUrl(file);
+        await adminApi("upload_personal_brand_reference_photo", {
+          body: {
+            shop_id: shopId,
+            data_url: dataUrl,
+            filename: file.name,
+            label: pbPhotoForm.label.value,
+            consented_to_store: true,
+            allow_image_generation: Boolean(root.querySelector('[data-consent="image"]')?.checked),
+            allow_avatar_generation: Boolean(root.querySelector('[data-consent="avatar"]')?.checked)
+          }
+        });
+        pbPhotoStatus.textContent = "Uploaded.";
+        pbPhotoForm.reset();
+        loadReferencePhotos();
+      } catch (err) {
+        pbPhotoStatus.textContent = err.message;
+      }
+    };
 
     enrollForm.onsubmit = async (e) => {
       e.preventDefault();

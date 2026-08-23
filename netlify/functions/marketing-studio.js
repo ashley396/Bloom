@@ -97,13 +97,34 @@ import {
 } from "./_shared/marketing-content-planner.js";
 import { recordCloneVideoJob, getCloneVideoJob } from "./_shared/creative-ai/clone-video-jobs.js";
 import { determineDisclosureRequirement, enforcePrePublishDisclosureGate } from "./_shared/creative-ai/disclosure-policy.js";
-import { validateCloneConsentBody, isConsentActive } from "./_shared/marketing-clone-consent.js";
+import { validateCloneConsentBody, isConsentActive, CLONE_USAGE_TYPES } from "./_shared/marketing-clone-consent.js";
 import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
-import { generateSocialPost, generateVideoConcept, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
+import { generateSocialPost, generateVideoConcept, generateWebsiteSectionDraft, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
 import { generateImage, buildImagePrompt } from "./_shared/ai-image-engine.js";
 import { buildMarketingStudioAnalyticsSummary } from "./_shared/marketing-analytics.js";
 import { groupMetricsByDimension } from "./_shared/marketing-insights.js";
 import { validateExperimentBody, determineExperimentWinner } from "./_shared/marketing-ab-testing.js";
+import {
+  defaultPreferences as defaultPersonalBrandPreferences,
+  applyExplicitPreferenceUpdates as applyExplicitPersonalBrandUpdates,
+  recordApprovalSignal as recordPersonalBrandApprovalSignal,
+  forgetPreference as forgetPersonalBrandTrait,
+  resetPreferences as resetPersonalBrandPreferences,
+  buildPersonalBrandStyleSummary,
+  loadPersonalBrandProfile,
+  savePersonalBrandProfileFields,
+  savePersonalBrandPreferences
+} from "./_shared/personal-brand-memory.js";
+import {
+  validateReferencePhotoConsentBody,
+  canUsePhotoFor,
+  isDigitalTwinUseAuthorized,
+  FEEDBACK_REASONS
+} from "./_shared/creative-ai/personal-brand-consent.js";
+import { getPersonalBrandMode, PERSONAL_BRAND_MODE_KEYS } from "./_shared/creative-ai/personal-brand-modes.js";
+import { classifyPersonalBrandCommand } from "./_shared/creative-ai/personal-brand-intent.js";
+import { generatePersonalBrandConcept } from "./_shared/creative-ai/personal-brand-concept.js";
+import { planPersonalBrandPlatformVariants, resolveTargetPlatforms } from "./_shared/creative-ai/personal-brand-platform-variants.js";
 
 const VIDEO_CONTENT_TYPES = new Set(["reel", "short_video", "long_video"]);
 
@@ -1017,6 +1038,560 @@ export function createMarketingStudioHandler(deps = {}) {
           targetId: body.consent_id
         });
         return json(200, { ok: true, consent_id: body.consent_id });
+      }
+
+      // ── Personal Brand Studio ────────────────────────────────────────
+      // Lily learns how THIS florist wants themselves represented — not
+      // their shop's brand voice (marketing-brand-brain.js) or general
+      // visual style (ai-style-memory.js), a third independent domain.
+      // Reuses marketing_clone_consent for the avatar/voice/publish
+      // consent dimensions (see personal-brand-consent.js's docstring);
+      // reuses ai_generated_assets/persistGeneratedAsset for every
+      // generated concept; reuses the existing content_item/platform-
+      // variant pipeline for the Marketing Studio handoff (Section 10) —
+      // nothing here is a parallel AI or publishing system.
+
+      if (action === "get_personal_brand_profile") {
+        const shopId = requireShopId(qs, body);
+        const { profile, exists, error } = await loadPersonalBrandProfile(client, shopId);
+        if (error && missingRelation({ message: error })) throw friendlyMissing();
+        return json(200, { profile, exists, style_summary: buildPersonalBrandStyleSummary(profile.preferences) });
+      }
+
+      if (action === "update_personal_brand_profile" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        const { ok, error, profile } = await savePersonalBrandProfileFields(client, shopId, body.fields || {}, { userId: user.id });
+        if (!ok) {
+          if (missingRelation({ message: error })) throw friendlyMissing();
+          throw new Error(error);
+        }
+        await writeCommandAudit(client, user.id, "personal_brand_profile_updated", { shopId, targetType: "marketing_personal_brand_profiles", targetId: shopId });
+        return json(200, { profile });
+      }
+
+      if (action === "update_personal_brand_preferences" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!Array.isArray(body.updates) || body.updates.length === 0) {
+          return json(400, { error: "updates must be a non-empty array." });
+        }
+        const { profile: current } = await loadPersonalBrandProfile(client, shopId);
+        const next = applyExplicitPersonalBrandUpdates(current.preferences, body.updates);
+        const { ok, error } = await savePersonalBrandPreferences(client, shopId, next);
+        if (!ok) throw new Error(error);
+        await writeCommandAudit(client, user.id, "personal_brand_preferences_updated", { shopId, targetType: "marketing_personal_brand_profiles", targetId: shopId });
+        return json(200, { preferences: next, style_summary: buildPersonalBrandStyleSummary(next) });
+      }
+
+      if (action === "forget_personal_brand_trait" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.category || !body.text) return json(400, { error: "category and text are required." });
+        const { profile: current } = await loadPersonalBrandProfile(client, shopId);
+        const next = forgetPersonalBrandTrait(current.preferences, { category: body.category, text: body.text });
+        const { ok, error } = await savePersonalBrandPreferences(client, shopId, next);
+        if (!ok) throw new Error(error);
+        return json(200, { preferences: next, style_summary: buildPersonalBrandStyleSummary(next) });
+      }
+
+      if (action === "reset_personal_brand_preferences" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        const next = resetPersonalBrandPreferences();
+        const { ok, error } = await savePersonalBrandPreferences(client, shopId, next);
+        if (!ok) throw new Error(error);
+        await writeCommandAudit(client, user.id, "personal_brand_preferences_reset", { shopId, targetType: "marketing_personal_brand_profiles", targetId: shopId });
+        return json(200, { preferences: next, style_summary: "" });
+      }
+
+      // Approve/Favorite/Reject/"Don't do this again" on a generated
+      // founder-concept asset — the repetition-based learning signal
+      // (Section 4), never a one-shot promotion.
+      if (action === "record_personal_brand_signal" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!["approved", "rejected"].includes(body.signal)) return json(400, { error: "signal must be 'approved' or 'rejected'." });
+        if (!Array.isArray(body.traits) || body.traits.length === 0) return json(400, { error: "traits must be a non-empty array." });
+        const { profile: current } = await loadPersonalBrandProfile(client, shopId);
+        const next = recordPersonalBrandApprovalSignal(current.preferences, { traits: body.traits, signal: body.signal });
+        const { ok, error } = await savePersonalBrandPreferences(client, shopId, next);
+        if (!ok) throw new Error(error);
+        return json(200, { preferences: next, style_summary: buildPersonalBrandStyleSummary(next) });
+      }
+
+      // ── Reference photo library (Section 5/6) ─────────────────────────
+      // Three independent consent booleans per photo — see
+      // personal-brand-consent.js's docstring for why this is never one
+      // blanket checkbox. Reuses the same public website-media bucket
+      // upload_clone_reference_photo already uses; this is a different
+      // row/table (marketing_personal_brand_reference_photos), not the
+      // same list.
+
+      if (action === "upload_personal_brand_reference_photo" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        const validation = validateReferencePhotoConsentBody(body);
+        if (!validation.valid) return json(400, { error: validation.error });
+        const uploaded = await uploadWebsiteMedia(client, shopId, { dataUrl: body.data_url, filename: body.filename });
+        if (!uploaded.ok) return json(400, { error: uploaded.error });
+        const inserted = await client
+          .from("marketing_personal_brand_reference_photos")
+          .insert({
+            shop_id: shopId,
+            media_url: publicWebsiteMediaUrl(client, uploaded.path),
+            media_path: uploaded.path,
+            label: validation.sanitized.label,
+            consented_to_store: true,
+            allow_image_generation: validation.sanitized.allow_image_generation,
+            allow_avatar_generation: validation.sanitized.allow_avatar_generation,
+            consent_recorded_at: new Date().toISOString(),
+            created_by: user.id
+          })
+          .select("*")
+          .single();
+        if (inserted.error) {
+          if (missingRelation(inserted.error)) throw friendlyMissing();
+          throw inserted.error;
+        }
+        await writeCommandAudit(client, user.id, "personal_brand_reference_photo_uploaded", {
+          shopId,
+          targetType: "marketing_personal_brand_reference_photos",
+          targetId: inserted.data.id
+        });
+        return json(201, { photo: inserted.data });
+      }
+
+      if (action === "list_personal_brand_reference_photos") {
+        const shopId = requireShopId(qs, body);
+        const { data, error } = await client
+          .from("marketing_personal_brand_reference_photos")
+          .select("*")
+          .eq("shop_id", shopId)
+          .order("created_at", { ascending: false });
+        if (error) {
+          if (missingRelation(error)) throw friendlyMissing();
+          throw error;
+        }
+        return json(200, { items: data || [] });
+      }
+
+      // Updates label/consent flags on a reference photo already on file,
+      // and doubles as the revoke path (pass revoked: true) — revocation
+      // is a status change on the same row, never a silent delete, so the
+      // audit trail (who consented, who revoked, when) stays intact.
+      if (action === "update_personal_brand_reference_photo" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.photo_id) return json(400, { error: "photo_id is required." });
+        const patch = { updated_at: new Date().toISOString() };
+        if (typeof body.label === "string") {
+          const validated = validateReferencePhotoConsentBody({ data_url: "x", consented_to_store: true, label: body.label });
+          patch.label = validated.sanitized.label;
+        }
+        if (typeof body.allow_image_generation === "boolean") patch.allow_image_generation = body.allow_image_generation;
+        if (typeof body.allow_avatar_generation === "boolean") patch.allow_avatar_generation = body.allow_avatar_generation;
+        if (body.revoked === true) patch.revoked_at = new Date().toISOString();
+        const updated = await client
+          .from("marketing_personal_brand_reference_photos")
+          .update(patch)
+          .eq("id", body.photo_id)
+          .eq("shop_id", shopId)
+          .select("*")
+          .maybeSingle();
+        if (updated.error) throw updated.error;
+        if (!updated.data) return json(404, { error: "Reference photo not found." });
+        await writeCommandAudit(client, user.id, body.revoked === true ? "personal_brand_reference_photo_revoked" : "personal_brand_reference_photo_updated", {
+          shopId,
+          targetType: "marketing_personal_brand_reference_photos",
+          targetId: body.photo_id
+        });
+        return json(200, { photo: updated.data });
+      }
+
+      // A real, permanent delete — distinct from revoke. Only ever called
+      // when the florist wants the photo itself gone, not just its
+      // permission to use it withdrawn.
+      if (action === "delete_personal_brand_reference_photo" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.photo_id) return json(400, { error: "photo_id is required." });
+        const deleted = await client
+          .from("marketing_personal_brand_reference_photos")
+          .delete()
+          .eq("id", body.photo_id)
+          .eq("shop_id", shopId)
+          .select("id")
+          .maybeSingle();
+        if (deleted.error) throw deleted.error;
+        if (!deleted.data) return json(404, { error: "Reference photo not found." });
+        await writeCommandAudit(client, user.id, "personal_brand_reference_photo_deleted", {
+          shopId,
+          targetType: "marketing_personal_brand_reference_photos",
+          targetId: body.photo_id
+        });
+        return json(200, { ok: true, photo_id: body.photo_id });
+      }
+
+      // ── Structured quality feedback (Section 14) ──────────────────────
+      if (action === "submit_personal_brand_feedback" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.asset_id) return json(400, { error: "asset_id is required." });
+        if (!FEEDBACK_REASONS.includes(body.reason)) {
+          return json(400, { error: `reason must be one of: ${FEEDBACK_REASONS.join(", ")}.` });
+        }
+        const inserted = await client
+          .from("marketing_personal_brand_feedback")
+          .insert({
+            shop_id: shopId,
+            asset_id: body.asset_id,
+            reason: body.reason,
+            note: typeof body.note === "string" ? body.note.trim().slice(0, 500) : null,
+            created_by: user.id
+          })
+          .select("*")
+          .single();
+        if (inserted.error) {
+          if (missingRelation(inserted.error)) throw friendlyMissing();
+          throw inserted.error;
+        }
+        return json(201, { feedback: inserted.data });
+      }
+
+      // ── Founder-concept generation ─────────────────────────────────────
+      // "Generate expensively once" — this produces the text/founder-
+      // presence concept only; it never itself calls an avatar/video
+      // provider (see request_personal_brand_digital_twin for that, a
+      // separate explicit step so a florist reviews the concept before
+      // any provider spend).
+      if (action === "generate_personal_brand_concept" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!PERSONAL_BRAND_MODE_KEYS.includes(body.mode)) {
+          return json(400, { error: `mode must be one of: ${PERSONAL_BRAND_MODE_KEYS.join(", ")}.` });
+        }
+        const { profile } = await loadPersonalBrandProfile(client, shopId);
+        const styleSummary = buildPersonalBrandStyleSummary(profile.preferences);
+        const gen = await generatePersonalBrandConcept({
+          mode: body.mode,
+          profile,
+          styleSummary,
+          toneHint: ["professional", "casual", "humorous"].includes(body.tone_hint) ? body.tone_hint : null,
+          requestText: typeof body.message === "string" ? body.message : ""
+        });
+        if (!gen.ok) return json(400, { error: gen.error });
+
+        await client.from("marketing_generation_usage").insert({
+          shop_id: shopId,
+          provider: "cloudflare",
+          purpose: "copy",
+          unit_type: "request",
+          units: 1,
+          estimated_cost_cents: estimateCostCents({ purpose: "copy", unitType: "request", units: 1 }),
+          status: "estimated"
+        });
+
+        const persisted = await persistGeneratedAsset(client, {
+          shopId,
+          userId: user.id,
+          persona: "Lily",
+          assetType: "founder_concept",
+          provider: "cloudflare",
+          model: gen.model,
+          content: gen.content,
+          status: "completed"
+        });
+        if (!persisted.ok) throw new Error(persisted.error);
+
+        await writeCommandAudit(client, user.id, "personal_brand_concept_generated", {
+          shopId,
+          targetType: "ai_generated_assets",
+          targetId: persisted.asset.id,
+          mode: body.mode
+        });
+        return json(201, { asset: persisted.asset, content: gen.content });
+      }
+
+      // ── Lily command entrypoint (Section 8/9) ─────────────────────────
+      // Classifies the whole sentence via the real LLM classifier (never
+      // regex-only), applies any standing memory statement immediately,
+      // and — when the message resolves to a real creation mode — runs
+      // the same generation path as generate_personal_brand_concept, all
+      // in one call. This is what "Lily, make a funny 'warning before you
+      // meet me' founder post about me" resolves through end to end.
+      if (action === "personal_brand_command" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.message) return json(400, { error: "message is required." });
+
+        const classification = await classifyPersonalBrandCommand(body.message);
+        if (!classification) {
+          return json(200, { understood: false, note: "Lily couldn't understand that Personal Brand request. Try rephrasing." });
+        }
+
+        const { profile: current } = await loadPersonalBrandProfile(client, shopId);
+        let memoryAck = null;
+        if (classification.memory_action === "remember_like" || classification.memory_action === "remember_avoid") {
+          if (classification.memory_category && classification.memory_text) {
+            const polarity = classification.memory_action === "remember_avoid" ? "negative" : "positive";
+            const next = applyExplicitPersonalBrandUpdates(current.preferences, [
+              { category: classification.memory_category, text: classification.memory_text, polarity }
+            ]);
+            await savePersonalBrandPreferences(client, shopId, next);
+            current.preferences = next;
+            memoryAck = `Got it — I'll remember that.`;
+          }
+        } else if (classification.memory_action === "forget" && classification.memory_category && classification.memory_text) {
+          const next = forgetPersonalBrandTrait(current.preferences, { category: classification.memory_category, text: classification.memory_text });
+          await savePersonalBrandPreferences(client, shopId, next);
+          current.preferences = next;
+          memoryAck = `Forgotten.`;
+        }
+
+        if (!classification.mode) {
+          return json(200, { understood: true, classification, memory_ack: memoryAck, asset: null });
+        }
+
+        const styleSummary = buildPersonalBrandStyleSummary(current.preferences);
+        const gen = await generatePersonalBrandConcept({
+          mode: classification.mode,
+          profile: current,
+          styleSummary,
+          toneHint: classification.tone_hint,
+          requestText: body.message
+        });
+        if (!gen.ok) return json(200, { understood: true, classification, memory_ack: memoryAck, asset: null, error: gen.error });
+
+        const persisted = await persistGeneratedAsset(client, {
+          shopId,
+          userId: user.id,
+          persona: "Lily",
+          assetType: "founder_concept",
+          provider: "cloudflare",
+          model: gen.model,
+          content: gen.content,
+          status: "completed"
+        });
+        if (!persisted.ok) throw new Error(persisted.error);
+
+        const targetPlatforms = resolveTargetPlatforms({
+          mode: classification.mode,
+          explicitPlatform: classification.target_platform,
+          requestedPlatforms: null
+        });
+
+        await writeCommandAudit(client, user.id, "personal_brand_command_executed", {
+          shopId,
+          targetType: "ai_generated_assets",
+          targetId: persisted.asset.id,
+          mode: classification.mode
+        });
+
+        return json(201, {
+          understood: true,
+          classification,
+          memory_ack: memoryAck,
+          asset: persisted.asset,
+          content: gen.content,
+          suggested_platforms: targetPlatforms
+        });
+      }
+
+      // ── Platform-variant planning (Section 10) ────────────────────────
+      if (action === "plan_personal_brand_platform_variants" && method === "POST") {
+        requireSuperAdmin(admin);
+        requireShopId(qs, body);
+        if (!PERSONAL_BRAND_MODE_KEYS.includes(body.mode)) {
+          return json(400, { error: `mode must be one of: ${PERSONAL_BRAND_MODE_KEYS.join(", ")}.` });
+        }
+        const targetPlatforms = resolveTargetPlatforms({
+          mode: body.mode,
+          explicitPlatform: body.platform || null,
+          requestedPlatforms: Array.isArray(body.platforms) ? body.platforms : null
+        });
+        const plan = planPersonalBrandPlatformVariants({ mode: body.mode, targetPlatforms });
+        return json(200, { plan });
+      }
+
+      // ── Marketing Studio handoff (Section 10) ─────────────────────────
+      // An approved founder concept becomes a real content_item + platform
+      // variants through the EXISTING plan/generate/publish pipeline —
+      // generate_content (already built, tested, wired to disclosure/cost/
+      // publishing) then does the actual per-platform copy/image work,
+      // completely unmodified by this pass.
+      if (action === "personal_brand_concept_to_content_item" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.asset_id) return json(400, { error: "asset_id is required." });
+        if (!PERSONAL_BRAND_MODE_KEYS.includes(body.mode)) {
+          return json(400, { error: `mode must be one of: ${PERSONAL_BRAND_MODE_KEYS.join(", ")}.` });
+        }
+        const asset = await client
+          .from("ai_generated_assets")
+          .select("id,content,asset_type")
+          .eq("id", body.asset_id)
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        if (asset.error) throw asset.error;
+        if (!asset.data || asset.data.asset_type !== "founder_concept") return json(404, { error: "Founder concept asset not found." });
+
+        const targetPlatforms = resolveTargetPlatforms({
+          mode: body.mode,
+          explicitPlatform: null,
+          requestedPlatforms: Array.isArray(body.platforms) ? body.platforms.filter((p) => SUPPORTED_PLATFORMS.includes(p)) : null
+        });
+        if (!targetPlatforms.length) return json(400, { error: "No valid target platforms." });
+
+        const modeInfo = getPersonalBrandMode(body.mode);
+        const contentType = targetPlatforms.some((p) => (planPersonalBrandPlatformVariants({ mode: body.mode, targetPlatforms: [p] })[0].destinations.some((d) => d.contentKind === "video")))
+          ? "reel"
+          : "image_post";
+
+        const inserted = await client
+          .from("marketing_content_items")
+          .insert({
+            shop_id: shopId,
+            created_by: user.id,
+            content_type: contentType,
+            title: `${modeInfo.label} — ${asset.data.content?.headline || "Founder content"}`,
+            brief: [asset.data.content?.body, asset.data.content?.founder_presence_brief].filter(Boolean).join("\n\n"),
+            status: "idea",
+            uses_ai_clone: Boolean(body.uses_ai_clone),
+            requires_human_approval: true
+          })
+          .select("id,content_type,title,brief,status")
+          .single();
+        if (inserted.error) {
+          if (missingRelation(inserted.error)) throw friendlyMissing();
+          throw inserted.error;
+        }
+
+        const variantRows = targetPlatforms.map((platform) => ({ shop_id: shopId, content_item_id: inserted.data.id, platform, status: "pending" }));
+        const insertedVariants = await client.from("marketing_platform_variants").insert(variantRows).select("id,platform");
+        if (insertedVariants.error) throw insertedVariants.error;
+
+        await writeCommandAudit(client, user.id, "personal_brand_concept_handed_off", {
+          shopId,
+          targetType: "marketing_content_items",
+          targetId: inserted.data.id,
+          sourceAssetId: body.asset_id
+        });
+
+        return json(201, { item: inserted.data, variants: insertedVariants.data || [] });
+      }
+
+      // Founder-story text specifically can also become a website About/
+      // homepage section draft — reuses generateWebsiteSectionDraft
+      // (already built for Website Builder X) rather than a new generator.
+      // appliedToLivePage is always false here — writing it onto a live
+      // page is a separate, explicitly-approved Website Studio action.
+      if (action === "personal_brand_website_founder_content" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        const { profile } = await loadPersonalBrandProfile(client, shopId);
+        const shopRow = await client.from("shops").select("name").eq("id", shopId).maybeSingle();
+        const gen = await generateWebsiteSectionDraft({
+          persona: "Lily",
+          occasion: "Founder story",
+          shop: { name: shopRow.data?.name || null },
+          requestText: profile.founder_story || body.message || ""
+        });
+        if (!gen.ok) return json(400, { error: gen.error });
+        return json(200, { content: gen.content, note: "This is a draft only — applying it to the live public landing page requires a separate, explicitly-approved Website Studio step. Not applied here." });
+      }
+
+      // ── Digital Twin handoff (Section 11) ─────────────────────────────
+      // Personal Brand Studio -> AvatarEngine/VoiceEngine -> Media Output
+      // Pipeline -> Marketing Studio -> Approval -> Publishing. This step
+      // only ever KICKS OFF a render through the existing clone provider
+      // router (selectCloneProvider — same one preview_clone_profile and
+      // request_clone_enrollment already use); it never connects, buys,
+      // or activates a provider itself, and it authorizes strictly off
+      // the existing marketing_clone_consent grant (Section 6, dimensions
+      // 4/5) — a founder concept never gets rendered as a Digital Twin
+      // video without an active, platform-approved consent record.
+      if (action === "request_personal_brand_digital_twin" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.asset_id) return json(400, { error: "asset_id is required." });
+        if (!body.avatar_profile_id && !body.voice_profile_id) return json(400, { error: "avatar_profile_id or voice_profile_id is required." });
+        if (!body.consent_id) return json(400, { error: "consent_id is required — a Digital Twin render always needs an active, named consent grant." });
+        if (!body.platform || !SUPPORTED_PLATFORMS.includes(body.platform)) {
+          return json(400, { error: `platform must be one of: ${SUPPORTED_PLATFORMS.join(", ")}.` });
+        }
+
+        const asset = await client
+          .from("ai_generated_assets")
+          .select("id,content,asset_type")
+          .eq("id", body.asset_id)
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        if (asset.error) throw asset.error;
+        if (!asset.data || asset.data.asset_type !== "founder_concept") return json(404, { error: "Founder concept asset not found." });
+
+        const consent = await client
+          .from("marketing_clone_consent")
+          .select("id,avatar_permission,voice_permission,approved_usage,approved_platforms,revoked_at")
+          .eq("id", body.consent_id)
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        if (consent.error) throw consent.error;
+        if (!consent.data) return json(404, { error: "Consent record not found." });
+
+        const usage = CLONE_USAGE_TYPES.includes(body.usage) ? body.usage : "social_video";
+        const authz = isDigitalTwinUseAuthorized({
+          consentRow: consent.data,
+          usage,
+          platform: body.platform,
+          needsAvatar: Boolean(body.avatar_profile_id),
+          needsVoice: Boolean(body.voice_profile_id)
+        });
+        if (!authz.authorized) return json(403, { error: `Digital Twin use not authorized: ${authz.reason}.` });
+
+        const cloneRegistry = buildConfiguredCloneProviderRegistry({
+          env: process.env,
+          uploadAudio: (buffer, filename) => uploadClonedVoiceAudio(client, shopId, buffer, filename)
+        });
+        const provider = selectCloneProvider({}, cloneRegistry);
+        if (provider === notLiveCloneProvider) {
+          return json(200, { note: "NOT LIVE — PROVIDER CONNECTION REQUIRED. No avatar/voice provider is connected yet.", asset_id: body.asset_id });
+        }
+
+        const script = [asset.data.content?.body, asset.data.content?.founder_presence_brief].filter(Boolean).join(" ");
+        try {
+          const result = await provider.generateVideo({
+            avatarProfileId: body.avatar_profile_id,
+            voiceProfileId: body.voice_profile_id,
+            script,
+            title: asset.data.content?.headline || "Founder video"
+          });
+          try {
+            await recordCloneVideoJob(client, {
+              shopId,
+              provider: result.provider || "heygen",
+              providerJobId: result.jobId,
+              source: "content_generation"
+            });
+          } catch (correlationError) {
+            console.warn(JSON.stringify({ level: "warn", fn: "marketing-studio", message: "personal_brand_twin_job_record_failed", reason: String(correlationError?.message || correlationError) }));
+          }
+          await writeCommandAudit(client, user.id, "personal_brand_digital_twin_requested", {
+            shopId,
+            targetType: "ai_generated_assets",
+            targetId: body.asset_id,
+            consentId: body.consent_id,
+            platform: body.platform
+          });
+          return json(202, {
+            job_id: result.jobId,
+            status: result.status || "rendering",
+            source_asset_id: body.asset_id,
+            note: "Render kicked off. The finished video will correlate back via the HeyGen webhook/poll (clone_job_status) — no ai_generated_assets row exists for it yet."
+          });
+        } catch (error) {
+          return json(502, { error: String(error?.message || error).slice(0, 300) });
+        }
       }
 
       // Stage E — the reliable-publishing queue. Approving content queues
