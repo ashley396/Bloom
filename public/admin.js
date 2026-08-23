@@ -303,7 +303,17 @@ $('#adminMfaSetupAgain')?.addEventListener('click',async()=>{
 $('#adminLogout').onclick=()=>{clearAdminSession();location.reload()}
 lockAdminShell();
 $$('nav button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+$('#adminNavToggle')?.addEventListener('click',()=>{
+  const open=$('#adminApp').classList.toggle('nav-open');
+  $('#adminNavToggle').setAttribute('aria-expanded',String(open));
+});
+$('#adminNavBackdrop')?.addEventListener('click',()=>{
+  $('#adminApp').classList.remove('nav-open');
+  $('#adminNavToggle')?.setAttribute('aria-expanded','false');
+});
 function setView(name){
+  $('#adminApp').classList.remove('nav-open');
+  $('#adminNavToggle')?.setAttribute('aria-expanded','false');
   $$('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
   $$('.view').forEach(v=>v.classList.toggle('active',v.id===`${name}View`));
   const titles={

@@ -183,10 +183,27 @@ body.admin-locked #adminApp{
   overflow:hidden!important;
   clip:rect(0,0,0,0)!important;
 }
+#adminNavToggle{display:none}
+#adminNavBackdrop{display:none}
 @media(max-width:900px){
   #adminApp{grid-template-columns:1fr}
-  #adminApp>aside,#adminApp>.workspace,#adminApp>.bloom-onboarding-banner{grid-column:1}
-  #adminApp>aside{position:static;height:auto;max-height:none}
+  #adminApp>.workspace,#adminApp>.bloom-onboarding-banner{grid-column:1}
+  #adminApp>aside{
+    position:fixed;top:0;left:0;grid-column:auto;grid-row:auto;
+    width:min(280px,85vw);height:100vh;max-height:100vh;
+    transform:translateX(-100%);transition:transform .25s ease;
+    z-index:50;box-shadow:0 0 40px rgba(35,27,33,.25);
+  }
+  #adminApp.nav-open>aside{transform:translateX(0)}
+  #adminNavBackdrop{
+    display:block;position:fixed;inset:0;background:rgba(35,27,33,.4);
+    z-index:40;opacity:0;pointer-events:none;transition:opacity .2s ease;
+  }
+  #adminApp.nav-open>#adminNavBackdrop{opacity:1;pointer-events:auto}
+  #adminNavToggle{
+    display:inline-flex;align-items:center;gap:6px;
+    background:#fff;color:var(--ink);border:1px solid var(--line);
+  }
   #adminApp>.bloom-onboarding-banner{margin:16px 20px 0}
 }
 .bud-queue-head{align-items:center;margin-bottom:10px}
