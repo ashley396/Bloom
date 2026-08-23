@@ -351,6 +351,11 @@ body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp .admin-onboarding-ho
   }
   body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp > aside {
     grid-column: auto;
+    /* The unconditional rule above sets z-index:5, which loses to the
+       drawer backdrop's z-index:40 (admin.css) — every tap on a nav
+       button was landing on the backdrop instead, which only closes the
+       menu, so the sidebar looked right but did nothing when touched. */
+    z-index: 51;
   }
 }
 
