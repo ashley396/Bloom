@@ -1,14 +1,15 @@
 /**
  * Florisyn Marketing Studio — Founding Beta (admin-only) API surface.
  *
- * Stage B+C only: Brand Brain read/write, connection status (never
- * tokens), usage/cost ledger summary, an honest `status` action reporting
- * exactly what is and isn't live yet, and Stage C's monthly content
- * planner/calendar/approval workflow (plan_month/content_calendar/
- * list_content/approve_content) — WHAT and WHEN a piece of content is,
- * never the actual creative. Real content generation, publishing, and AI
- * Clone job execution land in Stages D-E — this file intentionally does
- * not fake any of that here.
+ * Stage B+C+D: Brand Brain read/write, connection status (never tokens),
+ * usage/cost ledger summary, an honest `status` action, Stage C's monthly
+ * content planner/calendar/approval workflow (plan_month/content_calendar/
+ * list_content/approve_content), and Stage D's real creative generation
+ * (generate_content — real image+copy today, real script/storyboard for
+ * video) plus AI Clone consent capture (request_clone_enrollment/
+ * list_clone_consent/revoke_clone_consent). Actual video rendering,
+ * avatar/voice training, and publishing land in Stage E — this file
+ * intentionally does not fake any of that here.
  *
  * Access control is two layers, both required (Section 5: admin-only must
  * be enforced server-side, not UI-hidden):
@@ -45,13 +46,19 @@ import {
   buildBrandSummary
 } from "./_shared/marketing-brand-brain.js";
 import { SUPPORTED_PLATFORMS, isPlatformLive } from "./_shared/marketing-social-providers.js";
-import { COST_CONFIG_VERSION, DEFAULT_MONTHLY_ALLOWANCE } from "./_shared/marketing-cost-config.js";
+import { selectCloneProvider, notLiveCloneProvider } from "./_shared/marketing-clone-providers.js";
+import { COST_CONFIG_VERSION, DEFAULT_MONTHLY_ALLOWANCE, estimateCostCents } from "./_shared/marketing-cost-config.js";
 import {
   buildMonthlyContentPlan,
   CONTENT_ITEM_APPROVABLE_STATUSES,
   resolveApprovalDecision
 } from "./_shared/marketing-content-planner.js";
+import { validateCloneConsentBody, isConsentActive } from "./_shared/marketing-clone-consent.js";
 import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
+import { generateSocialPost, generateVideoConcept, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
+import { generateImage, buildImagePrompt } from "./_shared/ai-image-engine.js";
+
+const VIDEO_CONTENT_TYPES = new Set(["reel", "short_video", "long_video"]);
 
 function featureGate() {
   if (!isFeatureEnabled("MARKETING_STUDIO")) {
@@ -401,6 +408,307 @@ export function createMarketingStudioHandler(deps = {}) {
           nextStatus
         });
         return json(200, { item: updated.data });
+      }
+
+      // Stage D — real creative generation for one planned content item.
+      // image_post/story/carousel: a real image (Cloudflare) + real copy.
+      // reel/short_video/long_video: a real script/storyboard/captions —
+      // never a rendered video (no video/AI Clone provider is connected;
+      // see marketing-video renderingAvailable:false on the returned
+      // asset). Only runs from status 'idea' — refuses to silently
+      // re-generate (and re-bill) an item that already has creative.
+      if (action === "generate_content" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.content_item_id) return json(400, { error: "content_item_id is required." });
+
+        const currentItem = await client
+          .from("marketing_content_items")
+          .select("id,content_type,title,brief,status")
+          .eq("id", body.content_item_id)
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        if (currentItem.error) {
+          if (missingRelation(currentItem.error)) throw friendlyMissing();
+          throw currentItem.error;
+        }
+        if (!currentItem.data) return json(404, { error: "Content item not found." });
+        if (currentItem.data.status !== "idea") {
+          return json(400, {
+            error: `Cannot generate for a content item in status '${currentItem.data.status}'. Only 'idea' items can be generated — this avoids silently re-billing an already-generated piece.`
+          });
+        }
+
+        const variantsResult = await client
+          .from("marketing_platform_variants")
+          .select("id,platform")
+          .eq("content_item_id", body.content_item_id)
+          .eq("shop_id", shopId);
+        if (variantsResult.error) throw variantsResult.error;
+        const variants = variantsResult.data || [];
+
+        // Lock the row before any real generation call so a concurrent
+        // request can't double-generate (and double-bill) the same item.
+        await client
+          .from("marketing_content_items")
+          .update({ status: "generating", updated_at: new Date().toISOString() })
+          .eq("id", body.content_item_id)
+          .eq("shop_id", shopId);
+
+        async function revertToIdea() {
+          await client
+            .from("marketing_content_items")
+            .update({ status: "idea", updated_at: new Date().toISOString() })
+            .eq("id", body.content_item_id)
+            .eq("shop_id", shopId);
+        }
+
+        async function recordUsage(purpose, unitType, units) {
+          await client.from("marketing_generation_usage").insert({
+            shop_id: shopId,
+            content_item_id: body.content_item_id,
+            provider: "cloudflare",
+            purpose,
+            unit_type: unitType,
+            units,
+            estimated_cost_cents: estimateCostCents({ purpose, unitType, units }),
+            status: "estimated"
+          });
+        }
+
+        const shopRow = await client.from("shops").select("name").eq("id", shopId).maybeSingle();
+        const shopName = shopRow.data?.name || null;
+        const primaryPlatform = variants[0]?.platform || "facebook";
+
+        if (VIDEO_CONTENT_TYPES.has(currentItem.data.content_type)) {
+          await recordUsage("copy", "request", 1);
+          const gen = await generateVideoConcept({
+            persona: "Lily",
+            channel: primaryPlatform,
+            occasion: currentItem.data.title,
+            shop: { name: shopName },
+            requestText: currentItem.data.brief
+          });
+          if (!gen.ok) {
+            await revertToIdea();
+            return json(400, { error: gen.error });
+          }
+          const persisted = await persistGeneratedAsset(client, {
+            shopId,
+            userId: user.id,
+            persona: "Lily",
+            assetType: "video_concept",
+            provider: "cloudflare",
+            model: gen.model,
+            content: gen.content,
+            status: "completed"
+          });
+          if (!persisted.ok) {
+            await revertToIdea();
+            throw new Error(persisted.error);
+          }
+          if (variants.length) {
+            await client
+              .from("marketing_platform_variants")
+              .update({ asset_id: persisted.asset.id, caption: gen.content.script || gen.content.concept || null, hashtags: gen.content.hashtags || [] })
+              .eq("content_item_id", body.content_item_id)
+              .eq("shop_id", shopId);
+          }
+          const updated = await client
+            .from("marketing_content_items")
+            .update({ status: "draft", updated_at: new Date().toISOString() })
+            .eq("id", body.content_item_id)
+            .eq("shop_id", shopId)
+            .select("id,status")
+            .single();
+          if (updated.error) throw updated.error;
+          await writeCommandAudit(client, user.id, "marketing_content_generated", {
+            shopId,
+            targetType: "marketing_content_items",
+            targetId: body.content_item_id,
+            assetType: "video_concept"
+          });
+          return json(200, {
+            item: updated.data,
+            asset: { id: persisted.asset.id, type: "video_concept", content: gen.content },
+            note: "NOT LIVE — PROVIDER CONNECTION REQUIRED for actual video rendering. This is the finished script/storyboard/captions only — connect a generative video or AI Clone provider (Stage E) to render it."
+          });
+        }
+
+        await recordUsage("copy", "request", 1);
+        const copyGen = await generateSocialPost({
+          persona: "Lily",
+          channel: primaryPlatform,
+          occasion: currentItem.data.title,
+          shop: { name: shopName },
+          requestText: currentItem.data.brief
+        });
+        if (!copyGen.ok) {
+          await revertToIdea();
+          return json(400, { error: copyGen.error });
+        }
+
+        let assetId = null;
+        let imageUrl = null;
+        if (currentItem.data.content_type !== "text_post") {
+          await recordUsage("image", "image", 1);
+          const prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief: copyGen.content.visual_brief || currentItem.data.brief });
+          const imageGen = await generateImage(client, shopId, { prompt, filename: `marketing-${body.content_item_id}.jpg` });
+          if (!imageGen.ok) {
+            await revertToIdea();
+            return json(400, { error: imageGen.error });
+          }
+          const mediaRow = await client
+            .from("website_media")
+            .insert({ shop_id: shopId, storage_path: imageGen.path, filename: imageGen.path.split("/").pop(), source: "generated", mime: "image/jpeg" })
+            .select()
+            .single();
+          const persisted = await persistGeneratedAsset(client, {
+            shopId,
+            userId: user.id,
+            persona: "Lily",
+            assetType: "image",
+            provider: imageGen.provider,
+            model: imageGen.model,
+            prompt: imageGen.prompt,
+            content: { url: imageGen.url, caption: copyGen.content.body },
+            mediaId: mediaRow.data?.id || null,
+            status: "completed"
+          });
+          if (!persisted.ok) {
+            await revertToIdea();
+            throw new Error(persisted.error);
+          }
+          assetId = persisted.asset.id;
+          imageUrl = imageGen.url;
+        }
+
+        if (variants.length) {
+          await client
+            .from("marketing_platform_variants")
+            .update({ asset_id: assetId, caption: copyGen.content.body, hashtags: copyGen.content.hashtags || [] })
+            .eq("content_item_id", body.content_item_id)
+            .eq("shop_id", shopId);
+        }
+
+        const updated = await client
+          .from("marketing_content_items")
+          .update({ status: "draft", updated_at: new Date().toISOString() })
+          .eq("id", body.content_item_id)
+          .eq("shop_id", shopId)
+          .select("id,status")
+          .single();
+        if (updated.error) throw updated.error;
+        await writeCommandAudit(client, user.id, "marketing_content_generated", {
+          shopId,
+          targetType: "marketing_content_items",
+          targetId: body.content_item_id,
+          assetType: "image"
+        });
+        return json(200, { item: updated.data, asset: assetId ? { id: assetId, type: "image", url: imageUrl } : null, copy: copyGen.content });
+      }
+
+      // AI Clone (Digital Twin Studio) — Section 10/11. Consent is always
+      // captured for real and is independently revocable. Actual avatar/
+      // voice profile creation goes through the same provider router as
+      // everything else in Stages B/D — today that router has no
+      // configured provider, so every enrollment attempt honestly comes
+      // back not_live. No fake 'ready'/'training' profile is ever created.
+      if (action === "request_clone_enrollment" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        const validation = validateCloneConsentBody(body);
+        if (!validation.valid) return json(400, { error: validation.error });
+
+        const consent = await client
+          .from("marketing_clone_consent")
+          .insert({
+            shop_id: shopId,
+            person_name: validation.sanitized.person_name,
+            avatar_permission: validation.sanitized.avatar_permission,
+            voice_permission: validation.sanitized.voice_permission,
+            approved_usage: validation.sanitized.approved_usage,
+            approved_platforms: validation.sanitized.approved_platforms,
+            granted_by: user.id
+          })
+          .select("id,person_name,avatar_permission,voice_permission,approved_usage,approved_platforms,granted_at")
+          .single();
+        if (consent.error) {
+          if (missingRelation(consent.error)) throw friendlyMissing();
+          throw consent.error;
+        }
+
+        const provider = selectCloneProvider({}, {});
+        const enrollment = {};
+        if (validation.sanitized.avatar_permission) {
+          try {
+            await provider.createAvatarProfile({ consentId: consent.data.id, personName: validation.sanitized.person_name });
+            enrollment.avatar = { status: "ready" };
+          } catch (error) {
+            enrollment.avatar = { status: "not_live", error: error.message };
+          }
+        }
+        if (validation.sanitized.voice_permission) {
+          try {
+            await provider.createVoiceProfile({ consentId: consent.data.id, personName: validation.sanitized.person_name });
+            enrollment.voice = { status: "ready" };
+          } catch (error) {
+            enrollment.voice = { status: "not_live", error: error.message };
+          }
+        }
+
+        await writeCommandAudit(client, user.id, "marketing_clone_consent_granted", {
+          shopId,
+          targetType: "marketing_clone_consent",
+          targetId: consent.data.id
+        });
+
+        return json(201, {
+          consent: consent.data,
+          enrollment,
+          note:
+            provider === notLiveCloneProvider
+              ? "NOT LIVE — PROVIDER CONNECTION REQUIRED. Consent is recorded and independently revocable, but no avatar/voice provider is connected yet — nothing was trained."
+              : undefined
+        });
+      }
+
+      if (action === "list_clone_consent") {
+        const shopId = requireShopId(qs, body);
+        const { data, error } = await client
+          .from("marketing_clone_consent")
+          .select("id,person_name,avatar_permission,voice_permission,approved_usage,approved_platforms,granted_at,revoked_at")
+          .eq("shop_id", shopId)
+          .order("granted_at", { ascending: false });
+        if (error) {
+          if (missingRelation(error)) throw friendlyMissing();
+          throw error;
+        }
+        return json(200, { items: (data || []).map((row) => ({ ...row, active: isConsentActive(row) })) });
+      }
+
+      if (action === "revoke_clone_consent" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.consent_id) return json(400, { error: "consent_id is required." });
+        const updated = await client
+          .from("marketing_clone_consent")
+          .update({ revoked_at: new Date().toISOString(), revoked_by: user.id, updated_at: new Date().toISOString() })
+          .eq("id", body.consent_id)
+          .eq("shop_id", shopId)
+          .select("id,revoked_at")
+          .maybeSingle();
+        if (updated.error) throw updated.error;
+        if (!updated.data) return json(404, { error: "Consent record not found." });
+        // Never leave a profile marked usable once its consent is gone.
+        await client.from("marketing_avatar_profiles").update({ status: "suspended", updated_at: new Date().toISOString() }).eq("consent_id", body.consent_id).eq("shop_id", shopId);
+        await client.from("marketing_voice_profiles").update({ status: "suspended", updated_at: new Date().toISOString() }).eq("consent_id", body.consent_id).eq("shop_id", shopId);
+        await writeCommandAudit(client, user.id, "marketing_clone_consent_revoked", {
+          shopId,
+          targetType: "marketing_clone_consent",
+          targetId: body.consent_id
+        });
+        return json(200, { ok: true, consent_id: body.consent_id });
       }
 
       return methodNotAllowed();
