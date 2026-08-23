@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildCalendarEvents, groupCalendarEventsByMonth } from "../lib/marketing/calendar-events.js";
+import { buildCalendarEvents, groupCalendarEventsByMonth, buildContentCalendarEvents } from "../lib/marketing/calendar-events.js";
 
 test("a single-day item produces one event, a date-range item produces a start and end event", () => {
   const events = buildCalendarEvents({
@@ -53,4 +53,41 @@ test("groupCalendarEventsByMonth buckets events by YYYY-MM in encounter order", 
   );
   assert.equal(grouped[0].items.length, 2);
   assert.equal(grouped[1].items.length, 1);
+});
+
+test("buildContentCalendarEvents: a content item's date is the EARLIEST of its platform variants' scheduled_at", () => {
+  const events = buildContentCalendarEvents({
+    contentItems: [{ id: "item1", title: "Reel — Wedding Season", status: "idea" }],
+    variants: [
+      { content_item_id: "item1", platform: "instagram", scheduled_at: "2027-09-10T12:00:00Z" },
+      { content_item_id: "item1", platform: "facebook", scheduled_at: "2027-09-08T12:00:00Z" }
+    ]
+  });
+  assert.equal(events.length, 1);
+  assert.equal(events[0].date, "2027-09-08");
+  assert.equal(events[0].type, "content");
+  assert.equal(events[0].label, "Reel — Wedding Season");
+  assert.equal(events[0].sublabel, "idea");
+});
+
+test("buildContentCalendarEvents: a content item with no variants yet contributes nothing — never guesses a date", () => {
+  const events = buildContentCalendarEvents({
+    contentItems: [{ id: "item1", title: "Unscheduled idea", status: "idea" }],
+    variants: []
+  });
+  assert.deepEqual(events, []);
+});
+
+test("buildContentCalendarEvents: multiple content items sort chronologically alongside each other", () => {
+  const events = buildContentCalendarEvents({
+    contentItems: [
+      { id: "a", title: "Later", status: "approved" },
+      { id: "b", title: "Earlier", status: "approved" }
+    ],
+    variants: [
+      { content_item_id: "a", platform: "facebook", scheduled_at: "2027-09-20T12:00:00Z" },
+      { content_item_id: "b", platform: "facebook", scheduled_at: "2027-09-05T12:00:00Z" }
+    ]
+  });
+  assert.deepEqual(events.map((e) => e.label), ["Earlier", "Later"]);
 });
