@@ -51,6 +51,30 @@ export async function uploadWebsiteMedia(client, shopId, { dataUrl, filename } =
   };
 }
 
+export const CLONE_AUDIO_MAX_BYTES = 20 * 1024 * 1024;
+
+/**
+ * Uploads a raw audio buffer (e.g. an ElevenLabs-synthesized voice track)
+ * into the same public website-media bucket, under a clone-audio/ prefix.
+ * Not a Website Studio media-library asset — no website_media row is
+ * inserted, and it never appears in that UI — this exists purely so a
+ * generative-video provider (HeyGen) has a real, publicly-fetchable URL
+ * to pull the audio from. Reuses the bucket rather than provisioning a
+ * new one since it's already public with the right storage policies.
+ */
+export async function uploadClonedVoiceAudio(client, shopId, buffer, filename) {
+  if (!Buffer.isBuffer(buffer) || !buffer.length) return { ok: false, error: "Audio buffer is empty." };
+  if (buffer.length > CLONE_AUDIO_MAX_BYTES) {
+    return { ok: false, error: `Audio must be under ${CLONE_AUDIO_MAX_BYTES / (1024 * 1024)} MB.` };
+  }
+  const path = `${shopId}/clone-audio/${crypto.randomUUID()}-${String(filename || "voice").slice(0, 80).replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+  const { error } = await client.storage
+    .from(WEBSITE_MEDIA_BUCKET)
+    .upload(path, buffer, { contentType: "audio/mpeg", upsert: false });
+  if (error) return { ok: false, error: error.message || "Audio upload failed." };
+  return { ok: true, path, url: publicWebsiteMediaUrl(client, path) };
+}
+
 export function publicWebsiteMediaUrl(client, path) {
   const { data } = client.storage.from(WEBSITE_MEDIA_BUCKET).getPublicUrl(path);
   return data?.publicUrl || null;

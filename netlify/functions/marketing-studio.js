@@ -20,6 +20,16 @@
  * ever reports a post as published, or a pattern as proven, before real
  * data says so.
  *
+ * Stage G: the first real provider is wired — HeyGen (avatar) +
+ * ElevenLabs (voice), composed behind the same clone.* interface
+ * (_shared/marketing-clone-provider-heygen-elevenlabs.js). It only
+ * activates once BOTH HEYGEN_API_KEY and ELEVENLABS_API_KEY are actually
+ * set in the environment (buildConfiguredCloneProviderRegistry()) — with
+ * neither (or only one) configured, request_clone_enrollment and
+ * preview_clone_profile still fall back to the not-live stub exactly as
+ * before. Social publishing (Stage E) remains entirely not-live; only the
+ * AI Clone side has a real, activatable provider today.
+ *
  * Access control is two layers, both required (Section 5: admin-only must
  * be enforced server-side, not UI-hidden):
  *   1. isFeatureEnabled("MARKETING_STUDIO") — the kill switch.
@@ -61,7 +71,9 @@ import {
   platformOAuthEnvVarNames,
   notLiveSocialProvider
 } from "./_shared/marketing-social-providers.js";
-import { selectCloneProvider, notLiveCloneProvider } from "./_shared/marketing-clone-providers.js";
+import { selectCloneProvider, notLiveCloneProvider, buildConfiguredCloneProviderRegistry } from "./_shared/marketing-clone-providers.js";
+import { uploadClonedVoiceAudio } from "./_shared/website-media.js";
+import { parseDataUrl } from "./_shared/upload-validation.js";
 import {
   classifyPublishFailure,
   nextJobStateAfterFailure,
@@ -144,6 +156,7 @@ export function createMarketingStudioHandler(deps = {}) {
       const action = String(body.action || qs.action || "status").toLowerCase();
 
       if (action === "status") {
+        const cloneProviderLive = Object.keys(buildConfiguredCloneProviderRegistry({ env: process.env })).length > 0;
         return json(200, {
           marketing_studio_enabled: true,
           access: "admin_only_founding_beta",
@@ -151,8 +164,11 @@ export function createMarketingStudioHandler(deps = {}) {
             platform,
             live: isPlatformLive(platform)
           })),
+          clone_provider: { name: "heygen_elevenlabs", live: cloneProviderLive },
           cost_config_version: COST_CONFIG_VERSION,
-          note: "NOT LIVE — PROVIDER CONNECTION REQUIRED. No social platform, AI Clone, or voice provider is connected yet (Stage B foundation only). See Stage E/D for provider onboarding."
+          note: cloneProviderLive
+            ? "AI Clone (HeyGen avatar + ElevenLabs voice) is connected. Every social platform is still NOT LIVE — PROVIDER CONNECTION REQUIRED."
+            : "NOT LIVE — PROVIDER CONNECTION REQUIRED. No social platform, AI Clone, or voice provider is connected yet. See Stage E/D for provider onboarding."
         });
       }
 
@@ -644,6 +660,25 @@ export function createMarketingStudioHandler(deps = {}) {
         const validation = validateCloneConsentBody(body);
         if (!validation.valid) return json(400, { error: validation.error });
 
+        const cloneRegistry = buildConfiguredCloneProviderRegistry({ env: process.env });
+        const provider = selectCloneProvider({}, cloneRegistry);
+        const providerIsLive = provider !== notLiveCloneProvider;
+
+        // Reference media is required to enroll for real (HeyGen needs
+        // real photo URLs, ElevenLabs needs real recorded audio) — check
+        // this BEFORE writing the consent row so a request that can't
+        // possibly succeed never creates a half-finished consent grant.
+        if (providerIsLive && validation.sanitized.avatar_permission) {
+          if (!Array.isArray(body.reference_photo_urls) || body.reference_photo_urls.length === 0) {
+            return json(400, { error: "avatar_permission requires reference_photo_urls (at least one real, publicly-fetchable photo URL of the consented person)." });
+          }
+        }
+        if (providerIsLive && validation.sanitized.voice_permission) {
+          if (!Array.isArray(body.reference_audio_samples) || body.reference_audio_samples.length === 0) {
+            return json(400, { error: "voice_permission requires reference_audio_samples (at least one real recorded audio sample of the consented person, as a data URL)." });
+          }
+        }
+
         const consent = await client
           .from("marketing_clone_consent")
           .insert({
@@ -662,20 +697,68 @@ export function createMarketingStudioHandler(deps = {}) {
           throw consent.error;
         }
 
-        const provider = selectCloneProvider({}, {});
         const enrollment = {};
         if (validation.sanitized.avatar_permission) {
           try {
-            await provider.createAvatarProfile({ consentId: consent.data.id, personName: validation.sanitized.person_name });
-            enrollment.avatar = { status: "ready" };
+            const result = await provider.createAvatarProfile({
+              personName: validation.sanitized.person_name,
+              referencePhotoUrls: body.reference_photo_urls
+            });
+            if (providerIsLive) {
+              const profileRow = await client
+                .from("marketing_avatar_profiles")
+                .insert({
+                  shop_id: shopId,
+                  consent_id: consent.data.id,
+                  provider: result.provider || provider.name,
+                  provider_profile_id: result.providerProfileId,
+                  status: result.status || "training",
+                  display_name: validation.sanitized.person_name,
+                  created_by: user.id
+                })
+                .select("id,status,provider_profile_id")
+                .single();
+              enrollment.avatar = profileRow.error ? { status: "error", error: profileRow.error.message } : { status: profileRow.data.status, profile_id: profileRow.data.id };
+            } else {
+              enrollment.avatar = { status: "ready" };
+            }
           } catch (error) {
             enrollment.avatar = { status: "not_live", error: error.message };
           }
         }
         if (validation.sanitized.voice_permission) {
           try {
-            await provider.createVoiceProfile({ consentId: consent.data.id, personName: validation.sanitized.person_name });
-            enrollment.voice = { status: "ready" };
+            let audioFiles;
+            if (providerIsLive) {
+              audioFiles = body.reference_audio_samples.map((sample, i) => {
+                const parsed = parseDataUrl(sample?.data_url);
+                if (!parsed) throw new Error(`reference_audio_samples[${i}] is not a valid data URL.`);
+                return { blob: new Blob([parsed.buffer], { type: parsed.mime }), filename: sample.filename || `sample-${i}.mp3` };
+              });
+            }
+            const result = await provider.createVoiceProfile({
+              personName: validation.sanitized.person_name,
+              referenceAudioFiles: audioFiles,
+              description: `Florisyn AI Clone voice for ${validation.sanitized.person_name}`
+            });
+            if (providerIsLive) {
+              const profileRow = await client
+                .from("marketing_voice_profiles")
+                .insert({
+                  shop_id: shopId,
+                  consent_id: consent.data.id,
+                  provider: result.provider || provider.name,
+                  provider_profile_id: result.providerProfileId,
+                  status: result.status || "ready",
+                  display_name: validation.sanitized.person_name,
+                  created_by: user.id
+                })
+                .select("id,status,provider_profile_id")
+                .single();
+              enrollment.voice = profileRow.error ? { status: "error", error: profileRow.error.message } : { status: profileRow.data.status, profile_id: profileRow.data.id };
+            } else {
+              enrollment.voice = { status: "ready" };
+            }
           } catch (error) {
             enrollment.voice = { status: "not_live", error: error.message };
           }
@@ -684,17 +767,55 @@ export function createMarketingStudioHandler(deps = {}) {
         await writeCommandAudit(client, user.id, "marketing_clone_consent_granted", {
           shopId,
           targetType: "marketing_clone_consent",
-          targetId: consent.data.id
+          targetId: consent.data.id,
+          providerLive: providerIsLive
         });
 
         return json(201, {
           consent: consent.data,
           enrollment,
-          note:
-            provider === notLiveCloneProvider
-              ? "NOT LIVE — PROVIDER CONNECTION REQUIRED. Consent is recorded and independently revocable, but no avatar/voice provider is connected yet — nothing was trained."
-              : undefined
+          note: providerIsLive
+            ? undefined
+            : "NOT LIVE — PROVIDER CONNECTION REQUIRED. Consent is recorded and independently revocable, but no avatar/voice provider is connected yet — nothing was trained."
         });
+      }
+
+      // Real-time sanity check before committing to a full enrollment —
+      // synthesizes a short line with an already-cloned ElevenLabs voice
+      // (and, if avatarProfileId is given, a short HeyGen preview video)
+      // so Ashley can hear/see the clone before approving it for real
+      // campaign use. Requires the voice/avatar profile to already exist
+      // (i.e. request_clone_enrollment has already run for real).
+      if (action === "preview_clone_profile" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.voice_profile_id && !body.avatar_profile_id) {
+          return json(400, { error: "voice_profile_id or avatar_profile_id is required." });
+        }
+        if (!body.script) return json(400, { error: "script is required." });
+
+        const cloneRegistry = buildConfiguredCloneProviderRegistry({
+          env: process.env,
+          uploadAudio: (buffer, filename) => uploadClonedVoiceAudio(client, shopId, buffer, filename)
+        });
+        const provider = selectCloneProvider({}, cloneRegistry);
+        if (provider === notLiveCloneProvider) {
+          return json(200, { note: "NOT LIVE — PROVIDER CONNECTION REQUIRED. No avatar/voice provider is connected yet." });
+        }
+
+        try {
+          const result = await provider.preview({
+            voiceProfileId: body.voice_profile_id,
+            avatarProfileId: body.avatar_profile_id,
+            script: body.script
+          });
+          if (result.audioBuffer) {
+            return json(200, { kind: "audio", audioBase64: result.audioBuffer.toString("base64"), mime: result.mime });
+          }
+          return json(200, { kind: "video", jobId: result.jobId, status: result.status });
+        } catch (error) {
+          return json(502, { error: error.message });
+        }
       }
 
       if (action === "list_clone_consent") {
