@@ -1,19 +1,24 @@
 /**
  * Florisyn Marketing Studio — Founding Beta (admin-only) API surface.
  *
- * Stage B+C+D+E: Brand Brain read/write, connection status (never tokens),
- * usage/cost ledger summary, an honest `status` action, Stage C's monthly
- * content planner/calendar/approval workflow (plan_month/content_calendar/
- * list_content/approve_content), Stage D's real creative generation
- * (generate_content — real image+copy today, real script/storyboard for
- * video) plus AI Clone consent capture (request_clone_enrollment/
- * list_clone_consent/revoke_clone_consent), and Stage E's reliable
- * publishing queue (enqueue_publish/run_publishing_queue/publishing_health/
- * connect_platform/disconnect_platform) — real retry/backoff/dead-letter
- * machinery, but every actual publish attempt fails honestly today because
- * no platform has a live, approved adapter (see
- * _shared/marketing-social-providers.js). Nothing here ever reports a post
- * as published unless a real provider actually says so.
+ * Stage B+C+D+E+F: Brand Brain read/write, connection status (never
+ * tokens), usage/cost ledger summary, an honest `status` action, Stage C's
+ * monthly content planner/calendar/approval workflow (plan_month/
+ * content_calendar/list_content/approve_content), Stage D's real creative
+ * generation (generate_content — real image+copy today, real script/
+ * storyboard for video) plus AI Clone consent capture
+ * (request_clone_enrollment/list_clone_consent/revoke_clone_consent),
+ * Stage E's reliable publishing queue (enqueue_publish/
+ * run_publishing_queue/publishing_health/connect_platform/
+ * disconnect_platform), and Stage F's intelligence layer
+ * (analytics_summary/list_insights/create_ab_experiment/
+ * list_ab_experiments/evaluate_ab_experiment) — real machinery throughout,
+ * but every actual publish attempt fails honestly today because no
+ * platform has a live, approved adapter (see
+ * _shared/marketing-social-providers.js), so Stage F's engagement/insight/
+ * experiment data stays honestly empty until that changes. Nothing here
+ * ever reports a post as published, or a pattern as proven, before real
+ * data says so.
  *
  * Access control is two layers, both required (Section 5: admin-only must
  * be enforced server-side, not UI-hidden):
@@ -73,6 +78,9 @@ import { validateCloneConsentBody, isConsentActive } from "./_shared/marketing-c
 import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
 import { generateSocialPost, generateVideoConcept, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
 import { generateImage, buildImagePrompt } from "./_shared/ai-image-engine.js";
+import { buildMarketingStudioAnalyticsSummary } from "./_shared/marketing-analytics.js";
+import { groupMetricsByDimension } from "./_shared/marketing-insights.js";
+import { validateExperimentBody, determineExperimentWinner } from "./_shared/marketing-ab-testing.js";
 
 const VIDEO_CONTENT_TYPES = new Set(["reel", "short_video", "long_video"]);
 
@@ -955,6 +963,183 @@ export function createMarketingStudioHandler(deps = {}) {
         }
         await writeCommandAudit(client, user.id, "marketing_platform_disconnected", { shopId, targetType: "marketing_social_connections", targetId: platform });
         return json(200, { ok: true, platform });
+      }
+
+      // Stage F — intelligence. Every number below is derived from
+      // Florisyn's own real tables; engagement/insight/experiment data
+      // stays honestly empty until Stage E actually publishes something
+      // for real and marketing_performance_metrics gets real rows from a
+      // platform's own API (source is DB-constrained to 'platform_api' —
+      // see the Stage B migration — so there is no path for a fabricated
+      // metric to reach this code at all).
+      if (action === "analytics_summary") {
+        const shopId = requireShopId(qs, body);
+        const [contentItemsResult, jobsResult, usageResult, metricsResult] = await Promise.all([
+          client.from("marketing_content_items").select("status").eq("shop_id", shopId),
+          client.from("marketing_publishing_jobs").select("status").eq("shop_id", shopId),
+          client.from("marketing_generation_usage").select("status,estimated_cost_cents,actual_cost_cents").eq("shop_id", shopId),
+          client.from("marketing_performance_metrics").select("platform,metric_name,raw_value,source").eq("shop_id", shopId)
+        ]);
+        for (const r of [contentItemsResult, jobsResult, usageResult, metricsResult]) {
+          if (r.error) {
+            if (missingRelation(r.error)) throw friendlyMissing();
+            throw r.error;
+          }
+        }
+        return json(
+          200,
+          buildMarketingStudioAnalyticsSummary({
+            contentItems: contentItemsResult.data || [],
+            jobs: jobsResult.data || [],
+            usageRows: usageResult.data || [],
+            metricRows: metricsResult.data || []
+          })
+        );
+      }
+
+      // Closed-loop learning (Section 27) — groups real fetched metrics by
+      // platform and labels each group by real sample size alone
+      // (observation/correlation/recommendation). Empty today; wired for
+      // the moment real data exists.
+      if (action === "list_insights") {
+        const shopId = requireShopId(qs, body);
+        const metricName = String(qs.metric || body.metric || "").trim();
+        if (!metricName) return json(400, { error: "metric is required (e.g. 'likes', 'engagement_rate')." });
+        const metricsResult = await client
+          .from("marketing_performance_metrics")
+          .select("platform,raw_value,source")
+          .eq("shop_id", shopId)
+          .eq("metric_name", metricName)
+          .eq("source", "platform_api");
+        if (metricsResult.error) {
+          if (missingRelation(metricsResult.error)) throw friendlyMissing();
+          throw metricsResult.error;
+        }
+        const rows = (metricsResult.data || []).map((r) => ({ platform: r.platform, value: r.raw_value }));
+        const groups = groupMetricsByDimension(rows, "platform");
+        return json(200, { metric: metricName, groups });
+      }
+
+      if (action === "create_ab_experiment" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        const validation = validateExperimentBody(body);
+        if (!validation.valid) return json(400, { error: validation.error });
+        const inserted = await client
+          .from("marketing_ab_experiments")
+          .insert({
+            shop_id: shopId,
+            campaign_id: body.campaign_id || null,
+            hypothesis: validation.sanitized.hypothesis,
+            variants: validation.sanitized.variants,
+            metric: validation.sanitized.metric,
+            duration_days: validation.sanitized.duration_days,
+            status: "draft",
+            created_by: user.id
+          })
+          .select("id,hypothesis,variants,metric,duration_days,status,created_at")
+          .single();
+        if (inserted.error) {
+          if (missingRelation(inserted.error)) throw friendlyMissing();
+          throw inserted.error;
+        }
+        await writeCommandAudit(client, user.id, "marketing_ab_experiment_created", { shopId, targetType: "marketing_ab_experiments", targetId: inserted.data.id });
+        return json(201, { experiment: inserted.data });
+      }
+
+      if (action === "list_ab_experiments") {
+        const shopId = requireShopId(qs, body);
+        const { data, error } = await client
+          .from("marketing_ab_experiments")
+          .select("id,hypothesis,variants,metric,duration_days,status,outcome,started_at,ended_at,created_at")
+          .eq("shop_id", shopId)
+          .order("created_at", { ascending: false });
+        if (error) {
+          if (missingRelation(error)) throw friendlyMissing();
+          throw error;
+        }
+        return json(200, { items: data || [] });
+      }
+
+      if (action === "evaluate_ab_experiment" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.experiment_id) return json(400, { error: "experiment_id is required." });
+        const experimentResult = await client
+          .from("marketing_ab_experiments")
+          .select("id,variants,metric,status,started_at")
+          .eq("id", body.experiment_id)
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        if (experimentResult.error) {
+          if (missingRelation(experimentResult.error)) throw friendlyMissing();
+          throw experimentResult.error;
+        }
+        if (!experimentResult.data) return json(404, { error: "Experiment not found." });
+        const experiment = experimentResult.data;
+        if (!Array.isArray(experiment.variants) || experiment.variants.length < 2) {
+          return json(400, { error: "This experiment has fewer than 2 variants recorded." });
+        }
+
+        const contentItemIds = experiment.variants.map((v) => v.content_item_id).filter(Boolean);
+        const variantsResult = contentItemIds.length
+          ? await client.from("marketing_platform_variants").select("id,content_item_id").in("content_item_id", contentItemIds)
+          : { data: [], error: null };
+        if (variantsResult.error) throw variantsResult.error;
+        const platformVariantIds = (variantsResult.data || []).map((v) => v.id);
+        const variantIdToContentItem = new Map((variantsResult.data || []).map((v) => [v.id, v.content_item_id]));
+
+        let metricRows = [];
+        if (platformVariantIds.length) {
+          const metricsResult = await client
+            .from("marketing_performance_metrics")
+            .select("platform_variant_id,raw_value,source")
+            .in("platform_variant_id", platformVariantIds)
+            .eq("metric_name", experiment.metric)
+            .eq("source", "platform_api");
+          if (metricsResult.error) throw metricsResult.error;
+          metricRows = metricsResult.data || [];
+        }
+
+        const contentItemToLabel = new Map(experiment.variants.map((v) => [v.content_item_id, v.label]));
+        const rowsWithLabel = metricRows
+          .map((row) => {
+            const contentItemId = variantIdToContentItem.get(row.platform_variant_id);
+            const label = contentItemToLabel.get(contentItemId);
+            return label ? { label, value: row.raw_value } : null;
+          })
+          .filter(Boolean);
+        const grouped = groupMetricsByDimension(rowsWithLabel, "label");
+        // Every declared variant must appear, even with zero real data —
+        // never silently drop a variant with no metrics yet from the
+        // comparison.
+        const results = experiment.variants.map((v) => {
+          const found = grouped.find((g) => g.key === v.label);
+          return found ? { label: v.label, sampleSize: found.sampleSize, average: found.average } : { label: v.label, sampleSize: 0, average: 0 };
+        });
+
+        const outcome = determineExperimentWinner(results);
+        const updated = await client
+          .from("marketing_ab_experiments")
+          .update({
+            outcome: { ...outcome, results },
+            status: outcome.winner ? "completed" : "running",
+            started_at: experiment.started_at || new Date().toISOString(),
+            ended_at: outcome.winner ? new Date().toISOString() : null,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", body.experiment_id)
+          .eq("shop_id", shopId)
+          .select("id,status,outcome")
+          .single();
+        if (updated.error) throw updated.error;
+        await writeCommandAudit(client, user.id, "marketing_ab_experiment_evaluated", {
+          shopId,
+          targetType: "marketing_ab_experiments",
+          targetId: body.experiment_id,
+          outcome: outcome.reason
+        });
+        return json(200, { experiment: updated.data });
       }
 
       return methodNotAllowed();
