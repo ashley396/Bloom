@@ -163,9 +163,54 @@ health check fails.
 None of these are code problems — they're commitments only you can make. I'll present the actual
 experiment/cost/runtime proposal once you've picked a direction, per the Cost Control gate.
 
-## 7. Phase A safe work completed in this pass
+## 7. Phase A progress log
 
-Documentation only — this file. No provider code touched, no existing behavior changed, full test
-suite unaffected. Extracting `VoiceEngine`/`AvatarEngine` from the composite adapter (next actual
-code step) is scoped separately so it can be reviewed and tested on its own, without bundling it
-into this planning document.
+**Pass 1 — audit + design (docs only).** This file. No provider code touched.
+
+**Pass 2 — VoiceEngine / AvatarEngine extraction (COMPLETED).**
+
+`netlify/functions/_shared/creative-ai/voice-engine.js` and `.../avatar-engine.js` now exist as
+standalone provider-registry modules, matching `marketing-clone-providers.js`'s exact pattern
+(`notLive*Provider` fail-closed default, `build*Registry({env})`, `select*Provider(criteria,
+registry)`). Each wraps the existing vendor HTTP client (`marketing-elevenlabs-client.js`,
+`marketing-heygen-client.js`) rather than re-implementing it — zero new vendor-calling logic.
+
+- `marketing-clone-provider-heygen-elevenlabs.js` (Marketing Studio's clone composite) is now
+  *built from* these two engines instead of importing the vendor clients directly. Its external
+  contract (`PROVIDER_NAME`, `heygenElevenLabsConfigured`, `createHeygenElevenLabsCloneProvider`
+  and every method on it) is byte-identical — all 18 pre-existing tests for this file pass
+  unchanged, with zero test edits.
+- `assistant-tts.js` (Lily/Rose/Daisy/Bud voices) now calls `VoiceEngine` instead of running its
+  own independent `fetch()` to `api.elevenlabs.io` — **gap #1 from the audit is closed**: there is
+  now exactly one ElevenLabs HTTP client in the codebase
+  (`grep -rl "api.elevenlabs.io\|api.heygen.com" netlify/functions` returns only the two client
+  files themselves). Assistant voice tuning (`stability`/`similarity_boost`/`style`/
+  `use_speaker_boost`) is preserved via an optional `voiceSettings` passthrough added to
+  `synthesizeElevenLabsSpeech()` — omitted entirely for every other caller, so ElevenLabs' own
+  defaults keep applying unchanged for the Marketing Studio clone path.
+- `marketing-elevenlabs-client.js` gained two purely additive fields on failure responses
+  (`httpStatus`, and the optional `voiceSettings` request param) — no existing field removed or
+  renamed, all 8 pre-existing tests for this file pass unchanged.
+- `assistant-tts.js` had zero test coverage before this pass; added 8 new handler tests (missing
+  key, missing text, missing persona voice, success path with voice-settings assertion, 401→502
+  mapping, generic failure→503, network exception→503, OPTIONS/method handling).
+- 18 new tests for the two engines themselves (fail-closed defaults, registry building, real HTTP
+  delegation via mocked `fetch`).
+
+**Verified (per §29's checklist):** assistant TTS works (8 new tests) · Lily/Rose/Daisy/Bud voice
+tuning intact (voiceSettings assertion) · Marketing Clone voice/avatar/video generation unchanged
+(18 pre-existing tests, zero edits, all passing) · consent/revocation untouched (no file in that
+path was touched) · provider selection deterministic (`selectVoiceProvider`/`selectAvatarProvider`
+return the first — and today, only — registered adapter) · unavailable providers fail closed
+(`notLiveVoiceProvider`/`notLiveAvatarProvider`, both throw typed errors on every method) · no
+direct vendor `fetch()` remains outside the two client files · full repo suite:
+**2123/2123 passing** (2095 before this pass + 28 new).
+
+**Step 3 (provider coupling audit) — result:** clean. The only two files that import `fetch()`
+against `api.elevenlabs.io`/`api.heygen.com` are the vendor client files themselves
+(`marketing-elevenlabs-client.js`, `marketing-heygen-client.js`), both now reached exclusively
+through their respective engine. No further consolidation needed.
+
+**Not done in this pass (deliberately out of scope):** the Capability Matrix (§30/Step 4) and the
+Voice Experiment 001 proposal (§Step 5) are separate deliverables, not bundled into this
+architecture-extraction commit so each can be reviewed on its own.

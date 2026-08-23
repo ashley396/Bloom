@@ -1,10 +1,22 @@
 /**
- * The first REAL clone.* adapter (Stage G activation) — HeyGen for avatar
- * video, ElevenLabs for voice cloning/synthesis, composed behind the same
- * clone.* interface every not-live stub implements
+ * The Marketing Studio clone.* adapter (Stage G activation) — HeyGen for
+ * avatar video, ElevenLabs for voice cloning/synthesis, composed behind
+ * the same clone.* interface every not-live stub implements
  * (marketing-clone-providers.js). Chosen per Ashley's Stage G provider
  * decision: both bill per-generation with no subscription floor, matching
  * this app's cost-ledger/job-queue architecture.
+ *
+ * Creative AI master plan, Phase A Step 2 (see
+ * docs/production/FLORISYN_CREATIVE_AI_MASTER_PLAN.md): this file no
+ * longer owns any vendor HTTP calls itself — it's built from the two
+ * standalone provider engines (creative-ai/voice-engine.js,
+ * creative-ai/avatar-engine.js), which is what those engines are also
+ * used independently by (assistant-tts.js's Lily/Rose/Daisy/Bud voices go
+ * through VoiceEngine now too). This file exists because Marketing
+ * Studio's clone workflow is the one caller that genuinely needs both
+ * engines together — an avatar video lip-synced to a freshly-cloned
+ * voice — everything else about the two vendors stays reachable
+ * independently through their own engine.
  *
  * Voice generation is synchronous (ElevenLabs TTS returns finished audio
  * directly); avatar video generation is asynchronous (HeyGen renders take
@@ -18,24 +30,13 @@
  *
  * generateVideo() needs a real, publicly-fetchable URL to hand HeyGen the
  * ElevenLabs-synthesized audio — hosting those bytes is a Supabase Storage
- * concern (website-media.js), not something a vendor-API client file
- * should own. `uploadAudio` is injected at construction time so this file
- * stays a pure HTTP-calling adapter, testable without a database.
+ * concern (website-media.js), not something this composition layer should
+ * own. `uploadAudio` is injected at construction time so this file stays
+ * pure orchestration, testable without a database.
  */
 
-import {
-  heygenConfigured,
-  createHeygenVideo,
-  getHeygenVideoStatus,
-  createHeygenPhotoAvatarGroup,
-  trainHeygenPhotoAvatarGroup
-} from "./marketing-heygen-client.js";
-import {
-  elevenLabsConfigured,
-  cloneElevenLabsVoice,
-  synthesizeElevenLabsSpeech,
-  deleteElevenLabsVoice
-} from "./marketing-elevenlabs-client.js";
+import { createElevenLabsVoiceProvider, elevenLabsVoiceConfigured } from "./creative-ai/voice-engine.js";
+import { createHeygenAvatarProvider, heygenAvatarConfigured } from "./creative-ai/avatar-engine.js";
 import { estimateCostCents } from "./marketing-cost-config.js";
 
 export const PROVIDER_NAME = "heygen_elevenlabs";
@@ -45,7 +46,7 @@ export const PROVIDER_NAME = "heygen_elevenlabs";
  * providers. Never true from a partial (avatar-only or voice-only) setup,
  * since this composite adapter's generateVideo() needs both. */
 export function heygenElevenLabsConfigured(env = process.env) {
-  return heygenConfigured(env) && elevenLabsConfigured(env);
+  return heygenAvatarConfigured(env) && elevenLabsVoiceConfigured(env);
 }
 
 function providerError(message) {
@@ -61,30 +62,28 @@ function providerError(message) {
  *   Required for generateVideo() specifically — every other method works without it.
  */
 export function createHeygenElevenLabsCloneProvider({ env = process.env, uploadAudio } = {}) {
-  const heygenApiKey = String(env.HEYGEN_API_KEY || "").trim();
-  const elevenLabsApiKey = String(env.ELEVENLABS_API_KEY || "").trim();
+  const voiceProvider = createElevenLabsVoiceProvider({ env });
+  const avatarProvider = createHeygenAvatarProvider({ env });
 
   return Object.freeze({
     name: PROVIDER_NAME,
 
     async createAvatarProfile({ personName, referencePhotoUrls } = {}) {
-      const group = await createHeygenPhotoAvatarGroup({ apiKey: heygenApiKey, name: personName, photoUrls: referencePhotoUrls });
-      if (!group.ok) throw providerError(group.error);
-      const trained = await trainHeygenPhotoAvatarGroup({ apiKey: heygenApiKey, groupId: group.groupId });
-      if (!trained.ok) throw providerError(trained.error);
-      return { providerProfileId: group.groupId, status: "training", provider: "heygen" };
+      const result = await avatarProvider.createProfile({ personName, referencePhotoUrls });
+      if (!result.ok) throw providerError(result.error);
+      return { providerProfileId: result.groupId, status: result.status, provider: "heygen" };
     },
 
     async createVoiceProfile({ personName, referenceAudioFiles, description } = {}) {
-      const cloned = await cloneElevenLabsVoice({ apiKey: elevenLabsApiKey, name: personName, audioFiles: referenceAudioFiles, description });
-      if (!cloned.ok) throw providerError(cloned.error);
+      const result = await voiceProvider.clone({ name: personName, audioFiles: referenceAudioFiles, description });
+      if (!result.ok) throw providerError(result.error);
       // ElevenLabs voice cloning is immediate — no separate training wait
       // the way HeyGen's avatar flow has one.
-      return { providerProfileId: cloned.voiceId, status: "ready", provider: "elevenlabs" };
+      return { providerProfileId: result.voiceId, status: "ready", provider: "elevenlabs" };
     },
 
     async generateVoice({ voiceProfileId, text, modelId } = {}) {
-      const result = await synthesizeElevenLabsSpeech({ apiKey: elevenLabsApiKey, voiceId: voiceProfileId, text, modelId });
+      const result = await voiceProvider.synthesize({ voiceId: voiceProfileId, text, modelId });
       if (!result.ok) throw providerError(result.error);
       return { audioBuffer: result.audioBuffer, mime: result.mime, provider: "elevenlabs" };
     },
@@ -93,13 +92,13 @@ export function createHeygenElevenLabsCloneProvider({ env = process.env, uploadA
       if (typeof uploadAudio !== "function") {
         throw providerError("generateVideo requires an uploadAudio dependency to host the synthesized voice track for HeyGen.");
       }
-      const speech = await synthesizeElevenLabsSpeech({ apiKey: elevenLabsApiKey, voiceId: voiceProfileId, text: script });
+      const speech = await voiceProvider.synthesize({ voiceId: voiceProfileId, text: script });
       if (!speech.ok) throw providerError(`Voice synthesis failed: ${speech.error}`);
 
       const uploaded = await uploadAudio(speech.audioBuffer, `clone-voice-${Date.now()}.mp3`);
       if (!uploaded.ok) throw providerError(`Could not host synthesized audio for HeyGen: ${uploaded.error}`);
 
-      const video = await createHeygenVideo({ apiKey: heygenApiKey, avatarId: avatarProfileId, audioUrl: uploaded.url, title, aspectRatio });
+      const video = await avatarProvider.generateVideo({ avatarId: avatarProfileId, audioUrl: uploaded.url, title, aspectRatio });
       if (!video.ok) throw providerError(video.error);
       return { jobId: video.videoId, status: "rendering", provider: "heygen", audioUrl: uploaded.url };
     },
@@ -120,15 +119,16 @@ export function createHeygenElevenLabsCloneProvider({ env = process.env, uploadA
     async getJobStatus(jobId) {
       // Only avatar video is a real async job here — voice synthesis is
       // synchronous and never produces a jobId to poll.
-      const status = await getHeygenVideoStatus({ apiKey: heygenApiKey, videoId: jobId });
-      if (!status.ok) throw providerError(status.error);
-      return { status: status.status, terminal: status.terminal, resultUrl: status.videoUrl, error: status.error };
+      const result = await avatarProvider.getJobStatus(jobId);
+      if (!result.ok) throw providerError(result.error);
+      return { status: result.status, terminal: result.terminal, resultUrl: result.videoUrl, error: result.error };
     },
 
-    async cancelJob(_jobId) {
-      // HeyGen does not document a video-cancellation endpoint — honest
-      // "not supported" rather than guessing one that might not exist.
-      throw providerError("HeyGen does not support canceling an in-progress video render.");
+    async cancelJob(jobId) {
+      const result = await avatarProvider.cancelJob(jobId);
+      // avatarProvider.cancelJob() never actually succeeds today (HeyGen
+      // doesn't support it) — always throw with its real reason.
+      throw providerError(result.error);
     },
 
     /** Accepts { profileId, kind: 'avatar' | 'voice' } — the base clone.*
@@ -137,7 +137,7 @@ export function createHeygenElevenLabsCloneProvider({ env = process.env, uploadA
      * delete without changing the interface's call shape. */
     async deleteProfile({ profileId, kind } = {}) {
       if (kind === "voice") {
-        const result = await deleteElevenLabsVoice({ apiKey: elevenLabsApiKey, voiceId: profileId });
+        const result = await voiceProvider.delete({ voiceId: profileId });
         if (!result.ok) throw providerError(result.error);
         return { deleted: true, provider: "elevenlabs" };
       }

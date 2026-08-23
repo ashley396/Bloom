@@ -60,7 +60,7 @@ export async function cloneElevenLabsVoice({ apiKey, name, audioFiles, descripti
   const payload = await parseJsonSafely(response);
   if (!response.ok) {
     const detail = payload?.detail?.message || payload?.message || `ElevenLabs returned ${response.status}`;
-    return { ok: false, error: detail };
+    return { ok: false, error: detail, httpStatus: response.status };
   }
   const voiceId = payload?.voice_id;
   if (!voiceId) return { ok: false, error: "ElevenLabs response carried no voice_id." };
@@ -72,18 +72,24 @@ export async function cloneElevenLabsVoice({ apiKey, name, audioFiles, descripti
  * go (e.g. uploading through website-media.js to get a public URL a video
  * provider like HeyGen can fetch). Synchronous — ElevenLabs TTS returns
  * finished audio directly in the response, no job polling needed. */
-export async function synthesizeElevenLabsSpeech({ apiKey, voiceId, text, modelId = DEFAULT_MODEL_ID } = {}) {
+export async function synthesizeElevenLabsSpeech({ apiKey, voiceId, text, modelId = DEFAULT_MODEL_ID, voiceSettings } = {}) {
   if (!apiKey) return { ok: false, error: "ElevenLabs API key is required." };
   if (!voiceId) return { ok: false, error: "voiceId is required." };
   const cleanText = String(text || "").trim();
   if (!cleanText) return { ok: false, error: "text is required." };
+
+  const requestBody = { text: cleanText.slice(0, 5000), model_id: modelId };
+  // Optional — omitted entirely unless a caller passes it, so ElevenLabs'
+  // own defaults keep applying exactly as before for every existing
+  // caller that never set this (VoiceEngine callers opt in explicitly).
+  if (voiceSettings) requestBody.voice_settings = voiceSettings;
 
   let response;
   try {
     response = await fetch(`${ELEVENLABS_API_BASE}/v1/text-to-speech/${encodeURIComponent(voiceId)}`, {
       method: "POST",
       headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ text: cleanText.slice(0, 5000), model_id: modelId })
+      body: JSON.stringify(requestBody)
     });
   } catch (error) {
     return { ok: false, error: `ElevenLabs speech request failed: ${String(error?.message || error).slice(0, 200)}` };
@@ -92,7 +98,7 @@ export async function synthesizeElevenLabsSpeech({ apiKey, voiceId, text, modelI
   if (!response.ok) {
     const payload = await parseJsonSafely(response);
     const detail = payload?.detail?.message || payload?.message || `ElevenLabs returned ${response.status}`;
-    return { ok: false, error: detail };
+    return { ok: false, error: detail, httpStatus: response.status };
   }
 
   let audioBuffer;
@@ -127,7 +133,7 @@ export async function deleteElevenLabsVoice({ apiKey, voiceId } = {}) {
   if (!response.ok) {
     const payload = await parseJsonSafely(response);
     const detail = payload?.detail?.message || payload?.message || `ElevenLabs returned ${response.status}`;
-    return { ok: false, error: detail };
+    return { ok: false, error: detail, httpStatus: response.status };
   }
   return { ok: true };
 }
