@@ -61,6 +61,15 @@ const DEFAULT_FLAGS = {
    * Marketing is one command center instead of disconnected tools.
    */
   MARKETING_CAMPAIGNS: true,
+  /**
+   * Marketing Studio — Lily as AI Marketing Director (Brand Brain, AI
+   * Clone/Voice Clone, generative video, 7-platform social publishing).
+   * SAFE DEFAULT OFF: Founding Beta build, gated server-side to
+   * super_admin via platformAdmin() on top of this flag, not just this
+   * flag alone. Do not flip default true until Stage G's internal beta
+   * explicitly widens access — see Section 5/40 of the build directive.
+   */
+  MARKETING_STUDIO: false,
 };
 
 function envFlag(name, fallback, env = process.env) {
