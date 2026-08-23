@@ -95,6 +95,8 @@ import {
   CONTENT_ITEM_APPROVABLE_STATUSES,
   resolveApprovalDecision
 } from "./_shared/marketing-content-planner.js";
+import { recordCloneVideoJob, getCloneVideoJob } from "./_shared/creative-ai/clone-video-jobs.js";
+import { determineDisclosureRequirement, enforcePrePublishDisclosureGate } from "./_shared/creative-ai/disclosure-policy.js";
 import { validateCloneConsentBody, isConsentActive } from "./_shared/marketing-clone-consent.js";
 import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
 import { generateSocialPost, generateVideoConcept, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
@@ -837,6 +839,24 @@ export function createMarketingStudioHandler(deps = {}) {
           if (result.audioBuffer) {
             return json(200, { kind: "audio", audioBase64: result.audioBuffer.toString("base64"), mime: result.mime });
           }
+          // Job correlation: persist the mapping from HeyGen's own job id
+          // back to this shop BEFORE returning, so heygen-webhook.js has
+          // something real to correlate against once HeyGen calls back —
+          // without this row the webhook would have no way to know which
+          // shop a bare video_id belongs to. A failure here never turns an
+          // otherwise-successful render kickoff into a false error — the
+          // caller still gets a real jobId and can fall back to polling
+          // (clone_job_status) exactly as before this pass.
+          try {
+            await recordCloneVideoJob(client, {
+              shopId,
+              provider: result.provider || "heygen",
+              providerJobId: result.jobId,
+              source: "preview"
+            });
+          } catch (correlationError) {
+            console.warn(JSON.stringify({ level: "warn", fn: "marketing-studio", message: "clone_video_job_record_failed", reason: String(correlationError?.message || correlationError) }));
+          }
           return json(200, { kind: "video", jobId: result.jobId, status: result.status });
         } catch (error) {
           return json(502, { error: error.message });
@@ -846,9 +866,36 @@ export function createMarketingStudioHandler(deps = {}) {
       // Polls a HeyGen video-render job started by generateVideo/preview's
       // video path. Voice-only previews never produce a jobId (synthesis is
       // synchronous), so this only ever matters for the avatar-video path.
+      //
+      // Checks the webhook-updated persisted job row FIRST: if
+      // heygen-webhook.js already correlated a completion/failure event for
+      // this job, that's returned directly — cheaper and faster than a live
+      // HeyGen call, and it means a client polling right after the webhook
+      // fires sees the result immediately rather than racing HeyGen's own
+      // eventual-consistency window. If no persisted row exists, or it's
+      // still 'rendering' (no webhook has landed yet), this falls straight
+      // through to the exact same live-poll behavior as before this pass —
+      // the polling fallback is fully preserved, not replaced.
       if (action === "clone_job_status") {
         const shopId = requireShopId(qs, body);
-        if (!qs.job_id && !body.job_id) return json(400, { error: "job_id is required." });
+        const jobId = qs.job_id || body.job_id;
+        if (!jobId) return json(400, { error: "job_id is required." });
+
+        try {
+          const persisted = await getCloneVideoJob(client, { provider: "heygen", providerJobId: jobId });
+          if (persisted && persisted.shop_id === shopId && persisted.status !== "rendering") {
+            return json(200, {
+              status: persisted.status,
+              terminal: true,
+              resultUrl: persisted.result_url,
+              error: persisted.error_message,
+              source: "webhook"
+            });
+          }
+        } catch (persistedLookupError) {
+          console.warn(JSON.stringify({ level: "warn", fn: "marketing-studio", message: "clone_video_job_lookup_failed", reason: String(persistedLookupError?.message || persistedLookupError) }));
+        }
+
         const cloneRegistry = buildConfiguredCloneProviderRegistry({
           env: process.env,
           uploadAudio: (buffer, filename) => uploadClonedVoiceAudio(client, shopId, buffer, filename)
@@ -858,11 +905,80 @@ export function createMarketingStudioHandler(deps = {}) {
           return json(200, { note: "NOT LIVE — PROVIDER CONNECTION REQUIRED. No avatar/voice provider is connected yet." });
         }
         try {
-          const result = await provider.getJobStatus(qs.job_id || body.job_id);
-          return json(200, result);
+          const result = await provider.getJobStatus(jobId);
+          return json(200, { ...result, source: "poll" });
         } catch (error) {
           return json(502, { error: error.message });
         }
+      }
+
+      // Records AI-content provenance/disclosure metadata on a platform
+      // variant — the write side of the disclosure gate run_publishing_queue
+      // enforces below. Recomputes ai_disclosure_required from the variant's
+      // actual platform + the provenance flags given here (never trusts a
+      // caller-supplied ai_disclosure_required directly) so the requirement
+      // can never silently drift from PLATFORM_DISCLOSURE_POLICY.
+      if (action === "set_content_disclosure" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.platform_variant_id) return json(400, { error: "platform_variant_id is required." });
+
+        const variantResult = await client
+          .from("marketing_platform_variants")
+          .select("id,platform")
+          .eq("id", body.platform_variant_id)
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        if (variantResult.error) {
+          if (missingRelation(variantResult.error)) throw friendlyMissing();
+          throw variantResult.error;
+        }
+        if (!variantResult.data) return json(404, { error: "Platform variant not found." });
+
+        const avatarUsed = Boolean(body.avatar_used);
+        const voiceUsed = Boolean(body.voice_used);
+        const generativeVideoUsed = Boolean(body.generative_video_used);
+        const generativeImageUsed = Boolean(body.generative_image_used);
+        const humanEdited = Boolean(body.human_edited);
+
+        const determination = determineDisclosureRequirement({
+          platform: variantResult.data.platform,
+          avatarUsed,
+          voiceUsed,
+          generativeVideoUsed,
+          generativeImageUsed,
+          humanEdited
+        });
+
+        const updated = await client
+          .from("marketing_platform_variants")
+          .update({
+            ai_content_type: body.ai_content_type || null,
+            avatar_used: avatarUsed,
+            voice_used: voiceUsed,
+            generative_video_used: generativeVideoUsed,
+            generative_image_used: generativeImageUsed,
+            human_edited: humanEdited,
+            ai_disclosure_required: determination.required,
+            disclosure_method: determination.mechanism,
+            disclosure_applied: Boolean(body.disclosure_applied),
+            disclosure_policy_version: determination.policyVersion,
+            disclosure_checked_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", body.platform_variant_id)
+          .eq("shop_id", shopId)
+          .select("id,platform,ai_disclosure_required,disclosure_method,disclosure_applied,disclosure_policy_version")
+          .single();
+        if (updated.error) throw updated.error;
+
+        await writeCommandAudit(client, user.id, "marketing_content_disclosure_set", {
+          shopId,
+          targetType: "marketing_platform_variants",
+          targetId: body.platform_variant_id
+        });
+
+        return json(200, { variant: updated.data, determination });
       }
 
       if (action === "list_clone_consent") {
@@ -1005,7 +1121,7 @@ export function createMarketingStudioHandler(deps = {}) {
         for (const job of dueJobs) {
           const variantResult = await client
             .from("marketing_platform_variants")
-            .select("id,platform,caption,scheduled_at")
+            .select("id,platform,caption,scheduled_at,ai_disclosure_required,disclosure_applied")
             .eq("id", job.platform_variant_id)
             .maybeSingle();
           const variant = variantResult.data;
@@ -1014,6 +1130,20 @@ export function createMarketingStudioHandler(deps = {}) {
 
           let outcome;
           try {
+            // Fail-closed disclosure gate — runs BEFORE the (today,
+            // universally not-live) social provider call, so content
+            // missing a required disclosure never even reaches the point
+            // of "would have published." statusCode:400 deliberately makes
+            // classifyPublishFailure() treat this as 'fatal' (settle to
+            // 'failed' immediately, no retry loop) — retrying can't fix a
+            // missing disclosure; only set_content_disclosure can.
+            const gate = enforcePrePublishDisclosureGate(variant || {});
+            if (!gate.allowed) {
+              const disclosureError = new Error(gate.message);
+              disclosureError.statusCode = 400;
+              disclosureError.code = "ai_disclosure_required";
+              throw disclosureError;
+            }
             await provider.publish(variant || {});
             // Unreachable today (every provider is not-live), kept so a
             // real adapter's success path is already wired correctly.
