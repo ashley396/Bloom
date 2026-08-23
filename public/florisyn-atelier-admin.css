@@ -337,6 +337,23 @@ body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp .admin-onboarding-ho
   margin-bottom: 16px;
 }
 
+/* Mobile: the desktop two-column grid above must not survive onto small
+   screens — admin.css turns the sidebar into an off-canvas drawer (fixed
+   position, out of grid flow) below 900px, but without this override the
+   more specific rule above kept reserving a blank 250px column-1 for it,
+   squeezing the workspace into whatever was left. */
+@media (max-width: 900px) {
+  body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp {
+    grid-template-columns: 1fr;
+  }
+  body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp > .workspace {
+    grid-column: 1;
+  }
+  body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp > aside {
+    grid-column: auto;
+  }
+}
+
 body.florisyn.admin-luxury.florisyn-atelier-shell #commandDashboard,
 body.florisyn.admin-luxury.florisyn-atelier-shell #betaToolkitPanel,
 body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp .shop-list,
