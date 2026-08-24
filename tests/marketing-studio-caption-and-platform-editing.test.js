@@ -168,6 +168,19 @@ test("add_content_platform: refuses once the content item is approved — the pl
   assert.match(JSON.parse(res.body).error, /locked/i);
 });
 
+test("add_content_platform: a concurrent duplicate insert (DB unique-constraint race) is reported as the same friendly 400, not a raw 500", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "item-1", status: "draft" }, error: null },
+    { data: [{ id: "v-1", platform: "facebook", status: "pending", scheduled_at: null }], error: null }, // this call's own read sees no instagram row yet...
+    { data: null, error: { code: "23505", message: "duplicate key value violates unique constraint" } } // ...but a concurrent request won the race
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  const res = await handler(event("add_content_platform", { shop_id: "shop-1", content_item_id: "item-1", platform: "instagram" }));
+  assert.equal(res.statusCode, 400);
+  assert.match(JSON.parse(res.body).error, /already a target platform/);
+});
+
 test("add_content_platform: refuses once ANY variant already has a real schedule — 'before approval/scheduling' means either boundary, not just approval", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),

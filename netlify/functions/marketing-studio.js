@@ -1826,6 +1826,15 @@ export function createMarketingStudioHandler(deps = {}) {
             .single();
           if (inserted.error) {
             if (missingRelation(inserted.error)) throw friendlyMissing();
+            // Real concurrency safety: two concurrent add_content_platform
+            // calls for the SAME platform can both pass the "not already a
+            // target" check above and both reach this insert — the DB's own
+            // unique (content_item_id, platform) constraint is the actual
+            // backstop, and this turns that race into the same friendly
+            // 400 a sequential duplicate call gets, not a raw 500.
+            if (inserted.error.code === "23505") {
+              return json(400, { error: `${platform} is already a target platform for this content item.` });
+            }
             throw inserted.error;
           }
           await writeCommandAudit(client, user.id, "marketing_content_platform_added", { shopId, targetType: "marketing_content_items", targetId: body.content_item_id, platform });
