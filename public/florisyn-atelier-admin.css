@@ -337,6 +337,28 @@ body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp .admin-onboarding-ho
   margin-bottom: 16px;
 }
 
+/* Mobile: the desktop two-column grid above must not survive onto small
+   screens — admin.css turns the sidebar into an off-canvas drawer (fixed
+   position, out of grid flow) below 900px, but without this override the
+   more specific rule above kept reserving a blank 250px column-1 for it,
+   squeezing the workspace into whatever was left. */
+@media (max-width: 900px) {
+  body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp {
+    grid-template-columns: 1fr;
+  }
+  body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp > .workspace {
+    grid-column: 1;
+  }
+  body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp > aside {
+    grid-column: auto;
+    /* The unconditional rule above sets z-index:5, which loses to the
+       drawer backdrop's z-index:40 (admin.css) — every tap on a nav
+       button was landing on the backdrop instead, which only closes the
+       menu, so the sidebar looked right but did nothing when touched. */
+    z-index: 51;
+  }
+}
+
 body.florisyn.admin-luxury.florisyn-atelier-shell #commandDashboard,
 body.florisyn.admin-luxury.florisyn-atelier-shell #betaToolkitPanel,
 body.florisyn.admin-luxury.florisyn-atelier-shell #adminApp .shop-list,

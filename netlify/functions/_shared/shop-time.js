@@ -50,6 +50,68 @@ export function shopDateStrDaysAgo(timezone, daysAgo) {
   return anchor.toISOString().slice(0, 10);
 }
 
+function offsetMinutesAt(tz, utcInstant) {
+  // The instant's wall-clock time AS SEEN in tz, re-interpreted as if it
+  // were itself a UTC instant, minus the real UTC instant, gives that
+  // zone's real offset (in minutes) AT THIS SPECIFIC INSTANT — DST-aware,
+  // because the offset is read off the actual date being converted, never
+  // assumed fixed.
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  })
+    .formatToParts(utcInstant)
+    .reduce((acc, p) => {
+      acc[p.type] = p.value;
+      return acc;
+    }, {});
+  const asIfUtc = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
+  return (asIfUtc - utcInstant.getTime()) / 60000;
+}
+
+/**
+ * Launch-blocker fix (Blocker 3, real durable scheduler): converts a
+ * florist-entered "wall clock" date/time (e.g. from an HTML
+ * `datetime-local` picker — "2026-11-01T08:00", no zone) into the correct
+ * UTC instant for that SHOP's real IANA timezone, DST-aware. Section 27's
+ * explicit requirement: "Do not hardcode Eastern Time. Handle DST through
+ * timezone-aware conversion." No timezone library is available in this
+ * project — this uses the standard round-trip-through-Intl technique
+ * (format a guessed instant back in the target zone, measure the real
+ * offset at that instant, correct once) rather than a fixed UTC-offset
+ * table, which is exactly what would get a DST transition wrong.
+ *
+ * Returns an ISO 8601 UTC string, or null for unparseable input — never
+ * throws, so a malformed scheduling request degrades to a clear 400 at
+ * the caller rather than crashing the handler.
+ */
+export function shopLocalDateTimeToUtcIso(timezone, localDateTimeStr) {
+  const tz = safeTimeZone(timezone);
+  const match = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/.exec(String(localDateTimeStr || "").trim());
+  if (!match) return null;
+  const [, y, mo, d, h, mi, s] = match;
+  const wallClock = { y: +y, mo: +mo, d: +d, h: +h, mi: +mi, s: s ? +s : 0 };
+  // Guess: what UTC instant has this exact wall-clock reading? (correct
+  // only when tz's offset happens to be 0 — refined below either way.)
+  const naiveGuess = Date.UTC(wallClock.y, wallClock.mo - 1, wallClock.d, wallClock.h, wallClock.mi, wallClock.s);
+  const offset1 = offsetMinutesAt(tz, new Date(naiveGuess));
+  let utcMillis = naiveGuess - offset1 * 60000;
+  // One refinement pass: re-measure the offset AT THE CORRECTED instant —
+  // this is what catches the case where the naive guess landed on the
+  // wrong side of a DST transition from the real instant.
+  const offset2 = offsetMinutesAt(tz, new Date(utcMillis));
+  if (offset2 !== offset1) {
+    utcMillis = naiveGuess - offset2 * 60000;
+  }
+  return new Date(utcMillis).toISOString();
+}
+
 /** Short weekday label ("Mon") for a "YYYY-MM-DD" calendar date. */
 export function weekdayLabel(dateStr) {
   const [y, m, d] = String(dateStr).split("-").map(Number);

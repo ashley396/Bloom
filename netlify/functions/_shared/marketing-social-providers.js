@@ -15,6 +15,9 @@
  * inside server code, never returning token material in any response.
  */
 
+import { createFacebookPagesProvider, createInstagramProvider } from "./marketing-social-adapter-meta.js";
+import { createTikTokProvider } from "./marketing-social-adapter-tiktok.js";
+
 export const SOCIAL_NOT_LIVE = "social_provider_not_live";
 
 export const SUPPORTED_PLATFORMS = Object.freeze([
@@ -121,3 +124,43 @@ export function isPlatformConfigured(platform, env = process.env) {
   const { clientIdVar, clientSecretVar } = platformOAuthEnvVarNames(platform);
   return Boolean(String(env[clientIdVar] || "").trim()) && Boolean(String(env[clientSecretVar] || "").trim());
 }
+
+/**
+ * Priority 4 of the "finish everything that can safely be completed
+ * without Ashley" pass — the real per-platform provider registry, exactly
+ * the buildConfiguredCloneProviderRegistry() pattern from
+ * marketing-clone-providers.js applied to social publishing. A platform
+ * only ever gets its real adapter (facebook/instagram/tiktok — see
+ * marketing-social-oauth.js's OAUTH_SUPPORTED_PLATFORMS and the two
+ * marketing-social-adapter-*.js files) once its real OAuth app credentials
+ * are genuinely configured; everything else — including an
+ * OAuth-architected platform whose env vars simply aren't set yet — still
+ * resolves to notLiveSocialProvider(), never a fake success.
+ *
+ * A real adapter existing in this registry is NOT the same thing as a
+ * given shop being able to publish through it — marketing-publishing-
+ * worker.js's isConnectionUsable() gate (checked before any provider is
+ * ever touched) still requires that shop to have a real, unexpired
+ * `connected` row in marketing_social_connections, and the worker does
+ * not yet resolve the per-call accessToken/externalAccountId/assetUrl
+ * these adapters' publish() needs — see marketing-social-adapter-meta.js's
+ * header for exactly what remains before a real publish can happen end to
+ * end.
+ */
+export function buildConfiguredSocialProviderRegistry({ env = process.env } = {}) {
+  const registry = {};
+  for (const platform of SUPPORTED_PLATFORMS) {
+    registry[platform] = isPlatformConfigured(platform, env) && REAL_ADAPTER_FACTORIES[platform] ? REAL_ADAPTER_FACTORIES[platform]() : notLiveSocialProvider(platform);
+  }
+  return Object.freeze(registry);
+}
+
+// The adapter modules import nothing from this file, so importing them
+// here (rather than duplicating their factory functions) carries no risk
+// of a circular import — same direct-import style as
+// buildConfiguredCloneProviderRegistry() in marketing-clone-providers.js.
+const REAL_ADAPTER_FACTORIES = {
+  facebook: createFacebookPagesProvider,
+  instagram: createInstagramProvider,
+  tiktok: createTikTokProvider
+};

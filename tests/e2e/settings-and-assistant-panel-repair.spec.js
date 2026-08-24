@@ -43,18 +43,32 @@ import { withFakeSession, mockBackend } from "./fixtures.mjs";
  *    "Expand" (`.lily-expanded`) had no effect at all above 640px wide.
  */
 
-async function openSettings(page) {
+async function openSettings(page, { tab } = {}) {
   await page.goto("/");
   await page.waitForSelector("#app:not([hidden])", { timeout: 10_000 });
   await page.evaluate(() => window.showPage && window.showPage("settingsPage"));
   await page.waitForTimeout(300);
+  // Priority 13 fix: Settings was restructured into tabs (Shop/Branding/
+  // AI & Assistants/Billing/Data & Migration/Florisyn — app.js's
+  // data-settings-tab click handler) after this spec was first written.
+  // "Shop" is the only tab active by default, so any control living on
+  // another tab (Daisy's panel and the referral hub are under "Florisyn";
+  // the AI status card and assistant voice panels are under "AI &
+  // Assistants"; subscription actions are under "Billing") is genuinely
+  // present in the DOM but CSS-hidden until that tab is clicked — a real
+  // product behavior (progressive disclosure), not a bug. Tests that
+  // exercise one of those controls now click into its tab first.
+  if (tab) {
+    await page.click(`#settingsPage [data-settings-tab="${tab}"]`);
+    await page.waitForTimeout(100);
+  }
 }
 
 test.describe("Settings page repair", () => {
   test("Daisy's checkbox labels sit beside their controls, not stacked and centered", async ({ page }) => {
     await mockBackend(page);
     await withFakeSession(page);
-    await openSettings(page);
+    await openSettings(page, { tab: "florisyn" });
 
     const hideDaisyLabel = page.locator("#daisySettingsPanel label.check", { hasText: "Hide Daisy" });
     await expect(hideDaisyLabel).toBeVisible();
@@ -75,9 +89,9 @@ test.describe("Settings page repair", () => {
   test("the AI status card is collapsed to a friendly summary by default, with full diagnostics behind Advanced", async ({ page }) => {
     await mockBackend(page);
     await withFakeSession(page);
-    await openSettings(page);
+    await openSettings(page, { tab: "ai" });
 
-    const details = page.locator("#settingsForm .ai-advanced-details");
+    const details = page.locator("#settingsForm .ai-advanced");
     await expect(details).toBeAttached();
     expect(await details.evaluate((el) => el.open)).toBe(false);
 
@@ -94,7 +108,7 @@ test.describe("Settings page repair", () => {
   test("assistant voice panels (Lily, Rose, Bud) are collapsed by default and expand to their full controls", async ({ page }) => {
     await mockBackend(page);
     await withFakeSession(page);
-    await openSettings(page);
+    await openSettings(page, { tab: "ai" });
 
     for (const persona of ["lily", "rose", "bud"]) {
       const panel = page.locator(`#${persona}VoicePanel`);
@@ -155,7 +169,7 @@ test.describe("Settings page repair", () => {
       }),
     );
     await withFakeSession(page);
-    await openSettings(page);
+    await openSettings(page, { tab: "billing" });
 
     const actions = page.locator("#shopBillingRoot .sub-actions");
     await expect(actions).toBeVisible();
@@ -193,7 +207,7 @@ test.describe("Settings page repair", () => {
       }),
     );
     await withFakeSession(page);
-    await openSettings(page);
+    await openSettings(page, { tab: "billing" });
 
     const actions = page.locator("#shopBillingRoot .sub-actions");
     await expect(actions.locator("#subUpgrade")).toBeVisible();
@@ -210,7 +224,7 @@ test.describe("Settings page repair", () => {
       route.fulfill({ status: 200, contentType: "application/json", body: "{}" }),
     );
     await withFakeSession(page);
-    await openSettings(page);
+    await openSettings(page, { tab: "florisyn" });
 
     const card = page.locator("#referralHubRoot .panel.referral-hub");
     await expect(card).toBeVisible();

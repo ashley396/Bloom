@@ -1,6 +1,16 @@
 /**
- * Cloud TTS endpoint — ElevenLabs (keys stay server-side; never exposed to the client).
- * The browser calls this first; on 501/503 it falls back to speechSynthesis.
+ * Cloud TTS endpoint — ElevenLabs, via VoiceEngine (keys stay server-side;
+ * never exposed to the client). The browser calls this first; on any
+ * non-2xx it falls back to speechSynthesis (see public/assistant-voice.js
+ * — it only ever checks for `audioBase64` in the response, so the exact
+ * status code/message below are diagnostic, not functional).
+ *
+ * Creative AI master plan, Phase A Step 2 (see
+ * docs/production/FLORISYN_CREATIVE_AI_MASTER_PLAN.md): this used to run
+ * its own independent fetch() to api.elevenlabs.io, duplicating
+ * marketing-elevenlabs-client.js's HTTP client. Now goes through the same
+ * VoiceEngine the Marketing Studio clone provider uses — one ElevenLabs
+ * HTTP client in the codebase, not two.
  *
  * Netlify env (values only, no code):
  *   ELEVENLABS_API_KEY            — your ElevenLabs API key
@@ -12,8 +22,13 @@
  */
 import { json, preflight, methodNotAllowed, bodyOf } from "./_shared/http.js";
 import { prepareAssistantSpeechText } from "./_shared/assistant-voice.js";
+import { createElevenLabsVoiceProvider } from "./_shared/creative-ai/voice-engine.js";
 
 const DEFAULT_MODEL = "eleven_multilingual_v2";
+// Preserved exactly from the pre-VoiceEngine implementation — these tune
+// the assistant personas' delivery specifically; the Marketing Studio
+// clone voice path never sets these and must keep not setting them.
+const ASSISTANT_VOICE_SETTINGS = { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true };
 
 function personaKey(persona) {
   const p = String(persona || "").toLowerCase();
@@ -56,43 +71,23 @@ export async function handler(event) {
     });
   }
 
-  try {
-    const res = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`,
-      {
-        method: "POST",
-        headers: {
-          "xi-api-key": apiKey,
-          "Content-Type": "application/json",
-          Accept: "audio/mpeg"
-        },
-        body: JSON.stringify({
-          text,
-          model_id: process.env.ELEVENLABS_MODEL || DEFAULT_MODEL,
-          voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true }
-        })
-      }
-    );
+  const voiceEngine = createElevenLabsVoiceProvider({ env: process.env });
+  const result = await voiceEngine.synthesize({
+    voiceId,
+    text,
+    modelId: process.env.ELEVENLABS_MODEL || DEFAULT_MODEL,
+    voiceSettings: ASSISTANT_VOICE_SETTINGS
+  });
 
-    if (!res.ok) {
-      // Surface a graceful fallback; log detail server-side only.
-      let detail = "";
-      try { detail = (await res.text()).slice(0, 300); } catch { /* ignore */ }
-      console.warn(JSON.stringify({ level: "warn", fn: "assistant-tts", status: res.status, detail }));
-      return json(res.status === 401 ? 502 : 503, {
-        fallback: true,
-        persona,
-        error: "Cloud voice unavailable right now. Using browser speech."
-      });
-    }
-
-    const buffer = Buffer.from(await res.arrayBuffer());
-    if (!buffer.length) {
-      return json(503, { fallback: true, persona, error: "Empty audio from provider." });
-    }
-    return json(200, { persona, provider: "elevenlabs", audioBase64: buffer.toString("base64") });
-  } catch (error) {
-    console.warn(JSON.stringify({ level: "warn", fn: "assistant-tts", error: String(error?.message || error) }));
-    return json(503, { fallback: true, persona, error: "Cloud voice request failed. Using browser speech." });
+  if (!result.ok) {
+    // Detail stays server-side only — same as before this extraction.
+    console.warn(JSON.stringify({ level: "warn", fn: "assistant-tts", status: result.httpStatus, detail: result.error }));
+    return json(result.httpStatus === 401 ? 502 : 503, {
+      fallback: true,
+      persona,
+      error: "Cloud voice unavailable right now. Using browser speech."
+    });
   }
+
+  return json(200, { persona, provider: "elevenlabs", audioBase64: result.audioBuffer.toString("base64") });
 }

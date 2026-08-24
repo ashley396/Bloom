@@ -338,12 +338,94 @@
   flex-wrap: wrap;
 }
 
-#publicHome .ph-about-teaser {
-  text-align: center;
+/* Founder Story — Ashley's own desk, in her own words. Two columns on
+   desktop (portrait first, story second — the same reading order the
+   markup already gives keyboard/screen-reader users on mobile, where the
+   grid collapses to one column and the image simply comes first). The
+   portrait is the one approved, unedited photo; only its on-page framing
+   (aspect-ratio + object-fit) is presentational — no pixels are altered. */
+#publicHome .ph-founder-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 380px) 1fr;
+  gap: 48px;
+  align-items: center;
 }
 
-#publicHome .ph-about-teaser .ph-eyebrow {
+#publicHome .ph-founder-media picture {
+  display: block;
+}
+
+#publicHome .ph-founder-media img {
+  display: block;
+  width: 100%;
+  /* The <img> tag's width/height attributes describe the DESKTOP webp
+     (the <picture> fallback's real dimensions) for CLS purposes. The
+     mobile breakpoint swaps in a differently-sized <source> — height must
+     stay auto (not inherited from those attributes) so aspect-ratio is
+     what actually drives the box in every case. */
+  height: auto;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 20px;
+  box-shadow: 0 24px 48px rgba(111, 42, 77, 0.16);
+}
+
+#publicHome .ph-founder-copy .ph-eyebrow {
   display: inline-block;
+}
+
+#publicHome .ph-founder-copy h2 {
+  text-align: left;
+  margin-bottom: 16px;
+}
+
+#publicHome .ph-founder-story p {
+  color: var(--ph-muted);
+  font-size: 1.02rem;
+  line-height: 1.65;
+  margin: 0 0 16px;
+}
+
+/* The opening line ("Florisyn didn't start in a software company.") gets a
+   subtle lift in weight/color — a nod, not a shout. Every other line stays
+   normal paragraph text; this is the only deliberate emphasis in the
+   section. */
+#publicHome .ph-founder-story strong {
+  color: var(--ph-ink);
+  font-weight: 700;
+}
+
+#publicHome .ph-founder-signature {
+  color: var(--ph-ink) !important;
+  font-family: Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-top: 22px !important;
+}
+
+#publicHome .ph-founder-signature span {
+  display: block;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ph-muted);
+  margin-top: 2px;
+}
+
+#publicHome .ph-founder-link {
+  margin-top: 8px !important;
+}
+
+#publicHome .ph-founder-link a {
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--ph-berry);
+}
+
+#publicHome .ph-founder-link a:hover {
+  text-decoration: underline;
 }
 
 /* Illustrative product preview — a styled mockup of the real Florisyn
@@ -502,5 +584,56 @@
   #publicHome .ph-footer {
     grid-template-columns: 1fr 1fr;
     padding: 32px 20px 24px;
+  }
+
+  /* Mobile Founder Story refinement pass: the portrait previously ran a
+     full 4:5 (tall) crop at every width, which meant a visitor scrolled
+     through most of a single image before reaching "Our story". The image
+     itself is untouched — only its on-page frame changes here (a wider,
+     shorter aspect-ratio + a slightly top-biased object-position), so the
+     same approved photo now shows Ashley, the Florisyn signage behind her,
+     and the desk in one shorter, still-intentional crop. Section padding
+     is trimmed specifically for this section (not every .ph-section) so
+     the portrait -> "Our story" -> headline transition reads as one
+     connected moment rather than several separate scroll stops. */
+  #publicHome .ph-founder {
+    padding-top: 32px;
+    padding-bottom: 32px;
+  }
+  #publicHome .ph-founder-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  #publicHome .ph-founder-media {
+    max-width: 340px;
+    margin: 0 auto;
+  }
+  #publicHome .ph-founder-media img {
+    aspect-ratio: 5 / 4;
+    object-position: center 12%;
+    border-radius: 16px;
+    box-shadow: 0 14px 28px rgba(111, 42, 77, 0.16);
+  }
+  #publicHome .ph-founder-copy {
+    text-align: center;
+  }
+  #publicHome .ph-founder-copy h2 {
+    text-align: center;
+    /* Keep the wrapped two-line headline reading as one block, and pull it
+       in close to "Our story" above and the first paragraph below —
+       desktop's roomier 16px margin is a mobile-only trim here. */
+    line-height: 1.22;
+    margin-bottom: 10px;
+  }
+  /* Story paragraphs read better left-aligned at mobile widths than
+     centered — long centered lines are harder to scan. The eyebrow,
+     headline, founder name/title, and About link stay centered above. */
+  #publicHome .ph-founder-story {
+    text-align: left;
+  }
+  #publicHome .ph-founder-story p {
+    font-size: 1.1rem;
+    line-height: 1.58;
+    margin: 0 0 13px;
   }
 }
