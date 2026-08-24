@@ -338,12 +338,79 @@
   flex-wrap: wrap;
 }
 
-#publicHome .ph-about-teaser {
-  text-align: center;
+/* Founder Story — Ashley's own desk, in her own words. Two columns on
+   desktop (portrait first, story second — the same reading order the
+   markup already gives keyboard/screen-reader users on mobile, where the
+   grid collapses to one column and the image simply comes first). The
+   portrait is the one approved, unedited photo; only its on-page framing
+   (aspect-ratio + object-fit) is presentational — no pixels are altered. */
+#publicHome .ph-founder-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 380px) 1fr;
+  gap: 48px;
+  align-items: center;
 }
 
-#publicHome .ph-about-teaser .ph-eyebrow {
+#publicHome .ph-founder-media picture {
+  display: block;
+}
+
+#publicHome .ph-founder-media img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 20px;
+  box-shadow: 0 24px 48px rgba(111, 42, 77, 0.16);
+}
+
+#publicHome .ph-founder-copy .ph-eyebrow {
   display: inline-block;
+}
+
+#publicHome .ph-founder-copy h2 {
+  text-align: left;
+  margin-bottom: 16px;
+}
+
+#publicHome .ph-founder-copy p {
+  color: var(--ph-muted);
+  font-size: 1.02rem;
+  line-height: 1.65;
+  margin: 0 0 16px;
+}
+
+#publicHome .ph-founder-signature {
+  color: var(--ph-ink) !important;
+  font-family: Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-top: 22px !important;
+}
+
+#publicHome .ph-founder-signature span {
+  display: block;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ph-muted);
+  margin-top: 2px;
+}
+
+#publicHome .ph-founder-link {
+  margin-top: 8px !important;
+}
+
+#publicHome .ph-founder-link a {
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--ph-berry);
+}
+
+#publicHome .ph-founder-link a:hover {
+  text-decoration: underline;
 }
 
 /* Illustrative product preview — a styled mockup of the real Florisyn
@@ -502,5 +569,24 @@
   #publicHome .ph-footer {
     grid-template-columns: 1fr 1fr;
     padding: 32px 20px 24px;
+  }
+
+  #publicHome .ph-founder-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  #publicHome .ph-founder-media {
+    max-width: 300px;
+    margin: 0 auto;
+  }
+  #publicHome .ph-founder-media img {
+    border-radius: 16px;
+    box-shadow: 0 14px 28px rgba(111, 42, 77, 0.16);
+  }
+  #publicHome .ph-founder-copy {
+    text-align: center;
+  }
+  #publicHome .ph-founder-copy h2 {
+    text-align: center;
   }
 }
