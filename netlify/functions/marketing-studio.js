@@ -84,7 +84,8 @@ import { uploadClonedVoiceAudio, uploadWebsiteMedia, publicWebsiteMediaUrl } fro
 import { parseDataUrl } from "./_shared/upload-validation.js";
 import { buildIdempotencyKey } from "./_shared/marketing-publishing-queue.js";
 import { runPublishingWorker } from "./_shared/marketing-publishing-worker.js";
-import { shopLocalDateTimeToUtcIso } from "./_shared/shop-time.js";
+import { scheduleContentItemVariants } from "./_shared/marketing-schedule-content.js";
+import { runCompoundRequest } from "./_shared/marketing-compound-orchestrator.js";
 import { COST_CONFIG_VERSION, DEFAULT_MONTHLY_ALLOWANCE, estimateCostCents } from "./_shared/marketing-cost-config.js";
 import {
   buildMonthlyContentPlan,
@@ -1639,39 +1640,71 @@ export function createMarketingStudioHandler(deps = {}) {
       if (action === "schedule_content_item" && method === "POST") {
         requireSuperAdmin(admin);
         const shopId = requireShopId(qs, body);
-        if (!body.content_item_id) return json(400, { error: "content_item_id is required." });
-        if (!body.scheduled_at_local) return json(400, { error: "scheduled_at_local is required (e.g. '2026-11-01T08:00', in the shop's own local time)." });
-
-        const shopRow = await client.from("shops").select("timezone").eq("id", shopId).maybeSingle();
-        if (shopRow.error) throw shopRow.error;
-        const timezone = shopRow.data?.timezone || "America/New_York";
-        const scheduledAtUtc = shopLocalDateTimeToUtcIso(timezone, body.scheduled_at_local);
-        if (!scheduledAtUtc) {
-          return json(400, { error: "scheduled_at_local could not be parsed. Expected 'YYYY-MM-DDTHH:mm' (24-hour, no timezone suffix — it's interpreted in the shop's own timezone)." });
-        }
-
         const platforms = Array.isArray(body.platforms) && body.platforms.length ? body.platforms : null;
-        let updateQuery = client
-          .from("marketing_platform_variants")
-          .update({ scheduled_at: scheduledAtUtc, updated_at: new Date().toISOString() })
-          .eq("content_item_id", body.content_item_id)
-          .eq("shop_id", shopId);
-        if (platforms) updateQuery = updateQuery.in("platform", platforms);
-        const updated = await updateQuery.select("id,platform,scheduled_at");
-        if (updated.error) {
-          if (missingRelation(updated.error)) throw friendlyMissing();
-          throw updated.error;
+        const result = await scheduleContentItemVariants(client, {
+          shopId,
+          contentItemId: body.content_item_id,
+          scheduledAtLocal: body.scheduled_at_local,
+          platforms
+        });
+        if (!result.ok) {
+          if (result.code === "db_error" && missingRelation(result.dbError)) throw friendlyMissing();
+          if (result.code === "not_found") return json(404, { error: result.error });
+          return json(400, { error: result.error });
         }
-        if (!updated.data?.length) return json(404, { error: "No matching platform variants found for this content item." });
 
         await writeCommandAudit(client, user.id, "marketing_content_scheduled", {
           shopId,
           targetType: "marketing_content_items",
           targetId: body.content_item_id,
-          scheduledAtUtc,
-          timezone
+          scheduledAtUtc: result.scheduledAtUtc,
+          timezone: result.timezone
         });
-        return json(200, { variants: updated.data, scheduled_at_utc: scheduledAtUtc, timezone });
+        return json(200, { variants: result.variants, scheduled_at_utc: result.scheduledAtUtc, timezone: result.timezone });
+      }
+
+      // Priority 1 of the "as far as technically possible" pass: Lily
+      // compound-request orchestration — "Create a Reel for this week's
+      // wedding bouquet..., make versions for Instagram and TikTok, write
+      // the captions in my style, schedule them for Friday evening, and
+      // don't spend over $2" as ONE request. Reuses every underlying
+      // engine above (never a second copy-generation/scheduling/cost
+      // path) via marketing-compound-orchestrator.js; persists to
+      // ai_execution_jobs so a job's real per-step outcome is always
+      // inspectable, never just a chat reply. Every outcome — full
+      // success, partial (a blocked Digital Twin/video-render step next
+      // to completed ones), or over-budget-halted — is a 200 with a real
+      // job row; only extraction failure or an empty/unactionable request
+      // returns 400.
+      if (action === "compound_request" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        const message = String(body.message || "").trim();
+        if (!message) return json(400, { error: "message is required — describe what Lily should create (e.g. \"Create a Reel for this week's wedding bouquet...\")." });
+
+        const shopRow = await client.from("shops").select("name,timezone").eq("id", shopId).maybeSingle();
+        if (shopRow.error && missingRelation(shopRow.error)) throw friendlyMissing();
+
+        const result = await runCompoundRequest(client, {
+          shopId,
+          userId: user.id,
+          persona: typeof body.persona === "string" && body.persona ? body.persona : "Lily",
+          message,
+          shop: { name: shopRow.data?.name || null },
+          timezone: shopRow.data?.timezone || "America/New_York"
+        });
+        if (!result.ok) {
+          if (missingRelation({ message: result.error })) throw friendlyMissing();
+          return json(400, { error: result.error });
+        }
+
+        await writeCommandAudit(client, user.id, "marketing_compound_request", {
+          shopId,
+          targetType: "ai_execution_jobs",
+          targetId: result.job.id,
+          status: result.job.status
+        });
+        return json(200, { job: result.job });
       }
 
       // Stage E — the reliable-publishing queue. Approving content queues
