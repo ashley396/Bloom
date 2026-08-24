@@ -124,3 +124,23 @@ export function getDestinationSpec(destination) {
   if (!spec) throw new Error(`getDestinationSpec: unknown destination "${destination}".`);
   return spec;
 }
+
+/**
+ * Canonical pixel dimensions per aspect ratio — one shared table so the
+ * real image-transform executor (media-transform-executor.js) and the
+ * video-render planner (marketing-video-render-engine.js) never carry two
+ * independently-drifting copies of the same four numbers.
+ */
+export const ASPECT_RATIO_CANVAS = Object.freeze({
+  "9:16": { width: 1080, height: 1920 },
+  "1:1": { width: 1080, height: 1080 },
+  "4:5": { width: 1080, height: 1350 },
+  "16:9": { width: 1920, height: 1080 },
+  "2:3": { width: 1000, height: 1500 }
+});
+
+export function aspectRatioToRatioValue(aspectRatio) {
+  const canvas = ASPECT_RATIO_CANVAS[aspectRatio];
+  if (!canvas) return null;
+  return canvas.width / canvas.height;
+}
