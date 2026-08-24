@@ -1,0 +1,108 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createMarketingStudioHandler } from "../netlify/functions/marketing-studio.js";
+import { createFakeSupabaseClient } from "./helpers/fake-supabase-client.mjs";
+
+// Priority 8 wiring: generate_content now enforces a caller-supplied
+// monthly budget cap BEFORE any real generation call, when one is given.
+
+function superAdminRow() {
+  return { data: { user_id: "u1", role: "super_admin", active: true }, error: null };
+}
+
+function baseDeps(client) {
+  return {
+    authenticate: async () => ({ user: { id: "u1" } }),
+    createServerClient: () => client
+  };
+}
+
+let savedEnv;
+test.before(() => {
+  savedEnv = { ...process.env };
+  process.env.FLORISYN_FLAG_MARKETING_STUDIO = "true";
+});
+test.after(() => {
+  process.env = { ...savedEnv };
+});
+
+function event(action, body, { method = "POST", qs = {} } = {}) {
+  return {
+    httpMethod: method,
+    queryStringParameters: { action, ...qs },
+    headers: {},
+    body: JSON.stringify({ action, ...body })
+  };
+}
+
+test("generate_content: no budget_cap_cents supplied -> unaffected, exact pre-existing behavior (never queries usage for a budget check)", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null }, // content item lookup
+    { data: [], error: null } // variants lookup
+    // No usage-sum response queued — a call to it here would consume this
+    // slot as a placeholder and desync every call after it; the test
+    // failing downstream (from a wrong-shaped response) is itself proof
+    // the budget check ran when it must not have.
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1" }));
+  // Cloudflare isn't mocked here, so the real generation call itself will
+  // fail — that's fine, this test only cares that NO budget-usage select
+  // ran before it (i.e. the gate was correctly skipped, not that
+  // generation succeeded).
+  assert.equal(res.statusCode, 400);
+  const usageSelectCall = client.calls.find((c) => c.table === "marketing_generation_usage" && c.ops.some((op) => op[0] === "select"));
+  assert.equal(usageSelectCall, undefined, "budget_cap_cents was not supplied — no budget check should ever run");
+});
+
+test("generate_content: an image_post over budget is refused before the status is even flipped to 'generating' — zero spend past the halt", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [], error: null }, // variants lookup
+    { data: [{ estimated_cost_cents: 196 }], error: null } // this month's committed spend so far
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 200 }));
+  assert.equal(res.statusCode, 400);
+  const body = JSON.parse(res.body);
+  assert.match(body.error, /over the \$2\.00 budget cap/);
+  assert.equal(body.would_be_cents, 201); // 196 + 1(copy) + 4(image) = 201 — over the 200-cent cap
+  const statusUpdateCall = client.calls.find((c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(statusUpdateCall, undefined, "the item must never be flipped to 'generating' once the budget gate refuses the request");
+});
+
+test("generate_content: a text_post is priced without the image cost — the gate must reflect what would actually be billed, not a flat guess", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "item-1", content_type: "text_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [], error: null },
+    { data: [{ estimated_cost_cents: 199 }], error: null } // only 1 cent of headroom — enough for copy-only (1 cent), not image+copy
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 200 }));
+  // text_post costs only 1 cent (copy) here -> 199 + 1 = 200 -> exactly at
+  // the cap -> allowed -> proceeds into real generation (which then fails
+  // for an unrelated reason: no Cloudflare mock). The key assertion is
+  // that it got PAST the budget gate, unlike the image_post case above.
+  assert.notEqual(res.statusCode, undefined);
+  const usageSelectCall = client.calls.find((c) => c.table === "marketing_generation_usage" && c.ops.some((op) => op[0] === "select"));
+  assert.ok(usageSelectCall, "the budget check must still have run");
+  const statusUpdateCall = client.calls.find((c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update"));
+  assert.ok(statusUpdateCall, "a text_post within budget must be allowed to proceed to the generating lock, unlike the over-budget image_post case");
+});
+
+test("generate_content: a budget check that itself fails (DB error) blocks the request rather than silently letting generation through", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [], error: null },
+    { data: null, error: { message: "connection lost" } } // usage sum query fails
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 200 }));
+  assert.equal(res.statusCode, 500);
+  const statusUpdateCall = client.calls.find((c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(statusUpdateCall, undefined, "an unverifiable budget check must fail closed — never proceed to generation");
+});

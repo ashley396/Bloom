@@ -87,6 +87,7 @@ import { runPublishingWorker } from "./_shared/marketing-publishing-worker.js";
 import { scheduleContentItemVariants } from "./_shared/marketing-schedule-content.js";
 import { runCompoundRequest } from "./_shared/marketing-compound-orchestrator.js";
 import { runAnalyticsIngestion, reconcileLatestMetricSnapshots } from "./_shared/marketing-analytics-ingestion.js";
+import { checkMonthlyBudget } from "./_shared/marketing-budget-guard.js";
 import { COST_CONFIG_VERSION, DEFAULT_MONTHLY_ALLOWANCE, estimateCostCents } from "./_shared/marketing-cost-config.js";
 import {
   buildMonthlyContentPlan,
@@ -528,6 +529,36 @@ export function createMarketingStudioHandler(deps = {}) {
           .eq("shop_id", shopId);
         if (variantsResult.error) throw variantsResult.error;
         const variants = variantsResult.data || [];
+
+        // Priority 8: a real pre-spend budget gate — estimate what THIS
+        // generation would cost (copy always; +image for anything but a
+        // video concept/text post — matches exactly what the branches
+        // below actually bill via recordUsage) and refuse before any real
+        // provider call if a caller-supplied monthly cap would be
+        // exceeded. Only enforced when budget_cap_cents is actually
+        // supplied on this request — see marketing-budget-guard.js's own
+        // doc for why there's no persisted per-shop default yet.
+        if (body.budget_cap_cents != null) {
+          const estimatedAdditionalCents =
+            (estimateCostCents({ purpose: "copy", unitType: "request", units: 1 }) || 0) +
+            (VIDEO_CONTENT_TYPES.has(currentItem.data.content_type) || currentItem.data.content_type === "text_post"
+              ? 0
+              : estimateCostCents({ purpose: "image", unitType: "image", units: 1 }) || 0);
+          const budgetCheck = await checkMonthlyBudget(client, {
+            shopId,
+            additionalCostCents: estimatedAdditionalCents,
+            capCents: Number(body.budget_cap_cents)
+          });
+          if (!budgetCheck.allowed) {
+            if (budgetCheck.reason === "budget_check_failed") throw new Error(budgetCheck.error);
+            return json(400, {
+              error: `Generating this would bring this month's committed spend to $${(budgetCheck.wouldBeCents / 100).toFixed(2)}, over the $${(budgetCheck.capCents / 100).toFixed(2)} budget cap — nothing was generated.`,
+              current_spend_cents: budgetCheck.currentSpendCents,
+              would_be_cents: budgetCheck.wouldBeCents,
+              cap_cents: budgetCheck.capCents
+            });
+          }
+        }
 
         // Lock the row before any real generation call so a concurrent
         // request can't double-generate (and double-bill) the same item.
