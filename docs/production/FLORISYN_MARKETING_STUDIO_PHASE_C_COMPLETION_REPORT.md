@@ -14,7 +14,7 @@
 |---|---|
 | Repository | `ashley396/Bloom` |
 | Working branch | `feature/florisyn-marketing-studio-clone-providers` |
-| HEAD commit (this report) | `e143cfb` (report originally drafted at `ca1886d`; updated in place through `8cd31ce` and `e143cfb` as Priority 13's full sweep completed) |
+| HEAD commit (this report) | `4404f67` at the point the literal re-verification below was run; report originally drafted at `ca1886d`, updated in place through `8cd31ce`, `e143cfb`, `4404f67`, and this final reconciliation pass |
 | Merge-base with `beta/august10-stabilization` | `2f7fd182372d23d703e31d683b45f14f96768639` — **equal to `beta/august10-stabilization`'s own current tip**, i.e. this branch is a clean, unforked descendant of the intended baseline |
 | `origin/main` | `e42c4adae7f75341a3b408bc01d8fbcbff8b9803` — **untouched this session**, never checked out, never merged into, never merged from |
 | Bloom Technologies (legacy platform-admin/marketplace core) | **Not touched** this session |
@@ -79,7 +79,19 @@ A full-repository Playwright sweep (502 tests spanning every app area) was run t
 - **1 of 12 was a real, tiny product defect**, now fixed at its root: `styles.css` targeted `#settingsPage details.ai-advanced-details`, but the shipped markup uses `class="ai-advanced"` — a dead selector from a class rename that only updated one side, silently dropping the intended top border/spacing before the "Advanced diagnostics" section. Fixed by renaming the CSS selector to match the real markup class (verified no JS referenced the old name first).
 - **2 of 12 are left failing, deliberately not force-fixed:** they assert the Settings page's old single-page two-column grid (`align-items:start`, collapses to one column under 850px) — a layout paradigm the tabbed redesign intentionally replaced (`#settingsForm` no longer carries the `settings-grid` class at all in the shipped markup, confirmed by direct inspection). Deciding what layout invariant *should* hold for a tabbed Settings page is a product-design question outside this pass's mandate ("no changing Florisyn's existing design unless strictly required to fix broken behavior") — not something to resolve by guessing at new assertions. Flagged here as a known, precisely-diagnosed, unresolved item rather than silently patched or silently left unexplained.
 
-Full node suite re-confirmed unaffected: 2632/2632.
+**Literal re-verification (requested by Ashley, run fresh from final committed HEAD `4404f67`, independent of the triage run above):**
+
+```
+npx playwright test --reporter=line
+...
+502 tests run
+2 failed
+    [chromium] › tests/e2e/settings-and-assistant-panel-repair.spec.js:139:3 › Settings page repair › the settings grid does not force a short card to stretch to its taller neighbor's height
+    [chromium] › tests/e2e/settings-and-assistant-panel-repair.spec.js:234:3 › Settings page repair › Settings collapses to one column on tablet-and-narrower widths
+500 passed (12.2m)
+```
+
+**The literal, final Playwright result for this repository is 500 passed, 2 failed — not 502/502.** The 2 failures are exactly, and only, the two tests named above — nothing else regressed, nothing new appeared. Those two are **not** being reported as passing, clean, or "accounted for": they are two known, currently-failing tests, left failing on purpose because resolving them means choosing a new layout invariant for the tabbed Settings page (see the reasoning above), which is a product decision outside this pass's mandate — not because the count was rounded up or the failures were waved away. `node --test tests/*.test.js` (2632/2632) and `node scripts/check.mjs` ("Syntax check passed: 729 JavaScript files.") were also re-run clean from this same HEAD.
 
 ### Priority 14 — Seven-journey audit
 **Status: AUDITED VIA BACKEND-PATH TRACE + EXISTING TEST COVERAGE.** Rather than a UI click-through (already covered by the Playwright evidence above), each journey was traced from its real admin-action entry point through to its actual execution:
@@ -92,7 +104,10 @@ Full node suite re-confirmed unaffected: 2632/2632.
 7. **Analytics** — real `fetchAnalytics` wiring, real reconciliation, anti-fabrication guardrails. BUILT AND READY FOR CREDENTIALS/APPROVAL (same boundary as #6 — nothing to ingest until a platform is connected and something is actually published).
 
 ### Priority 15 — Comprehensive test/security verification
-**Status: ONGOING THROUGHOUT, CONFIRMED AT CHECKPOINT.** Every priority in this pass followed run-targeted-then-full-suite discipline; the full Node suite was re-run after every change (never just the touched file). Final state: **2632/2632 Node tests passing**, **36/36 Marketing-Studio Playwright tests passing**, **full-repository Playwright sweep: 490/502 clean on first run, all 12 failures triaged and 10 fixed at the root (Priority 13), 2 documented as a known out-of-scope product-design question** — see Priority 13 above.
+**Status: ONGOING THROUGHOUT, CONFIRMED AT CHECKPOINT.** Every priority in this pass followed run-targeted-then-full-suite discipline; the full Node suite was re-run after every change (never just the touched file). **Literal final state, re-verified fresh from committed HEAD `4404f67`:**
+- `node --test tests/*.test.js` — **2632/2632 passing.**
+- `node scripts/check.mjs` — **"Syntax check passed: 729 JavaScript files."**
+- `npx playwright test` (full repository, 502 tests) — **500 passed, 2 failed.** The 2 failures are exactly `settings-and-assistant-panel-repair.spec.js`'s two settings-grid tests, named and explained in Priority 13 above. They are not counted as passing here. This is not 502/502 — the repository does not currently pass every Playwright test, and this report states that plainly rather than rounding up.
 
 ### Priority 16 — Commit and push
 **Status: DONE, incrementally.** Every priority in this pass was committed as its own logical, reviewable commit and pushed to `feature/florisyn-marketing-studio-clone-providers` immediately after its tests passed — never batched, never left uncommitted:
