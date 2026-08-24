@@ -101,6 +101,33 @@ test.describe("Marketing Studio Content Calendar", () => {
     await expect(detail).toContainText("Connection required");
   });
 
+  // Priority I fix: this badge used to be a hardcoded "Connection required"
+  // string shown for every variant regardless of the platform's real
+  // connection state — so a shop that had actually connected Facebook would
+  // still see "Connection required" forever, a stale/fake status. This
+  // proves the badge now reflects the real per-platform state the
+  // Connections panel itself reports.
+  test("a genuinely connected platform's variant shows its real connection state, not a stale 'Connection required'", async ({ page }) => {
+    await mockMarketingStudio(page, {
+      onAction: async (route, action) => {
+        if (action === "connections" && route.request().method() === "GET") {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ items: [{ platform: "facebook", status: "connected", live: true, account_label: "Test Florals Page" }] })
+          });
+          return true;
+        }
+        return false;
+      }
+    });
+    const root = await openMarketingStudio(page);
+    await root.locator('[data-content-item="item-1"]').click();
+    const detail = root.locator("#msContentDetail");
+    await expect(detail).toContainText("Connected");
+    await expect(detail).not.toContainText("Connection required");
+  });
+
   test("approving a draft item calls approve_content and the item's status updates", async ({ page }) => {
     let approveCalled = false;
     const approvedItem = { ...DRAFT_ITEM, status: "approved" };

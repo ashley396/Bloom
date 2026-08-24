@@ -282,6 +282,15 @@
 
     let contentItemsCache = [];
     let openContentItemId = null;
+    // Priority I fix: the per-variant "Connection required" badge below
+    // used to be a hardcoded string shown for EVERY platform regardless of
+    // its real state — so a shop that had actually connected Facebook would
+    // still see "Connection required" forever, a fake/stale status exactly
+    // the kind "never show fake success/failure states" rule exists to
+    // prevent. Populated by loadConnections() (the same real per-platform
+    // state the Connections panel itself renders from), reused here instead
+    // of a second, parallel truth source.
+    let connectionsCache = [];
 
     const budgetCapInput = root.querySelector("#msBudgetCapInput");
     const budgetCapStatus = root.querySelector("#msBudgetCapStatus");
@@ -292,11 +301,27 @@
     // placeholder. connectionsList renders exactly what the backend
     // reports for each of the 7 SUPPORTED_PLATFORMS.
     const connectionsList = root.querySelector("#msConnectionsList");
+    // Single source of truth for "what does this platform's connection
+    // state actually mean, in one badge/label pair" — used by both the
+    // Connections panel and the per-variant badge in the content detail
+    // view, so the two can never drift into showing two different truths
+    // about the same platform.
+    function connectionStatusInfo(platform) {
+      const c = connectionsCache.find((row) => row.platform === platform);
+      if (!c) return { badge: "", text: "Connection required" };
+      if (c.live) return { badge: "good", text: "Connected" };
+      if (c.status === "connected") return { badge: "warn", text: "Connected (not verified live)" };
+      if (c.status === "connecting") return { badge: "warn", text: "Connecting…" };
+      if (c.status === "error") return { badge: "danger", text: "Connection error" };
+      if (c.status === "needs_reauth") return { badge: "danger", text: "Needs reauthorization" };
+      return { badge: "", text: "Connection required" };
+    }
     async function loadConnections() {
       const shopId = shopIdInput.value.trim();
       if (!shopId) return;
       try {
         const d = await adminApi("connections", { method: "GET", query: `shop_id=${encodeURIComponent(shopId)}` });
+        connectionsCache = d.items || [];
         connectionsList.innerHTML = (d.items || [])
           .map((c) => {
             const label = c.platform.replace(/_/g, " ");
@@ -449,13 +474,14 @@
               ? '<span class="badge good">Disclosure applied</span>'
               : '<span class="badge danger">Disclosure REQUIRED — not yet applied (publishing is blocked)</span>'
             : '<span class="badge">No AI disclosure required</span>';
+          const conn = connectionStatusInfo(v.platform);
           // A published/publishing variant's caption can never be edited
           // (never silently rewrite a live post after the fact) — same
           // boundary update_variant_caption itself enforces.
           const captionLocked = ["published", "publishing"].includes(v.status);
           return `
           <div class="panel" style="margin:0.5em 0;">
-            <p><strong>${esc(v.platform)}</strong> ${statusBadge(v.status)} — <span class="badge">Connection required</span></p>
+            <p><strong>${esc(v.platform)}</strong> ${statusBadge(v.status)} — <span class="badge ${conn.badge}">${esc(conn.text)}</span></p>
             ${
               captionLocked
                 ? `<p class="help">${esc(v.caption || "(no caption)")}</p>`
