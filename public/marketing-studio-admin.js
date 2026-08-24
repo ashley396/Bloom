@@ -343,17 +343,36 @@
         return;
       }
       const shopId = shopIdInput.value.trim();
-      const variantRows = (item.variants || [])
+      const variants = item.variants || [];
+      // Priority 7: the platform SET locks the moment either the content
+      // item is past idea/draft/in_review OR any one platform already has
+      // a real schedule — matches add_content_platform/
+      // remove_content_platform's own server-side gate exactly, so the UI
+      // never offers a control the backend would just reject.
+      const platformSetLocked = !["idea", "draft", "in_review"].includes(item.status) || variants.some((v) => v.scheduled_at);
+      const variantRows = variants
         .map((v) => {
           const disclosure = v.ai_disclosure_required
             ? v.disclosure_applied
               ? '<span class="badge good">Disclosure applied</span>'
               : '<span class="badge danger">Disclosure REQUIRED — not yet applied (publishing is blocked)</span>'
             : '<span class="badge">No AI disclosure required</span>';
+          // A published/publishing variant's caption can never be edited
+          // (never silently rewrite a live post after the fact) — same
+          // boundary update_variant_caption itself enforces.
+          const captionLocked = ["published", "publishing"].includes(v.status);
           return `
           <div class="panel" style="margin:0.5em 0;">
             <p><strong>${esc(v.platform)}</strong> ${statusBadge(v.status)} — <span class="badge">Connection required</span></p>
-            <p class="help">${esc(v.caption || "(no caption generated yet)")}</p>
+            ${
+              captionLocked
+                ? `<p class="help">${esc(v.caption || "(no caption)")}</p>`
+                : `<label>Caption
+                     <textarea data-caption-input="${esc(v.id)}" rows="3">${esc(v.caption || "")}</textarea>
+                   </label>
+                   <button type="button" class="secondary" data-save-caption="${esc(v.id)}">Save caption</button>
+                   <span class="help" data-caption-status="${esc(v.id)}"></span>`
+            }
             <p>${disclosure}</p>
             ${v.last_error ? `<p class="help">Last error: ${esc(v.last_error)}</p>` : ""}
             ${
@@ -361,9 +380,28 @@
                 ? `<button type="button" class="secondary" data-apply-disclosure="${esc(v.id)}">Mark disclosure applied</button>`
                 : ""
             }
+            ${
+              !platformSetLocked && variants.length > 1
+                ? `<button type="button" class="secondary" data-remove-platform="${esc(v.platform)}">Remove ${esc(v.platform)}</button>`
+                : ""
+            }
           </div>`;
         })
         .join("") || `<p class="quiet">No platform variants on this content item.</p>`;
+
+      const availablePlatformsToAdd = PLATFORMS.filter((p) => !variants.some((v) => v.platform === p));
+      const addPlatformRow =
+        !platformSetLocked && availablePlatformsToAdd.length
+          ? `<div class="header-actions" style="margin-top:0.5em;">
+               <label>Add a platform
+                 <select id="msAddPlatformSelect">${availablePlatformsToAdd.map((p) => `<option value="${esc(p)}">${esc(p.replace("_", " "))}</option>`).join("")}</select>
+               </label>
+               <button type="button" id="msAddPlatformBtn">Add platform</button>
+               <span class="help" id="msAddPlatformStatus"></span>
+             </div>`
+          : platformSetLocked
+          ? `<p class="help">Platform selection is locked — this content item has been approved or scheduled.</p>`
+          : "";
 
       const canApprove = ["draft", "in_review"].includes(item.status);
       const canGenerate = item.status === "idea";
@@ -394,6 +432,7 @@
 
           <h4>Platforms</h4>
           ${variantRows}
+          ${addPlatformRow}
         </div>
       `;
 
@@ -508,6 +547,71 @@
           }
         };
       });
+
+      // Priority 7: caption editing during review.
+      contentDetail.querySelectorAll("[data-save-caption]").forEach((btn) => {
+        btn.onclick = async () => {
+          const variantId = btn.dataset.saveCaption;
+          const textarea = contentDetail.querySelector(`[data-caption-input="${CSS.escape(variantId)}"]`);
+          const statusEl = contentDetail.querySelector(`[data-caption-status="${CSS.escape(variantId)}"]`);
+          const caption = textarea.value;
+          if (!caption.trim()) {
+            statusEl.textContent = "Caption can't be empty.";
+            return;
+          }
+          statusEl.textContent = "Saving…";
+          try {
+            await adminApi("update_variant_caption", { body: { shop_id: shopId, platform_variant_id: variantId, caption } });
+            await loadContentList();
+            openContentItemId = item.id;
+            // Same re-render-wipes-the-message pattern used throughout this
+            // panel — apply the confirmation to the freshly rendered element.
+            renderContentDetail();
+            const freshStatus = contentDetail.querySelector(`[data-caption-status="${CSS.escape(variantId)}"]`);
+            if (freshStatus) freshStatus.textContent = "Saved.";
+          } catch (err) {
+            statusEl.textContent = err.message;
+          }
+        };
+      });
+
+      // Priority 7: remove a target platform before approval/scheduling.
+      contentDetail.querySelectorAll("[data-remove-platform]").forEach((btn) => {
+        btn.onclick = async () => {
+          const platform = btn.dataset.removePlatform;
+          if (!confirm(`Remove ${platform} as a target platform for this content item?`)) return;
+          try {
+            await adminApi("remove_content_platform", { body: { shop_id: shopId, content_item_id: item.id, platform } });
+            await loadContentList();
+            openContentItemId = item.id;
+            renderContentDetail();
+          } catch (err) {
+            alert(err.message);
+          }
+        };
+      });
+
+      // Priority 7: add a target platform before approval/scheduling.
+      const addPlatformBtn = contentDetail.querySelector("#msAddPlatformBtn");
+      if (addPlatformBtn) {
+        addPlatformBtn.onclick = async () => {
+          const select = contentDetail.querySelector("#msAddPlatformSelect");
+          const addStatus = contentDetail.querySelector("#msAddPlatformStatus");
+          const platform = select.value;
+          addStatus.textContent = "Adding…";
+          try {
+            const result = await adminApi("add_content_platform", { body: { shop_id: shopId, content_item_id: item.id, platform } });
+            const message = result.note || "Added.";
+            await loadContentList();
+            openContentItemId = item.id;
+            renderContentDetail();
+            const freshStatus = contentDetail.querySelector("#msAddPlatformStatus");
+            if (freshStatus) freshStatus.textContent = message;
+          } catch (err) {
+            addStatus.textContent = err.message;
+          }
+        };
+      }
     }
 
     root.querySelector("#msPlanMonthBtn").onclick = async () => {

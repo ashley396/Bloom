@@ -126,6 +126,12 @@ import { runPersonalBrandCommand, requestDigitalTwinGeneration } from "./_shared
 
 const VIDEO_CONTENT_TYPES = new Set(["reel", "short_video", "long_video"]);
 
+// Priority 7 ("as far as technically possible" pass): the platform SET on
+// a content item may only be edited (add_content_platform/
+// remove_content_platform) while it's still in one of these statuses —
+// "before approval/scheduling", matching the launch audit's own wording.
+const PRE_APPROVAL_CONTENT_STATUSES = ["idea", "draft", "in_review"];
+
 function featureGate() {
   if (!isFeatureEnabled("MARKETING_STUDIO")) {
     throw platformAdminError("forbidden");
@@ -1662,6 +1668,155 @@ export function createMarketingStudioHandler(deps = {}) {
           timezone: result.timezone
         });
         return json(200, { variants: result.variants, scheduled_at_utc: result.scheduledAtUtc, timezone: result.timezone });
+      }
+
+      // Priority 7 of the "as far as technically possible" pass: the two
+      // disclosed UI gaps (no caption editing, no add/remove platforms).
+      // Platform selection ("before approval/scheduling") locks the
+      // moment EITHER the content item is approved/scheduled/published/
+      // etc OR any one of its variants already carries a real
+      // scheduled_at — matching the launch audit's own wording exactly,
+      // not just the content item's own status column.
+      if (action === "update_variant_caption" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.platform_variant_id) return json(400, { error: "platform_variant_id is required." });
+        if (typeof body.caption !== "string" || !body.caption.trim()) return json(400, { error: "caption is required and cannot be empty." });
+        const hashtags = Array.isArray(body.hashtags) ? body.hashtags.slice(0, 15).map((h) => String(h).slice(0, 50)) : undefined;
+
+        const currentVariant = await client
+          .from("marketing_platform_variants")
+          .select("id,status,platform")
+          .eq("id", body.platform_variant_id)
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        if (currentVariant.error) {
+          if (missingRelation(currentVariant.error)) throw friendlyMissing();
+          throw currentVariant.error;
+        }
+        if (!currentVariant.data) return json(404, { error: "Platform variant not found." });
+        // The one hard boundary the audit named: never silently modify an
+        // already-published (or actively publishing) variant.
+        if (["published", "publishing"].includes(currentVariant.data.status)) {
+          return json(400, {
+            error: `Cannot edit the caption for a variant that is already '${currentVariant.data.status}' — a published post's caption can't be silently rewritten after the fact.`
+          });
+        }
+
+        const updatePayload = { caption: body.caption.trim().slice(0, 3000), updated_at: new Date().toISOString() };
+        if (hashtags) updatePayload.hashtags = hashtags;
+        const updated = await client
+          .from("marketing_platform_variants")
+          .update(updatePayload)
+          .eq("id", body.platform_variant_id)
+          .eq("shop_id", shopId)
+          .select("id,platform,caption,hashtags,status")
+          .single();
+        if (updated.error) throw updated.error;
+        await writeCommandAudit(client, user.id, "marketing_variant_caption_updated", {
+          shopId,
+          targetType: "marketing_platform_variants",
+          targetId: body.platform_variant_id,
+          platform: currentVariant.data.platform
+        });
+        return json(200, { variant: updated.data });
+      }
+
+      if ((action === "add_content_platform" || action === "remove_content_platform") && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.content_item_id) return json(400, { error: "content_item_id is required." });
+        const platform = String(body.platform || "").trim();
+        if (!SUPPORTED_PLATFORMS.includes(platform)) {
+          return json(400, { error: `platform must be one of: ${SUPPORTED_PLATFORMS.join(", ")}.` });
+        }
+
+        const currentItem = await client
+          .from("marketing_content_items")
+          .select("id,status")
+          .eq("id", body.content_item_id)
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        if (currentItem.error) {
+          if (missingRelation(currentItem.error)) throw friendlyMissing();
+          throw currentItem.error;
+        }
+        if (!currentItem.data) return json(404, { error: "Content item not found." });
+
+        const existingVariants = await client
+          .from("marketing_platform_variants")
+          .select("id,platform,status,scheduled_at,asset_id,caption,hashtags,ai_content_type,avatar_used,voice_used,generative_video_used,generative_image_used,human_edited")
+          .eq("content_item_id", body.content_item_id)
+          .eq("shop_id", shopId);
+        if (existingVariants.error) throw existingVariants.error;
+        const variants = existingVariants.data || [];
+
+        const isLockedForApprovalOrScheduling =
+          !PRE_APPROVAL_CONTENT_STATUSES.includes(currentItem.data.status) || variants.some((v) => v.scheduled_at);
+        if (isLockedForApprovalOrScheduling) {
+          return json(400, {
+            error: "The platform set is locked once this content item has been approved or any of its platforms has been scheduled — remove the schedule first, or work with a fresh draft."
+          });
+        }
+
+        if (action === "add_content_platform") {
+          if (variants.some((v) => v.platform === platform)) {
+            return json(400, { error: `${platform} is already a target platform for this content item.` });
+          }
+          // Real content facts (what AI capabilities actually produced
+          // this content) are copied from an existing sibling variant —
+          // they describe the CONTENT, never re-decided per platform. The
+          // disclosure REQUIREMENT itself is always recomputed for the
+          // new platform's own policy (computeDisclosureFields), never
+          // copied verbatim — the same content can carry a different
+          // disclosure rule on a different platform.
+          const sibling = variants[0] || null;
+          const inserted = await client
+            .from("marketing_platform_variants")
+            .insert({
+              shop_id: shopId,
+              content_item_id: body.content_item_id,
+              platform,
+              status: "pending",
+              asset_id: sibling?.asset_id || null,
+              caption: sibling?.caption || null,
+              hashtags: sibling?.hashtags || [],
+              ...computeDisclosureFields({
+                platform,
+                avatarUsed: sibling?.avatar_used || false,
+                voiceUsed: sibling?.voice_used || false,
+                generativeVideoUsed: sibling?.generative_video_used || false,
+                generativeImageUsed: sibling?.generative_image_used || false,
+                humanEdited: sibling?.human_edited || false,
+                aiContentType: sibling?.ai_content_type || null
+              })
+            })
+            .select("id,platform,caption,hashtags,status,ai_disclosure_required")
+            .single();
+          if (inserted.error) {
+            if (missingRelation(inserted.error)) throw friendlyMissing();
+            throw inserted.error;
+          }
+          await writeCommandAudit(client, user.id, "marketing_content_platform_added", { shopId, targetType: "marketing_content_items", targetId: body.content_item_id, platform });
+          return json(200, {
+            variant: inserted.data,
+            copiedFromExisting: Boolean(sibling),
+            note: sibling
+              ? "Copied the caption from an existing platform as a starting point — edit it before approving."
+              : "No content generated yet to copy from — generate content first, or write a caption manually."
+          });
+        }
+
+        // remove_content_platform
+        const target = variants.find((v) => v.platform === platform);
+        if (!target) return json(404, { error: `${platform} is not a target platform for this content item.` });
+        if (variants.length <= 1) {
+          return json(400, { error: "Cannot remove the last remaining platform — a content item needs at least one target platform." });
+        }
+        const deleted = await client.from("marketing_platform_variants").delete().eq("id", target.id).eq("shop_id", shopId).select("id").maybeSingle();
+        if (deleted.error) throw deleted.error;
+        await writeCommandAudit(client, user.id, "marketing_content_platform_removed", { shopId, targetType: "marketing_content_items", targetId: body.content_item_id, platform });
+        return json(200, { ok: true, platform, remainingPlatforms: variants.filter((v) => v.platform !== platform).map((v) => v.platform) });
       }
 
       // Priority 1 of the "as far as technically possible" pass: Lily
