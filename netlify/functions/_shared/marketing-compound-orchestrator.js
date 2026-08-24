@@ -50,6 +50,7 @@ import { SUPPORTED_PLATFORMS } from "./marketing-social-providers.js";
 import { buildConfiguredCloneProviderRegistry, selectCloneProvider, notLiveCloneProvider } from "./marketing-clone-providers.js";
 import { uploadClonedVoiceAudio } from "./website-media.js";
 import { recordCloneVideoJob } from "./creative-ai/clone-video-jobs.js";
+import { loadBrandBrain, buildBrandSummary } from "./marketing-brand-brain.js";
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const TIME_OF_DAY_DEFAULTS = { morning: "09:00", afternoon: "14:00", evening: "18:00", night: "20:00" };
@@ -272,6 +273,22 @@ function summarizeStatus(plan) {
  * results across steps (masterAssetId/masterImageUrl/contentItemId/...),
  * matching ai-orchestrator.js's runStep's own ctx-accumulation pattern.
  */
+/**
+ * Priority F wiring: same read-time gap closed in marketing-studio.js's
+ * classic generate_content action, applied to the compound-request path —
+ * buildBrandSummary() existed but was never handed to a real generation
+ * call here either. Memoized on ctx so a multi-step compound request
+ * (image + video concept, say) only ever loads Brand Brain once, not once
+ * per generation step.
+ */
+async function getBrandVoiceSummary(client, ctx) {
+  if (ctx._brandVoiceSummary === undefined) {
+    const { preferences } = await loadBrandBrain(client, ctx.shopId);
+    ctx._brandVoiceSummary = buildBrandSummary(preferences);
+  }
+  return ctx._brandVoiceSummary;
+}
+
 async function runCompoundStep(client, step, ctx) {
   const { shopId, userId, persona, shop, extracted, platforms, requestText } = ctx;
 
@@ -348,7 +365,8 @@ async function runCompoundStep(client, step, ctx) {
   }
 
   if (step.tool === "compound.generateVideoConcept") {
-    const gen = await generateVideoConcept({ persona, channel: platforms[0], occasion: extracted.occasion, shop, requestText });
+    const brandVoiceSummary = await getBrandVoiceSummary(client, ctx);
+    const gen = await generateVideoConcept({ persona, channel: platforms[0], occasion: extracted.occasion, shop, requestText, brandVoiceSummary });
     if (!gen.ok) return { ok: false, error: gen.error };
     const persisted = await persistGeneratedAsset(client, { shopId, userId, persona, assetType: "video_concept", model: gen.model, content: gen.content, status: "completed" });
     if (!persisted.ok) return { ok: false, error: persisted.error };
@@ -461,10 +479,11 @@ async function runCompoundStep(client, step, ctx) {
     // second copy-generation implementation), each with disclosure
     // computed the moment real content is attached (Blocker 1's fix,
     // reused here rather than left to an optional follow-up).
+    const brandVoiceSummary = await getBrandVoiceSummary(client, ctx);
     const variantRows = [];
     for (const platform of platforms) {
       // eslint-disable-next-line no-await-in-loop
-      const copyGen = await generateSocialPost({ persona, channel: platform, occasion: extracted.occasion, shop, requestText });
+      const copyGen = await generateSocialPost({ persona, channel: platform, occasion: extracted.occasion, shop, requestText, brandVoiceSummary });
       variantRows.push({
         shop_id: shopId,
         content_item_id: inserted.data.id,

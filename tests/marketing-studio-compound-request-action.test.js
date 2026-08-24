@@ -118,6 +118,7 @@ test("compound_request: happy path — looks up the real shop timezone, runs the
     { data: null, error: null }, // idempotency dedup lookup — no recent duplicate
     { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
     { data: { marketing_monthly_budget_cents: null }, error: null }, // shop monthly-default budget lookup (budget_check, Priority 2) — none configured
+    { data: null, error: null }, // Priority F: loadBrandBrain select — no learned Brand Brain yet
     { data: { id: "video-asset-1" }, error: null }, // ai_generated_assets insert (video concept)
     { data: { id: "content-1" }, error: null }, // marketing_content_items insert
     { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // marketing_platform_variants insert

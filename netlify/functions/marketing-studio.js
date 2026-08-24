@@ -643,6 +643,19 @@ export function createMarketingStudioHandler(deps = {}) {
         const shopName = shopRow.data?.name || null;
         const primaryPlatform = variants[0]?.platform || "facebook";
 
+        // Priority F wiring: Brand Brain (marketing-brand-brain.js) already had
+        // a full explicit-statement CRUD (get/update/reset_brand_brain) and a
+        // buildBrandSummary() helper documented as "handed to Lily's content-
+        // generation prompts as extra grounding" — but nothing ever actually
+        // called it at generation time, so a florist could teach Lily "always
+        // say artisan, never cheap" and see zero effect on real captions. This
+        // closes that read-time gap; the prompt itself (buildSocialPostTask/
+        // buildVideoConceptTask) frames it as a DEFAULT the request's own
+        // explicit instructions still override. Shop-scoped via loadBrandBrain's
+        // own .eq("shop_id", shopId), so no cross-shop leakage is possible.
+        const { preferences: brandPrefs } = await loadBrandBrain(client, shopId);
+        const brandVoiceSummary = buildBrandSummary(brandPrefs);
+
         if (VIDEO_CONTENT_TYPES.has(currentItem.data.content_type)) {
           await recordUsage("copy", "request", 1);
           const gen = await generateVideoConcept({
@@ -650,7 +663,8 @@ export function createMarketingStudioHandler(deps = {}) {
             channel: primaryPlatform,
             occasion: currentItem.data.title,
             shop: { name: shopName },
-            requestText: currentItem.data.brief
+            requestText: currentItem.data.brief,
+            brandVoiceSummary
           });
           if (!gen.ok) {
             await revertToIdea();
@@ -724,7 +738,8 @@ export function createMarketingStudioHandler(deps = {}) {
           channel: primaryPlatform,
           occasion: currentItem.data.title,
           shop: { name: shopName },
-          requestText: currentItem.data.brief
+          requestText: currentItem.data.brief,
+          brandVoiceSummary
         });
         if (!copyGen.ok) {
           await revertToIdea();

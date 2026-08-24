@@ -53,6 +53,59 @@ test("generateSocialPost: the task instruction explicitly forbids describing/res
   }
 });
 
+// Priority F wiring: buildBrandSummary() (marketing-brand-brain.js) existed
+// and was documented as "handed to Lily's content-generation prompts as
+// extra grounding" but nothing ever actually passed it in — a florist
+// could teach Lily "always say artisan, never cheap" via update_brand_brain
+// and see zero effect on real captions. These prove the prompt the model
+// actually receives changes when a brand voice summary is supplied, and
+// stays clean (no stray "undefined"/empty section) when it is not.
+test("generateSocialPost: a supplied brandVoiceSummary is actually included in the real prompt sent to the model, framed as a default the request can override", async () => {
+  const mock = mockCloudflareOnce({
+    platform: "facebook",
+    headline: "Homecoming season is here!",
+    body: "Order your Homecoming corsage today.",
+    cta: "Order now",
+    visual_brief: "A corsage on a wooden counter.",
+    hashtags: [],
+    asset_requirements: []
+  });
+  try {
+    await generateSocialPost({
+      channel: "facebook",
+      occasion: "Homecoming",
+      requestText: "Create a Facebook post...",
+      brandVoiceSummary: "voice tone: warm and conversational; preferred words: artisan, hand-tied; always avoid: cheap, discount"
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /artisan, hand-tied/, "the shop's real learned brand voice must reach the actual model prompt, not just sit in a settings API response");
+    assert.match(userMessage, /always avoid: cheap, discount/);
+    assert.match(userMessage, /the request's own explicit instructions always win if they conflict/i, "explicit user instructions must be framed as overriding the learned default, never the other way around");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: omitting brandVoiceSummary (a brand-new shop with nothing learned yet) never injects an empty/undefined brand-voice section", async () => {
+  const mock = mockCloudflareOnce({
+    platform: "facebook",
+    headline: "h",
+    body: "b",
+    cta: "c",
+    visual_brief: "v",
+    hashtags: [],
+    asset_requirements: []
+  });
+  try {
+    await generateSocialPost({ channel: "facebook", requestText: "x" });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.ok(!userMessage.includes("undefined"), "a shop with no learned Brand Brain yet must never leak a stray 'undefined' into the real prompt");
+    assert.ok(!/learned brand voice/i.test(userMessage), "no brand-voice section at all when there's genuinely nothing learned yet");
+  } finally {
+    mock.restore();
+  }
+});
+
 test("generateSocialPost: returns ok:false (never throws) when the model returns no usable body", async () => {
   const mock = mockCloudflareOnce({ platform: "facebook" });
   try {
@@ -94,6 +147,28 @@ test("generateVideoConcept: marks renderingAvailable:false and never claims a fi
     assert.ok(result.content.scenes.length > 0);
     // Real, concrete shot description, not a generic placeholder.
     assert.match(result.content.scenes[0], /spray rose/i);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateVideoConcept: a supplied brandVoiceSummary reaches the real video-concept prompt too, not just the caption path", async () => {
+  const mock = mockCloudflareOnce({
+    concept: "x",
+    script: "",
+    scenes: ["0-3s: hands trimming stems"],
+    captions: [],
+    hashtags: [],
+    suggested_length_seconds: 15
+  });
+  try {
+    await generateVideoConcept({
+      channel: "instagram",
+      requestText: "Make me a Reel",
+      brandVoiceSummary: "posting personality: playful; hashtag style: minimal (2-3)"
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /posting personality: playful/);
   } finally {
     mock.restore();
   }

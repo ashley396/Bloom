@@ -96,6 +96,28 @@ test("generate_content: a text_post is priced without the image cost — the gat
   assert.ok(statusUpdateCall, "a text_post within budget must be allowed to proceed to the generating lock, unlike the over-budget image_post case");
 });
 
+// Priority F wiring: buildBrandSummary() existed and was documented as
+// "handed to Lily's content-generation prompts" but nothing on this path
+// ever actually loaded it before this fix — proven here by asserting the
+// real, shop-scoped marketing_brand_brain read that now happens once the
+// budget gate clears, before any generation call.
+test("generate_content: a within-budget generation reads this shop's real Brand Brain before calling the model — not a settings-only, generation-blind feature", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "item-1", content_type: "text_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [], error: null },
+    { data: { marketing_monthly_budget_cents: null }, error: null },
+    { data: [{ estimated_cost_cents: 199 }], error: null }
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 200 }));
+  const brandBrainCall = client.calls.find((c) => c.table === "marketing_brand_brain" && c.ops.some((op) => op[0] === "select"));
+  assert.ok(brandBrainCall, "generate_content must actually load this shop's Brand Brain before generating — the summary it produces is useless if never read");
+  const shopEq = brandBrainCall.ops.find((op) => op[0] === "eq" && op[1][0] === "shop_id");
+  assert.ok(shopEq, "the Brand Brain read must be scoped to the requesting shop — never a cross-shop style leak");
+  assert.equal(shopEq[1][1], "shop-1");
+});
+
 test("generate_content: a budget check that itself fails (DB error) blocks the request rather than silently letting generation through", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
