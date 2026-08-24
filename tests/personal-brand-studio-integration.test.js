@@ -438,6 +438,54 @@ test("request_personal_brand_digital_twin: live path kicks off a real render and
     const jobInsert = client.calls.find((c) => c.table === "marketing_clone_video_jobs" && c.ops.some((op) => op[0] === "insert"));
     assert.equal(jobInsert.payload.provider_job_id, "vid-twin-1");
     assert.equal(jobInsert.payload.source, "content_generation");
+    // The Digital Twin result lifecycle fix: the job row must carry every
+    // field finalizeDigitalTwinJob() needs at completion time — the
+    // source concept to link parent_asset_id to, the profiles/consent
+    // used (for the completion-time re-check), and the target platform
+    // (for the automatic content-item handoff).
+    assert.equal(jobInsert.payload.source_asset_id, "asset-1");
+    assert.equal(jobInsert.payload.avatar_profile_id, "avatar-1");
+    assert.equal(jobInsert.payload.voice_profile_id, "voice-1");
+    assert.equal(jobInsert.payload.consent_id, "consent-1");
+    assert.equal(jobInsert.payload.platform, "instagram");
+    assert.equal(jobInsert.payload.created_by, "u1");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// ── clone_job_status poll fallback converges on the same finalization path ──
+
+test("clone_job_status: a live poll that discovers completion (no webhook yet) runs the SAME finalizeDigitalTwinJob path a webhook would — real asset created", async () => {
+  process.env.HEYGEN_API_KEY = "heygen-key";
+  process.env.ELEVENLABS_API_KEY = "elevenlabs-key";
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("/v3/video/status")) {
+      return { ok: true, json: async () => ({ data: { status: "completed", video_url: "https://cdn.heygen.com/polled.mp4" } }) };
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "job-1", shop_id: "shop-1", provider: "heygen", provider_job_id: "vid-poll-1", status: "rendering" }, error: null }, // persisted lookup: still rendering (no webhook yet)
+    { data: { id: "job-1", shop_id: "shop-1", provider: "heygen", provider_job_id: "vid-poll-1", status: "rendering", source_asset_id: null, consent_id: null, platform: null }, error: null }, // finalizeDigitalTwinJob -> getCloneVideoJob
+    { data: { id: "job-1", shop_id: "shop-1", provider: "heygen", provider_job_id: "vid-poll-1", status: "completed", result_url: "https://cdn.heygen.com/polled.mp4", source_asset_id: null, avatar_profile_id: null, voice_profile_id: null, consent_id: null, usage: null, platform: null, created_by: null }, error: null }, // job update
+    { data: { id: "asset-poll-1", asset_type: "video" }, error: null }, // persistGeneratedAsset insert
+    { data: null, error: null }, // cost usage insert
+    { data: { id: "job-1", resulting_asset_id: "asset-poll-1" }, error: null } // markCloneVideoJobFinalized
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  try {
+    const res = await handler(event("clone_job_status", { shop_id: "shop-1" }, { method: "GET", qs: { job_id: "vid-poll-1" } }));
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.source, "poll");
+    assert.equal(body.terminal, true);
+    assert.equal(body.assetCreated, true);
+    assert.equal(body.assetId, "asset-poll-1");
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets");
+    assert.equal(assetInsert.payload.content.video_url, "https://cdn.heygen.com/polled.mp4");
   } finally {
     globalThis.fetch = originalFetch;
   }

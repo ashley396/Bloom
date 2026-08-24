@@ -16,6 +16,12 @@ import { runJob, retryJobStep } from "./_shared/ai-orchestrator.js";
 import { getVideoProvider } from "./_shared/ai-video-provider.js";
 import { parseRevisionDeltas } from "./_shared/ai-visual-revisions.js";
 import { loadStyleMemory, buildStyleSummary, applyExplicitPreferenceUpdates, saveStyleMemory } from "./_shared/ai-style-memory.js";
+import { isFeatureEnabled } from "./_shared/feature-flags.js";
+import {
+  isRequestingUserPlatformSuperAdmin,
+  runPersonalBrandCommand,
+  findLastPersonalBrandConceptAsset
+} from "./_shared/creative-ai/personal-brand-service.js";
 
 const CONVERSATIONS = "lily_conversations";
 const MESSAGES = "lily_messages";
@@ -267,6 +273,65 @@ export function shouldRunJob(routed) {
   return routed.domain === "photo" && ["background_change", "style", "revise", "flyer"].includes(routed.visual_op);
 }
 
+/**
+ * Personal Brand Studio routing decision (Lily + Digital Twin integration
+ * pass, Section 3) — whether a classifyRequest()-routed object should be
+ * handed to Personal Brand Studio instead of the ordinary marketing/photo
+ * job pipeline. Pure and directly testable, mirroring shouldRunJob()'s
+ * own convention. A routed object carrying domain:"personal_brand" has
+ * NONE of the fields runJob()'s job builder expects — this check exists
+ * specifically so it's intercepted before shouldRunJob()/runJob() ever
+ * see it, never so it could accidentally fall into that pipeline.
+ */
+export function isPersonalBrandDomain(routed) {
+  return Boolean(routed) && routed.domain === "personal_brand";
+}
+
+/**
+ * Whether a runPersonalBrandCommand() result is actually actionable (a
+ * generated concept, or a real memory statement applied) versus a
+ * "nothing resolved" result that should fall through to Lily's ordinary
+ * chat reply instead of a dead-end response. This is the false-positive
+ * safety net Section 3 calls for: classifyRequest()'s coarse domain call
+ * already said "personal_brand", but classifyPersonalBrandCommand() (the
+ * detailed, second-stage classifier) must ALSO find something real
+ * before Personal Brand Studio takes over the turn — two independent
+ * classifiers, not one keyword match, deciding together.
+ */
+export function isPersonalBrandResultActionable(result) {
+  return Boolean(result?.understood) && (Boolean(result.asset) || Boolean(result.memoryAck));
+}
+
+/** Turns a runPersonalBrandCommand() result into a real chat reply — never
+ * a raw JSON dump, matching formatJobResponse()'s own convention for the
+ * marketing job pipeline. */
+export function formatPersonalBrandResponse(result) {
+  const parts = [];
+  if (result.memoryAck) parts.push(result.memoryAck);
+  if (result.asset && result.content) {
+    const c = result.content;
+    parts.push(`**${c.headline || "Founder concept"}**\n\n${c.body || ""}${c.cta ? `\n\n*${c.cta}*` : ""}`);
+    parts.push('This is a draft — tell me to send it to Marketing Studio, or say "use my Digital Twin" to turn it into a video.');
+  }
+  const twin = result.digitalTwin;
+  if (twin?.attempted) {
+    if (twin.ok && twin.statusCode === 202) {
+      parts.push(`I started your Digital Twin video (job ${twin.body.job_id}) — I'll let you know when it's ready.`);
+    } else if (twin.reason === "not_enrolled") {
+      parts.push("You haven't set up your Digital Twin yet — an admin can enroll your avatar/voice from the Marketing Studio console first.");
+    } else if (twin.reason === "no_concept_to_render") {
+      parts.push('I don\'t have anything to turn into a video yet — describe what you want first, then ask me to use your Digital Twin.');
+    } else if (twin.reason === "profile_not_ready") {
+      parts.push("Your Digital Twin isn't ready to use yet — its avatar/voice profile is still training.");
+    } else if (twin.body?.note) {
+      parts.push(twin.body.note);
+    } else if (twin.body?.error) {
+      parts.push(`I couldn't start that video: ${twin.body.error}`);
+    }
+  }
+  return parts.join("\n\n") || "Got it.";
+}
+
 /** Plain acknowledgment for a standing style preference Lily just learned —
  * per the shop-style-memory rule, this ONLY fires for an explicit statement
  * ("I like soft luxury backgrounds"), never a one-time override, so telling
@@ -481,6 +546,65 @@ export async function handler(event) {
             source: "deterministic"
           }
         : await classifyRequest(message, { hasImage });
+
+      // Personal Brand Studio (Lily + Digital Twin integration pass,
+      // Section 2) — the smallest safe extension into this dispatcher.
+      // Intercepted here, BEFORE shouldRunJob()/runJob() ever see the
+      // routed object: routed carries the marketing/photo job-builder
+      // shape, never Personal Brand's mode/memory/digital-twin structure.
+      // Gated to the platform's own super_admin during Founding Beta
+      // (Section 3/17) — the entire Marketing Studio surface is
+      // admin-only today (see marketing-studio.js's own header); routing
+      // it through normal chat must never quietly widen that. For
+      // anyone else this check is false and the branch does nothing —
+      // existing Lily behavior for every other shop member is completely
+      // unchanged, exactly as before this pass.
+      if (isPersonalBrandDomain(routed) && isFeatureEnabled("MARKETING_STUDIO") && (await isRequestingUserPlatformSuperAdmin(user.id))) {
+        const personalBrandPermission = checkLilyPermission("marketing.generate", membership?.role || role, { isPlatformAdmin: false });
+        if (personalBrandPermission.allowed) {
+          const conversationAsset = await findLastPersonalBrandConceptAsset(client, shopId);
+          const pbResult = await runPersonalBrandCommand(client, {
+            shopId,
+            userId: user.id,
+            message,
+            conversationAssetId: conversationAsset?.id || null
+          });
+          // The false-positive safety net (Section 3): classifyRequest()
+          // already said domain=personal_brand, but if
+          // classifyPersonalBrandCommand() — the detailed, independent
+          // second-stage classifier — finds nothing actionable, fall
+          // through to Lily's ordinary chat reply below rather than a
+          // dead-end response.
+          if (isPersonalBrandResultActionable(pbResult)) {
+            const responseText = formatPersonalBrandResponse(pbResult);
+            await logAction(client, {
+              userId: user.id,
+              shopId,
+              intent: "personal_brand.command",
+              actionType: "job",
+              result: "completed",
+              metadata: { mode: pbResult.classification?.mode || null, asset_id: pbResult.asset?.id || null, digital_twin_attempted: Boolean(pbResult.digitalTwin?.attempted) }
+            });
+            const convId = await ensureConversation(client, { conversationId, userId: user.id, shopId, message });
+            if (convId) {
+              await persistMessage(client, { conversationId: convId, userId: user.id, shopId, role: "user", content: message, metadata: { intent: "personal_brand.command" } });
+              await persistMessage(client, { conversationId: convId, userId: user.id, shopId, role: "assistant", content: responseText, metadata: { asset_id: pbResult.asset?.id || null } });
+            }
+            return json(200, {
+              conversation_id: convId,
+              intent: { domain: "personal_brand", intent: "personal_brand.command", confidence: 0.9, slots: pbResult.classification },
+              permission: personalBrandPermission,
+              response: responseText,
+              client_action: null,
+              generate: null,
+              job: null,
+              personal_brand: pbResult,
+              coach: buildCoachSuggestions(context),
+              stream: false
+            });
+          }
+        }
+      }
 
       // Shop style memory: an explicit standing statement ("I like soft
       // luxury backgrounds") writes immediately — regardless of whether

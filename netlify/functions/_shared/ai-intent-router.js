@@ -59,10 +59,17 @@ const CLASSIFY_TASK = `Classify what a florist wants Florisyn's AI to do. Read t
 
 Return JSON:
 - action_type: question|create|campaign|video|edit|diagnosis|navigation|scheduling|publishing|data_retrieval|general (campaign=multi-channel).
-- domain: marketing|website|photo|inventory|orders|customers|events|wholesale|reports|employees|support|general (photo=image/background/flyer).
+- domain: marketing|website|photo|personal_brand|inventory|orders|customers|events|wholesale|reports|employees|support|general (photo=image/background/flyer). personal_brand=specifically about how the FLORIST THEMSELVES should be shown/presented in their own marketing — a founder portrait, "put me behind the counter", "make me holding one of my arrangements", "make this more like me", a standing statement about how they like to be dressed/lit/framed/posed, or a request to use their Digital Twin/avatar or cloned voice. This is NOT the shop's general brand voice, and NOT a generic product/flyer photo with no florist in it — when a photo request has no clear intent to depict the founder specifically, keep it domain=photo instead.
 - channels: facebook,instagram,google_business,email,sms,website,blog or []. occasion/audience: string|null. summary: one sentence.
 - domain=photo only — visual_op: background_change|style|crop|flyer|none. visual_style_signal: true only if it has real aesthetic language. target_aspect_ratio_hint: string|null.
 - preference_statement: true only for a standing statement ("I like X"/"use this from now on"), never one-off. preference_updates: [{category,text,polarity}] if true else []. category: background_style,materials,lighting,colors,mood,typography,flyer_style,product_photo_style,social_post_style,floral_decoration_level,realism_level,general_avoid.`;
+
+// Exported under a test-only name (never imported by production code)
+// specifically so a regression test can assert the prompt text itself
+// keeps teaching a real, structured personal_brand signal rather than
+// degrading into a keyword list — see
+// tests/lily-personal-brand-routing.test.js.
+export const CLASSIFY_TASK_FOR_TEST = CLASSIFY_TASK;
 
 const CLASSIFY_SCHEMA = {
   action_type: "string",

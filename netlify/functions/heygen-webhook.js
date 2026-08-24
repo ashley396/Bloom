@@ -34,7 +34,7 @@
 import { admin } from "./_shared/supabase.js";
 import { verifyHeygenWebhookSignature } from "./_shared/creative-ai/heygen-webhook-verify.js";
 import { hashPayload, recordWebhookEvent, markWebhookEventProcessed } from "./_shared/creative-ai/webhook-events-store.js";
-import { applyWebhookStatusUpdate } from "./_shared/creative-ai/clone-video-jobs.js";
+import { finalizeDigitalTwinJob } from "./_shared/creative-ai/digital-twin-finalization.js";
 
 const EVENT_STATUS_MAP = Object.freeze({
   "avatar_video.success": "completed",
@@ -131,7 +131,7 @@ export async function handleHeygenWebhook(event, dependencies = {}) {
   }
 
   try {
-    const applied = await applyWebhookStatusUpdate(client, {
+    const finalized = await finalizeDigitalTwinJob(client, {
       provider: "heygen",
       providerJobId: videoId,
       status: newStatus,
@@ -139,14 +139,23 @@ export async function handleHeygenWebhook(event, dependencies = {}) {
       error: newStatus === "failed" ? String(payload?.event_data?.error || "HeyGen reported a failed render.").slice(0, 500) : null
     });
     await markWebhookEventProcessed(client, recorded.event.id, { status: "processed" });
-    if (!applied.found) {
+    if (!finalized.found) {
       // Real, expected case: a webhook for a video_id Florisyn never
       // recorded a job for (e.g. delivered against a stale/rotated
       // endpoint, or a render started outside Florisyn's own flow).
       // Acknowledge — retrying won't make it correlate.
       log("job_not_found", { videoId });
     }
-    return { statusCode: 200, body: JSON.stringify({ ok: true, correlated: applied.found, alreadyTerminal: applied.alreadyTerminal }) };
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        ok: true,
+        correlated: finalized.found,
+        alreadyTerminal: finalized.alreadyTerminal,
+        assetCreated: finalized.assetCreated,
+        assetId: finalized.asset?.id || null
+      })
+    };
   } catch (error) {
     await markWebhookEventProcessed(client, recorded.event.id, { status: "failed", error: String(error?.message || error) });
     log("status_update_failed", { reason: String(error?.message || error) });

@@ -121,13 +121,23 @@ test("avatar_video.success for a job Florisyn never recorded: acknowledged, corr
   assert.equal(body.correlated, false);
 });
 
-test("avatar_video.success for a correctly recorded job: correlates and applies the status update end to end", async () => {
+// Behavior legitimately changed this pass (Digital Twin result lifecycle,
+// 20260826000000): a completed webhook now runs through
+// finalizeDigitalTwinJob(), which — on the one real, first-time
+// transition to 'completed' — also persists a real ai_generated_assets
+// row, records the master-generation cost once, and marks the job
+// finalized. The response queue below reflects every one of those real
+// calls, in the exact order finalizeDigitalTwinJob makes them.
+test("avatar_video.success for a correctly recorded job: correlates, applies the status update, AND creates a real finished asset", async () => {
   process.env.HEYGEN_WEBHOOK_SECRET = "secret";
   const client = createFakeSupabaseClient([
     { data: null, error: null }, // event lookup: not found
     { data: { id: "event-1", status: "received" }, error: null }, // event insert
-    { data: { id: "job-1", shop_id: "shop-1", provider: "heygen", provider_job_id: "vid-1", status: "rendering" }, error: null }, // clone_video_jobs lookup: found, rendering
-    { data: { id: "job-1", shop_id: "shop-1", provider: "heygen", provider_job_id: "vid-1", status: "completed", result_url: "https://cdn.heygen.com/x.mp4" }, error: null }, // clone_video_jobs update
+    { data: { id: "job-1", shop_id: "shop-1", provider: "heygen", provider_job_id: "vid-1", status: "rendering", source_asset_id: null, consent_id: null, platform: null }, error: null }, // clone_video_jobs lookup: found, rendering
+    { data: { id: "job-1", shop_id: "shop-1", provider: "heygen", provider_job_id: "vid-1", status: "completed", result_url: "https://cdn.heygen.com/x.mp4", source_asset_id: null, avatar_profile_id: null, voice_profile_id: null, consent_id: null, usage: null, platform: null, created_by: null }, error: null }, // clone_video_jobs update (applyWebhookStatusUpdate)
+    { data: { id: "asset-1", asset_type: "video" }, error: null }, // persistGeneratedAsset insert
+    { data: null, error: null }, // marketing_generation_usage insert (master-generation cost, recorded once)
+    { data: { id: "job-1", resulting_asset_id: "asset-1", finalized_at: "2026-08-26T00:00:00.000Z" }, error: null }, // markCloneVideoJobFinalized update
     { data: { id: "event-1", status: "processed" }, error: null } // markWebhookEventProcessed
   ]);
   const res = await handleHeygenWebhook(
@@ -138,9 +148,62 @@ test("avatar_video.success for a correctly recorded job: correlates and applies 
   const body = JSON.parse(res.body);
   assert.equal(body.correlated, true);
   assert.equal(body.alreadyTerminal, false);
+  assert.equal(body.assetCreated, true);
+  assert.equal(body.assetId, "asset-1");
+
+  const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+  assert.equal(assetInsert.payload.asset_type, "video");
+  assert.equal(assetInsert.payload.parent_asset_id, null, "no source_asset_id on this job -> no parent link, never fabricated");
+  assert.equal(assetInsert.payload.content.video_url, "https://cdn.heygen.com/x.mp4");
+
+  const costInsert = client.calls.find((c) => c.table === "marketing_generation_usage" && c.ops.some((op) => op[0] === "insert"));
+  assert.equal(costInsert.payload.purpose, "avatar_video");
+
+  const finalizedUpdate = client.calls.find((c) => c.table === "marketing_clone_video_jobs" && c.ops.some((op) => op[0] === "update") && c.payload.resulting_asset_id);
+  assert.equal(finalizedUpdate.payload.resulting_asset_id, "asset-1");
 });
 
-test("avatar_video.fail maps to a 'failed' status update", async () => {
+test("avatar_video.success for a job that already has a source Personal Brand concept: the video asset links back via parent_asset_id", async () => {
+  process.env.HEYGEN_WEBHOOK_SECRET = "secret";
+  const client = createFakeSupabaseClient([
+    { data: null, error: null },
+    { data: { id: "event-1", status: "received" }, error: null },
+    { data: { id: "job-1", shop_id: "shop-1", provider: "heygen", provider_job_id: "vid-1", status: "rendering", source_asset_id: "concept-1", consent_id: null, platform: null }, error: null },
+    {
+      data: {
+        id: "job-1",
+        shop_id: "shop-1",
+        provider: "heygen",
+        provider_job_id: "vid-1",
+        status: "completed",
+        result_url: "https://cdn.heygen.com/x.mp4",
+        source_asset_id: "concept-1",
+        avatar_profile_id: "avatar-1",
+        voice_profile_id: "voice-1",
+        consent_id: null,
+        usage: null,
+        platform: null,
+        created_by: "u1"
+      },
+      error: null
+    },
+    { data: { id: "asset-2", asset_type: "video" }, error: null }, // persistGeneratedAsset insert
+    { data: null, error: null }, // cost usage insert
+    { data: { id: "job-1", resulting_asset_id: "asset-2" }, error: null }, // markCloneVideoJobFinalized
+    { data: { id: "event-1", status: "processed" }, error: null } // markWebhookEventProcessed
+  ]);
+  const res = await handleHeygenWebhook(
+    makeEvent({ event_type: "avatar_video.success", event_data: { video_id: "vid-1", url: "https://cdn.heygen.com/x.mp4" } }),
+    { admin: () => client, verifyHeygenWebhookSignature: alwaysValid }
+  );
+  assert.equal(res.statusCode, 200);
+  const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+  assert.equal(assetInsert.payload.parent_asset_id, "concept-1", "must link back to the founder concept that requested this render");
+  assert.equal(assetInsert.payload.content.avatar_profile_id, "avatar-1");
+  assert.equal(assetInsert.payload.content.voice_profile_id, "voice-1");
+});
+
+test("avatar_video.fail maps to a 'failed' status update and creates NO asset", async () => {
   process.env.HEYGEN_WEBHOOK_SECRET = "secret";
   const client = createFakeSupabaseClient([
     { data: null, error: null },
@@ -154,6 +217,28 @@ test("avatar_video.fail maps to a 'failed' status update", async () => {
     { admin: () => client, verifyHeygenWebhookSignature: alwaysValid }
   );
   assert.equal(res.statusCode, 200);
+  const body = JSON.parse(res.body);
+  assert.equal(body.assetCreated, false);
+  assert.equal(body.assetId, null);
   const updateCall = client.calls.find((c) => c.table === "marketing_clone_video_jobs" && c.ops.some((op) => op[0] === "update"));
   assert.equal(updateCall.payload.status, "failed");
+  assert.equal(client.calls.filter((c) => c.table === "ai_generated_assets").length, 0, "a failed generation must never produce an asset");
+});
+
+test("a duplicate webhook for an already-completed job never creates a second asset (idempotent finalization)", async () => {
+  process.env.HEYGEN_WEBHOOK_SECRET = "secret";
+  const client = createFakeSupabaseClient([
+    { data: null, error: null }, // event lookup: not found (different delivery, same underlying job)
+    { data: { id: "event-2", status: "received" }, error: null }, // event insert
+    { data: { id: "job-1", shop_id: "shop-1", provider: "heygen", provider_job_id: "vid-1", status: "completed", result_url: "https://cdn.heygen.com/x.mp4" }, error: null }, // job lookup: ALREADY terminal
+    { data: { id: "event-2", status: "processed" }, error: null } // markWebhookEventProcessed
+  ]);
+  const res = await handleHeygenWebhook(
+    makeEvent({ event_type: "avatar_video.success", event_data: { video_id: "vid-1", url: "https://cdn.heygen.com/x.mp4" } }),
+    { admin: () => client, verifyHeygenWebhookSignature: alwaysValid }
+  );
+  const body = JSON.parse(res.body);
+  assert.equal(body.alreadyTerminal, true);
+  assert.equal(body.assetCreated, false);
+  assert.equal(client.calls.filter((c) => c.table === "ai_generated_assets").length, 0);
 });

@@ -96,8 +96,9 @@ import {
   resolveApprovalDecision
 } from "./_shared/marketing-content-planner.js";
 import { recordCloneVideoJob, getCloneVideoJob } from "./_shared/creative-ai/clone-video-jobs.js";
+import { finalizeDigitalTwinJob } from "./_shared/creative-ai/digital-twin-finalization.js";
 import { determineDisclosureRequirement, enforcePrePublishDisclosureGate } from "./_shared/creative-ai/disclosure-policy.js";
-import { validateCloneConsentBody, isConsentActive, CLONE_USAGE_TYPES } from "./_shared/marketing-clone-consent.js";
+import { validateCloneConsentBody, isConsentActive } from "./_shared/marketing-clone-consent.js";
 import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
 import { generateSocialPost, generateVideoConcept, generateWebsiteSectionDraft, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
 import { generateImage, buildImagePrompt } from "./_shared/ai-image-engine.js";
@@ -118,13 +119,12 @@ import {
 import {
   validateReferencePhotoConsentBody,
   canUsePhotoFor,
-  isDigitalTwinUseAuthorized,
   FEEDBACK_REASONS
 } from "./_shared/creative-ai/personal-brand-consent.js";
 import { getPersonalBrandMode, PERSONAL_BRAND_MODE_KEYS } from "./_shared/creative-ai/personal-brand-modes.js";
-import { classifyPersonalBrandCommand } from "./_shared/creative-ai/personal-brand-intent.js";
 import { generatePersonalBrandConcept } from "./_shared/creative-ai/personal-brand-concept.js";
 import { planPersonalBrandPlatformVariants, resolveTargetPlatforms } from "./_shared/creative-ai/personal-brand-platform-variants.js";
+import { runPersonalBrandCommand, requestDigitalTwinGeneration } from "./_shared/creative-ai/personal-brand-service.js";
 
 const VIDEO_CONTENT_TYPES = new Set(["reel", "short_video", "long_video"]);
 
@@ -927,6 +927,25 @@ export function createMarketingStudioHandler(deps = {}) {
         }
         try {
           const result = await provider.getJobStatus(jobId);
+          // Convergence point (Section 7): a live poll discovering
+          // completion runs through the EXACT SAME idempotent
+          // finalization path a webhook delivery does — never a second,
+          // independently-maintained "poll completion" code path that
+          // could drift. If a webhook already finalized this job in the
+          // window between the persisted-row check above and this poll
+          // landing, finalizeDigitalTwinJob's underlying
+          // applyWebhookStatusUpdate sees alreadyTerminal:true and safely
+          // no-ops — no duplicate asset, no double-counted cost.
+          if (result.terminal) {
+            const finalized = await finalizeDigitalTwinJob(client, {
+              provider: "heygen",
+              providerJobId: jobId,
+              status: result.status,
+              resultUrl: result.resultUrl,
+              error: result.error
+            });
+            return json(200, { ...result, source: "poll", assetCreated: finalized.assetCreated, assetId: finalized.asset?.id || null });
+          }
           return json(200, { ...result, source: "poll" });
         } catch (error) {
           return json(502, { error: error.message });
@@ -1325,76 +1344,25 @@ export function createMarketingStudioHandler(deps = {}) {
         const shopId = requireShopId(qs, body);
         if (!body.message) return json(400, { error: "message is required." });
 
-        const classification = await classifyPersonalBrandCommand(body.message);
-        if (!classification) {
-          return json(200, { understood: false, note: "Lily couldn't understand that Personal Brand request. Try rephrasing." });
+        const result = await runPersonalBrandCommand(client, { shopId, userId: user.id, message: body.message });
+        if (!result.understood) return json(200, result);
+        if (result.asset) {
+          await writeCommandAudit(client, user.id, "personal_brand_command_executed", {
+            shopId,
+            targetType: "ai_generated_assets",
+            targetId: result.asset.id,
+            mode: result.classification.mode
+          });
         }
-
-        const { profile: current } = await loadPersonalBrandProfile(client, shopId);
-        let memoryAck = null;
-        if (classification.memory_action === "remember_like" || classification.memory_action === "remember_avoid") {
-          if (classification.memory_category && classification.memory_text) {
-            const polarity = classification.memory_action === "remember_avoid" ? "negative" : "positive";
-            const next = applyExplicitPersonalBrandUpdates(current.preferences, [
-              { category: classification.memory_category, text: classification.memory_text, polarity }
-            ]);
-            await savePersonalBrandPreferences(client, shopId, next);
-            current.preferences = next;
-            memoryAck = `Got it — I'll remember that.`;
-          }
-        } else if (classification.memory_action === "forget" && classification.memory_category && classification.memory_text) {
-          const next = forgetPersonalBrandTrait(current.preferences, { category: classification.memory_category, text: classification.memory_text });
-          await savePersonalBrandPreferences(client, shopId, next);
-          current.preferences = next;
-          memoryAck = `Forgotten.`;
-        }
-
-        if (!classification.mode) {
-          return json(200, { understood: true, classification, memory_ack: memoryAck, asset: null });
-        }
-
-        const styleSummary = buildPersonalBrandStyleSummary(current.preferences);
-        const gen = await generatePersonalBrandConcept({
-          mode: classification.mode,
-          profile: current,
-          styleSummary,
-          toneHint: classification.tone_hint,
-          requestText: body.message
-        });
-        if (!gen.ok) return json(200, { understood: true, classification, memory_ack: memoryAck, asset: null, error: gen.error });
-
-        const persisted = await persistGeneratedAsset(client, {
-          shopId,
-          userId: user.id,
-          persona: "Lily",
-          assetType: "founder_concept",
-          provider: "cloudflare",
-          model: gen.model,
-          content: gen.content,
-          status: "completed"
-        });
-        if (!persisted.ok) throw new Error(persisted.error);
-
-        const targetPlatforms = resolveTargetPlatforms({
-          mode: classification.mode,
-          explicitPlatform: classification.target_platform,
-          requestedPlatforms: null
-        });
-
-        await writeCommandAudit(client, user.id, "personal_brand_command_executed", {
-          shopId,
-          targetType: "ai_generated_assets",
-          targetId: persisted.asset.id,
-          mode: classification.mode
-        });
-
-        return json(201, {
+        return json(result.asset ? 201 : 200, {
           understood: true,
-          classification,
-          memory_ack: memoryAck,
-          asset: persisted.asset,
-          content: gen.content,
-          suggested_platforms: targetPlatforms
+          classification: result.classification,
+          memory_ack: result.memoryAck,
+          asset: result.asset,
+          content: result.content,
+          suggested_platforms: result.suggestedPlatforms,
+          digital_twin: result.digitalTwin,
+          error: result.error
         });
       }
 
@@ -1514,68 +1482,17 @@ export function createMarketingStudioHandler(deps = {}) {
       if (action === "request_personal_brand_digital_twin" && method === "POST") {
         requireSuperAdmin(admin);
         const shopId = requireShopId(qs, body);
-        if (!body.asset_id) return json(400, { error: "asset_id is required." });
-        if (!body.avatar_profile_id && !body.voice_profile_id) return json(400, { error: "avatar_profile_id or voice_profile_id is required." });
-        if (!body.consent_id) return json(400, { error: "consent_id is required — a Digital Twin render always needs an active, named consent grant." });
-        if (!body.platform || !SUPPORTED_PLATFORMS.includes(body.platform)) {
-          return json(400, { error: `platform must be one of: ${SUPPORTED_PLATFORMS.join(", ")}.` });
-        }
-
-        const asset = await client
-          .from("ai_generated_assets")
-          .select("id,content,asset_type")
-          .eq("id", body.asset_id)
-          .eq("shop_id", shopId)
-          .maybeSingle();
-        if (asset.error) throw asset.error;
-        if (!asset.data || asset.data.asset_type !== "founder_concept") return json(404, { error: "Founder concept asset not found." });
-
-        const consent = await client
-          .from("marketing_clone_consent")
-          .select("id,avatar_permission,voice_permission,approved_usage,approved_platforms,revoked_at")
-          .eq("id", body.consent_id)
-          .eq("shop_id", shopId)
-          .maybeSingle();
-        if (consent.error) throw consent.error;
-        if (!consent.data) return json(404, { error: "Consent record not found." });
-
-        const usage = CLONE_USAGE_TYPES.includes(body.usage) ? body.usage : "social_video";
-        const authz = isDigitalTwinUseAuthorized({
-          consentRow: consent.data,
-          usage,
+        const result = await requestDigitalTwinGeneration(client, {
+          shopId,
+          userId: user.id,
+          assetId: body.asset_id,
+          avatarProfileId: body.avatar_profile_id,
+          voiceProfileId: body.voice_profile_id,
+          consentId: body.consent_id,
           platform: body.platform,
-          needsAvatar: Boolean(body.avatar_profile_id),
-          needsVoice: Boolean(body.voice_profile_id)
+          usage: body.usage
         });
-        if (!authz.authorized) return json(403, { error: `Digital Twin use not authorized: ${authz.reason}.` });
-
-        const cloneRegistry = buildConfiguredCloneProviderRegistry({
-          env: process.env,
-          uploadAudio: (buffer, filename) => uploadClonedVoiceAudio(client, shopId, buffer, filename)
-        });
-        const provider = selectCloneProvider({}, cloneRegistry);
-        if (provider === notLiveCloneProvider) {
-          return json(200, { note: "NOT LIVE — PROVIDER CONNECTION REQUIRED. No avatar/voice provider is connected yet.", asset_id: body.asset_id });
-        }
-
-        const script = [asset.data.content?.body, asset.data.content?.founder_presence_brief].filter(Boolean).join(" ");
-        try {
-          const result = await provider.generateVideo({
-            avatarProfileId: body.avatar_profile_id,
-            voiceProfileId: body.voice_profile_id,
-            script,
-            title: asset.data.content?.headline || "Founder video"
-          });
-          try {
-            await recordCloneVideoJob(client, {
-              shopId,
-              provider: result.provider || "heygen",
-              providerJobId: result.jobId,
-              source: "content_generation"
-            });
-          } catch (correlationError) {
-            console.warn(JSON.stringify({ level: "warn", fn: "marketing-studio", message: "personal_brand_twin_job_record_failed", reason: String(correlationError?.message || correlationError) }));
-          }
+        if (result.ok && result.statusCode === 202) {
           await writeCommandAudit(client, user.id, "personal_brand_digital_twin_requested", {
             shopId,
             targetType: "ai_generated_assets",
@@ -1583,15 +1500,8 @@ export function createMarketingStudioHandler(deps = {}) {
             consentId: body.consent_id,
             platform: body.platform
           });
-          return json(202, {
-            job_id: result.jobId,
-            status: result.status || "rendering",
-            source_asset_id: body.asset_id,
-            note: "Render kicked off. The finished video will correlate back via the HeyGen webhook/poll (clone_job_status) — no ai_generated_assets row exists for it yet."
-          });
-        } catch (error) {
-          return json(502, { error: String(error?.message || error).slice(0, 300) });
         }
+        return json(result.statusCode, result.body);
       }
 
       // Stage E — the reliable-publishing queue. Approving content queues

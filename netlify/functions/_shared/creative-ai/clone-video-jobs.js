@@ -18,7 +18,28 @@ const TERMINAL_STATUSES = new Set(["completed", "failed"]);
 
 export async function recordCloneVideoJob(
   client,
-  { shopId, provider, providerJobId, source, contentItemId = null, platformVariantId = null } = {}
+  {
+    shopId,
+    provider,
+    providerJobId,
+    source,
+    contentItemId = null,
+    platformVariantId = null,
+    // Digital Twin result lifecycle (20260826000000): everything
+    // finalizeDigitalTwinJob() needs to build a fully-linked
+    // ai_generated_assets row and to re-verify consent at completion
+    // time, without a second round-trip back to whoever requested the
+    // render. All optional/nullable — preview_clone_profile's existing
+    // call site (no Personal Brand concept, no explicit consent record)
+    // keeps working exactly as before with none of these set.
+    sourceAssetId = null,
+    avatarProfileId = null,
+    voiceProfileId = null,
+    consentId = null,
+    usage = null,
+    platform = null,
+    createdBy = null
+  } = {}
 ) {
   if (!shopId) throw new Error("recordCloneVideoJob requires shopId.");
   if (!provider) throw new Error("recordCloneVideoJob requires provider.");
@@ -32,6 +53,13 @@ export async function recordCloneVideoJob(
       source: source || "preview",
       content_item_id: contentItemId,
       platform_variant_id: platformVariantId,
+      source_asset_id: sourceAssetId,
+      avatar_profile_id: avatarProfileId,
+      voice_profile_id: voiceProfileId,
+      consent_id: consentId,
+      usage,
+      platform,
+      created_by: createdBy,
       status: "rendering"
     })
     .select("id,shop_id,provider,provider_job_id,status")
@@ -43,12 +71,33 @@ export async function recordCloneVideoJob(
 export async function getCloneVideoJob(client, { provider, providerJobId } = {}) {
   const result = await client
     .from("marketing_clone_video_jobs")
-    .select("id,shop_id,provider,provider_job_id,source,content_item_id,platform_variant_id,status,result_url,error_message,created_at,updated_at")
+    .select(
+      "id,shop_id,provider,provider_job_id,source,content_item_id,platform_variant_id,status,result_url,error_message,source_asset_id,resulting_asset_id,avatar_profile_id,voice_profile_id,consent_id,usage,platform,created_by,finalized_at,created_at,updated_at"
+    )
     .eq("provider", provider)
     .eq("provider_job_id", providerJobId)
     .maybeSingle();
   if (result.error) throw result.error;
   return result.data;
+}
+
+/**
+ * Records which real ai_generated_assets row a job's completion produced —
+ * called exactly once, by finalizeDigitalTwinJob(), right after that asset
+ * is created. Kept as its own tiny update (not folded into
+ * applyWebhookStatusUpdate) so the safe-status-transition function stays
+ * focused on one concern; this one is idempotent by virtue of only ever
+ * being called from the single alreadyTerminal:false branch.
+ */
+export async function markCloneVideoJobFinalized(client, jobId, { resultingAssetId } = {}) {
+  const updated = await client
+    .from("marketing_clone_video_jobs")
+    .update({ resulting_asset_id: resultingAssetId || null, finalized_at: new Date().toISOString() })
+    .eq("id", jobId)
+    .select("id,resulting_asset_id,finalized_at")
+    .maybeSingle();
+  if (updated.error) throw updated.error;
+  return updated.data;
 }
 
 /**
