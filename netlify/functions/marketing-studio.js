@@ -116,6 +116,15 @@ import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../li
 import { generateSocialPost, generateVideoConcept, generateWebsiteSectionDraft, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
 import { generateImage, buildImagePrompt } from "./_shared/ai-image-engine.js";
 import { planVideoRender } from "./_shared/marketing-video-render-engine.js";
+import {
+  parseRevisionDeltas,
+  detectPersistIntent,
+  extractMoodPhrase,
+  deriveRevisionTraits,
+  factsPreserved,
+  buildImageRevisionBrief,
+  buildWordingRevisionRequestText
+} from "./_shared/marketing-content-revision.js";
 import { buildMarketingStudioAnalyticsSummary } from "./_shared/marketing-analytics.js";
 import { groupMetricsByDimension } from "./_shared/marketing-insights.js";
 import { validateExperimentBody, determineExperimentWinner } from "./_shared/marketing-ab-testing.js";
@@ -594,7 +603,30 @@ export function createMarketingStudioHandler(deps = {}) {
           if (!byItem.has(v.content_item_id)) byItem.set(v.content_item_id, []);
           byItem.get(v.content_item_id).push(v);
         }
-        return json(200, { items: (data || []).map((item) => ({ ...item, variants: byItem.get(item.id) || [] })) });
+
+        // Conversational revision loop: the content-detail view needs to
+        // show what the CURRENT asset actually looks like (its image url /
+        // caption / parent_asset_id) to render a real "see result" preview
+        // and to know whether Undo has anything to go back to — a bare
+        // asset_id alone isn't enough for that. All of a content item's
+        // variants share one asset uniformly (generate_content/
+        // revise_content both attach it that way), so one asset per item,
+        // not per variant.
+        const assetIds = [...new Set(variants.map((v) => v.asset_id).filter(Boolean))];
+        const assetById = new Map();
+        if (assetIds.length) {
+          const assetsResult = await client.from("ai_generated_assets").select("id,asset_type,content,parent_asset_id").in("id", assetIds).eq("shop_id", shopId);
+          if (assetsResult.error) throw assetsResult.error;
+          for (const a of assetsResult.data || []) assetById.set(a.id, a);
+        }
+
+        return json(200, {
+          items: (data || []).map((item) => {
+            const itemVariants = byItem.get(item.id) || [];
+            const sharedAssetId = itemVariants.find((v) => v.asset_id)?.asset_id || null;
+            return { ...item, variants: itemVariants, asset: sharedAssetId ? assetById.get(sharedAssetId) || null : null };
+          })
+        });
       }
 
       if (action === "approve_content" && method === "POST") {
@@ -691,6 +723,269 @@ export function createMarketingStudioHandler(deps = {}) {
           nextStatus
         });
         return json(200, { item: updated.data });
+      }
+
+      // ── Conversational revision loop ─────────────────────────────────
+      // "Generate → see result → tell Lily what to change → see revised
+      // result → keep refining → Save/Approve when satisfied" — the gap
+      // between generate_content (one-shot) and approve_content (the only
+      // way to make anything permanent) that Blocker 4's original UI never
+      // filled. A revision is just another real generation call
+      // (generateImage/generateSocialPost/generateVideoConcept — the exact
+      // same functions generate_content already uses) with the florist's
+      // instruction folded in as this-call-only override text; it always
+      // produces a NEW child asset (parent_asset_id set), the asset being
+      // revised is never mutated or deleted, and every variant is
+      // repointed to the new asset — never a fake in-place edit. Nothing
+      // here approves or publishes anything; that's still only
+      // approve_content/enqueue_publish.
+      if (action === "revise_content" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.content_item_id) return json(400, { error: "content_item_id is required." });
+        const instruction = String(body.instruction || "").trim();
+        if (!instruction) return json(400, { error: "Describe what you'd like changed." });
+
+        const currentItem = await client
+          .from("marketing_content_items")
+          .select("id,content_type,title,brief,status")
+          .eq("id", body.content_item_id)
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        if (currentItem.error) {
+          if (missingRelation(currentItem.error)) throw friendlyMissing();
+          throw currentItem.error;
+        }
+        if (!currentItem.data) return json(404, { error: "Content item not found." });
+        if (!CONTENT_ITEM_APPROVABLE_STATUSES.includes(currentItem.data.status) || currentItem.data.status === "idea" || currentItem.data.status === "generating") {
+          return json(400, { error: `Cannot revise a content item in status '${currentItem.data.status}'. Generate content first, or if it's already approved/scheduled, that decision has to be undone through review, not a revision.` });
+        }
+
+        const variantsResult = await client
+          .from("marketing_platform_variants")
+          .select("id,platform,asset_id")
+          .eq("content_item_id", body.content_item_id)
+          .eq("shop_id", shopId);
+        if (variantsResult.error) throw variantsResult.error;
+        const variants = variantsResult.data || [];
+        const currentAssetId = variants.find((v) => v.asset_id)?.asset_id || null;
+        if (!currentAssetId) return json(400, { error: "Generate content first before revising it." });
+
+        const assetResult = await client.from("ai_generated_assets").select("*").eq("id", currentAssetId).eq("shop_id", shopId).maybeSingle();
+        if (assetResult.error) throw assetResult.error;
+        const currentAsset = assetResult.data;
+        if (!currentAsset) return json(404, { error: "Couldn't find the current version to revise." });
+
+        const ownDeltas = parseRevisionDeltas(instruction);
+        const hasNewChange = Boolean(ownDeltas) || Boolean(extractMoodPhrase(instruction));
+
+        // "I like this better, use this style from now on" / "always use
+        // this" — a real standing-preference signal, handled BEFORE any
+        // new generation call. Never fires from ambiguous approval alone
+        // (see detectPersistIntent's own docstring); the trait saved is
+        // always something the florist's own words actually named — either
+        // in this same message, or (a bare "use this from now on" with no
+        // new content of its own) whatever the CURRENT asset's own
+        // revision actually applied, recorded on it when it was created.
+        if (detectPersistIntent(instruction)) {
+          const ownTraits = deriveRevisionTraits(instruction, ownDeltas);
+          const traitsToSave = ownTraits.length ? ownTraits : Array.isArray(currentAsset.content?.revision_traits) ? currentAsset.content.revision_traits : [];
+          if (!traitsToSave.length) {
+            return json(400, { error: "Tell me specifically what to keep (e.g. \"always use this background\") so Lily can save it as your style." });
+          }
+          const { preferences: currentVisual } = await loadStyleMemory(client, shopId);
+          const nextVisual = applyExplicitVisualStyleUpdates(currentVisual, traitsToSave);
+          const savedStyle = await saveStyleMemory(client, shopId, nextVisual);
+          if (!savedStyle.ok) throw new Error(savedStyle.error);
+          await writeCommandAudit(client, user.id, "marketing_visual_style_update", { shopId, targetType: "ai_style_memory", targetId: shopId, source: "content_revision" });
+          if (!hasNewChange) {
+            // Nothing else to change — the current asset stays exactly as it is.
+            return json(200, {
+              persisted: true,
+              style_summary: buildVisualStyleSummary(nextVisual),
+              item: { id: currentItem.data.id, status: currentItem.data.status }
+            });
+          }
+          // Otherwise fall through — this message ALSO asked for a real
+          // change ("use a luxury background, and use this from now on"),
+          // so the revision below still runs.
+        }
+
+        const shopRow = await client.from("shops").select("name").eq("id", shopId).maybeSingle();
+        const shopName = shopRow.data?.name || null;
+        const appliedTraits = deriveRevisionTraits(instruction, ownDeltas);
+
+        // hashtags is deliberately optional: an image-only (visual) revision
+        // never touches the caption/hashtags a wording revision would —
+        // omitting the key leaves that column exactly as it was.
+        async function repointVariants(assetId, { caption, hashtags, aiContentType, generativeImageUsed = false }) {
+          for (const v of variants) {
+            const payload = {
+              asset_id: assetId,
+              caption,
+              ...computeDisclosureFields({ platform: v.platform, generativeImageUsed, aiContentType })
+            };
+            if (hashtags !== undefined) payload.hashtags = hashtags;
+            await client.from("marketing_platform_variants").update(payload).eq("id", v.id).eq("shop_id", shopId);
+          }
+        }
+
+        if (currentAsset.asset_type === "image") {
+          const priorVisualBrief = currentAsset.content?.visual_brief || currentItem.data.brief;
+          const visualBrief = buildImageRevisionBrief({ instruction, priorVisualBrief });
+          const prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief });
+          const imageGen = await generateImage(client, shopId, { prompt, filename: `marketing-revision-${body.content_item_id}-${Date.now()}.jpg` });
+          if (!imageGen.ok) return json(400, { error: imageGen.error });
+          const mediaRow = await client
+            .from("website_media")
+            .insert({ shop_id: shopId, storage_path: imageGen.path, filename: imageGen.path.split("/").pop(), source: "generated", mime: "image/jpeg" })
+            .select()
+            .single();
+          // A visual-only revision never touches the caption/copy — only
+          // an explicit wording instruction on a social_copy asset does.
+          const persisted = await persistGeneratedAsset(client, {
+            shopId,
+            userId: user.id,
+            persona: "Lily",
+            assetType: "image",
+            provider: imageGen.provider,
+            model: imageGen.model,
+            prompt: imageGen.prompt,
+            content: {
+              url: imageGen.url,
+              caption: currentAsset.content?.caption || null,
+              visual_brief: visualBrief,
+              brand_traits_used: [],
+              visual_traits_used: appliedTraits,
+              revision_instruction: instruction,
+              revision_traits: appliedTraits
+            },
+            mediaId: mediaRow.data?.id || null,
+            parentAssetId: currentAsset.id,
+            status: "completed"
+          });
+          if (!persisted.ok) throw new Error(persisted.error);
+          await repointVariants(persisted.asset.id, {
+            caption: currentAsset.content?.caption || null,
+            aiContentType: "generative_image",
+            generativeImageUsed: true
+          });
+          await writeCommandAudit(client, user.id, "marketing_content_revised", { shopId, targetType: "marketing_content_items", targetId: body.content_item_id, assetType: "image" });
+          return json(200, {
+            item: { id: currentItem.data.id, status: currentItem.data.status },
+            asset: { id: persisted.asset.id, type: "image", url: imageGen.url, parent_asset_id: currentAsset.id, content: persisted.asset.content }
+          });
+        }
+
+        if (currentAsset.asset_type === "social_copy" || currentAsset.asset_type === "video_concept") {
+          const { preferences: brandPrefs } = await loadBrandBrain(client, shopId);
+          const brandVoiceSummary = buildBrandSummary(brandPrefs);
+          const { preferences: visualPrefs } = await loadStyleMemory(client, shopId);
+          const visualStyleSummary = buildVisualStyleSummary(visualPrefs);
+          const primaryPlatform = variants[0]?.platform || "facebook";
+
+          if (currentAsset.asset_type === "video_concept") {
+            const priorText = [currentAsset.content?.script, currentAsset.content?.concept].filter(Boolean).join(" ");
+            const requestText = buildWordingRevisionRequestText({ instruction, brief: currentItem.data.brief, priorText });
+            const gen = await generateVideoConcept({ persona: "Lily", channel: primaryPlatform, occasion: currentItem.data.title, shop: { name: shopName }, requestText, brandVoiceSummary, visualStyleSummary });
+            if (!gen.ok) return json(400, { error: gen.error });
+            const newText = [gen.content.script, gen.content.concept].filter(Boolean).join(" ");
+            if (!factsPreserved(priorText, newText)) {
+              return json(400, { error: "That revision would have changed an exact phone number, date, price, or link — nothing was changed. Try rephrasing the request." });
+            }
+            const persisted = await persistGeneratedAsset(client, {
+              shopId, userId: user.id, persona: "Lily", assetType: "video_concept", model: gen.model,
+              content: { ...gen.content, revision_instruction: instruction, revision_traits: appliedTraits },
+              parentAssetId: currentAsset.id, status: "completed"
+            });
+            if (!persisted.ok) throw new Error(persisted.error);
+            await repointVariants(persisted.asset.id, { caption: gen.content.script || gen.content.concept || null, hashtags: gen.content.hashtags || [], aiContentType: "none" });
+            await writeCommandAudit(client, user.id, "marketing_content_revised", { shopId, targetType: "marketing_content_items", targetId: body.content_item_id, assetType: "video_concept" });
+            return json(200, { item: { id: currentItem.data.id, status: currentItem.data.status }, asset: { id: persisted.asset.id, type: "video_concept", parent_asset_id: currentAsset.id, content: persisted.asset.content } });
+          }
+
+          const priorText = currentAsset.content?.body || "";
+          const requestText = buildWordingRevisionRequestText({ instruction, brief: currentItem.data.brief, priorText });
+          const gen = await generateSocialPost({ persona: "Lily", channel: primaryPlatform, occasion: currentItem.data.title, shop: { name: shopName }, requestText, brandVoiceSummary, visualStyleSummary });
+          if (!gen.ok) return json(400, { error: gen.error });
+          if (!factsPreserved(priorText, gen.content.body)) {
+            return json(400, { error: "That revision would have changed an exact phone number, date, price, or link — nothing was changed. Try rephrasing the request." });
+          }
+          const persisted = await persistGeneratedAsset(client, {
+            shopId, userId: user.id, persona: "Lily", assetType: "social_copy", provider: "cloudflare", model: gen.model,
+            content: {
+              headline: gen.content.headline, body: gen.content.body, cta: gen.content.cta, hashtags: gen.content.hashtags,
+              brand_traits_used: gen.content.brand_traits_used, visual_traits_used: gen.content.visual_traits_used,
+              revision_instruction: instruction, revision_traits: appliedTraits
+            },
+            parentAssetId: currentAsset.id, status: "completed"
+          });
+          if (!persisted.ok) throw new Error(persisted.error);
+          await repointVariants(persisted.asset.id, { caption: gen.content.body, hashtags: gen.content.hashtags || [], aiContentType: "none" });
+          await writeCommandAudit(client, user.id, "marketing_content_revised", { shopId, targetType: "marketing_content_items", targetId: body.content_item_id, assetType: "social_copy" });
+          return json(200, { item: { id: currentItem.data.id, status: currentItem.data.status }, asset: { id: persisted.asset.id, type: "social_copy", parent_asset_id: currentAsset.id, content: persisted.asset.content } });
+        }
+
+        return json(400, { error: `Revising a "${currentAsset.asset_type}" content type isn't supported yet.` });
+      }
+
+      // "Undo"/"go back to the previous version" — one step back along the
+      // SAME parent_asset_id chain revise_content builds. Never deletes
+      // anything; just repoints every variant at the parent asset, exactly
+      // the way revise_content repoints them at a new child.
+      if (action === "revert_content_revision" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.content_item_id) return json(400, { error: "content_item_id is required." });
+
+        const currentItem = await client
+          .from("marketing_content_items")
+          .select("id,status")
+          .eq("id", body.content_item_id)
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        if (currentItem.error) throw currentItem.error;
+        if (!currentItem.data) return json(404, { error: "Content item not found." });
+
+        const variantsResult = await client
+          .from("marketing_platform_variants")
+          .select("id,platform,asset_id")
+          .eq("content_item_id", body.content_item_id)
+          .eq("shop_id", shopId);
+        if (variantsResult.error) throw variantsResult.error;
+        const variants = variantsResult.data || [];
+        const currentAssetId = variants.find((v) => v.asset_id)?.asset_id || null;
+        if (!currentAssetId) return json(400, { error: "Nothing generated yet — there's no version to undo." });
+
+        const assetResult = await client.from("ai_generated_assets").select("id,parent_asset_id,asset_type").eq("id", currentAssetId).eq("shop_id", shopId).maybeSingle();
+        if (assetResult.error) throw assetResult.error;
+        if (!assetResult.data) return json(404, { error: "Couldn't find the current version." });
+        if (!assetResult.data.parent_asset_id) return json(400, { error: "This is already the original version — nothing to undo." });
+
+        const parentResult = await client.from("ai_generated_assets").select("*").eq("id", assetResult.data.parent_asset_id).eq("shop_id", shopId).maybeSingle();
+        if (parentResult.error) throw parentResult.error;
+        const parentAsset = parentResult.data;
+        if (!parentAsset) return json(404, { error: "Couldn't find the previous version to restore." });
+
+        const caption =
+          parentAsset.asset_type === "image" ? parentAsset.content?.caption || null : parentAsset.asset_type === "video_concept" ? parentAsset.content?.script || parentAsset.content?.concept || null : parentAsset.content?.body || null;
+        const hashtags = parentAsset.content?.hashtags || [];
+        const aiContentType = parentAsset.asset_type === "image" && parentAsset.content?.url ? "generative_image" : "none";
+
+        for (const v of variants) {
+          await client
+            .from("marketing_platform_variants")
+            .update({
+              asset_id: parentAsset.id,
+              caption,
+              hashtags,
+              ...computeDisclosureFields({ platform: v.platform, generativeImageUsed: aiContentType === "generative_image", aiContentType })
+            })
+            .eq("id", v.id)
+            .eq("shop_id", shopId);
+        }
+        await writeCommandAudit(client, user.id, "marketing_content_revision_reverted", { shopId, targetType: "marketing_content_items", targetId: body.content_item_id, restoredAssetId: parentAsset.id });
+        return json(200, { item: { id: currentItem.data.id, status: currentItem.data.status }, asset: { id: parentAsset.id, type: parentAsset.asset_type, parent_asset_id: parentAsset.parent_asset_id, content: parentAsset.content } });
       }
 
       // Stage D — real creative generation for one planned content item.

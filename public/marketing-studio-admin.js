@@ -647,6 +647,14 @@
       const canGenerate = item.status === "idea";
       const canSchedule = ["draft", "in_review", "approved"].includes(item.status);
       const canQueue = item.status === "approved";
+      // Conversational revision loop: "Generate → see result → tell Lily
+      // what to change → see revised result → keep refining → Save/
+      // Approve when satisfied" — the same draft/in_review window Approve/
+      // Reject already uses. Continuing this conversation is never itself
+      // approval; Approve/Reject/Queue remain the only explicit actions
+      // that do anything permanent/customer-facing.
+      const canRevise = canApprove && item.asset;
+      const asset = item.asset;
 
       contentDetail.innerHTML = `
         <div class="panel">
@@ -656,6 +664,26 @@
           ${canGenerate ? `<button type="button" id="msGenerateBtn">Generate content</button>` : ""}
           ${canApprove ? `<button type="button" id="msApproveBtn">Approve</button> <button type="button" class="secondary" id="msRejectBtn">Reject</button>` : ""}
           <div id="msGenNote" class="help"></div>
+
+          ${
+            canRevise
+              ? `<div class="panel" id="msRevisionBox" style="margin:0.75em 0;">
+                   ${
+                     asset.asset_type === "image" && asset.content?.url
+                       ? `<img src="${esc(asset.content.url)}" alt="Current result" style="max-width:100%;max-height:220px;border-radius:8px;display:block;margin-bottom:0.5em;">`
+                       : `<p class="help">${esc(asset.content?.body || asset.content?.script || asset.content?.concept || "")}</p>`
+                   }
+                   <label>Tell Lily what to change
+                     <textarea id="msRevisionInput" rows="2" placeholder="e.g. &quot;use a luxury flower shop background&quot;, &quot;less pink&quot;, &quot;make this more elegant&quot;"></textarea>
+                   </label>
+                   <div class="header-actions">
+                     <button type="button" id="msReviseBtn">Send to Lily</button>
+                     ${asset.parent_asset_id ? `<button type="button" class="secondary" id="msUndoRevisionBtn">Undo / previous version</button>` : ""}
+                   </div>
+                   <p id="msRevisionStatus" class="help"></p>
+                 </div>`
+              : ""
+          }
 
           ${
             canSchedule
@@ -698,6 +726,45 @@
           } catch (err) {
             genNote.textContent = err.message;
             genBtn.disabled = false;
+          }
+        };
+      }
+
+      const reviseBtn = contentDetail.querySelector("#msReviseBtn");
+      if (reviseBtn) {
+        const revisionInput = contentDetail.querySelector("#msRevisionInput");
+        const revisionStatus = contentDetail.querySelector("#msRevisionStatus");
+        reviseBtn.onclick = async () => {
+          const instruction = revisionInput.value.trim();
+          if (!instruction) return (revisionStatus.textContent = "Tell Lily what to change first.");
+          reviseBtn.disabled = true;
+          revisionStatus.textContent = "Revising…";
+          try {
+            const result = await adminApi("revise_content", { body: { shop_id: shopId, content_item_id: item.id, instruction } });
+            await loadContentList();
+            openContentItemId = item.id;
+            renderContentDetail();
+            const freshStatus = contentDetail.querySelector("#msRevisionStatus");
+            if (freshStatus) freshStatus.textContent = result.persisted ? "Saved as your standing style." : "Updated — keep refining, or Approve when you're happy with it.";
+          } catch (err) {
+            revisionStatus.textContent = err.message;
+            reviseBtn.disabled = false;
+          }
+        };
+      }
+      const undoRevisionBtn = contentDetail.querySelector("#msUndoRevisionBtn");
+      if (undoRevisionBtn) {
+        undoRevisionBtn.onclick = async () => {
+          undoRevisionBtn.disabled = true;
+          try {
+            await adminApi("revert_content_revision", { body: { shop_id: shopId, content_item_id: item.id } });
+            await loadContentList();
+            openContentItemId = item.id;
+            renderContentDetail();
+          } catch (err) {
+            const freshStatus = contentDetail.querySelector("#msRevisionStatus");
+            if (freshStatus) freshStatus.textContent = err.message;
+            undoRevisionBtn.disabled = false;
           }
         };
       }
