@@ -24,7 +24,7 @@ async function scrollWidthOverflow(page) {
   return page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
 }
 
-async function openSettings(page, viewport) {
+async function openSettings(page, viewport, { tab } = {}) {
   await mockBackend(page);
   await withFakeSession(page);
   await page.setViewportSize(viewport);
@@ -32,6 +32,14 @@ async function openSettings(page, viewport) {
   await page.waitForSelector("#app:not([hidden])", { timeout: 10_000 });
   await page.evaluate(() => window.showPage && window.showPage("settingsPage"));
   await page.waitForTimeout(300);
+  // Priority 13 fix: Settings is now tabbed (Shop/Branding/AI &
+  // Assistants/Billing/Data & Migration/Florisyn); Daisy's panel lives
+  // under "Florisyn", hidden until that tab is clicked — see the sibling
+  // spec's matching note for the full explanation.
+  if (tab) {
+    await page.click(`#settingsPage [data-settings-tab="${tab}"]`);
+    await page.waitForTimeout(100);
+  }
 }
 
 test.describe("Settings page at the launch-repair spec's exact viewports", () => {
@@ -68,7 +76,7 @@ test.describe("Settings page at the launch-repair spec's exact viewports", () =>
 
   for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     test(`${name} (${viewport.width}x${viewport.height}): Daisy's checkboxes still render beside their labels, not stacked`, async ({ page }) => {
-      await openSettings(page, viewport);
+      await openSettings(page, viewport, { tab: "florisyn" });
 
       const hideDaisyLabel = page.locator("#daisySettingsPanel label.check", { hasText: "Hide Daisy" });
       await expect(hideDaisyLabel).toBeVisible();
