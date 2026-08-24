@@ -39,6 +39,28 @@ test("extractFactTokens / factsPreserved: real phone/date/price/URL survival che
   assert.equal(factsPreserved("", "anything"), true, "nothing to preserve when the original had no facts");
 });
 
+// Final integration/verification pass: the exact realistic example given —
+// a phone, a date, a bare time (no date attached), a price, and a URL all
+// in one piece of copy. Bare-time preservation ("2:30" with no AM/PM) is a
+// real gap this pass found and closed — extractFactTokens previously had
+// no time regex at all, so a revision could have silently dropped a pickup
+// time and nothing would have caught it.
+test("extractFactTokens / factsPreserved: the exact florist example (phone, date, time, price, URL) survives a real revision, and a dropped fact is caught", () => {
+  const original = "Call 606-506-4039, pickup 08/22/2026 at 2:30, arrangements from $49.99, order at https://florisyn.com";
+  const tokens = extractFactTokens(original);
+  assert.ok(tokens.includes("606-506-4039"));
+  assert.ok(tokens.includes("08/22/2026"));
+  assert.ok(tokens.includes("2:30"));
+  assert.ok(tokens.includes("$49.99"));
+  assert.ok(tokens.includes("https://florisyn.com"));
+
+  const revisedKeepingFacts = "Give us a call at 606-506-4039 — pickup is 08/22/2026 at 2:30, elegant arrangements starting at $49.99, order now at https://florisyn.com";
+  assert.equal(factsPreserved(original, revisedKeepingFacts), true);
+
+  const revisedDroppingTime = "Give us a call at 606-506-4039 — pickup is 08/22/2026, elegant arrangements starting at $49.99, order now at https://florisyn.com";
+  assert.equal(factsPreserved(original, revisedDroppingTime), false, "dropping the pickup time alone must be caught, not just the date/phone/price/URL");
+});
+
 test("deriveRevisionTraits: only records what the instruction actually asked for — never fabricates a category from nothing", () => {
   assert.deepEqual(deriveRevisionTraits("use a luxury flower shop background instead", { backgroundHint: "luxury flower shop" }), [
     { category: "background_style", text: "luxury flower shop", polarity: "positive" }

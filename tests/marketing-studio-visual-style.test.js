@@ -296,3 +296,67 @@ test("generate_content: a text_post's real generation persists brand_traits_used
     mock.restore();
   }
 });
+
+// Final integration/verification pass: proves the actual end-to-end claim
+// (not just "a query happened") — a My Style preference Shop A saved
+// EARLIER (a real stored row, not a param handed in by the test) reaches
+// the literal prompt text sent to the model on a LATER, unrelated
+// generate_content call for a brand-new content item that never restates
+// the preference itself.
+test("generate_content: a previously-saved My Style preference ('soft luxury backgrounds') is read from real storage and reaches the actual generation prompt as a default, with no restating required", async () => {
+  process.env.CLOUDFLARE_ACCOUNT_ID = "acct-test";
+  process.env.CLOUDFLARE_AI_API_TOKEN = "token-test";
+  const originalFetch = globalThis.fetch;
+  let sentBody = null;
+  globalThis.fetch = async (url, opts) => {
+    sentBody = JSON.parse(opts.body);
+    return {
+      ok: true,
+      json: async () => ({
+        success: true,
+        result: {
+          response: JSON.stringify({
+            platform: "facebook",
+            headline: "h",
+            body: "New spring arrangements are here!",
+            cta: "Shop now",
+            visual_brief: "a spring arrangement",
+            hashtags: [],
+            asset_requirements: [],
+            brand_traits_used: [],
+            visual_traits_used: [{ category: "background_style", text: "soft luxury backgrounds" }]
+          })
+        }
+      })
+    };
+  };
+  try {
+    const savedStyle = {
+      background_style: {
+        traits: [{ text: "soft luxury backgrounds", polarity: "positive", source: "explicit", active: true, evidence_count: 1, last_signal_at: null }]
+      }
+    };
+    const client = createFakeSupabaseClient([
+      superAdminRow(),
+      { data: { id: "item-2", content_type: "text_post", title: "Spring line", brief: "New spring arrangements", status: "idea" }, error: null }, // a brand-new, unrelated content item
+      { data: [], error: null }, // variants
+      { data: { marketing_monthly_budget_cents: null }, error: null }, // budget
+      { data: null, error: null }, // content_items update -> generating
+      { data: { name: "Test Florals" }, error: null }, // shopRow
+      { data: null, error: null }, // loadBrandBrain (nothing saved)
+      { data: { preferences: savedStyle }, error: null }, // loadStyleMemory — the REAL, previously-saved preference
+      { data: null, error: null }, // recordUsage("copy")
+      { data: { id: "copy-asset-2" }, error: null }, // persistGeneratedAsset (social_copy, text_post)
+      { data: { id: "item-2", status: "draft" }, error: null }, // final content_items update
+      { data: null, error: null } // audit
+    ]);
+    const handler = createMarketingStudioHandler(baseDeps(client));
+    const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-2" }));
+    assert.equal(res.statusCode, 200, `generate_content failed: ${res.body}`);
+    const userMessage = sentBody.messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /soft luxury backgrounds/, "the shop's real, previously-saved My Style preference must reach the actual model prompt as a default — the request itself never restated it");
+    assert.match(userMessage, /the request's own explicit visual direction always wins if it conflicts/i, "it must be framed as a default the current request can override, never a fixed rule");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

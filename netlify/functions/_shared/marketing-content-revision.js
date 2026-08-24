@@ -48,18 +48,23 @@ export function extractMoodPhrase(instruction) {
 }
 
 // Facts a revision must never silently drop or reword: phone numbers,
-// dollar amounts, URLs, dates — anything the florist gave verbatim and
-// didn't ask this revision to touch.
+// dollar amounts, URLs, dates, times — anything the florist gave verbatim
+// and didn't ask this revision to touch.
 const PHONE_RE = /\(?\b\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g;
 const PRICE_RE = /\$\d+(?:\.\d{2})?/g;
 const URL_RE = /\bhttps?:\/\/\S+/gi;
 const DATE_RE =
   /\b(?:\d{1,2}\/\d{1,2}\/\d{2,4}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s+\d{2,4})?)\b/gi;
+// A bare clock time ("2:30", "2:30pm", "14:30") — a real pickup/delivery
+// time is exactly as fact-sensitive as a date, and got its own regex only
+// after a real gap was found: a time-only mention (no date attached) was
+// previously not tracked as a fact at all.
+const TIME_RE = /\b([01]?\d|2[0-3]):[0-5]\d\s*(?:am|pm|AM|PM)?\b/g;
 
 export function extractFactTokens(text) {
   const source = String(text || "");
   const tokens = new Set();
-  for (const re of [PHONE_RE, PRICE_RE, URL_RE, DATE_RE]) {
+  for (const re of [PHONE_RE, PRICE_RE, URL_RE, DATE_RE, TIME_RE]) {
     for (const m of source.matchAll(re)) tokens.add(m[0]);
   }
   return [...tokens];
@@ -67,7 +72,7 @@ export function extractFactTokens(text) {
 
 /** True only if every fact token found in the ORIGINAL text still appears
  * verbatim in the revised text. A revision that would drop or reword a
- * real phone number/date/price/URL fails this — the caller must refuse
+ * real phone number/date/time/price/URL fails this — the caller must refuse
  * the revision rather than silently lose (or paraphrase) a business fact
  * the florist never asked to change. */
 export function factsPreserved(originalText, revisedText) {

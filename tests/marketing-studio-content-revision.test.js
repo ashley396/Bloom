@@ -327,3 +327,38 @@ test("revise_content: refuses to revise an already-approved item — revision is
   const res = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction: "use a marble background instead" }));
   assert.equal(res.statusCode, 400);
 });
+
+// Final integration/verification pass, section 6 (cross-shop isolation) —
+// the OTHER half of the proof: the scoping-predicate tests above prove
+// every query CARRIES the requesting shop's id; this proves what actually
+// happens when that scoping legitimately finds nothing, which is exactly
+// what a real Postgres `.eq("id", contentItemId).eq("shop_id", shopB)`
+// returns for a content item that really belongs to shop A — direct-ID
+// access by another tenant fails closed, not silently.
+test("revise_content / revert_content_revision: a content_item_id belonging to a DIFFERENT shop is treated as not found — direct-ID access from another tenant never reaches any asset/style/brand-brain query", async () => {
+  for (const action of ["revise_content", "revert_content_revision"]) {
+    const client = createFakeSupabaseClient([
+      superAdminRow(),
+      // The real, shop-scoped lookup (.eq("id", ...).eq("shop_id", "shop-B"))
+      // finds nothing — shop A's row exists, but not under shop B's filter.
+      { data: null, error: null }
+    ]);
+    const handler = createMarketingStudioHandler(baseDeps(client));
+    const res = await handler(event(action, { shop_id: "shop-B", content_item_id: "item-belongs-to-shop-A", ...(action === "revise_content" ? { instruction: "use a marble background instead" } : {}) }));
+    assert.equal(res.statusCode, 404, `${action} must report not-found, never leak shop A's content`);
+    assert.equal(client.calls.find((c) => c.table === "ai_generated_assets"), undefined, `${action} must never even query assets once the item lookup itself found nothing for this shop`);
+    assert.equal(client.calls.find((c) => c.table === "ai_style_memory"), undefined);
+    assert.equal(client.calls.find((c) => c.table === "marketing_brand_brain"), undefined);
+  }
+});
+
+test("approve_content: a content_item_id belonging to a DIFFERENT shop cannot be approved — direct-ID access from another tenant fails closed", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: null, error: null } // the shop-scoped lookup finds nothing under shop B's filter
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  const res = await handler(event("approve_content", { shop_id: "shop-B", content_item_id: "item-belongs-to-shop-A", decision: "approved" }));
+  assert.equal(res.statusCode, 404);
+  assert.equal(client.calls.find((c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update")), undefined, "nothing about shop A's item may ever be updated by shop B's request");
+});
