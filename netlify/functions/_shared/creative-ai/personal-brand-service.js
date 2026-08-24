@@ -129,6 +129,12 @@ export async function findLastPersonalBrandConceptAsset(client, shopId) {
     .select("id,content")
     .eq("shop_id", shopId)
     .eq("asset_type", "founder_concept")
+    // Revoked-media hardening: defense-in-depth. founder_concept assets
+    // are never the ones this pass quarantines (only Digital Twin video
+    // output gets a consent_id/quarantine disposition today), but this
+    // "most recent for the shop" lookup should never silently hand back
+    // quarantined media if that ever changes.
+    .neq("status", "quarantined")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -266,7 +272,11 @@ export async function requestDigitalTwinGeneration(
     return { ok: false, statusCode: 400, body: { error: `platform must be one of: ${SUPPORTED_PLATFORMS.join(", ")}.` } };
   }
 
-  const asset = await client.from("ai_generated_assets").select("id,content,asset_type").eq("id", assetId).eq("shop_id", shopId).maybeSingle();
+  // Revoked-media hardening (Section 2/9): a quarantined asset can never
+  // become source/reference material for a NEW Digital Twin render — the
+  // direct-ID lookup here is exactly the bypass a list filter elsewhere
+  // would miss.
+  const asset = await client.from("ai_generated_assets").select("id,content,asset_type").eq("id", assetId).eq("shop_id", shopId).neq("status", "quarantined").maybeSingle();
   if (asset.error) throw asset.error;
   if (!asset.data || asset.data.asset_type !== "founder_concept") return { ok: false, statusCode: 404, body: { error: "Founder concept asset not found." } };
 

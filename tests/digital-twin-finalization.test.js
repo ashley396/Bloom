@@ -100,23 +100,10 @@ test("finalizeDigitalTwinJob: a genuine first-time completion creates one real a
   assert.equal(finalizeUpdate.payload.resulting_asset_id, "asset-1");
 });
 
-test("finalizeDigitalTwinJob: consent revoked between request and completion still creates the asset (cost was real) but skips the content-item handoff", async () => {
-  const client = createFakeSupabaseClient([
-    { data: baseJob({ consent_id: "consent-1", avatar_profile_id: "avatar-1", platform: "instagram" }), error: null }, // lookup
-    { data: baseJob({ status: "completed", result_url: "https://cdn.heygen.com/x.mp4", consent_id: "consent-1", avatar_profile_id: "avatar-1", platform: "instagram" }), error: null }, // update
-    { data: { id: "consent-1", avatar_permission: true, voice_permission: false, approved_usage: ["social_video"], approved_platforms: ["instagram"], revoked_at: "2026-08-26T00:00:00.000Z" }, error: null }, // consent re-check: REVOKED
-    { data: { id: "asset-1", asset_type: "video" }, error: null }, // persistGeneratedAsset insert
-    { data: null, error: null }, // cost usage insert
-    { data: { id: "job-1", resulting_asset_id: "asset-1" }, error: null } // markCloneVideoJobFinalized
-  ]);
-  const result = await finalizeDigitalTwinJob(client, { provider: "heygen", providerJobId: "vid-1", status: "completed", resultUrl: "https://cdn.heygen.com/x.mp4" });
-  assert.equal(result.assetCreated, true, "the video was genuinely generated — the record must not be lost");
-  assert.equal(result.contentItem, null, "revoked consent must never auto-surface into the publish-eligible content queue");
-  assert.equal(client.calls.filter((c) => c.table === "marketing_content_items").length, 0);
-  const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets");
-  assert.equal(assetInsert.payload.content.consent_valid_at_completion, false);
-});
-
+// Behavior legitimately changed this pass (revoked-media hardening):
+// consent revoked before finalization no longer produces a usable asset
+// at ALL — see tests/digital-twin-quarantine.test.js for the full
+// quarantine-path coverage this replaces.
 test("finalizeDigitalTwinJob: valid consent + a target platform creates a real, review-gated content item with disclosure metadata pre-filled", async () => {
   const client = createFakeSupabaseClient([
     { data: baseJob({ consent_id: "consent-1", avatar_profile_id: "avatar-1", voice_profile_id: "voice-1", platform: "tiktok", usage: "social_video" }), error: null },
@@ -135,6 +122,7 @@ test("finalizeDigitalTwinJob: valid consent + a target platform creates a real, 
     },
     { data: { id: "consent-1", avatar_permission: true, voice_permission: true, approved_usage: ["social_video"], approved_platforms: ["tiktok"], revoked_at: null }, error: null }, // consent re-check: valid
     { data: { id: "asset-1", asset_type: "video" }, error: null }, // persistGeneratedAsset insert
+    { data: { id: "asset-1", consent_id: "consent-1" }, error: null }, // ai_generated_assets.consent_id backfill
     { data: null, error: null }, // cost usage insert
     { data: { id: "item-1", content_type: "reel", title: "Digital Twin video", status: "in_review" }, error: null }, // content_items insert
     { data: { id: "variant-1", platform: "tiktok", ai_disclosure_required: true }, error: null }, // platform_variants insert

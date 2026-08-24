@@ -905,11 +905,18 @@ export function createMarketingStudioHandler(deps = {}) {
         try {
           const persisted = await getCloneVideoJob(client, { provider: "heygen", providerJobId: jobId });
           if (persisted && persisted.shop_id === shopId && persisted.status !== "rendering") {
+            // Revoked-media hardening (Section 8): a quarantined job's
+            // render genuinely finished at the provider, but that output is
+            // not a usable Florisyn asset — the URL is never handed back
+            // through this poll response, matching the fact that no
+            // ai_generated_assets row exists for it either.
+            const quarantined = persisted.disposition === "quarantined";
             return json(200, {
               status: persisted.status,
               terminal: true,
-              resultUrl: persisted.result_url,
+              resultUrl: quarantined ? null : persisted.result_url,
               error: persisted.error_message,
+              quarantined,
               source: "webhook"
             });
           }
@@ -944,7 +951,17 @@ export function createMarketingStudioHandler(deps = {}) {
               resultUrl: result.resultUrl,
               error: result.error
             });
-            return json(200, { ...result, source: "poll", assetCreated: finalized.assetCreated, assetId: finalized.asset?.id || null });
+            // Same rule as the webhook-cached branch above: quarantined
+            // output never carries its resultUrl back to the caller, even
+            // though the raw provider poll (`result`) genuinely has one.
+            return json(200, {
+              ...result,
+              resultUrl: finalized.quarantined ? null : result.resultUrl,
+              source: "poll",
+              assetCreated: finalized.assetCreated,
+              assetId: finalized.asset?.id || null,
+              quarantined: Boolean(finalized.quarantined)
+            });
           }
           return json(200, { ...result, source: "poll" });
         } catch (error) {
@@ -1051,6 +1068,52 @@ export function createMarketingStudioHandler(deps = {}) {
         // Never leave a profile marked usable once its consent is gone.
         await client.from("marketing_avatar_profiles").update({ status: "suspended", updated_at: new Date().toISOString() }).eq("consent_id", body.consent_id).eq("shop_id", shopId);
         await client.from("marketing_voice_profiles").update({ status: "suspended", updated_at: new Date().toISOString() }).eq("consent_id", body.consent_id).eq("shop_id", shopId);
+
+        // Revoked-media hardening (Section 6, Case D): a completed asset
+        // this consent already covers does not remain usable just because
+        // it was generated before revocation — demote it to quarantined
+        // in place. This is the one path where an ai_generated_assets row
+        // already exists and must be defended after the fact (every
+        // in-flight case never creates the row at all — see
+        // digital-twin-finalization.js). Best-effort/non-fatal: a failure
+        // here never unwinds the consent revocation itself, which already
+        // took effect above.
+        try {
+          const quarantinedAssets = await client
+            .from("ai_generated_assets")
+            .update({ status: "quarantined", quarantine_reason: "consent_revoked", quarantined_at: new Date().toISOString() })
+            .eq("consent_id", body.consent_id)
+            .eq("shop_id", shopId)
+            .eq("status", "completed")
+            .select("id");
+          if (quarantinedAssets.error) throw quarantinedAssets.error;
+          const quarantinedIds = (quarantinedAssets.data || []).map((row) => row.id);
+          // Any not-yet-published variant built from one of these assets
+          // can no longer proceed into (or stay queued for) publishing —
+          // run_publishing_queue's own asset-status gate is the durable
+          // enforcement; this cancellation just keeps the queue honest
+          // instead of leaving a doomed variant sitting in it.
+          if (quarantinedIds.length > 0) {
+            await client
+              .from("marketing_platform_variants")
+              .update({ status: "canceled", last_error: "Source asset was quarantined after consent revocation." })
+              .in("asset_id", quarantinedIds)
+              .eq("shop_id", shopId)
+              .neq("status", "published");
+          }
+        } catch (quarantineCascadeError) {
+          console.warn(
+            JSON.stringify({
+              level: "warn",
+              fn: "marketing-studio",
+              message: "revoked_consent_asset_quarantine_failed",
+              shopId,
+              consentId: body.consent_id,
+              reason: String(quarantineCascadeError?.message || quarantineCascadeError)
+            })
+          );
+        }
+
         await writeCommandAudit(client, user.id, "marketing_clone_consent_revoked", {
           shopId,
           targetType: "marketing_clone_consent",
@@ -1395,11 +1458,16 @@ export function createMarketingStudioHandler(deps = {}) {
         if (!PERSONAL_BRAND_MODE_KEYS.includes(body.mode)) {
           return json(400, { error: `mode must be one of: ${PERSONAL_BRAND_MODE_KEYS.join(", ")}.` });
         }
+        // Revoked-media hardening (Section 9): a quarantined asset can
+        // never be handed off into the content-item/publishing pipeline
+        // via a direct asset_id, even one supplied for an otherwise-valid
+        // founder concept.
         const asset = await client
           .from("ai_generated_assets")
           .select("id,content,asset_type")
           .eq("id", body.asset_id)
           .eq("shop_id", shopId)
+          .neq("status", "quarantined")
           .maybeSingle();
         if (asset.error) throw asset.error;
         if (!asset.data || asset.data.asset_type !== "founder_concept") return json(404, { error: "Founder concept asset not found." });
@@ -1606,7 +1674,7 @@ export function createMarketingStudioHandler(deps = {}) {
         for (const job of dueJobs) {
           const variantResult = await client
             .from("marketing_platform_variants")
-            .select("id,platform,caption,scheduled_at,ai_disclosure_required,disclosure_applied")
+            .select("id,platform,caption,scheduled_at,ai_disclosure_required,disclosure_applied,asset_id")
             .eq("id", job.platform_variant_id)
             .maybeSingle();
           const variant = variantResult.data;
@@ -1615,6 +1683,23 @@ export function createMarketingStudioHandler(deps = {}) {
 
           let outcome;
           try {
+            // Revoked-media hardening (Section 9): a direct asset-status
+            // check, not list-filtering — mirrors the disclosure gate
+            // immediately below by running BEFORE any provider call and by
+            // being statusCode:400/fatal (a quarantined asset never becomes
+            // publishable again by retrying). Variants with no linked
+            // asset_id (not every variant traces back to a generated
+            // asset) are unaffected.
+            if (variant?.asset_id) {
+              const assetResult = await client.from("ai_generated_assets").select("id,status").eq("id", variant.asset_id).maybeSingle();
+              if (assetResult.error) throw assetResult.error;
+              if (assetResult.data?.status === "quarantined") {
+                const quarantineError = new Error("Source asset is quarantined (consent was revoked) and cannot be published.");
+                quarantineError.statusCode = 400;
+                quarantineError.code = "asset_quarantined";
+                throw quarantineError;
+              }
+            }
             // Fail-closed disclosure gate — runs BEFORE the (today,
             // universally not-live) social provider call, so content
             // missing a required disclosure never even reaches the point

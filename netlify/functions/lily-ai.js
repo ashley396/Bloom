@@ -493,6 +493,11 @@ export async function handler(event) {
         .select("*")
         .eq("id", body.asset_id)
         .eq("shop_id", shopId)
+        // Revoked-media hardening (Section 8/9): a direct asset-ID lookup
+        // is exactly the bypass a list-filter alone would miss — a
+        // quarantined asset must fail server-side here too, not just be
+        // absent from whatever list surfaced it originally.
+        .neq("status", "quarantined")
         .maybeSingle();
       if (error) return json(500, { error: error.message });
       if (!asset) return json(404, { error: "That version couldn't be found." });

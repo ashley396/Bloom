@@ -38,7 +38,13 @@ export async function recordCloneVideoJob(
     consentId = null,
     usage = null,
     platform = null,
-    createdBy = null
+    createdBy = null,
+    // Revoked-media hardening (20260827000000): the storage path of the
+    // synthesized voice track this render is using, if any — captured so
+    // quarantine cleanup can actually delete a Florisyn-hosted file it
+    // has a real path for, rather than only being able to log that it
+    // exists.
+    tempAudioPath = null
   } = {}
 ) {
   if (!shopId) throw new Error("recordCloneVideoJob requires shopId.");
@@ -60,6 +66,7 @@ export async function recordCloneVideoJob(
       usage,
       platform,
       created_by: createdBy,
+      temp_audio_path: tempAudioPath,
       status: "rendering"
     })
     .select("id,shop_id,provider,provider_job_id,status")
@@ -68,15 +75,15 @@ export async function recordCloneVideoJob(
   return inserted.data;
 }
 
+// The full row shape finalizeDigitalTwinJob() (and its quarantine path)
+// depend on — kept as one constant so getCloneVideoJob()'s read and
+// applyWebhookStatusUpdate()'s post-update read can never silently drift
+// apart and omit a column the caller actually needs.
+const FULL_JOB_COLUMNS =
+  "id,shop_id,provider,provider_job_id,source,content_item_id,platform_variant_id,status,result_url,error_message,source_asset_id,resulting_asset_id,avatar_profile_id,voice_profile_id,consent_id,usage,platform,created_by,disposition,quarantine_reason,quarantined_at,temp_audio_path,temp_audio_deleted_at,finalized_at,created_at,updated_at";
+
 export async function getCloneVideoJob(client, { provider, providerJobId } = {}) {
-  const result = await client
-    .from("marketing_clone_video_jobs")
-    .select(
-      "id,shop_id,provider,provider_job_id,source,content_item_id,platform_variant_id,status,result_url,error_message,source_asset_id,resulting_asset_id,avatar_profile_id,voice_profile_id,consent_id,usage,platform,created_by,finalized_at,created_at,updated_at"
-    )
-    .eq("provider", provider)
-    .eq("provider_job_id", providerJobId)
-    .maybeSingle();
+  const result = await client.from("marketing_clone_video_jobs").select(FULL_JOB_COLUMNS).eq("provider", provider).eq("provider_job_id", providerJobId).maybeSingle();
   if (result.error) throw result.error;
   return result.data;
 }
@@ -92,10 +99,39 @@ export async function getCloneVideoJob(client, { provider, providerJobId } = {})
 export async function markCloneVideoJobFinalized(client, jobId, { resultingAssetId } = {}) {
   const updated = await client
     .from("marketing_clone_video_jobs")
-    .update({ resulting_asset_id: resultingAssetId || null, finalized_at: new Date().toISOString() })
+    .update({ resulting_asset_id: resultingAssetId || null, disposition: "normal", finalized_at: new Date().toISOString() })
     .eq("id", jobId)
-    .select("id,resulting_asset_id,finalized_at")
+    .select("id,resulting_asset_id,disposition,finalized_at")
     .maybeSingle();
+  if (updated.error) throw updated.error;
+  return updated.data;
+}
+
+/**
+ * Records that a job's output was quarantined — required consent was
+ * revoked before finalization could complete (Section 2/3 of the revoked-
+ * media hardening pass). This is the audit trail for that outcome:
+ * finalizeDigitalTwinJob() never creates an ai_generated_assets row for
+ * this job at all, so this update IS the durable record of what happened
+ * (when, why, and — via the columns already on this row — which shop/
+ * provider/consent/avatar/voice profile were involved).
+ */
+export async function markCloneVideoJobQuarantined(client, jobId, { reason } = {}) {
+  const updated = await client
+    .from("marketing_clone_video_jobs")
+    .update({ disposition: "quarantined", quarantine_reason: reason || "consent_revoked", quarantined_at: new Date().toISOString(), finalized_at: new Date().toISOString() })
+    .eq("id", jobId)
+    .select("id,disposition,quarantine_reason,quarantined_at")
+    .maybeSingle();
+  if (updated.error) throw updated.error;
+  return updated.data;
+}
+
+/** Marks the temp synthesized-audio file as deleted (or attempted) — a
+ * separate, tiny update so a storage-deletion failure never gets confused
+ * with the job's own status/disposition. */
+export async function markTempAudioDeleted(client, jobId) {
+  const updated = await client.from("marketing_clone_video_jobs").update({ temp_audio_deleted_at: new Date().toISOString() }).eq("id", jobId).select("id,temp_audio_deleted_at").maybeSingle();
   if (updated.error) throw updated.error;
   return updated.data;
 }
@@ -124,7 +160,7 @@ export async function applyWebhookStatusUpdate(client, { provider, providerJobId
       updated_at: new Date().toISOString()
     })
     .eq("id", job.id)
-    .select("id,shop_id,provider,provider_job_id,source,content_item_id,platform_variant_id,status,result_url,error_message")
+    .select(FULL_JOB_COLUMNS)
     .single();
   if (updated.error) throw updated.error;
   return { found: true, alreadyTerminal: false, job: updated.data };

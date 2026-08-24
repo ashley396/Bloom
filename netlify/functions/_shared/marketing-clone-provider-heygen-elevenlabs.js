@@ -100,7 +100,10 @@ export function createHeygenElevenLabsCloneProvider({ env = process.env, uploadA
 
       const video = await avatarProvider.generateVideo({ avatarId: avatarProfileId, audioUrl: uploaded.url, title, aspectRatio });
       if (!video.ok) throw providerError(video.error);
-      return { jobId: video.videoId, status: "rendering", provider: "heygen", audioUrl: uploaded.url };
+      // audioPath (the raw Supabase Storage path, distinct from the public
+      // audioUrl) is what quarantine cleanup needs to actually delete this
+      // file later — see clone-video-jobs.js's temp_audio_path.
+      return { jobId: video.videoId, status: "rendering", provider: "heygen", audioUrl: uploaded.url, audioPath: uploaded.path };
     },
 
     async preview({ voiceProfileId, avatarProfileId, script } = {}) {
