@@ -43,5 +43,23 @@ export async function scheduleContentItemVariants(client, { shopId, contentItemI
   if (updated.error) return { ok: false, code: "db_error", error: updated.error.message, dbError: updated.error };
   if (!updated.data?.length) return { ok: false, code: "not_found", error: "No matching platform variants found for this content item." };
 
+  // Scheduling-hardening pass (Priority 10): this function only used to
+  // touch the variant's own scheduled_at. If enqueue_publish already ran
+  // for this content item BEFORE this reschedule (a real, legal call
+  // order — nothing gates schedule_content_item to "before queueing"),
+  // the already-created marketing_publishing_jobs row kept its OLD
+  // next_attempt_at, so the real publish attempt would still fire at the
+  // time the shop just changed away from. Only a job still 'queued' (not
+  // yet running/terminal) is resynced — an in-flight or already-settled
+  // attempt is never rewritten out from under itself.
+  const variantIds = updated.data.map((v) => v.id);
+  const jobSync = await client.from("marketing_publishing_jobs").update({ next_attempt_at: scheduledAtUtc, updated_at: new Date().toISOString() }).eq("status", "queued").in("platform_variant_id", variantIds);
+  if (jobSync.error) {
+    // A real DB error here must still surface — a reschedule that
+    // silently failed to move the actual queued job would be exactly the
+    // stale-time bug this fix exists to close.
+    return { ok: false, code: "db_error", error: jobSync.error.message, dbError: jobSync.error };
+  }
+
   return { ok: true, variants: updated.data, scheduledAtUtc, timezone: tz };
 }

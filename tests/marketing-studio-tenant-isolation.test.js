@@ -129,6 +129,7 @@ test("schedule_content_item: converts the shop's local wall-clock pick to the co
     superAdminRow(),
     { data: { timezone: "America/Los_Angeles" }, error: null }, // shops lookup
     { data: [{ id: "v-1", platform: "facebook", scheduled_at: "2026-01-15T16:00:00.000Z" }], error: null }, // variants update
+    { data: null, error: null }, // marketing_publishing_jobs resync (Priority 10) — no queued job for this variant
     { data: null, error: null } // writeCommandAudit insert
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
@@ -153,6 +154,7 @@ test("schedule_content_item: falls back to America/New_York only when the shop t
     superAdminRow(),
     { data: { timezone: null }, error: null },
     { data: [{ id: "v-1", platform: "facebook", scheduled_at: "2026-01-15T13:00:00.000Z" }], error: null },
+    { data: null, error: null }, // marketing_publishing_jobs resync (Priority 10) — no queued job for this variant
     { data: null, error: null }
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
@@ -160,4 +162,35 @@ test("schedule_content_item: falls back to America/New_York only when the shop t
   const body = JSON.parse(res.body);
   assert.equal(body.scheduled_at_utc, "2026-01-15T13:00:00.000Z");
   assert.equal(body.timezone, "America/New_York");
+});
+
+// Priority 10 (scheduling hardening): rescheduling a content item AFTER
+// enqueue_publish has already created its marketing_publishing_jobs row is
+// a real, legal call order — schedule_content_item has no guard preventing
+// it. Without the fix below, the already-queued job's next_attempt_at
+// would silently stay pinned to the OLD time, so the real publish attempt
+// would still fire when the shop just moved it away from.
+test("schedule_content_item: resyncs an already-queued publishing job's next_attempt_at to the new schedule, scoped to only still-queued jobs for the rescheduled variants", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { timezone: "America/Los_Angeles" }, error: null }, // shops lookup
+    { data: [{ id: "v-1", platform: "facebook", scheduled_at: "2026-01-15T16:00:00.000Z" }], error: null }, // variants update
+    { data: null, error: null }, // marketing_publishing_jobs resync
+    { data: null, error: null } // writeCommandAudit insert
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  const res = await handler(event("schedule_content_item", { shop_id: "shop-1", content_item_id: "item-1", scheduled_at_local: "2026-01-15T08:00" }));
+  assert.equal(res.statusCode, 200);
+
+  const jobSyncCall = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  assert.ok(jobSyncCall, "expected a marketing_publishing_jobs update after the variant reschedule succeeded");
+  assert.equal(jobSyncCall.payload.next_attempt_at, "2026-01-15T16:00:00.000Z", "the queued job must be moved to the SAME new UTC instant just written onto the variant");
+
+  const statusEq = jobSyncCall.ops.find((op) => op[0] === "eq" && op[1][0] === "status");
+  assert.ok(statusEq, "must only touch jobs still in status='queued' — an in-flight or already-settled attempt must never be rewritten out from under itself");
+  assert.equal(statusEq[1][1], "queued");
+
+  const variantIn = jobSyncCall.ops.find((op) => op[0] === "in" && op[1][0] === "platform_variant_id");
+  assert.ok(variantIn, "must scope the resync to only the variants that were actually just rescheduled");
+  assert.deepEqual(variantIn[1][1], ["v-1"]);
 });

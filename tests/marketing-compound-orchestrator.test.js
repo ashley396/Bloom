@@ -291,6 +291,7 @@ test("runCompoundRequest: happy path — image + one platform (no reframe needed
       { data: { id: "content-1", content_type: "image_post", title: "x", status: "idea" }, error: null }, // marketing_content_items insert
       { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // marketing_platform_variants insert
       { data: [{ id: "variant-1", platform: "facebook", scheduled_at: "2026-03-13T22:00:00.000Z" }], error: null }, // schedule update
+      { data: null, error: null }, // marketing_publishing_jobs resync (Priority 10) — no queued job for this variant yet
       { data: { id: "job-1", status: "completed" }, error: null } // ai_execution_jobs final update
     ],
     { storage }
