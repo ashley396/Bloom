@@ -86,6 +86,7 @@ import { buildIdempotencyKey } from "./_shared/marketing-publishing-queue.js";
 import { runPublishingWorker } from "./_shared/marketing-publishing-worker.js";
 import { scheduleContentItemVariants } from "./_shared/marketing-schedule-content.js";
 import { runCompoundRequest } from "./_shared/marketing-compound-orchestrator.js";
+import { runAnalyticsIngestion, reconcileLatestMetricSnapshots } from "./_shared/marketing-analytics-ingestion.js";
 import { COST_CONFIG_VERSION, DEFAULT_MONTHLY_ALLOWANCE, estimateCostCents } from "./_shared/marketing-cost-config.js";
 import {
   buildMonthlyContentPlan,
@@ -1890,6 +1891,28 @@ export function createMarketingStudioHandler(deps = {}) {
         return json(200, { ok: true, platform });
       }
 
+      // Priority 6 of the "as far as technically possible" pass: the real
+      // ingestion job — walks published, externally-confirmed variants and
+      // attempts to refresh their metrics via each platform's own
+      // fetchAnalytics() (same provider interface Stage E's publishing
+      // worker already uses). NOT LIVE today for the identical reason
+      // publishing is not live (Priority 5's audit): every attempt fails
+      // honestly with social_provider_not_live — nothing here can write a
+      // fabricated metric row (marketing_performance_metrics.source is
+      // DB-constrained to 'platform_api', and a failed provider call never
+      // reaches the insert at all).
+      if (action === "run_analytics_ingestion" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        const limit = Math.min(200, Math.max(1, Number(body.limit) || 25));
+        const results = await runAnalyticsIngestion(client, { shopId, limit });
+        return json(200, {
+          processed: results.length,
+          results,
+          note: "NOT LIVE — every attempt above fails honestly (social_provider_not_live) because no platform adapter is connected yet. This exercises the real ingestion/normalization/reconciliation machinery, not a fake metrics path."
+        });
+      }
+
       // Stage F — intelligence. Every number below is derived from
       // Florisyn's own real tables; engagement/insight/experiment data
       // stays honestly empty until Stage E actually publishes something
@@ -1903,7 +1926,7 @@ export function createMarketingStudioHandler(deps = {}) {
           client.from("marketing_content_items").select("status").eq("shop_id", shopId),
           client.from("marketing_publishing_jobs").select("status").eq("shop_id", shopId),
           client.from("marketing_generation_usage").select("status,estimated_cost_cents,actual_cost_cents").eq("shop_id", shopId),
-          client.from("marketing_performance_metrics").select("platform,metric_name,raw_value,source").eq("shop_id", shopId)
+          client.from("marketing_performance_metrics").select("platform,metric_name,raw_value,source,platform_variant_id,fetched_at").eq("shop_id", shopId)
         ]);
         for (const r of [contentItemsResult, jobsResult, usageResult, metricsResult]) {
           if (r.error) {
@@ -1917,7 +1940,11 @@ export function createMarketingStudioHandler(deps = {}) {
             contentItems: contentItemsResult.data || [],
             jobs: jobsResult.data || [],
             usageRows: usageResult.data || [],
-            metricRows: metricsResult.data || []
+            // Reconciled to the latest snapshot per (variant, metric) before
+            // summarizing — see marketing-analytics-ingestion.js's doc: a
+            // repeatedly-ingested post must never dilute engagement numbers
+            // by how often ingestion happened to run.
+            metricRows: reconcileLatestMetricSnapshots(metricsResult.data || [])
           })
         );
       }
@@ -1932,7 +1959,7 @@ export function createMarketingStudioHandler(deps = {}) {
         if (!metricName) return json(400, { error: "metric is required (e.g. 'likes', 'engagement_rate')." });
         const metricsResult = await client
           .from("marketing_performance_metrics")
-          .select("platform,raw_value,source")
+          .select("platform,raw_value,source,platform_variant_id,metric_name,fetched_at")
           .eq("shop_id", shopId)
           .eq("metric_name", metricName)
           .eq("source", "platform_api");
@@ -1940,7 +1967,9 @@ export function createMarketingStudioHandler(deps = {}) {
           if (missingRelation(metricsResult.error)) throw friendlyMissing();
           throw metricsResult.error;
         }
-        const rows = (metricsResult.data || []).map((r) => ({ platform: r.platform, value: r.raw_value }));
+        // Reconciled to the latest snapshot per variant first — see
+        // marketing-analytics-ingestion.js's doc.
+        const rows = reconcileLatestMetricSnapshots(metricsResult.data || []).map((r) => ({ platform: r.platform, value: r.raw_value }));
         const groups = groupMetricsByDimension(rows, "platform");
         return json(200, { metric: metricName, groups });
       }
@@ -2027,13 +2056,17 @@ export function createMarketingStudioHandler(deps = {}) {
         if (platformVariantIds.length) {
           const metricsResult = await client
             .from("marketing_performance_metrics")
-            .select("platform_variant_id,raw_value,source")
+            .select("platform_variant_id,raw_value,source,metric_name,fetched_at")
             .eq("shop_id", shopId)
             .in("platform_variant_id", platformVariantIds)
             .eq("metric_name", experiment.metric)
             .eq("source", "platform_api");
           if (metricsResult.error) throw metricsResult.error;
-          metricRows = metricsResult.data || [];
+          // Reconciled to the latest snapshot per variant — an A/B winner
+          // must be decided on each variant's current number, never an
+          // average polluted by how many times ingestion happened to run
+          // for one post vs. another.
+          metricRows = reconcileLatestMetricSnapshots(metricsResult.data || []);
         }
 
         const contentItemToLabel = new Map(experiment.variants.map((v) => [v.content_item_id, v.label]));
