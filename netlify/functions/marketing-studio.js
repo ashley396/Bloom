@@ -69,10 +69,22 @@ import {
   loadBrandBrain,
   saveBrandBrain,
   applyExplicitBrandUpdates,
+  recordBrandSignal,
   forgetBrandTrait,
   resetPreferences,
   buildBrandSummary
 } from "./_shared/marketing-brand-brain.js";
+import {
+  STYLE_CATEGORIES as VISUAL_STYLE_CATEGORIES,
+  loadStyleMemory,
+  saveStyleMemory,
+  applyExplicitPreferenceUpdates as applyExplicitVisualStyleUpdates,
+  recordApprovalSignal as recordVisualStyleApprovalSignal,
+  forgetPreference as forgetVisualStyleTrait,
+  resetPreferences as resetVisualStylePreferences,
+  activeTraits as activeVisualStyleTraits,
+  buildStyleSummary as buildVisualStyleSummary
+} from "./_shared/ai-style-memory.js";
 import {
   SUPPORTED_PLATFORMS,
   isPlatformLive,
@@ -129,6 +141,27 @@ import { planPersonalBrandPlatformVariants, resolveTargetPlatforms } from "./_sh
 import { runPersonalBrandCommand, requestDigitalTwinGeneration } from "./_shared/creative-ai/personal-brand-service.js";
 
 const VIDEO_CONTENT_TYPES = new Set(["reel", "short_video", "long_video"]);
+
+/** Shapes a stored ai-style-memory preferences object into what the "My
+ * Style" panel actually renders — active traits (the shop's real style)
+ * grouped by category, plus any inferred trait still building evidence
+ * toward the promotion threshold (honestly labeled "still learning", never
+ * hidden and never presented as already part of the shop's style). No
+ * embeddings, confidence scores, or model/internal terminology — see
+ * netlify/functions/ai-style-memory.js's own toScreenPayload() for the
+ * identical convention used by Lily Visual Creation Studio's own My Style
+ * screen elsewhere in the app. */
+function visualStyleScreenPayload(preferences) {
+  const categories = {};
+  for (const category of VISUAL_STYLE_CATEGORIES) {
+    const traits = preferences[category]?.traits || [];
+    categories[category] = {
+      active: activeVisualStyleTraits(preferences, category),
+      learning: traits.filter((t) => !t.active)
+    };
+  }
+  return { categories, summary: buildVisualStyleSummary(preferences) };
+}
 
 // Priority 7 ("as far as technically possible" pass): the platform SET on
 // a content item may only be edited (add_content_platform/
@@ -269,6 +302,70 @@ export function createMarketingStudioHandler(deps = {}) {
           targetId: shopId
         });
         return json(200, { preferences: next, summary: "" });
+      }
+
+      // ── "My Style" — Lily's learned VISUAL creative style ───────────────
+      // Deliberately the shop's own ai-style-memory.js record (the same
+      // module Lily Visual Creation Studio already uses elsewhere in the
+      // app for background/lighting/color/mood/typography/flyer/product-
+      // photo/social-graphic/floral-decoration/realism traits) — NOT
+      // marketing-brand-brain.js (writing/caption voice) and NOT a new
+      // parallel system. Keeping the two separate is deliberate: a shop
+      // liking "bright and airy photography" must never leak into caption
+      // wording, and "always say artisan, never cheap" must never leak
+      // into a visual_brief. Same super_admin/shop_id gating as every
+      // other Marketing Studio action (Founding Beta is admin-only).
+      if (action === "get_visual_style") {
+        const shopId = requireShopId(qs, body);
+        const { preferences, error } = await loadStyleMemory(client, shopId);
+        if (error && missingRelation({ message: error })) throw friendlyMissing();
+        return json(200, visualStyleScreenPayload(preferences));
+      }
+
+      if (action === "update_visual_style" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!Array.isArray(body.updates) || body.updates.length === 0) {
+          return json(400, { error: "updates must be a non-empty array." });
+        }
+        const { preferences: current } = await loadStyleMemory(client, shopId);
+        const next = applyExplicitVisualStyleUpdates(current, body.updates);
+        const { ok, error } = await saveStyleMemory(client, shopId, next);
+        if (!ok) {
+          if (missingRelation({ message: error })) throw friendlyMissing();
+          throw new Error(error);
+        }
+        await writeCommandAudit(client, user.id, "marketing_visual_style_update", {
+          shopId,
+          targetType: "ai_style_memory",
+          targetId: shopId
+        });
+        return json(200, visualStyleScreenPayload(next));
+      }
+
+      if (action === "forget_visual_style_trait" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.category || !body.text) return json(400, { error: "category and text are required." });
+        const { preferences: current } = await loadStyleMemory(client, shopId);
+        const next = forgetVisualStyleTrait(current, { category: body.category, text: body.text });
+        const { ok, error } = await saveStyleMemory(client, shopId, next);
+        if (!ok) throw new Error(error);
+        return json(200, visualStyleScreenPayload(next));
+      }
+
+      if (action === "reset_visual_style" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        const next = resetVisualStylePreferences();
+        const { ok, error } = await saveStyleMemory(client, shopId, next);
+        if (!ok) throw new Error(error);
+        await writeCommandAudit(client, user.id, "marketing_visual_style_reset", {
+          shopId,
+          targetType: "ai_style_memory",
+          targetId: shopId
+        });
+        return json(200, visualStyleScreenPayload(next));
       }
 
       if (action === "connections") {
@@ -530,6 +627,62 @@ export function createMarketingStudioHandler(deps = {}) {
           .select("id,status")
           .single();
         if (updated.error) throw updated.error;
+
+        // Lily Creative Style Learning: a real Approve/Reject is exactly
+        // the "repeated behavioral signal" this shop's Brand Brain
+        // (writing voice) and My Style (visual style) memory are supposed
+        // to learn from — this is the one place recordBrandSignal()/
+        // recordApprovalSignal() actually get called from real product
+        // behavior, not a bare generation. Traits are read back from
+        // whatever traits_used the generation itself reported (see
+        // ai-creative-engine.js) via this content item's own variants'
+        // asset_id — never guessed or reconstructed after the fact, so a
+        // shop can never be credited with a trait Lily didn't actually use.
+        try {
+          const variantAssets = await client
+            .from("marketing_platform_variants")
+            .select("asset_id")
+            .eq("content_item_id", body.content_item_id)
+            .eq("shop_id", shopId);
+          const assetIds = [...new Set((variantAssets.data || []).map((v) => v.asset_id).filter(Boolean))];
+          if (assetIds.length) {
+            const assetsResult = await client.from("ai_generated_assets").select("id,content").in("id", assetIds);
+            const brandTraits = [];
+            const visualTraits = [];
+            for (const a of assetsResult.data || []) {
+              if (Array.isArray(a?.content?.brand_traits_used)) brandTraits.push(...a.content.brand_traits_used);
+              if (Array.isArray(a?.content?.visual_traits_used)) visualTraits.push(...a.content.visual_traits_used);
+            }
+            if (brandTraits.length) {
+              const { preferences: currentBrand } = await loadBrandBrain(client, shopId);
+              const nextBrand = recordBrandSignal(currentBrand, { traits: brandTraits, signal: body.decision });
+              await saveBrandBrain(client, shopId, nextBrand);
+            }
+            if (visualTraits.length) {
+              const { preferences: currentVisual } = await loadStyleMemory(client, shopId);
+              const nextVisual = recordVisualStyleApprovalSignal(currentVisual, {
+                traits: visualTraits,
+                signal: body.decision === "approved" ? "saved" : "undone"
+              });
+              await saveStyleMemory(client, shopId, nextVisual);
+            }
+          }
+        } catch (signalError) {
+          // Never let a style-learning hiccup turn a real approve/reject
+          // into a failure the florist sees — the review decision itself
+          // already succeeded above.
+          console.warn(
+            JSON.stringify({
+              level: "warn",
+              fn: "marketing-studio",
+              message: "approval_style_signal_failed",
+              shopId,
+              contentItemId: body.content_item_id,
+              reason: String(signalError?.message || signalError)
+            })
+          );
+        }
+
         await writeCommandAudit(client, user.id, "marketing_content_review", {
           shopId,
           targetType: "marketing_content_items",
@@ -656,6 +809,13 @@ export function createMarketingStudioHandler(deps = {}) {
         const { preferences: brandPrefs } = await loadBrandBrain(client, shopId);
         const brandVoiceSummary = buildBrandSummary(brandPrefs);
 
+        // Lily Creative Style Learning: the same read-time wiring as Brand
+        // Brain above, for the shop's separate VISUAL style memory
+        // (ai-style-memory.js — backgrounds/lighting/colors/mood/etc.).
+        // Shop-scoped via loadStyleMemory's own .eq("shop_id", shopId).
+        const { preferences: visualPrefs } = await loadStyleMemory(client, shopId);
+        const visualStyleSummary = buildVisualStyleSummary(visualPrefs);
+
         if (VIDEO_CONTENT_TYPES.has(currentItem.data.content_type)) {
           await recordUsage("copy", "request", 1);
           const gen = await generateVideoConcept({
@@ -664,7 +824,8 @@ export function createMarketingStudioHandler(deps = {}) {
             occasion: currentItem.data.title,
             shop: { name: shopName },
             requestText: currentItem.data.brief,
-            brandVoiceSummary
+            brandVoiceSummary,
+            visualStyleSummary
           });
           if (!gen.ok) {
             await revertToIdea();
@@ -739,7 +900,8 @@ export function createMarketingStudioHandler(deps = {}) {
           occasion: currentItem.data.title,
           shop: { name: shopName },
           requestText: currentItem.data.brief,
-          brandVoiceSummary
+          brandVoiceSummary,
+          visualStyleSummary
         });
         if (!copyGen.ok) {
           await revertToIdea();
@@ -769,7 +931,14 @@ export function createMarketingStudioHandler(deps = {}) {
             provider: imageGen.provider,
             model: imageGen.model,
             prompt: imageGen.prompt,
-            content: { url: imageGen.url, caption: copyGen.content.body },
+            // brand_traits_used/visual_traits_used ride along on this same
+            // asset row — approve_content reads them back from here (via
+            // the variant's asset_id) to reinforce/weaken Brand Brain and
+            // My Style the moment a real Approve/Reject happens. Never
+            // recorded here at generation time — recordBrandSignal/
+            // recordApprovalSignal only ever fire from a real approval
+            // decision, never a bare generation.
+            content: { url: imageGen.url, caption: copyGen.content.body, brand_traits_used: copyGen.content.brand_traits_used, visual_traits_used: copyGen.content.visual_traits_used },
             mediaId: mediaRow.data?.id || null,
             status: "completed"
           });
@@ -779,14 +948,44 @@ export function createMarketingStudioHandler(deps = {}) {
           }
           assetId = persisted.asset.id;
           imageUrl = imageGen.url;
+        } else {
+          // text_post: no image, but the copy itself (and whichever Brand
+          // Brain traits shaped it) still needs a real row to be readable
+          // back at approval time — previously nothing was persisted here
+          // at all, so a text_post's variants had no backing asset and a
+          // florist's approval of one could never reinforce Brand Brain.
+          const persisted = await persistGeneratedAsset(client, {
+            shopId,
+            userId: user.id,
+            persona: "Lily",
+            assetType: "social_copy",
+            provider: "cloudflare",
+            model: copyGen.model,
+            content: {
+              headline: copyGen.content.headline,
+              body: copyGen.content.body,
+              cta: copyGen.content.cta,
+              hashtags: copyGen.content.hashtags,
+              brand_traits_used: copyGen.content.brand_traits_used,
+              visual_traits_used: copyGen.content.visual_traits_used
+            },
+            status: "completed"
+          });
+          if (!persisted.ok) {
+            await revertToIdea();
+            throw new Error(persisted.error);
+          }
+          assetId = persisted.asset.id;
         }
 
         if (variants.length) {
           // Launch-blocker fix (Blocker 1): same as the video-concept
           // branch above — compute+persist disclosure fields per-platform
-          // the moment content attaches. generativeImageUsed reflects
-          // whether generateImage() actually ran above (assetId is only
-          // set when it did — a text_post has no image at all).
+          // the moment content attaches. generativeImageUsed only reflects
+          // a real rendered image (assetId is now always set — a text_post
+          // gets its own text-only "social_copy" asset above — but that
+          // never implies a generative image was used for disclosure
+          // purposes, hence checking imageUrl, not assetId, below).
           for (const v of variants) {
             await client
               .from("marketing_platform_variants")
@@ -796,8 +995,8 @@ export function createMarketingStudioHandler(deps = {}) {
                 hashtags: copyGen.content.hashtags || [],
                 ...computeDisclosureFields({
                   platform: v.platform,
-                  generativeImageUsed: Boolean(assetId),
-                  aiContentType: assetId ? "generative_image" : "none"
+                  generativeImageUsed: Boolean(imageUrl),
+                  aiContentType: imageUrl ? "generative_image" : "none"
                 })
               })
               .eq("id", v.id)
@@ -817,9 +1016,9 @@ export function createMarketingStudioHandler(deps = {}) {
           shopId,
           targetType: "marketing_content_items",
           targetId: body.content_item_id,
-          assetType: "image"
+          assetType: imageUrl ? "image" : "social_copy"
         });
-        return json(200, { item: updated.data, asset: assetId ? { id: assetId, type: "image", url: imageUrl } : null, copy: copyGen.content });
+        return json(200, { item: updated.data, asset: assetId ? { id: assetId, type: imageUrl ? "image" : "social_copy", url: imageUrl } : null, copy: copyGen.content });
       }
 
       // Priority 7 ("finish everything that can safely be completed

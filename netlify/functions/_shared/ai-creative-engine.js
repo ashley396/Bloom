@@ -18,19 +18,21 @@
 
 import { runCloudflareGenerate } from "../ai-assistant.js";
 
-function buildSocialPostTask({ channel, occasion, audience, brandVoiceSummary }) {
+function buildSocialPostTask({ channel, occasion, audience, brandVoiceSummary, visualStyleSummary }) {
   return `You are writing the ACTUAL, FINISHED social media post Florisyn will show a florist to publish today. Do not describe the request. Do not summarize what was asked. Do not restate the user's instruction. Write real, publish-ready copy a customer would read right now.
 
 Platform: ${channel || "facebook"}.
 ${occasion ? `Occasion/theme: ${occasion}.` : ""}
 ${audience ? `Audience: ${audience}.` : ""}
 ${brandVoiceSummary ? `This shop's own learned brand voice (from what they've explicitly told Lily and repeatedly approved) — follow it as the DEFAULT whenever the request above doesn't say otherwise; the request's own explicit instructions always win if they conflict: ${brandVoiceSummary}.` : ""}
+${visualStyleSummary ? `This shop's own learned VISUAL creative style (backgrounds/lighting/colors/mood/etc., separate from the writing voice above) — use it to fill in what visual_brief doesn't otherwise specify; the request's own explicit visual direction always wins if it conflicts, and a one-time visual request never overrides this standing style: ${visualStyleSummary}.` : ""}
 
 Rules:
 - Never restate or describe the request itself — the output must be usable as-is, with no editing.
 - Use the shop's real name/products from the input where given; never invent products, prices, or promises Florisyn can't confirm.
 - Match the platform's real voice: warm and conversational for Facebook/Instagram, concise everywhere.
-- visual_brief must describe a concrete photo concept (say what's actually in the shot — never a vague placeholder like "a beautiful arrangement").`;
+- visual_brief must describe a concrete photo concept (say what's actually in the shot — never a vague placeholder like "a beautiful arrangement").
+- brand_traits_used / visual_traits_used: only the traits from the summaries above that you actually wove into this post — [] if none were used. Never list a trait you didn't actually use.`;
 }
 
 const SOCIAL_POST_SCHEMA = {
@@ -40,18 +42,29 @@ const SOCIAL_POST_SCHEMA = {
   cta: "string — the exact call-to-action line",
   visual_brief: "string — a concrete visual concept for a matching image",
   hashtags: ["string"],
-  asset_requirements: ["string"]
+  asset_requirements: ["string"],
+  brand_traits_used: [{ category: "string", text: "string" }],
+  visual_traits_used: [{ category: "string", text: "string" }]
 };
+
+function normalizeTraitsUsed(raw) {
+  return Array.isArray(raw)
+    ? raw
+        .filter((t) => t?.category && t?.text)
+        .slice(0, 20)
+        .map((t) => ({ category: String(t.category), text: String(t.text).slice(0, 160) }))
+    : [];
+}
 
 /** Generates one finished, platform-formatted social post. Never throws —
  * returns { ok:false, error } on any failure so a caller can persist that
  * outcome and keep the rest of a multi-step job running. */
-export async function generateSocialPost({ persona = "Lily", channel, occasion, audience, shop, requestText, brandVoiceSummary } = {}) {
+export async function generateSocialPost({ persona = "Lily", channel, occasion, audience, shop, requestText, brandVoiceSummary, visualStyleSummary } = {}) {
   try {
     const result = await runCloudflareGenerate({
       mode: "generate",
       persona,
-      task: buildSocialPostTask({ channel, occasion, audience, brandVoiceSummary }),
+      task: buildSocialPostTask({ channel, occasion, audience, brandVoiceSummary, visualStyleSummary }),
       input: { request: requestText, shop: shop || {} },
       schema: SOCIAL_POST_SCHEMA,
       max_tokens: 700
@@ -67,7 +80,13 @@ export async function generateSocialPost({ persona = "Lily", channel, occasion, 
         cta: String(post.cta || "").slice(0, 200),
         visual_brief: String(post.visual_brief || "").slice(0, 600),
         hashtags: Array.isArray(post.hashtags) ? post.hashtags.slice(0, 15).map(String) : [],
-        asset_requirements: Array.isArray(post.asset_requirements) ? post.asset_requirements.slice(0, 10).map(String) : []
+        asset_requirements: Array.isArray(post.asset_requirements) ? post.asset_requirements.slice(0, 10).map(String) : [],
+        // Anti-fabrication (same contract as ai-intent-router.js's
+        // buildVisualBrief traits_used): only what the model itself
+        // reports actually using — a caller must never guess or infer
+        // which supplied traits shaped the output.
+        brand_traits_used: normalizeTraitsUsed(post.brand_traits_used),
+        visual_traits_used: normalizeTraitsUsed(post.visual_traits_used)
       },
       model: result.model
     };
@@ -76,18 +95,20 @@ export async function generateSocialPost({ persona = "Lily", channel, occasion, 
   }
 }
 
-function buildVideoConceptTask({ occasion, audience, channel, brandVoiceSummary }) {
+function buildVideoConceptTask({ occasion, audience, channel, brandVoiceSummary, visualStyleSummary }) {
   return `Plan a short-form marketing video (Reel/TikTok-style) for a flower shop. You are NOT rendering video — final AI video rendering is not connected yet. You ARE producing the complete creative plan: script, shot-by-shot storyboard, on-screen captions. Write the actual finished plan, not a description of what a video could contain.
 
 Channel: ${channel || "instagram/facebook reels"}.
 ${occasion ? `Occasion/theme: ${occasion}.` : ""}
 ${audience ? `Audience: ${audience}.` : ""}
 ${brandVoiceSummary ? `This shop's own learned brand voice (from what they've explicitly told Lily and repeatedly approved) — follow it as the DEFAULT whenever the request above doesn't say otherwise; the request's own explicit instructions always win if they conflict: ${brandVoiceSummary}.` : ""}
+${visualStyleSummary ? `This shop's own learned VISUAL creative style (backgrounds/lighting/colors/mood/etc., separate from the writing voice above) — use it to fill in what the shot descriptions don't otherwise specify; the request's own explicit visual direction always wins if it conflicts, and a one-time visual request never overrides this standing style: ${visualStyleSummary}.` : ""}
 
 Rules:
 - scenes: each entry is one concrete shot as a single string formatted "0-3s: shot description — on-screen text: ...". Be specific about what's shown, never generic.
 - captions: the literal on-screen caption lines, not a description of captions.
-- Keep it realistic for one florist with a phone camera — no crew, no equipment they don't have.`;
+- Keep it realistic for one florist with a phone camera — no crew, no equipment they don't have.
+- brand_traits_used / visual_traits_used: only the traits from the summaries above that you actually wove into this plan — [] if none were used. Never list a trait you didn't actually use.`;
 }
 
 const VIDEO_CONCEPT_SCHEMA = {
@@ -96,18 +117,20 @@ const VIDEO_CONCEPT_SCHEMA = {
   scenes: ["string"],
   captions: ["string"],
   hashtags: ["string"],
-  suggested_length_seconds: "number"
+  suggested_length_seconds: "number",
+  brand_traits_used: [{ category: "string", text: "string" }],
+  visual_traits_used: [{ category: "string", text: "string" }]
 };
 
 /** Generates a full video concept/script/storyboard — never a finished
  * video. Result always carries renderingAvailable:false so nothing
  * downstream can mistake a concept for a rendered asset. */
-export async function generateVideoConcept({ persona = "Lily", channel, occasion, audience, shop, requestText, brandVoiceSummary } = {}) {
+export async function generateVideoConcept({ persona = "Lily", channel, occasion, audience, shop, requestText, brandVoiceSummary, visualStyleSummary } = {}) {
   try {
     const result = await runCloudflareGenerate({
       mode: "generate",
       persona,
-      task: buildVideoConceptTask({ occasion, audience, channel, brandVoiceSummary }),
+      task: buildVideoConceptTask({ occasion, audience, channel, brandVoiceSummary, visualStyleSummary }),
       input: { request: requestText, shop: shop || {} },
       schema: VIDEO_CONCEPT_SCHEMA,
       max_tokens: 900
@@ -126,7 +149,9 @@ export async function generateVideoConcept({ persona = "Lily", channel, occasion
         hashtags: Array.isArray(plan.hashtags) ? plan.hashtags.slice(0, 15).map(String) : [],
         suggested_length_seconds: Number(plan.suggested_length_seconds) || null,
         renderingAvailable: false,
-        renderingNote: "Final AI video rendering is not connected yet — this is the finished script, storyboard, and captions, ready for a video provider once one is chosen."
+        renderingNote: "Final AI video rendering is not connected yet — this is the finished script, storyboard, and captions, ready for a video provider once one is chosen.",
+        brand_traits_used: normalizeTraitsUsed(plan.brand_traits_used),
+        visual_traits_used: normalizeTraitsUsed(plan.visual_traits_used)
       },
       model: result.model
     };

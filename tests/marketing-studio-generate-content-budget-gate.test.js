@@ -118,6 +118,27 @@ test("generate_content: a within-budget generation reads this shop's real Brand 
   assert.equal(shopEq[1][1], "shop-1");
 });
 
+// Lily Creative Style Learning: the shop's separate VISUAL style memory
+// (ai-style-memory.js) must also actually be read on this path, not just
+// documented — a florist could otherwise teach Lily "I like soft luxury
+// backgrounds" via My Style and see zero effect on real visual briefs.
+test("generate_content: a within-budget generation also reads this shop's real visual style memory (My Style), separately from Brand Brain", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "item-1", content_type: "text_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [], error: null },
+    { data: { marketing_monthly_budget_cents: null }, error: null },
+    { data: [{ estimated_cost_cents: 199 }], error: null }
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 200 }));
+  const styleCall = client.calls.find((c) => c.table === "ai_style_memory" && c.ops.some((op) => op[0] === "select"));
+  assert.ok(styleCall, "generate_content must actually load this shop's My Style (visual) memory before generating");
+  const shopEq = styleCall.ops.find((op) => op[0] === "eq" && op[1][0] === "shop_id");
+  assert.ok(shopEq, "the My Style read must be scoped to the requesting shop — never a cross-shop style leak");
+  assert.equal(shopEq[1][1], "shop-1");
+});
+
 test("generate_content: a budget check that itself fails (DB error) blocks the request rather than silently letting generation through", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),

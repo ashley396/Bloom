@@ -290,6 +290,7 @@ test("runCompoundRequest: happy path — image + one platform (no reframe needed
       { data: { id: "asset-1" }, error: null }, // ai_generated_assets insert (image)
       { data: { id: "content-1", content_type: "image_post", title: "x", status: "idea" }, error: null }, // marketing_content_items insert
       { data: null, error: null }, // Priority F: loadBrandBrain select — no learned Brand Brain yet
+      { data: null, error: null }, // Lily Creative Style Learning: loadStyleMemory select (memoized alongside Brand Brain)
       { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // marketing_platform_variants insert
       { data: [{ id: "variant-1", platform: "facebook", scheduled_at: "2026-03-13T22:00:00.000Z" }], error: null }, // schedule update
       { data: null, error: null }, // marketing_publishing_jobs resync (Priority 10) — no queued job for this variant yet
@@ -411,6 +412,7 @@ test("runCompoundRequest: Digital Twin unavailable is reported as an honest bloc
       { data: { id: "asset-1" }, error: null }, // ai_generated_assets insert (image)
       { data: { id: "content-1" }, error: null }, // marketing_content_items insert
       { data: null, error: null }, // Priority F: loadBrandBrain select
+      { data: null, error: null }, // Lily Creative Style Learning: loadStyleMemory select (memoized alongside Brand Brain)
       { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // marketing_platform_variants insert
       { data: { id: "job-1", status: "partially_completed" }, error: null } // ai_execution_jobs final update
     ],
@@ -589,6 +591,7 @@ test("runCompoundRequest: a ready Digital Twin (avatar+voice) actually kicks off
       { data: { id: "avatar-1", status: "ready" }, error: null }, // marketing_avatar_profiles
       { data: { id: "voice-1", status: "ready" }, error: null }, // marketing_voice_profiles
       { data: null, error: null }, // Priority F: loadBrandBrain select (memoized — one load for the whole compound request)
+      { data: null, error: null }, // Lily Creative Style Learning: loadStyleMemory select (memoized alongside Brand Brain)
       { data: { id: "asset-video-1" }, error: null }, // ai_generated_assets insert (video concept)
       { data: { id: "clone-job-1" }, error: null }, // marketing_clone_video_jobs insert
       { data: { id: "content-1" }, error: null }, // marketing_content_items insert
@@ -663,6 +666,7 @@ test("runCompoundRequest: a ready Digital Twin with NO real provider connected r
       { data: { id: "avatar-1", status: "ready" }, error: null },
       { data: { id: "voice-1", status: "ready" }, error: null },
       { data: null, error: null }, // Priority F: loadBrandBrain select
+      { data: null, error: null }, // Lily Creative Style Learning: loadStyleMemory select (memoized alongside Brand Brain)
       { data: { id: "asset-video-1" }, error: null },
       { data: { id: "content-1" }, error: null },
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
@@ -783,6 +787,7 @@ test("runCompoundRequest: the SAME request text outside the dedupe window runs f
       { data: { id: "asset-1" }, error: null },
       { data: { id: "content-1" }, error: null },
       { data: null, error: null }, // Priority F: loadBrandBrain select
+      { data: null, error: null }, // Lily Creative Style Learning: loadStyleMemory select (memoized alongside Brand Brain)
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
       { data: { id: "job-new", status: "completed" }, error: null }
     ],
@@ -831,6 +836,7 @@ test("runCompoundRequest: a prior FAILED attempt for the same text is never dedu
       { data: { id: "asset-1" }, error: null },
       { data: { id: "content-1" }, error: null },
       { data: null, error: null }, // Priority F: loadBrandBrain select
+      { data: null, error: null }, // Lily Creative Style Learning: loadStyleMemory select (memoized alongside Brand Brain)
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
       { data: { id: "job-new", status: "completed" }, error: null }
     ],

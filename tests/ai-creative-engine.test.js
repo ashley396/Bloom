@@ -86,6 +86,72 @@ test("generateSocialPost: a supplied brandVoiceSummary is actually included in t
   }
 });
 
+// Lily Creative Style Learning: visualStyleSummary is the shop's separate
+// VISUAL creative-style memory (ai-style-memory.js — backgrounds/lighting/
+// colors/mood/etc.), deliberately a second, independent field from
+// brandVoiceSummary above so a liked "bright and airy photography" trait
+// can never leak into caption wording. Also proves the anti-fabrication
+// contract: the model must report back which specific supplied traits it
+// actually used (brand_traits_used/visual_traits_used), never a full echo
+// of everything it was given.
+test("generateSocialPost: a supplied visualStyleSummary reaches the real prompt, separately from brandVoiceSummary, and the model's real traits_used comes back on the result", async () => {
+  const mock = mockCloudflareOnce({
+    platform: "facebook",
+    headline: "Homecoming season is here!",
+    body: "Order your Homecoming corsage today.",
+    cta: "Order now",
+    visual_brief: "A soft, airy backdrop with warm natural light.",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [{ category: "preferred_words", text: "artisan" }],
+    visual_traits_used: [{ category: "background_style", text: "soft luxury" }, { category: "lighting", text: "warm natural light" }]
+  });
+  try {
+    const result = await generateSocialPost({
+      channel: "facebook",
+      occasion: "Homecoming",
+      requestText: "Create a Facebook post...",
+      brandVoiceSummary: "preferred words: artisan",
+      visualStyleSummary: "background style: soft luxury; lighting: warm natural light"
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /background style: soft luxury; lighting: warm natural light/, "the shop's real learned VISUAL style must reach the actual model prompt");
+    assert.match(userMessage, /VISUAL creative style/i, "the visual-style block must be framed distinctly from the writing/brand-voice block");
+    assert.deepEqual(result.content.brand_traits_used, [{ category: "preferred_words", text: "artisan" }]);
+    assert.deepEqual(result.content.visual_traits_used, [
+      { category: "background_style", text: "soft luxury" },
+      { category: "lighting", text: "warm natural light" }
+    ]);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: a model that reports no traits_used at all returns empty arrays, never a fabricated guess at what was used", async () => {
+  const mock = mockCloudflareOnce({
+    platform: "facebook",
+    headline: "h",
+    body: "b",
+    cta: "c",
+    visual_brief: "v",
+    hashtags: [],
+    asset_requirements: []
+    // no brand_traits_used / visual_traits_used at all
+  });
+  try {
+    const result = await generateSocialPost({
+      channel: "facebook",
+      requestText: "x",
+      brandVoiceSummary: "preferred words: artisan",
+      visualStyleSummary: "lighting: warm natural light"
+    });
+    assert.deepEqual(result.content.brand_traits_used, []);
+    assert.deepEqual(result.content.visual_traits_used, []);
+  } finally {
+    mock.restore();
+  }
+});
+
 test("generateSocialPost: omitting brandVoiceSummary (a brand-new shop with nothing learned yet) never injects an empty/undefined brand-voice section", async () => {
   const mock = mockCloudflareOnce({
     platform: "facebook",
@@ -169,6 +235,30 @@ test("generateVideoConcept: a supplied brandVoiceSummary reaches the real video-
     });
     const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
     assert.match(userMessage, /posting personality: playful/);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateVideoConcept: a supplied visualStyleSummary reaches the real video-concept prompt, separately from brandVoiceSummary", async () => {
+  const mock = mockCloudflareOnce({
+    concept: "x",
+    script: "",
+    scenes: ["0-3s: hands trimming stems"],
+    captions: [],
+    hashtags: [],
+    suggested_length_seconds: 15,
+    visual_traits_used: [{ category: "mood", text: "elegant" }]
+  });
+  try {
+    const result = await generateVideoConcept({
+      channel: "instagram",
+      requestText: "Make me a Reel",
+      visualStyleSummary: "mood: elegant"
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /mood: elegant/);
+    assert.deepEqual(result.content.visual_traits_used, [{ category: "mood", text: "elegant" }]);
   } finally {
     mock.restore();
   }

@@ -51,6 +51,7 @@ import { buildConfiguredCloneProviderRegistry, selectCloneProvider, notLiveClone
 import { uploadClonedVoiceAudio } from "./website-media.js";
 import { recordCloneVideoJob } from "./creative-ai/clone-video-jobs.js";
 import { loadBrandBrain, buildBrandSummary } from "./marketing-brand-brain.js";
+import { loadStyleMemory, buildStyleSummary as buildVisualStyleSummary } from "./ai-style-memory.js";
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const TIME_OF_DAY_DEFAULTS = { morning: "09:00", afternoon: "14:00", evening: "18:00", night: "20:00" };
@@ -289,6 +290,18 @@ async function getBrandVoiceSummary(client, ctx) {
   return ctx._brandVoiceSummary;
 }
 
+/** Same memoization pattern as getBrandVoiceSummary() above, for the
+ * shop's separate VISUAL style memory (ai-style-memory.js) — kept as its
+ * own cached field so a multi-step compound request still only loads it
+ * once, and so it's never blended into the brand-voice (writing) summary. */
+async function getVisualStyleSummary(client, ctx) {
+  if (ctx._visualStyleSummary === undefined) {
+    const { preferences } = await loadStyleMemory(client, ctx.shopId);
+    ctx._visualStyleSummary = buildVisualStyleSummary(preferences);
+  }
+  return ctx._visualStyleSummary;
+}
+
 async function runCompoundStep(client, step, ctx) {
   const { shopId, userId, persona, shop, extracted, platforms, requestText } = ctx;
 
@@ -366,7 +379,8 @@ async function runCompoundStep(client, step, ctx) {
 
   if (step.tool === "compound.generateVideoConcept") {
     const brandVoiceSummary = await getBrandVoiceSummary(client, ctx);
-    const gen = await generateVideoConcept({ persona, channel: platforms[0], occasion: extracted.occasion, shop, requestText, brandVoiceSummary });
+    const visualStyleSummary = await getVisualStyleSummary(client, ctx);
+    const gen = await generateVideoConcept({ persona, channel: platforms[0], occasion: extracted.occasion, shop, requestText, brandVoiceSummary, visualStyleSummary });
     if (!gen.ok) return { ok: false, error: gen.error };
     const persisted = await persistGeneratedAsset(client, { shopId, userId, persona, assetType: "video_concept", model: gen.model, content: gen.content, status: "completed" });
     if (!persisted.ok) return { ok: false, error: persisted.error };
@@ -480,16 +494,21 @@ async function runCompoundStep(client, step, ctx) {
     // computed the moment real content is attached (Blocker 1's fix,
     // reused here rather than left to an optional follow-up).
     const brandVoiceSummary = await getBrandVoiceSummary(client, ctx);
+    const visualStyleSummary = await getVisualStyleSummary(client, ctx);
     const variantRows = [];
     for (const platform of platforms) {
       // eslint-disable-next-line no-await-in-loop
-      const copyGen = await generateSocialPost({ persona, channel: platform, occasion: extracted.occasion, shop, requestText, brandVoiceSummary });
+      const copyGen = await generateSocialPost({ persona, channel: platform, occasion: extracted.occasion, shop, requestText, brandVoiceSummary, visualStyleSummary });
       variantRows.push({
         shop_id: shopId,
         content_item_id: inserted.data.id,
         platform,
         status: "pending",
-        asset_id: ctx.masterAssetId || null,
+        // Prefer the video-concept asset (its traits_used is what makes
+        // approve_content able to reinforce/weaken Brand Brain + My Style
+        // for a video-type compound request) over the master image when
+        // both exist; masterAssetId alone for an image-only request.
+        asset_id: ctx.videoConceptAssetId || ctx.masterAssetId || null,
         caption: copyGen.ok ? copyGen.content.body : null,
         hashtags: copyGen.ok ? copyGen.content.hashtags : [],
         ...computeDisclosureFields({

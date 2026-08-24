@@ -88,6 +88,25 @@
       </div>
 
       <div class="panel">
+        <h2>My Style</h2>
+        <p class="help">What Lily has learned about this shop's own visual creative style — from what you've told her directly, and from what you've repeatedly approved or rejected. This never affects caption/writing style (that's a separate, shop voice setting) — only backgrounds, lighting, colors, mood, and the look of flyers/photos/graphics. A one-time request like "make this one dark and dramatic" never changes what's saved here; saying "I like this — use it from now on" does.</p>
+        <div id="msStyleList" class="quiet">Load a shop above to see its learned style.</div>
+        <form id="msStyleAddForm" class="header-actions" style="margin-top:0.75em">
+          <select id="msStyleCategory"></select>
+          <input id="msStyleText" placeholder="e.g. soft luxury backgrounds" style="flex:1">
+          <select id="msStylePolarity">
+            <option value="positive">Like</option>
+            <option value="negative">Avoid</option>
+          </select>
+          <button type="submit">Save preference</button>
+        </form>
+        <div class="header-actions" style="margin-top:0.5em">
+          <button type="button" id="msStyleResetBtn">Reset learned style</button>
+        </div>
+        <p id="msStyleStatus" class="help"></p>
+      </div>
+
+      <div class="panel">
         <h2>Content Calendar</h2>
         <p class="help">Draft → Review → Approve → Schedule → Publish. Every status shown here is exactly what the backend reports — nothing is marked "published" unless a real provider actually confirmed it (none are connected yet, so publishing attempts fail honestly with "not live").</p>
         <div class="header-actions">
@@ -374,6 +393,109 @@
         connectionsList.textContent = err.message;
       }
     }
+
+    // ── "My Style" — Lily's learned VISUAL creative style ────────────────
+    // Deliberately separate from Brand Brain (writing/caption voice, no UI
+    // yet) — see ai-style-memory.js's own module docstring for why the two
+    // are never merged. Plain, human labels only; never a confidence
+    // score, evidence count, embedding, or any other internal/model term.
+    const STYLE_CATEGORY_LABELS = {
+      background_style: "Backgrounds",
+      materials: "Materials",
+      lighting: "Lighting",
+      colors: "Colors",
+      mood: "Mood",
+      typography: "Typography",
+      flyer_style: "Flyer style",
+      product_photo_style: "Product photo style",
+      social_post_style: "Social graphic style",
+      floral_decoration_level: "Floral decoration level",
+      realism_level: "Realism",
+      general_avoid: "Always avoid"
+    };
+    const styleList = root.querySelector("#msStyleList");
+    const styleAddForm = root.querySelector("#msStyleAddForm");
+    const styleCategorySelect = root.querySelector("#msStyleCategory");
+    const styleStatus = root.querySelector("#msStyleStatus");
+    styleCategorySelect.innerHTML = Object.entries(STYLE_CATEGORY_LABELS)
+      .map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`)
+      .join("");
+
+    function renderStylePayload(payload) {
+      const categories = payload.categories || {};
+      const rows = Object.entries(STYLE_CATEGORY_LABELS)
+        .map(([category, label]) => {
+          const active = categories[category]?.active || [];
+          const learning = categories[category]?.learning || [];
+          if (!active.length && !learning.length) return "";
+          const chip = (t, learningChip) =>
+            `<span class="badge${learningChip ? "" : " good"}" title="${learningChip ? "Still learning — not yet applied to new content" : "Applied to new content"}">${esc(t.text)}${t.polarity === "negative" ? " (avoid)" : ""}${learningChip ? " — still learning" : ""} <button type="button" class="link-btn" data-style-forget data-category="${esc(category)}" data-text="${esc(t.text)}" title="Forget this preference">×</button></span>`;
+          return `<div class="style-category-row"><strong>${esc(label)}:</strong> ${[...active.map((t) => chip(t, false)), ...learning.map((t) => chip(t, true))].join(" ")}</div>`;
+        })
+        .filter(Boolean)
+        .join("");
+      styleList.innerHTML = rows || `<p class="quiet">Lily hasn't learned any visual style for this shop yet — tell her a preference, or approve/reject a few generated pieces, and it will show up here.</p>`;
+      styleList.querySelectorAll("[data-style-forget]").forEach((btn) => {
+        btn.onclick = async () => {
+          const shopId = shopIdInput.value.trim();
+          if (!shopId) return;
+          try {
+            const payload2 = await adminApi("forget_visual_style_trait", { body: { shop_id: shopId, category: btn.dataset.category, text: btn.dataset.text } });
+            renderStylePayload(payload2);
+            styleStatus.textContent = `Forgot "${btn.dataset.text}".`;
+          } catch (err) {
+            styleStatus.textContent = err.message;
+          }
+        };
+      });
+    }
+
+    async function loadVisualStyle() {
+      const shopId = shopIdInput.value.trim();
+      if (!shopId) return;
+      styleList.innerHTML = `<p class="quiet">Loading…</p>`;
+      try {
+        const payload = await adminApi("get_visual_style", { method: "GET", query: `shop_id=${encodeURIComponent(shopId)}` });
+        renderStylePayload(payload);
+      } catch (err) {
+        styleList.innerHTML = `<p class="help">Could not load My Style: ${esc(err.message)}</p>`;
+      }
+    }
+
+    styleAddForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const shopId = shopIdInput.value.trim();
+      const text = root.querySelector("#msStyleText").value.trim();
+      if (!shopId) return (styleStatus.textContent = "Enter a shop ID above first.");
+      if (!text) return (styleStatus.textContent = "Describe the preference first.");
+      styleStatus.textContent = "Saving…";
+      try {
+        const payload = await adminApi("update_visual_style", {
+          body: {
+            shop_id: shopId,
+            updates: [{ category: styleCategorySelect.value, text, polarity: root.querySelector("#msStylePolarity").value }]
+          }
+        });
+        renderStylePayload(payload);
+        root.querySelector("#msStyleText").value = "";
+        styleStatus.textContent = "Saved — applied to Lily's next generation for this shop.";
+      } catch (err) {
+        styleStatus.textContent = err.message;
+      }
+    };
+
+    root.querySelector("#msStyleResetBtn").onclick = async () => {
+      const shopId = shopIdInput.value.trim();
+      if (!shopId) return;
+      if (!confirm("Reset everything Lily has learned about this shop's visual style? This cannot be undone.")) return;
+      try {
+        const payload = await adminApi("reset_visual_style", { body: { shop_id: shopId } });
+        renderStylePayload(payload);
+        styleStatus.textContent = "Learned style reset.";
+      } catch (err) {
+        styleStatus.textContent = err.message;
+      }
+    };
 
     async function loadCostSummary() {
       const shopId = shopIdInput.value.trim();
@@ -927,6 +1049,7 @@
       loadContentList();
       loadCostSummary();
       loadConnections();
+      loadVisualStyle();
     };
     root.querySelector("#msLoadShop").onclick = () => {
       loadConsent();
@@ -935,6 +1058,7 @@
       loadContentList();
       loadCostSummary();
       loadConnections();
+      loadVisualStyle();
     };
 
     pbProfileForm.onsubmit = async (e) => {
