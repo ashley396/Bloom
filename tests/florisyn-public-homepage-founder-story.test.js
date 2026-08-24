@@ -55,6 +55,51 @@ test("Founder Story: copy is present, concise, and free of fabricated statistics
   assert.doesNotMatch(section, /\b\d[\d,]*\+?\s*(florists|shops|customers|%)/i);
 });
 
+// Mobile + copy refinement pass: the story is told in Ashley's own voice
+// (first person, present-tense — she IS a florist, not "was"), not a
+// third-person biography. The old opening implied she'd left the florist
+// side of the business; the approved replacement makes the opposite point
+// explicit.
+test("Founder Story: the old third-person 'Ashley ran a flower shop' framing is completely removed", () => {
+  assert.doesNotMatch(appHtml, /Before Florisyn, Ashley ran a flower shop/);
+  assert.doesNotMatch(appHtml, /She built Florisyn because she knew/);
+  assert.doesNotMatch(appHtml, /She wanted one system/);
+});
+
+test("Founder Story: the approved first-person copy is installed exactly, in order", () => {
+  const section = appHtml.slice(appHtml.indexOf('<section class="ph-section ph-founder"'), appHtml.indexOf("</section>", appHtml.indexOf('<section class="ph-section ph-founder"')));
+  const storyStart = section.indexOf('<div class="ph-founder-story">');
+  assert.notEqual(storyStart, -1, "expected a dedicated ph-founder-story wrapper around the story paragraphs");
+  const storyEnd = section.indexOf("</div>", storyStart);
+  assert.notEqual(storyEnd, -1, "expected a closing </div> for the story wrapper");
+  const story = section.slice(storyStart, storyEnd);
+
+  const linesInOrder = [
+    "Florisyn didn&rsquo;t start in a software company.",
+    "It started behind the counter of my own flower shop.",
+    "I know what it&rsquo;s like to design arrangements, answer phones, manage orders, watch inventory, handle deliveries, market the business, and still try to find time to grow.",
+    "I built Florisyn because florists deserve technology that understands the way we actually work.",
+    "One place to run the business. AI that actually helps. And more time for what made us fall in love with flowers in the first place: creating something beautiful."
+  ];
+  let cursor = 0;
+  for (const line of linesInOrder) {
+    const idx = story.indexOf(line, cursor);
+    assert.ok(idx !== -1 && idx >= cursor, `expected to find, in order: "${line}"`);
+    cursor = idx + line.length;
+  }
+
+  // First-person voice throughout, never third-person within the story body.
+  assert.match(story, /\bI built Florisyn\b/);
+  assert.doesNotMatch(story, /\bAshley\b/, "the story paragraphs speak as Ashley, never refer to her in third person");
+});
+
+test("Founder Story: the opening sentence gets subtle emphasis, not every line bolded", () => {
+  const section = appHtml.slice(appHtml.indexOf('<section class="ph-section ph-founder"'), appHtml.indexOf("</section>", appHtml.indexOf('<section class="ph-section ph-founder"')));
+  const strongMatches = section.match(/<strong>/g) || [];
+  assert.equal(strongMatches.length, 1, "exactly one emphasized phrase — the opening sentence — never the whole section bolded");
+  assert.match(section, /<strong>Florisyn didn&rsquo;t start in a software company\.<\/strong>/);
+});
+
 test("Founder Story: section sits below the product/pricing story and above the FAQ close, not buried at the very bottom", () => {
   const pricingIdx = sectionIndex("Simple, florist-first pricing");
   const founderIdx = sectionIndex('<section class="ph-section ph-founder"');
@@ -107,4 +152,31 @@ test("Founder section CSS: responsive layout collapses to one column on mobile, 
 test("Founder portrait CSS uses an intentional aspect-ratio crop, never distorts or blindly scales the image", () => {
   assert.match(homepageCss, /#publicHome \.ph-founder-media img\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*5/);
   assert.match(homepageCss, /#publicHome \.ph-founder-media img\s*\{[^}]*object-fit:\s*cover/);
+  // Regression guard: the <img>'s width/height HTML attributes describe the
+  // desktop derivative for CLS purposes, but the <picture> swaps in a
+  // differently-sized mobile <source>. Without an explicit height:auto,
+  // Chromium keeps using the attribute-derived height and aspect-ratio is
+  // silently ignored — the img renders at the wrong size. height:auto is
+  // what makes aspect-ratio the actual source of truth in every case.
+  assert.match(homepageCss, /#publicHome \.ph-founder-media img\s*\{[^}]*height:\s*auto/);
+});
+
+// Mobile + copy refinement pass (Section 3/5/6): a shorter, wider,
+// face-preserving crop; body copy left-aligned while the eyebrow/headline/
+// signature stay centered; tightened section spacing. The portrait image
+// FILE is never touched by any of this — only its on-page CSS framing.
+test("Mobile portrait: shorter aspect-ratio + top-biased crop keeps the face in frame without shrinking it", () => {
+  const mobileBlock = homepageCss.slice(homepageCss.indexOf("@media (max-width: 720px)"));
+  assert.match(mobileBlock, /#publicHome \.ph-founder-media img\s*\{[^}]*aspect-ratio:\s*5\s*\/\s*4/, "mobile crop must be meaningfully shorter (5/4) than the desktop 4/5 portrait crop");
+  assert.match(mobileBlock, /#publicHome \.ph-founder-media img\s*\{[^}]*object-position:\s*center 12%/, "must bias toward the top of the photo — this is what keeps her face in frame and crops the desk/notebook, not her head");
+});
+
+test("Mobile body copy is left-aligned for readability; eyebrow/headline/signature/link stay centered", () => {
+  const mobileBlock = homepageCss.slice(homepageCss.indexOf("@media (max-width: 720px)"));
+  assert.match(mobileBlock, /#publicHome \.ph-founder-copy\s*\{[^}]*text-align:\s*center/, "eyebrow, headline, name/title, and About link remain centered");
+  assert.match(mobileBlock, /#publicHome \.ph-founder-story\s*\{[^}]*text-align:\s*left/, "the actual story paragraphs are left-aligned, not centered");
+});
+
+test("HTML structure: the story paragraphs sit in a dedicated wrapper the mobile CSS can target independently of the centered eyebrow/headline/signature", () => {
+  assert.match(appHtml, /<div class="ph-founder-story">[\s\S]*?<\/div>/);
 });
