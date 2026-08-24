@@ -141,3 +141,110 @@ test("runPublishingWorker: zero due jobs returns an empty result set without iss
   const results = await runPublishingWorker(client, { shopId: "shop-1" });
   assert.deepEqual(results, []);
 });
+
+// ── Priority 5 (strict social-provider audit) fixes ─────────────────────
+
+test("processClaimedJob: a missing/foreign variant (deleted, or belongs to another shop) fails CLOSED — never proceeds to the disclosure gate with an empty object, never calls the provider", async () => {
+  const job = { id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-ghost", attempts: 0, max_attempts: 5 };
+  const client = createFakeSupabaseClient([
+    { data: null, error: null }, // variant lookup — not found (wrong shop, or deleted)
+    { data: null, error: null }, // jobs update
+    { data: null, error: null } // variants update
+  ]);
+  const result = await processClaimedJob(client, job);
+  assert.equal(result.outcome, "failed");
+  assert.equal(result.platform, null, "no platform was ever established — nothing here can claim a specific provider was involved");
+  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(jobUpdate.payload.last_error_code, "fatal", "a missing variant is never worth retrying");
+  assert.match(jobUpdate.payload.last_error, /not found/i);
+});
+
+test("processClaimedJob: a real DB error on the variant read is a classified, retryable failure — never silently swallowed into a fake-empty variant", async () => {
+  const job = { id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", attempts: 0, max_attempts: 5 };
+  const client = createFakeSupabaseClient([
+    { data: null, error: { message: "connection reset" } }, // variant lookup — real DB error, not just "not found"
+    { data: null, error: null },
+    { data: null, error: null }
+  ]);
+  const result = await processClaimedJob(client, job);
+  assert.equal(result.outcome, "queued", "an unclassified DB error defaults to transient — must be retried, not treated as fatal or silently ignored");
+  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(jobUpdate.payload.last_error_code, "transient");
+  assert.match(jobUpdate.payload.last_error, /connection reset/i);
+});
+
+test("processClaimedJob: a platform this shop has never connected fails structurally — the provider is never touched even though it exists in code", async () => {
+  const job = { id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", attempts: 0, max_attempts: 5 };
+  const client = createFakeSupabaseClient([
+    { data: { id: "variant-1", platform: "instagram", ai_disclosure_required: false, disclosure_applied: false }, error: null }, // variant lookup
+    { data: null, error: null }, // marketing_social_connections lookup — no row at all
+    { data: null, error: null }, // jobs update
+    { data: null, error: null } // variants update
+  ]);
+  const result = await processClaimedJob(client, job);
+  assert.equal(result.outcome, "failed");
+  const connectionCall = client.calls.find((c) => c.table === "marketing_social_connections");
+  assert.ok(connectionCall, "expected a marketing_social_connections lookup before any publish attempt");
+  const shopEq = connectionCall.ops.find((op) => op[0] === "eq" && op[1][0] === "shop_id");
+  assert.equal(shopEq[1][1], "shop-1", "the connection check itself must be shop-scoped");
+  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  assert.match(jobUpdate.payload.last_error, /no usable connection/i);
+  assert.match(jobUpdate.payload.last_error, /instagram/);
+});
+
+test("processClaimedJob: a connection that exists but is disconnected/needs_reauth/error never reaches the provider", async () => {
+  for (const status of ["disconnected", "needs_reauth", "error", "connecting", "not_connected"]) {
+    const job = { id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", attempts: 0, max_attempts: 5 };
+    // eslint-disable-next-line no-await-in-loop
+    const client = createFakeSupabaseClient([
+      { data: { id: "variant-1", platform: "facebook", ai_disclosure_required: false, disclosure_applied: false }, error: null },
+      { data: { id: "conn-1", status, expires_at: null }, error: null },
+      { data: null, error: null },
+      { data: null, error: null }
+    ]);
+    // eslint-disable-next-line no-await-in-loop
+    const result = await processClaimedJob(client, job);
+    assert.equal(result.outcome, "failed", `status '${status}' must never allow a publish attempt to proceed`);
+  }
+});
+
+test("processClaimedJob: a connection marked 'connected' but with an expired token fails safely — never treated as usable just because status says connected", async () => {
+  const job = { id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", attempts: 0, max_attempts: 5 };
+  const client = createFakeSupabaseClient([
+    { data: { id: "variant-1", platform: "tiktok", ai_disclosure_required: false, disclosure_applied: false }, error: null },
+    { data: { id: "conn-1", status: "connected", expires_at: "2020-01-01T00:00:00.000Z" }, error: null }, // long expired
+    { data: null, error: null },
+    { data: null, error: null }
+  ]);
+  const result = await processClaimedJob(client, job, { now: new Date("2026-08-24T00:00:00.000Z") });
+  assert.equal(result.outcome, "failed");
+  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  assert.match(jobUpdate.payload.last_error, /no usable connection/i);
+});
+
+test("processClaimedJob: a genuinely connected, non-expired platform clears the connection gate and proceeds to the (still not-live) provider", async () => {
+  const job = { id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", attempts: 0, max_attempts: 5 };
+  const client = createFakeSupabaseClient([
+    { data: { id: "variant-1", platform: "facebook", ai_disclosure_required: false, disclosure_applied: false }, error: null },
+    { data: { id: "conn-1", status: "connected", expires_at: "2099-01-01T00:00:00.000Z" }, error: null }, // far future
+    { data: null, error: null },
+    { data: null, error: null }
+  ]);
+  const result = await processClaimedJob(client, job, { now: new Date("2026-08-24T00:00:00.000Z") });
+  assert.equal(result.outcome, "failed", "still fails — no adapter is live yet — but for the RIGHT reason now");
+  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(jobUpdate.payload.last_error_code, "not_live", "must reach the not-live provider stub, not get stuck at the connection gate");
+});
+
+test("processClaimedJob: a connection with no expiry set at all (never expires) is usable as long as status is 'connected'", async () => {
+  const job = { id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", attempts: 0, max_attempts: 5 };
+  const client = createFakeSupabaseClient([
+    { data: { id: "variant-1", platform: "facebook", ai_disclosure_required: false, disclosure_applied: false }, error: null },
+    { data: { id: "conn-1", status: "connected", expires_at: null }, error: null },
+    { data: null, error: null },
+    { data: null, error: null }
+  ]);
+  const result = await processClaimedJob(client, job);
+  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(jobUpdate.payload.last_error_code, "not_live", "a null expires_at must never be treated as already-expired");
+});

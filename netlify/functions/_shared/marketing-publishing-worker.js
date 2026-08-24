@@ -29,11 +29,32 @@ import {
   computeBackoffSeconds
 } from "./marketing-publishing-queue.js";
 import { enforcePrePublishDisclosureGate } from "./creative-ai/disclosure-policy.js";
-import { notLiveSocialProvider } from "./marketing-social-providers.js";
+import { notLiveSocialProvider, SOCIAL_NOT_LIVE } from "./marketing-social-providers.js";
 
 export { computeBackoffSeconds };
 
 const DEFAULT_CLAIM_LIMIT = 25;
+
+/**
+ * Priority 5 audit finding (social-provider strict audit): before this
+ * pass, whether a shop had EVER connected a platform made zero difference
+ * to whether a publish was attempted — every job went straight from the
+ * variant read to provider.publish() with no check of
+ * marketing_social_connections at all. That was invisible today only
+ * because every provider is the not-live stub, which throws regardless of
+ * connection state; the moment a real adapter is wired in for any
+ * platform, this gap would let a job publish for a shop that never
+ * connected it, or whose connection is disconnected/needs_reauth/error,
+ * or whose token has expired. This is the fail-closed gate that makes
+ * "no provider call can bypass connection state" true structurally, not
+ * by accident of every adapter being a stub.
+ */
+function isConnectionUsable(connection, now) {
+  if (!connection) return false;
+  if (connection.status !== "connected") return false;
+  if (connection.expires_at && new Date(connection.expires_at).getTime() <= now.getTime()) return false;
+  return true;
+}
 
 /**
  * Atomically claims up to `limit` due jobs (status='queued',
@@ -81,19 +102,36 @@ export async function claimDueJobs(client, { shopId = null, limit = DEFAULT_CLAI
  * reimplementation that could drift from it.
  */
 export async function processClaimedJob(client, job, { now = new Date() } = {}) {
-  const variantResult = await client
-    .from("marketing_platform_variants")
-    .select("id,platform,caption,scheduled_at,ai_disclosure_required,disclosure_applied,asset_id")
-    .eq("id", job.platform_variant_id)
-    .eq("shop_id", job.shop_id)
-    .maybeSingle();
-  const variant = variantResult.data;
-  const platform = variant?.platform;
-  const provider = notLiveSocialProvider(platform);
-
+  let platform = null;
   let outcome;
   try {
-    if (variant?.asset_id) {
+    // Audit finding: this DB read's error was previously never checked —
+    // a genuine query failure (not just "row not found") silently fell
+    // through to `variant = undefined` and kept going, which meant a
+    // transient DB hiccup was invisible rather than retried, AND a
+    // missing/foreign variant (deleted, or belonging to another shop) let
+    // enforcePrePublishDisclosureGate({}) run against an EMPTY object —
+    // which reads as "no disclosure required" (the gate's default), a
+    // real fail-OPEN path a real provider.publish({}) could have reached.
+    // Both are fixed the same way: any variant-read problem is now a
+    // real, classified failure BEFORE a provider is ever considered.
+    const variantResult = await client
+      .from("marketing_platform_variants")
+      .select("id,platform,caption,scheduled_at,ai_disclosure_required,disclosure_applied,asset_id")
+      .eq("id", job.platform_variant_id)
+      .eq("shop_id", job.shop_id)
+      .maybeSingle();
+    if (variantResult.error) throw variantResult.error;
+    const variant = variantResult.data;
+    if (!variant) {
+      const notFoundError = new Error("Platform variant not found for this job (deleted, or does not belong to this shop) — cannot publish.");
+      notFoundError.statusCode = 400; // fatal — retrying will never make a missing/foreign row appear
+      notFoundError.code = "variant_not_found";
+      throw notFoundError;
+    }
+    platform = variant.platform;
+
+    if (variant.asset_id) {
       const assetResult = await client.from("ai_generated_assets").select("id,status").eq("id", variant.asset_id).maybeSingle();
       if (assetResult.error) throw assetResult.error;
       if (assetResult.data?.status === "quarantined") {
@@ -103,14 +141,40 @@ export async function processClaimedJob(client, job, { now = new Date() } = {}) 
         throw quarantineError;
       }
     }
-    const gate = enforcePrePublishDisclosureGate(variant || {});
+    const gate = enforcePrePublishDisclosureGate(variant);
     if (!gate.allowed) {
       const disclosureError = new Error(gate.message);
       disclosureError.statusCode = 400;
       disclosureError.code = "ai_disclosure_required";
       throw disclosureError;
     }
-    await provider.publish(variant || {});
+
+    // Connection-state gate (see isConnectionUsable doc above) — checked
+    // AFTER content-safety (quarantine/disclosure) but always BEFORE any
+    // provider is ever touched, so a real future adapter physically
+    // cannot be invoked for a shop that hasn't connected this platform,
+    // whose connection was revoked/needs reauth, or whose token expired.
+    const connectionResult = await client
+      .from("marketing_social_connections")
+      .select("id,status,expires_at")
+      .eq("shop_id", job.shop_id)
+      .eq("platform", platform)
+      .maybeSingle();
+    if (connectionResult.error) throw connectionResult.error;
+    if (!isConnectionUsable(connectionResult.data, now)) {
+      const notConnectedError = new Error(
+        `${platform}: no usable connection for this shop (status: ${connectionResult.data?.status || "not_connected"}) — connect or reconnect this platform before publishing.`
+      );
+      // Same bucket as "adapter not live" — both mean "no real publish is
+      // possible right now, don't retry-loop, this needs a human action"
+      // (connect the platform, or wait for the adapter to exist).
+      notConnectedError.code = SOCIAL_NOT_LIVE;
+      notConnectedError.statusCode = 501;
+      throw notConnectedError;
+    }
+
+    const provider = notLiveSocialProvider(platform);
+    await provider.publish(variant);
     // Unreachable today (every provider is not-live), kept so a real
     // adapter's success path is already wired correctly.
     await client.from("marketing_publishing_jobs").update({ status: "succeeded", attempts: job.attempts + 1, updated_at: new Date().toISOString() }).eq("id", job.id);
