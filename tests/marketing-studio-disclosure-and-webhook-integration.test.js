@@ -95,7 +95,8 @@ test("set_content_disclosure: no AI flags -> disclosure not required, even if th
 test("run_publishing_queue: a job whose disclosure is required but not applied settles to 'failed' WITHOUT ever calling the social provider", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
-    { data: [{ id: "job-1", platform_variant_id: "variant-1", status: "queued", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null }, // due jobs
+    { data: [{ id: "job-1" }], error: null }, // claimDueJobs: candidate select
+    { data: [{ id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null }, // claimDueJobs: atomic claim
     { data: { id: "variant-1", platform: "tiktok", caption: "hi", scheduled_at: null, ai_disclosure_required: true, disclosure_applied: false }, error: null }, // variant lookup
     { data: null, error: null }, // publishing_jobs update (failure path)
     { data: null, error: null } // platform_variants update (failure path)
@@ -105,7 +106,10 @@ test("run_publishing_queue: a job whose disclosure is required but not applied s
   assert.equal(res.statusCode, 200);
   const body = JSON.parse(res.body);
   assert.equal(body.results[0].outcome, "failed");
-  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  // Two marketing_publishing_jobs updates now happen per job: the claim
+  // step (status:"running", no last_error_code) and this outcome update —
+  // take the last matching call, not the first.
+  const jobUpdate = client.calls.filter((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update")).pop();
   assert.equal(jobUpdate.payload.last_error_code, "fatal");
   assert.match(jobUpdate.payload.last_error, /disclosure/i);
 });
@@ -113,7 +117,8 @@ test("run_publishing_queue: a job whose disclosure is required but not applied s
 test("run_publishing_queue: a job whose disclosure was applied proceeds to the (still not-live) provider exactly as before this pass", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
-    { data: [{ id: "job-1", platform_variant_id: "variant-1", status: "queued", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null },
+    { data: [{ id: "job-1" }], error: null },
+    { data: [{ id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null },
     { data: { id: "variant-1", platform: "tiktok", caption: "hi", scheduled_at: null, ai_disclosure_required: true, disclosure_applied: true }, error: null },
     { data: null, error: null },
     { data: null, error: null }
@@ -122,14 +127,18 @@ test("run_publishing_queue: a job whose disclosure was applied proceeds to the (
   const res = await handler(event("run_publishing_queue", { shop_id: "shop-1" }));
   const body = JSON.parse(res.body);
   assert.equal(body.results[0].outcome, "failed");
-  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  // Two marketing_publishing_jobs updates now happen per job: the claim
+  // step (status:"running", no last_error_code) and this outcome update —
+  // take the last matching call, not the first.
+  const jobUpdate = client.calls.filter((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update")).pop();
   assert.equal(jobUpdate.payload.last_error_code, "not_live", "must reach the pre-existing not-live path, not the disclosure gate");
 });
 
 test("run_publishing_queue: a job with no disclosure requirement at all is unaffected — baseline not-live behavior preserved exactly", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
-    { data: [{ id: "job-1", platform_variant_id: "variant-1", status: "queued", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null },
+    { data: [{ id: "job-1" }], error: null },
+    { data: [{ id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null },
     { data: { id: "variant-1", platform: "facebook", caption: "hi", scheduled_at: null }, error: null }, // no disclosure columns at all — older-shape row
     { data: null, error: null },
     { data: null, error: null }
@@ -137,9 +146,71 @@ test("run_publishing_queue: a job with no disclosure requirement at all is unaff
   const handler = createMarketingStudioHandler(baseDeps(client));
   const res = await handler(event("run_publishing_queue", { shop_id: "shop-1" }));
   const body = JSON.parse(res.body);
-  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  // Two marketing_publishing_jobs updates now happen per job: the claim
+  // step (status:"running", no last_error_code) and this outcome update —
+  // take the last matching call, not the first.
+  const jobUpdate = client.calls.filter((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update")).pop();
   assert.equal(jobUpdate.payload.last_error_code, "not_live");
   assert.equal(body.results[0].outcome, "failed");
+});
+
+// ── personal_brand_concept_to_content_item: disclosure fields at creation ──
+// Launch-blocker fix (Blocker 1): this insert used to leave every
+// disclosure column at its DB fail-open default. It now computes them
+// from the concept's own known AI-provenance (uses_ai_clone) at insert
+// time, the same moment the variant rows are created.
+
+test("personal_brand_concept_to_content_item: a non-clone image handoff sets ai_disclosure_required=true (generative image) on every inserted variant", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "asset-1", asset_type: "founder_concept", content: { headline: "Meet the founder", body: "..." } }, error: null }, // asset lookup
+    { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null }, // content_items insert
+    {
+      data: [
+        { id: "v-1", platform: "linkedin" },
+        { id: "v-2", platform: "facebook" },
+        { id: "v-3", platform: "instagram" }
+      ],
+      error: null
+    }, // platform_variants insert
+    { data: null, error: null } // writeCommandAudit insert
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  const res = await handler(
+    event("personal_brand_concept_to_content_item", { shop_id: "shop-1", asset_id: "asset-1", mode: "founder_portrait", uses_ai_clone: false })
+  );
+  assert.equal(res.statusCode, 201);
+  const variantInsert = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "insert"));
+  assert.ok(variantInsert, "expected a marketing_platform_variants insert");
+  for (const row of variantInsert.payload) {
+    assert.equal(row.ai_disclosure_required, true, `platform "${row.platform}" must be marked disclosure-required for a founder-concept image`);
+    assert.equal(row.generative_image_used, true);
+    assert.equal(row.avatar_used, false);
+    assert.equal(row.voice_used, false);
+    assert.ok(row.disclosure_checked_at, "must be explicitly checked at insert time, not left unset");
+  }
+});
+
+test("personal_brand_concept_to_content_item: a Digital-Twin (uses_ai_clone) handoff sets avatar_used AND voice_used on every inserted variant", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "asset-1", asset_type: "founder_concept", content: { headline: "Meet the founder", body: "..." } }, error: null },
+    { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [{ id: "v-1", platform: "linkedin" }, { id: "v-2", platform: "facebook" }, { id: "v-3", platform: "instagram" }], error: null },
+    { data: null, error: null }
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  const res = await handler(
+    event("personal_brand_concept_to_content_item", { shop_id: "shop-1", asset_id: "asset-1", mode: "founder_portrait", uses_ai_clone: true })
+  );
+  assert.equal(res.statusCode, 201);
+  const variantInsert = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "insert"));
+  for (const row of variantInsert.payload) {
+    assert.equal(row.avatar_used, true);
+    assert.equal(row.voice_used, true);
+    assert.equal(row.ai_disclosure_required, true);
+    assert.equal(row.ai_content_type, "avatar_video");
+  }
 });
 
 // ── clone_job_status: tenant isolation on the persisted job row ────────

@@ -1,0 +1,157 @@
+/**
+ * The real durable-scheduler execution engine (launch-blocker pass,
+ * Blocker 3). marketing-publishing-queue.js is deliberately pure
+ * functions only — this module is where the actual database-touching
+ * claim + process loop lives, so BOTH callers use the exact same engine:
+ *
+ *   - marketing-studio.js's `run_publishing_queue` action (admin-triggered,
+ *     one shop at a time)
+ *   - marketing-scheduled-publisher.js (Netlify Scheduled Function,
+ *     cron-triggered, ALL shops — nobody supplies a shop_id on a timer)
+ *
+ * Before this pass, `run_publishing_queue` SELECTed due jobs and processed
+ * them in a loop with no claim step — safe as long as exactly one caller
+ * ever ran it at a time, which stopped being true the moment a cron
+ * trigger could overlap either a slow-running previous cron tick or a
+ * concurrent manual admin trigger. claimDueJobs() closes that gap with an
+ * atomic, race-safe claim: SELECT candidate ids, then
+ * UPDATE ... WHERE status='queued' AND id IN (candidates) RETURNING *.
+ * Postgres serializes concurrent UPDATEs to the same row, and the
+ * re-checked `status='queued'` guard means a losing race simply returns
+ * zero rows for that job rather than a corrupted double-claim — the same
+ * safety property FOR UPDATE SKIP LOCKED gives, achievable here with
+ * plain supabase-js calls and no new migration/stored procedure.
+ */
+
+import {
+  classifyPublishFailure,
+  nextJobStateAfterFailure,
+  computeBackoffSeconds
+} from "./marketing-publishing-queue.js";
+import { enforcePrePublishDisclosureGate } from "./creative-ai/disclosure-policy.js";
+import { notLiveSocialProvider } from "./marketing-social-providers.js";
+
+export { computeBackoffSeconds };
+
+const DEFAULT_CLAIM_LIMIT = 25;
+
+/**
+ * Atomically claims up to `limit` due jobs (status='queued',
+ * next_attempt_at <= now), flips them to 'running', and returns the
+ * claimed rows — safe under concurrent callers (see module doc). Pass
+ * `shopId` to scope the claim to one shop (the admin-triggered path);
+ * omit it to claim across every shop (the cron-triggered path).
+ */
+export async function claimDueJobs(client, { shopId = null, limit = DEFAULT_CLAIM_LIMIT, now = new Date() } = {}) {
+  let candidateQuery = client
+    .from("marketing_publishing_jobs")
+    .select("id")
+    .eq("status", "queued")
+    .lte("next_attempt_at", now.toISOString())
+    .order("next_attempt_at", { ascending: true })
+    .limit(Math.min(100, Math.max(1, Number(limit) || DEFAULT_CLAIM_LIMIT)));
+  if (shopId) candidateQuery = candidateQuery.eq("shop_id", shopId);
+
+  const candidates = await candidateQuery;
+  if (candidates.error) throw candidates.error;
+  const candidateIds = (candidates.data || []).map((row) => row.id);
+  if (!candidateIds.length) return [];
+
+  // The re-checked status='queued' here — not just the id list — is what
+  // makes this claim safe against a concurrent second caller racing the
+  // same candidate set: whichever caller's UPDATE lands second sees those
+  // rows already flipped to 'running' and simply gets fewer rows back,
+  // never a duplicate claim.
+  const claimed = await client
+    .from("marketing_publishing_jobs")
+    .update({ status: "running", updated_at: new Date().toISOString() })
+    .in("id", candidateIds)
+    .eq("status", "queued")
+    .select("id,shop_id,platform_variant_id,status,attempts,max_attempts,next_attempt_at");
+  if (claimed.error) throw claimed.error;
+  return claimed.data || [];
+}
+
+/**
+ * Processes ONE already-claimed (status='running') job through the full
+ * fail-closed pipeline: quarantined-asset check, disclosure gate, provider
+ * dispatch, retry/backoff classification. Identical behavior to what
+ * run_publishing_queue did inline before this pass — extracted so the
+ * scheduled-function path gets the exact same guarantees, not a
+ * reimplementation that could drift from it.
+ */
+export async function processClaimedJob(client, job, { now = new Date() } = {}) {
+  const variantResult = await client
+    .from("marketing_platform_variants")
+    .select("id,platform,caption,scheduled_at,ai_disclosure_required,disclosure_applied,asset_id")
+    .eq("id", job.platform_variant_id)
+    .eq("shop_id", job.shop_id)
+    .maybeSingle();
+  const variant = variantResult.data;
+  const platform = variant?.platform;
+  const provider = notLiveSocialProvider(platform);
+
+  let outcome;
+  try {
+    if (variant?.asset_id) {
+      const assetResult = await client.from("ai_generated_assets").select("id,status").eq("id", variant.asset_id).maybeSingle();
+      if (assetResult.error) throw assetResult.error;
+      if (assetResult.data?.status === "quarantined") {
+        const quarantineError = new Error("Source asset is quarantined (consent was revoked) and cannot be published.");
+        quarantineError.statusCode = 400;
+        quarantineError.code = "asset_quarantined";
+        throw quarantineError;
+      }
+    }
+    const gate = enforcePrePublishDisclosureGate(variant || {});
+    if (!gate.allowed) {
+      const disclosureError = new Error(gate.message);
+      disclosureError.statusCode = 400;
+      disclosureError.code = "ai_disclosure_required";
+      throw disclosureError;
+    }
+    await provider.publish(variant || {});
+    // Unreachable today (every provider is not-live), kept so a real
+    // adapter's success path is already wired correctly.
+    await client.from("marketing_publishing_jobs").update({ status: "succeeded", attempts: job.attempts + 1, updated_at: new Date().toISOString() }).eq("id", job.id);
+    await client.from("marketing_platform_variants").update({ status: "published", published_at: new Date().toISOString() }).eq("id", job.platform_variant_id);
+    outcome = "succeeded";
+  } catch (error) {
+    const kind = classifyPublishFailure(error);
+    const next = nextJobStateAfterFailure({ attempts: job.attempts, maxAttempts: job.max_attempts, kind });
+    const nextAttemptAt = next.delaySeconds != null ? new Date(now.getTime() + next.delaySeconds * 1000).toISOString() : job.next_attempt_at;
+    await client
+      .from("marketing_publishing_jobs")
+      .update({
+        status: next.status,
+        attempts: next.attempts,
+        next_attempt_at: nextAttemptAt,
+        last_error: String(error?.message || error).slice(0, 500),
+        last_error_code: kind,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", job.id);
+    if (next.status === "failed" || next.status === "dead_letter") {
+      await client
+        .from("marketing_platform_variants")
+        .update({ status: "failed", last_error: String(error?.message || error).slice(0, 500) })
+        .eq("id", job.platform_variant_id);
+    }
+    outcome = next.status;
+  }
+  return { job_id: job.id, platform_variant_id: job.platform_variant_id, platform: platform || null, outcome };
+}
+
+/**
+ * Claim + process, end to end. This is the ONE function both the
+ * admin-triggered action and the cron-triggered scheduled function call —
+ * neither maintains its own copy of this loop.
+ */
+export async function runPublishingWorker(client, { shopId = null, limit = DEFAULT_CLAIM_LIMIT, now = new Date() } = {}) {
+  const claimed = await claimDueJobs(client, { shopId, limit, now });
+  const results = [];
+  for (const job of claimed) {
+    results.push(await processClaimedJob(client, job, { now }));
+  }
+  return results;
+}

@@ -6,6 +6,16 @@
 [functions]
   node_bundler = "esbuild"
 
+# Launch-blocker pass, Blocker 3 (real durable scheduler) — NOT active
+# until this PR is merged and deployed; committing/pushing to this branch
+# does not itself enable a scheduled invocation on any live site. Every 10
+# minutes so a job's worst-case wait past its scheduled_at time is bounded
+# without polling so often it becomes its own cost/rate-limit concern at
+# Ashley's real content volume (~90 pieces/month — see the launch
+# readiness audit's Section 13 volume analysis).
+[functions."marketing-scheduled-publisher"]
+  schedule = "*/10 * * * *"
+
 [[headers]]
   for = "/*"
     [headers.values]

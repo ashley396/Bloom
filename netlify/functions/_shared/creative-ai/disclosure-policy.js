@@ -150,3 +150,54 @@ export function enforcePrePublishDisclosureGate(variant = {}) {
     message: "This content requires an AI-content disclosure that has not been recorded as applied. Publishing is blocked until disclosure_applied is set (see set_content_disclosure)."
   };
 }
+
+/**
+ * The launch-blocker fix (Marketing Studio engineering pass, Blocker 1):
+ * every code path that attaches real generated content to a
+ * marketing_platform_variants row must compute and persist its disclosure
+ * columns THERE, at attachment time — never leave `ai_disclosure_required`
+ * sitting at its DB default (false) waiting for a human to remember to
+ * call set_content_disclosure. That default is what let a genuinely
+ * AI-generated variant clear enforcePrePublishDisclosureGate() by simply
+ * never having anyone check it — a fail-OPEN outcome dressed up as a
+ * fail-closed gate, since the gate itself was already correct.
+ *
+ * This is the ONE authoritative place callers translate "what AI
+ * capabilities did this piece of content actually use" into DB columns —
+ * it always goes through determineDisclosureRequirement(), never a
+ * parallel/shortcut list. `disclosure_applied` is deliberately NOT set
+ * here — that stays exclusively set_content_disclosure's job, so a human
+ * must still explicitly confirm the disclosure was actually applied
+ * before enforcePrePublishDisclosureGate() will ever allow a publish for
+ * content this function marked required.
+ */
+export function computeDisclosureFields({
+  platform,
+  avatarUsed = false,
+  voiceUsed = false,
+  generativeVideoUsed = false,
+  generativeImageUsed = false,
+  humanEdited = false,
+  aiContentType = null
+} = {}) {
+  const determination = determineDisclosureRequirement({
+    platform,
+    avatarUsed,
+    voiceUsed,
+    generativeVideoUsed,
+    generativeImageUsed,
+    humanEdited
+  });
+  return {
+    ai_content_type: aiContentType,
+    avatar_used: avatarUsed,
+    voice_used: voiceUsed,
+    generative_video_used: generativeVideoUsed,
+    generative_image_used: generativeImageUsed,
+    human_edited: humanEdited,
+    ai_disclosure_required: determination.required,
+    disclosure_method: determination.mechanism,
+    disclosure_policy_version: determination.policyVersion,
+    disclosure_checked_at: new Date().toISOString()
+  };
+}

@@ -13,6 +13,7 @@
  */
 
 import { SOCIAL_NOT_LIVE } from "./marketing-social-providers.js";
+import { determineDisclosureRequirement } from "./creative-ai/disclosure-policy.js";
 
 export const PUBLISH_FAILURE_KINDS = Object.freeze(["not_live", "transient", "fatal"]);
 
@@ -80,14 +81,22 @@ export function buildIdempotencyKey(variantId) {
 }
 
 /**
- * AI-disclosure requirement (Section 21/40) — Meta (Facebook/Instagram)
- * and TikTok both have real, penalty-backed AI-generated-content
- * disclosure rules; the others don't have an equivalent blanket rule
- * today. Only ever computed from a real `wasAiGenerated` flag the caller
- * already knows to be true — never assumed.
+ * AI-disclosure requirement (Section 21/40) — a thin, single-flag
+ * convenience wrapper for callers that only know "was this AI-generated
+ * at all" and not which specific capability (avatar/voice/video/image)
+ * produced it. Launch-blocker fix (Blocker 1): this used to maintain its
+ * own hardcoded 3-platform allowlist (Meta + TikTok only), which quietly
+ * disagreed with disclosure-policy.js's real per-platform policy table —
+ * the audit's "parallel disclosure logic" finding. There is now exactly
+ * ONE authoritative disclosure decision in the codebase:
+ * determineDisclosureRequirement() in disclosure-policy.js. This function
+ * delegates to it rather than re-deciding anything itself — which AI
+ * flag gets set doesn't matter for the boolean `required` result, since
+ * determineDisclosureRequirement() only checks whether ANY AI-trigger
+ * flag is true.
  */
-const AI_DISCLOSURE_PLATFORMS = Object.freeze(["facebook", "instagram", "tiktok"]);
-
 export function requiresAiDisclosure(platform, wasAiGenerated) {
-  return Boolean(wasAiGenerated) && AI_DISCLOSURE_PLATFORMS.includes(platform);
+  if (!wasAiGenerated) return false;
+  const determination = determineDisclosureRequirement({ platform, generativeImageUsed: true });
+  return Boolean(determination.required);
 }

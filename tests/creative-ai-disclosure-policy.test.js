@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {
   PLATFORM_DISCLOSURE_POLICY,
   determineDisclosureRequirement,
-  enforcePrePublishDisclosureGate
+  enforcePrePublishDisclosureGate,
+  computeDisclosureFields
 } from "../netlify/functions/_shared/creative-ai/disclosure-policy.js";
 
 // Must match marketing-social-providers.js's SUPPORTED_PLATFORMS exactly —
@@ -84,4 +85,57 @@ test("enforcePrePublishDisclosureGate: FAILS CLOSED — blocks publishing when d
 test("enforcePrePublishDisclosureGate: treats a missing/undefined variant as safe-default (not required) rather than throwing", () => {
   const result = enforcePrePublishDisclosureGate({});
   assert.equal(result.allowed, true);
+});
+
+// ── computeDisclosureFields (Launch-blocker fix, Blocker 1) ────────────
+//
+// The real defect this closes: enforcePrePublishDisclosureGate() was
+// always correctly fail-closed in DESIGN, but every content-attachment
+// call site (generate_content, personal_brand_concept_to_content_item)
+// left ai_disclosure_required at its DB default (false) unless a human
+// separately called set_content_disclosure afterward — a fail-OPEN gap
+// in practice. computeDisclosureFields() is the one helper every such
+// call site now goes through so the gate has real data from the moment
+// content is attached, not only after an optional follow-up action.
+
+test("computeDisclosureFields: AI image (generativeImageUsed) -> required, with the platform's real mechanism, disclosure_applied untouched", () => {
+  const fields = computeDisclosureFields({ platform: "instagram", generativeImageUsed: true, aiContentType: "generative_image" });
+  assert.equal(fields.ai_disclosure_required, true);
+  assert.equal(fields.generative_image_used, true);
+  assert.equal(fields.avatar_used, false);
+  assert.equal(fields.voice_used, false);
+  assert.equal(fields.ai_content_type, "generative_image");
+  assert.equal(fields.disclosure_method, "native_label");
+  assert.ok(fields.disclosure_checked_at, "must record when this was actually checked");
+  assert.ok(!("disclosure_applied" in fields), "disclosure_applied stays exclusively set_content_disclosure's job — never silently marked complete here");
+});
+
+test("computeDisclosureFields: Digital Twin (avatarUsed + voiceUsed) -> required, ai_content_type avatar_video", () => {
+  const fields = computeDisclosureFields({ platform: "facebook", avatarUsed: true, voiceUsed: true, aiContentType: "avatar_video" });
+  assert.equal(fields.ai_disclosure_required, true);
+  assert.equal(fields.avatar_used, true);
+  assert.equal(fields.voice_used, true);
+});
+
+test("computeDisclosureFields: synthetic voice alone (no visible avatar) still trips the requirement", () => {
+  const fields = computeDisclosureFields({ platform: "youtube", voiceUsed: true, aiContentType: "voice_only" });
+  assert.equal(fields.ai_disclosure_required, true);
+  assert.equal(fields.voice_used, true);
+  assert.equal(fields.avatar_used, false);
+});
+
+test("computeDisclosureFields: ordinary non-AI media (no flags) -> not required, but still explicitly checked (never left unchecked)", () => {
+  const fields = computeDisclosureFields({ platform: "linkedin", aiContentType: "none" });
+  assert.equal(fields.ai_disclosure_required, false);
+  assert.equal(fields.ai_content_type, "none");
+  assert.ok(fields.disclosure_checked_at, "a deliberate 'checked, not required' record beats a silently-unset column");
+});
+
+test("computeDisclosureFields: a platform with an uncertain/unconfirmed disclosure mechanism still fails closed on 'required'", () => {
+  const pinterest = computeDisclosureFields({ platform: "pinterest", generativeImageUsed: true, aiContentType: "generative_image" });
+  const googleBusiness = computeDisclosureFields({ platform: "google_business", avatarUsed: true, aiContentType: "avatar_video" });
+  assert.equal(pinterest.ai_disclosure_required, true);
+  assert.equal(pinterest.disclosure_method, "no_api_mechanism_confirmed");
+  assert.equal(googleBusiness.ai_disclosure_required, true);
+  assert.equal(googleBusiness.disclosure_method, "no_api_mechanism_confirmed");
 });

@@ -94,10 +94,24 @@ test("buildIdempotencyKey is deterministic and namespaced per variant", () => {
   assert.equal(buildIdempotencyKey("abc-123"), buildIdempotencyKey("abc-123"));
 });
 
-test("requiresAiDisclosure: true only for Meta/TikTok platforms AND real AI-generated content", () => {
+// Launch-blocker fix (Blocker 1): this used to check its own hardcoded
+// 3-platform allowlist that disagreed with disclosure-policy.js's real
+// policy table (which requires disclosure on all 7 platforms for AI
+// content, Pinterest and Google Business Profile included, just with
+// lower-confidence/unconfirmed mechanisms — see PLATFORM_DISCLOSURE_POLICY).
+// requiresAiDisclosure() now delegates to the one authoritative source,
+// so it must agree with it for every platform, not just Meta/TikTok.
+test("requiresAiDisclosure: true for every supported platform when content is real AI-generated content", () => {
   assert.equal(requiresAiDisclosure("facebook", true), true);
   assert.equal(requiresAiDisclosure("instagram", true), true);
   assert.equal(requiresAiDisclosure("tiktok", true), true);
-  assert.equal(requiresAiDisclosure("pinterest", true), false);
-  assert.equal(requiresAiDisclosure("facebook", false), false, "never flag disclosure for content that was NOT AI-generated");
+  assert.equal(requiresAiDisclosure("linkedin", true), true);
+  assert.equal(requiresAiDisclosure("pinterest", true), true, "Pinterest's Gen-AI-label policy requires disclosure too, even though its API mechanism is unconfirmed — that's a mechanism gap, not a requirement exemption");
+  assert.equal(requiresAiDisclosure("google_business", true), true);
+  assert.equal(requiresAiDisclosure("youtube", true), true);
+});
+
+test("requiresAiDisclosure: never flags disclosure for content that was NOT AI-generated, on any platform", () => {
+  assert.equal(requiresAiDisclosure("facebook", false), false);
+  assert.equal(requiresAiDisclosure("pinterest", false), false);
 });

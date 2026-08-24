@@ -8,6 +8,19 @@
 
 ---
 
+## Addendum (2026-08-24, later same day) — Launch Blockers 1–4 engineering pass
+
+A follow-up engineering pass closed 4 of the 9 launch blockers identified below in code. **Nothing was deployed, applied, purchased, or connected** — see the pass's own completion report for the full safety confirmation. This addendum states precisely what changed; the sections below are left as the historical record of what this pass found and are annotated inline where a finding changed.
+
+- **Blocker 1 (disclosure/publishing-queue inconsistency) — RESOLVED IN CODE, NOT YET LIVE.** The real defect was more precise than originally stated: `enforcePrePublishDisclosureGate()` was always correctly fail-closed in design, but every content-attachment call site (`generate_content`, `personal_brand_concept_to_content_item`, `plan_month`) left `ai_disclosure_required` at its DB default (`false`) unless a human separately called `set_content_disclosure` — a fail-*open* gap in practice. A new `computeDisclosureFields()` helper (`_shared/creative-ai/disclosure-policy.js`) is now called at every real content-attachment site so disclosure is computed the moment AI content is attached, not only on an optional follow-up. `marketing-publishing-queue.js`'s separate, narrower `requiresAiDisclosure()` (Meta+TikTok only) now delegates to the one authoritative policy table instead of maintaining parallel logic. 15 new/updated tests.
+- **Blocker 2 (migration + RLS review) — REVIEWED, NOT APPLIED.** All 7 migrations read in full; see the updated Section 21 below — correction: only 4 are actually new to PR #177 (the other 3 were already merged into the base branch before this audit). Zero migration-level defects found; every table is RLS-enabled with the standard `is_shop_member(shop_id)` policy, tokens/secrets are correctly locked to service-role-only. The real finding was at the **application-code** layer, not the migrations: `marketing-studio.js`'s handlers run on the service-role client (bypasses RLS), so tenant isolation is enforced entirely by explicit `.eq("shop_id", shopId)` filters — a full sweep of every `.from("marketing_*"/"ai_generated_assets")` call found two real gaps (`evaluate_ab_experiment`'s variant/metrics lookups trusted a caller-supplied `content_item_id` cross-reference with no shop filter; `run_publishing_queue`'s variant read had no shop filter as defense-in-depth) — both fixed, both covered by new tenant-isolation tests.
+- **Blocker 3 (real durable scheduler) — BUILT AND TESTED, NOT LIVE-VERIFIED.** A new `_shared/marketing-publishing-worker.js` provides an atomic claim-then-process engine (`claimDueJobs`/`processClaimedJob`/`runPublishingWorker`) — safe under concurrent callers via a re-checked `status='queued'` UPDATE, no new migration/stored procedure needed. `run_publishing_queue` (admin-triggered) now uses this engine instead of its old unclaimed SELECT-then-loop. A new Netlify Scheduled Function, `marketing-scheduled-publisher.js`, claims+processes jobs across every shop on a 10-minute cadence, configured via a `netlify.toml` `schedule` entry — **committed only; not deployed, and this PR being merged is not itself sufficient to activate it** (requires an actual Netlify deploy to a site where the scheduler is enabled, which this pass explicitly does not do). A real shop-timezone-aware local→UTC conversion helper (`shopLocalDateTimeToUtcIso`, DST-tested against the real 2026 US transition dates) backs a new `schedule_content_item` action.
+- **Blocker 4 (Calendar/Review/Approve/Schedule UI) — BUILT AND TESTED (Playwright, against the real UI).** A new "Content Calendar" panel in `public/marketing-studio-admin.js` (inside the existing admin-only `#marketingStudioRoot`) lists content items with real status badges, opens a detail view (caption, per-platform disclosure status, honest "Connection required" badges — never a fake green connected state), and wires Approve/Reject/Schedule/Queue-for-publishing/Run-publishing-queue-now to the real backend actions. **Two real gaps remain and are called out honestly, not papered over:** there is still no caption-editing action or UI, and no post-creation add/remove-platform control — platforms are fixed at content-item creation time. 6 new Playwright e2e tests, run against the real admin.html, all passing.
+- **What did NOT change:** Lily compound orchestration, Reel/video rendering, video transformations, social OAuth, real social publishing, analytics ingestion, and provider activation — none of these were touched, per Section 6 of the assigning instructions.
+- **Test suite after this pass:** 2419/2419 passing (up from 2383 before this pass — 36 net new tests). See the pass's completion report for the full breakdown.
+
+---
+
 ## 0. Safety confirmation
 
 | Item | Status |
@@ -203,6 +216,8 @@ Traced the full chain: **approved content → scheduled time → durable job →
 
 **Per the user's own framing: this is correctly NOT called a scheduler.** It stores `scheduled_at`/`next_attempt_at` and has a real (unautomated) processor with genuine retry engineering — but nothing executes it unattended. **Status: ⚫ MISSING (trigger layer).** The processing logic itself is 🟢 READY; only wiring a cron trigger (Netlify Scheduled Functions support this natively) stands between "real retry logic exists" and "actually runs on a schedule."
 
+> **RESOLVED IN CODE — NOT YET LIVE (2026-08-24 engineering pass).** A real trigger now exists: `netlify/functions/marketing-scheduled-publisher.js`, configured via a `netlify.toml` `[functions."marketing-scheduled-publisher"] schedule = "*/10 * * * *"` entry, claims+processes due jobs across every shop using a new atomic claim engine (`_shared/marketing-publishing-worker.js`) that also replaced `run_publishing_queue`'s old unclaimed SELECT-then-loop (a genuine concurrency gap that existed even for two overlapping manual admin triggers, now closed for both callers). **Not deployed** — committing/pushing to this branch does not itself activate a scheduled invocation on any live site.
+
 ---
 
 ## 13. Volume audit — Ashley's target (≈30 images + 30 Reels + 30 ~60s videos/month = 90 pieces)
@@ -242,6 +257,8 @@ Traced the full chain: **approved content → scheduled time → durable job →
 - `determineDisclosureRequirement()` is a pure function; any of `avatarUsed`/`voiceUsed`/`generativeVideoUsed`/`generativeImageUsed` being true triggers a requirement, deliberately conservative even where a platform's own language is ambiguous (e.g., voice-only content).
 - **One internal inconsistency found this pass, worth flagging as a finding, not silently fixed (per audit-only instructions):** `marketing-publishing-queue.js`'s `requiresAiDisclosure(platform, wasAiGenerated)` only flags Meta+TikTok (`AI_DISCLOSURE_PLATFORMS` — confirmed via grep, not shown in the excerpt above but the function only checks membership in that shorter list), while `disclosure-policy.js`'s richer policy table considers all 7 platforms disclosure-required. **These two modules disagree** — the publishing-queue's simpler gate is narrower than the compliance module's real policy data. Since publishing is not-live everywhere today this has zero live impact, but it is a real gap to close before any platform goes live: the queue should consult `disclosure-policy.js`, not its own shorter hardcoded list.
 - **Fail-closed publishing:** confirmed as designed at the policy layer; whether `enqueue_publish`/`run_publishing_queue` actually call into `determineDisclosureRequirement()` before allowing a real publish was not independently re-traced line-by-line this pass (carried forward from architecture, not re-verified against the current file this exact session).
+
+> **RESOLVED IN CODE — NOT YET LIVE (2026-08-24 engineering pass).** The re-trace above found the real defect was more serious than "two functions disagree": `enforcePrePublishDisclosureGate()` was always correctly wired and fail-closed by design, but `ai_disclosure_required` was never computed at the moment AI content was actually attached to a variant — it only ever became `true` via an optional, easy-to-skip `set_content_disclosure` call, so the gate defaulted to "not required" in practice. A new `computeDisclosureFields()` helper is now called at every real content-attachment site (`generate_content`'s image/video branches, `personal_brand_concept_to_content_item`, and — already correct before this pass — `digital-twin-finalization.js`). `requiresAiDisclosure()` now delegates to `determineDisclosureRequirement()` instead of its own narrower list. 15 new/updated tests cover AI image / Digital Twin avatar+voice / synthetic voice / ordinary non-AI media / required+applied / required+not-applied / an uncertain-mechanism platform (Pinterest) / no-provider-call-on-failure / no-infinite-retry.
 
 ---
 
@@ -295,6 +312,8 @@ No retrieval, response, Lily-assisted-reply, or moderation code for social comme
 
 **Conclusion:** roughly two-thirds of the backend action surface has **no usable UI** at all today. Ashley cannot currently reach the calendar, content list, approval, scheduling, platform-selection, cost, or analytics screens through the app — only Personal Brand management and AI-Clone enrollment/consent/preview are click-through-able.
 
+> **BUILT AND TESTED (2026-08-24 engineering pass) — Calendar/list/preview(partial)/approve/schedule now have real UI.** A new "Content Calendar" panel in `public/marketing-studio-admin.js` lists content items with real status badges (a date-sorted list, deliberately not a full calendar grid), opens a per-item detail view (caption, per-platform disclosure status with an explicit "Disclosure REQUIRED — not yet applied" warning when relevant, honest "Connection required" badges — never a fake green connected state), and wires Approve/Reject/Schedule (real shop-timezone-aware date/time picker)/Queue-for-publishing/Run-publishing-queue-now to the real backend actions, including the two new ones this pass added (`schedule_content_item`). Cost is surfaced shop-wide (not yet per-item) with ESTIMATED/ACTUAL explicitly labeled separately, via the existing `usage_summary` action. 6 Playwright e2e tests run against the real `admin.html`, all passing. **Two real gaps remain, called out rather than papered over:** no caption-editing action or UI exists yet (the detail view displays the caption but cannot change it), and no post-creation add/remove-platform control exists (platforms are fixed at content-item creation time via `plan_month`/`personal_brand_concept_to_content_item`). Preview of generated images/video is still only real for AI-Clone sanity-check jobs, not general content preview, as originally found.
+
 ---
 
 ## 20. Feature flag / admin access verification
@@ -317,6 +336,12 @@ In filename/date order (which also appears to be the real dependency order):
 7. `20260827000000_revoked_media_quarantine.sql`
 
 **None of these have been applied to any live Supabase project (staging or production) as of this audit.** RLS-policy content, rollback risk, and compatibility with the live schema were **not re-verified line-by-line this pass** (would require reading all 7 files in full, which risks materially exceeding this pass's audit-only budget) — flagged as an explicit open item: **before any of these are applied, a dedicated migration-review pass should read each file for RLS coverage on every new table and confirm no destructive `ALTER`/`DROP` against existing production data.** Do not treat "the migrations exist in the PR" as equivalent to "they're safe to apply."
+
+> **REVIEWED — NOT APPLIED (2026-08-24 engineering pass).** All 7 files were read in full. **Correction to the framing above:** only 4 are actually new to PR #177's diff against `beta/august10-stabilization` — `20260824000000_creative_ai_webhook_disclosure_media.sql`, `20260825000000_personal_brand_studio.sql`, `20260826000000_digital_twin_lifecycle.sql`, `20260827000000_revoked_media_quarantine.sql`. `20260819120000_marketing_campaigns_v1.sql`, `20260819140000_marketing_promotions_v1.sql`, and `20260823000000_marketing_studio_foundation_v1.sql` already exist in the base branch (a prior, separate, already-merged PR) — they were reviewed for completeness but are not "this PR's migrations" in the git-diff sense.
+>
+> **Per-migration classification (all): READY TO APPLY TO STAGING.** Every table: RLS enabled, the standard `is_shop_member(shop_id)` policy (`for all to authenticated using(...) with check(...)`), `anon` revoked, `service_role` full grant, `if not exists`/`drop ... if exists` idempotency throughout. The two secrets/webhook tables (`marketing_social_connection_secrets`, `marketing_webhook_events`) are correctly locked to service-role-only (RLS enabled with zero policies + explicit revoke from both `anon` and `authenticated`) — the token-storage requirement is met. The two `check` constraint widenings (`ai_generated_assets_asset_type_check`, `ai_generated_assets_status_check`) were verified against their actual prior definitions in earlier migrations — both are strict supersets, cannot violate existing data. Dependency ordering (filenames) matches real FK dependency order. No destructive `ALTER`/`DROP` found. **No new migration was needed for the Blocker 3 scheduler** — the safe job-claim pattern was achieved with plain `UPDATE ... WHERE status='queued'` re-checks via the existing schema, not a new stored procedure.
+>
+> **One real (non-migration) finding from this review, fixed:** `marketing-studio.js`'s handlers run on the service-role client, which bypasses RLS entirely — so tenant isolation for this admin API is enforced ONLY by explicit `.eq("shop_id", shopId)` filters in application code, not by the RLS policies above (those remain real, correct defense-in-depth for any future direct/browser-side query path). A full sweep of every `.from("marketing_*"/"ai_generated_assets")` call in `marketing-studio.js` found two real gaps: `evaluate_ab_experiment`'s variant/metrics lookups trusted a caller-supplied `content_item_id` (from the experiment's own `variants` jsonb, itself never validated at creation time) with no shop filter — a forged/foreign `content_item_id` could pull another shop's real platform-variant and performance-metrics rows; `run_publishing_queue`'s variant read had no shop filter as defense-in-depth (not independently exploitable today, since the job it's reached through was already shop-scoped, but hardened regardless). Both fixed; both covered by new tenant-isolation tests confirming the `shop_id` filter is actually present on both queries.
 
 ---
 
@@ -379,6 +404,8 @@ Re-confirmed against `docs/production/SECURITY-REVIEW.md` and the current test s
 
 **P1 (should close before Founding Florists / Phase 2):** cross-tenant asset-protection re-audit specifically for the new Marketing Studio tables, once real data exists in them to test against.
 
+> **Status update (2026-08-24 engineering pass):** both P0 items above are now RESOLVED IN CODE — NOT YET LIVE (see Sections 15/21's addenda). The migration review additionally surfaced and fixed two real cross-tenant IDOR gaps at the application-code layer (`evaluate_ab_experiment`, `run_publishing_queue`) — see Section 21's addendum for detail. The P1 cross-tenant asset-protection re-audit remains open, unchanged.
+
 No P0 blocker was found that requires code changes for **Phase 1 (Ashley-only)** beyond the RLS review — Phase 1 involves no other tenant, so cross-tenant risk is inherently lower until Phase 2.
 
 ---
@@ -393,6 +420,8 @@ node --test tests/*.test.js
 ```
 
 **2383/2383 passing**, unchanged from the prior pass (no code was modified this session before this run).
+
+> **Update (2026-08-24 engineering pass): 2419/2419 passing** (36 net new tests: disclosure-field computation, tenant-isolation, the publishing-worker claim engine, the shop-timezone DST-aware conversion helper, the scheduled-function handler, and 6 Playwright e2e tests for the new Content Calendar UI, run against the real `admin.html`). All CODE VERIFIED as before this pass — the scheduled function specifically remains NOT YET VERIFIED LIVE (never actually invoked by Netlify's real scheduler, since nothing was deployed).
 
 | Behavior | CODE VERIFIED | INTEGRATION VERIFIED | NOT YET VERIFIED LIVE |
 |---|---|---|---|
@@ -501,9 +530,9 @@ Compared against Predis.ai, Canva, Buffer, Later, Metricool, Hootsuite, SocialBe
 | Reel creation | 🔴 BLOCKED (no execution engine) |
 | Digital Twin video | 🟡 CONFIGURATION-REQUIRED (code-complete, provider accounts needed) |
 | Voice | 🟡 CONFIGURATION-REQUIRED |
-| Approval workflow | 🟠 ENGINEERING-REQUIRED (backend real, no UI) |
-| Video transformations (platform reframing) | 🔴 BLOCKED (no execution engine) |
-| Scheduling (trigger) | 🟠 ENGINEERING-REQUIRED (logic real, trigger missing) |
+| Approval workflow | 🟡 CONFIGURATION-REQUIRED *(was 🟠 — UI built 2026-08-24, real backend + real UI now exist; still needs Marketing Studio flag/deploy to reach Ashley)* |
+| Video transformations (platform reframing) | 🔴 BLOCKED (no execution engine — unchanged, out of scope for this pass) |
+| Scheduling (trigger) | 🟡 CONFIGURATION-REQUIRED *(was 🟠 — real claim-safe worker + Netlify Scheduled Function built and tested 2026-08-24; needs an actual deploy to go live, not further engineering)* |
 | Facebook | 🟠 ENGINEERING-REQUIRED (no review blocker for Ashley's own account) |
 | Instagram | 🟠 ENGINEERING-REQUIRED (same, plus Professional-account prerequisite) |
 | TikTok | 🔴 BLOCKED (engineering + third-party audit for public posting) |
@@ -511,11 +540,11 @@ Compared against Predis.ai, Canva, Buffer, Later, Metricool, Hootsuite, SocialBe
 | Pinterest | 🔴 BLOCKED (engineering + Standard Access approval for public pins) |
 | Google Business Profile | 🔴 BLOCKED (engineering + 60-day-verified-GBP + review) |
 | YouTube | 🟠 ENGINEERING-REQUIRED (no blocking review needed within default quota) |
-| Disclosure | 🟡 CONFIGURATION-REQUIRED (policy real, one internal inconsistency to fix) |
+| Disclosure | 🟢 READY *(was 🟡 — the internal inconsistency and the underlying fail-open gap are both fixed and tested 2026-08-24)* |
 | Consent/revocation | 🟢 READY (code + tests) |
-| Analytics | 🔴 BLOCKED (schema only, zero ingestion) |
-| UI | 🔴 BLOCKED (most of the workflow has no screen) |
-| Security | 🟡 CONFIGURATION-REQUIRED (RLS review of new migrations pending) |
+| Analytics | 🔴 BLOCKED (schema only, zero ingestion — unchanged) |
+| UI | 🟡 CONFIGURATION-REQUIRED *(was 🔴 — Calendar/Review/Approve/Schedule now real and tested 2026-08-24; caption-editing and post-creation platform selection remain unbuilt)* |
+| Security | 🟢 READY *(was 🟡 — migration RLS review complete, zero migration defects found; the two real application-layer IDOR gaps this review surfaced are fixed and tested 2026-08-24)* |
 | Cost tracking | 🟡 CONFIGURATION-REQUIRED (config exists, one rate likely stale) |
 
 ---

@@ -82,6 +82,21 @@
       </div>
 
       <div class="panel">
+        <h2>Content Calendar</h2>
+        <p class="help">Draft → Review → Approve → Schedule → Publish. Every status shown here is exactly what the backend reports — nothing is marked "published" unless a real provider actually confirmed it (none are connected yet, so publishing attempts fail honestly with "not live").</p>
+        <div class="header-actions">
+          <input id="msCalYear" type="number" placeholder="Year" style="width:6em">
+          <select id="msCalMonth"></select>
+          <button type="button" id="msPlanMonthBtn">Plan this month</button>
+          <button type="button" id="msRunQueueBtn" title="Manually run the publishing queue now — the real automatic scheduler exists but isn't deployed in this pass.">Run publishing queue now</button>
+        </div>
+        <p id="msCostSummary" class="help"></p>
+        <p id="msCalStatus" class="help"></p>
+        <div id="msContentList" class="shop-list"></div>
+        <div id="msContentDetail"></div>
+      </div>
+
+      <div class="panel">
         <h2>AI Clone enrollment</h2>
         <p class="help">Creates a real HeyGen Photo Avatar (if avatar is granted) and/or a real ElevenLabs voice clone (if voice is granted). Requires real reference photos/audio of the consenting person — nothing here is simulated.</p>
         <form id="msEnrollForm" class="form-grid">
@@ -209,6 +224,306 @@
     const pbPhotoList = root.querySelector("#pbPhotoList");
     let pbLastAssetId = null;
     let pbLastMode = null;
+
+    // ── Content Calendar (Launch-blocker fix, Blocker 4) ─────────────────
+    const calYearInput = root.querySelector("#msCalYear");
+    const calMonthSelect = root.querySelector("#msCalMonth");
+    const calStatus = root.querySelector("#msCalStatus");
+    const costSummary = root.querySelector("#msCostSummary");
+    const contentList = root.querySelector("#msContentList");
+    const contentDetail = root.querySelector("#msContentDetail");
+    const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    calMonthSelect.innerHTML = MONTH_NAMES.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("");
+    const now = new Date();
+    calYearInput.value = now.getFullYear();
+    calMonthSelect.value = String(now.getMonth() + 1);
+
+    // "Draft/In Review/Approved/Scheduled/Publishing/Published/Failed/Needs
+    // Attention" — mapped onto the real backend statuses, never inventing
+    // a state the schema doesn't actually have. 'failed' reads as "Needs
+    // Attention" (matches this app's existing convention for actionable
+    // problem states) rather than a dead-end "Failed" label.
+    const STATUS_LABELS = {
+      idea: "Idea",
+      generating: "Generating…",
+      draft: "Draft",
+      in_review: "In Review",
+      approved: "Approved",
+      scheduled: "Scheduled",
+      publishing: "Publishing",
+      published: "Published",
+      failed: "Needs Attention",
+      archived: "Rejected"
+    };
+    const STATUS_BADGE_CLASS = {
+      published: "good",
+      approved: "good",
+      scheduled: "good",
+      failed: "danger",
+      archived: "danger",
+      generating: "warn",
+      publishing: "warn"
+    };
+    function statusBadge(status) {
+      return `<span class="badge ${STATUS_BADGE_CLASS[status] || ""}">${esc(STATUS_LABELS[status] || status)}</span>`;
+    }
+
+    let contentItemsCache = [];
+    let openContentItemId = null;
+
+    async function loadCostSummary() {
+      const shopId = shopIdInput.value.trim();
+      if (!shopId) return;
+      try {
+        const d = await adminApi("usage_summary", { method: "GET", query: `shop_id=${encodeURIComponent(shopId)}` });
+        const estDollars = ((d.estimated_total_cents || 0) / 100).toFixed(2);
+        const actDollars = ((d.actual_total_cents || 0) / 100).toFixed(2);
+        costSummary.innerHTML = `Costs — <strong>ESTIMATED</strong>: $${estDollars} · <strong>ACTUAL</strong>: $${actDollars}${d.actual_total_cents ? "" : ' <span class="quiet">(no provider has ever actually billed Florisyn yet — every provider is not-live)</span>'}`;
+      } catch (err) {
+        costSummary.textContent = "";
+      }
+    }
+
+    async function loadContentList() {
+      const shopId = shopIdInput.value.trim();
+      if (!shopId) {
+        contentList.innerHTML = `<p class="quiet">Enter a shop ID and click Load.</p>`;
+        return;
+      }
+      calStatus.textContent = "Loading content…";
+      try {
+        const d = await adminApi("list_content", { method: "GET", query: `shop_id=${encodeURIComponent(shopId)}` });
+        contentItemsCache = d.items || [];
+        calStatus.textContent = "";
+        renderContentList();
+      } catch (err) {
+        calStatus.textContent = `Could not load content: ${err.message}`;
+      }
+    }
+
+    function renderContentList() {
+      if (!contentItemsCache.length) {
+        contentList.innerHTML = `<p class="quiet">No content yet for this shop/month. Click "Plan this month" to generate a draft skeleton.</p>`;
+        return;
+      }
+      // Grouped by earliest scheduled_at across the item's variants — a
+      // simple date-sorted list, deliberately not a full calendar grid
+      // (Section 25: "avoid building a giant calendar product").
+      const sorted = [...contentItemsCache].sort((a, b) => {
+        const aDate = a.variants?.[0]?.scheduled_at || a.updated_at;
+        const bDate = b.variants?.[0]?.scheduled_at || b.updated_at;
+        return new Date(bDate) - new Date(aDate);
+      });
+      contentList.innerHTML = sorted
+        .map((item) => {
+          const platforms = (item.variants || []).map((v) => esc(v.platform)).join(", ") || "no platforms";
+          const when = item.variants?.[0]?.scheduled_at ? new Date(item.variants[0].scheduled_at).toLocaleString() : "not scheduled";
+          return `
+          <div class="shop-row" data-content-item="${esc(item.id)}" style="cursor:pointer;">
+            <div>
+              <strong>${esc(item.title || "(untitled)")}</strong>
+              <small>${esc(item.content_type)} · ${platforms} · ${esc(when)}${item.uses_ai_clone ? " · Digital Twin" : ""}</small>
+            </div>
+            ${statusBadge(item.status)}
+          </div>`;
+        })
+        .join("");
+      contentList.querySelectorAll("[data-content-item]").forEach((row) => {
+        row.onclick = () => {
+          openContentItemId = row.dataset.contentItem;
+          renderContentDetail();
+        };
+      });
+    }
+
+    function renderContentDetail() {
+      const item = contentItemsCache.find((i) => i.id === openContentItemId);
+      if (!item) {
+        contentDetail.innerHTML = "";
+        return;
+      }
+      const shopId = shopIdInput.value.trim();
+      const variantRows = (item.variants || [])
+        .map((v) => {
+          const disclosure = v.ai_disclosure_required
+            ? v.disclosure_applied
+              ? '<span class="badge good">Disclosure applied</span>'
+              : '<span class="badge danger">Disclosure REQUIRED — not yet applied (publishing is blocked)</span>'
+            : '<span class="badge">No AI disclosure required</span>';
+          return `
+          <div class="panel" style="margin:0.5em 0;">
+            <p><strong>${esc(v.platform)}</strong> ${statusBadge(v.status)} — <span class="badge">Connection required</span></p>
+            <p class="help">${esc(v.caption || "(no caption generated yet)")}</p>
+            <p>${disclosure}</p>
+            ${v.last_error ? `<p class="help">Last error: ${esc(v.last_error)}</p>` : ""}
+            ${
+              v.ai_disclosure_required && !v.disclosure_applied
+                ? `<button type="button" class="secondary" data-apply-disclosure="${esc(v.id)}">Mark disclosure applied</button>`
+                : ""
+            }
+          </div>`;
+        })
+        .join("") || `<p class="quiet">No platform variants on this content item.</p>`;
+
+      const canApprove = ["draft", "in_review"].includes(item.status);
+      const canGenerate = item.status === "idea";
+      const canSchedule = ["draft", "in_review", "approved"].includes(item.status);
+      const canQueue = item.status === "approved";
+
+      contentDetail.innerHTML = `
+        <div class="panel">
+          <h3>${esc(item.title || "(untitled)")}</h3>
+          <p class="help">${esc(item.brief || "")}</p>
+          <p>${statusBadge(item.status)} ${item.requires_human_approval ? "" : '<span class="badge">no approval required</span>'}</p>
+          ${canGenerate ? `<button type="button" id="msGenerateBtn">Generate content</button>` : ""}
+          ${canApprove ? `<button type="button" id="msApproveBtn">Approve</button> <button type="button" class="secondary" id="msRejectBtn">Reject</button>` : ""}
+          <div id="msGenNote" class="help"></div>
+
+          ${
+            canSchedule
+              ? `<div class="header-actions" style="margin-top:0.75em;">
+                   <label>Schedule (your shop's local time)<input type="datetime-local" id="msScheduleInput"></label>
+                   <button type="button" id="msScheduleBtn">Save schedule</button>
+                 </label></div>`
+              : ""
+          }
+          <p id="msScheduleStatus" class="help"></p>
+
+          ${canQueue ? `<button type="button" id="msQueueBtn">Queue for publishing</button>` : ""}
+          <p id="msQueueStatus" class="help"></p>
+
+          <h4>Platforms</h4>
+          ${variantRows}
+        </div>
+      `;
+
+      const genNote = contentDetail.querySelector("#msGenNote");
+      const genBtn = contentDetail.querySelector("#msGenerateBtn");
+      if (genBtn) {
+        genBtn.onclick = async () => {
+          genBtn.disabled = true;
+          genNote.textContent = "Generating…";
+          try {
+            const result = await adminApi("generate_content", { body: { shop_id: shopId, content_item_id: item.id } });
+            genNote.textContent = result.note || "Generated.";
+            await loadContentList();
+            openContentItemId = item.id;
+            renderContentDetail();
+          } catch (err) {
+            genNote.textContent = err.message;
+            genBtn.disabled = false;
+          }
+        };
+      }
+
+      const approveBtn = contentDetail.querySelector("#msApproveBtn");
+      if (approveBtn) {
+        approveBtn.onclick = async () => {
+          try {
+            await adminApi("approve_content", { body: { shop_id: shopId, content_item_id: item.id, decision: "approved" } });
+            await loadContentList();
+            openContentItemId = item.id;
+            renderContentDetail();
+          } catch (err) {
+            alert(err.message);
+          }
+        };
+      }
+      const rejectBtn = contentDetail.querySelector("#msRejectBtn");
+      if (rejectBtn) {
+        rejectBtn.onclick = async () => {
+          if (!confirm("Reject this content item?")) return;
+          try {
+            await adminApi("approve_content", { body: { shop_id: shopId, content_item_id: item.id, decision: "rejected" } });
+            await loadContentList();
+            openContentItemId = item.id;
+            renderContentDetail();
+          } catch (err) {
+            alert(err.message);
+          }
+        };
+      }
+
+      const scheduleBtn = contentDetail.querySelector("#msScheduleBtn");
+      if (scheduleBtn) {
+        scheduleBtn.onclick = async () => {
+          const scheduleStatus = contentDetail.querySelector("#msScheduleStatus");
+          const localValue = contentDetail.querySelector("#msScheduleInput").value;
+          if (!localValue) return (scheduleStatus.textContent = "Pick a date/time first.");
+          scheduleStatus.textContent = "Saving…";
+          try {
+            const result = await adminApi("schedule_content_item", { body: { shop_id: shopId, content_item_id: item.id, scheduled_at_local: localValue } });
+            scheduleStatus.textContent = `Scheduled for ${new Date(result.scheduled_at_utc).toLocaleString()} (shop timezone: ${esc(result.timezone)}).`;
+            await loadContentList();
+            openContentItemId = item.id;
+            renderContentDetail();
+          } catch (err) {
+            scheduleStatus.textContent = err.message;
+          }
+        };
+      }
+
+      const queueBtn = contentDetail.querySelector("#msQueueBtn");
+      if (queueBtn) {
+        queueBtn.onclick = async () => {
+          const queueStatus = contentDetail.querySelector("#msQueueStatus");
+          queueStatus.textContent = "Queueing…";
+          try {
+            const result = await adminApi("enqueue_publish", { body: { shop_id: shopId, content_item_id: item.id } });
+            queueStatus.textContent = `Queued ${result.jobs_queued} job(s). Publishing itself won't happen until either the (not-yet-deployed) scheduler runs, or you click "Run publishing queue now" above.`;
+            await loadContentList();
+            openContentItemId = item.id;
+            renderContentDetail();
+          } catch (err) {
+            queueStatus.textContent = err.message;
+          }
+        };
+      }
+
+      contentDetail.querySelectorAll("[data-apply-disclosure]").forEach((btn) => {
+        btn.onclick = async () => {
+          try {
+            await adminApi("set_content_disclosure", { body: { shop_id: shopId, platform_variant_id: btn.dataset.applyDisclosure, disclosure_applied: true } });
+            await loadContentList();
+            openContentItemId = item.id;
+            renderContentDetail();
+          } catch (err) {
+            alert(err.message);
+          }
+        };
+      });
+    }
+
+    root.querySelector("#msPlanMonthBtn").onclick = async () => {
+      const shopId = shopIdInput.value.trim();
+      if (!shopId) return (calStatus.textContent = "Enter a shop ID above first.");
+      const year = Number(calYearInput.value);
+      const month = Number(calMonthSelect.value);
+      calStatus.textContent = "Planning…";
+      try {
+        const result = await adminApi("plan_month", { body: { shop_id: shopId, year, month } });
+        calStatus.textContent = result.already_planned
+          ? "This month already has planned content."
+          : `Planned ${result.items_created ?? 0} content item(s).`;
+        await loadContentList();
+      } catch (err) {
+        calStatus.textContent = err.message;
+      }
+    };
+
+    root.querySelector("#msRunQueueBtn").onclick = async () => {
+      const shopId = shopIdInput.value.trim();
+      if (!shopId) return (calStatus.textContent = "Enter a shop ID above first.");
+      calStatus.textContent = "Running publishing queue…";
+      try {
+        const result = await adminApi("run_publishing_queue", { body: { shop_id: shopId } });
+        calStatus.textContent = `Processed ${result.processed} job(s). ${result.note || ""}`;
+        await loadContentList();
+        await loadCostSummary();
+      } catch (err) {
+        calStatus.textContent = err.message;
+      }
+    };
 
     avatarPermission.onchange = () => { avatarPhotosField.hidden = !avatarPermission.checked; };
     voicePermission.onchange = () => { voiceAudioField.hidden = !voicePermission.checked; };
@@ -351,11 +666,15 @@
       loadConsent();
       loadPersonalBrandProfile();
       loadReferencePhotos();
+      loadContentList();
+      loadCostSummary();
     };
     root.querySelector("#msLoadShop").onclick = () => {
       loadConsent();
       loadPersonalBrandProfile();
       loadReferencePhotos();
+      loadContentList();
+      loadCostSummary();
     };
 
     pbProfileForm.onsubmit = async (e) => {

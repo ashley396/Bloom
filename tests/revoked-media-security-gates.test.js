@@ -105,17 +105,19 @@ test("revoke_clone_consent: a quarantine-cascade failure never unwinds the conse
 test("run_publishing_queue: a variant whose source asset was quarantined is rejected BEFORE the social provider is ever called", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
-    { data: [{ id: "job-1", platform_variant_id: "variant-1", status: "queued", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null }, // due jobs
+    { data: [{ id: "job-1" }], error: null }, // claimDueJobs: candidate select
+    { data: [{ id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null }, // claimDueJobs: atomic claim
     { data: { id: "variant-1", platform: "tiktok", caption: "hi", scheduled_at: null, ai_disclosure_required: false, disclosure_applied: false, asset_id: "asset-1" }, error: null }, // variant lookup
     { data: { id: "asset-1", status: "quarantined" }, error: null }, // asset status check
-    { data: null, error: null } // publishing_jobs update (failure path)
+    { data: null, error: null }, // publishing_jobs update (failure path)
+    { data: null, error: null } // platform_variants update (failure path)
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
   const res = await handler(event("run_publishing_queue", { shop_id: "shop-1" }));
   assert.equal(res.statusCode, 200);
   const body = JSON.parse(res.body);
   assert.equal(body.results[0].outcome, "failed");
-  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  const jobUpdate = client.calls.filter((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update")).pop();
   assert.equal(jobUpdate.payload.last_error_code, "fatal", "a quarantined source asset is never worth retrying");
   assert.match(jobUpdate.payload.last_error, /quarantined/i);
 });
@@ -123,15 +125,17 @@ test("run_publishing_queue: a variant whose source asset was quarantined is reje
 test("run_publishing_queue: a variant whose source asset is a normal completed asset proceeds exactly as before this pass", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
-    { data: [{ id: "job-1", platform_variant_id: "variant-1", status: "queued", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null },
+    { data: [{ id: "job-1" }], error: null },
+    { data: [{ id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null },
     { data: { id: "variant-1", platform: "tiktok", caption: "hi", scheduled_at: null, ai_disclosure_required: false, disclosure_applied: false, asset_id: "asset-1" }, error: null },
     { data: { id: "asset-1", status: "completed" }, error: null }, // asset status check — not quarantined
+    { data: null, error: null },
     { data: null, error: null }
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
   const res = await handler(event("run_publishing_queue", { shop_id: "shop-1" }));
   const body = JSON.parse(res.body);
-  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  const jobUpdate = client.calls.filter((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update")).pop();
   assert.equal(jobUpdate.payload.last_error_code, "not_live", "must reach the pre-existing not-live path, not the quarantine gate");
   assert.equal(body.results[0].outcome, "failed");
 });
@@ -139,14 +143,16 @@ test("run_publishing_queue: a variant whose source asset is a normal completed a
 test("run_publishing_queue: a variant with no linked asset_id at all is unaffected — the gate never fires on nothing to check", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
-    { data: [{ id: "job-1", platform_variant_id: "variant-1", status: "queued", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null },
+    { data: [{ id: "job-1" }], error: null },
+    { data: [{ id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null },
     { data: { id: "variant-1", platform: "facebook", caption: "hi", scheduled_at: null, asset_id: null }, error: null },
+    { data: null, error: null },
     { data: null, error: null }
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
   const res = await handler(event("run_publishing_queue", { shop_id: "shop-1" }));
   const body = JSON.parse(res.body);
-  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  const jobUpdate = client.calls.filter((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update")).pop();
   assert.equal(jobUpdate.payload.last_error_code, "not_live");
   assert.equal(body.results[0].outcome, "failed");
   assert.equal(client.calls.filter((c) => c.table === "ai_generated_assets").length, 0, "never queries ai_generated_assets when the variant has no asset_id");

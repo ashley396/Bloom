@@ -77,18 +77,14 @@ import {
   SUPPORTED_PLATFORMS,
   isPlatformLive,
   isPlatformConfigured,
-  platformOAuthEnvVarNames,
-  notLiveSocialProvider
+  platformOAuthEnvVarNames
 } from "./_shared/marketing-social-providers.js";
 import { selectCloneProvider, notLiveCloneProvider, buildConfiguredCloneProviderRegistry } from "./_shared/marketing-clone-providers.js";
 import { uploadClonedVoiceAudio, uploadWebsiteMedia, publicWebsiteMediaUrl } from "./_shared/website-media.js";
 import { parseDataUrl } from "./_shared/upload-validation.js";
-import {
-  classifyPublishFailure,
-  nextJobStateAfterFailure,
-  isJobDue,
-  buildIdempotencyKey
-} from "./_shared/marketing-publishing-queue.js";
+import { buildIdempotencyKey } from "./_shared/marketing-publishing-queue.js";
+import { runPublishingWorker } from "./_shared/marketing-publishing-worker.js";
+import { shopLocalDateTimeToUtcIso } from "./_shared/shop-time.js";
 import { COST_CONFIG_VERSION, DEFAULT_MONTHLY_ALLOWANCE, estimateCostCents } from "./_shared/marketing-cost-config.js";
 import {
   buildMonthlyContentPlan,
@@ -97,7 +93,7 @@ import {
 } from "./_shared/marketing-content-planner.js";
 import { recordCloneVideoJob, getCloneVideoJob } from "./_shared/creative-ai/clone-video-jobs.js";
 import { finalizeDigitalTwinJob } from "./_shared/creative-ai/digital-twin-finalization.js";
-import { determineDisclosureRequirement, enforcePrePublishDisclosureGate } from "./_shared/creative-ai/disclosure-policy.js";
+import { determineDisclosureRequirement, enforcePrePublishDisclosureGate, computeDisclosureFields } from "./_shared/creative-ai/disclosure-policy.js";
 import { validateCloneConsentBody, isConsentActive } from "./_shared/marketing-clone-consent.js";
 import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
 import { generateSocialPost, generateVideoConcept, generateWebsiteSectionDraft, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
@@ -426,9 +422,15 @@ export function createMarketingStudioHandler(deps = {}) {
         const itemIds = (data || []).map((i) => i.id);
         let variants = [];
         if (itemIds.length) {
+          // Launch-blocker fix (Blocker 4, content detail UI): extended to
+          // include caption/disclosure/error fields the Calendar/Review UI
+          // needs to render a real content-detail view — additive, no
+          // existing caller asserts the previous narrower shape.
           const variantsResult = await client
             .from("marketing_platform_variants")
-            .select("id,content_item_id,platform,status,scheduled_at,published_at,external_permalink")
+            .select(
+              "id,content_item_id,platform,status,scheduled_at,published_at,external_permalink,caption,hashtags,asset_id,ai_disclosure_required,disclosure_applied,disclosure_method,last_error"
+            )
             .eq("shop_id", shopId)
             .in("content_item_id", itemIds);
           if (variantsResult.error) throw variantsResult.error;
@@ -580,11 +582,31 @@ export function createMarketingStudioHandler(deps = {}) {
             throw new Error(persisted.error);
           }
           if (variants.length) {
-            await client
-              .from("marketing_platform_variants")
-              .update({ asset_id: persisted.asset.id, caption: gen.content.script || gen.content.concept || null, hashtags: gen.content.hashtags || [] })
-              .eq("content_item_id", body.content_item_id)
-              .eq("shop_id", shopId);
+            // Launch-blocker fix (Blocker 1): compute+persist disclosure
+            // fields the moment content is attached, per-platform — never
+            // leave ai_disclosure_required at its fail-open DB default
+            // waiting for a separate manual set_content_disclosure call.
+            // This is a script/storyboard/caption ONLY (Section 6 of the
+            // launch audit: nothing here actually renders a video), so no
+            // avatar/voice/generative-video/generative-image flag is true
+            // — the determination correctly comes back not-required, and
+            // that "checked, not required" state is now recorded
+            // explicitly instead of silently defaulting.
+            for (const v of variants) {
+              await client
+                .from("marketing_platform_variants")
+                .update({
+                  asset_id: persisted.asset.id,
+                  caption: gen.content.script || gen.content.concept || null,
+                  hashtags: gen.content.hashtags || [],
+                  // aiContentType is deliberately "none", not
+                  // "generative_video" — no video is actually rendered
+                  // here, only a text script/storyboard/caption plan.
+                  ...computeDisclosureFields({ platform: v.platform, aiContentType: "none" })
+                })
+                .eq("id", v.id)
+                .eq("shop_id", shopId);
+            }
           }
           const updated = await client
             .from("marketing_content_items")
@@ -656,11 +678,27 @@ export function createMarketingStudioHandler(deps = {}) {
         }
 
         if (variants.length) {
-          await client
-            .from("marketing_platform_variants")
-            .update({ asset_id: assetId, caption: copyGen.content.body, hashtags: copyGen.content.hashtags || [] })
-            .eq("content_item_id", body.content_item_id)
-            .eq("shop_id", shopId);
+          // Launch-blocker fix (Blocker 1): same as the video-concept
+          // branch above — compute+persist disclosure fields per-platform
+          // the moment content attaches. generativeImageUsed reflects
+          // whether generateImage() actually ran above (assetId is only
+          // set when it did — a text_post has no image at all).
+          for (const v of variants) {
+            await client
+              .from("marketing_platform_variants")
+              .update({
+                asset_id: assetId,
+                caption: copyGen.content.body,
+                hashtags: copyGen.content.hashtags || [],
+                ...computeDisclosureFields({
+                  platform: v.platform,
+                  generativeImageUsed: Boolean(assetId),
+                  aiContentType: assetId ? "generative_image" : "none"
+                })
+              })
+              .eq("id", v.id)
+              .eq("shop_id", shopId);
+          }
         }
 
         const updated = await client
@@ -1503,7 +1541,26 @@ export function createMarketingStudioHandler(deps = {}) {
           throw inserted.error;
         }
 
-        const variantRows = targetPlatforms.map((platform) => ({ shop_id: shopId, content_item_id: inserted.data.id, platform, status: "pending" }));
+        // Launch-blocker fix (Blocker 1): a founder-concept handoff is
+        // always real AI-generated content (Personal Brand Studio's
+        // backdrop-compositing image engine at minimum; avatar+voice when
+        // uses_ai_clone is true) — compute disclosure fields at insert
+        // time instead of leaving them at the fail-open DB default.
+        const usesAiClone = Boolean(body.uses_ai_clone);
+        const variantRows = targetPlatforms.map((platform) => ({
+          shop_id: shopId,
+          content_item_id: inserted.data.id,
+          platform,
+          status: "pending",
+          ...computeDisclosureFields({
+            platform,
+            avatarUsed: usesAiClone,
+            voiceUsed: usesAiClone,
+            generativeVideoUsed: usesAiClone && contentType === "reel",
+            generativeImageUsed: !usesAiClone,
+            aiContentType: usesAiClone ? "avatar_video" : "generative_image"
+          })
+        }));
         const insertedVariants = await client.from("marketing_platform_variants").insert(variantRows).select("id,platform");
         if (insertedVariants.error) throw insertedVariants.error;
 
@@ -1570,6 +1627,51 @@ export function createMarketingStudioHandler(deps = {}) {
           });
         }
         return json(result.statusCode, result.body);
+      }
+
+      // Launch-blocker fix (Blocker 4, real scheduling UI): the missing
+      // link between "Ashley picks a date/time in the Calendar UI" and
+      // enqueue_publish (which only ever reads whatever scheduled_at a
+      // variant already has). Converts the shop's own local wall-clock
+      // time — never a hardcoded timezone — into the correct UTC instant
+      // via shopLocalDateTimeToUtcIso (DST-aware). Only touches
+      // scheduled_at; approval/queueing stay exactly enqueue_publish's job.
+      if (action === "schedule_content_item" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.content_item_id) return json(400, { error: "content_item_id is required." });
+        if (!body.scheduled_at_local) return json(400, { error: "scheduled_at_local is required (e.g. '2026-11-01T08:00', in the shop's own local time)." });
+
+        const shopRow = await client.from("shops").select("timezone").eq("id", shopId).maybeSingle();
+        if (shopRow.error) throw shopRow.error;
+        const timezone = shopRow.data?.timezone || "America/New_York";
+        const scheduledAtUtc = shopLocalDateTimeToUtcIso(timezone, body.scheduled_at_local);
+        if (!scheduledAtUtc) {
+          return json(400, { error: "scheduled_at_local could not be parsed. Expected 'YYYY-MM-DDTHH:mm' (24-hour, no timezone suffix — it's interpreted in the shop's own timezone)." });
+        }
+
+        const platforms = Array.isArray(body.platforms) && body.platforms.length ? body.platforms : null;
+        let updateQuery = client
+          .from("marketing_platform_variants")
+          .update({ scheduled_at: scheduledAtUtc, updated_at: new Date().toISOString() })
+          .eq("content_item_id", body.content_item_id)
+          .eq("shop_id", shopId);
+        if (platforms) updateQuery = updateQuery.in("platform", platforms);
+        const updated = await updateQuery.select("id,platform,scheduled_at");
+        if (updated.error) {
+          if (missingRelation(updated.error)) throw friendlyMissing();
+          throw updated.error;
+        }
+        if (!updated.data?.length) return json(404, { error: "No matching platform variants found for this content item." });
+
+        await writeCommandAudit(client, user.id, "marketing_content_scheduled", {
+          shopId,
+          targetType: "marketing_content_items",
+          targetId: body.content_item_id,
+          scheduledAtUtc,
+          timezone
+        });
+        return json(200, { variants: updated.data, scheduled_at_utc: scheduledAtUtc, timezone });
       }
 
       // Stage E — the reliable-publishing queue. Approving content queues
@@ -1655,96 +1757,18 @@ export function createMarketingStudioHandler(deps = {}) {
         const shopId = requireShopId(qs, body);
         const limit = Math.min(100, Math.max(1, Number(body.limit) || 25));
 
-        const now = new Date();
-        const dueResult = await client
-          .from("marketing_publishing_jobs")
-          .select("id,platform_variant_id,status,attempts,max_attempts,next_attempt_at")
-          .eq("shop_id", shopId)
-          .eq("status", "queued")
-          .lte("next_attempt_at", now.toISOString())
-          .order("next_attempt_at", { ascending: true })
-          .limit(limit);
-        if (dueResult.error) {
-          if (missingRelation(dueResult.error)) throw friendlyMissing();
-          throw dueResult.error;
-        }
-        const dueJobs = (dueResult.data || []).filter((j) => isJobDue(j, now));
-
-        const results = [];
-        for (const job of dueJobs) {
-          const variantResult = await client
-            .from("marketing_platform_variants")
-            .select("id,platform,caption,scheduled_at,ai_disclosure_required,disclosure_applied,asset_id")
-            .eq("id", job.platform_variant_id)
-            .maybeSingle();
-          const variant = variantResult.data;
-          const platform = variant?.platform;
-          const provider = notLiveSocialProvider(platform);
-
-          let outcome;
-          try {
-            // Revoked-media hardening (Section 9): a direct asset-status
-            // check, not list-filtering — mirrors the disclosure gate
-            // immediately below by running BEFORE any provider call and by
-            // being statusCode:400/fatal (a quarantined asset never becomes
-            // publishable again by retrying). Variants with no linked
-            // asset_id (not every variant traces back to a generated
-            // asset) are unaffected.
-            if (variant?.asset_id) {
-              const assetResult = await client.from("ai_generated_assets").select("id,status").eq("id", variant.asset_id).maybeSingle();
-              if (assetResult.error) throw assetResult.error;
-              if (assetResult.data?.status === "quarantined") {
-                const quarantineError = new Error("Source asset is quarantined (consent was revoked) and cannot be published.");
-                quarantineError.statusCode = 400;
-                quarantineError.code = "asset_quarantined";
-                throw quarantineError;
-              }
-            }
-            // Fail-closed disclosure gate — runs BEFORE the (today,
-            // universally not-live) social provider call, so content
-            // missing a required disclosure never even reaches the point
-            // of "would have published." statusCode:400 deliberately makes
-            // classifyPublishFailure() treat this as 'fatal' (settle to
-            // 'failed' immediately, no retry loop) — retrying can't fix a
-            // missing disclosure; only set_content_disclosure can.
-            const gate = enforcePrePublishDisclosureGate(variant || {});
-            if (!gate.allowed) {
-              const disclosureError = new Error(gate.message);
-              disclosureError.statusCode = 400;
-              disclosureError.code = "ai_disclosure_required";
-              throw disclosureError;
-            }
-            await provider.publish(variant || {});
-            // Unreachable today (every provider is not-live), kept so a
-            // real adapter's success path is already wired correctly.
-            await client.from("marketing_publishing_jobs").update({ status: "succeeded", attempts: job.attempts + 1, updated_at: new Date().toISOString() }).eq("id", job.id);
-            await client.from("marketing_platform_variants").update({ status: "published", published_at: new Date().toISOString() }).eq("id", job.platform_variant_id);
-            outcome = "succeeded";
-          } catch (error) {
-            const kind = classifyPublishFailure(error);
-            const next = nextJobStateAfterFailure({ attempts: job.attempts, maxAttempts: job.max_attempts, kind });
-            const nextAttemptAt = next.delaySeconds != null ? new Date(now.getTime() + next.delaySeconds * 1000).toISOString() : job.next_attempt_at;
-            await client
-              .from("marketing_publishing_jobs")
-              .update({
-                status: next.status,
-                attempts: next.attempts,
-                next_attempt_at: nextAttemptAt,
-                last_error: String(error?.message || error).slice(0, 500),
-                last_error_code: kind,
-                updated_at: new Date().toISOString()
-              })
-              .eq("id", job.id);
-            if (next.status === "failed" || next.status === "dead_letter") {
-              await client
-                .from("marketing_platform_variants")
-                .update({ status: "failed", last_error: String(error?.message || error).slice(0, 500) })
-                .eq("id", job.platform_variant_id);
-            }
-            outcome = next.status;
-          }
-          results.push({ job_id: job.id, platform_variant_id: job.platform_variant_id, platform: platform || null, outcome });
-        }
+        // Launch-blocker fix (Blocker 3, real durable scheduler): this used
+        // to SELECT due jobs and process them inline with no claim step —
+        // safe only as long as nothing else could ever run the queue at
+        // the same time, which stopped being true once a cron-triggered
+        // scheduled function (marketing-scheduled-publisher.js) exists
+        // alongside this admin-triggered action. runPublishingWorker()
+        // atomically claims jobs (flips queued->running, re-checked so a
+        // concurrent caller can't double-claim) before processing them —
+        // the exact same engine the scheduled function uses, so both
+        // paths share one set of guarantees instead of two copies that
+        // could drift apart.
+        const results = await runPublishingWorker(client, { shopId, limit });
 
         return json(200, {
           processed: results.length,
@@ -1949,9 +1973,18 @@ export function createMarketingStudioHandler(deps = {}) {
           return json(400, { error: "This experiment has fewer than 2 variants recorded." });
         }
 
+        // Launch-blocker fix (Blocker 2, tenant-isolation review): experiment
+        // `variants` is a jsonb column populated from caller-supplied
+        // content_item_id values at create_ab_experiment time (never
+        // validated there to belong to this shop) — without a shop_id
+        // filter here, a content_item_id pointing at ANOTHER shop's content
+        // item would pull that shop's real platform-variant rows and
+        // performance metrics into this shop's evaluation. The experiment
+        // row itself is already shop-scoped (looked up above); every join
+        // off it must stay scoped the same way.
         const contentItemIds = experiment.variants.map((v) => v.content_item_id).filter(Boolean);
         const variantsResult = contentItemIds.length
-          ? await client.from("marketing_platform_variants").select("id,content_item_id").in("content_item_id", contentItemIds)
+          ? await client.from("marketing_platform_variants").select("id,content_item_id").eq("shop_id", shopId).in("content_item_id", contentItemIds)
           : { data: [], error: null };
         if (variantsResult.error) throw variantsResult.error;
         const platformVariantIds = (variantsResult.data || []).map((v) => v.id);
@@ -1962,6 +1995,7 @@ export function createMarketingStudioHandler(deps = {}) {
           const metricsResult = await client
             .from("marketing_performance_metrics")
             .select("platform_variant_id,raw_value,source")
+            .eq("shop_id", shopId)
             .in("platform_variant_id", platformVariantIds)
             .eq("metric_name", experiment.metric)
             .eq("source", "platform_api");
