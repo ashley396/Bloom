@@ -35,11 +35,12 @@ function event(action, body, { method = "POST", qs = {} } = {}) {
   };
 }
 
-test("generate_content: no budget_cap_cents supplied -> unaffected, exact pre-existing behavior (never queries usage for a budget check)", async () => {
+test("generate_content: no budget_cap_cents and no shop default -> unaffected, exact pre-existing behavior (a shop-cap lookup runs, but never queries usage)", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null }, // content item lookup
-    { data: [], error: null } // variants lookup
+    { data: [], error: null }, // variants lookup
+    { data: { marketing_monthly_budget_cents: null }, error: null } // shop default lookup — none configured
     // No usage-sum response queued — a call to it here would consume this
     // slot as a placeholder and desync every call after it; the test
     // failing downstream (from a wrong-shaped response) is itself proof
@@ -49,11 +50,11 @@ test("generate_content: no budget_cap_cents supplied -> unaffected, exact pre-ex
   const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1" }));
   // Cloudflare isn't mocked here, so the real generation call itself will
   // fail — that's fine, this test only cares that NO budget-usage select
-  // ran before it (i.e. the gate was correctly skipped, not that
-  // generation succeeded).
+  // ran before it (i.e. the gate correctly resolved to "unlimited", not
+  // that generation succeeded).
   assert.equal(res.statusCode, 400);
   const usageSelectCall = client.calls.find((c) => c.table === "marketing_generation_usage" && c.ops.some((op) => op[0] === "select"));
-  assert.equal(usageSelectCall, undefined, "budget_cap_cents was not supplied — no budget check should ever run");
+  assert.equal(usageSelectCall, undefined, "neither a shop default nor a per-request cap is set — no usage-spend check should ever run");
 });
 
 test("generate_content: an image_post over budget is refused before the status is even flipped to 'generating' — zero spend past the halt", async () => {
@@ -61,6 +62,7 @@ test("generate_content: an image_post over budget is refused before the status i
     superAdminRow(),
     { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null },
     { data: [], error: null }, // variants lookup
+    { data: { marketing_monthly_budget_cents: null }, error: null }, // no shop default — the request's own cap governs
     { data: [{ estimated_cost_cents: 196 }], error: null } // this month's committed spend so far
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
@@ -78,6 +80,7 @@ test("generate_content: a text_post is priced without the image cost — the gat
     superAdminRow(),
     { data: { id: "item-1", content_type: "text_post", title: "t", brief: "b", status: "idea" }, error: null },
     { data: [], error: null },
+    { data: { marketing_monthly_budget_cents: null }, error: null },
     { data: [{ estimated_cost_cents: 199 }], error: null } // only 1 cent of headroom — enough for copy-only (1 cent), not image+copy
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
@@ -98,6 +101,7 @@ test("generate_content: a budget check that itself fails (DB error) blocks the r
     superAdminRow(),
     { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null },
     { data: [], error: null },
+    { data: { marketing_monthly_budget_cents: null }, error: null },
     { data: null, error: { message: "connection lost" } } // usage sum query fails
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
@@ -105,4 +109,36 @@ test("generate_content: a budget check that itself fails (DB error) blocks the r
   assert.equal(res.statusCode, 500);
   const statusUpdateCall = client.calls.find((c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update"));
   assert.equal(statusUpdateCall, undefined, "an unverifiable budget check must fail closed — never proceed to generation");
+});
+
+test("generate_content: a shop-level default cap alone (no per-request cap) is enforced as a real hard ceiling", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [], error: null },
+    { data: { marketing_monthly_budget_cents: 100 }, error: null }, // shop configured a real default
+    { data: [{ estimated_cost_cents: 98 }], error: null }
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1" })); // no per-request override at all
+  assert.equal(res.statusCode, 400);
+  const body = JSON.parse(res.body);
+  assert.equal(body.cap_source, "shop_default");
+  assert.match(body.error, /shop's configured default/);
+});
+
+test("generate_content: a per-request cap can never be used to exceed the shop's configured hard cap", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [], error: null },
+    { data: { marketing_monthly_budget_cents: 100 }, error: null },
+    { data: [{ estimated_cost_cents: 98 }], error: null }
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  // Caller asks for a huge budget — the shop's real 100-cent cap still wins.
+  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 999999 }));
+  assert.equal(res.statusCode, 400);
+  const body = JSON.parse(res.body);
+  assert.equal(body.cap_cents, 100);
 });

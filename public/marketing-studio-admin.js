@@ -91,6 +91,12 @@
           <button type="button" id="msRunQueueBtn" title="Manually run the publishing queue now — the real automatic scheduler exists but isn't deployed in this pass.">Run publishing queue now</button>
         </div>
         <p id="msCostSummary" class="help"></p>
+        <div class="header-actions">
+          <label>Monthly budget cap ($)<input id="msBudgetCapInput" type="number" min="0" step="0.01" placeholder="No cap"></label>
+          <button type="button" id="msSaveBudgetCapBtn">Save</button>
+          <span id="msBudgetCapStatus" class="help"></span>
+        </div>
+        <p id="msBudgetRemaining" class="help"></p>
         <p id="msCalStatus" class="help"></p>
         <div id="msContentList" class="shop-list"></div>
         <div id="msContentDetail"></div>
@@ -271,6 +277,10 @@
     let contentItemsCache = [];
     let openContentItemId = null;
 
+    const budgetCapInput = root.querySelector("#msBudgetCapInput");
+    const budgetCapStatus = root.querySelector("#msBudgetCapStatus");
+    const budgetRemaining = root.querySelector("#msBudgetRemaining");
+
     async function loadCostSummary() {
       const shopId = shopIdInput.value.trim();
       if (!shopId) return;
@@ -279,6 +289,19 @@
         const estDollars = ((d.estimated_total_cents || 0) / 100).toFixed(2);
         const actDollars = ((d.actual_total_cents || 0) / 100).toFixed(2);
         costSummary.innerHTML = `Costs — <strong>ESTIMATED</strong>: $${estDollars} · <strong>ACTUAL</strong>: $${actDollars}${d.actual_total_cents ? "" : ' <span class="quiet">(no provider has ever actually billed Florisyn yet — every provider is not-live)</span>'}`;
+
+        // Priority 2: real persisted per-shop budget — reflects exactly
+        // what the backend enforces, never a client-side guess. Only
+        // overwrite the input if it's not currently focused, so typing a
+        // new value isn't clobbered by a background refresh.
+        if (document.activeElement !== budgetCapInput) {
+          budgetCapInput.value = d.monthly_budget_cap_cents != null ? (d.monthly_budget_cap_cents / 100).toFixed(2) : "";
+        }
+        if (d.monthly_budget_cap_cents != null && d.monthly_remaining_cents != null) {
+          budgetRemaining.textContent = `This month: $${(d.monthly_committed_spend_cents / 100).toFixed(2)} committed of a $${(d.monthly_budget_cap_cents / 100).toFixed(2)} cap — $${(d.monthly_remaining_cents / 100).toFixed(2)} remaining.`;
+        } else {
+          budgetRemaining.textContent = "No monthly budget cap configured for this shop — generation spend is unlimited.";
+        }
       } catch (err) {
         costSummary.textContent = "";
       }
@@ -642,6 +665,26 @@
         await loadCostSummary();
       } catch (err) {
         calStatus.textContent = err.message;
+      }
+    };
+
+    // Priority 2: persisted per-shop default monthly budget cap.
+    root.querySelector("#msSaveBudgetCapBtn").onclick = async () => {
+      const shopId = shopIdInput.value.trim();
+      if (!shopId) return (budgetCapStatus.textContent = "Enter a shop ID above first.");
+      const raw = budgetCapInput.value.trim();
+      const monthlyBudgetCents = raw === "" ? null : Math.round(Number(raw) * 100);
+      if (raw !== "" && (!Number.isFinite(monthlyBudgetCents) || monthlyBudgetCents < 0)) {
+        budgetCapStatus.textContent = "Enter a real non-negative dollar amount, or leave it blank for no cap.";
+        return;
+      }
+      budgetCapStatus.textContent = "Saving…";
+      try {
+        await adminApi("set_marketing_budget_cap", { body: { shop_id: shopId, monthly_budget_cents: monthlyBudgetCents } });
+        budgetCapStatus.textContent = "Saved.";
+        await loadCostSummary();
+      } catch (err) {
+        budgetCapStatus.textContent = err.message;
       }
     };
 

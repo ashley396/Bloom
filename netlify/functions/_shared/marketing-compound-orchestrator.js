@@ -44,6 +44,7 @@ import { transformMasterImageForPlatforms } from "./creative-ai/media-transform-
 import { planVideoRender } from "./marketing-video-render-engine.js";
 import { scheduleContentItemVariants } from "./marketing-schedule-content.js";
 import { estimateCostCents } from "./marketing-cost-config.js";
+import { checkMonthlyBudgetForRequest } from "./marketing-budget-guard.js";
 import { shopDateStr } from "./shop-time.js";
 import { SUPPORTED_PLATFORMS } from "./marketing-social-providers.js";
 
@@ -264,6 +265,11 @@ async function runCompoundStep(client, step, ctx) {
 
   if (step.tool === "compound.checkBudget") {
     const estimatedCents = estimateCompoundPlanCostCents({ wantsImage: extracted.wantsImage, wantsVideo: extracted.wantsVideo, platformCount: platforms.length });
+
+    // 1. The stated PER-REQUEST ceiling ("don't spend over $2") — this
+    // request's own cost alone, never blended with unrelated spend
+    // earlier in the month. No DB query needed; checked first since it's
+    // the cheapest and most specific signal.
     if (extracted.budgetCents != null && estimatedCents > extracted.budgetCents) {
       return {
         ok: false,
@@ -272,7 +278,26 @@ async function runCompoundStep(client, step, ctx) {
         result: { estimatedCents, budgetCents: extracted.budgetCents }
       };
     }
-    return { ok: true, result: { estimatedCents, budgetCents: extracted.budgetCents } };
+
+    // 2. The shop's own persisted MONTHLY default (Priority 2) — a real,
+    // cumulative ceiling independent of what any one request states for
+    // itself. Degrades to a no-op (checkMonthlyBudgetForRequest resolves
+    // to "none") until the migration is applied and/or no default is
+    // configured for this shop, so this is safe to always run.
+    const monthlyCheck = await checkMonthlyBudgetForRequest(client, { shopId, additionalCostCents: estimatedCents, requestedCapCents: null });
+    if (!monthlyCheck.allowed) {
+      return {
+        ok: false,
+        blocked: true,
+        error:
+          monthlyCheck.reason === "shop_budget_lookup_failed"
+            ? `Could not verify this month's committed spend before generating — nothing was generated. (${monthlyCheck.error})`
+            : `Generating this would bring this month's committed spend to $${(monthlyCheck.wouldBeCents / 100).toFixed(2)}, over this shop's configured $${(monthlyCheck.capCents / 100).toFixed(2)} monthly budget — nothing was generated.`,
+        result: { estimatedCents, ...monthlyCheck }
+      };
+    }
+
+    return { ok: true, result: { estimatedCents, budgetCents: extracted.budgetCents, monthlyCapCents: monthlyCheck.capCents, monthlyRemainingCents: monthlyCheck.remainingCents } };
   }
 
   if (step.tool === "compound.lookupInventory") {

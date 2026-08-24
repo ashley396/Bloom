@@ -33,6 +33,14 @@ export const PLATFORM_ADMIN_PUBLIC_ERRORS = freezePublicErrorCatalog({
     status: 503,
     message: "Apply command_center_v1 migration for feature flags."
   },
+  marketing_studio_schema_unavailable: {
+    status: 503,
+    message: "Marketing Studio tables are not set up yet. Apply the marketing studio foundation migration, then try again."
+  },
+  marketing_budget_schema_unavailable: {
+    status: 503,
+    message: "The per-shop marketing budget column isn't set up yet. Apply the marketing studio budget controls migration, then try again."
+  },
   unexpected: { status: 500, message: "Unexpected Florisyn error. Try again or contact support." }
 });
 
@@ -64,6 +72,8 @@ const CODE_TO_LOG_CATEGORY = Object.freeze({
   admin_lookup_unavailable: "admin_lookup_db",
   verification_schema_unavailable: "platform_admin_unavailable",
   feature_flag_schema_unavailable: "platform_admin_unavailable",
+  marketing_studio_schema_unavailable: "platform_admin_unavailable",
+  marketing_budget_schema_unavailable: "platform_admin_unavailable",
   unexpected: "platform_admin_internal"
 });
 

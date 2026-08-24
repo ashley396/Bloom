@@ -87,7 +87,7 @@ import { runPublishingWorker } from "./_shared/marketing-publishing-worker.js";
 import { scheduleContentItemVariants } from "./_shared/marketing-schedule-content.js";
 import { runCompoundRequest } from "./_shared/marketing-compound-orchestrator.js";
 import { runAnalyticsIngestion, reconcileLatestMetricSnapshots } from "./_shared/marketing-analytics-ingestion.js";
-import { checkMonthlyBudget } from "./_shared/marketing-budget-guard.js";
+import { checkMonthlyBudgetForRequest, getShopBudgetCapCents, monthlyCommittedSpendCents } from "./_shared/marketing-budget-guard.js";
 import { COST_CONFIG_VERSION, DEFAULT_MONTHLY_ALLOWANCE, estimateCostCents } from "./_shared/marketing-cost-config.js";
 import {
   buildMonthlyContentPlan,
@@ -150,13 +150,19 @@ function missingRelation(error) {
   );
 }
 
+// Real-bug fix found while building Priority 2 (persisted budget
+// controls): this used to hand-build a plain `new Error()` with its own
+// `.florisynCode`/`.statusCode` set manually — but
+// platformAdminErrorResponse() only ever trusts a `florisynCode` on an
+// error actually BRANDED via platformAdminError() (isFlorisynPlatformAdminError
+// checks WeakSet membership, not just the property's presence). A plain
+// Error was never branded, so every caller of this function was silently
+// getting the generic 500 "Unexpected Florisyn error" instead of the
+// actionable "apply the migration" message — for the entire lifetime of
+// every friendlyMissing() call site in this file, not just the ones this
+// pass added. platformAdminError() is the correctly-branded builder.
 function friendlyMissing() {
-  const err = new Error(
-    "Marketing Studio tables are not set up yet. Apply the marketing studio foundation migration, then try again."
-  );
-  err.statusCode = 503;
-  err.florisynCode = "unexpected";
-  return err;
+  return platformAdminError("marketing_studio_schema_unavailable");
 }
 
 function requireShopId(qs, body) {
@@ -296,12 +302,50 @@ export function createMarketingStudioHandler(deps = {}) {
         const rows = data || [];
         const estimatedTotalCents = rows.reduce((sum, r) => sum + (r.status === "estimated" ? r.estimated_cost_cents || 0 : 0), 0);
         const actualTotalCents = rows.reduce((sum, r) => sum + (r.status === "actual" ? r.actual_cost_cents || 0 : 0), 0);
+
+        // Priority 2: surface the shop's configured monthly budget (if
+        // any) and real remaining headroom alongside the usage ledger —
+        // reuses the exact same "estimated rows this UTC month" logic the
+        // pre-spend gate itself uses, never a second calculation that
+        // could drift from what's actually enforced.
+        const shopCap = await getShopBudgetCapCents(client, shopId);
+        const monthlySpend = shopCap.ok && shopCap.capCents != null ? await monthlyCommittedSpendCents(client, { shopId }) : null;
         return json(200, {
           items: rows,
           estimated_total_cents: estimatedTotalCents,
           actual_total_cents: actualTotalCents,
-          cost_config_version: COST_CONFIG_VERSION
+          cost_config_version: COST_CONFIG_VERSION,
+          monthly_budget_cap_cents: shopCap.ok ? shopCap.capCents : null,
+          monthly_committed_spend_cents: monthlySpend?.ok ? monthlySpend.cents : null,
+          monthly_remaining_cents: shopCap.ok && shopCap.capCents != null && monthlySpend?.ok ? Math.max(0, shopCap.capCents - monthlySpend.cents) : null
         });
+      }
+
+      // Priority 2 of the "finish everything that can safely be
+      // completed without Ashley" pass: a real, persisted per-shop
+      // default monthly budget cap. Nullable/default-safe — clearing it
+      // (monthly_budget_cents: null) returns a shop to today's unlimited
+      // default. Before the migration (20260828000000_marketing_studio_
+      // budget_controls.sql) is applied anywhere, this action reports a
+      // clear, honest error rather than a raw DB failure.
+      if (action === "set_marketing_budget_cap" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        const raw = body.monthly_budget_cents;
+        if (raw !== null && raw !== undefined && (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0)) {
+          return json(400, { error: "monthly_budget_cents must be a non-negative number of cents, or null to remove the cap." });
+        }
+        const value = raw === undefined ? null : raw;
+        const updated = await client.from("shops").update({ marketing_monthly_budget_cents: value }).eq("id", shopId).select("id,marketing_monthly_budget_cents").maybeSingle();
+        if (updated.error) {
+          if (missingRelation(updated.error) || String(updated.error.message || "").toLowerCase().includes("does not exist")) {
+            throw platformAdminError("marketing_budget_schema_unavailable");
+          }
+          throw updated.error;
+        }
+        if (!updated.data) return json(404, { error: "Shop not found." });
+        await writeCommandAudit(client, user.id, "marketing_budget_cap_updated", { shopId, targetType: "shops", targetId: shopId, monthlyBudgetCents: value });
+        return json(200, { shop_id: shopId, monthly_budget_cap_cents: updated.data.marketing_monthly_budget_cents });
       }
 
       // "Lily, handle my marketing for September" (Section 9). Plans WHAT
@@ -530,32 +574,35 @@ export function createMarketingStudioHandler(deps = {}) {
         if (variantsResult.error) throw variantsResult.error;
         const variants = variantsResult.data || [];
 
-        // Priority 8: a real pre-spend budget gate — estimate what THIS
+        // Priority 8/2: a real pre-spend budget gate — estimate what THIS
         // generation would cost (copy always; +image for anything but a
         // video concept/text post — matches exactly what the branches
         // below actually bill via recordUsage) and refuse before any real
-        // provider call if a caller-supplied monthly cap would be
-        // exceeded. Only enforced when budget_cap_cents is actually
-        // supplied on this request — see marketing-budget-guard.js's own
-        // doc for why there's no persisted per-shop default yet.
-        if (body.budget_cap_cents != null) {
+        // provider call if the effective cap would be exceeded. The
+        // effective cap combines the shop's persisted default (once
+        // 20260828000000_marketing_studio_budget_controls.sql is applied
+        // — degrades to "none" until then) with an optional caller-
+        // supplied budget_cap_cents override, which can be stricter but
+        // can never be used to exceed a configured shop hard cap.
+        {
           const estimatedAdditionalCents =
             (estimateCostCents({ purpose: "copy", unitType: "request", units: 1 }) || 0) +
             (VIDEO_CONTENT_TYPES.has(currentItem.data.content_type) || currentItem.data.content_type === "text_post"
               ? 0
               : estimateCostCents({ purpose: "image", unitType: "image", units: 1 }) || 0);
-          const budgetCheck = await checkMonthlyBudget(client, {
+          const budgetCheck = await checkMonthlyBudgetForRequest(client, {
             shopId,
             additionalCostCents: estimatedAdditionalCents,
-            capCents: Number(body.budget_cap_cents)
+            requestedCapCents: body.budget_cap_cents != null ? Number(body.budget_cap_cents) : null
           });
           if (!budgetCheck.allowed) {
-            if (budgetCheck.reason === "budget_check_failed") throw new Error(budgetCheck.error);
+            if (budgetCheck.reason === "budget_check_failed" || budgetCheck.reason === "shop_budget_lookup_failed") throw new Error(budgetCheck.error);
             return json(400, {
-              error: `Generating this would bring this month's committed spend to $${(budgetCheck.wouldBeCents / 100).toFixed(2)}, over the $${(budgetCheck.capCents / 100).toFixed(2)} budget cap — nothing was generated.`,
+              error: `Generating this would bring this month's committed spend to $${(budgetCheck.wouldBeCents / 100).toFixed(2)}, over the $${(budgetCheck.capCents / 100).toFixed(2)} budget cap (${budgetCheck.capSource === "shop_default" ? "this shop's configured default" : "the budget given for this request"}) — nothing was generated.`,
               current_spend_cents: budgetCheck.currentSpendCents,
               would_be_cents: budgetCheck.wouldBeCents,
-              cap_cents: budgetCheck.capCents
+              cap_cents: budgetCheck.capCents,
+              cap_source: budgetCheck.capSource
             });
           }
         }

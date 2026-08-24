@@ -285,6 +285,7 @@ test("runCompoundRequest: happy path — image + one platform (no reframe needed
   const client = createFakeSupabaseClient(
     [
       { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
+      { data: { marketing_monthly_budget_cents: null }, error: null }, // shop monthly-default lookup (budget_check, Priority 2) — none configured
       { data: { id: "asset-1" }, error: null }, // ai_generated_assets insert (image)
       { data: { id: "content-1", content_type: "image_post", title: "x", status: "idea" }, error: null }, // marketing_content_items insert
       { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // marketing_platform_variants insert
@@ -400,6 +401,7 @@ test("runCompoundRequest: Digital Twin unavailable is reported as an honest bloc
   const client = createFakeSupabaseClient(
     [
       { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
+      { data: { marketing_monthly_budget_cents: null }, error: null }, // shop monthly-default lookup (budget_check, Priority 2) — none configured
       { data: null, error: null }, // marketing_clone_consent lookup -> none
       { data: { id: "asset-1" }, error: null }, // ai_generated_assets insert (image)
       { data: { id: "content-1" }, error: null }, // marketing_content_items insert
@@ -427,6 +429,49 @@ test("runCompoundRequest: Digital Twin unavailable is reported as an honest bloc
     assert.equal(byId.generate_image.status, "completed");
     assert.equal(byId.create_content_item.status, "completed");
     assert.equal(jobUpdate.status, "partially_completed");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("runCompoundRequest: a shop's persisted monthly default cap halts a compound request even when the message itself states no budget", async () => {
+  const mock = installCloudflareRouter({
+    extraction: {
+      wants_image: true,
+      wants_video: false,
+      wants_digital_twin: false,
+      platforms: ["facebook"],
+      occasion: "wedding bouquet",
+      inventory_grounded: false,
+      budget_dollars: null, // the message itself names no per-request budget
+      schedule_relative_day: null,
+      schedule_time_of_day: null,
+      summary: "A wedding bouquet post for Facebook."
+    }
+  });
+  const client = createFakeSupabaseClient([
+    { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
+    { data: { marketing_monthly_budget_cents: 100 }, error: null }, // shop has configured a real $1.00 monthly default
+    { data: [{ estimated_cost_cents: 98 }], error: null }, // already spent $0.98 this month
+    { data: { id: "job-1", status: "waiting_for_approval" }, error: null } // ai_execution_jobs final update
+  ]);
+
+  try {
+    const result = await runCompoundRequest(client, {
+      shopId: "shop-1",
+      userId: "user-1",
+      message: "Create a wedding bouquet post for Facebook.",
+      shop: {},
+      timezone: "America/New_York"
+    });
+
+    assert.equal(result.ok, true);
+    const jobUpdate = getJobUpdatePayload(client);
+    assert.equal(jobUpdate.status, "waiting_for_approval");
+    const byId = Object.fromEntries(jobUpdate.plan.map((s) => [s.id, s]));
+    assert.equal(byId.budget_check.status, "blocked");
+    assert.match(byId.budget_check.error, /this shop's configured \$1\.00 monthly budget/);
+    assert.equal(byId.generate_image.status, "skipped_over_budget", "the shop's own monthly cap must halt the plan exactly like a stated per-request budget does");
   } finally {
     mock.restore();
   }
