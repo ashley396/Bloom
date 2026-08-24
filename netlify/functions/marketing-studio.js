@@ -103,6 +103,7 @@ import { validateCloneConsentBody, isConsentActive } from "./_shared/marketing-c
 import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
 import { generateSocialPost, generateVideoConcept, generateWebsiteSectionDraft, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
 import { generateImage, buildImagePrompt } from "./_shared/ai-image-engine.js";
+import { planVideoRender } from "./_shared/marketing-video-render-engine.js";
 import { buildMarketingStudioAnalyticsSummary } from "./_shared/marketing-analytics.js";
 import { groupMetricsByDimension } from "./_shared/marketing-insights.js";
 import { validateExperimentBody, determineExperimentWinner } from "./_shared/marketing-ab-testing.js";
@@ -804,6 +805,81 @@ export function createMarketingStudioHandler(deps = {}) {
           assetType: "image"
         });
         return json(200, { item: updated.data, asset: assetId ? { id: assetId, type: "image", url: imageUrl } : null, copy: copyGen.content });
+      }
+
+      // Priority 7 ("finish everything that can safely be completed
+      // without Ashley" pass): the video-render CONTRACT layer
+      // (marketing-video-render-engine.js's planVideoRender) was real and
+      // tested but genuinely unreachable from the actual API surface —
+      // nothing ever called it. This makes it real end to end: given a
+      // content item whose generate_content already produced a real
+      // video_concept (script/storyboard/captions), and real source
+      // image/video URLs the admin supplies, builds the complete,
+      // structured technical render plan and persists it onto that same
+      // asset — never fabricates a rendered video, never invents a new
+      // asset_type (content stays JSON on the existing video_concept row,
+      // so no schema migration is needed for this).
+      if (action === "plan_video_render" && method === "POST") {
+        requireSuperAdmin(admin);
+        const shopId = requireShopId(qs, body);
+        if (!body.content_item_id) return json(400, { error: "content_item_id is required." });
+        const hasImages = Array.isArray(body.source_image_urls) && body.source_image_urls.filter(Boolean).length > 0;
+        if (!hasImages && !body.source_video_url) {
+          return json(400, { error: "Provide source_image_urls (real, public image URLs) or source_video_url." });
+        }
+
+        const variantsResult = await client.from("marketing_platform_variants").select("id,asset_id").eq("content_item_id", body.content_item_id).eq("shop_id", shopId);
+        if (variantsResult.error) {
+          if (missingRelation(variantsResult.error)) throw friendlyMissing();
+          throw variantsResult.error;
+        }
+        const withAsset = (variantsResult.data || []).find((v) => v.asset_id);
+        if (!withAsset) {
+          return json(400, { error: "This content item has no generated video concept yet — run generate_content first." });
+        }
+
+        const assetResult = await client.from("ai_generated_assets").select("id,asset_type,content,status").eq("id", withAsset.asset_id).eq("shop_id", shopId).maybeSingle();
+        if (assetResult.error) throw assetResult.error;
+        if (!assetResult.data) return json(400, { error: "The linked video concept asset could not be found." });
+        if (assetResult.data.asset_type !== "video_concept") {
+          return json(400, { error: `Expected a video_concept asset, found "${assetResult.data.asset_type}".` });
+        }
+        if (assetResult.data.status === "quarantined") {
+          return json(400, { error: "This asset is quarantined (consent was revoked) and cannot be planned for rendering." });
+        }
+
+        const existingContent = assetResult.data.content || {};
+        const plan = planVideoRender({
+          sourceImageUrls: body.source_image_urls,
+          sourceVideoUrl: body.source_video_url || null,
+          backgroundUrl: body.background_url || null,
+          motion: body.motion,
+          transitions: body.transitions,
+          textOverlays: body.text_overlays,
+          captions: existingContent.script || (Array.isArray(existingContent.captions) ? existingContent.captions.join(" ") : existingContent.captions) || null,
+          logoOverlayUrl: body.logo_overlay_url || null,
+          audioReference: body.audio_reference || null,
+          durationSeconds: body.duration_seconds || existingContent.suggested_length_seconds,
+          aspectRatio: body.aspect_ratio,
+          resolutionTier: body.resolution_tier
+        });
+        if (!plan.ok) return json(400, { error: plan.error });
+
+        const nextContent = { ...existingContent, renderPlan: plan.plan };
+        const updated = await client.from("ai_generated_assets").update({ content: nextContent }).eq("id", assetResult.data.id).eq("shop_id", shopId).select("id,content").single();
+        if (updated.error) throw updated.error;
+
+        await writeCommandAudit(client, user.id, "marketing_video_render_planned", {
+          shopId,
+          targetType: "ai_generated_assets",
+          targetId: assetResult.data.id
+        });
+
+        return json(200, {
+          asset_id: assetResult.data.id,
+          plan: plan.plan,
+          note: "NOT LIVE — PROVIDER CONNECTION REQUIRED. This is the complete, real technical render plan (timed shot list, motion, transitions, captions, aspect ratio) — no video-rendering provider is connected yet, so no video is actually produced. Connect a provider to encode it."
+        });
       }
 
       // AI Clone (Digital Twin Studio) — Section 10/11. Consent is always
