@@ -144,7 +144,7 @@ export function createFakeSupabaseStorage({ uploadResponses = [], removeResponse
     from(bucket) {
       return {
         upload(path, body, options) {
-          calls.push({ op: "upload", bucket, path, options });
+          calls.push({ op: "upload", bucket, path, body, options });
           return Promise.resolve(uploadQueue.length ? uploadQueue.shift() : { data: { path }, error: null });
         },
         remove(paths) {

@@ -244,6 +244,12 @@ export async function persistGeneratedAsset(client, {
   content = null,
   mediaId = null,
   parentAssetId = null,
+  // 'reframe'|'transcode'|'caption_burn'|'thumbnail'|'trim'|null — the
+  // ai_generated_assets.transformation_type column added in the Aug-24
+  // media migration. Only ever set alongside parentAssetId (the DB's own
+  // ai_generated_assets_master_derived_consistency check enforces this);
+  // media-transform-executor.js is the first real caller.
+  transformationType = null,
   status = "completed",
   error = null
 }) {
@@ -262,6 +268,7 @@ export async function persistGeneratedAsset(client, {
       content,
       media_id: mediaId,
       parent_asset_id: parentAssetId,
+      transformation_type: transformationType,
       status,
       error
     })
