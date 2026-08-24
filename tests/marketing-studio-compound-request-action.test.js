@@ -115,6 +115,7 @@ test("compound_request: happy path — looks up the real shop timezone, runs the
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { name: "Test Florals", timezone: "America/Chicago" }, error: null }, // shops lookup
+    { data: null, error: null }, // idempotency dedup lookup — no recent duplicate
     { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
     { data: { marketing_monthly_budget_cents: null }, error: null }, // shop monthly-default budget lookup (budget_check, Priority 2) — none configured
     { data: { id: "video-asset-1" }, error: null }, // ai_generated_assets insert (video concept)
@@ -163,5 +164,42 @@ test("compound_request: an extraction failure surfaces as a clean 400, not a 500
     assert.match(JSON.parse(res.body).error, /Could not understand/);
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("compound_request: a deduped result (identical recent request) is surfaced honestly and skips writing a second audit entry", async () => {
+  const mock = installCloudflareRouter({
+    extraction: {
+      wants_image: true,
+      wants_video: false,
+      wants_digital_twin: false,
+      platforms: ["facebook"],
+      occasion: "wedding bouquet",
+      inventory_grounded: false,
+      budget_dollars: null,
+      schedule_relative_day: null,
+      schedule_time_of_day: null,
+      summary: "A wedding bouquet post for Facebook."
+    }
+  });
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { name: "Test Florals", timezone: "America/Chicago" }, error: null }, // shops lookup
+    {
+      data: { id: "job-existing", status: "running", plan: [], result: null, error: null, title: "x", context: {}, created_at: new Date().toISOString() },
+      error: null
+    } // idempotency dedup lookup — a recent identical job
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  try {
+    const res = await handler(event("compound_request", { shop_id: "shop-1", message: "Make a wedding bouquet post for Facebook." }));
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.deduped, true);
+    assert.equal(body.job.id, "job-existing");
+    const auditCall = client.calls.find((c) => c.table === "platform_admin_audit");
+    assert.equal(auditCall, undefined, "must not write a second audit entry for a no-op deduped call");
+  } finally {
+    mock.restore();
   }
 });

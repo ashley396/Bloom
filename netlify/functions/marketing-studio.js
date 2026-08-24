@@ -2019,13 +2019,19 @@ export function createMarketingStudioHandler(deps = {}) {
           return json(400, { error: result.error });
         }
 
-        await writeCommandAudit(client, user.id, "marketing_compound_request", {
-          shopId,
-          targetType: "ai_execution_jobs",
-          targetId: result.job.id,
-          status: result.job.status
-        });
-        return json(200, { job: result.job });
+        // Orchestration hardening (Priority 9): a deduped result means
+        // nothing actually happened on THIS call — the original request's
+        // own audit entry already exists, so writing a second one here
+        // would misrepresent a no-op as a new admin action.
+        if (!result.deduped) {
+          await writeCommandAudit(client, user.id, "marketing_compound_request", {
+            shopId,
+            targetType: "ai_execution_jobs",
+            targetId: result.job.id,
+            status: result.job.status
+          });
+        }
+        return json(200, { job: result.job, deduped: Boolean(result.deduped) });
       }
 
       // Stage E — the reliable-publishing queue. Approving content queues

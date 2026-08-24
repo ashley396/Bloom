@@ -284,6 +284,7 @@ test("runCompoundRequest: happy path — image + one platform (no reframe needed
   const storage = createFakeSupabaseStorage();
   const client = createFakeSupabaseClient(
     [
+      { data: null, error: null }, // idempotency dedup lookup — no recent duplicate
       { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
       { data: { marketing_monthly_budget_cents: null }, error: null }, // shop monthly-default lookup (budget_check, Priority 2) — none configured
       { data: { id: "asset-1" }, error: null }, // ai_generated_assets insert (image)
@@ -350,6 +351,7 @@ test("runCompoundRequest: a stated budget is a real execution constraint — hal
     }
   });
   const client = createFakeSupabaseClient([
+    { data: null, error: null }, // idempotency dedup lookup — no recent duplicate
     { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
     { data: { id: "job-1", status: "waiting_for_approval" }, error: null } // ai_execution_jobs final update
   ]);
@@ -400,6 +402,7 @@ test("runCompoundRequest: Digital Twin unavailable is reported as an honest bloc
   const storage = createFakeSupabaseStorage();
   const client = createFakeSupabaseClient(
     [
+      { data: null, error: null }, // idempotency dedup lookup — no recent duplicate
       { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
       { data: { marketing_monthly_budget_cents: null }, error: null }, // shop monthly-default lookup (budget_check, Priority 2) — none configured
       { data: null, error: null }, // marketing_clone_consent lookup -> none
@@ -450,6 +453,7 @@ test("runCompoundRequest: a shop's persisted monthly default cap halts a compoun
     }
   });
   const client = createFakeSupabaseClient([
+    { data: null, error: null }, // idempotency dedup lookup — no recent duplicate
     { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
     { data: { marketing_monthly_budget_cents: 100 }, error: null }, // shop has configured a real $1.00 monthly default
     { data: [{ estimated_cost_cents: 98 }], error: null }, // already spent $0.98 this month
@@ -575,6 +579,7 @@ test("runCompoundRequest: a ready Digital Twin (avatar+voice) actually kicks off
   });
   const client = createFakeSupabaseClient(
     [
+      { data: null, error: null }, // idempotency dedup lookup — no recent duplicate
       { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
       { data: { marketing_monthly_budget_cents: null }, error: null }, // shop monthly-default lookup
       { data: { id: "consent-1", avatar_permission: true, voice_permission: true, revoked_at: null }, error: null }, // marketing_clone_consent
@@ -647,6 +652,7 @@ test("runCompoundRequest: a ready Digital Twin with NO real provider connected r
   const storage = createFakeSupabaseStorage();
   const client = createFakeSupabaseClient(
     [
+      { data: null, error: null }, // idempotency dedup lookup — no recent duplicate
       { data: { id: "job-1" }, error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
       { data: { id: "consent-1", avatar_permission: true, voice_permission: true, revoked_at: null }, error: null },
@@ -674,6 +680,167 @@ test("runCompoundRequest: a ready Digital Twin with NO real provider connected r
     assert.match(renderStep.error, /CONNECTION REQUIRED/);
     const cloneJobInsert = client.calls.find((c) => c.table === "marketing_clone_video_jobs");
     assert.equal(cloneJobInsert, undefined, "no job row when nothing was actually rendered");
+  } finally {
+    mock.restore();
+  }
+});
+
+// Priority 9 (compound orchestration hardening): request-level
+// idempotency. Before this pass, compound_request had NO protection
+// against a double-click/network-retry re-running every real, billed
+// generation call a second time — proven via inspection (no dedup query
+// anywhere in runCompoundRequest) before this fix was written.
+test("runCompoundRequest: an identical recent request (same shop + exact text) returns the EXISTING job — no generation call is re-run, no second job/content created", async () => {
+  let extractionCalls = 0;
+  const originalFetch = globalThis.fetch;
+  process.env.CLOUDFLARE_ACCOUNT_ID = "acct-test";
+  process.env.CLOUDFLARE_AI_API_TOKEN = "token-test";
+  globalThis.fetch = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    const userMessage = body.messages?.find((m) => m.role === "user")?.content || "";
+    if (userMessage.includes("compound marketing request")) {
+      extractionCalls++;
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          result: {
+            response: JSON.stringify({
+              wants_image: true,
+              wants_video: false,
+              wants_digital_twin: false,
+              platforms: ["facebook"],
+              occasion: "wedding bouquet",
+              inventory_grounded: false,
+              budget_dollars: null,
+              schedule_relative_day: null,
+              schedule_time_of_day: null,
+              summary: "A wedding bouquet post for Facebook."
+            })
+          }
+        })
+      };
+    }
+    throw new Error(`should not reach any generation call for a deduped request: ${userMessage.slice(0, 80)}`);
+  };
+
+  const now = new Date("2026-08-24T12:00:30.000Z");
+  const client = createFakeSupabaseClient([
+    {
+      data: { id: "job-existing", status: "running", plan: [], result: null, error: null, title: "A wedding bouquet post.", context: {}, created_at: "2026-08-24T12:00:00.000Z" },
+      error: null
+    } // idempotency dedup lookup — a recent job for the exact same request text
+  ]);
+
+  try {
+    const result = await runCompoundRequest(client, {
+      shopId: "shop-1",
+      userId: "user-1",
+      message: "Make a wedding bouquet post for Facebook.",
+      shop: {},
+      timezone: "America/New_York",
+      now
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.deduped, true);
+    assert.equal(result.job.id, "job-existing", "must return the EXISTING job, never a new one");
+    assert.equal(extractionCalls, 1, "extraction itself still runs once (cheap, needed to validate the request), but nothing past it does");
+    const jobInsert = client.calls.find((c) => c.table === "ai_execution_jobs" && c.ops.some((op) => op[0] === "insert"));
+    assert.equal(jobInsert, undefined, "no second job row may ever be created for a deduped request");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("runCompoundRequest: the SAME request text outside the dedupe window runs fresh — a legitimate later request is never permanently blocked", async () => {
+  const mock = installCloudflareRouter({
+    extraction: {
+      wants_image: true,
+      wants_video: false,
+      wants_digital_twin: false,
+      platforms: ["facebook"],
+      occasion: "wedding bouquet",
+      inventory_grounded: false,
+      budget_dollars: null,
+      schedule_relative_day: null,
+      schedule_time_of_day: null,
+      summary: "A wedding bouquet post for Facebook."
+    },
+    socialPost: DEFAULT_SOCIAL_POST
+  });
+  const storage = createFakeSupabaseStorage();
+  const now = new Date("2026-08-24T12:05:00.000Z"); // 5 minutes after the prior job — outside the 60s window
+  const client = createFakeSupabaseClient(
+    [
+      { data: { id: "job-old", status: "completed", created_at: "2026-08-24T12:00:00.000Z" }, error: null }, // idempotency lookup — found, but stale
+      { data: { id: "job-new" }, error: null }, // ai_execution_jobs insert
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: { id: "asset-1" }, error: null },
+      { data: { id: "content-1" }, error: null },
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null },
+      { data: { id: "job-new", status: "completed" }, error: null }
+    ],
+    { storage }
+  );
+  try {
+    const result = await runCompoundRequest(client, {
+      shopId: "shop-1",
+      userId: "user-1",
+      message: "Make a wedding bouquet post for Facebook.",
+      shop: {},
+      timezone: "America/New_York",
+      now
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.deduped, undefined);
+    assert.equal(result.job.id, "job-new", "a stale prior job must never suppress a genuinely new request");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("runCompoundRequest: a prior FAILED attempt for the same text is never deduped — a real retry after a real failure must be allowed to actually try again", async () => {
+  const mock = installCloudflareRouter({
+    extraction: {
+      wants_image: true,
+      wants_video: false,
+      wants_digital_twin: false,
+      platforms: ["facebook"],
+      occasion: "wedding bouquet",
+      inventory_grounded: false,
+      budget_dollars: null,
+      schedule_relative_day: null,
+      schedule_time_of_day: null,
+      summary: "A wedding bouquet post for Facebook."
+    },
+    socialPost: DEFAULT_SOCIAL_POST
+  });
+  const storage = createFakeSupabaseStorage();
+  const now = new Date("2026-08-24T12:00:05.000Z"); // 5 seconds later — well inside the window
+  const client = createFakeSupabaseClient(
+    [
+      { data: { id: "job-failed", status: "failed", created_at: "2026-08-24T12:00:00.000Z" }, error: null }, // idempotency lookup — a recent FAILED attempt
+      { data: { id: "job-new" }, error: null },
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: { id: "asset-1" }, error: null },
+      { data: { id: "content-1" }, error: null },
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null },
+      { data: { id: "job-new", status: "completed" }, error: null }
+    ],
+    { storage }
+  );
+  try {
+    const result = await runCompoundRequest(client, {
+      shopId: "shop-1",
+      userId: "user-1",
+      message: "Make a wedding bouquet post for Facebook.",
+      shop: {},
+      timezone: "America/New_York",
+      now
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.deduped, undefined);
+    assert.equal(result.job.id, "job-new", "a real retry after a real failure must actually run, never be trapped behind its own failure");
   } finally {
     mock.restore();
   }

@@ -522,13 +522,45 @@ async function runCompoundStep(client, step, ctx) {
  * budget-blocked, Digital-Twin-blocked, video-render-blocked) is a real
  * completed job row with per-step detail, never a bare error.
  */
-export async function runCompoundRequest(client, { shopId, userId, persona = "Lily", message, shop = {}, timezone = "America/New_York" } = {}) {
+export async function runCompoundRequest(
+  client,
+  { shopId, userId, persona = "Lily", message, shop = {}, timezone = "America/New_York", now = new Date(), dedupeWindowMs = 60_000 } = {}
+) {
   const extracted = await extractCompoundMarketingRequest(message);
   if (!extracted) {
     return { ok: false, error: "Could not understand this request well enough to plan it — try rephrasing, or ask for one piece at a time." };
   }
   if (!extracted.wantsImage && !extracted.wantsVideo) {
     return { ok: false, error: "This request didn't ask for an image or a video — nothing to create." };
+  }
+
+  // Orchestration hardening (Priority 9): request-level idempotency. This
+  // is a synchronous, real-money-spending flow with no queue/claim layer
+  // in front of it (unlike marketing-publishing-worker.js) — a double-
+  // click, a client-side retry after a slow response, or a flaky network
+  // resubmit used to just run every real generation call a second time,
+  // with a second real charge and a second content_item. The exact same
+  // (shop, request text) within a short window returns the ALREADY-
+  // running/produced job instead of starting a new one. A prior FAILED
+  // attempt is deliberately NOT deduped — a genuine retry after a
+  // transient failure must be allowed to actually try again, never
+  // trapped behind its own failure.
+  const recentResult = await client
+    .from("ai_execution_jobs")
+    .select("id,status,plan,result,error,title,context,created_at")
+    .eq("shop_id", shopId)
+    .eq("job_type", "marketing_compound")
+    .eq("request_text", message)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!recentResult.error && recentResult.data) {
+    const createdAtMs = new Date(recentResult.data.created_at).getTime();
+    const ageMs = now.getTime() - createdAtMs;
+    const dedupableStatus = ["running", "completed", "partially_completed", "waiting_for_approval"].includes(recentResult.data.status);
+    if (dedupableStatus && Number.isFinite(ageMs) && ageMs >= 0 && ageMs < dedupeWindowMs) {
+      return { ok: true, job: recentResult.data, deduped: true };
+    }
   }
 
   const platforms = extracted.platforms.length ? extracted.platforms : ["facebook"];
