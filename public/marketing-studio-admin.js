@@ -405,10 +405,17 @@
           genNote.textContent = "Generating…";
           try {
             const result = await adminApi("generate_content", { body: { shop_id: shopId, content_item_id: item.id } });
-            genNote.textContent = result.note || "Generated.";
+            const message = result.note || "Generated.";
             await loadContentList();
             openContentItemId = item.id;
+            // renderContentDetail() rebuilds the whole panel from scratch —
+            // including a fresh, empty #msGenNote — so the message has to be
+            // re-applied to the NEW element after re-rendering, not the one
+            // that's about to be discarded, or it's wiped the instant this
+            // line finishes.
             renderContentDetail();
+            const freshNote = contentDetail.querySelector("#msGenNote");
+            if (freshNote) freshNote.textContent = message;
           } catch (err) {
             genNote.textContent = err.message;
             genBtn.disabled = false;
@@ -453,10 +460,14 @@
           scheduleStatus.textContent = "Saving…";
           try {
             const result = await adminApi("schedule_content_item", { body: { shop_id: shopId, content_item_id: item.id, scheduled_at_local: localValue } });
-            scheduleStatus.textContent = `Scheduled for ${new Date(result.scheduled_at_utc).toLocaleString()} (shop timezone: ${esc(result.timezone)}).`;
+            const message = `Scheduled for ${new Date(result.scheduled_at_utc).toLocaleString()} (shop timezone: ${esc(result.timezone)}).`;
             await loadContentList();
             openContentItemId = item.id;
+            // Same re-render-wipes-the-message issue as genBtn above — the
+            // message has to be applied to the freshly rendered element.
             renderContentDetail();
+            const freshStatus = contentDetail.querySelector("#msScheduleStatus");
+            if (freshStatus) freshStatus.textContent = message;
           } catch (err) {
             scheduleStatus.textContent = err.message;
           }
@@ -470,10 +481,15 @@
           queueStatus.textContent = "Queueing…";
           try {
             const result = await adminApi("enqueue_publish", { body: { shop_id: shopId, content_item_id: item.id } });
-            queueStatus.textContent = `Queued ${result.jobs_queued} job(s). Publishing itself won't happen until either the (not-yet-deployed) scheduler runs, or you click "Run publishing queue now" above.`;
+            const message = `Queued ${result.jobs_queued} job(s). Publishing itself won't happen until either the (not-yet-deployed) scheduler runs, or you click "Run publishing queue now" above.`;
             await loadContentList();
             openContentItemId = item.id;
+            // Same re-render-wipes-the-message issue as genBtn/scheduleBtn
+            // above — apply the message to the freshly rendered element,
+            // not the one renderContentDetail() is about to discard.
             renderContentDetail();
+            const freshStatus = contentDetail.querySelector("#msQueueStatus");
+            if (freshStatus) freshStatus.textContent = message;
           } catch (err) {
             queueStatus.textContent = err.message;
           }
