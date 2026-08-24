@@ -105,6 +105,7 @@ test("revoke_clone_consent: a quarantine-cascade failure never unwinds the conse
 test("run_publishing_queue: a variant whose source asset was quarantined is rejected BEFORE the social provider is ever called", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
+    { data: [], error: null }, // reclaimStaleRunningJobs: no stale jobs
     { data: [{ id: "job-1" }], error: null }, // claimDueJobs: candidate select
     { data: [{ id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null }, // claimDueJobs: atomic claim
     { data: { id: "variant-1", platform: "tiktok", caption: "hi", scheduled_at: null, ai_disclosure_required: false, disclosure_applied: false, asset_id: "asset-1" }, error: null }, // variant lookup
@@ -125,6 +126,7 @@ test("run_publishing_queue: a variant whose source asset was quarantined is reje
 test("run_publishing_queue: a variant whose source asset is a normal completed asset proceeds exactly as before this pass", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
+    { data: [], error: null }, // reclaimStaleRunningJobs: no stale jobs
     { data: [{ id: "job-1" }], error: null },
     { data: [{ id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null },
     { data: { id: "variant-1", platform: "tiktok", caption: "hi", scheduled_at: null, ai_disclosure_required: false, disclosure_applied: false, asset_id: "asset-1" }, error: null },
@@ -143,6 +145,7 @@ test("run_publishing_queue: a variant whose source asset is a normal completed a
 test("run_publishing_queue: a variant with no linked asset_id at all is unaffected — the gate never fires on nothing to check", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
+    { data: [], error: null }, // reclaimStaleRunningJobs: no stale jobs
     { data: [{ id: "job-1" }], error: null },
     { data: [{ id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null },
     { data: { id: "variant-1", platform: "facebook", caption: "hi", scheduled_at: null, asset_id: null }, error: null },

@@ -11,6 +11,7 @@ import { createFakeSupabaseClient } from "./helpers/fake-supabase-client.mjs";
 
 test("scheduled publisher: runs the worker globally (no shop_id) and reports a summary", async () => {
   const client = createFakeSupabaseClient([
+    { data: [], error: null }, // reclaimStaleRunningJobs: no stale jobs
     { data: [{ id: "job-1" }], error: null }, // candidates (global)
     { data: [{ id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null },
     { data: { id: "variant-1", platform: "facebook", ai_disclosure_required: false, disclosure_applied: false }, error: null },
@@ -29,7 +30,10 @@ test("scheduled publisher: runs the worker globally (no shop_id) and reports a s
 });
 
 test("scheduled publisher: zero due jobs across the whole system is a normal, quiet 200 — not an error", async () => {
-  const client = createFakeSupabaseClient([{ data: [], error: null }]);
+  const client = createFakeSupabaseClient([
+    { data: [], error: null }, // reclaimStaleRunningJobs: no stale jobs
+    { data: [], error: null } // claimDueJobs: nothing due
+  ]);
   const handler = createScheduledPublisherHandler({ getClient: () => client });
   const res = await handler({ headers: { "x-netlify-event": "schedule" } });
   assert.equal(res.statusCode, 200);

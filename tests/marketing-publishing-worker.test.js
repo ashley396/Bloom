@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { claimDueJobs, processClaimedJob, runPublishingWorker } from "../netlify/functions/_shared/marketing-publishing-worker.js";
+import { claimDueJobs, processClaimedJob, runPublishingWorker, reclaimStaleRunningJobs } from "../netlify/functions/_shared/marketing-publishing-worker.js";
 import { createFakeSupabaseClient, createFakeSupabaseStorage } from "./helpers/fake-supabase-client.mjs";
 import { encryptSocialToken } from "../netlify/functions/_shared/marketing-social-oauth.js";
 
@@ -141,6 +141,7 @@ test("processClaimedJob: attempts below max_attempts on a hypothetical transient
 
 test("runPublishingWorker: claims then processes in one call, end to end, for a shop-scoped run", async () => {
   const client = createFakeSupabaseClient([
+    { data: [], error: null }, // reclaimStaleRunningJobs: no stale jobs
     { data: [{ id: "job-1" }], error: null },
     { data: [{ id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null },
     { data: { id: "variant-1", platform: "pinterest", ai_disclosure_required: false, disclosure_applied: false }, error: null },
@@ -154,9 +155,86 @@ test("runPublishingWorker: claims then processes in one call, end to end, for a 
 });
 
 test("runPublishingWorker: zero due jobs returns an empty result set without issuing any process-time queries", async () => {
-  const client = createFakeSupabaseClient([{ data: [], error: null }]);
+  const client = createFakeSupabaseClient([
+    { data: [], error: null }, // reclaimStaleRunningJobs: no stale jobs
+    { data: [], error: null } // claimDueJobs: nothing due
+  ]);
   const results = await runPublishingWorker(client, { shopId: "shop-1" });
   assert.deepEqual(results, []);
+});
+
+// ── Priority B hardening: recovery after interrupted execution ─────────
+
+test("reclaimStaleRunningJobs: a job stuck at 'running' well past the stale threshold is requeued with a classified, retryable failure state", async () => {
+  const now = new Date("2026-09-01T12:00:00Z");
+  const client = createFakeSupabaseClient([
+    { data: [{ id: "job-stuck", shop_id: "shop-1", platform_variant_id: "variant-1", attempts: 1, max_attempts: 5 }], error: null }, // stale select
+    { data: [{ id: "job-stuck" }], error: null } // re-checked status='running' update — won the race
+  ]);
+  const result = await reclaimStaleRunningJobs(client, { now });
+  assert.equal(result.reclaimed, 1);
+  assert.equal(result.deadLettered, 0);
+  const updateCall = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(updateCall.payload.status, "queued", "an interrupted job below max_attempts must become claimable again, not silently lost");
+  assert.equal(updateCall.payload.attempts, 2);
+  assert.equal(updateCall.payload.last_error_code, "interrupted_execution");
+  const statusEq = updateCall.ops.find((op) => op[0] === "eq" && op[1][0] === "status");
+  assert.equal(statusEq[1][1], "running", "the reclaim update must re-check status='running' — the same race-safety pattern as claimDueJobs");
+});
+
+test("reclaimStaleRunningJobs: a stuck job already at max_attempts dead-letters instead of retrying forever, and marks the variant failed", async () => {
+  const now = new Date("2026-09-01T12:00:00Z");
+  const client = createFakeSupabaseClient([
+    { data: [{ id: "job-stuck", shop_id: "shop-1", platform_variant_id: "variant-1", attempts: 4, max_attempts: 5 }], error: null },
+    { data: [{ id: "job-stuck" }], error: null }, // job update
+    { data: null, error: null } // variant update
+  ]);
+  const result = await reclaimStaleRunningJobs(client, { now });
+  assert.equal(result.reclaimed, 0);
+  assert.equal(result.deadLettered, 1);
+  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(jobUpdate.payload.status, "dead_letter");
+  const variantUpdate = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(variantUpdate.payload.status, "failed", "a job that finally exhausts its attempts via repeated interruption must surface as a real, visible failure on the variant too — never a silent drop");
+});
+
+test("reclaimStaleRunningJobs: losing the re-checked status='running' race (a concurrent worker already resolved it) is a no-op, not a double-recovery", async () => {
+  const now = new Date("2026-09-01T12:00:00Z");
+  const client = createFakeSupabaseClient([
+    { data: [{ id: "job-stuck", shop_id: "shop-1", platform_variant_id: "variant-1", attempts: 1, max_attempts: 5 }], error: null },
+    { data: [], error: null } // update returns nothing — already resolved concurrently
+  ]);
+  const result = await reclaimStaleRunningJobs(client, { now });
+  assert.equal(result.reclaimed, 0);
+  assert.equal(result.deadLettered, 0);
+});
+
+test("reclaimStaleRunningJobs: no stale jobs found issues zero update queries", async () => {
+  const client = createFakeSupabaseClient([{ data: [], error: null }]);
+  const result = await reclaimStaleRunningJobs(client, {});
+  assert.deepEqual(result, { reclaimed: 0, deadLettered: 0, inspected: 0 });
+  const updateCall = client.calls.find((c) => c.ops.some((op) => op[0] === "update"));
+  assert.equal(updateCall, undefined);
+});
+
+test("runPublishingWorker: reclaims a stale job AND claims freshly-due jobs in the same pass", async () => {
+  const now = new Date("2026-09-01T12:00:00Z");
+  const client = createFakeSupabaseClient([
+    { data: [{ id: "job-stuck", shop_id: "shop-1", platform_variant_id: "v-stuck", attempts: 0, max_attempts: 5 }], error: null }, // stale select
+    { data: [{ id: "job-stuck" }], error: null }, // stale job requeued
+    { data: [{ id: "job-2" }], error: null }, // claimDueJobs candidates
+    { data: [{ id: "job-2", shop_id: "shop-1", platform_variant_id: "v-2", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null },
+    { data: { id: "v-2", platform: "linkedin", ai_disclosure_required: false, disclosure_applied: false }, error: null },
+    { data: null, error: null },
+    { data: null, error: null }
+  ]);
+  const results = await runPublishingWorker(client, { shopId: "shop-1", now });
+  // Only job-2 (the freshly claimed one) is processed THIS pass — the
+  // reclaimed job is merely made claimable again, exactly like any other
+  // queued job, picked up on a subsequent claim rather than force-processed
+  // out of order in the same call.
+  assert.equal(results.length, 1);
+  assert.equal(results[0].job_id, "job-2");
 });
 
 // ── Priority 5 (strict social-provider audit) fixes ─────────────────────

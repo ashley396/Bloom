@@ -270,12 +270,89 @@ export async function processClaimedJob(client, job, { now = new Date(), registr
   return { job_id: job.id, platform_variant_id: job.platform_variant_id, platform: platform || null, outcome };
 }
 
+// Comfortably above the slowest real adapter's own internal status-poll
+// ceiling (TikTok's ~2 minutes — see marketing-social-adapter-tiktok.js),
+// so nothing legitimately still in-flight is ever reclaimed out from
+// under itself. A row stuck at 'running' longer than this can only mean
+// the process that claimed it never reached a terminal write — a Netlify
+// function timeout, an OOM kill, a container recycle — not a slow but
+// genuinely still-working attempt.
+const STALE_RUNNING_MS = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Recovery after interrupted execution (Priority B hardening): claimDueJobs
+ * flips a row to 'running' before any work happens, but nothing before this
+ * function ever looked at a 'running' row again — only 'queued' rows are
+ * ever claimed. If the process handling a job dies mid-flight (the common
+ * real case: a serverless function timeout, not a JS-catchable error), that
+ * job was stuck at 'running' forever; no cron tick, no manual retry, and no
+ * amount of waiting ever picks it back up. This closes that gap the same
+ * way a real failure is handled — reusing nextJobStateAfterFailure's exact
+ * transient-retry-then-dead_letter logic (Section 24), never a parallel
+ * recovery policy that could drift from the normal failure path.
+ */
+export async function reclaimStaleRunningJobs(client, { now = new Date(), staleAfterMs = STALE_RUNNING_MS, limit = DEFAULT_CLAIM_LIMIT } = {}) {
+  const staleBefore = new Date(now.getTime() - staleAfterMs).toISOString();
+  const staleQuery = await client
+    .from("marketing_publishing_jobs")
+    .select("id,shop_id,platform_variant_id,attempts,max_attempts")
+    .eq("status", "running")
+    .lt("updated_at", staleBefore)
+    .limit(Math.min(100, Math.max(1, Number(limit) || DEFAULT_CLAIM_LIMIT)));
+  if (staleQuery.error) throw staleQuery.error;
+  const staleJobs = staleQuery.data || [];
+
+  let reclaimed = 0;
+  let deadLettered = 0;
+  for (const job of staleJobs) {
+    // eslint-disable-next-line no-await-in-loop
+    const next = nextJobStateAfterFailure({ attempts: job.attempts, maxAttempts: job.max_attempts, kind: "transient" });
+    const nextAttemptAt = next.delaySeconds != null ? new Date(now.getTime() + next.delaySeconds * 1000).toISOString() : now.toISOString();
+    // Re-checked status='running' — the same race-safety pattern
+    // claimDueJobs uses — so a job that legitimately finished (or was
+    // already reclaimed by a concurrent worker) between the select above
+    // and this update is never double-recovered.
+    // eslint-disable-next-line no-await-in-loop
+    const updated = await client
+      .from("marketing_publishing_jobs")
+      .update({
+        status: next.status,
+        attempts: next.attempts,
+        next_attempt_at: nextAttemptAt,
+        last_error: "Interrupted: the worker that claimed this job never reached a terminal state (likely a function timeout or crash). Automatically recovered by the stale-running reclaim.",
+        last_error_code: "interrupted_execution",
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", job.id)
+      .eq("status", "running")
+      .select("id");
+    if (updated.error) throw updated.error;
+    if (!updated.data?.length) continue; // lost the race — someone else already resolved it
+    if (next.status === "dead_letter") {
+      deadLettered++;
+      // eslint-disable-next-line no-await-in-loop
+      await client
+        .from("marketing_platform_variants")
+        .update({ status: "failed", last_error: "Publishing repeatedly interrupted before completion — see the job's dead-letter state." })
+        .eq("id", job.platform_variant_id);
+    } else {
+      reclaimed++;
+    }
+  }
+  return { reclaimed, deadLettered, inspected: staleJobs.length };
+}
+
 /**
  * Claim + process, end to end. This is the ONE function both the
  * admin-triggered action and the cron-triggered scheduled function call —
  * neither maintains its own copy of this loop.
  */
 export async function runPublishingWorker(client, { shopId = null, limit = DEFAULT_CLAIM_LIMIT, now = new Date() } = {}) {
+  // Reclaim before claiming — a job stuck at 'running' from a prior
+  // interrupted invocation gets a chance to become 'queued' again (and
+  // therefore claimable below) in the very same pass, rather than waiting
+  // for a separate cron tick.
+  await reclaimStaleRunningJobs(client, { now });
   const claimed = await claimDueJobs(client, { shopId, limit, now });
   const results = [];
   for (const job of claimed) {

@@ -95,6 +95,7 @@ test("set_content_disclosure: no AI flags -> disclosure not required, even if th
 test("run_publishing_queue: a job whose disclosure is required but not applied settles to 'failed' WITHOUT ever calling the social provider", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
+    { data: [], error: null }, // reclaimStaleRunningJobs: no stale jobs
     { data: [{ id: "job-1" }], error: null }, // claimDueJobs: candidate select
     { data: [{ id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null }, // claimDueJobs: atomic claim
     { data: { id: "variant-1", platform: "tiktok", caption: "hi", scheduled_at: null, ai_disclosure_required: true, disclosure_applied: false }, error: null }, // variant lookup
@@ -117,6 +118,7 @@ test("run_publishing_queue: a job whose disclosure is required but not applied s
 test("run_publishing_queue: a job whose disclosure was applied proceeds to the (still not-live) provider exactly as before this pass", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
+    { data: [], error: null }, // reclaimStaleRunningJobs: no stale jobs
     { data: [{ id: "job-1" }], error: null },
     { data: [{ id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null },
     { data: { id: "variant-1", platform: "tiktok", caption: "hi", scheduled_at: null, ai_disclosure_required: true, disclosure_applied: true }, error: null },
@@ -137,6 +139,7 @@ test("run_publishing_queue: a job whose disclosure was applied proceeds to the (
 test("run_publishing_queue: a job with no disclosure requirement at all is unaffected — baseline not-live behavior preserved exactly", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
+    { data: [], error: null }, // reclaimStaleRunningJobs: no stale jobs
     { data: [{ id: "job-1" }], error: null },
     { data: [{ id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }], error: null },
     { data: { id: "variant-1", platform: "facebook", caption: "hi", scheduled_at: null }, error: null }, // no disclosure columns at all — older-shape row

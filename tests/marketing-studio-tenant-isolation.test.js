@@ -103,6 +103,7 @@ test("evaluate_ab_experiment: the performance-metrics lookup is also scoped to t
 test("run_publishing_queue: the variant read that decides disclosure/provider dispatch is scoped to the requesting shop, not just the job's platform_variant_id", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
+    { data: [], error: null }, // reclaimStaleRunningJobs: no stale jobs
     { data: [{ id: "job-1" }], error: null }, // claimDueJobs: candidate select
     {
       data: [{ id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", status: "running", attempts: 0, max_attempts: 5, next_attempt_at: new Date(0).toISOString() }],
