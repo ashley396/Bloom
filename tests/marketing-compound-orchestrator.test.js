@@ -518,3 +518,163 @@ test("runCompoundRequest: an unparseable request fails honestly rather than fabr
     globalThis.fetch = originalFetch;
   }
 });
+
+// Priority 8 completion pass: checkDigitalTwinAvailability's result
+// (ctx.digitalTwin) used to be a dead end — nothing downstream ever
+// consumed it, even on a "wants my own likeness in the video" request
+// with a genuinely ready avatar+voice profile pair. This proves the real
+// generation call now actually happens, using the same real HeyGen/
+// ElevenLabs adapter Priority 5's clone-provider tests already verify at
+// its own level, and records a real marketing_clone_video_jobs row.
+test("runCompoundRequest: a ready Digital Twin (avatar+voice) actually kicks off a real render using this request's own generated script — not just an availability check that goes nowhere", async () => {
+  const savedEnv = { ...process.env };
+  process.env.HEYGEN_API_KEY = "heygen-key";
+  process.env.ELEVENLABS_API_KEY = "elevenlabs-key";
+
+  const mock = installCloudflareRouter({
+    extraction: {
+      wants_image: false,
+      wants_video: true,
+      wants_digital_twin: true,
+      platforms: ["facebook"],
+      occasion: "wedding bouquet",
+      inventory_grounded: false,
+      budget_dollars: null,
+      schedule_relative_day: null,
+      schedule_time_of_day: null,
+      summary: "A wedding bouquet Reel using my own likeness."
+    },
+    videoConcept: {
+      concept: "A 15-second look at building a wedding bouquet.",
+      script: "Hands trimming stems — wedding season is here.",
+      scenes: ["0-3s: hands trimming stems"],
+      captions: ["Book your wedding flowers today"],
+      hashtags: ["#wedding"],
+      suggested_length_seconds: 15
+    },
+    socialPost: DEFAULT_SOCIAL_POST
+  });
+  const cloudflareFetch = globalThis.fetch;
+  let uploadedFilename;
+  globalThis.fetch = async (url, opts) => {
+    const u = String(url);
+    if (u.includes("elevenlabs.io")) return { ok: true, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer };
+    if (u.includes("api.heygen.com/v3/videos")) {
+      const body = JSON.parse(opts.body);
+      assert.match(body.audio_url, /clone-audio/, "must pass the real uploaded audio URL to HeyGen");
+      return { ok: true, json: async () => ({ data: { video_id: "vid-real-1" } }) };
+    }
+    return cloudflareFetch(url, opts);
+  };
+
+  const storage = createFakeSupabaseStorage({
+    publicUrl: (path) => {
+      uploadedFilename = path;
+      return `https://florisyn.example/website-media/${path}`;
+    }
+  });
+  const client = createFakeSupabaseClient(
+    [
+      { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
+      { data: { marketing_monthly_budget_cents: null }, error: null }, // shop monthly-default lookup
+      { data: { id: "consent-1", avatar_permission: true, voice_permission: true, revoked_at: null }, error: null }, // marketing_clone_consent
+      { data: { id: "avatar-1", status: "ready" }, error: null }, // marketing_avatar_profiles
+      { data: { id: "voice-1", status: "ready" }, error: null }, // marketing_voice_profiles
+      { data: { id: "asset-video-1" }, error: null }, // ai_generated_assets insert (video concept)
+      { data: { id: "clone-job-1" }, error: null }, // marketing_clone_video_jobs insert
+      { data: { id: "content-1" }, error: null }, // marketing_content_items insert
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // marketing_platform_variants insert
+      { data: { id: "job-1", status: "partially_completed" }, error: null } // ai_execution_jobs final update
+    ],
+    { storage }
+  );
+
+  try {
+    const result = await runCompoundRequest(client, {
+      shopId: "shop-1",
+      userId: "user-1",
+      message: "Make a wedding bouquet Reel using my own likeness for Facebook.",
+      shop: {},
+      timezone: "America/New_York"
+    });
+    assert.equal(result.ok, true);
+
+    const jobUpdate = getJobUpdatePayload(client);
+    const renderStep = jobUpdate.plan.find((s) => s.id === "request_digital_twin_render");
+    assert.ok(renderStep, "the real render step must actually be in the plan for a digital-twin video request");
+    assert.equal(renderStep.status, "completed", "a genuinely ready avatar+voice pair must produce a real completed render kickoff, not a blocked/failed step");
+    assert.equal(renderStep.result.jobId, "vid-real-1");
+    assert.equal(renderStep.result.status, "rendering");
+
+    const cloneJobInsert = client.calls.find((c) => c.table === "marketing_clone_video_jobs" && c.ops.some((op) => op[0] === "insert"));
+    assert.ok(cloneJobInsert, "a real render must leave a real, correlatable job row");
+    assert.equal(cloneJobInsert.payload.provider_job_id, "vid-real-1");
+    assert.equal(cloneJobInsert.payload.source_asset_id, "asset-video-1", "must correlate back to THIS request's own generated video concept asset");
+    assert.equal(cloneJobInsert.payload.avatar_profile_id, "avatar-1");
+    assert.equal(cloneJobInsert.payload.voice_profile_id, "voice-1");
+    assert.equal(cloneJobInsert.payload.consent_id, "consent-1");
+    assert.ok(uploadedFilename?.includes("clone-audio"), "the synthesized voice track must actually be uploaded to real storage");
+  } finally {
+    mock.restore();
+    process.env = savedEnv;
+  }
+});
+
+test("runCompoundRequest: a ready Digital Twin with NO real provider connected reports an honest blocked render step, never a fake success", async () => {
+  const mock = installCloudflareRouter({
+    extraction: {
+      wants_image: false,
+      wants_video: true,
+      wants_digital_twin: true,
+      platforms: ["facebook"],
+      occasion: "wedding bouquet",
+      inventory_grounded: false,
+      budget_dollars: null,
+      schedule_relative_day: null,
+      schedule_time_of_day: null,
+      summary: "A wedding bouquet Reel using my own likeness."
+    },
+    videoConcept: {
+      concept: "A 15-second look at building a wedding bouquet.",
+      script: "Hands trimming stems.",
+      scenes: ["0-3s: hands trimming stems"],
+      captions: [],
+      hashtags: [],
+      suggested_length_seconds: 15
+    },
+    socialPost: DEFAULT_SOCIAL_POST
+  });
+  const storage = createFakeSupabaseStorage();
+  const client = createFakeSupabaseClient(
+    [
+      { data: { id: "job-1" }, error: null },
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: { id: "consent-1", avatar_permission: true, voice_permission: true, revoked_at: null }, error: null },
+      { data: { id: "avatar-1", status: "ready" }, error: null },
+      { data: { id: "voice-1", status: "ready" }, error: null },
+      { data: { id: "asset-video-1" }, error: null },
+      { data: { id: "content-1" }, error: null },
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null },
+      { data: { id: "job-1", status: "partially_completed" }, error: null }
+    ],
+    { storage }
+  );
+  try {
+    const result = await runCompoundRequest(client, {
+      shopId: "shop-1",
+      userId: "user-1",
+      message: "Make a wedding bouquet Reel using my own likeness for Facebook.",
+      shop: {},
+      timezone: "America/New_York"
+    });
+    assert.equal(result.ok, true);
+    const jobUpdate = getJobUpdatePayload(client);
+    const renderStep = jobUpdate.plan.find((s) => s.id === "request_digital_twin_render");
+    assert.equal(renderStep.status, "blocked");
+    assert.match(renderStep.error, /CONNECTION REQUIRED/);
+    const cloneJobInsert = client.calls.find((c) => c.table === "marketing_clone_video_jobs");
+    assert.equal(cloneJobInsert, undefined, "no job row when nothing was actually rendered");
+  } finally {
+    mock.restore();
+  }
+});

@@ -47,6 +47,9 @@ import { estimateCostCents } from "./marketing-cost-config.js";
 import { checkMonthlyBudgetForRequest } from "./marketing-budget-guard.js";
 import { shopDateStr } from "./shop-time.js";
 import { SUPPORTED_PLATFORMS } from "./marketing-social-providers.js";
+import { buildConfiguredCloneProviderRegistry, selectCloneProvider, notLiveCloneProvider } from "./marketing-clone-providers.js";
+import { uploadClonedVoiceAudio } from "./website-media.js";
+import { recordCloneVideoJob } from "./creative-ai/clone-video-jobs.js";
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const TIME_OF_DAY_DEFAULTS = { morning: "09:00", afternoon: "14:00", evening: "18:00", night: "20:00" };
@@ -233,6 +236,15 @@ export function planCompoundRequest(extracted) {
   if (extracted.wantsVideo) {
     steps.push({ id: "generate_video_concept", tool: "compound.generateVideoConcept", label: "Write the video script & storyboard", optional: false });
     steps.push({ id: "plan_video_render", tool: "compound.planVideoRender", label: "Build the video render plan", optional: true });
+    if (extracted.wantsDigitalTwin) {
+      // Digital Twin completion pass: availability alone (checkDigitalTwin)
+      // used to be a dead end — ctx.digitalTwin was set and never read
+      // again anywhere in this file. This is the real step that actually
+      // uses it: kicks off the real HeyGen/ElevenLabs render the moment a
+      // shop has a ready avatar+voice pair, using the script this SAME
+      // request just wrote (never a second, disconnected script).
+      steps.push({ id: "request_digital_twin_render", tool: "compound.requestDigitalTwinRender", label: "Render the Digital Twin video", optional: true });
+    }
   }
   steps.push({ id: "create_content_item", tool: "compound.createContentItem", label: `Create the content item + platform variants (${platforms.join(", ")})`, optional: false });
   if (extracted.wantsImage) {
@@ -360,6 +372,69 @@ async function runCompoundStep(client, step, ctx) {
       error: "Video RENDER PLAN is real and saved — actual rendering is CONNECTION REQUIRED (no video-rendering provider connected). This step is optional and does not block the rest of the request.",
       result: { plan: planResult.plan }
     };
+  }
+
+  // Digital Twin completion pass (Priority 8): the real generation call —
+  // reuses the exact same provider-selection/job-recording primitives
+  // personal-brand-service.js's requestDigitalTwinGeneration() uses for
+  // its own (founder_concept-scoped) flow, called directly here rather
+  // than through that function, since this compound flow's asset is a
+  // video_concept (different content shape: script/concept, not
+  // body/founder_presence_brief) — never silently misreading the wrong
+  // fields for a "real" render.
+  if (step.tool === "compound.requestDigitalTwinRender") {
+    if (!ctx.digitalTwin) {
+      return { ok: false, blocked: true, error: "Digital Twin availability was not confirmed earlier in this request — cannot render." };
+    }
+    const script = [ctx.videoConcept?.script, ctx.videoConcept?.concept].filter(Boolean).join(" ").trim();
+    if (!script) {
+      return { ok: false, error: "No video script/concept was generated to render as a Digital Twin video." };
+    }
+    const cloneRegistry = buildConfiguredCloneProviderRegistry({
+      env: process.env,
+      uploadAudio: (buffer, filename) => uploadClonedVoiceAudio(client, shopId, buffer, filename)
+    });
+    const provider = selectCloneProvider({}, cloneRegistry);
+    if (provider === notLiveCloneProvider) {
+      return {
+        ok: false,
+        blocked: true,
+        error: "Digital Twin render is CONNECTION REQUIRED — no avatar/voice provider is connected yet. The script above is real and ready to render the moment one is."
+      };
+    }
+    try {
+      const result = await provider.generateVideo({
+        avatarProfileId: ctx.digitalTwin.avatarProfileId,
+        voiceProfileId: ctx.digitalTwin.voiceProfileId,
+        script,
+        title: extracted.occasion || "Digital Twin video"
+      });
+      try {
+        await recordCloneVideoJob(client, {
+          shopId,
+          provider: result.provider || "heygen",
+          providerJobId: result.jobId,
+          source: "content_generation",
+          sourceAssetId: ctx.videoConceptAssetId || null,
+          avatarProfileId: ctx.digitalTwin.avatarProfileId,
+          voiceProfileId: ctx.digitalTwin.voiceProfileId,
+          consentId: ctx.digitalTwin.consentId,
+          usage: "social_video",
+          platform: platforms[0],
+          createdBy: userId
+        });
+      } catch (correlationError) {
+        // Same non-fatal pattern as personal-brand-service.js: the render
+        // was already kicked off (real spend committed) — losing the
+        // correlation row must never be reported as the whole step
+        // failing, or a real in-flight render would be retried/duplicated.
+        console.warn(JSON.stringify({ level: "warn", fn: "marketing-compound-orchestrator", message: "digital_twin_job_record_failed", reason: String(correlationError?.message || correlationError) }));
+      }
+      ctx.digitalTwinJobId = result.jobId;
+      return { ok: true, result: { jobId: result.jobId, status: result.status || "rendering" } };
+    } catch (error) {
+      return { ok: false, error: String(error?.message || error).slice(0, 300) };
+    }
   }
 
   if (step.tool === "compound.createContentItem") {
