@@ -33,6 +33,18 @@ test("classifyPublishFailure: a 400/422 is 'fatal' — bad content, not a networ
   assert.equal(classifyPublishFailure({ statusCode: 422 }), "fatal");
 });
 
+test("classifyPublishFailure: a social_token_invalid error is classified 'token_invalid' — retrying the same rejected token can never succeed", () => {
+  const err = new Error("Meta rejected the stored access token");
+  err.code = "social_token_invalid";
+  assert.equal(classifyPublishFailure(err), "token_invalid");
+});
+
+test("classifyPublishFailure: a social_provider_timeout error is classified 'ambiguous' — never assumed safe to blindly retry", () => {
+  const err = new Error("did not complete in time");
+  err.code = "social_provider_timeout";
+  assert.equal(classifyPublishFailure(err), "ambiguous");
+});
+
 test("classifyPublishFailure: anything unrecognized defaults to 'transient' — the safe default is to retry, not silently drop", () => {
   assert.equal(classifyPublishFailure({ statusCode: 503 }), "transient");
   assert.equal(classifyPublishFailure(new Error("network blip")), "transient");
@@ -49,6 +61,18 @@ test("nextJobStateAfterFailure: a not_live failure settles to 'failed' immediate
 test("nextJobStateAfterFailure: a fatal failure also settles to 'failed' immediately", () => {
   const next = nextJobStateAfterFailure({ attempts: 0, maxAttempts: 5, kind: "fatal" });
   assert.equal(next.status, "failed");
+});
+
+test("nextJobStateAfterFailure: a token_invalid failure settles to 'failed' immediately — no backoff loop against a token that will keep rejecting", () => {
+  const next = nextJobStateAfterFailure({ attempts: 0, maxAttempts: 5, kind: "token_invalid" });
+  assert.equal(next.status, "failed");
+  assert.equal(next.delaySeconds, null);
+});
+
+test("nextJobStateAfterFailure: an ambiguous failure settles to 'failed' immediately — never auto-retried, to avoid a possible duplicate post", () => {
+  const next = nextJobStateAfterFailure({ attempts: 0, maxAttempts: 5, kind: "ambiguous" });
+  assert.equal(next.status, "failed");
+  assert.equal(next.delaySeconds, null);
 });
 
 test("nextJobStateAfterFailure: a transient failure under max_attempts requeues with backoff", () => {

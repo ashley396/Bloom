@@ -16,7 +16,14 @@
  */
 
 import { admin as adminClient } from "./_shared/supabase.js";
-import { verifyOAuthState, exchangeCodeForToken, exchangeLongLivedFacebookToken, encryptSocialToken } from "./_shared/marketing-social-oauth.js";
+import {
+  verifyOAuthState,
+  exchangeCodeForToken,
+  exchangeLongLivedFacebookToken,
+  resolveFacebookPages,
+  resolveInstagramBusinessAccount,
+  encryptSocialToken
+} from "./_shared/marketing-social-oauth.js";
 import { resolvePublicSiteUrl } from "./_shared/site-url.js";
 import { writeAdminAudit } from "./_shared/platform-admin.js";
 
@@ -34,6 +41,8 @@ export async function handleMarketingSocialOAuthCallback(event, dependencies = {
   const verify = dependencies.verifyOAuthState || verifyOAuthState;
   const exchange = dependencies.exchangeCodeForToken || exchangeCodeForToken;
   const exchangeLongLived = dependencies.exchangeLongLivedFacebookToken || exchangeLongLivedFacebookToken;
+  const listPages = dependencies.resolveFacebookPages || resolveFacebookPages;
+  const resolveIgAccount = dependencies.resolveInstagramBusinessAccount || resolveInstagramBusinessAccount;
   const encrypt = dependencies.encryptSocialToken || encryptSocialToken;
 
   if (event.httpMethod !== "GET") return { statusCode: 405, body: "Method Not Allowed" };
@@ -84,6 +93,64 @@ export async function handleMarketingSocialOAuthCallback(event, dependencies = {
     }
   }
 
+  // Facebook Pages / Instagram publishing both authenticate with a
+  // page-scoped access token targeting a specific Page/IG Business
+  // Account id — never the connecting user's own token or id. Resolved
+  // here (real Graph API calls, not guessed) so the stored connection is
+  // actually usable by the publishing adapters, not just "OAuth
+  // completed." TikTok's Direct Post targets the connected creator
+  // account directly, so no equivalent resolution is needed there.
+  let externalAccountId = null;
+  let accountLabel = null;
+  if (platform === "facebook" || platform === "instagram") {
+    const pagesResult = await listPages({ accessToken, env: process.env });
+    if (!pagesResult.ok) {
+      log("page_resolution_failed", { platform, shopId, reason: pagesResult.error });
+      return redirectTo(adminUrl({ oauth: "error", platform, message: `Connected, but could not list Facebook Pages: ${pagesResult.error}` }));
+    }
+    const pages = pagesResult.pages || [];
+    if (pages.length === 0) {
+      return redirectTo(
+        adminUrl({
+          oauth: "error",
+          platform,
+          message: "No Facebook Page was found on this account. Both Facebook Pages and Instagram publishing require managing at least one Facebook Page — create one, then reconnect."
+        })
+      );
+    }
+    if (pages.length > 1) {
+      return redirectTo(
+        adminUrl({
+          oauth: "error",
+          platform,
+          message: `Found ${pages.length} Facebook Pages (${pages.map((p) => p.name).join(", ")}) — connecting an account managing more than one Page isn't supported yet. Reconnect using an account with a single Page, or contact support.`
+        })
+      );
+    }
+    const page = pages[0];
+    if (platform === "facebook") {
+      externalAccountId = page.id;
+      accountLabel = page.name;
+    } else {
+      const igResult = await resolveIgAccount({ pageId: page.id, pageAccessToken: page.accessToken, env: process.env });
+      if (!igResult.ok) {
+        return redirectTo(adminUrl({ oauth: "error", platform, message: `Connected to Facebook Page "${page.name}", but ${igResult.error}` }));
+      }
+      externalAccountId = igResult.igUserId;
+      accountLabel = `${page.name} (Instagram)`;
+    }
+    // Publish calls authenticate with the PAGE's own token, never the
+    // connecting user's token — Graph API rejects a user token on
+    // page/IG-scoped endpoints. Page tokens minted from a long-lived user
+    // token are themselves long-lived per Meta's documented behavior;
+    // /me/accounts returns no separate expires_in for them, so this is
+    // treated as non-expiring rather than a guessed duration — a real
+    // 401 from the adapter (social_token_invalid) is what actually
+    // surfaces an eventual revocation, not a fabricated expiry.
+    accessToken = page.accessToken;
+    expiresInSeconds = null;
+  }
+
   const client = getClient();
   const expiresAt = expiresInSeconds ? new Date(Date.now() + expiresInSeconds * 1000).toISOString() : null;
 
@@ -94,6 +161,8 @@ export async function handleMarketingSocialOAuthCallback(event, dependencies = {
         shop_id: shopId,
         platform,
         status: "connected",
+        account_label: accountLabel,
+        external_account_id: externalAccountId,
         connected_at: new Date().toISOString(),
         expires_at: expiresAt,
         last_error: null,

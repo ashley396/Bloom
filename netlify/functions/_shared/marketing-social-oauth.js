@@ -310,6 +310,58 @@ export async function exchangeLongLivedFacebookToken(platform, { accessToken, en
   return { ok: true, accessToken: payload.access_token, expiresInSeconds: Number(payload.expires_in) || null };
 }
 
+/**
+ * Facebook Pages / Instagram publishing both authenticate with a
+ * page-scoped access token, never the connecting user's own token — a
+ * gap the original OAuth pass left unresolved (a not-fully-wired
+ * integration, not a working one). Real, documented resolution chain
+ * (verified via live search during this pass):
+ *   GET /me/accounts?fields=id,name,access_token (using the long-lived
+ *   USER token) lists every Page the user manages, each with its own
+ *   access token — long-lived when derived from a long-lived user token,
+ *   per Meta's documented behavior, which is why this must run AFTER
+ *   exchangeLongLivedFacebookToken(), never before.
+ */
+export async function resolveFacebookPages({ accessToken, env = process.env } = {}) {
+  if (!accessToken) return { ok: false, error: "accessToken is required." };
+  const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/me/accounts`);
+  url.searchParams.set("access_token", accessToken);
+  url.searchParams.set("fields", "id,name,access_token");
+  let response;
+  try {
+    response = await fetch(url.toString());
+  } catch (error) {
+    return { ok: false, error: `Could not list Facebook Pages: ${String(error?.message || error).slice(0, 200)}` };
+  }
+  const payload = await parseJsonSafely(response);
+  if (!response.ok) return { ok: false, error: payload?.error?.message || `Meta returned ${response.status}` };
+  const pages = (payload?.data || []).map((p) => ({ id: p.id, name: p.name, accessToken: p.access_token }));
+  return { ok: true, pages };
+}
+
+/** Resolves the Instagram professional account linked to a given
+ * Facebook Page — GET /{page-id}?fields=instagram_business_account,
+ * authenticated with that Page's own access token (not the user token).
+ * A Page with no linked Instagram account returns ok:false, never a
+ * fabricated id. */
+export async function resolveInstagramBusinessAccount({ pageId, pageAccessToken, env = process.env } = {}) {
+  if (!pageId || !pageAccessToken) return { ok: false, error: "pageId and pageAccessToken are required." };
+  const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${pageId}`);
+  url.searchParams.set("access_token", pageAccessToken);
+  url.searchParams.set("fields", "instagram_business_account");
+  let response;
+  try {
+    response = await fetch(url.toString());
+  } catch (error) {
+    return { ok: false, error: `Could not resolve the linked Instagram account: ${String(error?.message || error).slice(0, 200)}` };
+  }
+  const payload = await parseJsonSafely(response);
+  if (!response.ok) return { ok: false, error: payload?.error?.message || `Meta returned ${response.status}` };
+  const igUserId = payload?.instagram_business_account?.id;
+  if (!igUserId) return { ok: false, error: "This Facebook Page has no linked Instagram professional (Business/Creator) account." };
+  return { ok: true, igUserId };
+}
+
 /** TikTok-only: refreshes an access token via the standard refresh_token
  * grant. Meta tokens are refreshed by re-running exchangeLongLivedFacebookToken
  * instead — Meta has no refresh_token grant on this flow. */

@@ -29,7 +29,9 @@ import {
   computeBackoffSeconds
 } from "./marketing-publishing-queue.js";
 import { enforcePrePublishDisclosureGate } from "./creative-ai/disclosure-policy.js";
-import { notLiveSocialProvider, SOCIAL_NOT_LIVE } from "./marketing-social-providers.js";
+import { notLiveSocialProvider, SOCIAL_NOT_LIVE, isPlatformConfigured, buildConfiguredSocialProviderRegistry } from "./marketing-social-providers.js";
+import { decryptSocialToken } from "./marketing-social-oauth.js";
+import { publicWebsiteMediaUrl } from "./website-media.js";
 
 export { computeBackoffSeconds };
 
@@ -101,7 +103,7 @@ export async function claimDueJobs(client, { shopId = null, limit = DEFAULT_CLAI
  * scheduled-function path gets the exact same guarantees, not a
  * reimplementation that could drift from it.
  */
-export async function processClaimedJob(client, job, { now = new Date() } = {}) {
+export async function processClaimedJob(client, job, { now = new Date(), registry = null } = {}) {
   let platform = null;
   let outcome;
   try {
@@ -131,14 +133,29 @@ export async function processClaimedJob(client, job, { now = new Date() } = {}) 
     }
     platform = variant.platform;
 
+    let assetUrl = null;
     if (variant.asset_id) {
-      const assetResult = await client.from("ai_generated_assets").select("id,status").eq("id", variant.asset_id).maybeSingle();
+      const assetResult = await client.from("ai_generated_assets").select("id,status,media_id").eq("id", variant.asset_id).maybeSingle();
       if (assetResult.error) throw assetResult.error;
       if (assetResult.data?.status === "quarantined") {
         const quarantineError = new Error("Source asset is quarantined (consent was revoked) and cannot be published.");
         quarantineError.statusCode = 400;
         quarantineError.code = "asset_quarantined";
         throw quarantineError;
+      }
+      // Real publish-adapter completion pass: a real provider needs a
+      // real, public HTTPS URL to the image/video, not Florisyn's
+      // internal asset id — images are stored in website_media (see
+      // ai_generated_assets' own schema comment), so resolving one is a
+      // real DB read + a real public-URL lookup, never a guessed path.
+      // Only actually resolved when this platform has a real, configured
+      // adapter (below) — a not-live platform never needed it anyway.
+      if (assetResult.data?.media_id && isPlatformConfigured(platform, process.env)) {
+        const mediaResult = await client.from("website_media").select("storage_path").eq("id", assetResult.data.media_id).eq("shop_id", job.shop_id).maybeSingle();
+        if (mediaResult.error) throw mediaResult.error;
+        if (mediaResult.data?.storage_path) {
+          assetUrl = publicWebsiteMediaUrl(client, mediaResult.data.storage_path);
+        }
       }
     }
     const gate = enforcePrePublishDisclosureGate(variant);
@@ -156,7 +173,7 @@ export async function processClaimedJob(client, job, { now = new Date() } = {}) 
     // whose connection was revoked/needs reauth, or whose token expired.
     const connectionResult = await client
       .from("marketing_social_connections")
-      .select("id,status,expires_at")
+      .select("id,status,expires_at,external_account_id")
       .eq("shop_id", job.shop_id)
       .eq("platform", platform)
       .maybeSingle();
@@ -173,12 +190,46 @@ export async function processClaimedJob(client, job, { now = new Date() } = {}) 
       throw notConnectedError;
     }
 
-    const provider = notLiveSocialProvider(platform);
-    await provider.publish(variant);
-    // Unreachable today (every provider is not-live), kept so a real
-    // adapter's success path is already wired correctly.
+    // registry is only ever supplied in tests (real production callers
+    // never pass it) — lets a test exercise the worker's real asset/token
+    // plumbing against a fast, deterministic stub provider instead of a
+    // real adapter's real (multi-second) polling delays, while the real
+    // adapters' own actual HTTP behavior is separately proven in
+    // marketing-social-adapter-*.test.js against mocked real endpoints.
+    const effectiveRegistry = registry || buildConfiguredSocialProviderRegistry({ env: process.env });
+    const provider = effectiveRegistry[platform] || notLiveSocialProvider(platform);
+
+    // A real, configured adapter needs real call-time context this
+    // worker resolves itself — the decrypted access token (service-role
+    // only; never touches browser code) and the target account id
+    // captured at connect time (marketing-social-oauth-callback.js). An
+    // unconfigured/not-live platform never reaches this — publish()
+    // ignores whatever it's called with and throws regardless, so no
+    // wasted queries for the common today-still-not-live case.
+    let publishContext = variant;
+    if (isPlatformConfigured(platform, process.env)) {
+      const secretsResult = await client
+        .from("marketing_social_connection_secrets")
+        .select("access_token_ciphertext")
+        .eq("connection_id", connectionResult.data.id)
+        .maybeSingle();
+      if (secretsResult.error) throw secretsResult.error;
+      const accessToken = secretsResult.data?.access_token_ciphertext ? decryptSocialToken(secretsResult.data.access_token_ciphertext, process.env) : "";
+      if (!accessToken) {
+        const tokenError = new Error(`${platform}: no usable stored access token for this connection — reconnect the platform.`);
+        tokenError.code = "social_token_invalid";
+        tokenError.statusCode = 401;
+        throw tokenError;
+      }
+      publishContext = { ...variant, accessToken, externalAccountId: connectionResult.data.external_account_id, assetUrl, caption: variant.caption };
+    }
+
+    const publishResult = await provider.publish(publishContext);
     await client.from("marketing_publishing_jobs").update({ status: "succeeded", attempts: job.attempts + 1, updated_at: new Date().toISOString() }).eq("id", job.id);
-    await client.from("marketing_platform_variants").update({ status: "published", published_at: new Date().toISOString() }).eq("id", job.platform_variant_id);
+    await client
+      .from("marketing_platform_variants")
+      .update({ status: "published", published_at: new Date().toISOString(), external_post_id: publishResult?.externalPostId || null })
+      .eq("id", job.platform_variant_id);
     outcome = "succeeded";
   } catch (error) {
     const kind = classifyPublishFailure(error);
@@ -200,6 +251,19 @@ export async function processClaimedJob(client, job, { now = new Date() } = {}) 
         .from("marketing_platform_variants")
         .update({ status: "failed", last_error: String(error?.message || error).slice(0, 500) })
         .eq("id", job.platform_variant_id);
+    }
+    // Real connection-health tracking (Priority 5 completion pass): a
+    // token the provider itself rejected means THIS connection is
+    // genuinely broken, independent of any one job's retry/backoff state
+    // — surfaced to the real Connections panel as needs_reauth rather
+    // than silently staying "connected" while every publish keeps
+    // failing the same way.
+    if (kind === "token_invalid" && platform) {
+      await client
+        .from("marketing_social_connections")
+        .update({ status: "needs_reauth", last_error: String(error?.message || error).slice(0, 500), last_checked_at: new Date().toISOString() })
+        .eq("shop_id", job.shop_id)
+        .eq("platform", platform);
     }
     outcome = next.status;
   }

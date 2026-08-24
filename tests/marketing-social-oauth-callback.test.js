@@ -16,6 +16,7 @@ function makeEvent(qs = {}, { method = "GET" } = {}) {
 }
 
 const validState = () => ({ valid: true, platform: "facebook", shopId: "shop-1", userId: "user-1", codeVerifier: null });
+const onePage = async () => ({ ok: true, pages: [{ id: "page-1", name: "Test Florals", accessToken: "page-token-1" }] });
 
 test("rejects non-GET methods", async () => {
   const res = await handleMarketingSocialOAuthCallback(makeEvent({}, { method: "POST" }));
@@ -72,7 +73,7 @@ test("a token exchange failure surfaces the real provider error, never a fabrica
   assert.equal(client.calls.length, 0, "no partial connection row on a failed exchange");
 });
 
-test("happy path (facebook): exchanges the code, extends to a long-lived token, stores the connection + encrypted secrets, audits, and redirects to oauth=success", async () => {
+test("happy path (facebook): exchanges the code, extends to a long-lived token, resolves the real Page and stores its PAGE token (not the user token), audits, and redirects to oauth=success", async () => {
   process.env.FLORISYN_MARKETING_TOKEN_KEY = "a-real-key";
   const client = createFakeSupabaseClient([
     { data: { id: "conn-1" }, error: null }, // marketing_social_connections upsert().select().single()
@@ -83,7 +84,8 @@ test("happy path (facebook): exchanges the code, extends to a long-lived token, 
     admin: () => client,
     verifyOAuthState: validState,
     exchangeCodeForToken: async () => ({ ok: true, accessToken: "short-lived", refreshToken: null, expiresInSeconds: 5000, scope: "pages_manage_posts" }),
-    exchangeLongLivedFacebookToken: async () => ({ ok: true, accessToken: "long-lived-token", expiresInSeconds: 5183944 })
+    exchangeLongLivedFacebookToken: async () => ({ ok: true, accessToken: "long-lived-user-token", expiresInSeconds: 5183944 }),
+    resolveFacebookPages: onePage
   });
 
   assert.equal(res.statusCode, 302);
@@ -94,11 +96,17 @@ test("happy path (facebook): exchanges the code, extends to a long-lived token, 
   assert.equal(connCall.payload.shop_id, "shop-1");
   assert.equal(connCall.payload.platform, "facebook");
   assert.equal(connCall.payload.status, "connected");
+  assert.equal(connCall.payload.external_account_id, "page-1", "must store the real Page id, not the connecting user's id");
+  assert.equal(connCall.payload.account_label, "Test Florals");
+  assert.equal(connCall.payload.expires_at, null, "a Page token from /me/accounts carries no real expires_in — never a guessed expiry");
 
   const secretsCall = client.calls.find((c) => c.table === "marketing_social_connection_secrets");
   assert.equal(secretsCall.payload.connection_id, "conn-1");
-  assert.ok(Buffer.isBuffer(secretsCall.payload.access_token_ciphertext) || secretsCall.payload.access_token_ciphertext);
-  assert.notEqual(String(secretsCall.payload.access_token_ciphertext), "long-lived-token", "the raw token must never be stored in plaintext");
+  assert.notEqual(String(secretsCall.payload.access_token_ciphertext), "page-token-1", "the raw token must never be stored in plaintext");
+  // Decrypt to prove it's the PAGE token that got stored, not the
+  // long-lived USER token — the exact bug this pass fixes.
+  const { decryptSocialToken } = await import("../netlify/functions/_shared/marketing-social-oauth.js");
+  assert.equal(decryptSocialToken(secretsCall.payload.access_token_ciphertext, process.env), "page-token-1");
 
   const auditCall = client.calls.find((c) => c.table === "platform_admin_audit");
   assert.ok(auditCall, "a real connection must leave a real audit trail");
@@ -106,8 +114,78 @@ test("happy path (facebook): exchanges the code, extends to a long-lived token, 
   assert.equal(auditCall.payload.admin_user_id, "user-1");
 });
 
-test("happy path (tiktok): no long-lived exchange attempted — that mechanism is Meta-only", async () => {
+test("happy path (instagram): resolves the linked IG business account through the Page's own token, stores THAT as the target id", async () => {
   process.env.FLORISYN_MARKETING_TOKEN_KEY = "a-real-key";
+  const client = createFakeSupabaseClient([{ data: { id: "conn-1" }, error: null }, { data: null, error: null }, { data: null, error: null }]);
+  const res = await handleMarketingSocialOAuthCallback(makeEvent({ code: "auth-code", state: "signed-state" }), {
+    admin: () => client,
+    verifyOAuthState: () => ({ valid: true, platform: "instagram", shopId: "shop-1", userId: "user-1", codeVerifier: null }),
+    exchangeCodeForToken: async () => ({ ok: true, accessToken: "short-lived", refreshToken: null, expiresInSeconds: 5000 }),
+    exchangeLongLivedFacebookToken: async () => ({ ok: true, accessToken: "long-lived-user-token", expiresInSeconds: 5183944 }),
+    resolveFacebookPages: onePage,
+    resolveInstagramBusinessAccount: async ({ pageId }) => ({ ok: true, igUserId: `ig-${pageId}` })
+  });
+  assert.equal(res.statusCode, 302);
+  assert.equal(new URL(res.headers.Location).searchParams.get("oauth"), "success");
+  const connCall = client.calls.find((c) => c.table === "marketing_social_connections");
+  assert.equal(connCall.payload.external_account_id, "ig-page-1");
+  assert.equal(connCall.payload.account_label, "Test Florals (Instagram)");
+});
+
+test("facebook: an account with zero Facebook Pages is a clear, honest failure — nothing is saved", async () => {
+  const client = createFakeSupabaseClient([]);
+  const res = await handleMarketingSocialOAuthCallback(makeEvent({ code: "auth-code", state: "signed-state" }), {
+    admin: () => client,
+    verifyOAuthState: validState,
+    exchangeCodeForToken: async () => ({ ok: true, accessToken: "short-lived", refreshInSeconds: null }),
+    exchangeLongLivedFacebookToken: async () => ({ ok: true, accessToken: "long-lived-user-token", expiresInSeconds: 5183944 }),
+    resolveFacebookPages: async () => ({ ok: true, pages: [] })
+  });
+  assert.equal(res.statusCode, 302);
+  assert.match(new URL(res.headers.Location).searchParams.get("message"), /No Facebook Page was found/);
+  assert.equal(client.calls.length, 0);
+});
+
+test("facebook: an account managing multiple Pages is refused rather than guessing which one to use", async () => {
+  const client = createFakeSupabaseClient([]);
+  const res = await handleMarketingSocialOAuthCallback(makeEvent({ code: "auth-code", state: "signed-state" }), {
+    admin: () => client,
+    verifyOAuthState: validState,
+    exchangeCodeForToken: async () => ({ ok: true, accessToken: "short-lived" }),
+    exchangeLongLivedFacebookToken: async () => ({ ok: true, accessToken: "long-lived-user-token", expiresInSeconds: 5183944 }),
+    resolveFacebookPages: async () => ({
+      ok: true,
+      pages: [
+        { id: "page-1", name: "Test Florals Downtown", accessToken: "tok-1" },
+        { id: "page-2", name: "Test Florals Uptown", accessToken: "tok-2" }
+      ]
+    })
+  });
+  assert.equal(res.statusCode, 302);
+  const message = new URL(res.headers.Location).searchParams.get("message");
+  assert.match(message, /Found 2 Facebook Pages/);
+  assert.match(message, /Test Florals Downtown/);
+  assert.equal(client.calls.length, 0);
+});
+
+test("instagram: a Page with no linked Instagram account is a clear, honest failure — nothing is saved", async () => {
+  const client = createFakeSupabaseClient([]);
+  const res = await handleMarketingSocialOAuthCallback(makeEvent({ code: "auth-code", state: "signed-state" }), {
+    admin: () => client,
+    verifyOAuthState: () => ({ valid: true, platform: "instagram", shopId: "shop-1", userId: "user-1", codeVerifier: null }),
+    exchangeCodeForToken: async () => ({ ok: true, accessToken: "short-lived" }),
+    exchangeLongLivedFacebookToken: async () => ({ ok: true, accessToken: "long-lived-user-token", expiresInSeconds: 5183944 }),
+    resolveFacebookPages: onePage,
+    resolveInstagramBusinessAccount: async () => ({ ok: false, error: "This Facebook Page has no linked Instagram professional (Business/Creator) account." })
+  });
+  assert.equal(res.statusCode, 302);
+  assert.match(new URL(res.headers.Location).searchParams.get("message"), /no linked Instagram/);
+  assert.equal(client.calls.length, 0);
+});
+
+test("happy path (tiktok): no Page resolution attempted at all — that mechanism is Meta-only, and TikTok's user token is stored directly", async () => {
+  process.env.FLORISYN_MARKETING_TOKEN_KEY = "a-real-key";
+  let pagesCalled = false;
   let longLivedCalled = false;
   const client = createFakeSupabaseClient([
     { data: { id: "conn-1" }, error: null },
@@ -121,11 +199,19 @@ test("happy path (tiktok): no long-lived exchange attempted — that mechanism i
     exchangeLongLivedFacebookToken: async () => {
       longLivedCalled = true;
       return { ok: false };
+    },
+    resolveFacebookPages: async () => {
+      pagesCalled = true;
+      return { ok: true, pages: [] };
     }
   });
   assert.equal(res.statusCode, 302);
   assert.equal(new URL(res.headers.Location).searchParams.get("oauth"), "success");
   assert.equal(longLivedCalled, false);
+  assert.equal(pagesCalled, false);
+
+  const connCall = client.calls.find((c) => c.table === "marketing_social_connections");
+  assert.equal(connCall.payload.external_account_id, null, "tiktok has no separate target account id — Direct Post targets the connected creator directly");
 
   const secretsCall = client.calls.find((c) => c.table === "marketing_social_connection_secrets");
   assert.ok(secretsCall.payload.refresh_token_ciphertext, "tiktok's real refresh token must be stored (encrypted), unlike Meta's flow");
@@ -139,7 +225,8 @@ test("no token encryption key configured: the exchange succeeded but nothing is 
     admin: () => client,
     verifyOAuthState: validState,
     exchangeCodeForToken: async () => ({ ok: true, accessToken: "short-lived", refreshToken: null, expiresInSeconds: 5000 }),
-    exchangeLongLivedFacebookToken: async () => ({ ok: true, accessToken: "long-lived-token", expiresInSeconds: 5183944 })
+    exchangeLongLivedFacebookToken: async () => ({ ok: true, accessToken: "long-lived-user-token", expiresInSeconds: 5183944 }),
+    resolveFacebookPages: onePage
   });
   assert.equal(res.statusCode, 302);
   assert.equal(new URL(res.headers.Location).searchParams.get("oauth"), "error");

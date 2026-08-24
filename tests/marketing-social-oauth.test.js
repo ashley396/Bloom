@@ -9,6 +9,8 @@ import {
   exchangeCodeForToken,
   exchangeLongLivedFacebookToken,
   refreshTikTokToken,
+  resolveFacebookPages,
+  resolveInstagramBusinessAccount,
   encryptSocialToken,
   decryptSocialToken,
   oauthScopesFor
@@ -248,4 +250,56 @@ test("encryptSocialToken: falls back to PAYMENT_HUB_TOKEN_KEY when no marketing-
   const cipher = encryptSocialToken("token-value", env);
   assert.ok(Buffer.isBuffer(cipher));
   assert.equal(decryptSocialToken(cipher, env), "token-value");
+});
+
+test("resolveFacebookPages: lists real pages with their own page-scoped access tokens, not the user's token", async () => {
+  let capturedUrl;
+  const restore = mockFetch(async (url) => {
+    capturedUrl = new URL(String(url));
+    return { ok: true, json: async () => ({ data: [{ id: "page-1", name: "Test Florals", access_token: "page-token-1" }] }) };
+  });
+  const result = await resolveFacebookPages({ accessToken: "user-token" });
+  restore();
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.pages, [{ id: "page-1", name: "Test Florals", accessToken: "page-token-1" }]);
+  assert.equal(capturedUrl.pathname, "/v22.0/me/accounts");
+  assert.equal(capturedUrl.searchParams.get("access_token"), "user-token");
+});
+
+test("resolveFacebookPages: zero pages is a real, honest result — never fabricated", async () => {
+  const restore = mockFetch(async () => ({ ok: true, json: async () => ({ data: [] }) }));
+  const result = await resolveFacebookPages({ accessToken: "user-token" });
+  restore();
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.pages, []);
+});
+
+test("resolveFacebookPages: a provider error surfaces the real message", async () => {
+  const restore = mockFetch(async () => ({ ok: false, status: 400, json: async () => ({ error: { message: "Invalid OAuth access token." } }) }));
+  const result = await resolveFacebookPages({ accessToken: "bad-token" });
+  restore();
+  assert.equal(result.ok, false);
+  assert.match(result.error, /Invalid OAuth access token/);
+});
+
+test("resolveInstagramBusinessAccount: resolves the real linked IG business account id, authenticated with the PAGE token", async () => {
+  let capturedUrl;
+  const restore = mockFetch(async (url) => {
+    capturedUrl = new URL(String(url));
+    return { ok: true, json: async () => ({ instagram_business_account: { id: "ig-user-1" } }) };
+  });
+  const result = await resolveInstagramBusinessAccount({ pageId: "page-1", pageAccessToken: "page-token-1" });
+  restore();
+  assert.equal(result.ok, true);
+  assert.equal(result.igUserId, "ig-user-1");
+  assert.equal(capturedUrl.pathname, "/v22.0/page-1");
+  assert.equal(capturedUrl.searchParams.get("access_token"), "page-token-1");
+});
+
+test("resolveInstagramBusinessAccount: a Page with no linked Instagram account is a clear, honest failure, never a guessed id", async () => {
+  const restore = mockFetch(async () => ({ ok: true, json: async () => ({}) }));
+  const result = await resolveInstagramBusinessAccount({ pageId: "page-1", pageAccessToken: "page-token-1" });
+  restore();
+  assert.equal(result.ok, false);
+  assert.match(result.error, /no linked Instagram/);
 });

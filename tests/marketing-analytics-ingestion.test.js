@@ -133,3 +133,59 @@ test("runAnalyticsIngestion: only 'published' variants are ever considered — a
   const call = client.calls[0];
   assert.ok(call.ops.some((op) => op[0] === "eq" && op[1][0] === "status" && op[1][1] === "published"));
 });
+
+// Priority 5 completion pass: a configured, real-adapter platform must
+// actually decrypt its stored token and call the real fetchAnalytics
+// endpoint — reusing the exact same registry/token pattern as the
+// publishing worker, never a second parallel implementation.
+test("runAnalyticsIngestion: a configured platform (facebook) decrypts the real stored token and calls the REAL adapter's fetchAnalytics against a mocked Graph API — real metrics get written", async () => {
+  const { encryptSocialToken } = await import("../netlify/functions/_shared/marketing-social-oauth.js");
+  const savedEnv = { ...process.env };
+  process.env.FLORISYN_SOCIAL_FACEBOOK_CLIENT_ID = "fb-id";
+  process.env.FLORISYN_SOCIAL_FACEBOOK_CLIENT_SECRET = "fb-secret";
+  process.env.FLORISYN_MARKETING_TOKEN_KEY = "a-real-key";
+  const cipher = encryptSocialToken("real-page-token", process.env);
+
+  const client = createFakeSupabaseClient([
+    { data: [{ id: "variant-1", shop_id: "shop-1", platform: "facebook", external_post_id: "page-1_post-1", status: "published" }], error: null }, // variants
+    { data: null, error: null }, // last-fetch lookup
+    { data: { id: "conn-1", external_account_id: "page-1" }, error: null }, // connection
+    { data: { access_token_ciphertext: cipher }, error: null } // secrets
+  ]);
+
+  let capturedUrl;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    capturedUrl = new URL(String(url));
+    return { ok: true, json: async () => ({ likes: { summary: { total_count: 12 } }, comments: { summary: { total_count: 3 } } }) };
+  };
+  let results;
+  try {
+    results = await runAnalyticsIngestion(client, { shopId: "shop-1" });
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env = savedEnv;
+  }
+
+  assert.equal(results[0].outcome, "ingested");
+  assert.match(capturedUrl.pathname, /\/page-1_post-1$/);
+  assert.equal(capturedUrl.searchParams.get("access_token"), "real-page-token", "must use the real decrypted token, not a placeholder");
+});
+
+test("runAnalyticsIngestion: a configured platform with no real connection yet reports 'no_connection', never crashes or fetches with a fake token", async () => {
+  const savedEnv = { ...process.env };
+  process.env.FLORISYN_SOCIAL_FACEBOOK_CLIENT_ID = "fb-id";
+  process.env.FLORISYN_SOCIAL_FACEBOOK_CLIENT_SECRET = "fb-secret";
+  const client = createFakeSupabaseClient([
+    { data: [{ id: "variant-1", shop_id: "shop-1", platform: "facebook", external_post_id: "post-1", status: "published" }], error: null },
+    { data: null, error: null }, // last-fetch lookup
+    { data: null, error: null } // connection lookup — none found
+  ]);
+  let results;
+  try {
+    results = await runAnalyticsIngestion(client, { shopId: "shop-1" });
+  } finally {
+    process.env = savedEnv;
+  }
+  assert.equal(results[0].outcome, "no_connection");
+});

@@ -29,7 +29,8 @@
  *     invented metric name.
  */
 
-import { notLiveSocialProvider } from "./marketing-social-providers.js";
+import { notLiveSocialProvider, isPlatformConfigured, buildConfiguredSocialProviderRegistry } from "./marketing-social-providers.js";
+import { decryptSocialToken } from "./marketing-social-oauth.js";
 
 /** The normalized metric vocabulary every platform adapter's
  * fetchAnalytics() response is expected to map onto — one shared shape
@@ -143,10 +144,43 @@ async function ingestOneVariant(client, variant, now) {
     return { platform_variant_id: variant.id, platform: variant.platform, outcome: "skipped_fresh" };
   }
 
-  const provider = notLiveSocialProvider(variant.platform);
+  // Real-adapter completion pass: reuses the exact same configured
+  // registry + decrypted-token pattern marketing-publishing-worker.js
+  // uses for publish() — never a second, parallel "how do I get this
+  // shop's token" implementation. A not-configured platform never
+  // triggers the extra connection/secrets queries below (matches the
+  // publishing worker's same gate), so this is fully backward compatible
+  // with the not-live path every existing test exercises.
+  const registry = buildConfiguredSocialProviderRegistry({ env: process.env });
+  const provider = registry[variant.platform] || notLiveSocialProvider(variant.platform);
+  let fetchContext = variant.external_post_id;
+  if (isPlatformConfigured(variant.platform, process.env)) {
+    const connectionResult = await client
+      .from("marketing_social_connections")
+      .select("id,external_account_id")
+      .eq("shop_id", variant.shop_id)
+      .eq("platform", variant.platform)
+      .maybeSingle();
+    if (connectionResult.error) {
+      return { platform_variant_id: variant.id, platform: variant.platform, outcome: "error", error: connectionResult.error.message };
+    }
+    if (!connectionResult.data?.id) {
+      return { platform_variant_id: variant.id, platform: variant.platform, outcome: "no_connection" };
+    }
+    const secretsResult = await client.from("marketing_social_connection_secrets").select("access_token_ciphertext").eq("connection_id", connectionResult.data.id).maybeSingle();
+    if (secretsResult.error) {
+      return { platform_variant_id: variant.id, platform: variant.platform, outcome: "error", error: secretsResult.error.message };
+    }
+    const accessToken = secretsResult.data?.access_token_ciphertext ? decryptSocialToken(secretsResult.data.access_token_ciphertext, process.env) : "";
+    if (!accessToken) {
+      return { platform_variant_id: variant.id, platform: variant.platform, outcome: "no_connection" };
+    }
+    fetchContext = { accessToken, externalPostId: variant.external_post_id, externalAccountId: connectionResult.data.external_account_id };
+  }
+
   let raw;
   try {
-    raw = await provider.fetchAnalytics(variant.external_post_id);
+    raw = await provider.fetchAnalytics(fetchContext);
   } catch (error) {
     return {
       platform_variant_id: variant.id,

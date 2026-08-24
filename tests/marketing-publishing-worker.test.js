@@ -1,7 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { claimDueJobs, processClaimedJob, runPublishingWorker } from "../netlify/functions/_shared/marketing-publishing-worker.js";
-import { createFakeSupabaseClient } from "./helpers/fake-supabase-client.mjs";
+import { createFakeSupabaseClient, createFakeSupabaseStorage } from "./helpers/fake-supabase-client.mjs";
+import { encryptSocialToken } from "../netlify/functions/_shared/marketing-social-oauth.js";
+
+let savedEnv;
+test.before(() => {
+  savedEnv = { ...process.env };
+});
+test.afterEach(() => {
+  process.env = { ...savedEnv };
+});
+
+function mockFetch(handler) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = handler;
+  return () => {
+    globalThis.fetch = originalFetch;
+  };
+}
 
 // Launch-blocker fix, Blocker 3: the real durable-scheduler execution
 // engine. Section 4's explicit requirements are covered here directly
@@ -247,4 +264,159 @@ test("processClaimedJob: a connection with no expiry set at all (never expires) 
   const result = await processClaimedJob(client, job);
   const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
   assert.equal(jobUpdate.payload.last_error_code, "not_live", "a null expires_at must never be treated as already-expired");
+});
+
+// Priority 5 completion pass ("adapter exists" vs "feature works"): the
+// worker must actually resolve a real asset URL, decrypt a real stored
+// token, call a REAL adapter (proven here against a mocked TikTok API,
+// not an injected fake), and record the real result — not just clear the
+// connection gate and stop at a not-live stub.
+test("processClaimedJob: REAL publish end-to-end (tiktok) — resolves the asset's public URL via website_media, decrypts the stored token, calls the real adapter, and records external_post_id + published_at", async () => {
+  process.env.FLORISYN_SOCIAL_TIKTOK_CLIENT_ID = "tt-id";
+  process.env.FLORISYN_SOCIAL_TIKTOK_CLIENT_SECRET = "tt-secret";
+  process.env.FLORISYN_MARKETING_TOKEN_KEY = "a-real-key";
+
+  const cipher = encryptSocialToken("real-tiktok-access-token", process.env);
+  const job = { id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", attempts: 0, max_attempts: 5 };
+  const storage = createFakeSupabaseStorage({ publicUrl: (path) => `https://storage.example.com/website-media/${path}` });
+  const client = createFakeSupabaseClient(
+    [
+      { data: { id: "variant-1", platform: "tiktok", caption: "Fresh cuts today", asset_id: "asset-1", ai_disclosure_required: false, disclosure_applied: false }, error: null }, // variant
+      { data: { id: "asset-1", status: "completed", media_id: "media-1" }, error: null }, // ai_generated_assets
+      { data: { storage_path: "shop-1/reel.mp4" }, error: null }, // website_media
+      { data: { id: "conn-1", status: "connected", expires_at: null, external_account_id: null }, error: null }, // connection
+      { data: { access_token_ciphertext: cipher }, error: null }, // secrets
+      { data: null, error: null }, // job update
+      { data: null, error: null } // variant update
+    ],
+    { storage }
+  );
+
+  const calls = [];
+  const restoreFetch = mockFetch(async (url, init) => {
+    const u = new URL(String(url));
+    calls.push(u.pathname);
+    if (init?.body) calls.push(JSON.parse(init.body));
+    if (u.pathname.endsWith("/init/")) return { ok: true, json: async () => ({ data: { publish_id: "real-publish-1" } }) };
+    return { ok: true, json: async () => ({ data: { status: "PUBLISH_COMPLETE" } }) };
+  });
+
+  const result = await processClaimedJob(client, job);
+  restoreFetch();
+
+  assert.equal(result.outcome, "succeeded");
+  assert.ok(calls.includes("/v2/post/publish/video/init/"), "must actually call the real TikTok init endpoint");
+  const initBody = calls.find((c) => typeof c === "object" && c.source_info);
+  assert.equal(initBody.source_info.video_url, "https://storage.example.com/website-media/shop-1/reel.mp4", "must resolve the asset's REAL public URL, not the internal asset id");
+
+  const variantUpdate = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(variantUpdate.payload.status, "published");
+  assert.equal(variantUpdate.payload.external_post_id, "real-publish-1", "the real provider's post id must be recorded, not left blank");
+  assert.ok(variantUpdate.payload.published_at);
+});
+
+test("processClaimedJob: a text-only facebook post (no asset) targets the real Page via external_account_id, using the Page's own decrypted token", async () => {
+  process.env.FLORISYN_SOCIAL_FACEBOOK_CLIENT_ID = "fb-id";
+  process.env.FLORISYN_SOCIAL_FACEBOOK_CLIENT_SECRET = "fb-secret";
+  process.env.FLORISYN_MARKETING_TOKEN_KEY = "a-real-key";
+
+  const cipher = encryptSocialToken("real-page-token", process.env);
+  const job = { id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", attempts: 0, max_attempts: 5 };
+  const client = createFakeSupabaseClient([
+    { data: { id: "variant-1", platform: "facebook", caption: "Wedding season is here", asset_id: null, ai_disclosure_required: false, disclosure_applied: false }, error: null },
+    { data: { id: "conn-1", status: "connected", expires_at: null, external_account_id: "page-1" }, error: null },
+    { data: { access_token_ciphertext: cipher }, error: null },
+    { data: null, error: null },
+    { data: null, error: null }
+  ]);
+
+  let capturedUrl;
+  const restoreFetch = mockFetch(async (url) => {
+    capturedUrl = new URL(String(url));
+    return { ok: true, json: async () => ({ id: "page-1_post-99" }) };
+  });
+  const result = await processClaimedJob(client, job);
+  restoreFetch();
+
+  assert.equal(result.outcome, "succeeded");
+  assert.match(capturedUrl.pathname, /\/page-1\/feed$/, "must publish against the real stored Page id");
+  assert.equal(capturedUrl.searchParams.get("access_token"), "real-page-token", "must use the decrypted PAGE token, not a placeholder");
+
+  const variantUpdate = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(variantUpdate.payload.external_post_id, "page-1_post-99");
+});
+
+test("processClaimedJob: no stored access token for an otherwise-connected platform fails as token_invalid, never crashes or fakes a token", async () => {
+  process.env.FLORISYN_SOCIAL_FACEBOOK_CLIENT_ID = "fb-id";
+  process.env.FLORISYN_SOCIAL_FACEBOOK_CLIENT_SECRET = "fb-secret";
+  const job = { id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", attempts: 0, max_attempts: 5 };
+  const client = createFakeSupabaseClient([
+    { data: { id: "variant-1", platform: "facebook", caption: "hi", asset_id: null, ai_disclosure_required: false, disclosure_applied: false }, error: null },
+    { data: { id: "conn-1", status: "connected", expires_at: null, external_account_id: "page-1" }, error: null },
+    { data: null, error: null } // secrets row missing entirely
+  ]);
+  const result = await processClaimedJob(client, job);
+  assert.equal(result.outcome, "failed");
+  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(jobUpdate.payload.last_error_code, "token_invalid");
+});
+
+test("processClaimedJob: a provider that rejects the stored token (real 401) flips the connection to needs_reauth — real connection-health tracking, not just a job failure", async () => {
+  process.env.FLORISYN_SOCIAL_FACEBOOK_CLIENT_ID = "fb-id";
+  process.env.FLORISYN_SOCIAL_FACEBOOK_CLIENT_SECRET = "fb-secret";
+  process.env.FLORISYN_MARKETING_TOKEN_KEY = "a-real-key";
+  const cipher = encryptSocialToken("expired-token", process.env);
+  const job = { id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", attempts: 0, max_attempts: 5 };
+  const client = createFakeSupabaseClient([
+    { data: { id: "variant-1", platform: "facebook", caption: "hi", asset_id: null, ai_disclosure_required: false, disclosure_applied: false }, error: null },
+    { data: { id: "conn-1", status: "connected", expires_at: null, external_account_id: "page-1" }, error: null },
+    { data: { access_token_ciphertext: cipher }, error: null },
+    { data: null, error: null }, // job update
+    { data: null, error: null }, // variant update
+    { data: null, error: null } // connection needs_reauth update
+  ]);
+  const restoreFetch = mockFetch(async () => ({ ok: false, status: 401, json: async () => ({ error: { message: "Error validating access token", code: 190 } }) }));
+  const result = await processClaimedJob(client, job);
+  restoreFetch();
+
+  assert.equal(result.outcome, "failed");
+  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(jobUpdate.payload.last_error_code, "token_invalid");
+
+  const connectionUpdate = client.calls.find(
+    (c) => c.table === "marketing_social_connections" && c.ops.some((op) => op[0] === "update") && c.payload.status === "needs_reauth"
+  );
+  assert.ok(connectionUpdate, "a real token rejection must flip the connection's real health status, not silently stay 'connected'");
+  assert.equal(connectionUpdate.payload.status, "needs_reauth");
+});
+
+test("processClaimedJob: an ambiguous (status-unconfirmed) failure never auto-retries — via an injected stub provider, since the real timeout path takes real minutes and is proven separately in the adapter's own tests", async () => {
+  process.env.FLORISYN_SOCIAL_FACEBOOK_CLIENT_ID = "fb-id";
+  process.env.FLORISYN_SOCIAL_FACEBOOK_CLIENT_SECRET = "fb-secret";
+  process.env.FLORISYN_MARKETING_TOKEN_KEY = "a-real-key";
+
+  const job = { id: "job-1", shop_id: "shop-1", platform_variant_id: "variant-1", attempts: 0, max_attempts: 5 };
+  const timeoutError = new Error("did not complete in time");
+  timeoutError.code = "social_provider_timeout";
+  timeoutError.statusCode = 504;
+  const stubRegistry = {
+    facebook: {
+      platform: "facebook",
+      async publish() {
+        throw timeoutError;
+      }
+    }
+  };
+  const cipher = encryptSocialToken("token", process.env);
+  const client = createFakeSupabaseClient([
+    { data: { id: "variant-1", platform: "facebook", caption: "hi", asset_id: null, ai_disclosure_required: false, disclosure_applied: false }, error: null },
+    { data: { id: "conn-1", status: "connected", expires_at: null, external_account_id: "page-1" }, error: null },
+    { data: { access_token_ciphertext: cipher }, error: null }, // a real, decryptable secret — the failure must genuinely come from the (stubbed) provider call, not an earlier token gate
+    { data: null, error: null } // job update only — must NOT be requeued
+  ]);
+  const result = await processClaimedJob(client, job, { registry: stubRegistry });
+  assert.equal(result.outcome, "failed");
+  const jobUpdate = client.calls.find((c) => c.table === "marketing_publishing_jobs" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(jobUpdate.payload.last_error_code, "ambiguous");
+  assert.equal(jobUpdate.payload.status, "failed", "never silently requeued for a blind retry that could duplicate-post");
 });
