@@ -79,6 +79,8 @@ import {
   isPlatformConfigured,
   platformOAuthEnvVarNames
 } from "./_shared/marketing-social-providers.js";
+import { OAUTH_SUPPORTED_PLATFORMS, isOAuthArchitected, buildAuthorizeUrl } from "./_shared/marketing-social-oauth.js";
+import { resolvePublicSiteUrl } from "./_shared/site-url.js";
 import { selectCloneProvider, notLiveCloneProvider, buildConfiguredCloneProviderRegistry } from "./_shared/marketing-clone-providers.js";
 import { uploadClonedVoiceAudio, uploadWebsiteMedia, publicWebsiteMediaUrl } from "./_shared/website-media.js";
 import { parseDataUrl } from "./_shared/upload-validation.js";
@@ -2099,15 +2101,35 @@ export function createMarketingStudioHandler(deps = {}) {
             message: `NOT LIVE — PROVIDER CONNECTION REQUIRED. Set ${platformOAuthEnvVarNames(platform).clientIdVar} and ${platformOAuthEnvVarNames(platform).clientSecretVar} to enable connecting ${platform}.`
           });
         }
-        // Credentials exist, but the real OAuth authorize/callback exchange
-        // for this platform isn't implemented — guessing at each
-        // platform's exact authorize URL/scopes without a real registered,
-        // approved app to test against risks claiming an integration works
-        // before it does (Section 40). Building this out is the next real
-        // step once real credentials are actually configured.
+        if (!isOAuthArchitected(platform)) {
+          // Credentials exist, but this platform's real OAuth authorize/
+          // callback exchange isn't built yet — guessing at its exact
+          // authorize URL/scopes without consulting real, current provider
+          // documentation risks claiming an integration works before it
+          // does. facebook/instagram/tiktok have real, documentation-
+          // verified OAuth architecture (see marketing-social-oauth.js);
+          // linkedin/pinterest/google_business/youtube each need their own
+          // documentation pass before this branch applies to them too.
+          return json(200, {
+            configured: true,
+            message: `Credentials are present for ${platform}, but the OAuth connect flow itself is not built for this platform yet (only ${OAUTH_SUPPORTED_PLATFORMS.join(", ")} are so far) — this is the next real step, not a working connection.`
+          });
+        }
+        // Real OAuth architecture exists and real credentials are
+        // configured — build the actual authorize URL so the admin's
+        // browser can be sent to the real provider. Still NOT LIVE for
+        // publishing until the callback below is exercised end to end
+        // with real, provider-approved credentials.
+        const redirectUri = `${resolvePublicSiteUrl(process.env, event.headers?.origin)}/.netlify/functions/marketing-social-oauth-callback`;
+        const authResult = buildAuthorizeUrl(platform, { shopId, userId: user.id, redirectUri, env: process.env });
+        if (!authResult.ok) {
+          return json(200, { configured: true, message: authResult.error });
+        }
         return json(200, {
           configured: true,
-          message: `Credentials are present for ${platform}, but the OAuth connect flow itself is not implemented yet — this is the next real step, not a working connection.`
+          authorize_url: authResult.url,
+          scopes: authResult.scopes,
+          message: `Redirect the browser to authorize_url to complete connecting ${platform}. NOT LIVE until a real ${platform} app has cleared that provider's own review process.`
         });
       }
 

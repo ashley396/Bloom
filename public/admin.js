@@ -162,6 +162,22 @@ function showApp(){
     console.error(err);
     toast(err?.message||'Admin UI finished signing in, but one panel failed to load');
   }
+  // Priority 3 (marketing social OAuth architecture): land back on Marketing
+  // Studio with an honest status after a real provider redirect completes —
+  // isolated try/catch so a malformed query string can never break the rest
+  // of admin bootstrap.
+  try{
+    const params=new URLSearchParams(location.search);
+    const oauthResult=params.get('oauth');
+    if(oauthResult){
+      const platform=params.get('platform')||'the platform';
+      toast(oauthResult==='success'
+        ?`${platform} connected — NOT LIVE for publishing until this connection is verified end to end with a real, approved provider app.`
+        :(params.get('message')||`Could not connect ${platform}.`));
+      setView('marketingStudio');
+      history.replaceState({},'',location.pathname);
+    }
+  }catch(err){console.error(err)}
   return true;
 }
 async function initializeAdmin(){

@@ -82,6 +82,12 @@
       </div>
 
       <div class="panel">
+        <h2>Connections</h2>
+        <p class="help">Real per-platform connection state — never a guessed or optimistic status. "Connect" redirects the browser to that platform's own OAuth consent screen once real credentials are configured; publishing itself stays NOT LIVE until a connected platform's adapter is verified end to end.</p>
+        <div id="msConnectionsList" class="quiet">Load a shop above to see connection status.</div>
+      </div>
+
+      <div class="panel">
         <h2>Content Calendar</h2>
         <p class="help">Draft → Review → Approve → Schedule → Publish. Every status shown here is exactly what the backend reports — nothing is marked "published" unless a real provider actually confirmed it (none are connected yet, so publishing attempts fail honestly with "not live").</p>
         <div class="header-actions">
@@ -280,6 +286,69 @@
     const budgetCapInput = root.querySelector("#msBudgetCapInput");
     const budgetCapStatus = root.querySelector("#msBudgetCapStatus");
     const budgetRemaining = root.querySelector("#msBudgetRemaining");
+
+    // Priority 3/6: real per-platform connection state, wired to the real
+    // OAuth architecture (marketing-social-oauth.js) — never a static
+    // placeholder. connectionsList renders exactly what the backend
+    // reports for each of the 7 SUPPORTED_PLATFORMS.
+    const connectionsList = root.querySelector("#msConnectionsList");
+    async function loadConnections() {
+      const shopId = shopIdInput.value.trim();
+      if (!shopId) return;
+      try {
+        const d = await adminApi("connections", { method: "GET", query: `shop_id=${encodeURIComponent(shopId)}` });
+        connectionsList.innerHTML = (d.items || [])
+          .map((c) => {
+            const label = c.platform.replace(/_/g, " ");
+            const badge = c.live ? "good" : c.status === "connected" ? "warn" : "";
+            const statusText = c.live ? "Live" : c.status === "connected" ? "Connected (not verified live)" : c.status === "connecting" ? "Connecting…" : c.status === "error" ? "Error" : c.status === "needs_reauth" ? "Needs reauthorization" : "Not connected";
+            const canConnect = c.status !== "connected" && c.status !== "connecting";
+            return `<div class="connection-row" data-platform="${esc(c.platform)}">
+              <span class="badge ${badge}">${esc(statusText)}</span>
+              <strong>${esc(label)}</strong>
+              ${c.account_label ? `<span class="quiet">${esc(c.account_label)}</span>` : ""}
+              ${c.last_error ? `<span class="quiet">${esc(c.last_error)}</span>` : ""}
+              ${canConnect ? `<button type="button" data-connect-platform="${esc(c.platform)}">Connect</button>` : `<button type="button" data-disconnect-platform="${esc(c.platform)}">Disconnect</button>`}
+            </div>`;
+          })
+          .join("");
+        connectionsList.querySelectorAll("[data-connect-platform]").forEach((btn) => {
+          btn.onclick = async () => {
+            const platform = btn.dataset.connectPlatform;
+            btn.disabled = true;
+            btn.textContent = "Connecting…";
+            try {
+              const result = await adminApi("connect_platform", { body: { shop_id: shopId, platform } });
+              if (result.authorize_url) {
+                window.location.href = result.authorize_url;
+                return;
+              }
+              alert(result.message || `${platform} is not connectable yet.`);
+            } catch (err) {
+              alert(err.message);
+            } finally {
+              btn.disabled = false;
+              btn.textContent = "Connect";
+              loadConnections();
+            }
+          };
+        });
+        connectionsList.querySelectorAll("[data-disconnect-platform]").forEach((btn) => {
+          btn.onclick = async () => {
+            const platform = btn.dataset.disconnectPlatform;
+            if (!confirm(`Disconnect ${platform}? Content already scheduled to it will fail to publish until reconnected.`)) return;
+            try {
+              await adminApi("disconnect_platform", { body: { shop_id: shopId, platform } });
+              loadConnections();
+            } catch (err) {
+              alert(err.message);
+            }
+          };
+        });
+      } catch (err) {
+        connectionsList.textContent = err.message;
+      }
+    }
 
     async function loadCostSummary() {
       const shopId = shopIdInput.value.trim();
@@ -831,6 +900,7 @@
       loadReferencePhotos();
       loadContentList();
       loadCostSummary();
+      loadConnections();
     };
     root.querySelector("#msLoadShop").onclick = () => {
       loadConsent();
@@ -838,6 +908,7 @@
       loadReferencePhotos();
       loadContentList();
       loadCostSummary();
+      loadConnections();
     };
 
     pbProfileForm.onsubmit = async (e) => {
