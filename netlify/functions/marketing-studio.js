@@ -56,6 +56,7 @@
  */
 
 import { json, methodNotAllowed } from "./_shared/http.js";
+import { admin as createServiceRoleClient } from "./_shared/saas.js";
 import { isFeatureEnabled } from "./_shared/feature-flags.js";
 import { isShopFeatureEnabled } from "./_shared/shop-feature-access.js";
 import {
@@ -64,7 +65,7 @@ import {
   platformAdminErrorResponse,
   platformAdminError,
   parsePlatformAdminJsonBody,
-  writeCommandAudit
+  writeCommandAudit as writeCommandAuditShared
 } from "./_shared/platform-admin.js";
 import {
   loadBrandBrain,
@@ -290,6 +291,22 @@ export function createMarketingStudioHandler(deps = {}) {
         ({ client, user, admin } = await platformAdmin(event, ["super_admin"], deps));
         shopActorAuthorized = false;
       }
+      // Every writeCommandAudit(...) call below (~50 action handlers) must
+      // land in platform_admin_audit through a genuinely privileged
+      // client, never whichever one this request happens to be using for
+      // its own business-logic reads/writes. On the admin-console path
+      // `client` already IS that privileged client (platformAdmin()'s own
+      // service-role buildServerClient) — reuse it exactly as before. On
+      // the florist path `client` is deps.florist.client, an ordinary
+      // session-scoped `authenticated` client with zero grants on
+      // platform_admin_audit (confirmed live: only service_role has real
+      // DML there) — never let it near that table; writeCommandAuditShared
+      // falls back to its own real service-role client instead. Shadowing
+      // the shared import here, once, means every existing call site below
+      // needs no change at all.
+      const buildFloristAuditClient = deps.createAuditClient || createServiceRoleClient;
+      const writeCommandAudit = (_callerClient, adminUserId, action, options) =>
+        writeCommandAuditShared(client, adminUserId, action, options, deps.florist ? { createAuditClient: buildFloristAuditClient } : {});
       const method = event.httpMethod;
       const qs = event.queryStringParameters || {};
       const body = parsePlatformAdminJsonBody(event);

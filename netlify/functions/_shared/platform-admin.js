@@ -287,20 +287,61 @@ export function requireSuperAdmin(adminRecord) {
   throw platformAdminError("forbidden");
 }
 
-export async function writeAdminAudit(client, adminUserId, shopId, action, details = {}) {
-  await client.from("platform_admin_audit").insert({
-    admin_user_id: adminUserId,
-    shop_id: shopId || null,
-    action,
-    details
-  });
+/**
+ * `platform_admin_audit` is service-role-only by design (greenfield
+ * baseline: "No browser-facing policies are created. Access is only
+ * through secured Netlify functions using the Supabase service role") —
+ * `authenticated` has zero grants on it. Every existing caller of this
+ * function passes its own already-privileged `client` (platformAdmin()'s
+ * own service-role buildServerClient), so the default here keeps doing
+ * exactly what it always did: write through the caller's own client — zero
+ * behavior change for any of them.
+ *
+ * marketing-studio.js is the one exception: it serves BOTH that
+ * admin-console path AND the florist/shop-actor path
+ * (marketing-studio-shop.js's deps.florist.client) through the exact same
+ * ~50-action shared dispatch, and the florist path's `client` is an
+ * ordinary session-scoped `authenticated` client — real for Ashley, but
+ * with no privilege on this table. Reusing it threw "permission denied for
+ * table platform_admin_audit" the moment any florist-triggered action
+ * (e.g. generate_content) reached this call, aborting an otherwise-
+ * successful action over a logging write. marketing-studio.js's own
+ * writeCommandAudit wrapper passes `deps.createAuditClient` to opt into a
+ * genuinely privileged client instead whenever it's on that florist path —
+ * see the shadowing wrapper in createMarketingStudioHandler(). And
+ * whichever client ends up writing the row, a failure here must never
+ * surface as a failure of the real action it's merely recording.
+ */
+export async function writeAdminAudit(client, adminUserId, shopId, action, details = {}, deps = {}) {
+  const buildAuditClient = deps.createAuditClient || (() => client);
+  let auditClient;
+  try {
+    auditClient = buildAuditClient();
+  } catch {
+    console.error(JSON.stringify({ event: "platform_admin_audit_client_unavailable", action }));
+    return;
+  }
+  try {
+    const { error } = await auditClient.from("platform_admin_audit").insert({
+      admin_user_id: adminUserId,
+      shop_id: shopId || null,
+      action,
+      details
+    });
+    if (error) throw error;
+  } catch (err) {
+    // Best-effort: an audit-log failure must never surface as a failure of
+    // the real action it's merely recording (see docstring above).
+    console.error(JSON.stringify({ event: "platform_admin_audit_write_failed", action, message: safeUnexpectedDetail(err) }));
+  }
 }
 
 export async function writeCommandAudit(
   client,
   adminUserId,
   action,
-  { shopId = null, targetType = null, targetId = null, result = "success", ip = "unknown", ...rest } = {}
+  { shopId = null, targetType = null, targetId = null, result = "success", ip = "unknown", ...rest } = {},
+  deps = {}
 ) {
   await writeAdminAudit(client, adminUserId, shopId, action, {
     target_type: targetType,
@@ -308,5 +349,5 @@ export async function writeCommandAudit(
     result,
     ip_placeholder: ip,
     ...rest
-  });
+  }, deps);
 }
