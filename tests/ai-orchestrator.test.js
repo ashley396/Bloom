@@ -100,6 +100,8 @@ test("TEST 1 (from the AI-OS spec): 'Create a Facebook post telling high school 
       { data: { id: "job-1", status: "running", plan: [] }, error: null }, // job insert
       { data: null, error: null }, // Phase 4 grounding: loadBrandBrain — no learned Brand Brain yet
       { data: [], error: null }, // Phase 4 grounding: loadGroundedInventory — no real inventory rows
+      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — customers (none)
+      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — orders (none)
       { data: { id: "asset-post-1" }, error: null }, // social post asset insert
       { data: { id: "media-1" }, error: null }, // website_media insert (image)
       { data: { id: "asset-image-1" }, error: null }, // image asset insert
@@ -145,6 +147,8 @@ test("TEST 2 (from the AI-OS spec): 'Make a campaign for Facebook and my website
       { data: { id: "job-2", status: "running", plan: [] }, error: null }, // job insert
       { data: null, error: null }, // Phase 4 grounding: loadBrandBrain — no learned Brand Brain yet
       { data: [], error: null }, // Phase 4 grounding: loadGroundedInventory — no real inventory rows
+      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — customers (none)
+      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — orders (none)
       { data: { id: "campaign-1", name: "Homecoming campaign", channels: ["social", "website"] }, error: null }, // campaign insert
       { data: { id: "asset-post-1" }, error: null }, // facebook post asset
       { data: { id: "media-1" }, error: null }, // website_media insert (image)
@@ -243,6 +247,8 @@ test("Execution state: a required step failing downgrades the job to partially_c
       { data: { id: "job-3", status: "running", plan: [] }, error: null }, // job insert
       { data: null, error: null }, // Phase 4 grounding: loadBrandBrain — no learned Brand Brain yet
       { data: [], error: null }, // Phase 4 grounding: loadGroundedInventory — no real inventory rows
+      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — customers (none)
+      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — orders (none)
       { data: { id: "campaign-2", channels: ["social"] }, error: null }, // campaign insert
       { data: { id: "asset-fail-1" }, error: null }, // failed-post asset insert (still persisted, status:'failed')
       { data: { id: "asset-fail-image" }, error: null }, // failed-image asset insert
@@ -357,6 +363,8 @@ test("runJob: marketing.createSocialPost is grounded in real Brand Brain + real 
         data: [{ id: "inv-1", name: "Garden Rose", category: "Flowers", quantity: 40, low_stock_level: 10, unit: "stems", created_at: new Date().toISOString() }],
         error: null
       }, // loadGroundedInventory — one real row
+      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — customers (none)
+      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — orders (none)
       { data: { id: "asset-post-1" }, error: null }, // social post asset insert
       { data: { id: "media-1" }, error: null }, // website_media insert (optional image step)
       { data: { id: "asset-image-1" }, error: null }, // image asset insert (optional image step)

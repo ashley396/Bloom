@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadCustomerAudienceSummary } from "../netlify/functions/_shared/customer-audience-grounding.js";
+import { loadCustomerAudienceSummary, buildAudienceGroundingBrief } from "../netlify/functions/_shared/customer-audience-grounding.js";
 import { createFakeSupabaseClient } from "./helpers/fake-supabase-client.mjs";
 
 // Phase 7 ("Customer/CRM intelligence") of the Lily Connected Intelligence
@@ -72,4 +72,45 @@ test("loadCustomerAudienceSummary: a shop with Marketing Campaigns disabled pays
     if (prior === undefined) delete process.env.FLORISYN_FLAG_MARKETING_CAMPAIGNS;
     else process.env.FLORISYN_FLAG_MARKETING_CAMPAIGNS = prior;
   }
+});
+
+// Phase 9 ("connect intelligence to marketing"): buildAudienceGroundingBrief
+// turns the structured summary above into the one prompt-ready sentence
+// marketing-generation-grounding.js hands to actual copy generation.
+
+test("buildAudienceGroundingBrief: composes only the generically-useful, non-zero segments into one real sentence", () => {
+  const summary = {
+    enabled: true,
+    subscriberCount: 42,
+    segments: [
+      { key: "vip", label: "VIP customers", count: 5 },
+      { key: "repeat", label: "Repeat customers (2+ orders)", count: 9 },
+      { key: "new", label: "New customers (last 30 days)", count: 0 },
+      { key: "lapsed", label: "Haven't ordered in a year", count: 3 },
+      { key: "birthday_this_month", label: "Birthdays this month", count: 6 },
+      { key: "anniversary_this_month", label: "Anniversaries this month", count: 0 },
+      { key: "high_spend", label: "High-spend customers ($300+ lifetime)", count: 11 },
+      { key: "past_valentines_buyers", label: "Past Valentine's buyers", count: 20 }
+    ]
+  };
+  const brief = buildAudienceGroundingBrief(summary);
+  assert.equal(brief.grounded, true);
+  assert.match(brief.summaryText, /42 marketing subscribers/);
+  assert.match(brief.summaryText, /5 vip customers/i);
+  assert.match(brief.summaryText, /9 repeat customers \(2\+ orders\)/i);
+  assert.match(brief.summaryText, /3 haven't ordered in a year/i);
+  assert.match(brief.summaryText, /6 birthdays this month/i);
+  // Zero-count generic segments and the noisier occasion/high-spend
+  // segments are deliberately excluded from the prompt brief.
+  assert.doesNotMatch(brief.summaryText, /new customers/i);
+  assert.doesNotMatch(brief.summaryText, /anniversaries this month/i);
+  assert.doesNotMatch(brief.summaryText, /high-spend/i);
+  assert.doesNotMatch(brief.summaryText, /valentine/i);
+  assert.match(brief.summaryText, /never invent a different number or segment/i);
+});
+
+test("buildAudienceGroundingBrief: a disabled or empty audience summary returns an honestly ungrounded brief, never a fabricated one", () => {
+  assert.deepEqual(buildAudienceGroundingBrief({ enabled: false, subscriberCount: 0, segments: [] }), { summaryText: null, grounded: false });
+  assert.deepEqual(buildAudienceGroundingBrief({ enabled: true, subscriberCount: 0, segments: [] }), { summaryText: null, grounded: false });
+  assert.deepEqual(buildAudienceGroundingBrief(undefined), { summaryText: null, grounded: false });
 });

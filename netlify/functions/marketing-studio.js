@@ -1224,7 +1224,13 @@ export function createMarketingStudioHandler(deps = {}) {
         // invented — an empty shop degrades to no inventory section at
         // all, never a fabricated one. Every read here is shop-scoped via
         // each underlying loader's own .eq("shop_id", shopId).
-        const { brandVoiceSummary, visualStyleSummary, inventorySummary, inventorySources } = await loadGenerationGrounding(client, shopId);
+        // Phase 9 ("connect intelligence to marketing"): "audience" opted
+        // in explicitly (it's not one of loadGenerationGrounding's default
+        // three) — real subscriber/segment counts now ground the same
+        // generation calls brand voice and inventory already do.
+        const { brandVoiceSummary, visualStyleSummary, inventorySummary, inventorySources, audienceSummary } = await loadGenerationGrounding(client, shopId, {
+          needs: ["brand", "style", "inventory", "audience"]
+        });
 
         if (VIDEO_CONTENT_TYPES.has(currentItem.data.content_type)) {
           await recordUsage("copy", "request", 1);
@@ -1236,7 +1242,8 @@ export function createMarketingStudioHandler(deps = {}) {
             requestText: currentItem.data.brief,
             brandVoiceSummary,
             visualStyleSummary,
-            inventorySummary
+            inventorySummary,
+            audienceSummary
           });
           if (!gen.ok) {
             await revertToIdea();
@@ -1316,7 +1323,8 @@ export function createMarketingStudioHandler(deps = {}) {
           requestText: currentItem.data.brief,
           brandVoiceSummary,
           visualStyleSummary,
-          inventorySummary
+          inventorySummary,
+          audienceSummary
         });
         if (!copyGen.ok) {
           await revertToIdea();

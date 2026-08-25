@@ -123,8 +123,14 @@ async function cloudflareAi(payload){
   const model=process.env.CLOUDFLARE_AI_MODEL||MODEL_DEFAULT;
   const persona = normalizePersona(payload.persona);
   const mode = payload.mode === "generate" ? "generate" : "chat";
+  // Task cap raised from its original 1200 (Phase 9 finding): the real
+  // task text now composes up to four real grounding summaries (brand
+  // voice, visual style, inventory, audience) plus their anti-fabrication
+  // rules — 1200 chars was already tight with three and silently truncated
+  // the newest, safety-critical rule (never state an unlisted audience
+  // number) off the end. 4000 matches chat mode's own prompt cap below.
   const user=payload.mode==="generate"
-    ?`Task: ${safeText(payload.task,1200)}\nInput: ${jsonWithinLimit(payload.input||{},30000)}\nReturn ONLY valid JSON matching this shape: ${jsonWithinLimit(payload.schema||{text:"result"},5000)}`
+    ?`Task: ${safeText(payload.task,4000)}\nInput: ${jsonWithinLimit(payload.input||{},30000)}\nReturn ONLY valid JSON matching this shape: ${jsonWithinLimit(payload.schema||{text:"result"},5000)}`
     :`Question: ${safeText(payload.prompt,4000)}\nRelevant Florisyn context: ${jsonWithinLimit(payload.context||{},32000)}`;
   // Model slug (e.g. "@cf/meta/llama-3.1-8b-instruct-fast") must stay literal in the path —
   // encodeURIComponent turns its "/" into "%2F", which Cloudflare rejects as "No route for that URI".

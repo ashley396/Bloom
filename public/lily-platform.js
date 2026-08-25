@@ -902,7 +902,23 @@
       }
     }
     if (action.type === "generate" && deps.showPage) {
+      // Phase 10 ("Website/product handoff"): this used to hand the
+      // florist off to AI Studio with nothing carried over — the real
+      // request they just typed to Lily (e.g. "generate a product title
+      // for the Peony Bouquet") was silently dropped, landing on a blank
+      // prompt box. Same real prefill mechanism the page's own quick-
+      // prompt buttons already use (see the [data-ai-prompt] click
+      // handler in app.js) — never a fabricated prompt, only what the
+      // florist actually asked for.
       deps.showPage("aiStudioPage");
+      if (action.prompt) {
+        const input = document.getElementById("aiStudioPrompt");
+        if (input) {
+          input.value = action.prompt;
+          input.focus();
+          input.setSelectionRange(input.value.length, input.value.length);
+        }
+      }
     }
   }
 

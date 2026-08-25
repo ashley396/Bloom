@@ -92,6 +92,8 @@ test("full lifecycle: generate -> revise -> revise -> undo -> undo -> revise (ne
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
       { data: [], error: null }, // loadGroundedInventory (no real inventory rows in this test's shop)
+      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — customers (none)
+      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — orders (none)
       { data: null, error: null }, // recordUsage("copy")
       { data: null, error: null }, // recordUsage("image")
       { data: { id: "media-a" }, error: null }, // website_media insert

@@ -120,7 +120,7 @@ export function planJob(routed, { requestText } = {}) {
 }
 
 async function runStep(client, step, ctx) {
-  const { shopId, userId, persona, routed, requestText, shop, jobId, campaignId, styleSummary, brandVoiceSummary, inventorySummary } = ctx;
+  const { shopId, userId, persona, routed, requestText, shop, jobId, campaignId, styleSummary, brandVoiceSummary, inventorySummary, audienceSummary } = ctx;
 
   if (step.tool === "marketing.createCampaign") {
     const name = routed.occasion ? `${routed.occasion} campaign` : (requestText || "New campaign").slice(0, 80);
@@ -147,7 +147,8 @@ async function runStep(client, step, ctx) {
       requestText,
       brandVoiceSummary,
       visualStyleSummary: styleSummary,
-      inventorySummary
+      inventorySummary,
+      audienceSummary
     });
     if (!gen.ok) {
       await persistGeneratedAsset(client, {
@@ -198,7 +199,7 @@ async function runStep(client, step, ctx) {
   }
 
   if (step.tool === "marketing.createVideoConcept") {
-    const gen = await generateVideoConcept({ persona, channel: routed.channels?.[0], occasion: routed.occasion, audience: routed.audience, shop, requestText, brandVoiceSummary, visualStyleSummary: styleSummary, inventorySummary });
+    const gen = await generateVideoConcept({ persona, channel: routed.channels?.[0], occasion: routed.occasion, audience: routed.audience, shop, requestText, brandVoiceSummary, visualStyleSummary: styleSummary, inventorySummary, audienceSummary });
     if (!gen.ok) {
       await persistGeneratedAsset(client, {
         shopId, userId, persona, jobId, campaignId,
@@ -451,16 +452,21 @@ export async function runJob(client, { shopId, userId, persona, routed, requestT
   // uses it — a flyer/website-section/diagnosis/navigation job never pays
   // for a Brand Brain + inventory read it has no use for.
   const needsCopyGrounding = plan.some((s) => s.tool === "marketing.createSocialPost" || s.tool === "marketing.createVideoConcept");
-  const { brandVoiceSummary, inventorySummary } = needsCopyGrounding
-    ? await loadGenerationGrounding(client, shopId, { needs: ["brand", "inventory"] })
-    : { brandVoiceSummary: "", inventorySummary: null };
+  // Phase 9 ("connect intelligence to marketing"): "audience" added to the
+  // same needs list — real subscriber/segment counts now ground the same
+  // copy-generation calls brand voice and inventory already do, so Lily
+  // can cite a real audience number instead of a vague "your loyal
+  // customers" when a request is actually about targeting/reach.
+  const { brandVoiceSummary, inventorySummary, audienceSummary } = needsCopyGrounding
+    ? await loadGenerationGrounding(client, shopId, { needs: ["brand", "inventory", "audience"] })
+    : { brandVoiceSummary: "", inventorySummary: null, audienceSummary: null };
 
   let campaignId = null;
   let imageUrl = null;
   let flyerAssetId = null;
   let flyerBackgroundUrl = null;
   let flyerBackgroundTraits = [];
-  const ctx = { shopId, userId, persona, routed, requestText, shop, inventory, jobId: job.id, parentAssetId, revisionDeltas, styleSummary, brandVoiceSummary, inventorySummary };
+  const ctx = { shopId, userId, persona, routed, requestText, shop, inventory, jobId: job.id, parentAssetId, revisionDeltas, styleSummary, brandVoiceSummary, inventorySummary, audienceSummary };
 
   for (let i = 0; i < plan.length; i += 1) {
     plan[i].status = "running";
@@ -561,14 +567,14 @@ export async function retryJobStep(client, { shopId, userId, persona, jobId, ste
   // grounded exactly like the original attempt, not silently downgraded to
   // an ungrounded generation just because it's a retry.
   const retryNeedsCopyGrounding = plan[idx].tool === "marketing.createSocialPost" || plan[idx].tool === "marketing.createVideoConcept";
-  const { brandVoiceSummary: retryBrandVoiceSummary, inventorySummary: retryInventorySummary } = retryNeedsCopyGrounding
-    ? await loadGenerationGrounding(client, shopId, { needs: ["brand", "inventory"] })
-    : { brandVoiceSummary: "", inventorySummary: null };
+  const { brandVoiceSummary: retryBrandVoiceSummary, inventorySummary: retryInventorySummary, audienceSummary: retryAudienceSummary } = retryNeedsCopyGrounding
+    ? await loadGenerationGrounding(client, shopId, { needs: ["brand", "inventory", "audience"] })
+    : { brandVoiceSummary: "", inventorySummary: null, audienceSummary: null };
   const outcome = await runStep(client, plan[idx], {
     shopId, userId, persona, routed, requestText: job.request_text, shop: {}, inventory: [], jobId: job.id,
     campaignId: job.campaign_id, imageUrl: imageStep?.result?.url || null,
     parentAssetId: savedContext.parent_asset_id || null, styleSummary,
-    brandVoiceSummary: retryBrandVoiceSummary, inventorySummary: retryInventorySummary
+    brandVoiceSummary: retryBrandVoiceSummary, inventorySummary: retryInventorySummary, audienceSummary: retryAudienceSummary
   });
   plan[idx].status = outcome.ok ? "completed" : "failed";
   plan[idx].result = outcome.ok ? outcome.result || null : null;
