@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { NOTIFICATION_TYPES, notifyMarketplaceUser } from "../netlify/functions/_shared/marketplace-notifications.js";
+import { NOTIFICATION_TYPES, notifyMarketplaceUser, notifyFavoritersBackInStock } from "../netlify/functions/_shared/marketplace-notifications.js";
+import { createFakeSupabaseClient } from "./helpers/fake-supabase-client.mjs";
 
 const root = process.cwd();
 
@@ -55,4 +56,33 @@ test("buyer marketplace UI has a real notification bell wired to the backend, no
   const js = fs.readFileSync(path.join(root, "public/marketplace-experience.js"), "utf8");
   assert.match(js, /resource=notifications/);
   assert.match(js, /action:\s*'mark_notifications_read'/);
+});
+
+// notifyFavoritersBackInStock had zero direct behavior coverage — only its
+// callers were checked via source-text assertions above. These exercise
+// the fan-out logic itself against a fake client.
+
+test("notifyFavoritersBackInStock: no listingId is a no-op with zero queries", async () => {
+  const client = createFakeSupabaseClient([]);
+  await notifyFavoritersBackInStock(client, null, "Back in stock!");
+  assert.equal(client.calls.length, 0);
+});
+
+test("notifyFavoritersBackInStock: a favorites query error is swallowed, not thrown", async () => {
+  const client = createFakeSupabaseClient([{ data: null, error: new Error("db down") }]);
+  await assert.doesNotReject(() => notifyFavoritersBackInStock(client, "listing-1", "Back in stock!"));
+});
+
+test("notifyFavoritersBackInStock: no favorites means no further work, no throw", async () => {
+  const client = createFakeSupabaseClient([{ data: [], error: null }]);
+  await assert.doesNotReject(() => notifyFavoritersBackInStock(client, "listing-1", "Back in stock!"));
+});
+
+test("notifyFavoritersBackInStock: real favoriters are looked up by the given listing, and the fan-out never throws (even with no admin client configured in this environment)", async () => {
+  const client = createFakeSupabaseClient([
+    { data: [{ user_id: "fav-1" }, { user_id: "fav-2" }], error: null },
+  ]);
+  await assert.doesNotReject(() => notifyFavoritersBackInStock(client, "listing-1", "Your favorite is back!"));
+  const favoritesCall = client.calls.find((c) => c.table === "marketplace_favorites");
+  assert.ok(favoritesCall.ops.some(([op, args]) => op === "eq" && args[0] === "listing_id" && args[1] === "listing-1"));
 });
