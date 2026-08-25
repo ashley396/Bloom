@@ -108,6 +108,15 @@ export function createFakeSupabaseClient(responses = [], { storage } = {}) {
       then(resolve, reject) {
         return Promise.resolve(nextResponse()).then(resolve, reject);
       },
+      // Real supabase-js builders are full PromiseLike objects (then/catch/
+      // finally), not just `.then()` — some handlers fire-and-forget a
+      // write with `.catch(() => {})` instead of awaiting it directly.
+      catch(onRejected) {
+        return Promise.resolve(nextResponse()).catch(onRejected);
+      },
+      finally(onFinally) {
+        return Promise.resolve(nextResponse()).finally(onFinally);
+      },
     };
     return builder;
   }
