@@ -52,7 +52,11 @@ export function validateInventoryFreshnessFields(body = {}) {
   const markup = validateMarkupMultiplier(body.markup_multiplier);
   if (!markup.ok) errors.push(markup.error);
 
-  const item_kind = String(body.item_kind || body.category === "Flowers" ? "flower" : "supply")
+  // Parenthesized explicitly: without it, `||` binds looser than `===` but
+  // the ternary still only ever tests truthiness — an explicit item_kind's
+  // actual value (e.g. "supply") was being discarded and replaced with the
+  // literal string "flower" purely because it was non-empty.
+  const item_kind = String(body.item_kind || (body.category === "Flowers" ? "flower" : "supply"))
     .trim()
     .slice(0, 40) || "flower";
 
