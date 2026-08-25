@@ -98,6 +98,8 @@ test("TEST 1 (from the AI-OS spec): 'Create a Facebook post telling high school 
   try {
     const client = makeClient([
       { data: { id: "job-1", status: "running", plan: [] }, error: null }, // job insert
+      { data: null, error: null }, // Phase 4 grounding: loadBrandBrain — no learned Brand Brain yet
+      { data: [], error: null }, // Phase 4 grounding: loadGroundedInventory — no real inventory rows
       { data: { id: "asset-post-1" }, error: null }, // social post asset insert
       { data: { id: "media-1" }, error: null }, // website_media insert (image)
       { data: { id: "asset-image-1" }, error: null }, // image asset insert
@@ -141,6 +143,8 @@ test("TEST 2 (from the AI-OS spec): 'Make a campaign for Facebook and my website
   try {
     const client = makeClient([
       { data: { id: "job-2", status: "running", plan: [] }, error: null }, // job insert
+      { data: null, error: null }, // Phase 4 grounding: loadBrandBrain — no learned Brand Brain yet
+      { data: [], error: null }, // Phase 4 grounding: loadGroundedInventory — no real inventory rows
       { data: { id: "campaign-1", name: "Homecoming campaign", channels: ["social", "website"] }, error: null }, // campaign insert
       { data: { id: "asset-post-1" }, error: null }, // facebook post asset
       { data: { id: "media-1" }, error: null }, // website_media insert (image)
@@ -237,6 +241,8 @@ test("Execution state: a required step failing downgrades the job to partially_c
   try {
     const client = makeClient([
       { data: { id: "job-3", status: "running", plan: [] }, error: null }, // job insert
+      { data: null, error: null }, // Phase 4 grounding: loadBrandBrain — no learned Brand Brain yet
+      { data: [], error: null }, // Phase 4 grounding: loadGroundedInventory — no real inventory rows
       { data: { id: "campaign-2", channels: ["social"] }, error: null }, // campaign insert
       { data: { id: "asset-fail-1" }, error: null }, // failed-post asset insert (still persisted, status:'failed')
       { data: { id: "asset-fail-image" }, error: null }, // failed-image asset insert
@@ -300,6 +306,106 @@ test("retryJobStep: an unknown step id fails clearly instead of silently no-oppi
   const result = await retryJobStep(client, { shopId: "shop-1", jobId: "job-5", stepId: "not_a_real_step" });
   assert.equal(result.ok, false);
   assert.match(result.error, /not found/i);
+});
+
+// ---- Phase 4 wiring ("one authoritative shop context layer") ----
+// marketing.createSocialPost/createVideoConcept used to call
+// generateSocialPost/generateVideoConcept with NONE of brandVoiceSummary/
+// visualStyleSummary/inventorySummary — the general Lily chat path (this
+// file) produced completely ungrounded marketing copy even though
+// marketing-studio.js's generate_content and the compound-request
+// orchestrator both already grounded the same calls. These prove the real
+// gap is closed, using the same request/response capture technique
+// ai-creative-engine.test.js already uses.
+
+function mockCloudflareCapturing(textResult) {
+  process.env.CLOUDFLARE_ACCOUNT_ID = "acct-test";
+  process.env.CLOUDFLARE_AI_API_TOKEN = "token-test";
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    calls.push(body);
+    if (String(url).includes("flux-1-schnell")) {
+      return { ok: true, json: async () => ({ result: { image: TINY_JPEG_BASE64 } }) };
+    }
+    return { ok: true, json: async () => ({ success: true, result: { response: JSON.stringify(textResult) } }) };
+  };
+  return {
+    calls,
+    restore() {
+      globalThis.fetch = originalFetch;
+    }
+  };
+}
+
+test("runJob: marketing.createSocialPost is grounded in real Brand Brain + real inventory, not just Marketing Studio's own path", async () => {
+  const mock = mockCloudflareCapturing({
+    platform: "facebook",
+    headline: "h",
+    body: "Order your Homecoming corsage today.",
+    cta: "Order now",
+    visual_brief: "v",
+    hashtags: [],
+    asset_requirements: []
+  });
+  try {
+    const client = makeClient([
+      { data: { id: "job-6", status: "running", plan: [] }, error: null }, // job insert
+      { data: { preferences: { preferred_words: { traits: [{ text: "artisan", polarity: "positive", active: true }] } } }, error: null }, // loadBrandBrain — real learned voice
+      {
+        data: [{ id: "inv-1", name: "Garden Rose", category: "Flowers", quantity: 40, low_stock_level: 10, unit: "stems", created_at: new Date().toISOString() }],
+        error: null
+      }, // loadGroundedInventory — one real row
+      { data: { id: "asset-post-1" }, error: null }, // social post asset insert
+      { data: { id: "media-1" }, error: null }, // website_media insert (optional image step)
+      { data: { id: "asset-image-1" }, error: null }, // image asset insert (optional image step)
+      { data: { id: "job-6", status: "completed" }, error: null } // job update
+    ]);
+    const routed = { action_type: "create", domain: "marketing", channels: ["facebook"], occasion: "Homecoming", audience: null, summary: "x" };
+    const ran = await runJob(client, {
+      shopId: "shop-1", userId: "user-1", persona: "Lily", routed,
+      requestText: "Create a Facebook post using the roses I actually have.",
+      shop: { name: "Test Blooms" }, inventory: []
+    });
+    assert.equal(ran.ok, true);
+
+    const brandCall = client.calls.find((c) => c.table === "marketing_brand_brain");
+    assert.ok(brandCall, "runJob must actually read this shop's real Brand Brain before generating");
+    const invCall = client.calls.find((c) => c.table === "inventory");
+    assert.ok(invCall, "runJob must actually read this shop's real inventory before generating");
+
+    const socialPostBody = mock.calls.find((c) => (c.messages?.find((m) => m.role === "user")?.content || "").includes("ACTUAL, FINISHED social media post"));
+    const userMessage = socialPostBody.messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /artisan/, "the shop's real learned brand voice must reach the actual model prompt");
+    assert.match(userMessage, /Garden Rose \(40 stems in stock\)/, "the shop's real current inventory must reach the actual model prompt");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("runJob: a job with no marketing-copy step never queries Brand Brain or inventory at all", async () => {
+  const mock = mockCloudflareCapturing({
+    concept: "x", script: "", scenes: ["0-3s: hands trimming stems"], captions: [], hashtags: [], suggested_length_seconds: 15
+  });
+  try {
+    const client = makeClient([
+      { data: { id: "job-7", status: "running", plan: [] }, error: null }, // job insert
+      { data: { id: "media-1" }, error: null }, // website_media insert (background image)
+      { data: { id: "asset-bg-1" }, error: null }, // background asset insert
+      { data: { id: "job-7", status: "completed" }, error: null } // job update
+    ]);
+    const routed = { action_type: "edit", domain: "photo", visual_op: "background_change", visual_brief: "white marble counter" };
+    const ran = await runJob(client, {
+      shopId: "shop-1", userId: "user-1", persona: "Lily", routed,
+      requestText: "put this on a white marble counter", shop: { name: "Test Blooms" }, inventory: []
+    });
+    assert.equal(ran.ok, true);
+    assert.equal(client.calls.find((c) => c.table === "marketing_brand_brain"), undefined, "a non-marketing-copy job must never pay for a Brand Brain read it has no use for");
+    assert.equal(client.calls.find((c) => c.table === "inventory"), undefined, "a non-marketing-copy job must never pay for an inventory read it has no use for");
+  } finally {
+    mock.restore();
+  }
 });
 
 // ---- Visual Creation Studio ----

@@ -116,7 +116,7 @@ import { validateCloneConsentBody, isConsentActive } from "./_shared/marketing-c
 import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
 import { generateSocialPost, generateVideoConcept, generateWebsiteSectionDraft, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
 import { generateImage, buildImagePrompt } from "./_shared/ai-image-engine.js";
-import { loadGroundedInventory, buildInventoryGroundingBrief } from "./_shared/marketing-inventory-grounding.js";
+import { loadGenerationGrounding } from "./_shared/marketing-generation-grounding.js";
 import { planVideoRender } from "./_shared/marketing-video-render-engine.js";
 import {
   parseRevisionDeltas,
@@ -1204,42 +1204,27 @@ export function createMarketingStudioHandler(deps = {}) {
         const shopName = shopRow.data?.name || null;
         const primaryPlatform = variants[0]?.platform || "facebook";
 
-        // Priority F wiring: Brand Brain (marketing-brand-brain.js) already had
-        // a full explicit-statement CRUD (get/update/reset_brand_brain) and a
-        // buildBrandSummary() helper documented as "handed to Lily's content-
-        // generation prompts as extra grounding" — but nothing ever actually
-        // called it at generation time, so a florist could teach Lily "always
-        // say artisan, never cheap" and see zero effect on real captions. This
-        // closes that read-time gap; the prompt itself (buildSocialPostTask/
-        // buildVideoConceptTask) frames it as a DEFAULT the request's own
-        // explicit instructions still override. Shop-scoped via loadBrandBrain's
-        // own .eq("shop_id", shopId), so no cross-shop leakage is possible.
-        const { preferences: brandPrefs } = await loadBrandBrain(client, shopId);
-        const brandVoiceSummary = buildBrandSummary(brandPrefs);
-
-        // Lily Creative Style Learning: the same read-time wiring as Brand
-        // Brain above, for the shop's separate VISUAL style memory
-        // (ai-style-memory.js — backgrounds/lighting/colors/mood/etc.).
-        // Shop-scoped via loadStyleMemory's own .eq("shop_id", shopId).
-        const { preferences: visualPrefs } = await loadStyleMemory(client, shopId);
-        const visualStyleSummary = buildVisualStyleSummary(visualPrefs);
-
-        // Phase 5/9 wiring ("Lily, help me sell what I already have"):
-        // buildSocialPostTask/buildVideoConceptTask had zero inventory
-        // awareness until now — "I have 40 roses I need to sell, make a
-        // Facebook post" could only ever produce invented flowers, because
-        // nothing here ever called marketing-inventory-grounding.js (PR
-        // #177/Priority 2's own shared, already-tested "never invent stock"
-        // helper — reused as-is, not reimplemented). Real current inventory
-        // is always loaded (a single, cheap DB read — no extra AI call, no
-        // extra cost), but the prompt itself only asks the model to
-        // reference it when the brief is actually about stock; an empty
-        // shop (no real inventory rows) degrades to no inventory section at
-        // all, never a fabricated one. Shop-scoped via loadGroundedInventory's
-        // own .eq("shop_id", shopId).
-        const groundedInventory = await loadGroundedInventory(client, shopId);
-        const inventoryBrief = buildInventoryGroundingBrief(groundedInventory.items);
-        const inventorySummary = inventoryBrief.summaryText || null;
+        // Priority F / Phase 4 wiring ("one authoritative shop context
+        // layer"): Brand Brain, My Style, and real inventory are all real,
+        // shop-scoped grounding for content generation — previously each
+        // loaded independently here with its own inline query pair. Now
+        // loaded through the one shared loader every marketing-content-
+        // generation call site uses (marketing-compound-orchestrator.js,
+        // ai-orchestrator.js's general Lily chat path) — see
+        // marketing-generation-grounding.js's own docstring for why a
+        // single shared layer matters here. Brand Brain's own
+        // buildBrandSummary()/My Style's buildStyleSummary() were
+        // previously documented as "handed to Lily's content-generation
+        // prompts" without ever actually being called at generation time —
+        // this closes that read-time gap; the prompts themselves
+        // (buildSocialPostTask/buildVideoConceptTask) frame each as a
+        // DEFAULT the request's own explicit instructions still override.
+        // Real current inventory means "I have 40 roses I need to sell,
+        // make a Facebook post" is grounded in the shop's actual stock, not
+        // invented — an empty shop degrades to no inventory section at
+        // all, never a fabricated one. Every read here is shop-scoped via
+        // each underlying loader's own .eq("shop_id", shopId).
+        const { brandVoiceSummary, visualStyleSummary, inventorySummary, inventorySources } = await loadGenerationGrounding(client, shopId);
 
         if (VIDEO_CONTENT_TYPES.has(currentItem.data.content_type)) {
           await recordUsage("copy", "request", 1);
@@ -1267,7 +1252,7 @@ export function createMarketingStudioHandler(deps = {}) {
             // grounded_in_inventory: the same real-source-list convention
             // compound.generateImage already records — [] when nothing was
             // available to ground on, never a guess at what the model used.
-            content: { ...gen.content, grounded_in_inventory: inventoryBrief.sources },
+            content: { ...gen.content, grounded_in_inventory: inventorySources },
             status: "completed"
           });
           if (!persisted.ok) {
@@ -1373,7 +1358,7 @@ export function createMarketingStudioHandler(deps = {}) {
             // recorded here at generation time — recordBrandSignal/
             // recordApprovalSignal only ever fire from a real approval
             // decision, never a bare generation.
-            content: { url: imageGen.url, caption: copyGen.content.body, brand_traits_used: copyGen.content.brand_traits_used, visual_traits_used: copyGen.content.visual_traits_used, grounded_in_inventory: inventoryBrief.sources },
+            content: { url: imageGen.url, caption: copyGen.content.body, brand_traits_used: copyGen.content.brand_traits_used, visual_traits_used: copyGen.content.visual_traits_used, grounded_in_inventory: inventorySources },
             mediaId: mediaRow.data?.id || null,
             status: "completed"
           });
@@ -1403,7 +1388,7 @@ export function createMarketingStudioHandler(deps = {}) {
               hashtags: copyGen.content.hashtags,
               brand_traits_used: copyGen.content.brand_traits_used,
               visual_traits_used: copyGen.content.visual_traits_used,
-              grounded_in_inventory: inventoryBrief.sources
+              grounded_in_inventory: inventorySources
             },
             status: "completed"
           });
