@@ -270,6 +270,7 @@ test("generate_content: a text_post's real generation persists brand_traits_used
       { data: { name: "Test Florals" }, error: null }, // shopRow
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
+      { data: [], error: null }, // loadGroundedInventory (no real inventory rows in this test's shop)
       { data: null, error: null }, // recordUsage insert
       { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset (social_copy)
       { data: null, error: null }, // marketing_platform_variants update (1 variant)

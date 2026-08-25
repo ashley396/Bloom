@@ -152,6 +152,49 @@ test("generateSocialPost: a model that reports no traits_used at all returns emp
   }
 });
 
+// Phase 5/9 wiring: "I have 40 roses I need to sell, make a Facebook post"
+// could previously only ever invent flowers — buildSocialPostTask had zero
+// inventory awareness. inventorySummary is a third, independent grounding
+// field alongside brandVoiceSummary/visualStyleSummary, carrying the exact
+// text marketing-inventory-grounding.js's buildInventoryGroundingBrief()
+// already produces (real names/quantities/low-stock flags).
+test("generateSocialPost: a supplied inventorySummary reaches the real prompt, and the model is told never to name stock that isn't on the list", async () => {
+  const mock = mockCloudflareOnce({
+    platform: "facebook",
+    headline: "h",
+    body: "40 garden roses, fresh in today.",
+    cta: "Order now",
+    visual_brief: "v",
+    hashtags: [],
+    asset_requirements: []
+  });
+  try {
+    await generateSocialPost({
+      channel: "facebook",
+      requestText: "I have 40 roses I need to sell, make a Facebook post",
+      inventorySummary: "Real current inventory to ground this in (do not mention flowers not on this list): Garden Rose (40 stems in stock)."
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /Garden Rose \(40 stems in stock\)/, "the shop's real current inventory must reach the actual model prompt");
+    assert.match(userMessage, /never name a flower, color, or variety that isn't on it/i, "the anti-fabrication instruction must accompany the real inventory list");
+    assert.match(userMessage, /only mention specific flowers\/stems by name if the request above is actually about/i, "inventory must not be forced into every post regardless of what was asked");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: omitting inventorySummary (nothing real to ground on) never injects an empty/undefined inventory section", async () => {
+  const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", hashtags: [], asset_requirements: [] });
+  try {
+    await generateSocialPost({ channel: "facebook", requestText: "x" });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.ok(!userMessage.includes("undefined"), "no inventory data must never leak a stray 'undefined' into the real prompt");
+    assert.ok(!/real current inventory/i.test(userMessage), "no inventory section at all when there's genuinely nothing to ground on — never a fabricated one");
+  } finally {
+    mock.restore();
+  }
+});
+
 test("generateSocialPost: omitting brandVoiceSummary (a brand-new shop with nothing learned yet) never injects an empty/undefined brand-voice section", async () => {
   const mock = mockCloudflareOnce({
     platform: "facebook",
@@ -259,6 +302,29 @@ test("generateVideoConcept: a supplied visualStyleSummary reaches the real video
     const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
     assert.match(userMessage, /mood: elegant/);
     assert.deepEqual(result.content.visual_traits_used, [{ category: "mood", text: "elegant" }]);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateVideoConcept: a supplied inventorySummary reaches the real video-concept prompt too, not just the caption path", async () => {
+  const mock = mockCloudflareOnce({
+    concept: "x",
+    script: "",
+    scenes: ["0-3s: hands trimming stems"],
+    captions: [],
+    hashtags: [],
+    suggested_length_seconds: 15
+  });
+  try {
+    await generateVideoConcept({
+      channel: "instagram",
+      requestText: "Make me a Reel about our roses",
+      inventorySummary: "Real current inventory to ground this in (do not mention flowers not on this list): Garden Rose (40 stems in stock)."
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /Garden Rose \(40 stems in stock\)/);
+    assert.match(userMessage, /never name a flower, color, or variety that isn't on it/i);
   } finally {
     mock.restore();
   }

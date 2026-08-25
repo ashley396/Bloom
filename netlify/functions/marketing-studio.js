@@ -116,6 +116,7 @@ import { validateCloneConsentBody, isConsentActive } from "./_shared/marketing-c
 import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
 import { generateSocialPost, generateVideoConcept, generateWebsiteSectionDraft, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
 import { generateImage, buildImagePrompt } from "./_shared/ai-image-engine.js";
+import { loadGroundedInventory, buildInventoryGroundingBrief } from "./_shared/marketing-inventory-grounding.js";
 import { planVideoRender } from "./_shared/marketing-video-render-engine.js";
 import {
   parseRevisionDeltas,
@@ -1223,6 +1224,23 @@ export function createMarketingStudioHandler(deps = {}) {
         const { preferences: visualPrefs } = await loadStyleMemory(client, shopId);
         const visualStyleSummary = buildVisualStyleSummary(visualPrefs);
 
+        // Phase 5/9 wiring ("Lily, help me sell what I already have"):
+        // buildSocialPostTask/buildVideoConceptTask had zero inventory
+        // awareness until now — "I have 40 roses I need to sell, make a
+        // Facebook post" could only ever produce invented flowers, because
+        // nothing here ever called marketing-inventory-grounding.js (PR
+        // #177/Priority 2's own shared, already-tested "never invent stock"
+        // helper — reused as-is, not reimplemented). Real current inventory
+        // is always loaded (a single, cheap DB read — no extra AI call, no
+        // extra cost), but the prompt itself only asks the model to
+        // reference it when the brief is actually about stock; an empty
+        // shop (no real inventory rows) degrades to no inventory section at
+        // all, never a fabricated one. Shop-scoped via loadGroundedInventory's
+        // own .eq("shop_id", shopId).
+        const groundedInventory = await loadGroundedInventory(client, shopId);
+        const inventoryBrief = buildInventoryGroundingBrief(groundedInventory.items);
+        const inventorySummary = inventoryBrief.summaryText || null;
+
         if (VIDEO_CONTENT_TYPES.has(currentItem.data.content_type)) {
           await recordUsage("copy", "request", 1);
           const gen = await generateVideoConcept({
@@ -1232,7 +1250,8 @@ export function createMarketingStudioHandler(deps = {}) {
             shop: { name: shopName },
             requestText: currentItem.data.brief,
             brandVoiceSummary,
-            visualStyleSummary
+            visualStyleSummary,
+            inventorySummary
           });
           if (!gen.ok) {
             await revertToIdea();
@@ -1245,7 +1264,10 @@ export function createMarketingStudioHandler(deps = {}) {
             assetType: "video_concept",
             provider: "cloudflare",
             model: gen.model,
-            content: gen.content,
+            // grounded_in_inventory: the same real-source-list convention
+            // compound.generateImage already records — [] when nothing was
+            // available to ground on, never a guess at what the model used.
+            content: { ...gen.content, grounded_in_inventory: inventoryBrief.sources },
             status: "completed"
           });
           if (!persisted.ok) {
@@ -1308,7 +1330,8 @@ export function createMarketingStudioHandler(deps = {}) {
           shop: { name: shopName },
           requestText: currentItem.data.brief,
           brandVoiceSummary,
-          visualStyleSummary
+          visualStyleSummary,
+          inventorySummary
         });
         if (!copyGen.ok) {
           await revertToIdea();
@@ -1319,6 +1342,11 @@ export function createMarketingStudioHandler(deps = {}) {
         let imageUrl = null;
         if (currentItem.data.content_type !== "text_post") {
           await recordUsage("image", "image", 1);
+          // No separate inventory wiring needed here: this call always
+          // supplies visualBrief (from copyGen, itself already grounded in
+          // real inventory above), so buildImagePrompt's own products
+          // fallback path never runs — the grounding already reached the
+          // image through the copy's visual_brief.
           const prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief: copyGen.content.visual_brief || currentItem.data.brief });
           const imageGen = await generateImage(client, shopId, { prompt, filename: `marketing-${body.content_item_id}.jpg` });
           if (!imageGen.ok) {
@@ -1345,7 +1373,7 @@ export function createMarketingStudioHandler(deps = {}) {
             // recorded here at generation time — recordBrandSignal/
             // recordApprovalSignal only ever fire from a real approval
             // decision, never a bare generation.
-            content: { url: imageGen.url, caption: copyGen.content.body, brand_traits_used: copyGen.content.brand_traits_used, visual_traits_used: copyGen.content.visual_traits_used },
+            content: { url: imageGen.url, caption: copyGen.content.body, brand_traits_used: copyGen.content.brand_traits_used, visual_traits_used: copyGen.content.visual_traits_used, grounded_in_inventory: inventoryBrief.sources },
             mediaId: mediaRow.data?.id || null,
             status: "completed"
           });
@@ -1374,7 +1402,8 @@ export function createMarketingStudioHandler(deps = {}) {
               cta: copyGen.content.cta,
               hashtags: copyGen.content.hashtags,
               brand_traits_used: copyGen.content.brand_traits_used,
-              visual_traits_used: copyGen.content.visual_traits_used
+              visual_traits_used: copyGen.content.visual_traits_used,
+              grounded_in_inventory: inventoryBrief.sources
             },
             status: "completed"
           });
