@@ -380,7 +380,13 @@ async function runCompoundStep(client, step, ctx) {
   if (step.tool === "compound.generateVideoConcept") {
     const brandVoiceSummary = await getBrandVoiceSummary(client, ctx);
     const visualStyleSummary = await getVisualStyleSummary(client, ctx);
-    const gen = await generateVideoConcept({ persona, channel: platforms[0], occasion: extracted.occasion, shop, requestText, brandVoiceSummary, visualStyleSummary });
+    // Phase 4 wiring: only reuses ctx.inventoryBrief when an earlier
+    // compound.lookupInventory step actually ran for THIS request's own
+    // plan (i.e. the florist's own words asked about stock) — never a new,
+    // unconditional query here. A compound request that never mentioned
+    // "flowers I have" gets no inventory section, exactly as before.
+    const inventorySummary = ctx.inventoryBrief?.summaryText || null;
+    const gen = await generateVideoConcept({ persona, channel: platforms[0], occasion: extracted.occasion, shop, requestText, brandVoiceSummary, visualStyleSummary, inventorySummary });
     if (!gen.ok) return { ok: false, error: gen.error };
     const persisted = await persistGeneratedAsset(client, { shopId, userId, persona, assetType: "video_concept", model: gen.model, content: gen.content, status: "completed" });
     if (!persisted.ok) return { ok: false, error: persisted.error };
@@ -495,10 +501,14 @@ async function runCompoundStep(client, step, ctx) {
     // reused here rather than left to an optional follow-up).
     const brandVoiceSummary = await getBrandVoiceSummary(client, ctx);
     const visualStyleSummary = await getVisualStyleSummary(client, ctx);
+    // Same intent-driven reuse as compound.generateVideoConcept above —
+    // only real when this request's own plan already ran
+    // compound.lookupInventory.
+    const inventorySummary = ctx.inventoryBrief?.summaryText || null;
     const variantRows = [];
     for (const platform of platforms) {
       // eslint-disable-next-line no-await-in-loop
-      const copyGen = await generateSocialPost({ persona, channel: platform, occasion: extracted.occasion, shop, requestText, brandVoiceSummary, visualStyleSummary });
+      const copyGen = await generateSocialPost({ persona, channel: platform, occasion: extracted.occasion, shop, requestText, brandVoiceSummary, visualStyleSummary, inventorySummary });
       variantRows.push({
         shop_id: shopId,
         content_item_id: inserted.data.id,

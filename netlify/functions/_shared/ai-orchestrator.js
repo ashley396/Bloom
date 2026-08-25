@@ -23,6 +23,7 @@ import { applyGeneratedWebsiteSection, buildWebsiteSectionPayload } from "./webs
 import { pickFlyerTemplate, pickAspectRatio, ASPECT_RATIOS } from "./flyer-templates.js";
 import { applyRevisionDeltas, defaultVisualStyle } from "./ai-visual-revisions.js";
 import { buildVisualBrief } from "./ai-intent-router.js";
+import { loadGenerationGrounding } from "./marketing-generation-grounding.js";
 
 const POSTABLE_CHANNELS = ["facebook", "instagram", "google_business", "email", "sms", "blog"];
 const CHANNEL_TO_CAMPAIGN_CHANNEL = {
@@ -119,7 +120,7 @@ export function planJob(routed, { requestText } = {}) {
 }
 
 async function runStep(client, step, ctx) {
-  const { shopId, userId, persona, routed, requestText, shop, jobId, campaignId, styleSummary } = ctx;
+  const { shopId, userId, persona, routed, requestText, shop, jobId, campaignId, styleSummary, brandVoiceSummary, inventorySummary } = ctx;
 
   if (step.tool === "marketing.createCampaign") {
     const name = routed.occasion ? `${routed.occasion} campaign` : (requestText || "New campaign").slice(0, 80);
@@ -143,7 +144,10 @@ async function runStep(client, step, ctx) {
       occasion: routed.occasion,
       audience: routed.audience,
       shop,
-      requestText
+      requestText,
+      brandVoiceSummary,
+      visualStyleSummary: styleSummary,
+      inventorySummary
     });
     if (!gen.ok) {
       await persistGeneratedAsset(client, {
@@ -194,7 +198,7 @@ async function runStep(client, step, ctx) {
   }
 
   if (step.tool === "marketing.createVideoConcept") {
-    const gen = await generateVideoConcept({ persona, channel: routed.channels?.[0], occasion: routed.occasion, audience: routed.audience, shop, requestText });
+    const gen = await generateVideoConcept({ persona, channel: routed.channels?.[0], occasion: routed.occasion, audience: routed.audience, shop, requestText, brandVoiceSummary, visualStyleSummary: styleSummary, inventorySummary });
     if (!gen.ok) {
       await persistGeneratedAsset(client, {
         shopId, userId, persona, jobId, campaignId,
@@ -400,7 +404,19 @@ function summarizeStatus(plan) {
  * creative.generateBackground step, which calls buildVisualBrief() itself —
  * see that function's own docstring for why the brief is built there and
  * not here. It's intentionally NOT persisted in `context`: a retry should
- * blend the shop's *current* style, not a frozen copy from job creation. */
+ * blend the shop's *current* style, not a frozen copy from job creation.
+ *
+ * Phase 4 wiring ("one authoritative shop context layer"): marketing.
+ * createSocialPost/createVideoConcept used to call generateSocialPost/
+ * generateVideoConcept with NONE of brandVoiceSummary/visualStyleSummary/
+ * inventorySummary — the general Lily chat path (this file) produced
+ * completely ungrounded marketing copy even though marketing-studio.js's
+ * own generate_content and the compound-request orchestrator both already
+ * grounded the same underlying calls. `styleSummary` (already loaded by
+ * the caller, reused here rather than re-queried) plus a fresh Brand
+ * Brain + real-inventory read via marketing-generation-grounding.js close
+ * that gap — the same shared loader every marketing-content-generation
+ * call site now uses. */
 export async function runJob(client, { shopId, userId, persona, routed, requestText, shop, inventory, conversationId = null, parentAssetId = null, revisionDeltas = null, styleSummary = null }) {
   const plan = planJob(routed, { requestText }).map((s) => ({ ...s, status: "planned", result: null, error: null }));
 
@@ -431,12 +447,20 @@ export async function runJob(client, { shopId, userId, persona, routed, requestT
     .single();
   if (createError) return { ok: false, error: createError.message };
 
+  // Only fetched when this job's own plan actually contains a step that
+  // uses it — a flyer/website-section/diagnosis/navigation job never pays
+  // for a Brand Brain + inventory read it has no use for.
+  const needsCopyGrounding = plan.some((s) => s.tool === "marketing.createSocialPost" || s.tool === "marketing.createVideoConcept");
+  const { brandVoiceSummary, inventorySummary } = needsCopyGrounding
+    ? await loadGenerationGrounding(client, shopId, { needs: ["brand", "inventory"] })
+    : { brandVoiceSummary: "", inventorySummary: null };
+
   let campaignId = null;
   let imageUrl = null;
   let flyerAssetId = null;
   let flyerBackgroundUrl = null;
   let flyerBackgroundTraits = [];
-  const ctx = { shopId, userId, persona, routed, requestText, shop, inventory, jobId: job.id, parentAssetId, revisionDeltas, styleSummary };
+  const ctx = { shopId, userId, persona, routed, requestText, shop, inventory, jobId: job.id, parentAssetId, revisionDeltas, styleSummary, brandVoiceSummary, inventorySummary };
 
   for (let i = 0; i < plan.length; i += 1) {
     plan[i].status = "running";
@@ -533,10 +557,18 @@ export async function retryJobStep(client, { shopId, userId, persona, jobId, ste
   // own steps rather than leaving the retry image-less.
   const imageStep = plan.find((s) => s.tool === "creative.generateImage" && s.status === "completed");
   plan[idx] = { ...plan[idx], status: "running", error: null };
+  // Same Phase 4 wiring as runJob() above — a retried copy step must be
+  // grounded exactly like the original attempt, not silently downgraded to
+  // an ungrounded generation just because it's a retry.
+  const retryNeedsCopyGrounding = plan[idx].tool === "marketing.createSocialPost" || plan[idx].tool === "marketing.createVideoConcept";
+  const { brandVoiceSummary: retryBrandVoiceSummary, inventorySummary: retryInventorySummary } = retryNeedsCopyGrounding
+    ? await loadGenerationGrounding(client, shopId, { needs: ["brand", "inventory"] })
+    : { brandVoiceSummary: "", inventorySummary: null };
   const outcome = await runStep(client, plan[idx], {
     shopId, userId, persona, routed, requestText: job.request_text, shop: {}, inventory: [], jobId: job.id,
     campaignId: job.campaign_id, imageUrl: imageStep?.result?.url || null,
-    parentAssetId: savedContext.parent_asset_id || null, styleSummary
+    parentAssetId: savedContext.parent_asset_id || null, styleSummary,
+    brandVoiceSummary: retryBrandVoiceSummary, inventorySummary: retryInventorySummary
   });
   plan[idx].status = outcome.ok ? "completed" : "failed";
   plan[idx].result = outcome.ok ? outcome.result || null : null;

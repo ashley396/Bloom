@@ -338,6 +338,122 @@ test("runCompoundRequest: happy path — image + one platform (no reframe needed
   }
 });
 
+// Phase 4 wiring ("one authoritative shop context layer"): compound.
+// createContentItem's generateSocialPost call never received an
+// inventorySummary at all — even though compound.lookupInventory already
+// runs and sets ctx.inventoryBrief whenever the florist's own words asked
+// about real stock ("flowers I actually have"). Proves the real prompt
+// sent to the model now carries that real inventory, intent-gated exactly
+// as before (only when inventory_grounded came back true from extraction).
+test("runCompoundRequest: inventory_grounded requests thread the real inventory summary into the actual social-post prompt", async () => {
+  const mock = installCloudflareRouter({
+    extraction: {
+      wants_image: true,
+      wants_video: false,
+      wants_digital_twin: false,
+      platforms: ["facebook"],
+      occasion: "rose sale",
+      inventory_grounded: true,
+      budget_dollars: 10,
+      schedule_relative_day: null,
+      schedule_time_of_day: null,
+      summary: "A Facebook post using the roses I actually have in stock."
+    },
+    socialPost: DEFAULT_SOCIAL_POST
+  });
+  const storage = createFakeSupabaseStorage();
+  const client = createFakeSupabaseClient(
+    [
+      { data: null, error: null }, // idempotency dedup lookup
+      { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
+      { data: { marketing_monthly_budget_cents: null }, error: null }, // budget_check shop monthly-default lookup
+      {
+        data: [{ id: "inv-1", name: "Garden Rose", category: "Flowers", quantity: 40, low_stock_level: 10, unit: "stems", created_at: new Date().toISOString() }],
+        error: null
+      }, // inventory_lookup: loadGroundedInventory — one real row
+      { data: { id: "asset-1" }, error: null }, // ai_generated_assets insert (image)
+      { data: { id: "content-1", content_type: "image_post", title: "x", status: "idea" }, error: null }, // marketing_content_items insert
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // marketing_platform_variants insert
+      { data: { id: "job-1", status: "completed" }, error: null } // ai_execution_jobs final update
+    ],
+    { storage }
+  );
+
+  try {
+    const result = await runCompoundRequest(client, {
+      shopId: "shop-1",
+      userId: "user-1",
+      persona: "Lily",
+      message: "Make a Facebook post using the roses I actually have.",
+      shop: { name: "Test Florals" },
+      timezone: "America/New_York"
+    });
+    assert.equal(result.ok, true);
+    const jobUpdate = getJobUpdatePayload(client);
+    const byId = Object.fromEntries(jobUpdate.plan.map((s) => [s.id, s]));
+    assert.equal(byId.inventory_lookup.status, "completed");
+    assert.equal(byId.create_content_item.status, "completed");
+
+    const socialPostCall = mock.calls.find((c) => (c.body.messages?.find((m) => m.role === "user")?.content || "").includes("ACTUAL, FINISHED social media post"));
+    const userMessage = socialPostCall.body.messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /Garden Rose \(40 stems in stock\)/, "the real inventory the shop actually has must reach the actual social-post prompt, not just sit in ctx.inventoryBrief unread");
+    assert.match(userMessage, /never name a flower, color, or variety that isn't on it/i);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("runCompoundRequest: a request that never mentioned stock gets no inventory section — never a forced or fabricated one", async () => {
+  const mock = installCloudflareRouter({
+    extraction: {
+      wants_image: true,
+      wants_video: false,
+      wants_digital_twin: false,
+      platforms: ["facebook"],
+      occasion: "wedding bouquet",
+      inventory_grounded: false,
+      budget_dollars: 10,
+      schedule_relative_day: null,
+      schedule_time_of_day: null,
+      summary: "A wedding bouquet post for Facebook."
+    },
+    socialPost: DEFAULT_SOCIAL_POST
+  });
+  const storage = createFakeSupabaseStorage();
+  const client = createFakeSupabaseClient(
+    [
+      { data: null, error: null }, // idempotency dedup lookup
+      { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
+      { data: { marketing_monthly_budget_cents: null }, error: null }, // budget_check shop monthly-default lookup
+      { data: { id: "asset-1" }, error: null }, // ai_generated_assets insert (image)
+      { data: { id: "content-1", content_type: "image_post", title: "x", status: "idea" }, error: null }, // marketing_content_items insert
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null } // marketing_platform_variants insert
+    ],
+    { storage }
+  );
+
+  try {
+    await runCompoundRequest(client, {
+      shopId: "shop-1",
+      userId: "user-1",
+      persona: "Lily",
+      message: "Make a wedding bouquet post for Facebook.",
+      shop: { name: "Test Florals" },
+      timezone: "America/New_York"
+    });
+    assert.equal(client.calls.find((c) => c.table === "inventory"), undefined, "a request that never asked about stock must never trigger an inventory query at all");
+    const socialPostCall = mock.calls.find((c) => (c.body.messages?.find((m) => m.role === "user")?.content || "").includes("ACTUAL, FINISHED social media post"));
+    const userMessage = socialPostCall.body.messages.find((m) => m.role === "user").content;
+    assert.ok(!/real current inventory/i.test(userMessage));
+  } finally {
+    mock.restore();
+  }
+});
+
 test("runCompoundRequest: a stated budget is a real execution constraint — halts before any generation call is made", async () => {
   const mock = installCloudflareRouter({
     extraction: {
