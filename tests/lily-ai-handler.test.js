@@ -145,7 +145,12 @@ test("cloudflareChat: a shop that never customized its voice gets no extra syste
   try {
     await cloudflareChat("lily", "What's in stock?", { shop: {}, inventory: [], recent_orders: [], deliveries: [], ai_profile: null });
     const systemMessage = sentBody.messages.find((m) => m.role === "system").content;
-    assert.equal(systemMessage.trim().split("\n").filter((l) => /voice|delivery notes|marketing/i.test(l)).length, 0);
+    // Matches shopVoiceSuffix()'s own exact line shapes, not just any
+    // incidental occurrence of the word "marketing"/"voice" elsewhere in
+    // the persona's own base prompt (e.g. its unrelated
+    // audience_segments.enabled:false guidance, which legitimately
+    // mentions "Marketing Campaigns" every time, ai_profile or not).
+    assert.equal(systemMessage.trim().split("\n").filter((l) => /^This shop's voice:|^Delivery notes from the florist:|^Marketing\/brand notes from the florist:/.test(l)).length, 0);
   } finally {
     globalThis.fetch = originalFetch;
     delete process.env.CLOUDFLARE_ACCOUNT_ID;
