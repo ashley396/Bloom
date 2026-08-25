@@ -100,6 +100,20 @@
     [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
+# Live-beta defect (Aug 25 2026): this file was added in the florist-facing
+# Marketing Studio pass and never got this override, unlike every other
+# actively-revised script above. Its <script> tag also carries no `?v=`
+# cache-buster, so its URL is byte-identical across every deploy — the
+# combination meant a florist's browser that had already fetched this file
+# once (e.g. during an earlier visit) had no signal to ever refetch it, and
+# could keep silently executing a pre-fix copy indefinitely even though the
+# server was correctly serving the fixed one. See
+# tests/marketing-studio-shop-ui-cache-freshness.test.js.
+[[headers]]
+  for = "/marketing-studio-shop-ui.js"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
 # P0-17 distributed auth admission (Pro: max 5 code-based rate-limit rules).
 # Rate limits must target /api/* entry points — Netlify drops redirects that
 # rewrite /.netlify/functions/* onto itself. Clients call /api/auth-*.

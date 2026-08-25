@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { mockBackend, withFakeSession } from "./fixtures.mjs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Live beta defect: the florist-facing "Ask Lily to change something"
@@ -98,6 +103,77 @@ test("an ordinary revision instruction sends without any persistence flag or wor
   await expect(root.locator("#msRevisionBox-item-1")).toHaveCount(0);
   expect(sentBody.instruction).toBe("Make it shorter");
   expect(sentBody.action).toBe("revise_content");
+});
+
+/**
+ * Second live-beta occurrence (Aug 25 2026): Ashley re-tested on
+ * www.florisyn.com AFTER b6f358c deployed the fix above and got the exact
+ * pre-fix symptom back — no composer, the bare "Tell me specifically what
+ * to keep... so Lily can save it as your style" toast. b6f358c's own
+ * committed/deployed client source is correct (proved by the two tests
+ * above running against the real file on disk) — so this isn't a
+ * source-code regression. What it demonstrates is the actual live
+ * mechanism: marketing-studio-shop-ui.js shipped with no cache-busting
+ * query string and no netlify.toml Cache-Control override (see
+ * tests/marketing-studio-shop-ui-cache-freshness.test.js), so a browser
+ * that had already fetched this exact URL once — as Ashley's had, from her
+ * earlier successful Generate test — had no signal to ever refetch it and
+ * could keep silently executing the pre-fix bytes indefinitely, even
+ * though the server was correctly serving the fixed file to any NEW
+ * request. This test drives the real DOM/render/click path exactly like
+ * the tests above, with one deliberate substitution: the browser is served
+ * the actual pre-fix marketing-studio-shop-ui.js bytes (captured from git
+ * history at b6f358c~1) for this one request, standing in for "a browser
+ * that has a stale cached copy" — everything else (page, session, backend
+ * mocks, the real render() output the old file produces) is identical to
+ * the tests above. It reproduces Ashley's exact reported symptom.
+ */
+test("a browser still running the pre-b6f358c client script reproduces Ashley's exact live symptom against the current backend", async ({ page }) => {
+  const staleScript = fs.readFileSync(
+    path.join(__dirname, "fixtures/pre-b6f358c-marketing-studio-shop-ui.js"),
+    "utf8"
+  );
+  await mockMarketingStudioShop(page, {
+    onRevise: async (route) => {
+      // The real, currently-deployed server error for this exact scenario
+      // (marketing-studio.js:878) — reused verbatim, not re-typed, so this
+      // test can't silently drift from what the live backend actually
+      // returns.
+      await route.fulfill({
+        status: 400,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: 'Tell me specifically what to keep (e.g. "always use this background") so Lily can save it as your style.'
+        })
+      });
+      return true;
+    }
+  });
+  // Simulate the browser's HTTP cache already holding the pre-fix file —
+  // the one request this deploy never got a chance to invalidate.
+  await page.route("**/marketing-studio-shop-ui.js*", (route) =>
+    route.fulfill({ status: 200, contentType: "application/javascript", body: staleScript })
+  );
+
+  let promptInstruction = null;
+  page.on("dialog", async (dialog) => {
+    promptInstruction = dialog.message();
+    await dialog.accept("keep it this way going forward");
+  });
+
+  const root = await openMarketingStudioShop(page);
+  await root.locator('[data-ms-act="revise"]').click();
+
+  // Ashley's exact reported symptom: no inline composer, and the app's
+  // real #toast element (app.js's own toast(), never a test stand-in)
+  // shows the My-Style toast — coming from the stale client's prompt()
+  // dialog, not from any code that exists in the currently-deployed
+  // marketing-studio-shop-ui.js.
+  await expect(page.locator("#toast")).toHaveText(
+    'Tell me specifically what to keep (e.g. "always use this background") so Lily can save it as your style.'
+  );
+  expect(promptInstruction).toBe("What should Lily change?");
+  await expect(root.locator("#msRevisionBox-item-1")).toHaveCount(0);
 });
 
 test("Cancel closes the composer without calling revise_content", async ({ page }) => {
