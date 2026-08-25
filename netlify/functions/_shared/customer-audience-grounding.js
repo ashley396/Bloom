@@ -54,3 +54,35 @@ export async function loadCustomerAudienceSummary(client, shopId) {
     segments: segments.map(({ key, label, count }) => ({ key, label, count }))
   };
 }
+
+// The handful of segments generically useful to mention while drafting
+// marketing copy — deliberately excludes the per-occasion buckets
+// (past_valentines_buyers, wedding_customers, etc.) and high_spend: those
+// are real too, but noisier to fold into a general-purpose prompt brief
+// than a targeted campaign actually built around them would want.
+const PROMPT_SEGMENT_KEYS = ["vip", "repeat", "new", "lapsed", "birthday_this_month", "anniversary_this_month"];
+
+/**
+ * Turns loadCustomerAudienceSummary()'s structured result into one prompt-
+ * ready sentence — the same "compose only what's real and non-zero" shape
+ * as order-workload-intelligence.js's buildWorkloadSummaryText(), used by
+ * marketing-generation-grounding.js (Phase 9: connecting this real
+ * audience data into actual campaign-copy generation, not just Lily's
+ * read-only chat context). Never invents a segment or count that isn't in
+ * `audienceSummary` — an empty/disabled summary returns null, not a
+ * guessed placeholder.
+ */
+export function buildAudienceGroundingBrief(audienceSummary) {
+  if (!audienceSummary?.enabled || !audienceSummary.subscriberCount) {
+    return { summaryText: null, grounded: false };
+  }
+  const bySegmentKey = new Map((audienceSummary.segments || []).map((s) => [s.key, s]));
+  const count = audienceSummary.subscriberCount;
+  const parts = [`${count} marketing subscriber${count === 1 ? "" : "s"}`];
+  for (const key of PROMPT_SEGMENT_KEYS) {
+    const seg = bySegmentKey.get(key);
+    if (seg && seg.count > 0) parts.push(`${seg.count} ${seg.label.toLowerCase()}`);
+  }
+  const summaryText = `Real audience data for this shop (never invent a different number or segment): ${parts.join("; ")}. Only mention an audience size or segment if the request is actually about targeting, reach, or a specific customer group — never force a mention into copy that isn't about that.`;
+  return { summaryText, grounded: true };
+}

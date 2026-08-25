@@ -183,6 +183,49 @@ test("generateSocialPost: a supplied inventorySummary reaches the real prompt, a
   }
 });
 
+// Phase 9 ("connect intelligence to marketing"): audienceSummary is a
+// fourth, independent grounding field carrying the exact text
+// customer-audience-grounding.js's buildAudienceGroundingBrief() already
+// produces (real subscriber/segment counts).
+test("generateSocialPost: a supplied audienceSummary reaches the real prompt, and the model is told never to state an unlisted audience number", async () => {
+  const mock = mockCloudflareOnce({
+    platform: "facebook",
+    headline: "h",
+    body: "Happy birthday from all of us!",
+    cta: "Order now",
+    visual_brief: "v",
+    hashtags: [],
+    asset_requirements: []
+  });
+  try {
+    await generateSocialPost({
+      channel: "facebook",
+      requestText: "make a birthday post for my subscribers with birthdays this month",
+      audienceSummary: "Real audience data for this shop (never invent a different number or segment): 42 marketing subscribers; 6 birthdays this month."
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /42 marketing subscribers; 6 birthdays this month/, "the shop's real audience data must reach the actual model prompt");
+    assert.match(userMessage, /never state an audience size, subscriber count, or customer-segment number that isn't in the real audience data/i);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: omitting audienceSummary (nothing real to ground on) never injects an empty/undefined audience section", async () => {
+  const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", hashtags: [], asset_requirements: [] });
+  try {
+    await generateSocialPost({ channel: "facebook", requestText: "x" });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.ok(!userMessage.includes("undefined"), "no audience data must never leak a stray 'undefined' into the real prompt");
+    // The anti-fabrication RULE bullet is always present (it also covers a
+    // request that never supplied any audience data at all) — what must
+    // never appear unconditionally is the SUMMARY sentence itself.
+    assert.ok(!/audience data for this shop/i.test(userMessage), "no audience summary section at all when there's genuinely nothing to ground on — never a fabricated one");
+  } finally {
+    mock.restore();
+  }
+});
+
 test("generateSocialPost: omitting inventorySummary (nothing real to ground on) never injects an empty/undefined inventory section", async () => {
   const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", hashtags: [], asset_requirements: [] });
   try {
@@ -325,6 +368,29 @@ test("generateVideoConcept: a supplied inventorySummary reaches the real video-c
     const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
     assert.match(userMessage, /Garden Rose \(40 stems in stock\)/);
     assert.match(userMessage, /never name a flower, color, or variety that isn't on it/i);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateVideoConcept: a supplied audienceSummary reaches the real video-concept prompt too, not just the caption path", async () => {
+  const mock = mockCloudflareOnce({
+    concept: "x",
+    script: "",
+    scenes: ["0-3s: hands trimming stems"],
+    captions: [],
+    hashtags: [],
+    suggested_length_seconds: 15
+  });
+  try {
+    await generateVideoConcept({
+      channel: "instagram",
+      requestText: "Make me a Reel for our repeat customers",
+      audienceSummary: "Real audience data for this shop (never invent a different number or segment): 42 marketing subscribers; 9 repeat customers (2+ orders)."
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /9 repeat customers \(2\+ orders\)/);
+    assert.match(userMessage, /never state an audience size, subscriber count, or customer-segment number that isn't in the real audience data/i);
   } finally {
     mock.restore();
   }

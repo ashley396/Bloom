@@ -271,6 +271,8 @@ test("generate_content: a text_post's real generation persists brand_traits_used
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
       { data: [], error: null }, // loadGroundedInventory (no real inventory rows in this test's shop)
+      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — customers (none)
+      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — orders (none)
       { data: null, error: null }, // recordUsage insert
       { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset (social_copy)
       { data: null, error: null }, // marketing_platform_variants update (1 variant)
@@ -346,6 +348,9 @@ test("generate_content: a previously-saved My Style preference ('soft luxury bac
       { data: { name: "Test Florals" }, error: null }, // shopRow
       { data: null, error: null }, // loadBrandBrain (nothing saved)
       { data: { preferences: savedStyle }, error: null }, // loadStyleMemory — the REAL, previously-saved preference
+      { data: [], error: null }, // loadGroundedInventory (no real inventory rows in this test's shop)
+      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — customers (none)
+      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — orders (none)
       { data: null, error: null }, // recordUsage("copy")
       { data: { id: "copy-asset-2" }, error: null }, // persistGeneratedAsset (social_copy, text_post)
       { data: { id: "item-2", status: "draft" }, error: null }, // final content_items update

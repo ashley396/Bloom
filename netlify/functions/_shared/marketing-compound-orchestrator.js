@@ -52,6 +52,7 @@ import { uploadClonedVoiceAudio } from "./website-media.js";
 import { recordCloneVideoJob } from "./creative-ai/clone-video-jobs.js";
 import { loadBrandBrain, buildBrandSummary } from "./marketing-brand-brain.js";
 import { loadStyleMemory, buildStyleSummary as buildVisualStyleSummary } from "./ai-style-memory.js";
+import { loadCustomerAudienceSummary, buildAudienceGroundingBrief } from "./customer-audience-grounding.js";
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const TIME_OF_DAY_DEFAULTS = { morning: "09:00", afternoon: "14:00", evening: "18:00", night: "20:00" };
@@ -68,6 +69,7 @@ Return JSON:
 - platforms: array from [facebook,instagram,tiktok,linkedin,pinterest,google_business,youtube] — every platform actually named. Empty array if none named.
 - occasion: string|null — the theme/product/occasion (e.g. "wedding bouquet", "Mother's Day").
 - inventory_grounded: boolean — true if they reference using real/actual/current/on-hand flowers or stock ("flowers I have", "what I need to move", "using our current inventory").
+- audience_grounded: boolean — true if they reference targeting, reaching, or messaging a specific real customer group ("my subscribers", "loyal customers", "people who haven't ordered in a while", "target my VIPs", "customers with birthdays this month").
 - budget_dollars: number|null — a dollar budget if one is explicitly stated ("$2", "under $50"), else null. Never guess a number that wasn't stated.
 - schedule_relative_day: string|null — today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday, or null if no day was mentioned.
 - schedule_time_of_day: string|null — morning|afternoon|evening|night|"HH:MM", or null if no time was mentioned.
@@ -80,6 +82,7 @@ const EXTRACT_SCHEMA = {
   platforms: ["string"],
   occasion: "string|null",
   inventory_grounded: "boolean",
+  audience_grounded: "boolean",
   budget_dollars: "number|null",
   schedule_relative_day: "string|null",
   schedule_time_of_day: "string|null",
@@ -112,6 +115,7 @@ export async function extractCompoundMarketingRequest(message) {
       platforms,
       occasion: raw.occasion ? String(raw.occasion).trim().slice(0, 200) : null,
       inventoryGrounded: Boolean(raw.inventory_grounded),
+      audienceGrounded: Boolean(raw.audience_grounded),
       budgetCents: typeof raw.budget_dollars === "number" && raw.budget_dollars > 0 ? Math.round(raw.budget_dollars * 100) : null,
       scheduleRelativeDay: raw.schedule_relative_day ? String(raw.schedule_relative_day).toLowerCase().trim() : null,
       scheduleTimeOfDay: raw.schedule_time_of_day ? String(raw.schedule_time_of_day).toLowerCase().trim() : null,
@@ -228,6 +232,9 @@ export function planCompoundRequest(extracted) {
   steps.push({ id: "budget_check", tool: "compound.checkBudget", label: "Check estimated cost against budget", optional: false });
   if (extracted.inventoryGrounded) {
     steps.push({ id: "inventory_lookup", tool: "compound.lookupInventory", label: "Look up real current inventory", optional: false });
+  }
+  if (extracted.audienceGrounded) {
+    steps.push({ id: "audience_lookup", tool: "compound.lookupAudience", label: "Look up real audience/subscriber counts", optional: false });
   }
   if (extracted.wantsDigitalTwin) {
     steps.push({ id: "digital_twin_check", tool: "compound.checkDigitalTwin", label: "Check Digital Twin availability", optional: false });
@@ -352,6 +359,25 @@ async function runCompoundStep(client, step, ctx) {
     return { ok: true, result: { itemCount: inv.items.length, sources: brief.sources } };
   }
 
+  if (step.tool === "compound.lookupAudience") {
+    // Same intent-gated, honest-or-fail pattern as compound.lookupInventory
+    // above — only runs when the florist's own words actually asked to
+    // target/reach a real customer group, and fails clearly rather than
+    // silently continuing with a fabricated audience when there's nothing
+    // real to ground on (Marketing Campaigns disabled for this shop, or a
+    // real but empty subscriber list).
+    const audience = await loadCustomerAudienceSummary(client, shopId);
+    if (!audience.enabled) {
+      return { ok: false, error: "Marketing Campaigns isn't set up for this shop yet, so there's no real audience data to target — nothing was generated." };
+    }
+    if (!audience.subscriberCount) {
+      return { ok: false, error: "No customers have opted in to marketing yet, so there's no real audience to target — nothing was generated." };
+    }
+    const brief = buildAudienceGroundingBrief(audience);
+    ctx.audienceBrief = brief;
+    return { ok: true, result: { subscriberCount: audience.subscriberCount, segments: audience.segments } };
+  }
+
   if (step.tool === "compound.checkDigitalTwin") {
     const availability = await checkDigitalTwinAvailability(client, shopId);
     if (!availability.available) {
@@ -386,7 +412,10 @@ async function runCompoundStep(client, step, ctx) {
     // unconditional query here. A compound request that never mentioned
     // "flowers I have" gets no inventory section, exactly as before.
     const inventorySummary = ctx.inventoryBrief?.summaryText || null;
-    const gen = await generateVideoConcept({ persona, channel: platforms[0], occasion: extracted.occasion, shop, requestText, brandVoiceSummary, visualStyleSummary, inventorySummary });
+    // Same reuse discipline as inventorySummary above — only real when a
+    // compound.lookupAudience step already ran for this request's own plan.
+    const audienceSummary = ctx.audienceBrief?.summaryText || null;
+    const gen = await generateVideoConcept({ persona, channel: platforms[0], occasion: extracted.occasion, shop, requestText, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary });
     if (!gen.ok) return { ok: false, error: gen.error };
     const persisted = await persistGeneratedAsset(client, { shopId, userId, persona, assetType: "video_concept", model: gen.model, content: gen.content, status: "completed" });
     if (!persisted.ok) return { ok: false, error: persisted.error };
@@ -505,10 +534,13 @@ async function runCompoundStep(client, step, ctx) {
     // only real when this request's own plan already ran
     // compound.lookupInventory.
     const inventorySummary = ctx.inventoryBrief?.summaryText || null;
+    // Same reuse discipline — only real when compound.lookupAudience ran
+    // for this request's own plan.
+    const audienceSummary = ctx.audienceBrief?.summaryText || null;
     const variantRows = [];
     for (const platform of platforms) {
       // eslint-disable-next-line no-await-in-loop
-      const copyGen = await generateSocialPost({ persona, channel: platform, occasion: extracted.occasion, shop, requestText, brandVoiceSummary, visualStyleSummary, inventorySummary });
+      const copyGen = await generateSocialPost({ persona, channel: platform, occasion: extracted.occasion, shop, requestText, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary });
       variantRows.push({
         shop_id: shopId,
         content_item_id: inserted.data.id,

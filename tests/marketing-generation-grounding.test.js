@@ -62,6 +62,48 @@ test("loadGenerationGrounding: memoizes onto a shared ctx — a second call for 
   assert.equal(client.calls.length, callCountAfterFirst, "a second call sharing the same ctx must not re-query any of the three loaders");
 });
 
+// Phase 9 ("connect intelligence to marketing"): "audience" is opt-in only
+// (never one of the three defaults) since its underlying queries are the
+// heaviest of the four (full customers + orders history, unbounded).
+
+test("loadGenerationGrounding: default needs never touch customers/orders — audience stays opt-in", async () => {
+  const client = createFakeSupabaseClient([
+    { data: { preferences: {} }, error: null },
+    { data: { preferences: {} }, error: null },
+    { data: [], error: null }
+  ]);
+  const result = await loadGenerationGrounding(client, "shop-1");
+  assert.equal(result.audienceSummary, null);
+  assert.equal(client.calls.find((c) => c.table === "customers"), undefined);
+  assert.equal(client.calls.find((c) => c.table === "orders"), undefined);
+});
+
+test("loadGenerationGrounding: 'audience' in needs loads real, consent-aware audience data and threads it into the real prompt brief", async () => {
+  const client = createFakeSupabaseClient([
+    { data: [{ id: "c1", vip: true, created_at: "2020-01-01T00:00:00Z", contact_preferences: { marketing_opt_in: true } }], error: null }, // customers
+    { data: [], error: null } // orders
+  ]);
+  const result = await loadGenerationGrounding(client, "shop-1", { needs: ["audience"] });
+  assert.match(result.audienceSummary, /1 marketing subscriber\b/);
+  assert.match(result.audienceSummary, /1 vip customers/i);
+  assert.equal(result.brandVoiceSummary, "", "requesting only 'audience' must not also pull brand/style/inventory");
+
+  const customersCall = client.calls.find((c) => c.table === "customers");
+  assert.ok(customersCall.ops.some((op) => op[0] === "eq" && op[1][0] === "shop_id" && op[1][1] === "shop-1"));
+});
+
+test("loadGenerationGrounding: 'audience' memoizes onto a shared ctx exactly like the other three", async () => {
+  const client = createFakeSupabaseClient([
+    { data: [], error: null }, // customers
+    { data: [], error: null } // orders
+  ]);
+  const ctx = {};
+  await loadGenerationGrounding(client, "shop-1", { needs: ["audience"], ctx });
+  const callCountAfterFirst = client.calls.length;
+  await loadGenerationGrounding(client, "shop-1", { needs: ["audience"], ctx });
+  assert.equal(client.calls.length, callCountAfterFirst, "a second call sharing the same ctx must not re-query the audience loader");
+});
+
 test("loadGenerationGrounding: without a shared ctx, each call is independent (no accidental cross-request memoization)", async () => {
   const client = createFakeSupabaseClient([
     { data: { preferences: {} }, error: null },
