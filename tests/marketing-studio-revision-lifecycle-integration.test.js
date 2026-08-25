@@ -91,6 +91,7 @@ test("full lifecycle: generate -> revise -> revise -> undo -> undo -> revise (ne
       { data: { name: "Test Florals" }, error: null }, // shopRow
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
+      { data: [], error: null }, // loadGroundedInventory (no real inventory rows in this test's shop)
       { data: null, error: null }, // recordUsage("copy")
       { data: null, error: null }, // recordUsage("image")
       { data: { id: "media-a" }, error: null }, // website_media insert

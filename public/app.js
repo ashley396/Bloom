@@ -173,7 +173,7 @@ async function bootFloristApp(){
   }
 }
 async function loadPlatformSettings(){try{const d=await api('platform-settings');if($('#roseFoundationTotal'))$('#roseFoundationTotal').textContent=`${money(d.roseFoundationTotal||0)} raised`}catch{}}
-function showApp(){const pubHome=$("#publicHome");if(pubHome)pubHome.hidden=true;loadPlatformSettings();refreshGrowthFeatureFlags();$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";if(session?.user?.email)$("#accountEmail").title=session.user.email;if(session?.refreshToken&&!window.florisynSessionRefreshTimer)window.florisynSessionRefreshTimer=setInterval(()=>refreshSessionIfNeeded(),5*60*1000);loadStores();loadRemoteAdminConfig();window.BloomLaunchPolish?.init?.({api,mode:"florist"});if(window.FlorisynRouter?.installShowPageBridge){window.showPage=window.FlorisynRouter.installShowPageBridge(showPage)}else window.showPage=showPage;window.BloomLilyPlatform?.init?.({api,toast:toast,showPage:window.showPage,smartAi,loadAiContext,prepareOrderBuilder,loadInventory,renderCustomers});window.BloomPaymentTerminal?.init?.({api,toast,money,getPendingOrder:()=>pendingPaymentOrder,showPaymentSuccessPanel,setPaymentProcessing,refreshAfterPayment:()=>Promise.all([loadOrders(),loadDashboard(),loadInvoices()])});wireMobileLilyScrollLock();wireMobileDrawerScrollLock();window.api=api;window.loadOrders=loadOrders;window.setPendingPaymentOrder=setPendingPaymentOrder;window.session=session;window.BloomPaymentHub&&(window.BloomPaymentHub.api=api);window.subscriptionCenterApi=api;window.recordLocalPayment=recordLocalPayment;window.BloomLaunchPolish?.refreshPageHelp?.("dashboardPage");if(isMobileShellViewport()){hideMobileFloatingAssistants()}else{window.BloomDaisy?.mount?.()}window.FlorisynAssistantVoice?.init?.({getScope:()=>{const shop=shopSettings?.shop_id||session?.shopId||session?.user?.default_shop_id||"shop";const user=session?.user?.id||"local";return `${shop}:${user}`},getSpeakEnabled:()=>{const el=$("#assistantSpeak");return el?el.checked:true}});window.BloomLilyVoice?.patchSpeakAssistant?.();window.BloomFirstRun?.showWelcome?.();window.BloomRC21?.initLoadingScreen?.();window.BloomRC21?.tuneLily?.();window.FlorisynRouter?.bootFromLocation?.({replace:true})||window.showPage("dashboardPage");hideMobileFloatingAssistants()}
+function showApp(){const pubHome=$("#publicHome");if(pubHome)pubHome.hidden=true;loadPlatformSettings();refreshGrowthFeatureFlags();refreshMarketingStudioAccess();$("#auth").hidden=true;$("#app").hidden=false;$("#accountEmail").textContent=session?.user?.email||"";if(session?.user?.email)$("#accountEmail").title=session.user.email;if(session?.refreshToken&&!window.florisynSessionRefreshTimer)window.florisynSessionRefreshTimer=setInterval(()=>refreshSessionIfNeeded(),5*60*1000);loadStores();loadRemoteAdminConfig();window.BloomLaunchPolish?.init?.({api,mode:"florist"});if(window.FlorisynRouter?.installShowPageBridge){window.showPage=window.FlorisynRouter.installShowPageBridge(showPage)}else window.showPage=showPage;window.BloomLilyPlatform?.init?.({api,toast:toast,showPage:window.showPage,smartAi,loadAiContext,prepareOrderBuilder,loadInventory,renderCustomers});window.BloomPaymentTerminal?.init?.({api,toast,money,getPendingOrder:()=>pendingPaymentOrder,showPaymentSuccessPanel,setPaymentProcessing,refreshAfterPayment:()=>Promise.all([loadOrders(),loadDashboard(),loadInvoices()])});wireMobileLilyScrollLock();wireMobileDrawerScrollLock();window.api=api;window.loadOrders=loadOrders;window.setPendingPaymentOrder=setPendingPaymentOrder;window.session=session;window.BloomPaymentHub&&(window.BloomPaymentHub.api=api);window.subscriptionCenterApi=api;window.recordLocalPayment=recordLocalPayment;window.BloomLaunchPolish?.refreshPageHelp?.("dashboardPage");if(isMobileShellViewport()){hideMobileFloatingAssistants()}else{window.BloomDaisy?.mount?.()}window.FlorisynAssistantVoice?.init?.({getScope:()=>{const shop=shopSettings?.shop_id||session?.shopId||session?.user?.default_shop_id||"shop";const user=session?.user?.id||"local";return `${shop}:${user}`},getSpeakEnabled:()=>{const el=$("#assistantSpeak");return el?el.checked:true}});window.BloomLilyVoice?.patchSpeakAssistant?.();window.BloomFirstRun?.showWelcome?.();window.BloomRC21?.initLoadingScreen?.();window.BloomRC21?.tuneLily?.();window.FlorisynRouter?.bootFromLocation?.({replace:true})||window.showPage("dashboardPage");hideMobileFloatingAssistants()}
 function closeMobileDrawer(){(window.FlorisynPlatform?.setDrawer||window.FlorisynAtelierChrome?.setDrawer)?.(false)}
 function scrollMobilePageToTop(){
   if(!window.matchMedia("(max-width: 820px)").matches)return;
@@ -285,6 +285,10 @@ function showPage(id){
     refreshGrowthFeatureFlags().then(()=>{if(!marketingCampaignsEnabled){toast("Marketing is disabled.");return}showPage("marketingPage")});
     return;
   }
+  if(id==="marketingStudioPage"&&!marketingStudioEnabled){
+    refreshMarketingStudioAccess().then((on)=>{if(!on){toast("Marketing Studio isn't available for your shop yet.");return}showPage("marketingStudioPage")});
+    return;
+  }
   if(id==="weddingsPage"&&!weddingWorkflowsEnabled){
     refreshGrowthFeatureFlags().then(()=>{if(!weddingWorkflowsEnabled){toast("Wedding Workflows is disabled.");return}showPage("weddingsPage")});
     return;
@@ -324,6 +328,7 @@ let emailCampaignsEnabled=false;
 let weddingWorkflowsEnabled=false;
 let floristNetworkEnabled=false;
 let marketingCampaignsEnabled=false;
+let marketingStudioEnabled=false;
 function setCommunityNavVisible(on){
   communityBetaEnabled=Boolean(on);
   $$('[data-page="communityPage"]').forEach((el)=>{el.hidden=!communityBetaEnabled;el.style.display=communityBetaEnabled?"":"none"});
@@ -355,6 +360,24 @@ function setEmailCampaignsNavVisible(on){emailCampaignsEnabled=setFlaggedNavVisi
 function setWeddingsNavVisible(on){weddingWorkflowsEnabled=setFlaggedNavVisible("weddingsPage",on,"#weddingsRoot")}
 function setFloristNetworkNavVisible(on){floristNetworkEnabled=setFlaggedNavVisible("floristNetworkPage",on,"#floristNetworkRoot")}
 function setMarketingNavVisible(on){marketingCampaignsEnabled=setFlaggedNavVisible("marketingPage",on,"#marketingRoot")}
+function setMarketingStudioNavVisible(on){marketingStudioEnabled=setFlaggedNavVisible("marketingStudioPage",on,"#marketingStudioRoot")}
+// Marketing Studio's access check is deliberately NOT folded into
+// refreshGrowthFeatureFlags() above — that reads PUBLIC, unauthenticated
+// global flags from production-health. Marketing Studio access is a real,
+// per-shop private-beta grant (shop_admin_config.features.marketing_studio_beta,
+// checked server-side in marketing-studio-shop.js) that only a real,
+// authenticated, active shop member can even ask about — a 403 here is the
+// normal, expected "not in the beta yet" answer, not an error to surface.
+async function refreshMarketingStudioAccess(){
+  try{
+    await api("marketing-studio-shop?action=status",{method:"GET"});
+    setMarketingStudioNavVisible(true);
+    return true;
+  }catch{
+    setMarketingStudioNavVisible(false);
+    return false;
+  }
+}
 async function refreshGrowthFeatureFlags(){
   try{
     const d=await fetch("/.netlify/functions/production-health").then((r)=>r.ok?r.json():null).catch(()=>null);
@@ -395,6 +418,15 @@ async function loadMarketingPage(){
     return;
   }
   if(window.BloomMarketingCampaigns){window.bloomMarketingApi=api;await window.BloomMarketingCampaigns.load()}
+}
+async function loadMarketingStudioPage(){
+  const on=await refreshMarketingStudioAccess();
+  if(!on){
+    const root=$("#marketingStudioRoot");
+    if(root)root.innerHTML=`<div class="panel" role="alert"><h3>Unavailable</h3><p class="subtle">Marketing Studio isn't available for your shop yet.</p></div>`;
+    return;
+  }
+  if(window.BloomMarketingStudio){window.bloomMarketingStudioApi=api;await window.BloomMarketingStudio.load()}
 }
 async function loadHolidayPage(){
   await refreshGrowthFeatureFlags();
@@ -467,7 +499,7 @@ $("#posSettingsSaveBtn")?.addEventListener("click",async()=>{
   }
 });
 
-async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,bouquetsPage:()=>{},expensesPage:loadExpenses,reportsPage:loadReports,analyticsPage:loadAnalyticsPage,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,floristNetworkPage:loadFloristNetworkPage,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,communityPage:loadCommunityPage,holidayPage:loadHolidayPage,emailCampaignsPage:loadEmailCampaignsPage,marketingPage:loadMarketingPage,weddingsPage:loadWeddingsPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,posSettingsPage:loadPosSettingsPage,posPage:()=>{
+async function loadPage(id){const m={customersPage:loadCustomers,ordersPage:loadOrders,deliveriesPage:loadDeliveries,inventoryPage:loadInventory,productsPage:loadProducts,bloomshotPage:loadBloomShot,websitePage:loadWebsite,libraryPage:renderLibrary,bouquetsPage:()=>{},expensesPage:loadExpenses,reportsPage:loadReports,analyticsPage:loadAnalyticsPage,staffPage:loadStaff,marketplacePage:loadMarketplace,wholesaleSellerPage:loadWholesaleSeller,floristNetworkPage:loadFloristNetworkPage,storesPage:loadStores,settingsPage:loadSettings,subscriptionPage:loadSubscriptionPage,ecosystemPage:loadEcosystemPage,communityPage:loadCommunityPage,holidayPage:loadHolidayPage,emailCampaignsPage:loadEmailCampaignsPage,marketingPage:loadMarketingPage,marketingStudioPage:loadMarketingStudioPage,weddingsPage:loadWeddingsPage,invoicesPage:loadInvoices,paymentsPage:loadPaymentsPage,dashboardPage:loadDashboard,posSettingsPage:loadPosSettingsPage,posPage:()=>{
   // Launch-repair: the register's customer picker (#posCustomerSelect)
   // only ever gets real customers once loadCustomers() has run — which
   // used to happen only after visiting the Customers tab at least once.

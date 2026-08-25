@@ -57,6 +57,7 @@
 
 import { json, methodNotAllowed } from "./_shared/http.js";
 import { isFeatureEnabled } from "./_shared/feature-flags.js";
+import { isShopFeatureEnabled } from "./_shared/shop-feature-access.js";
 import {
   platformAdmin,
   requireSuperAdmin,
@@ -115,6 +116,7 @@ import { validateCloneConsentBody, isConsentActive } from "./_shared/marketing-c
 import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
 import { generateSocialPost, generateVideoConcept, generateWebsiteSectionDraft, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
 import { generateImage, buildImagePrompt } from "./_shared/ai-image-engine.js";
+import { loadGroundedInventory, buildInventoryGroundingBrief } from "./_shared/marketing-inventory-grounding.js";
 import { planVideoRender } from "./_shared/marketing-video-render-engine.js";
 import {
   parseRevisionDeltas,
@@ -183,34 +185,26 @@ const PRE_APPROVAL_CONTENT_STATUSES = ["idea", "draft", "in_review"];
  * MARKETING_STUDIO flag stays false — Marketing Studio only becomes
  * reachable for a specific shop when that shop's OWN
  * shop_admin_config.features.marketing_studio_beta is explicitly true.
- * Reuses the existing per-shop admin config store (shop_admin_config,
- * already wired through admin-console.js's save_config action and read by
- * tenant-config.js) rather than a second, parallel feature-flag system.
  * The super_admin requirement in platformAdmin() below is UNCHANGED and
  * NOT relaxed by this — this only widens which shop_ids a super_admin can
  * operate Marketing Studio against while the global flag is off; it does
- * not open access to ordinary shop-member logins.
+ * not open access to ordinary shop-member logins (marketing-studio-shop.js
+ * is the separate, florist-facing entry point for that).
+ *
+ * Uses the shared isShopFeatureEnabled() helper (Phase 2 of the "Florist-
+ * Facing Marketing Studio" pass — see _shared/shop-feature-access.js) —
+ * this admin handler's own `client` is already service-role, so it's
+ * passed straight through rather than letting the helper create a second
+ * one.
  */
-async function shopHasMarketingStudioBetaAccess(client, shopId) {
-  if (!shopId) return false;
-  const { data, error } = await client
-    .from("shop_admin_config")
-    .select("features")
-    .eq("shop_id", shopId)
-    .maybeSingle();
-  if (error) return false; // fail closed — a lookup problem never grants access
-  return Boolean(data?.features?.marketing_studio_beta === true);
+async function featureGate(client, shopId) {
+  if (await isShopFeatureEnabled(shopId, "marketing_studio_beta", { globalFlagName: "MARKETING_STUDIO", client })) return;
+  throw platformAdminError("forbidden");
 }
 
 /** Non-throwing peek at the same shop_id key every action already reads via requireShopId(). */
 function peekShopId(qs, body) {
   return body?.shop_id || qs?.shop_id || null;
-}
-
-async function featureGate(client, shopId) {
-  if (isFeatureEnabled("MARKETING_STUDIO")) return;
-  if (await shopHasMarketingStudioBetaAccess(client, shopId)) return;
-  throw platformAdminError("forbidden");
 }
 
 function missingRelation(error) {
@@ -261,16 +255,59 @@ function monthRangeIso(year, month) {
   return { start, end };
 }
 
+/**
+ * Local helper for the small set of actions a florist may reach directly
+ * (see marketing-studio-shop.js) — passes for the existing super_admin
+ * admin-console path exactly as before (requireSuperAdmin unchanged), OR
+ * for a caller `createMarketingStudioHandler` has ITSELF already proven
+ * to be an authorized shop actor (`deps.florist`, set only after real
+ * session auth + real active membership + the shop's own beta access were
+ * independently verified — see below). Never anything a request body,
+ * query string, or header can set.
+ */
+function requireSuperAdminOrShopActor(admin, shopActorAuthorized) {
+  if (shopActorAuthorized) return;
+  requireSuperAdmin(admin);
+}
+
 /** Test seam — production uses bound real dependencies via exported `handler`. */
 export function createMarketingStudioHandler(deps = {}) {
   return async function handler(event) {
     try {
-      const { client, user, admin } = await platformAdmin(event, ["super_admin"], deps);
+      // Two auth paths into the exact same action dispatch below — never
+      // two copies of the actions themselves. `deps.florist` is set ONLY
+      // by marketing-studio-shop.js's own server-side code, after it has
+      // independently verified real session auth (currentUser()), real
+      // active shop membership, and the shop's own
+      // shop_admin_config.features.marketing_studio_beta — never anything
+      // a request to THIS handler could itself set.
+      let client, user, admin, shopActorAuthorized;
+      if (deps.florist) {
+        ({ client, user } = deps.florist);
+        admin = { user_id: user.id, role: "shop_member", active: true };
+        shopActorAuthorized = true;
+      } else {
+        ({ client, user, admin } = await platformAdmin(event, ["super_admin"], deps));
+        shopActorAuthorized = false;
+      }
       const method = event.httpMethod;
       const qs = event.queryStringParameters || {};
       const body = parsePlatformAdminJsonBody(event);
+      // The florist's own session-resolved shop is authoritative — a
+      // client-supplied shop_id (body or query string) is never trusted
+      // once a real session shop is known, closing the direct-ID-attack
+      // path (Shop A member sending Shop B's id) at its root rather than
+      // relying on every individual action to reject it.
+      if (deps.florist) body.shop_id = deps.florist.shopId;
       const action = String(body.action || qs.action || "status").toLowerCase();
-      await featureGate(client, peekShopId(qs, body));
+      // The florist path already verified beta access (with its own
+      // service-role read — shop_admin_config has no RLS grant for
+      // `authenticated`, so re-running featureGate here against the
+      // member-scoped client would always fail closed on a client
+      // mismatch, not a real access problem) before ever calling this
+      // handler; re-checking here would only risk that false negative,
+      // not add real safety.
+      if (!deps.florist) await featureGate(client, peekShopId(qs, body));
 
       if (action === "status") {
         const cloneProviderLive = Object.keys(buildConfiguredCloneProviderRegistry({ env: process.env })).length > 0;
@@ -659,7 +696,7 @@ export function createMarketingStudioHandler(deps = {}) {
       }
 
       if (action === "approve_content" && method === "POST") {
-        requireSuperAdmin(admin);
+        requireSuperAdminOrShopActor(admin, shopActorAuthorized);
         const shopId = requireShopId(qs, body);
         if (!body.content_item_id) return json(400, { error: "content_item_id is required." });
         if (body.decision !== "approved" && body.decision !== "rejected") {
@@ -769,7 +806,7 @@ export function createMarketingStudioHandler(deps = {}) {
       // here approves or publishes anything; that's still only
       // approve_content/enqueue_publish.
       if (action === "revise_content" && method === "POST") {
-        requireSuperAdmin(admin);
+        requireSuperAdminOrShopActor(admin, shopActorAuthorized);
         const shopId = requireShopId(qs, body);
         if (!body.content_item_id) return json(400, { error: "content_item_id is required." });
         const instruction = String(body.instruction || "").trim();
@@ -963,7 +1000,7 @@ export function createMarketingStudioHandler(deps = {}) {
       // anything; just repoints every variant at the parent asset, exactly
       // the way revise_content repoints them at a new child.
       if (action === "revert_content_revision" && method === "POST") {
-        requireSuperAdmin(admin);
+        requireSuperAdminOrShopActor(admin, shopActorAuthorized);
         const shopId = requireShopId(qs, body);
         if (!body.content_item_id) return json(400, { error: "content_item_id is required." });
 
@@ -1024,8 +1061,55 @@ export function createMarketingStudioHandler(deps = {}) {
       // see marketing-video renderingAvailable:false on the returned
       // asset). Only runs from status 'idea' — refuses to silently
       // re-generate (and re-bill) an item that already has creative.
+      // Ad-hoc single-item creation (Phase 1 of the "Florist-Facing
+      // Marketing Studio" pass): plan_month is a whole-month occasion
+      // planner — there was previously no way to create just ONE content
+      // item for a florist's own free-form request ("create a Facebook
+      // post for a fresh flower arrangement"). This is the smallest
+      // correct addition to close that gap: one idea-status content item
+      // + its platform variant rows, the exact same row shape plan_month
+      // already inserts, so generate_content/list_content need no changes
+      // to work with it.
+      if (action === "create_content_item" && method === "POST") {
+        requireSuperAdminOrShopActor(admin, shopActorAuthorized);
+        const shopId = requireShopId(qs, body);
+        const contentType = String(body.content_type || "image_post");
+        const title = String(body.title || "").trim();
+        const brief = String(body.brief || "").trim();
+        if (!brief) return json(400, { error: "Describe what you'd like Lily to create." });
+        const platforms = Array.isArray(body.platforms) && body.platforms.length ? body.platforms.filter((p) => SUPPORTED_PLATFORMS.includes(p)) : ["facebook"];
+        if (!platforms.length) return json(400, { error: "platforms must include at least one supported platform." });
+
+        const inserted = await client
+          .from("marketing_content_items")
+          .insert({
+            shop_id: shopId,
+            campaign_id: body.campaign_id || null,
+            created_by: user.id,
+            content_type: contentType,
+            title: title || brief.slice(0, 80),
+            brief,
+            status: "idea",
+            uses_ai_clone: false,
+            requires_human_approval: true
+          })
+          .select("id,content_type,title,brief,status")
+          .single();
+        if (inserted.error) {
+          if (missingRelation(inserted.error)) throw friendlyMissing();
+          throw inserted.error;
+        }
+
+        const variantRows = platforms.map((platform) => ({ shop_id: shopId, content_item_id: inserted.data.id, platform, status: "pending" }));
+        const insertedVariants = await client.from("marketing_platform_variants").insert(variantRows).select("id,content_item_id,platform");
+        if (insertedVariants.error) throw insertedVariants.error;
+
+        await writeCommandAudit(client, user.id, "marketing_content_item_created", { shopId, targetType: "marketing_content_items", targetId: inserted.data.id });
+        return json(201, { item: { ...inserted.data, variants: insertedVariants.data || [] } });
+      }
+
       if (action === "generate_content" && method === "POST") {
-        requireSuperAdmin(admin);
+        requireSuperAdminOrShopActor(admin, shopActorAuthorized);
         const shopId = requireShopId(qs, body);
         if (!body.content_item_id) return json(400, { error: "content_item_id is required." });
 
@@ -1140,6 +1224,23 @@ export function createMarketingStudioHandler(deps = {}) {
         const { preferences: visualPrefs } = await loadStyleMemory(client, shopId);
         const visualStyleSummary = buildVisualStyleSummary(visualPrefs);
 
+        // Phase 5/9 wiring ("Lily, help me sell what I already have"):
+        // buildSocialPostTask/buildVideoConceptTask had zero inventory
+        // awareness until now — "I have 40 roses I need to sell, make a
+        // Facebook post" could only ever produce invented flowers, because
+        // nothing here ever called marketing-inventory-grounding.js (PR
+        // #177/Priority 2's own shared, already-tested "never invent stock"
+        // helper — reused as-is, not reimplemented). Real current inventory
+        // is always loaded (a single, cheap DB read — no extra AI call, no
+        // extra cost), but the prompt itself only asks the model to
+        // reference it when the brief is actually about stock; an empty
+        // shop (no real inventory rows) degrades to no inventory section at
+        // all, never a fabricated one. Shop-scoped via loadGroundedInventory's
+        // own .eq("shop_id", shopId).
+        const groundedInventory = await loadGroundedInventory(client, shopId);
+        const inventoryBrief = buildInventoryGroundingBrief(groundedInventory.items);
+        const inventorySummary = inventoryBrief.summaryText || null;
+
         if (VIDEO_CONTENT_TYPES.has(currentItem.data.content_type)) {
           await recordUsage("copy", "request", 1);
           const gen = await generateVideoConcept({
@@ -1149,7 +1250,8 @@ export function createMarketingStudioHandler(deps = {}) {
             shop: { name: shopName },
             requestText: currentItem.data.brief,
             brandVoiceSummary,
-            visualStyleSummary
+            visualStyleSummary,
+            inventorySummary
           });
           if (!gen.ok) {
             await revertToIdea();
@@ -1162,7 +1264,10 @@ export function createMarketingStudioHandler(deps = {}) {
             assetType: "video_concept",
             provider: "cloudflare",
             model: gen.model,
-            content: gen.content,
+            // grounded_in_inventory: the same real-source-list convention
+            // compound.generateImage already records — [] when nothing was
+            // available to ground on, never a guess at what the model used.
+            content: { ...gen.content, grounded_in_inventory: inventoryBrief.sources },
             status: "completed"
           });
           if (!persisted.ok) {
@@ -1225,7 +1330,8 @@ export function createMarketingStudioHandler(deps = {}) {
           shop: { name: shopName },
           requestText: currentItem.data.brief,
           brandVoiceSummary,
-          visualStyleSummary
+          visualStyleSummary,
+          inventorySummary
         });
         if (!copyGen.ok) {
           await revertToIdea();
@@ -1236,6 +1342,11 @@ export function createMarketingStudioHandler(deps = {}) {
         let imageUrl = null;
         if (currentItem.data.content_type !== "text_post") {
           await recordUsage("image", "image", 1);
+          // No separate inventory wiring needed here: this call always
+          // supplies visualBrief (from copyGen, itself already grounded in
+          // real inventory above), so buildImagePrompt's own products
+          // fallback path never runs — the grounding already reached the
+          // image through the copy's visual_brief.
           const prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief: copyGen.content.visual_brief || currentItem.data.brief });
           const imageGen = await generateImage(client, shopId, { prompt, filename: `marketing-${body.content_item_id}.jpg` });
           if (!imageGen.ok) {
@@ -1262,7 +1373,7 @@ export function createMarketingStudioHandler(deps = {}) {
             // recorded here at generation time — recordBrandSignal/
             // recordApprovalSignal only ever fire from a real approval
             // decision, never a bare generation.
-            content: { url: imageGen.url, caption: copyGen.content.body, brand_traits_used: copyGen.content.brand_traits_used, visual_traits_used: copyGen.content.visual_traits_used },
+            content: { url: imageGen.url, caption: copyGen.content.body, brand_traits_used: copyGen.content.brand_traits_used, visual_traits_used: copyGen.content.visual_traits_used, grounded_in_inventory: inventoryBrief.sources },
             mediaId: mediaRow.data?.id || null,
             status: "completed"
           });
@@ -1291,7 +1402,8 @@ export function createMarketingStudioHandler(deps = {}) {
               cta: copyGen.content.cta,
               hashtags: copyGen.content.hashtags,
               brand_traits_used: copyGen.content.brand_traits_used,
-              visual_traits_used: copyGen.content.visual_traits_used
+              visual_traits_used: copyGen.content.visual_traits_used,
+              grounded_in_inventory: inventoryBrief.sources
             },
             status: "completed"
           });
