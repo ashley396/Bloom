@@ -178,10 +178,39 @@ function visualStyleScreenPayload(preferences) {
 // "before approval/scheduling", matching the launch audit's own wording.
 const PRE_APPROVAL_CONTENT_STATUSES = ["idea", "draft", "in_review"];
 
-function featureGate() {
-  if (!isFeatureEnabled("MARKETING_STUDIO")) {
-    throw platformAdminError("forbidden");
-  }
+/**
+ * Founding Beta private activation (Section 40 follow-up): the global
+ * MARKETING_STUDIO flag stays false — Marketing Studio only becomes
+ * reachable for a specific shop when that shop's OWN
+ * shop_admin_config.features.marketing_studio_beta is explicitly true.
+ * Reuses the existing per-shop admin config store (shop_admin_config,
+ * already wired through admin-console.js's save_config action and read by
+ * tenant-config.js) rather than a second, parallel feature-flag system.
+ * The super_admin requirement in platformAdmin() below is UNCHANGED and
+ * NOT relaxed by this — this only widens which shop_ids a super_admin can
+ * operate Marketing Studio against while the global flag is off; it does
+ * not open access to ordinary shop-member logins.
+ */
+async function shopHasMarketingStudioBetaAccess(client, shopId) {
+  if (!shopId) return false;
+  const { data, error } = await client
+    .from("shop_admin_config")
+    .select("features")
+    .eq("shop_id", shopId)
+    .maybeSingle();
+  if (error) return false; // fail closed — a lookup problem never grants access
+  return Boolean(data?.features?.marketing_studio_beta === true);
+}
+
+/** Non-throwing peek at the same shop_id key every action already reads via requireShopId(). */
+function peekShopId(qs, body) {
+  return body?.shop_id || qs?.shop_id || null;
+}
+
+async function featureGate(client, shopId) {
+  if (isFeatureEnabled("MARKETING_STUDIO")) return;
+  if (await shopHasMarketingStudioBetaAccess(client, shopId)) return;
+  throw platformAdminError("forbidden");
 }
 
 function missingRelation(error) {
@@ -236,12 +265,12 @@ function monthRangeIso(year, month) {
 export function createMarketingStudioHandler(deps = {}) {
   return async function handler(event) {
     try {
-      featureGate();
       const { client, user, admin } = await platformAdmin(event, ["super_admin"], deps);
       const method = event.httpMethod;
       const qs = event.queryStringParameters || {};
       const body = parsePlatformAdminJsonBody(event);
       const action = String(body.action || qs.action || "status").toLowerCase();
+      await featureGate(client, peekShopId(qs, body));
 
       if (action === "status") {
         const cloneProviderLive = Object.keys(buildConfiguredCloneProviderRegistry({ env: process.env })).length > 0;
