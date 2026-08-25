@@ -65,6 +65,28 @@
     return fn(path, { method: "POST", body: JSON.stringify({ action, ...extra.body }) });
   }
 
+  // Phase 14 ("Explainability"): the backend already computes and persists
+  // exactly which real inventory rows and which learned Brand Brain/My
+  // Style traits shaped this content (grounded_in_inventory/
+  // brand_traits_used/visual_traits_used on the asset) — it just never
+  // reached this screen before, so a florist reviewing a draft had no way
+  // to see WHY Lily wrote what she wrote. Only ever renders what the
+  // backend actually reported using; an item grounded in nothing shows no
+  // note at all, never a fabricated one.
+  function groundingHtml(c) {
+    const parts = [];
+    const inv = Array.isArray(c.grounded_in_inventory) ? c.grounded_in_inventory : [];
+    if (inv.length) {
+      parts.push(`real inventory (${inv.map((i) => esc(i.name)).join(", ")})`);
+    }
+    const traits = [...(Array.isArray(c.brand_traits_used) ? c.brand_traits_used : []), ...(Array.isArray(c.visual_traits_used) ? c.visual_traits_used : [])];
+    if (traits.length) {
+      parts.push(`your learned style (${traits.map((t) => esc(t.text)).join(", ")})`);
+    }
+    if (!parts.length) return "";
+    return `<p class="subtle marketing-studio-grounding">Grounded in: ${parts.join(" · ")}</p>`;
+  }
+
   function itemPreviewHtml(item) {
     const asset = item.asset;
     if (!asset || !asset.content) return "";
@@ -75,6 +97,7 @@
       ${imgUrl ? `<img src="${esc(imgUrl)}" alt="" class="lily-job-image" loading="lazy">` : ""}
       ${captionText ? `<p>${esc(captionText)}</p>` : ""}
       ${Array.isArray(c.hashtags) && c.hashtags.length ? `<p class="subtle">${c.hashtags.map((h) => `#${esc(String(h).replace(/^#/, ""))}`).join(" ")}</p>` : ""}
+      ${groundingHtml(c)}
     `;
   }
 

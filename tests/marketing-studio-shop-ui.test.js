@@ -66,6 +66,24 @@ test("florisyn-router.js maps /marketing-studio to marketingStudioPage in both d
   assert.match(routerSrc, /marketingStudioPage:\s*"\/marketing-studio"/);
 });
 
+// Phase 14 ("Explainability"): the backend already computes and persists
+// grounded_in_inventory/brand_traits_used/visual_traits_used on every
+// generated asset — this panel must actually show them to the florist
+// reviewing a draft, not just fetch and discard them.
+
+test("itemPreviewHtml renders a real 'Grounded in' note from the asset's own grounded_in_inventory/brand+visual traits_used, never invented", () => {
+  assert.match(uiSrc, /function groundingHtml\(c\)/, "a dedicated grounding-note builder must exist");
+  const start = uiSrc.indexOf("function groundingHtml(c)");
+  const end = uiSrc.indexOf("\n  function itemPreviewHtml", start);
+  const fnBody = uiSrc.slice(start, end);
+  assert.match(fnBody, /c\.grounded_in_inventory/, "must read the real inventory sources the backend persisted");
+  assert.match(fnBody, /c\.brand_traits_used/, "must read the real brand-voice traits the backend persisted");
+  assert.match(fnBody, /c\.visual_traits_used/, "must read the real visual-style traits the backend persisted");
+  assert.match(fnBody, /if \(!parts\.length\) return "";/, "an item grounded in nothing must render no note at all — never a fabricated one");
+
+  assert.match(uiSrc, /\$\{groundingHtml\(c\)\}/, "itemPreviewHtml must actually call groundingHtml and render its result");
+});
+
 test("app.js gates Marketing Studio visibility with a REAL per-shop authenticated check, never the public global growth-flags fetch", () => {
   const appSrc = fs.readFileSync(path.join(root, "public/app.js"), "utf8");
   assert.match(appSrc, /async function refreshMarketingStudioAccess\(\)\{/, "a dedicated access-check function must exist");

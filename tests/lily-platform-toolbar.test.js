@@ -71,3 +71,20 @@ test("Delivery button is wired to a real mileage lookup, not a stub", () => {
   assert.match(fnBody, /driveMinutes/);
   assert.match(fnBody, /appendMessage\(/, "result must post into the same chat log as everything else, not a separate UI");
 });
+
+// Phase 10 ("Website/product handoff"): a product_ai.generate action (e.g.
+// "generate a product title for the Peony Bouquet") used to hand the
+// florist off to AI Studio with the real request they just typed silently
+// dropped, landing on a blank prompt box.
+test("a 'generate' ecosystem action carries the real request text into AI Studio's own prompt box, never dropping it", () => {
+  assert.match(js, /async function executeClientAction\(/);
+  const fnStart = js.indexOf("async function executeClientAction(");
+  const fnBody = js.slice(fnStart, js.indexOf("\n  function runToolbar(", fnStart));
+  const branchStart = fnBody.indexOf('action.type === "generate"');
+  assert.ok(branchStart > -1, "the generate-action branch must exist");
+  const branch = fnBody.slice(branchStart, branchStart + 900);
+  assert.match(branch, /deps\.showPage\("aiStudioPage"\)/);
+  assert.match(branch, /if \(action\.prompt\)/, "must only prefill when the plan actually carried a real prompt");
+  assert.match(branch, /getElementById\("aiStudioPrompt"\)/, "must reuse the same prompt input the page's own quick-prompt buttons already target");
+  assert.match(branch, /input\.value = action\.prompt/, "must carry the florist's real request text, never a placeholder");
+});
