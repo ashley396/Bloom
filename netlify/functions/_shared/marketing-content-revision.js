@@ -23,14 +23,18 @@ import { parseRevisionDeltas } from "./ai-visual-revisions.js";
 
 export { parseRevisionDeltas };
 
-// "use this from now on" / "always use this" / "keep it this way going
-// forward" / "save this as my style" / "that's my style now" — a real
-// standing-preference signal, distinct from a one-time revision. Kept
-// deliberately narrow: an ambiguous "I like this" ALONE (no "from now
-// on"/"always"/"keep it"/"save") never matches, per the "never infer a
-// permanent preference from ambiguous feedback" rule.
+// "use this from now on" / "always use this" / "always do this" / "keep it
+// this way going forward" / "save this as my style" / "remember this
+// (style)" / "that's my style now" / a leading "from now on, ... like
+// this" — a real standing-preference signal, distinct from a one-time
+// revision. Kept deliberately narrow: an ambiguous "I like this" ALONE (no
+// "from now on"/"always"/"keep it"/"save"/"remember") never matches, per
+// the "never infer a permanent preference from ambiguous feedback" rule —
+// and an ordinary revision that merely happens to mention "today"/"early"/
+// timing ("make it clear we are only closing early today") never matches
+// any of these branches either.
 const PERSIST_INTENT_RE =
-  /\b(use (this|it)( style)? from now on|always use this|keep (it|this)( style)?( going forward| from now on)?|save (this|it) as my style|that'?s my style now)\b/i;
+  /\b(use (this|it)( style)? from now on|always (use this|do this)|keep (it|this)( style)?( going forward| from now on)?|save (this|it) as my style|remember (this|it)( style)?\b|that'?s my style now|from now on,? (make|do|use) .{0,40}\blike this\b)/i;
 
 export function detectPersistIntent(instruction) {
   return PERSIST_INTENT_RE.test(String(instruction || ""));
@@ -130,4 +134,61 @@ export function buildWordingRevisionRequestText({ instruction, brief, priorText 
   ]
     .filter(Boolean)
     .join("\n\n");
+}
+
+// A real, live-found failure mode (not hypothetical): "closing at 2:30
+// today, call XXX-XXX-XXXX to order" got written back as a farewell/
+// going-out-of-business announcement ("it's with a mix of sadness and
+// gratitude that we announce we will be closing..."). The model's own
+// prompt instruction (buildSocialPostTask) is the first line of defense,
+// but a prompt instruction is a request, not a guarantee — this is the
+// deterministic backstop: a request that only ever signals a TEMPORARY,
+// scheduled change (closing early/today/for the holiday/temporarily) and
+// never signals permanence must never come back reading as a permanent
+// closure. Generic on purpose — no shop name, no specific business is
+// hardcoded; every florist's "closing early today" post is protected the
+// same way.
+const TEMPORARY_CLOSURE_SIGNAL_RE =
+  /\b(clos(?:ing|ed))\b[^.!?\n]{0,30}\b(early|today|tonight|this afternoon|for the (?:day|holiday|afternoon)|temporarily|briefly|for a few hours)\b|\btemporarily closed\b|\bclosing at\b[^.!?\n]{0,20}\b(today|tonight|this afternoon)\b/i;
+
+// If ANY of these appear in the same request, the florist has genuinely
+// said this is permanent — the guard must never override an explicit,
+// real instruction.
+const PERMANENT_CLOSURE_INTENT_RE =
+  /\bclos(?:ing|ed)\b[^.!?\n]{0,20}\b(permanently|for good)\b|\bgoing out of business\b|\bour last day\b|\bshutting down\b|\bclosing (?:our )?(?:doors|shop|store) for good\b|\bafter \d+\s*(?:years?|yrs?)[^.!?\n]{0,40}\bclosing\b/i;
+
+/** True only when the florist's own request signals a TEMPORARY change and
+ * never signals a permanent one — the one case where generated output must
+ * be held to the temporary-language guard below. */
+export function requestSignalsTemporaryClosure(requestText) {
+  const text = String(requestText || "");
+  return TEMPORARY_CLOSURE_SIGNAL_RE.test(text) && !PERMANENT_CLOSURE_INTENT_RE.test(text);
+}
+
+/** True when the florist's own request explicitly says the closure IS
+ * permanent — the guard must always defer to this. */
+export function requestSignalsPermanentClosure(requestText) {
+  return PERMANENT_CLOSURE_INTENT_RE.test(String(requestText || ""));
+}
+
+// The actual farewell/shutting-down phrasing a model can drift into —
+// sadness-and-gratitude framing, "our last day," "shutting down," "this
+// chapter," "we will no longer be" — never a single word like "closing"
+// alone (which is completely normal in a temporary-hours post too).
+const PERMANENT_CLOSURE_LANGUAGE_RE =
+  /\bwith (?:a mix of )?sadness and gratitude\b|\bit is with (?:a )?heavy heart\b|\bour last day\b|\bclosing (?:our )?(?:doors|shop|store)(?: for good)?\b|\bgoing out of business\b|\bshutting down\b|\bthis chapter (?:comes to a close|closes)\b|\bwe will no longer be (?:open|serving|operating)\b|\bfarewell\b|\bafter \d+\s*(?:wonderful\s+)?(?:years?|yrs?)[^.!?\n]{0,40}\bclosing\b/i;
+
+/** Does this generated text read as a PERMANENT closure? Used only after
+ * requestSignalsTemporaryClosure() already confirmed the request itself
+ * never asked for that. */
+export function textReadsAsPermanentClosure(text) {
+  return PERMANENT_CLOSURE_LANGUAGE_RE.test(String(text || ""));
+}
+
+/** The one function callers actually need: true iff a temporary-closure
+ * request came back reading like a permanent one — the exact live defect.
+ * A genuinely permanent request (requestSignalsPermanentClosure) never
+ * trips this, by construction. */
+export function detectPermanentClosureMismatch(requestText, generatedText) {
+  return requestSignalsTemporaryClosure(requestText) && textReadsAsPermanentClosure(generatedText);
 }

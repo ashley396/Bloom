@@ -35,7 +35,10 @@ Rules:
 - Match the platform's real voice: warm and conversational for Facebook/Instagram, concise everywhere.
 - visual_brief must describe a concrete photo concept (say what's actually in the shot — never a vague placeholder like "a beautiful arrangement").
 - brand_traits_used / visual_traits_used: only the traits from the summaries above that you actually wove into this post — [] if none were used. Never list a trait you didn't actually use.
-- Never state an audience size, subscriber count, or customer-segment number that isn't in the real audience data above (if any was given) — no rounding up, no guessing "hundreds of loyal customers".`;
+- Never state an audience size, subscriber count, or customer-segment number that isn't in the real audience data above (if any was given) — no rounding up, no guessing "hundreds of loyal customers".
+- If the request describes a TEMPORARY or one-time schedule change (closing early, closed today, closing at a specific time today, temporarily closed, closed for the holiday, a delivery cutoff, changed hours) never write it as if the business itself is shutting down — no farewell/sadness/gratitude/"last day"/"after X years" language. Say plainly that it's temporary and the shop is open as normal otherwise. Only write permanent-closure language if the request explicitly says the closure is permanent (e.g. "going out of business," "closing for good," "our last day").
+- Any exact fact the request gives verbatim — a time, phone number, price, date, or link — must appear in your output EXACTLY as given, never paraphrased or rounded.
+- If this is a plain operational/informational post (a schedule change, early closing, holiday hours, delivery cutoff, reopening — not a celebratory or memorial occasion), visual_brief must describe a plain, professional, on-brand shop or floral visual — never an emotional, farewell, or sympathy-style image — and must never ask for legible on-image text (a phone number, time, price, or URL): the image model can't render text reliably, so that information belongs in the written copy above, not the picture.`;
 }
 
 const SOCIAL_POST_SCHEMA = {

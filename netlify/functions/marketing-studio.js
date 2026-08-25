@@ -126,7 +126,8 @@ import {
   deriveRevisionTraits,
   factsPreserved,
   buildImageRevisionBrief,
-  buildWordingRevisionRequestText
+  buildWordingRevisionRequestText,
+  detectPermanentClosureMismatch
 } from "./_shared/marketing-content-revision.js";
 import { buildMarketingStudioAnalyticsSummary } from "./_shared/marketing-analytics.js";
 import { groupMetricsByDimension } from "./_shared/marketing-insights.js";
@@ -994,6 +995,12 @@ export function createMarketingStudioHandler(deps = {}) {
           if (!factsPreserved(priorText, gen.content.body)) {
             return json(400, { error: "That revision would have changed an exact phone number, date, price, or link — nothing was changed. Try rephrasing the request." });
           }
+          if (detectPermanentClosureMismatch(`${currentItem.data.brief} ${instruction}`, `${gen.content.headline} ${gen.content.body}`)) {
+            return json(400, {
+              error:
+                "That revision came back reading like a permanent closing, but nothing about this post asked for that — nothing was changed. Try rephrasing the request."
+            });
+          }
           const persisted = await persistGeneratedAsset(client, {
             shopId, userId: user.id, persona: "Lily", assetType: "social_copy", provider: "cloudflare", model: gen.model,
             content: {
@@ -1346,6 +1353,17 @@ export function createMarketingStudioHandler(deps = {}) {
         if (!copyGen.ok) {
           await revertToIdea();
           return json(400, { error: copyGen.error });
+        }
+        // Real, live-found failure: "closing at 2:30 today" came back as a
+        // permanent going-out-of-business announcement. The request never
+        // signaled that, so refuse rather than ship it — generic across
+        // every florist, never a hardcoded phrase for one shop.
+        if (detectPermanentClosureMismatch(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`)) {
+          await revertToIdea();
+          return json(400, {
+            error:
+              "That came back reading like a permanent closing, but your request sounds like a temporary/early closing — nothing was saved. Try Generate again, or say \"closing permanently\" if that's really what you mean."
+          });
         }
 
         let assetId = null;

@@ -46,7 +46,7 @@
     archived: "Rejected"
   };
 
-  let state = { loading: true, error: null, items: [], status: null, brand: null, style: null, usage: null, busyId: null };
+  let state = { loading: true, error: null, items: [], status: null, brand: null, style: null, usage: null, busyId: null, revisingId: null };
 
   function root() {
     return document.getElementById("marketingStudioRoot");
@@ -101,11 +101,33 @@
     `;
   }
 
+  // A normal revision is just a sentence — "make it shorter," "less pink,"
+  // "change the image" — never a request to save anything. Style only
+  // becomes permanent when the florist's own words say so ("use this style
+  // from now on," "remember this," "always do this") — revise_content
+  // itself is what decides that (detectPersistIntent), purely from the
+  // instruction's own wording; this composer never adds a separate
+  // "save as my style" control, so persistence stays exactly as explicit
+  // as the conversation the florist actually typed.
+  function revisionComposerHtml(item) {
+    const busy = state.busyId === item.id;
+    return `<div class="panel marketing-revision-box" id="msRevisionBox-${esc(item.id)}" style="margin:0.75em 0;">
+      <label>Tell Lily what to change
+        <textarea id="msRevisionInput-${esc(item.id)}" rows="2" maxlength="2000" placeholder="e.g. &quot;make it shorter&quot;, &quot;use less pink&quot;, &quot;change the image&quot;, &quot;make it clear we're only closing early today&quot;"></textarea>
+      </label>
+      <div class="card-actions">
+        <button type="button" class="primary" data-ms-act="revise-send" ${busy ? "disabled" : ""}>${busy ? "Working…" : "Send to Lily"}</button>
+        <button type="button" class="secondary" data-ms-act="revise-cancel" ${busy ? "disabled" : ""}>Cancel</button>
+      </div>
+    </div>`;
+  }
+
   function itemHtml(item) {
     const busy = state.busyId === item.id;
     const canGenerate = item.status === "idea";
     const canReview = item.status === "draft" || item.status === "in_review";
     const canUndo = canReview && Boolean(item.asset?.parent_asset_id);
+    const revising = canReview && state.revisingId === item.id;
     const platforms = (item.variants || []).map((v) => PLATFORM_LABELS[v.platform] || v.platform).join(", ");
     return `<article class="panel" data-ms-item="${esc(item.id)}">
       <div class="panel-heading">
@@ -117,9 +139,10 @@
       </div>
       <p class="subtle">${esc(item.brief)}</p>
       ${itemPreviewHtml(item)}
+      ${revising ? revisionComposerHtml(item) : ""}
       <div class="card-actions">
         ${canGenerate ? `<button type="button" class="primary" data-ms-act="generate" ${busy ? "disabled" : ""}>${busy ? "Working…" : "Ask Lily to create it"}</button>` : ""}
-        ${canReview ? `<button type="button" class="secondary" data-ms-act="revise" ${busy ? "disabled" : ""}>Ask Lily to change something</button>` : ""}
+        ${canReview && !revising ? `<button type="button" class="secondary" data-ms-act="revise" ${busy ? "disabled" : ""}>Ask Lily to change something</button>` : ""}
         ${canUndo ? `<button type="button" class="secondary" data-ms-act="revert" ${busy ? "disabled" : ""}>Undo last change</button>` : ""}
         ${canReview ? `<button type="button" class="primary" data-ms-act="approve" ${busy ? "disabled" : ""}>Approve</button>` : ""}
         ${canReview ? `<button type="button" class="secondary" data-ms-act="reject" ${busy ? "disabled" : ""}>Reject</button>` : ""}
@@ -223,11 +246,27 @@
             render();
             await studioApi("generate_content", { body: { content_item_id: id } });
           } else if (act === "revise") {
-            const instruction = prompt("What should Lily change?");
-            if (!instruction || !instruction.trim()) return;
-            state.busyId = id;
+            // Opens the real inline composer (textarea + Send to Lily) —
+            // never calls the API yet, and never assumes any persistence
+            // intent just from opening it.
+            state.revisingId = id;
             render();
-            await studioApi("revise_content", { body: { content_item_id: id, instruction: instruction.trim() } });
+            return;
+          } else if (act === "revise-cancel") {
+            state.revisingId = null;
+            render();
+            return;
+          } else if (act === "revise-send") {
+            const input = document.getElementById(`msRevisionInput-${id}`);
+            const instruction = (input?.value || "").trim();
+            if (!instruction) {
+              toast("Tell Lily what to change first.");
+              return;
+            }
+            state.busyId = id;
+            state.revisingId = null;
+            render();
+            await studioApi("revise_content", { body: { content_item_id: id, instruction } });
           } else if (act === "revert") {
             if (!confirm("Undo the last change and go back to the previous version?")) return;
             state.busyId = id;
@@ -260,6 +299,7 @@
     state.loading = true;
     state.error = null;
     state.busyId = null;
+    state.revisingId = null;
     render();
     try {
       const [status, brand, style, usage, content] = await Promise.all([
