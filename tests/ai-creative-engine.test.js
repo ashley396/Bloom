@@ -396,6 +396,59 @@ test("generateVideoConcept: a supplied audienceSummary reaches the real video-co
   }
 });
 
+// Phase 17 ("test as a florist"): a realistic, established shop with real
+// learned brand voice, real learned visual style, a genuinely full
+// inventory list, AND real audience data all present together at once —
+// exactly the shape a busy, long-running shop's real request would carry,
+// not the one-summary-at-a-time isolation the tests above check. This is
+// the exact scenario that caught a real bug in Phase 9 (the task text
+// silently truncated past 1200 chars, cutting off the newest anti-
+// fabrication rule) — a regression guard against that class of bug
+// recurring as more real grounding is added in the future.
+test("generateSocialPost: a realistic shop with brand + style + inventory + audience ALL populated together never truncates past the model call's own cap", async () => {
+  const mock = mockCloudflareOnce({
+    platform: "facebook",
+    headline: "Our Spring Collection is here!",
+    body: "Fresh garden roses, ranunculus, and peonies — order your spring arrangement today.",
+    cta: "Shop the collection",
+    visual_brief: "v",
+    hashtags: ["#spring"],
+    asset_requirements: []
+  });
+  try {
+    await generateSocialPost({
+      channel: "facebook",
+      occasion: "Spring collection launch",
+      audience: "loyal repeat customers",
+      requestText: "Announce our spring collection to our regulars",
+      brandVoiceSummary:
+        "This shop's own learned brand voice (from what they've explicitly told Lily and repeatedly approved) — follow it as the DEFAULT: consistently uses warm, artisan language, mentions handcrafted quality, and favors phrases like 'farm-fresh' and 'locally sourced'.",
+      visualStyleSummary:
+        "This shop's own learned VISUAL creative style: soft, natural lighting with warm tones, rustic wooden surfaces, and garden-style loose arrangements photographed close-up.",
+      inventorySummary:
+        "Real current inventory to ground this in (do not mention flowers not on this list): Garden Rose (40 stems in stock); White Hydrangea (18 stems in stock, running low); Eucalyptus (60 stems in stock); Ranunculus (25 stems in stock); Peony (12 stems in stock, running low).",
+      audienceSummary:
+        "Real audience data for this shop (never invent a different number or segment): 128 marketing subscribers; 14 vip customers; 32 repeat customers (2+ orders); 9 birthdays this month."
+    });
+    const sent = mock.getSentBody();
+    const userMessage = sent.messages.find((m) => m.role === "user").content;
+    // Every real fact from every one of the four summaries must still
+    // reach the model — none silently dropped by a length cap.
+    assert.match(userMessage, /farm-fresh/);
+    assert.match(userMessage, /garden-style loose arrangements/);
+    assert.match(userMessage, /Garden Rose \(40 stems in stock\)/);
+    assert.match(userMessage, /Peony \(12 stems in stock, running low\)/);
+    assert.match(userMessage, /128 marketing subscribers/);
+    assert.match(userMessage, /9 birthdays this month/);
+    // The safety-critical anti-fabrication rules (added last in the task,
+    // so first to be cut by any length cap) must both survive intact.
+    assert.match(userMessage, /never name a flower, color, or variety that isn't on it/i);
+    assert.match(userMessage, /never state an audience size, subscriber count, or customer-segment number/i);
+  } finally {
+    mock.restore();
+  }
+});
+
 test("generateVideoConcept: returns ok:false when the model returns no scenes", async () => {
   const mock = mockCloudflareOnce({ concept: "x", scenes: [] });
   try {

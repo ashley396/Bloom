@@ -97,3 +97,34 @@ test("ai-context now includes ai_profile (ai_shop_profiles) — the shop's onboa
   }
   assert.match(src, /ai_profile:\s*aiProfile\s*\|\|\s*null/);
 });
+
+// Phase 17 ("test as a florist" — the real end-to-end shape a single chat
+// turn actually returns): workload (Phase 6), audience_segments (Phase 7),
+// and financials (Phase 8) all reach the SAME context object a real chat
+// turn receives, and both date-sensitive ones ("today" for overdue orders,
+// "today" for today's sales) resolve from the exact same shop.timezone —
+// never two silently different ideas of "today" for the same shop in the
+// same response.
+
+test("workload, audience_segments, and financials all reach the same context object a real chat turn receives", () => {
+  assert.match(src, /workload,/);
+  assert.match(src, /audience_segments:\s*audienceSummary,/);
+  assert.match(src, /financials:\s*financialSnapshot/);
+});
+
+test("workload and financials both resolve 'today' from the SAME real shop.timezone — never two different clocks for one shop", () => {
+  assert.match(src, /buildOrderWorkloadSummary\(openOrders\|\|\[\],\{todayStr:shopDateStr\(shop\?\.timezone\)\}\)/);
+  assert.match(src, /timezone:shop\?\.timezone/, "buildFinancialSnapshot must be handed the same shop.timezone, not a second/independent value");
+});
+
+test("the financial snapshot only computes 'today' after shop.timezone is actually known (post-Promise.all), never a stale/default value baked in at query time", () => {
+  const promiseAllStart = src.indexOf("await Promise.all([");
+  const promiseAllEnd = src.indexOf("]);", promiseAllStart);
+  const promiseAllBlock = src.slice(promiseAllStart, promiseAllEnd);
+  // loadFinancialRows (the query half) runs inside Promise.all — the
+  // timezone-aware bucketing (buildFinancialSnapshot) must NOT.
+  assert.match(promiseAllBlock, /loadFinancialRows\(client,shopId\)/);
+  assert.doesNotMatch(promiseAllBlock, /buildFinancialSnapshot/);
+  const afterPromiseAll = src.slice(promiseAllEnd);
+  assert.match(afterPromiseAll, /buildFinancialSnapshot\(/);
+});
