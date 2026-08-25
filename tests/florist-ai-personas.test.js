@@ -40,6 +40,20 @@ test("temperatureForPersona varies by persona and mode", () => {
   assert.equal(FLORIST_PERSONAS.length, 4);
 });
 
+// Phase 18 ("product polish"): audience_segments.enabled:false means
+// Marketing Campaigns isn't set up for this shop — a real, distinct state
+// from "0 subscribers" (a real, checked, empty count). Both personas that
+// could plausibly be asked about audience/subscribers in general chat
+// (Lily for content, Rose for business/targeting) must never conflate them.
+test("systemPromptFor: Lily and Rose both distinguish audience_segments.enabled:false (feature not set up) from a real 0-subscriber count", () => {
+  for (const persona of ["Lily", "Rose"]) {
+    const prompt = systemPromptFor(persona, "chat");
+    assert.match(prompt, /audience_segments/, `${persona} must reference audience_segments`);
+    assert.match(prompt, /enabled:false/, `${persona} must reference the enabled:false state explicitly`);
+    assert.match(prompt, /not.*0 subscribers|never.*0 subscribers|as if it were a real/i, `${persona} must explicitly warn against reporting it as a real empty count`);
+  }
+});
+
 test("Bud is Florisyn's problem-solving persona — plain language, no false claims of an already-shipped fix", () => {
   const prompt = systemPromptFor("Bud", "chat");
   assert.match(prompt, /problem solver/i);
