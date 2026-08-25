@@ -2,6 +2,7 @@ import { json, preflight, methodNotAllowed } from "./_shared/http.js";
 import { currentUser, fail } from "./_shared/supabase.js";
 import { shopDateStr } from "./_shared/shop-time.js";
 import { buildOrderWorkloadSummary } from "./_shared/order-workload-intelligence.js";
+import { loadCustomerAudienceSummary } from "./_shared/customer-audience-grounding.js";
 
 export async function handler(event){
   const ready=preflight(event);if(ready)return ready;
@@ -11,7 +12,7 @@ export async function handler(event){
     const [
       {data:shop},{data:inventory},{data:orders},{data:deliveries},
       {data:products},{data:customers},{data:recipeRows},{data:staff},
-      {data:aiProfile},{data:openOrders}
+      {data:aiProfile},{data:openOrders},audienceSummary
     ]=await Promise.all([
       client.from("shops").select("name,address,phone,tagline,timezone").eq("id",shopId).maybeSingle(),
       client.from("inventory").select("name,color,variety,quantity,unit,low_stock_level,cost,price,arrival_date,vase_life_days").eq("shop_id",shopId).order("created_at",{ascending:false}).limit(30),
@@ -43,7 +44,13 @@ export async function handler(event){
       // activity feed (15 most-recent by created_at); this one needs every
       // open order regardless of age so a genuinely overdue order isn't
       // missed just because newer orders pushed it off a recency-limited list.
-      client.from("orders").select("id,order_number,customer_name,status,delivery_date,fulfillment,designer,driver").eq("shop_id",shopId).not("status","in","(COMPLETED,DELIVERED,CANCELLED)").order("delivery_date",{ascending:true,nullsFirst:false}).limit(100)
+      client.from("orders").select("id,order_number,customer_name,status,delivery_date,fulfillment,designer,driver").eq("shop_id",shopId).not("status","in","(COMPLETED,DELIVERED,CANCELLED)").order("delivery_date",{ascending:true,nullsFirst:false}).limit(100),
+      // Real, consent-aware audience segment COUNTS (repeat/VIP/lapsed/
+      // birthday-and-anniversary-this-month/etc.) for Phase 7 — see
+      // customer-audience-grounding.js. Segment key/label/count only, same
+      // PII discipline as the customers query above; no-ops (zero queries)
+      // when Marketing Campaigns is off for this shop.
+      loadCustomerAudienceSummary(client,shopId)
     ]);
     const recipes=(recipeRows||[]).map(r=>({
       product_name:r.products?.name||null,
@@ -64,7 +71,8 @@ export async function handler(event){
       recipes,
       staff:staff||[],
       ai_profile:aiProfile||null,
-      workload
+      workload,
+      audience_segments:audienceSummary
     }});
   }catch(error){return fail(error)}
 }
