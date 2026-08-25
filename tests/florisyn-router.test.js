@@ -35,6 +35,15 @@ const SIDEBAR_ORDER = [
   // standalone sidebar entry — Marketing's own Overview tab already links
   // out to it (data-marketing-goto="emailCampaignsPage"). The route and
   // page still exist; only the redundant sidebar entry point is gone.
+  //
+  // Marketing Studio (Phase 1C of the "Florist-Facing Marketing Studio"
+  // pass) is a SEPARATE feature from "Marketing" above — a different
+  // backend (marketing-studio-shop.js), a different private-beta gate
+  // (shop_admin_config.features.marketing_studio_beta via a real,
+  // authenticated per-shop check — see refreshMarketingStudioAccess() in
+  // app.js), and a different global flag (MARKETING_STUDIO, not the
+  // MARKETING_CAMPAIGNS this "Marketing" entry reads from production-health).
+  ["/marketing-studio", "marketingStudioPage"],
   ["/weddings", "weddingsPage"],
   ["/holiday-command", "holidayPage"],
   ["/staff", "staffPage"],
@@ -83,7 +92,7 @@ test("sidebar lists every required route in exact order", () => {
   assert.match(nav, /florisyn-lux-nav-label">SELLER DASHBOARD</);
   assert.match(nav, /florisyn-lux-nav-label">SUBSCRIPTION</);
   assert.match(nav, /POS Settings/);
-  assert.equal(routes.length, 28);
+  assert.equal(routes.length, 29);
   assert.match(html, /florisyn-premium-badge/);
   assert.match(html, /PREMIUM PLAN/);
   const premiumStart = html.indexOf("florisyn-premium-badge");

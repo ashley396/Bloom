@@ -15,7 +15,7 @@ import { mockBackend, withFakeSession } from "./fixtures.mjs";
  * for a real florist, so that's the hard failure condition.
  */
 
-// The 29 primary sidebar items, read directly from
+// The 30 primary sidebar items, read directly from
 // nav.florisyn-lux-nav in public/index.html — reachable with one click
 // from the sidebar itself.
 const NAV_TABS = [
@@ -39,6 +39,7 @@ const NAV_TABS = [
   "communityPage",
   "floristNetworkPage",
   "marketingPage",
+  "marketingStudioPage",
   "weddingsPage",
   "holidayPage",
   "staffPage",
