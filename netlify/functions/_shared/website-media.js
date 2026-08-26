@@ -33,22 +33,43 @@ export function validateWebsiteMediaUpload({ dataUrl } = {}) {
   return { valid: true, mime: parsed.mime, buffer: parsed.buffer };
 }
 
+/** Shared upload primitive — every caller in this file funnels through
+ * here so there is exactly one place that actually talks to Storage.
+ * `path` lets a caller request a deterministic key instead of a fresh
+ * random one (idempotent overwrite via upsert); omitting it keeps the
+ * original random-path, no-overwrite behavior every existing caller
+ * already relies on. */
+async function uploadWebsiteMediaBuffer(client, shopId, { buffer, mime, ext, path, upsert = false } = {}) {
+  const finalPath = path || `${shopId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await client.storage.from(WEBSITE_MEDIA_BUCKET).upload(finalPath, buffer, { contentType: mime, upsert });
+  if (error) return { ok: false, error: error.message || "Image upload failed." };
+  return { ok: true, path: finalPath, mime, sizeBytes: buffer.length };
+}
+
 export async function uploadWebsiteMedia(client, shopId, { dataUrl, filename } = {}) {
   const validation = validateWebsiteMediaUpload({ dataUrl });
   if (!validation.valid) return { ok: false, error: validation.error };
   const ext = MIME_EXT[validation.mime] || "jpg";
-  const path = `${shopId}/${crypto.randomUUID()}.${ext}`;
-  const { error } = await client.storage
-    .from(WEBSITE_MEDIA_BUCKET)
-    .upload(path, validation.buffer, { contentType: validation.mime, upsert: false });
-  if (error) return { ok: false, error: error.message || "Image upload failed." };
-  return {
-    ok: true,
-    path,
-    mime: validation.mime,
-    sizeBytes: validation.buffer.length,
-    filename: String(filename || "image").slice(0, 120)
-  };
+  const result = await uploadWebsiteMediaBuffer(client, shopId, { buffer: validation.buffer, mime: validation.mime, ext });
+  if (!result.ok) return result;
+  return { ...result, filename: String(filename || "image").slice(0, 120) };
+}
+
+/**
+ * Uploads an already-validated flyer render (see flyer-render.js's
+ * validateFlyerRenderDataUrl) to a DETERMINISTIC path keyed by the asset
+ * it belongs to: `${shopId}/flyers/${assetId}.png`. This is the whole
+ * idempotency strategy — retrying finalize_flyer_render for the same
+ * asset (a double-click, a dropped response, a client retry) always
+ * writes to the exact same storage key with upsert:true, so a retry
+ * overwrites the one real file for that asset rather than accumulating
+ * orphaned duplicates. Callers must have already confirmed the asset is
+ * genuinely the content item's current revision — this function has no
+ * opinion about that, it only uploads.
+ */
+export async function uploadFlyerRenderBuffer(client, shopId, assetId, { buffer, mime }) {
+  const path = `${shopId}/flyers/${assetId}.png`;
+  return uploadWebsiteMediaBuffer(client, shopId, { buffer, mime, path, upsert: true });
 }
 
 export const CLONE_AUDIO_MAX_BYTES = 20 * 1024 * 1024;

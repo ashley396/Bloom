@@ -26,6 +26,29 @@ test("pickFlyerTemplate: no occasion or an unrecognized one falls back to genera
   assert.equal(pickFlyerTemplate().id, "general");
 });
 
+test("pickFlyerTemplate: a workshop/class request picks the event template", () => {
+  assert.equal(pickFlyerTemplate({ occasion: "spring wreath workshop" }).id, "event");
+});
+
+test("pickFlyerTemplate: a featured-arrangement request picks the spotlight template", () => {
+  assert.equal(pickFlyerTemplate({ occasion: "this week's featured arrangement" }).id, "spotlight");
+});
+
+test("pickFlyerTemplate: a sale/promotion request picks the sale template", () => {
+  assert.equal(pickFlyerTemplate({ occasion: "weekend sale" }).id, "sale");
+});
+
+test("pickFlyerTemplate: a sympathy/memorial request picks the sympathy template", () => {
+  assert.equal(pickFlyerTemplate({ occasion: "sympathy arrangements" }).id, "sympathy");
+});
+
+test("all 6 required flyer categories exist (notice/sale/holiday/event/sympathy/spotlight), plus general as the catch-all fallback", () => {
+  const ids = Object.keys(FLYER_TEMPLATES);
+  for (const required of ["notice", "sale", "holiday", "event", "sympathy", "spotlight", "general"]) {
+    assert.ok(ids.includes(required), `missing required template category: ${required}`);
+  }
+});
+
 test("pickAspectRatio maps loose platform language to a real, defined size", () => {
   assert.equal(pickAspectRatio("Instagram Story"), "story");
   assert.equal(pickAspectRatio("facebook post"), "facebook_post");

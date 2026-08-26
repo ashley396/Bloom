@@ -6,11 +6,22 @@
  * ai-intent-router.js module docstring for the full reasoning. The
  * primary workflow generates a real AI visual concept first (a
  * photographic backdrop, via _shared/ai-image-engine.js's
- * buildBackgroundPrompt()) or composites a real segmented product photo
- * onto one; this module's only job is what a generated image alone can't
- * guarantee: exact text, brand lockup, and legibility on top of it.
+ * buildFlyerBackgroundPrompt()/buildBackgroundPrompt()) or composites a
+ * real segmented product photo onto one; this module's only job is what a
+ * generated image alone can't guarantee: exact text, brand lockup, and
+ * legibility on top of it.
  *
- * Two things live here:
+ * Design pass (Ashley's visual-quality directive): every flyer now draws
+ * as a real editorial card — a soft ivory/blush panel with a shadow,
+ * elegant serif typography, a shop-name lockup, and a proper CTA "chip" —
+ * over either a real generated floral photo (Tier A) or a rich layered
+ * floral-toned wash (Tier B, when no photo is available/succeeded). The
+ * panel is drawn BEFORE the contrast sampling happens, so every text
+ * region reads its color off the actual panel pixels behind it — the same
+ * "never hardcoded, derived from real pixels" contract as before, just
+ * now composing against a much richer background by default.
+ *
+ * Three things live here:
  *
  *   1. compositeSubjectOnBackground() — the segment+generate+composite
  *      substitute for true inpainting (this Cloudflare account has no
@@ -18,17 +29,16 @@
  *      cutout (photo-studio.js's removeBackground() output) over a
  *      server-generated backdrop-only image.
  *
- *   2. renderFlyer() — draws a flyer's text/logo/contact regions (from
- *      _shared/flyer-templates.js's FLYER_TEMPLATES) onto either a
- *      generated image (Tier A) or the template's own flat/gradient brand
- *      background (Tier B), with contrast-safe placement: every region's
- *      text color and scrim are chosen from the actual pixels behind it,
- *      never hardcoded, so text can never come out accidentally
- *      unreadable on top of a generated photo.
+ *   2. renderFlyer() — draws the full editorial flyer card described
+ *      above onto either a generated image (Tier A) or a rich Tier-B
+ *      wash, with contrast-safe placement: every region's text color and
+ *      scrim are chosen from the actual pixels behind it, never
+ *      hardcoded, so text can never come out accidentally unreadable.
  *
- * Pure, DOM-free helpers (region math, luminance, contrast decisions) are
- * exported for unit testing the same way photo-studio.js's mask math is —
- * see this file's module.exports guard at the bottom.
+ *   3. Pure, DOM-free helpers (region math, luminance, contrast decisions,
+ *      panel-bounds math) are exported for unit testing the same way
+ *      photo-studio.js's mask math is — see this file's module.exports
+ *      guard at the bottom.
  */
 (function (global) {
   "use strict";
@@ -136,6 +146,35 @@
     return SCALE_MULTIPLIER[scaleKey] || 1;
   }
 
+  /**
+   * The editorial card's panel bounds — the union of the headline/body/
+   * cta/contact regions a template defines, expanded by a comfortable
+   * margin, expressed as real pixel coordinates. Pure (only reads
+   * template.regions + width/height), so the actual card geometry is
+   * unit-testable without a DOM. Never exceeds the canvas bounds.
+   */
+  function computePanelRect(template, width, height, paddingFraction) {
+    var padding = paddingFraction == null ? 0.045 : paddingFraction;
+    var regions = template && template.regions ? template.regions : {};
+    var keys = ["headline", "body", "cta", "contact"];
+    var minX = 1, minY = 1, maxX = 0, maxY = 0, any = false;
+    for (var i = 0; i < keys.length; i++) {
+      var r = regions[keys[i]];
+      if (!r) continue;
+      any = true;
+      minX = Math.min(minX, r.x || 0);
+      minY = Math.min(minY, r.y || 0);
+      maxX = Math.max(maxX, (r.x || 0) + (r.w || 0));
+      maxY = Math.max(maxY, (r.y || 0) + (r.h || 0));
+    }
+    if (!any) return regionRect({ x: 0.08, y: 0.08, w: 0.84, h: 0.84 }, width, height);
+    var px = Math.max(0, minX - padding);
+    var py = Math.max(0, minY - padding * 0.7);
+    var pw = Math.min(1 - px, maxX - minX + padding * 2);
+    var ph = Math.min(1 - py, maxY - minY + padding * 1.4);
+    return regionRect({ x: px, y: py, w: pw, h: ph }, width, height);
+  }
+
   // ---- Everything below needs a real DOM (canvas/Image) — not unit
   // tested directly, same convention as photo-studio.js's removeBackground()
   // browser wrapper vs. its tested removeBackgroundFromImageData(). ----
@@ -217,7 +256,7 @@
     ctx.closePath();
   }
 
-  function wrapText(ctx, text, cx, cy, maxWidth, lineHeight) {
+  function measureWrappedLines(ctx, text, maxWidth) {
     var words = String(text).split(/\s+/);
     var lines = [];
     var current = "";
@@ -231,11 +270,29 @@
       }
     }
     if (current) lines.push(current);
+    return lines;
+  }
+
+  function drawWrappedLines(ctx, lines, cx, cy, lineHeight) {
     var startY = cy - ((lines.length - 1) * lineHeight) / 2;
     for (var j = 0; j < lines.length; j++) ctx.fillText(lines[j], cx, startY + j * lineHeight);
   }
 
-  function drawRegionText(ctx, rect, text, emphasisKey, style, bgImageData) {
+  function wrapText(ctx, text, cx, cy, maxWidth, lineHeight) {
+    drawWrappedLines(ctx, measureWrappedLines(ctx, text, maxWidth), cx, cy, lineHeight);
+  }
+
+  function setLetterSpacing(ctx, value) {
+    // ctx.letterSpacing is a real, standard Canvas2D property in current
+    // engines (unprefixed since ~Chrome 99) — feature-detected so this
+    // never throws on an older/unsupported runtime, it just falls back to
+    // the browser's default (zero) spacing.
+    try {
+      if ("letterSpacing" in ctx) ctx.letterSpacing = value;
+    } catch (e) { /* unsupported — plain spacing, still fully readable */ }
+  }
+
+  function drawRegionText(ctx, rect, text, emphasisKey, style, bgImageData, opts) {
     if (!text) return;
     var avg = bgImageData ? sampleAverageColor(bgImageData, rect) : { r: 255, g: 255, b: 255 };
     var variance = bgImageData ? sampleColorVariance(bgImageData, rect) : 0;
@@ -245,27 +302,128 @@
       roundRect(ctx, rect.x, rect.y, rect.w, rect.h, Math.min(rect.h, rect.w) * 0.08);
       ctx.fill();
     }
-    var baseSize = emphasisKey === "hero" ? rect.h * 0.42 : emphasisKey === "cta" ? rect.h * 0.5 : rect.h * 0.3;
+    // The editorial headline gets a refined burgundy tone instead of flat
+    // near-black WHEN it's safe to (i.e. pickTextColor already decided a
+    // dark color reads fine here) — matches Ashley's "elegant burgundy
+    // serif headline" direction without weakening the real contrast
+    // guarantee: a dark background still correctly gets white text.
+    if (emphasisKey === "hero" && color === "#231a26") color = "#6e1f2e";
+    // The target size is taken from the region's ORIGINAL height
+    // (opts.baseSizeHeight), not the possibly-shrunk rect.h below — the
+    // caller may have shrunk `rect` just to clear the shop-name lockup,
+    // and the headline must still read as the boldest, biggest element on
+    // the flyer (Ashley's "strong hierarchy" requirement). The auto-fit
+    // loop right below still protects against real overflow by shrinking
+    // from that full-size target if the wrapped block genuinely doesn't
+    // fit in the (possibly smaller) rect.
+    var sizeRefH = (opts && opts.baseSizeHeight) || rect.h;
+    var baseSize = emphasisKey === "hero" ? sizeRefH * 0.4 : rect.h * 0.3;
     var scaleTarget = emphasisKey === "hero" ? "headline" : emphasisKey;
     var scaleKey = (style && style.scale && style.scale[scaleTarget]) || "normal";
     var fontSize = Math.round(baseSize * scaleMultiplier(scaleKey));
     var weight = emphasisKey === "body" ? "500" : "700";
     ctx.fillStyle = color;
-    ctx.font = weight + " " + fontSize + "px 'Crimson Pro', Georgia, serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    wrapText(ctx, text, rect.x + rect.w / 2, rect.y + rect.h / 2, rect.w * 0.94, fontSize * 1.15);
+    setLetterSpacing(ctx, emphasisKey === "hero" ? "0.01em" : "0px");
+    // Auto-fit: a wrapped block (a long closing message, a two-line
+    // seasonal headline) must never grow taller than its own region and
+    // spill into whatever sits above or below it — the shop-name lockup,
+    // the next region down. Shrink the font in small steps until the
+    // wrapped block actually fits the rect, rather than always centering
+    // at the requested size and letting a tall block overflow. Floors at
+    // 62% of the requested size — still fully legible, and far better
+    // than an overlapping headline.
+    var maxTextWidth = rect.w * 0.94;
+    var lines, lineHeight;
+    for (var attempt = 0; attempt < 6; attempt++) {
+      ctx.font = weight + " " + fontSize + "px 'Crimson Pro', Georgia, serif";
+      lineHeight = fontSize * 1.18;
+      lines = measureWrappedLines(ctx, text, maxTextWidth);
+      var blockHeight = lines.length * lineHeight;
+      if (blockHeight <= rect.h * 0.96 || fontSize <= baseSize * 0.62) break;
+      fontSize = Math.round(fontSize * 0.9);
+    }
+    drawWrappedLines(ctx, lines, rect.x + rect.w / 2, rect.y + rect.h / 2, lineHeight);
+    setLetterSpacing(ctx, "0px");
+  }
+
+  /** The call-to-action is drawn as a real pill "chip" — a filled,
+   * rounded, brand-colored button shape with bold white text — instead of
+   * plain centered text, so it visually reads as an action, not just
+   * another paragraph. */
+  function drawCtaChip(ctx, rect, text, colors) {
+    if (!text) return;
+    var padX = rect.w * 0.1, padY = rect.h * 0.22;
+    var chipW = rect.w - padX * 2;
+    var chipH = Math.min(rect.h - padY * 2, rect.h * 0.62);
+    var chipX = rect.x + padX;
+    var chipY = rect.y + (rect.h - chipH) / 2;
+    ctx.save();
+    ctx.shadowColor = "rgba(60,20,30,0.22)";
+    ctx.shadowBlur = chipH * 0.18;
+    ctx.shadowOffsetY = chipH * 0.06;
+    ctx.fillStyle = colors.primary;
+    roundRect(ctx, chipX, chipY, chipW, chipH, chipH / 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = "#fffaf5";
+    var fontSize = Math.round(chipH * 0.4);
+    ctx.font = "700 " + fontSize + "px 'Inter', 'Crimson Pro', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    wrapText(ctx, text, chipX + chipW / 2, chipY + chipH / 2, chipW * 0.86, fontSize * 1.18);
+  }
+
+  /** The shop's own name, presented as a tasteful small-caps, letter-spaced
+   * lockup at the top of the panel — a real, distinct visual element
+   * rather than being buried only in the small footer contact line. */
+  function drawShopNameLockup(ctx, panelRect, brand, bgImageData) {
+    var name = brand && brand.shopName;
+    if (!name) return { usedHeight: 0 };
+    var sampleRect = { x: panelRect.x, y: panelRect.y, w: panelRect.w, h: panelRect.h * 0.16 };
+    var avg = bgImageData ? sampleAverageColor(bgImageData, sampleRect) : { r: 255, g: 255, b: 255 };
+    var baseColor = pickTextColor(avg);
+    var color = baseColor === "#ffffff" ? "#fffaf5" : "#7c3a58";
+    var fontSize = Math.max(12, Math.round(panelRect.h * 0.05));
+    var baselineY = panelRect.y + panelRect.h * 0.1;
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.font = "600 " + fontSize + "px 'Inter', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    setLetterSpacing(ctx, "0.24em");
+    ctx.fillText(String(name).toUpperCase(), panelRect.x + panelRect.w / 2, baselineY);
+    setLetterSpacing(ctx, "0px");
+    var dividerY = baselineY + fontSize * 0.75;
+    var dividerW = panelRect.w * 0.1;
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = 0.45;
+    ctx.lineWidth = Math.max(1, panelRect.h * 0.0022);
+    ctx.beginPath();
+    ctx.moveTo(panelRect.x + panelRect.w / 2 - dividerW / 2, dividerY);
+    ctx.lineTo(panelRect.x + panelRect.w / 2 + dividerW / 2, dividerY);
+    ctx.stroke();
+    ctx.restore();
+    return { usedHeight: dividerY - panelRect.y };
   }
 
   function drawContact(ctx, rect, brand, bgImageData) {
     var parts = [brand.shopName, brand.phone, brand.website].filter(Boolean);
     if (!parts.length) return;
     var avg = bgImageData ? sampleAverageColor(bgImageData, rect) : { r: 255, g: 255, b: 255 };
-    ctx.fillStyle = pickTextColor(avg);
-    ctx.font = "500 " + Math.round(rect.h * 0.45) + "px 'Inter', sans-serif";
+    var color = pickTextColor(avg);
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.85;
+    // A real, comfortably-readable footer — not a tiny fine-print line.
+    ctx.font = "600 " + Math.round(rect.h * 0.6) + "px 'Inter', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(parts.join("  ·  "), rect.x + rect.w / 2, rect.y + rect.h / 2);
+    setLetterSpacing(ctx, "0.03em");
+    ctx.fillText(parts.join("   ·   "), rect.x + rect.w / 2, rect.y + rect.h / 2);
+    setLetterSpacing(ctx, "0px");
+    ctx.restore();
   }
 
   function drawLogo(ctx, rect, logoUrl) {
@@ -333,14 +491,83 @@
     ctx.fillRect(0, 0, width, height);
   }
 
+  function hexWithAlpha(hex, alpha) {
+    var h = String(hex || "#7c3a58").replace("#", "");
+    if (h.length === 3) h = h.split("").map(function (c) { return c + c; }).join("");
+    var r = parseInt(h.substring(0, 2), 16) || 0;
+    var g = parseInt(h.substring(2, 4), 16) || 0;
+    var b = parseInt(h.substring(4, 6), 16) || 0;
+    return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+  }
+
+  /** A soft, ivory-toned diagonal wash plus several large, blurred
+   * radial "bloom" glows in the shop's own brand tones — real depth and
+   * warmth behind the panel without depicting literal flower shapes (a
+   * deliberate choice: hand-drawn "clip-art" flowers were tried and
+   * rejected during design review as looking cheap; a soft light/color
+   * wash is the honest, reliably-elegant Tier-B treatment). Drawn AFTER
+   * paintBrandBackground()'s flat/gradient fill (never replaces it — the
+   * existing color-revision tests depend on that fill being exactly what
+   * it always was), so this is purely additive richness. Tier A (a real
+   * generated photo) never calls this — the photo already provides real
+   * depth and texture. */
+  function paintFloralWash(ctx, width, height, colors) {
+    ctx.save();
+    var wash = ctx.createLinearGradient(0, 0, width, height);
+    wash.addColorStop(0, hexWithAlpha("#fffaf3", 0.16));
+    wash.addColorStop(1, hexWithAlpha(colors.primary, 0.1));
+    ctx.fillStyle = wash;
+    ctx.fillRect(0, 0, width, height);
+
+    var blooms = [
+      { x: width * 0.06, y: height * 0.05, r: width * 0.26, color: colors.accent, alpha: 0.32 },
+      { x: width * 0.95, y: height * 0.1, r: width * 0.2, color: colors.primary, alpha: 0.26 },
+      { x: width * 0.08, y: height * 0.95, r: width * 0.22, color: colors.primary, alpha: 0.24 },
+      { x: width * 0.94, y: height * 0.93, r: width * 0.26, color: colors.accent, alpha: 0.28 }
+    ];
+    for (var i = 0; i < blooms.length; i++) {
+      var b = blooms[i];
+      var radial = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+      radial.addColorStop(0, hexWithAlpha(b.color, b.alpha));
+      radial.addColorStop(1, hexWithAlpha(b.color, 0));
+      ctx.fillStyle = radial;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /** The editorial panel behind the text block — a rounded, translucent
+   * ivory/blush card with a soft drop shadow and a hairline border, so the
+   * text reads as a deliberate composed card rather than words floating
+   * directly on the background. */
+  function drawPanel(ctx, rect) {
+    var radius = Math.min(rect.w, rect.h) * 0.05;
+    ctx.save();
+    ctx.shadowColor = "rgba(50,20,30,0.22)";
+    ctx.shadowBlur = rect.h * 0.045;
+    ctx.shadowOffsetY = rect.h * 0.016;
+    ctx.fillStyle = "rgba(253,250,244,0.9)";
+    roundRect(ctx, rect.x, rect.y, rect.w, rect.h, radius);
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.strokeStyle = "rgba(124,58,88,0.22)";
+    ctx.lineWidth = Math.max(1, rect.h * 0.003);
+    roundRect(ctx, rect.x, rect.y, rect.w, rect.h, radius);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   /** Draws a full flyer: background (a generated image URL — Tier A — or
-   * the template's own flat/gradient brand fill — Tier B, see
-   * flyer-templates.js's `palette` field) plus every text region, each
-   * region's text color/scrim chosen from the actual pixels behind it.
-   * Returns Promise<HTMLCanvasElement>. Never throws on a missing/failed
-   * background image — falls back to the template's brand palette
-   * instead, so a flyer is always renderable even if a generated visual
-   * never arrives. */
+   * a rich Tier-B floral-toned wash over the template's own flat/gradient
+   * brand fill, see flyer-templates.js's `palette` field) plus the
+   * editorial panel and every text region, each region's text color/scrim
+   * chosen from the actual pixels behind it. Returns
+   * Promise<HTMLCanvasElement>. Never throws on a missing/failed
+   * background image — falls back to the Tier-B wash instead, so a flyer
+   * is always renderable even if a generated visual never arrives. */
   function renderFlyer(opts) {
     opts = opts || {};
     var template = opts.template;
@@ -355,11 +582,45 @@
     canvas.width = width;
     canvas.height = height;
     var ctx = canvas.getContext("2d");
+    var colors = effectivePaletteColors(brand, style);
 
-    function finish(bgImageData) {
-      drawRegionText(ctx, regionRect(template.regions.headline, width, height), content.headline, "hero", style, bgImageData);
+    function paintTierB() {
+      paintBrandBackground(ctx, width, height, template, brand, style);
+      paintFloralWash(ctx, width, height, colors);
+    }
+
+    function finish() {
+      var panelRect = computePanelRect(template, width, height);
+      drawPanel(ctx, panelRect);
+      // Sampled AFTER the panel is drawn — every text region's contrast
+      // decision reads the panel's own consistent ivory tone, not the
+      // busy/variable pixels underneath it.
+      var bgImageData = safeGetImageData(ctx, width, height);
+      var lockup = drawShopNameLockup(ctx, panelRect, brand, bgImageData);
+      var headlineRect = regionRect(template.regions.headline, width, height);
+      var headlineFullHeight = headlineRect.h;
+      // Push the headline fully clear of the shop-name lockup, not just a
+      // capped fractional nudge — a partial nudge left the lockup's own
+      // divider rule cutting straight through single-line headlines, and
+      // let a two-line headline overlap "LILIES IN BLOOM" outright (both
+      // caught in a design review before this fix). lockup.usedHeight is
+      // already an absolute canvas offset from panelRect.y, so this only
+      // shifts the headline down as far as the lockup actually reaches,
+      // plus a small breathing gap — never more than needed, and never so
+      // much it collapses the headline rect (floors at 45% of its own
+      // height so drawRegionText's own auto-fit always has real room to
+      // work with).
+      if (lockup && lockup.usedHeight) {
+        var lockupBottom = panelRect.y + lockup.usedHeight + headlineRect.h * 0.08;
+        if (lockupBottom > headlineRect.y) {
+          var shift = Math.min(lockupBottom - headlineRect.y, headlineRect.h * 0.55);
+          headlineRect.y += shift;
+          headlineRect.h -= shift;
+        }
+      }
+      drawRegionText(ctx, headlineRect, content.headline, "hero", style, bgImageData, { baseSizeHeight: headlineFullHeight });
       drawRegionText(ctx, regionRect(template.regions.body, width, height), content.body, "body", style, bgImageData);
-      drawRegionText(ctx, regionRect(template.regions.cta, width, height), content.cta, "cta", style, bgImageData);
+      drawCtaChip(ctx, regionRect(template.regions.cta, width, height), content.cta, colors);
       drawContact(ctx, regionRect(template.regions.contact, width, height), brand, bgImageData);
       return drawLogo(ctx, regionRect(template.regions.logo, width, height), brand.logoUrl).then(function () {
         return canvas;
@@ -370,15 +631,15 @@
       return loadImage(backgroundUrl)
         .then(function (img) {
           drawCover(ctx, img, 0, 0, width, height);
-          return finish(safeGetImageData(ctx, width, height));
+          return finish();
         })
         .catch(function () {
-          paintBrandBackground(ctx, width, height, template, brand, style);
-          return finish(safeGetImageData(ctx, width, height));
+          paintTierB();
+          return finish();
         });
     }
-    paintBrandBackground(ctx, width, height, template, brand, style);
-    return Promise.resolve().then(function () { return finish(safeGetImageData(ctx, width, height)); });
+    paintTierB();
+    return Promise.resolve().then(finish);
   }
 
   var api = {
@@ -391,6 +652,7 @@
     scaleMultiplier: scaleMultiplier,
     effectivePaletteColors: effectivePaletteColors,
     paintBrandBackground: paintBrandBackground,
+    computePanelRect: computePanelRect,
     compositeSubjectOnBackground: compositeSubjectOnBackground,
     renderFlyer: renderFlyer
   };

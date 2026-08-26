@@ -192,3 +192,70 @@ export function textReadsAsPermanentClosure(text) {
 export function detectPermanentClosureMismatch(requestText, generatedText) {
   return requestSignalsTemporaryClosure(requestText) && textReadsAsPermanentClosure(generatedText);
 }
+
+// A real, live-found failure mode (not hypothetical): "closing at 2:30
+// today, call 606-506-4039" got handed to the AI IMAGE model as a visual
+// concept — a diffusion model asked to paint legible words produces
+// garbled nonsense ("Reserve you with whote striding," "6.13:19:30"), not
+// the real business text. The fix isn't a better prompt: any request
+// whose important information IS the message (a closing time, a phone
+// number, a price, a sale, an event date, an address, an order deadline,
+// an announcement) must route to the deterministic flyer path
+// (generateFlyerContent + public/flyer-renderer.js) instead — real text,
+// drawn by Florisyn's own renderer, never asked of an image model. A
+// request with no such signal (a plain "post about our roses today")
+// keeps using a photo-only image, no on-image text asked for at all. Reuses
+// the same PHONE_RE/PRICE_RE/DATE_RE/TIME_RE fact-token detection above —
+// any of those already means "this request carries information that must
+// be exact and readable," the same bar a flyer exists to guarantee.
+const FLYER_WORDING_KEYWORDS_RE =
+  /\b(clos(?:ing|ed)|open(?:ing)?|hours?|business hours)\b|\b(sale|%\s?off|percent off|discount|promo(?:tion)?|special offer)\b|\bevent\b|\brsvp\b|\b(deadline|order by|cutoff|last day to order)\b|\bannounc(?:e|ing|ement)\b|\b(address|located at|find us at)\b/i;
+
+/** True when a request's important information needs to be VISIBLE and
+ * EXACT on the graphic itself — the deterministic flyer signal. Any real
+ * fact token (phone/price/date/time) is enough on its own; so is one of
+ * the plain operational/promotional keywords above. Never fires on an
+ * ordinary decorative/celebratory request with no such signal — that stays
+ * a plain photo-only image, per requirement 10. */
+export function requestNeedsFlyerWording(text) {
+  const s = String(text || "");
+  if (extractFactTokens(s).length) return true;
+  return FLYER_WORDING_KEYWORDS_RE.test(s);
+}
+
+// A revision instruction can ask to change the FACTS on an existing flyer
+// ("actually we're closing at 3, not 2:30") or explicitly reference the
+// graphic's own wording ("make the headline shorter", "fix the text on the
+// flyer") without necessarily repeating a fact token — both must trigger a
+// real re-render of the deterministic text layer, not just a caption edit.
+const FLYER_TEXT_REFERENCE_RE = /\b(flyer|the graphic|the sign|headline|the wording|on the image|the banner)\b/i;
+
+/** True when a revision to a flyer-type asset needs the deterministic text
+ * layer (headline/body/cta) regenerated, not just the Facebook caption.
+ * An ordinary caption-only revision ("make it more cheerful", "shorter and
+ * warmer") never matches this — only a change that actually affects what's
+ * printed on the graphic does. */
+export function instructionAffectsFlyerWording(instruction) {
+  const s = String(instruction || "");
+  return requestNeedsFlyerWording(s) || FLYER_TEXT_REFERENCE_RE.test(s);
+}
+
+// "change the image" / "regenerate the background" / "try a different
+// photo" / "new picture" / "different flowers in the background" — a
+// request to re-roll the AI-generated floral photo behind the text, never
+// a request to change the wording. Deliberately separate from
+// instructionAffectsFlyerWording above: a florist can ask for either, or
+// both, in the same sentence ("change the image and make the headline
+// shorter"), and each only touches the layer it actually names.
+const FLYER_IMAGE_CHANGE_RE =
+  /\b(change|regenerate|redo|try (a )?different|new|different|swap|another)\b.{0,25}\b(image|photo|picture|background|flowers? (shown|in the background|behind))\b/i;
+
+/** True when a revision instruction asks to re-roll the flyer's AI-generated
+ * photographic background — the "Regenerate image" action, whether typed
+ * out or sent via the one-click button (which sends this same kind of
+ * plain-language instruction, never a raw provider prompt). Never fires on
+ * an ordinary wording/caption revision that doesn't mention the image at
+ * all. */
+export function instructionAffectsFlyerImage(instruction) {
+  return FLYER_IMAGE_CHANGE_RE.test(String(instruction || ""));
+}

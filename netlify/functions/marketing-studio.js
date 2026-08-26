@@ -96,7 +96,8 @@ import {
 import { OAUTH_SUPPORTED_PLATFORMS, isOAuthArchitected, buildAuthorizeUrl } from "./_shared/marketing-social-oauth.js";
 import { resolvePublicSiteUrl } from "./_shared/site-url.js";
 import { selectCloneProvider, notLiveCloneProvider, buildConfiguredCloneProviderRegistry } from "./_shared/marketing-clone-providers.js";
-import { uploadClonedVoiceAudio, uploadWebsiteMedia, publicWebsiteMediaUrl } from "./_shared/website-media.js";
+import { uploadClonedVoiceAudio, uploadWebsiteMedia, uploadFlyerRenderBuffer, publicWebsiteMediaUrl } from "./_shared/website-media.js";
+import { validateFlyerRenderDataUrl, flyerApprovalBlockReason } from "./_shared/flyer-render.js";
 import { parseDataUrl } from "./_shared/upload-validation.js";
 import { buildIdempotencyKey } from "./_shared/marketing-publishing-queue.js";
 import { runPublishingWorker } from "./_shared/marketing-publishing-worker.js";
@@ -115,8 +116,9 @@ import { finalizeDigitalTwinJob } from "./_shared/creative-ai/digital-twin-final
 import { determineDisclosureRequirement, enforcePrePublishDisclosureGate, computeDisclosureFields } from "./_shared/creative-ai/disclosure-policy.js";
 import { validateCloneConsentBody, isConsentActive } from "./_shared/marketing-clone-consent.js";
 import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
-import { generateSocialPost, generateVideoConcept, generateWebsiteSectionDraft, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
-import { generateImage, buildImagePrompt } from "./_shared/ai-image-engine.js";
+import { generateSocialPost, generateVideoConcept, generateWebsiteSectionDraft, generateFlyerContent, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
+import { generateImage, buildImagePrompt, buildFlyerBackgroundPrompt } from "./_shared/ai-image-engine.js";
+import { pickFlyerTemplate, pickAspectRatio, ASPECT_RATIOS } from "./_shared/flyer-templates.js";
 import { loadGenerationGrounding } from "./_shared/marketing-generation-grounding.js";
 import { planVideoRender } from "./_shared/marketing-video-render-engine.js";
 import {
@@ -127,8 +129,12 @@ import {
   factsPreserved,
   buildImageRevisionBrief,
   buildWordingRevisionRequestText,
-  detectPermanentClosureMismatch
+  detectPermanentClosureMismatch,
+  requestNeedsFlyerWording,
+  instructionAffectsFlyerWording,
+  instructionAffectsFlyerImage
 } from "./_shared/marketing-content-revision.js";
+import { defaultVisualStyle } from "./_shared/ai-visual-revisions.js";
 import { buildMarketingStudioAnalyticsSummary } from "./_shared/marketing-analytics.js";
 import { groupMetricsByDimension } from "./_shared/marketing-insights.js";
 import { validateExperimentBody, determineExperimentWinner } from "./_shared/marketing-ab-testing.js";
@@ -735,6 +741,37 @@ export function createMarketingStudioHandler(deps = {}) {
         if (!nextStatus) {
           return json(400, { error: `Cannot ${body.decision} a content item in status '${current.data.status}'. Only ${CONTENT_ITEM_APPROVABLE_STATUSES.join(", ")} may be reviewed.` });
         }
+
+        // Real, server-side durability gate (never trust the client's own
+        // render-succeeded flag) — a flyer can only be approved once its
+        // deterministic render has actually been uploaded to durable
+        // storage via finalize_flyer_render and content.url is real. Fetched
+        // once here and reused below for the Brand Brain/My Style signal —
+        // no second query for the same rows.
+        const reviewVariantAssets = await client
+          .from("marketing_platform_variants")
+          .select("asset_id")
+          .eq("content_item_id", body.content_item_id)
+          .eq("shop_id", shopId);
+        const reviewAssetIds = [...new Set((reviewVariantAssets.data || []).map((v) => v.asset_id).filter(Boolean))];
+        const reviewAssets = reviewAssetIds.length
+          ? (await client.from("ai_generated_assets").select("id,asset_type,content").in("id", reviewAssetIds).eq("shop_id", shopId)).data || []
+          : [];
+        if (body.decision === "approved") {
+          // flyerApprovalBlockReason checks more than "url is set": a real
+          // render_status, a trusted https url, a real storage_path (proof
+          // it actually went through finalize_flyer_render, not a
+          // hand-crafted content blob with a forged url), a supported
+          // mime, and that it isn't quarantined. Every reviewAssets row
+          // reflects THIS item's current active asset (same fetch used
+          // above), so there's no separate "superseded revision" case to
+          // check here — a stale asset is never what gets read back.
+          for (const a of reviewAssets) {
+            const blockReason = flyerApprovalBlockReason(a);
+            if (blockReason) return json(409, { error: blockReason });
+          }
+        }
+
         const updated = await client
           .from("marketing_content_items")
           .update({ status: nextStatus, updated_at: new Date().toISOString() })
@@ -755,17 +792,10 @@ export function createMarketingStudioHandler(deps = {}) {
         // asset_id — never guessed or reconstructed after the fact, so a
         // shop can never be credited with a trait Lily didn't actually use.
         try {
-          const variantAssets = await client
-            .from("marketing_platform_variants")
-            .select("asset_id")
-            .eq("content_item_id", body.content_item_id)
-            .eq("shop_id", shopId);
-          const assetIds = [...new Set((variantAssets.data || []).map((v) => v.asset_id).filter(Boolean))];
-          if (assetIds.length) {
-            const assetsResult = await client.from("ai_generated_assets").select("id,content").in("id", assetIds);
+          if (reviewAssets.length) {
             const brandTraits = [];
             const visualTraits = [];
-            for (const a of assetsResult.data || []) {
+            for (const a of reviewAssets) {
               if (Array.isArray(a?.content?.brand_traits_used)) brandTraits.push(...a.content.brand_traits_used);
               if (Array.isArray(a?.content?.visual_traits_used)) visualTraits.push(...a.content.visual_traits_used);
             }
@@ -895,7 +925,7 @@ export function createMarketingStudioHandler(deps = {}) {
           // so the revision below still runs.
         }
 
-        const shopRow = await client.from("shops").select("name").eq("id", shopId).maybeSingle();
+        const shopRow = await client.from("shops").select("name,phone,primary_color").eq("id", shopId).maybeSingle();
         const shopName = shopRow.data?.name || null;
         const appliedTraits = deriveRevisionTraits(instruction, ownDeltas);
 
@@ -961,6 +991,128 @@ export function createMarketingStudioHandler(deps = {}) {
           });
         }
 
+        if (currentAsset.asset_type === "flyer") {
+          const { preferences: brandPrefs } = await loadBrandBrain(client, shopId);
+          const brandVoiceSummary = buildBrandSummary(brandPrefs);
+          const { preferences: visualPrefs } = await loadStyleMemory(client, shopId);
+          const visualStyleSummary = buildVisualStyleSummary(visualPrefs);
+          const primaryPlatform = variants[0]?.platform || "facebook";
+
+          // The Facebook caption ALWAYS revises — it's the same real
+          // wording-revision path a social_copy asset already uses,
+          // completely independent of what's printed on the graphic.
+          const priorCaption = currentAsset.content?.caption || "";
+          const captionRequestText = buildWordingRevisionRequestText({ instruction, brief: currentItem.data.brief, priorText: priorCaption });
+          const gen = await generateSocialPost({ persona: "Lily", channel: primaryPlatform, occasion: currentItem.data.title, shop: { name: shopName }, requestText: captionRequestText, brandVoiceSummary, visualStyleSummary });
+          if (!gen.ok) return json(400, { error: gen.error });
+          if (!factsPreserved(priorCaption, gen.content.body)) {
+            return json(400, { error: "That revision would have changed an exact phone number, date, price, or link in the caption — nothing was changed. Try rephrasing the request." });
+          }
+          if (detectPermanentClosureMismatch(`${currentItem.data.brief} ${instruction}`, `${gen.content.headline} ${gen.content.body}`)) {
+            return json(400, {
+              error: "That revision came back reading like a permanent closing, but nothing about this post asked for that — nothing was changed. Try rephrasing the request."
+            });
+          }
+
+          // The deterministic text layer (headline/body/cta actually
+          // printed on the flyer) only regenerates when the instruction
+          // itself affects it — requirement 7. An ordinary caption-only
+          // revision ("make it more cheerful") leaves the flyer's exact
+          // wording untouched.
+          let flyerFields = { headline: currentAsset.content?.headline, body: currentAsset.content?.body, cta: currentAsset.content?.cta };
+          // Whether THIS revision changed anything actually drawn on the
+          // graphic (as opposed to only the caption). If it did, the
+          // previously-rendered/uploaded file (if any) no longer matches
+          // this new asset's content and must not be carried forward — a
+          // fresh render + finalize_flyer_render is required before this
+          // revision can be approved. If it didn't, the pixels are still
+          // accurate, so the existing durable url/mime survive untouched
+          // and no re-render is needed.
+          let renderStale = false;
+          if (instructionAffectsFlyerWording(instruction)) {
+            const priorFlyerText = `${currentAsset.content?.headline || ""} ${currentAsset.content?.body || ""} ${currentAsset.content?.cta || ""}`;
+            const flyerRequestText = buildWordingRevisionRequestText({ instruction, brief: currentItem.data.brief, priorText: priorFlyerText });
+            const flyerGen = await generateFlyerContent({ persona: "Lily", message: flyerRequestText, occasion: currentItem.data.title, shop: { name: shopName } });
+            if (!flyerGen.ok) return json(400, { error: flyerGen.error });
+            const newFlyerText = `${flyerGen.content.headline} ${flyerGen.content.body} ${flyerGen.content.cta}`;
+            if (!factsPreserved(priorFlyerText, newFlyerText)) {
+              return json(400, { error: "That revision would have changed an exact phone number, date, price, or link on the flyer itself — nothing was changed. Try rephrasing the request." });
+            }
+            flyerFields = flyerGen.content;
+            renderStale = true;
+          }
+
+          // A florist can also ask to re-roll the AI-generated floral
+          // photo behind the text ("change the image", "regenerate the
+          // background") independently of the wording — the one-click
+          // "Regenerate image" button (marketing-studio-shop-ui.js) sends
+          // this same kind of plain-language instruction, never a raw
+          // provider prompt. Reuses the exact grounding already saved on
+          // the current asset (grounded_in_inventory) rather than
+          // re-querying inventory, and never fails the whole revision if
+          // the provider call fails — silently keeps the CURRENT
+          // background_url/style_tier, the same "never leave the florist
+          // with a broken result" guarantee generate_content's own Tier A
+          // wiring already gives.
+          let backgroundFields = {};
+          if (instructionAffectsFlyerImage(instruction)) {
+            const groundedFlowerNames = Array.isArray(currentAsset.content?.grounded_in_inventory)
+              ? currentAsset.content.grounded_in_inventory.map((i) => i.name).filter(Boolean)
+              : [];
+            const backgroundPrompt = buildFlyerBackgroundPrompt({
+              occasion: currentItem.data.title,
+              brandColor: shopRow.data?.primary_color || null,
+              groundedFlowers: groundedFlowerNames,
+              // "Regenerate image" must ask for a genuinely different
+              // composition, not just resend the same instruction and hope
+              // the model's own sampling varies it — Date.now() guarantees
+              // a fresh, different composition instruction on every call.
+              variationSeed: Date.now()
+            });
+            const backgroundGen = await generateImage(client, shopId, {
+              prompt: backgroundPrompt,
+              filename: `flyer-background-${body.content_item_id}-${Date.now()}.jpg`
+            });
+            if (backgroundGen.ok) {
+              backgroundFields = { style_tier: "generated", background_url: backgroundGen.url };
+              renderStale = true;
+            }
+          }
+
+          const persisted = await persistGeneratedAsset(client, {
+            shopId,
+            userId: user.id,
+            persona: "Lily",
+            assetType: "flyer",
+            provider: "cloudflare",
+            model: gen.model,
+            content: {
+              // Carries the template/regions/palette/canvas/brand/style
+              // forward unchanged — only the fields this revision actually
+              // touched are overridden below. Requirement 8: a reload reads
+              // this same row back and renders identically.
+              ...currentAsset.content,
+              ...flyerFields,
+              ...backgroundFields,
+              caption: gen.content.body,
+              brand_traits_used: gen.content.brand_traits_used,
+              visual_traits_used: gen.content.visual_traits_used,
+              revision_instruction: instruction,
+              revision_traits: appliedTraits,
+              ...(renderStale ? { url: null, storage_path: null, mime: null, width: null, height: null, render_status: null, rendered_at: null } : {})
+            },
+            parentAssetId: currentAsset.id,
+            status: "completed"
+          });
+          if (!persisted.ok) throw new Error(persisted.error);
+          await repointVariants(persisted.asset.id, { caption: gen.content.body, hashtags: gen.content.hashtags || [], aiContentType: "none" });
+          await writeCommandAudit(client, user.id, "marketing_content_revised", { shopId, targetType: "marketing_content_items", targetId: body.content_item_id, assetType: "flyer" });
+          return json(200, {
+            item: { id: currentItem.data.id, status: currentItem.data.status },
+            asset: { id: persisted.asset.id, type: "flyer", parent_asset_id: currentAsset.id, content: persisted.asset.content }
+          });
+        }
+
         if (currentAsset.asset_type === "social_copy" || currentAsset.asset_type === "video_concept") {
           const { preferences: brandPrefs } = await loadBrandBrain(client, shopId);
           const brandVoiceSummary = buildBrandSummary(brandPrefs);
@@ -1019,6 +1171,111 @@ export function createMarketingStudioHandler(deps = {}) {
         return json(400, { error: `Revising a "${currentAsset.asset_type}" content type isn't supported yet.` });
       }
 
+      // Closes the durability gap a real verification pass caught before
+      // this shipped: public/flyer-renderer.js only ever draws a canvas in
+      // the florist's own browser — nothing server-side ever produced a
+      // real, retrievable file. A flyer asset is created with content.url
+      // deliberately null (see generate_content/revise_content above); THIS
+      // is the only place that ever fills it in, and only once the exact
+      // bytes the florist's browser actually rendered have been uploaded
+      // through the same real storage pipeline every other image asset
+      // already uses. Until this succeeds, approve_content refuses to
+      // approve the item (see below) — a client-side render succeeding is
+      // never sufficient on its own.
+      //
+      // Hardening pass (a real security/durability review before approval):
+      // this is a POST accepting arbitrary bytes from the browser, so every
+      // field is verified server-side, nothing is trusted from the client
+      // beyond "here is a candidate render for this specific asset":
+      //   - file validation: real PNG signature, decoded byte-size ceiling,
+      //     malformed-base64 rejection, real width/height from the PNG's
+      //     own IHDR chunk — see flyer-render.js. SVG/HTML/anything else is
+      //     rejected by construction (only image/png is ever accepted).
+      //   - ownership: the content item and the asset must both belong to
+      //     THIS session's shop — never the client-supplied shop_id alone.
+      //   - currency: the client must name the exact asset_id it rendered,
+      //     and the server verifies that asset is STILL the item's current
+      //     active revision before writing anything. A browser tab that
+      //     finishes rendering a since-superseded revision is declined
+      //     quietly (nothing about the CURRENT item changes) rather than
+      //     silently overwriting the wrong asset's file.
+      //   - idempotency: uploadFlyerRenderBuffer always writes to the same
+      //     deterministic path for a given asset (upsert:true) — a retry of
+      //     this exact call can never create a second, competing file.
+      if (action === "finalize_flyer_render" && method === "POST") {
+        requireSuperAdminOrShopActor(admin, shopActorAuthorized);
+        const shopId = requireShopId(qs, body);
+        if (!body.content_item_id) return json(400, { error: "content_item_id is required." });
+        if (!body.asset_id) return json(400, { error: "asset_id is required." });
+        if (!body.data_url) return json(400, { error: "data_url is required." });
+
+        // File validation FIRST — before any database or storage call at
+        // all, so a malformed/oversized/wrong-format payload never even
+        // reaches a query.
+        const validated = validateFlyerRenderDataUrl(body.data_url);
+        if (!validated.valid) return json(400, { error: validated.error });
+
+        // Ownership: the content item must be a real row in THIS shop.
+        const itemResult = await client.from("marketing_content_items").select("id").eq("id", body.content_item_id).eq("shop_id", shopId).maybeSingle();
+        if (itemResult.error) throw itemResult.error;
+        if (!itemResult.data) return json(404, { error: "Content item not found." });
+
+        const variantsResult = await client
+          .from("marketing_platform_variants")
+          .select("id,asset_id")
+          .eq("content_item_id", body.content_item_id)
+          .eq("shop_id", shopId);
+        if (variantsResult.error) throw variantsResult.error;
+        const currentAssetId = (variantsResult.data || []).find((v) => v.asset_id)?.asset_id || null;
+        if (!currentAssetId) return json(404, { error: "No generated asset found for this content item." });
+
+        // Currency/stale-revision guard: the render being finalized must be
+        // for the item's CURRENT active asset — never an older one a
+        // since-run revision has already replaced. A stale finalize is
+        // declined without touching anything (not an error the florist
+        // needs to see — a different tab or a later revision already moved
+        // this item forward).
+        if (String(body.asset_id) !== String(currentAssetId)) {
+          return json(409, { error: "This flyer has since been revised — reload to see the latest version.", stale: true });
+        }
+
+        const assetResult = await client.from("ai_generated_assets").select("id,asset_type,content").eq("id", currentAssetId).eq("shop_id", shopId).maybeSingle();
+        if (assetResult.error) throw assetResult.error;
+        if (!assetResult.data) return json(404, { error: "Asset not found." });
+        if (assetResult.data.asset_type !== "flyer") return json(400, { error: "This content item's asset isn't a flyer." });
+
+        const uploaded = await uploadFlyerRenderBuffer(client, shopId, currentAssetId, { buffer: validated.buffer, mime: validated.mime });
+        if (!uploaded.ok) return json(400, { error: uploaded.error });
+        const url = publicWebsiteMediaUrl(client, uploaded.path);
+
+        const nextContent = {
+          ...assetResult.data.content,
+          url,
+          storage_path: uploaded.path,
+          mime: validated.mime,
+          width: validated.width,
+          height: validated.height,
+          render_status: "rendered",
+          rendered_at: new Date().toISOString()
+        };
+        const updatedAsset = await client
+          .from("ai_generated_assets")
+          .update({ content: nextContent })
+          .eq("id", currentAssetId)
+          .eq("shop_id", shopId)
+          .select("id,content")
+          .single();
+        if (updatedAsset.error) throw updatedAsset.error;
+
+        await writeCommandAudit(client, user.id, "marketing_flyer_render_finalized", {
+          shopId,
+          targetType: "marketing_content_items",
+          targetId: body.content_item_id,
+          assetId: currentAssetId
+        });
+        return json(200, { asset: { id: currentAssetId, url, content: updatedAsset.data.content } });
+      }
+
       // "Undo"/"go back to the previous version" — one step back along the
       // SAME parent_asset_id chain revise_content builds. Never deletes
       // anything; just repoints every variant at the parent asset, exactly
@@ -1057,8 +1314,18 @@ export function createMarketingStudioHandler(deps = {}) {
         const parentAsset = parentResult.data;
         if (!parentAsset) return json(404, { error: "Couldn't find the previous version to restore." });
 
+        // A flyer's caption lives in content.caption, same as an image
+        // asset's — separate from the on-image headline/body/cta text.
+        // Repointing asset_id below restores that whole content object
+        // atomically, so undo restores the caption AND the flyer's exact
+        // wording together (requirement 9) — no separate flyer-undo path
+        // needed.
         const caption =
-          parentAsset.asset_type === "image" ? parentAsset.content?.caption || null : parentAsset.asset_type === "video_concept" ? parentAsset.content?.script || parentAsset.content?.concept || null : parentAsset.content?.body || null;
+          parentAsset.asset_type === "image" || parentAsset.asset_type === "flyer"
+            ? parentAsset.content?.caption || null
+            : parentAsset.asset_type === "video_concept"
+            ? parentAsset.content?.script || parentAsset.content?.concept || null
+            : parentAsset.content?.body || null;
         const hashtags = parentAsset.content?.hashtags || [];
         const aiContentType = parentAsset.asset_type === "image" && parentAsset.content?.url ? "generative_image" : "none";
 
@@ -1224,7 +1491,11 @@ export function createMarketingStudioHandler(deps = {}) {
           });
         }
 
-        const shopRow = await client.from("shops").select("name").eq("id", shopId).maybeSingle();
+        // "name,phone" — phone is a new read here: a flyer's brand contact
+        // line (public/flyer-renderer.js's drawContact) needs the shop's
+        // real phone number, and this is the one place generate_content
+        // already round-trips the shops table.
+        const shopRow = await client.from("shops").select("name,phone,primary_color").eq("id", shopId).maybeSingle();
         const shopName = shopRow.data?.name || null;
         const primaryPlatform = variants[0]?.platform || "facebook";
 
@@ -1368,49 +1639,159 @@ export function createMarketingStudioHandler(deps = {}) {
 
         let assetId = null;
         let imageUrl = null;
+        let generatedAssetType = null;
         if (currentItem.data.content_type !== "text_post") {
-          await recordUsage("image", "image", 1);
-          // No separate inventory wiring needed here: this call always
-          // supplies visualBrief (from copyGen, itself already grounded in
-          // real inventory above), so buildImagePrompt's own products
-          // fallback path never runs — the grounding already reached the
-          // image through the copy's visual_brief.
-          const prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief: copyGen.content.visual_brief || currentItem.data.brief });
-          const imageGen = await generateImage(client, shopId, { prompt, filename: `marketing-${body.content_item_id}.jpg` });
-          if (!imageGen.ok) {
-            await revertToIdea();
-            return json(400, { error: imageGen.error });
+          // Live defect fix: a request whose important information NEEDS
+          // to be visible and exact on the graphic (a closing time, a
+          // phone number, a price, an announcement) must never be handed
+          // to the AI image model as words to paint — a diffusion model
+          // can't spell, and produces garbled nonsense instead of the real
+          // business text. Route those requests to Florisyn's own
+          // deterministic flyer renderer instead (generateFlyerContent +
+          // public/flyer-renderer.js, already built and tested, previously
+          // wired only into the older general-Lily-chat path — this wires
+          // it into Marketing Studio's real generate_content for the first
+          // time). An ordinary decorative/celebratory request with no such
+          // signal keeps using a plain photo-only image, with no on-image
+          // text ever asked of the model (see buildImagePrompt's own
+          // unconditional no-text guarantee).
+          if (requestNeedsFlyerWording(currentItem.data.brief)) {
+            await recordUsage("copy", "request", 1);
+            const flyerGen = await generateFlyerContent({
+              persona: "Lily",
+              message: currentItem.data.brief,
+              occasion: currentItem.data.title,
+              shop: { name: shopName }
+            });
+            if (!flyerGen.ok) {
+              await revertToIdea();
+              return json(400, { error: flyerGen.error });
+            }
+            const template = pickFlyerTemplate({ occasion: currentItem.data.title });
+            const aspectRatio = pickAspectRatio(primaryPlatform);
+            // Tier A by default (a real, photographic floral background —
+            // Ashley's explicit design direction: the default flyer must
+            // never be a flat brand-color rectangle) — falls back to Tier B
+            // (the template's own brand palette, drawn by
+            // paintBrandBackground/paintFloralAccents in the renderer)
+            // automatically and silently if the image call fails for any
+            // reason (no credentials, provider error, budget cap). This is
+            // never allowed to fail generate_content itself or touch a
+            // single word of the deterministic text above — the exact
+            // wording is Florisyn's own and never depends on this call
+            // succeeding. Real shop inventory grounds the flowers shown
+            // when it's actually available and relevant; otherwise the
+            // prompt stays general-seasonal and never implies availability.
+            const groundedFlowerNames = (inventorySources || []).map((i) => i.name).filter(Boolean);
+            const backgroundPrompt = buildFlyerBackgroundPrompt({
+              visualBrief: copyGen.content.visual_brief,
+              occasion: currentItem.data.title,
+              brandColor: shopRow.data?.primary_color || null,
+              groundedFlowers: groundedFlowerNames
+            });
+            const backgroundGen = await generateImage(client, shopId, { prompt: backgroundPrompt, filename: `flyer-background-${body.content_item_id}.jpg` });
+            const persisted = await persistGeneratedAsset(client, {
+              shopId,
+              userId: user.id,
+              persona: "Lily",
+              assetType: "flyer",
+              provider: "cloudflare",
+              model: flyerGen.model,
+              content: {
+                ...flyerGen.content,
+                template_id: template.id,
+                aspect_ratio: aspectRatio,
+                style_tier: backgroundGen.ok ? "generated" : "template",
+                background_url: backgroundGen.ok ? backgroundGen.url : null,
+                // Durable-render fields — never set at generation time. The
+                // renderer is browser-only (canvas), so nothing has been
+                // rendered or persisted yet; finalize_flyer_render is the
+                // only thing that ever sets these, once a real file exists
+                // in storage. approve_content refuses to approve a flyer
+                // until render_status is "rendered" and every other field
+                // here is real (see flyerApprovalBlockReason) — a
+                // client-side render success alone is never enough.
+                url: null,
+                storage_path: null,
+                mime: null,
+                width: null,
+                height: null,
+                render_status: null,
+                rendered_at: null,
+                traits_used: [],
+                style: defaultVisualStyle(),
+                // The client-side renderer (public/flyer-renderer.js) draws
+                // the actual canvas — it needs the full layout, not just an
+                // id, so the server stays the single source of truth for
+                // region placement rather than a second, drift-prone copy
+                // of flyer-templates.js living in the browser bundle.
+                regions: template.regions,
+                palette: template.palette,
+                canvas: ASPECT_RATIOS[aspectRatio],
+                // The Facebook caption is a SEPARATE piece of text from the
+                // on-image headline/body/cta above — same separation the
+                // "image" asset type already uses (content.caption vs. the
+                // image itself). Requirement 5: the caption independently
+                // carries the same real facts.
+                caption: copyGen.content.body,
+                brand: { shopName, phone: shopRow.data?.phone || null },
+                brand_traits_used: copyGen.content.brand_traits_used,
+                visual_traits_used: copyGen.content.visual_traits_used,
+                grounded_in_inventory: inventorySources
+              },
+              status: "completed"
+            });
+            if (!persisted.ok) {
+              await revertToIdea();
+              throw new Error(persisted.error);
+            }
+            assetId = persisted.asset.id;
+            generatedAssetType = "flyer";
+          } else {
+            await recordUsage("image", "image", 1);
+            // No separate inventory wiring needed here: this call always
+            // supplies visualBrief (from copyGen, itself already grounded in
+            // real inventory above), so buildImagePrompt's own products
+            // fallback path never runs — the grounding already reached the
+            // image through the copy's visual_brief.
+            const prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief: copyGen.content.visual_brief || currentItem.data.brief });
+            const imageGen = await generateImage(client, shopId, { prompt, filename: `marketing-${body.content_item_id}.jpg` });
+            if (!imageGen.ok) {
+              await revertToIdea();
+              return json(400, { error: imageGen.error });
+            }
+            const mediaRow = await client
+              .from("website_media")
+              .insert({ shop_id: shopId, storage_path: imageGen.path, filename: imageGen.path.split("/").pop(), source: "generated", mime: "image/jpeg" })
+              .select()
+              .single();
+            const persisted = await persistGeneratedAsset(client, {
+              shopId,
+              userId: user.id,
+              persona: "Lily",
+              assetType: "image",
+              provider: imageGen.provider,
+              model: imageGen.model,
+              prompt: imageGen.prompt,
+              // brand_traits_used/visual_traits_used ride along on this same
+              // asset row — approve_content reads them back from here (via
+              // the variant's asset_id) to reinforce/weaken Brand Brain and
+              // My Style the moment a real Approve/Reject happens. Never
+              // recorded here at generation time — recordBrandSignal/
+              // recordApprovalSignal only ever fire from a real approval
+              // decision, never a bare generation.
+              content: { url: imageGen.url, caption: copyGen.content.body, brand_traits_used: copyGen.content.brand_traits_used, visual_traits_used: copyGen.content.visual_traits_used, grounded_in_inventory: inventorySources },
+              mediaId: mediaRow.data?.id || null,
+              status: "completed"
+            });
+            if (!persisted.ok) {
+              await revertToIdea();
+              throw new Error(persisted.error);
+            }
+            assetId = persisted.asset.id;
+            imageUrl = imageGen.url;
+            generatedAssetType = "image";
           }
-          const mediaRow = await client
-            .from("website_media")
-            .insert({ shop_id: shopId, storage_path: imageGen.path, filename: imageGen.path.split("/").pop(), source: "generated", mime: "image/jpeg" })
-            .select()
-            .single();
-          const persisted = await persistGeneratedAsset(client, {
-            shopId,
-            userId: user.id,
-            persona: "Lily",
-            assetType: "image",
-            provider: imageGen.provider,
-            model: imageGen.model,
-            prompt: imageGen.prompt,
-            // brand_traits_used/visual_traits_used ride along on this same
-            // asset row — approve_content reads them back from here (via
-            // the variant's asset_id) to reinforce/weaken Brand Brain and
-            // My Style the moment a real Approve/Reject happens. Never
-            // recorded here at generation time — recordBrandSignal/
-            // recordApprovalSignal only ever fire from a real approval
-            // decision, never a bare generation.
-            content: { url: imageGen.url, caption: copyGen.content.body, brand_traits_used: copyGen.content.brand_traits_used, visual_traits_used: copyGen.content.visual_traits_used, grounded_in_inventory: inventorySources },
-            mediaId: mediaRow.data?.id || null,
-            status: "completed"
-          });
-          if (!persisted.ok) {
-            await revertToIdea();
-            throw new Error(persisted.error);
-          }
-          assetId = persisted.asset.id;
-          imageUrl = imageGen.url;
         } else {
           // text_post: no image, but the copy itself (and whichever Brand
           // Brain traits shaped it) still needs a real row to be readable
@@ -1440,16 +1821,18 @@ export function createMarketingStudioHandler(deps = {}) {
             throw new Error(persisted.error);
           }
           assetId = persisted.asset.id;
+          generatedAssetType = "social_copy";
         }
 
         if (variants.length) {
           // Launch-blocker fix (Blocker 1): same as the video-concept
           // branch above — compute+persist disclosure fields per-platform
           // the moment content attaches. generativeImageUsed only reflects
-          // a real rendered image (assetId is now always set — a text_post
-          // gets its own text-only "social_copy" asset above — but that
-          // never implies a generative image was used for disclosure
-          // purposes, hence checking imageUrl, not assetId, below).
+          // a real rendered image — a flyer's Tier-B template background is
+          // NOT a generative image (it's Florisyn's own deterministic
+          // render), so it correctly reads "none" here exactly like a
+          // text_post's asset does, per generatedAssetType rather than the
+          // old imageUrl-only check.
           for (const v of variants) {
             await client
               .from("marketing_platform_variants")
@@ -1480,9 +1863,9 @@ export function createMarketingStudioHandler(deps = {}) {
           shopId,
           targetType: "marketing_content_items",
           targetId: body.content_item_id,
-          assetType: imageUrl ? "image" : "social_copy"
+          assetType: generatedAssetType
         });
-        return json(200, { item: updated.data, asset: assetId ? { id: assetId, type: imageUrl ? "image" : "social_copy", url: imageUrl } : null, copy: copyGen.content });
+        return json(200, { item: updated.data, asset: assetId ? { id: assetId, type: generatedAssetType, url: imageUrl } : null, copy: copyGen.content });
       }
 
       // Priority 7 ("finish everything that can safely be completed

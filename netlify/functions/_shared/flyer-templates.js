@@ -78,6 +78,22 @@ export const FLYER_TEMPLATES = Object.freeze({
     palette: { background: "muted", text: "auto", accent: "muted" },
     occasions: ["sympathy", "memorial", "funeral"]
   },
+  event: {
+    id: "event",
+    label: "Event / class / workshop",
+    description: "A workshop, class, or in-store event graphic — inviting, informative.",
+    regions: REGIONS_STANDARD,
+    palette: { background: "brand_gradient", text: "auto", accent: "brand_primary" },
+    occasions: ["class", "workshop", "event", "rsvp", "sign up", "sign-up", "demo", "demonstration"]
+  },
+  spotlight: {
+    id: "spotlight",
+    label: "Product / arrangement spotlight",
+    description: "Highlights one specific arrangement or product — the visual leads, the text supports it.",
+    regions: REGIONS_STANDARD,
+    palette: { background: "brand_gradient", text: "auto", accent: "brand_primary" },
+    occasions: ["spotlight", "featured", "new arrangement", "collection", "arrangement of the week"]
+  },
   general: {
     id: "general",
     label: "General graphic",

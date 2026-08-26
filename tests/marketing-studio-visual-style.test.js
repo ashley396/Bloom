@@ -125,9 +125,14 @@ function approveContentQueue({ decision, brandTraits = [], visualTraits = [] }) 
   return [
     superAdminRow(),
     { data: { id: "item-1", status: "draft" }, error: null }, // current item lookup
+    // Durable-flyer follow-up: approve_content now fetches the linked
+    // variants/assets BEFORE the status update (a real, server-side gate —
+    // never approves a flyer whose deterministic render hasn't been
+    // uploaded yet) and reuses that same fetch for the Brand Brain/My
+    // Style signal below, instead of querying twice.
+    { data: [{ asset_id: "asset-1" }], error: null }, // reviewVariantAssets select
+    { data: [{ id: "asset-1", content: { brand_traits_used: brandTraits, visual_traits_used: visualTraits } }], error: null }, // reviewAssets select
     { data: { id: "item-1", status: decision === "approved" ? "approved" : "archived" }, error: null }, // status update
-    { data: [{ asset_id: "asset-1" }], error: null }, // variantAssets select
-    { data: [{ id: "asset-1", content: { brand_traits_used: brandTraits, visual_traits_used: visualTraits } }], error: null }, // ai_generated_assets select
     ...(brandTraits.length ? [{ data: null, error: null }, { data: null, error: null }] : []), // loadBrandBrain + saveBrandBrain
     ...(visualTraits.length ? [{ data: null, error: null }, { data: null, error: null }] : []) // loadStyleMemory + saveStyleMemory
   ];
@@ -159,9 +164,9 @@ test("approve_content: three real Approvals of the same visual trait promote it 
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", status: "draft" }, error: null },
-    { data: { id: "item-1", status: "approved" }, error: null },
     { data: [{ asset_id: "asset-1" }], error: null },
     { data: [{ id: "asset-1", content: { brand_traits_used: [], visual_traits_used: visualTraits } }], error: null },
+    { data: { id: "item-1", status: "approved" }, error: null },
     { data: { preferences }, error: null }, // loadStyleMemory — already at evidence_count 2 from two earlier real approvals
     { data: null, error: null } // saveStyleMemory
   ]);
@@ -180,9 +185,9 @@ test("approve_content: a Reject weakens the visual trait (signal mapped to 'undo
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", status: "draft" }, error: null },
-    { data: { id: "item-1", status: "archived" }, error: null },
     { data: [{ asset_id: "asset-1" }], error: null },
     { data: [{ id: "asset-1", content: { brand_traits_used: [], visual_traits_used: visualTraits } }], error: null },
+    { data: { id: "item-1", status: "archived" }, error: null },
     { data: { preferences }, error: null },
     { data: null, error: null }
   ]);
@@ -203,9 +208,9 @@ test("approve_content: no traits_used on any linked asset -> no Brand Brain or M
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", status: "draft" }, error: null },
-    { data: { id: "item-1", status: "approved" }, error: null },
     { data: [{ asset_id: "asset-1" }], error: null },
-    { data: [{ id: "asset-1", content: { url: "https://example.com/x.jpg" } }], error: null } // no traits_used fields at all
+    { data: [{ id: "asset-1", content: { url: "https://example.com/x.jpg" } }], error: null }, // no traits_used fields at all
+    { data: { id: "item-1", status: "approved" }, error: null }
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
   const res = await handler(event("approve_content", { shop_id: "shop-1", content_item_id: "item-1", decision: "approved" }));
@@ -218,8 +223,8 @@ test("approve_content: a content item with no variants/assets at all approves cl
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", status: "draft" }, error: null },
-    { data: { id: "item-1", status: "approved" }, error: null },
-    { data: [], error: null } // variantAssets — no variants at all
+    { data: [], error: null }, // reviewVariantAssets — no variants at all (so no ai_generated_assets query at all)
+    { data: { id: "item-1", status: "approved" }, error: null }
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
   const res = await handler(event("approve_content", { shop_id: "shop-1", content_item_id: "item-1", decision: "approved" }));

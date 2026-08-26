@@ -65,7 +65,8 @@ const FLORIST_ALLOWED_ACTIONS = new Set([
   "generate_content",
   "revise_content",
   "revert_content_revision",
-  "approve_content"
+  "approve_content",
+  "finalize_flyer_render"
 ]);
 
 function parseAction(event) {

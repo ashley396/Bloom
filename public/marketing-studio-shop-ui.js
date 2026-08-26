@@ -46,7 +46,23 @@
     archived: "Rejected"
   };
 
-  let state = { loading: true, error: null, items: [], status: null, brand: null, style: null, usage: null, busyId: null, revisingId: null };
+  // Honest readiness (hardening pass): "Draft — ready for your review" is a
+  // real claim — it must never show while a flyer's render/upload hasn't
+  // actually finished, failed, or the saved file turned out to be missing.
+  // A flyer's content-item `status` flips to "draft" the moment
+  // generate_content succeeds server-side — BEFORE the browser has drawn or
+  // uploaded anything — so the plain STATUS_LABELS lookup alone would lie
+  // here. This is the one place that decides what the eyebrow actually says.
+  function effectiveStatusLabel(item) {
+    const asset = item.asset;
+    if (asset?.asset_type === "flyer" && item.status === "draft") {
+      if (state.flyerRenderFailed[item.id]) return "Couldn't prepare flyer";
+      if (asset.content?.render_status !== "rendered") return "Preparing your flyer…";
+    }
+    return STATUS_LABELS[item.status] || item.status;
+  }
+
+  let state = { loading: true, error: null, items: [], status: null, brand: null, style: null, usage: null, busyId: null, revisingId: null, flyerRenderFailed: {} };
 
   function root() {
     return document.getElementById("marketingStudioRoot");
@@ -87,18 +103,199 @@
     return `<p class="subtle marketing-studio-grounding">Grounded in: ${parts.join(" · ")}</p>`;
   }
 
+  // A flyer asset's on-image headline/body/cta is a SEPARATE piece of text
+  // from its Facebook caption (c.caption) — same separation an "image"
+  // asset already has between its picture and its caption. The exact
+  // on-image wording is never re-typed here; it's read straight back from
+  // what the server persisted and handed to the deterministic renderer
+  // as-is (mountFlyerPreview below), the same "never invent a success
+  // state" discipline this file's own docstring already commits to.
   function itemPreviewHtml(item) {
     const asset = item.asset;
     if (!asset || !asset.content) return "";
     const c = asset.content;
     const imgUrl = asset.asset_type === "image" ? c.url : null;
+    const isFlyer = asset.asset_type === "flyer";
+    // A flyer that already has a durable, persisted url (finalize_flyer_render
+    // already uploaded it — this device's own prior render, or a different
+    // device/browser entirely) shows that real file directly. This is what
+    // makes the flyer look identical from a second device: the second
+    // device is showing the SAME uploaded file, not re-drawing its own
+    // canvas and hoping it matches. Only a flyer with no url yet (fresh
+    // generation, or a revision that changed the on-image wording) needs
+    // mountFlyerPreview to render+finalize one.
+    const flyerReady = isFlyer && c.render_status === "rendered" && Boolean(c.url);
     const captionText = c.caption || c.body || c.script || c.concept || "";
     return `
       ${imgUrl ? `<img src="${esc(imgUrl)}" alt="" class="lily-job-image" loading="lazy">` : ""}
+      ${flyerReady ? `<img src="${esc(c.url)}" alt="" class="lily-job-image" loading="lazy" id="msFlyerImg-${esc(item.id)}">` : ""}
+      ${isFlyer && !flyerReady ? `<img alt="" class="lily-job-image" id="msFlyerImg-${esc(item.id)}"><p class="subtle" id="msFlyerNote-${esc(item.id)}">Preparing your flyer…</p>` : ""}
       ${captionText ? `<p>${esc(captionText)}</p>` : ""}
       ${Array.isArray(c.hashtags) && c.hashtags.length ? `<p class="subtle">${c.hashtags.map((h) => `#${esc(String(h).replace(/^#/, ""))}`).join(" ")}</p>` : ""}
       ${groundingHtml(c)}
     `;
+  }
+
+  // Requirement 6 (live defect fix): a flyer must never read as
+  // "ready for your review" while its deterministic text layer hasn't
+  // actually rendered successfully — the whole point is that a florist
+  // never sees an uncontrolled/garbled image standing in for the real
+  // message. Rendering itself is 100% deterministic canvas drawing of
+  // Florisyn's own exact content (see public/flyer-renderer.js) — the
+  // only realistic failure mode is the renderer script or canvas support
+  // being unavailable, not "the wrong text got drawn." On that rare
+  // failure, Approve is disabled directly (no full re-render — this must
+  // never loop back into re-attempting the same failing render).
+  // Requirement 7 (hardening pass): a real Retry action, not just a
+  // "try Generate again" apology — this is a pure re-attempt of the
+  // deterministic render + finalize, no AI call, no cost, and it never
+  // touches the last valid revision (nothing here writes anything until a
+  // NEW attempt actually succeeds).
+  function retryFlyerRender(id) {
+    delete state.flyerRenderFailed[id];
+    render();
+  }
+
+  // Injects the Retry button directly into a card's actions without a full
+  // list re-render — a full render() would regenerate itemPreviewHtml,
+  // which for an already-"rendered" (but now broken) flyer would recreate
+  // the SAME broken <img src> and re-trigger the same failure in a loop.
+  // Direct DOM insertion here, exactly like the rest of a failure's visual
+  // state, sidesteps that entirely.
+  function showFlyerRetryButton(id) {
+    const card = document.querySelector(`[data-ms-item="${id}"]`);
+    const actions = card?.querySelector(".card-actions");
+    if (!actions || actions.querySelector('[data-ms-act="retry-flyer"]')) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "secondary";
+    btn.setAttribute("data-ms-act", "retry-flyer");
+    btn.textContent = "Retry";
+    btn.addEventListener("click", () => retryFlyerRender(id));
+    actions.insertBefore(btn, actions.firstChild);
+  }
+
+  async function mountFlyerPreview(item) {
+    const imgEl = document.getElementById(`msFlyerImg-${item.id}`);
+    const noteEl = document.getElementById(`msFlyerNote-${item.id}`);
+    const c = item.asset?.content;
+    if (!imgEl || !c) return;
+    const fail = (message) => {
+      imgEl.remove();
+      if (noteEl) noteEl.textContent = message;
+      const card = document.querySelector(`[data-ms-item="${item.id}"]`);
+      const approveBtn = card?.querySelector('[data-ms-act="approve"]');
+      if (approveBtn) {
+        approveBtn.disabled = true;
+        approveBtn.title = "This flyer couldn't be prepared yet — it isn't ready for review.";
+      }
+      // Failure never marks anything completed and never touches whatever
+      // content.render_status/url the asset already had (nothing here
+      // writes to the server) — the last successfully finalized revision,
+      // if any, stays exactly as it was.
+      state.flyerRenderFailed[item.id] = true;
+      renderEyebrow(item.id);
+      showFlyerRetryButton(item.id);
+    };
+    try {
+      if (!window.FlorisynFlyerRenderer) throw new Error("renderer unavailable");
+      const canvas = await window.FlorisynFlyerRenderer.renderFlyer({
+        template: { regions: c.regions, palette: c.palette },
+        content: { headline: c.headline, body: c.body, cta: c.cta },
+        style: c.style,
+        brand: c.brand || {},
+        backgroundUrl: c.background_url,
+        width: c.canvas?.width || 1080,
+        height: c.canvas?.height || 1080
+      });
+      const dataUrl = canvas.toDataURL("image/png", 0.92);
+      // Requirement 6 still applies at the persistence layer, not just the
+      // draw step: a client-side canvas rendering successfully is NOT
+      // "ready for your review" on its own (that's exactly the gap a real
+      // durability review caught) — finalize_flyer_render has to actually
+      // upload these bytes through the server's real storage pipeline and
+      // hand back a real, retrievable URL before Approve may be used.
+      // asset_id names EXACTLY the revision this render is for — the
+      // server refuses to apply a stale render to a since-revised item.
+      const saved = await studioApi("finalize_flyer_render", { body: { content_item_id: item.id, asset_id: item.asset.id, data_url: dataUrl } });
+      if (!saved?.asset?.url) throw new Error("finalize_flyer_render returned no url");
+      item.asset.content = saved.asset.content;
+      imgEl.src = saved.asset.url;
+      noteEl?.remove();
+      delete state.flyerRenderFailed[item.id];
+      renderEyebrow(item.id);
+      const card = document.querySelector(`[data-ms-item="${item.id}"]`);
+      const approveBtn = card?.querySelector('[data-ms-act="approve"]');
+      if (approveBtn) {
+        approveBtn.disabled = false;
+        approveBtn.title = "";
+      }
+    } catch {
+      fail("Couldn't prepare this flyer — try Generate again.");
+    }
+  }
+
+  // Requirement 6: even the eyebrow status label must flip the instant
+  // preparation finishes or fails — not just the image/note underneath —
+  // without forcing a full list re-render (which would also re-trigger
+  // mountFlyerPreviews and could loop).
+  function renderEyebrow(id) {
+    const item = state.items.find((i) => i.id === id);
+    const eyebrowEl = document.querySelector(`[data-ms-item="${id}"] .eyebrow`);
+    if (item && eyebrowEl) eyebrowEl.textContent = effectiveStatusLabel(item);
+  }
+
+  function mountFlyerPreviews() {
+    for (const item of state.items) {
+      // A flyer already marked "rendered" (this device's own earlier
+      // finalize, or a different device entirely) is already shown
+      // directly by itemPreviewHtml — nothing to render or upload again.
+      // A flyer the florist already saw fail this session is left alone
+      // too — Retry (a deliberate action) is what re-attempts it, never an
+      // automatic loop back into the same failure.
+      if (item.asset?.asset_type === "flyer" && item.asset?.content?.render_status !== "rendered" && !state.flyerRenderFailed[item.id]) {
+        mountFlyerPreview(item);
+      }
+    }
+  }
+
+  // Requirement 6 (missing-file case): a flyer whose content.url the
+  // server reports as finalized is shown directly (mountFlyerPreview is
+  // skipped for it) — but if that file has since gone missing from
+  // storage, the browser's own <img> error event is real, first-hand proof
+  // of that, and must be treated exactly like a render failure: never a
+  // silently broken image sitting next to an enabled Approve button.
+  function wireFlyerImageFallbacks() {
+    for (const item of state.items) {
+      if (item.asset?.asset_type !== "flyer" || item.asset?.content?.render_status !== "rendered") continue;
+      const imgEl = document.getElementById(`msFlyerImg-${item.id}`);
+      if (!imgEl || imgEl.dataset.fallbackWired) continue;
+      imgEl.dataset.fallbackWired = "1";
+      imgEl.addEventListener("error", () => {
+        imgEl.remove();
+        const card = document.querySelector(`[data-ms-item="${item.id}"]`);
+        const noteEl = document.createElement("p");
+        noteEl.className = "subtle";
+        noteEl.id = `msFlyerNote-${item.id}`;
+        noteEl.textContent = "This flyer's saved file is missing — try Retry.";
+        card?.querySelector(".panel-heading")?.insertAdjacentElement("afterend", noteEl);
+        const approveBtn = card?.querySelector('[data-ms-act="approve"]');
+        if (approveBtn) {
+          approveBtn.disabled = true;
+          approveBtn.title = "This flyer's saved file is missing — it isn't ready for review.";
+        }
+        // The stored render_status still claims "rendered" — that's exactly
+        // what's wrong (the DB says done, the file is gone). Clearing it
+        // locally is what makes Retry actually re-render + re-finalize
+        // instead of just retrying a broken <img> load: the next render()
+        // call sees a not-"rendered" flyer and mountFlyerPreviews picks it
+        // up again through the normal path.
+        if (item.asset?.content) item.asset.content.render_status = null;
+        state.flyerRenderFailed[item.id] = true;
+        renderEyebrow(item.id);
+        showFlyerRetryButton(item.id);
+      });
+    }
   }
 
   // A normal revision is just a sentence — "make it shorter," "less pink,"
@@ -129,10 +326,24 @@
     const canUndo = canReview && Boolean(item.asset?.parent_asset_id);
     const revising = canReview && state.revisingId === item.id;
     const platforms = (item.variants || []).map((v) => PLATFORM_LABELS[v.platform] || v.platform).join(", ");
+    // Requirement 7 (hardening pass): Approve is disabled by DEFAULT for
+    // any flyer that isn't render_status "rendered" yet — covers
+    // "preparing," "failed," and "missing" the instant the card first
+    // paints, not only after mountFlyerPreview's async work happens to
+    // catch a failure. mountFlyerPreview/wireFlyerImageFallbacks explicitly
+    // re-enable it the moment a real, finalized render is confirmed.
+    const flyerNotReady = item.asset?.asset_type === "flyer" && item.asset?.content?.render_status !== "rendered";
+    // A one-click alternative to typing "change the image" into the
+    // composer — the common case of "I like the wording, just try a
+    // different picture" shouldn't require typing anything. Only offered
+    // for flyers (the only asset type with a separate AI-generated
+    // background layer to re-roll); a plain image post's own revision
+    // composer already regenerates the image on any instruction.
+    const canRegenerateImage = canReview && !revising && item.asset?.asset_type === "flyer";
     return `<article class="panel" data-ms-item="${esc(item.id)}">
       <div class="panel-heading">
         <div>
-          <p class="eyebrow">${esc(STATUS_LABELS[item.status] || item.status)}</p>
+          <p class="eyebrow">${esc(effectiveStatusLabel(item))}</p>
           <h3>${esc(item.title)}</h3>
           ${platforms ? `<p class="subtle">${esc(platforms)}</p>` : ""}
         </div>
@@ -142,9 +353,11 @@
       ${revising ? revisionComposerHtml(item) : ""}
       <div class="card-actions">
         ${canGenerate ? `<button type="button" class="primary" data-ms-act="generate" ${busy ? "disabled" : ""}>${busy ? "Working…" : "Ask Lily to create it"}</button>` : ""}
+        ${state.flyerRenderFailed[item.id] ? `<button type="button" class="secondary" data-ms-act="retry-flyer" ${busy ? "disabled" : ""}>Retry</button>` : ""}
         ${canReview && !revising ? `<button type="button" class="secondary" data-ms-act="revise" ${busy ? "disabled" : ""}>Ask Lily to change something</button>` : ""}
+        ${canRegenerateImage ? `<button type="button" class="secondary" data-ms-act="regenerate-image" ${busy ? "disabled" : ""}>Regenerate image</button>` : ""}
         ${canUndo ? `<button type="button" class="secondary" data-ms-act="revert" ${busy ? "disabled" : ""}>Undo last change</button>` : ""}
-        ${canReview ? `<button type="button" class="primary" data-ms-act="approve" ${busy ? "disabled" : ""}>Approve</button>` : ""}
+        ${canReview ? `<button type="button" class="primary" data-ms-act="approve" ${busy || flyerNotReady ? "disabled" : ""}>Approve</button>` : ""}
         ${canReview ? `<button type="button" class="secondary" data-ms-act="reject" ${busy ? "disabled" : ""}>Reject</button>` : ""}
       </div>
     </article>`;
@@ -206,6 +419,8 @@
         : state.items.map(itemHtml).join("");
     el.innerHTML = `${statusNoteHtml()}${knownStyleHtml()}${budgetHtml()}${createFormHtml()}<div class="cards">${list}</div>`;
     bind(el);
+    mountFlyerPreviews();
+    wireFlyerImageFallbacks();
   }
 
   function bind(el) {
@@ -224,8 +439,27 @@
           toast("Describe what you'd like Lily to create.");
           return;
         }
-        await studioApi("create_content_item", { body: { brief, platforms } });
-        toast("Draft created.");
+        const created = await studioApi("create_content_item", { body: { brief, platforms } });
+        const newItemId = created?.item?.id;
+        // Requirement: type one message, get back one finished draft — no
+        // second click to "start" generation. Chains straight into
+        // generate_content using the id the server just handed back.
+        // Never loses the request if this second call fails: the item
+        // still exists in "idea" status, and its own "Ask Lily to create
+        // it" button is the exact same fallback path this used to require
+        // as a manual first step.
+        if (newItemId) {
+          try {
+            toast("Lily is creating your draft…");
+            await studioApi("generate_content", { body: { content_item_id: newItemId } });
+            toast("Draft ready for your review.");
+          } catch (genErr) {
+            toast(genErr.message || "Draft created — click \"Ask Lily to create it\" below to finish it.");
+          }
+        } else {
+          toast("Draft created.");
+        }
+        form.reset();
         await load();
       } catch (err) {
         toast(err.message || "Could not create that post.");
@@ -245,6 +479,9 @@
             state.busyId = id;
             render();
             await studioApi("generate_content", { body: { content_item_id: id } });
+          } else if (act === "retry-flyer") {
+            retryFlyerRender(id);
+            return;
           } else if (act === "revise") {
             // Opens the real inline composer (textarea + Send to Lily) —
             // never calls the API yet, and never assumes any persistence
@@ -267,12 +504,26 @@
             state.revisingId = null;
             render();
             await studioApi("revise_content", { body: { content_item_id: id, instruction } });
+          } else if (act === "regenerate-image") {
+            // One click, no typing — sends the SAME kind of plain-language
+            // instruction the composer's own "change the image" example
+            // teaches, through the exact same revise_content pipeline.
+            // Never a raw provider prompt, never a separate code path.
+            state.busyId = id;
+            render();
+            await studioApi("revise_content", {
+              body: { content_item_id: id, instruction: "Regenerate the background image — keep the exact same wording." }
+            });
           } else if (act === "revert") {
             if (!confirm("Undo the last change and go back to the previous version?")) return;
             state.busyId = id;
             render();
             await studioApi("revert_content_revision", { body: { content_item_id: id } });
           } else if (act === "approve") {
+            if (state.flyerRenderFailed[id]) {
+              toast("This flyer couldn't be prepared yet — try Generate again before approving.");
+              return;
+            }
             if (!confirm("Approve this post? Publishing itself still requires a connected platform.")) return;
             state.busyId = id;
             render();
@@ -300,6 +551,7 @@
     state.error = null;
     state.busyId = null;
     state.revisingId = null;
+    state.flyerRenderFailed = {};
     render();
     try {
       const [status, brand, style, usage, content] = await Promise.all([

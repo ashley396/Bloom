@@ -196,12 +196,12 @@ test("full lifecycle: generate -> revise -> revise -> undo -> undo -> revise (ne
       // ── STEP 7: approve_content — must approve whatever is CURRENT (D) ─
       superAdminRow(),
       { data: { id: "item-1", status: "draft" }, error: null }, // current
-      { data: { id: "item-1", status: "approved" }, error: null }, // status update
-      { data: [{ asset_id: "asset-D" }], error: null }, // variantAssets
+      { data: [{ asset_id: "asset-D" }], error: null }, // reviewVariantAssets
       {
         data: [{ id: "asset-D", content: { brand_traits_used: [], visual_traits_used: [{ category: "background_style", text: "marble countertop", polarity: "positive" }] } }],
         error: null
-      }, // assetsResult -> D's traits_used (brand empty -> loadBrandBrain/saveBrandBrain never queried below)
+      }, // reviewAssets -> D's traits_used (brand empty -> loadBrandBrain/saveBrandBrain never queried below); also the durability gate's own read — D is asset_type "image", not "flyer", so it's never blocked here
+      { data: { id: "item-1", status: "approved" }, error: null }, // status update
       { data: null, error: null }, // loadStyleMemory
       { data: null, error: null }, // saveStyleMemory upsert
       { data: null, error: null } // audit insert

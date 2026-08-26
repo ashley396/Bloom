@@ -47,8 +47,48 @@ test("the create-post form guards against double-submit", () => {
   assert.match(handler, /submitBtn\.disabled = true/, "must visibly disable the submit button while saving");
 });
 
+test("one message in, one finished draft out: submitting the create-post form chains straight into generate_content — no separate 'start generating' click required", () => {
+  const start = uiSrc.indexOf('el.querySelector("#msCreateItemForm")?.addEventListener("submit"');
+  const end = uiSrc.indexOf("\n    });", start) + "\n    });".length;
+  const handler = uiSrc.slice(start, end);
+  assert.match(handler, /studioApi\("create_content_item"/, "must still create the item first");
+  assert.match(handler, /studioApi\("generate_content"/, "must chain straight into generate_content in the SAME submit — no second click");
+  // The chained call must come after the create call, using the id the
+  // server just returned — never a client-invented/stale id.
+  const createIdx = handler.indexOf('studioApi("create_content_item"');
+  const generateIdx = handler.indexOf('studioApi("generate_content"');
+  assert.ok(generateIdx > createIdx, "generate_content must be called AFTER create_content_item completes, not before");
+  assert.match(handler, /created\?\.item\?\.id/, "must use the real id the server returned from create_content_item");
+  // A failure in the auto-generate step must never lose the florist's
+  // request — the item still exists in "idea" status with its own manual
+  // fallback ("Ask Lily to create it"), so this inner failure must be
+  // caught separately from the outer create-item failure.
+  assert.match(handler, /catch \(genErr\)/, "a failed auto-generate must be caught on its own, never crash the whole submit");
+});
+
+test("finalize_flyer_render is called with the exact asset_id being rendered — the server-side stale-revision guard depends on this", () => {
+  assert.match(uiSrc, /studioApi\("finalize_flyer_render",\s*\{\s*body:\s*\{\s*content_item_id:\s*item\.id,\s*asset_id:\s*item\.asset\.id/, "must name the exact asset_id, not just the content_item_id");
+});
+
+test("a flyer's readiness (eyebrow label + Approve) is driven by content.render_status === \"rendered\", never by url presence alone", () => {
+  assert.match(uiSrc, /render_status\s*===\s*"rendered"/, "must check the real render_status, matching the server's own flyerApprovalBlockReason rule");
+});
+
+test("a real Retry action exists for a flyer that failed to prepare, and it never calls generate_content or revise_content (no AI call, no cost)", () => {
+  assert.match(uiSrc, /data-ms-act="retry-flyer"/, "the Retry button must exist");
+  assert.match(uiSrc, /function retryFlyerRender/, "a dedicated retry function must exist");
+  const start = uiSrc.indexOf("function retryFlyerRender");
+  const end = uiSrc.indexOf("\n  }", start) + "\n  }".length;
+  const fn = uiSrc.slice(start, end);
+  assert.doesNotMatch(fn, /generate_content|revise_content/, "Retry must be a pure re-render/re-finalize, never a fresh AI generation");
+});
+
 test("consequential review actions (approve/reject/revert) require explicit confirmation, never fire on a bare click", () => {
-  assert.match(uiSrc, /act === "approve"[\s\S]{0,40}confirm\(/, "approve must be confirmed");
+  // A wider budget than reject/revert: approve also checks
+  // state.flyerRenderFailed[id] first (a flyer that hasn't rendered
+  // successfully yet must never be approved — requirement 6) before
+  // reaching the same confirm() gate every consequential action needs.
+  assert.match(uiSrc, /act === "approve"[\s\S]{0,220}confirm\(/, "approve must be confirmed");
   assert.match(uiSrc, /act === "reject"[\s\S]{0,40}confirm\(/, "reject must be confirmed");
   assert.match(uiSrc, /act === "revert"[\s\S]{0,40}confirm\(/, "revert must be confirmed");
 });

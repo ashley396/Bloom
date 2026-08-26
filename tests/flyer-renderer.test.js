@@ -167,6 +167,36 @@ test("paintBrandBackground: a color revision on a muted (sympathy) flyer actuall
   assert.notEqual(ctx.fillStyle, "#efe9e6");
 });
 
+test("computePanelRect: wraps the union of headline/body/cta/contact regions with a comfortable margin, in real pixel coordinates", () => {
+  const template = {
+    regions: {
+      headline: { x: 0.1, y: 0.1, w: 0.8, h: 0.2 },
+      body: { x: 0.1, y: 0.35, w: 0.8, h: 0.2 },
+      cta: { x: 0.1, y: 0.6, w: 0.8, h: 0.1 },
+      contact: { x: 0.1, y: 0.85, w: 0.8, h: 0.05 }
+    }
+  };
+  const rect = renderer.computePanelRect(template, 1000, 1000);
+  // The union spans y 0.1..0.9 and x 0.1..0.9 — the panel must fully
+  // contain that (padding only ever grows it, never shrinks it).
+  assert.ok(rect.x <= 100, `expected panel to start at or before x=100, got ${rect.x}`);
+  assert.ok(rect.y <= 100, `expected panel to start at or before y=100, got ${rect.y}`);
+  assert.ok(rect.x + rect.w >= 900, `expected panel to extend to at least x=900, got ${rect.x + rect.w}`);
+  assert.ok(rect.y + rect.h >= 900, `expected panel to extend to at least y=900, got ${rect.y + rect.h}`);
+});
+
+test("computePanelRect: never exceeds the canvas bounds even with generous padding near the edge", () => {
+  const template = { regions: { headline: { x: 0, y: 0, w: 1, h: 1 }, body: { x: 0, y: 0, w: 0, h: 0 }, cta: { x: 0, y: 0, w: 0, h: 0 }, contact: { x: 0, y: 0, w: 0, h: 0 } } };
+  const rect = renderer.computePanelRect(template, 1000, 1000);
+  assert.ok(rect.x >= 0 && rect.y >= 0, "panel must never start off-canvas");
+  assert.ok(rect.x + rect.w <= 1000 && rect.y + rect.h <= 1000, "panel must never extend past the canvas");
+});
+
+test("computePanelRect: a template with no recognized regions degrades to a sane centered default rather than throwing", () => {
+  const rect = renderer.computePanelRect({ regions: {} }, 1000, 1000);
+  assert.ok(rect.w > 0 && rect.h > 0);
+});
+
 test("paintBrandBackground: a brand_gradient template with no revision uses the shop's own brand colors via the gradient", () => {
   const ctx = fakeCtx();
   let stops = [];

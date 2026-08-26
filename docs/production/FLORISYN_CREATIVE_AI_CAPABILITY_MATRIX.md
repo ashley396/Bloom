@@ -86,6 +86,19 @@ model family aggregators rank #1 for photorealistic product photography — but 
 low-step *speed* variant, not the `[pro]` quality tier. This is a real, cheap, low-risk lever: the
 same vendor family, a different tier, no architecture change required to test.
 
+**Real, live-tested finding (2026-08-26, shop owner's own account, via Photo Studio's "Generate a
+marketing image with Lily" — the one live path that reaches this model):** three real floral
+background generations were run against the actual deployed `flux-1-schnell` endpoint. The shop
+owner's own verdict: **"clean but does not yet match the premium floral quality reference"** — i.e.
+the images are real, usable, on-topic floral photography, not garbled or broken, but they fall
+short of the luxury-editorial photorealism bar set by a ChatGPT-image-generation-quality reference
+sample. This is the first *actually observed* result for this model in Florisyn's own account,
+not an aggregator estimate — it corroborates the aggregator-sourced §1 finding above (fast/distilled
+tier ≠ `[pro]`-tier photorealism) with a real, first-party data point, and moves the `schnell` →
+`[pro]`-tier swap (§9 item 4, §12 launch-critical list) from "aggregator-recommended" to
+"first-party-confirmed worth pursuing." No `[pro]`-tier sample has been generated or compared yet —
+that remains the next real test before committing to the swap.
+
 *Sources: [aiweekly.co image generators 2026](https://aiweekly.co/learning-ai/ai-applications/best-ai-image-generators), [atlascloud.ai image APIs 2026](https://www.atlascloud.ai/blog/guides/best-ai-image-generation-apis-in-2026-complete-developer-guide), [aimagicx.com Midjourney vs Flux vs Ideogram](https://www.aimagicx.com/blog/midjourney-vs-flux-vs-ideogram-image-comparison-2026), [saascrmreview.com Firefly pricing](https://saascrmreview.com/adobe-firefly-pricing/).*
 
 ### AI-content disclosure requirements (platform policy, Aug 2026)
