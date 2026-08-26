@@ -310,3 +310,68 @@ export function textAddsInventedEmbellishment(text) {
 export function detectInventedOperationalContent(requestText, generatedText) {
   return requestSignalsPlainOperationalNotice(requestText) && textAddsInventedEmbellishment(generatedText);
 }
+
+// Real, live-found failure (Ashley's own real branch-deploy test): once
+// the guard above correctly rejects a model's response, simply reverting
+// the content item to "idea" and making the florist click "Ask Lily to
+// create it" again is not acceptable — the florist already gave every
+// fact Lily needs in one message. buildDeterministicNoticeContent is the
+// safe path forward: it rebuilds plain, honest wording directly from the
+// request's own verified fact tokens (a time, a phone number, a date —
+// extractFactTokens, the same extraction the facts-preservation guard
+// already trusts) and the shop's own real phone when the request didn't
+// repeat one — NO AI call, so by construction it can never itself invent
+// a reason, urgency, or future plan. Never hardcodes a shop name, time,
+// or phone number — every value here is either lifted verbatim from the
+// request or passed in from real shop data. Returns null only when the
+// request carries no recognizable operational category AND no phone/time
+// fact at all — in practice this guard only ever runs after
+// requestSignalsPlainOperationalNotice() already confirmed the request
+// DOES carry an operational signal, so null is a rare last-resort case,
+// not the common path.
+const CLOSING_TEMPORAL_WORD_RE = /\b(early today|this afternoon|for the holiday|for the day|temporarily|briefly|for a few hours|tonight|today|early)\b/i;
+const HOURS_CHANGE_SIGNAL_RE = /\bnew hours\b|\bhours (?:are )?(?:changing|updated|different)\b|\bupdated (?:our )?hours\b/i;
+const DEADLINE_SIGNAL_RE = /\b(deadline|order by|cutoff|last day to order)\b/i;
+
+function firstMatch(re, text) {
+  const m = String(text || "").match(re);
+  // TIME_RE's trailing `\s*(?:am|pm|AM|PM)?` can swallow a trailing space
+  // even when no am/pm follows ("2:30 today" → "2:30 ") — trimmed here so
+  // every extracted fact token is used cleanly, with no double-space
+  // artifact when it's dropped into a template sentence.
+  return m ? m[0].trim() : null;
+}
+
+export function buildDeterministicNoticeContent({ requestText, shopName, shopPhone } = {}) {
+  const text = String(requestText || "");
+  const name = String(shopName || "").trim();
+  const phone = firstMatch(PHONE_RE, text) || (shopPhone ? String(shopPhone).trim() : null) || null;
+  const time = firstMatch(TIME_RE, text);
+  const who = name || "We";
+  const verb = name ? "is" : "are";
+
+  let headline, body;
+  if (requestSignalsTemporaryClosure(text)) {
+    headline = "Closing Early Today";
+    const qualifierMatch = text.match(CLOSING_TEMPORAL_WORD_RE);
+    const qualifier = qualifierMatch ? qualifierMatch[1].toLowerCase() : "today";
+    body = time ? `${who} ${verb} closing at ${time} ${qualifier}.` : `${who} ${verb} closing ${qualifier}.`;
+  } else if (HOURS_CHANGE_SIGNAL_RE.test(text)) {
+    headline = "New Store Hours";
+    body = time ? `${who} ${verb} updating our hours — starting at ${time}.` : `${who} ${verb} updating our store hours.`;
+  } else if (DEADLINE_SIGNAL_RE.test(text)) {
+    headline = "Order Deadline";
+    const date = firstMatch(DATE_RE, text);
+    body = date ? `Please place your order by ${date} to make sure it's ready in time.` : "Please place your order soon to make sure it's ready in time.";
+  } else if (/\bannounc(?:e|ing|ement)\b/i.test(text) || phone || time) {
+    headline = "Store Notice";
+    body = name ? `${name} has an update for you.` : "We have an update for you.";
+  } else {
+    return null;
+  }
+
+  const cta = phone ? `Call ${phone} to place an order.` : "Contact us for details.";
+  const caption = phone ? `${body} Customers can call ${phone} to place an order.` : body;
+
+  return { headline, body, cta, caption };
+}

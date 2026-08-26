@@ -131,6 +131,7 @@ import {
   buildWordingRevisionRequestText,
   detectPermanentClosureMismatch,
   detectInventedOperationalContent,
+  buildDeterministicNoticeContent,
   requestNeedsFlyerWording,
   instructionAffectsFlyerWording,
   instructionAffectsFlyerImage
@@ -1669,28 +1670,35 @@ export function createMarketingStudioHandler(deps = {}) {
           return json(400, { error: copyGen.error });
         }
         // Real, live-found failure: "closing at 2:30 today" came back as a
-        // permanent going-out-of-business announcement. The request never
-        // signaled that, so refuse rather than ship it — generic across
-        // every florist, never a hardcoded phrase for one shop.
-        if (detectPermanentClosureMismatch(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`)) {
-          await revertToIdea();
-          return json(400, {
-            error:
-              "That came back reading like a permanent closing, but your request sounds like a temporary/early closing — nothing was saved. Try Generate again, or say \"closing permanently\" if that's really what you mean."
-          });
-        }
-        // Real, live-found failure: a plain "closing early, call to order"
-        // request came back with invented urgency/future-plans/farewell
-        // wording never asked for (see detectInventedOperationalContent's
-        // docstring). Checked against the SAME headline+body a real
-        // florist actually reads — never a hardcoded phrase, generic
-        // across every shop's plain notice.
-        if (detectInventedOperationalContent(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`)) {
-          await revertToIdea();
-          return json(400, {
-            error:
-              "That came back with wording you didn't ask for — an invented reason, urgency, or future plan — nothing was saved. Try Generate again."
-          });
+        // permanent going-out-of-business announcement, or with invented
+        // urgency/future-plans/farewell wording never asked for. Reverting
+        // the item to "idea" and making the florist click "Ask Lily to
+        // create it" again is not acceptable — the request already carries
+        // every fact needed. noticeFallback rebuilds safe wording directly
+        // from those verified facts (never an AI call, so it can never
+        // itself invent anything) and generation continues automatically
+        // below with that safe content — one message still produces one
+        // finished draft. Only the rare case where no operational facts
+        // exist at all to build from still refuses outright.
+        let noticeFallback = null;
+        if (
+          detectPermanentClosureMismatch(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`) ||
+          detectInventedOperationalContent(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`)
+        ) {
+          noticeFallback = buildDeterministicNoticeContent({ requestText: currentItem.data.brief, shopName, shopPhone: shopRow.data?.phone });
+          if (!noticeFallback) {
+            await revertToIdea();
+            return json(400, {
+              error:
+                "That came back with wording that didn't match your request, and there wasn't enough in your message (a time, a phone number) for Lily to build a safe version automatically — nothing was saved. Add those details and try Generate again."
+            });
+          }
+          copyGen.content.headline = noticeFallback.headline;
+          copyGen.content.body = noticeFallback.caption;
+          copyGen.content.cta = noticeFallback.cta;
+          copyGen.content.hashtags = [];
+          copyGen.content.brand_traits_used = [];
+          copyGen.content.visual_traits_used = [];
         }
 
         let assetId = null;
@@ -1712,38 +1720,51 @@ export function createMarketingStudioHandler(deps = {}) {
           // text ever asked of the model (see buildImagePrompt's own
           // unconditional no-text guarantee).
           if (requestNeedsFlyerWording(currentItem.data.brief)) {
-            await recordUsage("copy", "request", 1);
-            const flyerGen = await generateFlyerContent({
-              persona: "Lily",
-              message: currentItem.data.brief,
-              occasion: currentItem.data.title,
-              shop: { name: shopName }
-            });
-            if (!flyerGen.ok) {
-              await revertToIdea();
-              return json(400, { error: flyerGen.error });
-            }
-            // Real, live-found failure: the flyer's own on-image wording
-            // (what a florist actually sees printed on the graphic) is a
-            // SEPARATE generation call from the Facebook caption above —
-            // checked separately here for the exact same two failure
-            // modes, since a mismatch/invented-embellishment guard on only
-            // the caption never protected what's actually drawn on the
-            // flyer itself.
-            const flyerText = `${flyerGen.content.headline} ${flyerGen.content.body} ${flyerGen.content.cta}`;
-            if (detectPermanentClosureMismatch(currentItem.data.brief, flyerText)) {
-              await revertToIdea();
-              return json(400, {
-                error:
-                  "The flyer text came back reading like a permanent closing, but your request sounds like a temporary/early closing — nothing was saved. Try Generate again, or say \"closing permanently\" if that's really what you mean."
+            let flyerGen;
+            if (noticeFallback) {
+              // The caption already needed the safe deterministic fallback
+              // — this request's topic is safety-sensitive, so the on-image
+              // text uses the SAME safe wording rather than risking a
+              // second, independent AI call that could invent something
+              // different (or differently wrong). No API call, no usage
+              // charged for one that didn't happen.
+              flyerGen = { ok: true, model: "deterministic", content: { headline: noticeFallback.headline, body: noticeFallback.body, cta: noticeFallback.cta } };
+            } else {
+              await recordUsage("copy", "request", 1);
+              flyerGen = await generateFlyerContent({
+                persona: "Lily",
+                message: currentItem.data.brief,
+                occasion: currentItem.data.title,
+                shop: { name: shopName }
               });
-            }
-            if (detectInventedOperationalContent(currentItem.data.brief, flyerText)) {
-              await revertToIdea();
-              return json(400, {
-                error:
-                  "The flyer text came back with wording you didn't ask for — an invented reason, urgency, or future plan — nothing was saved. Try Generate again."
-              });
+              if (!flyerGen.ok) {
+                await revertToIdea();
+                return json(400, { error: flyerGen.error });
+              }
+              // Real, live-found failure: the flyer's own on-image wording
+              // (what a florist actually sees printed on the graphic) is a
+              // SEPARATE generation call from the Facebook caption above —
+              // checked independently here for the exact same failure
+              // modes, with the exact same safe-fallback recovery (never a
+              // dead-end revert to idea) since a florist can just as easily
+              // hit this on the flyer text alone.
+              const flyerText = `${flyerGen.content.headline} ${flyerGen.content.body} ${flyerGen.content.cta}`;
+              if (
+                detectPermanentClosureMismatch(currentItem.data.brief, flyerText) ||
+                detectInventedOperationalContent(currentItem.data.brief, flyerText)
+              ) {
+                const flyerFallback = buildDeterministicNoticeContent({ requestText: currentItem.data.brief, shopName, shopPhone: shopRow.data?.phone });
+                if (!flyerFallback) {
+                  await revertToIdea();
+                  return json(400, {
+                    error:
+                      "The flyer text came back with wording that didn't match your request, and there wasn't enough in your message for Lily to build a safe version automatically — nothing was saved. Add a time/phone number and try Generate again."
+                  });
+                }
+                flyerGen.content.headline = flyerFallback.headline;
+                flyerGen.content.body = flyerFallback.body;
+                flyerGen.content.cta = flyerFallback.cta;
+              }
             }
             const template = pickFlyerTemplate({ occasion: currentItem.data.title });
             const aspectRatio = pickAspectRatio(primaryPlatform);

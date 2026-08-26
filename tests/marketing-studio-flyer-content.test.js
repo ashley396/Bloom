@@ -4,7 +4,8 @@ import {
   requestNeedsFlyerWording,
   instructionAffectsFlyerWording,
   instructionAffectsFlyerImage,
-  factsPreserved
+  factsPreserved,
+  buildDeterministicNoticeContent
 } from "../netlify/functions/_shared/marketing-content-revision.js";
 import { buildImagePrompt } from "../netlify/functions/_shared/ai-image-engine.js";
 import { createMarketingStudioHandler } from "../netlify/functions/marketing-studio.js";
@@ -247,6 +248,102 @@ test("generate_content (real dispatch): a flyer still generates successfully —
     assert.match(insertedRow.content.cta, /606-506-4039/);
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+// Real, live-found failure — the second real branch-deploy test: the
+// invented-embellishment guard correctly caught the bad wording, but the
+// item was left as "Idea" with an "Ask Lily to create it" button — a
+// broken one-message workflow. The deterministic safe fallback
+// (buildDeterministicNoticeContent) must recover automatically: same real
+// Tier-A background call, same deterministic renderer, same finished
+// draft card — and the flyer's on-image text and the flyer's own
+// AI-generation call are never even attempted a second time once the
+// caption already proved this topic needs the safe fallback.
+test("generate_content (real dispatch): a flyer-routed closing notice that comes back with invented wording recovers automatically with the safe deterministic fallback — one message still produces one finished flyer draft, never left as an unfinished Idea", async () => {
+  const INVENTED_CLOSING_COPY = {
+    platform: "facebook",
+    headline: "Closing early today",
+    body: "We're closing at 2:30 today. Place your final orders now! Prepare for a special event — we look forward to serving you again soon. Call 606-506-4039.",
+    cta: "Call 606-506-4039",
+    visual_brief: "A bright, professional shot of the shop's fresh flower display.",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  };
+  // Only ONE text response is ever queued — proving the flyer's own
+  // generateFlyerContent AI call is skipped entirely once the caption
+  // already needed the safe fallback (see marketing-studio.js's
+  // noticeFallback reuse), not called-then-overridden.
+  const mock = mockCloudflare([INVENTED_CLOSING_COPY]);
+  try {
+    const brief = "Create today's Florisyn Facebook post with an image. Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.";
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-1", content_type: "image_post", title: "Closing early today", brief, status: "idea" }, error: null }, // currentItem
+        { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // variants
+        { data: { marketing_monthly_budget_cents: null }, error: null }, // budget check
+        { data: null, error: null }, // -> generating
+        { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
+        { data: null, error: null }, // loadBrandBrain
+        { data: null, error: null }, // loadStyleMemory
+        { data: [], error: null }, // loadGroundedInventory
+        { data: [], error: null }, // audience customers
+        { data: [], error: null }, // audience orders
+        { data: null, error: null }, // recordUsage("copy") — the ONE real copy call only
+        { data: { id: "flyer-asset-1" }, error: null }, // persistGeneratedAsset (flyer)
+        { data: null, error: null }, // variant update
+        { data: { id: "item-1", status: "draft" }, error: null } // final content_items update -> draft, never idea
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-1" }));
+    assert.equal(res.statusCode, 200, `expected the rejection to recover into a completed flyer draft: ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.equal(body.item.status, "draft", "the item must complete as a real draft — never reverted to or left at idea");
+    assert.equal(body.asset.type, "flyer");
+
+    // The exact required safe fallback content — built from the real
+    // verified facts in the request, matching buildDeterministicNoticeContent
+    // directly (never hardcoded here, so this test also proves the
+    // handler actually calls the shared builder, not a duplicated copy).
+    const expected = buildDeterministicNoticeContent({ requestText: brief, shopName: "Lilies in Bloom", shopPhone: "606-506-4039" });
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const insertedContent = assetInsert.ops.find((op) => op[0] === "insert")[1][0].content;
+    assert.equal(insertedContent.headline, expected.headline);
+    assert.equal(insertedContent.body, expected.body);
+    assert.equal(insertedContent.cta, expected.cta);
+    assert.equal(insertedContent.caption, expected.caption);
+    assert.equal(insertedContent.headline, "Closing Early Today");
+    assert.equal(insertedContent.body, "Lilies in Bloom is closing at 2:30 today.");
+    assert.equal(insertedContent.cta, "Call 606-506-4039 to place an order.");
+    assert.equal(insertedContent.caption, "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.");
+    for (const banned of ["final orders", "special event", "look forward to serving you again", "appreciate your understanding"]) {
+      assert.doesNotMatch(`${insertedContent.headline} ${insertedContent.body} ${insertedContent.cta} ${insertedContent.caption}`.toLowerCase(), new RegExp(banned));
+    }
+
+    // A real floral background is still generated (Tier A) — the safety
+    // recovery only replaces the WORDING, never blocks the visual.
+    assert.equal(insertedContent.style_tier, "generated", "a real background must still be generated for the recovered draft");
+    assert.ok(insertedContent.background_url, "a real generated background url must be persisted");
+    const imageCalls = mock.calls.filter((c) => c.url.includes("black-forest-labs") || "prompt" in c.body);
+    assert.equal(imageCalls.length, 1, "exactly one real background image call is still expected");
+
+    // The flyer's own generateFlyerContent AI call must never even run —
+    // the caption already established this is a safety-sensitive topic,
+    // so the SAME safe wording is reused rather than risking a second,
+    // independent invented response.
+    const textCalls = mock.calls.filter((c) => !(c.url.includes("black-forest-labs") || "prompt" in c.body));
+    assert.equal(textCalls.length, 1, "only the one real caption call should have happened — the flyer text call must be skipped, not called-then-overridden");
+
+    const revertCall = client.calls.find(
+      (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
+    );
+    assert.equal(revertCall, undefined, "the item must NEVER be reverted to idea — this is the exact live defect being fixed");
+  } finally {
+    mock.restore();
   }
 });
 

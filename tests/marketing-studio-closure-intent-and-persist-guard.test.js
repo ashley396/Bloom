@@ -9,6 +9,7 @@ import {
   requestSignalsPlainOperationalNotice,
   textAddsInventedEmbellishment,
   detectInventedOperationalContent,
+  buildDeterministicNoticeContent,
   factsPreserved
 } from "../netlify/functions/_shared/marketing-content-revision.js";
 import { createMarketingStudioHandler } from "../netlify/functions/marketing-studio.js";
@@ -129,7 +130,7 @@ test.after(() => {
   process.env = { ...savedEnv };
 });
 
-test("generate_content (real dispatch): a temporary-closing brief that comes back reading permanent is rejected (400) and the item is reverted to idea — nothing bad is ever saved", async () => {
+test("generate_content (real dispatch): a temporary-closing brief that comes back reading permanent is caught, replaced with the safe deterministic fallback, and completes as a real draft — never left stuck as an unfinished idea", async () => {
   const mock = mockCloudflareCopyOnce({
     platform: "facebook",
     headline: "A bittersweet announcement",
@@ -154,18 +155,22 @@ test("generate_content (real dispatch): a temporary-closing brief that comes bac
       { data: [], error: null }, // audience customers
       { data: [], error: null }, // audience orders
       { data: null, error: null }, // recordUsage("copy")
-      { data: null, error: null } // revertToIdea's own update
+      { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset — the mismatch recovered, generation completes
+      { data: null, error: null }, // variant update
+      { data: { id: "item-1", status: "draft" }, error: null } // final content_items update -> draft
     ]);
     const handler = createMarketingStudioHandler(floristDeps(client));
     const res = await handler(event("generate_content", { content_item_id: "item-1" }));
-    assert.equal(res.statusCode, 400, `expected the mismatch to be rejected: ${res.body}`);
-    assert.match(JSON.parse(res.body).error, /permanent closing/i);
+    assert.equal(res.statusCode, 200, `expected the mismatch to recover into a completed draft, not a 400/500: ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.equal(body.item.status, "draft");
+    assert.doesNotMatch(body.copy.body.toLowerCase(), /sadness|gratitude|years of support/, "the invented permanent-closure language must never survive into the saved content");
     const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
-    assert.equal(assetInsert, undefined, "no asset must ever be persisted for a rejected generation");
+    assert.ok(assetInsert, "a real asset must be persisted — the mismatch recovers into a real draft");
     const revertCall = client.calls.find(
       (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
     );
-    assert.ok(revertCall, "the item must be reverted back to idea");
+    assert.equal(revertCall, undefined, "the item must NEVER be reverted to idea when a safe fallback is available");
   } finally {
     mock.restore();
   }
@@ -340,7 +345,78 @@ test("invented-embellishment guard: never fires on a request that already invite
   assert.equal(detectInventedOperationalContent(request, output), false, "a real sale/event request legitimately invites urgency/festive language");
 });
 
-test("generate_content (real dispatch): a plain closing notice that comes back with invented urgency/future-plans wording is rejected (400) and reverted to idea", async () => {
+// A FOURTH real live-beta defect (Ashley's own real branch-deploy test,
+// re-tested after the invented-embellishment guard shipped): the guard
+// correctly rejected the bad wording, but the item was simply reverted to
+// "idea" — the florist saw an unfinished draft and had to click again.
+// buildDeterministicNoticeContent is the no-AI, safe-by-construction
+// fallback that makes the guard's rejection invisible to the florist: one
+// message still produces one finished draft.
+
+test("buildDeterministicNoticeContent: the exact required fallback for Ashley's real test sentence", () => {
+  const result = buildDeterministicNoticeContent({
+    requestText: "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.",
+    shopName: "Lilies in Bloom",
+    shopPhone: null
+  });
+  assert.equal(result.headline, "Closing Early Today");
+  assert.equal(result.body, "Lilies in Bloom is closing at 2:30 today.");
+  assert.equal(result.cta, "Call 606-506-4039 to place an order.");
+  assert.equal(result.caption, "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.");
+});
+
+test("buildDeterministicNoticeContent: never hardcodes a shop name, time, or phone number — a different shop/time/number produces genuinely different output", () => {
+  const result = buildDeterministicNoticeContent({
+    requestText: "Petal & Stem will be closing at 4:15 this afternoon. Reach us at 212-555-0199.",
+    shopName: "Petal & Stem",
+    shopPhone: null
+  });
+  assert.equal(result.body, "Petal & Stem is closing at 4:15 this afternoon.");
+  assert.equal(result.cta, "Call 212-555-0199 to place an order.");
+  assert.doesNotMatch(result.body, /Lilies in Bloom|2:30|606-506-4039/);
+});
+
+test("buildDeterministicNoticeContent: falls back to the shop's own real phone when the request doesn't repeat one", () => {
+  const result = buildDeterministicNoticeContent({
+    requestText: "We're closing early today.",
+    shopName: "Test Florals",
+    shopPhone: "555-000-1111"
+  });
+  assert.equal(result.cta, "Call 555-000-1111 to place an order.");
+});
+
+test("buildDeterministicNoticeContent: an hours-change notice gets its own honest category, not misread as a closing", () => {
+  const result = buildDeterministicNoticeContent({ requestText: "We have new hours starting Monday at 9am.", shopName: "Test Florals" });
+  assert.equal(result.headline, "New Store Hours");
+  assert.doesNotMatch(result.body, /closing/i);
+});
+
+test("buildDeterministicNoticeContent: an order-deadline notice uses the real date given, never a placeholder", () => {
+  const result = buildDeterministicNoticeContent({ requestText: "Order by March 5th for weekend delivery.", shopName: "Test Florals" });
+  assert.equal(result.headline, "Order Deadline");
+  assert.match(result.body, /march 5th/i);
+});
+
+test("buildDeterministicNoticeContent: never invents a reason, urgency, farewell, or future plan — none of the banned phrases appear anywhere in the output", () => {
+  const result = buildDeterministicNoticeContent({
+    requestText: "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.",
+    shopName: "Lilies in Bloom"
+  });
+  const all = `${result.headline} ${result.body} ${result.cta} ${result.caption}`;
+  assert.equal(textAddsInventedEmbellishment(all), false, "the deterministic fallback itself must never trip its own invented-embellishment guard");
+});
+
+test("buildDeterministicNoticeContent: returns null (never a fabricated guess) when the request carries no operational facts or category at all", () => {
+  const result = buildDeterministicNoticeContent({ requestText: "hello", shopName: "Test Florals" });
+  assert.equal(result, null);
+});
+
+// Real, live-found failure (re-tested by Ashley after the guard shipped):
+// the guard correctly rejected the invented wording, but the item was
+// simply reverted to "idea" — a broken one-message experience, the exact
+// bug this test now proves is fixed. The safety rejection must never save
+// the invented copy, but it also must never leave the florist stuck.
+test("generate_content (real dispatch): a plain closing notice that comes back with invented urgency/future-plans wording is caught, replaced with the SAFE deterministic fallback, and the draft completes automatically — never reverted to idea", async () => {
   const mock = mockCloudflareCopyOnce({
     platform: "facebook",
     headline: "Closing early today",
@@ -365,18 +441,78 @@ test("generate_content (real dispatch): a plain closing notice that comes back w
       { data: [], error: null },
       { data: [], error: null },
       { data: null, error: null }, // recordUsage("copy")
+      { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset — the rejection recovered, generation completes normally
+      { data: null, error: null }, // variant update
+      { data: { id: "item-1", status: "draft" }, error: null } // final content_items update -> draft, NEVER reverted to idea
+    ]);
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-1" }));
+    assert.equal(res.statusCode, 200, `expected the rejection to recover into a completed draft, not a 400: ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.equal(body.item.status, "draft", "the item must complete as a real draft — never left at/reverted to idea");
+    // The exact, required safe wording — built from the request's own
+    // verified facts, never the invented text the model returned.
+    assert.equal(body.copy.headline, "Closing Early Today");
+    assert.equal(body.copy.body, "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.");
+    assert.equal(body.copy.cta, "Call 606-506-4039 to place an order.");
+    for (const banned of ["final orders", "prepare for a special event", "look forward to serving you again"]) {
+      assert.doesNotMatch(body.copy.body.toLowerCase(), new RegExp(banned), `the invented phrase "${banned}" must never survive into the saved content`);
+    }
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    assert.ok(assetInsert, "a real asset must be persisted — the safety rejection recovers, it doesn't abandon the draft");
+    const insertedContent = assetInsert.ops.find((op) => op[0] === "insert")[1][0].content;
+    assert.equal(insertedContent.body, "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.", "the invented copy must never reach the database — only the safe fallback");
+    const revertCall = client.calls.find(
+      (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
+    );
+    assert.equal(revertCall, undefined, "the item must NEVER be reverted to idea when a safe fallback is available");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generate_content (real dispatch): when NO operational facts exist to build a safe fallback from, the rejection still refuses outright rather than guessing — the one legitimate case where reverting to idea is correct", async () => {
+  const mock = mockCloudflareCopyOnce({
+    platform: "facebook",
+    headline: "An update",
+    body: "Place your final orders now! We appreciate your understanding.",
+    cta: "",
+    visual_brief: "v",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  });
+  try {
+    const client = createFakeSupabaseClient([
+      // A real plain-operational-notice signal ("hours") but no
+      // extractable fact and no recognized specific category (not a
+      // closing, not a recognized hours-change phrasing, not a deadline)
+      // — buildDeterministicNoticeContent genuinely has nothing safe to
+      // build from here, so the handler must fail closed rather than
+      // guess, exactly like before this fix for every OTHER case.
+      { data: { id: "item-1", content_type: "text_post", title: "t", brief: "A quick note about our hours policy this week — nothing else to add.", status: "idea" }, error: null },
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null },
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: null, error: null },
+      { data: { name: null }, error: null }, // no real shop name on file either
+      { data: null, error: null },
+      { data: null, error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: null, error: null }, // recordUsage("copy")
       { data: null, error: null } // revertToIdea's own update
     ]);
     const handler = createMarketingStudioHandler(floristDeps(client));
     const res = await handler(event("generate_content", { content_item_id: "item-1" }));
-    assert.equal(res.statusCode, 400, `expected the invented wording to be rejected: ${res.body}`);
-    assert.match(JSON.parse(res.body).error, /wording you didn't ask for/i);
+    assert.equal(res.statusCode, 400, `expected a genuine no-fallback-available case to still refuse: ${res.body}`);
     const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
-    assert.equal(assetInsert, undefined, "no asset must ever be persisted for a rejected generation");
+    assert.equal(assetInsert, undefined, "no asset must ever be persisted when there's no safe fallback to fall back to");
     const revertCall = client.calls.find(
       (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
     );
-    assert.ok(revertCall, "the item must be reverted back to idea");
+    assert.ok(revertCall, "the item must be reverted back to idea in this one genuine no-facts case");
   } finally {
     mock.restore();
   }

@@ -413,3 +413,140 @@ test("requirement 7 (safe retry): clicking Retry re-attempts the render/finalize
   expect(attempt, "Retry must actually re-attempt finalize_flyer_render a second time").toBe(2);
   expect(generateOrReviseCalled, "Retry must never call generate_content/revise_content — it's a pure re-render, no AI call, no cost").toBe(false);
 });
+
+// Real, live-found failure — the second real branch-deploy test: the
+// server's invented-embellishment guard correctly caught Lily's bad
+// wording, but the browser showed the new post stuck as "Idea" with an
+// "Ask Lily to create it" button — a broken one-message workflow. The
+// fix is server-side (generate_content now recovers automatically with a
+// safe deterministic fallback instead of reverting), but this test drives
+// the REAL browser create-form submit end to end to prove what the
+// florist actually sees: one message in, one finished flyer draft out,
+// with no second click and no "Idea" state ever rendered — even though
+// the server's real response IS what a safety-fallback recovery produces.
+test("one message still produces one finished flyer draft when the server's safety guard needed the deterministic fallback — never left as Idea, never needs a second click", async ({ page }) => {
+  let phase = "before";
+  let generateCallCount = 0;
+  const SAFE_FALLBACK_ITEM = {
+    id: "item-1",
+    content_type: "image_post",
+    title: "Closing early today",
+    brief: "Create today's Florisyn Facebook post with an image. Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.",
+    status: "draft",
+    asset: {
+      id: "flyer-asset-1",
+      asset_type: "flyer",
+      parent_asset_id: null,
+      content: {
+        // The exact safe wording the server's deterministic fallback
+        // builds — never the invented text a rejected model response
+        // would have contained.
+        headline: "Closing Early Today",
+        body: "Lilies in Bloom is closing at 2:30 today.",
+        cta: "Call 606-506-4039 to place an order.",
+        caption: "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.",
+        template_id: "notice",
+        regions: { headline: { x: 0.06, y: 0.46, w: 0.88, h: 0.15 }, body: { x: 0.06, y: 0.625, w: 0.88, h: 0.13 }, cta: { x: 0.22, y: 0.775, w: 0.56, h: 0.08 }, logo: { x: 0.5, y: 0.03, w: 0.14, h: 0.07 }, contact: { x: 0.06, y: 0.89, w: 0.88, h: 0.05 } },
+        palette: { background: "brand_primary" },
+        canvas: { width: 1080, height: 1080 },
+        style: { scale: { headline: "normal", body: "normal", cta: "normal" } },
+        background_url: "https://example.test/storage/website-media/shop-ashley/flyer-bg-1.jpg",
+        brand: { shopName: "Lilies in Bloom", phone: "606-506-4039" },
+        url: null,
+        storage_path: null,
+        mime: null,
+        render_status: null,
+        rendered_at: null
+      }
+    },
+    variants: [{ id: "variant-1", content_item_id: "item-1", platform: "facebook", caption: "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.", asset_id: "flyer-asset-1" }]
+  };
+  await page.route("**/flyer-renderer.js*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: `window.FlorisynFlyerRenderer = { renderFlyer: function() { var c = document.createElement("canvas"); c.width = 10; c.height = 10; return Promise.resolve(c); } };`
+    })
+  );
+  await mockBackend(page);
+  await page.route("**/.netlify/functions/marketing-studio-shop**", async (route) => {
+    const url = new URL(route.request().url());
+    const action = url.searchParams.get("action");
+    const method = route.request().method();
+    if (action === "status") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ marketing_studio_enabled: true, note: "" }) });
+      return;
+    }
+    if (["get_brand_brain", "get_visual_style", "usage_summary", "connections"].includes(action)) {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+      return;
+    }
+    if (action === "list_content") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: phase === "after" ? [SAFE_FALLBACK_ITEM] : [] }) });
+      return;
+    }
+    if (action === "create_content_item" && method === "POST") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ item: { id: "item-1", status: "idea" } }) });
+      return;
+    }
+    if (action === "generate_content" && method === "POST") {
+      generateCallCount += 1;
+      // The REAL shape marketing-studio.js's generate_content now returns
+      // once its own safety guard has already recovered server-side — a
+      // genuine 200 with the completed draft, never a 400.
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ item: { id: "item-1", status: "draft" }, asset: { id: "flyer-asset-1", type: "flyer", url: null }, copy: SAFE_FALLBACK_ITEM.asset.content })
+      });
+      phase = "after";
+      return;
+    }
+    if (action === "finalize_flyer_render") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ asset: { id: "flyer-asset-1", url: "https://example.test/storage/website-media/shop-ashley/flyers/flyer-asset-1.png", content: { ...SAFE_FALLBACK_ITEM.asset.content, url: "https://example.test/storage/website-media/shop-ashley/flyers/flyer-asset-1.png", storage_path: "shop-ashley/flyers/flyer-asset-1.png", mime: "image/png", render_status: "rendered", rendered_at: "now" } } })
+      });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  });
+  await page.route("**/storage/website-media/shop-ashley/flyers/flyer-asset-1.png", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "image/png",
+      body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64")
+    })
+  );
+
+  await withFakeSession(page);
+  await page.goto("/");
+  await expect(page.locator("#app")).toBeVisible({ timeout: 10_000 });
+  await page.locator('nav.florisyn-lux-nav button[data-page="marketingStudioPage"]').click();
+  const root = page.locator("#marketingStudioRoot");
+  await expect(root.locator("#msCreateItemForm")).toBeVisible();
+
+  // The one message — Ashley's own real required test sentence.
+  await root.locator('#msCreateItemForm textarea[name="brief"]').fill(
+    "Create today's Florisyn Facebook post with an image. Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order."
+  );
+  await root.locator('#msCreateItemForm button[type="submit"]').click();
+
+  // One finished draft appears — no second click required.
+  const card = root.locator('[data-ms-item="item-1"]');
+  await expect(card).toBeVisible({ timeout: 10_000 });
+  await expect(card.locator('[data-ms-act="generate"]')).toHaveCount(0, { timeout: 2000 });
+  await expect(card.getByText("Ask Lily to create it")).toHaveCount(0);
+  await expect(card.locator(".eyebrow")).not.toHaveText(/^Idea$/);
+
+  // The exact safe deterministic wording actually renders on screen.
+  await expect(card).toContainText("Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.");
+
+  // The real floral background still made it into the render call — the
+  // safety recovery only replaced wording, never blocked the visual.
+  await expect(root.locator('[data-ms-item="item-1"] .eyebrow')).toHaveText(/ready for your review/i, { timeout: 5000 });
+  await expect(root.locator('[data-ms-act="approve"]')).toBeEnabled();
+
+  expect(generateCallCount, "one message must trigger exactly one generate_content call — no retry, no second click needed").toBe(1);
+});
