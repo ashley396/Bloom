@@ -241,15 +241,15 @@ test("generate_content (real dispatch): a plain temporary-closing post never cal
   }
 });
 
-// Real, live-found failure (Ashley's third real branch-deploy test): the
-// shopRow lookup at the top of generate_content came back empty (no
-// matching row) for real, and the deterministic body said "We are
-// closing" instead of "Lilies in Bloom is closing" even though the
-// florist's own request named the shop. This proves the real handler —
-// not just buildDeterministicNoticeContent in isolation — recovers the
-// real name from the request text when that happens, and never reverts
-// the item to idea just because the shop lookup itself had a hiccup.
-test("generate_content (real dispatch): the shop name still appears correctly even when the shops-table lookup comes back with no row at all — recovered from the request text, never 'We'", async () => {
+// Security correction (Ashley, before the live visual test): an earlier
+// fix for the shop-name-lost-to-"We" defect recovered the missing name
+// from the REQUEST TEXT when the shops-table lookup came back empty.
+// That was wrong — the request text is untrusted, and could name another
+// business entirely. The real fix is upstream: when the trusted shop
+// lookup can't be verified, generate_content must fail closed (a
+// recoverable error, no content generated, the item reverted) rather
+// than falling back to anything untrusted. These tests lock that in.
+test("generate_content (real dispatch): if the shops-table lookup comes back with no row at all, the request fails closed — no content generated, no AI call, item reverted to idea, never falls back to request text or 'We'", async () => {
   const mock = mockCloudflareCopyOnce({
     platform: "facebook",
     headline: "unused",
@@ -269,6 +269,54 @@ test("generate_content (real dispatch): the shop name still appears correctly ev
       { data: { marketing_monthly_budget_cents: null }, error: null },
       { data: null, error: null }, // -> generating
       { data: null, error: null }, // shopRow — no matching row (the real failure mode)
+      { data: null, error: null } // -> revertToIdea's own update call
+    ]);
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-1" }));
+    assert.equal(res.statusCode, 502, `an unverifiable shop lookup must fail closed with a recoverable error, never a fabricated 200: ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.ok(body.error, "must return a real, recoverable error message");
+    assert.equal(mock.calls.length, 0, "no AI call — the request never reaches content generation at all");
+
+    const revertCall = client.calls.find(
+      (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
+    );
+    assert.ok(revertCall, "the item must be reverted to idea, never left stuck in 'generating' or silently completed");
+
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets");
+    assert.equal(assetInsert, undefined, "nothing must ever be persisted from an unverified-shop request");
+  } finally {
+    mock.restore();
+  }
+});
+
+// Tenant-isolation / anti-spoofing test (Ashley, explicit requirement):
+// the request text names a DIFFERENT real business than the authenticated
+// shop. The finished content must use the authenticated shop's own real
+// name — never the name the untrusted request text happens to mention.
+test("generate_content (real dispatch): a request that names a different florist by name still produces content branded with the AUTHENTICATED shop's real name — the request text is never trusted for branding", async () => {
+  const mock = mockCloudflareCopyOnce({
+    platform: "facebook",
+    headline: "unused",
+    body: "unused — must never be called",
+    cta: "unused",
+    hashtags: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  });
+  try {
+    // The authenticated session is for "Lilies in Bloom" (floristDeps'
+    // real shop), but the florist's own message names a totally different
+    // business — "Rose City Florals is closing at 2:30 today." A confused
+    // florist copy-pasting a competitor's post, or a deliberate spoofing
+    // attempt, must land the same way: the AUTHENTICATED shop's name wins.
+    const spoofingBrief = "Rose City Florals is closing at 2:30 today. Customers can call 606-506-4039 to place an order.";
+    const client = createFakeSupabaseClient([
+      { data: { id: "item-1", content_type: "text_post", title: "t", brief: spoofingBrief, status: "idea" }, error: null },
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null },
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: null, error: null }, // -> generating
+      { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow — the REAL authenticated shop
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
       { data: [], error: null },
@@ -277,19 +325,16 @@ test("generate_content (real dispatch): the shop name still appears correctly ev
       { data: null, error: null }, // recordUsage("copy")
       { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset
       { data: null, error: null }, // variant update
-      { data: { id: "item-1", status: "draft" }, error: null } // final content_items update -> draft, never idea
+      { data: { id: "item-1", status: "draft" }, error: null } // final content_items update
     ]);
     const handler = createMarketingStudioHandler(floristDeps(client));
     const res = await handler(event("generate_content", { content_item_id: "item-1" }));
-    assert.equal(res.statusCode, 200, `a shop-row lookup hiccup must never strand the florist: ${res.body}`);
+    assert.equal(res.statusCode, 200, `must still complete successfully — this is not an error case, just untrusted text to ignore for branding: ${res.body}`);
     const body = JSON.parse(res.body);
-    assert.equal(body.item.status, "draft", "must complete as a real draft, never reverted to idea over a shop-row read hiccup");
-    // copy.body is the Facebook CAPTION (noticeFallback.caption — body + CTA
-    // sentence combined), same convention every other real-dispatch test in
-    // this file already uses.
-    assert.match(body.copy.body, /^Lilies in Bloom is closing at 2:30 today\./, "the real shop name must be recovered from the request text");
-    assert.doesNotMatch(body.copy.body, /^We /, "must never fall back to the generic pronoun when the real name is right there in the request");
-    assert.equal(mock.calls.length, 0, "still the deterministic path — no AI call, regardless of the shop-row hiccup");
+    assert.equal(body.item.status, "draft");
+    assert.match(body.copy.body, /^Lilies in Bloom is closing at 2:30 today\./, "the AUTHENTICATED shop's real name must be used");
+    assert.doesNotMatch(body.copy.body, /Rose City Florals/, "the untrusted request-text name must NEVER become the branding authority");
+    assert.equal(mock.calls.length, 0, "still the deterministic path — no AI call");
   } finally {
     mock.restore();
   }
@@ -444,17 +489,16 @@ test("buildDeterministicNoticeContent: the exact required fallback for Ashley's 
   assert.equal(result.caption, "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.");
 });
 
-// Real, live-found failure (Ashley's third real branch-deploy test): the
-// deterministic body said "We are closing at 2:30 today" instead of
-// "Lilies in Bloom is closing at 2:30 today" even though the exact
-// request text she typed named the shop. Root cause: buildDeterministic
-// NoticeContent's `name` came ONLY from the shopName param (the shops
-// table lookup) — if that ever comes back empty for any reason, the
-// shop's own name was silently lost even though it was right there in
-// the request text. These tests lock in the recovery: never a guess,
-// never a hardcoded name, only a real "<Name> is/are/will <verb>"
-// sentence subject the florist's own text actually contains.
-test("extractShopNameFromRequestText: recovers the shop's own name from a plain '<Name> is closing...' sentence", () => {
+// extractShopNameFromRequestText is real, tested infrastructure — but per
+// Ashley's explicit security correction (before the live visual test), it
+// is used ONLY for comparison/audit (marketing-studio.js logs a warning
+// when the request names a different business than the authenticated
+// shop) and NEVER as a source of truth for branding. The request text is
+// untrusted: a florist's message could name another business — a
+// competitor, an event venue, anyone — and that must never become the
+// flyer's identity. See "Security correction" comments in
+// marketing-content-revision.js and marketing-studio.js.
+test("extractShopNameFromRequestText: recognizes a plain '<Name> is closing...' sentence subject (for comparison/audit only, never branding)", () => {
   assert.equal(
     extractShopNameFromRequestText("Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order."),
     "Lilies in Bloom"
@@ -477,21 +521,21 @@ test("extractShopNameFromRequestText: no clear sentence-subject pattern at all r
   assert.equal(extractShopNameFromRequestText(""), null);
 });
 
-test("buildDeterministicNoticeContent: recovers the real shop name from the request text when the shopName param is empty (a shop-row lookup hiccup) — never falls back to 'We'", () => {
+test("buildDeterministicNoticeContent: NEVER uses the request text as a name source, even when the shopName param is empty — falls back to 'We', not to a name mentioned in the untrusted text", () => {
   const text = "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.";
   const result = buildDeterministicNoticeContent({ requestText: text, shopName: null, shopPhone: null });
-  assert.equal(result.body, "Lilies in Bloom is closing at 2:30 today.");
-  assert.equal(result.caption, text);
-  assert.doesNotMatch(result.body, /^We /, "must never fall back to the generic pronoun when the real name is right there in the text");
+  assert.equal(result.body, "We are closing at 2:30 today.", "must fall back to the generic pronoun, never a name pulled from untrusted request text");
+  assert.doesNotMatch(result.body, /Lilies in Bloom/, "the request text must never become the branding authority");
 });
 
-test("buildDeterministicNoticeContent: the authoritative shopName param still wins over the text when both are present and agree — the DB lookup stays primary, the text is only a fallback", () => {
-  const text = "Lilies in Bloom is closing at 2:30 today.";
+test("buildDeterministicNoticeContent: even when the request text names a DIFFERENT business than the trusted shopName param, the trusted param wins completely", () => {
+  const text = "Rose City Florals is closing at 2:30 today. Call 606-506-4039.";
   const result = buildDeterministicNoticeContent({ requestText: text, shopName: "Lilies in Bloom", shopPhone: null });
   assert.equal(result.body, "Lilies in Bloom is closing at 2:30 today.");
+  assert.doesNotMatch(result.body, /Rose City Florals/, "the untrusted request-text name must never override the authenticated shop's name");
 });
 
-test("buildDeterministicNoticeContent: with neither a shopName param nor a recoverable name in the text, still falls back to 'We' rather than throwing or inventing one", () => {
+test("buildDeterministicNoticeContent: with no shopName param at all, still falls back to 'We' rather than throwing or trusting the text", () => {
   const result = buildDeterministicNoticeContent({ requestText: "We are closing at 2:30 today. Call 606-506-4039.", shopName: null, shopPhone: null });
   assert.equal(result.body, "We are closing at 2:30 today.");
 });
@@ -676,7 +720,13 @@ test("generate_content (real dispatch): when NO operational facts exist to build
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
       { data: null, error: null },
-      { data: { name: null }, error: null }, // no real shop name on file either
+      // A real, verified shop (shops.name is NOT NULL in production — a
+      // row with no name can't actually occur; that unverifiable-shop
+      // case is covered separately, see the "fails closed" test above).
+      // This test is specifically about the OTHER refusal case: a real,
+      // verified shop, but no operational facts to build a safe fallback
+      // from at all.
+      { data: { name: "Test Florals" }, error: null }, // shopRow
       { data: null, error: null },
       { data: null, error: null },
       { data: [], error: null },

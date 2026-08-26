@@ -133,6 +133,7 @@ import {
   detectInventedOperationalContent,
   requestSignalsPlainOperationalNotice,
   buildDeterministicNoticeContent,
+  extractShopNameFromRequestText,
   requestNeedsFlyerWording,
   instructionAffectsFlyerWording,
   instructionAffectsFlyerImage
@@ -1549,16 +1550,18 @@ export function createMarketingStudioHandler(deps = {}) {
         // real phone number, and this is the one place generate_content
         // already round-trips the shops table.
         const shopRow = await client.from("shops").select("name,phone,primary_color,accent_color").eq("id", shopId).maybeSingle();
-        if (shopRow.error || !shopRow.data) {
-          // Real, live-found failure (Ashley's third real branch-deploy
-          // test): the deterministic notice said "We are closing" instead
-          // of the real shop name — this read failing (or coming back
-          // with no row) silently is exactly how that could happen with
-          // zero trace of it anywhere. buildDeterministicNoticeContent's
-          // own text-derived name fallback (marketing-content-revision.js)
-          // still recovers the shop's name from the request text when
-          // this happens, so a hiccup here never strands the florist —
-          // but it must never again be invisible.
+        // Security correction (Ashley, before the live visual test): the
+        // shop's own name for branding must come ONLY from this trusted,
+        // authenticated shops-table lookup — never from the request text
+        // (untrusted: a florist's message could name another business —
+        // a competitor, an event venue — and that must never become the
+        // flyer's branding authority) and never a silent fallback. If
+        // this lookup can't be verified (a real error, no matching row,
+        // or a row somehow missing its own name), fail the request
+        // closed — log the real failure, revert the item, and return a
+        // recoverable error — rather than generating a potentially
+        // misbranded flyer or falling back to a generic pronoun.
+        if (shopRow.error || !shopRow.data || !shopRow.data.name) {
           console.warn(
             JSON.stringify({
               level: "warn",
@@ -1566,12 +1569,41 @@ export function createMarketingStudioHandler(deps = {}) {
               message: "shop_row_lookup_failed_in_generate_content",
               shopId,
               contentItemId: body.content_item_id,
-              reason: shopRow.error ? String(shopRow.error.message || shopRow.error) : "no matching shop row"
+              reason: shopRow.error ? String(shopRow.error.message || shopRow.error) : !shopRow.data ? "no matching shop row" : "shop row missing a name"
             })
           );
+          await revertToIdea();
+          return json(502, {
+            error: "Couldn't verify your shop's information just now, so nothing was generated — nothing was saved. Try Generate again in a moment; contact support if this keeps happening."
+          });
         }
-        const shopName = shopRow.data?.name || null;
+        const shopName = shopRow.data.name;
         const primaryPlatform = variants[0]?.platform || "facebook";
+
+        // Comparison only, per Ashley's explicit requirement: the
+        // request's own wording may be COMPARED against the authenticated
+        // shop's real name for visibility (a florist could be describing
+        // or mentioning a different business by name), but the result is
+        // NEVER used to set or override branding — see
+        // extractShopNameFromRequestText's docstring in
+        // marketing-content-revision.js. Log-only, never blocks, never
+        // changes what gets generated.
+        {
+          const mentionedName = extractShopNameFromRequestText(currentItem.data.brief);
+          if (mentionedName && mentionedName.trim().toLowerCase() !== shopName.trim().toLowerCase()) {
+            console.warn(
+              JSON.stringify({
+                level: "warn",
+                fn: "marketing-studio",
+                message: "request_text_names_different_business",
+                shopId,
+                contentItemId: body.content_item_id,
+                authenticatedShopName: shopName,
+                requestMentionedName: mentionedName
+              })
+            );
+          }
+        }
 
         // Priority F / Phase 4 wiring ("one authoritative shop context
         // layer"): Brand Brain, My Style, and real inventory are all real,

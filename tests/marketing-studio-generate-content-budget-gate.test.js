@@ -40,11 +40,13 @@ test("generate_content: no budget_cap_cents and no shop default -> unaffected, e
     superAdminRow(),
     { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null }, // content item lookup
     { data: [], error: null }, // variants lookup
-    { data: { marketing_monthly_budget_cents: null }, error: null } // shop default lookup — none configured
+    { data: { marketing_monthly_budget_cents: null }, error: null }, // shop default lookup — none configured
     // No usage-sum response queued — a call to it here would consume this
     // slot as a placeholder and desync every call after it; the test
     // failing downstream (from a wrong-shaped response) is itself proof
     // the budget check ran when it must not have.
+    { data: null, error: null }, // content_items update -> generating
+    { data: { name: "Test Florals" }, error: null } // shopRow — a real shop must be verified before any generation
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
   const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1" }));
@@ -107,7 +109,9 @@ test("generate_content: a within-budget generation reads this shop's real Brand 
     { data: { id: "item-1", content_type: "text_post", title: "t", brief: "b", status: "idea" }, error: null },
     { data: [], error: null },
     { data: { marketing_monthly_budget_cents: null }, error: null },
-    { data: [{ estimated_cost_cents: 199 }], error: null }
+    { data: [{ estimated_cost_cents: 199 }], error: null },
+    { data: null, error: null }, // content_items update -> generating
+    { data: { name: "Test Florals" }, error: null } // shopRow
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
   await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 200 }));
@@ -128,7 +132,9 @@ test("generate_content: a within-budget generation also reads this shop's real v
     { data: { id: "item-1", content_type: "text_post", title: "t", brief: "b", status: "idea" }, error: null },
     { data: [], error: null },
     { data: { marketing_monthly_budget_cents: null }, error: null },
-    { data: [{ estimated_cost_cents: 199 }], error: null }
+    { data: [{ estimated_cost_cents: 199 }], error: null },
+    { data: null, error: null }, // content_items update -> generating
+    { data: { name: "Test Florals" }, error: null } // shopRow
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
   await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 200 }));

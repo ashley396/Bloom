@@ -354,25 +354,21 @@ function firstMatch(re, text) {
   return m ? m[0].trim() : null;
 }
 
-// Real, live-found failure (Ashley's third real branch-deploy test): the
-// deterministic body said "We are closing at 2:30 today" instead of
-// "Lilies in Bloom is closing at 2:30 today" — the shop's real name is
-// mandatory on every notice, never a generic pronoun, when the florist's
-// own request already states it. buildDeterministicNoticeContent's `name`
-// previously came ONLY from the shopName param (the shops-table lookup in
-// marketing-studio.js) — if that lookup ever comes back empty for any
-// reason (a transient read hiccup, an unset field), the shop's own name
-// was silently lost even though it was right there in the request text
-// the florist just typed. This is the last-resort recovery: the florist
-// routinely states the business's own name as the sentence's subject
-// ("Lilies in Bloom is closing...", "Rose & Thorn will be closing early
-// today...") — generalized to ANY shop name (never hardcoded), and never
-// a guess: it only fires when buildDeterministicNoticeContent's authoritative
-// shopName param is itself empty, only matches a clear "<Name> is/are/
-// will <status-verb>" sentence subject, and explicitly excludes generic
-// pronouns so it can never produce "We is closing." When it can't find a
-// clear match, the existing "We"/"are" fallback still applies exactly as
-// before — this only ever ADDS a real name, never removes one.
+// Security correction (Ashley, before the live visual test): an earlier
+// version of this fix let buildDeterministicNoticeContent recover a
+// missing shop name from the REQUEST TEXT when the shopName param came
+// back empty. That was wrong — the request text is untrusted input. A
+// florist's message could name another business (a competitor, an event
+// venue, anyone) and that text must never become the flyer's branding
+// authority, even as a "last resort." extractShopNameFromRequestText is
+// kept ONLY for comparison/audit — marketing-studio.js logs a warning
+// when the request mentions a different business than the authenticated
+// shop, purely for visibility, and NEVER uses the result to set or
+// override the shop's name. The actual fix for a missing shopName is
+// upstream: marketing-studio.js now fails the request closed (a
+// recoverable error, no content generated) if the trusted shops-table
+// lookup itself can't be verified, rather than falling back to anything
+// — see the shopRow check in generate_content.
 const GENERIC_SENTENCE_SUBJECTS_RE = /^(we|i|you|they|customers|our shop|our store)$/i;
 // A real shop name is routinely multi-word with lowercase connectors in
 // the middle ("Lilies in Bloom", "Rose & Thorn Florals", "The Petal
@@ -413,7 +409,13 @@ export function extractShopNameFromRequestText(text) {
  */
 export function buildDeterministicNoticeContent({ requestText, shopName, shopPhone } = {}) {
   const text = String(requestText || "");
-  const name = String(shopName || "").trim() || extractShopNameFromRequestText(text) || "";
+  // shopName is the ONLY trusted source of the shop's own name — never
+  // the request text (see extractShopNameFromRequestText's docstring
+  // above). The caller (marketing-studio.js) is responsible for failing
+  // the request closed before this ever runs if the trusted shopName
+  // couldn't be verified; this function never substitutes untrusted text
+  // for it.
+  const name = String(shopName || "").trim();
   const phone = firstMatch(PHONE_RE, text) || (shopPhone ? String(shopPhone).trim() : null) || null;
   const time = firstMatch(TIME_RE, text);
   const date = firstMatch(DATE_RE, text);
