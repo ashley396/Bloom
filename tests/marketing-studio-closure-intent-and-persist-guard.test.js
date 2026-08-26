@@ -117,8 +117,12 @@ function mockCloudflareCopyOnce(copyJson) {
   const originalFetch = globalThis.fetch;
   process.env.CLOUDFLARE_ACCOUNT_ID = "acct-test";
   process.env.CLOUDFLARE_AI_API_TOKEN = "token-test";
-  globalThis.fetch = async () => ({ ok: true, json: async () => ({ success: true, result: { response: JSON.stringify(copyJson) } }) });
-  return { restore: () => { globalThis.fetch = originalFetch; } };
+  const calls = [];
+  globalThis.fetch = async (...args) => {
+    calls.push(args);
+    return { ok: true, json: async () => ({ success: true, result: { response: JSON.stringify(copyJson) } }) };
+  };
+  return { calls, restore: () => { globalThis.fetch = originalFetch; } };
 }
 
 let savedEnv;
@@ -176,7 +180,17 @@ test("generate_content (real dispatch): a temporary-closing brief that comes bac
   }
 });
 
-test("generate_content (real dispatch): a genuinely good temporary-closing post is generated normally, and the exact time/phone number survive", async () => {
+// Architecture fix (Ashley's second real branch-deploy test): a "safe"
+// (non-invented) AI paraphrase of a plain operational notice still
+// silently dropped the actual closing time — a paraphrase that drops a
+// fact isn't "invented," so the old reactive guards never caught it. The
+// real fix is proactive, not reactive: a plain operational notice with
+// extractable facts never reaches the AI wording call at all — the ONE
+// authoritative deterministic object is used directly. This test proves
+// exactly that: the mocked AI response is deliberately supplied to prove
+// it's never even called, not just that its (this time honest) content
+// happens to survive.
+test("generate_content (real dispatch): a plain temporary-closing post never calls the AI wording model at all — the authoritative deterministic content is used directly, and the exact time/phone number survive", async () => {
   const mock = mockCloudflareCopyOnce({
     platform: "facebook",
     headline: "Closing early today!",
@@ -200,7 +214,7 @@ test("generate_content (real dispatch): a genuinely good temporary-closing post 
       { data: [], error: null },
       { data: [], error: null },
       { data: [], error: null },
-      { data: null, error: null }, // recordUsage("copy")
+      { data: null, error: null }, // recordUsage("copy") — the deterministic path still records real usage
       { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset
       { data: null, error: null }, // variant update
       { data: { id: "item-1", status: "draft" }, error: null } // final content_items update
@@ -209,8 +223,18 @@ test("generate_content (real dispatch): a genuinely good temporary-closing post 
     const res = await handler(event("generate_content", { content_item_id: "item-1" }));
     assert.equal(res.statusCode, 200, `a legitimate temporary-closing post must not be blocked: ${res.body}`);
     const body = JSON.parse(res.body);
-    assert.match(body.copy.body, /2:30 PM/);
+    // The real facts survive — but as the deterministic content's own
+    // phrasing ("2:30", not the AI mock's reformatted "2:30 PM"), proving
+    // this is genuinely the authoritative object, not a lucky match
+    // against whatever the (unused) AI mock happened to return.
+    assert.match(body.copy.body, /2:30/);
     assert.match(body.copy.body, /606-506-4039/);
+    assert.doesNotMatch(body.copy.body, /2:30 PM/, "must be the deterministic content's own wording, never the AI mock's");
+    assert.doesNotMatch(body.copy.body, /back to normal hours tomorrow/i, "must never contain the AI mock's own added phrasing");
+    // The mocked AI text-generation endpoint must never have been called
+    // at all — the deterministic content is used proactively, not as a
+    // reactive check-then-fallback after an AI call that happened anyway.
+    assert.equal(mock.calls.length, 0, "the AI wording model must never be called for a plain operational notice with extractable facts");
   } finally {
     mock.restore();
   }
@@ -411,6 +435,56 @@ test("buildDeterministicNoticeContent: returns null (never a fabricated guess) w
   assert.equal(result, null);
 });
 
+// Ashley's required regression-test list (second real branch-deploy
+// report) — items 6-14: late opening, changed hours, order deadline
+// (already covered above), the "no invented X" guarantees, and the
+// permanent-closure/never-invented checks against the deterministic
+// content's own output specifically (not just the AI-guard functions in
+// isolation).
+
+test("buildDeterministicNoticeContent (late-opening notice): the real opening time and phone survive, headline is honest, never read as permanent", () => {
+  const result = buildDeterministicNoticeContent({
+    requestText: "We will be opening late today at 10:00am due to weather. Call 555-123-4567.",
+    shopName: "Test Florals"
+  });
+  assert.equal(result.headline, "Opening Late Today");
+  assert.match(result.body, /10:00am/);
+  assert.match(result.cta, /555-123-4567/);
+  assert.equal(textReadsAsPermanentClosure(`${result.headline} ${result.body} ${result.cta}`), false);
+  assert.equal(textAddsInventedEmbellishment(`${result.headline} ${result.body} ${result.cta}`), false);
+});
+
+test("buildDeterministicNoticeContent (changed-hours notice): the real new time and phone survive, never a generic non-answer", () => {
+  const result = buildDeterministicNoticeContent({
+    requestText: "Our business hours have changed this week — now open until 8:00pm. Call 555-123-4567.",
+    shopName: "Test Florals"
+  });
+  assert.equal(result.headline, "New Store Hours");
+  assert.match(result.body, /8:00pm/);
+  assert.match(result.cta, /555-123-4567/);
+});
+
+test("buildDeterministicNoticeContent: a notice with NO phone number anywhere (request or shop record) never invents one", () => {
+  const result = buildDeterministicNoticeContent({ requestText: "We're closing early today.", shopName: "Test Florals", shopPhone: null });
+  assert.equal(result.cta, "Contact us for details.");
+  assert.doesNotMatch(result.caption, /\d{3}[-.\s]\d{3}[-.\s]\d{4}/, "no phone-shaped number must appear anywhere if none was ever given");
+});
+
+test("buildDeterministicNoticeContent: a notice with NO business name anywhere never invents one", () => {
+  const result = buildDeterministicNoticeContent({ requestText: "We're closing early today. Call 555-123-4567.", shopName: null, shopPhone: null });
+  assert.match(result.body, /^We are closing/, "falls back to a generic, honest 'We' rather than inventing a shop name");
+});
+
+test("buildDeterministicNoticeContent: a notice with no stated reason never invents one — only the plain fact is stated", () => {
+  const result = buildDeterministicNoticeContent({
+    requestText: "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.",
+    shopName: "Lilies in Bloom"
+  });
+  for (const inventedReason of ["renovation", "holiday", "family", "emergency", "maintenance", "staff", "weather"]) {
+    assert.doesNotMatch(result.body.toLowerCase(), new RegExp(inventedReason), `must never invent a reason like "${inventedReason}" the request never gave`);
+  }
+});
+
 // Real, live-found failure (re-tested by Ashley after the guard shipped):
 // the guard correctly rejected the invented wording, but the item was
 // simply reverted to "idea" — a broken one-message experience, the exact
@@ -491,7 +565,7 @@ test("generate_content (real dispatch): when NO operational facts exist to build
       // — buildDeterministicNoticeContent genuinely has nothing safe to
       // build from here, so the handler must fail closed rather than
       // guess, exactly like before this fix for every OTHER case.
-      { data: { id: "item-1", content_type: "text_post", title: "t", brief: "A quick note about our hours policy this week — nothing else to add.", status: "idea" }, error: null },
+      { data: { id: "item-1", content_type: "text_post", title: "t", brief: "Our store is opening this weekend.", status: "idea" }, error: null },
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
       { data: null, error: null },
@@ -542,6 +616,97 @@ test("revise_content (real dispatch): a wording revision that comes back reading
     assert.equal(res.statusCode, 400, `expected the mismatch to be rejected: ${res.body}`);
     const newAssetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
     assert.equal(newAssetInsert, undefined, "a rejected revision must never persist a new asset");
+  } finally {
+    mock.restore();
+  }
+});
+
+// Regression test #9 (late-opening notice, end to end): proves the
+// proactive determinism wiring isn't special-cased to "closing" — a
+// genuinely different operational category reaches the same authoritative
+// content path, no AI wording call, real draft, never idea.
+test("generate_content (real dispatch): a late-opening notice never calls the AI wording model — the real opening time and phone survive into the saved draft", async () => {
+  const mock = mockCloudflareCopyOnce({
+    platform: "facebook",
+    headline: "We're running behind!",
+    body: "Sorry for the inconvenience — we'll be opening a bit later than usual. Call 555-123-4567 for questions.",
+    cta: "Call us",
+    hashtags: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  });
+  try {
+    const client = createFakeSupabaseClient([
+      { data: { id: "item-1", content_type: "text_post", title: "t", brief: "We will be opening late today at 10:00am due to weather. Call 555-123-4567.", status: "idea" }, error: null },
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null },
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: null, error: null },
+      { data: { name: "Test Florals" }, error: null },
+      { data: null, error: null },
+      { data: null, error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: null, error: null }, // recordUsage("copy")
+      { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset
+      { data: null, error: null }, // variant update
+      { data: { id: "item-1", status: "draft" }, error: null }
+    ]);
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-1" }));
+    assert.equal(res.statusCode, 200, `expected the late-opening notice to complete normally: ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.equal(body.item.status, "draft");
+    assert.match(body.copy.headline, /Opening Late Today/);
+    assert.match(body.copy.body, /10:00am/);
+    assert.match(body.copy.body, /555-123-4567/);
+    assert.equal(mock.calls.length, 0, "the AI wording model must never be called for a late-opening notice with extractable facts");
+  } finally {
+    mock.restore();
+  }
+});
+
+// Regression test #18: normal, non-operational creative posts (no
+// closing/opening/hours/deadline/announcement signal) must be completely
+// unaffected by any of this — Lily still writes the caption normally, no
+// determinism, no template, exactly as before this whole fix.
+test("generate_content (real dispatch): an ordinary creative post ('40 roses to sell') is untouched by the operational-notice determinism — Lily's real AI copy is used as-is", async () => {
+  const mock = mockCloudflareCopyOnce({
+    platform: "facebook",
+    headline: "Fresh Roses Just Arrived!",
+    body: "We've got 40 gorgeous fresh roses ready for their forever vase — stop by today and treat yourself (or someone special) to a bouquet.",
+    cta: "Shop now",
+    hashtags: ["#freshflowers"],
+    brand_traits_used: [],
+    visual_traits_used: []
+  });
+  try {
+    const client = createFakeSupabaseClient([
+      { data: { id: "item-1", content_type: "text_post", title: "t", brief: "I have 40 roses I need to sell — a bright, romantic bouquet post for Facebook", status: "idea" }, error: null },
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null },
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: null, error: null },
+      { data: { name: "Test Florals" }, error: null },
+      { data: null, error: null },
+      { data: null, error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: null, error: null }, // recordUsage("copy")
+      { data: { id: "copy-asset-1" }, error: null },
+      { data: null, error: null },
+      { data: { id: "item-1", status: "draft" }, error: null }
+    ]);
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-1" }));
+    assert.equal(res.statusCode, 200, `expected the ordinary creative post to succeed normally: ${res.body}`);
+    const body = JSON.parse(res.body);
+    // The real AI-authored copy is used verbatim — never replaced by any
+    // deterministic template, proving the operational-notice fix left
+    // ordinary creative marketing generation completely alone.
+    assert.equal(body.copy.headline, "Fresh Roses Just Arrived!");
+    assert.match(body.copy.body, /forever vase/);
+    assert.equal(mock.calls.length, 1, "the AI wording model must still be called normally for an ordinary creative post");
   } finally {
     mock.restore();
   }

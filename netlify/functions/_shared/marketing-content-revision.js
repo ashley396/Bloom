@@ -330,8 +330,20 @@ export function detectInventedOperationalContent(requestText, generatedText) {
 // DOES carry an operational signal, so null is a rare last-resort case,
 // not the common path.
 const CLOSING_TEMPORAL_WORD_RE = /\b(early today|this afternoon|for the holiday|for the day|temporarily|briefly|for a few hours|tonight|today|early)\b/i;
-const HOURS_CHANGE_SIGNAL_RE = /\bnew hours\b|\bhours (?:are )?(?:changing|updated|different)\b|\bupdated (?:our )?hours\b/i;
+// Real, live-found failure (Ashley's second real branch-deploy test): the
+// original narrow HOURS_CHANGE_SIGNAL_RE ("new hours"/"hours are
+// changing") never matched plain phrasings like "changed business hours"
+// or "holiday hours" — those fell through to the generic bucket, which
+// didn't surface the time at all. Broadened to any mention of the bare
+// word "hours" once closing/opening/deadline have already been ruled out
+// above it — safe because PLAIN_NOTICE_SIGNAL_RE only routes a request
+// here at all when it already carries a real operational-notice word.
+const HOURS_CHANGE_SIGNAL_RE = /\bhours?\b/i;
 const DEADLINE_SIGNAL_RE = /\b(deadline|order by|cutoff|last day to order)\b/i;
+// "Opening late" / "delayed opening" — the mirror case of a temporary
+// closing, previously unhandled entirely (fell into the generic bucket
+// and lost the time).
+const LATE_OPENING_RE = /\bopen(?:ing)?\b[^.!?\n]{0,30}\b(late|later|delayed)\b|\bdelayed opening\b/i;
 
 function firstMatch(re, text) {
   const m = String(text || "").match(re);
@@ -342,11 +354,33 @@ function firstMatch(re, text) {
   return m ? m[0].trim() : null;
 }
 
+/**
+ * Real, live-found failure (Ashley's second real branch-deploy test): a
+ * "safe" (non-invented, non-permanent-misread) AI paraphrase still
+ * silently dropped the actual closing time from the flyer — "Don't
+ * forget, Lilies in Bloom will be closing at 2:30 today..." became "Early
+ * Closing Notice" with no 2:30 anywhere. Neither the invented-embellishment
+ * guard nor the permanent-closure guard was ever built to catch a
+ * material fact going missing — a paraphrase that drops a fact isn't
+ * "invented," it's just incomplete. This is the real, general fix: this
+ * single authoritative object (per Ashley's architecture requirement) is
+ * the ONE thing both the caption and the on-image flyer text consume for
+ * every plain operational notice with extractable facts — never an
+ * independent AI paraphrase of either. Category branches below produce a
+ * good, natural sentence for the common cases; the verification pass at
+ * the end is what makes the "every material fact survives" guarantee
+ * general rather than dependent on each branch being hand-tuned
+ * perfectly — it re-checks the built body+cta against every real fact
+ * token extractFactTokens() finds in the ORIGINAL request (the same
+ * extraction factsPreserved() already trusts elsewhere in this module)
+ * and appends anything a category branch didn't happen to include.
+ */
 export function buildDeterministicNoticeContent({ requestText, shopName, shopPhone } = {}) {
   const text = String(requestText || "");
   const name = String(shopName || "").trim();
   const phone = firstMatch(PHONE_RE, text) || (shopPhone ? String(shopPhone).trim() : null) || null;
   const time = firstMatch(TIME_RE, text);
+  const date = firstMatch(DATE_RE, text);
   const who = name || "We";
   const verb = name ? "is" : "are";
 
@@ -356,21 +390,46 @@ export function buildDeterministicNoticeContent({ requestText, shopName, shopPho
     const qualifierMatch = text.match(CLOSING_TEMPORAL_WORD_RE);
     const qualifier = qualifierMatch ? qualifierMatch[1].toLowerCase() : "today";
     body = time ? `${who} ${verb} closing at ${time} ${qualifier}.` : `${who} ${verb} closing ${qualifier}.`;
-  } else if (HOURS_CHANGE_SIGNAL_RE.test(text)) {
-    headline = "New Store Hours";
-    body = time ? `${who} ${verb} updating our hours — starting at ${time}.` : `${who} ${verb} updating our store hours.`;
+  } else if (LATE_OPENING_RE.test(text)) {
+    headline = "Opening Late Today";
+    const qualifierMatch = text.match(CLOSING_TEMPORAL_WORD_RE);
+    const qualifier = qualifierMatch ? qualifierMatch[1].toLowerCase() : "today";
+    body = time ? `${who} ${verb} opening at ${time} ${qualifier}.` : `${who} ${verb} opening late ${qualifier}.`;
   } else if (DEADLINE_SIGNAL_RE.test(text)) {
     headline = "Order Deadline";
-    const date = firstMatch(DATE_RE, text);
-    body = date ? `Please place your order by ${date} to make sure it's ready in time.` : "Please place your order soon to make sure it's ready in time.";
-  } else if (/\bannounc(?:e|ing|ement)\b/i.test(text) || phone || time) {
+    body = date
+      ? `Please place your order by ${date} to make sure it's ready in time.`
+      : time
+        ? `Please place your order by ${time} to make sure it's ready in time.`
+        : "Please place your order soon to make sure it's ready in time.";
+  } else if (HOURS_CHANGE_SIGNAL_RE.test(text)) {
+    headline = "New Store Hours";
+    body = time
+      ? `${who} ${verb} updating our hours — starting at ${time}.`
+      : name
+        ? `${name} has updated store hours.`
+        : "We have updated store hours.";
+  } else if (/\bannounc(?:e|ing|ement)\b/i.test(text) || phone || time || date) {
     headline = "Store Notice";
-    body = name ? `${name} has an update for you.` : "We have an update for you.";
+    const parts = [name ? `${name} has an update for you.` : "We have an update for you."];
+    if (time) parts.push(`Time: ${time}.`);
+    else if (date) parts.push(`Date: ${date}.`);
+    body = parts.join(" ");
   } else {
     return null;
   }
 
   const cta = phone ? `Call ${phone} to place an order.` : "Contact us for details.";
+
+  // The general safety net described above: never let a category
+  // branch's own phrasing silently lose a real fact the florist actually
+  // gave. Checked against body+cta together since a fact (the phone
+  // number, most often) is frequently only in the CTA, never the body.
+  const missingFacts = extractFactTokens(text).filter((token) => !`${body} ${cta}`.includes(token));
+  if (missingFacts.length) {
+    body = `${body} ${missingFacts.join(" ")}`.trim();
+  }
+
   const caption = phone ? `${body} Customers can call ${phone} to place an order.` : body;
 
   return { headline, body, cta, caption };

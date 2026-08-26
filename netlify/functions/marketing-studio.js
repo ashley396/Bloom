@@ -131,6 +131,7 @@ import {
   buildWordingRevisionRequestText,
   detectPermanentClosureMismatch,
   detectInventedOperationalContent,
+  requestSignalsPlainOperationalNotice,
   buildDeterministicNoticeContent,
   requestNeedsFlyerWording,
   instructionAffectsFlyerWording,
@@ -1653,52 +1654,97 @@ export function createMarketingStudioHandler(deps = {}) {
           });
         }
 
-        await recordUsage("copy", "request", 1);
-        const copyGen = await generateSocialPost({
-          persona: "Lily",
-          channel: primaryPlatform,
-          occasion: currentItem.data.title,
-          shop: { name: shopName },
-          requestText: currentItem.data.brief,
-          brandVoiceSummary,
-          visualStyleSummary,
-          inventorySummary,
-          audienceSummary
-        });
-        if (!copyGen.ok) {
-          await revertToIdea();
-          return json(400, { error: copyGen.error });
-        }
-        // Real, live-found failure: "closing at 2:30 today" came back as a
-        // permanent going-out-of-business announcement, or with invented
-        // urgency/future-plans/farewell wording never asked for. Reverting
-        // the item to "idea" and making the florist click "Ask Lily to
-        // create it" again is not acceptable — the request already carries
-        // every fact needed. noticeFallback rebuilds safe wording directly
-        // from those verified facts (never an AI call, so it can never
-        // itself invent anything) and generation continues automatically
-        // below with that safe content — one message still produces one
-        // finished draft. Only the rare case where no operational facts
-        // exist at all to build from still refuses outright.
-        let noticeFallback = null;
-        if (
-          detectPermanentClosureMismatch(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`) ||
-          detectInventedOperationalContent(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`)
-        ) {
-          noticeFallback = buildDeterministicNoticeContent({ requestText: currentItem.data.brief, shopName, shopPhone: shopRow.data?.phone });
-          if (!noticeFallback) {
+        // Real, live-found failure (Ashley's real branch-deploy tests,
+        // twice now): a plain operational notice ("closing at 2:30 today,
+        // call to order") kept reaching an AI paraphrase step at all —
+        // even a "safe" (non-invented, non-permanent-misread) paraphrase
+        // still silently dropped the actual closing time, and a request
+        // that fully passed every safety guard still got needlessly
+        // reworded. Architecture fix, per the explicit requirement: for a
+        // plain operational notice whose material facts can be verified
+        // up front, there is exactly ONE authoritative grounded content
+        // object (buildDeterministicNoticeContent) — built directly from
+        // the request's own facts, NEVER asked of AI — and the caption
+        // (and, below, the flyer's on-image text) consume it directly.
+        // This is computed and used BEFORE ever calling generateSocialPost,
+        // not as a reactive check afterward, so no AI paraphrase of a
+        // verified operational notice happens in the first place. A
+        // request that isn't a plain operational notice at all (a normal
+        // creative post, a sale, an event) never enters this branch —
+        // requestSignalsPlainOperationalNotice is the same narrow,
+        // promotional-signal-excluding gate the reactive guards already
+        // used, so ordinary creative/sale/event generation is completely
+        // unaffected.
+        let noticeFallback = requestSignalsPlainOperationalNotice(currentItem.data.brief)
+          ? buildDeterministicNoticeContent({ requestText: currentItem.data.brief, shopName, shopPhone: shopRow.data?.phone })
+          : null;
+
+        let copyGen;
+        if (noticeFallback) {
+          // No AI call at all for the wording — a real generation still
+          // happened (usage/budget accounting stays honest), it's just
+          // deterministic rather than model-produced.
+          await recordUsage("copy", "request", 1);
+          copyGen = {
+            ok: true,
+            model: "deterministic",
+            content: {
+              platform: primaryPlatform,
+              headline: noticeFallback.headline,
+              body: noticeFallback.caption,
+              cta: noticeFallback.cta,
+              visual_brief: "",
+              hashtags: [],
+              asset_requirements: [],
+              brand_traits_used: [],
+              visual_traits_used: []
+            }
+          };
+        } else {
+          await recordUsage("copy", "request", 1);
+          copyGen = await generateSocialPost({
+            persona: "Lily",
+            channel: primaryPlatform,
+            occasion: currentItem.data.title,
+            shop: { name: shopName },
+            requestText: currentItem.data.brief,
+            brandVoiceSummary,
+            visualStyleSummary,
+            inventorySummary,
+            audienceSummary
+          });
+          if (!copyGen.ok) {
             await revertToIdea();
-            return json(400, {
-              error:
-                "That came back with wording that didn't match your request, and there wasn't enough in your message (a time, a phone number) for Lily to build a safe version automatically — nothing was saved. Add those details and try Generate again."
-            });
+            return json(400, { error: copyGen.error });
           }
-          copyGen.content.headline = noticeFallback.headline;
-          copyGen.content.body = noticeFallback.caption;
-          copyGen.content.cta = noticeFallback.cta;
-          copyGen.content.hashtags = [];
-          copyGen.content.brand_traits_used = [];
-          copyGen.content.visual_traits_used = [];
+          // Reactive safety net for the rare case that reaches here at
+          // all — requestSignalsPlainOperationalNotice already said this
+          // ISN'T a plain notice (a sale/event framing, most often), so an
+          // AI paraphrase is legitimately expected; this still catches an
+          // outright invented/mismatched result and recovers with the
+          // same deterministic content when the request's own facts allow
+          // it — never reverting the florist to idea when a safe fallback
+          // exists, only when genuinely nothing can be built from.
+          if (
+            detectPermanentClosureMismatch(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`) ||
+            detectInventedOperationalContent(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`)
+          ) {
+            const rescueFallback = buildDeterministicNoticeContent({ requestText: currentItem.data.brief, shopName, shopPhone: shopRow.data?.phone });
+            if (!rescueFallback) {
+              await revertToIdea();
+              return json(400, {
+                error:
+                  "That came back with wording that didn't match your request, and there wasn't enough in your message (a time, a phone number) for Lily to build a safe version automatically — nothing was saved. Add those details and try Generate again."
+              });
+            }
+            noticeFallback = rescueFallback;
+            copyGen.content.headline = rescueFallback.headline;
+            copyGen.content.body = rescueFallback.caption;
+            copyGen.content.cta = rescueFallback.cta;
+            copyGen.content.hashtags = [];
+            copyGen.content.brand_traits_used = [];
+            copyGen.content.visual_traits_used = [];
+          }
         }
 
         let assetId = null;

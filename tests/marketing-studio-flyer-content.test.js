@@ -251,20 +251,26 @@ test("generate_content (real dispatch): a flyer still generates successfully —
   }
 });
 
-// Real, live-found failure — the second real branch-deploy test: the
-// invented-embellishment guard correctly caught the bad wording, but the
-// item was left as "Idea" with an "Ask Lily to create it" button — a
-// broken one-message workflow. The deterministic safe fallback
-// (buildDeterministicNoticeContent) must recover automatically: same real
-// Tier-A background call, same deterministic renderer, same finished
-// draft card — and the flyer's on-image text and the flyer's own
-// AI-generation call are never even attempted a second time once the
-// caption already proved this topic needs the safe fallback.
-test("generate_content (real dispatch): a flyer-routed closing notice that comes back with invented wording recovers automatically with the safe deterministic fallback — one message still produces one finished flyer draft, never left as an unfinished Idea", async () => {
-  const INVENTED_CLOSING_COPY = {
+// Architecture fix — Ashley's second real branch-deploy test: even a
+// "safe" (non-invented, grounded) AI paraphrase of a plain operational
+// notice still silently dropped the actual closing time from the
+// rendered flyer ("Early Closing Notice" with no "2:30" anywhere) — a
+// paraphrase dropping a fact isn't "invented," so the reactive
+// invented-embellishment guard never caught it. The real, general fix:
+// for a plain operational notice with extractable facts, there is ONE
+// authoritative grounded content object (buildDeterministicNoticeContent)
+// — built directly from the request's own facts, never asked of AI at
+// all — and BOTH the caption and the flyer's on-image text consume it
+// directly, proactively, before any AI wording call would even happen.
+// This test proves the AI text-generation endpoint is never called even
+// ONCE for this request (queuing a response that, if used, would fail
+// every assertion below) — not just that a safe fallback recovers after
+// the fact.
+test("generate_content (real dispatch): a flyer-routed closing notice never calls the AI wording model at all — the ONE authoritative deterministic content object is used directly for both caption and on-image text, and the closing time survives onto the flyer", async () => {
+  const UNUSED_AI_COPY = {
     platform: "facebook",
-    headline: "Closing early today",
-    body: "We're closing at 2:30 today. Place your final orders now! Prepare for a special event — we look forward to serving you again soon. Call 606-506-4039.",
+    headline: "Early Closing Notice",
+    body: "Don't forget, Lilies in Bloom will be closing at 2:30 today. If you need to place an order, give us a call at 606-506-4039.",
     cta: "Call 606-506-4039",
     visual_brief: "A bright, professional shot of the shop's fresh flower display.",
     hashtags: [],
@@ -272,11 +278,11 @@ test("generate_content (real dispatch): a flyer-routed closing notice that comes
     brand_traits_used: [],
     visual_traits_used: []
   };
-  // Only ONE text response is ever queued — proving the flyer's own
-  // generateFlyerContent AI call is skipped entirely once the caption
-  // already needed the safe fallback (see marketing-studio.js's
-  // noticeFallback reuse), not called-then-overridden.
-  const mock = mockCloudflare([INVENTED_CLOSING_COPY]);
+  // Queued but must NEVER be consumed — if the handler still called the
+  // AI wording model, this fixture's own paraphrase ("Early Closing
+  // Notice", no visible "2:30") is exactly the real live defect: safe,
+  // non-invented, and still missing the material fact.
+  const mock = mockCloudflare([UNUSED_AI_COPY]);
   try {
     const brief = "Create today's Florisyn Facebook post with an image. Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.";
     const client = createFakeSupabaseClient(
@@ -331,12 +337,12 @@ test("generate_content (real dispatch): a flyer-routed closing notice that comes
     const imageCalls = mock.calls.filter((c) => c.url.includes("black-forest-labs") || "prompt" in c.body);
     assert.equal(imageCalls.length, 1, "exactly one real background image call is still expected");
 
-    // The flyer's own generateFlyerContent AI call must never even run —
-    // the caption already established this is a safety-sensitive topic,
-    // so the SAME safe wording is reused rather than risking a second,
-    // independent invented response.
+    // Neither the caption's nor the flyer's AI wording call ever runs —
+    // this is a plain operational notice with extractable facts, so the
+    // authoritative deterministic object is used directly and proactively
+    // for both, never asking AI to write or reinterpret the notice at all.
     const textCalls = mock.calls.filter((c) => !(c.url.includes("black-forest-labs") || "prompt" in c.body));
-    assert.equal(textCalls.length, 1, "only the one real caption call should have happened — the flyer text call must be skipped, not called-then-overridden");
+    assert.equal(textCalls.length, 0, "the AI wording model must never be called at all — not for the caption, not for the flyer text");
 
     const revertCall = client.calls.find(
       (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
