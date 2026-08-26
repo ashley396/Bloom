@@ -62,7 +62,7 @@
     return STATUS_LABELS[item.status] || item.status;
   }
 
-  let state = { loading: true, error: null, items: [], status: null, brand: null, style: null, usage: null, busyId: null, revisingId: null, flyerRenderFailed: {} };
+  let state = { loading: true, error: null, items: [], status: null, brand: null, style: null, usage: null, busyId: null, revisingId: null, flyerRenderFailed: {}, flyerRendering: {} };
 
   function root() {
     return document.getElementById("marketingStudioRoot");
@@ -175,13 +175,37 @@
     actions.insertBefore(btn, actions.firstChild);
   }
 
+  // Real, live-found failure (Undo): a flyer revision (Regenerate image,
+  // or any other) kicks off an async canvas render + finalize_flyer_render
+  // upload for whatever asset was current WHEN IT STARTED. If the florist
+  // clicks Undo (or sends another revision) before that finishes, the item
+  // moves on to a different asset — but the in-flight render doesn't know
+  // that, and applying its result afterward (a stale imgEl.src / item.asset
+  // mutation) would silently overwrite the correctly-reverted card with
+  // the abandoned version's image. isStale() is checked right before every
+  // visible side effect below so a superseded render's result is always
+  // discarded, never applied — the fix is "never write a stale result,"
+  // not "hope the timing never overlaps."
   async function mountFlyerPreview(item) {
-    const imgEl = document.getElementById(`msFlyerImg-${item.id}`);
-    const noteEl = document.getElementById(`msFlyerNote-${item.id}`);
+    const assetIdAtStart = item.asset?.id;
     const c = item.asset?.content;
-    if (!imgEl || !c) return;
+    if (!assetIdAtStart || !c) return;
+    // Never start a second concurrent render for the exact same asset —
+    // mountFlyerPreviews() can be invoked by more than one render() pass
+    // (e.g. the busy-state render before an API call, then the post-load
+    // render after) before the first attempt finishes.
+    if (state.flyerRendering[item.id] === assetIdAtStart) return;
+    state.flyerRendering[item.id] = assetIdAtStart;
+
+    const isStale = () => {
+      const current = state.items.find((i) => i.id === item.id);
+      return !current || current.asset?.id !== assetIdAtStart;
+    };
     const fail = (message) => {
-      imgEl.remove();
+      if (isStale()) return;
+      const imgEl = document.getElementById(`msFlyerImg-${item.id}`);
+      const noteEl = document.getElementById(`msFlyerNote-${item.id}`);
+      imgEl?.remove();
       if (noteEl) noteEl.textContent = message;
       const card = document.querySelector(`[data-ms-item="${item.id}"]`);
       const approveBtn = card?.querySelector('[data-ms-act="approve"]');
@@ -208,6 +232,7 @@
         width: c.canvas?.width || 1080,
         height: c.canvas?.height || 1080
       });
+      if (isStale()) return;
       const dataUrl = canvas.toDataURL("image/png", 0.92);
       // Requirement 6 still applies at the persistence layer, not just the
       // draw step: a client-side canvas rendering successfully is NOT
@@ -219,8 +244,11 @@
       // server refuses to apply a stale render to a since-revised item.
       const saved = await studioApi("finalize_flyer_render", { body: { content_item_id: item.id, asset_id: item.asset.id, data_url: dataUrl } });
       if (!saved?.asset?.url) throw new Error("finalize_flyer_render returned no url");
+      if (isStale()) return;
+      const imgEl = document.getElementById(`msFlyerImg-${item.id}`);
+      const noteEl = document.getElementById(`msFlyerNote-${item.id}`);
       item.asset.content = saved.asset.content;
-      imgEl.src = saved.asset.url;
+      if (imgEl) imgEl.src = saved.asset.url;
       noteEl?.remove();
       delete state.flyerRenderFailed[item.id];
       renderEyebrow(item.id);
@@ -232,6 +260,8 @@
       }
     } catch {
       fail("Couldn't prepare this flyer — try Generate again.");
+    } finally {
+      if (state.flyerRendering[item.id] === assetIdAtStart) delete state.flyerRendering[item.id];
     }
   }
 

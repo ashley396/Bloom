@@ -434,6 +434,15 @@ test("revise_content (real dispatch): 'Regenerate image' — a request to change
     assert.equal(insertedContent.headline, CLOSING_FLYER.headline, "the on-image headline must stay exactly what it was — this is a visual-only revision");
     assert.equal(insertedContent.body, CLOSING_FLYER.body, "the on-image body must stay exactly what it was");
     assert.equal(insertedContent.cta, CLOSING_FLYER.cta, "the on-image cta must stay exactly what it was");
+    // Real, live-found failure: "Regenerate image" used to ALWAYS
+    // regenerate the Facebook caption too, even though the instruction
+    // explicitly says "keep the exact same wording" and never mentions the
+    // caption. The caption must now be byte-for-byte identical — proven by
+    // NO text-generation call happening at all (only the background image
+    // call), not just by coincidentally matching text.
+    assert.equal(insertedContent.caption, originalFlyerContent.caption, "the caption must be preserved BYTE-FOR-BYTE on a pure image-only revision");
+    const textCalls = mock.calls.filter((c) => !(c.url.includes("black-forest-labs") || "prompt" in c.body));
+    assert.equal(textCalls.length, 0, "a pure image-only revision must never call the text/caption model at all");
     assert.equal(insertedContent.style_tier, "generated", "a successful regeneration must be recorded as Tier A");
     assert.ok(insertedContent.background_url, "a real new background url must be persisted");
     // Durability: the background actually changed, so the previously
@@ -508,6 +517,7 @@ test("revise_content (real dispatch): a background regeneration that fails silen
     // invalidated — no pointless re-render forced on the florist.
     assert.equal(insertedContent.url, originalFlyerContent.url, "a failed background regeneration must leave the existing durable render alone");
     assert.equal(insertedContent.render_status, "rendered", "a failed background regeneration must leave the existing render_status alone");
+    assert.equal(insertedContent.caption, originalFlyerContent.caption, "a pure image-only revision must never touch the caption, success or failure");
   } finally {
     globalThis.fetch = originalFetch;
   }

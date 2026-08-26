@@ -11,15 +11,22 @@
  * generated image alone can't guarantee: exact text, brand lockup, and
  * legibility on top of it.
  *
- * Design pass (Ashley's visual-quality directive): every flyer now draws
- * as a real editorial card — a soft ivory/blush panel with a shadow,
- * elegant serif typography, a shop-name lockup, and a proper CTA "chip" —
- * over either a real generated floral photo (Tier A) or a rich layered
- * floral-toned wash (Tier B, when no photo is available/succeeded). The
- * panel is drawn BEFORE the contrast sampling happens, so every text
- * region reads its color off the actual panel pixels behind it — the same
- * "never hardcoded, derived from real pixels" contract as before, just
- * now composing against a much richer background by default.
+ * Design pass v2 (Ashley's live-tested visual-quality directive, replacing
+ * the earlier ivory-panel design): the floral photo now fills the ENTIRE
+ * canvas, full-bleed and edge to edge, with no box of any kind covering
+ * it. Legibility comes from a full-width gradient band anchored to the
+ * bottom of the frame (deep navy, transparent at the top fading to
+ * strongly opaque near the bottom — see computeBandRect/drawGradientBand)
+ * carrying the shop-name lockup, headline, body, a narrow decorative CTA
+ * label with a muted-gold underline, and the contact footer — never a
+ * rounded, inset, light-colored card, never a stroke/frame. Because every
+ * word of text now always sits on that same consistently dark backdrop,
+ * text color is fixed (warm ivory, plus a subtle drop shadow), not
+ * sampled per-pixel the way the earlier design needed — the old
+ * pixel-sampling contrast helpers (pickTextColor/sampleAverageColor/
+ * needsScrim) stay exported and unit-tested as real, generically useful
+ * pure math, they just aren't in renderFlyer()'s own critical path
+ * anymore.
  *
  * Three things live here:
  *
@@ -29,14 +36,12 @@
  *      cutout (photo-studio.js's removeBackground() output) over a
  *      server-generated backdrop-only image.
  *
- *   2. renderFlyer() — draws the full editorial flyer card described
- *      above onto either a generated image (Tier A) or a rich Tier-B
- *      wash, with contrast-safe placement: every region's text color and
- *      scrim are chosen from the actual pixels behind it, never
- *      hardcoded, so text can never come out accidentally unreadable.
+ *   2. renderFlyer() — draws the full-bleed photo (Tier A) or a rich
+ *      Tier-B floral wash, then the bottom gradient band and every text
+ *      region on top of it, per the design pass above.
  *
  *   3. Pure, DOM-free helpers (region math, luminance, contrast decisions,
- *      panel-bounds math) are exported for unit testing the same way
+ *      band/panel-bounds math) are exported for unit testing the same way
  *      photo-studio.js's mask math is — see this file's module.exports
  *      guard at the bottom.
  */
@@ -152,6 +157,12 @@
    * margin, expressed as real pixel coordinates. Pure (only reads
    * template.regions + width/height), so the actual card geometry is
    * unit-testable without a DOM. Never exceeds the canvas bounds.
+   *
+   * Kept for backward compatibility (existing callers/tests of this
+   * general "union of text regions" math) — renderFlyer() itself no
+   * longer draws a boxed panel from this; see computeBandRect below for
+   * the actual visual-quality-directive geometry (a full-width, bottom-
+   * anchored gradient band, never an inset box).
    */
   function computePanelRect(template, width, height, paddingFraction) {
     var padding = paddingFraction == null ? 0.045 : paddingFraction;
@@ -173,6 +184,34 @@
     var pw = Math.min(1 - px, maxX - minX + padding * 2);
     var ph = Math.min(1 - py, maxY - minY + padding * 1.4);
     return regionRect({ x: px, y: py, w: pw, h: ph }, width, height);
+  }
+
+  /**
+   * Visual-quality directive (Ashley, live-tested feedback — "remove the
+   * large white or beige content box... the floral image must fill the
+   * complete canvas edge to edge"): the real geometry the renderer now
+   * draws against. A full-WIDTH band (x=0, w=width — always edge to edge,
+   * never inset) starting a little above the topmost text region and
+   * running to the bottom of the canvas. Never a centered/inset box, so it
+   * can never read as "a blank box covering the center of the flowers" —
+   * it only ever touches the lower portion of the frame, and the entire
+   * upper photo stays completely uncovered. Pure (only reads
+   * template.regions + width/height), unit-testable without a DOM.
+   */
+  function computeBandRect(template, width, height) {
+    var regions = template && template.regions ? template.regions : {};
+    var keys = ["headline", "body", "cta", "contact"];
+    var minY = 1, any = false;
+    for (var i = 0; i < keys.length; i++) {
+      var r = regions[keys[i]];
+      if (!r) continue;
+      any = true;
+      minY = Math.min(minY, r.y || 0);
+    }
+    if (!any) minY = 0.55;
+    var topFraction = Math.max(0, minY - 0.06);
+    var y = Math.round(topFraction * height);
+    return { x: 0, y: y, w: width, h: Math.max(0, height - y) };
   }
 
   // ---- Everything below needs a real DOM (canvas/Image) — not unit
@@ -199,17 +238,6 @@
     var sw = dw / scale, sh = dh / scale;
     var sx = (iw - sw) / 2, sy = (ih - sh) / 2;
     ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
-  }
-
-  function safeGetImageData(ctx, width, height) {
-    try {
-      return ctx.getImageData(0, 0, width, height);
-    } catch (e) {
-      // A cross-origin image without CORS headers taints the canvas —
-      // fall back to no background-aware sampling rather than throwing;
-      // text still renders, using the light-background assumption.
-      return null;
-    }
   }
 
   /** Composites a real segmented cutout (photo-studio.js's
@@ -292,22 +320,33 @@
     } catch (e) { /* unsupported — plain spacing, still fully readable */ }
   }
 
-  function drawRegionText(ctx, rect, text, emphasisKey, style, bgImageData, opts) {
+  // Visual-quality directive: every region drawn by drawRegionText now
+  // always sits inside the gradient band (see drawGradientBand) — a
+  // consistently dark, deep-navy backdrop by construction — so text color
+  // is a fixed warm ivory rather than sampled per-pixel. This is a
+  // deliberate simplification, not a regression: the OLD pixel-sampling
+  // contrast system existed because text used to sit directly on
+  // unpredictable photo/background pixels; now that it never does (that
+  // was exactly the "low-contrast text placed directly over busy flowers"
+  // failure mode being fixed), a fixed color is both simpler and more
+  // reliable. pickTextColor/sampleAverageColor/needsScrim stay exported
+  // and unit-tested (still real, generically useful pure math) even
+  // though this function no longer calls them.
+  var BAND_TEXT_COLOR = "#f8f0e3";
+  var BAND_TEXT_COLOR_SOFT = "rgba(248,240,227,0.88)";
+
+  function applyTextShadow(ctx) {
+    // "Subtle text shadow" — one of Ashley's explicitly allowed
+    // legibility techniques, used here as real insurance on top of the
+    // gradient band, never as a substitute for it.
+    ctx.shadowColor = "rgba(6,10,18,0.55)";
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 1;
+  }
+
+  function drawRegionText(ctx, rect, text, emphasisKey, style, opts) {
     if (!text) return;
-    var avg = bgImageData ? sampleAverageColor(bgImageData, rect) : { r: 255, g: 255, b: 255 };
-    var variance = bgImageData ? sampleColorVariance(bgImageData, rect) : 0;
-    var color = pickTextColor(avg);
-    if (needsScrim(avg, variance)) {
-      ctx.fillStyle = color === "#ffffff" ? "rgba(20,14,20,0.42)" : "rgba(255,255,255,0.55)";
-      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, Math.min(rect.h, rect.w) * 0.08);
-      ctx.fill();
-    }
-    // The editorial headline gets a refined burgundy tone instead of flat
-    // near-black WHEN it's safe to (i.e. pickTextColor already decided a
-    // dark color reads fine here) — matches Ashley's "elegant burgundy
-    // serif headline" direction without weakening the real contrast
-    // guarantee: a dark background still correctly gets white text.
-    if (emphasisKey === "hero" && color === "#231a26") color = "#6e1f2e";
+    var color = emphasisKey === "body" ? BAND_TEXT_COLOR_SOFT : BAND_TEXT_COLOR;
     // The target size is taken from the region's ORIGINAL height
     // (opts.baseSizeHeight), not the possibly-shrunk rect.h below — the
     // caller may have shrunk `rect` just to clear the shop-name lockup,
@@ -322,6 +361,8 @@
     var scaleKey = (style && style.scale && style.scale[scaleTarget]) || "normal";
     var fontSize = Math.round(baseSize * scaleMultiplier(scaleKey));
     var weight = emphasisKey === "body" ? "500" : "700";
+    ctx.save();
+    applyTextShadow(ctx);
     ctx.fillStyle = color;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -346,76 +387,90 @@
     }
     drawWrappedLines(ctx, lines, rect.x + rect.w / 2, rect.y + rect.h / 2, lineHeight);
     setLetterSpacing(ctx, "0px");
+    ctx.restore();
   }
 
-  /** The call-to-action is drawn as a real pill "chip" — a filled,
-   * rounded, brand-colored button shape with bold white text — instead of
-   * plain centered text, so it visually reads as an action, not just
-   * another paragraph. */
-  function drawCtaChip(ctx, rect, text, colors) {
+  /** Visual-quality directive: the call-to-action is now a narrow
+   * decorative LABEL — uppercase, letter-spaced text with a thin
+   * muted-gold underline — instead of the old filled pill "button" shape.
+   * A florist's flyer should read like an editorial ad, not an app UI
+   * control; this keeps the CTA legible and clearly set apart from the
+   * headline/body without ever drawing another box on top of the photo. */
+  function drawCtaLabel(ctx, rect, text, accentColor) {
     if (!text) return;
-    var padX = rect.w * 0.1, padY = rect.h * 0.22;
-    var chipW = rect.w - padX * 2;
-    var chipH = Math.min(rect.h - padY * 2, rect.h * 0.62);
-    var chipX = rect.x + padX;
-    var chipY = rect.y + (rect.h - chipH) / 2;
+    var gold = accentColor || "#c8a24a";
+    var fontSize = Math.max(13, Math.round(rect.h * 0.42));
+    var cx = rect.x + rect.w / 2;
+    var cy = rect.y + rect.h / 2;
     ctx.save();
-    ctx.shadowColor = "rgba(60,20,30,0.22)";
-    ctx.shadowBlur = chipH * 0.18;
-    ctx.shadowOffsetY = chipH * 0.06;
-    ctx.fillStyle = colors.primary;
-    roundRect(ctx, chipX, chipY, chipW, chipH, chipH / 2);
-    ctx.fill();
-    ctx.restore();
-    ctx.fillStyle = "#fffaf5";
-    var fontSize = Math.round(chipH * 0.4);
-    ctx.font = "700 " + fontSize + "px 'Inter', 'Crimson Pro', sans-serif";
+    applyTextShadow(ctx);
+    ctx.fillStyle = BAND_TEXT_COLOR;
+    ctx.font = "600 " + fontSize + "px 'Inter', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    wrapText(ctx, text, chipX + chipW / 2, chipY + chipH / 2, chipW * 0.86, fontSize * 1.18);
+    setLetterSpacing(ctx, "0.1em");
+    var upper = String(text).toUpperCase();
+    var textY = cy - fontSize * 0.32;
+    wrapText(ctx, upper, cx, textY, rect.w * 0.94, fontSize * 1.2);
+    setLetterSpacing(ctx, "0px");
+    ctx.restore();
+    // Thin gold divider beneath the label — "a narrow decorative label for
+    // the CTA" / "muted gold divider lines," never a filled button shape.
+    ctx.save();
+    var lineW = Math.min(rect.w * 0.42, Math.max(fontSize * 4, ctx.measureText(upper).width * 0.6));
+    var lineY = textY + fontSize * 0.85;
+    ctx.strokeStyle = gold;
+    ctx.globalAlpha = 0.9;
+    ctx.lineWidth = Math.max(1.5, rect.h * 0.05);
+    ctx.beginPath();
+    ctx.moveTo(cx - lineW / 2, lineY);
+    ctx.lineTo(cx + lineW / 2, lineY);
+    ctx.stroke();
+    ctx.restore();
   }
 
   /** The shop's own name, presented as a tasteful small-caps, letter-spaced
-   * lockup at the top of the panel — a real, distinct visual element
-   * rather than being buried only in the small footer contact line. */
-  function drawShopNameLockup(ctx, panelRect, brand, bgImageData) {
+   * lockup at the top of the gradient band — a real, distinct visual
+   * element rather than being buried only in the small footer contact
+   * line. Always ivory-on-navy now (the band guarantees the dark backdrop
+   * — see drawGradientBand), with a thin muted-gold divider beneath it in
+   * place of the old same-color-as-text hairline. */
+  function drawShopNameLockup(ctx, bandRect, brand, accentColor) {
     var name = brand && brand.shopName;
     if (!name) return { usedHeight: 0 };
-    var sampleRect = { x: panelRect.x, y: panelRect.y, w: panelRect.w, h: panelRect.h * 0.16 };
-    var avg = bgImageData ? sampleAverageColor(bgImageData, sampleRect) : { r: 255, g: 255, b: 255 };
-    var baseColor = pickTextColor(avg);
-    var color = baseColor === "#ffffff" ? "#fffaf5" : "#7c3a58";
-    var fontSize = Math.max(12, Math.round(panelRect.h * 0.05));
-    var baselineY = panelRect.y + panelRect.h * 0.1;
+    var gold = accentColor || "#c8a24a";
+    var fontSize = Math.max(12, Math.round(bandRect.h * 0.05));
+    var baselineY = bandRect.y + bandRect.h * 0.12;
     ctx.save();
-    ctx.fillStyle = color;
+    applyTextShadow(ctx);
+    ctx.fillStyle = BAND_TEXT_COLOR;
     ctx.font = "600 " + fontSize + "px 'Inter', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
-    setLetterSpacing(ctx, "0.24em");
-    ctx.fillText(String(name).toUpperCase(), panelRect.x + panelRect.w / 2, baselineY);
+    setLetterSpacing(ctx, "0.26em");
+    ctx.fillText(String(name).toUpperCase(), bandRect.x + bandRect.w / 2, baselineY);
     setLetterSpacing(ctx, "0px");
+    ctx.restore();
     var dividerY = baselineY + fontSize * 0.75;
-    var dividerW = panelRect.w * 0.1;
-    ctx.strokeStyle = color;
-    ctx.globalAlpha = 0.45;
-    ctx.lineWidth = Math.max(1, panelRect.h * 0.0022);
+    var dividerW = bandRect.w * 0.09;
+    ctx.save();
+    ctx.strokeStyle = gold;
+    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = Math.max(1, bandRect.h * 0.0035);
     ctx.beginPath();
-    ctx.moveTo(panelRect.x + panelRect.w / 2 - dividerW / 2, dividerY);
-    ctx.lineTo(panelRect.x + panelRect.w / 2 + dividerW / 2, dividerY);
+    ctx.moveTo(bandRect.x + bandRect.w / 2 - dividerW / 2, dividerY);
+    ctx.lineTo(bandRect.x + bandRect.w / 2 + dividerW / 2, dividerY);
     ctx.stroke();
     ctx.restore();
-    return { usedHeight: dividerY - panelRect.y };
+    return { usedHeight: dividerY - bandRect.y };
   }
 
-  function drawContact(ctx, rect, brand, bgImageData) {
+  function drawContact(ctx, rect, brand) {
     var parts = [brand.shopName, brand.phone, brand.website].filter(Boolean);
     if (!parts.length) return;
-    var avg = bgImageData ? sampleAverageColor(bgImageData, rect) : { r: 255, g: 255, b: 255 };
-    var color = pickTextColor(avg);
     ctx.save();
-    ctx.fillStyle = color;
-    ctx.globalAlpha = 0.85;
+    applyTextShadow(ctx);
+    ctx.fillStyle = BAND_TEXT_COLOR_SOFT;
     // A real, comfortably-readable footer — not a tiny fine-print line.
     ctx.font = "600 " + Math.round(rect.h * 0.6) + "px 'Inter', sans-serif";
     ctx.textAlign = "center";
@@ -538,34 +593,34 @@
     ctx.restore();
   }
 
-  /** The editorial panel behind the text block — a rounded, translucent
-   * ivory/blush card with a soft drop shadow and a hairline border, so the
-   * text reads as a deliberate composed card rather than words floating
-   * directly on the background. */
-  function drawPanel(ctx, rect) {
-    var radius = Math.min(rect.w, rect.h) * 0.05;
+  /** Visual-quality directive (Ashley, live-tested feedback): the text
+   * backdrop is now a full-width, bottom-anchored gradient band — deep
+   * navy, transparent at its top edge fading to strongly opaque near the
+   * bottom — never a rounded, inset, ivory/beige card. This is what
+   * actually satisfies every one of the required rules at once: it can
+   * never read as "a large white/beige rectangle" (it's dark, not light),
+   * never "a heavy black frame" (no stroke, no border, no rounded corners
+   * — it's a soft fill only), never "a blank box covering the center of
+   * the flowers" (it only ever touches the bottom portion of the frame,
+   * per computeBandRect), and it guarantees every word of text sits on a
+   * consistently dark backdrop instead of directly on unpredictable photo
+   * pixels. */
+  function drawGradientBand(ctx, rect) {
     ctx.save();
-    ctx.shadowColor = "rgba(50,20,30,0.22)";
-    ctx.shadowBlur = rect.h * 0.045;
-    ctx.shadowOffsetY = rect.h * 0.016;
-    ctx.fillStyle = "rgba(253,250,244,0.9)";
-    roundRect(ctx, rect.x, rect.y, rect.w, rect.h, radius);
-    ctx.fill();
-    ctx.restore();
-    ctx.save();
-    ctx.strokeStyle = "rgba(124,58,88,0.22)";
-    ctx.lineWidth = Math.max(1, rect.h * 0.003);
-    roundRect(ctx, rect.x, rect.y, rect.w, rect.h, radius);
-    ctx.stroke();
+    var g = ctx.createLinearGradient(0, rect.y, 0, rect.y + rect.h);
+    g.addColorStop(0, "rgba(9,15,26,0)");
+    g.addColorStop(0.32, "rgba(9,15,26,0.68)");
+    g.addColorStop(1, "rgba(7,12,22,0.93)");
+    ctx.fillStyle = g;
+    ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
     ctx.restore();
   }
 
   /** Draws a full flyer: background (a generated image URL — Tier A — or
    * a rich Tier-B floral-toned wash over the template's own flat/gradient
-   * brand fill, see flyer-templates.js's `palette` field) plus the
-   * editorial panel and every text region, each region's text color/scrim
-   * chosen from the actual pixels behind it. Returns
-   * Promise<HTMLCanvasElement>. Never throws on a missing/failed
+   * brand fill, see flyer-templates.js's `palette` field), full-bleed and
+   * edge to edge, plus a bottom gradient band carrying every text region.
+   * Returns Promise<HTMLCanvasElement>. Never throws on a missing/failed
    * background image — falls back to the Tier-B wash instead, so a flyer
    * is always renderable even if a generated visual never arrives. */
   function renderFlyer(opts) {
@@ -590,13 +645,9 @@
     }
 
     function finish() {
-      var panelRect = computePanelRect(template, width, height);
-      drawPanel(ctx, panelRect);
-      // Sampled AFTER the panel is drawn — every text region's contrast
-      // decision reads the panel's own consistent ivory tone, not the
-      // busy/variable pixels underneath it.
-      var bgImageData = safeGetImageData(ctx, width, height);
-      var lockup = drawShopNameLockup(ctx, panelRect, brand, bgImageData);
+      var bandRect = computeBandRect(template, width, height);
+      drawGradientBand(ctx, bandRect);
+      var lockup = drawShopNameLockup(ctx, bandRect, brand);
       var headlineRect = regionRect(template.regions.headline, width, height);
       var headlineFullHeight = headlineRect.h;
       // Push the headline fully clear of the shop-name lockup, not just a
@@ -604,24 +655,24 @@
       // divider rule cutting straight through single-line headlines, and
       // let a two-line headline overlap "LILIES IN BLOOM" outright (both
       // caught in a design review before this fix). lockup.usedHeight is
-      // already an absolute canvas offset from panelRect.y, so this only
+      // already an absolute canvas offset from bandRect.y, so this only
       // shifts the headline down as far as the lockup actually reaches,
       // plus a small breathing gap — never more than needed, and never so
       // much it collapses the headline rect (floors at 45% of its own
       // height so drawRegionText's own auto-fit always has real room to
       // work with).
       if (lockup && lockup.usedHeight) {
-        var lockupBottom = panelRect.y + lockup.usedHeight + headlineRect.h * 0.08;
+        var lockupBottom = bandRect.y + lockup.usedHeight + headlineRect.h * 0.08;
         if (lockupBottom > headlineRect.y) {
           var shift = Math.min(lockupBottom - headlineRect.y, headlineRect.h * 0.55);
           headlineRect.y += shift;
           headlineRect.h -= shift;
         }
       }
-      drawRegionText(ctx, headlineRect, content.headline, "hero", style, bgImageData, { baseSizeHeight: headlineFullHeight });
-      drawRegionText(ctx, regionRect(template.regions.body, width, height), content.body, "body", style, bgImageData);
-      drawCtaChip(ctx, regionRect(template.regions.cta, width, height), content.cta, colors);
-      drawContact(ctx, regionRect(template.regions.contact, width, height), brand, bgImageData);
+      drawRegionText(ctx, headlineRect, content.headline, "hero", style, { baseSizeHeight: headlineFullHeight });
+      drawRegionText(ctx, regionRect(template.regions.body, width, height), content.body, "body", style);
+      drawCtaLabel(ctx, regionRect(template.regions.cta, width, height), content.cta, colors.accent);
+      drawContact(ctx, regionRect(template.regions.contact, width, height), brand);
       return drawLogo(ctx, regionRect(template.regions.logo, width, height), brand.logoUrl).then(function () {
         return canvas;
       });
@@ -653,6 +704,7 @@
     effectivePaletteColors: effectivePaletteColors,
     paintBrandBackground: paintBrandBackground,
     computePanelRect: computePanelRect,
+    computeBandRect: computeBandRect,
     compositeSubjectOnBackground: compositeSubjectOnBackground,
     renderFlyer: renderFlyer
   };

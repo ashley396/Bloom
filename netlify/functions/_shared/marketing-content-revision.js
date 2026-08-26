@@ -259,3 +259,54 @@ const FLYER_IMAGE_CHANGE_RE =
 export function instructionAffectsFlyerImage(instruction) {
   return FLYER_IMAGE_CHANGE_RE.test(String(instruction || ""));
 }
+
+// A real, live-found failure mode (not hypothetical): "closing at 2:30
+// today, call 606-506-4039 to order" — a plain operational notice with no
+// sale/celebration/event signal of its own — came back with invented
+// wording never asked for: "Place your final orders now," "Prepare for a
+// special event," "We look forward to serving you again soon." None of
+// that is a permanent-closure claim (textReadsAsPermanentClosure wouldn't
+// catch it), so it needed its own guard. Deliberately narrow to requests
+// that carry NO sale/promotional signal of their own — a real sale/event
+// post is allowed festive, urgency, or "see you there" language because
+// the florist's own request already invited it; only a plain notice must
+// stay exactly as plain as what was actually said.
+const PLAIN_NOTICE_SIGNAL_RE =
+  /\b(clos(?:ing|ed))\b|\b(open(?:ing)?|hours?|business hours)\b|\b(deadline|order by|cutoff|last day to order)\b|\bannounc(?:e|ing|ement)\b/i;
+const PROMOTIONAL_SIGNAL_RE = /\b(sale|%\s?off|percent off|discount|promo(?:tion)?|special offer|event|rsvp|class|workshop)\b/i;
+
+/** True only when the request is a plain operational/informational notice
+ * — a schedule change, a closing time, a deadline, an announcement — with
+ * no sale/event/celebration signal of its own that would legitimately
+ * invite festive or urgent language. */
+export function requestSignalsPlainOperationalNotice(requestText) {
+  const text = String(requestText || "");
+  return PLAIN_NOTICE_SIGNAL_RE.test(text) && !PROMOTIONAL_SIGNAL_RE.test(text);
+}
+
+// The actual invented phrasing a model can drift into on a plain notice —
+// manufactured urgency ("final orders," "last chance," "act now"), a
+// manufactured future plan/event ("prepare for," "get ready for," "special
+// event," "coming soon"), or an unrequested farewell/gratitude flourish
+// ("we appreciate your understanding," "we look forward to serving you
+// again," "see you again soon"). None of these are permanent-closure
+// language on their own — this is a distinct failure mode from
+// textReadsAsPermanentClosure above.
+const INVENTED_NOTICE_EMBELLISHMENT_RE =
+  /\bplace your (?:final|last) orders?\b|\bfinal orders?\b|\blast chance\b|\bdon'?t miss out\b|\bact now\b|\bbefore it'?s too late\b|\bhurry\b|\bprepare for\b|\bget ready for\b|\bstay tuned\b|\bcoming soon\b|\bspecial event\b|\bwe look forward to (?:serving|seeing) you\b|\bsee you (?:again )?soon\b|\bwe appreciate your (?:understanding|patience)\b|\bthank you for your (?:understanding|patience)\b/i;
+
+/** Does this generated text add invented urgency, a fabricated future plan/
+ * event, or an unrequested farewell flourish to a plain operational
+ * notice? Used only after requestSignalsPlainOperationalNotice() already
+ * confirmed the request itself never invited that kind of language. */
+export function textAddsInventedEmbellishment(text) {
+  return INVENTED_NOTICE_EMBELLISHMENT_RE.test(String(text || ""));
+}
+
+/** The one function callers actually need: true iff a plain operational
+ * request came back with invented urgency/future-plans/farewell language
+ * it never asked for — the exact live defect (distinct from, and checked
+ * alongside, detectPermanentClosureMismatch above). */
+export function detectInventedOperationalContent(requestText, generatedText) {
+  return requestSignalsPlainOperationalNotice(requestText) && textAddsInventedEmbellishment(generatedText);
+}

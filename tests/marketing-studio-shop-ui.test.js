@@ -74,6 +74,39 @@ test("a flyer's readiness (eyebrow label + Approve) is driven by content.render_
   assert.match(uiSrc, /render_status\s*===\s*"rendered"/, "must check the real render_status, matching the server's own flyerApprovalBlockReason rule");
 });
 
+// Real, live-found failure (Undo): a flyer revision kicks off an async
+// canvas render + finalize_flyer_render upload for whatever asset was
+// current when it started. If the florist clicks Undo (or sends another
+// revision) before that finishes, the item moves on to a different asset
+// — an in-flight render that doesn't check for that can silently overwrite
+// the correctly-reverted card with the abandoned version's image.
+test("mountFlyerPreview discards a stale render result — the item may have moved to a different asset (Undo, another revision) while the render was in flight", () => {
+  assert.match(uiSrc, /async function mountFlyerPreview\(item\)/, "the render function must exist");
+  const start = uiSrc.indexOf("async function mountFlyerPreview(item)");
+  const end = uiSrc.indexOf("\n  function renderEyebrow", start);
+  const fnBody = uiSrc.slice(start, end);
+  assert.match(fnBody, /const assetIdAtStart = item\.asset\?\.id;/, "must capture which asset this render is actually for, at the moment it starts");
+  assert.match(fnBody, /const isStale = \(\) => \{/, "must define a real staleness check against the CURRENT state, not a one-time snapshot");
+  assert.match(fnBody, /current\.asset\?\.id !== assetIdAtStart/, "staleness must compare against the item's CURRENT asset id, not just whether the item still exists");
+  // The check must actually run before every visible/state-mutating side
+  // effect — not just be defined and forgotten.
+  const canvasIdx = fnBody.indexOf("FlorisynFlyerRenderer.renderFlyer");
+  const finalizeIdx = fnBody.indexOf('studioApi("finalize_flyer_render"');
+  const applyIdx = fnBody.indexOf("item.asset.content = saved.asset.content;");
+  assert.ok(canvasIdx > -1 && finalizeIdx > -1 && applyIdx > -1, "expected to find the render, finalize, and apply steps");
+  assert.match(fnBody.slice(canvasIdx, finalizeIdx), /if \(isStale\(\)\) return;/, "must check staleness between drawing the canvas and uploading it");
+  assert.match(fnBody.slice(finalizeIdx, applyIdx), /if \(isStale\(\)\) return;/, "must check staleness between uploading and applying the result to the DOM/state");
+});
+
+test("mountFlyerPreview never starts two concurrent renders for the exact same asset — a busy-state render() and a post-load render() can both invoke it", () => {
+  const start = uiSrc.indexOf("async function mountFlyerPreview(item)");
+  const end = uiSrc.indexOf("\n  function renderEyebrow", start);
+  const fnBody = uiSrc.slice(start, end);
+  assert.match(fnBody, /if \(state\.flyerRendering\[item\.id\] === assetIdAtStart\) return;/, "must bail out of a second concurrent render for the same asset");
+  assert.match(fnBody, /state\.flyerRendering\[item\.id\] = assetIdAtStart;/, "must mark itself in-flight for this exact asset");
+  assert.match(fnBody, /delete state\.flyerRendering\[item\.id\];/, "must clear its in-flight marker when done (success or failure), so a later revision's own render isn't blocked forever");
+});
+
 test("a real Retry action exists for a flyer that failed to prepare, and it never calls generate_content or revise_content (no AI call, no cost)", () => {
   assert.match(uiSrc, /data-ms-act="retry-flyer"/, "the Retry button must exist");
   assert.match(uiSrc, /function retryFlyerRender/, "a dedicated retry function must exist");

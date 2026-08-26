@@ -273,8 +273,14 @@ test("generate_content: a text_post's real generation persists brand_traits_used
       { data: { marketing_monthly_budget_cents: null }, error: null }, // budget: no shop default configured
       { data: null, error: null }, // content_items update -> generating
       { data: { name: "Test Florals" }, error: null }, // shopRow
-      { data: null, error: null }, // loadBrandBrain
-      { data: null, error: null }, // loadStyleMemory
+      // A trait can only ride the model's real brand_traits_used/
+      // visual_traits_used report back onto the persisted asset when its
+      // own text is actually present in the real summary the model was
+      // given (see ai-creative-engine.js's traitsGroundedInSummary) — real
+      // active preferences here, matching the mock's "artisan"/"elegant",
+      // is what makes that summary actually say so.
+      { data: { preferences: { preferred_words: { traits: [{ text: "artisan", polarity: "positive", active: true }] } } }, error: null }, // loadBrandBrain
+      { data: { preferences: { mood: { traits: [{ text: "elegant", polarity: "positive", active: true }] } } }, error: null }, // loadStyleMemory
       { data: [], error: null }, // loadGroundedInventory (no real inventory rows in this test's shop)
       { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — customers (none)
       { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — orders (none)

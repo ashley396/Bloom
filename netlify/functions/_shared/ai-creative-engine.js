@@ -63,6 +63,31 @@ function normalizeTraitsUsed(raw) {
     : [];
 }
 
+/**
+ * Real, live-found failure: the model self-reports brand_traits_used/
+ * visual_traits_used as "what I actually used from your learned style" —
+ * but that self-report was never checked against the summary text it was
+ * actually given, so a fresh shop with no learned style yet (empty
+ * summary) could still get back invented "traits" (a phrase from its own
+ * generated caption or visual_brief, misrepresented as learned style).
+ * Those traits are read straight back into real Brand Brain / My Style
+ * storage on the next Approve (see marketing-studio.js's approve_content),
+ * and shown to the florist as "your learned style" (marketing-studio-shop-
+ * ui.js's groundingHtml) — so an ungrounded trait is never just cosmetic,
+ * it's a real contamination path. A trait only survives here if its own
+ * text literally appears in the summary that was actually fed to the
+ * model for this call; an empty/missing summary means nothing could have
+ * legitimately been "used" from it, so every trait is dropped.
+ */
+function traitsGroundedInSummary(traits, summaryText) {
+  const summary = String(summaryText || "").toLowerCase().trim();
+  if (!summary) return [];
+  return traits.filter((t) => {
+    const text = String(t.text || "").toLowerCase().trim();
+    return text.length > 0 && summary.includes(text);
+  });
+}
+
 /** Generates one finished, platform-formatted social post. Never throws —
  * returns { ok:false, error } on any failure so a caller can persist that
  * outcome and keep the rest of a multi-step job running. */
@@ -90,10 +115,13 @@ export async function generateSocialPost({ persona = "Lily", channel, occasion, 
         asset_requirements: Array.isArray(post.asset_requirements) ? post.asset_requirements.slice(0, 10).map(String) : [],
         // Anti-fabrication (same contract as ai-intent-router.js's
         // buildVisualBrief traits_used): only what the model itself
-        // reports actually using — a caller must never guess or infer
-        // which supplied traits shaped the output.
-        brand_traits_used: normalizeTraitsUsed(post.brand_traits_used),
-        visual_traits_used: normalizeTraitsUsed(post.visual_traits_used)
+        // reports actually using, AND only when that trait's own text is
+        // actually present in the summary this call was given — the
+        // model's self-report alone is never trusted (see
+        // traitsGroundedInSummary's docstring for the real failure this
+        // closes: invented "learned style" reaching Brand Brain/My Style).
+        brand_traits_used: traitsGroundedInSummary(normalizeTraitsUsed(post.brand_traits_used), brandVoiceSummary),
+        visual_traits_used: traitsGroundedInSummary(normalizeTraitsUsed(post.visual_traits_used), visualStyleSummary)
       },
       model: result.model
     };
@@ -224,7 +252,9 @@ Rules:
 - headline: short, bold, the first thing read.
 - body: the supporting line(s) — can be empty string if the headline says everything.
 - cta: the one action line (a phone number to call, "Order online," "Stop by today," etc).
-- Never invent a price, discount, date, or promise Florisyn can't confirm — if the florist didn't give you a fact, don't make one up.`;
+- Never invent a price, discount, date, or promise Florisyn can't confirm — if the florist didn't give you a fact, don't make one up.
+- Preserve the florist's own meaning exactly — never add a reason, an urgency phrase, a future plan, or a farewell/gratitude line they didn't write. A plain operational notice (a temporary closing, a schedule change, a phone number to call) stays plain: no "final orders," no "prepare for," no "we look forward to serving you again," no invented event or sentiment of any kind. If the florist only said the shop is closing early and gave a number to call, that is the ENTIRE message — say only that, just more concisely if needed, never more.
+- If the request describes a TEMPORARY or one-time schedule change (closing early, closed today, closing at a specific time today, temporarily closed, closed for the holiday, a delivery cutoff) never write it as if the business itself is shutting down — no farewell/sadness/gratitude/"last day" language, and never imply a future event or reopening that wasn't mentioned. Only write permanent-closure language if the request explicitly says the closure is permanent.`;
 }
 
 const FLYER_CONTENT_SCHEMA = {

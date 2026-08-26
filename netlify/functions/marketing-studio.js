@@ -130,6 +130,7 @@ import {
   buildImageRevisionBrief,
   buildWordingRevisionRequestText,
   detectPermanentClosureMismatch,
+  detectInventedOperationalContent,
   requestNeedsFlyerWording,
   instructionAffectsFlyerWording,
   instructionAffectsFlyerImage
@@ -998,20 +999,47 @@ export function createMarketingStudioHandler(deps = {}) {
           const visualStyleSummary = buildVisualStyleSummary(visualPrefs);
           const primaryPlatform = variants[0]?.platform || "facebook";
 
-          // The Facebook caption ALWAYS revises — it's the same real
-          // wording-revision path a social_copy asset already uses,
-          // completely independent of what's printed on the graphic.
+          // Real, live-found failure: the Facebook caption used to ALWAYS
+          // revise, even for a pure "Regenerate image — keep the exact
+          // same wording" request that never mentioned the caption at all
+          // — the one-click Regenerate image button hit this every time.
+          // A caption-affecting instruction (anything that isn't a pure
+          // image-only regeneration) still revises the caption exactly as
+          // before; a pure image-only revision now leaves the caption
+          // byte-for-byte untouched, the same guarantee an "image"-type
+          // asset's own revision path already gives its caption.
           const priorCaption = currentAsset.content?.caption || "";
-          const captionRequestText = buildWordingRevisionRequestText({ instruction, brief: currentItem.data.brief, priorText: priorCaption });
-          const gen = await generateSocialPost({ persona: "Lily", channel: primaryPlatform, occasion: currentItem.data.title, shop: { name: shopName }, requestText: captionRequestText, brandVoiceSummary, visualStyleSummary });
-          if (!gen.ok) return json(400, { error: gen.error });
-          if (!factsPreserved(priorCaption, gen.content.body)) {
-            return json(400, { error: "That revision would have changed an exact phone number, date, price, or link in the caption — nothing was changed. Try rephrasing the request." });
-          }
-          if (detectPermanentClosureMismatch(`${currentItem.data.brief} ${instruction}`, `${gen.content.headline} ${gen.content.body}`)) {
-            return json(400, {
-              error: "That revision came back reading like a permanent closing, but nothing about this post asked for that — nothing was changed. Try rephrasing the request."
-            });
+          const imageOnlyRevision = instructionAffectsFlyerImage(instruction) && !instructionAffectsFlyerWording(instruction);
+          let gen;
+          if (imageOnlyRevision) {
+            gen = {
+              model: currentAsset.model || "cloudflare",
+              content: {
+                headline: currentAsset.content?.headline,
+                body: priorCaption,
+                cta: currentAsset.content?.cta,
+                hashtags: currentAsset.content?.hashtags || [],
+                brand_traits_used: currentAsset.content?.brand_traits_used || [],
+                visual_traits_used: currentAsset.content?.visual_traits_used || []
+              }
+            };
+          } else {
+            const captionRequestText = buildWordingRevisionRequestText({ instruction, brief: currentItem.data.brief, priorText: priorCaption });
+            gen = await generateSocialPost({ persona: "Lily", channel: primaryPlatform, occasion: currentItem.data.title, shop: { name: shopName }, requestText: captionRequestText, brandVoiceSummary, visualStyleSummary });
+            if (!gen.ok) return json(400, { error: gen.error });
+            if (!factsPreserved(priorCaption, gen.content.body)) {
+              return json(400, { error: "That revision would have changed an exact phone number, date, price, or link in the caption — nothing was changed. Try rephrasing the request." });
+            }
+            if (detectPermanentClosureMismatch(`${currentItem.data.brief} ${instruction}`, `${gen.content.headline} ${gen.content.body}`)) {
+              return json(400, {
+                error: "That revision came back reading like a permanent closing, but nothing about this post asked for that — nothing was changed. Try rephrasing the request."
+              });
+            }
+            if (detectInventedOperationalContent(`${currentItem.data.brief} ${instruction}`, `${gen.content.headline} ${gen.content.body}`)) {
+              return json(400, {
+                error: "That revision came back with wording you didn't ask for — an invented reason, urgency, or future plan — nothing was changed. Try rephrasing the request."
+              });
+            }
           }
 
           // The deterministic text layer (headline/body/cta actually
@@ -1037,6 +1065,16 @@ export function createMarketingStudioHandler(deps = {}) {
             const newFlyerText = `${flyerGen.content.headline} ${flyerGen.content.body} ${flyerGen.content.cta}`;
             if (!factsPreserved(priorFlyerText, newFlyerText)) {
               return json(400, { error: "That revision would have changed an exact phone number, date, price, or link on the flyer itself — nothing was changed. Try rephrasing the request." });
+            }
+            if (detectPermanentClosureMismatch(`${currentItem.data.brief} ${instruction}`, newFlyerText)) {
+              return json(400, {
+                error: "That revision came back reading like a permanent closing, but nothing about this flyer asked for that — nothing was changed. Try rephrasing the request."
+              });
+            }
+            if (detectInventedOperationalContent(`${currentItem.data.brief} ${instruction}`, newFlyerText)) {
+              return json(400, {
+                error: "That revision came back with wording you didn't ask for — an invented reason, urgency, or future plan — nothing was changed. Try rephrasing the request."
+              });
             }
             flyerFields = flyerGen.content;
             renderStale = true;
@@ -1151,6 +1189,11 @@ export function createMarketingStudioHandler(deps = {}) {
             return json(400, {
               error:
                 "That revision came back reading like a permanent closing, but nothing about this post asked for that — nothing was changed. Try rephrasing the request."
+            });
+          }
+          if (detectInventedOperationalContent(`${currentItem.data.brief} ${instruction}`, `${gen.content.headline} ${gen.content.body}`)) {
+            return json(400, {
+              error: "That revision came back with wording you didn't ask for — an invented reason, urgency, or future plan — nothing was changed. Try rephrasing the request."
             });
           }
           const persisted = await persistGeneratedAsset(client, {
@@ -1636,6 +1679,19 @@ export function createMarketingStudioHandler(deps = {}) {
               "That came back reading like a permanent closing, but your request sounds like a temporary/early closing — nothing was saved. Try Generate again, or say \"closing permanently\" if that's really what you mean."
           });
         }
+        // Real, live-found failure: a plain "closing early, call to order"
+        // request came back with invented urgency/future-plans/farewell
+        // wording never asked for (see detectInventedOperationalContent's
+        // docstring). Checked against the SAME headline+body a real
+        // florist actually reads — never a hardcoded phrase, generic
+        // across every shop's plain notice.
+        if (detectInventedOperationalContent(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`)) {
+          await revertToIdea();
+          return json(400, {
+            error:
+              "That came back with wording you didn't ask for — an invented reason, urgency, or future plan — nothing was saved. Try Generate again."
+          });
+        }
 
         let assetId = null;
         let imageUrl = null;
@@ -1666,6 +1722,28 @@ export function createMarketingStudioHandler(deps = {}) {
             if (!flyerGen.ok) {
               await revertToIdea();
               return json(400, { error: flyerGen.error });
+            }
+            // Real, live-found failure: the flyer's own on-image wording
+            // (what a florist actually sees printed on the graphic) is a
+            // SEPARATE generation call from the Facebook caption above —
+            // checked separately here for the exact same two failure
+            // modes, since a mismatch/invented-embellishment guard on only
+            // the caption never protected what's actually drawn on the
+            // flyer itself.
+            const flyerText = `${flyerGen.content.headline} ${flyerGen.content.body} ${flyerGen.content.cta}`;
+            if (detectPermanentClosureMismatch(currentItem.data.brief, flyerText)) {
+              await revertToIdea();
+              return json(400, {
+                error:
+                  "The flyer text came back reading like a permanent closing, but your request sounds like a temporary/early closing — nothing was saved. Try Generate again, or say \"closing permanently\" if that's really what you mean."
+              });
+            }
+            if (detectInventedOperationalContent(currentItem.data.brief, flyerText)) {
+              await revertToIdea();
+              return json(400, {
+                error:
+                  "The flyer text came back with wording you didn't ask for — an invented reason, urgency, or future plan — nothing was saved. Try Generate again."
+              });
             }
             const template = pickFlyerTemplate({ occasion: currentItem.data.title });
             const aspectRatio = pickAspectRatio(primaryPlatform);

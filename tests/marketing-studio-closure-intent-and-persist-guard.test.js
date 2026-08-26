@@ -6,6 +6,9 @@ import {
   requestSignalsPermanentClosure,
   textReadsAsPermanentClosure,
   detectPermanentClosureMismatch,
+  requestSignalsPlainOperationalNotice,
+  textAddsInventedEmbellishment,
+  detectInventedOperationalContent,
   factsPreserved
 } from "../netlify/functions/_shared/marketing-content-revision.js";
 import { createMarketingStudioHandler } from "../netlify/functions/marketing-studio.js";
@@ -281,6 +284,102 @@ test("revise_content (real dispatch): 'Remember this style' DOES persist — pro
   assert.equal(JSON.parse(res.body).persisted, true);
   const styleUpsert = client.calls.find((c) => c.table === "ai_style_memory" && c.ops.some((op) => op[0] === "upsert"));
   assert.ok(styleUpsert, "'Remember this style' must actually write to ai_style_memory, matching the task's required behavior");
+});
+
+// A THIRD real live-beta defect (Ashley's own real branch-deploy test,
+// 2026-08-26): "closing at 2:30, call to order" — a plain operational
+// notice — came back with invented wording never asked for ("Place your
+// final orders now," "Prepare for a special event," "We look forward to
+// serving you again soon"). None of that is permanent-closure language
+// (the guard above wouldn't catch it) — a separate, deterministic
+// backstop for a distinct failure mode: preserving meaning, not just
+// avoiding one specific bad framing.
+
+test("invented-embellishment guard: a plain operational notice is recognized, a sale/event request is not (festive/urgent language is legitimate there)", () => {
+  assert.equal(requestSignalsPlainOperationalNotice("closing at 2:30 today, call 606-506-4039 to order"), true);
+  assert.equal(requestSignalsPlainOperationalNotice("new hours starting Monday"), true);
+  assert.equal(requestSignalsPlainOperationalNotice("order by Thursday for Mother's Day delivery"), true);
+  assert.equal(requestSignalsPlainOperationalNotice("20% off sale this weekend"), false, "a real sale invites urgency — not this guard's job");
+  assert.equal(requestSignalsPlainOperationalNotice("join us for our anniversary event"), false, "a real event invites festive language — not this guard's job");
+  assert.equal(requestSignalsPlainOperationalNotice("post about our fresh roses"), false, "no operational signal at all");
+});
+
+test("invented-embellishment guard: the real invented phrases from the live defect are all caught", () => {
+  for (const phrase of [
+    "Place your final orders now",
+    "final orders",
+    "Prepare for a special event",
+    "get ready for something wonderful",
+    "We look forward to serving you again soon",
+    "see you again soon",
+    "We appreciate your understanding",
+    "Thank you for your patience",
+    "coming soon",
+    "last chance"
+  ]) {
+    assert.equal(textAddsInventedEmbellishment(phrase), true, `"${phrase}" must be recognized as invented embellishment`);
+  }
+});
+
+test("invented-embellishment guard: an honest, plain temporary-closing message is never flagged", () => {
+  const goodOutput = "Closing early today at 2:30 PM. Need to place an order? Call 606-506-4039.";
+  assert.equal(textAddsInventedEmbellishment(goodOutput), false);
+  assert.equal(detectInventedOperationalContent("closing at 2:30 today, call 606-506-4039", goodOutput), false);
+});
+
+test("invented-embellishment guard: the exact live failure is caught end to end", () => {
+  const request = "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.";
+  const badOutput =
+    "We're closing at 2:30 today. Place your final orders now! Prepare for a special event — we look forward to serving you again soon. Call 606-506-4039.";
+  assert.equal(detectInventedOperationalContent(request, badOutput), true);
+});
+
+test("invented-embellishment guard: never fires on a request that already invites that language (a real sale/event)", () => {
+  const request = "We're having a 20% off sale this weekend — join us!";
+  const output = "Don't miss out — last chance for 20% off this weekend! We look forward to seeing you soon.";
+  assert.equal(detectInventedOperationalContent(request, output), false, "a real sale/event request legitimately invites urgency/festive language");
+});
+
+test("generate_content (real dispatch): a plain closing notice that comes back with invented urgency/future-plans wording is rejected (400) and reverted to idea", async () => {
+  const mock = mockCloudflareCopyOnce({
+    platform: "facebook",
+    headline: "Closing early today",
+    body: "We're closing at 2:30 today. Place your final orders now! Prepare for a special event — we look forward to serving you again soon. Call 606-506-4039.",
+    cta: "Call 606-506-4039",
+    visual_brief: "A bright, professional shot of the shop's fresh flower display.",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  });
+  try {
+    const client = createFakeSupabaseClient([
+      { data: { id: "item-1", content_type: "text_post", title: "t", brief: "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.", status: "idea" }, error: null },
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null },
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: null, error: null },
+      { data: { name: "Lilies in Bloom" }, error: null },
+      { data: null, error: null },
+      { data: null, error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: null, error: null }, // recordUsage("copy")
+      { data: null, error: null } // revertToIdea's own update
+    ]);
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-1" }));
+    assert.equal(res.statusCode, 400, `expected the invented wording to be rejected: ${res.body}`);
+    assert.match(JSON.parse(res.body).error, /wording you didn't ask for/i);
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    assert.equal(assetInsert, undefined, "no asset must ever be persisted for a rejected generation");
+    const revertCall = client.calls.find(
+      (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
+    );
+    assert.ok(revertCall, "the item must be reverted back to idea");
+  } finally {
+    mock.restore();
+  }
 });
 
 test("revise_content (real dispatch): a wording revision that comes back reading as a permanent closure is rejected too, not just first-time generation", async () => {

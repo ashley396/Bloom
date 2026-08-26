@@ -26,23 +26,34 @@ export const ASPECT_RATIOS = Object.freeze({
 /** Layout regions as ratios of the canvas (0–1), so one definition works
  * at every resolution in ASPECT_RATIOS above. `align` controls text
  * alignment inside the region; `emphasis` is a hint the renderer uses to
- * pick font weight/size, not a literal pixel size. */
+ * pick font weight/size, not a literal pixel size.
+ *
+ * Visual-quality directive (Ashley, live-tested feedback): every region
+ * below is bottom-anchored so the renderer's gradient band (see
+ * flyer-renderer.js's computeBandRect/drawGradientBand) only ever covers
+ * the LOWER portion of the canvas — the floral photo stays full-bleed and
+ * fully visible above it, never a centered box covering most of the
+ * flowers. There is no separate "panel" region anymore; the band's own
+ * top edge is derived from these regions' own minimum y, so moving a
+ * region here directly changes how much of the photo the band covers. */
 const REGIONS_STANDARD = {
-  headline: { x: 0.08, y: 0.1, w: 0.84, h: 0.22, align: "center", emphasis: "hero" },
-  body: { x: 0.1, y: 0.36, w: 0.8, h: 0.28, align: "center", emphasis: "body" },
-  cta: { x: 0.1, y: 0.68, w: 0.8, h: 0.12, align: "center", emphasis: "cta" },
-  logo: { x: 0.5, y: 0.06, w: 0.2, h: 0.1, align: "center", emphasis: "logo", anchor: "top" },
-  contact: { x: 0.1, y: 0.88, w: 0.8, h: 0.08, align: "center", emphasis: "footnote" }
+  headline: { x: 0.07, y: 0.565, w: 0.86, h: 0.135, align: "center", emphasis: "hero" },
+  body: { x: 0.09, y: 0.7, w: 0.82, h: 0.095, align: "center", emphasis: "body" },
+  cta: { x: 0.28, y: 0.805, w: 0.44, h: 0.07, align: "center", emphasis: "cta" },
+  logo: { x: 0.5, y: 0.035, w: 0.16, h: 0.08, align: "center", emphasis: "logo", anchor: "top" },
+  contact: { x: 0.07, y: 0.895, w: 0.86, h: 0.05, align: "center", emphasis: "footnote" }
 };
 
 const REGIONS_NOTICE = {
   // Built for exactly your example 3 — a closing time and a phone number
-  // must both be unmissable, everything else is secondary.
-  headline: { x: 0.06, y: 0.14, w: 0.88, h: 0.2, align: "center", emphasis: "hero" },
-  body: { x: 0.06, y: 0.38, w: 0.88, h: 0.24, align: "center", emphasis: "hero" },
-  cta: { x: 0.06, y: 0.66, w: 0.88, h: 0.16, align: "center", emphasis: "hero" },
-  logo: { x: 0.5, y: 0.04, w: 0.16, h: 0.08, align: "center", emphasis: "logo", anchor: "top" },
-  contact: { x: 0.06, y: 0.9, w: 0.88, h: 0.06, align: "center", emphasis: "footnote" }
+  // must both be unmissable, everything else is secondary. Still
+  // bottom-anchored (the photo stays visible above), just a taller band
+  // than REGIONS_STANDARD since this content is more urgent/critical.
+  headline: { x: 0.06, y: 0.46, w: 0.88, h: 0.15, align: "center", emphasis: "hero" },
+  body: { x: 0.06, y: 0.625, w: 0.88, h: 0.13, align: "center", emphasis: "hero" },
+  cta: { x: 0.22, y: 0.775, w: 0.56, h: 0.08, align: "center", emphasis: "hero" },
+  logo: { x: 0.5, y: 0.03, w: 0.14, h: 0.07, align: "center", emphasis: "logo", anchor: "top" },
+  contact: { x: 0.06, y: 0.89, w: 0.88, h: 0.05, align: "center", emphasis: "footnote" }
 };
 
 export const FLYER_TEMPLATES = Object.freeze({

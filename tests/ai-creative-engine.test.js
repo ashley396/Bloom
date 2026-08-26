@@ -4,6 +4,7 @@ import {
   generateSocialPost,
   generateVideoConcept,
   generateWebsiteSectionDraft,
+  generateFlyerContent,
   persistGeneratedAsset
 } from "../netlify/functions/_shared/ai-creative-engine.js";
 import { createFakeSupabaseClient } from "./helpers/fake-supabase-client.mjs";
@@ -147,6 +148,64 @@ test("generateSocialPost: a model that reports no traits_used at all returns emp
     });
     assert.deepEqual(result.content.brand_traits_used, []);
     assert.deepEqual(result.content.visual_traits_used, []);
+  } finally {
+    mock.restore();
+  }
+});
+
+// Real, live-found failure (2026-08-26, shop owner's own account): the
+// interface displayed "your learned style (we appreciate your
+// understanding, prepare for a special event, quiet storefront photo)" on
+// a brand-new shop with no learned style yet — the model self-reported
+// brand_traits_used/visual_traits_used that were never actually present
+// in the summaries it was given, and those invented "traits" would have
+// been written straight into real Brand Brain/My Style storage on the
+// next Approve. A trait only survives now if its own text literally
+// appears in the summary this call was actually given.
+test("generateSocialPost: an EMPTY brandVoiceSummary/visualStyleSummary (a fresh shop, nothing learned yet) drops every self-reported trait — nothing could have legitimately been \"used\" from nothing", async () => {
+  const mock = mockCloudflareOnce({
+    platform: "facebook",
+    headline: "h",
+    body: "b",
+    cta: "c",
+    visual_brief: "v",
+    hashtags: [],
+    asset_requirements: [],
+    // The model hallucinated these — no real summary was ever supplied.
+    brand_traits_used: [{ category: "tone", text: "we appreciate your understanding" }],
+    visual_traits_used: [{ category: "mood", text: "quiet storefront photo" }, { category: "event", text: "prepare for a special event" }]
+  });
+  try {
+    const result = await generateSocialPost({ channel: "facebook", requestText: "x" }); // no brandVoiceSummary/visualStyleSummary at all
+    assert.deepEqual(result.content.brand_traits_used, []);
+    assert.deepEqual(result.content.visual_traits_used, []);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: a self-reported trait whose text is NOT actually present in the real summary is dropped, even when other traits from the same call ARE grounded", async () => {
+  const mock = mockCloudflareOnce({
+    platform: "facebook",
+    headline: "h",
+    body: "b",
+    cta: "c",
+    visual_brief: "v",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [
+      { category: "preferred_words", text: "artisan" }, // real — present in the summary below
+      { category: "tone", text: "we appreciate your understanding" } // invented — never in the summary
+    ],
+    visual_traits_used: []
+  });
+  try {
+    const result = await generateSocialPost({
+      channel: "facebook",
+      requestText: "x",
+      brandVoiceSummary: "preferred words: artisan"
+    });
+    assert.deepEqual(result.content.brand_traits_used, [{ category: "preferred_words", text: "artisan" }]);
   } finally {
     mock.restore();
   }
@@ -444,6 +503,27 @@ test("generateSocialPost: a realistic shop with brand + style + inventory + audi
     // so first to be cut by any length cap) must both survive intact.
     assert.match(userMessage, /never name a flower, color, or variety that isn't on it/i);
     assert.match(userMessage, /never state an audience size, subscriber count, or customer-segment number/i);
+  } finally {
+    mock.restore();
+  }
+});
+
+// Real, live-found failure (Ashley's own real test): a plain "closing at
+// 2:30, call to order" flyer request came back with invented wording —
+// "Place your final orders now," "Prepare for a special event," "We look
+// forward to serving you again soon" — none of it asked for. The prompt
+// itself is the first line of defense (the deterministic
+// detectInventedOperationalContent guard in marketing-studio.js is the
+// backstop) — this proves the actual instruction text sent to the model
+// carries the real rule, not just that the code intends to.
+test("generateFlyerContent: the real prompt sent to the model explicitly forbids inventing a reason, urgency, future plan, or farewell", async () => {
+  const mock = mockCloudflareOnce({ headline: "Closing at 2:30 today", body: "Call 606-506-4039 to place an order.", cta: "Call now" });
+  try {
+    await generateFlyerContent({ message: "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order." });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /never add a reason, an urgency phrase, a future plan, or a farewell/i);
+    assert.match(userMessage, /no "final orders,"/i);
+    assert.match(userMessage, /never imply a future event or reopening/i);
   } finally {
     mock.restore();
   }

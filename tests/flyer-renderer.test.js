@@ -197,6 +197,54 @@ test("computePanelRect: a template with no recognized regions degrades to a sane
   assert.ok(rect.w > 0 && rect.h > 0);
 });
 
+// Visual-quality directive (Ashley, live-tested feedback): "remove the
+// large white or beige content box... the floral image must fill the
+// complete canvas edge to edge." computeBandRect is the actual geometry
+// the renderer now draws against — a full-WIDTH band that only ever
+// covers the bottom portion of the canvas, never a centered/inset box.
+test("computeBandRect: always spans the FULL WIDTH (x=0, w=width) — never inset, so it can never read as a box floating over the photo", () => {
+  const template = {
+    regions: {
+      headline: { x: 0.1, y: 0.55, w: 0.8, h: 0.15 },
+      body: { x: 0.1, y: 0.7, w: 0.8, h: 0.1 },
+      cta: { x: 0.3, y: 0.8, w: 0.4, h: 0.07 },
+      contact: { x: 0.1, y: 0.9, w: 0.8, h: 0.05 }
+    }
+  };
+  const rect = renderer.computeBandRect(template, 1000, 1000);
+  assert.equal(rect.x, 0, "the band must start at the very left edge");
+  assert.equal(rect.w, 1000, "the band must span the full canvas width");
+});
+
+test("computeBandRect: only covers the BOTTOM portion of the canvas — the upper photo stays completely uncovered", () => {
+  const template = {
+    regions: {
+      headline: { x: 0.1, y: 0.55, w: 0.8, h: 0.15 },
+      body: { x: 0.1, y: 0.7, w: 0.8, h: 0.1 },
+      cta: { x: 0.3, y: 0.8, w: 0.4, h: 0.07 },
+      contact: { x: 0.1, y: 0.9, w: 0.8, h: 0.05 }
+    }
+  };
+  const rect = renderer.computeBandRect(template, 1000, 1000);
+  // The topmost real text region starts at y=0.55 — the band's own top
+  // must sit at or below roughly that fraction (a small breathing margin
+  // above it, never far above it), and must reach exactly to the bottom.
+  assert.ok(rect.y >= 400, `expected the band to start well below the canvas midpoint, got y=${rect.y}`);
+  assert.equal(rect.y + rect.h, 1000, "the band must reach exactly to the bottom of the canvas");
+});
+
+test("computeBandRect: a template with no recognized regions degrades to a sane default rather than throwing", () => {
+  const rect = renderer.computeBandRect({ regions: {} }, 1000, 1000);
+  assert.ok(rect.w > 0 && rect.h > 0);
+  assert.equal(rect.x, 0);
+});
+
+test("computeBandRect: never produces a negative height even for a region pinned at the very top", () => {
+  const rect = renderer.computeBandRect({ regions: { headline: { x: 0, y: 0, w: 1, h: 1 } } }, 1000, 1000);
+  assert.ok(rect.h >= 0);
+  assert.ok(rect.y >= 0);
+});
+
 test("paintBrandBackground: a brand_gradient template with no revision uses the shop's own brand colors via the gradient", () => {
   const ctx = fakeCtx();
   let stops = [];
