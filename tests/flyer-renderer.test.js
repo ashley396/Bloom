@@ -252,3 +252,72 @@ test("paintBrandBackground: a brand_gradient template with no revision uses the 
   renderer.paintBrandBackground(ctx, 1080, 1080, { palette: { background: "brand_gradient" } }, { primaryColor: "#123456", accentColor: "#abcdef" }, { paletteInclude: [], paletteExclude: [] });
   assert.deepEqual(stops, ["#123456", "#abcdef"]);
 });
+
+// Visual-quality directive (Ashley, live-tested feedback — second round):
+// "these flyers can now be made in any color, it is not set to navy or
+// dark colors — this is a flower shop, it should [be] happiness." The
+// gradient band's color used to be hardcoded navy (rgba(9,15,26,...)) no
+// matter what — these tests prove the band now derives its color from
+// whatever brand color it's given, self-adjusting for text contrast
+// rather than always landing on the same dark neutral.
+test("darkenForBandContrast: an already-dark color passes through almost unchanged", () => {
+  const dark = renderer.darkenForBandContrast("#1a1420", 0.09);
+  assert.ok(Math.abs(dark.r - 0x1a) <= 2 && Math.abs(dark.g - 0x14) <= 2 && Math.abs(dark.b - 0x20) <= 2, `expected near-unchanged, got ${JSON.stringify(dark)}`);
+});
+
+test("darkenForBandContrast: a bright, happy brand color (hot pink) still darkens enough for light text to read, but stays visibly pink — not crushed to black or navy", () => {
+  const dark = renderer.darkenForBandContrast("#ff4fa3", 0.09);
+  assert.ok(renderer.relativeLuminance(dark.r, dark.g, dark.b) <= 0.11, `expected a dark-enough result for contrast, got luminance ${renderer.relativeLuminance(dark.r, dark.g, dark.b)}`);
+  // Still recognizably pink/magenta, not gray or navy: red channel clearly dominant.
+  assert.ok(dark.r > dark.g && dark.r > dark.b, `expected the pink hue to survive darkening, got ${JSON.stringify(dark)}`);
+  assert.ok(dark.r > 20, "must never crush all the way to near-black");
+});
+
+test("darkenForBandContrast: never returns pure black even for a very light input — floors at a visible scale", () => {
+  const dark = renderer.darkenForBandContrast("#fdf6ec", 0.02); // an unreasonably strict target
+  assert.ok(dark.r > 0 || dark.g > 0 || dark.b > 0, "must never floor all the way to (0,0,0)");
+});
+
+test("darkenForBandContrast: a malformed/missing hex never throws — falls back to a warm plum, never navy", () => {
+  const dark = renderer.darkenForBandContrast(null, 0.09);
+  assert.ok(dark.r > dark.b, "the fallback must read as warm (red-leaning), not navy (blue-leaning)");
+});
+
+function fakeBandCtx() {
+  const stops = [];
+  return {
+    stops,
+    save() {},
+    restore() {},
+    fillRect() {},
+    createLinearGradient: () => ({ addColorStop: (offset, color) => stops.push(color) })
+  };
+}
+
+test("drawGradientBand: two different shop brand colors produce two genuinely different band gradients — proves the band is no longer a fixed hardcoded color", () => {
+  const rect = { x: 0, y: 500, w: 1000, h: 500 };
+  const pinkCtx = fakeBandCtx();
+  renderer.drawGradientBand(pinkCtx, rect, { primary: "#e2437a" });
+  const greenCtx = fakeBandCtx();
+  renderer.drawGradientBand(greenCtx, rect, { primary: "#3c6b3f" });
+  assert.notDeepEqual(pinkCtx.stops, greenCtx.stops, "different brand colors must produce different band gradients");
+});
+
+test("drawGradientBand: with no brand color supplied at all, falls back to a warm plum default — never the old hardcoded navy", () => {
+  const rect = { x: 0, y: 500, w: 1000, h: 500 };
+  const ctx = fakeBandCtx();
+  renderer.drawGradientBand(ctx, rect, null);
+  for (const stop of ctx.stops) {
+    assert.doesNotMatch(stop, /rgba\(9,15,26/, "the old hardcoded navy top-of-band color must be gone");
+    assert.doesNotMatch(stop, /rgba\(7,12,22/, "the old hardcoded navy bottom-of-band color must be gone");
+  }
+});
+
+test("drawGradientBand: still keeps the same transparent-top-to-opaque-bottom structure Ashley approved — only the hue changed, not the shape", () => {
+  const rect = { x: 0, y: 500, w: 1000, h: 500 };
+  const ctx = fakeBandCtx();
+  renderer.drawGradientBand(ctx, rect, { primary: "#b93870" });
+  assert.equal(ctx.stops.length, 3);
+  assert.match(ctx.stops[0], /,0\)$/, "top stop must still be fully transparent");
+  assert.match(ctx.stops[2], /,0\.93\)$/, "bottom stop must still be strongly opaque");
+});

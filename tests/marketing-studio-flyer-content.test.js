@@ -353,6 +353,114 @@ test("generate_content (real dispatch): a flyer-routed closing notice never call
   }
 });
 
+// Phase 3 live-test report: Ashley reported the newest card STILL showed
+// the exact old AI paraphrase and "Early Closing Notice" headline on
+// commit c3ef58d, using the exact bare sentence she'd typed into the
+// browser — not the longer fixture brief above ("Create today's Florisyn
+// Facebook post with an image. ..."). Full code-path tracing (create_
+// content_item -> generate_content, the only path the real UI's one-
+// message create form and its "Ask Lily to create it" fallback both use;
+// no separate compound-orchestrator route) turned up no bug in the wiring
+// itself — buildDeterministicNoticeContent/requestSignalsPlainOperational
+// Notice both verified correct in isolation for this precise sentence.
+// This test locks in that exact bare sentence (word for word, no added
+// framing) end to end, AND makes the result independently checkable
+// without trusting this report: the persisted asset's `model` column
+// (never previously selected by list_content) now round-trips to the
+// client, so "which branch executed" is a real field Ashley can read
+// off the browser's network tab or devtools on the next live test, not
+// something that has to be taken on faith.
+const EXACT_BROWSER_SENTENCE = "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.";
+
+function exactSentenceFixtureQueue({ primaryColor = "#b93870", accentColor = "#6f8f72" } = {}) {
+  return [
+    { data: { id: "item-1", content_type: "image_post", title: "Closing early today", brief: EXACT_BROWSER_SENTENCE, status: "idea" }, error: null }, // currentItem
+    { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // variants
+    { data: { marketing_monthly_budget_cents: null }, error: null }, // budget check
+    { data: null, error: null }, // -> generating
+    { data: { name: "Lilies in Bloom", phone: "606-506-4039", primary_color: primaryColor, accent_color: accentColor }, error: null }, // shopRow
+    { data: null, error: null }, // loadBrandBrain
+    { data: null, error: null }, // loadStyleMemory
+    { data: [], error: null }, // loadGroundedInventory
+    { data: [], error: null }, // audience customers
+    { data: [], error: null }, // audience orders
+    { data: null, error: null }, // recordUsage("copy") — the ONE real copy call only
+    { data: { id: "flyer-asset-1" }, error: null }, // persistGeneratedAsset (flyer)
+    { data: null, error: null }, // variant update
+    { data: { id: "item-1", status: "draft" }, error: null } // final content_items update -> draft
+  ];
+}
+
+test("generate_content (real dispatch): the EXACT bare sentence from Ashley's browser test — no added framing — uses the deterministic wording verbatim, persists model:\"deterministic\", and threads the shop's REAL brand color (not a hardcoded navy) onto the flyer", async () => {
+  const UNUSED_AI_COPY = {
+    platform: "facebook",
+    headline: "Early Closing Notice",
+    body: "Don't forget, Lilies in Bloom will be closing at 2:30 today. If you need to place an order, give us a call at 606-506-4039.",
+    cta: "Call 606-506-4039",
+    visual_brief: "A bright, professional shot of the shop's fresh flower display.",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  };
+  const mock = mockCloudflare([UNUSED_AI_COPY]);
+  try {
+    const shopPrimaryColor = "#e2437a"; // a distinctive, deliberately non-default, non-navy brand pink
+    const client = createFakeSupabaseClient(exactSentenceFixtureQueue({ primaryColor: shopPrimaryColor }), { storage: createFakeSupabaseStorage({}) });
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-1" }));
+    assert.equal(res.statusCode, 200, `expected a completed draft: ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.equal(body.item.status, "draft");
+
+    const expected = buildDeterministicNoticeContent({ requestText: EXACT_BROWSER_SENTENCE, shopName: "Lilies in Bloom", shopPhone: "606-506-4039" });
+    assert.equal(expected.headline, "Closing Early Today");
+    assert.equal(expected.body, "Lilies in Bloom is closing at 2:30 today.");
+    assert.equal(expected.cta, "Call 606-506-4039 to place an order.");
+    assert.equal(expected.caption, EXACT_BROWSER_SENTENCE);
+
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const insertedRow = assetInsert.ops.find((op) => op[0] === "insert")[1][0];
+    assert.equal(insertedRow.model, "deterministic", "the persisted asset must record which branch actually ran — checkable independently of this report");
+    assert.equal(insertedRow.content.headline, expected.headline);
+    assert.equal(insertedRow.content.body, expected.body);
+    assert.equal(insertedRow.content.cta, expected.cta);
+    assert.equal(insertedRow.content.caption, expected.caption);
+    // The exact byte-for-byte old defect must never appear anywhere in the
+    // persisted content — proves this isn't just "facts preserved," it's
+    // the authoritative wording exactly, per Ashley's explicit requirement.
+    assert.notEqual(insertedRow.content.headline, "Early Closing Notice");
+    assert.doesNotMatch(insertedRow.content.caption, /Don't forget/);
+
+    // The flyer color fix: the band is no longer a hardcoded navy — the
+    // shop's own real primary_color/accent_color now rides along on the
+    // persisted asset for the client-side renderer to actually use.
+    assert.equal(insertedRow.content.brand.primaryColor, shopPrimaryColor, "the shop's real brand color must be threaded through, not a fixed navy");
+    assert.equal(insertedRow.content.brand.accentColor, "#6f8f72");
+
+    const textCalls = mock.calls.filter((c) => !(c.url.includes("black-forest-labs") || "prompt" in c.body));
+    assert.equal(textCalls.length, 0, "the AI wording model must never be called at all for this exact sentence");
+
+    // Full round trip through list_content — proves the client actually
+    // RECEIVES model:"deterministic" and the real brand color, not just
+    // that they were written to the DB.
+    const listQueue = [
+      { data: [{ id: "item-1", content_type: "image_post", title: "Closing early today", brief: EXACT_BROWSER_SENTENCE, status: "draft", uses_ai_clone: false, requires_human_approval: true, campaign_id: null, created_at: "2026-08-26T00:00:00Z", updated_at: "2026-08-26T00:00:00Z" }], error: null },
+      { data: [{ id: "variant-1", content_item_id: "item-1", platform: "facebook", status: "pending", asset_id: "flyer-asset-1" }], error: null },
+      { data: [{ id: "flyer-asset-1", asset_type: "flyer", content: insertedRow.content, parent_asset_id: null, model: insertedRow.model }], error: null }
+    ];
+    const listClient = createFakeSupabaseClient(listQueue);
+    const listHandler = createMarketingStudioHandler(floristDeps(listClient));
+    const listRes = await listHandler(event("list_content", {}));
+    assert.equal(listRes.statusCode, 200, `list_content must succeed: ${listRes.body}`);
+    const listBody = JSON.parse(listRes.body);
+    assert.equal(listBody.items[0].asset.model, "deterministic", "the client must actually receive model:\"deterministic\", not just have it in the DB");
+    assert.equal(listBody.items[0].asset.content.brand.primaryColor, shopPrimaryColor);
+  } finally {
+    mock.restore();
+  }
+});
+
 test("generate_content (real dispatch): an ordinary decorative request stays a plain photo-only image — never routed to the flyer path", async () => {
   const decorativeCopy = { ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today.", visual_brief: "A bright, romantic bouquet of roses on a marble counter." };
   const mock = mockCloudflare([decorativeCopy]);

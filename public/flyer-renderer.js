@@ -605,12 +605,53 @@
    * per computeBandRect), and it guarantees every word of text sits on a
    * consistently dark backdrop instead of directly on unpredictable photo
    * pixels. */
-  function drawGradientBand(ctx, rect) {
+  /** Darkens a hex color just enough that BAND_TEXT_COLOR (light cream)
+   * stays reliably readable against it, using the same relativeLuminance
+   * math the rest of this file already uses for real contrast decisions —
+   * never a fixed multiply, so it self-adjusts per color: a pale color
+   * darkens further, a color that's already deep passes through nearly
+   * unchanged. Floors at a 0.16 scale so the shop's own hue always stays
+   * visibly present in the band, never crushed to black. Pure. */
+  function darkenForBandContrast(hex, targetLuminance) {
+    var h = String(hex || "").replace("#", "");
+    if (h.length === 3) h = h.split("").map(function (c) { return c + c; }).join("");
+    var r = parseInt(h.substring(0, 2), 16);
+    var g = parseInt(h.substring(2, 4), 16);
+    var b = parseInt(h.substring(4, 6), 16);
+    if (isNaN(r) || isNaN(g) || isNaN(b)) { r = 107; g = 58; b = 88; } // #6b3a58 fallback — warm plum, never navy
+    var scale = 1;
+    var guard = 0;
+    while (relativeLuminance(r * scale, g * scale, b * scale) > targetLuminance && guard < 40) {
+      scale *= 0.9;
+      guard++;
+    }
+    scale = Math.max(scale, 0.16);
+    return { r: Math.round(r * scale), g: Math.round(g * scale), b: Math.round(b * scale) };
+  }
+
+  /** Visual-quality directive (Ashley, live-tested feedback — second
+   * round): "these flyers can now be made in any color, it is not set to
+   * navy or dark colors — this is a flower shop, it should [be]
+   * happiness." The band itself (full-bleed, bottom-anchored, transparent
+   * top fading to opaque bottom) is unchanged — only its color is: it now
+   * derives from the shop's OWN real brand color (colors.primary, already
+   * computed by effectivePaletteColors from brand.primaryColor/
+   * shops.primary_color — a warm rose by default, never navy; see
+   * netlify/functions/marketing-studio.js's flyer brand object and
+   * 20260804000000_greenfield_baseline.sql), darkened only as far as
+   * darkenForBandContrast requires for the cream text to stay legible. A
+   * shop with no brand color set still gets a warm plum, never navy; a
+   * shop with a bright, happy brand color gets a band tinted with that
+   * color instead of a fixed dark neutral. */
+  function drawGradientBand(ctx, rect, colors) {
     ctx.save();
+    var brandHex = (colors && colors.primary) || "#6b3a58";
+    var dark = darkenForBandContrast(brandHex, 0.09);
+    var rgbPrefix = "rgba(" + dark.r + "," + dark.g + "," + dark.b + ",";
     var g = ctx.createLinearGradient(0, rect.y, 0, rect.y + rect.h);
-    g.addColorStop(0, "rgba(9,15,26,0)");
-    g.addColorStop(0.32, "rgba(9,15,26,0.68)");
-    g.addColorStop(1, "rgba(7,12,22,0.93)");
+    g.addColorStop(0, rgbPrefix + "0)");
+    g.addColorStop(0.32, rgbPrefix + "0.68)");
+    g.addColorStop(1, rgbPrefix + "0.93)");
     ctx.fillStyle = g;
     ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
     ctx.restore();
@@ -646,7 +687,7 @@
 
     function finish() {
       var bandRect = computeBandRect(template, width, height);
-      drawGradientBand(ctx, bandRect);
+      drawGradientBand(ctx, bandRect, colors);
       var lockup = drawShopNameLockup(ctx, bandRect, brand);
       var headlineRect = regionRect(template.regions.headline, width, height);
       var headlineFullHeight = headlineRect.h;
@@ -705,6 +746,8 @@
     paintBrandBackground: paintBrandBackground,
     computePanelRect: computePanelRect,
     computeBandRect: computeBandRect,
+    darkenForBandContrast: darkenForBandContrast,
+    drawGradientBand: drawGradientBand,
     compositeSubjectOnBackground: compositeSubjectOnBackground,
     renderFlyer: renderFlyer
   };

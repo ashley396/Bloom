@@ -708,7 +708,15 @@ export function createMarketingStudioHandler(deps = {}) {
         const assetIds = [...new Set(variants.map((v) => v.asset_id).filter(Boolean))];
         const assetById = new Map();
         if (assetIds.length) {
-          const assetsResult = await client.from("ai_generated_assets").select("id,asset_type,content,parent_asset_id").in("id", assetIds).eq("shop_id", shopId);
+          // model is included so the client can tell a deterministic
+          // operational-notice generation ("model":"deterministic") apart
+          // from an AI-generated one — Ashley's Phase 3 live-test report
+          // ("trace... what deterministic object was produced, what was
+          // persisted, and what the client received") needs an answer she
+          // can check herself on the next real test, not just my own
+          // pure-function verification. Purely additive — no existing
+          // caller reads or asserts against the absence of this field.
+          const assetsResult = await client.from("ai_generated_assets").select("id,asset_type,content,parent_asset_id,model").in("id", assetIds).eq("shop_id", shopId);
           if (assetsResult.error) throw assetsResult.error;
           for (const a of assetsResult.data || []) assetById.set(a.id, a);
         }
@@ -1540,7 +1548,7 @@ export function createMarketingStudioHandler(deps = {}) {
         // line (public/flyer-renderer.js's drawContact) needs the shop's
         // real phone number, and this is the one place generate_content
         // already round-trips the shops table.
-        const shopRow = await client.from("shops").select("name,phone,primary_color").eq("id", shopId).maybeSingle();
+        const shopRow = await client.from("shops").select("name,phone,primary_color,accent_color").eq("id", shopId).maybeSingle();
         const shopName = shopRow.data?.name || null;
         const primaryPlatform = variants[0]?.platform || "facebook";
 
@@ -1879,7 +1887,16 @@ export function createMarketingStudioHandler(deps = {}) {
                 // image itself). Requirement 5: the caption independently
                 // carries the same real facts.
                 caption: copyGen.content.body,
-                brand: { shopName, phone: shopRow.data?.phone || null },
+                // Ashley's explicit live-test feedback: "these flyers can
+                // now be made in any color, it is not set to navy or dark
+                // colors — this is a flower shop, it should [be] happiness."
+                // The gradient band (drawGradientBand, below) was reading a
+                // hardcoded navy regardless of shop — this is what actually
+                // threads the shop's OWN real brand color through so the
+                // band reflects it instead. Falls back to the shops table's
+                // own DB default (a warm rose, never navy) when a shop
+                // hasn't set one — see 20260804000000_greenfield_baseline.sql.
+                brand: { shopName, phone: shopRow.data?.phone || null, primaryColor: shopRow.data?.primary_color || null, accentColor: shopRow.data?.accent_color || null },
                 brand_traits_used: copyGen.content.brand_traits_used,
                 visual_traits_used: copyGen.content.visual_traits_used,
                 grounded_in_inventory: inventorySources

@@ -370,7 +370,15 @@
     // background layer to re-roll); a plain image post's own revision
     // composer already regenerates the image on any instruction.
     const canRegenerateImage = canReview && !revising && item.asset?.asset_type === "flyer";
-    return `<article class="panel" data-ms-item="${esc(item.id)}">
+    // data-ms-wording-source is a plain HTML attribute (invisible unless
+    // inspected — no visual change) that answers, for any card, whether its
+    // caption/flyer text came from Florisyn's deterministic operational-
+    // notice builder or from an AI generation call. Traceable via "Inspect
+    // Element" on the card, or by reading asset.model straight off the
+    // list_content response — a real, checkable answer to "which branch
+    // executed" instead of asking it to be taken on faith.
+    const wordingSource = item.asset?.model || "";
+    return `<article class="panel" data-ms-item="${esc(item.id)}" data-ms-wording-source="${esc(wordingSource)}">
       <div class="panel-heading">
         <div>
           <p class="eyebrow">${esc(effectiveStatusLabel(item))}</p>
