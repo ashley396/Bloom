@@ -1549,6 +1549,27 @@ export function createMarketingStudioHandler(deps = {}) {
         // real phone number, and this is the one place generate_content
         // already round-trips the shops table.
         const shopRow = await client.from("shops").select("name,phone,primary_color,accent_color").eq("id", shopId).maybeSingle();
+        if (shopRow.error || !shopRow.data) {
+          // Real, live-found failure (Ashley's third real branch-deploy
+          // test): the deterministic notice said "We are closing" instead
+          // of the real shop name — this read failing (or coming back
+          // with no row) silently is exactly how that could happen with
+          // zero trace of it anywhere. buildDeterministicNoticeContent's
+          // own text-derived name fallback (marketing-content-revision.js)
+          // still recovers the shop's name from the request text when
+          // this happens, so a hiccup here never strands the florist —
+          // but it must never again be invisible.
+          console.warn(
+            JSON.stringify({
+              level: "warn",
+              fn: "marketing-studio",
+              message: "shop_row_lookup_failed_in_generate_content",
+              shopId,
+              contentItemId: body.content_item_id,
+              reason: shopRow.error ? String(shopRow.error.message || shopRow.error) : "no matching shop row"
+            })
+          );
+        }
         const shopName = shopRow.data?.name || null;
         const primaryPlatform = variants[0]?.platform || "facebook";
 

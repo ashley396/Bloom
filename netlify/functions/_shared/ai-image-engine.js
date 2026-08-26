@@ -153,17 +153,26 @@ export function buildBackgroundPrompt({ visualBrief, brandColor } = {}) {
 // "Regenerate image" passes a fresh seed each time), so two calls for the
 // same flyer ask for a genuinely different photograph, not just a re-roll
 // of the same instruction and hoping the model varies it.
+// Real, live-found failure (Ashley's third real branch-deploy test, visual
+// review): every flyer background trended dark/moody by construction —
+// "deep navy... muted gold tones" was baked into every single prompt
+// regardless of shop or occasion, no matter what the on-image band/text
+// color did. This is the actual root cause of "gloomy, dull or plain
+// images," independent of and upstream from any text-treatment fix in
+// public/flyer-renderer.js. Fixed to match her explicit spec: "happy,
+// colorful and floral. Bright and naturally lit... premium and
+// realistic... rich but realistic color... luxury florist styling."
 const FLYER_BACKGROUND_COMPOSITIONS = [
-  "Full-bleed florals sweeping in from all four edges in a soft luxurious border, leaving the center clear.",
-  "A wide, airy composition with florals gathered along the lower edge and one upper corner, generous open space elsewhere.",
-  "An elegant diagonal sweep of florals across one corner, the rest of the frame left softly out of focus.",
-  "Florals framing the top and bottom edges only, a clean vertical channel of open space through the middle."
+  "Full-bleed florals sweeping in from all four edges in a soft luxurious border, leaving the lower portion of the frame clear.",
+  "A wide, airy composition with florals gathered along the upper edge and one side, generous open space across the lower third.",
+  "An elegant diagonal sweep of florals across the upper corner, the lower portion of the frame left softly out of focus and open.",
+  "Florals framing the top edge and sides, a clean open channel of soft, evenly-lit space across the bottom third."
 ];
 
 export function buildFlyerBackgroundPrompt({ visualBrief, occasion, brandColor, groundedFlowers = [], variationSeed = 0 } = {}) {
   const parts = [];
   parts.push(
-    "Luxury editorial floral photography for a premium flower shop's marketing flyer — deep navy, ivory, blush, and muted gold tones, realistic and elegant florals, soft natural directional light, shallow depth of field, a composed, high-end magazine-quality look."
+    "Luxury editorial floral photography for a premium flower shop's marketing flyer — happy, colorful, rich and vivid floral tones (blush pink, coral, sunny yellow, fresh green, soft lavender, warm cream), bright natural daylight, realistic and elegant florals, shallow depth of field, a composed, high-end magazine-quality look. Never dark, moody, dull, gloomy, or desaturated."
   );
   const compositionIndex = ((Number(variationSeed) || 0) % FLYER_BACKGROUND_COMPOSITIONS.length + FLYER_BACKGROUND_COMPOSITIONS.length) % FLYER_BACKGROUND_COMPOSITIONS.length;
   parts.push(FLYER_BACKGROUND_COMPOSITIONS[compositionIndex]);
@@ -173,10 +182,15 @@ export function buildFlyerBackgroundPrompt({ visualBrief, occasion, brandColor, 
     parts.push(visualBrief);
   }
   if (occasion) parts.push(`Mood/occasion: ${occasion}.`);
+  // The renderer's own text regions (public/flyer-renderer.js /
+  // flyer-templates.js) all live in the LOWER portion of the frame
+  // (roughly the bottom 40–95%), never the center — this must actually
+  // match where the text will really be placed, not a generic "center"
+  // that was never true to the real layout.
   parts.push(
-    "Leave clear, softly out-of-focus or open negative space toward the center of the frame — this is where real text will be placed afterward, not by you."
+    "Leave clear, softly out-of-focus, evenly-lit open space across the lower portion of the frame — this is where real text will be placed afterward, not by you — while keeping bright, colorful flowers clearly visible throughout the rest of the image."
   );
-  if (brandColor) parts.push(`Color palette should read as premium and complement ${brandColor}.`);
+  if (brandColor) parts.push(`Color palette should read as premium and complement ${brandColor}, while staying bright and colorful overall.`);
   parts.push(NO_TEXT_DIRECTIVE);
   parts.push("No logos, no watermarks, no invented brand marks.");
   return parts.join(" ").slice(0, 1200);

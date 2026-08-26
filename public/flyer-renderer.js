@@ -11,22 +11,25 @@
  * generated image alone can't guarantee: exact text, brand lockup, and
  * legibility on top of it.
  *
- * Design pass v2 (Ashley's live-tested visual-quality directive, replacing
- * the earlier ivory-panel design): the floral photo now fills the ENTIRE
- * canvas, full-bleed and edge to edge, with no box of any kind covering
- * it. Legibility comes from a full-width gradient band anchored to the
- * bottom of the frame (deep navy, transparent at the top fading to
- * strongly opaque near the bottom — see computeBandRect/drawGradientBand)
- * carrying the shop-name lockup, headline, body, a narrow decorative CTA
- * label with a muted-gold underline, and the contact footer — never a
- * rounded, inset, light-colored card, never a stroke/frame. Because every
- * word of text now always sits on that same consistently dark backdrop,
- * text color is fixed (warm ivory, plus a subtle drop shadow), not
- * sampled per-pixel the way the earlier design needed — the old
- * pixel-sampling contrast helpers (pickTextColor/sampleAverageColor/
- * needsScrim) stay exported and unit-tested as real, generically useful
- * pure math, they just aren't in renderFlyer()'s own critical path
- * anymore.
+ * Design pass v3 (Ashley's live-tested visual-quality directive — explicit
+ * rejection of v2's colored band): the floral photo fills the ENTIRE
+ * canvas, full-bleed and edge to edge, with NOTHING drawn over it — no
+ * box, no gradient band, no brand-color wash of any kind. "A shop's brand
+ * color should not become a large transparent layer covering the
+ * flowers" applies to every hue, not just navy/burgundy — v2's band was
+ * exactly that, just recolored. Legibility instead comes from what the
+ * photo actually is at each text region: every region's real rendered
+ * pixels are sampled after the background is drawn (sampleAverageColor/
+ * sampleColorVariance, both already built for exactly this and now
+ * actually wired into the render path), pickTextColor chooses cream or
+ * charcoal-navy from that region's real luminance, and needsScrim decides
+ * whether that region additionally needs a thin outline on top of the
+ * standing subtle drop shadow — real insurance, never a substitute for a
+ * genuinely bright, open composition (buildFlyerBackgroundPrompt in
+ * ai-image-engine.js composes the photo with real negative space where
+ * text will sit, precisely so this is rarely needed at all). The shop
+ * name is always drawn (drawShopNameLockup) whenever brand.shopName is
+ * given — never Florisyn's own name, always the authenticated shop's.
  *
  * Three things live here:
  *
@@ -124,13 +127,16 @@
     return (maxLum - minLum) * 255;
   }
 
-  /** Picks readable text color (white or near-black) for the average
-   * background color behind a region — always derived from the actual
-   * pixels, never a fixed color, so text can never go accidentally
-   * unreadable on a generated photo. Pure. */
+  /** Picks readable text color for the average background color behind a
+   * region — always derived from the actual pixels, never a fixed color,
+   * so text can never go accidentally unreadable on a generated photo.
+   * Restricted to Ashley's explicit allowed palette ("cream, white, navy
+   * or charcoal text based on the photo's natural contrast"): a warm
+   * cream over a dark region, a deep charcoal-navy over a light one —
+   * never an arbitrary brand-color tint. Pure. */
   function pickTextColor(avgColor) {
     var luminance = relativeLuminance(avgColor.r, avgColor.g, avgColor.b);
-    return luminance > 0.55 ? "#231a26" : "#ffffff";
+    return luminance > 0.55 ? "#1f2733" : "#f8f0e3";
   }
 
   /** Whether a semi-transparent scrim is needed behind text for contrast —
@@ -301,13 +307,30 @@
     return lines;
   }
 
-  function drawWrappedLines(ctx, lines, cx, cy, lineHeight) {
-    var startY = cy - ((lines.length - 1) * lineHeight) / 2;
-    for (var j = 0; j < lines.length; j++) ctx.fillText(lines[j], cx, startY + j * lineHeight);
+  /** Draws one line of text, with an optional thin outline stroked
+   * underneath the fill (needsScrim's "thin outline when needed" — real
+   * insurance on a busy/midtone photo region, never a filled panel).
+   * outline is {color, width} or falsy. */
+  function drawTextLine(ctx, text, x, y, outline) {
+    if (outline) {
+      ctx.save();
+      ctx.lineJoin = "round";
+      ctx.miterLimit = 2;
+      ctx.lineWidth = outline.width;
+      ctx.strokeStyle = outline.color;
+      ctx.strokeText(text, x, y);
+      ctx.restore();
+    }
+    ctx.fillText(text, x, y);
   }
 
-  function wrapText(ctx, text, cx, cy, maxWidth, lineHeight) {
-    drawWrappedLines(ctx, measureWrappedLines(ctx, text, maxWidth), cx, cy, lineHeight);
+  function drawWrappedLines(ctx, lines, cx, cy, lineHeight, outline) {
+    var startY = cy - ((lines.length - 1) * lineHeight) / 2;
+    for (var j = 0; j < lines.length; j++) drawTextLine(ctx, lines[j], cx, startY + j * lineHeight, outline);
+  }
+
+  function wrapText(ctx, text, cx, cy, maxWidth, lineHeight, outline) {
+    drawWrappedLines(ctx, measureWrappedLines(ctx, text, maxWidth), cx, cy, lineHeight, outline);
   }
 
   function setLetterSpacing(ctx, value) {
@@ -320,33 +343,68 @@
     } catch (e) { /* unsupported — plain spacing, still fully readable */ }
   }
 
-  // Visual-quality directive: every region drawn by drawRegionText now
-  // always sits inside the gradient band (see drawGradientBand) — a
-  // consistently dark, deep-navy backdrop by construction — so text color
-  // is a fixed warm ivory rather than sampled per-pixel. This is a
-  // deliberate simplification, not a regression: the OLD pixel-sampling
-  // contrast system existed because text used to sit directly on
-  // unpredictable photo/background pixels; now that it never does (that
-  // was exactly the "low-contrast text placed directly over busy flowers"
-  // failure mode being fixed), a fixed color is both simpler and more
-  // reliable. pickTextColor/sampleAverageColor/needsScrim stay exported
-  // and unit-tested (still real, generically useful pure math) even
-  // though this function no longer calls them.
+  // Design pass v3: no gradient band means no guaranteed-dark backdrop, so
+  // text color is real per-region contrast again (pickTextColorFor,
+  // below) — never this fixed pair on its own. BAND_TEXT_COLOR/
+  // BAND_TEXT_COLOR_SOFT stay as the SAFE DEFAULT for when a region can't
+  // be sampled at all (a tainted cross-origin canvas, or the Tier-B paint
+  // path — see paintTierB, which is a known flat/gradient fill Florisyn
+  // itself controls, always dark enough for cream text) — never the
+  // everyday case.
   var BAND_TEXT_COLOR = "#f8f0e3";
   var BAND_TEXT_COLOR_SOFT = "rgba(248,240,227,0.88)";
+  var CHARCOAL_TEXT = "#1f2733";
+  var CHARCOAL_TEXT_SOFT = "rgba(31,39,51,0.88)";
+
+  /** Real per-region contrast, sampled from the canvas's OWN actual
+   * rendered pixels at `rect` — never a fixed color, never a flat
+   * brand-color layer painted over the photo. Falls back to the safe
+   * cream default if sampling fails (a tainted cross-origin canvas —
+   * loadImage already sets crossOrigin="anonymous" specifically so this
+   * doesn't happen for a real generated background, but this must never
+   * throw regardless). Returns { color, softColor, outline } — outline is
+   * null unless needsScrim says the region is busy/midtone enough to
+   * need one (a thin stroke, Ashley's explicitly allowed "thin outline
+   * when needed" — never a filled panel). */
+  function pickRegionTextStyle(ctx, rect) {
+    var safeRect = {
+      x: Math.max(0, Math.round(rect.x)),
+      y: Math.max(0, Math.round(rect.y)),
+      w: Math.max(1, Math.round(rect.w)),
+      h: Math.max(1, Math.round(rect.h))
+    };
+    var imageData;
+    try {
+      imageData = ctx.getImageData(safeRect.x, safeRect.y, safeRect.w, safeRect.h);
+    } catch (e) {
+      return { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: { color: "rgba(6,10,18,0.6)", width: Math.max(1.5, rect.h * 0.025) } };
+    }
+    var localRect = { x: 0, y: 0, w: imageData.width, h: imageData.height };
+    var avg = sampleAverageColor(imageData, localRect, 4);
+    var variance = sampleColorVariance(imageData, localRect, 4);
+    var isDark = pickTextColor(avg) === BAND_TEXT_COLOR;
+    var scrim = needsScrim(avg, variance);
+    return {
+      color: isDark ? BAND_TEXT_COLOR : CHARCOAL_TEXT,
+      softColor: isDark ? BAND_TEXT_COLOR_SOFT : CHARCOAL_TEXT_SOFT,
+      outline: scrim ? { color: isDark ? "rgba(6,10,18,0.6)" : "rgba(255,255,255,0.65)", width: Math.max(1.5, rect.h * 0.025) } : null
+    };
+  }
 
   function applyTextShadow(ctx) {
-    // "Subtle text shadow" — one of Ashley's explicitly allowed
-    // legibility techniques, used here as real insurance on top of the
-    // gradient band, never as a substitute for it.
-    ctx.shadowColor = "rgba(6,10,18,0.55)";
-    ctx.shadowBlur = 6;
+    // "A subtle text shadow" — one of Ashley's explicitly allowed
+    // legibility techniques, always applied as light insurance; the
+    // per-region outline (pickRegionTextStyle, above) is the stronger
+    // measure reserved for genuinely busy/midtone photo areas.
+    ctx.shadowColor = "rgba(6,10,18,0.5)";
+    ctx.shadowBlur = 5;
     ctx.shadowOffsetY = 1;
   }
 
-  function drawRegionText(ctx, rect, text, emphasisKey, style, opts) {
+  function drawRegionText(ctx, rect, text, emphasisKey, style, opts, textStyle) {
     if (!text) return;
-    var color = emphasisKey === "body" ? BAND_TEXT_COLOR_SOFT : BAND_TEXT_COLOR;
+    textStyle = textStyle || { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: null };
+    var color = emphasisKey === "body" ? textStyle.softColor : textStyle.color;
     // The target size is taken from the region's ORIGINAL height
     // (opts.baseSizeHeight), not the possibly-shrunk rect.h below — the
     // caller may have shrunk `rect` just to clear the shop-name lockup,
@@ -356,7 +414,12 @@
     // from that full-size target if the wrapped block genuinely doesn't
     // fit in the (possibly smaller) rect.
     var sizeRefH = (opts && opts.baseSizeHeight) || rect.h;
-    var baseSize = emphasisKey === "hero" ? sizeRefH * 0.4 : rect.h * 0.3;
+    // Mobile-readability directive (Ashley, live-tested feedback — third
+    // round): the closing time and phone number were too small to read
+    // without zooming at normal Facebook/mobile viewing size. Body raised
+    // from 0.3x to 0.38x region height — comfortably larger, still governed
+    // by the same auto-fit shrink loop below so it can never overflow.
+    var baseSize = emphasisKey === "hero" ? sizeRefH * 0.4 : rect.h * 0.38;
     var scaleTarget = emphasisKey === "hero" ? "headline" : emphasisKey;
     var scaleKey = (style && style.scale && style.scale[scaleTarget]) || "normal";
     var fontSize = Math.round(baseSize * scaleMultiplier(scaleKey));
@@ -385,7 +448,7 @@
       if (blockHeight <= rect.h * 0.96 || fontSize <= baseSize * 0.62) break;
       fontSize = Math.round(fontSize * 0.9);
     }
-    drawWrappedLines(ctx, lines, rect.x + rect.w / 2, rect.y + rect.h / 2, lineHeight);
+    drawWrappedLines(ctx, lines, rect.x + rect.w / 2, rect.y + rect.h / 2, lineHeight, textStyle.outline);
     setLetterSpacing(ctx, "0px");
     ctx.restore();
   }
@@ -396,22 +459,26 @@
    * A florist's flyer should read like an editorial ad, not an app UI
    * control; this keeps the CTA legible and clearly set apart from the
    * headline/body without ever drawing another box on top of the photo. */
-  function drawCtaLabel(ctx, rect, text, accentColor) {
+  function drawCtaLabel(ctx, rect, text, accentColor, textStyle) {
     if (!text) return;
+    textStyle = textStyle || { color: BAND_TEXT_COLOR, outline: null };
     var gold = accentColor || "#c8a24a";
-    var fontSize = Math.max(13, Math.round(rect.h * 0.42));
+    // Mobile-readability directive: the phone number/CTA was too small to
+    // read at normal Facebook/mobile viewing size — raised from 0.42x to
+    // 0.52x region height, floor raised from 13px to 17px.
+    var fontSize = Math.max(17, Math.round(rect.h * 0.52));
     var cx = rect.x + rect.w / 2;
     var cy = rect.y + rect.h / 2;
     ctx.save();
     applyTextShadow(ctx);
-    ctx.fillStyle = BAND_TEXT_COLOR;
+    ctx.fillStyle = textStyle.color;
     ctx.font = "600 " + fontSize + "px 'Inter', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     setLetterSpacing(ctx, "0.1em");
     var upper = String(text).toUpperCase();
     var textY = cy - fontSize * 0.32;
-    wrapText(ctx, upper, cx, textY, rect.w * 0.94, fontSize * 1.2);
+    wrapText(ctx, upper, cx, textY, rect.w * 0.94, fontSize * 1.2, textStyle.outline);
     setLetterSpacing(ctx, "0px");
     ctx.restore();
     // Thin gold divider beneath the label — "a narrow decorative label for
@@ -429,26 +496,29 @@
     ctx.restore();
   }
 
-  /** The shop's own name, presented as a tasteful small-caps, letter-spaced
-   * lockup at the top of the gradient band — a real, distinct visual
-   * element rather than being buried only in the small footer contact
-   * line. Always ivory-on-navy now (the band guarantees the dark backdrop
-   * — see drawGradientBand), with a thin muted-gold divider beneath it in
-   * place of the old same-color-as-text hairline. */
-  function drawShopNameLockup(ctx, bandRect, brand, accentColor) {
+  /** The shop's own name (never Florisyn's — brand.shopName is always the
+   * authenticated shop, see marketing-studio.js's persisted flyer content),
+   * presented as a tasteful small-caps, letter-spaced lockup near the top
+   * of the lower text area — a real, distinct visual element rather than
+   * being buried only in the small footer contact line. Mandatory on
+   * every flyer per Ashley's explicit requirement: a shared/downloaded
+   * image must still identify the florist it came from. Text color/
+   * outline are real sampled contrast (textStyle), never assumed. */
+  function drawShopNameLockup(ctx, bandRect, brand, accentColor, textStyle) {
     var name = brand && brand.shopName;
     if (!name) return { usedHeight: 0 };
+    textStyle = textStyle || { color: BAND_TEXT_COLOR, outline: null };
     var gold = accentColor || "#c8a24a";
     var fontSize = Math.max(12, Math.round(bandRect.h * 0.05));
     var baselineY = bandRect.y + bandRect.h * 0.12;
     ctx.save();
     applyTextShadow(ctx);
-    ctx.fillStyle = BAND_TEXT_COLOR;
+    ctx.fillStyle = textStyle.color;
     ctx.font = "600 " + fontSize + "px 'Inter', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
     setLetterSpacing(ctx, "0.26em");
-    ctx.fillText(String(name).toUpperCase(), bandRect.x + bandRect.w / 2, baselineY);
+    drawTextLine(ctx, String(name).toUpperCase(), bandRect.x + bandRect.w / 2, baselineY, textStyle.outline);
     setLetterSpacing(ctx, "0px");
     ctx.restore();
     var dividerY = baselineY + fontSize * 0.75;
@@ -465,18 +535,19 @@
     return { usedHeight: dividerY - bandRect.y };
   }
 
-  function drawContact(ctx, rect, brand) {
+  function drawContact(ctx, rect, brand, textStyle) {
     var parts = [brand.shopName, brand.phone, brand.website].filter(Boolean);
     if (!parts.length) return;
+    textStyle = textStyle || { softColor: BAND_TEXT_COLOR_SOFT, outline: null };
     ctx.save();
     applyTextShadow(ctx);
-    ctx.fillStyle = BAND_TEXT_COLOR_SOFT;
+    ctx.fillStyle = textStyle.softColor;
     // A real, comfortably-readable footer — not a tiny fine-print line.
     ctx.font = "600 " + Math.round(rect.h * 0.6) + "px 'Inter', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     setLetterSpacing(ctx, "0.03em");
-    ctx.fillText(parts.join("   ·   "), rect.x + rect.w / 2, rect.y + rect.h / 2);
+    drawTextLine(ctx, parts.join("   ·   "), rect.x + rect.w / 2, rect.y + rect.h / 2, textStyle.outline);
     setLetterSpacing(ctx, "0px");
     ctx.restore();
   }
@@ -593,75 +664,13 @@
     ctx.restore();
   }
 
-  /** Visual-quality directive (Ashley, live-tested feedback): the text
-   * backdrop is now a full-width, bottom-anchored gradient band — deep
-   * navy, transparent at its top edge fading to strongly opaque near the
-   * bottom — never a rounded, inset, ivory/beige card. This is what
-   * actually satisfies every one of the required rules at once: it can
-   * never read as "a large white/beige rectangle" (it's dark, not light),
-   * never "a heavy black frame" (no stroke, no border, no rounded corners
-   * — it's a soft fill only), never "a blank box covering the center of
-   * the flowers" (it only ever touches the bottom portion of the frame,
-   * per computeBandRect), and it guarantees every word of text sits on a
-   * consistently dark backdrop instead of directly on unpredictable photo
-   * pixels. */
-  /** Darkens a hex color just enough that BAND_TEXT_COLOR (light cream)
-   * stays reliably readable against it, using the same relativeLuminance
-   * math the rest of this file already uses for real contrast decisions —
-   * never a fixed multiply, so it self-adjusts per color: a pale color
-   * darkens further, a color that's already deep passes through nearly
-   * unchanged. Floors at a 0.16 scale so the shop's own hue always stays
-   * visibly present in the band, never crushed to black. Pure. */
-  function darkenForBandContrast(hex, targetLuminance) {
-    var h = String(hex || "").replace("#", "");
-    if (h.length === 3) h = h.split("").map(function (c) { return c + c; }).join("");
-    var r = parseInt(h.substring(0, 2), 16);
-    var g = parseInt(h.substring(2, 4), 16);
-    var b = parseInt(h.substring(4, 6), 16);
-    if (isNaN(r) || isNaN(g) || isNaN(b)) { r = 107; g = 58; b = 88; } // #6b3a58 fallback — warm plum, never navy
-    var scale = 1;
-    var guard = 0;
-    while (relativeLuminance(r * scale, g * scale, b * scale) > targetLuminance && guard < 40) {
-      scale *= 0.9;
-      guard++;
-    }
-    scale = Math.max(scale, 0.16);
-    return { r: Math.round(r * scale), g: Math.round(g * scale), b: Math.round(b * scale) };
-  }
-
-  /** Visual-quality directive (Ashley, live-tested feedback — second
-   * round): "these flyers can now be made in any color, it is not set to
-   * navy or dark colors — this is a flower shop, it should [be]
-   * happiness." The band itself (full-bleed, bottom-anchored, transparent
-   * top fading to opaque bottom) is unchanged — only its color is: it now
-   * derives from the shop's OWN real brand color (colors.primary, already
-   * computed by effectivePaletteColors from brand.primaryColor/
-   * shops.primary_color — a warm rose by default, never navy; see
-   * netlify/functions/marketing-studio.js's flyer brand object and
-   * 20260804000000_greenfield_baseline.sql), darkened only as far as
-   * darkenForBandContrast requires for the cream text to stay legible. A
-   * shop with no brand color set still gets a warm plum, never navy; a
-   * shop with a bright, happy brand color gets a band tinted with that
-   * color instead of a fixed dark neutral. */
-  function drawGradientBand(ctx, rect, colors) {
-    ctx.save();
-    var brandHex = (colors && colors.primary) || "#6b3a58";
-    var dark = darkenForBandContrast(brandHex, 0.09);
-    var rgbPrefix = "rgba(" + dark.r + "," + dark.g + "," + dark.b + ",";
-    var g = ctx.createLinearGradient(0, rect.y, 0, rect.y + rect.h);
-    g.addColorStop(0, rgbPrefix + "0)");
-    g.addColorStop(0.32, rgbPrefix + "0.68)");
-    g.addColorStop(1, rgbPrefix + "0.93)");
-    ctx.fillStyle = g;
-    ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
-    ctx.restore();
-  }
-
   /** Draws a full flyer: background (a generated image URL — Tier A — or
    * a rich Tier-B floral-toned wash over the template's own flat/gradient
    * brand fill, see flyer-templates.js's `palette` field), full-bleed and
-   * edge to edge, plus a bottom gradient band carrying every text region.
-   * Returns Promise<HTMLCanvasElement>. Never throws on a missing/failed
+   * edge to edge, with NOTHING painted over it — every text region reads
+   * its color and (when needed) its thin outline from the photo's own
+   * real pixels at that exact spot (pickRegionTextStyle). Returns
+   * Promise<HTMLCanvasElement>. Never throws on a missing/failed
    * background image — falls back to the Tier-B wash instead, so a flyer
    * is always renderable even if a generated visual never arrives. */
   function renderFlyer(opts) {
@@ -686,9 +695,12 @@
     }
 
     function finish() {
+      // computeBandRect is pure LAYOUT geometry only now — the lower
+      // portion of the frame where the shop-name lockup lives — never
+      // painted (see drawGradientBand's removal, design pass v3 above).
       var bandRect = computeBandRect(template, width, height);
-      drawGradientBand(ctx, bandRect, colors);
-      var lockup = drawShopNameLockup(ctx, bandRect, brand);
+      var lockupSampleRect = { x: bandRect.x, y: bandRect.y, w: bandRect.w, h: Math.max(1, bandRect.h * 0.16) };
+      var lockup = drawShopNameLockup(ctx, bandRect, brand, colors.accent, pickRegionTextStyle(ctx, lockupSampleRect));
       var headlineRect = regionRect(template.regions.headline, width, height);
       var headlineFullHeight = headlineRect.h;
       // Push the headline fully clear of the shop-name lockup, not just a
@@ -710,10 +722,13 @@
           headlineRect.h -= shift;
         }
       }
-      drawRegionText(ctx, headlineRect, content.headline, "hero", style, { baseSizeHeight: headlineFullHeight });
-      drawRegionText(ctx, regionRect(template.regions.body, width, height), content.body, "body", style);
-      drawCtaLabel(ctx, regionRect(template.regions.cta, width, height), content.cta, colors.accent);
-      drawContact(ctx, regionRect(template.regions.contact, width, height), brand);
+      var bodyRect = regionRect(template.regions.body, width, height);
+      var ctaRect = regionRect(template.regions.cta, width, height);
+      var contactRect = regionRect(template.regions.contact, width, height);
+      drawRegionText(ctx, headlineRect, content.headline, "hero", style, { baseSizeHeight: headlineFullHeight }, pickRegionTextStyle(ctx, headlineRect));
+      drawRegionText(ctx, bodyRect, content.body, "body", style, undefined, pickRegionTextStyle(ctx, bodyRect));
+      drawCtaLabel(ctx, ctaRect, content.cta, colors.accent, pickRegionTextStyle(ctx, ctaRect));
+      drawContact(ctx, contactRect, brand, pickRegionTextStyle(ctx, contactRect));
       return drawLogo(ctx, regionRect(template.regions.logo, width, height), brand.logoUrl).then(function () {
         return canvas;
       });
@@ -746,8 +761,7 @@
     paintBrandBackground: paintBrandBackground,
     computePanelRect: computePanelRect,
     computeBandRect: computeBandRect,
-    darkenForBandContrast: darkenForBandContrast,
-    drawGradientBand: drawGradientBand,
+    pickRegionTextStyle: pickRegionTextStyle,
     compositeSubjectOnBackground: compositeSubjectOnBackground,
     renderFlyer: renderFlyer
   };

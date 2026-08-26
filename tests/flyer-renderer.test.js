@@ -77,9 +77,14 @@ test("sampleAverageColor: a fully empty image (0 pixels sampled) falls back to w
   assert.equal(avg.b, 255);
 });
 
-test("pickTextColor: a bright background picks dark text, a dark background picks white text", () => {
-  assert.equal(renderer.pickTextColor({ r: 250, g: 248, b: 245 }), "#231a26");
-  assert.equal(renderer.pickTextColor({ r: 20, g: 15, b: 25 }), "#ffffff");
+// Design pass v3 (Ashley, live-tested feedback): text color is restricted
+// to her explicit allowed palette — "cream, white, navy or charcoal text
+// based on the photo's natural contrast" — never an arbitrary brand-color
+// tint, and never assumed against a flat dark backdrop (there isn't one
+// anymore; see the removal of drawGradientBand below).
+test("pickTextColor: a bright background picks charcoal-navy text, a dark background picks cream text", () => {
+  assert.equal(renderer.pickTextColor({ r: 250, g: 248, b: 245 }), "#1f2733");
+  assert.equal(renderer.pickTextColor({ r: 20, g: 15, b: 25 }), "#f8f0e3");
 });
 
 test("needsScrim: a very light or very dark background needs no scrim when flat (low variance)", () => {
@@ -253,71 +258,65 @@ test("paintBrandBackground: a brand_gradient template with no revision uses the 
   assert.deepEqual(stops, ["#123456", "#abcdef"]);
 });
 
-// Visual-quality directive (Ashley, live-tested feedback — second round):
-// "these flyers can now be made in any color, it is not set to navy or
-// dark colors — this is a flower shop, it should [be] happiness." The
-// gradient band's color used to be hardcoded navy (rgba(9,15,26,...)) no
-// matter what — these tests prove the band now derives its color from
-// whatever brand color it's given, self-adjusting for text contrast
-// rather than always landing on the same dark neutral.
-test("darkenForBandContrast: an already-dark color passes through almost unchanged", () => {
-  const dark = renderer.darkenForBandContrast("#1a1420", 0.09);
-  assert.ok(Math.abs(dark.r - 0x1a) <= 2 && Math.abs(dark.g - 0x14) <= 2 && Math.abs(dark.b - 0x20) <= 2, `expected near-unchanged, got ${JSON.stringify(dark)}`);
+// Visual-quality directive (Ashley, live-tested feedback — third round):
+// the gradient-band approach itself is rejected outright, regardless of
+// hue — "Never add a brand color wash over an existing image. A shop's
+// brand color should not become a large transparent layer covering the
+// flowers." drawGradientBand/darkenForBandContrast are gone entirely —
+// legibility now comes from pickRegionTextStyle, which samples the
+// canvas's OWN real rendered pixels at each text region and returns real
+// cream/charcoal-navy contrast plus a thin outline only where the region
+// actually needs one (needsScrim), never a filled color layer.
+test("FlorisynFlyerRenderer no longer exposes a paintable color-wash band — drawGradientBand/darkenForBandContrast are gone", () => {
+  assert.equal(renderer.drawGradientBand, undefined);
+  assert.equal(renderer.darkenForBandContrast, undefined);
 });
 
-test("darkenForBandContrast: a bright, happy brand color (hot pink) still darkens enough for light text to read, but stays visibly pink — not crushed to black or navy", () => {
-  const dark = renderer.darkenForBandContrast("#ff4fa3", 0.09);
-  assert.ok(renderer.relativeLuminance(dark.r, dark.g, dark.b) <= 0.11, `expected a dark-enough result for contrast, got luminance ${renderer.relativeLuminance(dark.r, dark.g, dark.b)}`);
-  // Still recognizably pink/magenta, not gray or navy: red channel clearly dominant.
-  assert.ok(dark.r > dark.g && dark.r > dark.b, `expected the pink hue to survive darkening, got ${JSON.stringify(dark)}`);
-  assert.ok(dark.r > 20, "must never crush all the way to near-black");
-});
-
-test("darkenForBandContrast: never returns pure black even for a very light input — floors at a visible scale", () => {
-  const dark = renderer.darkenForBandContrast("#fdf6ec", 0.02); // an unreasonably strict target
-  assert.ok(dark.r > 0 || dark.g > 0 || dark.b > 0, "must never floor all the way to (0,0,0)");
-});
-
-test("darkenForBandContrast: a malformed/missing hex never throws — falls back to a warm plum, never navy", () => {
-  const dark = renderer.darkenForBandContrast(null, 0.09);
-  assert.ok(dark.r > dark.b, "the fallback must read as warm (red-leaning), not navy (blue-leaning)");
-});
-
-function fakeBandCtx() {
-  const stops = [];
+function fakeImageCtx(pixelPainter) {
   return {
-    stops,
-    save() {},
-    restore() {},
-    fillRect() {},
-    createLinearGradient: () => ({ addColorStop: (offset, color) => stops.push(color) })
+    save() {}, restore() {}, fillRect() {}, strokeText() {}, fillText() {}, measureText: () => ({ width: 40 }),
+    getImageData(x, y, w, h) {
+      const data = new Uint8ClampedArray(w * h * 4);
+      for (let py = 0; py < h; py++) {
+        for (let px = 0; px < w; px++) {
+          const [r, g, b] = pixelPainter(x + px, y + py);
+          const i = (py * w + px) * 4;
+          data[i] = r; data[i + 1] = g; data[i + 2] = b; data[i + 3] = 255;
+        }
+      }
+      return { width: w, height: h, data };
+    }
   };
 }
 
-test("drawGradientBand: two different shop brand colors produce two genuinely different band gradients — proves the band is no longer a fixed hardcoded color", () => {
-  const rect = { x: 0, y: 500, w: 1000, h: 500 };
-  const pinkCtx = fakeBandCtx();
-  renderer.drawGradientBand(pinkCtx, rect, { primary: "#e2437a" });
-  const greenCtx = fakeBandCtx();
-  renderer.drawGradientBand(greenCtx, rect, { primary: "#3c6b3f" });
-  assert.notDeepEqual(pinkCtx.stops, greenCtx.stops, "different brand colors must produce different band gradients");
+test("pickRegionTextStyle: a real dark photo region picks cream text with no outline needed (flat/dark, not busy)", () => {
+  const ctx = fakeImageCtx(() => [20, 15, 25]);
+  const style = renderer.pickRegionTextStyle(ctx, { x: 0, y: 0, w: 20, h: 20 });
+  assert.equal(style.color, "#f8f0e3");
+  assert.equal(style.outline, null);
 });
 
-test("drawGradientBand: with no brand color supplied at all, falls back to a warm plum default — never the old hardcoded navy", () => {
-  const rect = { x: 0, y: 500, w: 1000, h: 500 };
-  const ctx = fakeBandCtx();
-  renderer.drawGradientBand(ctx, rect, null);
-  for (const stop of ctx.stops) {
-    assert.doesNotMatch(stop, /rgba\(9,15,26/, "the old hardcoded navy top-of-band color must be gone");
-    assert.doesNotMatch(stop, /rgba\(7,12,22/, "the old hardcoded navy bottom-of-band color must be gone");
-  }
+test("pickRegionTextStyle: a real bright photo region picks charcoal-navy text", () => {
+  const ctx = fakeImageCtx(() => [250, 248, 245]);
+  const style = renderer.pickRegionTextStyle(ctx, { x: 0, y: 0, w: 20, h: 20 });
+  assert.equal(style.color, "#1f2733");
 });
 
-test("drawGradientBand: still keeps the same transparent-top-to-opaque-bottom structure Ashley approved — only the hue changed, not the shape", () => {
-  const rect = { x: 0, y: 500, w: 1000, h: 500 };
-  const ctx = fakeBandCtx();
-  renderer.drawGradientBand(ctx, rect, { primary: "#b93870" });
-  assert.equal(ctx.stops.length, 3);
-  assert.match(ctx.stops[0], /,0\)$/, "top stop must still be fully transparent");
-  assert.match(ctx.stops[2], /,0\.93\)$/, "bottom stop must still be strongly opaque");
+test("pickRegionTextStyle: a busy, high-variance region (real flower petals/leaves) gets a thin outline — never a filled panel", () => {
+  // Stripes wide enough (5px) to survive sampleAverageColor/
+  // sampleColorVariance's stride-4 pixel sampling — a true 1px checkerboard
+  // would alias to a single color at that stride, which is a property of
+  // the sampler's speed/accuracy tradeoff, not something this test should
+  // fight; real photo texture is never single-pixel-periodic anyway.
+  const ctx = fakeImageCtx((x) => (Math.floor(x / 5) % 2 === 0 ? [20, 15, 25] : [240, 235, 230]));
+  const style = renderer.pickRegionTextStyle(ctx, { x: 0, y: 0, w: 20, h: 20 });
+  assert.ok(style.outline, "a busy region must get an outline for insurance");
+  assert.ok(style.outline.width > 0);
+});
+
+test("pickRegionTextStyle: never throws on a tainted (cross-origin, unreadable) canvas — degrades to a safe default", () => {
+  const ctx = { getImageData() { throw new Error("tainted canvas"); } };
+  const style = renderer.pickRegionTextStyle(ctx, { x: 0, y: 0, w: 20, h: 20 });
+  assert.equal(style.color, "#f8f0e3");
+  assert.ok(style.outline, "the tainted-canvas fallback must still carry an outline for safety");
 });

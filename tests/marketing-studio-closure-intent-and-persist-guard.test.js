@@ -10,6 +10,7 @@ import {
   textAddsInventedEmbellishment,
   detectInventedOperationalContent,
   buildDeterministicNoticeContent,
+  extractShopNameFromRequestText,
   factsPreserved
 } from "../netlify/functions/_shared/marketing-content-revision.js";
 import { createMarketingStudioHandler } from "../netlify/functions/marketing-studio.js";
@@ -240,6 +241,60 @@ test("generate_content (real dispatch): a plain temporary-closing post never cal
   }
 });
 
+// Real, live-found failure (Ashley's third real branch-deploy test): the
+// shopRow lookup at the top of generate_content came back empty (no
+// matching row) for real, and the deterministic body said "We are
+// closing" instead of "Lilies in Bloom is closing" even though the
+// florist's own request named the shop. This proves the real handler —
+// not just buildDeterministicNoticeContent in isolation — recovers the
+// real name from the request text when that happens, and never reverts
+// the item to idea just because the shop lookup itself had a hiccup.
+test("generate_content (real dispatch): the shop name still appears correctly even when the shops-table lookup comes back with no row at all — recovered from the request text, never 'We'", async () => {
+  const mock = mockCloudflareCopyOnce({
+    platform: "facebook",
+    headline: "unused",
+    body: "unused — must never be called",
+    cta: "unused",
+    hashtags: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  });
+  try {
+    const client = createFakeSupabaseClient([
+      {
+        data: { id: "item-1", content_type: "text_post", title: "t", brief: "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.", status: "idea" },
+        error: null
+      },
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null },
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: null, error: null }, // -> generating
+      { data: null, error: null }, // shopRow — no matching row (the real failure mode)
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: null, error: null }, // recordUsage("copy")
+      { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset
+      { data: null, error: null }, // variant update
+      { data: { id: "item-1", status: "draft" }, error: null } // final content_items update -> draft, never idea
+    ]);
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-1" }));
+    assert.equal(res.statusCode, 200, `a shop-row lookup hiccup must never strand the florist: ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.equal(body.item.status, "draft", "must complete as a real draft, never reverted to idea over a shop-row read hiccup");
+    // copy.body is the Facebook CAPTION (noticeFallback.caption — body + CTA
+    // sentence combined), same convention every other real-dispatch test in
+    // this file already uses.
+    assert.match(body.copy.body, /^Lilies in Bloom is closing at 2:30 today\./, "the real shop name must be recovered from the request text");
+    assert.doesNotMatch(body.copy.body, /^We /, "must never fall back to the generic pronoun when the real name is right there in the request");
+    assert.equal(mock.calls.length, 0, "still the deterministic path — no AI call, regardless of the shop-row hiccup");
+  } finally {
+    mock.restore();
+  }
+});
+
 test("revise_content (real dispatch): an ordinary instruction ('make it clear we are only closing early today') revises without writing My Style", async () => {
   const mock = mockCloudflareCopyOnce({
     platform: "facebook",
@@ -387,6 +442,58 @@ test("buildDeterministicNoticeContent: the exact required fallback for Ashley's 
   assert.equal(result.body, "Lilies in Bloom is closing at 2:30 today.");
   assert.equal(result.cta, "Call 606-506-4039 to place an order.");
   assert.equal(result.caption, "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.");
+});
+
+// Real, live-found failure (Ashley's third real branch-deploy test): the
+// deterministic body said "We are closing at 2:30 today" instead of
+// "Lilies in Bloom is closing at 2:30 today" even though the exact
+// request text she typed named the shop. Root cause: buildDeterministic
+// NoticeContent's `name` came ONLY from the shopName param (the shops
+// table lookup) — if that ever comes back empty for any reason, the
+// shop's own name was silently lost even though it was right there in
+// the request text. These tests lock in the recovery: never a guess,
+// never a hardcoded name, only a real "<Name> is/are/will <verb>"
+// sentence subject the florist's own text actually contains.
+test("extractShopNameFromRequestText: recovers the shop's own name from a plain '<Name> is closing...' sentence", () => {
+  assert.equal(
+    extractShopNameFromRequestText("Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order."),
+    "Lilies in Bloom"
+  );
+});
+
+test("extractShopNameFromRequestText: handles an ampersand shop name and a leading unrelated sentence", () => {
+  assert.equal(
+    extractShopNameFromRequestText("Create today's Facebook post. Rose & Thorn Florals will be closing early today."),
+    "Rose & Thorn Florals"
+  );
+});
+
+test("extractShopNameFromRequestText: never invents a name out of a generic pronoun subject — 'We are closing' stays null", () => {
+  assert.equal(extractShopNameFromRequestText("We are closing at 2:30 today. Customers can call 606-506-4039 to place an order."), null);
+});
+
+test("extractShopNameFromRequestText: no clear sentence-subject pattern at all returns null, never a wrong guess", () => {
+  assert.equal(extractShopNameFromRequestText("closing early today, call to order"), null);
+  assert.equal(extractShopNameFromRequestText(""), null);
+});
+
+test("buildDeterministicNoticeContent: recovers the real shop name from the request text when the shopName param is empty (a shop-row lookup hiccup) — never falls back to 'We'", () => {
+  const text = "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.";
+  const result = buildDeterministicNoticeContent({ requestText: text, shopName: null, shopPhone: null });
+  assert.equal(result.body, "Lilies in Bloom is closing at 2:30 today.");
+  assert.equal(result.caption, text);
+  assert.doesNotMatch(result.body, /^We /, "must never fall back to the generic pronoun when the real name is right there in the text");
+});
+
+test("buildDeterministicNoticeContent: the authoritative shopName param still wins over the text when both are present and agree — the DB lookup stays primary, the text is only a fallback", () => {
+  const text = "Lilies in Bloom is closing at 2:30 today.";
+  const result = buildDeterministicNoticeContent({ requestText: text, shopName: "Lilies in Bloom", shopPhone: null });
+  assert.equal(result.body, "Lilies in Bloom is closing at 2:30 today.");
+});
+
+test("buildDeterministicNoticeContent: with neither a shopName param nor a recoverable name in the text, still falls back to 'We' rather than throwing or inventing one", () => {
+  const result = buildDeterministicNoticeContent({ requestText: "We are closing at 2:30 today. Call 606-506-4039.", shopName: null, shopPhone: null });
+  assert.equal(result.body, "We are closing at 2:30 today.");
 });
 
 test("buildDeterministicNoticeContent: never hardcodes a shop name, time, or phone number — a different shop/time/number produces genuinely different output", () => {

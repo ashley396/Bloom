@@ -354,6 +354,42 @@ function firstMatch(re, text) {
   return m ? m[0].trim() : null;
 }
 
+// Real, live-found failure (Ashley's third real branch-deploy test): the
+// deterministic body said "We are closing at 2:30 today" instead of
+// "Lilies in Bloom is closing at 2:30 today" — the shop's real name is
+// mandatory on every notice, never a generic pronoun, when the florist's
+// own request already states it. buildDeterministicNoticeContent's `name`
+// previously came ONLY from the shopName param (the shops-table lookup in
+// marketing-studio.js) — if that lookup ever comes back empty for any
+// reason (a transient read hiccup, an unset field), the shop's own name
+// was silently lost even though it was right there in the request text
+// the florist just typed. This is the last-resort recovery: the florist
+// routinely states the business's own name as the sentence's subject
+// ("Lilies in Bloom is closing...", "Rose & Thorn will be closing early
+// today...") — generalized to ANY shop name (never hardcoded), and never
+// a guess: it only fires when buildDeterministicNoticeContent's authoritative
+// shopName param is itself empty, only matches a clear "<Name> is/are/
+// will <status-verb>" sentence subject, and explicitly excludes generic
+// pronouns so it can never produce "We is closing." When it can't find a
+// clear match, the existing "We"/"are" fallback still applies exactly as
+// before — this only ever ADDS a real name, never removes one.
+const GENERIC_SENTENCE_SUBJECTS_RE = /^(we|i|you|they|customers|our shop|our store)$/i;
+// A real shop name is routinely multi-word with lowercase connectors in
+// the middle ("Lilies in Bloom", "Rose & Thorn Florals", "The Petal
+// Bar") — each subsequent word may be Capitalized OR one of a small,
+// closed set of connectors, never an arbitrary lowercase word (which
+// would risk swallowing real sentence content into the "name").
+const SHOP_NAME_SUBJECT_RE =
+  /(?:^|[.!?]\s+)([A-Z][A-Za-z0-9&'.,-]*(?:\s+(?:[A-Z][A-Za-z0-9&'.,-]*|&|in|of|the|and|at|for)){0,6})\s+(?:is|are|will be|will|has|have)\s+(?:closing|closed|opening|open|updated|updating|announcing)\b/;
+
+export function extractShopNameFromRequestText(text) {
+  const m = String(text || "").match(SHOP_NAME_SUBJECT_RE);
+  if (!m) return null;
+  const candidate = m[1].trim();
+  if (!candidate || GENERIC_SENTENCE_SUBJECTS_RE.test(candidate)) return null;
+  return candidate;
+}
+
 /**
  * Real, live-found failure (Ashley's second real branch-deploy test): a
  * "safe" (non-invented, non-permanent-misread) AI paraphrase still
@@ -377,7 +413,7 @@ function firstMatch(re, text) {
  */
 export function buildDeterministicNoticeContent({ requestText, shopName, shopPhone } = {}) {
   const text = String(requestText || "");
-  const name = String(shopName || "").trim();
+  const name = String(shopName || "").trim() || extractShopNameFromRequestText(text) || "";
   const phone = firstMatch(PHONE_RE, text) || (shopPhone ? String(shopPhone).trim() : null) || null;
   const time = firstMatch(TIME_RE, text);
   const date = firstMatch(DATE_RE, text);

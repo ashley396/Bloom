@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { mockBackend, withFakeSession } from "./fixtures.mjs";
+import { buildDeterministicNoticeContent } from "../../netlify/functions/_shared/marketing-content-revision.js";
 
 /**
  * Live beta defect fix: an operational post ("closing early today... call
@@ -549,4 +550,107 @@ test("one message still produces one finished flyer draft when the server's safe
   await expect(root.locator('[data-ms-act="approve"]')).toBeEnabled();
 
   expect(generateCallCount, "one message must trigger exactly one generate_content call — no retry, no second click needed").toBe(1);
+});
+
+// Phase 3, round 3 — Ashley's explicit instruction: "Trace why the live
+// deterministic result differs from the exact object claimed in the
+// report. Add a browser-level assertion for the persisted and visibly
+// rendered strings, not only the backend object." Every other test in
+// this file either stubs flyer-renderer.js entirely or hand-types the
+// expected content into its fixture — neither actually proves the real
+// client shows the real deterministic wording. This test does three
+// things none of the others do: (1) derives the expected content from
+// the REAL buildDeterministicNoticeContent (the exact function
+// generate_content calls), not a hand-typed string that could silently
+// drift from production; (2) lets the REAL, unmodified
+// public/flyer-renderer.js run in the browser — no stub — so the actual
+// shipped rendering code (sampled contrast, no color-wash band, the
+// shop-name lockup) really executes; (3) asserts the shop name appears in
+// the browser's own VISIBLE DOM text (marketing-studio-shop-ui.js's real
+// caption paragraph), not just in a JSON fixture or a backend unit test.
+test("browser-level: the real deterministic content (shop name included) is what actually renders in the browser via the real, unstubbed FlorisynFlyerRenderer — not just the backend object", async ({ page }) => {
+  const EXACT_BROWSER_SENTENCE = "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.";
+  const expected = buildDeterministicNoticeContent({ requestText: EXACT_BROWSER_SENTENCE, shopName: "Lilies in Bloom", shopPhone: "606-506-4039" });
+  expect(expected.body).toBe("Lilies in Bloom is closing at 2:30 today.");
+  expect(expected.caption).toBe(EXACT_BROWSER_SENTENCE);
+
+  const FINALIZED_URL = "https://example.test/storage/website-media/shop-ashley/flyers/flyer-asset-1-real.png";
+  const item = {
+    id: "item-1",
+    content_type: "image_post",
+    title: "Closing early today",
+    brief: EXACT_BROWSER_SENTENCE,
+    status: "draft",
+    asset: {
+      id: "flyer-asset-1",
+      asset_type: "flyer",
+      parent_asset_id: null,
+      model: "deterministic",
+      content: {
+        headline: expected.headline,
+        body: expected.body,
+        cta: expected.cta,
+        caption: expected.caption,
+        template_id: "notice",
+        regions: { headline: { x: 0.06, y: 0.46, w: 0.88, h: 0.15 }, body: { x: 0.06, y: 0.625, w: 0.88, h: 0.13 }, cta: { x: 0.22, y: 0.775, w: 0.56, h: 0.08 }, logo: { x: 0.5, y: 0.03, w: 0.14, h: 0.07 }, contact: { x: 0.06, y: 0.89, w: 0.88, h: 0.05 } },
+        palette: { background: "brand_primary" },
+        canvas: { width: 1080, height: 1080 },
+        style: { scale: { headline: "normal", body: "normal", cta: "normal" } },
+        // Tier B (no background_url) deliberately — this test's job is to
+        // prove the real renderer's TEXT layer (wording, contrast, no
+        // color wash), not to fight cross-origin canvas-tainting rules a
+        // mocked background image would trigger against getImageData.
+        background_url: null,
+        brand: { shopName: "Lilies in Bloom", phone: "606-506-4039", primaryColor: "#e2437a", accentColor: "#6f8f72" },
+        url: null,
+        storage_path: null,
+        mime: null,
+        render_status: null,
+        rendered_at: null
+      }
+    },
+    variants: [{ id: "variant-1", content_item_id: "item-1", platform: "facebook", caption: expected.caption, asset_id: "flyer-asset-1" }]
+  };
+
+  await mockMarketingStudioShop(page, item);
+  await routeAsRealImage(page, FINALIZED_URL);
+  await page.route("**/.netlify/functions/marketing-studio-shop**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("action") === "finalize_flyer_render") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          asset: {
+            id: "flyer-asset-1",
+            url: FINALIZED_URL,
+            content: { ...item.asset.content, url: FINALIZED_URL, storage_path: "shop-ashley/flyers/flyer-asset-1-real.png", mime: "image/png", width: 1080, height: 1080, render_status: "rendered", rendered_at: "now" }
+          }
+        })
+      });
+      return;
+    }
+    await route.fallback();
+  });
+
+  const root = await openMarketingStudioShop(page);
+  const card = root.locator('[data-ms-item="item-1"]');
+
+  // The browser's OWN visible caption text — a real <p> in the DOM, not a
+  // JSON fixture — must be the exact deterministic caption with the real
+  // shop name, and must never contain the exact old defect wording.
+  await expect(card).toContainText(expected.caption);
+  await expect(card).not.toContainText(/^We are closing/);
+  await expect(card).not.toContainText("Don't forget");
+
+  // The real, unstubbed renderer must actually finish drawing and finalize
+  // — proving the shipped rendering code (no stub) tolerates and completes
+  // this exact content end to end, not just that a mocked call resolved.
+  const img = root.locator("#msFlyerImg-item-1");
+  await expect(img).toHaveAttribute("src", FINALIZED_URL, { timeout: 8000 });
+  await expect(root.locator("#msFlyerNote-item-1")).toHaveCount(0);
+
+  // The diagnostic surface added specifically so this doesn't have to be
+  // taken on faith — checkable independent of this test or any report.
+  await expect(card).toHaveAttribute("data-ms-wording-source", "deterministic");
 });
