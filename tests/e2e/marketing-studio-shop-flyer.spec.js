@@ -697,7 +697,10 @@ test("browser-level: the real renderer's CTA never has its divider struck throug
       const ctx = canvas.getContext("2d");
       // drawCtaLabel measures at 0.1em tracking; match it exactly.
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0.1em";
-      const L = R.computeCtaLayout(ctx, rect, ctaText);
+      // Same bound renderFlyer passes: the CTA's real vertical freedom is
+      // the gap between the message above and the contact line below.
+      const ctaBand = Math.max(rect.h, contact.y - (bodyRect.y + bodyRect.h));
+      const L = R.computeCtaLayout(ctx, rect, ctaText, ctaBand);
       return {
         fontSize: L.fontSize,
         lineCount: L.lines.length,

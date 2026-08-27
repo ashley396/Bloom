@@ -79,6 +79,10 @@
   // long name.
   var LOCKUP_HARD_MIN_FONT = 16;
 
+  // The CTA's absolute floor, reached only by a pathologically long call to
+  // action that would otherwise collide with the message above it.
+  var MIN_CTA_FONT = 30;
+
   // Tier B's real floral fallback.
   //
   // A bright background with no flowers does not meet the accepted
@@ -645,7 +649,7 @@
    * is part of what has to fit, so the rule can never land on the text.
    * Requires only ctx.font + ctx.measureText, so a plain fake ctx can
    * drive it in tests. */
-  function computeCtaLayout(ctx, rect, text) {
+  function computeCtaLayout(ctx, rect, text, maxBlockHeight) {
     // Mobile-readability directive: the phone number/CTA was too small to
     // read at normal Facebook/mobile viewing size — 0.52x region height,
     // floor 17px. Unchanged; only the overflow handling below is new.
@@ -668,8 +672,21 @@
       // First line's own height + every subsequent line + the gap and rule
       // beneath the last line. textBaseline is "middle", so a line's ink
       // reaches roughly ±fontSize/2 around its center.
+      // First line's own height + every subsequent line + the gap and rule
+      // beneath the last line. textBaseline is "middle", so a line's ink
+      // reaches roughly ±fontSize/2 around its center.
       neededHeight = (lines.length - 1) * lineHeight + fontSize * 1.76;
-      if (neededHeight <= rect.h * 0.96 || fontSize <= baseSize * 0.78) break;
+      // Fits its own region outright — nothing more to decide.
+      if (neededHeight <= rect.h * 0.96) break;
+      // Past that, the 78% floor is a PREFERENCE (shrinking below it is how
+      // the CTA became unreadable at feed width), but avoiding a collision
+      // is a HARD requirement: a long CTA is centred in its region, so it
+      // spills both ways, and at the floor alone it reached up into the
+      // body text. Keep shrinking past the preferred floor only while the
+      // block would still overlap a neighbour, and never below MIN_CTA_FONT.
+      var collides = typeof maxBlockHeight === "number" && neededHeight > maxBlockHeight;
+      if (!collides && fontSize <= baseSize * 0.78) break;
+      if (fontSize <= MIN_CTA_FONT) break;
       fontSize = Math.round(fontSize * 0.9);
     }
     // Centre the WHOLE lockup (text block + divider) in the region, so the
@@ -698,7 +715,7 @@
     };
   }
 
-  function drawCtaLabel(ctx, rect, text, accentColor, textStyle) {
+  function drawCtaLabel(ctx, rect, text, accentColor, textStyle, maxBlockHeight) {
     if (!text) return;
     textStyle = textStyle || { color: BAND_TEXT_COLOR, outline: null };
     var gold = accentColor || "#c8a24a";
@@ -713,7 +730,7 @@
     // the tracking bought. Applied BEFORE measuring — measuring without
     // the tracking under-reports every line and the wrap comes out wrong.
     setLetterSpacing(ctx, "0.04em");
-    var layout = computeCtaLayout(ctx, rect, text);
+    var layout = computeCtaLayout(ctx, rect, text, maxBlockHeight);
     ctx.font = "600 " + layout.fontSize + "px 'Inter', sans-serif";
     drawWrappedLines(ctx, layout.lines, cx, layout.blockCenterY, layout.lineHeight, outlineFor(textStyle, layout.fontSize));
     setLetterSpacing(ctx, "0px");
@@ -1095,7 +1112,10 @@
       var contactRect = regionRect(template.regions.contact, width, height);
       drawRegionText(ctx, headlineRect, content.headline, "hero", style, { baseSizeHeight: headlineFullHeight }, pickRegionTextStyle(ctx, headlineRect));
       drawRegionText(ctx, bodyRect, content.body, "body", style, undefined, pickRegionTextStyle(ctx, bodyRect));
-      drawCtaLabel(ctx, ctaRect, content.cta, colors.accent, pickRegionTextStyle(ctx, ctaRect));
+      // The CTA's real vertical freedom is the gap between the message
+      // above it and the contact line below — not the nominal region box.
+      var ctaBand = Math.max(ctaRect.h, contactRect.y - (bodyRect.y + bodyRect.h));
+      drawCtaLabel(ctx, ctaRect, content.cta, colors.accent, pickRegionTextStyle(ctx, ctaRect), ctaBand);
       drawContact(ctx, contactRect, brand, pickRegionTextStyle(ctx, contactRect), content.cta);
       return drawLogo(ctx, regionRect(template.regions.logo, width, height), brand.logoUrl).then(function () {
         if (canvas.dataset) canvas.dataset.florisynBackgroundTier = backgroundTier || BACKGROUND_TIER.PROCEDURAL;
