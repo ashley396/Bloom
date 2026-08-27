@@ -1192,3 +1192,100 @@ test("deterministic notice: a phone the florist typed for THIS request is preser
   });
   assert.match(out.cta, /\(606\) 506-4039/, "the florist's own formatting is a fact and must survive verbatim");
 });
+
+// ---------------------------------------------------------------------------
+// ACCEPTANCE, through the real generate_content dispatch.
+//
+// Pinned to the canonical authenticated shop as it will actually be once
+// the shop name is saved through Settings: name "Lilies in Bloom", and an
+// EMPTY stored phone — which is the real state of that row, and the reason
+// the flyer must take its number from the request text alone.
+//
+// This is real-handler verification, not the live browser test. It proves
+// the server path produces exactly the required strings; it proves nothing
+// about a live provider image.
+// ---------------------------------------------------------------------------
+
+const ACCEPTANCE_REQUEST =
+  "Create today’s Facebook post with an image. Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.";
+
+test("ACCEPTANCE (real dispatch): the canonical shop with an empty stored phone produces exactly the required headline, body, CTA and caption — and exactly one phone number, taken from the request", async () => {
+  // No text responses queued on purpose: a plain operational notice must
+  // reach the deterministic builder without any AI text call. If the
+  // handler ever regressed to paraphrasing this request, it would try to
+  // consume a copy response and fail loudly here.
+  const mock = mockCloudflare([]);
+  try {
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-1", content_type: "image_post", title: "Closing early today", brief: ACCEPTANCE_REQUEST, status: "idea" }, error: null },
+        { data: [{ id: "variant-1", platform: "facebook" }], error: null },
+        { data: { marketing_monthly_budget_cents: null }, error: null },
+        { data: null, error: null },
+        // The real canonical row: a saved name, and phone genuinely empty.
+        { data: { name: "Lilies in Bloom", phone: "", primary_color: "#8f3f68", accent_color: "#6f8f72" }, error: null },
+        { data: null, error: null }, // loadBrandBrain
+        { data: null, error: null }, // loadStyleMemory
+        { data: [], error: null }, // grounded inventory
+        { data: [], error: null }, // audience customers
+        { data: [], error: null }, // audience orders
+        // Exactly ONE usage insert: this request is a plain operational
+        // notice, so both the caption and the flyer wording come from
+        // buildDeterministicNoticeContent and NO AI text call is made at
+        // all. (An AI-written post records two.) Verified by probing the
+        // handler's real call sequence, not assumed.
+        { data: null, error: null },
+        { data: { id: "flyer-asset-1" }, error: null }, // persistGeneratedAsset
+        { data: null, error: null }, // variant update
+        { data: { id: "item-1", status: "draft" }, error: null } // final update
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-1" }));
+    assert.equal(res.statusCode, 200, `the acceptance request must succeed: ${res.body}`);
+
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const row = assetInsert.ops.find((op) => op[0] === "insert")[1][0];
+    const c = row.content;
+
+    // The four required visible strings, exactly.
+    assert.equal(c.headline, "Closing Early Today");
+    assert.equal(c.body, "Lilies in Bloom is closing at 2:30 today.");
+    assert.equal(c.cta, "Call 606-506-4039 to place an order.");
+    assert.equal(
+      c.caption,
+      "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order."
+    );
+
+    // One shop name, and it is the authenticated shop's.
+    assert.equal(c.brand.shopName, "Lilies in Bloom");
+    assert.ok(!/florisyn/i.test(`${c.headline} ${c.body} ${c.cta} ${c.caption} ${c.brand.shopName}`));
+
+    // Exactly one phone number anywhere on the flyer: the requested one.
+    // brand.phone is empty on this row, so the contact line adds no second
+    // number — the defect where a flyer advertised two different numbers
+    // cannot occur here.
+    assert.ok(!c.brand.phone, "the empty stored phone must not become a second number on the flyer");
+    const allText = `${c.headline} ${c.body} ${c.cta} ${c.caption} ${c.brand.phone || ""}`;
+    const numbers = new Set((allText.match(/\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/g) || []).map((n) => n.replace(/\D/g, "")));
+    assert.equal(numbers.size, 1, `exactly one distinct phone number must appear, found: ${[...numbers].join(", ")}`);
+    assert.equal([...numbers][0], "6065064039");
+
+    // No invented content, and the shop name is never replaced by "we".
+    assert.ok(!/\bwe\b/i.test(c.body));
+    assert.ok(
+      !/(sadly|unfortunately|thank you|grateful|final|last day|forever|for good|sale|special|reopen)/i.test(allText),
+      "no reason, gratitude, urgency or permanent-closure language may be invented"
+    );
+
+    // The image model still never sees the business wording.
+    const imageCalls = mock.calls.filter((x) => x.url.includes("black-forest-labs") || "prompt" in x.body);
+    assert.equal(imageCalls.length, 1);
+    assert.doesNotMatch(imageCalls[0].body.prompt, /2:30/);
+    assert.doesNotMatch(imageCalls[0].body.prompt, /606-506-4039/);
+    assert.doesNotMatch(imageCalls[0].body.prompt, /Lilies in Bloom/i);
+  } finally {
+    mock.restore();
+  }
+});
