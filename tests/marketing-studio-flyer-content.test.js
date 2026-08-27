@@ -1289,3 +1289,58 @@ test("ACCEPTANCE (real dispatch): the canonical shop with an empty stored phone 
     mock.restore();
   }
 });
+
+test("ACCEPTANCE (real dispatch): with the shop's own phone NOW saved, the flyer still shows exactly one phone number — the same one in the CTA and the contact line, never two", async () => {
+  // The canonical shop as it reads in the live database after the shop
+  // name and phone were saved through Settings: name "Lilies in Bloom",
+  // phone "606-506-4039". The request names the same number, so the CTA
+  // and the contact line agree and the contact line keeps it — the
+  // two-different-numbers defect required them to DISAGREE.
+  const mock = mockCloudflare([]);
+  try {
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-1", content_type: "image_post", title: "Closing early today", brief: ACCEPTANCE_REQUEST, status: "idea" }, error: null },
+        { data: [{ id: "variant-1", platform: "facebook" }], error: null },
+        { data: { marketing_monthly_budget_cents: null }, error: null },
+        { data: null, error: null },
+        { data: { name: "Lilies in Bloom", phone: "606-506-4039", primary_color: "#8f3f68", accent_color: "#6f8f72" }, error: null },
+        { data: null, error: null },
+        { data: null, error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: null, error: null },
+        { data: { id: "flyer-asset-1" }, error: null },
+        { data: null, error: null },
+        { data: { id: "item-1", status: "draft" }, error: null }
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-1" }));
+    assert.equal(res.statusCode, 200, `must succeed: ${res.body}`);
+
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const c = assetInsert.ops.find((op) => op[0] === "insert")[1][0].content;
+
+    assert.equal(c.headline, "Closing Early Today");
+    assert.equal(c.body, "Lilies in Bloom is closing at 2:30 today.");
+    assert.equal(c.cta, "Call 606-506-4039 to place an order.");
+    assert.equal(c.caption, "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.");
+    assert.equal(c.brand.shopName, "Lilies in Bloom");
+    assert.equal(c.brand.phone, "606-506-4039");
+
+    // One distinct number across every customer-facing field on the flyer.
+    const allText = `${c.headline} ${c.body} ${c.cta} ${c.caption} ${c.brand.phone}`;
+    const numbers = new Set((allText.match(/\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/g) || []).map((n) => n.replace(/\D/g, "")));
+    assert.equal(numbers.size, 1, `exactly one distinct number, found: ${[...numbers].join(", ")}`);
+    assert.equal([...numbers][0], "6065064039");
+
+    // Exactly one shop name, and it is the authenticated shop's own.
+    assert.ok(!/florisyn/i.test(allText));
+    assert.ok(!/\bwe\b/i.test(c.body));
+  } finally {
+    mock.restore();
+  }
+});
