@@ -209,28 +209,70 @@ const FLYER_BACKGROUND_COMPOSITIONS = [
 ];
 
 export function buildFlyerBackgroundPrompt({ visualBrief, occasion, brandColor, groundedFlowers = [], variationSeed = 0 } = {}) {
-  const parts = [];
-  parts.push(
-    "Luxury editorial floral photography for a premium flower shop's marketing flyer — happy, colorful, rich and vivid floral tones (blush pink, coral, sunny yellow, fresh green, soft lavender, warm cream), bright natural daylight, realistic and elegant florals, shallow depth of field, a composed, high-end magazine-quality look. Never dark, moody, dull, gloomy, or desaturated."
-  );
-  const compositionIndex = ((Number(variationSeed) || 0) % FLYER_BACKGROUND_COMPOSITIONS.length + FLYER_BACKGROUND_COMPOSITIONS.length) % FLYER_BACKGROUND_COMPOSITIONS.length;
-  parts.push(FLYER_BACKGROUND_COMPOSITIONS[compositionIndex]);
+  const compositionIndex =
+    (((Number(variationSeed) || 0) % FLYER_BACKGROUND_COMPOSITIONS.length) + FLYER_BACKGROUND_COMPOSITIONS.length) %
+    FLYER_BACKGROUND_COMPOSITIONS.length;
+
+  // Every clause is a whole, self-contained instruction, tagged with
+  // whether it may be dropped to fit the provider's length cap.
+  //
+  // Two real regressions taught this shape. Slicing the JOINED string cut
+  // directives off mid-word — first the unconditional no-text guarantee
+  // (the one thing stopping a diffusion model painting garbled words on a
+  // customer's flyer), and then, once the tail was reserved, the calm-text-
+  // area instruction itself, on inputs as ordinary as a 101-character
+  // visual brief. A half-sentence is worse than no sentence: the model
+  // still reads it. So nothing is ever sliced — the OPTIONAL clauses are
+  // dropped whole, last-listed first, until the required ones fit.
+  const required = (text) => ({ text, optional: false });
+  const optional = (text) => ({ text, optional: true });
+
+  const clauses = [
+    required(
+      "Luxury editorial floral photography for a premium flower shop's marketing flyer — happy, colorful, rich and vivid floral tones (blush pink, coral, sunny yellow, fresh green, soft lavender, warm cream), bright natural daylight, realistic and elegant florals, shallow depth of field, a composed, high-end magazine-quality look. Never dark, moody, dull, gloomy, or desaturated."
+    ),
+    required(FLYER_BACKGROUND_COMPOSITIONS[compositionIndex])
+  ];
+
   if (Array.isArray(groundedFlowers) && groundedFlowers.length) {
-    parts.push(`Feature real, recognizable ${groundedFlowers.slice(0, 5).join(", ")} rendered photorealistically.`);
+    clauses.push(optional(`Feature real, recognizable ${groundedFlowers.slice(0, 5).join(", ")} rendered photorealistically.`));
   } else if (visualBrief) {
-    parts.push(visualBrief);
+    clauses.push(optional(String(visualBrief)));
   }
-  if (occasion) parts.push(`Mood/occasion: ${occasion}.`);
+  if (occasion) clauses.push(optional(`Mood/occasion: ${occasion}.`));
+
   // The renderer's own text regions (public/flyer-renderer.js /
-  // flyer-templates.js) all live in the LOWER portion of the frame
-  // (roughly the bottom 40–95%), never the center — this must actually
-  // match where the text will really be placed, not a generic "center"
-  // that was never true to the real layout.
-  parts.push(
-    "Leave clear, softly out-of-focus, evenly-lit open space across the lower portion of the frame — this is where real text will be placed afterward, not by you — while keeping bright, colorful flowers clearly visible throughout the rest of the image."
+  // flyer-templates.js) all live in the LOWER portion of the frame, never
+  // the center. Strengthened after a real live review: "open space" alone
+  // still came back with petals and foliage scattered through the lower
+  // half, and a busy text area is the single biggest cause of hard-to-read
+  // wording on the finished flyer. The renderer's per-region contrast is
+  // insurance, not a substitute for a genuinely calm area, so the
+  // composition itself has to reserve one. REQUIRED — this is the whole
+  // point of the instruction and must never be the thing that gets cut.
+  clauses.push(
+    required(
+      "Critically important: the lower 55% of the frame must be a calm, uncluttered, softly out-of-focus backdrop — smooth, evenly lit, pale, with no flowers, foliage, stems, petals, vase or busy detail in it at all, so a large block of text placed there afterwards stays perfectly readable. Keep every bright, colorful bloom in the upper portion, sweeping in from the top and sides."
+    )
   );
-  if (brandColor) parts.push(`Color palette should read as premium and complement ${brandColor}, while staying bright and colorful overall.`);
-  parts.push(NO_TEXT_DIRECTIVE);
-  parts.push("No logos, no watermarks, no invented brand marks.");
-  return parts.join(" ").slice(0, 1200);
+  if (brandColor) {
+    clauses.push(optional(`Color palette should read as premium and complement ${brandColor}, while staying bright and colorful overall.`));
+  }
+  clauses.push(required(NO_TEXT_DIRECTIVE));
+  clauses.push(required("No logos, no watermarks, no invented brand marks."));
+
+  const join = (list) => list.map((c) => c.text).join(" ");
+  const kept = clauses.slice();
+  // Drop optional clauses from the end until the whole prompt fits.
+  for (let i = kept.length - 1; i >= 0 && join(kept).length > 1200; i--) {
+    if (kept[i].optional) kept.splice(i, 1);
+  }
+  let out = join(kept);
+  if (out.length > 1200) {
+    // Only reachable if the REQUIRED clauses alone exceed the cap, which
+    // would be an authoring mistake in this file rather than caller input.
+    // Trim from the front so the no-text guarantee is the last thing lost.
+    out = out.slice(out.length - 1200);
+  }
+  return out;
 }

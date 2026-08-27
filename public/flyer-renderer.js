@@ -63,6 +63,22 @@
   // This is the LAST resort, below the real floral fallback photo.
   var TIER_B_BASE = "#fbf6ef";
 
+  // Outline thickness as a fraction of the FONT size (see outlineFor).
+  // A hairline: enough to separate letterforms from petals, never enough
+  // to thicken or blur them.
+  var OUTLINE_WIDTH_RATIO = 0.028;
+
+  // The smallest the shop-name lockup may go. A name long enough to need
+  // this is unavoidably small, but it must still FIT — running off both
+  // edges of the canvas, as an unbounded lockup did, is never acceptable.
+  var LOCKUP_MIN_FONT = 26;
+
+  // The absolute floor, used only after the tracking has already been
+  // surrendered. Fitting inside the canvas outranks any preferred size:
+  // a clipped shop name is a broken flyer, a small one is merely a very
+  // long name.
+  var LOCKUP_HARD_MIN_FONT = 16;
+
   // Tier B's real floral fallback.
   //
   // A bright background with no flowers does not meet the accepted
@@ -411,7 +427,7 @@
     try {
       imageData = ctx.getImageData(safeRect.x, safeRect.y, safeRect.w, safeRect.h);
     } catch (e) {
-      return { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: { color: "rgba(6,10,18,0.6)", width: Math.max(1.5, rect.h * 0.025) } };
+      return { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: { color: "rgba(6,10,18,0.6)", width: Math.max(1, rect.h * 0.01), widthRatio: OUTLINE_WIDTH_RATIO } };
     }
     var localRect = { x: 0, y: 0, w: imageData.width, h: imageData.height };
     var avg = sampleAverageColor(imageData, localRect, 4);
@@ -421,8 +437,124 @@
     return {
       color: isDark ? BAND_TEXT_COLOR : CHARCOAL_TEXT,
       softColor: isDark ? BAND_TEXT_COLOR_SOFT : CHARCOAL_TEXT_SOFT,
-      outline: scrim ? { color: isDark ? "rgba(6,10,18,0.6)" : "rgba(255,255,255,0.65)", width: Math.max(1.5, rect.h * 0.025) } : null
+      outline: scrim ? { color: isDark ? "rgba(6,10,18,0.6)" : "rgba(255,255,255,0.65)", width: Math.max(1, rect.h * 0.01), widthRatio: OUTLINE_WIDTH_RATIO } : null
     };
+  }
+
+  /** Where the shop-name lockup will actually be drawn, and the rectangle
+   * whose real pixels decide its colour.
+   *
+   * Split out because the two must agree. A live-review defect: the
+   * contrast sample was the full band width across the band's top 16%,
+   * which on a corner-weighted floral photo is dominated by the dark
+   * foliage sweeping in from one side — so the sampler judged the area
+   * "dark" and chose CREAM text, while the letterforms themselves sit over
+   * pale, bright backdrop in the middle. Cream on near-white, rescued only
+   * by a dark outline, which is exactly the haloed look that reads as
+   * blurry. Sampling the centred strip the text really occupies picks the
+   * charcoal that belongs there, and usually needs no outline at all.
+   * Pure. */
+  function shopLockupMetrics(bandRect, shopName) {
+    var fontSize = Math.max(20, Math.round(bandRect.h * 0.095));
+    var baselineY = bandRect.y + bandRect.h * 0.135;
+    // Generous tracking is what makes a short name read as a brand mark,
+    // but on a long one it is pure width: at 0.16em a 51-character shop
+    // name needs an extra ~500px it does not have. Ease it off rather than
+    // paying for it in font size.
+    var length = String(shopName == null ? "" : shopName).length;
+    return {
+      fontSize: fontSize,
+      baselineY: baselineY,
+      tracking: length > 22 ? "0.07em" : "0.16em",
+      minFontSize: LOCKUP_MIN_FONT,
+      maxWidth: bandRect.w * 0.92,
+      sampleRect: {
+        x: Math.round(bandRect.x + bandRect.w * 0.18),
+        y: Math.round(baselineY - fontSize),
+        w: Math.max(1, Math.round(bandRect.w * 0.64)),
+        h: Math.max(1, Math.round(fontSize * 1.25))
+      }
+    };
+  }
+
+  /** Resolves the shop-name lockup to a size and tracking that genuinely
+   * FIT inside `maxWidth`, mutating ctx's font/letterSpacing to match and
+   * returning what it settled on.
+   *
+   * Exported and used by the real draw path so tests measure exactly what
+   * ships — an earlier test re-implemented this arithmetic and drifted out
+   * of step with it, which is its own bug. Needs only ctx.font,
+   * ctx.letterSpacing and ctx.measureText.
+   *
+   * Order of sacrifice: size down to the preferred floor, then the
+   * tracking, then size down again to the hard floor. Clipping is never
+   * on the menu. */
+  function fitShopLockup(ctx, bandRect, name) {
+    var metrics = shopLockupMetrics(bandRect, name);
+    var upper = String(name == null ? "" : name).toUpperCase();
+    var maxWidth = metrics.maxWidth;
+    var tracking = metrics.tracking;
+    var fontSize = metrics.fontSize;
+
+    function apply() {
+      setLetterSpacing(ctx, tracking);
+      ctx.font = "600 " + fontSize + "px 'Inter', sans-serif";
+      return ctx.measureText(upper).width;
+    }
+
+    var width = apply();
+    if (width > maxWidth) {
+      fontSize = Math.max(metrics.minFontSize, Math.floor(fontSize * (maxWidth / width)));
+      width = apply();
+    }
+    if (width > maxWidth) {
+      tracking = "0px";
+      width = apply();
+    }
+    if (width > maxWidth) {
+      fontSize = Math.max(LOCKUP_HARD_MIN_FONT, Math.floor(fontSize * (maxWidth / width)));
+      width = apply();
+    }
+    // The contrast sample must follow the text that will really be drawn,
+    // not the preferred size: a long name shrinks and spreads much wider
+    // than the fixed centre strip, so sampling that strip left the outer
+    // letterforms judged by pixels they do not sit on — dark-on-dark on a
+    // corner-weighted photo, in exactly the long-name case.
+    var half = Math.max(1, width / 2);
+    var centreX = bandRect.x + bandRect.w / 2;
+    return {
+      fontSize: fontSize,
+      tracking: tracking,
+      width: width,
+      maxWidth: maxWidth,
+      text: upper,
+      baselineY: metrics.baselineY,
+      sampleRect: {
+        x: Math.round(Math.max(bandRect.x, centreX - half)),
+        y: Math.round(metrics.baselineY - fontSize),
+        w: Math.max(1, Math.round(Math.min(bandRect.w, width))),
+        h: Math.max(1, Math.round(fontSize * 1.25))
+      }
+    };
+  }
+
+  /** The outline actually stroked under a line of text, scaled to the TEXT
+   * rather than to its region.
+   *
+   * A real, live-found defect (Ashley's flyer review): pickRegionTextStyle
+   * sized the outline from the region height (rect.h * 0.025), so the body
+   * region's 140px height produced a 3.5px stroke under ~50px letterforms.
+   * At real feed width that reads as blur, not contrast — exactly the
+   * "heavy outlines make the small text look blurry" complaint. Tied to
+   * the font size it stays the thin hairline it was always meant to be,
+   * and it gets thinner as the text gets smaller instead of thicker.
+   *
+   * Returns null when the region didn't need an outline at all. Pure. */
+  function outlineFor(textStyle, fontSize) {
+    var outline = textStyle && textStyle.outline;
+    if (!outline) return null;
+    var ratio = typeof outline.widthRatio === "number" ? outline.widthRatio : OUTLINE_WIDTH_RATIO;
+    return { color: outline.color, width: Math.max(0.75, fontSize * ratio) };
   }
 
   function applyTextShadow(ctx) {
@@ -479,10 +611,13 @@
       lineHeight = fontSize * 1.18;
       lines = measureWrappedLines(ctx, text, maxTextWidth);
       var blockHeight = lines.length * lineHeight;
-      if (blockHeight <= rect.h * 0.96 || fontSize <= baseSize * 0.62) break;
+      // Floor raised from 62% to 78%: shrinking this far was how the body
+      // ended up unreadable at feed width. The regions are taller now, so
+      // a long message wraps to another line instead of shrinking away.
+      if (blockHeight <= rect.h * 0.96 || fontSize <= baseSize * 0.78) break;
       fontSize = Math.round(fontSize * 0.9);
     }
-    drawWrappedLines(ctx, lines, rect.x + rect.w / 2, rect.y + rect.h / 2, lineHeight, textStyle.outline);
+    drawWrappedLines(ctx, lines, rect.x + rect.w / 2, rect.y + rect.h / 2, lineHeight, outlineFor(textStyle, fontSize));
     setLetterSpacing(ctx, "0px");
     ctx.restore();
   }
@@ -514,7 +649,14 @@
     // Mobile-readability directive: the phone number/CTA was too small to
     // read at normal Facebook/mobile viewing size — 0.52x region height,
     // floor 17px. Unchanged; only the overflow handling below is new.
-    var baseSize = Math.max(17, Math.round(rect.h * 0.52));
+    // Ratio deliberately unchanged from the original 0.52: lowering it to
+    // make the notice CTA "less dominant" silently SHRANK the CTA on the
+    // six templates whose regions were not enlarged (REGIONS_STANDARD's
+    // cta.h of 0.07 → 40px became 33px), which is the opposite of the
+    // readability fix. The notice template gets its larger CTA from its
+    // taller region instead, and the auto-fit below brings any template's
+    // CTA down only as far as it genuinely must.
+    var baseSize = Math.max(28, Math.round(rect.h * 0.52));
     var maxTextWidth = rect.w * 0.94;
     var upper = String(text).toUpperCase();
     var fontSize = baseSize;
@@ -527,7 +669,7 @@
       // beneath the last line. textBaseline is "middle", so a line's ink
       // reaches roughly ±fontSize/2 around its center.
       neededHeight = (lines.length - 1) * lineHeight + fontSize * 1.76;
-      if (neededHeight <= rect.h * 0.96 || fontSize <= baseSize * 0.62) break;
+      if (neededHeight <= rect.h * 0.96 || fontSize <= baseSize * 0.78) break;
       fontSize = Math.round(fontSize * 0.9);
     }
     // Centre the WHOLE lockup (text block + divider) in the region, so the
@@ -566,13 +708,14 @@
     ctx.fillStyle = textStyle.color;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    setLetterSpacing(ctx, "0.1em");
-    // Letter spacing must be applied BEFORE measuring — the CTA is drawn
-    // at 0.1em tracking, so measuring without it under-reports every line
-    // and the wrap/fit decisions come out wrong.
+    // Tracking eased from 0.1em to 0.04em: at 0.1em this sentence was so
+    // wide it had to shrink to fit, which cost far more readability than
+    // the tracking bought. Applied BEFORE measuring — measuring without
+    // the tracking under-reports every line and the wrap comes out wrong.
+    setLetterSpacing(ctx, "0.04em");
     var layout = computeCtaLayout(ctx, rect, text);
     ctx.font = "600 " + layout.fontSize + "px 'Inter', sans-serif";
-    drawWrappedLines(ctx, layout.lines, cx, layout.blockCenterY, layout.lineHeight, textStyle.outline);
+    drawWrappedLines(ctx, layout.lines, cx, layout.blockCenterY, layout.lineHeight, outlineFor(textStyle, layout.fontSize));
     setLetterSpacing(ctx, "0px");
     ctx.restore();
     // Thin gold divider beneath the label — "a narrow decorative label for
@@ -601,16 +744,24 @@
     if (!name) return { usedHeight: 0 };
     textStyle = textStyle || { color: BAND_TEXT_COLOR, outline: null };
     var gold = accentColor || "#c8a24a";
-    var fontSize = Math.max(12, Math.round(bandRect.h * 0.05));
-    var baselineY = bandRect.y + bandRect.h * 0.12;
+    // Mobile-readability pass: this is the one element that tells a
+    // customer whose flyer they are looking at, and at real feed width it
+    // was the smallest thing on the image. Raised from 0.05 to 0.095 of
+    // the band height, with the tracking eased from 0.26em to 0.16em so
+    // the extra size goes into legible letterforms rather than gaps.
     ctx.save();
     applyTextShadow(ctx);
     ctx.fillStyle = textStyle.color;
-    ctx.font = "600 " + fontSize + "px 'Inter', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
-    setLetterSpacing(ctx, "0.26em");
-    drawTextLine(ctx, String(name).toUpperCase(), bandRect.x + bandRect.w / 2, baselineY, textStyle.outline);
+    // A long shop name must FIT, not merely shrink toward fitting — an
+    // unbounded lockup clipped "The Wildflower & Peony Company of Northern
+    // Kentucky" off both edges, a real multi-tenant defect.
+    var fit = fitShopLockup(ctx, bandRect, name);
+    var fontSize = fit.fontSize;
+    var upper = fit.text;
+    var baselineY = fit.baselineY;
+    drawTextLine(ctx, upper, bandRect.x + bandRect.w / 2, baselineY, outlineFor(textStyle, fontSize));
     setLetterSpacing(ctx, "0px");
     ctx.restore();
     var dividerY = baselineY + fontSize * 0.75;
@@ -653,12 +804,6 @@
 
   var ANY_PHONE_RE = /\(?\b\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/;
 
-  /** Digits only, for comparing two phone numbers written different ways
-   * ("606-506-4039" vs "6065064039"). Pure. */
-  function phoneDigits(value) {
-    return String(value == null ? "" : value).replace(/\D/g, "");
-  }
-
   /** The footer contact line. `ctaText` is passed so the flyer can never
    * show TWO different phone numbers — a real, live-found defect: a
    * request-supplied number ("call 606-506-4039") correctly became the
@@ -674,14 +819,18 @@
     var ctaPhoneMatch = String(ctaText || "").match(ANY_PHONE_RE);
     var ctaPhone = ctaPhoneMatch ? ctaPhoneMatch[0] : null;
     var brandPhone = brand.phone ? formatPhoneForDisplay(brand.phone) : null;
-    var phone = brandPhone;
-    if (ctaPhone) {
-      // Same number written two ways → keep the footer's own formatting.
-      // A genuinely different number → the CTA's wins and the footer drops
-      // the phone entirely rather than printing a contradiction.
-      phone = phoneDigits(ctaPhone) === phoneDigits(brandPhone) ? brandPhone : null;
-    }
-    return [brand.shopName, phone, brand.website].filter(Boolean);
+    // The phone appears ONCE on a flyer. Whenever the CTA already shows a
+    // number — the same one written differently, or a different one — this
+    // line shows none: repeating it was clutter when the numbers agreed and
+    // a contradiction when they didn't.
+    var phone = ctaPhone ? null : brandPhone;
+    // The shop name is already the lockup, the largest identity element on
+    // the flyer. Repeating it small at the bottom adds nothing, so it only
+    // survives here when it is genuinely introducing something else (a
+    // website). A footer that would carry the shop name alone is dropped.
+    var extras = [phone, brand.website].filter(Boolean);
+    if (!extras.length) return [];
+    return [brand.shopName].concat(extras).filter(Boolean);
   }
 
   function drawContact(ctx, rect, brand, textStyle, ctaText) {
@@ -692,11 +841,22 @@
     applyTextShadow(ctx);
     ctx.fillStyle = textStyle.softColor;
     // A real, comfortably-readable footer — not a tiny fine-print line.
-    ctx.font = "600 " + Math.round(rect.h * 0.6) + "px 'Inter', sans-serif";
+    var line = parts.join("   ·   ");
+    var contactSize = Math.round(rect.h * 0.72);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     setLetterSpacing(ctx, "0.03em");
-    drawTextLine(ctx, parts.join("   ·   "), rect.x + rect.w / 2, rect.y + rect.h / 2, textStyle.outline);
+    // This line never measured itself. A shop with a name AND a website
+    // (and no phone in its CTA) produces a string far wider than the
+    // region, clipped at both ends. Scaled to fit like every other block.
+    var contactMax = rect.w * 0.96;
+    ctx.font = "600 " + contactSize + "px 'Inter', sans-serif";
+    var contactWidth = ctx.measureText(line).width;
+    if (contactWidth > contactMax) {
+      contactSize = Math.max(14, Math.floor(contactSize * (contactMax / contactWidth)));
+      ctx.font = "600 " + contactSize + "px 'Inter', sans-serif";
+    }
+    drawTextLine(ctx, line, rect.x + rect.w / 2, rect.y + rect.h / 2, outlineFor(textStyle, contactSize));
     setLetterSpacing(ctx, "0px");
     ctx.restore();
   }
@@ -900,7 +1060,14 @@
       // portion of the frame where the shop-name lockup lives — never
       // painted (see drawGradientBand's removal, design pass v3 above).
       var bandRect = computeBandRect(template, width, height);
-      var lockupSampleRect = { x: bandRect.x, y: bandRect.y, w: bandRect.w, h: Math.max(1, bandRect.h * 0.16) };
+      var lockupSampleRect;
+      if (brand.shopName) {
+        ctx.save();
+        lockupSampleRect = fitShopLockup(ctx, bandRect, brand.shopName).sampleRect;
+        ctx.restore();
+      } else {
+        lockupSampleRect = shopLockupMetrics(bandRect, brand.shopName).sampleRect;
+      }
       var lockup = drawShopNameLockup(ctx, bandRect, brand, colors.accent, pickRegionTextStyle(ctx, lockupSampleRect));
       var headlineRect = regionRect(template.regions.headline, width, height);
       var headlineFullHeight = headlineRect.h;
@@ -964,6 +1131,9 @@
     computeBandRect: computeBandRect,
     computeCtaLayout: computeCtaLayout,
     formatPhoneForDisplay: formatPhoneForDisplay,
+    outlineFor: outlineFor,
+    shopLockupMetrics: shopLockupMetrics,
+    fitShopLockup: fitShopLockup,
     BACKGROUND_TIER: BACKGROUND_TIER,
     FALLBACK_FLORAL_BACKGROUND: FALLBACK_FLORAL_BACKGROUND,
     contactLineParts: contactLineParts,

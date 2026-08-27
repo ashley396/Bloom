@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import { FLYER_TEMPLATES } from "../netlify/functions/_shared/flyer-templates.js";
 
 const root = process.cwd();
 
@@ -346,9 +347,11 @@ function measuringCtx(perCharPx = 26) {
   };
 }
 
-// The real notice-template cta region at 1080x1080 (flyer-templates.js:
-// { x: 0.22, y: 0.775, w: 0.56, h: 0.08 }).
-const NOTICE_CTA_RECT = { x: 238, y: 837, w: 605, h: 86 };
+// Derived from the REAL notice template rather than hardcoded — a
+// hardcoded copy silently went stale the moment the regions were resized
+// for mobile readability, and the tests kept asserting against geometry
+// the product no longer used.
+const NOTICE_CTA_RECT = renderer.regionRect(FLYER_TEMPLATES.notice.regions.cta, 1080, 1080);
 
 test("computeCtaLayout: the divider rule is always BELOW the last line of the CTA, never struck through it (the real live defect)", () => {
   const layout = renderer.computeCtaLayout(measuringCtx(), NOTICE_CTA_RECT, "Call 606-506-4039 to place an order.");
@@ -359,32 +362,47 @@ test("computeCtaLayout: the divider rule is always BELOW the last line of the CT
   );
 });
 
-test("computeCtaLayout: the whole lockup (wrapped text + divider) stays inside its own region — it never spills toward the contact line", () => {
+test("computeCtaLayout: the CTA lockup never collides with the message above it or the contact line below it", () => {
   const layout = renderer.computeCtaLayout(measuringCtx(), NOTICE_CTA_RECT, "Call 606-506-4039 to place an order.");
-  const regionTop = NOTICE_CTA_RECT.y;
-  const regionBottom = NOTICE_CTA_RECT.y + NOTICE_CTA_RECT.h;
-  assert.ok(layout.blockTop >= regionTop, `text top ${layout.blockTop} must not rise above the region top ${regionTop}`);
-  assert.ok(layout.dividerY <= regionBottom, `divider ${layout.dividerY} must not fall below the region bottom ${regionBottom}`);
+  const body = renderer.regionRect(FLYER_TEMPLATES.notice.regions.body, 1080, 1080);
+  const contact = renderer.regionRect(FLYER_TEMPLATES.notice.regions.contact, 1080, 1080);
+  // Collision, not geometric purity, is the real requirement: the
+  // readability floor is allowed to win over strict region containment,
+  // because shrinking the phone number out of legibility to honour a box
+  // is the defect, not the fix.
+  assert.ok(layout.blockTop >= body.y + body.h, `CTA text top ${layout.blockTop} must clear the body ending at ${body.y + body.h}`);
+  assert.ok(layout.dividerY < contact.y, `divider ${layout.dividerY} must stay above the contact line at ${contact.y}`);
+  assert.ok(layout.dividerY > layout.lastLineBottom, "and the divider still never strikes the text");
 });
 
-test("computeCtaLayout: an absurdly long CTA shrinks to fit but never below the readable floor (62% of the base size), matching drawRegionText's policy", () => {
+test("computeCtaLayout: an absurdly long CTA shrinks to fit but still stays readable at real phone width — the shrink loop may never trade away legibility", () => {
   const rect = NOTICE_CTA_RECT;
-  const baseSize = Math.max(17, Math.round(rect.h * 0.52));
+  const baseSize = Math.max(28, Math.round(rect.h * 0.52));
   const layout = renderer.computeCtaLayout(
     measuringCtx(),
     rect,
     "Call 606-506-4039 to place an order for same-day delivery anywhere in the county before we close"
   );
   assert.ok(layout.fontSize < baseSize, "a very long CTA must actually shrink");
+  // The requirement Ashley actually stated is about the phone, not about a
+  // ratio: a 1080px flyer is viewed at ~390px in a feed, so assert the
+  // real on-screen size rather than a percentage of an internal base.
+  const onScreenPx = layout.fontSize * (390 / 1080);
   assert.ok(
-    layout.fontSize >= Math.round(baseSize * 0.62) - 1,
-    `font ${layout.fontSize} must stay at or above the ~62% readable floor of ${baseSize} — mobile readability is a hard requirement`
+    onScreenPx >= 14,
+    `CTA renders at ${onScreenPx.toFixed(1)}px at 390px feed width — must stay comfortably readable without zooming`
   );
+});
+
+test("computeCtaLayout: the real acceptance CTA renders comfortably large at true 390px feed width", () => {
+  const layout = renderer.computeCtaLayout(measuringCtx(), NOTICE_CTA_RECT, "Call 606-506-4039 to place an order.");
+  const onScreenPx = layout.fontSize * (390 / 1080);
+  assert.ok(onScreenPx >= 15, `CTA is only ${onScreenPx.toFixed(1)}px at feed width — the live review rejected exactly this`);
 });
 
 test("computeCtaLayout: a short CTA that fits on one line keeps the full base size (no needless shrinking)", () => {
   const rect = NOTICE_CTA_RECT;
-  const baseSize = Math.max(17, Math.round(rect.h * 0.52));
+  const baseSize = Math.max(28, Math.round(rect.h * 0.52));
   const layout = renderer.computeCtaLayout(measuringCtx(6), rect, "Call us");
   assert.equal(layout.lines.length, 1);
   assert.equal(layout.fontSize, baseSize);
@@ -413,21 +431,28 @@ test("formatPhoneForDisplay: an international or unrecognized number is never ma
   assert.equal(renderer.formatPhoneForDisplay(null), "");
 });
 
-test("contactLineParts: a request-supplied CTA phone that differs from the shop profile's phone means the footer drops its own — one flyer never advertises two different numbers", () => {
+test("contactLineParts: when the CTA already shows a phone, the footer shows NO phone — and with only the shop name left it is dropped entirely rather than repeating the lockup", () => {
   const parts = [...renderer.contactLineParts(
     { shopName: "Testville Flowers", phone: "16063319374" },
     "Call 606-506-4039 to place an order."
   )];
-  assert.deepEqual(parts, ["Testville Flowers"]);
-  assert.ok(!parts.join(" ").includes("331"), "the profile number must not appear alongside a different CTA number");
+  assert.deepEqual(parts, [], "a footer carrying only the shop name duplicates the lockup and must not be drawn");
 });
 
-test("contactLineParts: the same number written two different ways is not treated as a conflict — the footer still shows it", () => {
+test("contactLineParts: the phone appears ONCE per flyer — even the same number written two ways is not repeated in the footer once the CTA carries it", () => {
   const parts = [...renderer.contactLineParts(
     { shopName: "Testville Flowers", phone: "6065064039" },
     "Call 606-506-4039 to place an order."
   )];
-  assert.deepEqual(parts, ["Testville Flowers", "606-506-4039"]);
+  assert.deepEqual(parts, [], "repeating the CTA's own number in the footer is clutter, not information");
+});
+
+test("contactLineParts: a website IS genuinely new information, so the footer survives — with the shop name, and still no duplicated phone", () => {
+  const parts = [...renderer.contactLineParts(
+    { shopName: "Testville Flowers", phone: "6065064039", website: "testville.example" },
+    "Call 606-506-4039 to place an order."
+  )];
+  assert.deepEqual(parts, ["Testville Flowers", "testville.example"]);
 });
 
 test("contactLineParts: with no phone in the CTA the shop's own (formatted) number is shown, and the shop name is always present", () => {
@@ -479,4 +504,68 @@ test("the fallback asset is one the repository already ships elsewhere — not a
     referencedIn.length > 0,
     `${name} must already be shipped by the product, establishing it as a repository-owned reusable asset`
   );
+});
+
+// ---------------------------------------------------------------------------
+// Mobile readability and hierarchy (Ashley's live flyer review).
+//
+// Every assertion below is expressed in on-screen pixels at real Facebook
+// feed width (a 1080px flyer displayed at ~390px), because that is the
+// requirement as stated — not as a ratio of some internal base size, which
+// is what let the type quietly shrink out of legibility before.
+// ---------------------------------------------------------------------------
+
+const FEED_SCALE = 390 / 1080;
+
+test("shopLockupMetrics: the shop name is large enough at feed width to identify the business immediately", () => {
+  const bandRect = { x: 65, y: 475, w: 950, h: 605 };
+  const m = renderer.shopLockupMetrics(bandRect);
+  const onScreen = m.fontSize * FEED_SCALE;
+  assert.ok(onScreen >= 16, `shop name renders at ${onScreen.toFixed(1)}px at feed width — the review called this much too small`);
+});
+
+test("shopLockupMetrics: the contrast sample is the centred strip the text actually occupies, not the whole band", () => {
+  const bandRect = { x: 65, y: 475, w: 950, h: 605 };
+  const m = renderer.shopLockupMetrics(bandRect);
+  // Must sit inside the band horizontally — sampling the full width pulls
+  // in the dark foliage at the edges and picks the wrong text colour.
+  assert.ok(m.sampleRect.x > bandRect.x, "sample must be inset from the band's left edge");
+  assert.ok(m.sampleRect.x + m.sampleRect.w < bandRect.x + bandRect.w, "sample must be inset from the right edge");
+  // And must straddle the baseline where the letterforms really are.
+  assert.ok(m.sampleRect.y < m.baselineY, "sample must start above the baseline");
+  assert.ok(m.sampleRect.y + m.sampleRect.h >= m.baselineY, "sample must reach the baseline");
+});
+
+test("outlineFor: the outline is a hairline scaled to the TEXT, so small text never gets a thick, blurring stroke", () => {
+  const style = { outline: { color: "rgba(6,10,18,0.6)", width: 3.5, widthRatio: 0.028 } };
+  const big = renderer.outlineFor(style, 70);
+  const small = renderer.outlineFor(style, 30);
+  assert.ok(small.width < big.width, "a smaller font must get a thinner outline, not the same region-derived one");
+  assert.ok(small.width <= 1.5, `a 30px letterform must not carry a ${small.width}px stroke — that reads as blur`);
+  assert.ok(big.width <= 2.5, "even the largest text keeps a hairline, never a heavy border");
+});
+
+test("outlineFor: a region that needed no outline still gets none — the shadow alone carries clean, flat areas", () => {
+  assert.equal(renderer.outlineFor({ outline: null }, 60), null);
+  assert.equal(renderer.outlineFor(undefined, 60), null);
+});
+
+test("the notice template's text regions leave no room for a duplicated footer, and the CTA is near full width so it need not shrink", () => {
+  const r = FLYER_TEMPLATES.notice.regions;
+  assert.ok(r.cta.w >= 0.8, `CTA region is only ${r.cta.w} wide — a full sentence had to shrink to fit`);
+  assert.ok(r.cta.h >= 0.12, `CTA region is only ${r.cta.h} tall — not enough room to render it large`);
+  // Regions must stay inside the canvas and in hierarchy order.
+  assert.ok(r.headline.y < r.body.y, "headline sits above the body");
+  assert.ok(r.body.y < r.cta.y, "body sits above the CTA");
+  assert.ok(r.cta.y + r.cta.h <= 1, "the CTA must not run off the bottom of the canvas");
+  assert.ok(r.contact.y + r.contact.h <= 1, "the contact line must not run off the bottom of the canvas");
+});
+
+test("shopLockupMetrics: tracking eases off for a long shop name so the extra width is not spent on letter gaps", () => {
+  const bandRect = { x: 65, y: 475, w: 950, h: 605 };
+  const short = renderer.shopLockupMetrics(bandRect, "Bud");
+  const long = renderer.shopLockupMetrics(bandRect, "The Wildflower & Peony Company of Northern Kentucky");
+  assert.equal(short.tracking, "0.16em", "a short name keeps the generous brand-mark tracking");
+  assert.ok(parseFloat(long.tracking) < parseFloat(short.tracking), "a long name must not pay for tracking it cannot afford");
+  assert.ok(long.minFontSize > 0, "a floor must exist so the lockup stays legible rather than vanishing");
 });

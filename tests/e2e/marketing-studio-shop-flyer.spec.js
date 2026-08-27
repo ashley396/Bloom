@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { mockBackend, withFakeSession } from "./fixtures.mjs";
 import { buildDeterministicNoticeContent } from "../../netlify/functions/_shared/marketing-content-revision.js";
+import { FLYER_TEMPLATES } from "../../netlify/functions/_shared/flyer-templates.js";
 
 /**
  * Live beta defect fix: an operational post ("closing early today... call
@@ -746,10 +747,13 @@ test("browser-level: the real renderer's contact line never contradicts the CTA'
     };
   });
 
-  expect(result.conflicting.join(" ")).not.toContain("16063319374");
-  expect(result.conflicting.join(" ")).not.toContain("331");
-  expect(result.matching).toContain("606-506-4039");
-  // A raw stored number is formatted for a customer to read, never printed raw.
+  // The phone appears exactly ONCE per flyer. Whenever the CTA carries a
+  // number the footer carries none — and a footer left holding only the
+  // shop name duplicates the lockup, so it is not drawn at all.
+  expect(result.conflicting).toEqual([]);
+  expect(result.matching).toEqual([]);
+  // With no phone in the CTA the shop's own number does appear, formatted
+  // for a customer to read rather than as a raw digit string.
   expect(result.noCtaPhone.join(" ")).toContain("1-606-331-9374");
   expect(result.noCtaPhone.join(" ")).not.toContain("16063319374");
 });
@@ -834,4 +838,51 @@ test("browser-level: with no generated backdrop the real renderer falls back to 
   expect(g).toBeGreaterThan(150);
   expect(b).toBeGreaterThan(140);
   expect(result.distinctBuckets).toBeGreaterThan(25);
+});
+
+/**
+ * Shop-name lockup must FIT, at any name length.
+ *
+ * A real defect found by rendering an arbitrary shop rather than only the
+ * example one: with no width guarantee, "The Wildflower & Peony Company of
+ * Northern Kentucky" ran clean off both edges of the canvas. Measured here
+ * with real browser font metrics, which is the only place the true width
+ * exists.
+ */
+test("browser-level: the shop-name lockup always fits inside the canvas — short, ordinary and very long names alike", async ({ page }) => {
+  await page.goto("/index.html");
+  await page.addScriptTag({ url: "/flyer-renderer.js" });
+
+  const names = [
+    "Bud",
+    "Lilies in Bloom",
+    "The Wildflower & Peony Company of Northern Kentucky",
+    "Sunnyside Blossoms, Gifts, Balloons & Special Occasion Florals of Greater Cincinnati"
+  ];
+
+  const results = await page.evaluate(({ names, regions }) => {
+    const R = window.FlorisynFlyerRenderer;
+    // The REAL notice template, passed in — an inline copy is exactly the
+    // staleness this suite has already been bitten by once.
+    const band = R.computeBandRect({ palette: { background: "brand_primary" }, regions }, 1080, 1080);
+    return names.map((name) => {
+      // The SHIPPED fit routine — not a copy of its arithmetic, which is
+      // how this test previously drifted out of step with the real code.
+      const ctx = document.createElement("canvas").getContext("2d");
+      const fit = R.fitShopLockup(ctx, band, name);
+      return { name, fontSize: fit.fontSize, measured: fit.width, maxWidth: fit.maxWidth, canvasWidth: 1080 };
+    });
+  }, { names, regions: FLYER_TEMPLATES.notice.regions });
+
+  for (const r of results) {
+    expect(r.measured, `"${r.name}" is ${Math.round(r.measured)}px wide but only ${Math.round(r.maxWidth)}px is available — it would clip`).toBeLessThanOrEqual(
+      r.maxWidth + 1
+    );
+    expect(r.measured, `"${r.name}" must stay inside the canvas`).toBeLessThan(r.canvasWidth);
+    expect(r.fontSize, `"${r.name}" must not shrink to nothing`).toBeGreaterThanOrEqual(16);
+  }
+
+  // The ordinary case must still be big: this is the shop's identity.
+  const lilies = results.find((r) => r.name === "Lilies in Bloom");
+  expect(lilies.fontSize * (390 / 1080)).toBeGreaterThanOrEqual(16);
 });

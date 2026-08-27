@@ -49,11 +49,30 @@ const REGIONS_NOTICE = {
   // must both be unmissable, everything else is secondary. Still
   // bottom-anchored (the photo stays visible above), just a taller band
   // than REGIONS_STANDARD since this content is more urgent/critical.
-  headline: { x: 0.06, y: 0.46, w: 0.88, h: 0.15, align: "center", emphasis: "hero" },
-  body: { x: 0.06, y: 0.625, w: 0.88, h: 0.13, align: "center", emphasis: "hero" },
-  cta: { x: 0.22, y: 0.775, w: 0.56, h: 0.08, align: "center", emphasis: "hero" },
+  //
+  // Mobile-readability pass (Ashley's live flyer review): at real
+  // Facebook-feed width every element below was too small to read without
+  // zooming — worst of all the CTA, which had to shrink to fit a two-line
+  // sentence into an 0.08-high, 0.56-wide box. Two changes give the type
+  // room to grow rather than shrinking it to fit:
+  //
+  //  - The contact footer no longer repeats the shop name and phone
+  //    (public/flyer-renderer.js's contactLineParts drops both as
+  //    duplicates of the lockup and the CTA), so the space it used to
+  //    occupy is now free. Every region below is taller and starts higher.
+  //  - The CTA is nearly full width (0.84 vs 0.56), so the same sentence
+  //    wraps at a much larger size instead of being shrunk to fit.
+  //
+  // The band's top edge is derived from the minimum y here, so raising
+  // headline.y to 0.44 also enlarges the shop-name lockup, which scales
+  // off the band height.
+  headline: { x: 0.06, y: 0.44, w: 0.88, h: 0.16, align: "center", emphasis: "hero" },
+  body: { x: 0.07, y: 0.615, w: 0.86, h: 0.155, align: "center", emphasis: "hero" },
+  cta: { x: 0.08, y: 0.795, w: 0.84, h: 0.135, align: "center", emphasis: "hero" },
   logo: { x: 0.5, y: 0.03, w: 0.14, h: 0.07, align: "center", emphasis: "logo", anchor: "top" },
-  contact: { x: 0.06, y: 0.89, w: 0.88, h: 0.05, align: "center", emphasis: "footnote" }
+  // Retained for a shop that has a website to show; the shop name and
+  // phone never appear here anymore.
+  contact: { x: 0.06, y: 0.945, w: 0.88, h: 0.042, align: "center", emphasis: "footnote" }
 };
 
 export const FLYER_TEMPLATES = Object.freeze({

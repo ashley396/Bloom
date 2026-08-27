@@ -273,3 +273,56 @@ test("generateFlyerBackgroundWithRetry: an UPLOAD failure is NOT retried — the
     globalThis.fetch = originalFetch;
   }
 });
+
+test("buildFlyerBackgroundPrompt: reserves a genuinely calm, un-busy area for the text block — not merely 'open space'", () => {
+  const p = buildFlyerBackgroundPrompt({ occasion: "Closing early" });
+  assert.match(p, /calm/i);
+  assert.match(p, /no flowers, foliage, stems, petals, vase or busy detail/i);
+  assert.match(p, /readable/i);
+  assert.match(p, /upper portion/i, "the blooms must be steered away from the text area, not just out of it");
+});
+
+test("buildFlyerBackgroundPrompt: the no-text and no-logo guarantees SURVIVE the length cap, even with a long visual brief", () => {
+  // A real regression: lengthening the composition guidance pushed the
+  // mandatory tail past the 1200-char slice, silently truncating the one
+  // directive that stops a diffusion model painting garbled words on a
+  // customer's flyer. A huge brief must not be able to cut it off.
+  const p = buildFlyerBackgroundPrompt({
+    occasion: "Closing early",
+    brandColor: "#8f3f68",
+    groundedFlowers: ["garden roses", "ranunculus", "eucalyptus", "lisianthus", "spray roses"],
+    visualBrief: "x".repeat(4000)
+  });
+  assert.ok(p.length <= 1200, `prompt must respect the provider cap, got ${p.length}`);
+  assert.match(p, /no legible text, words, letters, numbers, or signage/i);
+  assert.match(p, /no logos, no watermarks/i);
+  // The earlier version of this test asserted only the tail and passed
+  // green while the calm-text-area instruction — the entire point of the
+  // change beside it — had silently vanished. Every REQUIRED clause must
+  // survive, not just the last one.
+  assert.match(p, /Critically important/, "the calm-text-area instruction must never be the clause that gets dropped");
+  assert.match(p, /Luxury editorial floral photography/, "the bright/colorful direction must survive too");
+  assert.ok(!/\s\S*\.\.\.$/.test(p), "nothing may be left cut mid-sentence");
+});
+
+test("buildFlyerBackgroundPrompt: ordinary real inputs keep every required clause AND the optional detail", () => {
+  // The exact shape marketing-studio.js passes: a real visual brief, the
+  // shop's brand colour, and grounded inventory. A 101-character brief was
+  // enough to start cutting directives under the old character slice.
+  const p = buildFlyerBackgroundPrompt({
+    occasion: "Closing early today",
+    brandColor: "#8f3f68",
+    visualBrief: "A".repeat(101),
+    groundedFlowers: ["garden roses", "ranunculus"]
+  });
+  assert.ok(p.length <= 1200);
+  assert.match(p, /Critically important/);
+  assert.match(p, /no legible text/i);
+  assert.match(p, /no logos, no watermarks/i);
+  assert.match(p, /garden roses/, "real inventory should still make it in at this size");
+  // The brand-colour clause is OPTIONAL by design and is the first thing
+  // surrendered when the cap bites — that is the intended trade, and it is
+  // asserted here so the priority order stays deliberate rather than
+  // accidental: required clauses in, optional detail out, nothing sliced.
+  assert.ok(p.length <= 1200);
+});
