@@ -753,3 +753,85 @@ test("browser-level: the real renderer's contact line never contradicts the CTA'
   expect(result.noCtaPhone.join(" ")).toContain("1-606-331-9374");
   expect(result.noCtaPhone.join(" ")).not.toContain("16063319374");
 });
+
+/**
+ * Tier-B floral fallback, in a real browser with the real, unstubbed
+ * renderer. Proves the two things that matter: a flyer with no AI backdrop
+ * still gets a real floral photograph (not a flowerless treatment, and
+ * certainly not the brand-colour slab this replaced), and the canvas is
+ * stamped with which tier actually drew it so no caller or report can
+ * present a fallback as live provider output.
+ */
+test("browser-level: with no generated backdrop the real renderer falls back to a real floral photograph, and labels it as a fallback — never as live AI output", async ({ page }) => {
+  await page.goto("/index.html");
+  await page.addScriptTag({ url: "/flyer-renderer.js" });
+
+  const content = {
+    headline: "Closing Early Today",
+    body: "Lilies in Bloom is closing at 2:30 today.",
+    cta: "Call 606-506-4039 to place an order.",
+    caption: "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order."
+  };
+  const brand = { shopName: "Lilies in Bloom", phone: "16063319374", primaryColor: "#8f3f68", accentColor: "#6f8f72" };
+  const template = {
+    palette: { background: "brand_primary" },
+    regions: {
+      headline: { x: 0.06, y: 0.46, w: 0.88, h: 0.15 },
+      body: { x: 0.06, y: 0.625, w: 0.88, h: 0.13 },
+      cta: { x: 0.22, y: 0.775, w: 0.56, h: 0.08 },
+      logo: { x: 0.5, y: 0.03, w: 0.14, h: 0.07 },
+      contact: { x: 0.06, y: 0.89, w: 0.88, h: 0.05 }
+    }
+  };
+
+  const result = await page.evaluate(
+    async ({ template, content, brand }) => {
+      const R = window.FlorisynFlyerRenderer;
+      const base = { template, content, brand, style: { scale: {} }, width: 1080, height: 1080 };
+
+      async function tierOf(extra) {
+        const canvas = await R.renderFlyer({ ...base, ...extra });
+        return canvas.dataset.florisynBackgroundTier;
+      }
+
+      // Sample the mean colour of the whole canvas for the no-backdrop case,
+      // to prove it is a photograph rather than a flat brand-colour fill.
+      const canvas = await R.renderFlyer({ ...base, backgroundUrl: null });
+      const ctx = canvas.getContext("2d");
+      const d = ctx.getImageData(0, 0, 1080, 1080).data;
+      let r = 0, g = 0, b = 0, n = 0;
+      let distinct = new Set();
+      for (let i = 0; i < d.length; i += 4 * 997) {
+        r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+        distinct.add(`${d[i] >> 4},${d[i + 1] >> 4},${d[i + 2] >> 4}`);
+      }
+      return {
+        generated: await tierOf({ backgroundUrl: "/assets/atelier-floral-corner.jpg" }),
+        noBackdrop: await tierOf({ backgroundUrl: null }),
+        brokenBackdrop: await tierOf({ backgroundUrl: "/assets/definitely-not-here.jpg" }),
+        fallbackDisabled: await tierOf({ backgroundUrl: null, fallbackBackgroundUrl: null }),
+        mean: { r: r / n, g: g / n, b: b / n },
+        distinctBuckets: distinct.size
+      };
+    },
+    { template, content, brand }
+  );
+
+  expect(result.generated).toBe("generated");
+  // No backdrop, and a backdrop that fails to load, both reach the real photo.
+  expect(result.noBackdrop).toBe("fallback-library-photo");
+  expect(result.brokenBackdrop).toBe("fallback-library-photo");
+  // Only with the photo explicitly disabled does the procedural tier appear.
+  expect(result.fallbackDisabled).toBe("fallback-procedural");
+  // A fallback is never labelled as provider output.
+  expect(result.noBackdrop).not.toBe("generated");
+
+  // The fallback is a real photograph: bright, and rich in distinct colours —
+  // a flat brand-colour slab (the magenta #8f3f68 this replaced) would be
+  // dark and near-uniform.
+  const { r, g, b } = result.mean;
+  expect(r).toBeGreaterThan(150);
+  expect(g).toBeGreaterThan(150);
+  expect(b).toBeGreaterThan(140);
+  expect(result.distinctBuckets).toBeGreaterThan(25);
+});

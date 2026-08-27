@@ -60,7 +60,39 @@
   // The no-photo (Tier B) base tone: a bright, warm ivory. Deliberately
   // light and neutral so the fallback reads bright and premium rather than
   // as a saturated slab of the shop's own brand colour — see paintTierB.
+  // This is the LAST resort, below the real floral fallback photo.
   var TIER_B_BASE = "#fbf6ef";
+
+  // Tier B's real floral fallback.
+  //
+  // A bright background with no flowers does not meet the accepted
+  // standard — a flyer that reaches a customer has to actually look like
+  // a florist's flyer. When the AI backdrop is unavailable (provider
+  // unconfigured, both generation attempts failed, or the stored image
+  // fails to load) this real floral photograph is drawn full-bleed
+  // instead, exactly like a generated one: no wash, no panel, no box,
+  // with every text region still taking its colour from the real pixels.
+  //
+  // Chosen from assets this repository already owns and already ships
+  // publicly — /assets/atelier-floral-corner.jpg is a committed asset
+  // used as a background in florisyn-atelier-{ui,shell,admin}.css and on
+  // the marketing index page, and it is part of the same curated local
+  // floral photography family scripts/floral-library-image-pool.mjs
+  // draws from. Nothing new or externally sourced is introduced here.
+  // Its composition is also the right one: blooms sweeping in from the
+  // upper corner, soft open space across the lower portion — which is
+  // precisely where flyer-templates.js places every text region.
+  //
+  // NOT AI output and never to be reported as such. renderFlyer stamps
+  // the canvas with which tier actually drew the background so no caller,
+  // UI, or report can mistake this for a live provider image.
+  var FALLBACK_FLORAL_BACKGROUND = "/assets/atelier-floral-corner.jpg";
+
+  var BACKGROUND_TIER = {
+    GENERATED: "generated",
+    FALLBACK_PHOTO: "fallback-library-photo",
+    PROCEDURAL: "fallback-procedural"
+  };
 
   /** Converts a template region (fractions 0–1 of the canvas) into real
    * pixel coordinates for a given canvas size. Pure. */
@@ -799,12 +831,19 @@
     var backgroundUrl = opts.backgroundUrl || null;
     var width = opts.width || 1080;
     var height = opts.height || 1080;
+    // Callers may override or disable the floral fallback; default it on.
+    if (opts.fallbackBackgroundUrl === undefined) opts.fallbackBackgroundUrl = FALLBACK_FLORAL_BACKGROUND;
 
     var canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     var ctx = canvas.getContext("2d");
     var colors = effectivePaletteColors(brand, style);
+    // Which tier actually drew the background. Stamped onto the canvas at
+    // the end so nothing downstream can present a fallback as live AI
+    // output — the single most important thing to never get wrong in a
+    // report about this renderer.
+    var backgroundTier = null;
 
     // Ashley's standing rule — no full-image colour wash, regardless of hue
     // — applies to the no-photo fallback too, and a real pre-live-test
@@ -820,7 +859,7 @@
     // florist ("make it navy", "use more cream") still wins and still goes
     // through paintBrandBackground unchanged — that feature is untouched;
     // only the silent default stops being a saturated slab.
-    function paintTierB() {
+    function paintProcedural() {
       var explicitColorRevision = Boolean(
         style && ((style.paletteInclude && style.paletteInclude.length) || (style.paletteExclude && style.paletteExclude.length))
       );
@@ -831,6 +870,29 @@
         ctx.fillRect(0, 0, width, height);
       }
       paintFloralWash(ctx, width, height, colors);
+      backgroundTier = BACKGROUND_TIER.PROCEDURAL;
+    }
+
+    // Real floral photograph first; the procedural treatment only if even
+    // that can't load. An explicit colour revision is the florist's own
+    // instruction about the background, so it skips the photo and goes
+    // straight to the procedural path where that instruction can apply.
+    function paintTierB() {
+      var explicitColorRevision = Boolean(
+        style && ((style.paletteInclude && style.paletteInclude.length) || (style.paletteExclude && style.paletteExclude.length))
+      );
+      if (explicitColorRevision || !opts.fallbackBackgroundUrl) {
+        paintProcedural();
+        return Promise.resolve();
+      }
+      return loadImage(opts.fallbackBackgroundUrl)
+        .then(function (img) {
+          drawCover(ctx, img, 0, 0, width, height);
+          backgroundTier = BACKGROUND_TIER.FALLBACK_PHOTO;
+        })
+        .catch(function () {
+          paintProcedural();
+        });
     }
 
     function finish() {
@@ -869,6 +931,7 @@
       drawCtaLabel(ctx, ctaRect, content.cta, colors.accent, pickRegionTextStyle(ctx, ctaRect));
       drawContact(ctx, contactRect, brand, pickRegionTextStyle(ctx, contactRect), content.cta);
       return drawLogo(ctx, regionRect(template.regions.logo, width, height), brand.logoUrl).then(function () {
+        if (canvas.dataset) canvas.dataset.florisynBackgroundTier = backgroundTier || BACKGROUND_TIER.PROCEDURAL;
         return canvas;
       });
     }
@@ -877,15 +940,14 @@
       return loadImage(backgroundUrl)
         .then(function (img) {
           drawCover(ctx, img, 0, 0, width, height);
+          backgroundTier = BACKGROUND_TIER.GENERATED;
           return finish();
         })
         .catch(function () {
-          paintTierB();
-          return finish();
+          return Promise.resolve(paintTierB()).then(finish);
         });
     }
-    paintTierB();
-    return Promise.resolve().then(finish);
+    return Promise.resolve(paintTierB()).then(finish);
   }
 
   var api = {
@@ -902,6 +964,8 @@
     computeBandRect: computeBandRect,
     computeCtaLayout: computeCtaLayout,
     formatPhoneForDisplay: formatPhoneForDisplay,
+    BACKGROUND_TIER: BACKGROUND_TIER,
+    FALLBACK_FLORAL_BACKGROUND: FALLBACK_FLORAL_BACKGROUND,
     contactLineParts: contactLineParts,
     pickRegionTextStyle: pickRegionTextStyle,
     compositeSubjectOnBackground: compositeSubjectOnBackground,

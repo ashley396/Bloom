@@ -437,3 +437,46 @@ test("contactLineParts: with no phone in the CTA the shop's own (formatted) numb
   )];
   assert.deepEqual(parts, ["Testville Flowers", "1-606-331-9374", "testville.example"]);
 });
+
+// ---------------------------------------------------------------------------
+// Tier-B floral fallback.
+//
+// "Bright but flowerless" was rejected: a flyer that reaches a customer has
+// to actually look like a florist's flyer. When no AI backdrop is available
+// the renderer draws a real floral photograph the repository already owns
+// and already ships, full-bleed, with no wash and no panel — and stamps the
+// canvas so a fallback can never be reported as live provider output.
+// ---------------------------------------------------------------------------
+
+test("the floral fallback points at an asset that actually exists in this repository — a broken path would silently degrade every fallback flyer to the flowerless treatment", () => {
+  const rel = renderer.FALLBACK_FLORAL_BACKGROUND.replace(/^\//, "");
+  const onDisk = path.join(root, "public", rel);
+  assert.ok(fs.existsSync(onDisk), `fallback asset must exist on disk: ${onDisk}`);
+  assert.ok(fs.statSync(onDisk).size > 20000, "must be a real photograph, not a placeholder stub");
+});
+
+test("the background-tier vocabulary distinguishes real provider output from both fallbacks — nothing may conflate them", () => {
+  const t = renderer.BACKGROUND_TIER;
+  assert.equal(t.GENERATED, "generated");
+  assert.equal(t.FALLBACK_PHOTO, "fallback-library-photo");
+  assert.equal(t.PROCEDURAL, "fallback-procedural");
+  const values = [t.GENERATED, t.FALLBACK_PHOTO, t.PROCEDURAL];
+  assert.equal(new Set(values).size, 3, "every tier must be distinguishable");
+  for (const v of [t.FALLBACK_PHOTO, t.PROCEDURAL]) {
+    assert.match(v, /fallback/, "a fallback tier must be self-evidently a fallback");
+    assert.notEqual(v, t.GENERATED);
+  }
+});
+
+test("the fallback asset is one the repository already ships elsewhere — not a new externally sourced image introduced for the flyer", () => {
+  const rel = renderer.FALLBACK_FLORAL_BACKGROUND.replace(/^\//, "");
+  const name = path.basename(rel);
+  // Referenced by Florisyn's own shipped stylesheets / marketing page.
+  const referencedIn = ["public/florisyn-atelier-ui.css", "public/index.html"].filter((f) =>
+    fs.readFileSync(path.join(root, f), "utf8").includes(name)
+  );
+  assert.ok(
+    referencedIn.length > 0,
+    `${name} must already be shipped by the product, establishing it as a repository-owned reusable asset`
+  );
+});
