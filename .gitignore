@@ -17,3 +17,9 @@ test-results/
 playwright-report/
 coverage/
 frontend/coverage/
+# One-use beta-branch push approval ticket/log — see .claude/hooks/
+# block-beta-push.sh and "One-use production approval" in CLAUDE.md.
+# Ephemeral, git metadata only, never contains a secret; never meant to
+# be version-controlled.
+.claude/hooks/.beta-push-approval.json
+.claude/hooks/.beta-push-approval.log
