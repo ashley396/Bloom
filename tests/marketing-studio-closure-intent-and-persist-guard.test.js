@@ -868,3 +868,100 @@ test("generate_content (real dispatch): an ordinary creative post ('40 roses to 
     mock.restore();
   }
 });
+
+// Real, live-found data case (found by resolving the authenticated shop
+// through the real server path before Ashley's live visual test): the
+// shops row exists and reads back cleanly, but its `name` is an EMPTY
+// STRING — the florist simply hasn't saved a shop name yet. The old code
+// lumped this in with a genuine lookup failure and returned the same 502
+// telling the florist to "Try Generate again in a moment" — advice that
+// could never work, because nothing about retrying sets a shop name. UI
+// wording has to match real backend state, so this is now its own
+// actionable 409. The fail-CLOSED guarantee is unchanged: still no AI
+// call, still nothing persisted, still reverted to idea.
+test("generate_content (real dispatch): a shop row whose name is empty fails closed with an ACTIONABLE error (not a misleading 'try again'), generates nothing and persists nothing", async () => {
+  const mock = mockCloudflareCopyOnce({
+    platform: "facebook",
+    headline: "unused",
+    body: "unused — must never be called",
+    cta: "unused",
+    hashtags: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  });
+  try {
+    const client = createFakeSupabaseClient([
+      {
+        data: {
+          id: "item-1",
+          content_type: "text_post",
+          title: "t",
+          brief: "We are closing at 2:30 today. Call 555-123-4567 to place an order.",
+          status: "idea"
+        },
+        error: null
+      },
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null },
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: null, error: null }, // -> generating
+      // The real shape observed in the live database: a real row, real
+      // brand colours, but no name saved.
+      { data: { name: "", phone: "", primary_color: "#8f3f68", accent_color: "#6f8f72" }, error: null },
+      { data: null, error: null } // -> revertToIdea's own update call
+    ]);
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-1" }));
+
+    assert.equal(res.statusCode, 409, `an unset shop name is a permanent, fixable condition — not a retryable 502: ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.match(body.error, /shop name/i, "the message must name the actual problem");
+    assert.match(body.error, /settings/i, "the message must tell the florist where to fix it");
+    assert.ok(
+      !/try (generate )?again in a moment/i.test(body.error),
+      "must not advise retrying — retrying can never set a shop name"
+    );
+
+    assert.equal(mock.calls.length, 0, "no AI call — the request never reaches content generation at all");
+    const revertCall = client.calls.find(
+      (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
+    );
+    assert.ok(revertCall, "the item must be reverted to idea, never left stuck in 'generating'");
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets");
+    assert.equal(assetInsert, undefined, "nothing may be persisted when the shop's identity can't be established");
+  } finally {
+    mock.restore();
+  }
+});
+
+// A whitespace-only name is the same defect wearing a different hat — it
+// would render as an invisible "shop name" on a customer-facing flyer.
+test("generate_content (real dispatch): a whitespace-only shop name is treated as no name at all, not silently drawn as blank branding", async () => {
+  const mock = mockCloudflareCopyOnce({
+    platform: "facebook",
+    headline: "unused",
+    body: "unused",
+    cta: "unused",
+    hashtags: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  });
+  try {
+    const client = createFakeSupabaseClient([
+      {
+        data: { id: "item-1", content_type: "text_post", title: "t", brief: "We are closing at 2:30 today.", status: "idea" },
+        error: null
+      },
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null },
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: null, error: null },
+      { data: { name: "   ", phone: "555-123-4567" }, error: null },
+      { data: null, error: null }
+    ]);
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-1" }));
+    assert.equal(res.statusCode, 409, `a whitespace-only name must fail closed too: ${res.body}`);
+    assert.equal(mock.calls.length, 0);
+  } finally {
+    mock.restore();
+  }
+});

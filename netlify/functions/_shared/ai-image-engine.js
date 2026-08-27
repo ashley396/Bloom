@@ -32,9 +32,9 @@ export function imageGenerationConfigured(env = process.env) {
  */
 export async function generateImage(client, shopId, { prompt, filename } = {}) {
   const cleanPrompt = String(prompt || "").trim().slice(0, 1200);
-  if (!cleanPrompt) return { ok: false, error: "No image prompt provided." };
+  if (!cleanPrompt) return { ok: false, stage: "config", error: "No image prompt provided." };
   if (!imageGenerationConfigured()) {
-    return { ok: false, error: "Image generation is not configured (Cloudflare AI credentials missing)." };
+    return { ok: false, stage: "config", error: "Image generation is not configured (Cloudflare AI credentials missing)." };
   }
 
   const account = String(process.env.CLOUDFLARE_ACCOUNT_ID || "").trim();
@@ -50,27 +50,27 @@ export async function generateImage(client, shopId, { prompt, filename } = {}) {
       body: JSON.stringify({ prompt: cleanPrompt, steps: 8 })
     });
   } catch (error) {
-    return { ok: false, error: `Image generation request failed: ${String(error?.message || error).slice(0, 200)}` };
+    return { ok: false, stage: "provider", error: `Image generation request failed: ${String(error?.message || error).slice(0, 200)}` };
   }
 
   let payload = {};
   try {
     payload = await response.json();
   } catch {
-    return { ok: false, error: `Image generation returned a non-JSON response (${response.status}).` };
+    return { ok: false, stage: "provider", error: `Image generation returned a non-JSON response (${response.status}).` };
   }
   if (!response.ok || payload.success === false) {
     const detail = payload.errors?.[0]?.message || payload.errors?.[0]?.code || `Image generation failed (${response.status})`;
-    return { ok: false, error: detail };
+    return { ok: false, stage: "provider", error: detail };
   }
   const base64 = payload.result?.image;
-  if (!base64) return { ok: false, error: "Image generation returned no image data." };
+  if (!base64) return { ok: false, stage: "provider", error: "Image generation returned no image data." };
 
   const uploaded = await uploadWebsiteMedia(client, shopId, {
     dataUrl: `data:image/jpeg;base64,${base64}`,
     filename: filename || "ai-generated-image.jpg"
   });
-  if (!uploaded.ok) return { ok: false, error: uploaded.error };
+  if (!uploaded.ok) return { ok: false, stage: "upload", error: uploaded.error };
 
   return {
     ok: true,
@@ -80,6 +80,45 @@ export async function generateImage(client, shopId, { prompt, filename } = {}) {
     model,
     prompt: cleanPrompt
   };
+}
+
+/**
+ * One bounded retry around generateImage() for the flyer background.
+ *
+ * Why this exists: when background generation fails, the flyer is still
+ * created but with no photograph at all — and a flyer with no photograph
+ * can never meet the "bright, happy, colourful floral image" standard no
+ * matter what the renderer does with it. A single transient provider
+ * failure was therefore enough to hand a florist a photo-less flyer.
+ *
+ * Deliberately bounded and deliberately narrow:
+ *  - ONE retry, never a loop — a wedged or unconfigured provider must not
+ *    turn one florist's click into unbounded spend or a hung request.
+ *  - Skipped entirely when the provider is not configured, since a second
+ *    identical call cannot succeed and would only add latency.
+ *  - Retried ONLY for a `provider`-stage failure. generateImage also
+ *    reports `config` failures (nothing to retry) and `upload` failures —
+ *    and an upload failure means the image WAS generated and billed, then
+ *    storage rejected it. Retrying that pays for a second image to hit the
+ *    same storage error, so it is returned as-is.
+ *  - The retry asks for a DIFFERENT composition (variationSeed via the
+ *    caller's promptFor(attempt)), so a prompt the model handled badly
+ *    isn't simply resent verbatim.
+ *
+ * Returns generateImage's own { ok, ... } shape, plus `attempts`.
+ */
+export async function generateFlyerBackgroundWithRetry(client, shopId, { promptFor, filenameFor } = {}) {
+  const maxAttempts = imageGenerationConfigured() ? 2 : 1;
+  let last = { ok: false, stage: "config", error: "Image generation was not attempted." };
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    last = await generateImage(client, shopId, {
+      prompt: typeof promptFor === "function" ? promptFor(attempt) : promptFor,
+      filename: typeof filenameFor === "function" ? filenameFor(attempt) : filenameFor
+    });
+    if (last.ok) return { ...last, attempts: attempt + 1 };
+    if (last.stage !== "provider") return { ...last, attempts: attempt + 1 };
+  }
+  return { ...last, attempts: maxAttempts };
 }
 
 // A real, live-found failure mode: the AI image model (a diffusion model,

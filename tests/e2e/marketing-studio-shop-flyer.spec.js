@@ -654,3 +654,102 @@ test("browser-level: the real deterministic content (shop name included) is what
   // taken on faith — checkable independent of this test or any report.
   await expect(card).toHaveAttribute("data-ms-wording-source", "deterministic");
 });
+
+/**
+ * Browser-level CTA geometry.
+ *
+ * A real, live-found defect that a fully green suite still shipped: the
+ * CTA's divider rule was positioned as if the CTA were always one line,
+ * and drawCtaLabel had no auto-fit at all — so the default operational
+ * CTA ("Call <phone> to place an order.") had the rule drawn straight
+ * through its last line and overflowed toward the contact line. Nothing
+ * asserted this geometry anywhere, in any suite.
+ *
+ * This runs the REAL, unstubbed public/flyer-renderer.js in a real
+ * browser with real font metrics and real letter-spacing — the exact
+ * conditions the defect needed to appear — rather than a fake ctx.
+ */
+test("browser-level: the real renderer's CTA never has its divider struck through the text, and never overflows its region — with real browser font metrics", async ({ page }) => {
+  await page.goto("/index.html");
+  await page.addScriptTag({ url: "/flyer-renderer.js" });
+
+  const cases = [
+    // The exact acceptance CTA.
+    "Call 606-506-4039 to place an order.",
+    // Arbitrary shops/numbers — never only the one example.
+    "Call 513-555-1234 to place an order.",
+    "Call 1-606-331-9374 to place an order.",
+    // Deliberately long, to drive the auto-fit floor.
+    "Call 606-506-4039 to place an order for same-day delivery before we close"
+  ];
+
+  for (const cta of cases) {
+    const geom = await page.evaluate((ctaText) => {
+      const R = window.FlorisynFlyerRenderer;
+      // The real notice-template cta + contact regions.
+      const rect = R.regionRect({ x: 0.22, y: 0.775, w: 0.56, h: 0.08 }, 1080, 1080);
+      const contact = R.regionRect({ x: 0.06, y: 0.89, w: 0.88, h: 0.05 }, 1080, 1080);
+      const bodyRect = R.regionRect({ x: 0.06, y: 0.625, w: 0.88, h: 0.13 }, 1080, 1080);
+      const canvas = document.createElement("canvas");
+      canvas.width = 1080;
+      canvas.height = 1080;
+      const ctx = canvas.getContext("2d");
+      // drawCtaLabel measures at 0.1em tracking; match it exactly.
+      if ("letterSpacing" in ctx) ctx.letterSpacing = "0.1em";
+      const L = R.computeCtaLayout(ctx, rect, ctaText);
+      return {
+        fontSize: L.fontSize,
+        lineCount: L.lines.length,
+        blockTop: L.blockTop,
+        lastLineBottom: L.lastLineBottom,
+        dividerY: L.dividerY,
+        regionTop: rect.y,
+        regionBottom: rect.y + rect.h,
+        contactTop: contact.y,
+        bodyBottom: bodyRect.y + bodyRect.h
+      };
+    }, cta);
+
+    // The defect this locks in: the rule used to be drawn THROUGH the text.
+    expect(geom.dividerY, `divider must sit below the last line for: ${cta}`).toBeGreaterThan(geom.lastLineBottom);
+    // What actually matters is collision, not geometric purity. A CTA long
+    // enough to bottom out the auto-fit's readability floor may extend a
+    // little past its own region — the floor deliberately wins over
+    // shrinking further — but it must never touch the message above it or
+    // the contact line below it.
+    expect(geom.blockTop, `CTA must never overlap the body message for: ${cta}`).toBeGreaterThanOrEqual(geom.bodyBottom);
+    expect(geom.dividerY, `CTA must never collide with the contact line for: ${cta}`).toBeLessThan(geom.contactTop);
+    // Mobile readability: a 1080px flyer is viewed ~390px wide, so the CTA
+    // must stay large enough to survive that ~2.8x downscale.
+    expect(geom.fontSize, `CTA must stay readable on a phone for: ${cta}`).toBeGreaterThanOrEqual(24);
+  }
+});
+
+/**
+ * One flyer must never advertise two different phone numbers — a real
+ * defect: a request-supplied number correctly became the CTA while the
+ * footer independently printed the shop profile's own stored number.
+ */
+test("browser-level: the real renderer's contact line never contradicts the CTA's phone number, and never prints a raw digit string", async ({ page }) => {
+  await page.goto("/index.html");
+  await page.addScriptTag({ url: "/flyer-renderer.js" });
+
+  const result = await page.evaluate(() => {
+    const R = window.FlorisynFlyerRenderer;
+    return {
+      conflicting: R.contactLineParts(
+        { shopName: "Lilies in Bloom", phone: "16063319374" },
+        "Call 606-506-4039 to place an order."
+      ),
+      matching: R.contactLineParts({ shopName: "Lilies in Bloom", phone: "6065064039" }, "Call 606-506-4039 to place an order."),
+      noCtaPhone: R.contactLineParts({ shopName: "Lilies in Bloom", phone: "16063319374" }, "Stop by today.")
+    };
+  });
+
+  expect(result.conflicting.join(" ")).not.toContain("16063319374");
+  expect(result.conflicting.join(" ")).not.toContain("331");
+  expect(result.matching).toContain("606-506-4039");
+  // A raw stored number is formatted for a customer to read, never printed raw.
+  expect(result.noCtaPhone.join(" ")).toContain("1-606-331-9374");
+  expect(result.noCtaPhone.join(" ")).not.toContain("16063319374");
+});

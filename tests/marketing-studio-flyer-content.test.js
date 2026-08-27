@@ -962,3 +962,233 @@ test("facts preservation: the flyer's exact time and phone number survive a capt
   assert.equal(factsPreserved(CLOSING_COPY.body, "Closing at 2:30 PM today — call 606-506-4039 for last-minute orders!"), true);
   assert.equal(factsPreserved(CLOSING_COPY.body, "Closing early today — call us for last-minute orders!"), false);
 });
+
+// ---------------------------------------------------------------------------
+// Day/temporal facts: the flyer must never state a day the florist didn't.
+//
+// A real defect found by running the deterministic builder over requests
+// other than the one example: every closing/opening branch defaulted its
+// qualifier to the literal string "today" when its temporal-word list
+// didn't match, and that list contained no "tomorrow" and no weekday. So
+// "opening late tomorrow at 10:30" rendered as "Opening Late Today" /
+// "…opening at 10:30 today" — a customer-facing flyer stating the WRONG
+// DAY. Fabricating a fact is worse than dropping one.
+//
+// Deliberately exercised with arbitrary shops, times and days, never only
+// the Lilies in Bloom example.
+// ---------------------------------------------------------------------------
+
+test("deterministic notice: 'tomorrow' is preserved in both headline and body — a flyer must never say today when the florist said tomorrow", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Ravenwood Blooms is closing at 4:15 tomorrow.",
+    shopName: "Ravenwood Blooms",
+    shopPhone: "555-222-3333"
+  });
+  assert.equal(out.headline, "Closing Early Tomorrow");
+  assert.equal(out.body, "Ravenwood Blooms is closing at 4:15 tomorrow.");
+  assert.ok(!/\btoday\b/i.test(`${out.headline} ${out.body} ${out.caption}`), "the word 'today' must appear nowhere");
+});
+
+test("deterministic notice: a late opening on a stated day keeps that day, not 'today'", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Cedar & Sage is opening late tomorrow at 10:30.",
+    shopName: "Cedar & Sage",
+    shopPhone: "555-444-5555"
+  });
+  assert.equal(out.headline, "Opening Late Tomorrow");
+  assert.match(out.body, /10:30/);
+  assert.match(out.body, /tomorrow/i);
+  assert.ok(!/\btoday\b/i.test(`${out.headline} ${out.body}`));
+});
+
+test("deterministic notice: a named weekday survives and stays capitalized as a proper noun", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Bayside Petals is closing at 1:00 on Monday.",
+    shopName: "Bayside Petals",
+    shopPhone: "555-777-8888"
+  });
+  assert.match(out.headline, /Monday/);
+  assert.match(out.body, /on Monday/, "a weekday is a proper noun — never lowercased into 'on monday'");
+  assert.ok(!/\btoday\b/i.test(`${out.headline} ${out.body}`));
+});
+
+test("deterministic notice: when the florist names NO day, no day is invented anywhere", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Fern & Fig is closing early at 3:45.",
+    shopName: "Fern & Fig",
+    shopPhone: "555-999-0000"
+  });
+  assert.equal(out.headline, "Closing Early", "no day word may be appended when none was stated");
+  assert.equal(out.body, "Fern & Fig is closing at 3:45.");
+  assert.ok(!/\b(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(out.body));
+});
+
+test("deterministic notice: 'today' is still preserved when the florist really did say today", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Marigold Lane is closing at 2:30 today.",
+    shopName: "Marigold Lane",
+    shopPhone: "555-111-2222"
+  });
+  assert.equal(out.headline, "Closing Early Today");
+  assert.equal(out.body, "Marigold Lane is closing at 2:30 today.");
+});
+
+test("extractFactTokens trimming: a time followed by another word no longer gets re-appended to a body that already contains it", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Thistle & Thorn has an announcement. Doors open 9:15 tomorrow.",
+    shopName: "Thistle & Thorn",
+    shopPhone: "555-333-4444"
+  });
+  const times = (out.body.match(/9:15/g) || []).length;
+  assert.equal(times, 1, `the time must appear exactly once, not duplicated: ${out.body}`);
+});
+
+// ---------------------------------------------------------------------------
+// Phone precedence: a number supplied for THIS flyer is that flyer's number.
+// ---------------------------------------------------------------------------
+
+test("deterministic notice: a phone supplied in the request wins over the shop profile's stored phone, byte-for-byte", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Juniper Floral is closing at 2:30 today. Call 606-506-4039 to place an order.",
+    shopName: "Juniper Floral",
+    shopPhone: "16063319374"
+  });
+  assert.equal(out.cta, "Call 606-506-4039 to place an order.");
+  assert.ok(!out.cta.includes("16063319374"), "the profile phone must not silently replace the requested one");
+  assert.ok(!out.caption.includes("16063319374"));
+});
+
+test("deterministic notice: with no phone in the request the shop's own stored phone is used (the authorized fallback)", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Juniper Floral is closing at 2:30 today.",
+    shopName: "Juniper Floral",
+    shopPhone: "555-606-7070"
+  });
+  assert.equal(out.cta, "Call 555-606-7070 to place an order.");
+});
+
+// ---------------------------------------------------------------------------
+// Tenant isolation / anti-spoofing
+// ---------------------------------------------------------------------------
+
+test("tenant isolation: a request naming a DIFFERENT florist never brands the flyer as that business — the authenticated shop name is the only identity", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Rose City Florals is closing at 2:30 today. Call 606-506-4039 to place an order.",
+    shopName: "Juniper Floral",
+    shopPhone: "555-606-7070"
+  });
+  const all = `${out.headline} ${out.body} ${out.cta} ${out.caption}`;
+  assert.ok(all.includes("Juniper Floral"), "the authenticated shop must be the one named");
+  assert.ok(!all.includes("Rose City Florals"), "a business named only in untrusted request text must never become the branding");
+});
+
+test("tenant isolation: Florisyn's own name never appears in a shop's customer-facing notice content", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Juniper Floral is closing at 2:30 today.",
+    shopName: "Juniper Floral",
+    shopPhone: "555-606-7070"
+  });
+  assert.ok(!/florisyn/i.test(`${out.headline} ${out.body} ${out.cta} ${out.caption}`));
+});
+
+// ---------------------------------------------------------------------------
+// The exact acceptance request, asserted end to end on the content object.
+// ---------------------------------------------------------------------------
+
+test("acceptance: the real request produces exactly the required headline, body, CTA and caption for the authenticated shop", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText:
+      "Create today’s Facebook post with an image. Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.",
+    // Sourced ONLY from the authenticated shops row in the real handler.
+    shopName: "Lilies in Bloom",
+    shopPhone: "606-506-4039"
+  });
+  assert.equal(out.headline, "Closing Early Today");
+  assert.equal(out.body, "Lilies in Bloom is closing at 2:30 today.");
+  assert.equal(out.cta, "Call 606-506-4039 to place an order.");
+  assert.equal(out.caption, "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.");
+  const all = `${out.headline} ${out.body} ${out.cta} ${out.caption}`;
+  assert.ok(!/\bwe\b/i.test(out.body), "the shop name must never be replaced by 'we'");
+  assert.ok(
+    !/(sadly|unfortunately|thank you|grateful|final|last day|forever|for good|sale|special)/i.test(all),
+    "no reason, gratitude, urgency or permanent-closure language may be invented"
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Regressions caught by an independent review of the fixes above.
+// ---------------------------------------------------------------------------
+
+test("deterministic notice: a day named AFTER an 'early' modifier still survives — JS alternation is leftmost-first, so a single combined pattern silently dropped it", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Harbor Blooms is closing early on Friday at 2:30.",
+    shopName: "Harbor Blooms",
+    shopPhone: "555-808-9090"
+  });
+  assert.match(out.headline, /Friday/, `the named day must reach the headline: ${out.headline}`);
+  assert.match(out.body, /on Friday/, `the named day must reach the body: ${out.body}`);
+  assert.match(out.body, /2:30/);
+  assert.ok(!/\btoday\b/i.test(`${out.headline} ${out.body} ${out.caption}`));
+});
+
+test("deterministic notice: 'closing early this Saturday' keeps Saturday, not a fabricated today", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Harbor Blooms is closing early this Saturday.",
+    shopName: "Harbor Blooms",
+    shopPhone: "555-808-9090"
+  });
+  assert.match(out.headline, /Saturday/);
+  assert.match(out.body, /this Saturday/);
+});
+
+test("deterministic notice: a FULL-day closure is never announced as an early closing — that would misstate the shop's hours", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Harbor Blooms is closed on Monday for inventory.",
+    shopName: "Harbor Blooms",
+    shopPhone: "555-808-9090"
+  });
+  assert.equal(out.headline, "Closed Monday");
+  assert.match(out.body, /is closed on Monday/);
+  assert.ok(!/closing early/i.test(`${out.headline} ${out.body}`), "a full-day closure must not read as 'Closing Early'");
+  assert.ok(!/inventory/i.test(out.body), "the florist's internal reason must not be republished as customer copy");
+});
+
+test("deterministic notice: 'we are closed today' reads as closed, not as closing early (a pre-existing misstatement)", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "We are closed today.",
+    shopName: "Harbor Blooms",
+    shopPhone: "555-808-9090"
+  });
+  assert.equal(out.headline, "Closed Today");
+  assert.equal(out.body, "Harbor Blooms is closed today.");
+});
+
+test("deterministic notice: an early closing WITH a time still reads as Closing Early, not Closed", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Harbor Blooms is closing at 2:30 today.",
+    shopName: "Harbor Blooms",
+    shopPhone: "555-808-9090"
+  });
+  assert.equal(out.headline, "Closing Early Today");
+  assert.match(out.body, /closing at 2:30 today/);
+});
+
+test("deterministic notice: a shop's bare-digit stored phone is formatted for the CTA too, never printed raw as the flyer's largest contact text", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Harbor Blooms is closing at 2:30 today.",
+    shopName: "Harbor Blooms",
+    shopPhone: "16063319374"
+  });
+  assert.equal(out.cta, "Call 1-606-331-9374 to place an order.");
+  assert.ok(!out.cta.includes("16063319374"), "the raw digit string must never reach the flyer");
+  assert.ok(!out.caption.includes("16063319374"));
+});
+
+test("deterministic notice: a phone the florist typed for THIS request is preserved byte-for-byte and never reformatted", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Harbor Blooms is closing at 2:30 today. Call (606) 506-4039 to order.",
+    shopName: "Harbor Blooms",
+    shopPhone: "16063319374"
+  });
+  assert.match(out.cta, /\(606\) 506-4039/, "the florist's own formatting is a fact and must survive verbatim");
+});

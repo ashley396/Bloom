@@ -320,3 +320,120 @@ test("pickRegionTextStyle: never throws on a tainted (cross-origin, unreadable) 
   assert.equal(style.color, "#f8f0e3");
   assert.ok(style.outline, "the tainted-canvas fallback must still carry an outline for safety");
 });
+
+// ---------------------------------------------------------------------------
+// CTA lockup geometry (computeCtaLayout)
+//
+// A real, live-found defect caught by inspecting an actual rendered flyer
+// before Ashley's live visual test: drawCtaLabel had no auto-fit at all
+// (unlike drawRegionText) and positioned its divider rule as if the CTA
+// were always ONE line. The default operational-notice CTA — "Call
+// <phone> to place an order." — genuinely wraps in the notice template's
+// cta region, so the rule was drawn straight THROUGH the last line and the
+// block overflowed toward the contact line. Nothing anywhere asserted this
+// geometry, which is exactly why a fully green suite still shipped it.
+// ---------------------------------------------------------------------------
+
+// A measuring ctx with a realistic proportional-width model (wide enough
+// that a full CTA sentence genuinely wraps, as it does in a real browser).
+function measuringCtx(perCharPx = 26) {
+  return {
+    font: "",
+    letterSpacing: "0px",
+    measureText(text) {
+      return { width: String(text).length * perCharPx };
+    }
+  };
+}
+
+// The real notice-template cta region at 1080x1080 (flyer-templates.js:
+// { x: 0.22, y: 0.775, w: 0.56, h: 0.08 }).
+const NOTICE_CTA_RECT = { x: 238, y: 837, w: 605, h: 86 };
+
+test("computeCtaLayout: the divider rule is always BELOW the last line of the CTA, never struck through it (the real live defect)", () => {
+  const layout = renderer.computeCtaLayout(measuringCtx(), NOTICE_CTA_RECT, "Call 606-506-4039 to place an order.");
+  assert.ok(layout.lines.length > 1, "this CTA must genuinely wrap, or the test isn't exercising the defect");
+  assert.ok(
+    layout.dividerY > layout.lastLineBottom,
+    `divider (${layout.dividerY}) must sit below the last line's bottom (${layout.lastLineBottom}) — it used to land inside it`
+  );
+});
+
+test("computeCtaLayout: the whole lockup (wrapped text + divider) stays inside its own region — it never spills toward the contact line", () => {
+  const layout = renderer.computeCtaLayout(measuringCtx(), NOTICE_CTA_RECT, "Call 606-506-4039 to place an order.");
+  const regionTop = NOTICE_CTA_RECT.y;
+  const regionBottom = NOTICE_CTA_RECT.y + NOTICE_CTA_RECT.h;
+  assert.ok(layout.blockTop >= regionTop, `text top ${layout.blockTop} must not rise above the region top ${regionTop}`);
+  assert.ok(layout.dividerY <= regionBottom, `divider ${layout.dividerY} must not fall below the region bottom ${regionBottom}`);
+});
+
+test("computeCtaLayout: an absurdly long CTA shrinks to fit but never below the readable floor (62% of the base size), matching drawRegionText's policy", () => {
+  const rect = NOTICE_CTA_RECT;
+  const baseSize = Math.max(17, Math.round(rect.h * 0.52));
+  const layout = renderer.computeCtaLayout(
+    measuringCtx(),
+    rect,
+    "Call 606-506-4039 to place an order for same-day delivery anywhere in the county before we close"
+  );
+  assert.ok(layout.fontSize < baseSize, "a very long CTA must actually shrink");
+  assert.ok(
+    layout.fontSize >= Math.round(baseSize * 0.62) - 1,
+    `font ${layout.fontSize} must stay at or above the ~62% readable floor of ${baseSize} — mobile readability is a hard requirement`
+  );
+});
+
+test("computeCtaLayout: a short CTA that fits on one line keeps the full base size (no needless shrinking)", () => {
+  const rect = NOTICE_CTA_RECT;
+  const baseSize = Math.max(17, Math.round(rect.h * 0.52));
+  const layout = renderer.computeCtaLayout(measuringCtx(6), rect, "Call us");
+  assert.equal(layout.lines.length, 1);
+  assert.equal(layout.fontSize, baseSize);
+  assert.ok(layout.dividerY > layout.lastLineBottom);
+});
+
+// ---------------------------------------------------------------------------
+// Phone display + the one-phone-per-flyer rule
+// ---------------------------------------------------------------------------
+
+test("formatPhoneForDisplay: a bare digit string (a real shop's stored '16063319374') becomes readable, never printed raw on a customer-facing flyer", () => {
+  assert.equal(renderer.formatPhoneForDisplay("16063319374"), "1-606-331-9374");
+  assert.equal(renderer.formatPhoneForDisplay("6065064039"), "606-506-4039");
+});
+
+test("formatPhoneForDisplay: a number the florist already formatted is THEIR formatting and is returned untouched", () => {
+  assert.equal(renderer.formatPhoneForDisplay("606-506-4039"), "606-506-4039");
+  assert.equal(renderer.formatPhoneForDisplay("(606) 506-4039"), "(606) 506-4039");
+  assert.equal(renderer.formatPhoneForDisplay("606.506.4039"), "606.506.4039");
+});
+
+test("formatPhoneForDisplay: an international or unrecognized number is never mangled into a wrong shape", () => {
+  assert.equal(renderer.formatPhoneForDisplay("+441632960961"), "+441632960961");
+  assert.equal(renderer.formatPhoneForDisplay("12345"), "12345");
+  assert.equal(renderer.formatPhoneForDisplay(""), "");
+  assert.equal(renderer.formatPhoneForDisplay(null), "");
+});
+
+test("contactLineParts: a request-supplied CTA phone that differs from the shop profile's phone means the footer drops its own — one flyer never advertises two different numbers", () => {
+  const parts = [...renderer.contactLineParts(
+    { shopName: "Testville Flowers", phone: "16063319374" },
+    "Call 606-506-4039 to place an order."
+  )];
+  assert.deepEqual(parts, ["Testville Flowers"]);
+  assert.ok(!parts.join(" ").includes("331"), "the profile number must not appear alongside a different CTA number");
+});
+
+test("contactLineParts: the same number written two different ways is not treated as a conflict — the footer still shows it", () => {
+  const parts = [...renderer.contactLineParts(
+    { shopName: "Testville Flowers", phone: "6065064039" },
+    "Call 606-506-4039 to place an order."
+  )];
+  assert.deepEqual(parts, ["Testville Flowers", "606-506-4039"]);
+});
+
+test("contactLineParts: with no phone in the CTA the shop's own (formatted) number is shown, and the shop name is always present", () => {
+  const parts = [...renderer.contactLineParts(
+    { shopName: "Testville Flowers", phone: "16063319374", website: "testville.example" },
+    "Stop by today."
+  )];
+  assert.deepEqual(parts, ["Testville Flowers", "1-606-331-9374", "testville.example"]);
+});

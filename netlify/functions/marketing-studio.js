@@ -117,7 +117,7 @@ import { determineDisclosureRequirement, enforcePrePublishDisclosureGate, comput
 import { validateCloneConsentBody, isConsentActive } from "./_shared/marketing-clone-consent.js";
 import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
 import { generateSocialPost, generateVideoConcept, generateWebsiteSectionDraft, generateFlyerContent, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
-import { generateImage, buildImagePrompt, buildFlyerBackgroundPrompt } from "./_shared/ai-image-engine.js";
+import { generateImage, buildImagePrompt, buildFlyerBackgroundPrompt, generateFlyerBackgroundWithRetry } from "./_shared/ai-image-engine.js";
 import { pickFlyerTemplate, pickAspectRatio, ASPECT_RATIOS } from "./_shared/flyer-templates.js";
 import { loadGenerationGrounding } from "./_shared/marketing-generation-grounding.js";
 import { planVideoRender } from "./_shared/marketing-video-render-engine.js";
@@ -1561,7 +1561,18 @@ export function createMarketingStudioHandler(deps = {}) {
         // closed — log the real failure, revert the item, and return a
         // recoverable error — rather than generating a potentially
         // misbranded flyer or falling back to a generic pronoun.
-        if (shopRow.error || !shopRow.data || !shopRow.data.name) {
+        // Two genuinely different failures used to share one message and
+        // one status code, and the shared message was wrong for the more
+        // common of them. A real, live-found case: this shop's own row
+        // exists and reads back fine, but its `name` is an empty string —
+        // the florist simply hasn't set a shop name yet. That is permanent
+        // until someone edits the shop, so "Try Generate again in a
+        // moment" was advice that could never work, and it hid the one
+        // thing the florist actually had to do. UI wording must match real
+        // backend state: a transient lookup failure stays a retryable 502,
+        // an unset shop name becomes an actionable 409.
+        const shopNameRaw = typeof shopRow.data?.name === "string" ? shopRow.data.name.trim() : "";
+        if (shopRow.error || !shopRow.data) {
           console.warn(
             JSON.stringify({
               level: "warn",
@@ -1569,7 +1580,7 @@ export function createMarketingStudioHandler(deps = {}) {
               message: "shop_row_lookup_failed_in_generate_content",
               shopId,
               contentItemId: body.content_item_id,
-              reason: shopRow.error ? String(shopRow.error.message || shopRow.error) : !shopRow.data ? "no matching shop row" : "shop row missing a name"
+              reason: shopRow.error ? String(shopRow.error.message || shopRow.error) : "no matching shop row"
             })
           );
           await revertToIdea();
@@ -1577,7 +1588,24 @@ export function createMarketingStudioHandler(deps = {}) {
             error: "Couldn't verify your shop's information just now, so nothing was generated — nothing was saved. Try Generate again in a moment; contact support if this keeps happening."
           });
         }
-        const shopName = shopRow.data.name;
+        if (!shopNameRaw) {
+          console.warn(
+            JSON.stringify({
+              level: "warn",
+              fn: "marketing-studio",
+              message: "shop_row_missing_name_in_generate_content",
+              shopId,
+              contentItemId: body.content_item_id,
+              reason: "shop row missing a name"
+            })
+          );
+          await revertToIdea();
+          return json(409, {
+            error:
+              "Your shop doesn't have a name saved yet, and your posts have to show which shop they came from — so nothing was generated and nothing was saved. Add your shop name in Settings, then try Generate again."
+          });
+        }
+        const shopName = shopNameRaw;
         const primaryPlatform = variants[0]?.platform || "facebook";
 
         // Comparison only, per Ashley's explicit requirement: the
@@ -1889,13 +1917,27 @@ export function createMarketingStudioHandler(deps = {}) {
             // when it's actually available and relevant; otherwise the
             // prompt stays general-seasonal and never implies availability.
             const groundedFlowerNames = (inventorySources || []).map((i) => i.name).filter(Boolean);
-            const backgroundPrompt = buildFlyerBackgroundPrompt({
-              visualBrief: copyGen.content.visual_brief,
-              occasion: currentItem.data.title,
-              brandColor: shopRow.data?.primary_color || null,
-              groundedFlowers: groundedFlowerNames
+            // One bounded retry (see generateFlyerBackgroundWithRetry): a
+            // flyer with no photograph can never meet the bright/colourful
+            // floral standard, so a single transient provider failure is
+            // worth one more attempt — asking for a DIFFERENT composition
+            // rather than resending the identical prompt. Still never
+            // fails generate_content itself, and never touches a word of
+            // the deterministic wording above.
+            const backgroundGen = await generateFlyerBackgroundWithRetry(client, shopId, {
+              promptFor: (attempt) =>
+                buildFlyerBackgroundPrompt({
+                  visualBrief: copyGen.content.visual_brief,
+                  occasion: currentItem.data.title,
+                  brandColor: shopRow.data?.primary_color || null,
+                  groundedFlowers: groundedFlowerNames,
+                  variationSeed: attempt
+                }),
+              filenameFor: (attempt) =>
+                attempt === 0
+                  ? `flyer-background-${body.content_item_id}.jpg`
+                  : `flyer-background-${body.content_item_id}-retry${attempt}.jpg`
             });
-            const backgroundGen = await generateImage(client, shopId, { prompt: backgroundPrompt, filename: `flyer-background-${body.content_item_id}.jpg` });
             const persisted = await persistGeneratedAsset(client, {
               shopId,
               userId: user.id,

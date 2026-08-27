@@ -69,7 +69,18 @@ export function extractFactTokens(text) {
   const source = String(text || "");
   const tokens = new Set();
   for (const re of [PHONE_RE, PRICE_RE, URL_RE, DATE_RE, TIME_RE]) {
-    for (const m of source.matchAll(re)) tokens.add(m[0]);
+    // Trimmed for the same reason firstMatch() trims: TIME_RE's trailing
+    // `\s*(?:am|pm)?` swallows a trailing space when no am/pm follows
+    // ("2:30 tomorrow" → "2:30 "). An untrimmed token is not the fact —
+    // it's the fact plus whitespace — and it made both consumers wrong:
+    // factsPreserved() demanded a trailing space that correct wording
+    // needn't have, and buildDeterministicNoticeContent's missing-fact
+    // safety net re-appended a time the body ALREADY contained (a real
+    // observed defect: "…Time: 2:30. 2:30").
+    for (const m of source.matchAll(re)) {
+      const token = m[0].trim();
+      if (token) tokens.add(token);
+    }
   }
   return [...tokens];
 }
@@ -148,8 +159,14 @@ export function buildWordingRevisionRequestText({ instruction, brief, priorText 
 // closure. Generic on purpose — no shop name, no specific business is
 // hardcoded; every florist's "closing early today" post is protected the
 // same way.
+// "tomorrow" and bare weekdays were missing here too, so "closing at 2:30
+// tomorrow" never registered as a temporary closure at all and fell
+// through to the generic Store Notice bucket, losing the closing meaning.
+// Adding them is safe in both directions: PERMANENT_CLOSURE_INTENT_RE
+// still overrides (requestSignalsTemporaryClosure requires it NOT match),
+// and a scheduled day is by definition a temporary, scheduled change.
 const TEMPORARY_CLOSURE_SIGNAL_RE =
-  /\b(clos(?:ing|ed))\b[^.!?\n]{0,30}\b(early|today|tonight|this afternoon|for the (?:day|holiday|afternoon)|temporarily|briefly|for a few hours)\b|\btemporarily closed\b|\bclosing at\b[^.!?\n]{0,20}\b(today|tonight|this afternoon)\b/i;
+  /\b(clos(?:ing|ed))\b[^.!?\n]{0,30}\b(early|today|tonight|tomorrow|this afternoon|this (?:mon|tues|wednes|thurs|fri|satur|sun)day|on (?:mon|tues|wednes|thurs|fri|satur|sun)day|for the (?:day|holiday|afternoon)|temporarily|briefly|for a few hours)\b|\btemporarily closed\b|\bclosing at\b[^.!?\n]{0,20}\b(today|tonight|tomorrow|this afternoon|(?:mon|tues|wednes|thurs|fri|satur|sun)day)\b/i;
 
 // If ANY of these appear in the same request, the florist has genuinely
 // said this is permanent — the guard must never override an explicit,
@@ -329,7 +346,73 @@ export function detectInventedOperationalContent(requestText, generatedText) {
 // requestSignalsPlainOperationalNotice() already confirmed the request
 // DOES carry an operational signal, so null is a rare last-resort case,
 // not the common path.
-const CLOSING_TEMPORAL_WORD_RE = /\b(early today|this afternoon|for the holiday|for the day|temporarily|briefly|for a few hours|tonight|today|early)\b/i;
+// Real, live-found defect (pre-live-test verification): this list carried
+// no "tomorrow" and no weekday, and every closing/opening branch below
+// defaulted its qualifier to the literal string "today" when nothing
+// matched. So "Bud is opening late tomorrow at 10:30" rendered as
+// "Opening Late Today" / "…is opening at 10:30 today." — the flyer told
+// this shop's customers the WRONG DAY. That is worse than dropping a
+// fact: it fabricates one, and it is exactly what the no-invented-content
+// rule exists to prevent.
+//
+// Generic by construction — no shop, date, or time is hardcoded; any
+// florist's "tomorrow"/"on Friday" post is preserved verbatim the same way.
+const WEEKDAY_SOURCE = "(?:mon|tues|wednes|thurs|fri|satur|sun)day";
+// WHICH DAY, matched on its own — deliberately separate from the
+// "early/temporarily" modifier below. A single combined alternation looks
+// like it would work but doesn't: JS alternation is leftmost-FIRST, not
+// longest-first, so in "closing early on Friday at 2:30" the engine
+// reaches "early" first and stops, and the named day is silently dropped
+// from the headline, the body AND the caption. A weekday is not a DATE_RE
+// token either, so the missing-fact safety net could not recover it.
+const DAY_QUALIFIER_RE = new RegExp(
+  "\\b(today|tonight|tomorrow|this morning|this afternoon|this evening|" +
+    `this ${WEEKDAY_SOURCE}|on ${WEEKDAY_SOURCE}|${WEEKDAY_SOURCE})\\b`,
+  "i"
+);
+
+/** The day a qualifier actually names, for the headline — or null when the
+ * request never named one. Returning null is the whole point: a headline
+ * must not assert "Today" (or any other day) that the florist didn't say.
+ * Pure. */
+function headlineDayWord(qualifier) {
+  if (!qualifier) return null;
+  if (/\btomorrow\b/i.test(qualifier)) return "Tomorrow";
+  if (/\b(today|tonight|this morning|this afternoon|this evening)\b/i.test(qualifier)) return "Today";
+  const dow = qualifier.match(new RegExp(`\\b${WEEKDAY_SOURCE}\\b`, "i"));
+  if (dow) return dow[0].charAt(0).toUpperCase() + dow[0].slice(1).toLowerCase();
+  return null;
+}
+
+/** The qualifier as it should read inside the body sentence. A bare
+ * "early" is dropped here because the headline already says "Closing
+ * Early" — "…is closing at 2:30 early." reads like a mistake. Every other
+ * qualifier is preserved exactly as the florist wrote it. Pure. */
+function bodyQualifier(qualifier) {
+  if (!qualifier) return null;
+  // Lowercased because it sits mid-sentence ("…closing at 2:30 today."),
+  // except a weekday, which is a proper noun and must stay capitalized
+  // whatever case the florist happened to type ("on Monday", not "on
+  // monday").
+  return qualifier
+    .toLowerCase()
+    .replace(new RegExp(WEEKDAY_SOURCE, "gi"), (d) => d.charAt(0).toUpperCase() + d.slice(1));
+}
+
+/** A full-day closure ("we are closed Monday") must never be announced as
+ * an EARLY closing — that misstates the shop's hours to its customers.
+ * Treated as an early closing only when the request actually says so: the
+ * word "early", or a specific closing time. Pure. */
+function signalsEarlyClosing(text, time) {
+  return /\bearly\b/i.test(text) || Boolean(time);
+}
+
+/** "Closing Early" / "Closing Early Today" / "Closing Early Tomorrow" —
+ * the day is appended only when the request genuinely named one. Pure. */
+function noticeHeadline(base, qualifier) {
+  const day = headlineDayWord(qualifier);
+  return day ? `${base} ${day}` : base;
+}
 // Real, live-found failure (Ashley's second real branch-deploy test): the
 // original narrow HOURS_CHANGE_SIGNAL_RE ("new hours"/"hours are
 // changing") never matched plain phrasings like "changed business hours"
@@ -407,6 +490,39 @@ export function extractShopNameFromRequestText(text) {
  * extraction factsPreserved() already trusts elsewhere in this module)
  * and appends anything a category branch didn't happen to include.
  */
+/**
+ * A stored phone number as a customer should read it.
+ *
+ * A real shop's saved phone was the bare digit string "16063319374", and
+ * it went straight into the CTA — "CALL 16063319374 TO PLACE AN ORDER" —
+ * as the largest contact text on a customer-facing flyer. A number the
+ * florist typed for THIS request is never touched (it is preserved
+ * byte-for-byte, per the facts rule); this only ever formats the shop
+ * profile's own stored fallback.
+ *
+ * Deliberately conservative and generic: a number the florist already
+ * punctuated is their formatting and is returned untouched, an
+ * international "+" number is untouched, and anything that isn't a
+ * recognizable 10- or 11-digit North American shape is returned unchanged
+ * rather than mangled into a wrong format. Never shop-specific.
+ *
+ * public/flyer-renderer.js carries a deliberate mirror of this function
+ * for the footer contact line — it is a browser IIFE and cannot import
+ * this module. Keep the two in step.
+ */
+export function formatStoredPhoneForDisplay(raw) {
+  const s = String(raw == null ? "" : raw).trim();
+  if (!s) return "";
+  if (s.startsWith("+")) return s;
+  if (/[()\-.\s]/.test(s)) return s;
+  const digits = s.replace(/\D/g, "");
+  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `1-${digits.slice(1, 4)}-${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return s;
+}
+
 export function buildDeterministicNoticeContent({ requestText, shopName, shopPhone } = {}) {
   const text = String(requestText || "");
   // shopName is the ONLY trusted source of the shop's own name — never
@@ -416,7 +532,10 @@ export function buildDeterministicNoticeContent({ requestText, shopName, shopPho
   // couldn't be verified; this function never substitutes untrusted text
   // for it.
   const name = String(shopName || "").trim();
-  const phone = firstMatch(PHONE_RE, text) || (shopPhone ? String(shopPhone).trim() : null) || null;
+  // A number the florist typed for THIS request wins and is preserved
+  // exactly as written; only the shop profile's stored fallback is
+  // formatted for display (a bare digit string is unreadable on a flyer).
+  const phone = firstMatch(PHONE_RE, text) || (shopPhone ? formatStoredPhoneForDisplay(shopPhone) : null) || null;
   const time = firstMatch(TIME_RE, text);
   const date = firstMatch(DATE_RE, text);
   const who = name || "We";
@@ -424,15 +543,27 @@ export function buildDeterministicNoticeContent({ requestText, shopName, shopPho
 
   let headline, body;
   if (requestSignalsTemporaryClosure(text)) {
-    headline = "Closing Early Today";
-    const qualifierMatch = text.match(CLOSING_TEMPORAL_WORD_RE);
-    const qualifier = qualifierMatch ? qualifierMatch[1].toLowerCase() : "today";
-    body = time ? `${who} ${verb} closing at ${time} ${qualifier}.` : `${who} ${verb} closing ${qualifier}.`;
+    const dayMatch = text.match(DAY_QUALIFIER_RE);
+    const day = dayMatch ? dayMatch[1] : null;
+    const said = bodyQualifier(day);
+    if (signalsEarlyClosing(text, time)) {
+      headline = noticeHeadline("Closing Early", day);
+      body = time
+        ? `${who} ${verb} closing at ${time}${said ? ` ${said}` : ""}.`
+        : `${who} ${verb} closing early${said ? ` ${said}` : ""}.`;
+    } else {
+      // Closed for the whole day, not closing early — say that instead.
+      headline = noticeHeadline("Closed", day);
+      body = `${who} ${verb} closed${said ? ` ${said}` : ""}.`;
+    }
   } else if (LATE_OPENING_RE.test(text)) {
-    headline = "Opening Late Today";
-    const qualifierMatch = text.match(CLOSING_TEMPORAL_WORD_RE);
-    const qualifier = qualifierMatch ? qualifierMatch[1].toLowerCase() : "today";
-    body = time ? `${who} ${verb} opening at ${time} ${qualifier}.` : `${who} ${verb} opening late ${qualifier}.`;
+    const dayMatch = text.match(DAY_QUALIFIER_RE);
+    const day = dayMatch ? dayMatch[1] : null;
+    const said = bodyQualifier(day);
+    headline = noticeHeadline("Opening Late", day);
+    body = time
+      ? `${who} ${verb} opening at ${time}${said ? ` ${said}` : ""}.`
+      : `${who} ${verb} opening late${said ? ` ${said}` : ""}.`;
   } else if (DEADLINE_SIGNAL_RE.test(text)) {
     headline = "Order Deadline";
     body = date

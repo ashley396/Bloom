@@ -39,9 +39,10 @@
  *      cutout (photo-studio.js's removeBackground() output) over a
  *      server-generated backdrop-only image.
  *
- *   2. renderFlyer() — draws the full-bleed photo (Tier A) or a rich
- *      Tier-B floral wash, then the bottom gradient band and every text
- *      region on top of it, per the design pass above.
+ *   2. renderFlyer() — draws the full-bleed photo (Tier A) or, when no
+ *      photo exists, a bright ivory Tier-B floral-toned treatment, then
+ *      every text region directly on top of it. There is no band and no
+ *      panel — see the design pass above.
  *
  *   3. Pure, DOM-free helpers (region math, luminance, contrast decisions,
  *      band/panel-bounds math) are exported for unit testing the same way
@@ -55,6 +56,11 @@
   // "x-large","xx-large"] — five distinct steps need five distinct
   // multipliers, or two consecutive "bigger" revisions render identically.
   var SCALE_MULTIPLIER = { small: 0.72, normal: 1, large: 1.18, "x-large": 1.4, "xx-large": 1.62 };
+
+  // The no-photo (Tier B) base tone: a bright, warm ivory. Deliberately
+  // light and neutral so the fallback reads bright and premium rather than
+  // as a saturated slab of the shop's own brand colour — see paintTierB.
+  var TIER_B_BASE = "#fbf6ef";
 
   /** Converts a template region (fractions 0–1 of the canvas) into real
    * pixel coordinates for a given canvas size. Pure. */
@@ -329,10 +335,6 @@
     for (var j = 0; j < lines.length; j++) drawTextLine(ctx, lines[j], cx, startY + j * lineHeight, outline);
   }
 
-  function wrapText(ctx, text, cx, cy, maxWidth, lineHeight, outline) {
-    drawWrappedLines(ctx, measureWrappedLines(ctx, text, maxWidth), cx, cy, lineHeight, outline);
-  }
-
   function setLetterSpacing(ctx, value) {
     // ctx.letterSpacing is a real, standard Canvas2D property in current
     // engines (unprefixed since ~Chrome 99) — feature-detected so this
@@ -459,39 +461,97 @@
    * A florist's flyer should read like an editorial ad, not an app UI
    * control; this keeps the CTA legible and clearly set apart from the
    * headline/body without ever drawing another box on top of the photo. */
+  /** Pure layout math for the CTA lockup (wrapped text block + the thin
+   * divider rule that sits UNDER it), separated out so it can be unit
+   * tested the same way the region/luminance math is — a real, live-found
+   * defect (Ashley's pre-live-test visual review) was that this geometry
+   * was never checked anywhere: the divider was positioned as if the CTA
+   * were always a single line, so the default operational-notice CTA
+   * ("Call <phone> to place an order.") — which genuinely wraps to three
+   * lines in the notice template's cta region — had the rule drawn
+   * straight through its last line, and the block itself overflowed the
+   * region toward the contact line below.
+   *
+   * Mirrors drawRegionText's auto-fit loop rather than introducing a
+   * second, different shrink policy: same 6 attempts, same 0.9 step, same
+   * 62% floor. The one addition is that the divider's own vertical space
+   * is part of what has to fit, so the rule can never land on the text.
+   * Requires only ctx.font + ctx.measureText, so a plain fake ctx can
+   * drive it in tests. */
+  function computeCtaLayout(ctx, rect, text) {
+    // Mobile-readability directive: the phone number/CTA was too small to
+    // read at normal Facebook/mobile viewing size — 0.52x region height,
+    // floor 17px. Unchanged; only the overflow handling below is new.
+    var baseSize = Math.max(17, Math.round(rect.h * 0.52));
+    var maxTextWidth = rect.w * 0.94;
+    var upper = String(text).toUpperCase();
+    var fontSize = baseSize;
+    var lines, lineHeight, neededHeight;
+    for (var attempt = 0; attempt < 6; attempt++) {
+      ctx.font = "600 " + fontSize + "px 'Inter', sans-serif";
+      lineHeight = fontSize * 1.2;
+      lines = measureWrappedLines(ctx, upper, maxTextWidth);
+      // First line's own height + every subsequent line + the gap and rule
+      // beneath the last line. textBaseline is "middle", so a line's ink
+      // reaches roughly ±fontSize/2 around its center.
+      neededHeight = (lines.length - 1) * lineHeight + fontSize * 1.76;
+      if (neededHeight <= rect.h * 0.96 || fontSize <= baseSize * 0.62) break;
+      fontSize = Math.round(fontSize * 0.9);
+    }
+    // Centre the WHOLE lockup (text block + divider) in the region, so the
+    // rule is inside the region too rather than pushed out the bottom.
+    var lockupTop = rect.y + (rect.h - neededHeight) / 2;
+    var firstLineCenterY = lockupTop + fontSize * 0.5;
+    var lastLineCenterY = firstLineCenterY + (lines.length - 1) * lineHeight;
+    var blockCenterY = (firstLineCenterY + lastLineCenterY) / 2;
+    var widest = 0;
+    for (var i = 0; i < lines.length; i++) {
+      var w = ctx.measureText(lines[i]).width;
+      if (w > widest) widest = w;
+    }
+    return {
+      fontSize: fontSize,
+      lines: lines,
+      lineHeight: lineHeight,
+      blockCenterY: blockCenterY,
+      blockTop: firstLineCenterY - fontSize * 0.5,
+      lastLineCenterY: lastLineCenterY,
+      lastLineBottom: lastLineCenterY + fontSize * 0.5,
+      // Clear of the last line's descenders, never through it.
+      dividerY: lastLineCenterY + fontSize * 0.5 + fontSize * 0.26,
+      dividerWidth: Math.min(rect.w * 0.42, Math.max(fontSize * 4, widest * 0.6)),
+      widestLineWidth: widest
+    };
+  }
+
   function drawCtaLabel(ctx, rect, text, accentColor, textStyle) {
     if (!text) return;
     textStyle = textStyle || { color: BAND_TEXT_COLOR, outline: null };
     var gold = accentColor || "#c8a24a";
-    // Mobile-readability directive: the phone number/CTA was too small to
-    // read at normal Facebook/mobile viewing size — raised from 0.42x to
-    // 0.52x region height, floor raised from 13px to 17px.
-    var fontSize = Math.max(17, Math.round(rect.h * 0.52));
     var cx = rect.x + rect.w / 2;
-    var cy = rect.y + rect.h / 2;
     ctx.save();
     applyTextShadow(ctx);
     ctx.fillStyle = textStyle.color;
-    ctx.font = "600 " + fontSize + "px 'Inter', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     setLetterSpacing(ctx, "0.1em");
-    var upper = String(text).toUpperCase();
-    var textY = cy - fontSize * 0.32;
-    wrapText(ctx, upper, cx, textY, rect.w * 0.94, fontSize * 1.2, textStyle.outline);
+    // Letter spacing must be applied BEFORE measuring — the CTA is drawn
+    // at 0.1em tracking, so measuring without it under-reports every line
+    // and the wrap/fit decisions come out wrong.
+    var layout = computeCtaLayout(ctx, rect, text);
+    ctx.font = "600 " + layout.fontSize + "px 'Inter', sans-serif";
+    drawWrappedLines(ctx, layout.lines, cx, layout.blockCenterY, layout.lineHeight, textStyle.outline);
     setLetterSpacing(ctx, "0px");
     ctx.restore();
     // Thin gold divider beneath the label — "a narrow decorative label for
     // the CTA" / "muted gold divider lines," never a filled button shape.
     ctx.save();
-    var lineW = Math.min(rect.w * 0.42, Math.max(fontSize * 4, ctx.measureText(upper).width * 0.6));
-    var lineY = textY + fontSize * 0.85;
     ctx.strokeStyle = gold;
     ctx.globalAlpha = 0.9;
     ctx.lineWidth = Math.max(1.5, rect.h * 0.05);
     ctx.beginPath();
-    ctx.moveTo(cx - lineW / 2, lineY);
-    ctx.lineTo(cx + lineW / 2, lineY);
+    ctx.moveTo(cx - layout.dividerWidth / 2, layout.dividerY);
+    ctx.lineTo(cx + layout.dividerWidth / 2, layout.dividerY);
     ctx.stroke();
     ctx.restore();
   }
@@ -535,8 +595,65 @@
     return { usedHeight: dividerY - bandRect.y };
   }
 
-  function drawContact(ctx, rect, brand, textStyle) {
-    var parts = [brand.shopName, brand.phone, brand.website].filter(Boolean);
+  /** A phone number as a person should read it, from whatever the shop
+   * happened to save. A real, live-found defect: a shop's stored phone was
+   * the bare digit string "16063319374", and the flyer's footer printed it
+   * exactly like that — unreadable at a glance on a customer-facing image.
+   *
+   * Deliberately conservative and general — never shop-specific, never
+   * locale-presumptuous: a number the florist already punctuated is THEIR
+   * formatting and is returned untouched, an international "+" number is
+   * returned untouched, and anything that isn't a recognizable 10- or
+   * 11-digit North American shape is returned untouched rather than
+   * mangled into a wrong format. Pure. */
+  function formatPhoneForDisplay(raw) {
+    var s = String(raw == null ? "" : raw).trim();
+    if (!s) return "";
+    if (s.charAt(0) === "+") return s;
+    if (/[()\-.\s]/.test(s)) return s;
+    var digits = s.replace(/\D/g, "");
+    if (digits.length === 10) return digits.slice(0, 3) + "-" + digits.slice(3, 6) + "-" + digits.slice(6);
+    if (digits.length === 11 && digits.charAt(0) === "1") {
+      return "1-" + digits.slice(1, 4) + "-" + digits.slice(4, 7) + "-" + digits.slice(7);
+    }
+    return s;
+  }
+
+  var ANY_PHONE_RE = /\(?\b\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/;
+
+  /** Digits only, for comparing two phone numbers written different ways
+   * ("606-506-4039" vs "6065064039"). Pure. */
+  function phoneDigits(value) {
+    return String(value == null ? "" : value).replace(/\D/g, "");
+  }
+
+  /** The footer contact line. `ctaText` is passed so the flyer can never
+   * show TWO different phone numbers — a real, live-found defect: a
+   * request-supplied number ("call 606-506-4039") correctly became the
+   * CTA, while this line independently printed the shop profile's own
+   * stored number, so one customer-facing flyer advertised two different
+   * numbers to call. When the CTA already shows a number, that is the
+   * number this flyer is about, and the footer defers to it rather than
+   * contradicting it. */
+  /** The footer's parts, decided purely so it can be unit tested. Exported
+   * for the same reason the region/luminance math is. */
+  function contactLineParts(brand, ctaText) {
+    brand = brand || {};
+    var ctaPhoneMatch = String(ctaText || "").match(ANY_PHONE_RE);
+    var ctaPhone = ctaPhoneMatch ? ctaPhoneMatch[0] : null;
+    var brandPhone = brand.phone ? formatPhoneForDisplay(brand.phone) : null;
+    var phone = brandPhone;
+    if (ctaPhone) {
+      // Same number written two ways → keep the footer's own formatting.
+      // A genuinely different number → the CTA's wins and the footer drops
+      // the phone entirely rather than printing a contradiction.
+      phone = phoneDigits(ctaPhone) === phoneDigits(brandPhone) ? brandPhone : null;
+    }
+    return [brand.shopName, phone, brand.website].filter(Boolean);
+  }
+
+  function drawContact(ctx, rect, brand, textStyle, ctaText) {
+    var parts = contactLineParts(brand, ctaText);
     if (!parts.length) return;
     textStyle = textStyle || { softColor: BAND_TEXT_COLOR_SOFT, outline: null };
     ctx.save();
@@ -689,8 +806,30 @@
     var ctx = canvas.getContext("2d");
     var colors = effectivePaletteColors(brand, style);
 
+    // Ashley's standing rule — no full-image colour wash, regardless of hue
+    // — applies to the no-photo fallback too, and a real pre-live-test
+    // render proved it was being broken here: with no generated background
+    // (provider unconfigured, call failed, or the image URL simply failed
+    // to load) this filled the ENTIRE canvas with the shop's brand primary.
+    // For a real shop whose primary is a saturated magenta that is a solid
+    // magenta flyer with no flowers at all — precisely the "full-image
+    // colour wash" the rule forbids, and the opposite of the required
+    // bright/happy/colourful default.
+    //
+    // The base is now bright ivory. An EXPLICIT colour revision from the
+    // florist ("make it navy", "use more cream") still wins and still goes
+    // through paintBrandBackground unchanged — that feature is untouched;
+    // only the silent default stops being a saturated slab.
     function paintTierB() {
-      paintBrandBackground(ctx, width, height, template, brand, style);
+      var explicitColorRevision = Boolean(
+        style && ((style.paletteInclude && style.paletteInclude.length) || (style.paletteExclude && style.paletteExclude.length))
+      );
+      if (explicitColorRevision) {
+        paintBrandBackground(ctx, width, height, template, brand, style);
+      } else {
+        ctx.fillStyle = TIER_B_BASE;
+        ctx.fillRect(0, 0, width, height);
+      }
       paintFloralWash(ctx, width, height, colors);
     }
 
@@ -728,7 +867,7 @@
       drawRegionText(ctx, headlineRect, content.headline, "hero", style, { baseSizeHeight: headlineFullHeight }, pickRegionTextStyle(ctx, headlineRect));
       drawRegionText(ctx, bodyRect, content.body, "body", style, undefined, pickRegionTextStyle(ctx, bodyRect));
       drawCtaLabel(ctx, ctaRect, content.cta, colors.accent, pickRegionTextStyle(ctx, ctaRect));
-      drawContact(ctx, contactRect, brand, pickRegionTextStyle(ctx, contactRect));
+      drawContact(ctx, contactRect, brand, pickRegionTextStyle(ctx, contactRect), content.cta);
       return drawLogo(ctx, regionRect(template.regions.logo, width, height), brand.logoUrl).then(function () {
         return canvas;
       });
@@ -761,6 +900,9 @@
     paintBrandBackground: paintBrandBackground,
     computePanelRect: computePanelRect,
     computeBandRect: computeBandRect,
+    computeCtaLayout: computeCtaLayout,
+    formatPhoneForDisplay: formatPhoneForDisplay,
+    contactLineParts: contactLineParts,
     pickRegionTextStyle: pickRegionTextStyle,
     compositeSubjectOnBackground: compositeSubjectOnBackground,
     renderFlyer: renderFlyer
