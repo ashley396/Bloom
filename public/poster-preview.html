@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Poster type preview — Florisyn</title>
+<!--
+  A preview surface for the poster composition layer, so the real script and
+  display faces can be seen on a deployed site rather than in a screenshot
+  taken where Google Fonts is unreachable.
+
+  This page renders nothing but the poster layer. It is NOT the flyer flow and
+  does not write, persist, approve or publish anything — it draws to a canvas
+  and stops. It carries no shop identity of its own: the shop name, phone and
+  brand colour come from the query string, and default to obvious placeholders
+  so no real shop is baked into a shipped file.
+
+  platform-v21.1.css is the stylesheet that already imports Parisienne,
+  Playfair Display and DM Sans for the rest of the product, so the faces here
+  are exactly the ones the app itself loads — nothing new is introduced.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/platform-v21.1.css">
+<style>
+  :root { --ink:#2b2430; --muted:#6f6672; --line:#e7dfe4; --bg:#fbf8f9; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font-family:'DM Sans','Inter',system-ui,sans-serif; }
+  header { padding:22px 18px 10px; max-width:760px; margin:0 auto; }
+  h1 { font:600 26px/1.2 'Playfair Display',Georgia,serif; margin:0 0 6px; }
+  .sub { color:var(--muted); font-size:13px; margin:0 0 14px; line-height:1.5; }
+  .note { border:1px solid var(--line); border-left:3px solid #c2748f; background:#fff;
+          border-radius:10px; padding:12px 14px; font-size:13px; line-height:1.55;
+          margin:0 0 16px; }
+  #fontstate { font-size:13px; font-weight:600; padding:10px 14px; border-radius:10px;
+               margin:0 0 16px; border:1px solid var(--line); background:#fff; }
+  #fontstate.good { border-color:#8fae86; background:#f4f9f2; color:#3c5c34; }
+  #fontstate.bad  { border-color:#d09aa4; background:#fdf3f5; color:#8c2f45; }
+  form { display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+         max-width:760px; margin:0 auto 18px; padding:0 18px; }
+  label { font-size:12px; font-weight:600; color:var(--muted); display:block; }
+  input { width:100%; height:42px; border:1px solid var(--line); border-radius:9px;
+          padding:0 11px; font:inherit; background:#fff; margin-top:5px; }
+  .actions { grid-column:1/-1; display:flex; gap:10px; flex-wrap:wrap; }
+  button { height:44px; padding:0 20px; border:0; border-radius:9px; cursor:pointer;
+           font:600 14px 'DM Sans',sans-serif; background:#7c3a58; color:#fff; }
+  button.ghost { background:#fff; color:var(--ink); border:1px solid var(--line); }
+  main { max-width:760px; margin:0 auto; padding:0 18px 60px; }
+  figure { margin:0 0 26px; }
+  figure img { width:100%; display:block; border:1px solid var(--line); border-radius:12px; }
+  figcaption { font-size:12px; color:var(--muted); margin-top:7px; }
+  @media (max-width:520px) { header,main,form { padding-left:14px; padding-right:14px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Poster type preview</h1>
+  <p class="sub">The poster composition layer, drawn with the real display faces.
+     Four seeds, so you can see that a regenerate produces a different design
+     rather than the same one re-rolled.</p>
+  <div class="note">
+    This page is a preview of the drawing layer only. It is not the Marketing
+    Studio flyer flow: nothing here is saved, approved or published, and the
+    wording is not generated — it is drawn exactly as typed below.
+  </div>
+  <div id="fontstate">Checking which faces actually loaded…</div>
+</header>
+
+<form id="controls" onsubmit="return false;">
+  <div><label>Shop name<input id="shopName"></label></div>
+  <div><label>Phone<input id="phone"></label></div>
+  <div><label>Brand colour<input id="primary" placeholder="#7c3a58"></label></div>
+  <div><label>Headline<input id="headline"></label></div>
+  <div style="grid-column:1/-1"><label>Message<input id="body"></label></div>
+  <div style="grid-column:1/-1"><label>Call to action<input id="cta"></label></div>
+  <div class="actions">
+    <button id="render">Render</button>
+    <button id="reseed" class="ghost">Different designs</button>
+  </div>
+</form>
+
+<main id="out"></main>
+
+<script src="/flyer-renderer.js?v=1"></script>
+<script src="/flyer-poster.js?v=1"></script>
+<script>
+(function () {
+  "use strict";
+  var q = new URLSearchParams(location.search);
+  var el = function (id) { return document.getElementById(id); };
+
+  // Placeholders only. A real shop's details arrive through the query string
+  // so that no specific shop's identity is baked into a shipped file.
+  var defaults = {
+    shopName: q.get("shop")     || "Your Flower Shop",
+    phone:    q.get("phone")    || "555-555-5555",
+    primary:  q.get("primary")  || "#7c3a58",
+    headline: q.get("headline") || "Closing Early Today",
+    body:     q.get("body")     || "Your Flower Shop is closing at 2:30 today.",
+    cta:      q.get("cta")      || "Call 555-555-5555 to place an order."
+  };
+  Object.keys(defaults).forEach(function (k) { if (el(k)) el(k).value = defaults[k]; });
+
+  var seedBase = Number(q.get("seed")) || 1;
+
+  function reportFonts() {
+    var P = window.FlorisynFlyerPoster;
+    var box = el("fontstate");
+    if (!P || !P.fontReallyLoaded) { box.textContent = "Poster layer did not load."; box.className = "bad"; return; }
+    // Measured, not asked: document.fonts.check() returns true whenever a
+    // matching @font-face rule exists, even when the file never downloaded.
+    var script = P.fontReallyLoaded("Parisienne", "400", 120);
+    var display = P.fontReallyLoaded("Playfair Display", "600", 64);
+    var ok = script && display;
+    box.className = ok ? "good" : "bad";
+    box.textContent = ok
+      ? "Real faces loaded: Parisienne (script) and Playfair Display. What you see below is the intended type."
+      : "Fallback faces in use — " +
+        (script ? "" : "Parisienne did not load. ") +
+        (display ? "" : "Playfair Display did not load. ") +
+        "The type below is NOT the intended design.";
+  }
+
+  function draw() {
+    var out = el("out");
+    out.textContent = "";
+    var content = { headline: el("headline").value, body: el("body").value, cta: el("cta").value };
+    var brand = {
+      shopName: el("shopName").value,
+      phone: el("phone").value,
+      primaryColor: el("primary").value || "#7c3a58",
+      accentColor: "#c98fae"
+    };
+    for (var i = 0; i < 4; i++) {
+      (function (seed) {
+        // The slot is placed now and filled when its render settles, so the
+        // seeds stay in order however the promises happen to resolve.
+        var fig = document.createElement("figure");
+        var img = document.createElement("img");
+        img.alt = "Poster, seed " + seed;
+        var cap = document.createElement("figcaption");
+        cap.textContent = "seed " + seed + " — rendering…";
+        fig.appendChild(img); fig.appendChild(cap);
+        out.appendChild(fig);
+        window.FlorisynFlyerPoster.renderPoster({
+          width: 1080, height: 1350, seed: seed,
+          content: content, brand: brand,
+          backgroundUrl: "/assets/atelier-floral-corner.jpg"
+        }).then(function (canvas) {
+          img.src = canvas.toDataURL("image/png");
+          cap.textContent = "seed " + seed +
+            " · composition: " + (canvas.dataset.florisynPosterComposition || "?") +
+            " · faces: " + (canvas.dataset.florisynPosterFonts || "?");
+        });
+      })(seedBase + i);
+    }
+    reportFonts();
+  }
+
+  el("render").addEventListener("click", draw);
+  el("reseed").addEventListener("click", function () { seedBase += 4; draw(); });
+
+  // The faces have to be fetched before anything is measured or drawn; a
+  // canvas cannot trigger a webfont download on its own.
+  var faces = ["400 120px 'Parisienne'", "600 64px 'Playfair Display'", "500 40px 'DM Sans'"];
+  var ready = (document.fonts && document.fonts.load)
+    ? Promise.all(faces.map(function (f) { return document.fonts.load(f).catch(function () { return null; }); }))
+    : Promise.resolve();
+  ready.then(draw, draw);
+})();
+</script>
+</body>
+</html>
