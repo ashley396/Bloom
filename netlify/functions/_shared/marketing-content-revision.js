@@ -623,3 +623,86 @@ export function buildDeterministicNoticeContent({ requestText, shopName, shopPho
 
   return { headline, body, cta, caption };
 }
+
+// ---------------------------------------------------------------------------
+// Copy that is wrong in TONE rather than wrong in fact.
+//
+// Ashley asked for a post to bring in funeral work and got: "At Lilies in
+// Bloom, we understand the importance of celebrating life's milestones,
+// including funerals and memorial services. Our experienced florists create
+// beautiful, meaningful arrangements... From classic bouquets to custom
+// designs, we're here to support you during this difficult time. Contact us
+// today to discuss your needs and let us help you create a lasting tribute."
+//
+// Nothing in it is factually invented, so every existing guard passed it. It
+// is still unpublishable: it frames a funeral as a milestone to celebrate,
+// and the rest is filler that would suit any business on earth. A florist's
+// sympathy work is the most delicate writing they ever put out.
+// ---------------------------------------------------------------------------
+
+const BEREAVEMENT_CONTEXT_RE =
+  /\b(funeral|sympathy|memorial|bereave(?:d|ment)|condolence|casket|graveside|wake|passed away|loss of|in memory|tribute|remembrance)\b/i;
+
+// "Celebration of life" is a real and correct term for a memorial service, so
+// it is deliberately excluded — the failure is celebratory framing OF the
+// death itself, not the phrase.
+const CELEBRATORY_RE =
+  /\bcelebrat(?:e|es|ed|ing|ion)\b(?!\s+of\s+life)|\bmilestones?\b|\bexcit(?:ed|ing)\b|\bthrilled\b|\bdelighted\b|\bcan'?t wait\b|\bjoyful\b|\bfun\b|\bamazing\b|\bspecial occasion\b/i;
+
+// Sentences that could belong to any business in any industry. Each of these
+// appeared in the post above, and together they were most of it.
+const FILLER_PHRASES = [
+  /\bwe understand the importance of\b/i,
+  /\bwhether you(?:'re| are) looking for\b/i,
+  /\bwe(?:'ve| have) got you covered\b/i,
+  /\bcontact us today to discuss your needs\b/i,
+  /\blet us help you create\b/i,
+  /\bfrom classic [a-z ]{0,24} to custom\b/i,
+  /\bour (?:experienced|dedicated|talented) (?:florists|team|staff)\b/i,
+  /\bwe(?:'re| are) here to (?:support|help) you\b/i,
+  /\bat [A-Z][\w' ]{1,40}, we (?:believe|understand|know)\b/,
+  /\bhigh[- ]quality\b/i,
+  /\bwide (?:range|selection|variety) of\b/i,
+  /\bevery step of the way\b/i,
+  /\byour (?:one[- ]stop|go[- ]to)\b/i
+];
+
+/**
+ * Why a piece of finished post copy is not publishable as written — tone and
+ * emptiness, not facts. Returns an array of plain reasons, empty when the copy
+ * reads fine, so a caller can put them straight back to the model.
+ *
+ * Deliberately conservative: it names concrete phrases and one specific
+ * framing error rather than trying to judge writing quality in general, which
+ * a regular expression cannot do and should not pretend to.
+ */
+export function detectWeakMarketingCopy(requestText, copyText) {
+  const request = String(requestText || "");
+  const copy = String(copyText || "");
+  const reasons = [];
+  if (!copy.trim()) return reasons;
+
+  if (BEREAVEMENT_CONTEXT_RE.test(request) || BEREAVEMENT_CONTEXT_RE.test(copy)) {
+    const hit = copy.match(CELEBRATORY_RE);
+    if (hit) {
+      reasons.push(
+        `This is sympathy writing and it uses celebratory language ("${hit[0]}"). A death is not a milestone or an occasion to celebrate. Write plainly and gently, with no upbeat framing and no exclamation marks.`
+      );
+    }
+  }
+
+  const filler = FILLER_PHRASES.filter((re) => re.test(copy));
+  if (filler.length >= 2) {
+    reasons.push(
+      "Most of this could be about any business in any industry. Cut the stock phrases and say something only this florist could say."
+    );
+  }
+
+  // The post Ashley was shown ran to five long sentences of it.
+  const sentences = copy.split(/[.!?]+\s/).filter((part) => part.trim().length > 12);
+  if (sentences.length > 5 && copy.length > 420) {
+    reasons.push("Far too long for a social post. Three or four short sentences, and stop.");
+  }
+
+  return reasons;
+}

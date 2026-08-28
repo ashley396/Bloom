@@ -131,6 +131,7 @@ import {
   buildWordingRevisionRequestText,
   detectPermanentClosureMismatch,
   detectInventedOperationalContent,
+  detectWeakMarketingCopy,
   requestSignalsPlainOperationalNotice,
   buildDeterministicNoticeContent,
   extractShopNameFromRequestText,
@@ -1791,7 +1792,7 @@ export function createMarketingStudioHandler(deps = {}) {
           };
         } else {
           await recordUsage("copy", "request", 1);
-          copyGen = await generateSocialPost({
+          const socialPostArgs = {
             persona: "Lily",
             channel: primaryPlatform,
             occasion: currentItem.data.title,
@@ -1801,10 +1802,35 @@ export function createMarketingStudioHandler(deps = {}) {
             visualStyleSummary,
             inventorySummary,
             audienceSummary
-          });
+          };
+          copyGen = await generateSocialPost(socialPostArgs);
           if (!copyGen.ok) {
             await revertToIdea();
             return json(400, { error: copyGen.error });
+          }
+          // Copy can be wrong in TONE while every fact in it is true, and
+          // every existing guard here checks facts. A post asking for funeral
+          // work came back framing a death as a milestone to celebrate,
+          // wrapped in filler that would suit any business on earth — nothing
+          // invented, nothing caught, unpublishable.
+          //
+          // One bounded retry, with the specific reasons handed back to the
+          // model. Not a rejection: this is a quality failure, not a safety
+          // one, and leaving the florist with an error and no post would be
+          // the worse outcome. The second attempt is used either way, having
+          // been told exactly what was wrong with the first.
+          const weakness = detectWeakMarketingCopy(
+            currentItem.data.brief,
+            `${copyGen.content.headline} ${copyGen.content.body}`
+          );
+          if (weakness.length) {
+            await recordUsage("copy", "request", 1);
+            const retry = await generateSocialPost({
+              ...socialPostArgs,
+              requestText:
+                `${currentItem.data.brief}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${weakness.join("\n- ")}`
+            });
+            if (retry.ok && retry.content?.body) copyGen = retry;
           }
           // Reactive safety net for the rare case that reaches here at
           // all — requestSignalsPlainOperationalNotice already said this

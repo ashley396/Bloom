@@ -11,6 +11,7 @@ import {
   detectInventedOperationalContent,
   buildDeterministicNoticeContent,
   requestNeedsFlyerWording,
+  detectWeakMarketingCopy,
   extractShopNameFromRequestText,
   factsPreserved
 } from "../netlify/functions/_shared/marketing-content-revision.js";
@@ -1034,4 +1035,86 @@ test("the existing operational and fact signals still fire", () => {
   ]) {
     assert.equal(requestNeedsFlyerWording(request), true, `regression: "${request}"`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Copy that is wrong in TONE while every fact in it is true.
+//
+// Ashley asked for a post to bring in funeral work and was shown this:
+//
+//   "At Lilies in Bloom, we understand the importance of celebrating life's
+//    milestones, including funerals and memorial services. Our experienced
+//    florists create beautiful, meaningful arrangements to help you express
+//    your condolences and honor your loved ones. From classic bouquets to
+//    custom designs, we're here to support you during this difficult time.
+//    Contact us today to discuss your needs and let us help you create a
+//    lasting tribute."
+//
+// Nothing in it is invented, so every guard in this file passed it. It frames
+// a funeral as a milestone to celebrate, and the rest would suit any business
+// on earth. Sympathy work is the most delicate writing a florist does.
+// ---------------------------------------------------------------------------
+
+const ASHLEYS_FUNERAL_POST =
+  "At Lilies in Bloom, we understand the importance of celebrating life's milestones, including " +
+  "funerals and memorial services. Our experienced florists create beautiful, meaningful arrangements " +
+  "to help you express your condolences and honor your loved ones. From classic bouquets to custom " +
+  "designs, we're here to support you during this difficult time. Contact us today to discuss your " +
+  "needs and let us help you create a lasting tribute.";
+
+test("the exact post Ashley was shown is caught, and for the right reasons", () => {
+  const reasons = detectWeakMarketingCopy("Crate me a facebook post to generate more funeral work.", ASHLEYS_FUNERAL_POST);
+  assert.ok(reasons.length >= 2, `only found: ${JSON.stringify(reasons)}`);
+  assert.ok(reasons.some((r) => /celebratory language/i.test(r)), "the celebratory framing of a death was not caught");
+  assert.ok(reasons.some((r) => /any business in any industry/i.test(r)), "the stock filler was not caught");
+});
+
+test("a death is never framed as a celebration, a milestone or an occasion", () => {
+  const offenders = [
+    "We love celebrating life's milestones with you, including funerals.",
+    "Funerals are a special occasion and we are delighted to help.",
+    "We're excited to offer new sympathy arrangements!",
+    "It's a joyful thing to honour a loved one at a memorial."
+  ];
+  for (const copy of offenders) {
+    assert.ok(detectWeakMarketingCopy("funeral flowers", copy).some((r) => /celebratory/i.test(r)),
+      `not caught: "${copy}"`);
+  }
+});
+
+test("'celebration of life' is a real memorial term and is left alone", () => {
+  // Flagging it would push the model away from the correct word for the thing.
+  const copy = "We are honoured to make the flowers for a celebration of life. Call 606-506-4039 and we will look after it.";
+  assert.deepEqual(detectWeakMarketingCopy("memorial service", copy), []);
+});
+
+test("writing only this florist could have written passes untouched", () => {
+  const good =
+    "When a family comes to us after a loss, we sit down and listen first. Standing sprays, casket " +
+    "flowers and small arrangements for the service, made here in the shop by hand. Call 606-506-4039 " +
+    "and we will take care of the rest.";
+  assert.deepEqual(detectWeakMarketingCopy("post to generate more funeral work", good), []);
+});
+
+test("celebratory language is fine when nothing about the request is a bereavement", () => {
+  const copy = "We're so excited for Valentine's Day! Celebrating with a fresh batch of red roses this week.";
+  assert.ok(!detectWeakMarketingCopy("valentines post", copy).some((r) => /celebratory/i.test(r)));
+});
+
+test("a single stock phrase is tolerated; a post built out of them is not", () => {
+  const one = "We have a wide range of bouquets ready today. Come and see us on Main Street.";
+  assert.ok(!detectWeakMarketingCopy("post", one).some((r) => /any business/i.test(r)),
+    "one ordinary phrase should not condemn a post");
+  const many = "We understand the importance of flowers. Our experienced florists are here to support you. Whether you're looking for roses or lilies, we've got you covered.";
+  assert.ok(detectWeakMarketingCopy("post", many).some((r) => /any business/i.test(r)));
+});
+
+test("a wall of text is flagged as too long for a social post", () => {
+  const long = Array.from({ length: 8 }, (_, i) => `This is a reasonably long sentence number ${i} about our lovely flowers and our shop.`).join(" ");
+  assert.ok(detectWeakMarketingCopy("post", long).some((r) => /too long/i.test(r)));
+});
+
+test("empty or missing copy yields no reasons rather than throwing", () => {
+  assert.deepEqual(detectWeakMarketingCopy("funeral", ""), []);
+  assert.deepEqual(detectWeakMarketingCopy(null, null), []);
 });
