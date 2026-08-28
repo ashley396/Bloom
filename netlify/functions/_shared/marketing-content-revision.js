@@ -228,16 +228,36 @@ export function detectPermanentClosureMismatch(requestText, generatedText) {
 const FLYER_WORDING_KEYWORDS_RE =
   /\b(clos(?:ing|ed)|open(?:ing)?|hours?|business hours)\b|\b(sale|%\s?off|percent off|discount|promo(?:tion)?|special offer)\b|\bevent\b|\brsvp\b|\b(deadline|order by|cutoff|last day to order)\b|\bannounc(?:e|ing|ement)\b|\b(address|located at|find us at)\b/i;
 
+// The florist naming the thing they want made. "A flyer", "a poster", "a
+// graphic", "an ad" is a request for a designed piece, and it is not a
+// judgement call — it is what they asked for. Astonishingly, "make me a
+// flyer to get more funeral business" did not previously produce a flyer.
+const DESIGNED_ARTEFACT_RE = /\b(flyer|flier|poster|graphic|banner|signage|advert(?:isement)?|\bads?\b)\b/i;
+
+// A post whose JOB is to win work. "Generate more funeral work", "get more
+// wedding business", "bring in more orders", "advertise our sympathy
+// arrangements" — these are advertisements, and an advertisement with no
+// shop name, no message and no phone number on it is just a stock photo.
+// This is the case Ashley hit: a request to generate more funeral work came
+// back as a bare AI photograph with no design on it whatsoever.
+const PROMOTIONAL_INTENT_RE =
+  /\b(?:get|generate|bring in|drive|attract|win|boost|increase|grow|more)\b[^.!?]{0,40}\b(business|work|orders?|customers?|clients?|bookings?|enquir(?:y|ies)|inquir(?:y|ies)|sales|traffic)\b/i;
+const PROMOTE_VERB_RE = /\b(advertise|advertising|promote|promoting|promotion|market(?:ing)? (?:post|piece)|let (?:people|customers|everyone) know)\b/i;
+
 /** True when a request's important information needs to be VISIBLE and
  * EXACT on the graphic itself — the deterministic flyer signal. Any real
  * fact token (phone/price/date/time) is enough on its own; so is one of
- * the plain operational/promotional keywords above. Never fires on an
- * ordinary decorative/celebratory request with no such signal — that stays
- * a plain photo-only image, per requirement 10. */
+ * the plain operational/promotional keywords above; so is the florist
+ * naming a designed artefact, or asking for a post whose purpose is to win
+ * business. Never fires on an ordinary decorative or celebratory request
+ * with no such signal — "make me an image of a jaguar holding roses" is a
+ * picture, and stays a picture, per requirement 10. */
 export function requestNeedsFlyerWording(text) {
   const s = String(text || "");
   if (extractFactTokens(s).length) return true;
-  return FLYER_WORDING_KEYWORDS_RE.test(s);
+  if (FLYER_WORDING_KEYWORDS_RE.test(s)) return true;
+  if (DESIGNED_ARTEFACT_RE.test(s)) return true;
+  return PROMOTIONAL_INTENT_RE.test(s) || PROMOTE_VERB_RE.test(s);
 }
 
 // A revision instruction can ask to change the FACTS on an existing flyer

@@ -10,6 +10,7 @@ import {
   textAddsInventedEmbellishment,
   detectInventedOperationalContent,
   buildDeterministicNoticeContent,
+  requestNeedsFlyerWording,
   extractShopNameFromRequestText,
   factsPreserved
 } from "../netlify/functions/_shared/marketing-content-revision.js";
@@ -963,5 +964,74 @@ test("generate_content (real dispatch): a whitespace-only shop name is treated a
     assert.equal(mock.calls.length, 0);
   } finally {
     mock.restore();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// What counts as a request for a DESIGNED piece.
+//
+// Ashley asked Marketing Studio, live: "Crate me a facebook post to generate
+// more funeral work." It came back as a bare AI photograph — no shop name, no
+// message, no phone number, nothing drawn on it at all. The gate deciding
+// designed-poster versus plain-photo only fired on operational words
+// (closing, hours, sale, deadline) or a hard fact like a time or a price, so
+// an advertisement asking for more business had no signal at all. "Make me a
+// FLYER to get more funeral business" did not produce a flyer either.
+//
+// An advertisement with no shop name and no phone number on it is a stock
+// photo. But a request for a picture must still stay a picture — the point is
+// to tell those apart, not to put type on everything.
+// ---------------------------------------------------------------------------
+
+test("a post whose job is to win business is a designed piece, not a bare photo", () => {
+  const asked = [
+    "Crate me a facebook post to generate more funeral work.",
+    "Create me a facebook post to generate more funeral work.",
+    "make me a flyer to get more funeral business",
+    "post to bring in more wedding bookings",
+    "something to attract more corporate clients",
+    "I want to drive more orders this month",
+    "advertise our sympathy arrangements",
+    "promote our valentines specials",
+    "let customers know about our new subscription"
+  ];
+  for (const request of asked) {
+    assert.equal(requestNeedsFlyerWording(request), true,
+      `"${request}" came back as a photograph with no shop name, message or phone number on it`);
+  }
+});
+
+test("naming the artefact is enough on its own — a flyer request produces a flyer", () => {
+  for (const request of ["I need a flyer", "make me a poster", "design a graphic for facebook", "a banner for the shop", "run an ad for us"]) {
+    assert.equal(requestNeedsFlyerWording(request), true,
+      `the florist asked for a ${request.split(" ").pop()} and would not have got one`);
+  }
+});
+
+test("a request for a PICTURE still stays a picture — type is not put on everything", () => {
+  // Requirement 10, and Ashley's own examples of what she wants the engine to
+  // be able to make. These are images, not advertisements.
+  const pictures = [
+    "make me an image of a jaguar holding a dozen roses saying go team",
+    "make me a wedding image with Hydrangea's, Peonies and snapdragons in white and pink",
+    "a pretty picture of todays arrangement",
+    "photo of the new spring tulips",
+    "something seasonal and cheerful for the feed"
+  ];
+  for (const request of pictures) {
+    assert.equal(requestNeedsFlyerWording(request), false,
+      `"${request}" asked for a picture and would have had a poster layout imposed on it`);
+  }
+});
+
+test("the existing operational and fact signals still fire", () => {
+  for (const request of [
+    "Lilies in Bloom is closing at 2:30 today.",
+    "we open late tomorrow",
+    "20% off this weekend",
+    "order deadline is Friday",
+    "call 606-506-4039"
+  ]) {
+    assert.equal(requestNeedsFlyerWording(request), true, `regression: "${request}"`);
   }
 });
