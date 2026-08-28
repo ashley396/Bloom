@@ -16,6 +16,9 @@ import {
   findHollowSentences,
   detectSympathyProductHeadline,
   detectSympathyProductOpening,
+  isPlaceholderPhoneNumber,
+  detectPlaceholderContactNumbers,
+  stripFabricatedContactNumbers,
   detectFabricatedContactNumbers,
   extractShopNameFromRequestText,
   factsPreserved
@@ -1577,4 +1580,138 @@ test("a flyer whose HEADLINE is right but whose message opens with stock is stil
     { headline: "With Sympathy", shopName: "Lilies in Bloom", shopPhone: "606-506-4039" }
   );
   assert.ok(reasons.some((r) => /opens by advertising stock/i.test(r)), JSON.stringify(reasons));
+});
+
+// ---------------------------------------------------------------------------
+// A number nobody can ring.
+//
+// Ashley's funeral flyer, generated through the real path on the test site,
+// carried "(555) 555-5555" twice — on the ribbon and in the contact panel.
+// A grieving family reads that, dials it, and does not reach the shop.
+//
+// The guard written to catch exactly this did not fire, and the reason was not
+// the one it looked like. CONTACT_NUMBER_RE was greedy across sentence
+// boundaries, so printing the number TWICE a few characters apart — which is
+// precisely what a flyer does — merged both into one 20-digit match that every
+// caller then discarded as too long. A shop WITH its number on file would have
+// been missed in the same way.
+// ---------------------------------------------------------------------------
+
+test("the flyer Ashley was shown is caught — the same number printed twice", () => {
+  // The regression test for the greedy match. Before the fix this returned [].
+  const onTheFlyer = "Contact us today at (555) 555-5555. (555) 555-5555";
+  assert.deepEqual(
+    detectFabricatedContactNumbers({ shopPhone: "606-506-4039", copyText: onTheFlyer }),
+    ["(555) 555-5555"]
+  );
+  // And with no shop phone stored at all, which is the case that reached her.
+  assert.deepEqual(detectPlaceholderContactNumbers({ copyText: onTheFlyer }), ["(555) 555-5555"]);
+  assert.ok(detectWeakMarketingCopy("funeral work", onTheFlyer, {}).some((r) => /nobody gave you/i.test(r)),
+    "with no shop phone on file the check still said nothing");
+});
+
+test("two different real numbers a sentence apart are two numbers, not one", () => {
+  // The same greedy fault in its other form: a florist's own number beside a
+  // supplied one must not merge into a single unrecognisable run.
+  assert.deepEqual(
+    detectFabricatedContactNumbers({
+      shopPhone: "606-506-4039",
+      copyText: "Call 606-506-4039. For deliveries call 555-555-5555."
+    }),
+    ["555-555-5555"]
+  );
+});
+
+test("a placeholder number is fake on its face, whatever the shop's number is", () => {
+  for (const n of ["(555) 555-5555", "555-1234", "(555) 123-4567", "555-0100", "123-4567", "111-1111", "1234567890"]) {
+    assert.ok(isPlaceholderPhoneNumber(n), `not recognised as a placeholder: ${n}`);
+  }
+  for (const n of ["606-506-4039", "1-800-356-9377", "212-555-0100".replace("555-0100", "664-7665"), "0161 496 0000"]) {
+    assert.ok(!isPlaceholderPhoneNumber(n), `a real number was called a placeholder: ${n}`);
+  }
+  // Not phone numbers at all.
+  for (const n of ["2:30", "08/22/2026", "20%", "$45.00", "1998"]) {
+    assert.ok(!isPlaceholderPhoneNumber(n), `${n} is not a phone number`);
+  }
+});
+
+test("a number the florist typed themselves is theirs, placeholder-looking or not", () => {
+  // Their stated fact outranks this, as every stated fact does.
+  assert.deepEqual(
+    detectPlaceholderContactNumbers({ requestText: "put our new line 555-0123 on it", copyText: "Call 555-0123." }),
+    []
+  );
+});
+
+test("an invented number never reaches the canvas — substituted when the shop's own is known", () => {
+  const flyer = "Standing sprays and casket flowers. Contact us today at (555) 555-5555.";
+  const out = stripFabricatedContactNumbers({ requestText: "funeral work", shopPhone: "606-506-4039", copyText: flyer });
+  assert.deepEqual(out.removed, ["(555) 555-5555"]);
+  assert.equal(out.substituted, true);
+  assert.ok(out.text.includes("606-506-4039"), out.text);
+  assert.ok(!out.text.includes("555"), out.text);
+  // The florist's own words are otherwise untouched.
+  assert.ok(out.text.startsWith("Standing sprays and casket flowers."), out.text);
+});
+
+test("an invented number never reaches the canvas — cut when there is nothing to put in its place", () => {
+  // A flyer with no number is one a florist can fix. A flyer with a wrong
+  // number sends a grieving family to a dead line.
+  const flyer = "Standing sprays and casket flowers. Contact us today at (555) 555-5555.";
+  const out = stripFabricatedContactNumbers({ requestText: "funeral work", copyText: flyer });
+  assert.deepEqual(out.removed, ["(555) 555-5555"]);
+  assert.equal(out.substituted, false);
+  assert.ok(!/555/.test(out.text), out.text);
+  // The clause goes with it — never "Contact us today at ."
+  assert.ok(!/at\s*\.?$/.test(out.text.trim()), `a dangling clause was left: "${out.text}"`);
+  assert.ok(out.text.includes("Standing sprays and casket flowers."), out.text);
+});
+
+test("a call to action that is nothing but an invented number leaves nothing behind", () => {
+  const out = stripFabricatedContactNumbers({ copyText: "(555) 555-5555" });
+  assert.deepEqual(out.removed, ["(555) 555-5555"]);
+  assert.equal(out.text, "");
+});
+
+test("correct wording is never touched by the strip", () => {
+  for (const copy of [
+    "Standing sprays and casket flowers. Call 606-506-4039.",
+    "Closing at 2:30 on 08/22/2026. 20% off. Bouquets from $45.00. Since 1998.",
+    "White lilies and cream roses. Call 606-506-4039 and we will look after it."
+  ]) {
+    const out = stripFabricatedContactNumbers({ shopPhone: "606-506-4039", copyText: copy });
+    assert.deepEqual(out.removed, [], `wrongly removed from: "${copy}"`);
+    assert.equal(out.text, copy);
+  }
+});
+
+test("the real handler strips an invented number from the flyer before it is rendered", () => {
+  // The check that matters: not that the detector works, but that the wording
+  // reaching the canvas has been through it. Both fields the flyer prints.
+  const handler = fs.readFileSync(new URL("../netlify/functions/marketing-studio.js", import.meta.url), "utf8");
+  const calls = handler.match(/stripFabricatedContactNumbers\(/g) || [];
+  assert.ok(calls.length >= 2,
+    `the strip runs ${calls.length} time(s) — the flyer wording and the caption both need it`);
+  assert.ok(/for \(const field of \["headline", "body", "cta"\]\)/.test(handler),
+    "the strip must cover every field that reaches the graphic, not just the call to action");
+  // Calling it is not using it. An earlier version of this test counted the
+  // calls and passed with the assignment deleted — the strip ran, its result
+  // was thrown away, and the invented number still reached the canvas.
+  const applied = handler.match(/if \(cleaned\.removed\.length\) \w+\.content\[field\] = cleaned\.text;/g) || [];
+  assert.equal(applied.length, 2,
+    `the strip's result is written back ${applied.length} time(s) — it must be applied to both the flyer wording and the caption, not merely computed`);
+});
+
+test("a number that ends a sentence is still a number", () => {
+  // The seven-digit form's trailing guard once excluded "." outright, so a
+  // number closing a sentence did not match at all — and every test wrote the
+  // number mid-sentence, so nothing caught it.
+  assert.deepEqual(detectPlaceholderContactNumbers({ copyText: "Call 555-1234." }), ["555-1234"]);
+  assert.deepEqual(detectPlaceholderContactNumbers({ copyText: "Call 555-1234" }), ["555-1234"]);
+  assert.deepEqual(
+    detectFabricatedContactNumbers({ shopPhone: "606-506-4039", copyText: "Ring us on 606-506-4039." }),
+    []
+  );
+  // And the things that are still not phone numbers, at a sentence end.
+  assert.deepEqual(detectPlaceholderContactNumbers({ copyText: "Bouquets from $45.00. Since 1998. Closing at 2:30 on 08/22/2026." }), []);
 });

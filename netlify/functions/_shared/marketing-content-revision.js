@@ -695,7 +695,35 @@ const FLOWER_WORD_RE =
 // Any run of digits that a customer could read as a way to contact the shop.
 // Deliberately loose: a fabricated number does not have to be well-formed to
 // be dialled, and "555-1234" on a real shop's flyer is worse than useless.
-const CONTACT_NUMBER_RE = /\+?\d[\d()\s.-]{5,}\d/g;
+// One number, not a run of everything that looks numeric.
+//
+// This pattern used to be /\+?\d[\d()\s.-]{5,}\d/ — a digit, then any run of
+// digits, brackets, spaces, dots and dashes, then a digit. It is greedy across
+// sentence boundaries, so a flyer carrying the same number twice a few
+// characters apart matched ONCE, spanning both:
+//
+//   "Contact us today at (555) 555-5555. (555) 555-5555"
+//     -> "555) 555-5555. (555) 555-5555"  = 20 digits
+//
+// Every caller then discarded it, because 20 digits is not a phone number. So
+// the guard was silent — not because the shop had no phone stored, but because
+// printing the number TWICE, which is exactly what a flyer does (once on the
+// ribbon, once in the contact panel), hid it from the check written to catch
+// it. A shop WITH its number on file would have been missed the same way.
+//
+// Now: an optional country or trunk prefix, then a real number shape, then a
+// hard stop. A seven-digit local number is still matched on its own, because
+// "555-1234" is the form Ashley's first invented number took. Times, dates,
+// prices, percentages and years are not phone numbers and must never match —
+// the tests below pin each of them.
+//
+// The seven-digit form's trailing guard rejects a digit, a slash or a colon
+// (a date, a time) and a dot followed by a digit (a decimal inside a price),
+// but NOT a plain full stop: an earlier version excluded "." outright, which
+// meant a number ending a sentence — "Call 555-1234." — did not match at all,
+// and a test that only ever wrote the number mid-sentence never noticed.
+const CONTACT_NUMBER_RE =
+  /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}(?!\d)|(?<![\d.,:\/-])\d{3}[-.\s]\d{4}(?![\d\/:]|\.\d)/g;
 const digitsOnly = (value) => String(value || "").replace(/\D/g, "");
 
 /**
@@ -734,6 +762,123 @@ export function detectFabricatedContactNumbers({ requestText, shopPhone, copyTex
     if (!invented.includes(found.trim())) invented.push(found.trim());
   }
   return invented;
+}
+
+// ---------------------------------------------------------------------------
+// A number nobody can ring.
+//
+// Ashley's funeral flyer, generated through the real path, carried
+// "(555) 555-5555" twice — on the ribbon and in the contact panel. An earlier
+// one carried "(555) 123-4567". A grieving family reads that, dials it, and
+// does not reach the shop. Of everything this file guards against, this is the
+// only one that actively costs the florist the order.
+//
+// The existing guard could not fire, and the reason is written into its own
+// comment: it compares against the shop's own number, so a shop whose record
+// has no phone stored gets no opinion at all. That reasoning is sound for
+// telling one real number from another — but it is not needed here.
+// 555-555-5555 is fake on its face. The 555 exchange is reserved in the North
+// American plan precisely so it can never reach anybody, and 123-4567, a run
+// of one repeated digit, and a straight ascending run are what a model writes
+// when it is filling a slot rather than stating a fact.
+//
+// So placeholders are recognised WITHOUT knowing the shop's number, which
+// means the check works for every shop — including one whose profile is
+// incomplete, which is exactly the shop most likely to be handed an invented
+// number and the one the old check abandoned.
+// ---------------------------------------------------------------------------
+
+/** True for a number that cannot reach any business. Pure. */
+export function isPlaceholderPhoneNumber(value) {
+  const d = digitsOnly(value);
+  if (d.length < 7) return false;
+  const local = d.slice(-7);
+  const ten = d.length >= 10 ? d.slice(-10) : null;
+  // The reserved fictional exchange. No real business has one.
+  if (local.startsWith("555")) return true;
+  // The other slot-fillers a model reaches for.
+  if (local === "1234567") return true;
+  if (/^(\d)\1{6}$/.test(local)) return true;
+  if (local === "0123456" || local === "2345678") return true;
+  if (ten && /^(\d)\1{9}$/.test(ten)) return true;
+  if (ten && ten === "1234567890") return true;
+  return false;
+}
+
+/**
+ * Placeholder numbers written into copy that the florist never supplied.
+ *
+ * Deliberately independent of the shop's own number: this is the check that
+ * still works when the shop's profile has no phone on it. A number the florist
+ * typed into the request themselves is theirs and is left alone — their stated
+ * fact outranks this, as every stated fact does. Pure.
+ */
+export function detectPlaceholderContactNumbers({ requestText, copyText } = {}) {
+  const supplied = new Set(
+    (String(requestText || "").match(CONTACT_NUMBER_RE) || []).map((n) => digitsOnly(n))
+  );
+  const found = [];
+  for (const raw of String(copyText || "").match(CONTACT_NUMBER_RE) || []) {
+    const d = digitsOnly(raw);
+    if (d.length < 7 || d.length > 15) continue;
+    if (supplied.has(d)) continue;
+    if (!isPlaceholderPhoneNumber(d)) continue;
+    if (!found.includes(raw.trim())) found.push(raw.trim());
+  }
+  return found;
+}
+
+/**
+ * Removes every phone number from `copyText` that the florist never supplied
+ * and that is not the shop's own, returning the cleaned text and what went.
+ *
+ * Detecting was never enough. Every guard in this file feeds a bounded retry,
+ * and a retry is a second opinion, not a guarantee — when the second attempt
+ * invented a number too, it was rendered onto the flyer and persisted exactly
+ * like the first. A number that cannot reach the shop must not survive to the
+ * canvas at all, whatever the model does.
+ *
+ * When the shop's own number is known it is substituted, so the flyer keeps
+ * its call to action. When it is not, the number is cut and the sentence it
+ * sat in goes with it — a flyer with no number is one a florist can fix; a
+ * flyer with a wrong number sends a grieving family to a dead line.
+ *
+ * Never rewrites anything else: this removes an INVENTED fact, which is the
+ * opposite of the rule that a supplied fact must survive byte for byte.
+ *
+ * Pure. Returns { text, removed, substituted }.
+ */
+export function stripFabricatedContactNumbers({ requestText, shopPhone, copyText } = {}) {
+  const original = String(copyText || "");
+  if (!original) return { text: original, removed: [], substituted: false };
+  const invented = new Set(
+    detectFabricatedContactNumbers({ requestText, shopPhone, copyText: original }).map((n) => n.trim())
+  );
+  for (const p of detectPlaceholderContactNumbers({ requestText, copyText: original })) invented.add(p.trim());
+  if (!invented.size) return { text: original, removed: [], substituted: false };
+
+  const real = String(shopPhone || "").trim();
+  const removed = [...invented];
+  let text = original;
+
+  if (real) {
+    for (const number of invented) text = text.split(number).join(real);
+  } else {
+    // No number to put in its place, so the clause it sits in goes too — the
+    // flyer must never read "Contact us today at ." Sentences are rebuilt
+    // rather than patched, so no fragment of the invented number survives.
+    const kept = [];
+    for (const sentence of text.split(/(?<=[.!?])\s+/)) {
+      if ([...invented].some((n) => sentence.includes(n))) continue;
+      kept.push(sentence);
+    }
+    text = kept.join(" ");
+    // A number standing alone as its own line (a call-to-action field) leaves
+    // nothing behind when it goes.
+    for (const number of invented) text = text.split(number).join(" ");
+  }
+  text = text.replace(/[ \t]{2,}/g, " ").replace(/\s+([.,!?])/g, "$1").trim();
+  return { text, removed, substituted: Boolean(real) };
 }
 
 // ---------------------------------------------------------------------------
@@ -963,7 +1108,12 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
   // caller that cannot supply it gets no opinion rather than a wrong one.
   const invented = options.shopPhone
     ? detectFabricatedContactNumbers({ requestText: request, shopPhone: options.shopPhone, copyText: copy })
-    : [];
+    : // Without the shop's number one real number cannot be told from another
+      // — but a PLACEHOLDER needs no such comparison, and this is the case
+      // that put "(555) 555-5555" on Ashley's funeral flyer twice. A shop with
+      // an incomplete profile is the one most likely to be handed an invented
+      // number, and the one the old check abandoned.
+      detectPlaceholderContactNumbers({ requestText: request, copyText: copy });
   if (invented.length) {
     reasons.push(
       `"${invented[0]}" is a phone number nobody gave you. Never write a number that is not the shop's own or one the florist supplied — a family ringing it does not reach the shop.`

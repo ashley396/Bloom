@@ -132,6 +132,7 @@ import {
   detectPermanentClosureMismatch,
   detectInventedOperationalContent,
   detectWeakMarketingCopy,
+  stripFabricatedContactNumbers,
   requestSignalsPlainOperationalNotice,
   buildDeterministicNoticeContent,
   extractShopNameFromRequestText,
@@ -1843,6 +1844,18 @@ export function createMarketingStudioHandler(deps = {}) {
               copyGen = retry;
             }
           }
+          // The same last gate the flyer wording gets below, for the same
+          // reason: this caption is published to Facebook, where an invented
+          // number is just as unreachable as one printed on the graphic.
+          for (const field of ["headline", "body", "cta"]) {
+            const cleaned = stripFabricatedContactNumbers({
+              requestText: currentItem.data.brief,
+              shopPhone: shopRow.data?.phone,
+              copyText: copyGen.content[field]
+            });
+            if (cleaned.removed.length) copyGen.content[field] = cleaned.text;
+          }
+
           // Reactive safety net for the rare case that reaches here at
           // all — requestSignalsPlainOperationalNotice already said this
           // ISN'T a plain notice (a sale/event framing, most often), so an
@@ -1976,6 +1989,23 @@ export function createMarketingStudioHandler(deps = {}) {
                 flyerGen.content.headline = flyerFallback.headline;
                 flyerGen.content.body = flyerFallback.body;
                 flyerGen.content.cta = flyerFallback.cta;
+              }
+
+              // Last gate before the wording reaches the canvas. Every other
+              // guard here feeds a bounded retry, and a retry is a second
+              // opinion, not a guarantee — Ashley's funeral flyer came back
+              // carrying "(555) 555-5555" on the ribbon AND in the contact
+              // panel. A grieving family reads that, dials it, and does not
+              // reach the shop. Whatever the model does, an invented number
+              // must not survive to the image: the shop's own is substituted
+              // when it is known, and the clause is cut when it is not.
+              for (const field of ["headline", "body", "cta"]) {
+                const cleaned = stripFabricatedContactNumbers({
+                  requestText: currentItem.data.brief,
+                  shopPhone: shopRow.data?.phone,
+                  copyText: flyerGen.content[field]
+                });
+                if (cleaned.removed.length) flyerGen.content[field] = cleaned.text;
               }
             }
             const template = pickFlyerTemplate({ occasion: currentItem.data.title });
