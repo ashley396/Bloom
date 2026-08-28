@@ -661,6 +661,14 @@ const FILLER_PHRASES = [
   /\bour (?:experienced|dedicated|talented) (?:florists|team|staff)\b/i,
   /\bwe(?:'re| are) here to (?:support|help) you\b/i,
   /\bat [A-Z][\w' ]{1,40}, we (?:believe|understand|know)\b/,
+  // "At Lilies in Bloom, we understand that losing a loved one is never easy"
+  // slipped through: the opener was only counted once and the threshold is
+  // two. It is the single most recognisable filler sentence there is.
+  /\bwe understand (?:that|how)\b/i,
+  /\bthat(?:'s| is) why we(?:'re| are)\b/i,
+  /\bmeaningful (?:and )?(?:beautiful )?arrangements?\b/i,
+  /\bhonou?rs? your loved one(?:'s)? memory\b/i,
+  /\bduring this difficult time\b/i,
   /\bhigh[- ]quality\b/i,
   /\bwide (?:range|selection|variety) of\b/i,
   /\bevery step of the way\b/i,
@@ -684,6 +692,50 @@ const AMBIGUOUS_ARRANGEMENT_RE = /\b(?:funeral|memorial)\s+arrangements?\b/i;
 const FLOWER_WORD_RE =
   /\b(flower|floral|bouquet|spray|sprays|wreath|casket|posy|stems?|blooms?|lil(?:y|ies)|roses?|arrangement of|tribute of)\b/i;
 
+// Any run of digits that a customer could read as a way to contact the shop.
+// Deliberately loose: a fabricated number does not have to be well-formed to
+// be dialled, and "555-1234" on a real shop's flyer is worse than useless.
+const CONTACT_NUMBER_RE = /\+?\d[\d()\s.-]{5,}\d/g;
+const digitsOnly = (value) => String(value || "").replace(/\D/g, "");
+
+/**
+ * Phone numbers in generated content that the florist never supplied and that
+ * are not the shop's own.
+ *
+ * Ashley's flyer came back reading "CALL US AT 555-1234 FOR CUSTOM FUNERAL
+ * ARRANGEMENTS TODAY" above her real number. Every fact guard here passed it,
+ * because they check that supplied facts SURVIVE — none of them asked whether
+ * a fact had been ADDED. A number nobody gave the model is the worst kind of
+ * invention: it is actionable, it looks authoritative, and a family ringing it
+ * does not reach the shop.
+ *
+ * Compared on digits alone so formatting differences never read as a new
+ * number, and short runs (a time, a date, a price, a year) are ignored. Pure.
+ */
+export function detectFabricatedContactNumbers({ requestText, shopPhone, copyText } = {}) {
+  const copy = String(copyText || "");
+  const allowed = new Set();
+  for (const known of [shopPhone, ...(String(requestText || "").match(CONTACT_NUMBER_RE) || [])]) {
+    const d = digitsOnly(known);
+    if (d.length >= 7) {
+      allowed.add(d);
+      // A number written with a country or trunk prefix in one place and
+      // without it in another is the same number, not a new one.
+      if (d.length > 10) allowed.add(d.slice(-10));
+      if (d.length === 10) allowed.add("1" + d);
+    }
+  }
+  const invented = [];
+  for (const found of copy.match(CONTACT_NUMBER_RE) || []) {
+    const d = digitsOnly(found);
+    if (d.length < 7 || d.length > 15) continue;
+    const variants = [d, d.slice(-10), d.length === 10 ? "1" + d : d];
+    if (variants.some((v) => allowed.has(v))) continue;
+    if (!invented.includes(found.trim())) invented.push(found.trim());
+  }
+  return invented;
+}
+
 /**
  * Why a piece of finished post copy is not publishable as written — tone and
  * emptiness, not facts. Returns an array of plain reasons, empty when the copy
@@ -693,7 +745,7 @@ const FLOWER_WORD_RE =
  * framing error rather than trying to judge writing quality in general, which
  * a regular expression cannot do and should not pretend to.
  */
-export function detectWeakMarketingCopy(requestText, copyText) {
+export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
   const request = String(requestText || "");
   const copy = String(copyText || "");
   const reasons = [];
@@ -706,6 +758,19 @@ export function detectWeakMarketingCopy(requestText, copyText) {
         `This is sympathy writing and it uses celebratory language ("${hit[0]}"). A death is not a milestone or an occasion to celebrate. Write plainly and gently, with no upbeat framing and no exclamation marks.`
       );
     }
+  }
+
+  // Only judgeable when the shop's own number is known. Without it there is no
+  // way to tell the real number from an invented one, and guessing would flag
+  // every correct flyer and send the retry chasing its own tail forever. A
+  // caller that cannot supply it gets no opinion rather than a wrong one.
+  const invented = options.shopPhone
+    ? detectFabricatedContactNumbers({ requestText: request, shopPhone: options.shopPhone, copyText: copy })
+    : [];
+  if (invented.length) {
+    reasons.push(
+      `"${invented[0]}" is a phone number nobody gave you. Never write a number that is not the shop's own or one the florist supplied — a family ringing it does not reach the shop.`
+    );
   }
 
   const claim = copy.match(SERVICE_CLAIM_RE);

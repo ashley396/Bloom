@@ -1821,7 +1821,8 @@ export function createMarketingStudioHandler(deps = {}) {
           // been told exactly what was wrong with the first.
           const weakness = detectWeakMarketingCopy(
             currentItem.data.brief,
-            `${copyGen.content.headline} ${copyGen.content.body}`
+            `${copyGen.content.headline} ${copyGen.content.body}`,
+            { shopPhone: shopRow.data?.phone }
           );
           if (weakness.length) {
             await recordUsage("copy", "request", 1);
@@ -1907,7 +1908,8 @@ export function createMarketingStudioHandler(deps = {}) {
               if (flyerGen.ok && flyerGen.content) {
                 const flyerWeakness = detectWeakMarketingCopy(
                   currentItem.data.brief,
-                  `${flyerGen.content.headline} ${flyerGen.content.body} ${flyerGen.content.cta}`
+                  `${flyerGen.content.headline} ${flyerGen.content.body} ${flyerGen.content.cta}`,
+                  { shopPhone: shopRow.data?.phone }
                 );
                 if (flyerWeakness.length) {
                   await recordUsage("copy", "request", 1);

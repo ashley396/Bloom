@@ -194,6 +194,11 @@ export function buildImagePrompt({ occasion, products = [], shopName, visualBrie
   // The occasion is what makes the arrangement match the post it illustrates —
   // a sympathy tribute for funeral work, not a generic bouquet. Required.
   if (occasion) clauses.push(required(`The arrangement must genuinely suit this occasion: ${occasion}.`));
+  if (SYMPATHY_OCCASION_RE.test(`${occasion || ""} ${visualBrief || ""}`)) {
+    clauses.push(required(
+      "This is sympathy work: white, ivory and cream blooms with soft green foliage, restrained and dignified, gentle diffused light. Never bright, festive, vivid or celebratory."
+    ));
+  }
   clauses.push(required(NO_TEXT_DIRECTIVE));
   return composePrompt(clauses);
 }
@@ -249,6 +254,11 @@ export function buildBackgroundPrompt({ visualBrief, brandColor } = {}) {
 // public/flyer-renderer.js. Fixed to match her explicit spec: "happy,
 // colorful and floral. Bright and naturally lit... premium and
 // realistic... rich but realistic color... luxury florist styling."
+// Sympathy, funeral and memorial work needs a different palette from a
+// Valentine's promotion. Kept next to the prompt that uses it.
+const SYMPATHY_OCCASION_RE =
+  /\b(funeral|sympathy|memorial|bereave(?:d|ment)|condolence|casket|graveside|burial|cremation|wake|passed away|in memory|remembrance|celebration of life)\b/i;
+
 const FLYER_BACKGROUND_COMPOSITIONS = [
   "Full-bleed florals sweeping in from all four edges in a soft luxurious border, leaving the lower portion of the frame clear.",
   "A wide, airy composition with florals gathered along the upper edge and one side, generous open space across the lower third.",
@@ -272,9 +282,18 @@ export function buildFlyerBackgroundPrompt({ visualBrief, occasion, brandColor, 
   // visual brief. A half-sentence is worse than no sentence: the model
   // still reads it. So nothing is ever sliced — the OPTIONAL clauses are
   // dropped whole, last-listed first, until the required ones fit.
+  // The bright, happy palette below exists for a real reason — every flyer
+  // background once trended dark and gloomy, and Ashley's own spec is "happy,
+  // colorful and floral". But it was REQUIRED on every prompt regardless of
+  // what the flyer was for, so a post about funeral work came back with coral
+  // and sunny-yellow spring flowers on it. Sympathy work gets a palette that
+  // suits it; everything else keeps the bright default unchanged.
+  const bereavement = SYMPATHY_OCCASION_RE.test(`${occasion || ""} ${visualBrief || ""}`);
   const clauses = [
     required(
-      "Luxury editorial floral photography for a premium flower shop's marketing flyer — happy, colorful, rich and vivid floral tones (blush pink, coral, sunny yellow, fresh green, soft lavender, warm cream), bright natural daylight, realistic and elegant florals, shallow depth of field, a composed, high-end magazine-quality look. Never dark, moody, dull, gloomy, or desaturated."
+      bereavement
+        ? "Luxury editorial floral photography for a premium flower shop's sympathy and funeral work — white, ivory and cream blooms with soft green foliage, restrained and dignified, gentle diffused natural daylight, realistic and elegant florals, shallow depth of field, a composed, high-end magazine-quality look. Calm and comforting, never bright, festive, vivid or celebratory, and never harsh, grim or funereal-black."
+        : "Luxury editorial floral photography for a premium flower shop's marketing flyer — happy, colorful, rich and vivid floral tones (blush pink, coral, sunny yellow, fresh green, soft lavender, warm cream), bright natural daylight, realistic and elegant florals, shallow depth of field, a composed, high-end magazine-quality look. Never dark, moody, dull, gloomy, or desaturated."
     ),
     required(FLYER_BACKGROUND_COMPOSITIONS[compositionIndex])
   ];

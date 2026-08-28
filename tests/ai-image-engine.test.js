@@ -396,3 +396,53 @@ test("composePrompt: drops optional clauses from the end and never a required on
   assert.match(out, /REQ-LAST/);
   assert.ok(out.length <= 1200);
 });
+
+// ---------------------------------------------------------------------------
+// The palette has to suit what the flyer is for.
+//
+// Ashley's funeral post came back with coral and sunny-yellow spring flowers
+// on it. The bright palette was REQUIRED on every background prompt regardless
+// of occasion — it exists because every flyer once trended dark and gloomy,
+// and her own spec is "happy, colorful and floral", so it must stay the
+// default. It just cannot be the only option.
+// ---------------------------------------------------------------------------
+
+test("sympathy work is never asked for in a bright, festive palette", () => {
+  for (const occasion of ["funeral work", "sympathy arrangements", "a memorial service", "casket flowers", "a celebration of life"]) {
+    const prompt = buildFlyerBackgroundPrompt({ occasion });
+    assert.doesNotMatch(prompt, /sunny yellow|coral/,
+      `"${occasion}" asked the model for a festive palette`);
+    assert.match(prompt, /white, ivory and cream/, `"${occasion}" lost the sympathy palette`);
+    assert.match(prompt, /never bright, festive, vivid or celebratory/i);
+  }
+});
+
+test("everything else keeps the bright, happy default it was given for a reason", () => {
+  for (const occasion of ["valentines day", "mothers day", "a spring sale", "a new subscription", ""]) {
+    const prompt = buildFlyerBackgroundPrompt({ occasion });
+    assert.match(prompt, /happy, colorful, rich and vivid/,
+      `"${occasion}" lost the bright default — this is the gloomy-flyer regression`);
+    assert.doesNotMatch(prompt, /white, ivory and cream/);
+  }
+});
+
+test("the sympathy palette is picked up from the visual brief as well as the occasion", () => {
+  const prompt = buildFlyerBackgroundPrompt({ visualBrief: "a dignified standing spray for a graveside service" });
+  assert.match(prompt, /white, ivory and cream/);
+});
+
+test("the plain photo prompt carries the same palette for sympathy work", () => {
+  const prompt = buildImagePrompt({ occasion: "funeral tribute work", visualBrief: "a standing spray" });
+  assert.match(prompt, /restrained and dignified/);
+  assert.match(prompt, /Never bright, festive, vivid or celebratory/i);
+  // And still keeps its own guarantees.
+  assert.match(prompt, /ABSOLUTELY NO TEXT/);
+  assert.match(prompt, /Ultra-realistic photograph/);
+  assert.ok(prompt.length <= 1200);
+});
+
+test("the sympathy palette never squeezes out the no-text guarantee", () => {
+  const prompt = buildImagePrompt({ occasion: "funeral work", visualBrief: "x".repeat(3000) });
+  assert.match(prompt, /ABSOLUTELY NO TEXT/);
+  assert.ok(prompt.length <= 1200);
+});

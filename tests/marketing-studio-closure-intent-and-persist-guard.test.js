@@ -12,6 +12,7 @@ import {
   buildDeterministicNoticeContent,
   requestNeedsFlyerWording,
   detectWeakMarketingCopy,
+  detectFabricatedContactNumbers,
   extractShopNameFromRequestText,
   factsPreserved
 } from "../netlify/functions/_shared/marketing-content-revision.js";
@@ -1178,4 +1179,99 @@ test("'funeral arrangements' is only safe when the copy says what is being arran
 test("a shop that genuinely is not a funeral home is not accused of other things", () => {
   // Guard against the check spreading: an ordinary post must stay clean.
   assert.deepEqual(detectWeakMarketingCopy("valentines", "Fresh red roses in the shop today. Call 606-506-4039."), []);
+});
+
+// ---------------------------------------------------------------------------
+// A phone number nobody gave the model.
+//
+// Ashley's flyer came back reading "CALL US AT 555-1234 FOR CUSTOM FUNERAL
+// ARRANGEMENTS TODAY" above her own real number. Every fact guard in this file
+// passed it, because they all check that supplied facts SURVIVE — not one of
+// them asked whether a fact had been ADDED.
+//
+// This is the worst kind of invention. It is actionable, it looks
+// authoritative, and a grieving family ringing it does not reach the shop.
+// ---------------------------------------------------------------------------
+
+test("the fabricated number on Ashley's flyer is caught", () => {
+  const flyer = "Funeral FLOWERS AVAILABLE AT LILIES IN BLOOM. CALL US AT 555-1234 FOR CUSTOM FUNERAL ARRANGEMENTS TODAY 606-506-4039";
+  assert.deepEqual(
+    detectFabricatedContactNumbers({
+      requestText: "Crate me a facebook post to generate more funeral work.",
+      shopPhone: "606-506-4039",
+      copyText: flyer
+    }),
+    ["555-1234"]
+  );
+});
+
+test("the shop's own number is never mistaken for an invented one, however it is written", () => {
+  // Formatting differences must not read as a different number, or the guard
+  // would fire on every correct flyer and the retry would chase its own tail.
+  for (const [shopPhone, copy] of [
+    ["606-506-4039", "Call 606-506-4039 to order."],
+    ["6065064039", "Call (606) 506-4039 today."],
+    ["606-506-4039", "Call 1-606-506-4039."],
+    ["1-606-506-4039", "Call 606.506.4039."],
+    ["(606) 506-4039", "Ring us on 606 506 4039."],
+    // A number stored with an international or dialling prefix, written in
+    // the copy in its plain local form. Only normalising the COPY side would
+    // miss this and report the shop's own number as invented.
+    ["011-606-506-4039", "Call 606-506-4039 to order."],
+    ["+1 (606) 506-4039", "Call 606 506 4039."]
+  ]) {
+    assert.deepEqual(detectFabricatedContactNumbers({ shopPhone, copyText: copy }), [],
+      `the shop's own number was reported as invented: ${copy}`);
+  }
+});
+
+test("a number the florist supplied themselves is theirs to use", () => {
+  assert.deepEqual(
+    detectFabricatedContactNumbers({
+      requestText: "put our new order line 555-201-8890 on it",
+      shopPhone: "606-506-4039",
+      copyText: "Call 555-201-8890 to order."
+    }),
+    []
+  );
+});
+
+test("times, dates, prices and percentages are not phone numbers", () => {
+  assert.deepEqual(
+    detectFabricatedContactNumbers({
+      shopPhone: "606-506-4039",
+      copyText: "Closing at 2:30 on 08/22/2026. 20% off. Bouquets from $45.00. Since 1998."
+    }),
+    []
+  );
+});
+
+test("an invented number is reported through the main copy check too", () => {
+  const reasons = detectWeakMarketingCopy(
+    "funeral work",
+    "Call us at 555-1234 for funeral flowers.",
+    { shopPhone: "606-506-4039" }
+  );
+  assert.ok(reasons.some((r) => /nobody gave you/i.test(r)), JSON.stringify(reasons));
+});
+
+test("the caption Ashley was shown after the first fix is still caught as filler", () => {
+  // "At Lilies in Bloom, we understand that losing a loved one is never easy.
+  // That's why we're here to help..." — the tone was right this time and the
+  // wording no longer claimed the shop holds services, but the writing is
+  // still the same stock opener.
+  const caption =
+    "At Lilies in Bloom, we understand that losing a loved one is never easy. That's why we're here to " +
+    "help with beautiful funeral flowers, including standing sprays and casket flowers. Our experienced " +
+    "florists will work with you to create a meaningful arrangement that honors your loved one's memory.";
+  assert.ok(detectWeakMarketingCopy("funeral work", caption, { shopPhone: "606-506-4039" })
+    .some((r) => /any business in any industry/i.test(r)));
+});
+
+test("without the shop's own number the check gives no opinion rather than a wrong one", () => {
+  // Guessing here would flag every correct flyer — the shop's real number
+  // would look invented — and the retry would chase its own tail forever.
+  const copy = "Call 606-506-4039 for funeral flowers.";
+  assert.deepEqual(detectWeakMarketingCopy("funeral work", copy), []);
+  assert.deepEqual(detectWeakMarketingCopy("funeral work", copy, {}), []);
 });
