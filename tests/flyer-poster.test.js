@@ -1212,3 +1212,39 @@ test("a shop named for a single bereavement word keeps the restrained ornament",
   // Multi-word names stay unambiguous and are still stripped.
   assert.ok(!poster.isSympathyContent({ body: "Memorial Gardens Florist has roses in." }, "Memorial Gardens Florist"));
 });
+
+test("a function word is never the word set in script", () => {
+  // "With Sympathy" was drawn as a huge flourishing "With" over a small
+  // "SYMPATHY" — the emphasis exactly inverted, on the shape nearly every real
+  // sympathy headline takes. It only surfaced once the wording was right,
+  // because until then no headline began with a preposition.
+  for (const [headline, script] of [
+    ["With Sympathy", "Sympathy"],
+    ["In Remembrance", "Remembrance"],
+    ["For the Family", "Family"],
+    ["With Love", "Love"],
+    ["In Loving Memory", "Loving"],
+    ["Our Deepest Condolences", "Deepest"],
+    ["Thinking of You", "Thinking"],
+    // Unchanged for everything that was already right.
+    ["Closing Early Today", "Closing"],
+    ["Valentine's Day", "Valentine's"]
+  ]) {
+    assert.equal(poster.splitHeadline(headline).script, script, `"${headline}"`);
+  }
+  // Every word survives, in order, whatever the split — the poster sets a
+  // florist's headline differently, it never rewrites it.
+  for (const headline of ["With Sympathy", "In Loving Memory", "For the Family", "Closing Early Today"]) {
+    const p = poster.splitHeadline(headline);
+    assert.equal([p.lead, p.script, p.tail].filter(Boolean).join(" "), headline);
+  }
+});
+
+test("a headline of nothing but function words still reaches the flyer", () => {
+  // Never leave a florist's own words unset because no word qualified.
+  for (const headline of ["With Us", "For You", "In The"]) {
+    const p = poster.splitHeadline(headline);
+    assert.ok(p.script, `"${headline}" was left with no display word`);
+    assert.equal([p.lead, p.script, p.tail].filter(Boolean).join(" "), headline);
+  }
+});

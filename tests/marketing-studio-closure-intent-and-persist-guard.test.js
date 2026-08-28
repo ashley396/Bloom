@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import {
   detectPersistIntent,
   requestSignalsTemporaryClosure,
@@ -13,6 +14,7 @@ import {
   requestNeedsFlyerWording,
   detectWeakMarketingCopy,
   findHollowSentences,
+  detectSympathyProductHeadline,
   detectFabricatedContactNumbers,
   extractShopNameFromRequestText,
   factsPreserved
@@ -1369,4 +1371,117 @@ test("findHollowSentences is pure and survives missing input", () => {
   assert.deepEqual(findHollowSentences(null, null), []);
   const copy = "We know how much it matters to get this right for the people you love.";
   assert.deepEqual(findHollowSentences(copy, "Lilies in Bloom"), findHollowSentences(copy, "Lilies in Bloom"));
+});
+
+// ---------------------------------------------------------------------------
+// A sympathy flyer never leads with the product.
+//
+// Ashley, on a flyer headed "Funeral / FLOWERS AVAILABLE": "Funeral Flowers
+// doesn't at all sound sympathetic. That would make you lose sales. Think if
+// you lost a loved one would you buy from someone who just says we have
+// funeral flowers, NO."
+//
+// Every guard in this file passed that headline. They check tone, stock
+// phrasing, invented facts, and whether the shop claims to hold the service —
+// and nothing is wrong with "Funeral Flowers Available" except the only thing
+// that matters: it is a supply notice, printed largest, to someone who buried
+// a parent on Tuesday.
+// ---------------------------------------------------------------------------
+
+test("the headline Ashley was shown is caught", () => {
+  assert.ok(detectSympathyProductHeadline("Crate me a facebook post to generate more funeral work.", "Funeral Flowers Available"),
+    "the headline she rejected still passes");
+  // And it reaches the retry through the main check, which is what actually
+  // changes what a florist is shown.
+  const reasons = detectWeakMarketingCopy(
+    "Crate me a facebook post to generate more funeral work.",
+    "Funeral Flowers Available. We offer a variety of funeral flowers, including standing sprays and casket flowers.",
+    { headline: "Funeral Flowers Available", shopName: "Lilies in Bloom" }
+  );
+  assert.ok(reasons.some((r) => /product label, not a sympathy headline/i.test(r)), JSON.stringify(reasons));
+});
+
+test("no sympathy headline may be a bare category or a supply notice", () => {
+  for (const headline of [
+    "Funeral Flowers", "Sympathy Flowers", "Memorial Flowers Now Available",
+    "Funeral Arrangements", "Our Funeral Flowers", "Funeral Sprays For Sale",
+    "Order Your Funeral Flowers Now", "Casket Flowers Available", "Sympathy Designs In Stock"
+  ]) {
+    assert.ok(detectSympathyProductHeadline("funeral work", headline), `not caught: "${headline}"`);
+  }
+  // And the shape a model reaches for once it has been told not to write
+  // "Funeral Flowers Available": the same supply notice with the give-away
+  // word removed. It carries nothing to recognise it by except the request it
+  // was written for.
+  assert.ok(detectSympathyProductHeadline("Crate me a facebook post to generate more funeral work.", "Now Available"),
+    "a bare supply notice on a funeral flyer was not caught");
+  assert.ok(detectSympathyProductHeadline("funeral work", "Order Now"));
+  assert.equal(detectSympathyProductHeadline("valentines day", "Now Available"), null,
+    "an ordinary flyer may say Now Available");
+});
+
+test("a headline that leads with the person may still name the flowers", () => {
+  // "In Loving Memory — Sympathy Flowers Available" advertises, but it leads
+  // with the person, which is the whole point. Only the bare label is a fault.
+  assert.equal(detectSympathyProductHeadline("funeral work", "In Loving Memory — Sympathy Flowers Available"), null);
+  assert.equal(detectSympathyProductHeadline("funeral work", "With Sympathy: Standing Sprays Available"), null);
+});
+
+test("a shop that wakes people up in the morning is not holding a funeral", () => {
+  // The shared bereavement test cannot tell the two senses of "wake" apart,
+  // and here the cost of getting it wrong is a spring post rewritten as a
+  // sympathy piece.
+  assert.equal(
+    detectSympathyProductHeadline("spring post", "Now Available", "Wake up to fresh flowers every Monday morning."),
+    null
+  );
+});
+
+test("a headline addressed to the bereaved passes untouched", () => {
+  // These are what a sympathy card actually says. Flagging them would push the
+  // model away from the correct words for the thing.
+  for (const headline of [
+    "With Sympathy", "In Loving Memory", "Thinking of You", "With Deepest Sympathy",
+    "When Words Aren't Enough", "For the Family", "A Celebration of Life",
+    "In Remembrance", "Our Deepest Condolences",
+    // Naming the flowers as well is fine — this one leads with the person.
+    "With Sympathy — Funeral Flowers"
+  ]) {
+    assert.equal(detectSympathyProductHeadline("funeral work", headline), null, `wrongly flagged: "${headline}"`);
+  }
+});
+
+test("an ordinary occasion may advertise availability like any shop", () => {
+  // "Roses Available" is a correct headline for Valentine's Day. This check is
+  // for bereavement work and must never spread beyond it.
+  for (const [request, headline] of [
+    ["valentines day", "Valentine's Roses Available"],
+    ["valentines day", "Roses Now Available"],
+    ["mothers day", "Mother's Day Bouquets"],
+    ["spring", "Tulips In Stock"],
+    ["closing early", "Closing Early Today"],
+    ["wedding", "Wedding Flowers"]
+  ]) {
+    assert.equal(detectSympathyProductHeadline(request, headline), null, `wrongly flagged: "${headline}"`);
+  }
+});
+
+test("the headline check gives no opinion when there is no headline", () => {
+  // A caption has none, and judging its first sentence as one would be judging
+  // something the florist never wrote.
+  assert.equal(detectSympathyProductHeadline("funeral work", ""), null);
+  assert.equal(detectSympathyProductHeadline("funeral work", null), null);
+  assert.equal(detectSympathyProductHeadline(null, null), null);
+  const caption = "We know the first few days are the hardest. White lilies and cream roses, made up as a casket spray here in the shop. Call 606-506-4039.";
+  assert.deepEqual(detectWeakMarketingCopy("funeral work", caption, { shopName: "Lilies in Bloom" }), []);
+});
+
+test("the wording rules the model is given actually carry this instruction", () => {
+  // A detector that only rejects is a detector that makes the florist wait
+  // through two generations for the same fault. The prompt has to say what to
+  // write instead, or the retry is a coin flip.
+  const engine = fs.readFileSync(new URL("../netlify/functions/_shared/ai-creative-engine.js", import.meta.url), "utf8");
+  for (const phrase of ["SYMPATHY HEADLINES ARE NOT PRODUCT LABELS", "SYMPATHY OPENINGS ARE NOT PRODUCT LABELS", "With Sympathy", "In Loving Memory"]) {
+    assert.ok(engine.includes(phrase), `the model is never told: ${phrase}`);
+  }
 });

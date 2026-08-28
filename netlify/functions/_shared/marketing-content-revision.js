@@ -817,6 +817,77 @@ export function findHollowSentences(copyText, shopName) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// A sympathy flyer never leads with the product.
+//
+// Ashley, on a flyer headed "Funeral / FLOWERS AVAILABLE": "Funeral Flowers
+// doesn't at all sound sympathetic. That would make you lose sales. Think if
+// you lost a loved one would you buy from someone who just says we have
+// funeral flowers, NO."
+//
+// She is right, and none of the guards above could see it. They check tone,
+// stock phrasing, invented facts, and whether the shop claims to hold the
+// service. Every one of them passes "Funeral Flowers Available", because
+// nothing is wrong with it except the only thing that matters: it is a supply
+// notice. A family two days after a death is not shopping a category. The
+// headline is the largest thing on the flyer and the first thing read, and on
+// sympathy work it has to be addressed to the person, not to the market.
+//
+// What a real sympathy piece leads with is what a card would say — "With
+// Sympathy", "In Loving Memory", "Thinking of You", "With Deepest Sympathy",
+// "For the Family" — or what the shop will actually do for them. The flowers
+// are named in the message underneath, where they belong.
+// ---------------------------------------------------------------------------
+
+/** The occasion as a bare category or a stock line, with nothing human in it. */
+const PRODUCT_LABEL_HEADLINE_RE =
+  /^\s*(?:our\s+|the\s+|new\s+)?(?:funeral|sympathy|memorial|bereavement|condolence|casket|graveside|remembrance)\s*(?:&|and)?\s*(?:flowers?|florals?|arrangements?|bouquets?|sprays?|tributes?|pieces?|designs?|work|services?)?\s*(?:now\s+)?(?:available|in\s+stock|for\s+sale|on\s+offer|here|today)?\s*[.!]?\s*$/i;
+
+/** An availability/supply framing anywhere in a short headline. */
+const AVAILABILITY_HEADLINE_RE =
+  /\b(?:now\s+available|available\s+now|available|in\s+stock|for\s+sale|on\s+offer|we\s+(?:offer|stock|sell|have)|order\s+(?:your|now)|shop\s+(?:our|now)|prices?\s+from)\b/i;
+
+/**
+ * True when this headline addresses the bereaved rather than advertising to
+ * them. Kept as an explicit allow-list of the things a sympathy card actually
+ * says, because the failure mode being guarded is a model reaching for the
+ * category name — and a category name will never accidentally look like this.
+ */
+const SYMPATHY_ADDRESS_RE =
+  /\b(?:with\s+(?:our\s+)?(?:deepest\s+|heartfelt\s+)?sympath(?:y|ies)|in\s+(?:loving\s+)?memory|in\s+remembrance|thinking\s+of\s+you|with\s+love|for\s+the\s+family|when\s+words|our\s+(?:deepest\s+)?condolences|forever\s+remembered|always\s+remembered|gone\s+but|rest\s+in\s+peace|a\s+life\s+(?:well\s+)?(?:lived|remembered)|celebration\s+of\s+life|say(?:ing)?\s+goodbye|honou?ring\s+a\s+life)\b/i;
+
+/**
+ * Why this headline is wrong for sympathy work, or null when it is fine.
+ *
+ * Only ever consulted for bereavement requests — on a Valentine's flyer
+ * "Roses Available" is an ordinary, correct headline and none of this applies.
+ *
+ * Pure. Never shop-specific.
+ */
+export function detectSympathyProductHeadline(requestText, headline, copyText) {
+  const head = String(headline || "").trim();
+  if (!head) return null;
+  // "Wake up to fresh flowers every Monday" is not a bereavement. The shared
+  // bereavement test cannot tell those two senses of the word apart, and here
+  // the cost of getting it wrong is a spring post rewritten as a funeral.
+  const deWake = (t) => String(t || "").replace(/\bwake\s+up\b/gi, " ");
+  const context = deWake(`${requestText || ""} ${copyText || ""} ${head}`);
+  if (!BEREAVEMENT_CONTEXT_RE.test(context)) return null;
+  // Already saying the human thing. Naming the flowers as well is fine —
+  // "With Sympathy — Funeral Flowers" leads with the person, which is the
+  // whole point; only the label ALONE is the fault.
+  if (SYMPATHY_ADDRESS_RE.test(head)) return null;
+  const bare = PRODUCT_LABEL_HEADLINE_RE.test(head);
+  // Availability framing is judged against the CONTEXT, not against the
+  // headline's own words. A funeral flyer headed simply "Now Available" is the
+  // same fault and carries no bereavement word at all to recognise it by —
+  // which is exactly the shape a model reaches for once it has been told not
+  // to write "Funeral Flowers Available".
+  const advertised = AVAILABILITY_HEADLINE_RE.test(head);
+  if (!bare && !advertised) return null;
+  return `"${head}" is a product label, not a sympathy headline. A family two days after a death is not shopping a category — lead with what a card would say ("With Sympathy", "In Loving Memory", "Thinking of You") or with what the shop will do for them, and name the flowers in the message underneath.`;
+}
+
 /**
  * Why a piece of finished post copy is not publishable as written — tone and
  * emptiness, not facts. Returns an array of plain reasons, empty when the copy
@@ -864,6 +935,14 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
       "\"Funeral arrangements\" reads as undertaking rather than flowers when nothing nearby says otherwise. Name the flowers."
     );
   }
+
+  // The headline is judged on its own: it is the largest thing on the flyer and
+  // the first thing read, and a fault there is not diluted by the sentences
+  // under it. Only supplied when there IS a separate headline — a caption has
+  // none, and inventing one from its first sentence would be judging a thing
+  // the florist never wrote.
+  const headlineFault = detectSympathyProductHeadline(requestText, options.headline, copy);
+  if (headlineFault) reasons.push(headlineFault);
 
   const filler = FILLER_PHRASES.filter((re) => re.test(copy));
   if (filler.length >= 2) {

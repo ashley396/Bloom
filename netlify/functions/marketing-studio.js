@@ -1920,7 +1920,12 @@ export function createMarketingStudioHandler(deps = {}) {
                   detectWeakMarketingCopy(
                     currentItem.data.brief,
                     `${content.headline} ${content.body} ${content.cta}`,
-                    { shopPhone: shopRow.data?.phone, shopName }
+                    // The headline is passed separately because it is judged
+                    // separately: it is the largest thing on the flyer and the
+                    // first thing read, and "Funeral Flowers Available" is a
+                    // fault of the headline alone that no reading of the whole
+                    // text can see.
+                    { shopPhone: shopRow.data?.phone, shopName, headline: content.headline }
                   );
                 const flyerWeakness = flyerQuality(flyerGen.content);
                 if (flyerWeakness.length) {

@@ -839,6 +839,14 @@
    * words in the same order, only set differently. Pure.
    */
   var TEMPORAL_WORDS = /^(today|tomorrow|tonight|now|soon|monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i;
+  // Function words carry no meaning on their own and must never be the word
+  // set 120px high in script. "With Sympathy" was drawn as a huge flourishing
+  // "With" over a small "SYMPATHY", which is the emphasis exactly inverted —
+  // and it is the shape of nearly every real sympathy headline there is
+  // ("With Sympathy", "In Loving Memory", "In Remembrance", "For the Family").
+  // The rule only surfaced once the wording was right, because until then no
+  // headline began with a preposition.
+  var FUNCTION_WORDS = /^(with|in|for|of|to|at|on|from|the|a|an|and|or|our|your|my|we|is|are|be)$/i;
   function splitHeadline(headline) {
     var words = String(headline || "").trim().split(/\s+/).filter(Boolean);
     if (words.length < 2) return { lead: "", script: words.join(" "), tail: "" };
@@ -848,7 +856,14 @@
     // scripted "Early", which reads as emphasis on the wrong idea.
     var idx = -1;
     for (var i = 0; i < words.length; i++) {
-      if (!TEMPORAL_WORDS.test(words[i])) { idx = i; break; }
+      if (!TEMPORAL_WORDS.test(words[i]) && !FUNCTION_WORDS.test(words[i])) { idx = i; break; }
+    }
+    // Nothing but function and temporal words: fall back to the old rule
+    // rather than leave the headline unset.
+    if (idx < 0) {
+      for (var j = 0; j < words.length; j++) {
+        if (!TEMPORAL_WORDS.test(words[j])) { idx = j; break; }
+      }
     }
     if (idx < 0) idx = 0;
     return {
