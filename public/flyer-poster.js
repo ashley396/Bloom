@@ -198,6 +198,12 @@
    * beside the type. A florist regenerating gets a different DESIGN, not the
    * same design with a different squiggle. Pure.
    */
+  // The smallest the message on the ribbon may ever be set, as a fraction of
+  // the sheet's height — about 32px on a 1080x1350 poster, which is still
+  // comfortably readable in a phone-sized feed. The one line a customer has to
+  // read is not the place to win back space.
+  var RIBBON_BODY_FLOOR = 0.024;
+
   function layoutFor(composition, w, h, textSide) {
     if (composition === "editorial") {
       // The photograph IS the poster: a full-bleed staged scene with the
@@ -656,10 +662,21 @@
   /** Snapshots the ground BEFORE any wording is drawn, so every line is
    * judged against the flowers and never against a ribbon or a line drawn
    * above it. */
-  function captureGround(ctx, w, h, clusters) {
+  function captureGround(ctx, w, h, clusters, columnWidth) {
     var probe = null;
     try { probe = ctx.getImageData(0, 0, w, h); } catch (e) { probe = null; }
-    return { probe: probe, clusters: clusters || [], maxRibbonWidth: ribbonWidthLimit(w, h) };
+    // The readability ribbon is centred on the COLUMN, but its width limit was
+    // derived from the SHEET. On the banner composition — whose column is
+    // offset to the right of centre, the photograph taking the left third —
+    // that let a ribbon 926px wide be centred at x=705 on a 1080px flyer: it
+    // ran to x=1168, well off the sheet. A ribbon may never be wider than the
+    // column it is centred in.
+    var limit = ribbonWidthLimit(w, h);
+    return {
+      probe: probe,
+      clusters: clusters || [],
+      maxRibbonWidth: columnWidth ? Math.min(limit, columnWidth) : limit
+    };
   }
 
   /** The widest a ribbon may be: inside the border rules with clear air, not
@@ -809,6 +826,67 @@
   // separating the sections, a filled ribbon carrying the one fact that
   // matters, and a bordered panel for the phone number. These are the parts
   // that make it read as designed rather than as words placed on a picture.
+
+  // ---------------------------------------------------------------------------
+  // Sympathy work.
+  //
+  // The ornament vocabulary below came from Ashley's reference, which is a
+  // celebration card: hearts as section marks, a heart beside the phone
+  // number, little starburst sparkles flanking the display word. On a
+  // Valentine's or a birthday poster that is exactly right.
+  //
+  // On a funeral flyer it is not. The poster layer had no idea what it was
+  // drawing, so a sympathy piece came out with a pink heart under the shop
+  // name, a second one under the message, a third beside the phone number,
+  // and sparkles around the word "Funeral". Ashley's standing instruction
+  // about this kind of post — "these types of post need to ... make sense" —
+  // is about the words, but a heart on a funeral flyer is the same fault one
+  // level down, and it is the kind of thing a grieving family notices.
+  //
+  // Deliberately a mirror of BEREAVEMENT_CONTEXT_RE in
+  // netlify/functions/_shared/marketing-content-revision.js — this file is a
+  // browser IIFE and cannot import it. tests/flyer-poster.js holds the two
+  // to the same corpus so they cannot drift apart. Never shop-specific: it
+  // reads the wording actually being drawn, nothing else.
+  var SYMPATHY_RE =
+    /\b(funeral|sympathy|memorial|bereave(?:d|ment)|condolence|casket|graveside|wake|passed away|loss of|in memory|tribute|remembrance)\b/i;
+
+  /**
+   * True when the wording on this poster is sympathy work, in which case the
+   * celebratory half of the ornament vocabulary is not drawn.
+   *
+   * The shop's own name is removed before the test. A flyer's message
+   * routinely contains it ("Wake & Bloom is closing at 2:30 today"), so a real
+   * shop whose name happens to carry one of these words — Memorial Gardens
+   * Florist, Wake & Bloom, Tribute Flowers — would otherwise have EVERY poster
+   * it ever made read as a funeral, including its Valentine's Day one. Names
+   * are not occasions. Multi-tenant by construction: the name is passed in
+   * from the shop's own record, never assumed.
+   *
+   * Pure.
+   */
+  function isSympathyContent(content, shopName) {
+    content = content || {};
+    var text = [content.headline, content.body, content.cta].filter(Boolean).join(" ");
+    var name = String(shopName || "").trim();
+    if (name) text = text.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), " ");
+    return SYMPATHY_RE.test(text);
+  }
+
+  /** A small filled diamond — the restrained section mark, and the one a
+   * sympathy poster takes in place of the heart. */
+  function drawDiamondMark(ctx, cx, cy, size, color) {
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - size);
+    ctx.lineTo(cx + size * 0.72, cy);
+    ctx.lineTo(cx, cy + size);
+    ctx.lineTo(cx - size * 0.72, cy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
 
   /** A small filled heart. The reference uses one as its section mark. */
   function drawHeart(ctx, cx, cy, size, color) {
@@ -997,6 +1075,14 @@
     // identical poster — the dataset advertised a variation that did not
     // exist, and "generates differently every time" was not true.
     var borderVariant = composition === "card" ? "single" : "double";
+    var frameRect = null, panelRect = null;
+    // Decided once, from the wording actually being drawn, and used wherever
+    // the ornament vocabulary would otherwise be celebratory. Suppressing an
+    // ornament consumes no rand() that anything later depends on — the
+    // sparkles are the last consumer of the sequence — so a sympathy poster
+    // picks exactly the same composition, corner flip and border as any other
+    // from the same seed. Determinism, and therefore Undo, are untouched.
+    var sympathy = isSympathyContent(content, brand.shopName);
     rand();
     var ground = null;
     if (!opts.measureOnly) {
@@ -1009,18 +1095,20 @@
       } else if (L.kind === "atelier") {
         drawBorder(ctx, w, h, palette, borderVariant);
         drawCornerBrackets(ctx, w, h, inset, palette);
+        frameRect = { x: inset, y: inset, w: w - inset * 2, h: h - inset * 2 };
       } else {
         var fx = L.kind === "banner" ? L.sideW + inset * 0.5 : inset;
         var fy = L.kind === "card" ? L.bandH + inset * 0.5 : inset;
         var fw = w - fx - inset;
         var fh = h - fy - inset;
+        frameRect = { x: fx, y: fy, w: fw, h: fh };
         ctx.save();
         ctx.strokeStyle = rgba(palette.ink, 0.45);
         ctx.lineWidth = Math.max(1.5, Math.min(w, h) * 0.0022);
         ctx.strokeRect(fx, fy, fw, fh);
         ctx.restore();
       }
-      ground = captureGround(ctx, w, h, clusters);
+      ground = captureGround(ctx, w, h, clusters, maxW);
     }
 
     var gap = opts.extraGap || 0;
@@ -1076,8 +1164,9 @@
         y += restSize * 1.05;
       }
       y += h * 0.018;
-      // A printed card is ruled with a diamond; the other two take the heart.
-      if (composition === "card") drawFlourish(ctx, cx, y, w * 0.34, palette);
+      // A printed card is ruled with a diamond; the other two take the heart —
+      // except on sympathy work, where every composition takes the diamond.
+      if (composition === "card" || sympathy) drawFlourish(ctx, cx, y, w * 0.34, palette);
       else drawHeartRule(ctx, cx, y, w * 0.34, palette);
       y += h * 0.042 + gap;
     }
@@ -1103,7 +1192,24 @@
       var scriptW = ctx.measureText(head.script).width;
       placeLine(ctx, L.kind === "editorial" ? null : ground, head.script, cx, scriptBase, scriptSize, palette, palette.ink);
       drawSwash(ctx, cx, scriptBase + scriptSize * 0.14, Math.min(scriptW * 1.02, maxW), rgba(palette.ink, 0.75));
-      drawSparkles(ctx, cx, scriptBase - scriptSize * 0.28, scriptW * 0.55, rgba(palette.accent, 0.85), rand);
+      // The sparkles flank the display word, and the radius was taken from
+      // the word alone with no reference to the column it sits in. On the
+      // banner composition — whose printed column is only 60% of the sheet,
+      // the rest being the photograph — that put the outermost dashes at
+      // x=1094 on a 1080-wide flyer: a decoration running off the edge of the
+      // sheet, across the frame it is supposed to sit inside.
+      //
+      // Simply clamping the radius to the column is worse, not better: it
+      // moves the dashes INWARD onto the word, striking through the F and the
+      // l of the shop's own headline. The flourish has to sit outside the
+      // word AND inside the column, and on a long word in a narrow column
+      // there is no such place. So it is drawn only when it genuinely fits,
+      // and otherwise not at all — an ornament is optional, the headline is
+      // not.
+      var sparkleR = scriptW * 0.55;
+      if (!sympathy && sparkleR * 1.2 <= maxW / 2) {
+        drawSparkles(ctx, cx, scriptBase - scriptSize * 0.28, sparkleR, rgba(palette.accent, 0.85), rand);
+      }
       // Parisienne descends a long way below its baseline; without real
       // clearance the next line was struck through by the tail of a "g".
       y = scriptBase + scriptSize * 0.42;
@@ -1120,6 +1226,10 @@
     }
 
     y += h * 0.012 + gap;
+    // Where the headline actually finished. The ribbon is allowed to be
+    // pushed DOWN the sheet, never pulled up past this line — see the clamp
+    // below for the flyer it destroyed.
+    var headBottom = y;
 
     // How much of the sheet the contact panel will claim. Resolved before the
     // ribbon is placed so the ribbon can be held clear of it: the composition
@@ -1159,40 +1269,89 @@
     // that matters. It is a compositional shape on a light ground, never a
     // wash laid over the flowers.
     var body = String(content.body || "");
+    var ribbonRect = null;
+    var bodyWidth = null;
     if (body) {
       var bodySize = Math.round(h * 0.034 * ts);
+      // How wide the message may run. The 0.86 inset is the room the ribbon's
+      // notched ends and padding need — but the editorial composition draws no
+      // ribbon at all, so there it was simply throwing away a seventh of its
+      // own column: a 79-character sentence came out as six lines of two and
+      // three words down a narrow gutter, with the rest of the sheet empty.
+      var bodyW = L.kind === "editorial" ? maxW : maxW * 0.86;
+      bodyWidth = bodyW;
       // Shrink until the wrapped block fits the ribbon's own column, so an
       // unbreakable run — an email address, a URL — cannot push past the
       // ribbon and off the sheet. wrapLines cannot break inside a word.
       var lines;
       for (var attempt = 0; attempt < 8; attempt++) {
         ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
-        lines = wrapLines(ctx, body, maxW * 0.86);
+        lines = wrapLines(ctx, body, bodyW);
         var over = 0;
         for (var wi = 0; wi < lines.length; wi++) over = Math.max(over, ctx.measureText(lines[wi]).width);
-        if (over <= maxW * 0.86) break;
+        if (over <= bodyW) break;
         if (bodySize <= h * 0.016) {
           // Below the comfortable floor, scale straight to the width. An
           // unbreakable run — an email address, a URL — is otherwise wider
           // than the column at any size the floor allows, and the floor
           // winning means the words are cut off by the edge of the sheet.
           // Small and readable beats large and missing.
-          bodySize = Math.max(8, Math.floor(bodySize * ((maxW * 0.86) / over)));
+          bodySize = Math.max(8, Math.floor(bodySize * ((bodyW) / over)));
           ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
-          lines = wrapLines(ctx, body, maxW * 0.86);
+          lines = wrapLines(ctx, body, bodyW);
           break;
         }
         bodySize = Math.floor(bodySize * 0.9);
       }
-      ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
-      var rh = bodySize * (1.15 * lines.length + 0.95);
-      var widest = 0;
-      for (var i = 0; i < lines.length; i++) widest = Math.max(widest, ctx.measureText(lines[i]).width);
-      var rw = Math.min(maxW, widest + rh * 0.64 + w * 0.09);
-      // Never into the room the contact panel needs. Without this the message
-      // printed over the panel, or off the bottom of the sheet, on any
-      // composition whose type ran long — 159 of 3600 fuzzed combinations.
-      if (y + rh > contentFloor) y = Math.max(h * 0.04, contentFloor - rh);
+      // And then make it fit the room it actually has, between the bottom of
+      // the headline and the top of the contact panel. Only the width was
+      // ever fitted; the height was whatever the wrap came to. That was
+      // survivable while the ribbon could be slid up the sheet to make room —
+      // but sliding it up is what printed it over the headline, so the height
+      // has to be fitted properly instead.
+      var rh, widest, rw;
+      var room = contentFloor - headBottom;
+      for (var hAttempt = 0; hAttempt < 10; hAttempt++) {
+        ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
+        lines = wrapLines(ctx, body, bodyW);
+        rh = bodySize * (1.15 * lines.length + 0.95);
+        widest = 0;
+        for (var i = 0; i < lines.length; i++) widest = Math.max(widest, ctx.measureText(lines[i]).width);
+        rw = Math.min(maxW, widest + rh * 0.64 + w * 0.09);
+        if (rh <= room || bodySize <= RIBBON_BODY_FLOOR * h) break;
+        // Straight to the size that fits rather than creeping down: a smaller
+        // face wraps to fewer lines, so one proportional step lands close and
+        // the loop settles in two or three.
+        //
+        // Floored, though, and that floor matters more than the fit. Without
+        // it the message shrank to a 9px strip inside a full-size ribbon while
+        // the headline above it stayed enormous — legible in a screenshot,
+        // illegible on a phone, and exactly the fault Ashley reported in the
+        // first place ("you can't read it"). Below the floor the right answer
+        // is not a smaller message: it is a smaller POSTER, which is what the
+        // caller's fit pass does — and it can only do it if the overflow is
+        // still visible to it. So this stops, and lets it be seen.
+        bodySize = Math.max(
+          Math.ceil(RIBBON_BODY_FLOOR * h),
+          Math.floor(bodySize * Math.max(0.6, room / rh))
+        );
+      }
+      // Never into the room the contact panel needs — but never up over the
+      // headline either. This clamp used to floor at h * 0.04, a fixed line
+      // near the top of the SHEET, which on the card composition (whose
+      // printed area starts a third of the way down, below the photographic
+      // band) is far above where the headline ends. So a poster with no room
+      // for the ribbon had the ribbon moved up ON TOP of its own headline:
+      // "Closing" was cut through mid-glyph and "EARLY TODAY" disappeared
+      // under it completely. The florist's own words, gone from the flyer,
+      // with nothing reporting it.
+      //
+      // Worse, moving it up made the overflow invisible to the fit pass:
+      // contentBottom came back inside panelTop, so typeScale never shrank
+      // and the collision was never resolved, only hidden. Held at headBottom
+      // the overflow is real again, and the caller's shrink loop — which
+      // exists precisely for this — deals with it by making the type smaller.
+      if (y + rh > contentFloor) y = Math.max(headBottom, contentFloor - rh);
       if (L.kind === "editorial") {
         // A filled ribbon laid across a photograph is a slab on a picture.
         // Here the message is set plainly into the scene's own calm half, and
@@ -1203,6 +1362,7 @@
         }
         y += bodySize * 1.34 * lines.length + h * 0.02;
       } else {
+        ribbonRect = { x: cx - rw / 2, y: y, w: rw, h: rh };
         drawRibbon(ctx, cx, y + rh / 2, rw, rh, palette);
         for (var j = 0; j < lines.length; j++) {
           ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
@@ -1210,12 +1370,22 @@
         }
         y += rh * 1.16;
       }
-      if (L.kind !== "editorial") drawHeart(ctx, cx, y, h * 0.011, rgba(palette.ink, 0.6));
-      // The reference flanks its date with a pair of leafy sprigs; the
-      // banner composition is the one that takes them.
-      if (composition === "banner") {
-        drawSprig(ctx, cx - w * 0.055, y + h * 0.004, w * 0.05, -1, rgba(palette.ink, 0.45));
-        drawSprig(ctx, cx + w * 0.055, y + h * 0.004, w * 0.05, 1, rgba(palette.ink, 0.45));
+      // The section mark under the message, and the pair of leafy sprigs the
+      // banner composition flanks it with — both only when there is genuinely
+      // room below the ribbon for them. A poster with no call to action gives
+      // the ribbon the whole sheet, and the mark was drawn 2px past the bottom
+      // edge. An ornament is optional; the sheet's edge is not.
+      if (L.kind !== "editorial" && y + h * 0.016 <= contentFloor) {
+        if (sympathy) drawDiamondMark(ctx, cx, y, h * 0.009, rgba(palette.ink, 0.5));
+        else drawHeart(ctx, cx, y, h * 0.011, rgba(palette.ink, 0.6));
+        // The reference flanks its date with a pair of leafy sprigs; the
+        // banner composition is the one that takes them. They belong to the
+        // mark, so they live inside the same test for room rather than
+        // carrying a second copy of it that could drift.
+        if (composition === "banner") {
+          drawSprig(ctx, cx - w * 0.055, y + h * 0.004, w * 0.05, -1, rgba(palette.ink, 0.45));
+          drawSprig(ctx, cx + w * 0.055, y + h * 0.004, w * 0.05, 1, rgba(palette.ink, 0.45));
+        }
       }
       y += h * 0.032 + gap;
     }
@@ -1237,9 +1407,16 @@
       // 1350-tall sheet, taking the shop's phone number with it. A florist
       // would have posted a flyer with no way to reach them on it.
       var panelY = Math.max(y, h - panelH - L.bottomPad);
-      var lowest = h - panelH - h * 0.02;
+      // The emergency floor, for copy long enough to push the panel down past
+      // its intended margin. It was the bare sheet's edge less 2%, which on
+      // every framed composition is BELOW the frame rule: long copy printed
+      // the bordered contact panel straight across the poster's own border.
+      // The frame inset is the real floor — the panel is inside the frame or
+      // it is not part of the design.
+      var lowest = h - panelH - Math.max(h * 0.02, inset);
       if (panelY > lowest) panelY = Math.max(h * 0.02, lowest);
       panelTop = panelY;
+      panelRect = { x: cx - maxW / 2, y: panelY, w: maxW, h: panelH };
 
       if (L.kind === "editorial") {
         // One bar across the whole foot of the picture — the phone number set
@@ -1283,7 +1460,8 @@
           ctx.fillText(phone, startX + leadW, baseY);
         }
         ctx.restore();
-        drawHeart(ctx, startX - panelH * 0.26, baseY - numSize * 0.32, panelH * 0.09, rgba(palette.cream, 0.75));
+        if (sympathy) drawDiamondMark(ctx, startX - panelH * 0.26, baseY - numSize * 0.32, panelH * 0.075, rgba(palette.cream, 0.7));
+        else drawHeart(ctx, startX - panelH * 0.26, baseY - numSize * 0.32, panelH * 0.09, rgba(palette.cream, 0.75));
         if (trail) {
           var tSize = Math.round(panelH * 0.19);
           ctx.font = "500 " + tSize + "px 'Playfair Display', Georgia, serif";
@@ -1291,7 +1469,7 @@
           centreText(ctx, trail.toUpperCase(), barCx, panelY + panelH * 0.83, rgba(palette.cream, 0.82));
           if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
         }
-        return { composition: composition, contentBottom: contentBottom, panelTop: panelTop };
+        return { composition: composition, contentBottom: contentBottom, panelTop: panelTop, headBottom: headBottom, ribbon: ribbonRect, column: maxW, bodyWidth: bodyWidth, frame: frameRect, panel: panelRect };
       }
 
       drawPanel(ctx, cx - panelW / 2, panelY, panelW, panelH, palette);
@@ -1318,13 +1496,14 @@
           trailS, panelW * 0.86, Math.round(h * 0.016));
         ctx.font = "500 " + trailFit + "px 'Playfair Display', Georgia, serif";
         if ("letterSpacing" in ctx) ctx.letterSpacing = "0.06em";
-        drawHeart(ctx, cx, inner + trailFit * 0.35, h * 0.0095, rgba(palette.ink, 0.55));
+        if (sympathy) drawDiamondMark(ctx, cx, inner + trailFit * 0.35, h * 0.008, rgba(palette.ink, 0.45));
+        else drawHeart(ctx, cx, inner + trailFit * 0.35, h * 0.0095, rgba(palette.ink, 0.55));
         centreText(ctx, trail.toUpperCase(), cx, inner + trailFit * 1.75, rgba(palette.ink, 0.8));
         if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
       }
     }
 
-    return { composition: composition, contentBottom: contentBottom, panelTop: panelTop };
+    return { composition: composition, contentBottom: contentBottom, panelTop: panelTop, headBottom: headBottom, ribbon: ribbonRect, column: maxW, bodyWidth: bodyWidth, frame: frameRect, panel: panelRect };
   }
 
 
@@ -1349,6 +1528,44 @@
    * the whole look, and a canvas drawn before they load silently falls back
    * to a system face with no error at all.
    */
+  /**
+   * Lays the poster out once against a context that measures but paints
+   * nothing, to learn how tall it naturally is, then sets `typeScale` and
+   * `extraGap` on `base` so it fits the sheet it was given.
+   *
+   * Extracted from renderPoster so the tests can exercise the composition the
+   * way the product actually calls it. A guarantee that only holds when a
+   * helper happens to have run first is not a guarantee, and the off-sheet
+   * checks were being made against a drawPoster call no shipped code path
+   * makes. Mutates and returns `base`.
+   */
+  function fitPoster(ctx, base) {
+    var probeCtx = R.measuringContext ? R.measuringContext(ctx) : null;
+    if (!probeCtx) return base;
+    var height = base.height;
+    var measure = function (extra) {
+      return drawPoster(probeCtx, Object.assign({}, base, extra, { measureOnly: true }));
+    };
+    // Shrink first, then breathe. A composition taller than its sheet cannot
+    // be fixed by spacing: the bottom-anchored contact panel gets dragged up
+    // over the ribbon and the two print on top of each other, which is
+    // exactly what the head-band layout did on its first render.
+    var scale = 1, dry = measure({});
+    for (var attempt = 0; attempt < 5 && dry.contentBottom > dry.panelTop; attempt++) {
+      var over = dry.contentBottom - dry.panelTop;
+      var span = Math.max(1, dry.contentBottom - height * 0.05);
+      scale = Math.max(0.55, scale * Math.max(0.82, 1 - over / span));
+      dry = measure({ typeScale: scale });
+    }
+    if (scale < 1) base.typeScale = scale;
+    // Only once it fits is the leftover room shared between the three section
+    // joints, plus a half share at the top — three and a half times in total,
+    // which is what it has to be divided by.
+    var slack = dry.panelTop - dry.contentBottom;
+    if (slack > 0) base.extraGap = Math.min(slack / 3.5, height * 0.045);
+    return base;
+  }
+
   function renderPoster(opts) {
     opts = opts || {};
     var width = opts.width || 1080;
@@ -1432,29 +1649,7 @@
       // slack that remains is shared between the three section joints, so
       // the design breathes to fill whatever it is given instead of the
       // spacing being a fixed guess that only suits one length.
-      var probeCtx = R.measuringContext ? R.measuringContext(ctx) : null;
-      if (probeCtx) {
-        var measure = function (extra) {
-          return drawPoster(probeCtx, Object.assign({}, base, extra, { measureOnly: true }));
-        };
-        // Shrink first, then breathe. A composition taller than its sheet
-        // cannot be fixed by spacing: the bottom-anchored contact panel gets
-        // dragged up over the ribbon and the two print on top of each other,
-        // which is exactly what the head-band layout did on its first render.
-        var scale = 1, dry = measure({});
-        for (var attempt = 0; attempt < 5 && dry.contentBottom > dry.panelTop; attempt++) {
-          var over = dry.contentBottom - dry.panelTop;
-          var span = Math.max(1, dry.contentBottom - height * 0.05);
-          scale = Math.max(0.55, scale * Math.max(0.82, 1 - over / span));
-          dry = measure({ typeScale: scale });
-        }
-        if (scale < 1) base.typeScale = scale;
-        // Only once it fits is the leftover room shared between the three
-        // section joints, plus a half share at the top — three and a half
-        // times in total, which is what it has to be divided by.
-        var slack = dry.panelTop - dry.contentBottom;
-        if (slack > 0) base.extraGap = Math.min(slack / 3.5, height * 0.045);
-      }
+      fitPoster(ctx, base);
       var laid = drawPoster(ctx, base);
       var composition = laid.composition;
       if (canvas.dataset) {
@@ -1578,6 +1773,8 @@
     splitHeadline: splitHeadline,
     splitShopName: splitShopName,
     COMPOSITIONS: COMPOSITIONS,
+    isSympathyContent: isSympathyContent,
+    fitPoster: fitPoster,
     renderPoster: renderPoster
   };
 

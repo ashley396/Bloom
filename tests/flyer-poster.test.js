@@ -641,13 +641,21 @@ test("splitShopName: a name that is only a connector is still drawn", () => {
  * background colour. */
 function recordingContext(width, height) {
   const texts = [], fills = [];
+  // Every point any path passes through, and every cubic curve drawn. The
+  // context recorded only fillText, so a decoration was invisible to the
+  // tests: the sparkle flourish ran clean off the right edge of the sheet and
+  // nothing here could see it. drawHeart is the only thing in the poster that
+  // uses bezierCurveTo, which is what makes hearts countable.
+  const points = [], beziers = [];
+  const at = (x, y) => { points.push({ x, y }); };
   let font = "16px serif", fillStyle = null, textAlign = "center";
   const sizeOf = () => { const m = /([0-9.]+)px/.exec(font); return m ? parseFloat(m[1]) : 16; };
   const ctx = {
-    texts, fills, canvas: { width, height },
+    texts, fills, points, beziers, canvas: { width, height },
     save() {}, restore() {}, beginPath() {}, closePath() {},
-    moveTo() {}, lineTo() {}, rect() {}, ellipse() {}, arc() {},
-    quadraticCurveTo() {}, bezierCurveTo() {},
+    moveTo: at, lineTo: at, rect() {}, ellipse: at, arc: at,
+    quadraticCurveTo(cx1, cy1, x, y) { at(x, y); },
+    bezierCurveTo(c1x, c1y, c2x, c2y, x, y) { beziers.push({ x, y }); at(x, y); },
     fill() { fills.push(fillStyle); }, stroke() {},
     fillRect() {}, strokeRect() {}, clearRect() {}, drawImage() {},
     createLinearGradient() { return { addColorStop() {} }; },
@@ -828,4 +836,328 @@ test("composition: the headline is drawn in order too", () => {
   const joined = ctx.texts.map((t) => t.text).join(" ");
   assert.ok(joined.indexOf("Opening") < joined.indexOf("LATE"), "the headline was reordered");
   assert.ok(joined.indexOf("LATE") < joined.indexOf("TOMORROW"), "the headline was reordered");
+});
+
+// ---------------------------------------------------------------------------
+// Three defects found by rendering the poster in a real browser and looking at
+// it, not by reasoning about the code. Each is content or design leaving the
+// sheet, which is the one class of fault a florist cannot work around.
+// ---------------------------------------------------------------------------
+
+function laidOut(over = {}) {
+  const width = over.width || 1080, height = over.height || 1350;
+  const brand = Object.assign({ shopName: "Lilies in Bloom", phone: "606-506-4039", primaryColor: "#7c3a58", accentColor: "#c98fae" }, over.brand);
+  const content = Object.assign({
+    headline: "Closing Early Today",
+    body: "Lilies in Bloom is closing at 2:30 today.",
+    cta: "Call 606-506-4039 to place an order."
+  }, over.content);
+  const ctx = recordingContext(width, height);
+  const palette = poster.derivePalette(brand.primaryColor, brand.accentColor, null);
+  const base = { width, height, content, brand, palette, image: null, seed: over.seed || 2 };
+  // The same two-pass fit renderPoster runs before it draws. Checking the
+  // composition without it would be checking a call no shipped code path
+  // makes: the fit is what shrinks a poster whose type is too big for its
+  // sheet, and every guarantee below depends on it having run.
+  if (over.fit !== false) poster.fitPoster(ctx, base);
+  const laid = poster.drawPoster(ctx, base);
+  return { ctx, laid, width, height, content, brand, base };
+}
+
+/** A seed that produces each composition, so every architecture is exercised
+ * rather than whichever one seed 2 happens to pick. */
+function seedForComposition() {
+  const found = {};
+  for (let seed = 1; seed <= 400 && Object.keys(found).length < poster.COMPOSITIONS.length; seed++) {
+    const { laid } = laidOut({ seed });
+    if (!(laid.composition in found)) found[laid.composition] = seed;
+  }
+  assert.equal(Object.keys(found).length, poster.COMPOSITIONS.length, "not every composition is reachable by seed");
+  return found;
+}
+
+test("the ribbon is never dragged up over the headline", () => {
+  // The real defect, seen in a browser: on the card composition — whose
+  // printed area starts a third of the way down, under the photographic band
+  // — the ribbon was clamped up to a fixed line near the top of the SHEET and
+  // printed straight through the headline. "Closing" was cut mid-glyph and
+  // "EARLY TODAY" vanished under it. The florist's own words, gone.
+  const seeds = seedForComposition();
+  for (const [composition, seed] of Object.entries(seeds)) {
+    for (const body of [
+      "Lilies in Bloom is closing at 2:30 today.",
+      "Standing sprays, casket flowers and small arrangements for the service, made here in the shop by hand each morning.",
+      "We are closed all day."
+    ]) {
+      const { laid } = laidOut({ seed, content: { body } });
+      if (!laid.ribbon) continue;
+      assert.ok(laid.ribbon.y >= laid.headBottom - 0.5,
+        `${composition}: the ribbon starts at ${Math.round(laid.ribbon.y)} but the headline only ends at ${Math.round(laid.headBottom)} — it is printing over the flyer's own headline`);
+    }
+  }
+});
+
+test("no headline word is ever buried under the ribbon", () => {
+  // The same fault stated as what a florist would actually see: a word drawn
+  // before the ribbon, inside the ribbon's rectangle, is a word nobody can
+  // read. Checked on the wording that produced it.
+  const seeds = seedForComposition();
+  for (const [composition, seed] of Object.entries(seeds)) {
+    const { ctx, laid, content } = laidOut({ seed, content: { headline: "Closing Early Today" } });
+    if (!laid.ribbon) continue;
+    const r = laid.ribbon;
+    for (const word of ["Closing", "EARLY TODAY"]) {
+      const drawn = ctx.texts.filter((t) => t.text === word);
+      for (const t of drawn) {
+        const buried = t.y > r.y && t.y < r.y + r.h;
+        assert.ok(!buried, `${composition}: "${word}" is drawn at y=${Math.round(t.y)}, inside the ribbon (${Math.round(r.y)}–${Math.round(r.y + r.h)})`);
+      }
+    }
+    assert.ok(content.headline, "fixture sanity");
+  }
+});
+
+test("nothing the poster draws — type or ornament — leaves the sheet", () => {
+  // The sparkle flourish flanking the display word took its size from the word
+  // alone, with no reference to the column it sits in. On the banner
+  // composition, whose printed column is 60% of the sheet, that put the
+  // outermost dash at x=1094 on a 1080-wide flyer.
+  const seeds = seedForComposition();
+  for (const [composition, seed] of Object.entries(seeds)) {
+    // "Remembrance" and "Valentine's Day" are here for a reason: on the banner
+    // composition their single script word is wide enough, in a column only
+    // 60% of the sheet, that the flourish flanking it lands at x=1092. Drop
+    // the guard that suppresses it and this test goes red on exactly those.
+    for (const headline of [
+      "Closing Early Today", "Funeral Flowers", "Mother's Day Weekend Sale",
+      "Remembrance", "Valentine's Day", "Congratulations", "Thanksgiving Weekend"
+    ]) {
+      const { ctx, width, height } = laidOut({ seed, content: { headline } });
+      for (const p of ctx.points) {
+        assert.ok(p.x >= -1 && p.x <= width + 1 && p.y >= -1 && p.y <= height + 1,
+          `${composition} / "${headline}": something is drawn at (${Math.round(p.x)}, ${Math.round(p.y)}) on a ${width}x${height} sheet`);
+      }
+      for (const t of ctx.texts) {
+        assert.ok(t.left >= -1 && t.right <= width + 1,
+          `${composition} / "${headline}": "${t.text}" runs from ${Math.round(t.left)} to ${Math.round(t.right)} on a ${width}-wide sheet`);
+      }
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Sympathy work does not get the celebration vocabulary.
+//
+// The poster had no idea what it was drawing, so a funeral flyer came out with
+// a pink heart under the shop name, a second under the message, a third beside
+// the phone number, and starburst sparkles around the word "Funeral".
+// ---------------------------------------------------------------------------
+
+test("isSympathyContent reads the wording actually being drawn", () => {
+  assert.ok(poster.isSympathyContent({ headline: "Funeral Flowers" }));
+  assert.ok(poster.isSympathyContent({ body: "Sympathy flowers for the service." }));
+  assert.ok(poster.isSympathyContent({ cta: "Casket sprays made to order." }));
+  assert.ok(!poster.isSympathyContent({ headline: "Valentine's Day", body: "Red roses are in." }));
+  assert.ok(!poster.isSympathyContent({}));
+  assert.ok(!poster.isSympathyContent(null));
+});
+
+test("a shop whose NAME carries the word is not put in mourning by it", () => {
+  // A flyer's message routinely contains the shop's own name. A real shop
+  // called Wake & Bloom or Memorial Gardens Florist would otherwise have every
+  // poster it ever made read as a funeral — including its Valentine's one.
+  for (const shopName of ["Wake & Bloom", "Memorial Gardens Florist", "Tribute Flowers", "In Memory Florals"]) {
+    const content = {
+      headline: "Valentine's Day",
+      body: `${shopName} has red roses in this morning.`,
+      cta: `Call ${shopName} on 606-506-4039`
+    };
+    assert.ok(!poster.isSympathyContent(content, shopName),
+      `"${shopName}" had its own name read as a bereavement`);
+    // And the shop is not exempted either: real sympathy wording still counts.
+    assert.ok(poster.isSympathyContent({ ...content, headline: "Funeral Flowers" }, shopName),
+      `"${shopName}" can no longer make a sympathy poster at all`);
+  }
+});
+
+test("suppressing an ornament never changes which design the seed picks", () => {
+  // Determinism is what makes a re-render a re-render and not a re-roll, and
+  // Undo depends on it. drawSparkles consumes rand(); if anything downstream
+  // consumed it too, skipping the sparkles would silently pick a different
+  // composition for the same asset.
+  const sympathy = { headline: "Funeral Flowers", body: "Standing sprays and casket flowers.", cta: "Call 606-506-4039" };
+  const ordinary = { headline: "Funeral Flowers", body: "Standing sprays and casket flowers.", cta: "Call 606-506-4039" };
+  for (let seed = 1; seed <= 40; seed++) {
+    const a = laidOut({ seed, content: sympathy }).laid;
+    const b = laidOut({ seed, content: ordinary, brand: { shopName: "Lilies in Bloom" } }).laid;
+    assert.equal(a.composition, b.composition, `seed ${seed} picked a different composition`);
+    // And the same seed twice is byte-identical in what it lays out.
+    const again = laidOut({ seed, content: sympathy }).laid;
+    assert.deepEqual(again, a, `seed ${seed} did not redraw identically`);
+  }
+});
+
+test("the poster's sympathy check agrees with the wording guard's", async () => {
+  // The poster is a browser IIFE and cannot import the shared module, so it
+  // carries a deliberate mirror of BEREAVEMENT_CONTEXT_RE. A mirror that
+  // drifts is worse than no mirror: a post the wording guard treats as
+  // sympathy would be drawn with hearts on it.
+  const { detectWeakMarketingCopy } = await import("../netlify/functions/_shared/marketing-content-revision.js");
+  const bereavement = [
+    "Funeral flowers", "sympathy flowers", "a memorial service", "casket sprays",
+    "graveside tributes", "in memory of", "condolence flowers", "after the loss of a parent"
+  ];
+  for (const text of bereavement) {
+    assert.ok(poster.isSympathyContent({ body: text }), `the poster does not treat "${text}" as sympathy work`);
+    // The shared guard's own bereavement branch is what fires the celebratory
+    // reason; if it did not consider this bereavement, no reason would come back.
+    assert.ok(detectWeakMarketingCopy(text, "We are excited to celebrate this milestone with you.").some((r) => /celebratory/i.test(r)),
+      `the wording guard does not treat "${text}" as sympathy work`);
+  }
+  for (const text of ["Red roses are in for Valentine's Day", "Mother's Day baskets", "a birthday bouquet"]) {
+    assert.ok(!poster.isSympathyContent({ body: text }), `the poster wrongly treats "${text}" as sympathy work`);
+  }
+});
+
+test("a sympathy poster carries no hearts, on any composition", () => {
+  // drawHeart is the only thing in the poster that uses bezierCurveTo, so a
+  // heart is countable without asserting on pixels.
+  const seeds = seedForComposition();
+  const sympathy = {
+    headline: "Funeral Flowers",
+    body: "Standing sprays, casket flowers and small arrangements for the service.",
+    cta: "Call 606-506-4039"
+  };
+  for (const [composition, seed] of Object.entries(seeds)) {
+    const { ctx } = laidOut({ seed, content: sympathy });
+    assert.equal(ctx.beziers.length, 0, `${composition}: a funeral flyer was drawn with ${ctx.beziers.length / 2} heart(s) on it`);
+  }
+});
+
+test("an ordinary poster keeps its hearts — the restraint is for sympathy only", () => {
+  // Guard against the check spreading: stripping the ornament from every
+  // poster would be a different regression, not a fix.
+  const seeds = seedForComposition();
+  const drawn = Object.values(seeds).map((seed) => laidOut({
+    seed,
+    content: { headline: "Valentine's Day", body: "Red roses landed this morning.", cta: "Call 606-506-4039 to order" }
+  }).ctx.beziers.length);
+  assert.ok(drawn.some((n) => n > 0), "no composition draws a heart any more");
+});
+
+test("the editorial column is not inset for a ribbon it never draws", () => {
+  // Real, seen in a browser: a 79-character sentence came out as six lines of
+  // two and three words down a narrow gutter with the rest of the sheet empty,
+  // because the body was wrapped to 86% of its column — the room a ribbon's
+  // notched ends need, on the one composition that has no ribbon at all.
+  const seeds = seedForComposition();
+  const body = "Red roses landed this morning. Twelve hand-tied is $65.00. Order by Thursday.";
+  for (const [composition, seed] of Object.entries(seeds)) {
+    const { laid } = laidOut({ seed, content: { body } });
+    assert.ok(laid.bodyWidth > 0, `${composition}: the message was never laid out`);
+    if (composition === "editorial") {
+      assert.equal(laid.ribbon, null, "the editorial composition should draw no ribbon");
+      assert.equal(laid.bodyWidth, laid.column,
+        "the editorial message is still inset for a ribbon this composition never draws");
+    } else {
+      assert.ok(laid.ribbon, `${composition}: no ribbon was drawn`);
+      assert.ok(laid.bodyWidth < laid.column,
+        `${composition}: the message fills its column edge to edge, leaving no room for the ribbon's notched ends`);
+    }
+  }
+});
+
+test("a sweep of real shapes: nothing leaves the sheet, on any canvas the product uses", () => {
+  // Bounded here so the suite stays fast; the same sweep across 122,880
+  // combinations (4 canvas sizes x 40 seeds x 12 headlines x 4 messages x
+  // 4 calls to action x 4 shop names) is what found the last two faults —
+  // the ribbon running off the foot of a poster with no call to action, and
+  // the section mark under it landing 2px past the bottom edge.
+  const sizes = [[1080, 1350], [1080, 1080], [1200, 628], [1080, 1920]];
+  // "Chrysanthemums Today" earns its place: on a 1080x1920 Story sheet with no
+  // call to action, its lockup leaves the ribbon filling the sheet to the foot,
+  // and the section mark under it landed at y=1922.
+  const headlines = ["Closing Early Today", "Funeral Flowers", "Remembrance", "Chrysanthemums Today"];
+  const bodies = [
+    "Lilies in Bloom is closing at 2:30 today.",
+    "Standing sprays, casket flowers and small arrangements for the service, made here in the shop by hand each and every morning of the week.",
+    "Closed."
+  ];
+  const ctas = ["Call 606-506-4039 to place an order.", ""];
+  const shops = ["Lilies in Bloom", "The Very Long Flower Shop Name Company Limited"];
+  let checked = 0;
+  for (const [width, height] of sizes) {
+    for (let seed = 1; seed <= 8; seed++) {
+      for (const headline of headlines) {
+        for (const body of bodies) {
+          for (const cta of ctas) {
+            for (const shopName of shops) {
+              const { ctx, laid } = laidOut({ width, height, seed, content: { headline, body, cta }, brand: { shopName } });
+              checked++;
+              const where = `${width}x${height} ${laid.composition} seed=${seed} "${headline}" cta="${cta}" shop="${shopName}"`;
+              for (const p of ctx.points) {
+                assert.ok(p.x >= -1 && p.x <= width + 1 && p.y >= -1 && p.y <= height + 1,
+                  `${where}: drawn at (${Math.round(p.x)}, ${Math.round(p.y)})`);
+              }
+              for (const t of ctx.texts) {
+                assert.ok(t.left >= -1 && t.right <= width + 1 && t.y <= height + 1,
+                  `${where}: "${t.text}" runs ${Math.round(t.left)}–${Math.round(t.right)} at y=${Math.round(t.y)}`);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  assert.equal(checked, 4 * 8 * 4 * 3 * 2 * 2, "the sweep did not run what it claims to");
+});
+
+test("the message on the ribbon is never shrunk below what a phone can read", () => {
+  // The height fit, added so the ribbon would stop being slid up over the
+  // headline, first went the other way: it shrank the message to a 9px strip
+  // inside a full-size ribbon while the headline above stayed enormous. That
+  // is legible in a screenshot and illegible in a feed — the exact fault
+  // Ashley reported to begin with.
+  const seeds = seedForComposition();
+  const body = "Standing sprays, casket flowers and small arrangements for the service, made here in the shop by hand each and every morning of the week.";
+  for (const [composition, seed] of Object.entries(seeds)) {
+    const { ctx, laid } = laidOut({ seed, content: { body } });
+    if (!laid.ribbon) continue;
+    const onRibbon = ctx.texts.filter((t) => t.y > laid.ribbon.y && t.y < laid.ribbon.y + laid.ribbon.h);
+    assert.ok(onRibbon.length, `${composition}: nothing was drawn on the ribbon at all`);
+    for (const t of onRibbon) {
+      assert.ok(t.size >= 1350 * 0.024 * 0.55,
+        `${composition}: the message is set at ${Math.round(t.size)}px on a 1350-tall poster — nobody reads that on a phone`);
+    }
+  }
+});
+
+test("the contact panel never prints across the poster's own frame", () => {
+  // The emergency floor for a panel pushed down by long copy was the bare
+  // sheet's edge less 2%, which on every framed composition is BELOW the frame
+  // rule — so ordinary long copy drew the bordered contact panel straight
+  // across the border it is supposed to sit inside.
+  const bodies = [
+    "Lilies in Bloom is closing at 2:30 today.",
+    "Standing sprays, casket flowers and small arrangements for the service, made here in the shop by hand each and every morning of the week.",
+    "We are closed all day Monday and reopen on Tuesday at nine, and every order already placed will still go out on time as promised."
+  ];
+  let framed = 0;
+  for (const [width, height] of [[1080, 1350], [1080, 1080], [1080, 1920]]) {
+    for (let seed = 1; seed <= 12; seed++) {
+      for (const body of bodies) {
+        const { laid } = laidOut({ width, height, seed, content: { body } });
+        if (!laid.frame || !laid.panel) continue;
+        framed++;
+        const f = laid.frame, p = laid.panel;
+        assert.ok(p.y + p.h <= f.y + f.h + 1,
+          `${width}x${height} ${laid.composition} seed=${seed}: the contact panel ends at ${Math.round(p.y + p.h)}, past the frame at ${Math.round(f.y + f.h)}`);
+        assert.ok(p.y >= f.y - 1,
+          `${width}x${height} ${laid.composition} seed=${seed}: the contact panel starts above the frame`);
+        assert.ok(p.x >= f.x - 1 && p.x + p.w <= f.x + f.w + 1,
+          `${width}x${height} ${laid.composition} seed=${seed}: the contact panel is wider than the frame`);
+      }
+    }
+  }
+  assert.ok(framed > 20, `only ${framed} framed posters were actually checked`);
 });
