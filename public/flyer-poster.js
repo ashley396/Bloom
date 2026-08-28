@@ -89,6 +89,17 @@
     return R.relativeLuminance(c.r, c.g, c.b);
   }
 
+  /** WCAG-style contrast ratio between two rgb colours. Pure. */
+  function contrastRatio(a, b) {
+    var la = luminance(a), lb = luminance(b);
+    var hi = Math.max(la, lb), lo = Math.min(la, lb);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  /** WCAG AA for normal-size text. The body and contact lines are normal
+   * size, so this is the bar the shop's ink has to clear on its own ground. */
+  var INK_GROUND_MIN_CONTRAST = 4.5;
+
   /**
    * The poster's palette, derived from the ACTUAL flowers plus the shop's
    * own brand colour.
@@ -111,12 +122,24 @@
     // Pull the brand colour toward the flowers, but never so far that the
     // shop stops looking like itself.
     var ink = sample ? mix(brand, sample, 0.22) : brand;
-    // Ink must stay dark enough to read on a pale ground whatever the photo.
-    while (luminance(ink) > 0.24) ink = mix(ink, { r: 0, g: 0, b: 0 }, 0.16);
 
     var tintSource = sample || brand;
     var ground = mix({ r: 255, g: 253, b: 251 }, tintSource, 0.055);
     var groundDeep = mix({ r: 255, g: 253, b: 251 }, tintSource, 0.13);
+
+    // The ink must actually READ on this shop's own ground — measured, not
+    // assumed. A flat luminance cap was the wrong test: a sage, gold, grey
+    // or dusty-rose brand can pass a cap of 0.24 and still land under 4:1
+    // against the pale ground. Every one of those shops then tripped the
+    // ribbon's contrast safety net on EVERY line, over open ground with no
+    // flowers anywhere near it — which is the filled-box look that was
+    // already rejected, appearing for every shop except the plum default.
+    // 4.5:1 is WCAG AA for normal-size text, which is what the body and
+    // contact lines are; darken toward black until the shop's own colour
+    // genuinely clears it.
+    for (var guard = 0; guard < 40 && contrastRatio(ink, groundDeep) < INK_GROUND_MIN_CONTRAST; guard++) {
+      ink = mix(ink, { r: 0, g: 0, b: 0 }, 0.12);
+    }
 
     return {
       ink: rgbToHex(ink),
@@ -195,13 +218,16 @@
       ctx.restore();
     }
 
-    // Report where the petals actually are, in poster coordinates. The
-    // radial mask above is anchored at (c.x, c.y) and has faded to roughly
-    // a third of full opacity by 0.78 * size, so that radius is the honest
-    // edge of "there are flowers here" — not a guess. This is what the
-    // ribbon decision falls back to when the canvas cannot be read back.
+    // Report where the petals actually are, in poster coordinates. The mask
+    // is anchored at (c.x, c.y); its 0.35-alpha stop is at gradient offset
+    // 0.78, which is NOT a radius fraction — the gradient runs from
+    // 0.06 * size to 0.92 * size, so that offset sits at
+    // 0.06 + 0.78 * 0.86 = 0.731 * size. Reading the stop as a radius
+    // over-reported the flowers by ~7%. This is the fallback the ribbon
+    // decision uses when the canvas cannot be read back.
+    var r0 = 0.06, r1 = 0.92, alphaStop = 0.78;
     return corners.map(function (c) {
-      return { x: c.x, y: c.y, radius: size * 0.78 };
+      return { x: c.x, y: c.y, radius: size * (r0 + alphaStop * (r1 - r0)) };
     });
   }
 
@@ -296,15 +322,8 @@
    */
   var CELL_VARIANCE_THRESHOLD = 26;     // luminance spread within one cell, 0-255
   var BUSY_FRACTION_THRESHOLD = 0.28;   // how much of the line must be on flowers
-  var RIBBON_CONTRAST_FLOOR = 4;        // WCAG-style ratio, ink vs. what is behind
+  var RIBBON_CONTRAST_FLOOR = 3;        // WCAG AA for large text; the ink already clears 4.5 on its own ground
   var RIBBON_OVERLAP_THRESHOLD = 0.2;   // fraction of the line inside a cluster
-
-  /** WCAG-style contrast ratio between two rgb colours. Pure. */
-  function contrastRatio(a, b) {
-    var la = luminance(a), lb = luminance(b);
-    var hi = Math.max(la, lb), lo = Math.min(la, lb);
-    return (hi + 0.05) / (lo + 0.05);
-  }
 
   /**
    * The band a hugging ribbon occupies for one measured line, plus the
@@ -315,21 +334,44 @@
   function ribbonBand(m) {
     var asc = m.ascent > 0 ? m.ascent : m.fontSize * 0.72;
     var desc = m.descent > 0 ? m.descent : m.fontSize * 0.24;
-    var pad = m.fontSize * 0.26;
+    // Padding follows the GLYPHS, not the em box. Derived from font size
+    // alone it put 52px of cream above and below a 64px run of capitals —
+    // a slab 2.6x the height of the thing it was protecting, which is the
+    // filled-panel look under another name. Capped so a big script word
+    // still gets a proportionate band, floored so small type keeps air.
+    var pad = Math.min(m.fontSize * 0.26, Math.max(m.fontSize * 0.1, (asc + desc) * 0.3));
     var top = m.baselineY - asc - pad;
     var bottom = m.baselineY + desc + pad;
     var h = bottom - top;
+    var glyphTop = m.baselineY - asc;
     // The notch eats into both ends, so the text needs clearance past it or
     // the first and last glyphs sit on the cut corner.
     var notch = Math.min(h * 0.32, m.fontSize * 0.42);
     var w = m.textWidth + notch * 2 + m.fontSize * 0.7;
     if (m.maxWidth > 0) w = Math.min(w, m.maxWidth);
+    // Clamping the width does not shrink the notches with it, so a long
+    // headline fitted near the limit had its first and last glyphs hanging
+    // off the cut corners entirely. The notch yields to the text, not the
+    // other way round.
+    if (m.textWidth + notch * 2 > w) notch = Math.max(0, (w - m.textWidth) * 0.3);
+    // Never crowd the line above. Bands are taller than the line pitch for
+    // text with descenders, so two ribboned lines in a row overlapped by
+    // construction — and a ribbon drawn for a lower line painted over the
+    // glyphs of one already drawn above it. Text is drawn correctly and then
+    // buried, which no call-site check would ever catch.
+    if (m.ceiling > top) {
+      top = m.ceiling;
+      h = Math.max(0, bottom - top);
+    }
     return {
       cx: m.cx,
       cy: (top + bottom) / 2,
       w: w,
       h: h,
       notch: notch,
+      // A band clipped so hard it no longer covers the glyphs cannot protect
+      // the line; the caller must skip it rather than draw a useless sliver.
+      protects: h > 0 && top <= glyphTop && bottom >= m.baselineY + desc,
       probe: {
         x: m.cx - m.textWidth / 2,
         y: m.baselineY - asc,
@@ -376,16 +418,22 @@
    */
   function busyFraction(probe, rect) {
     if (!probe || !rect || rect.w <= 0 || rect.h <= 0) return 0;
-    var cols = 8, rows = 3, busy = 0, total = 0;
+    var cols = 8, rows = 3, cells = cols * rows, busy = 0, seen = 0;
     var cw = rect.w / cols, ch = rect.h / rows;
+    var need = Math.ceil(cells * BUSY_FRACTION_THRESHOLD);
     for (var r = 0; r < rows; r++) {
       for (var c = 0; c < cols; c++) {
-        total++;
-        if (R.sampleColorVariance(probe, { x: rect.x + c * cw, y: rect.y + r * ch, w: cw, h: ch }, 2)
+        seen++;
+        if (R.sampleColorVariance(probe, { x: rect.x + c * cw, y: rect.y + r * ch, w: cw, h: ch }, 3)
             >= CELL_VARIANCE_THRESHOLD) busy++;
+        // Every luminance costs three Math.pow calls, and this runs for every
+        // line of every poster on the florist's phone. Stop as soon as the
+        // verdict is settled either way.
+        if (busy >= need) return busy / seen;
+        if (busy + (cells - seen) < need) return busy / cells;
       }
     }
-    return total ? busy / total : 0;
+    return busy / cells;
   }
 
   /**
@@ -395,13 +443,25 @@
    *     one smooth vertical tint, so its cells score near zero;
    *   - or the pixels are calm but too close to the ink to read against.
    */
-  function needsRibbonBehind(ground, rect, inkHex) {
+  function needsRibbonBehind(ground, rect, inkHex, alpha) {
     if (!ground || !rect) return false;
     if (ground.probe) {
       if (busyFraction(ground.probe, rect) >= BUSY_FRACTION_THRESHOLD) return true;
-      return contrastRatio(R.sampleAverageColor(ground.probe, rect, 3), hexToRgb(inkHex)) < RIBBON_CONTRAST_FLOOR;
+      // Most lines are drawn at less than full opacity, so full-opacity ink
+      // overstates their real contrast. Composite the ink over what is
+      // actually behind and measure THAT, which is what a reader sees.
+      var behind = R.sampleAverageColor(ground.probe, rect, 3);
+      var a = typeof alpha === "number" ? alpha : 1;
+      var drawn = a >= 1 ? hexToRgb(inkHex) : mix(behind, hexToRgb(inkHex), a);
+      return contrastRatio(behind, drawn) < RIBBON_CONTRAST_FLOOR;
     }
     return floralOverlap(rect, ground.clusters) >= RIBBON_OVERLAP_THRESHOLD;
+  }
+
+  /** The alpha a CSS colour string will actually paint at. Pure. */
+  function colorAlpha(color) {
+    var m = /^rgba\s*\([^,]+,[^,]+,[^,]+,\s*([0-9.]+)\s*\)$/.exec(String(color || ""));
+    return m ? Math.max(0, Math.min(1, parseFloat(m[1]))) : 1;
   }
 
   /** Snapshots the ground BEFORE any wording is drawn, so every line is
@@ -433,8 +493,9 @@
   function placeLine(ctx, ground, text, cx, baselineY, fontSize, palette, color) {
     if (!text) return false;
     var ribboned = false;
+    var m = ctx.measureText(text);
+    var desc = m.actualBoundingBoxDescent || fontSize * 0.24;
     if (ground) {
-      var m = ctx.measureText(text);
       var band = ribbonBand({
         textWidth: m.width,
         ascent: m.actualBoundingBoxAscent || 0,
@@ -442,9 +503,11 @@
         fontSize: fontSize,
         baselineY: baselineY,
         cx: cx,
-        maxWidth: ground.maxRibbonWidth
+        maxWidth: ground.maxRibbonWidth,
+        // Nothing may be painted back over what has already been drawn.
+        ceiling: typeof ground.lastBottom === "number" ? ground.lastBottom : -Infinity
       });
-      if (needsRibbonBehind(ground, band.probe, palette.ink)) {
+      if (band.protects && needsRibbonBehind(ground, band.probe, palette.ink, colorAlpha(color))) {
         drawRibbon(ctx, band.cx, band.cy, band.w, band.h, palette, {
           fill: rgba(palette.cream, 0.94),
           stroke: rgba(palette.ink, 0.42),
@@ -452,9 +515,16 @@
           notch: band.notch
         });
         ribboned = true;
+        ground.lastBottom = band.cy + band.h / 2;
       }
     }
     centreText(ctx, text, cx, baselineY, color);
+    if (ground) {
+      ground.lastBottom = Math.max(
+        typeof ground.lastBottom === "number" ? ground.lastBottom : -Infinity,
+        baselineY + desc
+      );
+    }
     return ribboned;
   }
 
@@ -821,6 +891,9 @@
     floralOverlap: floralOverlap,
     busyFraction: busyFraction,
     ribbonWidthLimit: ribbonWidthLimit,
+    colorAlpha: colorAlpha,
+    placeLine: placeLine,
+    INK_GROUND_MIN_CONTRAST: INK_GROUND_MIN_CONTRAST,
     needsRibbonBehind: needsRibbonBehind,
     hashSeed: hashSeed,
     seededRandom: seededRandom,

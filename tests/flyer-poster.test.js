@@ -153,13 +153,12 @@ test("fontReallyLoaded: is exported, because document.fonts.check() cannot be tr
 //
 // Ashley's correction, verbatim: "if the wording is on top of flowers you
 // probably need a small ribbon behind it." The hard part is the word "if" —
-// a ribbon behind EVERY line is the filled-panel look that was already
-// rejected, so these tests pin both directions: it must appear on flowers
-// and it must stay away from calm ground.
+// a ribbon behind EVERY line is the filled-panel look already rejected, so
+// these pin both directions: it must appear on flowers, and it must stay
+// away from calm ground FOR EVERY SHOP, not just the one whose brand colour
+// the fixtures happen to use.
 // ---------------------------------------------------------------------------
 
-/** An ImageData-shaped object, the same plain shape the renderer's samplers
- * accept, so this exercises the real decision path rather than a stand-in. */
 function fakeImageData(width, height, pixel) {
   const data = new Uint8ClampedArray(width * height * 4);
   for (let y = 0; y < height; y++) {
@@ -172,56 +171,130 @@ function fakeImageData(width, height, pixel) {
   return { width, height, data };
 }
 
-/** The poster's actual ground: one smooth vertical tint, deep at the edges,
- * pale in the middle — exactly what paintGroundAndFlorals lays down. */
-const CALM_GROUND = fakeImageData(300, 300, (x, y) => {
-  const t = Math.abs(y - 150) / 150;
-  return [Math.round(255 - 5 * t), Math.round(253 - 9 * t), Math.round(251 - 11 * t)];
+const hexRgb = (h) => ({
+  r: parseInt(h.slice(1, 3), 16), g: parseInt(h.slice(3, 5), 16), b: parseInt(h.slice(5, 7), 16)
 });
 
-/** Petals, leaves and shadows: high local spread, which is the whole signal. */
-const FLOWERS = fakeImageData(300, 300, (x, y) => {
-  const n = (x * 37 + y * 91) % 255;
-  return [n, (n * 3) % 255, (n * 7) % 255];
+/** The real poster ground for a given palette: one smooth vertical tint,
+ * which is exactly what paintGroundAndFlorals lays down under the wording. */
+function groundFor(palette, w = 300, h = 300) {
+  const g = hexRgb(palette.ground), gd = hexRgb(palette.groundDeep);
+  return fakeImageData(w, h, (x, y) => {
+    const t = Math.abs(y - h / 2) / (h / 2);
+    return [g.r + (gd.r - g.r) * t, g.g + (gd.g - g.g) * t, g.b + (gd.b - g.b) * t];
+  });
+}
+
+/**
+ * Petal-scale structure: soft light blooms against slightly deeper ones, at
+ * roughly the scale real flowers occupy in these posters. Deliberately NOT
+ * per-pixel RGB noise — noise averages to a flat midtone, which makes the
+ * CONTRAST branch fire and lets a test pass with the busy signal switched
+ * off entirely. This fixture stays light overall (so contrast against dark
+ * ink is comfortable), which means only the busy signal can explain a
+ * ribbon over it.
+ */
+const PETALS = fakeImageData(300, 300, (x, y) => {
+  const v = Math.sin(x / 9) * Math.sin(y / 9);
+  const t = (v + 1) / 2;
+  return [255 - 60 * t, 245 - 95 * t, 248 - 78 * t];
 });
 
 const TEXT_BAND = { x: 60, y: 130, w: 180, h: 40 };
-const INK = "#3a2230";
 
-test("needsRibbonBehind: calm ground gets NO ribbon — a ribbon on every line is the rejected box", () => {
-  assert.equal(poster.needsRibbonBehind({ probe: CALM_GROUND, clusters: [] }, TEXT_BAND, INK), false);
+/** Brand colours real shops actually pick — not just the plum default. */
+const BRANDS = ["#8f3f68", "#7c3a58", "#7d7d7d", "#9a7b4f", "#6f8f72", "#c0748f", "#1f3a6e", "#b5651d", "#4a7c59", "#8a6f9e"];
+const SAMPLES = [null, { r: 236, g: 170, b: 190 }, { r: 240, g: 205, b: 90 }, { r: 250, g: 248, b: 246 }, { r: 236, g: 210, b: 214 }, { r: 200, g: 220, b: 200 }];
+
+test("derivePalette: every shop's ink genuinely reads on its own ground, measured not assumed", () => {
+  // A flat luminance cap let sage, gold, grey and dusty-rose brands pass
+  // while sitting under 4:1 on the pale ground. Those shops then tripped the
+  // ribbon's contrast safety net on every line over open ground — the
+  // rejected box, for every shop except the plum default.
+  const failures = [];
+  for (const brand of BRANDS) {
+    for (const sample of SAMPLES) {
+      const p = poster.derivePalette(brand, "#6f8f72", sample);
+      const ratio = poster.contrastRatio(hexRgb(p.ink), hexRgb(p.groundDeep));
+      if (ratio < poster.INK_GROUND_MIN_CONTRAST) failures.push(`${brand}/${sample ? "photo" : "none"} → ${p.ink} ratio ${ratio.toFixed(2)}`);
+    }
+  }
+  assert.deepEqual(failures, [], `ink unreadable on its own ground:\n  ${failures.join("\n  ")}`);
 });
 
-test("needsRibbonBehind: wording over busy floral pixels gets a ribbon", () => {
-  assert.equal(poster.needsRibbonBehind({ probe: FLOWERS, clusters: [] }, TEXT_BAND, INK), true);
+test("no shop gets a ribbon on empty calm ground — not one brand colour out of every combination", () => {
+  const offenders = [];
+  for (const brand of BRANDS) {
+    for (const sample of SAMPLES) {
+      const p = poster.derivePalette(brand, "#6f8f72", sample);
+      for (const alpha of [1, 0.9, 0.85, 0.82, 0.78]) {
+        if (poster.needsRibbonBehind({ probe: groundFor(p), clusters: [] }, TEXT_BAND, p.ink, alpha)) {
+          offenders.push(`${brand} ink ${p.ink} @${alpha}`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(offenders, [], `ribbon over open ground — the rejected box:\n  ${offenders.join("\n  ")}`);
 });
 
-test("needsRibbonBehind: calm but too close to the ink to read still gets a ribbon", () => {
-  // A flat plum-dark ground has no spread at all, so the variance signal
-  // alone would miss it — and the words would be ink on near-ink.
+test("busyFraction: calm ground scores zero and petal-scale structure scores high", () => {
+  // This is the pair that makes CELL_VARIANCE_THRESHOLD matter. Disable the
+  // busy signal and the second assertion fails; zero the threshold and the
+  // first does.
+  const calm = groundFor(poster.derivePalette("#8f3f68", "#6f8f72", null));
+  assert.equal(poster.busyFraction(calm, TEXT_BAND), 0, "smooth ground must not read as flowers");
+  assert.ok(poster.busyFraction(PETALS, TEXT_BAND) >= 0.28,
+    `petal-scale structure scored only ${poster.busyFraction(PETALS, TEXT_BAND)}`);
+});
+
+test("wording over flowers gets a ribbon BECAUSE it is busy, not because contrast happened to be low", () => {
+  const p = poster.derivePalette("#8f3f68", "#6f8f72", null);
+  // Prove the contrast branch cannot be the explanation: this fixture is
+  // light, so the ink reads comfortably against its average.
+  const avg = renderAvg(PETALS, TEXT_BAND);
+  assert.ok(poster.contrastRatio(avg, hexRgb(p.ink)) > 3,
+    "fixture must be comfortable for contrast, or this test proves nothing about the busy signal");
+  assert.equal(poster.needsRibbonBehind({ probe: PETALS, clusters: [] }, TEXT_BAND, p.ink, 1), true);
+});
+
+function renderAvg(img, rect) {
+  // Mirrors the renderer's own sampler closely enough for a fixture check.
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let y = Math.floor(rect.y); y < rect.y + rect.h; y += 3) {
+    for (let x = Math.floor(rect.x); x < rect.x + rect.w; x += 3) {
+      const i = (y * img.width + x) * 4;
+      r += img.data[i]; g += img.data[i + 1]; b += img.data[i + 2]; n++;
+    }
+  }
+  return { r: r / n, g: g / n, b: b / n };
+}
+
+test("needsRibbonBehind: a line too faint to read against calm pixels still gets one", () => {
   const flatDark = fakeImageData(300, 300, () => [70, 45, 60]);
-  assert.equal(poster.needsRibbonBehind({ probe: flatDark, clusters: [] }, TEXT_BAND, INK), true);
+  assert.equal(poster.needsRibbonBehind({ probe: flatDark, clusters: [] }, TEXT_BAND, "#3a2230", 1), true);
 });
 
 test("needsRibbonBehind: with the canvas unreadable it falls back to where the flowers really are", () => {
   // A tainted canvas makes getImageData throw. The flowers are still drawn,
   // so assuming "no flowers" there would silently reintroduce the defect.
-  // Real poster geometry: a 1080x1350 sheet with clusters bleeding in from
-  // two opposite corners at the radius paintGroundAndFlorals actually reports.
   const clusters = [{ x: 0, y: 0, radius: 556 }, { x: 1080, y: 1350, radius: 556 }];
   const noProbe = { probe: null, clusters };
-  assert.equal(poster.needsRibbonBehind(noProbe, { x: 200, y: 170, w: 400, h: 60 }, INK), true, "the shop name up in the corner cluster");
-  assert.equal(poster.needsRibbonBehind(noProbe, { x: 300, y: 650, w: 480, h: 50 }, INK), false, "a line in the calm middle");
+  assert.equal(poster.needsRibbonBehind(noProbe, { x: 200, y: 170, w: 400, h: 60 }, "#3a2230", 1), true, "the shop name in the corner cluster");
+  assert.equal(poster.needsRibbonBehind(noProbe, { x: 300, y: 650, w: 480, h: 50 }, "#3a2230", 1), false, "a line in the calm middle");
 });
 
 test("needsRibbonBehind: no flowers at all means no ribbons, ever", () => {
-  assert.equal(poster.needsRibbonBehind({ probe: null, clusters: [] }, TEXT_BAND, INK), false);
+  assert.equal(poster.needsRibbonBehind({ probe: null, clusters: [] }, TEXT_BAND, "#3a2230", 1), false);
 });
 
-test("floralOverlap: reports 1 at a cluster's own anchor and 0 in the calm middle", () => {
+test("floralOverlap: tracks partial coverage, not just all-or-nothing", () => {
   const clusters = [{ x: 0, y: 0, radius: 250 }];
   assert.equal(poster.floralOverlap({ x: 0, y: 0, w: 40, h: 20 }, clusters), 1);
   assert.equal(poster.floralOverlap({ x: 900, y: 900, w: 40, h: 20 }, clusters), 0);
+  // A line straddling the cluster edge must land strictly between the two,
+  // or the threshold of 0.2 is decorative.
+  const partial = poster.floralOverlap({ x: 150, y: 150, w: 300, h: 60 }, clusters);
+  assert.ok(partial > 0 && partial < 1, `straddling line scored ${partial}, so no threshold could matter`);
 });
 
 test("floralOverlap: no clusters is no overlap, not a crash", () => {
@@ -229,27 +302,42 @@ test("floralOverlap: no clusters is no overlap, not a crash", () => {
   assert.equal(poster.floralOverlap({ x: 0, y: 0, w: 10, h: 10 }, null), 0);
 });
 
-test("ribbonBand: hugs the real glyph extent rather than slabbing the font size", () => {
-  // Two lines at the same font size, one with tall script ascenders and one
-  // set in small caps. The ribbon must follow the glyphs, not the em box.
-  const tall = poster.ribbonBand({ textWidth: 400, ascent: 150, descent: 60, fontSize: 200, baselineY: 500, cx: 540, maxWidth: 0 });
-  const short = poster.ribbonBand({ textWidth: 400, ascent: 60, descent: 4, fontSize: 200, baselineY: 500, cx: 540, maxWidth: 0 });
+test("colorAlpha: reads the opacity a line will really paint at", () => {
+  assert.equal(poster.colorAlpha("rgba(99,50,70,0.78)"), 0.78);
+  assert.equal(poster.colorAlpha("#8f3f68"), 1);
+  assert.equal(poster.colorAlpha(undefined), 1);
+});
+
+test("ribbonBand: hugs the glyphs rather than slabbing the em box", () => {
+  const tall = poster.ribbonBand({ textWidth: 400, ascent: 150, descent: 60, fontSize: 200, baselineY: 500, cx: 540, maxWidth: 0, ceiling: -Infinity });
+  const short = poster.ribbonBand({ textWidth: 400, ascent: 60, descent: 4, fontSize: 200, baselineY: 500, cx: 540, maxWidth: 0, ceiling: -Infinity });
   assert.ok(tall.h > short.h, "a taller line must get a taller ribbon");
-  assert.ok(short.h < 200, `a short line got a slab ${short.h}px tall behind 200px type`);
+  // The band must stay close to the glyphs it protects. Allowing 2.6x the
+  // glyph box — which the previous assertion did — permits the exact slab
+  // the design is meant to avoid.
+  assert.ok(short.h <= 64 * 2, `band ${short.h}px is a slab behind a 64px glyph box`);
 });
 
 test("ribbonBand: leaves clearance past the notch so no glyph sits on the cut corner", () => {
-  const b = poster.ribbonBand({ textWidth: 300, ascent: 30, descent: 8, fontSize: 40, baselineY: 200, cx: 540, maxWidth: 0 });
-  assert.ok(b.w >= 300 + b.notch * 2, `text would run into the notch: width ${b.w}, notch ${b.notch}`);
+  const b = poster.ribbonBand({ textWidth: 300, ascent: 30, descent: 8, fontSize: 40, baselineY: 200, cx: 540, maxWidth: 0, ceiling: -Infinity });
+  assert.ok(b.w >= 300 + b.notch * 2, `text runs into the notch: width ${b.w}, notch ${b.notch}`);
+});
+
+test("ribbonBand: text still clears the notches after the width clamp bites", () => {
+  // A long headline fitted near the limit had its first and last glyphs
+  // hanging off the cut corners entirely.
+  const b = poster.ribbonBand({ textWidth: 842, ascent: 150, descent: 60, fontSize: 220, baselineY: 600, cx: 540, maxWidth: 926, ceiling: -Infinity });
+  assert.equal(b.w, 926);
+  assert.ok(842 + b.notch * 2 <= b.w + 0.001, `glyphs overhang the ribbon by ${(842 + b.notch * 2 - b.w) / 2}px each end`);
 });
 
 test("ribbonBand: never grows past the width it is given", () => {
-  const b = poster.ribbonBand({ textWidth: 2000, ascent: 30, descent: 8, fontSize: 40, baselineY: 200, cx: 540, maxWidth: 950 });
+  const b = poster.ribbonBand({ textWidth: 2000, ascent: 30, descent: 8, fontSize: 40, baselineY: 200, cx: 540, maxWidth: 950, ceiling: -Infinity });
   assert.equal(b.w, 950);
 });
 
 test("ribbonBand: the probed box is the glyphs themselves, centred on the line", () => {
-  const b = poster.ribbonBand({ textWidth: 300, ascent: 30, descent: 8, fontSize: 40, baselineY: 200, cx: 540, maxWidth: 0 });
+  const b = poster.ribbonBand({ textWidth: 300, ascent: 30, descent: 8, fontSize: 40, baselineY: 200, cx: 540, maxWidth: 0, ceiling: -Infinity });
   assert.equal(b.probe.x, 540 - 150);
   assert.equal(b.probe.w, 300);
   assert.equal(b.probe.y, 170);
@@ -257,23 +345,214 @@ test("ribbonBand: the probed box is the glyphs themselves, centred on the line",
 });
 
 test("ribbonBand: falls back to sane metrics when the canvas reports no glyph box", () => {
-  // Older canvas implementations return 0 for actualBoundingBox*; a zero-height
-  // ribbon would be an invisible no-op that still claimed to protect the line.
-  const b = poster.ribbonBand({ textWidth: 300, ascent: 0, descent: 0, fontSize: 40, baselineY: 200, cx: 540, maxWidth: 0 });
+  const b = poster.ribbonBand({ textWidth: 300, ascent: 0, descent: 0, fontSize: 40, baselineY: 200, cx: 540, maxWidth: 0, ceiling: -Infinity });
   assert.ok(b.h > 40, `degenerate ribbon height: ${b.h}`);
 });
 
-test("contrastRatio: matches the known white-on-black extreme and self-contrast", () => {
-  assert.ok(Math.abs(poster.contrastRatio({ r: 255, g: 255, b: 255 }, { r: 0, g: 0, b: 0 }) - 21) < 0.05);
-  assert.equal(poster.contrastRatio({ r: 90, g: 40, b: 70 }, { r: 90, g: 40, b: 70 }), 1);
+test("ribbonBand: two consecutive lines never overlap — stacked ribbons are one slab", () => {
+  // Bands are taller than the line pitch for text with descenders, so
+  // adjacent ribboned lines overlapped by construction and the CTA stack
+  // merged into one large light block over the photo.
+  const fontSize = 44, pitch = fontSize * 1.32;
+  let ceiling = -Infinity;
+  const bands = [];
+  for (let i = 0; i < 4; i++) {
+    const b = poster.ribbonBand({
+      textWidth: 500, ascent: 33, descent: 9, fontSize,
+      baselineY: 700 + i * pitch, cx: 540, maxWidth: 926, ceiling
+    });
+    bands.push(b);
+    ceiling = b.cy + b.h / 2;
+  }
+  for (let i = 1; i < bands.length; i++) {
+    const prevBottom = bands[i - 1].cy + bands[i - 1].h / 2;
+    const top = bands[i].cy - bands[i].h / 2;
+    assert.ok(top >= prevBottom - 0.001, `ribbon ${i} starts at ${top}, inside ribbon ${i - 1} ending at ${prevBottom}`);
+  }
+});
+
+test("ribbonBand: a ribbon is never painted back over a line already drawn above it", () => {
+  // The script word's band reached up over the headline lead's glyphs, which
+  // are drawn first — fillText succeeds and is then buried under cream.
+  const leadBaseline = 400, leadDescent = 6;
+  const b = poster.ribbonBand({
+    textWidth: 600, ascent: 150, descent: 60, fontSize: 220,
+    baselineY: 560, cx: 540, maxWidth: 926, ceiling: leadBaseline + leadDescent
+  });
+  assert.ok(b.cy - b.h / 2 >= leadBaseline + leadDescent - 0.001,
+    `ribbon top ${b.cy - b.h / 2} covers the lead line's baseline at ${leadBaseline}`);
+});
+
+test("ribbonBand: reports when a clipped band can no longer protect its line", () => {
+  // Clipped so hard it no longer covers the glyphs: the caller must skip it
+  // rather than draw a useless sliver that looks like a rendering artifact.
+  const b = poster.ribbonBand({
+    textWidth: 400, ascent: 40, descent: 10, fontSize: 50,
+    baselineY: 300, cx: 540, maxWidth: 926, ceiling: 295
+  });
+  assert.equal(b.protects, false);
+  const ok = poster.ribbonBand({
+    textWidth: 400, ascent: 40, descent: 10, fontSize: 50,
+    baselineY: 300, cx: 540, maxWidth: 926, ceiling: -Infinity
+  });
+  assert.equal(ok.protects, true);
 });
 
 test("ribbonWidthLimit: a ribbon stays inside the border rules with air, not just inside the sheet", () => {
   const w = 1080, h = 1350;
   const limit = poster.ribbonWidthLimit(w, h);
   const m = Math.min(w, h);
-  const innerRule = Math.round(m * 0.038) + Math.round(m * 0.011); // where drawBorder's second rule sits
+  const innerRule = Math.round(m * 0.038) + Math.round(m * 0.011);
   const leftEdge = (w - limit) / 2;
   assert.ok(leftEdge > innerRule + 8, `ribbon edge ${leftEdge} crowds the inner rule at ${innerRule}`);
   assert.ok(limit > w * 0.7, `limit ${limit} is so tight the ribbon could not carry a headline`);
+});
+
+// ---------------------------------------------------------------------------
+// The drawing path itself.
+//
+// Everything above tests the DECISION. None of it noticed when placeLine was
+// made to never draw a ribbon at all — the feature could be deleted from the
+// poster with the whole suite green. These exercise the code that actually
+// puts paint on the canvas, through a recording context.
+// ---------------------------------------------------------------------------
+
+/** A canvas 2D context that records shape fills instead of rasterising, so
+ * the real placeLine can run under Node with no canvas at all. */
+function recordingCtx(textWidth = 300) {
+  const calls = { fills: [], texts: [], strokes: [] };
+  let path = [];
+  const ctx = {
+    calls,
+    font: "", fillStyle: "", strokeStyle: "", lineWidth: 1,
+    textAlign: "", textBaseline: "", letterSpacing: "0px",
+    save() {}, restore() {},
+    beginPath() { path = []; }, closePath() {},
+    moveTo(x, y) { path.push([x, y]); }, lineTo(x, y) { path.push([x, y]); },
+    rect(x, y, w, h) { path.push([x, y], [x + w, y + h]); },
+    fill() {
+      if (!path.length) return;
+      const ys = path.map((p) => p[1]), xs = path.map((p) => p[0]);
+      calls.fills.push({
+        fillStyle: this.fillStyle,
+        top: Math.min(...ys), bottom: Math.max(...ys),
+        left: Math.min(...xs), right: Math.max(...xs)
+      });
+    },
+    stroke() { calls.strokes.push({ strokeStyle: this.strokeStyle }); },
+    fillText(text, x, y) { calls.texts.push({ text, x, y, fillStyle: this.fillStyle }); },
+    measureText() { return { width: textWidth, actualBoundingBoxAscent: 33, actualBoundingBoxDescent: 9 }; }
+  };
+  return ctx;
+}
+
+const PALETTE = poster.derivePalette("#8f3f68", "#6f8f72", null);
+const RIBBON_FILL = /0\.94\)$/;
+const ribbonFills = (ctx) => ctx.calls.fills.filter((f) => RIBBON_FILL.test(f.fillStyle));
+
+test("placeLine: actually paints a ribbon when the line lands on flowers", () => {
+  const ctx = recordingCtx();
+  const ground = { probe: PETALS, clusters: [], maxRibbonWidth: 926 };
+  poster.placeLine(ctx, ground, "CLOSING EARLY", 150, 160, 44, PALETTE, PALETTE.ink);
+  assert.equal(ribbonFills(ctx).length, 1, "no ribbon was painted over flowers");
+});
+
+test("placeLine: paints NO ribbon on calm ground — the rejected box never returns", () => {
+  const ctx = recordingCtx();
+  const ground = { probe: groundFor(PALETTE), clusters: [], maxRibbonWidth: 926 };
+  poster.placeLine(ctx, ground, "CLOSING EARLY", 150, 160, 44, PALETTE, PALETTE.ink);
+  assert.equal(ribbonFills(ctx).length, 0, "a ribbon appeared over open ground");
+});
+
+test("placeLine: draws the exact words it is given, ribbon or no ribbon", () => {
+  for (const probe of [PETALS, groundFor(PALETTE)]) {
+    const ctx = recordingCtx();
+    poster.placeLine(ctx, { probe, clusters: [], maxRibbonWidth: 926 },
+      "Lilies in Bloom is closing at 2:30 today.", 150, 160, 44, PALETTE, PALETTE.ink);
+    assert.deepEqual(ctx.calls.texts.map((t) => t.text), ["Lilies in Bloom is closing at 2:30 today."]);
+    assert.equal(ctx.calls.texts[0].y, 160, "the baseline moved");
+  }
+});
+
+test("placeLine: the text is painted AFTER the ribbon, never buried under it", () => {
+  const ctx = recordingCtx();
+  poster.placeLine(ctx, { probe: PETALS, clusters: [], maxRibbonWidth: 926 },
+    "CLOSING EARLY", 150, 160, 44, PALETTE, PALETTE.ink);
+  const order = [];
+  // fills and texts are recorded into separate arrays; reconstruct by count.
+  assert.ok(ribbonFills(ctx).length === 1 && ctx.calls.texts.length === 1);
+  const band = ribbonFills(ctx)[0];
+  assert.ok(band.top <= 160 - 33 && band.bottom >= 160 + 9,
+    `ribbon ${band.top}-${band.bottom} does not cover the glyphs it is meant to protect`);
+});
+
+test("placeLine: consecutive ribboned lines never paint over one another", () => {
+  // The real failure: a lower line's ribbon covered the glyphs of a line
+  // already drawn above it, and the CTA stack merged into one light block.
+  const ctx = recordingCtx();
+  const ground = { probe: PETALS, clusters: [], maxRibbonWidth: 926 };
+  const pitch = 44 * 1.32;
+  for (let i = 0; i < 4; i++) {
+    poster.placeLine(ctx, ground, "LINE " + i, 150, 200 + i * pitch, 44, PALETTE, PALETTE.ink);
+  }
+  const bands = ribbonFills(ctx);
+  assert.ok(bands.length >= 2, `expected several ribbons over flowers, got ${bands.length}`);
+  for (let i = 1; i < bands.length; i++) {
+    assert.ok(bands[i].top >= bands[i - 1].bottom - 0.001,
+      `ribbon ${i} (top ${bands[i].top}) overlaps ribbon ${i - 1} (bottom ${bands[i - 1].bottom})`);
+  }
+  // And no ribbon may reach back over an earlier line's baseline.
+  for (let i = 1; i < bands.length; i++) {
+    assert.ok(bands[i].top >= 200 + (i - 1) * pitch,
+      `ribbon ${i} reaches up over the baseline of the line above it`);
+  }
+});
+
+test("placeLine: with no ground to judge, it draws the words and no ribbon", () => {
+  const ctx = recordingCtx();
+  poster.placeLine(ctx, null, "CLOSING EARLY", 150, 160, 44, PALETTE, PALETTE.ink);
+  assert.equal(ribbonFills(ctx).length, 0);
+  assert.deepEqual(ctx.calls.texts.map((t) => t.text), ["CLOSING EARLY"]);
+});
+
+test("the taint fallback's threshold actually decides something", () => {
+  // Nothing pinned RIBBON_OVERLAP_THRESHOLD: it could move 2.5x with the
+  // suite green, which means the fallback path was effectively untested.
+  const clusters = [{ x: 0, y: 0, radius: 556 }];
+  const ground = { probe: null, clusters };
+  const mostly = { x: 300, y: 300, w: 400, h: 60 };   // 0.40 inside the cluster
+  const barely = { x: 380, y: 380, w: 400, h: 60 };   // 0.08 inside
+  assert.ok(poster.floralOverlap(mostly, clusters) > poster.floralOverlap(barely, clusters));
+  assert.equal(poster.needsRibbonBehind(ground, mostly, PALETTE.ink, 1), true,
+    "a line 40% buried in the flowers must be protected");
+  assert.equal(poster.needsRibbonBehind(ground, barely, PALETTE.ink, 1), false,
+    "a line barely clipping the flowers must stay bare");
+});
+
+test("busyFraction: a line only partly over flowers still counts as on flowers", () => {
+  // A fully-textured fixture scores 1.0, so it cannot pin the threshold from
+  // above — raise BUSY_FRACTION_THRESHOLD to 0.95 and a 1.0 fixture still
+  // passes while every realistic partly-covered line stops being protected.
+  const partly = fakeImageData(300, 300, (x, y) => {
+    if (x > 60 + 180 * 0.45) return [252, 249, 247];      // calm ground
+    const t = (Math.sin(x / 9) * Math.sin(y / 9) + 1) / 2; // petals
+    return [255 - 60 * t, 245 - 95 * t, 248 - 78 * t];
+  });
+  const f = poster.busyFraction(partly, TEXT_BAND);
+  assert.ok(f > 0.28 && f < 0.75, `expected a partly-covered line, scored ${f}`);
+  assert.equal(poster.needsRibbonBehind({ probe: partly, clusters: [] }, TEXT_BAND, PALETTE.ink, 1), true,
+    "a line lying half across the flowers must be protected");
+});
+
+test("a faint line is judged on the colour it really paints, not full-opacity ink", () => {
+  // Five of the eight lines draw at rgba(ink, 0.78-0.9). Measuring them as
+  // if they were solid overstates their contrast and leaves exactly the
+  // body and contact lines — the ones that must stay comfortably readable
+  // on a phone — unprotected.
+  const dim = fakeImageData(300, 300, () => [184, 170, 178]);
+  const ground = { probe: dim, clusters: [] };
+  assert.equal(poster.needsRibbonBehind(ground, TEXT_BAND, "#8f3f68", 1), false,
+    "solid ink clears the bar on this background, so the fixture proves nothing unless alpha is honoured");
+  assert.equal(poster.needsRibbonBehind(ground, TEXT_BAND, "#8f3f68", 0.78), true,
+    "the same line drawn at 0.78 opacity is below the bar and must be protected");
 });
