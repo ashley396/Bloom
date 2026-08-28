@@ -426,20 +426,28 @@
    * null unless needsScrim says the region is busy/midtone enough to
    * need one (a thin stroke, Ashley's explicitly allowed "thin outline
    * when needed" — never a filled panel). */
-  function pickRegionTextStyle(ctx, rect) {
+  function pickRegionTextStyle(ctx, rect, background) {
     var safeRect = {
       x: Math.max(0, Math.round(rect.x)),
       y: Math.max(0, Math.round(rect.y)),
       w: Math.max(1, Math.round(rect.w)),
       h: Math.max(1, Math.round(rect.h))
     };
-    var imageData;
-    try {
-      imageData = ctx.getImageData(safeRect.x, safeRect.y, safeRect.w, safeRect.h);
-    } catch (e) {
-      return { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: { color: "rgba(6,10,18,0.6)", width: Math.max(1, rect.h * 0.01), widthRatio: OUTLINE_WIDTH_RATIO } };
+    // The whole canvas has usually been read back already for the placement
+    // and banner decisions. Reading five more slices of the same pixels is
+    // a GPU-to-CPU round trip per region for nothing.
+    var imageData, localRect;
+    if (background) {
+      imageData = background;
+      localRect = safeRect;
+    } else {
+      try {
+        imageData = ctx.getImageData(safeRect.x, safeRect.y, safeRect.w, safeRect.h);
+      } catch (e) {
+        return { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: { color: "rgba(6,10,18,0.6)", width: Math.max(1, rect.h * 0.01), widthRatio: OUTLINE_WIDTH_RATIO } };
+      }
+      localRect = { x: 0, y: 0, w: imageData.width, h: imageData.height };
     }
-    var localRect = { x: 0, y: 0, w: imageData.width, h: imageData.height };
     var avg = sampleAverageColor(imageData, localRect, 4);
     var variance = sampleColorVariance(imageData, localRect, 4);
     var isDark = pickTextColor(avg) === BAND_TEXT_COLOR;
@@ -775,8 +783,19 @@
       drawImage: noop, fillRect: noop, strokeRect: noop, clearRect: noop,
       createLinearGradient: function () { return { addColorStop: noop }; },
       createRadialGradient: function () { return { addColorStop: noop }; },
+      createPattern: function () { return null; },
       getImageData: function () { return real.getImageData.apply(real, arguments); }
     };
+    // Assigning an unknown PROPERTY to a plain object is silent, but calling
+    // an unknown METHOD throws — and the measuring pass has no catch around
+    // it, so adding a clip() or a translate() to any drawer would make the
+    // whole flyer fail to render rather than merely look wrong. Every
+    // remaining path-and-transform call is stubbed so that cannot happen.
+    ["clip", "translate", "rotate", "scale", "transform", "setTransform",
+     "resetTransform", "setLineDash", "ellipse", "roundRect", "putImageData",
+     "clearHitRegions", "drawFocusIfNeeded"].forEach(function (name) {
+      if (typeof fake[name] !== "function") fake[name] = noop;
+    });
     // The drawers set and read these; the font in particular must reach the
     // real context or measureText would report the wrong widths.
     Object.defineProperty(fake, "font", {
@@ -804,7 +823,11 @@
    */
   function mergeBands(bands, gap) {
     if (!bands || !bands.length) return [];
-    var sorted = bands.slice().sort(function (a, b) { return a.y - b.y; });
+    // Copied, not aliased. Documented pure while assigning through to the
+    // caller's own objects means calling it twice on the same array gives
+    // different answers the second time — a trap for any future caller.
+    var sorted = bands.map(function (b) { return { x: b.x, y: b.y, w: b.w, h: b.h, radius: b.radius }; })
+      .sort(function (a, b) { return a.y - b.y; });
     var out = [sorted[0]];
     for (var i = 1; i < sorted.length; i++) {
       var last = out[out.length - 1], b = sorted[i];
@@ -1661,11 +1684,11 @@
       // colour change under it, or a colour change with no paint. The colour
       // belongs to the picture, not to what was just laid on top of it.
       var styles = {
-        lockup: pickRegionTextStyle(ctx, lockupSampleRect),
-        headline: pickRegionTextStyle(ctx, headlineRect),
-        body: pickRegionTextStyle(ctx, bodyRect),
-        cta: pickRegionTextStyle(ctx, ctaRect),
-        contact: pickRegionTextStyle(ctx, contactRect)
+        lockup: pickRegionTextStyle(ctx, lockupSampleRect, background),
+        headline: pickRegionTextStyle(ctx, headlineRect, background),
+        body: pickRegionTextStyle(ctx, bodyRect, background),
+        cta: pickRegionTextStyle(ctx, ctaRect, background),
+        contact: pickRegionTextStyle(ctx, contactRect, background)
       };
       function layOut(target, bands) {
         var out = [];

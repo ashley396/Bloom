@@ -800,3 +800,63 @@ test("lockupUsedHeight: matches the divider the lockup actually draws", () => {
   const fit = { baselineY: 665, fontSize: 46 };
   assert.equal(renderer.lockupUsedHeight(bandRect, fit), (665 + 46 * 0.75) - 600);
 });
+
+test("pickRegionTextStyle: reusing the snapshot gives the same answer as reading the canvas again", () => {
+  // Five extra getImageData calls per flyer is a GPU-to-CPU round trip each,
+  // for pixels already in hand. Equivalence is the whole point — if the two
+  // paths disagreed, the optimisation would silently change what colour the
+  // wording is drawn in.
+  const photo = imageOf(200, 200, (x, y) => [x, y, (x + y) % 255]);
+  const rect = { x: 40, y: 60, w: 90, h: 50 };
+  const fakeCtx = {
+    getImageData(x, y, w, h) {
+      const data = new Uint8ClampedArray(w * h * 4);
+      for (let j = 0; j < h; j++) {
+        for (let i = 0; i < w; i++) {
+          const src = ((y + j) * photo.width + (x + i)) * 4;
+          const dst = (j * w + i) * 4;
+          data[dst] = photo.data[src]; data[dst + 1] = photo.data[src + 1];
+          data[dst + 2] = photo.data[src + 2]; data[dst + 3] = 255;
+        }
+      }
+      return { width: w, height: h, data };
+    }
+  };
+  const viaCanvas = renderer.pickRegionTextStyle(fakeCtx, rect);
+  const viaSnapshot = renderer.pickRegionTextStyle(fakeCtx, rect, photo);
+  assert.equal(viaSnapshot.color, viaCanvas.color);
+  assert.equal(viaSnapshot.softColor, viaCanvas.softColor);
+  assert.equal(Boolean(viaSnapshot.outline), Boolean(viaCanvas.outline));
+});
+
+test("pickRegionTextStyle: an unreadable canvas still yields a usable style rather than throwing", () => {
+  const throwing = { getImageData() { throw new Error("tainted"); } };
+  const style = renderer.pickRegionTextStyle(throwing, { x: 0, y: 0, w: 10, h: 10 });
+  assert.ok(style.color);
+  assert.ok(style.outline, "with no pixels to judge, the text keeps its outline");
+});
+
+test("mergeBands: does not mutate what it is given — it is used more than once", () => {
+  const input = [
+    { x: 100, y: 100, w: 300, h: 60, radius: 10 },
+    { x: 80, y: 175, w: 360, h: 80, radius: 12 }
+  ];
+  const snapshot = JSON.parse(JSON.stringify(input));
+  const first = renderer.mergeBands(input, 20);
+  assert.deepEqual(JSON.parse(JSON.stringify(input)), snapshot, "the caller's own bands were rewritten");
+  const second = renderer.mergeBands(input, 20);
+  assert.equal(first.length, second.length);
+  assert.equal(first[0].h, second[0].h, "a second call gave a different answer");
+});
+
+test("measuringContext: an unknown drawing method never takes the whole flyer down", () => {
+  // Assigning an unknown property to the fake is silent; CALLING an unknown
+  // method throws, and the measuring pass has no catch around it — so adding
+  // a clip() to any drawer would fail the render entirely rather than merely
+  // look wrong.
+  const fake = renderer.measuringContext({ font: "", measureText: () => ({ width: 1 }) });
+  for (const name of ["clip", "translate", "rotate", "scale", "setTransform", "setLineDash", "ellipse", "roundRect"]) {
+    assert.equal(typeof fake[name], "function", `${name} would throw during the measuring pass`);
+    fake[name](0, 0, 1, 1);
+  }
+});

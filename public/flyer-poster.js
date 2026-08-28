@@ -79,6 +79,9 @@
     return { r: a.r + (b.r - a.r) * t, g: a.g + (b.g - a.g) * t, b: a.b + (b.b - a.b) * t };
   }
 
+  /** Mixes a hex colour toward an rgb one and returns hex. Pure. */
+  function mixHex(hex, toward, t) { return rgbToHex(mix(hexToRgb(hex), toward, t)); }
+
   function rgba(hex, alpha) {
     var c = hexToRgb(hex);
     return "rgba(" + clamp255(c.r) + "," + clamp255(c.g) + "," + clamp255(c.b) + "," + alpha + ")";
@@ -289,6 +292,23 @@
     opts = opts || {};
     var notch = typeof opts.notch === "number" ? opts.notch : h * 0.32;
     ctx.save();
+    // The folded tails behind each end, darker, as on the reference's banner.
+    // Without them the shape reads as a notched bar rather than a ribbon.
+    if (opts.tails !== false && !opts.fill) {
+      var tail = Math.min(h * 0.4, w * 0.045);
+      var fold = h * 0.2;
+      ctx.fillStyle = mixHex(palette.ink, { r: 0, g: 0, b: 0 }, 0.3);
+      for (var side = -1; side <= 1; side += 2) {
+        var edge = cx + side * w / 2;
+        ctx.beginPath();
+        ctx.moveTo(edge, cy - h / 2 + fold);
+        ctx.lineTo(edge + side * tail, cy - h / 2 + fold * 1.7);
+        ctx.lineTo(edge + side * tail, cy + h / 2 - fold * 0.3);
+        ctx.lineTo(edge, cy + h / 2 - fold * 0.6);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
     ctx.fillStyle = opts.fill || palette.ink;
     ctx.beginPath();
     ctx.moveTo(cx - w / 2, cy - h / 2);
@@ -758,7 +778,8 @@
     drawCornerBrackets(ctx, w, h, inset, palette);
     var ground = captureGround(ctx, w, h, clusters);
 
-    var y = h * 0.115;
+    var gap = opts.extraGap || 0;
+    var y = h * 0.115 + gap * 0.5;
 
     // --- the shop's name, set as a display lockup ---
     // The reference's whole identity is here: the name large in script over
@@ -806,7 +827,7 @@
       }
       y += h * 0.018;
       drawHeartRule(ctx, cx, y, w * 0.34, palette);
-      y += h * 0.042;
+      y += h * 0.042 + gap;
     }
 
     // --- the headline: a plain lead over one word in script ---
@@ -846,7 +867,7 @@
       y += tailSize * 1.35;
     }
 
-    y += h * 0.012;
+    y += h * 0.012 + gap;
 
     // --- the message, on the ribbon ---
     // This is the reference's signature device and it carries the one fact
@@ -868,11 +889,12 @@
       }
       y += rh * 1.16;
       drawHeart(ctx, cx, y, h * 0.011, rgba(palette.ink, 0.6));
-      y += h * 0.032;
+      y += h * 0.032 + gap;
     }
 
     // --- the call to action, in a bordered panel ---
     var cta = String(content.cta || "");
+    var contentBottom = y, panelTop = y;
     if (cta) {
       var phone = (cta.match(/\(?\b\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/) || [])[0] || null;
       var lead = phone ? cta.split(phone)[0].replace(/[\s,–—-]+$/, "").trim() : cta;
@@ -886,7 +908,9 @@
       var panelW = maxW;
       // Bottom-anchored so the sheet is filled rather than the design
       // stacking from the top and leaving the lower third empty.
+      contentBottom = y;
       var panelY = Math.max(y, h - panelH - h * 0.075);
+      panelTop = panelY;
       drawPanel(ctx, cx - panelW / 2, panelY, panelW, panelH, palette);
 
       var inner = panelY + padY;
@@ -917,7 +941,7 @@
       }
     }
 
-    return composition;
+    return { composition: composition, contentBottom: contentBottom, panelTop: panelTop };
   }
 
 
@@ -970,10 +994,25 @@
         }
       }
       var palette = derivePalette(brand.primaryColor, brand.accentColor, sample);
-      var composition = drawPoster(ctx, {
+      var base = {
         width: width, height: height, content: opts.content, brand: brand,
         palette: palette, image: img, seed: seed
-      });
+      };
+      // Lay the poster out once against a context that measures but paints
+      // nothing, to learn how tall it naturally is. Short wording used to
+      // stack from the top and leave a band of empty sheet above the
+      // bottom-anchored contact panel; long wording ran the other way. The
+      // slack that remains is shared between the three section joints, so
+      // the design breathes to fill whatever it is given instead of the
+      // spacing being a fixed guess that only suits one length.
+      var probeCtx = R.measuringContext ? R.measuringContext(ctx) : null;
+      if (probeCtx) {
+        var dry = drawPoster(probeCtx, base);
+        var slack = dry.panelTop - dry.contentBottom;
+        if (slack > 0) base.extraGap = Math.min(slack / 3, height * 0.045);
+      }
+      var laid = drawPoster(ctx, base);
+      var composition = laid.composition;
       if (canvas.dataset) {
         canvas.dataset.florisynPosterComposition = composition;
         canvas.dataset.florisynPosterSeed = String(seed);
