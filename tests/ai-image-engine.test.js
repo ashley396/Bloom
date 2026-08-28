@@ -446,3 +446,13 @@ test("the sympathy palette never squeezes out the no-text guarantee", () => {
   assert.match(prompt, /ABSOLUTELY NO TEXT/);
   assert.ok(prompt.length <= 1200);
 });
+
+test("the sympathy prompt never contradicts itself about colour", () => {
+  // The calm-area clause used to end "keep every BRIGHT, COLORFUL bloom in the
+  // upper portion" — which, on a prompt that has just asked for restrained
+  // white and ivory, tells the model two opposite things in one breath. Found
+  // by reading the prompt the preview tool actually sends, not by a test.
+  const prompt = buildFlyerBackgroundPrompt({ occasion: "funeral work" });
+  assert.doesNotMatch(prompt, /bright, colorful/, "the sympathy prompt asks for bright colour and for restraint at once");
+  assert.match(prompt, /white, ivory and cream/);
+});

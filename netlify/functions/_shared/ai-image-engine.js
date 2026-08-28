@@ -316,7 +316,7 @@ export function buildFlyerBackgroundPrompt({ visualBrief, occasion, brandColor, 
   // point of the instruction and must never be the thing that gets cut.
   clauses.push(
     required(
-      "Critically important: the lower 55% of the frame must be a calm, uncluttered, softly out-of-focus backdrop — smooth, evenly lit, pale, with no flowers, foliage, stems, petals, vase or busy detail in it at all, so a large block of text placed there afterwards stays perfectly readable. Keep every bright, colorful bloom in the upper portion, sweeping in from the top and sides."
+      "Critically important: the lower 55% of the frame must be a calm, uncluttered, softly out-of-focus backdrop — smooth, evenly lit, pale, with no flowers, foliage, stems, petals, vase or busy detail in it at all, so a large block of text placed there afterwards stays perfectly readable. Keep every bloom in the upper portion, sweeping in from the top and sides."
     )
   );
   if (brandColor) {
