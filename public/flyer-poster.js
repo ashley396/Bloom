@@ -182,7 +182,12 @@
       ? [{ x: 0, y: 0, ax: 0, ay: 0 }, { x: w, y: h, ax: 1, ay: 1 }]
       : [{ x: w, y: 0, ax: 1, ay: 0 }, { x: 0, y: h, ax: 0, ay: 1 }];
 
-    var size = Math.round(Math.min(w, h) * (0.62 + rand() * 0.08));
+    // Corner arrangements, not a backdrop. At 0.62 of the short side the
+    // clusters reached well into the middle of the sheet, so the shop's own
+    // name landed on petals and had to be rescued with a ribbon behind it —
+    // which is not what the reference does at all. The centre column is the
+    // design; the flowers frame it.
+    var size = Math.round(Math.min(w, h) * (0.46 + rand() * 0.06));
 
     for (var i = 0; i < corners.length; i++) {
       var c = corners[i];
@@ -598,6 +603,133 @@
 
   // --- the composition ------------------------------------------------------
 
+  // --- ornament vocabulary --------------------------------------------------
+  //
+  // Drawn from Ashley's own reference poster, which is a printed-card design:
+  // a framed ground, a script/serif name lockup, small rules and hearts
+  // separating the sections, a filled ribbon carrying the one fact that
+  // matters, and a bordered panel for the phone number. These are the parts
+  // that make it read as designed rather than as words placed on a picture.
+
+  /** A small filled heart. The reference uses one as its section mark. */
+  function drawHeart(ctx, cx, cy, size, color) {
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + size * 0.55);
+    ctx.bezierCurveTo(cx - size * 1.1, cy - size * 0.2, cx - size * 0.45, cy - size * 0.95, cx, cy - size * 0.28);
+    ctx.bezierCurveTo(cx + size * 0.45, cy - size * 0.95, cx + size * 1.1, cy - size * 0.2, cx, cy + size * 0.55);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /** A rule broken by a heart — the reference's divider between sections. */
+  function drawHeartRule(ctx, cx, y, width, palette) {
+    ctx.save();
+    ctx.strokeStyle = rgba(palette.ink, 0.45);
+    ctx.lineWidth = Math.max(1, width * 0.005);
+    var gap = width * 0.09;
+    ctx.beginPath();
+    ctx.moveTo(cx - width / 2, y); ctx.lineTo(cx - gap, y);
+    ctx.moveTo(cx + gap, y); ctx.lineTo(cx + width / 2, y);
+    ctx.stroke();
+    ctx.restore();
+    drawHeart(ctx, cx, y, width * 0.028, rgba(palette.ink, 0.6));
+  }
+
+  /** A leafy sprig, mirrored by a negative `dir`. The reference flanks its
+   * date with a pair of these. */
+  function drawSprig(ctx, x, y, len, dir, color) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = Math.max(1, len * 0.03);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.quadraticCurveTo(x + dir * len * 0.5, y - len * 0.16, x + dir * len, y - len * 0.1);
+    ctx.stroke();
+    for (var i = 1; i <= 3; i++) {
+      var t = i / 4;
+      var lx = x + dir * len * t, ly = y - len * 0.13 * t;
+      ctx.beginPath();
+      ctx.ellipse(lx, ly - len * 0.11, len * 0.14, len * 0.055, dir * -0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /** Short radiating strokes around the display word, as in the reference. */
+  function drawSparkles(ctx, cx, cy, radius, color, rand) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineCap = "round";
+    for (var side = -1; side <= 1; side += 2) {
+      for (var i = 0; i < 3; i++) {
+        var a = (-0.42 + i * 0.42) + (side < 0 ? Math.PI : 0);
+        var r0 = radius * (0.98 + (rand ? rand() * 0.06 : 0));
+        var r1 = r0 + radius * 0.16;
+        ctx.lineWidth = Math.max(2, radius * 0.028);
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0 * 0.62);
+        ctx.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1 * 0.62);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  /** The tapering underline swash beneath the display word. */
+  function drawSwash(ctx, cx, y, width, color) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineCap = "round";
+    ctx.lineWidth = Math.max(2, width * 0.012);
+    ctx.beginPath();
+    ctx.moveTo(cx - width / 2, y);
+    ctx.quadraticCurveTo(cx, y + width * 0.075, cx + width / 2, y - width * 0.02);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** Corner brackets on the frame, as on a printed card. */
+  function drawCornerBrackets(ctx, w, h, inset, palette) {
+    var len = Math.min(w, h) * 0.06;
+    ctx.save();
+    ctx.strokeStyle = rgba(palette.ink, 0.5);
+    ctx.lineWidth = Math.max(1.5, Math.min(w, h) * 0.0026);
+    var corners = [[inset, inset, 1, 1], [w - inset, inset, -1, 1], [inset, h - inset, 1, -1], [w - inset, h - inset, -1, -1]];
+    for (var i = 0; i < corners.length; i++) {
+      var c = corners[i];
+      ctx.beginPath();
+      ctx.moveTo(c[0] + c[2] * len, c[1]);
+      ctx.lineTo(c[0], c[1]);
+      ctx.lineTo(c[0], c[1] + c[3] * len);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Splits a shop name for the display lockup the way the reference sets one:
+   * the first word large in script, a short connector small between rules, the
+   * rest in serif capitals. "Lilies in Bloom" becomes Lilies / IN / BLOOM.
+   *
+   * This is TYPESETTING, not rewriting — every word survives, in order. A name
+   * with no connector simply gets script + capitals, and a single-word name
+   * gets script alone. Pure.
+   */
+  var CONNECTOR_RE = /^(in|of|the|and|at|on|by|for|de|la|le|&)$/i;
+  function splitShopName(name) {
+    var words = String(name == null ? "" : name).trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return { script: "", connector: "", rest: "" };
+    if (words.length === 1) return { script: words[0], connector: "", rest: "" };
+    if (words.length >= 3 && CONNECTOR_RE.test(words[1])) {
+      return { script: words[0], connector: words[1], rest: words.slice(2).join(" ") };
+    }
+    return { script: words[0], connector: "", rest: words.slice(1).join(" ") };
+  }
+
   var COMPOSITIONS = ["atelier", "card", "banner"];
 
   /**
@@ -619,145 +751,175 @@
     var cx = w / 2;
     var margin = w * 0.11;
     var maxW = w - margin * 2;
+    var inset = Math.round(Math.min(w, h) * 0.038);
 
     var clusters = paintGroundAndFlorals(ctx, w, h, opts.image, palette, rand);
     drawBorder(ctx, w, h, palette, rand() > 0.45 ? "double" : "single");
-
-    // Snapshot the ground now, while it is only ground. Every ribbon
-    // decision below reads these pixels, so no line is ever judged against
-    // another line's ribbon.
+    drawCornerBrackets(ctx, w, h, inset, palette);
     var ground = captureGround(ctx, w, h, clusters);
 
-    var y = h * 0.145;
+    var y = h * 0.115;
 
-    // --- shop name (always drawn; the authenticated shop's own) ---
+    // --- the shop's name, set as a display lockup ---
+    // The reference's whole identity is here: the name large in script over
+    // the name in capitals, not a line of tracked-out type. Nothing is
+    // renamed — the same words in the same order, set differently.
     if (brand.shopName) {
-      var nameSize = fitLine(
-        ctx,
-        String(brand.shopName).toUpperCase(),
-        "600 %spx 'Playfair Display', Georgia, serif",
-        Math.round(h * 0.042),
-        maxW * 0.9,
-        Math.round(h * 0.02)
-      );
-      ctx.font = "600 " + nameSize + "px 'Playfair Display', Georgia, serif";
-      if ("letterSpacing" in ctx) ctx.letterSpacing = "0.18em";
-      placeLine(ctx, ground, String(brand.shopName).toUpperCase(), cx, y, nameSize, palette, palette.ink);
-      if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
-      y += nameSize * 0.75;
-      drawFlourish(ctx, cx, y, w * 0.3, palette);
-      y += h * 0.055;
-    }
-
-    // --- headline: plain lead + one script word ---
-    var parts = splitHeadline(content.headline);
-    if (parts.lead) {
-      var leadSize = fitLine(
-        ctx, parts.lead.toUpperCase(),
-        "600 %spx 'Playfair Display', Georgia, serif",
-        Math.round(h * 0.062), maxW * 0.86, Math.round(h * 0.03)
-      );
-      ctx.font = "600 " + leadSize + "px 'Playfair Display', Georgia, serif";
-      if ("letterSpacing" in ctx) ctx.letterSpacing = "0.06em";
-      placeLine(ctx, ground, parts.lead.toUpperCase(), cx, y + leadSize * 0.8, leadSize, palette, rgba(palette.ink, 0.85));
-      if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
-      y += leadSize * 1.1;
-    }
-    if (parts.script) {
-      var scriptSize = fitLine(
-        ctx, parts.script,
+      var parts = splitShopName(brand.shopName);
+      var nameScriptSize = fitLine(ctx, parts.script,
         "400 %spx 'Parisienne', 'Brush Script MT', cursive",
-        Math.round(h * 0.165), maxW, Math.round(h * 0.07)
-      );
-      ctx.font = "400 " + scriptSize + "px 'Parisienne', 'Brush Script MT', cursive";
-      placeLine(ctx, ground, parts.script, cx, y + scriptSize * 0.78, scriptSize, palette, palette.ink);
-      y += scriptSize * 0.92;
+        Math.round(h * 0.085), maxW * 0.8, Math.round(h * 0.04));
+      ctx.font = "400 " + nameScriptSize + "px 'Parisienne', 'Brush Script MT', cursive";
+      placeLine(ctx, ground, parts.script, cx, y + nameScriptSize * 0.74, nameScriptSize, palette, palette.ink);
+      y += nameScriptSize * 0.82;
+
+      if (parts.connector) {
+        var conSize = Math.max(12, Math.round(h * 0.017));
+        ctx.font = "600 " + conSize + "px 'Playfair Display', Georgia, serif";
+        if ("letterSpacing" in ctx) ctx.letterSpacing = "0.2em";
+        var conText = parts.connector.toUpperCase();
+        var conW = ctx.measureText(conText).width;
+        centreText(ctx, conText, cx, y + conSize * 0.5, rgba(palette.ink, 0.8));
+        if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+        ctx.save();
+        ctx.strokeStyle = rgba(palette.ink, 0.45);
+        ctx.lineWidth = Math.max(1, h * 0.0012);
+        ctx.beginPath();
+        ctx.moveTo(cx - conW / 2 - w * 0.055, y + conSize * 0.16);
+        ctx.lineTo(cx - conW / 2 - w * 0.012, y + conSize * 0.16);
+        ctx.moveTo(cx + conW / 2 + w * 0.012, y + conSize * 0.16);
+        ctx.lineTo(cx + conW / 2 + w * 0.055, y + conSize * 0.16);
+        ctx.stroke();
+        ctx.restore();
+        y += conSize * 1.15;
+      }
+
+      if (parts.rest) {
+        var restSize = fitLine(ctx, parts.rest.toUpperCase(),
+          "600 %spx 'Playfair Display', Georgia, serif",
+          Math.round(h * 0.052), maxW * 0.82, Math.round(h * 0.026));
+        ctx.font = "600 " + restSize + "px 'Playfair Display', Georgia, serif";
+        if ("letterSpacing" in ctx) ctx.letterSpacing = "0.07em";
+        placeLine(ctx, ground, parts.rest.toUpperCase(), cx, y + restSize * 0.85, restSize, palette, palette.ink);
+        if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+        y += restSize * 1.05;
+      }
+      y += h * 0.018;
+      drawHeartRule(ctx, cx, y, w * 0.34, palette);
+      y += h * 0.042;
     }
-    if (parts.tail) {
-      var tailSize = fitLine(
-        ctx, parts.tail.toUpperCase(),
+
+    // --- the headline: a plain lead over one word in script ---
+    var head = splitHeadline(content.headline);
+    if (head.lead) {
+      var leadSize = fitLine(ctx, head.lead.toUpperCase(),
         "600 %spx 'Playfair Display', Georgia, serif",
-        Math.round(h * 0.05), maxW * 0.8, Math.round(h * 0.026)
-      );
-      ctx.font = "600 " + tailSize + "px 'Playfair Display', Georgia, serif";
-      if ("letterSpacing" in ctx) ctx.letterSpacing = "0.08em";
-      placeLine(ctx, ground, parts.tail.toUpperCase(), cx, y + tailSize, tailSize, palette, rgba(palette.ink, 0.85));
+        Math.round(h * 0.058), maxW * 0.84, Math.round(h * 0.028));
+      ctx.font = "600 " + leadSize + "px 'Playfair Display', Georgia, serif";
+      if ("letterSpacing" in ctx) ctx.letterSpacing = "0.05em";
+      placeLine(ctx, ground, head.lead.toUpperCase(), cx, y + leadSize * 0.82, leadSize, palette, rgba(palette.ink, 0.86));
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
-      y += tailSize * 1.3;
+      y += leadSize * 1.02;
+    }
+    if (head.script) {
+      var scriptSize = fitLine(ctx, head.script,
+        "400 %spx 'Parisienne', 'Brush Script MT', cursive",
+        Math.round(h * 0.15), maxW * 0.94, Math.round(h * 0.07));
+      ctx.font = "400 " + scriptSize + "px 'Parisienne', 'Brush Script MT', cursive";
+      var scriptBase = y + scriptSize * 0.76;
+      var scriptW = ctx.measureText(head.script).width;
+      placeLine(ctx, ground, head.script, cx, scriptBase, scriptSize, palette, palette.ink);
+      drawSwash(ctx, cx, scriptBase + scriptSize * 0.14, Math.min(scriptW * 1.02, maxW), rgba(palette.ink, 0.75));
+      drawSparkles(ctx, cx, scriptBase - scriptSize * 0.28, scriptW * 0.55, rgba(palette.accent, 0.85), rand);
+      // Parisienne descends a long way below its baseline; without real
+      // clearance the next line was struck through by the tail of a "g".
+      y = scriptBase + scriptSize * 0.42;
+    }
+    if (head.tail) {
+      var tailSize = fitLine(ctx, head.tail.toUpperCase(),
+        "600 %spx 'Playfair Display', Georgia, serif",
+        Math.round(h * 0.046), maxW * 0.78, Math.round(h * 0.024));
+      ctx.font = "600 " + tailSize + "px 'Playfair Display', Georgia, serif";
+      if ("letterSpacing" in ctx) ctx.letterSpacing = "0.07em";
+      placeLine(ctx, ground, head.tail.toUpperCase(), cx, y + tailSize, tailSize, palette, rgba(palette.ink, 0.86));
+      if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+      y += tailSize * 1.35;
     }
 
-    y += h * 0.018;
+    y += h * 0.012;
 
-    // --- the message, on a ribbon when the composition calls for one ---
+    // --- the message, on the ribbon ---
+    // This is the reference's signature device and it carries the one fact
+    // that matters. It is a compositional shape on a light ground, never a
+    // wash laid over the flowers.
     var body = String(content.body || "");
     if (body) {
-      var bodySize = Math.round(h * 0.036);
-      ctx.font = "500 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
-      var lines = R.sampleAverageColor ? wrapLines(ctx, body, maxW * 0.94) : [body];
-      if (composition === "banner" && lines.length === 1) {
-        var rw = Math.min(maxW, ctx.measureText(body).width + w * 0.13);
-        var rh = bodySize * 2.1;
-        drawRibbon(ctx, cx, y + rh / 2, rw, rh, palette);
-        ctx.font = "500 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
-        centreText(ctx, body, cx, y + rh / 2 + bodySize * 0.35, palette.cream);
-        y += rh * 1.35;
-      } else {
-        for (var li = 0; li < lines.length; li++) {
-          ctx.font = "500 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
-          placeLine(ctx, ground, lines[li], cx, y + bodySize * (li + 1) * 1.32, bodySize, palette, rgba(palette.ink, 0.9));
-        }
-        y += bodySize * 1.32 * lines.length + h * 0.026;
+      var bodySize = Math.round(h * 0.034);
+      ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
+      var lines = wrapLines(ctx, body, maxW * 0.86);
+      var rh = bodySize * (1.15 * lines.length + 0.95);
+      var widest = 0;
+      for (var i = 0; i < lines.length; i++) widest = Math.max(widest, ctx.measureText(lines[i]).width);
+      var rw = Math.min(ribbonWidthLimit(w, h), widest + rh * 0.64 + w * 0.09);
+      drawRibbon(ctx, cx, y + rh / 2, rw, rh, palette);
+      for (var j = 0; j < lines.length; j++) {
+        ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
+        centreText(ctx, lines[j], cx, y + rh / 2 - (lines.length - 1) * bodySize * 0.575 + j * bodySize * 1.15 + bodySize * 0.34, palette.cream);
       }
+      y += rh * 1.16;
+      drawHeart(ctx, cx, y, h * 0.011, rgba(palette.ink, 0.6));
+      y += h * 0.032;
     }
 
-    // --- CTA, in a bordered panel ---
+    // --- the call to action, in a bordered panel ---
     var cta = String(content.cta || "");
     if (cta) {
       var phone = (cta.match(/\(?\b\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/) || [])[0] || null;
       var lead = phone ? cta.split(phone)[0].replace(/[\s,–—-]+$/, "").trim() : cta;
       var trail = phone ? cta.split(phone).slice(1).join(phone).replace(/^[\s,]+/, "").trim() : "";
 
+      var padY = h * 0.03;
+      var leadS = lead ? Math.round(h * 0.026) : 0;
+      var phoneS = phone ? Math.round(h * 0.062) : 0;
+      var trailS = trail ? Math.round(h * 0.023) : 0;
+      var panelH = padY * 2 + (leadS ? leadS * 1.5 : 0) + (phoneS ? phoneS * 1.12 : 0) + (trailS ? trailS * 1.9 : 0);
       var panelW = maxW;
-      // The panel has to contain every line it is given. Sized for the lead,
-      // the phone AND the trailing line — without the trail allowance,
-      // "TO PLACE AN ORDER." was drawn below the border it belongs inside.
-      var panelH = h * (phone ? (trail ? 0.2 : 0.155) : 0.1);
-      // Bottom-anchored so the composition fills the sheet instead of
-      // stacking from the top and leaving a quarter of the poster empty.
-      var panelY = Math.max(y, h - panelH - h * 0.1);
-      var panelDrawn = composition !== "atelier";
-      if (panelDrawn) drawPanel(ctx, cx - panelW / 2, panelY, panelW, panelH, palette);
-      // A panel is already a light card standing off the flowers; putting a
-      // ribbon inside one would be the same device twice. Only the panel-less
-      // "atelier" composition needs its contact lines protected.
-      var ctaGround = panelDrawn ? null : ground;
+      // Bottom-anchored so the sheet is filled rather than the design
+      // stacking from the top and leaving the lower third empty.
+      var panelY = Math.max(y, h - panelH - h * 0.075);
+      drawPanel(ctx, cx - panelW / 2, panelY, panelW, panelH, palette);
 
-      var inner = panelY + panelH * 0.34;
+      var inner = panelY + padY;
       if (lead) {
-        var leadS = fitLine(ctx, lead.toUpperCase(), "500 %spx 'DM Sans', 'Inter', sans-serif",
-          Math.round(h * 0.03), panelW * 0.88, Math.round(h * 0.019));
-        ctx.font = "500 " + leadS + "px 'DM Sans', 'Inter', sans-serif";
-        if ("letterSpacing" in ctx) ctx.letterSpacing = "0.06em";
-        placeLine(ctx, ctaGround, lead.toUpperCase(), cx, inner, leadS, palette, rgba(palette.ink, 0.82));
+        var leadFit = fitLine(ctx, lead.toUpperCase(), "500 %spx 'Playfair Display', Georgia, serif",
+          leadS, panelW * 0.86, Math.round(h * 0.018));
+        ctx.font = "500 " + leadFit + "px 'Playfair Display', Georgia, serif";
+        if ("letterSpacing" in ctx) ctx.letterSpacing = "0.07em";
+        centreText(ctx, lead.toUpperCase(), cx, inner + leadFit, rgba(palette.ink, 0.85));
         if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+        inner += leadFit * 1.5;
       }
       if (phone) {
-        var phoneS = fitLine(ctx, phone, "600 %spx 'Playfair Display', Georgia, serif",
-          Math.round(h * 0.072), panelW * 0.9, Math.round(h * 0.04));
-        ctx.font = "600 " + phoneS + "px 'Playfair Display', Georgia, serif";
-        placeLine(ctx, ctaGround, phone, cx, inner + phoneS * 0.98, phoneS, palette, palette.ink);
-        if (trail) {
-          var trailS = Math.round(h * 0.026);
-          ctx.font = "500 " + trailS + "px 'DM Sans', 'Inter', sans-serif";
-          if ("letterSpacing" in ctx) ctx.letterSpacing = "0.05em";
-          placeLine(ctx, ctaGround, trail.toUpperCase(), cx, inner + phoneS * 1.05 + trailS * 1.5, trailS, palette, rgba(palette.ink, 0.78));
-          if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
-        }
+        var phoneFit = fitLine(ctx, phone, "600 %spx 'Playfair Display', Georgia, serif",
+          phoneS, panelW * 0.84, Math.round(h * 0.036));
+        ctx.font = "600 " + phoneFit + "px 'Playfair Display', Georgia, serif";
+        centreText(ctx, phone, cx, inner + phoneFit * 0.9, palette.ink);
+        inner += phoneFit * 1.12;
+      }
+      if (trail) {
+        var trailFit = fitLine(ctx, trail.toUpperCase(), "500 %spx 'Playfair Display', Georgia, serif",
+          trailS, panelW * 0.86, Math.round(h * 0.016));
+        ctx.font = "500 " + trailFit + "px 'Playfair Display', Georgia, serif";
+        if ("letterSpacing" in ctx) ctx.letterSpacing = "0.06em";
+        drawHeart(ctx, cx, inner + trailFit * 0.35, h * 0.0095, rgba(palette.ink, 0.55));
+        centreText(ctx, trail.toUpperCase(), cx, inner + trailFit * 1.75, rgba(palette.ink, 0.8));
+        if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
       }
     }
 
     return composition;
   }
+
 
   /** Word-wraps against the CURRENT ctx font. Kept local because the
    * renderer's own wrapper is not exported; the algorithm is the same. */
@@ -899,6 +1061,7 @@
     seededRandom: seededRandom,
     derivePalette: derivePalette,
     splitHeadline: splitHeadline,
+    splitShopName: splitShopName,
     COMPOSITIONS: COMPOSITIONS,
     renderPoster: renderPoster
   };

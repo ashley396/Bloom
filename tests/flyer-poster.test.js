@@ -556,3 +556,66 @@ test("a faint line is judged on the colour it really paints, not full-opacity in
   assert.equal(poster.needsRibbonBehind(ground, TEXT_BAND, "#8f3f68", 0.78), true,
     "the same line drawn at 0.78 opacity is below the bar and must be protected");
 });
+
+// ---------------------------------------------------------------------------
+// The display lockup for the shop's own name.
+//
+// Ashley's reference sets the shop name as a designed lockup — the first word
+// large in script, a short connector small between rules, the rest in serif
+// capitals. That is TYPESETTING. The words themselves are the florist's own
+// and may never be reordered, dropped or changed.
+// ---------------------------------------------------------------------------
+
+test("splitShopName: sets a three-part name the way the reference does", () => {
+  const s = poster.splitShopName("Lilies in Bloom");
+  assert.equal(s.script, "Lilies");
+  assert.equal(s.connector, "in");
+  assert.equal(s.rest, "Bloom");
+});
+
+test("splitShopName: never drops, reorders or rewrites a single word", () => {
+  const names = [
+    "Lilies in Bloom", "Petal & Stem", "The Wildflower Company",
+    "Bloom", "Rose of Sharon Florist", "Anna's Flowers and Gifts",
+    "Fleurs de Lys Boutique", "Main Street Floral Design Studio"
+  ];
+  for (const name of names) {
+    const s = poster.splitShopName(name);
+    const rebuilt = [s.script, s.connector, s.rest].filter(Boolean).join(" ");
+    assert.equal(rebuilt, name, `the poster changed a shop's name: "${name}" became "${rebuilt}"`);
+  }
+});
+
+test("splitShopName: a two-word name needs no connector", () => {
+  const s = poster.splitShopName("Petal Pushers");
+  assert.equal(s.script, "Petal");
+  assert.equal(s.connector, "");
+  assert.equal(s.rest, "Pushers");
+});
+
+test("splitShopName: a one-word name still gets a display treatment", () => {
+  const s = poster.splitShopName("Bloom");
+  assert.equal(s.script, "Bloom");
+  assert.equal(s.rest, "");
+});
+
+test("splitShopName: only a real connector is set small — never a meaningful word", () => {
+  // "Rose of Sharon" must not become Rose / OF / SHARON losing the sense, but
+  // a second word carrying meaning must never be demoted to a connector.
+  assert.equal(poster.splitShopName("Petal Stem Flowers").connector, "",
+    "a meaningful second word was demoted to a connector");
+  assert.equal(poster.splitShopName("Rose of Sharon Florist").connector, "of");
+});
+
+test("splitShopName: an empty or missing name yields nothing rather than throwing", () => {
+  for (const bad of ["", "   ", null, undefined]) {
+    const s = poster.splitShopName(bad);
+    assert.equal(s.script, "");
+    assert.equal(s.rest, "");
+  }
+});
+
+test("splitShopName: a name that is only a connector is still drawn", () => {
+  const s = poster.splitShopName("The");
+  assert.equal([s.script, s.connector, s.rest].filter(Boolean).join(" "), "The");
+});

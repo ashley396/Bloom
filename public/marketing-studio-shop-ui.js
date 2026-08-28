@@ -223,15 +223,50 @@
     };
     try {
       if (!window.FlorisynFlyerRenderer) throw new Error("renderer unavailable");
-      const canvas = await window.FlorisynFlyerRenderer.renderFlyer({
-        template: { regions: c.regions, palette: c.palette },
-        content: { headline: c.headline, body: c.body, cta: c.cta },
-        style: c.style,
-        brand: c.brand || {},
-        backgroundUrl: c.background_url,
-        width: c.canvas?.width || 1080,
-        height: c.canvas?.height || 1080
-      });
+      const width = c.canvas?.width || 1080;
+      const height = c.canvas?.height || 1080;
+      const content = { headline: c.headline, body: c.body, cta: c.cta };
+
+      // The composed poster is the flyer now: a framed light ground with the
+      // photograph as corner arrangements, the shop's name set as a script and
+      // serif lockup, the message on a ribbon and the phone number in a
+      // bordered panel. Words placed over a full-bleed photo is what it
+      // replaces, and that path stays as the fallback below.
+      //
+      // The seed is the ASSET id, so the same revision always redraws to the
+      // identical design — Undo restores what was approved rather than a
+      // re-roll — while regenerating produces a genuinely different one.
+      let canvas = null;
+      const poster = window.FlorisynFlyerPoster;
+      if (poster && typeof poster.renderPoster === "function") {
+        try {
+          canvas = await poster.renderPoster({
+            width, height, content,
+            brand: c.brand || {},
+            backgroundUrl: c.background_url,
+            seedText: String(item.asset?.id || item.id || "")
+          });
+          // The whole design is its type. If the display faces did not really
+          // arrive the poster is drawn in system fallbacks and looks nothing
+          // like itself, so hand back to the renderer that does not depend on
+          // them rather than ship something that only looks broken.
+          const faces = canvas?.dataset?.florisynPosterFonts || "";
+          if (faces.indexOf("missing") !== -1) canvas = null;
+        } catch (posterError) {
+          canvas = null;
+        }
+      }
+      if (!canvas) {
+        canvas = await window.FlorisynFlyerRenderer.renderFlyer({
+          template: { regions: c.regions, palette: c.palette },
+          content,
+          style: c.style,
+          brand: c.brand || {},
+          backgroundUrl: c.background_url,
+          width,
+          height
+        });
+      }
       if (isStale()) return;
       const dataUrl = canvas.toDataURL("image/png", 0.92);
       // Requirement 6 still applies at the persistence layer, not just the
