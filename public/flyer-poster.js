@@ -167,6 +167,21 @@
    * flowers in the middle to fight with.
    */
   function paintGroundAndFlorals(ctx, w, h, img, palette, rand) {
+    // A null ctx means "consume the same randomness, draw nothing" — the
+    // measuring pass needs the seed to advance identically without paying
+    // for two full-size image composites.
+    if (!ctx) {
+      var flipDry = rand() > 0.5;
+      var sizeDry = Math.round(Math.min(w, h) * (0.46 + rand() * 0.06));
+      if (!img) return [];
+      var cornersDry = flipDry
+        ? [{ x: 0, y: 0 }, { x: w, y: h }]
+        : [{ x: w, y: 0 }, { x: 0, y: h }];
+      var r0d = 0.06, r1d = 0.92, stopD = 0.78;
+      return cornersDry.map(function (c) {
+        return { x: c.x, y: c.y, radius: sizeDry * (r0d + stopD * (r1d - r0d)) };
+      });
+    }
     ctx.save();
     var g = ctx.createLinearGradient(0, 0, 0, h);
     g.addColorStop(0, palette.groundDeep);
@@ -773,10 +788,25 @@
     var maxW = w - margin * 2;
     var inset = Math.round(Math.min(w, h) * 0.038);
 
-    var clusters = paintGroundAndFlorals(ctx, w, h, opts.image, palette, rand);
-    drawBorder(ctx, w, h, palette, rand() > 0.45 ? "double" : "single");
-    drawCornerBrackets(ctx, w, h, inset, palette);
-    var ground = captureGround(ctx, w, h, clusters);
+    // The measuring pass exists only to learn how tall the composition comes
+    // out. Painting the flowers there composites two full-size layers into
+    // real canvases whose marks are then swallowed, and capturing the ground
+    // reads back a canvas that — precisely because the marks were swallowed —
+    // is still blank, so every ribbon decision made against it is meaningless.
+    // Skipped outright: half the image work disappears, and the two passes
+    // can no longer disagree about what is underneath the wording.
+    //
+    // rand() must still be consumed identically in both passes or the seed
+    // would pick one composition while measuring and another while drawing,
+    // so the same calls are made either way.
+    var clusters = paintGroundAndFlorals(opts.measureOnly ? null : ctx, w, h, opts.image, palette, rand);
+    var borderVariant = rand() > 0.45 ? "double" : "single";
+    var ground = null;
+    if (!opts.measureOnly) {
+      drawBorder(ctx, w, h, palette, borderVariant);
+      drawCornerBrackets(ctx, w, h, inset, palette);
+      ground = captureGround(ctx, w, h, clusters);
+    }
 
     var gap = opts.extraGap || 0;
     var y = h * 0.115 + gap * 0.5;
@@ -977,7 +1007,7 @@
     var brand = opts.brand || {};
     var seed = typeof opts.seed === "number" ? opts.seed : hashSeed(opts.seedText || (opts.content && opts.content.headline) || "");
 
-    function compose(img) {
+    function compose(img, tier) {
       var sample = null;
       if (img) {
         // Sample the photo's own dominant colour so the poster matches the
@@ -1007,7 +1037,7 @@
       // spacing being a fixed guess that only suits one length.
       var probeCtx = R.measuringContext ? R.measuringContext(ctx) : null;
       if (probeCtx) {
-        var dry = drawPoster(probeCtx, base);
+        var dry = drawPoster(probeCtx, Object.assign({}, base, { measureOnly: true }));
         var slack = dry.panelTop - dry.contentBottom;
         if (slack > 0) base.extraGap = Math.min(slack / 3, height * 0.045);
       }
@@ -1016,6 +1046,7 @@
       if (canvas.dataset) {
         canvas.dataset.florisynPosterComposition = composition;
         canvas.dataset.florisynPosterSeed = String(seed);
+        canvas.dataset.florisynBackgroundTier = tier || "fallback-procedural";
         // Measured, not asked. If the display faces did not really arrive
         // the poster is drawn in fallbacks and looks nothing like itself —
         // that must be visible to callers, never silently shipped as fine.
@@ -1049,15 +1080,35 @@
       fontsReady = Promise.resolve(null);
     }
 
-    return fontsReady.then(function () {
-      if (!opts.backgroundUrl) return compose(null);
-      return new Promise(function (resolve) {
+    function load(url) {
+      return new Promise(function (resolve, reject) {
         var img = new Image();
         img.crossOrigin = "anonymous";
-        img.onload = function () { resolve(compose(img)); };
-        img.onerror = function () { resolve(compose(null)); };
-        img.src = opts.backgroundUrl;
+        img.onload = function () { resolve(img); };
+        img.onerror = function () { reject(new Error("image failed")); };
+        img.src = url;
       });
+    }
+
+    // The same tiers the flyer renderer uses, and stamped the same way.
+    // Without a fallback a failed image left the poster with no flowers at
+    // all — a framed sheet of type — and without the stamp nothing
+    // downstream could tell a generated photograph from a library one, which
+    // is the single thing a report about this must never get wrong.
+    var FALLBACK = (R && R.FALLBACK_FLORAL_BACKGROUND) || "/assets/atelier-floral-corner.jpg";
+    return fontsReady.then(function () {
+      if (!opts.backgroundUrl) {
+        return load(FALLBACK)
+          .then(function (img) { return compose(img, "fallback-library-photo"); })
+          .catch(function () { return compose(null, "fallback-procedural"); });
+      }
+      return load(opts.backgroundUrl)
+        .then(function (img) { return compose(img, "generated"); })
+        .catch(function () {
+          return load(FALLBACK)
+            .then(function (img) { return compose(img, "fallback-library-photo"); })
+            .catch(function () { return compose(null, "fallback-procedural"); });
+        });
     });
   }
 

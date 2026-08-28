@@ -1030,3 +1030,52 @@ test("a poster that throws never breaks the flyer — the old renderer still dra
   await page.waitForFunction(() => (window.__legacyCalls || []).length > 0, null, { timeout: 15000 });
   expect(await page.evaluate(() => window.__legacyCalls.length)).toBeGreaterThan(0);
 });
+
+test("browser-level: the poster is deterministic from its seed — the same revision always redraws identically, a regenerate does not", async ({ page }) => {
+  // Undo restores the exact prior durable asset. If a redraw were a re-roll,
+  // the florist would get a different design back from the one they approved.
+  await page.goto("/index.html");
+  await page.addScriptTag({ url: "/flyer-renderer.js" });
+  await page.addScriptTag({ url: "/flyer-poster.js" });
+  const out = await page.evaluate(async () => {
+    const P = window.FlorisynFlyerPoster;
+    const base = {
+      width: 1080, height: 1350,
+      content: { headline: "Closing Early Today", body: "Lilies in Bloom is closing at 2:30 today.", cta: "Call 606-506-4039 to place an order." },
+      brand: { shopName: "Lilies in Bloom", phone: "606-506-4039", primaryColor: "#7c3a58", accentColor: "#c98fae" },
+      backgroundUrl: "/assets/atelier-floral-corner.jpg"
+    };
+    const draw = async (seedText) => (await P.renderPoster({ ...base, seedText })).toDataURL("image/png");
+    const a = await draw("flyer-asset-1");
+    const b = await draw("flyer-asset-1");
+    const c = await draw("flyer-asset-2");
+    return { same: a === b, differs: a !== c, len: a.length };
+  });
+  expect(out.len).toBeGreaterThan(1000);
+  expect(out.same, "the same asset redrew to a different design — Undo would not restore what was approved").toBe(true);
+  expect(out.differs, "a regenerate produced the identical design — it would feel like nothing happened").toBe(true);
+});
+
+test("browser-level: the poster reports which tier drew its flowers — a library photo is never presented as live AI output", async ({ page }) => {
+  await page.goto("/index.html");
+  await page.addScriptTag({ url: "/flyer-renderer.js" });
+  await page.addScriptTag({ url: "/flyer-poster.js" });
+  const tiers = await page.evaluate(async () => {
+    const P = window.FlorisynFlyerPoster;
+    const base = {
+      width: 1080, height: 1350, seed: 2,
+      content: { headline: "Closing Early Today", body: "Closing at 2:30.", cta: "Call 606-506-4039 to place an order." },
+      brand: { shopName: "Lilies in Bloom", primaryColor: "#7c3a58" }
+    };
+    const tier = async (backgroundUrl) => (await P.renderPoster({ ...base, backgroundUrl })).dataset.florisynBackgroundTier;
+    return {
+      generated: await tier("/assets/atelier-floral-corner.jpg"),
+      noBackdrop: await tier(null),
+      brokenBackdrop: await tier("/assets/definitely-not-here.jpg")
+    };
+  });
+  expect(tiers.generated).toBe("generated");
+  // With no generated image the poster still gets real flowers, and says so.
+  expect(tiers.noBackdrop).toBe("fallback-library-photo");
+  expect(tiers.brokenBackdrop).toBe("fallback-library-photo");
+});
