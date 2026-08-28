@@ -26,6 +26,28 @@ import { FLYER_TEMPLATES } from "../../netlify/functions/_shared/flyer-templates
  * render/upload — the actual cross-device consistency guarantee.
  */
 
+/**
+ * Stubs the poster layer, which is what draws the flyer now. It records into
+ * window.__flyerRenderCalls — the same array the renderer stub used — so what
+ * these tests already prove, that the exact persisted wording reaches the
+ * layer that draws it, keeps being proved against the layer that really does.
+ */
+async function stubPosterLayer(page) {
+  await page.route("**/flyer-poster.js*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: `window.FlorisynFlyerPoster = { renderPoster: function (opts) {
+        window.__flyerRenderCalls = window.__flyerRenderCalls || [];
+        window.__flyerRenderCalls.push(opts);
+        var c = document.createElement("canvas"); c.width = 10; c.height = 10;
+        c.dataset.florisynPosterFonts = "script,display";
+        return Promise.resolve(c);
+      } };`
+    })
+  );
+}
+
 // A genuinely valid, loadable 1x1 PNG (not just header bytes) — routes that
 // stand in for a real storage URL need to actually decode as an image in
 // Chromium, or the browser's own <img> error event (which wireFlyerImageFallbacks
@@ -123,6 +145,7 @@ test("a flyer item, freshly loaded (requirement 8: reload persistence), renders 
       } };`
     })
   );
+  await stubPosterLayer(page);
   await mockMarketingStudioShop(page);
   await routeAsRealImage(page, FINALIZED_URL);
   // Registered AFTER mockMarketingStudioShop's own handler (tried first by
@@ -134,7 +157,11 @@ test("a flyer item, freshly loaded (requirement 8: reload persistence), renders 
     const url = new URL(route.request().url());
     if (url.searchParams.get("action") === "finalize_flyer_render") {
       finalizeCall = JSON.parse(route.request().postData() || "{}");
-      await new Promise((r) => setTimeout(r, 300));
+      // Held long enough that the in-flight state is reliably observable.
+      // At 300ms the whole window was ~240ms by the time the card was on
+      // screen, so this raced rather than testing anything. The state itself
+      // is real — traced appearing and clearing — the margin was too thin.
+      await new Promise((r) => setTimeout(r, 1500));
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -463,6 +490,7 @@ test("one message still produces one finished flyer draft when the server's safe
     },
     variants: [{ id: "variant-1", content_item_id: "item-1", platform: "facebook", caption: "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.", asset_id: "flyer-asset-1" }]
   };
+  await stubPosterLayer(page);
   await page.route("**/flyer-renderer.js*", (route) =>
     route.fulfill({
       status: 200,
@@ -888,4 +916,117 @@ test("browser-level: the shop-name lockup always fits inside the canvas — shor
   // The ordinary case must still be big: this is the shop's identity.
   const lilies = results.find((r) => r.name === "Lilies in Bloom");
   expect(lilies.fontSize * (390 / 1080)).toBeGreaterThanOrEqual(16);
+});
+
+/**
+ * The flyer is drawn by the composed poster layer.
+ *
+ * Ashley's standard, stated with her own reference in hand: the generated
+ * flyer has to BE the designed poster, not words placed over a photograph.
+ * Wiring that up is the part no unit test can see — the previous round of
+ * banner work was reviewed and found to have all its protection on the pure
+ * helpers and none on how they were joined together.
+ */
+test("the flyer is drawn by the poster layer, seeded by the asset so a revision always redraws identically", async ({ page }) => {
+  await page.route("**/flyer-poster.js*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: `window.FlorisynFlyerPoster = { renderPoster: function (opts) {
+        window.__posterCalls = window.__posterCalls || [];
+        window.__posterCalls.push(opts);
+        var c = document.createElement("canvas"); c.width = 10; c.height = 10;
+        c.dataset.florisynPosterFonts = "script,display";
+        return Promise.resolve(c);
+      } };`
+    })
+  );
+  await page.route("**/flyer-renderer.js*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: `window.FlorisynFlyerRenderer = { renderFlyer: function () {
+        window.__legacyCalled = true;
+        var c = document.createElement("canvas"); c.width = 10; c.height = 10;
+        return Promise.resolve(c);
+      } };`
+    })
+  );
+  await mockMarketingStudioShop(page);
+  await openMarketingStudioShop(page);
+  await page.waitForFunction(() => (window.__posterCalls || []).length > 0, null, { timeout: 15000 });
+
+  const calls = await page.evaluate(() => window.__posterCalls);
+  const legacy = await page.evaluate(() => window.__legacyCalled || false);
+  expect(legacy, "the old text-over-photo renderer must not draw when the poster succeeds").toBe(false);
+
+  const opts = calls[0];
+  // The exact persisted wording reaches the poster, unaltered.
+  expect(opts.content.headline).toBe(FLYER_ITEM.asset.content.headline);
+  expect(opts.content.body).toBe(FLYER_ITEM.asset.content.body);
+  expect(opts.content.cta).toBe(FLYER_ITEM.asset.content.cta);
+  // Seeded by the asset, so the same revision always redraws to the same
+  // design — Undo restores what was approved rather than a fresh roll.
+  expect(opts.seedText).toBe(FLYER_ITEM.asset.id);
+  expect(opts.backgroundUrl).toBe(FLYER_ITEM.asset.content.background_url);
+});
+
+test("a poster drawn in fallback faces is never shipped — it hands back to the renderer that does not need them", async ({ page }) => {
+  // The design IS its type. A poster set in a system serif looks broken, and
+  // document.fonts.check() reports a face as present whenever a matching rule
+  // exists, so the only honest signal is the measured one the poster stamps.
+  await page.route("**/flyer-poster.js*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: `window.FlorisynFlyerPoster = { renderPoster: function () {
+        var c = document.createElement("canvas"); c.width = 10; c.height = 10;
+        c.dataset.florisynPosterFonts = "script-missing,display-missing";
+        return Promise.resolve(c);
+      } };`
+    })
+  );
+  await page.route("**/flyer-renderer.js*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: `window.FlorisynFlyerRenderer = { renderFlyer: function (opts) {
+        window.__legacyCalls = window.__legacyCalls || [];
+        window.__legacyCalls.push(opts);
+        var c = document.createElement("canvas"); c.width = 10; c.height = 10;
+        return Promise.resolve(c);
+      } };`
+    })
+  );
+  await mockMarketingStudioShop(page);
+  await openMarketingStudioShop(page);
+  await page.waitForFunction(() => (window.__legacyCalls || []).length > 0, null, { timeout: 15000 });
+  const opts = await page.evaluate(() => window.__legacyCalls[0]);
+  expect(opts.content.headline).toBe(FLYER_ITEM.asset.content.headline);
+});
+
+test("a poster that throws never breaks the flyer — the old renderer still draws it", async ({ page }) => {
+  await page.route("**/flyer-poster.js*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: `window.FlorisynFlyerPoster = { renderPoster: function () { throw new Error("poster exploded"); } };`
+    })
+  );
+  await page.route("**/flyer-renderer.js*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: `window.FlorisynFlyerRenderer = { renderFlyer: function () {
+        window.__legacyCalls = window.__legacyCalls || [];
+        window.__legacyCalls.push(1);
+        var c = document.createElement("canvas"); c.width = 10; c.height = 10;
+        return Promise.resolve(c);
+      } };`
+    })
+  );
+  await mockMarketingStudioShop(page);
+  await openMarketingStudioShop(page);
+  await page.waitForFunction(() => (window.__legacyCalls || []).length > 0, null, { timeout: 15000 });
+  expect(await page.evaluate(() => window.__legacyCalls.length)).toBeGreaterThan(0);
 });
