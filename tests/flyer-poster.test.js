@@ -17,10 +17,14 @@ function loadPoster() {
   vm.runInNewContext(fs.readFileSync(path.join(root, "public/flyer-renderer.js"), "utf8"), sandbox);
   sandbox.module = { exports: {} };
   vm.runInNewContext(fs.readFileSync(path.join(root, "public/flyer-poster.js"), "utf8"), sandbox);
+  // The renderer's own exports too: the poster borrows its helpers, and some
+  // behaviour (a florist's colour revision) is only meaningful across both.
+  loadPoster.renderer = sandbox.FlorisynFlyerRenderer;
   return sandbox.module.exports;
 }
 
 const poster = loadPoster();
+const renderer = loadPoster.renderer;
 
 // ---------------------------------------------------------------------------
 // Determinism. "Different every time" must come from a different SEED, never
@@ -618,4 +622,196 @@ test("splitShopName: an empty or missing name yields nothing rather than throwin
 test("splitShopName: a name that is only a connector is still drawn", () => {
   const s = poster.splitShopName("The");
   assert.equal([s.script, s.connector, s.rest].filter(Boolean).join(" "), "The");
+});
+
+// ---------------------------------------------------------------------------
+// The composition itself.
+//
+// A review found that thirteen of fourteen mutations to the DRAWING survived
+// the whole suite — the words could be reordered, a body line dropped, the
+// ribbon filled the same colour as its own text, the phone number left out
+// entirely, the panel anchored off the sheet, and every test still passed.
+// Every one of them targeted an exported helper; nothing rendered a poster.
+// These drive the real drawPoster through a recording context.
+// ---------------------------------------------------------------------------
+
+/** A 2D context that records what would be painted instead of painting it.
+ * Metrics are proportional rather than real, which is enough to catch words
+ * leaving the sheet, words going missing, and text drawn in its own
+ * background colour. */
+function recordingContext(width, height) {
+  const texts = [], fills = [];
+  let font = "16px serif", fillStyle = null;
+  const sizeOf = () => { const m = /([0-9.]+)px/.exec(font); return m ? parseFloat(m[1]) : 16; };
+  const ctx = {
+    texts, fills, canvas: { width, height },
+    save() {}, restore() {}, beginPath() {}, closePath() {},
+    moveTo() {}, lineTo() {}, rect() {}, ellipse() {}, arc() {},
+    quadraticCurveTo() {}, bezierCurveTo() {},
+    fill() { fills.push(fillStyle); }, stroke() {},
+    fillRect() {}, strokeRect() {}, clearRect() {}, drawImage() {},
+    createLinearGradient() { return { addColorStop() {} }; },
+    createRadialGradient() { return { addColorStop() {} }; },
+    getImageData() { return { width: 1, height: 1, data: new Uint8ClampedArray(4) }; },
+    measureText(t) {
+      const s = sizeOf();
+      return { width: String(t).length * s * 0.52, actualBoundingBoxAscent: s * 0.72, actualBoundingBoxDescent: s * 0.22 };
+    },
+    fillText(t, x, y) {
+      const s = sizeOf();
+      texts.push({ text: String(t), x, y, width: String(t).length * s * 0.52, size: s, color: fillStyle });
+    }
+  };
+  Object.defineProperty(ctx, "font", { get: () => font, set: (v) => { font = v; } });
+  Object.defineProperty(ctx, "letterSpacing", { get: () => "0px", set: () => {} });
+  Object.defineProperty(ctx, "fillStyle", { get: () => fillStyle, set: (v) => { fillStyle = v; } });
+  for (const k of ["strokeStyle", "lineWidth", "globalAlpha", "textAlign", "textBaseline", "lineCap", "shadowColor", "shadowBlur", "shadowOffsetX", "shadowOffsetY", "globalCompositeOperation"]) {
+    Object.defineProperty(ctx, k, { get: () => null, set: () => {} });
+  }
+  return ctx;
+}
+
+function drawFixture(over = {}) {
+  const width = over.width || 1080, height = over.height || 1350;
+  const brand = Object.assign({ shopName: "Lilies in Bloom", phone: "606-506-4039", primaryColor: "#7c3a58", accentColor: "#c98fae" }, over.brand);
+  const content = Object.assign({
+    headline: "Closing Early Today",
+    body: "Lilies in Bloom is closing at 2:30 today.",
+    cta: "Call 606-506-4039 to place an order."
+  }, over.content);
+  const ctx = recordingContext(width, height);
+  const palette = poster.derivePalette(brand.primaryColor, brand.accentColor, null);
+  poster.drawPoster(ctx, { width, height, content, brand, palette, image: null, seed: over.seed || 2 });
+  return { ctx, width, height, brand, content, palette };
+}
+
+const wordsOf = (ctx) => ctx.texts.map((t) => t.text).join(" ").toLowerCase().replace(/[^a-z0-9:& ]/g, " ").split(/\s+/).filter(Boolean);
+
+test("composition: every word of the headline, message and call to action is drawn", () => {
+  const { ctx, content, brand } = drawFixture();
+  const drawn = wordsOf(ctx);
+  const expected = `${brand.shopName} ${content.headline} ${content.body} ${content.cta}`
+    .toLowerCase().replace(/[^a-z0-9:& ]/g, " ").split(/\s+/).filter(Boolean);
+  for (const word of expected) {
+    assert.ok(drawn.includes(word), `the poster never drew "${word}" — a florist's own wording went missing`);
+  }
+});
+
+test("composition: the shop's phone number always reaches the flyer", () => {
+  const { ctx } = drawFixture();
+  assert.ok(ctx.texts.some((t) => t.text.includes("606-506-4039")), "no way for a customer to reach the shop");
+});
+
+test("composition: a call to action with no number still carries the shop's own", () => {
+  // Dropping this was a silent regression when the poster took over drawing:
+  // the old renderer adds the shop's own number when the CTA has none.
+  const { ctx } = drawFixture({ content: { cta: "Order online any time." } });
+  assert.ok(ctx.texts.some((t) => /606[-.\s]?506[-.\s]?4039/.test(t.text)),
+    "a flyer went out with no phone number anywhere on it");
+});
+
+test("composition: a call to action naming a number twice keeps the florist's own wording", () => {
+  // Deduplicating would be REWRITING what the florist wrote, which is never
+  // allowed. What matters is that the number is never mangled: both mentions
+  // survive intact and neither is split across lines of the lockup.
+  const cta = "Call 555-123-4567 today, or text 555-123-4567 any time.";
+  const { ctx } = drawFixture({ content: { cta } });
+  const joined = ctx.texts.map((t) => t.text).join(" ");
+  const intact = (joined.match(/555-123-4567/g) || []).length;
+  assert.equal(intact, 2, "the florist wrote the number twice and both must survive, unaltered");
+  assert.ok(!/555-123$|-4567\b(?!.*555-123-4567)/.test(joined.replace(/555-123-4567/g, "")),
+    "a fragment of the number was left stranded");
+});
+
+test("composition: a 1-555 number is never split, so the number read is the number given", () => {
+  const { ctx } = drawFixture({ content: { cta: "Call 1-555-123-4567 today." } });
+  assert.ok(ctx.texts.some((t) => t.text.replace(/\s/g, "").includes("1-555-123-4567")),
+    "the leading 1 was orphaned onto another line — the number shown is not the number supplied");
+});
+
+test("composition: nothing is ever drawn outside the sheet, at any size or length", () => {
+  const cases = [
+    { width: 1080, height: 1080 },
+    { width: 1080, height: 1350 },
+    { width: 1080, height: 1920 },
+    { width: 1200, height: 628 },
+    { content: { body: "Lilies in Bloom is closing at 2:30 today for a family event. We are very sorry for the short notice and hope to see you again tomorrow morning." } },
+    { content: { body: "Email orders@averyveryverylongdomainnameindeedforflowers.example.com before noon." } },
+    { brand: { shopName: "Sunnyside Blossoms, Gifts, Balloons & Special Occasion Florals of Greater Cincinnati" } },
+    { brand: { shopName: "A" } },
+    { content: { headline: "New Extended Holiday Opening Hours This Week" } }
+  ];
+  for (const over of cases) {
+    const { ctx, width, height } = drawFixture(over);
+    for (const t of ctx.texts) {
+      const label = JSON.stringify(over).slice(0, 70);
+      assert.ok(t.y <= height + 0.5 && t.y >= 0, `"${t.text.slice(0, 30)}" drawn at y=${Math.round(t.y)} on a ${width}x${height} sheet — off the flyer (${label})`);
+      assert.ok(t.x - t.width / 2 >= -0.5 && t.x + t.width / 2 <= width + 0.5,
+        `"${t.text.slice(0, 30)}" runs off the side on a ${width}x${height} sheet (${label})`);
+    }
+  }
+});
+
+test("composition: the ribbon's wording is never drawn in the ribbon's own colour", () => {
+  const { ctx, palette } = drawFixture();
+  const onRibbon = ctx.texts.filter((t) => t.color === palette.cream);
+  assert.ok(onRibbon.length > 0, "nothing was drawn on the ribbon at all");
+  for (const t of onRibbon) {
+    assert.notEqual(t.color, palette.ink, `"${t.text}" is invisible on its own ribbon`);
+  }
+});
+
+test("composition: the message is drawn in full, not just its first line", () => {
+  const long = "Lilies in Bloom is closing at 2:30 today for a family event and will reopen at nine tomorrow.";
+  const { ctx } = drawFixture({ content: { body: long } });
+  const drawn = wordsOf(ctx);
+  for (const word of ["reopen", "tomorrow", "nine"]) {
+    assert.ok(drawn.includes(word), `the tail of the message was dropped — "${word}" never drawn`);
+  }
+});
+
+test("composition: the shop's name is set as given, never lowercased or reordered", () => {
+  const { ctx } = drawFixture({ brand: { shopName: "Lilies in Bloom" } });
+  const joined = ctx.texts.map((t) => t.text).join(" ");
+  assert.ok(/Lilies/.test(joined), "the script part of the name is missing or was case-folded");
+  assert.ok(/BLOOM/.test(joined), "the capitalised part of the name is missing");
+  assert.ok(joined.indexOf("Lilies") < joined.indexOf("BLOOM"), "the name was drawn out of order");
+});
+
+test("a florist's colour revision changes the palette the poster is built from", () => {
+  // "use more cream" persists a paletteExclude delta and mints a new asset.
+  // Before this was wired through, the flyer did change — new seed, new
+  // corners — but never in the direction the florist actually asked for.
+  const brand = { primaryColor: "#7c3a58", accentColor: "#c98fae" };
+  const plain = renderer.effectivePaletteColors(brand, {});
+  const excluded = renderer.effectivePaletteColors(brand, { paletteExclude: ["pink"] });
+  const included = renderer.effectivePaletteColors(brand, { paletteInclude: ["navy"] });
+  assert.notEqual(excluded.primary, plain.primary, "'use more cream' left the colours untouched");
+  assert.notEqual(included.primary, plain.primary, "'make it navy' left the colours untouched");
+  // And the poster's own palette genuinely follows that resolution.
+  assert.notEqual(
+    poster.derivePalette(excluded.primary, excluded.accent, null).ink,
+    poster.derivePalette(plain.primary, plain.accent, null).ink,
+    "the revision reached the colour resolver but not the poster's ink"
+  );
+});
+
+test("composition: the message is drawn in the florist's own word ORDER, not just with the right words", () => {
+  // Checking only that every word appears lets the order be scrambled — a
+  // reversed message still contains all its words and reads as nonsense.
+  const body = "Lilies in Bloom is closing at two thirty today for a family event";
+  const { ctx } = drawFixture({ content: { body } });
+  // The ribbon's lines, in the order they were drawn, must rebuild the body.
+  const drawn = ctx.texts.map((t) => t.text).join(" ").replace(/\s+/g, " ");
+  assert.ok(drawn.includes(body) || body.split(" ").every((w, i, arr) => {
+    if (i === 0) return true;
+    return drawn.indexOf(arr[i - 1]) <= drawn.indexOf(w);
+  }), `the message was drawn out of order:\n  wanted: ${body}\n  drawn:  ${drawn}`);
+});
+
+test("composition: the headline is drawn in order too", () => {
+  const { ctx } = drawFixture({ content: { headline: "Opening Late Tomorrow" } });
+  const joined = ctx.texts.map((t) => t.text).join(" ");
+  assert.ok(joined.indexOf("Opening") < joined.indexOf("LATE"), "the headline was reordered");
+  assert.ok(joined.indexOf("LATE") < joined.indexOf("TOMORROW"), "the headline was reordered");
 });

@@ -1,4 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Parisienne&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap');
+/* These three families are served from Florisyn itself — see
+   florisyn-poster-fonts.css. The Google import that used to live here
+   still fired on every page load and, being later in the cascade, its
+   @font-face rules won for the weights it declared — so the shipped
+   files were dead weight and the dependency was never actually
+   removed. Every page that loads this stylesheet now loads those. */
 
 :root{--login-ink:#2f2930;--login-green:#496527;--login-pink:#e94b7b;--login-blush:#fff3f6;--login-cream:#fffdf9}
 .auth-shell,.signup-shell{font-family:'DM Sans',sans-serif}

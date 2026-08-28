@@ -60,8 +60,19 @@
 
   function clamp255(n) { return Math.max(0, Math.min(255, Math.round(n))); }
 
+  /** Parses the colour forms a shop record can actually hold. A hex-only
+   * slice turned "rebeccapurple" into a cyan with no error at all, which
+   * would have been that florist's entire poster palette. Pure. */
   function hexToRgb(hex) {
-    var h = String(hex || "#8f3f68").replace("#", "");
+    if (R && R.parseColor) {
+      var c = R.parseColor(hex);
+      // parseColor reports unparseable input as black; fall back to the
+      // product default rather than painting a shop's poster in black.
+      if (c.r || c.g || c.b) return { r: c.r, g: c.g, b: c.b };
+      if (/^#?(000|000000)$/i.test(String(hex || "").trim())) return { r: 0, g: 0, b: 0 };
+      return { r: 0x7c, g: 0x3a, b: 0x58 };
+    }
+    var h = String(hex || "#7c3a58").replace("#", "");
     if (h.length === 3) h = h.split("").map(function (c) { return c + c; }).join("");
     return {
       r: parseInt(h.substring(0, 2), 16) || 0,
@@ -119,8 +130,10 @@
    * decides and nothing is invented. Pure.
    */
   function derivePalette(brandPrimary, brandAccent, sample) {
-    var brand = hexToRgb(brandPrimary || "#8f3f68");
-    var accent = hexToRgb(brandAccent || "#6f8f72");
+    // The same defaults the renderer uses, so a shop with no brand colour
+    // does not get a different flyer depending on which layer drew it.
+    var brand = hexToRgb(brandPrimary || "#7c3a58");
+    var accent = hexToRgb(brandAccent || "#c98fae");
 
     // Pull the brand colour toward the flowers, but never so far that the
     // shop stops looking like itself.
@@ -469,8 +482,9 @@
         // Every luminance costs three Math.pow calls, and this runs for every
         // line of every poster on the florist's phone. Stop as soon as the
         // verdict is settled either way.
-        if (busy >= need) return busy / seen;
-        if (busy + (cells - seen) < need) return busy / cells;
+        // One denominator, or the score depends on which cells were scanned
+        // first — the same fault already fixed in the renderer's copy.
+        if (busy >= need || busy + (cells - seen) < need) return busy / cells;
       }
     }
     return busy / cells;
@@ -586,12 +600,27 @@
 
   /** Shrinks a single line until it fits `maxWidth`, honouring a floor.
    * Mirrors the renderer's own fit discipline rather than inventing another. */
+  /**
+   * Shrinks a line until it fits. The floor used to win outright, so a very
+   * long shop name simply ran off both edges of the sheet — measured at
+   * 1297px on a 1080px canvas. Nothing here clips, so overflow is not a near
+   * miss: the words are cut off by the edge of the flyer.
+   *
+   * A florist's own shop name is not something to drop, so below the floor
+   * the size gives way to fitting rather than letting a word leave the page.
+   */
   function fitLine(ctx, text, font, size, maxWidth, minSize) {
     var s = size;
     for (var i = 0; i < 24; i++) {
       ctx.font = font.replace("%s", s);
       if (ctx.measureText(text).width <= maxWidth || s <= minSize) break;
       s = Math.floor(s * 0.94);
+    }
+    ctx.font = font.replace("%s", s);
+    var w = ctx.measureText(text).width;
+    if (w > maxWidth && w > 0) {
+      s = Math.max(6, Math.floor(s * (maxWidth / w)));
+      ctx.font = font.replace("%s", s);
     }
     return s;
   }
@@ -800,7 +829,12 @@
     // would pick one composition while measuring and another while drawing,
     // so the same calls are made either way.
     var clusters = paintGroundAndFlorals(opts.measureOnly ? null : ctx, w, h, opts.image, palette, rand);
-    var borderVariant = rand() > 0.45 ? "double" : "single";
+    // The composition now decides what actually differs. It used to be
+    // stamped onto the canvas and returned while every branch drew the
+    // identical poster — the dataset advertised a variation that did not
+    // exist, and "generates differently every time" was not true.
+    var borderVariant = composition === "card" ? "single" : "double";
+    rand();
     var ground = null;
     if (!opts.measureOnly) {
       drawBorder(ctx, w, h, palette, borderVariant);
@@ -856,7 +890,9 @@
         y += restSize * 1.05;
       }
       y += h * 0.018;
-      drawHeartRule(ctx, cx, y, w * 0.34, palette);
+      // A printed card is ruled with a diamond; the other two take the heart.
+      if (composition === "card") drawFlourish(ctx, cx, y, w * 0.34, palette);
+      else drawHeartRule(ctx, cx, y, w * 0.34, palette);
       y += h * 0.042 + gap;
     }
 
@@ -906,12 +942,27 @@
     var body = String(content.body || "");
     if (body) {
       var bodySize = Math.round(h * 0.034);
+      // Shrink until the wrapped block fits the ribbon's own column, so an
+      // unbreakable run — an email address, a URL — cannot push past the
+      // ribbon and off the sheet. wrapLines cannot break inside a word.
+      var lines;
+      for (var attempt = 0; attempt < 8; attempt++) {
+        ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
+        lines = wrapLines(ctx, body, maxW * 0.86);
+        var over = 0;
+        for (var wi = 0; wi < lines.length; wi++) over = Math.max(over, ctx.measureText(lines[wi]).width);
+        if (over <= maxW * 0.86 || bodySize <= h * 0.016) break;
+        bodySize = Math.floor(bodySize * 0.9);
+      }
       ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
-      var lines = wrapLines(ctx, body, maxW * 0.86);
       var rh = bodySize * (1.15 * lines.length + 0.95);
       var widest = 0;
       for (var i = 0; i < lines.length; i++) widest = Math.max(widest, ctx.measureText(lines[i]).width);
-      var rw = Math.min(ribbonWidthLimit(w, h), widest + rh * 0.64 + w * 0.09);
+      // The limit caps the ribbon BODY; the tails are drawn outside it, so
+      // an ordinary two-line message pushed them past the border rules and
+      // 3px past the outer frame. Budget for them here.
+      var tailAllowance = Math.min(rh * 0.4, w * 0.045) * 2;
+      var rw = Math.min(ribbonWidthLimit(w, h) - tailAllowance, widest + rh * 0.64 + w * 0.09);
       drawRibbon(ctx, cx, y + rh / 2, rw, rh, palette);
       for (var j = 0; j < lines.length; j++) {
         ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
@@ -919,6 +970,12 @@
       }
       y += rh * 1.16;
       drawHeart(ctx, cx, y, h * 0.011, rgba(palette.ink, 0.6));
+      // The reference flanks its date with a pair of leafy sprigs; the
+      // banner composition is the one that takes them.
+      if (composition === "banner") {
+        drawSprig(ctx, cx - w * 0.055, y + h * 0.004, w * 0.05, -1, rgba(palette.ink, 0.45));
+        drawSprig(ctx, cx + w * 0.055, y + h * 0.004, w * 0.05, 1, rgba(palette.ink, 0.45));
+      }
       y += h * 0.032 + gap;
     }
 
@@ -926,9 +983,20 @@
     var cta = String(content.cta || "");
     var contentBottom = y, panelTop = y;
     if (cta) {
-      var phone = (cta.match(/\(?\b\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/) || [])[0] || null;
-      var lead = phone ? cta.split(phone)[0].replace(/[\s,–—-]+$/, "").trim() : cta;
-      var trail = phone ? cta.split(phone).slice(1).join(phone).replace(/^[\s,]+/, "").trim() : "";
+      // Split on the FIRST occurrence only. Splitting on every one meant a
+      // call-to-action naming the number twice printed it twice, and a
+      // "1-555-..." prefix left the leading 1 orphaned onto the label line —
+      // so the number a customer read was not the number supplied.
+      var m = cta.match(/\+?1?[-.\s]?\(?\b\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/);
+      var phone = m ? m[0].trim() : null;
+      var lead = phone ? cta.slice(0, m.index).replace(/[\s,–—-]+$/, "").trim() : cta;
+      var trail = phone ? cta.slice(m.index + m[0].length).replace(/^[\s,]+/, "").trim() : "";
+      // A call-to-action with no number at all must not leave the flyer with
+      // no way to reach the shop. The renderer already decides this; reuse it
+      // rather than inventing a second rule.
+      if (!phone && brand.phone) {
+        phone = (R && R.formatPhoneForDisplay) ? R.formatPhoneForDisplay(brand.phone) : String(brand.phone);
+      }
 
       var padY = h * 0.03;
       var leadS = lead ? Math.round(h * 0.026) : 0;
@@ -939,7 +1007,14 @@
       // Bottom-anchored so the sheet is filled rather than the design
       // stacking from the top and leaving the lower third empty.
       contentBottom = y;
+      // Bottom-anchored so the sheet fills — but never past the bottom of
+      // it. Without the clamp, ordinary two-sentence copy pushed the trailing
+      // line of the call to action clean off the canvas: drawn at y=1412 on a
+      // 1350-tall sheet, taking the shop's phone number with it. A florist
+      // would have posted a flyer with no way to reach them on it.
       var panelY = Math.max(y, h - panelH - h * 0.075);
+      var lowest = h - panelH - h * 0.02;
+      if (panelY > lowest) panelY = Math.max(h * 0.02, lowest);
       panelTop = panelY;
       drawPanel(ctx, cx - panelW / 2, panelY, panelW, panelH, palette);
 
@@ -1023,7 +1098,14 @@
           sample = null;
         }
       }
-      var palette = derivePalette(brand.primaryColor, brand.accentColor, sample);
+      // An explicit colour revision from the florist ("less pink", "use more
+      // cream") is their own instruction about this flyer and outranks the
+      // shop's stored brand colour. effectivePaletteColors is the renderer's
+      // own resolution of that, reused rather than reimplemented.
+      var colors = (R && R.effectivePaletteColors)
+        ? R.effectivePaletteColors(brand, opts.style)
+        : { primary: brand.primaryColor, accent: brand.accentColor };
+      var palette = derivePalette(colors.primary, colors.accent, sample);
       var base = {
         width: width, height: height, content: opts.content, brand: brand,
         palette: palette, image: img, seed: seed
@@ -1039,7 +1121,11 @@
       if (probeCtx) {
         var dry = drawPoster(probeCtx, Object.assign({}, base, { measureOnly: true }));
         var slack = dry.panelTop - dry.contentBottom;
-        if (slack > 0) base.extraGap = Math.min(slack / 3, height * 0.045);
+        // The gap is applied at three joints plus a half share at the top —
+        // three and a half times in total — so dividing by three overshot the
+        // measured anchor by slack/6 and quietly ate the bottom margin on
+        // every short-copy poster.
+        if (slack > 0) base.extraGap = Math.min(slack / 3.5, height * 0.045);
       }
       var laid = drawPoster(ctx, base);
       var composition = laid.composition;
@@ -1050,9 +1136,13 @@
         // Measured, not asked. If the display faces did not really arrive
         // the poster is drawn in fallbacks and looks nothing like itself —
         // that must be visible to callers, never silently shipped as fine.
+        // DM Sans carries the ribbon's message — the one line a customer has
+        // to read — and was never checked at all, so a missing body face was
+        // shipped silently while the stamp claimed everything had arrived.
         canvas.dataset.florisynPosterFonts = [
           fontReallyLoaded("Parisienne", "400", 120) ? "script" : "script-missing",
-          fontReallyLoaded("Playfair Display", "600", 64) ? "display" : "display-missing"
+          fontReallyLoaded("Playfair Display", "600", 64) ? "display" : "display-missing",
+          fontReallyLoaded("DM Sans", "600", 40) ? "body" : "body-missing"
         ].join(",");
       }
       return canvas;
@@ -1064,10 +1154,16 @@
     // to a system serif with no error whatsoever — which is exactly how the
     // first poster came out set in the wrong faces. Each face must be
     // explicitly loaded, at a real size, before anything is drawn.
+    // Every weight the composition actually draws. These were out of step
+    // with it — DM Sans was requested at 500 and drawn at 600, Playfair
+    // requested at 600 and also drawn at 500 — and a request for one weight
+    // does not fetch another, so those lines could land in a fallback face on
+    // the first draw with nothing reporting it.
     var REQUIRED_FACES = [
       "400 120px 'Parisienne'",
+      "500 40px 'Playfair Display'",
       "600 64px 'Playfair Display'",
-      "500 40px 'DM Sans'"
+      "600 40px 'DM Sans'"
     ];
     var fontsReady;
     if (global.document && document.fonts && document.fonts.load) {
@@ -1137,6 +1233,7 @@
   }
 
   var api = {
+    drawPoster: drawPoster,
     fontReallyLoaded: fontReallyLoaded,
     contrastRatio: contrastRatio,
     ribbonBand: ribbonBand,

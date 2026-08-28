@@ -243,6 +243,11 @@
           canvas = await poster.renderPoster({
             width, height, content,
             brand: c.brand || {},
+            // The florist's own revisions. Dropping these was a silent
+            // regression: "less pink", "use more cream", "make the headline
+            // bigger" all persist a style delta and mint a new asset id, so
+            // the flyer visibly changed — just never in the direction asked.
+            style: c.style,
             backgroundUrl: c.background_url,
             seedText: String(item.asset?.id || item.id || "")
           });
