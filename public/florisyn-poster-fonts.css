@@ -1,0 +1,45 @@
+/*
+ * The three display faces the poster layer is built on, served from Florisyn
+ * itself rather than fetched from Google.
+ *
+ * Why self-hosted: a canvas cannot trigger a webfont download, and
+ * document.fonts.check() reports a face as loaded whenever a matching
+ * @font-face RULE exists — even when the file never arrived. So a blocked or
+ * slow Google Fonts request produced a poster silently set in a system serif,
+ * with no error anywhere and nothing in the product able to tell. Shipping the
+ * files removes the third-party dependency from the one thing the design is
+ * entirely made of.
+ *
+ * All three are SIL Open Font License 1.1, which permits redistribution:
+ *   Parisienne        (c) Astigmatic
+ *   Playfair Display  (c) Claus Eggers Sorensen
+ *   DM Sans           (c) Colophon Foundry, Jonny Pinhorn, Indian Type Foundry
+ *
+ * These are the latin-subset variable files, so one file per family covers
+ * every weight the poster asks for.
+ *
+ * font-display: block, not swap. A swap would let the canvas draw in the
+ * fallback and then never redraw — the poster would be permanently wrong with
+ * the correct font sitting loaded in the page.
+ */
+@font-face {
+  font-family: 'Parisienne';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/assets/fonts/parisienne.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: block;
+  src: url('/assets/fonts/playfair-display.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 100 1000;
+  font-display: block;
+  src: url('/assets/fonts/dm-sans.woff2') format('woff2');
+}
