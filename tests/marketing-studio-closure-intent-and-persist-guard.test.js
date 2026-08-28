@@ -15,6 +15,7 @@ import {
   detectWeakMarketingCopy,
   findHollowSentences,
   detectSympathyProductHeadline,
+  detectSympathyProductOpening,
   detectFabricatedContactNumbers,
   extractShopNameFromRequestText,
   factsPreserved
@@ -1484,4 +1485,96 @@ test("the wording rules the model is given actually carry this instruction", () 
   for (const phrase of ["SYMPATHY HEADLINES ARE NOT PRODUCT LABELS", "SYMPATHY OPENINGS ARE NOT PRODUCT LABELS", "With Sympathy", "In Loving Memory"]) {
     assert.ok(engine.includes(phrase), `the model is never told: ${phrase}`);
   }
+});
+
+test("a caption that opens by advertising stock is caught too", () => {
+  // The same fault as the headline, written out as a sentence — and the
+  // caption is the part that actually gets posted to Facebook. Each of these
+  // is specific, invents nothing, uses no stock phrase, and passed every other
+  // check in this file.
+  for (const copy of [
+    "We have funeral flowers available. White lilies and cream roses, made up as a casket spray. Call 606-506-4039.",
+    "Funeral flowers are now available at Lilies in Bloom. Standing sprays and casket flowers, made here. Call 606-506-4039.",
+    "We offer a variety of sympathy arrangements. Wreaths, sprays and posies. Call 606-506-4039.",
+    "Sympathy flowers in stock. White lilies and cream roses. Call 606-506-4039."
+  ]) {
+    assert.ok(detectSympathyProductOpening("post to generate more funeral work", copy),
+      `not caught: "${copy}"`);
+    assert.ok(detectWeakMarketingCopy("funeral work", copy, { shopName: "Lilies in Bloom", shopPhone: "606-506-4039" })
+      .some((r) => /opens by advertising stock/i.test(r)), `never reached the retry: "${copy}"`);
+  }
+});
+
+test("an opening that speaks to the family, or to the shop's own history, is left alone", () => {
+  for (const copy of [
+    "When a family comes to us after a loss we sit down and listen first. Standing sprays and casket flowers, made here in the shop. Call 606-506-4039.",
+    // "we have" alone is not a supply notice.
+    "We have been making funeral flowers for thirty years. White lilies and cream roses. Call 606-506-4039.",
+    "With sympathy from all of us. Standing sprays and casket flowers, delivered to the funeral home. Call 606-506-4039.",
+    "We know the first few days are the hardest. White lilies, made up as a casket spray. Call 606-506-4039."
+  ]) {
+    assert.deepEqual(detectWeakMarketingCopy("funeral work", copy, { shopName: "Lilies in Bloom", shopPhone: "606-506-4039" }), [],
+      `wrongly flagged: "${copy}"`);
+  }
+});
+
+test("an opening that leads with the person may still name what is in stock", () => {
+  // Same allowance as the headline: leading with the person is the whole
+  // point, and mentioning stock after that is ordinary, useful writing.
+  assert.equal(
+    detectSympathyProductOpening("funeral work", "With sympathy from all of us — funeral flowers available today. Call 606-506-4039."),
+    null
+  );
+  assert.equal(
+    detectSympathyProductOpening("funeral work", "In loving memory: we offer standing sprays and casket flowers. Call 606-506-4039."),
+    null
+  );
+});
+
+test("one fault stays one fault however the flyer text was assembled", () => {
+  // The strip only fires when the copy literally begins with the headline. A
+  // flyer whose headline is stored differently from the way it is concatenated
+  // — uppercased, re-spaced — would otherwise have the headline judged twice,
+  // once as a headline and once as the opening, and the retry would be told it
+  // made two mistakes when it made one.
+  const reasons = detectWeakMarketingCopy(
+    "funeral work",
+    "FUNERAL FLOWERS AVAILABLE. Standing sprays and casket flowers, made here. Call 606-506-4039.",
+    { headline: "Funeral Flowers Available", shopName: "Lilies in Bloom", shopPhone: "606-506-4039" }
+  );
+  const supply = reasons.filter((r) => /product label, not a sympathy headline|opens by advertising stock/i.test(r));
+  assert.equal(supply.length, 1, JSON.stringify(reasons));
+});
+
+test("an ordinary occasion may open by advertising stock like any shop", () => {
+  for (const copy of [
+    "Red roses are now available for Valentine's Day. Twelve hand-tied is $65.00. Call 606-506-4039.",
+    "We offer a variety of Mother's Day baskets. Peonies and stock. Call 606-506-4039."
+  ]) {
+    assert.equal(detectSympathyProductOpening("valentines day", copy), null, `wrongly flagged: "${copy}"`);
+  }
+});
+
+test("one fault is never reported twice in different words", () => {
+  // On a flyer the concatenated text begins with the headline, so the headline
+  // check and the opening check would both fire on the same fault and the
+  // retry would read it as two separate problems.
+  const reasons = detectWeakMarketingCopy(
+    "funeral work",
+    "Funeral Flowers Available. Standing sprays and casket flowers, made here. Call 606-506-4039.",
+    { headline: "Funeral Flowers Available", shopName: "Lilies in Bloom", shopPhone: "606-506-4039" }
+  );
+  const supply = reasons.filter((r) => /product label, not a sympathy headline|opens by advertising stock/i.test(r));
+  assert.equal(supply.length, 1, JSON.stringify(reasons));
+});
+
+test("a flyer whose HEADLINE is right but whose message opens with stock is still caught", () => {
+  // The headline is stripped before the opening is judged, so the message's
+  // own first sentence is what gets read — not the headline a second time.
+  const reasons = detectWeakMarketingCopy(
+    "funeral work",
+    "With Sympathy We offer a variety of funeral flowers. Call 606-506-4039.",
+    { headline: "With Sympathy", shopName: "Lilies in Bloom", shopPhone: "606-506-4039" }
+  );
+  assert.ok(reasons.some((r) => /opens by advertising stock/i.test(r)), JSON.stringify(reasons));
 });

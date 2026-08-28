@@ -889,6 +889,51 @@ export function detectSympathyProductHeadline(requestText, headline, copyText) {
 }
 
 /**
+ * A supply notice in sentence form, which is how the same fault reaches a
+ * caption. "Funeral Flowers Available" is a headline; "We offer a variety of
+ * funeral flowers" is the identical thought written out, and the caption is
+ * the part that actually gets posted to Facebook.
+ *
+ * Deliberately narrower than the headline test. A bare "we have" is not a
+ * supply notice — "We have been making funeral flowers for thirty years" is a
+ * perfectly good opening — so only the stocking sense counts.
+ */
+const SUPPLY_OPENING_RE = new RegExp(
+  [
+    "\\b(?:now\\s+)?available\\b",
+    "\\bin\\s+stock\\b",
+    "\\bfor\\s+sale\\b",
+    "\\bwe\\s+(?:offer|stock|sell|carry|provide)\\b",
+    "\\bwe\\s+have\\s+(?:a\\s+)?(?:variety|range|selection|lots?|plenty)\\b",
+    "\\bwe\\s+have\\s+\\w+\\s+(?:flowers?|arrangements?|sprays?|tributes?|pieces?)\\b"
+  ].join("|"),
+  "i"
+);
+
+/**
+ * Why this copy's OPENING is wrong for sympathy work, or null when it is fine.
+ *
+ * The first sentence of a caption does the same job the headline does on a
+ * flyer: it is what a grieving family reads before deciding whether to keep
+ * reading. Ashley's point about "Funeral Flowers" applies to it word for word,
+ * and the guards missed it in exactly the same way — a caption opening "We
+ * offer a variety of sympathy arrangements" is specific, invents nothing, uses
+ * no stock phrase, and passed every check in this file.
+ *
+ * Pure. Never shop-specific.
+ */
+export function detectSympathyProductOpening(requestText, copyText) {
+  const copy = String(copyText || "").trim();
+  if (!copy) return null;
+  const context = String(`${requestText || ""} ${copy}`).replace(/\bwake\s+up\b/gi, " ");
+  if (!BEREAVEMENT_CONTEXT_RE.test(context)) return null;
+  const opening = sentencesOf(copy)[0] || "";
+  if (!opening || SYMPATHY_ADDRESS_RE.test(opening)) return null;
+  if (!SUPPLY_OPENING_RE.test(opening)) return null;
+  return `"${opening}" opens by advertising stock. The first line is what a grieving family reads before deciding whether to keep reading — open with what the shop will do for them, or what families actually ask for, and name what is in stock after that.`;
+}
+
+/**
  * Why a piece of finished post copy is not publishable as written — tone and
  * emptiness, not facts. Returns an array of plain reasons, empty when the copy
  * reads fine, so a caller can put them straight back to the model.
@@ -943,6 +988,20 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
   // the florist never wrote.
   const headlineFault = detectSympathyProductHeadline(requestText, options.headline, copy);
   if (headlineFault) reasons.push(headlineFault);
+
+  // The same fault written out as a sentence, which is how it reaches a
+  // caption. Only when the headline check has not already said it — on a flyer
+  // the concatenated text begins with the headline, so both would fire on one
+  // fault and the retry would read it as two.
+  if (!headlineFault) {
+    // On a flyer the headline is the first thing in `copy`; strip it so the
+    // opening judged here is the message's own first sentence, not the
+    // headline a second time.
+    const head = String(options.headline || "").trim();
+    const withoutHeadline = head && copy.startsWith(head) ? copy.slice(head.length).replace(/^[\s.—-]+/, "") : copy;
+    const openingFault = detectSympathyProductOpening(requestText, withoutHeadline);
+    if (openingFault) reasons.push(openingFault);
+  }
 
   const filler = FILLER_PHRASES.filter((re) => re.test(copy));
   if (filler.length >= 2) {
