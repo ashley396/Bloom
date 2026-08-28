@@ -2,29 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import vm from "node:vm";
+import { loadPoster, recordingContext, offSheet } from "./helpers/poster-recording-context.mjs";
 
 const root = process.cwd();
 
-/**
- * The poster layer borrows the renderer's own pure helpers rather than
- * carrying a second copy of them, so both files are loaded into one sandbox
- * exactly the way the browser loads them — renderer first, poster second.
- */
-function loadPoster() {
-  const sandbox = { module: { exports: {} }, globalThis: {}, document: undefined };
-  sandbox.window = sandbox;
-  vm.runInNewContext(fs.readFileSync(path.join(root, "public/flyer-renderer.js"), "utf8"), sandbox);
-  sandbox.module = { exports: {} };
-  vm.runInNewContext(fs.readFileSync(path.join(root, "public/flyer-poster.js"), "utf8"), sandbox);
-  // The renderer's own exports too: the poster borrows its helpers, and some
-  // behaviour (a florist's colour revision) is only meaningful across both.
-  loadPoster.renderer = sandbox.FlorisynFlyerRenderer;
-  return sandbox.module.exports;
-}
-
-const poster = loadPoster();
-const renderer = loadPoster.renderer;
+const { poster, renderer } = loadPoster(root);
 
 // ---------------------------------------------------------------------------
 // Determinism. "Different every time" must come from a different SEED, never
@@ -639,52 +621,6 @@ test("splitShopName: a name that is only a connector is still drawn", () => {
  * Metrics are proportional rather than real, which is enough to catch words
  * leaving the sheet, words going missing, and text drawn in its own
  * background colour. */
-function recordingContext(width, height) {
-  const texts = [], fills = [];
-  // Every point any path passes through, and every cubic curve drawn. The
-  // context recorded only fillText, so a decoration was invisible to the
-  // tests: the sparkle flourish ran clean off the right edge of the sheet and
-  // nothing here could see it. drawHeart is the only thing in the poster that
-  // uses bezierCurveTo, which is what makes hearts countable.
-  const points = [], beziers = [];
-  const at = (x, y) => { points.push({ x, y }); };
-  let font = "16px serif", fillStyle = null, textAlign = "center";
-  const sizeOf = () => { const m = /([0-9.]+)px/.exec(font); return m ? parseFloat(m[1]) : 16; };
-  const ctx = {
-    texts, fills, points, beziers, canvas: { width, height },
-    save() {}, restore() {}, beginPath() {}, closePath() {},
-    moveTo: at, lineTo: at, rect() {}, ellipse: at, arc: at,
-    quadraticCurveTo(cx1, cy1, x, y) { at(x, y); },
-    bezierCurveTo(c1x, c1y, c2x, c2y, x, y) { beziers.push({ x, y }); at(x, y); },
-    fill() { fills.push(fillStyle); }, stroke() {},
-    fillRect() {}, strokeRect() {}, clearRect() {}, drawImage() {},
-    createLinearGradient() { return { addColorStop() {} }; },
-    createRadialGradient() { return { addColorStop() {} }; },
-    getImageData() { return { width: 1, height: 1, data: new Uint8ClampedArray(4) }; },
-    measureText(t) {
-      const s = sizeOf();
-      return { width: String(t).length * s * 0.52, actualBoundingBoxAscent: s * 0.72, actualBoundingBoxDescent: s * 0.22 };
-    },
-    fillText(t, x, y) {
-      const s = sizeOf();
-      const width = String(t).length * s * 0.52;
-      // Bounds depend on the alignment in force. Treating a left-aligned draw
-      // as centred reports it half its width away from where it really is —
-      // which both hid a real overflow and invented false ones.
-      const left = textAlign === "left" ? x : (textAlign === "right" ? x - width : x - width / 2);
-      texts.push({ text: String(t), x, y, width, size: s, color: fillStyle, left, right: left + width });
-    }
-  };
-  Object.defineProperty(ctx, "font", { get: () => font, set: (v) => { font = v; } });
-  Object.defineProperty(ctx, "letterSpacing", { get: () => "0px", set: () => {} });
-  Object.defineProperty(ctx, "fillStyle", { get: () => fillStyle, set: (v) => { fillStyle = v; } });
-  Object.defineProperty(ctx, "textAlign", { get: () => textAlign, set: (v) => { textAlign = v; } });
-  for (const k of ["strokeStyle", "lineWidth", "globalAlpha", "textBaseline", "lineCap", "shadowColor", "shadowBlur", "shadowOffsetX", "shadowOffsetY", "globalCompositeOperation"]) {
-    Object.defineProperty(ctx, k, { get: () => null, set: () => {} });
-  }
-  return ctx;
-}
-
 function drawFixture(over = {}) {
   const width = over.width || 1080, height = over.height || 1350;
   const brand = Object.assign({ shopName: "Lilies in Bloom", phone: "606-506-4039", primaryColor: "#7c3a58", accentColor: "#c98fae" }, over.brand);
@@ -933,14 +869,9 @@ test("nothing the poster draws — type or ornament — leaves the sheet", () =>
       "Remembrance", "Valentine's Day", "Congratulations", "Thanksgiving Weekend"
     ]) {
       const { ctx, width, height } = laidOut({ seed, content: { headline } });
-      for (const p of ctx.points) {
-        assert.ok(p.x >= -1 && p.x <= width + 1 && p.y >= -1 && p.y <= height + 1,
-          `${composition} / "${headline}": something is drawn at (${Math.round(p.x)}, ${Math.round(p.y)}) on a ${width}x${height} sheet`);
-      }
-      for (const t of ctx.texts) {
-        assert.ok(t.left >= -1 && t.right <= width + 1,
-          `${composition} / "${headline}": "${t.text}" runs from ${Math.round(t.left)} to ${Math.round(t.right)} on a ${width}-wide sheet`);
-      }
+      const escaped = offSheet(ctx, width, height);
+      assert.deepEqual(escaped, [],
+        `${composition} / "${headline}" on ${width}x${height}: ${JSON.stringify(escaped.slice(0, 3))}`);
     }
   }
 });
@@ -985,12 +916,21 @@ test("suppressing an ornament never changes which design the seed picks", () => 
   // Undo depends on it. drawSparkles consumes rand(); if anything downstream
   // consumed it too, skipping the sparkles would silently pick a different
   // composition for the same asset.
+  //
+  // The two contents below must be genuinely DIFFERENT wording — one sympathy,
+  // one not — or this compares a poster to itself and proves nothing. An
+  // earlier version of this test did exactly that: both literals were
+  // identical, and a deliberate mutation making sympathy content pick another
+  // composition passed it.
   const sympathy = { headline: "Funeral Flowers", body: "Standing sprays and casket flowers.", cta: "Call 606-506-4039" };
-  const ordinary = { headline: "Funeral Flowers", body: "Standing sprays and casket flowers.", cta: "Call 606-506-4039" };
+  const ordinary = { headline: "Spring Flowers", body: "Standing sprays and bright bouquets.", cta: "Call 606-506-4039" };
+  assert.ok(poster.isSympathyContent(sympathy) && !poster.isSympathyContent(ordinary),
+    "this test is worthless unless the two contents differ in exactly the way it is testing");
   for (let seed = 1; seed <= 40; seed++) {
     const a = laidOut({ seed, content: sympathy }).laid;
-    const b = laidOut({ seed, content: ordinary, brand: { shopName: "Lilies in Bloom" } }).laid;
-    assert.equal(a.composition, b.composition, `seed ${seed} picked a different composition`);
+    const b = laidOut({ seed, content: ordinary }).laid;
+    assert.equal(a.composition, b.composition,
+      `seed ${seed} picked ${a.composition} for sympathy wording and ${b.composition} for ordinary wording — the design is no longer a function of the seed alone`);
     // And the same seed twice is byte-identical in what it lays out.
     const again = laidOut({ seed, content: sympathy }).laid;
     assert.deepEqual(again, a, `seed ${seed} did not redraw identically`);
@@ -1073,7 +1013,13 @@ test("a sweep of real shapes: nothing leaves the sheet, on any canvas the produc
   // 4 calls to action x 4 shop names) is what found the last two faults —
   // the ribbon running off the foot of a poster with no call to action, and
   // the section mark under it landing 2px past the bottom edge.
-  const sizes = [[1080, 1350], [1080, 1080], [1200, 628], [1080, 1920]];
+  // The five sizes the product actually generates — ASPECT_RATIOS in
+  // netlify/functions/_shared/flyer-templates.js. An earlier version of this
+  // sweep ran 1080x1350 (the review page's size, which the product never
+  // generates) and 1200x628 (a typo for 630), and omitted the printable flyer
+  // and the email banner entirely — so the shapes most likely to break were
+  // the ones never checked.
+  const sizes = [[1080, 1080], [1080, 1920], [1200, 630], [1275, 1650], [1200, 400]];
   // "Chrysanthemums Today" earns its place: on a 1080x1920 Story sheet with no
   // call to action, its lockup leaves the ribbon filling the sheet to the foot,
   // and the section mark under it landed at y=1922.
@@ -1095,21 +1041,15 @@ test("a sweep of real shapes: nothing leaves the sheet, on any canvas the produc
               const { ctx, laid } = laidOut({ width, height, seed, content: { headline, body, cta }, brand: { shopName } });
               checked++;
               const where = `${width}x${height} ${laid.composition} seed=${seed} "${headline}" cta="${cta}" shop="${shopName}"`;
-              for (const p of ctx.points) {
-                assert.ok(p.x >= -1 && p.x <= width + 1 && p.y >= -1 && p.y <= height + 1,
-                  `${where}: drawn at (${Math.round(p.x)}, ${Math.round(p.y)})`);
-              }
-              for (const t of ctx.texts) {
-                assert.ok(t.left >= -1 && t.right <= width + 1 && t.y <= height + 1,
-                  `${where}: "${t.text}" runs ${Math.round(t.left)}–${Math.round(t.right)} at y=${Math.round(t.y)}`);
-              }
+              const escaped = offSheet(ctx, width, height);
+              assert.deepEqual(escaped, [], `${where}: ${JSON.stringify(escaped.slice(0, 3))}`);
             }
           }
         }
       }
     }
   }
-  assert.equal(checked, 4 * 8 * 4 * 3 * 2 * 2, "the sweep did not run what it claims to");
+  assert.equal(checked, 5 * 8 * 4 * 3 * 2 * 2, "the sweep did not run what it claims to");
 });
 
 test("the message on the ribbon is never shrunk below what a phone can read", () => {
@@ -1143,7 +1083,7 @@ test("the contact panel never prints across the poster's own frame", () => {
     "We are closed all day Monday and reopen on Tuesday at nine, and every order already placed will still go out on time as promised."
   ];
   let framed = 0;
-  for (const [width, height] of [[1080, 1350], [1080, 1080], [1080, 1920]]) {
+  for (const [width, height] of [[1080, 1080], [1080, 1920], [1275, 1650]]) {
     for (let seed = 1; seed <= 12; seed++) {
       for (const body of bodies) {
         const { laid } = laidOut({ width, height, seed, content: { body } });
@@ -1160,4 +1100,115 @@ test("the contact panel never prints across the poster's own frame", () => {
     }
   }
   assert.ok(framed > 20, `only ${framed} framed posters were actually checked`);
+});
+
+// ---------------------------------------------------------------------------
+// A second pass, after an independent review challenged the first. Every fault
+// below is one the first round of fixes either created or failed to see.
+// ---------------------------------------------------------------------------
+
+test("a poster with no call to action still reports its overflow", () => {
+  // The caller's ONLY overflow signal is contentBottom > panelTop. With no CTA
+  // there is no panel, and both were initialised to the same value — so the
+  // signal was identically false and the ribbon could hang off the foot of a
+  // Story sheet with nothing anywhere watching. This is the exact hole the
+  // ribbon clamp fix opened: the old behaviour hid the overrun by sliding the
+  // ribbon up over the headline; the new one leaves it hanging.
+  const body = "Standing sprays, casket flowers and small arrangements for the service, made here in the shop by hand each and every morning of the week, with same-day delivery available to every funeral home in the county.";
+  let checkedNoCta = 0;
+  for (let seed = 1; seed <= 12; seed++) {
+    const { ctx, laid, width, height } = laidOut({ width: 1080, height: 1920, seed, content: { body, cta: "" } });
+    checkedNoCta++;
+    assert.ok(laid.panelTop > laid.headBottom,
+      `seed ${seed}: with no call to action the content floor must still be the limit, not the content's own bottom`);
+    assert.deepEqual(offSheet(ctx, width, height), [],
+      `seed ${seed}: a poster with no call to action put something off the sheet`);
+  }
+  assert.ok(checkedNoCta >= 12);
+});
+
+test("the editorial message is fitted by its own height, not the ribbon's", () => {
+  // The editorial composition sets the message plainly rather than on a
+  // ribbon, at a different line height and with no ribbon padding — so fitting
+  // it by the ribbon's height fitted the wrong number. On a Story sheet its
+  // last line was drawn at y=1962 on a canvas 1920 tall: the florist's own
+  // last word, below the bottom edge.
+  // The exact combination the sweep found — 1 of 43,200, and none of the
+  // obvious ones. It needs all four at once: a Story sheet, the editorial
+  // composition, no call to action (so the message runs to the floor) and a
+  // shop name long enough to push the lockup down.
+  const body = "Standing sprays, casket flowers and small arrangements for the service, made here in the shop by hand each and every morning of the week, with same-day delivery available to every funeral home in the county.";
+  const found = laidOut({
+    width: 1080, height: 1920, seed: 1,
+    content: { headline: "Closing Early Today", body, cta: "" },
+    brand: { shopName: "The Very Long Flower Shop Name Company Limited" }
+  });
+  assert.equal(found.laid.composition, "editorial", "the pinned case no longer reaches the editorial composition");
+  assert.deepEqual(offSheet(found.ctx, 1080, 1920), [],
+    JSON.stringify(offSheet(found.ctx, 1080, 1920).slice(0, 2)));
+  assert.ok(found.ctx.texts.some((t) => /county/i.test(t.text)), "the message's last line was dropped entirely");
+
+  const seeds = seedForComposition();
+  for (const cta of ["", "Call 606-506-4039 to place an order."]) {
+    const { ctx, laid, width, height } = laidOut({ width: 1080, height: 1920, seed: seeds.editorial, content: { body, cta } });
+    assert.equal(laid.composition, "editorial");
+    assert.deepEqual(offSheet(ctx, width, height), [], `cta="${cta}": ${JSON.stringify(offSheet(ctx, width, height).slice(0, 2))}`);
+  }
+});
+
+test("the editorial call to action's trailing line is fitted like every other line", () => {
+  // It alone was set at a fixed fraction of the bar's height and drawn, with no
+  // fitLine — so a longer call to action ran off BOTH edges of the sheet.
+  const seeds = seedForComposition();
+  const cta = "Call 606-506-4039 to place an order today and we will have it ready for you within the hour.";
+  const { ctx, laid, width, height } = laidOut({ seed: seeds.editorial, content: { cta } });
+  assert.equal(laid.composition, "editorial");
+  assert.deepEqual(offSheet(ctx, width, height), [], JSON.stringify(offSheet(ctx, width, height).slice(0, 2)));
+  assert.ok(ctx.texts.some((t) => /WITHIN THE HOUR/i.test(t.text)), "the florist's own trailing words were dropped");
+});
+
+test("a landscape banner is handed back to the renderer, never drawn as a poster", async () => {
+  // The poster is a printed-card design and needs a portrait-to-square sheet.
+  // A 1200x400 email banner drove the message to 9px and a 1200x630 Facebook
+  // post to 14px — at feed size that is texture, not type. Both are reachable:
+  // pickAspectRatio returns them for a request mentioning email or a feed post.
+  const { ASPECT_RATIOS } = await import("../netlify/functions/_shared/flyer-templates.js");
+  const served = [], refused = [];
+  for (const [name, { width, height }] of Object.entries(ASPECT_RATIOS)) {
+    (poster.posterSuitsCanvas(width, height) ? served : refused).push(name);
+  }
+  assert.deepEqual(served.sort(), ["flyer", "square", "story"]);
+  assert.deepEqual(refused.sort(), ["email_banner", "facebook_post"]);
+});
+
+test("the message on a served canvas is never set below its own floor", () => {
+  // The floor is a limit on how far the fit may shrink, and it has to hold on
+  // every canvas the poster actually serves — not only the review size. It was
+  // a fraction of the HEIGHT, which came to 9.6px on a short sheet, and it was
+  // never applied to the width fit at all.
+  const body = "Standing sprays, casket flowers and small arrangements for the service, made here in the shop by hand each morning.";
+  for (const [width, height] of [[1080, 1080], [1080, 1920], [1275, 1650]]) {
+    for (let seed = 1; seed <= 12; seed++) {
+      const { ctx, laid } = laidOut({ width, height, seed, content: { body } });
+      if (!laid.ribbon) continue;
+      for (const t of ctx.texts) {
+        if (t.y <= laid.ribbon.y || t.y >= laid.ribbon.y + laid.ribbon.h) continue;
+        assert.ok(t.size >= 12,
+          `${width}x${height} ${laid.composition} seed=${seed}: the message is set at ${Math.round(t.size)}px — below the absolute minimum`);
+      }
+    }
+  }
+});
+
+test("a shop named for a single bereavement word keeps the restrained ornament", () => {
+  // The strip is a whole-name replace. A shop called simply "Wake" or
+  // "Memorial" cannot have that word removed from its posters without removing
+  // it from its genuine funeral flyers too — and of the two ways to be wrong,
+  // hearts and sparkles in front of a grieving family is far the worse. Such a
+  // shop gets the plainer ornament on everything.
+  assert.ok(poster.isSympathyContent({ body: "Standing sprays for the wake on Tuesday." }, "Wake"),
+    "a single-word name stripped the word out of a real sympathy flyer");
+  assert.ok(poster.isSympathyContent({ body: "Memorial pieces made to order." }, "Memorial"));
+  // Multi-word names stay unambiguous and are still stripped.
+  assert.ok(!poster.isSympathyContent({ body: "Memorial Gardens Florist has roses in." }, "Memorial Gardens Florist"));
 });

@@ -198,11 +198,33 @@
    * beside the type. A florist regenerating gets a different DESIGN, not the
    * same design with a different squiggle. Pure.
    */
-  // The smallest the message on the ribbon may ever be set, as a fraction of
-  // the sheet's height — about 32px on a 1080x1350 poster, which is still
-  // comfortably readable in a phone-sized feed. The one line a customer has to
-  // read is not the place to win back space.
+  // How far the message on the ribbon may be shrunk to make it fit. The one
+  // line a customer has to read is not the place to win back space.
+  //
+  // Three things have to be true at once, and getting any of them wrong makes
+  // this a floor in name only:
+  //
+  //  - Related to the sheet's LONGER side, not its height. Taken from the
+  //    height alone it came to 9.6px on a 1200x400 email banner, which is not
+  //    a floor, it is a rounding error.
+  //  - Never ABOVE the size the message would naturally be set at. On that
+  //    same email banner the natural size is 14px, so a 29px "floor" cannot be
+  //    honoured by shrinking — there is nothing to shrink from. The floor is
+  //    a limit on how far down the fit may go, never an instruction to go up.
+  //  - Scaled by the caller's typeScale, so when the poster as a whole is
+  //    shrunk to fit, the message shrinks in proportion with it rather than
+  //    standing at full size inside a design that has gone small around it.
+  //
+  // Below the floor the right answer is not a smaller message: it is a smaller
+  // POSTER, which the caller's fit pass does — and it can only do that if the
+  // overrun is still reported to it. So the fit stops here and lets it show.
   var RIBBON_BODY_FLOOR = 0.024;
+  var RIBBON_BODY_ABSOLUTE_MIN = 12;
+
+  function ribbonBodyFloor(w, h, ts, naturalSize) {
+    var relative = RIBBON_BODY_FLOOR * Math.max(w, h) * (ts || 1);
+    return Math.max(RIBBON_BODY_ABSOLUTE_MIN, Math.ceil(Math.min(naturalSize, relative)));
+  }
 
   function layoutFor(composition, w, h, textSide) {
     if (composition === "editorial") {
@@ -760,8 +782,27 @@
    *
    * A florist's own shop name is not something to drop, so below the floor
    * the size gives way to fitting rather than letting a word leave the page.
+   *
+   * `tracking` is the letter-spacing the line will be DRAWN with, and it has
+   * to be applied here or the fit is measuring a different line from the one
+   * that reaches the flyer. Every capitalised line on this poster is tracked
+   * out by 0.05-0.2em and every one of them was fitted with tracking off, so
+   * each was measured 5-20% narrower than it is drawn — the same class of
+   * fault as fitting a name at weight 600 and drawing it at 700. It showed up
+   * in a real browser as the editorial call to action sitting on top of its
+   * own bar's rounded ends.
    */
-  function fitLine(ctx, text, font, size, maxWidth, minSize) {
+  function fitLine(ctx, text, font, size, maxWidth, minSize, tracking) {
+    var hadTracking = ("letterSpacing" in ctx) ? ctx.letterSpacing : null;
+    if (tracking && "letterSpacing" in ctx) ctx.letterSpacing = tracking;
+    try {
+      return fitLineAt(ctx, text, font, size, maxWidth, minSize);
+    } finally {
+      if (hadTracking !== null) ctx.letterSpacing = hadTracking;
+    }
+  }
+
+  function fitLineAt(ctx, text, font, size, maxWidth, minSize) {
     var s = size;
     for (var i = 0; i < 24; i++) {
       ctx.font = font.replace("%s", s);
@@ -869,7 +910,17 @@
     content = content || {};
     var text = [content.headline, content.body, content.cta].filter(Boolean).join(" ");
     var name = String(shopName || "").trim();
-    if (name) text = text.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), " ");
+    // Only a multi-word name is stripped. A shop called simply "Wake" or
+    // "Memorial" cannot have that word removed from its posters without
+    // removing it from its genuine funeral flyers too — and of the two ways to
+    // be wrong, hearts and sparkles on a real sympathy piece is far the worse.
+    // Such a shop gets the restrained ornament on everything, which is a
+    // plainer poster; the alternative is a pink heart in front of a grieving
+    // family. Multi-word names ("Memorial Gardens Florist") are unambiguous
+    // and are stripped.
+    if (name && /\s/.test(name)) {
+      text = text.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), " ");
+    }
     return SYMPATHY_RE.test(text);
   }
 
@@ -1156,7 +1207,7 @@
       if (parts.rest) {
         var restSize = fitLine(ctx, parts.rest.toUpperCase(),
           "600 %spx 'Playfair Display', Georgia, serif",
-          Math.round(h * 0.052 * ts), maxW * 0.82, Math.round(h * 0.026 * ts));
+          Math.round(h * 0.052 * ts), maxW * 0.82, Math.round(h * 0.026 * ts), "0.07em");
         ctx.font = "600 " + restSize + "px 'Playfair Display', Georgia, serif";
         if ("letterSpacing" in ctx) ctx.letterSpacing = "0.07em";
         placeLine(ctx, L.kind === "editorial" ? null : ground, parts.rest.toUpperCase(), cx, y + restSize * 0.85, restSize, palette, palette.ink);
@@ -1176,7 +1227,7 @@
     if (head.lead) {
       var leadSize = fitLine(ctx, head.lead.toUpperCase(),
         "600 %spx 'Playfair Display', Georgia, serif",
-        Math.round(h * 0.058 * ts), maxW * 0.84, Math.round(h * 0.028 * ts));
+        Math.round(h * 0.058 * ts), maxW * 0.84, Math.round(h * 0.028 * ts), "0.05em");
       ctx.font = "600 " + leadSize + "px 'Playfair Display', Georgia, serif";
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0.05em";
       placeLine(ctx, L.kind === "editorial" ? null : ground, head.lead.toUpperCase(), cx, y + leadSize * 0.82, leadSize, palette, rgba(palette.ink, 0.86));
@@ -1217,7 +1268,7 @@
     if (head.tail) {
       var tailSize = fitLine(ctx, head.tail.toUpperCase(),
         "600 %spx 'Playfair Display', Georgia, serif",
-        Math.round(h * 0.046 * ts), maxW * 0.78, Math.round(h * 0.024 * ts));
+        Math.round(h * 0.046 * ts), maxW * 0.78, Math.round(h * 0.024 * ts), "0.07em");
       ctx.font = "600 " + tailSize + "px 'Playfair Display', Georgia, serif";
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0.07em";
       placeLine(ctx, L.kind === "editorial" ? null : ground, head.tail.toUpperCase(), cx, y + tailSize, tailSize, palette, rgba(palette.ink, 0.86));
@@ -1273,6 +1324,7 @@
     var bodyWidth = null;
     if (body) {
       var bodySize = Math.round(h * 0.034 * ts);
+      var bodyFloor = ribbonBodyFloor(w, h, ts, bodySize);
       // How wide the message may run. The 0.86 inset is the room the ribbon's
       // notched ends and padding need — but the editorial composition draws no
       // ribbon at all, so there it was simply throwing away a seventh of its
@@ -1290,12 +1342,18 @@
         var over = 0;
         for (var wi = 0; wi < lines.length; wi++) over = Math.max(over, ctx.measureText(lines[wi]).width);
         if (over <= bodyW) break;
-        if (bodySize <= h * 0.016) {
-          // Below the comfortable floor, scale straight to the width. An
-          // unbreakable run — an email address, a URL — is otherwise wider
-          // than the column at any size the floor allows, and the floor
-          // winning means the words are cut off by the edge of the sheet.
-          // Small and readable beats large and missing.
+        if (bodySize <= bodyFloor) {
+          // Below the comfortable floor, scale straight to the width — and
+          // here, unlike the height fit below, the floor does NOT win.
+          //
+          // An unbreakable run (a long email address, a URL) is wider than the
+          // column at any size the floor allows, and wrapLines cannot break
+          // inside a word. Holding the floor here does not make it readable,
+          // it makes it run off the edge of the sheet with its end cut away —
+          // 1,881 of 48,000 swept combinations did exactly that when the floor
+          // was applied to this loop. A small address is at least a correct
+          // address. The floor belongs to ordinary copy, which the height fit
+          // governs; it cannot govern a word that does not fit at all.
           bodySize = Math.max(8, Math.floor(bodySize * ((bodyW) / over)));
           ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
           lines = wrapLines(ctx, body, bodyW);
@@ -1309,16 +1367,25 @@
       // survivable while the ribbon could be slid up the sheet to make room —
       // but sliding it up is what printed it over the headline, so the height
       // has to be fitted properly instead.
-      var rh, widest, rw;
+      var rh, widest, rw, blockH;
       var room = contentFloor - headBottom;
       for (var hAttempt = 0; hAttempt < 10; hAttempt++) {
         ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
         lines = wrapLines(ctx, body, bodyW);
         rh = bodySize * (1.15 * lines.length + 0.95);
+        // How tall the message ACTUALLY comes out. The editorial composition
+        // sets it plainly rather than on a ribbon, at a different line height
+        // and with no ribbon padding, so fitting it by the ribbon's height was
+        // fitting the wrong number: on a Story sheet its last line was drawn
+        // at y=1962 on a canvas 1920 tall, with the florist's own last word
+        // ("county.") below the bottom edge.
+        blockH = L.kind === "editorial"
+          ? bodySize * 1.34 * lines.length + h * 0.02
+          : rh;
         widest = 0;
         for (var i = 0; i < lines.length; i++) widest = Math.max(widest, ctx.measureText(lines[i]).width);
         rw = Math.min(maxW, widest + rh * 0.64 + w * 0.09);
-        if (rh <= room || bodySize <= RIBBON_BODY_FLOOR * h) break;
+        if (blockH <= room || bodySize <= bodyFloor) break;
         // Straight to the size that fits rather than creeping down: a smaller
         // face wraps to fewer lines, so one proportional step lands close and
         // the loop settles in two or three.
@@ -1331,10 +1398,7 @@
         // is not a smaller message: it is a smaller POSTER, which is what the
         // caller's fit pass does — and it can only do it if the overflow is
         // still visible to it. So this stops, and lets it be seen.
-        bodySize = Math.max(
-          Math.ceil(RIBBON_BODY_FLOOR * h),
-          Math.floor(bodySize * Math.max(0.6, room / rh))
-        );
+        bodySize = Math.max(bodyFloor, Math.floor(bodySize * Math.max(0.6, room / blockH)));
       }
       // Never into the room the contact panel needs — but never up over the
       // headline either. This clamp used to floor at h * 0.04, a fixed line
@@ -1351,7 +1415,7 @@
       // and the collision was never resolved, only hidden. Held at headBottom
       // the overflow is real again, and the caller's shrink loop — which
       // exists precisely for this — deals with it by making the type smaller.
-      if (y + rh > contentFloor) y = Math.max(headBottom, contentFloor - rh);
+      if (y + blockH > contentFloor) y = Math.max(headBottom, contentFloor - blockH);
       if (L.kind === "editorial") {
         // A filled ribbon laid across a photograph is a slab on a picture.
         // Here the message is set plainly into the scene's own calm half, and
@@ -1395,7 +1459,15 @@
     // could be kept clear of it. Reusing those values rather than working
     // them out a second time is what keeps the two in step.
     var cta = ctaText, phone = ctaPhone, lead = ctaLead, trail = ctaTrail;
-    var contentBottom = y, panelTop = y;
+    var contentBottom = y;
+    // With no call to action there is no panel to be pushed down, so these two
+    // were initialised to the same value — and the caller's ONLY overflow
+    // signal is contentBottom > panelTop, which is then identically false.
+    // A poster with no CTA could therefore hang its ribbon 34px off the foot
+    // of a Story sheet with nothing anywhere watching. Held at the content
+    // floor instead: with no panel, the floor IS what the content must stay
+    // above, and an overrun is reported like any other.
+    var panelTop = cta ? y : contentFloor;
     if (cta) {
       var panelW = maxW;
       // Bottom-anchored so the sheet is filled rather than the design
@@ -1463,7 +1535,15 @@
         if (sympathy) drawDiamondMark(ctx, startX - panelH * 0.26, baseY - numSize * 0.32, panelH * 0.075, rgba(palette.cream, 0.7));
         else drawHeart(ctx, startX - panelH * 0.26, baseY - numSize * 0.32, panelH * 0.09, rgba(palette.cream, 0.75));
         if (trail) {
-          var tSize = Math.round(panelH * 0.19);
+          // Fitted to the bar, like every other line on the poster. This one
+          // alone was set at a fixed fraction of the bar's height and drawn,
+          // so a florist's own longer call to action ran off BOTH edges of the
+          // sheet: "TO PLACE AN ORDER TODAY AND WE WILL HAVE IT READY FOR YOU
+          // WITHIN THE HOUR." was drawn from x=-345 to x=1425 on a 1080-wide
+          // flyer. The non-editorial panel below has always fitted its trail;
+          // this branch simply never did.
+          var tSize = fitLine(ctx, trail.toUpperCase(), "500 %spx 'Playfair Display', Georgia, serif",
+            Math.round(panelH * 0.19), barW * 0.9, Math.max(9, Math.round(panelH * 0.08)), "0.08em");
           ctx.font = "500 " + tSize + "px 'Playfair Display', Georgia, serif";
           if ("letterSpacing" in ctx) ctx.letterSpacing = "0.08em";
           centreText(ctx, trail.toUpperCase(), barCx, panelY + panelH * 0.83, rgba(palette.cream, 0.82));
@@ -1477,7 +1557,7 @@
       var inner = panelY + padY;
       if (lead) {
         var leadFit = fitLine(ctx, lead.toUpperCase(), "500 %spx 'Playfair Display', Georgia, serif",
-          leadS, panelW * 0.86, Math.round(h * 0.018));
+          leadS, panelW * 0.86, Math.round(h * 0.018), "0.07em");
         ctx.font = "500 " + leadFit + "px 'Playfair Display', Georgia, serif";
         if ("letterSpacing" in ctx) ctx.letterSpacing = "0.07em";
         centreText(ctx, lead.toUpperCase(), cx, inner + leadFit, rgba(palette.ink, 0.85));
@@ -1493,7 +1573,7 @@
       }
       if (trail) {
         var trailFit = fitLine(ctx, trail.toUpperCase(), "500 %spx 'Playfair Display', Georgia, serif",
-          trailS, panelW * 0.86, Math.round(h * 0.016));
+          trailS, panelW * 0.86, Math.round(h * 0.016), "0.06em");
         ctx.font = "500 " + trailFit + "px 'Playfair Display', Georgia, serif";
         if ("letterSpacing" in ctx) ctx.letterSpacing = "0.06em";
         if (sympathy) drawDiamondMark(ctx, cx, inner + trailFit * 0.35, h * 0.008, rgba(palette.ink, 0.45));
@@ -1566,10 +1646,37 @@
     return base;
   }
 
+  // The poster is a printed-card design: a name lockup, a display headline, a
+  // message on a ribbon and a bordered contact panel, stacked down a sheet. It
+  // needs a portrait-to-square sheet to be that. On a landscape strip there is
+  // no arrangement of those five things that stays readable — a 1200x400 email
+  // banner drove the message down to 9px and a 1200x630 Facebook post to 14px,
+  // which at feed size is not type, it is texture.
+  //
+  // Both sizes are genuinely reachable: pickAspectRatio in
+  // netlify/functions/_shared/flyer-templates.js returns email_banner for a
+  // request mentioning email and facebook_post for a feed post, and the studio
+  // passes that canvas straight through. So rather than invent a wide layout
+  // beside the one that already exists, these hand back to
+  // public/flyer-renderer.js — the shipped band-over-photograph renderer,
+  // which is the right shape for a banner and is already the fallback the call
+  // site uses when the poster cannot draw.
+  var POSTER_MIN_ASPECT = 0.85;
+
+  /** True when this canvas is one the poster layer can actually serve. Pure. */
+  function posterSuitsCanvas(width, height) {
+    return height / width >= POSTER_MIN_ASPECT;
+  }
+
   function renderPoster(opts) {
     opts = opts || {};
     var width = opts.width || 1080;
     var height = opts.height || 1350;
+    if (!posterSuitsCanvas(width, height)) {
+      return Promise.reject(new Error(
+        "poster layout needs a portrait or square sheet; " + width + "x" + height + " is a banner"
+      ));
+    }
     var canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
@@ -1775,6 +1882,7 @@
     COMPOSITIONS: COMPOSITIONS,
     isSympathyContent: isSympathyContent,
     fitPoster: fitPoster,
+    posterSuitsCanvas: posterSuitsCanvas,
     renderPoster: renderPoster
   };
 
