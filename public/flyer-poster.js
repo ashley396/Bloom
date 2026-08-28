@@ -10,12 +10,20 @@
  * and a bordered panel for the phone number. Ashley's own reference is
  * exactly that, and it is a layout, not an AI photograph.
  *
- * This is a composition layer, NOT a second renderer. Every measurement,
- * wrap, fit, contrast and phone-formatting decision still comes from
- * public/flyer-renderer.js's own exported helpers — there is one set of
- * those and this file borrows them. What it adds is design vocabulary the
- * renderer never had: grounds, borders, ribbons, panels, ornaments, a
- * script display face, and a palette derived from the actual flowers.
+ * This is a composition layer, NOT a second renderer. What it adds is design
+ * vocabulary the renderer never had: grounds, borders, ribbons, panels,
+ * ornaments, a script display face, and a palette derived from the actual
+ * flowers.
+ *
+ * What it genuinely borrows from public/flyer-renderer.js, rather than
+ * keeping a second copy of: colour parsing, contrast and pixel sampling,
+ * phone formatting, the resolution of a florist's colour revision, and the
+ * measuring context. What is local to this file and deliberately so: its own
+ * wrap and fit, because the poster's columns are ribbons and panels rather
+ * than template regions. An earlier version of this header claimed every
+ * measurement came from the renderer, which was not true — worth keeping
+ * accurate, because a comment that overstates its own discipline is how the
+ * next person stops checking.
  *
  * Two hard rules carried over unchanged from the renderer:
  *   1. Wording is never invented or altered here. This file receives the
@@ -159,7 +167,6 @@
 
     return {
       ink: rgbToHex(ink),
-      inkSoft: rgbToHex(mix(ink, { r: 255, g: 255, b: 255 }, 0.3)),
       accent: rgbToHex(accent),
       ground: rgbToHex(ground),
       groundDeep: rgbToHex(groundDeep),
