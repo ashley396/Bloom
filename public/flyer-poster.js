@@ -150,7 +150,7 @@
     ctx.fillRect(0, 0, w, h);
     ctx.restore();
 
-    if (!img) return;
+    if (!img) return [];
 
     // Two diagonally opposite corners, chosen by the seed so successive
     // posters for the same shop genuinely differ.
@@ -194,6 +194,15 @@
       ctx.drawImage(layer, c.x - c.ax * size, c.y - c.ay * size, size, size);
       ctx.restore();
     }
+
+    // Report where the petals actually are, in poster coordinates. The
+    // radial mask above is anchored at (c.x, c.y) and has faded to roughly
+    // a third of full opacity by 0.78 * size, so that radius is the honest
+    // edge of "there are flowers here" — not a guess. This is what the
+    // ribbon decision falls back to when the canvas cannot be read back.
+    return corners.map(function (c) {
+      return { x: c.x, y: c.y, radius: size * 0.78 };
+    });
   }
 
   // --- ornament -------------------------------------------------------------
@@ -245,10 +254,11 @@
    * with cream text on it. This is a deliberate exception to "no filled
    * shapes": it is a compositional device sitting on a light ground, never
    * a wash laid over the flowers. */
-  function drawRibbon(ctx, cx, cy, w, h, palette) {
-    var notch = h * 0.32;
+  function drawRibbon(ctx, cx, cy, w, h, palette, opts) {
+    opts = opts || {};
+    var notch = typeof opts.notch === "number" ? opts.notch : h * 0.32;
     ctx.save();
-    ctx.fillStyle = palette.ink;
+    ctx.fillStyle = opts.fill || palette.ink;
     ctx.beginPath();
     ctx.moveTo(cx - w / 2, cy - h / 2);
     ctx.lineTo(cx + w / 2, cy - h / 2);
@@ -258,7 +268,194 @@
     ctx.lineTo(cx - w / 2 + notch, cy);
     ctx.closePath();
     ctx.fill();
+    if (opts.stroke) {
+      ctx.strokeStyle = opts.stroke;
+      ctx.lineWidth = opts.lineWidth || Math.max(1, h * 0.03);
+      ctx.stroke();
+    }
     ctx.restore();
+  }
+
+  // --- wording that lands on flowers ---------------------------------------
+
+  /**
+   * Ashley's correction, in her own words: "if the wording is on top of
+   * flowers you probably need a small ribbon behind it."
+   *
+   * The corner clusters bleed inward, so a long shop name or a wrapped
+   * message can reach into them even though the middle of the poster is
+   * kept calm by design. Where that happens the line gets its own small
+   * cream ribbon — sized to that one line, with notched ends and a hairline
+   * edge, the way a printed poster carries a banner.
+   *
+   * What this deliberately is NOT: a ribbon behind every line. A ribbon
+   * everywhere is the filled-panel look that was already rejected, and it
+   * would flatten the composition back into text-in-a-box. Each line is
+   * judged against the pixels actually underneath it, so lines sitting on
+   * calm ground stay bare.
+   */
+  var CELL_VARIANCE_THRESHOLD = 26;     // luminance spread within one cell, 0-255
+  var BUSY_FRACTION_THRESHOLD = 0.28;   // how much of the line must be on flowers
+  var RIBBON_CONTRAST_FLOOR = 4;        // WCAG-style ratio, ink vs. what is behind
+  var RIBBON_OVERLAP_THRESHOLD = 0.2;   // fraction of the line inside a cluster
+
+  /** WCAG-style contrast ratio between two rgb colours. Pure. */
+  function contrastRatio(a, b) {
+    var la = luminance(a), lb = luminance(b);
+    var hi = Math.max(la, lb), lo = Math.min(la, lb);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  /**
+   * The band a hugging ribbon occupies for one measured line, plus the
+   * glyph box to sample. Sized from the real glyph extent rather than the
+   * font size, so it hugs a 200px script word and a 40px message line
+   * equally tightly instead of becoming a slab behind the big one. Pure.
+   */
+  function ribbonBand(m) {
+    var asc = m.ascent > 0 ? m.ascent : m.fontSize * 0.72;
+    var desc = m.descent > 0 ? m.descent : m.fontSize * 0.24;
+    var pad = m.fontSize * 0.26;
+    var top = m.baselineY - asc - pad;
+    var bottom = m.baselineY + desc + pad;
+    var h = bottom - top;
+    // The notch eats into both ends, so the text needs clearance past it or
+    // the first and last glyphs sit on the cut corner.
+    var notch = Math.min(h * 0.32, m.fontSize * 0.42);
+    var w = m.textWidth + notch * 2 + m.fontSize * 0.7;
+    if (m.maxWidth > 0) w = Math.min(w, m.maxWidth);
+    return {
+      cx: m.cx,
+      cy: (top + bottom) / 2,
+      w: w,
+      h: h,
+      notch: notch,
+      probe: {
+        x: m.cx - m.textWidth / 2,
+        y: m.baselineY - asc,
+        w: m.textWidth,
+        h: asc + desc
+      }
+    };
+  }
+
+  /**
+   * How much of a rectangle falls inside the floral clusters, from their
+   * real reported geometry. This is the fallback path: when the photo taints
+   * the canvas, getImageData throws and there are no pixels to judge — but
+   * the flowers are still drawn and the wording still has to stay readable.
+   * Guessing "no flowers" there would silently reintroduce the defect. Pure.
+   */
+  function floralOverlap(rect, clusters) {
+    if (!clusters || !clusters.length || !rect) return 0;
+    var inside = 0, total = 0;
+    for (var gy = 0; gy <= 4; gy++) {
+      for (var gx = 0; gx <= 4; gx++) {
+        var px = rect.x + rect.w * (gx / 4);
+        var py = rect.y + rect.h * (gy / 4);
+        total++;
+        for (var i = 0; i < clusters.length; i++) {
+          var dx = px - clusters[i].x, dy = py - clusters[i].y;
+          if (Math.sqrt(dx * dx + dy * dy) <= clusters[i].radius) { inside++; break; }
+        }
+      }
+    }
+    return total ? inside / total : 0;
+  }
+
+  /**
+   * How much of a line is actually sitting on flowers, measured cell by cell.
+   *
+   * Spread across the WHOLE band is the wrong question: it is a max-minus-min,
+   * so one petal clipping a single corner of a 700px-wide headline scores as
+   * high as a headline buried in the bouquet, and the big script word got a
+   * slab behind it while lying on clean ground. Tiling the band and asking
+   * how MANY cells are busy answers the question Ashley actually asked —
+   * is the wording on top of flowers — instead of "does this band contain a
+   * flower anywhere".
+   */
+  function busyFraction(probe, rect) {
+    if (!probe || !rect || rect.w <= 0 || rect.h <= 0) return 0;
+    var cols = 8, rows = 3, busy = 0, total = 0;
+    var cw = rect.w / cols, ch = rect.h / rows;
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        total++;
+        if (R.sampleColorVariance(probe, { x: rect.x + c * cw, y: rect.y + r * ch, w: cw, h: ch }, 2)
+            >= CELL_VARIANCE_THRESHOLD) busy++;
+      }
+    }
+    return total ? busy / total : 0;
+  }
+
+  /**
+   * Whether one line needs a ribbon behind it. Two independent reasons, both
+   * measured from the real drawn result:
+   *   - enough of the line is BUSY (petals, leaves, shadows). A calm ground is
+   *     one smooth vertical tint, so its cells score near zero;
+   *   - or the pixels are calm but too close to the ink to read against.
+   */
+  function needsRibbonBehind(ground, rect, inkHex) {
+    if (!ground || !rect) return false;
+    if (ground.probe) {
+      if (busyFraction(ground.probe, rect) >= BUSY_FRACTION_THRESHOLD) return true;
+      return contrastRatio(R.sampleAverageColor(ground.probe, rect, 3), hexToRgb(inkHex)) < RIBBON_CONTRAST_FLOOR;
+    }
+    return floralOverlap(rect, ground.clusters) >= RIBBON_OVERLAP_THRESHOLD;
+  }
+
+  /** Snapshots the ground BEFORE any wording is drawn, so every line is
+   * judged against the flowers and never against a ribbon or a line drawn
+   * above it. */
+  function captureGround(ctx, w, h, clusters) {
+    var probe = null;
+    try { probe = ctx.getImageData(0, 0, w, h); } catch (e) { probe = null; }
+    return { probe: probe, clusters: clusters || [], maxRibbonWidth: ribbonWidthLimit(w, h) };
+  }
+
+  /** The widest a ribbon may be: inside the border rules with clear air, not
+   * merely inside the sheet. Derived from the same insets drawBorder uses, so
+   * the two can never drift apart. Pure. */
+  function ribbonWidthLimit(w, h) {
+    var m = Math.min(w, h);
+    var inset = Math.round(m * 0.038);
+    var gap = Math.round(m * 0.011);
+    var clear = m * 0.022;
+    return Math.max(w * 0.4, w - (inset + gap + clear) * 2);
+  }
+
+  /**
+   * Draws one centred line, laying a small ribbon behind it first if it
+   * lands on flowers. The line keeps its intended ink colour either way —
+   * the ribbon is cream, so the poster's own voice never changes just
+   * because a petal happened to be underneath.
+   */
+  function placeLine(ctx, ground, text, cx, baselineY, fontSize, palette, color) {
+    if (!text) return false;
+    var ribboned = false;
+    if (ground) {
+      var m = ctx.measureText(text);
+      var band = ribbonBand({
+        textWidth: m.width,
+        ascent: m.actualBoundingBoxAscent || 0,
+        descent: m.actualBoundingBoxDescent || 0,
+        fontSize: fontSize,
+        baselineY: baselineY,
+        cx: cx,
+        maxWidth: ground.maxRibbonWidth
+      });
+      if (needsRibbonBehind(ground, band.probe, palette.ink)) {
+        drawRibbon(ctx, band.cx, band.cy, band.w, band.h, palette, {
+          fill: rgba(palette.cream, 0.94),
+          stroke: rgba(palette.ink, 0.42),
+          lineWidth: Math.max(1, band.h * 0.028),
+          notch: band.notch
+        });
+        ribboned = true;
+      }
+    }
+    centreText(ctx, text, cx, baselineY, color);
+    return ribboned;
   }
 
   /** The CTA panel — a thin bordered card on the ground, never a filled box
@@ -353,8 +550,13 @@
     var margin = w * 0.11;
     var maxW = w - margin * 2;
 
-    paintGroundAndFlorals(ctx, w, h, opts.image, palette, rand);
+    var clusters = paintGroundAndFlorals(ctx, w, h, opts.image, palette, rand);
     drawBorder(ctx, w, h, palette, rand() > 0.45 ? "double" : "single");
+
+    // Snapshot the ground now, while it is only ground. Every ribbon
+    // decision below reads these pixels, so no line is ever judged against
+    // another line's ribbon.
+    var ground = captureGround(ctx, w, h, clusters);
 
     var y = h * 0.145;
 
@@ -370,7 +572,7 @@
       );
       ctx.font = "600 " + nameSize + "px 'Playfair Display', Georgia, serif";
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0.18em";
-      centreText(ctx, String(brand.shopName).toUpperCase(), cx, y, palette.ink);
+      placeLine(ctx, ground, String(brand.shopName).toUpperCase(), cx, y, nameSize, palette, palette.ink);
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
       y += nameSize * 0.75;
       drawFlourish(ctx, cx, y, w * 0.3, palette);
@@ -387,7 +589,7 @@
       );
       ctx.font = "600 " + leadSize + "px 'Playfair Display', Georgia, serif";
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0.06em";
-      centreText(ctx, parts.lead.toUpperCase(), cx, y + leadSize * 0.8, rgba(palette.ink, 0.85));
+      placeLine(ctx, ground, parts.lead.toUpperCase(), cx, y + leadSize * 0.8, leadSize, palette, rgba(palette.ink, 0.85));
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
       y += leadSize * 1.1;
     }
@@ -398,7 +600,7 @@
         Math.round(h * 0.165), maxW, Math.round(h * 0.07)
       );
       ctx.font = "400 " + scriptSize + "px 'Parisienne', 'Brush Script MT', cursive";
-      centreText(ctx, parts.script, cx, y + scriptSize * 0.78, palette.ink);
+      placeLine(ctx, ground, parts.script, cx, y + scriptSize * 0.78, scriptSize, palette, palette.ink);
       y += scriptSize * 0.92;
     }
     if (parts.tail) {
@@ -409,7 +611,7 @@
       );
       ctx.font = "600 " + tailSize + "px 'Playfair Display', Georgia, serif";
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0.08em";
-      centreText(ctx, parts.tail.toUpperCase(), cx, y + tailSize, rgba(palette.ink, 0.85));
+      placeLine(ctx, ground, parts.tail.toUpperCase(), cx, y + tailSize, tailSize, palette, rgba(palette.ink, 0.85));
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
       y += tailSize * 1.3;
     }
@@ -431,7 +633,8 @@
         y += rh * 1.35;
       } else {
         for (var li = 0; li < lines.length; li++) {
-          centreText(ctx, lines[li], cx, y + bodySize * (li + 1) * 1.32, rgba(palette.ink, 0.9));
+          ctx.font = "500 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
+          placeLine(ctx, ground, lines[li], cx, y + bodySize * (li + 1) * 1.32, bodySize, palette, rgba(palette.ink, 0.9));
         }
         y += bodySize * 1.32 * lines.length + h * 0.026;
       }
@@ -452,7 +655,12 @@
       // Bottom-anchored so the composition fills the sheet instead of
       // stacking from the top and leaving a quarter of the poster empty.
       var panelY = Math.max(y, h - panelH - h * 0.1);
-      if (composition !== "atelier") drawPanel(ctx, cx - panelW / 2, panelY, panelW, panelH, palette);
+      var panelDrawn = composition !== "atelier";
+      if (panelDrawn) drawPanel(ctx, cx - panelW / 2, panelY, panelW, panelH, palette);
+      // A panel is already a light card standing off the flowers; putting a
+      // ribbon inside one would be the same device twice. Only the panel-less
+      // "atelier" composition needs its contact lines protected.
+      var ctaGround = panelDrawn ? null : ground;
 
       var inner = panelY + panelH * 0.34;
       if (lead) {
@@ -460,19 +668,19 @@
           Math.round(h * 0.03), panelW * 0.88, Math.round(h * 0.019));
         ctx.font = "500 " + leadS + "px 'DM Sans', 'Inter', sans-serif";
         if ("letterSpacing" in ctx) ctx.letterSpacing = "0.06em";
-        centreText(ctx, lead.toUpperCase(), cx, inner, rgba(palette.ink, 0.82));
+        placeLine(ctx, ctaGround, lead.toUpperCase(), cx, inner, leadS, palette, rgba(palette.ink, 0.82));
         if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
       }
       if (phone) {
         var phoneS = fitLine(ctx, phone, "600 %spx 'Playfair Display', Georgia, serif",
           Math.round(h * 0.072), panelW * 0.9, Math.round(h * 0.04));
         ctx.font = "600 " + phoneS + "px 'Playfair Display', Georgia, serif";
-        centreText(ctx, phone, cx, inner + phoneS * 0.98, palette.ink);
+        placeLine(ctx, ctaGround, phone, cx, inner + phoneS * 0.98, phoneS, palette, palette.ink);
         if (trail) {
           var trailS = Math.round(h * 0.026);
           ctx.font = "500 " + trailS + "px 'DM Sans', 'Inter', sans-serif";
           if ("letterSpacing" in ctx) ctx.letterSpacing = "0.05em";
-          centreText(ctx, trail.toUpperCase(), cx, inner + phoneS * 1.05 + trailS * 1.5, rgba(palette.ink, 0.78));
+          placeLine(ctx, ctaGround, trail.toUpperCase(), cx, inner + phoneS * 1.05 + trailS * 1.5, trailS, palette, rgba(palette.ink, 0.78));
           if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
         }
       }
@@ -608,6 +816,12 @@
 
   var api = {
     fontReallyLoaded: fontReallyLoaded,
+    contrastRatio: contrastRatio,
+    ribbonBand: ribbonBand,
+    floralOverlap: floralOverlap,
+    busyFraction: busyFraction,
+    ribbonWidthLimit: ribbonWidthLimit,
+    needsRibbonBehind: needsRibbonBehind,
     hashSeed: hashSeed,
     seededRandom: seededRandom,
     derivePalette: derivePalette,

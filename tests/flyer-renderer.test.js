@@ -569,3 +569,50 @@ test("shopLockupMetrics: tracking eases off for a long shop name so the extra wi
   assert.ok(parseFloat(long.tracking) < parseFloat(short.tracking), "a long name must not pay for tracking it cannot afford");
   assert.ok(long.minFontSize > 0, "a floor must exist so the lockup stays legible rather than vanishing");
 });
+
+// ---------------------------------------------------------------------------
+// Fractional sample rectangles.
+//
+// A rect measured from real text metrics has fractional bounds. Indexing
+// data[(y * width + x) * 4] with a fractional y returns undefined, which
+// does not throw — it makes every luminance NaN, so sampleColorVariance
+// returned -255 and the contrast decision built on it was silently wrong.
+// That is exactly how a ribbon failed to appear behind wording lying on
+// flowers while every unit test still passed.
+// ---------------------------------------------------------------------------
+
+function solidImageData(width, height, colorAt) {
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const c = colorAt(x, y);
+      const i = (y * width + x) * 4;
+      data[i] = c[0]; data[i + 1] = c[1]; data[i + 2] = c[2]; data[i + 3] = 255;
+    }
+  }
+  return { width, height, data };
+}
+
+test("sampleColorVariance: a fractional rect samples real pixels instead of returning NaN nonsense", () => {
+  const half = solidImageData(64, 64, (x) => (x < 32 ? [0, 0, 0] : [255, 255, 255]));
+  const v = renderer.sampleColorVariance(half, { x: 10.4, y: 12.7, w: 40.2, h: 20.9 }, 3);
+  assert.ok(Number.isFinite(v), `variance was not a number: ${v}`);
+  assert.ok(v > 200, `a black/white split must read as high variance, got ${v}`);
+  assert.ok(v >= 0, `variance can never be negative, got ${v}`);
+});
+
+test("sampleAverageColor: a fractional rect averages real pixels, never NaN", () => {
+  const flat = solidImageData(64, 64, () => [120, 60, 90]);
+  const avg = renderer.sampleAverageColor(flat, { x: 5.5, y: 7.25, w: 30.75, h: 18.5 }, 3);
+  assert.ok(Number.isFinite(avg.r) && Number.isFinite(avg.g) && Number.isFinite(avg.b),
+    `average was NaN: ${JSON.stringify(avg)}`);
+  assert.ok(Math.abs(avg.r - 120) < 1 && Math.abs(avg.g - 60) < 1 && Math.abs(avg.b - 90) < 1);
+});
+
+test("sampleColorVariance: integral rects are unchanged by the snapping", () => {
+  const half = solidImageData(64, 64, (x) => (x < 32 ? [0, 0, 0] : [255, 255, 255]));
+  const a = renderer.sampleColorVariance(half, { x: 0, y: 0, w: 64, h: 64 }, 4);
+  assert.ok(a > 200 && Number.isFinite(a));
+  // A rect entirely inside the black half stays flat.
+  assert.equal(renderer.sampleColorVariance(half, { x: 2, y: 2, w: 20, h: 20 }, 2), 0);
+});

@@ -137,10 +137,16 @@
 
   function clampRect(rect, width, height) {
     if (width <= 0 || height <= 0) return { x0: 0, y0: 0, x1: 0, y1: 0 };
-    var x0 = Math.max(0, Math.min(width - 1, rect.x));
-    var y0 = Math.max(0, Math.min(height - 1, rect.y));
-    var x1 = Math.max(x0 + 1, Math.min(width, rect.x + rect.w));
-    var y1 = Math.max(y0 + 1, Math.min(height, rect.y + rect.h));
+    // Snap to whole pixels. The samplers below index data[(y * width + x) * 4],
+    // so a fractional bound makes every index fractional, every lookup
+    // undefined and every luminance NaN — which does not throw, it quietly
+    // returns nonsense (a variance of -255, an average of NaN). The
+    // template regions happen to be integral, but a rect measured from real
+    // text metrics is not, so normalise here rather than trusting callers.
+    var x0 = Math.floor(Math.max(0, Math.min(width - 1, rect.x)));
+    var y0 = Math.floor(Math.max(0, Math.min(height - 1, rect.y)));
+    var x1 = Math.ceil(Math.max(x0 + 1, Math.min(width, rect.x + rect.w)));
+    var y1 = Math.ceil(Math.max(y0 + 1, Math.min(height, rect.y + rect.h)));
     return { x0: x0, y0: y0, x1: x1, y1: y1 };
   }
 

@@ -147,3 +147,133 @@ test("fontReallyLoaded: is exported, because document.fonts.check() cannot be tr
   // With no document (this sandbox) it must report false, never assume true.
   assert.equal(poster.fontReallyLoaded("Parisienne", "400", 120), false);
 });
+
+// ---------------------------------------------------------------------------
+// Ribbons behind wording that lands on flowers.
+//
+// Ashley's correction, verbatim: "if the wording is on top of flowers you
+// probably need a small ribbon behind it." The hard part is the word "if" —
+// a ribbon behind EVERY line is the filled-panel look that was already
+// rejected, so these tests pin both directions: it must appear on flowers
+// and it must stay away from calm ground.
+// ---------------------------------------------------------------------------
+
+/** An ImageData-shaped object, the same plain shape the renderer's samplers
+ * accept, so this exercises the real decision path rather than a stand-in. */
+function fakeImageData(width, height, pixel) {
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const c = pixel(x, y);
+      const i = (y * width + x) * 4;
+      data[i] = c[0]; data[i + 1] = c[1]; data[i + 2] = c[2]; data[i + 3] = 255;
+    }
+  }
+  return { width, height, data };
+}
+
+/** The poster's actual ground: one smooth vertical tint, deep at the edges,
+ * pale in the middle — exactly what paintGroundAndFlorals lays down. */
+const CALM_GROUND = fakeImageData(300, 300, (x, y) => {
+  const t = Math.abs(y - 150) / 150;
+  return [Math.round(255 - 5 * t), Math.round(253 - 9 * t), Math.round(251 - 11 * t)];
+});
+
+/** Petals, leaves and shadows: high local spread, which is the whole signal. */
+const FLOWERS = fakeImageData(300, 300, (x, y) => {
+  const n = (x * 37 + y * 91) % 255;
+  return [n, (n * 3) % 255, (n * 7) % 255];
+});
+
+const TEXT_BAND = { x: 60, y: 130, w: 180, h: 40 };
+const INK = "#3a2230";
+
+test("needsRibbonBehind: calm ground gets NO ribbon — a ribbon on every line is the rejected box", () => {
+  assert.equal(poster.needsRibbonBehind({ probe: CALM_GROUND, clusters: [] }, TEXT_BAND, INK), false);
+});
+
+test("needsRibbonBehind: wording over busy floral pixels gets a ribbon", () => {
+  assert.equal(poster.needsRibbonBehind({ probe: FLOWERS, clusters: [] }, TEXT_BAND, INK), true);
+});
+
+test("needsRibbonBehind: calm but too close to the ink to read still gets a ribbon", () => {
+  // A flat plum-dark ground has no spread at all, so the variance signal
+  // alone would miss it — and the words would be ink on near-ink.
+  const flatDark = fakeImageData(300, 300, () => [70, 45, 60]);
+  assert.equal(poster.needsRibbonBehind({ probe: flatDark, clusters: [] }, TEXT_BAND, INK), true);
+});
+
+test("needsRibbonBehind: with the canvas unreadable it falls back to where the flowers really are", () => {
+  // A tainted canvas makes getImageData throw. The flowers are still drawn,
+  // so assuming "no flowers" there would silently reintroduce the defect.
+  // Real poster geometry: a 1080x1350 sheet with clusters bleeding in from
+  // two opposite corners at the radius paintGroundAndFlorals actually reports.
+  const clusters = [{ x: 0, y: 0, radius: 556 }, { x: 1080, y: 1350, radius: 556 }];
+  const noProbe = { probe: null, clusters };
+  assert.equal(poster.needsRibbonBehind(noProbe, { x: 200, y: 170, w: 400, h: 60 }, INK), true, "the shop name up in the corner cluster");
+  assert.equal(poster.needsRibbonBehind(noProbe, { x: 300, y: 650, w: 480, h: 50 }, INK), false, "a line in the calm middle");
+});
+
+test("needsRibbonBehind: no flowers at all means no ribbons, ever", () => {
+  assert.equal(poster.needsRibbonBehind({ probe: null, clusters: [] }, TEXT_BAND, INK), false);
+});
+
+test("floralOverlap: reports 1 at a cluster's own anchor and 0 in the calm middle", () => {
+  const clusters = [{ x: 0, y: 0, radius: 250 }];
+  assert.equal(poster.floralOverlap({ x: 0, y: 0, w: 40, h: 20 }, clusters), 1);
+  assert.equal(poster.floralOverlap({ x: 900, y: 900, w: 40, h: 20 }, clusters), 0);
+});
+
+test("floralOverlap: no clusters is no overlap, not a crash", () => {
+  assert.equal(poster.floralOverlap({ x: 0, y: 0, w: 10, h: 10 }, []), 0);
+  assert.equal(poster.floralOverlap({ x: 0, y: 0, w: 10, h: 10 }, null), 0);
+});
+
+test("ribbonBand: hugs the real glyph extent rather than slabbing the font size", () => {
+  // Two lines at the same font size, one with tall script ascenders and one
+  // set in small caps. The ribbon must follow the glyphs, not the em box.
+  const tall = poster.ribbonBand({ textWidth: 400, ascent: 150, descent: 60, fontSize: 200, baselineY: 500, cx: 540, maxWidth: 0 });
+  const short = poster.ribbonBand({ textWidth: 400, ascent: 60, descent: 4, fontSize: 200, baselineY: 500, cx: 540, maxWidth: 0 });
+  assert.ok(tall.h > short.h, "a taller line must get a taller ribbon");
+  assert.ok(short.h < 200, `a short line got a slab ${short.h}px tall behind 200px type`);
+});
+
+test("ribbonBand: leaves clearance past the notch so no glyph sits on the cut corner", () => {
+  const b = poster.ribbonBand({ textWidth: 300, ascent: 30, descent: 8, fontSize: 40, baselineY: 200, cx: 540, maxWidth: 0 });
+  assert.ok(b.w >= 300 + b.notch * 2, `text would run into the notch: width ${b.w}, notch ${b.notch}`);
+});
+
+test("ribbonBand: never grows past the width it is given", () => {
+  const b = poster.ribbonBand({ textWidth: 2000, ascent: 30, descent: 8, fontSize: 40, baselineY: 200, cx: 540, maxWidth: 950 });
+  assert.equal(b.w, 950);
+});
+
+test("ribbonBand: the probed box is the glyphs themselves, centred on the line", () => {
+  const b = poster.ribbonBand({ textWidth: 300, ascent: 30, descent: 8, fontSize: 40, baselineY: 200, cx: 540, maxWidth: 0 });
+  assert.equal(b.probe.x, 540 - 150);
+  assert.equal(b.probe.w, 300);
+  assert.equal(b.probe.y, 170);
+  assert.equal(b.probe.h, 38);
+});
+
+test("ribbonBand: falls back to sane metrics when the canvas reports no glyph box", () => {
+  // Older canvas implementations return 0 for actualBoundingBox*; a zero-height
+  // ribbon would be an invisible no-op that still claimed to protect the line.
+  const b = poster.ribbonBand({ textWidth: 300, ascent: 0, descent: 0, fontSize: 40, baselineY: 200, cx: 540, maxWidth: 0 });
+  assert.ok(b.h > 40, `degenerate ribbon height: ${b.h}`);
+});
+
+test("contrastRatio: matches the known white-on-black extreme and self-contrast", () => {
+  assert.ok(Math.abs(poster.contrastRatio({ r: 255, g: 255, b: 255 }, { r: 0, g: 0, b: 0 }) - 21) < 0.05);
+  assert.equal(poster.contrastRatio({ r: 90, g: 40, b: 70 }, { r: 90, g: 40, b: 70 }), 1);
+});
+
+test("ribbonWidthLimit: a ribbon stays inside the border rules with air, not just inside the sheet", () => {
+  const w = 1080, h = 1350;
+  const limit = poster.ribbonWidthLimit(w, h);
+  const m = Math.min(w, h);
+  const innerRule = Math.round(m * 0.038) + Math.round(m * 0.011); // where drawBorder's second rule sits
+  const leftEdge = (w - limit) / 2;
+  assert.ok(leftEdge > innerRule + 8, `ribbon edge ${leftEdge} crowds the inner rule at ${innerRule}`);
+  assert.ok(limit > w * 0.7, `limit ${limit} is so tight the ribbon could not carry a headline`);
+});
