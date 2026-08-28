@@ -12,6 +12,7 @@ import {
   buildDeterministicNoticeContent,
   requestNeedsFlyerWording,
   detectWeakMarketingCopy,
+  findHollowSentences,
   detectFabricatedContactNumbers,
   extractShopNameFromRequestText,
   factsPreserved
@@ -1274,4 +1275,98 @@ test("without the shop's own number the check gives no opinion rather than a wro
   const copy = "Call 606-506-4039 for funeral flowers.";
   assert.deepEqual(detectWeakMarketingCopy("funeral work", copy), []);
   assert.deepEqual(detectWeakMarketingCopy("funeral work", copy, {}), []);
+});
+
+// ---------------------------------------------------------------------------
+// Filler that has not been seen before.
+//
+// Three rounds of real output made the case: each time a stock phrase was
+// banned, the next attempt wrote the same empty sentence in a new shape. "We
+// understand the importance of" became "we understand that". A phrase list can
+// only ever ban the sentence that has already been shown to somebody.
+//
+// These posts contain NONE of the banned phrases. They are still unpublishable
+// for the same reason, and they must be caught without anyone adding a line to
+// the list first.
+// ---------------------------------------------------------------------------
+
+test("empty writing is caught even when it uses none of the banned phrases", () => {
+  const unseen = [
+    "We know how much it matters to get this right for the people you love. " +
+      "Every family who comes to us deserves care and attention at a time like this. " +
+      "We would be glad to talk it through with you whenever you are ready.",
+    "Nothing means more to us than getting the details right for you and yours. " +
+      "There is real thought behind everything that leaves our door each morning. " +
+      "Reach out and one of us will walk you through all of the choices."
+  ];
+  for (const copy of unseen) {
+    for (const phrase of ["we understand", "here to support", "experienced florists", "wide range", "high-quality"]) {
+      assert.ok(!copy.toLowerCase().includes(phrase), `this test is worthless if the copy contains "${phrase}"`);
+    }
+    assert.ok(
+      detectWeakMarketingCopy("funeral work", copy, { shopName: "Lilies in Bloom" })
+        .some((r) => /pictured or acted on/i.test(r)),
+      `not caught: "${copy}"`
+    );
+  }
+});
+
+test("writing with real detail in it is left alone by the hollow check", () => {
+  const specific = [
+    "White lilies, cream roses and eucalyptus, made up as a standing spray for the service. " +
+      "We can have it at the funeral home by Friday morning if you call today. " +
+      "Ring 606-506-4039 and ask for whoever is on the bench.",
+    "There are still buckets of red roses in the cooler and we are conditioning more tonight. " +
+      "Hand-tied and wrapped, ready to pick up from Saturday. " +
+      "Twelve stems is $45.00 and we will hold one back for you."
+  ];
+  for (const copy of specific) {
+    assert.deepEqual(detectWeakMarketingCopy("post", copy, { shopName: "Lilies in Bloom" }), [],
+      `wrongly flagged: "${copy}"`);
+  }
+});
+
+test("one general sentence among specific ones is ordinary writing, not filler", () => {
+  // The check must fire on copy that is MOSTLY hollow. A single warm, general
+  // line is how people actually write, and flagging it would send the retry
+  // chasing a post that was already fine.
+  const copy =
+    "We know how hard the first few days are for a family. " +
+    "White lilies and cream roses, made up as a casket spray here in the shop. " +
+    "Call 606-506-4039 and we will have it at the funeral home for Friday.";
+  assert.deepEqual(detectWeakMarketingCopy("funeral work", copy, { shopName: "Lilies in Bloom" }), []);
+});
+
+test("a short line is brevity, never filler", () => {
+  const copy = "Open until five. Come and see us. Roses are in.";
+  assert.deepEqual(findHollowSentences(copy, "Lilies in Bloom"), []);
+  assert.deepEqual(detectWeakMarketingCopy("post", copy, { shopName: "Lilies in Bloom" }), []);
+});
+
+test("naming your own shop is not specificity, even when the name is a flower", () => {
+  // "At Lilies in Bloom, we understand that losing a loved one is never easy"
+  // is the exact sentence this check exists to catch. If the shop's own name
+  // counted as a flower mention, that sentence would read as specific and the
+  // check would pass it.
+  const sentence = "At Lilies in Bloom, we understand that losing a loved one is never easy.";
+  assert.deepEqual(findHollowSentences(sentence, "Lilies in Bloom"), [sentence]);
+  // And the same sentence about a shop whose name is not a flower behaves the
+  // same way — nothing here is specific to one shop.
+  const other = "At The Petal Bar, we understand that losing a loved one is never easy.";
+  assert.deepEqual(findHollowSentences(other, "The Petal Bar"), [other]);
+});
+
+test("the hollow check never fires on copy the stock-phrase check already condemned", () => {
+  // Two reasons saying the same thing in different words would read as two
+  // separate faults to the model on the retry.
+  const reasons = detectWeakMarketingCopy("funeral work", ASHLEYS_FUNERAL_POST, { shopName: "Lilies in Bloom" });
+  const overlapping = reasons.filter((r) => /any business in any industry|pictured or acted on/i.test(r));
+  assert.equal(overlapping.length, 1, JSON.stringify(reasons));
+});
+
+test("findHollowSentences is pure and survives missing input", () => {
+  assert.deepEqual(findHollowSentences("", ""), []);
+  assert.deepEqual(findHollowSentences(null, null), []);
+  const copy = "We know how much it matters to get this right for the people you love.";
+  assert.deepEqual(findHollowSentences(copy, "Lilies in Bloom"), findHollowSentences(copy, "Lilies in Bloom"));
 });

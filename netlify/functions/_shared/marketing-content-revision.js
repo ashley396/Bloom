@@ -736,6 +736,87 @@ export function detectFabricatedContactNumbers({ requestText, shopPhone, copyTex
   return invented;
 }
 
+// ---------------------------------------------------------------------------
+// The stock-phrase list above is whack-a-mole, and three rounds of real output
+// proved it. Each time a phrase was banned the next attempt produced the same
+// empty sentence in a new shape: "we understand the importance of" became "we
+// understand that", "we're here to support you" became "that's why we're here
+// to help". A list can only ever ban the sentence that has already been seen.
+//
+// So this is the same rule the model's own prompt states — "if a sentence
+// would suit a plumber with the nouns swapped, cut it" — made deterministic,
+// by asking the opposite question: does this sentence contain ANYTHING a
+// customer could actually picture, check, or act on?
+//
+// A concrete detail is a named bloom, the physical thing being made, a real
+// number (a time, a price, a phone number, a count of stems), a named day or
+// month, or something specific about how the flowers reach the customer.
+// Category words a marketing generator reaches for by default — "flowers",
+// "arrangements", "florists", "designs", "quality", "service", "team" — are
+// deliberately NOT anchors: they are exactly what is left when the specifics
+// have been written out of a sentence.
+// ---------------------------------------------------------------------------
+const SPECIFIC_DETAIL_RE = new RegExp(
+  [
+    // A real number: a time, a price, a date, a phone number, a stem count.
+    "\\d",
+    // A bloom or greenery a customer can picture.
+    "\\b(?:roses?|lil(?:y|ies)|carnations?|chrysanthemums?|mums?|orchids?|tulips?|peon(?:y|ies)|" +
+      "hydrangeas?|gerberas?|dais(?:y|ies)|irises|iris|gladiol(?:us|i)|glads|snapdragons?|" +
+      "alstroemerias?|freesias?|ranunculus|anemones?|delphiniums?|larkspur|statice|asters?|" +
+      "proteas?|dahlias?|callas?|sunflowers?|baby'?s breath|gypsophila|eucalyptus|ferns?|ivy|" +
+      "greenery|foliage|carnation)\\b",
+    // The physical thing actually being made.
+    "\\b(?:standing spray|casket (?:spray|flowers?|piece)|sprays?|wreaths?|garlands?|swags?|" +
+      "pos(?:y|ies)|corsages?|boutonni[eè]res?|urns?|easels?|bud vases?|vases?|baskets?|" +
+      "sheaf|sheaves|cent(?:re|er)pieces?)\\b",
+    // Something concrete about how it is made or how it reaches them.
+    "\\b(?:same[- ]day|next[- ]day|hand[- ](?:tied|delivered|made)|deliver(?:ed|y)? to|" +
+      "pick(?:[- ]?up)|in the cooler|by hand|made here|in the shop|on the bench)\\b",
+    // A real day or month.
+    "\\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\\b",
+    "\\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\\b"
+  ].join("|"),
+  "i"
+);
+
+// Long enough that a florist plainly meant to say something with it. A short
+// line ("Open until five." / "Come and see us.") is not filler, it is brevity,
+// and must never be counted here.
+const SUBSTANTIVE_SENTENCE_WORDS = 9;
+
+function sentencesOf(text) {
+  return String(text || "")
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * The sentences in this copy that are long enough to be saying something and
+ * contain nothing a customer could picture, check or act on.
+ *
+ * The shop's own name is stripped before the test rather than counted as a
+ * detail. A shop called "Lilies in Bloom" would otherwise make every sentence
+ * that merely names the shop read as though it mentioned a flower — the exact
+ * sentence ("At Lilies in Bloom, we understand that losing a loved one is
+ * never easy") that this check exists to catch. Naming yourself is not
+ * specificity.
+ *
+ * Pure. Never shop-specific: the name is supplied by the caller from real shop
+ * data, never hardcoded.
+ */
+export function findHollowSentences(copyText, shopName) {
+  const name = String(shopName || "").trim();
+  const stripName = (s) =>
+    name ? s.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), " ") : s;
+  return sentencesOf(copyText).filter((sentence) => {
+    const bare = stripName(sentence);
+    if (bare.split(/\s+/).filter(Boolean).length < SUBSTANTIVE_SENTENCE_WORDS) return false;
+    return !SPECIFIC_DETAIL_RE.test(bare);
+  });
+}
+
 /**
  * Why a piece of finished post copy is not publishable as written — tone and
  * emptiness, not facts. Returns an array of plain reasons, empty when the copy
@@ -789,6 +870,21 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
     reasons.push(
       "Most of this could be about any business in any industry. Cut the stock phrases and say something only this florist could say."
     );
+  } else {
+    // The general form of the same failure, for the shapes the list above has
+    // not seen yet. Only raised when the copy is MOSTLY hollow — one general
+    // sentence among specific ones is ordinary writing, not filler — and only
+    // as a second opinion, so a post already condemned above isn't told the
+    // same thing twice in different words.
+    const substantive = sentencesOf(copy).filter(
+      (s) => s.split(/\s+/).filter(Boolean).length >= SUBSTANTIVE_SENTENCE_WORDS
+    );
+    const hollow = findHollowSentences(copy, options.shopName);
+    if (hollow.length >= 2 && hollow.length >= substantive.length * 0.6) {
+      reasons.push(
+        `Nothing in this can be pictured or acted on — "${hollow[0]}" would read the same for any business with the nouns swapped. Name the actual flowers, what is being made, or what happens next.`
+      );
+    }
   }
 
   // The post Ashley was shown ran to five long sentences of it.

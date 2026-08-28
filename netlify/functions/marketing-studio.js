@@ -1819,11 +1819,13 @@ export function createMarketingStudioHandler(deps = {}) {
           // one, and leaving the florist with an error and no post would be
           // the worse outcome. The second attempt is used either way, having
           // been told exactly what was wrong with the first.
-          const weakness = detectWeakMarketingCopy(
-            currentItem.data.brief,
-            `${copyGen.content.headline} ${copyGen.content.body}`,
-            { shopPhone: shopRow.data?.phone }
-          );
+          const copyQuality = (content) =>
+            detectWeakMarketingCopy(
+              currentItem.data.brief,
+              `${content.headline} ${content.body}`,
+              { shopPhone: shopRow.data?.phone, shopName }
+            );
+          const weakness = copyQuality(copyGen.content);
           if (weakness.length) {
             await recordUsage("copy", "request", 1);
             const retry = await generateSocialPost({
@@ -1831,7 +1833,15 @@ export function createMarketingStudioHandler(deps = {}) {
               requestText:
                 `${currentItem.data.brief}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${weakness.join("\n- ")}`
             });
-            if (retry.ok && retry.content?.body) copyGen = retry;
+            // The retry is not automatically the better one. Handed its own
+            // faults back, a model can fix the named phrase and introduce two
+            // more, and the florist would have been shown the worse of the two
+            // drafts with no way to know a better one existed. Keep whichever
+            // attempt actually has fewer problems; a tie keeps the retry, since
+            // it is the one that was told what was wrong.
+            if (retry.ok && retry.content?.body && copyQuality(retry.content).length <= weakness.length) {
+              copyGen = retry;
+            }
           }
           // Reactive safety net for the rare case that reaches here at
           // all — requestSignalsPlainOperationalNotice already said this
@@ -1906,11 +1916,13 @@ export function createMarketingStudioHandler(deps = {}) {
               // like I'm going to hold funeral services here at the flower
               // shop." One bounded retry with the reason handed back.
               if (flyerGen.ok && flyerGen.content) {
-                const flyerWeakness = detectWeakMarketingCopy(
-                  currentItem.data.brief,
-                  `${flyerGen.content.headline} ${flyerGen.content.body} ${flyerGen.content.cta}`,
-                  { shopPhone: shopRow.data?.phone }
-                );
+                const flyerQuality = (content) =>
+                  detectWeakMarketingCopy(
+                    currentItem.data.brief,
+                    `${content.headline} ${content.body} ${content.cta}`,
+                    { shopPhone: shopRow.data?.phone, shopName }
+                  );
+                const flyerWeakness = flyerQuality(flyerGen.content);
                 if (flyerWeakness.length) {
                   await recordUsage("copy", "request", 1);
                   const flyerRetry = await generateFlyerContent({
@@ -1919,7 +1931,17 @@ export function createMarketingStudioHandler(deps = {}) {
                     occasion: currentItem.data.title,
                     shop: { name: shopName }
                   });
-                  if (flyerRetry.ok && flyerRetry.content?.headline) flyerGen = flyerRetry;
+                  // Same reasoning as the caption retry above: this wording is
+                  // printed on the graphic itself, where a florist cannot edit
+                  // it before it goes out, so shipping the worse of two drafts
+                  // matters more here, not less.
+                  if (
+                    flyerRetry.ok &&
+                    flyerRetry.content?.headline &&
+                    flyerQuality(flyerRetry.content).length <= flyerWeakness.length
+                  ) {
+                    flyerGen = flyerRetry;
+                  }
                 }
               }
               if (!flyerGen.ok) {
