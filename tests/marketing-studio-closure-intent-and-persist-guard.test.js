@@ -1118,3 +1118,64 @@ test("empty or missing copy yields no reasons rather than throwing", () => {
   assert.deepEqual(detectWeakMarketingCopy("funeral", ""), []);
   assert.deepEqual(detectWeakMarketingCopy(null, null), []);
 });
+
+// ---------------------------------------------------------------------------
+// A florist supplies the FLOWERS for a funeral.
+//
+// Ashley, reading a generated flyer that said "Funeral / SERVICES AVAILABLE"
+// above her shop name and phone number: "it reads like I'm going to hold
+// funeral services here at the flower shop."
+//
+// She is right, and it is worse than an awkward phrase. A grieving family
+// reading that could ring a flower shop believing it arranges the funeral.
+// The service is held by a funeral home, a church, a crematorium — never at
+// the flower shop.
+// ---------------------------------------------------------------------------
+
+test("the flyer wording Ashley was shown is caught", () => {
+  const onTheFlyer = "Funeral SERVICES AVAILABLE. Call us at 606-506-4039 to discuss your funeral arrangements.";
+  const reasons = detectWeakMarketingCopy("Crate me a facebook post to generate more funeral work.", onTheFlyer);
+  assert.ok(reasons.some((r) => /holds the service itself/i.test(r)),
+    `not caught: ${JSON.stringify(reasons)}`);
+});
+
+test("no wording may imply the shop holds the service", () => {
+  for (const copy of [
+    "Funeral services available.",
+    "Memorial services for your loved one.",
+    "We offer graveside services.",
+    "Cremation service packages from Lilies in Bloom.",
+    "Burial services arranged with care."
+  ]) {
+    assert.ok(detectWeakMarketingCopy("funeral", copy).some((r) => /holds the service itself/i.test(r)),
+      `not caught: "${copy}"`);
+  }
+});
+
+test("the correct florist phrasing passes untouched", () => {
+  // These are what the shop actually does, and the retry must not chase them.
+  for (const copy of [
+    "Funeral flowers, made by hand. Standing sprays and casket flowers. Call 606-506-4039.",
+    "Sympathy flowers for the service. Call 606-506-4039 and we will look after it.",
+    "Flowers for the service, delivered to the funeral home. Call 606-506-4039.",
+    "Wreaths, sprays and posies for a memorial. Call 606-506-4039."
+  ]) {
+    assert.deepEqual(detectWeakMarketingCopy("funeral work", copy), [], `wrongly flagged: "${copy}"`);
+  }
+});
+
+test("'funeral arrangements' is only safe when the copy says what is being arranged", () => {
+  // To a florist it means flower arrangements; to everyone else it means the
+  // undertaking. The word "arrangements" alone does not disambiguate itself.
+  assert.ok(detectWeakMarketingCopy("funeral", "We can help with funeral arrangements. Call 606-506-4039.")
+    .some((r) => /undertaking/i.test(r)));
+  assert.deepEqual(
+    detectWeakMarketingCopy("funeral", "Our funeral arrangements use fresh lilies and white roses. Call 606-506-4039."),
+    []
+  );
+});
+
+test("a shop that genuinely is not a funeral home is not accused of other things", () => {
+  // Guard against the check spreading: an ordinary post must stay clean.
+  assert.deepEqual(detectWeakMarketingCopy("valentines", "Fresh red roses in the shop today. Call 606-506-4039."), []);
+});

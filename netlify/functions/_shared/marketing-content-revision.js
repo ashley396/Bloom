@@ -667,6 +667,23 @@ const FILLER_PHRASES = [
   /\byour (?:one[- ]stop|go[- ]to)\b/i
 ];
 
+// A florist supplies the FLOWERS for a funeral. The service itself is held by
+// a funeral home, a church, a crematorium — never at the flower shop.
+//
+// Ashley, reading a generated flyer that said "Funeral / SERVICES AVAILABLE"
+// above her shop name and phone number: "it reads like I'm going to hold
+// funeral services here at the flower shop." She is right, and it is the kind
+// of claim that could genuinely mislead a grieving family into ringing the
+// wrong number at the worst moment of their lives.
+const SERVICE_CLAIM_RE =
+  /\b(?:funeral|memorial|graveside|burial|cremation)\s+services?\b/i;
+// "Funeral arrangements" is the other trap: to a florist it means flower
+// arrangements, to everyone else it means the undertaking. Safe only when the
+// copy says somewhere what is actually being arranged.
+const AMBIGUOUS_ARRANGEMENT_RE = /\b(?:funeral|memorial)\s+arrangements?\b/i;
+const FLOWER_WORD_RE =
+  /\b(flower|floral|bouquet|spray|sprays|wreath|casket|posy|stems?|blooms?|lil(?:y|ies)|roses?|arrangement of|tribute of)\b/i;
+
 /**
  * Why a piece of finished post copy is not publishable as written — tone and
  * emptiness, not facts. Returns an array of plain reasons, empty when the copy
@@ -689,6 +706,17 @@ export function detectWeakMarketingCopy(requestText, copyText) {
         `This is sympathy writing and it uses celebratory language ("${hit[0]}"). A death is not a milestone or an occasion to celebrate. Write plainly and gently, with no upbeat framing and no exclamation marks.`
       );
     }
+  }
+
+  const claim = copy.match(SERVICE_CLAIM_RE);
+  if (claim) {
+    reasons.push(
+      `"${claim[0]}" says this shop holds the service itself. A florist supplies the FLOWERS for a funeral — the service is held by a funeral home or a church. Say "funeral flowers", "sympathy flowers" or "flowers for the service" instead.`
+    );
+  } else if (AMBIGUOUS_ARRANGEMENT_RE.test(copy) && !FLOWER_WORD_RE.test(copy)) {
+    reasons.push(
+      "\"Funeral arrangements\" reads as undertaking rather than flowers when nothing nearby says otherwise. Name the flowers."
+    );
   }
 
   const filler = FILLER_PHRASES.filter((re) => re.test(copy));

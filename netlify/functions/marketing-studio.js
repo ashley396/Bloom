@@ -1898,6 +1898,28 @@ export function createMarketingStudioHandler(deps = {}) {
                 occasion: currentItem.data.title,
                 shop: { name: shopName }
               });
+              // The flyer is where a wording failure does the most damage —
+              // it is the picture that gets shared, long after the caption
+              // scrolls away. Ashley was shown one reading "Funeral / SERVICES
+              // AVAILABLE" above her shop name and phone number: "it reads
+              // like I'm going to hold funeral services here at the flower
+              // shop." One bounded retry with the reason handed back.
+              if (flyerGen.ok && flyerGen.content) {
+                const flyerWeakness = detectWeakMarketingCopy(
+                  currentItem.data.brief,
+                  `${flyerGen.content.headline} ${flyerGen.content.body} ${flyerGen.content.cta}`
+                );
+                if (flyerWeakness.length) {
+                  await recordUsage("copy", "request", 1);
+                  const flyerRetry = await generateFlyerContent({
+                    persona: "Lily",
+                    message: `${currentItem.data.brief}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${flyerWeakness.join("\n- ")}`,
+                    occasion: currentItem.data.title,
+                    shop: { name: shopName }
+                  });
+                  if (flyerRetry.ok && flyerRetry.content?.headline) flyerGen = flyerRetry;
+                }
+              }
               if (!flyerGen.ok) {
                 await revertToIdea();
                 return json(400, { error: flyerGen.error });
