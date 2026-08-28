@@ -473,11 +473,40 @@
   var BUSY_FRACTION_THRESHOLD = 0.28; // how much of a block must be on flowers
   var BANNER_CONTRAST_FLOOR = 3;      // WCAG AA for large text
 
-  function hexToRgbParts(hex) {
-    var h = String(hex || "#000000").replace("#", "");
+  /**
+   * Parses either form the renderer actually uses — "#rrggbb", "#rgb", or
+   * "rgba(r,g,b,a)" — into channels plus opacity.
+   *
+   * A hex-only parser was silently catastrophic here: two of the four blocks
+   * pass an rgba() string, and slicing "rgba(31,39,51,0.88)" as if it were
+   * hex yields {r:0, g:186, b:0} — bright green. So the body and the contact
+   * line, the two the marketing rules single out as needing to stay readable
+   * on a phone, had their readability measured against a colour that is never
+   * drawn, and produced the same answer whether the text was cream or
+   * charcoal. Pure.
+   */
+  function parseColor(color) {
+    var str = String(color == null ? "" : color).trim();
+    var m = /^rgba?\s*\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)\s*(?:,\s*([0-9.]+)\s*)?\)$/i.exec(str);
+    if (m) {
+      return {
+        r: Math.max(0, Math.min(255, parseFloat(m[1]))),
+        g: Math.max(0, Math.min(255, parseFloat(m[2]))),
+        b: Math.max(0, Math.min(255, parseFloat(m[3]))),
+        a: m[4] === undefined ? 1 : Math.max(0, Math.min(1, parseFloat(m[4])))
+      };
+    }
+    var h = str.replace("#", "");
     if (h.length === 3) h = h.split("").map(function (c) { return c + c; }).join("");
-    return { r: parseInt(h.substring(0, 2), 16) || 0, g: parseInt(h.substring(2, 4), 16) || 0, b: parseInt(h.substring(4, 6), 16) || 0 };
+    if (!/^[0-9a-f]{6}$/i.test(h)) return { r: 0, g: 0, b: 0, a: 1 };
+    return {
+      r: parseInt(h.substring(0, 2), 16),
+      g: parseInt(h.substring(2, 4), 16),
+      b: parseInt(h.substring(4, 6), 16),
+      a: 1
+    };
   }
+  function hexToRgbParts(hex) { return parseColor(hex); }
 
   /** WCAG-style contrast ratio between two rgb colours. Pure. */
   function contrastRatio(a, b) {
@@ -487,10 +516,7 @@
   }
 
   /** The opacity a CSS colour string will really paint at. Pure. */
-  function colorAlpha(color) {
-    var m = /^rgba\s*\([^,]+,[^,]+,[^,]+,\s*([0-9.]+)\s*\)$/.exec(String(color || ""));
-    return m ? Math.max(0, Math.min(1, parseFloat(m[1]))) : 1;
-  }
+  function colorAlpha(color) { return parseColor(color).a; }
 
   /**
    * How much of a rectangle is actually sitting on flowers, measured cell by
@@ -512,8 +538,13 @@
       for (var c = 0; c < cols; c++) {
         seen++;
         if (sampleColorVariance(imageData, { x: rect.x + c * cw, y: rect.y + r * ch, w: cw, h: ch }, 3) >= CELL_VARIANCE_THRESHOLD) busy++;
-        if (busy >= need) return busy / seen;
-        if (busy + (cells - seen) < need) return busy / cells;
+        // Both early-outs must divide by the same thing. Dividing the hit
+        // by `seen` made the score depend on SCAN ORDER: a block one third
+        // on flowers scored 1.0 if those cells came first and 0.30 if they
+        // came last, so mirroring a photograph changed where the wording was
+        // placed. The bail-outs are an optimisation; they may not change the
+        // number.
+        if (busy >= need || busy + (cells - seen) < need) return busy / cells;
       }
     }
     return busy / cells;
@@ -609,33 +640,80 @@
    * IS the full-width panel that was rejected. Pure.
    */
   function bannerBand(m) {
-    var pad = Math.min(m.fontSize * 0.55, Math.max(m.fontSize * 0.28, m.blockHeight * 0.22));
-    var x = m.cx - m.textWidth / 2 - pad;
+    var pad = Math.min(m.fontSize * 0.3, Math.max(m.fontSize * 0.16, m.blockHeight * 0.1));
+    // The chevron notch bites into both ends, so the words need clearance
+    // past it or the first and last letters sit on the cut.
+    var notch = Math.min((m.blockHeight + pad * 1.4) * 0.3, m.fontSize * 0.5);
+    var x = m.cx - m.textWidth / 2 - pad - notch;
     var y = m.top - pad * 0.7;
-    var w = m.textWidth + pad * 2;
+    var w = m.textWidth + (pad + notch) * 2;
     var h = m.blockHeight + pad * 1.4;
     if (m.maxWidth > 0 && w > m.maxWidth) { x = m.cx - m.maxWidth / 2; w = m.maxWidth; }
     return { x: x, y: y, w: w, h: h, radius: Math.min(h * 0.28, m.fontSize * 0.5) };
   }
 
-  /** A soft cream banner with a hairline edge — a printed-poster device
-   * sitting behind one block of wording, never a wash over the picture. */
-  function drawBanner(ctx, band, accentColor) {
+  /** Mixes a colour toward black. Used for a ribbon's folded tails, which
+   * have to read as the same ribbon seen from behind. Pure. */
+  function darken(color, amount) {
+    var c = parseColor(color);
+    return "rgb(" + Math.round(c.r * (1 - amount)) + "," + Math.round(c.g * (1 - amount)) + "," + Math.round(c.b * (1 - amount)) + ")";
+  }
+
+  /**
+   * A RIBBON, not a box.
+   *
+   * Ashley, shown a rounded white rectangle behind the wording and her own
+   * reference poster side by side: "when I say banner it should look like
+   * picture 2 not a box like picture 1." Picture 2 carries its key line on a
+   * proper banner — a filled shape in the shop's own colour, chevron-notched
+   * at both ends, with small folded tails behind it and light text on top.
+   * That is a designed device; a rounded white rectangle is a dialog box laid
+   * over a photograph.
+   *
+   * Filled in the shop's own primary so it belongs to that florist, and dark
+   * enough that the cream wording on it reads at any size.
+   */
+  function drawBanner(ctx, band, ribbonColor) {
+    var x = band.x, y = band.y, w = band.w, h = band.h;
+    var notch = Math.min(h * 0.3, w * 0.07);
+    var tail = Math.min(h * 0.4, w * 0.045);
+    var fold = h * 0.2;
     ctx.save();
     // The callers set a text shadow before drawing; save/restore preserves it
-    // rather than clearing it, and a drop-shadowed banner reads as a sticker
-    // pasted on the photo.
+    // rather than clearing it, and a drop-shadowed ribbon reads as a sticker.
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
-    ctx.fillStyle = "rgba(255,250,244,0.9)";
-    roundRect(ctx, band.x, band.y, band.w, band.h, band.radius);
+
+    // The folded tails, behind and darker, one at each end.
+    ctx.fillStyle = darken(ribbonColor, 0.3);
+    ctx.beginPath();
+    ctx.moveTo(x, y + fold);
+    ctx.lineTo(x - tail, y + fold * 1.7);
+    ctx.lineTo(x - tail, y + h - fold * 0.3);
+    ctx.lineTo(x, y + h - fold * 0.6);
+    ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = hexWithAlpha(accentColor || "#7c3a58", 0.4);
-    ctx.lineWidth = Math.max(1, band.h * 0.018);
-    roundRect(ctx, band.x, band.y, band.w, band.h, band.radius);
-    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + w, y + fold);
+    ctx.lineTo(x + w + tail, y + fold * 1.7);
+    ctx.lineTo(x + w + tail, y + h - fold * 0.3);
+    ctx.lineTo(x + w, y + h - fold * 0.6);
+    ctx.closePath();
+    ctx.fill();
+
+    // The ribbon itself, chevron-notched into both ends.
+    ctx.fillStyle = ribbonColor;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + w, y);
+    ctx.lineTo(x + w - notch, y + h / 2);
+    ctx.lineTo(x + w, y + h);
+    ctx.lineTo(x, y + h);
+    ctx.lineTo(x + notch, y + h / 2);
+    ctx.closePath();
+    ctx.fill();
     ctx.restore();
   }
 
@@ -656,8 +734,10 @@
     if (blockH <= 0 || blockH >= height) return 0;
     // Only the vertical span the block could legally occupy is searched, so
     // the stack can never be slid off the top or bottom of the flyer.
+    // The logo is painted last, on top of everything. Sliding the stack up
+    // into its box put the shop's own name under its own logo.
     var margin = height * 0.03;
-    var searchTop = margin;
+    var searchTop = Math.max(margin, stack.floor || 0);
     var searchH = height - margin * 2;
     if (searchH <= blockH) return 0;
     var profile = busyRowProfile(background, { x: stack.x, y: searchTop, w: stack.w, h: searchH }, CALM_ROWS);
@@ -943,10 +1023,13 @@
       if (needsBannerBehind(opts.background, textRect, color, colorAlpha(color))) {
         bannered = true;
         if (opts.bands) opts.bands.push(band);
-        // On cream, the picture's own contrast no longer decides the colour.
-        color = emphasisKey === "body" ? CHARCOAL_TEXT_SOFT : CHARCOAL_TEXT;
+        // On the ribbon, the picture's own contrast no longer decides the
+        // colour — the ribbon does.
+        color = emphasisKey === "body" ? BAND_TEXT_COLOR_SOFT : BAND_TEXT_COLOR;
         ctx.fillStyle = color;
-        textStyle = { color: CHARCOAL_TEXT, softColor: CHARCOAL_TEXT_SOFT, outline: null };
+        // Cream on the ribbon, and no outline — the ribbon is doing the work
+        // that an outline used to fail to do.
+        textStyle = { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: null };
       }
     }
     drawWrappedLines(ctx, lines, rect.x + rect.w / 2, rect.y + rect.h / 2, lineHeight, outlineFor(textStyle, fontSize));
@@ -1081,7 +1164,9 @@
       if (needsBannerBehind(background, textRect, textStyle.color, colorAlpha(textStyle.color))) {
         bannered = true;
         if (bands) bands.push(band);
-        textStyle = { color: CHARCOAL_TEXT, softColor: CHARCOAL_TEXT_SOFT, outline: null };
+        // Cream on the ribbon, and no outline — the ribbon is doing the work
+        // that an outline used to fail to do.
+        textStyle = { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: null };
         ctx.fillStyle = textStyle.color;
       }
     }
@@ -1146,22 +1231,34 @@
     // 10px sans-serif — the shop name, the one element identifying whose
     // flyer this is, rendered as an unreadable speck. Set it explicitly.
     if (presetFit) {
-      ctx.font = "700 " + fit.fontSize + "px 'Inter', sans-serif";
+      // fitShopLockup MEASURES at 600 and guarantees the result fits the
+      // band. Drawing at 700 spends width that was never budgeted, so the
+      // name pushed out past both ends of its own ribbon.
+      ctx.font = "600 " + fit.fontSize + "px 'Inter', sans-serif";
       setLetterSpacing(ctx, fit.tracking);
     }
     var fontSize = fit.fontSize;
     var upper = fit.text;
     var baselineY = fit.baselineY;
     if (background) {
+      // The band has to reach the divider rule too, or the lockup ends up as
+      // wording on a ribbon with its gold rule left behind on the petals —
+      // the same defect the CTA already had fixed.
       var textRect = { x: bandRect.x + bandRect.w / 2 - fit.width / 2, y: baselineY - fontSize, w: fit.width, h: fontSize * 1.25 };
+      var lockupBottom = bandRect.y + lockupUsedHeight(bandRect, fit);
       var band = bannerBand({
         cx: bandRect.x + bandRect.w / 2, top: textRect.y,
-        textWidth: fit.width, blockHeight: textRect.h, fontSize: fontSize, maxWidth: bandRect.w
+        textWidth: fit.width, blockHeight: Math.max(textRect.h, lockupBottom - textRect.y), fontSize: fontSize,
+        // The band spans the full canvas width, so capping to it capped to
+        // nothing: the lockup's ribbon alone measured 94% of the flyer.
+        maxWidth: bandRect.w * 0.88
       });
       if (needsBannerBehind(background, textRect, textStyle.color, colorAlpha(textStyle.color))) {
         bannered = true;
         if (bands) bands.push(band);
-        textStyle = { color: CHARCOAL_TEXT, softColor: CHARCOAL_TEXT_SOFT, outline: null };
+        // Cream on the ribbon, and no outline — the ribbon is doing the work
+        // that an outline used to fail to do.
+        textStyle = { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: null };
         ctx.fillStyle = textStyle.color;
       }
     }
@@ -1271,7 +1368,9 @@
       if (needsBannerBehind(background, textRect, textStyle.softColor, colorAlpha(textStyle.softColor))) {
         bannered = true;
         if (bands) bands.push(band);
-        textStyle = { color: CHARCOAL_TEXT, softColor: CHARCOAL_TEXT_SOFT, outline: null };
+        // Cream on the ribbon, and no outline — the ribbon is doing the work
+        // that an outline used to fail to do.
+        textStyle = { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: null };
         ctx.fillStyle = textStyle.softColor;
       }
     }
@@ -1531,9 +1630,13 @@
       // and close the gaps the design depends on.
       var stackTop = Math.min(bandRect.y, headlineRect.y);
       var stackBottom = Math.max(contactRect.y + contactRect.h, ctaRect.y + ctaRect.h);
+      var logoRect = regionRect(template.regions.logo, width, height);
       var shift = calmPlacementShift(background, {
         x: width * 0.08, w: width * 0.84,
-        top: stackTop, bottom: stackBottom
+        top: stackTop, bottom: stackBottom,
+        // drawLogo runs last and paints over everything, so the wording must
+        // never be slid up into the logo's box.
+        floor: logoRect.y + logoRect.h
       }, width, height);
       if (shift) {
         bandRect.y += shift; headlineRect.y += shift; bodyRect.y += shift;
@@ -1584,11 +1687,12 @@
 
       var wanted = [];
       layOut(measuringContext(ctx), wanted);
-      // Generous enough that consecutive blocks in the same stack join into
-      // one shape. Two banners separated by a 30px sliver of photograph read
-      // as a mistake, not as two deliberate cards.
-      var merged = mergeBands(wanted, height * 0.045);
-      for (var bi = 0; bi < merged.length; bi++) drawBanner(ctx, merged[bi], colors.accent);
+      // Only bands that would actually collide are joined. Merging generously
+      // turned three ribbons into one slab covering nearly half the flyer —
+      // the very panel-over-the-photo this is meant to avoid. A ribbon
+      // carries its own block; separate blocks get separate ribbons.
+      var merged = mergeBands(wanted, height * 0.004);
+      for (var bi = 0; bi < merged.length; bi++) drawBanner(ctx, merged[bi], colors.primary);
       var bannered = layOut(ctx, null);
       return drawLogo(ctx, regionRect(template.regions.logo, width, height), brand.logoUrl).then(function () {
         if (canvas.dataset) {
@@ -1640,6 +1744,8 @@
     pickRegionTextStyle: pickRegionTextStyle,
     contrastRatio: contrastRatio,
     colorAlpha: colorAlpha,
+    parseColor: parseColor,
+    darken: darken,
     busyFractionIn: busyFractionIn,
     needsBannerBehind: needsBannerBehind,
     unreadableFraction: unreadableFraction,
