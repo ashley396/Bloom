@@ -616,3 +616,187 @@ test("sampleColorVariance: integral rects are unchanged by the snapping", () => 
   // A rect entirely inside the black half stays flat.
   assert.equal(renderer.sampleColorVariance(half, { x: 2, y: 2, w: 20, h: 20 }, 2), 0);
 });
+
+// ---------------------------------------------------------------------------
+// Wording that lands on flowers.
+//
+// Ashley, on a live flyer whose call-to-action sat on a bank of orange lilies:
+// "you can't read it, the text should be up in the blank space where no
+// flowers are or should have a banner behind it so you can see the wording."
+//
+// Both halves are tested here: choosing a calm part of the picture, and
+// backing the words where no calm part exists. The failure mode to guard
+// hardest against is the banner appearing where it is not needed — that is
+// the full-width panel over the photo that was rejected long ago.
+// ---------------------------------------------------------------------------
+
+function imageOf(width, height, pixel) {
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const c = pixel(x, y);
+      const i = (y * width + x) * 4;
+      data[i] = c[0]; data[i + 1] = c[1]; data[i + 2] = c[2]; data[i + 3] = 255;
+    }
+  }
+  return { width, height, data };
+}
+
+const CREAM = "#f8f0e3";
+const CHARCOAL = "#1f2733";
+/** Pale blush petals: light, detailed, and perfectly readable in dark text. */
+const PALE_PETALS = imageOf(400, 400, (x, y) => {
+  const t = (Math.sin(x / 9) * Math.sin(y / 9) + 1) / 2;
+  return [255 - 30 * t, 235 - 45 * t, 240 - 38 * t];
+});
+/** A photo spanning deep shadow to highlight, where no single colour works. */
+const FULL_RANGE = imageOf(400, 400, (x, y) => {
+  const t = (Math.sin(x / 11) * Math.cos(y / 13) + 1) / 2;
+  return [255 * t, 200 * t, 210 * t];
+});
+const BLOCK = { x: 80, y: 160, w: 240, h: 70 };
+
+test("unreadableFraction: pale petals are fine in dark text and hopeless in cream", () => {
+  assert.equal(renderer.unreadableFraction(PALE_PETALS, BLOCK, CHARCOAL, 1), 0,
+    "dark text on a pale photo reads perfectly and must not be touched");
+  assert.ok(renderer.unreadableFraction(PALE_PETALS, BLOCK, CREAM, 1) > 0.9,
+    "cream on pale petals is the unreadable case Ashley reported");
+});
+
+test("needsBannerBehind: no banner where the words can already be read", () => {
+  assert.equal(renderer.needsBannerBehind(PALE_PETALS, BLOCK, CHARCOAL, 1), false,
+    "a banner here is the rejected panel over the photo");
+});
+
+test("needsBannerBehind: a banner where they cannot", () => {
+  assert.equal(renderer.needsBannerBehind(PALE_PETALS, BLOCK, CREAM, 1), true);
+});
+
+test("needsBannerBehind: a photo spanning shadow to highlight defeats any single colour", () => {
+  // Neither choice works across the whole block, which is exactly when the
+  // words need something behind them rather than a different colour.
+  assert.equal(renderer.needsBannerBehind(FULL_RANGE, BLOCK, CREAM, 1), true);
+  assert.equal(renderer.needsBannerBehind(FULL_RANGE, BLOCK, CHARCOAL, 1), true);
+});
+
+test("needsBannerBehind: a faint line is judged on the colour it really paints", () => {
+  // The body and contact lines draw at 0.78-0.9 opacity. Judging them as if
+  // solid overstates their contrast — and those are precisely the lines the
+  // marketing rules say must stay comfortably readable on a phone.
+  const mid = imageOf(400, 400, () => [150, 128, 138]);
+  assert.equal(renderer.needsBannerBehind(mid, BLOCK, CREAM, 1), false,
+    "solid cream clears the bar here, so this fixture proves nothing unless alpha counts");
+  assert.equal(renderer.needsBannerBehind(mid, BLOCK, CREAM, 0.8), true);
+});
+
+test("needsBannerBehind: with the canvas unreadable nothing is invented", () => {
+  assert.equal(renderer.needsBannerBehind(null, BLOCK, CREAM, 1), false);
+});
+
+test("busyRowProfile + findCalmWindow: finds the blank space between two banks of flowers", () => {
+  // Flowers top and bottom, a calm band across the middle — the shape of the
+  // photo in Ashley's flyer.
+  const banded = imageOf(400, 400, (x, y) => {
+    if (y > 150 && y < 260) return [250, 246, 244];
+    const t = (Math.sin(x / 7) * Math.sin(y / 7) + 1) / 2;
+    return [255 * t, 90 + 100 * t, 110 * t];
+  });
+  const profile = renderer.busyRowProfile(banded, { x: 20, y: 0, w: 360, h: 400 }, 20);
+  assert.equal(profile.length, 20);
+  const calm = renderer.findCalmWindow(profile, 4);
+  const startY = calm.start * 20;
+  assert.ok(startY >= 130 && startY <= 230, `calm window started at y=${startY}, not in the blank band`);
+  assert.ok(calm.score < 0.3, `calm window is not actually calm: ${calm.score}`);
+});
+
+test("findCalmWindow: degenerate input does not throw or invent a window", () => {
+  // Objects come back from the sandbox realm, so compare values not identity.
+  const empty = renderer.findCalmWindow([], 3);
+  assert.equal(empty.start, 0);
+  assert.equal(empty.score, 1);
+  assert.equal(renderer.findCalmWindow([0.4], 5).start, 0);
+});
+
+test("calmPlacementShift: moves the wording into the blank space", () => {
+  const flowersBelow = imageOf(400, 400, (x, y) => {
+    if (y < 200) return [250, 247, 245];
+    const t = (Math.sin(x / 7) * Math.sin(y / 7) + 1) / 2;
+    return [255 * t, 90 + 100 * t, 110 * t];
+  });
+  const shift = renderer.calmPlacementShift(flowersBelow,
+    { x: 30, w: 340, top: 240, bottom: 380 }, 400, 400);
+  assert.ok(shift < 0, `the stack sat in the flowers and was not moved (shift ${shift})`);
+  assert.ok(240 + shift >= 0, "the stack was pushed off the top of the flyer");
+});
+
+test("calmPlacementShift: leaves a deliberate layout alone when there is nothing to gain", () => {
+  // The template's proportions are designed. Moving has to earn itself.
+  const evenly = imageOf(400, 400, () => [250, 247, 245]);
+  assert.equal(renderer.calmPlacementShift(evenly, { x: 30, w: 340, top: 120, bottom: 300 }, 400, 400), 0);
+});
+
+test("calmPlacementShift: with the canvas unreadable the layout is untouched", () => {
+  assert.equal(renderer.calmPlacementShift(null, { x: 0, w: 100, top: 10, bottom: 90 }, 400, 400), 0);
+});
+
+test("mergeBands: consecutive blocks become ONE banner, not a stack of cards", () => {
+  const merged = renderer.mergeBands([
+    { x: 100, y: 100, w: 300, h: 60, radius: 10 },
+    { x: 80, y: 175, w: 360, h: 80, radius: 12 },
+    { x: 120, y: 262, w: 280, h: 50, radius: 8 }
+  ], 20);
+  assert.equal(merged.length, 1, "three stacked cards with seams is the look being avoided");
+  assert.equal(merged[0].x, 80);
+  assert.equal(merged[0].y, 100);
+  assert.equal(merged[0].x + merged[0].w, 440);
+  assert.equal(merged[0].y + merged[0].h, 312);
+});
+
+test("mergeBands: blocks far apart stay separate", () => {
+  const merged = renderer.mergeBands([
+    { x: 100, y: 100, w: 300, h: 60, radius: 10 },
+    { x: 100, y: 700, w: 300, h: 60, radius: 10 }
+  ], 20);
+  assert.equal(merged.length, 2);
+});
+
+test("mergeBands: nothing in, nothing out", () => {
+  assert.equal(renderer.mergeBands([], 20).length, 0);
+  assert.equal(renderer.mergeBands(null, 20).length, 0);
+});
+
+test("bannerBand: hugs the words rather than filling the region", () => {
+  const band = renderer.bannerBand({ cx: 540, top: 400, textWidth: 300, blockHeight: 80, fontSize: 44, maxWidth: 900 });
+  assert.ok(band.w < 900, "a banner the width of the region is the rejected panel");
+  assert.ok(band.w > 300, "the banner must at least cover the words");
+  assert.ok(band.y <= 400 && band.y + band.h >= 480, "the banner does not cover the block it backs");
+});
+
+test("bannerBand: never wider than it is allowed to be", () => {
+  const band = renderer.bannerBand({ cx: 540, top: 400, textWidth: 2000, blockHeight: 80, fontSize: 44, maxWidth: 900 });
+  assert.equal(band.w, 900);
+  assert.equal(band.x, 540 - 450);
+});
+
+test("measuringContext: measures exactly like the real context and paints nothing", () => {
+  const painted = [];
+  const real = {
+    font: "", letterSpacing: "0px",
+    measureText: (t) => ({ width: t.length * 7 }),
+    fill: () => painted.push("fill"),
+    fillText: () => painted.push("fillText"),
+    stroke: () => painted.push("stroke")
+  };
+  const fake = renderer.measuringContext(real);
+  fake.font = "700 44px serif";
+  assert.equal(real.font, "700 44px serif", "the font must reach the real context or widths come out wrong");
+  assert.equal(fake.measureText("hello").width, 35);
+  fake.fill(); fake.fillText("x", 0, 0); fake.stroke();
+  assert.deepEqual(painted, [], "the measuring pass put marks on the canvas");
+});
+
+test("lockupUsedHeight: matches the divider the lockup actually draws", () => {
+  const bandRect = { x: 0, y: 600, w: 1080, h: 480 };
+  const fit = { baselineY: 665, fontSize: 46 };
+  assert.equal(renderer.lockupUsedHeight(bandRect, fit), (665 + 46 * 0.75) - 600);
+});

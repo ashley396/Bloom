@@ -451,6 +451,305 @@
     };
   }
 
+  // --- wording that lands on flowers -----------------------------------------
+  //
+  // Ashley, on a live flyer whose call-to-action sat on a bank of orange
+  // lilies: "you can't read it, the text should be up in the blank space
+  // where no flowers are or should have a banner behind it so you can see
+  // the wording."
+  //
+  // Both halves of that are implemented here, in that order of preference.
+  // Choosing a calm part of the photograph is the better answer because it
+  // leaves the picture untouched; a banner is the fallback for a photo with
+  // no calm area big enough, and it hugs one block of text rather than
+  // becoming the full-width panel that was rejected long ago.
+  //
+  // Colour and a thin outline were never enough on their own: white text
+  // with a hairline stroke over bright petals is exactly the flyer that
+  // prompted this, and no choice of colour is readable against pixels that
+  // span the whole range underneath a single line.
+
+  var CELL_VARIANCE_THRESHOLD = 26;   // luminance spread within one cell, 0-255
+  var BUSY_FRACTION_THRESHOLD = 0.28; // how much of a block must be on flowers
+  var BANNER_CONTRAST_FLOOR = 3;      // WCAG AA for large text
+
+  function hexToRgbParts(hex) {
+    var h = String(hex || "#000000").replace("#", "");
+    if (h.length === 3) h = h.split("").map(function (c) { return c + c; }).join("");
+    return { r: parseInt(h.substring(0, 2), 16) || 0, g: parseInt(h.substring(2, 4), 16) || 0, b: parseInt(h.substring(4, 6), 16) || 0 };
+  }
+
+  /** WCAG-style contrast ratio between two rgb colours. Pure. */
+  function contrastRatio(a, b) {
+    var la = relativeLuminance(a.r, a.g, a.b), lb = relativeLuminance(b.r, b.g, b.b);
+    var hi = Math.max(la, lb), lo = Math.min(la, lb);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  /** The opacity a CSS colour string will really paint at. Pure. */
+  function colorAlpha(color) {
+    var m = /^rgba\s*\([^,]+,[^,]+,[^,]+,\s*([0-9.]+)\s*\)$/.exec(String(color || ""));
+    return m ? Math.max(0, Math.min(1, parseFloat(m[1]))) : 1;
+  }
+
+  /**
+   * How much of a rectangle is actually sitting on flowers, measured cell by
+   * cell.
+   *
+   * Spread across the WHOLE rectangle is the wrong question: it is a
+   * max-minus-min, so a single petal clipping one corner of a wide headline
+   * scores as high as a headline buried in the bouquet. Tiling it and asking
+   * how MANY cells are busy answers the question that matters — is the
+   * wording on top of flowers — rather than "is there a flower anywhere near
+   * this". Pure.
+   */
+  function busyFractionIn(imageData, rect) {
+    if (!imageData || !rect || rect.w <= 0 || rect.h <= 0) return 0;
+    var cols = 8, rows = 3, cells = cols * rows, busy = 0, seen = 0;
+    var cw = rect.w / cols, ch = rect.h / rows;
+    var need = Math.ceil(cells * BUSY_FRACTION_THRESHOLD);
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        seen++;
+        if (sampleColorVariance(imageData, { x: rect.x + c * cw, y: rect.y + r * ch, w: cw, h: ch }, 3) >= CELL_VARIANCE_THRESHOLD) busy++;
+        if (busy >= need) return busy / seen;
+        if (busy + (cells - seen) < need) return busy / cells;
+      }
+    }
+    return busy / cells;
+  }
+
+  /**
+   * How much of a block of wording is genuinely UNREADABLE in the colour it
+   * will be drawn in — cell by cell, against the real pixels.
+   *
+   * "Are there flowers here" is the wrong question and produced a banner over
+   * pale blush roses where dark text read perfectly well. Ashley's complaint
+   * was specifically "you can't read it", so that is what gets measured. A
+   * busy area usually fails this anyway, because one colour cannot read
+   * against pixels spanning the whole range — but a photo that is merely
+   * detailed and uniformly pale does not, and correctly keeps its bare text.
+   * Pure.
+   */
+  function unreadableFraction(imageData, rect, colorHex, alpha) {
+    if (!imageData || !rect || rect.w <= 0 || rect.h <= 0) return 0;
+    var cols = 8, rows = 3, bad = 0, cells = cols * rows;
+    var cw = rect.w / cols, ch = rect.h / rows;
+    var ink = hexToRgbParts(colorHex);
+    var a = typeof alpha === "number" ? alpha : 1;
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        var behind = sampleAverageColor(imageData, { x: rect.x + c * cw, y: rect.y + r * ch, w: cw, h: ch }, 3);
+        var drawn = a >= 1 ? ink : {
+          r: behind.r + (ink.r - behind.r) * a,
+          g: behind.g + (ink.g - behind.g) * a,
+          b: behind.b + (ink.b - behind.b) * a
+        };
+        if (contrastRatio(behind, drawn) < BANNER_CONTRAST_FLOOR) bad++;
+      }
+    }
+    return bad / cells;
+  }
+
+  /** Whether a block needs a banner: any real part of it cannot be read as
+   * drawn. The bar is deliberately low — a phone number with a tenth of it
+   * invisible is a failed flyer, not a near miss — and it is measured on the
+   * GLYPH box, never on the padded banner shape. Measuring the padded shape
+   * was how the call-to-action escaped: its padding and divider rule reached
+   * down into the dark roses where cream reads perfectly well, diluting the
+   * score to just under the threshold while the words themselves sat on pale
+   * pink and could not be read at all. */
+  var UNREADABLE_THRESHOLD = 0.12;
+  function needsBannerBehind(imageData, rect, colorHex, alpha) {
+    if (!imageData || !rect) return false;
+    return unreadableFraction(imageData, rect, colorHex, alpha) >= UNREADABLE_THRESHOLD;
+  }
+
+  /**
+   * A busyness reading for each horizontal strip of the picture, taken over
+   * the column the wording actually occupies. This is what lets the layout
+   * find "the blank space where no flowers are" instead of trusting the
+   * template's fixed coordinates, which know nothing about the photograph
+   * that happened to be generated. Pure.
+   */
+  function busyRowProfile(imageData, columnRect, rows) {
+    rows = Math.max(1, rows || 24);
+    var out = [];
+    var stripH = columnRect.h / rows;
+    for (var i = 0; i < rows; i++) {
+      out.push(busyFractionIn(imageData, { x: columnRect.x, y: columnRect.y + i * stripH, w: columnRect.w, h: stripH }));
+    }
+    return out;
+  }
+
+  /**
+   * The calmest run of `need` consecutive strips. Returns its start index and
+   * mean busyness, so a caller can both place the block and tell whether the
+   * best available spot is actually any good. Ties go to the earliest window,
+   * which keeps the result stable for the same photo. Pure.
+   */
+  function findCalmWindow(profile, need) {
+    if (!profile || !profile.length) return { start: 0, score: 1 };
+    need = Math.max(1, Math.min(need || 1, profile.length));
+    var best = { start: 0, score: Infinity }, sum = 0;
+    for (var i = 0; i < profile.length; i++) {
+      sum += profile[i];
+      if (i >= need) sum -= profile[i - need];
+      if (i >= need - 1) {
+        var score = sum / need;
+        if (score < best.score - 1e-9) best = { start: i - need + 1, score: score };
+      }
+    }
+    return best;
+  }
+
+  /**
+   * The band a banner occupies behind a block of wording, hugging the real
+   * text extent rather than the region box — a banner the size of the region
+   * IS the full-width panel that was rejected. Pure.
+   */
+  function bannerBand(m) {
+    var pad = Math.min(m.fontSize * 0.55, Math.max(m.fontSize * 0.28, m.blockHeight * 0.22));
+    var x = m.cx - m.textWidth / 2 - pad;
+    var y = m.top - pad * 0.7;
+    var w = m.textWidth + pad * 2;
+    var h = m.blockHeight + pad * 1.4;
+    if (m.maxWidth > 0 && w > m.maxWidth) { x = m.cx - m.maxWidth / 2; w = m.maxWidth; }
+    return { x: x, y: y, w: w, h: h, radius: Math.min(h * 0.28, m.fontSize * 0.5) };
+  }
+
+  /** A soft cream banner with a hairline edge — a printed-poster device
+   * sitting behind one block of wording, never a wash over the picture. */
+  function drawBanner(ctx, band, accentColor) {
+    ctx.save();
+    // The callers set a text shadow before drawing; save/restore preserves it
+    // rather than clearing it, and a drop-shadowed banner reads as a sticker
+    // pasted on the photo.
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.fillStyle = "rgba(255,250,244,0.9)";
+    roundRect(ctx, band.x, band.y, band.w, band.h, band.radius);
+    ctx.fill();
+    ctx.strokeStyle = hexWithAlpha(accentColor || "#7c3a58", 0.4);
+    ctx.lineWidth = Math.max(1, band.h * 0.018);
+    roundRect(ctx, band.x, band.y, band.w, band.h, band.radius);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /**
+   * How far to slide the whole block of wording so it sits in the calmest
+   * part of the picture — "up in the blank space where no flowers are".
+   *
+   * Returns 0 when the picture cannot be read, when nothing better exists, or
+   * when the gain is too small to be worth disturbing a layout that was
+   * designed on purpose. Moving costs something: the template's proportions
+   * are deliberate, so a shift has to earn itself.
+   */
+  var CALM_ROWS = 32;
+  var CALM_MIN_GAIN = 0.12;      // the move must cut busyness by this much
+  function calmPlacementShift(background, stack, width, height) {
+    if (!background) return 0;
+    var blockH = stack.bottom - stack.top;
+    if (blockH <= 0 || blockH >= height) return 0;
+    // Only the vertical span the block could legally occupy is searched, so
+    // the stack can never be slid off the top or bottom of the flyer.
+    var margin = height * 0.03;
+    var searchTop = margin;
+    var searchH = height - margin * 2;
+    if (searchH <= blockH) return 0;
+    var profile = busyRowProfile(background, { x: stack.x, y: searchTop, w: stack.w, h: searchH }, CALM_ROWS);
+    var stripH = searchH / CALM_ROWS;
+    var need = Math.max(1, Math.round(blockH / stripH));
+    var best = findCalmWindow(profile, need);
+    var target = searchTop + best.start * stripH;
+    // What the block would score where the template already puts it.
+    var currentStart = Math.max(0, Math.min(CALM_ROWS - need, Math.round((stack.top - searchTop) / stripH)));
+    var current = 0;
+    for (var i = currentStart; i < currentStart + need && i < profile.length; i++) current += profile[i];
+    current = current / need;
+    if (current - best.score < CALM_MIN_GAIN) return 0;
+    return Math.round(target - stack.top);
+  }
+
+  /**
+   * A context that measures exactly like the real one but paints nothing.
+   *
+   * The banner has to go down BEFORE the text it sits behind, but which
+   * blocks need one — and how big each is — is only known once each block has
+   * been fitted and wrapped. Running the real drawing code against this first
+   * answers that without a second, drifting copy of the layout maths: the
+   * blocks measure themselves exactly as they will draw themselves, and every
+   * mark is swallowed.
+   */
+  function measuringContext(real) {
+    var noop = function () {};
+    var fake = {
+      measureText: function (t) { return real.measureText(t); },
+      save: noop, restore: noop, beginPath: noop, closePath: noop,
+      moveTo: noop, lineTo: noop, rect: noop, arcTo: noop, arc: noop,
+      quadraticCurveTo: noop, bezierCurveTo: noop,
+      fill: noop, stroke: noop, fillText: noop, strokeText: noop,
+      drawImage: noop, fillRect: noop, strokeRect: noop, clearRect: noop,
+      createLinearGradient: function () { return { addColorStop: noop }; },
+      createRadialGradient: function () { return { addColorStop: noop }; },
+      getImageData: function () { return real.getImageData.apply(real, arguments); }
+    };
+    // The drawers set and read these; the font in particular must reach the
+    // real context or measureText would report the wrong widths.
+    Object.defineProperty(fake, "font", {
+      get: function () { return real.font; }, set: function (v) { real.font = v; }
+    });
+    Object.defineProperty(fake, "letterSpacing", {
+      get: function () { return real.letterSpacing; },
+      set: function (v) { if ("letterSpacing" in real) real.letterSpacing = v; }
+    });
+    ["fillStyle", "strokeStyle", "lineWidth", "globalAlpha", "textAlign", "textBaseline",
+     "shadowColor", "shadowBlur", "shadowOffsetX", "shadowOffsetY"].forEach(function (k) {
+      var store = null;
+      Object.defineProperty(fake, k, { get: function () { return store; }, set: function (v) { store = v; } });
+    });
+    return fake;
+  }
+
+  /**
+   * Merges banner bands that touch or nearly touch into single shapes.
+   *
+   * Three consecutive blocks each getting their own rounded rectangle reads as
+   * three stacked cards with seams between them, not as one designed piece.
+   * Where they are adjacent they should be one banner, which is also fewer
+   * marks on the photograph. Pure.
+   */
+  function mergeBands(bands, gap) {
+    if (!bands || !bands.length) return [];
+    var sorted = bands.slice().sort(function (a, b) { return a.y - b.y; });
+    var out = [sorted[0]];
+    for (var i = 1; i < sorted.length; i++) {
+      var last = out[out.length - 1], b = sorted[i];
+      if (b.y <= last.y + last.h + (gap || 0)) {
+        var right = Math.max(last.x + last.w, b.x + b.w);
+        var bottom = Math.max(last.y + last.h, b.y + b.h);
+        last.x = Math.min(last.x, b.x);
+        last.y = Math.min(last.y, b.y);
+        last.w = right - last.x;
+        last.h = bottom - last.y;
+        last.radius = Math.max(last.radius, b.radius);
+      } else {
+        out.push(b);
+      }
+    }
+    return out;
+  }
+
+  /** The whole picture, read back once before any wording is drawn, so every
+   * block is judged against the photograph and never against a banner or a
+   * line placed above it. Returns null when the canvas cannot be read. */
+  function captureBackground(ctx, width, height) {
+    try { return ctx.getImageData(0, 0, width, height); } catch (e) { return null; }
+  }
+
   /** Where the shop-name lockup will actually be drawn, and the rectangle
    * whose real pixels decide its colour.
    *
@@ -578,7 +877,8 @@
   }
 
   function drawRegionText(ctx, rect, text, emphasisKey, style, opts, textStyle) {
-    if (!text) return;
+    if (!text) return false;
+    var bannered = false;
     textStyle = textStyle || { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: null };
     var color = emphasisKey === "body" ? textStyle.softColor : textStyle.color;
     // The target size is taken from the region's ORIGINAL height
@@ -627,9 +927,32 @@
       if (blockHeight <= rect.h * 0.96 || fontSize <= baseSize * 0.78) break;
       fontSize = Math.round(fontSize * 0.9);
     }
+    // A banner, if this block still lands on petals, goes down BEFORE the
+    // text — and is sized to the wrapped block that was just fitted, not to
+    // the region, so it hugs the words instead of becoming a full-width
+    // panel across the photograph.
+    if (opts && opts.background) {
+      var widest = 0;
+      for (var li = 0; li < lines.length; li++) widest = Math.max(widest, ctx.measureText(lines[li]).width);
+      var blockH = lines.length * lineHeight;
+      var textRect = { x: rect.x + rect.w / 2 - widest / 2, y: rect.y + rect.h / 2 - blockH / 2, w: widest, h: blockH };
+      var band = bannerBand({
+        cx: rect.x + rect.w / 2, top: textRect.y,
+        textWidth: widest, blockHeight: blockH, fontSize: fontSize, maxWidth: rect.w
+      });
+      if (needsBannerBehind(opts.background, textRect, color, colorAlpha(color))) {
+        bannered = true;
+        if (opts.bands) opts.bands.push(band);
+        // On cream, the picture's own contrast no longer decides the colour.
+        color = emphasisKey === "body" ? CHARCOAL_TEXT_SOFT : CHARCOAL_TEXT;
+        ctx.fillStyle = color;
+        textStyle = { color: CHARCOAL_TEXT, softColor: CHARCOAL_TEXT_SOFT, outline: null };
+      }
+    }
     drawWrappedLines(ctx, lines, rect.x + rect.w / 2, rect.y + rect.h / 2, lineHeight, outlineFor(textStyle, fontSize));
     setLetterSpacing(ctx, "0px");
     ctx.restore();
+    return bannered;
   }
 
   /** Visual-quality directive: the call-to-action is now a narrow
@@ -721,8 +1044,9 @@
     };
   }
 
-  function drawCtaLabel(ctx, rect, text, accentColor, textStyle, maxBlockHeight) {
-    if (!text) return;
+  function drawCtaLabel(ctx, rect, text, accentColor, textStyle, maxBlockHeight, background, bands) {
+    if (!text) return false;
+    var bannered = false;
     textStyle = textStyle || { color: BAND_TEXT_COLOR, outline: null };
     var gold = accentColor || "#c8a24a";
     var cx = rect.x + rect.w / 2;
@@ -738,6 +1062,29 @@
     setLetterSpacing(ctx, "0.04em");
     var layout = computeCtaLayout(ctx, rect, text, maxBlockHeight);
     ctx.font = "600 " + layout.fontSize + "px 'Inter', sans-serif";
+    // This is the block that was unreadable: the phone number sat on a bank
+    // of bright lilies, in cream with a hairline outline. The banner covers
+    // the wrapped text AND the divider rule below it, so the lockup reads as
+    // one piece rather than a label on cream with a rule left on the petals.
+    if (background) {
+      var widest = 0;
+      for (var li = 0; li < layout.lines.length; li++) widest = Math.max(widest, ctx.measureText(layout.lines[li]).width);
+      var blockH = layout.lines.length * layout.lineHeight;
+      var top = layout.blockCenterY - blockH / 2;
+      var textRect = { x: cx - widest / 2, y: top, w: widest, h: blockH };
+      var band = bannerBand({
+        cx: cx, top: top,
+        textWidth: Math.max(widest, layout.dividerWidth),
+        blockHeight: Math.max(blockH, layout.dividerY - top),
+        fontSize: layout.fontSize, maxWidth: rect.w
+      });
+      if (needsBannerBehind(background, textRect, textStyle.color, colorAlpha(textStyle.color))) {
+        bannered = true;
+        if (bands) bands.push(band);
+        textStyle = { color: CHARCOAL_TEXT, softColor: CHARCOAL_TEXT_SOFT, outline: null };
+        ctx.fillStyle = textStyle.color;
+      }
+    }
     drawWrappedLines(ctx, layout.lines, cx, layout.blockCenterY, layout.lineHeight, outlineFor(textStyle, layout.fontSize));
     setLetterSpacing(ctx, "0px");
     ctx.restore();
@@ -752,6 +1099,7 @@
     ctx.lineTo(cx + layout.dividerWidth / 2, layout.dividerY);
     ctx.stroke();
     ctx.restore();
+    return bannered;
   }
 
   /** The shop's own name (never Florisyn's — brand.shopName is always the
@@ -762,9 +1110,18 @@
    * every flyer per Ashley's explicit requirement: a shared/downloaded
    * image must still identify the florist it came from. Text color/
    * outline are real sampled contrast (textStyle), never assumed. */
-  function drawShopNameLockup(ctx, bandRect, brand, accentColor, textStyle) {
+  /** How far below the band's top the lockup actually reaches, including its
+   * divider rule. Shared so the layout can know this WITHOUT drawing — the
+   * stack has to be positioned before any of it is painted — and can never
+   * drift from what drawShopNameLockup really draws. Pure. */
+  function lockupUsedHeight(bandRect, fit) {
+    return (fit.baselineY + fit.fontSize * 0.75) - bandRect.y;
+  }
+
+  function drawShopNameLockup(ctx, bandRect, brand, accentColor, textStyle, background, presetFit, bands) {
     var name = brand && brand.shopName;
-    if (!name) return { usedHeight: 0 };
+    if (!name) return { usedHeight: 0, bannered: false };
+    var bannered = false;
     textStyle = textStyle || { color: BAND_TEXT_COLOR, outline: null };
     var gold = accentColor || "#c8a24a";
     // Mobile-readability pass: this is the one element that tells a
@@ -780,14 +1137,38 @@
     // A long shop name must FIT, not merely shrink toward fitting — an
     // unbounded lockup clipped "The Wildflower & Peony Company of Northern
     // Kentucky" off both edges, a real multi-tenant defect.
-    var fit = fitShopLockup(ctx, bandRect, name);
+    // The caller may already have fitted this in order to place the stack;
+    // refitting here would silently discard the placement it just decided.
+    var fit = presetFit || fitShopLockup(ctx, bandRect, name);
+    // fitShopLockup leaves ctx.font and the tracking set as a side effect of
+    // measuring. A preset fit was measured earlier inside a save/restore, so
+    // that state is long gone and the lockup drew at the canvas default of
+    // 10px sans-serif — the shop name, the one element identifying whose
+    // flyer this is, rendered as an unreadable speck. Set it explicitly.
+    if (presetFit) {
+      ctx.font = "700 " + fit.fontSize + "px 'Inter', sans-serif";
+      setLetterSpacing(ctx, fit.tracking);
+    }
     var fontSize = fit.fontSize;
     var upper = fit.text;
     var baselineY = fit.baselineY;
+    if (background) {
+      var textRect = { x: bandRect.x + bandRect.w / 2 - fit.width / 2, y: baselineY - fontSize, w: fit.width, h: fontSize * 1.25 };
+      var band = bannerBand({
+        cx: bandRect.x + bandRect.w / 2, top: textRect.y,
+        textWidth: fit.width, blockHeight: textRect.h, fontSize: fontSize, maxWidth: bandRect.w
+      });
+      if (needsBannerBehind(background, textRect, textStyle.color, colorAlpha(textStyle.color))) {
+        bannered = true;
+        if (bands) bands.push(band);
+        textStyle = { color: CHARCOAL_TEXT, softColor: CHARCOAL_TEXT_SOFT, outline: null };
+        ctx.fillStyle = textStyle.color;
+      }
+    }
     drawTextLine(ctx, upper, bandRect.x + bandRect.w / 2, baselineY, outlineFor(textStyle, fontSize));
     setLetterSpacing(ctx, "0px");
     ctx.restore();
-    var dividerY = baselineY + fontSize * 0.75;
+    var dividerY = bandRect.y + lockupUsedHeight(bandRect, fit);
     var dividerW = bandRect.w * 0.09;
     ctx.save();
     ctx.strokeStyle = gold;
@@ -798,7 +1179,7 @@
     ctx.lineTo(bandRect.x + bandRect.w / 2 + dividerW / 2, dividerY);
     ctx.stroke();
     ctx.restore();
-    return { usedHeight: dividerY - bandRect.y };
+    return { usedHeight: dividerY - bandRect.y, bannered: bannered };
   }
 
   /** A phone number as a person should read it, from whatever the shop
@@ -856,9 +1237,10 @@
     return [brand.shopName].concat(extras).filter(Boolean);
   }
 
-  function drawContact(ctx, rect, brand, textStyle, ctaText) {
+  function drawContact(ctx, rect, brand, textStyle, ctaText, background, accentColor, bands) {
     var parts = contactLineParts(brand, ctaText);
-    if (!parts.length) return;
+    if (!parts.length) return false;
+    var bannered = false;
     textStyle = textStyle || { softColor: BAND_TEXT_COLOR_SOFT, outline: null };
     ctx.save();
     applyTextShadow(ctx);
@@ -879,9 +1261,24 @@
       contactSize = Math.max(14, Math.floor(contactSize * (contactMax / contactWidth)));
       ctx.font = "600 " + contactSize + "px 'Inter', sans-serif";
     }
+    if (background) {
+      var lineW = ctx.measureText(line).width;
+      var textRect = { x: rect.x + rect.w / 2 - lineW / 2, y: rect.y + rect.h / 2 - contactSize * 0.6, w: lineW, h: contactSize * 1.2 };
+      var band = bannerBand({
+        cx: rect.x + rect.w / 2, top: textRect.y,
+        textWidth: lineW, blockHeight: textRect.h, fontSize: contactSize, maxWidth: rect.w
+      });
+      if (needsBannerBehind(background, textRect, textStyle.softColor, colorAlpha(textStyle.softColor))) {
+        bannered = true;
+        if (bands) bands.push(band);
+        textStyle = { color: CHARCOAL_TEXT, softColor: CHARCOAL_TEXT_SOFT, outline: null };
+        ctx.fillStyle = textStyle.softColor;
+      }
+    }
     drawTextLine(ctx, line, rect.x + rect.w / 2, rect.y + rect.h / 2, outlineFor(textStyle, contactSize));
     setLetterSpacing(ctx, "0px");
     ctx.restore();
+    return bannered;
   }
 
   function drawLogo(ctx, rect, logoUrl) {
@@ -1079,19 +1476,25 @@
     }
 
     function finish() {
+      // The photograph, read once before a single word is drawn. Every
+      // placement and banner decision below is judged against the picture
+      // itself and never against wording already placed on it.
+      var background = captureBackground(ctx, width, height);
+
       // computeBandRect is pure LAYOUT geometry only now — the lower
       // portion of the frame where the shop-name lockup lives — never
       // painted (see drawGradientBand's removal, design pass v3 above).
       var bandRect = computeBandRect(template, width, height);
-      var lockupSampleRect;
+      var lockupFit = null, lockupSampleRect, lockupReach = 0;
       if (brand.shopName) {
         ctx.save();
-        lockupSampleRect = fitShopLockup(ctx, bandRect, brand.shopName).sampleRect;
+        lockupFit = fitShopLockup(ctx, bandRect, brand.shopName);
         ctx.restore();
+        lockupSampleRect = lockupFit.sampleRect;
+        lockupReach = lockupUsedHeight(bandRect, lockupFit);
       } else {
         lockupSampleRect = shopLockupMetrics(bandRect, brand.shopName).sampleRect;
       }
-      var lockup = drawShopNameLockup(ctx, bandRect, brand, colors.accent, pickRegionTextStyle(ctx, lockupSampleRect));
       var headlineRect = regionRect(template.regions.headline, width, height);
       var headlineFullHeight = headlineRect.h;
       // Push the headline fully clear of the shop-name lockup, not just a
@@ -1105,26 +1508,97 @@
       // much it collapses the headline rect (floors at 45% of its own
       // height so drawRegionText's own auto-fit always has real room to
       // work with).
-      if (lockup && lockup.usedHeight) {
-        var lockupBottom = bandRect.y + lockup.usedHeight + headlineRect.h * 0.08;
+      if (lockupReach) {
+        var lockupBottom = bandRect.y + lockupReach + headlineRect.h * 0.08;
         if (lockupBottom > headlineRect.y) {
-          var shift = Math.min(lockupBottom - headlineRect.y, headlineRect.h * 0.55);
-          headlineRect.y += shift;
-          headlineRect.h -= shift;
+          var clear = Math.min(lockupBottom - headlineRect.y, headlineRect.h * 0.55);
+          headlineRect.y += clear;
+          headlineRect.h -= clear;
         }
       }
       var bodyRect = regionRect(template.regions.body, width, height);
       var ctaRect = regionRect(template.regions.cta, width, height);
       var contactRect = regionRect(template.regions.contact, width, height);
-      drawRegionText(ctx, headlineRect, content.headline, "hero", style, { baseSizeHeight: headlineFullHeight }, pickRegionTextStyle(ctx, headlineRect));
-      drawRegionText(ctx, bodyRect, content.body, "body", style, undefined, pickRegionTextStyle(ctx, bodyRect));
+
+      // "The text should be up in the blank space where no flowers are."
+      //
+      // The template's coordinates are fixed and know nothing about the photo
+      // that happened to be generated for this flyer, so on a picture whose
+      // flowers bank along the bottom the call-to-action lands right in them.
+      // Read the picture, find the calmest run tall enough to hold the whole
+      // stack, and slide the stack there as one piece. Moving it together is
+      // what preserves the layout — shifting regions independently would open
+      // and close the gaps the design depends on.
+      var stackTop = Math.min(bandRect.y, headlineRect.y);
+      var stackBottom = Math.max(contactRect.y + contactRect.h, ctaRect.y + ctaRect.h);
+      var shift = calmPlacementShift(background, {
+        x: width * 0.08, w: width * 0.84,
+        top: stackTop, bottom: stackBottom
+      }, width, height);
+      if (shift) {
+        bandRect.y += shift; headlineRect.y += shift; bodyRect.y += shift;
+        ctaRect.y += shift; contactRect.y += shift;
+        lockupSampleRect.y += shift;
+        if (lockupFit) lockupFit.baselineY += shift;
+      }
+
       // The CTA's real vertical freedom is the gap between the message
       // above it and the contact line below — not the nominal region box.
       var ctaBand = Math.max(ctaRect.h, contactRect.y - (bodyRect.y + bodyRect.h));
-      drawCtaLabel(ctx, ctaRect, content.cta, colors.accent, pickRegionTextStyle(ctx, ctaRect), ctaBand);
-      drawContact(ctx, contactRect, brand, pickRegionTextStyle(ctx, contactRect), content.cta);
+
+      // Every block is laid out twice: once against a context that measures
+      // but paints nothing, to learn which blocks cannot be read and how big
+      // a banner each needs, and once for real. The banners are merged and
+      // painted in between, so adjacent ones become a single shape instead of
+      // three stacked cards with seams, and each is under its own words.
+      // Every text colour is decided ONCE, against the photograph, before
+      // either pass runs. Sampling per pass would read the banners painted in
+      // between on the second one, so a block could ask for a banner while
+      // measuring and decline it while drawing — leaving cream paint with no
+      // colour change under it, or a colour change with no paint. The colour
+      // belongs to the picture, not to what was just laid on top of it.
+      var styles = {
+        lockup: pickRegionTextStyle(ctx, lockupSampleRect),
+        headline: pickRegionTextStyle(ctx, headlineRect),
+        body: pickRegionTextStyle(ctx, bodyRect),
+        cta: pickRegionTextStyle(ctx, ctaRect),
+        contact: pickRegionTextStyle(ctx, contactRect)
+      };
+      function layOut(target, bands) {
+        var out = [];
+        var l = drawShopNameLockup(target, bandRect, brand, colors.accent,
+          styles.lockup, background, lockupFit, bands);
+        if (l && l.bannered) out.push("shopName");
+        if (drawRegionText(target, headlineRect, content.headline, "hero", style,
+          { baseSizeHeight: headlineFullHeight, background: background, accentColor: colors.accent, bands: bands },
+          styles.headline)) out.push("headline");
+        if (drawRegionText(target, bodyRect, content.body, "body", style,
+          { background: background, accentColor: colors.accent, bands: bands },
+          styles.body)) out.push("body");
+        if (drawCtaLabel(target, ctaRect, content.cta, colors.accent,
+          styles.cta, ctaBand, background, bands)) out.push("cta");
+        if (drawContact(target, contactRect, brand, styles.contact,
+          content.cta, background, colors.accent, bands)) out.push("contact");
+        return out;
+      }
+
+      var wanted = [];
+      layOut(measuringContext(ctx), wanted);
+      // Generous enough that consecutive blocks in the same stack join into
+      // one shape. Two banners separated by a 30px sliver of photograph read
+      // as a mistake, not as two deliberate cards.
+      var merged = mergeBands(wanted, height * 0.045);
+      for (var bi = 0; bi < merged.length; bi++) drawBanner(ctx, merged[bi], colors.accent);
+      var bannered = layOut(ctx, null);
       return drawLogo(ctx, regionRect(template.regions.logo, width, height), brand.logoUrl).then(function () {
-        if (canvas.dataset) canvas.dataset.florisynBackgroundTier = backgroundTier || BACKGROUND_TIER.PROCEDURAL;
+        if (canvas.dataset) {
+          canvas.dataset.florisynBackgroundTier = backgroundTier || BACKGROUND_TIER.PROCEDURAL;
+          // Observable, like the background tier: which blocks needed rescuing
+          // and how far the stack was moved to find calm pixels. Without this
+          // the only way to know is to look at the picture and guess.
+          canvas.dataset.florisynBanners = bannered.join(",");
+          canvas.dataset.florisynCalmShift = String(shift || 0);
+        }
         return canvas;
       });
     }
@@ -1164,6 +1638,18 @@
     FALLBACK_FLORAL_BACKGROUND: FALLBACK_FLORAL_BACKGROUND,
     contactLineParts: contactLineParts,
     pickRegionTextStyle: pickRegionTextStyle,
+    contrastRatio: contrastRatio,
+    colorAlpha: colorAlpha,
+    busyFractionIn: busyFractionIn,
+    needsBannerBehind: needsBannerBehind,
+    unreadableFraction: unreadableFraction,
+    busyRowProfile: busyRowProfile,
+    findCalmWindow: findCalmWindow,
+    bannerBand: bannerBand,
+    calmPlacementShift: calmPlacementShift,
+    mergeBands: mergeBands,
+    measuringContext: measuringContext,
+    lockupUsedHeight: lockupUsedHeight,
     compositeSubjectOnBackground: compositeSubjectOnBackground,
     renderFlyer: renderFlyer
   };
