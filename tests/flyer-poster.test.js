@@ -641,7 +641,7 @@ test("splitShopName: a name that is only a connector is still drawn", () => {
  * background colour. */
 function recordingContext(width, height) {
   const texts = [], fills = [];
-  let font = "16px serif", fillStyle = null;
+  let font = "16px serif", fillStyle = null, textAlign = "center";
   const sizeOf = () => { const m = /([0-9.]+)px/.exec(font); return m ? parseFloat(m[1]) : 16; };
   const ctx = {
     texts, fills, canvas: { width, height },
@@ -659,13 +659,19 @@ function recordingContext(width, height) {
     },
     fillText(t, x, y) {
       const s = sizeOf();
-      texts.push({ text: String(t), x, y, width: String(t).length * s * 0.52, size: s, color: fillStyle });
+      const width = String(t).length * s * 0.52;
+      // Bounds depend on the alignment in force. Treating a left-aligned draw
+      // as centred reports it half its width away from where it really is —
+      // which both hid a real overflow and invented false ones.
+      const left = textAlign === "left" ? x : (textAlign === "right" ? x - width : x - width / 2);
+      texts.push({ text: String(t), x, y, width, size: s, color: fillStyle, left, right: left + width });
     }
   };
   Object.defineProperty(ctx, "font", { get: () => font, set: (v) => { font = v; } });
   Object.defineProperty(ctx, "letterSpacing", { get: () => "0px", set: () => {} });
   Object.defineProperty(ctx, "fillStyle", { get: () => fillStyle, set: (v) => { fillStyle = v; } });
-  for (const k of ["strokeStyle", "lineWidth", "globalAlpha", "textAlign", "textBaseline", "lineCap", "shadowColor", "shadowBlur", "shadowOffsetX", "shadowOffsetY", "globalCompositeOperation"]) {
+  Object.defineProperty(ctx, "textAlign", { get: () => textAlign, set: (v) => { textAlign = v; } });
+  for (const k of ["strokeStyle", "lineWidth", "globalAlpha", "textBaseline", "lineCap", "shadowColor", "shadowBlur", "shadowOffsetX", "shadowOffsetY", "globalCompositeOperation"]) {
     Object.defineProperty(ctx, k, { get: () => null, set: () => {} });
   }
   return ctx;
@@ -739,15 +745,23 @@ test("composition: nothing is ever drawn outside the sheet, at any size or lengt
     { content: { body: "Email orders@averyveryverylongdomainnameindeedforflowers.example.com before noon." } },
     { brand: { shopName: "Sunnyside Blossoms, Gifts, Balloons & Special Occasion Florals of Greater Cincinnati" } },
     { brand: { shopName: "A" } },
-    { content: { headline: "New Extended Holiday Opening Hours This Week" } }
+    { content: { headline: "New Extended Holiday Opening Hours This Week" } },
+    // Every architecture, not just the one the default seed happens to pick.
+    // The photo-led layout draws its contact line left-aligned in a bar sized
+    // from the canvas, and at Story height that line ran off both ends of it.
+    { seed: 1 }, { seed: 1, width: 1080, height: 1920 }, { seed: 1, width: 1200, height: 628 },
+    { seed: 12 }, { seed: 12, width: 1080, height: 1920 },
+    { seed: 4, width: 1080, height: 1920 },
+    { seed: 1, content: { cta: "Order online." } },
+    { seed: 1, width: 1080, height: 1920, content: { cta: "Order online." } }
   ];
   for (const over of cases) {
     const { ctx, width, height } = drawFixture(over);
     for (const t of ctx.texts) {
       const label = JSON.stringify(over).slice(0, 70);
       assert.ok(t.y <= height + 0.5 && t.y >= 0, `"${t.text.slice(0, 30)}" drawn at y=${Math.round(t.y)} on a ${width}x${height} sheet — off the flyer (${label})`);
-      assert.ok(t.x - t.width / 2 >= -0.5 && t.x + t.width / 2 <= width + 0.5,
-        `"${t.text.slice(0, 30)}" runs off the side on a ${width}x${height} sheet (${label})`);
+      assert.ok(t.left >= -0.5 && t.right <= width + 0.5,
+        `"${t.text.slice(0, 30)}" spans ${Math.round(t.left)}..${Math.round(t.right)} on a ${width}x${height} sheet (${label})`);
     }
   }
 });

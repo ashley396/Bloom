@@ -198,7 +198,25 @@
    * beside the type. A florist regenerating gets a different DESIGN, not the
    * same design with a different squiggle. Pure.
    */
-  function layoutFor(composition, w, h) {
+  function layoutFor(composition, w, h, textSide) {
+    if (composition === "editorial") {
+      // The photograph IS the poster: a full-bleed staged scene with the
+      // wording set into its calm half, and one bar across the foot carrying
+      // the phone number. This is the shape of the work Ashley gets from
+      // ChatGPT for a marketing post, and the shape the other three cannot
+      // make — they all put type on a printed sheet with the flowers around
+      // it, which is right for a notice and wrong for an advertisement.
+      var half = w * 0.52;
+      var left = textSide !== "right";
+      var pad = w * 0.075;
+      return {
+        kind: "editorial",
+        colX: left ? pad : w - half + pad * 0.4,
+        colW: half - pad * 1.4,
+        cx: left ? pad + (half - pad * 1.4) / 2 : w - half + pad * 0.4 + (half - pad * 1.4) / 2,
+        topY: h * 0.085, bottomPad: h * 0.045, barH: h * 0.125
+      };
+    }
     if (composition === "card") {
       var bandH = Math.round(h * 0.30);
       return {
@@ -241,6 +259,48 @@
     lx.fillRect(0, 0, w, bandH);
     ctx.drawImage(layer, 0, 0, w, bandH);
     return [{ x: w / 2, y: bandH * 0.45, radius: Math.max(w, bandH) * 0.62 }];
+  }
+
+  /** The photograph full-bleed, as the poster itself. */
+  function paintFullBleed(ctx, w, h, img) {
+    if (!img) return [];
+    var scale = Math.max(w / img.width, h / img.height);
+    ctx.drawImage(img, (w - img.width * scale) / 2, (h - img.height * scale) / 2, img.width * scale, img.height * scale);
+    return [];
+  }
+
+  /**
+   * The bar across the foot of an editorial poster: the phone number, set once,
+   * in vector type that is always correct.
+   *
+   * This is the one thing a diffusion model cannot do. Ashley has already had
+   * a post come back with invented gibberish painted across it; a shop's phone
+   * number is not something to leave to a model that cannot spell.
+   */
+  function drawCtaBar(ctx, x, y, w, h, palette) {
+    ctx.save();
+    ctx.fillStyle = rgba(palette.ink, 0.92);
+    roundRectPath(ctx, x, y, w, h, Math.min(h * 0.3, w * 0.03));
+    ctx.fill();
+    ctx.strokeStyle = rgba(palette.cream, 0.35);
+    ctx.lineWidth = Math.max(1, h * 0.018);
+    roundRectPath(ctx, x + h * 0.06, y + h * 0.06, w - h * 0.12, h - h * 0.12, Math.min(h * 0.24, w * 0.028));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function roundRectPath(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
   }
 
   /** The photograph as a full-height column beside the type. */
@@ -869,7 +929,7 @@
     return { script: words[0], connector: "", rest: words.slice(1).join(" ") };
   }
 
-  var COMPOSITIONS = ["atelier", "card", "banner"];
+  var COMPOSITIONS = ["atelier", "card", "banner", "editorial"];
 
   /**
    * Draws one complete poster.
@@ -887,7 +947,7 @@
     var palette = opts.palette;
     var rand = seededRandom(hashSeed("florisyn-poster:" + opts.seed));
     var composition = COMPOSITIONS[Math.floor(rand() * COMPOSITIONS.length) % COMPOSITIONS.length];
-    var L = layoutFor(composition, w, h);
+    var L = layoutFor(composition, w, h, opts.textSide);
     var cx = L.cx;
     var maxW = L.colW;
     var inset = Math.round(Math.min(w, h) * 0.038);
@@ -910,6 +970,28 @@
       L.kind === "atelier" ? opts.image : null, palette, rand);
     if (!opts.measureOnly && L.kind === "card") clusters = paintHeadBand(ctx, w, h, opts.image, palette, L);
     if (!opts.measureOnly && L.kind === "banner") clusters = paintSideColumn(ctx, w, h, opts.image, palette, L);
+    if (!opts.measureOnly && L.kind === "editorial") {
+      clusters = paintFullBleed(ctx, w, h, opts.image);
+      // One soft card behind the whole column, and only when the scene
+      // genuinely cannot carry the type — never a wash across the picture.
+      if (opts.needsBackdrop) {
+        // Faded toward the picture rather than cut off at a hard edge. A
+        // rectangle with a straight side slices whatever it lands on — here
+        // it cut a clean vertical seam down the middle of the bouquet. Light
+        // falling across the frame is what this should look like.
+        var right = L.colX > w * 0.4;
+        var bx = right ? L.colX - w * 0.06 : 0;
+        var bw = right ? w - bx : L.colX + L.colW + w * 0.14;
+        ctx.save();
+        var wash = ctx.createLinearGradient(right ? bx : bw, 0, right ? bx + bw : 0, 0);
+        wash.addColorStop(0, rgba(palette.cream, 0));
+        wash.addColorStop(0.42, rgba(palette.cream, 0.72));
+        wash.addColorStop(1, rgba(palette.cream, 0.9));
+        ctx.fillStyle = wash;
+        ctx.fillRect(bx, 0, bw, h);
+        ctx.restore();
+      }
+    }
     // The composition now decides what actually differs. It used to be
     // stamped onto the canvas and returned while every branch drew the
     // identical poster — the dataset advertised a variation that did not
@@ -921,7 +1003,10 @@
       // A rule drawn across a photographic band or column reads as a line on
       // top of a picture, not as a frame. The card and banner layouts frame
       // only the printed area.
-      if (L.kind === "atelier") {
+      if (L.kind === "editorial") {
+        // A rule around a photograph reads as a border on a picture. The
+        // editorial poster is framed by the scene itself.
+      } else if (L.kind === "atelier") {
         drawBorder(ctx, w, h, palette, borderVariant);
         drawCornerBrackets(ctx, w, h, inset, palette);
       } else {
@@ -956,7 +1041,7 @@
         "400 %spx 'Parisienne', 'Brush Script MT', cursive",
         Math.round(h * 0.085 * ts), maxW * 0.8, Math.round(h * 0.04 * ts));
       ctx.font = "400 " + nameScriptSize + "px 'Parisienne', 'Brush Script MT', cursive";
-      placeLine(ctx, ground, parts.script, cx, y + nameScriptSize * 0.74, nameScriptSize, palette, palette.ink);
+      placeLine(ctx, L.kind === "editorial" ? null : ground, parts.script, cx, y + nameScriptSize * 0.74, nameScriptSize, palette, palette.ink);
       y += nameScriptSize * 0.82;
 
       if (parts.connector) {
@@ -986,7 +1071,7 @@
           Math.round(h * 0.052 * ts), maxW * 0.82, Math.round(h * 0.026 * ts));
         ctx.font = "600 " + restSize + "px 'Playfair Display', Georgia, serif";
         if ("letterSpacing" in ctx) ctx.letterSpacing = "0.07em";
-        placeLine(ctx, ground, parts.rest.toUpperCase(), cx, y + restSize * 0.85, restSize, palette, palette.ink);
+        placeLine(ctx, L.kind === "editorial" ? null : ground, parts.rest.toUpperCase(), cx, y + restSize * 0.85, restSize, palette, palette.ink);
         if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
         y += restSize * 1.05;
       }
@@ -1005,7 +1090,7 @@
         Math.round(h * 0.058 * ts), maxW * 0.84, Math.round(h * 0.028 * ts));
       ctx.font = "600 " + leadSize + "px 'Playfair Display', Georgia, serif";
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0.05em";
-      placeLine(ctx, ground, head.lead.toUpperCase(), cx, y + leadSize * 0.82, leadSize, palette, rgba(palette.ink, 0.86));
+      placeLine(ctx, L.kind === "editorial" ? null : ground, head.lead.toUpperCase(), cx, y + leadSize * 0.82, leadSize, palette, rgba(palette.ink, 0.86));
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
       y += leadSize * 1.02;
     }
@@ -1016,7 +1101,7 @@
       ctx.font = "400 " + scriptSize + "px 'Parisienne', 'Brush Script MT', cursive";
       var scriptBase = y + scriptSize * 0.76;
       var scriptW = ctx.measureText(head.script).width;
-      placeLine(ctx, ground, head.script, cx, scriptBase, scriptSize, palette, palette.ink);
+      placeLine(ctx, L.kind === "editorial" ? null : ground, head.script, cx, scriptBase, scriptSize, palette, palette.ink);
       drawSwash(ctx, cx, scriptBase + scriptSize * 0.14, Math.min(scriptW * 1.02, maxW), rgba(palette.ink, 0.75));
       drawSparkles(ctx, cx, scriptBase - scriptSize * 0.28, scriptW * 0.55, rgba(palette.accent, 0.85), rand);
       // Parisienne descends a long way below its baseline; without real
@@ -1029,7 +1114,7 @@
         Math.round(h * 0.046 * ts), maxW * 0.78, Math.round(h * 0.024 * ts));
       ctx.font = "600 " + tailSize + "px 'Playfair Display', Georgia, serif";
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0.07em";
-      placeLine(ctx, ground, head.tail.toUpperCase(), cx, y + tailSize, tailSize, palette, rgba(palette.ink, 0.86));
+      placeLine(ctx, L.kind === "editorial" ? null : ground, head.tail.toUpperCase(), cx, y + tailSize, tailSize, palette, rgba(palette.ink, 0.86));
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
       y += tailSize * 1.35;
     }
@@ -1062,7 +1147,11 @@
     var leadS = ctaLead ? Math.round(h * 0.026 * ts) : 0;
     var phoneS = ctaPhone ? Math.round(h * 0.062 * ts) : 0;
     var trailS = ctaTrail ? Math.round(h * 0.023 * ts) : 0;
-    var panelH = ctaText ? padY * 2 + (leadS ? leadS * 1.5 : 0) + (phoneS ? phoneS * 1.12 : 0) + (trailS ? trailS * 1.9 : 0) : 0;
+    var panelH = ctaText
+      ? (L.kind === "editorial"
+          ? L.barH
+          : padY * 2 + (leadS ? leadS * 1.5 : 0) + (phoneS ? phoneS * 1.12 : 0) + (trailS ? trailS * 1.9 : 0))
+      : 0;
     var contentFloor = h - panelH - L.bottomPad;
 
     // --- the message, on the ribbon ---
@@ -1104,13 +1193,24 @@
       // printed over the panel, or off the bottom of the sheet, on any
       // composition whose type ran long — 159 of 3600 fuzzed combinations.
       if (y + rh > contentFloor) y = Math.max(h * 0.04, contentFloor - rh);
-      drawRibbon(ctx, cx, y + rh / 2, rw, rh, palette);
-      for (var j = 0; j < lines.length; j++) {
-        ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
-        centreText(ctx, lines[j], cx, y + rh / 2 - (lines.length - 1) * bodySize * 0.575 + j * bodySize * 1.15 + bodySize * 0.34, palette.cream);
+      if (L.kind === "editorial") {
+        // A filled ribbon laid across a photograph is a slab on a picture.
+        // Here the message is set plainly into the scene's own calm half, and
+        // only a line that genuinely cannot be read gets anything behind it.
+        for (var ej = 0; ej < lines.length; ej++) {
+          ctx.font = "500 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
+          centreText(ctx, lines[ej], cx, y + bodySize * (ej + 1) * 1.34, rgba(palette.ink, 0.92));
+        }
+        y += bodySize * 1.34 * lines.length + h * 0.02;
+      } else {
+        drawRibbon(ctx, cx, y + rh / 2, rw, rh, palette);
+        for (var j = 0; j < lines.length; j++) {
+          ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
+          centreText(ctx, lines[j], cx, y + rh / 2 - (lines.length - 1) * bodySize * 0.575 + j * bodySize * 1.15 + bodySize * 0.34, palette.cream);
+        }
+        y += rh * 1.16;
       }
-      y += rh * 1.16;
-      drawHeart(ctx, cx, y, h * 0.011, rgba(palette.ink, 0.6));
+      if (L.kind !== "editorial") drawHeart(ctx, cx, y, h * 0.011, rgba(palette.ink, 0.6));
       // The reference flanks its date with a pair of leafy sprigs; the
       // banner composition is the one that takes them.
       if (composition === "banner") {
@@ -1140,6 +1240,60 @@
       var lowest = h - panelH - h * 0.02;
       if (panelY > lowest) panelY = Math.max(h * 0.02, lowest);
       panelTop = panelY;
+
+      if (L.kind === "editorial") {
+        // One bar across the whole foot of the picture — the phone number set
+        // in vector type that is always correct, which is precisely what the
+        // image model behind a scene like this cannot be trusted to do.
+        var barX = w * 0.055, barW = w - barX * 2;
+        drawCtaBar(ctx, barX, panelY, barW, panelH, palette);
+        var barCx = w / 2;
+        // Sized to the BAR, not to the sheet. Taken from the height alone, a
+        // taller canvas gave the bar enormous type and the "CALL <number>"
+        // line ran off both ends of it — 41 of 3600 fuzzed combinations, all
+        // at Story height. The heart sits outside the line too, so its room
+        // is part of what has to fit.
+        var callSize = Math.round(panelH * 0.30);
+        var numSize = Math.round(panelH * 0.42);
+        var innerW = barW - panelH * 0.9;
+        var numW = 0, leadW = 0, lineW = 0;
+        for (var fit = 0; fit < 12; fit++) {
+          ctx.font = "600 " + numSize + "px 'Playfair Display', Georgia, serif";
+          numW = ctx.measureText(phone || "").width;
+          ctx.font = "500 " + callSize + "px 'Playfair Display', Georgia, serif";
+          leadW = lead ? ctx.measureText(lead.toUpperCase() + " ").width : 0;
+          lineW = leadW + numW;
+          if (lineW <= innerW || numSize <= 10) break;
+          numSize = Math.max(10, Math.floor(numSize * 0.92));
+          callSize = Math.max(8, Math.floor(callSize * 0.92));
+        }
+        var startX = barCx - lineW / 2;
+        var baseY = panelY + panelH * (trail ? 0.5 : 0.62);
+        ctx.save();
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+        if (lead) {
+          ctx.font = "500 " + callSize + "px 'Playfair Display', Georgia, serif";
+          ctx.fillStyle = rgba(palette.cream, 0.92);
+          ctx.fillText(lead.toUpperCase() + " ", startX, baseY);
+        }
+        if (phone) {
+          ctx.font = "600 " + numSize + "px 'Playfair Display', Georgia, serif";
+          ctx.fillStyle = palette.cream;
+          ctx.fillText(phone, startX + leadW, baseY);
+        }
+        ctx.restore();
+        drawHeart(ctx, startX - panelH * 0.26, baseY - numSize * 0.32, panelH * 0.09, rgba(palette.cream, 0.75));
+        if (trail) {
+          var tSize = Math.round(panelH * 0.19);
+          ctx.font = "500 " + tSize + "px 'Playfair Display', Georgia, serif";
+          if ("letterSpacing" in ctx) ctx.letterSpacing = "0.08em";
+          centreText(ctx, trail.toUpperCase(), barCx, panelY + panelH * 0.83, rgba(palette.cream, 0.82));
+          if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+        }
+        return { composition: composition, contentBottom: contentBottom, panelTop: panelTop };
+      }
+
       drawPanel(ctx, cx - panelW / 2, panelY, panelW, panelH, palette);
 
       var inner = panelY + padY;
@@ -1230,9 +1384,46 @@
         ? R.effectivePaletteColors(brand, opts.style)
         : { primary: brand.primaryColor, accent: brand.accentColor };
       var palette = derivePalette(colors.primary, colors.accent, sample);
+      // Which half of the photograph the wording goes in, decided from the
+      // picture itself rather than guessed — and decided ONCE, so the
+      // measuring pass and the drawing pass cannot disagree about it.
+      var textSide = "left";
+      if (img) {
+        try {
+          var sideProbe = document.createElement("canvas");
+          sideProbe.width = 32; sideProbe.height = 40;
+          var sp = sideProbe.getContext("2d", { willReadFrequently: true });
+          sp.drawImage(img, 0, 0, 32, 40);
+          var sd = sp.getImageData(0, 0, 32, 40);
+          var leftBusy = R.busyFractionIn ? R.busyFractionIn(sd, { x: 0, y: 4, w: 15, h: 32 }) : 0;
+          var rightBusy = R.busyFractionIn ? R.busyFractionIn(sd, { x: 17, y: 4, w: 15, h: 32 }) : 0;
+          textSide = rightBusy < leftBusy ? "right" : "left";
+        } catch (e) {
+          textSide = "left";
+        }
+      }
+      // And whether that half can carry dark type at all. Judged once for the
+      // WHOLE column: backing each line separately turned the message into a
+      // stack of little staggered banners, which is the same mistake as three
+      // cards with seams, one level down.
+      var needsBackdrop = false;
+      if (img) {
+        try {
+          var bp = document.createElement("canvas");
+          bp.width = 60; bp.height = 60;
+          var bc = bp.getContext("2d", { willReadFrequently: true });
+          bc.drawImage(img, 0, 0, 60, 60);
+          var bd = bc.getImageData(0, 0, 60, 60);
+          var col = textSide === "right" ? { x: 32, y: 6, w: 26, h: 44 } : { x: 2, y: 6, w: 26, h: 44 };
+          needsBackdrop = R.needsBannerBehind ? R.needsBannerBehind(bd, col, palette.ink, 0.92) : false;
+        } catch (e) {
+          needsBackdrop = false;
+        }
+      }
       var base = {
         width: width, height: height, content: opts.content, brand: brand,
-        palette: palette, image: img, seed: seed
+        palette: palette, image: img, seed: seed, textSide: textSide,
+        needsBackdrop: needsBackdrop
       };
       // Lay the poster out once against a context that measures but paints
       // nothing, to learn how tall it naturally is. Short wording used to
