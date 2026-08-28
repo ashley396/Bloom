@@ -5,7 +5,9 @@ import {
   imageGenerationConfigured,
   buildImagePrompt,
   generateFlyerBackgroundWithRetry,
-  buildFlyerBackgroundPrompt
+  buildFlyerBackgroundPrompt,
+  buildBackgroundPrompt,
+  composePrompt
 } from "../netlify/functions/_shared/ai-image-engine.js";
 import { createFakeSupabaseClient, createFakeSupabaseStorage } from "./helpers/fake-supabase-client.mjs";
 
@@ -221,8 +223,9 @@ test("buildFlyerBackgroundPrompt: demands bright, happy, colourful floral photog
 
 test("buildFlyerBackgroundPrompt: never asks the model to render words, numbers, logos or watermarks — a diffusion model can't spell", () => {
   const p = buildFlyerBackgroundPrompt({ occasion: "Closing early" });
-  assert.match(p, /no legible text, words, letters, numbers/i);
-  assert.match(p, /no logos, no watermarks/i);
+  assert.match(p, /ABSOLUTELY NO TEXT/);
+  assert.match(p, /no words, letters, numbers/i);
+  assert.match(p, /watermarks or logos/i, "the logo/watermark ban must survive wherever it is expressed");
 });
 
 test("buildFlyerBackgroundPrompt: asks for open space in the LOWER portion, where the templates actually place text — never a white panel or colour overlay", () => {
@@ -294,8 +297,9 @@ test("buildFlyerBackgroundPrompt: the no-text and no-logo guarantees SURVIVE the
     visualBrief: "x".repeat(4000)
   });
   assert.ok(p.length <= 1200, `prompt must respect the provider cap, got ${p.length}`);
-  assert.match(p, /no legible text, words, letters, numbers, or signage/i);
-  assert.match(p, /no logos, no watermarks/i);
+  assert.match(p, /ABSOLUTELY NO TEXT/);
+  assert.match(p, /no words, letters, numbers/i);
+  assert.match(p, /watermarks or logos/i, "the logo/watermark ban must survive wherever it is expressed");
   // The earlier version of this test asserted only the tail and passed
   // green while the calm-text-area instruction — the entire point of the
   // change beside it — had silently vanished. Every REQUIRED clause must
@@ -317,12 +321,78 @@ test("buildFlyerBackgroundPrompt: ordinary real inputs keep every required claus
   });
   assert.ok(p.length <= 1200);
   assert.match(p, /Critically important/);
-  assert.match(p, /no legible text/i);
-  assert.match(p, /no logos, no watermarks/i);
+  assert.match(p, /ABSOLUTELY NO TEXT/);
+  assert.match(p, /watermarks or logos/i, "the logo/watermark ban must survive wherever it is expressed");
   assert.match(p, /garden roses/, "real inventory should still make it in at this size");
   // The brand-colour clause is OPTIONAL by design and is the first thing
   // surrendered when the cap bites — that is the intended trade, and it is
   // asserted here so the priority order stays deliberate rather than
   // accidental: required clauses in, optional detail out, nothing sliced.
   assert.ok(p.length <= 1200);
+});
+
+// ---------------------------------------------------------------------------
+// The no-text and realism guarantees must survive ANY caller input.
+//
+// Ashley, on a funeral post whose image had invented gibberish painted across
+// it — "Revise the Flower, Fost", "He lay airth rerord sanding lite!" — and a
+// flat, unconvincing arrangement: these posts "need to have ultra realistic
+// flower arrangements that match the post and the wording on the pictures
+// must make sense if it has wording on it."
+//
+// A diffusion model cannot spell, so the only wording that can make sense is
+// no wording at all — Florisyn draws the real words itself. The prompt
+// appended that guarantee and then sliced the joined string to 1200
+// characters, so a visual brief of 1200 characters or more deleted it
+// outright. The brief is model-written and unbounded.
+// ---------------------------------------------------------------------------
+
+test("buildImagePrompt: the no-text guarantee survives a visual brief of any length", () => {
+  for (const length of [0, 100, 1079, 1080, 1200, 2000, 8000]) {
+    const prompt = buildImagePrompt({ visualBrief: "x".repeat(length), occasion: "funeral tribute work" });
+    assert.match(prompt, /ABSOLUTELY NO TEXT/,
+      `a ${length}-character brief deleted the one instruction stopping the model painting nonsense on a shop's post`);
+    assert.ok(prompt.length <= 1200, `prompt overflowed the provider cap at ${length}: ${prompt.length}`);
+  }
+});
+
+test("buildImagePrompt: the realism instruction is never dropped to make room", () => {
+  for (const length of [0, 1200, 5000]) {
+    const prompt = buildImagePrompt({ visualBrief: "x".repeat(length) });
+    assert.match(prompt, /Ultra-realistic photograph of genuine fresh flowers/,
+      `a ${length}-character brief dropped the realism instruction`);
+    assert.match(prompt, /Not an illustration, painting, clip art, cartoon or 3D render/);
+  }
+});
+
+test("buildImagePrompt: the occasion survives, so the arrangement matches the post it illustrates", () => {
+  const prompt = buildImagePrompt({ visualBrief: "x".repeat(4000), occasion: "sympathy and funeral tribute work" });
+  assert.match(prompt, /sympathy and funeral tribute work/,
+    "a generic bouquet on a funeral post is the arrangement not matching the post");
+});
+
+test("buildImagePrompt: no clause is ever cut mid-sentence", () => {
+  // A half-instruction is worse than none — the model still reads it.
+  const prompt = buildImagePrompt({ visualBrief: "A serene chapel tribute. ".repeat(80) });
+  assert.ok(!/\bABSOLUTELY NO TEX\b|\bUltra-realistic photograph of genuine fresh\.$/.test(prompt));
+  assert.match(prompt, /render\.|scene with no writing of any kind\./);
+});
+
+test("buildBackgroundPrompt: its own guarantees survive an unbounded brief too", () => {
+  const prompt = buildBackgroundPrompt({ visualBrief: "y".repeat(3000) });
+  assert.match(prompt, /ABSOLUTELY NO TEXT/);
+  assert.match(prompt, /Empty background only/);
+  assert.ok(prompt.length <= 1200);
+});
+
+test("composePrompt: drops optional clauses from the end and never a required one", () => {
+  const out = composePrompt([
+    { text: "REQ-FIRST", optional: false },
+    { text: "z".repeat(1100), optional: true },
+    { text: "OPT-TAIL", optional: true },
+    { text: "REQ-LAST", optional: false }
+  ]);
+  assert.match(out, /REQ-FIRST/);
+  assert.match(out, /REQ-LAST/);
+  assert.ok(out.length <= 1200);
 });

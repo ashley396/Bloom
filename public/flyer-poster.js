@@ -327,19 +327,28 @@
     opts = opts || {};
     var notch = typeof opts.notch === "number" ? opts.notch : h * 0.32;
     ctx.save();
-    // The folded tails behind each end, darker, as on the reference's banner.
-    // Without them the shape reads as a notched bar rather than a ribbon.
+    // The folded tails behind each end.
+    //
+    // Ashley circled the first attempt: drawn as free-standing quadrilaterals
+    // set off from the banner, they read as two detached boxes sitting beside
+    // it, not as the ribbon folding back on itself. A real fold TOUCHES the
+    // banner along its full end, tucks UNDER it, and is cut back at an angle
+    // — so it starts at the banner's own edge, is shorter than the banner is
+    // tall, and its inner corner is hidden behind the banner drawn on top.
     if (opts.tails !== false && !opts.fill) {
-      var tail = Math.min(h * 0.4, w * 0.045);
-      var fold = h * 0.2;
-      ctx.fillStyle = mixHex(palette.ink, { r: 0, g: 0, b: 0 }, 0.3);
+      var tail = Math.min(h * 0.55, w * 0.05);
+      var drop = h * 0.30;
+      ctx.fillStyle = mixHex(palette.ink, { r: 0, g: 0, b: 0 }, 0.34);
       for (var side = -1; side <= 1; side += 2) {
         var edge = cx + side * w / 2;
         ctx.beginPath();
-        ctx.moveTo(edge, cy - h / 2 + fold);
-        ctx.lineTo(edge + side * tail, cy - h / 2 + fold * 1.7);
-        ctx.lineTo(edge + side * tail, cy + h / 2 - fold * 0.3);
-        ctx.lineTo(edge, cy + h / 2 - fold * 0.6);
+        // Starts inside the banner so no seam shows, drops below it, and
+        // takes a notch out of its outer end like the banner's own.
+        ctx.moveTo(edge - side * h * 0.12, cy - h / 2 + drop);
+        ctx.lineTo(edge + side * tail, cy - h / 2 + drop);
+        ctx.lineTo(edge + side * (tail - h * 0.16), cy + h / 2 + drop * 0.42);
+        ctx.lineTo(edge + side * tail, cy + h / 2 + drop * 0.86);
+        ctx.lineTo(edge - side * h * 0.12, cy + h / 2 + drop * 0.86);
         ctx.closePath();
         ctx.fill();
       }

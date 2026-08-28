@@ -132,23 +132,70 @@ export async function generateFlyerBackgroundWithRetry(client, shopId, { promptF
 // path (generateFlyerContent + public/flyer-renderer.js) instead — and a
 // plain photo-only request never asks this model to render any words
 // either. Unconditional, not left to the model to decide.
+// Strong but COMPACT. Every character here is taken from the optional
+// clauses — an earlier, wordier version pushed the required clauses past the
+// cap on their own, which silently squeezed out the real-inventory grounding
+// that keeps a flyer honest about what the shop actually stocks.
 const NO_TEXT_DIRECTIVE =
-  "No legible text, words, letters, numbers, or signage anywhere in the image — a purely photographic/visual scene only.";
+  "ABSOLUTELY NO TEXT: no words, letters, numbers, captions, signage, labels, price tags, banners, watermarks or logos " +
+  "anywhere. Invented lettering is always nonsense. A purely photographic scene with no writing of any kind.";
+
+/** Ashley, shown a funeral post whose image had invented gibberish painted
+ * across it and a flat arrangement: these posts "need to have ultra realistic
+ * flower arrangements that match the post." Required on every photographic
+ * prompt — a florist's own product photography is the product. */
+const REALISM_DIRECTIVE =
+  "Ultra-realistic photograph of genuine fresh flowers — accurate botanical detail, real petals, stems and foliage, " +
+  "professional lighting, shallow depth of field. Not an illustration, painting, clip art, cartoon or 3D render.";
+
+/**
+ * Joins whole clauses to fit a provider's length cap, dropping OPTIONAL ones
+ * from the end until the REQUIRED ones fit.
+ *
+ * Slicing the joined string is what this exists to prevent, and it was a real
+ * shipped defect twice over: a long visual brief silently cut the no-text
+ * guarantee off the end of the prompt, and the model then painted invented
+ * words across a florist's post. Worse, a partial clause is not a no-op — the
+ * model still reads half a sentence. Nothing is ever cut mid-clause here.
+ */
+export function composePrompt(clauses, cap = 1200) {
+  const join = (list) => list.map((c) => c.text).join(" ");
+  const kept = clauses.filter((c) => c && c.text);
+  for (let i = kept.length - 1; i >= 0 && join(kept).length > cap; i--) {
+    if (kept[i].optional) kept.splice(i, 1);
+  }
+  let out = join(kept);
+  if (out.length > cap) {
+    // Only reachable if the required clauses alone exceed the cap, which is
+    // an authoring mistake here rather than caller input. Trim from the FRONT
+    // so the no-text guarantee, which is last, is the last thing lost.
+    out = out.slice(out.length - cap);
+  }
+  return out;
+}
+const required = (text) => ({ text, optional: false });
+const optional = (text) => ({ text, optional: true });
 
 /** Turns campaign/post context into a concrete visual prompt — never a
  * vague placeholder, per the brief's own "no vague placeholders" rule for
  * florist-facing creative. */
 export function buildImagePrompt({ occasion, products = [], shopName, visualBrief } = {}) {
-  const parts = [];
-  if (visualBrief) parts.push(visualBrief);
-  else {
-    parts.push("Professional florist marketing photograph, bright natural light, clean background.");
-    if (occasion) parts.push(`Theme: ${occasion}.`);
-    if (products.length) parts.push(`Featuring: ${products.slice(0, 4).join(", ")}.`);
-    if (shopName) parts.push(`Style suitable for ${shopName}'s social media and website.`);
+  const clauses = [required(REALISM_DIRECTIVE)];
+  if (visualBrief) {
+    // The brief carries what the post is actually about, so it outranks the
+    // generic fallback — but it is model-written and unbounded, and appending
+    // the guarantees after it and then slicing deleted them outright.
+    clauses.push(optional(String(visualBrief)));
+  } else {
+    clauses.push(required("Professional florist marketing photograph, bright natural light, clean background."));
+    if (products.length) clauses.push(optional(`Featuring: ${products.slice(0, 4).join(", ")}.`));
+    if (shopName) clauses.push(optional(`Style suitable for ${shopName}'s social media and website.`));
   }
-  parts.push(NO_TEXT_DIRECTIVE);
-  return parts.join(" ").slice(0, 1200);
+  // The occasion is what makes the arrangement match the post it illustrates —
+  // a sympathy tribute for funeral work, not a generic bouquet. Required.
+  if (occasion) clauses.push(required(`The arrangement must genuinely suit this occasion: ${occasion}.`));
+  clauses.push(required(NO_TEXT_DIRECTIVE));
+  return composePrompt(clauses);
 }
 
 /**
@@ -162,12 +209,13 @@ export function buildImagePrompt({ occasion, products = [], shopName, visualBrie
  * excludes any subject — this call's only job is the empty backdrop.
  */
 export function buildBackgroundPrompt({ visualBrief, brandColor } = {}) {
-  const parts = [];
-  parts.push(visualBrief || "Clean, softly lit neutral backdrop, professional product-photography studio.");
-  parts.push("Empty background only — absolutely no flowers, bouquet, vase, product, people, or text in the frame.");
-  parts.push("Photographic, shallow depth of field, soft realistic lighting, no harsh shadows.");
-  if (brandColor) parts.push(`If a color choice isn't otherwise specified, lean toward tones that complement ${brandColor}.`);
-  return parts.join(" ").slice(0, 1200);
+  return composePrompt([
+    optional(String(visualBrief || "Clean, softly lit neutral backdrop, professional product-photography studio.")),
+    required("Empty background only — absolutely no flowers, bouquet, vase, product, people, or text in the frame."),
+    required("Photographic, shallow depth of field, soft realistic lighting, no harsh shadows."),
+    brandColor ? optional(`If a color choice isn't otherwise specified, lean toward tones that complement ${brandColor}.`) : null,
+    required(NO_TEXT_DIRECTIVE)
+  ].filter(Boolean));
 }
 
 /**
@@ -224,9 +272,6 @@ export function buildFlyerBackgroundPrompt({ visualBrief, occasion, brandColor, 
   // visual brief. A half-sentence is worse than no sentence: the model
   // still reads it. So nothing is ever sliced — the OPTIONAL clauses are
   // dropped whole, last-listed first, until the required ones fit.
-  const required = (text) => ({ text, optional: false });
-  const optional = (text) => ({ text, optional: true });
-
   const clauses = [
     required(
       "Luxury editorial floral photography for a premium flower shop's marketing flyer — happy, colorful, rich and vivid floral tones (blush pink, coral, sunny yellow, fresh green, soft lavender, warm cream), bright natural daylight, realistic and elegant florals, shallow depth of field, a composed, high-end magazine-quality look. Never dark, moody, dull, gloomy, or desaturated."
@@ -258,8 +303,9 @@ export function buildFlyerBackgroundPrompt({ visualBrief, occasion, brandColor, 
   if (brandColor) {
     clauses.push(optional(`Color palette should read as premium and complement ${brandColor}, while staying bright and colorful overall.`));
   }
+  // No separate logo clause — NO_TEXT_DIRECTIVE already forbids logos and
+  // watermarks, and two clauses saying it cost room the grounding needed.
   clauses.push(required(NO_TEXT_DIRECTIVE));
-  clauses.push(required("No logos, no watermarks, no invented brand marks."));
 
   const join = (list) => list.map((c) => c.text).join(" ");
   const kept = clauses.slice();

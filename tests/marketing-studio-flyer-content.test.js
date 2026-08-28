@@ -100,7 +100,7 @@ test("buildImagePrompt: unconditionally forbids on-image text, even when visual_
   const withInnocentBrief = buildImagePrompt({ visualBrief: "A bright bouquet of roses on a marble counter." });
   const withTextAskingBrief = buildImagePrompt({ visualBrief: "A flyer with the headline CLOSING EARLY and the phone number 606-506-4039 printed on it." });
   for (const prompt of [withNoBrief, withInnocentBrief, withTextAskingBrief]) {
-    assert.match(prompt, /no legible text, words, letters, numbers, or signage/i, "every image prompt must carry the unconditional no-text directive");
+    assert.match(prompt, /ABSOLUTELY NO TEXT: no words, letters, numbers/i, "every image prompt must carry the unconditional no-text directive");
   }
 });
 
@@ -198,7 +198,7 @@ test("generate_content (real dispatch): an operational closing notice routes to 
     const bgPrompt = imageCalls[0].body.prompt;
     assert.doesNotMatch(bgPrompt, /2:30/, "the exact time must never be sent to the image model");
     assert.doesNotMatch(bgPrompt, /606-506-4039/, "the exact phone number must never be sent to the image model");
-    assert.match(bgPrompt, /no legible text, words, letters, numbers, or signage/i, "the background prompt must carry the same unconditional no-text guarantee");
+    assert.match(bgPrompt, /ABSOLUTELY NO TEXT: no words, letters, numbers/i, "the background prompt must carry the same unconditional no-text guarantee");
 
     const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
     const insertedRow = assetInsert.ops.find((op) => op[0] === "insert")[1][0];
@@ -490,7 +490,7 @@ test("generate_content (real dispatch): an ordinary decorative request stays a p
     assert.equal(body.asset.type, "image", "an ordinary decorative request must stay a plain image, never a flyer");
     const imageCalls = mock.calls.filter((c) => c.url.includes("black-forest-labs") || "prompt" in c.body);
     assert.equal(imageCalls.length, 1, "the AI image model IS expected to be called for a plain photo request");
-    assert.match(imageCalls[0].body.prompt, /no legible text, words, letters, numbers, or signage/i, "the image prompt actually sent must carry the no-text directive");
+    assert.match(imageCalls[0].body.prompt, /ABSOLUTELY NO TEXT: no words, letters, numbers/i, "the image prompt actually sent must carry the no-text directive");
   } finally {
     mock.restore();
   }
@@ -668,7 +668,7 @@ test("revise_content (real dispatch): 'Regenerate image' — a request to change
     const imageCall = mock.calls.find((c) => c.url.includes("black-forest-labs") || "prompt" in c.body);
     assert.ok(imageCall, "the image model must actually have been called");
     assert.match(imageCall.body.prompt, /garden roses, ranunculus/, "the reused inventory grounding must reach the actual prompt");
-    assert.match(imageCall.body.prompt, /no legible text, words, letters, numbers, or signage/i, "the background prompt must still carry the no-text directive");
+    assert.match(imageCall.body.prompt, /ABSOLUTELY NO TEXT: no words, letters, numbers/i, "the background prompt must still carry the no-text directive");
   } finally {
     mock.restore();
   }
