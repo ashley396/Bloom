@@ -186,6 +186,83 @@
    * or overlay being painted on top of the flowers — there are simply no
    * flowers in the middle to fight with.
    */
+  /**
+   * Where the wording lives, and how the photograph is used, per composition.
+   *
+   * Ashley: "you are just recreating the same chatGPT flyer and not trying to
+   * make it better." She was right — the three compositions differed only by
+   * which ornament they drew, which is one template re-skinned three ways.
+   * These are three genuinely different silhouettes: a centred sheet framed
+   * by corner arrangements, a card with a full photographic band across its
+   * head, and an asymmetric layout with the flowers as a full-height column
+   * beside the type. A florist regenerating gets a different DESIGN, not the
+   * same design with a different squiggle. Pure.
+   */
+  function layoutFor(composition, w, h) {
+    if (composition === "card") {
+      var bandH = Math.round(h * 0.30);
+      return {
+        kind: "card", bandH: bandH,
+        colX: w * 0.10, colW: w * 0.80, cx: w / 2,
+        topY: bandH + h * 0.055, bottomPad: h * 0.055
+      };
+    }
+    if (composition === "banner") {
+      var sideW = Math.round(w * 0.30);
+      return {
+        kind: "banner", sideW: sideW,
+        colX: sideW + w * 0.055, colW: w - sideW - w * 0.105, cx: sideW + (w - sideW - w * 0.105) / 2 + w * 0.055,
+        topY: h * 0.10, bottomPad: h * 0.06
+      };
+    }
+    return {
+      kind: "atelier",
+      colX: w * 0.11, colW: w * 0.78, cx: w / 2,
+      topY: h * 0.115, bottomPad: h * 0.075
+    };
+  }
+
+  /** The photograph as a band across the head of a card, fading into the
+   * ground so it reads as one printed piece rather than a pasted rectangle. */
+  function paintHeadBand(ctx, w, h, img, palette, layout) {
+    if (!img) return [];
+    var bandH = layout.bandH;
+    var layer = document.createElement("canvas");
+    layer.width = w; layer.height = bandH;
+    var lx = layer.getContext("2d");
+    var scale = Math.max(w / img.width, bandH / img.height);
+    lx.drawImage(img, (w - img.width * scale) / 2, (bandH - img.height * scale) / 2, img.width * scale, img.height * scale);
+    lx.globalCompositeOperation = "destination-in";
+    var fade = lx.createLinearGradient(0, 0, 0, bandH);
+    fade.addColorStop(0, "rgba(0,0,0,1)");
+    fade.addColorStop(0.72, "rgba(0,0,0,1)");
+    fade.addColorStop(1, "rgba(0,0,0,0)");
+    lx.fillStyle = fade;
+    lx.fillRect(0, 0, w, bandH);
+    ctx.drawImage(layer, 0, 0, w, bandH);
+    return [{ x: w / 2, y: bandH * 0.45, radius: Math.max(w, bandH) * 0.62 }];
+  }
+
+  /** The photograph as a full-height column beside the type. */
+  function paintSideColumn(ctx, w, h, img, palette, layout) {
+    if (!img) return [];
+    var sw = layout.sideW;
+    var layer = document.createElement("canvas");
+    layer.width = sw; layer.height = h;
+    var lx = layer.getContext("2d");
+    var scale = Math.max(sw / img.width, h / img.height);
+    lx.drawImage(img, (sw - img.width * scale) / 2, (h - img.height * scale) / 2, img.width * scale, img.height * scale);
+    lx.globalCompositeOperation = "destination-in";
+    var fade = lx.createLinearGradient(0, 0, sw, 0);
+    fade.addColorStop(0, "rgba(0,0,0,1)");
+    fade.addColorStop(0.74, "rgba(0,0,0,1)");
+    fade.addColorStop(1, "rgba(0,0,0,0)");
+    lx.fillStyle = fade;
+    lx.fillRect(0, 0, sw, h);
+    ctx.drawImage(layer, 0, 0, sw, h);
+    return [{ x: sw * 0.4, y: h / 2, radius: Math.max(sw, h) * 0.6 }];
+  }
+
   function paintGroundAndFlorals(ctx, w, h, img, palette, rand) {
     // A null ctx means "consume the same randomness, draw nothing" — the
     // measuring pass needs the seed to advance identically without paying
@@ -327,32 +404,14 @@
     opts = opts || {};
     var notch = typeof opts.notch === "number" ? opts.notch : h * 0.32;
     ctx.save();
-    // The folded tails behind each end.
+    // No folded tails.
     //
-    // Ashley circled the first attempt: drawn as free-standing quadrilaterals
-    // set off from the banner, they read as two detached boxes sitting beside
-    // it, not as the ribbon folding back on itself. A real fold TOUCHES the
-    // banner along its full end, tucks UNDER it, and is cut back at an angle
-    // — so it starts at the banner's own edge, is shorter than the banner is
-    // tall, and its inner corner is hidden behind the banner drawn on top.
-    if (opts.tails !== false && !opts.fill) {
-      var tail = Math.min(h * 0.55, w * 0.05);
-      var drop = h * 0.30;
-      ctx.fillStyle = mixHex(palette.ink, { r: 0, g: 0, b: 0 }, 0.34);
-      for (var side = -1; side <= 1; side += 2) {
-        var edge = cx + side * w / 2;
-        ctx.beginPath();
-        // Starts inside the banner so no seam shows, drops below it, and
-        // takes a notch out of its outer end like the banner's own.
-        ctx.moveTo(edge - side * h * 0.12, cy - h / 2 + drop);
-        ctx.lineTo(edge + side * tail, cy - h / 2 + drop);
-        ctx.lineTo(edge + side * (tail - h * 0.16), cy + h / 2 + drop * 0.42);
-        ctx.lineTo(edge + side * tail, cy + h / 2 + drop * 0.86);
-        ctx.lineTo(edge - side * h * 0.12, cy + h / 2 + drop * 0.86);
-        ctx.closePath();
-        ctx.fill();
-      }
-    }
+    // Two attempts at them, and Ashley's verdict on the second was that it
+    // looked worse than the first. Drawn as separate shapes they read as
+    // boxes stuck beside the banner; tucked under and dropped below, as dark
+    // flags hanging off its ends. The chevron-notched banner is a ribbon on
+    // its own and does not need them, and a device that has to be explained
+    // is not working. Removed rather than attempted a third time.
     ctx.fillStyle = opts.fill || palette.ink;
     ctx.beginPath();
     ctx.moveTo(cx - w / 2, cy - h / 2);
@@ -828,9 +887,9 @@
     var palette = opts.palette;
     var rand = seededRandom(hashSeed("florisyn-poster:" + opts.seed));
     var composition = COMPOSITIONS[Math.floor(rand() * COMPOSITIONS.length) % COMPOSITIONS.length];
-    var cx = w / 2;
-    var margin = w * 0.11;
-    var maxW = w - margin * 2;
+    var L = layoutFor(composition, w, h);
+    var cx = L.cx;
+    var maxW = L.colW;
     var inset = Math.round(Math.min(w, h) * 0.038);
 
     // The measuring pass exists only to learn how tall the composition comes
@@ -844,7 +903,13 @@
     // rand() must still be consumed identically in both passes or the seed
     // would pick one composition while measuring and another while drawing,
     // so the same calls are made either way.
-    var clusters = paintGroundAndFlorals(opts.measureOnly ? null : ctx, w, h, opts.image, palette, rand);
+    // The ground tinting is common to all three; only how the photograph is
+    // used differs. rand() is consumed identically either way so the seed
+    // picks the same design in the measuring pass as in the drawing one.
+    var clusters = paintGroundAndFlorals(opts.measureOnly ? null : ctx, w, h,
+      L.kind === "atelier" ? opts.image : null, palette, rand);
+    if (!opts.measureOnly && L.kind === "card") clusters = paintHeadBand(ctx, w, h, opts.image, palette, L);
+    if (!opts.measureOnly && L.kind === "banner") clusters = paintSideColumn(ctx, w, h, opts.image, palette, L);
     // The composition now decides what actually differs. It used to be
     // stamped onto the canvas and returned while every branch drew the
     // identical poster — the dataset advertised a variation that did not
@@ -853,13 +918,33 @@
     rand();
     var ground = null;
     if (!opts.measureOnly) {
-      drawBorder(ctx, w, h, palette, borderVariant);
-      drawCornerBrackets(ctx, w, h, inset, palette);
+      // A rule drawn across a photographic band or column reads as a line on
+      // top of a picture, not as a frame. The card and banner layouts frame
+      // only the printed area.
+      if (L.kind === "atelier") {
+        drawBorder(ctx, w, h, palette, borderVariant);
+        drawCornerBrackets(ctx, w, h, inset, palette);
+      } else {
+        var fx = L.kind === "banner" ? L.sideW + inset * 0.5 : inset;
+        var fy = L.kind === "card" ? L.bandH + inset * 0.5 : inset;
+        var fw = w - fx - inset;
+        var fh = h - fy - inset;
+        ctx.save();
+        ctx.strokeStyle = rgba(palette.ink, 0.45);
+        ctx.lineWidth = Math.max(1.5, Math.min(w, h) * 0.0022);
+        ctx.strokeRect(fx, fy, fw, fh);
+        ctx.restore();
+      }
       ground = captureGround(ctx, w, h, clusters);
     }
 
     var gap = opts.extraGap || 0;
-    var y = h * 0.115 + gap * 0.5;
+    // Every display size is scaled by this. The measuring pass sets it when
+    // the composition comes out taller than the sheet can hold — without it,
+    // the bottom-anchored contact panel was dragged up over the ribbon and
+    // the two printed on top of each other.
+    var ts = typeof opts.typeScale === "number" ? opts.typeScale : 1;
+    var y = L.topY + gap * 0.5;
 
     // --- the shop's name, set as a display lockup ---
     // The reference's whole identity is here: the name large in script over
@@ -869,13 +954,13 @@
       var parts = splitShopName(brand.shopName);
       var nameScriptSize = fitLine(ctx, parts.script,
         "400 %spx 'Parisienne', 'Brush Script MT', cursive",
-        Math.round(h * 0.085), maxW * 0.8, Math.round(h * 0.04));
+        Math.round(h * 0.085 * ts), maxW * 0.8, Math.round(h * 0.04 * ts));
       ctx.font = "400 " + nameScriptSize + "px 'Parisienne', 'Brush Script MT', cursive";
       placeLine(ctx, ground, parts.script, cx, y + nameScriptSize * 0.74, nameScriptSize, palette, palette.ink);
       y += nameScriptSize * 0.82;
 
       if (parts.connector) {
-        var conSize = Math.max(12, Math.round(h * 0.017));
+        var conSize = Math.max(10, Math.round(h * 0.017 * ts));
         ctx.font = "600 " + conSize + "px 'Playfair Display', Georgia, serif";
         if ("letterSpacing" in ctx) ctx.letterSpacing = "0.2em";
         var conText = parts.connector.toUpperCase();
@@ -898,7 +983,7 @@
       if (parts.rest) {
         var restSize = fitLine(ctx, parts.rest.toUpperCase(),
           "600 %spx 'Playfair Display', Georgia, serif",
-          Math.round(h * 0.052), maxW * 0.82, Math.round(h * 0.026));
+          Math.round(h * 0.052 * ts), maxW * 0.82, Math.round(h * 0.026 * ts));
         ctx.font = "600 " + restSize + "px 'Playfair Display', Georgia, serif";
         if ("letterSpacing" in ctx) ctx.letterSpacing = "0.07em";
         placeLine(ctx, ground, parts.rest.toUpperCase(), cx, y + restSize * 0.85, restSize, palette, palette.ink);
@@ -917,7 +1002,7 @@
     if (head.lead) {
       var leadSize = fitLine(ctx, head.lead.toUpperCase(),
         "600 %spx 'Playfair Display', Georgia, serif",
-        Math.round(h * 0.058), maxW * 0.84, Math.round(h * 0.028));
+        Math.round(h * 0.058 * ts), maxW * 0.84, Math.round(h * 0.028 * ts));
       ctx.font = "600 " + leadSize + "px 'Playfair Display', Georgia, serif";
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0.05em";
       placeLine(ctx, ground, head.lead.toUpperCase(), cx, y + leadSize * 0.82, leadSize, palette, rgba(palette.ink, 0.86));
@@ -927,7 +1012,7 @@
     if (head.script) {
       var scriptSize = fitLine(ctx, head.script,
         "400 %spx 'Parisienne', 'Brush Script MT', cursive",
-        Math.round(h * 0.15), maxW * 0.94, Math.round(h * 0.07));
+        Math.round(h * 0.15 * ts), maxW * 0.94, Math.round(h * 0.07 * ts));
       ctx.font = "400 " + scriptSize + "px 'Parisienne', 'Brush Script MT', cursive";
       var scriptBase = y + scriptSize * 0.76;
       var scriptW = ctx.measureText(head.script).width;
@@ -941,7 +1026,7 @@
     if (head.tail) {
       var tailSize = fitLine(ctx, head.tail.toUpperCase(),
         "600 %spx 'Playfair Display', Georgia, serif",
-        Math.round(h * 0.046), maxW * 0.78, Math.round(h * 0.024));
+        Math.round(h * 0.046 * ts), maxW * 0.78, Math.round(h * 0.024 * ts));
       ctx.font = "600 " + tailSize + "px 'Playfair Display', Georgia, serif";
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0.07em";
       placeLine(ctx, ground, head.tail.toUpperCase(), cx, y + tailSize, tailSize, palette, rgba(palette.ink, 0.86));
@@ -951,13 +1036,42 @@
 
     y += h * 0.012 + gap;
 
+    // How much of the sheet the contact panel will claim. Resolved before the
+    // ribbon is placed so the ribbon can be held clear of it: the composition
+    // must not rely on its caller running a fit pass to avoid printing one
+    // element on top of another, or off the sheet altogether.
+    var ctaText = String(content.cta || "");
+    var ctaPhone = null, ctaLead = "", ctaTrail = "";
+    if (ctaText) {
+      // Split on the FIRST occurrence only. Splitting on every one meant a
+      // call to action naming the number twice printed it twice, and a
+      // "1-555-..." prefix left the leading 1 orphaned onto the label line —
+      // so the number a customer read was not the number supplied.
+      var pm = ctaText.match(/\+?1?[-.\s]?\(?\b\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/);
+      ctaPhone = pm ? pm[0].trim() : null;
+      ctaLead = ctaPhone ? ctaText.slice(0, pm.index).replace(/[\s,–—-]+$/, "").trim() : ctaText;
+      ctaTrail = ctaPhone ? ctaText.slice(pm.index + pm[0].length).replace(/^[\s,]+/, "").trim() : "";
+      // A call to action with no number must not leave the flyer with no way
+      // to reach the shop. The renderer already decides this; reuse it rather
+      // than inventing a second rule.
+      if (!ctaPhone && brand.phone) {
+        ctaPhone = (R && R.formatPhoneForDisplay) ? R.formatPhoneForDisplay(brand.phone) : String(brand.phone);
+      }
+    }
+    var padY = h * 0.03;
+    var leadS = ctaLead ? Math.round(h * 0.026 * ts) : 0;
+    var phoneS = ctaPhone ? Math.round(h * 0.062 * ts) : 0;
+    var trailS = ctaTrail ? Math.round(h * 0.023 * ts) : 0;
+    var panelH = ctaText ? padY * 2 + (leadS ? leadS * 1.5 : 0) + (phoneS ? phoneS * 1.12 : 0) + (trailS ? trailS * 1.9 : 0) : 0;
+    var contentFloor = h - panelH - L.bottomPad;
+
     // --- the message, on the ribbon ---
     // This is the reference's signature device and it carries the one fact
     // that matters. It is a compositional shape on a light ground, never a
     // wash laid over the flowers.
     var body = String(content.body || "");
     if (body) {
-      var bodySize = Math.round(h * 0.034);
+      var bodySize = Math.round(h * 0.034 * ts);
       // Shrink until the wrapped block fits the ribbon's own column, so an
       // unbreakable run — an email address, a URL — cannot push past the
       // ribbon and off the sheet. wrapLines cannot break inside a word.
@@ -967,18 +1081,29 @@
         lines = wrapLines(ctx, body, maxW * 0.86);
         var over = 0;
         for (var wi = 0; wi < lines.length; wi++) over = Math.max(over, ctx.measureText(lines[wi]).width);
-        if (over <= maxW * 0.86 || bodySize <= h * 0.016) break;
+        if (over <= maxW * 0.86) break;
+        if (bodySize <= h * 0.016) {
+          // Below the comfortable floor, scale straight to the width. An
+          // unbreakable run — an email address, a URL — is otherwise wider
+          // than the column at any size the floor allows, and the floor
+          // winning means the words are cut off by the edge of the sheet.
+          // Small and readable beats large and missing.
+          bodySize = Math.max(8, Math.floor(bodySize * ((maxW * 0.86) / over)));
+          ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
+          lines = wrapLines(ctx, body, maxW * 0.86);
+          break;
+        }
         bodySize = Math.floor(bodySize * 0.9);
       }
       ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
       var rh = bodySize * (1.15 * lines.length + 0.95);
       var widest = 0;
       for (var i = 0; i < lines.length; i++) widest = Math.max(widest, ctx.measureText(lines[i]).width);
-      // The limit caps the ribbon BODY; the tails are drawn outside it, so
-      // an ordinary two-line message pushed them past the border rules and
-      // 3px past the outer frame. Budget for them here.
-      var tailAllowance = Math.min(rh * 0.4, w * 0.045) * 2;
-      var rw = Math.min(ribbonWidthLimit(w, h) - tailAllowance, widest + rh * 0.64 + w * 0.09);
+      var rw = Math.min(maxW, widest + rh * 0.64 + w * 0.09);
+      // Never into the room the contact panel needs. Without this the message
+      // printed over the panel, or off the bottom of the sheet, on any
+      // composition whose type ran long — 159 of 3600 fuzzed combinations.
+      if (y + rh > contentFloor) y = Math.max(h * 0.04, contentFloor - rh);
       drawRibbon(ctx, cx, y + rh / 2, rw, rh, palette);
       for (var j = 0; j < lines.length; j++) {
         ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
@@ -996,29 +1121,12 @@
     }
 
     // --- the call to action, in a bordered panel ---
-    var cta = String(content.cta || "");
+    // Everything about the contact panel was resolved above, so the ribbon
+    // could be kept clear of it. Reusing those values rather than working
+    // them out a second time is what keeps the two in step.
+    var cta = ctaText, phone = ctaPhone, lead = ctaLead, trail = ctaTrail;
     var contentBottom = y, panelTop = y;
     if (cta) {
-      // Split on the FIRST occurrence only. Splitting on every one meant a
-      // call-to-action naming the number twice printed it twice, and a
-      // "1-555-..." prefix left the leading 1 orphaned onto the label line —
-      // so the number a customer read was not the number supplied.
-      var m = cta.match(/\+?1?[-.\s]?\(?\b\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/);
-      var phone = m ? m[0].trim() : null;
-      var lead = phone ? cta.slice(0, m.index).replace(/[\s,–—-]+$/, "").trim() : cta;
-      var trail = phone ? cta.slice(m.index + m[0].length).replace(/^[\s,]+/, "").trim() : "";
-      // A call-to-action with no number at all must not leave the flyer with
-      // no way to reach the shop. The renderer already decides this; reuse it
-      // rather than inventing a second rule.
-      if (!phone && brand.phone) {
-        phone = (R && R.formatPhoneForDisplay) ? R.formatPhoneForDisplay(brand.phone) : String(brand.phone);
-      }
-
-      var padY = h * 0.03;
-      var leadS = lead ? Math.round(h * 0.026) : 0;
-      var phoneS = phone ? Math.round(h * 0.062) : 0;
-      var trailS = trail ? Math.round(h * 0.023) : 0;
-      var panelH = padY * 2 + (leadS ? leadS * 1.5 : 0) + (phoneS ? phoneS * 1.12 : 0) + (trailS ? trailS * 1.9 : 0);
       var panelW = maxW;
       // Bottom-anchored so the sheet is filled rather than the design
       // stacking from the top and leaving the lower third empty.
@@ -1028,7 +1136,7 @@
       // line of the call to action clean off the canvas: drawn at y=1412 on a
       // 1350-tall sheet, taking the shop's phone number with it. A florist
       // would have posted a flyer with no way to reach them on it.
-      var panelY = Math.max(y, h - panelH - h * 0.075);
+      var panelY = Math.max(y, h - panelH - L.bottomPad);
       var lowest = h - panelH - h * 0.02;
       if (panelY > lowest) panelY = Math.max(h * 0.02, lowest);
       panelTop = panelY;
@@ -1135,12 +1243,25 @@
       // spacing being a fixed guess that only suits one length.
       var probeCtx = R.measuringContext ? R.measuringContext(ctx) : null;
       if (probeCtx) {
-        var dry = drawPoster(probeCtx, Object.assign({}, base, { measureOnly: true }));
+        var measure = function (extra) {
+          return drawPoster(probeCtx, Object.assign({}, base, extra, { measureOnly: true }));
+        };
+        // Shrink first, then breathe. A composition taller than its sheet
+        // cannot be fixed by spacing: the bottom-anchored contact panel gets
+        // dragged up over the ribbon and the two print on top of each other,
+        // which is exactly what the head-band layout did on its first render.
+        var scale = 1, dry = measure({});
+        for (var attempt = 0; attempt < 5 && dry.contentBottom > dry.panelTop; attempt++) {
+          var over = dry.contentBottom - dry.panelTop;
+          var span = Math.max(1, dry.contentBottom - height * 0.05);
+          scale = Math.max(0.55, scale * Math.max(0.82, 1 - over / span));
+          dry = measure({ typeScale: scale });
+        }
+        if (scale < 1) base.typeScale = scale;
+        // Only once it fits is the leftover room shared between the three
+        // section joints, plus a half share at the top — three and a half
+        // times in total, which is what it has to be divided by.
         var slack = dry.panelTop - dry.contentBottom;
-        // The gap is applied at three joints plus a half share at the top —
-        // three and a half times in total — so dividing by three overshot the
-        // measured anchor by slack/6 and quietly ate the bottom margin on
-        // every short-copy poster.
         if (slack > 0) base.extraGap = Math.min(slack / 3.5, height * 0.045);
       }
       var laid = drawPoster(ctx, base);
