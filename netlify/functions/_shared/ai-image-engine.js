@@ -176,16 +176,57 @@ export function composePrompt(clauses, cap = 1200) {
 const required = (text) => ({ text, optional: false });
 const optional = (text) => ({ text, optional: true });
 
+/**
+ * Shortens text to fit maxLen WITHOUT cutting a word in half — cuts at the
+ * last space at or before the limit, never mid-word. Real, live-found
+ * failure this exists to prevent: composePrompt's own all-or-nothing
+ * per-CLAUSE dropping is right for a whole instruction (half of "ABSOLUTELY
+ * NO TEXT" is worse than none), but wrong for the one clause that names the
+ * actual subject of the photo — losing that ENTIRELY (a jaguar mascot post
+ * regenerated with no jaguar in it at all) is worse than losing only its
+ * trailing descriptive detail. If no space exists early enough, cuts at
+ * maxLen outright rather than returning nothing.
+ */
+function truncateAtWordBoundary(text, maxLen) {
+  if (text.length <= maxLen) return text;
+  const cut = text.slice(0, maxLen);
+  const lastSpace = cut.lastIndexOf(" ");
+  // Only word-break if it doesn't throw away most of the budget doing so.
+  return (lastSpace > maxLen * 0.5 ? cut.slice(0, lastSpace) : cut).trim();
+}
+
 /** Turns campaign/post context into a concrete visual prompt — never a
  * vague placeholder, per the brief's own "no vague placeholders" rule for
  * florist-facing creative. */
-export function buildImagePrompt({ occasion, products = [], shopName, visualBrief } = {}) {
+export function buildImagePrompt({ occasion, products = [], shopName, visualBrief } = {}, cap = 1200) {
+  const occasionClause = occasion ? `The arrangement must genuinely suit this occasion: ${occasion}.` : null;
+  const sympathyClause = SYMPATHY_OCCASION_RE.test(`${occasion || ""} ${visualBrief || ""}`)
+    ? "This is sympathy work: white, ivory and cream blooms with soft green foliage, restrained and dignified, gentle diffused light. Never bright, festive, vivid or celebratory."
+    : null;
+
   const clauses = [required(REALISM_DIRECTIVE)];
   if (visualBrief) {
-    // The brief carries what the post is actually about, so it outranks the
-    // generic fallback — but it is model-written and unbounded, and appending
-    // the guarantees after it and then slicing deleted them outright.
-    clauses.push(optional(String(visualBrief)));
+    // A real, live-found failure: this clause used to be OPTIONAL, and it
+    // is the ONLY thing in this whole function that ever describes the
+    // actual subject of the photo. Every other clause here compounds across
+    // repeated revisions (buildImageRevisionBrief's own "previous version,
+    // for reference" wrapping) and can push the combined prompt over cap —
+    // and composePrompt drops a too-long optional clause WHOLE, not
+    // trimmed. That silently erased the real subject entirely (a jaguar
+    // mascot post regenerated with no jaguar in it at all), leaving a
+    // generic floral photo. Fixed to never let that happen: this clause is
+    // REQUIRED, fitted to whatever budget is actually left after every
+    // other required clause, truncated at a word boundary rather than
+    // dropped — since the concrete subject is the FIRST thing
+    // generateSocialPost's own prompt instructs the model to name in
+    // visual_brief, keeping the front of the string keeps the subject even
+    // when trailing descriptive detail must be cut to fit.
+    const otherRequired = [REALISM_DIRECTIVE, occasionClause, sympathyClause, NO_TEXT_DIRECTIVE].filter(Boolean);
+    // +1 join space per clause already present, plus the join space this
+    // clause itself will need once inserted.
+    const otherLength = otherRequired.reduce((sum, c) => sum + c.length + 1, 0);
+    const budget = Math.max(60, cap - otherLength);
+    clauses.push(required(truncateAtWordBoundary(String(visualBrief), budget)));
   } else {
     clauses.push(required("Professional florist marketing photograph, bright natural light, clean background."));
     if (products.length) clauses.push(optional(`Featuring: ${products.slice(0, 4).join(", ")}.`));
@@ -193,14 +234,10 @@ export function buildImagePrompt({ occasion, products = [], shopName, visualBrie
   }
   // The occasion is what makes the arrangement match the post it illustrates —
   // a sympathy tribute for funeral work, not a generic bouquet. Required.
-  if (occasion) clauses.push(required(`The arrangement must genuinely suit this occasion: ${occasion}.`));
-  if (SYMPATHY_OCCASION_RE.test(`${occasion || ""} ${visualBrief || ""}`)) {
-    clauses.push(required(
-      "This is sympathy work: white, ivory and cream blooms with soft green foliage, restrained and dignified, gentle diffused light. Never bright, festive, vivid or celebratory."
-    ));
-  }
+  if (occasionClause) clauses.push(required(occasionClause));
+  if (sympathyClause) clauses.push(required(sympathyClause));
   clauses.push(required(NO_TEXT_DIRECTIVE));
-  return composePrompt(clauses);
+  return composePrompt(clauses, cap);
 }
 
 /**

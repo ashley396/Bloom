@@ -378,6 +378,49 @@ test("buildImagePrompt: no clause is ever cut mid-sentence", () => {
   assert.match(prompt, /render\.|scene with no writing of any kind\./);
 });
 
+// Real, live-found failure (Ashley's own screenshots): a regenerated post
+// image came back with the requested subject (a jaguar) missing entirely.
+// visual_brief used to be the ONE optional clause here — a too-long one was
+// dropped WHOLE rather than trimmed, silently erasing the actual subject of
+// the photo. Now it is never dropped: it is fitted to whatever budget is
+// left after every other required clause, truncated at a word boundary
+// instead. This is the regression guard — a long, realistic, detailed
+// brief (near generateSocialPost's own 600-char visual_brief cap) combined
+// with a long occasion string must still leave the named subject in the
+// final prompt, never lose it outright the way a dropped clause would.
+test("buildImagePrompt: a long, realistic visual brief never loses its subject entirely — it is trimmed, not dropped", () => {
+  const longRealisticBrief =
+    "A jaguar mascot in a football jersey holding a large bouquet of red and white roses and carnations, " +
+    "standing on a bright green football field under stadium lights, playful sports-fan theme, confetti in " +
+    "the air, bright cheerful colors, homecoming game atmosphere, crowd blurred in the background, banners " +
+    "visible but unreadable, festive game-day energy throughout the whole scene composition, with additional " +
+    "descriptive detail about the stadium architecture, the marching band assembled on the field, streamers " +
+    "in the school colors, and a wide-angle composition that captures the full scale of the celebration.";
+  // A realistic detailed brief — this one alone stays under the 1200 cap
+  // even with visual_brief still OPTIONAL, so it does not by itself
+  // reproduce the drop; the next test below pushes further (a longer brief
+  // plus a long occasion string) and DOES exceed it, verified by actually
+  // reverting the fix and confirming that one — and only that one — fails.
+  assert.ok(longRealisticBrief.length > 550, "keep this a genuinely long, realistic brief");
+  const prompt = buildImagePrompt({
+    visualBrief: longRealisticBrief,
+    occasion: "Good luck post for the football team homecoming game this Friday night"
+  });
+  assert.match(prompt, /jaguar/i, "the real subject must survive even a long, realistic brief — never dropped wholesale");
+  assert.match(prompt, /ABSOLUTELY NO TEXT/, "the no-text guarantee must still survive alongside it");
+  assert.ok(prompt.length <= 1200, `prompt overflowed the provider cap: ${prompt.length}`);
+});
+
+test("buildImagePrompt: the subject survives even at the extreme — a full-length brief, a long instruction-shaped brief, and a long occasion string all at once", () => {
+  const visualBrief = "SUBJECT-MARKER-JAGUAR " + "x".repeat(590);
+  const prompt = buildImagePrompt({
+    visualBrief,
+    occasion: "funeral tribute work for a long occasion string padding out required clauses further than usual"
+  });
+  assert.match(prompt, /SUBJECT-MARKER-JAGUAR/, "the subject marker at the front of an over-length brief must survive");
+  assert.ok(prompt.length <= 1200, `prompt overflowed the provider cap: ${prompt.length}`);
+});
+
 test("buildBackgroundPrompt: its own guarantees survive an unbounded brief too", () => {
   const prompt = buildBackgroundPrompt({ visualBrief: "y".repeat(3000) });
   assert.match(prompt, /ABSOLUTELY NO TEXT/);
