@@ -185,6 +185,43 @@
   //            the same device the contact panel already uses below it
   var MESSAGE_STYLES = ["ribbon", "framed"];
 
+  // ---------------------------------------------------------------------------
+  // "if i ask the same prompt everyday for a year no two should be anything
+  // alike." Palette, type and message were each real, independent axes — but
+  // every poster still opened with the IDENTICAL shop-name lockup (script word
+  // over caps, the same connector rule, in that order, always) and the same
+  // ornament choice on every ordinary poster (always a heart, never a diamond,
+  // never nothing). Structure that never changes reads as "the same design"
+  // no matter how many times the colour and font are reshuffled underneath it
+  // — which is exactly what she was seeing.
+  //
+  // Three more independent axes, each reusing an already-proven drawing
+  // primitive so the risk is in the CHOOSING, not in new geometry:
+  // ---------------------------------------------------------------------------
+
+  // How the shop's name is presented, first thing on every poster.
+  //   script    — the existing treatment: a script word over tracked caps,
+  //               joined by a connector rule ("IN").
+  //   stacked   — no script face at all: the whole name as one tracked-out
+  //               caps line.
+  //   monogram  — a single oversized script initial as a graphic mark, with
+  //               the full name in small tracked caps beneath it.
+  // All three print every word of the name; only how it is set differs.
+  var LOCKUP_STYLES = ["script", "stacked", "monogram"];
+
+  // The one section mark used at three places on an ordinary poster — under
+  // the message, beside the phone number, above the trailing CTA line. It was
+  // always sympathy ? diamond : heart, which meant "heart" on every single
+  // non-sympathy poster ever drawn. Sympathy work still never takes a heart.
+  var ORNAMENT_MARKS = ["heart", "diamond", "none"];
+
+  // The atelier composition's frame, and the thin rule the card/banner
+  // compositions draw around their printed area — previously fixed by
+  // composition (card got "single", everything else got "double"), now its
+  // own choice. "none" leaves the printed area unframed, which on atelier
+  // still keeps the corner brackets (those are the ornament, not the frame).
+  var BORDER_VARIANTS = ["double", "single", "none"];
+
   /** The hue a family pulls toward, and how hard. null = keep the brand's. */
   function moodTarget(mood) {
     if (mood === "neutral") return { rgb: { r: 38, g: 32, b: 28 }, pull: 0.86 };
@@ -1268,7 +1305,8 @@
     // stamped onto the canvas and returned while every branch drew the
     // identical poster — the dataset advertised a variation that did not
     // exist, and "generates differently every time" was not true.
-    var borderVariant = composition === "card" ? "single" : "double";
+    var borderVariant = opts.borderVariant ||
+      BORDER_VARIANTS[Math.floor(seededRandom(hashSeed("florisyn-border:" + opts.seed))() * BORDER_VARIANTS.length) % BORDER_VARIANTS.length];
     var frameRect = null, panelRect = null;
     // Decided once, from the wording actually being drawn, and used wherever
     // the ornament vocabulary would otherwise be celebratory. Suppressing an
@@ -1277,6 +1315,13 @@
     // picks exactly the same composition, corner flip and border as any other
     // from the same seed. Determinism, and therefore Undo, are untouched.
     var sympathy = isSympathyContent(content, brand.shopName);
+    // Chosen once for the whole poster — three different marks at three
+    // places on one flyer would read as inconsistency, not variety. Sympathy
+    // work never takes a heart, whatever the seed picks; it still gets a
+    // choice between a diamond and no mark at all, which is the restraint
+    // isSympathyContent was written to guarantee.
+    var markPick = ORNAMENT_MARKS[Math.floor(seededRandom(hashSeed("florisyn-mark:" + opts.seed))() * ORNAMENT_MARKS.length) % ORNAMENT_MARKS.length];
+    var ornamentMark = opts.ornamentMark || (sympathy && markPick === "heart" ? "diamond" : markPick);
     // Chosen in its own namespace, independently of the layout and colour —
     // moving with either would collapse variety back down, the same reason
     // the palette and type treatment each get their own.
@@ -1284,6 +1329,8 @@
       (L.kind === "editorial"
         ? "plain"
         : MESSAGE_STYLES[Math.floor(seededRandom(hashSeed("florisyn-message:" + opts.seed))() * MESSAGE_STYLES.length) % MESSAGE_STYLES.length]);
+    var lockupStyle = opts.lockupStyle ||
+      LOCKUP_STYLES[Math.floor(seededRandom(hashSeed("florisyn-lockup:" + opts.seed))() * LOCKUP_STYLES.length) % LOCKUP_STYLES.length];
     rand();
     var ground = null;
     if (!opts.measureOnly) {
@@ -1294,7 +1341,10 @@
         // A rule around a photograph reads as a border on a picture. The
         // editorial poster is framed by the scene itself.
       } else if (L.kind === "atelier") {
-        drawBorder(ctx, w, h, palette, borderVariant);
+        // "none" still keeps the corner brackets — those are the poster's
+        // ornament, the rule is its frame, and the two read as different
+        // things once one of them can be absent independently.
+        if (borderVariant !== "none") drawBorder(ctx, w, h, palette, borderVariant);
         drawCornerBrackets(ctx, w, h, inset, palette);
         frameRect = { x: inset, y: inset, w: w - inset * 2, h: h - inset * 2 };
       } else {
@@ -1302,12 +1352,23 @@
         var fy = L.kind === "card" ? L.bandH + inset * 0.5 : inset;
         var fw = w - fx - inset;
         var fh = h - fy - inset;
+        // Always recorded, whether or not the rule is actually drawn: this
+        // describes the printed area's real boundary — what the contact
+        // panel must stay inside — not whether a line happens to mark it.
         frameRect = { x: fx, y: fy, w: fw, h: fh };
-        ctx.save();
-        ctx.strokeStyle = rgba(palette.ink, 0.45);
-        ctx.lineWidth = Math.max(1.5, Math.min(w, h) * 0.0022);
-        ctx.strokeRect(fx, fy, fw, fh);
-        ctx.restore();
+        if (borderVariant !== "none") {
+          ctx.save();
+          ctx.strokeStyle = rgba(palette.ink, 0.45);
+          ctx.lineWidth = Math.max(1.5, Math.min(w, h) * 0.0022);
+          if (borderVariant !== "single") {
+            var fgap = Math.round(Math.min(w, h) * 0.011);
+            ctx.strokeStyle = rgba(palette.ink, 0.28);
+            ctx.strokeRect(fx + fgap, fy + fgap, fw - fgap * 2, fh - fgap * 2);
+            ctx.strokeStyle = rgba(palette.ink, 0.45);
+          }
+          ctx.strokeRect(fx, fy, fw, fh);
+          ctx.restore();
+        }
       }
       ground = captureGround(ctx, w, h, clusters, maxW);
     }
@@ -1326,43 +1387,88 @@
     // renamed — the same words in the same order, set differently.
     if (brand.shopName) {
       var parts = splitShopName(brand.shopName);
-      var nameScriptSize = fitLine(ctx, parts.script,
-        "400 %spx 'Parisienne', 'Brush Script MT', cursive",
-        Math.round(h * 0.085 * ts), maxW * 0.8, Math.round(h * 0.04 * ts));
-      ctx.font = "400 " + nameScriptSize + "px 'Parisienne', 'Brush Script MT', cursive";
-      placeLine(ctx, L.kind === "editorial" ? null : ground, parts.script, cx, y + nameScriptSize * 0.74, nameScriptSize, palette, palette.ink);
-      y += nameScriptSize * 0.82;
+      // Every word of the name, exactly as given, joined by plain spaces —
+      // what "stacked" and "monogram" set as a single line. splitShopName
+      // never drops or reorders anything, so reassembling its three pieces
+      // always reconstructs brand.shopName verbatim.
+      var wholeName = [parts.script, parts.connector, parts.rest].filter(Boolean).join(" ");
 
-      if (parts.connector) {
-        var conSize = Math.max(10, Math.round(h * 0.017 * ts));
-        ctx.font = "600 " + conSize + "px 'Playfair Display', Georgia, serif";
-        if ("letterSpacing" in ctx) ctx.letterSpacing = "0.2em";
-        var conText = parts.connector.toUpperCase();
-        var conW = ctx.measureText(conText).width;
-        centreText(ctx, conText, cx, y + conSize * 0.5, rgba(palette.ink, 0.8));
+      if (lockupStyle === "stacked") {
+        // No script face anywhere in the lockup — the whole name as one
+        // tracked-out caps line, the way a printed letterhead sets a name.
+        var stackedSize = fitLine(ctx, wholeName.toUpperCase(), "600 %spx 'Playfair Display', Georgia, serif",
+          Math.round(h * 0.05 * ts), maxW * 0.86, Math.round(h * 0.026 * ts), "0.12em");
+        ctx.font = "600 " + stackedSize + "px 'Playfair Display', Georgia, serif";
+        if ("letterSpacing" in ctx) ctx.letterSpacing = "0.12em";
+        placeLine(ctx, L.kind === "editorial" ? null : ground, wholeName.toUpperCase(), cx, y + stackedSize * 0.86, stackedSize, palette, palette.ink);
         if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
-        ctx.save();
-        ctx.strokeStyle = rgba(palette.ink, 0.45);
-        ctx.lineWidth = Math.max(1, h * 0.0012);
-        ctx.beginPath();
-        ctx.moveTo(cx - conW / 2 - w * 0.055, y + conSize * 0.16);
-        ctx.lineTo(cx - conW / 2 - w * 0.012, y + conSize * 0.16);
-        ctx.moveTo(cx + conW / 2 + w * 0.012, y + conSize * 0.16);
-        ctx.lineTo(cx + conW / 2 + w * 0.055, y + conSize * 0.16);
-        ctx.stroke();
-        ctx.restore();
-        y += conSize * 1.15;
-      }
+        y += stackedSize * 1.2;
+      } else if (lockupStyle === "monogram") {
+        // A single oversized script initial as the graphic mark, the full
+        // name still printed in full underneath it — never the initial ALONE
+        // standing in for the shop's real name.
+        var initial = wholeName.charAt(0);
+        if (initial) {
+          var monoSize = fitLine(ctx, initial, "400 %spx 'Parisienne', 'Brush Script MT', cursive",
+            Math.round(h * 0.13 * ts), maxW * 0.4, Math.round(h * 0.06 * ts));
+          ctx.font = "400 " + monoSize + "px 'Parisienne', 'Brush Script MT', cursive";
+          // Parisienne descends a long way below its baseline — a capital's
+          // tail reached down into the caps line beneath it, striking through
+          // "LILIES IN BLOOM." The headline's own script word hits this same
+          // face and already has the proven clearance for it (see the
+          // headline block below): baseline at 0.76 of the size, 0.42 of
+          // clearance after. Reused rather than re-guessed at a smaller,
+          // untested number.
+          var monoBase = y + monoSize * 0.76;
+          placeLine(ctx, L.kind === "editorial" ? null : ground, initial, cx, monoBase, monoSize, palette, palette.ink);
+          y = monoBase + monoSize * 0.42;
+        }
+        var monoNameSize = fitLine(ctx, wholeName.toUpperCase(), "500 %spx 'Playfair Display', Georgia, serif",
+          Math.round(h * 0.032 * ts), maxW * 0.82, Math.round(h * 0.017 * ts), "0.16em");
+        ctx.font = "500 " + monoNameSize + "px 'Playfair Display', Georgia, serif";
+        if ("letterSpacing" in ctx) ctx.letterSpacing = "0.16em";
+        placeLine(ctx, L.kind === "editorial" ? null : ground, wholeName.toUpperCase(), cx, y + monoNameSize, monoNameSize, palette, rgba(palette.ink, 0.82));
+        if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+        y += monoNameSize * 1.35;
+      } else {
+        var nameScriptSize = fitLine(ctx, parts.script,
+          "400 %spx 'Parisienne', 'Brush Script MT', cursive",
+          Math.round(h * 0.085 * ts), maxW * 0.8, Math.round(h * 0.04 * ts));
+        ctx.font = "400 " + nameScriptSize + "px 'Parisienne', 'Brush Script MT', cursive";
+        placeLine(ctx, L.kind === "editorial" ? null : ground, parts.script, cx, y + nameScriptSize * 0.74, nameScriptSize, palette, palette.ink);
+        y += nameScriptSize * 0.82;
 
-      if (parts.rest) {
-        var restSize = fitLine(ctx, parts.rest.toUpperCase(),
-          "600 %spx 'Playfair Display', Georgia, serif",
-          Math.round(h * 0.052 * ts), maxW * 0.82, Math.round(h * 0.026 * ts), "0.07em");
-        ctx.font = "600 " + restSize + "px 'Playfair Display', Georgia, serif";
-        if ("letterSpacing" in ctx) ctx.letterSpacing = "0.07em";
-        placeLine(ctx, L.kind === "editorial" ? null : ground, parts.rest.toUpperCase(), cx, y + restSize * 0.85, restSize, palette, palette.ink);
-        if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
-        y += restSize * 1.05;
+        if (parts.connector) {
+          var conSize = Math.max(10, Math.round(h * 0.017 * ts));
+          ctx.font = "600 " + conSize + "px 'Playfair Display', Georgia, serif";
+          if ("letterSpacing" in ctx) ctx.letterSpacing = "0.2em";
+          var conText = parts.connector.toUpperCase();
+          var conW = ctx.measureText(conText).width;
+          centreText(ctx, conText, cx, y + conSize * 0.5, rgba(palette.ink, 0.8));
+          if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+          ctx.save();
+          ctx.strokeStyle = rgba(palette.ink, 0.45);
+          ctx.lineWidth = Math.max(1, h * 0.0012);
+          ctx.beginPath();
+          ctx.moveTo(cx - conW / 2 - w * 0.055, y + conSize * 0.16);
+          ctx.lineTo(cx - conW / 2 - w * 0.012, y + conSize * 0.16);
+          ctx.moveTo(cx + conW / 2 + w * 0.012, y + conSize * 0.16);
+          ctx.lineTo(cx + conW / 2 + w * 0.055, y + conSize * 0.16);
+          ctx.stroke();
+          ctx.restore();
+          y += conSize * 1.15;
+        }
+
+        if (parts.rest) {
+          var restSize = fitLine(ctx, parts.rest.toUpperCase(),
+            "600 %spx 'Playfair Display', Georgia, serif",
+            Math.round(h * 0.052 * ts), maxW * 0.82, Math.round(h * 0.026 * ts), "0.07em");
+          ctx.font = "600 " + restSize + "px 'Playfair Display', Georgia, serif";
+          if ("letterSpacing" in ctx) ctx.letterSpacing = "0.07em";
+          placeLine(ctx, L.kind === "editorial" ? null : ground, parts.rest.toUpperCase(), cx, y + restSize * 0.85, restSize, palette, palette.ink);
+          if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+          y += restSize * 1.05;
+        }
       }
       y += h * 0.018;
       // A printed card is ruled with a diamond; the other two take the heart —
@@ -1672,8 +1778,8 @@
       // the ribbon the whole sheet, and the mark was drawn 2px past the bottom
       // edge. An ornament is optional; the sheet's edge is not.
       if (L.kind !== "editorial" && y + h * 0.016 <= contentFloor) {
-        if (sympathy) drawDiamondMark(ctx, cx, y, h * 0.009, rgba(palette.ink, 0.5));
-        else drawHeart(ctx, cx, y, h * 0.011, rgba(palette.ink, 0.6));
+        if (ornamentMark === "diamond") drawDiamondMark(ctx, cx, y, h * 0.009, rgba(palette.ink, 0.5));
+        else if (ornamentMark === "heart") drawHeart(ctx, cx, y, h * 0.011, rgba(palette.ink, 0.6));
         // The reference flanks its date with a pair of leafy sprigs; the
         // banner composition is the one that takes them. They belong to the
         // mark, so they live inside the same test for room rather than
@@ -1764,8 +1870,8 @@
           ctx.fillText(phone, startX + leadW, baseY);
         }
         ctx.restore();
-        if (sympathy) drawDiamondMark(ctx, startX - panelH * 0.26, baseY - numSize * 0.32, panelH * 0.075, rgba(palette.cream, 0.7));
-        else drawHeart(ctx, startX - panelH * 0.26, baseY - numSize * 0.32, panelH * 0.09, rgba(palette.cream, 0.75));
+        if (ornamentMark === "diamond") drawDiamondMark(ctx, startX - panelH * 0.26, baseY - numSize * 0.32, panelH * 0.075, rgba(palette.cream, 0.7));
+        else if (ornamentMark === "heart") drawHeart(ctx, startX - panelH * 0.26, baseY - numSize * 0.32, panelH * 0.09, rgba(palette.cream, 0.75));
         if (trail) {
           // Fitted to the bar, like every other line on the poster. This one
           // alone was set at a fixed fraction of the bar's height and drawn,
@@ -1781,7 +1887,7 @@
           centreText(ctx, trail.toUpperCase(), barCx, panelY + panelH * 0.83, rgba(palette.cream, 0.82));
           if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
         }
-        return { composition: composition, contentBottom: contentBottom, panelTop: panelTop, headBottom: headBottom, ribbon: ribbonRect, column: maxW, bodyWidth: bodyWidth, frame: frameRect, panel: panelRect, typeStyle: typeStyle, messageStyle: messageStyle };
+        return { composition: composition, contentBottom: contentBottom, panelTop: panelTop, headBottom: headBottom, ribbon: ribbonRect, column: maxW, bodyWidth: bodyWidth, frame: frameRect, panel: panelRect, typeStyle: typeStyle, messageStyle: messageStyle, lockupStyle: lockupStyle, ornamentMark: ornamentMark, borderVariant: borderVariant };
       }
 
       drawPanel(ctx, cx - panelW / 2, panelY, panelW, panelH, palette);
@@ -1808,14 +1914,14 @@
           trailS, panelW * 0.86, Math.round(h * 0.016), "0.06em");
         ctx.font = "500 " + trailFit + "px 'Playfair Display', Georgia, serif";
         if ("letterSpacing" in ctx) ctx.letterSpacing = "0.06em";
-        if (sympathy) drawDiamondMark(ctx, cx, inner + trailFit * 0.35, h * 0.008, rgba(palette.ink, 0.45));
-        else drawHeart(ctx, cx, inner + trailFit * 0.35, h * 0.0095, rgba(palette.ink, 0.55));
+        if (ornamentMark === "diamond") drawDiamondMark(ctx, cx, inner + trailFit * 0.35, h * 0.008, rgba(palette.ink, 0.45));
+        else if (ornamentMark === "heart") drawHeart(ctx, cx, inner + trailFit * 0.35, h * 0.0095, rgba(palette.ink, 0.55));
         centreText(ctx, trail.toUpperCase(), cx, inner + trailFit * 1.75, rgba(palette.ink, 0.8));
         if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
       }
     }
 
-    return { composition: composition, contentBottom: contentBottom, panelTop: panelTop, headBottom: headBottom, ribbon: ribbonRect, column: maxW, bodyWidth: bodyWidth, frame: frameRect, panel: panelRect, typeStyle: typeStyle, messageStyle: messageStyle };
+    return { composition: composition, contentBottom: contentBottom, panelTop: panelTop, headBottom: headBottom, ribbon: ribbonRect, column: maxW, bodyWidth: bodyWidth, frame: frameRect, panel: panelRect, typeStyle: typeStyle, messageStyle: messageStyle, lockupStyle: lockupStyle, ornamentMark: ornamentMark, borderVariant: borderVariant };
   }
 
 
@@ -2002,6 +2108,9 @@
         canvas.dataset.florisynPosterPalette = mood;
         canvas.dataset.florisynPosterType = laid.typeStyle || "script";
         canvas.dataset.florisynPosterMessageStyle = laid.messageStyle || "plain";
+        canvas.dataset.florisynPosterLockup = laid.lockupStyle || "script";
+        canvas.dataset.florisynPosterOrnament = laid.ornamentMark || "none";
+        canvas.dataset.florisynPosterBorder = laid.borderVariant || "double";
         canvas.dataset.florisynPosterSeed = String(seed);
         canvas.dataset.florisynBackgroundTier = tier || "fallback-procedural";
         // Measured, not asked. If the display faces did not really arrive
@@ -2124,6 +2233,9 @@
     PALETTE_MOODS: PALETTE_MOODS,
     TYPE_STYLES: TYPE_STYLES,
     MESSAGE_STYLES: MESSAGE_STYLES,
+    LOCKUP_STYLES: LOCKUP_STYLES,
+    ORNAMENT_MARKS: ORNAMENT_MARKS,
+    BORDER_VARIANTS: BORDER_VARIANTS,
     ribbonNotch: ribbonNotch,
     drawRibbon: drawRibbon,
     isSympathyContent: isSympathyContent,

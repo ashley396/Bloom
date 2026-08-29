@@ -631,7 +631,17 @@ function drawFixture(over = {}) {
   }, over.content);
   const ctx = recordingContext(width, height);
   const palette = poster.derivePalette(brand.primaryColor, brand.accentColor, null);
-  poster.drawPoster(ctx, { width, height, content, brand, palette, image: null, seed: over.seed || 2 });
+  const base = { width, height, content, brand, palette, image: null, seed: over.seed || 2 };
+  // Every optional axis explicitly forwarded. This exact omission — an
+  // override silently dropped because a new axis was added to drawPoster
+  // without being added HERE — is what let three separate "tests" of
+  // messageStyle, paletteMood and now lockupStyle pass while testing nothing
+  // at all, twice already this session, in this file's OTHER fixture
+  // (laidOut). Named explicitly rather than spread, so a future axis added
+  // to drawPoster without being added to this list fails loudly (an
+  // unrecognised option drawn as the seed's own default) instead of silently.
+  for (const key of POSTER_OPTION_KEYS) if (over[key] !== undefined) base[key] = over[key];
+  poster.drawPoster(ctx, base);
   return { ctx, width, height, brand, content, palette };
 }
 
@@ -729,11 +739,43 @@ test("composition: the message is drawn in full, not just its first line", () =>
 });
 
 test("composition: the shop's name is set as given, never lowercased or reordered", () => {
-  const { ctx } = drawFixture({ brand: { shopName: "Lilies in Bloom" } });
+  // Pinned to the "script" lockup deliberately: this is the one treatment
+  // that keeps the name in its original mixed case (a script word over
+  // tracked caps). "stacked" and "monogram" set the whole name in caps —
+  // covered separately below — so mixing the two here would make this test
+  // fail for a reason that has nothing to do with word order.
+  const { ctx } = drawFixture({ brand: { shopName: "Lilies in Bloom" }, lockupStyle: "script" });
   const joined = ctx.texts.map((t) => t.text).join(" ");
   assert.ok(/Lilies/.test(joined), "the script part of the name is missing or was case-folded");
   assert.ok(/BLOOM/.test(joined), "the capitalised part of the name is missing");
   assert.ok(joined.indexOf("Lilies") < joined.indexOf("BLOOM"), "the name was drawn out of order");
+});
+
+test("every lockup treatment prints every word of the shop's name, in order", () => {
+  // "stacked" and "monogram" reassemble the name from splitShopName's three
+  // parts into one line — this is the check that reassembling never drops or
+  // reorders a word, for a name with a connector and one with none.
+  for (const shopName of ["Lilies in Bloom", "Rose & Thorn", "Petal Works"]) {
+    for (const lockupStyle of poster.LOCKUP_STYLES) {
+      const { ctx } = drawFixture({ brand: { shopName }, lockupStyle });
+      const joined = ctx.texts.map((t) => t.text).join(" ").toUpperCase();
+      let cursor = -1;
+      for (const word of shopName.toUpperCase().split(/\s+/)) {
+        const at = joined.indexOf(word, cursor + 1);
+        assert.ok(at > cursor, `${lockupStyle}: "${word}" from "${shopName}" is missing or out of order`);
+        cursor = at;
+      }
+    }
+  }
+});
+
+test("monogram never stands in the initial for the shop's real name", () => {
+  // The oversized initial is a graphic mark ALONGSIDE the full name, never a
+  // replacement for it — the branding rule that the shop's own name must be
+  // visibly identifiable applies here as much as anywhere else on the poster.
+  const { ctx } = drawFixture({ brand: { shopName: "Lilies in Bloom" }, lockupStyle: "monogram" });
+  const joined = ctx.texts.map((t) => t.text).join(" ").toUpperCase();
+  assert.ok(joined.includes("LILIES IN BLOOM"), "the full name never appears — only the initial was drawn");
 });
 
 test("a florist's colour revision changes the palette the poster is built from", () => {
@@ -780,6 +822,18 @@ test("composition: the headline is drawn in order too", () => {
 // sheet, which is the one class of fault a florist cannot work around.
 // ---------------------------------------------------------------------------
 
+// Every optional axis drawPoster accepts through `opts`, named once here
+// rather than duplicated per fixture. Both laidOut() and drawFixture() below
+// forward exactly this list — forgetting to add a new axis to one of them
+// (or to this list) is precisely the bug that silently defanged three
+// separate tests already this session: an override the test believed it was
+// setting was never reaching drawPoster at all, so the axis's default (drawn
+// from the seed) was used regardless, and the "test" was comparing a poster
+// to itself.
+const POSTER_OPTION_KEYS = [
+  "typeStyle", "messageStyle", "paletteMood", "lockupStyle", "ornamentMark", "borderVariant"
+];
+
 function laidOut(over = {}) {
   const width = over.width || 1080, height = over.height || 1350;
   const brand = Object.assign({ shopName: "Lilies in Bloom", phone: "606-506-4039", primaryColor: "#7c3a58", accentColor: "#c98fae" }, over.brand);
@@ -791,9 +845,7 @@ function laidOut(over = {}) {
   const ctx = recordingContext(width, height);
   const palette = poster.derivePalette(brand.primaryColor, brand.accentColor, null);
   const base = { width, height, content, brand, palette, image: null, seed: over.seed || 2 };
-  if (over.typeStyle) base.typeStyle = over.typeStyle;
-  if (over.messageStyle) base.messageStyle = over.messageStyle;
-  if (over.paletteMood) base.paletteMood = over.paletteMood;
+  for (const key of POSTER_OPTION_KEYS) if (over[key] !== undefined) base[key] = over[key];
   // The same two-pass fit renderPoster runs before it draws. Checking the
   // composition without it would be checking a call no shipped code path
   // makes: the fit is what shrinks a poster whose type is too big for its
@@ -1487,4 +1539,107 @@ test("the message ribbon has a sheen; a flat readability backing does not", () =
   const readability = recordingContext(400, 200);
   poster.drawRibbon(readability, 200, 100, 300, 120, palette, { fill: "rgba(255,255,255,0.9)" });
   assert.equal(readability.gradients.length, 0, "the flat readability backing grew a sheen it was never meant to have");
+});
+
+// ---------------------------------------------------------------------------
+// "if i ask the same prompt everyday for a year no two should be anything
+// alike." Palette, type and message were each real axes, but the shop-name
+// lockup and the ordinary-poster ornament mark never varied at all — the
+// very first thing on every poster was pixel-identical every time. Three more
+// independent axes: how the name is set, which mark (if any) is used, and
+// whether/how the printed area is framed.
+// ---------------------------------------------------------------------------
+
+test("every new axis is reachable from real seeds", () => {
+  const seen = { lockupStyle: new Set(), ornamentMark: new Set(), borderVariant: new Set() };
+  for (let seed = 1; seed <= 300; seed++) {
+    const { laid } = laidOut({ seed });
+    seen.lockupStyle.add(laid.lockupStyle);
+    seen.ornamentMark.add(laid.ornamentMark);
+    seen.borderVariant.add(laid.borderVariant);
+  }
+  assert.equal(seen.lockupStyle.size, poster.LOCKUP_STYLES.length, [...seen.lockupStyle].join(","));
+  assert.equal(seen.ornamentMark.size, poster.ORNAMENT_MARKS.length, [...seen.ornamentMark].join(","));
+  assert.equal(seen.borderVariant.size, poster.BORDER_VARIANTS.length, [...seen.borderVariant].join(","));
+});
+
+test("sympathy work never takes a heart, whatever the seed picks", () => {
+  const sympathy = { headline: "Funeral Flowers", body: "Standing sprays and casket flowers.", cta: "Call 606-506-4039" };
+  for (let seed = 1; seed <= 300; seed++) {
+    const { laid } = laidOut({ seed, content: sympathy });
+    assert.notEqual(laid.ornamentMark, "heart", `seed ${seed}: a heart on a funeral flyer`);
+  }
+});
+
+test("an ordinary poster can still get a heart — the restraint is for sympathy only", () => {
+  const seen = new Set();
+  for (let seed = 1; seed <= 300; seed++) {
+    seen.add(laidOut({ seed }).laid.ornamentMark);
+  }
+  assert.ok(seen.has("heart"), "no ordinary poster drew a heart over 300 seeds");
+});
+
+test("the contact panel stays inside its frame even when no border is drawn", () => {
+  // frameRect describes the printed area's real boundary regardless of
+  // whether borderVariant happens to be "none" — the panel's containment
+  // guarantee must not depend on a line actually being drawn.
+  let checkedNone = 0;
+  for (let seed = 1; seed <= 300; seed++) {
+    const { laid } = laidOut({ seed, borderVariant: "none" });
+    if (!laid.frame || !laid.panel) continue;
+    checkedNone++;
+    assert.ok(laid.panel.y + laid.panel.h <= laid.frame.y + laid.frame.h + 1,
+      `seed ${seed}: the panel escaped its frame once the border stopped being drawn`);
+  }
+  assert.ok(checkedNone > 50, `only ${checkedNone} framed posters checked with borderVariant="none"`);
+});
+
+test("nothing new here leaves the sheet, across every lockup, ornament and border", () => {
+  for (const lockupStyle of poster.LOCKUP_STYLES) {
+    for (const ornamentMark of poster.ORNAMENT_MARKS) {
+      for (const borderVariant of poster.BORDER_VARIANTS) {
+        for (const seed of [1, 2, 4, 12]) {
+          const { ctx, width, height } = laidOut({
+            seed, lockupStyle, ornamentMark, borderVariant,
+            brand: { shopName: "The Very Long Flower Shop Name Company Limited" }
+          });
+          const escaped = offSheet(ctx, width, height);
+          assert.deepEqual(escaped, [],
+            `${lockupStyle}/${ornamentMark}/${borderVariant} seed=${seed}: ${JSON.stringify(escaped.slice(0, 2))}`);
+        }
+      }
+    }
+  }
+});
+
+test("borderVariant \"none\" genuinely draws no border, on atelier and on card/banner alike", () => {
+  // strokeRect/stroke were previously stubbed to no-ops that recorded
+  // nothing at all, so a border that was drawn unconditionally regardless of
+  // "none" left no signal anywhere in the recording for a test to catch.
+  for (const [composition, seed] of Object.entries(seedForComposition())) {
+    if (composition === "editorial") continue;
+    const withBorder = laidOut({ seed, borderVariant: "double" }).ctx.strokes.length;
+    const withoutBorder = laidOut({ seed, borderVariant: "none" }).ctx.strokes.length;
+    assert.ok(withoutBorder < withBorder,
+      `${composition}: borderVariant "none" stroked exactly as much as "double" (${withoutBorder} vs ${withBorder})`);
+  }
+});
+
+test("the monogram initial never runs into the name printed beneath it", () => {
+  // Parisienne descends a long way below its baseline — a capital's tail
+  // struck through "LILIES IN BLOOM" printed directly under it, seen in a
+  // real browser render. Checked here as the two texts' vertical bounds never
+  // overlapping, which the fake context's baseline-only geometry can still
+  // see: the initial's own descent (0.22 * its size, the same constant the
+  // fake context uses for every glyph) must clear the caps line's top.
+  for (const seed of [1, 2, 4, 12, 50, 90]) {
+    const { ctx } = laidOut({ seed, lockupStyle: "monogram", brand: { shopName: "Lilies in Bloom" } });
+    const initial = ctx.texts.find((t) => t.text === "L");
+    const name = ctx.texts.find((t) => t.text === "LILIES IN BLOOM");
+    if (!initial || !name) continue;
+    const initialBottom = initial.y + initial.size * 0.22;
+    const nameTop = name.y - name.size * 0.72;
+    assert.ok(initialBottom <= nameTop + 1,
+      `seed ${seed}: the initial's descent (${Math.round(initialBottom)}) reaches past the name's top (${Math.round(nameTop)})`);
+  }
 });
