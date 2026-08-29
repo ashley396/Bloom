@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createMarketingStudioHandler } from "../netlify/functions/marketing-studio.js";
 import { createFakeSupabaseClient, createFakeSupabaseStorage } from "./helpers/fake-supabase-client.mjs";
+import { mockCloudflareGenerate } from "./helpers/mock-cloudflare-generate.mjs";
 
 // Continuing PR #177 — the conversational revision loop: "make it →
 // talk to Lily about changes → keep refining → Save/Approve when
@@ -73,6 +74,8 @@ test("revise_content (image): creates a NEW child asset, never overwrites the on
         { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-1" }], error: null }, // variants
         { data: IMAGE_ASSET, error: null }, // current asset
         { data: { name: "Test Florals" }, error: null }, // shopRow
+        { data: null, error: null }, // loadBrandBrain
+        { data: null, error: null }, // loadStyleMemory
         { data: { id: "asset-2" }, error: null }, // website_media insert
         { data: { id: "asset-2", parent_asset_id: "asset-1", content: { url: "https://fake.storage/website-media/new.jpg", caption: "Order your fall bouquet today!" } }, error: null }, // ai_generated_assets insert
         { data: null, error: null }, // variant update
@@ -81,7 +84,12 @@ test("revise_content (image): creates a NEW child asset, never overwrites the on
       { storage }
     );
     const handler = createMarketingStudioHandler(baseDeps(client));
-    const res = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction: "use a luxury flower shop background instead" }));
+    // Unambiguous image-only instruction — the exact phrasing the real
+    // "Regenerate image" one-click button sends (see the flyer branch's
+    // own test for the same instruction), so instructionAffectsFlyerImage
+    // is true and instructionAffectsFlyerWording is false: this must NOT
+    // also call generateSocialPost.
+    const res = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction: "Regenerate the background image — keep the exact same wording." }));
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
     assert.equal(body.asset.parent_asset_id, "asset-1", "the new asset must reference the one it revised");
@@ -98,6 +106,70 @@ test("revise_content (image): creates a NEW child asset, never overwrites the on
     const variantUpdate = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "update"));
     assert.equal(variantUpdate.payload.asset_id, "asset-2");
     assert.equal(variantUpdate.payload.hashtags, undefined, "hashtags must stay untouched by a visual-only revision");
+  } finally {
+    mock.restore();
+  }
+});
+
+// Real, live-found defect (Ashley's own screenshots, 2026-08-29): a
+// generated Facebook post said "the Jacksonville Jaguars"; she asked to
+// change it to "Floyd Central Jaguars" — a plain team-name correction with
+// no image language in it at all — and got the photo regenerated with the
+// SAME wrong name still in the caption, twice. Root cause: the "image"
+// asset type's revise_content branch had no caption-revision code path at
+// all. This is the regression guard for the fix: a plain fact/name
+// correction now revises the caption, and — just as important — leaves the
+// photo untouched, since nothing about the request asked for a new image.
+test("revise_content (image): a plain wording/name correction ('change it to Floyd Central Jaguars') revises the CAPTION, not the photo — the exact bug Ashley reported", async () => {
+  const mock = mockCloudflareGenerate({
+    platform: "facebook",
+    headline: "Good luck!",
+    body: "Good luck to the Floyd Central Jaguars this Friday! 🐾💐",
+    cta: "Order now",
+    visual_brief: "a jaguar holding a bouquet of flowers",
+    hashtags: ["#gojaguars"],
+    asset_requirements: []
+  });
+  try {
+    const jaguarAsset = {
+      id: "asset-1",
+      asset_type: "image",
+      content: {
+        url: "https://fake.storage/jaguar.jpg",
+        caption: "Good luck to the Jacksonville Jaguars this Friday! 🐾💐",
+        visual_brief: "a jaguar holding a bouquet of flowers",
+        brand_traits_used: [],
+        visual_traits_used: []
+      }
+    };
+    const client = createFakeSupabaseClient([
+      superAdminRow(),
+      { data: { id: "item-1", content_type: "image_post", title: "Jaguars Post", brief: "b", status: "draft" }, error: null }, // currentItem
+      { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-1" }], error: null }, // variants
+      { data: jaguarAsset, error: null }, // current asset
+      { data: { name: "Test Florals" }, error: null }, // shopRow
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      // No website_media insert queued — a pure name correction must never
+      // call generateImage, so if it wrongly did, the next real DB call
+      // (the asset insert below) would receive the wrong queued response
+      // and this test would fail loudly rather than silently pass.
+      { data: { id: "asset-2", parent_asset_id: "asset-1", content: { url: "https://fake.storage/jaguar.jpg", caption: "Good luck to the Floyd Central Jaguars this Friday! 🐾💐" } }, error: null }, // ai_generated_assets insert
+      { data: null, error: null }, // variant update
+      { data: null, error: null } // audit insert
+    ]);
+    const handler = createMarketingStudioHandler(baseDeps(client));
+    const res = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction: "change it to Floyd Central Jaguars" }));
+    assert.equal(res.statusCode, 200, `expected the correction to succeed: ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.match(body.asset.content.caption, /Floyd Central Jaguars/, "the caption must actually pick up the corrected team name");
+    assert.doesNotMatch(body.asset.content.caption, /Jacksonville/, "the old, wrong team name must not survive the correction");
+    assert.equal(body.asset.url, "https://fake.storage/jaguar.jpg", "a plain wording correction must leave the photo exactly as it was — never re-roll it");
+
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    assert.match(assetInsert.payload.content.caption, /Floyd Central Jaguars/);
+    assert.equal(assetInsert.payload.content.url, "https://fake.storage/jaguar.jpg", "the persisted asset's photo url must be carried forward unchanged");
+    assert.equal(client.calls.find((c) => c.table === "website_media"), undefined, "no new photo may ever be generated/uploaded for a pure wording correction");
   } finally {
     mock.restore();
   }
@@ -139,23 +211,33 @@ test("revert_content_revision: refuses when already at the original version — 
 });
 
 test("revise_content: a one-time style instruction ('make this more elegant') never writes My Style — only a revision happens", async () => {
-  const mock = mockImageGen();
+  // "make this more elegant" names neither the image nor the wording
+  // explicitly, so it is ambiguous under instructionAffectsFlyerImage/
+  // instructionAffectsFlyerWording — the caption is revised (the safer
+  // default for an "image" asset, which has no separate social_copy row
+  // to fall back on), the photo is not.
+  const mock = mockCloudflareGenerate({
+    platform: "facebook",
+    headline: "Elegant Fall Blooms",
+    body: "An elegant, refined bouquet styled for your table.",
+    cta: "Order now",
+    visual_brief: "a rose bouquet on a wooden counter",
+    hashtags: ["#elegant"],
+    asset_requirements: []
+  });
   try {
-    const storage = createFakeSupabaseStorage({ publicUrl: (path) => `https://fake.storage/website-media/${path}` });
-    const client = createFakeSupabaseClient(
-      [
-        superAdminRow(),
-        { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "draft" }, error: null },
-        { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-1" }], error: null },
-        { data: IMAGE_ASSET, error: null },
-        { data: { name: "Test Florals" }, error: null },
-        { data: { id: "media-1" }, error: null },
-        { data: { id: "asset-2", parent_asset_id: "asset-1", content: { url: "https://fake.storage/website-media/new.jpg", caption: "Order your fall bouquet today!" } }, error: null },
-        { data: null, error: null },
-        { data: null, error: null }
-      ],
-      { storage }
-    );
+    const client = createFakeSupabaseClient([
+      superAdminRow(),
+      { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "draft" }, error: null },
+      { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-1" }], error: null },
+      { data: IMAGE_ASSET, error: null },
+      { data: { name: "Test Florals" }, error: null },
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: { id: "asset-2", parent_asset_id: "asset-1", content: { url: "https://fake.storage/old.jpg", caption: "An elegant, refined bouquet styled for your table." } }, error: null }, // ai_generated_assets insert
+      { data: null, error: null }, // variant update
+      { data: null, error: null } // audit insert
+    ]);
     const handler = createMarketingStudioHandler(baseDeps(client));
     const res = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction: "make this more elegant" }));
     assert.equal(res.statusCode, 200);
@@ -287,23 +369,32 @@ test("revise_content (wording): a revision that would DROP an exact fact is refu
 });
 
 test("revise_content: every read/write is scoped to the REQUESTING shop — cross-shop isolation", async () => {
-  const mock = mockImageGen();
+  // "use a marble background instead" names neither the image nor the
+  // wording explicitly under the real classifier ("use" isn't one of the
+  // change/regenerate/try-different verbs) — ambiguous, so the caption
+  // revises and the photo does not; only generateSocialPost is called.
+  const mock = mockCloudflareGenerate({
+    platform: "facebook",
+    headline: "h",
+    body: "A marble-styled bouquet, ready to order.",
+    cta: "Order now",
+    visual_brief: "a rose bouquet on a wooden counter",
+    hashtags: [],
+    asset_requirements: []
+  });
   try {
-    const storage = createFakeSupabaseStorage({ publicUrl: (path) => `https://fake.storage/website-media/${path}` });
-    const client = createFakeSupabaseClient(
-      [
-        superAdminRow(),
-        { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "draft" }, error: null },
-        { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-1" }], error: null },
-        { data: IMAGE_ASSET, error: null },
-        { data: { name: "Real Tenant Florals" }, error: null },
-        { data: { id: "media-1" }, error: null },
-        { data: { id: "asset-2", parent_asset_id: "asset-1", content: {} }, error: null },
-        { data: null, error: null },
-        { data: null, error: null }
-      ],
-      { storage }
-    );
+    const client = createFakeSupabaseClient([
+      superAdminRow(),
+      { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "draft" }, error: null },
+      { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-1" }], error: null },
+      { data: IMAGE_ASSET, error: null },
+      { data: { name: "Real Tenant Florals" }, error: null },
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: { id: "asset-2", parent_asset_id: "asset-1", content: {} }, error: null }, // ai_generated_assets insert
+      { data: null, error: null }, // variant update
+      { data: null, error: null } // audit insert
+    ]);
     const handler = createMarketingStudioHandler(baseDeps(client));
     await handler(event("revise_content", { shop_id: "shop-9-real-tenant", content_item_id: "item-1", instruction: "use a marble background instead" }));
     for (const table of ["marketing_content_items", "marketing_platform_variants", "ai_generated_assets", "shops"]) {

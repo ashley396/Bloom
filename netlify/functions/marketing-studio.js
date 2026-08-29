@@ -959,49 +959,120 @@ export function createMarketingStudioHandler(deps = {}) {
         }
 
         if (currentAsset.asset_type === "image") {
-          const priorVisualBrief = currentAsset.content?.visual_brief || currentItem.data.brief;
-          const visualBrief = buildImageRevisionBrief({ instruction, priorVisualBrief });
-          const prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief });
-          const imageGen = await generateImage(client, shopId, { prompt, filename: `marketing-revision-${body.content_item_id}-${Date.now()}.jpg` });
-          if (!imageGen.ok) return json(400, { error: imageGen.error });
-          const mediaRow = await client
-            .from("website_media")
-            .insert({ shop_id: shopId, storage_path: imageGen.path, filename: imageGen.path.split("/").pop(), source: "generated", mime: "image/jpeg" })
-            .select()
-            .single();
-          // A visual-only revision never touches the caption/copy — only
-          // an explicit wording instruction on a social_copy asset does.
+          // Real, live-found failure: Ashley asked to change a generated
+          // post's wording ("change it to Floyd Central Jaguars" — the
+          // caption said "the Jacksonville Jaguars"), twice, and got the
+          // picture regenerated both times with the OLD team name still in
+          // the caption. This asset type has no separate social_copy
+          // sibling — the caption lives on this same row — and this branch
+          // unconditionally treated every instruction as image-only,
+          // hardcoding `caption: currentAsset.content?.caption` with no
+          // path that could ever revise it. There was no bug to trip over:
+          // the caption-revision code simply did not exist here, only on
+          // the flyer branch below.
+          //
+          // Mirrors that flyer branch's own gate exactly, since the
+          // standing rule this repo already has for "Regenerate image" is
+          // the correct default to preserve: an instruction that is
+          // unambiguously ONLY about the visual ("regenerate the
+          // background", "try a different photo") must still leave the
+          // wording byte-for-byte untouched. Everything else — including a
+          // plain fact/name correction with no image language in it at
+          // all, which is what actually happened here — now revises the
+          // caption too.
+          const { preferences: imgBrandPrefs } = await loadBrandBrain(client, shopId);
+          const brandVoiceSummary = buildBrandSummary(imgBrandPrefs);
+          const { preferences: imgVisualPrefs } = await loadStyleMemory(client, shopId);
+          const visualStyleSummary = buildVisualStyleSummary(imgVisualPrefs);
+          const primaryPlatform = variants[0]?.platform || "facebook";
+          const priorCaption = currentAsset.content?.caption || "";
+          const imageOnlyRevision = instructionAffectsFlyerImage(instruction) && !instructionAffectsFlyerWording(instruction);
+          let captionFields = { body: priorCaption, headline: currentAsset.content?.headline || null, cta: currentAsset.content?.cta || null, hashtags: currentAsset.content?.hashtags || [] };
+          if (!imageOnlyRevision) {
+            const captionRequestText = buildWordingRevisionRequestText({ instruction, brief: currentItem.data.brief, priorText: priorCaption });
+            const captionGen = await generateSocialPost({ persona: "Lily", channel: primaryPlatform, occasion: currentItem.data.title, shop: { name: shopName }, requestText: captionRequestText, brandVoiceSummary, visualStyleSummary });
+            if (!captionGen.ok) return json(400, { error: captionGen.error });
+            if (!factsPreserved(priorCaption, captionGen.content.body)) {
+              return json(400, { error: "That revision would have changed an exact phone number, date, price, or link in the caption — nothing was changed. Try rephrasing the request." });
+            }
+            if (detectPermanentClosureMismatch(`${currentItem.data.brief} ${instruction}`, `${captionGen.content.headline} ${captionGen.content.body}`)) {
+              return json(400, { error: "That revision came back reading like a permanent closing, but nothing about this post asked for that — nothing was changed. Try rephrasing the request." });
+            }
+            if (detectInventedOperationalContent(`${currentItem.data.brief} ${instruction}`, `${captionGen.content.headline} ${captionGen.content.body}`)) {
+              return json(400, { error: "That revision came back with wording you didn't ask for — an invented reason, urgency, or future plan — nothing was changed. Try rephrasing the request." });
+            }
+            captionFields = { body: captionGen.content.body, headline: captionGen.content.headline, cta: captionGen.content.cta, hashtags: captionGen.content.hashtags || [] };
+          }
+          // The visual only regenerates when the instruction actually asks
+          // for that (or asks for both) — a pure wording correction like
+          // Ashley's must not also silently reroll the photo she never
+          // asked to change. (imageOnlyRevision implies this is already
+          // true, so this alone covers both "image only" and "image and
+          // wording" — never re-check it separately.)
+          const affectsImage = instructionAffectsFlyerImage(instruction);
+          let imageUrl = currentAsset.content?.url || null;
+          let mediaId = null;
+          let provider = currentAsset.provider || "cloudflare";
+          let model = currentAsset.model || "unknown";
+          let prompt = currentAsset.prompt || null;
+          let visualBrief = currentAsset.content?.visual_brief || currentItem.data.brief;
+          if (affectsImage) {
+            const priorVisualBrief = currentAsset.content?.visual_brief || currentItem.data.brief;
+            visualBrief = buildImageRevisionBrief({ instruction, priorVisualBrief });
+            prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief });
+            const imageGen = await generateImage(client, shopId, { prompt, filename: `marketing-revision-${body.content_item_id}-${Date.now()}.jpg` });
+            if (!imageGen.ok) return json(400, { error: imageGen.error });
+            const mediaRow = await client
+              .from("website_media")
+              .insert({ shop_id: shopId, storage_path: imageGen.path, filename: imageGen.path.split("/").pop(), source: "generated", mime: "image/jpeg" })
+              .select()
+              .single();
+            imageUrl = imageGen.url;
+            mediaId = mediaRow.data?.id || null;
+            provider = imageGen.provider;
+            model = imageGen.model;
+            prompt = imageGen.prompt;
+          }
           const persisted = await persistGeneratedAsset(client, {
             shopId,
             userId: user.id,
             persona: "Lily",
             assetType: "image",
-            provider: imageGen.provider,
-            model: imageGen.model,
-            prompt: imageGen.prompt,
+            provider,
+            model,
+            prompt,
             content: {
-              url: imageGen.url,
-              caption: currentAsset.content?.caption || null,
+              url: imageUrl,
+              caption: captionFields.body,
+              headline: captionFields.headline,
+              cta: captionFields.cta,
+              hashtags: captionFields.hashtags,
               visual_brief: visualBrief,
               brand_traits_used: [],
               visual_traits_used: appliedTraits,
               revision_instruction: instruction,
               revision_traits: appliedTraits
             },
-            mediaId: mediaRow.data?.id || null,
+            mediaId,
             parentAssetId: currentAsset.id,
             status: "completed"
           });
           if (!persisted.ok) throw new Error(persisted.error);
           await repointVariants(persisted.asset.id, {
-            caption: currentAsset.content?.caption || null,
-            aiContentType: "generative_image",
-            generativeImageUsed: true
+            caption: captionFields.body,
+            // Only an actual wording revision has a freshly generated
+            // hashtag set worth writing back — passing the merely-carried-
+            // forward default for a pure image-only revision would
+            // overwrite (or blank) the variant's real hashtags for a
+            // request that never asked to touch them.
+            hashtags: imageOnlyRevision ? undefined : captionFields.hashtags,
+            aiContentType: affectsImage ? "generative_image" : "none",
+            generativeImageUsed: affectsImage
           });
           await writeCommandAudit(client, user.id, "marketing_content_revised", { shopId, targetType: "marketing_content_items", targetId: body.content_item_id, assetType: "image" });
           return json(200, {
             item: { id: currentItem.data.id, status: currentItem.data.status },
-            asset: { id: persisted.asset.id, type: "image", url: imageGen.url, parent_asset_id: currentAsset.id, content: persisted.asset.content }
+            asset: { id: persisted.asset.id, type: "image", url: imageUrl, parent_asset_id: currentAsset.id, content: persisted.asset.content }
           });
         }
 

@@ -102,7 +102,7 @@ test("full lifecycle: generate -> revise -> revise -> undo -> undo -> revise (ne
       { data: { id: "item-1", status: "draft" }, error: null }, // final content_items update
       { data: null, error: null }, // audit insert
 
-      // ── STEP 2: revise_content A -> B ("use a soft luxury background instead") ──
+      // ── STEP 2: revise_content A -> B ("change the background to a soft luxury look instead") ──
       superAdminRow(),
       { data: { id: "item-1", content_type: "image_post", title: "Spring Bouquet", brief: "b", status: "draft" }, error: null }, // currentItem
       { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-A" }], error: null }, // variantsResult
@@ -116,12 +116,18 @@ test("full lifecycle: generate -> revise -> revise -> undo -> undo -> revise (ne
         error: null
       }, // assetResult -> A's real row
       { data: { name: "Test Florals" }, error: null }, // shopRow
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
       { data: { id: "media-b" }, error: null }, // website_media insert
       { data: { id: "asset-B" }, error: null }, // persistGeneratedAsset -> B (parent=A)
       { data: null, error: null }, // variant update -> asset B
       { data: null, error: null }, // audit insert
 
       // ── STEP 3: revise_content B -> C ("make this more elegant") ─────
+      // Ambiguous under the real classifier (names neither the image nor
+      // the wording explicitly) — the caption revises via generateSocialPost
+      // (the mock's non-flux fallback branch answers it), the photo does
+      // not, so there is no website_media insert here.
       superAdminRow(),
       { data: { id: "item-1", content_type: "image_post", title: "Spring Bouquet", brief: "b", status: "draft" }, error: null },
       { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-B" }], error: null },
@@ -130,12 +136,13 @@ test("full lifecycle: generate -> revise -> revise -> undo -> undo -> revise (ne
           id: "asset-B",
           asset_type: "image",
           parent_asset_id: "asset-A",
-          content: { url: "https://fake.storage/b.jpg", caption: "Order your spring bouquet today!", visual_brief: "use a soft luxury background instead a spring bouquet on a wooden counter", brand_traits_used: [], visual_traits_used: [{ category: "background_style", text: "soft luxury", polarity: "positive" }] }
+          content: { url: "https://fake.storage/b.jpg", caption: "Order your spring bouquet today!", visual_brief: "change the background to a soft luxury look instead a spring bouquet on a wooden counter", brand_traits_used: [], visual_traits_used: [{ category: "background_style", text: "soft luxury", polarity: "positive" }] }
         },
         error: null
       }, // assetResult -> B's real row
       { data: { name: "Test Florals" }, error: null },
-      { data: { id: "media-c" }, error: null },
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
       { data: { id: "asset-C" }, error: null }, // persistGeneratedAsset -> C (parent=B)
       { data: null, error: null },
       { data: null, error: null },
@@ -174,7 +181,7 @@ test("full lifecycle: generate -> revise -> revise -> undo -> undo -> revise (ne
       { data: null, error: null }, // variant update -> back to A
       { data: null, error: null }, // audit insert
 
-      // ── STEP 6: revise_content from A -> D (NEW branch — "use a marble countertop background instead") ──
+      // ── STEP 6: revise_content from A -> D (NEW branch — "change the background to a marble countertop look instead") ──
       superAdminRow(),
       { data: { id: "item-1", content_type: "image_post", title: "Spring Bouquet", brief: "b", status: "draft" }, error: null },
       { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-A" }], error: null }, // variants now point at A again (from step 5)
@@ -188,6 +195,8 @@ test("full lifecycle: generate -> revise -> revise -> undo -> undo -> revise (ne
         error: null
       }, // assetResult -> A's real row again
       { data: { name: "Test Florals" }, error: null },
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
       { data: { id: "media-d" }, error: null },
       { data: { id: "asset-D" }, error: null }, // persistGeneratedAsset -> D (parent=A, sibling of B)
       { data: null, error: null },
@@ -219,7 +228,7 @@ test("full lifecycle: generate -> revise -> revise -> undo -> undo -> revise (ne
     assert.equal(assetAInsert.payload.parent_asset_id, null, "the original generation has no parent");
 
     // STEP 2
-    const revise1 = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction: "use a soft luxury background instead" }));
+    const revise1 = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction: "change the background to a soft luxury look instead" }));
     assert.equal(revise1.statusCode, 200, `revise A->B failed: ${revise1.body}`);
     let insert = client.calls.filter((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert")).at(-1);
     assert.equal(insert.payload.parent_asset_id, "asset-A", "B's parent must be A");
@@ -246,7 +255,7 @@ test("full lifecycle: generate -> revise -> revise -> undo -> undo -> revise (ne
     assert.equal(variantUpdate.payload.asset_id, "asset-A", "content must point back to the ORIGINAL (A) after the second undo");
 
     // STEP 6: revise A again -> D, a NEW branch/sibling of B (B and C still exist untouched)
-    const revise3 = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction: "use a marble countertop background instead" }));
+    const revise3 = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction: "change the background to a marble countertop look instead" }));
     assert.equal(revise3.statusCode, 200, `revise A->D failed: ${revise3.body}`);
     insert = client.calls.filter((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert")).at(-1);
     assert.equal(insert.payload.parent_asset_id, "asset-A", "D's parent is ALSO A — a real branch, B is not D's ancestor");
