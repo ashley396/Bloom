@@ -660,7 +660,19 @@ const FILLER_PHRASES = [
   /\bfrom classic [a-z ]{0,24} to custom\b/i,
   /\bour (?:experienced|dedicated|talented) (?:florists|team|staff)\b/i,
   /\bwe(?:'re| are) here to (?:support|help) you\b/i,
-  /\bat [A-Z][\w' ]{1,40}, we (?:believe|understand|know)\b/,
+  // "At <Shop>, we believe/understand/know ..." — the most recognisable filler
+  // opener there is. Two faults, both found by writing a test that quoted the
+  // rule's own match back:
+  //
+  //  - It required a lowercase "at", so it never matched at the START of a
+  //    sentence, which is the only place this sentence is ever written. It has
+  //    effectively never fired. Ashley's caption tripped other rules instead.
+  //  - Its character class had no "&" or "-", so it also skipped every shop
+  //    called "Rose & Thorn" or "Petal-and-Stem" — and only those shops.
+  //
+  // Deliberately not the /i flag: the shop's name must still start with a
+  // capital, or "at the shop, we believe" would read as a shop name.
+  /\b[Aa]t [A-Z][\w'&\- ]{1,40}, we (?:believe|understand|know)\b/,
   // "At Lilies in Bloom, we understand that losing a loved one is never easy"
   // slipped through: the opener was only counted once and the threshold is
   // two. It is the single most recognisable filler sentence there is.
@@ -1153,10 +1165,23 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
     if (openingFault) reasons.push(openingFault);
   }
 
-  const filler = FILLER_PHRASES.filter((re) => re.test(copy));
-  if (filler.length >= 2) {
+  // The phrases the model ACTUALLY wrote, not just how many rules matched.
+  //
+  // Ashley's caption came back carrying three of these at once — "we
+  // understand the importance of", "our experienced florists", "high-quality"
+  // — so the check fired, the retry ran, and the second attempt came back
+  // just as stock. It shipped anyway. Handing back "cut the stock phrases"
+  // tells a model there is a problem without telling it where: it can only
+  // guess which sentence offended, and it guessed wrong. Quoting its own words
+  // back is the difference between a note and an instruction.
+  const fillerHits = FILLER_PHRASES.map((re) => copy.match(re))
+    .filter(Boolean)
+    .map((hit) => hit[0].trim());
+  if (fillerHits.length >= 2) {
     reasons.push(
-      "Most of this could be about any business in any industry. Cut the stock phrases and say something only this florist could say."
+      "Most of this could be about any business in any industry. These exact phrases must not appear anywhere in the rewrite: " +
+        fillerHits.map((phrase) => `"${phrase}"`).join(", ") +
+        ". Say something only this florist could say."
     );
   } else {
     // The general form of the same failure, for the shapes the list above has

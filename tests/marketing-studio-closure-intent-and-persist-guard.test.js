@@ -1715,3 +1715,54 @@ test("a number that ends a sentence is still a number", () => {
   // And the things that are still not phone numbers, at a sentence end.
   assert.deepEqual(detectPlaceholderContactNumbers({ copyText: "Bouquets from $45.00. Since 1998. Closing at 2:30 on 08/22/2026." }), []);
 });
+
+test("the retry is told which exact phrases to cut, in the model's own words", () => {
+  // Ashley's caption came back carrying three banned phrases at once, the
+  // check fired, the retry ran, and the second attempt was just as stock — it
+  // shipped anyway. "Cut the stock phrases" tells a model there is a problem
+  // without telling it where; it can only guess which sentence offended.
+  const caption =
+    "At Lilies in Bloom, we understand the importance of creating meaningful funeral arrangements that " +
+    "reflect the personality and spirit of your loved one. Our experienced florists work closely with " +
+    "families to design and craft beautiful standing sprays, casket flowers, and other sympathy " +
+    "arrangements using high-quality flowers such as roses, alstroemeria, and leatherleaf ferns.";
+  const reason = detectWeakMarketingCopy("funeral work", caption, { shopName: "Lilies in Bloom", shopPhone: "606-506-4039" })
+    .find((r) => /any business in any industry/i.test(r));
+  assert.ok(reason, "the stock phrasing was not caught at all");
+  for (const phrase of ["we understand the importance of", "Our experienced florists", "high-quality"]) {
+    assert.ok(reason.includes(`"${phrase}"`), `the retry was never told about "${phrase}": ${reason}`);
+  }
+});
+
+test("the phrases quoted back are the ones actually written, not the rules that matched", () => {
+  // A rule can match text that differs from the rule — the shop-name opener
+  // and the florists rule both do. Handing back the rule instead of the words
+  // would tell the model to remove a phrase it never wrote.
+  const copy = "At Petal & Stem, we believe every family deserves care. Our dedicated team is here to help you.";
+  const reason = detectWeakMarketingCopy("funeral work", copy, { shopName: "Petal & Stem" })
+    .find((r) => /any business in any industry/i.test(r));
+  assert.ok(reason, JSON.stringify(detectWeakMarketingCopy("funeral work", copy, { shopName: "Petal & Stem" })));
+  assert.ok(reason.includes('"At Petal & Stem, we believe"'), reason);
+  assert.ok(reason.includes('"Our dedicated team"'), reason);
+  // And nothing invented: every quoted phrase is genuinely in the copy.
+  for (const quoted of reason.match(/"([^"]+)"/g) || []) {
+    const phrase = quoted.slice(1, -1);
+    assert.ok(copy.toLowerCase().includes(phrase.toLowerCase()), `quoted a phrase the florist never wrote: ${phrase}`);
+  }
+});
+
+test("a shop with an ampersand in its name is not exempt from the filler rules", () => {
+  // The opener rule's character class had no "&" or "-", so the single most
+  // recognisable filler sentence there is stopped applying to shops called
+  // "Rose & Thorn" or "Petal-and-Stem" — and only to those shops.
+  for (const name of ["Rose & Thorn", "Petal-and-Stem", "Lilies in Bloom"]) {
+    const copy = `At ${name}, we believe every family deserves care. Our dedicated team is here to help you.`;
+    assert.ok(detectWeakMarketingCopy("funeral work", copy, { shopName: name }).some((r) => /any business/i.test(r)),
+      `"${name}" escaped the filler rules`);
+  }
+});
+
+test("one stock phrase is still tolerated — the threshold has not moved", () => {
+  const one = "We have a wide range of bouquets ready today. Come and see us on Main Street.";
+  assert.ok(!detectWeakMarketingCopy("post", one).some((r) => /any business/i.test(r)));
+});
