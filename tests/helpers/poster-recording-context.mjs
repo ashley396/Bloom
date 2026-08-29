@@ -36,21 +36,25 @@ export function recordingContext(width, height) {
   // flourish ran clean off the right edge of the sheet and nothing could see
   // it. drawHeart is the only thing in the poster that uses bezierCurveTo,
   // which is what makes hearts countable.
-  const points = [], beziers = [];
+  const points = [], beziers = [], gradients = [];
   const at = (x, y) => { points.push({ x, y }); };
   let font = "16px serif", fillStyle = null, textAlign = "center", tracking = 0;
   const sizeOf = () => { const m = /([0-9.]+)px/.exec(font); return m ? parseFloat(m[1]) : 16; };
   // Tracking counts, and a real canvas adds it after every character.
   const widthOf = (t) => String(t).length * (sizeOf() * 0.52 + tracking);
   const ctx = {
-    texts, fills, points, beziers, canvas: { width, height },
-    save() {}, restore() {}, beginPath() {}, closePath() {},
+    texts, fills, points, beziers, gradients, canvas: { width, height },
+    save() {}, restore() {}, beginPath() {}, closePath() {}, clip() {},
     moveTo: at, lineTo: at, rect() {}, ellipse: at, arc: at,
     quadraticCurveTo(cx1, cy1, x, y) { at(x, y); },
     bezierCurveTo(c1x, c1y, c2x, c2y, x, y) { beziers.push({ x, y }); at(x, y); },
     fill() { fills.push(fillStyle); }, stroke() {},
     fillRect() {}, strokeRect() {}, clearRect() {}, drawImage() {},
-    createLinearGradient() { return { addColorStop() {} }; },
+    createLinearGradient() {
+      var stops = [];
+      gradients.push(stops);
+      return { addColorStop(offset, color) { stops.push({ offset, color }); } };
+    },
     createRadialGradient() { return { addColorStop() {} }; },
     getImageData() { return { width: 1, height: 1, data: new Uint8ClampedArray(4) }; },
     measureText(t) {

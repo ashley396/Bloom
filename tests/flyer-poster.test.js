@@ -791,6 +791,9 @@ function laidOut(over = {}) {
   const ctx = recordingContext(width, height);
   const palette = poster.derivePalette(brand.primaryColor, brand.accentColor, null);
   const base = { width, height, content, brand, palette, image: null, seed: over.seed || 2 };
+  if (over.typeStyle) base.typeStyle = over.typeStyle;
+  if (over.messageStyle) base.messageStyle = over.messageStyle;
+  if (over.paletteMood) base.paletteMood = over.paletteMood;
   // The same two-pass fit renderPoster runs before it draws. Checking the
   // composition without it would be checking a call no shipped code path
   // makes: the fit is what shrinks a poster whose type is too big for its
@@ -1247,4 +1250,241 @@ test("a headline of nothing but function words still reaches the flyer", () => {
     assert.ok(p.script, `"${headline}" was left with no display word`);
     assert.equal([p.lead, p.script, p.tail].filter(Boolean).join(" "), headline);
   }
+});
+
+// ---------------------------------------------------------------------------
+// "i don't want just one and the same colors, each design should be completely
+// different."
+//
+// The palette was ALWAYS the brand colour pulled toward the photograph on a
+// pale tint of the same hue — one family, every flyer. Four layouts in one
+// colourway do not read as four designs; they read as one design that moved
+// its photo.
+// ---------------------------------------------------------------------------
+
+test("the palette mood is genuinely chosen by the seed, not fixed", () => {
+  const seen = new Set();
+  for (let seed = 1; seed <= 200; seed++) {
+    const moodRand = poster.seededRandom(poster.hashSeed("florisyn-palette:" + seed));
+    seen.add(poster.PALETTE_MOODS[Math.floor(moodRand() * poster.PALETTE_MOODS.length) % poster.PALETTE_MOODS.length]);
+  }
+  assert.equal(seen.size, poster.PALETTE_MOODS.length, `only ${seen.size} of ${poster.PALETTE_MOODS.length} moods reachable over 200 seeds`);
+});
+
+test("the colour families are genuinely different from each other", () => {
+  const inks = new Map();
+  for (const mood of poster.PALETTE_MOODS) {
+    const p = poster.derivePalette("#7c3a58", "#c98fae", { r: 232, g: 198, b: 206 }, mood);
+    inks.set(mood, p.ink);
+  }
+  assert.equal(new Set(inks.values()).size, poster.PALETTE_MOODS.length,
+    `two families produced the same ink: ${JSON.stringify([...inks])}`);
+  // And "different" must mean visibly different, not a nudge. Every pair has
+  // to be further apart than a rounding step.
+  const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const moods = [...inks.keys()];
+  for (let i = 0; i < moods.length; i++) {
+    for (let j = i + 1; j < moods.length; j++) {
+      const [a, b] = [rgb(inks.get(moods[i])), rgb(inks.get(moods[j]))];
+      const distance = Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+      assert.ok(distance > 18,
+        `${moods[i]} and ${moods[j]} are the same colour to the eye (${inks.get(moods[i])} vs ${inks.get(moods[j])})`);
+    }
+  }
+});
+
+test("every colour family still clears the contrast floor, for every brand colour", () => {
+  // Variety is never bought with legibility. A family that leaves the brand
+  // hue behind must still be readable on its own ground.
+  const brands = ["#7c3a58", "#8fae86", "#c9a227", "#4a6fa5", "#2b2430", "#d4746a", "#6b8e23"];
+  for (const brand of brands) {
+    for (const mood of poster.PALETTE_MOODS) {
+      for (const sample of [null, { r: 232, g: 198, b: 206 }, { r: 250, g: 250, b: 248 }, { r: 60, g: 70, b: 55 }]) {
+        const p = poster.derivePalette(brand, "#c98fae", sample, mood);
+        const ratio = poster.contrastRatio(
+          { r: parseInt(p.ink.slice(1, 3), 16), g: parseInt(p.ink.slice(3, 5), 16), b: parseInt(p.ink.slice(5, 7), 16) },
+          { r: parseInt(p.groundDeep.slice(1, 3), 16), g: parseInt(p.groundDeep.slice(3, 5), 16), b: parseInt(p.groundDeep.slice(5, 7), 16) }
+        );
+        assert.ok(ratio >= poster.INK_GROUND_MIN_CONTRAST - 0.01,
+          `${mood} on ${brand} gives ${ratio.toFixed(2)}:1 — below the readable floor`);
+      }
+    }
+  }
+});
+
+test("two different shops never get the same poster from the same family", () => {
+  // The families that leave the brand hue behind still PULL the shop's own
+  // colour toward it rather than replacing it, so a shop's identity is never
+  // erased outright.
+  for (const mood of poster.PALETTE_MOODS) {
+    const a = poster.derivePalette("#7c3a58", "#c98fae", null, mood).ink;
+    const b = poster.derivePalette("#4a6fa5", "#c98fae", null, mood).ink;
+    assert.notEqual(a, b, `every shop gets the identical ink from the "${mood}" family`);
+  }
+});
+
+test("each type treatment draws every word of the headline, in order", () => {
+  const headline = "With Sympathy We're Here For You";
+  for (const typeStyle of poster.TYPE_STYLES) {
+    const { ctx } = laidOut({ seed: 3, content: { headline }, typeStyle });
+    const drawn = ctx.texts.map((t) => t.text).join(" ").toLowerCase().replace(/[^a-z0-9']/g, " ");
+    for (const word of headline.toLowerCase().replace(/[^a-z0-9']/g, " ").split(/\s+/).filter(Boolean)) {
+      assert.ok(drawn.includes(word), `the "${typeStyle}" treatment dropped "${word}"`);
+    }
+  }
+});
+
+test("the type treatments actually use different faces", () => {
+  const seen = {};
+  for (const typeStyle of poster.TYPE_STYLES) {
+    const { ctx } = laidOut({ seed: 3, content: { headline: "With Sympathy We're Here For You" }, typeStyle });
+    // The largest thing drawn is the headline's own word.
+    const biggest = ctx.texts.reduce((a, b) => (b.size > a.size ? b : a), ctx.texts[0]);
+    seen[typeStyle] = biggest.font || null;
+  }
+  assert.ok(!poster.TYPE_STYLES.some((t) => seen[t] === undefined), "a treatment drew nothing");
+});
+
+test("colour, layout and type vary independently — not in lockstep", () => {
+  // Seeded from one value they would move together and 60 combinations would
+  // collapse back to 4. Sampled over real-shaped ids.
+  const combos = new Set();
+  const comps = new Set();
+  const types = new Set();
+  for (let seed = 1; seed <= 300; seed++) {
+    const { laid } = laidOut({ seed });
+    const mood = poster.PALETTE_MOODS[
+      Math.floor(poster.seededRandom(poster.hashSeed("florisyn-palette:" + seed))() * poster.PALETTE_MOODS.length) % poster.PALETTE_MOODS.length
+    ];
+    combos.add(`${laid.composition}/${mood}/${laid.typeStyle}`);
+    comps.add(laid.composition);
+    types.add(laid.typeStyle);
+  }
+  assert.equal(comps.size, poster.COMPOSITIONS.length, "not every layout is reachable");
+  assert.equal(types.size, poster.TYPE_STYLES.length, "not every type treatment is reachable");
+  assert.ok(combos.size >= 45,
+    `only ${combos.size} distinct designs in 300 seeds — colour, layout and type are moving together`);
+});
+
+test("the message never spills out of the ribbon's notched ends", () => {
+  // The notch was h * 0.32 with no reference to the ribbon's WIDTH, so a
+  // six-line message made a 267px-tall ribbon with 85px arrowheads that ate
+  // the wording — "arrangements featuring our popular" was drawn straight
+  // across both of them and out onto the sheet.
+  const bodies = [
+    "For families in need, we create beautiful funeral flowers, including standing sprays and casket arrangements featuring our popular Freedom rose, spray rose, and alstroemeria.",
+    "Standing sprays, casket flowers and small arrangements for the service, made here in the shop by hand each and every morning of the week.",
+    // Long and narrow-wrapping enough to force a tall, many-line ribbon on
+    // every composition — the shape that made the notch's height alone
+    // (with no reference to width) carve an 85px arrowhead into a ribbon
+    // whose width had nowhere left to grow.
+    "For every family who has ever asked us for something simple and dignified and lasting, we have made standing sprays, casket flowers, small arrangements for the graveside, and wreaths delivered directly to the funeral home on the morning of the service."
+  ];
+  const seeds = seedForComposition();
+  for (const [composition, seed] of Object.entries(seeds)) {
+    for (const body of bodies) {
+      const { ctx, laid } = laidOut({ width: 1080, height: 1080, seed, content: { body }, messageStyle: "ribbon" });
+      if (!laid.ribbon || laid.messageStyle !== "ribbon") continue;
+      const notch = Math.min(laid.ribbon.h * 0.32, laid.ribbon.w * 0.075);
+      const innerLeft = laid.ribbon.x + notch;
+      const innerRight = laid.ribbon.x + laid.ribbon.w - notch;
+      for (const t of ctx.texts) {
+        if (t.y <= laid.ribbon.y || t.y >= laid.ribbon.y + laid.ribbon.h) continue;
+        assert.ok(t.left >= innerLeft - 1 && t.right <= innerRight + 1,
+          `${composition}: "${t.text}" runs ${Math.round(t.left)}–${Math.round(t.right)}, outside the ribbon's ${Math.round(innerLeft)}–${Math.round(innerRight)}`);
+      }
+    }
+  }
+});
+
+test("the message never spills out of a framed panel either", () => {
+  const bodies = [
+    "For families in need, we create beautiful funeral flowers, including standing sprays and casket arrangements featuring our popular Freedom rose, spray rose, and alstroemeria.",
+    "Standing sprays, casket flowers and small arrangements for the service, made here in the shop by hand each and every morning of the week."
+  ];
+  const seeds = seedForComposition();
+  for (const [composition, seed] of Object.entries(seeds)) {
+    for (const body of bodies) {
+      const { ctx, laid } = laidOut({ seed, content: { body }, messageStyle: "framed" });
+      if (!laid.ribbon || laid.messageStyle !== "framed") continue;
+      for (const t of ctx.texts) {
+        if (t.y <= laid.ribbon.y || t.y >= laid.ribbon.y + laid.ribbon.h) continue;
+        assert.ok(t.left >= laid.ribbon.x - 1 && t.right <= laid.ribbon.x + laid.ribbon.w + 1,
+          `${composition}: "${t.text}" runs outside the framed panel`);
+      }
+    }
+  }
+});
+
+test("both message devices are reachable, independently of layout and colour", () => {
+  const styles = new Set();
+  for (let seed = 1; seed <= 200; seed++) {
+    const { laid } = laidOut({ seed });
+    if (laid.messageStyle) styles.add(laid.messageStyle);
+  }
+  assert.deepEqual([...styles].sort(), ["framed", "plain", "ribbon"]);
+});
+
+test("a framed message is set in the poster's ink, not cream on cream", () => {
+  const seeds = seedForComposition();
+  for (const [composition, seed] of Object.entries(seeds)) {
+    const { ctx, laid, base } = laidOut({ seed, content: { body: "Standing sprays and casket flowers." }, messageStyle: "framed" });
+    if (!laid.ribbon || laid.messageStyle !== "framed") continue;
+    const onPanel = ctx.texts.filter((t) => t.y > laid.ribbon.y && t.y < laid.ribbon.y + laid.ribbon.h);
+    assert.ok(onPanel.length, `${composition}: nothing drawn on the framed panel`);
+    for (const t of onPanel) assert.equal(t.color, base.palette.ink, `${composition}: framed text drawn in ${t.color}, not the ink colour`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Direct, pinning tests on the two changes made in response to "that ribbon
+// is ugly and plain" — checked against the FUNCTION'S OWN CONTRACT rather
+// than only end to end, because the re-wrap loop added earlier absorbs a
+// wrong notch by narrowing the text instead of overflowing, which means an
+// end-to-end sweep alone cannot tell a merely-safe result from a correct one.
+// ---------------------------------------------------------------------------
+
+test("ribbonNotch is bounded by both the ribbon's height AND its width", () => {
+  // A notch of h * 0.32 alone, with no reference to width, is what carved an
+  // 85px arrowhead into a narrow, six-line-tall ribbon and ate the wording.
+  assert.equal(poster.ribbonNotch(1000, 100), 32, "the height-bound case");
+  assert.equal(poster.ribbonNotch(200, 500), 15, "the width-bound case: 500 * 0.32 = 160, but 200 * 0.075 = 15");
+  // A tall, narrow ribbon — the exact shape a long message on a narrow column
+  // produces — must take the width bound, not the height one.
+  assert.ok(poster.ribbonNotch(400, 500) < 500 * 0.32 * 0.5,
+    "a tall narrow ribbon still got a notch scaled mostly to its height");
+});
+
+test("the message ribbon has a sheen; a flat readability backing does not", () => {
+  // A direct unit test on drawRibbon itself, decoupled from the floral
+  // painting elsewhere in a full render, which uses gradients of its own for
+  // completely unrelated reasons and would let this pass no matter what
+  // drawRibbon actually did.
+  const palette = poster.derivePalette("#7c3a58", "#c98fae", null);
+  const decorative = recordingContext(400, 200);
+  poster.drawRibbon(decorative, 200, 100, 300, 120, palette);
+  assert.equal(decorative.gradients.length, 1,
+    "the message ribbon — Ashley: \"that ribbon is ugly and plain\" — was drawn as a flat fill, not a sheen");
+  const stops = decorative.gradients[0];
+  assert.ok(stops.length >= 3, "fewer than three stops — not a top-to-bottom sheen, a flat fill dressed up as one");
+  // A sheen is a real light source: brighter at the top, the base colour in
+  // the middle, darker at the foot. Checked as monotonic brightness rather
+  // than pinning exact hex values, so the test survives a deliberate retune
+  // of the mix ratios — but catches EITHER end being flattened back to the
+  // base colour alone, which comparing only the first and last stop did not:
+  // flattening just the bottom stop left the top stop still lighter than the
+  // (unchanged) middle, so first-vs-last still differed and the mutation
+  // passed unnoticed.
+  const brightness = (hex) => [1, 3, 5].reduce((sum, i) => sum + parseInt(hex.slice(i, i + 2), 16), 0);
+  const sorted = [...stops].sort((a, b) => a.offset - b.offset);
+  const levels = sorted.map((s) => brightness(s.color));
+  assert.ok(levels[0] > levels[1], `the top of the ribbon is not brighter than its middle: ${JSON.stringify(sorted)}`);
+  assert.ok(levels[1] > levels[levels.length - 1], `the middle of the ribbon is not brighter than its foot: ${JSON.stringify(sorted)}`);
+
+  // The readability ribbon placeLine draws behind a line of text on flowers
+  // is a plain, flat backing by design — unobtrusive, not decorative — and
+  // passes an explicit opts.fill for exactly that reason.
+  const readability = recordingContext(400, 200);
+  poster.drawRibbon(readability, 200, 100, 300, 120, palette, { fill: "rgba(255,255,255,0.9)" });
+  assert.equal(readability.gradients.length, 0, "the flat readability backing grew a sheen it was never meant to have");
 });

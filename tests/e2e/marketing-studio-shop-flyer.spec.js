@@ -1079,3 +1079,34 @@ test("browser-level: the poster reports which tier drew its flowers — a librar
   expect(tiers.noBackdrop).toBe("fallback-library-photo");
   expect(tiers.brokenBackdrop).toBe("fallback-library-photo");
 });
+
+test("browser-level: the colour family varies by seed through the real renderPoster path, not just derivePalette in isolation", async ({ page }) => {
+  // Ashley: "i don't want just one and the same colors, each design should be
+  // completely different." derivePalette itself supports five families, but
+  // WHICH one a given flyer gets is chosen inside renderPoster's own compose()
+  // step — a browser-only path (it samples the actual drawn photograph) that
+  // a Node-level unit test cannot reach at all. A unit test that recomputes
+  // the seed formula independently would pass even if this selection were
+  // deleted from the real source; this drives the actual function.
+  await page.goto("/index.html");
+  await page.addScriptTag({ url: "/flyer-renderer.js" });
+  await page.addScriptTag({ url: "/flyer-poster.js" });
+  const seen = await page.evaluate(async () => {
+    const P = window.FlorisynFlyerPoster;
+    const moods = new Set(), types = new Set(), messages = new Set();
+    for (let seed = 1; seed <= 30; seed++) {
+      const canvas = await P.renderPoster({
+        width: 1080, height: 1350, seed,
+        content: { headline: "With Sympathy We're Here For You", body: "Standing sprays and casket flowers.", cta: "Call 606-506-4039" },
+        brand: { shopName: "Lilies in Bloom", phone: "606-506-4039", primaryColor: "#7c3a58", accentColor: "#c98fae" },
+        backgroundUrl: "/assets/atelier-floral-corner.jpg"
+      });
+      moods.add(canvas.dataset.florisynPosterPalette);
+      types.add(canvas.dataset.florisynPosterType);
+      messages.add(canvas.dataset.florisynPosterComposition === "editorial" ? "plain" : canvas.dataset.florisynPosterMessageStyle);
+    }
+    return { moods: [...moods], types: [...types] };
+  });
+  expect(seen.moods.length, `only these colour families appeared over 30 seeds: ${seen.moods}`).toBeGreaterThanOrEqual(3);
+  expect(seen.types.length, `only these type treatments appeared over 30 seeds: ${seen.types}`).toBeGreaterThanOrEqual(2);
+});

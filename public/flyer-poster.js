@@ -137,7 +137,63 @@
    * there is no photo to sample — in which case the brand colour alone
    * decides and nothing is invented. Pure.
    */
-  function derivePalette(brandPrimary, brandAccent, sample) {
+  // ---------------------------------------------------------------------------
+  // Colour families.
+  //
+  // Ashley: "i don't want just one and the same colors, each design should be
+  // completely different. if I ask chatGPT to make something the look and
+  // wording is completely different every time, that's what I want."
+  //
+  // She is describing a real limit of what was here. The palette was ALWAYS
+  // the brand colour pulled toward the photograph, on a pale tint of the same
+  // hue — one family, every flyer, forever. Four layouts in one colourway do
+  // not read as four designs; they read as one design that moved its photo.
+  //
+  // So the hue family is now chosen by the seed alongside the layout. Two of
+  // these keep the shop's own colour and two deliberately leave it, because
+  // "completely different" cannot be honoured by a set that always returns to
+  // plum. What does NOT vary is the shop's identity: its name is set on every
+  // flyer either way, which is the rule that actually protects the brand.
+  //
+  // Every family still has to clear the same measured 4.5:1 contrast floor —
+  // variety is never bought with legibility.
+  // ---------------------------------------------------------------------------
+  var PALETTE_MOODS = ["brand", "photo", "neutral", "botanical", "warm"];
+
+  // How the headline is SET, which changes a poster's character as much as its
+  // colour does. All three still draw the florist's exact words in the exact
+  // order — only the faces and weights differ.
+  //
+  //   script — the flourishing display word over a small serif line
+  //   serif  — the whole headline in Playfair, no script face anywhere
+  //   sans   — DM Sans, tracked out, modern and plain
+  //
+  // Chosen in its own namespace, so 4 layouts x 5 colour families x 3 type
+  // treatments are 60 genuinely distinct designs rather than 4 re-skins.
+  var TYPE_STYLES = ["script", "serif", "sans"];
+
+  // How the message is HELD, on the compositions that hold it in a shape at
+  // all (editorial sets it plainly into the scene, always, structurally).
+  // Ashley: "that ribbon is ugly and plain." A single filled shape on every
+  // single flyer is a slab whatever colour it is drawn in — real variety
+  // means the message sometimes takes a different DEVICE, not just a
+  // different fill.
+  //
+  //   ribbon — the chevron-notched banner, cream text, now with a sheen and a
+  //            cut keyline instead of a flat fill
+  //   framed — a thin bordered card on the light ground, ink-coloured text,
+  //            the same device the contact panel already uses below it
+  var MESSAGE_STYLES = ["ribbon", "framed"];
+
+  /** The hue a family pulls toward, and how hard. null = keep the brand's. */
+  function moodTarget(mood) {
+    if (mood === "neutral") return { rgb: { r: 38, g: 32, b: 28 }, pull: 0.86 };
+    if (mood === "botanical") return { rgb: { r: 47, g: 74, b: 52 }, pull: 0.78 };
+    if (mood === "warm") return { rgb: { r: 104, g: 58, b: 26 }, pull: 0.72 };
+    return null;
+  }
+
+  function derivePalette(brandPrimary, brandAccent, sample, mood) {
     // The same defaults the renderer uses, so a shop with no brand colour
     // does not get a different flyer depending on which layer drew it.
     var brand = hexToRgb(brandPrimary || "#7c3a58");
@@ -147,7 +203,23 @@
     // shop stops looking like itself.
     var ink = sample ? mix(brand, sample, 0.22) : brand;
 
-    var tintSource = sample || brand;
+    var target = moodTarget(mood);
+    if (target) {
+      // A family that leaves the brand hue behind. The shop's colour is still
+      // in there — it is what is being pulled — so two shops never get an
+      // identical poster from the same family.
+      ink = mix(ink, target.rgb, target.pull);
+      accent = mix(accent, target.rgb, target.pull * 0.55);
+    } else if (mood === "photo" && sample) {
+      // Led by the actual flowers instead of the brand. A photograph averages
+      // pale, so it is deepened rather than used raw — otherwise a white-rose
+      // sympathy shot yields grey type on a grey sheet.
+      var lit = luminance(sample);
+      ink = lit > 0.32 ? mix(sample, { r: 0, g: 0, b: 0 }, 0.55) : mix(sample, brand, 0.25);
+      accent = mix(sample, brand, 0.4);
+    }
+
+    var tintSource = mood === "photo" && sample ? sample : (target ? mix(sample || brand, target.rgb, 0.5) : (sample || brand));
     var ground = mix({ r: 255, g: 253, b: 251 }, tintSource, 0.055);
     var groundDeep = mix({ r: 255, g: 253, b: 251 }, tintSource, 0.13);
 
@@ -488,9 +560,30 @@
    * with cream text on it. This is a deliberate exception to "no filled
    * shapes": it is a compositional device sitting on a light ground, never
    * a wash laid over the flowers. */
+  /**
+   * How deep the chevron bites into each end of a ribbon.
+   *
+   * It used to be h * 0.32 alone. On a six-line message the ribbon is 267px
+   * tall, so each notch was 85px — the ends stopped being a ribbon's cut and
+   * became arrowheads, and they ate the wording: "arrangements featuring our
+   * popular" was drawn straight across both of them and out into the sheet.
+   *
+   * Bounded by the ribbon's WIDTH as well, so a tall ribbon stays a ribbon.
+   * Shared with the wrap that has to fit inside it, because the two drifting
+   * apart is exactly how the text came to overflow. Pure.
+   */
+  function ribbonNotch(w, h) {
+    return Math.min(h * 0.32, w * 0.075);
+  }
+
+  /** Mixes two hex colours, returning hex. Pure. */
+  function mixHex(a, b, t) {
+    return rgbToHex(mix(hexToRgb(a), hexToRgb(b), t));
+  }
+
   function drawRibbon(ctx, cx, cy, w, h, palette, opts) {
     opts = opts || {};
-    var notch = typeof opts.notch === "number" ? opts.notch : h * 0.32;
+    var notch = typeof opts.notch === "number" ? opts.notch : ribbonNotch(w, h);
     ctx.save();
     // No folded tails.
     //
@@ -500,20 +593,55 @@
     // flags hanging off its ends. The chevron-notched banner is a ribbon on
     // its own and does not need them, and a device that has to be explained
     // is not working. Removed rather than attempted a third time.
-    ctx.fillStyle = opts.fill || palette.ink;
-    ctx.beginPath();
-    ctx.moveTo(cx - w / 2, cy - h / 2);
-    ctx.lineTo(cx + w / 2, cy - h / 2);
-    ctx.lineTo(cx + w / 2 - notch, cy);
-    ctx.lineTo(cx + w / 2, cy + h / 2);
-    ctx.lineTo(cx - w / 2, cy + h / 2);
-    ctx.lineTo(cx - w / 2 + notch, cy);
-    ctx.closePath();
+    var trace = function () {
+      ctx.beginPath();
+      ctx.moveTo(cx - w / 2, cy - h / 2);
+      ctx.lineTo(cx + w / 2, cy - h / 2);
+      ctx.lineTo(cx + w / 2 - notch, cy);
+      ctx.lineTo(cx + w / 2, cy + h / 2);
+      ctx.lineTo(cx - w / 2, cy + h / 2);
+      ctx.lineTo(cx - w / 2 + notch, cy);
+      ctx.closePath();
+    };
+    // Ashley: "that ribbon is ugly and plain." It was one flat rectangle of
+    // solid colour — a slab, not a ribbon. A real printed ribbon catches the
+    // light along its length and is cut with a keyline just inside its edge.
+    // Both are cheap and both are what stops it reading as a coloured box.
+    var base = opts.fill || palette.ink;
+    if (opts.fill) {
+      ctx.fillStyle = base;
+    } else {
+      var sheen = ctx.createLinearGradient(0, cy - h / 2, 0, cy + h / 2);
+      sheen.addColorStop(0, mixHex(base, "#ffffff", 0.16));
+      sheen.addColorStop(0.45, base);
+      sheen.addColorStop(1, mixHex(base, "#000000", 0.14));
+      ctx.fillStyle = sheen;
+    }
+    trace();
     ctx.fill();
     if (opts.stroke) {
       ctx.strokeStyle = opts.stroke;
       ctx.lineWidth = opts.lineWidth || Math.max(1, h * 0.03);
+      trace();
       ctx.stroke();
+    } else {
+      // The keyline, inset so it reads as a cut edge rather than an outline.
+      ctx.save();
+      trace();
+      ctx.clip();
+      ctx.strokeStyle = rgba(palette.cream, 0.34);
+      ctx.lineWidth = Math.max(1, Math.min(w, h) * 0.006);
+      var inset = Math.max(3, Math.min(w, h) * 0.028);
+      ctx.beginPath();
+      ctx.moveTo(cx - w / 2 + inset * 0.5, cy - h / 2 + inset);
+      ctx.lineTo(cx + w / 2 - inset * 0.5, cy - h / 2 + inset);
+      ctx.lineTo(cx + w / 2 - notch - inset * 0.4, cy);
+      ctx.lineTo(cx + w / 2 - inset * 0.5, cy + h / 2 - inset);
+      ctx.lineTo(cx - w / 2 + inset * 0.5, cy + h / 2 - inset);
+      ctx.lineTo(cx - w / 2 + notch + inset * 0.4, cy);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
     }
     ctx.restore();
   }
@@ -1149,6 +1277,13 @@
     // picks exactly the same composition, corner flip and border as any other
     // from the same seed. Determinism, and therefore Undo, are untouched.
     var sympathy = isSympathyContent(content, brand.shopName);
+    // Chosen in its own namespace, independently of the layout and colour —
+    // moving with either would collapse variety back down, the same reason
+    // the palette and type treatment each get their own.
+    var messageStyle = opts.messageStyle ||
+      (L.kind === "editorial"
+        ? "plain"
+        : MESSAGE_STYLES[Math.floor(seededRandom(hashSeed("florisyn-message:" + opts.seed))() * MESSAGE_STYLES.length) % MESSAGE_STYLES.length]);
     rand();
     var ground = null;
     if (!opts.measureOnly) {
@@ -1237,8 +1372,66 @@
       y += h * 0.042 + gap;
     }
 
-    // --- the headline: a plain lead over one word in script ---
+    // --- the headline ---
+    //
+    // Set three ways, chosen by the seed independently of the layout and the
+    // colour family. The florist's exact words in their exact order every
+    // time; only the faces, weights and tracking differ.
+    var typeStyle = opts.typeStyle ||
+      TYPE_STYLES[Math.floor(seededRandom(hashSeed("florisyn-type:" + opts.seed))() * TYPE_STYLES.length) % TYPE_STYLES.length];
     var head = splitHeadline(content.headline);
+
+    if (typeStyle !== "script") {
+      // One voice for the whole headline rather than a display word inside it.
+      // The words are rejoined in order — nothing is dropped or reordered —
+      // and set as a two-line lockup: the emphasised word large, the rest of
+      // the line beneath it, so the hierarchy survives the change of face.
+      var big = head.script;
+      var over = head.lead;
+      var under = head.tail;
+      var faceStack = typeStyle === "sans"
+        ? "'DM Sans', 'Inter', sans-serif"
+        : "'Playfair Display', Georgia, serif";
+      var bigWeight = typeStyle === "sans" ? "700" : "600";
+      var bigTrack = typeStyle === "sans" ? "-0.01em" : "0.01em";
+
+      if (over) {
+        var overSize = fitLine(ctx, over.toUpperCase(), "500 %spx " + faceStack,
+          Math.round(h * 0.036 * ts), maxW * 0.8, Math.round(h * 0.02 * ts), "0.18em");
+        ctx.font = "500 " + overSize + "px " + faceStack;
+        if ("letterSpacing" in ctx) ctx.letterSpacing = "0.18em";
+        placeLine(ctx, L.kind === "editorial" ? null : ground, over.toUpperCase(), cx, y + overSize, overSize, palette, rgba(palette.ink, 0.7));
+        if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+        y += overSize * 1.6;
+      }
+      if (big) {
+        var bigSize = fitLine(ctx, typeStyle === "sans" ? big.toUpperCase() : big,
+          bigWeight + " %spx " + faceStack,
+          Math.round(h * 0.088 * ts), maxW * 0.92, Math.round(h * 0.044 * ts), bigTrack);
+        ctx.font = bigWeight + " " + bigSize + "px " + faceStack;
+        if ("letterSpacing" in ctx) ctx.letterSpacing = bigTrack;
+        placeLine(ctx, L.kind === "editorial" ? null : ground, typeStyle === "sans" ? big.toUpperCase() : big, cx, y + bigSize * 0.86, bigSize, palette, palette.ink);
+        if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+        y += bigSize * 1.02;
+      }
+      if (under) {
+        var underSize = fitLine(ctx, under.toUpperCase(), "500 %spx " + faceStack,
+          Math.round(h * 0.032 * ts), maxW * 0.84, Math.round(h * 0.018 * ts), "0.14em");
+        ctx.font = "500 " + underSize + "px " + faceStack;
+        if ("letterSpacing" in ctx) ctx.letterSpacing = "0.14em";
+        placeLine(ctx, L.kind === "editorial" ? null : ground, under.toUpperCase(), cx, y + underSize * 1.5, underSize, palette, rgba(palette.ink, 0.72));
+        if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+        y += underSize * 2.1;
+      }
+      // A serif headline takes a rule under it; a sans one takes nothing, so
+      // the two never read as the same poster with the font swapped.
+      if (typeStyle === "serif" && big) {
+        drawFlourish(ctx, cx, y + h * 0.004, maxW * 0.3, palette);
+        y += h * 0.022;
+      }
+      head = { lead: "", script: "", tail: "" };
+    }
+
     if (head.lead) {
       var leadSize = fitLine(ctx, head.lead.toUpperCase(),
         "600 %spx 'Playfair Display', Georgia, serif",
@@ -1384,9 +1577,15 @@
       // has to be fitted properly instead.
       var rh, widest, rw, blockH;
       var room = contentFloor - headBottom;
+      // The width the message is wrapped to, narrowed each pass to whatever
+      // will actually fit INSIDE the ribbon once its notches are cut. The
+      // ribbon's width is capped at the column, so when the wording needed
+      // more than that the ribbon stopped growing and the text kept going —
+      // straight across both notches and out over the sheet.
+      var wrapW = bodyW;
       for (var hAttempt = 0; hAttempt < 10; hAttempt++) {
         ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
-        lines = wrapLines(ctx, body, bodyW);
+        lines = wrapLines(ctx, body, wrapW);
         rh = bodySize * (1.15 * lines.length + 0.95);
         // How tall the message ACTUALLY comes out. The editorial composition
         // sets it plainly rather than on a ribbon, at a different line height
@@ -1399,7 +1598,17 @@
           : rh;
         widest = 0;
         for (var i = 0; i < lines.length; i++) widest = Math.max(widest, ctx.measureText(lines[i]).width);
-        rw = Math.min(maxW, widest + rh * 0.64 + w * 0.09);
+        rw = messageStyle === "ribbon"
+          ? Math.min(maxW, widest + ribbonNotch(maxW, rh) * 2 + w * 0.05)
+          : Math.min(maxW, widest + w * 0.07);
+        if (L.kind !== "editorial" && messageStyle === "ribbon") {
+          // What is genuinely free between the two notches, with a little air.
+          var inner = rw - ribbonNotch(rw, rh) * 2 - w * 0.03;
+          if (widest > inner && inner > w * 0.2) {
+            wrapW = inner;
+            continue;
+          }
+        }
         if (blockH <= room || bodySize <= bodyFloor) break;
         // Straight to the size that fits rather than creeping down: a smaller
         // face wraps to fewer lines, so one proportional step lands close and
@@ -1440,6 +1649,14 @@
           centreText(ctx, lines[ej], cx, y + bodySize * (ej + 1) * 1.34, rgba(palette.ink, 0.92));
         }
         y += bodySize * 1.34 * lines.length + h * 0.02;
+      } else if (messageStyle === "framed") {
+        ribbonRect = { x: cx - rw / 2, y: y, w: rw, h: rh };
+        drawPanel(ctx, cx - rw / 2, y, rw, rh, palette);
+        for (var jf = 0; jf < lines.length; jf++) {
+          ctx.font = "600 " + bodySize + "px 'DM Sans', 'Inter', sans-serif";
+          centreText(ctx, lines[jf], cx, y + rh / 2 - (lines.length - 1) * bodySize * 0.575 + jf * bodySize * 1.15 + bodySize * 0.34, palette.ink);
+        }
+        y += rh * 1.16;
       } else {
         ribbonRect = { x: cx - rw / 2, y: y, w: rw, h: rh };
         drawRibbon(ctx, cx, y + rh / 2, rw, rh, palette);
@@ -1564,7 +1781,7 @@
           centreText(ctx, trail.toUpperCase(), barCx, panelY + panelH * 0.83, rgba(palette.cream, 0.82));
           if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
         }
-        return { composition: composition, contentBottom: contentBottom, panelTop: panelTop, headBottom: headBottom, ribbon: ribbonRect, column: maxW, bodyWidth: bodyWidth, frame: frameRect, panel: panelRect };
+        return { composition: composition, contentBottom: contentBottom, panelTop: panelTop, headBottom: headBottom, ribbon: ribbonRect, column: maxW, bodyWidth: bodyWidth, frame: frameRect, panel: panelRect, typeStyle: typeStyle, messageStyle: messageStyle };
       }
 
       drawPanel(ctx, cx - panelW / 2, panelY, panelW, panelH, palette);
@@ -1598,7 +1815,7 @@
       }
     }
 
-    return { composition: composition, contentBottom: contentBottom, panelTop: panelTop, headBottom: headBottom, ribbon: ribbonRect, column: maxW, bodyWidth: bodyWidth, frame: frameRect, panel: panelRect };
+    return { composition: composition, contentBottom: contentBottom, panelTop: panelTop, headBottom: headBottom, ribbon: ribbonRect, column: maxW, bodyWidth: bodyWidth, frame: frameRect, panel: panelRect, typeStyle: typeStyle, messageStyle: messageStyle };
   }
 
 
@@ -1722,7 +1939,13 @@
       var colors = (R && R.effectivePaletteColors)
         ? R.effectivePaletteColors(brand, opts.style)
         : { primary: brand.primaryColor, accent: brand.accentColor };
-      var palette = derivePalette(colors.primary, colors.accent, sample);
+      // A separate namespace from the composition's own draw, so the colour
+      // family and the layout vary INDEPENDENTLY. Seeded from the same value
+      // they would move in lockstep and four layouts would only ever come in
+      // four colourways — twenty combinations collapsed back to four.
+      var moodRand = seededRandom(hashSeed("florisyn-palette:" + seed));
+      var mood = opts.paletteMood || PALETTE_MOODS[Math.floor(moodRand() * PALETTE_MOODS.length) % PALETTE_MOODS.length];
+      var palette = derivePalette(colors.primary, colors.accent, sample, mood);
       // Which half of the photograph the wording goes in, decided from the
       // picture itself rather than guessed — and decided ONCE, so the
       // measuring pass and the drawing pass cannot disagree about it.
@@ -1762,7 +1985,7 @@
       var base = {
         width: width, height: height, content: opts.content, brand: brand,
         palette: palette, image: img, seed: seed, textSide: textSide,
-        needsBackdrop: needsBackdrop
+        needsBackdrop: needsBackdrop, paletteMood: mood
       };
       // Lay the poster out once against a context that measures but paints
       // nothing, to learn how tall it naturally is. Short wording used to
@@ -1776,6 +1999,9 @@
       var composition = laid.composition;
       if (canvas.dataset) {
         canvas.dataset.florisynPosterComposition = composition;
+        canvas.dataset.florisynPosterPalette = mood;
+        canvas.dataset.florisynPosterType = laid.typeStyle || "script";
+        canvas.dataset.florisynPosterMessageStyle = laid.messageStyle || "plain";
         canvas.dataset.florisynPosterSeed = String(seed);
         canvas.dataset.florisynBackgroundTier = tier || "fallback-procedural";
         // Measured, not asked. If the display faces did not really arrive
@@ -1895,6 +2121,11 @@
     splitHeadline: splitHeadline,
     splitShopName: splitShopName,
     COMPOSITIONS: COMPOSITIONS,
+    PALETTE_MOODS: PALETTE_MOODS,
+    TYPE_STYLES: TYPE_STYLES,
+    MESSAGE_STYLES: MESSAGE_STYLES,
+    ribbonNotch: ribbonNotch,
+    drawRibbon: drawRibbon,
     isSympathyContent: isSympathyContent,
     fitPoster: fitPoster,
     posterSuitsCanvas: posterSuitsCanvas,
