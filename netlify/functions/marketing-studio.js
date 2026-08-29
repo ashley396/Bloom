@@ -1066,8 +1066,17 @@ export function createMarketingStudioHandler(deps = {}) {
             // overwrite (or blank) the variant's real hashtags for a
             // request that never asked to touch them.
             hashtags: imageOnlyRevision ? undefined : captionFields.hashtags,
-            aiContentType: affectsImage ? "generative_image" : "none",
-            generativeImageUsed: affectsImage
+            // Disclosure must reflect whether the PUBLISHED photo is
+            // AI-generated, not whether THIS revision happened to
+            // regenerate it. Every "image" asset's photo is AI-generated
+            // (imageUrl is always either a fresh generation or the prior
+            // asset's own AI photo carried forward) — a caption-only fix
+            // must never silently clear the disclosure flag just because
+            // it didn't touch the photo this time. Matches the same
+            // Boolean(imageUrl) test already used at creation time and by
+            // revert_content_revision.
+            aiContentType: imageUrl ? "generative_image" : "none",
+            generativeImageUsed: Boolean(imageUrl)
           });
           await writeCommandAudit(client, user.id, "marketing_content_revised", { shopId, targetType: "marketing_content_items", targetId: body.content_item_id, assetType: "image" });
           return json(200, {

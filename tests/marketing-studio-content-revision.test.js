@@ -170,6 +170,15 @@ test("revise_content (image): a plain wording/name correction ('change it to Flo
     assert.match(assetInsert.payload.content.caption, /Floyd Central Jaguars/);
     assert.equal(assetInsert.payload.content.url, "https://fake.storage/jaguar.jpg", "the persisted asset's photo url must be carried forward unchanged");
     assert.equal(client.calls.find((c) => c.table === "website_media"), undefined, "no new photo may ever be generated/uploaded for a pure wording correction");
+
+    // The photo itself is STILL an AI-generated photo — it just wasn't
+    // re-rolled by this particular revision. A caption-only fix must never
+    // silently clear the disclosure flags just because it didn't touch the
+    // image this time (that photo still has to be disclosed when published).
+    const variantUpdate = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "update"));
+    assert.equal(variantUpdate.payload.generative_image_used, true, "the photo is still AI-generated even though this revision only touched the caption");
+    assert.equal(variantUpdate.payload.ai_content_type, "generative_image");
+    assert.equal(variantUpdate.payload.ai_disclosure_required, true, "disclosure must not be silently cleared by a caption-only revision");
   } finally {
     mock.restore();
   }
