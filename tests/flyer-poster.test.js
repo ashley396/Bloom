@@ -1724,6 +1724,30 @@ test("a matched category with nothing in it falls back to the everyday pool, not
   assert.equal(poster.pickLibraryPhoto({ headline: "Wedding Flowers" }, "Lilies in Bloom", 1, thin), thin.everyday[0]);
 });
 
+test("the real manifest never carries a photo known to show a casket, or a known-broken export", async () => {
+  // Every one of the ~129 verified photos was opened and looked at — contact
+  // sheets, not filenames — before this list existed. Five funeral photos
+  // are shot with the arrangement ON a real, visible casket: appropriate for
+  // a product page, wrong for a flyer a grieving family sees on Facebook.
+  // One everyday photo has solid black pillarboxing baked into the file, a
+  // production export artifact that would read as a rendering bug on a real
+  // flyer. Both classes are excluded by id in
+  // scripts/build-flyer-photo-library.mjs; this pins that the manifest this
+  // repo actually ships reflects that exclusion, not just the script's
+  // source.
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+  const manifestPath = path.join(root, "public/flyer-photo-library.js");
+  const manifest = fs.readFileSync(manifestPath, "utf8");
+  for (const excludedId of [
+    "fn-17-casket-adornment", "fn-21-casket-spray-red-white-silver",
+    "fn-22-casket-spray-red-white-lilies", "fn-23-standing-spray-pink-lilies-church",
+    "fn-24-casket-spray-lavender-purple", "ed-44-rose-trio"
+  ]) {
+    assert.ok(!manifest.includes(excludedId), `"${excludedId}" reached the shipped manifest`);
+  }
+});
+
 test("the real generated manifest is well-formed: real files, no placeholders, every category populated", async () => {
   // Not a mock library — the actual file scripts/build-flyer-photo-library.mjs
   // writes, checked the way the poster will actually load it.

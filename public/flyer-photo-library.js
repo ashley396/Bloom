@@ -25,7 +25,6 @@ window.FLORISYN_PHOTO_LIBRARY = {
     "/assets/floral-library/everyday/fn-14-standing-spray-blue.jpg",
     "/assets/floral-library/everyday/fn-15-wreath-red-roses.jpg",
     "/assets/floral-library/everyday/fn-16-standing-spray-autumn.jpg",
-    "/assets/floral-library/everyday/fn-17-casket-adornment.jpg",
     "/assets/floral-library/everyday/fn-18-standing-spray-sunflower.jpg",
     "/assets/floral-library/everyday/fn-19-wreath-white-green.jpg",
     "/assets/floral-library/everyday/fn-20-standing-spray-lavender.jpg",
@@ -48,11 +47,7 @@ window.FLORISYN_PHOTO_LIBRARY = {
     "/assets/floral-library/everyday/sy-17-devoted-red-roses.jpg",
     "/assets/floral-library/everyday/sy-18-peaceful-pastel-mix.jpg",
     "/assets/floral-library/everyday/sy-19-tranquil-white-plants-mix.jpg",
-    "/assets/floral-library/everyday/sy-20-simple-elegance-whites.jpg",
-    "/assets/floral-library/funeral/fn-21-casket-spray-red-white-silver.jpg",
-    "/assets/floral-library/funeral/fn-22-casket-spray-red-white-lilies.jpg",
-    "/assets/floral-library/funeral/fn-23-standing-spray-pink-lilies-church.jpg",
-    "/assets/floral-library/funeral/fn-24-casket-spray-lavender-purple.jpg"
+    "/assets/floral-library/everyday/sy-20-simple-elegance-whites.jpg"
   ],
   "wedding": [
     "/assets/floral-library/everyday/wd-01-classic-white-bridal.jpg",
@@ -138,7 +133,6 @@ window.FLORISYN_PHOTO_LIBRARY = {
     "/assets/floral-library/everyday/ed-41-golden-glow.jpg",
     "/assets/floral-library/everyday/ed-42-everyday-blush.jpg",
     "/assets/floral-library/everyday/ed-43-daisy-mum-mix.jpg",
-    "/assets/floral-library/everyday/ed-44-rose-trio.jpg",
     "/assets/floral-library/everyday/ed-45-hydrangea-accent.jpg",
     "/assets/floral-library/everyday/ed-46-everyday-rustic.jpg",
     "/assets/floral-library/everyday/ed-47-bright-tabletop.jpg",

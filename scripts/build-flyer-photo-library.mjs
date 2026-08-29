@@ -57,8 +57,40 @@ const SOURCES = {
   everyday: ["floral-library-everyday-50.json"]
 };
 
+/**
+ * "needs_image_replacement" only certifies that a photo is real, not that it
+ * is FIT for a customer's flyer. Every one of the ~129 verified photos was
+ * opened and looked at (contact sheets, not just filenames — "fn-23-
+ * standing-spray-pink-lilies-church" gave no hint it would show one) before
+ * this list was written. Two real problems, found that way and nowhere else:
+ *
+ *  - Five funeral-catalog photos are shot with the arrangement ON a real,
+ *    visible casket — church candles, brass handles, the lid itself in
+ *    frame. Fine for a product page showing what a piece looks like in
+ *    place; wrong for a marketing flyer a grieving family sees on Facebook,
+ *    which should show the flowers, never the casket they rest on.
+ *  - One everyday photo (ed-44) has solid black pillarboxing baked into the
+ *    file itself — a production export artifact, not a design choice. It
+ *    would read as a rendering bug on a real flyer.
+ *
+ * Re-run scripts/verify-flyer-photo-library.mjs after any change to the
+ * source JSON or this list — it re-opens every surviving photo's dimensions
+ * and scans for exactly this second class of defect (a solid border),
+ * though the casket problem needs an eye, not a heuristic, and was checked
+ * that way for every photo this manifest can select.
+ */
+const EXCLUDED = {
+  "fn-17-casket-adornment": "shows a real, visible casket",
+  "fn-21-casket-spray-red-white-silver": "shows a real, visible casket",
+  "fn-22-casket-spray-red-white-lilies": "shows a real, visible casket",
+  "fn-23-standing-spray-pink-lilies-church": "shows a real, visible casket in the background",
+  "fn-24-casket-spray-lavender-purple": "shows a real, visible casket",
+  "ed-44-rose-trio": "solid black pillarboxing baked into the file"
+};
+
 const library = {};
 let totalEntries = 0;
+let excludedCount = 0;
 
 for (const [category, files] of Object.entries(SOURCES)) {
   const urls = [];
@@ -73,6 +105,7 @@ for (const [category, files] of Object.entries(SOURCES)) {
       // A placeholder is never real visual proof, and a flyer is customer-
       // facing — the one place this rule cannot be relaxed.
       if (arrangement.needs_image_replacement) continue;
+      if (arrangement.id in EXCLUDED) { excludedCount++; continue; }
       if (!arrangement.image) continue;
       const onDisk = path.join(assetsDir, arrangement.image);
       if (!fs.existsSync(onDisk)) {
@@ -111,4 +144,4 @@ console.log(`wrote ${path.relative(root, outPath)}`);
 for (const [category, urls] of Object.entries(library)) {
   console.log(`  ${category.padEnd(12)} ${urls.length} photos`);
 }
-console.log(`${totalEntries} verified photos total`);
+console.log(`${totalEntries} verified photos total (${excludedCount} excluded — see EXCLUDED above)`);
