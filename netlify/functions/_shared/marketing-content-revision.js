@@ -120,8 +120,30 @@ export function deriveRevisionTraits(instruction, deltas) {
  * compositing — same honesty level as ai-orchestrator.js's own
  * creative.reviseVisual background step ("matching the same overall
  * composition"), not a guarantee the product pixels are identical. */
+// A real, live-found failure: this function's own OUTPUT becomes the NEXT
+// revision's priorVisualBrief (marketing-studio.js carries the freshly built
+// brief forward as the new asset's own visual_brief) — so with no cap, each
+// revision nests the ENTIRE prior brief inside a fresh "Previous version's
+// visual concept, for reference only: ..." wrapper, which itself already
+// contains an earlier nested wrapper, and so on. The string's length roughly
+// adds a fixed boilerplate amount every revision; after just two or three
+// revisions in a row it can exceed buildImagePrompt's overall length budget
+// (composePrompt, 1200 chars) on its own. Since visual_brief is the ONLY
+// optional clause there, once the combined prompt is too long the WHOLE
+// clause is dropped in one piece — not trimmed — silently erasing the real
+// subject (e.g. "a jaguar holding flowers") from the prompt entirely and
+// leaving a generic floral photo. Capping how much prior context is folded
+// in keeps this function's own output length bounded no matter how many
+// revisions happen, so it can never itself become the reason the subject
+// disappears. The tail (not the head) is what's kept — the boilerplate this
+// function always adds lives at the FRONT of its own output, so the older,
+// more specific description a deep chain of revisions is nesting toward
+// survives at the end.
+const MAX_PRIOR_VISUAL_BRIEF_CHARS = 300;
+
 export function buildImageRevisionBrief({ instruction, priorVisualBrief }) {
-  const base = priorVisualBrief ? `Previous version's visual concept, for reference only: ${priorVisualBrief}` : "";
+  const trimmedPrior = priorVisualBrief ? String(priorVisualBrief).slice(-MAX_PRIOR_VISUAL_BRIEF_CHARS) : "";
+  const base = trimmedPrior ? `Previous version's visual concept, for reference only: ${trimmedPrior}` : "";
   return [
     `Revise the visual as requested: ${instruction}`,
     "Keep the same flowers/arrangement/product exactly as shown before — do not change, remove, or redesign the product itself unless the instruction explicitly asks for that.",

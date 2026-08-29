@@ -184,6 +184,114 @@ test("revise_content (image): a plain wording/name correction ('change it to Flo
   }
 });
 
+// Second real, live-found defect from the same screenshots: a regenerated
+// photo came back with the requested subject (a jaguar) missing entirely.
+// Root cause: the real description that got the subject drawn was never
+// persisted at generation time, AND buildImageRevisionBrief's own output
+// became the next revision's input, nesting the whole history and
+// eventually blowing the image prompt's length budget — since visual_brief
+// is the only optional clause there, the ENTIRE thing (including the
+// subject) got dropped in one piece, not trimmed. This proves the fix
+// end-to-end across TWO successive image-only revisions — the subject must
+// survive both, and the prompt actually sent to the provider must still
+// name it on the second call, not just the first.
+test("revise_content (image): the original subject survives across MULTIPLE successive photo regenerations — the exact 'no jaguar in it at all' bug", async () => {
+  process.env.CLOUDFLARE_ACCOUNT_ID = "acct-test";
+  process.env.CLOUDFLARE_AI_API_TOKEN = "token-test";
+  const originalFetch = globalThis.fetch;
+  const capturedPrompts = [];
+  globalThis.fetch = async (url, options) => {
+    const parsedBody = JSON.parse(options?.body || "{}");
+    capturedPrompts.push(parsedBody.prompt);
+    return { ok: true, json: async () => ({ result: { image: TINY_JPEG_BASE64 } }) };
+  };
+  try {
+    const storage = createFakeSupabaseStorage({ publicUrl: (path) => `https://fake.storage/website-media/${path}` });
+    const jaguarAsset = {
+      id: "asset-1",
+      asset_type: "image",
+      content: {
+        url: "https://fake.storage/jaguar-1.jpg",
+        caption: "Good luck to the Floyd Central Jaguars this Friday! 🐾💐",
+        visual_brief: "A jaguar mascot holding a bouquet of flowers, playful sports-fan theme, bright stadium colors.",
+        brand_traits_used: [],
+        visual_traits_used: []
+      }
+    };
+    const client = createFakeSupabaseClient(
+      [
+        // ── Revision 1: "Regenerate the background image — keep the exact same wording." ──
+        superAdminRow(),
+        { data: { id: "item-1", content_type: "image_post", title: "Jaguars Post", brief: "Good luck post for the game this week", status: "draft" }, error: null }, // currentItem
+        { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-1" }], error: null }, // variants
+        { data: jaguarAsset, error: null }, // current asset (the ORIGINAL, has visual_brief but no base_visual_brief yet)
+        { data: { name: "Test Florals" }, error: null }, // shopRow
+        { data: null, error: null }, // loadBrandBrain
+        { data: null, error: null }, // loadStyleMemory
+        { data: { id: "media-2" }, error: null }, // website_media insert
+        {
+          data: {
+            id: "asset-2",
+            parent_asset_id: "asset-1",
+            content: { url: "https://fake.storage/website-media/jaguar-2.jpg", caption: "Good luck to the Floyd Central Jaguars this Friday! 🐾💐" }
+          },
+          error: null
+        }, // ai_generated_assets insert
+        { data: null, error: null }, // variant update
+        { data: null, error: null }, // audit insert
+
+        // ── Revision 2: same instruction again, on the asset revision 1 just produced ──
+        superAdminRow(),
+        { data: { id: "item-1", content_type: "image_post", title: "Jaguars Post", brief: "Good luck post for the game this week", status: "draft" }, error: null },
+        { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-2" }], error: null },
+        {
+          data: {
+            id: "asset-2",
+            asset_type: "image",
+            parent_asset_id: "asset-1",
+            content: {
+              url: "https://fake.storage/website-media/jaguar-2.jpg",
+              caption: "Good luck to the Floyd Central Jaguars this Friday! 🐾💐",
+              visual_brief: "Revise the visual as requested: Regenerate the background image — keep the exact same wording. Keep the same flowers/arrangement/product exactly as shown before — do not change, remove, or redesign the product itself unless the instruction explicitly asks for that. Only change what the instruction actually asks for; leave everything else about the composition the same. Previous version's visual concept, for reference only: A jaguar mascot holding a bouquet of flowers, playful sports-fan theme, bright stadium colors.",
+              base_visual_brief: "A jaguar mascot holding a bouquet of flowers, playful sports-fan theme, bright stadium colors."
+            }
+          },
+          error: null
+        }, // current asset (asset-2, the child revision 1 just made — DOES carry base_visual_brief forward)
+        { data: { name: "Test Florals" }, error: null },
+        { data: null, error: null }, // loadBrandBrain
+        { data: null, error: null }, // loadStyleMemory
+        { data: { id: "media-3" }, error: null },
+        { data: { id: "asset-3", parent_asset_id: "asset-2", content: {} }, error: null },
+        { data: null, error: null },
+        { data: null, error: null }
+      ],
+      { storage }
+    );
+    const handler = createMarketingStudioHandler(baseDeps(client));
+    const instruction = "Regenerate the background image — keep the exact same wording.";
+
+    const res1 = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction }));
+    assert.equal(res1.statusCode, 200, `revision 1 failed: ${res1.body}`);
+
+    const res2 = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction }));
+    assert.equal(res2.statusCode, 200, `revision 2 failed: ${res2.body}`);
+
+    assert.equal(capturedPrompts.length, 2, "both revisions must have actually called the image provider");
+    assert.match(capturedPrompts[0], /jaguar/i, "revision 1's real prompt must still name the subject");
+    assert.match(capturedPrompts[1], /jaguar/i, "revision 2's real prompt must STILL name the subject — this is the exact bug: it silently vanished by the second regeneration");
+
+    const secondInsert = client.calls.filter((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert")).at(-1);
+    assert.equal(
+      secondInsert.payload.content.base_visual_brief,
+      "A jaguar mascot holding a bouquet of flowers, playful sports-fan theme, bright stadium colors.",
+      "base_visual_brief must carry forward UNCHANGED, never re-derived from the already-compounded visual_brief"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("revert_content_revision: restores the parent instantly — the variant is repointed back, nothing is deleted", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),

@@ -80,6 +80,27 @@ test("buildImageRevisionBrief: always includes an explicit subject-preservation 
   assert.match(brief, /wooden counter/);
 });
 
+// Real, live-found defect (Ashley's own screenshots): a regenerated Facebook
+// post image came back with the requested subject (a jaguar) missing
+// entirely. Traced to this function's own output feeding back in as the
+// NEXT revision's priorVisualBrief — nesting the entire history inside a
+// fresh wrapper every time, unbounded. Naively re-running this function's
+// own output through itself (the exact shape a caller who never adopts the
+// stable-base-brief fix could still produce) must never let the length grow
+// without bound, and must never lose the original subject text no matter
+// how many times it's chained.
+test("buildImageRevisionBrief: chaining its own output back in as priorVisualBrief (worst case) never grows without bound and never loses the original subject", () => {
+  let brief = "A jaguar mascot holding a bouquet of flowers, playful sports-fan theme, bright stadium colors.";
+  const lengths = [brief.length];
+  for (let i = 0; i < 10; i++) {
+    brief = buildImageRevisionBrief({ instruction: "make it more colorful", priorVisualBrief: brief });
+    lengths.push(brief.length);
+  }
+  const lastFive = lengths.slice(-5);
+  assert.ok(lastFive.every((len) => len === lastFive[0]), `length must converge to a fixed bound, not keep growing: ${lengths.join(", ")}`);
+  assert.match(brief, /jaguar/i, "the real subject must survive any number of chained revisions, not just the first one");
+});
+
 test("buildWordingRevisionRequestText: frames the instruction as overriding, and warns against dropping exact facts", () => {
   const text = buildWordingRevisionRequestText({ instruction: "make it shorter", brief: "Fall bouquet launch", priorText: "Order by Friday! Call (555) 123-4567." });
   assert.match(text, /overriding your own judgment/i);

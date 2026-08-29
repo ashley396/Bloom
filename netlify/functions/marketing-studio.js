@@ -1015,10 +1015,35 @@ export function createMarketingStudioHandler(deps = {}) {
           let provider = currentAsset.provider || "cloudflare";
           let model = currentAsset.model || "unknown";
           let prompt = currentAsset.prompt || null;
+          // Real, live-found failure (Ashley's own screenshots): a
+          // regenerated photo came back with the requested subject (a
+          // jaguar) missing entirely. Root cause traced to two compounding
+          // problems in how the image prompt carried context across
+          // revisions:
+          //  1. The TRUE concrete description that got the original subject
+          //     drawn (copyGen.content.visual_brief, e.g. "a jaguar mascot
+          //     holding a bouquet of flowers") was never persisted at
+          //     generation time — the first-ever revision had nothing to
+          //     work from except the content item's own generic brief text,
+          //     which may never name the subject at all.
+          //  2. Even once persisted, buildImageRevisionBrief's own output
+          //     becomes the NEXT revision's own "prior" input — nesting the
+          //     entire revision history inside itself again on every
+          //     subsequent revision. That compounds without bound, and once
+          //     the combined prompt exceeds buildImagePrompt's length cap,
+          //     visual_brief — the ONLY optional clause — is dropped in one
+          //     piece, erasing the subject completely rather than trimming it.
+          // Fix: track a STABLE base description (the real original
+          // subject) separately from this asset's own (possibly
+          // instruction-annotated) visual_brief, and always build the next
+          // revision's prompt from that stable base — never from a prior
+          // revision's already-compounded output. base_visual_brief never
+          // grows, so the real subject can never be squeezed out no matter
+          // how many revisions happen.
+          const baseVisualBrief = currentAsset.content?.base_visual_brief || currentAsset.content?.visual_brief || currentItem.data.brief;
           let visualBrief = currentAsset.content?.visual_brief || currentItem.data.brief;
           if (affectsImage) {
-            const priorVisualBrief = currentAsset.content?.visual_brief || currentItem.data.brief;
-            visualBrief = buildImageRevisionBrief({ instruction, priorVisualBrief });
+            visualBrief = buildImageRevisionBrief({ instruction, priorVisualBrief: baseVisualBrief });
             prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief });
             const imageGen = await generateImage(client, shopId, { prompt, filename: `marketing-revision-${body.content_item_id}-${Date.now()}.jpg` });
             if (!imageGen.ok) return json(400, { error: imageGen.error });
@@ -1048,6 +1073,10 @@ export function createMarketingStudioHandler(deps = {}) {
               cta: captionFields.cta,
               hashtags: captionFields.hashtags,
               visual_brief: visualBrief,
+              // Carried forward unchanged, never recomputed from this
+              // revision's own (instruction-annotated) visual_brief — see
+              // the comment above where baseVisualBrief is derived.
+              base_visual_brief: baseVisualBrief,
               brand_traits_used: [],
               visual_traits_used: appliedTraits,
               revision_instruction: instruction,
@@ -2224,7 +2253,20 @@ export function createMarketingStudioHandler(deps = {}) {
               // recorded here at generation time — recordBrandSignal/
               // recordApprovalSignal only ever fire from a real approval
               // decision, never a bare generation.
-              content: { url: imageGen.url, caption: copyGen.content.body, brand_traits_used: copyGen.content.brand_traits_used, visual_traits_used: copyGen.content.visual_traits_used, grounded_in_inventory: inventorySources },
+              //
+              // Real, live-found failure: visual_brief was never persisted
+              // here at all — the actual concrete description that got the
+              // real subject drawn (e.g. "a jaguar mascot holding a bouquet
+              // of flowers") existed only as a local variable for this one
+              // prompt call, then vanished. The FIRST revise_content call on
+              // this asset had nothing to reference except the content
+              // item's own generic brief text, which may never mention the
+              // subject at all — a real, provable cause of "the regenerated
+              // photo didn't have [the subject] in it at all." Persisting it
+              // here is what lets revise_content's imageOnlyRevision path
+              // actually keep the same subject across a revision, the way
+              // its own comments already claim it does.
+              content: { url: imageGen.url, caption: copyGen.content.body, visual_brief: copyGen.content.visual_brief || null, brand_traits_used: copyGen.content.brand_traits_used, visual_traits_used: copyGen.content.visual_traits_used, grounded_in_inventory: inventorySources },
               mediaId: mediaRow.data?.id || null,
               status: "completed"
             });
