@@ -1643,3 +1643,104 @@ test("the monogram initial never runs into the name printed beneath it", () => {
       `seed ${seed}: the initial's descent (${Math.round(initialBottom)}) reaches past the name's top (${Math.round(nameTop)})`);
   }
 });
+
+// ---------------------------------------------------------------------------
+// "What do I need to do to be as good as Canva and ChatGPT?" — every poster
+// this product ever drew used the exact same single hardcoded photograph
+// whenever no AI background existed. A real, occasion-tagged library already
+// existed (the shop's own Floral Library data) and was simply never wired
+// into the poster's background choice. pickLibraryPhoto is that wiring.
+// ---------------------------------------------------------------------------
+
+const SAMPLE_LIBRARY = {
+  sympathy: ["/assets/floral-library/everyday/fn-01.jpg", "/assets/floral-library/everyday/sy-01.jpg"],
+  wedding: ["/assets/floral-library/everyday/wd-01.jpg"],
+  celebration: ["/assets/floral-library/everyday/bd-01.jpg", "/assets/floral-library/everyday/cg-01.jpg"],
+  everyday: ["/assets/floral-library/everyday/ed-01.jpg", "/assets/floral-library/everyday/ed-02.jpg", "/assets/floral-library/everyday/ed-03.jpg"]
+};
+
+test("photoCategoryFor matches the right category, sympathy first", () => {
+  assert.equal(poster.photoCategoryFor({ headline: "Funeral Flowers" }), "sympathy");
+  assert.equal(poster.photoCategoryFor({ body: "Sympathy arrangements for the service." }), "sympathy");
+  assert.equal(poster.photoCategoryFor({ headline: "Wedding Flowers" }), "wedding");
+  assert.equal(poster.photoCategoryFor({ body: "Ask about our bridal bouquets." }), "wedding");
+  assert.equal(poster.photoCategoryFor({ headline: "Happy Birthday" }), "celebration");
+  assert.equal(poster.photoCategoryFor({ body: "Congratulations on the new job!" }), "celebration");
+  assert.equal(poster.photoCategoryFor({ headline: "Closing Early Today" }), "everyday");
+  assert.equal(poster.photoCategoryFor({}), "everyday");
+  assert.equal(poster.photoCategoryFor(null), "everyday");
+});
+
+test("photoCategoryFor never lets the shop's own name pick the category", () => {
+  // The same multi-tenant hazard isSympathyContent already guards against:
+  // a shop called Wedding Bells Florist must not have every ordinary post —
+  // including its closing notices — read as a wedding.
+  const content = { headline: "Closing Early Today", body: "We are closing at 2:30." };
+  assert.equal(poster.photoCategoryFor(content, "Wedding Bells Florist"), "everyday");
+  assert.equal(poster.photoCategoryFor(content, "Birthday Blooms"), "everyday");
+  assert.equal(poster.photoCategoryFor(content, "Memorial Gardens Florist"), "everyday");
+});
+
+test("sympathy still wins when a post genuinely carries more than one signal", () => {
+  // Showing festive imagery for a bereavement is the mistake that actually
+  // hurts someone; an ordinary photo on a wedding flyer merely looks generic.
+  assert.equal(poster.photoCategoryFor({ body: "Funeral flowers needed after the wedding weekend tragedy." }), "sympathy");
+});
+
+test("pickLibraryPhoto returns a real photo from the matched category, deterministically", () => {
+  const a = poster.pickLibraryPhoto({ headline: "Funeral Flowers" }, "Lilies in Bloom", 7, SAMPLE_LIBRARY);
+  const again = poster.pickLibraryPhoto({ headline: "Funeral Flowers" }, "Lilies in Bloom", 7, SAMPLE_LIBRARY);
+  assert.ok(SAMPLE_LIBRARY.sympathy.includes(a), `"${a}" is not one of the sympathy photos`);
+  assert.equal(a, again, "the same seed picked a different photo the second time");
+});
+
+test("a regenerate — a new seed — can pick a genuinely different photo", () => {
+  const seen = new Set();
+  for (let seed = 1; seed <= 50; seed++) {
+    seen.add(poster.pickLibraryPhoto({ headline: "Funeral Flowers" }, "Lilies in Bloom", seed, SAMPLE_LIBRARY));
+  }
+  assert.ok(seen.size > 1, "50 different seeds all picked the identical sympathy photo");
+});
+
+test("every photo in a real content-based category is reachable across seeds", () => {
+  for (const category of Object.keys(SAMPLE_LIBRARY)) {
+    const content = { sympathy: { headline: "Funeral Flowers" }, wedding: { headline: "Wedding Flowers" },
+      celebration: { headline: "Happy Birthday" }, everyday: { headline: "Closing Early Today" } }[category];
+    const seen = new Set();
+    for (let seed = 1; seed <= 200; seed++) seen.add(poster.pickLibraryPhoto(content, "Lilies in Bloom", seed, SAMPLE_LIBRARY));
+    assert.equal(seen.size, SAMPLE_LIBRARY[category].length,
+      `${category}: only ${seen.size} of ${SAMPLE_LIBRARY[category].length} photos ever picked`);
+  }
+});
+
+test("with no library at all, pickLibraryPhoto returns null rather than inventing a path", () => {
+  assert.equal(poster.pickLibraryPhoto({ headline: "Funeral Flowers" }, "Lilies in Bloom", 1, null), null);
+  assert.equal(poster.pickLibraryPhoto({ headline: "Funeral Flowers" }, "Lilies in Bloom", 1, {}), null);
+  assert.equal(poster.pickLibraryPhoto({ headline: "Funeral Flowers" }, "Lilies in Bloom", 1, { sympathy: [] }), null);
+});
+
+test("a matched category with nothing in it falls back to the everyday pool, not null", () => {
+  const thin = { everyday: ["/assets/floral-library/everyday/ed-01.jpg"] };
+  assert.equal(poster.pickLibraryPhoto({ headline: "Wedding Flowers" }, "Lilies in Bloom", 1, thin), thin.everyday[0]);
+});
+
+test("the real generated manifest is well-formed: real files, no placeholders, every category populated", async () => {
+  // Not a mock library — the actual file scripts/build-flyer-photo-library.mjs
+  // writes, checked the way the poster will actually load it.
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+  const manifestPath = path.join(root, "public/flyer-photo-library.js");
+  assert.ok(fs.existsSync(manifestPath), "public/flyer-photo-library.js does not exist — run scripts/build-flyer-photo-library.mjs");
+  const sandbox = { window: {} };
+  const vm = await import("node:vm");
+  vm.runInNewContext(fs.readFileSync(manifestPath, "utf8"), sandbox);
+  const lib = sandbox.window.FLORISYN_PHOTO_LIBRARY;
+  assert.ok(lib && typeof lib === "object", "the manifest never set window.FLORISYN_PHOTO_LIBRARY");
+  for (const category of ["sympathy", "wedding", "celebration", "everyday"]) {
+    assert.ok(Array.isArray(lib[category]) && lib[category].length > 0, `category "${category}" is empty or missing`);
+    for (const url of lib[category]) {
+      assert.match(url, /^\/assets\/floral-library\//, `"${url}" is not a real floral-library path`);
+      assert.ok(fs.existsSync(path.join(root, "public", url)), `"${url}" does not exist on disk`);
+    }
+  }
+});

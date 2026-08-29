@@ -548,6 +548,74 @@
     });
   }
 
+// ---------------------------------------------------------------------------
+  // The photograph itself.
+  //
+  // Every poster this product ever drew — sympathy or celebratory, a closing
+  // notice or a wedding announcement — used the exact same single hardcoded
+  // photograph whenever no AI-generated background existed. Ashley: "it's
+  // just using the same 4 designs over and over with different flowers and
+  // colors" was literally true of the photo: it was never different, because
+  // there was only ever one.
+  //
+  // A real, occasion-tagged, human-curated library already exists — the same
+  // photographs the shop's own Floral Library / product catalog draws from —
+  // and scripts/build-flyer-photo-library.mjs turns the verified (never a
+  // placeholder) subset of it into public/flyer-photo-library.js, a plain
+  // global this file reads if the page has loaded it. If it has not — an
+  // older cached page, a preview surface that never added the script tag —
+  // this degrades to exactly the one hardcoded photo it always used, never a
+  // broken image.
+  // ---------------------------------------------------------------------------
+
+  var WEDDING_RE = /\b(wedding|bride|bridal|bridesmaid|groom|engagement)\b/i;
+  var CELEBRATION_RE = /\b(birthday|congratulations|congrats|graduation|promotion|new job|retirement)\b/i;
+
+  /**
+   * Which photo category this wording matches, in priority order — sympathy
+   * first, because showing festive imagery for a bereavement is the one
+   * mistake here that actually hurts someone, versus an ordinary photo
+   * showing up on a wedding flyer, which merely looks generic. "everyday" is
+   * the default for everything else — a closing notice, a plain seasonal
+   * post, anything with no specific occasion signal.
+   *
+   * Pure. Never shop-specific: reads posterContentText, which already
+   * removes the shop's own name.
+   */
+  function photoCategoryFor(content, shopName) {
+    var text = posterContentText(content, shopName);
+    if (SYMPATHY_RE.test(text)) return "sympathy";
+    if (WEDDING_RE.test(text)) return "wedding";
+    if (CELEBRATION_RE.test(text)) return "celebration";
+    return "everyday";
+  }
+
+  /**
+   * Picks one real photo from the matched category, deterministically from
+   * the seed — the same asset always redraws with the same photo, and a
+   * regenerate (a new seed) gets a genuinely different one from a pool of
+   * dozens rather than the one photo everything used before.
+   *
+   * `library` defaults to the real global so production needs no wiring
+   * beyond loading the script tag; passed explicitly in tests so this stays
+   * checkable without a real `window`. Returns null — never throws, never
+   * returns a made-up path — whenever the library is missing or the matched
+   * category has nothing in it, so the caller's existing hardcoded fallback
+   * is exactly as safe a floor as it always was.
+   *
+   * Pure given `library`.
+   */
+  function pickLibraryPhoto(content, shopName, seed, library) {
+    var lib = library || (typeof global !== "undefined" && global.FLORISYN_PHOTO_LIBRARY) || null;
+    if (!lib) return null;
+    var category = photoCategoryFor(content, shopName);
+    var pool = lib[category];
+    if (!pool || !pool.length) pool = lib.everyday;
+    if (!pool || !pool.length) return null;
+    var rand = seededRandom(hashSeed("florisyn-photo:" + seed));
+    return pool[Math.floor(rand() * pool.length) % pool.length];
+  }
+
   // --- ornament -------------------------------------------------------------
 
   /** A restrained double rule inset from the edge. Not a heavy frame — a
@@ -1086,22 +1154,31 @@
    *
    * Pure.
    */
-  function isSympathyContent(content, shopName) {
+  /**
+   * The wording actually being drawn, with the shop's own name removed —
+   * shared by every content-based detector below, so "is this sympathy
+   * work" and "which photo category does this match" read exactly the same
+   * text and can never disagree about what the flyer says.
+   *
+   * Only a multi-word name is stripped. A shop called simply "Wake" or
+   * "Memorial" cannot have that word removed from its posters without
+   * removing it from its genuine funeral flyers too — and of the two ways to
+   * be wrong, treating a real sympathy piece as ordinary is far the worse.
+   * Multi-word names ("Memorial Gardens Florist") are unambiguous and are
+   * stripped. Pure.
+   */
+  function posterContentText(content, shopName) {
     content = content || {};
     var text = [content.headline, content.body, content.cta].filter(Boolean).join(" ");
     var name = String(shopName || "").trim();
-    // Only a multi-word name is stripped. A shop called simply "Wake" or
-    // "Memorial" cannot have that word removed from its posters without
-    // removing it from its genuine funeral flyers too — and of the two ways to
-    // be wrong, hearts and sparkles on a real sympathy piece is far the worse.
-    // Such a shop gets the restrained ornament on everything, which is a
-    // plainer poster; the alternative is a pink heart in front of a grieving
-    // family. Multi-word names ("Memorial Gardens Florist") are unambiguous
-    // and are stripped.
     if (name && /\s/.test(name)) {
       text = text.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), " ");
     }
-    return SYMPATHY_RE.test(text);
+    return text;
+  }
+
+  function isSympathyContent(content, shopName) {
+    return SYMPATHY_RE.test(posterContentText(content, shopName));
   }
 
   /** A small filled diamond — the restrained section mark, and the one a
@@ -2171,12 +2248,29 @@
     // all — a framed sheet of type — and without the stamp nothing
     // downstream could tell a generated photograph from a library one, which
     // is the single thing a report about this must never get wrong.
-    var FALLBACK = (R && R.FALLBACK_FLORAL_BACKGROUND) || "/assets/atelier-floral-corner.jpg";
+    // Occasion-matched real photo first; the one hardcoded image only if the
+    // library never loaded or came back empty for some reason. Both paths
+    // still stamp "fallback-library-photo" — a real stock photo, chosen from
+    // a real library, is not AI output and must never be presented as one.
+    var LIBRARY_PHOTO = pickLibraryPhoto(opts.content, brand.shopName, seed);
+    var FALLBACK = LIBRARY_PHOTO || (R && R.FALLBACK_FLORAL_BACKGROUND) || "/assets/atelier-floral-corner.jpg";
     return fontsReady.then(function () {
       if (!opts.backgroundUrl) {
         return load(FALLBACK)
           .then(function (img) { return compose(img, "fallback-library-photo"); })
-          .catch(function () { return compose(null, "fallback-procedural"); });
+          .catch(function () {
+            // The picked photo failed to load for some reason (a bad path,
+            // an offline asset) — the single hardcoded image is the floor
+            // this always had, tried once more before giving up on a photo
+            // entirely.
+            if (FALLBACK === LIBRARY_PHOTO) {
+              var HARD_FALLBACK = (R && R.FALLBACK_FLORAL_BACKGROUND) || "/assets/atelier-floral-corner.jpg";
+              return load(HARD_FALLBACK)
+                .then(function (img) { return compose(img, "fallback-library-photo"); })
+                .catch(function () { return compose(null, "fallback-procedural"); });
+            }
+            return compose(null, "fallback-procedural");
+          });
       }
       return load(opts.backgroundUrl)
         .then(function (img) { return compose(img, "generated"); })
@@ -2239,6 +2333,9 @@
     ribbonNotch: ribbonNotch,
     drawRibbon: drawRibbon,
     isSympathyContent: isSympathyContent,
+    posterContentText: posterContentText,
+    photoCategoryFor: photoCategoryFor,
+    pickLibraryPhoto: pickLibraryPhoto,
     fitPoster: fitPoster,
     posterSuitsCanvas: posterSuitsCanvas,
     renderPoster: renderPoster

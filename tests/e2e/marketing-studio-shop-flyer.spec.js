@@ -1110,3 +1110,61 @@ test("browser-level: the colour family varies by seed through the real renderPos
   expect(seen.moods.length, `only these colour families appeared over 30 seeds: ${seen.moods}`).toBeGreaterThanOrEqual(3);
   expect(seen.types.length, `only these type treatments appeared over 30 seeds: ${seen.types}`).toBeGreaterThanOrEqual(2);
 });
+
+test("browser-level: the poster picks a real, occasion-matched photo from the actual library — not the one hardcoded image every time", async ({ page }) => {
+  // Every poster this product ever drew, sympathy or ordinary, used the exact
+  // same single hardcoded photograph whenever no AI background existed.
+  // public/flyer-photo-library.js — loaded on this very page already, the
+  // same way flyer-poster.js itself is — is the real, occasion-tagged
+  // library that replaces it. The tier must still read
+  // "fallback-library-photo": a real stock photo, chosen from a real
+  // library, is not AI output and must never be presented as one.
+  await page.goto("/index.html");
+  await page.addScriptTag({ url: "/flyer-renderer.js" });
+  await page.addScriptTag({ url: "/flyer-poster.js" });
+  const result = await page.evaluate(async () => {
+    const P = window.FlorisynFlyerPoster;
+    const brand = { shopName: "Lilies in Bloom", phone: "606-506-4039", primaryColor: "#7c3a58" };
+    async function sample(content, n) {
+      const urls = new Set(), tiers = new Set();
+      for (let seed = 1; seed <= n; seed++) {
+        const canvas = await P.renderPoster({ width: 1080, height: 1350, seed, content, brand });
+        tiers.add(canvas.dataset.florisynBackgroundTier);
+        // The canvas has no record of which URL it loaded, so ask the picker
+        // directly — the same function renderPoster itself calls.
+        urls.add(P.pickLibraryPhoto(content, brand.shopName, seed));
+      }
+      return { urls: [...urls], tiers: [...tiers] };
+    }
+    const sympathy = await sample({ headline: "Funeral Flowers", body: "Standing sprays and casket flowers." }, 15);
+    const ordinary = await sample({ headline: "Closing Early Today", body: "We are closing at 2:30." }, 15);
+    return {
+      libraryLoaded: !!window.FLORISYN_PHOTO_LIBRARY,
+      sympathy, ordinary
+    };
+  });
+  expect(result.libraryLoaded, "the photo library manifest never loaded on the real page").toBe(true);
+  expect(result.sympathy.urls.length, `only one sympathy photo appeared across 15 seeds: ${JSON.stringify(result.sympathy.urls)}`).toBeGreaterThan(1);
+  expect(result.ordinary.urls.length, `only one everyday photo appeared across 15 seeds: ${JSON.stringify(result.ordinary.urls)}`).toBeGreaterThan(1);
+  expect(result.sympathy.urls.every((u) => u && /funeral|sympathy|\/fn-|\/sy-/i.test(u)),
+    `a sympathy post picked a non-sympathy photo: ${JSON.stringify(result.sympathy.urls)}`).toBe(true);
+  expect(result.sympathy.tiers, "a real library photo must never be stamped as generated AI output").toEqual(["fallback-library-photo"]);
+  expect(result.ordinary.tiers).toEqual(["fallback-library-photo"]);
+});
+
+test("browser-level: without the library, the poster still falls back to its one hardcoded photo — no regression", async ({ page }) => {
+  await page.route("**/flyer-photo-library.js*", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: "" }));
+  await page.goto("/index.html");
+  await page.addScriptTag({ url: "/flyer-renderer.js" });
+  await page.addScriptTag({ url: "/flyer-poster.js" });
+  const tier = await page.evaluate(async () => {
+    const P = window.FlorisynFlyerPoster;
+    const canvas = await P.renderPoster({
+      width: 1080, height: 1350, seed: 3,
+      content: { headline: "Funeral Flowers", body: "Standing sprays and casket flowers." },
+      brand: { shopName: "Lilies in Bloom" }
+    });
+    return canvas.dataset.florisynBackgroundTier;
+  });
+  expect(tier).toBe("fallback-library-photo");
+});
