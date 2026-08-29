@@ -195,11 +195,28 @@ function truncateAtWordBoundary(text, maxLen) {
   return (lastSpace > maxLen * 0.5 ? cut.slice(0, lastSpace) : cut).trim();
 }
 
+// occasion (currentItem.data.title, an API field with no length ceiling —
+// no shipped UI sends a long one today, but nothing stops a direct API call
+// from doing so) is the other variable-length, caller-controlled input this
+// function embeds. Left unbounded, a long enough occasion string (alone, or
+// combined with the fixed sympathy clause) could still force the WHOLE
+// prompt over cap, and composePrompt's own last-resort fallback for that
+// case (trim from the very front) doesn't respect clause boundaries — it
+// would eat into REALISM_DIRECTIVE and the truncated visual_brief clause
+// alike, losing the subject the same way this file's other fix exists to
+// prevent. Capping it the same way (truncated at a word boundary, never
+// dropped) keeps the "other required" budget genuinely bounded, so
+// visual_brief's own computed budget is never squeezed to nothing by an
+// unbounded occasion string.
+const MAX_OCCASION_CLAUSE_CHARS = 200;
+
 /** Turns campaign/post context into a concrete visual prompt — never a
  * vague placeholder, per the brief's own "no vague placeholders" rule for
  * florist-facing creative. */
 export function buildImagePrompt({ occasion, products = [], shopName, visualBrief } = {}, cap = 1200) {
-  const occasionClause = occasion ? `The arrangement must genuinely suit this occasion: ${occasion}.` : null;
+  const occasionClause = occasion
+    ? truncateAtWordBoundary(`The arrangement must genuinely suit this occasion: ${occasion}.`, MAX_OCCASION_CLAUSE_CHARS)
+    : null;
   const sympathyClause = SYMPATHY_OCCASION_RE.test(`${occasion || ""} ${visualBrief || ""}`)
     ? "This is sympathy work: white, ivory and cream blooms with soft green foliage, restrained and dignified, gentle diffused light. Never bright, festive, vivid or celebratory."
     : null;

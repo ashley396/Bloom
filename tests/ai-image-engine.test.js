@@ -421,6 +421,28 @@ test("buildImagePrompt: the subject survives even at the extreme — a full-leng
   assert.ok(prompt.length <= 1200, `prompt overflowed the provider cap: ${prompt.length}`);
 });
 
+// A gap an independent review found in this fix's first version: `occasion`
+// (currentItem.data.title) is caller-controlled with no length ceiling
+// enforced anywhere upstream. No shipped UI sends a long one today, but
+// nothing here should depend on that staying true — a long enough
+// occasion string, combined with the sympathy clause it can trigger, could
+// otherwise force the WHOLE prompt over cap, and composePrompt's own
+// last-resort fallback (trim from the very front) doesn't respect clause
+// boundaries — it would eat into REALISM_DIRECTIVE and the truncated
+// visual_brief alike, losing the subject the same way as before. Occasion
+// is now bounded the same way visual_brief is (truncated at a word
+// boundary, never dropped), so this can't happen regardless of what a
+// future caller ever passes as occasion.
+test("buildImagePrompt: an unbounded occasion string (combined with a sympathy trigger) can never squeeze the subject out via the front-trim fallback", () => {
+  const visualBrief = "SUBJECT-MARKER-JAGUAR " + "a".repeat(600);
+  const occasion = "funeral tribute work, " + "b".repeat(680);
+  const prompt = buildImagePrompt({ visualBrief: visualBrief.slice(0, 620), occasion });
+  assert.match(prompt, /SUBJECT-MARKER-JAGUAR/, "the subject must survive even an adversarially long occasion string");
+  assert.match(prompt, /ABSOLUTELY NO TEXT/, "the no-text guarantee must still survive alongside it");
+  assert.match(prompt, /Ultra-realistic photograph/, "the realism instruction must still survive alongside it");
+  assert.ok(prompt.length <= 1200, `prompt overflowed the provider cap: ${prompt.length}`);
+});
+
 test("buildBackgroundPrompt: its own guarantees survive an unbounded brief too", () => {
   const prompt = buildBackgroundPrompt({ visualBrief: "y".repeat(3000) });
   assert.match(prompt, /ABSOLUTELY NO TEXT/);

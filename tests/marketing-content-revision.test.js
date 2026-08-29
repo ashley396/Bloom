@@ -87,9 +87,20 @@ test("buildImageRevisionBrief: always includes an explicit subject-preservation 
 // fresh wrapper every time, unbounded. Naively re-running this function's
 // own output through itself (the exact shape a caller who never adopts the
 // stable-base-brief fix could still produce) must never let the length grow
-// without bound, and must never lose the original subject text no matter
-// how many times it's chained.
-test("buildImageRevisionBrief: chaining its own output back in as priorVisualBrief (worst case) never grows without bound and never loses the original subject", () => {
+// without bound.
+//
+// NOT actually a "no matter how many times, forever" guarantee — an
+// independent review found that self-chaining (never the real path:
+// marketing-studio.js always passes the STABLE base_visual_brief, never
+// this function's own prior output) still slowly erodes the subject after
+// enough iterations, because each call's own fixed-size head-slice
+// recaptures more of the accumulated wrapper text every time. Verified:
+// with THIS test's own fixture, that erosion doesn't start until around
+// iteration 23 — comfortably past any real revision count a florist would
+// ever click through, and irrelevant to the actual production path either
+// way. Bounding the test at a realistic number of revisions, not claiming
+// an unbounded guarantee that isn't true.
+test("buildImageRevisionBrief: chaining its own output back in as priorVisualBrief (worst case) never grows without bound, and the subject survives a realistic number of chained revisions", () => {
   let brief = "A jaguar mascot holding a bouquet of flowers, playful sports-fan theme, bright stadium colors.";
   const lengths = [brief.length];
   for (let i = 0; i < 10; i++) {
@@ -98,7 +109,7 @@ test("buildImageRevisionBrief: chaining its own output back in as priorVisualBri
   }
   const lastFive = lengths.slice(-5);
   assert.ok(lastFive.every((len) => len === lastFive[0]), `length must converge to a fixed bound, not keep growing: ${lengths.join(", ")}`);
-  assert.match(brief, /jaguar/i, "the real subject must survive any number of chained revisions, not just the first one");
+  assert.match(brief, /jaguar/i, "the real subject must survive a realistic number of chained revisions (nobody clicks 'regenerate' 20+ times on one post)");
 });
 
 test("buildWordingRevisionRequestText: frames the instruction as overriding, and warns against dropping exact facts", () => {
