@@ -386,6 +386,26 @@
         topY: h * 0.6, bottomPad: h * 0.045
       };
     }
+    if (composition === "bold") {
+      // A genuinely different silhouette, not a recolour: a solid brand-
+      // colour panel top and bottom with the photograph as its own
+      // contained card between them, the way a real promotional/retail
+      // template looks (the "Forgot an Occasion?" and "Imported Flower
+      // Bouquet" references) rather than a soft printed sheet. The type is
+      // set directly on the SOLID colour panels — never on the photograph
+      // itself — so this never risks the "no wash over the photo" rule the
+      // other compositions are built around; there is no wash here, only a
+      // structural colour block, same as the card/banner layouts' own pale
+      // ground, just fully saturated instead of diluted.
+      var panelH = Math.round(h * 0.27);
+      var footerH = Math.round(h * 0.2);
+      return {
+        kind: "bold", panelH: panelH, footerH: footerH,
+        photoY: panelH, photoH: h - panelH - footerH,
+        colX: w * 0.08, colW: w * 0.84, cx: w / 2,
+        topY: panelH * 0.5, bottomPad: h - footerH * 0.5
+      };
+    }
     return {
       kind: "atelier",
       colX: w * 0.11, colW: w * 0.78, cx: w / 2,
@@ -1339,7 +1359,7 @@
   // tool (poster-preview.html) shows it without it ever being picked for a
   // real customer-facing post.
   var COMPOSITIONS = ["atelier", "card", "banner", "editorial"];
-  var PREVIEWABLE_COMPOSITIONS = COMPOSITIONS.concat(["lifestyle"]);
+  var PREVIEWABLE_COMPOSITIONS = COMPOSITIONS.concat(["lifestyle", "bold"]);
 
   /**
    * Draws one complete poster.
@@ -1549,6 +1569,135 @@
         headBottom: cy, ribbon: null, column: L.colW, bodyWidth: L.colW,
         frame: null, panel: null, typeStyle: "script", messageStyle: "plain",
         lockupStyle: "script", ornamentMark: "none", borderVariant: "none"
+      };
+    }
+    if (L.kind === "bold") {
+      // A loud, promotional template — solid brand-colour panels top and
+      // bottom, the photograph contained as its own card between them, big
+      // bold sans-serif type set directly on the colour (never on the
+      // photo). Self-contained for the same reason lifestyle is: it takes
+      // no part in the border/ribbon/lockup machinery below, built for a
+      // pale printed sheet, so it can never regress the other four.
+      var boldSympathy = isSympathyContent(content, brand.shopName);
+      var panelColor = brand.primaryColor || "#7c3a58";
+      var accentColor = brand.accentColor || "#c98fae";
+      var panelRgb = hexToRgb(panelColor);
+      var panelTextIsLight = contrastRatio(panelRgb, { r: 255, g: 255, b: 255 }) >= contrastRatio(panelRgb, { r: 30, g: 24, b: 26 });
+      var boldOnPanel = panelTextIsLight ? "#fffaf4" : "#241d1f";
+
+      ctx.save();
+      ctx.fillStyle = panelColor;
+      ctx.fillRect(0, 0, w, L.panelH);
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(0, h - L.footerH, w, L.footerH);
+      ctx.restore();
+
+      if (!opts.measureOnly) {
+        var photoR = Math.round(Math.min(w, h) * 0.028);
+        ctx.save();
+        roundRectPath(ctx, w * 0.06, L.photoY + h * 0.02, w * 0.88, L.photoH - h * 0.04, photoR);
+        ctx.clip();
+        if (opts.image) {
+          var pScale = Math.max((w * 0.88) / opts.image.width, (L.photoH - h * 0.04) / opts.image.height);
+          ctx.drawImage(
+            opts.image,
+            w * 0.06 + (w * 0.88 - opts.image.width * pScale) / 2,
+            L.photoY + h * 0.02 + (L.photoH - h * 0.04 - opts.image.height * pScale) / 2,
+            opts.image.width * pScale, opts.image.height * pScale
+          );
+        } else {
+          ctx.fillStyle = palette.ground;
+          ctx.fillRect(w * 0.06, L.photoY + h * 0.02, w * 0.88, L.photoH - h * 0.04);
+        }
+        ctx.restore();
+      }
+
+      // A decorative badge only — never real wording of its own (a fact
+      // this template didn't ask for has no business appearing on it) — a
+      // small discrete opaque shape straddling the panel/photo seam, not a
+      // wash: the standing "no wash over the photo" rule is about a large
+      // translucent layer covering the rendered pixels, which this isn't.
+      // Sympathy work never gets one at all — a cheerful sticker has no
+      // place on a bereavement flyer, the same restraint the heart/diamond
+      // ornament already applies elsewhere.
+      if (!opts.measureOnly && !boldSympathy) {
+        var badgeR = Math.min(w, h) * 0.075;
+        ctx.save();
+        ctx.fillStyle = accentColor;
+        ctx.beginPath();
+        ctx.arc(w / 2, L.panelH, badgeR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        drawDiamondMark(ctx, w / 2, L.panelH, badgeR * 0.32, "#fffaf4");
+      }
+
+      // The headline is the poster's own graphic — big, bold sans-serif set
+      // directly on the solid panel, never a script/serif pairing over a
+      // photo. Shrinks to fit rather than overflowing the panel.
+      var headSize = Math.round(h * 0.052);
+      var headFloor = Math.round(h * 0.03);
+      var headLines;
+      for (var headTry = 0; headTry < 20; headTry++) {
+        ctx.font = "800 " + headSize + "px 'DM Sans', sans-serif";
+        headLines = content.headline ? wrapLines(ctx, content.headline, L.colW) : [];
+        if (headLines.length <= 2 || headSize <= headFloor) break;
+        headSize = Math.max(headFloor, Math.floor(headSize * 0.9));
+      }
+      ctx.font = "800 " + headSize + "px 'DM Sans', sans-serif";
+      var headTotalH = headLines.length * headSize * 1.18;
+      var headY = L.panelH / 2 - headTotalH / 2 + headSize * 0.86;
+      for (var hi = 0; hi < headLines.length; hi++) {
+        centreText(ctx, headLines[hi].toUpperCase(), L.cx, headY, boldOnPanel);
+        headY += headSize * 1.18;
+      }
+
+      // The real wording underneath — body, then cta — set on the footer's
+      // own solid colour, bold and prominent (a promotional template puts
+      // its contact facts front and centre, not as a quiet credit line).
+      // Same shrink-to-fit discipline as lifestyle: every word the florist
+      // actually wrote must survive, never a fixed line-count cap that
+      // silently truncates a longer request.
+      var footerTextColor = contrastRatio(hexToRgb(accentColor), { r: 255, g: 255, b: 255 }) >= contrastRatio(hexToRgb(accentColor), { r: 30, g: 24, b: 26 }) ? "#fffaf4" : "#241d1f";
+      var footerFloor = Math.max(9, Math.round(h * 0.014));
+      var footerBodySize = Math.round(h * 0.024);
+      var footerCtaSize = Math.round(h * 0.026);
+      var footerNameSize = Math.round(h * 0.022);
+      var footerBodyLines, footerCtaLines;
+      var footerRoom = L.footerH - h * 0.05 - footerNameSize * 1.3;
+      for (var footTry = 0; footTry < 20; footTry++) {
+        ctx.font = "500 " + footerBodySize + "px 'DM Sans', sans-serif";
+        footerBodyLines = content.body ? wrapLines(ctx, content.body, L.colW) : [];
+        ctx.font = "700 " + footerCtaSize + "px 'DM Sans', sans-serif";
+        footerCtaLines = content.cta ? wrapLines(ctx, content.cta, L.colW) : [];
+        var footNeeded = footerBodyLines.length * footerBodySize * 1.3 + footerCtaLines.length * footerCtaSize * 1.35;
+        if (footNeeded <= footerRoom || footerBodySize <= footerFloor) break;
+        footerBodySize = Math.max(footerFloor, Math.floor(footerBodySize * 0.92));
+        footerCtaSize = Math.max(footerFloor, Math.floor(footerCtaSize * 0.92));
+      }
+      var footY = h - L.footerH + h * 0.045 + footerBodySize;
+      ctx.font = "500 " + footerBodySize + "px 'DM Sans', sans-serif";
+      for (var fbi = 0; fbi < footerBodyLines.length; fbi++) {
+        centreText(ctx, footerBodyLines[fbi], L.cx, footY, rgba(footerTextColor, 0.92));
+        footY += footerBodySize * 1.3;
+      }
+      ctx.font = "700 " + footerCtaSize + "px 'DM Sans', sans-serif";
+      for (var fci = 0; fci < footerCtaLines.length; fci++) {
+        centreText(ctx, footerCtaLines[fci], L.cx, footY, footerTextColor);
+        footY += footerCtaSize * 1.35;
+      }
+      // The shop's own name is mandatory, and in this template it's a
+      // headline-adjacent fact, not a footnote — set large and bold rather
+      // than a quiet credit line.
+      var footerName = String(brand.shopName || "").toUpperCase() + (brand.phone ? "   ·   " + brand.phone : "");
+      ctx.font = "800 " + footerNameSize + "px 'DM Sans', sans-serif";
+      var footerNameY = Math.max(footY + footerNameSize * 0.6, h - L.footerH * 0.22);
+      if (footerName.trim()) centreText(ctx, footerName, L.cx, footerNameY, footerTextColor);
+
+      return {
+        composition: composition, contentBottom: 0, panelTop: h,
+        headBottom: footerNameY, ribbon: null, column: L.colW, bodyWidth: L.colW,
+        frame: null, panel: null, typeStyle: "sans", messageStyle: "plain",
+        lockupStyle: "sans", ornamentMark: "none", borderVariant: "none"
       };
     }
     // The composition now decides what actually differs. It used to be

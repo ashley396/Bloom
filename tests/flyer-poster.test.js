@@ -991,6 +991,82 @@ test("lifestyle: never trips the shared shrink-to-fit loop meant for the other f
   assert.ok(laid.contentBottom <= laid.panelTop, "lifestyle must report contentBottom <= panelTop so fitPoster's shrink loop never iterates for it");
 });
 
+// ---------------------------------------------------------------------------
+// "bold" — a sixth composition, Ashley's own direction after the elegant
+// styles and the lifestyle first pass both read as too plain/samey: solid
+// brand-colour panels, a contained photo card, big bold sans-serif type set
+// directly on the colour (never on the photo — there is no wash here, only
+// a structural colour block, same category as card/banner's own ground).
+// Also opt-in only, same reasoning as lifestyle.
+// ---------------------------------------------------------------------------
+
+function boldFixture(over = {}) {
+  const width = over.width || 1080, height = over.height || 1350;
+  const brand = Object.assign({ shopName: "Lilies in Bloom", phone: "606-506-4039", primaryColor: "#7c3a58", accentColor: "#c98fae" }, over.brand);
+  const content = Object.assign({
+    headline: "Forgot An Occasion?",
+    body: "Same-day delivery on every order.",
+    cta: "Order now before 2pm."
+  }, over.content);
+  const ctx = recordingContext(width, height);
+  const palette = poster.derivePalette(brand.primaryColor, brand.accentColor, null);
+  const base = { width, height, content, brand, palette, image: over.image !== undefined ? over.image : null, seed: over.seed || 30, composition: "bold" };
+  if (over.fit !== false) poster.fitPoster(ctx, base);
+  const laid = poster.drawPoster(ctx, base);
+  return { ctx, laid, width, height, content, brand };
+}
+
+test("bold: never appears in the default seeded rotation — opt-in only until Ashley has seen and approved it", () => {
+  for (let seed = 1; seed <= 400; seed++) {
+    const { laid } = laidOut({ seed });
+    assert.notEqual(laid.composition, "bold", `seed ${seed} picked bold with no explicit request for it`);
+  }
+});
+
+test("bold: an explicit opts.composition request actually selects it", () => {
+  const { laid } = boldFixture();
+  assert.equal(laid.composition, "bold");
+});
+
+test("bold: every real word of the headline, body and cta reaches the canvas", () => {
+  const { ctx, content } = boldFixture();
+  const drawn = wordsOf(ctx);
+  const expected = `${content.headline} ${content.body} ${content.cta}`
+    .toLowerCase().replace(/[^a-z0-9:& ]/g, " ").split(/\s+/).filter(Boolean);
+  for (const word of expected) {
+    assert.ok(drawn.includes(word), `bold never drew "${word}" — a florist's own wording went missing`);
+  }
+});
+
+test("bold: the shop's own name and phone number are always visible", () => {
+  const { ctx, brand } = boldFixture();
+  const drawn = ctx.texts.map((t) => t.text).join(" ");
+  assert.ok(drawn.toUpperCase().includes(brand.shopName.toUpperCase()), "the shop's own name must appear on every customer-facing flyer");
+  assert.ok(ctx.texts.some((t) => t.text.includes("606-506-4039")), "no way for a customer to reach the shop");
+});
+
+test("bold: never crashes during the measuring pass with a real image present", () => {
+  assert.doesNotThrow(() => boldFixture({ image: { width: 800, height: 1000 } }));
+});
+
+test("bold: a genuinely long body/cta shrinks to fit rather than silently dropping any of the florist's own words", () => {
+  const content = {
+    headline: "Forgot An Occasion?",
+    body: "Same-day delivery is available on every single order placed before two in the afternoon, any day of the week, no exceptions and no extra charge.",
+    cta: "Order online any time, or call ahead and we will have it ready for pickup within the hour, no appointment necessary at all."
+  };
+  const { ctx } = boldFixture({ content });
+  const drawnWords = ctx.texts.map((t) => t.text).join(" ").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+  const expectedWords = `${content.body} ${content.cta}`.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+  const missing = expectedWords.filter((word) => !drawnWords.includes(word));
+  assert.deepEqual(missing, [], `words dropped from a long body/cta instead of shrinking to fit: ${missing.join(", ")}`);
+});
+
+test("bold: never trips the shared shrink-to-fit loop meant for the other five's bordered-sheet layout", () => {
+  const { laid } = boldFixture();
+  assert.ok(laid.contentBottom <= laid.panelTop, "bold must report contentBottom <= panelTop so fitPoster's shrink loop never iterates for it");
+});
+
 test("the ribbon is never dragged up over the headline", () => {
   // The real defect, seen in a browser: on the card composition — whose
   // printed area starts a third of the way down, under the photographic band
