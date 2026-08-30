@@ -249,7 +249,12 @@
             // the flyer visibly changed — just never in the direction asked.
             style: c.style,
             backgroundUrl: c.background_url,
-            seedText: String(item.asset?.id || item.id || "")
+            seedText: String(item.asset?.id || item.id || ""),
+            // Whether this flyer's photo is a specific requested subject
+            // (a jaguar, a named arrangement) rather than a calm negative-
+            // space backdrop. Excludes the one composition that draws text
+            // over the photo — see flyer-poster.js.
+            subjectForwardPhoto: c.photo_strategy === "subject_forward"
           });
           // The whole design is its type. If the display faces did not really
           // arrive the poster is drawn in system fallbacks and looks nothing

@@ -1216,28 +1216,63 @@ export function createMarketingStudioHandler(deps = {}) {
           // wiring already gives.
           let backgroundFields = {};
           if (instructionAffectsFlyerImage(instruction)) {
-            const groundedFlowerNames = Array.isArray(currentAsset.content?.grounded_in_inventory)
-              ? currentAsset.content.grounded_in_inventory.map((i) => i.name).filter(Boolean)
-              : [];
-            const backgroundPrompt = buildFlyerBackgroundPrompt({
-              occasion: currentItem.data.title,
-              brandColor: shopRow.data?.primary_color || null,
-              groundedFlowers: groundedFlowerNames,
-              // "Regenerate image" must ask for a genuinely different
-              // composition, not just resend the same instruction and hope
-              // the model's own sampling varies it — Date.now() guarantees
-              // a fresh, different composition instruction on every call.
-              variationSeed: Date.now()
-            });
-            const backgroundGen = await generateImage(client, shopId, {
-              prompt: backgroundPrompt,
-              filename: `flyer-background-${body.content_item_id}-${Date.now()}.jpg`
-            });
+            // A flyer generated for a request that named a real subject (the
+            // jaguar, a specific arrangement) is marked photo_strategy:
+            // "subject_forward" at generation time. "Regenerate image" on
+            // one of these must ask for that SAME subject again, not
+            // silently fall back to a generic calm floral backdrop — that
+            // would quietly erase the exact thing this flyer was asked for,
+            // the same failure mode the jaguar fix above was written to
+            // close. A calm-backdrop flyer (an operational notice with no
+            // real subject of its own) keeps using the negative-space
+            // backdrop prompt exactly as before.
+            const isSubjectForward = currentAsset.content?.photo_strategy === "subject_forward";
+            let backgroundGen;
+            if (isSubjectForward) {
+              const backgroundPrompt = buildImagePrompt({
+                occasion: currentItem.data.title,
+                shopName,
+                visualBrief: currentAsset.content?.visual_brief || currentItem.data.brief
+              });
+              backgroundGen = await generateImage(client, shopId, {
+                prompt: backgroundPrompt,
+                filename: `marketing-${body.content_item_id}-${Date.now()}.jpg`
+              });
+            } else {
+              const groundedFlowerNames = Array.isArray(currentAsset.content?.grounded_in_inventory)
+                ? currentAsset.content.grounded_in_inventory.map((i) => i.name).filter(Boolean)
+                : [];
+              const backgroundPrompt = buildFlyerBackgroundPrompt({
+                occasion: currentItem.data.title,
+                brandColor: shopRow.data?.primary_color || null,
+                groundedFlowers: groundedFlowerNames,
+                // "Regenerate image" must ask for a genuinely different
+                // composition, not just resend the same instruction and hope
+                // the model's own sampling varies it — Date.now() guarantees
+                // a fresh, different composition instruction on every call.
+                variationSeed: Date.now()
+              });
+              backgroundGen = await generateImage(client, shopId, {
+                prompt: backgroundPrompt,
+                filename: `flyer-background-${body.content_item_id}-${Date.now()}.jpg`
+              });
+            }
             if (backgroundGen.ok) {
               backgroundFields = { style_tier: "generated", background_url: backgroundGen.url };
               renderStale = true;
             }
           }
+          // A real, successfully-generated AI photo behind the poster IS a
+          // generative image whether it came from THIS revision's own
+          // regenerate call or was simply carried forward from the current
+          // asset untouched — the disclosure fix generate_content already
+          // has (imageUrl reflecting what actually happened, not which
+          // branch ran) applied here too. Before this, aiContentType was
+          // hardcoded to "none" below regardless of style_tier, so a flyer
+          // with a real Tier-A photo still disclosed "no AI image used."
+          const finalStyleTier = backgroundFields.style_tier || currentAsset.content?.style_tier;
+          const finalBackgroundUrl = backgroundFields.background_url || currentAsset.content?.background_url;
+          const generativeImageUsed = finalStyleTier === "generated" && Boolean(finalBackgroundUrl);
 
           const persisted = await persistGeneratedAsset(client, {
             shopId,
@@ -1265,7 +1300,12 @@ export function createMarketingStudioHandler(deps = {}) {
             status: "completed"
           });
           if (!persisted.ok) throw new Error(persisted.error);
-          await repointVariants(persisted.asset.id, { caption: gen.content.body, hashtags: gen.content.hashtags || [], aiContentType: "none" });
+          await repointVariants(persisted.asset.id, {
+            caption: gen.content.body,
+            hashtags: gen.content.hashtags || [],
+            aiContentType: generativeImageUsed ? "generative_image" : "none",
+            generativeImageUsed
+          });
           await writeCommandAudit(client, user.id, "marketing_content_revised", { shopId, targetType: "marketing_content_items", targetId: body.content_item_id, assetType: "flyer" });
           return json(200, {
             item: { id: currentItem.data.id, status: currentItem.data.status },
@@ -2253,7 +2293,15 @@ export function createMarketingStudioHandler(deps = {}) {
               // survive past this one prompt call, so a later revision has
               // something real to reference instead of the item's generic
               // brief text.
-              visual_brief: copyGen.content.visual_brief || null
+              visual_brief: copyGen.content.visual_brief || null,
+              // Which photo strategy actually produced this background —
+              // read back by the client renderer (flyer-poster.js) to keep
+              // a subject-forward photo out of the one composition that
+              // draws text over the photo, and by this same revise_content
+              // handler so "regenerate image" re-rolls with the SAME
+              // strategy rather than silently swapping a requested subject
+              // for a generic calm backdrop.
+              photo_strategy: needsCalmBackdrop ? "calm_backdrop" : "subject_forward"
             },
             mediaId: mediaIdForFlyer,
             status: "completed"

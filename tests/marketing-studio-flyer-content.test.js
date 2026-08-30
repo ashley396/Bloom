@@ -216,6 +216,11 @@ test("generate_content (real dispatch): an operational closing notice routes to 
     assert.ok(insertedRow.content.regions, "the renderer needs the full region layout, not just a template id");
     assert.equal(insertedRow.content.style_tier, "generated", "a successful background generation must be recorded as Tier A");
     assert.ok(insertedRow.content.background_url, "the real generated background url must be persisted");
+    // A calm operational notice has no real subject of its own — the photo
+    // strategy must be recorded as such, so the client poster renderer knows
+    // it's safe to place text over it and a later "Regenerate image" knows
+    // to re-roll the SAME calm backdrop rather than a subject-forward photo.
+    assert.equal(insertedRow.content.photo_strategy, "calm_backdrop");
 
     // Real, live-found gap found while wiring every post through this same
     // path: disclosure fields used to only ever be set from the plain
@@ -527,6 +532,125 @@ test("generate_content (real dispatch): an ordinary decorative request now ALSO 
     assert.equal(insertedRow.content.caption, decorativeCopy.body, "the Facebook caption stays separate from the on-image text");
     assert.ok(insertedRow.content.regions, "the poster renderer needs the full region layout");
     assert.equal(insertedRow.content.style_tier, "generated");
+    // The photo strategy must be recorded as subject-forward — this is what
+    // the client poster renderer (flyer-poster.js) reads to keep a real
+    // requested subject out of the one composition that draws text over the
+    // photo, and what a later "Regenerate image" reads to re-roll the SAME
+    // subject rather than silently swapping in a generic calm backdrop.
+    assert.equal(insertedRow.content.photo_strategy, "subject_forward");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("revise_content (real dispatch): 'Regenerate image' on a subject-forward flyer (the jaguar case) re-rolls the SAME requested subject — never silently falls back to a generic calm backdrop", async () => {
+  const cheerfulCopy = { ...CLOSING_COPY };
+  const mock = mockCloudflare([cheerfulCopy]);
+  try {
+    const originalFlyerContent = {
+      ...CLOSING_FLYER,
+      caption: CLOSING_COPY.body,
+      template_id: "general",
+      regions: { headline: {} },
+      palette: {},
+      canvas: { width: 1080, height: 1080 },
+      brand: { shopName: "Lilies in Bloom", phone: "606-506-4039" },
+      url: "https://fake.storage/website-media/shop-ashley/still-good-flyer.png",
+      mime: "image/png",
+      rendered_at: "2026-08-20T00:00:00.000Z",
+      render_status: "rendered",
+      style_tier: "generated",
+      background_url: "https://fake.storage/website-media/shop-ashley/old-jaguar.jpg",
+      photo_strategy: "subject_forward",
+      visual_brief: "A jaguar mascot holding a bouquet of flowers.",
+      grounded_in_inventory: []
+    };
+    const client = createFakeSupabaseClient(
+      [
+        // The title/occasion deliberately never says "jaguar" — only the
+        // persisted visual_brief does — so a passing assertion below can only
+        // mean the subject-forward prompt path actually ran, not that the
+        // word leaked in through the calm-backdrop prompt's own occasion clause.
+        { data: { id: "item-1", content_type: "image_post", title: "Mascot day post", brief: "A jaguar mascot holding flowers, for our mascot day post", status: "draft" }, error: null },
+        { data: [{ id: "variant-1", platform: "facebook", asset_id: "flyer-asset-1" }], error: null },
+        { data: { id: "flyer-asset-1", asset_type: "flyer", content: originalFlyerContent }, error: null },
+        { data: { name: "Lilies in Bloom", phone: "606-506-4039", primary_color: "#7c3a58" }, error: null }, // shopRow
+        { data: null, error: null }, // loadBrandBrain
+        { data: null, error: null }, // loadStyleMemory
+        { data: { id: "flyer-asset-2" }, error: null }, // persistGeneratedAsset
+        { data: null, error: null } // variant repoint update
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("revise_content", { content_item_id: "item-1", instruction: "Regenerate the image — keep the exact same wording." }));
+    assert.equal(res.statusCode, 200, `expected the image-regeneration revision to succeed: ${res.body}`);
+
+    // The real defect the independent review found: this path always called
+    // buildFlyerBackgroundPrompt (calm, negative-space, no subject) even for
+    // a flyer whose photo strategy was subject-forward — silently erasing
+    // the jaguar on a plain "Regenerate image" click. The prompt actually
+    // sent must be the subject-forward one, carrying the persisted subject.
+    const imageCall = mock.calls.find((c) => c.url.includes("black-forest-labs") || "prompt" in c.body);
+    assert.ok(imageCall, "the image model must actually have been called");
+    assert.match(imageCall.body.prompt, /jaguar/i, "the persisted visual_brief's real subject must reach the regeneration prompt");
+
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const insertedContent = assetInsert.ops.find((op) => op[0] === "insert")[1][0].content;
+    assert.equal(insertedContent.photo_strategy, "subject_forward", "the photo strategy must carry forward unchanged across a revision");
+    assert.equal(insertedContent.style_tier, "generated");
+    assert.ok(insertedContent.background_url, "a real new background url must be persisted");
+
+    // The other disclosure bug the same review found: this branch hardcoded
+    // aiContentType to "none" regardless of whether a real Tier-A photo was
+    // actually produced. A regenerated subject-forward photo IS a real
+    // generative image and must be disclosed as one.
+    const variantUpdate = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "update"));
+    assert.equal(variantUpdate.payload.generative_image_used, true, "a real regenerated AI photo must be disclosed as one");
+    assert.equal(variantUpdate.payload.ai_content_type, "generative_image");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("revise_content (real dispatch): a caption-only revision on a subject-forward flyer correctly discloses its EXISTING (carried-forward) Tier-A photo — not hardcoded to 'none'", async () => {
+  const jaguarCaption = "🐆 Our jaguar mascot is here holding a fresh bouquet! Stop by Lilies in Bloom to see him — call 606-506-4039 with questions.";
+  const cheerfulCopy = { ...CLOSING_COPY, body: `${jaguarCaption} Even more upbeat now!` };
+  const mock = mockCloudflare([cheerfulCopy]);
+  try {
+    const originalFlyerContent = {
+      ...CLOSING_FLYER,
+      caption: jaguarCaption,
+      template_id: "general",
+      regions: { headline: {} },
+      palette: {},
+      canvas: { width: 1080, height: 1080 },
+      brand: { shopName: "Lilies in Bloom", phone: "606-506-4039" },
+      url: "https://fake.storage/website-media/shop-ashley/still-good-flyer.png",
+      mime: "image/png",
+      rendered_at: "2026-08-20T00:00:00.000Z",
+      render_status: "rendered",
+      style_tier: "generated",
+      background_url: "https://fake.storage/website-media/shop-ashley/old-jaguar.jpg",
+      photo_strategy: "subject_forward",
+      visual_brief: "A jaguar mascot holding a bouquet of flowers."
+    };
+    const client = createFakeSupabaseClient([
+      { data: { id: "item-1", content_type: "image_post", title: "Jaguar mascot flowers", brief: "A jaguar mascot holding flowers", status: "draft" }, error: null },
+      { data: [{ id: "variant-1", platform: "facebook", asset_id: "flyer-asset-1" }], error: null },
+      { data: { id: "flyer-asset-1", asset_type: "flyer", content: originalFlyerContent }, error: null },
+      { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: { id: "flyer-asset-2" }, error: null }, // persistGeneratedAsset
+      { data: null, error: null } // variant repoint update
+    ]);
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("revise_content", { content_item_id: "item-1", instruction: "Make the caption more upbeat" }));
+    assert.equal(res.statusCode, 200, `expected the caption-only revision to succeed: ${res.body}`);
+    const variantUpdate = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "update"));
+    assert.equal(variantUpdate.payload.generative_image_used, true, "the carried-forward Tier-A photo is still a real AI image and must be disclosed as one, not hardcoded to none");
+    assert.equal(variantUpdate.payload.ai_content_type, "generative_image");
   } finally {
     mock.restore();
   }

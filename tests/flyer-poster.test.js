@@ -831,7 +831,7 @@ test("composition: the headline is drawn in order too", () => {
 // from the seed) was used regardless, and the "test" was comparing a poster
 // to itself.
 const POSTER_OPTION_KEYS = [
-  "typeStyle", "messageStyle", "paletteMood", "lockupStyle", "ornamentMark", "borderVariant"
+  "typeStyle", "messageStyle", "paletteMood", "lockupStyle", "ornamentMark", "borderVariant", "subjectForwardPhoto"
 ];
 
 function laidOut(over = {}) {
@@ -866,6 +866,33 @@ function seedForComposition() {
   assert.equal(Object.keys(found).length, poster.COMPOSITIONS.length, "not every composition is reachable by seed");
   return found;
 }
+
+test("subjectForwardPhoto: never picks the editorial composition — the only one that draws text over the photo", () => {
+  // A subject-forward photo (buildImagePrompt — a specific requested subject
+  // like a jaguar, not a calm negative-space backdrop) has no guaranteed
+  // calm half. editorial's own needsBackdrop wash exists precisely for a
+  // scene that can't carry type, which the standing design rule forbids as
+  // a "full-panel color wash/overlay... over the actual rendered pixels."
+  // Excluded outright rather than risk it firing on the very subject a
+  // florist asked for.
+  for (let seed = 1; seed <= 400; seed++) {
+    const { laid } = laidOut({ seed, subjectForwardPhoto: true });
+    assert.notEqual(laid.composition, "editorial", `seed ${seed} picked editorial despite subjectForwardPhoto: true`);
+  }
+});
+
+test("subjectForwardPhoto: every OTHER composition is still reachable — the exclusion doesn't collapse variety down to nothing", () => {
+  const found = new Set();
+  for (let seed = 1; seed <= 400 && found.size < poster.COMPOSITIONS.length - 1; seed++) {
+    found.add(laidOut({ seed, subjectForwardPhoto: true }).laid.composition);
+  }
+  assert.equal(found.size, poster.COMPOSITIONS.length - 1, `expected every composition except editorial, got ${[...found].join(", ")}`);
+});
+
+test("without subjectForwardPhoto, editorial is still reachable — the exclusion is conditional, not a removal", () => {
+  const seeds = seedForComposition();
+  assert.ok("editorial" in seeds, "editorial composition should remain available for calm-backdrop photos");
+});
 
 test("the ribbon is never dragged up over the headline", () => {
   // The real defect, seen in a browser: on the card composition — whose

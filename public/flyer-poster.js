@@ -1332,7 +1332,23 @@
     var brand = opts.brand || {};
     var palette = opts.palette;
     var rand = seededRandom(hashSeed("florisyn-poster:" + opts.seed));
-    var composition = COMPOSITIONS[Math.floor(rand() * COMPOSITIONS.length) % COMPOSITIONS.length];
+    // "editorial" is the one composition that ever draws text directly over
+    // the photo (paintFullBleed), backed by a translucent wash when the
+    // scene has no calm half to sit on — exactly the "full-panel color
+    // wash/overlay... over the actual rendered pixels" the standing design
+    // rule forbids. A calm-backdrop photo (buildFlyerBackgroundPrompt) is
+    // composed with negative space specifically so that never triggers. A
+    // subject-forward photo (buildImagePrompt — the jaguar, a specific
+    // arrangement) has no such guarantee and is frame-filling by design, so
+    // editorial is excluded outright rather than risk washing over — or
+    // simply hiding — the very subject that was asked for. Consuming rand()
+    // identically whichever list is used isn't required here: this flag is
+    // fixed for a given asset (set once at generation, carried through every
+    // revision), so the measuring and drawing passes always agree.
+    var candidateCompositions = opts.subjectForwardPhoto
+      ? COMPOSITIONS.filter(function (c) { return c !== "editorial"; })
+      : COMPOSITIONS;
+    var composition = candidateCompositions[Math.floor(rand() * candidateCompositions.length) % candidateCompositions.length];
     var L = layoutFor(composition, w, h, opts.textSide);
     var cx = L.cx;
     var maxW = L.colW;
@@ -2168,7 +2184,8 @@
       var base = {
         width: width, height: height, content: opts.content, brand: brand,
         palette: palette, image: img, seed: seed, textSide: textSide,
-        needsBackdrop: needsBackdrop, paletteMood: mood
+        needsBackdrop: needsBackdrop, paletteMood: mood,
+        subjectForwardPhoto: !!opts.subjectForwardPhoto
       };
       // Lay the poster out once against a context that measures but paints
       // nothing, to learn how tall it naturally is. Short wording used to
