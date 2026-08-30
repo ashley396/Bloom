@@ -19,16 +19,16 @@ import { createFakeSupabaseClient, createFakeSupabaseStorage } from "./helpers/f
 // Approving at the end must approve whatever the CURRENT asset actually is
 // (D) — never A/B/C.
 //
-// Asset A is now SEEDED directly rather than produced by a real
-// generate_content call. Ashley's explicit later direction (every
-// generated post gets the same elegant poster treatment her flyers
-// already have) means generate_content can no longer produce a fresh
-// asset_type "image" row at all — every new image_post now becomes
-// asset_type "flyer" instead. This lifecycle (revise/undo/branch/approve)
-// stays real and worth proving end to end anyway: it is exactly what
-// still happens to the many pre-existing asset_type "image" rows already
-// in production from before that change, which revise_content's own
-// "image" branch (and its own tests) still serve.
+// Asset A is SEEDED directly rather than produced by a real
+// generate_content call, simply so this test can exercise the
+// revise/undo/branch/approve lifecycle in isolation without also standing
+// up a full generate_content fixture. (generate_content briefly routed
+// every image_post through the flyer/poster pipeline instead — Ashley's
+// own later, more specific feedback reverted that: an ordinary decorative
+// request goes back to a plain photo-only image, and only a request that
+// actually needs exact on-image wording, like a closing notice, takes the
+// flyer path. Either way, this lifecycle exercises revise_content's own
+// "image" branch, which was never touched by any of that.)
 
 function superAdminRow() {
   return { data: { user_id: "u1", role: "super_admin", active: true }, error: null };

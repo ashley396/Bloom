@@ -2039,156 +2039,143 @@ export function createMarketingStudioHandler(deps = {}) {
         let imageUrl = null;
         let generatedAssetType = null;
         if (currentItem.data.content_type !== "text_post") {
-          // Ashley's explicit direction, given after comparing her own real
-          // generated posts side by side with her actual branded flyers:
-          // EVERY generated post now gets the same designed, composed
-          // treatment her flyers already have — a real headline/body/cta
-          // drawn on Florisyn's own poster framing (border, ribbon,
-          // script/serif lockup) — never just a bare AI photo with a plain
-          // caption underneath. That used to be reserved for the subset of
-          // requests whose wording needed to be exact and visible on the
-          // graphic (requestNeedsFlyerWording); an ordinary decorative idea
-          // like "a jaguar holding flowers" got no design treatment at all,
-          // which is exactly what she was shown and rejected as not the
-          // quality she was after.
-          //
-          // What still genuinely varies by request is only the PHOTO
-          // strategy. A plain operational notice has no real subject of its
-          // own — it wants a calm, atmospheric floral backdrop
-          // (buildFlyerBackgroundPrompt, composed with negative space for
-          // text). A request that names a real subject — the jaguar, a
-          // specific arrangement — needs that subject to be the photo's
-          // actual focus, the same subject-forward prompt a plain photo
-          // post always used (buildImagePrompt). The poster framing itself
-          // (public/flyer-poster.js) places the photo and the text in
-          // SEPARATE zones — a photo band or strip next to its own bordered
-          // text panel, never words drawn over the photo — so it never
-          // depended on the "keep the lower half calm" convention in the
-          // first place; using the subject-forward prompt here costs
-          // nothing the poster composition actually needs.
-          const needsCalmBackdrop = requestNeedsFlyerWording(currentItem.data.brief);
-          let flyerGen;
-          if (noticeFallback) {
-            // The caption already needed the safe deterministic fallback
-            // — this request's topic is safety-sensitive, so the on-image
-            // text uses the SAME safe wording rather than risking a
-            // second, independent AI call that could invent something
-            // different (or differently wrong). No API call, no usage
-            // charged for one that didn't happen.
-            flyerGen = { ok: true, model: "deterministic", content: { headline: noticeFallback.headline, body: noticeFallback.body, cta: noticeFallback.cta } };
-          } else {
-            await recordUsage("copy", "request", 1);
-            flyerGen = await generateFlyerContent({
-              persona: "Lily",
-              message: currentItem.data.brief,
-              occasion: currentItem.data.title,
-              shop: { name: shopName }
-            });
-            // The flyer is where a wording failure does the most damage —
-            // it is the picture that gets shared, long after the caption
-            // scrolls away. Ashley was shown one reading "Funeral / SERVICES
-            // AVAILABLE" above her shop name and phone number: "it reads
-            // like I'm going to hold funeral services here at the flower
-            // shop." One bounded retry with the reason handed back.
-            if (flyerGen.ok && flyerGen.content) {
-              const flyerQuality = (content) =>
-                detectWeakMarketingCopy(
-                  currentItem.data.brief,
-                  `${content.headline} ${content.body} ${content.cta}`,
-                  // The headline is passed separately because it is judged
-                  // separately: it is the largest thing on the flyer and the
-                  // first thing read, and "Funeral Flowers Available" is a
-                  // fault of the headline alone that no reading of the whole
-                  // text can see.
-                  { shopPhone: shopRow.data?.phone, shopName, headline: content.headline }
-                );
-              const flyerWeakness = flyerQuality(flyerGen.content);
-              if (flyerWeakness.length) {
-                await recordUsage("copy", "request", 1);
-                const flyerRetry = await generateFlyerContent({
-                  persona: "Lily",
-                  message: `${currentItem.data.brief}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${flyerWeakness.join("\n- ")}`,
-                  occasion: currentItem.data.title,
-                  shop: { name: shopName }
-                });
-                // Same reasoning as the caption retry above: this wording is
-                // printed on the graphic itself, where a florist cannot edit
-                // it before it goes out, so shipping the worse of two drafts
-                // matters more here, not less.
-                if (
-                  flyerRetry.ok &&
-                  flyerRetry.content?.headline &&
-                  flyerQuality(flyerRetry.content).length <= flyerWeakness.length
-                ) {
-                  flyerGen = flyerRetry;
+          // Ashley's own real example of what she's actually after (a
+          // ChatGPT-produced post she pointed at directly): a real photo
+          // and a well-written caption underneath it — nothing drawn onto
+          // the image itself. Her own follow-up confirmed it genuinely
+          // depends on the request: an operational notice (a closing time,
+          // a phone number, a deadline) still needs that wording visible
+          // and exact ON the graphic, since it can be shared or
+          // screenshotted standalone — that's requestNeedsFlyerWording,
+          // Florisyn's own deterministic flyer path below, unchanged. An
+          // ordinary decorative/celebratory request ("fresh roses just
+          // arrived", a mascot post) goes back to being a real photo with
+          // NO on-image text at all — the plain "image" asset type, exactly
+          // as it worked before this session's now-reverted "every post
+          // gets the poster treatment" change, which was a real miss: it
+          // read her rejection of a badly-composited photo as a request for
+          // MORE on-image graphic design, when what she actually wanted was
+          // less of it, not more.
+          if (requestNeedsFlyerWording(currentItem.data.brief)) {
+            let flyerGen;
+            if (noticeFallback) {
+              // The caption already needed the safe deterministic fallback
+              // — this request's topic is safety-sensitive, so the on-image
+              // text uses the SAME safe wording rather than risking a
+              // second, independent AI call that could invent something
+              // different (or differently wrong). No API call, no usage
+              // charged for one that didn't happen.
+              flyerGen = { ok: true, model: "deterministic", content: { headline: noticeFallback.headline, body: noticeFallback.body, cta: noticeFallback.cta } };
+            } else {
+              await recordUsage("copy", "request", 1);
+              flyerGen = await generateFlyerContent({
+                persona: "Lily",
+                message: currentItem.data.brief,
+                occasion: currentItem.data.title,
+                shop: { name: shopName }
+              });
+              // The flyer is where a wording failure does the most damage —
+              // it is the picture that gets shared, long after the caption
+              // scrolls away. Ashley was shown one reading "Funeral / SERVICES
+              // AVAILABLE" above her shop name and phone number: "it reads
+              // like I'm going to hold funeral services here at the flower
+              // shop." One bounded retry with the reason handed back.
+              if (flyerGen.ok && flyerGen.content) {
+                const flyerQuality = (content) =>
+                  detectWeakMarketingCopy(
+                    currentItem.data.brief,
+                    `${content.headline} ${content.body} ${content.cta}`,
+                    // The headline is passed separately because it is judged
+                    // separately: it is the largest thing on the flyer and the
+                    // first thing read, and "Funeral Flowers Available" is a
+                    // fault of the headline alone that no reading of the whole
+                    // text can see.
+                    { shopPhone: shopRow.data?.phone, shopName, headline: content.headline }
+                  );
+                const flyerWeakness = flyerQuality(flyerGen.content);
+                if (flyerWeakness.length) {
+                  await recordUsage("copy", "request", 1);
+                  const flyerRetry = await generateFlyerContent({
+                    persona: "Lily",
+                    message: `${currentItem.data.brief}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${flyerWeakness.join("\n- ")}`,
+                    occasion: currentItem.data.title,
+                    shop: { name: shopName }
+                  });
+                  // Same reasoning as the caption retry above: this wording is
+                  // printed on the graphic itself, where a florist cannot edit
+                  // it before it goes out, so shipping the worse of two drafts
+                  // matters more here, not less.
+                  if (
+                    flyerRetry.ok &&
+                    flyerRetry.content?.headline &&
+                    flyerQuality(flyerRetry.content).length <= flyerWeakness.length
+                  ) {
+                    flyerGen = flyerRetry;
+                  }
                 }
               }
-            }
-            if (!flyerGen.ok) {
-              await revertToIdea();
-              return json(400, { error: flyerGen.error });
-            }
-            // Real, live-found failure: the flyer's own on-image wording
-            // (what a florist actually sees printed on the graphic) is a
-            // SEPARATE generation call from the Facebook caption above —
-            // checked independently here for the exact same failure
-            // modes, with the exact same safe-fallback recovery (never a
-            // dead-end revert to idea) since a florist can just as easily
-            // hit this on the flyer text alone.
-            const flyerText = `${flyerGen.content.headline} ${flyerGen.content.body} ${flyerGen.content.cta}`;
-            if (
-              detectPermanentClosureMismatch(currentItem.data.brief, flyerText) ||
-              detectInventedOperationalContent(currentItem.data.brief, flyerText)
-            ) {
-              const flyerFallback = buildDeterministicNoticeContent({ requestText: currentItem.data.brief, shopName, shopPhone: shopRow.data?.phone });
-              if (!flyerFallback) {
+              if (!flyerGen.ok) {
                 await revertToIdea();
-                return json(400, {
-                  error:
-                    "The flyer text came back with wording that didn't match your request, and there wasn't enough in your message for Lily to build a safe version automatically — nothing was saved. Add a time/phone number and try Generate again."
-                });
+                return json(400, { error: flyerGen.error });
               }
-              flyerGen.content.headline = flyerFallback.headline;
-              flyerGen.content.body = flyerFallback.body;
-              flyerGen.content.cta = flyerFallback.cta;
-            }
+              // Real, live-found failure: the flyer's own on-image wording
+              // (what a florist actually sees printed on the graphic) is a
+              // SEPARATE generation call from the Facebook caption above —
+              // checked independently here for the exact same failure
+              // modes, with the exact same safe-fallback recovery (never a
+              // dead-end revert to idea) since a florist can just as easily
+              // hit this on the flyer text alone.
+              const flyerText = `${flyerGen.content.headline} ${flyerGen.content.body} ${flyerGen.content.cta}`;
+              if (
+                detectPermanentClosureMismatch(currentItem.data.brief, flyerText) ||
+                detectInventedOperationalContent(currentItem.data.brief, flyerText)
+              ) {
+                const flyerFallback = buildDeterministicNoticeContent({ requestText: currentItem.data.brief, shopName, shopPhone: shopRow.data?.phone });
+                if (!flyerFallback) {
+                  await revertToIdea();
+                  return json(400, {
+                    error:
+                      "The flyer text came back with wording that didn't match your request, and there wasn't enough in your message for Lily to build a safe version automatically — nothing was saved. Add a time/phone number and try Generate again."
+                  });
+                }
+                flyerGen.content.headline = flyerFallback.headline;
+                flyerGen.content.body = flyerFallback.body;
+                flyerGen.content.cta = flyerFallback.cta;
+              }
 
-            // Last gate before the wording reaches the canvas. Every other
-            // guard here feeds a bounded retry, and a retry is a second
-            // opinion, not a guarantee — Ashley's funeral flyer came back
-            // carrying "(555) 555-5555" on the ribbon AND in the contact
-            // panel. A grieving family reads that, dials it, and does not
-            // reach the shop. Whatever the model does, an invented number
-            // must not survive to the image: the shop's own is substituted
-            // when it is known, and the clause is cut when it is not.
-            for (const field of ["headline", "body", "cta"]) {
-              const cleaned = stripFabricatedContactNumbers({
-                requestText: currentItem.data.brief,
-                shopPhone: shopRow.data?.phone,
-                copyText: flyerGen.content[field]
-              });
-              if (cleaned.removed.length) flyerGen.content[field] = cleaned.text;
+              // Last gate before the wording reaches the canvas. Every other
+              // guard here feeds a bounded retry, and a retry is a second
+              // opinion, not a guarantee — Ashley's funeral flyer came back
+              // carrying "(555) 555-5555" on the ribbon AND in the contact
+              // panel. A grieving family reads that, dials it, and does not
+              // reach the shop. Whatever the model does, an invented number
+              // must not survive to the image: the shop's own is substituted
+              // when it is known, and the clause is cut when it is not.
+              for (const field of ["headline", "body", "cta"]) {
+                const cleaned = stripFabricatedContactNumbers({
+                  requestText: currentItem.data.brief,
+                  shopPhone: shopRow.data?.phone,
+                  copyText: flyerGen.content[field]
+                });
+                if (cleaned.removed.length) flyerGen.content[field] = cleaned.text;
+              }
             }
-          }
-          const template = pickFlyerTemplate({ occasion: currentItem.data.title });
-          const aspectRatio = pickAspectRatio(primaryPlatform);
-          const groundedFlowerNames = (inventorySources || []).map((i) => i.name).filter(Boolean);
-          // Tier A by default (a real, photographic background — Ashley's
-          // explicit design direction: the default poster must never be a
-          // flat brand-color rectangle) — falls back to Tier B (the
-          // template's own brand palette) automatically and silently if the
-          // image call fails for any reason (no credentials, provider
-          // error, budget cap). Never allowed to fail generate_content
-          // itself or touch a single word of the deterministic text above.
-          let backgroundGen;
-          let mediaIdForFlyer = null;
-          if (needsCalmBackdrop) {
+            const template = pickFlyerTemplate({ occasion: currentItem.data.title });
+            const aspectRatio = pickAspectRatio(primaryPlatform);
+            const groundedFlowerNames = (inventorySources || []).map((i) => i.name).filter(Boolean);
+            // Tier A by default (a real, photographic background — Ashley's
+            // explicit design direction: the default poster must never be a
+            // flat brand-color rectangle) — falls back to Tier B (the
+            // template's own brand palette) automatically and silently if the
+            // image call fails for any reason (no credentials, provider
+            // error, budget cap). Never allowed to fail generate_content
+            // itself or touch a single word of the deterministic text above.
             // One bounded retry (see generateFlyerBackgroundWithRetry): a
             // flyer with no photograph can never meet the bright/colourful
             // floral standard, so a single transient provider failure is
             // worth one more attempt — asking for a DIFFERENT composition
             // rather than resending the identical prompt.
-            backgroundGen = await generateFlyerBackgroundWithRetry(client, shopId, {
+            const backgroundGen = await generateFlyerBackgroundWithRetry(client, shopId, {
               promptFor: (attempt) =>
                 buildFlyerBackgroundPrompt({
                   visualBrief: copyGen.content.visual_brief,
@@ -2202,7 +2189,90 @@ export function createMarketingStudioHandler(deps = {}) {
                   ? `flyer-background-${body.content_item_id}.jpg`
                   : `flyer-background-${body.content_item_id}-retry${attempt}.jpg`
             });
+            const persisted = await persistGeneratedAsset(client, {
+              shopId,
+              userId: user.id,
+              persona: "Lily",
+              assetType: "flyer",
+              provider: "cloudflare",
+              model: flyerGen.model,
+              content: {
+                ...flyerGen.content,
+                template_id: template.id,
+                aspect_ratio: aspectRatio,
+                style_tier: backgroundGen.ok ? "generated" : "template",
+                background_url: backgroundGen.ok ? backgroundGen.url : null,
+                // Durable-render fields — never set at generation time. The
+                // renderer is browser-only (canvas), so nothing has been
+                // rendered or persisted yet; finalize_flyer_render is the
+                // only thing that ever sets these, once a real file exists
+                // in storage. approve_content refuses to approve a flyer
+                // until render_status is "rendered" and every other field
+                // here is real (see flyerApprovalBlockReason) — a
+                // client-side render success alone is never enough.
+                url: null,
+                storage_path: null,
+                mime: null,
+                width: null,
+                height: null,
+                render_status: null,
+                rendered_at: null,
+                traits_used: [],
+                style: defaultVisualStyle(),
+                // The client-side renderer (public/flyer-renderer.js) draws
+                // the actual canvas — it needs the full layout, not just an
+                // id, so the server stays the single source of truth for
+                // region placement rather than a second, drift-prone copy
+                // of flyer-templates.js living in the browser bundle.
+                regions: template.regions,
+                palette: template.palette,
+                canvas: ASPECT_RATIOS[aspectRatio],
+                // The Facebook caption is a SEPARATE piece of text from the
+                // on-image headline/body/cta above — same separation the
+                // "image" asset type always used (content.caption vs. the
+                // image itself). Requirement 5: the caption independently
+                // carries the same real facts.
+                caption: copyGen.content.body,
+                // Ashley's explicit live-test feedback: "these flyers can
+                // now be made in any color, it is not set to navy or dark
+                // colors — this is a flower shop, it should [be] happiness."
+                // The gradient band (drawGradientBand, below) was reading a
+                // hardcoded navy regardless of shop — this is what actually
+                // threads the shop's OWN real brand color through so the
+                // band reflects it instead. Falls back to the shops table's
+                // own DB default (a warm rose, never navy) when a shop
+                // hasn't set one — see 20260804000000_greenfield_baseline.sql.
+                brand: { shopName, phone: shopRow.data?.phone || null, primaryColor: shopRow.data?.primary_color || null, accentColor: shopRow.data?.accent_color || null },
+                brand_traits_used: copyGen.content.brand_traits_used,
+                visual_traits_used: copyGen.content.visual_traits_used,
+                grounded_in_inventory: inventorySources,
+                visual_brief: copyGen.content.visual_brief || null,
+                // A flyer produced by this path is always the calm-backdrop
+                // strategy now — subject-forward requests never reach this
+                // branch at all, they take the plain "image" path below —
+                // recorded anyway so the client poster renderer and any
+                // pre-existing rows from the earlier "every post" period
+                // still read back consistently.
+                photo_strategy: "calm_backdrop"
+              },
+              mediaId: null,
+              status: "completed"
+            });
+            if (!persisted.ok) {
+              await revertToIdea();
+              throw new Error(persisted.error);
+            }
+            assetId = persisted.asset.id;
+            imageUrl = backgroundGen.ok ? backgroundGen.url : null;
+            generatedAssetType = "flyer";
           } else {
+            // The plain "image" path: a real photo and nothing drawn onto
+            // it — this IS the point of the request (the jaguar, a specific
+            // bouquet, "fresh roses just arrived"), so there is no
+            // reasonable Tier-B fallback the way the calm-backdrop flyer
+            // path above has one; a failed generation fails the whole
+            // request outright rather than silently downgrading.
+            //
             // No separate inventory wiring needed here: this call always
             // supplies visualBrief (from copyGen, itself already grounded in
             // real inventory above), so buildImagePrompt's own products
@@ -2211,115 +2281,46 @@ export function createMarketingStudioHandler(deps = {}) {
             await recordUsage("image", "image", 1);
             const prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief: copyGen.content.visual_brief || currentItem.data.brief });
             const imageGen = await generateImage(client, shopId, { prompt, filename: `marketing-${body.content_item_id}.jpg` });
-            // Unlike the calm-backdrop path above, this photo IS the point
-            // of the request (a jaguar holding flowers, a specific
-            // bouquet) — there is no reasonable Tier-B fallback for a
-            // subject a florist actually asked for, so a failed generation
-            // here must still fail the whole request outright, exactly as
-            // the plain "image" asset type always did, rather than silently
-            // downgrading to a generic template with no photo at all.
             if (!imageGen.ok) {
               await revertToIdea();
               return json(400, { error: imageGen.error });
             }
-            backgroundGen = imageGen;
             const mediaRow = await client
               .from("website_media")
               .insert({ shop_id: shopId, storage_path: imageGen.path, filename: imageGen.path.split("/").pop(), source: "generated", mime: "image/jpeg" })
               .select()
               .single();
-            mediaIdForFlyer = mediaRow.data?.id || null;
-          }
-          const persisted = await persistGeneratedAsset(client, {
-            shopId,
-            userId: user.id,
-            persona: "Lily",
-            assetType: "flyer",
-            provider: "cloudflare",
-            model: flyerGen.model,
-            content: {
-              ...flyerGen.content,
-              template_id: template.id,
-              aspect_ratio: aspectRatio,
-              style_tier: backgroundGen.ok ? "generated" : "template",
-              background_url: backgroundGen.ok ? backgroundGen.url : null,
-              // Durable-render fields — never set at generation time. The
-              // renderer is browser-only (canvas), so nothing has been
-              // rendered or persisted yet; finalize_flyer_render is the
-              // only thing that ever sets these, once a real file exists
-              // in storage. approve_content refuses to approve a flyer
-              // until render_status is "rendered" and every other field
-              // here is real (see flyerApprovalBlockReason) — a
-              // client-side render success alone is never enough.
-              url: null,
-              storage_path: null,
-              mime: null,
-              width: null,
-              height: null,
-              render_status: null,
-              rendered_at: null,
-              traits_used: [],
-              style: defaultVisualStyle(),
-              // The client-side renderer (public/flyer-renderer.js) draws
-              // the actual canvas — it needs the full layout, not just an
-              // id, so the server stays the single source of truth for
-              // region placement rather than a second, drift-prone copy
-              // of flyer-templates.js living in the browser bundle.
-              regions: template.regions,
-              palette: template.palette,
-              canvas: ASPECT_RATIOS[aspectRatio],
-              // The Facebook caption is a SEPARATE piece of text from the
-              // on-image headline/body/cta above — same separation the
-              // "image" asset type always used (content.caption vs. the
-              // image itself). Requirement 5: the caption independently
-              // carries the same real facts.
-              caption: copyGen.content.body,
-              // Ashley's explicit live-test feedback: "these flyers can
-              // now be made in any color, it is not set to navy or dark
-              // colors — this is a flower shop, it should [be] happiness."
-              // The gradient band (drawGradientBand, below) was reading a
-              // hardcoded navy regardless of shop — this is what actually
-              // threads the shop's OWN real brand color through so the
-              // band reflects it instead. Falls back to the shops table's
-              // own DB default (a warm rose, never navy) when a shop
-              // hasn't set one — see 20260804000000_greenfield_baseline.sql.
-              brand: { shopName, phone: shopRow.data?.phone || null, primaryColor: shopRow.data?.primary_color || null, accentColor: shopRow.data?.accent_color || null },
-              brand_traits_used: copyGen.content.brand_traits_used,
-              visual_traits_used: copyGen.content.visual_traits_used,
-              grounded_in_inventory: inventorySources,
-              // Same reasoning as the plain "image" asset type always had:
-              // the concrete description that got the real subject drawn
-              // (e.g. "a jaguar mascot holding a bouquet of flowers") must
-              // survive past this one prompt call, so a later revision has
+            const persisted = await persistGeneratedAsset(client, {
+              shopId,
+              userId: user.id,
+              persona: "Lily",
+              assetType: "image",
+              provider: imageGen.provider,
+              model: imageGen.model,
+              prompt: imageGen.prompt,
+              // brand_traits_used/visual_traits_used ride along on this same
+              // asset row — approve_content reads them back from here (via
+              // the variant's asset_id) to reinforce/weaken Brand Brain and
+              // My Style the moment a real Approve/Reject happens. Never
+              // recorded here at generation time — recordBrandSignal/
+              // recordApprovalSignal only ever fire from a real approval
+              // decision, never a bare generation.
+              //
+              // visual_brief persisted so a later revise_content call has
               // something real to reference instead of the item's generic
-              // brief text.
-              visual_brief: copyGen.content.visual_brief || null,
-              // Which photo strategy actually produced this background —
-              // read back by the client renderer (flyer-poster.js) to keep
-              // a subject-forward photo out of the one composition that
-              // draws text over the photo, and by this same revise_content
-              // handler so "regenerate image" re-rolls with the SAME
-              // strategy rather than silently swapping a requested subject
-              // for a generic calm backdrop.
-              photo_strategy: needsCalmBackdrop ? "calm_backdrop" : "subject_forward"
-            },
-            mediaId: mediaIdForFlyer,
-            status: "completed"
-          });
-          if (!persisted.ok) {
-            await revertToIdea();
-            throw new Error(persisted.error);
+              // brief text (the jaguar-subject fix earlier this session).
+              content: { url: imageGen.url, caption: copyGen.content.body, visual_brief: copyGen.content.visual_brief || null, brand_traits_used: copyGen.content.brand_traits_used, visual_traits_used: copyGen.content.visual_traits_used, grounded_in_inventory: inventorySources },
+              mediaId: mediaRow.data?.id || null,
+              status: "completed"
+            });
+            if (!persisted.ok) {
+              await revertToIdea();
+              throw new Error(persisted.error);
+            }
+            assetId = persisted.asset.id;
+            imageUrl = imageGen.url;
+            generatedAssetType = "image";
           }
-          assetId = persisted.asset.id;
-          // A real, successfully-generated AI photo behind the poster IS a
-          // generative image regardless of which of the two prompt
-          // strategies produced it. Before this, imageUrl was only ever set
-          // by the plain "image" asset type, so every flyer's own
-          // disclosure fields read "no AI image used" below even when
-          // style_tier was "generated" — a real, live AI photo. Fixed to
-          // reflect what actually happened, not the asset type.
-          imageUrl = backgroundGen.ok ? backgroundGen.url : null;
-          generatedAssetType = "flyer";
         } else {
           // text_post: no image, but the copy itself (and whichever Brand
           // Brain traits shaped it) still needs a real row to be readable

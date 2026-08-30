@@ -176,10 +176,13 @@ test("generate_content for an image-bearing post (Ashley's real scenario, not te
         { data: [], error: null }, // audience: customers
         { data: [], error: null }, // audience: orders
         { data: null, error: null }, // recordUsage("copy") — copyGen
-        { data: null, error: null }, // recordUsage("copy") — flyerGen (every post now gets on-image wording too)
+        // brief:"b" carries no flyer-wording signal, so this is the plain
+        // "image" path (a real photo + caption, no on-image poster text) —
+        // only one recordUsage("image") here, never a second recordUsage
+        // ("copy") for a flyer-text call that never happens on this path.
         { data: null, error: null }, // recordUsage("image")
         { data: { id: "media-1" }, error: null }, // website_media insert
-        { data: { id: "img-asset-1" }, error: null }, // persistGeneratedAsset (flyer)
+        { data: { id: "img-asset-1" }, error: null }, // persistGeneratedAsset (image)
         { data: null, error: null }, // variant update
         { data: { id: "item-1", status: "draft" }, error: null } // final content_items update
       ],
@@ -230,7 +233,7 @@ test("generate_content surfaces a real storage permission-denial cleanly (400, r
         { data: [], error: null },
         { data: [], error: null },
         { data: null, error: null }, // recordUsage("copy") — copyGen
-        { data: null, error: null }, // recordUsage("copy") — flyerGen (every post now gets on-image wording too)
+        // brief:"b" is the plain "image" path — see the test above.
         { data: null, error: null }, // recordUsage("image")
         { data: null, error: null }, // -> reverted to idea after the failed upload
         { data: { id: "item-1", status: "idea" }, error: null } // revertToIdea's own update returns the row (not asserted further)
