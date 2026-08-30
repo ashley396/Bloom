@@ -678,8 +678,24 @@ export function buildDeterministicNoticeContent({ requestText, shopName, shopPho
 // generated caption — never matched at all ("condolence" has no word
 // boundary before the "s"). Each noun that's genuinely used in the plural
 // now allows an optional "s".
-const BEREAVEMENT_CONTEXT_RE =
-  /\b(funerals?|sympathy|memorials?|bereave(?:d|ment)|condolences?|caskets?|gravesides?|wakes?|passed away|loss of|in memory|tributes?|remembrances?)\b/i;
+//
+// A second, live-reviewed gap (found by an independent review of the
+// invented-bereavement-framing guard below, not yet caught live): a real
+// florist request describing a death rarely uses any of the textbook words
+// above — "flowers for the Wilson family, they just lost their dad" has
+// none of them — so that guard could wrongly read the copy's own,
+// perfectly appropriate condolence wording as INVENTED. The two family-word
+// patterns below catch the common informal way people actually phrase this
+// without opening up unrelated meanings ("lost my keys" needs no family
+// word; a bare "passed" alone stays excluded — that word covers everything
+// from exams to time to delivery vans driving past the shop).
+const FAMILY_WORD_RE_SRC = "(?:mom|mother|dad|father|husband|wife|son|daughter|brother|sister|grandma|grandpa|grandmother|grandfather|parent|parents|loved one)";
+const BEREAVEMENT_CONTEXT_RE = new RegExp(
+  `\\b(funerals?|sympathy|memorials?|bereave(?:d|ment)|condolences?|caskets?|gravesides?|wakes?|passed away|loss of|in memory|tributes?|remembrances?` +
+    `|lost (?:my|his|her|their|our) ${FAMILY_WORD_RE_SRC}` +
+    `|${FAMILY_WORD_RE_SRC} (?:just )?passed)\\b`,
+  "i"
+);
 
 // "Celebration of life" is a real and correct term for a memorial service, so
 // it is deliberately excluded — the failure is celebratory framing OF the

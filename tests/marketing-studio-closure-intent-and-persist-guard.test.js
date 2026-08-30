@@ -1157,8 +1157,41 @@ test("a genuine sympathy request is never wrongly flagged for using real sympath
   const copy = "At Lilies in Bloom, we craft gentle sympathy arrangements to honor your loved one during this time.";
   const reasons = detectWeakMarketingCopy(request, copy);
   assert.ok(
-    !reasons.some((r) => /never about a death or a loss/i.test(r)),
+    !reasons.some((r) => /about a death or a loss/i.test(r)),
     `a genuine sympathy request was wrongly told its own sympathy wording was invented: ${JSON.stringify(reasons)}`
+  );
+});
+
+// A real gap an independent review of the guard above found: a real florist
+// rarely phrases a genuine bereavement request with any of the textbook
+// words (funeral/sympathy/loss of/etc). "Flowers for the Wilson family,
+// they just lost their dad" describes a real death with none of them — the
+// guard above would otherwise wrongly read the copy's own appropriate
+// condolence wording as INVENTED, and the resulting retry instruction
+// ("never invent bereavement framing") could nudge a shop's genuinely
+// appropriate sympathy response toward something less appropriate, not
+// more. Recognizing the common informal phrasing closes that gap without
+// opening the door to unrelated meanings of "lost" or "passed".
+test("an informally-phrased real bereavement request ('they just lost their dad') is recognized — its own appropriate condolence wording is never flagged as invented", () => {
+  const request = "Flowers for the Wilson family, they just lost their dad";
+  const copy = "Please accept our deepest condolences during this difficult time. We can help with a gentle bouquet for the family.";
+  const reasons = detectWeakMarketingCopy(request, copy);
+  assert.ok(
+    !reasons.some((r) => /about a death or a loss/i.test(r)),
+    `an informally-phrased real bereavement request had its own appropriate sympathy wording wrongly flagged as invented: ${JSON.stringify(reasons)}`
+  );
+});
+
+test("the broadened bereavement-phrasing patterns never fire on unrelated uses of 'lost' or 'passed'", () => {
+  assert.ok(
+    !detectWeakMarketingCopy("I lost my keys at the shop yesterday, has anyone seen them?", "We have your keys behind the counter.")
+      .some((r) => /about a death or a loss/i.test(r)),
+    "\"lost my keys\" must never read as a bereavement signal"
+  );
+  assert.ok(
+    !detectWeakMarketingCopy("The delivery van just passed by without stopping.", "Sorry we missed you! Call ahead next time.")
+      .some((r) => /about a death or a loss/i.test(r)),
+    "a bare, unrelated \"passed\" must never read as a bereavement signal"
   );
 });
 
