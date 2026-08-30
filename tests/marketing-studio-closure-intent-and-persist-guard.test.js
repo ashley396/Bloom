@@ -1109,12 +1109,57 @@ test("celebratory language is fine when nothing about the request is a bereaveme
   assert.ok(!detectWeakMarketingCopy("valentines post", copy).some((r) => /celebratory/i.test(r)));
 });
 
-test("a single stock phrase is tolerated; a post built out of them is not", () => {
+// Real, live-found failure: a real caption ("Whether it's a special
+// occasion or just because, we've got you covered.") shipped untouched
+// because this used to require TWO stock phrases before flagging anything
+// — the phrase list exists precisely because each entry is recognizable
+// stock copy on its own; one is enough.
+test("even a single recognized stock phrase is flagged — ordinary, phrase-free copy is not", () => {
+  const clean = "Our Freedom roses just came in and they're gorgeous today — stop by before they're gone.";
+  assert.ok(!detectWeakMarketingCopy("post", clean).some((r) => /any business/i.test(r)),
+    "copy with none of the recognized stock phrases should not be flagged");
   const one = "We have a wide range of bouquets ready today. Come and see us on Main Street.";
-  assert.ok(!detectWeakMarketingCopy("post", one).some((r) => /any business/i.test(r)),
-    "one ordinary phrase should not condemn a post");
+  assert.ok(detectWeakMarketingCopy("post", one).some((r) => /any business/i.test(r)),
+    "\"a wide range of\" is on the recognized stock-phrase list — one match is enough to flag it");
   const many = "We understand the importance of flowers. Our experienced florists are here to support you. Whether you're looking for roses or lilies, we've got you covered.";
   assert.ok(detectWeakMarketingCopy("post", many).some((r) => /any business/i.test(r)));
+});
+
+// Real, live-found failure (found by reading Ashley's own real generated
+// content in the production database): "Make me a post to remind everyone
+// that flowers say I care without saying a word" — a plain, universal,
+// non-bereavement sentiment — came back reading "we've seen families ask
+// for our Freedom roses and leatherleaf to express their love and
+// condolences in the most delicate moments," treating an ordinary
+// feel-good post as a sympathy/funeral message. Nothing in the request was
+// about a death or a loss; the model invented that framing on its own, and
+// no existing guard caught it (the sympathy checks above only ever guard
+// the OTHER direction — a genuine sympathy request written too
+// celebratory — never a plain request written as if it were sympathy).
+test("an ordinary, non-bereavement request that comes back reading as sympathy/funeral wording is flagged", () => {
+  const request = "Make me a post to remind everyone that flowers say I care without saying a word";
+  const copy =
+    "At Lilies in Bloom, we've seen families ask for our Freedom roses and leatherleaf to express their " +
+    "love and condolences in the most delicate moments. These tender blooms, paired with our spray roses " +
+    "and alstroemeria, can convey emotions and show care without saying a word.";
+  const reasons = detectWeakMarketingCopy(request, copy);
+  assert.ok(
+    reasons.some((r) => /condolences/i.test(r) && /death or a loss/i.test(r)),
+    `the invented sympathy framing was not caught: ${JSON.stringify(reasons)}`
+  );
+});
+
+test("a genuine sympathy request is never wrongly flagged for using real sympathy wording", () => {
+  // The new guard above must never fire on an actual funeral/sympathy
+  // request just because it correctly used sympathy words — only on a
+  // request that never asked for that at all.
+  const request = "Make me a post about our funeral flower arrangements";
+  const copy = "At Lilies in Bloom, we craft gentle sympathy arrangements to honor your loved one during this time.";
+  const reasons = detectWeakMarketingCopy(request, copy);
+  assert.ok(
+    !reasons.some((r) => /never about a death or a loss/i.test(r)),
+    `a genuine sympathy request was wrongly told its own sympathy wording was invented: ${JSON.stringify(reasons)}`
+  );
 });
 
 test("a wall of text is flagged as too long for a social post", () => {
@@ -1319,15 +1364,28 @@ test("empty writing is caught even when it uses none of the banned phrases", () 
 
 test("writing with real detail in it is left alone by the hollow check", () => {
   const specific = [
-    "White lilies, cream roses and eucalyptus, made up as a standing spray for the service. " +
-      "We can have it at the funeral home by Friday morning if you call today. " +
-      "Ring 606-506-4039 and ask for whoever is on the bench.",
-    "There are still buckets of red roses in the cooler and we are conditioning more tonight. " +
-      "Hand-tied and wrapped, ready to pick up from Saturday. " +
-      "Twelve stems is $45.00 and we will hold one back for you."
+    // Genuinely about the service/funeral home, so the request itself must
+    // say so too — otherwise the newer "invented bereavement framing" guard
+    // (below) would rightly read this as sympathy wording invented onto a
+    // request that never asked for it. A real caller always passes the
+    // florist's own actual brief here, which would itself say "funeral".
+    {
+      request: "post about our funeral flowers for the service",
+      copy:
+        "White lilies, cream roses and eucalyptus, made up as a standing spray for the service. " +
+        "We can have it at the funeral home by Friday morning if you call today. " +
+        "Ring 606-506-4039 and ask for whoever is on the bench."
+    },
+    {
+      request: "post",
+      copy:
+        "There are still buckets of red roses in the cooler and we are conditioning more tonight. " +
+        "Hand-tied and wrapped, ready to pick up from Saturday. " +
+        "Twelve stems is $45.00 and we will hold one back for you."
+    }
   ];
-  for (const copy of specific) {
-    assert.deepEqual(detectWeakMarketingCopy("post", copy, { shopName: "Lilies in Bloom" }), [],
+  for (const { request, copy } of specific) {
+    assert.deepEqual(detectWeakMarketingCopy(request, copy, { shopName: "Lilies in Bloom" }), [],
       `wrongly flagged: "${copy}"`);
   }
 });
@@ -1762,7 +1820,8 @@ test("a shop with an ampersand in its name is not exempt from the filler rules",
   }
 });
 
-test("one stock phrase is still tolerated — the threshold has not moved", () => {
-  const one = "We have a wide range of bouquets ready today. Come and see us on Main Street.";
-  assert.ok(!detectWeakMarketingCopy("post", one).some((r) => /any business/i.test(r)));
-});
+// Superseded by "even a single recognized stock phrase is flagged —
+// ordinary, phrase-free copy is not" above: a real caption shipped with
+// exactly one recognized stock phrase, so the threshold that used to
+// tolerate one no longer holds — see that test's own comment for the
+// live-found failure that changed it.

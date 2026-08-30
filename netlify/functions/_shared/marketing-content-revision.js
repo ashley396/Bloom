@@ -673,8 +673,13 @@ export function buildDeterministicNoticeContent({ requestText, shopName, shopPho
 // sympathy work is the most delicate writing they ever put out.
 // ---------------------------------------------------------------------------
 
+// Real, live-found gap: every noun here required a hard \b right after its
+// singular form, so a plural — "condolences," the exact word in a real
+// generated caption — never matched at all ("condolence" has no word
+// boundary before the "s"). Each noun that's genuinely used in the plural
+// now allows an optional "s".
 const BEREAVEMENT_CONTEXT_RE =
-  /\b(funeral|sympathy|memorial|bereave(?:d|ment)|condolence|casket|graveside|wake|passed away|loss of|in memory|tribute|remembrance)\b/i;
+  /\b(funerals?|sympathy|memorials?|bereave(?:d|ment)|condolences?|caskets?|gravesides?|wakes?|passed away|loss of|in memory|tributes?|remembrances?)\b/i;
 
 // "Celebration of life" is a real and correct term for a memorial service, so
 // it is deliberately excluded — the failure is celebratory framing OF the
@@ -1138,7 +1143,29 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
   const reasons = [];
   if (!copy.trim()) return reasons;
 
-  if (BEREAVEMENT_CONTEXT_RE.test(request) || BEREAVEMENT_CONTEXT_RE.test(copy)) {
+  const requestIsBereavement = BEREAVEMENT_CONTEXT_RE.test(request);
+  if (requestIsBereavement || BEREAVEMENT_CONTEXT_RE.test(copy)) {
+    if (!requestIsBereavement) {
+      // The OPPOSITE direction of the celebratory-mismatch check below: a
+      // request with NO death/loss signal at all — an everyday "flowers say
+      // I care" post, a birthday, a thank-you — coming back with invented
+      // sympathy/funeral language the florist never asked for. Real,
+      // live-found failure: "Make me a post to remind everyone that flowers
+      // say I care without saying a word" — a universal, ordinary sentiment
+      // — came back reading "to express their love and condolences in the
+      // most delicate moments," treating a plain feel-good post as a
+      // bereavement message. A shop's actual sympathy work deserves the
+      // careful writing the check below exists for; it must never be
+      // invented onto a request that was never about a death or a loss at
+      // all. Checked ONLY when the request itself shows no bereavement
+      // signal — a real sympathy request phrased in words this regex
+      // doesn't happen to catch must fall through to the check below
+      // instead, not be wrongly told its own sympathy wording was invented.
+      const invented = copy.match(BEREAVEMENT_CONTEXT_RE);
+      reasons.push(
+        `"${invented[0]}" reads as sympathy/funeral wording, but nothing about this request was about a death or a loss. Never invent bereavement framing onto an ordinary post — write about what was actually asked for.`
+      );
+    }
     const hit = copy.match(CELEBRATORY_RE);
     if (hit) {
       reasons.push(
@@ -1207,10 +1234,19 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
   // tells a model there is a problem without telling it where: it can only
   // guess which sentence offended, and it guessed wrong. Quoting its own words
   // back is the difference between a note and an instruction.
+  //
+  // Real, live-found failure: a later, real caption shipped with exactly
+  // ONE of these — "we've got you covered" — and passed, because this used
+  // to require two. Every phrase on this list was chosen because it reads
+  // as recognizable stock copy the instant it appears, not because it takes
+  // several of them together to be a problem — the retry instruction below
+  // already says "must not appear anywhere in the rewrite," which a
+  // threshold of two silently contradicted for exactly this case. One is
+  // enough.
   const fillerHits = FILLER_PHRASES.map((re) => copy.match(re))
     .filter(Boolean)
     .map((hit) => hit[0].trim());
-  if (fillerHits.length >= 2) {
+  if (fillerHits.length >= 1) {
     reasons.push(
       "Most of this could be about any business in any industry. These exact phrases must not appear anywhere in the rewrite: " +
         fillerHits.map((phrase) => `"${phrase}"`).join(", ") +
