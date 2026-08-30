@@ -216,6 +216,16 @@ test("generate_content (real dispatch): an operational closing notice routes to 
     assert.ok(insertedRow.content.regions, "the renderer needs the full region layout, not just a template id");
     assert.equal(insertedRow.content.style_tier, "generated", "a successful background generation must be recorded as Tier A");
     assert.ok(insertedRow.content.background_url, "the real generated background url must be persisted");
+
+    // Real, live-found gap found while wiring every post through this same
+    // path: disclosure fields used to only ever be set from the plain
+    // "image" asset type's own imageUrl variable, which the flyer branch
+    // never touched — so a flyer whose background WAS actually AI-generated
+    // (style_tier "generated", right here) still reported no AI image used
+    // at all. Must now correctly reflect the real Tier-A generation.
+    const variantUpdate = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "update"));
+    assert.equal(variantUpdate.payload.generative_image_used, true, "a real Tier-A AI photo must be disclosed as one");
+    assert.equal(variantUpdate.payload.ai_content_type, "generative_image");
   } finally {
     mock.restore();
   }
@@ -246,6 +256,12 @@ test("generate_content (real dispatch): a flyer still generates successfully —
     assert.equal(insertedRow.content.background_url, null);
     assert.equal(insertedRow.content.headline, "CLOSING EARLY", "the real deterministic wording is completely unaffected by the background failure");
     assert.match(insertedRow.content.cta, /606-506-4039/);
+    // The other half of the disclosure fix: a Tier-B (template, no real
+    // photo) flyer must correctly report NO AI image was used — this is
+    // Florisyn's own deterministic render, never a generative image.
+    const variantUpdate = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "update"));
+    assert.equal(variantUpdate.payload.generative_image_used, false);
+    assert.equal(variantUpdate.payload.ai_content_type, "none");
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -461,9 +477,19 @@ test("generate_content (real dispatch): the EXACT bare sentence from Ashley's br
   }
 });
 
-test("generate_content (real dispatch): an ordinary decorative request stays a plain photo-only image — never routed to the flyer path", async () => {
+// Ashley's explicit direction (real screenshots compared against her own
+// branded flyers): every generated post now gets the same designed poster
+// treatment her flyers already have — a real on-image headline/body/cta —
+// never just a bare photo with a caption underneath. Only the PHOTO
+// strategy still depends on whether the request names a real subject
+// (buildImagePrompt, subject-forward — a jaguar, a specific bouquet) versus
+// carries a fact that needs a calm backdrop (buildFlyerBackgroundPrompt).
+// This replaces the old "an ordinary decorative request stays a plain
+// photo-only image" test, whose premise this change deliberately reverses.
+test("generate_content (real dispatch): an ordinary decorative request now ALSO gets the flyer/poster treatment — a real on-image headline/body/cta, over a subject-forward photo, never a calm backdrop", async () => {
   const decorativeCopy = { ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today.", visual_brief: "A bright, romantic bouquet of roses on a marble counter." };
-  const mock = mockCloudflare([decorativeCopy]);
+  const decorativeFlyer = { headline: "Fresh Roses", body: "Just arrived and ready for you.", cta: "Stop by today!" };
+  const mock = mockCloudflare([decorativeCopy, decorativeFlyer]);
   try {
     const client = createFakeSupabaseClient([
       { data: { id: "item-2", content_type: "image_post", title: "Fresh roses", brief: "I have 40 roses I need to sell — a bright, romantic bouquet post for Facebook", status: "idea" }, error: null },
@@ -476,21 +502,31 @@ test("generate_content (real dispatch): an ordinary decorative request stays a p
       { data: [], error: null },
       { data: [], error: null },
       { data: [], error: null },
-      { data: null, error: null }, // recordUsage("copy")
+      { data: null, error: null }, // recordUsage("copy") — copyGen
+      { data: null, error: null }, // recordUsage("copy") — flyerGen (now always generated too)
       { data: null, error: null }, // recordUsage("image")
       { data: { id: "media-row-1" }, error: null }, // website_media insert
-      { data: { id: "image-asset-1" }, error: null }, // persistGeneratedAsset
+      { data: { id: "image-asset-1" }, error: null }, // persistGeneratedAsset (flyer)
       { data: null, error: null }, // variant update
       { data: { id: "item-2", status: "draft" }, error: null }
     ], { storage: createFakeSupabaseStorage({}) });
     const handler = createMarketingStudioHandler(floristDeps(client));
     const res = await handler(event("generate_content", { content_item_id: "item-2" }));
-    assert.equal(res.statusCode, 200, `expected the plain-photo path to succeed: ${res.body}`);
+    assert.equal(res.statusCode, 200, `expected the poster path to succeed: ${res.body}`);
     const body = JSON.parse(res.body);
-    assert.equal(body.asset.type, "image", "an ordinary decorative request must stay a plain image, never a flyer");
+    assert.equal(body.asset.type, "flyer", "an ordinary decorative request now gets the same poster treatment as any other post");
+
     const imageCalls = mock.calls.filter((c) => c.url.includes("black-forest-labs") || "prompt" in c.body);
-    assert.equal(imageCalls.length, 1, "the AI image model IS expected to be called for a plain photo request");
+    assert.equal(imageCalls.length, 1, "exactly one photo call — the subject-forward buildImagePrompt, never the calm-backdrop flyer prompt");
     assert.match(imageCalls[0].body.prompt, /ABSOLUTELY NO TEXT: no words, letters, numbers/i, "the image prompt actually sent must carry the no-text directive");
+    assert.match(imageCalls[0].body.prompt, /marble counter/i, "the SUBJECT-forward prompt (the actual bouquet described) must reach the image model, not a generic calm backdrop");
+
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const insertedRow = assetInsert.ops.find((op) => op[0] === "insert")[1][0];
+    assert.equal(insertedRow.content.headline, "Fresh Roses", "the real on-image headline must be persisted, not left as a bare photo");
+    assert.equal(insertedRow.content.caption, decorativeCopy.body, "the Facebook caption stays separate from the on-image text");
+    assert.ok(insertedRow.content.regions, "the poster renderer needs the full region layout");
+    assert.equal(insertedRow.content.style_tier, "generated");
   } finally {
     mock.restore();
   }

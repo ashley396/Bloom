@@ -175,10 +175,11 @@ test("generate_content for an image-bearing post (Ashley's real scenario, not te
         { data: [], error: null }, // loadGroundedInventory
         { data: [], error: null }, // audience: customers
         { data: [], error: null }, // audience: orders
-        { data: null, error: null }, // recordUsage("copy")
+        { data: null, error: null }, // recordUsage("copy") — copyGen
+        { data: null, error: null }, // recordUsage("copy") — flyerGen (every post now gets on-image wording too)
         { data: null, error: null }, // recordUsage("image")
         { data: { id: "media-1" }, error: null }, // website_media insert
-        { data: { id: "img-asset-1" }, error: null }, // persistGeneratedAsset
+        { data: { id: "img-asset-1" }, error: null }, // persistGeneratedAsset (flyer)
         { data: null, error: null }, // variant update
         { data: { id: "item-1", status: "draft" }, error: null } // final content_items update
       ],
@@ -228,7 +229,9 @@ test("generate_content surfaces a real storage permission-denial cleanly (400, r
         { data: [], error: null },
         { data: [], error: null },
         { data: [], error: null },
-        { data: null, error: null }, // recordUsage("copy")
+        { data: null, error: null }, // recordUsage("copy") — copyGen
+        { data: null, error: null }, // recordUsage("copy") — flyerGen (every post now gets on-image wording too)
+        { data: null, error: null }, // recordUsage("image")
         { data: null, error: null }, // -> reverted to idea after the failed upload
         { data: { id: "item-1", status: "idea" }, error: null } // revertToIdea's own update returns the row (not asserted further)
       ],

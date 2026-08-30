@@ -5,20 +5,30 @@ import { createFakeSupabaseClient, createFakeSupabaseStorage } from "./helpers/f
 
 // Final database + integration verification pass (continuing PR #177): one
 // continuous, real handler-driven sequence proving the full lifecycle —
-// generate -> revise -> revise again -> undo -> undo -> revise from the
-// original into a new branch -> approve — with every claim verified
-// against the literal DB payloads the real handler would send (insert/
-// update bodies captured by the fake client), not DOM behavior. Also
-// proves version history is a real GRAPH (branching), not a forced linear
-// chain: undoing twice off C and re-revising the ORIGINAL produces a
-// second child of A alongside B/C — nothing is deleted, nothing is
-// overwritten.
+// revise -> revise again -> undo -> undo -> revise from the original into a
+// new branch -> approve — with every claim verified against the literal DB
+// payloads the real handler would send (insert/update bodies captured by
+// the fake client), not DOM behavior. Also proves version history is a
+// real GRAPH (branching), not a forced linear chain: undoing twice off C
+// and re-revising the ORIGINAL produces a second child of A alongside
+// B/C — nothing is deleted, nothing is overwritten.
 //
 //   A (original) -> B (revise: soft luxury bg) -> C (revise: elegant)
 //    \-> D (revise from A again, after two undos: marble bg)
 //
 // Approving at the end must approve whatever the CURRENT asset actually is
 // (D) — never A/B/C.
+//
+// Asset A is now SEEDED directly rather than produced by a real
+// generate_content call. Ashley's explicit later direction (every
+// generated post gets the same elegant poster treatment her flyers
+// already have) means generate_content can no longer produce a fresh
+// asset_type "image" row at all — every new image_post now becomes
+// asset_type "flyer" instead. This lifecycle (revise/undo/branch/approve)
+// stays real and worth proving end to end anyway: it is exactly what
+// still happens to the many pre-existing asset_type "image" rows already
+// in production from before that change, which revise_content's own
+// "image" branch (and its own tests) still serve.
 
 function superAdminRow() {
   return { data: { user_id: "u1", role: "super_admin", active: true }, error: null };
@@ -49,10 +59,10 @@ function event(action, body, { method = "POST" } = {}) {
 const TINY_JPEG_BASE64 = Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString("base64");
 
 // One mock covering BOTH real Cloudflare call shapes this lifecycle uses:
-// the text/copy model (generateSocialPost, used once by generate_content)
-// and the image model (generateImage, used by generate_content AND every
-// image revision) — distinguished by the real, different model slug each
-// one's real URL path contains.
+// the text/copy model (generateSocialPost, used by an ambiguous
+// revise_content instruction) and the image model (generateImage, used by
+// every image-affecting revision) — distinguished by the real, different
+// model slug each one's real URL path contains.
 function mockCloudflareBoth({ socialPostResult }) {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url) => {
@@ -64,7 +74,7 @@ function mockCloudflareBoth({ socialPostResult }) {
   return { restore: () => (globalThis.fetch = originalFetch) };
 }
 
-test("full lifecycle: generate -> revise -> revise -> undo -> undo -> revise (new branch) -> approve — real persisted-data proof, branching preserved, nothing ever overwritten or deleted", async () => {
+test("full lifecycle on a pre-existing image asset: revise -> revise -> undo -> undo -> revise (new branch) -> approve — real persisted-data proof, branching preserved, nothing ever overwritten or deleted", async () => {
   const mock = mockCloudflareBoth({
     socialPostResult: {
       platform: "facebook",
@@ -82,27 +92,10 @@ test("full lifecycle: generate -> revise -> revise -> undo -> undo -> revise (ne
 
   const client = createFakeSupabaseClient(
     [
-      // ── STEP 1: generate_content (image_post) -> asset A ──────────────
-      superAdminRow(),
-      { data: { id: "item-1", content_type: "image_post", title: "Spring Bouquet", brief: "b", status: "idea" }, error: null }, // currentItem
-      { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // variantsResult
-      { data: { marketing_monthly_budget_cents: null }, error: null }, // budget: no shop default
-      { data: null, error: null }, // content_items update -> generating
-      { data: { name: "Test Florals" }, error: null }, // shopRow
-      { data: null, error: null }, // loadBrandBrain
-      { data: null, error: null }, // loadStyleMemory
-      { data: [], error: null }, // loadGroundedInventory (no real inventory rows in this test's shop)
-      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — customers (none)
-      { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — orders (none)
-      { data: null, error: null }, // recordUsage("copy")
-      { data: null, error: null }, // recordUsage("image")
-      { data: { id: "media-a" }, error: null }, // website_media insert
-      { data: { id: "asset-A" }, error: null }, // persistGeneratedAsset -> A
-      { data: null, error: null }, // variant update -> asset A
-      { data: { id: "item-1", status: "draft" }, error: null }, // final content_items update
-      { data: null, error: null }, // audit insert
-
       // ── STEP 2: revise_content A -> B ("change the background to a soft luxury look instead") ──
+      // Asset A is a pre-existing asset_type "image" row (seeded directly —
+      // see the file header comment for why generate_content no longer
+      // produces one), already attached to item-1 before this test starts.
       superAdminRow(),
       { data: { id: "item-1", content_type: "image_post", title: "Spring Bouquet", brief: "b", status: "draft" }, error: null }, // currentItem
       { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-A" }], error: null }, // variantsResult
@@ -221,13 +214,7 @@ test("full lifecycle: generate -> revise -> revise -> undo -> undo -> revise (ne
   try {
     const handler = createMarketingStudioHandler(baseDeps(client));
 
-    // STEP 1
-    const genRes = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1" }));
-    assert.equal(genRes.statusCode, 200, `generate_content failed: ${genRes.body}`);
-    const assetAInsert = client.calls.filter((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert")).at(-1);
-    assert.equal(assetAInsert.payload.parent_asset_id, null, "the original generation has no parent");
-
-    // STEP 2
+    // STEP 2 (asset A already exists — seeded directly, see file header)
     const revise1 = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction: "change the background to a soft luxury look instead" }));
     assert.equal(revise1.statusCode, 200, `revise A->B failed: ${revise1.body}`);
     let insert = client.calls.filter((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert")).at(-1);
@@ -260,12 +247,13 @@ test("full lifecycle: generate -> revise -> revise -> undo -> undo -> revise (ne
     insert = client.calls.filter((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert")).at(-1);
     assert.equal(insert.payload.parent_asset_id, "asset-A", "D's parent is ALSO A — a real branch, B is not D's ancestor");
 
-    // Branching proof: exactly 4 real asset rows were ever inserted this
-    // whole lifecycle (A, B, C, D) — never fewer (nothing collapsed/
-    // overwritten) and never an update/delete against ai_generated_assets
-    // at any point (a revision NEVER mutates a prior version's row).
+    // Branching proof: exactly 3 real asset rows were inserted by this test
+    // (B, C, D — A was seeded directly, not created via a real call) —
+    // never fewer (nothing collapsed/overwritten) and never an
+    // update/delete against ai_generated_assets at any point (a revision
+    // NEVER mutates a prior version's row).
     const allAssetInserts = client.calls.filter((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
-    assert.equal(allAssetInserts.length, 4, "exactly A, B, C, D were ever created — nothing collapsed");
+    assert.equal(allAssetInserts.length, 3, "exactly B, C, D were created by this test — nothing collapsed");
     assert.ok(
       client.calls.filter((c) => c.table === "ai_generated_assets").every((c) => !c.ops.some((op) => op[0] === "update" || op[0] === "delete")),
       "no asset row is ever updated or deleted by a revision or an undo — version history is append-only"
