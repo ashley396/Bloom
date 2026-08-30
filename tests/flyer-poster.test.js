@@ -894,6 +894,103 @@ test("without subjectForwardPhoto, editorial is still reachable — the exclusio
   assert.ok("editorial" in seeds, "editorial composition should remain available for calm-backdrop photos");
 });
 
+// ---------------------------------------------------------------------------
+// "lifestyle" — a first-pass fifth composition (Ashley's own Pinterest
+// reference: a full-bleed photo with a short handwritten-feeling caption
+// resting directly on it, no printed sheet, no border, no ornament).
+// Deliberately NOT in the default seeded rotation yet (COMPOSITIONS) — only
+// reachable by explicitly naming it via opts.composition, which is how the
+// preview tool shows it without it ever being picked for a real post. These
+// tests cover the geometry/content guarantees only; they are NOT proof this
+// looks right — see the real rendered screenshot for that.
+// ---------------------------------------------------------------------------
+
+function lifestyleFixture(over = {}) {
+  const width = over.width || 1080, height = over.height || 1350;
+  const brand = Object.assign({ shopName: "Lilies in Bloom", phone: "606-506-4039", primaryColor: "#7c3a58", accentColor: "#c98fae" }, over.brand);
+  const content = Object.assign({
+    headline: "buy yourself the flowers",
+    body: "There doesn't need to be a reason.",
+    cta: "Order online any time."
+  }, over.content);
+  const ctx = recordingContext(width, height);
+  const palette = poster.derivePalette(brand.primaryColor, brand.accentColor, null);
+  const base = { width, height, content, brand, palette, image: over.image !== undefined ? over.image : null, seed: over.seed || 5, composition: "lifestyle" };
+  if (over.fit !== false) poster.fitPoster(ctx, base);
+  const laid = poster.drawPoster(ctx, base);
+  return { ctx, laid, width, height, content, brand };
+}
+
+test("lifestyle: never appears in the default seeded rotation — it's opt-in only until Ashley has seen and approved it", () => {
+  for (let seed = 1; seed <= 400; seed++) {
+    const { laid } = laidOut({ seed });
+    assert.notEqual(laid.composition, "lifestyle", `seed ${seed} picked lifestyle with no explicit request for it`);
+  }
+});
+
+test("lifestyle: an explicit opts.composition request actually selects it", () => {
+  const { laid } = lifestyleFixture();
+  assert.equal(laid.composition, "lifestyle");
+});
+
+test("lifestyle: every real word of the headline, body and cta reaches the canvas", () => {
+  const { ctx, content } = lifestyleFixture();
+  const drawn = wordsOf(ctx);
+  const expected = `${content.headline} ${content.body} ${content.cta}`
+    .toLowerCase().replace(/[^a-z0-9:& ]/g, " ").split(/\s+/).filter(Boolean);
+  for (const word of expected) {
+    assert.ok(drawn.includes(word), `lifestyle never drew "${word}" — a florist's own wording went missing`);
+  }
+});
+
+test("lifestyle: the shop's own name is always visible — mandatory even in this minimal a style", () => {
+  const { ctx, brand } = lifestyleFixture();
+  const drawn = ctx.texts.map((t) => t.text).join(" ");
+  assert.ok(drawn.toUpperCase().includes(brand.shopName.toUpperCase()), "the shop's own name must appear on every customer-facing flyer");
+});
+
+test("lifestyle: the shop's phone number is always visible", () => {
+  const { ctx } = lifestyleFixture();
+  assert.ok(ctx.texts.some((t) => t.text.includes("606-506-4039")), "no way for a customer to reach the shop");
+});
+
+test("lifestyle: never crashes during the measuring pass with a real image present", () => {
+  // The real bug this closes: paintFullBleed calls ctx.drawImage
+  // unconditionally whenever an image is given, and the measuring pass's
+  // probe ctx would be null if that call weren't itself skipped outright —
+  // not merely told to paint nothing. Caught before it ever shipped.
+  assert.doesNotThrow(() => lifestyleFixture({ image: { width: 800, height: 1000 } }));
+});
+
+test("lifestyle: a genuinely long body/cta shrinks to fit rather than silently dropping any of the florist's own words", () => {
+  // A real, live-found class of defect elsewhere in this same session: a
+  // fixed line-count cap silently truncates whatever the florist actually
+  // wrote past that count. An early draft of this exact composition had
+  // that bug (wrapLines(...).slice(0, 3)) — this is long enough that the
+  // old cap would have dropped real words; every one of them must still
+  // reach the canvas.
+  const content = {
+    headline: "buy yourself the flowers",
+    body: "There is genuinely no occasion required at all, not one single reason needed, ordinary Tuesdays count just as much as anniversaries do, and treating yourself is never something to justify to anyone else ever.",
+    cta: "Order online any time day or night, or call ahead and we will have your favorites ready for pickup within the hour, no appointment necessary at all."
+  };
+  const { ctx, laid } = lifestyleFixture({ content });
+  const drawnWords = ctx.texts.map((t) => t.text).join(" ").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+  const expectedWords = `${content.body} ${content.cta}`.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+  const missing = expectedWords.filter((word) => !drawnWords.includes(word));
+  assert.deepEqual(missing, [], `words dropped from a long body/cta instead of shrinking to fit: ${missing.join(", ")}`);
+  // And it must still shrink to make room — the credit line is always the
+  // LAST text drawn, and it must land after (not on top of) that wording.
+  const credit = ctx.texts[ctx.texts.length - 1];
+  assert.ok(credit.text.toUpperCase().includes("LILIES IN BLOOM"), "the last line drawn must be the shop credit line");
+  assert.ok(credit.y >= laid.headBottom, `credit line at y=${credit.y} sits above the wording it's supposed to follow (headBottom=${laid.headBottom})`);
+});
+
+test("lifestyle: never trips the shared shrink-to-fit loop meant for the other four's bordered-sheet layout", () => {
+  const { laid } = lifestyleFixture();
+  assert.ok(laid.contentBottom <= laid.panelTop, "lifestyle must report contentBottom <= panelTop so fitPoster's shrink loop never iterates for it");
+});
+
 test("the ribbon is never dragged up over the headline", () => {
   // The real defect, seen in a browser: on the card composition — whose
   // printed area starts a third of the way down, under the photographic band

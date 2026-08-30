@@ -75,6 +75,8 @@
   <div><label>Headline<input id="headline"></label></div>
   <div style="grid-column:1/-1"><label>Message<input id="body"></label></div>
   <div style="grid-column:1/-1"><label>Call to action<input id="cta"></label></div>
+  <div><label>Force composition (blank = seeded)<input id="composition" placeholder="atelier, card, banner, editorial, lifestyle"></label></div>
+  <div style="grid-column:1/-1"><label>Background photo URL<input id="backgroundUrl"></label></div>
   <div class="actions">
     <button id="render">Render</button>
     <button id="reseed" class="ghost">Different designs</button>
@@ -100,7 +102,9 @@
     primary:  q.get("primary")  || "#7c3a58",
     headline: q.get("headline") || "Closing Early Today",
     body:     q.get("body")     || "Your Flower Shop is closing at 2:30 today.",
-    cta:      q.get("cta")      || "Call 555-555-5555 to place an order."
+    cta:      q.get("cta")      || "Call 555-555-5555 to place an order.",
+    composition: q.get("composition") || "",
+    backgroundUrl: q.get("bg") || "/assets/atelier-floral-corner.jpg"
   };
   Object.keys(defaults).forEach(function (k) { if (el(k)) el(k).value = defaults[k]; });
 
@@ -145,11 +149,14 @@
         cap.textContent = "seed " + seed + " — rendering…";
         fig.appendChild(img); fig.appendChild(cap);
         out.appendChild(fig);
-        window.FlorisynFlyerPoster.renderPoster({
+        var opts = {
           width: 1080, height: 1350, seed: seed,
           content: content, brand: brand,
-          backgroundUrl: "/assets/atelier-floral-corner.jpg"
-        }).then(function (canvas) {
+          backgroundUrl: el("backgroundUrl").value || "/assets/atelier-floral-corner.jpg"
+        };
+        var forced = (el("composition").value || "").trim();
+        if (forced) opts.composition = forced;
+        window.FlorisynFlyerPoster.renderPoster(opts).then(function (canvas) {
           img.src = canvas.toDataURL("image/png");
           cap.textContent = "seed " + seed +
             " · composition: " + (canvas.dataset.florisynPosterComposition || "?") +

@@ -370,6 +370,22 @@
         topY: h * 0.10, bottomPad: h * 0.06
       };
     }
+    if (composition === "lifestyle") {
+      // A single full-bleed photograph with the wording set directly onto
+      // it — no bordered sheet, no separate photo band or corner cluster,
+      // no ornament. The photograph is the whole poster; the words are a
+      // caption sitting on top of it, the way a real phone photo with a
+      // handwritten-feeling caption looks on social media, not a printed
+      // flyer. This is the shape of Ashley's own Pinterest reference
+      // ("buy yourself the flowers...") — none of the other four
+      // compositions can make that shape; they all put type on a printed
+      // sheet with the flowers arranged around it.
+      return {
+        kind: "lifestyle",
+        colX: w * 0.09, colW: w * 0.82, cx: w / 2,
+        topY: h * 0.6, bottomPad: h * 0.045
+      };
+    }
     return {
       kind: "atelier",
       colX: w * 0.11, colW: w * 0.78, cx: w / 2,
@@ -1315,7 +1331,15 @@
     return { script: words[0], connector: "", rest: words.slice(1).join(" ") };
   }
 
+  // The default rotation every real generated flyer draws from. "lifestyle"
+  // is deliberately NOT in this list yet — it's a genuinely different tone
+  // (a casual social caption, not a branded flyer) that Ashley hasn't seen
+  // or approved for real posts. It's reachable only by explicitly naming it
+  // via opts.composition (see drawPoster below), which is how the preview
+  // tool (poster-preview.html) shows it without it ever being picked for a
+  // real customer-facing post.
   var COMPOSITIONS = ["atelier", "card", "banner", "editorial"];
+  var PREVIEWABLE_COMPOSITIONS = COMPOSITIONS.concat(["lifestyle"]);
 
   /**
    * Draws one complete poster.
@@ -1348,7 +1372,17 @@
     var candidateCompositions = opts.subjectForwardPhoto
       ? COMPOSITIONS.filter(function (c) { return c !== "editorial"; })
       : COMPOSITIONS;
-    var composition = candidateCompositions[Math.floor(rand() * candidateCompositions.length) % candidateCompositions.length];
+    // rand() is always called here, whether or not its result ends up used
+    // below, so an explicit override never changes how many times THIS rand
+    // stream has been drawn from by the time the floral placement that
+    // follows reads it — measuring and drawing agree either way since both
+    // receive the identical opts.composition.
+    var seededComposition = candidateCompositions[Math.floor(rand() * candidateCompositions.length) % candidateCompositions.length];
+    // An explicit composition request (the preview tool only, for now — see
+    // PREVIEWABLE_COMPOSITIONS above) always wins over the seeded pick.
+    var composition = opts.composition && PREVIEWABLE_COMPOSITIONS.indexOf(opts.composition) !== -1
+      ? opts.composition
+      : seededComposition;
     var L = layoutFor(composition, w, h, opts.textSide);
     var cx = L.cx;
     var maxW = L.colW;
@@ -1393,6 +1427,129 @@
         ctx.fillRect(bx, 0, bw, h);
         ctx.restore();
       }
+    }
+    if (L.kind === "lifestyle") {
+      // Mirrors editorial's own guard exactly: paintFullBleed calls
+      // ctx.drawImage unconditionally whenever an image is given, so it must
+      // never be called at all during the measuring pass (a null probe ctx
+      // would throw), not merely be told to paint nothing.
+      if (!opts.measureOnly) clusters = paintFullBleed(ctx, w, h, opts.image);
+      // A first-pass style, deliberately self-contained: it takes no part
+      // in the border/panel/ornament/lockup machinery every other
+      // composition shares below (that machinery is for a bordered printed
+      // sheet; this style has no sheet at all, only the photograph), so it
+      // can never regress one of the other four. Real proof this actually
+      // looks right — not just that the geometry holds — is a rendered
+      // screenshot, same discipline the other four went through.
+      var lifestyleGround = opts.measureOnly ? null : captureGround(ctx, w, h, clusters, L.colW);
+      var cy = L.topY;
+
+      // Advances past whatever was ACTUALLY drawn for the line just placed
+      // — a fixed per-line gap guessed from fontSize alone is exactly what
+      // a real rendered screenshot (not the geometry tests, which use
+      // synthetic per-character metrics and never modelled this) caught
+      // failing: a ribbon banner behind a large script headline can extend
+      // well past the text's own descent, and the next line printed
+      // straight over its tail. lifestyleGround.lastBottom already tracks
+      // the real lowest pixel used so far, ribbon included, whenever there
+      // is a real ground to read it from (not the measuring pass, whose
+      // exact numbers here are discarded either way since lifestyle never
+      // enters the shared shrink-to-fit loop).
+      function afterLine(baselineY, fontSize, fallbackGapFactor) {
+        return lifestyleGround && typeof lifestyleGround.lastBottom === "number"
+          ? Math.max(lifestyleGround.lastBottom, baselineY) + fontSize * 0.18
+          : baselineY + fontSize * fallbackGapFactor;
+      }
+
+      // The quote — content.headline — set loose and large, the way a
+      // handwritten caption sits under a phone photo. This is the one thing
+      // the other four compositions cannot make: a photograph with words
+      // simply resting on it, no printed sheet around either.
+      var quoteSize = fitLine(
+        ctx, content.headline || "", "400 %spx 'Parisienne', 'Brush Script MT', cursive",
+        Math.round(h * 0.062), L.colW, Math.round(h * 0.03)
+      );
+      cy += quoteSize * 0.82;
+      placeLine(ctx, lifestyleGround, content.headline || "", L.cx, cy, quoteSize, palette, palette.ink);
+      cy = afterLine(cy, quoteSize, 0.34);
+
+      // The shop's own name is mandatory on every customer-facing flyer,
+      // even if this image is later shared with no caption of its own — the
+      // same standing rule every other composition's name lockup exists to
+      // satisfy. Computed BEFORE body/cta sizing (rather than after, as a
+      // fixed bottom offset) so the room actually available for the real
+      // wording is known up front, not guessed at.
+      var creditSize = Math.max(10, Math.round(h * 0.017));
+      var creditText = String(brand.shopName || "").toUpperCase() + (brand.phone ? "   ·   " + brand.phone : "");
+      var creditY = h - L.bottomPad;
+      var bottomLimit = creditY - creditSize * 1.6;
+
+      // The real wording underneath — body, then cta — still has to reach
+      // the graphic IN FULL, exactly as every other composition guarantees
+      // (every word the florist actually wrote must survive; nothing here
+      // is a stock phrase to shorten). The other four compositions make
+      // that guarantee by shrinking the whole block to fit its available
+      // space rather than dropping lines — a fixed line-count cap here
+      // would silently truncate a longer request off the bottom of the
+      // flyer, the exact class of defect a mutation test caught in an
+      // earlier draft of this same composition. This shrinks bodySize and
+      // ctaSize together (never the quote — that's the one line meant to
+      // stay prominent) until every wrapped line actually fits between the
+      // quote and the credit line, with a legibility floor as the honest
+      // last resort rather than a silent drop.
+      var bodyFloor = Math.max(9, Math.round(h * 0.013));
+      var bodySize = Math.round(h * 0.026);
+      var ctaSize = Math.round(h * 0.024);
+      var bodyLines, ctaLines, roomAbove;
+      for (var shrinkTry = 0; shrinkTry < 24; shrinkTry++) {
+        ctx.font = "500 " + bodySize + "px 'DM Sans', sans-serif";
+        bodyLines = content.body ? wrapLines(ctx, content.body, L.colW) : [];
+        ctx.font = "600 " + ctaSize + "px 'DM Sans', sans-serif";
+        ctaLines = content.cta ? wrapLines(ctx, content.cta, L.colW) : [];
+        var neededHeight = bodyLines.length * bodySize * 1.32 + ctaLines.length * ctaSize * 1.4;
+        roomAbove = bottomLimit - cy;
+        if (neededHeight <= roomAbove || bodySize <= bodyFloor) break;
+        bodySize = Math.max(bodyFloor, Math.floor(bodySize * 0.92));
+        ctaSize = Math.max(bodyFloor - 1, Math.floor(ctaSize * 0.92));
+      }
+      // The shrink loop above leaves ctx.font set to whatever it last
+      // measured with (the cta font, from its own last iteration) — a real
+      // defect found only in an actual rendered screenshot, not by any
+      // geometry test: without resetting it here, EVERY body line drew in
+      // the cta's leftover font/size while placeLine's spacing math still
+      // used bodySize, so the two blocks visually collided. placeLine
+      // itself never sets font — every caller owns that, exactly like the
+      // rest of this file's other compositions already do.
+      ctx.font = "500 " + bodySize + "px 'DM Sans', sans-serif";
+      for (var bi = 0; bi < bodyLines.length; bi++) {
+        cy += bodySize * 1.32;
+        placeLine(ctx, lifestyleGround, bodyLines[bi], L.cx, cy, bodySize, palette, rgba(palette.ink, 0.88));
+        cy = afterLine(cy, bodySize, 0);
+      }
+      ctx.font = "600 " + ctaSize + "px 'DM Sans', sans-serif";
+      for (var ci = 0; ci < ctaLines.length; ci++) {
+        cy += ctaSize * 1.4;
+        placeLine(ctx, lifestyleGround, ctaLines[ci], L.cx, cy, ctaSize, palette, palette.ink);
+        cy = afterLine(cy, ctaSize, 0);
+      }
+
+      // Set as a small, quiet credit line rather than a display lockup: the
+      // photograph is this style's whole point, not the shop's typography.
+      // The shrink loop above targets bottomLimit, but an absurdly long
+      // request could still exhaust the floor — this is the honest last
+      // resort, never letting the credit line print on top of real wording
+      // (or its ribbon, per the same ground-aware check afterLine uses).
+      ctx.font = "600 " + creditSize + "px 'DM Sans', sans-serif";
+      var minCreditY = afterLine(cy, creditSize, 1.6);
+      if (creditY < minCreditY) creditY = minCreditY;
+      if (creditText.trim()) placeLine(ctx, lifestyleGround, creditText, L.cx, creditY, creditSize, palette, rgba(palette.ink, 0.82));
+
+      return {
+        composition: composition, contentBottom: 0, panelTop: h,
+        headBottom: cy, ribbon: null, column: L.colW, bodyWidth: L.colW,
+        frame: null, panel: null, typeStyle: "script", messageStyle: "plain",
+        lockupStyle: "script", ornamentMark: "none", borderVariant: "none"
+      };
     }
     // The composition now decides what actually differs. It used to be
     // stamped onto the canvas and returned while every branch drew the
@@ -2185,7 +2342,11 @@
         width: width, height: height, content: opts.content, brand: brand,
         palette: palette, image: img, seed: seed, textSide: textSide,
         needsBackdrop: needsBackdrop, paletteMood: mood,
-        subjectForwardPhoto: !!opts.subjectForwardPhoto
+        subjectForwardPhoto: !!opts.subjectForwardPhoto,
+        // Only ever set by the preview tool today (see
+        // PREVIEWABLE_COMPOSITIONS) — real generation never passes this, so
+        // it never affects an actual customer-facing post.
+        composition: opts.composition
       };
       // Lay the poster out once against a context that measures but paints
       // nothing, to learn how tall it naturally is. Short wording used to
