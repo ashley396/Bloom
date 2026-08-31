@@ -104,6 +104,54 @@ test("loadGenerationGrounding: 'audience' memoizes onto a shared ctx exactly lik
   assert.equal(client.calls.length, callCountAfterFirst, "a second call sharing the same ctx must not re-query the audience loader");
 });
 
+// Phase 2 rebuild, priority-4 gap: "recent" (recent-content repetition
+// awareness) is also opt-in only, same reasoning as "audience" above —
+// only the caller that's about to generate copy pays for the read.
+
+test("loadGenerationGrounding: default needs never touch marketing_platform_variants — 'recent' stays opt-in", async () => {
+  const client = createFakeSupabaseClient([
+    { data: { preferences: {} }, error: null },
+    { data: { preferences: {} }, error: null },
+    { data: [], error: null }
+  ]);
+  const result = await loadGenerationGrounding(client, "shop-1");
+  assert.equal(result.recentContentSummary, null);
+  assert.equal(client.calls.find((c) => c.table === "marketing_platform_variants"), undefined);
+});
+
+test("loadGenerationGrounding: 'recent' in needs loads this shop's real recent captions and threads them into the real prompt brief", async () => {
+  const client = createFakeSupabaseClient([{ data: [{ caption: "Fresh peonies just arrived!", content_item_id: "item-1", created_at: "2026-08-20T00:00:00Z" }], error: null }]);
+  const result = await loadGenerationGrounding(client, "shop-1", { needs: ["recent"] });
+  assert.match(result.recentContentSummary, /Fresh peonies just arrived!/);
+  assert.equal(result.brandVoiceSummary, "", "requesting only 'recent' must not also pull brand/style/inventory");
+  const variantsCall = client.calls.find((c) => c.table === "marketing_platform_variants");
+  assert.ok(variantsCall.ops.some((op) => op[0] === "eq" && op[1][0] === "shop_id" && op[1][1] === "shop-1"));
+});
+
+test("loadGenerationGrounding: 'recent' passes excludeContentItemId through, so a revision never sees its own prior caption", async () => {
+  const client = createFakeSupabaseClient([
+    {
+      data: [
+        { caption: "This item's own prior caption.", content_item_id: "item-being-revised", created_at: "2026-08-20T00:00:00Z" },
+        { caption: "A genuinely different, older post.", content_item_id: "item-other", created_at: "2026-08-18T00:00:00Z" }
+      ],
+      error: null
+    }
+  ]);
+  const result = await loadGenerationGrounding(client, "shop-1", { needs: ["recent"], excludeContentItemId: "item-being-revised" });
+  assert.doesNotMatch(result.recentContentSummary, /own prior caption/);
+  assert.match(result.recentContentSummary, /genuinely different, older post/);
+});
+
+test("loadGenerationGrounding: 'recent' memoizes onto a shared ctx exactly like the other summaries", async () => {
+  const client = createFakeSupabaseClient([{ data: [], error: null }]);
+  const ctx = {};
+  await loadGenerationGrounding(client, "shop-1", { needs: ["recent"], ctx });
+  const callCountAfterFirst = client.calls.length;
+  await loadGenerationGrounding(client, "shop-1", { needs: ["recent"], ctx });
+  assert.equal(client.calls.length, callCountAfterFirst, "a second call sharing the same ctx must not re-query the recent-content loader");
+});
+
 test("loadGenerationGrounding: without a shared ctx, each call is independent (no accidental cross-request memoization)", async () => {
   const client = createFakeSupabaseClient([
     { data: { preferences: {} }, error: null },

@@ -96,6 +96,7 @@ test("generate_content: real inventory rows reach the actual prompt sent to the 
       }, // loadGroundedInventory: one real row
       { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — customers (none)
       { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — orders (none)
+      { data: [], error: null }, // Phase 2 rebuild grounding: loadRecentContent (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy")
       { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset
       { data: null, error: null }, // variant update
@@ -146,6 +147,7 @@ test("generate_content: an empty shop (no real inventory rows) degrades to no in
       { data: [], error: null }, // loadGroundedInventory: zero real rows
       { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — customers (none)
       { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — orders (none)
+      { data: [], error: null }, // Phase 2 rebuild grounding: loadRecentContent (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy")
       { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset
       { data: null, error: null }, // variant update

@@ -849,7 +849,17 @@ test("generateSocialPost: with every real grounding summary populated (the reali
       visualStyleSummary:
         "Soft natural light, pastel color grading, farmhouse-style wooden surfaces, loose garden-style arrangements, shallow depth of field",
       inventorySummary: "In stock this week: garden roses, ranunculus, peonies, eucalyptus, spray roses, lisianthus, tulips, hydrangea.",
-      audienceSummary: "This post targets 1,204 Facebook followers, mostly local repeat customers aged 30-55."
+      audienceSummary: "This post targets 1,204 Facebook followers, mostly local repeat customers aged 30-55.",
+      // Phase 2 rebuild's 5th grounding summary (recent-content
+      // repetition awareness) — a realistic 6-caption shortlist, the same
+      // shape marketing-recent-content-grounding.js's own
+      // buildRecentContentGroundingBrief produces.
+      recentContentSummary:
+        `This shop's own recent real posts, most recent first (never repeat their exact opening line, phrasing, or angle — write something genuinely different this time, even if the underlying occasion/topic is similar): ` +
+        Array.from(
+          { length: 6 },
+          (_, i) => `${i + 1}) "Heads up, our fresh spring tulips and daffodils just arrived and we cannot wait for you to see them this week"`
+        ).join(" ")
     });
     const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
     const taskPortion = userMessage.split("\nInput:")[0];
@@ -858,6 +868,7 @@ test("generateSocialPost: with every real grounding summary populated (the reali
     // truncation bug drops first — must all actually be present.
     assert.match(taskPortion, /SYMPATHY AND FUNERAL WORK/);
     assert.match(taskPortion, /creative_brief:/);
+    assert.match(taskPortion, /recent real posts/);
   } finally {
     mock.restore();
   }

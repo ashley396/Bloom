@@ -175,6 +175,7 @@ test("generate_content for an image-bearing post (Ashley's real scenario, not te
         { data: [], error: null }, // loadGroundedInventory
         { data: [], error: null }, // audience: customers
         { data: [], error: null }, // audience: orders
+        { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
         { data: null, error: null }, // recordUsage("copy") — the Facebook caption
         // brief:"b" carries no flyer-wording signal, so this is the
         // subject-forward designed-flyer path (a real photo AND real

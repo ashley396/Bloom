@@ -144,6 +144,7 @@ test("generate_content via deps.florist (Ashley's real button click path): succe
       { data: [], error: null }, // loadGroundedInventory
       { data: [], error: null }, // audience: customers
       { data: [], error: null }, // audience: orders
+      { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy")
       { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset
       { data: null, error: null }, // variant update

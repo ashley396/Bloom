@@ -55,21 +55,27 @@ import { loadBrandBrain, buildBrandSummary } from "./marketing-brand-brain.js";
 import { loadStyleMemory, buildStyleSummary } from "./ai-style-memory.js";
 import { loadGroundedInventory, buildInventoryGroundingBrief } from "./marketing-inventory-grounding.js";
 import { loadCustomerAudienceSummary, buildAudienceGroundingBrief } from "./customer-audience-grounding.js";
+import { loadRecentContent, buildRecentContentGroundingBrief } from "./marketing-recent-content-grounding.js";
 
 const EMPTY_INVENTORY_BRIEF = Object.freeze({ summaryText: null, sources: [], grounded: false });
 const EMPTY_AUDIENCE_BRIEF = Object.freeze({ summaryText: null, grounded: false });
+const EMPTY_RECENT_BRIEF = Object.freeze({ summaryText: null, grounded: false });
 
 /**
  * @param {import('@supabase/supabase-js').SupabaseClient} client
  * @param {string} shopId
  * @param {object} [opts]
- * @param {("brand"|"style"|"inventory"|"audience")[]} [opts.needs] - defaults to brand+style+inventory; "audience" is opt-in (see module docstring)
+ * @param {("brand"|"style"|"inventory"|"audience"|"recent")[]} [opts.needs] - defaults to brand+style+inventory; "audience" and "recent" are opt-in (see module docstring)
  * @param {object} [opts.ctx] - an object to memoize onto across repeated
  *   calls within the same job/request (e.g. one generation per platform).
  *   Optional — a fresh {} is used (and discarded) when omitted.
- * @returns {Promise<{brandVoiceSummary: string, visualStyleSummary: string, inventorySummary: string|null, inventorySources: Array, audienceSummary: string|null}>}
+ * @param {string|null} [opts.excludeContentItemId] - passed through to
+ *   "recent" grounding so a revision regenerating THIS item's own caption
+ *   never sees its own (possibly already-persisted) prior caption in its
+ *   own "don't repeat this" list.
+ * @returns {Promise<{brandVoiceSummary: string, visualStyleSummary: string, inventorySummary: string|null, inventorySources: Array, audienceSummary: string|null, recentContentSummary: string|null}>}
  */
-export async function loadGenerationGrounding(client, shopId, { needs = ["brand", "style", "inventory"], ctx = {} } = {}) {
+export async function loadGenerationGrounding(client, shopId, { needs = ["brand", "style", "inventory"], ctx = {}, excludeContentItemId = null } = {}) {
   const want = new Set(needs);
 
   if (want.has("brand") && ctx._genGroundingBrand === undefined) {
@@ -88,12 +94,17 @@ export async function loadGenerationGrounding(client, shopId, { needs = ["brand"
     const audience = await loadCustomerAudienceSummary(client, shopId);
     ctx._genGroundingAudience = buildAudienceGroundingBrief(audience);
   }
+  if (want.has("recent") && ctx._genGroundingRecent === undefined) {
+    const recent = await loadRecentContent(client, shopId, { excludeContentItemId });
+    ctx._genGroundingRecent = buildRecentContentGroundingBrief(recent) || EMPTY_RECENT_BRIEF;
+  }
 
   return {
     brandVoiceSummary: want.has("brand") ? ctx._genGroundingBrand || "" : "",
     visualStyleSummary: want.has("style") ? ctx._genGroundingStyle || "" : "",
     inventorySummary: want.has("inventory") ? ctx._genGroundingInventory?.summaryText || null : null,
     inventorySources: want.has("inventory") ? ctx._genGroundingInventory?.sources || [] : [],
-    audienceSummary: want.has("audience") ? ctx._genGroundingAudience?.summaryText || null : null
+    audienceSummary: want.has("audience") ? ctx._genGroundingAudience?.summaryText || null : null,
+    recentContentSummary: want.has("recent") ? ctx._genGroundingRecent?.summaryText || null : null
   };
 }

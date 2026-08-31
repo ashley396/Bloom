@@ -284,6 +284,7 @@ test("generate_content: a text_post's real generation persists brand_traits_used
       { data: [], error: null }, // loadGroundedInventory (no real inventory rows in this test's shop)
       { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — customers (none)
       { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — orders (none)
+      { data: [], error: null }, // Phase 2 rebuild grounding: loadRecentContent (marketing_platform_variants)
       { data: null, error: null }, // recordUsage insert
       { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset (social_copy)
       { data: null, error: null }, // marketing_platform_variants update (1 variant)

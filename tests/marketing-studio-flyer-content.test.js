@@ -179,6 +179,7 @@ function generateFlyerFixtureQueue({ shopPhone = "606-506-4039" } = {}) {
     { data: [], error: null }, // loadGroundedInventory
     { data: [], error: null }, // audience customers
     { data: [], error: null }, // audience orders
+    { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
     { data: null, error: null }, // recordUsage("copy") — copyGen
     { data: null, error: null }, // recordUsage("copy") — flyerGen
     { data: { id: "flyer-asset-1" }, error: null }, // persistGeneratedAsset (flyer)
@@ -326,6 +327,7 @@ test("generate_content (real dispatch): a flyer-routed closing notice never call
         { data: [], error: null }, // loadGroundedInventory
         { data: [], error: null }, // audience customers
         { data: [], error: null }, // audience orders
+        { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
         { data: null, error: null }, // recordUsage("copy") — the ONE real copy call only
         { data: { id: "flyer-asset-1" }, error: null }, // persistGeneratedAsset (flyer)
         { data: null, error: null }, // variant update
@@ -413,6 +415,7 @@ function exactSentenceFixtureQueue({ primaryColor = "#b93870", accentColor = "#6
     { data: [], error: null }, // loadGroundedInventory
     { data: [], error: null }, // audience customers
     { data: [], error: null }, // audience orders
+    { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
     { data: null, error: null }, // recordUsage("copy") — the ONE real copy call only
     { data: { id: "flyer-asset-1" }, error: null }, // persistGeneratedAsset (flyer)
     { data: null, error: null }, // variant update
@@ -517,11 +520,12 @@ test("generate_content (real dispatch): an ordinary decorative request is now a 
       { data: { marketing_monthly_budget_cents: null }, error: null },
       { data: null, error: null },
       { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
-      { data: null, error: null },
-      { data: null, error: null },
-      { data: [], error: null },
-      { data: [], error: null },
-      { data: [], error: null },
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: [], error: null }, // loadGroundedInventory
+      { data: [], error: null }, // audience: customers
+      { data: [], error: null }, // audience: orders
+      { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy") — the Facebook caption (generateSocialPost)
       { data: null, error: null }, // recordUsage("copy") — the on-image flyer text (generateFlyerCopy/generateFlyerContent)
       { data: null, error: null }, // recordUsage("image")
@@ -601,6 +605,7 @@ test("generate_content (real dispatch): a text_post never gets asked for a photo
     { data: [], error: null }, // loadGroundedInventory
     { data: [], error: null }, // audience customers
     { data: [], error: null }, // audience orders
+    { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
     { data: null, error: null }, // recordUsage("copy") — copyGen
     { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset (social_copy)
     { data: null, error: null }, // variant update
@@ -637,6 +642,7 @@ test("generate_content (real dispatch): photo_choice 'upload' uses the florist's
         { data: [], error: null }, // loadGroundedInventory
         { data: [], error: null }, // audience customers
         { data: [], error: null }, // audience orders
+        { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
         { data: null, error: null }, // recordUsage("copy") — the Facebook caption
         { data: null, error: null }, // recordUsage("copy") — the on-image flyer text
         // No recordUsage("image") row here — a real upload never spends on
@@ -700,6 +706,7 @@ test("generate_content (real dispatch): photo_choice 'upload' with no actual pho
       { data: [], error: null }, // loadGroundedInventory
       { data: [], error: null }, // audience customers
       { data: [], error: null }, // audience orders
+      { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy") — copyGen (the Facebook caption)
       { data: null, error: null }, // recordUsage("copy") — generateFlyerCopy's on-image flyer text
       { data: { id: "item-5", status: "idea" }, error: null } // revertToIdea's own update
@@ -773,6 +780,7 @@ test("generate_content (real dispatch): photo_choice 'reuse' reuses a prior real
       { data: [], error: null }, // loadGroundedInventory
       { data: [], error: null }, // audience customers
       { data: [], error: null }, // audience orders
+      { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy") — Facebook caption
       { data: null, error: null }, // recordUsage("copy") — on-image flyer text
       // The reuse source-asset re-fetch (re-verifies shop_id itself, never
@@ -824,6 +832,7 @@ test("generate_content (real dispatch): photo_choice 'reuse' with no reuse_asset
       { data: [], error: null }, // loadGroundedInventory
       { data: [], error: null }, // audience customers
       { data: [], error: null }, // audience orders
+      { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy") — copyGen
       { data: null, error: null }, // recordUsage("copy") — generateFlyerCopy
       { data: { id: "item-reuse-2", status: "idea" }, error: null } // revertToIdea's own update
@@ -856,6 +865,7 @@ test("generate_content (real dispatch): photo_choice 'reuse' pointing at another
       { data: [], error: null }, // loadGroundedInventory
       { data: [], error: null }, // audience customers
       { data: [], error: null }, // audience orders
+      { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy") — copyGen
       { data: null, error: null }, // recordUsage("copy") — generateFlyerCopy
       // The re-fetch is scoped .eq("shop_id", shopId) — a real Supabase
@@ -888,6 +898,7 @@ test("generate_content (real dispatch): photo_choice 'reuse' pointing at a prior
       { data: [], error: null }, // loadGroundedInventory
       { data: [], error: null }, // audience customers
       { data: [], error: null }, // audience orders
+      { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy") — copyGen
       { data: null, error: null }, // recordUsage("copy") — generateFlyerCopy
       { data: { id: "asset-ai-source", shop_id: "shop-ashley", content: { user_uploaded_photo: false, background_url: "https://fake.storage/ai-generated.jpg" } }, error: null },
@@ -1747,6 +1758,7 @@ test("ACCEPTANCE (real dispatch): the canonical shop with an empty stored phone 
         { data: [], error: null }, // grounded inventory
         { data: [], error: null }, // audience customers
         { data: [], error: null }, // audience orders
+        { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
         // Exactly ONE usage insert: this request is a plain operational
         // notice, so both the caption and the flyer wording come from
         // buildDeterministicNoticeContent and NO AI text call is made at
@@ -1823,11 +1835,12 @@ test("ACCEPTANCE (real dispatch): with the shop's own phone NOW saved, the flyer
         { data: { marketing_monthly_budget_cents: null }, error: null },
         { data: null, error: null },
         { data: { name: "Lilies in Bloom", phone: "606-506-4039", primary_color: "#8f3f68", accent_color: "#6f8f72" }, error: null },
-        { data: null, error: null },
-        { data: null, error: null },
-        { data: [], error: null },
-        { data: [], error: null },
-        { data: [], error: null },
+        { data: null, error: null }, // loadBrandBrain
+        { data: null, error: null }, // loadStyleMemory
+        { data: [], error: null }, // loadGroundedInventory
+        { data: [], error: null }, // audience: customers
+        { data: [], error: null }, // audience: orders
+        { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
         { data: null, error: null },
         { data: { id: "flyer-asset-1" }, error: null },
         { data: null, error: null },

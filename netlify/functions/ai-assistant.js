@@ -123,22 +123,24 @@ async function cloudflareAi(payload){
   const model=process.env.CLOUDFLARE_AI_MODEL||MODEL_DEFAULT;
   const persona = normalizePersona(payload.persona);
   const mode = payload.mode === "generate" ? "generate" : "chat";
-  // Task cap raised twice now, same root cause both times, and this second
-  // pass found the first raise (1200 -> 4000, Phase 9) was ALREADY
-  // insufficient before today's change: buildSocialPostTask's real prompt
-  // (every anti-fabrication rule plus all four grounding summaries —
-  // brand voice, visual style, inventory, audience — actually populated,
-  // the realistic case for an established shop) measured at 6681 raw
-  // chars, well past the 4000 cap already in place; adding the Phase 2
-  // creative_brief rule brought it to 7167. Both were being silently
-  // tail-truncated by safeText, not just the newest rule — an
-  // unmeasured cap is not a real cap. Raised to 9000: real margin above
-  // the measured 7167-char worst case (not just enough to clear it), with
-  // room to spare in Llama 3.1 8B's context window alongside the
+  // Task cap raised three times now, same root cause every time: this
+  // text composes every anti-fabrication rule plus however many grounding
+  // summaries are actually populated (brand voice, visual style,
+  // inventory, audience, and now Phase 2's recent-content-repetition
+  // summary), and a silent tail-truncation here has repeatedly dropped the
+  // newest addition off the end rather than erroring. Measured, not
+  // guessed, each time: 1200 -> 4000 (Phase 9, the audience-number safety
+  // rule); 4000 -> 9000 (Phase 2, the creative_brief rule — realistic
+  // worst case with 4 summaries measured at 7167 raw chars, already past
+  // the 4000 cap in place at the time); now 9000 -> 12000 with the 5th
+  // (recent-content) summary added — realistic worst case with all 5
+  // summaries populated measured at 8127 raw chars. Raised to 12000: real
+  // margin above that measured worst case, not just enough to clear it —
+  // Llama 3.1 8B's real context window has ample room left even with the
   // schema/input JSON blocks that follow. If this trips again, the fix is
   // the same: measure the real worst case, don't just nudge the number.
   const user=payload.mode==="generate"
-    ?`Task: ${safeText(payload.task,9000)}\nInput: ${jsonWithinLimit(payload.input||{},30000)}\nReturn ONLY valid JSON matching this shape: ${jsonWithinLimit(payload.schema||{text:"result"},5000)}`
+    ?`Task: ${safeText(payload.task,12000)}\nInput: ${jsonWithinLimit(payload.input||{},30000)}\nReturn ONLY valid JSON matching this shape: ${jsonWithinLimit(payload.schema||{text:"result"},5000)}`
     :`Question: ${safeText(payload.prompt,4000)}\nRelevant Florisyn context: ${jsonWithinLimit(payload.context||{},32000)}`;
   // Model slug (e.g. "@cf/meta/llama-3.1-8b-instruct-fast") must stay literal in the path —
   // encodeURIComponent turns its "/" into "%2F", which Cloudflare rejects as "No route for that URI".

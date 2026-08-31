@@ -1916,9 +1916,17 @@ export function createMarketingStudioHandler(deps = {}) {
         // in explicitly (it's not one of loadGenerationGrounding's default
         // three) — real subscriber/segment counts now ground the same
         // generation calls brand voice and inventory already do.
-        const { brandVoiceSummary, visualStyleSummary, inventorySummary, inventorySources, audienceSummary } = await loadGenerationGrounding(client, shopId, {
-          needs: ["brand", "style", "inventory", "audience"]
-        });
+        // Phase 2 rebuild, priority-4 gap: "recent" also opted in here —
+        // this shop's own real recent post captions, so back-to-back
+        // requests don't land on the same opening line week after week.
+        // excludeContentItemId is this item's own id so a later revision
+        // pass over the SAME item never sees its own prior caption in its
+        // own "don't repeat this" list.
+        const { brandVoiceSummary, visualStyleSummary, inventorySummary, inventorySources, audienceSummary, recentContentSummary } = await loadGenerationGrounding(
+          client,
+          shopId,
+          { needs: ["brand", "style", "inventory", "audience", "recent"], excludeContentItemId: body.content_item_id }
+        );
 
         if (VIDEO_CONTENT_TYPES.has(currentItem.data.content_type)) {
           await recordUsage("copy", "request", 1);
@@ -1931,7 +1939,8 @@ export function createMarketingStudioHandler(deps = {}) {
             brandVoiceSummary,
             visualStyleSummary,
             inventorySummary,
-            audienceSummary
+            audienceSummary,
+            recentContentSummary
           });
           if (!gen.ok) {
             await revertToIdea();
@@ -2059,7 +2068,8 @@ export function createMarketingStudioHandler(deps = {}) {
             brandVoiceSummary,
             visualStyleSummary,
             inventorySummary,
-            audienceSummary
+            audienceSummary,
+            recentContentSummary
           };
           copyGen = await generateSocialPost(socialPostArgs);
           if (!copyGen.ok) {

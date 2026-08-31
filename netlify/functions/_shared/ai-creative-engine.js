@@ -153,7 +153,7 @@ export function sanitizedRequestForModel(requestText, shopName) {
   return requestText;
 }
 
-function buildSocialPostTask({ channel, occasion, audience, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }) {
+function buildSocialPostTask({ channel, occasion, audience, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary, recentContentSummary }) {
   return `You are writing the ACTUAL, FINISHED social media post Florisyn will show a florist to publish today. Do not describe the request. Do not summarize what was asked. Do not restate the user's instruction. Write real, publish-ready copy a customer would read right now.
 
 Platform: ${channel || "facebook"}.
@@ -163,6 +163,7 @@ ${brandVoiceSummary ? `This shop's own learned brand voice (from what they've ex
 ${visualStyleSummary ? `This shop's own learned VISUAL creative style (backgrounds/lighting/colors/mood/etc., separate from the writing voice above) — use it to fill in what visual_brief doesn't otherwise specify; the request's own explicit visual direction always wins if it conflicts, and a one-time visual request never overrides this standing style: ${visualStyleSummary}.` : ""}
 ${inventorySummary ? `${inventorySummary} Only mention specific flowers/stems by name if the request above is actually about what's in stock, what to sell, or what to feature — do not force an inventory mention into a post that isn't about that. When you do reference stock, name only items from this list; never name a flower, color, or variety that isn't on it.` : ""}
 ${audienceSummary ? audienceSummary : ""}
+${recentContentSummary ? recentContentSummary : ""}
 
 Rules:
 - Never restate or describe the request itself — the output must be usable as-is, with no editing.
@@ -263,12 +264,12 @@ function traitsGroundedInSummary(traits, summaryText) {
 /** Generates one finished, platform-formatted social post. Never throws —
  * returns { ok:false, error } on any failure so a caller can persist that
  * outcome and keep the rest of a multi-step job running. */
-export async function generateSocialPost({ persona = "Lily", channel, occasion, audience, shop, requestText, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary } = {}) {
+export async function generateSocialPost({ persona = "Lily", channel, occasion, audience, shop, requestText, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary, recentContentSummary } = {}) {
   try {
     const result = await runCloudflareGenerate({
       mode: "generate",
       persona,
-      task: buildSocialPostTask({ channel, occasion, audience, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }),
+      task: buildSocialPostTask({ channel, occasion, audience, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary, recentContentSummary }),
       input: { request: sanitizedRequestForModel(requestText, shop?.name), shop: shop || {} },
       schema: SOCIAL_POST_SCHEMA,
       max_tokens: 700
@@ -303,7 +304,7 @@ export async function generateSocialPost({ persona = "Lily", channel, occasion, 
   }
 }
 
-function buildVideoConceptTask({ occasion, audience, channel, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }) {
+function buildVideoConceptTask({ occasion, audience, channel, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary, recentContentSummary }) {
   return `Plan a short-form marketing video (Reel/TikTok-style) for a flower shop. You are NOT rendering video — final AI video rendering is not connected yet. You ARE producing the complete creative plan: script, shot-by-shot storyboard, on-screen captions. Write the actual finished plan, not a description of what a video could contain.
 
 Channel: ${channel || "instagram/facebook reels"}.
@@ -313,6 +314,7 @@ ${brandVoiceSummary ? `This shop's own learned brand voice (from what they've ex
 ${visualStyleSummary ? `This shop's own learned VISUAL creative style (backgrounds/lighting/colors/mood/etc., separate from the writing voice above) — use it to fill in what the shot descriptions don't otherwise specify; the request's own explicit visual direction always wins if it conflicts, and a one-time visual request never overrides this standing style: ${visualStyleSummary}.` : ""}
 ${inventorySummary ? `${inventorySummary} Only show/name specific flowers/stems if the request above is actually about what's in stock, what to sell, or what to feature — do not force an inventory mention into a video that isn't about that. When you do reference stock, name only items from this list; never name a flower, color, or variety that isn't on it.` : ""}
 ${audienceSummary ? audienceSummary : ""}
+${recentContentSummary ? recentContentSummary : ""}
 
 Rules:
 ${shopIdentityRule(shop?.name, occasion)}
@@ -337,12 +339,12 @@ const VIDEO_CONCEPT_SCHEMA = {
 /** Generates a full video concept/script/storyboard — never a finished
  * video. Result always carries renderingAvailable:false so nothing
  * downstream can mistake a concept for a rendered asset. */
-export async function generateVideoConcept({ persona = "Lily", channel, occasion, audience, shop, requestText, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary } = {}) {
+export async function generateVideoConcept({ persona = "Lily", channel, occasion, audience, shop, requestText, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary, recentContentSummary } = {}) {
   try {
     const result = await runCloudflareGenerate({
       mode: "generate",
       persona,
-      task: buildVideoConceptTask({ occasion, audience, channel, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }),
+      task: buildVideoConceptTask({ occasion, audience, channel, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary, recentContentSummary }),
       input: { request: sanitizedRequestForModel(requestText, shop?.name), shop: shop || {} },
       schema: VIDEO_CONCEPT_SCHEMA,
       max_tokens: 900

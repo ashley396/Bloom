@@ -169,6 +169,7 @@ test("generate_content (real dispatch): a temporary-closing brief that comes bac
       { data: [], error: null }, // loadGroundedInventory
       { data: [], error: null }, // audience customers
       { data: [], error: null }, // audience orders
+      { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy")
       { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset — the mismatch recovered, generation completes
       { data: null, error: null }, // variant update
@@ -220,11 +221,12 @@ test("generate_content (real dispatch): a plain temporary-closing post never cal
       { data: { marketing_monthly_budget_cents: null }, error: null },
       { data: null, error: null },
       { data: { name: "Test Florals" }, error: null },
-      { data: null, error: null },
-      { data: null, error: null },
-      { data: [], error: null },
-      { data: [], error: null },
-      { data: [], error: null },
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: [], error: null }, // loadGroundedInventory
+      { data: [], error: null }, // audience: customers
+      { data: [], error: null }, // audience: orders
+      { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy") — the deterministic path still records real usage
       { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset
       { data: null, error: null }, // variant update
@@ -329,9 +331,10 @@ test("generate_content (real dispatch): a request that names a different florist
       { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow — the REAL authenticated shop
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
-      { data: [], error: null },
-      { data: [], error: null },
-      { data: [], error: null },
+      { data: [], error: null }, // loadGroundedInventory
+      { data: [], error: null }, // audience: customers
+      { data: [], error: null }, // audience: orders
+      { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy")
       { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset
       { data: null, error: null }, // variant update
@@ -670,11 +673,12 @@ test("generate_content (real dispatch): a plain closing notice that comes back w
       { data: { marketing_monthly_budget_cents: null }, error: null },
       { data: null, error: null },
       { data: { name: "Lilies in Bloom" }, error: null },
-      { data: null, error: null },
-      { data: null, error: null },
-      { data: [], error: null },
-      { data: [], error: null },
-      { data: [], error: null },
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: [], error: null }, // loadGroundedInventory
+      { data: [], error: null }, // audience: customers
+      { data: [], error: null }, // audience: orders
+      { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy")
       { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset — the rejection recovered, generation completes normally
       { data: null, error: null }, // variant update
@@ -809,11 +813,12 @@ test("generate_content (real dispatch): a late-opening notice never calls the AI
       { data: { marketing_monthly_budget_cents: null }, error: null },
       { data: null, error: null },
       { data: { name: "Test Florals" }, error: null },
-      { data: null, error: null },
-      { data: null, error: null },
-      { data: [], error: null },
-      { data: [], error: null },
-      { data: [], error: null },
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: [], error: null }, // loadGroundedInventory
+      { data: [], error: null }, // audience: customers
+      { data: [], error: null }, // audience: orders
+      { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy")
       { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset
       { data: null, error: null }, // variant update
@@ -854,11 +859,12 @@ test("generate_content (real dispatch): an ordinary creative post ('40 roses to 
       { data: { marketing_monthly_budget_cents: null }, error: null },
       { data: null, error: null },
       { data: { name: "Test Florals" }, error: null },
-      { data: null, error: null },
-      { data: null, error: null },
-      { data: [], error: null },
-      { data: [], error: null },
-      { data: [], error: null },
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: [], error: null }, // loadGroundedInventory
+      { data: [], error: null }, // audience: customers
+      { data: [], error: null }, // audience: orders
+      { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy")
       { data: { id: "copy-asset-1" }, error: null },
       { data: null, error: null },
