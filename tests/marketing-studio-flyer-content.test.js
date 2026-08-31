@@ -528,7 +528,12 @@ test("generate_content (real dispatch): an ordinary decorative request stays a p
       { data: { id: "item-2", status: "draft" }, error: null }
     ], { storage: createFakeSupabaseStorage({}) });
     const handler = createMarketingStudioHandler(floristDeps(client));
-    const res = await handler(event("generate_content", { content_item_id: "item-2" }));
+    // photo_choice: "generate" — this test exercises the AI-generation
+    // branch specifically; the real client sends this once the florist
+    // has answered the photo-source prompt (see the needs_photo_choice
+    // short-circuit generate_content now returns for a plain image post
+    // with no prior answer).
+    const res = await handler(event("generate_content", { content_item_id: "item-2", photo_choice: "generate" }));
     assert.equal(res.statusCode, 200, `expected the plain image path to succeed: ${res.body}`);
     const body = JSON.parse(res.body);
     assert.equal(body.asset.type, "image", "an ordinary decorative request must NOT be routed through the flyer/poster pipeline");
@@ -545,6 +550,151 @@ test("generate_content (real dispatch): an ordinary decorative request stays a p
     assert.equal(insertedRow.content.visual_brief, decorativeCopy.visual_brief, "the concrete subject description must survive so a later revision has something real to reference");
     assert.ok(!("regions" in insertedRow.content), "a plain image must never carry poster-renderer fields — there is no on-image text to render");
     assert.ok(!("headline" in insertedRow.content), "a plain image has no on-image headline at all");
+  } finally {
+    mock.restore();
+  }
+});
+
+// Ashley's real live-test feedback ("still the same" — a generic AI stock
+// bouquet, never a real photo of her own shop): asked directly, her answer
+// was "ask me each time" rather than picking one fixed default. These
+// tests cover the resulting photo-source choice: generate_content now
+// asks BEFORE spending anything on a plain image_post with no prior
+// answer, and honors either answer once given.
+
+test("generate_content (real dispatch): a plain image_post with no photo_choice yet asks BEFORE any spend — no budget check, no status flip, no provider call", async () => {
+  const client = createFakeSupabaseClient([
+    { data: { id: "item-3", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived! Stop by today.", status: "idea" }, error: null }
+  ]);
+  const handler = createMarketingStudioHandler(floristDeps(client));
+  const res = await handler(event("generate_content", { content_item_id: "item-3" }));
+  assert.equal(res.statusCode, 200, `the photo-choice ask must itself succeed cleanly: ${res.body}`);
+  const body = JSON.parse(res.body);
+  assert.equal(body.needs_photo_choice, true);
+  assert.equal(body.item.id, "item-3");
+  assert.equal(client.calls.length, 1, "only the content-item lookup itself should run — no budget check, no status-flip update, nothing spent asking the question");
+  const statusUpdateCall = client.calls.find((c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(statusUpdateCall, undefined, "the item must stay in 'idea' status until the florist actually answers");
+});
+
+test("generate_content (real dispatch): a text_post never gets asked for a photo choice — it has no photo to choose", async () => {
+  const client = createFakeSupabaseClient([
+    { data: { id: "item-text-1", content_type: "text_post", title: "t", brief: "Fresh roses just arrived!", status: "idea" }, error: null },
+    { data: [{ id: "variant-t1", platform: "facebook" }], error: null },
+    { data: { marketing_monthly_budget_cents: null }, error: null },
+    { data: null, error: null }, // -> generating
+    { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
+    { data: null, error: null }, // loadBrandBrain
+    { data: null, error: null }, // loadStyleMemory
+    { data: [], error: null }, // loadGroundedInventory
+    { data: [], error: null }, // audience customers
+    { data: [], error: null }, // audience orders
+    { data: null, error: null }, // recordUsage("copy") — copyGen
+    { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset (social_copy)
+    { data: null, error: null }, // variant update
+    { data: { id: "item-text-1", status: "draft" }, error: null }
+  ]);
+  const mock = mockCloudflare([{ ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today." }]);
+  try {
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-text-1" }));
+    assert.equal(res.statusCode, 200, `a text_post must generate straight through with no photo question at all: ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.notEqual(body.needs_photo_choice, true, "a text_post has no photo — it must never be asked");
+    assert.equal(body.asset.type, "social_copy");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generate_content (real dispatch): photo_choice 'upload' uses the florist's own real photo — no AI image call, no AI-image disclosure", async () => {
+  const uploadCopy = { ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today.", visual_brief: "A bright, romantic bouquet of roses on a marble counter." };
+  const mock = mockCloudflare([uploadCopy]);
+  try {
+    const storage = createFakeSupabaseStorage({});
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-4", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived! Stop by today.", status: "idea" }, error: null },
+        { data: [{ id: "variant-4", platform: "facebook" }], error: null },
+        { data: { marketing_monthly_budget_cents: null }, error: null },
+        { data: null, error: null }, // -> generating
+        { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
+        { data: null, error: null }, // loadBrandBrain
+        { data: null, error: null }, // loadStyleMemory
+        { data: [], error: null }, // loadGroundedInventory
+        { data: [], error: null }, // audience customers
+        { data: [], error: null }, // audience orders
+        { data: null, error: null }, // recordUsage("copy") — copyGen
+        // No recordUsage("image") row here — a real upload never spends on
+        // AI image generation at all, and this fixture queue would desync
+        // (proving the point) if the code ever called it.
+        { data: { id: "media-upload-1" }, error: null }, // website_media insert
+        { data: { id: "image-asset-upload-1" }, error: null }, // persistGeneratedAsset (image)
+        { data: null, error: null }, // variant update
+        { data: { id: "item-4", status: "draft" }, error: null }
+      ],
+      { storage }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const realPhotoDataUrl = "data:image/jpeg;base64,ZmFrZS1yZWFsLXNob3AtcGhvdG8=";
+    const res = await handler(
+      event("generate_content", { content_item_id: "item-4", photo_choice: "upload", photo_data_url: realPhotoDataUrl, photo_filename: "my-real-bouquet.jpg" })
+    );
+    assert.equal(res.statusCode, 200, `a real uploaded photo must be accepted: ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.equal(body.asset.type, "image");
+
+    const imageCalls = mock.calls.filter((c) => c.url.includes("black-forest-labs") || "prompt" in c.body);
+    assert.equal(imageCalls.length, 0, "uploading a real photo must never trigger an AI image-generation call");
+
+    const uploadCall = storage.calls.find((c) => c.op === "upload");
+    assert.ok(uploadCall, "the real photo bytes must actually be uploaded to storage");
+    assert.equal(uploadCall.body.toString(), "fake-real-shop-photo", "the exact bytes the florist supplied must be what gets stored, not a placeholder");
+
+    const mediaInsert = client.calls.find((c) => c.table === "website_media" && c.ops.some((op) => op[0] === "insert"));
+    const mediaRowInserted = mediaInsert.ops.find((op) => op[0] === "insert")[1][0];
+    assert.equal(mediaRowInserted.source, "upload", "a real uploaded photo must be recorded as 'upload', never 'generated'");
+
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const insertedRow = assetInsert.ops.find((op) => op[0] === "insert")[1][0];
+    assert.equal(insertedRow.provider, "user_upload");
+    assert.equal(insertedRow.content.caption, uploadCopy.body, "the caption is still Lily's real generated copy — only the PHOTO source changed");
+    assert.equal(insertedRow.content.user_uploaded_photo, true);
+
+    const variantUpdate = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "update"));
+    assert.equal(variantUpdate.payload.generative_image_used, false, "a real photo the florist supplied herself is not a generative image, even though the post now has an image");
+    assert.equal(variantUpdate.payload.ai_content_type, "none");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generate_content (real dispatch): photo_choice 'upload' with no actual photo attached fails cleanly and reverts to idea, rather than silently falling back to AI generation", async () => {
+  const mock = mockCloudflare([{ ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today." }]);
+  try {
+    const client = createFakeSupabaseClient([
+      { data: { id: "item-5", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived! Stop by today.", status: "idea" }, error: null },
+      { data: [{ id: "variant-5", platform: "facebook" }], error: null },
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: null, error: null }, // -> generating
+      { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: [], error: null }, // loadGroundedInventory
+      { data: [], error: null }, // audience customers
+      { data: [], error: null }, // audience orders
+      { data: null, error: null }, // recordUsage("copy") — copyGen
+      { data: { id: "item-5", status: "idea" }, error: null } // revertToIdea's own update
+    ]);
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-5", photo_choice: "upload" }));
+    assert.equal(res.statusCode, 400, "a claimed upload with no actual photo data must fail cleanly, never silently substitute an AI image");
+    const body = JSON.parse(res.body);
+    assert.match(body.error, /photo_data_url/);
+    const revertCall = client.calls.find(
+      (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
+    );
+    assert.ok(revertCall, "the item must be reverted back to 'idea' so the florist can retry, not left stuck in 'generating'");
   } finally {
     mock.restore();
   }

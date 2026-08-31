@@ -52,18 +52,35 @@ test("one message in, one finished draft out: submitting the create-post form ch
   const end = uiSrc.indexOf("\n    });", start) + "\n    });".length;
   const handler = uiSrc.slice(start, end);
   assert.match(handler, /studioApi\("create_content_item"/, "must still create the item first");
-  assert.match(handler, /studioApi\("generate_content"/, "must chain straight into generate_content in the SAME submit — no second click");
+  // generate_content is called through generateWithPhotoChoice, not
+  // directly, so it can ask which photo source to use when the backend's
+  // own needs_photo_choice short-circuit fires — asserted on that
+  // function's own definition below, not duplicated inline at both call
+  // sites that need it.
+  assert.match(handler, /generateWithPhotoChoice\(newItemId\)/, "must chain straight into generation in the SAME submit — no second click");
   // The chained call must come after the create call, using the id the
   // server just returned — never a client-invented/stale id.
   const createIdx = handler.indexOf('studioApi("create_content_item"');
-  const generateIdx = handler.indexOf('studioApi("generate_content"');
-  assert.ok(generateIdx > createIdx, "generate_content must be called AFTER create_content_item completes, not before");
+  const generateIdx = handler.indexOf("generateWithPhotoChoice(newItemId)");
+  assert.ok(generateIdx > createIdx, "generation must be started AFTER create_content_item completes, not before");
   assert.match(handler, /created\?\.item\?\.id/, "must use the real id the server returned from create_content_item");
   // A failure in the auto-generate step must never lose the florist's
   // request — the item still exists in "idea" status with its own manual
   // fallback ("Ask Lily to create it"), so this inner failure must be
   // caught separately from the outer create-item failure.
   assert.match(handler, /catch \(genErr\)/, "a failed auto-generate must be caught on its own, never crash the whole submit");
+});
+
+test("generateWithPhotoChoice actually calls generate_content, and re-calls it with the florist's real answer when the backend asks which photo source to use", () => {
+  const start = uiSrc.indexOf("async function generateWithPhotoChoice(itemId)");
+  assert.ok(start > -1, "could not find generateWithPhotoChoice");
+  const end = uiSrc.indexOf("\n  }", start) + "\n  }".length;
+  const fnSrc = uiSrc.slice(start, end);
+  assert.match(fnSrc, /studioApi\("generate_content",\s*\{\s*body:\s*\{\s*content_item_id:\s*itemId\s*\}\s*\}\)/, "must call the real generate_content action with the real item id");
+  assert.match(fnSrc, /needs_photo_choice/, "must recognize the backend's own short-circuit rather than assuming success");
+  assert.match(fnSrc, /photo_choice:\s*"upload"/, "must be able to answer 'upload' back to generate_content");
+  assert.match(fnSrc, /photo_choice:\s*"generate"/, "must be able to answer 'generate' back to generate_content");
+  assert.match(fnSrc, /photo_data_url:\s*answer\.dataUrl/, "an uploaded photo's real data must actually reach generate_content, not just the choice");
 });
 
 test("finalize_flyer_render is called with the exact asset_id being rendered — the server-side stale-revision guard depends on this", () => {

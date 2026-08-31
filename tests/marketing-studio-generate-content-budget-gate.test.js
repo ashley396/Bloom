@@ -49,7 +49,10 @@ test("generate_content: no budget_cap_cents and no shop default -> unaffected, e
     { data: { name: "Test Florals" }, error: null } // shopRow — a real shop must be verified before any generation
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
-  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1" }));
+  // photo_choice: "generate" — an image_post with an ordinary brief would
+  // otherwise short-circuit into the needs_photo_choice prompt before the
+  // budget gate this test is actually exercising ever runs.
+  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", photo_choice: "generate" }));
   // Cloudflare isn't mocked here, so the real generation call itself will
   // fail — that's fine, this test only cares that NO budget-usage select
   // ran before it (i.e. the gate correctly resolved to "unlimited", not
@@ -68,7 +71,7 @@ test("generate_content: an image_post over budget is refused before the status i
     { data: [{ estimated_cost_cents: 196 }], error: null } // this month's committed spend so far
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
-  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 200 }));
+  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 200, photo_choice: "generate" }));
   assert.equal(res.statusCode, 400);
   const body = JSON.parse(res.body);
   assert.match(body.error, /over the \$2\.00 budget cap/);
@@ -154,7 +157,7 @@ test("generate_content: a budget check that itself fails (DB error) blocks the r
     { data: null, error: { message: "connection lost" } } // usage sum query fails
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
-  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 200 }));
+  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 200, photo_choice: "generate" }));
   assert.equal(res.statusCode, 500);
   const statusUpdateCall = client.calls.find((c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update"));
   assert.equal(statusUpdateCall, undefined, "an unverifiable budget check must fail closed — never proceed to generation");
@@ -169,7 +172,7 @@ test("generate_content: a shop-level default cap alone (no per-request cap) is e
     { data: [{ estimated_cost_cents: 98 }], error: null }
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
-  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1" })); // no per-request override at all
+  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", photo_choice: "generate" })); // no per-request override at all
   assert.equal(res.statusCode, 400);
   const body = JSON.parse(res.body);
   assert.equal(body.cap_source, "shop_default");
@@ -186,7 +189,7 @@ test("generate_content: a per-request cap can never be used to exceed the shop's
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
   // Caller asks for a huge budget — the shop's real 100-cent cap still wins.
-  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 999999 }));
+  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 999999, photo_choice: "generate" }));
   assert.equal(res.statusCode, 400);
   const body = JSON.parse(res.body);
   assert.equal(body.cap_cents, 100);

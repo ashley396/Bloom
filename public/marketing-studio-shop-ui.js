@@ -81,6 +81,95 @@
     return fn(path, { method: "POST", body: JSON.stringify({ action, ...extra.body }) });
   }
 
+  function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error || new Error("Could not read that photo."));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Ashley's own real complaint (a ChatGPT post she pointed at directly: a
+  // real photo of her actual shop, not generic AI-generated bouquet
+  // photography) plus her own answer when asked how to decide — "ask me
+  // each time" rather than picking one fixed default. generate_content
+  // itself now short-circuits with needs_photo_choice for exactly the
+  // requests that would otherwise go straight to AI image generation
+  // (never for a flyer or a text_post); this is what actually asks, as a
+  // native <dialog> floated outside the panel's own re-rendered markup so
+  // a background load()/render() while it's open can't yank it away.
+  function askPhotoChoice() {
+    return new Promise((resolve) => {
+      const dialog = document.createElement("dialog");
+      dialog.innerHTML = `
+        <div style="padding:24px;max-width:440px">
+          <p class="eyebrow">THIS POST'S PHOTO</p>
+          <h3 style="margin-top:0">Use a real photo, or have Lily create one?</h3>
+          <p class="subtle">This post doesn't need exact wording drawn on the image, so it can use a real photo of your own shop instead of an AI-generated one — your call, every time.</p>
+          <div class="card-actions" style="flex-direction:column;align-items:stretch">
+            <label class="secondary" id="msPhotoUploadLabel" style="text-align:center;cursor:pointer;margin:0">
+              Upload a real photo
+              <input type="file" id="msPhotoUploadInput" accept="image/jpeg,image/png,image/webp" style="display:none">
+            </label>
+            <button type="button" class="primary" id="msPhotoGenerateBtn">Let Lily create one</button>
+            <button type="button" class="secondary" id="msPhotoCancelBtn">Cancel</button>
+          </div>
+          <p class="subtle" id="msPhotoChoiceStatus" aria-live="polite"></p>
+        </div>`;
+      document.body.appendChild(dialog);
+
+      function finish(result) {
+        dialog.close();
+        dialog.remove();
+        resolve(result);
+      }
+
+      dialog.querySelector("#msPhotoGenerateBtn").addEventListener("click", () => finish({ choice: "generate" }));
+      dialog.querySelector("#msPhotoCancelBtn").addEventListener("click", () => finish({ choice: "cancel" }));
+      dialog.addEventListener("cancel", () => finish({ choice: "cancel" })); // Esc / native dismiss
+      dialog.querySelector("#msPhotoUploadInput").addEventListener("change", async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const statusEl = dialog.querySelector("#msPhotoChoiceStatus");
+        if (file.size > 8 * 1024 * 1024) {
+          if (statusEl) statusEl.textContent = "That photo is too large — please choose one under 8 MB.";
+          return;
+        }
+        try {
+          if (statusEl) statusEl.textContent = "Reading your photo…";
+          const dataUrl = await fileToDataUrl(file);
+          finish({ choice: "upload", dataUrl, filename: file.name });
+        } catch (err) {
+          if (statusEl) statusEl.textContent = err.message || "Could not read that photo — try again.";
+        }
+      });
+
+      dialog.showModal();
+    });
+  }
+
+  // Shared by both places that start a real generation (the "create draft"
+  // form's auto-chain, and an existing idea's own "Generate" button):
+  // calls generate_content, and if the backend comes back asking which
+  // photo source to use, asks the florist right here and re-calls with her
+  // answer. Returns the real generate_content result either way — or
+  // { cancelled: true } if she backs out of the photo question, leaving
+  // the item exactly where it was (still "idea", nothing spent).
+  async function generateWithPhotoChoice(itemId) {
+    let result = await studioApi("generate_content", { body: { content_item_id: itemId } });
+    if (!result?.needs_photo_choice) return result;
+    const answer = await askPhotoChoice();
+    if (answer.choice === "cancel") return { cancelled: true };
+    if (answer.choice === "upload") {
+      toast("Uploading your photo…");
+      return studioApi("generate_content", {
+        body: { content_item_id: itemId, photo_choice: "upload", photo_data_url: answer.dataUrl, photo_filename: answer.filename }
+      });
+    }
+    return studioApi("generate_content", { body: { content_item_id: itemId, photo_choice: "generate" } });
+  }
+
   // Phase 14 ("Explainability"): the backend already computes and persists
   // exactly which real inventory rows and which learned Brand Brain/My
   // Style traits shaped this content (grounded_in_inventory/
@@ -534,8 +623,8 @@
         if (newItemId) {
           try {
             toast("Lily is creating your draft…");
-            await studioApi("generate_content", { body: { content_item_id: newItemId } });
-            toast("Draft ready for your review.");
+            const genResult = await generateWithPhotoChoice(newItemId);
+            toast(genResult?.cancelled ? "Draft saved — click \"Ask Lily to create it\" below whenever you're ready." : "Draft ready for your review.");
           } catch (genErr) {
             toast(genErr.message || "Draft created — click \"Ask Lily to create it\" below to finish it.");
           }
@@ -561,7 +650,12 @@
           if (act === "generate") {
             state.busyId = id;
             render();
-            await studioApi("generate_content", { body: { content_item_id: id } });
+            const genResult = await generateWithPhotoChoice(id);
+            if (genResult?.cancelled) {
+              state.busyId = null;
+              render();
+              return;
+            }
           } else if (act === "retry-flyer") {
             retryFlyerRender(id);
             return;

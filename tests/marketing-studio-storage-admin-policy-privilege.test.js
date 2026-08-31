@@ -192,7 +192,10 @@ test("generate_content for an image-bearing post (Ashley's real scenario, not te
     // This must not throw "permission denied for table platform_admins"
     // itself — if it did, that would mean app code really does query the
     // table directly, which the live logs already disprove.
-    const res = await handler(event("generate_content", { content_item_id: "item-1" }));
+    // photo_choice: "generate" — without it this plain-image item would
+    // short-circuit into the needs_photo_choice prompt before ever
+    // touching storage, defeating the point of this test.
+    const res = await handler(event("generate_content", { content_item_id: "item-1", photo_choice: "generate" }));
     assert.equal(res.statusCode, 200, `expected a real success given a working (non-denied) storage upload: ${res.body}`);
   } finally {
     mock.restore();
@@ -241,7 +244,7 @@ test("generate_content surfaces a real storage permission-denial cleanly (400, r
       { storage }
     );
     const handler = createMarketingStudioHandler(floristDeps(client));
-    const res = await handler(event("generate_content", { content_item_id: "item-1" }));
+    const res = await handler(event("generate_content", { content_item_id: "item-1", photo_choice: "generate" }));
     assert.equal(res.statusCode, 400, `a denied storage write must surface as a clean 400, never a 500/crash: ${res.body}`);
     assert.match(JSON.parse(res.body).error, /permission denied for table platform_admins/);
     const revertCall = client.calls.find(

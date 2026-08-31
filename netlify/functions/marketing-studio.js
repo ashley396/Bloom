@@ -1632,6 +1632,28 @@ export function createMarketingStudioHandler(deps = {}) {
           });
         }
 
+        // Photo-source choice: Ashley's own real complaint was that a plain
+        // "image" post (no on-image text — the decorative/celebratory case,
+        // never the flyer path below) always got generic AI stock
+        // photography instead of a real photo of her actual shop. Her own
+        // answer was "ask me each time" rather than picking one default —
+        // so for exactly the requests that would otherwise go straight to
+        // AI image generation, short-circuit BEFORE the budget check/status
+        // lock/any provider spend and let the client ask. A retry that
+        // already answered (photo_choice is "upload" or "generate") falls
+        // straight through untouched. Video concepts and text posts never
+        // touch a photo at all, so they're excluded exactly like the real
+        // branch below excludes them.
+        if (
+          currentItem.data.content_type !== "text_post" &&
+          !VIDEO_CONTENT_TYPES.has(currentItem.data.content_type) &&
+          !requestNeedsFlyerWording(currentItem.data.brief) &&
+          body.photo_choice !== "upload" &&
+          body.photo_choice !== "generate"
+        ) {
+          return json(200, { needs_photo_choice: true, item: currentItem.data });
+        }
+
         const variantsResult = await client
           .from("marketing_platform_variants")
           .select("id,platform")
@@ -2044,6 +2066,11 @@ export function createMarketingStudioHandler(deps = {}) {
         let assetId = null;
         let imageUrl = null;
         let generatedAssetType = null;
+        // True only when this asset's photo came from the florist's own
+        // upload rather than an AI image call — read below when computing
+        // per-platform AI disclosure, so a real uploaded photo never gets
+        // labeled "generative_image" just because imageUrl is non-null.
+        let userUploadedPhoto = false;
         if (currentItem.data.content_type !== "text_post") {
           // Ashley's own real example of what she's actually after (a
           // ChatGPT-produced post she pointed at directly): a real photo
@@ -2284,26 +2311,59 @@ export function createMarketingStudioHandler(deps = {}) {
             // real inventory above), so buildImagePrompt's own products
             // fallback path never runs — the grounding already reached the
             // image through the copy's visual_brief.
-            await recordUsage("image", "image", 1);
-            const prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief: copyGen.content.visual_brief || currentItem.data.brief });
-            // Real, live-found failure: this exact path handed a florist a
-            // photo with invented, garbled pseudo-branding painted into a
-            // corner despite buildImagePrompt's unconditional no-text
-            // directive — a diffusion model's prompt instructions are a
-            // statistical nudge, not a hard constraint. Checks the actual
-            // generated pixels with a real vision model and retries once
-            // if it finds text, rather than trusting the prompt was obeyed.
-            const imageGen = await generateImageCheckingText(client, shopId, {
-              promptFor: () => prompt,
-              filenameFor: (attempt) => (attempt === 0 ? `marketing-${body.content_item_id}.jpg` : `marketing-${body.content_item_id}-retry${attempt}.jpg`)
-            });
-            if (!imageGen.ok) {
-              await revertToIdea();
-              return json(400, { error: imageGen.error });
+            //
+            // Ashley's own real example (a ChatGPT post pointing at a real
+            // photo of her actual shop, not an AI-generated bouquet) showed
+            // generic AI stock photography was never really what she was
+            // after here — her answer was to ask her each time rather than
+            // pick one default. generate_content's photo_choice short-circuit
+            // above is what actually asks; by the time execution reaches
+            // here the florist has already answered, so photo_choice is
+            // always "upload" or "generate".
+            let imageGen;
+            userUploadedPhoto = body.photo_choice === "upload";
+            if (userUploadedPhoto) {
+              if (typeof body.photo_data_url !== "string" || !body.photo_data_url) {
+                await revertToIdea();
+                return json(400, { error: "photo_choice was 'upload' but no photo_data_url was provided." });
+              }
+              const uploaded = await uploadWebsiteMedia(client, shopId, {
+                dataUrl: body.photo_data_url,
+                filename: body.photo_filename || `marketing-${body.content_item_id}.jpg`
+              });
+              if (!uploaded.ok) {
+                await revertToIdea();
+                return json(400, { error: uploaded.error });
+              }
+              imageGen = { ok: true, path: uploaded.path, url: publicWebsiteMediaUrl(client, uploaded.path), mime: uploaded.mime, provider: "user_upload", model: null, prompt: null };
+            } else {
+              await recordUsage("image", "image", 1);
+              const prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief: copyGen.content.visual_brief || currentItem.data.brief });
+              // Real, live-found failure: this exact path handed a florist a
+              // photo with invented, garbled pseudo-branding painted into a
+              // corner despite buildImagePrompt's unconditional no-text
+              // directive — a diffusion model's prompt instructions are a
+              // statistical nudge, not a hard constraint. Checks the actual
+              // generated pixels with a real vision model and retries once
+              // if it finds text, rather than trusting the prompt was obeyed.
+              imageGen = await generateImageCheckingText(client, shopId, {
+                promptFor: () => prompt,
+                filenameFor: (attempt) => (attempt === 0 ? `marketing-${body.content_item_id}.jpg` : `marketing-${body.content_item_id}-retry${attempt}.jpg`)
+              });
+              if (!imageGen.ok) {
+                await revertToIdea();
+                return json(400, { error: imageGen.error });
+              }
             }
             const mediaRow = await client
               .from("website_media")
-              .insert({ shop_id: shopId, storage_path: imageGen.path, filename: imageGen.path.split("/").pop(), source: "generated", mime: "image/jpeg" })
+              .insert({
+                shop_id: shopId,
+                storage_path: imageGen.path,
+                filename: imageGen.path.split("/").pop(),
+                source: userUploadedPhoto ? "upload" : "generated",
+                mime: imageGen.mime || "image/jpeg"
+              })
               .select()
               .single();
             const persisted = await persistGeneratedAsset(client, {
@@ -2325,7 +2385,15 @@ export function createMarketingStudioHandler(deps = {}) {
               // visual_brief persisted so a later revise_content call has
               // something real to reference instead of the item's generic
               // brief text (the jaguar-subject fix earlier this session).
-              content: { url: imageGen.url, caption: copyGen.content.body, visual_brief: copyGen.content.visual_brief || null, brand_traits_used: copyGen.content.brand_traits_used, visual_traits_used: copyGen.content.visual_traits_used, grounded_in_inventory: inventorySources },
+              content: {
+                url: imageGen.url,
+                caption: copyGen.content.body,
+                visual_brief: copyGen.content.visual_brief || null,
+                brand_traits_used: copyGen.content.brand_traits_used,
+                visual_traits_used: copyGen.content.visual_traits_used,
+                grounded_in_inventory: inventorySources,
+                user_uploaded_photo: userUploadedPhoto
+              },
               mediaId: mediaRow.data?.id || null,
               status: "completed"
             });
@@ -2373,11 +2441,13 @@ export function createMarketingStudioHandler(deps = {}) {
           // Launch-blocker fix (Blocker 1): same as the video-concept
           // branch above — compute+persist disclosure fields per-platform
           // the moment content attaches. generativeImageUsed only reflects
-          // a real rendered image — a flyer's Tier-B template background is
-          // NOT a generative image (it's Florisyn's own deterministic
-          // render), so it correctly reads "none" here exactly like a
-          // text_post's asset does, per generatedAssetType rather than the
-          // old imageUrl-only check.
+          // a real AI-rendered image — a flyer's Tier-B template background
+          // is NOT a generative image (it's Florisyn's own deterministic
+          // render, so imageUrl is already null for it), and a plain
+          // "image" post's REAL uploaded photo isn't one either even
+          // though imageUrl is non-null for it — userUploadedPhoto is what
+          // tells those two non-generative cases apart.
+          const generativeImageUsed = Boolean(imageUrl) && !userUploadedPhoto;
           for (const v of variants) {
             await client
               .from("marketing_platform_variants")
@@ -2387,8 +2457,8 @@ export function createMarketingStudioHandler(deps = {}) {
                 hashtags: copyGen.content.hashtags || [],
                 ...computeDisclosureFields({
                   platform: v.platform,
-                  generativeImageUsed: Boolean(imageUrl),
-                  aiContentType: imageUrl ? "generative_image" : "none"
+                  generativeImageUsed,
+                  aiContentType: generativeImageUsed ? "generative_image" : "none"
                 })
               })
               .eq("id", v.id)
