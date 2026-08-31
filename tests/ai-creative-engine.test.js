@@ -406,6 +406,45 @@ test("generateSocialPost: a request with a REAL topic beyond the shop's own name
   }
 });
 
+// A real, independent-review-found gap: a shop with a LONGER floral name
+// ("Daisy Chain Florals") gets a short, genuine one-flower request wrongly
+// flattened into "no real occasion" — because "make today's daisy post"
+// reduces to just one word, and that one word happens to be part of the
+// shop's own multi-word name. The fix requires the request to cover MOST
+// of the shop's own distinct words, not merely be a subset of them.
+test("generateSocialPost: a shop with a longer floral name (e.g. 'Daisy Chain Florals') never has a genuine single-flower request wrongly flattened into 'no real occasion'", async () => {
+  const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", hashtags: [], asset_requirements: [] });
+  try {
+    await generateSocialPost({
+      channel: "facebook",
+      occasion: "Make today's daisy post",
+      requestText: "Make today's daisy post",
+      shop: { name: "Daisy Chain Florals" }
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.ok(!/nothing more than the shop's own name restated/i.test(userMessage), "a genuine one-flower request must not be redirected to 'no real occasion' just because that flower's name is also part of the shop's own name");
+    assert.match(userMessage, /This shop's own name is exactly "Daisy Chain Florals"/, "the base identity rule still applies");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: a request restating a shop's SHORT (2-word) name almost entirely still gets the 'no real occasion' redirect", async () => {
+  const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", hashtags: [], asset_requirements: [] });
+  try {
+    await generateSocialPost({
+      channel: "facebook",
+      occasion: "Make today's post for Petal Pushers",
+      requestText: "Make today's post for Petal Pushers",
+      shop: { name: "Petal Pushers" }
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /nothing more than the shop's own name restated/i, "restating the full shop name (both words) is still the real failure case and must still redirect");
+  } finally {
+    mock.restore();
+  }
+});
+
 test("generateSocialPost: no shop name supplied at all never injects an empty/broken identity rule line", async () => {
   const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", hashtags: [], asset_requirements: [] });
   try {

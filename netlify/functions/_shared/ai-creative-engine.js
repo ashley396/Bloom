@@ -62,13 +62,30 @@ function significantWords(text) {
  * stripped, is nothing but the shop's own name — "make today's post for
  * Lilies in Bloom," "create me today's lilies in bloom post" — meaning
  * there is no real topic or occasion here at all beyond naming the shop.
- * Pure; never mentions a specific shop.
+ *
+ * A real, independent-review-found gap in an earlier draft: checking only
+ * "every word in the request is part of the shop's own name" wrongly
+ * caught a shop with a LONGER floral name too. "Daisy Chain Florals" is
+ * three words; "make today's daisy post" reduces to just ["daisy"] —
+ * one word, trivially "part of" the shop's name — and got the same "no
+ * real topic" redirect a genuine, single-flower request deserves to keep.
+ * Requiring the request to also cover MOST of the shop's own distinct
+ * words (not merely be a subset of them) closes that: one shared word out
+ * of three no longer matches, while "lilies in bloom" against "Lilies in
+ * Bloom" (covering all three) still does. Pure; never mentions a specific
+ * shop.
  */
 function requestIsJustShopName(requestText, shopName) {
   const words = significantWords(requestText);
-  const shopWords = new Set(significantWords(shopName));
-  if (!words.length || !shopWords.size) return false;
-  return words.every((w) => shopWords.has(w));
+  const shopWords = significantWords(shopName);
+  const shopWordSet = new Set(shopWords);
+  const distinctShopWords = shopWordSet.size;
+  if (!words.length || !distinctShopWords) return false;
+  if (!words.every((w) => shopWordSet.has(w))) return false;
+  const requestWordSet = new Set(words);
+  const covered = shopWords.filter((w) => requestWordSet.has(w)).length;
+  const missing = distinctShopWords - covered;
+  return missing <= 1 && covered / distinctShopWords > 0.5;
 }
 
 function shopIdentityRule(shopName, occasion) {
