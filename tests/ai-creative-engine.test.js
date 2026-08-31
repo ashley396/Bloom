@@ -317,6 +317,103 @@ test("generateSocialPost: omitting brandVoiceSummary (a brand-new shop with noth
   }
 });
 
+// Real, live-found failure: a florist named "Lilies in Bloom" asked (three
+// times, three different phrasings) for "today's post for Lilies in Bloom"
+// — an ordinary, no-specific-topic request for her shop's regular update —
+// and got back a caption and photo entirely about lily FLOWERS ("Our lilies
+// are in full bloom... our lilies are the perfect choice"), her shop's own
+// identity barely or never mentioned. The shop's name reached the model only
+// as inert JSON input data; nothing in the prompt TEXT ever distinguished
+// the shop's own name (identity) from an ordinary word that happens to name
+// a flower. These prove the real prompt now carries that distinction, using
+// whichever shop's OWN real name is actually supplied — never a specific
+// shop hardcoded into the prompt-building code itself.
+test("generateSocialPost: when a shop name is supplied, the real prompt explicitly tells the model the shop's name is identity, not a topic to write about", async () => {
+  const mock = mockCloudflareOnce({
+    platform: "facebook",
+    headline: "h",
+    body: "Stop by Lilies in Bloom today for fresh arrangements made to order.",
+    cta: "c",
+    visual_brief: "v",
+    hashtags: [],
+    asset_requirements: []
+  });
+  try {
+    await generateSocialPost({
+      channel: "facebook",
+      occasion: "Make today's post for Lilies in Bloom",
+      requestText: "Make today's post for Lilies in Bloom",
+      shop: { name: "Lilies in Bloom" }
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /This shop's own name is exactly "Lilies in Bloom"/, "the model must be told explicitly which exact string is the shop's own identity");
+    assert.match(userMessage, /never a topic, flower, plant, or product to write content about/i, "the model must be told not to treat the shop's own name as a subject");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: a DIFFERENT shop's own name reaches the same rule — never a hardcoded example, always the real authenticated shop's name", async () => {
+  const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", hashtags: [], asset_requirements: [] });
+  try {
+    await generateSocialPost({ channel: "facebook", requestText: "x", shop: { name: "Petal Pushers" } });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /This shop's own name is exactly "Petal Pushers"/);
+    assert.ok(!userMessage.includes("Lilies in Bloom"), "one shop's own name must never leak into another shop's prompt");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: no shop name supplied at all never injects an empty/broken identity rule line", async () => {
+  const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", hashtags: [], asset_requirements: [] });
+  try {
+    await generateSocialPost({ channel: "facebook", requestText: "x" });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.ok(!userMessage.includes("undefined"), "no shop name must never leak a stray 'undefined' into the real prompt");
+    assert.ok(!/own name is exactly/i.test(userMessage), "no identity-rule section at all when there's no real shop name to ground it on");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateFlyerContent: the same shop-identity rule reaches the flyer-wording prompt", async () => {
+  const mock = mockCloudflareOnce({ headline: "h", body: "b", cta: "c" });
+  try {
+    await generateFlyerContent({ message: "Make today's post for Lilies in Bloom", occasion: "Make today's post for Lilies in Bloom", shop: { name: "Lilies in Bloom" } });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /This shop's own name is exactly "Lilies in Bloom"/);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateVideoConcept: the same shop-identity rule reaches the video-concept prompt", async () => {
+  const mock = mockCloudflareOnce({
+    concept: "c", script: "s", scenes: ["0-3s: shot"], captions: ["cap"], hashtags: [], suggested_length_seconds: 15
+  });
+  try {
+    await generateVideoConcept({ requestText: "Make today's video for Lilies in Bloom", occasion: "Make today's video for Lilies in Bloom", shop: { name: "Lilies in Bloom" } });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /This shop's own name is exactly "Lilies in Bloom"/);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateWebsiteSectionDraft: the same shop-identity rule reaches the website-section prompt", async () => {
+  const mock = mockCloudflareOnce({
+    headline: "h", subheadline: "s", body: "b", cta_label: "cta", visual_brief: "v"
+  });
+  try {
+    await generateWebsiteSectionDraft({ requestText: "campaign for Lilies in Bloom", occasion: "campaign for Lilies in Bloom", shop: { name: "Lilies in Bloom" } });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /This shop's own name is exactly "Lilies in Bloom"/);
+  } finally {
+    mock.restore();
+  }
+});
+
 test("generateSocialPost: returns ok:false (never throws) when the model returns no usable body", async () => {
   const mock = mockCloudflareOnce({ platform: "facebook" });
   try {

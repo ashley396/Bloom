@@ -18,7 +18,29 @@
 
 import { runCloudflareGenerate } from "../ai-assistant.js";
 
-function buildSocialPostTask({ channel, occasion, audience, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }) {
+/**
+ * Real, live-found failure: a florist named "Lilies in Bloom" asked (three
+ * times, three different phrasings) for "today's post for Lilies in Bloom" —
+ * an ordinary, no-specific-topic request for her shop's regular update — and
+ * got back a caption and photo entirely about lily FLOWERS ("Our lilies are
+ * in full bloom... our lilies are the perfect choice"), with her shop's own
+ * identity barely or never mentioned. The shop's name reached the model only
+ * as inert JSON data (input.shop.name); nothing in the prompt TEXT ever told
+ * it the name was identity rather than a topic, and a name that happens to
+ * spell a real flower/plant phrase reads as an obvious theme to write about.
+ * This is a real category, not a one-off — "The Rose Garden," "Daisy Chain
+ * Florals," "Petal Pushers" and plenty of other real shop names have the
+ * same shape. Never mention a specific shop here — that would violate
+ * multi-tenant safety; this reads shopName fresh from whichever real,
+ * authenticated shop is calling.
+ */
+function shopIdentityRule(shopName) {
+  const name = String(shopName || "").trim();
+  if (!name) return "";
+  return `- This shop's own name is exactly "${name}" — that is ONLY the business's identity/branding, never a topic, flower, plant, or product to write content about, even when the name itself is or contains a flower/plant word. A request that simply names the shop (e.g. "make today's post for ${name}", "a ${name} post", "today's ${name} post") is asking for an ordinary, general shop-update post — ground it in whatever real occasion, inventory, or topic the request ACTUALLY gives, never in words from the shop's own name.`;
+}
+
+function buildSocialPostTask({ channel, occasion, audience, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }) {
   return `You are writing the ACTUAL, FINISHED social media post Florisyn will show a florist to publish today. Do not describe the request. Do not summarize what was asked. Do not restate the user's instruction. Write real, publish-ready copy a customer would read right now.
 
 Platform: ${channel || "facebook"}.
@@ -32,6 +54,7 @@ ${audienceSummary ? audienceSummary : ""}
 Rules:
 - Never restate or describe the request itself — the output must be usable as-is, with no editing.
 - Use the shop's real name/products from the input where given; never invent products, prices, or promises Florisyn can't confirm.
+${shopIdentityRule(shop?.name)}
 - Match the platform's real voice: warm and conversational for Facebook/Instagram, concise everywhere.
 - visual_brief must describe a concrete photo concept (say what's actually in the shot — never a vague placeholder like "a beautiful arrangement").
 - brand_traits_used / visual_traits_used: only the traits from the summaries above that you actually wove into this post — [] if none were used. Never list a trait you didn't actually use.
@@ -101,7 +124,7 @@ export async function generateSocialPost({ persona = "Lily", channel, occasion, 
     const result = await runCloudflareGenerate({
       mode: "generate",
       persona,
-      task: buildSocialPostTask({ channel, occasion, audience, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }),
+      task: buildSocialPostTask({ channel, occasion, audience, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }),
       input: { request: requestText, shop: shop || {} },
       schema: SOCIAL_POST_SCHEMA,
       max_tokens: 700
@@ -135,7 +158,7 @@ export async function generateSocialPost({ persona = "Lily", channel, occasion, 
   }
 }
 
-function buildVideoConceptTask({ occasion, audience, channel, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }) {
+function buildVideoConceptTask({ occasion, audience, channel, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }) {
   return `Plan a short-form marketing video (Reel/TikTok-style) for a flower shop. You are NOT rendering video — final AI video rendering is not connected yet. You ARE producing the complete creative plan: script, shot-by-shot storyboard, on-screen captions. Write the actual finished plan, not a description of what a video could contain.
 
 Channel: ${channel || "instagram/facebook reels"}.
@@ -147,6 +170,7 @@ ${inventorySummary ? `${inventorySummary} Only show/name specific flowers/stems 
 ${audienceSummary ? audienceSummary : ""}
 
 Rules:
+${shopIdentityRule(shop?.name)}
 - scenes: each entry is one concrete shot as a single string formatted "0-3s: shot description — on-screen text: ...". Be specific about what's shown, never generic.
 - captions: the literal on-screen caption lines, not a description of captions.
 - Keep it realistic for one florist with a phone camera — no crew, no equipment they don't have.
@@ -173,7 +197,7 @@ export async function generateVideoConcept({ persona = "Lily", channel, occasion
     const result = await runCloudflareGenerate({
       mode: "generate",
       persona,
-      task: buildVideoConceptTask({ occasion, audience, channel, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }),
+      task: buildVideoConceptTask({ occasion, audience, channel, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }),
       input: { request: requestText, shop: shop || {} },
       schema: VIDEO_CONCEPT_SCHEMA,
       max_tokens: 900
@@ -216,6 +240,7 @@ export async function generateWebsiteSectionDraft({ persona = "Lily", occasion, 
       task: `Write the actual, finished copy for a promotional website section (a homepage banner or campaign landing block) — not a description of the section, the real headline/subheadline/CTA text a visitor would read.
 ${occasion ? `Occasion/theme: ${occasion}.` : ""}
 ${audience ? `Audience: ${audience}.` : ""}
+${shopIdentityRule(shop?.name)}
 Never invent products, prices, or promises Florisyn can't confirm.`,
       input: { request: requestText, shop: shop || {} },
       schema: {
@@ -246,13 +271,14 @@ Never invent products, prices, or promises Florisyn can't confirm.`,
   }
 }
 
-function buildFlyerContentTask({ occasion, visualStyleSignal }) {
+function buildFlyerContentTask({ occasion, visualStyleSignal, shop }) {
   return `You are writing the ACTUAL, FINISHED text content for a flyer/graphic a florist will show customers today — not a description of the flyer. Write real, ready-to-display content.
 
 ${occasion ? `Occasion/theme: ${occasion}.` : ""}
 ${visualStyleSignal ? "This request carries real aesthetic direction — a mood/material/color/theme." : "This request is plain and operational (a notice, a closing time, a phone number) — keep the content minimal and direct, no invented flourish."}
 
 Rules:
+${shopIdentityRule(shop?.name)}
 - ANY concrete fact the florist gave you verbatim — a time, a phone number, a price, a date, a percentage — must appear in your output EXACTLY as given. Never paraphrase, round, or reformat a number or time. This is the single most important rule here.
 - headline: short, bold, the first thing read.
 - body: the supporting line(s) — can be empty string if the headline says everything.
@@ -281,7 +307,7 @@ export async function generateFlyerContent({ persona = "Lily", message, occasion
     const result = await runCloudflareGenerate({
       mode: "generate",
       persona,
-      task: buildFlyerContentTask({ occasion, visualStyleSignal }),
+      task: buildFlyerContentTask({ occasion, visualStyleSignal, shop }),
       input: { request: message, shop: shop || {} },
       schema: FLYER_CONTENT_SCHEMA,
       max_tokens: 400
