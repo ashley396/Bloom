@@ -365,6 +365,47 @@ test("generateSocialPost: a DIFFERENT shop's own name reaches the same rule — 
   }
 });
 
+test("generateSocialPost: a request that reduces to nothing but the shop's own name gets the stronger, explicit 'no real occasion' redirect", async () => {
+  // The first fix (telling the model the name is identity, not a topic)
+  // wasn't enough on its own — the exact same words were also sitting in
+  // "Occasion/theme: <the request>" one line up, still reading as an
+  // obvious theme. A real re-test (Ashley's own live app) confirmed this:
+  // the caption correctly named the shop this time, but the whole post was
+  // still fixated on lily flowers as the subject. This is the stronger
+  // rule meant to close that.
+  const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", hashtags: [], asset_requirements: [] });
+  try {
+    await generateSocialPost({
+      channel: "facebook",
+      occasion: "Make today's post for Lilies in Bloom",
+      requestText: "Make today's post for Lilies in Bloom",
+      shop: { name: "Lilies in Bloom" }
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /nothing more than the shop's own name restated/i);
+    assert.match(userMessage, /NO real occasion, theme, or specific flower\/product here/);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: a request with a REAL topic beyond the shop's own name never gets the 'no real occasion' redirect — a genuine occasion must still come through untouched", async () => {
+  const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", hashtags: [], asset_requirements: [] });
+  try {
+    await generateSocialPost({
+      channel: "facebook",
+      occasion: "Make a post about our Valentine's Day rose specials for Lilies in Bloom",
+      requestText: "Make a post about our Valentine's Day rose specials for Lilies in Bloom",
+      shop: { name: "Lilies in Bloom" }
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.ok(!/nothing more than the shop's own name restated/i.test(userMessage), "a request with a real topic (Valentine's Day roses) must not be flattened into 'no real occasion'");
+    assert.match(userMessage, /This shop's own name is exactly "Lilies in Bloom"/, "the base identity rule still applies");
+  } finally {
+    mock.restore();
+  }
+});
+
 test("generateSocialPost: no shop name supplied at all never injects an empty/broken identity rule line", async () => {
   const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", hashtags: [], asset_requirements: [] });
   try {

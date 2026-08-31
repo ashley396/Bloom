@@ -34,10 +34,55 @@ import { runCloudflareGenerate } from "../ai-assistant.js";
  * multi-tenant safety; this reads shopName fresh from whichever real,
  * authenticated shop is calling.
  */
-function shopIdentityRule(shopName) {
+// Generic scaffolding a florist's own phrasing is built from ("make today's
+// post for X", "create me X's post") — stripped out before comparing what's
+// LEFT against the shop's own name. Deliberately conservative (English
+// filler only): a false negative here just falls back to the base rule
+// below, never breaks anything; a false positive would suppress a real
+// topic, which is the failure mode to avoid.
+const REQUEST_SCAFFOLDING_WORDS = new Set([
+  "make", "made", "making", "create", "created", "creating", "today", "todays",
+  "me", "my", "a", "an", "the", "post", "posts", "posting", "flyer", "flyers",
+  "facebook", "instagram", "fb", "ig", "photo", "photos", "picture", "pictures",
+  "pic", "pics", "image", "images", "for", "about", "of", "on", "please",
+  "can", "you", "i", "need", "want", "would", "like", "this", "that", "and"
+]);
+
+function significantWords(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[’']/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .filter((w) => !REQUEST_SCAFFOLDING_WORDS.has(w));
+}
+
+/**
+ * True when a request/occasion, once ordinary scaffolding words are
+ * stripped, is nothing but the shop's own name — "make today's post for
+ * Lilies in Bloom," "create me today's lilies in bloom post" — meaning
+ * there is no real topic or occasion here at all beyond naming the shop.
+ * Pure; never mentions a specific shop.
+ */
+function requestIsJustShopName(requestText, shopName) {
+  const words = significantWords(requestText);
+  const shopWords = new Set(significantWords(shopName));
+  if (!words.length || !shopWords.size) return false;
+  return words.every((w) => shopWords.has(w));
+}
+
+function shopIdentityRule(shopName, occasion) {
   const name = String(shopName || "").trim();
   if (!name) return "";
-  return `- This shop's own name is exactly "${name}" — that is ONLY the business's identity/branding, never a topic, flower, plant, or product to write content about, even when the name itself is or contains a flower/plant word. A request that simply names the shop (e.g. "make today's post for ${name}", "a ${name} post", "today's ${name} post") is asking for an ordinary, general shop-update post — ground it in whatever real occasion, inventory, or topic the request ACTUALLY gives, never in words from the shop's own name.`;
+  const base = `- This shop's own name is exactly "${name}" — that is ONLY the business's identity/branding, never a topic, flower, plant, or product to write content about, even when the name itself is or contains a flower/plant word. A request that simply names the shop (e.g. "make today's post for ${name}", "a ${name} post", "today's ${name} post") is asking for an ordinary, general shop-update post — ground it in whatever real occasion, inventory, or topic the request ACTUALLY gives, never in words from the shop's own name.`;
+  // Stronger, real-example-found gap: telling the model the name is merely
+  // "not a topic" wasn't enough on its own — the SAME words were also
+  // sitting in "Occasion/theme: <request text>" one line up, still reading
+  // as an obvious theme. When the request truly reduces to nothing but the
+  // shop's own name restated, say so explicitly and redirect to a genuinely
+  // general post, rather than leaving the model to infer it.
+  if (!requestIsJustShopName(occasion, name)) return base;
+  return `${base}\n- This exact request is nothing more than the shop's own name restated as "today's post" — there is NO real occasion, theme, or specific flower/product here. Write an ordinary, general "come see us today" update. visual_brief must show a general, appealing shop/floral scene — a mixed seasonal arrangement, real current inventory broadly — NEVER a photo specifically of whatever flower or plant word "${name}" happens to contain, unless the shop's real inventory or a genuinely separate topic actually calls for it.`;
 }
 
 function buildSocialPostTask({ channel, occasion, audience, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }) {
@@ -54,7 +99,7 @@ ${audienceSummary ? audienceSummary : ""}
 Rules:
 - Never restate or describe the request itself — the output must be usable as-is, with no editing.
 - Use the shop's real name/products from the input where given; never invent products, prices, or promises Florisyn can't confirm.
-${shopIdentityRule(shop?.name)}
+${shopIdentityRule(shop?.name, occasion)}
 - Match the platform's real voice: warm and conversational for Facebook/Instagram, concise everywhere.
 - visual_brief must describe a concrete photo concept (say what's actually in the shot — never a vague placeholder like "a beautiful arrangement").
 - brand_traits_used / visual_traits_used: only the traits from the summaries above that you actually wove into this post — [] if none were used. Never list a trait you didn't actually use.
@@ -170,7 +215,7 @@ ${inventorySummary ? `${inventorySummary} Only show/name specific flowers/stems 
 ${audienceSummary ? audienceSummary : ""}
 
 Rules:
-${shopIdentityRule(shop?.name)}
+${shopIdentityRule(shop?.name, occasion)}
 - scenes: each entry is one concrete shot as a single string formatted "0-3s: shot description — on-screen text: ...". Be specific about what's shown, never generic.
 - captions: the literal on-screen caption lines, not a description of captions.
 - Keep it realistic for one florist with a phone camera — no crew, no equipment they don't have.
@@ -240,7 +285,7 @@ export async function generateWebsiteSectionDraft({ persona = "Lily", occasion, 
       task: `Write the actual, finished copy for a promotional website section (a homepage banner or campaign landing block) — not a description of the section, the real headline/subheadline/CTA text a visitor would read.
 ${occasion ? `Occasion/theme: ${occasion}.` : ""}
 ${audience ? `Audience: ${audience}.` : ""}
-${shopIdentityRule(shop?.name)}
+${shopIdentityRule(shop?.name, occasion)}
 Never invent products, prices, or promises Florisyn can't confirm.`,
       input: { request: requestText, shop: shop || {} },
       schema: {
@@ -278,7 +323,7 @@ ${occasion ? `Occasion/theme: ${occasion}.` : ""}
 ${visualStyleSignal ? "This request carries real aesthetic direction — a mood/material/color/theme." : "This request is plain and operational (a notice, a closing time, a phone number) — keep the content minimal and direct, no invented flourish."}
 
 Rules:
-${shopIdentityRule(shop?.name)}
+${shopIdentityRule(shop?.name, occasion)}
 - ANY concrete fact the florist gave you verbatim — a time, a phone number, a price, a date, a percentage — must appear in your output EXACTLY as given. Never paraphrase, round, or reformat a number or time. This is the single most important rule here.
 - headline: short, bold, the first thing read.
 - body: the supporting line(s) — can be empty string if the headline says everything.
