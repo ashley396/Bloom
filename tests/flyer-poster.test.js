@@ -1132,6 +1132,107 @@ test("nothing the poster draws — type or ornament — leaves the sheet", () =>
 });
 
 // ---------------------------------------------------------------------------
+// "magazine" — a seventh composition, and a different kind of addition from
+// lifestyle/bold above: not a first pass awaiting approval, but the ONE
+// composition built to match Ashley's own real reference directly (a
+// two-column magazine ad — a solid cream text panel, a real full-height
+// photo, a bulleted list of occasions, contact rows, a circular badge).
+// Still self-contained (no part of the border/ribbon/lockup machinery the
+// other four share) and still reachable only by explicit request — but for
+// a different reason than lifestyle/bold: the subject-forward branch in
+// marketing-studio.js always requests it directly rather than leaving it to
+// the seeded rotation, so it is deliberately excluded from COMPOSITIONS
+// (not because it's unproven, but because it should never be diluted by
+// mixing with four styles already looked at and rejected).
+// ---------------------------------------------------------------------------
+
+function magazineFixture(over = {}) {
+  const width = over.width || 1080, height = over.height || 1350;
+  const brand = Object.assign({ shopName: "Lilies in Bloom", phone: "606-506-4039", primaryColor: "#8f3f68", accentColor: "#6f8f72" }, over.brand);
+  const content = Object.assign({
+    headline: "A new week deserves fresh flowers!",
+    body: "It's Monday at Lilies in Bloom, and we're ready to make something beautiful for you.",
+    cta: "Call us today and let us create something beautiful for someone you love."
+  }, over.content);
+  const ctx = recordingContext(width, height);
+  const palette = poster.derivePalette(brand.primaryColor, brand.accentColor, null);
+  const base = { width, height, content, brand, palette, image: over.image !== undefined ? over.image : null, seed: over.seed || 11, composition: "magazine" };
+  if (over.fit !== false) poster.fitPoster(ctx, base);
+  const laid = poster.drawPoster(ctx, base);
+  return { ctx, laid, width, height, content, brand };
+}
+
+test("magazine: never appears in the default seeded rotation — the subject-forward branch requests it explicitly instead", () => {
+  for (let seed = 1; seed <= 400; seed++) {
+    const { laid } = laidOut({ seed });
+    assert.notEqual(laid.composition, "magazine", `seed ${seed} picked magazine with no explicit request for it`);
+  }
+});
+
+test("magazine: an explicit opts.composition request actually selects it", () => {
+  const { laid } = magazineFixture();
+  assert.equal(laid.composition, "magazine");
+});
+
+test("magazine: every real word of the headline, body and cta reaches the canvas", () => {
+  const { ctx, content } = magazineFixture();
+  const drawn = wordsOf(ctx);
+  const expected = `${content.headline} ${content.body} ${content.cta}`
+    .toLowerCase().replace(/[^a-z0-9:& ]/g, " ").split(/\s+/).filter(Boolean);
+  for (const word of expected) {
+    assert.ok(drawn.includes(word), `magazine never drew "${word}" — a florist's own wording went missing`);
+  }
+});
+
+test("magazine: the shop's own name is always visible", () => {
+  const { ctx, brand } = magazineFixture();
+  const drawn = ctx.texts.map((t) => t.text).join(" ");
+  assert.ok(drawn.toUpperCase().includes(brand.shopName.toUpperCase().replace(/\s+/g, " ")), "the shop's own name must appear on every customer-facing flyer");
+});
+
+test("magazine: the shop's phone number is always visible", () => {
+  const { ctx } = magazineFixture();
+  assert.ok(ctx.texts.some((t) => t.text.includes("606-506-4039")), "no way for a customer to reach the shop");
+});
+
+test("magazine: a shop with no real city/state on file never gets an invented address line", () => {
+  // The exact real gap this session found checking against Lilies in
+  // Bloom's own actual shop record: city/state were both null. The
+  // reference's own address line must never appear from nothing.
+  const { ctx } = magazineFixture({ brand: { city: undefined, state: undefined } });
+  const drawn = ctx.texts.map((t) => t.text).join(" ");
+  assert.doesNotMatch(drawn, /📍/, "no pin/address row may be drawn when the shop has no real address on file");
+});
+
+test("magazine: a shop WITH a real city/state on file gets it drawn, verbatim", () => {
+  const { ctx } = magazineFixture({ brand: { city: "Prestonsburg", state: "Kentucky" } });
+  const drawn = ctx.texts.map((t) => t.text).join(" ");
+  assert.match(drawn, /Prestonsburg, Kentucky/, "a real address on file must actually reach the canvas, exactly as stored");
+});
+
+test("magazine: never crashes during the measuring pass with a real image present", () => {
+  assert.doesNotThrow(() => magazineFixture({ image: { width: 800, height: 1000 } }));
+});
+
+test("magazine: never trips the shared shrink-to-fit loop meant for the other four's bordered-sheet layout", () => {
+  const { laid } = magazineFixture();
+  assert.ok(laid.contentBottom <= laid.panelTop, "magazine must report contentBottom <= panelTop so fitPoster's shrink loop never iterates for it");
+});
+
+test("magazine: a genuinely long body/cta still gets every word drawn, never silently truncated", () => {
+  const content = {
+    headline: "A new week deserves fresh flowers!",
+    body: "There is genuinely no occasion required at all this week, not one single reason needed, ordinary Mondays count just as much as birthdays and anniversaries do, and treating someone you love is never something to justify to anyone else ever.",
+    cta: "Call us today any time day or night, or stop by the shop and we will have something beautiful ready for you within the hour, no appointment necessary at all."
+  };
+  const { ctx } = magazineFixture({ content });
+  const drawnWords = ctx.texts.map((t) => t.text).join(" ").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+  const expectedWords = `${content.body} ${content.cta}`.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+  const missing = expectedWords.filter((word) => !drawnWords.includes(word));
+  assert.deepEqual(missing, [], `words dropped from a long body/cta: ${missing.join(", ")}`);
+});
+
+// ---------------------------------------------------------------------------
 // Sympathy work does not get the celebration vocabulary.
 //
 // The poster had no idea what it was drawing, so a funeral flyer came out with

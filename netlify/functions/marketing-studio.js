@@ -1761,7 +1761,10 @@ export function createMarketingStudioHandler(deps = {}) {
         // line (public/flyer-renderer.js's drawContact) needs the shop's
         // real phone number, and this is the one place generate_content
         // already round-trips the shops table.
-        const shopRow = await client.from("shops").select("name,phone,primary_color,accent_color").eq("id", shopId).maybeSingle();
+        // city,state added for the new "magazine" composition's contact
+        // block — only ever shown when the shop's own real profile has one
+        // on file (see the brand object below); never fabricated when null.
+        const shopRow = await client.from("shops").select("name,phone,primary_color,accent_color,city,state").eq("id", shopId).maybeSingle();
         // Security correction (Ashley, before the live visual test): the
         // shop's own name for branding must come ONLY from this trusted,
         // authenticated shops-table lookup — never from the request text
@@ -2324,7 +2327,7 @@ export function createMarketingStudioHandler(deps = {}) {
                 // band reflects it instead. Falls back to the shops table's
                 // own DB default (a warm rose, never navy) when a shop
                 // hasn't set one — see 20260804000000_greenfield_baseline.sql.
-                brand: { shopName, phone: shopRow.data?.phone || null, primaryColor: shopRow.data?.primary_color || null, accentColor: shopRow.data?.accent_color || null },
+                brand: { shopName, phone: shopRow.data?.phone || null, primaryColor: shopRow.data?.primary_color || null, accentColor: shopRow.data?.accent_color || null, city: shopRow.data?.city || null, state: shopRow.data?.state || null },
                 brand_traits_used: copyGen.content.brand_traits_used,
                 visual_traits_used: copyGen.content.visual_traits_used,
                 grounded_in_inventory: inventorySources,
@@ -2465,7 +2468,7 @@ export function createMarketingStudioHandler(deps = {}) {
                 // on-image headline/body/cta above — content.caption vs.
                 // the image itself.
                 caption: copyGen.content.body,
-                brand: { shopName, phone: shopRow.data?.phone || null, primaryColor: shopRow.data?.primary_color || null, accentColor: shopRow.data?.accent_color || null },
+                brand: { shopName, phone: shopRow.data?.phone || null, primaryColor: shopRow.data?.primary_color || null, accentColor: shopRow.data?.accent_color || null, city: shopRow.data?.city || null, state: shopRow.data?.state || null },
                 brand_traits_used: copyGen.content.brand_traits_used,
                 visual_traits_used: copyGen.content.visual_traits_used,
                 grounded_in_inventory: inventorySources,

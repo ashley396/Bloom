@@ -343,7 +343,12 @@
             // (a jaguar, a named arrangement) rather than a calm negative-
             // space backdrop. Excludes the one composition that draws text
             // over the photo — see flyer-poster.js.
-            subjectForwardPhoto: c.photo_strategy === "subject_forward"
+            subjectForwardPhoto: c.photo_strategy === "subject_forward",
+            // Ashley's own explicit reference: for a subject-forward post,
+            // "magazine" is the ONE composition actually built to match it
+            // — requested directly rather than left to rotate with the
+            // four styles she already looked at and rejected.
+            composition: c.photo_strategy === "subject_forward" ? "magazine" : undefined
           });
           // The whole design is its type. If the display faces did not really
           // arrive the poster is drawn in system fallbacks and looks nothing

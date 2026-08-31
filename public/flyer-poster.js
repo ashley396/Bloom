@@ -336,6 +336,28 @@
   }
 
   function layoutFor(composition, w, h, textSide) {
+    if (composition === "magazine") {
+      // Ashley's own real reference, precisely: a magazine-style two-column
+      // ad — a solid cream panel carrying the shop's lockup, tagline, body,
+      // a bulleted list of occasions, and contact rows on the left, a real
+      // full-height photograph filling the right. Never text-over-photo
+      // (no "wash over the photo" risk at all — the left panel is a solid
+      // GROUND, same legitimacy as card/banner's own pale ground, just a
+      // taller, wider one), and never a random pick — this is the one
+      // composition built to match what she actually asked for, so the
+      // subject-forward branch requests it explicitly rather than letting
+      // it rotate with four styles she already rejected.
+      var leftW = Math.round(w * 0.44);
+      return {
+        kind: "magazine",
+        leftW: leftW,
+        colX: w * 0.045,
+        colW: leftW - w * 0.075,
+        cx: w * 0.045 + (leftW - w * 0.075) / 2,
+        topY: h * 0.045,
+        bottomPad: h * 0.04
+      };
+    }
     if (composition === "editorial") {
       // The photograph IS the poster: a full-bleed staged scene with the
       // wording set into its calm half, and one bar across the foot carrying
@@ -1359,7 +1381,13 @@
   // tool (poster-preview.html) shows it without it ever being picked for a
   // real customer-facing post.
   var COMPOSITIONS = ["atelier", "card", "banner", "editorial"];
-  var PREVIEWABLE_COMPOSITIONS = COMPOSITIONS.concat(["lifestyle", "bold"]);
+  // "magazine" is deliberately NOT in the default rotation either — not
+  // because it's unproven like lifestyle, but the opposite: it's the ONE
+  // composition actually built to match what Ashley asked for directly
+  // (her own real ChatGPT reference), so the subject-forward branch in
+  // marketing-studio.js requests it explicitly rather than diluting it by
+  // random-mixing it with four styles she already looked at and rejected.
+  var PREVIEWABLE_COMPOSITIONS = COMPOSITIONS.concat(["lifestyle", "bold", "magazine"]);
 
   /**
    * Draws one complete poster.
@@ -1698,6 +1726,225 @@
         headBottom: footerNameY, ribbon: null, column: L.colW, bodyWidth: L.colW,
         frame: null, panel: null, typeStyle: "sans", messageStyle: "plain",
         lockupStyle: "sans", ornamentMark: "none", borderVariant: "none"
+      };
+    }
+    if (L.kind === "magazine") {
+      // Entirely self-contained, like lifestyle/bold above: a genuine
+      // two-column magazine ad — Ashley's own real reference, matched
+      // directly rather than approximated by a style that was never built
+      // for it. Never touches the border/ribbon/lockup machinery below.
+      ctx.save();
+      ctx.fillStyle = palette.cream;
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+
+      // The real photograph, full height, confined to its OWN right-hand
+      // frame — never covered by any panel or wash. The left panel is a
+      // solid GROUND next to it, not drawn over it, the same legitimacy
+      // "bold"'s own solid colour panels above already have.
+      if (!opts.measureOnly && opts.image) {
+        var magPhotoX = L.leftW;
+        var magPhotoW = w - L.leftW;
+        var magScale = Math.max(magPhotoW / opts.image.width, h / opts.image.height);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(magPhotoX, 0, magPhotoW, h);
+        ctx.clip();
+        ctx.drawImage(
+          opts.image,
+          magPhotoX + (magPhotoW - opts.image.width * magScale) / 2,
+          (h - opts.image.height * magScale) / 2,
+          opts.image.width * magScale,
+          opts.image.height * magScale
+        );
+        ctx.restore();
+        // A soft seam, not a hard cut — the same restraint every other
+        // composition's fades use, just vertical instead of radial.
+        var magSeam = ctx.createLinearGradient(L.leftW - w * 0.018, 0, L.leftW + w * 0.018, 0);
+        magSeam.addColorStop(0, rgba(palette.cream, 0.85));
+        magSeam.addColorStop(1, rgba(palette.cream, 0));
+        ctx.save();
+        ctx.fillStyle = magSeam;
+        ctx.fillRect(L.leftW - w * 0.018, 0, w * 0.036, h);
+        ctx.restore();
+      }
+
+      ctx.textAlign = "left";
+      var mx = L.colX, mw = L.colW, my = L.topY;
+
+      // The shop's own name — split the same way splitShopName already
+      // does for every other lockup, just set in two colours (script in
+      // the brand ink, the rest in the accent) and left-aligned, driven by
+      // whichever real brand colours this shop has — never a hardcoded
+      // pink/green, even though this happens to be Lilies in Bloom's own.
+      var magParts = splitShopName(brand.shopName || "");
+      if (magParts.script) {
+        var magScriptSize = fitLineAt(ctx, magParts.script, "400 %spx 'Parisienne', 'Brush Script MT', cursive", Math.round(h * 0.095), mw, Math.round(h * 0.05));
+        ctx.font = "400 " + magScriptSize + "px 'Parisienne', 'Brush Script MT', cursive";
+        ctx.fillStyle = palette.ink;
+        my += magScriptSize * 0.8;
+        ctx.fillText(magParts.script, mx, my);
+        my += magScriptSize * 0.16;
+      }
+      var magRestText = [magParts.connector, magParts.rest].filter(Boolean).join(" ");
+      if (magRestText) {
+        // Natural case ("in Bloom"), matching the reference exactly — the
+        // all-caps convention the other four compositions use is their
+        // own choice, not a rule this one has to repeat.
+        var magRestSize = fitLineAt(ctx, magRestText, "700 %spx 'Playfair Display', Georgia, serif", Math.round(h * 0.05), mw, Math.round(h * 0.03));
+        ctx.font = "700 " + magRestSize + "px 'Playfair Display', Georgia, serif";
+        ctx.fillStyle = palette.accent;
+        my += magRestSize * 0.85;
+        ctx.fillText(magRestText, mx, my);
+        my += magRestSize * 0.5;
+      }
+      my += h * 0.014;
+      drawHeartRule(ctx, mx + mw * 0.16, my, mw * 0.3, palette);
+      my += h * 0.032;
+
+      // The hook line — content.headline — short and italic.
+      if (content.headline) {
+        var magTagSize = Math.max(12, Math.round(h * 0.026));
+        ctx.font = "italic 600 " + magTagSize + "px 'Playfair Display', Georgia, serif";
+        ctx.fillStyle = palette.ink;
+        var magTagLines = wrapLines(ctx, content.headline, mw);
+        for (var mti = 0; mti < magTagLines.length; mti++) {
+          my += magTagSize * 1.3;
+          ctx.fillText(magTagLines[mti], mx, my);
+        }
+        my += h * 0.02;
+      }
+
+      // The real body copy, exactly as generated — plain, legible, real
+      // room here rather than a shrink-to-fit trick.
+      if (content.body) {
+        var magBodySize = Math.max(11, Math.round(h * 0.0195));
+        ctx.font = "500 " + magBodySize + "px 'DM Sans', sans-serif";
+        ctx.fillStyle = rgba(palette.ink, 0.86);
+        var magBodyLines = wrapLines(ctx, content.body, mw);
+        for (var mbi = 0; mbi < magBodyLines.length; mbi++) {
+          my += magBodySize * 1.42;
+          ctx.fillText(magBodyLines[mbi], mx, my);
+        }
+        my += h * 0.022;
+      }
+
+      // "Need flowers for:" plus a short, deliberately GENERIC list of
+      // occasions — never a shop-specific inventory claim (that would have
+      // to come from the shop's own grounded data, not this) — the same
+      // handful of occasions any real florist genuinely serves, matching
+      // flyer-templates.js's own occasion-keyword categories.
+      var magIntroSize = Math.max(12, Math.round(h * 0.022));
+      ctx.font = "italic 700 " + magIntroSize + "px 'Playfair Display', Georgia, serif";
+      ctx.fillStyle = palette.accent;
+      my += magIntroSize * 1.3;
+      ctx.fillText("Need flowers for:", mx, my);
+      my += h * 0.014;
+
+      var magOccasions = [
+        "A birthday",
+        "An anniversary",
+        "A new baby",
+        "Someone who needs a little cheering up",
+        "A sympathy or funeral tribute",
+        "Or just because you want to make someone smile"
+      ];
+      var magItemSize = Math.max(10, Math.round(h * 0.0175));
+      ctx.font = "500 " + magItemSize + "px 'DM Sans', sans-serif";
+      var magDotR = magItemSize * 0.16;
+      for (var moi = 0; moi < magOccasions.length; moi++) {
+        var magItemLines = wrapLines(ctx, magOccasions[moi], mw - magDotR * 4);
+        for (var mli = 0; mli < magItemLines.length; mli++) {
+          my += magItemSize * 1.36;
+          if (mli === 0) {
+            ctx.save();
+            ctx.fillStyle = palette.ink;
+            ctx.beginPath();
+            ctx.arc(mx + magDotR, my - magItemSize * 0.32, magDotR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+          ctx.fillStyle = rgba(palette.ink, 0.88);
+          ctx.fillText(magItemLines[mli], mx + magDotR * 4, my);
+        }
+      }
+      my += h * 0.024;
+
+      // Contact block — the phone is always real (the shop's own, verified
+      // elsewhere); the city/state line only ever appears when the shop's
+      // own real profile actually has one on file — never invented. A real
+      // gap found checking this against the actual shop record: Lilies in
+      // Bloom's own profile has no city/state saved at all, so this line
+      // correctly stays absent for her until she adds one — never guessed
+      // at from what a caption or a prompt happens to mention.
+      var magCityState = [brand.city, brand.state].filter(Boolean).join(", ");
+      if (magCityState) {
+        var magAddrNameSize = Math.max(12, Math.round(h * 0.021));
+        ctx.font = "700 " + magAddrNameSize + "px 'Playfair Display', Georgia, serif";
+        ctx.fillStyle = palette.ink;
+        my += magAddrNameSize * 1.3;
+        ctx.fillText("📍 " + (brand.shopName || ""), mx, my);
+        var magAddrSize = Math.max(10, Math.round(h * 0.016));
+        ctx.font = "500 " + magAddrSize + "px 'DM Sans', sans-serif";
+        ctx.fillStyle = rgba(palette.ink, 0.78);
+        my += magAddrSize * 1.3;
+        ctx.fillText(magCityState, mx + h * 0.03, my);
+        my += h * 0.016;
+      }
+      if (brand.phone) {
+        var magPhoneSize = Math.max(13, Math.round(h * 0.024));
+        ctx.font = "700 " + magPhoneSize + "px 'DM Sans', sans-serif";
+        ctx.fillStyle = palette.ink;
+        my += magPhoneSize * 1.3;
+        ctx.fillText("📞 " + brand.phone, mx, my);
+        my += h * 0.02;
+      }
+
+      // The closing line — content.cta — italic, the same warm sign-off
+      // role the reference's own closing sentence has.
+      if (content.cta) {
+        var magCtaSize = Math.max(11, Math.round(h * 0.02));
+        ctx.font = "italic 600 " + magCtaSize + "px 'Playfair Display', Georgia, serif";
+        ctx.fillStyle = palette.accent;
+        var magCtaLines = wrapLines(ctx, content.cta, mw);
+        for (var mci = 0; mci < magCtaLines.length; mci++) {
+          my += magCtaSize * 1.3;
+          ctx.fillText(magCtaLines[mci], mx, my);
+        }
+      }
+
+      // The circular badge — a genuine goodwill flourish Florisyn's own
+      // renderer draws (never asked of the AI photo model, which can't
+      // spell), overlapping the photo's bottom-right corner the way the
+      // reference's own "Thank you" sticker does. Generic, brand-neutral
+      // text — a goodwill flourish, not a claim specific to any one shop.
+      if (!opts.measureOnly && opts.image) {
+        var magBadgeR = Math.min(w, h) * 0.085;
+        var magBadgeCx = w - magBadgeR * 0.75;
+        var magBadgeCy = h - magBadgeR * 0.9;
+        ctx.save();
+        ctx.fillStyle = rgba(palette.cream, 0.96);
+        ctx.strokeStyle = rgba(palette.ink, 0.3);
+        ctx.lineWidth = Math.max(1, magBadgeR * 0.03);
+        ctx.beginPath();
+        ctx.arc(magBadgeCx, magBadgeCy, magBadgeR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.textAlign = "center";
+        ctx.font = "italic 700 " + Math.round(magBadgeR * 0.24) + "px 'Playfair Display', Georgia, serif";
+        ctx.fillStyle = palette.ink;
+        ctx.fillText("Thank you", magBadgeCx, magBadgeCy - magBadgeR * 0.12);
+        ctx.font = "500 " + Math.round(magBadgeR * 0.16) + "px 'DM Sans', sans-serif";
+        ctx.fillText("for supporting local", magBadgeCx, magBadgeCy + magBadgeR * 0.14);
+        ctx.restore();
+        ctx.textAlign = "left";
+      }
+
+      return {
+        composition: composition, contentBottom: 0, panelTop: h,
+        headBottom: my, ribbon: null, column: L.colW, bodyWidth: L.colW,
+        frame: null, panel: null, typeStyle: "script", messageStyle: "plain",
+        lockupStyle: "script", ornamentMark: "none", borderVariant: "none"
       };
     }
     // The composition now decides what actually differs. It used to be
