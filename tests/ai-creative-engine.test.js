@@ -799,6 +799,159 @@ test("generateWebsiteSectionDraft: produces real headline/CTA copy and marks app
   }
 });
 
+// Structured creative brief (Phase 2 rebuild, priority-1 gap): the model is
+// now also asked for creative_brief — the SAME visual concept visual_brief
+// already describes in prose, broken into fields buildImagePrompt/
+// buildFlyerBackgroundPrompt can use directly instead of re-parsing prose.
+test("generateSocialPost: the real prompt sent to the model asks for creative_brief, describing the same concept as visual_brief, never a different scene", async () => {
+  const mock = mockCloudflareOnce({
+    platform: "facebook",
+    headline: "h",
+    body: "b",
+    cta: "c",
+    visual_brief: "v",
+    creative_brief: { primary_subject: "s", mood: "m", lighting: "l", composition: "c", floral_style: "f" },
+    hashtags: [],
+    asset_requirements: []
+  });
+  try {
+    await generateSocialPost({ channel: "facebook", requestText: "x" });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /creative_brief/);
+    assert.match(userMessage, /never a different scene/);
+    assert.match(userMessage, /primary_subject/);
+  } finally {
+    mock.restore();
+  }
+});
+
+// Real, live-found failure (found while adding creative_brief above, not
+// created by it — see ai-assistant.js's own updated comment): the task
+// text's own length cap was already being silently exceeded, before this
+// feature ever existed, whenever a shop had all four real grounding
+// summaries populated (brand voice, visual style, inventory, audience) —
+// safeText's tail-truncation dropped the LAST rules in buildSocialPostTask's
+// prompt (the sympathy/funeral writing rules, the on-image-text rule, now
+// also creative_brief) without ever surfacing an error. This is the direct
+// regression guard: the realistic worst case must fit under the real cap,
+// not just squeak under whatever number happens to be set today.
+test("generateSocialPost: with every real grounding summary populated (the realistic worst case for an established shop), the FULL task text reaches the model — no rule silently truncated off the end", async () => {
+  const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", hashtags: [], asset_requirements: [] });
+  try {
+    await generateSocialPost({
+      channel: "facebook",
+      occasion: "Valentine's Day",
+      audience: "loyal repeat customers",
+      shop: { name: "Rose & Ivy Florist" },
+      requestText: "make today's post",
+      brandVoiceSummary:
+        "Warm, artisan, never cheap, always mention hand-tied bouquets, avoid corporate jargon, emphasize locally grown flowers whenever true",
+      visualStyleSummary:
+        "Soft natural light, pastel color grading, farmhouse-style wooden surfaces, loose garden-style arrangements, shallow depth of field",
+      inventorySummary: "In stock this week: garden roses, ranunculus, peonies, eucalyptus, spray roses, lisianthus, tulips, hydrangea.",
+      audienceSummary: "This post targets 1,204 Facebook followers, mostly local repeat customers aged 30-55."
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    const taskPortion = userMessage.split("\nInput:")[0];
+    assert.ok(!taskPortion.includes("…[trimmed]"), "the task text must never be silently truncated for this realistic input");
+    // The LAST rules in buildSocialPostTask's prompt — the ones a
+    // truncation bug drops first — must all actually be present.
+    assert.match(taskPortion, /SYMPATHY AND FUNERAL WORK/);
+    assert.match(taskPortion, /creative_brief:/);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: a fully-populated creative_brief from the model comes back normalized on the result, every field a real string", async () => {
+  const mock = mockCloudflareOnce({
+    platform: "facebook",
+    headline: "h",
+    body: "b",
+    cta: "c",
+    visual_brief: "A dozen garden roses in a low ceramic vase on a farmhouse table.",
+    creative_brief: {
+      primary_subject: "A dozen garden roses in a low ceramic vase",
+      mood: "romantic, soft, inviting",
+      lighting: "warm golden-hour window light",
+      composition: "close-up, shallow depth of field, roses filling the left third",
+      floral_style: "garden-style, loose and organic"
+    },
+    hashtags: [],
+    asset_requirements: []
+  });
+  try {
+    const result = await generateSocialPost({ channel: "facebook", requestText: "x" });
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.content.creative_brief, {
+      primary_subject: "A dozen garden roses in a low ceramic vase",
+      mood: "romantic, soft, inviting",
+      lighting: "warm golden-hour window light",
+      composition: "close-up, shallow depth of field, roses filling the left third",
+      floral_style: "garden-style, loose and organic"
+    });
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: a model response with no creative_brief field at all (older behavior, or a model that omits it) still succeeds — creative_brief comes back null, never a crash", async () => {
+  const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", hashtags: [], asset_requirements: [] });
+  try {
+    const result = await generateSocialPost({ channel: "facebook", requestText: "x" });
+    assert.equal(result.ok, true);
+    assert.equal(result.content.creative_brief, null);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: a creative_brief with every field blank (no real primary_subject) normalizes to null rather than an all-empty object — never treated as a usable structured brief", async () => {
+  const mock = mockCloudflareOnce({
+    platform: "facebook",
+    headline: "h",
+    body: "b",
+    cta: "c",
+    visual_brief: "v",
+    creative_brief: { primary_subject: "", mood: "", lighting: "", composition: "", floral_style: "" },
+    hashtags: [],
+    asset_requirements: []
+  });
+  try {
+    const result = await generateSocialPost({ channel: "facebook", requestText: "x" });
+    assert.equal(result.ok, true);
+    assert.equal(result.content.creative_brief, null);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: a creative_brief missing some fields (model omitted mood/floral_style) still normalizes — present fields kept, missing ones become empty strings, never undefined", async () => {
+  const mock = mockCloudflareOnce({
+    platform: "facebook",
+    headline: "h",
+    body: "b",
+    cta: "c",
+    visual_brief: "v",
+    creative_brief: { primary_subject: "A jaguar mascot holding a bouquet of roses", lighting: "bright studio light" },
+    hashtags: [],
+    asset_requirements: []
+  });
+  try {
+    const result = await generateSocialPost({ channel: "facebook", requestText: "x" });
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.content.creative_brief, {
+      primary_subject: "A jaguar mascot holding a bouquet of roses",
+      mood: "",
+      lighting: "bright studio light",
+      composition: "",
+      floral_style: ""
+    });
+  } finally {
+    mock.restore();
+  }
+});
+
 test("persistGeneratedAsset: inserts into ai_generated_assets with the right shop scoping", async () => {
   const client = createFakeSupabaseClient([{ data: { id: "asset-1", shop_id: "shop-1", asset_type: "social_post" }, error: null }]);
   const result = await persistGeneratedAsset(client, {

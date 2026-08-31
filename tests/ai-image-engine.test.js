@@ -153,6 +153,53 @@ test("buildImagePrompt: uses an explicit visual brief verbatim when one is provi
 });
 
 // ---------------------------------------------------------------------------
+// Structured creative_brief (Phase 2 rebuild, priority-1 gap): when present,
+// it describes the SAME concept as visualBrief but already broken into the
+// fields an image prompt actually needs — preferred over the raw prose for
+// that reason. visualBrief alone must keep working for any caller (the flyer
+// wording path, older persisted content) that has no structured brief yet.
+// ---------------------------------------------------------------------------
+
+test("buildImagePrompt: a structured creativeBrief is preferred over visualBrief prose, and its concrete fields all reach the real prompt", () => {
+  const prompt = buildImagePrompt({
+    visualBrief: "Some vaguer prose describing roses.",
+    creativeBrief: {
+      primary_subject: "A dozen garden roses in a low ceramic vase",
+      mood: "romantic, soft",
+      lighting: "warm golden-hour window light",
+      composition: "close-up, shallow depth of field",
+      floral_style: "garden-style, loose and organic"
+    }
+  });
+  assert.match(prompt, /A dozen garden roses in a low ceramic vase/);
+  assert.match(prompt, /romantic, soft/);
+  assert.match(prompt, /warm golden-hour window light/);
+  assert.match(prompt, /garden-style, loose and organic/);
+});
+
+test("buildImagePrompt: a creativeBrief with no primary_subject falls back to visualBrief prose, never an empty subject clause", () => {
+  const prompt = buildImagePrompt({
+    visualBrief: "A red spray rose corsage on a wrist.",
+    creativeBrief: { mood: "romantic" }
+  });
+  assert.match(prompt, /wrist/);
+});
+
+test("buildImagePrompt: no creativeBrief at all (the ordinary case today) behaves exactly as before — visualBrief prose used verbatim", () => {
+  const prompt = buildImagePrompt({ visualBrief: "A red spray rose corsage on a wrist." });
+  assert.match(prompt, /wrist/);
+});
+
+test("buildImagePrompt: a creativeBrief naming sympathy work still triggers the restrained sympathy palette even when visualBrief itself is silent about it", () => {
+  const prompt = buildImagePrompt({
+    visualBrief: "A tasteful arrangement.",
+    creativeBrief: { primary_subject: "A dignified standing spray for a graveside service" }
+  });
+  assert.match(prompt, /sympathy work/i);
+  assert.match(prompt, /white, ivory and cream/i);
+});
+
+// ---------------------------------------------------------------------------
 // Bounded flyer-background retry.
 //
 // A flyer with no photograph can never meet the "bright, happy, colourful
@@ -282,6 +329,32 @@ test("buildFlyerBackgroundPrompt: never hardcodes a shop, and only claims specif
   const grounded = buildFlyerBackgroundPrompt({ occasion: "Closing early", groundedFlowers: ["garden roses", "eucalyptus"] });
   assert.match(grounded, /garden roses/);
   assert.ok(!/garden roses/i.test(generic), "flowers must not be implied as available when no inventory was supplied");
+});
+
+test("buildFlyerBackgroundPrompt: real inventory (groundedFlowers) still wins over a structured creativeBrief — never claim stock that isn't real just because a brief was supplied", () => {
+  const p = buildFlyerBackgroundPrompt({
+    occasion: "Closing early",
+    groundedFlowers: ["garden roses"],
+    creativeBrief: { primary_subject: "A wild armful of peonies" }
+  });
+  assert.match(p, /garden roses/);
+  assert.ok(!/peonies/i.test(p), "an ungrounded creativeBrief subject must never override real inventory");
+});
+
+test("buildFlyerBackgroundPrompt: a structured creativeBrief is used as the visual fallback when no real inventory is grounded", () => {
+  const p = buildFlyerBackgroundPrompt({
+    occasion: "Closing early",
+    creativeBrief: { primary_subject: "A wild armful of peonies and ranunculus", mood: "romantic" }
+  });
+  assert.match(p, /wild armful of peonies and ranunculus/);
+});
+
+test("buildFlyerBackgroundPrompt: a creativeBrief naming sympathy work triggers the restrained palette even when occasion/visualBrief are silent", () => {
+  const p = buildFlyerBackgroundPrompt({
+    creativeBrief: { primary_subject: "A dignified standing spray for a graveside service" }
+  });
+  assert.match(p, /sympathy and funeral work/i);
+  assert.ok(!/happy, colorful/i.test(p));
 });
 
 test("generateFlyerBackgroundWithRetry: an UPLOAD failure is NOT retried — the image was already generated and billed, so a retry would pay twice to hit the same storage error", async () => {

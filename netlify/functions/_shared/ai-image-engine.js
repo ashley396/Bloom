@@ -254,19 +254,48 @@ function truncateAtWordBoundary(text, maxLen) {
 // unbounded occasion string.
 const MAX_OCCASION_CLAUSE_CHARS = 200;
 
+/**
+ * Turns a structured creative_brief (see ai-creative-engine.js's
+ * CREATIVE_BRIEF_SCHEMA) into one concrete clause an image-generation
+ * prompt can use directly — the whole point of adding the structured
+ * brief in the first place: visual_brief is prose written for a person,
+ * this is the same concept an image model can act on without having to
+ * parse a sentence for the parts that matter (subject/mood/lighting/
+ * composition/style). Defensive — a creativeBrief can be null, or have
+ * every field but primary_subject blank, and this only ever returns a
+ * usable string, never a half sentence.
+ */
+function creativeBriefClause(creativeBrief) {
+  if (!creativeBrief || !creativeBrief.primary_subject) return null;
+  const parts = [String(creativeBrief.primary_subject).trim()];
+  if (creativeBrief.mood) parts.push(`mood: ${creativeBrief.mood}`);
+  if (creativeBrief.lighting) parts.push(`lighting: ${creativeBrief.lighting}`);
+  if (creativeBrief.composition) parts.push(`composition: ${creativeBrief.composition}`);
+  if (creativeBrief.floral_style) parts.push(`floral style: ${creativeBrief.floral_style}`);
+  return `${parts.join("; ")}.`;
+}
+
 /** Turns campaign/post context into a concrete visual prompt — never a
  * vague placeholder, per the brief's own "no vague placeholders" rule for
- * florist-facing creative. */
-export function buildImagePrompt({ occasion, products = [], shopName, visualBrief } = {}, cap = 1200) {
+ * florist-facing creative. `creativeBrief`, when present, describes the
+ * SAME concept as `visualBrief` — see creativeBriefClause's docstring —
+ * and is preferred over the raw prose because it's already broken into
+ * the fields this function's own subject clause needs; `visualBrief`
+ * alone is untouched for any caller that doesn't have a structured brief
+ * yet (generateFlyerContent's flyer path, older persisted content). */
+export function buildImagePrompt({ occasion, products = [], shopName, visualBrief, creativeBrief } = {}, cap = 1200) {
+  const subjectText = creativeBriefClause(creativeBrief) || (visualBrief ? String(visualBrief) : null);
   const occasionClause = occasion
     ? truncateAtWordBoundary(`The arrangement must genuinely suit this occasion: ${occasion}.`, MAX_OCCASION_CLAUSE_CHARS)
     : null;
-  const sympathyClause = SYMPATHY_OCCASION_RE.test(`${occasion || ""} ${visualBrief || ""}`)
+  const sympathyClause = SYMPATHY_OCCASION_RE.test(
+    `${occasion || ""} ${visualBrief || ""} ${creativeBrief?.primary_subject || ""} ${creativeBrief?.floral_style || ""}`
+  )
     ? "This is sympathy work: white, ivory and cream blooms with soft green foliage, restrained and dignified, gentle diffused light. Never bright, festive, vivid or celebratory."
     : null;
 
   const clauses = [required(REALISM_DIRECTIVE)];
-  if (visualBrief) {
+  if (subjectText) {
     // A real, live-found failure: this clause used to be OPTIONAL, and it
     // is the ONLY thing in this whole function that ever describes the
     // actual subject of the photo. Every other clause here compounds across
@@ -280,14 +309,15 @@ export function buildImagePrompt({ occasion, products = [], shopName, visualBrie
     // other required clause, truncated at a word boundary rather than
     // dropped — since the concrete subject is the FIRST thing
     // generateSocialPost's own prompt instructs the model to name in
-    // visual_brief, keeping the front of the string keeps the subject even
-    // when trailing descriptive detail must be cut to fit.
+    // visual_brief (or, now, creative_brief.primary_subject), keeping the
+    // front of the string keeps the subject even when trailing descriptive
+    // detail must be cut to fit.
     const otherRequired = [REALISM_DIRECTIVE, occasionClause, sympathyClause, NO_TEXT_DIRECTIVE].filter(Boolean);
     // +1 join space per clause already present, plus the join space this
     // clause itself will need once inserted.
     const otherLength = otherRequired.reduce((sum, c) => sum + c.length + 1, 0);
     const budget = Math.max(60, cap - otherLength);
-    clauses.push(required(truncateAtWordBoundary(String(visualBrief), budget)));
+    clauses.push(required(truncateAtWordBoundary(subjectText, budget)));
   } else {
     clauses.push(required("Professional florist marketing photograph, bright natural light, clean background."));
     if (products.length) clauses.push(optional(`Featuring: ${products.slice(0, 4).join(", ")}.`));
@@ -364,7 +394,7 @@ const FLYER_BACKGROUND_COMPOSITIONS = [
   "Florals framing the top edge and sides, a clean open channel of soft, evenly-lit space across the bottom third."
 ];
 
-export function buildFlyerBackgroundPrompt({ visualBrief, occasion, brandColor, groundedFlowers = [], variationSeed = 0 } = {}) {
+export function buildFlyerBackgroundPrompt({ visualBrief, occasion, brandColor, groundedFlowers = [], variationSeed = 0, creativeBrief } = {}) {
   const compositionIndex =
     (((Number(variationSeed) || 0) % FLYER_BACKGROUND_COMPOSITIONS.length) + FLYER_BACKGROUND_COMPOSITIONS.length) %
     FLYER_BACKGROUND_COMPOSITIONS.length;
@@ -386,7 +416,9 @@ export function buildFlyerBackgroundPrompt({ visualBrief, occasion, brandColor, 
   // what the flyer was for, so a post about funeral work came back with coral
   // and sunny-yellow spring flowers on it. Sympathy work gets a palette that
   // suits it; everything else keeps the bright default unchanged.
-  const bereavement = SYMPATHY_OCCASION_RE.test(`${occasion || ""} ${visualBrief || ""}`);
+  const bereavement = SYMPATHY_OCCASION_RE.test(
+    `${occasion || ""} ${visualBrief || ""} ${creativeBrief?.primary_subject || ""} ${creativeBrief?.floral_style || ""}`
+  );
   const clauses = [
     required(
       bereavement
@@ -398,8 +430,14 @@ export function buildFlyerBackgroundPrompt({ visualBrief, occasion, brandColor, 
 
   if (Array.isArray(groundedFlowers) && groundedFlowers.length) {
     clauses.push(optional(`Feature real, recognizable ${groundedFlowers.slice(0, 5).join(", ")} rendered photorealistically.`));
-  } else if (visualBrief) {
-    clauses.push(optional(String(visualBrief)));
+  } else {
+    // creativeBrief, when present, describes the same concept as
+    // visualBrief but already broken into concrete fields — see
+    // creativeBriefClause's docstring above buildImagePrompt. Preferred
+    // for the same reason; visualBrief alone still works for any caller
+    // without a structured brief.
+    const subjectClause = creativeBriefClause(creativeBrief) || (visualBrief ? String(visualBrief) : null);
+    if (subjectClause) clauses.push(optional(subjectClause));
   }
   if (occasion) clauses.push(optional(`Mood/occasion: ${occasion}.`));
 

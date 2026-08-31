@@ -180,8 +180,17 @@ ${shopIdentityRule(shop?.name, occasion)}
 - A FLORIST SUPPLIES THE FLOWERS. The shop is not a funeral home, a venue, a caterer or an events company, and must never be written as though it holds the service itself. Never "funeral services available", "memorial services", "we host", "we officiate". Say "funeral flowers", "sympathy flowers", "flowers for the service", "standing sprays and casket flowers". "Funeral arrangements" alone reads as undertaking rather than flowers — name the flowers.
 - SYMPATHY OPENINGS ARE NOT PRODUCT LABELS. On funeral, sympathy or memorial work never open with the category or with availability — not "We have funeral flowers", not "Funeral flowers available", not "We offer a variety of sympathy arrangements". A family two days after a death is not shopping a category, and a supply notice reads as cold at the worst possible moment. Open with the person: what you will do for them, or what you have seen families ask for. Name the actual flowers after that, not before.
 - SYMPATHY AND FUNERAL WORK is the most delicate writing a florist does. Never frame a death as a celebration, a milestone, an occasion, or anything upbeat — no "celebrating life's milestones", no exclamation marks, no enthusiasm. Write plainly, gently and briefly, as one person to another who has just lost someone. Say what the shop will actually do for them. ("Celebration of life" is a real name for a memorial service and is fine when the request uses it.) Never pressure: no "book now", no urgency, no scarcity.
-- visual_brief must NEVER ask for legible on-image text of any kind — no words, letters, numbers, signage, or lettering of any sort, whether a phone number, time, price, URL, headline, or any other wording. The image model can't render text reliably; any post whose important information needs to actually be READ on the graphic itself is handled by Florisyn's own deterministic flyer renderer, never this image model — visual_brief only ever describes a purely visual scene.`;
+- visual_brief must NEVER ask for legible on-image text of any kind — no words, letters, numbers, signage, or lettering of any sort, whether a phone number, time, price, URL, headline, or any other wording. The image model can't render text reliably; any post whose important information needs to actually be READ on the graphic itself is handled by Florisyn's own deterministic flyer renderer, never this image model — visual_brief only ever describes a purely visual scene.
+- creative_brief: the SAME visual concept as visual_brief — never a different scene, never vaguer — broken into fields an image prompt can use directly. primary_subject: the exact subject, named concretely (never "a beautiful arrangement"). mood: 2-4 real adjectives. lighting/composition: concrete and photographic, not "nice lighting". floral_style: garden-style/formal/minimalist/etc. Ground every field the same way visual_brief itself is grounded — never invent a flower or style.`;
 }
+
+const CREATIVE_BRIEF_SCHEMA = {
+  primary_subject: "string — the exact photographic subject, named concretely",
+  mood: "string — 2-4 concrete adjectives",
+  lighting: "string — concrete photographic lighting description",
+  composition: "string — concrete framing/composition description",
+  floral_style: "string — garden-style/formal/minimalist/etc, whatever actually fits"
+};
 
 const SOCIAL_POST_SCHEMA = {
   platform: "string",
@@ -189,6 +198,7 @@ const SOCIAL_POST_SCHEMA = {
   body: "string — the complete finished post text, ready to publish as-is",
   cta: "string — the exact call-to-action line",
   visual_brief: "string — a concrete visual concept for a matching image",
+  creative_brief: CREATIVE_BRIEF_SCHEMA,
   hashtags: ["string"],
   asset_requirements: ["string"],
   brand_traits_used: [{ category: "string", text: "string" }],
@@ -202,6 +212,27 @@ function normalizeTraitsUsed(raw) {
         .slice(0, 20)
         .map((t) => ({ category: String(t.category), text: String(t.text).slice(0, 160) }))
     : [];
+}
+
+/**
+ * Defensively normalizes the model's creative_brief object. Every field is
+ * optional here even though the schema/prompt ask for all five — a model
+ * can always omit one, and a missing field must fall back to empty string
+ * (never undefined/null) so downstream consumers (buildImagePrompt,
+ * buildFlyerBackgroundPrompt) can safely check truthiness without a null
+ * check at every call site. Returns null when the model gave nothing at
+ * all usable, so callers can tell "no structured brief" apart from "a
+ * brief with blank fields" and fall back to the prose visual_brief alone.
+ */
+function normalizeCreativeBrief(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const primary_subject = String(raw.primary_subject || "").slice(0, 300);
+  const mood = String(raw.mood || "").slice(0, 200);
+  const lighting = String(raw.lighting || "").slice(0, 200);
+  const composition = String(raw.composition || "").slice(0, 200);
+  const floral_style = String(raw.floral_style || "").slice(0, 200);
+  if (!primary_subject && !mood && !lighting && !composition && !floral_style) return null;
+  return { primary_subject, mood, lighting, composition, floral_style };
 }
 
 /**
@@ -252,6 +283,7 @@ export async function generateSocialPost({ persona = "Lily", channel, occasion, 
         body: String(post.body || "").slice(0, 3000),
         cta: String(post.cta || "").slice(0, 200),
         visual_brief: String(post.visual_brief || "").slice(0, 600),
+        creative_brief: normalizeCreativeBrief(post.creative_brief),
         hashtags: Array.isArray(post.hashtags) ? post.hashtags.slice(0, 15).map(String) : [],
         asset_requirements: Array.isArray(post.asset_requirements) ? post.asset_requirements.slice(0, 10).map(String) : [],
         // Anti-fabrication (same contract as ai-intent-router.js's

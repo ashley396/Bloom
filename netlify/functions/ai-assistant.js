@@ -123,14 +123,22 @@ async function cloudflareAi(payload){
   const model=process.env.CLOUDFLARE_AI_MODEL||MODEL_DEFAULT;
   const persona = normalizePersona(payload.persona);
   const mode = payload.mode === "generate" ? "generate" : "chat";
-  // Task cap raised from its original 1200 (Phase 9 finding): the real
-  // task text now composes up to four real grounding summaries (brand
-  // voice, visual style, inventory, audience) plus their anti-fabrication
-  // rules — 1200 chars was already tight with three and silently truncated
-  // the newest, safety-critical rule (never state an unlisted audience
-  // number) off the end. 4000 matches chat mode's own prompt cap below.
+  // Task cap raised twice now, same root cause both times, and this second
+  // pass found the first raise (1200 -> 4000, Phase 9) was ALREADY
+  // insufficient before today's change: buildSocialPostTask's real prompt
+  // (every anti-fabrication rule plus all four grounding summaries —
+  // brand voice, visual style, inventory, audience — actually populated,
+  // the realistic case for an established shop) measured at 6681 raw
+  // chars, well past the 4000 cap already in place; adding the Phase 2
+  // creative_brief rule brought it to 7167. Both were being silently
+  // tail-truncated by safeText, not just the newest rule — an
+  // unmeasured cap is not a real cap. Raised to 9000: real margin above
+  // the measured 7167-char worst case (not just enough to clear it), with
+  // room to spare in Llama 3.1 8B's context window alongside the
+  // schema/input JSON blocks that follow. If this trips again, the fix is
+  // the same: measure the real worst case, don't just nudge the number.
   const user=payload.mode==="generate"
-    ?`Task: ${safeText(payload.task,4000)}\nInput: ${jsonWithinLimit(payload.input||{},30000)}\nReturn ONLY valid JSON matching this shape: ${jsonWithinLimit(payload.schema||{text:"result"},5000)}`
+    ?`Task: ${safeText(payload.task,9000)}\nInput: ${jsonWithinLimit(payload.input||{},30000)}\nReturn ONLY valid JSON matching this shape: ${jsonWithinLimit(payload.schema||{text:"result"},5000)}`
     :`Question: ${safeText(payload.prompt,4000)}\nRelevant Florisyn context: ${jsonWithinLimit(payload.context||{},32000)}`;
   // Model slug (e.g. "@cf/meta/llama-3.1-8b-instruct-fast") must stay literal in the path —
   // encodeURIComponent turns its "/" into "%2F", which Cloudflare rejects as "No route for that URI".

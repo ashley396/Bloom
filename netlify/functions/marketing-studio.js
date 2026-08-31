@@ -1259,7 +1259,12 @@ export function createMarketingStudioHandler(deps = {}) {
               const backgroundPrompt = buildImagePrompt({
                 occasion: currentItem.data.title,
                 shopName,
-                visualBrief: currentAsset.content?.visual_brief || currentItem.data.brief
+                visualBrief: currentAsset.content?.visual_brief || currentItem.data.brief,
+                // Carried forward from the asset persisted at generation
+                // time (see generate_content's subject-forward branch) so
+                // "Regenerate image" asks for the same concrete subject,
+                // not a vaguer re-derivation from prose alone.
+                creativeBrief: currentAsset.content?.creative_brief || null
               });
               backgroundGen = await generateImage(client, shopId, {
                 prompt: backgroundPrompt,
@@ -1273,6 +1278,7 @@ export function createMarketingStudioHandler(deps = {}) {
                 occasion: currentItem.data.title,
                 brandColor: shopRow.data?.primary_color || null,
                 groundedFlowers: groundedFlowerNames,
+                creativeBrief: currentAsset.content?.creative_brief || null,
                 // "Regenerate image" must ask for a genuinely different
                 // composition, not just resend the same instruction and hope
                 // the model's own sampling varies it — Date.now() guarantees
@@ -2264,6 +2270,7 @@ export function createMarketingStudioHandler(deps = {}) {
               promptFor: (attempt) =>
                 buildFlyerBackgroundPrompt({
                   visualBrief: copyGen.content.visual_brief,
+                  creativeBrief: copyGen.content.creative_brief,
                   occasion: currentItem.data.title,
                   brandColor: shopRow.data?.primary_color || null,
                   groundedFlowers: groundedFlowerNames,
@@ -2332,6 +2339,13 @@ export function createMarketingStudioHandler(deps = {}) {
                 visual_traits_used: copyGen.content.visual_traits_used,
                 grounded_in_inventory: inventorySources,
                 visual_brief: copyGen.content.visual_brief || null,
+                // Structured art-director breakdown of the same concept as
+                // visual_brief (see CREATIVE_BRIEF_SCHEMA in
+                // ai-creative-engine.js) — persisted for the same reason
+                // visual_brief itself is: a later revise_content call, or a
+                // human debugging a flyer, has the real concrete brief to
+                // reference instead of re-deriving it from prose.
+                creative_brief: copyGen.content.creative_brief || null,
                 // A flyer produced by this path is always the calm-backdrop
                 // strategy now — subject-forward requests never reach this
                 // branch at all, they take the plain "image" path below —
@@ -2406,7 +2420,12 @@ export function createMarketingStudioHandler(deps = {}) {
               imageGen = { ok: true, path: uploaded.path, url: publicWebsiteMediaUrl(client, uploaded.path), mime: uploaded.mime, provider: "user_upload", model: null, prompt: null };
             } else {
               await recordUsage("image", "image", 1);
-              const prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief: copyGen.content.visual_brief || currentItem.data.brief });
+              const prompt = buildImagePrompt({
+                occasion: currentItem.data.title,
+                shopName,
+                visualBrief: copyGen.content.visual_brief || currentItem.data.brief,
+                creativeBrief: copyGen.content.creative_brief
+              });
               // Real, live-found failure: this exact path handed a florist a
               // photo with invented, garbled pseudo-branding painted into a
               // corner despite buildImagePrompt's unconditional no-text
@@ -2476,6 +2495,7 @@ export function createMarketingStudioHandler(deps = {}) {
                 // something real to reference instead of the item's generic
                 // brief text.
                 visual_brief: copyGen.content.visual_brief || null,
+                creative_brief: copyGen.content.creative_brief || null,
                 photo_strategy: "subject_forward",
                 // Real gap the photo-choice feature's own review closed:
                 // a real uploaded photo must never be disclosed as a
