@@ -14,6 +14,7 @@
 
 import { cloudflareAiToken } from "../ai-assistant.js";
 import { uploadWebsiteMedia, publicWebsiteMediaUrl } from "./website-media.js";
+import { detectInventedTextOnPhoto } from "./florist-ai-vision.js";
 
 const IMAGE_MODEL_DEFAULT = "@cf/black-forest-labs/flux-1-schnell";
 
@@ -78,7 +79,13 @@ export async function generateImage(client, shopId, { prompt, filename } = {}) {
     url: publicWebsiteMediaUrl(client, uploaded.path),
     provider: "cloudflare",
     model,
-    prompt: cleanPrompt
+    prompt: cleanPrompt,
+    // Kept only for generateImageCheckingText's own vision-based QA pass
+    // below — the pixels are already in memory here, so there's no reason
+    // to re-download the just-uploaded file to inspect them. Not part of
+    // this function's documented public contract; existing callers that
+    // only read ok/path/url/provider/model/prompt are unaffected.
+    imageDataUrl: `data:image/jpeg;base64,${base64}`
   };
 }
 
@@ -119,6 +126,43 @@ export async function generateFlyerBackgroundWithRetry(client, shopId, { promptF
     if (last.stage !== "provider") return { ...last, attempts: attempt + 1 };
   }
   return { ...last, attempts: maxAttempts };
+}
+
+/**
+ * One bounded retry around generateImage() specifically for invented text.
+ *
+ * Real, live-found failure: a florist's plain "make today's post" request
+ * (no operational fact, never near the deterministic flyer renderer) came
+ * back with a photo carrying invented, garbled pseudo-branding painted
+ * into a corner despite NO_TEXT_DIRECTIVE being unconditional on every
+ * prompt above. A prompt instruction is a statistical nudge to a
+ * diffusion model, not a hard constraint, so wording alone cannot close
+ * this — this actually inspects the generated pixels with a real vision
+ * model (florist-ai-vision.js's detectInventedTextOnPhoto) and asks for
+ * one fresh generation if it finds text, the same bounded-retry
+ * discipline generateFlyerBackgroundWithRetry already uses for a
+ * different failure mode (a failed provider call).
+ *
+ * Deliberately narrow: never fails the whole request over this — a
+ * vision-check failure, or a second attempt that still shows text, still
+ * returns the best photo actually generated. Blocking a real, otherwise-
+ * usable photo over an imperfect QA pass would be a worse outcome than
+ * shipping the same rare imperfection the check couldn't clear in two
+ * tries.
+ */
+export async function generateImageCheckingText(client, shopId, { promptFor, filenameFor, maxAttempts = 2 } = {}) {
+  let last = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const gen = await generateImage(client, shopId, {
+      prompt: typeof promptFor === "function" ? promptFor(attempt) : promptFor,
+      filename: typeof filenameFor === "function" ? filenameFor(attempt) : filenameFor
+    });
+    if (!gen.ok) return last ?? gen;
+    last = gen;
+    const check = await detectInventedTextOnPhoto({ dataUrl: gen.imageDataUrl });
+    if (!check.hasText) return gen;
+  }
+  return last;
 }
 
 // A real, live-found failure mode: the AI image model (a diffusion model,

@@ -31,12 +31,24 @@ export function mockCloudflareGenerate(jsonResult) {
   process.env.CLOUDFLARE_AI_API_TOKEN = "token-test";
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, options) => {
-    let isTextCall = false;
+    let body = {};
     try {
-      const body = JSON.parse(options?.body || "{}");
-      isTextCall = Array.isArray(body.messages);
+      body = JSON.parse(options?.body || "{}");
     } catch {
-      isTextCall = false;
+      body = {};
+    }
+    const isTextCall = Array.isArray(body.messages);
+    // florist-ai-vision.js's llava/uform vision-check payload shape is
+    // {prompt, image, max_tokens} — no `messages` key, but a top-level
+    // `image` field a real image-GENERATION call ({prompt, steps}) never
+    // has. Answering it immediately (rather than falling through to the
+    // image-generation branch below, which returns a base64 IMAGE where a
+    // vision call expects a text description) is what lets
+    // generateImageCheckingText's vision check resolve in one fetch
+    // instead of cascading through every fallback model looking for a
+    // response shape it can parse as text.
+    if (!isTextCall && "image" in body) {
+      return { ok: true, json: async () => ({ success: true, result: { description: "NO" } }) };
     }
     if (isTextCall) {
       return { ok: true, json: async () => ({ success: true, result: { response: JSON.stringify(jsonResult) } }) };

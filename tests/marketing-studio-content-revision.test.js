@@ -45,7 +45,16 @@ function mockImageGen() {
   process.env.CLOUDFLARE_ACCOUNT_ID = "acct-test";
   process.env.CLOUDFLARE_AI_API_TOKEN = "token-test";
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({ ok: true, json: async () => ({ result: { image: TINY_JPEG_BASE64 } }) });
+  globalThis.fetch = async (url, options) => {
+    // generateImageCheckingText's own vision-check call (florist-ai-vision.js's
+    // llava/uform payload shape: {prompt, image, max_tokens}) also hits this
+    // mock — answer it with a real text reply so it resolves in one fetch
+    // instead of cascading through every fallback model.
+    let body = {};
+    try { body = JSON.parse(options?.body || "{}"); } catch { body = {}; }
+    if ("image" in body) return { ok: true, json: async () => ({ success: true, result: { description: "NO" } }) };
+    return { ok: true, json: async () => ({ result: { image: TINY_JPEG_BASE64 } }) };
+  };
   return { restore: () => (globalThis.fetch = originalFetch) };
 }
 
@@ -202,6 +211,15 @@ test("revise_content (image): the original subject survives across MULTIPLE succ
   const capturedPrompts = [];
   globalThis.fetch = async (url, options) => {
     const parsedBody = JSON.parse(options?.body || "{}");
+    // generateImageCheckingText's own vision-check call (florist-ai-vision.js's
+    // llava/uform payload shape: {prompt, image, max_tokens}) also hits this
+    // mock — it must never be counted as one of the real image-generation
+    // calls this test asserts on, and must resolve in one fetch (a text
+    // reply the vision code can actually parse) rather than cascading
+    // through every fallback model looking for a shape it understands.
+    if ("image" in parsedBody) {
+      return { ok: true, json: async () => ({ success: true, result: { description: "NO" } }) };
+    }
     capturedPrompts.push(parsedBody.prompt);
     return { ok: true, json: async () => ({ result: { image: TINY_JPEG_BASE64 } }) };
   };

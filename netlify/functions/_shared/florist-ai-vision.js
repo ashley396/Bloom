@@ -219,3 +219,36 @@ export async function assessPhotoQuality(imagePayload) {
   if (!imageVariants) return null;
   return runVisionWithFallback(imageVariants, PHOTO_QUALITY_VISION_PROMPT);
 }
+
+// Real, live-found failure: a florist's plain "make today's post" request
+// (no operational fact, so it never goes near the deterministic flyer
+// renderer) came back with a photo carrying invented, garbled pseudo-
+// branding painted into a corner ("Lilies in Rebloom") despite
+// ai-image-engine.js's NO_TEXT_DIRECTIVE being unconditional on every
+// image prompt. A prompt instruction is a statistical nudge to a
+// diffusion model, not a hard constraint — it cannot be eliminated by
+// prompt wording alone, so this inspects the ACTUAL generated pixels
+// with a real vision model instead of trusting the prompt was obeyed.
+const INVENTED_TEXT_VISION_PROMPT = `You are reviewing an AI-generated marketing photo before it is shown to a florist's customers. The photo was generated with an explicit instruction to contain NO text of any kind, but the model sometimes ignores that and paints invented, garbled pseudo-text onto the image anyway — often as a small script-style watermark tucked into a corner, easy to miss at a glance.
+Look carefully at the ENTIRE image, corners included, for ANY visible text, letters, numbers, a watermark, a logo, or signage — even small, faint, or nonsensical/garbled lettering.
+Reply with EXACTLY one word: YES if you see any text or lettering anywhere in the image, or NO if the image is genuinely free of all text.`;
+
+/**
+ * Best-effort check for invented text on a just-generated marketing photo.
+ * Never throws and never blocks a photo over its OWN failure: if the
+ * vision call itself errors out (network, provider outage, an
+ * unrecognized reply), this reports hasText:false ("assume clean") rather
+ * than holding up a photo that might be perfectly fine over an unrelated
+ * QA-model outage — the same graceful-degradation philosophy every other
+ * Tier-A/Tier-B fallback in this codebase already uses.
+ */
+export async function detectInventedTextOnPhoto(imagePayload) {
+  const imageVariants = await preparedImageVariants(imagePayload);
+  if (!imageVariants) return { ok: false, hasText: false };
+  try {
+    const result = await runVisionWithFallback(imageVariants, INVENTED_TEXT_VISION_PROMPT);
+    return { ok: true, hasText: /^\s*yes/i.test(result.text || ""), model: result.model };
+  } catch {
+    return { ok: false, hasText: false };
+  }
+}

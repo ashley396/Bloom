@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   generateImage,
+  generateImageCheckingText,
   imageGenerationConfigured,
   buildImagePrompt,
   generateFlyerBackgroundWithRetry,
@@ -12,6 +13,40 @@ import {
 import { createFakeSupabaseClient, createFakeSupabaseStorage } from "./helpers/fake-supabase-client.mjs";
 
 const TINY_JPEG_BASE64 = Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString("base64");
+
+/**
+ * A fetch mock distinguishing generateImage's real image-generation call
+ * ({prompt, steps}, no `image` field) from florist-ai-vision.js's own
+ * vision-check call (llava/uform payload shape: {prompt, image,
+ * max_tokens}) — the same distinction every marketing-studio test's own
+ * mock now has to make for the same reason. `visionAnswers` is consumed in
+ * order, one per vision call made; the last entry repeats once exhausted.
+ */
+function mockImageAndVision(visionAnswers = ["NO"]) {
+  process.env.CLOUDFLARE_ACCOUNT_ID = "acct-test";
+  process.env.CLOUDFLARE_AI_API_TOKEN = "token-test";
+  const originalFetch = globalThis.fetch;
+  const queue = [...visionAnswers];
+  const imageGenCalls = [];
+  const visionCalls = [];
+  globalThis.fetch = async (url, opts) => {
+    const body = JSON.parse(opts?.body || "{}");
+    if ("image" in body) {
+      visionCalls.push(body);
+      const answer = queue.length > 1 ? queue.shift() : queue[0];
+      return { ok: true, json: async () => ({ success: true, result: { description: answer } }) };
+    }
+    imageGenCalls.push(body);
+    return { ok: true, json: async () => ({ result: { image: TINY_JPEG_BASE64 } }) };
+  };
+  return {
+    imageGenCalls,
+    visionCalls,
+    restore: () => {
+      globalThis.fetch = originalFetch;
+    }
+  };
+}
 
 test("imageGenerationConfigured: false when Cloudflare credentials are missing", () => {
   assert.equal(imageGenerationConfigured({}), false);
@@ -272,6 +307,104 @@ test("generateFlyerBackgroundWithRetry: an UPLOAD failure is NOT retried — the
     assert.equal(res.stage, "upload", "the failure must be attributed to storage, not the provider");
     assert.equal(res.attempts, 1, "an upload failure must not trigger a second billed generation");
     assert.equal(providerCalls, 1, "exactly one image was generated");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// generateImageCheckingText — real, live-found failure: a florist's plain
+// "make today's post" request came back with a photo carrying invented,
+// garbled pseudo-branding painted into a corner, despite NO_TEXT_DIRECTIVE
+// being unconditional on every prompt. A prompt instruction is a
+// statistical nudge to a diffusion model, not a hard constraint, so this
+// actually inspects the generated pixels with a real vision model
+// (florist-ai-vision.js) and retries once if it finds text.
+// ---------------------------------------------------------------------------
+
+test("generateImageCheckingText: a clean photo (vision says no text) is returned after exactly one generation and one vision check", async () => {
+  const mock = mockImageAndVision(["NO"]);
+  const storage = createFakeSupabaseStorage({ publicUrl: (path) => `https://fake.storage/website-media/${path}` });
+  const client = createFakeSupabaseClient([], { storage });
+  try {
+    const result = await generateImageCheckingText(client, "shop-1", { promptFor: () => "a jaguar holding flowers", filenameFor: () => "marketing.jpg" });
+    assert.equal(result.ok, true);
+    assert.equal(mock.imageGenCalls.length, 1, "a clean first attempt must never trigger a second, billed generation");
+    assert.equal(mock.visionCalls.length, 1);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateImageCheckingText: vision finds invented text on the first photo — retries ONCE with a fresh generation, and returns the second (clean) result", async () => {
+  const mock = mockImageAndVision(["YES", "NO"]);
+  const storage = createFakeSupabaseStorage({ publicUrl: (path) => `https://fake.storage/website-media/${path}` });
+  const client = createFakeSupabaseClient([], { storage });
+  try {
+    const filenames = [];
+    const result = await generateImageCheckingText(client, "shop-1", {
+      promptFor: () => "a jaguar holding flowers",
+      filenameFor: (attempt) => {
+        const name = attempt === 0 ? "marketing.jpg" : `marketing-retry${attempt}.jpg`;
+        filenames.push(name);
+        return name;
+      }
+    });
+    assert.equal(result.ok, true);
+    assert.equal(mock.imageGenCalls.length, 2, "text found on the first photo must trigger exactly one fresh regeneration");
+    assert.equal(mock.visionCalls.length, 2, "the SECOND photo must also be checked, not assumed clean");
+    assert.deepEqual(filenames, ["marketing.jpg", "marketing-retry1.jpg"], "the retry must use a distinct filename, not overwrite the first attempt");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateImageCheckingText: text found on BOTH attempts still returns the last real photo — never fails the whole request over an imperfect (but real, usable) image", async () => {
+  const mock = mockImageAndVision(["YES", "YES"]);
+  const storage = createFakeSupabaseStorage({ publicUrl: (path) => `https://fake.storage/website-media/${path}` });
+  const client = createFakeSupabaseClient([], { storage });
+  try {
+    const result = await generateImageCheckingText(client, "shop-1", { promptFor: () => "a jaguar holding flowers", filenameFor: (a) => `m${a}.jpg` });
+    assert.equal(result.ok, true, "exhausting the bounded retry must still hand back a real, usable photo rather than a failure");
+    assert.equal(mock.imageGenCalls.length, 2, "never more than the bounded maxAttempts — no unbounded loop");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateImageCheckingText: a failed generation is returned as a real failure, and never wastes a vision-check call on an image that doesn't exist", async () => {
+  process.env.CLOUDFLARE_ACCOUNT_ID = "acct-test";
+  process.env.CLOUDFLARE_AI_API_TOKEN = "token-test";
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls++;
+    return { ok: false, json: async () => ({ success: false, errors: [{ message: "provider unavailable" }] }) };
+  };
+  const client = createFakeSupabaseClient([]);
+  try {
+    const result = await generateImageCheckingText(client, "shop-1", { promptFor: () => "a jaguar holding flowers", filenameFor: () => "m.jpg" });
+    assert.equal(result.ok, false);
+    assert.equal(fetchCalls, 1, "a failed image generation must never be followed by a vision-check call — there is no photo to check");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("generateImageCheckingText: a vision-check that itself errors out never blocks or fails a perfectly real photo", async () => {
+  process.env.CLOUDFLARE_ACCOUNT_ID = "acct-test";
+  process.env.CLOUDFLARE_AI_API_TOKEN = "token-test";
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    const body = JSON.parse(opts?.body || "{}");
+    if ("image" in body) return { ok: false, json: async () => ({ success: false, errors: [{ message: "vision model unavailable" }] }) };
+    return { ok: true, json: async () => ({ result: { image: TINY_JPEG_BASE64 } }) };
+  };
+  const storage = createFakeSupabaseStorage({ publicUrl: (path) => `https://fake.storage/website-media/${path}` });
+  const client = createFakeSupabaseClient([], { storage });
+  try {
+    const result = await generateImageCheckingText(client, "shop-1", { promptFor: () => "a jaguar holding flowers", filenameFor: () => "m.jpg" });
+    assert.equal(result.ok, true, "a QA-check outage must never hold up a real, otherwise-successful photo");
   } finally {
     globalThis.fetch = originalFetch;
   }

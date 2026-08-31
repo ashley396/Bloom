@@ -117,7 +117,7 @@ import { determineDisclosureRequirement, enforcePrePublishDisclosureGate, comput
 import { validateCloneConsentBody, isConsentActive } from "./_shared/marketing-clone-consent.js";
 import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
 import { generateSocialPost, generateVideoConcept, generateWebsiteSectionDraft, generateFlyerContent, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
-import { generateImage, buildImagePrompt, buildFlyerBackgroundPrompt, generateFlyerBackgroundWithRetry } from "./_shared/ai-image-engine.js";
+import { generateImage, generateImageCheckingText, buildImagePrompt, buildFlyerBackgroundPrompt, generateFlyerBackgroundWithRetry } from "./_shared/ai-image-engine.js";
 import { pickFlyerTemplate, pickAspectRatio, ASPECT_RATIOS } from "./_shared/flyer-templates.js";
 import { loadGenerationGrounding } from "./_shared/marketing-generation-grounding.js";
 import { planVideoRender } from "./_shared/marketing-video-render-engine.js";
@@ -1045,7 +1045,13 @@ export function createMarketingStudioHandler(deps = {}) {
           if (affectsImage) {
             visualBrief = buildImageRevisionBrief({ instruction, priorVisualBrief: baseVisualBrief });
             prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief });
-            const imageGen = await generateImage(client, shopId, { prompt, filename: `marketing-revision-${body.content_item_id}-${Date.now()}.jpg` });
+            const imageGen = await generateImageCheckingText(client, shopId, {
+              promptFor: () => prompt,
+              filenameFor: (attempt) =>
+                attempt === 0
+                  ? `marketing-revision-${body.content_item_id}-${Date.now()}.jpg`
+                  : `marketing-revision-${body.content_item_id}-${Date.now()}-retry${attempt}.jpg`
+            });
             if (!imageGen.ok) return json(400, { error: imageGen.error });
             const mediaRow = await client
               .from("website_media")
@@ -2280,7 +2286,17 @@ export function createMarketingStudioHandler(deps = {}) {
             // image through the copy's visual_brief.
             await recordUsage("image", "image", 1);
             const prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief: copyGen.content.visual_brief || currentItem.data.brief });
-            const imageGen = await generateImage(client, shopId, { prompt, filename: `marketing-${body.content_item_id}.jpg` });
+            // Real, live-found failure: this exact path handed a florist a
+            // photo with invented, garbled pseudo-branding painted into a
+            // corner despite buildImagePrompt's unconditional no-text
+            // directive — a diffusion model's prompt instructions are a
+            // statistical nudge, not a hard constraint. Checks the actual
+            // generated pixels with a real vision model and retries once
+            // if it finds text, rather than trusting the prompt was obeyed.
+            const imageGen = await generateImageCheckingText(client, shopId, {
+              promptFor: () => prompt,
+              filenameFor: (attempt) => (attempt === 0 ? `marketing-${body.content_item_id}.jpg` : `marketing-${body.content_item_id}-retry${attempt}.jpg`)
+            });
             if (!imageGen.ok) {
               await revertToIdea();
               return json(400, { error: imageGen.error });

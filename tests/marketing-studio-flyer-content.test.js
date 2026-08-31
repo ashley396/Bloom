@@ -131,6 +131,14 @@ function mockCloudflare(textJsonQueue) {
   const calls = [];
   globalThis.fetch = async (url, opts) => {
     const body = opts?.body ? JSON.parse(opts.body) : {};
+    // generateImageCheckingText's own vision-check call (florist-ai-vision.js's
+    // llava/uform payload shape: {prompt, image, max_tokens}) must never be
+    // logged/counted alongside the real image-GENERATION calls this mock's
+    // callers filter for below ("prompt" in body, with no "image" field) —
+    // answered here with a real text reply so it resolves in one fetch too.
+    if ("image" in body) {
+      return { ok: true, json: async () => ({ success: true, result: { description: "NO" } }) };
+    }
     calls.push({ url: String(url), body });
     if (String(url).includes("black-forest-labs") || "prompt" in body) {
       // The image-generation endpoint — never expected to be called for a
