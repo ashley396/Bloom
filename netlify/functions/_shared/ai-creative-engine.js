@@ -182,7 +182,8 @@ ${shopIdentityRule(shop?.name, occasion)}
 - SYMPATHY OPENINGS ARE NOT PRODUCT LABELS. On funeral, sympathy or memorial work never open with the category or with availability — not "We have funeral flowers", not "Funeral flowers available", not "We offer a variety of sympathy arrangements". A family two days after a death is not shopping a category, and a supply notice reads as cold at the worst possible moment. Open with the person: what you will do for them, or what you have seen families ask for. Name the actual flowers after that, not before.
 - SYMPATHY AND FUNERAL WORK is the most delicate writing a florist does. Never frame a death as a celebration, a milestone, an occasion, or anything upbeat — no "celebrating life's milestones", no exclamation marks, no enthusiasm. Write plainly, gently and briefly, as one person to another who has just lost someone. Say what the shop will actually do for them. ("Celebration of life" is a real name for a memorial service and is fine when the request uses it.) Never pressure: no "book now", no urgency, no scarcity.
 - visual_brief must NEVER ask for legible on-image text of any kind — no words, letters, numbers, signage, or lettering of any sort, whether a phone number, time, price, URL, headline, or any other wording. The image model can't render text reliably; any post whose important information needs to actually be READ on the graphic itself is handled by Florisyn's own deterministic flyer renderer, never this image model — visual_brief only ever describes a purely visual scene.
-- creative_brief: the SAME visual concept as visual_brief — never a different scene, never vaguer — broken into fields an image prompt can use directly. primary_subject: the exact subject, named concretely (never "a beautiful arrangement"). mood: 2-4 real adjectives. lighting/composition: concrete and photographic, not "nice lighting". floral_style: garden-style/formal/minimalist/etc. Ground every field the same way visual_brief itself is grounded — never invent a flower or style.`;
+- creative_brief: the SAME visual concept as visual_brief — never a different scene, never vaguer — broken into fields an image prompt can use directly. primary_subject: the exact subject, named concretely (never "a beautiful arrangement"). mood: 2-4 real adjectives. lighting/composition: concrete and photographic, not "nice lighting". floral_style: garden-style/formal/minimalist/etc. Ground every field the same way visual_brief itself is grounded — never invent a flower or style.
+- objective: name the ONE real marketing objective this specific request is actually for — exactly one of: "awareness" (general brand visibility, no specific ask), "promotion" (a sale, discount, or time-bound offer), "retention" (loyalty/repeat-customer/thank-you framing), "operational" (a schedule/hours/logistics notice), "seasonal_occasion" (a holiday or occasion-driven post with no discount). Base this ONLY on what the request/occasion actually says — never invent a sale or promotion that wasn't asked for just to pick a more exciting-sounding objective. Let the objective genuinely shape the CTA's tone (e.g. "promotion" earns urgency, "retention" earns warmth/thanks, "operational" stays plain and factual) — never let the objective override an exact fact or the sympathy/operational-notice rules above.`;
 }
 
 const CREATIVE_BRIEF_SCHEMA = {
@@ -200,6 +201,7 @@ const SOCIAL_POST_SCHEMA = {
   cta: "string — the exact call-to-action line",
   visual_brief: "string — a concrete visual concept for a matching image",
   creative_brief: CREATIVE_BRIEF_SCHEMA,
+  objective: "string — exactly one of: awareness, promotion, retention, operational, seasonal_occasion",
   hashtags: ["string"],
   asset_requirements: ["string"],
   brand_traits_used: [{ category: "string", text: "string" }],
@@ -234,6 +236,25 @@ function normalizeCreativeBrief(raw) {
   const floral_style = String(raw.floral_style || "").slice(0, 200);
   if (!primary_subject && !mood && !lighting && !composition && !floral_style) return null;
   return { primary_subject, mood, lighting, composition, floral_style };
+}
+
+// Phase 2 rebuild, priority-5 gap ("strategist"/objective selection): a
+// fixed, real enum — never a free-text guess the rest of the system would
+// have to interpret loosely. Reused, not a new AI call: the SAME
+// generateSocialPost response the copy itself comes from now also names
+// which of these it was actually written for, so the objective is real
+// (grounded in the same request/occasion as the copy) rather than a
+// separate, disconnected classification pass that could disagree with
+// what was actually written.
+const SOCIAL_POST_OBJECTIVES = ["awareness", "promotion", "retention", "operational", "seasonal_occasion"];
+
+/** An objective outside the fixed enum (a model inventing its own label,
+ * or omitting the field) is not trusted as-is — falls back to null so a
+ * caller can tell "no real objective classification" apart from a
+ * fabricated one, same as normalizeCreativeBrief's own null contract. */
+function normalizeObjective(raw) {
+  const value = String(raw || "").trim().toLowerCase();
+  return SOCIAL_POST_OBJECTIVES.includes(value) ? value : null;
 }
 
 /**
@@ -285,6 +306,7 @@ export async function generateSocialPost({ persona = "Lily", channel, occasion, 
         cta: String(post.cta || "").slice(0, 200),
         visual_brief: String(post.visual_brief || "").slice(0, 600),
         creative_brief: normalizeCreativeBrief(post.creative_brief),
+        objective: normalizeObjective(post.objective),
         hashtags: Array.isArray(post.hashtags) ? post.hashtags.slice(0, 15).map(String) : [],
         asset_requirements: Array.isArray(post.asset_requirements) ? post.asset_requirements.slice(0, 10).map(String) : [],
         // Anti-fabrication (same contract as ai-intent-router.js's

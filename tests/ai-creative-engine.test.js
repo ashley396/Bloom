@@ -963,6 +963,54 @@ test("generateSocialPost: a creative_brief missing some fields (model omitted mo
   }
 });
 
+// Marketing objective selection (Phase 2 rebuild, priority-5 gap): the
+// model also names the ONE real marketing objective this specific post
+// was written for — a fixed enum, reused from the SAME generation call
+// the copy itself comes from (never a separate classification pass that
+// could disagree with what was actually written).
+test("generateSocialPost: the real prompt sent to the model asks for objective, naming the fixed enum", async () => {
+  const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", objective: "promotion", hashtags: [], asset_requirements: [] });
+  try {
+    await generateSocialPost({ channel: "facebook", requestText: "x" });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /objective:/);
+    assert.match(userMessage, /awareness.*promotion.*retention.*operational.*seasonal_occasion/s);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: a valid objective from the fixed enum comes back normalized, lowercased", async () => {
+  const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", objective: "Promotion", hashtags: [], asset_requirements: [] });
+  try {
+    const result = await generateSocialPost({ channel: "facebook", requestText: "x" });
+    assert.equal(result.content.objective, "promotion");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: an objective outside the fixed enum (a model inventing its own label) is dropped to null, never trusted as-is", async () => {
+  const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", objective: "excitement", hashtags: [], asset_requirements: [] });
+  try {
+    const result = await generateSocialPost({ channel: "facebook", requestText: "x" });
+    assert.equal(result.content.objective, null);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateSocialPost: a model response with no objective field at all still succeeds — objective comes back null, never a crash", async () => {
+  const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", hashtags: [], asset_requirements: [] });
+  try {
+    const result = await generateSocialPost({ channel: "facebook", requestText: "x" });
+    assert.equal(result.ok, true);
+    assert.equal(result.content.objective, null);
+  } finally {
+    mock.restore();
+  }
+});
+
 test("persistGeneratedAsset: inserts into ai_generated_assets with the right shop scoping", async () => {
   const client = createFakeSupabaseClient([{ data: { id: "asset-1", shop_id: "shop-1", asset_type: "social_post" }, error: null }]);
   const result = await persistGeneratedAsset(client, {

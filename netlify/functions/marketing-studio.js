@@ -2394,6 +2394,12 @@ export function createMarketingStudioHandler(deps = {}) {
                 // human debugging a flyer, has the real concrete brief to
                 // reference instead of re-deriving it from prose.
                 creative_brief: copyGen.content.creative_brief || null,
+                // The real marketing objective this post was actually
+                // written for (see SOCIAL_POST_OBJECTIVES in
+                // ai-creative-engine.js) — persisted for observability and
+                // a future "learn" loop; never invented if the model gave
+                // nothing that matched the fixed enum.
+                objective: copyGen.content.objective || null,
                 // A flyer produced by this path is always the calm-backdrop
                 // strategy now — subject-forward requests never reach this
                 // branch at all, they take the plain "image" path below —
@@ -2588,6 +2594,12 @@ export function createMarketingStudioHandler(deps = {}) {
                 // brief text.
                 visual_brief: copyGen.content.visual_brief || null,
                 creative_brief: copyGen.content.creative_brief || null,
+                // The real marketing objective this post was actually
+                // written for (see SOCIAL_POST_OBJECTIVES in
+                // ai-creative-engine.js) — persisted for observability and
+                // a future "learn" loop; never invented if the model gave
+                // nothing that matched the fixed enum.
+                objective: copyGen.content.objective || null,
                 // The quality-control gate's own verdict on this specific
                 // photo (florist-ai-vision.js's assessGeneratedMarketingPhoto,
                 // run inside generateImageCheckingText above) — null for a
@@ -2638,7 +2650,8 @@ export function createMarketingStudioHandler(deps = {}) {
               hashtags: copyGen.content.hashtags,
               brand_traits_used: copyGen.content.brand_traits_used,
               visual_traits_used: copyGen.content.visual_traits_used,
-              grounded_in_inventory: inventorySources
+              grounded_in_inventory: inventorySources,
+              objective: copyGen.content.objective || null
             },
             status: "completed"
           });
