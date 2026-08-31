@@ -175,14 +175,15 @@ test("generate_content for an image-bearing post (Ashley's real scenario, not te
         { data: [], error: null }, // loadGroundedInventory
         { data: [], error: null }, // audience: customers
         { data: [], error: null }, // audience: orders
-        { data: null, error: null }, // recordUsage("copy") — copyGen
-        // brief:"b" carries no flyer-wording signal, so this is the plain
-        // "image" path (a real photo + caption, no on-image poster text) —
-        // only one recordUsage("image") here, never a second recordUsage
-        // ("copy") for a flyer-text call that never happens on this path.
+        { data: null, error: null }, // recordUsage("copy") — the Facebook caption
+        // brief:"b" carries no flyer-wording signal, so this is the
+        // subject-forward designed-flyer path (a real photo AND real
+        // on-image headline/body/cta) — a second recordUsage("copy") for
+        // the on-image flyer text, then recordUsage("image") for the photo.
+        { data: null, error: null }, // recordUsage("copy") — the on-image flyer text
         { data: null, error: null }, // recordUsage("image")
         { data: { id: "media-1" }, error: null }, // website_media insert
-        { data: { id: "img-asset-1" }, error: null }, // persistGeneratedAsset (image)
+        { data: { id: "img-asset-1" }, error: null }, // persistGeneratedAsset (flyer)
         { data: null, error: null }, // variant update
         { data: { id: "item-1", status: "draft" }, error: null } // final content_items update
       ],

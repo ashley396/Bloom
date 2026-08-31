@@ -497,17 +497,19 @@ test("generate_content (real dispatch): the EXACT bare sentence from Ashley's br
 // strategy still depends on whether the request names a real subject
 // (buildImagePrompt, subject-forward — a jaguar, a specific bouquet) versus
 // carries a fact that needs a calm backdrop (buildFlyerBackgroundPrompt).
-// This replaces the old "an ordinary decorative request stays a plain
-// photo-only image" test, whose premise this change deliberately reverses.
-test("generate_content (real dispatch): an ordinary decorative request stays a plain photo-only image — a real subject-forward photo and a well-written caption, never on-image poster text", async () => {
-  // Reverted back to this (from a brief "every post gets the poster
-  // treatment" detour): Ashley's own direct reference — a real photo of
-  // the shop paired with a plain written caption, nothing drawn onto the
-  // image at all — confirmed her actual bar depends on the request: an
-  // operational notice still needs the flyer path (below), but an
-  // ordinary decorative idea like this one goes back to a bare photo.
+//
+// Second real product-direction change, later the same session: Ashley's
+// own ChatGPT reference (a fully designed, branded flyer — shop name,
+// tagline-like body, real contact info woven onto a real bouquet photo)
+// is "what I want. Stop guessing and fix it" — an ordinary decorative
+// request is ALSO a designed flyer now, not a bare photo, using the exact
+// same flyer machinery as an operational notice, just with a
+// SUBJECT-FORWARD photo (the described bouquet) instead of a calm
+// backdrop. This test now proves that shape, not the bare-photo one.
+test("generate_content (real dispatch): an ordinary decorative request is now a real designed flyer — a subject-forward photo AND real on-image headline/body/cta, not a bare photo", async () => {
   const decorativeCopy = { ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today.", visual_brief: "A bright, romantic bouquet of roses on a marble counter." };
-  const mock = mockCloudflare([decorativeCopy]);
+  const decorativeFlyerCopy = { headline: "Fresh Roses Just In!", body: "Stop by for a fresh, romantic bouquet today.", cta: "Visit us today" };
+  const mock = mockCloudflare([decorativeCopy, decorativeFlyerCopy]);
   try {
     const client = createFakeSupabaseClient([
       { data: { id: "item-2", content_type: "image_post", title: "Fresh roses", brief: "I have 40 roses I need to sell — a bright, romantic bouquet post for Facebook", status: "idea" }, error: null },
@@ -520,10 +522,11 @@ test("generate_content (real dispatch): an ordinary decorative request stays a p
       { data: [], error: null },
       { data: [], error: null },
       { data: [], error: null },
-      { data: null, error: null }, // recordUsage("copy") — copyGen
+      { data: null, error: null }, // recordUsage("copy") — the Facebook caption (generateSocialPost)
+      { data: null, error: null }, // recordUsage("copy") — the on-image flyer text (generateFlyerCopy/generateFlyerContent)
       { data: null, error: null }, // recordUsage("image")
       { data: { id: "media-row-1" }, error: null }, // website_media insert
-      { data: { id: "image-asset-1" }, error: null }, // persistGeneratedAsset (image)
+      { data: { id: "flyer-asset-1" }, error: null }, // persistGeneratedAsset (flyer)
       { data: null, error: null }, // variant update
       { data: { id: "item-2", status: "draft" }, error: null }
     ], { storage: createFakeSupabaseStorage({}) });
@@ -534,22 +537,26 @@ test("generate_content (real dispatch): an ordinary decorative request stays a p
     // short-circuit generate_content now returns for a plain image post
     // with no prior answer).
     const res = await handler(event("generate_content", { content_item_id: "item-2", photo_choice: "generate" }));
-    assert.equal(res.statusCode, 200, `expected the plain image path to succeed: ${res.body}`);
+    assert.equal(res.statusCode, 200, `expected the designed-flyer path to succeed: ${res.body}`);
     const body = JSON.parse(res.body);
-    assert.equal(body.asset.type, "image", "an ordinary decorative request must NOT be routed through the flyer/poster pipeline");
+    assert.equal(body.asset.type, "flyer", "an ordinary decorative request must now be a real designed flyer, not a bare photo");
 
     const imageCalls = mock.calls.filter((c) => c.url.includes("black-forest-labs") || "prompt" in c.body);
-    assert.equal(imageCalls.length, 1, "exactly one photo call — the subject-forward buildImagePrompt, never the calm-backdrop flyer prompt, and no separate flyer-text call at all");
-    assert.match(imageCalls[0].body.prompt, /ABSOLUTELY NO TEXT: no words, letters, numbers/i, "the image prompt actually sent must carry the no-text directive");
+    assert.equal(imageCalls.length, 1, "exactly one photo call — the subject-forward buildImagePrompt, never the calm-backdrop flyer background prompt");
+    assert.match(imageCalls[0].body.prompt, /ABSOLUTELY NO TEXT: no words, letters, numbers/i, "the image prompt actually sent must carry the no-text directive — the AI photo never draws the wording itself");
     assert.match(imageCalls[0].body.prompt, /marble counter/i, "the SUBJECT-forward prompt (the actual bouquet described) must reach the image model, not a generic calm backdrop");
 
     const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
     const insertedRow = assetInsert.ops.find((op) => op[0] === "insert")[1][0];
-    assert.equal(insertedRow.asset_type, "image");
-    assert.equal(insertedRow.content.caption, decorativeCopy.body, "the caption is the real generated copy");
+    assert.equal(insertedRow.asset_type, "flyer");
+    assert.equal(insertedRow.content.headline, decorativeFlyerCopy.headline, "the real on-image headline must be a genuine flyer-text generation, not the Facebook caption");
+    assert.equal(insertedRow.content.cta, decorativeFlyerCopy.cta);
+    assert.equal(insertedRow.content.caption, decorativeCopy.body, "the Facebook caption stays a SEPARATE piece of text from the on-image wording");
     assert.equal(insertedRow.content.visual_brief, decorativeCopy.visual_brief, "the concrete subject description must survive so a later revision has something real to reference");
-    assert.ok(!("regions" in insertedRow.content), "a plain image must never carry poster-renderer fields — there is no on-image text to render");
-    assert.ok(!("headline" in insertedRow.content), "a plain image has no on-image headline at all");
+    assert.ok(insertedRow.content.background_url, "a real generated background url must be persisted");
+    assert.equal(insertedRow.content.photo_strategy, "subject_forward", "the client-side poster renderer must know this photo is a specific subject, not a calm negative-space backdrop, so it excludes the one composition that needs calm space within the photo itself");
+    assert.ok(insertedRow.content.regions, "a real designed flyer needs the full region layout for the renderer");
+    assert.equal(insertedRow.content.template_id, "general", "an ordinary decorative request with no specific occasion keyword gets the general template");
   } finally {
     mock.restore();
   }
@@ -607,9 +614,10 @@ test("generate_content (real dispatch): a text_post never gets asked for a photo
   }
 });
 
-test("generate_content (real dispatch): photo_choice 'upload' uses the florist's own real photo — no AI image call, no AI-image disclosure", async () => {
+test("generate_content (real dispatch): photo_choice 'upload' uses the florist's own real photo as the flyer's background — no AI image call, no AI-image disclosure", async () => {
   const uploadCopy = { ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today.", visual_brief: "A bright, romantic bouquet of roses on a marble counter." };
-  const mock = mockCloudflare([uploadCopy]);
+  const uploadFlyerCopy = { headline: "Fresh Roses Just In!", body: "Stop by for a fresh, romantic bouquet today.", cta: "Visit us today" };
+  const mock = mockCloudflare([uploadCopy, uploadFlyerCopy]);
   try {
     const storage = createFakeSupabaseStorage({});
     const client = createFakeSupabaseClient(
@@ -624,12 +632,13 @@ test("generate_content (real dispatch): photo_choice 'upload' uses the florist's
         { data: [], error: null }, // loadGroundedInventory
         { data: [], error: null }, // audience customers
         { data: [], error: null }, // audience orders
-        { data: null, error: null }, // recordUsage("copy") — copyGen
+        { data: null, error: null }, // recordUsage("copy") — the Facebook caption
+        { data: null, error: null }, // recordUsage("copy") — the on-image flyer text
         // No recordUsage("image") row here — a real upload never spends on
         // AI image generation at all, and this fixture queue would desync
         // (proving the point) if the code ever called it.
         { data: { id: "media-upload-1" }, error: null }, // website_media insert
-        { data: { id: "image-asset-upload-1" }, error: null }, // persistGeneratedAsset (image)
+        { data: { id: "flyer-asset-upload-1" }, error: null }, // persistGeneratedAsset (flyer)
         { data: null, error: null }, // variant update
         { data: { id: "item-4", status: "draft" }, error: null }
       ],
@@ -642,7 +651,7 @@ test("generate_content (real dispatch): photo_choice 'upload' uses the florist's
     );
     assert.equal(res.statusCode, 200, `a real uploaded photo must be accepted: ${res.body}`);
     const body = JSON.parse(res.body);
-    assert.equal(body.asset.type, "image");
+    assert.equal(body.asset.type, "flyer", "a decorative post with an uploaded photo is still a real designed flyer, not a bare image");
 
     const imageCalls = mock.calls.filter((c) => c.url.includes("black-forest-labs") || "prompt" in c.body);
     assert.equal(imageCalls.length, 0, "uploading a real photo must never trigger an AI image-generation call");
@@ -657,8 +666,11 @@ test("generate_content (real dispatch): photo_choice 'upload' uses the florist's
 
     const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
     const insertedRow = assetInsert.ops.find((op) => op[0] === "insert")[1][0];
-    assert.equal(insertedRow.provider, "user_upload");
-    assert.equal(insertedRow.content.caption, uploadCopy.body, "the caption is still Lily's real generated copy — only the PHOTO source changed");
+    assert.equal(insertedRow.asset_type, "flyer");
+    assert.equal(insertedRow.content.headline, uploadFlyerCopy.headline, "the real on-image headline must come from a genuine flyer-text generation");
+    assert.equal(insertedRow.content.style_tier, "upload", "the persisted style_tier must honestly reflect an uploaded photo, not a generated one");
+    assert.equal(insertedRow.content.caption, uploadCopy.body, "the Facebook caption is still Lily's real generated copy — only the PHOTO source changed");
+    assert.equal(insertedRow.content.photo_strategy, "subject_forward");
     assert.equal(insertedRow.content.user_uploaded_photo, true);
 
     const variantUpdate = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "update"));
@@ -683,7 +695,8 @@ test("generate_content (real dispatch): photo_choice 'upload' with no actual pho
       { data: [], error: null }, // loadGroundedInventory
       { data: [], error: null }, // audience customers
       { data: [], error: null }, // audience orders
-      { data: null, error: null }, // recordUsage("copy") — copyGen
+      { data: null, error: null }, // recordUsage("copy") — copyGen (the Facebook caption)
+      { data: null, error: null }, // recordUsage("copy") — generateFlyerCopy's on-image flyer text
       { data: { id: "item-5", status: "idea" }, error: null } // revertToIdea's own update
     ]);
     const handler = createMarketingStudioHandler(floristDeps(client));
