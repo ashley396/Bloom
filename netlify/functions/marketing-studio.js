@@ -55,8 +55,10 @@
  * directly, and platformAdminErrorResponse() for every failure path.
  */
 
+import crypto from "node:crypto";
 import { json, methodNotAllowed } from "./_shared/http.js";
 import { admin as createServiceRoleClient } from "./_shared/saas.js";
+import { structuredLog } from "./_shared/production.js";
 import { isFeatureEnabled } from "./_shared/feature-flags.js";
 import { isShopFeatureEnabled } from "./_shared/shop-feature-access.js";
 import {
@@ -1648,6 +1650,18 @@ export function createMarketingStudioHandler(deps = {}) {
         const shopId = requireShopId(qs, body);
         if (!body.content_item_id) return json(400, { error: "content_item_id is required." });
 
+        // Phase 2 rebuild, priority-7 gap (observability): one real trace
+        // ID threading the actual pipeline stages of this generation
+        // through Netlify's own function logs — GROUND -> WRITE ->
+        // ART DIRECT -> GENERATE -> QUALITY CHECK -> FACT CHECK -> PERSIST.
+        // Deliberately never logs customer PII or full generated text —
+        // only shape (lengths/booleans/enum values) and ids, matching
+        // every other structuredLog call already in this codebase. This is
+        // additive only: no return value, persisted content, or control
+        // flow changes based on anything logged here.
+        const genTraceId = crypto.randomUUID();
+        structuredLog("info", "marketing_generate_content_start", { traceId: genTraceId, shopId, contentItemId: body.content_item_id });
+
         const currentItem = await client
           .from("marketing_content_items")
           .select("id,content_type,title,brief,status")
@@ -1927,6 +1941,15 @@ export function createMarketingStudioHandler(deps = {}) {
           shopId,
           { needs: ["brand", "style", "inventory", "audience", "recent"], excludeContentItemId: body.content_item_id }
         );
+        // GROUND stage — booleans only, never the summaries' own text.
+        structuredLog("info", "marketing_generate_content_grounded", {
+          traceId: genTraceId,
+          hasBrandVoice: Boolean(brandVoiceSummary),
+          hasVisualStyle: Boolean(visualStyleSummary),
+          hasInventory: Boolean(inventorySummary),
+          hasAudience: Boolean(audienceSummary),
+          hasRecentContent: Boolean(recentContentSummary)
+        });
 
         if (VIDEO_CONTENT_TYPES.has(currentItem.data.content_type)) {
           await recordUsage("copy", "request", 1);
@@ -2057,6 +2080,13 @@ export function createMarketingStudioHandler(deps = {}) {
               visual_traits_used: []
             }
           };
+          // FACT CHECK stage, deterministic path: the wording was never
+          // paraphrased by AI at all — built directly from the request's
+          // own verified facts — so there is nothing for the reactive
+          // detectors below to check. Logged for the same reason the AI
+          // path's own fact-safety tag is logged: one real record of what
+          // actually happened, not an assumption from which branch ran.
+          structuredLog("info", "marketing_generate_content_fact_safety", { traceId: genTraceId, deterministic: true });
         } else {
           await recordUsage("copy", "request", 1);
           const socialPostArgs = {
@@ -2143,12 +2173,35 @@ export function createMarketingStudioHandler(deps = {}) {
           // same deterministic content when the request's own facts allow
           // it — never reverting the florist to idea when a safe fallback
           // exists, only when genuinely nothing can be built from.
-          if (
-            detectPermanentClosureMismatch(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`) ||
-            detectInventedOperationalContent(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`)
-          ) {
+          //
+          // Phase 2 rebuild, priority-6 gap ("unified fact-safety
+          // tagging"): named here, not re-implemented — this repo already
+          // has real, independently-tested fact-safety detectors
+          // (factsPreserved, detectPermanentClosureMismatch,
+          // detectInventedOperationalContent, stripFabricatedContact
+          // Numbers, buildDeterministicNoticeContent, and the sympathy-
+          // specific detectors used elsewhere). A SECOND detection engine
+          // duplicating that logic was explicitly ruled out — the real gap
+          // was never "these checks don't exist," it was "nothing records
+          // which of them actually ran and what they decided." The
+          // structuredLog call below IS the unified tag: one real event
+          // naming every check that ran for this generation and its
+          // outcome, without re-deciding anything the detectors above
+          // didn't already decide.
+          const closureMismatch = detectPermanentClosureMismatch(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`);
+          const inventedOperationalContent = !closureMismatch && detectInventedOperationalContent(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`);
+          let rescued = false;
+          if (closureMismatch || inventedOperationalContent) {
             const rescueFallback = buildDeterministicNoticeContent({ requestText: currentItem.data.brief, shopName, shopPhone: shopRow.data?.phone });
             if (!rescueFallback) {
+              structuredLog("warn", "marketing_generate_content_fact_safety", {
+                traceId: genTraceId,
+                deterministic: false,
+                closureMismatch,
+                inventedOperationalContent,
+                rescued: false,
+                outcome: "blocked_no_safe_fallback"
+              });
               await revertToIdea();
               return json(400, {
                 error:
@@ -2162,7 +2215,15 @@ export function createMarketingStudioHandler(deps = {}) {
             copyGen.content.hashtags = [];
             copyGen.content.brand_traits_used = [];
             copyGen.content.visual_traits_used = [];
+            rescued = true;
           }
+          structuredLog("info", "marketing_generate_content_fact_safety", {
+            traceId: genTraceId,
+            deterministic: false,
+            closureMismatch,
+            inventedOperationalContent,
+            rescued
+          });
         }
 
         // Every flyer-typed asset needs its own real on-image wording
@@ -2528,6 +2589,13 @@ export function createMarketingStudioHandler(deps = {}) {
                 visualBrief: copyGen.content.visual_brief || currentItem.data.brief,
                 occasion: currentItem.data.title
               });
+              // QUALITY CHECK stage.
+              structuredLog("info", "marketing_generate_content_quality_check", {
+                traceId: genTraceId,
+                imageOk: imageGen.ok,
+                qualityAccepted: imageGen.qualityCheck?.accepted ?? null,
+                qualityHasText: imageGen.qualityCheck?.hasText ?? null
+              });
               if (!imageGen.ok) {
                 await revertToIdea();
                 return json(400, { error: imageGen.error });
@@ -2705,6 +2773,14 @@ export function createMarketingStudioHandler(deps = {}) {
           targetType: "marketing_content_items",
           targetId: body.content_item_id,
           assetType: generatedAssetType
+        });
+        // PERSIST/complete stage — the trace's final event for a
+        // successful generation.
+        structuredLog("info", "marketing_generate_content_complete", {
+          traceId: genTraceId,
+          assetId,
+          assetType: generatedAssetType,
+          objective: copyGen.content?.objective || null
         });
         return json(200, { item: updated.data, asset: assetId ? { id: assetId, type: generatedAssetType, url: imageUrl } : null, copy: copyGen.content });
       }
