@@ -48,9 +48,15 @@ const REQUEST_SCAFFOLDING_WORDS = new Set([
   "can", "you", "i", "need", "want", "would", "like", "this", "that", "and"
 ]);
 
-function significantWords(text) {
+export function significantWords(text) {
   return String(text || "")
     .toLowerCase()
+    // Strip a possessive "'s" BEFORE the general apostrophe strip below —
+    // otherwise "Iris's" collapses into "iriss" (the letters either side
+    // of the apostrophe merging into one word) instead of the real word
+    // "iris". Found reviewing a person's-name-that's-also-a-flower shop
+    // name ("Iris's Flowers") for the shop-identity fixation check.
+    .replace(/['’]s\b/g, "")
     .replace(/[’']/g, "")
     .split(/[^a-z0-9]+/)
     .filter(Boolean)
@@ -125,6 +131,26 @@ function occasionLine(occasion, shopName) {
     return "Occasion/theme: none — this request is nothing more than the shop's own name restated, with no real topic of its own (see the rule below for what to write instead).";
   }
   return `Occasion/theme: ${occasion}.`;
+}
+
+/**
+ * Real gap an independent review found in occasionLine just above: that
+ * fix only edited the TASK text. The literal, unfiltered request text
+ * still reached the model a SECOND time, verbatim, via the structured
+ * Input JSON block runCloudflareGenerate always appends right before
+ * "Return ONLY valid JSON" (see cloudflareAi() in ai-assistant.js) — if
+ * anything a STRONGER anchor than the one occasionLine removes, since
+ * it's the very last real text the model reads before it starts
+ * generating. Every input:{request:...}/{message:...} site below must
+ * route the literal text through this, so there is exactly ONE place
+ * that can ever suppress it — never two independently-maintained copies
+ * of the same decision that can silently drift apart again.
+ */
+function sanitizedRequestForModel(requestText, shopName) {
+  if (requestIsJustShopName(requestText, shopName)) {
+    return "(No real topic — this request is nothing more than the shop's own name restated as today's post. Follow the task instructions above: write a general, ordinary shop update, never fixated on any flower/plant word from the shop's own name.)";
+  }
+  return requestText;
 }
 
 function buildSocialPostTask({ channel, occasion, audience, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }) {
@@ -212,7 +238,7 @@ export async function generateSocialPost({ persona = "Lily", channel, occasion, 
       mode: "generate",
       persona,
       task: buildSocialPostTask({ channel, occasion, audience, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }),
-      input: { request: requestText, shop: shop || {} },
+      input: { request: sanitizedRequestForModel(requestText, shop?.name), shop: shop || {} },
       schema: SOCIAL_POST_SCHEMA,
       max_tokens: 700
     });
@@ -285,7 +311,7 @@ export async function generateVideoConcept({ persona = "Lily", channel, occasion
       mode: "generate",
       persona,
       task: buildVideoConceptTask({ occasion, audience, channel, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }),
-      input: { request: requestText, shop: shop || {} },
+      input: { request: sanitizedRequestForModel(requestText, shop?.name), shop: shop || {} },
       schema: VIDEO_CONCEPT_SCHEMA,
       max_tokens: 900
     });
@@ -329,7 +355,7 @@ ${occasionLine(occasion, shop?.name)}
 ${audience ? `Audience: ${audience}.` : ""}
 ${shopIdentityRule(shop?.name, occasion)}
 Never invent products, prices, or promises Florisyn can't confirm.`,
-      input: { request: requestText, shop: shop || {} },
+      input: { request: sanitizedRequestForModel(requestText, shop?.name), shop: shop || {} },
       schema: {
         headline: "string",
         subheadline: "string",
@@ -395,7 +421,7 @@ export async function generateFlyerContent({ persona = "Lily", message, occasion
       mode: "generate",
       persona,
       task: buildFlyerContentTask({ occasion, visualStyleSignal, shop }),
-      input: { request: message, shop: shop || {} },
+      input: { request: sanitizedRequestForModel(message, shop?.name), shop: shop || {} },
       schema: FLYER_CONTENT_SCHEMA,
       max_tokens: 400
     });

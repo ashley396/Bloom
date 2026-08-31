@@ -395,6 +395,16 @@ test("generateSocialPost: a request that reduces to nothing but the shop's own n
     // fix and did not stop the live failure).
     assert.doesNotMatch(userMessage, /Occasion\/theme: Make today's post for Lilies in Bloom/i, "the literal request text must never be restated as the occasion/theme when there is no real occasion — that's the anchor that outweighed this same bullet in practice");
     assert.match(userMessage, /Occasion\/theme: none/i, "the occasion line must say plainly there is no real occasion, not silently disappear or still name the shop");
+    // A second, independent-review-found leak of the SAME literal text:
+    // runCloudflareGenerate always appends a structured "Input: {...}"
+    // JSON block right before "Return ONLY valid JSON" — even with the
+    // Occasion/theme anchor above suppressed, the raw request text was
+    // still reaching the model completely unfiltered a second time here,
+    // arguably a STRONGER anchor since it's the very last real text read
+    // before the model starts generating. Both leaks had to be closed for
+    // the fix to actually hold.
+    assert.doesNotMatch(userMessage, /"request":"Make today's post for Lilies in Bloom"/, "the literal request text must never reach the model unfiltered via the Input JSON block either — the SAME suppression has to apply everywhere the raw text could leak through, not just the Task text");
+    assert.match(userMessage, /"request":"\(No real topic/, "the Input block's request field must carry the same neutral substitution, not silently go missing");
   } finally {
     mock.restore();
   }
@@ -416,6 +426,11 @@ test("generateSocialPost: a request with a REAL topic beyond the shop's own name
     // case — a genuine occasion must still be stated plainly, not silently
     // dropped just because the request also happens to mention the shop.
     assert.match(userMessage, /Occasion\/theme: Make a post about our Valentine's Day rose specials for Lilies in Bloom/, "a genuine occasion must still be stated as the occasion/theme, unlike the no-real-occasion case");
+    // Same negative control on the Input JSON block: sanitizedRequestForModel
+    // must only ever substitute the neutral placeholder for the genuine
+    // no-real-occasion case — a real topic's exact words must still reach
+    // the model through the Input block too.
+    assert.match(userMessage, /"request":"Make a post about our Valentine's Day rose specials for Lilies in Bloom"/, "a genuine request's real text must still reach the model via the Input block");
   } finally {
     mock.restore();
   }

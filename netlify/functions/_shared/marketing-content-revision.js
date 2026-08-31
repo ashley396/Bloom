@@ -20,7 +20,7 @@
  */
 
 import { parseRevisionDeltas } from "./ai-visual-revisions.js";
-import { requestIsJustShopName } from "./ai-creative-engine.js";
+import { requestIsJustShopName, significantWords } from "./ai-creative-engine.js";
 
 export { parseRevisionDeltas };
 
@@ -1157,12 +1157,15 @@ export function detectSympathyProductOpening(requestText, copyText) {
 // Generic floral-business words that turn up in all kinds of ordinary shop
 // names and, on their own, say nothing specific enough to reliably flag as
 // "the post fixated on this" — excluded from the fixation check below so a
-// shop named e.g. "The Garden Room" doesn't get flagged just because its
-// copy happens to use the word "garden" a couple of times.
+// shop named e.g. "The Garden Room", "Petal & Stem", "Rose & Ivy", or
+// "Blossoms Florist" doesn't get flagged just because its own copy uses an
+// ordinary decorative/business word from its own name a couple of times.
 const GENERIC_FLORAL_BUSINESS_WORDS = new Set([
   "bloom", "blooms", "blooming", "garden", "gardens", "floral", "florals",
   "flower", "flowers", "florist", "florists", "shop", "shoppe", "boutique",
-  "studio", "co", "company", "house", "market", "room", "petal", "petals"
+  "studio", "co", "company", "house", "market", "room", "petal", "petals",
+  "stem", "stems", "vine", "vines", "ivy", "blossom", "blossoms", "bud",
+  "buds", "leaf", "leaves", "sprig", "sprigs"
 ]);
 
 // Ordinary English function words a shop name can still contain ("Lilies
@@ -1171,17 +1174,52 @@ const GENERIC_FLORAL_BUSINESS_WORDS = new Set([
 // for unrelated reasons, so counting them would flag nearly everything.
 const ENGLISH_STOPWORDS_IN_NAMES = new Set(["the", "a", "an", "in", "on", "of", "and", "or", "for", "to", "at", "by", "with"]);
 
+// A handful of common flower names whose plural doesn't follow the regular
+// "add/drop a trailing s" pattern the fallback below assumes — iris/irises
+// is the one an independent review actually caught breaking (the fallback
+// turned "iris" into the nonsense "iri"). Kept as an explicit, tiny lookup
+// rather than a general morphology library, matching this file's existing
+// preference for small, real, checkable word lists over clever parsing.
+const IRREGULAR_FLORAL_PLURALS = { iris: "irises", irises: "iris" };
+
 // lily/lilies, daisy/daisies, rose/roses, peony/peonies and similar — a
-// small, deliberately loose singular/plural expander so the fixation count
+// small, deliberately loose singular/plural expander so the fixation check
 // below counts "lily" and "lilies" as the same word without needing a real
 // morphology library. Under-matching (an irregular form this misses) only
-// means a real fixation goes uncaught this one time, never a false flag.
+// means a real fixation goes uncaught this one time, never a false flag —
+// the ies/y branches below are what an earlier draft got wrong: "lily"
+// only ever expanded to the nonsense "lilys", never to the real plural
+// "lilies", so a shop named in the singular (e.g. "Lily Flowers") whose
+// copy fixated entirely on the plural word went uncaught.
 function floralWordVariants(word) {
   const variants = new Set([word]);
-  if (word.endsWith("ies")) variants.add(`${word.slice(0, -3)}y`); // lilies -> lily
-  else if (word.endsWith("s")) variants.add(word.slice(0, -1)); // roses -> rose
-  else variants.add(`${word}s`); // rose -> roses
+  if (IRREGULAR_FLORAL_PLURALS[word]) {
+    variants.add(IRREGULAR_FLORAL_PLURALS[word]);
+  } else if (word.endsWith("ies")) {
+    variants.add(`${word.slice(0, -3)}y`); // lilies -> lily
+  } else if (/[^aeiou]y$/.test(word)) {
+    variants.add(`${word.slice(0, -1)}ies`); // lily -> lilies, daisy -> daisies, peony -> peonies
+  } else if (word.endsWith("s")) {
+    variants.add(word.slice(0, -1)); // roses -> rose
+  } else {
+    variants.add(`${word}s`); // rose -> roses
+  }
   return [...variants];
+}
+
+// The actual reported failure's own shape, not just "the word appears" —
+// "Our lily collection is looking stunning... varieties on display" reads
+// as the post being framed as a product line built around that flower, not
+// a passing, ordinary mention of real inventory ("Our roses are looking
+// gorgeous today" is fine — a real shop selling real roses gets to say
+// so). An independent review found the earlier version (any 2+ raw
+// mentions) flagged exactly that kind of ordinary, correct copy. Requiring
+// this framing — or, failing that, a much heavier repetition (3+ raw
+// mentions, the "our lilies... our lilies... our lilies" shape) — is what
+// actually targets the reported failure without punishing a normal post.
+function isFramedAsFlowerLine(copy, variants) {
+  const alt = variants.join("|");
+  return new RegExp(`\\b(?:our|the)\\s+(?:${alt})\\b[^.!?]{0,25}\\b(collection|selection|arrangements?|varieties|variety|display)\\b`, "i").test(copy);
 }
 
 export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
@@ -1202,21 +1240,20 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
   // requestIsJustShopName already established there is no real topic here
   // to legitimately be writing about.
   if (options.shopName && requestIsJustShopName(request, options.shopName)) {
-    const shopNameWords = String(options.shopName)
-      .toLowerCase()
-      .replace(/[’']/g, "")
-      .split(/[^a-z0-9]+/)
-      .filter(Boolean);
-    const identityWords = [...new Set(shopNameWords)].filter(
+    // significantWords — the same tokenizer requestIsJustShopName itself
+    // uses (shared, not a second copy of the same regex) — also fixes a
+    // real gap an independent review found: a shop name with a possessive
+    // ("Iris's Flowers") used to collapse into the nonsense token "iriss"
+    // here, hiding the real identity word "iris" from every check below.
+    const identityWords = [...new Set(significantWords(options.shopName))].filter(
       (w) => !GENERIC_FLORAL_BUSINESS_WORDS.has(w) && !ENGLISH_STOPWORDS_IN_NAMES.has(w)
     );
     for (const word of identityWords) {
       const variants = floralWordVariants(word);
-      const pattern = new RegExp(`\\b(?:${variants.join("|")})\\b`, "gi");
-      const matches = copy.match(pattern) || [];
-      if (matches.length >= 2) {
+      const matches = copy.match(new RegExp(`\\b(?:${variants.join("|")})\\b`, "gi")) || [];
+      if (isFramedAsFlowerLine(copy, variants) || matches.length >= 3) {
         reasons.push(
-          `This post is framed entirely around "${word}" (mentioned ${matches.length} times), even though the request was nothing more than the shop's own name — there is no real occasion here. Write an ordinary "come see us today" update instead. Only mention "${word}" at all if it's genuinely in the shop's real current inventory, using the real product name exactly as given — never invent a specific variety or type that wasn't supplied.`
+          `This post is framed entirely around "${word}" (mentioned ${matches.length} time${matches.length === 1 ? "" : "s"}), even though the request was nothing more than the shop's own name — there is no real occasion here. Write an ordinary "come see us today" update instead. Only mention "${word}" at all if it's genuinely in the shop's real current inventory, using the real product name exactly as given — never invent a specific variety or type that wasn't supplied.`
         );
       }
     }

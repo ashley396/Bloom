@@ -175,3 +175,72 @@ test("detectWeakMarketingCopy: no shopName supplied at all never crashes and nev
   const reasons = detectWeakMarketingCopy("Make today's Facebook post for lilies in bloom", "Our lily collection is stunning today!", {});
   assert.deepEqual(reasons, []);
 });
+
+// Real false-positive cases an independent review found in the FIRST draft
+// of this fixation check (raw "2+ mentions anywhere" was too blunt) — each
+// of these is genuinely correct, real-inventory copy that must never be
+// punished just because the shop's own name contains an ordinary floral
+// word or shares a spelling with a person's name.
+test("detectWeakMarketingCopy: an ordinary, real-inventory mention of the shop's own flower word — not framed as a whole product line — is never flagged", () => {
+  const reasons = detectWeakMarketingCopy(
+    "make today's post for Rose & Ivy",
+    "Our roses are looking gorgeous, free rose on the house with every order today.",
+    { shopName: "Rose & Ivy" }
+  );
+  assert.deepEqual(reasons, [], "mentioning real inventory in passing is not the same defect as framing the whole post as 'our rose collection'");
+});
+
+test("detectWeakMarketingCopy: generic decorative/greenery words in a shop's own name ('stem', 'ivy', 'blossom') are never themselves treated as the fixation signal", () => {
+  const petalStem = detectWeakMarketingCopy(
+    "make today's post for Petal & Stem",
+    "Every stem is hand-picked fresh this morning for you.",
+    { shopName: "Petal & Stem" }
+  );
+  assert.deepEqual(petalStem, []);
+  const blossoms = detectWeakMarketingCopy(
+    "make today's post for Blossoms Florist",
+    "Spring blossoms are everywhere this week, come see for yourself!",
+    { shopName: "Blossoms Florist" }
+  );
+  assert.deepEqual(blossoms, []);
+});
+
+// The person-name-that's-also-a-flower case the task explicitly asked
+// about — also exercises the possessive-apostrophe tokenizer fix
+// (significantWords now turns "Iris's" into "iris", not the nonsense
+// "iriss" an earlier draft produced, which hid the real identity word
+// from every check here).
+test("detectWeakMarketingCopy: a shop named after a person who shares a flower's name is never flagged for an ordinary biographical mention of that person", () => {
+  const reasons = detectWeakMarketingCopy(
+    "make today's post for Iris's Flowers",
+    "Iris has been arranging flowers for 20 years and would love to help you today.",
+    { shopName: "Iris's Flowers" }
+  );
+  assert.deepEqual(reasons, []);
+});
+
+// The false-negative shape an independent review actually caught: the
+// original floralWordVariants only ever appended a bare "s", so a shop
+// named in the SINGULAR ("Lily Flowers") whose copy fixated entirely on
+// the PLURAL word went completely uncaught.
+test("detectWeakMarketingCopy: a shop named in the singular still catches a post fixated on the plural form of the same flower", () => {
+  const reasons = detectWeakMarketingCopy(
+    "make today's post for Lily Flowers",
+    "Our lilies are absolutely stunning today, come see our lilies up close, you'll fall in love with our lilies.",
+    { shopName: "Lily Flowers" }
+  );
+  assert.ok(reasons.some((r) => /framed entirely around "lily"/.test(r)), `expected the plural fixation to still be caught for a singular shop name, got: ${JSON.stringify(reasons)}`);
+});
+
+test("floralWordVariants: iris/irises (an irregular plural) is handled explicitly, not mangled by the regular +s/-s fallback", async () => {
+  // Exercised indirectly through detectWeakMarketingCopy since
+  // floralWordVariants itself isn't exported — proving the real, observable
+  // behavior (iris fixation is actually caught) rather than an internal
+  // implementation detail.
+  const reasons = detectWeakMarketingCopy(
+    "make today's post for Iris Flowers",
+    "Our irises are looking absolutely gorgeous this week, with stunning irises on display, come see our irises today!",
+    { shopName: "Iris Flowers" }
+  );
+  assert.ok(reasons.some((r) => /framed entirely around "iris"/.test(r)), `expected the irregular iris/irises plural to be caught, got: ${JSON.stringify(reasons)}`);
+});
