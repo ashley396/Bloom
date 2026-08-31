@@ -1065,7 +1065,9 @@ export function createMarketingStudioHandler(deps = {}) {
               filenameFor: (attempt) =>
                 attempt === 0
                   ? `marketing-revision-${body.content_item_id}-${Date.now()}.jpg`
-                  : `marketing-revision-${body.content_item_id}-${Date.now()}-retry${attempt}.jpg`
+                  : `marketing-revision-${body.content_item_id}-${Date.now()}-retry${attempt}.jpg`,
+              visualBrief,
+              occasion: currentItem.data.title
             });
             if (!imageGen.ok) return json(400, { error: imageGen.error });
             const mediaRow = await client
@@ -2431,11 +2433,17 @@ export function createMarketingStudioHandler(deps = {}) {
               // corner despite buildImagePrompt's unconditional no-text
               // directive — a diffusion model's prompt instructions are a
               // statistical nudge, not a hard constraint. Checks the actual
-              // generated pixels with a real vision model and retries once
-              // if it finds text, rather than trusting the prompt was obeyed.
+              // generated pixels with a real vision model — for invented
+              // text AND (Phase 2 rebuild) whether the photo actually
+              // matches the creative brief it was asked to depict — and
+              // retries once if either check fails, rather than trusting
+              // the prompt was obeyed.
               imageGen = await generateImageCheckingText(client, shopId, {
                 promptFor: () => prompt,
-                filenameFor: (attempt) => (attempt === 0 ? `marketing-${body.content_item_id}.jpg` : `marketing-${body.content_item_id}-retry${attempt}.jpg`)
+                filenameFor: (attempt) => (attempt === 0 ? `marketing-${body.content_item_id}.jpg` : `marketing-${body.content_item_id}-retry${attempt}.jpg`),
+                creativeBrief: copyGen.content.creative_brief,
+                visualBrief: copyGen.content.visual_brief || currentItem.data.brief,
+                occasion: currentItem.data.title
               });
               if (!imageGen.ok) {
                 await revertToIdea();
@@ -2496,6 +2504,13 @@ export function createMarketingStudioHandler(deps = {}) {
                 // brief text.
                 visual_brief: copyGen.content.visual_brief || null,
                 creative_brief: copyGen.content.creative_brief || null,
+                // The quality-control gate's own verdict on this specific
+                // photo (florist-ai-vision.js's assessGeneratedMarketingPhoto,
+                // run inside generateImageCheckingText above) — null for a
+                // real uploaded photo, since the gate never runs on those.
+                // Never blocks generation on its own (see that function's
+                // docstring); persisted purely for observability/debugging.
+                quality_check: imageGen.qualityCheck || null,
                 photo_strategy: "subject_forward",
                 // Real gap the photo-choice feature's own review closed:
                 // a real uploaded photo must never be disclosed as a

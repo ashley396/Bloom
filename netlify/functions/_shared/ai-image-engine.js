@@ -14,7 +14,7 @@
 
 import { cloudflareAiToken } from "../ai-assistant.js";
 import { uploadWebsiteMedia, publicWebsiteMediaUrl } from "./website-media.js";
-import { detectInventedTextOnPhoto } from "./florist-ai-vision.js";
+import { assessGeneratedMarketingPhoto } from "./florist-ai-vision.js";
 
 const IMAGE_MODEL_DEFAULT = "@cf/black-forest-labs/flux-1-schnell";
 
@@ -129,28 +129,40 @@ export async function generateFlyerBackgroundWithRetry(client, shopId, { promptF
 }
 
 /**
- * One bounded retry around generateImage() specifically for invented text.
+ * One bounded retry around generateImage() for invented text AND — Phase 2
+ * rebuild, priority-3 gap — a real quality-control gate against the same
+ * creative brief the photo was asked to depict.
  *
- * Real, live-found failure: a florist's plain "make today's post" request
- * (no operational fact, never near the deterministic flyer renderer) came
- * back with a photo carrying invented, garbled pseudo-branding painted
- * into a corner despite NO_TEXT_DIRECTIVE being unconditional on every
- * prompt above. A prompt instruction is a statistical nudge to a
- * diffusion model, not a hard constraint, so wording alone cannot close
- * this — this actually inspects the generated pixels with a real vision
- * model (florist-ai-vision.js's detectInventedTextOnPhoto) and asks for
- * one fresh generation if it finds text, the same bounded-retry
- * discipline generateFlyerBackgroundWithRetry already uses for a
- * different failure mode (a failed provider call).
+ * Real, live-found failure this closes (invented text): a florist's plain
+ * "make today's post" request (no operational fact, never near the
+ * deterministic flyer renderer) came back with a photo carrying invented,
+ * garbled pseudo-branding painted into a corner despite NO_TEXT_DIRECTIVE
+ * being unconditional on every prompt above. A prompt instruction is a
+ * statistical nudge to a diffusion model, not a hard constraint, so
+ * wording alone cannot close this — this actually inspects the generated
+ * pixels with a real vision model.
  *
- * Deliberately narrow: never fails the whole request over this — a
- * vision-check failure, or a second attempt that still shows text, still
- * returns the best photo actually generated. Blocking a real, otherwise-
- * usable photo over an imperfect QA pass would be a worse outcome than
- * shipping the same rare imperfection the check couldn't clear in two
- * tries.
+ * Real gap this ALSO now closes (subject match): nothing ever verified a
+ * generated photo actually shows what it was asked to show — the jaguar-
+ * mascot regression (see buildImagePrompt's own fix above) had no
+ * detection at all before this; a wrong or broken photo was simply shown
+ * to the florist as-is. florist-ai-vision.js's assessGeneratedMarketingPhoto
+ * checks both in ONE vision call (never two — this is its only real
+ * caller, so combining costs nothing extra), against whatever
+ * creativeBrief/visualBrief/occasion this caller passes through.
+ *
+ * Deliberately narrow, same as before: never fails the whole request over
+ * this — a vision-check failure, or a second attempt that's still
+ * rejected, still returns the best photo actually generated. Blocking a
+ * real, otherwise-usable photo over an imperfect QA pass would be a worse
+ * outcome than shipping the same rare imperfection the check couldn't
+ * clear in two tries.
  */
-export async function generateImageCheckingText(client, shopId, { promptFor, filenameFor, maxAttempts = 2 } = {}) {
+export async function generateImageCheckingText(
+  client,
+  shopId,
+  { promptFor, filenameFor, maxAttempts = 2, creativeBrief, visualBrief, occasion } = {}
+) {
   let last = null;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const gen = await generateImage(client, shopId, {
@@ -159,8 +171,12 @@ export async function generateImageCheckingText(client, shopId, { promptFor, fil
     });
     if (!gen.ok) return last ?? gen;
     last = gen;
-    const check = await detectInventedTextOnPhoto({ dataUrl: gen.imageDataUrl });
-    if (!check.hasText) return gen;
+    const check = await assessGeneratedMarketingPhoto({ dataUrl: gen.imageDataUrl }, { creativeBrief, visualBrief, occasion });
+    // Kept on the return value only for an optional caller-side log/audit
+    // trail (never read by generate_content's own success/failure logic) —
+    // a real, otherwise-usable photo is never withheld over this.
+    last.qualityCheck = check;
+    if (check.accepted) return gen;
   }
   return last;
 }

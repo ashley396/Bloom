@@ -252,3 +252,77 @@ export async function detectInventedTextOnPhoto(imagePayload) {
     return { ok: false, hasText: false };
   }
 }
+
+/**
+ * Phase 2 rebuild, priority-3 gap: a real quality-control gate for a
+ * generated marketing photo, not just the invented-text check above.
+ * Real, live-found failure this closes: nothing ever verified a generated
+ * photo actually matches what it was supposed to show — a wording bug
+ * once dropped the real subject from a prompt entirely ("a jaguar mascot"
+ * regenerated with no jaguar in it, see ai-image-engine.js's own
+ * buildImagePrompt fix), and that class of failure had no detection at
+ * all; the photo was simply shown to the florist as-is.
+ *
+ * Deliberately combined into ONE vision call with the invented-text check
+ * (rather than a second, separate call) — this is the only real caller of
+ * that check (generateImageCheckingText's own bounded retry loop), so
+ * merging costs nothing extra: same one vision call per attempt, more
+ * caught. detectInventedTextOnPhoto itself is untouched and still
+ * exported/tested standalone.
+ *
+ * Deliberately conservative about what counts as a FAIL — this must never
+ * become a second, stricter gate that rejects an ordinary, genuinely
+ * usable photo over subjective taste. It only fails a photo that is
+ * actually broken (garbled/nonsensical, an illustration instead of a
+ * photograph, or missing the described subject entirely) or that carries
+ * invented text. When no creativeBrief/visualBrief/occasion was supplied
+ * at all (nothing concrete to check the subject against), the subject
+ * check is skipped entirely — text detection still runs.
+ *
+ * Never blocks a photo over ITS OWN failure, same graceful-degradation
+ * philosophy as detectInventedTextOnPhoto and every Tier-A/Tier-B
+ * fallback in this codebase: a vision-model outage returns accepted:true
+ * (assume clean) rather than holding up an otherwise-real, usable photo.
+ */
+function buildQualityGatePrompt({ creativeBrief, visualBrief, occasion } = {}) {
+  const subject = creativeBrief?.primary_subject || visualBrief || occasion || null;
+  const style = [creativeBrief?.mood, creativeBrief?.floral_style].filter(Boolean).join(", ");
+  const subjectClause = subject
+    ? `\n\nThis photo was supposed to show: ${String(subject).slice(0, 400)}.${style ? ` Style/mood: ${style}.` : ""} Fail SUBJECT_MATCH only if the photo clearly shows something else entirely (wrong or no floral arrangement) — not for ordinary photographic variation in exact color, count, or framing.`
+    : "\n\nNo specific subject was given to check against — always reply SUBJECT_MATCH: PASS unless the image is not a real floral/product photo at all.";
+  return `You are a professional art director doing final quality control on an AI-generated marketing photo for a florist, before it is shown to real customers.
+
+Check TWO things:
+1. TEXT: does the image contain ANY visible text, letters, numbers, a watermark, a logo, or signage anywhere — even small, faint, or garbled? The image was generated with an explicit no-text instruction, but that instruction is sometimes ignored.
+2. SUBJECT_MATCH: does the photo actually match what it was supposed to show, and is it a genuine, coherent photographic image (not garbled/nonsensical, not an illustration/painting/cartoon/3D render)?${subjectClause}
+
+Reply on exactly three lines, nothing else:
+TEXT: YES or NO
+SUBJECT_MATCH: PASS or FAIL
+REASON: one short sentence`;
+}
+
+export async function assessGeneratedMarketingPhoto(imagePayload, { creativeBrief, visualBrief, occasion } = {}) {
+  const imageVariants = await preparedImageVariants(imagePayload);
+  if (!imageVariants) return { ok: false, hasText: false, accepted: true, reason: null };
+  try {
+    const result = await runVisionWithFallback(imageVariants, buildQualityGatePrompt({ creativeBrief, visualBrief, occasion }));
+    const text = result.text || "";
+    const hasText = /TEXT:\s*YES/i.test(text);
+    // An unparseable reply (a model that ignored the line format) never
+    // blocks the photo — the same "assume clean rather than hold up a
+    // real photo over an imperfect QA reply" rule this file already
+    // documents on detectInventedTextOnPhoto.
+    const subjectFail = /SUBJECT_MATCH:\s*FAIL/i.test(text);
+    const reasonMatch = text.match(/REASON:\s*(.+)/i);
+    return {
+      ok: true,
+      hasText,
+      accepted: !hasText && !subjectFail,
+      reason: reasonMatch ? reasonMatch[1].trim().slice(0, 300) : null,
+      model: result.model
+    };
+  } catch {
+    return { ok: false, hasText: false, accepted: true, reason: null };
+  }
+}

@@ -21,6 +21,10 @@ const TINY_JPEG_BASE64 = Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString("base64"
  * max_tokens}) — the same distinction every marketing-studio test's own
  * mock now has to make for the same reason. `visionAnswers` is consumed in
  * order, one per vision call made; the last entry repeats once exhausted.
+ * Each entry is just the TEXT verdict ("YES"/"NO") — assessGeneratedMarketingPhoto's
+ * real reply format also carries SUBJECT_MATCH/REASON lines, so this wraps
+ * each answer into that same three-line shape (SUBJECT_MATCH always PASS
+ * here; the subject-match side of the gate has its own dedicated tests).
  */
 function mockImageAndVision(visionAnswers = ["NO"]) {
   process.env.CLOUDFLARE_ACCOUNT_ID = "acct-test";
@@ -34,7 +38,8 @@ function mockImageAndVision(visionAnswers = ["NO"]) {
     if ("image" in body) {
       visionCalls.push(body);
       const answer = queue.length > 1 ? queue.shift() : queue[0];
-      return { ok: true, json: async () => ({ success: true, result: { description: answer } }) };
+      const reply = `TEXT: ${answer}\nSUBJECT_MATCH: PASS\nREASON: test`;
+      return { ok: true, json: async () => ({ success: true, result: { description: reply } }) };
     }
     imageGenCalls.push(body);
     return { ok: true, json: async () => ({ result: { image: TINY_JPEG_BASE64 } }) };
@@ -440,6 +445,71 @@ test("generateImageCheckingText: text found on BOTH attempts still returns the l
     const result = await generateImageCheckingText(client, "shop-1", { promptFor: () => "a jaguar holding flowers", filenameFor: (a) => `m${a}.jpg` });
     assert.equal(result.ok, true, "exhausting the bounded retry must still hand back a real, usable photo rather than a failure");
     assert.equal(mock.imageGenCalls.length, 2, "never more than the bounded maxAttempts — no unbounded loop");
+  } finally {
+    mock.restore();
+  }
+});
+
+// Phase 2 rebuild, priority-3 gap: the quality gate's SUBJECT_MATCH check
+// (not just invented text) must also trigger the same bounded retry — a
+// wrong or broken photo is exactly the failure the jaguar-mascot regression
+// (see buildImagePrompt's own history) had no detection for at all before.
+function mockImageAndSubjectMatch(verdicts = ["PASS"]) {
+  process.env.CLOUDFLARE_ACCOUNT_ID = "acct-test";
+  process.env.CLOUDFLARE_AI_API_TOKEN = "token-test";
+  const originalFetch = globalThis.fetch;
+  const queue = [...verdicts];
+  const imageGenCalls = [];
+  const visionCalls = [];
+  globalThis.fetch = async (url, opts) => {
+    const body = JSON.parse(opts?.body || "{}");
+    if ("image" in body) {
+      visionCalls.push(body);
+      const verdict = queue.length > 1 ? queue.shift() : queue[0];
+      const reply = `TEXT: NO\nSUBJECT_MATCH: ${verdict}\nREASON: test`;
+      return { ok: true, json: async () => ({ success: true, result: { description: reply } }) };
+    }
+    imageGenCalls.push(body);
+    return { ok: true, json: async () => ({ result: { image: TINY_JPEG_BASE64 } }) };
+  };
+  return {
+    imageGenCalls,
+    visionCalls,
+    restore: () => {
+      globalThis.fetch = originalFetch;
+    }
+  };
+}
+
+test("generateImageCheckingText: a SUBJECT_MATCH: FAIL verdict (no invented text at all) still triggers exactly one fresh retry", async () => {
+  const mock = mockImageAndSubjectMatch(["FAIL", "PASS"]);
+  const storage = createFakeSupabaseStorage({ publicUrl: (path) => `https://fake.storage/website-media/${path}` });
+  const client = createFakeSupabaseClient([], { storage });
+  try {
+    const result = await generateImageCheckingText(client, "shop-1", {
+      promptFor: () => "a jaguar holding flowers",
+      filenameFor: (a) => `m${a}.jpg`,
+      creativeBrief: { primary_subject: "A jaguar mascot holding a bouquet of roses" }
+    });
+    assert.equal(result.ok, true);
+    assert.equal(mock.imageGenCalls.length, 2, "a subject mismatch must trigger exactly one fresh regeneration, same as invented text");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateImageCheckingText: the passed-through creativeBrief/visualBrief/occasion actually reach the real vision prompt", async () => {
+  const mock = mockImageAndSubjectMatch(["PASS"]);
+  const storage = createFakeSupabaseStorage({ publicUrl: (path) => `https://fake.storage/website-media/${path}` });
+  const client = createFakeSupabaseClient([], { storage });
+  try {
+    await generateImageCheckingText(client, "shop-1", {
+      promptFor: () => "a jaguar holding flowers",
+      filenameFor: () => "m.jpg",
+      creativeBrief: { primary_subject: "A jaguar mascot holding a bouquet of roses" }
+    });
+    const sentText = JSON.stringify(mock.visionCalls[0]);
+    assert.match(sentText, /A jaguar mascot holding a bouquet of roses/);
   } finally {
     mock.restore();
   }
