@@ -236,7 +236,13 @@ test("generateSocialPost: a supplied inventorySummary reaches the real prompt, a
     });
     const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
     assert.match(userMessage, /Garden Rose \(40 stems in stock\)/, "the shop's real current inventory must reach the actual model prompt");
-    assert.match(userMessage, /never name a flower, color, or variety that isn't on it/i, "the anti-fabrication instruction must accompany the real inventory list");
+    // Phase 3 live-test fix: the anti-fabrication instruction is now a
+    // STANDING rule (present with or without real inventory — see the
+    // dedicated tests below), not one bundled only into this clause; the
+    // caller-supplied inventorySummary text itself still carries its own
+    // "do not mention flowers not on this list" guidance too.
+    assert.match(userMessage, /do not mention flowers not on this list/i, "the caller-supplied inventory grounding must still carry its own anti-fabrication guidance");
+    assert.match(userMessage, /NEVER CLAIM A SPECIFIC BUSINESS FACT THAT ISN'T VERIFIED/, "the standing anti-fabrication rule must always be present too");
     assert.match(userMessage, /only mention specific flowers\/stems by name if the request above is actually about/i, "inventory must not be forced into every post regardless of what was asked");
   } finally {
     mock.restore();
@@ -743,7 +749,7 @@ test("generateSocialPost: a realistic shop with brand + style + inventory + audi
     assert.match(userMessage, /9 birthdays this month/);
     // The safety-critical anti-fabrication rules (added last in the task,
     // so first to be cut by any length cap) must both survive intact.
-    assert.match(userMessage, /never name a flower, color, or variety that isn't on it/i);
+    assert.match(userMessage, /NEVER CLAIM A SPECIFIC BUSINESS FACT THAT ISN'T VERIFIED/);
     assert.match(userMessage, /never state an audience size, subscriber count, or customer-segment number/i);
   } finally {
     mock.restore();
@@ -865,8 +871,12 @@ test("generateSocialPost: with every real grounding summary populated (the reali
     const taskPortion = userMessage.split("\nInput:")[0];
     assert.ok(!taskPortion.includes("…[trimmed]"), "the task text must never be silently truncated for this realistic input");
     // The LAST rules in buildSocialPostTask's prompt — the ones a
-    // truncation bug drops first — must all actually be present.
-    assert.match(taskPortion, /SYMPATHY AND FUNERAL WORK/);
+    // truncation bug drops first — must all actually be present. This is
+    // a non-sympathy request, so the (now-gated, Phase 3 live-test fix)
+    // sympathy block reads as the short "NOT sympathy" branch rather than
+    // the full sympathy-writing rules — see the dedicated sympathy-gating
+    // tests for that branch.
+    assert.match(taskPortion, /This is NOT sympathy\/funeral work/);
     assert.match(taskPortion, /creative_brief:/);
     assert.match(taskPortion, /recent real posts/);
   } finally {

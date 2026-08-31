@@ -140,7 +140,12 @@ import {
   extractShopNameFromRequestText,
   requestNeedsFlyerWording,
   instructionAffectsFlyerWording,
-  instructionAffectsFlyerImage
+  instructionAffectsFlyerImage,
+  BEREAVEMENT_CONTEXT_RE,
+  requestSignalsRealPromotion,
+  detectUnverifiedInventoryStateClaim,
+  stripUnverifiedInventoryClaims,
+  detectConceptCoherenceMismatch
 } from "./_shared/marketing-content-revision.js";
 import { defaultVisualStyle } from "./_shared/ai-visual-revisions.js";
 import { buildMarketingStudioAnalyticsSummary } from "./_shared/marketing-analytics.js";
@@ -2117,12 +2122,27 @@ export function createMarketingStudioHandler(deps = {}) {
           // one, and leaving the florist with an error and no post would be
           // the worse outcome. The second attempt is used either way, having
           // been told exactly what was wrong with the first.
-          const copyQuality = (content) =>
-            detectWeakMarketingCopy(
+          // Phase 3 live-test fix (inventory-state claim backstop): folded
+          // into the SAME existing weak-copy reasons array/retry loop
+          // rather than a second, parallel check-and-retry mechanism —
+          // one real-world event this defense saw and stopped, added
+          // right alongside the sympathy-injection check
+          // detectWeakMarketingCopy already ran here before this fix.
+          const copyQuality = (content) => [
+            ...detectWeakMarketingCopy(
               currentItem.data.brief,
               `${content.headline} ${content.body}`,
               { shopPhone: shopRow.data?.phone, shopName }
-            );
+            ),
+            ...detectUnverifiedInventoryStateClaim({
+              generatedText: `${content.headline} ${content.body}`,
+              requestText: currentItem.data.brief,
+              verifiedFlowerNames: (inventorySources || []).map((i) => i.name)
+            }).map(
+              (sentence) =>
+                `"${sentence}" claims a specific business/inventory fact ("just arrived," "we have X," etc.) with no verified evidence behind it. Only claim what the real inventory data above or the florist's own request actually supports — use generic flower language instead.`
+            )
+          ];
           const weakness = copyQuality(copyGen.content);
           if (weakness.length) {
             await recordUsage("copy", "request", 1);
@@ -2164,6 +2184,25 @@ export function createMarketingStudioHandler(deps = {}) {
             });
             if (cleaned.removed.length) copyGen.content[field] = cleaned.text;
           }
+          // Same "detect, retry, then strip whatever survives" layering as
+          // the phone-number guard directly above — the bounded retry is a
+          // second opinion, not a guarantee (the exact gap the Phase 3
+          // live-test forensic trace found in this same file's own flyer-
+          // text retry: "not worse than before" can still ship something
+          // flawed). An invented shipment/stock claim that survives the
+          // retry is cut from the caption entirely rather than shipped.
+          const cleanedInventoryBody = stripUnverifiedInventoryClaims({
+            generatedText: copyGen.content.body,
+            requestText: currentItem.data.brief,
+            verifiedFlowerNames: (inventorySources || []).map((i) => i.name)
+          });
+          if (cleanedInventoryBody.removed.length) copyGen.content.body = cleanedInventoryBody.text;
+          const cleanedInventoryHeadline = stripUnverifiedInventoryClaims({
+            generatedText: copyGen.content.headline,
+            requestText: currentItem.data.brief,
+            verifiedFlowerNames: (inventorySources || []).map((i) => i.name)
+          });
+          if (cleanedInventoryHeadline.removed.length) copyGen.content.headline = cleanedInventoryHeadline.text;
 
           // Reactive safety net for the rare case that reaches here at
           // all — requestSignalsPlainOperationalNotice already said this
@@ -2226,6 +2265,36 @@ export function createMarketingStudioHandler(deps = {}) {
           });
         }
 
+        // Phase 3 live-test fix (one-concept contract, requirement 5): the
+        // real root cause of the live failure was never a missing check —
+        // it was that the caption and the flyer's own on-image text were
+        // two fully independent AI calls, each free to re-derive its own
+        // idea of "what is this post about" from the same bare brief, with
+        // nothing carrying the FIRST successful generation's own decision
+        // forward. `concept` is that missing contract: the caption call
+        // (copyGen) already decided a real subject/objective/tone for this
+        // post, and this is what generateFlyerCopy/generateFlyerContent
+        // below are now told to write FROM, rather than re-deciding their
+        // own. Deliberately reuses copyGen's own already-produced fields —
+        // no new AI call, per the explicit "prefer threading the existing
+        // copyGen result downstream" instruction.
+        //
+        // objective is validated here, not just trusted from the model's
+        // own self-report (Phase 2's normalizeObjective only checks it's a
+        // real enum value, never that it's actually SUPPORTED) —
+        // "promotion" is itself a business claim, exactly like a shipment
+        // or a phone number, and must never survive un-evidenced just
+        // because it sounds like a more exciting objective to have
+        // written for.
+        const conceptObjective =
+          copyGen.content?.objective === "promotion" && !requestSignalsRealPromotion(currentItem.data.brief) ? null : copyGen.content?.objective || null;
+        const concept = {
+          objective: conceptObjective,
+          primarySubject: copyGen.content?.creative_brief?.primary_subject || copyGen.content?.visual_brief || null,
+          captionExcerpt: copyGen.content?.body || "",
+          isSympathy: BEREAVEMENT_CONTEXT_RE.test(`${currentItem.data.brief} ${copyGen.content?.body || ""}`)
+        };
+
         // Every flyer-typed asset needs its own real on-image wording
         // (headline/body/cta) — a SEPARATE generation call from the
         // Facebook caption above, checked independently for the same
@@ -2240,7 +2309,7 @@ export function createMarketingStudioHandler(deps = {}) {
         // Never duplicated: the same retry/fallback guarantees this
         // wording gets on the exact-facts path apply here too, rather than
         // a second, independently-drifting copy of the same logic.
-        async function generateFlyerCopy({ noticeFallback: nf, brief, occasionTitle }) {
+        async function generateFlyerCopy({ noticeFallback: nf, brief, occasionTitle, concept: flyerConcept = null }) {
           if (nf) {
             // The caption already needed the safe deterministic fallback
             // — this request's topic is safety-sensitive, so the on-image
@@ -2251,7 +2320,14 @@ export function createMarketingStudioHandler(deps = {}) {
             return { ok: true, model: "deterministic", content: { headline: nf.headline, body: nf.body, cta: nf.cta } };
           }
           await recordUsage("copy", "request", 1);
-          let flyerGen = await generateFlyerContent({ persona: "Lily", message: brief, occasion: occasionTitle, shop: { name: shopName } });
+          // Phase 3 live-test fix (one-concept contract): `flyerConcept`,
+          // when supplied by a caller that already has a caption for this
+          // same post, is what stops this call from independently
+          // re-deciding what the post is about — see its own construction
+          // above for why. Optional so a caller with no caption yet (the
+          // exact-facts branch's own retry pattern, or a future standalone
+          // caller) still works exactly as before.
+          let flyerGen = await generateFlyerContent({ persona: "Lily", message: brief, occasion: occasionTitle, shop: { name: shopName }, concept: flyerConcept });
           // The flyer is where a wording failure does the most damage —
           // it is the picture that gets shared, long after the caption
           // scrolls away. Ashley was shown one reading "Funeral / SERVICES
@@ -2259,17 +2335,44 @@ export function createMarketingStudioHandler(deps = {}) {
           // like I'm going to hold funeral services here at the flower
           // shop." One bounded retry with the reason handed back.
           if (flyerGen.ok && flyerGen.content) {
-            const flyerQuality = (content) =>
-              detectWeakMarketingCopy(
-                brief,
-                `${content.headline} ${content.body} ${content.cta}`,
-                // The headline is passed separately because it is judged
-                // separately: it is the largest thing on the flyer and the
-                // first thing read, and "Funeral Flowers Available" is a
-                // fault of the headline alone that no reading of the whole
-                // text can see.
-                { shopPhone: shopRow.data?.phone, shopName, headline: content.headline }
-              );
+            const flyerQuality = (content) => {
+              const fullText = `${content.headline} ${content.body} ${content.cta}`;
+              const reasons = [
+                ...detectWeakMarketingCopy(
+                  brief,
+                  fullText,
+                  // The headline is passed separately because it is judged
+                  // separately: it is the largest thing on the flyer and the
+                  // first thing read, and "Funeral Flowers Available" is a
+                  // fault of the headline alone that no reading of the whole
+                  // text can see.
+                  { shopPhone: shopRow.data?.phone, shopName, headline: content.headline }
+                ),
+                // Phase 3 live-test fix: the same inventory-state-claim
+                // backstop as the caption's own copyQuality, folded into the
+                // SAME retry loop rather than a second mechanism.
+                ...detectUnverifiedInventoryStateClaim({
+                  generatedText: fullText,
+                  requestText: brief,
+                  verifiedFlowerNames: (inventorySources || []).map((i) => i.name)
+                }).map(
+                  (sentence) =>
+                    `"${sentence}" claims a specific business/inventory fact with no verified evidence behind it. Only claim what real inventory or the florist's own request actually supports — use generic flower language instead.`
+                )
+              ];
+              // Phase 3 live-test fix (one-concept contract, requirement 7):
+              // gives a coherence mismatch the SAME real retry chance as
+              // any other weakness reason ("regenerate the conflicting
+              // component where possible") before ever falling through to
+              // the hard hasn't-improved gate below — the exact live
+              // failure's own shape (a flyer describing a different
+              // occasion/subject than the caption) is caught here first.
+              if (flyerConcept) {
+                const mismatch = detectConceptCoherenceMismatch({ concept: flyerConcept, captionText: flyerConcept.captionExcerpt, flyerText: fullText, requestText: brief });
+                if (mismatch) reasons.push(`${mismatch} Rewrite so the flyer text genuinely matches: ${flyerConcept.primarySubject || "the same subject as the caption above"}.`);
+              }
+              return reasons;
+            };
             const flyerWeakness = flyerQuality(flyerGen.content);
             if (flyerWeakness.length) {
               await recordUsage("copy", "request", 1);
@@ -2281,7 +2384,8 @@ export function createMarketingStudioHandler(deps = {}) {
                 persona: "Lily",
                 message: `${sanitizedRequestForModel(brief, shopName)}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${flyerWeakness.join("\n- ")}`,
                 occasion: occasionTitle,
-                shop: { name: shopName }
+                shop: { name: shopName },
+                concept: flyerConcept
               });
               // Same reasoning as the caption retry above: this wording is
               // printed on the graphic itself, where a florist cannot edit
@@ -2299,13 +2403,33 @@ export function createMarketingStudioHandler(deps = {}) {
           // recovery — a florist can just as easily hit this on the flyer
           // text alone.
           const flyerText = `${flyerGen.content.headline} ${flyerGen.content.body} ${flyerGen.content.cta}`;
-          if (detectPermanentClosureMismatch(brief, flyerText) || detectInventedOperationalContent(brief, flyerText)) {
+          // Phase 3 live-test fix (final coherence gate, requirement 7):
+          // even with a real concept threaded in above, this is the
+          // deterministic backstop that actually catches the live
+          // failure's shape — a flyer that drifted to a different
+          // occasion/subject/tone than the caption already established
+          // for the same post. Folded into the SAME hard-gate/rescue
+          // pattern as the two checks beside it, not a separate mechanism.
+          const coherenceMismatch = flyerConcept ? detectConceptCoherenceMismatch({
+            concept: flyerConcept,
+            captionText: flyerConcept.captionExcerpt,
+            flyerText,
+            requestText: brief
+          }) : null;
+          structuredLog("info", "marketing_generate_content_coherence", {
+            traceId: genTraceId,
+            checked: Boolean(flyerConcept),
+            mismatch: Boolean(coherenceMismatch),
+            reason: coherenceMismatch || null
+          });
+          if (detectPermanentClosureMismatch(brief, flyerText) || detectInventedOperationalContent(brief, flyerText) || coherenceMismatch) {
             const flyerFallback = buildDeterministicNoticeContent({ requestText: brief, shopName, shopPhone: shopRow.data?.phone });
             if (!flyerFallback) {
               return {
                 ok: false,
-                error:
-                  "The flyer text came back with wording that didn't match your request, and there wasn't enough in your message for Lily to build a safe version automatically — nothing was saved. Add a time/phone number and try Generate again."
+                error: coherenceMismatch
+                  ? `The flyer's own text didn't match the rest of this post (${coherenceMismatch}) — nothing was saved. Try Generate again.`
+                  : "The flyer text came back with wording that didn't match your request, and there wasn't enough in your message for Lily to build a safe version automatically — nothing was saved. Add a time/phone number and try Generate again."
               };
             }
             flyerGen.content.headline = flyerFallback.headline;
@@ -2323,6 +2447,15 @@ export function createMarketingStudioHandler(deps = {}) {
           for (const field of ["headline", "body", "cta"]) {
             const cleaned = stripFabricatedContactNumbers({ requestText: brief, shopPhone: shopRow.data?.phone, copyText: flyerGen.content[field] });
             if (cleaned.removed.length) flyerGen.content[field] = cleaned.text;
+            // Phase 3 live-test fix: same layered defense as the caption's
+            // own inventory-claim strip — whatever survives the retry
+            // above is cut here, never rendered onto the canvas.
+            const cleanedInventory = stripUnverifiedInventoryClaims({
+              generatedText: flyerGen.content[field],
+              requestText: brief,
+              verifiedFlowerNames: (inventorySources || []).map((i) => i.name)
+            });
+            if (cleanedInventory.removed.length) flyerGen.content[field] = cleanedInventory.text;
           }
           return { ok: true, model: flyerGen.model, content: flyerGen.content };
         }
@@ -2354,7 +2487,7 @@ export function createMarketingStudioHandler(deps = {}) {
           // MORE on-image graphic design, when what she actually wanted was
           // less of it, not more.
           if (requestNeedsFlyerWording(currentItem.data.brief)) {
-            const flyerCopyResult = await generateFlyerCopy({ noticeFallback, brief: currentItem.data.brief, occasionTitle: currentItem.data.title });
+            const flyerCopyResult = await generateFlyerCopy({ noticeFallback, brief: currentItem.data.brief, occasionTitle: currentItem.data.title, concept });
             if (!flyerCopyResult.ok) {
               await revertToIdea();
               return json(400, { error: flyerCopyResult.error });
@@ -2460,7 +2593,7 @@ export function createMarketingStudioHandler(deps = {}) {
                 // ai-creative-engine.js) — persisted for observability and
                 // a future "learn" loop; never invented if the model gave
                 // nothing that matched the fixed enum.
-                objective: copyGen.content.objective || null,
+                objective: concept.objective,
                 // A flyer produced by this path is always the calm-backdrop
                 // strategy now — subject-forward requests never reach this
                 // branch at all, they take the plain "image" path below —
@@ -2512,7 +2645,7 @@ export function createMarketingStudioHandler(deps = {}) {
             // photo_choice is "upload", "generate", or "reuse". Flyer text
             // is generated FIRST (cheaper, one request) so a wording
             // failure never wastes an image spend.
-            const flyerCopyResult = await generateFlyerCopy({ noticeFallback, brief: currentItem.data.brief, occasionTitle: currentItem.data.title });
+            const flyerCopyResult = await generateFlyerCopy({ noticeFallback, brief: currentItem.data.brief, occasionTitle: currentItem.data.title, concept });
             if (!flyerCopyResult.ok) {
               await revertToIdea();
               return json(400, { error: flyerCopyResult.error });
@@ -2667,7 +2800,7 @@ export function createMarketingStudioHandler(deps = {}) {
                 // ai-creative-engine.js) — persisted for observability and
                 // a future "learn" loop; never invented if the model gave
                 // nothing that matched the fixed enum.
-                objective: copyGen.content.objective || null,
+                objective: concept.objective,
                 // The quality-control gate's own verdict on this specific
                 // photo (florist-ai-vision.js's assessGeneratedMarketingPhoto,
                 // run inside generateImageCheckingText above) — null for a
@@ -2719,7 +2852,7 @@ export function createMarketingStudioHandler(deps = {}) {
               brand_traits_used: copyGen.content.brand_traits_used,
               visual_traits_used: copyGen.content.visual_traits_used,
               grounded_in_inventory: inventorySources,
-              objective: copyGen.content.objective || null
+              objective: concept.objective
             },
             status: "completed"
           });

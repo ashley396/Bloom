@@ -1875,3 +1875,431 @@ test("ACCEPTANCE (real dispatch): with the shop's own phone NOW saved, the flyer
     mock.restore();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Phase 3 live acceptance-test fix. Real, live-found failure, real
+// Cloudflare provider, real "Lilies in Bloom" shop with ZERO real
+// inventory rows: "Create today's Facebook post" produced a caption
+// claiming "our latest shipment of gorgeous Freedom roses" AND a flyer
+// independently claiming sympathy/funeral work ("Thinking of You... a
+// standing spray or casket flowers for the service") — two different,
+// mutually incoherent invented claims from a single generic request,
+// because the caption and the flyer's own on-image text were two fully
+// independent AI calls with no shared concept and no detector built for
+// this shape of invention. These reproduce the EXACT live failure's
+// inputs against the model's own EXACT bad output, verifying the fixed
+// architecture (unconditional anti-fabrication rule, gated sympathy
+// rules, the one-concept contract, the coherence gate, and the
+// inventory-claim/strip backstop) actually self-corrects it end to end.
+// ---------------------------------------------------------------------------
+
+test("REGRESSION (Phase 3 live failure, end to end): a generic 'Create today's Facebook post' request with zero real inventory, mocked to reproduce the model's exact live bad output, self-corrects to a clean, coherent result", async () => {
+  const badCaption = {
+    platform: "facebook",
+    headline: "New Arrivals!",
+    body: "We're thrilled to welcome our latest shipment of gorgeous Freedom roses to the studio! Our expert florists are busy crafting stunning arrangements featuring these beautiful blooms, paired with delicate Leatherleaf ferns and vibrant alstroemeria.",
+    cta: "Stop by today",
+    visual_brief: "A bright, romantic arrangement of roses on a marble counter.",
+    creative_brief: { primary_subject: "A romantic arrangement of garden roses", mood: "romantic, soft", lighting: "warm natural light", composition: "close-up", floral_style: "garden-style" },
+    objective: "awareness",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  };
+  const cleanCaption = {
+    ...badCaption,
+    body: "There's something so lovely about a fresh bouquet on a Tuesday — stop by and treat yourself or someone special today.",
+    headline: "A Little Beauty Today"
+  };
+  const badFlyer = { headline: "Thinking of You", body: "Our team is here to help you create a lovely standing spray or casket flowers for the service.", cta: "Call us" };
+  const cleanFlyer = { headline: "A Little Beauty Today", body: "Stop by for a fresh, romantic bouquet.", cta: "Visit us today" };
+  const mock = mockCloudflare([badCaption, cleanCaption, badFlyer, cleanFlyer]);
+  try {
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-p3", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        { data: [{ id: "variant-p3", platform: "facebook" }], error: null },
+        { data: { marketing_monthly_budget_cents: null }, error: null },
+        { data: null, error: null }, // -> generating
+        { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
+        { data: null, error: null }, // loadBrandBrain
+        { data: null, error: null }, // loadStyleMemory
+        { data: [], error: null }, // loadGroundedInventory — the real, zero-inventory case
+        { data: [], error: null }, // audience: customers
+        { data: [], error: null }, // audience: orders
+        { data: [], error: null }, // recent-content shortlist
+        { data: null, error: null }, // recordUsage("copy") — caption attempt 1
+        { data: null, error: null }, // recordUsage("copy") — caption retry (weak/inventory-claim reasons)
+        { data: null, error: null }, // recordUsage("copy") — flyer attempt 1
+        { data: null, error: null }, // recordUsage("copy") — flyer retry (weak/sympathy-injection reasons)
+        { data: null, error: null }, // recordUsage("image")
+        { data: { id: "media-p3" }, error: null }, // website_media insert
+        { data: { id: "flyer-asset-p3" }, error: null }, // persistGeneratedAsset (flyer)
+        { data: null, error: null }, // variant update
+        { data: { id: "item-p3", status: "draft" }, error: null }
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-p3", photo_choice: "generate" }));
+    assert.equal(res.statusCode, 200, `the system must self-correct rather than fail the whole request: ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.equal(body.asset.type, "flyer");
+
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const c = assetInsert.ops.find((op) => op[0] === "insert")[1][0].content;
+    const allFlyerText = `${c.headline} ${c.body} ${c.cta}`;
+
+    // The exact invented claim from the live failure must never survive.
+    assert.doesNotMatch(allFlyerText, /latest shipment/i);
+    assert.doesNotMatch(allFlyerText, /freedom rose/i);
+    // The exact invented sympathy content from the live failure must
+    // never survive onto the flyer.
+    assert.doesNotMatch(allFlyerText, /thinking of you/i);
+    assert.doesNotMatch(allFlyerText, /casket/i);
+    assert.doesNotMatch(allFlyerText, /standing spray/i);
+
+    // The caption (Facebook copy) must also never carry the invented claim.
+    assert.doesNotMatch(body.copy.body, /latest shipment/i);
+    assert.doesNotMatch(body.copy.body, /freedom rose/i);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("REGRESSION (concept threading): the flyer generation call actually receives the caption's own concept — the real prompt sent to the model names the same subject the caption already established", async () => {
+  const decorativeCopy = {
+    platform: "facebook",
+    headline: "h",
+    body: "Fresh spring tulips are here — come see the color for yourself.",
+    cta: "Visit today",
+    visual_brief: "A bright bouquet of spring tulips.",
+    creative_brief: { primary_subject: "A bright bouquet of spring tulips", mood: "cheerful", lighting: "natural light", composition: "close-up", floral_style: "garden-style" },
+    objective: "seasonal_occasion",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  };
+  const flyerCopy = { headline: "Fresh Spring Tulips", body: "Come see the color for yourself.", cta: "Visit today" };
+  const mock = mockCloudflare([decorativeCopy, flyerCopy]);
+  try {
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-p3b", content_type: "image_post", title: "Spring", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        { data: [{ id: "variant-p3b", platform: "facebook" }], error: null },
+        { data: { marketing_monthly_budget_cents: null }, error: null },
+        { data: null, error: null },
+        { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
+        { data: null, error: null },
+        { data: null, error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: null, error: null }, // recordUsage("copy") — caption
+        { data: null, error: null }, // recordUsage("copy") — flyer
+        { data: null, error: null }, // recordUsage("image")
+        { data: { id: "media-p3b" }, error: null },
+        { data: { id: "flyer-asset-p3b" }, error: null },
+        { data: null, error: null },
+        { data: { id: "item-p3b", status: "draft" }, error: null }
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-p3b", photo_choice: "generate" }));
+    assert.equal(res.statusCode, 200, `must succeed: ${res.body}`);
+
+    const flyerTextCall = mock.calls.find((c) => (c.body.messages?.find((m) => m.role === "user")?.content || "").includes("ACTUAL, FINISHED text content for a flyer"));
+    assert.ok(flyerTextCall, "the flyer text-generation call must actually happen");
+    const flyerPrompt = flyerTextCall.body.messages.find((m) => m.role === "user").content;
+    assert.match(flyerPrompt, /A bright bouquet of spring tulips/, "the flyer's own prompt must carry the SAME concept the caption already established, not re-derive its own");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("REGRESSION C (handler-level): a non-sympathy generic request never produces sympathy language, even when checked end to end through the real handler", async () => {
+  const copy = {
+    platform: "facebook",
+    headline: "h",
+    body: "There's something so lovely about a fresh bouquet — stop by today.",
+    cta: "Visit us",
+    visual_brief: "A bright bouquet on a counter.",
+    creative_brief: { primary_subject: "A bright bouquet of mixed flowers", mood: "cheerful", lighting: "natural", composition: "close-up", floral_style: "garden-style" },
+    objective: "awareness",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  };
+  const flyerCopy = { headline: "A Little Beauty Today", body: "Stop by and treat yourself.", cta: "Visit us today" };
+  const mock = mockCloudflare([copy, flyerCopy]);
+  try {
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-p3c", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        { data: [{ id: "variant-p3c", platform: "facebook" }], error: null },
+        { data: { marketing_monthly_budget_cents: null }, error: null },
+        { data: null, error: null },
+        { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
+        { data: null, error: null },
+        { data: null, error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: null, error: null },
+        { data: null, error: null },
+        { data: null, error: null },
+        { data: { id: "media-p3c" }, error: null },
+        { data: { id: "flyer-asset-p3c" }, error: null },
+        { data: null, error: null },
+        { data: { id: "item-p3c", status: "draft" }, error: null }
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-p3c", photo_choice: "generate" }));
+    assert.equal(res.statusCode, 200, `must succeed: ${res.body}`);
+    const flyerTextCall = mock.calls.find((c) => (c.body.messages?.find((m) => m.role === "user")?.content || "").includes("ACTUAL, FINISHED text content for a flyer"));
+    const flyerPrompt = flyerTextCall.body.messages.find((m) => m.role === "user").content;
+    assert.match(flyerPrompt, /This is NOT sympathy\/funeral work/, "a generic request must never receive the sympathy-writing rules");
+    // The GENERATED content (not the prompt's own forbidden-example list,
+    // which legitimately names "casket flowers" as an example of what NOT
+    // to write) must never actually carry sympathy language.
+    const body = JSON.parse(res.body);
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const c = assetInsert.ops.find((op) => op[0] === "insert")[1][0].content;
+    assert.doesNotMatch(`${c.headline} ${c.body} ${c.cta}`, /casket/i);
+    assert.doesNotMatch(`${c.headline} ${c.body} ${c.cta}`, /standing spray/i);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("REGRESSION D (handler-level): a genuine sympathy request still receives the real sympathy-writing rules end to end", async () => {
+  const copy = {
+    platform: "facebook",
+    headline: "With Sympathy",
+    body: "Our thoughts are with the family — we're honored to help with flowers for the service.",
+    cta: "Call us",
+    visual_brief: "A dignified white and cream sympathy arrangement.",
+    creative_brief: { primary_subject: "A dignified white and cream standing spray", mood: "restrained, gentle", lighting: "soft diffused light", composition: "close-up", floral_style: "formal" },
+    objective: "awareness",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  };
+  const flyerCopy = { headline: "With Sympathy", body: "Standing sprays and casket flowers, made with care.", cta: "Call to arrange" };
+  const mock = mockCloudflare([copy, flyerCopy]);
+  try {
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-p3d", content_type: "image_post", title: "Sympathy", brief: "Flowers for the Smith family, they just lost their dad", status: "idea" }, error: null },
+        { data: [{ id: "variant-p3d", platform: "facebook" }], error: null },
+        { data: { marketing_monthly_budget_cents: null }, error: null },
+        { data: null, error: null },
+        { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
+        { data: null, error: null },
+        { data: null, error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: null, error: null },
+        { data: null, error: null },
+        { data: null, error: null },
+        { data: { id: "media-p3d" }, error: null },
+        { data: { id: "flyer-asset-p3d" }, error: null },
+        { data: null, error: null },
+        { data: { id: "item-p3d", status: "draft" }, error: null }
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-p3d", photo_choice: "generate" }));
+    assert.equal(res.statusCode, 200, `a genuine sympathy request must still complete successfully: ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.equal(body.copy.headline, "With Sympathy");
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const c = assetInsert.ops.find((op) => op[0] === "insert")[1][0].content;
+    assert.match(c.body, /standing sprays and casket flowers/i, "real sympathy work must still be allowed to name the actual flowers/pieces");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("REGRESSION E (handler-level): a current-stock claim naming a flower that IS on the shop's real, verified inventory survives end to end — the real DB-sourced inventory, not just the pure detector, actually grounds this", async () => {
+  const copy = {
+    platform: "facebook",
+    headline: "Garden Roses In Stock",
+    body: "We have Garden Roses in the shop this week — come see them in person.",
+    cta: "Visit us",
+    visual_brief: "A bright bouquet of garden roses.",
+    creative_brief: { primary_subject: "A bright bouquet of garden roses", mood: "cheerful", lighting: "natural", composition: "close-up", floral_style: "garden-style" },
+    objective: "awareness",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  };
+  const flyerCopy = { headline: "Garden Roses In Stock", body: "We have Garden Roses this week.", cta: "Visit us today" };
+  const mock = mockCloudflare([copy, flyerCopy]);
+  try {
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-p3e", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        { data: [{ id: "variant-p3e", platform: "facebook" }], error: null },
+        { data: { marketing_monthly_budget_cents: null }, error: null },
+        { data: null, error: null },
+        { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
+        { data: null, error: null }, // loadBrandBrain
+        { data: null, error: null }, // loadStyleMemory
+        // loadGroundedInventory — the real, non-empty case: a real row the
+        // shop actually has on file, exactly the shape the real query
+        // returns (id,name,category,quantity,low_stock_level,unit,price,created_at).
+        {
+          data: [{ id: "inv-garden-rose", name: "Garden Roses", category: "roses", quantity: 24, low_stock_level: 5, unit: "stems", price: 3.5, created_at: new Date(Date.now() - 86400000).toISOString() }],
+          error: null
+        },
+        { data: [], error: null }, // audience: customers
+        { data: [], error: null }, // audience: orders
+        { data: [], error: null }, // recent-content shortlist
+        { data: null, error: null }, // recordUsage("copy") — caption
+        { data: null, error: null }, // recordUsage("copy") — flyer
+        { data: null, error: null }, // recordUsage("image")
+        { data: { id: "media-p3e" }, error: null },
+        { data: { id: "flyer-asset-p3e" }, error: null },
+        { data: null, error: null },
+        { data: { id: "item-p3e", status: "draft" }, error: null }
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-p3e", photo_choice: "generate" }));
+    assert.equal(res.statusCode, 200, `must succeed on the first attempt, no retry needed for a grounded claim: ${res.body}`);
+    const body = JSON.parse(res.body);
+    // A claim backed by the shop's own real inventory must never be
+    // stripped or trigger a retry — only ONE flyer text-generation call
+    // should have happened.
+    const flyerTextCalls = mock.calls.filter((c) => (c.body.messages?.find((m) => m.role === "user")?.content || "").includes("ACTUAL, FINISHED text content for a flyer"));
+    assert.equal(flyerTextCalls.length, 1, "a grounded, evidence-backed claim must never trigger the inventory-claim retry");
+    assert.match(body.copy.body, /Garden Roses/i);
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const c = assetInsert.ops.find((op) => op[0] === "insert")[1][0].content;
+    assert.match(`${c.headline} ${c.body} ${c.cta}`, /Garden Roses/i, "the real, verified flower name must survive into the final persisted flyer content");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("REGRESSION J (retry then rescue): a flyer that mismatches the caption's concept gets a real retry (folded into the same weak-copy retry loop, not a separate mechanism) — and when it STILL mismatches for a shop with a real phone on file, rescues into the shop's own honest, generic notice rather than shipping the mismatch", async () => {
+  const copy = {
+    platform: "facebook",
+    headline: "h",
+    body: "Our garden roses are looking gorgeous this week — come see them in person.",
+    cta: "Visit us",
+    visual_brief: "A bright bouquet of garden roses.",
+    creative_brief: { primary_subject: "A bright bouquet of garden roses", mood: "cheerful", lighting: "natural", composition: "close-up", floral_style: "garden-style" },
+    objective: "awareness",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  };
+  // A flyer that names a completely different flower than the caption's
+  // own subject, on BOTH the first attempt and the retry — proving the
+  // mismatch survives its own real retry chance before the final rescue
+  // ever runs.
+  const mismatchedFlyer = { headline: "Beautiful Tulips", body: "Fresh tulips for spring.", cta: "Visit us today" };
+  const mock = mockCloudflare([copy, mismatchedFlyer, mismatchedFlyer]);
+  try {
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-p3j", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        { data: [{ id: "variant-p3j", platform: "facebook" }], error: null },
+        { data: { marketing_monthly_budget_cents: null }, error: null },
+        { data: null, error: null },
+        { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
+        { data: null, error: null },
+        { data: null, error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: null, error: null }, // recordUsage("copy") — caption
+        { data: null, error: null }, // recordUsage("copy") — flyer attempt 1
+        { data: null, error: null }, // recordUsage("copy") — flyer retry (still mismatched)
+        { data: null, error: null }, // recordUsage("image")
+        { data: { id: "media-p3j" }, error: null },
+        { data: { id: "flyer-asset-p3j" }, error: null },
+        { data: null, error: null },
+        { data: { id: "item-p3j", status: "draft" }, error: null }
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-p3j", photo_choice: "generate" }));
+    assert.equal(res.statusCode, 200, `a mismatch that survives retry must rescue into a safe fallback, not fail the whole request when one is derivable: ${res.body}`);
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const c = assetInsert.ops.find((op) => op[0] === "insert")[1][0].content;
+    // The mismatched content must never survive to the flyer — it's
+    // replaced by the shop's own honest, generic fallback.
+    assert.doesNotMatch(`${c.headline} ${c.body}`, /tulip/i);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("REGRESSION J2 (true fail-closed): the same coherence mismatch, for a shop with NO phone on file at all, has no safe fallback to rescue into and fails closed rather than shipping the mismatch", async () => {
+  const copy = {
+    platform: "facebook",
+    headline: "h",
+    body: "Our garden roses are looking gorgeous this week — come see them in person.",
+    cta: "Visit us",
+    visual_brief: "A bright bouquet of garden roses.",
+    creative_brief: { primary_subject: "A bright bouquet of garden roses", mood: "cheerful", lighting: "natural", composition: "close-up", floral_style: "garden-style" },
+    objective: "awareness",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  };
+  const mismatchedFlyer = { headline: "Beautiful Tulips", body: "Fresh tulips for spring.", cta: "Visit us today" };
+  const mock = mockCloudflare([copy, mismatchedFlyer, mismatchedFlyer]);
+  try {
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-p3j2", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        { data: [{ id: "variant-p3j2", platform: "facebook" }], error: null },
+        { data: { marketing_monthly_budget_cents: null }, error: null },
+        { data: null, error: null },
+        { data: { name: "Lilies in Bloom", phone: null }, error: null }, // no real phone on file — no safe deterministic fallback is derivable
+        { data: null, error: null },
+        { data: null, error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: null, error: null }, // recordUsage("copy") — caption
+        { data: null, error: null }, // recordUsage("copy") — flyer attempt 1
+        { data: null, error: null }, // recordUsage("copy") — flyer retry (still mismatched)
+        { data: { id: "item-p3j2", status: "idea" }, error: null } // revertToIdea
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-p3j2", photo_choice: "generate" }));
+    assert.equal(res.statusCode, 400, "with no safe fallback derivable, a genuinely incoherent flyer must never be shipped");
+    const revertCall = client.calls.find(
+      (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
+    );
+    assert.ok(revertCall, "the item must be reverted to idea so the florist can retry, not left stuck as 'generating'");
+  } finally {
+    mock.restore();
+  }
+});

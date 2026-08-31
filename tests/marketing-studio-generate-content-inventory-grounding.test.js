@@ -109,7 +109,9 @@ test("generate_content: real inventory rows reach the actual prompt sent to the 
 
     const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
     assert.match(userMessage, /Garden Rose \(40 stems in stock\)/, "the shop's real current inventory must reach the actual model prompt, not just sit in an inventory list nobody reads");
-    assert.match(userMessage, /never name a flower, color, or variety that isn't on it/i);
+    // Phase 3 live-test fix: the anti-fabrication instruction is now a
+    // standing rule, present with or without real inventory.
+    assert.match(userMessage, /NEVER CLAIM A SPECIFIC BUSINESS FACT THAT ISN'T VERIFIED/);
 
     const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
     assert.deepEqual(

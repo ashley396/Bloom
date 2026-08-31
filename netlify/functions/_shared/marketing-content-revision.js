@@ -355,6 +355,23 @@ export function requestSignalsPlainOperationalNotice(requestText) {
   return PLAIN_NOTICE_SIGNAL_RE.test(text) && !PROMOTIONAL_SIGNAL_RE.test(text);
 }
 
+// A narrower slice of PROMOTIONAL_SIGNAL_RE — specifically a real
+// sale/discount/offer, not merely "an event" (a wedding show, a class),
+// which legitimately belongs to a different objective (seasonal_occasion/
+// awareness) and isn't itself evidence the shop is running a promotion.
+const REAL_PROMOTION_SIGNAL_RE = /\b(sale|%\s?off|percent off|discount|promo(?:tion)?|special offer|coupon|deal|bogo|buy one get one)\b/i;
+
+/** Phase 3 live-test fix (objective must become functional, requirement
+ * 9-I): a real promotion is a claim about the business, exactly like a
+ * shipment or a phone number — it must be supported by what the florist
+ * actually said, never invented just because "promotion" sounds like a
+ * more exciting objective for the model to pick. Used to downgrade/reject
+ * a self-reported "promotion" objective that has no real promotional
+ * signal in the request. */
+export function requestSignalsRealPromotion(requestText) {
+  return REAL_PROMOTION_SIGNAL_RE.test(String(requestText || ""));
+}
+
 // The actual invented phrasing a model can drift into on a plain notice —
 // manufactured urgency ("final orders," "last chance," "act now"), a
 // manufactured future plan/event ("prepare for," "get ready for," "special
@@ -691,7 +708,20 @@ export function buildDeterministicNoticeContent({ requestText, shopName, shopPho
 // word; a bare "passed" alone stays excluded — that word covers everything
 // from exams to time to delivery vans driving past the shop).
 const FAMILY_WORD_RE_SRC = "(?:mom|mother|dad|father|husband|wife|son|daughter|brother|sister|grandma|grandpa|grandmother|grandfather|parent|parents|loved one)";
-const BEREAVEMENT_CONTEXT_RE = new RegExp(
+// Exported (Phase 3 live-test fix) as the one authoritative "is this
+// request/text actually about a death or a loss" check for TEXT
+// generation — buildSocialPostTask/buildFlyerContentTask gate their own
+// sympathy-writing instructions behind it, rather than each carrying an
+// unconditional copy of sympathy example language regardless of whether
+// the real request ever asked for that. Deliberately broader than
+// ai-image-engine.js's own SYMPATHY_OCCASION_RE (which is tuned for a
+// short occasion/visual-brief string, not full request text) — it also
+// catches the informal way a florist actually describes a real loss
+// ("they just lost their dad"), so gating text generation on the
+// NARROWER image regex would have silently stopped recognizing those
+// real requests as sympathy work. Kept as the one shared source of truth
+// for TEXT rather than inventing a third variant.
+export const BEREAVEMENT_CONTEXT_RE = new RegExp(
   `\\b(funerals?|sympathy|memorials?|bereave(?:d|ment)|condolences?|caskets?|gravesides?|wakes?|passed away|loss of|in memory|tributes?|remembrances?` +
     `|lost (?:my|his|her|their|our) ${FAMILY_WORD_RE_SRC}` +
     `|${FAMILY_WORD_RE_SRC} (?:just )?passed)\\b`,
@@ -946,6 +976,263 @@ export function stripFabricatedContactNumbers({ requestText, shopPhone, copyText
   }
   text = text.replace(/[ \t]{2,}/g, " ").replace(/\s+([.,!?])/g, "$1").trim();
   return { text, removed, substituted: Boolean(real) };
+}
+
+// ---------------------------------------------------------------------------
+// Unverified inventory / business-state claims.
+//
+// Real, live-found failure (Phase 3 live acceptance test, real Cloudflare
+// provider, real "Lilies in Bloom" shop with ZERO real inventory rows on
+// file): "We're thrilled to welcome our latest shipment of gorgeous
+// Freedom roses to the studio!" — a confident, specific claim about a
+// real-world event (a shipment arriving) that never happened, paired with
+// an invented specific rose variety. Every existing guard in this file is
+// about OPERATIONAL notices (closures/hours/deadlines) or a PERMANENT-
+// closure misread — none of them ever asked "did the model just claim a
+// real-world inventory/stocking event with nothing behind it?" An empty
+// `inventorySummary` upstream (ai-creative-engine.js's buildSocialPostTask)
+// meant "Florisyn has no verified inventory evidence," not "the shop has
+// no flowers" — but with no detector here to catch the difference, the
+// model was free to assert either.
+//
+// Two distinct claim shapes, matched separately because they need
+// different evidence:
+//   1. A bare business-state claim ("just arrived," "back in stock,"
+//      "limited stock") — a factual assertion about something that
+//      happened, which Florisyn cannot verify unless the florist's own
+//      request already said so (an explicit supplied fact, exactly like a
+//      phone number or a time — see factsPreserved()'s own principle).
+//   2. A NAMED flower/variety explicitly framed as currently at/from the
+//      shop ("we have X," "we're featuring X," "back in stock: X") — safe
+//      only when real verified inventory names it, or the florist's own
+//      request named that flower herself.
+//
+// Deliberately NOT a ban on flower names or on the word "fresh" — "Fresh
+// flowers can brighten someone's day" and "Send someone a little beauty
+// today" must never trip this; a plain mention, a request to write ABOUT
+// a named flower, or a flower the florist's OWN request explicitly
+// supplied are all untouched. Only a specific, current-stock CLAIM
+// requires evidence, matching the "claim semantics, not a word ban" rule
+// this fix was built around.
+// ---------------------------------------------------------------------------
+
+const INVENTORY_STATE_SIGNAL_RE =
+  /\b(just arrived|just got (?:it|them|these|this) in|just got in|just received|freshly arrived|newly arrived|latest shipment|new shipment|fresh shipment|arrived today|back in stock|now in stock|now available|currently available|just restocked|\brestocked\b|limited stock|only \d+ left|while supplies last)\b/i;
+
+// A named flower/foliage variety this codebase's model output has
+// actually invented or could invent — deliberately a SEPARATE list from
+// SPECIFIC_DETAIL_RE's own (below), rather than a shared refactor, so
+// this fix can never change that unrelated, already-tested detector's
+// behavior. Includes the exact terms from the live failure
+// (leatherleaf, Freedom rose) alongside the common wholesale names this
+// codebase already treats as canonical examples elsewhere (florist-ai-
+// vision.js's own vision prompt).
+const NAMED_FLOWER_RE =
+  /\b(freedom roses?|spray roses?|garden roses?|roses?|tulips?|peon(?:y|ies)|ranunculus|alstroemerias?|leatherleaf(?: ferns?)?|leathernleaf|eucalyptus|hydrangeas?|carnations?|chrysanthemums?|mums?|orchids?|dais(?:y|ies)|iris(?:es)?|gladiol(?:us|i)|glads|snapdragons?|freesias?|anemones?|delphiniums?|larkspur|statice|asters?|proteas?|dahlias?|callas?|sunflowers?|lil(?:y|ies)|baby'?s breath|gypsophila)\b/i;
+
+// A flower explicitly framed as CURRENT stock, not just mentioned in
+// passing — an availability/possession VERB immediately signals "this is
+// at the shop right now," distinct from a bare possessive ("our roses are
+// gorgeous") which this deliberately does NOT match on its own (too
+// broad — it would flag ordinary, harmless copy that isn't claiming
+// anything beyond aesthetic opinion). Matches Ashley's own worked
+// examples exactly: "We have Freedom roses" / "We're featuring fresh
+// peonies today" / "Back in stock: ranunculus" all carry an explicit
+// availability verb; "Our roses are looking gorgeous today" does not.
+const CURRENT_STOCK_VERB_RE =
+  /\bwe(?:'re| are)\s+featuring\b|\bwe\s+have\b|\bwe'?ve\s+got\b|\bwe\s+(?:offer|carry|stock)\b|\bwe(?:'re| are)\s+(?:offering|carrying|stocking|using|showcasing)\b|\bback\s+in\s+stock\b/i;
+
+// A florist explicitly stating she HAS real stock — "I have 40 roses I
+// need to sell," "we've got roses," "we just received 50 red roses" — is
+// exactly as real a supplied fact as a phone number or a time, even
+// though it may not share INVENTORY_STATE_SIGNAL_RE's own exact wording.
+// Real, live-found false positive this exists to prevent: "I have 40
+// roses I need to sell" came back as "Fresh Roses Just Arrived!" — a
+// reasonable creative embellishment of a fact she DID supply, not an
+// invention, and an earlier version of this detector flagged it anyway
+// because "just arrived" itself never appears in the request. The actual
+// question is never "does the model's exact phrase appear in the
+// request" — it's "did the request supply real possession of the named
+// flower this sentence is about," which the per-flower check below (via
+// requestNamedFlowers) already answers correctly; this only covers the
+// remaining case of a BARE state-claim with no flower name attached at
+// all ("our latest shipment just arrived!"), where there's no flower to
+// check possession of.
+const EXPLICIT_POSSESSION_RE =
+  /\b(?:i|we)\s+(?:have|'ve got|have got|got|received|just got|just received)\b|\b\d+\s+(?:stems?|roses?|tulips?|peon(?:y|ies)|carnations?|hydrangeas?|lil(?:y|ies)|dais(?:y|ies)|orchids?|sunflowers?)\b/i;
+
+/**
+ * Sentences in `generatedText` that assert an unverified inventory/
+ * business-state fact. Each returned entry is the exact offending
+ * sentence, for the same "quote it back, don't just say 'fix this'"
+ * reason detectWeakMarketingCopy's own filler-phrase check already uses.
+ *
+ * `requestText` is the florist's own real request — a state-claim or a
+ * named flower supplied there is a real, florist-given fact, not an
+ * invention (same principle as factsPreserved()/detectFabricatedContact
+ * Numbers()). `verifiedFlowerNames` is the shop's real, currently-loaded
+ * inventory (ai-generated-assets' own inventorySources) — a flower named
+ * there is genuinely in stock, not invented.
+ *
+ * A sentence that names a specific flower is judged on THAT flower's own
+ * evidence (real inventory, or the request naming it) regardless of the
+ * exact claim-verb used — a florist who said "I have 40 roses" licenses
+ * "Fresh Roses Just Arrived!" even though the model's exact wording
+ * differs. Only a claim with NO flower name at all ("our latest shipment
+ * just arrived!") falls back to requiring the request to carry an
+ * equivalent state/possession signal, since there's no flower to check
+ * evidence for.
+ *
+ * Pure. Never shop-specific — every input is supplied by the caller from
+ * real request/inventory data.
+ */
+// Expands every entry into its own singular/plural variants (this file's
+// existing floralWordVariants(), reused rather than a second copy of the
+// same singular/plural logic) before building the comparison set — real,
+// live-found gap this fixes: real inventory is stored singular ("Garden
+// Rose"), generated copy naturally pluralizes ("Garden Roses"), and an
+// exact-string Set lookup treated those as two different flowers,
+// wrongly flagging a shop's own verified stock as unverified.
+function expandFlowerVariants(names) {
+  const set = new Set();
+  for (const name of names || []) {
+    for (const variant of floralWordVariants(String(name).toLowerCase())) set.add(variant);
+  }
+  return set;
+}
+
+export function detectUnverifiedInventoryStateClaim({ generatedText, requestText, verifiedFlowerNames = [] } = {}) {
+  const text = String(generatedText || "");
+  const request = String(requestText || "");
+  const requestSuppliesShipmentSignal = INVENTORY_STATE_SIGNAL_RE.test(request) || EXPLICIT_POSSESSION_RE.test(request);
+  const requestNamedFlowers = expandFlowerVariants(request.match(NAMED_FLOWER_RE) || []);
+  const verifiedSet = expandFlowerVariants(verifiedFlowerNames);
+
+  const violations = [];
+  for (const sentence of sentencesOf(text)) {
+    const hasStateSignal = INVENTORY_STATE_SIGNAL_RE.test(sentence);
+    const hasCurrentStockFraming = CURRENT_STOCK_VERB_RE.test(sentence);
+    if (!hasStateSignal && !hasCurrentStockFraming) continue;
+
+    const flowerMatches = sentence.match(NAMED_FLOWER_RE) || [];
+    if (flowerMatches.length) {
+      const unverified = flowerMatches.some(
+        (f) => !floralWordVariants(f.toLowerCase()).some((v) => verifiedSet.has(v) || requestNamedFlowers.has(v))
+      );
+      if (unverified) violations.push(sentence.trim());
+      continue;
+    }
+    // No specific flower named — a bare business-state claim still needs
+    // the request itself to have supplied an equivalent fact, since
+    // there's no flower name to check real evidence against.
+    if (hasStateSignal && !requestSuppliesShipmentSignal) {
+      violations.push(sentence.trim());
+    }
+  }
+  return violations;
+}
+
+/**
+ * Removes every sentence flagged by detectUnverifiedInventoryStateClaim
+ * from `text`, rebuilding the remainder — the same "cut the sentence, no
+ * fragment survives" pattern stripFabricatedContactNumbers() already
+ * uses for an invented phone number with nothing real to substitute.
+ * There is no safe substitute for an invented shipment/stock claim (there
+ * is no "real" one to put in its place), so this always removes rather
+ * than replaces.
+ *
+ * Pure. Returns { text, removed }.
+ */
+export function stripUnverifiedInventoryClaims({ generatedText, requestText, verifiedFlowerNames = [] } = {}) {
+  const original = String(generatedText || "");
+  const violations = detectUnverifiedInventoryStateClaim({ generatedText: original, requestText, verifiedFlowerNames });
+  if (!violations.length) return { text: original, removed: [] };
+  const violationSet = new Set(violations);
+  const kept = sentencesOf(original).filter((s) => !violationSet.has(s.trim()));
+  const text = kept.join(" ").replace(/[ \t]{2,}/g, " ").trim();
+  return { text, removed: violations };
+}
+
+// ---------------------------------------------------------------------------
+// One-concept coherence — does the caption and the flyer's own on-image
+// text actually describe the SAME post?
+//
+// Real, live-found failure (the same Phase 3 test): the caption described
+// a new rose shipment; the flyer's on-image text, generated as a
+// completely separate AI call from the same bare brief with no knowledge
+// of the caption already written, independently decided the post was
+// sympathy/funeral work ("Thinking of You," "standing spray or casket
+// flowers"). Both individually passed every existing per-text guard —
+// the fault only exists BETWEEN the two outputs, which nothing checked.
+//
+// Deliberately deterministic, no second AI system: reuses
+// BEREAVEMENT_CONTEXT_RE (the same check now gating the sympathy-writing
+// prompt rules) to classify each side, plus the objective/promotion
+// checks below. A caller with a genuine, real mismatch gets one concrete
+// reason back — not a black-box "no."
+// ---------------------------------------------------------------------------
+
+/**
+ * Why this specific flyer text is incoherent with the concept the caption
+ * already established, or null when it's fine. `concept` is the
+ * structured object marketing-studio.js builds from the FIRST successful
+ * generation (copyGen) — see its own definition for the shape.
+ *
+ * Pure. Never shop-specific.
+ */
+export function detectConceptCoherenceMismatch({ concept, captionText, flyerText, requestText } = {}) {
+  const caption = String(captionText || "");
+  const flyer = String(flyerText || "");
+  const request = String(requestText || "");
+
+  // 1. The flyer's own sympathy status disagrees with the CONCEPT's — the
+  // concept (concept.isSympathy) is the authoritative classification,
+  // already computed from the real request + the caption together, not
+  // re-derived from a symmetrical keyword comparison between the two
+  // texts. Real, live-found false positive an earlier version of this
+  // check had: comparing BEREAVEMENT_CONTEXT_RE against the caption's OWN
+  // text directly flagged a genuinely correct sympathy post, because a
+  // gentle, well-written sympathy caption ("our thoughts are with the
+  // family") can easily avoid every literal keyword the regex looks for
+  // while the flyer correctly uses real sympathy-card language ("With
+  // Sympathy") — a real difference in WORD CHOICE, not a real difference
+  // in CONCEPT. Trusting the concept's own already-decided classification
+  // avoids that false positive entirely.
+  if (concept && typeof concept.isSympathy === "boolean") {
+    const flyerIsSympathy = BEREAVEMENT_CONTEXT_RE.test(flyer);
+    if (flyerIsSympathy !== concept.isSympathy) {
+      return concept.isSympathy
+        ? "This post is sympathy/funeral work, but the flyer text doesn't read that way — both halves of the same post must agree."
+        : "The flyer reads as sympathy/funeral work, but nothing about this post is actually about a death or a loss — a caption and its flyer must describe the same post.";
+    }
+  }
+
+  // 2. An "operational" objective (a plain schedule/hours/logistics
+  // notice) paired with emotional or promotional language — the two are
+  // fundamentally different registers, and operational facts belong
+  // stated plainly (buildDeterministicNoticeContent's own standard).
+  if (concept?.objective === "operational" && (CELEBRATORY_RE.test(flyer) || REAL_PROMOTION_SIGNAL_RE.test(flyer))) {
+    return "The objective is operational (a plain schedule/logistics notice), but the flyer text reads as celebratory or promotional — an operational notice must stay plain and factual.";
+  }
+
+  // 3. "promotion" claimed with nothing in the real request supporting a
+  // real sale/discount/offer — the objective itself becomes an invented
+  // business claim otherwise (requirement 9-I).
+  if (concept?.objective === "promotion" && !requestSignalsRealPromotion(request)) {
+    return "The objective was classified as promotion, but nothing in the actual request describes a real sale, discount, or offer — a promotion objective must be supported by a real promotion, never invented to sound more exciting.";
+  }
+
+  // 4. Named-flower subject mismatch — both sides name specific flowers,
+  // but share none in common. Deliberately narrow (both sides must name
+  // at least one) so a side that simply doesn't mention a flower at all
+  // (very common, and fine) never trips this.
+  const captionFlowers = new Set((caption.match(NAMED_FLOWER_RE) || []).map((f) => f.toLowerCase()));
+  const flyerFlowers = new Set((flyer.match(NAMED_FLOWER_RE) || []).map((f) => f.toLowerCase()));
+  if (captionFlowers.size && flyerFlowers.size && ![...flyerFlowers].some((f) => captionFlowers.has(f))) {
+    return `The caption and flyer name completely different flowers (caption: ${[...captionFlowers].join(", ")}; flyer: ${[...flyerFlowers].join(", ")}) — both halves of the same post must describe the same subject.`;
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------

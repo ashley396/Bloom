@@ -399,7 +399,9 @@ test("runCompoundRequest: inventory_grounded requests thread the real inventory 
     const socialPostCall = mock.calls.find((c) => (c.body.messages?.find((m) => m.role === "user")?.content || "").includes("ACTUAL, FINISHED social media post"));
     const userMessage = socialPostCall.body.messages.find((m) => m.role === "user").content;
     assert.match(userMessage, /Garden Rose \(40 stems in stock\)/, "the real inventory the shop actually has must reach the actual social-post prompt, not just sit in ctx.inventoryBrief unread");
-    assert.match(userMessage, /never name a flower, color, or variety that isn't on it/i);
+    // Phase 3 live-test fix: the anti-fabrication instruction is now a
+    // standing rule, present with or without real inventory.
+    assert.match(userMessage, /NEVER CLAIM A SPECIFIC BUSINESS FACT THAT ISN'T VERIFIED/);
   } finally {
     mock.restore();
   }
