@@ -75,7 +75,7 @@ function significantWords(text) {
  * Bloom" (covering all three) still does. Pure; never mentions a specific
  * shop.
  */
-function requestIsJustShopName(requestText, shopName) {
+export function requestIsJustShopName(requestText, shopName) {
   const words = significantWords(requestText);
   const shopWords = significantWords(shopName);
   const shopWordSet = new Set(shopWords);
@@ -102,11 +102,36 @@ function shopIdentityRule(shopName, occasion) {
   return `${base}\n- This exact request is nothing more than the shop's own name restated as "today's post" — there is NO real occasion, theme, or specific flower/product here. Write an ordinary, general "come see us today" update. visual_brief must show a general, appealing shop/floral scene — a mixed seasonal arrangement, real current inventory broadly — NEVER a photo specifically of whatever flower or plant word "${name}" happens to contain, unless the shop's real inventory or a genuinely separate topic actually calls for it.`;
 }
 
+/**
+ * Real, live-found root cause behind the redirect above still losing to
+ * the model in practice: Ashley's "Make today's Facebook post for lilies
+ * in bloom" (shop: "Lilies in Bloom") kept coming back entirely about the
+ * lily flower — "Our lily collection is looking stunning, with gorgeous
+ * Asiatic and Oriental varieties" — DESPITE shopIdentityRule's explicit
+ * correction bullet already being in the prompt. The comment above this
+ * function already correctly diagnosed the mechanism (the literal
+ * occasion text restated, unfiltered, as "Occasion/theme: <text>" right
+ * at the TOP of the prompt anchors the model before it ever reaches a
+ * correction bullet several lines further down) but the occasion line
+ * itself was never actually changed to stop doing that — only the later
+ * bullet was added. This is what actually closes it: when the request is
+ * genuinely nothing but the shop's own name, the occasion line itself
+ * never restates it as a theme at all, so there is no earlier anchor for
+ * the correction bullet to have to fight.
+ */
+function occasionLine(occasion, shopName) {
+  if (!occasion) return "";
+  if (requestIsJustShopName(occasion, shopName)) {
+    return "Occasion/theme: none — this request is nothing more than the shop's own name restated, with no real topic of its own (see the rule below for what to write instead).";
+  }
+  return `Occasion/theme: ${occasion}.`;
+}
+
 function buildSocialPostTask({ channel, occasion, audience, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary }) {
   return `You are writing the ACTUAL, FINISHED social media post Florisyn will show a florist to publish today. Do not describe the request. Do not summarize what was asked. Do not restate the user's instruction. Write real, publish-ready copy a customer would read right now.
 
 Platform: ${channel || "facebook"}.
-${occasion ? `Occasion/theme: ${occasion}.` : ""}
+${occasionLine(occasion, shop?.name)}
 ${audience ? `Audience: ${audience}.` : ""}
 ${brandVoiceSummary ? `This shop's own learned brand voice (from what they've explicitly told Lily and repeatedly approved) — follow it as the DEFAULT whenever the request above doesn't say otherwise; the request's own explicit instructions always win if they conflict: ${brandVoiceSummary}.` : ""}
 ${visualStyleSummary ? `This shop's own learned VISUAL creative style (backgrounds/lighting/colors/mood/etc., separate from the writing voice above) — use it to fill in what visual_brief doesn't otherwise specify; the request's own explicit visual direction always wins if it conflicts, and a one-time visual request never overrides this standing style: ${visualStyleSummary}.` : ""}
@@ -224,7 +249,7 @@ function buildVideoConceptTask({ occasion, audience, channel, shop, brandVoiceSu
   return `Plan a short-form marketing video (Reel/TikTok-style) for a flower shop. You are NOT rendering video — final AI video rendering is not connected yet. You ARE producing the complete creative plan: script, shot-by-shot storyboard, on-screen captions. Write the actual finished plan, not a description of what a video could contain.
 
 Channel: ${channel || "instagram/facebook reels"}.
-${occasion ? `Occasion/theme: ${occasion}.` : ""}
+${occasionLine(occasion, shop?.name)}
 ${audience ? `Audience: ${audience}.` : ""}
 ${brandVoiceSummary ? `This shop's own learned brand voice (from what they've explicitly told Lily and repeatedly approved) — follow it as the DEFAULT whenever the request above doesn't say otherwise; the request's own explicit instructions always win if they conflict: ${brandVoiceSummary}.` : ""}
 ${visualStyleSummary ? `This shop's own learned VISUAL creative style (backgrounds/lighting/colors/mood/etc., separate from the writing voice above) — use it to fill in what the shot descriptions don't otherwise specify; the request's own explicit visual direction always wins if it conflicts, and a one-time visual request never overrides this standing style: ${visualStyleSummary}.` : ""}
@@ -300,7 +325,7 @@ export async function generateWebsiteSectionDraft({ persona = "Lily", occasion, 
       mode: "generate",
       persona,
       task: `Write the actual, finished copy for a promotional website section (a homepage banner or campaign landing block) — not a description of the section, the real headline/subheadline/CTA text a visitor would read.
-${occasion ? `Occasion/theme: ${occasion}.` : ""}
+${occasionLine(occasion, shop?.name)}
 ${audience ? `Audience: ${audience}.` : ""}
 ${shopIdentityRule(shop?.name, occasion)}
 Never invent products, prices, or promises Florisyn can't confirm.`,
@@ -336,7 +361,7 @@ Never invent products, prices, or promises Florisyn can't confirm.`,
 function buildFlyerContentTask({ occasion, visualStyleSignal, shop }) {
   return `You are writing the ACTUAL, FINISHED text content for a flyer/graphic a florist will show customers today — not a description of the flyer. Write real, ready-to-display content.
 
-${occasion ? `Occasion/theme: ${occasion}.` : ""}
+${occasionLine(occasion, shop?.name)}
 ${visualStyleSignal ? "This request carries real aesthetic direction — a mood/material/color/theme." : "This request is plain and operational (a notice, a closing time, a phone number) — keep the content minimal and direct, no invented flourish."}
 
 Rules:

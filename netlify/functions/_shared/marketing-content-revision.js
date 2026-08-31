@@ -20,6 +20,7 @@
  */
 
 import { parseRevisionDeltas } from "./ai-visual-revisions.js";
+import { requestIsJustShopName } from "./ai-creative-engine.js";
 
 export { parseRevisionDeltas };
 
@@ -1153,11 +1154,73 @@ export function detectSympathyProductOpening(requestText, copyText) {
  * framing error rather than trying to judge writing quality in general, which
  * a regular expression cannot do and should not pretend to.
  */
+// Generic floral-business words that turn up in all kinds of ordinary shop
+// names and, on their own, say nothing specific enough to reliably flag as
+// "the post fixated on this" — excluded from the fixation check below so a
+// shop named e.g. "The Garden Room" doesn't get flagged just because its
+// copy happens to use the word "garden" a couple of times.
+const GENERIC_FLORAL_BUSINESS_WORDS = new Set([
+  "bloom", "blooms", "blooming", "garden", "gardens", "floral", "florals",
+  "flower", "flowers", "florist", "florists", "shop", "shoppe", "boutique",
+  "studio", "co", "company", "house", "market", "room", "petal", "petals"
+]);
+
+// Ordinary English function words a shop name can still contain ("Lilies
+// IN Bloom", "The Rose AND Vine") — never a meaningful identity/flower
+// signal on their own, and "in"/"and" appear constantly in any real post
+// for unrelated reasons, so counting them would flag nearly everything.
+const ENGLISH_STOPWORDS_IN_NAMES = new Set(["the", "a", "an", "in", "on", "of", "and", "or", "for", "to", "at", "by", "with"]);
+
+// lily/lilies, daisy/daisies, rose/roses, peony/peonies and similar — a
+// small, deliberately loose singular/plural expander so the fixation count
+// below counts "lily" and "lilies" as the same word without needing a real
+// morphology library. Under-matching (an irregular form this misses) only
+// means a real fixation goes uncaught this one time, never a false flag.
+function floralWordVariants(word) {
+  const variants = new Set([word]);
+  if (word.endsWith("ies")) variants.add(`${word.slice(0, -3)}y`); // lilies -> lily
+  else if (word.endsWith("s")) variants.add(word.slice(0, -1)); // roses -> rose
+  else variants.add(`${word}s`); // rose -> roses
+  return [...variants];
+}
+
 export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
   const request = String(requestText || "");
   const copy = String(copyText || "");
   const reasons = [];
   if (!copy.trim()) return reasons;
+
+  // Real, live-found failure that survived shopIdentityRule's own prompt
+  // instruction: "Make today's Facebook post for lilies in bloom" (shop:
+  // "Lilies in Bloom" — nothing more than the shop's own name restated,
+  // no real occasion at all) still came back "Our lily collection is
+  // looking stunning, with gorgeous Asiatic and Oriental varieties on
+  // display" — entirely about the flower, invented sub-varieties and all.
+  // A prompt instruction is a statistical nudge, not a hard constraint
+  // (see generateImageCheckingText's own reasoning for the same lesson on
+  // the image side) — this is the reactive backstop, checked only when
+  // requestIsJustShopName already established there is no real topic here
+  // to legitimately be writing about.
+  if (options.shopName && requestIsJustShopName(request, options.shopName)) {
+    const shopNameWords = String(options.shopName)
+      .toLowerCase()
+      .replace(/[’']/g, "")
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean);
+    const identityWords = [...new Set(shopNameWords)].filter(
+      (w) => !GENERIC_FLORAL_BUSINESS_WORDS.has(w) && !ENGLISH_STOPWORDS_IN_NAMES.has(w)
+    );
+    for (const word of identityWords) {
+      const variants = floralWordVariants(word);
+      const pattern = new RegExp(`\\b(?:${variants.join("|")})\\b`, "gi");
+      const matches = copy.match(pattern) || [];
+      if (matches.length >= 2) {
+        reasons.push(
+          `This post is framed entirely around "${word}" (mentioned ${matches.length} times), even though the request was nothing more than the shop's own name — there is no real occasion here. Write an ordinary "come see us today" update instead. Only mention "${word}" at all if it's genuinely in the shop's real current inventory, using the real product name exactly as given — never invent a specific variety or type that wasn't supplied.`
+        );
+      }
+    }
+  }
 
   const requestIsBereavement = BEREAVEMENT_CONTEXT_RE.test(request);
   if (requestIsBereavement || BEREAVEMENT_CONTEXT_RE.test(copy)) {

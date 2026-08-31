@@ -384,6 +384,17 @@ test("generateSocialPost: a request that reduces to nothing but the shop's own n
     const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
     assert.match(userMessage, /nothing more than the shop's own name restated/i);
     assert.match(userMessage, /NO real occasion, theme, or specific flower\/product here/);
+    // The actual root cause an independent review later found: this
+    // redirect bullet being present was never enough on its own while the
+    // literal request text was STILL restated, unfiltered, as
+    // "Occasion/theme: Make today's post for Lilies in Bloom." right at
+    // the top of the same prompt — anchoring the model before it ever
+    // reached this bullet. The real fix suppresses that anchor line
+    // itself; this is what actually proves it, not just that the bullet
+    // exists somewhere in the prompt (which was already true before that
+    // fix and did not stop the live failure).
+    assert.doesNotMatch(userMessage, /Occasion\/theme: Make today's post for Lilies in Bloom/i, "the literal request text must never be restated as the occasion/theme when there is no real occasion — that's the anchor that outweighed this same bullet in practice");
+    assert.match(userMessage, /Occasion\/theme: none/i, "the occasion line must say plainly there is no real occasion, not silently disappear or still name the shop");
   } finally {
     mock.restore();
   }
@@ -401,6 +412,10 @@ test("generateSocialPost: a request with a REAL topic beyond the shop's own name
     const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
     assert.ok(!/nothing more than the shop's own name restated/i.test(userMessage), "a request with a real topic (Valentine's Day roses) must not be flattened into 'no real occasion'");
     assert.match(userMessage, /This shop's own name is exactly "Lilies in Bloom"/, "the base identity rule still applies");
+    // The occasion-line suppression is specific to the no-real-occasion
+    // case — a genuine occasion must still be stated plainly, not silently
+    // dropped just because the request also happens to mention the shop.
+    assert.match(userMessage, /Occasion\/theme: Make a post about our Valentine's Day rose specials for Lilies in Bloom/, "a genuine occasion must still be stated as the occasion/theme, unlike the no-real-occasion case");
   } finally {
     mock.restore();
   }
