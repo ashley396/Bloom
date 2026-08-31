@@ -1673,18 +1673,50 @@ export function createMarketingStudioHandler(deps = {}) {
         // so for exactly the requests that would otherwise go straight to
         // AI image generation, short-circuit BEFORE the budget check/status
         // lock/any provider spend and let the client ask. A retry that
-        // already answered (photo_choice is "upload" or "generate") falls
-        // straight through untouched. Video concepts and text posts never
-        // touch a photo at all, so they're excluded exactly like the real
-        // branch below excludes them.
+        // already answered (photo_choice is "upload", "generate", or —
+        // Phase 2 rebuild's asset-routing gap — "reuse") falls straight
+        // through untouched. Video concepts and text posts never touch a
+        // photo at all, so they're excluded exactly like the real branch
+        // below excludes them.
         if (
           currentItem.data.content_type !== "text_post" &&
           !VIDEO_CONTENT_TYPES.has(currentItem.data.content_type) &&
           !requestNeedsFlyerWording(currentItem.data.brief) &&
           body.photo_choice !== "upload" &&
-          body.photo_choice !== "generate"
+          body.photo_choice !== "generate" &&
+          body.photo_choice !== "reuse"
         ) {
-          return json(200, { needs_photo_choice: true, item: currentItem.data });
+          // Real gap an audit found: every plain decorative post defaulted
+          // straight to a fresh AI generation or a brand-new upload —
+          // nothing ever offered a real photo the florist had already
+          // uploaded for an earlier post, even though the shop's own real
+          // photography is exactly what Ashley asked for over generic AI
+          // stock imagery in the first place. Surfaced here as a third
+          // choice alongside upload/generate, never forced — the florist
+          // still decides per Ashley's own "ask me each time" answer.
+          // Scoped to this shop only (real tenant isolation, not a
+          // cross-shop photo library); quarantined assets are excluded.
+          // Approval status is intentionally NOT filtered on — a photo's
+          // own pixels are just as real and reusable whether or not that
+          // earlier POST's wording was ever approved.
+          const reusableCandidates = await client
+            .from("ai_generated_assets")
+            .select("id,content,created_at")
+            .eq("shop_id", shopId)
+            .eq("asset_type", "flyer")
+            .is("quarantine_reason", null)
+            .order("created_at", { ascending: false })
+            .limit(30);
+          const reusablePhotos = (reusableCandidates.data || [])
+            .filter((row) => row.content?.user_uploaded_photo === true && row.content?.background_url)
+            .slice(0, 6)
+            .map((row) => ({
+              asset_id: row.id,
+              url: row.content.background_url,
+              label: row.content.creative_brief?.primary_subject || row.content.visual_brief || null,
+              created_at: row.created_at
+            }));
+          return json(200, { needs_photo_choice: true, item: currentItem.data, reusable_photos: reusablePhotos });
         }
 
         const variantsResult = await client
@@ -1712,11 +1744,15 @@ export function createMarketingStudioHandler(deps = {}) {
           // estimate must skip that line item too, or a shop close to its
           // cap could have a genuinely free upload wrongly refused as
           // "over budget" for a cost it was never actually going to incur.
+          // "reuse" (Phase 2 rebuild's asset-routing gap) is the same: an
+          // already-generated photo being referenced again incurs no new
+          // image spend either.
           const estimatedAdditionalCents =
             (estimateCostCents({ purpose: "copy", unitType: "request", units: 1 }) || 0) +
             (VIDEO_CONTENT_TYPES.has(currentItem.data.content_type) ||
             currentItem.data.content_type === "text_post" ||
-            body.photo_choice === "upload"
+            body.photo_choice === "upload" ||
+            body.photo_choice === "reuse"
               ? 0
               : estimateCostCents({ purpose: "image", unitType: "image", units: 1 }) || 0);
           const budgetCheck = await checkMonthlyBudgetForRequest(client, {
@@ -2390,13 +2426,15 @@ export function createMarketingStudioHandler(deps = {}) {
             // already grounded in real inventory above), so
             // buildImagePrompt's own products fallback path never runs.
             //
-            // The photo can still come from either a real upload or an AI
-            // generation, per the florist's own "ask me each time" answer
-            // — generate_content's photo_choice short-circuit above is
-            // what actually asks; by the time execution reaches here she's
-            // already answered, so photo_choice is always "upload" or
-            // "generate". Flyer text is generated FIRST (cheaper, one
-            // request) so a wording failure never wastes an image spend.
+            // The photo can come from a real upload, an AI generation, or —
+            // Phase 2 rebuild's asset-routing gap — reusing one of this
+            // shop's own recent real uploaded photos, per the florist's own
+            // "ask me each time" answer — generate_content's photo_choice
+            // short-circuit above is what actually asks; by the time
+            // execution reaches here she's already answered, so
+            // photo_choice is "upload", "generate", or "reuse". Flyer text
+            // is generated FIRST (cheaper, one request) so a wording
+            // failure never wastes an image spend.
             const flyerCopyResult = await generateFlyerCopy({ noticeFallback, brief: currentItem.data.brief, occasionTitle: currentItem.data.title });
             if (!flyerCopyResult.ok) {
               await revertToIdea();
@@ -2405,8 +2443,37 @@ export function createMarketingStudioHandler(deps = {}) {
             const flyerGen = { model: flyerCopyResult.model, content: flyerCopyResult.content };
 
             let imageGen;
-            userUploadedPhoto = body.photo_choice === "upload";
-            if (userUploadedPhoto) {
+            let reusedFromAssetId = null;
+            userUploadedPhoto = body.photo_choice === "upload" || body.photo_choice === "reuse";
+            if (body.photo_choice === "reuse") {
+              if (typeof body.reuse_asset_id !== "string" || !body.reuse_asset_id) {
+                await revertToIdea();
+                return json(400, { error: "photo_choice was 'reuse' but no reuse_asset_id was provided." });
+              }
+              // Real tenant-isolation check: the candidate list offered to
+              // the florist (the needs_photo_choice short-circuit above)
+              // only ever lists THIS shop's own assets, but a caller could
+              // still hand back any asset id — refetch and re-verify
+              // shop_id here rather than trusting the id round-tripped from
+              // the client at all.
+              const sourceAsset = await client.from("ai_generated_assets").select("id,shop_id,content").eq("id", body.reuse_asset_id).eq("shop_id", shopId).maybeSingle();
+              if (sourceAsset.error) throw sourceAsset.error;
+              const sourcePhotoUrl = sourceAsset.data?.content?.background_url;
+              // Reuse is only ever offered/honored for a REAL photo the
+              // florist uploaded herself — never a prior AI generation —
+              // so the disclosure math below (generativeImageUsed) stays
+              // correct without any special-casing.
+              if (!sourceAsset.data || sourceAsset.data.content?.user_uploaded_photo !== true || !sourcePhotoUrl) {
+                await revertToIdea();
+                return json(400, { error: "That photo isn't available to reuse anymore." });
+              }
+              reusedFromAssetId = sourceAsset.data.id;
+              // No new website_media row and no new storage upload — this
+              // is the exact same already-stored file, just referenced
+              // again; imageGen.path stays null so the website_media
+              // insert below is skipped entirely for this branch.
+              imageGen = { ok: true, path: null, url: sourcePhotoUrl, mime: null, provider: "reused_upload", model: null, prompt: null };
+            } else if (body.photo_choice === "upload") {
               if (typeof body.photo_data_url !== "string" || !body.photo_data_url) {
                 await revertToIdea();
                 return json(400, { error: "photo_choice was 'upload' but no photo_data_url was provided." });
@@ -2450,17 +2517,24 @@ export function createMarketingStudioHandler(deps = {}) {
                 return json(400, { error: imageGen.error });
               }
             }
-            const mediaRow = await client
-              .from("website_media")
-              .insert({
-                shop_id: shopId,
-                storage_path: imageGen.path,
-                filename: imageGen.path.split("/").pop(),
-                source: userUploadedPhoto ? "upload" : "generated",
-                mime: imageGen.mime || "image/jpeg"
-              })
-              .select()
-              .single();
+            // A reused photo has no NEW file at all — it's the exact same
+            // already-stored website_media row a prior post's upload
+            // created, just referenced again — so imageGen.path is null and
+            // this insert is skipped entirely rather than creating a
+            // duplicate storage_path row (or crashing on a null .split()).
+            const mediaRow = imageGen.path
+              ? await client
+                  .from("website_media")
+                  .insert({
+                    shop_id: shopId,
+                    storage_path: imageGen.path,
+                    filename: imageGen.path.split("/").pop(),
+                    source: userUploadedPhoto ? "upload" : "generated",
+                    mime: imageGen.mime || "image/jpeg"
+                  })
+                  .select()
+                  .single()
+              : { data: null };
             const template = pickFlyerTemplate({ occasion: currentItem.data.title });
             const aspectRatio = pickAspectRatio(primaryPlatform);
             const persisted = await persistGeneratedAsset(client, {
@@ -2516,7 +2590,12 @@ export function createMarketingStudioHandler(deps = {}) {
                 // a real uploaded photo must never be disclosed as a
                 // generative image just because background_url is
                 // non-null — read below alongside imageUrl.
-                user_uploaded_photo: userUploadedPhoto
+                user_uploaded_photo: userUploadedPhoto,
+                // Provenance for the asset-routing "reuse" choice — null
+                // for a fresh upload or a fresh AI generation, the source
+                // asset's own id when this photo is a reuse of one already
+                // uploaded for an earlier post.
+                reused_from_asset_id: reusedFromAssetId
               },
               mediaId: mediaRow.data?.id || null,
               status: "completed"

@@ -571,7 +571,8 @@ test("generate_content (real dispatch): an ordinary decorative request is now a 
 
 test("generate_content (real dispatch): a plain image_post with no photo_choice yet asks BEFORE any spend — no budget check, no status flip, no provider call", async () => {
   const client = createFakeSupabaseClient([
-    { data: { id: "item-3", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived! Stop by today.", status: "idea" }, error: null }
+    { data: { id: "item-3", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived! Stop by today.", status: "idea" }, error: null },
+    { data: [], error: null } // the reusable-photos shortlist query (Phase 2 rebuild's asset-routing gap) — a real query, but still no spend
   ]);
   const handler = createMarketingStudioHandler(floristDeps(client));
   const res = await handler(event("generate_content", { content_item_id: "item-3" }));
@@ -579,7 +580,11 @@ test("generate_content (real dispatch): a plain image_post with no photo_choice 
   const body = JSON.parse(res.body);
   assert.equal(body.needs_photo_choice, true);
   assert.equal(body.item.id, "item-3");
-  assert.equal(client.calls.length, 1, "only the content-item lookup itself should run — no budget check, no status-flip update, nothing spent asking the question");
+  assert.equal(
+    client.calls.length,
+    2,
+    "only the content-item lookup and the reusable-photos shortlist query should run — no budget check, no status-flip update, nothing spent asking the question"
+  );
   const statusUpdateCall = client.calls.find((c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update"));
   assert.equal(statusUpdateCall, undefined, "the item must stay in 'idea' status until the florist actually answers");
 });
@@ -708,6 +713,189 @@ test("generate_content (real dispatch): photo_choice 'upload' with no actual pho
       (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
     );
     assert.ok(revertCall, "the item must be reverted back to 'idea' so the florist can retry, not left stuck in 'generating'");
+  } finally {
+    mock.restore();
+  }
+});
+
+// Phase 2 rebuild, priority-2 gap (asset routing): a real photo the
+// florist already uploaded for an earlier post is now offered back as a
+// third choice — never forced, per Ashley's own "ask me each time" answer
+// — alongside upload/generate. These tests cover the shortlist the
+// needs_photo_choice ask now returns, and the real "reuse" generation path.
+
+test("generate_content (real dispatch): the photo-choice ask includes a shortlist of this shop's own recent real uploaded photos — AI-generated and url-less assets are excluded, and the query is scoped to THIS shop", async () => {
+  const client = createFakeSupabaseClient([
+    { data: { id: "item-reuse-list", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived!", status: "idea" }, error: null },
+    {
+      data: [
+        { id: "asset-real-1", content: { user_uploaded_photo: true, background_url: "https://fake.storage/real1.jpg", visual_brief: "A rose bouquet on marble" }, created_at: "2026-08-20T00:00:00Z" },
+        { id: "asset-ai-1", content: { user_uploaded_photo: false, background_url: "https://fake.storage/ai1.jpg" }, created_at: "2026-08-19T00:00:00Z" },
+        { id: "asset-real-nourl", content: { user_uploaded_photo: true, background_url: null }, created_at: "2026-08-18T00:00:00Z" },
+        { id: "asset-real-2", content: { user_uploaded_photo: true, background_url: "https://fake.storage/real2.jpg" }, created_at: "2026-08-17T00:00:00Z" }
+      ],
+      error: null
+    }
+  ]);
+  const handler = createMarketingStudioHandler(floristDeps(client));
+  const res = await handler(event("generate_content", { content_item_id: "item-reuse-list" }));
+  assert.equal(res.statusCode, 200, `the photo-choice ask must itself succeed cleanly: ${res.body}`);
+  const body = JSON.parse(res.body);
+  assert.equal(body.needs_photo_choice, true);
+  assert.deepEqual(
+    body.reusable_photos.map((p) => p.asset_id),
+    ["asset-real-1", "asset-real-2"],
+    "only real uploaded photos with an actual url are offered — never an AI-generated one, and never one with no url at all"
+  );
+  assert.equal(body.reusable_photos[0].url, "https://fake.storage/real1.jpg");
+  assert.equal(body.reusable_photos[0].label, "A rose bouquet on marble");
+
+  const assetQuery = client.calls.find((c) => c.table === "ai_generated_assets");
+  const shopFilter = assetQuery.ops.find((op) => op[0] === "eq" && op[1][0] === "shop_id");
+  assert.deepEqual(shopFilter[1], ["shop_id", "shop-ashley"], "the reuse shortlist must be scoped to THIS shop, never a cross-shop photo library");
+  const quarantineFilter = assetQuery.ops.find((op) => op[0] === "is" && op[1][0] === "quarantine_reason");
+  assert.deepEqual(quarantineFilter[1], ["quarantine_reason", null], "a quarantined asset must never be offered back for reuse");
+});
+
+test("generate_content (real dispatch): photo_choice 'reuse' reuses a prior real photo's exact url — no new AI image call, no new storage upload, no duplicate website_media row", async () => {
+  const reuseCopy = { ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today." };
+  const reuseFlyerCopy = { headline: "Fresh Roses Just In!", body: "Stop by for a fresh, romantic bouquet today.", cta: "Visit us today" };
+  const mock = mockCloudflare([reuseCopy, reuseFlyerCopy]);
+  try {
+    const client = createFakeSupabaseClient([
+      { data: { id: "item-reuse-1", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived! Stop by today.", status: "idea" }, error: null },
+      { data: [{ id: "variant-reuse-1", platform: "facebook" }], error: null },
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: null, error: null }, // -> generating
+      { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: [], error: null }, // loadGroundedInventory
+      { data: [], error: null }, // audience customers
+      { data: [], error: null }, // audience orders
+      { data: null, error: null }, // recordUsage("copy") — Facebook caption
+      { data: null, error: null }, // recordUsage("copy") — on-image flyer text
+      // The reuse source-asset re-fetch (re-verifies shop_id itself, never
+      // trusts the id round-tripped from the client) — replaces the
+      // website_media insert an upload/generate would do here.
+      { data: { id: "asset-source-1", shop_id: "shop-ashley", content: { user_uploaded_photo: true, background_url: "https://fake.storage/real-source.jpg" } }, error: null },
+      { data: { id: "flyer-asset-reuse-1" }, error: null }, // persistGeneratedAsset (flyer)
+      { data: null, error: null }, // variant update
+      { data: { id: "item-reuse-1", status: "draft" }, error: null }
+    ]);
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-reuse-1", photo_choice: "reuse", reuse_asset_id: "asset-source-1" }));
+    assert.equal(res.statusCode, 200, `a reuse must be accepted: ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.equal(body.asset.type, "flyer");
+    assert.equal(body.asset.url, "https://fake.storage/real-source.jpg", "the exact source photo's url must be reused verbatim");
+
+    const imageCalls = mock.calls.filter((c) => c.url.includes("black-forest-labs") || "prompt" in c.body);
+    assert.equal(imageCalls.length, 0, "reusing a real photo must never trigger a new AI image-generation call");
+
+    const mediaInsert = client.calls.find((c) => c.table === "website_media" && c.ops.some((op) => op[0] === "insert"));
+    assert.equal(mediaInsert, undefined, "reusing an existing photo must never create a duplicate website_media row");
+
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const insertedRow = assetInsert.ops.find((op) => op[0] === "insert")[1][0];
+    assert.equal(insertedRow.content.user_uploaded_photo, true, "a reused photo is still a real photo — disclosure must treat it exactly like a fresh upload");
+    assert.equal(insertedRow.content.reused_from_asset_id, "asset-source-1");
+    assert.equal(insertedRow.content.background_url, "https://fake.storage/real-source.jpg");
+
+    const variantUpdate = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "update"));
+    assert.equal(variantUpdate.payload.generative_image_used, false, "a reused real photo is never disclosed as a generative image");
+    assert.equal(variantUpdate.payload.ai_content_type, "none");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generate_content (real dispatch): photo_choice 'reuse' with no reuse_asset_id fails cleanly and reverts to idea", async () => {
+  const mock = mockCloudflare([{ ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today." }]);
+  try {
+    const client = createFakeSupabaseClient([
+      { data: { id: "item-reuse-2", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived! Stop by today.", status: "idea" }, error: null },
+      { data: [{ id: "variant-reuse-2", platform: "facebook" }], error: null },
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: null, error: null }, // -> generating
+      { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: [], error: null }, // loadGroundedInventory
+      { data: [], error: null }, // audience customers
+      { data: [], error: null }, // audience orders
+      { data: null, error: null }, // recordUsage("copy") — copyGen
+      { data: null, error: null }, // recordUsage("copy") — generateFlyerCopy
+      { data: { id: "item-reuse-2", status: "idea" }, error: null } // revertToIdea's own update
+    ]);
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-reuse-2", photo_choice: "reuse" }));
+    assert.equal(res.statusCode, 400, "a reuse claim with no reuse_asset_id must fail cleanly, never silently fall back to AI generation");
+    const body = JSON.parse(res.body);
+    assert.match(body.error, /reuse_asset_id/);
+    const revertCall = client.calls.find(
+      (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
+    );
+    assert.ok(revertCall, "the item must be reverted back to 'idea' so the florist can retry");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generate_content (real dispatch): photo_choice 'reuse' pointing at another shop's asset is rejected — real tenant isolation, not just a happy-path filter", async () => {
+  const mock = mockCloudflare([{ ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today." }]);
+  try {
+    const client = createFakeSupabaseClient([
+      { data: { id: "item-reuse-3", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived! Stop by today.", status: "idea" }, error: null },
+      { data: [{ id: "variant-reuse-3", platform: "facebook" }], error: null },
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: null, error: null }, // -> generating
+      { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: [], error: null }, // loadGroundedInventory
+      { data: [], error: null }, // audience customers
+      { data: [], error: null }, // audience orders
+      { data: null, error: null }, // recordUsage("copy") — copyGen
+      { data: null, error: null }, // recordUsage("copy") — generateFlyerCopy
+      // The re-fetch is scoped .eq("shop_id", shopId) — a real Supabase
+      // query against another shop's asset id finds nothing, exactly like
+      // this fixture simulates.
+      { data: null, error: null }, // sourceAsset lookup — not found for THIS shop
+      { data: { id: "item-reuse-3", status: "idea" }, error: null } // revertToIdea
+    ]);
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-reuse-3", photo_choice: "reuse", reuse_asset_id: "someone-elses-asset" }));
+    assert.equal(res.statusCode, 400, "a cross-shop (or nonexistent) asset id must never be reused");
+    const body = JSON.parse(res.body);
+    assert.match(body.error, /isn't available to reuse/);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generate_content (real dispatch): photo_choice 'reuse' pointing at a prior AI-generated photo (never uploaded) is rejected — reuse is only ever a real photo", async () => {
+  const mock = mockCloudflare([{ ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today." }]);
+  try {
+    const client = createFakeSupabaseClient([
+      { data: { id: "item-reuse-4", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived! Stop by today.", status: "idea" }, error: null },
+      { data: [{ id: "variant-reuse-4", platform: "facebook" }], error: null },
+      { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: null, error: null }, // -> generating
+      { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: [], error: null }, // loadGroundedInventory
+      { data: [], error: null }, // audience customers
+      { data: [], error: null }, // audience orders
+      { data: null, error: null }, // recordUsage("copy") — copyGen
+      { data: null, error: null }, // recordUsage("copy") — generateFlyerCopy
+      { data: { id: "asset-ai-source", shop_id: "shop-ashley", content: { user_uploaded_photo: false, background_url: "https://fake.storage/ai-generated.jpg" } }, error: null },
+      { data: { id: "item-reuse-4", status: "idea" }, error: null } // revertToIdea
+    ]);
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-reuse-4", photo_choice: "reuse", reuse_asset_id: "asset-ai-source" }));
+    assert.equal(res.statusCode, 400, "reuse must only ever offer back a REAL uploaded photo, never a prior AI generation");
   } finally {
     mock.restore();
   }

@@ -99,14 +99,34 @@
   // (never for a flyer or a text_post); this is what actually asks, as a
   // native <dialog> floated outside the panel's own re-rendered markup so
   // a background load()/render() while it's open can't yank it away.
-  function askPhotoChoice() {
+  // reusablePhotos (Phase 2 rebuild's asset-routing gap): recent real
+  // photos this shop already uploaded for an earlier post, offered back as
+  // a third choice — the backend only ever returns this shop's OWN photos,
+  // and reusing one costs nothing. An empty/missing list (a brand-new shop
+  // with no real photo on file yet) simply omits that section — never a
+  // broken empty grid.
+  function askPhotoChoice(reusablePhotos = []) {
     return new Promise((resolve) => {
       const dialog = document.createElement("dialog");
+      const reuseSection = reusablePhotos.length
+        ? `<p class="subtle" style="margin-bottom:6px">Or reuse a real photo you've already used:</p>
+           <div id="msPhotoReuseGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+             ${reusablePhotos
+               .map(
+                 (p, i) =>
+                   `<button type="button" class="msPhotoReuseThumb" data-asset-id="${esc(p.asset_id)}" title="${esc(p.label || "")}" style="padding:0;border-radius:8px;overflow:hidden;border:2px solid transparent;cursor:pointer">
+                      <img src="${esc(p.url)}" alt="${esc(p.label || `Photo ${i + 1}`)}" style="width:100%;height:64px;object-fit:cover;display:block">
+                    </button>`
+               )
+               .join("")}
+           </div>`
+        : "";
       dialog.innerHTML = `
         <div style="padding:24px;max-width:440px">
           <p class="eyebrow">THIS POST'S PHOTO</p>
           <h3 style="margin-top:0">Use a real photo, or have Lily create one?</h3>
           <p class="subtle">This post doesn't need exact wording drawn on the image, so it can use a real photo of your own shop instead of an AI-generated one — your call, every time.</p>
+          ${reuseSection}
           <div class="card-actions" style="flex-direction:column;align-items:stretch">
             <label class="secondary" id="msPhotoUploadLabel" style="text-align:center;cursor:pointer;margin:0">
               Upload a real photo
@@ -125,6 +145,9 @@
         resolve(result);
       }
 
+      dialog.querySelectorAll(".msPhotoReuseThumb").forEach((btn) => {
+        btn.addEventListener("click", () => finish({ choice: "reuse", assetId: btn.dataset.assetId }));
+      });
       dialog.querySelector("#msPhotoGenerateBtn").addEventListener("click", () => finish({ choice: "generate" }));
       dialog.querySelector("#msPhotoCancelBtn").addEventListener("click", () => finish({ choice: "cancel" }));
       dialog.addEventListener("cancel", () => finish({ choice: "cancel" })); // Esc / native dismiss
@@ -159,13 +182,16 @@
   async function generateWithPhotoChoice(itemId) {
     let result = await studioApi("generate_content", { body: { content_item_id: itemId } });
     if (!result?.needs_photo_choice) return result;
-    const answer = await askPhotoChoice();
+    const answer = await askPhotoChoice(result.reusable_photos || []);
     if (answer.choice === "cancel") return { cancelled: true };
     if (answer.choice === "upload") {
       toast("Uploading your photo…");
       return studioApi("generate_content", {
         body: { content_item_id: itemId, photo_choice: "upload", photo_data_url: answer.dataUrl, photo_filename: answer.filename }
       });
+    }
+    if (answer.choice === "reuse") {
+      return studioApi("generate_content", { body: { content_item_id: itemId, photo_choice: "reuse", reuse_asset_id: answer.assetId } });
     }
     return studioApi("generate_content", { body: { content_item_id: itemId, photo_choice: "generate" } });
   }

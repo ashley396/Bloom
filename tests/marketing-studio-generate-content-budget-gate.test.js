@@ -126,6 +126,24 @@ test("generate_content: an image_post with photo_choice 'upload' is priced WITHO
   assert.ok(statusUpdateCall, "an upload within the copy-only budget must be allowed to proceed to the generating lock");
 });
 
+// Phase 2 rebuild, priority-2 gap (asset routing): reusing a prior real
+// photo also incurs no new image spend — same reasoning, same fix
+// pattern, as the "upload" case directly above.
+test("generate_content: an image_post with photo_choice 'reuse' is priced WITHOUT the image cost — an already-generated photo being reused incurs no new spend", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [], error: null },
+    { data: { marketing_monthly_budget_cents: null }, error: null },
+    { data: [{ estimated_cost_cents: 199 }], error: null } // only 1 cent of headroom — enough for copy-only, not image+copy
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 200, photo_choice: "reuse", reuse_asset_id: "asset-1" }));
+  assert.notEqual(res.statusCode, 400, `reusing a real photo must never be refused as over budget: ${res.body}`);
+  const statusUpdateCall = client.calls.find((c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update"));
+  assert.ok(statusUpdateCall, "a reuse within the copy-only budget must be allowed to proceed to the generating lock");
+});
+
 // Priority F wiring: buildBrandSummary() existed and was documented as
 // "handed to Lily's content-generation prompts" but nothing on this path
 // ever actually loaded it before this fix — proven here by asserting the
