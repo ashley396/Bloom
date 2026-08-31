@@ -244,3 +244,38 @@ test("floralWordVariants: iris/irises (an irregular plural) is handled explicitl
   );
   assert.ok(reasons.some((r) => /framed entirely around "iris"/.test(r)), `expected the irregular iris/irises plural to be caught, got: ${JSON.stringify(reasons)}`);
 });
+
+// Real gap a follow-up review found in the stoplist fix above: excluding
+// generic words like "ivy"/"blossom" correctly stopped punishing a shop
+// like "Rose & Ivy" for an ordinary mention — but applied blindly, it also
+// silently stopped checking a shop whose ENTIRE identity genuinely IS one
+// of those words, forever, no matter how blatant the fixation. The fix
+// only drops the generic words when something more specific is left to
+// check instead of them.
+test("detectWeakMarketingCopy: a shop whose ENTIRE name is a generic floral word (e.g. 'Ivy') still gets real fixation checking, not silently skipped forever", () => {
+  const reasons = detectWeakMarketingCopy(
+    "make today's post for Ivy",
+    "Our ivy collection is looking absolutely gorgeous this week, with stunning ivy varieties on display, come see our ivy today!",
+    { shopName: "Ivy" }
+  );
+  assert.ok(reasons.some((r) => /framed entirely around "ivy"/.test(r)), `a shop named entirely after a generic word must still be checked, got: ${JSON.stringify(reasons)}`);
+});
+
+test("detectWeakMarketingCopy: a shop made of TWO generic floral words (e.g. 'Ivy & Blossom') still checks both, once neither has a more specific sibling word to defer to", () => {
+  const reasons = detectWeakMarketingCopy(
+    "make today's post for Ivy & Blossom",
+    "Our ivy collection is absolutely gorgeous this week, and come see our blossom selection too!",
+    { shopName: "Ivy & Blossom" }
+  );
+  assert.ok(reasons.some((r) => /framed entirely around "ivy"/.test(r)), `expected ivy fixation caught, got: ${JSON.stringify(reasons)}`);
+  assert.ok(reasons.some((r) => /framed entirely around "blossom"/.test(r)), `expected blossom fixation caught, got: ${JSON.stringify(reasons)}`);
+});
+
+test("detectWeakMarketingCopy: 'Rose & Ivy' still prefers the more specific word and never re-flags the generic one now that the fallback exists", () => {
+  const reasons = detectWeakMarketingCopy(
+    "make today's post for Rose & Ivy",
+    "Our roses are looking gorgeous, free rose on the house with every order today.",
+    { shopName: "Rose & Ivy" }
+  );
+  assert.deepEqual(reasons, [], "the fallback must only apply when NOTHING specific is left — 'rose' is still available here, so 'ivy' stays excluded exactly as before");
+});

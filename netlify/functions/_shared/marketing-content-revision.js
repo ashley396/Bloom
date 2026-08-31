@@ -1245,9 +1245,18 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
     // real gap an independent review found: a shop name with a possessive
     // ("Iris's Flowers") used to collapse into the nonsense token "iriss"
     // here, hiding the real identity word "iris" from every check below.
-    const identityWords = [...new Set(significantWords(options.shopName))].filter(
-      (w) => !GENERIC_FLORAL_BUSINESS_WORDS.has(w) && !ENGLISH_STOPWORDS_IN_NAMES.has(w)
-    );
+    const nonStopwordShopWords = [...new Set(significantWords(options.shopName))].filter((w) => !ENGLISH_STOPWORDS_IN_NAMES.has(w));
+    const nonGenericShopWords = nonStopwordShopWords.filter((w) => !GENERIC_FLORAL_BUSINESS_WORDS.has(w));
+    // A second real gap the same review found: excluding generic words
+    // like "ivy"/"blossom" fixed the "Rose & Ivy"/"Blossoms Florist" false
+    // positives above by preferring a shop's more SPECIFIC word when one
+    // exists — but applied blindly, it also silently stopped checking a
+    // shop whose entire identity genuinely IS one of those words (a real
+    // shop simply named "Ivy," or "Ivy & Blossom"), leaving it with zero
+    // fixation checking at all, forever. Only drop the generic words when
+    // something more specific is actually left to check instead of them —
+    // never drop the shop's own name down to nothing.
+    const identityWords = nonGenericShopWords.length ? nonGenericShopWords : nonStopwordShopWords;
     for (const word of identityWords) {
       const variants = floralWordVariants(word);
       const matches = copy.match(new RegExp(`\\b(?:${variants.join("|")})\\b`, "gi")) || [];

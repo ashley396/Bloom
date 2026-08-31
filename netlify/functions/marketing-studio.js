@@ -116,7 +116,7 @@ import { finalizeDigitalTwinJob } from "./_shared/creative-ai/digital-twin-final
 import { determineDisclosureRequirement, enforcePrePublishDisclosureGate, computeDisclosureFields } from "./_shared/creative-ai/disclosure-policy.js";
 import { validateCloneConsentBody, isConsentActive } from "./_shared/marketing-clone-consent.js";
 import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
-import { generateSocialPost, generateVideoConcept, generateWebsiteSectionDraft, generateFlyerContent, persistGeneratedAsset } from "./_shared/ai-creative-engine.js";
+import { generateSocialPost, generateVideoConcept, generateWebsiteSectionDraft, generateFlyerContent, persistGeneratedAsset, sanitizedRequestForModel } from "./_shared/ai-creative-engine.js";
 import { generateImage, generateImageCheckingText, buildImagePrompt, buildFlyerBackgroundPrompt, generateFlyerBackgroundWithRetry } from "./_shared/ai-image-engine.js";
 import { pickFlyerTemplate, pickAspectRatio, ASPECT_RATIOS } from "./_shared/flyer-templates.js";
 import { loadGenerationGrounding } from "./_shared/marketing-generation-grounding.js";
@@ -2039,10 +2039,22 @@ export function createMarketingStudioHandler(deps = {}) {
           const weakness = copyQuality(copyGen.content);
           if (weakness.length) {
             await recordUsage("copy", "request", 1);
+            // Real regression an independent review found: appending the
+            // rejection reasons here used to dilute the brief enough that
+            // requestIsJustShopName no longer recognized it (too many
+            // extra words), so sanitizedRequestForModel's own internal
+            // check silently stopped substituting the neutral placeholder
+            // — letting the literal shop-name-only text leak straight back
+            // into the model's Input JSON on exactly the retry that exists
+            // BECAUSE the first attempt fixated on that same text. Sanitize
+            // the brief FIRST, then append the correction feedback (which
+            // is safe — it's a warning against the fixation, not a restated
+            // topic) — never let the two get concatenated before the check
+            // runs.
             const retry = await generateSocialPost({
               ...socialPostArgs,
               requestText:
-                `${currentItem.data.brief}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${weakness.join("\n- ")}`
+                `${sanitizedRequestForModel(currentItem.data.brief, shopName)}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${weakness.join("\n- ")}`
             });
             // The retry is not automatically the better one. Handed its own
             // faults back, a model can fix the named phrase and introduce two
@@ -2161,9 +2173,14 @@ export function createMarketingStudioHandler(deps = {}) {
                 const flyerWeakness = flyerQuality(flyerGen.content);
                 if (flyerWeakness.length) {
                   await recordUsage("copy", "request", 1);
+                  // Same fix as the caption retry above: sanitize the
+                  // brief BEFORE appending the rejection reasons, so the
+                  // diluted, longer compound text can't slip past
+                  // sanitizedRequestForModel's own internal check on the
+                  // way into generateFlyerContent.
                   const flyerRetry = await generateFlyerContent({
                     persona: "Lily",
-                    message: `${currentItem.data.brief}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${flyerWeakness.join("\n- ")}`,
+                    message: `${sanitizedRequestForModel(currentItem.data.brief, shopName)}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${flyerWeakness.join("\n- ")}`,
                     occasion: currentItem.data.title,
                     shop: { name: shopName }
                   });

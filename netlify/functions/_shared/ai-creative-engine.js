@@ -146,7 +146,7 @@ function occasionLine(occasion, shopName) {
  * that can ever suppress it — never two independently-maintained copies
  * of the same decision that can silently drift apart again.
  */
-function sanitizedRequestForModel(requestText, shopName) {
+export function sanitizedRequestForModel(requestText, shopName) {
   if (requestIsJustShopName(requestText, shopName)) {
     return "(No real topic — this request is nothing more than the shop's own name restated as today's post. Follow the task instructions above: write a general, ordinary shop update, never fixated on any flower/plant word from the shop's own name.)";
   }

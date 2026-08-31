@@ -5,7 +5,8 @@ import {
   generateVideoConcept,
   generateWebsiteSectionDraft,
   generateFlyerContent,
-  persistGeneratedAsset
+  persistGeneratedAsset,
+  sanitizedRequestForModel
 } from "../netlify/functions/_shared/ai-creative-engine.js";
 import { createFakeSupabaseClient } from "./helpers/fake-supabase-client.mjs";
 
@@ -405,6 +406,40 @@ test("generateSocialPost: a request that reduces to nothing but the shop's own n
     // the fix to actually hold.
     assert.doesNotMatch(userMessage, /"request":"Make today's post for Lilies in Bloom"/, "the literal request text must never reach the model unfiltered via the Input JSON block either — the SAME suppression has to apply everywhere the raw text could leak through, not just the Task text");
     assert.match(userMessage, /"request":"\(No real topic/, "the Input block's request field must carry the same neutral substitution, not silently go missing");
+  } finally {
+    mock.restore();
+  }
+});
+
+// Real regression a follow-up review found: marketing-studio.js's own
+// bounded retry for weak copy builds its requestText as
+// `${brief}\n\nA previous attempt was rejected for these reasons...` —
+// once those extra words are appended, requestIsJustShopName no longer
+// recognizes the text as "just the shop's own name" (too many extra
+// words now), so a second, INTERNAL call to sanitizedRequestForModel
+// would silently stop substituting the placeholder — letting the literal
+// shop-name-only brief leak straight back into the model's Input JSON on
+// exactly the retry that exists BECAUSE the first attempt fixated on that
+// same text. The real fix sanitizes the brief FIRST (sanitizedRequestForModel
+// exported for exactly this), then appends the correction feedback — this
+// proves the resulting compound text, once it reaches generateSocialPost,
+// still keeps the literal brief out of the Input JSON while the useful
+// correction feedback survives.
+test("generateSocialPost: a retry's requestText, built by sanitizing the brief BEFORE appending correction feedback (marketing-studio.js's own real construction), never leaks the literal shop-name-only brief", async () => {
+  const brief = "Make today's post for Lilies in Bloom";
+  const shopName = "Lilies in Bloom";
+  const retryRequestText = `${sanitizedRequestForModel(brief, shopName)}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- This post is framed entirely around "lilies"`;
+  const mock = mockCloudflareOnce({ platform: "facebook", headline: "h", body: "b", cta: "c", visual_brief: "v", hashtags: [], asset_requirements: [] });
+  try {
+    await generateSocialPost({
+      channel: "facebook",
+      occasion: brief,
+      requestText: retryRequestText,
+      shop: { name: shopName }
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.doesNotMatch(userMessage, /"request":"Make today's post for Lilies in Bloom/, "the literal brief must never reach the model via the Input JSON block on a retry either");
+    assert.match(userMessage, /framed entirely around/, "the useful correction feedback must still reach the model — sanitizing the brief must not also swallow the retry's own reason text");
   } finally {
     mock.restore();
   }
