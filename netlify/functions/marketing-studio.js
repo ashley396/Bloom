@@ -1010,6 +1010,21 @@ export function createMarketingStudioHandler(deps = {}) {
           // true, so this alone covers both "image only" and "image and
           // wording" — never re-check it separately.)
           const affectsImage = instructionAffectsFlyerImage(instruction);
+          // Real gap an independent review found in the photo-choice
+          // feature above: this post's photo may be a REAL photo the
+          // florist uploaded herself, not an AI generation — "ask me each
+          // time" means exactly that, so a revision instruction must never
+          // silently swap it for an AI-generated one behind her back. It
+          // stays true for the rest of this branch UNLESS a fresh AI
+          // generation genuinely happens below (which the check right
+          // after this refuses to let happen at all for an uploaded photo).
+          const userUploadedPhoto = Boolean(currentAsset.content?.user_uploaded_photo);
+          if (affectsImage && userUploadedPhoto) {
+            return json(400, {
+              error:
+                "This post's photo is a real photo you uploaded, not an AI generation — Lily won't silently replace it with an AI photo. Create a new post if you'd like an AI-generated photo instead, or ask for a wording-only change here."
+            });
+          }
           let imageUrl = currentAsset.content?.url || null;
           let mediaId = null;
           let provider = currentAsset.provider || "cloudflare";
@@ -1086,7 +1101,12 @@ export function createMarketingStudioHandler(deps = {}) {
               brand_traits_used: [],
               visual_traits_used: appliedTraits,
               revision_instruction: instruction,
-              revision_traits: appliedTraits
+              revision_traits: appliedTraits,
+              // Carried forward unchanged — the guard above refuses any
+              // revision that would replace an uploaded photo with an AI
+              // one, so this can only ever still be true here, never
+              // silently flipped to false by a revision that touched it.
+              user_uploaded_photo: userUploadedPhoto
             },
             mediaId,
             parentAssetId: currentAsset.id,
@@ -1103,15 +1123,16 @@ export function createMarketingStudioHandler(deps = {}) {
             hashtags: imageOnlyRevision ? undefined : captionFields.hashtags,
             // Disclosure must reflect whether the PUBLISHED photo is
             // AI-generated, not whether THIS revision happened to
-            // regenerate it. Every "image" asset's photo is AI-generated
-            // (imageUrl is always either a fresh generation or the prior
-            // asset's own AI photo carried forward) — a caption-only fix
-            // must never silently clear the disclosure flag just because
-            // it didn't touch the photo this time. Matches the same
-            // Boolean(imageUrl) test already used at creation time and by
-            // revert_content_revision.
-            aiContentType: imageUrl ? "generative_image" : "none",
-            generativeImageUsed: Boolean(imageUrl)
+            // regenerate it — a caption-only fix must never silently clear
+            // the disclosure flag just because it didn't touch the photo
+            // this time. Matches the same test used at creation time and
+            // by revert_content_revision. userUploadedPhoto (not just
+            // Boolean(imageUrl)) is what actually decides this now: a real
+            // photo the florist uploaded herself has a non-null imageUrl
+            // too, but is never a generative image — see the guard above
+            // that refuses to let a revision silently swap it for an AI one.
+            aiContentType: imageUrl && !userUploadedPhoto ? "generative_image" : "none",
+            generativeImageUsed: Boolean(imageUrl) && !userUploadedPhoto
           });
           await writeCommandAudit(client, user.id, "marketing_content_revised", { shopId, targetType: "marketing_content_items", targetId: body.content_item_id, assetType: "image" });
           return json(200, {
@@ -1538,7 +1559,11 @@ export function createMarketingStudioHandler(deps = {}) {
             ? parentAsset.content?.script || parentAsset.content?.concept || null
             : parentAsset.content?.body || null;
         const hashtags = parentAsset.content?.hashtags || [];
-        const aiContentType = parentAsset.asset_type === "image" && parentAsset.content?.url ? "generative_image" : "none";
+        // A real photo the florist uploaded herself is never a generative
+        // image even though its url is non-null — same real gap fixed at
+        // creation time and in revise_content's own disclosure computation.
+        const aiContentType =
+          parentAsset.asset_type === "image" && parentAsset.content?.url && !parentAsset.content?.user_uploaded_photo ? "generative_image" : "none";
 
         for (const v of variants) {
           await client
@@ -1664,18 +1689,26 @@ export function createMarketingStudioHandler(deps = {}) {
 
         // Priority 8/2: a real pre-spend budget gate — estimate what THIS
         // generation would cost (copy always; +image for anything but a
-        // video concept/text post — matches exactly what the branches
-        // below actually bill via recordUsage) and refuse before any real
-        // provider call if the effective cap would be exceeded. The
-        // effective cap combines the shop's persisted default (once
-        // 20260828000000_marketing_studio_budget_controls.sql is applied
-        // — degrades to "none" until then) with an optional caller-
-        // supplied budget_cap_cents override, which can be stricter but
-        // can never be used to exceed a configured shop hard cap.
+        // video concept/text post/a real uploaded photo — matches exactly
+        // what the branches below actually bill via recordUsage) and
+        // refuse before any real provider call if the effective cap would
+        // be exceeded. The effective cap combines the shop's persisted
+        // default (once 20260828000000_marketing_studio_budget_controls.sql
+        // is applied — degrades to "none" until then) with an optional
+        // caller-supplied budget_cap_cents override, which can be stricter
+        // but can never be used to exceed a configured shop hard cap.
         {
+          // Real gap an independent review found: photo_choice "upload"
+          // never calls recordUsage("image", ...) below (a real photo the
+          // florist supplies herself costs nothing to generate) — this
+          // estimate must skip that line item too, or a shop close to its
+          // cap could have a genuinely free upload wrongly refused as
+          // "over budget" for a cost it was never actually going to incur.
           const estimatedAdditionalCents =
             (estimateCostCents({ purpose: "copy", unitType: "request", units: 1 }) || 0) +
-            (VIDEO_CONTENT_TYPES.has(currentItem.data.content_type) || currentItem.data.content_type === "text_post"
+            (VIDEO_CONTENT_TYPES.has(currentItem.data.content_type) ||
+            currentItem.data.content_type === "text_post" ||
+            body.photo_choice === "upload"
               ? 0
               : estimateCostCents({ purpose: "image", unitType: "image", units: 1 }) || 0);
           const budgetCheck = await checkMonthlyBudgetForRequest(client, {

@@ -101,6 +101,31 @@ test("generate_content: a text_post is priced without the image cost — the gat
   assert.ok(statusUpdateCall, "a text_post within budget must be allowed to proceed to the generating lock, unlike the over-budget image_post case");
 });
 
+// Real gap an independent review found in the "ask each time" photo-choice
+// feature: photo_choice "upload" never calls recordUsage("image", ...) —
+// a real photo the florist supplies herself costs nothing to generate —
+// so this estimate must not charge for it either, or a shop close to its
+// cap could have a genuinely free upload wrongly refused as over budget.
+test("generate_content: an image_post with photo_choice 'upload' is priced WITHOUT the image cost — a real uploaded photo is free, unlike AI generation", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [], error: null },
+    { data: { marketing_monthly_budget_cents: null }, error: null },
+    { data: [{ estimated_cost_cents: 199 }], error: null } // only 1 cent of headroom — enough for copy-only, not image+copy
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  // Same 199-cent committed spend and 200-cent cap as the AI-generation
+  // case above (which is correctly refused at 201) — but this time with
+  // photo_choice "upload": 199 + 1(copy) = 200 -> exactly at the cap ->
+  // allowed, proving the image line item was genuinely skipped, not just
+  // coincidentally under budget.
+  const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 200, photo_choice: "upload", photo_data_url: "data:image/jpeg;base64,ZmFrZQ==" }));
+  assert.notEqual(res.statusCode, 400, `a free photo upload must never be refused as over budget: ${res.body}`);
+  const statusUpdateCall = client.calls.find((c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update"));
+  assert.ok(statusUpdateCall, "an upload within the copy-only budget must be allowed to proceed to the generating lock");
+});
+
 // Priority F wiring: buildBrandSummary() existed and was documented as
 // "handed to Lily's content-generation prompts" but nothing on this path
 // ever actually loaded it before this fix — proven here by asserting the

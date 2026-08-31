@@ -193,6 +193,101 @@ test("revise_content (image): a plain wording/name correction ('change it to Flo
   }
 });
 
+// Real gap an independent review found in the "ask each time" photo-choice
+// feature: an "image" asset's photo can now be a REAL photo the florist
+// uploaded herself (content.user_uploaded_photo: true), not an AI
+// generation — a caption-only revision must report that honestly, not
+// silently claim generative_image_used the way the jaguar test above
+// correctly does for an actually-AI photo.
+test("revise_content (image): a caption-only revision on a REAL UPLOADED photo reports honest disclosure — never claims an AI image that was never generated", async () => {
+  const mock = mockCloudflareGenerate({
+    platform: "facebook",
+    headline: "Fresh today",
+    body: "Fresh roses just arrived, come see them today!",
+    cta: "Order now",
+    visual_brief: "a bright bouquet",
+    hashtags: [],
+    asset_requirements: []
+  });
+  try {
+    const uploadedPhotoAsset = {
+      id: "asset-1",
+      asset_type: "image",
+      provider: "user_upload",
+      content: {
+        url: "https://fake.storage/my-real-shop-photo.jpg",
+        caption: "Fresh roses just arrived!",
+        visual_brief: "a bright bouquet",
+        brand_traits_used: [],
+        visual_traits_used: [],
+        user_uploaded_photo: true
+      }
+    };
+    const client = createFakeSupabaseClient([
+      superAdminRow(),
+      { data: { id: "item-1", content_type: "image_post", title: "Fresh roses", brief: "b", status: "draft" }, error: null },
+      { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-1" }], error: null },
+      { data: uploadedPhotoAsset, error: null }, // current asset
+      { data: { name: "Test Florals" }, error: null }, // shopRow
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      // No website_media insert queued — a caption-only fix on a real
+      // uploaded photo must never call generateImage.
+      {
+        data: { id: "asset-2", parent_asset_id: "asset-1", content: { url: "https://fake.storage/my-real-shop-photo.jpg", caption: "Fresh roses just arrived, come see them today!", user_uploaded_photo: true } },
+        error: null
+      }, // ai_generated_assets insert
+      { data: null, error: null }, // variant update
+      { data: null, error: null } // audit insert
+    ]);
+    const handler = createMarketingStudioHandler(baseDeps(client));
+    const res = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction: "make it a little more inviting" }));
+    assert.equal(res.statusCode, 200, `expected the caption revision to succeed: ${res.body}`);
+
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    assert.equal(assetInsert.payload.content.user_uploaded_photo, true, "the uploaded-photo provenance must carry forward onto the new revision's own asset row");
+    assert.equal(client.calls.find((c) => c.table === "website_media"), undefined, "a caption-only revision must never generate/upload a new photo");
+
+    const variantUpdate = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "update"));
+    assert.equal(variantUpdate.payload.generative_image_used, false, "a real uploaded photo is not a generative image, even though this asset has a non-null image url");
+    assert.equal(variantUpdate.payload.ai_content_type, "none");
+  } finally {
+    mock.restore();
+  }
+});
+
+// Related real gap the same review found: "ask me each time" means the
+// florist's real uploaded photo must never be silently swapped out for an
+// AI-generated one by a later revision instruction — that would defeat the
+// entire point of asking in the first place.
+test("revise_content (image): an instruction that would regenerate the photo is REFUSED on a real uploaded photo — never silently swaps it for an AI one", async () => {
+  const uploadedPhotoAsset = {
+    id: "asset-1",
+    asset_type: "image",
+    provider: "user_upload",
+    content: {
+      url: "https://fake.storage/my-real-shop-photo.jpg",
+      caption: "Fresh roses just arrived!",
+      visual_brief: "a bright bouquet",
+      brand_traits_used: [],
+      visual_traits_used: [],
+      user_uploaded_photo: true
+    }
+  };
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "item-1", content_type: "image_post", title: "Fresh roses", brief: "b", status: "draft" }, error: null },
+    { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-1" }], error: null },
+    { data: uploadedPhotoAsset, error: null }
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  const res = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction: "Regenerate the background image — keep the exact same wording." }));
+  assert.equal(res.statusCode, 400, "regenerating a real uploaded photo via AI must be refused, not silently honored");
+  assert.match(JSON.parse(res.body).error, /real photo you uploaded/i);
+  assert.equal(client.calls.find((c) => c.table === "website_media"), undefined, "no AI image call may happen at all");
+  assert.equal(client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert")), undefined, "nothing gets persisted when the request is refused");
+});
+
 // Second real, live-found defect from the same screenshots: a regenerated
 // photo came back with the requested subject (a jaguar) missing entirely.
 // Root cause: the real description that got the subject drawn was never
@@ -330,6 +425,30 @@ test("revert_content_revision: restores the parent instantly — the variant is 
   assert.equal(variantUpdate.payload.caption, "Order your fall bouquet today!");
   // Nothing was deleted — no delete op against ai_generated_assets at all.
   assert.ok(!client.calls.some((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "delete")));
+});
+
+// Same review-found gap as above, on the undo path: restoring a version
+// whose photo was a real uploaded photo must never mislabel it as an AI
+// generation just because its url is non-null.
+test("revert_content_revision: restoring a version whose photo was a REAL UPLOADED photo reports honest disclosure, not a generative image", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: { id: "item-1", status: "draft" }, error: null },
+    { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-2" }], error: null },
+    { data: { id: "asset-2", parent_asset_id: "asset-1", asset_type: "image" }, error: null }, // current asset lookup
+    {
+      data: { id: "asset-1", parent_asset_id: null, asset_type: "image", content: { url: "https://fake.storage/my-real-shop-photo.jpg", caption: "Fresh roses!", user_uploaded_photo: true } },
+      error: null
+    }, // parent asset — a real uploaded photo
+    { data: null, error: null }, // variant update
+    { data: null, error: null } // audit insert
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  const res = await handler(event("revert_content_revision", { shop_id: "shop-1", content_item_id: "item-1" }));
+  assert.equal(res.statusCode, 200);
+  const variantUpdate = client.calls.find((c) => c.table === "marketing_platform_variants" && c.ops.some((op) => op[0] === "update"));
+  assert.equal(variantUpdate.payload.generative_image_used, false, "restoring a real uploaded photo must never disclose it as a generative image");
+  assert.equal(variantUpdate.payload.ai_content_type, "none");
 });
 
 test("revert_content_revision: refuses when already at the original version — nothing to undo", async () => {
