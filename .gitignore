@@ -23,3 +23,8 @@ frontend/coverage/
 # be version-controlled.
 .claude/hooks/.beta-push-approval.json
 .claude/hooks/.beta-push-approval.log
+
+# Batch 6, Part K — real output of scripts/marketing-live-acceptance.mjs
+# runs against a live preview. Local run artifacts, never committed; see
+# docs/MARKETING_LIVE_ACCEPTANCE.md.
+acceptance-results/

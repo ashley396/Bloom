@@ -20,6 +20,7 @@ env:
   # Isolated CI Postgres — matches local RLS script defaults (not production).
   COMMUNITY_TEST_DATABASE_URL: postgres://florisyn_test:florisyn_test@127.0.0.1:5432/florisyn_community_test
   FLORAL_LIBRARY_TEST_DATABASE_URL: postgres://florisyn_test:florisyn_test@127.0.0.1:5432/florisyn_community_test
+  MARKETING_TEST_DATABASE_URL: postgres://florisyn_test:florisyn_test@127.0.0.1:5432/florisyn_community_test
 
 jobs:
   core:
@@ -59,6 +60,18 @@ jobs:
 
       - name: Community smoke (feature-flag / static checks)
         run: npm run test:community-smoke
+
+      # Batch 6 Part H/J: mocked-provider Marketing Studio browser
+      # coverage. No paid/live provider call — every backend action and
+      # image is intercepted via page.route(). Scoped to just the
+      # Marketing Studio specs, not the full e2e suite, to keep this
+      # focused and fast per Part H ("do NOT run every repo test... on
+      # every PR").
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Marketing Studio browser suite (mocked providers only)
+        run: npx playwright test tests/e2e/marketing-studio*.spec.js --reporter=list
 
   database-security:
     name: PostgreSQL RLS security suites
@@ -140,15 +153,29 @@ jobs:
           FLORAL_LIBRARY_TEST_DATABASE_URL: ${{ env.FLORAL_LIBRARY_TEST_DATABASE_URL }}
           COMMUNITY_TEST_DATABASE_URL: ${{ env.COMMUNITY_TEST_DATABASE_URL }}
 
-      - name: Require both RLS suites to pass
+      # Batch 6 Part H/I/P#22-24: Marketing Studio's own migration chain
+      # (the real, shipped migration files, applied verbatim, including the
+      # Batch 2 usage-ledger extension) plus two-shop RLS isolation, run
+      # against this same disposable Postgres service — no separate CI
+      # system, no separate database.
+      - name: Marketing Studio RLS suite (two-shop tenant isolation + migration-chain check)
+        id: marketing-rls
+        continue-on-error: true
+        run: npm run test:marketing-rls
+        env:
+          MARKETING_TEST_DATABASE_URL: ${{ env.MARKETING_TEST_DATABASE_URL }}
+
+      - name: Require all RLS suites to pass
         if: always()
         run: |
           set -euo pipefail
           community="${{ steps.community-rls.outcome }}"
           floral="${{ steps.floral-library-rls.outcome }}"
+          marketing="${{ steps.marketing-rls.outcome }}"
           echo "community-rls outcome: ${community}"
           echo "floral-library-rls outcome: ${floral}"
-          if [ "$community" != "success" ] || [ "$floral" != "success" ]; then
+          echo "marketing-rls outcome: ${marketing}"
+          if [ "$community" != "success" ] || [ "$floral" != "success" ] || [ "$marketing" != "success" ]; then
             echo "One or more PostgreSQL RLS suites failed (connection failures are failures)."
             exit 1
           fi

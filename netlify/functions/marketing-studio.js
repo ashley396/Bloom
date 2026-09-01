@@ -107,6 +107,7 @@ import { scheduleContentItemVariants } from "./_shared/marketing-schedule-conten
 import { runCompoundRequest } from "./_shared/marketing-compound-orchestrator.js";
 import { runAnalyticsIngestion, reconcileLatestMetricSnapshots } from "./_shared/marketing-analytics-ingestion.js";
 import { checkMonthlyBudgetForRequest, getShopBudgetCapCents, monthlyCommittedSpendCents } from "./_shared/marketing-budget-guard.js";
+import { enforceSafeMarketingPreviewEnvironmentIfClaimed } from "./_shared/marketing-preview-environment-guard.js";
 import { COST_CONFIG_VERSION, DEFAULT_MONTHLY_ALLOWANCE, estimateCostCents } from "./_shared/marketing-cost-config.js";
 import { calculateWorstCaseBoundedCostCents } from "./_shared/marketing-provider-usage.js";
 import {
@@ -307,6 +308,25 @@ function requireSuperAdminOrShopActor(admin, shopActorAuthorized) {
 export function createMarketingStudioHandler(deps = {}) {
   return async function handler(event) {
     try {
+      // Batch 6, Part B — independent-review finding (Part S): this guard
+      // previously existed but was never actually called from a real
+      // generation entry point, only from a separate advisory status
+      // route. Called here, once, before any auth/DB work, covering
+      // every action through the same single dispatch — never scattered
+      // per action branch. A genuine production deploy never claims to
+      // be preview (no FLORISYN_ENV/MARKETING_STUDIO_PREVIEW set there),
+      // so this is a true no-op in production; it can only ever refuse a
+      // request that is ALREADY claiming to be a preview/staging deploy
+      // and whose actual configuration doesn't back that claim up.
+      try {
+        enforceSafeMarketingPreviewEnvironmentIfClaimed(process.env);
+      } catch (guardError) {
+        if (guardError?.code === "unsafe_marketing_preview_environment") {
+          return json(guardError.statusCode || 412, { error: guardError.message, violations: guardError.violations });
+        }
+        throw guardError;
+      }
+
       // Two auth paths into the exact same action dispatch below — never
       // two copies of the actions themselves. `deps.florist` is set ONLY
       // by marketing-studio-shop.js's own server-side code, after it has
@@ -513,12 +533,34 @@ export function createMarketingStudioHandler(deps = {}) {
 
       if (action === "usage_summary") {
         const shopId = requireShopId(qs, body);
-        const { data, error } = await client
+        // Batch 6, Part K/G: the acceptance harness's own "usage ledger
+        // matches actual calls" check needs the real provider metadata
+        // Batch 2's ledger extension added (model/trace_id/operation_id/
+        // provider_request_id/cost_source), not just cost totals — this is
+        // the one place that ledger is ever read back through the API.
+        // Purely additive to the response shape (existing fields
+        // unchanged), and fails open to the original narrower column set
+        // via the same missingRelation() convention used everywhere else
+        // in this file, so an environment where that migration hasn't
+        // applied yet still works exactly as before.
+        const WIDE_USAGE_COLUMNS =
+          "provider,purpose,estimated_cost_cents,actual_cost_cents,status,created_at,model,operation,trace_id,operation_id,attempt_index,provider_request_id,cost_source";
+        const NARROW_USAGE_COLUMNS = "provider,purpose,estimated_cost_cents,actual_cost_cents,status,created_at";
+        let usageQuery = await client
           .from("marketing_generation_usage")
-          .select("provider,purpose,estimated_cost_cents,actual_cost_cents,status,created_at")
+          .select(WIDE_USAGE_COLUMNS)
           .eq("shop_id", shopId)
           .order("created_at", { ascending: false })
           .limit(500);
+        if (usageQuery.error && missingRelation(usageQuery.error)) {
+          usageQuery = await client
+            .from("marketing_generation_usage")
+            .select(NARROW_USAGE_COLUMNS)
+            .eq("shop_id", shopId)
+            .order("created_at", { ascending: false })
+            .limit(500);
+        }
+        const { data, error } = usageQuery;
         if (error) {
           if (missingRelation(error)) throw friendlyMissing();
           throw error;

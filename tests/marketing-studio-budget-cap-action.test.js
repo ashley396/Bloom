@@ -112,3 +112,59 @@ test("usage_summary: an unconfigured shop reports null budget fields, never a fa
   assert.equal(body.monthly_committed_spend_cents, null);
   assert.equal(body.monthly_remaining_cents, null);
 });
+
+// Batch 6, Part K/G: the acceptance harness reads real provider metadata
+// (model/trace_id/operation_id/provider_request_id/cost_source) back out
+// of usage_summary — this is the one place that ever happens through the
+// API. Proves the row actually reaches the response body unmodified.
+test("usage_summary: Batch 2's real provider metadata columns (model, trace_id, operation_id, provider_request_id, cost_source) pass through to each row", async () => {
+  const usageRow = {
+    provider: "cloudflare",
+    purpose: "image",
+    estimated_cost_cents: 4,
+    actual_cost_cents: 4,
+    status: "actual",
+    created_at: "2026-09-01T00:00:00.000Z",
+    model: "flux-1-schnell",
+    operation: "image_generation",
+    trace_id: "trace-abc",
+    operation_id: "op-123",
+    attempt_index: 1,
+    provider_request_id: "req-xyz",
+    cost_source: "provider_reported"
+  };
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: [usageRow], error: null },
+    { data: { marketing_monthly_budget_cents: null }, error: null }
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  const res = await handler(event("usage_summary", { shop_id: "shop-1" }, { method: "GET" }));
+  assert.equal(res.statusCode, 200);
+  const body = JSON.parse(res.body);
+  assert.equal(body.items.length, 1);
+  assert.equal(body.items[0].model, "flux-1-schnell");
+  assert.equal(body.items[0].trace_id, "trace-abc");
+  assert.equal(body.items[0].operation_id, "op-123");
+  assert.equal(body.items[0].provider_request_id, "req-xyz");
+  assert.equal(body.items[0].cost_source, "provider_reported");
+});
+
+// The fail-open half of the same change: an environment where the Batch 2
+// ledger-extension migration hasn't applied yet must not break
+// usage_summary at all — same missingRelation() fallback convention used
+// everywhere else in this file.
+test("usage_summary: falls back to the original narrower column set (never breaks) when the wide provider-metadata columns aren't migrated yet", async () => {
+  const client = createFakeSupabaseClient([
+    superAdminRow(),
+    { data: null, error: { code: "42703", message: 'column marketing_generation_usage.model does not exist' } }, // wide select fails
+    { data: [{ provider: "cloudflare", purpose: "image", estimated_cost_cents: 4, actual_cost_cents: 4, status: "actual", created_at: "2026-09-01T00:00:00.000Z" }], error: null }, // narrow retry succeeds
+    { data: { marketing_monthly_budget_cents: null }, error: null }
+  ]);
+  const handler = createMarketingStudioHandler(baseDeps(client));
+  const res = await handler(event("usage_summary", { shop_id: "shop-1" }, { method: "GET" }));
+  assert.equal(res.statusCode, 200, "a missing-column error on the wide select must never surface as a failure");
+  const body = JSON.parse(res.body);
+  assert.equal(body.items.length, 1);
+  assert.equal(body.items[0].provider, "cloudflare");
+});

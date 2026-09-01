@@ -6,6 +6,31 @@
 [functions]
   node_bundler = "esbuild"
 
+# Batch 6 ("Preview path + CI + provider cleanup + live-readiness"), Part
+# A/C: the one non-production Marketing preview path — Netlify-generated
+# Deploy Preview URLs only, no custom production domain, no
+# www.florisyn.com binding. This context block only takes effect for a
+# site that actually has PR Deploy Previews enabled and is connected to
+# this repo (the preferred target: a dedicated "florisyn-marketing-
+# staging" Netlify site, per the Batch 6 spec) — adding it here does NOT
+# itself create or deploy that site; per Part Q, that remains a separate,
+# explicitly-authorized action.
+#
+# No secrets here, ever: SUPABASE_URL/service-role keys, provider
+# credentials, PRODUCTION_SUPABASE_HOST, and any real social-publishing
+# OAuth credential are set directly in that site's own Netlify UI (staging
+# values only) — never committed to this file. stamp-build.mjs reads
+# FLORISYN_ENV below to record which environment produced a given build
+# (see Part D — public/florisyn-build-info.json).
+[context.deploy-preview]
+  command = "node scripts/stamp-build.mjs"
+
+[context.deploy-preview.environment]
+  FLORISYN_ENV = "preview"
+  MARKETING_STUDIO_PREVIEW = "true"
+  SOCIAL_PUBLISHING_ENABLED = "false"
+  SCHEDULED_PUBLISHING_ENABLED = "false"
+
 # Launch-blocker pass, Blocker 3 (real durable scheduler) — NOT active
 # until this PR is merged and deployed; committing/pushing to this branch
 # does not itself enable a scheduled invocation on any live site. Every 10

@@ -44,9 +44,20 @@
  * caller needs one of PASS/FALLBACK/FAIL to actually act on.)
  */
 
-import { generateImage } from "./ai-image-engine.js";
 import { assessGeneratedMarketingPhoto } from "./florist-ai-vision.js";
 import { reserveProviderCall, completeProviderCall, failProviderCall } from "./marketing-provider-usage.js";
+// Batch 6, Part E/F/G: routes through the Marketing image-provider
+// registry instead of calling generateImage() directly — Cloudflare is
+// the one real, honestly-configured provider today (see
+// marketing-image-providers.js's own docstring for why this is not "a
+// second provider exists"). No behavior changes here: the adapter is a
+// thin wrapper over the exact same generateImage(), so every existing
+// gen.stage/gen.error/gen.path handling below is unchanged; only an
+// unconfigured environment's error path changes (an honest "no eligible
+// image provider is configured" instead of reaching into generateImage's
+// own internal config check), and the completed usage row now prefers a
+// real provider-supplied request id when the adapter has one.
+import { buildConfiguredMarketingImageProviderRegistry, selectMarketingImageProvider } from "./marketing-image-providers.js";
 
 export const IMAGE_QUALITY_STATE = Object.freeze({ PASS: "PASS", RETRY: "RETRY", FALLBACK: "FALLBACK", FAIL: "FAIL" });
 
@@ -153,9 +164,25 @@ export async function runMarketingImageQuality({
       continue;
     }
 
-    const gen = await generateImage(client, shopId, {
+    // Batch 6, Part F: an honest "no eligible provider" (never configured,
+    // or none of the registered providers' capabilities/cost fit this
+    // request) is treated exactly like generateImage's own "config" stage
+    // failure below — no retry, no fabricated fallback provider.
+    const providerRegistry = buildConfiguredMarketingImageProviderRegistry();
+    const provider = selectMarketingImageProvider({}, providerRegistry);
+    if (!provider) {
+      const error = "Image generation is not configured (no eligible Marketing image provider).";
+      await failProviderCall(client, imageReservation.usageId, { error });
+      attempts.push({ attempt, state: "RETRY", ok: false, error, stage: "config" });
+      break;
+    }
+
+    const gen = await provider.generate({
+      client,
+      shopId,
       prompt,
-      filename: typeof filenameFor === "function" ? filenameFor(attempt) : filenameFor
+      filename: typeof filenameFor === "function" ? filenameFor(attempt) : filenameFor,
+      traceId
     });
     if (!gen.ok) {
       await failProviderCall(client, imageReservation.usageId, { error: gen.error });
@@ -170,7 +197,13 @@ export async function runMarketingImageQuality({
       if (gen.stage === "config" || gen.stage === "upload") break;
       continue;
     }
-    await completeProviderCall(client, imageReservation.usageId, { providerRequestId: gen.path || null });
+    // Part G: forward-compatible plumbing — prefers a real
+    // provider-supplied request id if a future adapter's generate() ever
+    // returns one on gen.providerRequestId (Cloudflare's flux-1-schnell
+    // response has no such id today, so this is currently always the
+    // gen.path fallback in practice — the durable storage path, the same
+    // honest fallback identifier used before this batch).
+    await completeProviderCall(client, imageReservation.usageId, { providerRequestId: gen.providerRequestId || gen.path || null });
 
     const visionReservation = await reserveProviderCall(client, {
       shopId,

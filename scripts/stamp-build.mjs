@@ -6,6 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { buildStampInfo } from "./lib/marketing-build-stamp-info.mjs";
 
 const root = process.cwd();
 
@@ -28,6 +29,13 @@ fs.writeFileSync(
   path.join(root, "public/florisyn-build.js"),
   `/** Auto-generated on deploy — do not edit. */\nwindow.FLORISYN_BUILD_ID=${JSON.stringify(stamp)};\n`
 );
+
+// Batch 6, Part D: the exact source commit/environment a given build
+// actually came from, in one small, real JSON file — never a heavy
+// build-info subsystem. buildStampInfo() itself lives in its own
+// side-effect-free module (scripts/lib/marketing-build-stamp-info.mjs) so
+// it's independently unit-testable; this is just where it gets written.
+fs.writeFileSync(path.join(root, "public/florisyn-build-info.json"), JSON.stringify(buildStampInfo(), null, 2) + "\n");
 
 const versionPath = path.join(root, "public/florisyn-version.js");
 let versionSrc = fs.readFileSync(versionPath, "utf8");

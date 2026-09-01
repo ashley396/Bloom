@@ -393,6 +393,79 @@ test("QUALITY 7b: the SAME hard infrastructure failure, for a caller with its ow
   }
 });
 
+// Batch 6, Part E/F/G — Part P #12: no eligible Marketing image provider
+// (an unconfigured environment, or a request no registered provider's
+// capabilities/cost can satisfy) is treated exactly like generateImage's
+// own pre-existing "config" stage failure — never a second failure mode
+// a caller has to special-case, and it still reaches buildFallback (or
+// FAILs honestly with none) the same way any other config-stage failure
+// already does.
+test("QUALITY 12 (PROVIDER): no eligible image provider configured is treated as the SAME genuine config-stage failure as generateImage's own — fails closed, never silently absorbed into a fallback", async () => {
+  const savedAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const savedToken = process.env.CLOUDFLARE_AI_API_TOKEN;
+  delete process.env.CLOUDFLARE_ACCOUNT_ID;
+  delete process.env.CLOUDFLARE_AI_API_TOKEN;
+  try {
+    const client = baseClient([
+      { data: { id: "u1" }, error: null }, // reserve image (attempt 0)
+      { data: null, error: null } // fail image (no eligible provider)
+    ]);
+    let fallbackCalled = false;
+    const result = await runMarketingImageQuality({
+      client,
+      shopId: "shop-1",
+      promptFor: () => "a bright bouquet",
+      filenameFor: () => "test.jpg",
+      buildFallback: async () => {
+        fallbackCalled = true;
+        return { ok: true, kind: "template", url: null };
+      }
+    });
+    // Matches QUALITY 7's own "config"/"upload" stage contract exactly:
+    // a genuine configuration problem (here, no eligible provider) must
+    // never be silently absorbed into a fallback by default — it fails
+    // closed so the real incident (missing credentials) stays visible.
+    assert.equal(result.state, IMAGE_QUALITY_STATE.FAIL);
+    assert.match(result.error, /not configured|no eligible/i);
+    assert.equal(fallbackCalled, false, "buildFallback must never even be called for a genuine config failure — this is fail-closed, not a quiet degrade");
+    assert.equal(result.attempts.length, 1, "a config-stage failure is never worth a second attempt");
+    assert.equal(result.attempts[0].stage, "config");
+  } finally {
+    if (savedAccountId === undefined) delete process.env.CLOUDFLARE_ACCOUNT_ID;
+    else process.env.CLOUDFLARE_ACCOUNT_ID = savedAccountId;
+    if (savedToken === undefined) delete process.env.CLOUDFLARE_AI_API_TOKEN;
+    else process.env.CLOUDFLARE_AI_API_TOKEN = savedToken;
+  }
+});
+
+test("QUALITY 12b (PROVIDER): a caller with its own deliberate always-fallback design (failClosedOnInfraError: false) still reaches its template fallback when no provider is eligible", async () => {
+  const savedAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const savedToken = process.env.CLOUDFLARE_AI_API_TOKEN;
+  delete process.env.CLOUDFLARE_ACCOUNT_ID;
+  delete process.env.CLOUDFLARE_AI_API_TOKEN;
+  try {
+    const client = baseClient([
+      { data: { id: "u1" }, error: null },
+      { data: null, error: null }
+    ]);
+    const result = await runMarketingImageQuality({
+      client,
+      shopId: "shop-1",
+      promptFor: () => "a bright bouquet",
+      filenameFor: () => "test.jpg",
+      buildFallback: async () => ({ ok: true, kind: "template", url: null }),
+      failClosedOnInfraError: false
+    });
+    assert.equal(result.state, IMAGE_QUALITY_STATE.FALLBACK, "a caller that opted out of fail-closed infra handling keeps its own pre-existing 'always degrade gracefully' behavior even when no provider is eligible");
+    assert.equal(result.fallback.kind, "template");
+  } finally {
+    if (savedAccountId === undefined) delete process.env.CLOUDFLARE_ACCOUNT_ID;
+    else process.env.CLOUDFLARE_ACCOUNT_ID = savedAccountId;
+    if (savedToken === undefined) delete process.env.CLOUDFLARE_AI_API_TOKEN;
+    else process.env.CLOUDFLARE_AI_API_TOKEN = savedToken;
+  }
+});
+
 test("QUALITY 8: an ineligible fallback (ok:false, or nothing at all) is never treated as usable — resolves FAIL, never invents a substitute photo", async () => {
   const mock = mockGenerateAndVision({ visionReplies: ["THROW", "THROW"] });
   const client = baseClient([
@@ -464,8 +537,13 @@ test("QUALITY 11 (ROUTE COVERAGE): no scoped Marketing image caller calls genera
   const functionsDir = fileURLToPath(new URL("../netlify/functions/", import.meta.url));
 
   // Pure Photo Studio is explicitly OUT OF SCOPE for this batch (per the
-  // approved spec) — it's the one legitimate direct caller left.
-  const ALLOWED_DIRECT_CALLERS = new Set(["photo-studio-ai.js", "ai-image-engine.js", "marketing-image-quality.js"]);
+  // approved spec) — it's one legitimate direct caller. Batch 6, Part E:
+  // marketing-image-provider-cloudflare.js is the new, single legitimate
+  // Marketing-scoped adapter that wraps generateImage() — every OTHER
+  // Marketing caller (marketing-image-quality.js included, which now
+  // routes through the provider registry instead) must still never call
+  // it directly.
+  const ALLOWED_DIRECT_CALLERS = new Set(["photo-studio-ai.js", "ai-image-engine.js", "marketing-image-quality.js", "marketing-image-provider-cloudflare.js"]);
 
   function walk(dir) {
     const out = [];

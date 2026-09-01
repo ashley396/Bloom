@@ -93,7 +93,7 @@ test("P0 required-checks workflow uses Node.js 22", () => {
   assert.match(src, /node-version:\s*\$\{\{\s*env\.NODE_VERSION\s*\}\}/);
 });
 
-test("P0 required-checks workflow provides digest-pinned PostgreSQL 16 and both RLS suites", () => {
+test("P0 required-checks workflow provides digest-pinned PostgreSQL 16 and all RLS suites (Batch 6: Community, Floral Library, and Marketing Studio)", () => {
   const src = loadWorkflow();
   assert.match(
     src,
@@ -102,10 +102,21 @@ test("P0 required-checks workflow provides digest-pinned PostgreSQL 16 and both 
   assert.match(src, /PostgreSQL 16/);
   assert.match(src, /npm run test:community-rls/);
   assert.match(src, /npm run test:floral-library-rls/);
+  assert.match(src, /npm run test:marketing-rls/);
   assert.match(src, /COMMUNITY_TEST_DATABASE_URL:/);
   assert.match(src, /FLORAL_LIBRARY_TEST_DATABASE_URL:/);
+  assert.match(src, /MARKETING_TEST_DATABASE_URL:/);
   assert.match(src, /CREATE ROLE florisyn_test/);
-  assert.match(src, /Require both RLS suites to pass/);
+  assert.match(src, /Require all RLS suites to pass/);
+});
+
+// Batch 6, Part H: mocked-provider Marketing Studio browser coverage runs
+// in CI too, scoped to just the Marketing specs — never the full e2e
+// suite on every PR.
+test("P0 required-checks workflow runs the mocked-provider Marketing Studio browser suite, scoped to Marketing specs only", () => {
+  const src = loadWorkflow();
+  assert.match(src, /npx playwright test tests\/e2e\/marketing-studio\*\.spec\.js/);
+  assert.doesNotMatch(src, /npx playwright test\s*$/m, "must stay scoped to Marketing specs, never the entire e2e suite, on every PR");
 });
 
 test("P0 required-checks workflow has no deploy or production credentials", () => {
