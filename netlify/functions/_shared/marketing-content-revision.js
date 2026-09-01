@@ -1040,7 +1040,24 @@ const NAMED_FLOWER_RE =
 // peonies today" / "Back in stock: ranunculus" all carry an explicit
 // availability verb; "Our roses are looking gorgeous today" does not.
 const CURRENT_STOCK_VERB_RE =
-  /\bwe(?:'re| are)\s+featuring\b|\bwe\s+have\b|\bwe'?ve\s+got\b|\bwe\s+(?:offer|carry|stock)\b|\bwe(?:'re| are)\s+(?:offering|carrying|stocking|using|showcasing)\b|\bback\s+in\s+stock\b/i;
+  /\bwe(?:'re| are)\s+featuring\b|\bwe\s+have\b|\bwe'?ve\s+got\b|\bwe\s+(?:offer|carry|stock)\b|\bwe(?:'re| are)\s+(?:offering|carrying|stocking|using|showcasing|crafting)\b|\bback\s+in\s+stock\b/i;
+
+// Phase 3 follow-up, real live-found gap: the sentences above all require
+// an explicit "we"/"we're" subject immediately before the verb — but the
+// actual live regression ("Our expert florists are busy crafting stunning
+// arrangements using a mix of fresh flowers, including peonies,
+// alstroemeria, and spray roses") has no "we" at all; the subject is "Our
+// expert florists." These verb SHAPES are specific enough to present-
+// tense business composition (unlike a bare "have/carries," which appear
+// constantly in harmless third-person sentences like "Roses have long
+// symbolized love" or "a rose's color even carries its own meaning") that
+// they never need a first-person subject check — "using," "made with,"
+// "featuring," and "including" essentially only ever describe what an
+// arrangement IS actually composed of right now, whatever the sentence's
+// subject. Deliberately still excludes bare "have/has/carries/carry" —
+// those stay gated to the explicit "we" forms above for exactly that
+// reason.
+const BUSINESS_USE_VERB_RE = /\busing\b|\bmade\s+(?:with|using|from)\b|\bfeatur(?:ing|es|e)\b|\binclud(?:ing|es)\b|\boffers?\b|\bstocks?\b|\bsells?\b/i;
 
 // A florist explicitly stating she HAS real stock — "I have 40 roses I
 // need to sell," "we've got roses," "we just received 50 red roses" — is
@@ -1059,7 +1076,7 @@ const CURRENT_STOCK_VERB_RE =
 // all ("our latest shipment just arrived!"), where there's no flower to
 // check possession of.
 const EXPLICIT_POSSESSION_RE =
-  /\b(?:i|we)\s+(?:have|'ve got|have got|got|received|just got|just received)\b|\b\d+\s+(?:stems?|roses?|tulips?|peon(?:y|ies)|carnations?|hydrangeas?|lil(?:y|ies)|dais(?:y|ies)|orchids?|sunflowers?)\b/i;
+  /\b(?:i|we)\s+(?:actually\s+|really\s+)?(?:have|'ve got|have got|got|received|just got|just received)\b|\b\d+\s+(?:stems?|roses?|tulips?|peon(?:y|ies)|carnations?|hydrangeas?|lil(?:y|ies)|dais(?:y|ies)|orchids?|sunflowers?)\b/i;
 
 /**
  * Sentences in `generatedText` that assert an unverified inventory/
@@ -1111,7 +1128,7 @@ export function detectUnverifiedInventoryStateClaim({ generatedText, requestText
   const violations = [];
   for (const sentence of sentencesOf(text)) {
     const hasStateSignal = INVENTORY_STATE_SIGNAL_RE.test(sentence);
-    const hasCurrentStockFraming = CURRENT_STOCK_VERB_RE.test(sentence);
+    const hasCurrentStockFraming = CURRENT_STOCK_VERB_RE.test(sentence) || BUSINESS_USE_VERB_RE.test(sentence);
     if (!hasStateSignal && !hasCurrentStockFraming) continue;
 
     const flowerMatches = sentence.match(NAMED_FLOWER_RE) || [];
@@ -1151,6 +1168,77 @@ export function stripUnverifiedInventoryClaims({ generatedText, requestText, ver
   const kept = sentencesOf(original).filter((s) => !violationSet.has(s.trim()));
   const text = kept.join(" ").replace(/[ \t]{2,}/g, " ").trim();
   return { text, removed: violations };
+}
+
+// ---------------------------------------------------------------------------
+// requestSignalsIntentionalInventoryUse / sanitizeUngroundedFlowerNames
+//
+// Product rule (Phase 3 follow-up): Lily must never independently CHOOSE
+// or name a specific flower type/variety in customer-facing content — the
+// default is generic floral language ("fresh flowers," "seasonal blooms")
+// unless the florist herself named a flower in the current request, or
+// real verified inventory supports it AND the request actually signals
+// this post is meant to be inventory-driven. Verified stock existing is
+// not, by itself, a license to name it in a post that was never about
+// promoting that stock.
+//
+// This is a DIFFERENT check from detectUnverifiedInventoryStateClaim
+// above on purpose: that one only ever looks at a CLAIM sentence (an
+// explicit availability/business verb paired with a flower name) inside
+// customer-facing body copy, so a genuinely educational or opinion
+// sentence ("Roses are a classic choice for anniversaries") is never
+// touched — exactly right for body/caption copy, where that creative
+// latitude is real. creative_brief.primary_subject and visual_brief are a
+// different kind of field: never an educational aside, always "what this
+// post/image actually depicts" — so ANY named flower there needs the same
+// evidence a claim sentence would, with no verb-gating at all.
+// ---------------------------------------------------------------------------
+
+const INTENTIONAL_INVENTORY_USE_RE =
+  /\bpromote\b.{0,40}\b(?:i|we)\s+(?:actually\s+|really\s+)?have\b|\bwhat\s+i\s+(?:actually\s+)?have\b|\bwhat'?s\s+in\s+(?:the\s+)?(?:shop|store)\b|\bmy\s+(?:current\s+)?inventory\b|\bfeature\s+(?:my|our)\s+(?:current\s+)?(?:stock|inventory)\b/i;
+
+/**
+ * True when the florist's own request signals she wants THIS post to
+ * actually be about her real, current inventory — not merely that
+ * inventory happens to exist. Reuses the same request-side signals
+ * detectUnverifiedInventoryStateClaim already trusts as real supplied
+ * facts (INVENTORY_STATE_SIGNAL_RE, EXPLICIT_POSSESSION_RE), plus a few
+ * additional real phrasings ("promote what I have," "what's in the
+ * shop," "my inventory").
+ */
+export function requestSignalsIntentionalInventoryUse(requestText) {
+  const request = String(requestText || "");
+  return INVENTORY_STATE_SIGNAL_RE.test(request) || EXPLICIT_POSSESSION_RE.test(request) || INTENTIONAL_INVENTORY_USE_RE.test(request);
+}
+
+/**
+ * Replaces any named flower/variety in a non-sentence descriptive field
+ * (creative_brief.primary_subject, visual_brief) that isn't grounded in
+ * the florist's own request, or in verified inventory when the request
+ * actually signals real inventory-driven intent, with plain generic
+ * floral wording. Never invents a replacement species — always the same
+ * neutral phrase, matching the "generic wording, not a fabricated
+ * substitute" principle stripFabricatedContactNumbers()/
+ * stripUnverifiedInventoryClaims() already use.
+ *
+ * Pure. Returns { text, removed }.
+ */
+export function sanitizeUngroundedFlowerNames({ text, requestText, verifiedFlowerNames = [], inventoryIntentConfirmed = false } = {}) {
+  const original = String(text || "");
+  if (!original) return { text: original, removed: [] };
+  const request = String(requestText || "");
+  const requestNamedFlowers = expandFlowerVariants(request.match(NAMED_FLOWER_RE) || []);
+  const verifiedSet = expandFlowerVariants(verifiedFlowerNames);
+  const removed = [];
+  const sanitized = original.replace(NAMED_FLOWER_RE, (match) => {
+    const grounded = floralWordVariants(match.toLowerCase()).some(
+      (v) => requestNamedFlowers.has(v) || (inventoryIntentConfirmed && verifiedSet.has(v))
+    );
+    if (grounded) return match;
+    removed.push(match);
+    return "flowers";
+  });
+  return { text: sanitized, removed };
 }
 
 // ---------------------------------------------------------------------------

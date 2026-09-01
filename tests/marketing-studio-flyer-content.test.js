@@ -1987,7 +1987,11 @@ test("REGRESSION (concept threading): the flyer generation call actually receive
   try {
     const client = createFakeSupabaseClient(
       [
-        { data: { id: "item-p3b", content_type: "image_post", title: "Spring", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        // The brief itself names tulips — required so the Phase 3 FINAL
+        // SAFETY PATCH's own "no independent flower choice" rule doesn't
+        // sanitize this test's own deliberately flower-named concept away;
+        // this test is about concept-THREADING fidelity, not grounding.
+        { data: { id: "item-p3b", content_type: "image_post", title: "Spring", brief: "Create a post about our spring tulips", status: "idea" }, error: null },
         { data: [{ id: "variant-p3b", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
         { data: null, error: null },
@@ -2299,6 +2303,263 @@ test("REGRESSION J2 (true fail-closed): the same coherence mismatch, for a shop 
       (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
     );
     assert.ok(revertCall, "the item must be reverted to idea so the florist can retry, not left stuck as 'generating'");
+  } finally {
+    mock.restore();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PHASE 3 FINAL SAFETY PATCH (staging re-test follow-up): present-tense
+// business-use claims naming an unverified flower, and the broader "Lily
+// must not independently choose/name a specific flower species" product
+// rule for creative_brief.primary_subject/visual_brief (and therefore the
+// image-generation prompt) — end to end through the real handler.
+// ---------------------------------------------------------------------------
+
+test("REGRESSION (staging re-test): a generic 'Create today's Facebook post' request with empty verified inventory never names a specific flower species anywhere — caption, flyer, creative_brief, or the real image-generation prompt", async () => {
+  const badCaption = {
+    platform: "facebook",
+    headline: "Fresh Today",
+    body: "Our expert florists are busy crafting stunning arrangements using a mix of fresh flowers, including peonies, alstroemeria, and spray roses.",
+    cta: "Stop by today",
+    visual_brief: "A bright, romantic arrangement of garden roses on a marble counter.",
+    creative_brief: { primary_subject: "A romantic arrangement of garden roses", mood: "romantic, soft", lighting: "warm natural light", composition: "close-up", floral_style: "garden-style" },
+    objective: "awareness",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  };
+  const cleanCaption = {
+    ...badCaption,
+    body: "There's something so lovely about a fresh bouquet on a Tuesday — stop by and treat yourself or someone special today.",
+    headline: "A Little Beauty Today"
+    // creative_brief/visual_brief deliberately still name "garden roses" —
+    // proving the sanitizeUngroundedFlowerNames backstop catches this
+    // regardless of which caption attempt wins the body/headline retry,
+    // since creative_brief/visual_brief are never checked by that retry's
+    // own claim-sentence detector (a bare noun phrase, no claim verb).
+  };
+  const flyerCopy = { headline: "A Little Beauty Today", body: "Stop by for a fresh, seasonal bouquet.", cta: "Visit us today" };
+  const mock = mockCloudflare([badCaption, cleanCaption, flyerCopy]);
+  try {
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-p3f1", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        { data: [{ id: "variant-p3f1", platform: "facebook" }], error: null },
+        { data: { marketing_monthly_budget_cents: null }, error: null },
+        { data: null, error: null },
+        { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
+        { data: null, error: null }, // loadBrandBrain
+        { data: null, error: null }, // loadStyleMemory
+        { data: [], error: null }, // loadGroundedInventory — the real, zero-inventory case
+        { data: [], error: null }, // audience: customers
+        { data: [], error: null }, // audience: orders
+        { data: [], error: null }, // recent-content shortlist
+        { data: null, error: null }, // recordUsage("copy") — caption attempt 1
+        { data: null, error: null }, // recordUsage("copy") — caption retry
+        { data: null, error: null }, // recordUsage("copy") — flyer
+        { data: null, error: null }, // recordUsage("image")
+        { data: { id: "media-p3f1" }, error: null },
+        { data: { id: "flyer-asset-p3f1" }, error: null },
+        { data: null, error: null },
+        { data: { id: "item-p3f1", status: "draft" }, error: null }
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-p3f1", photo_choice: "generate" }));
+    assert.equal(res.statusCode, 200, `must self-correct rather than fail: ${res.body}`);
+    const body = JSON.parse(res.body);
+
+    const NAMED_SPECIES_RE = /\b(peon(?:y|ies)|alstroemerias?|spray roses?|garden roses?|roses?|hydrangeas?|tulips?)\b/i;
+    assert.doesNotMatch(body.copy.body, NAMED_SPECIES_RE, "the persisted caption must never name a specific flower species with nothing behind it");
+
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const insertedRow = assetInsert.ops.find((op) => op[0] === "insert")[1][0];
+    const c = insertedRow.content;
+    assert.doesNotMatch(`${c.headline} ${c.body} ${c.cta}`, NAMED_SPECIES_RE, "the persisted flyer text must never name a specific flower species");
+    assert.doesNotMatch(c.creative_brief?.primary_subject || "", NAMED_SPECIES_RE, "creative_brief.primary_subject must never carry an ungrounded species name through to persistence");
+    assert.match(c.creative_brief?.primary_subject || "", /flowers/i, "the sanitized subject still reads as a real, concrete (if generic) scene");
+
+    // The real image-generation prompt actually sent to the provider must
+    // reflect the SAME sanitized subject — not the raw, unsanitized one.
+    const imageCall = mock.calls.find((call) => call.url.includes("black-forest-labs") || "prompt" in call.body);
+    assert.ok(imageCall, "an image-generation call must actually happen");
+    assert.doesNotMatch(imageCall.body.prompt, NAMED_SPECIES_RE, "the real prompt sent to the image model must never name an ungrounded species");
+    assert.match(imageCall.body.prompt, /flowers/i, "the real prompt must still describe a concrete, generic mixed-floral scene");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("REGRESSION (staging re-test): 'Make a post about pink roses' — the florist's own request names roses, so roses are allowed everywhere", async () => {
+  const copy = {
+    platform: "facebook",
+    headline: "Pink Roses Today",
+    body: "Pink roses are perfect for saying thank you — treat someone special today.",
+    cta: "Visit us",
+    visual_brief: "A vibrant bouquet of pink roses on a marble counter.",
+    creative_brief: { primary_subject: "A vibrant arrangement of pink roses", mood: "cheerful", lighting: "natural", composition: "close-up", floral_style: "garden-style" },
+    objective: "awareness",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  };
+  const flyerCopy = { headline: "Pink Roses Today", body: "Perfect for saying thank you.", cta: "Visit us today" };
+  const mock = mockCloudflare([copy, flyerCopy]);
+  try {
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-p3f2", content_type: "image_post", title: "Pink roses", brief: "Make a post about pink roses.", status: "idea" }, error: null },
+        { data: [{ id: "variant-p3f2", platform: "facebook" }], error: null },
+        { data: { marketing_monthly_budget_cents: null }, error: null },
+        { data: null, error: null },
+        { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
+        { data: null, error: null },
+        { data: null, error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: null, error: null }, // recordUsage("copy") — caption
+        { data: null, error: null }, // recordUsage("copy") — flyer
+        { data: null, error: null }, // recordUsage("image")
+        { data: { id: "media-p3f2" }, error: null },
+        { data: { id: "flyer-asset-p3f2" }, error: null },
+        { data: null, error: null },
+        { data: { id: "item-p3f2", status: "draft" }, error: null }
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-p3f2", photo_choice: "generate" }));
+    assert.equal(res.statusCode, 200, `must succeed: ${res.body}`);
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const insertedRow = assetInsert.ops.find((op) => op[0] === "insert")[1][0];
+    assert.match(insertedRow.content.creative_brief?.primary_subject || "", /pink roses/i, "a flower the florist's own request named must survive");
+    const imageCall = mock.calls.find((call) => call.url.includes("black-forest-labs") || "prompt" in call.body);
+    assert.match(imageCall.body.prompt, /roses/i, "the real image prompt must still name the florist's own requested flower");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("REGRESSION (staging re-test): verified inventory containing roses does NOT get forced into an unrelated, generic awareness post", async () => {
+  const copy = {
+    platform: "facebook",
+    headline: "Happy Friday",
+    body: "Fresh flowers can brighten anyone's day — stop by and see us today.",
+    cta: "Visit us",
+    visual_brief: "A bright arrangement of garden roses for a fun Friday post.",
+    creative_brief: { primary_subject: "A bright arrangement of garden roses", mood: "cheerful", lighting: "natural", composition: "close-up", floral_style: "garden-style" },
+    objective: "awareness",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  };
+  const flyerCopy = { headline: "Happy Friday", body: "Stop by and see us today.", cta: "Visit us today" };
+  const mock = mockCloudflare([copy, flyerCopy]);
+  try {
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-p3f3", content_type: "image_post", title: "Friday post", brief: "Create a fun post for our Facebook page", status: "idea" }, error: null },
+        { data: [{ id: "variant-p3f3", platform: "facebook" }], error: null },
+        { data: { marketing_monthly_budget_cents: null }, error: null },
+        { data: null, error: null },
+        { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
+        { data: null, error: null },
+        { data: null, error: null },
+        // loadGroundedInventory — the shop DOES have real roses on file...
+        { data: [{ id: "inv-rose", name: "Garden Rose", category: "roses", quantity: 12, low_stock_level: 5, unit: "stems", price: 3.5, created_at: new Date().toISOString() }], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: null, error: null }, // recordUsage("copy") — caption
+        { data: null, error: null }, // recordUsage("copy") — flyer
+        { data: null, error: null }, // recordUsage("image")
+        { data: { id: "media-p3f3" }, error: null },
+        { data: { id: "flyer-asset-p3f3" }, error: null },
+        { data: null, error: null },
+        { data: { id: "item-p3f3", status: "draft" }, error: null }
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-p3f3", photo_choice: "generate" }));
+    assert.equal(res.statusCode, 200, `must succeed: ${res.body}`);
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const insertedRow = assetInsert.ops.find((op) => op[0] === "insert")[1][0];
+    // ...but this post was never about that stock, so real inventory alone
+    // is never a license to name it here.
+    assert.doesNotMatch(insertedRow.content.creative_brief?.primary_subject || "", /rose/i, "verified stock must not be forced into an unrelated generic post");
+    const imageCall = mock.calls.find((call) => call.url.includes("black-forest-labs") || "prompt" in call.body);
+    assert.doesNotMatch(imageCall.body.prompt, /rose/i);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("REGRESSION (staging re-test): verified inventory containing roses MAY be used when the request itself signals real inventory-driven intent", async () => {
+  const copy = {
+    platform: "facebook",
+    headline: "In The Shop Now",
+    body: "Here's what we actually have on hand today.",
+    cta: "Visit us",
+    visual_brief: "A bright arrangement of garden roses, our real current stock.",
+    creative_brief: { primary_subject: "A bright arrangement of garden roses", mood: "cheerful", lighting: "natural", composition: "close-up", floral_style: "garden-style" },
+    objective: "awareness",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  };
+  const flyerCopy = { headline: "In The Shop Now", body: "Here's what we have on hand today.", cta: "Visit us today" };
+  const mock = mockCloudflare([copy, flyerCopy]);
+  try {
+    // Note: "Promote..." trips requestNeedsFlyerWording's own promotional-
+    // intent signal, so this specific request routes through the
+    // EXACT-FACTS flyer branch (a calm-backdrop background via
+    // buildFlyerBackgroundPrompt/generateFlyerBackgroundWithRetry), not
+    // the subject-forward branch the other tests in this section use —
+    // its own DB call shape has no separate recordUsage("image")/
+    // website_media insert (see generateFlyerFixtureQueue above).
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-p3f4", content_type: "image_post", title: "In stock", brief: "Promote something I actually have in stock.", status: "idea" }, error: null },
+        { data: [{ id: "variant-p3f4", platform: "facebook" }], error: null },
+        { data: { marketing_monthly_budget_cents: null }, error: null },
+        { data: null, error: null },
+        { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
+        { data: null, error: null },
+        { data: null, error: null },
+        { data: [{ id: "inv-rose", name: "Garden Rose", category: "roses", quantity: 12, low_stock_level: 5, unit: "stems", price: 3.5, created_at: new Date().toISOString() }], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: null, error: null }, // recordUsage("copy") — caption
+        { data: null, error: null }, // recordUsage("copy") — flyer
+        { data: { id: "flyer-asset-p3f4" }, error: null }, // persistGeneratedAsset
+        { data: null, error: null }, // variant update
+        { data: { id: "item-p3f4", status: "draft" }, error: null } // final item update
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-p3f4", photo_choice: "generate" }));
+    assert.equal(res.statusCode, 200, `must succeed: ${res.body}`);
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const insertedRow = assetInsert.ops.find((op) => op[0] === "insert")[1][0];
+    assert.match(insertedRow.content.creative_brief?.primary_subject || "", /garden roses/i, "a real, verified flower the florist explicitly wants to promote must survive");
+    const imageCall = mock.calls.find((call) => call.url.includes("black-forest-labs") || "prompt" in call.body);
+    // This branch's own image prompt (buildFlyerBackgroundPrompt) always
+    // names real verified inventory directly (independent of the
+    // sanitized creative_brief) — asserting on the verified inventory's
+    // own real name ("Garden Rose", singular) rather than assuming the
+    // caption's plural phrasing carries through unchanged.
+    assert.match(imageCall.body.prompt, /rose/i);
   } finally {
     mock.restore();
   }

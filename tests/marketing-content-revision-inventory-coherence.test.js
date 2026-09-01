@@ -5,6 +5,8 @@ import {
   stripUnverifiedInventoryClaims,
   detectConceptCoherenceMismatch,
   requestSignalsRealPromotion,
+  requestSignalsIntentionalInventoryUse,
+  sanitizeUngroundedFlowerNames,
   BEREAVEMENT_CONTEXT_RE
 } from "../netlify/functions/_shared/marketing-content-revision.js";
 
@@ -239,4 +241,169 @@ test("REGRESSION H: an ordinary, coherent post (both sides agree) is never flagg
     requestText: "Post about our spring tulips"
   });
   assert.equal(mismatch, null);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3 FINAL SAFETY PATCH: present-tense business use/availability
+// claims ("we're crafting with X," "our bouquets feature X," "using X")
+// require the same evidence as an explicit state-claim ("just arrived,"
+// "back in stock") — the real staging re-test's own observed output
+// (empty verified inventory) survived the first fix because the model
+// never used one of the previously-recognized claim verbs.
+// ---------------------------------------------------------------------------
+
+test("REGRESSION (staging re-test, exact observed flyer sentence): a present-tense 'crafting arrangements using X' claim with an unverified flower is caught even with no 'we have'/'just arrived' wording at all", () => {
+  const violations = detectUnverifiedInventoryStateClaim({
+    generatedText:
+      "Our expert florists are busy crafting stunning arrangements using a mix of fresh flowers, including peonies, alstroemeria, and spray roses.",
+    requestText: "Create today's Facebook post",
+    verifiedFlowerNames: []
+  });
+  assert.ok(violations.length > 0, "a present-tense composition claim naming unverified flowers must be caught");
+  assert.match(violations[0], /peonies|alstroemeria|spray roses/i);
+});
+
+test("REGRESSION (staging re-test, exact observed caption sentence): the caption's own present-tense variant of the same claim is caught", () => {
+  const violations = detectUnverifiedInventoryStateClaim({
+    generatedText:
+      "Our expert florists are busy crafting stunning arrangements using a mix of fresh peonies, delicate alstroemeria, and vibrant spray roses.",
+    requestText: "Create today's Facebook post",
+    verifiedFlowerNames: []
+  });
+  assert.ok(violations.length > 0);
+});
+
+test("NOT SAFE (staging re-test's exact required examples): present-tense business-use/availability claims naming a specific flower all require evidence", () => {
+  for (const text of [
+    "We're crafting arrangements with peonies today.",
+    "Our bouquets feature spray roses.",
+    "We have alstroemeria available.",
+    "We're using fresh hydrangeas this week."
+  ]) {
+    const violations = detectUnverifiedInventoryStateClaim({ generatedText: text, requestText: "Create today's Facebook post", verifiedFlowerNames: [] });
+    assert.ok(violations.length > 0, `must flag: "${text}"`);
+  }
+});
+
+test("SAFE (unchanged): generic/educational flower language is never flagged by the broadened business-use verbs either", () => {
+  for (const text of [
+    "Roses are a classic choice for anniversaries.",
+    "Peonies have a soft, romantic look.",
+    "Fresh flowers can brighten someone's day.",
+    "Our roses are looking gorgeous today."
+  ]) {
+    const violations = detectUnverifiedInventoryStateClaim({ generatedText: text, requestText: "Create today's Facebook post", verifiedFlowerNames: [] });
+    assert.deepEqual(violations, [], `must never flag: "${text}"`);
+  }
+});
+
+test("SAFE (unchanged): REGRESSION F's educational sentence with an incidental, unrelated 'carries' is still never flagged by the broadened verbs", () => {
+  // 'a rose's color even carries its own meaning' contains 'carries', but
+  // in a completely unrelated sense (not a business stock claim) — the
+  // broadened business-use verb set deliberately excludes bare
+  // 'carries'/'carry'/'have'/'has' for exactly this reason.
+  const violations = detectUnverifiedInventoryStateClaim({
+    generatedText:
+      "Roses have long symbolized love and devotion — a rose's color even carries its own meaning, from passionate red to friendship's yellow.",
+    requestText: "Make an educational post about roses",
+    verifiedFlowerNames: []
+  });
+  assert.deepEqual(violations, []);
+});
+
+test("EVIDENCE: a present-tense use claim naming a flower that IS verified is never flagged", () => {
+  const violations = detectUnverifiedInventoryStateClaim({
+    generatedText: "Our expert florists are crafting arrangements using fresh garden roses this week.",
+    requestText: "Create today's Facebook post",
+    verifiedFlowerNames: ["Garden Rose"]
+  });
+  assert.deepEqual(violations, []);
+});
+
+test("stripUnverifiedInventoryClaims removes the exact observed staging-failure sentence, keeping the rest intact", () => {
+  const result = stripUnverifiedInventoryClaims({
+    generatedText:
+      "Happy Tuesday! Our expert florists are busy crafting stunning arrangements using a mix of fresh flowers, including peonies, alstroemeria, and spray roses. Stop by today.",
+    requestText: "Create today's Facebook post",
+    verifiedFlowerNames: []
+  });
+  assert.ok(result.removed.length > 0);
+  assert.doesNotMatch(result.text, /peonies|alstroemeria|spray roses/i);
+  assert.match(result.text, /Happy Tuesday/);
+  assert.match(result.text, /Stop by today/);
+});
+
+// ---------------------------------------------------------------------------
+// requestSignalsIntentionalInventoryUse (product rule: verified inventory
+// alone is never a license to name a flower — the request must actually
+// signal this post is meant to be inventory-driven)
+// ---------------------------------------------------------------------------
+
+test("requestSignalsIntentionalInventoryUse: a generic request never signals inventory intent", () => {
+  assert.equal(requestSignalsIntentionalInventoryUse("Create today's Facebook post"), false);
+});
+
+test("requestSignalsIntentionalInventoryUse: 'promote something I actually have in stock' signals real inventory intent", () => {
+  assert.equal(requestSignalsIntentionalInventoryUse("Promote something I actually have in stock."), true);
+});
+
+test("requestSignalsIntentionalInventoryUse: explicit possession ('I have 40 roses') signals real inventory intent", () => {
+  assert.equal(requestSignalsIntentionalInventoryUse("I have 40 roses I need to sell"), true);
+});
+
+// ---------------------------------------------------------------------------
+// sanitizeUngroundedFlowerNames (product rule: Lily must not independently
+// choose/name a specific flower species in creative_brief.primary_subject
+// or visual_brief unless the florist named it or verified inventory
+// supports it AND the request signals real inventory intent)
+// ---------------------------------------------------------------------------
+
+test("sanitizeUngroundedFlowerNames: an ungrounded named flower is replaced with generic wording, nothing invented in its place", () => {
+  const result = sanitizeUngroundedFlowerNames({
+    text: "A romantic arrangement of garden roses on a marble counter.",
+    requestText: "Create today's Facebook post",
+    verifiedFlowerNames: []
+  });
+  assert.deepEqual(result.removed.map((r) => r.toLowerCase()), ["garden roses"]);
+  assert.doesNotMatch(result.text, /garden roses/i);
+  assert.match(result.text, /arrangement of flowers/i);
+});
+
+test("sanitizeUngroundedFlowerNames: 'Make a post about pink roses' — the florist's own request names roses, so roses are allowed", () => {
+  const result = sanitizeUngroundedFlowerNames({
+    text: "A romantic arrangement of pink roses on a marble counter.",
+    requestText: "Make a post about pink roses.",
+    verifiedFlowerNames: []
+  });
+  assert.deepEqual(result.removed, []);
+  assert.match(result.text, /pink roses/i);
+});
+
+test("sanitizeUngroundedFlowerNames: verified inventory alone (no inventory-intent request) never licenses a flower name", () => {
+  const result = sanitizeUngroundedFlowerNames({
+    text: "A cheerful arrangement of garden roses for a general awareness post.",
+    requestText: "Create a fun post for our page",
+    verifiedFlowerNames: ["Garden Rose"],
+    inventoryIntentConfirmed: false
+  });
+  assert.ok(result.removed.length > 0, "verified stock is not itself a license to name it in an unrelated post");
+  assert.doesNotMatch(result.text, /garden roses/i);
+});
+
+test("sanitizeUngroundedFlowerNames: verified inventory WITH real inventory-driven intent licenses the flower name", () => {
+  const result = sanitizeUngroundedFlowerNames({
+    text: "A cheerful arrangement of garden roses.",
+    requestText: "Promote something I actually have in stock.",
+    verifiedFlowerNames: ["Garden Rose"],
+    inventoryIntentConfirmed: true
+  });
+  assert.deepEqual(result.removed, []);
+  assert.match(result.text, /garden roses/i);
+});
+
+test("sanitizeUngroundedFlowerNames: a no-op when nothing is ungrounded", () => {
+  const original = "A lush arrangement of mixed fresh flowers on a marble counter.";
+  const result = sanitizeUngroundedFlowerNames({ text: original, requestText: "Create today's Facebook post", verifiedFlowerNames: [] });
+  assert.equal(result.text, original);
+  assert.deepEqual(result.removed, []);
 });

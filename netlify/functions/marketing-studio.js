@@ -145,7 +145,9 @@ import {
   requestSignalsRealPromotion,
   detectUnverifiedInventoryStateClaim,
   stripUnverifiedInventoryClaims,
-  detectConceptCoherenceMismatch
+  detectConceptCoherenceMismatch,
+  requestSignalsIntentionalInventoryUse,
+  sanitizeUngroundedFlowerNames
 } from "./_shared/marketing-content-revision.js";
 import { defaultVisualStyle } from "./_shared/ai-visual-revisions.js";
 import { buildMarketingStudioAnalyticsSummary } from "./_shared/marketing-analytics.js";
@@ -2286,6 +2288,38 @@ export function createMarketingStudioHandler(deps = {}) {
         // or a phone number, and must never survive un-evidenced just
         // because it sounds like a more exciting objective to have
         // written for.
+        // Product rule (Phase 3 follow-up, "no independent flower
+        // choice"): creative_brief.primary_subject and visual_brief
+        // describe what this post's IMAGE actually depicts — never an
+        // educational aside — so any named flower there needs the same
+        // real evidence a current-stock claim would, unconditionally
+        // (see sanitizeUngroundedFlowerNames's own docstring for why this
+        // is a separate check from the claim-sentence detector above).
+        // Sanitized here, once, before concept/image-prompt construction
+        // ever reads either field, so every downstream use — concept.
+        // primarySubject just below, the actual image-generation prompt,
+        // and the persisted content — already sees the cleaned value.
+        const inventoryIntentConfirmed = requestSignalsIntentionalInventoryUse(currentItem.data.brief);
+        const verifiedFlowerNamesForSanitize = (inventorySources || []).map((i) => i.name);
+        if (copyGen.content?.visual_brief) {
+          const cleanedVisualBrief = sanitizeUngroundedFlowerNames({
+            text: copyGen.content.visual_brief,
+            requestText: currentItem.data.brief,
+            verifiedFlowerNames: verifiedFlowerNamesForSanitize,
+            inventoryIntentConfirmed
+          });
+          if (cleanedVisualBrief.removed.length) copyGen.content.visual_brief = cleanedVisualBrief.text;
+        }
+        if (copyGen.content?.creative_brief?.primary_subject) {
+          const cleanedPrimarySubject = sanitizeUngroundedFlowerNames({
+            text: copyGen.content.creative_brief.primary_subject,
+            requestText: currentItem.data.brief,
+            verifiedFlowerNames: verifiedFlowerNamesForSanitize,
+            inventoryIntentConfirmed
+          });
+          if (cleanedPrimarySubject.removed.length) copyGen.content.creative_brief.primary_subject = cleanedPrimarySubject.text;
+        }
+
         const conceptObjective =
           copyGen.content?.objective === "promotion" && !requestSignalsRealPromotion(currentItem.data.brief) ? null : copyGen.content?.objective || null;
         const concept = {
