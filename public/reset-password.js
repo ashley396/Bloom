@@ -17,8 +17,20 @@ function parseHashTokens() {
 const tokens = parseHashTokens();
 const accessToken = tokens.access_token || "";
 const type = tokens.type || "";
+// A link that is expired, already used, or otherwise rejected by Supabase's
+// /auth/v1/verify redirects here with its own error signal instead of an
+// access_token — surface that real reason (mirrors verify-email.js's
+// handling of the same GoTrue error-redirect shape) rather than always
+// showing the same generic message regardless of why the link failed.
+const errorCode = tokens.error_code || tokens.error || "";
+const errorDescription = tokens.error_description || "";
 
-if (!accessToken || type !== "recovery") {
+if (errorCode) {
+  message.textContent = errorDescription
+    ? decodeURIComponent(errorDescription.replace(/\+/g, " "))
+    : "This reset link is invalid or has already been used. Request a new link from the forgot password page.";
+  message.classList.add("error");
+} else if (!accessToken || type !== "recovery") {
   message.textContent =
     "This reset link is missing or expired. Request a new link from the forgot password page.";
   message.classList.add("error");
