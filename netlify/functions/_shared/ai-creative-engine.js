@@ -276,13 +276,16 @@ function normalizeCreativeBrief(raw) {
 // (grounded in the same request/occasion as the copy) rather than a
 // separate, disconnected classification pass that could disagree with
 // what was actually written.
-const SOCIAL_POST_OBJECTIVES = ["awareness", "promotion", "retention", "operational", "seasonal_occasion"];
+// Batch 4: exported (was module-private) so marketing-canonical-concept.js
+// has exactly one real source for this enum, rather than a second,
+// possibly-drifting copy.
+export const SOCIAL_POST_OBJECTIVES = ["awareness", "promotion", "retention", "operational", "seasonal_occasion"];
 
 /** An objective outside the fixed enum (a model inventing its own label,
  * or omitting the field) is not trusted as-is — falls back to null so a
  * caller can tell "no real objective classification" apart from a
  * fabricated one, same as normalizeCreativeBrief's own null contract. */
-function normalizeObjective(raw) {
+export function normalizeObjective(raw) {
   const value = String(raw || "").trim().toLowerCase();
   return SOCIAL_POST_OBJECTIVES.includes(value) ? value : null;
 }

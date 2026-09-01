@@ -143,8 +143,20 @@ import {
   instructionAffectsFlyerImage,
   BEREAVEMENT_CONTEXT_RE,
   requestSignalsRealPromotion,
+  requestSignalsIntentionalInventoryUse,
   evaluateMarketingOutput
 } from "./_shared/marketing-content-revision.js";
+import {
+  buildCanonicalConcept,
+  inheritConcept,
+  detectExplicitConceptChangeRequest,
+  detectConceptDrift,
+  detectImageSubjectDrift,
+  classifyOccasionCategory,
+  classifyCtaIntent,
+  classifyPrimarySubjectClass,
+  deriveAssetRoute
+} from "./_shared/marketing-canonical-concept.js";
 import { defaultVisualStyle } from "./_shared/ai-visual-revisions.js";
 import { buildMarketingStudioAnalyticsSummary } from "./_shared/marketing-analytics.js";
 import { groupMetricsByDimension } from "./_shared/marketing-insights.js";
@@ -1013,6 +1025,97 @@ export function createMarketingStudioHandler(deps = {}) {
         // asset_type branch) into one observable event per revision.
         const reviseTraceId = crypto.randomUUID();
 
+        // Batch 4 ("persisted canonical concept + revision enforcement",
+        // Part D/E): every revision branch below must start from the SAME
+        // persisted canonical concept the parent asset carries, and must
+        // only ever change the fields the florist explicitly asked to
+        // change — never silently re-derive a new concept from scratch.
+        // Computed once here since neither depends on which asset_type is
+        // being revised.
+        const parentConcept = currentAsset.content?.canonical_concept || null;
+        const conceptChangeRequest = detectExplicitConceptChangeRequest(instruction);
+        // Legacy-shaped view of a concept (the same ad-hoc
+        // {objective, isSympathy} generate_content's own `concept` already
+        // uses) — evaluateMarketingOutput's existing coherence checks
+        // (detectConceptCoherenceMismatch/detectCtaCoherenceMismatch) were
+        // built around that shape; this reuses them rather than adding a
+        // second, competing comparison.
+        function legacyConceptView(revisedConcept) {
+          if (!revisedConcept) return null;
+          return { objective: revisedConcept.objective, isSympathy: revisedConcept.sympathyClassification === "sympathy" };
+        }
+        // Builds this revision's own canonical concept: inherits the
+        // parent byte-for-byte when nothing was explicitly asked to
+        // change (Part D), or re-derives ONLY the fields the instruction
+        // explicitly named (Part E) — recording which fields changed and
+        // why, right alongside the concept itself.
+        function buildRevisedConcept({ ctaText = null, bodyText = "", photoStrategy = null, styleTier = null, userUploadedPhoto: uploadedPhoto = false, reusedFromAssetId = null }) {
+          if (!parentConcept) {
+            // No parent concept to inherit — an asset created before Batch
+            // 4. Build a fresh one from the same real signals
+            // generate_content itself uses, so every asset carries a
+            // persisted concept going forward regardless of when it was
+            // first created.
+            return {
+              concept: buildCanonicalConcept({
+                requestText: currentItem.data.brief,
+                occasionTitle: currentItem.data.title,
+                platform: variants[0]?.platform || "facebook",
+                contentType: currentItem.data.content_type,
+                assetType: currentAsset.asset_type,
+                ctaText,
+                bodyText,
+                isSympathy: BEREAVEMENT_CONTEXT_RE.test(`${currentItem.data.brief} ${instruction} ${bodyText}`),
+                photoStrategy,
+                styleTier,
+                userUploadedPhoto: uploadedPhoto,
+                reusedFromAssetId,
+                invGroundedCount: (currentAsset.content?.grounded_in_inventory || []).length
+              }),
+              changedFields: []
+            };
+          }
+          if (!conceptChangeRequest.changed) {
+            return { concept: inheritConcept(parentConcept, {}), changedFields: [] };
+          }
+          const fields = conceptChangeRequest.fields;
+          const overrides = {};
+          if (fields.includes("occasionCategory") || fields.includes("sympathyClassification")) {
+            const isSympathy = BEREAVEMENT_CONTEXT_RE.test(`${instruction} ${bodyText}`);
+            overrides.sympathyClassification = isSympathy ? "sympathy" : "not_sympathy";
+            overrides.occasionCategory = classifyOccasionCategory({ occasionTitle: currentItem.data.title, requestText: instruction, objective: parentConcept.objective, isSympathy });
+          }
+          if (fields.includes("objective") || fields.includes("promotionIntent")) {
+            const realPromotion = requestSignalsRealPromotion(instruction);
+            overrides.promotionIntent = realPromotion ? "real_promotion" : "not_promotion";
+            overrides.objective = realPromotion ? "promotion" : parentConcept.objective === "promotion" ? "awareness" : parentConcept.objective;
+          }
+          if (fields.includes("inventoryIntent")) {
+            overrides.inventoryIntent = requestSignalsIntentionalInventoryUse(instruction) ? "inventory_driven" : "not_inventory_driven";
+          }
+          if (fields.includes("ctaIntent")) {
+            overrides.ctaIntent = classifyCtaIntent(ctaText || instruction);
+          }
+          if (fields.includes("primarySubjectClass")) {
+            overrides.primarySubjectClass = classifyPrimarySubjectClass(instruction);
+          }
+          if (fields.includes("assetRoute")) {
+            overrides.assetRoute = deriveAssetRoute({ contentType: currentItem.data.content_type, photoStrategy, styleTier, userUploadedPhoto: uploadedPhoto, reusedFromAssetId });
+          }
+          const revised = inheritConcept(parentConcept, overrides);
+          // Batch 4, Part I (requirement 10): a defensive last check, not a
+          // new detection path — by construction this function only ever
+          // changes fields the florist's own instruction explicitly named,
+          // so this should never actually fire. It's the backstop against
+          // a future edit to the logic above accidentally widening what
+          // changes on an ordinary revision.
+          const unexpectedDrift = detectConceptDrift(parentConcept, revised, Object.keys(overrides));
+          if (unexpectedDrift.hasDrift) {
+            throw new Error(`Internal error: revision would have silently changed ${unexpectedDrift.driftedFields.join(", ")} without an explicit request — refusing to persist.`);
+          }
+          return { concept: revised, changedFields: Object.keys(overrides) };
+        }
+
         // hashtags is deliberately optional: an image-only (visual) revision
         // never touches the caption/hashtags a wording revision would —
         // omitting the key leaves that column exactly as it was.
@@ -1170,6 +1273,19 @@ export function createMarketingStudioHandler(deps = {}) {
               component: "creative_scene"
             });
             if (revisionSceneEval.decision === "repair") visualBrief = revisionSceneEval.safeCandidate;
+            // Batch 4, Part F/I: "regenerate image" must preserve the
+            // canonical concept — composition/crop/lighting/mood may
+            // change, but the image prompt must still describe the SAME
+            // real subject as the stable original, never a silently
+            // different photo. Only a genuine, deliberate subject change
+            // (conceptChangeRequest naming primarySubjectClass) is allowed
+            // to actually swap it.
+            if (!conceptChangeRequest.changed || !conceptChangeRequest.fields.includes("primarySubjectClass")) {
+              const subjectDrift = detectImageSubjectDrift({ concept: parentConcept, imagePromptText: visualBrief, primarySubject: baseVisualBrief });
+              if (subjectDrift) {
+                return json(400, { error: `${subjectDrift} If you meant to change what's actually shown, say so explicitly (e.g. "change the subject to ...").` });
+              }
+            }
             prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief });
             const revisionQuality = await runMarketingImageQuality({
               client,
@@ -1211,6 +1327,12 @@ export function createMarketingStudioHandler(deps = {}) {
             model = imageGen.model;
             prompt = imageGen.prompt;
           }
+          const imageRevisedConcept = buildRevisedConcept({
+            ctaText: captionFields.cta,
+            bodyText: captionFields.body,
+            userUploadedPhoto,
+            styleTier: userUploadedPhoto ? "upload" : currentAsset.content?.style_tier || "generated"
+          });
           const persisted = await persistGeneratedAsset(client, {
             shopId,
             userId: user.id,
@@ -1220,6 +1342,14 @@ export function createMarketingStudioHandler(deps = {}) {
             model,
             prompt,
             content: {
+              // Batch 4 bug fix: this branch previously built its content
+              // object from scratch, silently dropping creative_brief/
+              // objective/grounded_in_inventory/photo_strategy on every
+              // revision (the flyer branch below already spread
+              // ...currentAsset.content — this branch never did). Carries
+              // everything forward unchanged by default now; only the
+              // fields this revision actually touched are overridden.
+              ...currentAsset.content,
               url: imageUrl,
               caption: captionFields.body,
               headline: captionFields.headline,
@@ -1238,7 +1368,15 @@ export function createMarketingStudioHandler(deps = {}) {
               // revision that would replace an uploaded photo with an AI
               // one, so this can only ever still be true here, never
               // silently flipped to false by a revision that touched it.
-              user_uploaded_photo: userUploadedPhoto
+              user_uploaded_photo: userUploadedPhoto,
+              // Batch 4, Part B/D/E: the canonical concept this revision
+              // inherited (or, for an explicit concept change, the same
+              // concept with only the named fields updated) — see
+              // buildRevisedConcept above.
+              canonical_concept: imageRevisedConcept.concept,
+              ...(imageRevisedConcept.changedFields.length
+                ? { concept_change: { changed_fields: imageRevisedConcept.changedFields, reason: instruction } }
+                : {})
             },
             mediaId,
             parentAssetId: currentAsset.id,
@@ -1291,6 +1429,31 @@ export function createMarketingStudioHandler(deps = {}) {
           // asset's own revision path already gives its caption.
           const priorCaption = currentAsset.content?.caption || "";
           const imageOnlyRevision = instructionAffectsFlyerImage(instruction) && !instructionAffectsFlyerWording(instruction);
+          // Batch 4, Part D/E/I: a legacy-shaped ({objective, isSympathy})
+          // preview of what this revision's own concept target actually
+          // is — the parent's concept unless the instruction explicitly
+          // asks to change occasion/sympathy/objective/promotion, in which
+          // case the NEW target, computed the same way buildRevisedConcept
+          // will below. Needed early (before the flyer text is generated)
+          // so the newly generated text can be checked for coherence
+          // against the concept it's actually supposed to match, reusing
+          // the existing detectConceptCoherenceMismatch/
+          // detectCtaCoherenceMismatch detectors rather than a new one.
+          const conceptPreview = (() => {
+            if (!parentConcept) return null;
+            if (!conceptChangeRequest.changed) return legacyConceptView(parentConcept);
+            const fields = conceptChangeRequest.fields;
+            let objective = parentConcept.objective;
+            let isSympathy = parentConcept.sympathyClassification === "sympathy";
+            if (fields.includes("occasionCategory") || fields.includes("sympathyClassification")) {
+              isSympathy = BEREAVEMENT_CONTEXT_RE.test(instruction);
+            }
+            if (fields.includes("objective") || fields.includes("promotionIntent")) {
+              const realPromotion = requestSignalsRealPromotion(instruction);
+              objective = realPromotion ? "promotion" : parentConcept.objective === "promotion" ? "awareness" : parentConcept.objective;
+            }
+            return { objective, isSympathy };
+          })();
           let gen;
           if (imageOnlyRevision) {
             gen = {
@@ -1390,6 +1553,12 @@ export function createMarketingStudioHandler(deps = {}) {
               shopEvidence: { name: shopName, phone: shopRow.data?.phone },
               inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
               candidate: flyerGen.content,
+              // Batch 4, Part I: the same coherence checks generate_content
+              // already runs against its own newly-built concept, now run
+              // here too — a wording revision must never silently drift the
+              // flyer text away from the concept it's actually supposed to
+              // still match (or, for an explicit change, the new target).
+              canonicalConcept: conceptPreview,
               component: "flyer_text",
               isRetryAttempt: true
             });
@@ -1515,6 +1684,12 @@ export function createMarketingStudioHandler(deps = {}) {
           const finalBackgroundUrl = backgroundFields.background_url || currentAsset.content?.background_url;
           const generativeImageUsed = finalStyleTier === "generated" && Boolean(finalBackgroundUrl);
 
+          const flyerRevisedConcept = buildRevisedConcept({
+            ctaText: flyerFields.cta,
+            bodyText: `${flyerFields.body || ""} ${gen.content.body || ""}`,
+            photoStrategy: currentAsset.content?.photo_strategy || null,
+            styleTier: finalStyleTier
+          });
           const persisted = await persistGeneratedAsset(client, {
             shopId,
             userId: user.id,
@@ -1535,6 +1710,13 @@ export function createMarketingStudioHandler(deps = {}) {
               visual_traits_used: gen.content.visual_traits_used,
               revision_instruction: instruction,
               revision_traits: appliedTraits,
+              // Batch 4, Part B/D/E: the canonical concept this revision
+              // inherited, or — for an explicit concept change — the same
+              // concept with only the named fields updated.
+              canonical_concept: flyerRevisedConcept.concept,
+              ...(flyerRevisedConcept.changedFields.length
+                ? { concept_change: { changed_fields: flyerRevisedConcept.changedFields, reason: instruction } }
+                : {}),
               ...(renderStale ? { url: null, storage_path: null, mime: null, width: null, height: null, render_status: null, rendered_at: null } : {})
             },
             parentAssetId: currentAsset.id,
@@ -1600,9 +1782,18 @@ export function createMarketingStudioHandler(deps = {}) {
             if (videoEval.reasons.length) {
               return json(400, { error: "That revision came back with wording Lily can't safely use yet — nothing was changed. Try rephrasing the request." });
             }
+            const videoRevisedConcept = buildRevisedConcept({ bodyText: newText });
             const persisted = await persistGeneratedAsset(client, {
               shopId, userId: user.id, persona: "Lily", assetType: "video_concept", model: gen.model,
-              content: { ...gen.content, revision_instruction: instruction, revision_traits: appliedTraits },
+              content: {
+                ...gen.content,
+                revision_instruction: instruction,
+                revision_traits: appliedTraits,
+                canonical_concept: videoRevisedConcept.concept,
+                ...(videoRevisedConcept.changedFields.length
+                  ? { concept_change: { changed_fields: videoRevisedConcept.changedFields, reason: instruction } }
+                  : {})
+              },
               parentAssetId: currentAsset.id, status: "completed"
             });
             if (!persisted.ok) throw new Error(persisted.error);
@@ -1656,12 +1847,17 @@ export function createMarketingStudioHandler(deps = {}) {
             gen.content.body = socialCopyEval.safeCandidate.body;
             gen.content.cta = socialCopyEval.safeCandidate.cta;
           }
+          const socialRevisedConcept = buildRevisedConcept({ ctaText: gen.content.cta, bodyText: gen.content.body });
           const persisted = await persistGeneratedAsset(client, {
             shopId, userId: user.id, persona: "Lily", assetType: "social_copy", provider: "cloudflare", model: gen.model,
             content: {
               headline: gen.content.headline, body: gen.content.body, cta: gen.content.cta, hashtags: gen.content.hashtags,
               brand_traits_used: gen.content.brand_traits_used, visual_traits_used: gen.content.visual_traits_used,
-              revision_instruction: instruction, revision_traits: appliedTraits
+              revision_instruction: instruction, revision_traits: appliedTraits,
+              canonical_concept: socialRevisedConcept.concept,
+              ...(socialRevisedConcept.changedFields.length
+                ? { concept_change: { changed_fields: socialRevisedConcept.changedFields, reason: instruction } }
+                : {})
             },
             parentAssetId: currentAsset.id, status: "completed"
           });
@@ -2306,6 +2502,26 @@ export function createMarketingStudioHandler(deps = {}) {
             await revertToIdea();
             return json(400, { error: gen.error });
           }
+          // Batch 4 ("persisted canonical concept + revision enforcement"):
+          // the video branch runs before the richer `concept` object below
+          // is ever built (no copyGen/objective exists yet for a video
+          // request), so its own canonical concept is derived directly from
+          // the same real signals available here — the request text, the
+          // model's own one-sentence pitch as the closest thing to a
+          // primary subject, and the same bereavement detector every other
+          // branch uses. Never a duplicate concept system: same module,
+          // same enums, same classifiers.
+          const videoCanonicalConcept = buildCanonicalConcept({
+            requestText: currentItem.data.brief,
+            occasionTitle: currentItem.data.title,
+            platform: primaryPlatform,
+            contentType: currentItem.data.content_type,
+            assetType: "video_concept",
+            primarySubject: gen.content.concept || null,
+            bodyText: gen.content.script || "",
+            isSympathy: BEREAVEMENT_CONTEXT_RE.test(currentItem.data.brief),
+            invGroundedCount: inventorySources.length
+          });
           const persisted = await persistGeneratedAsset(client, {
             shopId,
             userId: user.id,
@@ -2316,7 +2532,7 @@ export function createMarketingStudioHandler(deps = {}) {
             // grounded_in_inventory: the same real-source-list convention
             // compound.generateImage already records — [] when nothing was
             // available to ground on, never a guess at what the model used.
-            content: { ...gen.content, grounded_in_inventory: inventorySources },
+            content: { ...gen.content, grounded_in_inventory: inventorySources, canonical_concept: videoCanonicalConcept },
             status: "completed"
           });
           if (!persisted.ok) {
@@ -2652,6 +2868,38 @@ export function createMarketingStudioHandler(deps = {}) {
           isSympathy: BEREAVEMENT_CONTEXT_RE.test(`${currentItem.data.brief} ${copyGen.content?.body || ""}`)
         };
 
+        // Batch 4 ("persisted canonical concept + revision enforcement",
+        // Part A/B/C): `concept` above is the existing, already-tested
+        // ad-hoc contract between the caption call and generateFlyerCopy —
+        // deliberately left untouched. This builds the richer, PERSISTED
+        // canonical concept from the exact same real signals, once per
+        // branch below, at the point each branch actually knows its own
+        // real assetType/photoStrategy/styleTier — never guessed ahead of
+        // time, never a second competing concept system. This is what
+        // caption, flyer, image, and CTA all end up sharing on the
+        // persisted asset, and what every future revision must inherit
+        // from (see marketing-canonical-concept.js).
+        function buildConceptForAsset({ assetType, ctaText = null, bodyText = "", photoStrategy = null, styleTier = null, userUploadedPhoto: uploadedPhoto = false, reusedFromAssetId = null }) {
+          return buildCanonicalConcept({
+            requestText: currentItem.data.brief,
+            occasionTitle: currentItem.data.title,
+            platform: primaryPlatform,
+            contentType: currentItem.data.content_type,
+            assetType,
+            objective: concept.objective,
+            primarySubject: concept.primarySubject,
+            ctaText,
+            bodyText,
+            isSympathy: concept.isSympathy,
+            creativeBrief: copyGen.content?.creative_brief || null,
+            photoStrategy,
+            styleTier,
+            userUploadedPhoto: uploadedPhoto,
+            reusedFromAssetId,
+            invGroundedCount: (inventorySources || []).length
+          });
+        }
+
         // Every flyer-typed asset needs its own real on-image wording
         // (headline/body/cta) — a SEPARATE generation call from the
         // Facebook caption above, checked independently for the same
@@ -2951,7 +3199,17 @@ export function createMarketingStudioHandler(deps = {}) {
                 // recorded anyway so the client poster renderer and any
                 // pre-existing rows from the earlier "every post" period
                 // still read back consistently.
-                photo_strategy: "calm_backdrop"
+                photo_strategy: "calm_backdrop",
+                // Batch 4, Part B: the one persisted canonical concept this
+                // flyer, its caption, and its image all actually share —
+                // see buildConceptForAsset above.
+                canonical_concept: buildConceptForAsset({
+                  assetType: "flyer",
+                  ctaText: flyerGen.content.cta,
+                  bodyText: flyerGen.content.body,
+                  photoStrategy: "calm_backdrop",
+                  styleTier: backgroundGen.ok ? "generated" : "template"
+                })
               },
               mediaId: null,
               status: "completed"
@@ -3212,7 +3470,21 @@ export function createMarketingStudioHandler(deps = {}) {
                 // for a fresh upload or a fresh AI generation, the source
                 // asset's own id when this photo is a reuse of one already
                 // uploaded for an earlier post.
-                reused_from_asset_id: reusedFromAssetId
+                reused_from_asset_id: reusedFromAssetId,
+                // Batch 4, Part B/K: the one persisted canonical concept
+                // this flyer, its caption, and its image all actually
+                // share — assetRoute derives from the exact same real
+                // photo-choice signals (userUploadedPhoto/reusedFromAssetId/
+                // styleTier) already computed above for this branch.
+                canonical_concept: buildConceptForAsset({
+                  assetType: "flyer",
+                  ctaText: flyerGen.content.cta,
+                  bodyText: flyerGen.content.body,
+                  photoStrategy: "subject_forward",
+                  styleTier: userUploadedPhoto ? "upload" : imageGen.styleTier || "generated",
+                  userUploadedPhoto,
+                  reusedFromAssetId
+                })
               },
               mediaId: mediaRow.data?.id || null,
               status: "completed"
@@ -3246,7 +3518,17 @@ export function createMarketingStudioHandler(deps = {}) {
               brand_traits_used: copyGen.content.brand_traits_used,
               visual_traits_used: copyGen.content.visual_traits_used,
               grounded_in_inventory: inventorySources,
-              objective: concept.objective
+              objective: concept.objective,
+              // Batch 4, Part B: text_post has no image/flyer sibling, but
+              // still gets the same persisted canonical concept — a later
+              // "make it shorter" revision, or an explicit "turn this into
+              // a sympathy post" change, needs the same real contract to
+              // inherit from as every other asset type.
+              canonical_concept: buildConceptForAsset({
+                assetType: "social_copy",
+                ctaText: copyGen.content.cta,
+                bodyText: copyGen.content.body
+              })
             },
             status: "completed"
           });
