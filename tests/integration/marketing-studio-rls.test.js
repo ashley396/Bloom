@@ -10,6 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import pg from "pg";
+import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
@@ -513,5 +514,619 @@ test("Patch schema check: marketing_platform_variants has the new composite fore
     assert.equal(rows.length, 1);
     assert.equal(rows[0].contype, "f");
     assert.equal(rows[0].referenced_table, "marketing_content_items");
+  });
+});
+
+// ---------------------------------------------------------------------
+// Final tenant-integrity patch (20260903000000_marketing_usage_and_
+// clone_video_shop_integrity.sql): the same class of gap on
+// marketing_generation_usage.content_item_id and
+// marketing_clone_video_jobs.content_item_id/.platform_variant_id,
+// discovered and reported (not fixed) by the prior patch's own migration
+// comments. Required tests 1-32.
+// ---------------------------------------------------------------------
+
+async function seedForFinalPatch(client) {
+  const ids = await seed(client);
+  const secondVariantA = await client.query(
+    `insert into public.marketing_platform_variants (shop_id, content_item_id, platform, caption) values ($1, $2, 'youtube', 'A second variant') returning id`,
+    [SHOP_A, ids.itemA]
+  );
+  const secondVariantB = await client.query(
+    `insert into public.marketing_platform_variants (shop_id, content_item_id, platform, caption) values ($1, $2, 'youtube', 'B second variant') returning id`,
+    [SHOP_B, ids.itemB]
+  );
+  const variantAResult = await client.query(`select id from public.marketing_platform_variants where shop_id = $1 and platform = 'facebook'`, [SHOP_A]);
+  const variantBResult = await client.query(`select id from public.marketing_platform_variants where shop_id = $1 and platform = 'facebook'`, [SHOP_B]);
+  return {
+    ...ids,
+    variantA: variantAResult.rows[0].id,
+    variantB: variantBResult.rows[0].id,
+    variantA2: secondVariantA.rows[0].id,
+    variantB2: secondVariantB.rows[0].id
+  };
+}
+
+// ── marketing_generation_usage.content_item_id (tests 1-8) ────────────
+
+// 1. Shop A usage -> Shop A content succeeds.
+test("Final patch test 1: Shop A usage row referencing Shop A's own content item succeeds", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    const result = await asRole(client, "authenticated", USER_A, (c) =>
+      c.query(
+        `insert into public.marketing_generation_usage (shop_id, content_item_id, provider, purpose, unit_type, units) values ($1, $2, 'cloudflare', 'copy', 'request', 1) returning id`,
+        [SHOP_A, ids.itemA]
+      )
+    );
+    assert.equal(result.rows.length, 1);
+  });
+});
+
+// 2. Shop B usage -> Shop B content succeeds.
+test("Final patch test 2: Shop B usage row referencing Shop B's own content item succeeds", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    const result = await asRole(client, "authenticated", USER_B, (c) =>
+      c.query(
+        `insert into public.marketing_generation_usage (shop_id, content_item_id, provider, purpose, unit_type, units) values ($1, $2, 'cloudflare', 'copy', 'request', 1) returning id`,
+        [SHOP_B, ids.itemB]
+      )
+    );
+    assert.equal(result.rows.length, 1);
+  });
+});
+
+// 3. Shop A usage -> Shop B content fails at DB level.
+test("Final patch test 3: Shop A usage row referencing Shop B's content item fails at the database level", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    await assert.rejects(
+      () =>
+        asRole(client, "authenticated", USER_A, (c) =>
+          c.query(`insert into public.marketing_generation_usage (shop_id, content_item_id, provider, purpose, unit_type, units) values ($1, $2, 'cloudflare', 'copy', 'request', 1)`, [
+            SHOP_A,
+            ids.itemB
+          ])
+        ),
+      /marketing_generation_usage_content_item_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// 4. Shop B usage -> Shop A content fails at DB level.
+test("Final patch test 4: Shop B usage row referencing Shop A's content item fails at the database level", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    await assert.rejects(
+      () =>
+        asRole(client, "authenticated", USER_B, (c) =>
+          c.query(`insert into public.marketing_generation_usage (shop_id, content_item_id, provider, purpose, unit_type, units) values ($1, $2, 'cloudflare', 'copy', 'request', 1)`, [
+            SHOP_B,
+            ids.itemA
+          ])
+        ),
+      /marketing_generation_usage_content_item_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// 5. NULL content_item_id remains valid.
+test("Final patch test 5: a usage row with NULL content_item_id remains valid — the relationship stays nullable", async () => {
+  await withClient(async (client) => {
+    await seedForFinalPatch(client);
+    const result = await asRole(client, "authenticated", USER_A, (c) =>
+      c.query(`insert into public.marketing_generation_usage (shop_id, content_item_id, provider, purpose, unit_type, units) values ($1, null, 'cloudflare', 'copy', 'request', 1) returning id`, [
+        SHOP_A
+      ])
+    );
+    assert.equal(result.rows.length, 1);
+  });
+});
+
+// 6. Same-shop reassignment succeeds.
+test("Final patch test 6: reassigning a usage row's content_item_id to a DIFFERENT content item within the SAME shop succeeds", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    const secondItemA = await client.query(
+      `insert into public.marketing_content_items (shop_id, content_type, title, status) values ($1, 'text_post', 'Shop A second post', 'draft') returning id`,
+      [SHOP_A]
+    );
+    const usageRow = await asRole(client, "authenticated", USER_A, (c) =>
+      c.query(`insert into public.marketing_generation_usage (shop_id, content_item_id, provider, purpose, unit_type, units) values ($1, $2, 'cloudflare', 'copy', 'request', 1) returning id`, [
+        SHOP_A,
+        ids.itemA
+      ])
+    );
+    const upd = await asRole(client, "authenticated", USER_A, (c) =>
+      c.query(`update public.marketing_generation_usage set content_item_id = $1 where id = $2`, [secondItemA.rows[0].id, usageRow.rows[0].id])
+    );
+    assert.equal(upd.rowCount, 1, "a legitimate same-shop reassignment must succeed");
+  });
+});
+
+// 7. Cross-shop reassignment fails.
+test("Final patch test 7: reassigning an existing Shop A usage row to point at Shop B's content item fails at the database level", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    const usageRow = await asRole(client, "authenticated", USER_A, (c) =>
+      c.query(`insert into public.marketing_generation_usage (shop_id, content_item_id, provider, purpose, unit_type, units) values ($1, $2, 'cloudflare', 'copy', 'request', 1) returning id`, [
+        SHOP_A,
+        ids.itemA
+      ])
+    );
+    await assert.rejects(
+      () =>
+        asRole(client, "authenticated", USER_A, (c) =>
+          c.query(`update public.marketing_generation_usage set content_item_id = $1 where id = $2`, [ids.itemB, usageRow.rows[0].id])
+        ),
+      /marketing_generation_usage_content_item_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// 8. Service role cannot bypass the composite FK.
+test("Final patch test 8: service_role (which bypasses RLS by design) still cannot violate the usage-ledger cross-shop foreign key", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    await assert.rejects(
+      () =>
+        asRole(client, "service_role", null, (c) =>
+          c.query(`insert into public.marketing_generation_usage (shop_id, content_item_id, provider, purpose, unit_type, units) values ($1, $2, 'cloudflare', 'copy', 'request', 1)`, [
+            SHOP_A,
+            ids.itemB
+          ])
+        ),
+      /marketing_generation_usage_content_item_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// ── marketing_clone_video_jobs.content_item_id (tests 9-14) ───────────
+
+// 9. Shop A job -> Shop A content succeeds.
+test("Final patch test 9: Shop A clone-video job referencing Shop A's own content item succeeds", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    const result = await asRole(client, "authenticated", USER_A, (c) =>
+      c.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, content_item_id) values ($1, 'heygen', 'job-a1', $2) returning id`, [SHOP_A, ids.itemA])
+    );
+    assert.equal(result.rows.length, 1);
+  });
+});
+
+// 10. Shop A job -> Shop B content fails.
+test("Final patch test 10: Shop A clone-video job referencing Shop B's content item fails at the database level", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    await assert.rejects(
+      () =>
+        asRole(client, "authenticated", USER_A, (c) =>
+          c.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, content_item_id) values ($1, 'heygen', 'job-a2', $2)`, [SHOP_A, ids.itemB])
+        ),
+      /marketing_clone_video_jobs_content_item_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// 11. Shop B job -> Shop A content fails.
+test("Final patch test 11: Shop B clone-video job referencing Shop A's content item fails at the database level", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    await assert.rejects(
+      () =>
+        asRole(client, "authenticated", USER_B, (c) =>
+          c.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, content_item_id) values ($1, 'heygen', 'job-b1', $2)`, [SHOP_B, ids.itemA])
+        ),
+      /marketing_clone_video_jobs_content_item_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// 12. NULL content_item_id remains valid.
+test("Final patch test 12: a clone-video job with NULL content_item_id remains valid", async () => {
+  await withClient(async (client) => {
+    await seedForFinalPatch(client);
+    const result = await asRole(client, "authenticated", USER_A, (c) =>
+      c.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, content_item_id) values ($1, 'heygen', 'job-a3', null) returning id`, [SHOP_A])
+    );
+    assert.equal(result.rows.length, 1);
+  });
+});
+
+// 13. Cross-shop reassignment fails.
+test("Final patch test 13: reassigning a clone-video job's content_item_id to Shop B's content item fails at the database level", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    const jobRow = await asRole(client, "authenticated", USER_A, (c) =>
+      c.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, content_item_id) values ($1, 'heygen', 'job-a4', $2) returning id`, [SHOP_A, ids.itemA])
+    );
+    await assert.rejects(
+      () =>
+        asRole(client, "authenticated", USER_A, (c) =>
+          c.query(`update public.marketing_clone_video_jobs set content_item_id = $1 where id = $2`, [ids.itemB, jobRow.rows[0].id])
+        ),
+      /marketing_clone_video_jobs_content_item_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// 14. Service role cannot bypass the FK.
+test("Final patch test 14: service_role still cannot violate the clone-video-job content_item_id cross-shop foreign key", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    await assert.rejects(
+      () =>
+        asRole(client, "service_role", null, (c) =>
+          c.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, content_item_id) values ($1, 'heygen', 'job-a5', $2)`, [SHOP_A, ids.itemB])
+        ),
+      /marketing_clone_video_jobs_content_item_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// ── marketing_clone_video_jobs.platform_variant_id (tests 15-20) ──────
+
+// 15. Shop A job -> Shop A variant succeeds.
+test("Final patch test 15: Shop A clone-video job referencing Shop A's own platform variant succeeds", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    const result = await asRole(client, "authenticated", USER_A, (c) =>
+      c.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, platform_variant_id) values ($1, 'heygen', 'job-v1', $2) returning id`, [
+        SHOP_A,
+        ids.variantA
+      ])
+    );
+    assert.equal(result.rows.length, 1);
+  });
+});
+
+// 16. Shop A job -> Shop B variant fails.
+test("Final patch test 16: Shop A clone-video job referencing Shop B's platform variant fails at the database level", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    await assert.rejects(
+      () =>
+        asRole(client, "authenticated", USER_A, (c) =>
+          c.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, platform_variant_id) values ($1, 'heygen', 'job-v2', $2)`, [SHOP_A, ids.variantB])
+        ),
+      /marketing_clone_video_jobs_platform_variant_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// 17. Shop B job -> Shop A variant fails.
+test("Final patch test 17: Shop B clone-video job referencing Shop A's platform variant fails at the database level", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    await assert.rejects(
+      () =>
+        asRole(client, "authenticated", USER_B, (c) =>
+          c.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, platform_variant_id) values ($1, 'heygen', 'job-v3', $2)`, [SHOP_B, ids.variantA])
+        ),
+      /marketing_clone_video_jobs_platform_variant_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// 18. NULL platform_variant_id remains valid.
+test("Final patch test 18: a clone-video job with NULL platform_variant_id remains valid", async () => {
+  await withClient(async (client) => {
+    await seedForFinalPatch(client);
+    const result = await asRole(client, "authenticated", USER_A, (c) =>
+      c.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, platform_variant_id) values ($1, 'heygen', 'job-v4', null) returning id`, [SHOP_A])
+    );
+    assert.equal(result.rows.length, 1);
+  });
+});
+
+// 19. Cross-shop reassignment fails.
+test("Final patch test 19: reassigning a clone-video job's platform_variant_id to Shop B's variant fails at the database level", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    const jobRow = await asRole(client, "authenticated", USER_A, (c) =>
+      c.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, platform_variant_id) values ($1, 'heygen', 'job-v5', $2) returning id`, [
+        SHOP_A,
+        ids.variantA
+      ])
+    );
+    await assert.rejects(
+      () =>
+        asRole(client, "authenticated", USER_A, (c) =>
+          c.query(`update public.marketing_clone_video_jobs set platform_variant_id = $1 where id = $2`, [ids.variantB, jobRow.rows[0].id])
+        ),
+      /marketing_clone_video_jobs_platform_variant_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// 20. Service role cannot bypass the FK.
+test("Final patch test 20: service_role still cannot violate the clone-video-job platform_variant_id cross-shop foreign key", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    await assert.rejects(
+      () =>
+        asRole(client, "service_role", null, (c) =>
+          c.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, platform_variant_id) values ($1, 'heygen', 'job-v6', $2)`, [SHOP_A, ids.variantB])
+        ),
+      /marketing_clone_video_jobs_platform_variant_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// ── Migration safety (tests 21-27) ─────────────────────────────────────
+
+// 21. Full Marketing migration chain applies cleanly.
+test("Final patch test 21: the full Marketing migration chain, including this final patch, applies cleanly on a fresh disposable database", () => {
+  const out = applyMigrations();
+  assert.match(out, /Marketing Studio RLS schema applied successfully/);
+  assert.match(out, /20260903000000_marketing_usage_and_clone_video_shop_integrity\.sql\.\.\. ok/);
+});
+
+// 22. Batch 2 usage-ledger migration still applies cleanly.
+test("Final patch test 22: Batch 2's usage-ledger extension migration still applies cleanly alongside this final patch", async () => {
+  await withClient(async (client) => {
+    const { rows } = await client.query(`
+      select column_name from information_schema.columns
+      where table_schema = 'public' and table_name = 'marketing_generation_usage'
+        and column_name in ('model', 'operation', 'trace_id', 'operation_id', 'attempt_index', 'provider_request_id', 'cost_source')
+    `);
+    assert.equal(rows.length, 7);
+  });
+});
+
+// 23. Prior platform-variant integrity migration still applies cleanly.
+test("Final patch test 23: the prior marketing_platform_variants integrity migration's constraints still exist alongside this final patch", async () => {
+  await withClient(async (client) => {
+    const { rows } = await client.query(`
+      select conname from pg_constraint
+      where conname in ('marketing_content_items_id_shop_id_key', 'marketing_platform_variants_content_item_shop_fkey')
+    `);
+    assert.equal(rows.length, 2);
+  });
+});
+
+// 24. New constraints exist after migration.
+test("Final patch test 24: all four new constraints from this final patch genuinely exist", async () => {
+  await withClient(async (client) => {
+    const { rows } = await client.query(`
+      select conname, conrelid::regclass::text as table_name, contype
+      from pg_constraint
+      where conname in (
+        'marketing_platform_variants_id_shop_id_key',
+        'marketing_generation_usage_content_item_shop_fkey',
+        'marketing_clone_video_jobs_content_item_shop_fkey',
+        'marketing_clone_video_jobs_platform_variant_shop_fkey'
+      )
+      order by conname
+    `);
+    assert.equal(rows.length, 4);
+    const byName = Object.fromEntries(rows.map((r) => [r.conname, r]));
+    assert.equal(byName.marketing_platform_variants_id_shop_id_key.contype, "u");
+    assert.equal(byName.marketing_generation_usage_content_item_shop_fkey.contype, "f");
+    assert.equal(byName.marketing_clone_video_jobs_content_item_shop_fkey.contype, "f");
+    assert.equal(byName.marketing_clone_video_jobs_platform_variant_shop_fkey.contype, "f");
+  });
+});
+
+// 25. Existing valid seeded rows survive unchanged.
+test("Final patch test 25: existing valid same-shop rows survive the migration unchanged", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    // seed() itself already inserts one valid same-shop
+    // marketing_generation_usage row per shop — confirm both are still
+    // present and unmodified after the full chain (including this
+    // patch) has applied.
+    const { rows } = await client.query(`select shop_id, content_item_id from public.marketing_generation_usage where shop_id in ($1, $2) order by shop_id`, [SHOP_A, SHOP_B]);
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0].shop_id, SHOP_A);
+    assert.equal(rows[0].content_item_id, ids.itemA);
+    assert.equal(rows[1].shop_id, SHOP_B);
+    assert.equal(rows[1].content_item_id, ids.itemB);
+  });
+});
+
+// 26. Deliberately seeded violating legacy row causes fail-loud rollback.
+// Exercised directly against the migration file's own SQL (not through
+// the disposable-DB reset helper, since that always starts from a clean
+// state) — mirrors exactly how the prior patch's own equivalent proof
+// was done, and how this migration was manually verified before writing
+// this test file (see the completion report).
+test("Final patch test 26: a deliberately seeded cross-shop legacy row causes the migration to fail loudly with the exact violating count", async () => {
+  await withClient(async (client) => {
+    // Reset to the state immediately BEFORE this final patch (through
+    // 20260902000000), then seed one violating row per relationship.
+    await client.query(`
+      drop schema if exists public cascade;
+      drop schema if exists auth cascade;
+      drop schema if exists storage cascade;
+      create schema public;
+      grant all on schema public to public;
+    `);
+    const preFiles = [
+      "tests/fixtures/marketing-rls-bootstrap.sql",
+      "supabase/migrations/20260820020000_ai_operating_system_v1.sql",
+      "supabase/migrations/20260823000000_marketing_studio_foundation_v1.sql",
+      "supabase/migrations/20260824000000_creative_ai_webhook_disclosure_media.sql",
+      "supabase/migrations/20260901000000_marketing_generation_usage_ledger_extension.sql",
+      "supabase/migrations/20260902000000_marketing_platform_variants_shop_integrity.sql"
+    ];
+    for (const f of preFiles) {
+      await client.query(fs.readFileSync(f, "utf8"));
+    }
+    await client.query(`insert into public.shops (id, name) values ($1, 'Shop A'), ($2, 'Shop B')`, [SHOP_A, SHOP_B]);
+    const itemB = await client.query(`insert into public.marketing_content_items (shop_id, content_type, title, status) values ($1, 'text_post', 'B', 'draft') returning id`, [SHOP_B]);
+    await client.query(`insert into public.marketing_generation_usage (shop_id, content_item_id, provider, purpose, unit_type, units) values ($1, $2, 'cloudflare', 'copy', 'request', 1)`, [
+      SHOP_A,
+      itemB.rows[0].id
+    ]);
+
+    const migrationSql = fs.readFileSync("supabase/migrations/20260903000000_marketing_usage_and_clone_video_shop_integrity.sql", "utf8");
+    await assert.rejects(() => client.query(migrationSql), /existing row\(s\) already reference a content item belonging to a DIFFERENT shop/i);
+  });
+});
+
+// 27. No partial constraint changes remain after failed migration.
+test("Final patch test 27: no partial constraint is left behind after the migration fails on legacy violating data", async () => {
+  await withClient(async (client) => {
+    // Continues directly from test 26's now-failed-and-rolled-back state
+    // (same client/session) — the failed migration's own transaction
+    // rolled back atomically, so none of its constraints exist yet.
+    const { rows } = await client.query(`
+      select conname from pg_constraint
+      where conname in (
+        'marketing_platform_variants_id_shop_id_key',
+        'marketing_generation_usage_content_item_shop_fkey',
+        'marketing_clone_video_jobs_content_item_shop_fkey',
+        'marketing_clone_video_jobs_platform_variant_shop_fkey'
+      )
+    `);
+    assert.equal(rows.length, 0, "none of this migration's new constraints may exist after it failed and rolled back");
+    // Restore a genuinely clean, fully-migrated state for any test that
+    // might run after this one in the same process.
+    applyMigrations();
+  });
+});
+
+// ── RLS regression (tests 28-32) ───────────────────────────────────────
+
+// 28. Shop A cannot read Shop B data (usage + clone-video jobs, on top of
+// the existing content-item/asset/variant coverage above).
+test("Final patch test 28: Shop A cannot read Shop B's usage-ledger or clone-video-job rows after this patch", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    await client.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, content_item_id) values ($1, 'heygen', 'job-rls-b', $2)`, [SHOP_B, ids.itemB]);
+    const usageAsA = await asRole(client, "authenticated", USER_A, (c) => c.query(`select shop_id from public.marketing_generation_usage`));
+    assert.ok(usageAsA.rows.every((r) => r.shop_id === SHOP_A));
+    const jobsAsA = await asRole(client, "authenticated", USER_A, (c) => c.query(`select shop_id from public.marketing_clone_video_jobs`));
+    assert.ok(jobsAsA.rows.every((r) => r.shop_id === SHOP_A));
+  });
+});
+
+// 29. Shop A cannot mutate Shop B rows.
+test("Final patch test 29: Shop A cannot update or delete Shop B's clone-video-job row — RLS blocks the mutation", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    const jobB = await client.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, content_item_id) values ($1, 'heygen', 'job-rls-mut', $2) returning id`, [
+      SHOP_B,
+      ids.itemB
+    ]);
+    const upd = await asRole(client, "authenticated", USER_A, (c) => c.query(`update public.marketing_clone_video_jobs set status = 'failed' where id = $1`, [jobB.rows[0].id]));
+    assert.equal(upd.rowCount, 0, "Shop A must affect zero rows when targeting Shop B's clone-video job");
+  });
+});
+
+// 30. Usage ledger remains shop-scoped.
+test("Final patch test 30: the usage ledger remains fully shop-scoped under RLS after this patch — each shop sees only its own rows", async () => {
+  await withClient(async (client) => {
+    await seedForFinalPatch(client);
+    const asB = await asRole(client, "authenticated", USER_B, (c) => c.query(`select shop_id from public.marketing_generation_usage`));
+    assert.ok(asB.rows.length > 0 && asB.rows.every((r) => r.shop_id === SHOP_B));
+  });
+});
+
+// 31. Clone-video jobs remain shop-scoped.
+test("Final patch test 31: clone-video jobs remain fully shop-scoped under RLS after this patch", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    await client.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, content_item_id) values ($1, 'heygen', 'job-rls-scope-a', $2)`, [SHOP_A, ids.itemA]);
+    await client.query(`insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, content_item_id) values ($1, 'heygen', 'job-rls-scope-b', $2)`, [SHOP_B, ids.itemB]);
+    const asA = await asRole(client, "authenticated", USER_A, (c) => c.query(`select shop_id from public.marketing_clone_video_jobs`));
+    assert.ok(asA.rows.length > 0 && asA.rows.every((r) => r.shop_id === SHOP_A));
+  });
+});
+
+// 32. Existing Marketing RLS tests remain green — proven by this file's
+// own full run (all tests above this section) passing alongside these
+// new ones; no separate assertion needed here beyond confirming the
+// original two-shop content-item isolation still holds after this final
+// patch specifically.
+test("Final patch test 32: pre-existing Marketing RLS isolation (content items) still holds after this final patch", async () => {
+  await withClient(async (client) => {
+    await seedForFinalPatch(client);
+    const asA = await asRole(client, "authenticated", USER_A, (c) => c.query(`select shop_id from public.marketing_content_items`));
+    assert.ok(asA.rows.length > 0 && asA.rows.every((r) => r.shop_id === SHOP_A));
+  });
+});
+
+// ---------------------------------------------------------------------
+// Independent-review finding: the migration's own comments call the
+// column-scoped `on delete set null (<column>)` behavior the trickiest
+// part of this patch — a naive composite `on delete set null` would try
+// to null EVERY column in the FK, including shop_id (not null on both
+// child tables), either throwing outright or corrupting tenant scoping.
+// No test exercised this at all before this addition. These three tests
+// each delete a real parent row and inspect the real child row
+// afterward — proving ONLY the child's own reference column is ever
+// nulled, shop_id is NEVER touched, for every one of the three
+// relationships this patch fixes.
+// ---------------------------------------------------------------------
+
+test("Final patch, ON DELETE regression 1: deleting a marketing_content_items row nulls ONLY marketing_generation_usage.content_item_id — shop_id is never touched", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    const usageRow = await client.query(
+      `insert into public.marketing_generation_usage (shop_id, content_item_id, provider, purpose, unit_type, units) values ($1, $2, 'cloudflare', 'copy', 'request', 1) returning id`,
+      [SHOP_A, ids.itemA]
+    );
+    await client.query(`delete from public.marketing_content_items where id = $1`, [ids.itemA]);
+    const after = await client.query(`select shop_id, content_item_id from public.marketing_generation_usage where id = $1`, [usageRow.rows[0].id]);
+    assert.equal(after.rows.length, 1, "the usage row itself must survive the parent's deletion — never cascaded away");
+    assert.equal(after.rows[0].content_item_id, null, "content_item_id must be nulled");
+    assert.equal(after.rows[0].shop_id, SHOP_A, "shop_id must NEVER be nulled — it is not null and is the tenant-scoping column");
+  });
+});
+
+test("Final patch, ON DELETE regression 2: deleting a marketing_content_items row nulls ONLY marketing_clone_video_jobs.content_item_id — shop_id is never touched", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    const jobRow = await client.query(
+      `insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, content_item_id) values ($1, 'heygen', 'job-del-1', $2) returning id`,
+      [SHOP_A, ids.itemA]
+    );
+    await client.query(`delete from public.marketing_content_items where id = $1`, [ids.itemA]);
+    const after = await client.query(`select shop_id, content_item_id from public.marketing_clone_video_jobs where id = $1`, [jobRow.rows[0].id]);
+    assert.equal(after.rows.length, 1, "the clone-video job row itself must survive the parent's deletion");
+    assert.equal(after.rows[0].content_item_id, null, "content_item_id must be nulled");
+    assert.equal(after.rows[0].shop_id, SHOP_A, "shop_id must NEVER be nulled");
+  });
+});
+
+test("Final patch, ON DELETE regression 3: deleting a marketing_platform_variants row nulls ONLY marketing_clone_video_jobs.platform_variant_id — shop_id is never touched, content_item_id (a separate reference) is unaffected", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    const jobRow = await client.query(
+      `insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, content_item_id, platform_variant_id) values ($1, 'heygen', 'job-del-2', $2, $3) returning id`,
+      [SHOP_A, ids.itemA, ids.variantA]
+    );
+    // Delete only the variant (not its parent content item) — an
+    // isolated delete, not a cascade-through, so this specifically
+    // exercises the platform_variant_id FK's own ON DELETE clause.
+    await client.query(`delete from public.marketing_platform_variants where id = $1`, [ids.variantA]);
+    const after = await client.query(`select shop_id, content_item_id, platform_variant_id from public.marketing_clone_video_jobs where id = $1`, [jobRow.rows[0].id]);
+    assert.equal(after.rows.length, 1, "the clone-video job row itself must survive the variant's deletion");
+    assert.equal(after.rows[0].platform_variant_id, null, "platform_variant_id must be nulled");
+    assert.equal(after.rows[0].content_item_id, ids.itemA, "content_item_id is a SEPARATE reference and must be completely unaffected by the variant's deletion");
+    assert.equal(after.rows[0].shop_id, SHOP_A, "shop_id must NEVER be nulled");
+  });
+});
+
+test("Final patch, ON DELETE regression 4: a content item's cascade-delete of its own variant also correctly nulls only platform_variant_id on any linked clone-video job — never shop_id", async () => {
+  await withClient(async (client) => {
+    const ids = await seedForFinalPatch(client);
+    const jobRow = await client.query(
+      `insert into public.marketing_clone_video_jobs (shop_id, provider, provider_job_id, platform_variant_id) values ($1, 'heygen', 'job-del-3', $2) returning id`,
+      [SHOP_A, ids.variantA]
+    );
+    // Deleting the CONTENT ITEM cascades to delete its own variant
+    // (marketing_platform_variants' existing on delete cascade FK to
+    // marketing_content_items) — which must, in turn, correctly null
+    // this job's platform_variant_id via the SAME column-scoped ON
+    // DELETE SET NULL, never touching shop_id.
+    await client.query(`delete from public.marketing_content_items where id = $1`, [ids.itemA]);
+    const after = await client.query(`select shop_id, platform_variant_id from public.marketing_clone_video_jobs where id = $1`, [jobRow.rows[0].id]);
+    assert.equal(after.rows.length, 1);
+    assert.equal(after.rows[0].platform_variant_id, null, "platform_variant_id must be nulled by the cascade-through deletion");
+    assert.equal(after.rows[0].shop_id, SHOP_A, "shop_id must NEVER be nulled, even via a cascade-through delete");
   });
 });
