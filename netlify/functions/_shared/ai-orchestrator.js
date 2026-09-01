@@ -18,7 +18,8 @@ import {
   generateFlyerContent,
   persistGeneratedAsset
 } from "./ai-creative-engine.js";
-import { generateImage, buildImagePrompt, buildBackgroundPrompt } from "./ai-image-engine.js";
+import { buildImagePrompt, buildBackgroundPrompt } from "./ai-image-engine.js";
+import { runMarketingImageQuality } from "./marketing-image-quality.js";
 import { applyGeneratedWebsiteSection, buildWebsiteSectionPayload } from "./website-campaign-section.js";
 import { pickFlyerTemplate, pickAspectRatio, ASPECT_RATIOS } from "./flyer-templates.js";
 import { applyRevisionDeltas, defaultVisualStyle } from "./ai-visual-revisions.js";
@@ -284,14 +285,28 @@ async function runStep(client, step, ctx) {
       if (sceneEval.decision === "repair") sceneVisualBrief = sceneEval.safeCandidate;
     }
     const prompt = buildImagePrompt({ occasion: routed.occasion, products, shopName: shop?.name, visualBrief: sceneVisualBrief });
-    const gen = await generateImage(client, shopId, { prompt, filename: `${routed.domain || "marketing"}-${Date.now()}.jpg` });
-    if (!gen.ok) {
+    const quality = await runMarketingImageQuality({
+      client,
+      shopId,
+      promptFor: () => prompt,
+      filenameFor: (attempt) => (attempt === 0 ? `${routed.domain || "marketing"}-${Date.now()}.jpg` : `${routed.domain || "marketing"}-${Date.now()}-retry${attempt}.jpg`),
+      visualBrief: sceneVisualBrief,
+      occasion: routed.occasion,
+      usage: { jobId }
+      // No buildFallback: this orchestrator tool has no deterministic
+      // template equivalent to fall back to — a rejected/failed photo here
+      // must be reported honestly as a failed step, exactly as an outright
+      // provider failure already was before this quality gate existed.
+    });
+    if (quality.state !== "PASS") {
+      const error = quality.error || "The generated photo didn't pass Lily's quality check.";
       await persistGeneratedAsset(client, {
         shopId, userId, persona, jobId, campaignId,
-        assetType: "image", model: "unknown", prompt, status: "failed", error: gen.error
+        assetType: "image", model: "unknown", prompt, status: "failed", error
       });
-      return { ok: false, error: gen.error };
+      return { ok: false, error };
     }
+    const gen = quality.gen;
     // The image row itself lives in website_media (uploadWebsiteMedia already
     // inserted nothing there yet — it only uploads bytes; add the metadata
     // row here so it shows up in the Website Studio media library too).
@@ -303,7 +318,7 @@ async function runStep(client, step, ctx) {
     const persisted = await persistGeneratedAsset(client, {
       shopId, userId, persona, jobId, campaignId,
       assetType: "image", provider: gen.provider, model: gen.model, prompt: gen.prompt,
-      content: { url: gen.url }, mediaId: mediaRow?.id || null, status: "completed"
+      content: { url: gen.url, quality_check: quality.check || null }, mediaId: mediaRow?.id || null, status: "completed"
     });
     if (!persisted.ok) return { ok: false, error: persisted.error };
     return { ok: true, result: { asset_id: persisted.asset.id, url: gen.url } };
@@ -335,20 +350,30 @@ async function runStep(client, step, ctx) {
     // whatever this returns; see buildBackgroundPrompt()'s own docstring
     // for why a second subject here would double up in the final image.
     const prompt = buildBackgroundPrompt({ visualBrief: backgroundVisualBrief, brandColor: shop?.primary_color });
-    const gen = await generateImage(client, shopId, { prompt, filename: `background-${Date.now()}.jpg` });
-    if (!gen.ok) {
+    const quality = await runMarketingImageQuality({
+      client,
+      shopId,
+      promptFor: () => prompt,
+      filenameFor: (attempt) => (attempt === 0 ? `background-${Date.now()}.jpg` : `background-${Date.now()}-retry${attempt}.jpg`),
+      visualBrief: backgroundVisualBrief,
+      occasion: routed.occasion,
+      usage: { jobId }
+    });
+    if (quality.state !== "PASS") {
+      const error = quality.error || "The generated background didn't pass Lily's quality check.";
       await persistGeneratedAsset(client, {
         shopId, userId, persona, jobId, campaignId,
-        assetType: "background", model: "unknown", prompt, status: "failed", error: gen.error, parentAssetId: ctx.parentAssetId || null
+        assetType: "background", model: "unknown", prompt, status: "failed", error, parentAssetId: ctx.parentAssetId || null
       });
-      return { ok: false, error: gen.error };
+      return { ok: false, error };
     }
+    const gen = quality.gen;
     const { data: mediaRow } = await client
       .from("website_media")
       .insert({ shop_id: shopId, storage_path: gen.path, filename: gen.path.split("/").pop(), source: "generated", mime: "image/jpeg" })
       .select()
       .single();
-    const content = { url: gen.url, visual_brief: brief.visual_brief, traits_used: brief.traits_used };
+    const content = { url: gen.url, visual_brief: brief.visual_brief, traits_used: brief.traits_used, quality_check: quality.check || null };
     const persisted = await persistGeneratedAsset(client, {
       shopId, userId, persona, jobId, campaignId,
       assetType: "background", provider: gen.provider, model: gen.model, prompt: gen.prompt,
@@ -451,21 +476,31 @@ async function runStep(client, step, ctx) {
       if (!deltas.backgroundHint) {
         return { ok: false, error: "Tell me specifically what to change about the background (a color, a material, a mood) and I'll update it." };
       }
-      const prompt = buildBackgroundPrompt({ visualBrief: `${deltas.backgroundHint} background, matching the same overall composition`, brandColor: shop?.primary_color });
-      const gen = await generateImage(client, shopId, { prompt, filename: `background-${Date.now()}.jpg` });
-      if (!gen.ok) {
+      const backgroundVisualBrief = `${deltas.backgroundHint} background, matching the same overall composition`;
+      const prompt = buildBackgroundPrompt({ visualBrief: backgroundVisualBrief, brandColor: shop?.primary_color });
+      const quality = await runMarketingImageQuality({
+        client,
+        shopId,
+        promptFor: () => prompt,
+        filenameFor: (attempt) => (attempt === 0 ? `background-${Date.now()}.jpg` : `background-${Date.now()}-retry${attempt}.jpg`),
+        visualBrief: backgroundVisualBrief,
+        usage: { jobId }
+      });
+      if (quality.state !== "PASS") {
+        const error = quality.error || "The regenerated background didn't pass Lily's quality check.";
         await persistGeneratedAsset(client, {
           shopId, userId, persona, jobId, campaignId,
-          assetType: "background", model: "unknown", prompt, status: "failed", error: gen.error, parentAssetId: parentId
+          assetType: "background", model: "unknown", prompt, status: "failed", error, parentAssetId: parentId
         });
-        return { ok: false, error: gen.error };
+        return { ok: false, error };
       }
+      const gen = quality.gen;
       const { data: mediaRow } = await client
         .from("website_media")
         .insert({ shop_id: shopId, storage_path: gen.path, filename: gen.path.split("/").pop(), source: "generated", mime: "image/jpeg" })
         .select()
         .single();
-      const content = { url: gen.url, visual_brief: prompt, traits_used: [] };
+      const content = { url: gen.url, visual_brief: prompt, traits_used: [], quality_check: quality.check || null };
       const persisted = await persistGeneratedAsset(client, {
         shopId, userId, persona, jobId, campaignId,
         assetType: "background", provider: gen.provider, model: gen.model, prompt: gen.prompt,

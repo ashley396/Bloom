@@ -304,25 +304,36 @@ REASON: one short sentence`;
 
 export async function assessGeneratedMarketingPhoto(imagePayload, { creativeBrief, visualBrief, occasion } = {}) {
   const imageVariants = await preparedImageVariants(imagePayload);
-  if (!imageVariants) return { ok: false, hasText: false, accepted: true, reason: null };
+  if (!imageVariants) return { ok: false, hasText: false, accepted: true, readable: false, reason: null };
   try {
     const result = await runVisionWithFallback(imageVariants, buildQualityGatePrompt({ creativeBrief, visualBrief, occasion }));
     const text = result.text || "";
-    const hasText = /TEXT:\s*YES/i.test(text);
-    // An unparseable reply (a model that ignored the line format) never
-    // blocks the photo — the same "assume clean rather than hold up a
-    // real photo over an imperfect QA reply" rule this file already
-    // documents on detectInventedTextOnPhoto.
-    const subjectFail = /SUBJECT_MATCH:\s*FAIL/i.test(text);
+    const textMatch = text.match(/TEXT:\s*(YES|NO)/i);
+    const subjectMatch = text.match(/SUBJECT_MATCH:\s*(PASS|FAIL)/i);
+    // Batch 2 addition: `readable` is genuinely distinct from `accepted`
+    // below — a model that ignores the line format entirely (no
+    // recognizable TEXT:/SUBJECT_MATCH: token at all) previously fell
+    // through to `hasText`/`subjectFail` both defaulting to false,
+    // silently resolving to accepted:true — a real, live-found gap: an
+    // UNREADABLE reply was being treated exactly like a genuinely clean
+    // photo. `accepted` itself is left as this file's own existing
+    // graceful-degradation default (never blocks a photo over an
+    // ambiguous parse, for callers that only ever read `accepted`);
+    // `readable` is the new, honest signal a caller that must never fail
+    // OPEN (Batch 2's image-quality gate) checks instead.
+    const readable = Boolean(textMatch && subjectMatch);
+    const hasText = textMatch ? /yes/i.test(textMatch[1]) : false;
+    const subjectFail = subjectMatch ? /fail/i.test(subjectMatch[1]) : false;
     const reasonMatch = text.match(/REASON:\s*(.+)/i);
     return {
       ok: true,
       hasText,
       accepted: !hasText && !subjectFail,
+      readable,
       reason: reasonMatch ? reasonMatch[1].trim().slice(0, 300) : null,
       model: result.model
     };
   } catch {
-    return { ok: false, hasText: false, accepted: true, reason: null };
+    return { ok: false, hasText: false, accepted: true, readable: false, reason: null };
   }
 }

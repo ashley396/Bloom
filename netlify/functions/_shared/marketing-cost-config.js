@@ -44,7 +44,12 @@ export const COST_PER_UNIT_CENTS = Object.freeze({
   // Text/copy generation — cost per request (LLM copy calls are cheap
   // relative to media generation; modeled per-request, not per-token, to
   // keep the ledger simple until real usage data says otherwise).
-  copy_request: 1
+  copy_request: 1,
+
+  // Vision inspection (Batch 2: the image quality gate's own vision call,
+  // florist-ai-vision.js's assessGeneratedMarketingPhoto) — cheap relative
+  // to generating the image itself, modeled per-request like copy above.
+  vision_request: 1
 });
 
 /**
@@ -63,6 +68,8 @@ export function estimateCostCents({ purpose, unitType, units }) {
       ? "voice_per_1000_chars"
       : purpose === "copy"
       ? "copy_request"
+      : purpose === "vision"
+      ? "vision_request"
       : purpose === "video" && unitType === "second"
       ? "video_standard_second"
       : purpose === "image"
@@ -71,7 +78,7 @@ export function estimateCostCents({ purpose, unitType, units }) {
   if (!key) return null;
   const perUnit = COST_PER_UNIT_CENTS[key];
   const unitCount = key === "voice_per_1000_chars" ? Math.ceil((Number(units) || 0) / 1000) : Number(units) || 0;
-  return Math.round(perUnit * Math.max(unitCount, key === "copy_request" ? 1 : 0));
+  return Math.round(perUnit * Math.max(unitCount, key === "copy_request" || key === "vision_request" ? 1 : 0));
 }
 
 /**

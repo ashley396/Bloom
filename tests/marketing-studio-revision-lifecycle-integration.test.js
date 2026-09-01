@@ -67,7 +67,14 @@ function mockCloudflareBoth({ socialPostResult }) {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url) => {
     if (String(url).includes("flux-1-schnell")) {
-      return { ok: true, json: async () => ({ result: { image: TINY_JPEG_BASE64 } }) };
+      return { ok: true, json: async () => ({ success: true, result: { image: TINY_JPEG_BASE64 } }) };
+    }
+    // runMarketingImageQuality's own vision-check call (florist-ai-vision.js,
+    // llava/uform/llama-vision model URLs) must never be confused with the
+    // real text/copy model call — a well-formed PASS reply here, or the
+    // gate correctly treats it as unreadable and never persists the photo.
+    if (/llava|uform|llama-3\.2-11b-vision/i.test(String(url))) {
+      return { ok: true, json: async () => ({ success: true, result: { description: "TEXT: NO\nSUBJECT_MATCH: PASS\nREASON: clean, matches the brief" } }) };
     }
     return { ok: true, json: async () => ({ success: true, result: { response: JSON.stringify(socialPostResult) } }) };
   };
@@ -111,6 +118,10 @@ test("full lifecycle on a pre-existing image asset: revise -> revise -> undo -> 
       { data: { name: "Test Florals" }, error: null }, // shopRow
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
+      { data: { id: "usage-img-b" }, error: null }, // reserveProviderCall(image) insert
+      { data: null, error: null }, // completeProviderCall(image) update
+      { data: { id: "usage-vision-b" }, error: null }, // reserveProviderCall(vision) insert
+      { data: null, error: null }, // completeProviderCall(vision) update
       { data: { id: "media-b" }, error: null }, // website_media insert
       { data: { id: "asset-B" }, error: null }, // persistGeneratedAsset -> B (parent=A)
       { data: null, error: null }, // variant update -> asset B
@@ -190,6 +201,10 @@ test("full lifecycle on a pre-existing image asset: revise -> revise -> undo -> 
       { data: { name: "Test Florals" }, error: null },
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
+      { data: { id: "usage-img-d" }, error: null }, // reserveProviderCall(image) insert
+      { data: null, error: null }, // completeProviderCall(image) update
+      { data: { id: "usage-vision-d" }, error: null }, // reserveProviderCall(vision) insert
+      { data: null, error: null }, // completeProviderCall(vision) update
       { data: { id: "media-d" }, error: null },
       { data: { id: "asset-D" }, error: null }, // persistGeneratedAsset -> D (parent=A, sibling of B)
       { data: null, error: null },

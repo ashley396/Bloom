@@ -75,7 +75,11 @@ test("generate_content: an image_post over budget is refused before the status i
   assert.equal(res.statusCode, 400);
   const body = JSON.parse(res.body);
   assert.match(body.error, /over the \$2\.00 budget cap/);
-  assert.equal(body.would_be_cents, 201); // 196 + 1(copy) + 4(image) = 201 — over the 200-cent cap
+  // Batch 2: the image line item is now a WORST-CASE BOUNDED estimate —
+  // up to 2 real image-generation attempts (4 cents each) and 2 real
+  // vision-inspection calls (1 cent each) before runMarketingImageQuality
+  // ever resolves — not just the cost of one best-case attempt.
+  assert.equal(body.would_be_cents, 207); // 196 + 1(copy) + 8(2 image attempts) + 2(2 vision inspections) = 207 — over the 200-cent cap
   const statusUpdateCall = client.calls.find((c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update"));
   assert.equal(statusUpdateCall, undefined, "the item must never be flipped to 'generating' once the budget gate refuses the request");
 });

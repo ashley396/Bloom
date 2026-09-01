@@ -32,6 +32,15 @@ function installCloudflareRouter({ extraction, socialPost, videoConcept, imageOk
   globalThis.fetch = async (url, opts) => {
     const body = JSON.parse(opts.body);
     calls.push({ url, body });
+    // runMarketingImageQuality's own vision-check call (florist-ai-vision.js,
+    // llava/uform/llama-vision model URLs) — its llava/uform payload shape
+    // ALSO carries a "prompt" key alongside "image", so this must be
+    // checked (by URL/model name, never body shape) BEFORE the raw
+    // image-generation branch below, or every vision call would be
+    // misrouted as another image-generation call.
+    if (/llava|uform|llama-3\.2-11b-vision/i.test(String(url))) {
+      return { ok: true, status: 200, json: async () => ({ success: true, result: { description: "TEXT: NO\nSUBJECT_MATCH: PASS\nREASON: clean, matches the brief" } }) };
+    }
     if (Object.prototype.hasOwnProperty.call(body, "prompt")) {
       // Raw image-generation call (ai-image-engine.js's generateImage).
       if (!imageOk) return { ok: false, status: 500, json: async () => ({ success: false, errors: [{ message: "image provider down" }] }) };
@@ -51,7 +60,10 @@ function installCloudflareRouter({ extraction, socialPost, videoConcept, imageOk
   };
   return {
     calls,
-    imageCallCount: () => calls.filter((c) => Object.prototype.hasOwnProperty.call(c.body, "prompt")).length,
+    // Excludes vision-check calls (llava/uform also carry a top-level
+    // "prompt" key) — a real image-generation call is distinguished by its
+    // model URL, never by body shape alone (see the router above).
+    imageCallCount: () => calls.filter((c) => Object.prototype.hasOwnProperty.call(c.body, "prompt") && !/llava|uform|llama-3\.2-11b-vision/i.test(String(c.url))).length,
     restore() {
       globalThis.fetch = originalFetch;
     }
@@ -287,6 +299,10 @@ test("runCompoundRequest: happy path — image + one platform (no reframe needed
       { data: null, error: null }, // idempotency dedup lookup — no recent duplicate
       { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
       { data: { marketing_monthly_budget_cents: null }, error: null }, // shop monthly-default lookup (budget_check, Priority 2) — none configured
+      { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+      { data: null, error: null }, // completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+      { data: null, error: null }, // completeProviderCall(vision) update
       { data: { id: "asset-1" }, error: null }, // ai_generated_assets insert (image)
       { data: { id: "content-1", content_type: "image_post", title: "x", status: "idea" }, error: null }, // marketing_content_items insert
       { data: null, error: null }, // Priority F: loadBrandBrain select — no learned Brand Brain yet
@@ -371,6 +387,10 @@ test("runCompoundRequest: inventory_grounded requests thread the real inventory 
         data: [{ id: "inv-1", name: "Garden Rose", category: "Flowers", quantity: 40, low_stock_level: 10, unit: "stems", created_at: new Date().toISOString() }],
         error: null
       }, // inventory_lookup: loadGroundedInventory — one real row
+      { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+      { data: null, error: null }, // completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+      { data: null, error: null }, // completeProviderCall(vision) update
       { data: { id: "asset-1" }, error: null }, // ai_generated_assets insert (image)
       { data: { id: "content-1", content_type: "image_post", title: "x", status: "idea" }, error: null }, // marketing_content_items insert
       { data: null, error: null }, // loadBrandBrain
@@ -429,6 +449,10 @@ test("runCompoundRequest: a request that never mentioned stock gets no inventory
       { data: null, error: null }, // idempotency dedup lookup
       { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
       { data: { marketing_monthly_budget_cents: null }, error: null }, // budget_check shop monthly-default lookup
+      { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+      { data: null, error: null }, // completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+      { data: null, error: null }, // completeProviderCall(vision) update
       { data: { id: "asset-1" }, error: null }, // ai_generated_assets insert (image)
       { data: { id: "content-1", content_type: "image_post", title: "x", status: "idea" }, error: null }, // marketing_content_items insert
       { data: null, error: null }, // loadBrandBrain
@@ -527,6 +551,10 @@ test("runCompoundRequest: Digital Twin unavailable is reported as an honest bloc
       { data: { id: "job-1" }, error: null }, // ai_execution_jobs insert
       { data: { marketing_monthly_budget_cents: null }, error: null }, // shop monthly-default lookup (budget_check, Priority 2) — none configured
       { data: null, error: null }, // marketing_clone_consent lookup -> none
+      { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+      { data: null, error: null }, // completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+      { data: null, error: null }, // completeProviderCall(vision) update
       { data: { id: "asset-1" }, error: null }, // ai_generated_assets insert (image)
       { data: { id: "content-1" }, error: null }, // marketing_content_items insert
       { data: null, error: null }, // Priority F: loadBrandBrain select
@@ -902,6 +930,10 @@ test("runCompoundRequest: the SAME request text outside the dedupe window runs f
       { data: { id: "job-old", status: "completed", created_at: "2026-08-24T12:00:00.000Z" }, error: null }, // idempotency lookup — found, but stale
       { data: { id: "job-new" }, error: null }, // ai_execution_jobs insert
       { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+      { data: null, error: null }, // completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+      { data: null, error: null }, // completeProviderCall(vision) update
       { data: { id: "asset-1" }, error: null },
       { data: { id: "content-1" }, error: null },
       { data: null, error: null }, // Priority F: loadBrandBrain select
@@ -951,6 +983,10 @@ test("runCompoundRequest: a prior FAILED attempt for the same text is never dedu
       { data: { id: "job-failed", status: "failed", created_at: "2026-08-24T12:00:00.000Z" }, error: null }, // idempotency lookup — a recent FAILED attempt
       { data: { id: "job-new" }, error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
+      { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+      { data: null, error: null }, // completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+      { data: null, error: null }, // completeProviderCall(vision) update
       { data: { id: "asset-1" }, error: null },
       { data: { id: "content-1" }, error: null },
       { data: null, error: null }, // Priority F: loadBrandBrain select
@@ -1016,6 +1052,10 @@ test("ROUTE COVERAGE: compound.createContentItem sanitizes an unverified invento
       { data: null, error: null }, // idempotency dedup lookup
       { data: { id: "job-cov-1" }, error: null }, // ai_execution_jobs insert
       { data: { marketing_monthly_budget_cents: null }, error: null }, // budget check
+      { data: { id: "usage-img-cov-1" }, error: null }, // reserveProviderCall(image) insert
+      { data: null, error: null }, // completeProviderCall(image) update
+      { data: { id: "usage-vision-cov-1" }, error: null }, // reserveProviderCall(vision) insert
+      { data: null, error: null }, // completeProviderCall(vision) update
       { data: { id: "asset-cov-1" }, error: null }, // ai_generated_assets insert (image)
       { data: { id: "content-cov-1", content_type: "image_post", title: "x", status: "idea" }, error: null }, // marketing_content_items insert
       { data: null, error: null }, // loadBrandBrain

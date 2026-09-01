@@ -50,10 +50,14 @@ function mockImageGen() {
     // llava/uform payload shape: {prompt, image, max_tokens}) also hits this
     // mock — answer it with a real text reply so it resolves in one fetch
     // instead of cascading through every fallback model.
-    let body = {};
-    try { body = JSON.parse(options?.body || "{}"); } catch { body = {}; }
-    if ("image" in body) return { ok: true, json: async () => ({ success: true, result: { description: "NO" } }) };
-    return { ok: true, json: async () => ({ result: { image: TINY_JPEG_BASE64 } }) };
+    const isImageModel = /flux|black-forest-labs/i.test(String(url));
+    if (!isImageModel) {
+      return {
+        ok: true,
+        json: async () => ({ success: true, result: { description: "TEXT: NO\nSUBJECT_MATCH: PASS\nREASON: clean, matches the brief" } })
+      };
+    }
+    return { ok: true, json: async () => ({ success: true, result: { image: TINY_JPEG_BASE64 } }) };
   };
   return { restore: () => (globalThis.fetch = originalFetch) };
 }
@@ -85,6 +89,10 @@ test("revise_content (image): creates a NEW child asset, never overwrites the on
         { data: { name: "Test Florals" }, error: null }, // shopRow
         { data: null, error: null }, // loadBrandBrain
         { data: null, error: null }, // loadStyleMemory
+        { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+        { data: null, error: null }, // completeProviderCall(image) update
+        { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+        { data: null, error: null }, // completeProviderCall(vision) update
         { data: { id: "asset-2" }, error: null }, // website_media insert
         { data: { id: "asset-2", parent_asset_id: "asset-1", content: { url: "https://fake.storage/website-media/new.jpg", caption: "Order your fall bouquet today!" } }, error: null }, // ai_generated_assets insert
         { data: null, error: null }, // variant update
@@ -311,17 +319,24 @@ test("revise_content (image): the original subject survives across MULTIPLE succ
   const capturedPrompts = [];
   globalThis.fetch = async (url, options) => {
     const parsedBody = JSON.parse(options?.body || "{}");
-    // generateImageCheckingText's own vision-check call (florist-ai-vision.js's
+    // runMarketingImageQuality's own vision-check call (florist-ai-vision.js's
     // llava/uform payload shape: {prompt, image, max_tokens}) also hits this
     // mock — it must never be counted as one of the real image-generation
     // calls this test asserts on, and must resolve in one fetch (a text
     // reply the vision code can actually parse) rather than cascading
     // through every fallback model looking for a shape it understands.
-    if ("image" in parsedBody) {
-      return { ok: true, json: async () => ({ success: true, result: { description: "NO" } }) };
+    // Distinguished by URL/model name (not body shape — see
+    // marketing-image-quality.test.js's own note on why "image" in body
+    // isn't a safe discriminator for every vision fallback payload variant).
+    const isImageModel = /flux|black-forest-labs/i.test(String(url));
+    if (!isImageModel) {
+      return {
+        ok: true,
+        json: async () => ({ success: true, result: { description: "TEXT: NO\nSUBJECT_MATCH: PASS\nREASON: clean, matches the brief" } })
+      };
     }
     capturedPrompts.push(parsedBody.prompt);
-    return { ok: true, json: async () => ({ result: { image: TINY_JPEG_BASE64 } }) };
+    return { ok: true, json: async () => ({ success: true, result: { image: TINY_JPEG_BASE64 } }) };
   };
   try {
     const storage = createFakeSupabaseStorage({ publicUrl: (path) => `https://fake.storage/website-media/${path}` });
@@ -346,6 +361,10 @@ test("revise_content (image): the original subject survives across MULTIPLE succ
         { data: { name: "Test Florals" }, error: null }, // shopRow
         { data: null, error: null }, // loadBrandBrain
         { data: null, error: null }, // loadStyleMemory
+        { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+        { data: null, error: null }, // completeProviderCall(image) update
+        { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+        { data: null, error: null }, // completeProviderCall(vision) update
         { data: { id: "media-2" }, error: null }, // website_media insert
         {
           data: {
@@ -379,6 +398,10 @@ test("revise_content (image): the original subject survives across MULTIPLE succ
         { data: { name: "Test Florals" }, error: null },
         { data: null, error: null }, // loadBrandBrain
         { data: null, error: null }, // loadStyleMemory
+        { data: { id: "usage-img-2" }, error: null }, // reserveProviderCall(image) insert
+        { data: null, error: null }, // completeProviderCall(image) update
+        { data: { id: "usage-vision-2" }, error: null }, // reserveProviderCall(vision) insert
+        { data: null, error: null }, // completeProviderCall(vision) update
         { data: { id: "media-3" }, error: null },
         { data: { id: "asset-3", parent_asset_id: "asset-2", content: {} }, error: null },
         { data: null, error: null },

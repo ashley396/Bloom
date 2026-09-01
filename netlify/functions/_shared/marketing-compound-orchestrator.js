@@ -38,7 +38,8 @@
 import { runCloudflareGenerate } from "../ai-assistant.js";
 import { loadGroundedInventory, buildInventoryGroundingBrief } from "./marketing-inventory-grounding.js";
 import { generateSocialPost, generateVideoConcept, persistGeneratedAsset } from "./ai-creative-engine.js";
-import { generateImage, buildImagePrompt } from "./ai-image-engine.js";
+import { buildImagePrompt } from "./ai-image-engine.js";
+import { runMarketingImageQuality } from "./marketing-image-quality.js";
 import { evaluateMarketingOutput } from "./marketing-content-revision.js";
 import { computeDisclosureFields } from "./creative-ai/disclosure-policy.js";
 import { transformMasterImageForPlatforms } from "./creative-ai/media-transform-executor.js";
@@ -391,11 +392,23 @@ async function runCompoundStep(client, step, ctx) {
   if (step.tool === "compound.generateImage") {
     const groundedProducts = ctx.inventoryBrief?.sources?.map((s) => s.name) || [];
     const prompt = buildImagePrompt({ occasion: extracted.occasion, products: groundedProducts, shopName: shop?.name });
-    const gen = await generateImage(client, shopId, { prompt, filename: `compound-${Date.now()}.jpg` });
-    if (!gen.ok) return { ok: false, error: gen.error };
+    const quality = await runMarketingImageQuality({
+      client,
+      shopId,
+      promptFor: () => prompt,
+      filenameFor: (attempt) => (attempt === 0 ? `compound-${Date.now()}.jpg` : `compound-${Date.now()}-retry${attempt}.jpg`),
+      occasion: extracted.occasion
+      // No buildFallback: a compound-request image is the whole point of
+      // this step — a rejected/failed photo must be reported honestly as a
+      // failed step, never silently swapped for a template.
+    });
+    if (quality.state !== "PASS") {
+      return { ok: false, error: quality.error || "The generated photo didn't pass Lily's quality check." };
+    }
+    const gen = quality.gen;
     const persisted = await persistGeneratedAsset(client, {
       shopId, userId, persona, assetType: "image", provider: gen.provider, model: gen.model, prompt: gen.prompt,
-      content: { url: gen.url, grounded_in_inventory: ctx.inventoryBrief?.sources || [] },
+      content: { url: gen.url, grounded_in_inventory: ctx.inventoryBrief?.sources || [], quality_check: quality.check || null },
       status: "completed"
     });
     if (!persisted.ok) return { ok: false, error: persisted.error };

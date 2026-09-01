@@ -32,7 +32,14 @@ function mockAllCloudflareCalls() {
   };
   globalThis.fetch = async (url) => {
     if (String(url).includes("flux-1-schnell")) {
-      return { ok: true, json: async () => ({ result: { image: TINY_JPEG_BASE64 } }) };
+      return { ok: true, json: async () => ({ success: true, result: { image: TINY_JPEG_BASE64 } }) };
+    }
+    // runMarketingImageQuality's own vision-check call (florist-ai-vision.js,
+    // llava/uform/llama-vision model URLs) must never be answered with the
+    // text/copy schema above — a well-formed PASS reply here, or the gate
+    // correctly treats it as unreadable and never persists the photo.
+    if (/llava|uform|llama-3\.2-11b-vision/i.test(String(url))) {
+      return { ok: true, json: async () => ({ success: true, result: { description: "TEXT: NO\nSUBJECT_MATCH: PASS\nREASON: clean, matches the brief" } }) };
     }
     return { ok: true, json: async () => ({ success: true, result: { response: JSON.stringify(textResult) } }) };
   };
@@ -103,6 +110,10 @@ test("TEST 1 (from the AI-OS spec): 'Create a Facebook post telling high school 
       { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — customers (none)
       { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — orders (none)
       { data: { id: "asset-post-1" }, error: null }, // social post asset insert
+      { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+      { data: null, error: null }, // completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+      { data: null, error: null }, // completeProviderCall(vision) update
       { data: { id: "media-1" }, error: null }, // website_media insert (image)
       { data: { id: "asset-image-1" }, error: null }, // image asset insert
       { data: { id: "job-1", status: "completed" }, error: null } // job update
@@ -151,6 +162,10 @@ test("TEST 2 (from the AI-OS spec): 'Make a campaign for Facebook and my website
       { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — orders (none)
       { data: { id: "campaign-1", name: "Homecoming campaign", channels: ["social", "website"] }, error: null }, // campaign insert
       { data: { id: "asset-post-1" }, error: null }, // facebook post asset
+      { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+      { data: null, error: null }, // completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+      { data: null, error: null }, // completeProviderCall(vision) update
       { data: { id: "media-1" }, error: null }, // website_media insert (image)
       { data: { id: "asset-image-1" }, error: null }, // image asset
       { data: { id: "project-1" }, error: null }, // bloom_website_projects select — a project already exists
@@ -288,6 +303,10 @@ test("retryJobStep: re-running one failed step never touches the other steps' al
     };
     const client = makeClient([
       { data: existingJob, error: null }, // load job
+      { data: { id: "usage-img-retry-1" }, error: null }, // reserveProviderCall(image) insert
+      { data: null, error: null }, // completeProviderCall(image) update
+      { data: { id: "usage-vision-retry-1" }, error: null }, // reserveProviderCall(vision) insert
+      { data: null, error: null }, // completeProviderCall(vision) update
       { data: { id: "media-retry-1" }, error: null }, // website_media insert on retry
       { data: { id: "asset-retry-1" }, error: null }, // ai_generated_assets insert on retry
       { data: { ...existingJob, status: "completed" }, error: null } // job update
@@ -454,6 +473,10 @@ test("runJob: 'put this on a white marble counter' generates a background-only i
   try {
     const client = makeClient([
       { data: { id: "job-bg-1", status: "running", plan: [] }, error: null }, // job insert
+      { data: { id: "usage-img-bg-1" }, error: null }, // reserveProviderCall(image) insert
+      { data: null, error: null }, // completeProviderCall(image) update
+      { data: { id: "usage-vision-bg-1" }, error: null }, // reserveProviderCall(vision) insert
+      { data: null, error: null }, // completeProviderCall(vision) update
       { data: { id: "media-bg-1" }, error: null }, // website_media insert
       { data: { id: "asset-bg-1" }, error: null }, // background asset insert
       { data: { id: "job-bg-1", status: "completed" }, error: null } // job update
@@ -528,6 +551,10 @@ test("runJob: a flyer WITH aesthetic direction gets a generated background attac
     const client = makeClient([
       { data: { id: "job-fly-2", status: "running", plan: [] }, error: null }, // job insert
       { data: { id: "asset-fly-2" }, error: null }, // flyer content asset insert
+      { data: { id: "usage-img-fly-2" }, error: null }, // reserveProviderCall(image) insert
+      { data: null, error: null }, // completeProviderCall(image) update
+      { data: { id: "usage-vision-fly-2" }, error: null }, // reserveProviderCall(vision) insert
+      { data: null, error: null }, // completeProviderCall(vision) update
       { data: { id: "media-fly-2" }, error: null }, // website_media insert (flyer background)
       { data: { id: "asset-bg-2" }, error: null }, // background asset insert
       { data: null, error: null }, // ai_generated_assets update — patches the flyer's content.background_url

@@ -239,7 +239,8 @@ test("generate_content surfaces a real storage permission-denial cleanly (400, r
         { data: [], error: null },
         { data: null, error: null }, // recordUsage("copy") — copyGen
         // brief:"b" is the plain "image" path — see the test above.
-        { data: null, error: null }, // recordUsage("image")
+        { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+        { data: null, error: null }, // failProviderCall(image) update — upload stage denied
         { data: null, error: null }, // -> reverted to idea after the failed upload
         { data: { id: "item-1", status: "idea" }, error: null } // revertToIdea's own update returns the row (not asserted further)
       ],

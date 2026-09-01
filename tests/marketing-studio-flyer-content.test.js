@@ -137,7 +137,15 @@ function mockCloudflare(textJsonQueue) {
     // callers filter for below ("prompt" in body, with no "image" field) —
     // answered here with a real text reply so it resolves in one fetch too.
     if ("image" in body) {
-      return { ok: true, json: async () => ({ success: true, result: { description: "NO" } }) };
+      // Batch 2: assessGeneratedMarketingPhoto's real quality-gate prompt
+      // requires this exact "TEXT: .../SUBJECT_MATCH: ..." line format —
+      // a bare "NO" (this mock's original, pre-Phase-2 reply) is genuinely
+      // UNREADABLE under the now-correct readable check (see
+      // marketing-image-quality.js), which used to be silently papered
+      // over by assessGeneratedMarketingPhoto's own graceful-degradation
+      // default. Every test in this file that expects a real generated
+      // photo to be accepted needs a real, well-formed PASS reply here.
+      return { ok: true, json: async () => ({ success: true, result: { description: "TEXT: NO\nSUBJECT_MATCH: PASS\nREASON: clean, matches the brief" } }) };
     }
     calls.push({ url: String(url), body });
     if (String(url).includes("black-forest-labs") || "prompt" in body) {
@@ -182,6 +190,17 @@ function generateFlyerFixtureQueue({ shopPhone = "606-506-4039" } = {}) {
     { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
     { data: null, error: null }, // recordUsage("copy") — copyGen
     { data: null, error: null }, // recordUsage("copy") — flyerGen
+    // The Tier A/Tier B background quality gate (runMarketingImageQuality):
+    // either PASS (reserve+complete image, reserve+complete vision) or
+    // every attempt failing at the provider stage (reserve+fail image,
+    // twice, then a template Tier-B fallback with no further DB writes) —
+    // both shapes consume exactly 4 slots here, and every slot below
+    // carries an `id` so it satisfies whichever of reserve/complete/fail
+    // actually reads it.
+    { data: { id: "usage-img-1" }, error: null },
+    { data: { id: "usage-img-1" }, error: null },
+    { data: { id: "usage-img-2" }, error: null },
+    { data: { id: "usage-img-2" }, error: null },
     { data: { id: "flyer-asset-1" }, error: null }, // persistGeneratedAsset (flyer)
     { data: null, error: null }, // variant update
     { data: { id: "item-1", status: "draft" }, error: null } // final content_items update
@@ -329,6 +348,10 @@ test("generate_content (real dispatch): a flyer-routed closing notice never call
         { data: [], error: null }, // audience orders
         { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
         { data: null, error: null }, // recordUsage("copy") — the ONE real copy call only
+        { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+        { data: null, error: null }, // completeProviderCall(image) update
+        { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+        { data: null, error: null }, // completeProviderCall(vision) update
         { data: { id: "flyer-asset-1" }, error: null }, // persistGeneratedAsset (flyer)
         { data: null, error: null }, // variant update
         { data: { id: "item-1", status: "draft" }, error: null } // final content_items update -> draft, never idea
@@ -417,6 +440,10 @@ function exactSentenceFixtureQueue({ primaryColor = "#b93870", accentColor = "#6
     { data: [], error: null }, // audience orders
     { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
     { data: null, error: null }, // recordUsage("copy") — the ONE real copy call only
+    { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+    { data: null, error: null }, // completeProviderCall(image) update
+    { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+    { data: null, error: null }, // completeProviderCall(vision) update
     { data: { id: "flyer-asset-1" }, error: null }, // persistGeneratedAsset (flyer)
     { data: null, error: null }, // variant update
     { data: { id: "item-1", status: "draft" }, error: null } // final content_items update -> draft
@@ -528,7 +555,10 @@ test("generate_content (real dispatch): an ordinary decorative request is now a 
       { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy") — the Facebook caption (generateSocialPost)
       { data: null, error: null }, // recordUsage("copy") — the on-image flyer text (generateFlyerCopy/generateFlyerContent)
-      { data: null, error: null }, // recordUsage("image")
+      { data: { id: "usage-img-1" }, error: null }, // Batch 2: reserveProviderCall(image) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // Batch 2: reserveProviderCall(vision) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(vision) update
       { data: { id: "media-row-1" }, error: null }, // website_media insert
       { data: { id: "flyer-asset-1" }, error: null }, // persistGeneratedAsset (flyer)
       { data: null, error: null }, // variant update
@@ -946,6 +976,10 @@ test("revise_content (real dispatch): 'Regenerate image' on a subject-forward fl
         { data: { name: "Lilies in Bloom", phone: "606-506-4039", primary_color: "#7c3a58" }, error: null }, // shopRow
         { data: null, error: null }, // loadBrandBrain
         { data: null, error: null }, // loadStyleMemory
+        { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+        { data: null, error: null }, // completeProviderCall(image) update
+        { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+        { data: null, error: null }, // completeProviderCall(vision) update
         { data: { id: "flyer-asset-2" }, error: null }, // persistGeneratedAsset
         { data: null, error: null } // variant repoint update
       ],
@@ -1161,6 +1195,10 @@ test("revise_content (real dispatch): 'Regenerate image' — a request to change
         { data: { name: "Lilies in Bloom", phone: "606-506-4039", primary_color: "#7c3a58" }, error: null }, // shopRow
         { data: null, error: null }, // loadBrandBrain
         { data: null, error: null }, // loadStyleMemory
+        { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+        { data: null, error: null }, // completeProviderCall(image) update
+        { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+        { data: null, error: null }, // completeProviderCall(vision) update
         { data: { id: "flyer-asset-2" }, error: null }, // persistGeneratedAsset
         { data: null, error: null } // variant repoint update
       ],
@@ -1241,6 +1279,10 @@ test("revise_content (real dispatch): a background regeneration that fails silen
         { data: { name: "Lilies in Bloom", phone: "606-506-4039", primary_color: "#7c3a58" }, error: null },
         { data: null, error: null }, // loadBrandBrain
         { data: null, error: null }, // loadStyleMemory
+        { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert, attempt 0
+        { data: null, error: null }, // failProviderCall(image) update, attempt 0
+        { data: { id: "usage-img-2" }, error: null }, // reserveProviderCall(image) insert, attempt 1
+        { data: null, error: null }, // failProviderCall(image) update, attempt 1
         { data: { id: "flyer-asset-2" }, error: null }, // persistGeneratedAsset
         { data: null, error: null } // variant repoint update
       ],
@@ -1765,6 +1807,10 @@ test("ACCEPTANCE (real dispatch): the canonical shop with an empty stored phone 
         // all. (An AI-written post records two.) Verified by probing the
         // handler's real call sequence, not assumed.
         { data: null, error: null },
+        { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+        { data: null, error: null }, // completeProviderCall(image) update
+        { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+        { data: null, error: null }, // completeProviderCall(vision) update
         { data: { id: "flyer-asset-1" }, error: null }, // persistGeneratedAsset
         { data: null, error: null }, // variant update
         { data: { id: "item-1", status: "draft" }, error: null } // final update
@@ -1842,6 +1888,10 @@ test("ACCEPTANCE (real dispatch): with the shop's own phone NOW saved, the flyer
         { data: [], error: null }, // audience: orders
         { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
         { data: null, error: null },
+        { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image) insert
+        { data: null, error: null }, // completeProviderCall(image) update
+        { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision) insert
+        { data: null, error: null }, // completeProviderCall(vision) update
         { data: { id: "flyer-asset-1" }, error: null },
         { data: null, error: null },
         { data: { id: "item-1", status: "draft" }, error: null }
@@ -1933,7 +1983,10 @@ test("REGRESSION (Phase 3 live failure, end to end): a generic 'Create today's F
         { data: null, error: null }, // recordUsage("copy") — caption retry (weak/inventory-claim reasons)
         { data: null, error: null }, // recordUsage("copy") — flyer attempt 1
         { data: null, error: null }, // recordUsage("copy") — flyer retry (weak/sympathy-injection reasons)
-        { data: null, error: null }, // recordUsage("image")
+        { data: { id: "usage-img-1" }, error: null }, // Batch 2: reserveProviderCall(image) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // Batch 2: reserveProviderCall(vision) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(vision) update
         { data: { id: "media-p3" }, error: null }, // website_media insert
         { data: { id: "flyer-asset-p3" }, error: null }, // persistGeneratedAsset (flyer)
         { data: null, error: null }, // variant update
@@ -2004,7 +2057,10 @@ test("REGRESSION (concept threading): the flyer generation call actually receive
         { data: [], error: null },
         { data: null, error: null }, // recordUsage("copy") — caption
         { data: null, error: null }, // recordUsage("copy") — flyer
-        { data: null, error: null }, // recordUsage("image")
+        { data: { id: "usage-img-1" }, error: null }, // Batch 2: reserveProviderCall(image) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // Batch 2: reserveProviderCall(vision) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(vision) update
         { data: { id: "media-p3b" }, error: null },
         { data: { id: "flyer-asset-p3b" }, error: null },
         { data: null, error: null },
@@ -2175,7 +2231,10 @@ test("REGRESSION E (handler-level): a current-stock claim naming a flower that I
         { data: [], error: null }, // recent-content shortlist
         { data: null, error: null }, // recordUsage("copy") — caption
         { data: null, error: null }, // recordUsage("copy") — flyer
-        { data: null, error: null }, // recordUsage("image")
+        { data: { id: "usage-img-1" }, error: null }, // Batch 2: reserveProviderCall(image) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // Batch 2: reserveProviderCall(vision) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(vision) update
         { data: { id: "media-p3e" }, error: null },
         { data: { id: "flyer-asset-p3e" }, error: null },
         { data: null, error: null },
@@ -2238,7 +2297,10 @@ test("REGRESSION J (retry then rescue): a flyer that mismatches the caption's co
         { data: null, error: null }, // recordUsage("copy") — caption
         { data: null, error: null }, // recordUsage("copy") — flyer attempt 1
         { data: null, error: null }, // recordUsage("copy") — flyer retry (still mismatched)
-        { data: null, error: null }, // recordUsage("image")
+        { data: { id: "usage-img-1" }, error: null }, // Batch 2: reserveProviderCall(image) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // Batch 2: reserveProviderCall(vision) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(vision) update
         { data: { id: "media-p3j" }, error: null },
         { data: { id: "flyer-asset-p3j" }, error: null },
         { data: null, error: null },
@@ -2359,7 +2421,10 @@ test("REGRESSION (staging re-test): a generic 'Create today's Facebook post' req
         { data: null, error: null }, // recordUsage("copy") — caption attempt 1
         { data: null, error: null }, // recordUsage("copy") — caption retry
         { data: null, error: null }, // recordUsage("copy") — flyer
-        { data: null, error: null }, // recordUsage("image")
+        { data: { id: "usage-img-1" }, error: null }, // Batch 2: reserveProviderCall(image) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // Batch 2: reserveProviderCall(vision) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(vision) update
         { data: { id: "media-p3f1" }, error: null },
         { data: { id: "flyer-asset-p3f1" }, error: null },
         { data: null, error: null },
@@ -2425,7 +2490,10 @@ test("REGRESSION (staging re-test): 'Make a post about pink roses' — the flori
         { data: [], error: null },
         { data: null, error: null }, // recordUsage("copy") — caption
         { data: null, error: null }, // recordUsage("copy") — flyer
-        { data: null, error: null }, // recordUsage("image")
+        { data: { id: "usage-img-1" }, error: null }, // Batch 2: reserveProviderCall(image) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // Batch 2: reserveProviderCall(vision) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(vision) update
         { data: { id: "media-p3f2" }, error: null },
         { data: { id: "flyer-asset-p3f2" }, error: null },
         { data: null, error: null },
@@ -2479,7 +2547,10 @@ test("REGRESSION (staging re-test): verified inventory containing roses does NOT
         { data: [], error: null },
         { data: null, error: null }, // recordUsage("copy") — caption
         { data: null, error: null }, // recordUsage("copy") — flyer
-        { data: null, error: null }, // recordUsage("image")
+        { data: { id: "usage-img-1" }, error: null }, // Batch 2: reserveProviderCall(image) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(image) update
+      { data: { id: "usage-vision-1" }, error: null }, // Batch 2: reserveProviderCall(vision) insert
+      { data: null, error: null }, // Batch 2: completeProviderCall(vision) update
         { data: { id: "media-p3f3" }, error: null },
         { data: { id: "flyer-asset-p3f3" }, error: null },
         { data: null, error: null },
@@ -2541,6 +2612,10 @@ test("REGRESSION (staging re-test): verified inventory containing roses MAY be u
         { data: [], error: null },
         { data: null, error: null }, // recordUsage("copy") — caption
         { data: null, error: null }, // recordUsage("copy") — flyer
+        { data: { id: "usage-img-p3f4" }, error: null }, // reserveProviderCall(image) insert
+        { data: null, error: null }, // completeProviderCall(image) update
+        { data: { id: "usage-vision-p3f4" }, error: null }, // reserveProviderCall(vision) insert
+        { data: null, error: null }, // completeProviderCall(vision) update
         { data: { id: "flyer-asset-p3f4" }, error: null }, // persistGeneratedAsset
         { data: null, error: null }, // variant update
         { data: { id: "item-p3f4", status: "draft" }, error: null } // final item update

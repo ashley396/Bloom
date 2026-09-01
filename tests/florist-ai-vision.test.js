@@ -217,3 +217,61 @@ test("assessGeneratedMarketingPhoto: no usable image payload at all returns acce
     globalThis.fetch = originalFetch;
   }
 });
+
+// ---------------------------------------------------------------------------
+// Batch 2 addition: `readable` distinguishes a genuinely unparseable reply
+// (no recognizable TEXT:/SUBJECT_MATCH: token at all) from a real PASS or
+// REJECT verdict — Batch 2's image-quality gate (marketing-image-quality.js)
+// must never treat an unreadable reply as accepted, even though `accepted`
+// itself (this file's own pre-existing graceful-degradation default for its
+// other, non-gate callers) stays true.
+// ---------------------------------------------------------------------------
+
+test("assessGeneratedMarketingPhoto: a well-formed PASS reply is marked readable", async () => {
+  const mock = mockVisionReply("TEXT: NO\nSUBJECT_MATCH: PASS\nREASON: ok");
+  try {
+    const result = await assessGeneratedMarketingPhoto({ dataUrl: "data:image/jpeg;base64,abc" });
+    assert.equal(result.readable, true);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("assessGeneratedMarketingPhoto: a well-formed REJECT reply is also marked readable", async () => {
+  const mock = mockVisionReply("TEXT: YES\nSUBJECT_MATCH: FAIL\nREASON: garbled text and wrong subject");
+  try {
+    const result = await assessGeneratedMarketingPhoto({ dataUrl: "data:image/jpeg;base64,abc" });
+    assert.equal(result.readable, true);
+    assert.equal(result.accepted, false);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("assessGeneratedMarketingPhoto: an unparseable reply is marked NOT readable, even though accepted stays true for other callers", () => {
+  const mock = mockVisionReply("I'm not sure how to answer that.");
+  return assessGeneratedMarketingPhoto({ dataUrl: "data:image/jpeg;base64,abc" })
+    .then((result) => {
+      assert.equal(result.readable, false, "an unparseable reply must never be marked readable");
+      assert.equal(result.accepted, true, "accepted's own existing default is untouched");
+    })
+    .finally(() => mock.restore());
+});
+
+test("assessGeneratedMarketingPhoto: a vision outage is marked NOT readable", async () => {
+  process.env.CLOUDFLARE_ACCOUNT_ID = "acct-test";
+  process.env.CLOUDFLARE_AI_API_TOKEN = "token-test";
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, json: async () => ({ success: false, errors: [{ message: "vision model unavailable" }] }) });
+  try {
+    const result = await assessGeneratedMarketingPhoto({ dataUrl: "data:image/jpeg;base64,abc" });
+    assert.equal(result.readable, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("assessGeneratedMarketingPhoto: no usable image payload is marked NOT readable", async () => {
+  const result = await assessGeneratedMarketingPhoto({});
+  assert.equal(result.readable, false);
+});

@@ -108,6 +108,7 @@ import { runCompoundRequest } from "./_shared/marketing-compound-orchestrator.js
 import { runAnalyticsIngestion, reconcileLatestMetricSnapshots } from "./_shared/marketing-analytics-ingestion.js";
 import { checkMonthlyBudgetForRequest, getShopBudgetCapCents, monthlyCommittedSpendCents } from "./_shared/marketing-budget-guard.js";
 import { COST_CONFIG_VERSION, DEFAULT_MONTHLY_ALLOWANCE, estimateCostCents } from "./_shared/marketing-cost-config.js";
+import { calculateWorstCaseBoundedCostCents } from "./_shared/marketing-provider-usage.js";
 import {
   buildMonthlyContentPlan,
   CONTENT_ITEM_APPROVABLE_STATUSES,
@@ -119,7 +120,8 @@ import { determineDisclosureRequirement, enforcePrePublishDisclosureGate, comput
 import { validateCloneConsentBody, isConsentActive } from "./_shared/marketing-clone-consent.js";
 import { buildContentCalendarEvents, groupCalendarEventsByMonth } from "../../lib/marketing/calendar-events.js";
 import { generateSocialPost, generateVideoConcept, generateWebsiteSectionDraft, generateFlyerContent, persistGeneratedAsset, sanitizedRequestForModel } from "./_shared/ai-creative-engine.js";
-import { generateImage, generateImageCheckingText, buildImagePrompt, buildFlyerBackgroundPrompt, generateFlyerBackgroundWithRetry } from "./_shared/ai-image-engine.js";
+import { buildImagePrompt, buildFlyerBackgroundPrompt } from "./_shared/ai-image-engine.js";
+import { runMarketingImageQuality } from "./_shared/marketing-image-quality.js";
 import { pickFlyerTemplate, pickAspectRatio, ASPECT_RATIOS } from "./_shared/flyer-templates.js";
 import { loadGenerationGrounding } from "./_shared/marketing-generation-grounding.js";
 import { planVideoRender } from "./_shared/marketing-video-render-engine.js";
@@ -1113,16 +1115,35 @@ export function createMarketingStudioHandler(deps = {}) {
             });
             if (revisionSceneEval.decision === "repair") visualBrief = revisionSceneEval.safeCandidate;
             prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief });
-            const imageGen = await generateImageCheckingText(client, shopId, {
+            const revisionQuality = await runMarketingImageQuality({
+              client,
+              shopId,
               promptFor: () => prompt,
               filenameFor: (attempt) =>
                 attempt === 0
                   ? `marketing-revision-${body.content_item_id}-${Date.now()}.jpg`
                   : `marketing-revision-${body.content_item_id}-${Date.now()}-retry${attempt}.jpg`,
               visualBrief,
-              occasion: currentItem.data.title
+              occasion: currentItem.data.title,
+              usage: { traceId: reviseTraceId, contentItemId: body.content_item_id }
+              // No buildFallback here: a revision that asked for a new
+              // photo and can't get a safe one must say so, never silently
+              // swap in a template behind the florist's back mid-revision.
             });
-            if (!imageGen.ok) return json(400, { error: imageGen.error });
+            structuredLog("info", "marketing_revise_content_quality_check", {
+              traceId: reviseTraceId,
+              state: revisionQuality.state,
+              attempts: revisionQuality.attempts.length,
+              rejectedCount: revisionQuality.rejectedAssetPaths.length
+            });
+            if (revisionQuality.state !== "PASS") {
+              return json(400, {
+                error: revisionQuality.error
+                  ? `Couldn't regenerate your photo: ${revisionQuality.error}`
+                  : "The regenerated photo didn't pass Lily's quality check — nothing was changed. Try again."
+              });
+            }
+            const imageGen = revisionQuality.gen;
             const mediaRow = await client
               .from("website_media")
               .insert({ shop_id: shopId, storage_path: imageGen.path, filename: imageGen.path.split("/").pop(), source: "generated", mime: "image/jpeg" })
@@ -1363,27 +1384,26 @@ export function createMarketingStudioHandler(deps = {}) {
             // real subject of its own) keeps using the negative-space
             // backdrop prompt exactly as before.
             const isSubjectForward = currentAsset.content?.photo_strategy === "subject_forward";
-            let backgroundGen;
+            const revisionVisualBrief = currentAsset.content?.visual_brief || currentItem.data.brief;
+            let backgroundPrompt;
+            let backgroundFilenamePrefix;
             if (isSubjectForward) {
-              const backgroundPrompt = buildImagePrompt({
+              backgroundPrompt = buildImagePrompt({
                 occasion: currentItem.data.title,
                 shopName,
-                visualBrief: currentAsset.content?.visual_brief || currentItem.data.brief,
+                visualBrief: revisionVisualBrief,
                 // Carried forward from the asset persisted at generation
                 // time (see generate_content's subject-forward branch) so
                 // "Regenerate image" asks for the same concrete subject,
                 // not a vaguer re-derivation from prose alone.
                 creativeBrief: currentAsset.content?.creative_brief || null
               });
-              backgroundGen = await generateImage(client, shopId, {
-                prompt: backgroundPrompt,
-                filename: `marketing-${body.content_item_id}-${Date.now()}.jpg`
-              });
+              backgroundFilenamePrefix = "marketing";
             } else {
               const groundedFlowerNames = Array.isArray(currentAsset.content?.grounded_in_inventory)
                 ? currentAsset.content.grounded_in_inventory.map((i) => i.name).filter(Boolean)
                 : [];
-              const backgroundPrompt = buildFlyerBackgroundPrompt({
+              backgroundPrompt = buildFlyerBackgroundPrompt({
                 occasion: currentItem.data.title,
                 brandColor: shopRow.data?.primary_color || null,
                 groundedFlowers: groundedFlowerNames,
@@ -1394,13 +1414,36 @@ export function createMarketingStudioHandler(deps = {}) {
                 // a fresh, different composition instruction on every call.
                 variationSeed: Date.now()
               });
-              backgroundGen = await generateImage(client, shopId, {
-                prompt: backgroundPrompt,
-                filename: `flyer-background-${body.content_item_id}-${Date.now()}.jpg`
-              });
+              backgroundFilenamePrefix = "flyer-background";
             }
-            if (backgroundGen.ok) {
-              backgroundFields = { style_tier: "generated", background_url: backgroundGen.url };
+            const backgroundQuality = await runMarketingImageQuality({
+              client,
+              shopId,
+              promptFor: () => backgroundPrompt,
+              filenameFor: (attempt) =>
+                attempt === 0
+                  ? `${backgroundFilenamePrefix}-${body.content_item_id}-${Date.now()}.jpg`
+                  : `${backgroundFilenamePrefix}-${body.content_item_id}-${Date.now()}-retry${attempt}.jpg`,
+              visualBrief: revisionVisualBrief,
+              creativeBrief: currentAsset.content?.creative_brief || null,
+              occasion: currentItem.data.title,
+              usage: { traceId: reviseTraceId, contentItemId: body.content_item_id }
+              // No buildFallback: a failed/rejected "Regenerate image" must
+              // never fail the whole revision — it silently keeps the
+              // CURRENT background_url/style_tier below, exactly the same
+              // "never leave the florist with a broken result" guarantee
+              // this branch already gave a plain provider failure before
+              // this quality gate existed. A rejected/unsafe candidate is
+              // simply never adopted.
+            });
+            structuredLog("info", "marketing_revise_content_quality_check", {
+              traceId: reviseTraceId,
+              state: backgroundQuality.state,
+              attempts: backgroundQuality.attempts.length,
+              rejectedCount: backgroundQuality.rejectedAssetPaths.length
+            });
+            if (backgroundQuality.state === "PASS") {
+              backgroundFields = { style_tier: "generated", background_url: backgroundQuality.gen.url };
               renderStale = true;
             }
           }
@@ -1923,14 +1966,23 @@ export function createMarketingStudioHandler(deps = {}) {
           // "reuse" (Phase 2 rebuild's asset-routing gap) is the same: an
           // already-generated photo being referenced again incurs no new
           // image spend either.
+          // Batch 2: the image line item must be a WORST-CASE BOUNDED
+          // estimate, not a single-attempt one — runMarketingImageQuality's
+          // own bounded retry (default maxAttempts: 2) can spend up to 2
+          // real image-generation calls AND 2 real vision-inspection calls
+          // before it ever resolves to PASS/FALLBACK/FAIL. Checking only
+          // the cost of ONE image attempt here would let a genuinely
+          // over-budget shop slip through on the strength of an estimate
+          // that assumed the best case, then get billed for the retry
+          // anyway — this must be refused up front instead.
+          const needsImageBudget =
+            !VIDEO_CONTENT_TYPES.has(currentItem.data.content_type) &&
+            currentItem.data.content_type !== "text_post" &&
+            body.photo_choice !== "upload" &&
+            body.photo_choice !== "reuse";
           const estimatedAdditionalCents =
             (estimateCostCents({ purpose: "copy", unitType: "request", units: 1 }) || 0) +
-            (VIDEO_CONTENT_TYPES.has(currentItem.data.content_type) ||
-            currentItem.data.content_type === "text_post" ||
-            body.photo_choice === "upload" ||
-            body.photo_choice === "reuse"
-              ? 0
-              : estimateCostCents({ purpose: "image", unitType: "image", units: 1 }) || 0);
+            (needsImageBudget ? calculateWorstCaseBoundedCostCents({ maxImageAttempts: 2, maxVisionInspections: 2 }) : 0);
           const budgetCheck = await checkMonthlyBudgetForRequest(client, {
             shopId,
             additionalCostCents: estimatedAdditionalCents,
@@ -2654,12 +2706,16 @@ export function createMarketingStudioHandler(deps = {}) {
             // image call fails for any reason (no credentials, provider
             // error, budget cap). Never allowed to fail generate_content
             // itself or touch a single word of the deterministic text above.
-            // One bounded retry (see generateFlyerBackgroundWithRetry): a
-            // flyer with no photograph can never meet the bright/colourful
-            // floral standard, so a single transient provider failure is
+            // One bounded retry (see runMarketingImageQuality, called with
+            // failClosedOnInfraError: false below to preserve this exact
+            // Tier A/Tier B behavior): a flyer with no photograph can
+            // never meet the bright/colourful floral standard, so a
+            // single transient provider failure is
             // worth one more attempt — asking for a DIFFERENT composition
             // rather than resending the identical prompt.
-            const backgroundGen = await generateFlyerBackgroundWithRetry(client, shopId, {
+            const flyerBackgroundQuality = await runMarketingImageQuality({
+              client,
+              shopId,
               promptFor: (attempt) =>
                 buildFlyerBackgroundPrompt({
                   visualBrief: copyGen.content.visual_brief,
@@ -2672,8 +2728,29 @@ export function createMarketingStudioHandler(deps = {}) {
               filenameFor: (attempt) =>
                 attempt === 0
                   ? `flyer-background-${body.content_item_id}.jpg`
-                  : `flyer-background-${body.content_item_id}-retry${attempt}.jpg`
+                  : `flyer-background-${body.content_item_id}-retry${attempt}.jpg`,
+              visualBrief: copyGen.content.visual_brief,
+              creativeBrief: copyGen.content.creative_brief,
+              occasion: currentItem.data.title,
+              usage: { traceId: genTraceId, contentItemId: body.content_item_id },
+              // Tier A/Tier B: falls back to the template's own brand
+              // palette (Tier B) automatically and silently for ANY
+              // failure reason (no credentials, provider error, budget
+              // cap, or a storage error) — this decorative background is
+              // never the whole point of the post the way a plain-image
+              // post's photo is, so this call site keeps its pre-existing
+              // "never fail generate_content over a background photo"
+              // design exactly as it worked before this quality gate.
+              buildFallback: async () => ({ ok: true, kind: "template", url: null }),
+              failClosedOnInfraError: false
             });
+            structuredLog("info", "marketing_generate_content_quality_check", {
+              traceId: genTraceId,
+              state: flyerBackgroundQuality.state,
+              attempts: flyerBackgroundQuality.attempts.length,
+              rejectedCount: flyerBackgroundQuality.rejectedAssetPaths.length
+            });
+            const backgroundGen = { ok: flyerBackgroundQuality.state === "PASS", url: flyerBackgroundQuality.gen?.url || null };
             const persisted = await persistGeneratedAsset(client, {
               shopId,
               userId: user.id,
@@ -2849,40 +2926,83 @@ export function createMarketingStudioHandler(deps = {}) {
               }
               imageGen = { ok: true, path: uploaded.path, url: publicWebsiteMediaUrl(client, uploaded.path), mime: uploaded.mime, provider: "user_upload", model: null, prompt: null };
             } else {
-              await recordUsage("image", "image", 1);
-              const prompt = buildImagePrompt({
-                occasion: currentItem.data.title,
-                shopName,
-                visualBrief: copyGen.content.visual_brief || currentItem.data.brief,
-                creativeBrief: copyGen.content.creative_brief
-              });
-              // Real, live-found failure: this exact path handed a florist a
+              const subjectVisualBrief = copyGen.content.visual_brief || currentItem.data.brief;
+              const subjectCreativeBrief = copyGen.content.creative_brief;
+              // Batch 2 rebuild: this exact path used to hand a florist a
               // photo with invented, garbled pseudo-branding painted into a
-              // corner despite buildImagePrompt's unconditional no-text
-              // directive — a diffusion model's prompt instructions are a
-              // statistical nudge, not a hard constraint. Checks the actual
-              // generated pixels with a real vision model — for invented
-              // text AND (Phase 2 rebuild) whether the photo actually
-              // matches the creative brief it was asked to depict — and
-              // retries once if either check fails, rather than trusting
-              // the prompt was obeyed.
-              imageGen = await generateImageCheckingText(client, shopId, {
-                promptFor: () => prompt,
+              // corner (buildImagePrompt's unconditional no-text directive
+              // is a statistical nudge to a diffusion model, not a hard
+              // constraint) — generateImageCheckingText's own vision-check
+              // retry loop existed to catch that, but read
+              // assessGeneratedMarketingPhoto's own `accepted` field, which
+              // DEFAULTS TO TRUE whenever the vision call itself failed —
+              // so a vision-provider outage, or a genuinely unreadable
+              // reply, was silently treated as a pass, and a second
+              // still-rejected candidate was returned anyway. This is now
+              // the one authoritative Marketing image-quality state
+              // machine (runMarketingImageQuality) instead: it reads
+              // check.ok/check.readable directly, so a real inspection
+              // failure can only ever resolve to a safe fallback or an
+              // honest failure — never a pass. Every actual provider call
+              // (each image attempt, each vision inspection) gets its own
+              // usage-ledger row via the shared provider-usage service,
+              // replacing the old single flat recordUsage("image") estimate.
+              const quality = await runMarketingImageQuality({
+                client,
+                shopId,
+                promptFor: (attempt, prior) => {
+                  const base = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief: subjectVisualBrief, creativeBrief: subjectCreativeBrief });
+                  const priorReason = prior[prior.length - 1]?.check?.reason;
+                  return attempt === 0 || !priorReason
+                    ? base
+                    : `${base} IMPORTANT — a prior attempt was rejected for this exact reason, do not repeat it: ${priorReason}`;
+                },
                 filenameFor: (attempt) => (attempt === 0 ? `marketing-${body.content_item_id}.jpg` : `marketing-${body.content_item_id}-retry${attempt}.jpg`),
-                creativeBrief: copyGen.content.creative_brief,
-                visualBrief: copyGen.content.visual_brief || currentItem.data.brief,
-                occasion: currentItem.data.title
+                creativeBrief: subjectCreativeBrief,
+                visualBrief: subjectVisualBrief,
+                occasion: currentItem.data.title,
+                usage: { traceId: genTraceId, contentItemId: body.content_item_id },
+                // Honest fallback for a general floral/awareness post with
+                // no safe generated photo: the SAME deterministic Tier B
+                // (template, no photo) this file's own flyer-background
+                // path already falls back to when its own image call fails
+                // outright — never an unsafe/rejected AI image just
+                // because nothing better was generated.
+                buildFallback: async () => ({ ok: true, kind: "deterministic", url: null })
               });
-              // QUALITY CHECK stage.
               structuredLog("info", "marketing_generate_content_quality_check", {
                 traceId: genTraceId,
-                imageOk: imageGen.ok,
-                qualityAccepted: imageGen.qualityCheck?.accepted ?? null,
-                qualityHasText: imageGen.qualityCheck?.hasText ?? null
+                state: quality.state,
+                attempts: quality.attempts.length,
+                rejectedCount: quality.rejectedAssetPaths.length
               });
-              if (!imageGen.ok) {
+              if (quality.state === "PASS") {
+                imageGen = {
+                  ok: true,
+                  path: quality.gen.path,
+                  url: quality.gen.url,
+                  mime: quality.gen.mime,
+                  provider: quality.gen.provider,
+                  model: quality.gen.model,
+                  qualityCheck: quality.check,
+                  styleTier: "generated"
+                };
+              } else if (quality.state === "FALLBACK") {
+                imageGen = { ok: true, path: null, url: quality.fallback.url || null, mime: null, provider: "cloudflare", model: null, qualityCheck: null, styleTier: "template" };
+              } else {
                 await revertToIdea();
-                return json(400, { error: imageGen.error });
+                // quality.error is only ever set when EVERY attempt failed
+                // for a genuine, non-retryable infrastructure reason (a
+                // storage/config failure — never a quality rejection) —
+                // surface the real error verbatim rather than the generic
+                // quality-check message, so an actionable bug (e.g. a
+                // storage RLS policy denying uploads) is visible instead of
+                // being reported the same way as an ordinary rejected photo.
+                return json(400, {
+                  error: quality.error
+                    ? `Couldn't save your photo: ${quality.error}`
+                    : "The generated photo didn't pass Lily's quality check, and no safe fallback was available — nothing was saved. Try Generate again."
+                });
               }
             }
             // A reused photo has no NEW file at all — it's the exact same
@@ -2916,7 +3036,7 @@ export function createMarketingStudioHandler(deps = {}) {
                 ...flyerGen.content,
                 template_id: template.id,
                 aspect_ratio: aspectRatio,
-                style_tier: userUploadedPhoto ? "upload" : "generated",
+                style_tier: userUploadedPhoto ? "upload" : imageGen.styleTier || "generated",
                 background_url: imageGen.url,
                 // Durable-render fields — never set at generation time, same
                 // as the exact-facts flyer branch above. finalize_flyer_render
@@ -2954,7 +3074,7 @@ export function createMarketingStudioHandler(deps = {}) {
                 objective: concept.objective,
                 // The quality-control gate's own verdict on this specific
                 // photo (florist-ai-vision.js's assessGeneratedMarketingPhoto,
-                // run inside generateImageCheckingText above) — null for a
+                // run inside runMarketingImageQuality above) — null for a
                 // real uploaded photo, since the gate never runs on those.
                 // Never blocks generation on its own (see that function's
                 // docstring); persisted purely for observability/debugging.
