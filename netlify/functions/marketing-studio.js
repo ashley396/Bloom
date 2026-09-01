@@ -1429,31 +1429,6 @@ export function createMarketingStudioHandler(deps = {}) {
           // asset's own revision path already gives its caption.
           const priorCaption = currentAsset.content?.caption || "";
           const imageOnlyRevision = instructionAffectsFlyerImage(instruction) && !instructionAffectsFlyerWording(instruction);
-          // Batch 4, Part D/E/I: a legacy-shaped ({objective, isSympathy})
-          // preview of what this revision's own concept target actually
-          // is — the parent's concept unless the instruction explicitly
-          // asks to change occasion/sympathy/objective/promotion, in which
-          // case the NEW target, computed the same way buildRevisedConcept
-          // will below. Needed early (before the flyer text is generated)
-          // so the newly generated text can be checked for coherence
-          // against the concept it's actually supposed to match, reusing
-          // the existing detectConceptCoherenceMismatch/
-          // detectCtaCoherenceMismatch detectors rather than a new one.
-          const conceptPreview = (() => {
-            if (!parentConcept) return null;
-            if (!conceptChangeRequest.changed) return legacyConceptView(parentConcept);
-            const fields = conceptChangeRequest.fields;
-            let objective = parentConcept.objective;
-            let isSympathy = parentConcept.sympathyClassification === "sympathy";
-            if (fields.includes("occasionCategory") || fields.includes("sympathyClassification")) {
-              isSympathy = BEREAVEMENT_CONTEXT_RE.test(instruction);
-            }
-            if (fields.includes("objective") || fields.includes("promotionIntent")) {
-              const realPromotion = requestSignalsRealPromotion(instruction);
-              objective = realPromotion ? "promotion" : parentConcept.objective === "promotion" ? "awareness" : parentConcept.objective;
-            }
-            return { objective, isSympathy };
-          })();
           let gen;
           if (imageOnlyRevision) {
             gen = {
@@ -1512,6 +1487,23 @@ export function createMarketingStudioHandler(deps = {}) {
               gen.content.cta = flyerCaptionEval.safeCandidate.cta;
             }
           }
+
+          // Batch 4, Part D/E/I: this revision's own concept target — the
+          // parent's concept unless the instruction explicitly asked to
+          // change occasion/sympathy/objective/promotion, in which case
+          // the NEW target. Reuses buildRevisedConcept itself (not a
+          // second, hand-rolled copy of the same override logic —
+          // independent-review fix, LOW: the two used to drift-risk out of
+          // sync) — only .objective/.sympathyClassification are read here,
+          // so calling it before photoStrategy/styleTier are known is
+          // safe. captionExcerpt is the real caption THIS revision is
+          // about to have (now that `gen` is resolved), so
+          // detectConceptCoherenceMismatch's named-flower caption-vs-flyer
+          // comparison actually has something to compare against, instead
+          // of an always-empty string (independent-review fix, LOW).
+          const conceptPreview = parentConcept
+            ? { ...legacyConceptView(buildRevisedConcept({ ctaText: gen.content.cta, bodyText: gen.content.body }).concept), captionExcerpt: gen.content.body }
+            : null;
 
           // The deterministic text layer (headline/body/cta actually
           // printed on the flyer) only regenerates when the instruction
@@ -1688,7 +1680,17 @@ export function createMarketingStudioHandler(deps = {}) {
             ctaText: flyerFields.cta,
             bodyText: `${flyerFields.body || ""} ${gen.content.body || ""}`,
             photoStrategy: currentAsset.content?.photo_strategy || null,
-            styleTier: finalStyleTier
+            styleTier: finalStyleTier,
+            // Independent review fix (MEDIUM): a flyer's own real photo
+            // provenance (a real upload, or a reuse of one) was previously
+            // never passed here, so re-deriving assetRoute (only when
+            // there's no parent concept, or an explicit "use a real photo
+            // instead" change) always computed as if the photo could only
+            // ever be AI-generated — wrong for a real uploaded/reused
+            // photo. Carried forward from the same fields generate_content
+            // itself persists on this exact asset type/branch.
+            userUploadedPhoto: Boolean(currentAsset.content?.user_uploaded_photo),
+            reusedFromAssetId: currentAsset.content?.reused_from_asset_id || null
           });
           const persisted = await persistGeneratedAsset(client, {
             shopId,

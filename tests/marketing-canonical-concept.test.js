@@ -183,12 +183,36 @@ test("detectExplicitConceptChangeRequest: ordinary wording/visual tweaks are NEV
     "Give me another caption",
     "Make the image brighter",
     "Regenerate the image",
-    "Change the background to a marble counter"
+    "Change the background to a marble counter",
+    // Independent-review regression (HIGH): these all matched the old
+    // "focus on X instead of Y" / "make this about X instead" rules on
+    // ANY noun pair, silently mislabeling an ordinary emphasis/tone tweak
+    // as a deliberate subject/occasion change. Neither X nor Y here names
+    // a real occasion or subject-class keyword, so none of these may
+    // count as an explicit concept change.
+    "focus on roses instead of tulips",
+    "focus on freshness instead of price",
+    "make this about value instead of speed"
   ]) {
     const result = detectExplicitConceptChangeRequest(instruction);
     assert.equal(result.changed, false, `"${instruction}" must NOT be detected as a concept change`);
     assert.deepEqual(result.fields, []);
   }
+});
+
+// Independent-review regression (HIGH): "focus on X instead of Y" and
+// "make this about X instead" must still fire when X/Y genuinely name a
+// real occasion or subject-class keyword — the gate must narrow false
+// positives without losing the real detections Part G's own examples
+// require ("focus on weddings instead of birthdays").
+test("detectExplicitConceptChangeRequest: 'focus on X instead of Y' still fires when X/Y name a real occasion/subject keyword", () => {
+  const weddings = detectExplicitConceptChangeRequest("focus on weddings instead of birthdays");
+  assert.equal(weddings.changed, true);
+  assert.deepEqual(new Set(weddings.fields), new Set(["primarySubjectClass", "occasionCategory"]));
+
+  const mascot = detectExplicitConceptChangeRequest("make this about our mascot instead");
+  assert.equal(mascot.changed, true);
+  assert.deepEqual(mascot.fields, ["primarySubjectClass"]);
 });
 
 test("detectExplicitConceptChangeRequest: 'change this from a birthday post to a sympathy post' is detected as a deliberate concept change", () => {

@@ -329,6 +329,26 @@ export function inheritConcept(parentConcept, overrides = {}) {
 // it is allowed to change. Deliberately narrow, real phrasings — an
 // ordinary wording/visual tweak ("make it shorter," "make the image
 // brighter") must never match any of these.
+//
+// Post-fix (independent review finding, HIGH): "focus on X instead of Y"
+// and "make this about X instead" originally matched ANY noun pair —
+// "focus on roses instead of tulips" or "make this about value instead of
+// speed" both matched and were silently treated as an explicit
+// subject/occasion change, even though neither names a real subject class
+// or occasion category. Both are now gated by `validate`, requiring the
+// named X/Y to actually match one of the same real occasion/subject-class
+// keyword rules classifyOccasionCategory/classifyPrimarySubjectClass
+// already use — an ordinary emphasis tweak with no real category word in
+// it no longer counts as a deliberate concept change. "change the subject
+// to ..." stays unconditional — it explicitly names "the subject," so
+// there's no real ambiguity to gate.
+function textNamesKnownOccasionOrSubject(text) {
+  const haystack = String(text || "");
+  if (OCCASION_KEYWORD_RULES.some((rule) => rule.re.test(haystack))) return true;
+  if (SUBJECT_CLASS_RULES.some((rule) => rule.re.test(haystack))) return true;
+  return false;
+}
+
 const CONCEPT_CHANGE_RULES = [
   {
     fields: ["occasionCategory", "sympathyClassification"],
@@ -340,28 +360,42 @@ const CONCEPT_CHANGE_RULES = [
   },
   { fields: ["objective", "promotionIntent"], re: /\bmake this an? (?:real )?promotion\b|\bturn this into an? promotion\b|\bpromote \d+%? ?off\b/i },
   { fields: ["objective", "promotionIntent"], re: /\bremove the promotion\b|\bmake it awareness[- ]only\b|\bno longer a promotion\b/i },
-  { fields: ["primarySubjectClass", "occasionCategory"], re: /\bfocus on (\w+) instead of (\w+)\b/i },
+  {
+    fields: ["primarySubjectClass", "occasionCategory"],
+    re: /\bfocus on ([a-z][\w\s]*?) instead of ([a-z][\w\s]*?)\b/i,
+    validate: (match) => textNamesKnownOccasionOrSubject(match[1]) || textNamesKnownOccasionOrSubject(match[2])
+  },
   { fields: ["inventoryIntent"], re: /\buse (?:the )?inventory we have today\b|\buse what'?s in stock\b|\bactually use (?:our|my) (?:real )?inventory\b/i },
   { fields: ["ctaIntent"], re: /\bchange the (?:call to action|cta) to\b|\bchange the cta\b/i },
-  { fields: ["primarySubjectClass"], re: /\bchange the subject to\b|\bmake this about (\w[\w\s]*) instead\b/i },
+  { fields: ["primarySubjectClass"], re: /\bchange the subject to\b/i },
+  {
+    fields: ["primarySubjectClass"],
+    re: /\bmake this about (\w[\w\s]*) instead\b/i,
+    validate: (match) => textNamesKnownOccasionOrSubject(match[1])
+  },
   { fields: ["assetRoute"], re: /\buse (?:a|my) real photo instead\b|\bswitch to an? ai[- ]generated photo\b|\buse an uploaded photo instead\b/i }
 ];
 
 /**
  * Returns `{ changed: boolean, fields: string[] }` — `fields` is the
  * union of every rule's declared fields that actually matched this
- * instruction. Never returns fields a rule didn't explicitly name —
- * this is the deterministic gate Part E requires ("Create deterministic
- * or tightly-scoped detection for deliberate concept-changing
- * instructions"), not a fuzzy AI classification.
+ * instruction AND, for a rule with its own `validate`, whose captured
+ * text names a real occasion/subject category (see textNamesKnownOccasion
+ * OrSubject above) — never returns fields a rule didn't explicitly name,
+ * and never treats an ordinary emphasis/tone tweak with no real category
+ * word as a concept change. This is the deterministic gate Part E
+ * requires ("Create deterministic or tightly-scoped detection for
+ * deliberate concept-changing instructions"), not a fuzzy AI
+ * classification.
  */
 export function detectExplicitConceptChangeRequest(instruction) {
   const text = String(instruction || "");
   const fields = new Set();
   for (const rule of CONCEPT_CHANGE_RULES) {
-    if (rule.re.test(text)) {
-      for (const f of rule.fields) fields.add(f);
-    }
+    const match = text.match(rule.re);
+    if (!match) continue;
+    if (rule.validate && !rule.validate(match, text)) continue;
+    for (const f of rule.fields) fields.add(f);
   }
   return { changed: fields.size > 0, fields: [...fields] };
 }
