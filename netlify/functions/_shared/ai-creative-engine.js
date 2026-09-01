@@ -419,8 +419,18 @@ export async function generateVideoConcept({ persona = "Lily", channel, occasion
         suggested_length_seconds: Number(plan.suggested_length_seconds) || null,
         renderingAvailable: false,
         renderingNote: "Final AI video rendering is not connected yet — this is the finished script, storyboard, and captions, ready for a video provider once one is chosen.",
-        brand_traits_used: normalizeTraitsUsed(plan.brand_traits_used),
-        visual_traits_used: normalizeTraitsUsed(plan.visual_traits_used)
+        // Batch 5, Part M ("social + video parity"): generateSocialPost
+        // already grounds its own self-reported traits_used through
+        // traitsGroundedInSummary — only a trait that was actually IN the
+        // summary handed to the model can ever be reported as "used,"
+        // closing off a model inventing its own trait out of thin air.
+        // This branch never applied that same filter, so a model-invented
+        // video trait could reach Brand Brain/My Style learning
+        // ungrounded while the exact same thing on the social side
+        // couldn't — never one route stricter than the other for the
+        // same real risk.
+        brand_traits_used: traitsGroundedInSummary(normalizeTraitsUsed(plan.brand_traits_used), brandVoiceSummary),
+        visual_traits_used: traitsGroundedInSummary(normalizeTraitsUsed(plan.visual_traits_used), visualStyleSummary)
       },
       model: result.model
     };

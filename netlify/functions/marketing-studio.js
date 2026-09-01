@@ -157,6 +157,8 @@ import {
   classifyPrimarySubjectClass,
   deriveAssetRoute
 } from "./_shared/marketing-canonical-concept.js";
+import { evaluateMarketingDiversity } from "./_shared/marketing-content-diversity.js";
+import { deriveApprovalObservations, dedupeTraits } from "./_shared/marketing-approval-learning.js";
 import { defaultVisualStyle } from "./_shared/ai-visual-revisions.js";
 import { buildMarketingStudioAnalyticsSummary } from "./_shared/marketing-analytics.js";
 import { groupMetricsByDimension } from "./_shared/marketing-insights.js";
@@ -883,18 +885,39 @@ export function createMarketingStudioHandler(deps = {}) {
             const brandTraits = [];
             const visualTraits = [];
             for (const a of reviewAssets) {
+              // traits_applied (Part I): the generation's own already-
+              // grounded self-report — unchanged from before this batch.
               if (Array.isArray(a?.content?.brand_traits_used)) brandTraits.push(...a.content.brand_traits_used);
               if (Array.isArray(a?.content?.visual_traits_used)) visualTraits.push(...a.content.visual_traits_used);
+              // approval_observations (Part I/J): NEW deterministic
+              // observations derived straight from this artifact's own
+              // structural properties (canonical_concept's creativeFamily,
+              // the real caption's real length) — never from a model's
+              // free-form self-report, so this is the one path a genuinely
+              // NEW inferred preference can actually be born through
+              // (traits_applied above can only ever echo a trait that was
+              // already active, since generateSocialPost/generateVideoConcept
+              // ground it against the summary text — nothing is ever in
+              // that summary the very first time).
+              const observations = deriveApprovalObservations(a);
+              brandTraits.push(...observations.brandObservations);
+              visualTraits.push(...observations.visualObservations);
             }
-            if (brandTraits.length) {
+            // Part L: the same trait named twice for this one approval
+            // event (e.g. by both a self-report AND a deterministic
+            // observation, or by two different assets) must still only
+            // ever count as one observation.
+            const dedupedBrandTraits = dedupeTraits(brandTraits);
+            const dedupedVisualTraits = dedupeTraits(visualTraits);
+            if (dedupedBrandTraits.length) {
               const { preferences: currentBrand } = await loadBrandBrain(client, shopId);
-              const nextBrand = recordBrandSignal(currentBrand, { traits: brandTraits, signal: body.decision });
+              const nextBrand = recordBrandSignal(currentBrand, { traits: dedupedBrandTraits, signal: body.decision });
               await saveBrandBrain(client, shopId, nextBrand);
             }
-            if (visualTraits.length) {
+            if (dedupedVisualTraits.length) {
               const { preferences: currentVisual } = await loadStyleMemory(client, shopId);
               const nextVisual = recordVisualStyleApprovalSignal(currentVisual, {
-                traits: visualTraits,
+                traits: dedupedVisualTraits,
                 signal: body.decision === "approved" ? "saved" : "undone"
               });
               await saveStyleMemory(client, shopId, nextVisual);
@@ -2471,7 +2494,7 @@ export function createMarketingStudioHandler(deps = {}) {
         // excludeContentItemId is this item's own id so a later revision
         // pass over the SAME item never sees its own prior caption in its
         // own "don't repeat this" list.
-        const { brandVoiceSummary, visualStyleSummary, inventorySummary, inventorySources, audienceSummary, recentContentSummary } = await loadGenerationGrounding(
+        const { brandVoiceSummary, visualStyleSummary, inventorySummary, inventorySources, audienceSummary, recentContentSummary, recentContentHistory } = await loadGenerationGrounding(
           client,
           shopId,
           { needs: ["brand", "style", "inventory", "audience", "recent"], excludeContentItemId: body.content_item_id }
@@ -2685,7 +2708,40 @@ export function createMarketingStudioHandler(deps = {}) {
             candidate: copyGen.content,
             component: "caption"
           });
-          if (captionEval.reasons.length) {
+          // Batch 5, Part E/F: a lightweight, NOT-persisted preview of
+          // this candidate's own canonical concept, built purely to give
+          // the diversity evaluator real structured fields to compare
+          // against — the ad-hoc `concept`/the actually-persisted
+          // canonical_concept are still built later, from the FINAL kept
+          // draft, exactly as Batch 4 left them. Never a second concept
+          // system: same buildCanonicalConcept, same signals.
+          const buildDiversityPreviewConcept = (content) =>
+            buildCanonicalConcept({
+              requestText: currentItem.data.brief,
+              occasionTitle: currentItem.data.title,
+              platform: primaryPlatform,
+              contentType: currentItem.data.content_type,
+              objective: content?.objective || null,
+              primarySubject: content?.creative_brief?.primary_subject || content?.visual_brief || null,
+              ctaText: content?.cta || null,
+              bodyText: content?.body || "",
+              isSympathy: BEREAVEMENT_CONTEXT_RE.test(`${currentItem.data.brief} ${content?.body || ""}`),
+              creativeBrief: content?.creative_brief || null,
+              invGroundedCount: (inventorySources || []).length
+            });
+          let diversityEval = evaluateMarketingDiversity({
+            candidate: copyGen.content,
+            canonicalConcept: buildDiversityPreviewConcept(copyGen.content),
+            recentHistory: recentContentHistory,
+            platform: primaryPlatform,
+            contentItemId: body.content_item_id
+          });
+          structuredLog("info", "marketing_generate_content_diversity", {
+            traceId: genTraceId,
+            decision: diversityEval.decision,
+            repeatedSignals: diversityEval.repeatedSignals
+          });
+          if (captionEval.reasons.length || diversityEval.decision === "retry") {
             await recordUsage("copy", "request", 1);
             // Real regression an independent review found: appending the
             // rejection reasons here used to dilute the brief enough that
@@ -2698,18 +2754,23 @@ export function createMarketingStudioHandler(deps = {}) {
             // the brief FIRST, then append the correction feedback (which
             // is safe — it's a warning against the fixation, not a restated
             // topic) — never let the two get concatenated before the check
-            // runs.
+            // runs. Batch 5: the SAME bounded retry now also carries the
+            // diversity evaluator's own reasons — never a second, separate
+            // retry call (Part E: "do not create recursive diversity
+            // retries").
+            const combinedReasons = [...captionEval.reasons, ...diversityEval.reasons];
             const retry = await generateSocialPost({
               ...socialPostArgs,
               requestText:
-                `${sanitizedRequestForModel(currentItem.data.brief, shopName)}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${captionEval.reasons.join("\n- ")}`
+                `${sanitizedRequestForModel(currentItem.data.brief, shopName)}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${combinedReasons.join("\n- ")}`
             });
             // The retry is not automatically the better one. Handed its own
             // faults back, a model can fix the named phrase and introduce two
             // more, and the florist would have been shown the worse of the two
             // drafts with no way to know a better one existed. Keep whichever
-            // attempt actually has fewer problems; a tie keeps the retry, since
-            // it is the one that was told what was wrong.
+            // attempt actually has fewer COMBINED problems (safety + diversity);
+            // a tie keeps the retry, since it is the one that was told what
+            // was wrong.
             if (retry.ok && retry.content?.body) {
               const retryEval = evaluateMarketingOutput({
                 route: "generate_content",
@@ -2720,9 +2781,19 @@ export function createMarketingStudioHandler(deps = {}) {
                 component: "caption",
                 isRetryAttempt: true
               });
-              if (retryEval.reasons.length <= captionEval.reasons.length) {
+              const retryDiversityEval = evaluateMarketingDiversity({
+                candidate: retry.content,
+                canonicalConcept: buildDiversityPreviewConcept(retry.content),
+                recentHistory: recentContentHistory,
+                platform: primaryPlatform,
+                contentItemId: body.content_item_id
+              });
+              const currentBadCount = captionEval.reasons.length + diversityEval.reasons.length;
+              const retryBadCount = retryEval.reasons.length + retryDiversityEval.reasons.length;
+              if (retryBadCount <= currentBadCount) {
                 copyGen = retry;
                 captionEval = retryEval;
+                diversityEval = retryDiversityEval;
               }
             }
           }

@@ -55,7 +55,7 @@ import { loadBrandBrain, buildBrandSummary } from "./marketing-brand-brain.js";
 import { loadStyleMemory, buildStyleSummary } from "./ai-style-memory.js";
 import { loadGroundedInventory, buildInventoryGroundingBrief } from "./marketing-inventory-grounding.js";
 import { loadCustomerAudienceSummary, buildAudienceGroundingBrief } from "./customer-audience-grounding.js";
-import { loadRecentContent, buildRecentContentGroundingBrief } from "./marketing-recent-content-grounding.js";
+import { loadRecentContentHistory, buildRecentContentGroundingBrief } from "./marketing-recent-content-grounding.js";
 
 const EMPTY_INVENTORY_BRIEF = Object.freeze({ summaryText: null, sources: [], grounded: false });
 const EMPTY_AUDIENCE_BRIEF = Object.freeze({ summaryText: null, grounded: false });
@@ -95,8 +95,15 @@ export async function loadGenerationGrounding(client, shopId, { needs = ["brand"
     ctx._genGroundingAudience = buildAudienceGroundingBrief(audience);
   }
   if (want.has("recent") && ctx._genGroundingRecent === undefined) {
-    const recent = await loadRecentContent(client, shopId, { excludeContentItemId });
-    ctx._genGroundingRecent = buildRecentContentGroundingBrief(recent) || EMPTY_RECENT_BRIEF;
+    // Batch 5: the one structured history load (published-preferred,
+    // approved-fallback, deduped by content item — see
+    // marketing-recent-content-grounding.js) backs BOTH the soft prompt
+    // hint below AND the deterministic diversity evaluator a caller can
+    // run against ctx._genGroundingRecentHistory.entries — one real query
+    // path, not two.
+    const history = await loadRecentContentHistory(client, shopId, { excludeContentItemId });
+    ctx._genGroundingRecentHistory = history;
+    ctx._genGroundingRecent = buildRecentContentGroundingBrief({ recentCaptions: history.entries.map((e) => e.captionSnippet).filter(Boolean) }) || EMPTY_RECENT_BRIEF;
   }
 
   return {
@@ -105,6 +112,7 @@ export async function loadGenerationGrounding(client, shopId, { needs = ["brand"
     inventorySummary: want.has("inventory") ? ctx._genGroundingInventory?.summaryText || null : null,
     inventorySources: want.has("inventory") ? ctx._genGroundingInventory?.sources || [] : [],
     audienceSummary: want.has("audience") ? ctx._genGroundingAudience?.summaryText || null : null,
-    recentContentSummary: want.has("recent") ? ctx._genGroundingRecent?.summaryText || null : null
+    recentContentSummary: want.has("recent") ? ctx._genGroundingRecent?.summaryText || null : null,
+    recentContentHistory: want.has("recent") ? ctx._genGroundingRecentHistory?.entries || [] : []
   };
 }

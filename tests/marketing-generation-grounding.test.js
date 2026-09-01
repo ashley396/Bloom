@@ -120,9 +120,15 @@ test("loadGenerationGrounding: default needs never touch marketing_platform_vari
 });
 
 test("loadGenerationGrounding: 'recent' in needs loads this shop's real recent captions and threads them into the real prompt brief", async () => {
-  const client = createFakeSupabaseClient([{ data: [{ caption: "Fresh peonies just arrived!", content_item_id: "item-1", created_at: "2026-08-20T00:00:00Z" }], error: null }]);
+  const client = createFakeSupabaseClient([
+    { data: [{ id: "v1", content_item_id: "item-1", platform: "facebook", caption: "Fresh peonies just arrived!", asset_id: "asset-1", status: "published", published_at: "2026-08-20T00:00:00Z", created_at: "2026-08-19T00:00:00Z" }], error: null },
+    { data: [{ id: "item-1", status: "approved", updated_at: "2026-08-19T00:00:00Z" }], error: null },
+    { data: [{ id: "asset-1", asset_type: "social_copy", status: "completed", content: { body: "Fresh peonies just arrived!" } }], error: null }
+  ]);
   const result = await loadGenerationGrounding(client, "shop-1", { needs: ["recent"] });
   assert.match(result.recentContentSummary, /Fresh peonies just arrived!/);
+  assert.equal(result.recentContentHistory.length, 1);
+  assert.equal(result.recentContentHistory[0].contentItemId, "item-1");
   assert.equal(result.brandVoiceSummary, "", "requesting only 'recent' must not also pull brand/style/inventory");
   const variantsCall = client.calls.find((c) => c.table === "marketing_platform_variants");
   assert.ok(variantsCall.ops.some((op) => op[0] === "eq" && op[1][0] === "shop_id" && op[1][1] === "shop-1"));
@@ -132,11 +138,13 @@ test("loadGenerationGrounding: 'recent' passes excludeContentItemId through, so 
   const client = createFakeSupabaseClient([
     {
       data: [
-        { caption: "This item's own prior caption.", content_item_id: "item-being-revised", created_at: "2026-08-20T00:00:00Z" },
-        { caption: "A genuinely different, older post.", content_item_id: "item-other", created_at: "2026-08-18T00:00:00Z" }
+        { id: "v1", content_item_id: "item-being-revised", platform: "facebook", caption: "This item's own prior caption.", asset_id: "asset-1", status: "published", published_at: "2026-08-20T00:00:00Z", created_at: "2026-08-20T00:00:00Z" },
+        { id: "v2", content_item_id: "item-other", platform: "facebook", caption: "A genuinely different, older post.", asset_id: "asset-2", status: "published", published_at: "2026-08-18T00:00:00Z", created_at: "2026-08-18T00:00:00Z" }
       ],
       error: null
-    }
+    },
+    { data: [{ id: "item-other", status: "approved", updated_at: "2026-08-18T00:00:00Z" }], error: null },
+    { data: [{ id: "asset-2", asset_type: "social_copy", status: "completed", content: { body: "A genuinely different, older post." } }], error: null }
   ]);
   const result = await loadGenerationGrounding(client, "shop-1", { needs: ["recent"], excludeContentItemId: "item-being-revised" });
   assert.doesNotMatch(result.recentContentSummary, /own prior caption/);

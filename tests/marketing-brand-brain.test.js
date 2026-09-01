@@ -122,6 +122,33 @@ test("buildBrandSummary summarizes only ACTIVE traits, never a still-building ca
   assert.doesNotMatch(summary, /playful/, "a candidate with only one approval signal must not appear in the prompt-facing summary");
 });
 
+// Batch 5, Part K/Part Q #36/#37: the full three-state precedence chain —
+// explicit activates immediately (outranks everything), a promoted
+// inferred preference outranks the default (nothing learned yet), and an
+// inferred preference that hasn't been promoted yet is indistinguishable
+// from "default" in what actually reaches the generation prompt.
+test("buildBrandSummary: explicit outranks inferred outranks default — the full precedence chain in one shot", () => {
+  let prefs = defaultPreferences();
+  // Default: nothing learned yet for this category at all.
+  assert.doesNotMatch(buildBrandSummary(prefs), /posting personality/);
+
+  // Inferred, not yet promoted: still reads as "default" to the prompt —
+  // one real signal is never enough on its own (Part K).
+  prefs = recordBrandSignal(prefs, { traits: [{ category: "posting_personality", text: "playful", polarity: "positive" }], signal: "approved" });
+  assert.doesNotMatch(buildBrandSummary(prefs), /playful/, "one inferred signal must never outrank the default before real repetition");
+
+  // Explicit, stated once: activates immediately — outranks the still-
+  // building inferred candidate in the SAME category.
+  prefs = applyExplicitBrandUpdates(prefs, [{ category: "posting_personality", text: "down-to-earth", polarity: "positive" }]);
+  assert.match(buildBrandSummary(prefs), /down-to-earth/, "an explicit statement must activate immediately, outranking any still-building inferred signal");
+  assert.doesNotMatch(buildBrandSummary(prefs), /playful/, "the explicit statement does not itself promote the unrelated inferred candidate");
+
+  // Inferred, promoted after real repetition: now also outranks default.
+  prefs = recordBrandSignal(prefs, { traits: [{ category: "posting_personality", text: "playful", polarity: "positive" }], signal: "approved" });
+  prefs = recordBrandSignal(prefs, { traits: [{ category: "posting_personality", text: "playful", polarity: "positive" }], signal: "approved" });
+  assert.match(buildBrandSummary(prefs), /playful/, "Part Q #37: a promoted inferred preference must outrank the default once it has real repeated evidence");
+});
+
 test("buildBrandSummary includes both positive and negative sides, and general_avoid", () => {
   let prefs = applyExplicitBrandUpdates(defaultPreferences(), [
     { category: "preferred_words", text: "artisan", polarity: "positive" },

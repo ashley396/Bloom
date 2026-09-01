@@ -212,6 +212,63 @@ test("generateSocialPost: a self-reported trait whose text is NOT actually prese
   }
 });
 
+// Batch 5 ("Repair recent-content diversity + brand-memory learning"),
+// Part M ("social + video parity"): generateVideoConcept previously
+// skipped the same traitsGroundedInSummary filter generateSocialPost
+// already applies — a model-invented video trait could reach Brand
+// Brain/My Style learning ungrounded while the identical thing on the
+// social side couldn't. Same three scenarios as generateSocialPost above,
+// run against generateVideoConcept, proving the two routes now behave
+// identically.
+
+test("generateVideoConcept: a model-invented trait not actually present in the real summary is dropped — Part Q #31", async () => {
+  const mock = mockCloudflareOnce({
+    concept: "c",
+    script: "s",
+    scenes: ["0-3s: a shot"],
+    captions: [],
+    hashtags: [],
+    suggested_length_seconds: 15,
+    brand_traits_used: [{ category: "tone", text: "we appreciate your understanding" }], // invented — never in the summary
+    visual_traits_used: [{ category: "mood", text: "quiet storefront photo" }] // invented — never in the summary
+  });
+  try {
+    const result = await generateVideoConcept({ channel: "instagram", requestText: "x" }); // no brandVoiceSummary/visualStyleSummary at all
+    assert.deepEqual(result.content.brand_traits_used, [], "Part Q #31: a model-invented video trait must never reach learning ungrounded");
+    assert.deepEqual(result.content.visual_traits_used, []);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("generateVideoConcept: a self-reported trait that IS actually present in the real summary is kept, exactly like the social path — Part Q #38", async () => {
+  const mock = mockCloudflareOnce({
+    concept: "c",
+    script: "s",
+    scenes: ["0-3s: a shot"],
+    captions: [],
+    hashtags: [],
+    suggested_length_seconds: 15,
+    brand_traits_used: [
+      { category: "preferred_words", text: "artisan" }, // real — present in the summary below
+      { category: "tone", text: "we appreciate your understanding" } // invented — never in the summary
+    ],
+    visual_traits_used: [{ category: "background_style", text: "soft luxury" }]
+  });
+  try {
+    const result = await generateVideoConcept({
+      channel: "instagram",
+      requestText: "x",
+      brandVoiceSummary: "preferred words: artisan",
+      visualStyleSummary: "background style: soft luxury"
+    });
+    assert.deepEqual(result.content.brand_traits_used, [{ category: "preferred_words", text: "artisan" }], "Part Q #38: video grounds a real, already-learned trait exactly like social does");
+    assert.deepEqual(result.content.visual_traits_used, [{ category: "background_style", text: "soft luxury" }]);
+  } finally {
+    mock.restore();
+  }
+});
+
 // Phase 5/9 wiring: "I have 40 roses I need to sell, make a Facebook post"
 // could previously only ever invent flowers — buildSocialPostTask had zero
 // inventory awareness. inventorySummary is a third, independent grounding
