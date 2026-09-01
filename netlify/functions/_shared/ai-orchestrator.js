@@ -24,6 +24,7 @@ import { pickFlyerTemplate, pickAspectRatio, ASPECT_RATIOS } from "./flyer-templ
 import { applyRevisionDeltas, defaultVisualStyle } from "./ai-visual-revisions.js";
 import { buildVisualBrief } from "./ai-intent-router.js";
 import { loadGenerationGrounding } from "./marketing-generation-grounding.js";
+import { evaluateMarketingOutput } from "./marketing-content-revision.js";
 
 const POSTABLE_CHANNELS = ["facebook", "instagram", "google_business", "email", "sms", "blog"];
 const CHANNEL_TO_CAMPAIGN_CHANNEL = {
@@ -157,9 +158,40 @@ async function runStep(client, step, ctx) {
       });
       return { ok: false, error: gen.error };
     }
+    // Batch 1 rebuild: this general Lily job-runner path previously ran NO
+    // output-safety check at all before persisting — an ordinary post
+    // generated here could carry the exact same invented-shipment/
+    // sympathy-mismatch/visual-fiction shape generate_content's own
+    // detectors exist to catch, with nothing here to catch it. The shared
+    // evaluateMarketingOutput() evaluator's deterministic repair always
+    // applies (a fabricated number, an unverified inventory claim, a
+    // leaked visual-fiction detail is never persisted); a problem it
+    // can't deterministically fix is logged for observability rather than
+    // silently persisted as clean — this file has no retry/rescue
+    // infrastructure of its own yet (unlike generate_content's bounded
+    // retry + deterministic-notice fallback), so a genuinely unsafe
+    // result is still persisted with its safety verdict attached rather
+    // than blocking the whole job; closing that gap fully is tracked as a
+    // follow-up, not silently assumed done here.
+    const socialPostEval = evaluateMarketingOutput({
+      route: "ai_orchestrator.marketing.createSocialPost",
+      request: requestText,
+      shopEvidence: { name: shop?.name, phone: shop?.phone },
+      inventoryEvidence: ctx.inventory || [],
+      candidate: gen.content,
+      component: "caption",
+      isRetryAttempt: true
+    });
+    if (socialPostEval.safeCandidate) {
+      gen.content.headline = socialPostEval.safeCandidate.headline;
+      gen.content.body = socialPostEval.safeCandidate.body;
+      gen.content.cta = socialPostEval.safeCandidate.cta;
+    }
     const persisted = await persistGeneratedAsset(client, {
       shopId, userId, persona, jobId, campaignId,
-      assetType: "social_post", model: gen.model, content: gen.content, status: "completed"
+      assetType: "social_post", model: gen.model,
+      content: { ...gen.content, safety_check: { decision: socialPostEval.reasons.length ? "reject" : socialPostEval.repaired ? "repair" : "pass", reasonCount: socialPostEval.reasons.length } },
+      status: "completed"
     });
     if (!persisted.ok) return { ok: false, error: persisted.error };
     return { ok: true, result: { asset_id: persisted.asset.id, content: gen.content } };
@@ -207,9 +239,28 @@ async function runStep(client, step, ctx) {
       });
       return { ok: false, error: gen.error };
     }
+    // Batch 1 rebuild: video concepts had NO safety check at all before
+    // this — not even the caption's own factsPreserved-style guard —
+    // and buildVideoConceptTask itself has no sympathy handling and no
+    // unconditional anti-fabrication rule (unlike the caption/flyer
+    // prompts). Detection-only (a video plan's script/scenes/captions
+    // have no headline/body/cta shape to repair field-by-field);
+    // recorded on the persisted asset for observability rather than
+    // silently treated as clean.
+    const videoConceptEval = evaluateMarketingOutput({
+      route: "ai_orchestrator.marketing.createVideoConcept",
+      request: requestText,
+      shopEvidence: { name: shop?.name, phone: shop?.phone },
+      inventoryEvidence: ctx.inventory || [],
+      candidate: [gen.content.concept, gen.content.script, ...(gen.content.scenes || []), ...(gen.content.captions || [])].filter(Boolean).join(" "),
+      component: "video_concept",
+      isRetryAttempt: true
+    });
     const persisted = await persistGeneratedAsset(client, {
       shopId, userId, persona, jobId, campaignId,
-      assetType: "video_concept", model: gen.model, content: gen.content, status: "completed"
+      assetType: "video_concept", model: gen.model,
+      content: { ...gen.content, safety_check: { decision: videoConceptEval.reasons.length ? "reject" : "pass", reasonCount: videoConceptEval.reasons.length } },
+      status: "completed"
     });
     if (!persisted.ok) return { ok: false, error: persisted.error };
     return { ok: true, result: { asset_id: persisted.asset.id, content: gen.content } };
@@ -217,7 +268,22 @@ async function runStep(client, step, ctx) {
 
   if (step.tool === "creative.generateImage") {
     const products = (ctx.inventory || []).slice(0, 4).map((i) => i.name).filter(Boolean);
-    const prompt = buildImagePrompt({ occasion: routed.occasion, products, shopName: shop?.name, visualBrief: ctx.visualBrief });
+    // Batch 1 rebuild: the visual-fiction/flower-grounding boundary
+    // applies here exactly as it does in Marketing Studio's own
+    // generate_content — a visualBrief naming an ungrounded flower
+    // species is sanitized before it ever reaches the image prompt.
+    let sceneVisualBrief = ctx.visualBrief;
+    if (sceneVisualBrief) {
+      const sceneEval = evaluateMarketingOutput({
+        route: "ai_orchestrator.creative.generateImage",
+        request: requestText,
+        inventoryEvidence: ctx.inventory || [],
+        candidate: sceneVisualBrief,
+        component: "creative_scene"
+      });
+      if (sceneEval.decision === "repair") sceneVisualBrief = sceneEval.safeCandidate;
+    }
+    const prompt = buildImagePrompt({ occasion: routed.occasion, products, shopName: shop?.name, visualBrief: sceneVisualBrief });
     const gen = await generateImage(client, shopId, { prompt, filename: `${routed.domain || "marketing"}-${Date.now()}.jpg` });
     if (!gen.ok) {
       await persistGeneratedAsset(client, {
@@ -250,12 +316,25 @@ async function runStep(client, step, ctx) {
     // actually about to spend an image generation (a plain "crop this" or
     // a Tier-B flyer never reaches this line, so it never pays for it).
     const brief = await buildVisualBrief(requestText, { styleSummary, occasion: routed.occasion });
+    // Batch 1 rebuild: the same visual-fiction/flower-grounding boundary
+    // as creative.generateImage above.
+    let backgroundVisualBrief = brief.visual_brief;
+    if (backgroundVisualBrief) {
+      const sceneEval = evaluateMarketingOutput({
+        route: "ai_orchestrator.creative.generateBackground",
+        request: requestText,
+        inventoryEvidence: ctx.inventory || [],
+        candidate: backgroundVisualBrief,
+        component: "creative_scene"
+      });
+      if (sceneEval.decision === "repair") backgroundVisualBrief = sceneEval.safeCandidate;
+    }
     // Backdrop-only, deliberately — the client already has a real,
     // segmented cutout of the florist's actual arrangement (or no photo at
     // all, for a flyer's visual background) and composites it on top of
     // whatever this returns; see buildBackgroundPrompt()'s own docstring
     // for why a second subject here would double up in the final image.
-    const prompt = buildBackgroundPrompt({ visualBrief: brief.visual_brief, brandColor: shop?.primary_color });
+    const prompt = buildBackgroundPrompt({ visualBrief: backgroundVisualBrief, brandColor: shop?.primary_color });
     const gen = await generateImage(client, shopId, { prompt, filename: `background-${Date.now()}.jpg` });
     if (!gen.ok) {
       await persistGeneratedAsset(client, {
@@ -290,10 +369,32 @@ async function runStep(client, step, ctx) {
       });
       return { ok: false, error: gen.error };
     }
+    // Batch 1 rebuild: this flyer-wording path (Lily's own tool-routed
+    // job runner, separate from Marketing Studio's generate_content) had
+    // no output-safety check at all. Same deterministic-repair-always,
+    // log-what-isn't-fixable pattern as marketing.createSocialPost above
+    // — no concept-threading exists between this and any sibling caption
+    // step here, so coherence/CTA checks don't apply (canonicalConcept
+    // omitted), same as before this fix.
+    const flyerContentEval = evaluateMarketingOutput({
+      route: "ai_orchestrator.creative.renderFlyerContent",
+      request: requestText,
+      shopEvidence: { name: shop?.name, phone: shop?.phone },
+      inventoryEvidence: ctx.inventory || [],
+      candidate: gen.content,
+      component: "flyer_text",
+      isRetryAttempt: true
+    });
+    if (flyerContentEval.safeCandidate) {
+      gen.content.headline = flyerContentEval.safeCandidate.headline;
+      gen.content.body = flyerContentEval.safeCandidate.body;
+      gen.content.cta = flyerContentEval.safeCandidate.cta;
+    }
     const template = pickFlyerTemplate({ occasion: routed.occasion });
     const aspectRatio = pickAspectRatio(routed.target_aspect_ratio_hint);
     const content = {
       ...gen.content,
+      safety_check: { decision: flyerContentEval.reasons.length ? "reject" : flyerContentEval.repaired ? "repair" : "pass", reasonCount: flyerContentEval.reasons.length },
       template_id: template.id,
       aspect_ratio: aspectRatio,
       // Tier A (a real generated visual) when the message itself carried

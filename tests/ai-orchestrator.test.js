@@ -604,3 +604,55 @@ test("runJob: creative.reviseVisual with no parent asset fails with a clear, hon
   assert.equal(payload.status, "failed");
   assert.match(payload.result.steps[0].error, /nothing to revise/i);
 });
+
+// ---------------------------------------------------------------------------
+// Batch 1 rebuild — route coverage: the general Lily job runner
+// (marketing.createSocialPost) must actually invoke the shared
+// evaluateMarketingOutput() evaluator and use its repaired result, not
+// merely have it available. Real, live-found failure this guards: this
+// file previously ran NO safety check at all before persisting a caption.
+// ---------------------------------------------------------------------------
+
+test("ROUTE COVERAGE: marketing.createSocialPost sanitizes an unverified inventory-state claim before persisting — the shared evaluator is actually invoked here, not just imported", async () => {
+  process.env.CLOUDFLARE_ACCOUNT_ID = "acct-test";
+  process.env.CLOUDFLARE_AI_API_TOKEN = "token-test";
+  const originalFetch = globalThis.fetch;
+  const badText = {
+    platform: "facebook",
+    headline: "New Arrivals!",
+    body: "We're thrilled to welcome our latest shipment of gorgeous Freedom roses to the studio!",
+    cta: "Stop by today",
+    visual_brief: "a bright bouquet",
+    hashtags: [],
+    asset_requirements: []
+  };
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ success: true, result: { response: JSON.stringify(badText) } }) });
+  try {
+    const client = makeClient([
+      { data: { id: "job-cov-1", status: "running", plan: [] }, error: null },
+      { data: null, error: null }, // loadBrandBrain
+      { data: [], error: null }, // loadGroundedInventory — empty, nothing verifies "Freedom roses"
+      { data: [], error: null }, // audience customers
+      { data: [], error: null }, // audience orders
+      { data: { id: "asset-cov-1" }, error: null }, // social post asset insert
+      { data: { id: "job-cov-1", status: "completed" }, error: null } // job update
+    ]);
+    const routed = { action_type: "create", domain: "marketing", channels: ["facebook"], occasion: "Today", audience: null, summary: "x" };
+    const ran = await runJob(client, {
+      shopId: "shop-1",
+      userId: "user-1",
+      persona: "Lily",
+      routed,
+      requestText: "Create today's Facebook post",
+      shop: { name: "Lilies in Bloom" },
+      inventory: []
+    });
+    assert.equal(ran.ok, true);
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some(([op]) => op === "insert"));
+    assert.ok(assetInsert, "the social post asset must actually be persisted");
+    assert.doesNotMatch(assetInsert.payload.content.body, /latest shipment|Freedom rose/i, "the invented shipment claim must never reach the persisted asset — proof the evaluator's safeCandidate was actually applied, not just computed");
+    assert.ok(assetInsert.payload.content.safety_check, "the safety verdict must be recorded on the persisted asset for observability");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

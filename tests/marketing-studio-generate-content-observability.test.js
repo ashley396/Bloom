@@ -156,8 +156,14 @@ test("generate_content (real dispatch): the fact_safety tag on the AI-copy path 
     const factSafety = lines.find((l) => l.message === "marketing_generate_content_fact_safety");
     assert.ok(factSafety, "a fact_safety event must be logged on the AI-copy path too");
     assert.equal(factSafety.deterministic, false);
-    assert.equal(factSafety.closureMismatch, false, "an ordinary creative post must never be flagged as a closure mismatch");
-    assert.equal(factSafety.inventedOperationalContent, false, "an ordinary creative post must never be flagged as invented operational content");
+    // Batch 1 rebuild: the log now names the shared evaluateMarketingOutput()
+    // evaluator's own decision/checksRun/reasonCount rather than two
+    // separately-recomputed booleans — an ordinary, clean creative post
+    // must read as "pass" (or "repair" if only a harmless deterministic
+    // fix applied), never rescued, with no reasons requiring a hard gate.
+    assert.ok(["pass", "repair"].includes(factSafety.decision), `an ordinary creative post must never require a hard-gate rescue: got decision "${factSafety.decision}"`);
+    assert.equal(factSafety.reasonCount, 0, "an ordinary creative post must have zero unrepairable reasons");
+    assert.ok(Array.isArray(factSafety.checksRun) && factSafety.checksRun.length > 0, "the real checks that ran must be named for observability");
     assert.equal(factSafety.rescued, false, "a genuinely clean AI copy must never be reported as rescued");
   } finally {
     mock.restore();

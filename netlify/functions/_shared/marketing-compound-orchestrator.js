@@ -39,6 +39,7 @@ import { runCloudflareGenerate } from "../ai-assistant.js";
 import { loadGroundedInventory, buildInventoryGroundingBrief } from "./marketing-inventory-grounding.js";
 import { generateSocialPost, generateVideoConcept, persistGeneratedAsset } from "./ai-creative-engine.js";
 import { generateImage, buildImagePrompt } from "./ai-image-engine.js";
+import { evaluateMarketingOutput } from "./marketing-content-revision.js";
 import { computeDisclosureFields } from "./creative-ai/disclosure-policy.js";
 import { transformMasterImageForPlatforms } from "./creative-ai/media-transform-executor.js";
 import { planVideoRender } from "./marketing-video-render-engine.js";
@@ -417,7 +418,24 @@ async function runCompoundStep(client, step, ctx) {
     const audienceSummary = ctx.audienceBrief?.summaryText || null;
     const gen = await generateVideoConcept({ persona, channel: platforms[0], occasion: extracted.occasion, shop, requestText, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary });
     if (!gen.ok) return { ok: false, error: gen.error };
-    const persisted = await persistGeneratedAsset(client, { shopId, userId, persona, assetType: "video_concept", model: gen.model, content: gen.content, status: "completed" });
+    // Batch 1 rebuild: same detection-only video-concept safety check as
+    // the other two Marketing/Lily job runners — no headline/body/cta
+    // shape to repair field-by-field, so this is recorded for
+    // observability rather than blocking the compound job outright.
+    const compoundVideoEval = evaluateMarketingOutput({
+      route: "compound.generateVideoConcept",
+      request: requestText,
+      shopEvidence: { name: shop?.name, phone: shop?.phone },
+      inventoryEvidence: ctx.inventoryBrief?.sources || [],
+      candidate: [gen.content.concept, gen.content.script, ...(gen.content.scenes || []), ...(gen.content.captions || [])].filter(Boolean).join(" "),
+      component: "video_concept",
+      isRetryAttempt: true
+    });
+    const persisted = await persistGeneratedAsset(client, {
+      shopId, userId, persona, assetType: "video_concept", model: gen.model,
+      content: { ...gen.content, safety_check: { decision: compoundVideoEval.reasons.length ? "reject" : "pass", reasonCount: compoundVideoEval.reasons.length } },
+      status: "completed"
+    });
     if (!persisted.ok) return { ok: false, error: persisted.error };
     ctx.videoConceptAssetId = persisted.asset.id;
     ctx.videoConcept = gen.content;
@@ -541,6 +559,26 @@ async function runCompoundStep(client, step, ctx) {
     for (const platform of platforms) {
       // eslint-disable-next-line no-await-in-loop
       const copyGen = await generateSocialPost({ persona, channel: platform, occasion: extracted.occasion, shop, requestText, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary });
+      // Batch 1 rebuild: this compound-request path had no output-safety
+      // check at all before persisting a per-platform caption — same
+      // deterministic-repair-always pattern as marketing-studio.js's own
+      // generate_content.
+      if (copyGen.ok) {
+        const compoundCaptionEval = evaluateMarketingOutput({
+          route: "compound.createContentItem",
+          request: requestText,
+          shopEvidence: { name: shop?.name, phone: shop?.phone },
+          inventoryEvidence: ctx.inventoryBrief?.sources || [],
+          candidate: copyGen.content,
+          component: "caption",
+          isRetryAttempt: true
+        });
+        if (compoundCaptionEval.safeCandidate) {
+          copyGen.content.headline = compoundCaptionEval.safeCandidate.headline;
+          copyGen.content.body = compoundCaptionEval.safeCandidate.body;
+          copyGen.content.cta = compoundCaptionEval.safeCandidate.cta;
+        }
+      }
       variantRows.push({
         shop_id: shopId,
         content_item_id: inserted.data.id,

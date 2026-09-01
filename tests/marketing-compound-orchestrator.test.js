@@ -976,3 +976,73 @@ test("runCompoundRequest: a prior FAILED attempt for the same text is never dedu
     mock.restore();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Batch 1 rebuild — route coverage: compound.createContentItem must
+// actually invoke the shared evaluateMarketingOutput() evaluator and use
+// its repaired result, not merely have it available. Real, live-found
+// failure this guards: this file previously ran NO safety check at all
+// before persisting a per-platform caption.
+// ---------------------------------------------------------------------------
+
+test("ROUTE COVERAGE: compound.createContentItem sanitizes an unverified inventory-state claim before persisting the per-platform caption", async () => {
+  const badSocialPost = {
+    platform: "facebook",
+    headline: "New Arrivals!",
+    body: "We're thrilled to welcome our latest shipment of gorgeous Freedom roses to the studio!",
+    cta: "Stop by today",
+    visual_brief: "a bright bouquet",
+    hashtags: [],
+    asset_requirements: []
+  };
+  const mock = installCloudflareRouter({
+    extraction: {
+      wants_image: true,
+      wants_video: false,
+      wants_digital_twin: false,
+      platforms: ["facebook"],
+      occasion: null,
+      inventory_grounded: false,
+      budget_dollars: null,
+      schedule_relative_day: null,
+      schedule_time_of_day: null,
+      summary: "Create today's Facebook post."
+    },
+    socialPost: badSocialPost
+  });
+  const storage = createFakeSupabaseStorage();
+  const client = createFakeSupabaseClient(
+    [
+      { data: null, error: null }, // idempotency dedup lookup
+      { data: { id: "job-cov-1" }, error: null }, // ai_execution_jobs insert
+      { data: { marketing_monthly_budget_cents: null }, error: null }, // budget check
+      { data: { id: "asset-cov-1" }, error: null }, // ai_generated_assets insert (image)
+      { data: { id: "content-cov-1", content_type: "image_post", title: "x", status: "idea" }, error: null }, // marketing_content_items insert
+      { data: null, error: null }, // loadBrandBrain
+      { data: null, error: null }, // loadStyleMemory
+      { data: [{ id: "variant-cov-1", platform: "facebook" }], error: null }, // marketing_platform_variants insert
+      { data: { id: "job-cov-1", status: "completed" }, error: null } // ai_execution_jobs final update
+    ],
+    { storage }
+  );
+  try {
+    const result = await runCompoundRequest(client, {
+      shopId: "shop-1",
+      userId: "user-1",
+      persona: "Lily",
+      message: "Create today's Facebook post.",
+      shop: { name: "Lilies in Bloom" },
+      timezone: "America/New_York"
+    });
+    assert.equal(result.ok, true);
+    const variantsInsertCall = client.calls.find((c) => c.table === "marketing_platform_variants" && Array.isArray(c.payload));
+    assert.ok(variantsInsertCall, "the per-platform variant must actually be persisted");
+    assert.doesNotMatch(
+      variantsInsertCall.payload[0].caption,
+      /latest shipment|Freedom rose/i,
+      "the invented shipment claim must never reach the persisted caption — proof the evaluator's safeCandidate was actually applied, not just computed"
+    );
+  } finally {
+    mock.restore();
+  }
+});

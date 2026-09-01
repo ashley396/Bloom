@@ -133,8 +133,6 @@ import {
   buildWordingRevisionRequestText,
   detectPermanentClosureMismatch,
   detectInventedOperationalContent,
-  detectWeakMarketingCopy,
-  stripFabricatedContactNumbers,
   requestSignalsPlainOperationalNotice,
   buildDeterministicNoticeContent,
   extractShopNameFromRequestText,
@@ -143,11 +141,7 @@ import {
   instructionAffectsFlyerImage,
   BEREAVEMENT_CONTEXT_RE,
   requestSignalsRealPromotion,
-  detectUnverifiedInventoryStateClaim,
-  stripUnverifiedInventoryClaims,
-  detectConceptCoherenceMismatch,
-  requestSignalsIntentionalInventoryUse,
-  sanitizeUngroundedFlowerNames
+  evaluateMarketingOutput
 } from "./_shared/marketing-content-revision.js";
 import { defaultVisualStyle } from "./_shared/ai-visual-revisions.js";
 import { buildMarketingStudioAnalyticsSummary } from "./_shared/marketing-analytics.js";
@@ -951,6 +945,15 @@ export function createMarketingStudioHandler(deps = {}) {
         const shopRow = await client.from("shops").select("name,phone,primary_color").eq("id", shopId).maybeSingle();
         const shopName = shopRow.data?.name || null;
         const appliedTraits = deriveRevisionTraits(instruction, ownDeltas);
+        // Batch 1 rebuild: revise_content previously ran only factsPreserved
+        // + detectPermanentClosureMismatch + detectInventedOperationalContent
+        // on a revision's new text — never detectWeakMarketingCopy,
+        // detectUnverifiedInventoryStateClaim, or the visual-fiction
+        // boundary, so a revision could reintroduce exactly the same shape
+        // of invented claim generate_content already guards against. This
+        // traceId ties every evaluateMarketingOutput call below (one per
+        // asset_type branch) into one observable event per revision.
+        const reviseTraceId = crypto.randomUUID();
 
         // hashtags is deliberately optional: an image-only (visual) revision
         // never touches the caption/hashtags a wording revision would —
@@ -1010,6 +1013,33 @@ export function createMarketingStudioHandler(deps = {}) {
             if (detectInventedOperationalContent(`${currentItem.data.brief} ${instruction}`, `${captionGen.content.headline} ${captionGen.content.body}`)) {
               return json(400, { error: "That revision came back with wording you didn't ask for — an invented reason, urgency, or future plan — nothing was changed. Try rephrasing the request." });
             }
+            const imgCaptionEval = evaluateMarketingOutput({
+              route: "revise_content",
+              request: `${currentItem.data.brief} ${instruction} ${priorCaption}`,
+              shopEvidence: { name: shopName, phone: shopRow.data?.phone },
+              inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
+              candidate: captionGen.content,
+              component: "caption",
+              isRetryAttempt: true
+            });
+            structuredLog("info", "marketing_revise_content_safety", {
+              traceId: reviseTraceId,
+              route: "revise_content",
+              assetType: "image",
+              component: "caption",
+              checksRun: imgCaptionEval.checksRun,
+              decision: imgCaptionEval.reasons.length ? "reject" : imgCaptionEval.repaired ? "repair" : "pass",
+              reasonCount: imgCaptionEval.reasons.length,
+              repaired: imgCaptionEval.repaired
+            });
+            if (imgCaptionEval.reasons.length) {
+              return json(400, { error: "That revision came back with wording Lily can't safely use yet — nothing was changed. Try rephrasing the request." });
+            }
+            if (imgCaptionEval.safeCandidate) {
+              captionGen.content.headline = imgCaptionEval.safeCandidate.headline;
+              captionGen.content.body = imgCaptionEval.safeCandidate.body;
+              captionGen.content.cta = imgCaptionEval.safeCandidate.cta;
+            }
             captionFields = { body: captionGen.content.body, headline: captionGen.content.headline, cta: captionGen.content.cta, hashtags: captionGen.content.hashtags || [] };
           }
           // The visual only regenerates when the instruction actually asks
@@ -1068,6 +1098,20 @@ export function createMarketingStudioHandler(deps = {}) {
           let visualBrief = currentAsset.content?.visual_brief || currentItem.data.brief;
           if (affectsImage) {
             visualBrief = buildImageRevisionBrief({ instruction, priorVisualBrief: baseVisualBrief });
+            // Batch 1 rebuild: the visual-fiction/flower-grounding boundary
+            // applies to a revised image prompt exactly as it does at
+            // generation time — the florist's own revision instruction is a
+            // real supplied fact (a flower she asks for by name here is
+            // allowed), but nothing else independently earns a species name.
+            const revisionSceneEval = evaluateMarketingOutput({
+              route: "revise_content",
+              request: `${currentItem.data.brief} ${instruction}`,
+              shopEvidence: { name: shopName, phone: shopRow.data?.phone },
+              inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
+              candidate: visualBrief,
+              component: "creative_scene"
+            });
+            if (revisionSceneEval.decision === "repair") visualBrief = revisionSceneEval.safeCandidate;
             prompt = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief });
             const imageGen = await generateImageCheckingText(client, shopId, {
               promptFor: () => prompt,
@@ -1200,6 +1244,33 @@ export function createMarketingStudioHandler(deps = {}) {
                 error: "That revision came back with wording you didn't ask for — an invented reason, urgency, or future plan — nothing was changed. Try rephrasing the request."
               });
             }
+            const flyerCaptionEval = evaluateMarketingOutput({
+              route: "revise_content",
+              request: `${currentItem.data.brief} ${instruction} ${priorCaption}`,
+              shopEvidence: { name: shopName, phone: shopRow.data?.phone },
+              inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
+              candidate: gen.content,
+              component: "caption",
+              isRetryAttempt: true
+            });
+            structuredLog("info", "marketing_revise_content_safety", {
+              traceId: reviseTraceId,
+              route: "revise_content",
+              assetType: "flyer",
+              component: "caption",
+              checksRun: flyerCaptionEval.checksRun,
+              decision: flyerCaptionEval.reasons.length ? "reject" : flyerCaptionEval.repaired ? "repair" : "pass",
+              reasonCount: flyerCaptionEval.reasons.length,
+              repaired: flyerCaptionEval.repaired
+            });
+            if (flyerCaptionEval.reasons.length) {
+              return json(400, { error: "That revision came back with wording Lily can't safely use yet — nothing was changed. Try rephrasing the request." });
+            }
+            if (flyerCaptionEval.safeCandidate) {
+              gen.content.headline = flyerCaptionEval.safeCandidate.headline;
+              gen.content.body = flyerCaptionEval.safeCandidate.body;
+              gen.content.cta = flyerCaptionEval.safeCandidate.cta;
+            }
           }
 
           // The deterministic text layer (headline/body/cta actually
@@ -1235,6 +1306,33 @@ export function createMarketingStudioHandler(deps = {}) {
               return json(400, {
                 error: "That revision came back with wording you didn't ask for — an invented reason, urgency, or future plan — nothing was changed. Try rephrasing the request."
               });
+            }
+            const flyerTextEval = evaluateMarketingOutput({
+              route: "revise_content",
+              request: `${currentItem.data.brief} ${instruction} ${priorFlyerText}`,
+              shopEvidence: { name: shopName, phone: shopRow.data?.phone },
+              inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
+              candidate: flyerGen.content,
+              component: "flyer_text",
+              isRetryAttempt: true
+            });
+            structuredLog("info", "marketing_revise_content_safety", {
+              traceId: reviseTraceId,
+              route: "revise_content",
+              assetType: "flyer",
+              component: "flyer_text",
+              checksRun: flyerTextEval.checksRun,
+              decision: flyerTextEval.reasons.length ? "reject" : flyerTextEval.repaired ? "repair" : "pass",
+              reasonCount: flyerTextEval.reasons.length,
+              repaired: flyerTextEval.repaired
+            });
+            if (flyerTextEval.reasons.length) {
+              return json(400, { error: "That revision came back with wording on the flyer Lily can't safely use yet — nothing was changed. Try rephrasing the request." });
+            }
+            if (flyerTextEval.safeCandidate) {
+              flyerGen.content.headline = flyerTextEval.safeCandidate.headline;
+              flyerGen.content.body = flyerTextEval.safeCandidate.body;
+              flyerGen.content.cta = flyerTextEval.safeCandidate.cta;
             }
             flyerFields = flyerGen.content;
             renderStale = true;
@@ -1373,6 +1471,36 @@ export function createMarketingStudioHandler(deps = {}) {
             if (!factsPreserved(priorText, newText)) {
               return json(400, { error: "That revision would have changed an exact phone number, date, price, or link — nothing was changed. Try rephrasing the request." });
             }
+            // Batch 1 rebuild: video_concept revisions previously ran ONLY
+            // factsPreserved — no weak-copy, inventory-claim, closure/
+            // invented-content, or visual-fiction check at all (see
+            // buildVideoConceptTask's own gap: no sympathy handling and no
+            // unconditional anti-fabrication rule either). Detection-only
+            // here (video's script/scenes/captions have no headline/body/
+            // cta shape to repair field-by-field) — a flagged revision is
+            // rejected outright rather than silently patched.
+            const videoConceptText = [gen.content.concept, gen.content.script, ...(gen.content.scenes || []), ...(gen.content.captions || [])].filter(Boolean).join(" ");
+            const videoEval = evaluateMarketingOutput({
+              route: "revise_content",
+              request: `${currentItem.data.brief} ${instruction} ${priorText}`,
+              shopEvidence: { name: shopName, phone: shopRow.data?.phone },
+              inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
+              candidate: videoConceptText,
+              component: "video_concept",
+              isRetryAttempt: true
+            });
+            structuredLog("info", "marketing_revise_content_safety", {
+              traceId: reviseTraceId,
+              route: "revise_content",
+              assetType: "video_concept",
+              component: "video_concept",
+              checksRun: videoEval.checksRun,
+              decision: videoEval.reasons.length ? "reject" : "pass",
+              reasonCount: videoEval.reasons.length
+            });
+            if (videoEval.reasons.length) {
+              return json(400, { error: "That revision came back with wording Lily can't safely use yet — nothing was changed. Try rephrasing the request." });
+            }
             const persisted = await persistGeneratedAsset(client, {
               shopId, userId: user.id, persona: "Lily", assetType: "video_concept", model: gen.model,
               content: { ...gen.content, revision_instruction: instruction, revision_traits: appliedTraits },
@@ -1401,6 +1529,33 @@ export function createMarketingStudioHandler(deps = {}) {
             return json(400, {
               error: "That revision came back with wording you didn't ask for — an invented reason, urgency, or future plan — nothing was changed. Try rephrasing the request."
             });
+          }
+          const socialCopyEval = evaluateMarketingOutput({
+            route: "revise_content",
+            request: `${currentItem.data.brief} ${instruction} ${priorText}`,
+            shopEvidence: { name: shopName, phone: shopRow.data?.phone },
+            inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
+            candidate: gen.content,
+            component: "caption",
+            isRetryAttempt: true
+          });
+          structuredLog("info", "marketing_revise_content_safety", {
+            traceId: reviseTraceId,
+            route: "revise_content",
+            assetType: "social_copy",
+            component: "caption",
+            checksRun: socialCopyEval.checksRun,
+            decision: socialCopyEval.reasons.length ? "reject" : socialCopyEval.repaired ? "repair" : "pass",
+            reasonCount: socialCopyEval.reasons.length,
+            repaired: socialCopyEval.repaired
+          });
+          if (socialCopyEval.reasons.length) {
+            return json(400, { error: "That revision came back with wording Lily can't safely use yet — nothing was changed. Try rephrasing the request." });
+          }
+          if (socialCopyEval.safeCandidate) {
+            gen.content.headline = socialCopyEval.safeCandidate.headline;
+            gen.content.body = socialCopyEval.safeCandidate.body;
+            gen.content.cta = socialCopyEval.safeCandidate.cta;
           }
           const persisted = await persistGeneratedAsset(client, {
             shopId, userId: user.id, persona: "Lily", assetType: "social_copy", provider: "cloudflare", model: gen.model,
@@ -2119,34 +2274,25 @@ export function createMarketingStudioHandler(deps = {}) {
           // wrapped in filler that would suit any business on earth — nothing
           // invented, nothing caught, unpublishable.
           //
-          // One bounded retry, with the specific reasons handed back to the
-          // model. Not a rejection: this is a quality failure, not a safety
-          // one, and leaving the florist with an error and no post would be
-          // the worse outcome. The second attempt is used either way, having
-          // been told exactly what was wrong with the first.
-          // Phase 3 live-test fix (inventory-state claim backstop): folded
-          // into the SAME existing weak-copy reasons array/retry loop
-          // rather than a second, parallel check-and-retry mechanism —
-          // one real-world event this defense saw and stopped, added
-          // right alongside the sympathy-injection check
-          // detectWeakMarketingCopy already ran here before this fix.
-          const copyQuality = (content) => [
-            ...detectWeakMarketingCopy(
-              currentItem.data.brief,
-              `${content.headline} ${content.body}`,
-              { shopPhone: shopRow.data?.phone, shopName }
-            ),
-            ...detectUnverifiedInventoryStateClaim({
-              generatedText: `${content.headline} ${content.body}`,
-              requestText: currentItem.data.brief,
-              verifiedFlowerNames: (inventorySources || []).map((i) => i.name)
-            }).map(
-              (sentence) =>
-                `"${sentence}" claims a specific business/inventory fact ("just arrived," "we have X," etc.) with no verified evidence behind it. Only claim what the real inventory data above or the florist's own request actually supports — use generic flower language instead.`
-            )
-          ];
-          const weakness = copyQuality(copyGen.content);
-          if (weakness.length) {
+          // Batch 1 rebuild: this whole block (quality retry, contact-number/
+          // inventory-claim/visual-fiction stripping, and the closure/
+          // invented-content hard gate) is now ONE call to the shared
+          // evaluateMarketingOutput() evaluator — the authoritative Marketing
+          // output-safety pipeline every route uses, rather than this route's
+          // own hand-wired subset of detectors. Nothing here is a new check:
+          // every detector evaluateMarketingOutput calls already existed and
+          // was already wired at this exact call site before this refactor.
+          const captionShopEvidence = { name: shopName, phone: shopRow.data?.phone };
+          const captionInventoryEvidence = inventorySources || [];
+          let captionEval = evaluateMarketingOutput({
+            route: "generate_content",
+            request: currentItem.data.brief,
+            shopEvidence: captionShopEvidence,
+            inventoryEvidence: captionInventoryEvidence,
+            candidate: copyGen.content,
+            component: "caption"
+          });
+          if (captionEval.reasons.length) {
             await recordUsage("copy", "request", 1);
             // Real regression an independent review found: appending the
             // rejection reasons here used to dilute the brief enough that
@@ -2163,7 +2309,7 @@ export function createMarketingStudioHandler(deps = {}) {
             const retry = await generateSocialPost({
               ...socialPostArgs,
               requestText:
-                `${sanitizedRequestForModel(currentItem.data.brief, shopName)}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${weakness.join("\n- ")}`
+                `${sanitizedRequestForModel(currentItem.data.brief, shopName)}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${captionEval.reasons.join("\n- ")}`
             });
             // The retry is not automatically the better one. Handed its own
             // faults back, a model can fix the named phrase and introduce two
@@ -2171,40 +2317,31 @@ export function createMarketingStudioHandler(deps = {}) {
             // drafts with no way to know a better one existed. Keep whichever
             // attempt actually has fewer problems; a tie keeps the retry, since
             // it is the one that was told what was wrong.
-            if (retry.ok && retry.content?.body && copyQuality(retry.content).length <= weakness.length) {
-              copyGen = retry;
+            if (retry.ok && retry.content?.body) {
+              const retryEval = evaluateMarketingOutput({
+                route: "generate_content",
+                request: currentItem.data.brief,
+                shopEvidence: captionShopEvidence,
+                inventoryEvidence: captionInventoryEvidence,
+                candidate: retry.content,
+                component: "caption",
+                isRetryAttempt: true
+              });
+              if (retryEval.reasons.length <= captionEval.reasons.length) {
+                copyGen = retry;
+                captionEval = retryEval;
+              }
             }
           }
-          // The same last gate the flyer wording gets below, for the same
-          // reason: this caption is published to Facebook, where an invented
-          // number is just as unreachable as one printed on the graphic.
-          for (const field of ["headline", "body", "cta"]) {
-            const cleaned = stripFabricatedContactNumbers({
-              requestText: currentItem.data.brief,
-              shopPhone: shopRow.data?.phone,
-              copyText: copyGen.content[field]
-            });
-            if (cleaned.removed.length) copyGen.content[field] = cleaned.text;
+          // Whatever draft was kept, its deterministically-repaired fields
+          // (a fabricated contact number substituted, an unverified
+          // inventory/visual-fiction claim cut) are always applied — the
+          // bounded retry above is a second opinion, not a guarantee.
+          if (captionEval.safeCandidate) {
+            copyGen.content.headline = captionEval.safeCandidate.headline;
+            copyGen.content.body = captionEval.safeCandidate.body;
+            copyGen.content.cta = captionEval.safeCandidate.cta;
           }
-          // Same "detect, retry, then strip whatever survives" layering as
-          // the phone-number guard directly above — the bounded retry is a
-          // second opinion, not a guarantee (the exact gap the Phase 3
-          // live-test forensic trace found in this same file's own flyer-
-          // text retry: "not worse than before" can still ship something
-          // flawed). An invented shipment/stock claim that survives the
-          // retry is cut from the caption entirely rather than shipped.
-          const cleanedInventoryBody = stripUnverifiedInventoryClaims({
-            generatedText: copyGen.content.body,
-            requestText: currentItem.data.brief,
-            verifiedFlowerNames: (inventorySources || []).map((i) => i.name)
-          });
-          if (cleanedInventoryBody.removed.length) copyGen.content.body = cleanedInventoryBody.text;
-          const cleanedInventoryHeadline = stripUnverifiedInventoryClaims({
-            generatedText: copyGen.content.headline,
-            requestText: currentItem.data.brief,
-            verifiedFlowerNames: (inventorySources || []).map((i) => i.name)
-          });
-          if (cleanedInventoryHeadline.removed.length) copyGen.content.headline = cleanedInventoryHeadline.text;
 
           // Reactive safety net for the rare case that reaches here at
           // all — requestSignalsPlainOperationalNotice already said this
@@ -2217,29 +2354,26 @@ export function createMarketingStudioHandler(deps = {}) {
           //
           // Phase 2 rebuild, priority-6 gap ("unified fact-safety
           // tagging"): named here, not re-implemented — this repo already
-          // has real, independently-tested fact-safety detectors
-          // (factsPreserved, detectPermanentClosureMismatch,
-          // detectInventedOperationalContent, stripFabricatedContact
-          // Numbers, buildDeterministicNoticeContent, and the sympathy-
-          // specific detectors used elsewhere). A SECOND detection engine
-          // duplicating that logic was explicitly ruled out — the real gap
-          // was never "these checks don't exist," it was "nothing records
-          // which of them actually ran and what they decided." The
+          // has real, independently-tested fact-safety detectors, all of
+          // them run above via evaluateMarketingOutput. A SECOND detection
+          // engine duplicating that logic was explicitly ruled out. The
           // structuredLog call below IS the unified tag: one real event
           // naming every check that ran for this generation and its
-          // outcome, without re-deciding anything the detectors above
-          // didn't already decide.
-          const closureMismatch = detectPermanentClosureMismatch(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`);
-          const inventedOperationalContent = !closureMismatch && detectInventedOperationalContent(currentItem.data.brief, `${copyGen.content.headline} ${copyGen.content.body}`);
+          // outcome — reason CODES and counts only, never the customer's
+          // actual generated text.
           let rescued = false;
-          if (closureMismatch || inventedOperationalContent) {
+          if (captionEval.reasons.length) {
             const rescueFallback = buildDeterministicNoticeContent({ requestText: currentItem.data.brief, shopName, shopPhone: shopRow.data?.phone });
             if (!rescueFallback) {
               structuredLog("warn", "marketing_generate_content_fact_safety", {
                 traceId: genTraceId,
                 deterministic: false,
-                closureMismatch,
-                inventedOperationalContent,
+                route: "generate_content",
+                component: "caption",
+                checksRun: captionEval.checksRun,
+                decision: "reject",
+                reasonCount: captionEval.reasons.length,
+                repaired: captionEval.repaired,
                 rescued: false,
                 outcome: "blocked_no_safe_fallback"
               });
@@ -2261,8 +2395,12 @@ export function createMarketingStudioHandler(deps = {}) {
           structuredLog("info", "marketing_generate_content_fact_safety", {
             traceId: genTraceId,
             deterministic: false,
-            closureMismatch,
-            inventedOperationalContent,
+            route: "generate_content",
+            component: "caption",
+            checksRun: captionEval.checksRun,
+            decision: captionEval.reasons.length ? "reject" : captionEval.repaired ? "repair" : "pass",
+            reasonCount: captionEval.reasons.length,
+            repaired: captionEval.repaired,
             rescued
           });
         }
@@ -2299,25 +2437,35 @@ export function createMarketingStudioHandler(deps = {}) {
         // ever reads either field, so every downstream use — concept.
         // primarySubject just below, the actual image-generation prompt,
         // and the persisted content — already sees the cleaned value.
-        const inventoryIntentConfirmed = requestSignalsIntentionalInventoryUse(currentItem.data.brief);
-        const verifiedFlowerNamesForSanitize = (inventorySources || []).map((i) => i.name);
+        // Batch 1 rebuild: routed through the same shared
+        // evaluateMarketingOutput() evaluator (component: "creative_scene")
+        // rather than calling sanitizeUngroundedFlowerNames directly — the
+        // underlying check is unchanged, this just makes the primary
+        // generation route go through the one authoritative pipeline like
+        // every other component here.
+        const sceneShopEvidence = { name: shopName, phone: shopRow.data?.phone };
+        const sceneInventoryEvidence = inventorySources || [];
         if (copyGen.content?.visual_brief) {
-          const cleanedVisualBrief = sanitizeUngroundedFlowerNames({
-            text: copyGen.content.visual_brief,
-            requestText: currentItem.data.brief,
-            verifiedFlowerNames: verifiedFlowerNamesForSanitize,
-            inventoryIntentConfirmed
+          const visualBriefEval = evaluateMarketingOutput({
+            route: "generate_content",
+            request: currentItem.data.brief,
+            shopEvidence: sceneShopEvidence,
+            inventoryEvidence: sceneInventoryEvidence,
+            candidate: copyGen.content.visual_brief,
+            component: "creative_scene"
           });
-          if (cleanedVisualBrief.removed.length) copyGen.content.visual_brief = cleanedVisualBrief.text;
+          if (visualBriefEval.decision === "repair") copyGen.content.visual_brief = visualBriefEval.safeCandidate;
         }
         if (copyGen.content?.creative_brief?.primary_subject) {
-          const cleanedPrimarySubject = sanitizeUngroundedFlowerNames({
-            text: copyGen.content.creative_brief.primary_subject,
-            requestText: currentItem.data.brief,
-            verifiedFlowerNames: verifiedFlowerNamesForSanitize,
-            inventoryIntentConfirmed
+          const primarySubjectEval = evaluateMarketingOutput({
+            route: "generate_content",
+            request: currentItem.data.brief,
+            shopEvidence: sceneShopEvidence,
+            inventoryEvidence: sceneInventoryEvidence,
+            candidate: copyGen.content.creative_brief.primary_subject,
+            component: "creative_scene"
           });
-          if (cleanedPrimarySubject.removed.length) copyGen.content.creative_brief.primary_subject = cleanedPrimarySubject.text;
+          if (primarySubjectEval.decision === "repair") copyGen.content.creative_brief.primary_subject = primarySubjectEval.safeCandidate;
         }
 
         const conceptObjective =
@@ -2368,47 +2516,26 @@ export function createMarketingStudioHandler(deps = {}) {
           // AVAILABLE" above her shop name and phone number: "it reads
           // like I'm going to hold funeral services here at the flower
           // shop." One bounded retry with the reason handed back.
+          //
+          // Batch 1 rebuild: the same shared evaluateMarketingOutput()
+          // evaluator the caption uses above — component "flyer_text",
+          // with `canonicalConcept: flyerConcept` so the coherence/CTA
+          // checks run exactly when a concept exists to check against,
+          // same as before. Nothing here is a new check.
+          const flyerShopEvidence = { name: shopName, phone: shopRow.data?.phone };
+          const flyerInventoryEvidence = inventorySources || [];
+          let flyerEval = null;
           if (flyerGen.ok && flyerGen.content) {
-            const flyerQuality = (content) => {
-              const fullText = `${content.headline} ${content.body} ${content.cta}`;
-              const reasons = [
-                ...detectWeakMarketingCopy(
-                  brief,
-                  fullText,
-                  // The headline is passed separately because it is judged
-                  // separately: it is the largest thing on the flyer and the
-                  // first thing read, and "Funeral Flowers Available" is a
-                  // fault of the headline alone that no reading of the whole
-                  // text can see.
-                  { shopPhone: shopRow.data?.phone, shopName, headline: content.headline }
-                ),
-                // Phase 3 live-test fix: the same inventory-state-claim
-                // backstop as the caption's own copyQuality, folded into the
-                // SAME retry loop rather than a second mechanism.
-                ...detectUnverifiedInventoryStateClaim({
-                  generatedText: fullText,
-                  requestText: brief,
-                  verifiedFlowerNames: (inventorySources || []).map((i) => i.name)
-                }).map(
-                  (sentence) =>
-                    `"${sentence}" claims a specific business/inventory fact with no verified evidence behind it. Only claim what real inventory or the florist's own request actually supports — use generic flower language instead.`
-                )
-              ];
-              // Phase 3 live-test fix (one-concept contract, requirement 7):
-              // gives a coherence mismatch the SAME real retry chance as
-              // any other weakness reason ("regenerate the conflicting
-              // component where possible") before ever falling through to
-              // the hard hasn't-improved gate below — the exact live
-              // failure's own shape (a flyer describing a different
-              // occasion/subject than the caption) is caught here first.
-              if (flyerConcept) {
-                const mismatch = detectConceptCoherenceMismatch({ concept: flyerConcept, captionText: flyerConcept.captionExcerpt, flyerText: fullText, requestText: brief });
-                if (mismatch) reasons.push(`${mismatch} Rewrite so the flyer text genuinely matches: ${flyerConcept.primarySubject || "the same subject as the caption above"}.`);
-              }
-              return reasons;
-            };
-            const flyerWeakness = flyerQuality(flyerGen.content);
-            if (flyerWeakness.length) {
+            flyerEval = evaluateMarketingOutput({
+              route: "generate_content",
+              request: brief,
+              shopEvidence: flyerShopEvidence,
+              inventoryEvidence: flyerInventoryEvidence,
+              canonicalConcept: flyerConcept,
+              candidate: flyerGen.content,
+              component: "flyer_text"
+            });
+            if (flyerEval.reasons.length) {
               await recordUsage("copy", "request", 1);
               // Sanitize the brief BEFORE appending the rejection reasons,
               // so the diluted, longer compound text can't slip past
@@ -2416,7 +2543,7 @@ export function createMarketingStudioHandler(deps = {}) {
               // into generateFlyerContent.
               const flyerRetry = await generateFlyerContent({
                 persona: "Lily",
-                message: `${sanitizedRequestForModel(brief, shopName)}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${flyerWeakness.join("\n- ")}`,
+                message: `${sanitizedRequestForModel(brief, shopName)}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${flyerEval.reasons.join("\n- ")}`,
                 occasion: occasionTitle,
                 shop: { name: shopName },
                 concept: flyerConcept
@@ -2425,71 +2552,61 @@ export function createMarketingStudioHandler(deps = {}) {
               // printed on the graphic itself, where a florist cannot edit
               // it before it goes out, so shipping the worse of two drafts
               // matters more here, not less.
-              if (flyerRetry.ok && flyerRetry.content?.headline && flyerQuality(flyerRetry.content).length <= flyerWeakness.length) {
-                flyerGen = flyerRetry;
+              if (flyerRetry.ok && flyerRetry.content?.headline) {
+                const flyerRetryEval = evaluateMarketingOutput({
+                  route: "generate_content",
+                  request: brief,
+                  shopEvidence: flyerShopEvidence,
+                  inventoryEvidence: flyerInventoryEvidence,
+                  canonicalConcept: flyerConcept,
+                  candidate: flyerRetry.content,
+                  component: "flyer_text",
+                  isRetryAttempt: true
+                });
+                if (flyerRetryEval.reasons.length <= flyerEval.reasons.length) {
+                  flyerGen = flyerRetry;
+                  flyerEval = flyerRetryEval;
+                }
               }
             }
           }
           if (!flyerGen.ok) return { ok: false, error: flyerGen.error };
+          // Whatever draft was kept, its deterministically-repaired fields
+          // are always applied first (a fabricated number, an unverified
+          // inventory/visual-fiction claim) — the bounded retry above is a
+          // second opinion, not a guarantee.
+          if (flyerEval?.safeCandidate) {
+            flyerGen.content.headline = flyerEval.safeCandidate.headline;
+            flyerGen.content.body = flyerEval.safeCandidate.body;
+            flyerGen.content.cta = flyerEval.safeCandidate.cta;
+          }
+          structuredLog("info", "marketing_generate_content_coherence", {
+            traceId: genTraceId,
+            checked: Boolean(flyerConcept),
+            mismatch: Boolean(flyerEval?.reasons?.length),
+            reason: flyerEval?.reasons?.[0] || null
+          });
           // Real, live-found failure: the flyer's own on-image wording
           // must be checked independently for the same invented/mismatched
           // content a caption can suffer, with the same safe-fallback
           // recovery — a florist can just as easily hit this on the flyer
-          // text alone.
-          const flyerText = `${flyerGen.content.headline} ${flyerGen.content.body} ${flyerGen.content.cta}`;
-          // Phase 3 live-test fix (final coherence gate, requirement 7):
-          // even with a real concept threaded in above, this is the
-          // deterministic backstop that actually catches the live
-          // failure's shape — a flyer that drifted to a different
-          // occasion/subject/tone than the caption already established
-          // for the same post. Folded into the SAME hard-gate/rescue
-          // pattern as the two checks beside it, not a separate mechanism.
-          const coherenceMismatch = flyerConcept ? detectConceptCoherenceMismatch({
-            concept: flyerConcept,
-            captionText: flyerConcept.captionExcerpt,
-            flyerText,
-            requestText: brief
-          }) : null;
-          structuredLog("info", "marketing_generate_content_coherence", {
-            traceId: genTraceId,
-            checked: Boolean(flyerConcept),
-            mismatch: Boolean(coherenceMismatch),
-            reason: coherenceMismatch || null
-          });
-          if (detectPermanentClosureMismatch(brief, flyerText) || detectInventedOperationalContent(brief, flyerText) || coherenceMismatch) {
+          // text alone. Last gate before the wording reaches the canvas —
+          // whatever survived both the deterministic repair pass and the
+          // one bounded retry above is rescued into the shop's own honest,
+          // generic notice when the request's own facts allow it, or fails
+          // closed rather than shipping it.
+          if (flyerEval?.reasons?.length) {
             const flyerFallback = buildDeterministicNoticeContent({ requestText: brief, shopName, shopPhone: shopRow.data?.phone });
             if (!flyerFallback) {
               return {
                 ok: false,
-                error: coherenceMismatch
-                  ? `The flyer's own text didn't match the rest of this post (${coherenceMismatch}) — nothing was saved. Try Generate again.`
-                  : "The flyer text came back with wording that didn't match your request, and there wasn't enough in your message for Lily to build a safe version automatically — nothing was saved. Add a time/phone number and try Generate again."
+                error:
+                  "The flyer text came back with wording that didn't match your request, and there wasn't enough in your message for Lily to build a safe version automatically — nothing was saved. Add a time/phone number and try Generate again."
               };
             }
             flyerGen.content.headline = flyerFallback.headline;
             flyerGen.content.body = flyerFallback.body;
             flyerGen.content.cta = flyerFallback.cta;
-          }
-          // Last gate before the wording reaches the canvas. Every other
-          // guard here feeds a bounded retry, and a retry is a second
-          // opinion, not a guarantee — Ashley's funeral flyer came back
-          // carrying "(555) 555-5555" on the ribbon AND in the contact
-          // panel. A grieving family reads that, dials it, and does not
-          // reach the shop. Whatever the model does, an invented number
-          // must not survive to the image: the shop's own is substituted
-          // when it is known, and the clause is cut when it is not.
-          for (const field of ["headline", "body", "cta"]) {
-            const cleaned = stripFabricatedContactNumbers({ requestText: brief, shopPhone: shopRow.data?.phone, copyText: flyerGen.content[field] });
-            if (cleaned.removed.length) flyerGen.content[field] = cleaned.text;
-            // Phase 3 live-test fix: same layered defense as the caption's
-            // own inventory-claim strip — whatever survives the retry
-            // above is cut here, never rendered onto the canvas.
-            const cleanedInventory = stripUnverifiedInventoryClaims({
-              generatedText: flyerGen.content[field],
-              requestText: brief,
-              verifiedFlowerNames: (inventorySources || []).map((i) => i.name)
-            });
-            if (cleanedInventory.removed.length) flyerGen.content[field] = cleanedInventory.text;
           }
           return { ok: true, model: flyerGen.model, content: flyerGen.content };
         }

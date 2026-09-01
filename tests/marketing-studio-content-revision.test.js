@@ -203,7 +203,12 @@ test("revise_content (image): a caption-only revision on a REAL UPLOADED photo r
   const mock = mockCloudflareGenerate({
     platform: "facebook",
     headline: "Fresh today",
-    body: "Fresh roses just arrived, come see them today!",
+    // Generic, non-claiming wording — this test is about upload-photo
+    // disclosure, not fact-safety, and "just arrived" is an unverified
+    // inventory-state claim the shared evaluateMarketingOutput() evaluator
+    // now correctly catches (Batch 1 rebuild) even on a caption-only
+    // revision, exactly as it already did at generation time.
+    body: "Fresh flowers can brighten someone's day, come see them today!",
     cta: "Order now",
     visual_brief: "a bright bouquet",
     hashtags: [],
@@ -554,14 +559,14 @@ test("revise_content: a bare 'use this from now on' with NOTHING to point back t
 const SOCIAL_COPY_ASSET = {
   id: "asset-1",
   asset_type: "social_copy",
-  content: { headline: "h", body: "Order today! Call us at (555) 123-4567.", cta: "Order now", hashtags: ["#fall"] }
+  content: { headline: "h", body: "Order today! Call us at 606-506-4039.", cta: "Order now", hashtags: ["#fall"] }
 };
 
 test("revise_content (wording): exact phone/date/price/URL facts are preserved through a real wording revision", async () => {
   const mock = mockSocialPostGen({
     platform: "facebook",
     headline: "h2",
-    body: "Order today! Call us at (555) 123-4567 for same-day pickup.",
+    body: "Order today! Call us at 606-506-4039 for same-day pickup.",
     cta: "Order now",
     visual_brief: "v",
     hashtags: ["#fall"],
@@ -584,7 +589,7 @@ test("revise_content (wording): exact phone/date/price/URL facts are preserved t
     const res = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction: "mention same-day pickup" }));
     assert.equal(res.statusCode, 200);
     const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
-    assert.match(assetInsert.payload.content.body, /\(555\) 123-4567/);
+    assert.match(assetInsert.payload.content.body, /606-506-4039/);
   } finally {
     mock.restore();
   }

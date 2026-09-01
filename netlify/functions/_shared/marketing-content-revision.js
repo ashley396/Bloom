@@ -1777,3 +1777,346 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
 
   return reasons;
 }
+
+// ===========================================================================
+// BATCH 1 — the authoritative Marketing output-safety pipeline.
+//
+// Real, live-found failure history this batch closes (all four reproduced
+// as regression tests below): (A) a weak, generic visual/copy pattern with
+// nothing specific to this florist; (B) an invented "latest shipment of
+// Freedom roses" paired with accidental funeral content from one generic
+// request; (C) invented present-tense "using peonies/alstroemeria/spray
+// roses" composition claims with zero verified inventory; (D) a generated
+// "marble counter" scene detail (visual_brief/creative_brief — the AI
+// image model's own invention) crossing into customer-facing wording as
+// "on our marble counter," an asserted fact about the real shop's real
+// premises with nothing behind it.
+//
+// Every one of these was caught, piecemeal, by a different call site
+// hand-wiring its own subset of detectors in a different order
+// (marketing-studio.js's generate_content got the most; revise_content,
+// ai-orchestrator.js's Lily job runner, and marketing-compound-
+// orchestrator.js got none at all). evaluateMarketingOutput() below is the
+// one place that decision gets made from now on — every detector it calls
+// already existed above in this same file; nothing here is a second
+// implementation of anything.
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// The visual-fiction boundary.
+//
+// An AI image model's visual_brief/creative_brief is free to invent a
+// scene — a marble counter, a cooler, a delivery van, a wedding — that is
+// exactly what it's asked to imagine, and creativity there is free. But a
+// scene detail is not evidence about the real shop: nothing verifies this
+// shop actually HAS a marble counter, a delivery van, or a booking for
+// "today's wedding." The moment an invented detail crosses from the visual
+// concept into customer-facing WORDING as an asserted fact ("on our marble
+// counter"), it becomes exactly the same shape of unverified business
+// claim detectUnverifiedInventoryStateClaim already exists to catch for
+// inventory — this is that same principle applied to physical premises
+// and events instead of stock.
+//
+// Deliberately narrow and claim-shaped, not a ban on any of these words —
+// "marble counters make a beautiful display surface" (an opinion, no
+// possessive "our") and "weddings are one of our favorite occasions to
+// arrange for" (a category, not a specific claimed event) are never
+// flagged; only an explicit possessive/locative claim about THIS shop's
+// own premises, or a specific claimed event, is.
+// ---------------------------------------------------------------------------
+
+const SCENE_FICTION_CLAIM_RE =
+  /\b(?:on|in|at|outside|near|from) (?:our|the shop'?s|the store'?s) (marble counters?|coolers?|storefronts?|delivery vans?|shop windows?|front windows?|display cases?|checkout counters?|workbenches?)\b|\bour (?:delivery van|storefront|cooler|marble counter)\b|\bon display in our shop\b|\bat (?:today'?s|this) wedding\b/i;
+
+/**
+ * Sentences in `generatedText` that assert a specific real-world physical
+ * detail or event as a FACT about the shop, with nothing verifying it.
+ * Each returned entry is the exact offending sentence — same "quote it
+ * back" convention as detectUnverifiedInventoryStateClaim.
+ *
+ * `shopEvidence.confirmedPhysicalDetails` (an array of phrases), when a
+ * caller actually has real, independently-verified premises data, exempts
+ * a matching phrase from being flagged — no current caller supplies this,
+ * so in practice every match is flagged, which is the conservative,
+ * correct default per "AI-generated visual details may never become
+ * business facts unless independently verified."
+ *
+ * Pure. Never shop-specific — every input is supplied by the caller.
+ */
+export function detectVisualFictionLeakage({ generatedText, shopEvidence = {} } = {}) {
+  const text = String(generatedText || "");
+  const confirmed = new Set((shopEvidence?.confirmedPhysicalDetails || []).map((d) => String(d).toLowerCase()));
+  const violations = [];
+  for (const sentence of sentencesOf(text)) {
+    const match = sentence.match(SCENE_FICTION_CLAIM_RE);
+    if (!match) continue;
+    if (confirmed.has(match[0].toLowerCase())) continue;
+    violations.push(sentence.trim());
+  }
+  return violations;
+}
+
+/**
+ * Removes every sentence flagged by detectVisualFictionLeakage from
+ * `text`, rebuilding the remainder — the same "cut the sentence, no
+ * fragment survives" pattern stripUnverifiedInventoryClaims() already
+ * uses, since there is no safe substitute for an invented physical detail
+ * either.
+ *
+ * Pure. Returns { text, removed }.
+ */
+export function stripVisualFictionLeakage({ generatedText, shopEvidence = {} } = {}) {
+  const original = String(generatedText || "");
+  const violations = detectVisualFictionLeakage({ generatedText: original, shopEvidence });
+  if (!violations.length) return { text: original, removed: [] };
+  const violationSet = new Set(violations);
+  const kept = sentencesOf(original).filter((s) => !violationSet.has(s.trim()));
+  const text = kept.join(" ").replace(/[ \t]{2,}/g, " ").trim();
+  return { text, removed: violations };
+}
+
+// ---------------------------------------------------------------------------
+// CTA coherence — the call-to-action line is the one most likely to carry
+// urgency/sale language out of habit ("Order now and save!") even when
+// nothing about the post is a real sale, and the one most likely to go
+// celebratory on a plain operational notice. Reuses the SAME signals
+// detectConceptCoherenceMismatch already trusts (REAL_PROMOTION_SIGNAL_RE
+// via requestSignalsRealPromotion, CELEBRATORY_RE) rather than a third,
+// separate urgency vocabulary.
+// ---------------------------------------------------------------------------
+
+const CTA_URGENCY_RE = /\blimited time\b|\bwhile supplies last\b|\bdon'?t miss\b|\bhurry\b|\bact now\b|\bsale ends\b|\btoday only\b/i;
+
+export function detectCtaCoherenceMismatch({ concept, ctaText, requestText } = {}) {
+  const cta = String(ctaText || "").trim();
+  if (!cta) return null;
+  const request = String(requestText || "");
+
+  if (concept?.objective === "operational" && (CELEBRATORY_RE.test(cta) || REAL_PROMOTION_SIGNAL_RE.test(cta))) {
+    return `The CTA ("${cta}") reads as celebratory or promotional, but this post is a plain operational notice — the call to action must stay factual (a phone number, "Stop by today"), never a sales pitch.`;
+  }
+
+  if ((REAL_PROMOTION_SIGNAL_RE.test(cta) || CTA_URGENCY_RE.test(cta)) && !requestSignalsRealPromotion(request) && concept?.objective !== "promotion") {
+    return `The CTA ("${cta}") invents urgency or a sale/discount that nothing in the actual request describes — a call to action must never manufacture urgency that isn't real.`;
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// evaluateMarketingOutput — the ONE authoritative Marketing output-safety
+// evaluator. Every text/creative-scene output any Marketing/Lily route
+// produces must be checked here before it is shown to a florist or used to
+// build an image prompt — never re-implemented per route. This function
+// invents no new detection logic of its own beyond the two small additions
+// above (detectVisualFictionLeakage, detectCtaCoherenceMismatch): it
+// composes the existing, independently-tested detectors in this file
+// (detectWeakMarketingCopy, detectUnverifiedInventoryStateClaim,
+// detectPermanentClosureMismatch, detectInventedOperationalContent,
+// stripFabricatedContactNumbers, sanitizeUngroundedFlowerNames,
+// detectConceptCoherenceMismatch) into one decision.
+//
+// component:
+//   "caption"        — the Facebook/social caption (an object with
+//                       headline/body/cta, or a plain string).
+//   "flyer_text"      — the flyer's on-image headline/body/cta.
+//   "video_concept"   — a video plan's script/scenes/captions, joined into
+//                       one string by the caller.
+//   "creative_scene"  — visual_brief or creative_brief.primary_subject: a
+//                       bare descriptive noun phrase, never a claim
+//                       sentence — evaluated ONLY for ungrounded flower
+//                       names (sanitizeUngroundedFlowerNames), since
+//                       that's the one thing this kind of field can invent
+//                       that must never survive.
+//
+// isRetryAttempt: pass true when `candidate` is itself the result of a
+// caller's ONE bounded corrective retry — turns a still-unrepairable
+// problem into "reject" instead of a second "retry" (no recursive
+// retries; the caller must fall back or fail closed at that point).
+//
+// Returns { decision, safeCandidate, repaired, reasons, evidenceUsed, checksRun }.
+// safeCandidate is ALWAYS populated for a text component (never null) —
+// the deterministic repair pass (fabricated numbers, unverified inventory
+// claims, leaked visual-fiction detail) runs unconditionally, so there is
+// always a best-effort cleaned value to fall back to even when `reasons`
+// also calls for a retry, mirroring the pre-existing "strip regardless of
+// the retry outcome" behavior this replaces.
+// decision:
+//   "pass"   — candidate is safe to use exactly as given (safeCandidate
+//              equals the original candidate).
+//   "repair" — candidate had ONLY a deterministically-fixable problem (a
+//              fabricated phone number and nothing else) — safeCandidate
+//              is the repaired value, always safe to use, no retry needed.
+//   "retry"  — an unrepairable problem exists (weak copy, an unverified
+//              inventory/visual-fiction claim — deterministically
+//              strippable, but still worth a retry first since a rewrite
+//              may fix it without losing the sentence, an invented
+//              sympathy/celebratory mismatch, a permanent-closure misread,
+//              invented operational content, a concept/CTA coherence
+//              mismatch, an unsupported promotion) and this is the FIRST
+//              look (isRetryAttempt was false) — `reasons` is real,
+//              specific feedback for one bounded regeneration attempt;
+//              safeCandidate is the best-effort stripped fallback if the
+//              caller chooses not to retry.
+//   "reject" — the same shape of problem survived a SECOND look
+//              (isRetryAttempt was true) — the caller must fall back to a
+//              deterministic/real-photo/safe-generic asset, or fail
+//              closed; safeCandidate (the stripped text) must still never
+//              be shown as-is when reasons remain — only a real fallback
+//              may be shown.
+export function evaluateMarketingOutput({
+  route,
+  request,
+  shopEvidence = {},
+  inventoryEvidence = [],
+  canonicalConcept = null,
+  creativeScene = null,
+  candidate,
+  component,
+  isRetryAttempt = false
+} = {}) {
+  const requestText = String(request || "");
+  const verifiedFlowerNames = (inventoryEvidence || []).map((i) => (typeof i === "string" ? i : i?.name)).filter(Boolean);
+  const shopName = shopEvidence?.name || shopEvidence?.shopName || null;
+  const shopPhone = shopEvidence?.phone || null;
+  const checksRun = [];
+  const evidenceUsed = {
+    verifiedFlowerNames,
+    shopNameKnown: Boolean(shopName),
+    shopPhoneKnown: Boolean(shopPhone),
+    requestFactTokens: extractFactTokens(requestText)
+  };
+
+  if (component === "creative_scene") {
+    checksRun.push("sanitizeUngroundedFlowerNames");
+    const inventoryIntentConfirmed = requestSignalsIntentionalInventoryUse(requestText);
+    evidenceUsed.inventoryIntentConfirmed = inventoryIntentConfirmed;
+    const original = String(candidate || "");
+    const cleaned = sanitizeUngroundedFlowerNames({ text: original, requestText, verifiedFlowerNames, inventoryIntentConfirmed });
+    if (cleaned.removed.length) {
+      return {
+        decision: "repair",
+        safeCandidate: cleaned.text,
+        repaired: true,
+        reasons: cleaned.removed.map((f) => `"${f}" is not a flower the florist named or verified inventory supports for this post — replaced with generic wording.`),
+        evidenceUsed,
+        checksRun
+      };
+    }
+    return { decision: "pass", safeCandidate: original, repaired: false, reasons: [], evidenceUsed, checksRun };
+  }
+
+  // Text components: caption / flyer_text / video_concept. Normalized into
+  // a { headline, body, cta } field map (unused fields stay null).
+  //
+  // Two independent passes over the SAME raw candidate, deliberately not
+  // combined into one, mirroring exactly how the code this replaces
+  // behaved (marketing-studio.js's own copyQuality/flyerQuality plus its
+  // unconditional post-retry strip):
+  //   1. `reasons` — computed on the RAW, pre-repair candidate. This is
+  //      what decides whether a bounded model retry is worth asking for.
+  //      An unverified inventory claim or a leaked visual-fiction detail
+  //      counts here even though it's ALSO deterministically strippable —
+  //      exactly like the pre-existing behavior, where such a violation
+  //      both earns a retry AND gets stripped as a backstop regardless of
+  //      what the retry produces. A fabricated contact number deliberately
+  //      does NOT count here — that was always a silent, unconditional
+  //      substitution, never something worth spending a retry on.
+  //   2. The deterministic repair pass — ALWAYS run, unconditional on
+  //      whether `reasons` is empty, so `safeCandidate` is always the
+  //      best-effort cleaned text a caller can fall back to even when a
+  //      retry is also warranted (never null) — the caller decides
+  //      whether to retry first and re-evaluate, or use this directly.
+  const isObjectCandidate = Boolean(candidate && typeof candidate === "object");
+  const originalFields = isObjectCandidate
+    ? { headline: candidate.headline ?? null, body: candidate.body ?? null, cta: candidate.cta ?? null }
+    : { headline: null, body: String(candidate ?? ""), cta: null };
+  const joinFields = (f) => [f.headline, f.body, f.cta].filter((v) => v != null && v !== "").join(" ").trim();
+  const rawJoined = joinFields(originalFields);
+
+  const reasons = [];
+
+  checksRun.push("detectWeakMarketingCopy");
+  for (const w of detectWeakMarketingCopy(requestText, rawJoined, { shopPhone, shopName, headline: originalFields.headline })) {
+    reasons.push(w);
+  }
+
+  checksRun.push("detectUnverifiedInventoryStateClaim");
+  for (const v of detectUnverifiedInventoryStateClaim({ generatedText: rawJoined, requestText, verifiedFlowerNames })) {
+    reasons.push(
+      `"${v}" claims a specific business/inventory fact ("just arrived," "we have X," etc.) with no verified evidence behind it. Only claim what the real inventory data above or the florist's own request actually supports — use generic flower language instead.`
+    );
+  }
+
+  checksRun.push("detectVisualFictionLeakage");
+  for (const v of detectVisualFictionLeakage({ generatedText: rawJoined, shopEvidence })) {
+    reasons.push(
+      `"${v}" describes a specific real-world detail (a location, an object, an event) that was never verified — only the AI-generated visual concept invented it. Never assert this as a fact about the shop; keep it purely in the visual description, or drop it from the wording.`
+    );
+  }
+
+  checksRun.push("detectPermanentClosureMismatch");
+  const closureMismatch = detectPermanentClosureMismatch(requestText, rawJoined);
+  if (closureMismatch) {
+    reasons.push(
+      "This reads as a permanent closure, but the request only ever described a temporary/scheduled change — never write a temporary change as if the business itself is shutting down."
+    );
+  }
+
+  checksRun.push("detectInventedOperationalContent");
+  if (!closureMismatch && detectInventedOperationalContent(requestText, rawJoined)) {
+    reasons.push(
+      "This invents urgency, a reason, gratitude, or a future plan the florist never wrote — a plain operational notice must say only what was actually asked."
+    );
+  }
+
+  if (canonicalConcept && component === "flyer_text") {
+    checksRun.push("detectConceptCoherenceMismatch");
+    const mismatch = detectConceptCoherenceMismatch({
+      concept: canonicalConcept,
+      captionText: canonicalConcept.captionExcerpt || "",
+      flyerText: rawJoined,
+      requestText
+    });
+    if (mismatch) reasons.push(mismatch);
+
+    checksRun.push("detectCtaCoherenceMismatch");
+    const ctaMismatch = detectCtaCoherenceMismatch({ concept: canonicalConcept, ctaText: originalFields.cta || "", requestText });
+    if (ctaMismatch) reasons.push(ctaMismatch);
+  }
+
+  // Deterministic repair pass — always runs, per field, regardless of
+  // whether `reasons` above found anything else wrong.
+  checksRun.push("stripFabricatedContactNumbers", "stripUnverifiedInventoryClaims", "stripVisualFictionLeakage");
+  const fields = { ...originalFields };
+  let repaired = false;
+  for (const key of ["headline", "body", "cta"]) {
+    if (fields[key] == null) continue;
+    let text = fields[key];
+    const numberCleaned = stripFabricatedContactNumbers({ requestText, shopPhone, copyText: text });
+    if (numberCleaned.removed.length) {
+      text = numberCleaned.text;
+      repaired = true;
+    }
+    const inventoryCleaned = stripUnverifiedInventoryClaims({ generatedText: text, requestText, verifiedFlowerNames });
+    if (inventoryCleaned.removed.length) {
+      text = inventoryCleaned.text;
+      repaired = true;
+    }
+    const fictionCleaned = stripVisualFictionLeakage({ generatedText: text, shopEvidence });
+    if (fictionCleaned.removed.length) {
+      text = fictionCleaned.text;
+      repaired = true;
+    }
+    fields[key] = text;
+  }
+  const safeCandidate = isObjectCandidate ? { ...candidate, ...fields } : fields.body;
+
+  if (reasons.length) {
+    return { decision: isRetryAttempt ? "reject" : "retry", safeCandidate, repaired, reasons, evidenceUsed, checksRun };
+  }
+  if (repaired) {
+    return { decision: "repair", safeCandidate, repaired: true, reasons: [], evidenceUsed, checksRun };
+  }
+  return { decision: "pass", safeCandidate: candidate, repaired: false, reasons: [], evidenceUsed, checksRun };
+}

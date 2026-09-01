@@ -1785,18 +1785,37 @@ test("correct wording is never touched by the strip", () => {
 test("the real handler strips an invented number from the flyer before it is rendered", () => {
   // The check that matters: not that the detector works, but that the wording
   // reaching the canvas has been through it. Both fields the flyer prints.
+  //
+  // Batch 1 rebuild: marketing-studio.js's caption and flyer blocks no
+  // longer call stripFabricatedContactNumbers directly — both now route
+  // through the shared evaluateMarketingOutput() evaluator (marketing-
+  // content-revision.js), which calls stripFabricatedContactNumbers
+  // internally (verified by that module's own tests) and returns the
+  // repaired value as `safeCandidate`. This test now guards the same real
+  // regression this test was written for — the strip's result actually
+  // reaching the canvas, not merely computed — at the NEW call sites: the
+  // evaluator itself must call the strip and use its result, AND
+  // marketing-studio.js must actually apply evaluateMarketingOutput's
+  // safeCandidate to both the caption and the flyer content it persists.
+  const revision = fs.readFileSync(new URL("../netlify/functions/_shared/marketing-content-revision.js", import.meta.url), "utf8");
+  assert.ok(
+    /const numberCleaned = stripFabricatedContactNumbers\(/.test(revision) && /text = numberCleaned\.text;/.test(revision),
+    "evaluateMarketingOutput must call stripFabricatedContactNumbers and actually apply its result, not merely compute it"
+  );
+
   const handler = fs.readFileSync(new URL("../netlify/functions/marketing-studio.js", import.meta.url), "utf8");
-  const calls = handler.match(/stripFabricatedContactNumbers\(/g) || [];
-  assert.ok(calls.length >= 2,
-    `the strip runs ${calls.length} time(s) — the flyer wording and the caption both need it`);
-  assert.ok(/for \(const field of \["headline", "body", "cta"\]\)/.test(handler),
-    "the strip must cover every field that reaches the graphic, not just the call to action");
-  // Calling it is not using it. An earlier version of this test counted the
-  // calls and passed with the assignment deleted — the strip ran, its result
-  // was thrown away, and the invented number still reached the canvas.
-  const applied = handler.match(/if \(cleaned\.removed\.length\) \w+\.content\[field\] = cleaned\.text;/g) || [];
-  assert.equal(applied.length, 2,
-    `the strip's result is written back ${applied.length} time(s) — it must be applied to both the flyer wording and the caption, not merely computed`);
+  const evaluatorCalls = handler.match(/evaluateMarketingOutput\(\{/g) || [];
+  assert.ok(
+    evaluatorCalls.length >= 2,
+    `evaluateMarketingOutput runs ${evaluatorCalls.length} time(s) for text components — the flyer wording and the caption both need it`
+  );
+  // Calling it is not using it — the safeCandidate it returns must actually
+  // be written back onto the content the handler persists/renders, the
+  // same "computed but discarded" regression this test originally guarded.
+  const captionApplied = /copyGen\.content\.headline = captionEval\.safeCandidate\.headline;/.test(handler);
+  const flyerApplied = /flyerGen\.content\.headline = flyerEval\.safeCandidate\.headline;/.test(handler);
+  assert.ok(captionApplied, "the caption's safeCandidate must be written back onto copyGen.content, not merely computed");
+  assert.ok(flyerApplied, "the flyer's safeCandidate must be written back onto flyerGen.content, not merely computed");
 });
 
 test("a number that ends a sentence is still a number", () => {
