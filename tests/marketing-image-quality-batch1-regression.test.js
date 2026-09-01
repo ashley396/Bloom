@@ -76,9 +76,9 @@ test("REGRESSION 23/24/25: an unverified flower-species claim is repaired by Bat
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-1", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-1", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null }, // -> generating
         { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
         { data: null, error: null }, // loadBrandBrain
         { data: null, error: null }, // loadStyleMemory
@@ -86,7 +86,12 @@ test("REGRESSION 23/24/25: an unverified flower-species claim is repaired by Bat
         { data: [], error: null }, // audience customers
         { data: [], error: null }, // audience orders
         { data: [], error: null }, // recent-content shortlist
-        { data: null, error: null }, // recordUsage("copy")
+        // Batch 1's weak-copy retry loop (detectWeakMarketingCopy flags
+        // this deliberately weak caption) means TWO real recordUsage("copy")
+        // inserts happen here, not one — confirmed by tracing the real
+        // call sequence, not assumed.
+        { data: null, error: null }, // recordUsage("copy") — attempt 1
+        { data: null, error: null }, // recordUsage("copy") — attempt 2 (retry)
         { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image)
         { data: null, error: null }, // completeProviderCall(image)
         { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision)
@@ -146,9 +151,9 @@ test("REGRESSION 26: an exact stated phone number survives verbatim through the 
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-1", content_type: "image_post", title: "Closing early today", brief, status: "idea" }, error: null },
+        { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-1", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null },
         { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
         { data: null, error: null }, // loadBrandBrain
         { data: null, error: null }, // loadStyleMemory

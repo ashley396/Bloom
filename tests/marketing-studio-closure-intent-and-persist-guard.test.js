@@ -160,9 +160,9 @@ test("generate_content (real dispatch): a temporary-closing brief that comes bac
   try {
     const client = createFakeSupabaseClient([
       { data: { id: "item-1", content_type: "text_post", title: "t", brief: "Create a Facebook post letting customers know we are closing at 2:30 today. Call 606-506-4039 to order.", status: "idea" }, error: null }, // currentItem
+      { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // variants
       { data: { marketing_monthly_budget_cents: null }, error: null }, // budget
-      { data: null, error: null }, // -> generating
       { data: { name: "Test Florals" }, error: null }, // shopRow
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
@@ -217,9 +217,9 @@ test("generate_content (real dispatch): a plain temporary-closing post never cal
   try {
     const client = createFakeSupabaseClient([
       { data: { id: "item-1", content_type: "text_post", title: "t", brief: "Create a Facebook post letting customers know we are closing at 2:30 today. Call 606-506-4039 to order.", status: "idea" }, error: null },
+      { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null },
       { data: { name: "Test Florals" }, error: null },
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
@@ -277,9 +277,9 @@ test("generate_content (real dispatch): if the shops-table lookup comes back wit
         data: { id: "item-1", content_type: "text_post", title: "t", brief: "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.", status: "idea" },
         error: null
       },
+      { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null }, // -> generating
       { data: null, error: null }, // shopRow — no matching row (the real failure mode)
       { data: null, error: null } // -> revertToIdea's own update call
     ]);
@@ -325,9 +325,9 @@ test("generate_content (real dispatch): a request that names a different florist
     const spoofingBrief = "Rose City Florals is closing at 2:30 today. Customers can call 606-506-4039 to place an order.";
     const client = createFakeSupabaseClient([
       { data: { id: "item-1", content_type: "text_post", title: "t", brief: spoofingBrief, status: "idea" }, error: null },
+      { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null }, // -> generating
       { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow — the REAL authenticated shop
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
@@ -669,9 +669,9 @@ test("generate_content (real dispatch): a plain closing notice that comes back w
   try {
     const client = createFakeSupabaseClient([
       { data: { id: "item-1", content_type: "text_post", title: "t", brief: "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.", status: "idea" }, error: null },
+      { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null },
       { data: { name: "Lilies in Bloom" }, error: null },
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
@@ -731,9 +731,9 @@ test("generate_content (real dispatch): when NO operational facts exist to build
       // build from here, so the handler must fail closed rather than
       // guess, exactly like before this fix for every OTHER case.
       { data: { id: "item-1", content_type: "text_post", title: "t", brief: "Our store is opening this weekend.", status: "idea" }, error: null },
+      { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null },
       // A real, verified shop (shops.name is NOT NULL in production — a
       // row with no name can't actually occur; that unverifiable-shop
       // case is covered separately, see the "fails closed" test above).
@@ -809,9 +809,9 @@ test("generate_content (real dispatch): a late-opening notice never calls the AI
   try {
     const client = createFakeSupabaseClient([
       { data: { id: "item-1", content_type: "text_post", title: "t", brief: "We will be opening late today at 10:00am due to weather. Call 555-123-4567.", status: "idea" }, error: null },
+      { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null },
       { data: { name: "Test Florals" }, error: null },
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
@@ -855,9 +855,9 @@ test("generate_content (real dispatch): an ordinary creative post ('40 roses to 
   try {
     const client = createFakeSupabaseClient([
       { data: { id: "item-1", content_type: "text_post", title: "t", brief: "I have 40 roses I need to sell — a bright, romantic bouquet post for Facebook", status: "idea" }, error: null },
+      { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null },
       { data: { name: "Test Florals" }, error: null },
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
@@ -917,9 +917,9 @@ test("generate_content (real dispatch): a shop row whose name is empty fails clo
         },
         error: null
       },
+      { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null }, // -> generating
       // The real shape observed in the live database: a real row, real
       // brand colours, but no name saved.
       { data: { name: "", phone: "", primary_color: "#8f3f68", accent_color: "#6f8f72" }, error: null },

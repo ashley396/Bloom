@@ -655,7 +655,24 @@
           try {
             toast("Lily is creating your draft…");
             const genResult = await generateWithPhotoChoice(newItemId);
-            toast(genResult?.cancelled ? "Draft saved — click \"Ask Lily to create it\" below whenever you're ready." : "Draft ready for your review.");
+            // Batch 3, Part G: a flyer's on-image text/background exists
+            // server-side at this point, but the actual poster still has
+            // to be drawn on a canvas and uploaded through
+            // finalize_flyer_render (mountFlyerPreviews, triggered by the
+            // load()/render() call below) before there's a real, durable
+            // asset to review — Approve stays disabled and the card's own
+            // eyebrow correctly reads "Preparing your flyer…"
+            // (effectiveStatusLabel above) until that finishes. Claiming
+            // "ready for your review" here, before that upload has even
+            // started, was never true for a flyer.
+            const stillPreparing = genResult?.asset?.type === "flyer";
+            toast(
+              genResult?.cancelled
+                ? "Draft saved — click \"Ask Lily to create it\" below whenever you're ready."
+                : stillPreparing
+                  ? "Draft saved — Lily is finishing your flyer's design now."
+                  : "Draft ready for your review."
+            );
           } catch (genErr) {
             toast(genErr.message || "Draft created — click \"Ask Lily to create it\" below to finish it.");
           }

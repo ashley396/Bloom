@@ -39,13 +39,13 @@ test("generate_content: no budget_cap_cents and no shop default -> unaffected, e
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null }, // content item lookup
+    { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim (before variants/budget now)
     { data: [], error: null }, // variants lookup
     { data: { marketing_monthly_budget_cents: null }, error: null }, // shop default lookup — none configured
     // No usage-sum response queued — a call to it here would consume this
     // slot as a placeholder and desync every call after it; the test
     // failing downstream (from a wrong-shaped response) is itself proof
     // the budget check ran when it must not have.
-    { data: null, error: null }, // content_items update -> generating
     { data: { name: "Test Florals" }, error: null } // shopRow — a real shop must be verified before any generation
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
@@ -62,13 +62,15 @@ test("generate_content: no budget_cap_cents and no shop default -> unaffected, e
   assert.equal(usageSelectCall, undefined, "neither a shop default nor a per-request cap is set — no usage-spend check should ever run");
 });
 
-test("generate_content: an image_post over budget is refused before the status is even flipped to 'generating' — zero spend past the halt", async () => {
+test("generate_content: an image_post over budget is refused, zero provider spend — the item is atomically claimed first (Batch 3) then reverted to idea, never left stuck", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim — happens BEFORE the budget check now
     { data: [], error: null }, // variants lookup
     { data: { marketing_monthly_budget_cents: null }, error: null }, // no shop default — the request's own cap governs
-    { data: [{ estimated_cost_cents: 196 }], error: null } // this month's committed spend so far
+    { data: [{ estimated_cost_cents: 196 }], error: null }, // this month's committed spend so far
+    { data: { id: "item-1", status: "idea" }, error: null } // revertToIdea's own update, since the budget refusal comes AFTER the claim
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
   const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 200, photo_choice: "generate" }));
@@ -80,14 +82,24 @@ test("generate_content: an image_post over budget is refused before the status i
   // vision-inspection calls (1 cent each) before runMarketingImageQuality
   // ever resolves — not just the cost of one best-case attempt.
   assert.equal(body.would_be_cents, 207); // 196 + 1(copy) + 8(2 image attempts) + 2(2 vision inspections) = 207 — over the 200-cent cap
-  const statusUpdateCall = client.calls.find((c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update"));
-  assert.equal(statusUpdateCall, undefined, "the item must never be flipped to 'generating' once the budget gate refuses the request");
+  // Batch 3: the item WAS atomically claimed (Part B — claim happens
+  // before budget/usage reservation) and then correctly reverted back to
+  // 'idea' once the budget gate refused the request (Part C) — never left
+  // stuck at 'generating'. No provider call, no usage row, no generated
+  // asset was ever created (zero spend past the halt).
+  const revertCall = client.calls.find(
+    (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
+  );
+  assert.ok(revertCall, "an over-budget refusal after the atomic claim must revert the item back to 'idea', not leave it stuck at 'generating'");
+  const usageRows = client.calls.find((c) => c.table === "marketing_generation_usage" && c.ops.some((op) => op[0] === "insert"));
+  assert.equal(usageRows, undefined, "a refused-before-spend request must create zero usage rows");
 });
 
 test("generate_content: a text_post is priced without the image cost — the gate must reflect what would actually be billed, not a flat guess", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", content_type: "text_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
     { data: [], error: null },
     { data: { marketing_monthly_budget_cents: null }, error: null },
     { data: [{ estimated_cost_cents: 199 }], error: null } // only 1 cent of headroom — enough for copy-only (1 cent), not image+copy
@@ -114,6 +126,7 @@ test("generate_content: an image_post with photo_choice 'upload' is priced WITHO
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
     { data: [], error: null },
     { data: { marketing_monthly_budget_cents: null }, error: null },
     { data: [{ estimated_cost_cents: 199 }], error: null } // only 1 cent of headroom — enough for copy-only, not image+copy
@@ -137,6 +150,7 @@ test("generate_content: an image_post with photo_choice 'reuse' is priced WITHOU
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
     { data: [], error: null },
     { data: { marketing_monthly_budget_cents: null }, error: null },
     { data: [{ estimated_cost_cents: 199 }], error: null } // only 1 cent of headroom — enough for copy-only, not image+copy
@@ -157,10 +171,10 @@ test("generate_content: a within-budget generation reads this shop's real Brand 
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", content_type: "text_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
     { data: [], error: null },
     { data: { marketing_monthly_budget_cents: null }, error: null },
     { data: [{ estimated_cost_cents: 199 }], error: null },
-    { data: null, error: null }, // content_items update -> generating
     { data: { name: "Test Florals" }, error: null } // shopRow
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
@@ -180,10 +194,10 @@ test("generate_content: a within-budget generation also reads this shop's real v
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", content_type: "text_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
     { data: [], error: null },
     { data: { marketing_monthly_budget_cents: null }, error: null },
     { data: [{ estimated_cost_cents: 199 }], error: null },
-    { data: null, error: null }, // content_items update -> generating
     { data: { name: "Test Florals" }, error: null } // shopRow
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
@@ -195,28 +209,39 @@ test("generate_content: a within-budget generation also reads this shop's real v
   assert.equal(shopEq[1][1], "shop-1");
 });
 
-test("generate_content: a budget check that itself fails (DB error) blocks the request rather than silently letting generation through", async () => {
+test("generate_content: a budget check that itself fails (DB error) blocks the request rather than silently letting generation through, and reverts the atomic claim it already made", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim — happens before the budget check
     { data: [], error: null },
     { data: { marketing_monthly_budget_cents: null }, error: null },
-    { data: null, error: { message: "connection lost" } } // usage sum query fails
+    { data: null, error: { message: "connection lost" } }, // usage sum query fails
+    { data: { id: "item-1", status: "idea" }, error: null } // revertToIdea's own update
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
   const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", budget_cap_cents: 200, photo_choice: "generate" }));
   assert.equal(res.statusCode, 500);
-  const statusUpdateCall = client.calls.find((c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update"));
-  assert.equal(statusUpdateCall, undefined, "an unverifiable budget check must fail closed — never proceed to generation");
+  // Batch 3: the claim already happened (Part B), so a genuine budget-check
+  // failure must revert it back to 'idea' (Part C) rather than leaving it
+  // stuck at 'generating' — never proceeding to any real generation call.
+  const revertCall = client.calls.find(
+    (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
+  );
+  assert.ok(revertCall, "an unverifiable budget check must revert the already-claimed item back to 'idea', never leave it stuck");
+  const usageRows = client.calls.find((c) => c.table === "marketing_generation_usage" && c.ops.some((op) => op[0] === "insert"));
+  assert.equal(usageRows, undefined, "an unverifiable budget check must fail closed — never proceed to generation or usage reservation");
 });
 
 test("generate_content: a shop-level default cap alone (no per-request cap) is enforced as a real hard ceiling", async () => {
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
     { data: [], error: null },
     { data: { marketing_monthly_budget_cents: 100 }, error: null }, // shop configured a real default
-    { data: [{ estimated_cost_cents: 98 }], error: null }
+    { data: [{ estimated_cost_cents: 98 }], error: null },
+    { data: { id: "item-1", status: "idea" }, error: null } // revertToIdea's own update
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
   const res = await handler(event("generate_content", { shop_id: "shop-1", content_item_id: "item-1", photo_choice: "generate" })); // no per-request override at all
@@ -230,9 +255,11 @@ test("generate_content: a per-request cap can never be used to exceed the shop's
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", content_type: "image_post", title: "t", brief: "b", status: "idea" }, error: null },
+    { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
     { data: [], error: null },
     { data: { marketing_monthly_budget_cents: 100 }, error: null },
-    { data: [{ estimated_cost_cents: 98 }], error: null }
+    { data: [{ estimated_cost_cents: 98 }], error: null },
+    { data: { id: "item-1", status: "idea" }, error: null } // revertToIdea's own update
   ]);
   const handler = createMarketingStudioHandler(baseDeps(client));
   // Caller asks for a huge budget — the shop's real 100-cent cap still wins.

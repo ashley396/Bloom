@@ -3,10 +3,13 @@ import assert from "node:assert/strict";
 import {
   validateFlyerRenderDataUrl,
   flyerApprovalBlockReason,
+  contentApprovalBlockReason,
+  verifyFlyerStorageObjectExists,
   FLYER_RENDER_MAX_BYTES,
   FLYER_RENDER_MIN_DIMENSION,
   FLYER_RENDER_MAX_DIMENSION
 } from "../netlify/functions/_shared/flyer-render.js";
+import { createFakeSupabaseClient, createFakeSupabaseStorage } from "./helpers/fake-supabase-client.mjs";
 
 /**
  * Hardening pass (before-approval security/durability review): a real PNG
@@ -137,4 +140,78 @@ test("flyerApprovalBlockReason: blocks a quarantined flyer even if every other f
   const reason = flyerApprovalBlockReason({ asset_type: "flyer", content: { ...VALID_FLYER_CONTENT, quarantined: true } });
   assert.ok(reason);
   assert.match(reason, /flagged/i);
+});
+
+// ── contentApprovalBlockReason — Batch 3, Part D/E: the full approve_content
+// readiness gate across every asset type, not just flyers.
+
+test("contentApprovalBlockReason: delegates to flyerApprovalBlockReason unchanged for a flyer", () => {
+  assert.equal(contentApprovalBlockReason({ asset_type: "flyer", content: VALID_FLYER_CONTENT }), null);
+  const blocked = contentApprovalBlockReason({ asset_type: "flyer", content: { ...VALID_FLYER_CONTENT, render_status: null } });
+  assert.ok(blocked);
+});
+
+test("contentApprovalBlockReason: blocks the REAL quarantine signal (asset.status), not just the content.quarantined placeholder nothing sets", () => {
+  const reason = contentApprovalBlockReason({ asset_type: "image", status: "quarantined", content: { url: "https://example.com/x.jpg" } });
+  assert.ok(reason);
+  assert.match(reason, /flagged/i);
+});
+
+test("contentApprovalBlockReason: an 'image' asset requires a real, trusted current photo url", () => {
+  assert.ok(contentApprovalBlockReason({ asset_type: "image", content: {} }));
+  assert.ok(contentApprovalBlockReason({ asset_type: "image", content: { url: "http://not-https.example.com/x.jpg" } }));
+  assert.equal(contentApprovalBlockReason({ asset_type: "image", content: { url: "https://fake.storage/x.jpg" } }), null);
+});
+
+test("contentApprovalBlockReason: text-only asset types (social_copy, video_concept) carry no extra requirement — never held to flyer/image rules", () => {
+  assert.equal(contentApprovalBlockReason({ asset_type: "social_copy", content: { body: "a real caption" } }), null);
+  assert.equal(contentApprovalBlockReason({ asset_type: "video_concept", content: { script: "..." } }), null);
+});
+
+test("contentApprovalBlockReason: null/undefined asset is never blocked by this gate", () => {
+  assert.equal(contentApprovalBlockReason(null), null);
+  assert.equal(contentApprovalBlockReason(undefined), null);
+});
+
+// ── verifyFlyerStorageObjectExists — Batch 3, Part F: real storage
+// verification, never trusting the DB row's own claim alone.
+
+test("verifyFlyerStorageObjectExists: verified true when the object is actually found by a real .list() check", async () => {
+  const storage = createFakeSupabaseStorage({ listResponses: [{ data: [{ name: "flyer-1.png" }], error: null }] });
+  const client = createFakeSupabaseClient([], { storage });
+  const result = await verifyFlyerStorageObjectExists(client, "shop-1/flyers/flyer-1.png");
+  assert.equal(result.ok, true);
+  assert.equal(result.verified, true);
+  const listCall = storage.calls.find((c) => c.op === "list");
+  assert.equal(listCall.path, "shop-1/flyers");
+  assert.equal(listCall.options.search, "flyer-1.png");
+});
+
+test("verifyFlyerStorageObjectExists: verified false (not ok:false) when the list succeeds but the file genuinely isn't there", async () => {
+  const storage = createFakeSupabaseStorage({ listResponses: [{ data: [], error: null }] });
+  const client = createFakeSupabaseClient([], { storage });
+  const result = await verifyFlyerStorageObjectExists(client, "shop-1/flyers/flyer-1.png");
+  assert.equal(result.ok, true, "the CHECK itself succeeded — it just found nothing");
+  assert.equal(result.verified, false);
+});
+
+test("verifyFlyerStorageObjectExists: ok:false (never verified:true) on a real storage error", async () => {
+  const storage = createFakeSupabaseStorage({ listResponses: [{ data: null, error: { message: "storage down" } }] });
+  const client = createFakeSupabaseClient([], { storage });
+  const result = await verifyFlyerStorageObjectExists(client, "shop-1/flyers/flyer-1.png");
+  assert.equal(result.ok, false);
+  assert.match(result.error, /storage down/);
+});
+
+test("verifyFlyerStorageObjectExists: ok:false on a missing/empty storage_path — nothing to verify is never treated as verified", async () => {
+  const client = createFakeSupabaseClient([], { storage: createFakeSupabaseStorage({}) });
+  assert.equal((await verifyFlyerStorageObjectExists(client, null)).ok, false);
+  assert.equal((await verifyFlyerStorageObjectExists(client, "")).ok, false);
+});
+
+test("verifyFlyerStorageObjectExists: ok:false, never throws, when the storage client itself is unavailable", async () => {
+  const throwingClient = { storage: { from: () => { throw new Error("no storage configured"); } } };
+  const result = await verifyFlyerStorageObjectExists(throwingClient, "shop-1/flyers/flyer-1.png");
+  assert.equal(result.ok, false);
+  assert.match(result.error, /no storage configured/);
 });

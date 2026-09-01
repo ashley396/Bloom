@@ -269,9 +269,9 @@ test("generate_content: a text_post's real generation persists brand_traits_used
     const client = createFakeSupabaseClient([
       superAdminRow(),
       { data: { id: "item-1", content_type: "text_post", title: "Fall Bouquet", brief: "b", status: "idea" }, error: null }, // currentItem
+      { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // variantsResult
       { data: { marketing_monthly_budget_cents: null }, error: null }, // budget: no shop default configured
-      { data: null, error: null }, // content_items update -> generating
       { data: { name: "Test Florals" }, error: null }, // shopRow
       // A trait can only ride the model's real brand_traits_used/
       // visual_traits_used report back onto the persisted asset when its
@@ -354,9 +354,9 @@ test("generate_content: a previously-saved My Style preference ('soft luxury bac
     const client = createFakeSupabaseClient([
       superAdminRow(),
       { data: { id: "item-2", content_type: "text_post", title: "Spring line", brief: "New spring arrangements", status: "idea" }, error: null }, // a brand-new, unrelated content item
+      { data: [{ id: "item-2", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [], error: null }, // variants
       { data: { marketing_monthly_budget_cents: null }, error: null }, // budget
-      { data: null, error: null }, // content_items update -> generating
       { data: { name: "Test Florals" }, error: null }, // shopRow
       { data: null, error: null }, // loadBrandBrain (nothing saved)
       { data: { preferences: savedStyle }, error: null }, // loadStyleMemory — the REAL, previously-saved preference

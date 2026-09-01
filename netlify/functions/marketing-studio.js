@@ -99,7 +99,7 @@ import { OAUTH_SUPPORTED_PLATFORMS, isOAuthArchitected, buildAuthorizeUrl } from
 import { resolvePublicSiteUrl } from "./_shared/site-url.js";
 import { selectCloneProvider, notLiveCloneProvider, buildConfiguredCloneProviderRegistry } from "./_shared/marketing-clone-providers.js";
 import { uploadClonedVoiceAudio, uploadWebsiteMedia, uploadFlyerRenderBuffer, publicWebsiteMediaUrl } from "./_shared/website-media.js";
-import { validateFlyerRenderDataUrl, flyerApprovalBlockReason } from "./_shared/flyer-render.js";
+import { validateFlyerRenderDataUrl, flyerApprovalBlockReason, contentApprovalBlockReason, verifyFlyerStorageObjectExists } from "./_shared/flyer-render.js";
 import { parseDataUrl } from "./_shared/upload-validation.js";
 import { buildIdempotencyKey } from "./_shared/marketing-publishing-queue.js";
 import { runPublishingWorker } from "./_shared/marketing-publishing-worker.js";
@@ -767,27 +767,83 @@ export function createMarketingStudioHandler(deps = {}) {
         // storage via finalize_flyer_render and content.url is real. Fetched
         // once here and reused below for the Brand Brain/My Style signal —
         // no second query for the same rows.
+        //
+        // Batch 3, Part D: "unreadable state is not valid state." A real
+        // query error here used to silently fall through to `[]` (treated
+        // exactly like "this content item genuinely has no variants at
+        // all" — a real, legitimate, tested state for e.g. a fresh text
+        // post) — meaning a transient DB hiccup could let an approval
+        // through with zero validation. Every error below fails the whole
+        // request closed instead, with a retryable 502, never a silent
+        // pass-through.
         const reviewVariantAssets = await client
           .from("marketing_platform_variants")
           .select("asset_id")
           .eq("content_item_id", body.content_item_id)
           .eq("shop_id", shopId);
+        if (reviewVariantAssets.error) {
+          return json(502, { error: "Couldn't verify this item's current state right now — try again in a moment." });
+        }
         const reviewAssetIds = [...new Set((reviewVariantAssets.data || []).map((v) => v.asset_id).filter(Boolean))];
-        const reviewAssets = reviewAssetIds.length
-          ? (await client.from("ai_generated_assets").select("id,asset_type,content").in("id", reviewAssetIds).eq("shop_id", shopId)).data || []
-          : [];
+        let reviewAssets = [];
+        if (reviewAssetIds.length) {
+          // status is fetched alongside asset_type/content so
+          // contentApprovalBlockReason can read the REAL quarantine signal
+          // (asset.status === "quarantined") — content.quarantined alone
+          // is real, tested plumbing nothing actually sets today.
+          const reviewAssetsResult = await client.from("ai_generated_assets").select("id,asset_type,status,content").in("id", reviewAssetIds).eq("shop_id", shopId);
+          if (reviewAssetsResult.error) {
+            return json(502, { error: "Couldn't verify this item's current content right now — try again in a moment." });
+          }
+          reviewAssets = reviewAssetsResult.data || [];
+        }
         if (body.decision === "approved") {
-          // flyerApprovalBlockReason checks more than "url is set": a real
-          // render_status, a trusted https url, a real storage_path (proof
-          // it actually went through finalize_flyer_render, not a
-          // hand-crafted content blob with a forged url), a supported
-          // mime, and that it isn't quarantined. Every reviewAssets row
-          // reflects THIS item's current active asset (same fetch used
-          // above), so there's no separate "superseded revision" case to
-          // check here — a stale asset is never what gets read back.
+          // Part D: a variant that references a real asset_id but whose
+          // asset can't actually be found (deleted, or a genuine data gap)
+          // is unreadable state — never treated as "nothing to check."
+          // (An item with NO asset_id references at all — e.g. a fresh
+          // text post that was never generated — legitimately has nothing
+          // to validate here; that's the existing, correct behavior this
+          // does not change.)
+          const foundAssetIds = new Set(reviewAssets.map((a) => a.id));
+          for (const assetId of reviewAssetIds) {
+            if (!foundAssetIds.has(assetId)) {
+              return json(409, { error: "This post's current content couldn't be found — it may have been deleted. Try regenerating it." });
+            }
+          }
+          // contentApprovalBlockReason checks more than "url is set": for a
+          // flyer, a real render_status, a trusted https url, a real
+          // storage_path (proof it actually went through
+          // finalize_flyer_render, not a hand-crafted content blob with a
+          // forged url), a supported mime, and the real quarantine signal;
+          // for an image post, a real current photo url; text-only content
+          // (social_copy, video_concept) has no extra requirement (Part E
+          // — never one blanket asset rule for every content type). Every
+          // reviewAssets row reflects THIS item's current active asset
+          // (same fetch used above), so there's no separate "superseded
+          // revision" case to check here — a stale asset is never what
+          // gets read back.
           for (const a of reviewAssets) {
-            const blockReason = flyerApprovalBlockReason(a);
+            const blockReason = contentApprovalBlockReason(a);
             if (blockReason) return json(409, { error: blockReason });
+          }
+          // Part F: for a flyer that passed every DB-side check above,
+          // also verify the actual stored object exists — a DB row can
+          // claim render_status:"rendered" with a real-looking
+          // storage_path while the underlying file was deleted, never
+          // uploaded, or the upload silently failed. "Could not verify" is
+          // never treated as "verified" — a storage error or an
+          // unavailable client fails the whole approval closed with a
+          // retryable error, exactly like the DB-read errors above.
+          for (const a of reviewAssets) {
+            if (a.asset_type !== "flyer") continue;
+            const verification = await verifyFlyerStorageObjectExists(client, a.content?.storage_path);
+            if (!verification.ok) {
+              return json(502, { error: "Couldn't verify the flyer's stored file right now — try again in a moment." });
+            }
+            if (!verification.verified) {
+              return json(409, { error: "The flyer's stored file couldn't be found — open it again so it can finish preparing, then approve." });
+            }
           }
         }
 
@@ -1938,12 +1994,76 @@ export function createMarketingStudioHandler(deps = {}) {
           return json(200, { needs_photo_choice: true, item: currentItem.data, reusable_photos: reusablePhotos });
         }
 
+        // Batch 3, Part A/B: the atomic generation claim — a true
+        // one-winner conditional UPDATE, not the read-then-write this
+        // replaces. The plain read above (currentItem.data.status !==
+        // "idea") is only a fast, friendly early rejection for an
+        // obviously wrong state (already approved, etc.) — it can NEVER be
+        // the real enforcement, because two concurrent requests can both
+        // pass that read before either write lands. This UPDATE re-checks
+        // status = 'idea' itself, inside the single write, so whichever
+        // request's UPDATE actually lands first is the only one that can
+        // ever see its own row come back — the second (or Nth) concurrent
+        // request's identical UPDATE simply matches zero rows and gets an
+        // honest conflict below, never a duplicate claim. Same proven
+        // pattern already shipped in marketing-publishing-worker.js's
+        // claimDueJobs() (its own docstring explains the same guarantee);
+        // no locking table, RPC, or migration needed — plain PostgREST
+        // chaining does this safely.
+        //
+        // This claim happens BEFORE budget/usage reservation and BEFORE
+        // any provider call (Part B) — a loser must spend nothing: no
+        // provider call, no usage row, no generated asset.
+        const claimResult = await client
+          .from("marketing_content_items")
+          .update({ status: "generating", updated_at: new Date().toISOString() })
+          .eq("id", body.content_item_id)
+          .eq("shop_id", shopId)
+          .eq("status", "idea")
+          .select("id,status");
+        if (claimResult.error) {
+          if (missingRelation(claimResult.error)) throw friendlyMissing();
+          throw claimResult.error;
+        }
+        // Checks the actual returned row's own id, not just "exactly one
+        // row came back" — defense in depth against ever mistaking some
+        // other coincidentally-one-row response for a real winning claim.
+        if (!claimResult.data || claimResult.data.length !== 1 || claimResult.data[0]?.id !== body.content_item_id) {
+          // Lost the race (or the status genuinely changed between the
+          // read above and this UPDATE) — a clean, honest conflict, never
+          // a duplicate generation. Nothing was spent, nothing was
+          // claimed, nothing needs to be reverted.
+          return json(409, {
+            error: "This item is already being generated (or was just generated) by another request — nothing new was started here.",
+            already_generating: true
+          });
+        }
+
+        // Defined here, right after the claim, so EVERY early-return path
+        // from this point forward — including the budget-gate refusal just
+        // below, which runs AFTER the claim now that Part B moved it there
+        // — can put the item back to a retryable 'idea' rather than
+        // leaving it stuck in 'generating' (Part C).
+        async function revertToIdea() {
+          await client
+            .from("marketing_content_items")
+            .update({ status: "idea", updated_at: new Date().toISOString() })
+            .eq("id", body.content_item_id)
+            .eq("shop_id", shopId);
+        }
+
         const variantsResult = await client
           .from("marketing_platform_variants")
           .select("id,platform")
           .eq("content_item_id", body.content_item_id)
           .eq("shop_id", shopId);
-        if (variantsResult.error) throw variantsResult.error;
+        if (variantsResult.error) {
+          // Part C: this read now runs AFTER the atomic claim — revert
+          // before surfacing a genuine DB error, same reasoning as the
+          // budget-check failure path below.
+          await revertToIdea();
+          throw variantsResult.error;
+        }
         const variants = variantsResult.data || [];
 
         // Priority 8/2: a real pre-spend budget gate — estimate what THIS
@@ -1989,7 +2109,21 @@ export function createMarketingStudioHandler(deps = {}) {
             requestedCapCents: body.budget_cap_cents != null ? Number(body.budget_cap_cents) : null
           });
           if (!budgetCheck.allowed) {
-            if (budgetCheck.reason === "budget_check_failed" || budgetCheck.reason === "shop_budget_lookup_failed") throw new Error(budgetCheck.error);
+            if (budgetCheck.reason === "budget_check_failed" || budgetCheck.reason === "shop_budget_lookup_failed") {
+              // Part C: the item was already claimed (flipped to
+              // 'generating') above, before this budget check — unlike the
+              // pre-Batch-3 ordering, where the budget check ran before any
+              // lock existed. A genuine budget-check failure here must not
+              // leave the item stuck; revert before surfacing the error.
+              await revertToIdea();
+              throw new Error(budgetCheck.error);
+            }
+            // Part C: same reasoning as above — the item was already
+            // claimed before this check now runs, so a real over-budget
+            // refusal must revert it to 'idea' (retryable — e.g. once the
+            // shop's spend resets next month, or the cap is raised) rather
+            // than leaving it stuck at 'generating' forever.
+            await revertToIdea();
             return json(400, {
               error: `Generating this would bring this month's committed spend to $${(budgetCheck.wouldBeCents / 100).toFixed(2)}, over the $${(budgetCheck.capCents / 100).toFixed(2)} budget cap (${budgetCheck.capSource === "shop_default" ? "this shop's configured default" : "the budget given for this request"}) — nothing was generated.`,
               current_spend_cents: budgetCheck.currentSpendCents,
@@ -2000,22 +2134,11 @@ export function createMarketingStudioHandler(deps = {}) {
           }
         }
 
-        // Lock the row before any real generation call so a concurrent
-        // request can't double-generate (and double-bill) the same item.
-        await client
-          .from("marketing_content_items")
-          .update({ status: "generating", updated_at: new Date().toISOString() })
-          .eq("id", body.content_item_id)
-          .eq("shop_id", shopId);
-
-        async function revertToIdea() {
-          await client
-            .from("marketing_content_items")
-            .update({ status: "idea", updated_at: new Date().toISOString() })
-            .eq("id", body.content_item_id)
-            .eq("shop_id", shopId);
-        }
-
+        // The row was already atomically claimed (status flipped idea ->
+        // generating) above, before the budget check — no second lock
+        // needed or safe to repeat here (an unconditional update at this
+        // point would just be the old, race-prone pattern this batch
+        // replaces).
         async function recordUsage(purpose, unitType, units) {
           await client.from("marketing_generation_usage").insert({
             shop_id: shopId,

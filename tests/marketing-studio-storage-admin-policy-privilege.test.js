@@ -166,9 +166,9 @@ test("generate_content for an image-bearing post (Ashley's real scenario, not te
     const client = throwingPlatformAdminsClient(
       [
         { data: { id: "item-1", content_type: "social_post", title: "t", brief: "b", status: "idea" }, error: null }, // currentItem
+        { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // variants
         { data: { marketing_monthly_budget_cents: null }, error: null }, // budget
-        { data: null, error: null }, // content_items update -> generating
         { data: { name: "Test Florals" }, error: null }, // shopRow
         { data: null, error: null }, // loadBrandBrain
         { data: null, error: null }, // loadStyleMemory
@@ -228,9 +228,9 @@ test("generate_content surfaces a real storage permission-denial cleanly (400, r
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-1", content_type: "social_post", title: "t", brief: "b", status: "idea" }, error: null },
+        { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-1", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null }, // -> generating
         { data: { name: "Test Florals" }, error: null },
         { data: null, error: null },
         { data: null, error: null },

@@ -184,3 +184,36 @@ test("app.js gates Marketing Studio visibility with a REAL per-shop authenticate
   assert.match(appSrc, /marketingStudioPage:loadMarketingStudioPage/, "must be wired into the page loader dispatch");
   assert.match(appSrc, /if\(id==="marketingStudioPage"&&!marketingStudioEnabled\)/, "showPage must gate direct navigation the same way every other beta nav item does");
 });
+
+// ── Batch 3, Part G: premature "Draft ready for your review" UI state ──
+
+test("UI 25: the create-post flow never unconditionally claims a flyer is 'ready for your review' the instant generate_content returns", () => {
+  // A flyer's real poster still has to be drawn on canvas and uploaded
+  // through finalize_flyer_render (an async step triggered afterward by
+  // mountFlyerPreviews) before there's a real, durable asset — the initial
+  // toast right after generate_content resolves must gate on the
+  // returned asset's real type, never say "ready" unconditionally.
+  const bindStart = uiSrc.indexOf("function bind(el) {");
+  const submitEnd = uiSrc.indexOf("form.reset();", bindStart);
+  assert.ok(bindStart > -1 && submitEnd > -1, "could not locate the create-post submit handler");
+  const submitHandler = uiSrc.slice(bindStart, submitEnd);
+  assert.match(submitHandler, /genResult\?\.asset\?\.type === "flyer"/, "the toast after generate_content must check whether the returned asset is a flyer still awaiting a real render");
+  assert.doesNotMatch(
+    submitHandler,
+    /toast\(genResult\?\.cancelled \? [^:]+ : "Draft ready for your review\."\)/,
+    "must never fall straight from 'cancelled?' to an unconditional 'Draft ready for your review.' — a flyer branch must sit in between"
+  );
+});
+
+test("UI 26: the UI only claims flyer readiness once the backend has actually confirmed finalization — the per-card eyebrow label stays 'Preparing your flyer…' until render_status is really 'rendered'", () => {
+  // effectiveStatusLabel is the single source of truth this panel reads
+  // for every card's status text (including the eyebrow) — it must gate
+  // a flyer's 'ready' label on the server's own persisted render_status,
+  // never on the client's local generation/render attempt having merely
+  // started or a canvas draw having merely succeeded.
+  const fnStart = uiSrc.indexOf("function effectiveStatusLabel(item) {");
+  assert.ok(fnStart > -1, "could not locate effectiveStatusLabel");
+  const fnBody = uiSrc.slice(fnStart, fnStart + 400);
+  assert.match(fnBody, /asset\.content\?\.render_status !== "rendered"/, "must gate on the real, server-persisted render_status");
+  assert.match(fnBody, /Preparing your flyer/i);
+});

@@ -106,3 +106,68 @@ export function flyerApprovalBlockReason(asset) {
   if (c.mime !== "image/png") return notReady;
   return null;
 }
+
+/**
+ * Batch 3, Part D/E — the full approve_content readiness gate across every
+ * asset type this route actually persists, not just flyers.
+ *
+ * Real gap this closes: `asset.status === "quarantined"` is the REAL
+ * signal a revoked-consent asset is marked with (see marketing-studio.js's
+ * own revoked-media quarantine handling, and the identical
+ * `assetResult.data?.status === "quarantined"` check the publishing
+ * worker already uses) — flyerApprovalBlockReason's own `content.quarantined`
+ * check is real, tested plumbing for a future moderation pass, but nothing
+ * in this codebase actually SETS that field today. Approval must fail
+ * closed on the real signal too, not just the one nothing writes yet.
+ *
+ * Asset-type-scoped requirements (never one blanket rule for every type):
+ *   - flyer: delegates to flyerApprovalBlockReason unchanged (a real
+ *     finalized render, checked above).
+ *   - image: requires a real, trusted current photo url — an "image" post
+ *     with no url is exactly as unfinished as a flyer with no render.
+ *   - everything else (social_copy, video_concept, background, ...): no
+ *     extra requirement here — a text-only or concept-only asset was never
+ *     supposed to have a flyer/photo of its own to check.
+ */
+export function contentApprovalBlockReason(asset) {
+  if (!asset) return null;
+  if (asset.status === "quarantined") return "This asset was flagged and can't be approved. Contact support.";
+  if (asset.asset_type === "flyer") return flyerApprovalBlockReason(asset);
+  if (asset.asset_type === "image") {
+    const url = asset.content?.url;
+    if (typeof url !== "string" || !TRUSTED_URL_RE.test(url)) {
+      return "This photo hasn't finished uploading or generating yet — open it again so it can finish, then approve.";
+    }
+  }
+  return null;
+}
+
+/**
+ * Batch 3, Part F — verifies a flyer's final render object genuinely
+ * exists in Storage, not just that the DB row's own fields claim it does.
+ * Uses `.list()` (a real, lightweight metadata check — no bytes
+ * downloaded) rather than downloading the whole file merely to prove
+ * existence.
+ *
+ * Returns `{ ok: true, verified: boolean }` when the check itself
+ * completed (verified tells the caller whether the object was actually
+ * found), or `{ ok: false, error }` when verification itself could not be
+ * performed (no storage_path to check, a storage error, an unavailable
+ * client, or an unexpected exception) — the caller must treat `ok: false`
+ * as "unreadable state," never as "verified." Deliberately never throws.
+ */
+export async function verifyFlyerStorageObjectExists(client, storagePath, { bucket = "website-media" } = {}) {
+  const path = String(storagePath || "");
+  if (!path) return { ok: false, error: "no storage_path to verify" };
+  const lastSlash = path.lastIndexOf("/");
+  const folder = lastSlash >= 0 ? path.slice(0, lastSlash) : "";
+  const filename = lastSlash >= 0 ? path.slice(lastSlash + 1) : path;
+  try {
+    const { data, error } = await client.storage.from(bucket).list(folder, { search: filename, limit: 1 });
+    if (error) return { ok: false, error: error.message || String(error) };
+    const found = Array.isArray(data) && data.some((entry) => entry?.name === filename);
+    return { ok: true, verified: found };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+}

@@ -50,9 +50,9 @@ test("generate_content: reads this shop's real current inventory before calling 
   const client = createFakeSupabaseClient([
     superAdminRow(),
     { data: { id: "item-1", content_type: "text_post", title: "t", brief: "I have 40 roses to sell", status: "idea" }, error: null }, // currentItem
+    { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
     { data: [], error: null }, // variants
     { data: { marketing_monthly_budget_cents: null }, error: null }, // budget: no shop default
-    { data: null, error: null }, // content_items update -> generating
     { data: { name: "Test Florals" }, error: null } // shopRow — a real shop must be verified before any generation
     // No further responses queued — real generation call has no Cloudflare
     // mock here and will fail past this point, which is fine: this test
@@ -84,9 +84,9 @@ test("generate_content: real inventory rows reach the actual prompt sent to the 
     const client = createFakeSupabaseClient([
       superAdminRow(),
       { data: { id: "item-1", content_type: "text_post", title: "Rose sale", brief: "I have 40 roses I need to sell", status: "idea" }, error: null }, // currentItem
+      { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // variants
       { data: { marketing_monthly_budget_cents: null }, error: null }, // budget: no shop default
-      { data: null, error: null }, // content_items update -> generating
       { data: { name: "Test Florals" }, error: null }, // shopRow
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
@@ -140,9 +140,9 @@ test("generate_content: an empty shop (no real inventory rows) degrades to no in
     const client = createFakeSupabaseClient([
       superAdminRow(),
       { data: { id: "item-1", content_type: "text_post", title: "t", brief: "b", status: "idea" }, error: null },
+      { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null }, // content_items update -> generating
       { data: { name: "Test Florals" }, error: null }, // shopRow
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory

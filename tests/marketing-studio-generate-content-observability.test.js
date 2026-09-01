@@ -52,9 +52,9 @@ async function captureTraceLogs(fn) {
 test("generate_content (real dispatch, deterministic path): emits a real trace — start, grounded, fact_safety(deterministic:true), complete — all sharing ONE traceId", async () => {
   const client = createFakeSupabaseClient([
     { data: { id: "item-1", content_type: "text_post", title: "t", brief: "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.", status: "idea" }, error: null },
+    { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
     { data: [{ id: "variant-1", platform: "facebook" }], error: null },
     { data: { marketing_monthly_budget_cents: null }, error: null },
-    { data: null, error: null }, // -> generating
     { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
     { data: null, error: null }, // loadBrandBrain
     { data: null, error: null }, // loadStyleMemory
@@ -135,9 +135,9 @@ test("generate_content (real dispatch): the fact_safety tag on the AI-copy path 
   try {
     const client = createFakeSupabaseClient([
       { data: { id: "item-1", content_type: "text_post", title: "t", brief: "I have 40 roses I need to sell — a bright, romantic bouquet post for Facebook", status: "idea" }, error: null },
+      { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null },
       { data: { name: "Test Florals" }, error: null },
       { data: null, error: null },
       { data: null, error: null },

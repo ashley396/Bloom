@@ -178,9 +178,9 @@ const CLOSING_FLYER = { headline: "CLOSING EARLY", body: "Lilies in Bloom will c
 function generateFlyerFixtureQueue({ shopPhone = "606-506-4039" } = {}) {
   return [
     { data: { id: "item-1", content_type: "image_post", title: "Closing early today", brief: CLOSING_BRIEF, status: "idea" }, error: null }, // currentItem
+    { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim (idea -> generating)
     { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // variants
     { data: { marketing_monthly_budget_cents: null }, error: null }, // budget check
-    { data: null, error: null }, // -> generating
     { data: { name: "Lilies in Bloom", phone: shopPhone }, error: null }, // shopRow
     { data: null, error: null }, // loadBrandBrain
     { data: null, error: null }, // loadStyleMemory
@@ -337,9 +337,9 @@ test("generate_content (real dispatch): a flyer-routed closing notice never call
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-1", content_type: "image_post", title: "Closing early today", brief, status: "idea" }, error: null }, // currentItem
+        { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // variants
         { data: { marketing_monthly_budget_cents: null }, error: null }, // budget check
-        { data: null, error: null }, // -> generating
         { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
         { data: null, error: null }, // loadBrandBrain
         { data: null, error: null }, // loadStyleMemory
@@ -429,9 +429,9 @@ const EXACT_BROWSER_SENTENCE = "Lilies in Bloom is closing at 2:30 today. Custom
 function exactSentenceFixtureQueue({ primaryColor = "#b93870", accentColor = "#6f8f72" } = {}) {
   return [
     { data: { id: "item-1", content_type: "image_post", title: "Closing early today", brief: EXACT_BROWSER_SENTENCE, status: "idea" }, error: null }, // currentItem
+    { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
     { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // variants
     { data: { marketing_monthly_budget_cents: null }, error: null }, // budget check
-    { data: null, error: null }, // -> generating
     { data: { name: "Lilies in Bloom", phone: "606-506-4039", primary_color: primaryColor, accent_color: accentColor }, error: null }, // shopRow
     { data: null, error: null }, // loadBrandBrain
     { data: null, error: null }, // loadStyleMemory
@@ -543,9 +543,9 @@ test("generate_content (real dispatch): an ordinary decorative request is now a 
   try {
     const client = createFakeSupabaseClient([
       { data: { id: "item-2", content_type: "image_post", title: "Fresh roses", brief: "I have 40 roses I need to sell — a bright, romantic bouquet post for Facebook", status: "idea" }, error: null },
+      { data: [{ id: "item-2", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-2", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null },
       { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
@@ -626,9 +626,9 @@ test("generate_content (real dispatch): a plain image_post with no photo_choice 
 test("generate_content (real dispatch): a text_post never gets asked for a photo choice — it has no photo to choose", async () => {
   const client = createFakeSupabaseClient([
     { data: { id: "item-text-1", content_type: "text_post", title: "t", brief: "Fresh roses just arrived!", status: "idea" }, error: null },
+    { data: [{ id: "item-text-1", status: "generating" }], error: null }, // Batch 3: atomic claim
     { data: [{ id: "variant-t1", platform: "facebook" }], error: null },
     { data: { marketing_monthly_budget_cents: null }, error: null },
-    { data: null, error: null }, // -> generating
     { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
     { data: null, error: null }, // loadBrandBrain
     { data: null, error: null }, // loadStyleMemory
@@ -663,9 +663,9 @@ test("generate_content (real dispatch): photo_choice 'upload' uses the florist's
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-4", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived! Stop by today.", status: "idea" }, error: null },
+        { data: [{ id: "item-4", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-4", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null }, // -> generating
         { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
         { data: null, error: null }, // loadBrandBrain
         { data: null, error: null }, // loadStyleMemory
@@ -727,9 +727,9 @@ test("generate_content (real dispatch): photo_choice 'upload' with no actual pho
   try {
     const client = createFakeSupabaseClient([
       { data: { id: "item-5", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived! Stop by today.", status: "idea" }, error: null },
+      { data: [{ id: "item-5", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-5", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null }, // -> generating
       { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
@@ -801,9 +801,9 @@ test("generate_content (real dispatch): photo_choice 'reuse' reuses a prior real
   try {
     const client = createFakeSupabaseClient([
       { data: { id: "item-reuse-1", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived! Stop by today.", status: "idea" }, error: null },
+      { data: [{ id: "item-reuse-1", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-reuse-1", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null }, // -> generating
       { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
@@ -853,9 +853,9 @@ test("generate_content (real dispatch): photo_choice 'reuse' with no reuse_asset
   try {
     const client = createFakeSupabaseClient([
       { data: { id: "item-reuse-2", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived! Stop by today.", status: "idea" }, error: null },
+      { data: [{ id: "item-reuse-2", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-reuse-2", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null }, // -> generating
       { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
@@ -886,9 +886,9 @@ test("generate_content (real dispatch): photo_choice 'reuse' pointing at another
   try {
     const client = createFakeSupabaseClient([
       { data: { id: "item-reuse-3", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived! Stop by today.", status: "idea" }, error: null },
+      { data: [{ id: "item-reuse-3", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-reuse-3", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null }, // -> generating
       { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
@@ -919,9 +919,9 @@ test("generate_content (real dispatch): photo_choice 'reuse' pointing at a prior
   try {
     const client = createFakeSupabaseClient([
       { data: { id: "item-reuse-4", content_type: "image_post", title: "Fresh roses", brief: "Fresh roses just arrived! Stop by today.", status: "idea" }, error: null },
+      { data: [{ id: "item-reuse-4", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-reuse-4", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      { data: null, error: null }, // -> generating
       { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
       { data: null, error: null }, // loadBrandBrain
       { data: null, error: null }, // loadStyleMemory
@@ -1504,12 +1504,19 @@ test("approve_content (real dispatch): a forged non-null url with no render_stat
 });
 
 test("approve_content (real dispatch): approves normally once the flyer has a real, fully finalized content shape", async () => {
-  const client = createFakeSupabaseClient([
-    { data: { id: "item-1", status: "draft" }, error: null },
-    { data: [{ asset_id: "flyer-asset-1" }], error: null },
-    { data: [{ id: "flyer-asset-1", asset_type: "flyer", content: { headline: "CLOSING EARLY", ...VALID_FLYER_CONTENT_SHAPE } }], error: null },
-    { data: { id: "item-1", status: "approved" }, error: null } // the real status update
-  ]);
+  // Batch 3, Part F: approval now also verifies the flyer's stored object
+  // genuinely exists (a lightweight .list() check, not just trusting the
+  // DB row's own storage_path field) — the file really is there.
+  const storage = createFakeSupabaseStorage({ listResponses: [{ data: [{ name: "flyer-asset-1.png" }], error: null }] });
+  const client = createFakeSupabaseClient(
+    [
+      { data: { id: "item-1", status: "draft" }, error: null },
+      { data: [{ asset_id: "flyer-asset-1" }], error: null },
+      { data: [{ id: "flyer-asset-1", asset_type: "flyer", content: { headline: "CLOSING EARLY", ...VALID_FLYER_CONTENT_SHAPE } }], error: null },
+      { data: { id: "item-1", status: "approved" }, error: null } // the real status update
+    ],
+    { storage }
+  );
   const handler = createMarketingStudioHandler(floristDeps(client));
   const res = await handler(event("approve_content", { content_item_id: "item-1", decision: "approved" }));
   assert.equal(res.statusCode, 200, `expected approval to succeed once the flyer is finalized: ${res.body}`);
@@ -1790,9 +1797,9 @@ test("ACCEPTANCE (real dispatch): the canonical shop with an empty stored phone 
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-1", content_type: "image_post", title: "Closing early today", brief: ACCEPTANCE_REQUEST, status: "idea" }, error: null },
+        { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-1", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null },
         // The real canonical row: a saved name, and phone genuinely empty.
         { data: { name: "Lilies in Bloom", phone: "", primary_color: "#8f3f68", accent_color: "#6f8f72" }, error: null },
         { data: null, error: null }, // loadBrandBrain
@@ -1877,9 +1884,9 @@ test("ACCEPTANCE (real dispatch): with the shop's own phone NOW saved, the flyer
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-1", content_type: "image_post", title: "Closing early today", brief: ACCEPTANCE_REQUEST, status: "idea" }, error: null },
+        { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-1", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null },
         { data: { name: "Lilies in Bloom", phone: "606-506-4039", primary_color: "#8f3f68", accent_color: "#6f8f72" }, error: null },
         { data: null, error: null }, // loadBrandBrain
         { data: null, error: null }, // loadStyleMemory
@@ -1969,9 +1976,9 @@ test("REGRESSION (Phase 3 live failure, end to end): a generic 'Create today's F
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-p3", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        { data: [{ id: "item-p3", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null }, // -> generating
         { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null }, // shopRow
         { data: null, error: null }, // loadBrandBrain
         { data: null, error: null }, // loadStyleMemory
@@ -2045,9 +2052,9 @@ test("REGRESSION (concept threading): the flyer generation call actually receive
         // sanitize this test's own deliberately flower-named concept away;
         // this test is about concept-THREADING fidelity, not grounding.
         { data: { id: "item-p3b", content_type: "image_post", title: "Spring", brief: "Create a post about our spring tulips", status: "idea" }, error: null },
+        { data: [{ id: "item-p3b", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3b", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null },
         { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
         { data: null, error: null },
         { data: null, error: null },
@@ -2101,9 +2108,9 @@ test("REGRESSION C (handler-level): a non-sympathy generic request never produce
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-p3c", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        { data: [{ id: "item-p3c", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3c", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null },
         { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
         { data: null, error: null },
         { data: null, error: null },
@@ -2160,9 +2167,9 @@ test("REGRESSION D (handler-level): a genuine sympathy request still receives th
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-p3d", content_type: "image_post", title: "Sympathy", brief: "Flowers for the Smith family, they just lost their dad", status: "idea" }, error: null },
+        { data: [{ id: "item-p3d", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3d", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null },
         { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
         { data: null, error: null },
         { data: null, error: null },
@@ -2213,9 +2220,9 @@ test("REGRESSION E (handler-level): a current-stock claim naming a flower that I
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-p3e", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        { data: [{ id: "item-p3e", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3e", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null },
         { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
         { data: null, error: null }, // loadBrandBrain
         { data: null, error: null }, // loadStyleMemory
@@ -2284,9 +2291,9 @@ test("REGRESSION J (retry then rescue): a flyer that mismatches the caption's co
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-p3j", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        { data: [{ id: "item-p3j", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3j", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null },
         { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
         { data: null, error: null },
         { data: null, error: null },
@@ -2341,9 +2348,9 @@ test("REGRESSION J2 (true fail-closed): the same coherence mismatch, for a shop 
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-p3j2", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        { data: [{ id: "item-p3j2", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3j2", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null },
         { data: { name: "Lilies in Bloom", phone: null }, error: null }, // no real phone on file — no safe deterministic fallback is derivable
         { data: null, error: null },
         { data: null, error: null },
@@ -2408,9 +2415,9 @@ test("REGRESSION (staging re-test): a generic 'Create today's Facebook post' req
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-p3f1", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        { data: [{ id: "item-p3f1", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3f1", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null },
         { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
         { data: null, error: null }, // loadBrandBrain
         { data: null, error: null }, // loadStyleMemory
@@ -2478,9 +2485,9 @@ test("REGRESSION (staging re-test): 'Make a post about pink roses' — the flori
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-p3f2", content_type: "image_post", title: "Pink roses", brief: "Make a post about pink roses.", status: "idea" }, error: null },
+        { data: [{ id: "item-p3f2", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3f2", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null },
         { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
         { data: null, error: null },
         { data: null, error: null },
@@ -2534,9 +2541,9 @@ test("REGRESSION (staging re-test): verified inventory containing roses does NOT
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-p3f3", content_type: "image_post", title: "Friday post", brief: "Create a fun post for our Facebook page", status: "idea" }, error: null },
+        { data: [{ id: "item-p3f3", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3f3", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null },
         { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
         { data: null, error: null },
         { data: null, error: null },
@@ -2600,9 +2607,9 @@ test("REGRESSION (staging re-test): verified inventory containing roses MAY be u
     const client = createFakeSupabaseClient(
       [
         { data: { id: "item-p3f4", content_type: "image_post", title: "In stock", brief: "Promote something I actually have in stock.", status: "idea" }, error: null },
+        { data: [{ id: "item-p3f4", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3f4", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: null, error: null },
         { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
         { data: null, error: null },
         { data: null, error: null },

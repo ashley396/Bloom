@@ -148,9 +148,10 @@ export function createFakeSupabaseClient(responses = [], { storage } = {}) {
  * for handlers that touch Supabase Storage. Queues are consumed in call
  * order per method, same pattern as the row-response queue above.
  */
-export function createFakeSupabaseStorage({ uploadResponses = [], removeResponses = [], publicUrl } = {}) {
+export function createFakeSupabaseStorage({ uploadResponses = [], removeResponses = [], listResponses = [], publicUrl } = {}) {
   const uploadQueue = [...uploadResponses];
   const removeQueue = [...removeResponses];
+  const listQueue = [...listResponses];
   const calls = [];
   return {
     calls,
@@ -167,6 +168,17 @@ export function createFakeSupabaseStorage({ uploadResponses = [], removeResponse
         getPublicUrl(path) {
           calls.push({ op: "getPublicUrl", bucket, path });
           return { data: { publicUrl: publicUrl ? publicUrl(path) : `https://fake.storage/${bucket}/${path}` } };
+        },
+        // Real supabase-js's lightweight metadata check (no bytes
+        // downloaded) — Batch 3's storage-verification gate uses this to
+        // prove a required final asset's object genuinely exists. No
+        // default-found response: an unconfigured test gets an empty
+        // list (not found), matching this gate's own fail-closed
+        // contract — a test that expects the object to verify must say so
+        // explicitly via listResponses.
+        list(path, options) {
+          calls.push({ op: "list", bucket, path, options });
+          return Promise.resolve(listQueue.length ? listQueue.shift() : { data: [], error: null });
         },
       };
     },
