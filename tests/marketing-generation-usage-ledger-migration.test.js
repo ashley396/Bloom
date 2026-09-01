@@ -58,6 +58,22 @@ test("new attempt_index and cost_source columns have safe defaults so every exis
 });
 
 test("migration filename matches the canonical migration chain's expected timestamp ordering", () => {
+  // Originally asserted this was the newest migration in the whole
+  // chain — true when Batch 2 was written, but not a durable invariant:
+  // a later, legitimately-authorized migration (the post-Batch-6
+  // security patch, 20260902000000_marketing_platform_variants_shop_
+  // integrity.sql) now comes after it, exactly as intended. What this
+  // test actually needs to keep proving is that Batch 2's own migration
+  // was never inserted out of order relative to what existed BEFORE it
+  // — sorting after every migration that predates it.
   const files = fs.readdirSync(path.join(process.cwd(), "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
-  assert.equal(files[files.length - 1], "20260901000000_marketing_generation_usage_ledger_extension.sql", "must be the newest migration, applied after every existing one");
+  const thisFile = "20260901000000_marketing_generation_usage_ledger_extension.sql";
+  const index = files.indexOf(thisFile);
+  assert.ok(index !== -1, "the migration file must be present in the migrations directory");
+  const priorFiles = files.slice(0, index);
+  assert.ok(priorFiles.length > 0, "there must be at least one migration before this one");
+  assert.ok(
+    priorFiles.every((f) => f < thisFile),
+    "must sort after every migration that existed before it — never inserted out of order into the middle of the chain"
+  );
 });

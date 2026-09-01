@@ -24,6 +24,10 @@
  *      — the REAL Batch 2 migration, applied verbatim (Part R: "The
  *      existing Batch 2 migration must be included in... disposable
  *      Postgres tests").
+ *   5. supabase/migrations/20260902000000_marketing_platform_variants_shop_integrity.sql
+ *      — the REAL post-Batch-6 security patch, applied verbatim: adds a
+ *      composite (content_item_id, shop_id) foreign key so a variant can
+ *      never reference another shop's content item at the database level.
  *
  * Never applied to production by this script's existence — same
  * governing constraint as every other local-apply script in this repo.
@@ -43,7 +47,11 @@ const bootstrap = "tests/fixtures/marketing-rls-bootstrap.sql";
 const realMigrations = [
   "supabase/migrations/20260820020000_ai_operating_system_v1.sql",
   "supabase/migrations/20260823000000_marketing_studio_foundation_v1.sql",
-  "supabase/migrations/20260901000000_marketing_generation_usage_ledger_extension.sql"
+  "supabase/migrations/20260901000000_marketing_generation_usage_ledger_extension.sql",
+  // Post-Batch-6 security blocker patch: composite parent-child FK
+  // closing the cross-shop marketing_platform_variants ->
+  // marketing_content_items gap the Batch 6 RLS investigation proved.
+  "supabase/migrations/20260902000000_marketing_platform_variants_shop_integrity.sql"
 ];
 
 async function applyFile(client, rel) {

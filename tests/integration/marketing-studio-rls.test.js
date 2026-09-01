@@ -294,24 +294,224 @@ test("Marketing RLS (INVESTIGATION): a shop member cannot forge a variant's own 
 // matches. The FK on content_item_id only proves the row exists
 // somewhere, not that it belongs to the same shop. This test proves,
 // empirically, whether that gap is real.
-test("Marketing RLS (INVESTIGATION): a shop member CAN currently insert a variant with their own legitimate shop_id but a content_item_id belonging to another shop's content item — current schema does not cross-check this relationship", async () => {
+// PATCHED (post-Batch-6 security blocker patch,
+// 20260902000000_marketing_platform_variants_shop_integrity.sql): this
+// test used to prove the insert SUCCEEDED — a real, unenforced cross-shop
+// linkage found by Batch 6's own investigation and reported per Part I's
+// "STOP before creating a new migration" rule, then explicitly authorized
+// and fixed. It now proves the opposite: the same insert is refused at
+// the DATABASE level (a real foreign-key violation, not just RLS) by the
+// new composite (content_item_id, shop_id) -> marketing_content_items(id,
+// shop_id) constraint.
+test("Marketing RLS (PATCHED): a shop member's own legitimate shop_id no longer lets a variant reference another shop's content item — the database itself now rejects it", async () => {
   await withClient(async (client) => {
     const ids = await seed(client);
-    // Shop A, its own real shop_id (SHOP_A, passes is_shop_member), but
-    // content_item_id = Shop B's real content item id.
+    await assert.rejects(
+      () =>
+        asRole(client, "authenticated", USER_A, (c) =>
+          c.query(
+            `insert into public.marketing_platform_variants (shop_id, content_item_id, platform, caption) values ($1, $2, 'instagram', 'cross-shop link')`,
+            [SHOP_A, ids.itemB]
+          )
+        ),
+      /marketing_platform_variants_content_item_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// ---------------------------------------------------------------------
+// Post-Batch-6 security blocker patch — required tests 1-10.
+// ---------------------------------------------------------------------
+
+// 1. Shop A variant -> Shop A content item succeeds.
+test("Patch test 1: Shop A variant referencing Shop A's own content item succeeds", async () => {
+  await withClient(async (client) => {
+    const ids = await seed(client);
     const result = await asRole(client, "authenticated", USER_A, (c) =>
       c.query(
-        `insert into public.marketing_platform_variants (shop_id, content_item_id, platform, caption) values ($1, $2, 'instagram', 'cross-shop link') returning id`,
-        [SHOP_A, ids.itemB]
+        `insert into public.marketing_platform_variants (shop_id, content_item_id, platform, caption) values ($1, $2, 'pinterest', 'same-shop link') returning id`,
+        [SHOP_A, ids.itemA]
       )
     );
-    // If this assertion fails (the insert is rejected), the schema
-    // already enforces this and there is nothing to report. As of this
-    // migration chain, the insert SUCCEEDS — documenting a real,
-    // unenforced cross-shop linkage: a Shop-A-owned variant row can
-    // reference a Shop-B-owned content item. Per Part I / Part R: this
-    // is reported, not silently fixed with a new migration.
-    assert.equal(result.rows.length, 1, "the insert must be observed to genuinely succeed or fail — not assumed");
-    await client.query(`delete from public.marketing_platform_variants where id = $1`, [result.rows[0].id]);
+    assert.equal(result.rows.length, 1);
+  });
+});
+
+// 2. Shop B variant -> Shop B content item succeeds.
+test("Patch test 2: Shop B variant referencing Shop B's own content item succeeds", async () => {
+  await withClient(async (client) => {
+    const ids = await seed(client);
+    const result = await asRole(client, "authenticated", USER_B, (c) =>
+      c.query(
+        `insert into public.marketing_platform_variants (shop_id, content_item_id, platform, caption) values ($1, $2, 'pinterest', 'same-shop link') returning id`,
+        [SHOP_B, ids.itemB]
+      )
+    );
+    assert.equal(result.rows.length, 1);
+  });
+});
+
+// 3. Shop A variant -> Shop B content item fails at database level.
+test("Patch test 3: Shop A variant referencing Shop B's content item fails at the database level (foreign key, not just RLS)", async () => {
+  await withClient(async (client) => {
+    const ids = await seed(client);
+    await assert.rejects(
+      () =>
+        asRole(client, "authenticated", USER_A, (c) =>
+          c.query(
+            `insert into public.marketing_platform_variants (shop_id, content_item_id, platform, caption) values ($1, $2, 'linkedin', 'cross-shop') `,
+            [SHOP_A, ids.itemB]
+          )
+        ),
+      /marketing_platform_variants_content_item_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// 4. Shop B variant -> Shop A content item fails at database level.
+test("Patch test 4: Shop B variant referencing Shop A's content item fails at the database level", async () => {
+  await withClient(async (client) => {
+    const ids = await seed(client);
+    await assert.rejects(
+      () =>
+        asRole(client, "authenticated", USER_B, (c) =>
+          c.query(
+            `insert into public.marketing_platform_variants (shop_id, content_item_id, platform, caption) values ($1, $2, 'linkedin', 'cross-shop') `,
+            [SHOP_B, ids.itemA]
+          )
+        ),
+      /marketing_platform_variants_content_item_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// 5. Correct same-shop update succeeds.
+test("Patch test 5: updating a variant to reference a DIFFERENT content item within the SAME shop succeeds", async () => {
+  await withClient(async (client) => {
+    const ids = await seed(client);
+    // A second content item within Shop A to retarget the existing
+    // Shop A variant to.
+    const secondItemA = await client.query(
+      `insert into public.marketing_content_items (shop_id, content_type, title, status) values ($1, 'text_post', 'Shop A second post', 'draft') returning id`,
+      [SHOP_A]
+    );
+    const upd = await asRole(client, "authenticated", USER_A, (c) =>
+      c.query(`update public.marketing_platform_variants set content_item_id = $1 where content_item_id = $2 and shop_id = $3`, [
+        secondItemA.rows[0].id,
+        ids.itemA,
+        SHOP_A
+      ])
+    );
+    assert.equal(upd.rowCount, 1, "a legitimate same-shop reassignment must succeed");
+  });
+});
+
+// 6. Cross-shop reassignment fails.
+test("Patch test 6: reassigning an existing Shop A variant to point at Shop B's content item fails at the database level", async () => {
+  await withClient(async (client) => {
+    const ids = await seed(client);
+    // A fresh Shop A variant on a platform Shop B's content item doesn't
+    // already have (seed() only gives itemB a 'facebook' variant) — this
+    // isolates the assertion to the composite FK alone, never colliding
+    // with the pre-existing unrelated unique(content_item_id, platform)
+    // constraint.
+    const freshVariant = await client.query(
+      `insert into public.marketing_platform_variants (shop_id, content_item_id, platform, caption) values ($1, $2, 'youtube', 'reassignment target') returning id`,
+      [SHOP_A, ids.itemA]
+    );
+    await assert.rejects(
+      () =>
+        asRole(client, "authenticated", USER_A, (c) =>
+          c.query(`update public.marketing_platform_variants set content_item_id = $1 where id = $2`, [ids.itemB, freshVariant.rows[0].id])
+        ),
+      /marketing_platform_variants_content_item_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// 7. RLS isolation still passes (the constraint is layered UNDER RLS, not
+// instead of it — re-confirmed here directly against the patched schema,
+// alongside the full pre-existing RLS suite above).
+test("Patch test 7: RLS isolation still holds after the patch — Shop A still cannot read Shop B's platform variants", async () => {
+  await withClient(async (client) => {
+    await seed(client);
+    const asA = await asRole(client, "authenticated", USER_A, (c) => c.query(`select shop_id, caption from public.marketing_platform_variants`));
+    assert.equal(asA.rows.length, 1);
+    assert.equal(asA.rows[0].shop_id, SHOP_A);
+  });
+});
+
+// 8. Service-role behavior does not bypass referential integrity. RLS is
+// bypassed by service_role BY DESIGN (see the existing test above); a
+// real foreign-key constraint is NOT an RLS policy — it is enforced for
+// every role, service_role included, exactly as Postgres always enforces
+// FKs regardless of who issues the write.
+test("Patch test 8: service_role (which bypasses RLS by design) still cannot violate the cross-shop foreign key — referential integrity is not an RLS bypass", async () => {
+  await withClient(async (client) => {
+    const ids = await seed(client);
+    await assert.rejects(
+      () =>
+        asRole(client, "service_role", null, (c) =>
+          c.query(`insert into public.marketing_platform_variants (shop_id, content_item_id, platform, caption) values ($1, $2, 'youtube', 'service-role cross-shop attempt')`, [
+            SHOP_A,
+            ids.itemB
+          ])
+        ),
+      /marketing_platform_variants_content_item_shop_fkey|violates foreign key constraint/i
+    );
+  });
+});
+
+// 9. Existing valid Marketing migration chain still applies cleanly
+// (already exercised by "migration applies cleanly" above — this run
+// includes the new patch migration, since applyMigrations() now applies
+// all 5 files in order via the real apply script).
+test("Patch test 9: the full Marketing migration chain, including the new patch migration, applies cleanly on a fresh disposable database", () => {
+  const out = applyMigrations();
+  assert.match(out, /Marketing Studio RLS schema applied successfully/);
+  assert.match(out, /20260902000000_marketing_platform_variants_shop_integrity\.sql\.\.\. ok/);
+});
+
+// 10. Batch 2 usage-ledger migration still applies cleanly alongside the
+// new patch (re-confirms the column check from earlier in this file
+// still holds against the patched schema).
+test("Patch test 10: Batch 2's usage-ledger extension migration still applies cleanly alongside the new patch migration", async () => {
+  await withClient(async (client) => {
+    const { rows } = await client.query(`
+      select column_name from information_schema.columns
+      where table_schema = 'public' and table_name = 'marketing_generation_usage'
+        and column_name in ('model', 'operation', 'trace_id', 'operation_id', 'attempt_index', 'provider_request_id', 'cost_source')
+    `);
+    const cols = rows.map((r) => r.column_name).sort();
+    assert.deepEqual(cols, ["attempt_index", "cost_source", "model", "operation", "operation_id", "provider_request_id", "trace_id"]);
+  });
+});
+
+// Schema confirmation: the exact constraints the patch was supposed to
+// add are genuinely present (not just "an insert failed for some other
+// reason") — checked directly against pg_constraint/information_schema.
+test("Patch schema check: marketing_content_items has the new UNIQUE (id, shop_id) constraint", async () => {
+  await withClient(async (client) => {
+    const { rows } = await client.query(`
+      select conname, contype from pg_constraint
+      where conrelid = 'public.marketing_content_items'::regclass
+        and conname = 'marketing_content_items_id_shop_id_key'
+    `);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].contype, "u");
+  });
+});
+
+test("Patch schema check: marketing_platform_variants has the new composite foreign key to marketing_content_items(id, shop_id)", async () => {
+  await withClient(async (client) => {
+    const { rows } = await client.query(`
+      select conname, contype, confrelid::regclass::text as referenced_table
+      from pg_constraint
+      where conrelid = 'public.marketing_platform_variants'::regclass
+        and conname = 'marketing_platform_variants_content_item_shop_fkey'
+    `);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].contype, "f");
+    assert.equal(rows[0].referenced_table, "marketing_content_items");
   });
 });
