@@ -342,61 +342,34 @@
       const height = c.canvas?.height || 1080;
       const content = { headline: c.headline, body: c.body, cta: c.cta };
 
-      // The composed poster is the flyer now: a framed light ground with the
-      // photograph as corner arrangements, the shop's name set as a script and
-      // serif lockup, the message on a ribbon and the phone number in a
-      // bordered panel. Words placed over a full-bleed photo is what it
-      // replaces, and that path stays as the fallback below.
+      // Regression repair (live-found failure: a subject-forward flyer for
+      // an ordinary creative request came back as a hardcoded "magazine"
+      // composition — an unrelated occasion laundry list, a sympathy/
+      // funeral bullet, and a "Thank you for supporting local" badge, none
+      // of it concept-aware, all of it from window.FlorisynFlyerPoster, a
+      // separate, older poster-maker tool (the birthday/celebration poster
+      // feature on index.html / poster-preview.html) that Marketing Studio
+      // was trying FIRST, before the real, concept-driven renderer.
       //
-      // The seed is the ASSET id, so the same revision always redraws to the
-      // identical design — Undo restores what was approved rather than a
-      // re-roll — while regenerating produces a genuinely different one.
-      let canvas = null;
-      const poster = window.FlorisynFlyerPoster;
-      if (poster && typeof poster.renderPoster === "function") {
-        try {
-          canvas = await poster.renderPoster({
-            width, height, content,
-            brand: c.brand || {},
-            // The florist's own revisions. Dropping these was a silent
-            // regression: "less pink", "use more cream", "make the headline
-            // bigger" all persist a style delta and mint a new asset id, so
-            // the flyer visibly changed — just never in the direction asked.
-            style: c.style,
-            backgroundUrl: c.background_url,
-            seedText: String(item.asset?.id || item.id || ""),
-            // Whether this flyer's photo is a specific requested subject
-            // (a jaguar, a named arrangement) rather than a calm negative-
-            // space backdrop. Excludes the one composition that draws text
-            // over the photo — see flyer-poster.js.
-            subjectForwardPhoto: c.photo_strategy === "subject_forward",
-            // Ashley's own explicit reference: for a subject-forward post,
-            // "magazine" is the ONE composition actually built to match it
-            // — requested directly rather than left to rotate with the
-            // four styles she already looked at and rejected.
-            composition: c.photo_strategy === "subject_forward" ? "magazine" : undefined
-          });
-          // The whole design is its type. If the display faces did not really
-          // arrive the poster is drawn in system fallbacks and looks nothing
-          // like itself, so hand back to the renderer that does not depend on
-          // them rather than ship something that only looks broken.
-          const faces = canvas?.dataset?.florisynPosterFonts || "";
-          if (faces.indexOf("missing") !== -1) canvas = null;
-        } catch (posterError) {
-          canvas = null;
-        }
-      }
-      if (!canvas) {
-        canvas = await window.FlorisynFlyerRenderer.renderFlyer({
-          template: { regions: c.regions, palette: c.palette },
-          content,
-          style: c.style,
-          brand: c.brand || {},
-          backgroundUrl: c.background_url,
-          width,
-          height
-        });
-      }
+      // FlorisynFlyerRenderer is the ONLY flyer renderer Marketing Studio
+      // uses now — no first-choice/fallback pair, no composition rotation,
+      // no `photo_strategy === "subject_forward"` → "magazine" mapping.
+      // This is an explicit interim step (per Ashley's direction), not the
+      // final flyer-quality architecture: a real creative-direction layer
+      // between the canonical concept and rendering is planned separately.
+      // This patch's job is only to stop the confirmed-wrong legacy output
+      // from reaching a florist, never to polish the old renderer further.
+      // FlorisynFlyerPoster itself is untouched and keeps working exactly
+      // as before for its own, unrelated feature.
+      const canvas = await window.FlorisynFlyerRenderer.renderFlyer({
+        template: { regions: c.regions, palette: c.palette },
+        content,
+        style: c.style,
+        brand: c.brand || {},
+        backgroundUrl: c.background_url,
+        width,
+        height
+      });
       if (isStale()) return;
       const dataUrl = canvas.toDataURL("image/png", 0.92);
       // Requirement 6 still applies at the persistence layer, not just the

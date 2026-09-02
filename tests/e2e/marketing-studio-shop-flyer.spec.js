@@ -26,28 +26,6 @@ import { FLYER_TEMPLATES } from "../../netlify/functions/_shared/flyer-templates
  * render/upload — the actual cross-device consistency guarantee.
  */
 
-/**
- * Stubs the poster layer, which is what draws the flyer now. It records into
- * window.__flyerRenderCalls — the same array the renderer stub used — so what
- * these tests already prove, that the exact persisted wording reaches the
- * layer that draws it, keeps being proved against the layer that really does.
- */
-async function stubPosterLayer(page) {
-  await page.route("**/flyer-poster.js*", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/javascript",
-      body: `window.FlorisynFlyerPoster = { renderPoster: function (opts) {
-        window.__flyerRenderCalls = window.__flyerRenderCalls || [];
-        window.__flyerRenderCalls.push(opts);
-        var c = document.createElement("canvas"); c.width = 10; c.height = 10;
-        c.dataset.florisynPosterFonts = "script,display";
-        return Promise.resolve(c);
-      } };`
-    })
-  );
-}
-
 // A genuinely valid, loadable 1x1 PNG (not just header bytes) — routes that
 // stand in for a real storage URL need to actually decode as an image in
 // Chromium, or the browser's own <img> error event (which wireFlyerImageFallbacks
@@ -145,7 +123,6 @@ test("a flyer item, freshly loaded (requirement 8: reload persistence), renders 
       } };`
     })
   );
-  await stubPosterLayer(page);
   await mockMarketingStudioShop(page);
   await routeAsRealImage(page, FINALIZED_URL);
   // Registered AFTER mockMarketingStudioShop's own handler (tried first by
@@ -490,7 +467,6 @@ test("one message still produces one finished flyer draft when the server's safe
     },
     variants: [{ id: "variant-1", content_item_id: "item-1", platform: "facebook", caption: "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.", asset_id: "flyer-asset-1" }]
   };
-  await stubPosterLayer(page);
   await page.route("**/flyer-renderer.js*", (route) =>
     route.fulfill({
       status: 200,
@@ -919,15 +895,20 @@ test("browser-level: the shop-name lockup always fits inside the canvas — shor
 });
 
 /**
- * The flyer is drawn by the composed poster layer.
- *
- * Ashley's standard, stated with her own reference in hand: the generated
- * flyer has to BE the designed poster, not words placed over a photograph.
- * Wiring that up is the part no unit test can see — the previous round of
- * banner work was reviewed and found to have all its protection on the pure
- * helpers and none on how they were joined together.
+ * Regression repair (live diagnosis, confirmed root cause): Marketing
+ * Studio used to try window.FlorisynFlyerPoster FIRST for every flyer — an
+ * unrelated, older poster-maker tool (the birthday/celebration poster
+ * feature) that drew its own hardcoded decorative filler (a "Need flowers
+ * for:" occasion list including a sympathy/funeral bullet, a "Thank you
+ * for supporting local" badge) completely independent of the canonical
+ * concept, and forced a "magazine" split layout for every subject-forward
+ * photo. FlorisynFlyerRenderer is now the ONLY flyer renderer Marketing
+ * Studio calls — no first-choice/fallback pair, no poster path at all.
+ * flyer-poster.js itself is untouched and keeps working for its own,
+ * separate feature (see the poster-standalone tests later in this file,
+ * which drive it directly and are unaffected by this change).
  */
-test("the flyer is drawn by the poster layer, seeded by the asset so a revision always redraws identically", async ({ page }) => {
+test("the flyer is drawn by FlorisynFlyerRenderer — the legacy poster layer is never invoked for Marketing Studio", async ({ page }) => {
   await page.route("**/flyer-poster.js*", (route) =>
     route.fulfill({
       status: 200,
@@ -945,8 +926,9 @@ test("the flyer is drawn by the poster layer, seeded by the asset so a revision 
     route.fulfill({
       status: 200,
       contentType: "application/javascript",
-      body: `window.FlorisynFlyerRenderer = { renderFlyer: function () {
-        window.__legacyCalled = true;
+      body: `window.FlorisynFlyerRenderer = { renderFlyer: function (opts) {
+        window.__rendererCalls = window.__rendererCalls || [];
+        window.__rendererCalls.push(opts);
         var c = document.createElement("canvas"); c.width = 10; c.height = 10;
         return Promise.resolve(c);
       } };`
@@ -954,81 +936,17 @@ test("the flyer is drawn by the poster layer, seeded by the asset so a revision 
   );
   await mockMarketingStudioShop(page);
   await openMarketingStudioShop(page);
-  await page.waitForFunction(() => (window.__posterCalls || []).length > 0, null, { timeout: 15000 });
+  await page.waitForFunction(() => (window.__rendererCalls || []).length > 0, null, { timeout: 15000 });
 
-  const calls = await page.evaluate(() => window.__posterCalls);
-  const legacy = await page.evaluate(() => window.__legacyCalled || false);
-  expect(legacy, "the old text-over-photo renderer must not draw when the poster succeeds").toBe(false);
+  const posterCalled = await page.evaluate(() => (window.__posterCalls || []).length > 0);
+  expect(posterCalled, "the legacy poster-maker tool must never draw a Marketing Studio flyer").toBe(false);
 
-  const opts = calls[0];
-  // The exact persisted wording reaches the poster, unaltered.
+  const opts = await page.evaluate(() => window.__rendererCalls[0]);
+  // The exact persisted wording reaches the real renderer, unaltered.
   expect(opts.content.headline).toBe(FLYER_ITEM.asset.content.headline);
   expect(opts.content.body).toBe(FLYER_ITEM.asset.content.body);
   expect(opts.content.cta).toBe(FLYER_ITEM.asset.content.cta);
-  // Seeded by the asset, so the same revision always redraws to the same
-  // design — Undo restores what was approved rather than a fresh roll.
-  expect(opts.seedText).toBe(FLYER_ITEM.asset.id);
   expect(opts.backgroundUrl).toBe(FLYER_ITEM.asset.content.background_url);
-});
-
-test("a poster drawn in fallback faces is never shipped — it hands back to the renderer that does not need them", async ({ page }) => {
-  // The design IS its type. A poster set in a system serif looks broken, and
-  // document.fonts.check() reports a face as present whenever a matching rule
-  // exists, so the only honest signal is the measured one the poster stamps.
-  await page.route("**/flyer-poster.js*", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/javascript",
-      body: `window.FlorisynFlyerPoster = { renderPoster: function () {
-        var c = document.createElement("canvas"); c.width = 10; c.height = 10;
-        c.dataset.florisynPosterFonts = "script-missing,display-missing";
-        return Promise.resolve(c);
-      } };`
-    })
-  );
-  await page.route("**/flyer-renderer.js*", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/javascript",
-      body: `window.FlorisynFlyerRenderer = { renderFlyer: function (opts) {
-        window.__legacyCalls = window.__legacyCalls || [];
-        window.__legacyCalls.push(opts);
-        var c = document.createElement("canvas"); c.width = 10; c.height = 10;
-        return Promise.resolve(c);
-      } };`
-    })
-  );
-  await mockMarketingStudioShop(page);
-  await openMarketingStudioShop(page);
-  await page.waitForFunction(() => (window.__legacyCalls || []).length > 0, null, { timeout: 15000 });
-  const opts = await page.evaluate(() => window.__legacyCalls[0]);
-  expect(opts.content.headline).toBe(FLYER_ITEM.asset.content.headline);
-});
-
-test("a poster that throws never breaks the flyer — the old renderer still draws it", async ({ page }) => {
-  await page.route("**/flyer-poster.js*", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/javascript",
-      body: `window.FlorisynFlyerPoster = { renderPoster: function () { throw new Error("poster exploded"); } };`
-    })
-  );
-  await page.route("**/flyer-renderer.js*", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/javascript",
-      body: `window.FlorisynFlyerRenderer = { renderFlyer: function () {
-        window.__legacyCalls = window.__legacyCalls || [];
-        window.__legacyCalls.push(1);
-        var c = document.createElement("canvas"); c.width = 10; c.height = 10;
-        return Promise.resolve(c);
-      } };`
-    })
-  );
-  await mockMarketingStudioShop(page);
-  await openMarketingStudioShop(page);
-  await page.waitForFunction(() => (window.__legacyCalls || []).length > 0, null, { timeout: 15000 });
-  expect(await page.evaluate(() => window.__legacyCalls.length)).toBeGreaterThan(0);
 });
 
 test("browser-level: the poster is deterministic from its seed — the same revision always redraws identically, a regenerate does not", async ({ page }) => {
@@ -1167,4 +1085,193 @@ test("browser-level: without the library, the poster still falls back to its one
     return canvas.dataset.florisynBackgroundTier;
   });
   expect(tier).toBe("fallback-library-photo");
+});
+
+// The exact live-diagnosed failure, end to end through the real card render.
+// "Create today's Facebook post for Lilies in Bloom" — an ordinary
+// creative request, not a notice, not sympathy, not a promotion — must
+// never surface Store Notice framing, the legacy occasion-list/sympathy/
+// support-badge filler, or a forced split "magazine" layout. This mirrors
+// the actual persisted ai_generated_assets row from Ashley's real test
+// (headline/body/cta, canonical_concept, subject-forward background) —
+// the fix is a rescue-content/renderer-wiring change, so this asset
+// fixture intentionally represents the POST-fix expected shape, not the
+// defective one.
+const FORBIDDEN_LIVE_FAILURE_STRINGS = [
+  "Store Notice",
+  "has an update for you",
+  "Need flowers for",
+  "birthday",
+  "anniversary",
+  "new baby",
+  "sympathy",
+  "funeral",
+  "tribute",
+  "Thank you for supporting local"
+];
+
+const LIVE_FAILURE_ITEM = {
+  id: "item-1",
+  content_type: "image_post",
+  title: "Facebook post",
+  brief: "Create today's Facebook post for Lilies in Bloom",
+  status: "draft",
+  asset: {
+    id: "flyer-asset-1",
+    asset_type: "flyer",
+    parent_asset_id: null,
+    content: {
+      headline: "Beautiful Blooms, Thoughtfully Arranged",
+      body: "Lilies in Bloom designs flowers for the moments that matter — a little something to brighten someone's day.",
+      cta: "Call 606-506-4039 to place an order.",
+      caption: "Lilies in Bloom designs flowers for the moments that matter — a little something to brighten someone's day. Call 606-506-4039 to place an order.",
+      creative_rescue_used: true,
+      template_id: "general",
+      photo_strategy: "subject_forward",
+      regions: { headline: { x: 0.07, y: 0.565, w: 0.86, h: 0.135 }, body: { x: 0.09, y: 0.7, w: 0.82, h: 0.095 }, cta: { x: 0.28, y: 0.805, w: 0.44, h: 0.07 }, logo: { x: 0.5, y: 0.035, w: 0.16, h: 0.08 }, contact: { x: 0.07, y: 0.895, w: 0.86, h: 0.05 } },
+      palette: { background: "brand_gradient", text: "auto", accent: "brand_primary" },
+      canvas: { width: 1080, height: 1080 },
+      style: { scale: { headline: "normal", body: "normal", cta: "normal" } },
+      background_url: "https://example.test/storage/website-media/shop-ashley/flyer-bg-live.jpg",
+      brand: { shopName: "Lilies in Bloom", phone: "606-506-4039" },
+      canonical_concept: {
+        objective: "awareness",
+        occasionCategory: "general",
+        primarySubjectClass: "floral_arrangement",
+        captionIntent: "informational",
+        ctaIntent: "call_shop",
+        sympathyClassification: "not_sympathy",
+        inventoryIntent: "not_inventory_driven",
+        promotionIntent: "not_promotion",
+        assetRoute: "ai_generated_photo",
+        visualDirection: { photoStrategy: "subject_forward" }
+      },
+      url: null,
+      storage_path: null,
+      mime: null,
+      render_status: null,
+      rendered_at: null
+    }
+  },
+  variants: [{
+    id: "variant-1",
+    content_item_id: "item-1",
+    platform: "facebook",
+    caption: "Lilies in Bloom designs flowers for the moments that matter — a little something to brighten someone's day. Call 606-506-4039 to place an order.",
+    asset_id: "flyer-asset-1"
+  }]
+};
+
+test("the exact live-diagnosed failure request ('Create today's Facebook post for Lilies in Bloom') never surfaces Store Notice, occasion-list, sympathy/funeral, or badge filler, and never forces a split magazine layout", async ({ page }) => {
+  const FINALIZED_URL = "https://example.test/storage/website-media/shop-ashley/flyers/flyer-asset-live.png";
+  await page.route("**/flyer-poster.js*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: `window.FlorisynFlyerPoster = { renderPoster: function (opts) {
+        window.__posterCalls = window.__posterCalls || [];
+        window.__posterCalls.push(opts);
+        var c = document.createElement("canvas"); c.width = 10; c.height = 10;
+        c.dataset.florisynPosterFonts = "script,display";
+        return Promise.resolve(c);
+      } };`
+    })
+  );
+  await page.route("**/flyer-renderer.js*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: `window.FlorisynFlyerRenderer = { renderFlyer: function (opts) {
+        window.__rendererCalls = window.__rendererCalls || [];
+        window.__rendererCalls.push(opts);
+        var c = document.createElement("canvas"); c.width = 10; c.height = 10;
+        return Promise.resolve(c);
+      } };`
+    })
+  );
+  await mockMarketingStudioShop(page, LIVE_FAILURE_ITEM);
+  await routeAsRealImage(page, FINALIZED_URL);
+  await page.route("**/.netlify/functions/marketing-studio-shop**", async (route) => {
+    if (new URL(route.request().url()).searchParams.get("action") === "finalize_flyer_render") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          asset: {
+            id: "flyer-asset-1",
+            url: FINALIZED_URL,
+            content: { ...LIVE_FAILURE_ITEM.asset.content, url: FINALIZED_URL, storage_path: "shop-ashley/flyers/flyer-asset-live.png", mime: "image/png", render_status: "rendered", rendered_at: "now" }
+          }
+        })
+      });
+      return;
+    }
+    await route.fallback();
+  });
+
+  const root = await openMarketingStudioShop(page);
+  const card = root.locator('[data-ms-item="item-1"]');
+
+  // The primary renderer is attempted first, receives the persisted
+  // wording, and the subject-forward background image is retained.
+  await page.waitForFunction(() => (window.__rendererCalls || []).length > 0, null, { timeout: 15000 });
+  const call = await page.evaluate(() => window.__rendererCalls[0]);
+  expect(call.backgroundUrl).toBe(LIVE_FAILURE_ITEM.asset.content.background_url);
+  expect(call.content.headline).toBe(LIVE_FAILURE_ITEM.asset.content.headline);
+
+  // The legacy fallback (poster) is never invoked when the primary
+  // renderer succeeds — no forced magazine composition, no filler.
+  const posterCalled = await page.evaluate(() => (window.__posterCalls || []).length > 0);
+  expect(posterCalled, "the legacy poster/magazine path must not run when the primary renderer succeeds").toBe(false);
+
+  // The visible card text (headline/body/cta/caption, all rendered as real
+  // DOM text by marketing-studio-shop-ui.js) must contain none of the
+  // confirmed-wrong legacy strings — none of which appear anywhere in the
+  // florist's actual request either.
+  for (const forbidden of FORBIDDEN_LIVE_FAILURE_STRINGS) {
+    await expect(card).not.toContainText(forbidden, { ignoreCase: true });
+    // Sanity check on the test's own premise: none of these strings were
+    // ever in the florist's actual request either — confirming they'd be
+    // pure fabrication if they appeared.
+    expect(LIVE_FAILURE_ITEM.brief.toLowerCase()).not.toContain(forbidden.toLowerCase());
+  }
+
+  const img = root.locator("#msFlyerImg-item-1");
+  await expect(img).toHaveAttribute("src", FINALIZED_URL, { timeout: 8000 });
+  await expect(root.locator('[data-ms-item="item-1"] .eyebrow')).toHaveText(/ready for your review/i);
+});
+
+test("primary renderer failure on the exact live-failure scenario fails safely — no legacy filler reintroduced", async ({ page }) => {
+  await page.route("**/flyer-poster.js*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: `window.FlorisynFlyerPoster = { renderPoster: function (opts) {
+        window.__posterCalls = window.__posterCalls || [];
+        window.__posterCalls.push(opts);
+        var c = document.createElement("canvas"); c.width = 10; c.height = 10;
+        return Promise.resolve(c);
+      } };`
+    })
+  );
+  await page.route("**/flyer-renderer.js*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: `window.FlorisynFlyerRenderer = { renderFlyer: function () { return Promise.reject(new Error("render failed")); } };`
+    })
+  );
+  await mockMarketingStudioShop(page, LIVE_FAILURE_ITEM);
+  const root = await openMarketingStudioShop(page);
+
+  await expect(root.locator("#msFlyerImg-item-1")).toHaveCount(0, { timeout: 5000 });
+  await expect(root.locator("#msFlyerNote-item-1")).toHaveText(/couldn't prepare this flyer/i);
+  await expect(root.locator('[data-ms-act="approve"]')).toBeDisabled();
+
+  // The legacy poster/filler path must never be reached as a fallback —
+  // a failed primary render fails safely (an honest error + retry action),
+  // it never falls back to the filler-heavy legacy renderer.
+  const posterCalled = await page.evaluate(() => (window.__posterCalls || []).length > 0);
+  expect(posterCalled, "a primary-renderer failure must never fall back to the legacy poster/filler path").toBe(false);
+  await expect(root.locator('[data-ms-act="retry-flyer"]')).toBeVisible();
 });

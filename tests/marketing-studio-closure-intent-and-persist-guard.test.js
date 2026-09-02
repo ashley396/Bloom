@@ -710,7 +710,18 @@ test("generate_content (real dispatch): a plain closing notice that comes back w
   }
 });
 
-test("generate_content (real dispatch): when NO operational facts exist to build a safe fallback from, the rejection still refuses outright rather than guessing — the one legitimate case where reverting to idea is correct", async () => {
+// Regression repair follow-up: this scenario is NOT a plain operational
+// notice at all — "Our store is opening this weekend" only matched
+// requestSignalsPlainOperationalNotice() because of the bare word
+// "opening", and buildDeterministicNoticeContent (operational notices
+// only) genuinely has no fact to build from here, which USED to mean a
+// dead-end revert to idea — the "one legitimate no-fallback case" this
+// test originally named. The non-operational creative rescue
+// (buildDeterministicCreativeRescueContent) replaces that dead end: it
+// never invents a fact, so it never needs one to be safe. The invented
+// "final orders"/"we appreciate your understanding" wording still never
+// survives — it's replaced by safe, generic wording instead of a dead end.
+test("generate_content (real dispatch): when NO operational facts exist to build a safe fallback from, the creative rescue still recovers into safe generic wording — no invented urgency/gratitude ever survives, and the florist is never left at a dead end", async () => {
   const mock = mockCloudflareCopyOnce({
     platform: "facebook",
     headline: "An update",
@@ -724,40 +735,36 @@ test("generate_content (real dispatch): when NO operational facts exist to build
   });
   try {
     const client = createFakeSupabaseClient([
-      // A real plain-operational-notice signal ("hours") but no
-      // extractable fact and no recognized specific category (not a
-      // closing, not a recognized hours-change phrasing, not a deadline)
-      // — buildDeterministicNoticeContent genuinely has nothing safe to
-      // build from here, so the handler must fail closed rather than
-      // guess, exactly like before this fix for every OTHER case.
       { data: { id: "item-1", content_type: "text_post", title: "t", brief: "Our store is opening this weekend.", status: "idea" }, error: null },
       { data: [{ id: "item-1", status: "generating" }], error: null }, // Batch 3: atomic claim
       { data: [{ id: "variant-1", platform: "facebook" }], error: null },
       { data: { marketing_monthly_budget_cents: null }, error: null },
-      // A real, verified shop (shops.name is NOT NULL in production — a
-      // row with no name can't actually occur; that unverifiable-shop
-      // case is covered separately, see the "fails closed" test above).
-      // This test is specifically about the OTHER refusal case: a real,
-      // verified shop, but no operational facts to build a safe fallback
-      // from at all.
-      { data: { name: "Test Florals" }, error: null }, // shopRow
+      { data: { name: "Test Florals" }, error: null }, // shopRow — no phone on file either
       { data: null, error: null },
       { data: null, error: null },
       { data: [], error: null },
       { data: [], error: null },
       { data: [], error: null },
-      { data: null, error: null }, // recordUsage("copy")
-      { data: null, error: null } // revertToIdea's own update
+      { data: [], error: null },
+      { data: null, error: null }, // recordUsage("copy") — attempt 1
+      { data: null, error: null }, // recordUsage("copy") — retry (same invented wording)
+      { data: { id: "copy-asset-1" }, error: null }, // persistGeneratedAsset — the rescue recovers, generation completes normally
+      { data: null, error: null }, // variant update
+      { data: { id: "item-1", status: "draft" }, error: null } // final content_items update -> draft, never reverted to idea
     ]);
     const handler = createMarketingStudioHandler(floristDeps(client));
     const res = await handler(event("generate_content", { content_item_id: "item-1" }));
-    assert.equal(res.statusCode, 400, `expected a genuine no-fallback-available case to still refuse: ${res.body}`);
-    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
-    assert.equal(assetInsert, undefined, "no asset must ever be persisted when there's no safe fallback to fall back to");
+    assert.equal(res.statusCode, 200, `expected the rescue to recover into a completed draft, not a dead end: ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.equal(body.item.status, "draft");
+    for (const banned of ["final orders", "we appreciate your understanding"]) {
+      assert.doesNotMatch(body.copy.body.toLowerCase(), new RegExp(banned), `the invented phrase "${banned}" must never survive into the saved content`);
+    }
+    assert.equal(body.copy.creative_rescue_used, true);
     const revertCall = client.calls.find(
       (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
     );
-    assert.ok(revertCall, "the item must be reverted back to idea in this one genuine no-facts case");
+    assert.equal(revertCall, undefined, "the item must never be reverted to idea when a safe generic rescue is always available");
   } finally {
     mock.restore();
   }

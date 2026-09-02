@@ -2328,7 +2328,16 @@ test("REGRESSION J (retry then rescue): a flyer that mismatches the caption's co
   }
 });
 
-test("REGRESSION J2 (true fail-closed): the same coherence mismatch, for a shop with NO phone on file at all, has no safe fallback to rescue into and fails closed rather than shipping the mismatch", async () => {
+// Regression repair follow-up: buildDeterministicNoticeContent (operational
+// notices only) could return null with no phone/time/date to build from —
+// that WAS the "true fail-closed" case this test originally proved. The
+// non-operational creative rescue (buildDeterministicCreativeRescueContent)
+// replaces it here and never invents a fact, so it never needs a phone to
+// be safe — a shop with no phone on file still gets a usable, honest,
+// generic flyer instead of a dead-end revert. This is a deliberate
+// improvement, not a weakening: the mismatched "tulip" content still never
+// ships, and no phone is ever invented for the CTA.
+test("REGRESSION J2 (rescue without a phone on file): the same coherence mismatch, for a shop with NO phone on file, still rescues into safe generic wording — never the mismatch, never an invented CTA", async () => {
   const copy = {
     platform: "facebook",
     headline: "h",
@@ -2351,7 +2360,7 @@ test("REGRESSION J2 (true fail-closed): the same coherence mismatch, for a shop 
         { data: [{ id: "item-p3j2", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3j2", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
-        { data: { name: "Lilies in Bloom", phone: null }, error: null }, // no real phone on file — no safe deterministic fallback is derivable
+        { data: { name: "Lilies in Bloom", phone: null }, error: null }, // no real phone on file
         { data: null, error: null },
         { data: null, error: null },
         { data: [], error: null },
@@ -2361,17 +2370,28 @@ test("REGRESSION J2 (true fail-closed): the same coherence mismatch, for a shop 
         { data: null, error: null }, // recordUsage("copy") — caption
         { data: null, error: null }, // recordUsage("copy") — flyer attempt 1
         { data: null, error: null }, // recordUsage("copy") — flyer retry (still mismatched)
-        { data: { id: "item-p3j2", status: "idea" }, error: null } // revertToIdea
+        { data: { id: "usage-img-1" }, error: null }, // Batch 2: reserveProviderCall(image) insert
+        { data: null, error: null }, // Batch 2: completeProviderCall(image) update
+        { data: { id: "usage-vision-1" }, error: null }, // Batch 2: reserveProviderCall(vision) insert
+        { data: null, error: null }, // Batch 2: completeProviderCall(vision) update
+        { data: { id: "media-p3j2" }, error: null },
+        { data: { id: "flyer-asset-p3j2" }, error: null },
+        { data: null, error: null },
+        { data: { id: "item-p3j2", status: "draft" }, error: null }
       ],
       { storage: createFakeSupabaseStorage({}) }
     );
     const handler = createMarketingStudioHandler(floristDeps(client));
     const res = await handler(event("generate_content", { content_item_id: "item-p3j2", photo_choice: "generate" }));
-    assert.equal(res.statusCode, 400, "with no safe fallback derivable, a genuinely incoherent flyer must never be shipped");
-    const revertCall = client.calls.find(
-      (c) => c.table === "marketing_content_items" && c.ops.some((op) => op[0] === "update" && op[1][0]?.status === "idea")
-    );
-    assert.ok(revertCall, "the item must be reverted to idea so the florist can retry, not left stuck as 'generating'");
+    assert.equal(res.statusCode, 200, `a shop with no phone on file must still get a safe generic rescue, not a dead end: ${res.body}`);
+    const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const c = assetInsert.ops.find((op) => op[0] === "insert")[1][0].content;
+    // The mismatched content must never survive to the flyer.
+    assert.doesNotMatch(`${c.headline} ${c.body} ${c.cta}`, /tulip/i);
+    // No phone exists, so the rescue must never invent one — no digits in
+    // the CTA at all.
+    assert.doesNotMatch(c.cta, /\d/);
+    assert.equal(c.creative_rescue_used, true);
   } finally {
     mock.restore();
   }

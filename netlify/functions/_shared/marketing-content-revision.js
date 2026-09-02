@@ -675,6 +675,64 @@ export function buildDeterministicNoticeContent({ requestText, shopName, shopPho
   return { headline, body, cta, caption };
 }
 
+/**
+ * Regression repair, live-found failure: "Create today's Facebook post for
+ * Lilies in Bloom" — an ordinary creative request, nothing operational
+ * about it — had its AI-generated wording rejected by fact-safety checks,
+ * and the ONLY rescue that existed was buildDeterministicNoticeContent,
+ * whose catch-all branch fires whenever a shop phone number exists (true
+ * for nearly every real shop) — so the florist got "Store Notice / has an
+ * update for you," reading like a store-hours announcement, for a request
+ * that was never about a notice.
+ *
+ * This is that missing second rescue: a safety fallback for a
+ * NON-operational creative request whose AI attempt(s) failed, kept
+ * deliberately minimal and deliberately dumb — this is NOT Ashley's final
+ * flyer-quality/creative-direction answer (that is separate, planned
+ * follow-up work); it exists only so a rejected creative draft never reads
+ * like an operational notice. It invents nothing beyond generic floral
+ * language: no flower species, no inventory/availability/open-closed
+ * claim, no promotion, no occasion, no event, no shop scenery, no
+ * bereavement language — ever, regardless of what the request was about.
+ * A genuinely sympathy-shaped request that somehow reaches this rescue
+ * still gets this same generic, respectful-by-omission wording rather
+ * than an invented bereavement framing — real sympathy language belongs
+ * to the primary AI/evaluation path (which already exists and is
+ * unaffected by this function), never to a keyword-triggered template.
+ *
+ * Safety correction: the no-safe-CTA branch used to say "Stop by
+ * anytime." — a physical-availability/open-state claim ("the shop is
+ * open now, walk in whenever") this function has no evidence for at all
+ * (no hours, no hand-off of any current open/closed state). Never
+ * invents ANY visit/open-state implication — "visit today," "come see
+ * us," "available today," "walk-ins welcome," or any equivalent. When
+ * there is no verified phone (or ctaIntent doesn't call for a phone
+ * CTA), the CTA is simply omitted rather than replaced with a different
+ * invented phrase — an empty CTA is honest; a location/open-state claim
+ * with nothing behind it is not.
+ */
+export function buildDeterministicCreativeRescueContent({ shopName, shopPhone, ctaIntent = null } = {}) {
+  const name = String(shopName || "").trim();
+  const phone = shopPhone ? formatStoredPhoneForDisplay(shopPhone) : null;
+
+  const headline = "Beautiful Blooms, Thoughtfully Arranged";
+  const body = name
+    ? `${name} designs flowers for the moments that matter — a little something to brighten someone's day.`
+    : "Flowers designed for the moments that matter — a little something to brighten someone's day.";
+
+  // A call CTA is only offered when the concept itself asked for one
+  // (ctaIntent === "call_shop") or when no concept was supplied at all
+  // (the caption-rescue call site today has no concept in scope) — never
+  // invented just because a phone number happens to exist. With no safe
+  // verified CTA available, the CTA is omitted — never replaced with an
+  // invented visit/open-state phrase.
+  const allowCallCta = Boolean(phone) && (ctaIntent === null || ctaIntent === "call_shop");
+  const cta = allowCallCta ? `Call ${phone} to place an order.` : "";
+  const caption = allowCallCta ? `${body} Call ${phone} to place an order.` : body;
+
+  return { headline, body, cta, caption, kind: "creative_rescue" };
+}
+
 // ---------------------------------------------------------------------------
 // Copy that is wrong in TONE rather than wrong in fact.
 //

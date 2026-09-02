@@ -138,6 +138,7 @@ import {
   detectInventedOperationalContent,
   requestSignalsPlainOperationalNotice,
   buildDeterministicNoticeContent,
+  buildDeterministicCreativeRescueContent,
   extractShopNameFromRequestText,
   requestNeedsFlyerWording,
   instructionAffectsFlyerWording,
@@ -2869,26 +2870,21 @@ export function createMarketingStudioHandler(deps = {}) {
           // actual generated text.
           let rescued = false;
           if (captionEval.reasons.length) {
-            const rescueFallback = buildDeterministicNoticeContent({ requestText: currentItem.data.brief, shopName, shopPhone: shopRow.data?.phone });
-            if (!rescueFallback) {
-              structuredLog("warn", "marketing_generate_content_fact_safety", {
-                traceId: genTraceId,
-                deterministic: false,
-                route: "generate_content",
-                component: "caption",
-                checksRun: captionEval.checksRun,
-                decision: "reject",
-                reasonCount: captionEval.reasons.length,
-                repaired: captionEval.repaired,
-                rescued: false,
-                outcome: "blocked_no_safe_fallback"
-              });
-              await revertToIdea();
-              return json(400, {
-                error:
-                  "That came back with wording that didn't match your request, and there wasn't enough in your message (a time, a phone number) for Lily to build a safe version automatically — nothing was saved. Add those details and try Generate again."
-              });
-            }
+            // Regression repair: by construction, reaching this branch at
+            // all means requestSignalsPlainOperationalNotice() already
+            // said this ISN'T a plain notice (the `if (noticeFallback)`
+            // branch above would have short-circuited before any AI call
+            // or evaluation ever ran). So this is always the
+            // non-operational creative case — the deterministic NOTICE
+            // rescue must never be used here; it produced "Store Notice /
+            // has an update for you" for an ordinary creative request.
+            const rescueFallback = buildDeterministicCreativeRescueContent({ shopName, shopPhone: shopRow.data?.phone });
+            // Reused as `nf` by generateFlyerCopy below — this is what
+            // stops the flyer's on-image wording from independently
+            // re-attempting an AI call (and its own cost) for content
+            // the caption already determined needs a safe rescue. Same
+            // mechanism the operational-notice case already relied on;
+            // only the object's shape (creative vs. notice) differs.
             noticeFallback = rescueFallback;
             copyGen.content.headline = rescueFallback.headline;
             copyGen.content.body = rescueFallback.caption;
@@ -2896,6 +2892,11 @@ export function createMarketingStudioHandler(deps = {}) {
             copyGen.content.hashtags = [];
             copyGen.content.brand_traits_used = [];
             copyGen.content.visual_traits_used = [];
+            // Distinguishes a safe rescue from a normal successful AI
+            // creative draft — never presented internally as if the model
+            // wrote it, and never hidden from the florist (they still see
+            // and can edit/regenerate it like any other draft).
+            copyGen.content.creative_rescue_used = true;
             rescued = true;
           }
           structuredLog("info", "marketing_generate_content_fact_safety", {
@@ -2980,7 +2981,15 @@ export function createMarketingStudioHandler(deps = {}) {
           objective: conceptObjective,
           primarySubject: copyGen.content?.creative_brief?.primary_subject || copyGen.content?.visual_brief || null,
           captionExcerpt: copyGen.content?.body || "",
-          isSympathy: BEREAVEMENT_CONTEXT_RE.test(`${currentItem.data.brief} ${copyGen.content?.body || ""}`)
+          isSympathy: BEREAVEMENT_CONTEXT_RE.test(`${currentItem.data.brief} ${copyGen.content?.body || ""}`),
+          // Independent-review fix: the flyer's own creative rescue
+          // (generateFlyerCopy, below) gates its CTA on this field — it
+          // was previously always undefined here (dead code, always
+          // defaulting to "allow a call CTA"), the same classifier
+          // buildCanonicalConcept uses later at persistence time, applied
+          // to the caption's actual (possibly already-rescued) CTA text,
+          // so the gate reflects what this post's CTA is really doing.
+          ctaIntent: classifyCtaIntent(copyGen.content?.cta || "")
         };
 
         // Batch 4 ("persisted canonical concept + revision enforcement",
@@ -3037,7 +3046,20 @@ export function createMarketingStudioHandler(deps = {}) {
             // second, independent AI call that could invent something
             // different (or differently wrong). No API call, no usage
             // charged for one that didn't happen.
-            return { ok: true, model: "deterministic", content: { headline: nf.headline, body: nf.body, cta: nf.cta } };
+            return {
+              ok: true,
+              model: "deterministic",
+              content: {
+                headline: nf.headline,
+                body: nf.body,
+                cta: nf.cta,
+                // Only set when `nf` is the non-operational creative
+                // rescue (identified by its own `kind`) — an operational
+                // notice's on-image text is deterministic-by-design, not
+                // a safety rescue, and keeps its existing unflagged shape.
+                ...(nf.kind === "creative_rescue" ? { creative_rescue_used: true } : {})
+              }
+            };
           }
           await recordUsage("copy", "request", 1);
           // Phase 3 live-test fix (one-concept contract): `flyerConcept`,
@@ -3128,23 +3150,24 @@ export function createMarketingStudioHandler(deps = {}) {
           // must be checked independently for the same invented/mismatched
           // content a caption can suffer, with the same safe-fallback
           // recovery — a florist can just as easily hit this on the flyer
-          // text alone. Last gate before the wording reaches the canvas —
-          // whatever survived both the deterministic repair pass and the
-          // one bounded retry above is rescued into the shop's own honest,
-          // generic notice when the request's own facts allow it, or fails
-          // closed rather than shipping it.
+          // text alone. Last gate before the wording reaches the canvas.
+          //
+          // Regression repair: by construction, this function already
+          // returned early via the `if (nf) {...}` branch above when the
+          // request WAS a plain operational notice — so reaching here at
+          // all means it wasn't. The deterministic NOTICE rescue must
+          // never fire in this branch; it produced "Store Notice / has an
+          // update for you" on-image for an ordinary creative flyer.
           if (flyerEval?.reasons?.length) {
-            const flyerFallback = buildDeterministicNoticeContent({ requestText: brief, shopName, shopPhone: shopRow.data?.phone });
-            if (!flyerFallback) {
-              return {
-                ok: false,
-                error:
-                  "The flyer text came back with wording that didn't match your request, and there wasn't enough in your message for Lily to build a safe version automatically — nothing was saved. Add a time/phone number and try Generate again."
-              };
-            }
+            const flyerFallback = buildDeterministicCreativeRescueContent({
+              shopName,
+              shopPhone: shopRow.data?.phone,
+              ctaIntent: flyerConcept?.ctaIntent ?? null
+            });
             flyerGen.content.headline = flyerFallback.headline;
             flyerGen.content.body = flyerFallback.body;
             flyerGen.content.cta = flyerFallback.cta;
+            flyerGen.content.creative_rescue_used = true;
           }
           return { ok: true, model: flyerGen.model, content: flyerGen.content };
         }
