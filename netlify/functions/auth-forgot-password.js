@@ -12,7 +12,16 @@ export async function handler(event) {
   if (ready) return ready;
   if (event.httpMethod !== "POST") return methodNotAllowed();
   const limit = checkRateLimit(event, { key: "auth-forgot", limit: 10, windowMs: 60_000 });
-  if (!limit.allowed) return json(429, { error: "Too many requests. Please wait and try again.", code: "auth_rate_limited" });
+  if (!limit.allowed) {
+    // Florisyn's own limiter already knows exactly how long is left in its
+    // window — a real, derived duration, never an invented one.
+    const retryAfterSeconds = Math.max(1, Math.ceil(limit.retryAfterMs / 1000));
+    return json(429, {
+      error: "Too many requests. Please wait and try again.",
+      code: "auth_rate_limited",
+      retry_after_seconds: retryAfterSeconds
+    });
+  }
 
   try {
     const body = bodyOf(event);
@@ -39,6 +48,8 @@ export async function handler(event) {
         email_domain: emailCheck.value.split("@")[1],
         provider_status: response.status,
         code: mapped.code,
+        retry_after_seconds: mapped.retryAfterSeconds,
+        retry_after_source: mapped.retryAfterSource,
         request_id: requestId
       }, event);
       return jsonAuthError(mapped);

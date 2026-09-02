@@ -8,6 +8,54 @@ import { requestIdOf } from "./upstream.js";
 
 const SENSITIVE_META_KEYS = /pass(word)?|token|secret|authorization|apikey|api_key|refresh|access_token|redirect|link|cookie/i;
 
+// Password-recovery rate-limit countdown (forgot-password only — see
+// resolveProviderRetryAfterSeconds below): a conservative bound applied
+// whenever Supabase's 429 gives us no trustworthy wait duration of its
+// own. Deliberately not an invented "provider reset timestamp" — just a
+// safe, clearly-labeled fallback the client can count down from.
+export const FALLBACK_RATE_LIMIT_RETRY_SECONDS = 60;
+const MIN_TRUSTED_RETRY_AFTER_SECONDS = 1;
+// A malformed/hostile Retry-After (header or body) should never produce
+// an absurd countdown — clamp anything provider-supplied to 15 minutes.
+const MAX_TRUSTED_RETRY_AFTER_SECONDS = 900;
+
+function clampRetryAfterSeconds(seconds) {
+  if (!Number.isFinite(seconds)) return null;
+  const rounded = Math.ceil(seconds);
+  if (rounded < MIN_TRUSTED_RETRY_AFTER_SECONDS) return null;
+  return Math.min(rounded, MAX_TRUSTED_RETRY_AFTER_SECONDS);
+}
+
+/**
+ * Looks for a trustworthy provider-supplied retry duration — a real
+ * Retry-After response header (seconds or an HTTP-date), or a numeric
+ * retry_after field some GoTrue rate-limit bodies include — and never
+ * guesses one. Returns { seconds, source: "provider_header" |
+ * "provider_body" } or null when nothing trustworthy is present.
+ */
+export function resolveProviderRetryAfterSeconds(response, data) {
+  const header = typeof response?.headers?.get === "function" ? response.headers.get("retry-after") : null;
+  if (header) {
+    const trimmed = String(header).trim();
+    if (/^\d+$/.test(trimmed)) {
+      const seconds = clampRetryAfterSeconds(Number(trimmed));
+      if (seconds) return { seconds, source: "provider_header" };
+    } else {
+      const parsedDate = Date.parse(trimmed);
+      if (Number.isFinite(parsedDate)) {
+        const seconds = clampRetryAfterSeconds((parsedDate - Date.now()) / 1000);
+        if (seconds) return { seconds, source: "provider_header" };
+      }
+    }
+  }
+  const bodyRetryAfter = data?.retry_after ?? data?.retryAfter;
+  if (typeof bodyRetryAfter === "number") {
+    const seconds = clampRetryAfterSeconds(bodyRetryAfter);
+    if (seconds) return { seconds, source: "provider_body" };
+  }
+  return null;
+}
+
 export function redactAuthMeta(meta = {}) {
   const out = {};
   for (const [key, value] of Object.entries(meta || {})) {
@@ -39,11 +87,24 @@ export function mapAuthProviderFailure(response, data = {}, { flow = "auth" } = 
   const raw = String(data?.error_description || data?.msg || data?.message || data?.error || "").toLowerCase();
 
   if (status === 429 || /rate limit|too many/i.test(raw)) {
-    return {
+    const result = {
       statusCode: 429,
       code: "auth_rate_limited",
       error: "Too many email requests. Please wait a minute and try again."
     };
+    // Retry-after countdown is scoped to the forgot-password (recover)
+    // flow only — other flows keep their existing response shape exactly.
+    if (flow === "recover") {
+      const resolved = resolveProviderRetryAfterSeconds(response, data);
+      if (resolved) {
+        result.retryAfterSeconds = resolved.seconds;
+        result.retryAfterSource = resolved.source;
+      } else {
+        result.retryAfterSeconds = FALLBACK_RATE_LIMIT_RETRY_SECONDS;
+        result.retryAfterSource = "fallback";
+      }
+    }
+    return result;
   }
 
   if (status >= 500 || /smtp|mailer|provider|temporarily unavailable|timeout/i.test(raw)) {
@@ -132,6 +193,7 @@ export function mapAuthProviderFailure(response, data = {}, { flow = "auth" } = 
 export function jsonAuthError(mapped) {
   const body = { error: mapped.error, code: mapped.code };
   if (mapped.ok) body.ok = true;
+  if (typeof mapped.retryAfterSeconds === "number") body.retry_after_seconds = mapped.retryAfterSeconds;
   return {
     statusCode: mapped.statusCode,
     headers: {
