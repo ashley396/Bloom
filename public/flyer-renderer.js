@@ -1706,64 +1706,204 @@
    * dedicated rect for a banner-carried headline (banner_led, or any
    * family whose textRegion is literally "banner"). Pure — only reads
    * numbers, no DOM. */
+  // Target photo AREA fraction of the canvas for each imageScale — the
+  // real difference between "the photo dominates" and "the photo merely
+  // supports" (Part 4's explicit requirement: supporting must occupy
+  // materially less visual weight than dominant, not just a label).
+  var IMAGE_SCALE_AREA = { dominant: 0.86, balanced: 0.58, supporting: 0.34 };
+
+  /** Independent-review correction (Ashley, visual audit): the first
+   * Phase 2 pass only ever branched on compositionFamily + textRegion —
+   * imagePlacement/imageScale/subjectPlacement were EXECUTED (fed into
+   * crop math) but never actually reshaped the photo/panel/stack
+   * footprint, so 3 of the 7 fixtures came back byte-identical geometry
+   * despite being 3 different families ("boutique_floral"/"sympathy_
+   * elegance"/"operational_notice" all measured photo=0,0,100%,100% /
+   * panel=9%,28%,82%,62% — a confirmed, quantified defect, not a
+   * subjective impression). Every branch below now derives its rects
+   * from imagePlacement/imageScale/subjectPlacement FIRST, with
+   * compositionFamily/textRegion deciding which structural TREATMENT
+   * applies to those rects — real geometry diversity, not decoration
+   * swapped onto one shape. Pure — only reads numbers, no DOM. */
   function resolveCompositionGeometry(cd, width, height) {
     function frac(x, y, w, h) { return { x: Math.round(x * width), y: Math.round(y * height), w: Math.round(w * width), h: Math.round(h * height) }; }
     var family = cd.compositionFamily || "hero_full_bleed";
     var textRegion = cd.textRegion || "negative_space_band_lower";
+    var imagePlacement = cd.imagePlacement || "full_bleed";
+    var imageScale = cd.imageScale || "dominant";
+    var subject = cd.subjectPlacement || "center";
+    var area = IMAGE_SCALE_AREA[imageScale] || IMAGE_SCALE_AREA.dominant;
     var geo = { photo: frac(0, 0, 1, 1), panel: null, stack: null, banner: null, isPanelFilled: false };
 
     if (family === "layered_editorial") {
-      // Deliberately asymmetric (60/40), never a mechanical 50/50 split —
-      // Ashley's own explicit instruction. Which side the photo takes
-      // follows subjectPlacement, so a right-weighted subject keeps the
-      // photo on the right rather than fighting the composition.
-      var photoRight = cd.subjectPlacement === "right_third" || cd.subjectPlacement === "lower_third";
-      geo.photo = photoRight ? frac(0.4, 0, 0.6, 1) : frac(0, 0, 0.6, 1);
-      geo.panel = photoRight ? frac(0, 0, 0.4, 1) : frac(0.6, 0, 0.4, 1);
+      // Deliberately asymmetric, never a mechanical 50/50 split — and the
+      // SPLIT AXIS itself now varies: a lower_third subject splits
+      // horizontally (photo on the bottom, panel above it) instead of
+      // always splitting vertically left/right. imageScale genuinely
+      // resizes the photo's own share rather than a fixed 60%.
+      var editorialFrac = Math.max(0.34, Math.min(0.74, area));
+      if (subject === "lower_third") {
+        geo.photo = frac(0, 1 - editorialFrac, 1, editorialFrac);
+        geo.panel = frac(0, 0, 1, 1 - editorialFrac);
+      } else {
+        var photoRight = subject === "right_third";
+        geo.photo = photoRight ? frac(1 - editorialFrac, 0, editorialFrac, 1) : frac(0, 0, editorialFrac, 1);
+        geo.panel = photoRight ? frac(0, 0, 1 - editorialFrac, 1) : frac(editorialFrac, 0, 1 - editorialFrac, 1);
+      }
       geo.isPanelFilled = true;
-      var epad = geo.panel.w * 0.14;
-      geo.stack = { x: geo.panel.x + epad, y: geo.panel.y + geo.panel.h * 0.14, w: geo.panel.w - epad * 2, h: geo.panel.h * 0.72 };
+      // A side column spans the canvas edge to edge on 3 sides — a
+      // rounded-card treatment would leave a visible corner mismatch
+      // against the border stroke (a confirmed defect: black gaps
+      // showing through at rounded corners with no rounded fill
+      // underneath). This panel shape is a sharp-edged column, never a
+      // floating card.
+      geo.panelShape = "column";
+      var epad = Math.min(geo.panel.w, geo.panel.h) * 0.11;
+      geo.stack = { x: geo.panel.x + epad, y: geo.panel.y + geo.panel.h * 0.12, w: geo.panel.w - epad * 2, h: geo.panel.h * 0.76 };
     } else if (family === "framed_panel") {
-      geo.isPanelFilled = true;
-      if (textRegion === "negative_space_band_upper") geo.panel = frac(0.07, 0.06, 0.86, 0.4);
-      else if (textRegion === "negative_space_band_lower" || textRegion === "footer") geo.panel = frac(0.06, 0.55, 0.88, 0.41);
-      else geo.panel = frac(0.09, 0.28, 0.82, 0.62);
+      // Ashley's explicit correction: framed_panel must not simply be
+      // hero_full_bleed with a border — imagePlacement now picks between
+      // 3 genuinely different photo/panel relationships, not one fixed
+      // full-bleed-behind-a-box shape every time.
+      if (imagePlacement === "corner_accent") {
+        // The photo behaves like an accent, not a hero — small, cornered,
+        // sitting ON TOP of a full-canvas card rather than beside a
+        // partial one (which left an unpainted black margin — a
+        // confirmed defect — and let the panel fill overlap and slice
+        // through the photo, painted in the wrong order). panelBehind
+        // Photo tells the renderer to fill the panel FIRST, across the
+        // whole canvas, then draw the photo on top, whole and unclipped.
+        var cs = Math.max(0.16, Math.min(0.34, Math.sqrt(area) * 0.42));
+        var cx = subject === "left_third" ? 0 : subject === "center" ? 0.5 - cs / 2 : 1 - cs;
+        var cy = subject === "lower_third" ? 1 - cs : 0;
+        geo.photo = frac(cx, cy, cs, cs);
+        geo.isPanelFilled = true;
+        // Inset (not 0,0,1,1) so its own border is actually visible as a
+        // real frame — the photo is positioned to touch the true canvas
+        // edge, deliberately poking past that frame in one corner, a
+        // real "photo breaks the card" treatment rather than a photo
+        // awkwardly boxed inside the same margin as the panel.
+        geo.panel = frac(0.03, 0.03, 0.94, 0.94);
+        geo.panelBehindPhoto = true;
+      } else if (imagePlacement === "inset_panel" || imagePlacement === "framed_block") {
+        // The photo occupies its OWN strip (top or bottom, sized by
+        // imageScale) — a real "photo supports, panel carries the
+        // message" relationship, not a photo behind a floating box. The
+        // panel fills the ENTIRE remaining strip edge-to-edge (not an
+        // inset box with margins around it) — a confirmed defect
+        // otherwise: the margin between the photo strip and a smaller
+        // floating panel was never painted at all, left as raw
+        // transparent canvas (renders as an ugly black/void gap once
+        // flattened for a real download), and text sampled that
+        // transparent pixel data as "dark," choosing light text that
+        // then went illegible wherever the transparency actually
+        // composited light. panelShape "column" gives it the same
+        // sharp, edge-spanning fill layered_editorial's column uses —
+        // right, since it is flush against 3 canvas edges plus the
+        // photo's own edge, never a floating rounded card.
+        var stripFrac = Math.max(0.24, Math.min(0.5, area * 0.55));
+        var photoBottom = subject === "lower_third";
+        if (photoBottom) {
+          geo.photo = frac(0, 1 - stripFrac, 1, stripFrac);
+          geo.panel = frac(0, 0, 1, 1 - stripFrac);
+        } else {
+          geo.photo = frac(0, 0, 1, stripFrac);
+          geo.panel = frac(0, stripFrac, 1, 1 - stripFrac);
+        }
+        geo.isPanelFilled = true;
+        geo.panelShape = "column";
+      } else {
+        // full_bleed: legibility-first — the photo stays whole behind a
+        // real bordered panel (the one case that IS "hero_full_bleed
+        // plus a frame," by design, for a notice that must read the
+        // photo as backdrop context, not a competing subject).
+        geo.isPanelFilled = true;
+        if (textRegion === "negative_space_band_upper") geo.panel = frac(0.07, 0.06, 0.86, 0.4);
+        else if (textRegion === "negative_space_band_lower" || textRegion === "footer") geo.panel = frac(0.06, 0.55, 0.88, 0.41);
+        else geo.panel = frac(0.09, 0.28, 0.82, 0.62);
+      }
       var fpad = geo.panel.w * 0.08;
       geo.stack = { x: geo.panel.x + fpad, y: geo.panel.y + fpad * 0.75, w: geo.panel.w - fpad * 2, h: geo.panel.h - fpad * 1.5 };
     } else if (family === "banner_led") {
+      // The banner's own position now has 3 real options (top/center/
+      // lower), and — the disclosed Phase 2 rough edge Ashley flagged —
+      // the stack fills essentially ALL the remaining vertical run to
+      // the nearest edge, not a fixed 10%-tall sliver that read as empty
+      // whenever generous negative space was selected.
+      var margin = 0.06;
       var bannerLower = textRegion === "negative_space_band_lower" || textRegion === "footer";
-      geo.banner = bannerLower ? frac(0.13, 0.72, 0.74, 0.12) : frac(0.13, 0.14, 0.74, 0.12);
-      geo.stack = bannerLower ? frac(0.1, 0.86, 0.8, 0.1) : frac(0.1, 0.28, 0.8, 0.46);
+      var bannerCenter = textRegion === "dedicated_panel" || textRegion === "framed_block" || textRegion === "integrated_editorial_region";
+      if (bannerLower) {
+        geo.banner = frac(0.11, 0.68, 0.78, 0.13);
+        geo.stack = frac(0.09, 0.68 + 0.13 + 0.02, 0.82, 1 - margin - (0.68 + 0.13 + 0.02));
+      } else if (bannerCenter) {
+        geo.banner = frac(0.11, 0.42, 0.78, 0.13);
+        geo.stack = frac(0.09, 0.42 + 0.13 + 0.03, 0.82, 1 - margin - (0.42 + 0.13 + 0.03));
+      } else {
+        geo.banner = frac(0.11, 0.13, 0.78, 0.13);
+        geo.stack = frac(0.09, 0.13 + 0.13 + 0.03, 0.82, 0.98 - (0.13 + 0.13 + 0.03) - margin);
+      }
     } else {
-      // hero_full_bleed — the default, and the direct answer to the
-      // live-diagnosed failure (a plain, uncluttered photo with text in
-      // real negative space, never a panel unless textRegion explicitly
-      // asks for one).
-      switch (textRegion) {
-        case "negative_space_band_upper":
-          geo.stack = frac(0.08, 0.06, 0.84, 0.4);
-          break;
-        case "dedicated_panel":
-        case "framed_block":
-          geo.isPanelFilled = true;
-          geo.panel = frac(0.1, 0.6, 0.8, 0.32);
-          geo.stack = frac(0.13, 0.63, 0.74, 0.26);
-          break;
-        case "integrated_editorial_region":
-          geo.stack = frac(0.08, 0.1, 0.52, 0.34);
-          break;
-        case "banner":
-          geo.banner = frac(0.14, 0.42, 0.72, 0.14);
-          geo.stack = frac(0.1, 0.58, 0.8, 0.34);
-          break;
-        case "footer":
-          geo.stack = frac(0.06, 0.8, 0.88, 0.16);
-          break;
-        case "badge":
-          geo.stack = frac(0.52, 0.06, 0.42, 0.24);
-          break;
-        default:
-          geo.stack = frac(0.08, 0.56, 0.84, 0.38);
+      // hero_full_bleed — the direct answer to the live-diagnosed
+      // failure. Full-bleed and dominant by default; imagePlacement/
+      // imageScale can still genuinely shrink it into a real inset hero
+      // when Creative Direction asks for less than full dominance, and
+      // subjectPlacement shifts WHICH SIDE the text stack lives on
+      // (opposite the subject) rather than always centering, so a
+      // left/right-weighted subject produces a genuinely different
+      // composition, not just a differently-cropped version of the same
+      // centered layout.
+      if (imagePlacement !== "full_bleed" && imageScale !== "dominant") {
+        // A direct per-scale side length, not sqrt(area) — an area-exact
+        // square inset at "balanced" (58% of canvas area) has a side of
+        // ~76% of the canvas, leaving almost no real room beside it for
+        // text (a confirmed defect: a 12%-wide sliver). These two values
+        // are chosen for real visual proportion instead.
+        var insetSide = { balanced: 0.6, supporting: 0.4 }[imageScale] || 0.5;
+        var ix = subject === "left_third" ? 0.04 : subject === "right_third" ? 1 - insetSide - 0.04 : (1 - insetSide) / 2;
+        var iy = subject === "lower_third" ? 1 - insetSide - 0.05 : 0.06;
+        geo.photo = frac(ix, iy, insetSide, insetSide);
+        geo.stack = subject === "left_third"
+          ? frac(ix + insetSide + 0.04, 0.4, 0.96 - (ix + insetSide + 0.04), 0.36)
+          : subject === "right_third"
+          ? frac(0.06, 0.4, ix - 0.1, 0.36)
+          : frac(0.08, iy + insetSide + 0.05, 0.84, 1 - (iy + insetSide + 0.1) - 0.06);
+      } else if (subject === "left_third" || subject === "right_third") {
+        var stackOnRight = subject === "left_third";
+        var half = stackOnRight ? { x: 0.5, w: 0.44 } : { x: 0.06, w: 0.44 };
+        geo.stack = textRegion === "negative_space_band_upper" ? frac(half.x, 0.08, half.w, 0.36) : frac(half.x, 0.54, half.w, 0.4);
+      } else if (subject === "lower_third") {
+        // The subject sits low — the text stack moves to the open upper
+        // portion instead of competing with it, regardless of
+        // textRegion's own lower/upper default.
+        geo.stack = frac(0.08, 0.07, 0.84, 0.34);
+      } else {
+        switch (textRegion) {
+          case "negative_space_band_upper":
+            geo.stack = frac(0.08, 0.06, 0.84, 0.4);
+            break;
+          case "dedicated_panel":
+          case "framed_block":
+            geo.isPanelFilled = true;
+            geo.panel = frac(0.1, 0.6, 0.8, 0.32);
+            geo.stack = frac(0.13, 0.63, 0.74, 0.26);
+            break;
+          case "integrated_editorial_region":
+            geo.stack = frac(0.08, 0.1, 0.52, 0.34);
+            break;
+          case "banner":
+            geo.banner = frac(0.14, 0.42, 0.72, 0.14);
+            geo.stack = frac(0.1, 0.58, 0.8, 0.34);
+            break;
+          case "footer":
+            geo.stack = frac(0.06, 0.8, 0.88, 0.16);
+            break;
+          case "badge":
+            geo.stack = frac(0.52, 0.06, 0.42, 0.24);
+            break;
+          default:
+            geo.stack = frac(0.08, 0.56, 0.84, 0.38);
+        }
       }
     }
     return geo;
@@ -1773,9 +1913,16 @@
    * Divides one stack rect into the active roles' own sub-rects,
    * headline first and always largest (headlineScale weights it
    * further), in the exact order Part E's hierarchy commits to. Pure. */
-  function splitStackIntoRoles(stackRect, activeRoles, headlineScaleKey) {
+  function splitStackIntoRoles(stackRect, activeRoles, headlineScaleKey, includeHeadline) {
     var weights = { headline: 1 * (HEADLINE_SCALE_MULTIPLIER[headlineScaleKey] || 1), supportingLine: 0.46, serviceDetail: 0.4, cta: 0.52 };
-    var order = ["headline"].concat(activeRoles);
+    // A confirmed defect: when the headline actually renders on a
+    // separate banner shape (banner_led, or textRegion "banner") rather
+    // than in this stack at all, the headline's own (often 1.16x/1.34x)
+    // weight was still reserved out of the stack's height — starving
+    // supportingLine/cta down to roughly half their intended share for
+    // no reason, since nothing ever draws into that reserved slice.
+    // includeHeadline === false drops it from the split entirely.
+    var order = includeHeadline === false ? activeRoles.slice() : ["headline"].concat(activeRoles);
     var total = 0;
     for (var i = 0; i < order.length; i++) total += weights[order[i]] || 0.4;
     var gap = stackRect.h * 0.035;
@@ -1802,26 +1949,31 @@
   // completion report for the honest read of what these actually look
   // like.
 
-  function drawBorderStyle(ctx, rect, borderStyle, color) {
+  /** `sharpCorners` (used for a layered_editorial side column) draws a
+   * plain rectangular stroke instead of roundRect — a confirmed defect
+   * otherwise: a rounded BORDER stroked over a sharp-cornered FILL left
+   * small triangular gaps of raw, unpainted canvas showing through at
+   * each corner. Fill and border corner treatment must always agree. */
+  function drawBorderStyle(ctx, rect, borderStyle, color, sharpCorners) {
     if (!borderStyle || borderStyle === "none") return;
     ctx.save();
     ctx.strokeStyle = color;
-    var r = Math.min(rect.w, rect.h) * 0.03;
+    var r = sharpCorners ? 0 : Math.min(rect.w, rect.h) * 0.03;
+    function path(x, y, w, h, radius) {
+      if (sharpCorners || radius <= 0) ctx.strokeRect(x, y, w, h);
+      else { roundRect(ctx, x, y, w, h, radius); ctx.stroke(); }
+    }
     if (borderStyle === "hairline") {
       ctx.lineWidth = Math.max(1, rect.h * 0.006);
-      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, r);
-      ctx.stroke();
+      path(rect.x, rect.y, rect.w, rect.h, r);
     } else if (borderStyle === "double_line") {
       ctx.lineWidth = Math.max(1, rect.h * 0.005);
       var inset = Math.max(4, rect.h * 0.025);
-      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, r);
-      ctx.stroke();
-      roundRect(ctx, rect.x + inset, rect.y + inset, rect.w - inset * 2, rect.h - inset * 2, Math.max(0, r - inset * 0.5));
-      ctx.stroke();
+      path(rect.x, rect.y, rect.w, rect.h, r);
+      path(rect.x + inset, rect.y + inset, rect.w - inset * 2, rect.h - inset * 2, Math.max(0, r - inset * 0.5));
     } else if (borderStyle === "ornamental_frame" || borderStyle === "organic_floral_frame") {
       ctx.lineWidth = Math.max(1, rect.h * 0.006);
-      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, r);
-      ctx.stroke();
+      path(rect.x, rect.y, rect.w, rect.h, r);
       drawCornerFlourishes(ctx, rect, color, borderStyle === "organic_floral_frame");
     }
     ctx.restore();
@@ -2040,18 +2192,30 @@
    * only the name, logo draws only the logo, both draws both — a failed
    * logo load safely falls back to the shop name (never leaves the
    * flyer unbranded), and a logo is never synthesized. Returns a promise
-   * resolving to { textStyle used, drew: "name"|"logo"|"both"|"none" }. */
-  function drawBrandIdentity(ctx, rect, brand, brandIdentifier, brandingScaleKey, textStyle, background, bands) {
+   * resolving to { textStyle used, drew: "name"|"logo"|"both"|"none" }.
+   *
+   * Ashley's Phase 2.1 correction: the first pass never gave the
+   * branding lockup the same banner-behind-busy-photo rescue the main
+   * text roles have — a real, disclosed gap, now closed with a small
+   * self-contained two-pass measure/paint (mirroring layOutText's own
+   * discipline) rather than a single real-context draw that could sit
+   * unreadably on a busy patch of photo. */
+  function drawBrandIdentity(ctx, rect, brand, brandIdentifier, brandingScaleKey, textStyle, background, ribbonColor) {
     var scale = BRANDING_SCALE_MULTIPLIER[brandingScaleKey] || 1;
     var wantsLogo = brandIdentifier === "logo" || brandIdentifier === "both";
-    var wantsName = brandIdentifier === "shop_name" || brandIdentifier === "both" || !brand.shopName ? brandIdentifier === "shop_name" || brandIdentifier === "both" : false;
     var drewName = false;
     function drawName() {
       if (!brand.shopName) return { usedHeight: 0, bannered: false };
       var scaledRect = { x: rect.x, y: rect.y, w: rect.w, h: rect.h * scale };
       var fit = fitShopLockup(ctx, scaledRect, brand.shopName);
       drewName = true;
-      return drawShopNameLockup(ctx, scaledRect, brand, null, textStyle, background, fit, bands);
+      if (background) {
+        var measureBands = [];
+        drawShopNameLockup(measuringContext(ctx), scaledRect, brand, null, textStyle, background, fit, measureBands);
+        var merged = mergeBands(measureBands, rect.h * 0.05);
+        for (var i = 0; i < merged.length; i++) drawBanner(ctx, merged[i], ribbonColor || "#7c3a58");
+      }
+      return drawShopNameLockup(ctx, scaledRect, brand, null, textStyle, background, fit, null);
     }
     if (!wantsLogo) {
       drawName();
@@ -2300,6 +2464,23 @@
     var ctx = canvas.getContext("2d");
     var backgroundTier = null;
 
+    // A confirmed defect (real pixel inspection, not just tests): several
+    // geometries — an inset hero with real negative space around it,
+    // corner_accent's own margin, a strip panel's edge run — leave part
+    // of the canvas outside both the photo rect and any filled panel.
+    // With no base fill, that area is raw transparent canvas: it reads
+    // as an ugly black void once flattened for a real download/post
+    // (violates the "never dark/moody by default" rule), and worse, text
+    // legibility sampling reads a transparent pixel's (0,0,0,0) as a
+    // dark background and chooses light text that then goes illegible
+    // wherever the transparency actually composites light. One opaque,
+    // neutral base fill under everything else closes every such gap at
+    // the root, regardless of which geometry branch produced it — every
+    // real paint step still fully covers it wherever a photo or panel
+    // belongs.
+    ctx.fillStyle = TIER_B_BASE;
+    ctx.fillRect(0, 0, width, height);
+
     function paintPhotoInto(rect, url) {
       if (!url) return Promise.resolve(false);
       return loadImage(url).then(function (img) {
@@ -2324,36 +2505,55 @@
       });
     }
 
-    return paintBackground().then(function () {
-      // A confined photo rect (layered_editorial) leaves real canvas
-      // outside it — filled with the panel color before the panel itself
-      // draws its border/ornament, so there is never a gap of raw
-      // (default black) canvas beside the photo.
-      if (geo.panel && geo.isPanelFilled) {
-        ctx.save();
-        ctx.fillStyle = ornamentColors.panel;
-        if (geo.photo.w < width || geo.photo.h < height) {
-          // layered_editorial: the panel occupies its own full-height
-          // column, a plain fill rather than a rounded inset box.
-          ctx.fillRect(geo.panel.x, geo.panel.y, geo.panel.w, geo.panel.h);
-        } else {
-          roundRect(ctx, geo.panel.x, geo.panel.y, geo.panel.w, geo.panel.h, Math.min(geo.panel.w, geo.panel.h) * 0.04);
-          ctx.fill();
-        }
-        ctx.restore();
-        drawBorderStyle(ctx, geo.panel, cd.borderStyle, ornamentColors.border);
-        // drawBorderStyle already draws its OWN corner flourishes for
-        // "ornamental_frame"/"organic_floral_frame" — that pairing IS
-        // what makes those two border styles ornamental, independent of
-        // density. Only a plainer border (hairline/double_line/none)
-        // gets a SEPARATE, density-gated corner accent here — never a
-        // redundant second pass over the same flourish.
-        var borderAlreadyOrnamental = cd.borderStyle === "ornamental_frame" || cd.borderStyle === "organic_floral_frame";
-        if (!borderAlreadyOrnamental && ornamentalDensityAllows(cd.ornamentalDensity, "corner")) {
-          drawCornerFlourishes(ctx, geo.panel, ornamentColors.border, false);
-        }
-        if (ornamentalDensityAllows(cd.ornamentalDensity, "motif")) drawDecorativeMotifAccents(ctx, geo.panel, cd.decorativeMotif, ornamentColors.accent);
+    // A confined photo rect (layered_editorial's side column, or
+    // framed_panel's own strip/corner treatments) leaves real canvas
+    // outside the photo — filled with the panel color BEFORE the photo
+    // ever paints, so there is never a gap of raw, unpainted (black)
+    // canvas anywhere. panelShape "column" (a side column spanning the
+    // canvas edge to edge) fills sharp-edged; everything else fills as a
+    // rounded card, matching the border's own corner treatment exactly
+    // (a confirmed defect otherwise: a rounded border stroked over a
+    // sharp fill left visible black wedges at each corner).
+    function paintPanelFill() {
+      if (!(geo.panel && geo.isPanelFilled)) return;
+      ctx.save();
+      ctx.fillStyle = ornamentColors.panel;
+      if (geo.panelShape === "column") {
+        ctx.fillRect(geo.panel.x, geo.panel.y, geo.panel.w, geo.panel.h);
+      } else {
+        roundRect(ctx, geo.panel.x, geo.panel.y, geo.panel.w, geo.panel.h, Math.min(geo.panel.w, geo.panel.h) * 0.04);
+        ctx.fill();
       }
+      ctx.restore();
+    }
+    function paintPanelBorderAndOrnament() {
+      if (!(geo.panel && geo.isPanelFilled)) return;
+      drawBorderStyle(ctx, geo.panel, cd.borderStyle, ornamentColors.border, geo.panelShape === "column");
+      // drawBorderStyle already draws its OWN corner flourishes for
+      // "ornamental_frame"/"organic_floral_frame" — that pairing IS
+      // what makes those two border styles ornamental, independent of
+      // density. Only a plainer border (hairline/double_line/none)
+      // gets a SEPARATE, density-gated corner accent here — never a
+      // redundant second pass over the same flourish.
+      var borderAlreadyOrnamental = cd.borderStyle === "ornamental_frame" || cd.borderStyle === "organic_floral_frame";
+      if (!borderAlreadyOrnamental && ornamentalDensityAllows(cd.ornamentalDensity, "corner")) {
+        drawCornerFlourishes(ctx, geo.panel, ornamentColors.border, false);
+      }
+      if (ornamentalDensityAllows(cd.ornamentalDensity, "motif")) drawDecorativeMotifAccents(ctx, geo.panel, cd.decorativeMotif, ornamentColors.accent);
+    }
+
+    // framed_panel's corner_accent treatment (Part C correction: the
+    // photo is a small accent sitting ON TOP of the panel, not beside a
+    // partial one) needs the panel painted BEFORE the photo, so the
+    // photo lands whole and unclipped on top of it rather than the
+    // panel fill painting back over part of an already-drawn photo (a
+    // confirmed defect: the panel's own rounded corner arc sliced
+    // straight through the photo).
+    if (geo.panelBehindPhoto) paintPanelFill();
+
+    return paintBackground().then(function () {
+      if (!geo.panelBehindPhoto) paintPanelFill();
+      paintPanelBorderAndOrnament();
       if (geo.banner && cd.bannerStyle && cd.bannerStyle !== "none") {
         drawBannerShape(ctx, geo.banner, cd.bannerStyle, ornamentColors.primary);
       }
@@ -2368,17 +2568,22 @@
           })()
         : null;
 
-      var roleRects = splitStackIntoRoles(geo.stack || headlineRoleRectForCheck, activeRoles, cd.headlineScale);
+      // Headline — the one always-mandatory role. Uses the banner rect
+      // instead of the stack when this family carries its headline on a
+      // literal banner shape (banner_led, or textRegion "banner") — in
+      // which case the stack split below must NOT reserve headline's own
+      // share of the stack height for a role that never actually draws
+      // there (a confirmed defect: it was starving supportingLine/cta to
+      // roughly half their intended size).
+      var headlineOnBanner = Boolean(geo.banner) && (cd.compositionFamily === "banner_led" || cd.textRegion === "banner");
+      var roleRects = splitStackIntoRoles(geo.stack || headlineRoleRectForCheck, activeRoles, cd.headlineScale, !headlineOnBanner);
       var drawnRoles = [];
 
       function styleFor(rect) {
         return panelTextStyle || pickRegionTextStyle(ctx, rect, background);
       }
 
-      // Headline — the one always-mandatory role. Uses the banner rect
-      // instead of the stack when this family carries its headline on a
-      // literal banner shape (banner_led, or textRegion "banner").
-      var headlineRect = geo.banner && (cd.compositionFamily === "banner_led" || cd.textRegion === "banner") ? geo.banner : roleRects.headline;
+      var headlineRect = headlineOnBanner ? geo.banner : roleRects.headline;
       var headlineStyle = geo.banner === headlineRect ? { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: null } : styleFor(headlineRect);
       var scriptPlan = resolveScriptAccentPlan(cd.scriptAccentUsage, content.headline, isOperationalNotice);
       var headlineFamily = typography.headline;
@@ -2484,23 +2689,30 @@
       for (var mi = 0; mi < merged.length; mi++) drawBanner(ctx, merged[mi], ornamentColors.primary);
       drawnRoles = layOutText(ctx, null);
 
-      // Branding (Part H). Drawn once, after the text roles' own
-      // banner-behind-busy rescue is fully resolved and painted — a real
-      // Phase 2 scope limit, disclosed in the completion report: unlike
-      // the legacy shop-name lockup, the branding lockup here does not
-      // itself get a two-pass banner-behind rescue if it happens to land
-      // on a busy stretch of photo; pickRegionTextStyle's own real
-      // per-pixel contrast choice is still applied, which is real
-      // legibility insurance, just not the full ribbon-rescue mechanism.
+      // Branding (Part H). drawBrandIdentity now runs its own internal
+      // measure/paint pass (see its own docstring) whenever the lockup
+      // sits directly on the photo, so a busy patch behind the shop name
+      // gets the same real ribbon rescue the main text roles have —
+      // closing the rough edge Ashley flagged in the Phase 2 review.
       var brandRect = resolveBrandingRect(cd.brandingPosition, width, height);
       var brandStyle = onPanel ? panelTextStyle : pickRegionTextStyle(ctx, brandRect, background);
-      var brandingPromise = drawBrandIdentity(ctx, brandRect, brand, cd.brandIdentifier, cd.brandingScale, brandStyle, null, null);
+      var brandingPromise = drawBrandIdentity(ctx, brandRect, brand, cd.brandIdentifier, cd.brandingScale, brandStyle, onPanel ? null : background, ornamentColors.primary);
 
       // Badge (Part J) — a small, restrained, purely decorative accent
       // near the branding corner, never carrying invented text.
       if (cd.badgeStyle && cd.badgeStyle !== "none" && ornamentalDensityAllows(cd.ornamentalDensity, "corner")) {
         var badgeR = Math.min(width, height) * 0.035 * (BRANDING_SCALE_MULTIPLIER[cd.brandingScale] || 1);
-        drawBadgeAccent(ctx, width * 0.92, height * 0.08, badgeR, cd.badgeStyle, ornamentColors);
+        // Positioned relative to the ACTUAL branding lockup rect, not a
+        // fixed canvas corner — a confirmed defect otherwise: a
+        // bottom-anchored brandingPosition (bottom_center,
+        // corner_watermark) still pinned the badge to the top-right
+        // corner regardless, reading as an orphaned mark with no visual
+        // relationship to the lockup it was meant to accent.
+        var badgeCx = brandRect.align === "right" ? brandRect.x + badgeR * 1.3 : brandRect.x + brandRect.w - badgeR * 1.3;
+        var badgeCy = brandRect.y + brandRect.h / 2;
+        badgeCx = Math.max(badgeR + 4, Math.min(width - badgeR - 4, badgeCx));
+        badgeCy = Math.max(badgeR + 4, Math.min(height - badgeR - 4, badgeCy));
+        drawBadgeAccent(ctx, badgeCx, badgeCy, badgeR, cd.badgeStyle, ornamentColors);
       }
 
       return brandingPromise.then(function () {

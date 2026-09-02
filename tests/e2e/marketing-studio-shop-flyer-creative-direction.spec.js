@@ -391,15 +391,24 @@ test("19 — a banner-carried headline (banner_led) renders differently from a d
 
 test("20 — a badge only appears when badgeStyle/ornamentalDensity actually call for one", async ({ page }) => {
   // drawBadgeAccent's 'circular_badge' is a STROKED circle (never
-  // filled) at (width*0.92, height*0.08) with radius ~= min(w,h)*0.035 —
-  // sampled at the stroke's own edge (cx+radius), not the hollow center.
-  const cx = Math.round(1080 * 0.92), cy = Math.round(1080 * 0.08);
-  const edgeX = cx + Math.round(1080 * 0.035) - 1;
+  // filled), positioned relative to the ACTUAL branding lockup rect
+  // (Phase 2.1 correction: it used to be pinned to a fixed canvas
+  // corner regardless of brandingPosition, reading as an orphaned mark
+  // with no relationship to the lockup it was meant to accent) — sampled
+  // at the stroke's own edge, not the hollow center. baseDirection's
+  // brandingPosition ("top_center") + brandingScale ("standard") pins
+  // this down exactly, mirroring resolveBrandingRect/the badge placement
+  // math in renderFlyerWithCreativeDirection.
+  const brandRect = { x: Math.round(1080 * 0.1), y: Math.round(1080 * 0.03), w: Math.round(1080 * 0.8), h: Math.round(1080 * 0.09) };
+  const badgeR = Math.min(1080, 1080) * 0.035;
+  const cx = brandRect.x + brandRect.w - badgeR * 1.3;
+  const cy = brandRect.y + brandRect.h / 2;
+  const edgeX = Math.round(cx + badgeR) - 1;
   const sampleBadgeEdge = async (badgeStyle, ornamentalDensity) =>
     page.evaluate(
       async ({ direction, content, brand, edgeX, cy }) => {
         const canvas = await window.FlorisynFlyerRenderer.renderFlyer({ creativeDirection: direction, content, brand, backgroundUrl: "/assets/atelier-floral-corner.jpg", width: 1080, height: 1080 });
-        return Array.from(canvas.getContext("2d").getImageData(edgeX, cy, 1, 5).data);
+        return Array.from(canvas.getContext("2d").getImageData(edgeX, Math.round(cy), 1, 5).data);
       },
       { direction: baseDirection({ badgeStyle, ornamentalDensity }), content: BASE_CONTENT, brand: BASE_BRAND, edgeX, cy }
     );
