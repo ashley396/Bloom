@@ -159,6 +159,7 @@ import {
   classifyPrimarySubjectClass,
   deriveAssetRoute
 } from "./_shared/marketing-canonical-concept.js";
+import { buildDeterministicCreativeDirection, inheritCreativeDirection } from "./_shared/marketing-creative-direction.js";
 import { evaluateMarketingDiversity } from "./_shared/marketing-content-diversity.js";
 import { deriveApprovalObservations, dedupeTraits } from "./_shared/marketing-approval-learning.js";
 import { defaultVisualStyle } from "./_shared/ai-visual-revisions.js";
@@ -1078,7 +1079,13 @@ export function createMarketingStudioHandler(deps = {}) {
           // so the revision below still runs.
         }
 
-        const shopRow = await client.from("shops").select("name,phone,primary_color").eq("id", shopId).maybeSingle();
+        // logo_url added (Creative Direction Phase 1, Part C): the
+        // deterministic brand-identifier rule needs to know whether this
+        // shop actually has a verified logo on file before a revision's
+        // Creative Direction can ever be rebuilt for a pre-Phase-1 asset
+        // — never invented when absent, see marketing-creative-
+        // direction.js's resolveDefaultBrandIdentifier.
+        const shopRow = await client.from("shops").select("name,phone,primary_color,logo_url").eq("id", shopId).maybeSingle();
         const shopName = shopRow.data?.name || null;
         const appliedTraits = deriveRevisionTraits(instruction, ownDeltas);
         // Batch 1 rebuild: revise_content previously ran only factsPreserved
@@ -1758,6 +1765,21 @@ export function createMarketingStudioHandler(deps = {}) {
             userUploadedPhoto: Boolean(currentAsset.content?.user_uploaded_photo),
             reusedFromAssetId: currentAsset.content?.reused_from_asset_id || null
           });
+          // Creative Direction Phase 1, Part H: inherited byte-for-byte
+          // from the parent asset — Phase 1 defines no "explicit
+          // creative-direction change" detector (that's Phase 3+, once a
+          // model can actually choose between real creative options), so
+          // this never re-derives a new direction from scratch. A
+          // pre-Phase-1 asset with no creative_direction on file yet gets
+          // one backfilled deterministically, the same "legacy asset"
+          // fallback buildRevisedConcept already uses above for
+          // canonical_concept.
+          const flyerRevisedCreativeDirection =
+            inheritCreativeDirection(currentAsset.content?.creative_direction || null) ||
+            buildDeterministicCreativeDirection({
+              canonicalConcept: flyerRevisedConcept.concept,
+              shopBrand: { logoUrl: shopRow.data?.logo_url || null }
+            });
           const persisted = await persistGeneratedAsset(client, {
             shopId,
             userId: user.id,
@@ -1785,6 +1807,7 @@ export function createMarketingStudioHandler(deps = {}) {
               ...(flyerRevisedConcept.changedFields.length
                 ? { concept_change: { changed_fields: flyerRevisedConcept.changedFields, reason: instruction } }
                 : {}),
+              creative_direction: flyerRevisedCreativeDirection,
               ...(renderStale ? { url: null, storage_path: null, mime: null, width: null, height: null, render_status: null, rendered_at: null } : {})
             },
             parentAssetId: currentAsset.id,
@@ -2423,7 +2446,12 @@ export function createMarketingStudioHandler(deps = {}) {
         // city,state added for the new "magazine" composition's contact
         // block — only ever shown when the shop's own real profile has one
         // on file (see the brand object below); never fabricated when null.
-        const shopRow = await client.from("shops").select("name,phone,primary_color,accent_color,city,state").eq("id", shopId).maybeSingle();
+        // logo_url added (Creative Direction Phase 1, Part C): the
+        // deterministic brand-identifier rule needs to know whether this
+        // shop actually has a verified logo on file — never invented
+        // when absent, see marketing-creative-direction.js's
+        // resolveDefaultBrandIdentifier.
+        const shopRow = await client.from("shops").select("name,phone,primary_color,accent_color,city,state,logo_url").eq("id", shopId).maybeSingle();
         // Security correction (Ashley, before the live visual test): the
         // shop's own name for branding must come ONLY from this trusted,
         // authenticated shops-table lookup — never from the request text
@@ -2698,7 +2726,18 @@ export function createMarketingStudioHandler(deps = {}) {
               hashtags: [],
               asset_requirements: [],
               brand_traits_used: [],
-              visual_traits_used: []
+              visual_traits_used: [],
+              // Creative Direction Phase 1 correctness fix: this branch
+              // never set `objective` before, so a REAL deterministic
+              // operational notice's own canonical_concept.occasionCategory
+              // (which keys off objective === "operational" — see
+              // classifyOccasionCategory in marketing-canonical-concept.js)
+              // silently fell through to "general" instead of
+              // "operational_notice" — the AI-authored path already sets
+              // this; the deterministic path was the one gap. Needed for
+              // Creative Direction's own family resolution (Part D) to
+              // correctly recognize a real notice through this exact path.
+              objective: "operational"
             }
           };
           // FACT CHECK stage, deterministic path: the wording was never
@@ -3260,6 +3299,16 @@ export function createMarketingStudioHandler(deps = {}) {
               rejectedCount: flyerBackgroundQuality.rejectedAssetPaths.length
             });
             const backgroundGen = { ok: flyerBackgroundQuality.state === "PASS", url: flyerBackgroundQuality.gen?.url || null };
+            // Computed once so canonical_concept and creative_direction
+            // below share the exact same concept object, never two
+            // independently-derived copies that could disagree.
+            const flyerExactFactsConcept = buildConceptForAsset({
+              assetType: "flyer",
+              ctaText: flyerGen.content.cta,
+              bodyText: flyerGen.content.body,
+              photoStrategy: "calm_backdrop",
+              styleTier: backgroundGen.ok ? "generated" : "template"
+            });
             const persisted = await persistGeneratedAsset(client, {
               shopId,
               userId: user.id,
@@ -3339,14 +3388,17 @@ export function createMarketingStudioHandler(deps = {}) {
                 // still read back consistently.
                 photo_strategy: "calm_backdrop",
                 // Batch 4, Part B: the one persisted canonical concept this
-                // flyer, its caption, and its image all actually share —
-                // see buildConceptForAsset above.
-                canonical_concept: buildConceptForAsset({
-                  assetType: "flyer",
-                  ctaText: flyerGen.content.cta,
-                  bodyText: flyerGen.content.body,
-                  photoStrategy: "calm_backdrop",
-                  styleTier: backgroundGen.ok ? "generated" : "template"
+                // flyer, its caption, and its image all actually share.
+                canonical_concept: flyerExactFactsConcept,
+                // Creative Direction Phase 1 ("schema + deterministic
+                // constraints only" — see _shared/marketing-creative-
+                // direction.js): a complete, valid deterministic Direction
+                // object, persisted for observability and for Phase 2+ to
+                // consume. Does NOT change what actually renders yet —
+                // public/flyer-renderer.js does not read this field.
+                creative_direction: buildDeterministicCreativeDirection({
+                  canonicalConcept: flyerExactFactsConcept,
+                  shopBrand: { logoUrl: shopRow.data?.logo_url || null }
                 })
               },
               mediaId: null,
@@ -3544,6 +3596,18 @@ export function createMarketingStudioHandler(deps = {}) {
               : { data: null };
             const template = pickFlyerTemplate({ occasion: currentItem.data.title });
             const aspectRatio = pickAspectRatio(primaryPlatform);
+            // Computed once so canonical_concept and creative_direction
+            // below share the exact same concept object, never two
+            // independently-derived copies that could disagree.
+            const flyerSubjectForwardConcept = buildConceptForAsset({
+              assetType: "flyer",
+              ctaText: flyerGen.content.cta,
+              bodyText: flyerGen.content.body,
+              photoStrategy: "subject_forward",
+              styleTier: userUploadedPhoto ? "upload" : imageGen.styleTier || "generated",
+              userUploadedPhoto,
+              reusedFromAssetId
+            });
             const persisted = await persistGeneratedAsset(client, {
               shopId,
               userId: user.id,
@@ -3614,14 +3678,13 @@ export function createMarketingStudioHandler(deps = {}) {
                 // share — assetRoute derives from the exact same real
                 // photo-choice signals (userUploadedPhoto/reusedFromAssetId/
                 // styleTier) already computed above for this branch.
-                canonical_concept: buildConceptForAsset({
-                  assetType: "flyer",
-                  ctaText: flyerGen.content.cta,
-                  bodyText: flyerGen.content.body,
-                  photoStrategy: "subject_forward",
-                  styleTier: userUploadedPhoto ? "upload" : imageGen.styleTier || "generated",
-                  userUploadedPhoto,
-                  reusedFromAssetId
+                canonical_concept: flyerSubjectForwardConcept,
+                // Creative Direction Phase 1 (schema + deterministic
+                // constraints only) — see the exact-facts flyer branch
+                // above for the full explanation; identical wiring here.
+                creative_direction: buildDeterministicCreativeDirection({
+                  canonicalConcept: flyerSubjectForwardConcept,
+                  shopBrand: { logoUrl: shopRow.data?.logo_url || null }
                 })
               },
               mediaId: mediaRow.data?.id || null,
