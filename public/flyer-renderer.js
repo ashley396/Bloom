@@ -1515,6 +1515,1008 @@
     ctx.restore();
   }
 
+  // ===========================================================================
+  // Creative Direction execution (Phase 2 — "dynamic renderer + hard
+  // graphic/caption allocation only"). Everything below reads the
+  // creative_direction object Phase 1 already persists at
+  // ai_generated_assets.content.creative_direction (see _shared/
+  // marketing-creative-direction.js on the server — this file has no
+  // import mechanism into that ES module, so the few small maps below
+  // (HIERARCHY_DEPTH_ROLES, etc.) are a deliberate name-for-name mirror
+  // of that module's own enum VALUES, never a second, independently
+  // re-decided classification — the server is still the single source of
+  // truth for WHICH value a flyer gets; this file only ever decides HOW
+  // to draw a given value.
+  //
+  // Backward compatibility (Part O): every function below is additive.
+  // renderFlyer() branches to renderFlyerWithCreativeDirection() only
+  // when opts.creativeDirection is present; with no creative_direction
+  // (a pre-Phase-1 asset, or any caller that simply doesn't pass one)
+  // renderFlyer() falls through to the exact, byte-for-byte original
+  // code path below it, unchanged.
+  // ===========================================================================
+
+  /** Mirrors marketing-creative-direction.js's HIERARCHY_DEPTH_SLOTS —
+   * which text roles (beyond the always-on brand/headline) a given depth
+   * commits to. */
+  var HIERARCHY_DEPTH_ROLES = {
+    headline_only: [],
+    headline_plus_support: ["supportingLine"],
+    headline_plus_cta: ["cta"],
+    headline_support_cta: ["supportingLine", "cta"],
+    headline_support_service_cta: ["supportingLine", "serviceDetail", "cta"]
+  };
+
+  /** headlineScale's real effect on headline type size — materially
+   * different, not a cosmetic nudge (Part E's explicit requirement). */
+  var HEADLINE_SCALE_MULTIPLIER = { standard: 1, large: 1.16, oversized: 1.34 };
+
+  /** typographyPersonality's real font stacks. No new webfont is fetched
+   * anywhere in this module (no network/provider call) — every family
+   * below is either already loaded by this app ('Crimson Pro' serif,
+   * 'Inter' sans, both already used throughout this file) or a
+   * browser-generic fallback stack ('cursive' for a script accent,
+   * standard on every real browser with no fetch at all). */
+  var TYPOGRAPHY_PERSONAS = {
+    editorial_serif: { headline: "'Crimson Pro', Georgia, serif", headlineWeight: "700", body: "'Crimson Pro', Georgia, serif", bodyWeight: "500", script: null },
+    clean_sans: { headline: "'Inter', sans-serif", headlineWeight: "700", body: "'Inter', sans-serif", bodyWeight: "500", script: null },
+    script_accent: { headline: "'Crimson Pro', Georgia, serif", headlineWeight: "600", body: "'Crimson Pro', Georgia, serif", bodyWeight: "500", script: "'Segoe Script', 'Bradley Hand', cursive" },
+    bold_display: { headline: "'Inter', sans-serif", headlineWeight: "800", body: "'Inter', sans-serif", bodyWeight: "500", script: null },
+    serif_script_pairing: { headline: "'Crimson Pro', Georgia, serif", headlineWeight: "700", body: "'Crimson Pro', Georgia, serif", bodyWeight: "500", script: "'Segoe Script', 'Bradley Hand', cursive" }
+  };
+
+  /**
+   * Part E, serif_script_pairing's own hard rule: the serif carries the
+   * main readable hierarchy, script is an accent — never paragraph copy,
+   * never the whole headline on a legibility-critical operational
+   * notice. Returns which PART of the headline (if any) should render in
+   * the script family, given scriptAccentUsage — never invents new
+   * words, only ever chooses which of the headline's OWN real words (or
+   * none) get the accent treatment. Pure.
+   */
+  function resolveScriptAccentPlan(scriptAccentUsage, headlineText, isOperationalNotice) {
+    var usage = scriptAccentUsage || "none";
+    // Independent-review-equivalent safety: never a full-script headline
+    // on an operational notice regardless of what was persisted —
+    // legibility of a time/date always wins. Phase 1's own validator
+    // already forbids this combination from persisting in the first
+    // place; this is defense-in-depth at the one place that actually
+    // draws pixels.
+    if (isOperationalNotice && usage === "full_script_headline") usage = "accent_word";
+    var words = String(headlineText || "").trim().split(/\s+/).filter(Boolean);
+    if (usage === "none" || !words.length) return { mode: "none", accentWord: null };
+    if (usage === "full_script_headline") return { mode: "full_headline", accentWord: null };
+    if (usage === "accent_word") return { mode: "accent_word", accentWord: words[0] };
+    // subhead_script: the accent lands on the supporting line (a short
+    // role), never the headline itself — resolved by the caller, which
+    // has the supporting line text; this function only reports the mode.
+    return { mode: "subhead_script", accentWord: null };
+  }
+
+  /**
+   * Part G ("move body-style copy off the graphic"): a short, honest
+   * EXCERPT of the real generated caption text — never a synthesized
+   * replacement. Takes the first real sentence, then truncates at a word
+   * boundary under maxChars with an ellipsis. Returns null for empty
+   * input. Pure.
+   */
+  function deriveSupportingLineText(bodyText, maxChars) {
+    var text = String(bodyText || "").trim();
+    if (!text) return null;
+    var ceiling = typeof maxChars === "number" && maxChars > 0 ? maxChars : 60;
+    var sentenceMatch = text.match(/^[^.!?]*[.!?]/);
+    var candidate = sentenceMatch ? sentenceMatch[0].trim() : text;
+    if (candidate.length <= ceiling) return candidate;
+    var truncated = candidate.slice(0, ceiling);
+    var lastSpace = truncated.lastIndexOf(" ");
+    if (lastSpace > ceiling * 0.5) truncated = truncated.slice(0, lastSpace);
+    return truncated.replace(/[.,;:!?]*$/, "") + "…";
+  }
+
+  /**
+   * paletteMood's real effect on the flyer's non-photo colors (panel
+   * fills, borders, dividers) — always grounded in the SHOP'S OWN real
+   * brand.primaryColor/accentColor (never a fully hardcoded palette, and
+   * never an unsupported business fact derived from color — this only
+   * ever adjusts hue/tint, never invents inventory/availability/mood
+   * claims). Pure.
+   */
+  function resolveOrnamentColors(paletteMood, brand) {
+    var primary = (brand && brand.primaryColor) || "#7c3a58";
+    var accent = (brand && brand.accentColor) || "#c98fae";
+    var panel, border;
+    switch (paletteMood) {
+      case "neutral_blush_ivory":
+        panel = hexWithAlpha("#faf3ec", 0.94);
+        border = hexWithAlpha(accent, 0.55);
+        break;
+      case "soft_pastel":
+        panel = hexWithAlpha(primary, 0.14);
+        border = hexWithAlpha(accent, 0.6);
+        break;
+      case "warm_luxury":
+        panel = hexWithAlpha(primary, 0.92);
+        border = darken(accent, -0.1) === accent ? accent : "#c8a24a";
+        break;
+      case "vibrant_seasonal":
+        panel = hexWithAlpha(accent, 0.88);
+        border = primary;
+        break;
+      case "jewel_tone":
+        panel = darken(primary, -0.05);
+        border = "#c8a24a";
+        break;
+      case "classic_brand":
+      default:
+        panel = hexWithAlpha(primary, 0.9);
+        border = accent;
+    }
+    return { primary: primary, accent: accent, panel: panel, border: border };
+  }
+
+  /**
+   * Real crop math (Part K) — a subject-aware, zoom-aware alternative to
+   * drawCover()'s always-centered crop. `focal` is a 0–1 fraction of the
+   * SOURCE image that should stay centered in the destination; `zoom` >1
+   * shows less of the image (a tighter crop), <1 shows more (a wider,
+   * more environmental crop). Never asks for more of the source than
+   * exists — clamped to the image's own bounds. Pure.
+   */
+  function computeCoverAlignedRect(iw, ih, dw, dh, focal, zoom) {
+    focal = focal || { x: 0.5, y: 0.5 };
+    zoom = zoom || 1;
+    var scale = Math.max(dw / iw, dh / ih) * zoom;
+    var sw = Math.min(iw, dw / scale);
+    var sh = Math.min(ih, dh / scale);
+    var sx = Math.max(0, Math.min(iw - sw, iw * focal.x - sw / 2));
+    var sy = Math.max(0, Math.min(ih - sh, ih * focal.y - sh / 2));
+    return { sx: sx, sy: sy, sw: sw, sh: sh };
+  }
+
+  var IMAGE_CROP_ZOOM = { tight: 1.28, medium: 1, wide_environmental: 0.82 };
+  var SUBJECT_PLACEMENT_FOCAL = {
+    center: { x: 0.5, y: 0.5 },
+    left_third: { x: 0.28, y: 0.5 },
+    right_third: { x: 0.72, y: 0.5 },
+    lower_third: { x: 0.5, y: 0.68 },
+    full_bleed: { x: 0.5, y: 0.45 }
+  };
+
+  function drawCoverAligned(ctx, img, dx, dy, dw, dh, subjectPlacement, imageCrop) {
+    var iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    var focal = SUBJECT_PLACEMENT_FOCAL[subjectPlacement] || SUBJECT_PLACEMENT_FOCAL.center;
+    var zoom = IMAGE_CROP_ZOOM[imageCrop] || 1;
+    var r = computeCoverAlignedRect(iw, ih, dw, dh, focal, zoom);
+    ctx.drawImage(img, r.sx, r.sy, r.sw, r.sh, dx, dy, dw, dh);
+  }
+
+  /**
+   * Part C/D — the structural skeleton for each composition family, in
+   * real pixel rects. `photo` is where the photograph is drawn (full
+   * canvas for hero_full_bleed/framed_panel/banner_led — all three keep
+   * the photo full-bleed behind everything else, per Ashley's own "still
+   * visually beautiful and floral" requirement for framed_panel/
+   * banner_led; a genuinely confined sub-rect only for layered_editorial,
+   * the one family actually built around image/panel asymmetry). `panel`
+   * is a real filled/bordered region when the family or textRegion calls
+   * for one, else null (hero_full_bleed's default text-on-photo path
+   * never gets one — "no giant opaque rectangle... unless Creative
+   * Direction explicitly requires a panel"). `stack` is the rect the text
+   * roles are allocated within (see splitStackIntoRoles). `banner` is a
+   * dedicated rect for a banner-carried headline (banner_led, or any
+   * family whose textRegion is literally "banner"). Pure — only reads
+   * numbers, no DOM. */
+  function resolveCompositionGeometry(cd, width, height) {
+    function frac(x, y, w, h) { return { x: Math.round(x * width), y: Math.round(y * height), w: Math.round(w * width), h: Math.round(h * height) }; }
+    var family = cd.compositionFamily || "hero_full_bleed";
+    var textRegion = cd.textRegion || "negative_space_band_lower";
+    var geo = { photo: frac(0, 0, 1, 1), panel: null, stack: null, banner: null, isPanelFilled: false };
+
+    if (family === "layered_editorial") {
+      // Deliberately asymmetric (60/40), never a mechanical 50/50 split —
+      // Ashley's own explicit instruction. Which side the photo takes
+      // follows subjectPlacement, so a right-weighted subject keeps the
+      // photo on the right rather than fighting the composition.
+      var photoRight = cd.subjectPlacement === "right_third" || cd.subjectPlacement === "lower_third";
+      geo.photo = photoRight ? frac(0.4, 0, 0.6, 1) : frac(0, 0, 0.6, 1);
+      geo.panel = photoRight ? frac(0, 0, 0.4, 1) : frac(0.6, 0, 0.4, 1);
+      geo.isPanelFilled = true;
+      var epad = geo.panel.w * 0.14;
+      geo.stack = { x: geo.panel.x + epad, y: geo.panel.y + geo.panel.h * 0.14, w: geo.panel.w - epad * 2, h: geo.panel.h * 0.72 };
+    } else if (family === "framed_panel") {
+      geo.isPanelFilled = true;
+      if (textRegion === "negative_space_band_upper") geo.panel = frac(0.07, 0.06, 0.86, 0.4);
+      else if (textRegion === "negative_space_band_lower" || textRegion === "footer") geo.panel = frac(0.06, 0.55, 0.88, 0.41);
+      else geo.panel = frac(0.09, 0.28, 0.82, 0.62);
+      var fpad = geo.panel.w * 0.08;
+      geo.stack = { x: geo.panel.x + fpad, y: geo.panel.y + fpad * 0.75, w: geo.panel.w - fpad * 2, h: geo.panel.h - fpad * 1.5 };
+    } else if (family === "banner_led") {
+      var bannerLower = textRegion === "negative_space_band_lower" || textRegion === "footer";
+      geo.banner = bannerLower ? frac(0.13, 0.72, 0.74, 0.12) : frac(0.13, 0.14, 0.74, 0.12);
+      geo.stack = bannerLower ? frac(0.1, 0.86, 0.8, 0.1) : frac(0.1, 0.28, 0.8, 0.46);
+    } else {
+      // hero_full_bleed — the default, and the direct answer to the
+      // live-diagnosed failure (a plain, uncluttered photo with text in
+      // real negative space, never a panel unless textRegion explicitly
+      // asks for one).
+      switch (textRegion) {
+        case "negative_space_band_upper":
+          geo.stack = frac(0.08, 0.06, 0.84, 0.4);
+          break;
+        case "dedicated_panel":
+        case "framed_block":
+          geo.isPanelFilled = true;
+          geo.panel = frac(0.1, 0.6, 0.8, 0.32);
+          geo.stack = frac(0.13, 0.63, 0.74, 0.26);
+          break;
+        case "integrated_editorial_region":
+          geo.stack = frac(0.08, 0.1, 0.52, 0.34);
+          break;
+        case "banner":
+          geo.banner = frac(0.14, 0.42, 0.72, 0.14);
+          geo.stack = frac(0.1, 0.58, 0.8, 0.34);
+          break;
+        case "footer":
+          geo.stack = frac(0.06, 0.8, 0.88, 0.16);
+          break;
+        case "badge":
+          geo.stack = frac(0.52, 0.06, 0.42, 0.24);
+          break;
+        default:
+          geo.stack = frac(0.08, 0.56, 0.84, 0.38);
+      }
+    }
+    return geo;
+  }
+
+  /**
+   * Divides one stack rect into the active roles' own sub-rects,
+   * headline first and always largest (headlineScale weights it
+   * further), in the exact order Part E's hierarchy commits to. Pure. */
+  function splitStackIntoRoles(stackRect, activeRoles, headlineScaleKey) {
+    var weights = { headline: 1 * (HEADLINE_SCALE_MULTIPLIER[headlineScaleKey] || 1), supportingLine: 0.46, serviceDetail: 0.4, cta: 0.52 };
+    var order = ["headline"].concat(activeRoles);
+    var total = 0;
+    for (var i = 0; i < order.length; i++) total += weights[order[i]] || 0.4;
+    var gap = stackRect.h * 0.035;
+    var usableH = stackRect.h - gap * (order.length - 1);
+    var rects = {};
+    var y = stackRect.y;
+    for (var j = 0; j < order.length; j++) {
+      var role = order[j];
+      var h = usableH * ((weights[role] || 0.4) / total);
+      rects[role] = { x: stackRect.x, y: y, w: stackRect.w, h: h };
+      y += h + gap;
+    }
+    return rects;
+  }
+
+  // ---- ornament primitives (Part I) -----------------------------------
+  //
+  // Deterministic, dependency-free Canvas vector primitives — no external
+  // asset, no font, no network fetch. Honestly modest rather than
+  // pretending to a fidelity plain paths can't deliver: a "wax seal" is a
+  // filled circle with a pressed-look inner ring, not a photographic
+  // texture; "organic_floral_frame" is a hairline plus a few small
+  // curved leaf accents, not a botanical illustration. See the Phase 2
+  // completion report for the honest read of what these actually look
+  // like.
+
+  function drawBorderStyle(ctx, rect, borderStyle, color) {
+    if (!borderStyle || borderStyle === "none") return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    var r = Math.min(rect.w, rect.h) * 0.03;
+    if (borderStyle === "hairline") {
+      ctx.lineWidth = Math.max(1, rect.h * 0.006);
+      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, r);
+      ctx.stroke();
+    } else if (borderStyle === "double_line") {
+      ctx.lineWidth = Math.max(1, rect.h * 0.005);
+      var inset = Math.max(4, rect.h * 0.025);
+      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, r);
+      ctx.stroke();
+      roundRect(ctx, rect.x + inset, rect.y + inset, rect.w - inset * 2, rect.h - inset * 2, Math.max(0, r - inset * 0.5));
+      ctx.stroke();
+    } else if (borderStyle === "ornamental_frame" || borderStyle === "organic_floral_frame") {
+      ctx.lineWidth = Math.max(1, rect.h * 0.006);
+      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, r);
+      ctx.stroke();
+      drawCornerFlourishes(ctx, rect, color, borderStyle === "organic_floral_frame");
+    }
+    ctx.restore();
+  }
+
+  function drawCornerFlourishes(ctx, rect, color, withLeaves) {
+    var s = Math.min(rect.w, rect.h) * 0.08;
+    var corners = [
+      { x: rect.x, y: rect.y, dx: 1, dy: 1 },
+      { x: rect.x + rect.w, y: rect.y, dx: -1, dy: 1 },
+      { x: rect.x, y: rect.y + rect.h, dx: 1, dy: -1 },
+      { x: rect.x + rect.w, y: rect.y + rect.h, dx: -1, dy: -1 }
+    ];
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1, s * 0.09);
+    for (var i = 0; i < corners.length; i++) {
+      var c = corners[i];
+      ctx.beginPath();
+      ctx.moveTo(c.x + c.dx * s, c.y);
+      ctx.quadraticCurveTo(c.x + c.dx * s * 0.3, c.y + c.dy * s * 0.3, c.x, c.y + c.dy * s);
+      ctx.stroke();
+      if (withLeaves) {
+        ctx.save();
+        ctx.fillStyle = hexWithAlpha(color, 0.5);
+        ctx.beginPath();
+        ctx.ellipse(c.x + c.dx * s * 0.55, c.y + c.dy * s * 0.55, s * 0.22, s * 0.11, Math.atan2(c.dy, c.dx), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawDividerStyle(ctx, cx, y, width, dividerStyle, color) {
+    if (!dividerStyle || dividerStyle === "none") return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1, width * 0.006);
+    if (dividerStyle === "simple_rule") {
+      ctx.beginPath();
+      ctx.moveTo(cx - width / 2, y);
+      ctx.lineTo(cx + width / 2, y);
+      ctx.stroke();
+    } else if (dividerStyle === "ornamental_flourish") {
+      ctx.beginPath();
+      ctx.moveTo(cx - width / 2, y);
+      ctx.lineTo(cx + width / 2, y);
+      ctx.stroke();
+      var curl = Math.max(4, width * 0.05);
+      [-1, 1].forEach(function (side) {
+        var ex = cx + (side * width) / 2;
+        ctx.beginPath();
+        ctx.moveTo(ex, y);
+        ctx.quadraticCurveTo(ex + side * curl, y - curl, ex + side * curl * 1.4, y);
+        ctx.stroke();
+      });
+    } else if (dividerStyle === "floral_sprig") {
+      var half = width * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(cx - half, y);
+      ctx.lineTo(cx - half * 0.16, y);
+      ctx.moveTo(cx + half * 0.16, y);
+      ctx.lineTo(cx + half, y);
+      ctx.stroke();
+      ctx.save();
+      ctx.fillStyle = hexWithAlpha(color, 0.7);
+      [-1, 1].forEach(function (side) {
+        ctx.beginPath();
+        ctx.ellipse(cx + side * half * 0.08, y - Math.abs(side) * 0, half * 0.09, half * 0.045, side * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.beginPath();
+      ctx.arc(cx, y, half * 0.035, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  /** ornamentalDensity's real effect: how many decorative accents
+   * actually get drawn — never just a cosmetic label. "minimal"/"light"
+   * draw at most the frame's own border; "moderate" adds one divider or
+   * corner-leaf pass; "rich" adds both, still bounded (never a repeated/
+   * tiled pattern — Part I's explicit "do NOT litter" rule). */
+  function ornamentalDensityAllows(density, feature) {
+    var rank = { minimal: 0, light: 1, moderate: 2, rich: 3 }[density] || 0;
+    var need = { border: 0, corner: 1, divider: 2, motif: 3 }[feature] || 0;
+    return rank >= need;
+  }
+
+  function drawDecorativeMotifAccents(ctx, rect, motif, color) {
+    if (!motif || motif === "none") return;
+    ctx.save();
+    ctx.fillStyle = hexWithAlpha(color, 0.55);
+    var s = Math.min(rect.w, rect.h) * 0.05;
+    if (motif === "leaf_accents" || motif === "floral_sprigs") {
+      [[rect.x + s, rect.y + s], [rect.x + rect.w - s, rect.y + s]].forEach(function (p) {
+        ctx.beginPath();
+        ctx.ellipse(p[0], p[1], s * 0.9, s * 0.4, Math.PI / 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    } else if (motif === "botanical_line_art") {
+      ctx.strokeStyle = hexWithAlpha(color, 0.6);
+      ctx.lineWidth = Math.max(1, s * 0.12);
+      ctx.beginPath();
+      ctx.moveTo(rect.x + s, rect.y + rect.h - s);
+      ctx.quadraticCurveTo(rect.x + s * 2, rect.y + rect.h - s * 3, rect.x + s * 3.4, rect.y + rect.h - s);
+      ctx.stroke();
+    } else if (motif === "watercolor_wash") {
+      var wash = ctx.createRadialGradient(rect.x + rect.w / 2, rect.y, 0, rect.x + rect.w / 2, rect.y, rect.w * 0.5);
+      wash.addColorStop(0, hexWithAlpha(color, 0.22));
+      wash.addColorStop(1, hexWithAlpha(color, 0));
+      ctx.fillStyle = wash;
+      ctx.fillRect(rect.x, rect.y, rect.w, rect.h * 0.4);
+    } else if (motif === "geometric_minimal") {
+      ctx.strokeStyle = hexWithAlpha(color, 0.5);
+      ctx.lineWidth = Math.max(1, s * 0.1);
+      ctx.strokeRect(rect.x + s * 0.5, rect.y + s * 0.5, s, s);
+    }
+    ctx.restore();
+  }
+
+  /** badgeStyle (Part J) — a small, restrained, PURELY DECORATIVE accent
+   * near the branding lockup. Never carries invented text (a discount
+   * badge with a real "% off" claim needs real content-generation
+   * support that doesn't exist yet in Phase 2 — see the completion
+   * report's "not yet executed" list); this is ornament only. */
+  function drawBadgeAccent(ctx, cx, cy, radius, badgeStyle, colors) {
+    if (!badgeStyle || badgeStyle === "none") return;
+    ctx.save();
+    if (badgeStyle === "circular_badge") {
+      ctx.strokeStyle = colors.border;
+      ctx.lineWidth = Math.max(1.5, radius * 0.09);
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (badgeStyle === "ribbon_badge") {
+      ctx.fillStyle = colors.accent;
+      ctx.beginPath();
+      ctx.moveTo(cx - radius * 0.5, cy - radius);
+      ctx.lineTo(cx + radius * 0.5, cy - radius);
+      ctx.lineTo(cx + radius * 0.5, cy + radius * 0.6);
+      ctx.lineTo(cx, cy + radius * 0.3);
+      ctx.lineTo(cx - radius * 0.5, cy + radius * 0.6);
+      ctx.closePath();
+      ctx.fill();
+    } else if (badgeStyle === "wax_seal_style") {
+      ctx.fillStyle = colors.primary;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = hexWithAlpha("#000000", 0.18);
+      ctx.lineWidth = Math.max(1, radius * 0.12);
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * 0.62, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** bannerStyle (Part J) — the shape banner_led's headline is carried
+   * on. 'ribbon_banner' reuses the existing chevron-notched ribbon
+   * (drawBanner, above) exactly as-is; the other two are new, equally
+   * simple shapes. `torn_paper_banner` is an honest geometric
+   * approximation (a jagged-edge polygon) — never a real paper texture,
+   * which plain Canvas paths can't produce without an external asset. */
+  function drawBannerShape(ctx, rect, bannerStyle, color) {
+    if (bannerStyle === "ribbon_banner" || !bannerStyle) {
+      drawBanner(ctx, { x: rect.x, y: rect.y, w: rect.w, h: rect.h, radius: rect.h * 0.2 }, color);
+      return;
+    }
+    ctx.save();
+    ctx.fillStyle = color;
+    if (bannerStyle === "flat_banner") {
+      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, rect.h * 0.16);
+      ctx.fill();
+    } else if (bannerStyle === "torn_paper_banner") {
+      var teeth = 10, toothW = rect.w / teeth, jag = rect.h * 0.06;
+      ctx.beginPath();
+      ctx.moveTo(rect.x, rect.y + jag);
+      for (var i = 0; i <= teeth; i++) {
+        var x = rect.x + i * toothW;
+        ctx.lineTo(x, rect.y + (i % 2 === 0 ? 0 : jag));
+      }
+      for (var j = teeth; j >= 0; j--) {
+        var x2 = rect.x + j * toothW;
+        ctx.lineTo(x2, rect.y + rect.h - (j % 2 === 0 ? 0 : jag));
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /** Part H — branding execution. Resolves what to actually draw
+   * (never both text AND logo unless brandIdentifier === "both"; never
+   * synthesizes a logo) and where, from brandingPosition/brandingScale.
+   * Pure geometry/decision half — the actual logo <img> load stays in
+   * the DOM half below (drawBrandIdentity), reusing the existing
+   * drawLogo()'s real "logo optional, never blocks the flyer" contract. */
+  function resolveBrandingRect(brandingPosition, width, height) {
+    switch (brandingPosition) {
+      case "top_left": return { x: Math.round(width * 0.06), y: Math.round(height * 0.04), w: Math.round(width * 0.42), h: Math.round(height * 0.09), align: "left" };
+      case "bottom_center": return { x: Math.round(width * 0.1), y: Math.round(height * 0.88), w: Math.round(width * 0.8), h: Math.round(height * 0.09), align: "center" };
+      case "corner_watermark": return { x: Math.round(width * 0.62), y: Math.round(height * 0.9), w: Math.round(width * 0.32), h: Math.round(height * 0.07), align: "right" };
+      case "top_center":
+      default:
+        return { x: Math.round(width * 0.1), y: Math.round(height * 0.03), w: Math.round(width * 0.8), h: Math.round(height * 0.09), align: "center" };
+    }
+  }
+
+  var BRANDING_SCALE_MULTIPLIER = { subtle: 0.85, standard: 1, prominent: 1.3 };
+
+  /** Draws the shop's brand identity per Part H exactly: shop_name draws
+   * only the name, logo draws only the logo, both draws both — a failed
+   * logo load safely falls back to the shop name (never leaves the
+   * flyer unbranded), and a logo is never synthesized. Returns a promise
+   * resolving to { textStyle used, drew: "name"|"logo"|"both"|"none" }. */
+  function drawBrandIdentity(ctx, rect, brand, brandIdentifier, brandingScaleKey, textStyle, background, bands) {
+    var scale = BRANDING_SCALE_MULTIPLIER[brandingScaleKey] || 1;
+    var wantsLogo = brandIdentifier === "logo" || brandIdentifier === "both";
+    var wantsName = brandIdentifier === "shop_name" || brandIdentifier === "both" || !brand.shopName ? brandIdentifier === "shop_name" || brandIdentifier === "both" : false;
+    var drewName = false;
+    function drawName() {
+      if (!brand.shopName) return { usedHeight: 0, bannered: false };
+      var scaledRect = { x: rect.x, y: rect.y, w: rect.w, h: rect.h * scale };
+      var fit = fitShopLockup(ctx, scaledRect, brand.shopName);
+      drewName = true;
+      return drawShopNameLockup(ctx, scaledRect, brand, null, textStyle, background, fit, bands);
+    }
+    if (!wantsLogo) {
+      drawName();
+      return Promise.resolve({ drew: brand.shopName ? "shop_name" : "none" });
+    }
+    var logoRect = { x: rect.x + rect.w * 0.5 - (rect.h * scale) / 2, y: rect.y, w: rect.h * scale, h: rect.h * scale };
+    return drawLogo(ctx, logoRect, brand.logoUrl)
+      .then(function (loaded) {
+        // drawLogo() (existing, unmodified) resolves even when the image
+        // fails to load or logoUrl is empty — it swallows the error
+        // itself (a logo is optional). We can't distinguish "drew" from
+        // "failed silently" from its own return value, so re-check the
+        // one fact that matters: was a real logoUrl even provided.
+        var logoAttempted = Boolean(brand.logoUrl);
+        if (brandIdentifier === "both") {
+          drawName();
+          return { drew: logoAttempted ? "both" : "shop_name" };
+        }
+        if (logoAttempted) return { drew: "logo" };
+        // brandIdentifier was "logo" but there's no real logo to draw —
+        // safe fallback to the shop name rather than leaving the flyer
+        // completely unbranded.
+        drawName();
+        return { drew: "shop_name" };
+      });
+  }
+
+  /**
+   * Draws one text role (headline/supportingLine/serviceDetail/cta) into
+   * its allocated rect, reusing the EXACT existing legibility machinery
+   * (pickRegionTextStyle for real per-pixel contrast, drawRegionText's
+   * own auto-fit-with-floor loop, the banner-behind-busy-text fallback)
+   * rather than re-implementing any of it. Character limits (Part F) are
+   * enforced here — never by truncating into nonsense; only by refusing
+   * to draw MORE than the ceiling allows the same way drawRegionText's
+   * own auto-fit floor already refuses to shrink past legibility.
+   */
+  function roleFontFamily(role, typography) {
+    if (role === "cta") return null; // CTA keeps its existing dedicated 'Inter' treatment (drawCtaLabel) — a hard UI convention, not a headline/body role.
+    return role === "headline" ? typography.headline : typography.body;
+  }
+
+  /** Whether text, even at drawRegionText's own legibility floor (78% of
+   * target, or the CTA's 62%), would still overflow its rect badly
+   * enough to overlap a neighbor or spill off the canvas — Part F's
+   * "mandatory headline should fail render safely if truly impossible."
+   * A cheap, conservative pure estimate (character count vs. rect area)
+   * — never a full text-shaping pass — so this can run before any
+   * canvas exists at all. Pure. */
+  function isRoleImpossibleToFit(text, rect, minFontSize) {
+    var len = String(text || "").length;
+    if (!len) return false;
+    if (rect.w <= 0 || rect.h <= 0) return true;
+    // A rough, deliberately generous character budget: at the legibility
+    // floor, one character needs roughly minFontSize*0.55 of width and a
+    // line needs minFontSize*1.15 of height. If the text would need more
+    // TOTAL area than the rect can offer even wrapped across every line
+    // the rect's own height could hold, it is genuinely impossible, not
+    // just tight.
+    var maxLines = Math.max(1, Math.floor(rect.h / (minFontSize * 1.15)));
+    var charsPerLine = Math.max(1, Math.floor(rect.w / (minFontSize * 0.5)));
+    return len > maxLines * charsPerLine * 1.15;
+  }
+
+  /** Draws one text role (headline/supportingLine) in a chosen font
+   * family/weight, with the exact same auto-fit-with-floor and
+   * banner-behind-busy-photo fallback behavior drawRegionText already
+   * gives the legacy path — reused via the same helpers
+   * (measureWrappedLines/drawWrappedLines/needsBannerBehind/bannerBand),
+   * never a second, independently-drifting legibility policy. */
+  function drawTypographyRole(ctx, rect, text, roleOpts) {
+    if (!text) return { drew: false, bannered: false };
+    roleOpts = roleOpts || {};
+    var background = roleOpts.background, bands = roleOpts.bands;
+    var textStyle = roleOpts.textStyle || { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: null };
+    // Sized from the role's HEIGHT allocation, then capped by its WIDTH —
+    // a tall-but-narrow column (layered_editorial's panel side) can
+    // otherwise compute a starting size and floor both far too large for
+    // the actual width available, no matter how much the loop below
+    // shrinks, because the floor itself was derived from the oversized
+    // starting point rather than from the real available width.
+    var baseSize = Math.min(rect.h * (roleOpts.baseSizeRatio || 0.36), rect.w * 0.42);
+    var minFont = Math.max(16, Math.min(baseSize * (roleOpts.minFontRatio || 0.7), rect.w * 0.22));
+    var fontSize = baseSize;
+    var maxTextWidth = rect.w * 0.94;
+    var weight = roleOpts.weight || "600";
+    var family = roleOpts.family;
+    var lines = [text], lineHeight = fontSize * 1.2;
+    ctx.save();
+    applyTextShadow(ctx);
+    ctx.fillStyle = textStyle.color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    // A real, visually-confirmed defect in this exact new code path (a
+    // narrow layered_editorial panel column): the height-only check below
+    // let a single WORD wider than the column overflow horizontally
+    // completely unchecked — measureWrappedLines never breaks a word
+    // mid-string, so a too-large font just drew each word as its own
+    // massively-overflowing line while still reporting a "short enough"
+    // total block height. Every attempt now also measures its own widest
+    // actual line and keeps shrinking until BOTH dimensions genuinely
+    // fit, not just height — this is new code fixing its own bug, not a
+    // change to the legacy drawRegionText path (whose own regions are
+    // always wide enough in practice that this never surfaced there).
+    // Matches drawHeadlineWithAccentWord's own script styling exactly —
+    // that function always italicizes the script family; this one must
+    // too, or the two script-accent modes (accent_word vs. subhead_
+    // script) render inconsistently for the identical font choice (a
+    // real, visually-confirmed defect: the generic 'cursive' fallback
+    // this app relies on for the script role only actually LOOKS like a
+    // script face when italicized on this environment's font set).
+    var italicPrefix = roleOpts.italic ? "italic " : "";
+    for (var attempt = 0; attempt < 9; attempt++) {
+      ctx.font = italicPrefix + weight + " " + Math.round(fontSize) + "px " + family;
+      lineHeight = fontSize * 1.2;
+      lines = measureWrappedLines(ctx, text, maxTextWidth);
+      var blockHeight = lines.length * lineHeight;
+      var widestLine = 0;
+      for (var wl = 0; wl < lines.length; wl++) widestLine = Math.max(widestLine, ctx.measureText(lines[wl]).width);
+      var fitsHeight = blockHeight <= rect.h * 0.96;
+      var fitsWidth = widestLine <= maxTextWidth * 1.02;
+      if ((fitsHeight && fitsWidth) || fontSize <= minFont) break;
+      fontSize = Math.round(fontSize * 0.85);
+    }
+    var bannered = false;
+    if (background) {
+      var widest = 0;
+      for (var li = 0; li < lines.length; li++) widest = Math.max(widest, ctx.measureText(lines[li]).width);
+      var blockH = lines.length * lineHeight;
+      var textRect = { x: rect.x + rect.w / 2 - widest / 2, y: rect.y + rect.h / 2 - blockH / 2, w: widest, h: blockH };
+      var band = bannerBand({ cx: rect.x + rect.w / 2, top: textRect.y, textWidth: widest, blockHeight: blockH, fontSize: fontSize, maxWidth: rect.w });
+      if (needsBannerBehind(background, textRect, textStyle.color, colorAlpha(textStyle.color))) {
+        bannered = true;
+        if (bands) bands.push(band);
+        textStyle = { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: null };
+        ctx.fillStyle = textStyle.color;
+      }
+    }
+    drawWrappedLines(ctx, lines, rect.x + rect.w / 2, rect.y + rect.h / 2, lineHeight, outlineFor(textStyle, fontSize));
+    ctx.restore();
+    return { drew: true, bannered: bannered, fontSize: fontSize, wrapped: lines.length > 1 };
+  }
+
+  /**
+   * Part E's serif_script_pairing + scriptAccentUsage:"accent_word" —
+   * renders the headline's OWN first word in the script family and the
+   * rest in the serif family, on one line, as two genuinely different
+   * typographic roles (never inline-mixed across a wrapped multi-line
+   * block, which canvas text can't shape cleanly). Returns null — the
+   * caller falls back to a plain single-family render — when the
+   * combined text can't be brought to fit one line above the legibility
+   * floor; deliberately skipped whenever the busy-photo banner-behind
+   * fallback might be needed (a real, disclosed Phase 2 simplification —
+   * see the completion report), so it only ever actually renders over a
+   * calm photo area or a flat panel color.
+   */
+  function drawHeadlineWithAccentWord(ctx, rect, fullText, accentWord, serifFamily, scriptFamily, weight, textStyle, baseSize) {
+    var rest = String(fullText).slice(accentWord.length).trim();
+    // Same width-based cap as drawTypographyRole, and for the same
+    // reason: a narrow panel column can make a height-derived baseSize
+    // (and the floor derived from it) far too large for the width
+    // actually available, regardless of how far the shrink loop below
+    // runs.
+    var fontSize = Math.min(baseSize, rect.w * 0.42);
+    var minFont = Math.max(18, Math.min(baseSize * 0.7, rect.w * 0.22));
+    function measure() {
+      ctx.font = "italic 400 " + Math.round(fontSize * 1.18) + "px " + scriptFamily;
+      var scriptW = ctx.measureText(accentWord).width;
+      ctx.font = weight + " " + Math.round(fontSize) + "px " + serifFamily;
+      var restW = rest ? ctx.measureText(" " + rest).width : 0;
+      return { scriptW: scriptW, restW: restW, total: scriptW + restW };
+    }
+    ctx.save();
+    var m = measure();
+    while (m.total > rect.w * 0.94 && fontSize > minFont) {
+      fontSize = Math.round(fontSize * 0.92);
+      m = measure();
+    }
+    if (m.total > rect.w * 0.94) {
+      ctx.restore();
+      return null;
+    }
+    var cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
+    var startX = cx - m.total / 2;
+    applyTextShadow(ctx);
+    ctx.fillStyle = textStyle.color;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.font = "italic 400 " + Math.round(fontSize * 1.18) + "px " + scriptFamily;
+    ctx.fillText(accentWord, startX, cy);
+    if (rest) {
+      ctx.font = weight + " " + Math.round(fontSize) + "px " + serifFamily;
+      ctx.fillText(" " + rest, startX + m.scriptW, cy);
+    }
+    ctx.restore();
+    return { fontSize: fontSize, bannered: false };
+  }
+
+  /**
+   * Phase 2 — the Creative Direction execution path. Reuses every
+   * legibility primitive the legacy path already relies on (contrast
+   * sampling, calm-placement search, banner-behind-busy-photo, the
+   * auto-fit-with-floor loop) rather than re-implementing any of them;
+   * only the LAYOUT geometry, typography, ornament, and which roles get
+   * drawn at all are actually new. Returns Promise<HTMLCanvasElement>,
+   * exactly like renderFlyer() itself — rejects (never silently paints a
+   * broken result) only when a MANDATORY role (the headline) is
+   * genuinely impossible to fit at the legibility floor (Part F).
+   */
+  function renderFlyerWithCreativeDirection(opts) {
+    var cd = opts.creativeDirection;
+    var content = opts.content || {};
+    var brand = opts.brand || {};
+    var backgroundUrl = opts.backgroundUrl || null;
+    var width = opts.width || 1080;
+    var height = opts.height || 1080;
+    var fallbackBackgroundUrl = opts.fallbackBackgroundUrl === undefined ? FALLBACK_FLORAL_BACKGROUND : opts.fallbackBackgroundUrl;
+
+    var typography = TYPOGRAPHY_PERSONAS[cd.typographyPersonality] || TYPOGRAPHY_PERSONAS.editorial_serif;
+    var geo = resolveCompositionGeometry(cd, width, height);
+    var ornamentColors = resolveOrnamentColors(cd.paletteMood, brand);
+    var slots = cd.graphicTextSlots || {};
+    var isOperationalNotice = cd.occasionTreatment === "operational_notice";
+
+    // Which roles actually get text, gated by BOTH hierarchyDepth (the
+    // family's own intended shape) AND graphicTextSlots (the hard
+    // contract) — either one saying "no" is enough to keep a role off
+    // the graphic. serviceDetail is intentionally never drawn in Phase 2
+    // (see the completion report's "not yet executed" list: no real
+    // content-generation field carries service-detail text yet, and this
+    // renderer never invents wording).
+    var depthRoles = HIERARCHY_DEPTH_ROLES[cd.hierarchyDepth] || [];
+    var activeRoles = depthRoles.filter(function (r) { return r !== "serviceDetail" && slots[r]; });
+
+    // Part F: a mandatory headline that is genuinely impossible to fit,
+    // even at the legibility floor, fails the render rather than paints
+    // overlapping/broken text.
+    var headlineRoleRectForCheck = geo.stack || geo.banner || { x: 0, y: 0, w: width, h: height * 0.2 };
+    if (isRoleImpossibleToFit(content.headline, splitStackIntoRoles(headlineRoleRectForCheck, activeRoles, cd.headlineScale).headline, 18)) {
+      return Promise.reject(new Error("This headline cannot be rendered legibly in the space Creative Direction allocated for it — nothing was drawn."));
+    }
+
+    var canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    var ctx = canvas.getContext("2d");
+    var backgroundTier = null;
+
+    function paintPhotoInto(rect, url) {
+      if (!url) return Promise.resolve(false);
+      return loadImage(url).then(function (img) {
+        drawCoverAligned(ctx, img, rect.x, rect.y, rect.w, rect.h, cd.subjectPlacement, cd.imageCrop);
+        return true;
+      }).catch(function () { return false; });
+    }
+
+    function paintBackground() {
+      if (backgroundUrl) {
+        return paintPhotoInto(geo.photo, backgroundUrl).then(function (ok) {
+          if (ok) { backgroundTier = BACKGROUND_TIER.GENERATED; return; }
+          return paintPhotoInto(geo.photo, fallbackBackgroundUrl).then(function (ok2) {
+            backgroundTier = ok2 ? BACKGROUND_TIER.FALLBACK_PHOTO : BACKGROUND_TIER.PROCEDURAL;
+            if (!ok2) { ctx.fillStyle = TIER_B_BASE; ctx.fillRect(geo.photo.x, geo.photo.y, geo.photo.w, geo.photo.h); }
+          });
+        });
+      }
+      return paintPhotoInto(geo.photo, fallbackBackgroundUrl).then(function (ok2) {
+        backgroundTier = ok2 ? BACKGROUND_TIER.FALLBACK_PHOTO : BACKGROUND_TIER.PROCEDURAL;
+        if (!ok2) { ctx.fillStyle = TIER_B_BASE; ctx.fillRect(geo.photo.x, geo.photo.y, geo.photo.w, geo.photo.h); }
+      });
+    }
+
+    return paintBackground().then(function () {
+      // A confined photo rect (layered_editorial) leaves real canvas
+      // outside it — filled with the panel color before the panel itself
+      // draws its border/ornament, so there is never a gap of raw
+      // (default black) canvas beside the photo.
+      if (geo.panel && geo.isPanelFilled) {
+        ctx.save();
+        ctx.fillStyle = ornamentColors.panel;
+        if (geo.photo.w < width || geo.photo.h < height) {
+          // layered_editorial: the panel occupies its own full-height
+          // column, a plain fill rather than a rounded inset box.
+          ctx.fillRect(geo.panel.x, geo.panel.y, geo.panel.w, geo.panel.h);
+        } else {
+          roundRect(ctx, geo.panel.x, geo.panel.y, geo.panel.w, geo.panel.h, Math.min(geo.panel.w, geo.panel.h) * 0.04);
+          ctx.fill();
+        }
+        ctx.restore();
+        drawBorderStyle(ctx, geo.panel, cd.borderStyle, ornamentColors.border);
+        // drawBorderStyle already draws its OWN corner flourishes for
+        // "ornamental_frame"/"organic_floral_frame" — that pairing IS
+        // what makes those two border styles ornamental, independent of
+        // density. Only a plainer border (hairline/double_line/none)
+        // gets a SEPARATE, density-gated corner accent here — never a
+        // redundant second pass over the same flourish.
+        var borderAlreadyOrnamental = cd.borderStyle === "ornamental_frame" || cd.borderStyle === "organic_floral_frame";
+        if (!borderAlreadyOrnamental && ornamentalDensityAllows(cd.ornamentalDensity, "corner")) {
+          drawCornerFlourishes(ctx, geo.panel, ornamentColors.border, false);
+        }
+        if (ornamentalDensityAllows(cd.ornamentalDensity, "motif")) drawDecorativeMotifAccents(ctx, geo.panel, cd.decorativeMotif, ornamentColors.accent);
+      }
+      if (geo.banner && cd.bannerStyle && cd.bannerStyle !== "none") {
+        drawBannerShape(ctx, geo.banner, cd.bannerStyle, ornamentColors.primary);
+      }
+
+      var background = captureBackground(ctx, width, height);
+      var onPanel = Boolean(geo.panel && geo.isPanelFilled);
+      var panelTextStyle = onPanel
+        ? (function () {
+            var c = parseColor(ornamentColors.panel);
+            var isDark = pickTextColor(c) === BAND_TEXT_COLOR;
+            return { color: isDark ? BAND_TEXT_COLOR : CHARCOAL_TEXT, softColor: isDark ? BAND_TEXT_COLOR_SOFT : CHARCOAL_TEXT_SOFT, outline: null };
+          })()
+        : null;
+
+      var roleRects = splitStackIntoRoles(geo.stack || headlineRoleRectForCheck, activeRoles, cd.headlineScale);
+      var drawnRoles = [];
+
+      function styleFor(rect) {
+        return panelTextStyle || pickRegionTextStyle(ctx, rect, background);
+      }
+
+      // Headline — the one always-mandatory role. Uses the banner rect
+      // instead of the stack when this family carries its headline on a
+      // literal banner shape (banner_led, or textRegion "banner").
+      var headlineRect = geo.banner && (cd.compositionFamily === "banner_led" || cd.textRegion === "banner") ? geo.banner : roleRects.headline;
+      var headlineStyle = geo.banner === headlineRect ? { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: null } : styleFor(headlineRect);
+      var scriptPlan = resolveScriptAccentPlan(cd.scriptAccentUsage, content.headline, isOperationalNotice);
+      var headlineFamily = typography.headline;
+      // The full-script-headline and accent-word treatments are only
+      // attempted on a calm/flat surface (a panel, or the dedicated
+      // banner shape) — never against an unpredictable photo area, where
+      // the banner-behind-busy fallback below is the safety net that
+      // already exists and is proven; this is a deliberate, disclosed
+      // Phase 2 scope limit.
+      var safeForScriptTreatment = onPanel || headlineRect === geo.banner;
+
+      var contactRect = { x: Math.round(width * 0.06), y: Math.round(height * 0.93), w: Math.round(width * 0.88), h: Math.round(height * 0.05) };
+      var supportingText = activeRoles.indexOf("supportingLine") !== -1 && roleRects.supportingLine
+        ? deriveSupportingLineText(content.body, cd.graphicTextLimits && cd.graphicTextLimits.supportingLineMaxChars)
+        : null;
+
+      // Independent-review-equivalent fix: a role that needed a
+      // banner-behind-busy-photo rescue was previously drawn immediately
+      // (in real cream text) and THEN the ribbon itself was painted on
+      // top afterward — silently erasing the very text the ribbon was
+      // supposed to rescue (a confirmed defect: an entirely empty ribbon
+      // where a headline should have been, on a real generated
+      // screenshot). This mirrors the legacy renderFlyer() path's own
+      // proven two-pass discipline instead: `layOutText` runs once
+      // against measuringContext(ctx) (measures and decides which roles
+      // need a band, paints nothing for real), the merged bands are
+      // painted for real, and only THEN does the exact same function run
+      // again against the real ctx — by which point any banner a role
+      // needs is already underneath it.
+      function layOutText(targetCtx, bandsSink) {
+        var localDrawn = [];
+        if (typography.script && scriptPlan.mode === "full_headline" && safeForScriptTreatment) {
+          var full = drawTypographyRole(targetCtx, headlineRect, content.headline, {
+            family: typography.script, weight: "400", textStyle: headlineStyle,
+            baseSizeRatio: 0.34 * (HEADLINE_SCALE_MULTIPLIER[cd.headlineScale] || 1),
+            italic: true
+          });
+          if (full.drew) localDrawn.push("headline");
+        } else if (typography.script && scriptPlan.mode === "accent_word" && safeForScriptTreatment && scriptPlan.accentWord) {
+          var accentResult = drawHeadlineWithAccentWord(
+            targetCtx, headlineRect, content.headline, scriptPlan.accentWord,
+            headlineFamily, typography.script, typography.headlineWeight, headlineStyle,
+            headlineRect.h * 0.36 * (HEADLINE_SCALE_MULTIPLIER[cd.headlineScale] || 1)
+          );
+          localDrawn.push("headline");
+          if (!accentResult) {
+            // Doesn't fit on one line at any size — fall back to the
+            // plain wrapped render for THIS pass only (deterministic:
+            // both passes make the identical choice since nothing
+            // between them changes the measurement).
+            drawTypographyRole(targetCtx, headlineRect, content.headline, {
+              family: headlineFamily, weight: typography.headlineWeight, textStyle: headlineStyle,
+              background: headlineRect === geo.banner ? null : background, bands: bandsSink,
+              baseSizeRatio: 0.36 * (HEADLINE_SCALE_MULTIPLIER[cd.headlineScale] || 1)
+            });
+          }
+        } else {
+          var hResult = drawTypographyRole(targetCtx, headlineRect, content.headline, {
+            family: headlineFamily, weight: typography.headlineWeight, textStyle: headlineStyle,
+            background: headlineRect === geo.banner ? null : background, bands: bandsSink,
+            baseSizeRatio: 0.36 * (HEADLINE_SCALE_MULTIPLIER[cd.headlineScale] || 1)
+          });
+          if (hResult.drew) localDrawn.push("headline");
+        }
+
+        // Supporting line — a real EXCERPT of the actual caption, never
+        // invented (Part G). subhead_script renders it in the script
+        // family when the plan calls for one.
+        if (supportingText) {
+          var supportFamily = typography.script && scriptPlan.mode === "subhead_script" && safeForScriptTreatment ? typography.script : typography.body;
+          var supportWeight = supportFamily === typography.script ? "400" : typography.bodyWeight;
+          var sResult = drawTypographyRole(targetCtx, roleRects.supportingLine, supportingText, {
+            family: supportFamily, weight: supportWeight, textStyle: styleFor(roleRects.supportingLine),
+            background: onPanel ? null : background, bands: bandsSink, baseSizeRatio: 0.3, minFontRatio: 0.75,
+            italic: supportFamily === typography.script
+          });
+          if (sResult.drew) localDrawn.push("supportingLine");
+        }
+
+        // CTA — the existing, unmodified drawCtaLabel/computeCtaLayout,
+        // gated on the hard contract exactly like every other role.
+        if (activeRoles.indexOf("cta") !== -1 && roleRects.cta && content.cta) {
+          drawCtaLabel(targetCtx, roleRects.cta, content.cta, ornamentColors.accent, styleFor(roleRects.cta), roleRects.cta.h, onPanel ? null : background, bandsSink);
+          localDrawn.push("cta");
+        }
+
+        // Phone (Part F/Q): a footer contact line is drawn AT ALL only
+        // when graphicTextSlots.phone is true — no phone number reaches
+        // the graphic in any form otherwise, even when the shop profile
+        // has one on file. contactLineParts' own existing dedup logic
+        // still applies underneath this gate (never repeats a number the
+        // CTA already shows).
+        if (slots.phone) {
+          drawContact(targetCtx, contactRect, brand, styleFor(contactRect), content.cta, onPanel ? null : background, ornamentColors.accent, bandsSink);
+          if (contactLineParts(brand, content.cta).length) localDrawn.push("contact");
+        }
+        return localDrawn;
+      }
+
+      var wantedBands = [];
+      layOutText(measuringContext(ctx), wantedBands);
+      var merged = mergeBands(wantedBands, height * 0.004);
+      for (var mi = 0; mi < merged.length; mi++) drawBanner(ctx, merged[mi], ornamentColors.primary);
+      drawnRoles = layOutText(ctx, null);
+
+      // Branding (Part H). Drawn once, after the text roles' own
+      // banner-behind-busy rescue is fully resolved and painted — a real
+      // Phase 2 scope limit, disclosed in the completion report: unlike
+      // the legacy shop-name lockup, the branding lockup here does not
+      // itself get a two-pass banner-behind rescue if it happens to land
+      // on a busy stretch of photo; pickRegionTextStyle's own real
+      // per-pixel contrast choice is still applied, which is real
+      // legibility insurance, just not the full ribbon-rescue mechanism.
+      var brandRect = resolveBrandingRect(cd.brandingPosition, width, height);
+      var brandStyle = onPanel ? panelTextStyle : pickRegionTextStyle(ctx, brandRect, background);
+      var brandingPromise = drawBrandIdentity(ctx, brandRect, brand, cd.brandIdentifier, cd.brandingScale, brandStyle, null, null);
+
+      // Badge (Part J) — a small, restrained, purely decorative accent
+      // near the branding corner, never carrying invented text.
+      if (cd.badgeStyle && cd.badgeStyle !== "none" && ornamentalDensityAllows(cd.ornamentalDensity, "corner")) {
+        var badgeR = Math.min(width, height) * 0.035 * (BRANDING_SCALE_MULTIPLIER[cd.brandingScale] || 1);
+        drawBadgeAccent(ctx, width * 0.92, height * 0.08, badgeR, cd.badgeStyle, ornamentColors);
+      }
+
+      return brandingPromise.then(function () {
+        if (canvas.dataset) {
+          canvas.dataset.florisynBackgroundTier = backgroundTier || BACKGROUND_TIER.PROCEDURAL;
+          canvas.dataset.florisynCreativeDirection = "1";
+          canvas.dataset.florisynOccasionTreatment = cd.occasionTreatment || "";
+          canvas.dataset.florisynCompositionFamily = cd.compositionFamily || "";
+          canvas.dataset.florisynTextRegion = cd.textRegion || "";
+          canvas.dataset.florisynDrawnRoles = drawnRoles.join(",");
+        }
+        return canvas;
+      });
+    });
+  }
+
   /** Draws a full flyer: background (a generated image URL — Tier A — or
    * a rich Tier-B floral-toned wash over the template's own flat/gradient
    * brand fill, see flyer-templates.js's `palette` field), full-bleed and
@@ -1526,6 +2528,12 @@
    * is always renderable even if a generated visual never arrives. */
   function renderFlyer(opts) {
     opts = opts || {};
+    // Phase 2: a real creative_direction object branches into the
+    // dynamic execution path below — a pre-Phase-1 asset, or any caller
+    // that simply doesn't pass one, falls straight through to the
+    // original code beneath this check, completely unchanged (Part O:
+    // backward compatibility is never optional).
+    if (opts.creativeDirection) return renderFlyerWithCreativeDirection(opts);
     var template = opts.template;
     var content = opts.content || {};
     var style = opts.style || { scale: {} };
@@ -1780,7 +2788,24 @@
     measuringContext: measuringContext,
     lockupUsedHeight: lockupUsedHeight,
     compositeSubjectOnBackground: compositeSubjectOnBackground,
-    renderFlyer: renderFlyer
+    renderFlyer: renderFlyer,
+    // Phase 2 — Creative Direction execution.
+    HIERARCHY_DEPTH_ROLES: HIERARCHY_DEPTH_ROLES,
+    HEADLINE_SCALE_MULTIPLIER: HEADLINE_SCALE_MULTIPLIER,
+    TYPOGRAPHY_PERSONAS: TYPOGRAPHY_PERSONAS,
+    resolveScriptAccentPlan: resolveScriptAccentPlan,
+    deriveSupportingLineText: deriveSupportingLineText,
+    resolveOrnamentColors: resolveOrnamentColors,
+    computeCoverAlignedRect: computeCoverAlignedRect,
+    IMAGE_CROP_ZOOM: IMAGE_CROP_ZOOM,
+    SUBJECT_PLACEMENT_FOCAL: SUBJECT_PLACEMENT_FOCAL,
+    resolveCompositionGeometry: resolveCompositionGeometry,
+    splitStackIntoRoles: splitStackIntoRoles,
+    ornamentalDensityAllows: ornamentalDensityAllows,
+    resolveBrandingRect: resolveBrandingRect,
+    BRANDING_SCALE_MULTIPLIER: BRANDING_SCALE_MULTIPLIER,
+    isRoleImpossibleToFit: isRoleImpossibleToFit,
+    renderFlyerWithCreativeDirection: renderFlyerWithCreativeDirection
   };
 
   global.FlorisynFlyerRenderer = api;

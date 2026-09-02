@@ -354,19 +354,23 @@
       // FlorisynFlyerRenderer is the ONLY flyer renderer Marketing Studio
       // uses now — no first-choice/fallback pair, no composition rotation,
       // no `photo_strategy === "subject_forward"` → "magazine" mapping.
-      // This is an explicit interim step (per Ashley's direction), not the
-      // final flyer-quality architecture: a real creative-direction layer
-      // between the canonical concept and rendering is planned separately.
-      // This patch's job is only to stop the confirmed-wrong legacy output
-      // from reaching a florist, never to polish the old renderer further.
       // FlorisynFlyerPoster itself is untouched and keeps working exactly
       // as before for its own, unrelated feature.
+      //
+      // Creative Direction Phase 2: c.creative_direction is the exact
+      // same persisted object Phase 1 already writes to
+      // ai_generated_assets.content.creative_direction — already present
+      // right here on this same asset-content object, no new plumbing
+      // needed. Passed straight through; renderFlyer() itself decides
+      // whether to execute it (present) or fall back to the original
+      // template-region path (absent — a pre-Phase-1 asset).
       const canvas = await window.FlorisynFlyerRenderer.renderFlyer({
         template: { regions: c.regions, palette: c.palette },
         content,
         style: c.style,
         brand: c.brand || {},
         backgroundUrl: c.background_url,
+        creativeDirection: c.creative_direction || null,
         width,
         height
       });
