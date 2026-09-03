@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import {
   COST_PER_UNIT_CENTS,
   estimateCostCents,
-  DEFAULT_MONTHLY_ALLOWANCE
+  DEFAULT_MONTHLY_ALLOWANCE,
+  OPENAI_IMAGE_COST_CEILING_CENTS_BY_TIER,
+  estimateOpenAiImageCostCents,
+  estimateOpenAiActualCostCentsFromUsage
 } from "../netlify/functions/_shared/marketing-cost-config.js";
 
 test("estimateCostCents: image purpose multiplies unit count by the configured per-image rate", () => {
@@ -39,4 +42,37 @@ test("estimateCostCents: an unrecognized purpose/unitType combination returns nu
 test("DEFAULT_MONTHLY_ALLOWANCE matches the Section 9 Founding Beta target (~90 pieces/month)", () => {
   const total = DEFAULT_MONTHLY_ALLOWANCE.image_posts + DEFAULT_MONTHLY_ALLOWANCE.reels_or_shorts + DEFAULT_MONTHLY_ALLOWANCE.long_form_videos;
   assert.equal(total, 90);
+});
+
+// Hybrid Marketing Studio Batch 1, Part 6: OpenAI conservative cost model.
+
+test("estimateOpenAiImageCostCents: never equals a hardcoded $0.053/image (5.3 cents) — Ashley's explicit instruction not to treat that figure as authoritative", () => {
+  for (const tier of ["low", "medium", "high"]) {
+    const result = estimateOpenAiImageCostCents({ qualityTier: tier });
+    assert.notEqual(result.cents, 5.3, `tier "${tier}" must not hardcode the report's $0.053 figure`);
+  }
+});
+
+test("estimateOpenAiImageCostCents: returns the named per-tier ceiling constant with cost_source metadata, and null for an unknown tier", () => {
+  for (const tier of Object.keys(OPENAI_IMAGE_COST_CEILING_CENTS_BY_TIER)) {
+    const result = estimateOpenAiImageCostCents({ qualityTier: tier });
+    assert.equal(result.cents, OPENAI_IMAGE_COST_CEILING_CENTS_BY_TIER[tier]);
+    assert.equal(result.currency, "USD");
+    assert.equal(result.cost_source, "openai_conservative_ceiling_estimate");
+  }
+  assert.equal(estimateOpenAiImageCostCents({ qualityTier: "not_a_real_tier" }), null);
+});
+
+test("estimateOpenAiActualCostCentsFromUsage: reconciles real input/output token usage into a cost, distinct from the pre-flight ceiling", () => {
+  const reconciled = estimateOpenAiActualCostCentsFromUsage({ input_tokens: 1_000_000, output_tokens: 0 });
+  assert.equal(reconciled.cents, 800, "1M input tokens at $8/M must reconcile to 800 cents");
+  const reconciledOutput = estimateOpenAiActualCostCentsFromUsage({ input_tokens: 0, output_tokens: 1_000_000 });
+  assert.equal(reconciledOutput.cents, 3000, "1M output tokens at $30/M must reconcile to 3000 cents");
+  assert.equal(reconciled.cost_source, "openai_reconciled_from_usage");
+});
+
+test("estimateOpenAiActualCostCentsFromUsage: returns null (never a fabricated figure) when no usage was reported", () => {
+  assert.equal(estimateOpenAiActualCostCentsFromUsage(undefined), null);
+  assert.equal(estimateOpenAiActualCostCentsFromUsage(null), null);
+  assert.equal(estimateOpenAiActualCostCentsFromUsage({}), null);
 });

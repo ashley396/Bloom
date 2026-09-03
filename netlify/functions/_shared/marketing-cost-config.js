@@ -93,3 +93,73 @@ export const DEFAULT_MONTHLY_ALLOWANCE = Object.freeze({
   reels_or_shorts: 30,
   long_form_videos: 30
 });
+
+/**
+ * OpenAI GPT-Image-2 conservative cost model (Batch 1, Part 6).
+ *
+ * Ashley's own instruction: "Do not hardcode Claude's report's estimated
+ * $0.053/image as authoritative. Official current OpenAI pricing is
+ * token-based. Build estimateCost() conservatively. Where exact
+ * output-token usage cannot be known before generation: reserve a safe
+ * upper bound appropriate to requested size/quality; reconcile actual
+ * usage after the provider returns usage data, when available; preserve
+ * cost_source metadata."
+ *
+ * The per-tier ceilings below are deliberately the HIGHEST third-party-
+ * reported per-image price observed across GPT-Image-2's three sizes
+ * (1024x1024 / 1024x1536 / 1536x1024) at that quality tier — a
+ * reservation ceiling, not a best-guess average. They come from
+ * WebSearch-triangulated pricing summaries during the architecture-review
+ * pass, NOT a primary OpenAI pricing-page fetch (this sandbox's network
+ * policy blocks direct access to openai.com — see that report). Treat
+ * these as "safe enough to reserve against, not yet independently
+ * verified" until a real staging generation returns actual usage data to
+ * reconcile against.
+ */
+export const OPENAI_IMAGE_COST_CEILING_CENTS_BY_TIER = Object.freeze({
+  low: 1, // ceiling for the ~$0.005-$0.006/image low-quality tier
+  medium: 6, // ceiling for the ~$0.041-$0.053/image medium-quality tier
+  high: 22 // ceiling for the ~$0.165-$0.211/image high-quality tier
+});
+
+// Token-based reconciliation rates ($8/M image-input tokens, $30/M
+// image-output tokens per the same WebSearch-triangulated figures) —
+// used ONLY after a real OpenAI response returns actual usage, never for
+// the pre-flight reservation above.
+const OPENAI_IMAGE_INPUT_CENTS_PER_MILLION_TOKENS = 800;
+const OPENAI_IMAGE_OUTPUT_CENTS_PER_MILLION_TOKENS = 3000;
+
+/**
+ * Pre-generation OpenAI reservation estimate — call this (not
+ * estimateCostCents()) before reserveProviderCall() for an OpenAI image
+ * request. Always the conservative per-tier ceiling above, never an
+ * average or a hardcoded single figure, and always carries
+ * cost_source so a caller/ledger row can distinguish "reserved against a
+ * conservative ceiling" from "reconciled against real provider usage."
+ */
+export function estimateOpenAiImageCostCents({ qualityTier = "medium" } = {}) {
+  const cents = OPENAI_IMAGE_COST_CEILING_CENTS_BY_TIER[qualityTier];
+  if (cents == null) return null;
+  return { cents, currency: "USD", cost_source: "openai_conservative_ceiling_estimate" };
+}
+
+/**
+ * Post-generation reconciliation from OpenAI's own reported usage (only
+ * when the API response actually includes it — never fabricated). Feeds
+ * completeProviderCall()'s actualCostCents, never the pre-flight
+ * reservation. Returns null when usage wasn't reported, so a caller can
+ * honestly fall back to the reservation amount as the final cost rather
+ * than pretend a reconciled figure exists.
+ */
+export function estimateOpenAiActualCostCentsFromUsage(usage) {
+  const inputTokens = Number(usage?.input_tokens ?? usage?.inputTokens);
+  const outputTokens = Number(usage?.output_tokens ?? usage?.outputTokens);
+  if (!Number.isFinite(inputTokens) && !Number.isFinite(outputTokens)) return null;
+  const inputCents = Number.isFinite(inputTokens) ? (inputTokens / 1_000_000) * OPENAI_IMAGE_INPUT_CENTS_PER_MILLION_TOKENS : 0;
+  const outputCents = Number.isFinite(outputTokens) ? (outputTokens / 1_000_000) * OPENAI_IMAGE_OUTPUT_CENTS_PER_MILLION_TOKENS : 0;
+  return {
+    cents: Math.round(inputCents + outputCents),
+    currency: "USD",
+    cost_source: "openai_reconciled_from_usage"
+  };
+}

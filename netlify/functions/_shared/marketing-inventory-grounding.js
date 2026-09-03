@@ -83,6 +83,19 @@ export async function loadGroundedProducts(client, shopId, { limit = DEFAULT_LIM
  * Returns null summary text when there's genuinely nothing to ground on —
  * callers must treat that as "cannot ground this request", never silently
  * proceed with an ungrounded generic prompt while claiming it was grounded.
+ *
+ * Batch 1 architecture-audit pin (Part 3): `items: []` here means
+ * INVENTORY STATE IS UNKNOWN — no verified positive-stock fact is
+ * available — never "verified out of stock." `loadGroundedInventory`'s
+ * own `.gt("quantity", 0)` query returns an identical empty result
+ * whether a shop has never tracked a given flower at all or has a real
+ * zero-quantity row for it; this function (and every caller of it) must
+ * never read an empty `items` list as license to say "we're out of X."
+ * This was already the codebase's real behavior — no generation path
+ * asserts "out of stock" from an empty result — this comment (and the
+ * regression tests in tests/marketing-content-revision-inventory-
+ * coherence.test.js) makes that guarantee INTENTIONAL rather than
+ * accidental, so a future change can't quietly start asserting it.
  */
 export function buildInventoryGroundingBrief(items = []) {
   if (!items.length) {

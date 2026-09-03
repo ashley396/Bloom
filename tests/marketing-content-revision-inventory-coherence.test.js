@@ -3,12 +3,16 @@ import assert from "node:assert/strict";
 import {
   detectUnverifiedInventoryStateClaim,
   stripUnverifiedInventoryClaims,
+  detectUnverifiedServiceAvailabilityClaim,
+  stripUnverifiedServiceAvailabilityClaims,
   detectConceptCoherenceMismatch,
   requestSignalsRealPromotion,
   requestSignalsIntentionalInventoryUse,
   sanitizeUngroundedFlowerNames,
+  evaluateMarketingOutput,
   BEREAVEMENT_CONTEXT_RE
 } from "../netlify/functions/_shared/marketing-content-revision.js";
+import { loadGroundedInventory, buildInventoryGroundingBrief } from "../netlify/functions/_shared/marketing-inventory-grounding.js";
 
 /**
  * Phase 3 live acceptance-test fix. Real, live-found failure (real
@@ -406,4 +410,158 @@ test("sanitizeUngroundedFlowerNames: a no-op when nothing is ungrounded", () => 
   const result = sanitizeUngroundedFlowerNames({ text: original, requestText: "Create today's Facebook post", verifiedFlowerNames: [] });
   assert.equal(result.text, original);
   assert.deepEqual(result.removed, []);
+});
+
+// ---------------------------------------------------------------------------
+// Batch 1 (Hybrid Marketing Studio prep), Part 2 — detectUnverifiedService
+// AvailabilityClaim / stripUnverifiedServiceAvailabilityClaims
+//
+// The architecture audit found no detector for invented service/business-
+// state claims like "same-day delivery" or "open now" — only shipment/
+// restock-shaped language (detectUnverifiedInventoryStateClaim, above)
+// was covered. These tests reproduce the exact live-observed failure
+// (a flyer CTA fixture that generated a same-day-delivery claim from
+// nothing but a real phone number) and pin the new detector's behavior.
+// ---------------------------------------------------------------------------
+
+test("REGRESSION B: the exact fixture failure — 'CALL 606-506-4039 FOR SAME-DAY DELIVERY.' is rejected with no evidence", () => {
+  const violations = detectUnverifiedServiceAvailabilityClaim({
+    generatedText: "CALL 606-506-4039 FOR SAME-DAY DELIVERY.",
+    requestText: "Create today's Facebook post for Lilies in Bloom",
+    verifiedServiceSignals: []
+  });
+  assert.equal(violations.length, 1);
+  assert.match(violations[0], /SAME-DAY DELIVERY/i);
+});
+
+test("detectUnverifiedServiceAvailabilityClaim: SUPPORTED — the florist's own request explicitly says same-day delivery", () => {
+  const violations = detectUnverifiedServiceAvailabilityClaim({
+    generatedText: "Call 606-506-4039 for same-day delivery on all orders placed before noon.",
+    requestText: "Make a post letting people know we offer same-day delivery.",
+    verifiedServiceSignals: []
+  });
+  assert.deepEqual(violations, []);
+});
+
+test("detectUnverifiedServiceAvailabilityClaim: SUPPORTED — a verified shop-configuration signal (future source, empty today) licenses the claim", () => {
+  const violations = detectUnverifiedServiceAvailabilityClaim({
+    generatedText: "Same-day delivery is available for local orders.",
+    requestText: "Create a general post",
+    verifiedServiceSignals: ["same-day delivery"]
+  });
+  assert.deepEqual(violations, []);
+});
+
+test("detectUnverifiedServiceAvailabilityClaim: catches 'open now'/'open today' with no evidence", () => {
+  const violations = detectUnverifiedServiceAvailabilityClaim({
+    generatedText: "We're open now, come on by!",
+    requestText: "Create a fun post for our page"
+  });
+  assert.equal(violations.length, 1);
+});
+
+test("detectUnverifiedServiceAvailabilityClaim: catches 'walk-ins welcome' with no evidence", () => {
+  const violations = detectUnverifiedServiceAvailabilityClaim({
+    generatedText: "Walk-ins welcome all week long.",
+    requestText: "Create a fun post for our page"
+  });
+  assert.equal(violations.length, 1);
+});
+
+test("detectUnverifiedServiceAvailabilityClaim: never over-blocks ordinary copy with no actual service-state claim", () => {
+  const safe = [
+    "Fresh flowers can brighten someone's day.",
+    "Order today and make someone smile.",
+    "Call us for a free consultation.",
+    "Our doors are always open to new ideas.",
+    "Send someone a little beauty today.",
+    // Batch 1 independent-review finding: an earlier draft of
+    // SERVICE_AVAILABILITY_SIGNAL_RE matched bare "available (now|today)"
+    // / "ready (now|today)" regardless of what they were describing —
+    // these are real, ordinary PRODUCT-availability marketing sentences,
+    // never a service/delivery/pickup claim, and must never be flagged.
+    "Peonies are available now while supplies last.",
+    "Our tulips are available now for a limited time.",
+    "Get your flowers ready now for the big day.",
+    "Fresh, seasonal blooms are ready for pickup today."
+  ];
+  for (const text of safe) {
+    const violations = detectUnverifiedServiceAvailabilityClaim({ generatedText: text, requestText: "Create a fun post" });
+    assert.deepEqual(violations, [], `should not flag: "${text}"`);
+  }
+});
+
+test("detectUnverifiedServiceAvailabilityClaim: still catches a real service-availability claim anchored to delivery/pickup/order, not just any 'available'/'ready'", () => {
+  const unsafe = [
+    "Pickup is available now.",
+    "Delivery is available today.",
+    "Your order is ready today, come pick it up!"
+  ];
+  for (const text of unsafe) {
+    const violations = detectUnverifiedServiceAvailabilityClaim({ generatedText: text, requestText: "Create a fun post" });
+    assert.equal(violations.length, 1, `should flag: "${text}"`);
+  }
+});
+
+test("stripUnverifiedServiceAvailabilityClaims: removes only the offending sentence, keeps the rest", () => {
+  const result = stripUnverifiedServiceAvailabilityClaims({
+    generatedText: "Beautiful blooms for every occasion. Call 606-506-4039 for same-day delivery.",
+    requestText: "Create today's Facebook post"
+  });
+  assert.equal(result.removed.length, 1);
+  assert.doesNotMatch(result.text, /same-day delivery/i);
+  assert.match(result.text, /Beautiful blooms/);
+});
+
+test("evaluateMarketingOutput: the exact fixture CTA is rejected/repaired through the real authoritative safety path, not a parallel evaluator", () => {
+  const outcome = evaluateMarketingOutput({
+    request: "Create today's Facebook post for Lilies in Bloom",
+    shopEvidence: { name: "Lilies in Bloom", phone: "606-506-4039" },
+    inventoryEvidence: [],
+    candidate: { headline: "Beautiful Blooms", body: "Fresh arrangements for every occasion.", cta: "CALL 606-506-4039 FOR SAME-DAY DELIVERY." },
+    component: "flyer_text"
+  });
+  assert.ok(outcome.checksRun.includes("detectUnverifiedServiceAvailabilityClaim"));
+  assert.notEqual(outcome.decision, "pass");
+  assert.ok(outcome.reasons.some((r) => /same-day delivery/i.test(r)) || (outcome.repaired && !/same-day delivery/i.test(outcome.safeCandidate.cta || "")));
+});
+
+// ---------------------------------------------------------------------------
+// Batch 1, Part 3 — pin "unknown inventory" semantics (never "out of stock")
+// ---------------------------------------------------------------------------
+
+function fakeInventoryQueryClient(rows) {
+  const query = {
+    select() { return query; },
+    eq() { return query; },
+    is() { return query; },
+    gt() { return query; },
+    order() { return query; },
+    limit() { return query; },
+    data: rows,
+    error: null
+  };
+  return { from: () => query };
+}
+
+test("Part 3 pin: zero real inventory rows returns items:[] (unknown), never an 'out of stock' marker anywhere in the result", async () => {
+  const client = fakeInventoryQueryClient([]);
+  const result = await loadGroundedInventory(client, "shop-1");
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.items, []);
+  assert.equal(JSON.stringify(result).toLowerCase().includes("out of stock"), false);
+});
+
+test("Part 3 pin: buildInventoryGroundingBrief([]) is honestly 'not grounded' — never asserted as verified zero stock", () => {
+  const brief = buildInventoryGroundingBrief([]);
+  assert.equal(brief.grounded, false);
+  assert.equal(brief.summaryText, null);
+  assert.deepEqual(brief.sources, []);
+});
+
+test("Part 3 pin: a real query error also degrades to items:[] (unknown/unavailable-to-check), never a fabricated stock claim", async () => {
+  const client = { from: () => ({ select() { return this; }, eq() { return this; }, is() { return this; }, gt() { return this; }, order() { return this; }, limit() { return this; }, data: null, error: { message: "connection reset" } }) };
+  const result = await loadGroundedInventory(client, "shop-1");
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.items, []);
 });

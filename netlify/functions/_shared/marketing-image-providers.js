@@ -9,15 +9,20 @@
  * via the caller, marketing-image-quality.js — this module never calls
  * reserveProviderCall/completeProviderCall itself).
  *
- * Exactly one real provider is registered today: Cloudflare. The router
- * below is written to consider capability/cost/budget so a second
- * provider is a new adapter file plus one registry entry later — not a
- * routing rewrite — but it must never be misread as "a second provider
- * already exists." It doesn't (Part F: "Do NOT pretend a second provider
- * exists").
+ * Two adapters can now appear here: Cloudflare (Batch 6) and OpenAI
+ * GPT-Image-2 (Batch 1 of the Hybrid Marketing Studio work, Part 4) — the
+ * OpenAI one only when a real OPENAI_API_KEY is actually configured. This
+ * registry recognizing OpenAI is NOT the same as live traffic being
+ * routed to it: as of Batch 1, no caller (marketing-image-quality.js or
+ * anywhere else) selects the OpenAI provider for a real Marketing Studio
+ * generation yet (Part 12) — that activation is a separate, future,
+ * explicitly-approved change. The router below already considers
+ * capability/cost/budget so that activation is a call-site change, not a
+ * routing rewrite.
  */
 
 import { createCloudflareMarketingImageProvider, PROVIDER_NAME as CLOUDFLARE_PROVIDER_NAME } from "./marketing-image-provider-cloudflare.js";
+import { createOpenAiMarketingImageProvider, PROVIDER_NAME as OPENAI_PROVIDER_NAME } from "./marketing-image-provider-openai.js";
 
 /**
  * Builds the real registry from environment credentials — a provider only
@@ -34,6 +39,8 @@ export function buildConfiguredMarketingImageProviderRegistry(env = process.env)
   const registry = {};
   const cloudflare = createCloudflareMarketingImageProvider(env);
   if (cloudflare.configured()) registry[CLOUDFLARE_PROVIDER_NAME] = cloudflare;
+  const openai = createOpenAiMarketingImageProvider(env);
+  if (openai.configured()) registry[OPENAI_PROVIDER_NAME] = openai;
   return registry;
 }
 

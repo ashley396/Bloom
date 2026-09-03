@@ -1300,6 +1300,104 @@ export function sanitizeUngroundedFlowerNames({ text, requestText, verifiedFlowe
 }
 
 // ---------------------------------------------------------------------------
+// detectUnverifiedServiceAvailabilityClaim / stripUnverifiedServiceAvailability
+// Claims
+//
+// Batch 1 architecture-audit fix (Part 2): a real, confirmed gap — the
+// inventory-state check above only ever matches shipment/restock-shaped
+// language (INVENTORY_STATE_SIGNAL_RE); a sentence claiming "same-day
+// delivery," "open now," or "walk-ins welcome" never matched that
+// signal and passed through completely unguarded except inside
+// buildDeterministicCreativeRescueContent's own narrow hand-written
+// fallback. The exact live-observed failure this closes: a flyer CTA
+// generated "CALL 606-506-4039 FOR SAME-DAY DELIVERY." from nothing but
+// a real phone number and generic florist context — same-day delivery
+// was never something the florist said or Florisyn verified.
+//
+// Same "claim semantics, not a word ban" principle as the inventory
+// check above: a sentence merely CONTAINING a phone number, or
+// describing flowers as a nice gift "today," is never touched — only a
+// sentence that actually ASSERTS a specific service/availability state
+// (same-day delivery, open now, walk-ins welcome, ready today) needs
+// real evidence behind it.
+// ---------------------------------------------------------------------------
+
+// Deliberately scoped to exactly the phrases the live-observed failure
+// and Ashley's own instruction named — same-day delivery, open now/today,
+// available now/today, walk-ins welcome, ready today, order-today-for-
+// delivery-today — and nothing broader.
+//
+// Two real over-blocking regressions were found and fixed here, both by
+// the same root cause: "available (now|today)" and "ready (now|today)"
+// on their own are NOT service/availability claims — they're also
+// completely ordinary PRODUCT copy ("Peonies are available now while
+// supplies last," "Fresh blooms are ready for pickup today," "Get your
+// flowers ready now for the big day"). None of those assert anything
+// about the SHOP's delivery/pickup/order-fulfillment state; a bare
+// adjacency match flagged them anyway. Both alternatives are now
+// anchored to an explicit delivery/pickup/order noun immediately
+// adjacent to "available"/"ready" — "delivery is available now,"
+// "pickup available today," "your order is ready today" — which still
+// catches the real service-state claims Ashley's own phrase list names
+// while leaving ordinary product-availability copy untouched.
+const SERVICE_AVAILABILITY_SIGNAL_RE =
+  /\bsame[\s-]?day\s+delivery\b|\bdelivery\s+(?:is\s+)?available(?:\s+today)?\b|\bdelivery\s+today\b|\border\s+today\s+for\s+(?:delivery|pickup)\s+today\b|\bopen\s+(?:now|today)\b|\b(?:delivery|pickup|orders?)\s+(?:is\s+|are\s+)?available\s+(?:now|today)\b|\bwalk-?ins?\s+welcome\b|\b(?:order|pickup|it'?s)\s+(?:is\s+)?ready\s+(?:today|now)\b/i;
+
+/**
+ * Sentences in `generatedText` that assert a specific, unverified
+ * service/availability state (same-day delivery, open now, walk-ins
+ * welcome, ready today, and similar) with no evidence behind them.
+ *
+ * SUPPORTED when the florist's own `requestText` already states the
+ * same signal ("we offer same-day delivery"), or a future verified
+ * shop-configuration fact is supplied via `verifiedServiceSignals` (an
+ * array of already-confirmed service-state strings — empty today, since
+ * no such verified config source exists yet in this codebase; kept as
+ * an explicit parameter so a real source can be wired in later without
+ * a second, parallel detector).
+ *
+ * Deliberately narrow, not a word ban: "Fresh flowers can brighten
+ * someone's day," "Order today," and "Call us for a free consultation"
+ * must never trip this — only an actual service/availability CLAIM
+ * (same-day delivery, open now/today, available now/today, walk-ins
+ * welcome, ready today) requires evidence.
+ *
+ * Pure. Never shop-specific — every input is supplied by the caller.
+ */
+export function detectUnverifiedServiceAvailabilityClaim({ generatedText, requestText, verifiedServiceSignals = [] } = {}) {
+  const text = String(generatedText || "");
+  const request = String(requestText || "");
+  const requestSupplies = SERVICE_AVAILABILITY_SIGNAL_RE.test(request);
+  const verifiedSupplies = (verifiedServiceSignals || []).some((s) => SERVICE_AVAILABILITY_SIGNAL_RE.test(String(s || "")));
+  if (requestSupplies || verifiedSupplies) return [];
+
+  const violations = [];
+  for (const sentence of sentencesOf(text)) {
+    if (SERVICE_AVAILABILITY_SIGNAL_RE.test(sentence)) violations.push(sentence.trim());
+  }
+  return violations;
+}
+
+/**
+ * Removes every sentence flagged by detectUnverifiedServiceAvailability
+ * Claim from `text`, rebuilding the remainder — same "cut the sentence,
+ * no fragment survives" pattern as stripUnverifiedInventoryClaims (there
+ * is no safe substitute for an invented service-availability claim; only
+ * the florist or verified shop config can supply the real one).
+ *
+ * Pure. Returns { text, removed }.
+ */
+export function stripUnverifiedServiceAvailabilityClaims({ generatedText, requestText, verifiedServiceSignals = [] } = {}) {
+  const original = String(generatedText || "");
+  const violations = detectUnverifiedServiceAvailabilityClaim({ generatedText: original, requestText, verifiedServiceSignals });
+  if (!violations.length) return { text: original, removed: [] };
+  const violationSet = new Set(violations);
+  const kept = sentencesOf(original).filter((s) => !violationSet.has(s.trim()));
+  const text = kept.join(" ").replace(/[ \t]{2,}/g, " ").trim();
+  return { text, removed: violations };
+}
+
+// ---------------------------------------------------------------------------
 // One-concept coherence — does the caption and the flyer's own on-image
 // text actually describe the SAME post?
 //
@@ -1430,7 +1528,12 @@ const SPECIFIC_DETAIL_RE = new RegExp(
 // and must never be counted here.
 const SUBSTANTIVE_SENTENCE_WORDS = 9;
 
-function sentencesOf(text) {
+// Exported (Batch 1, Part 8) so marketing-openai-creative-brief.js's
+// text-token-separation classifier can reuse this exact sentence split
+// rather than re-implementing its own — one sentence-splitting rule for
+// the whole codebase, not a second copy that could quietly drift from
+// this one.
+export function sentencesOf(text) {
   return String(text || "")
     .split(/(?<=[.!?])\s+/)
     .map((s) => s.trim())
@@ -2027,6 +2130,7 @@ export function evaluateMarketingOutput({
   request,
   shopEvidence = {},
   inventoryEvidence = [],
+  verifiedServiceSignals = [],
   canonicalConcept = null,
   creativeScene = null,
   candidate,
@@ -2106,6 +2210,13 @@ export function evaluateMarketingOutput({
     );
   }
 
+  checksRun.push("detectUnverifiedServiceAvailabilityClaim");
+  for (const v of detectUnverifiedServiceAvailabilityClaim({ generatedText: rawJoined, requestText, verifiedServiceSignals })) {
+    reasons.push(
+      `"${v}" claims a specific service/availability state ("same-day delivery," "open now," "walk-ins welcome," etc.) with no verified evidence behind it. Only claim a service state the florist's own request actually states or Florisyn has verified — drop the claim or generalize it otherwise.`
+    );
+  }
+
   checksRun.push("detectVisualFictionLeakage");
   for (const v of detectVisualFictionLeakage({ generatedText: rawJoined, shopEvidence })) {
     reasons.push(
@@ -2145,7 +2256,12 @@ export function evaluateMarketingOutput({
 
   // Deterministic repair pass — always runs, per field, regardless of
   // whether `reasons` above found anything else wrong.
-  checksRun.push("stripFabricatedContactNumbers", "stripUnverifiedInventoryClaims", "stripVisualFictionLeakage");
+  checksRun.push(
+    "stripFabricatedContactNumbers",
+    "stripUnverifiedInventoryClaims",
+    "stripUnverifiedServiceAvailabilityClaims",
+    "stripVisualFictionLeakage"
+  );
   const fields = { ...originalFields };
   let repaired = false;
   for (const key of ["headline", "body", "cta"]) {
@@ -2159,6 +2275,11 @@ export function evaluateMarketingOutput({
     const inventoryCleaned = stripUnverifiedInventoryClaims({ generatedText: text, requestText, verifiedFlowerNames });
     if (inventoryCleaned.removed.length) {
       text = inventoryCleaned.text;
+      repaired = true;
+    }
+    const serviceCleaned = stripUnverifiedServiceAvailabilityClaims({ generatedText: text, requestText, verifiedServiceSignals });
+    if (serviceCleaned.removed.length) {
+      text = serviceCleaned.text;
       repaired = true;
     }
     const fictionCleaned = stripVisualFictionLeakage({ generatedText: text, shopEvidence });

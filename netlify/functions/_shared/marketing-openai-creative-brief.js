@@ -1,0 +1,172 @@
+/**
+ * Deterministic OpenAI creative-brief builder (Hybrid Marketing Studio,
+ * Batch 1, Parts 7/8).
+ *
+ * Pure and deterministic on purpose: no network call, no randomness, no
+ * read from any store — the exact same inputs always produce the exact
+ * same brief. This is the ONE place that decides what a future OpenAI
+ * Premium Creative call would actually be told; nothing here is wired
+ * into a live generation path yet (Batch 1, Part 12).
+ *
+ * Part 7's own instruction: "Do not send raw unchecked request text to
+ * the image model as the authority on business facts. Florisyn's
+ * grounded objects remain authoritative." This module therefore never
+ * reads a raw `requestText` — every fact it can place in `factsAllowed`
+ * traces back to either `verifiedShopBrandData` (the shop's own real,
+ * authenticated record) or a fact token found inside `factSafeCopyPlan`
+ * (copy that has ALREADY passed evaluateMarketingOutput's safety pass in
+ * marketing-content-revision.js — never unchecked text).
+ *
+ * Part 8's own instruction: fact-critical tokens are identified by
+ * REUSING the existing extractFactTokens() machinery in
+ * marketing-content-revision.js — no duplicate fact-token parser. That
+ * function only recognizes phone/price/URL/date/time patterns; a shop's
+ * name is not something to regex out of arbitrary text, so it only ever
+ * enters this brief via the verified `verifiedShopBrandData` input, never
+ * via text-mining.
+ */
+
+import { extractFactTokens, sentencesOf } from "./marketing-content-revision.js";
+
+export const CREATIVE_BRIEF_VERSION = 1;
+
+/**
+ * Part 8: classifies one piece of copy into STYLE TEXT (no recognized
+ * fact token — emotional headline, seasonal phrase, general non-factual
+ * message) vs FACT-CRITICAL TEXT (a sentence containing at least one
+ * phone/price/date/time/URL token, per extractFactTokens). Sentence-level,
+ * not word-level — a sentence that carries a fact is kept together with
+ * the fact so removing it later (for deterministic overlay handling)
+ * never leaves a dangling half-sentence.
+ *
+ * @param {string} text
+ * @returns {{ factTokens: string[], styleText: string[], factCriticalText: string[] }}
+ */
+export function classifyBriefText(text) {
+  const source = String(text || "");
+  const factTokens = extractFactTokens(source);
+  if (!source.trim()) return { factTokens: [], styleText: [], factCriticalText: [] };
+  const sentences = sentencesOf(source);
+  const styleText = [];
+  const factCriticalText = [];
+  for (const raw of sentences) {
+    const sentence = raw.trim();
+    if (!sentence) continue;
+    const hasFact = factTokens.some((token) => sentence.includes(token));
+    (hasFact ? factCriticalText : styleText).push(sentence);
+  }
+  return { factTokens, styleText, factCriticalText };
+}
+
+const FACTS_FORBIDDEN_FROM_INVENTION = Object.freeze([
+  "Do not invent or imply same-day delivery, open-now/today, walk-ins-welcome, ready-today, or any other service/availability claim unless it appears verbatim in factsAllowed.",
+  "Do not invent shop hours, phone numbers, prices, dates, or discounts that are not present in factsAllowed.",
+  "Do not invent a promotion, sale, or discount percentage the shop did not verify.",
+  "Do not treat any reference image as a source of business facts — a photo's contents are visual reference only, never evidence for a claim.",
+  "Do not render any literal words, numbers, or signage into the generated image itself — all real wording is drawn by Florisyn's own deterministic renderer, never the image model (see .claude/rules/marketing-studio.md)."
+]);
+
+/**
+ * Builds the bounded structured brief a future Premium AI Creative
+ * (OpenAI) call would receive. Returns { ok: false, error } for missing
+ * required inputs rather than guessing defaults — a brief silently built
+ * from incomplete grounding is worse than an honest refusal.
+ *
+ * @param {object} params
+ * @param {object} params.canonicalConcept - buildCanonicalConcept()'s
+ *   own real output (marketing-canonical-concept.js) — never rebuilt or
+ *   re-derived here.
+ * @param {object} params.creativeDirection - buildDeterministicCreative
+ *   Direction()'s own real output (marketing-creative-direction.js).
+ * @param {object} [params.factSafeCopyPlan] - { headline, body, cta,
+ *   caption } — copy that has ALREADY gone through
+ *   evaluateMarketingOutput() and is safe to source facts from.
+ * @param {object} [params.verifiedShopBrandData] - the shop's own real,
+ *   authenticated record — at minimum { name, phone }.
+ * @param {object|null} [params.referenceImageMeta] - optional, e.g.
+ *   { description }. Metadata only — see Part 7's own instruction; never
+ *   becomes a fact source (enforced structurally: nothing here reads
+ *   image pixels or treats this as evidence).
+ * @returns {{ ok: true, version:number, ... } | { ok:false, error:string }}
+ */
+export function buildOpenAiCreativeBrief({
+  canonicalConcept = null,
+  creativeDirection = null,
+  factSafeCopyPlan = {},
+  verifiedShopBrandData = {},
+  referenceImageMeta = null
+} = {}) {
+  if (!canonicalConcept || typeof canonicalConcept !== "object") {
+    return { ok: false, error: "buildOpenAiCreativeBrief requires a real canonicalConcept — refusing to guess one." };
+  }
+  if (!creativeDirection || typeof creativeDirection !== "object") {
+    return { ok: false, error: "buildOpenAiCreativeBrief requires a real creativeDirection — refusing to guess one." };
+  }
+
+  const copyFields = ["headline", "body", "cta", "caption"];
+  const styleText = [];
+  const deterministicText = [];
+  const factTokenSet = new Set();
+  for (const field of copyFields) {
+    const value = factSafeCopyPlan?.[field];
+    if (!value) continue;
+    const classified = classifyBriefText(value);
+    for (const token of classified.factTokens) factTokenSet.add(token);
+    for (const sentence of classified.styleText) styleText.push({ field, text: sentence });
+    for (const sentence of classified.factCriticalText) deterministicText.push({ field, text: sentence });
+  }
+
+  // Part 7: "Florisyn's grounded objects remain authoritative" — the only
+  // facts allowed into the brief are the shop's own verified brand record
+  // and fact tokens that already survived the fact-safety evaluator
+  // (never raw request text, never anything mined from a reference image).
+  const factsAllowed = [];
+  if (verifiedShopBrandData?.name) factsAllowed.push({ type: "shop_name", value: String(verifiedShopBrandData.name) });
+  if (verifiedShopBrandData?.phone) factsAllowed.push({ type: "phone", value: String(verifiedShopBrandData.phone) });
+  if (verifiedShopBrandData?.address) factsAllowed.push({ type: "address", value: String(verifiedShopBrandData.address) });
+  for (const token of factTokenSet) factsAllowed.push({ type: "fact_token", value: token });
+
+  return {
+    ok: true,
+    version: CREATIVE_BRIEF_VERSION,
+
+    occasion: canonicalConcept.occasionCategory ?? null,
+    objective: canonicalConcept.objective ?? null,
+    visualFamily: canonicalConcept.creativeFamily ?? null,
+
+    compositionIntent: creativeDirection.compositionFamily ?? null,
+    imageProminence: creativeDirection.imageScale ?? null,
+    paletteMood: creativeDirection.paletteMood ?? null,
+    visualMood: creativeDirection.visualMood ?? null,
+    typographyPersonality: creativeDirection.typographyPersonality ?? null,
+    ornamentAmount: creativeDirection.ornamentalDensity ?? null,
+    brandingTreatment: {
+      position: creativeDirection.brandingPosition ?? null,
+      scale: creativeDirection.brandingScale ?? null,
+      identifier: creativeDirection.brandIdentifier ?? null
+    },
+
+    // Part 7: exact facts allowed, and an explicit reminder list of what
+    // must never be invented — sent alongside the brief so the boundary
+    // is structural, not just implicit in what's present.
+    factsAllowed,
+    factsForbiddenFromInvention: FACTS_FORBIDDEN_FROM_INVENTION,
+
+    // Part 8: the text-token-separation boundary. styleText is safe to
+    // hand to the image model as tone/mood language; deterministicText is
+    // reserved for Florisyn's own overlay/composition step and must never
+    // be sent to the image model as free text to render.
+    styleText,
+    deterministicText,
+
+    // Part 7: reference-image metadata only — structurally cannot carry a
+    // fact into factsAllowed (nothing above reads from this object).
+    referenceImage: referenceImageMeta
+      ? {
+          present: true,
+          description: String(referenceImageMeta.description || "").slice(0, 300),
+          note: "Reference image metadata only — never a source of business facts. See factsForbiddenFromInvention."
+        }
+      : { present: false }
+  };
+}
