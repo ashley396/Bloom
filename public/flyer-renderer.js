@@ -1095,7 +1095,21 @@
     // readability fix. The notice template gets its larger CTA from its
     // taller region instead, and the auto-fit below brings any template's
     // CTA down only as far as it genuinely must.
-    var baseSize = Math.max(28, Math.round(rect.h * 0.52));
+    // A confirmed defect on a real render (a narrow side-column region,
+    // new in Phase 2.2's framed_block treatment): baseSize depended
+    // only on rect.h, so a tall-but-narrow region could compute a
+    // starting font far too large for its own width. A phone number is
+    // one unbreakable token — measureWrappedLines never splits mid-
+    // word — so at that size it simply overflowed past the region's
+    // edges outright, before the height-driven shrink loop below ever
+    // got a chance to react (it only ever checks fitted HEIGHT). This
+    // width ceiling mirrors the one drawTypographyRole already applies
+    // for the identical reason. It only ever LOWERS baseSize, and only
+    // when a region is already this disproportionately narrow — every
+    // normal wide CTA band (rect.w * 0.16 comfortably exceeds
+    // rect.h * 0.52 there) computes exactly the same baseSize as
+    // before.
+    var baseSize = Math.max(28, Math.min(Math.round(rect.h * 0.52), Math.round(rect.w * 0.16)));
     var maxTextWidth = rect.w * 0.94;
     var upper = String(text).toUpperCase();
     var fontSize = baseSize;
@@ -1613,45 +1627,182 @@
     return truncated.replace(/[.,;:!?]*$/, "") + "…";
   }
 
+  /** Clamps a channel value into the real 0–255 range. Pure. */
+  function clamp255(v) { return Math.max(0, Math.min(255, Math.round(v))); }
+
+  /** Moves a color toward white (amount > 0) or black (amount < 0),
+   * proportional to each channel's own remaining room — unlike darken()
+   * (used elsewhere for a ribbon's folded tails), this is bounded and
+   * safe to call repeatedly without ever producing an out-of-range
+   * channel. Pure. */
+  function adjustLightness(color, amount) {
+    var c = parseColor(color);
+    function ch(v) { return amount >= 0 ? clamp255(v + (255 - v) * amount) : clamp255(v + v * amount); }
+    return "rgb(" + ch(c.r) + "," + ch(c.g) + "," + ch(c.b) + ")";
+  }
+
+  /** Phase 2.3, real contrast floor: pickTextColor's own binary cream/
+   * charcoal choice is usually enough, but a palette-family color that
+   * lands close to the 0.55 luminance threshold can still clear it with
+   * a weak real ratio. Nudges the panel color toward the extreme its
+   * own chosen text color needs until the real WCAG-style ratio clears
+   * a genuine floor (4.5, the same "normal text" AA floor used
+   * elsewhere in web accessibility work) — bounded so it can never run
+   * away into black or white. Pure. */
+  function ensurePanelContrast(panelColor) {
+    var c = parseColor(panelColor);
+    var textColor = pickTextColor(c);
+    var textRgb = parseColor(textColor);
+    var ratio = contrastRatio(c, textRgb);
+    var needsDarker = textColor === BAND_TEXT_COLOR;
+    var tries = 0;
+    while (ratio < 4.5 && tries < 10) {
+      panelColor = adjustLightness(panelColor, needsDarker ? -0.1 : 0.1);
+      c = parseColor(panelColor);
+      ratio = contrastRatio(c, textRgb);
+      tries++;
+    }
+    return panelColor;
+  }
+
+  /** Which real calendar season "now" falls in — Northern-hemisphere,
+   * the shop's own real operating region. Pure given `date`; the one
+   * caller that matters (resolveOrnamentColors) defaults it to
+   * `new Date()`, so a seasonal_feature flyer's palette genuinely
+   * responds to the actual season it is rendered in, not a random or
+   * invented one. */
+  function resolveSeason(date) {
+    var month = date.getMonth();
+    if (month === 11 || month <= 1) return "winter";
+    if (month <= 4) return "spring";
+    if (month <= 7) return "summer";
+    return "fall";
+  }
+
+  /** Genuinely season-responsive color families (Phase 2.3) — spring/
+   * summer/fall/winter each get their own real hue family, with a
+   * "vibrant" and a "jewel" variant so paletteMood still has a visible
+   * effect within the season rather than being ignored. Pure data. */
+  var SEASON_PALETTES = {
+    spring: {
+      vibrant: { base: "#fbf3f7", panel: "#e9d6ea", border: "#7fae6e", accent: "#c98fb0" },
+      jewel: { base: "#f4ecf5", panel: "#6b4a72", border: "#4f7a44", accent: "#d9a8c2" }
+    },
+    summer: {
+      vibrant: { base: "#fff8e8", panel: "#ffe1a8", border: "#3fa7c9", accent: "#e8734a" },
+      jewel: { base: "#eaf6fb", panel: "#1f6e8c", border: "#e8734a", accent: "#f2c14e" }
+    },
+    fall: {
+      vibrant: { base: "#fbf1e2", panel: "#e8c48a", border: "#7a3b2e", accent: "#6b6b3a" },
+      jewel: { base: "#f3e6d8", panel: "#5c2a2a", border: "#c98a3f", accent: "#8a8a4a" }
+    },
+    winter: {
+      vibrant: { base: "#f6f5f0", panel: "#f4f1e8", border: "#2f4a3a", accent: "#8c2f3a" },
+      jewel: { base: "#eef1ec", panel: "#1f3327", border: "#c9a24a", accent: "#a83b47" }
+    }
+  };
+
+  /** Phase 2.3 — real, bounded, deterministic palette FAMILIES per
+   * occasionTreatment × paletteMood. Ashley's confirmed finding: every
+   * paletteMood value was resolving to a tint/alpha variation of the
+   * SAME brand.primaryColor/accentColor, so no matter what mood was
+   * chosen the flyer always read as the shop's own mauve/pink — brand
+   * consistency was being confused with an identical palette. Each
+   * entry below is a genuinely different, occasion-appropriate hue
+   * family (never AI-generated, never unbounded); `default` is used
+   * when a paletteMood isn't one this occasion typically sees.
+   * boutique_floral has no blanket default — that family sits closest
+   * to the shop's own real territory, so it deliberately falls through
+   * to a brand-anchored look instead of a hardcoded hue. */
+  var PALETTE_FAMILIES = {
+    everyday_floral: {
+      default: { base: "#fdf8f0", panel: "#efe6d6", border: "#b7c9a8", accent: "#c98b73" },
+      soft_pastel: { base: "#f6f3ea", panel: "#e7edd9", border: "#9fb589", accent: "#c98b73" },
+      warm_luxury: { base: "#faf3ea", panel: "#f3e4d0", border: "#c9a24a", accent: "#b5763f" },
+      neutral_blush_ivory: { base: "#faf6ef", panel: "#f7f1ea", border: "#cbb9a0", accent: "#a98a76" },
+      vibrant_seasonal: { base: "#fdf4ea", panel: "#fbe6d8", border: "#e0895a", accent: "#5a8f5e" },
+      jewel_tone: { base: "#fdf4ea", panel: "#fbe6d8", border: "#e0895a", accent: "#5a8f5e" }
+    },
+    elegant_editorial: {
+      default: { base: "#faf7f2", panel: "#2b2b2e", border: "#c9a24a", accent: "#c9a24a" },
+      classic_brand: { base: "#faf7f2", panel: "#2b2b2e", border: "#c9a24a", accent: "#c9a24a" },
+      warm_luxury: { base: "#f7f2e6", panel: "#1b2a4a", border: "#c9a24a", accent: "#c9a24a" },
+      soft_pastel: { base: "#f7f2ec", panel: "#3a3532", border: "#c9a08a", accent: "#c9a08a" },
+      jewel_tone: { base: "#f5ecd8", panel: "#4a1f38", border: "#cbb98a", accent: "#cbb98a" }
+    },
+    boutique_floral: {
+      warm_luxury: { base: "#fbeee3", panel: "#8c3b2e", border: "#f0d9b5", accent: "#f0d9b5" },
+      soft_pastel: { base: "#f3ede6", panel: "#d9c7c0", border: "#8a9a7a", accent: "#8a9a7a" },
+      neutral_blush_ivory: { base: "#faf4ec", panel: "#f4ece1", border: "#c1653f", accent: "#c1653f" }
+    },
+    sympathy_elegance: {
+      default: { base: "#faf7f0", panel: "#eef1e6", border: "#9fae8e", accent: "#9fae8e" },
+      neutral_blush_ivory: { base: "#faf7f0", panel: "#eef1e6", border: "#9fae8e", accent: "#9fae8e" },
+      soft_pastel: { base: "#f2f2ee", panel: "#e3e8ee", border: "#8fa0b5", accent: "#8fa0b5" },
+      classic_brand: { base: "#f6f0ea", panel: "#efe8df", border: "#a89685", accent: "#a89685" }
+    }
+  };
+
   /**
    * paletteMood's real effect on the flyer's non-photo colors (panel
-   * fills, borders, dividers) — always grounded in the SHOP'S OWN real
-   * brand.primaryColor/accentColor (never a fully hardcoded palette, and
-   * never an unsupported business fact derived from color — this only
-   * ever adjusts hue/tint, never invents inventory/availability/mood
-   * claims). Pure.
-   */
-  function resolveOrnamentColors(paletteMood, brand) {
+   * fills, borders, dividers, banner/CTA accent) — bounded, deterministic
+   * palette FAMILIES keyed by occasionTreatment first (Phase 2.3), so
+   * different occasions genuinely stop looking like the same brand
+   * template. The shop's own real brand.primaryColor/accentColor is an
+   * INPUT, not a prison: classic_brand (and boutique_floral, the family
+   * closest to the shop's own natural territory) stay brand-anchored on
+   * purpose, operational_notice may still use the shop's own accent as
+   * its one highlight, and every family runs its panel color through a
+   * real numeric contrast floor before returning it. Never invents an
+   * unsupported business fact from color — this only ever adjusts hue/
+   * tint. Pure given `now` (defaults to the real current date so a
+   * seasonal_feature flyer responds to the actual season). */
+  function resolveOrnamentColors(paletteMood, brand, occasionTreatment, visualMood, now) {
     var primary = (brand && brand.primaryColor) || "#7c3a58";
     var accent = (brand && brand.accentColor) || "#c98fae";
-    var panel, border;
-    switch (paletteMood) {
-      case "neutral_blush_ivory":
-        panel = hexWithAlpha("#faf3ec", 0.94);
-        border = hexWithAlpha(accent, 0.55);
-        break;
-      case "soft_pastel":
-        panel = hexWithAlpha(primary, 0.14);
-        border = hexWithAlpha(accent, 0.6);
-        break;
-      case "warm_luxury":
-        panel = hexWithAlpha(primary, 0.92);
-        border = darken(accent, -0.1) === accent ? accent : "#c8a24a";
-        break;
-      case "vibrant_seasonal":
-        panel = hexWithAlpha(accent, 0.88);
-        border = primary;
-        break;
-      case "jewel_tone":
-        panel = darken(primary, -0.05);
-        border = "#c8a24a";
-        break;
-      case "classic_brand":
-      default:
-        panel = hexWithAlpha(primary, 0.9);
-        border = accent;
+    var entry;
+
+    if (occasionTreatment === "seasonal_feature") {
+      var season = resolveSeason(now || new Date());
+      var variant = paletteMood === "jewel_tone" ? "jewel" : "vibrant";
+      entry = (SEASON_PALETTES[season] || SEASON_PALETTES.spring)[variant];
+    } else if (occasionTreatment === "operational_notice") {
+      // Strong contrast, clean neutrals — must NOT auto-inherit the
+      // boutique pink/mauve look. The shop's own accent is still
+      // allowed to appear as the one highlight (Ashley's own example),
+      // never as the base hue.
+      entry = { base: "#f5f4f1", panel: "#20242b", border: accent, accent: accent };
+    } else if (occasionTreatment === "promotional_feature") {
+      // Higher contrast, a banner/offer that can genuinely pop — a
+      // deliberately bolder color family, not a louder version of the
+      // same brand tint, while the shop's own accent still ties the CTA
+      // back to this florist specifically.
+      entry = { base: "#faf3ea", panel: "#8c2140", border: accent, accent: accent };
+    } else {
+      var family = PALETTE_FAMILIES[occasionTreatment] || PALETTE_FAMILIES.everyday_floral;
+      // "classic_brand" always means "look like our own real brand" —
+      // unless a family has deliberately defined its OWN classic_brand
+      // entry (elegant_editorial's ivory+charcoal, sympathy_elegance's
+      // soft taupe+cream are both intentional, non-mauve looks, not an
+      // oversight), fall through to the shop's actual colors rather
+      // than a hardcoded family hue that has nothing to do with "brand."
+      if (paletteMood === "classic_brand" && !family.classic_brand) {
+        entry = { base: "#faf6f1", panel: primary, border: accent, accent: accent };
+      } else {
+        entry = family[paletteMood] || family.default;
+      }
     }
-    return { primary: primary, accent: accent, panel: panel, border: border };
+
+    if (!entry) {
+      // boutique_floral with no matching/default entry: this family
+      // sits closest to the shop's own real territory, so anchoring on
+      // the actual brand colors here is deliberate, not the old
+      // "everything defaults to brand" behavior every other family used
+      // to fall back on too.
+      entry = { base: "#faf6f1", panel: primary, border: accent, accent: accent };
+    }
+
+    return { primary: primary, accent: entry.accent, panel: ensurePanelContrast(entry.panel), border: entry.border, base: entry.base };
   }
 
   /**
@@ -1785,7 +1936,20 @@
         // awkwardly boxed inside the same margin as the panel.
         geo.panel = frac(0.03, 0.03, 0.94, 0.94);
         geo.panelBehindPhoto = true;
-      } else if (imagePlacement === "inset_panel" || imagePlacement === "framed_block") {
+        // Phase 2.3 fix (Ashley's confirmed fixture 03 defect): leaving
+        // this to the generic "whole card minus a little padding"
+        // fallback below gave the headline a huge, nearly edge-to-edge
+        // box to auto-fit into — auto-fit grows to FILL the box it is
+        // given, so the headline swelled to 4 oversized lines that
+        // dominated the entire card and crushed supportingLine into a
+        // sliver at the very bottom, with the photo/badge corner
+        // accents competing for the same cramped space. A deliberately
+        // bounded, moderate stack — real margin above (clear of the
+        // photo/badge corner) and below — keeps the headline at a
+        // proportionate size and gives supportingLine its own real,
+        // unsquashed room.
+        geo.stack = frac(0.1, 0.3, 0.8, 0.54);
+      } else if (imagePlacement === "inset_panel") {
         // The photo occupies its OWN strip (top or bottom, sized by
         // imageScale) — a real "photo supports, panel carries the
         // message" relationship, not a photo behind a floating box. The
@@ -1812,6 +1976,67 @@
         }
         geo.isPanelFilled = true;
         geo.panelShape = "column";
+      } else if (imagePlacement === "framed_block") {
+        // Phase 2.2, Gap 1: inset_panel's edge-to-edge photo STRIP left
+        // sympathy_elegance and operational_notice sharing the exact
+        // same "photo band + panel" architecture, just mirrored — a
+        // real, disclosed similarity. framed_block is a genuinely
+        // different shape: a dominant, near-full-canvas quiet card (the
+        // information/text field owns the room) with the photo as a
+        // floating, MARGINED block — not an edge-to-edge strip — set to
+        // one side (subjectPlacement left/right_third) or grounded as a
+        // lower anchor (center/lower_third), with real breathing room
+        // on every side of it. Text gets whatever's left of the card,
+        // which is the LARGER share either way, giving it the visual
+        // center of gravity rather than a fixed 50/50-ish split.
+        geo.isPanelFilled = true;
+        geo.panel = frac(0.03, 0.03, 0.94, 0.94);
+        geo.panelBehindPhoto = true;
+        // A confirmed defect on a real render: at up to 0.5 of the
+        // canvas width, a heavier hierarchy's CTA (a real phone number
+        // plus copy) had too narrow a column left beside it and
+        // overflowed past the canvas edge outright. A tighter ceiling
+        // keeps the block genuinely sized by imageScale while always
+        // leaving the text column real, usable width.
+        var blockSide = Math.max(0.26, Math.min(0.4, Math.sqrt(area) * 0.55));
+        if (subject === "left_third" || subject === "right_third") {
+          var onLeft = subject === "left_third";
+          var blockH = Math.min(0.7, blockSide * 1.3);
+          var bx = onLeft ? 0.09 : 1 - blockSide - 0.09;
+          geo.photo = frac(bx, (1 - blockH) / 2, blockSide, blockH);
+          // A confirmed defect on a real render (a heavier hierarchy —
+          // headline + supportingLine + cta — in this narrower side
+          // column): drawTypographyRole vertically CENTERS a role's
+          // text block on its own rect and, once shrunk to its font
+          // floor, still draws the overflow rather than truncating
+          // further — so too little allocated height here let
+          // supportingLine's own block bleed down into the CTA role
+          // sitting right below it. A tall a column as the photo block
+          // itself gives every role real room instead of a narrow
+          // three-way split of a shorter run.
+          geo.stack = onLeft
+            ? frac(bx + blockSide + 0.06, 0.05, 0.97 - (bx + blockSide + 0.06), 0.9)
+            : frac(0.06, 0.05, bx - 0.09, 0.9);
+        } else {
+          // center / lower_third: an anchored block (never a full-width
+          // strip), text owning the open majority — but WHICH edge it
+          // grounds to still genuinely differs by subject, rather than
+          // collapsing "center" and "lower_third" onto one identical
+          // shape: lower_third grounds low (text fills the open upper
+          // majority, the visual center of gravity Ashley asked for);
+          // center anchors high instead, like a masthead accent, with
+          // text filling the open lower majority — a real mirror, not a
+          // decoration-only difference.
+          var blockH2 = blockSide * 0.72;
+          var anchorLow = subject === "lower_third";
+          if (anchorLow) {
+            geo.photo = frac((1 - blockSide) / 2, 0.94 - blockH2, blockSide, blockH2);
+            geo.stack = frac(0.09, 0.08, 0.82, 0.94 - blockH2 - 0.16);
+          } else {
+            geo.photo = frac((1 - blockSide) / 2, 0.06, blockSide, blockH2);
+            geo.stack = frac(0.09, 0.06 + blockH2 + 0.08, 0.82, 0.94 - (0.06 + blockH2 + 0.08));
+          }
+        }
       } else {
         // full_bleed: legibility-first — the photo stays whole behind a
         // real bordered panel (the one case that IS "hero_full_bleed
@@ -1822,8 +2047,16 @@
         else if (textRegion === "negative_space_band_lower" || textRegion === "footer") geo.panel = frac(0.06, 0.55, 0.88, 0.41);
         else geo.panel = frac(0.09, 0.28, 0.82, 0.62);
       }
-      var fpad = geo.panel.w * 0.08;
-      geo.stack = { x: geo.panel.x + fpad, y: geo.panel.y + fpad * 0.75, w: geo.panel.w - fpad * 2, h: geo.panel.h - fpad * 1.5 };
+      // framed_block already computed its own geo.stack — positioned
+      // beside or above/below its photo block, not a generic padded
+      // inset of the whole panel — and must not be clobbered here. A
+      // confirmed defect otherwise: this unconditional overwrite is
+      // exactly why the two Gap 1 fixtures rendered identical stack
+      // rects even after their photo rects had already diverged.
+      if (!geo.stack) {
+        var fpad = geo.panel.w * 0.08;
+        geo.stack = { x: geo.panel.x + fpad, y: geo.panel.y + fpad * 0.75, w: geo.panel.w - fpad * 2, h: geo.panel.h - fpad * 1.5 };
+      }
     } else if (family === "banner_led") {
       // The banner's own position now has 3 real options (top/center/
       // lower), and — the disclosed Phase 2 rough edge Ashley flagged —
@@ -1843,6 +2076,37 @@
         geo.banner = frac(0.11, 0.13, 0.78, 0.13);
         geo.stack = frac(0.09, 0.13 + 0.13 + 0.03, 0.82, 0.98 - (0.13 + 0.13 + 0.03) - margin);
       }
+      // Phase 2.2, Gap 2: imageScale/imagePlacement previously had NO
+      // effect on banner_led's photo rect at all — it stayed full-bleed
+      // (0,0,1,1) regardless of what Creative Direction asked for, so
+      // the two fields never materially changed the geometry (only
+      // subjectPlacement's own crop math did). geo.photo now genuinely
+      // shrinks and repositions: corner_accent makes the photo a true
+      // small accent (the banner/offer dominates); framed_block/
+      // inset_panel confine it to whichever open run of canvas the
+      // banner does NOT already occupy — sized by imageScale — so the
+      // photo and the banner genuinely share visual weight instead of
+      // the photo bleeding full-canvas underneath a banner merely
+      // painted on top of it. full_bleed (or an unset/default
+      // placement) is the one case left unchanged: the photo stays the
+      // major visual field, matching "dominant + full_bleed" exactly.
+      if (imagePlacement === "corner_accent") {
+        var bCornerSide = Math.max(0.16, Math.min(0.32, Math.sqrt(area) * 0.4));
+        var bCornerX = subject === "left_third" ? 0.05 : 1 - bCornerSide - 0.05;
+        geo.photo = frac(bCornerX, 0.05, bCornerSide, bCornerSide);
+      } else if (imagePlacement === "inset_panel" || imagePlacement === "framed_block") {
+        var blockFrac = { dominant: 0.6, balanced: 0.44, supporting: 0.28 }[imageScale] || 0.44;
+        var bannerTop = geo.banner.y, bannerBottom = geo.banner.y + geo.banner.h;
+        var aboveRoom = bannerTop - 0.02;
+        var belowRoom = 1 - bannerBottom - 0.02;
+        if (belowRoom >= aboveRoom) {
+          geo.photo = frac(0, bannerBottom + 0.02, 1, Math.max(0.12, Math.min(blockFrac, belowRoom)));
+        } else {
+          geo.photo = frac(0, 0, 1, Math.max(0.12, Math.min(blockFrac, aboveRoom)));
+        }
+      }
+      // else full_bleed (or unset): geo.photo keeps its default
+      // frac(0, 0, 1, 1) — the photo remains the dominant field.
     } else {
       // hero_full_bleed — the direct answer to the live-diagnosed
       // failure. Full-bleed and dominant by default; imagePlacement/
@@ -2436,7 +2700,7 @@
 
     var typography = TYPOGRAPHY_PERSONAS[cd.typographyPersonality] || TYPOGRAPHY_PERSONAS.editorial_serif;
     var geo = resolveCompositionGeometry(cd, width, height);
-    var ornamentColors = resolveOrnamentColors(cd.paletteMood, brand);
+    var ornamentColors = resolveOrnamentColors(cd.paletteMood, brand, cd.occasionTreatment, cd.visualMood);
     var slots = cd.graphicTextSlots || {};
     var isOperationalNotice = cd.occasionTreatment === "operational_notice";
 
@@ -2477,8 +2741,12 @@
     // neutral base fill under everything else closes every such gap at
     // the root, regardless of which geometry branch produced it — every
     // real paint step still fully covers it wherever a photo or panel
-    // belongs.
-    ctx.fillStyle = TIER_B_BASE;
+    // belongs. Phase 2.3: this now uses the resolved palette family's
+    // own base tone (not the fixed cream TIER_B_BASE every family used
+    // to share) — the negative-space "airy neutral," the operational
+    // notice's clean off-white, a season's own base tint all now
+    // actually show through wherever the canvas is otherwise open.
+    ctx.fillStyle = ornamentColors.base || TIER_B_BASE;
     ctx.fillRect(0, 0, width, height);
 
     function paintPhotoInto(rect, url) {
@@ -2495,13 +2763,13 @@
           if (ok) { backgroundTier = BACKGROUND_TIER.GENERATED; return; }
           return paintPhotoInto(geo.photo, fallbackBackgroundUrl).then(function (ok2) {
             backgroundTier = ok2 ? BACKGROUND_TIER.FALLBACK_PHOTO : BACKGROUND_TIER.PROCEDURAL;
-            if (!ok2) { ctx.fillStyle = TIER_B_BASE; ctx.fillRect(geo.photo.x, geo.photo.y, geo.photo.w, geo.photo.h); }
+            if (!ok2) { ctx.fillStyle = ornamentColors.base || TIER_B_BASE; ctx.fillRect(geo.photo.x, geo.photo.y, geo.photo.w, geo.photo.h); }
           });
         });
       }
       return paintPhotoInto(geo.photo, fallbackBackgroundUrl).then(function (ok2) {
         backgroundTier = ok2 ? BACKGROUND_TIER.FALLBACK_PHOTO : BACKGROUND_TIER.PROCEDURAL;
-        if (!ok2) { ctx.fillStyle = TIER_B_BASE; ctx.fillRect(geo.photo.x, geo.photo.y, geo.photo.w, geo.photo.h); }
+        if (!ok2) { ctx.fillStyle = ornamentColors.base || TIER_B_BASE; ctx.fillRect(geo.photo.x, geo.photo.y, geo.photo.w, geo.photo.h); }
       });
     }
 
@@ -3008,6 +3276,10 @@
     resolveScriptAccentPlan: resolveScriptAccentPlan,
     deriveSupportingLineText: deriveSupportingLineText,
     resolveOrnamentColors: resolveOrnamentColors,
+    resolveSeason: resolveSeason,
+    SEASON_PALETTES: SEASON_PALETTES,
+    PALETTE_FAMILIES: PALETTE_FAMILIES,
+    ensurePanelContrast: ensurePanelContrast,
     computeCoverAlignedRect: computeCoverAlignedRect,
     IMAGE_CROP_ZOOM: IMAGE_CROP_ZOOM,
     SUBJECT_PLACEMENT_FOCAL: SUBJECT_PLACEMENT_FOCAL,

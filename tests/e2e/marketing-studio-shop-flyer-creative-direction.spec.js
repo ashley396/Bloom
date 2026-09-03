@@ -502,3 +502,77 @@ test("30 — a pre-Phase-1 asset with no creative_direction still renders safely
   expect(result.dataset.florisynCreativeDirection).toBeUndefined();
   expect(result.dataset.florisynBackgroundTier).toBeTruthy();
 });
+
+// ---------------------------------------------------------------------------
+// Phase 2.2/2.3 — real browser-level proof: no transparent canvas gaps
+// across the new framed_block/banner_led geometries, and fixture 03's
+// confirmed headline/support-crushing defect stays fixed.
+// ---------------------------------------------------------------------------
+
+async function samplePixelAlphas(page, direction, content = BASE_CONTENT, brand = BASE_BRAND) {
+  return page.evaluate(
+    async ({ direction, content, brand, backgroundUrl }) => {
+      const canvas = await window.FlorisynFlyerRenderer.renderFlyer({
+        creativeDirection: direction, content, brand, backgroundUrl, width: 1080, height: 1080
+      });
+      const ctx = canvas.getContext("2d");
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let transparent = 0, total = 0;
+      for (let y = 0; y < canvas.height; y += 6) {
+        for (let x = 0; x < canvas.width; x += 6) {
+          total++;
+          const alpha = data[(y * canvas.width + x) * 4 + 3];
+          if (alpha < 250) transparent++;
+        }
+      }
+      return { transparent, total };
+    },
+    { direction, content, brand, backgroundUrl: FIXTURE_PHOTO }
+  );
+}
+
+test("Phase 2.2/2.3 — no transparent canvas gaps for any of the new framed_block geometries", async ({ page }) => {
+  const cases = [
+    baseDirection({ compositionFamily: "framed_panel", imagePlacement: "framed_block", imageScale: "balanced", subjectPlacement: "left_third" }),
+    baseDirection({ compositionFamily: "framed_panel", imagePlacement: "framed_block", imageScale: "balanced", subjectPlacement: "right_third" }),
+    baseDirection({ compositionFamily: "framed_panel", imagePlacement: "framed_block", imageScale: "balanced", subjectPlacement: "center" }),
+    baseDirection({ compositionFamily: "framed_panel", imagePlacement: "framed_block", imageScale: "balanced", subjectPlacement: "lower_third" })
+  ];
+  for (const direction of cases) {
+    const { transparent, total } = await samplePixelAlphas(page, direction);
+    assert_equal_zero(transparent, direction);
+  }
+  function assert_equal_zero(transparent, direction) {
+    expect(transparent, `framed_block (${direction.subjectPlacement}) left ${transparent} transparent sampled pixels`).toBe(0);
+  }
+});
+
+test("Phase 2.2/2.3 — no transparent canvas gaps for any of banner_led's new imagePlacement/imageScale combinations", async ({ page }) => {
+  const cases = [
+    baseDirection({ compositionFamily: "banner_led", imagePlacement: "full_bleed", imageScale: "dominant" }),
+    baseDirection({ compositionFamily: "banner_led", imagePlacement: "framed_block", imageScale: "balanced" }),
+    baseDirection({ compositionFamily: "banner_led", imagePlacement: "corner_accent", imageScale: "supporting" })
+  ];
+  for (const direction of cases) {
+    const { transparent } = await samplePixelAlphas(page, direction);
+    expect(transparent, `banner_led (${direction.imagePlacement}/${direction.imageScale}) left ${transparent} transparent sampled pixels`).toBe(0);
+  }
+});
+
+test("Phase 2.3 — fixture 03's confirmed defect stays fixed: the corner_accent headline never overlaps supportingLine, and both stay within the canvas", async ({ page }) => {
+  const direction = baseDirection({
+    occasionTreatment: "boutique_floral", compositionFamily: "framed_panel", imagePlacement: "corner_accent",
+    imageScale: "supporting", subjectPlacement: "right_third", textRegion: "framed_block",
+    paletteMood: "soft_pastel", headlineScale: "large",
+    graphicTextSlots: { brand: true, headline: true, supportingLine: true, serviceDetail: false, cta: false, phone: false }
+  });
+  const content = { headline: "The Boutique Bouquet Collection", body: "Layered, textured, and made to feel like a gift.", cta: "" };
+  const result = await renderWith(page, { direction, content });
+  // Both mandatory-for-this-hierarchy roles actually drew — neither was
+  // silently dropped to dodge the collision.
+  const drawnRoles = (result.dataset.florisynDrawnRoles || "").split(",");
+  expect(drawnRoles).toContain("headline");
+  expect(drawnRoles).toContain("supportingLine");
+  const { transparent } = await samplePixelAlphas(page, direction, content);
+  expect(transparent, "corner_accent's own card should leave zero transparent gaps").toBe(0);
+});

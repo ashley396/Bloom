@@ -322,3 +322,201 @@ test("isRoleImpossibleToFit: a very long headline crammed into a tiny region gen
 test("isRoleImpossibleToFit: a zero-size region is always impossible for non-empty text", () => {
   assert.equal(renderer.isRoleImpossibleToFit("Beautiful Blooms", { x: 0, y: 0, w: 0, h: 0 }, 18), true);
 });
+
+// ---------------------------------------------------------------------------
+// Phase 2.2 — a real THIRD framed_panel geometry (framed_block), and
+// banner_led genuinely executing imageScale/imagePlacement
+// ---------------------------------------------------------------------------
+
+function geo(cd) { return renderer.resolveCompositionGeometry(baseCd(cd), 1080, 1080); }
+function sig(g) { return JSON.stringify({ photo: g.photo, panel: g.panel, stack: g.stack, banner: g.banner }); }
+
+test("framed_panel: framed_block is a genuinely THIRD geometry — distinct from both corner_accent and inset_panel, not decoration-only", () => {
+  const shared = { compositionFamily: "framed_panel", imageScale: "balanced", subjectPlacement: "left_third" };
+  const corner = geo({ ...shared, imagePlacement: "corner_accent" });
+  const inset = geo({ ...shared, imagePlacement: "inset_panel" });
+  const block = geo({ ...shared, imagePlacement: "framed_block" });
+  const signatures = new Set([sig(corner), sig(inset), sig(block)]);
+  assert.equal(signatures.size, 3, `expected 3 distinct framed_panel geometries, got: ${[...signatures].join(" | ")}`);
+  // framed_block's own photo is a floating MARGINED block, never full-bleed
+  // and never the edge-to-edge strip inset_panel uses.
+  assert.notEqual(block.photo.x, 0);
+  assert.notEqual(block.photo.y, 0);
+});
+
+test("framed_panel + framed_block: sympathy (left_third) and operational (center) do NOT resolve to the same geometry — a real structural difference, not a mirrored strip", () => {
+  const sympathy = geo({ compositionFamily: "framed_panel", imagePlacement: "framed_block", imageScale: "balanced", subjectPlacement: "left_third" });
+  const operational = geo({ compositionFamily: "framed_panel", imagePlacement: "framed_block", imageScale: "balanced", subjectPlacement: "center" });
+  assert.notEqual(sig(sympathy), sig(operational));
+  // Sympathy's photo sits in a side column (roughly canvas-height tall);
+  // operational's sits as a top-anchored block (roughly canvas-width wide,
+  // much shorter) — genuinely different footprints, not just a shifted X.
+  assert.ok(sympathy.photo.h > sympathy.photo.w, "sympathy's side block should be taller than it is wide");
+  assert.ok(operational.photo.w > operational.photo.h, "operational's anchored block should be wider than it is tall");
+});
+
+test("framed_panel + framed_block: center and lower_third anchor to opposite edges (a real mirror, not the same shape)", () => {
+  const center = geo({ compositionFamily: "framed_panel", imagePlacement: "framed_block", imageScale: "balanced", subjectPlacement: "center" });
+  const lower = geo({ compositionFamily: "framed_panel", imagePlacement: "framed_block", imageScale: "balanced", subjectPlacement: "lower_third" });
+  assert.ok(center.photo.y < lower.photo.y, "center should anchor the block near the top, lower_third near the bottom");
+  assert.ok(center.stack.y > center.photo.y, "center: text should fall BELOW the top-anchored block");
+  assert.ok(lower.stack.y < lower.photo.y, "lower_third: text should fall ABOVE the bottom-anchored block");
+});
+
+test("banner_led: imageScale genuinely resizes the photo rect once imagePlacement confines it (dominant > balanced > supporting)", () => {
+  const dominant = geo({ compositionFamily: "banner_led", imagePlacement: "framed_block", imageScale: "dominant" });
+  const balanced = geo({ compositionFamily: "banner_led", imagePlacement: "framed_block", imageScale: "balanced" });
+  const supporting = geo({ compositionFamily: "banner_led", imagePlacement: "framed_block", imageScale: "supporting" });
+  const area = (g) => g.photo.w * g.photo.h;
+  assert.ok(area(dominant) > area(balanced), "dominant should be visibly larger than balanced");
+  assert.ok(area(balanced) > area(supporting), "balanced should be visibly larger than supporting");
+});
+
+test("banner_led: imagePlacement genuinely repositions/confines the photo (full_bleed vs framed_block vs corner_accent all differ)", () => {
+  const fullBleed = geo({ compositionFamily: "banner_led", imagePlacement: "full_bleed", imageScale: "dominant" });
+  const framedBlock = geo({ compositionFamily: "banner_led", imagePlacement: "framed_block", imageScale: "dominant" });
+  const cornerAccent = geo({ compositionFamily: "banner_led", imagePlacement: "corner_accent", imageScale: "supporting" });
+  const signatures = new Set([sig(fullBleed), sig(framedBlock), sig(cornerAccent)]);
+  assert.equal(signatures.size, 3, `expected 3 distinct banner_led photo treatments, got: ${[...signatures].join(" | ")}`);
+  // dominant + full_bleed: unchanged — the photo IS the major visual field.
+  assert.equal(fullBleed.photo.x, 0);
+  assert.equal(fullBleed.photo.y, 0);
+  assert.equal(fullBleed.photo.w, 1080);
+  assert.equal(fullBleed.photo.h, 1080);
+  // supporting + corner_accent: a true small accent, nowhere close to
+  // dominant full-bleed's area.
+  const area = (g) => g.photo.w * g.photo.h;
+  assert.ok(area(cornerAccent) < area(fullBleed) * 0.15, "corner_accent should be a true accent, not a hero");
+});
+
+test("banner_led: the banner and stack rects are unaffected by the new imagePlacement/imageScale photo logic (no regression to Phase 2.1's banner-position fix)", () => {
+  const before = geo({ compositionFamily: "banner_led", textRegion: "negative_space_band_lower" });
+  const after = geo({ compositionFamily: "banner_led", textRegion: "negative_space_band_lower", imagePlacement: "framed_block", imageScale: "balanced" });
+  assert.deepEqual(before.banner, after.banner);
+  assert.deepEqual(before.stack, after.stack);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 2.3 — real, bounded palette families (occasionTreatment ×
+// paletteMood), never everything defaulting to the shop's own mauve/pink
+// ---------------------------------------------------------------------------
+
+const REAL_BRAND = { primaryColor: "#7c3a58", accentColor: "#c98fae" };
+
+test("resolveOrnamentColors: occasionTreatment materially changes the resolved panel color for the SAME brand and paletteMood — not a single hardcoded pink template", () => {
+  const panels = new Set([
+    "elegant_editorial", "boutique_floral", "sympathy_elegance", "operational_notice", "promotional_feature"
+  ].map((occ) => renderer.resolveOrnamentColors("soft_pastel", REAL_BRAND, occ).panel));
+  assert.ok(panels.size >= 4, `expected real variety across occasions, got: ${[...panels].join(" | ")}`);
+});
+
+test("resolveOrnamentColors: sympathy_elegance never resolves to the vibrant/jewel-toned families used by seasonal or promotional — always quiet, never celebratory", () => {
+  const loud = new Set([
+    renderer.resolveOrnamentColors("vibrant_seasonal", REAL_BRAND, "seasonal_feature", null, new Date("2026-07-01")).panel,
+    renderer.resolveOrnamentColors("jewel_tone", REAL_BRAND, "seasonal_feature", null, new Date("2026-07-01")).panel,
+    renderer.resolveOrnamentColors(undefined, REAL_BRAND, "promotional_feature").panel
+  ]);
+  for (const mood of ["soft_pastel", "neutral_blush_ivory", "classic_brand", "vibrant_seasonal", "jewel_tone"]) {
+    const sympathy = renderer.resolveOrnamentColors(mood, REAL_BRAND, "sympathy_elegance").panel;
+    assert.ok(!loud.has(sympathy), `sympathy_elegance (${mood}) resolved a loud/celebratory panel color: ${sympathy}`);
+  }
+});
+
+test("resolveOrnamentColors: operational_notice ignores paletteMood and always returns its own strong-contrast neutral — never auto-inheriting boutique pink", () => {
+  const results = ["soft_pastel", "classic_brand", "vibrant_seasonal", "warm_luxury"].map(
+    (mood) => renderer.resolveOrnamentColors(mood, REAL_BRAND, "operational_notice").panel
+  );
+  assert.equal(new Set(results).size, 1, "operational_notice's panel should not vary by paletteMood");
+  const boutiquePink = renderer.resolveOrnamentColors("classic_brand", REAL_BRAND, "boutique_floral").panel;
+  assert.notEqual(results[0], boutiquePink);
+});
+
+test("resolveOrnamentColors: promotional_feature uses a bolder panel than the shop's own soft brand-anchored default", () => {
+  const promo = renderer.resolveOrnamentColors("classic_brand", REAL_BRAND, "promotional_feature").panel;
+  const brandDefault = renderer.resolveOrnamentColors("classic_brand", REAL_BRAND, "boutique_floral").panel;
+  assert.notEqual(promo, brandDefault);
+});
+
+test("resolveOrnamentColors: the shop's own brand accent can influence the palette (operational's one highlight) without forcing every role to that same color", () => {
+  const distinctiveBrand = { primaryColor: "#123456", accentColor: "#00ff88" };
+  const result = renderer.resolveOrnamentColors("classic_brand", distinctiveBrand, "operational_notice");
+  assert.equal(result.accent, "#00ff88");
+  assert.notEqual(result.panel, "#00ff88");
+  assert.notEqual(result.panel, distinctiveBrand.primaryColor);
+});
+
+test("resolveSeason: maps real calendar months to the 4 real seasons", () => {
+  assert.equal(renderer.resolveSeason(new Date("2026-01-15")), "winter");
+  assert.equal(renderer.resolveSeason(new Date("2026-04-15")), "spring");
+  assert.equal(renderer.resolveSeason(new Date("2026-07-15")), "summer");
+  assert.equal(renderer.resolveSeason(new Date("2026-09-15")), "fall");
+  assert.equal(renderer.resolveSeason(new Date("2026-12-15")), "winter");
+});
+
+test("resolveOrnamentColors: seasonal_feature's palette genuinely differs by real season, not just by paletteMood", () => {
+  const panels = new Set(
+    ["2026-02-01", "2026-05-01", "2026-08-01", "2026-11-01"].map(
+      (d) => renderer.resolveOrnamentColors("vibrant_seasonal", REAL_BRAND, "seasonal_feature", null, new Date(d)).panel
+    )
+  );
+  assert.equal(panels.size, 4, `expected 4 distinct seasonal panels, got: ${[...panels].join(" | ")}`);
+});
+
+test("resolveOrnamentColors: seasonal_feature's paletteMood (vibrant vs jewel) still varies the palette WITHIN a season", () => {
+  const winterDate = new Date("2026-12-20");
+  const vibrant = renderer.resolveOrnamentColors("vibrant_seasonal", REAL_BRAND, "seasonal_feature", null, winterDate).panel;
+  const jewel = renderer.resolveOrnamentColors("jewel_tone", REAL_BRAND, "seasonal_feature", null, winterDate).panel;
+  assert.notEqual(vibrant, jewel);
+});
+
+test("resolveOrnamentColors: classic_brand always grounds in the shop's own real colors when a family has no deliberate classic_brand look of its own", () => {
+  const brand = { primaryColor: "#123456", accentColor: "#abcdef" };
+  const everyday = renderer.resolveOrnamentColors("classic_brand", brand, "everyday_floral");
+  assert.equal(everyday.accent, "#abcdef");
+  const boutique = renderer.resolveOrnamentColors("classic_brand", brand, "boutique_floral");
+  assert.equal(boutique.accent, "#abcdef");
+});
+
+test("resolveOrnamentColors: a palette family's own deliberate classic_brand look (elegant_editorial) is NOT overridden back to the raw brand hex", () => {
+  const result = renderer.resolveOrnamentColors("classic_brand", REAL_BRAND, "elegant_editorial");
+  assert.notEqual(result.panel, REAL_BRAND.primaryColor);
+});
+
+test("ensurePanelContrast: every resolved panel color clears a real WCAG-style contrast floor against its own chosen text color", () => {
+  const brand = { primaryColor: "#7c3a58", accentColor: "#c98fae" };
+  const occasions = ["everyday_floral", "elegant_editorial", "boutique_floral", "sympathy_elegance", "operational_notice", "promotional_feature", "seasonal_feature"];
+  const moods = ["soft_pastel", "warm_luxury", "neutral_blush_ivory", "vibrant_seasonal", "jewel_tone", "classic_brand"];
+  for (const occ of occasions) {
+    for (const mood of moods) {
+      const panel = renderer.resolveOrnamentColors(mood, brand, occ, null, new Date("2026-06-01")).panel;
+      const c = renderer.parseColor(panel);
+      const textColor = renderer.pickTextColor(c);
+      const ratio = renderer.contrastRatio(c, renderer.parseColor(textColor));
+      assert.ok(ratio >= 4.5, `${occ}/${mood} panel ${panel} only has contrast ratio ${ratio.toFixed(2)} against its own chosen text color`);
+    }
+  }
+});
+
+test("ensurePanelContrast: never throws and never returns an empty/undefined color for a pathological input", () => {
+  assert.ok(renderer.ensurePanelContrast("#808080"));
+  assert.ok(renderer.ensurePanelContrast("rgba(128,128,128,0.5)"));
+});
+
+// ---------------------------------------------------------------------------
+// Phase 2.2/2.3 — full regression: every pre-existing composition-family
+// signature test still passes with the new framed_block branch and the
+// new palette engine in place (no regression to Phase 2/2.1's own work)
+// ---------------------------------------------------------------------------
+
+test("the four composition families remain structurally distinguishable after Phase 2.2's geometry changes", () => {
+  const geometries = ["hero_full_bleed", "layered_editorial", "framed_panel", "banner_led"].map((f) => geo({ compositionFamily: f }));
+  const signatures = geometries.map(sig);
+  assert.equal(new Set(signatures).size, 4, `expected 4 distinct structural signatures, got: ${signatures.join(" | ")}`);
+});
+
+test("framed_panel's default (full_bleed) behavior is unchanged by the framed_block addition", () => {
+  const g = geo({ compositionFamily: "framed_panel" });
+  assert.equal(g.photo.w, 1080);
+  assert.equal(g.photo.h, 1080);
+  assert.equal(g.isPanelFilled, true);
+});
