@@ -3552,10 +3552,33 @@ export function createMarketingStudioHandler(deps = {}) {
               });
               const engineRouteDecision = routeMarketingEngine({ canonicalConcept: routingConcept, verifiedOfferFactsPresent: false });
 
+              // Batch 3 staging-acceptance fix, Part (observability gap
+              // closed): logged UNCONDITIONALLY, for every request, cheap
+              // and synchronous — this is the exact information a real
+              // staging failure investigation needed and did not have:
+              // before this, when the `if` below evaluated false, NOTHING
+              // was ever logged distinguishing "the router itself chose
+              // exact_layout" from "the router chose premium but the flag
+              // read false" from "premium was attempted and failed" — all
+              // three looked identical from the outside (a plain
+              // exact_layout asset with zero OpenAI usage rows). This one
+              // line makes the router's own real decision observable on
+              // every request without changing any behavior.
+              structuredLog("info", "marketing_generate_content_engine_route_decision", {
+                traceId: genTraceId,
+                engine: engineRouteDecision.engine,
+                reason: engineRouteDecision.reason
+              });
+
               // Part 2: flag OFF → current behavior only. Checked ONLY
               // when the pure router already chose premium — an
               // operational/exact-facts/sympathy/unverified-promotion
               // concept never reaches this check at all, flag or no flag.
+              // Extracted into its own variable (rather than inline in the
+              // `if` below) SOLELY so its real value can be logged before
+              // the branch decision is made — the short-circuit itself is
+              // unchanged: this still only ever runs when the router
+              // already chose premium_ai_creative, exactly as before.
               //
               // Independent-review fix: deliberately NO `{ client }` here,
               // unlike featureGate()'s own call a few hundred lines above
@@ -3576,7 +3599,15 @@ export function createMarketingStudioHandler(deps = {}) {
               // service-role client") — correct for both the florist path
               // and the admin path, since a fresh service-role client is
               // equivalent to the admin path's already-service-role client.
-              if (engineRouteDecision.engine === "premium_ai_creative" && (await isShopFeatureEnabled(shopId, "marketing_openai_premium_creative"))) {
+              const premiumRouterEligible = engineRouteDecision.engine === "premium_ai_creative";
+              const premiumFeatureEnabled = premiumRouterEligible ? await isShopFeatureEnabled(shopId, "marketing_openai_premium_creative") : false;
+              if (premiumRouterEligible) {
+                structuredLog("info", "marketing_generate_content_premium_eligibility", {
+                  traceId: genTraceId,
+                  premiumFeatureEnabled
+                });
+              }
+              if (premiumRouterEligible && premiumFeatureEnabled) {
                 const premiumCreativeDirection = buildDeterministicCreativeDirection({
                   canonicalConcept: routingConcept,
                   shopBrand: { logoUrl: shopRow.data?.logo_url || null }
