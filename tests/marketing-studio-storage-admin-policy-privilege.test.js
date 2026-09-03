@@ -182,6 +182,18 @@ test("generate_content for an image-bearing post (Ashley's real scenario, not te
         // on-image headline/body/cta) — a second recordUsage("copy") for
         // the on-image flyer text, then recordUsage("image") for the photo.
         { data: null, error: null }, // recordUsage("copy") — the on-image flyer text
+        // Batch 2 (Hybrid Marketing Studio, staging-only OpenAI routing):
+        // this ordinary post's canonical concept routes the pure engine
+        // router to "premium_ai_creative", so isShopFeatureEnabled() now
+        // checks the marketing_openai_premium_creative flag before
+        // falling through to Exact Layout. It does so via its OWN
+        // internal service-role client (never this handler's own `client`
+        // — see marketing-studio.js's own comment on that call site), so
+        // — unlike the fake client's other real DB calls — this check
+        // never touches (and needs no queued response from) THIS fake
+        // client at all; with no real service-role key configured in this
+        // test process it fails closed to false immediately, exactly the
+        // existing Cloudflare/Exact-Layout behavior this test is about.
         { data: null, error: null }, // recordUsage("image")
         { data: { id: "media-1" }, error: null }, // website_media insert
         { data: { id: "img-asset-1" }, error: null }, // persistGeneratedAsset (flyer)

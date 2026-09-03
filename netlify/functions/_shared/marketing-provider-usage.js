@@ -53,12 +53,22 @@ export async function reserveProviderCall(
     traceId = null,
     operationId = null,
     attemptIndex = 0,
-    metadata = {}
+    metadata = {},
+    // Hybrid Marketing Studio Batch 2: estimateCostCents()'s own generic
+    // per-purpose table (image_standard=4¢, etc.) is Cloudflare's real
+    // rate, not any other provider's. A caller for a provider with its
+    // own real cost model (e.g. marketing-cost-config.js's conservative
+    // OpenAI ceiling, estimateOpenAiImageCostCents()) supplies the
+    // already-computed figure here instead — reusing the SAME ledger
+    // rather than forking a second reservation path per provider. Omit
+    // for the existing Cloudflare-shaped behavior, unchanged.
+    estimatedCostCentsOverride = null,
+    costSource = "estimated"
   } = {}
 ) {
   if (!shopId) return { ok: false, error: "reserveProviderCall requires shopId." };
   if (!purpose) return { ok: false, error: "reserveProviderCall requires purpose." };
-  const estimatedCostCents = estimateCostCents({ purpose, unitType, units });
+  const estimatedCostCents = estimatedCostCentsOverride != null ? estimatedCostCentsOverride : estimateCostCents({ purpose, unitType, units });
   try {
     const result = await client
       .from("marketing_generation_usage")
@@ -75,7 +85,7 @@ export async function reserveProviderCall(
         estimated_cost_cents: estimatedCostCents,
         actual_cost_cents: null,
         status: "estimated",
-        cost_source: "estimated",
+        cost_source: costSource,
         trace_id: traceId,
         operation_id: operationId,
         attempt_index: attemptIndex,

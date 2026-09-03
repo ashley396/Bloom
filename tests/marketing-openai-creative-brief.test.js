@@ -39,6 +39,24 @@ test("classifyBriefText: text with no fact tokens is entirely style text", () =>
   assert.equal(result.styleText.length, 2);
 });
 
+// Independent-review finding, Batch 2: a discount/percentage claim has
+// no phone/price/date/time token (extractFactTokens has no such pattern)
+// but is still exactly the kind of fact-critical claim that must never
+// be trusted to generative typography.
+test("classifyBriefText: a promotional/discount sentence is fact-critical even with no phone/price/date/time token", () => {
+  const result = classifyBriefText("Get 20% off all bouquets this week only!");
+  assert.equal(result.styleText.length, 0, "a discount claim must never land in styleText");
+  assert.equal(result.factCriticalText.length, 1);
+  assert.match(result.factCriticalText[0], /20% off/);
+});
+
+test("classifyBriefText: a mixed sentence (style + a promotional claim in a second sentence) separates correctly", () => {
+  const result = classifyBriefText("Spring is here! Enjoy a special offer on all arrangements this week.");
+  assert.deepEqual(result.styleText, ["Spring is here!"]);
+  assert.equal(result.factCriticalText.length, 1);
+  assert.match(result.factCriticalText[0], /special offer/i);
+});
+
 test("classifyBriefText: empty/missing text classifies as nothing, never throws", () => {
   assert.deepEqual(classifyBriefText(""), { factTokens: [], styleText: [], factCriticalText: [] });
   assert.deepEqual(classifyBriefText(undefined), { factTokens: [], styleText: [], factCriticalText: [] });

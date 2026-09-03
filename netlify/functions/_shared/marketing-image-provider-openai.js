@@ -95,6 +95,11 @@ export function createOpenAiMarketingImageProvider(env = process.env) {
   return Object.freeze({
     name: PROVIDER_NAME,
 
+    // Exposed (Batch 2) for observability call sites — e.g. the usage
+    // ledger reservation, which needs the real model name being called
+    // BEFORE generate() runs, not just after a successful result.
+    model,
+
     configured() {
       return openAiImageGenerationConfigured(env);
     },

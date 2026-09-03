@@ -108,6 +108,8 @@ import { runCompoundRequest } from "./_shared/marketing-compound-orchestrator.js
 import { runAnalyticsIngestion, reconcileLatestMetricSnapshots } from "./_shared/marketing-analytics-ingestion.js";
 import { checkMonthlyBudgetForRequest, getShopBudgetCapCents, monthlyCommittedSpendCents } from "./_shared/marketing-budget-guard.js";
 import { enforceSafeMarketingPreviewEnvironmentIfClaimed } from "./_shared/marketing-preview-environment-guard.js";
+import { routeMarketingEngine } from "./_shared/marketing-engine-router.js";
+import { attemptPremiumCreativeGeneration, resolveOpenAiAspectRatio } from "./_shared/marketing-premium-creative-orchestrator.js";
 import { COST_CONFIG_VERSION, DEFAULT_MONTHLY_ALLOWANCE, estimateCostCents } from "./_shared/marketing-cost-config.js";
 import { calculateWorstCaseBoundedCostCents } from "./_shared/marketing-provider-usage.js";
 import {
@@ -3399,7 +3401,18 @@ export function createMarketingStudioHandler(deps = {}) {
                 creative_direction: buildDeterministicCreativeDirection({
                   canonicalConcept: flyerExactFactsConcept,
                   shopBrand: { logoUrl: shopRow.data?.logo_url || null }
-                })
+                }),
+                // Batch 2 (Part 3): this branch exists ONLY for requests
+                // requestNeedsFlyerWording() already identified as needing
+                // exact on-image wording (operational notices, exact
+                // hours/dates/prices) — marketing-engine-router.js would
+                // route these to "exact_layout" regardless, so no router
+                // call is needed here; persisted directly for observability
+                // and so the client/UI never has to guess which engine
+                // rendered a given asset. Never "fallback" in user-facing
+                // language (Part 13) — this branch IS Exact Layout, not a
+                // degraded substitute for anything.
+                creative_engine: "exact_layout"
               },
               mediaId: null,
               status: "completed"
@@ -3453,6 +3466,15 @@ export function createMarketingStudioHandler(deps = {}) {
 
             let imageGen;
             let reusedFromAssetId = null;
+            // Batch 2: hoisted so the persisted content object below (Part
+            // 3) can record which engine actually produced this asset's
+            // photo regardless of which photo_choice branch ran — a real
+            // upload/reuse never invokes either image engine at all, so
+            // both stay "exact_layout" (Florisyn's own deterministic path
+            // handled the whole asset) unless the "generate" branch below
+            // actually attempts and succeeds at Premium AI Creative.
+            let creativeEngineUsed = "exact_layout";
+            let premiumCreativeOverlays = null;
             userUploadedPhoto = body.photo_choice === "upload" || body.photo_choice === "reuse";
             if (body.photo_choice === "reuse") {
               if (typeof body.reuse_asset_id !== "string" || !body.reuse_asset_id) {
@@ -3499,6 +3521,109 @@ export function createMarketingStudioHandler(deps = {}) {
             } else {
               const subjectVisualBrief = copyGen.content.visual_brief || currentItem.data.brief;
               const subjectCreativeBrief = copyGen.content.creative_brief;
+
+              // Hybrid Marketing Studio Batch 2 ("staging-only OpenAI
+              // routing"): a PURE routing decision (marketing-engine-
+              // router.js, no AI classifier) using the exact same real
+              // occasion/sympathy/promotion/fact-requirement signals this
+              // asset's own persisted canonical concept will carry —
+              // routing never depends on styleTier/photo source, so this
+              // routing-only concept (built before the photo itself is
+              // chosen) is accurate for that decision even though the
+              // FINAL persisted concept below is built again afterward
+              // with the real styleTier/userUploadedPhoto/reusedFromAssetId
+              // once they're known.
+              //
+              // Conservative default, unchanged from Batch 1: this call
+              // site does not yet derive a real "the promotion's own offer
+              // facts are independently verified" signal from the live
+              // pipeline, so a real promotion always fails closed to Exact
+              // Layout for now (Ashley's own instruction: "unverified
+              // promotional claim must not reach Premium AI Creative with
+              // invented offer facts"). A future batch that adds real
+              // offer-fact verification can flip this without touching
+              // the router itself.
+              const routingConcept = buildConceptForAsset({
+                assetType: "flyer",
+                ctaText: flyerGen.content.cta,
+                bodyText: flyerGen.content.body,
+                photoStrategy: "subject_forward",
+                styleTier: "generated"
+              });
+              const engineRouteDecision = routeMarketingEngine({ canonicalConcept: routingConcept, verifiedOfferFactsPresent: false });
+
+              // Part 2: flag OFF → current behavior only. Checked ONLY
+              // when the pure router already chose premium — an
+              // operational/exact-facts/sympathy/unverified-promotion
+              // concept never reaches this check at all, flag or no flag.
+              //
+              // Independent-review fix: deliberately NO `{ client }` here,
+              // unlike featureGate()'s own call a few hundred lines above
+              // this handler. `client` at this point in the code is the
+              // FLORIST path's own member-scoped, RLS-enforced session
+              // client whenever deps.florist is set (the overwhelmingly
+              // common real entry point to generate_content) —
+              // shop_admin_config has no RLS grant for the authenticated
+              // role at all (see shop-feature-access.js's own module doc),
+              // so passing that client here would make this check silently
+              // read false forever, regardless of the row's real value.
+              // This is exactly the failure mode featureGate()'s own
+              // adjacent comment already documents and works around by
+              // skipping itself entirely on the florist path. Omitting
+              // `client` lets isShopFeatureEnabled build its own real
+              // service-role client instead (its own documented contract:
+              // "Omit for production; this module creates its own
+              // service-role client") — correct for both the florist path
+              // and the admin path, since a fresh service-role client is
+              // equivalent to the admin path's already-service-role client.
+              if (engineRouteDecision.engine === "premium_ai_creative" && (await isShopFeatureEnabled(shopId, "marketing_openai_premium_creative"))) {
+                const premiumCreativeDirection = buildDeterministicCreativeDirection({
+                  canonicalConcept: routingConcept,
+                  shopBrand: { logoUrl: shopRow.data?.logo_url || null }
+                });
+                const premiumAttempt = await attemptPremiumCreativeGeneration({
+                  client,
+                  shopId,
+                  contentItemId: body.content_item_id,
+                  canonicalConcept: routingConcept,
+                  creativeDirection: premiumCreativeDirection,
+                  factSafeCopyPlan: {
+                    headline: flyerGen.content.headline,
+                    body: flyerGen.content.body,
+                    cta: flyerGen.content.cta,
+                    caption: copyGen.content.body
+                  },
+                  verifiedShopBrandData: { name: shopName, phone: shopRow.data?.phone || null },
+                  aspectRatio: resolveOpenAiAspectRatio(ASPECT_RATIOS[pickAspectRatio(primaryPlatform)]),
+                  traceId: genTraceId,
+                  filename: `marketing-premium-${body.content_item_id}.png`
+                });
+                structuredLog("info", "marketing_generate_content_premium_creative_attempt", {
+                  traceId: genTraceId,
+                  ok: premiumAttempt.ok,
+                  state: premiumAttempt.state
+                });
+                if (premiumAttempt.ok) {
+                  imageGen = {
+                    ok: true,
+                    path: null,
+                    url: premiumAttempt.result.backgroundImageUrl,
+                    mime: null,
+                    provider: premiumAttempt.result.provider,
+                    model: premiumAttempt.result.model,
+                    qualityCheck: null,
+                    styleTier: "generated"
+                  };
+                  creativeEngineUsed = "premium_ai_creative";
+                  premiumCreativeOverlays = premiumAttempt.result.overlays;
+                }
+                // Part 9: on any non-success state, creativeEngineUsed
+                // stays "exact_layout" and execution falls through to the
+                // EXISTING Exact Layout path below, completely unchanged
+                // — an explicit, honest fallback, never a silent
+                // substitution presented as Premium Creative.
+              }
+
               // Batch 2 rebuild: this exact path used to hand a florist a
               // photo with invented, garbled pseudo-branding painted into a
               // corner (buildImagePrompt's unconditional no-text directive
@@ -3518,62 +3643,64 @@ export function createMarketingStudioHandler(deps = {}) {
               // (each image attempt, each vision inspection) gets its own
               // usage-ledger row via the shared provider-usage service,
               // replacing the old single flat recordUsage("image") estimate.
-              const quality = await runMarketingImageQuality({
-                client,
-                shopId,
-                promptFor: (attempt, prior) => {
-                  const base = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief: subjectVisualBrief, creativeBrief: subjectCreativeBrief });
-                  const priorReason = prior[prior.length - 1]?.check?.reason;
-                  return attempt === 0 || !priorReason
-                    ? base
-                    : `${base} IMPORTANT — a prior attempt was rejected for this exact reason, do not repeat it: ${priorReason}`;
-                },
-                filenameFor: (attempt) => (attempt === 0 ? `marketing-${body.content_item_id}.jpg` : `marketing-${body.content_item_id}-retry${attempt}.jpg`),
-                creativeBrief: subjectCreativeBrief,
-                visualBrief: subjectVisualBrief,
-                occasion: currentItem.data.title,
-                usage: { traceId: genTraceId, contentItemId: body.content_item_id },
-                // Honest fallback for a general floral/awareness post with
-                // no safe generated photo: the SAME deterministic Tier B
-                // (template, no photo) this file's own flyer-background
-                // path already falls back to when its own image call fails
-                // outright — never an unsafe/rejected AI image just
-                // because nothing better was generated.
-                buildFallback: async () => ({ ok: true, kind: "deterministic", url: null })
-              });
-              structuredLog("info", "marketing_generate_content_quality_check", {
-                traceId: genTraceId,
-                state: quality.state,
-                attempts: quality.attempts.length,
-                rejectedCount: quality.rejectedAssetPaths.length
-              });
-              if (quality.state === "PASS") {
-                imageGen = {
-                  ok: true,
-                  path: quality.gen.path,
-                  url: quality.gen.url,
-                  mime: quality.gen.mime,
-                  provider: quality.gen.provider,
-                  model: quality.gen.model,
-                  qualityCheck: quality.check,
-                  styleTier: "generated"
-                };
-              } else if (quality.state === "FALLBACK") {
-                imageGen = { ok: true, path: null, url: quality.fallback.url || null, mime: null, provider: "cloudflare", model: null, qualityCheck: null, styleTier: "template" };
-              } else {
-                await revertToIdea();
-                // quality.error is only ever set when EVERY attempt failed
-                // for a genuine, non-retryable infrastructure reason (a
-                // storage/config failure — never a quality rejection) —
-                // surface the real error verbatim rather than the generic
-                // quality-check message, so an actionable bug (e.g. a
-                // storage RLS policy denying uploads) is visible instead of
-                // being reported the same way as an ordinary rejected photo.
-                return json(400, {
-                  error: quality.error
-                    ? `Couldn't save your photo: ${quality.error}`
-                    : "The generated photo didn't pass Lily's quality check, and no safe fallback was available — nothing was saved. Try Generate again."
+              if (creativeEngineUsed !== "premium_ai_creative") {
+                const quality = await runMarketingImageQuality({
+                  client,
+                  shopId,
+                  promptFor: (attempt, prior) => {
+                    const base = buildImagePrompt({ occasion: currentItem.data.title, shopName, visualBrief: subjectVisualBrief, creativeBrief: subjectCreativeBrief });
+                    const priorReason = prior[prior.length - 1]?.check?.reason;
+                    return attempt === 0 || !priorReason
+                      ? base
+                      : `${base} IMPORTANT — a prior attempt was rejected for this exact reason, do not repeat it: ${priorReason}`;
+                  },
+                  filenameFor: (attempt) => (attempt === 0 ? `marketing-${body.content_item_id}.jpg` : `marketing-${body.content_item_id}-retry${attempt}.jpg`),
+                  creativeBrief: subjectCreativeBrief,
+                  visualBrief: subjectVisualBrief,
+                  occasion: currentItem.data.title,
+                  usage: { traceId: genTraceId, contentItemId: body.content_item_id },
+                  // Honest fallback for a general floral/awareness post with
+                  // no safe generated photo: the SAME deterministic Tier B
+                  // (template, no photo) this file's own flyer-background
+                  // path already falls back to when its own image call fails
+                  // outright — never an unsafe/rejected AI image just
+                  // because nothing better was generated.
+                  buildFallback: async () => ({ ok: true, kind: "deterministic", url: null })
                 });
+                structuredLog("info", "marketing_generate_content_quality_check", {
+                  traceId: genTraceId,
+                  state: quality.state,
+                  attempts: quality.attempts.length,
+                  rejectedCount: quality.rejectedAssetPaths.length
+                });
+                if (quality.state === "PASS") {
+                  imageGen = {
+                    ok: true,
+                    path: quality.gen.path,
+                    url: quality.gen.url,
+                    mime: quality.gen.mime,
+                    provider: quality.gen.provider,
+                    model: quality.gen.model,
+                    qualityCheck: quality.check,
+                    styleTier: "generated"
+                  };
+                } else if (quality.state === "FALLBACK") {
+                  imageGen = { ok: true, path: null, url: quality.fallback.url || null, mime: null, provider: "cloudflare", model: null, qualityCheck: null, styleTier: "template" };
+                } else {
+                  await revertToIdea();
+                  // quality.error is only ever set when EVERY attempt failed
+                  // for a genuine, non-retryable infrastructure reason (a
+                  // storage/config failure — never a quality rejection) —
+                  // surface the real error verbatim rather than the generic
+                  // quality-check message, so an actionable bug (e.g. a
+                  // storage RLS policy denying uploads) is visible instead of
+                  // being reported the same way as an ordinary rejected photo.
+                  return json(400, {
+                    error: quality.error
+                      ? `Couldn't save your photo: ${quality.error}`
+                      : "The generated photo didn't pass Lily's quality check, and no safe fallback was available — nothing was saved. Try Generate again."
+                  });
+                }
               }
             }
             // A reused photo has no NEW file at all — it's the exact same
@@ -3685,7 +3812,22 @@ export function createMarketingStudioHandler(deps = {}) {
                 creative_direction: buildDeterministicCreativeDirection({
                   canonicalConcept: flyerSubjectForwardConcept,
                   shopBrand: { logoUrl: shopRow.data?.logo_url || null }
-                })
+                }),
+                // Batch 2 (Part 3/7): which engine actually produced this
+                // asset's photo — "exact_layout" for a real upload/reuse or
+                // whenever Premium AI Creative wasn't used/available;
+                // "premium_ai_creative" only when attemptPremiumCreative
+                // Generation() above actually succeeded. Never surfaced to
+                // the florist as raw provider/engine terminology (Part 13)
+                // — this is observability/debugging data on the asset
+                // record, not UI copy.
+                creative_engine: creativeEngineUsed,
+                // Fact-critical text reserved for Florisyn's own
+                // deterministic overlay (Part 8) — null whenever Exact
+                // Layout rendered the whole asset itself, since Exact
+                // Layout already draws 100% of the on-image text and has
+                // no separate "overlay onto a generated background" step.
+                premium_creative_overlays: premiumCreativeOverlays
               },
               mediaId: mediaRow.data?.id || null,
               status: "completed"

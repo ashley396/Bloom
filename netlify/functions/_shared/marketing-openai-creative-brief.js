@@ -24,20 +24,36 @@
  * name is not something to regex out of arbitrary text, so it only ever
  * enters this brief via the verified `verifiedShopBrandData` input, never
  * via text-mining.
+ *
+ * Independent-review finding (Batch 2): extractFactTokens alone has no
+ * percentage/discount pattern, so a sentence like "Get 20% off all
+ * bouquets this week" carried no recognized fact token and would have
+ * landed entirely in styleText — sent to the image model as tone
+ * language rather than reserved for deterministic overlay, even though
+ * an exact discount claim is precisely the kind of fact-critical text
+ * Part 6 (.claude/rules/marketing-studio.md) says must never be trusted
+ * to generative typography. Closed by ALSO checking each sentence with
+ * requestSignalsRealPromotion() (marketing-content-revision.js's own
+ * existing promotion-intent signal, already reused elsewhere in this
+ * codebase for exactly this class of claim — not a new parser) and
+ * treating a match as fact-critical regardless of whether extractFact
+ * Tokens found anything else in that sentence.
  */
 
-import { extractFactTokens, sentencesOf } from "./marketing-content-revision.js";
+import { extractFactTokens, sentencesOf, requestSignalsRealPromotion } from "./marketing-content-revision.js";
 
 export const CREATIVE_BRIEF_VERSION = 1;
 
 /**
  * Part 8: classifies one piece of copy into STYLE TEXT (no recognized
- * fact token — emotional headline, seasonal phrase, general non-factual
- * message) vs FACT-CRITICAL TEXT (a sentence containing at least one
- * phone/price/date/time/URL token, per extractFactTokens). Sentence-level,
- * not word-level — a sentence that carries a fact is kept together with
- * the fact so removing it later (for deterministic overlay handling)
- * never leaves a dangling half-sentence.
+ * fact token or promotional claim — emotional headline, seasonal phrase,
+ * general non-factual message) vs FACT-CRITICAL TEXT (a sentence
+ * containing at least one phone/price/date/time/URL token per
+ * extractFactTokens, OR a promotional/discount claim per
+ * requestSignalsRealPromotion). Sentence-level, not word-level — a
+ * sentence that carries a fact is kept together with the fact so
+ * removing it later (for deterministic overlay handling) never leaves a
+ * dangling half-sentence.
  *
  * @param {string} text
  * @returns {{ factTokens: string[], styleText: string[], factCriticalText: string[] }}
@@ -52,7 +68,7 @@ export function classifyBriefText(text) {
   for (const raw of sentences) {
     const sentence = raw.trim();
     if (!sentence) continue;
-    const hasFact = factTokens.some((token) => sentence.includes(token));
+    const hasFact = factTokens.some((token) => sentence.includes(token)) || requestSignalsRealPromotion(sentence);
     (hasFact ? factCriticalText : styleText).push(sentence);
   }
   return { factTokens, styleText, factCriticalText };
