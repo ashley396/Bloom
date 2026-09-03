@@ -33,7 +33,7 @@
  */
 
 import { SOCIAL_POST_OBJECTIVES } from "./ai-creative-engine.js";
-import { BEREAVEMENT_CONTEXT_RE, requestSignalsRealPromotion, requestSignalsIntentionalInventoryUse } from "./marketing-content-revision.js";
+import { BEREAVEMENT_CONTEXT_RE, requestSignalsRealPromotion, requestSignalsIntentionalInventoryUse, sentencesOf } from "./marketing-content-revision.js";
 
 export const CANONICAL_CONCEPT_VERSION = 1;
 
@@ -220,10 +220,42 @@ export function deriveCreativeFamily({ assetType = null, contentType = null } = 
 
 const FACT_SIGNAL_RULES = [
   { key: "phone_number", re: /\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/ },
-  { key: "event_date", re: /\b\d{1,2}(?::\d{2})?\s?(?:am|pm)\b|\btoday\b|\btomorrow\b|\bthis (?:weekend|week)\b|\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\b/i },
   { key: "shop_hours", re: /\bhours?\b|\bopen(?:ing)?\b|\bclos(?:e|ed|ing)\b/i },
   { key: "delivery_service", re: /\bdeliver(?:y|ies|ing)?\b/i }
 ];
+
+// A bare time-of-day/weekday/relative-day mention or calendar date, on
+// its own, is NOT evidence of a material date/time commitment — "Create
+// today's Facebook post" merely names WHEN the post itself is being
+// made, not a fact about the business. Real detection requires this
+// expression to co-occur, in the SAME SENTENCE (see
+// hasMaterialTimingCommitment below), with a genuine commitment word.
+const DATE_OR_TIME_EXPRESSION_RE =
+  /\b\d{1,2}(?::\d{2})?\s?(?:am|pm)\b|\btoday\b|\btomorrow\b|\bthis (?:weekend|week)\b|\bnext (?:weekend|week)\b|\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\b|\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+\d{1,2}(?:st|nd|rd|th)?\b/i;
+
+// Words that mean a nearby date/time expression is making a real
+// business commitment (an event, a closing/opening/reopening, a sale
+// window, a class, a deadline, an appointment, an order/delivery cutoff)
+// rather than just naming when the content is being posted. Deliberately
+// broad enough to cover florist-relevant scheduling language without
+// matching ordinary creative/CTA verbs ("create," "post," "write,"
+// "share") that carry no timing commitment of their own.
+const MATERIAL_TIMING_COMMITMENT_RE =
+  /\b(?:clos(?:e|es|ed|ing)|open(?:s|ed|ing)?|reopen(?:s|ed|ing)?|end(?:s|ed|ing)?|start(?:s|ed|ing)?|deadline|due|class(?:es)?|event|sale|promo(?:tion)?|workshop|pop-?up|appointment|ceremony|rsvp|regist(?:er|ered|ering)|hours?|deliver(?:y|ies|ing)?|order(?:s|ed|ing)?|plac(?:e|ed|ing)|reserv(?:e|ed|ation)|held|scheduled)\b/i;
+
+/**
+ * True when SOME sentence in `text` carries both a date/time expression
+ * and a material-timing-commitment word — sentence-scoped (reusing
+ * sentencesOf(), the same split marketing-content-revision.js's own
+ * fact-safety checks already use — never a duplicate parser) so an
+ * unrelated CTA sentence elsewhere in the same haystack (e.g. "Call
+ * 606-506-4039 to place an order.") can never combine with a wholly
+ * separate sentence's own incidental "today" to manufacture a false
+ * commitment.
+ */
+function hasMaterialTimingCommitment(text) {
+  return sentencesOf(text).some((sentence) => DATE_OR_TIME_EXPRESSION_RE.test(sentence) && MATERIAL_TIMING_COMMITMENT_RE.test(sentence));
+}
 
 /**
  * Batch 4, Part J: factRequirements — which REAL shop facts this concept
@@ -231,14 +263,30 @@ const FACT_SIGNAL_RULES = [
  * includes AI scene details (visual_brief/creative_brief prose remains
  * creative fiction, not a shop fact this list tracks) — only the same
  * categories of real, checkable claims Batch 1's own evaluator already
- * polices (a phone number, a promotion, real inventory, a stated date,
- * shop hours, a delivery/service claim).
+ * polices (a phone number, a promotion, real inventory, a material
+ * date/time commitment, shop hours, a delivery/service claim).
+ *
+ * Batch 3 staging-acceptance fix (authoritative root-cause fix, not a
+ * router-level workaround — see marketing-engine-router.js's own
+ * BUSINESS_CRITICAL_FACT_KEYS comment): `event_date` used to fire off a
+ * bare `\btoday\b`/`\btomorrow\b`/weekday match anywhere in the
+ * request/CTA/body — real staging failure: "Create today's Facebook post
+ * for Lilies in Bloom." (ordinary, non-operational creative) was marked
+ * as requiring an event_date fact purely because of the word "today's,"
+ * which forced Premium AI Creative routing closed even though nothing
+ * about the business's own date/time state was actually being claimed.
+ * See hasMaterialTimingCommitment() above for the real semantics now
+ * required: a date/time expression AND a genuine commitment word, in the
+ * same sentence.
  */
 export function deriveFactRequirements({ requestText = "", ctaText = "", bodyText = "", objective = null, invGroundedCount = 0 } = {}) {
   const keys = new Set();
   const haystack = `${requestText} ${ctaText} ${bodyText}`;
   for (const rule of FACT_SIGNAL_RULES) {
     if (rule.re.test(haystack)) keys.add(rule.key);
+  }
+  if (hasMaterialTimingCommitment(requestText) || hasMaterialTimingCommitment(ctaText) || hasMaterialTimingCommitment(bodyText)) {
+    keys.add("event_date");
   }
   if (objective === "promotion") keys.add("promotion");
   if (invGroundedCount > 0) keys.add("inventory_grounding");

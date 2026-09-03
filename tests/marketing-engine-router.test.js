@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { routeMarketingEngine, ENGINES } from "../netlify/functions/_shared/marketing-engine-router.js";
+import { buildCanonicalConcept } from "../netlify/functions/_shared/marketing-canonical-concept.js";
 
 // Hybrid Marketing Studio, Batch 1, Part 9: a PURE routing function — no
 // AI classifier, no network call. Not wired into any live path yet (Part
@@ -112,4 +113,33 @@ test("an unrecognized occasion treatment fails closed to exact_layout rather tha
     const result = routeMarketingEngine({ canonicalConcept: c });
     assert.ok(Object.values(ENGINES).includes(result.engine), "every real occasion treatment must resolve to a real engine, never undefined");
   }
+});
+
+// ---------------------------------------------------------------------------
+// Batch 3 staging-acceptance fix, Part 4: true end-to-end tests through
+// the REAL buildCanonicalConcept() -> routeMarketingEngine() pipeline —
+// not a hand-built concept object — proving the authoritative-source fix
+// in marketing-canonical-concept.js (event_date semantics), not a
+// router-level workaround, is what actually resolves this correctly.
+// ---------------------------------------------------------------------------
+
+test("Batch3 end-to-end: a generic 'today's post' request routes to premium_ai_creative", () => {
+  const concept = buildCanonicalConcept({ requestText: "Create today's Facebook post for Lilies in Bloom.", objective: "awareness" });
+  assert.ok(!concept.factRequirements.includes("event_date"), "the real canonical concept must not carry a spurious event_date requirement");
+  const result = routeMarketingEngine({ canonicalConcept: concept });
+  assert.equal(result.engine, ENGINES.PREMIUM_AI_CREATIVE);
+});
+
+test("Batch3 end-to-end: 'closing today at 3 PM' routes to exact_layout", () => {
+  const concept = buildCanonicalConcept({ requestText: "Lilies in Bloom is closing today at 3 PM." });
+  assert.ok(concept.factRequirements.includes("event_date"));
+  const result = routeMarketingEngine({ canonicalConcept: concept });
+  assert.equal(result.engine, ENGINES.EXACT_LAYOUT);
+});
+
+test("Batch3 end-to-end: a real, material event date routes to exact_layout", () => {
+  const concept = buildCanonicalConcept({ requestText: "Our flower arranging class is September 12." });
+  assert.ok(concept.factRequirements.includes("event_date"));
+  const result = routeMarketingEngine({ canonicalConcept: concept });
+  assert.equal(result.engine, ENGINES.EXACT_LAYOUT);
 });

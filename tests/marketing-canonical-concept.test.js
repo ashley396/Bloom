@@ -139,6 +139,62 @@ test("deriveFactRequirements: never invents a requirement nothing in the request
 });
 
 // ---------------------------------------------------------------------------
+// Batch 3 staging-acceptance fix: deriveFactRequirements' event_date
+// semantics. Authoritative-source fix (not a router-level workaround) —
+// see marketing-canonical-concept.js's own hasMaterialTimingCommitment()
+// doc comment for the real live staging failure this closes.
+// ---------------------------------------------------------------------------
+
+// Test A/B: the exact real staging-observed false positive and its
+// close variants — a bare "today's <content-noun>" must never create an
+// event_date requirement.
+test("Batch3 A/B — event_date: 'today's <post/idea>' phrasing never creates an event_date requirement", () => {
+  assert.ok(!deriveFactRequirements({ requestText: "Create today's Facebook post for Lilies in Bloom." }).includes("event_date"));
+  assert.ok(!deriveFactRequirements({ requestText: "Write today's social post." }).includes("event_date"));
+  assert.ok(!deriveFactRequirements({ requestText: "Today's marketing idea" }).includes("event_date"));
+  assert.ok(!deriveFactRequirements({ requestText: "Create today's featured-arrangement post" }).includes("event_date"));
+});
+
+// Tests C-G: a date/time expression genuinely tied to a business
+// commitment (closing, a sale window, a class, reopening, an event) must
+// still create event_date.
+test("Batch3 C-G — event_date: a genuine business date/time commitment is still detected", () => {
+  assert.ok(deriveFactRequirements({ requestText: "Closing today at 3 PM." }).includes("event_date"));
+  assert.ok(deriveFactRequirements({ requestText: "Sale ends today." }).includes("event_date"));
+  assert.ok(deriveFactRequirements({ requestText: "Our flower class is September 12." }).includes("event_date"), "an explicit calendar date (month + day) tied to a scheduled class must be detected");
+  assert.ok(deriveFactRequirements({ requestText: "We reopen tomorrow." }).includes("event_date"));
+  assert.ok(deriveFactRequirements({ requestText: "Create a post about our event next Friday." }).includes("event_date"));
+  assert.ok(deriveFactRequirements({ requestText: "Our class is today at 6 PM." }).includes("event_date"));
+});
+
+test("Batch3 — event_date: a commitment word in one sentence and a time word in an unrelated sentence do not combine (sentence-scoped, not haystack-wide)", () => {
+  // The exact real shape of the staging failure once a rescue CTA is
+  // appended: the CTA's own "order" (a commitment word) must never
+  // combine with an unrelated sentence's incidental "today".
+  const result = deriveFactRequirements({
+    requestText: "Create today's Facebook post for Lilies in Bloom.",
+    ctaText: "Call 606-506-4039 to place an order."
+  });
+  assert.ok(!result.includes("event_date"), "a commitment word in the CTA sentence must not combine with an unrelated sentence's own incidental time word");
+});
+
+// Tests H/I: phone_number is only ever derived from an actual phone
+// number appearing in the request/CTA/body text — never merely because
+// the shop HAS a verified phone number (which isn't even an input to
+// this function at all) — confirming Part 3's verified_fact_available
+// vs fact_required_by_request_or_copy distinction already holds
+// structurally, with no code change needed for it.
+test("Batch3 H — phone_number is never required merely because a verified shop phone exists; deriveFactRequirements has no shopPhone input at all", () => {
+  const result = deriveFactRequirements({ requestText: "Create today's Facebook post for Lilies in Bloom." });
+  assert.ok(!result.includes("phone_number"), "no phone number appears anywhere in the request/CTA/body, so none can be required — a verified shop phone is a separate, later grounding concern, never an input here");
+});
+
+test("Batch3 I — phone_number IS required once a real phone number actually appears in the request or generated copy", () => {
+  assert.ok(deriveFactRequirements({ requestText: "Call us at 606-506-4039" }).includes("phone_number"));
+  assert.ok(deriveFactRequirements({ ctaText: "Call 606-506-4039 to place an order." }).includes("phone_number"));
+});
+
+// ---------------------------------------------------------------------------
 // inheritConcept — Part D
 // ---------------------------------------------------------------------------
 
