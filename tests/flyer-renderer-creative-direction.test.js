@@ -520,3 +520,119 @@ test("framed_panel's default (full_bleed) behavior is unchanged by the framed_bl
   assert.equal(g.photo.h, 1080);
   assert.equal(g.isPanelFilled, true);
 });
+
+// ---------------------------------------------------------------------------
+// Phase 2.4 — photo presence, minimum visual weight, and dead-space
+// ---------------------------------------------------------------------------
+
+test("effectiveImageArea: raises a too-small imageScale toward an occasion's own floor, never lowers an already-larger one", () => {
+  // boutique_floral's floor (0.42) is well above "supporting" (0.34) —
+  // must be raised.
+  assert.ok(renderer.effectiveImageArea("supporting", "boutique_floral") > 0.34);
+  // "dominant" (0.86) already exceeds every floor — never lowered.
+  assert.equal(renderer.effectiveImageArea("dominant", "boutique_floral"), 0.86);
+  // An occasion with no floor (sympathy_elegance) — imageScale's own
+  // plain value passes through untouched, never forced up.
+  assert.equal(renderer.effectiveImageArea("supporting", "sympathy_elegance"), 0.34);
+  assert.equal(renderer.effectiveImageArea("supporting", "operational_notice"), 0.34);
+});
+
+test("boutique_floral's supporting corner_accent photo cannot collapse below a real minimum visual weight", () => {
+  const g = geo({ compositionFamily: "framed_panel", imagePlacement: "corner_accent", imageScale: "supporting", subjectPlacement: "right_third", occasionTreatment: "boutique_floral" });
+  const photoAreaFrac = (g.photo.w * g.photo.h) / (1080 * 1080);
+  // The confirmed Ashley defect measured this fixture at ~6% of the
+  // canvas — a genuine thumbnail. It must now be a real design element.
+  assert.ok(photoAreaFrac >= 0.15, `boutique corner_accent photo is only ${(photoAreaFrac * 100).toFixed(1)}% of the canvas`);
+});
+
+test("boutique's enlarged corner_accent photo never collides with its own text stack (guaranteed by construction, not just by luck)", () => {
+  const cases = [
+    { subjectPlacement: "right_third" }, { subjectPlacement: "left_third" },
+    { subjectPlacement: "center" }, { subjectPlacement: "lower_third" }
+  ];
+  for (const c of cases) {
+    const g = geo({ compositionFamily: "framed_panel", imagePlacement: "corner_accent", imageScale: "supporting", occasionTreatment: "boutique_floral", ...c });
+    const photoBottom = g.photo.y + g.photo.h;
+    const photoTop = g.photo.y;
+    const stackBottom = g.stack.y + g.stack.h;
+    const stackTop = g.stack.y;
+    const noVerticalOverlap = stackTop >= photoBottom - 1 || stackBottom <= photoTop + 1;
+    assert.ok(noVerticalOverlap, `corner_accent (${c.subjectPlacement}) photo and stack overlap vertically: photo ${photoTop}-${photoBottom}, stack ${stackTop}-${stackBottom}`);
+  }
+});
+
+test("seasonal_feature's known deterministic fixture (inset hero, balanced, left_third) does not leave excessive dead canvas", () => {
+  const g = geo({ compositionFamily: "hero_full_bleed", imagePlacement: "inset_panel", imageScale: "balanced", subjectPlacement: "left_third", occasionTreatment: "seasonal_feature" });
+  const dead = renderer.estimateDeadSpaceFraction(g, 1080, 1080);
+  // The confirmed Ashley defect left roughly 40%+ of the canvas doing
+  // no work at all. A real floor, not "fill every pixel."
+  assert.ok(dead < 0.32, `seasonal_feature's fixture leaves ${(dead * 100).toFixed(1)}% dead canvas`);
+});
+
+test("seasonal_feature's inset hero never clips text past the canvas — the text column keeps real, safe width even as the photo grows taller", () => {
+  const g = geo({ compositionFamily: "hero_full_bleed", imagePlacement: "inset_panel", imageScale: "balanced", subjectPlacement: "left_third", occasionTreatment: "seasonal_feature" });
+  assert.ok(g.stack.x + g.stack.w <= 1080, "stack rect must stay inside the canvas");
+  assert.ok(g.stack.w >= 280, `seasonal's text column is only ${g.stack.w}px wide — too narrow for a real headline`);
+});
+
+test("promotional_feature's imageScale materially affects banner_led's photo footprint (not flattened by the floor)", () => {
+  const balanced = geo({ compositionFamily: "banner_led", imagePlacement: "framed_block", imageScale: "balanced", occasionTreatment: "promotional_feature" });
+  const supporting = geo({ compositionFamily: "banner_led", imagePlacement: "framed_block", imageScale: "supporting", occasionTreatment: "promotional_feature" });
+  const dominant = geo({ compositionFamily: "banner_led", imagePlacement: "framed_block", imageScale: "dominant", occasionTreatment: "promotional_feature" });
+  const area = (g) => g.photo.w * g.photo.h;
+  assert.ok(area(dominant) >= area(balanced), "dominant should be at least as large as balanced");
+  assert.ok(area(balanced) > area(supporting), "balanced should still be visibly larger than supporting even with promotional's own floor applied");
+});
+
+test("promotional_feature's photo sits flush against the banner (a real touching relationship, not a floating gap)", () => {
+  const g = geo({ compositionFamily: "banner_led", imagePlacement: "framed_block", imageScale: "balanced", occasionTreatment: "promotional_feature", textRegion: "negative_space_band_lower" });
+  const photoBottom = g.photo.y + g.photo.h;
+  const gapPx = Math.abs(g.banner.y - photoBottom);
+  assert.ok(gapPx <= 10, `photo and banner have a ${gapPx}px gap — too disconnected`);
+});
+
+test("photo/text bounding boxes for every new Phase 2.4 geometry stay entirely inside the canvas", () => {
+  const cases = [
+    { compositionFamily: "framed_panel", imagePlacement: "corner_accent", imageScale: "supporting", subjectPlacement: "right_third", occasionTreatment: "boutique_floral" },
+    { compositionFamily: "hero_full_bleed", imagePlacement: "inset_panel", imageScale: "balanced", subjectPlacement: "left_third", occasionTreatment: "seasonal_feature" },
+    { compositionFamily: "hero_full_bleed", imagePlacement: "inset_panel", imageScale: "balanced", subjectPlacement: "right_third", occasionTreatment: "seasonal_feature" },
+    { compositionFamily: "hero_full_bleed", imagePlacement: "inset_panel", imageScale: "balanced", subjectPlacement: "lower_third", occasionTreatment: "seasonal_feature" },
+    { compositionFamily: "banner_led", imagePlacement: "framed_block", imageScale: "balanced", occasionTreatment: "promotional_feature" }
+  ];
+  for (const c of cases) {
+    const g = geo(c);
+    for (const key of ["photo", "panel", "stack", "banner"]) {
+      const rect = g[key];
+      if (!rect) continue;
+      assert.ok(rect.x >= -1 && rect.y >= -1 && rect.x + rect.w <= 1081 && rect.y + rect.h <= 1081,
+        `${key} rect out of canvas bounds for ${JSON.stringify(c)}: ${JSON.stringify(rect)}`);
+    }
+  }
+});
+
+test("estimateDeadSpaceFraction: a full-bleed photo with no panel leaves zero dead space", () => {
+  const g = geo({ compositionFamily: "hero_full_bleed" });
+  assert.equal(renderer.estimateDeadSpaceFraction(g, 1080, 1080), 0);
+});
+
+test("estimateDeadSpaceFraction: never throws and stays within [0,1] for a degenerate geometry", () => {
+  const dead = renderer.estimateDeadSpaceFraction({ photo: null, panel: null, stack: null, banner: null }, 1080, 1080);
+  assert.ok(dead >= 0 && dead <= 1);
+});
+
+test("Phase 2.4 does not regress the Phase 2.2 framed_block geometries (sympathy vs operational still structurally distinct)", () => {
+  const sympathy = geo({ compositionFamily: "framed_panel", imagePlacement: "framed_block", imageScale: "balanced", subjectPlacement: "left_third", occasionTreatment: "sympathy_elegance" });
+  const operational = geo({ compositionFamily: "framed_panel", imagePlacement: "inset_panel", imageScale: "balanced", subjectPlacement: "center", occasionTreatment: "operational_notice" });
+  assert.notEqual(sig(sympathy), sig(operational));
+});
+
+test("Phase 2.4 does not regress Phase 2.1/2.2/2.3's core geometry/palette contracts", () => {
+  // All four families remain structurally distinguishable.
+  const geometries = ["hero_full_bleed", "layered_editorial", "framed_panel", "banner_led"].map((f) => geo({ compositionFamily: f }));
+  assert.equal(new Set(geometries.map(sig)).size, 4);
+  // Palette diversity across occasions is unaffected by the geometry work.
+  const panels = new Set(["elegant_editorial", "boutique_floral", "sympathy_elegance", "operational_notice"].map(
+    (occ) => renderer.resolveOrnamentColors("soft_pastel", REAL_BRAND, occ).panel
+  ));
+  assert.ok(panels.size >= 3);
+});

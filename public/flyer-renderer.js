@@ -1863,6 +1863,56 @@
   // materially less visual weight than dominant, not just a label).
   var IMAGE_SCALE_AREA = { dominant: 0.86, balanced: 0.58, supporting: 0.34 };
 
+  /** Phase 2.4, Part 4 — minimum visual-weight FLOORS by occasion. A
+   * real florist advertisement sells the flowers; a "supporting" image
+   * still has to read as a genuine design element, never a thumbnail
+   * pasted into a template. These only ever RAISE an occasion's
+   * effective image area toward what that occasion needs — they never
+   * lower an already-larger choice, and an occasion with no entry here
+   * keeps imageScale's own plain value untouched (sympathy_elegance and
+   * operational_notice are deliberately absent: quiet integration and
+   * information-first are both legitimate outcomes there, never forced
+   * toward dominance). Bounded, deterministic — not one flat percentage
+   * for every aspect ratio, since it only ever combines with the
+   * existing per-geometry sizing math below, never replaces it. */
+  var MIN_VISUAL_WEIGHT = {
+    everyday_floral: 0.62,
+    elegant_editorial: 0.42,
+    boutique_floral: 0.42,
+    seasonal_feature: 0.5,
+    promotional_feature: 0.42
+  };
+
+  /** The real photo-area fraction to size a geometry from — imageScale's
+   * own value, raised to this occasion's floor when one applies. Pure. */
+  function effectiveImageArea(imageScale, occasionTreatment) {
+    var base = IMAGE_SCALE_AREA[imageScale] || IMAGE_SCALE_AREA.dominant;
+    var floor = MIN_VISUAL_WEIGHT[occasionTreatment];
+    return floor ? Math.max(base, floor) : base;
+  }
+
+  /** Phase 2.4, Part 5 — a real, testable "how much of the canvas isn't
+   * doing any work" estimate: canvas area outside the photo, any filled
+   * panel, and the banner shape (the stack is counted only when there is
+   * no panel already covering it, since a panel's own stack sits inside
+   * area already counted). This is a heuristic for catching a
+   * confirmed-bad case (seasonal_feature's own fixture measurably
+   * improving after Part 4's floor) — never a hard constraint the
+   * geometry math itself enforces, and never "fill every empty pixel":
+   * negative space that a family/textRegion deliberately asked for is
+   * not, by itself, a defect. Pure. */
+  function estimateDeadSpaceFraction(geo, width, height) {
+    var covered = 0;
+    function add(rect) { if (rect) covered += rect.w * rect.h; }
+    add(geo.photo);
+    add(geo.panel);
+    add(geo.banner);
+    if (!geo.panel) add(geo.stack);
+    var canvasArea = width * height;
+    if (canvasArea <= 0) return 0;
+    return Math.max(0, Math.min(1, 1 - covered / canvasArea));
+  }
+
   /** Independent-review correction (Ashley, visual audit): the first
    * Phase 2 pass only ever branched on compositionFamily + textRegion —
    * imagePlacement/imageScale/subjectPlacement were EXECUTED (fed into
@@ -1883,7 +1933,7 @@
     var imagePlacement = cd.imagePlacement || "full_bleed";
     var imageScale = cd.imageScale || "dominant";
     var subject = cd.subjectPlacement || "center";
-    var area = IMAGE_SCALE_AREA[imageScale] || IMAGE_SCALE_AREA.dominant;
+    var area = effectiveImageArea(imageScale, cd.occasionTreatment);
     var geo = { photo: frac(0, 0, 1, 1), panel: null, stack: null, banner: null, isPanelFilled: false };
 
     if (family === "layered_editorial") {
@@ -1924,7 +1974,14 @@
         // through the photo, painted in the wrong order). panelBehind
         // Photo tells the renderer to fill the panel FIRST, across the
         // whole canvas, then draw the photo on top, whole and unclipped.
-        var cs = Math.max(0.16, Math.min(0.34, Math.sqrt(area) * 0.42));
+        // Phase 2.4 correction (Ashley's confirmed fixture 03 defect —
+        // "the floral image is too small... does not have enough visual
+        // presence"): a corner ACCENT still has to read as a real,
+        // deliberate design element, not a thumbnail — sized from the
+        // occasion's own effective area (boutique_floral's floor makes
+        // this meaningfully larger than a plain "supporting" scale
+        // would), and allowed to occupy up to half the card.
+        var cs = Math.max(0.22, Math.min(0.52, Math.sqrt(area) * 0.62));
         var cx = subject === "left_third" ? 0 : subject === "center" ? 0.5 - cs / 2 : 1 - cs;
         var cy = subject === "lower_third" ? 1 - cs : 0;
         geo.photo = frac(cx, cy, cs, cs);
@@ -1943,12 +2000,16 @@
         // given, so the headline swelled to 4 oversized lines that
         // dominated the entire card and crushed supportingLine into a
         // sliver at the very bottom, with the photo/badge corner
-        // accents competing for the same cramped space. A deliberately
-        // bounded, moderate stack — real margin above (clear of the
-        // photo/badge corner) and below — keeps the headline at a
-        // proportionate size and gives supportingLine its own real,
-        // unsquashed room.
-        geo.stack = frac(0.1, 0.3, 0.8, 0.54);
+        // accents competing for the same cramped space. Phase 2.4: now
+        // that the photo itself can be materially bigger, the stack's
+        // own top/bottom bound is computed FROM the photo's actual
+        // footprint (whichever edge it anchors to) instead of a fixed
+        // 0.3–0.84 band — guaranteed by construction to never overlap
+        // the now-larger corner photo, real margin on both sides.
+        var csGap = 0.05;
+        var stackTop = cy === 0 ? cy + cs + csGap : 0.07;
+        var stackBottom = cy === 0 ? 0.93 : cy - csGap;
+        geo.stack = frac(0.09, stackTop, 0.82, Math.max(0.2, stackBottom - stackTop));
       } else if (imagePlacement === "inset_panel") {
         // The photo occupies its OWN strip (top or bottom, sized by
         // imageScale) — a real "photo supports, panel carries the
@@ -2014,9 +2075,16 @@
           // sitting right below it. A tall a column as the photo block
           // itself gives every role real room instead of a narrow
           // three-way split of a shorter run.
+          // Phase 2.4 (Ashley: sympathy is "one of the strongest," but
+          // inspect whether the photo can feel slightly more integrated
+          // without becoming loud): a tighter, real gap against the
+          // photo's own edge instead of floating in its own separate
+          // quadrant — the quiet mood, breathing room, and sizing are
+          // otherwise untouched, since Ashley was explicit not to force
+          // dominance here.
           geo.stack = onLeft
-            ? frac(bx + blockSide + 0.06, 0.05, 0.97 - (bx + blockSide + 0.06), 0.9)
-            : frac(0.06, 0.05, bx - 0.09, 0.9);
+            ? frac(bx + blockSide + 0.045, 0.05, 0.985 - (bx + blockSide + 0.045), 0.9)
+            : frac(0.045, 0.05, bx - 0.075, 0.9);
         } else {
           // center / lower_third: an anchored block (never a full-width
           // strip), text owning the open majority — but WHICH edge it
@@ -2095,14 +2163,33 @@
         var bCornerX = subject === "left_third" ? 0.05 : 1 - bCornerSide - 0.05;
         geo.photo = frac(bCornerX, 0.05, bCornerSide, bCornerSide);
       } else if (imagePlacement === "inset_panel" || imagePlacement === "framed_block") {
-        var blockFrac = { dominant: 0.6, balanced: 0.44, supporting: 0.28 }[imageScale] || 0.44;
-        var bannerTop = geo.banner.y, bannerBottom = geo.banner.y + geo.banner.h;
-        var aboveRoom = bannerTop - 0.02;
-        var belowRoom = 1 - bannerBottom - 0.02;
+        // Phase 2.4 (Ashley on fixture 07: "image and offer must
+        // visually interact... should not look like a generic coupon
+        // card"): sized from the occasion's own effective area
+        // (promotional_feature's floor keeps this from shrinking to a
+        // token strip), and set flush against the banner's own edge —
+        // a real touching relationship, not a photo and a banner
+        // floating in separate, unrelated bands with a gap between.
+        var blockFrac = Math.min(0.64, effectiveImageArea(imageScale, cd.occasionTreatment));
+        // geo.banner is already in PIXELS (frac() converted it) — a
+        // confirmed unit-mixing defect here compared raw pixel values
+        // against this function's own 0–1 FRACTIONS, so aboveRoom/
+        // belowRoom came out as huge pixel-scale numbers that never
+        // actually constrained anything (Math.min always just picked
+        // blockFrac back out again) and the photo never truly touched
+        // the banner's own edge despite the code's intent. Converted
+        // back to fractions of the real canvas before comparing.
+        var bannerTopF = geo.banner.y / height, bannerBottomF = (geo.banner.y + geo.banner.h) / height;
+        var aboveRoom = bannerTopF - 0.005;
+        var belowRoom = 1 - bannerBottomF - 0.005;
         if (belowRoom >= aboveRoom) {
-          geo.photo = frac(0, bannerBottom + 0.02, 1, Math.max(0.12, Math.min(blockFrac, belowRoom)));
+          geo.photo = frac(0, bannerBottomF + 0.005, 1, Math.max(0.12, Math.min(blockFrac, belowRoom)));
         } else {
-          geo.photo = frac(0, 0, 1, Math.max(0.12, Math.min(blockFrac, aboveRoom)));
+          // Positioned so its OWN bottom edge touches the banner (not
+          // pinned to the canvas top with whatever gap happens to be
+          // left over) — the real "flush against the banner" relationship.
+          var aboveHeight = Math.max(0.12, Math.min(blockFrac, aboveRoom));
+          geo.photo = frac(0, Math.max(0, bannerTopF - 0.005 - aboveHeight), 1, aboveHeight);
         }
       }
       // else full_bleed (or unset): geo.photo keeps its default
@@ -2123,15 +2210,40 @@
         // ~76% of the canvas, leaving almost no real room beside it for
         // text (a confirmed defect: a 12%-wide sliver). These two values
         // are chosen for real visual proportion instead.
+        //
         var insetSide = { balanced: 0.6, supporting: 0.4 }[imageScale] || 0.5;
         var ix = subject === "left_third" ? 0.04 : subject === "right_third" ? 1 - insetSide - 0.04 : (1 - insetSide) / 2;
         var iy = subject === "lower_third" ? 1 - insetSide - 0.05 : 0.06;
-        geo.photo = frac(ix, iy, insetSide, insetSide);
+        // Phase 2.4 correction (Ashley: "too much empty space, photo
+        // feels isolated" on seasonal_feature's own fixture — confirmed
+        // by a real render: the original square inset left roughly 40%
+        // of the canvas as raw unused base color). insetSide itself
+        // (the WIDTH beside which the text column has to fit) stays at
+        // its safe, already-tuned value — growing it directly narrowed
+        // the text column enough that a real render clipped "Arrangements"
+        // past the canvas edge, a confirmed regression. Instead the
+        // photo grows TALLER, a dimension the text column's own width
+        // never has to share, using the occasion's visual-weight floor
+        // (Part 4) to decide how much taller an occasion that needs the
+        // photo to genuinely participate gets.
+        var weightFloor = MIN_VISUAL_WEIGHT[cd.occasionTreatment];
+        var vertRoom = subject === "lower_third" ? iy - 0.06 : 0.94 - iy;
+        var insetH = weightFloor ? Math.min(vertRoom, insetSide * (1 + weightFloor)) : insetSide;
+        var photoY = subject === "lower_third" ? 1 - 0.05 - insetH : iy;
+        geo.photo = frac(ix, photoY, insetSide, insetH);
+        // The stack sits close against the photo's own edge (a tight,
+        // real gap, not floating in its own separate quadrant) so the
+        // headline reads as related to the flowers beside it, not a
+        // second unrelated block dropped next to a picture. Height
+        // stretches to match the (possibly taller) photo, closing the
+        // dead space that used to sit below a short fixed-height stack.
+        var stackH = Math.max(0.36, Math.min(0.6, insetH));
+        var stackY = photoY + (insetH - stackH) / 2;
         geo.stack = subject === "left_third"
-          ? frac(ix + insetSide + 0.04, 0.4, 0.96 - (ix + insetSide + 0.04), 0.36)
+          ? frac(ix + insetSide + 0.03, stackY, 0.96 - (ix + insetSide + 0.03), stackH)
           : subject === "right_third"
-          ? frac(0.06, 0.4, ix - 0.1, 0.36)
-          : frac(0.08, iy + insetSide + 0.05, 0.84, 1 - (iy + insetSide + 0.1) - 0.06);
+          ? frac(0.06, stackY, ix - 0.09, stackH)
+          : frac(0.08, iy + insetH + 0.03, 0.84, 1 - (iy + insetH + 0.08) - 0.06);
       } else if (subject === "left_third" || subject === "right_third") {
         var stackOnRight = subject === "left_third";
         var half = stackOnRight ? { x: 0.5, w: 0.44 } : { x: 0.06, w: 0.44 };
@@ -3284,6 +3396,9 @@
     IMAGE_CROP_ZOOM: IMAGE_CROP_ZOOM,
     SUBJECT_PLACEMENT_FOCAL: SUBJECT_PLACEMENT_FOCAL,
     resolveCompositionGeometry: resolveCompositionGeometry,
+    effectiveImageArea: effectiveImageArea,
+    MIN_VISUAL_WEIGHT: MIN_VISUAL_WEIGHT,
+    estimateDeadSpaceFraction: estimateDeadSpaceFraction,
     splitStackIntoRoles: splitStackIntoRoles,
     ornamentalDensityAllows: ornamentalDensityAllows,
     resolveBrandingRect: resolveBrandingRect,
