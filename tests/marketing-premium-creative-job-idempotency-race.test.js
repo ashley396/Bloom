@@ -178,7 +178,11 @@ test("Part 8 #6/#7: two simultaneous Retry requests for the same failed job crea
   const attempt0Entries = finalJob.plan.filter((p) => p.attempt_index === 0);
   const attempt1Entries = finalJob.plan.filter((p) => p.attempt_index === 1);
   assert.equal(attempt0Entries.length, 1, "attempt-0's history must survive untouched");
-  assert.ok(attempt1Entries.length >= 1, "attempt-1 must be recorded on the job");
+  // Batch 4.2: addPremiumJobAttempt's own compare-and-swap now makes
+  // this an EXACT invariant, not just "at least one" — see
+  // marketing-premium-creative-job-plan-append-race.test.js for the
+  // dedicated test exercising this specific mechanism directly.
+  assert.equal(attempt1Entries.length, 1, "exactly one attempt-1 plan entry must exist — never a duplicate array entry even under two racing Retry clicks");
   assert.notEqual(attempt0Entries[0].usage_id, attempt1Entries[0].usage_id, "attempt 0 and attempt 1 must reference distinct usage rows");
 });
 

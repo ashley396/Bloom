@@ -75,8 +75,8 @@ test("findActivePremiumJobForContentItem returns null (not an error) when no act
 test("buildPlannedAttemptStep + addPremiumJobAttempt (Part J): a retry APPENDS a new attempt, never overwrites attempt-0's history", async () => {
   const existingAttempt0 = { id: "attempt-0", attempt_index: 0, status: "failed", usage_id: "usage-0" };
   const client = createFakeSupabaseClient([
-    { data: { plan: [existingAttempt0], result: { content_item_id: "item-1" } }, error: null }, // read
-    { data: { id: "job-1", plan: [existingAttempt0, { id: "attempt-1" }] }, error: null } // update
+    { data: { plan: [existingAttempt0], result: { content_item_id: "item-1" }, updated_at: "2026-01-01T00:00:00.000Z" }, error: null }, // read
+    { data: [{ id: "job-1", plan: [existingAttempt0, { id: "attempt-1" }] }], error: null } // update (Batch 4.2: CAS — no .single(), returns an array)
   ]);
   const step = buildPlannedAttemptStep({ attemptIndex: 1, reservationId: "usage-1" });
   assert.equal(step.attempt_index, 1);

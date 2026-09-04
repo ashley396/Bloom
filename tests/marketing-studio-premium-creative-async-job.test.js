@@ -102,8 +102,8 @@ test("Batch4 Part C: a Premium-eligible request reserves usage, creates a durabl
         ...fixedResponses(),
         { data: { id: "job-1", shop_id: "shop-ashley", job_type: PREMIUM_JOB_TYPE, status: "planned", plan: [], result: {} }, error: null }, // createOrContinuePremiumJob -> createPremiumJob insert().select().single() (fresh, no conflict)
         { data: { id: "usage-1" }, error: null }, // reserveProviderCall insert().select("id").single()
-        { data: { plan: [], result: {} }, error: null }, // addPremiumJobAttempt read
-        { data: { id: "job-1", plan: [{ id: "attempt-0" }], result: {} }, error: null } // addPremiumJobAttempt update().select().single()
+        { data: { plan: [], result: {}, updated_at: "2026-01-01T00:00:00.000Z" }, error: null }, // addPremiumJobAttempt read
+        { data: [{ id: "job-1", plan: [{ id: "attempt-0" }], result: {} }], error: null } // addPremiumJobAttempt CAS update().select() (array, no .single())
       ],
       { storage: createFakeSupabaseStorage({}) }
     );

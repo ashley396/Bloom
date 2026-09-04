@@ -365,32 +365,81 @@ export function buildPlannedAttemptStep({ attemptIndex, reservationId }) {
  * creativeDirection/factSafeCopyPlan a Background Function will need)
  * into `result`.
  *
- * Batch 4.1: idempotent against `step.attempt_index` already being
- * present — this fetch-modify-write is no longer the SOLE guard against
- * a duplicate attempt (the reservation-level operation_id unique index
- * is the authoritative one — see createOrContinuePremiumJob's own doc),
- * but two callers racing to continue the SAME failed job could still
- * both compute the identical next attemptIndex before either writes; if
- * the job's plan already has an entry for that attempt_index, this is a
- * safe no-op that returns the job as-is rather than appending a second,
- * duplicate array entry for what the reservation layer already resolved
- * down to one real usage row.
+ * Batch 4.2 ("make Premium retry plan append atomic"): the PROVEN
+ * residual race Batch 4.1 left open — the reservation-level operation_id
+ * unique index guarantees at most one real usage row per attempt, but
+ * the plan[] APPEND ITSELF was still a plain fetch-modify-write. Two
+ * callers racing to continue the SAME job (two simultaneous Retry
+ * clicks, or an ordinary Generate racing a Retry) could both read the
+ * SAME pre-append plan before either wrote, both decide to append, and
+ * both write — producing two array entries for the one real attempt
+ * (harmless in that they'd share the same usage_id, since the
+ * reservation layer already resolved to one winner, but still a real
+ * correctness defect: duplicate/inconsistent plan[] entries, never
+ * acceptable per the invariant "exactly one attempt entry per
+ * attempt_index").
+ *
+ * FIX: optimistic concurrency (compare-and-swap on `updated_at`) — no
+ * new migration needed; every row this table has ever had already
+ * carries a real `updated_at` timestamp maintained by the existing
+ * touch_updated_at() trigger. The UPDATE is scoped to the EXACT
+ * updated_at this call's own read just observed:
+ *
+ *   UPDATE ai_execution_jobs SET plan=..., updated_at=now()
+ *   WHERE id = $jobId AND updated_at = $previouslyReadUpdatedAt
+ *
+ * If some other writer (another racing append, or the Background
+ * Function's own durable marker write) already changed this row in the
+ * window between this call's read and its write, that WHERE clause
+ * matches zero rows — this call LOSES the compare-and-swap rather than
+ * blindly overwriting whatever the winner wrote. A lost CAS is never
+ * treated as an error: this call reloads the NOW-current row and, if
+ * the attempt_index it wanted is already present (the winner added the
+ * exact same attempt — the expected outcome for two Retry clicks racing
+ * for the same reservation), returns THAT as an idempotent success
+ * (`alreadyAppended: true`) — reconciling the already-real reservation
+ * into the job's plan exactly once, never creating a second one. Only a
+ * genuinely different, still-missing write is retried (bounded, per
+ * `maxRetries`) — under the contention this table ever actually sees
+ * (a handful of concurrent requests for one content item, never a hot
+ * loop), one retry is already generous; exhausting it without success
+ * fails honestly rather than looping forever.
  */
-export async function addPremiumJobAttempt(client, jobId, step, { context = {} } = {}) {
+export async function addPremiumJobAttempt(client, jobId, step, { context = {}, maxRetries = 2 } = {}) {
   if (!jobId) return { ok: false, job: null, error: "addPremiumJobAttempt requires jobId." };
   try {
-    const current = await client.from("ai_execution_jobs").select("plan,result").eq("id", jobId).maybeSingle();
-    if (current.error) return { ok: false, job: null, error: current.error.message };
-    if (!current.data) return { ok: false, job: null, error: "Premium job not found." };
-    const existingPlan = Array.isArray(current.data.plan) ? current.data.plan : [];
-    if (existingPlan.some((entry) => entry?.attempt_index === step.attempt_index)) {
-      return { ok: true, job: { ...current.data, id: jobId }, alreadyAppended: true };
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const current = await client.from("ai_execution_jobs").select("plan,result,updated_at").eq("id", jobId).maybeSingle();
+      if (current.error) return { ok: false, job: null, error: current.error.message };
+      if (!current.data) return { ok: false, job: null, error: "Premium job not found." };
+      const existingPlan = Array.isArray(current.data.plan) ? current.data.plan : [];
+      const already = existingPlan.find((entry) => entry?.attempt_index === step.attempt_index);
+      if (already) {
+        // Either this call's own earlier iteration already won (should
+        // not normally re-enter the loop after a real success — this is
+        // reached when a CONCURRENT writer added this exact attempt), or
+        // a prior separate call already did. Either way: idempotent,
+        // reconciled, never a duplicate.
+        return { ok: true, job: { ...current.data, id: jobId }, alreadyAppended: true };
+      }
+      const plan = [...existingPlan, step];
+      const nextResult = { ...(current.data.result || {}), ...context };
+      const result = await client
+        .from("ai_execution_jobs")
+        .update({ plan, result: nextResult, status: "planned" })
+        .eq("id", jobId)
+        .eq("updated_at", current.data.updated_at)
+        .select();
+      if (result.error) return { ok: false, job: null, error: result.error.message };
+      if (Array.isArray(result.data) && result.data.length === 1) {
+        return { ok: true, job: result.data[0], alreadyAppended: false };
+      }
+      // Lost the compare-and-swap race — some other writer changed this
+      // row between this call's read and this write. Loop: re-read the
+      // now-current row and either find the attempt already reconciled
+      // (the common case) or retry the append against the new baseline.
     }
-    const plan = [...existingPlan, step];
-    const nextResult = { ...(current.data.result || {}), ...context };
-    const result = await client.from("ai_execution_jobs").update({ plan, result: nextResult, status: "planned" }).eq("id", jobId).select().single();
-    if (result.error) return { ok: false, job: null, error: result.error.message };
-    return { ok: true, job: result.data, alreadyAppended: false };
+    return { ok: false, job: null, error: "addPremiumJobAttempt could not append after repeated concurrent writes to the same job." };
   } catch (error) {
     return { ok: false, job: null, error: String(error?.message || error).slice(0, 300) };
   }

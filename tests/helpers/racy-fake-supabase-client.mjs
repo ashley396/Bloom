@@ -140,7 +140,13 @@ export function createRacyFakeSupabaseClient() {
           return { data: null, error: { code: "23505", message: "duplicate key value violates unique constraint" } };
         }
         store.set(id, row);
-        return wantSingle ? { data: row, error: null } : { data: [row], error: null };
+        // Real Postgres/PostgREST returns a VALUE, never a live handle
+        // into the server's own row — a caller mutating the object it
+        // got back must never be able to affect what a later SELECT
+        // sees. Returning a shallow copy here (and below) is what makes
+        // this client's races genuinely about DATABASE STATE, not an
+        // accident of JS object aliasing.
+        return wantSingle ? { data: { ...row }, error: null } : { data: [{ ...row }], error: null };
       }
 
       if (pendingOp?.type === "update") {
@@ -148,7 +154,7 @@ export function createRacyFakeSupabaseClient() {
         const updated = [];
         for (const row of matches) {
           Object.assign(row, pendingOp.payload, { updated_at: nowIso() });
-          updated.push(row);
+          updated.push({ ...row });
         }
         return wantSingle ? { data: updated[0] || null, error: null } : { data: updated, error: null };
       }
@@ -161,8 +167,9 @@ export function createRacyFakeSupabaseClient() {
           return 0;
         });
       }
-      if (wantSingle) return { data: matches[0] || null, error: null };
-      return { data: matches, error: null };
+      const copies = matches.map((row) => ({ ...row }));
+      if (wantSingle) return { data: copies[0] || null, error: null };
+      return { data: copies, error: null };
     }
 
     return builder;

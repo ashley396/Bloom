@@ -3895,16 +3895,21 @@ export function createMarketingStudioHandler(deps = {}) {
                       }
                       premiumCreativeDiagnostic.fallback = { occurred: true, final_engine: "exact_layout", reason: "job_attempt_attach_failed" };
                     } else {
-                      // Fire-and-forget: never lets an enqueue failure
-                      // crash this request — the job row itself (status
-                      // 'planned', a real attempt attached) is the durable
-                      // source of truth; a future reconciliation pass (Part
-                      // H) is what catches a job whose worker never fired.
-                      const invoke = await invokePremiumCreativeBackgroundFunction({ jobId: job.id });
+                      // Batch 4.2: addPremiumJobAttempt's own atomic
+                      // compare-and-swap can resolve to `alreadyAppended:
+                      // true` — this exact attempt was already durably
+                      // recorded by some OTHER writer (a concurrent
+                      // caller that raced this one and won). That writer
+                      // already dispatched (or is dispatching) the
+                      // Background Function for it — this request must
+                      // never dispatch a SECOND one for the same real
+                      // attempt.
+                      const invoke = addAttempt.alreadyAppended ? { ok: true, skipped: true } : await invokePremiumCreativeBackgroundFunction({ jobId: job.id });
                       structuredLog("info", "marketing_generate_content_premium_job_dispatch", {
                         traceId: genTraceId,
                         jobId: job.id,
-                        invoked: invoke.ok,
+                        invoked: invoke.ok && !invoke.skipped,
+                        skipped: Boolean(invoke.skipped),
                         invokeError: invoke.ok ? null : invoke.error
                       });
                       premiumCreativeDiagnostic.fallback = { occurred: false, final_engine: "premium_ai_creative", reason: null };
@@ -4369,13 +4374,17 @@ export function createMarketingStudioHandler(deps = {}) {
           return json(502, { error: "Couldn't start a new Premium generation attempt." });
         }
 
-        const invoke = await invokePremiumCreativeBackgroundFunction({ jobId: priorJob.id });
+        // Batch 4.2: never a second Background Function dispatch for an
+        // attempt some other writer already durably recorded — see the
+        // identical guard on generate_content's own premium branch.
+        const invoke = addAttempt.alreadyAppended ? { ok: true, skipped: true } : await invokePremiumCreativeBackgroundFunction({ jobId: priorJob.id });
         structuredLog("info", "marketing_retry_premium_generation_dispatch", {
           shopId,
           contentItemId: body.content_item_id,
           jobId: priorJob.id,
           attemptIndex: nextAttemptIndex,
-          invoked: invoke.ok
+          invoked: invoke.ok && !invoke.skipped,
+          skipped: Boolean(invoke.skipped)
         });
         return json(200, {
           premium_generation_pending: true,
