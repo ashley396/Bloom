@@ -1,6 +1,6 @@
 /**
  * Premium AI Creative — real server-side orchestration (Hybrid Marketing
- * Studio Batch 2, Parts 5/6/7/8/9/10/11).
+ * Studio Batch 2, Parts 5/6/7/8/9/10/11; Batch 4, "async job architecture").
  *
  * ============================================================================
  * STAGING-ONLY. NOT ACTIVE IN PRODUCTION TODAY.
@@ -19,11 +19,6 @@
  *      FLORISYN_ENV to be explicitly "preview"/"staging" (never true on
  *      a real production deploy) and refuses outright if the Supabase
  *      host matches the configured production project.
- * No shop has (1) set yet (Part 14: "DO NOT write the feature flag yet"),
- * and no environment has (2) configured. This module exists so that once
- * those two things become true for a specific staging shop, the rest of
- * the path is already real, tested, and wired — not built under time
- * pressure at activation time.
  * ============================================================================
  *
  * Never a second Marketing Studio pipeline (Ashley's own instruction):
@@ -32,6 +27,30 @@
  * (reserveProviderCall/completeProviderCall/failProviderCall), and the
  * existing preview/environment guard. Nothing here re-implements any of
  * those.
+ *
+ * Batch 4 ("async job architecture" — a real staging 504 proved a
+ * synchronous OpenAI image call cannot safely live inside generate_
+ * content's own request/response cycle): split into two phases so a
+ * synchronous caller (marketing-studio.js) can do the FAST part
+ * (validate everything, reserve usage) and return immediately, while a
+ * Background Function (marketing-premium-creative-background.js) does
+ * the SLOW part (the real network call) out of band, with zero
+ * duplicated business logic:
+ *   - reservePremiumCreativeGeneration() — env/provider/brief/cost-
+ *     estimate gates + the usage-ledger reservation. Never calls
+ *     provider.generate(). Fast, synchronous-safe.
+ *   - executeReservedPremiumCreativeGeneration() — given an ALREADY-
+ *     successful reservation (rebuilt from durable state, since a
+ *     Background Function is a separate process with no shared memory
+ *     from the request that reserved it), rebuilds the exact same brief
+ *     (a pure function of the same inputs — deterministic, so
+ *     recomputing it in a second process can never disagree with the
+ *     first) and makes the real provider.generate() call.
+ *   - attemptPremiumCreativeGeneration() — kept for full backward
+ *     compatibility (existing tests, any future synchronous-only
+ *     caller): simply runs both phases back to back in one process,
+ *     with IDENTICAL externally-observable behavior to before this
+ *     split.
  */
 
 import { buildConfiguredMarketingImageProviderRegistry } from "./marketing-image-providers.js";
@@ -50,7 +69,11 @@ export const PREMIUM_CREATIVE_STATES = Object.freeze({
   PROVIDER_UNAVAILABLE: "provider_unavailable",
   BRIEF_UNAVAILABLE: "brief_unavailable",
   RESERVATION_FAILED: "reservation_failed",
-  PROVIDER_CALL_FAILED: "provider_call_failed"
+  PROVIDER_CALL_FAILED: "provider_call_failed",
+  // Batch 4: the reservation succeeded but the real provider call has
+  // been handed off to a Background Function — never a terminal state
+  // on its own; reservePremiumCreativeGeneration()'s own success value.
+  RESERVED: "reserved"
 });
 
 // GPT-Image-2 only supports three output sizes (see marketing-image-
@@ -83,38 +106,6 @@ export function resolveOpenAiAspectRatio({ width, height } = {}) {
   return best.key;
 }
 
-/**
- * Attempts one real Premium AI Creative generation. Never throws — every
- * outcome is a typed `{ ok, state, ... }` result so a caller can decide
- * what to show the florist without inspecting exception internals.
- *
- * Credit/usage-ledger contract (Part 9/12): reserveProviderCall() is only
- * ever called AFTER the environment guard and provider-configured check
- * both pass — a provider-configuration failure or a blocked environment
- * therefore NEVER writes a usage row and NEVER consumes a Premium Design
- * credit (marketing-premium-design-entitlement.js counts exactly these
- * reservation rows). A mocked test's fake client writing to its own
- * isolated fake table never touches a real shop's entitlement either way.
- *
- * @param {object} params
- * @param {import('@supabase/supabase-js').SupabaseClient} params.client
- * @param {string} params.shopId
- * @param {string|null} [params.contentItemId]
- * @param {object} params.canonicalConcept - buildCanonicalConcept()'s own output.
- * @param {object} params.creativeDirection - buildDeterministicCreativeDirection()'s own output.
- * @param {object} [params.factSafeCopyPlan] - { headline, body, cta, caption } that already passed evaluateMarketingOutput().
- * @param {object} [params.verifiedShopBrandData] - the shop's own verified brand record.
- * @param {object|null} [params.referenceImageMeta]
- * @param {string} [params.aspectRatio]
- * @param {string} [params.qualityTier]
- * @param {string|null} [params.traceId]
- * @param {string|null} [params.filename]
- * @param {object} [params.env] - defaults to process.env.
- * @param {(env: object) => object} [params.providerFactory] - defaults to
- *   the real createOpenAiMarketingImageProvider; overridable in tests so
- *   generate() can be mocked without touching process.env or the network.
- * @returns {Promise<object>}
- */
 // Batch 3 staging-acceptance fix ("STRICT EVIDENCE MODE"): the specific,
 // non-vague reason vocabulary Ashley's own spec requires — never the
 // generic "failed"/"unavailable"/"error" a caller can't act on. Exported
@@ -133,7 +124,11 @@ export const PREMIUM_CREATIVE_REASON_CODES = Object.freeze({
   PROVIDER_REQUEST_FAILED: "provider_request_failed",
   PROVIDER_RESPONSE_INVALID: "provider_response_invalid",
   PROVIDER_UPLOAD_FAILED: "provider_upload_failed",
-  PREMIUM_SUCCESS: "premium_success"
+  PREMIUM_SUCCESS: "premium_success",
+  // Batch 4: the reservation-only phase succeeded; the real call is
+  // pending in the Background Function. Not a failure — used only as an
+  // intermediate diagnostic reason, never a terminal fallback.reason.
+  PREMIUM_PENDING: "premium_pending"
 });
 
 /** Part 5/8: a provider.generate() failure carries `stage` ("config" /
@@ -148,10 +143,46 @@ function classifyProviderCallFailure(generation) {
   return PREMIUM_CREATIVE_REASON_CODES.PROVIDER_RESPONSE_INVALID;
 }
 
-export async function attemptPremiumCreativeGeneration({
+function freshDiagnostic() {
+  return {
+    environment: { preview_guard_ok: null, preview_guard_errors: null },
+    provider: { configured: null, selected: null, name: OPENAI_PROVIDER_NAME, model: null },
+    usage: { reservation_attempted: false, reservation_id: null, reservation_status: null, reservation_error_code: null },
+    execution: { provider_generate_entered: false, provider_http_status: null, provider_result_ok: null },
+    orchestrator: { attempted: true, status: null, reason: null }
+  };
+}
+
+/** Resolves the provider through the SAME registry every caller uses —
+ * never a second, ad-hoc provider construction. Pure/cheap: no network
+ * call, just reads env and (in tests) the injected factory. Safe to call
+ * independently from two separate processes (the synchronous reservation
+ * phase and the Background Function's execution phase) since it always
+ * returns the same answer for the same env. */
+function resolveProvider(env, providerFactory) {
+  const registry = providerFactory ? { [OPENAI_PROVIDER_NAME]: providerFactory(env) } : buildConfiguredMarketingImageProviderRegistry(env);
+  return registry[OPENAI_PROVIDER_NAME] || null;
+}
+
+/**
+ * Batch 4, phase 1: everything through the usage-ledger reservation —
+ * environment guard, provider resolution/configuration, the deterministic
+ * brief builder (Part 7/8), OpenAI's own cost estimate, and finally
+ * reserveProviderCall() itself. Never calls provider.generate(). Fast
+ * (no outbound network call to OpenAI) and safe to run inside a
+ * synchronous request/response cycle.
+ *
+ * @returns {Promise<object>} `{ ok:false, state, reason, diagnostic }` on
+ *   any gate failure (same states attemptPremiumCreativeGeneration always
+ *   used), or `{ ok:true, state:"reserved", diagnostic, reservation:
+ *   {usageId, model}, jobId }` once the reservation has actually been
+ *   written.
+ */
+export async function reservePremiumCreativeGeneration({
   client,
   shopId,
   contentItemId = null,
+  jobId = null,
   canonicalConcept,
   creativeDirection,
   factSafeCopyPlan = {},
@@ -160,29 +191,11 @@ export async function attemptPremiumCreativeGeneration({
   aspectRatio = "1:1",
   qualityTier = "medium",
   traceId = null,
-  filename = null,
+  attemptIndex = 0,
   env = process.env,
   providerFactory = null
 } = {}) {
-  // Batch 3 staging-acceptance fix ("STRICT EVIDENCE MODE — durable
-  // runtime trace"): built incrementally, one field at a time, exactly as
-  // each real gate below is actually evaluated — never recomputed or
-  // guessed afterward. Every return path (success and every failure
-  // state) carries this SAME nested object back to the caller, which
-  // persists it verbatim onto the asset (marketing-studio.js) so a real
-  // staging failure can be read back from Supabase instead of requiring
-  // Netlify function-log access this account has already found
-  // impractical to retrieve (Function log UI reports "No results found"
-  // even over a 2-day range). Contains no secret: booleans, short
-  // state/reason codes, a usage-ledger id, an HTTP status code, and the
-  // preview guard's own already-non-secret violation sentences.
-  const diag = {
-    environment: { preview_guard_ok: null, preview_guard_errors: null },
-    provider: { configured: null, selected: null, name: OPENAI_PROVIDER_NAME, model: null },
-    usage: { reservation_attempted: false, reservation_id: null, reservation_status: null, reservation_error_code: null },
-    execution: { provider_generate_entered: false, provider_http_status: null, provider_result_ok: null },
-    orchestrator: { attempted: true, status: null, reason: null }
-  };
+  const diag = freshDiagnostic();
 
   // Part 10: staging-only environment safety, unconditional (not gated
   // behind "if this deploy already claims to be preview" the way the
@@ -198,13 +211,7 @@ export async function attemptPremiumCreativeGeneration({
     return { ok: false, state: PREMIUM_CREATIVE_STATES.ENVIRONMENT_BLOCKED, reasons: envCheck.errors, diagnostic: diag };
   }
 
-  // Resolve the provider through the SAME registry every other caller
-  // uses — never a second, ad-hoc provider construction.
-  const registry = providerFactory ? { [OPENAI_PROVIDER_NAME]: providerFactory(env) } : buildConfiguredMarketingImageProviderRegistry(env);
-  const provider = registry[OPENAI_PROVIDER_NAME];
-  // Read straight off the same boolean the gate below actually branches
-  // on — never a second, independently-recomputed "is it configured"
-  // check that could disagree with the real decision.
+  const provider = resolveProvider(env, providerFactory);
   diag.provider.selected = Boolean(provider);
   diag.provider.configured = provider ? provider.configured() : false;
   if (!provider) {
@@ -219,7 +226,13 @@ export async function attemptPremiumCreativeGeneration({
   }
   diag.provider.model = provider.model;
 
-  // Part 7/8: the one deterministic brief builder — never raw request text.
+  // Part 7/8: the one deterministic brief builder — never raw request
+  // text. Only used here to PROVE it can build (fail closed if not); the
+  // execution phase rebuilds the identical brief from the same inputs
+  // rather than this phase trying to serialize/hand it across a process
+  // boundary — buildOpenAiCreativeBrief is pure, so recomputing it later
+  // from the same canonicalConcept/creativeDirection/factSafeCopyPlan/
+  // verifiedShopBrandData can never disagree with this check.
   const brief = buildOpenAiCreativeBrief({ canonicalConcept, creativeDirection, factSafeCopyPlan, verifiedShopBrandData, referenceImageMeta });
   if (!brief.ok) {
     diag.orchestrator.status = PREMIUM_CREATIVE_STATES.BRIEF_UNAVAILABLE;
@@ -237,13 +250,12 @@ export async function attemptPremiumCreativeGeneration({
   // Part 11: reserve BEFORE the real call, using OpenAI's own conservative
   // cost model (never the generic Cloudflare-shaped estimateCostCents()).
   // A real OpenAI call must never happen without a durable reservation
-  // first — provider.generate() below is only ever reached past this
-  // point, and diag.execution.provider_generate_entered stays false on
-  // every return path above this line.
+  // first — provider.generate() is never called anywhere in this phase.
   diag.usage.reservation_attempted = true;
   const reservation = await reserveProviderCall(client, {
     shopId,
     contentItemId,
+    jobId,
     provider: OPENAI_PROVIDER_NAME,
     model: provider.model,
     purpose: "image",
@@ -251,16 +263,13 @@ export async function attemptPremiumCreativeGeneration({
     unitType: "image",
     units: 1,
     traceId,
-    attemptIndex: 0,
+    attemptIndex,
     estimatedCostCentsOverride: costEstimate.cents,
     costSource: costEstimate.cost_source,
     metadata: { aspectRatio, qualityTier }
   });
   if (!reservation.ok) {
     diag.usage.reservation_status = "insert_failed";
-    // The specific, safe DB-derived reason (e.g. "check_violation") —
-    // never raw SQL text, never a secret — see reserveProviderCall()'s
-    // own classifyDatabaseErrorCode() for exactly what this can be.
     diag.usage.reservation_error_code = reservation.errorCode || "unknown_database_error";
     diag.orchestrator.status = PREMIUM_CREATIVE_STATES.RESERVATION_FAILED;
     diag.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.RESERVATION_FAILED;
@@ -268,24 +277,111 @@ export async function attemptPremiumCreativeGeneration({
   }
   diag.usage.reservation_id = reservation.usageId;
   diag.usage.reservation_status = "estimated";
+  diag.orchestrator.status = PREMIUM_CREATIVE_STATES.RESERVED;
+  diag.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.PREMIUM_PENDING;
+
+  return {
+    ok: true,
+    state: PREMIUM_CREATIVE_STATES.RESERVED,
+    diagnostic: diag,
+    jobId,
+    reservation: { usageId: reservation.usageId, model: provider.model }
+  };
+}
+
+/**
+ * Batch 4, phase 2: given an ALREADY-successful reservation (from
+ * reservePremiumCreativeGeneration(), possibly in a different process —
+ * a Background Function has no memory shared with the request that
+ * reserved), rebuilds the identical deterministic brief and makes the
+ * real provider.generate() call, then settles the usage row.
+ *
+ * @param {object} params - the SAME canonicalConcept/creativeDirection/
+ *   factSafeCopyPlan/verifiedShopBrandData/aspectRatio/qualityTier/
+ *   traceId/env/providerFactory the reservation phase was called with —
+ *   the caller (the Background Function) is responsible for loading
+ *   these back from durable storage (the job row) since nothing here is
+ *   held in memory from the synchronous request.
+ * @param {string} params.reservationId - the usage row id reservePremium
+ *   CreativeGeneration() already created.
+ * @param {object} [params.initialDiagnostic] - the diagnostic
+ *   reservePremiumCreativeGeneration() returned; continued forward here
+ *   rather than rebuilt, so environment/provider/usage fields are never
+ *   silently re-derived a second time.
+ * @param {(diag: object) => (void|Promise<void>)} [params.onBeforeProviderCall] -
+ *   invoked with the current diagnostic snapshot immediately after
+ *   `execution.provider_generate_entered` is set true and BEFORE the
+ *   outbound fetch — this is the ONE hook point a caller (the Background
+ *   Function) uses to durably persist the "provider call starting" marker
+ *   (Part E) into ai_execution_jobs before the real network call begins,
+ *   so a hard process death after this point is distinguishable from one
+ *   before it. Awaited if it returns a promise.
+ * @param {(diag: object) => (void|Promise<void>)} [params.onAfterProviderCall] -
+ *   invoked once the provider call has returned (success or failure),
+ *   before usage settlement — lets the caller durably persist the
+ *   "provider call finished" marker. Awaited if it returns a promise.
+ */
+export async function executeReservedPremiumCreativeGeneration({
+  client,
+  shopId,
+  contentItemId = null,
+  canonicalConcept,
+  creativeDirection,
+  factSafeCopyPlan = {},
+  verifiedShopBrandData = {},
+  referenceImageMeta = null,
+  aspectRatio = "1:1",
+  qualityTier = "medium",
+  traceId = null,
+  filename = null,
+  reservationId,
+  initialDiagnostic = null,
+  env = process.env,
+  providerFactory = null,
+  onBeforeProviderCall = null,
+  onAfterProviderCall = null
+} = {}) {
+  const diag = initialDiagnostic ? JSON.parse(JSON.stringify(initialDiagnostic)) : freshDiagnostic();
+
+  const provider = resolveProvider(env, providerFactory);
+  if (!provider || !provider.configured()) {
+    // Structurally shouldn't happen (the reservation phase already
+    // proved this env has a configured provider moments earlier), but a
+    // Background Function is a genuinely separate invocation — fail
+    // closed honestly rather than assume.
+    diag.orchestrator.status = PREMIUM_CREATIVE_STATES.PROVIDER_UNAVAILABLE;
+    diag.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.PROVIDER_NOT_CONFIGURED;
+    return { ok: false, state: PREMIUM_CREATIVE_STATES.PROVIDER_UNAVAILABLE, reason: "OpenAI Premium Creative is not configured for this execution.", diagnostic: diag };
+  }
+
+  const brief = buildOpenAiCreativeBrief({ canonicalConcept, creativeDirection, factSafeCopyPlan, verifiedShopBrandData, referenceImageMeta });
+  if (!brief.ok) {
+    diag.orchestrator.status = PREMIUM_CREATIVE_STATES.BRIEF_UNAVAILABLE;
+    diag.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.BRIEF_BUILD_FAILED;
+    return { ok: false, state: PREMIUM_CREATIVE_STATES.BRIEF_UNAVAILABLE, reason: brief.error, diagnostic: diag };
+  }
 
   // The real call. Genuinely billable if it ever actually reaches OpenAI
   // — inert here only because provider.configured() (checked above) is
   // false in every real environment today (see file header).
   diag.execution.provider_generate_entered = true;
+  if (onBeforeProviderCall) await onBeforeProviderCall({ ...diag });
+
   const generation = await provider.generate({ client, shopId, prompt: buildBackgroundPromptFromBrief(brief), filename, aspectRatio, qualityTier, traceId });
   diag.execution.provider_result_ok = generation.ok;
   diag.execution.provider_http_status = generation.status ?? null;
 
+  if (onAfterProviderCall) await onAfterProviderCall({ ...diag });
+
   if (!generation.ok) {
-    await failProviderCall(client, reservation.usageId, { error: generation.error });
+    await failProviderCall(client, reservationId, { error: generation.error });
     diag.usage.reservation_status = "failed";
     diag.orchestrator.status = PREMIUM_CREATIVE_STATES.PROVIDER_CALL_FAILED;
     diag.orchestrator.reason = classifyProviderCallFailure(generation);
-    return { ok: false, state: PREMIUM_CREATIVE_STATES.PROVIDER_CALL_FAILED, reason: generation.error, usageId: reservation.usageId, diagnostic: diag };
+    return { ok: false, state: PREMIUM_CREATIVE_STATES.PROVIDER_CALL_FAILED, reason: generation.error, usageId: reservationId, diagnostic: diag };
   }
 
-  await completeProviderCall(client, reservation.usageId, {
+  await completeProviderCall(client, reservationId, {
     actualCostCents: generation.actualCostCents ?? null,
     metadata: { usage: generation.usage || null, costSource: generation.costSource }
   });
@@ -314,10 +410,94 @@ export async function attemptPremiumCreativeGeneration({
         factsAllowed: brief.factsAllowed
       },
       qualityStatus: "unverified",
-      usageReservationId: reservation.usageId,
+      usageReservationId: reservationId,
       traceId
     }
   };
+}
+
+/**
+ * Attempts one real Premium AI Creative generation SYNCHRONOUSLY, start
+ * to finish, in one process. Kept for full backward compatibility (every
+ * Batch 2/3 test, and any future purely-synchronous caller) — behaves
+ * IDENTICALLY to before Batch 4's async split, by simply running
+ * reservePremiumCreativeGeneration() then (on success)
+ * executeReservedPremiumCreativeGeneration() back to back. The real,
+ * live-traffic-facing path (marketing-studio.js) no longer calls this —
+ * it calls the two phases separately so the reservation returns fast and
+ * the real provider call happens in a Background Function instead. Never
+ * throws; every outcome is a typed `{ ok, state, ... }` result.
+ *
+ * @param {object} params
+ * @param {import('@supabase/supabase-js').SupabaseClient} params.client
+ * @param {string} params.shopId
+ * @param {string|null} [params.contentItemId]
+ * @param {object} params.canonicalConcept - buildCanonicalConcept()'s own output.
+ * @param {object} params.creativeDirection - buildDeterministicCreativeDirection()'s own output.
+ * @param {object} [params.factSafeCopyPlan] - { headline, body, cta, caption } that already passed evaluateMarketingOutput().
+ * @param {object} [params.verifiedShopBrandData] - the shop's own verified brand record.
+ * @param {object|null} [params.referenceImageMeta]
+ * @param {string} [params.aspectRatio]
+ * @param {string} [params.qualityTier]
+ * @param {string|null} [params.traceId]
+ * @param {string|null} [params.filename]
+ * @param {object} [params.env] - defaults to process.env.
+ * @param {(env: object) => object} [params.providerFactory] - defaults to
+ *   the real createOpenAiMarketingImageProvider; overridable in tests so
+ *   generate() can be mocked without touching process.env or the network.
+ * @returns {Promise<object>}
+ */
+export async function attemptPremiumCreativeGeneration({
+  client,
+  shopId,
+  contentItemId = null,
+  canonicalConcept,
+  creativeDirection,
+  factSafeCopyPlan = {},
+  verifiedShopBrandData = {},
+  referenceImageMeta = null,
+  aspectRatio = "1:1",
+  qualityTier = "medium",
+  traceId = null,
+  filename = null,
+  env = process.env,
+  providerFactory = null
+} = {}) {
+  const reserved = await reservePremiumCreativeGeneration({
+    client,
+    shopId,
+    contentItemId,
+    canonicalConcept,
+    creativeDirection,
+    factSafeCopyPlan,
+    verifiedShopBrandData,
+    referenceImageMeta,
+    aspectRatio,
+    qualityTier,
+    traceId,
+    env,
+    providerFactory
+  });
+  if (!reserved.ok) return reserved;
+
+  return executeReservedPremiumCreativeGeneration({
+    client,
+    shopId,
+    contentItemId,
+    canonicalConcept,
+    creativeDirection,
+    factSafeCopyPlan,
+    verifiedShopBrandData,
+    referenceImageMeta,
+    aspectRatio,
+    qualityTier,
+    traceId,
+    filename,
+    reservationId: reserved.reservation.usageId,
+    initialDiagnostic: reserved.diagnostic,
+    env,
+    providerFactory
+  });
 }
 
 /**

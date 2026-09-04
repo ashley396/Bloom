@@ -43,8 +43,62 @@
     draft: "Draft — ready for your review",
     in_review: "In review",
     approved: "Approved",
-    archived: "Rejected"
+    archived: "Rejected",
+    // Batch 4 ("async job architecture"): a Premium Creative job that
+    // genuinely failed (a real provider error, or a process death whose
+    // outcome could never be confirmed) now settles the content item
+    // here — an honest, recoverable state with its own explicit Retry
+    // button below, never left stuck at "Generating…" forever the way
+    // the real staging 504 incident did.
+    failed: "Couldn't be created"
   };
+
+  // Batch 4, Part I: bounded client-side polling for a pending Premium
+  // Creative job — never a synchronous wait for OpenAI's real image call
+  // (the exact real staging 504 this exists to fix). ~90 seconds total;
+  // a timeout here never cancels the real background job, it only stops
+  // THIS tab from watching it — the florist can always leave and come
+  // back, and load() will show whatever the job's real current state is.
+  const PREMIUM_POLL_INTERVAL_MS = 2500;
+  const PREMIUM_POLL_MAX_ATTEMPTS = 36;
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function pollPremiumJob(jobId) {
+    if (!jobId) return { terminal: false };
+    for (let attempt = 0; attempt < PREMIUM_POLL_MAX_ATTEMPTS; attempt++) {
+      await sleep(PREMIUM_POLL_INTERVAL_MS);
+      let status;
+      try {
+        status = await studioApi("premium_job_status", { body: { job_id: jobId } });
+      } catch {
+        // A transient poll failure (a dropped request, a brief 5xx) is
+        // never treated as the job itself having failed — only a real
+        // terminal status from the server counts.
+        continue;
+      }
+      if (status?.terminal) return status;
+    }
+    return { terminal: false, timed_out: true };
+  }
+
+  /** Shared by every place that can receive a premium_generation_pending
+   * response (the create-form auto-chain, the "Generate" button, and
+   * explicit Retry) — polls to a real terminal outcome or an honest
+   * bounded timeout, and returns the one toast message to show. Never
+   * fabricates a success; a timeout is reported as "still working," not
+   * as failure or completion. */
+  async function watchPendingPremiumJob(jobId) {
+    toast("Lily is creating your design…");
+    const finalStatus = await pollPremiumJob(jobId);
+    if (!finalStatus.terminal) {
+      return "Your design is still being created. You can leave this page and come back.";
+    }
+    if (finalStatus.status === "completed") return "Your design is ready for review.";
+    return finalStatus.error || "Lily couldn't finish that design this time — try Retry on the card below.";
+  }
 
   // Honest readiness (hardening pass): "Draft — ready for your review" is a
   // real claim — it must never show while a flyer's render/upload hasn't
@@ -533,6 +587,7 @@
       ${revising ? revisionComposerHtml(item) : ""}
       <div class="card-actions">
         ${canGenerate ? `<button type="button" class="primary" data-ms-act="generate" ${busy ? "disabled" : ""}>${busy ? "Working…" : "Ask Lily to create it"}</button>` : ""}
+        ${item.status === "failed" ? `<button type="button" class="primary" data-ms-act="retry-premium" ${busy ? "disabled" : ""}>${busy ? "Working…" : "Retry"}</button>` : ""}
         ${state.flyerRenderFailed[item.id] ? `<button type="button" class="secondary" data-ms-act="retry-flyer" ${busy ? "disabled" : ""}>Retry</button>` : ""}
         ${canReview && !revising ? `<button type="button" class="secondary" data-ms-act="revise" ${busy ? "disabled" : ""}>Ask Lily to change something</button>` : ""}
         ${canRegenerateImage ? `<button type="button" class="secondary" data-ms-act="regenerate-image" ${busy ? "disabled" : ""}>Regenerate image</button>` : ""}
@@ -632,24 +687,31 @@
           try {
             toast("Lily is creating your draft…");
             const genResult = await generateWithPhotoChoice(newItemId);
-            // Batch 3, Part G: a flyer's on-image text/background exists
-            // server-side at this point, but the actual poster still has
-            // to be drawn on a canvas and uploaded through
-            // finalize_flyer_render (mountFlyerPreviews, triggered by the
-            // load()/render() call below) before there's a real, durable
-            // asset to review — Approve stays disabled and the card's own
-            // eyebrow correctly reads "Preparing your flyer…"
-            // (effectiveStatusLabel above) until that finishes. Claiming
-            // "ready for your review" here, before that upload has even
-            // started, was never true for a flyer.
-            const stillPreparing = genResult?.asset?.type === "flyer";
-            toast(
-              genResult?.cancelled
-                ? "Draft saved — click \"Ask Lily to create it\" below whenever you're ready."
-                : stillPreparing
-                  ? "Draft saved — Lily is finishing your flyer's design now."
-                  : "Draft ready for your review."
-            );
+            if (genResult?.premium_generation_pending) {
+              // Batch 4: Premium Creative's real OpenAI call now runs in
+              // Florisyn's Background Function, not this request — this is
+              // what actually waits for it, with an honest bounded window.
+              toast(await watchPendingPremiumJob(genResult.job_id));
+            } else {
+              // Batch 3, Part G: a flyer's on-image text/background exists
+              // server-side at this point, but the actual poster still has
+              // to be drawn on a canvas and uploaded through
+              // finalize_flyer_render (mountFlyerPreviews, triggered by the
+              // load()/render() call below) before there's a real, durable
+              // asset to review — Approve stays disabled and the card's own
+              // eyebrow correctly reads "Preparing your flyer…"
+              // (effectiveStatusLabel above) until that finishes. Claiming
+              // "ready for your review" here, before that upload has even
+              // started, was never true for a flyer.
+              const stillPreparing = genResult?.asset?.type === "flyer";
+              toast(
+                genResult?.cancelled
+                  ? "Draft saved — click \"Ask Lily to create it\" below whenever you're ready."
+                  : stillPreparing
+                    ? "Draft saved — Lily is finishing your flyer's design now."
+                    : "Draft ready for your review."
+              );
+            }
           } catch (genErr) {
             toast(genErr.message || "Draft created — click \"Ask Lily to create it\" below to finish it.");
           }
@@ -680,6 +742,20 @@
               state.busyId = null;
               render();
               return;
+            }
+            if (genResult?.premium_generation_pending) {
+              toast(await watchPendingPremiumJob(genResult.job_id));
+            }
+          } else if (act === "retry-premium") {
+            // Batch 4, Part J: an EXPLICIT user Retry after a known failed
+            // Premium job — never automatic. Appends a new attempt onto
+            // the same durable job server-side; this is just the client
+            // side of watching it the same way a fresh Generate would.
+            state.busyId = id;
+            render();
+            const retryResult = await studioApi("retry_premium_generation", { body: { content_item_id: id } });
+            if (retryResult?.premium_generation_pending) {
+              toast(await watchPendingPremiumJob(retryResult.job_id));
             }
           } else if (act === "retry-flyer") {
             retryFlyerRender(id);

@@ -109,10 +109,20 @@ import { runAnalyticsIngestion, reconcileLatestMetricSnapshots } from "./_shared
 import { checkMonthlyBudgetForRequest, getShopBudgetCapCents, monthlyCommittedSpendCents } from "./_shared/marketing-budget-guard.js";
 import { enforceSafeMarketingPreviewEnvironmentIfClaimed } from "./_shared/marketing-preview-environment-guard.js";
 import { routeMarketingEngine } from "./_shared/marketing-engine-router.js";
-import { attemptPremiumCreativeGeneration, resolveOpenAiAspectRatio, PREMIUM_CREATIVE_REASON_CODES } from "./_shared/marketing-premium-creative-orchestrator.js";
+import { reservePremiumCreativeGeneration, resolveOpenAiAspectRatio, PREMIUM_CREATIVE_REASON_CODES, PREMIUM_CREATIVE_STATES } from "./_shared/marketing-premium-creative-orchestrator.js";
+import {
+  findActivePremiumJobForContentItem,
+  findLatestPremiumJobForContentItem,
+  createPremiumJob,
+  buildPlannedAttemptStep,
+  addPremiumJobAttempt,
+  settlePremiumJobFailed,
+  invokePremiumCreativeBackgroundFunction,
+  PREMIUM_JOB_MAX_ATTEMPTS
+} from "./_shared/marketing-premium-creative-job.js";
 import { PROVIDER_NAME as OPENAI_PROVIDER_NAME } from "./_shared/marketing-image-provider-openai.js";
 import { COST_CONFIG_VERSION, DEFAULT_MONTHLY_ALLOWANCE, estimateCostCents } from "./_shared/marketing-cost-config.js";
-import { calculateWorstCaseBoundedCostCents } from "./_shared/marketing-provider-usage.js";
+import { calculateWorstCaseBoundedCostCents, failProviderCall } from "./_shared/marketing-provider-usage.js";
 import {
   buildMonthlyContentPlan,
   CONTENT_ITEM_APPROVABLE_STATUSES,
@@ -3634,7 +3644,18 @@ export function createMarketingStudioHandler(deps = {}) {
               // and the admin path, since a fresh service-role client is
               // equivalent to the admin path's already-service-role client.
               const premiumRouterEligible = engineRouteDecision.engine === "premium_ai_creative";
-              const premiumFeatureEnabled = premiumRouterEligible ? await isShopFeatureEnabled(shopId, "marketing_openai_premium_creative") : false;
+              // Batch 4, Part K testability: `deps.isShopFeatureEnabled`
+              // (default: the real import, identical to before) is the
+              // ONLY thing this line changed for — production behavior is
+              // byte-for-byte identical (createMarketingStudioHandler() with
+              // no deps still calls the exact same real function, which
+              // still builds its own real service-role client per the
+              // comment above). This is what makes it possible to
+              // integration-test the actual Premium-eligible async job
+              // kickoff path through the real dispatch, rather than only
+              // ever observing this flag as unreadable-therefore-false.
+              const checkPremiumFeatureEnabled = deps.isShopFeatureEnabled || isShopFeatureEnabled;
+              const premiumFeatureEnabled = premiumRouterEligible ? await checkPremiumFeatureEnabled(shopId, "marketing_openai_premium_creative") : false;
               // Diagnostic default above already covers "router chose
               // exact_layout on its own"; a router-eligible request
               // overwrites both fields honestly, whether or not the flag
@@ -3650,74 +3671,211 @@ export function createMarketingStudioHandler(deps = {}) {
                   premiumFeatureEnabled
                 });
               }
+              // Batch 4 ("async job architecture" — a real staging 504
+              // proved a synchronous OpenAI image call cannot safely live
+              // inside generate_content's own request/response cycle): this
+              // branch never calls provider.generate() (nor even the
+              // reserve+execute combo attemptPremiumCreativeGeneration())
+              // directly anymore. It does the FAST part only — find/create
+              // the durable job, reserve usage, hand off to the Background
+              // Function — and returns immediately. The real network call
+              // happens out of band in marketing-premium-creative-
+              // background.js, which reuses the exact same orchestrator
+              // (executeReservedPremiumCreativeGeneration) and the exact
+              // same OpenAI provider adapter; nothing here duplicates that
+              // logic.
               if (premiumRouterEligible && premiumFeatureEnabled) {
                 premiumCreativeDiagnostic.orchestrator.attempted = true;
                 const premiumCreativeDirection = buildDeterministicCreativeDirection({
                   canonicalConcept: routingConcept,
                   shopBrand: { logoUrl: shopRow.data?.logo_url || null }
                 });
-                const premiumAttempt = await attemptPremiumCreativeGeneration({
-                  client,
-                  shopId,
-                  contentItemId: body.content_item_id,
-                  canonicalConcept: routingConcept,
-                  creativeDirection: premiumCreativeDirection,
-                  factSafeCopyPlan: {
-                    headline: flyerGen.content.headline,
-                    body: flyerGen.content.body,
-                    cta: flyerGen.content.cta,
-                    caption: copyGen.content.body
-                  },
-                  verifiedShopBrandData: { name: shopName, phone: shopRow.data?.phone || null },
-                  aspectRatio: resolveOpenAiAspectRatio(ASPECT_RATIOS[pickAspectRatio(primaryPlatform)]),
-                  traceId: genTraceId,
-                  filename: `marketing-premium-${body.content_item_id}.png`
-                });
-                structuredLog("info", "marketing_generate_content_premium_creative_attempt", {
-                  traceId: genTraceId,
-                  ok: premiumAttempt.ok,
-                  state: premiumAttempt.state
-                });
-                // Merge in the orchestrator's OWN diagnostic verbatim —
-                // every one of these sub-objects was already computed,
-                // field by field, exactly where each real gate ran (see
-                // attemptPremiumCreativeGeneration's own doc); never
-                // recomputed or re-derived here.
-                if (premiumAttempt.diagnostic) {
-                  premiumCreativeDiagnostic.environment = premiumAttempt.diagnostic.environment;
-                  premiumCreativeDiagnostic.provider = premiumAttempt.diagnostic.provider;
-                  premiumCreativeDiagnostic.usage = premiumAttempt.diagnostic.usage;
-                  premiumCreativeDiagnostic.execution = premiumAttempt.diagnostic.execution;
-                  premiumCreativeDiagnostic.orchestrator = premiumAttempt.diagnostic.orchestrator;
-                }
-                if (premiumAttempt.ok) {
-                  imageGen = {
+                const premiumFactSafeCopyPlan = {
+                  headline: flyerGen.content.headline,
+                  body: flyerGen.content.body,
+                  cta: flyerGen.content.cta,
+                  caption: copyGen.content.body
+                };
+                const premiumVerifiedShopBrandData = { name: shopName, phone: shopRow.data?.phone || null };
+                const premiumAspectRatio = resolveOpenAiAspectRatio(ASPECT_RATIOS[pickAspectRatio(primaryPlatform)]);
+                const premiumFilename = `marketing-premium-${body.content_item_id}.png`;
+
+                // Part B idempotency: a duplicate submission for this exact
+                // content item (double-click, page reload, browser retry
+                // after the FIRST request's response was lost — e.g. the
+                // real proven 504) must return the SAME already-in-flight
+                // job rather than reserving a second OpenAI spend. This is
+                // a defense-in-depth check on top of the atomic 'idea' ->
+                // 'generating' content-item claim above (which already
+                // blocks a second CONCURRENT request for the same item) —
+                // it also covers the case where the browser lost the first
+                // response but the server-side claim, job, and reservation
+                // all already succeeded.
+                const activeJobLookup = await findActivePremiumJobForContentItem(client, { shopId, contentItemId: body.content_item_id });
+                if (activeJobLookup.ok && activeJobLookup.job) {
+                  structuredLog("info", "marketing_generate_content_premium_creative_attempt", {
+                    traceId: genTraceId,
                     ok: true,
-                    path: null,
-                    url: premiumAttempt.result.backgroundImageUrl,
-                    mime: null,
-                    provider: premiumAttempt.result.provider,
-                    model: premiumAttempt.result.model,
-                    qualityCheck: null,
-                    styleTier: "generated"
-                  };
-                  creativeEngineUsed = "premium_ai_creative";
-                  premiumCreativeOverlays = premiumAttempt.result.overlays;
+                    state: "existing_job",
+                    jobId: activeJobLookup.job.id
+                  });
+                  premiumCreativeDiagnostic.orchestrator.status = PREMIUM_CREATIVE_STATES.RESERVED;
+                  premiumCreativeDiagnostic.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.PREMIUM_PENDING;
                   premiumCreativeDiagnostic.fallback = { occurred: false, final_engine: "premium_ai_creative", reason: null };
+                  structuredLog("info", "marketing_generate_content_premium_creative_diagnostic", { traceId: genTraceId, diagnostic: premiumCreativeDiagnostic });
+                  return json(200, {
+                    premium_generation_pending: true,
+                    job_id: activeJobLookup.job.id,
+                    content_item_id: body.content_item_id,
+                    status: "generating"
+                  });
+                }
+
+                const jobCreate = await createPremiumJob(client, {
+                  shopId,
+                  userId: user.id,
+                  contentItemId: body.content_item_id,
+                  title: currentItem.data.title || "",
+                  traceId: genTraceId
+                });
+
+                if (!jobCreate.ok) {
+                  // Part A: no durable job could even be created — fall
+                  // through to the existing Exact Layout path exactly as a
+                  // reservation failure always has, rather than risk a
+                  // provider call with nowhere durable to record it.
+                  structuredLog("warn", "marketing_generate_content_premium_job_create_failed", { traceId: genTraceId, error: jobCreate.error });
+                  premiumCreativeDiagnostic.fallback = { occurred: true, final_engine: "exact_layout", reason: "job_create_failed" };
                 } else {
-                  // Part 9: on any non-success state, creativeEngineUsed
-                  // stays "exact_layout" and execution falls through to
-                  // the EXISTING Exact Layout path below, completely
-                  // unchanged — an explicit, honest fallback, never a
-                  // silent substitution presented as Premium Creative.
-                  // fallback.reason is the orchestrator's own specific
-                  // code (e.g. "reservation_failed", "provider_request_
-                  // failed") — never a vague "failed"/"unavailable".
-                  premiumCreativeDiagnostic.fallback = {
-                    occurred: true,
-                    final_engine: "exact_layout",
-                    reason: premiumAttempt.diagnostic?.orchestrator?.reason || null
-                  };
+                  const reserved = await reservePremiumCreativeGeneration({
+                    client,
+                    shopId,
+                    contentItemId: body.content_item_id,
+                    jobId: jobCreate.job.id,
+                    canonicalConcept: routingConcept,
+                    creativeDirection: premiumCreativeDirection,
+                    factSafeCopyPlan: premiumFactSafeCopyPlan,
+                    verifiedShopBrandData: premiumVerifiedShopBrandData,
+                    aspectRatio: premiumAspectRatio,
+                    traceId: genTraceId
+                  });
+                  structuredLog("info", "marketing_generate_content_premium_creative_attempt", {
+                    traceId: genTraceId,
+                    ok: reserved.ok,
+                    state: reserved.state,
+                    jobId: jobCreate.job.id
+                  });
+                  // Merge in the orchestrator's OWN diagnostic verbatim —
+                  // every one of these sub-objects was already computed,
+                  // field by field, exactly where each real gate ran (see
+                  // reservePremiumCreativeGeneration's own doc); never
+                  // recomputed or re-derived here.
+                  if (reserved.diagnostic) {
+                    premiumCreativeDiagnostic.environment = reserved.diagnostic.environment;
+                    premiumCreativeDiagnostic.provider = reserved.diagnostic.provider;
+                    premiumCreativeDiagnostic.usage = reserved.diagnostic.usage;
+                    premiumCreativeDiagnostic.execution = reserved.diagnostic.execution;
+                    premiumCreativeDiagnostic.orchestrator = reserved.diagnostic.orchestrator;
+                  }
+
+                  if (!reserved.ok) {
+                    // Part 9: on any non-success state, creativeEngineUsed
+                    // stays "exact_layout" and execution falls through to
+                    // the EXISTING Exact Layout path below, completely
+                    // unchanged — an explicit, honest fallback, never a
+                    // silent substitution presented as Premium Creative.
+                    premiumCreativeDiagnostic.fallback = {
+                      occurred: true,
+                      final_engine: "exact_layout",
+                      reason: reserved.diagnostic?.orchestrator?.reason || null
+                    };
+                    // The job row was created but never got a usable
+                    // attempt — settle it as failed now so it never lingers
+                    // as an orphaned 'planned' job with an empty plan.
+                    await settlePremiumJobFailed(client, jobCreate.job.id, {
+                      reason: reserved.diagnostic?.orchestrator?.reason || "reservation_failed"
+                    });
+                  } else {
+                    const attemptStep = buildPlannedAttemptStep({ attemptIndex: 0, reservationId: reserved.reservation.usageId });
+                    const addAttempt = await addPremiumJobAttempt(client, jobCreate.job.id, attemptStep, {
+                      context: {
+                        canonical_concept: routingConcept,
+                        creative_direction: premiumCreativeDirection,
+                        fact_safe_copy_plan: premiumFactSafeCopyPlan,
+                        verified_shop_brand_data: premiumVerifiedShopBrandData,
+                        aspect_ratio: premiumAspectRatio,
+                        quality_tier: "medium",
+                        filename: premiumFilename,
+                        // Batch 4, Part D: everything the Background
+                        // Function needs to persist the FINAL asset in the
+                        // exact same shape the (now-bypassed) synchronous
+                        // flyer-persistence path always produced — a
+                        // separate process shares no memory with this
+                        // request, so every generative output that can't
+                        // be safely RE-derived (already-generated wording,
+                        // already-evaluated traits/grounding) is captured
+                        // here verbatim. Facts that ARE safe to re-derive
+                        // (the shop's own current brand row, the flyer
+                        // template for this occasion, the platform-based
+                        // canvas size) are deliberately left OUT — the
+                        // Background Function loads those fresh from
+                        // Supabase itself (Part D: "load all authoritative
+                        // state from Supabase") rather than trusting a
+                        // possibly-stale copy from request time.
+                        flyer_asset_context: {
+                          on_image_headline: flyerGen.content.headline,
+                          on_image_body: flyerGen.content.body,
+                          on_image_cta: flyerGen.content.cta,
+                          caption: copyGen.content.body,
+                          hashtags: copyGen.content.hashtags || [],
+                          brand_traits_used: copyGen.content.brand_traits_used || [],
+                          visual_traits_used: copyGen.content.visual_traits_used || [],
+                          grounded_in_inventory: inventorySources || [],
+                          visual_brief: copyGen.content.visual_brief || null,
+                          creative_brief: copyGen.content.creative_brief || null,
+                          objective: concept.objective,
+                          occasion_title: currentItem.data.title,
+                          primary_platform: primaryPlatform
+                        }
+                      }
+                    });
+                    if (!addAttempt.ok) {
+                      // A reservation exists but couldn't be durably
+                      // attached to the job's plan — provider.generate()
+                      // was never entered (Part F: RESERVED_NOT_STARTED),
+                      // so it's safe to fail the reservation outright
+                      // rather than leave it dangling at "estimated"
+                      // forever the way the three historical rows did.
+                      structuredLog("warn", "marketing_generate_content_premium_job_attach_failed", { traceId: genTraceId, error: addAttempt.error });
+                      await failProviderCall(client, reserved.reservation.usageId, { error: "job_attempt_attach_failed" });
+                      await settlePremiumJobFailed(client, jobCreate.job.id, { reason: "job_attempt_attach_failed" });
+                      premiumCreativeDiagnostic.fallback = { occurred: true, final_engine: "exact_layout", reason: "job_attempt_attach_failed" };
+                    } else {
+                      // Fire-and-forget: never lets an enqueue failure
+                      // crash this request — the job row itself (status
+                      // 'planned', a real attempt attached) is the durable
+                      // source of truth; a future reconciliation pass (Part
+                      // H) is what catches a job whose worker never fired.
+                      const invoke = await invokePremiumCreativeBackgroundFunction({ jobId: jobCreate.job.id });
+                      structuredLog("info", "marketing_generate_content_premium_job_dispatch", {
+                        traceId: genTraceId,
+                        jobId: jobCreate.job.id,
+                        invoked: invoke.ok,
+                        invokeError: invoke.ok ? null : invoke.error
+                      });
+                      premiumCreativeDiagnostic.fallback = { occurred: false, final_engine: "premium_ai_creative", reason: null };
+                      structuredLog("info", "marketing_generate_content_premium_creative_diagnostic", { traceId: genTraceId, diagnostic: premiumCreativeDiagnostic });
+                      // Part C: return HTTP success immediately — the real
+                      // provider call has been handed off. Never a 504 just
+                      // because the image is still being created.
+                      return json(200, {
+                        premium_generation_pending: true,
+                        job_id: jobCreate.job.id,
+                        content_item_id: body.content_item_id,
+                        status: "generating"
+                      });
+                    }
+                  }
                 }
               }
 
@@ -4048,6 +4206,139 @@ export function createMarketingStudioHandler(deps = {}) {
           objective: copyGen.content?.objective || null
         });
         return json(200, { item: updated.data, asset: assetId ? { id: assetId, type: generatedAssetType, url: imageUrl } : null, copy: copyGen.content });
+      }
+
+      // Batch 4, Part I: the narrow poll endpoint the UI hits every 2-3s
+      // after generate_content returns premium_generation_pending — reads
+      // ONLY already-durably-persisted job state (never triggers any
+      // provider work itself), scoped to this shop the same way every
+      // other read here is (RLS via the florist's own session client, plus
+      // an explicit shop_id match as defense in depth).
+      if (action === "premium_job_status") {
+        const shopId = requireShopId(qs, body);
+        const jobId = qs.job_id || body.job_id;
+        if (!jobId) return json(400, { error: "job_id is required." });
+        const jobRow = await client.from("ai_execution_jobs").select("*").eq("id", jobId).eq("shop_id", shopId).maybeSingle();
+        if (jobRow.error) throw jobRow.error;
+        if (!jobRow.data) return json(404, { error: "Premium generation job not found." });
+        const job = jobRow.data;
+        const terminal = job.status === "completed" || job.status === "failed";
+        return json(200, {
+          job_id: job.id,
+          status: job.status,
+          terminal,
+          content_item_id: job.result?.content_item_id || null,
+          asset_id: terminal ? job.result?.asset_id || null : null,
+          background_image_url: terminal ? job.result?.background_image_url || null : null,
+          error: job.status === "failed" ? job.error || "Lily's Premium design couldn't be created this time." : null
+        });
+      }
+
+      // Batch 4, Part J: an EXPLICIT user Retry after a known failed
+      // Premium job — never automatic. Appends a NEW attempt onto the SAME
+      // job (never overwrites attempt-0's history), creates exactly one
+      // new usage reservation, and re-dispatches the Background Function.
+      // Requires the content item to actually be in the honest 'failed'
+      // state the background function itself sets on a real provider
+      // failure — never retryable from 'generating' (still in flight) or
+      // any already-succeeded state.
+      if (action === "retry_premium_generation" && method === "POST") {
+        const shopId = requireShopId(qs, body);
+        if (!body.content_item_id) return json(400, { error: "content_item_id is required." });
+
+        const currentItem = await client
+          .from("marketing_content_items")
+          .select("id,title,status")
+          .eq("id", body.content_item_id)
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        if (currentItem.error) throw currentItem.error;
+        if (!currentItem.data) return json(404, { error: "Content item not found." });
+        if (currentItem.data.status !== "failed") {
+          return json(400, { error: "Only a failed Premium generation can be retried." });
+        }
+
+        const activeJobLookup = await findActivePremiumJobForContentItem(client, { shopId, contentItemId: body.content_item_id });
+        if (activeJobLookup.ok && activeJobLookup.job) {
+          return json(409, { error: "A Premium generation is already in progress for this item.", job_id: activeJobLookup.job.id, already_generating: true });
+        }
+
+        const latestJobLookup = await findLatestPremiumJobForContentItem(client, { shopId, contentItemId: body.content_item_id });
+        if (!latestJobLookup.ok) throw new Error(latestJobLookup.error);
+        const priorJob = latestJobLookup.job;
+        if (!priorJob || priorJob.status !== "failed") {
+          return json(404, { error: "No failed Premium generation was found to retry." });
+        }
+        const priorPlan = Array.isArray(priorJob.plan) ? priorJob.plan : [];
+        const nextAttemptIndex = priorPlan.length;
+        if (nextAttemptIndex >= PREMIUM_JOB_MAX_ATTEMPTS) {
+          return json(400, { error: "This item has already reached its Premium generation retry limit. Start a fresh post to try again." });
+        }
+
+        // Re-claim the content item back to 'generating' (same atomic
+        // pattern as the original request — see generate_content's own
+        // claim above) so a second concurrent Retry click can't both win.
+        const reclaim = await client
+          .from("marketing_content_items")
+          .update({ status: "generating", updated_at: new Date().toISOString() })
+          .eq("id", body.content_item_id)
+          .eq("shop_id", shopId)
+          .eq("status", "failed")
+          .select("id,status");
+        if (reclaim.error) throw reclaim.error;
+        if (!reclaim.data || reclaim.data.length !== 1) {
+          return json(409, { error: "This item is already being retried by another request." });
+        }
+        async function revertRetryToFailed() {
+          await client
+            .from("marketing_content_items")
+            .update({ status: "failed", updated_at: new Date().toISOString() })
+            .eq("id", body.content_item_id)
+            .eq("shop_id", shopId);
+        }
+
+        const context = priorJob.result || {};
+        const reserved = await reservePremiumCreativeGeneration({
+          client,
+          shopId,
+          contentItemId: body.content_item_id,
+          jobId: priorJob.id,
+          canonicalConcept: context.canonical_concept,
+          creativeDirection: context.creative_direction,
+          factSafeCopyPlan: context.fact_safe_copy_plan || {},
+          verifiedShopBrandData: context.verified_shop_brand_data || {},
+          aspectRatio: context.aspect_ratio || "1:1",
+          qualityTier: context.quality_tier || "medium",
+          traceId: context.trace_id || null,
+          attemptIndex: nextAttemptIndex
+        });
+        if (!reserved.ok) {
+          await revertRetryToFailed();
+          return json(502, { error: reserved.reason || "Couldn't start a new Premium generation attempt.", diagnostic: reserved.diagnostic });
+        }
+
+        const attemptStep = buildPlannedAttemptStep({ attemptIndex: nextAttemptIndex, reservationId: reserved.reservation.usageId });
+        const addAttempt = await addPremiumJobAttempt(client, priorJob.id, attemptStep, {});
+        if (!addAttempt.ok) {
+          await failProviderCall(client, reserved.reservation.usageId, { error: "job_attempt_attach_failed" });
+          await revertRetryToFailed();
+          return json(502, { error: "Couldn't start a new Premium generation attempt." });
+        }
+
+        const invoke = await invokePremiumCreativeBackgroundFunction({ jobId: priorJob.id });
+        structuredLog("info", "marketing_retry_premium_generation_dispatch", {
+          shopId,
+          contentItemId: body.content_item_id,
+          jobId: priorJob.id,
+          attemptIndex: nextAttemptIndex,
+          invoked: invoke.ok
+        });
+        return json(200, {
+          premium_generation_pending: true,
+          job_id: priorJob.id,
+          content_item_id: body.content_item_id,
+          status: "generating"
+        });
       }
 
       // Priority 7 ("finish everything that can safely be completed

@@ -4,16 +4,17 @@ import { createFakeSupabaseClient } from "./helpers/fake-supabase-client.mjs";
 import {
   countPremiumDesignsUsedThisMonth,
   checkPremiumDesignEntitlement,
-  PREMIUM_DESIGN_MONTHLY_ALLOWANCE_BY_PLAN,
-  OPENAI_PREMIUM_CREATIVE_OPERATION
+  PREMIUM_DESIGN_MONTHLY_ALLOWANCE_BY_PLAN
 } from "../netlify/functions/_shared/marketing-premium-design-entitlement.js";
+import { PREMIUM_JOB_TYPE } from "../netlify/functions/_shared/marketing-premium-creative-job.js";
 
 // Hybrid Marketing Studio Batch 2, Part 12: server-side entitlement
-// calculation SHAPE only — no migration, no new table (this counts real
-// rows already written by marketing-premium-creative-orchestrator.js's
-// reserveProviderCall() into the EXISTING marketing_generation_usage
-// ledger). Not wired into a live gate yet (no real per-shop plan lookup
-// exists) — these tests exercise the pure calculation shape.
+// calculation SHAPE only — no migration, no new table. Batch 4, Part G:
+// counts COMPLETED ai_execution_jobs rows (one completed job = one
+// consumed Premium Design), not raw usage-ledger reservations — see this
+// module's own doc for the real staging incident that proved counting
+// reservations wrong. Not wired into a live gate yet (no real per-shop
+// plan lookup exists) — these tests exercise the pure calculation shape.
 
 test("PREMIUM_DESIGN_MONTHLY_ALLOWANCE_BY_PLAN matches Part 12's exact numbers, and leaves Founding Florist uncapped rather than guessing", () => {
   assert.equal(PREMIUM_DESIGN_MONTHLY_ALLOWANCE_BY_PLAN.starter, 30);
@@ -22,17 +23,16 @@ test("PREMIUM_DESIGN_MONTHLY_ALLOWANCE_BY_PLAN matches Part 12's exact numbers, 
   assert.equal(PREMIUM_DESIGN_MONTHLY_ALLOWANCE_BY_PLAN.founding_florist, null, "Founding Florist entitlement is TBD — never remove existing rights by inventing a cap");
 });
 
-test("countPremiumDesignsUsedThisMonth queries the EXISTING marketing_generation_usage ledger, scoped to openai + the premium operation + attempt_index 0", async () => {
+test("countPremiumDesignsUsedThisMonth queries the EXISTING ai_execution_jobs table, scoped to the premium job type + status='completed' — never a raw usage-ledger reservation", async () => {
   const client = createFakeSupabaseClient([{ data: null, error: null, count: 4 }]);
   const result = await countPremiumDesignsUsedThisMonth(client, "shop-1");
   assert.equal(result.ok, true);
   assert.equal(result.used, 4);
-  const call = client.calls.find((c) => c.table === "marketing_generation_usage");
-  assert.ok(call, "must query the existing ledger table — never a second usage table");
+  const call = client.calls.find((c) => c.table === "ai_execution_jobs");
+  assert.ok(call, "must query the existing durable job table — never the raw usage ledger, and never a second table");
   const eqCalls = call.ops.filter((op) => op[0] === "eq").map((op) => op[1]);
-  assert.ok(eqCalls.some(([field, value]) => field === "provider" && value === "openai"));
-  assert.ok(eqCalls.some(([field, value]) => field === "operation" && value === OPENAI_PREMIUM_CREATIVE_OPERATION));
-  assert.ok(eqCalls.some(([field, value]) => field === "attempt_index" && value === 0));
+  assert.ok(eqCalls.some(([field, value]) => field === "job_type" && value === PREMIUM_JOB_TYPE));
+  assert.ok(eqCalls.some(([field, value]) => field === "status" && value === "completed"));
 });
 
 test("countPremiumDesignsUsedThisMonth fails closed (ok:false, used:null) on a query error — never silently reads an error as zero usage", async () => {

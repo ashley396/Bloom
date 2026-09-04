@@ -63,6 +63,8 @@ const FLORIST_ALLOWED_ACTIONS = new Set([
   "list_content",
   "create_content_item",
   "generate_content",
+  "premium_job_status",
+  "retry_premium_generation",
   "revise_content",
   "revert_content_revision",
   "approve_content",
