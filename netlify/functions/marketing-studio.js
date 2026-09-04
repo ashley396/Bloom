@@ -109,7 +109,8 @@ import { runAnalyticsIngestion, reconcileLatestMetricSnapshots } from "./_shared
 import { checkMonthlyBudgetForRequest, getShopBudgetCapCents, monthlyCommittedSpendCents } from "./_shared/marketing-budget-guard.js";
 import { enforceSafeMarketingPreviewEnvironmentIfClaimed } from "./_shared/marketing-preview-environment-guard.js";
 import { routeMarketingEngine } from "./_shared/marketing-engine-router.js";
-import { attemptPremiumCreativeGeneration, resolveOpenAiAspectRatio } from "./_shared/marketing-premium-creative-orchestrator.js";
+import { attemptPremiumCreativeGeneration, resolveOpenAiAspectRatio, PREMIUM_CREATIVE_REASON_CODES } from "./_shared/marketing-premium-creative-orchestrator.js";
+import { PROVIDER_NAME as OPENAI_PROVIDER_NAME } from "./_shared/marketing-image-provider-openai.js";
 import { COST_CONFIG_VERSION, DEFAULT_MONTHLY_ALLOWANCE, estimateCostCents } from "./_shared/marketing-cost-config.js";
 import { calculateWorstCaseBoundedCostCents } from "./_shared/marketing-provider-usage.js";
 import {
@@ -3475,6 +3476,18 @@ export function createMarketingStudioHandler(deps = {}) {
             // actually attempts and succeeds at Premium AI Creative.
             let creativeEngineUsed = "exact_layout";
             let premiumCreativeOverlays = null;
+            // Batch 3 staging-acceptance fix ("STRICT EVIDENCE MODE — durable
+            // runtime trace"): null for photo_choice upload/reuse (routing
+            // never runs there — see the comment above this block), set
+            // once the "generate" branch below actually computes a router
+            // decision. Persisted onto the asset itself (never onto a log
+            // line an account has already found impractical to retrieve)
+            // so router->flag->environment->provider->reservation->
+            // provider-call->fallback is readable from Supabase after the
+            // fact, without erasing which engine actually rendered
+            // (creative_engine stays the honest FINAL engine; this field
+            // is the honest ATTEMPTED route).
+            let premiumCreativeDiagnostic = null;
             userUploadedPhoto = body.photo_choice === "upload" || body.photo_choice === "reuse";
             if (body.photo_choice === "reuse") {
               if (typeof body.reuse_asset_id !== "string" || !body.reuse_asset_id) {
@@ -3570,6 +3583,27 @@ export function createMarketingStudioHandler(deps = {}) {
                 reason: engineRouteDecision.reason
               });
 
+              // Batch 3 staging-acceptance fix ("STRICT EVIDENCE MODE"):
+              // the durable diagnostic, initialized to the honest default
+              // for a router decision that is NOT premium-eligible at all
+              // — `fallback.reason` is overwritten below only as later
+              // gates actually run; a request that never gets past this
+              // point (router chose exact_layout on its own) persists
+              // exactly that and nothing more, per Ashley's own example
+              // ("do not collapse all failures into exact_layout").
+              premiumCreativeDiagnostic = {
+                version: 1,
+                trace_id: genTraceId,
+                router: { engine: engineRouteDecision.engine, reason: engineRouteDecision.reason },
+                eligibility: { feature_flag_enabled: null },
+                environment: { preview_guard_ok: null, preview_guard_errors: null },
+                provider: { configured: null, selected: null, name: OPENAI_PROVIDER_NAME, model: null },
+                usage: { reservation_attempted: false, reservation_id: null, reservation_status: null },
+                execution: { provider_generate_entered: false, provider_http_status: null, provider_result_ok: null },
+                orchestrator: { attempted: false, status: null, reason: null },
+                fallback: { occurred: true, final_engine: "exact_layout", reason: PREMIUM_CREATIVE_REASON_CODES.ROUTER_EXACT_LAYOUT }
+              };
+
               // Part 2: flag OFF → current behavior only. Checked ONLY
               // when the pure router already chose premium — an
               // operational/exact-facts/sympathy/unverified-promotion
@@ -3601,13 +3635,23 @@ export function createMarketingStudioHandler(deps = {}) {
               // equivalent to the admin path's already-service-role client.
               const premiumRouterEligible = engineRouteDecision.engine === "premium_ai_creative";
               const premiumFeatureEnabled = premiumRouterEligible ? await isShopFeatureEnabled(shopId, "marketing_openai_premium_creative") : false;
+              // Diagnostic default above already covers "router chose
+              // exact_layout on its own"; a router-eligible request
+              // overwrites both fields honestly, whether or not the flag
+              // turns out to be on — never left as the router-ineligible
+              // default once the router itself said premium.
               if (premiumRouterEligible) {
+                premiumCreativeDiagnostic.eligibility.feature_flag_enabled = premiumFeatureEnabled;
+                if (!premiumFeatureEnabled) {
+                  premiumCreativeDiagnostic.fallback = { occurred: true, final_engine: "exact_layout", reason: PREMIUM_CREATIVE_REASON_CODES.FEATURE_FLAG_DISABLED };
+                }
                 structuredLog("info", "marketing_generate_content_premium_eligibility", {
                   traceId: genTraceId,
                   premiumFeatureEnabled
                 });
               }
               if (premiumRouterEligible && premiumFeatureEnabled) {
+                premiumCreativeDiagnostic.orchestrator.attempted = true;
                 const premiumCreativeDirection = buildDeterministicCreativeDirection({
                   canonicalConcept: routingConcept,
                   shopBrand: { logoUrl: shopRow.data?.logo_url || null }
@@ -3634,6 +3678,18 @@ export function createMarketingStudioHandler(deps = {}) {
                   ok: premiumAttempt.ok,
                   state: premiumAttempt.state
                 });
+                // Merge in the orchestrator's OWN diagnostic verbatim —
+                // every one of these sub-objects was already computed,
+                // field by field, exactly where each real gate ran (see
+                // attemptPremiumCreativeGeneration's own doc); never
+                // recomputed or re-derived here.
+                if (premiumAttempt.diagnostic) {
+                  premiumCreativeDiagnostic.environment = premiumAttempt.diagnostic.environment;
+                  premiumCreativeDiagnostic.provider = premiumAttempt.diagnostic.provider;
+                  premiumCreativeDiagnostic.usage = premiumAttempt.diagnostic.usage;
+                  premiumCreativeDiagnostic.execution = premiumAttempt.diagnostic.execution;
+                  premiumCreativeDiagnostic.orchestrator = premiumAttempt.diagnostic.orchestrator;
+                }
                 if (premiumAttempt.ok) {
                   imageGen = {
                     ok: true,
@@ -3647,12 +3703,22 @@ export function createMarketingStudioHandler(deps = {}) {
                   };
                   creativeEngineUsed = "premium_ai_creative";
                   premiumCreativeOverlays = premiumAttempt.result.overlays;
+                  premiumCreativeDiagnostic.fallback = { occurred: false, final_engine: "premium_ai_creative", reason: null };
+                } else {
+                  // Part 9: on any non-success state, creativeEngineUsed
+                  // stays "exact_layout" and execution falls through to
+                  // the EXISTING Exact Layout path below, completely
+                  // unchanged — an explicit, honest fallback, never a
+                  // silent substitution presented as Premium Creative.
+                  // fallback.reason is the orchestrator's own specific
+                  // code (e.g. "reservation_failed", "provider_request_
+                  // failed") — never a vague "failed"/"unavailable".
+                  premiumCreativeDiagnostic.fallback = {
+                    occurred: true,
+                    final_engine: "exact_layout",
+                    reason: premiumAttempt.diagnostic?.orchestrator?.reason || null
+                  };
                 }
-                // Part 9: on any non-success state, creativeEngineUsed
-                // stays "exact_layout" and execution falls through to the
-                // EXISTING Exact Layout path below, completely unchanged
-                // — an explicit, honest fallback, never a silent
-                // substitution presented as Premium Creative.
               }
 
               // Batch 2 rebuild: this exact path used to hand a florist a
@@ -3858,7 +3924,23 @@ export function createMarketingStudioHandler(deps = {}) {
                 // Layout rendered the whole asset itself, since Exact
                 // Layout already draws 100% of the on-image text and has
                 // no separate "overlay onto a generated background" step.
-                premium_creative_overlays: premiumCreativeOverlays
+                premium_creative_overlays: premiumCreativeOverlays,
+                // Batch 3 staging-acceptance fix ("STRICT EVIDENCE MODE —
+                // durable runtime trace"): the honest ATTEMPTED route,
+                // separate from creative_engine (the honest FINAL engine)
+                // above — router decision, feature-flag value, preview
+                // guard result, provider configured/selected, usage-
+                // ledger reservation, the real provider call, and exactly
+                // why any fallback to Exact Layout occurred, all read back
+                // from Supabase after the fact instead of requiring
+                // Netlify function-log access this account has already
+                // found impractical to retrieve. Null only for a real
+                // upload/reuse photo, where routing never runs at all (see
+                // this field's own initialization above). No secret is
+                // ever persisted here — see this field's own construction
+                // above and premium-creative-orchestrator.js's diagnostic
+                // contract.
+                premium_creative_diagnostic: premiumCreativeDiagnostic
               },
               mediaId: mediaRow.data?.id || null,
               status: "completed"

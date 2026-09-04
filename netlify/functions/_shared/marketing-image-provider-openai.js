@@ -162,27 +162,30 @@ export function createOpenAiMarketingImageProvider(env = process.env) {
           body: JSON.stringify({ model, prompt: cleanPrompt, size, quality: qualityTier, n: 1 })
         });
       } catch (error) {
-        return { ok: false, stage: "provider", error: `OpenAI image generation request failed: ${String(error?.message || error).slice(0, 200)}` };
+        // No response was ever received — there is genuinely no real HTTP
+        // status to report here (a network-level failure, not an OpenAI
+        // response), so `status` stays null rather than a fabricated code.
+        return { ok: false, stage: "provider", status: null, error: `OpenAI image generation request failed: ${String(error?.message || error).slice(0, 200)}` };
       }
 
       let payload = {};
       try {
         payload = await response.json();
       } catch {
-        return { ok: false, stage: "provider", error: `OpenAI image generation returned a non-JSON response (${response.status}).` };
+        return { ok: false, stage: "provider", status: response.status, error: `OpenAI image generation returned a non-JSON response (${response.status}).` };
       }
       if (!response.ok) {
         const detail = payload?.error?.message || `OpenAI image generation failed (${response.status})`;
-        return { ok: false, stage: "provider", error: detail };
+        return { ok: false, stage: "provider", status: response.status, error: detail };
       }
       const base64 = payload?.data?.[0]?.b64_json;
-      if (!base64) return { ok: false, stage: "provider", error: "OpenAI image generation returned no image data." };
+      if (!base64) return { ok: false, stage: "provider", status: response.status, error: "OpenAI image generation returned no image data." };
 
       const uploaded = await uploadWebsiteMedia(client, shopId, {
         dataUrl: `data:image/png;base64,${base64}`,
         filename: filename || "openai-generated-image.png"
       });
-      if (!uploaded.ok) return { ok: false, stage: "upload", error: uploaded.error };
+      if (!uploaded.ok) return { ok: false, stage: "upload", status: response.status, error: uploaded.error };
 
       // Reconcile against real reported usage ONLY when OpenAI actually
       // returned it — otherwise leave actualCostCents undefined so the
@@ -193,6 +196,7 @@ export function createOpenAiMarketingImageProvider(env = process.env) {
 
       return {
         ok: true,
+        status: response.status,
         path: uploaded.path,
         url: publicWebsiteMediaUrl(client, uploaded.path),
         provider: PROVIDER_NAME,

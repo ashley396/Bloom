@@ -115,6 +115,39 @@ export function resolveOpenAiAspectRatio({ width, height } = {}) {
  *   generate() can be mocked without touching process.env or the network.
  * @returns {Promise<object>}
  */
+// Batch 3 staging-acceptance fix ("STRICT EVIDENCE MODE"): the specific,
+// non-vague reason vocabulary Ashley's own spec requires — never the
+// generic "failed"/"unavailable"/"error" a caller can't act on. Exported
+// so marketing-studio.js's own diagnostic (router/eligibility/fallback,
+// none of which this module can see) can reuse the exact same codes for
+// its own `fallback.reason` rather than inventing a second vocabulary.
+export const PREMIUM_CREATIVE_REASON_CODES = Object.freeze({
+  ROUTER_EXACT_LAYOUT: "router_exact_layout",
+  FEATURE_FLAG_DISABLED: "feature_flag_disabled",
+  PREVIEW_GUARD_FAILED: "preview_guard_failed",
+  PROVIDER_UNAVAILABLE: "provider_unavailable",
+  PROVIDER_NOT_CONFIGURED: "provider_not_configured",
+  BRIEF_BUILD_FAILED: "brief_build_failed",
+  COST_ESTIMATE_FAILED: "cost_estimate_failed",
+  RESERVATION_FAILED: "reservation_failed",
+  PROVIDER_REQUEST_FAILED: "provider_request_failed",
+  PROVIDER_RESPONSE_INVALID: "provider_response_invalid",
+  PROVIDER_UPLOAD_FAILED: "provider_upload_failed",
+  PREMIUM_SUCCESS: "premium_success"
+});
+
+/** Part 5/8: a provider.generate() failure carries `stage` ("config" /
+ * "provider" / "upload") and, for a real HTTP round trip, `status` (null
+ * only when no response was ever received at all — a network-level
+ * failure). Maps that real, already-computed shape to the one specific
+ * reason code it actually represents — never a second guess at what went
+ * wrong beyond what the provider adapter itself already reported. */
+function classifyProviderCallFailure(generation) {
+  if (generation.stage === "upload") return PREMIUM_CREATIVE_REASON_CODES.PROVIDER_UPLOAD_FAILED;
+  if (generation.status == null) return PREMIUM_CREATIVE_REASON_CODES.PROVIDER_REQUEST_FAILED;
+  return PREMIUM_CREATIVE_REASON_CODES.PROVIDER_RESPONSE_INVALID;
+}
+
 export async function attemptPremiumCreativeGeneration({
   client,
   shopId,
@@ -131,37 +164,83 @@ export async function attemptPremiumCreativeGeneration({
   env = process.env,
   providerFactory = null
 } = {}) {
+  // Batch 3 staging-acceptance fix ("STRICT EVIDENCE MODE — durable
+  // runtime trace"): built incrementally, one field at a time, exactly as
+  // each real gate below is actually evaluated — never recomputed or
+  // guessed afterward. Every return path (success and every failure
+  // state) carries this SAME nested object back to the caller, which
+  // persists it verbatim onto the asset (marketing-studio.js) so a real
+  // staging failure can be read back from Supabase instead of requiring
+  // Netlify function-log access this account has already found
+  // impractical to retrieve (Function log UI reports "No results found"
+  // even over a 2-day range). Contains no secret: booleans, short
+  // state/reason codes, a usage-ledger id, an HTTP status code, and the
+  // preview guard's own already-non-secret violation sentences.
+  const diag = {
+    environment: { preview_guard_ok: null, preview_guard_errors: null },
+    provider: { configured: null, selected: null, name: OPENAI_PROVIDER_NAME, model: null },
+    usage: { reservation_attempted: false, reservation_id: null, reservation_status: null },
+    execution: { provider_generate_entered: false, provider_http_status: null, provider_result_ok: null },
+    orchestrator: { attempted: true, status: null, reason: null }
+  };
+
   // Part 10: staging-only environment safety, unconditional (not gated
   // behind "if this deploy already claims to be preview" the way the
   // general Marketing preview guard is) — Premium Creative must
   // affirmatively PROVE it is running somewhere safe, including refusing
   // a real production deploy that never set FLORISYN_ENV at all.
   const envCheck = checkSafeMarketingPreviewEnvironment(env);
+  diag.environment.preview_guard_ok = envCheck.ok;
+  diag.environment.preview_guard_errors = envCheck.ok ? [] : envCheck.errors.map((e) => String(e).slice(0, 200));
   if (!envCheck.ok) {
-    return { ok: false, state: PREMIUM_CREATIVE_STATES.ENVIRONMENT_BLOCKED, reasons: envCheck.errors };
+    diag.orchestrator.status = PREMIUM_CREATIVE_STATES.ENVIRONMENT_BLOCKED;
+    diag.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.PREVIEW_GUARD_FAILED;
+    return { ok: false, state: PREMIUM_CREATIVE_STATES.ENVIRONMENT_BLOCKED, reasons: envCheck.errors, diagnostic: diag };
   }
 
   // Resolve the provider through the SAME registry every other caller
   // uses — never a second, ad-hoc provider construction.
   const registry = providerFactory ? { [OPENAI_PROVIDER_NAME]: providerFactory(env) } : buildConfiguredMarketingImageProviderRegistry(env);
   const provider = registry[OPENAI_PROVIDER_NAME];
-  if (!provider || !provider.configured()) {
-    return { ok: false, state: PREMIUM_CREATIVE_STATES.PROVIDER_UNAVAILABLE, reason: "OpenAI Premium Creative is not configured in this environment." };
+  // Read straight off the same boolean the gate below actually branches
+  // on — never a second, independently-recomputed "is it configured"
+  // check that could disagree with the real decision.
+  diag.provider.selected = Boolean(provider);
+  diag.provider.configured = provider ? provider.configured() : false;
+  if (!provider) {
+    diag.orchestrator.status = PREMIUM_CREATIVE_STATES.PROVIDER_UNAVAILABLE;
+    diag.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.PROVIDER_UNAVAILABLE;
+    return { ok: false, state: PREMIUM_CREATIVE_STATES.PROVIDER_UNAVAILABLE, reason: "OpenAI Premium Creative provider was not selected in this environment.", diagnostic: diag };
   }
+  if (!provider.configured()) {
+    diag.orchestrator.status = PREMIUM_CREATIVE_STATES.PROVIDER_UNAVAILABLE;
+    diag.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.PROVIDER_NOT_CONFIGURED;
+    return { ok: false, state: PREMIUM_CREATIVE_STATES.PROVIDER_UNAVAILABLE, reason: "OpenAI Premium Creative is not configured in this environment.", diagnostic: diag };
+  }
+  diag.provider.model = provider.model;
 
   // Part 7/8: the one deterministic brief builder — never raw request text.
   const brief = buildOpenAiCreativeBrief({ canonicalConcept, creativeDirection, factSafeCopyPlan, verifiedShopBrandData, referenceImageMeta });
   if (!brief.ok) {
-    return { ok: false, state: PREMIUM_CREATIVE_STATES.BRIEF_UNAVAILABLE, reason: brief.error };
+    diag.orchestrator.status = PREMIUM_CREATIVE_STATES.BRIEF_UNAVAILABLE;
+    diag.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.BRIEF_BUILD_FAILED;
+    return { ok: false, state: PREMIUM_CREATIVE_STATES.BRIEF_UNAVAILABLE, reason: brief.error, diagnostic: diag };
   }
 
   const costEstimate = provider.estimateCost({ qualityTier });
   if (!costEstimate) {
-    return { ok: false, state: PREMIUM_CREATIVE_STATES.PROVIDER_UNAVAILABLE, reason: `Unsupported quality tier for Premium Creative: "${qualityTier}".` };
+    diag.orchestrator.status = PREMIUM_CREATIVE_STATES.PROVIDER_UNAVAILABLE;
+    diag.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.COST_ESTIMATE_FAILED;
+    return { ok: false, state: PREMIUM_CREATIVE_STATES.PROVIDER_UNAVAILABLE, reason: `Unsupported quality tier for Premium Creative: "${qualityTier}".`, diagnostic: diag };
   }
 
   // Part 11: reserve BEFORE the real call, using OpenAI's own conservative
   // cost model (never the generic Cloudflare-shaped estimateCostCents()).
+  // A real OpenAI call must never happen without a durable reservation
+  // first — provider.generate() below is only ever reached past this
+  // point, and diag.execution.provider_generate_entered stays false on
+  // every return path above this line.
+  diag.usage.reservation_attempted = true;
   const reservation = await reserveProviderCall(client, {
     shopId,
     contentItemId,
@@ -178,23 +257,37 @@ export async function attemptPremiumCreativeGeneration({
     metadata: { aspectRatio, qualityTier }
   });
   if (!reservation.ok) {
-    return { ok: false, state: PREMIUM_CREATIVE_STATES.RESERVATION_FAILED, reason: reservation.error };
+    diag.usage.reservation_status = "insert_failed";
+    diag.orchestrator.status = PREMIUM_CREATIVE_STATES.RESERVATION_FAILED;
+    diag.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.RESERVATION_FAILED;
+    return { ok: false, state: PREMIUM_CREATIVE_STATES.RESERVATION_FAILED, reason: reservation.error, diagnostic: diag };
   }
+  diag.usage.reservation_id = reservation.usageId;
+  diag.usage.reservation_status = "estimated";
 
   // The real call. Genuinely billable if it ever actually reaches OpenAI
   // — inert here only because provider.configured() (checked above) is
   // false in every real environment today (see file header).
+  diag.execution.provider_generate_entered = true;
   const generation = await provider.generate({ client, shopId, prompt: buildBackgroundPromptFromBrief(brief), filename, aspectRatio, qualityTier, traceId });
+  diag.execution.provider_result_ok = generation.ok;
+  diag.execution.provider_http_status = generation.status ?? null;
 
   if (!generation.ok) {
     await failProviderCall(client, reservation.usageId, { error: generation.error });
-    return { ok: false, state: PREMIUM_CREATIVE_STATES.PROVIDER_CALL_FAILED, reason: generation.error, usageId: reservation.usageId };
+    diag.usage.reservation_status = "failed";
+    diag.orchestrator.status = PREMIUM_CREATIVE_STATES.PROVIDER_CALL_FAILED;
+    diag.orchestrator.reason = classifyProviderCallFailure(generation);
+    return { ok: false, state: PREMIUM_CREATIVE_STATES.PROVIDER_CALL_FAILED, reason: generation.error, usageId: reservation.usageId, diagnostic: diag };
   }
 
   await completeProviderCall(client, reservation.usageId, {
     actualCostCents: generation.actualCostCents ?? null,
     metadata: { usage: generation.usage || null, costSource: generation.costSource }
   });
+  diag.usage.reservation_status = "actual";
+  diag.orchestrator.status = PREMIUM_CREATIVE_STATES.SUCCESS;
+  diag.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.PREMIUM_SUCCESS;
 
   // Part 7: one authoritative result object — everything finalize_flyer_
   // render / the client needs to know, nothing more. Part 8: overlays
@@ -203,6 +296,7 @@ export async function attemptPremiumCreativeGeneration({
   return {
     ok: true,
     state: PREMIUM_CREATIVE_STATES.SUCCESS,
+    diagnostic: diag,
     result: {
       engine: "premium_ai_creative",
       provider: OPENAI_PROVIDER_NAME,
