@@ -59,6 +59,7 @@ import { buildOpenAiCreativeBrief } from "./marketing-openai-creative-brief.js";
 import { checkSafeMarketingPreviewEnvironment } from "./marketing-preview-environment-guard.js";
 import { reserveProviderCall, completeProviderCall, failProviderCall } from "./marketing-provider-usage.js";
 import { OPENAI_PREMIUM_CREATIVE_OPERATION } from "./marketing-premium-design-entitlement.js";
+import { buildPremiumOperationId } from "./marketing-premium-creative-job.js";
 
 // The controlled, honest states a Premium Creative attempt can end in.
 // Never "success" unless a real image URL actually came back — see Part
@@ -251,7 +252,21 @@ export async function reservePremiumCreativeGeneration({
   // cost model (never the generic Cloudflare-shaped estimateCostCents()).
   // A real OpenAI call must never happen without a durable reservation
   // first — provider.generate() is never called anywhere in this phase.
+  //
+  // Batch 4.1: operationId is a deterministic RFC4122 v5 UUID derived
+  // from "premium_creative:<contentItemId>:<attemptIndex>" — the SAME
+  // logical identity ai_execution_jobs.idempotency_key already enforces
+  // job-level uniqueness for (see marketing-premium-creative-job.js's own
+  // doc). A real database-enforced partial unique index on operation_id
+  // (marketing_generation_usage_premium_operation_uidx) is what makes
+  // onConflictReturnExisting safe: if some other request already reserved
+  // this exact attempt (structurally shouldn't happen given the
+  // job-level gate runs first, but kept as defense in depth against any
+  // future caller that reserves without going through it), THAT row is
+  // loaded and returned here instead of erroring — never a second real
+  // reservation for the same logical attempt.
   diag.usage.reservation_attempted = true;
+  const operationId = contentItemId ? buildPremiumOperationId(contentItemId, attemptIndex) : null;
   const reservation = await reserveProviderCall(client, {
     shopId,
     contentItemId,
@@ -263,10 +278,12 @@ export async function reservePremiumCreativeGeneration({
     unitType: "image",
     units: 1,
     traceId,
+    operationId,
     attemptIndex,
     estimatedCostCentsOverride: costEstimate.cents,
     costSource: costEstimate.cost_source,
-    metadata: { aspectRatio, qualityTier }
+    metadata: { aspectRatio, qualityTier },
+    onConflictReturnExisting: Boolean(operationId)
   });
   if (!reservation.ok) {
     diag.usage.reservation_status = "insert_failed";
@@ -280,11 +297,19 @@ export async function reservePremiumCreativeGeneration({
   diag.orchestrator.status = PREMIUM_CREATIVE_STATES.RESERVED;
   diag.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.PREMIUM_PENDING;
 
+  // The winning row's own real job_id — never blindly trust the
+  // caller-supplied `jobId` when a conflict handed back a DIFFERENT
+  // already-existing reservation (only possible if a future caller
+  // reserves without going through the job-level gate first; the normal
+  // path always agrees).
+  const resolvedJobId = reservation.alreadyExisted && reservation.jobId ? reservation.jobId : jobId;
+
   return {
     ok: true,
     state: PREMIUM_CREATIVE_STATES.RESERVED,
     diagnostic: diag,
-    jobId,
+    jobId: resolvedJobId,
+    alreadyExisted: Boolean(reservation.alreadyExisted),
     reservation: { usageId: reservation.usageId, model: provider.model }
   };
 }

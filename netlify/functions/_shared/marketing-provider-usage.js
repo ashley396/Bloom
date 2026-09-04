@@ -142,7 +142,22 @@ export async function reserveProviderCall(
     // rather than forking a second reservation path per provider. Omit
     // for the existing Cloudflare-shaped behavior, unchanged.
     estimatedCostCentsOverride = null,
-    costSource = "estimated"
+    costSource = "estimated",
+    // Batch 4.1 ("close the premium job idempotency race"): when true,
+    // a unique-constraint conflict on `operation_id` (the deterministic
+    // idempotency key a caller supplies via `operationId` — see
+    // marketing_generation_usage_premium_operation_uidx) is NOT treated
+    // as a failure. Instead the ALREADY-EXISTING row for that exact
+    // operation_id is loaded and returned as this call's own result,
+    // with `alreadyExisted: true` — the database conflict is the
+    // authoritative create-or-get gate a caller (e.g.
+    // reservePremiumCreativeGeneration) uses to guarantee at most one
+    // real reservation for one logical operation, even under two
+    // genuinely concurrent requests. Default false: every existing
+    // caller/test is completely unaffected (a plain duplicate-key error
+    // still surfaces as `{ok:false, errorCode:"duplicate"}` exactly as
+    // before) unless it opts in.
+    onConflictReturnExisting = false
   } = {}
 ) {
   if (!shopId) return { ok: false, error: "reserveProviderCall requires shopId.", errorCode: "invalid_input" };
@@ -173,8 +188,27 @@ export async function reserveProviderCall(
       })
       .select("id")
       .single();
-    if (result.error) return { ok: false, error: result.error.message, errorCode: classifyDatabaseErrorCode(result.error) };
-    return { ok: true, usageId: result.data.id, estimatedCostCents };
+    if (result.error) {
+      const errorCode = classifyDatabaseErrorCode(result.error);
+      if (onConflictReturnExisting && errorCode === "duplicate" && operationId) {
+        // Part 3: the database conflict itself is the authoritative
+        // gate — some other concurrent request already won reserving
+        // this exact operation_id. Load and return ITS row rather than
+        // creating a second one; never re-derive estimatedCostCents from
+        // this call's own inputs (the winning row's real figure is what
+        // actually accounts for the spend).
+        const existing = await client
+          .from("marketing_generation_usage")
+          .select("id,job_id,estimated_cost_cents")
+          .eq("operation_id", operationId)
+          .maybeSingle();
+        if (!existing.error && existing.data) {
+          return { ok: true, usageId: existing.data.id, estimatedCostCents: existing.data.estimated_cost_cents, jobId: existing.data.job_id, alreadyExisted: true };
+        }
+      }
+      return { ok: false, error: result.error.message, errorCode };
+    }
+    return { ok: true, usageId: result.data.id, estimatedCostCents, alreadyExisted: false };
   } catch (error) {
     // A ledger write must fail closed the same way a real DB error would
     // — never let an exception here be mistaken for "no reservation

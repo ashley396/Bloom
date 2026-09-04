@@ -113,7 +113,7 @@ import { reservePremiumCreativeGeneration, resolveOpenAiAspectRatio, PREMIUM_CRE
 import {
   findActivePremiumJobForContentItem,
   findLatestPremiumJobForContentItem,
-  createPremiumJob,
+  createOrContinuePremiumJob,
   buildPlannedAttemptStep,
   addPremiumJobAttempt,
   settlePremiumJobFailed,
@@ -3699,39 +3699,34 @@ export function createMarketingStudioHandler(deps = {}) {
                 const premiumVerifiedShopBrandData = { name: shopName, phone: shopRow.data?.phone || null };
                 const premiumAspectRatio = resolveOpenAiAspectRatio(ASPECT_RATIOS[pickAspectRatio(primaryPlatform)]);
                 const premiumFilename = `marketing-premium-${body.content_item_id}.png`;
+                const premiumFlyerAssetContext = {
+                  on_image_headline: flyerGen.content.headline,
+                  on_image_body: flyerGen.content.body,
+                  on_image_cta: flyerGen.content.cta,
+                  caption: copyGen.content.body,
+                  hashtags: copyGen.content.hashtags || [],
+                  brand_traits_used: copyGen.content.brand_traits_used || [],
+                  visual_traits_used: copyGen.content.visual_traits_used || [],
+                  grounded_in_inventory: inventorySources || [],
+                  visual_brief: copyGen.content.visual_brief || null,
+                  creative_brief: copyGen.content.creative_brief || null,
+                  objective: concept.objective,
+                  occasion_title: currentItem.data.title,
+                  primary_platform: primaryPlatform
+                };
 
-                // Part B idempotency: a duplicate submission for this exact
-                // content item (double-click, page reload, browser retry
-                // after the FIRST request's response was lost — e.g. the
-                // real proven 504) must return the SAME already-in-flight
-                // job rather than reserving a second OpenAI spend. This is
-                // a defense-in-depth check on top of the atomic 'idea' ->
-                // 'generating' content-item claim above (which already
-                // blocks a second CONCURRENT request for the same item) —
-                // it also covers the case where the browser lost the first
-                // response but the server-side claim, job, and reservation
-                // all already succeeded.
-                const activeJobLookup = await findActivePremiumJobForContentItem(client, { shopId, contentItemId: body.content_item_id });
-                if (activeJobLookup.ok && activeJobLookup.job) {
-                  structuredLog("info", "marketing_generate_content_premium_creative_attempt", {
-                    traceId: genTraceId,
-                    ok: true,
-                    state: "existing_job",
-                    jobId: activeJobLookup.job.id
-                  });
-                  premiumCreativeDiagnostic.orchestrator.status = PREMIUM_CREATIVE_STATES.RESERVED;
-                  premiumCreativeDiagnostic.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.PREMIUM_PENDING;
-                  premiumCreativeDiagnostic.fallback = { occurred: false, final_engine: "premium_ai_creative", reason: null };
-                  structuredLog("info", "marketing_generate_content_premium_creative_diagnostic", { traceId: genTraceId, diagnostic: premiumCreativeDiagnostic });
-                  return json(200, {
-                    premium_generation_pending: true,
-                    job_id: activeJobLookup.job.id,
-                    content_item_id: body.content_item_id,
-                    status: "generating"
-                  });
-                }
-
-                const jobCreate = await createPremiumJob(client, {
+                // Batch 4.1 ("close the premium job idempotency race"):
+                // createOrContinuePremiumJob() is the ONE authoritative
+                // create-or-get call — its correctness rests on a real
+                // database unique index (ai_execution_jobs.idempotency_key),
+                // not on this read winning a race against a concurrent
+                // request's own read. The old separate
+                // findActivePremiumJobForContentItem() pre-check proved
+                // insufficient on its own (a real TOCTOU window: two
+                // concurrent requests could both observe "no active job"
+                // and both create one) — it's gone; the database conflict
+                // is now the only thing that decides this.
+                const jobResult = await createOrContinuePremiumJob(client, {
                   shopId,
                   userId: user.id,
                   contentItemId: body.content_item_id,
@@ -3739,31 +3734,72 @@ export function createMarketingStudioHandler(deps = {}) {
                   traceId: genTraceId
                 });
 
-                if (!jobCreate.ok) {
+                if (!jobResult.ok) {
                   // Part A: no durable job could even be created — fall
                   // through to the existing Exact Layout path exactly as a
                   // reservation failure always has, rather than risk a
                   // provider call with nowhere durable to record it.
-                  structuredLog("warn", "marketing_generate_content_premium_job_create_failed", { traceId: genTraceId, error: jobCreate.error });
+                  structuredLog("warn", "marketing_generate_content_premium_job_create_failed", { traceId: genTraceId, error: jobResult.error });
                   premiumCreativeDiagnostic.fallback = { occurred: true, final_engine: "exact_layout", reason: "job_create_failed" };
+                } else if (jobResult.mode === "active_duplicate" || jobResult.mode === "already_completed") {
+                  // Part 3: some other request (concurrent, or this exact
+                  // one already succeeded moments ago) already owns this
+                  // content item's Premium job — never a second
+                  // reservation, never a second Background Function
+                  // dispatch. Return the SAME job's real status.
+                  structuredLog("info", "marketing_generate_content_premium_creative_attempt", {
+                    traceId: genTraceId,
+                    ok: true,
+                    state: jobResult.mode,
+                    jobId: jobResult.job.id
+                  });
+                  premiumCreativeDiagnostic.orchestrator.status = PREMIUM_CREATIVE_STATES.RESERVED;
+                  premiumCreativeDiagnostic.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.PREMIUM_PENDING;
+                  premiumCreativeDiagnostic.fallback = { occurred: false, final_engine: "premium_ai_creative", reason: null };
+                  structuredLog("info", "marketing_generate_content_premium_creative_diagnostic", { traceId: genTraceId, diagnostic: premiumCreativeDiagnostic });
+                  return json(200, {
+                    premium_generation_pending: jobResult.mode !== "already_completed",
+                    job_id: jobResult.job.id,
+                    content_item_id: body.content_item_id,
+                    status: "generating"
+                  });
+                } else if (jobResult.mode === "max_attempts_reached") {
+                  // Part 6: this content item's Premium job already used
+                  // every attempt PREMIUM_JOB_MAX_ATTEMPTS allows and every
+                  // one failed — fall through to Exact Layout, never spend
+                  // again on the same logical attempt.
+                  structuredLog("info", "marketing_generate_content_premium_creative_attempt", { traceId: genTraceId, ok: false, state: "max_attempts_reached", jobId: jobResult.job.id });
+                  premiumCreativeDiagnostic.fallback = { occurred: true, final_engine: "exact_layout", reason: "premium_job_max_attempts_reached" };
                 } else {
+                  // mode is "fresh" (a brand-new attempt-0 job) or
+                  // "continue_failed" (this content item's existing job
+                  // already failed at least once and has room left — an
+                  // ordinary "Generate" click after the item reverted to
+                  // 'idea' and an explicit Retry both converge on this
+                  // exact same path, appending a new attempt to the SAME
+                  // one job rather than ever creating a second job row).
+                  const job = jobResult.job;
+                  const attemptIndex = jobResult.attemptIndex;
                   const reserved = await reservePremiumCreativeGeneration({
                     client,
                     shopId,
                     contentItemId: body.content_item_id,
-                    jobId: jobCreate.job.id,
+                    jobId: job.id,
                     canonicalConcept: routingConcept,
                     creativeDirection: premiumCreativeDirection,
                     factSafeCopyPlan: premiumFactSafeCopyPlan,
                     verifiedShopBrandData: premiumVerifiedShopBrandData,
                     aspectRatio: premiumAspectRatio,
-                    traceId: genTraceId
+                    traceId: genTraceId,
+                    attemptIndex
                   });
                   structuredLog("info", "marketing_generate_content_premium_creative_attempt", {
                     traceId: genTraceId,
                     ok: reserved.ok,
                     state: reserved.state,
-                    jobId: jobCreate.job.id
+                    jobId: job.id,
+                    attemptIndex,
+                    alreadyExisted: Boolean(reserved.alreadyExisted)
                   });
                   // Merge in the orchestrator's OWN diagnostic verbatim —
                   // every one of these sub-objects was already computed,
@@ -3789,15 +3825,35 @@ export function createMarketingStudioHandler(deps = {}) {
                       final_engine: "exact_layout",
                       reason: reserved.diagnostic?.orchestrator?.reason || null
                     };
-                    // The job row was created but never got a usable
-                    // attempt — settle it as failed now so it never lingers
-                    // as an orphaned 'planned' job with an empty plan.
-                    await settlePremiumJobFailed(client, jobCreate.job.id, {
-                      reason: reserved.diagnostic?.orchestrator?.reason || "reservation_failed"
+                    // Only settle the job failed for a genuinely FRESH job
+                    // this request just created and could not reserve for
+                    // — never settle a job we're merely CONTINUING (that
+                    // job already has real history from a prior attempt;
+                    // a reservation failure on this new attempt must not
+                    // erase or override it).
+                    if (jobResult.mode === "fresh") {
+                      await settlePremiumJobFailed(client, job.id, { reason: reserved.diagnostic?.orchestrator?.reason || "reservation_failed" });
+                    }
+                  } else if (reserved.alreadyExisted) {
+                    // Part 3 defense-in-depth: the reservation-level
+                    // unique index itself caught a duplicate this
+                    // request's own job-level check didn't (structurally
+                    // shouldn't happen, but never assume) — a concurrent
+                    // winner already owns this attempt's real reservation
+                    // and (per its own request) will have already
+                    // dispatched or is dispatching the Background
+                    // Function; this request creates nothing further.
+                    premiumCreativeDiagnostic.fallback = { occurred: false, final_engine: "premium_ai_creative", reason: null };
+                    structuredLog("info", "marketing_generate_content_premium_creative_diagnostic", { traceId: genTraceId, diagnostic: premiumCreativeDiagnostic });
+                    return json(200, {
+                      premium_generation_pending: true,
+                      job_id: reserved.jobId,
+                      content_item_id: body.content_item_id,
+                      status: "generating"
                     });
                   } else {
-                    const attemptStep = buildPlannedAttemptStep({ attemptIndex: 0, reservationId: reserved.reservation.usageId });
-                    const addAttempt = await addPremiumJobAttempt(client, jobCreate.job.id, attemptStep, {
+                    const attemptStep = buildPlannedAttemptStep({ attemptIndex, reservationId: reserved.reservation.usageId });
+                    const addAttempt = await addPremiumJobAttempt(client, job.id, attemptStep, {
                       context: {
                         canonical_concept: routingConcept,
                         creative_direction: premiumCreativeDirection,
@@ -3822,21 +3878,7 @@ export function createMarketingStudioHandler(deps = {}) {
                         // Supabase itself (Part D: "load all authoritative
                         // state from Supabase") rather than trusting a
                         // possibly-stale copy from request time.
-                        flyer_asset_context: {
-                          on_image_headline: flyerGen.content.headline,
-                          on_image_body: flyerGen.content.body,
-                          on_image_cta: flyerGen.content.cta,
-                          caption: copyGen.content.body,
-                          hashtags: copyGen.content.hashtags || [],
-                          brand_traits_used: copyGen.content.brand_traits_used || [],
-                          visual_traits_used: copyGen.content.visual_traits_used || [],
-                          grounded_in_inventory: inventorySources || [],
-                          visual_brief: copyGen.content.visual_brief || null,
-                          creative_brief: copyGen.content.creative_brief || null,
-                          objective: concept.objective,
-                          occasion_title: currentItem.data.title,
-                          primary_platform: primaryPlatform
-                        }
+                        flyer_asset_context: premiumFlyerAssetContext
                       }
                     });
                     if (!addAttempt.ok) {
@@ -3848,7 +3890,9 @@ export function createMarketingStudioHandler(deps = {}) {
                       // forever the way the three historical rows did.
                       structuredLog("warn", "marketing_generate_content_premium_job_attach_failed", { traceId: genTraceId, error: addAttempt.error });
                       await failProviderCall(client, reserved.reservation.usageId, { error: "job_attempt_attach_failed" });
-                      await settlePremiumJobFailed(client, jobCreate.job.id, { reason: "job_attempt_attach_failed" });
+                      if (jobResult.mode === "fresh") {
+                        await settlePremiumJobFailed(client, job.id, { reason: "job_attempt_attach_failed" });
+                      }
                       premiumCreativeDiagnostic.fallback = { occurred: true, final_engine: "exact_layout", reason: "job_attempt_attach_failed" };
                     } else {
                       // Fire-and-forget: never lets an enqueue failure
@@ -3856,10 +3900,10 @@ export function createMarketingStudioHandler(deps = {}) {
                       // 'planned', a real attempt attached) is the durable
                       // source of truth; a future reconciliation pass (Part
                       // H) is what catches a job whose worker never fired.
-                      const invoke = await invokePremiumCreativeBackgroundFunction({ jobId: jobCreate.job.id });
+                      const invoke = await invokePremiumCreativeBackgroundFunction({ jobId: job.id });
                       structuredLog("info", "marketing_generate_content_premium_job_dispatch", {
                         traceId: genTraceId,
-                        jobId: jobCreate.job.id,
+                        jobId: job.id,
                         invoked: invoke.ok,
                         invokeError: invoke.ok ? null : invoke.error
                       });
@@ -3870,7 +3914,7 @@ export function createMarketingStudioHandler(deps = {}) {
                       // because the image is still being created.
                       return json(200, {
                         premium_generation_pending: true,
-                        job_id: jobCreate.job.id,
+                        job_id: job.id,
                         content_item_id: body.content_item_id,
                         status: "generating"
                       });

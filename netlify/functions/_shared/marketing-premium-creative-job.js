@@ -41,9 +41,83 @@
  * marketing_generation_usage.job_id already has a real FK to this table
  * (added well before this batch) — every Premium reservation now uses it,
  * closing the exact gap Part A/G called out.
+ *
+ * Batch 4.1 ("close the premium job idempotency race"): the original
+ * findActivePremiumJobForContentItem() -> createPremiumJob() sequence
+ * was a plain check-then-insert with a real TOCTOU window — two
+ * concurrent requests for the same content item could both observe "no
+ * active job" and both create their own job + reservation (proven by
+ * direct schema inspection: ai_execution_jobs had no unique constraint
+ * beyond `id`). This is now closed with a DATABASE-ENFORCED deterministic
+ * idempotency key (see 20260904000000_premium_creative_job_idempotency.sql):
+ *
+ *   ai_execution_jobs.idempotency_key (new column, partial unique index)
+ *     = buildPremiumIdempotencyKey(contentItemId, attemptIndex)
+ *     = "premium_creative:<content_item_id>:<attempt_index>"
+ *
+ *   marketing_generation_usage.operation_id (existing column, uuid —
+ *   narrower partial unique index added alongside the existing one)
+ *     = buildPremiumOperationId(contentItemId, attemptIndex), a
+ *       deterministic RFC4122 v5 UUID derived from that SAME string
+ *       (operation_id is uuid-typed, so the literal string can't be
+ *       stored directly).
+ *
+ * createOrContinuePremiumJob() is the one authoritative create-or-get
+ * entry point marketing-studio.js now calls instead of the old two-step
+ * check-then-insert — the database conflict, not a client-side read, is
+ * what makes "at most one active job/reservation per content item
+ * attempt" true under real concurrency.
  */
 
+import crypto from "node:crypto";
+import { classifyDatabaseErrorCode } from "./marketing-provider-usage.js";
+
 export const PREMIUM_JOB_TYPE = "marketing_premium_creative_image";
+
+// A fixed, arbitrary namespace UUID for this codebase's own deterministic
+// v5 UUIDs — never meant to resolve to anything; it just needs to stay
+// constant so the same (name) always derives the same UUID. Matches
+// RFC4122 exactly (verified byte-for-byte against Postgres's own
+// uuid_generate_v5() on the same inputs — see this module's own tests).
+const PREMIUM_OPERATION_NAMESPACE = "6f1c1c1a-8b1e-4e6a-9d1a-2f6b9c7a4e10";
+
+/**
+ * A pure RFC4122 version-5 (SHA-1, namespace-based) UUID — deterministic:
+ * the same (name, namespaceUuid) pair always produces the same UUID, with
+ * no randomness and no database round trip. Used to derive a valid
+ * uuid-typed `operation_id` from a literal idempotency-key string this
+ * codebase already builds elsewhere (marketing_generation_usage.operation_id
+ * cannot hold an arbitrary string directly). Exported so its correctness
+ * can be tested directly against Postgres's own uuid_generate_v5() output
+ * for the same inputs, rather than trusted on faith.
+ */
+export function uuidV5(name, namespaceUuid) {
+  const namespaceBytes = Buffer.from(String(namespaceUuid).replace(/-/g, ""), "hex");
+  const nameBytes = Buffer.from(String(name), "utf8");
+  const hash = crypto.createHash("sha1").update(Buffer.concat([namespaceBytes, nameBytes])).digest();
+  const bytes = Buffer.from(hash.subarray(0, 16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x50; // version 5
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // RFC4122 variant
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/** The one literal identity string for "this content item's Premium
+ * generation attempt N" — never a random value (Part 1: "Do not use a
+ * random value as the idempotency key"). Stored verbatim in
+ * ai_execution_jobs.idempotency_key. */
+export function buildPremiumIdempotencyKey(contentItemId, attemptIndex = 0) {
+  return `premium_creative:${contentItemId}:${attemptIndex}`;
+}
+
+/** The SAME logical identity, represented as a valid UUID for
+ * marketing_generation_usage.operation_id (uuid-typed) — always exactly
+ * uuidV5(buildPremiumIdempotencyKey(...), PREMIUM_OPERATION_NAMESPACE),
+ * so the job-level and reservation-level idempotency keys can never
+ * silently drift apart for the same logical attempt. */
+export function buildPremiumOperationId(contentItemId, attemptIndex = 0) {
+  return uuidV5(buildPremiumIdempotencyKey(contentItemId, attemptIndex), PREMIUM_OPERATION_NAMESPACE);
+}
 
 // Only these two of ai_execution_jobs' own real status values are ever
 // "in flight" for this job type — used both for the idempotency query
@@ -158,11 +232,26 @@ export async function findLatestPremiumJobForContentItem(client, { shopId, conte
   }
 }
 
-/** Creates the durable job row itself (status 'planned', no attempts
+/**
+ * Creates the durable job row itself (status 'planned', no attempts
  * yet). `context` carries everything a Background Function will need to
- * reconstruct the exact same request later — no secret, ever. */
-export async function createPremiumJob(client, { shopId, userId = null, contentItemId, title = "", traceId = null, context = {} }) {
-  if (!shopId || !contentItemId) return { ok: false, job: null, error: "createPremiumJob requires shopId and contentItemId." };
+ * reconstruct the exact same request later — no secret, ever.
+ *
+ * Batch 4.1: the insert always carries a deterministic
+ * `idempotency_key` (buildPremiumIdempotencyKey(contentItemId,
+ * attemptIndex)) — the database's own partial unique index on that
+ * column is what makes this call SAFE under real concurrency. A
+ * duplicate-key conflict is NOT an error here: it means some other
+ * request already won creating this exact attempt's job, so this call
+ * loads and returns THAT row instead (`created: false`) — the caller
+ * creates no second reservation and dispatches no second Background
+ * Function invocation. Prefer createOrContinuePremiumJob() below for
+ * the full create-or-get/continue-a-failed-attempt flow; this function
+ * is the lower-level, single-attempt primitive it's built on.
+ */
+export async function createPremiumJob(client, { shopId, userId = null, contentItemId, title = "", traceId = null, attemptIndex = 0, context = {} }) {
+  if (!shopId || !contentItemId) return { ok: false, job: null, created: false, error: "createPremiumJob requires shopId and contentItemId." };
+  const idempotencyKey = buildPremiumIdempotencyKey(contentItemId, attemptIndex);
   try {
     const result = await client
       .from("ai_execution_jobs")
@@ -174,15 +263,83 @@ export async function createPremiumJob(client, { shopId, userId = null, contentI
         title: String(title || "").slice(0, 200),
         status: "planned",
         plan: [],
+        idempotency_key: idempotencyKey,
         result: { content_item_id: contentItemId, trace_id: traceId, ...context }
       })
       .select()
       .single();
-    if (result.error) return { ok: false, job: null, error: result.error.message };
-    return { ok: true, job: result.data };
+    if (result.error) {
+      if (classifyDatabaseErrorCode(result.error) === "duplicate") {
+        // Part 3: the database conflict is the authoritative gate — load
+        // and return the row that actually won, rather than erroring.
+        const existing = await client.from("ai_execution_jobs").select("*").eq("idempotency_key", idempotencyKey).maybeSingle();
+        if (existing.error) return { ok: false, job: null, created: false, error: existing.error.message };
+        if (!existing.data) return { ok: false, job: null, created: false, error: "Premium job idempotency conflict, but the winning row could not be loaded." };
+        return { ok: true, job: existing.data, created: false };
+      }
+      return { ok: false, job: null, created: false, error: result.error.message };
+    }
+    return { ok: true, job: result.data, created: true };
   } catch (error) {
-    return { ok: false, job: null, error: String(error?.message || error).slice(0, 300) };
+    return { ok: false, job: null, created: false, error: String(error?.message || error).slice(0, 300) };
   }
+}
+
+/**
+ * Part 3/4/6: the ONE authoritative create-or-get/continue entry point
+ * marketing-studio.js calls for both a fresh "Ask Lily to create it"
+ * click and an explicit Retry — replacing the old, race-prone
+ * "findActivePremiumJobForContentItem() then createPremiumJob()"
+ * sequence with a single call whose correctness rests on the database's
+ * own unique index, not on client-side timing.
+ *
+ * Returns one of five `mode`s:
+ *   "fresh"              — a brand-new attempt-0 job was created. Caller
+ *                           proceeds to reserve usage, add the attempt,
+ *                           and dispatch the Background Function.
+ *   "active_duplicate"   — a concurrent/duplicate request already has an
+ *                           active (planned/running) job for this exact
+ *                           attempt. Caller returns the pending response
+ *                           referencing it; creates nothing new.
+ *   "continue_failed"    — the existing job for this content item is
+ *                           terminal-failed with room left under
+ *                           PREMIUM_JOB_MAX_ATTEMPTS. Caller reserves a
+ *                           NEW attempt (attemptIndex = job.plan.length)
+ *                           onto this SAME job — covers both an explicit
+ *                           Retry and an ordinary "Generate" click after
+ *                           the content item was reverted to 'idea'
+ *                           following a real failure; either way it is
+ *                           still, correctly, the same one job.
+ *   "max_attempts_reached" — the existing job is terminal-failed with no
+ *                           attempts left. Caller falls through to Exact
+ *                           Layout, never spends again.
+ *   "already_completed"  — the existing job already succeeded. Should not
+ *                           normally be reachable (a completed job means
+ *                           the content item is no longer 'idea'), kept
+ *                           as a defensive, honest fallback rather than a
+ *                           crash.
+ */
+export async function createOrContinuePremiumJob(client, { shopId, userId = null, contentItemId, title = "", traceId = null, context = {} }) {
+  const created = await createPremiumJob(client, { shopId, userId, contentItemId, title, traceId, attemptIndex: 0, context });
+  if (!created.ok) return { ok: false, mode: null, job: null, attemptIndex: null, error: created.error };
+  if (created.created) return { ok: true, mode: "fresh", job: created.job, attemptIndex: 0 };
+
+  // Lost the create race (or this content item already has a job from an
+  // earlier attempt) — decide what "continuing" means from the winning
+  // row's own real, durable status.
+  const job = created.job;
+  if (PREMIUM_JOB_ACTIVE_STATUSES.includes(job.status)) {
+    return { ok: true, mode: "active_duplicate", job, attemptIndex: null };
+  }
+  if (job.status === "completed") {
+    return { ok: true, mode: "already_completed", job, attemptIndex: null };
+  }
+  // status === "failed": room for another attempt?
+  const nextAttemptIndex = Array.isArray(job.plan) ? job.plan.length : 0;
+  if (nextAttemptIndex >= PREMIUM_JOB_MAX_ATTEMPTS) {
+    return { ok: true, mode: "max_attempts_reached", job, attemptIndex: null };
+  }
+  return { ok: true, mode: "continue_failed", job, attemptIndex: nextAttemptIndex };
 }
 
 /** One fresh 'planned' attempt entry — appended to the job's `plan`
@@ -202,24 +359,38 @@ export function buildPlannedAttemptStep({ attemptIndex, reservationId }) {
   };
 }
 
-/** Appends a new attempt step to the job's plan (fetch-modify-write is
- * safe here: this only ever runs from the one synchronous request that
- * already holds the win of the content item's own atomic 'idea'->
- * 'generating' claim, so no concurrent writer can be appending an
- * attempt to the SAME job at the same time). Also merges any additional
- * job-level context (e.g. the real canonicalConcept/creativeDirection/
- * factSafeCopyPlan a Background Function will need) into `result`. */
+/**
+ * Appends a new attempt step to the job's plan. Also merges any
+ * additional job-level context (e.g. the real canonicalConcept/
+ * creativeDirection/factSafeCopyPlan a Background Function will need)
+ * into `result`.
+ *
+ * Batch 4.1: idempotent against `step.attempt_index` already being
+ * present — this fetch-modify-write is no longer the SOLE guard against
+ * a duplicate attempt (the reservation-level operation_id unique index
+ * is the authoritative one — see createOrContinuePremiumJob's own doc),
+ * but two callers racing to continue the SAME failed job could still
+ * both compute the identical next attemptIndex before either writes; if
+ * the job's plan already has an entry for that attempt_index, this is a
+ * safe no-op that returns the job as-is rather than appending a second,
+ * duplicate array entry for what the reservation layer already resolved
+ * down to one real usage row.
+ */
 export async function addPremiumJobAttempt(client, jobId, step, { context = {} } = {}) {
   if (!jobId) return { ok: false, job: null, error: "addPremiumJobAttempt requires jobId." };
   try {
     const current = await client.from("ai_execution_jobs").select("plan,result").eq("id", jobId).maybeSingle();
     if (current.error) return { ok: false, job: null, error: current.error.message };
     if (!current.data) return { ok: false, job: null, error: "Premium job not found." };
-    const plan = [...(Array.isArray(current.data.plan) ? current.data.plan : []), step];
+    const existingPlan = Array.isArray(current.data.plan) ? current.data.plan : [];
+    if (existingPlan.some((entry) => entry?.attempt_index === step.attempt_index)) {
+      return { ok: true, job: { ...current.data, id: jobId }, alreadyAppended: true };
+    }
+    const plan = [...existingPlan, step];
     const nextResult = { ...(current.data.result || {}), ...context };
     const result = await client.from("ai_execution_jobs").update({ plan, result: nextResult, status: "planned" }).eq("id", jobId).select().single();
     if (result.error) return { ok: false, job: null, error: result.error.message };
-    return { ok: true, job: result.data };
+    return { ok: true, job: result.data, alreadyAppended: false };
   } catch (error) {
     return { ok: false, job: null, error: String(error?.message || error).slice(0, 300) };
   }

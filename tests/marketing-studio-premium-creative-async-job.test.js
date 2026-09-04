@@ -100,8 +100,7 @@ test("Batch4 Part C: a Premium-eligible request reserves usage, creates a durabl
     const client = createFakeSupabaseClient(
       [
         ...fixedResponses(),
-        { data: [], error: null }, // findActivePremiumJobForContentItem — no active job
-        { data: { id: "job-1", shop_id: "shop-ashley", job_type: PREMIUM_JOB_TYPE, status: "planned", plan: [], result: {} }, error: null }, // createPremiumJob insert().select().single()
+        { data: { id: "job-1", shop_id: "shop-ashley", job_type: PREMIUM_JOB_TYPE, status: "planned", plan: [], result: {} }, error: null }, // createOrContinuePremiumJob -> createPremiumJob insert().select().single() (fresh, no conflict)
         { data: { id: "usage-1" }, error: null }, // reserveProviderCall insert().select("id").single()
         { data: { plan: [], result: {} }, error: null }, // addPremiumJobAttempt read
         { data: { id: "job-1", plan: [{ id: "attempt-0" }], result: {} }, error: null } // addPremiumJobAttempt update().select().single()
@@ -217,8 +216,7 @@ test("Batch4 Part C: if the durable job can't be created, the request falls thro
     const client = createFakeSupabaseClient(
       [
         ...imageContentBaseResponses(),
-        { data: [], error: null }, // findActivePremiumJobForContentItem — no active job
-        { data: null, error: { message: "insert failed: connection reset" } }, // createPremiumJob fails
+        { data: null, error: { message: "insert failed: connection reset" } }, // createOrContinuePremiumJob -> createPremiumJob insert fails (non-conflict error)
         // Falls through to the existing Exact Layout / Cloudflare path —
         // same tail shape as marketing-studio-premium-creative-routing-
         // integration.test.js's own feature-flag-off fallback tests.
