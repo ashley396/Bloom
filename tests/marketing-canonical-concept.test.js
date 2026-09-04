@@ -82,6 +82,46 @@ test("classifyOccasionCategory: recognizes real florist occasion keywords, never
   assert.equal(classifyOccasionCategory({ requestText: "A totally generic post" }), "general");
 });
 
+// Batch 5.3 ("event/deadline classification") regression: every existing
+// occasion classification above must remain byte-for-byte unchanged —
+// the new event_reminder rule is additive only, never a reclassification
+// of any request shape that already resolved to something real.
+test("Batch 5.3 regression: every pre-existing occasion classification is unchanged by the new event_reminder rule", () => {
+  assert.equal(classifyOccasionCategory({ requestText: "Order your birthday bouquet today" }), "birthday");
+  assert.equal(classifyOccasionCategory({ requestText: "Happy anniversary to a wonderful couple" }), "anniversary");
+  assert.equal(classifyOccasionCategory({ requestText: "Our wedding season is here" }), "wedding_event");
+  assert.equal(classifyOccasionCategory({ requestText: "Congrats grads! Graduation bouquets available" }), "graduation");
+  assert.equal(classifyOccasionCategory({ requestText: "New baby shower bouquets now available" }), "new_baby");
+  assert.equal(classifyOccasionCategory({ requestText: "Get well soon flowers for a loved one" }), "get_well");
+  assert.equal(classifyOccasionCategory({ requestText: "A totally generic post" }), "general");
+  assert.equal(classifyOccasionCategory({ requestText: "Create today's Facebook post for Lilies in Bloom." }), "general");
+  assert.equal(classifyOccasionCategory({ requestText: "We're closing at 2:30 today.", objective: "operational" }), "operational_notice");
+  assert.equal(classifyOccasionCategory({ requestText: "Deep sympathy for your loss", isSympathy: true }), "sympathy");
+  assert.equal(classifyOccasionCategory({ requestText: "Fall is here, order your seasonal arrangement", objective: "seasonal_occasion" }), "holiday_seasonal");
+  // A shop discussing a real "formal arrangement" (an ordinary florist
+  // term, not a school event) must never false-positive on the new rule.
+  assert.equal(classifyOccasionCategory({ requestText: "We offer a formal arrangement style for any occasion" }), "general");
+  // Nor an unrelated use of "prom" as a word fragment inside another word.
+  assert.equal(classifyOccasionCategory({ requestText: "We promptly fulfill every order" }), "general");
+});
+
+test("Batch 5.3: a named school-dance-style event reminder now classifies as event_reminder, not general", () => {
+  assert.equal(classifyOccasionCategory({ requestText: "Remind everyone the Homecoming Dance is September 19th, order corsages and boutonnieres soon." }), "event_reminder");
+  assert.equal(classifyOccasionCategory({ requestText: "Prom is next Saturday, remind everyone to order their flowers." }), "event_reminder");
+  assert.equal(classifyOccasionCategory({ requestText: "Our school dance is coming up, order your corsage now." }), "event_reminder");
+  assert.equal(classifyOccasionCategory({ requestText: "The school formal is this weekend — order boutonnieres today." }), "event_reminder");
+});
+
+test("Batch 5.3: buildCanonicalConcept carries event_reminder through as occasionCategory, and it feeds factRequirements/ctaIntent exactly as any other category would — no special-casing elsewhere", () => {
+  const concept = buildCanonicalConcept({
+    requestText: "Remind Students and Parents the Homecoming Dance is September 19th, order corsages and boutonnieres soon.",
+    ctaText: "Order your Homecoming flowers early.",
+    objective: "awareness"
+  });
+  assert.equal(concept.occasionCategory, "event_reminder");
+  assert.equal(concept.ctaIntent, "order_now");
+});
+
 test("classifyPrimarySubjectClass: defaults to floral_arrangement, the real common case — never a guess when there's real subject text", () => {
   assert.equal(classifyPrimarySubjectClass("A bright bouquet of roses"), "floral_arrangement");
   assert.equal(classifyPrimarySubjectClass("A jaguar mascot holding a bouquet"), "mascot_or_character");

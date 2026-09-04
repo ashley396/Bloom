@@ -58,6 +58,19 @@ export const OCCASION_CATEGORIES = Object.freeze([
   "get_well",
   "holiday_seasonal",
   "operational_notice",
+  // Batch 5.3 ("event/deadline classification"): a real staging
+  // acceptance test proved a named school-dance-style event reminder
+  // ("remind Students and Parents the Homecoming Dance is September
+  // 19th... need to be ordered as soon as possible") silently collapsed
+  // to "general" — none of the keyword rules above recognize it, and
+  // "general" resolves in marketing-creative-direction.js's
+  // resolveOccasionTreatment() to the SAME "everyday_floral" treatment
+  // as any ordinary, no-deadline post, losing the "customer action +
+  // real deadline" framing entirely before the image prompt is even
+  // built. Deliberately narrow — named school-event occasions only
+  // (Homecoming/Prom/school dance/school formal), never a broad "any
+  // event word" classifier (see OCCASION_KEYWORD_RULES below).
+  "event_reminder",
   "general"
 ]);
 
@@ -104,7 +117,13 @@ const OCCASION_KEYWORD_RULES = [
   { category: "wedding_event", re: /\bweddings?\b|\bbridal\b|\bengagement\b/i },
   { category: "graduation", re: /\bgraduations?\b|\bgrads?\b/i },
   { category: "new_baby", re: /\bnew ?baby\b|\bbaby shower\b|\bnewborn\b/i },
-  { category: "get_well", re: /\bget well\b|\bfeel better\b/i }
+  { category: "get_well", re: /\bget well\b|\bfeel better\b/i },
+  // Batch 5.3: named school-dance-style event reminders only — see
+  // OCCASION_CATEGORIES's own comment on "event_reminder" above. "school
+  // formal" (not bare "formal", which false-positives on ordinary phrases
+  // like "a formal arrangement") keeps this narrow, per Ashley's own
+  // instruction not to build a broad "any event word" classifier.
+  { category: "event_reminder", re: /\bhomecoming\b|\bproms?\b|\bschool dance\b|\bschool formal\b/i }
 ];
 
 /**

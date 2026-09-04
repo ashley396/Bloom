@@ -56,6 +56,7 @@
 import { buildConfiguredMarketingImageProviderRegistry } from "./marketing-image-providers.js";
 import { PROVIDER_NAME as OPENAI_PROVIDER_NAME } from "./marketing-image-provider-openai.js";
 import { buildOpenAiCreativeBrief } from "./marketing-openai-creative-brief.js";
+import { buildCreativeDirectorDirection } from "./marketing-creative-director.js";
 import { checkSafeMarketingPreviewEnvironment } from "./marketing-preview-environment-guard.js";
 import { reserveProviderCall, completeProviderCall, failProviderCall } from "./marketing-provider-usage.js";
 import { OPENAI_PREMIUM_CREATIVE_OPERATION } from "./marketing-premium-design-entitlement.js";
@@ -392,7 +393,15 @@ export async function executeReservedPremiumCreativeGeneration({
   diag.execution.provider_generate_entered = true;
   if (onBeforeProviderCall) await onBeforeProviderCall({ ...diag });
 
-  const generation = await provider.generate({ client, shopId, prompt: buildBackgroundPromptFromBrief(brief), filename, aspectRatio, qualityTier, traceId });
+  const generation = await provider.generate({
+    client,
+    shopId,
+    prompt: buildBackgroundPromptFromBrief(brief, { canonicalConcept, creativeDirection }),
+    filename,
+    aspectRatio,
+    qualityTier,
+    traceId
+  });
   diag.execution.provider_result_ok = generation.ok;
   diag.execution.provider_http_status = generation.status ?? null;
 
@@ -525,25 +534,71 @@ export async function attemptPremiumCreativeGeneration({
   });
 }
 
+// The one instruction that must survive intact no matter how long the
+// rest of the prompt gets — see buildBackgroundPromptFromBrief's own
+// length-budgeting below. Identical wording to the pre-Batch-5.2 prompt,
+// deliberately unchanged (see .claude/rules/marketing-studio.md: "Never
+// ask an image-generation model to render literal words, numbers, or
+// signage").
+const NO_LITERAL_TEXT_INSTRUCTION = "Do not include any readable text, numbers, logos, or signage in the image — pure photography/illustration only.";
+
+// generate()'s own provider adapter silently truncates any prompt over
+// 4000 chars (marketing-image-provider-openai.js: `.slice(0, 4000)`).
+// Reserve enough room for NO_LITERAL_TEXT_INSTRUCTION so a long,
+// occasion-rich description can never push that one safety-critical
+// sentence past the cutoff — the old code happened to put it last, which
+// would have made it the FIRST casualty of any future truncation.
+const MAX_PROMPT_CHARS = 4000;
+const SAFETY_RESERVED_CHARS = NO_LITERAL_TEXT_INSTRUCTION.length + 1; // +1 for the joining space
+
 /**
- * Part 8: OpenAI is asked to compose the visual scene from styleText and
- * the creative direction's own mood/composition fields ONLY — never asked
- * to render any fact-critical sentence as literal on-image text (see
- * .claude/rules/marketing-studio.md: "Never ask an image-generation model
- * to render literal words, numbers, or signage"). deterministicText stays
- * out of the prompt entirely; it's returned in `overlays` above for
- * Florisyn's own renderer to draw as real pixels instead.
+ * Batch 5.2 ("wire the Creative Director into the Premium prompt"): OpenAI
+ * is asked to compose the visual scene from styleText, the Creative
+ * Director's rich occasion/composition/negative-space/branding direction,
+ * and its avoidance list ONLY — never asked to render any fact-critical
+ * sentence as literal on-image text (unchanged from before Batch 5.2).
+ * deterministicText stays out of the prompt entirely; it's returned in
+ * `overlays` above for Florisyn's own renderer to draw as real pixels
+ * instead.
+ *
+ * Batch 4.4-era root cause this replaces: the previous version of this
+ * function read only 4 of creativeDirection's ~25 fields (visualMood,
+ * paletteMood, compositionFamily, imageScale), producing a generic,
+ * occasion-blind prompt regardless of what marketing-creative-
+ * direction.js had actually decided. buildCreativeDirectorDirection()
+ * (marketing-creative-director.js) is the fix — a pure translation layer
+ * over the SAME two already-computed objects, not a new decision-making
+ * system.
+ *
+ * @param {object} brief - buildOpenAiCreativeBrief()'s own output (styleText,
+ *   occasion, factsAllowed/factsForbiddenFromInvention — unchanged usage).
+ * @param {object} [ctx]
+ * @param {object|null} [ctx.canonicalConcept] - the SAME object already
+ *   passed into buildOpenAiCreativeBrief() above — never re-derived here.
+ * @param {object|null} [ctx.creativeDirection] - same as above.
  */
-function buildBackgroundPromptFromBrief(brief) {
+export function buildBackgroundPromptFromBrief(brief, { canonicalConcept = null, creativeDirection = null } = {}) {
   const styleLine = brief.styleText.map((s) => s.text).join(" ");
-  const parts = [
-    `A premium, bright, colorful, realistic floral photography composition for a "${brief.occasion || "everyday"}" florist post.`,
-    `Visual mood: ${brief.visualMood || "warm and inviting"}. Palette mood: ${brief.paletteMood || "soft pastel"}.`,
-    `Composition: ${brief.compositionIntent || "photo-forward"}, image prominence ${brief.imageProminence || "dominant"}.`,
+  const director = buildCreativeDirectorDirection({ canonicalConcept, creativeDirection });
+
+  // Fails closed to the old occasion/mood-only summary if the director
+  // module ever can't run (e.g. a caller genuinely has no canonicalConcept/
+  // creativeDirection at all) — never a hard failure of the whole
+  // generation just because the richer direction couldn't be built.
+  const directionText = director.ok
+    ? director.directionText
+    : `Visual mood: ${brief.visualMood || "warm and inviting"}. Palette mood: ${brief.paletteMood || "soft pastel"}. Composition: ${brief.compositionIntent || "photo-forward"}, image prominence ${brief.imageProminence || "dominant"}.`;
+  const avoidanceText = director.ok ? director.avoidanceText : null;
+
+  const descriptiveParts = [
+    `A premium, professional advertising photograph for a florist's "${brief.occasion || "everyday"}" social media post.`,
+    directionText,
     styleLine ? `Tone/style reference (do not render as literal text): ${styleLine}` : null,
-    // Same directive ai-image-engine.js's own buildImagePrompt already
-    // relies on — never render literal words/numbers/signage.
-    "Do not include any readable text, numbers, logos, or signage in the image — pure photography/illustration only."
+    avoidanceText
   ].filter(Boolean);
-  return parts.join(" ");
+  const descriptive = descriptiveParts.join(" ");
+
+  const budget = MAX_PROMPT_CHARS - SAFETY_RESERVED_CHARS;
+  const boundedDescriptive = descriptive.length > budget ? descriptive.slice(0, budget) : descriptive;
+  return `${boundedDescriptive} ${NO_LITERAL_TEXT_INSTRUCTION}`;
 }
