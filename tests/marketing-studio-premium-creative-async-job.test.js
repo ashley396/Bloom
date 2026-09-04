@@ -103,7 +103,14 @@ test("Batch4 Part C: a Premium-eligible request reserves usage, creates a durabl
         { data: { id: "job-1", shop_id: "shop-ashley", job_type: PREMIUM_JOB_TYPE, status: "planned", plan: [], result: {} }, error: null }, // createOrContinuePremiumJob -> createPremiumJob insert().select().single() (fresh, no conflict)
         { data: { id: "usage-1" }, error: null }, // reserveProviderCall insert().select("id").single()
         { data: { plan: [], result: {}, updated_at: "2026-01-01T00:00:00.000Z" }, error: null }, // addPremiumJobAttempt read
-        { data: [{ id: "job-1", plan: [{ id: "attempt-0" }], result: {} }], error: null } // addPremiumJobAttempt CAS update().select() (array, no .single())
+        { data: [{ id: "job-1", plan: [{ id: "attempt-0" }], result: {} }], error: null }, // addPremiumJobAttempt CAS update().select() (array, no .single())
+        // invokePremiumCreativeBackgroundFunction hits its own "not
+        // configured" early return (no MARKETING_PREMIUM_JOB_SECRET/URL
+        // in this test process) WITHOUT ever calling fetch — but
+        // recordPremiumJobDispatchAttempt (Batch 4.3) still records that
+        // real (failed) outcome durably, consuming its own read+update.
+        { data: { result: {} }, error: null }, // recordPremiumJobDispatchAttempt read
+        { data: [{ id: "job-1" }], error: null } // recordPremiumJobDispatchAttempt update
       ],
       { storage: createFakeSupabaseStorage({}) }
     );

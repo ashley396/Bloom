@@ -18,7 +18,8 @@ import {
   settlePremiumJobCompleted,
   settlePremiumJobFailed,
   reconcileStuckPremiumJob,
-  invokePremiumCreativeBackgroundFunction
+  invokePremiumCreativeBackgroundFunction,
+  recordPremiumJobDispatchAttempt
 } from "../netlify/functions/_shared/marketing-premium-creative-job.js";
 
 // Hybrid Marketing Studio Batch 4 ("async job architecture") — the
@@ -252,6 +253,7 @@ test("findLatestPremiumJobForContentItem (Part J): finds the shop's most recent 
 test("invokePremiumCreativeBackgroundFunction fails closed (never throws, never crashes the caller) when unconfigured", async () => {
   const result = await invokePremiumCreativeBackgroundFunction({ jobId: "job-1", env: {} });
   assert.equal(result.ok, false);
+  assert.equal(result.status, null);
   assert.match(result.error, /not configured/);
 });
 
@@ -267,6 +269,7 @@ test("invokePremiumCreativeBackgroundFunction posts the job id with the shared s
     fetchImpl
   });
   assert.equal(result.ok, true);
+  assert.equal(result.status, 202);
   assert.equal(calls.length, 1);
   assert.match(calls[0].url, /\/\.netlify\/functions\/marketing-premium-creative-background$/);
   assert.equal(calls[0].options.headers["X-Premium-Job-Secret"], "s3cret");
@@ -283,5 +286,56 @@ test("invokePremiumCreativeBackgroundFunction never throws even if the fetch its
     fetchImpl
   });
   assert.equal(result.ok, false);
+  assert.equal(result.status, null, "a network-level failure (no response at all) must never be confused with a real HTTP error status");
   assert.match(result.error, /network unreachable/);
+});
+
+// Batch 4.3 ("make Background Function dispatch failures observable"):
+// the PROVEN gap a real staging incident exposed — fetch() only throws
+// on a network-level failure, never for an HTTP error response, so the
+// original code silently reported {ok:true} for a 401/404/500 rejection.
+test("invokePremiumCreativeBackgroundFunction treats a non-2xx HTTP response as a real failure, carrying the real status — never silently ok:true", async () => {
+  const fetchImpl = async () => ({ ok: false, status: 401 });
+  const result = await invokePremiumCreativeBackgroundFunction({
+    jobId: "job-1",
+    env: { URL: "https://example.netlify.app", MARKETING_PREMIUM_JOB_SECRET: "s3cret" },
+    fetchImpl
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 401);
+  assert.match(result.error, /401/);
+});
+
+test("invokePremiumCreativeBackgroundFunction treats a 500 the same way — a real error, real status, never masked", async () => {
+  const fetchImpl = async () => ({ ok: false, status: 500 });
+  const result = await invokePremiumCreativeBackgroundFunction({
+    jobId: "job-1",
+    env: { URL: "https://example.netlify.app", MARKETING_PREMIUM_JOB_SECRET: "s3cret" },
+    fetchImpl
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 500);
+});
+
+test("recordPremiumJobDispatchAttempt persists the real dispatch outcome durably onto ai_execution_jobs.result.dispatch", async () => {
+  const client = createFakeSupabaseClient([
+    { data: { result: { content_item_id: "item-1" } }, error: null }, // read
+    { data: [{ id: "job-1" }], error: null } // update
+  ]);
+  const result = await recordPremiumJobDispatchAttempt(client, "job-1", { ok: false, status: 401, error: "Background Function returned HTTP 401" });
+  assert.equal(result.ok, true);
+  const updateCall = client.calls.find((c) => c.ops.some((op) => op[0] === "update"));
+  const payload = updateCall.ops.find((op) => op[0] === "update")[1][0];
+  assert.equal(payload.result.content_item_id, "item-1", "must preserve everything already in result, not replace it");
+  assert.equal(payload.result.dispatch.ok, false);
+  assert.equal(payload.result.dispatch.status, 401);
+  assert.equal(payload.result.dispatch.error, "Background Function returned HTTP 401");
+  assert.ok(payload.result.dispatch.attempted_at);
+});
+
+test("recordPremiumJobDispatchAttempt is best-effort — a failure to record never throws", async () => {
+  const client = createFakeSupabaseClient([{ data: null, error: { message: "connection reset" } }]);
+  const result = await recordPremiumJobDispatchAttempt(client, "job-1", { ok: true, status: 202 });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /connection reset/);
 });

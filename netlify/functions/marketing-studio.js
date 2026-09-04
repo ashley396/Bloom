@@ -118,6 +118,7 @@ import {
   addPremiumJobAttempt,
   settlePremiumJobFailed,
   invokePremiumCreativeBackgroundFunction,
+  recordPremiumJobDispatchAttempt,
   PREMIUM_JOB_MAX_ATTEMPTS
 } from "./_shared/marketing-premium-creative-job.js";
 import { PROVIDER_NAME as OPENAI_PROVIDER_NAME } from "./_shared/marketing-image-provider-openai.js";
@@ -3910,8 +3911,16 @@ export function createMarketingStudioHandler(deps = {}) {
                         jobId: job.id,
                         invoked: invoke.ok && !invoke.skipped,
                         skipped: Boolean(invoke.skipped),
+                        invokeStatus: invoke.status ?? null,
                         invokeError: invoke.ok ? null : invoke.error
                       });
+                      // Batch 4.3: durable, Supabase-readable record of
+                      // this real dispatch attempt's outcome — never
+                      // recorded for the `alreadyAppended` skip case
+                      // (nothing was actually dispatched here to record).
+                      if (!invoke.skipped) {
+                        await recordPremiumJobDispatchAttempt(client, job.id, { ok: invoke.ok, status: invoke.status ?? null, error: invoke.ok ? null : invoke.error });
+                      }
                       premiumCreativeDiagnostic.fallback = { occurred: false, final_engine: "premium_ai_creative", reason: null };
                       structuredLog("info", "marketing_generate_content_premium_creative_diagnostic", { traceId: genTraceId, diagnostic: premiumCreativeDiagnostic });
                       // Part C: return HTTP success immediately — the real
@@ -4384,8 +4393,14 @@ export function createMarketingStudioHandler(deps = {}) {
           jobId: priorJob.id,
           attemptIndex: nextAttemptIndex,
           invoked: invoke.ok && !invoke.skipped,
-          skipped: Boolean(invoke.skipped)
+          skipped: Boolean(invoke.skipped),
+          invokeStatus: invoke.status ?? null
         });
+        // Batch 4.3: same durable dispatch-outcome record as the fresh-
+        // generation path above.
+        if (!invoke.skipped) {
+          await recordPremiumJobDispatchAttempt(client, priorJob.id, { ok: invoke.ok, status: invoke.status ?? null, error: invoke.ok ? null : invoke.error });
+        }
         return json(200, {
           premium_generation_pending: true,
           job_id: priorJob.id,

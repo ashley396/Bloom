@@ -605,22 +605,74 @@ export async function reconcileStuckPremiumJob(client, job, failProviderCallFn) 
  * this particular invocation attempt fails, the florist still sees an
  * honest "generating" state rather than a 500 — a future reconciliation
  * pass (Part H) is what catches a job that never got its worker fired.
+ *
+ * Batch 4.3 ("make Background Function dispatch failures observable"):
+ * a real staging incident proved this needed fixing — `fetch()` only
+ * throws on a network-level failure; it resolves normally for ANY HTTP
+ * response, including 401/404/500. The original code never looked at
+ * that response at all, so a systemic dispatch rejection was silently
+ * reported as `{ok:true}` — the one place this codebase could have
+ * observed the real failure said nothing was wrong. Now the response
+ * status is inspected and returned; `status` is `null` only for a
+ * genuine network-level failure (no response was ever received) or the
+ * pre-flight not-configured case, matching the honest "unknown vs.
+ * known" distinction this codebase already uses elsewhere (see
+ * PREMIUM_JOB_RECOVERY_STATES).
  */
 export async function invokePremiumCreativeBackgroundFunction({ jobId, env = process.env, fetchImpl = null }) {
   const doFetch = fetchImpl || globalThis.fetch;
   const baseUrl = String(env.URL || env.SITE_URL || "").replace(/\/$/, "");
   const secret = String(env.MARKETING_PREMIUM_JOB_SECRET || "").trim();
   if (!baseUrl || !secret || !doFetch) {
-    return { ok: false, error: "Premium Creative Background Function is not configured (missing URL/secret)." };
+    return { ok: false, status: null, error: "Premium Creative Background Function is not configured (missing URL/secret)." };
   }
   try {
-    await doFetch(`${baseUrl}/.netlify/functions/marketing-premium-creative-background`, {
+    const response = await doFetch(`${baseUrl}/.netlify/functions/marketing-premium-creative-background`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Premium-Job-Secret": secret },
       body: JSON.stringify({ jobId })
     });
-    return { ok: true };
+    if (!response.ok) {
+      return { ok: false, status: response.status, error: `Background Function returned HTTP ${response.status}` };
+    }
+    return { ok: true, status: response.status };
   } catch (error) {
-    return { ok: false, error: String(error?.message || error).slice(0, 300) };
+    // No response was ever received at all — network-level failure
+    // (DNS, connection refused, TLS, etc.), never confused with a real
+    // HTTP error status above.
+    return { ok: false, status: null, error: String(error?.message || error).slice(0, 300) };
+  }
+}
+
+/**
+ * Batch 4.3: persists the real outcome of ONE Background Function
+ * dispatch attempt durably onto the job itself — `ai_execution_jobs.
+ * result.dispatch` — so it's readable straight from Supabase regardless
+ * of whether Netlify's own function-log UI is available (the exact real
+ * gap this exists to close: a staging incident where the deployed
+ * Background Function's log view was empty/inaccessible and the only
+ * other signal, invokePremiumCreativeBackgroundFunction's own return
+ * value, was being silently discarded into a log line no one could
+ * read). Best-effort: never throws, never blocks the caller — a failure
+ * to record this diagnostic must never be mistaken for a failure of the
+ * dispatch itself, which the caller already has its own real outcome
+ * for. Does not touch `plan`, `status`, or anything the reservation/
+ * claim/retry machinery reads — purely additive, purely diagnostic.
+ */
+export async function recordPremiumJobDispatchAttempt(client, jobId, { ok, status = null, error = null } = {}) {
+  if (!jobId) return { ok: false, error: "recordPremiumJobDispatchAttempt requires jobId." };
+  try {
+    const current = await client.from("ai_execution_jobs").select("result").eq("id", jobId).maybeSingle();
+    if (current.error) return { ok: false, error: current.error.message };
+    if (!current.data) return { ok: false, error: "Premium job not found." };
+    const nextResult = {
+      ...(current.data.result || {}),
+      dispatch: { attempted_at: nowIso(), ok: Boolean(ok), status, error }
+    };
+    const result = await client.from("ai_execution_jobs").update({ result: nextResult }).eq("id", jobId).select();
+    if (result.error) return { ok: false, error: result.error.message };
+    return { ok: true };
+  } catch (thrown) {
+    return { ok: false, error: String(thrown?.message || thrown).slice(0, 300) };
   }
 }
