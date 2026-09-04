@@ -276,6 +276,50 @@ test("invokePremiumCreativeBackgroundFunction posts the job id with the shared s
   assert.deepEqual(JSON.parse(calls[0].options.body), { jobId: "job-1" });
 });
 
+// Batch 4.4 ("harden secret validation"): a real staging incident proved
+// a non-ASCII MARKETING_PREMIUM_JOB_SECRET makes fetch()'s Headers
+// implementation throw a raw ByteString TypeError before any network
+// call — indistinguishable, at the time, from a genuine network
+// failure. Validate up front and fail closed with an explicit, named,
+// non-secret-leaking error instead.
+test("invokePremiumCreativeBackgroundFunction still dispatches normally for a valid ASCII secret", async () => {
+  const calls = [];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, options });
+    return { ok: true, status: 202 };
+  };
+  const result = await invokePremiumCreativeBackgroundFunction({
+    jobId: "job-1",
+    env: { URL: "https://example.netlify.app", MARKETING_PREMIUM_JOB_SECRET: "plain-ascii-secret-123" },
+    fetchImpl
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 202);
+  assert.equal(calls.length, 1, "a valid ASCII secret must reach fetch() exactly as before");
+});
+
+test("invokePremiumCreativeBackgroundFunction fails closed with a named configuration error for a non-ASCII secret, without ever calling fetch or leaking the secret", async () => {
+  const calls = [];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, options });
+    return { ok: true, status: 202 };
+  };
+  // U+0445 (Cyrillic "х") — the exact character class that crashed
+  // fetch()'s Headers implementation in the real staging incident.
+  const badSecret = "s3cret-х-value";
+  const result = await invokePremiumCreativeBackgroundFunction({
+    jobId: "job-1",
+    env: { URL: "https://example.netlify.app", MARKETING_PREMIUM_JOB_SECRET: badSecret },
+    fetchImpl
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.status, null, "a rejected-before-network config error is not an HTTP status");
+  assert.match(result.error, /MARKETING_PREMIUM_JOB_SECRET_NOT_ASCII/);
+  assert.doesNotMatch(result.error, /х/, "the secret value itself must never appear in the error");
+  assert.doesNotMatch(result.error, /s3cret-.*-value/, "the secret value itself must never appear in the error");
+  assert.equal(calls.length, 0, "fetch() must never be called once the secret fails ASCII validation — fail closed before any network attempt");
+});
+
 test("invokePremiumCreativeBackgroundFunction never throws even if the fetch itself rejects — the synchronous caller must never crash on an enqueue failure", async () => {
   const fetchImpl = async () => {
     throw new Error("network unreachable");

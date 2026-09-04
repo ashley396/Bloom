@@ -618,13 +618,36 @@ export async function reconcileStuckPremiumJob(client, job, failProviderCallFn) 
  * pre-flight not-configured case, matching the honest "unknown vs.
  * known" distinction this codebase already uses elsewhere (see
  * PREMIUM_JOB_RECOVERY_STATES).
+ *
+ * Batch 4.4 ("harden secret validation"): a real staging incident proved
+ * that a non-ASCII character in MARKETING_PREMIUM_JOB_SECRET makes
+ * fetch()'s own Headers implementation throw a raw
+ * "Cannot convert argument to a ByteString..." TypeError while
+ * constructing the request — before any network call is attempted. That
+ * exception landed in the same `status: null` bucket as a genuine
+ * network-level failure, making a bad secret indistinguishable from an
+ * infra problem. The secret is now validated up front so this specific
+ * misconfiguration fails closed with its own named, non-secret-leaking
+ * error instead.
  */
+const PREMIUM_JOB_SECRET_NON_ASCII_PATTERN = /[^\x00-\x7F]/;
+
 export async function invokePremiumCreativeBackgroundFunction({ jobId, env = process.env, fetchImpl = null }) {
   const doFetch = fetchImpl || globalThis.fetch;
   const baseUrl = String(env.URL || env.SITE_URL || "").replace(/\/$/, "");
   const secret = String(env.MARKETING_PREMIUM_JOB_SECRET || "").trim();
   if (!baseUrl || !secret || !doFetch) {
     return { ok: false, status: null, error: "Premium Creative Background Function is not configured (missing URL/secret)." };
+  }
+  if (PREMIUM_JOB_SECRET_NON_ASCII_PATTERN.test(secret)) {
+    // Fail closed before touching fetch()/Headers at all. Never logs or
+    // returns the secret value itself — only the fact that it failed
+    // validation.
+    return {
+      ok: false,
+      status: null,
+      error: "MARKETING_PREMIUM_JOB_SECRET_NOT_ASCII: the configured secret contains non-ASCII characters and cannot be sent as an HTTP header value. Replace it with an ASCII-only value in Netlify."
+    };
   }
   try {
     const response = await doFetch(`${baseUrl}/.netlify/functions/marketing-premium-creative-background`, {
