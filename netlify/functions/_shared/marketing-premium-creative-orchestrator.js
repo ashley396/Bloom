@@ -179,7 +179,7 @@ export async function attemptPremiumCreativeGeneration({
   const diag = {
     environment: { preview_guard_ok: null, preview_guard_errors: null },
     provider: { configured: null, selected: null, name: OPENAI_PROVIDER_NAME, model: null },
-    usage: { reservation_attempted: false, reservation_id: null, reservation_status: null },
+    usage: { reservation_attempted: false, reservation_id: null, reservation_status: null, reservation_error_code: null },
     execution: { provider_generate_entered: false, provider_http_status: null, provider_result_ok: null },
     orchestrator: { attempted: true, status: null, reason: null }
   };
@@ -258,6 +258,10 @@ export async function attemptPremiumCreativeGeneration({
   });
   if (!reservation.ok) {
     diag.usage.reservation_status = "insert_failed";
+    // The specific, safe DB-derived reason (e.g. "check_violation") —
+    // never raw SQL text, never a secret — see reserveProviderCall()'s
+    // own classifyDatabaseErrorCode() for exactly what this can be.
+    diag.usage.reservation_error_code = reservation.errorCode || "unknown_database_error";
     diag.orchestrator.status = PREMIUM_CREATIVE_STATES.RESERVATION_FAILED;
     diag.orchestrator.reason = PREMIUM_CREATIVE_REASON_CODES.RESERVATION_FAILED;
     return { ok: false, state: PREMIUM_CREATIVE_STATES.RESERVATION_FAILED, reason: reservation.error, diagnostic: diag };

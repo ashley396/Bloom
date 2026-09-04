@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createFakeSupabaseClient } from "./helpers/fake-supabase-client.mjs";
+import { createFakeSupabaseClient, createFakeSupabaseStorage } from "./helpers/fake-supabase-client.mjs";
 import {
   attemptPremiumCreativeGeneration,
   resolveOpenAiAspectRatio,
   PREMIUM_CREATIVE_STATES
 } from "../netlify/functions/_shared/marketing-premium-creative-orchestrator.js";
+import { createOpenAiMarketingImageProvider } from "../netlify/functions/_shared/marketing-image-provider-openai.js";
 
 // Hybrid Marketing Studio Batch 2 ("staging-only OpenAI routing"): the
 // real server-side Premium AI Creative orchestration path — fully wired,
@@ -152,7 +153,14 @@ test("Batch2 #3/#16 provider configured, brief valid → real mocked generate() 
   assert.equal(insertedPayload.operation, "premium_creative_image");
   assert.equal(insertedPayload.attempt_index, 0);
   assert.equal(insertedPayload.estimated_cost_cents, 6, "must use OpenAI's own conservative ceiling (6¢ for medium), never the generic Cloudflare-shaped estimate");
-  assert.equal(insertedPayload.cost_source, "openai_conservative_ceiling_estimate");
+  // Batch 3 staging-acceptance fix: the cost_source COLUMN is a DB-
+  // enforced two-state axis (marketing_generation_usage_cost_source_
+  // check, live on staging: 'estimated' | 'provider_confirmed' only) —
+  // OpenAI's own more specific methodology label lives in metadata
+  // instead (see marketing-provider-usage.test.js's own dedicated
+  // regression test for the real staging failure this fixes).
+  assert.equal(insertedPayload.cost_source, "estimated");
+  assert.equal(insertedPayload.metadata.cost_source_detail, "openai_conservative_ceiling_estimate");
 
   assert.ok(getLastGenerateArgs(), "generate() must actually have been called");
 });
@@ -237,6 +245,57 @@ test("resolveOpenAiAspectRatio maps Florisyn's own named dimensions to the close
   assert.equal(resolveOpenAiAspectRatio({ width: 1080, height: 1080 }), "1:1");
   assert.equal(resolveOpenAiAspectRatio({ width: 1080, height: 1920 }), "2:3");
   assert.equal(resolveOpenAiAspectRatio({ width: 1200, height: 630 }), "3:2");
+});
+
+// Batch 3 staging-acceptance fix ("FIX THE PROVEN OPENAI USAGE
+// RESERVATION FAILURE"): a genuine end-to-end regression test through
+// the REAL OpenAI provider adapter (createOpenAiMarketingImageProvider,
+// not a hand-built mock) — its own real estimateCost() is what actually
+// produced the "openai_conservative_ceiling_estimate" cost_source that
+// broke every real staging reservation. Only `fetch` is mocked (no real
+// network call); every other real function in the chain — the real
+// provider's configured()/estimateCost()/generate(), the real
+// reserveProviderCall()/completeProviderCall() — runs for real.
+test("Batch3 end-to-end (real provider adapter, real cost config, real reservation helper): a full Premium Creative attempt succeeds after the reservation fix", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ data: [{ b64_json: Buffer.from("fake-png-bytes").toString("base64") }] })
+  });
+  try {
+    const provider = createOpenAiMarketingImageProvider({ OPENAI_API_KEY: "sk-test-not-a-real-key" });
+    const storage = createFakeSupabaseStorage({});
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "usage-e2e-1" }, error: null }, // reserveProviderCall insert
+        { data: null, error: null } // completeProviderCall update
+      ],
+      { storage }
+    );
+    const result = await attemptPremiumCreativeGeneration({
+      client,
+      shopId: "shop-1",
+      contentItemId: "item-1",
+      canonicalConcept: CANONICAL_CONCEPT,
+      creativeDirection: CREATIVE_DIRECTION,
+      factSafeCopyPlan: { headline: "Spring is here!", body: "Fresh seasonal blooms, arranged with care." },
+      verifiedShopBrandData: { name: "Lilies in Bloom" },
+      env: { FLORISYN_ENV: "staging", OPENAI_API_KEY: "sk-test-not-a-real-key" },
+      providerFactory: () => provider
+    });
+    assert.equal(result.ok, true, `expected a real success through the fixed reservation path: ${JSON.stringify(result)}`);
+    assert.equal(result.state, PREMIUM_CREATIVE_STATES.SUCCESS);
+    assert.equal(result.result.provider, "openai");
+    assert.equal(result.result.model, "gpt-image-2");
+
+    const reserveInsert = client.calls.find((c) => c.table === "marketing_generation_usage" && c.ops.some((op) => op[0] === "insert"));
+    const insertedPayload = reserveInsert.ops.find((op) => op[0] === "insert")[1][0];
+    assert.equal(insertedPayload.cost_source, "estimated", "must be DB-legal — this is the exact real fix for the proven staging failure");
+    assert.equal(insertedPayload.metadata.cost_source_detail, "openai_conservative_ceiling_estimate");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("attemptPremiumCreativeGeneration refuses a brief it cannot build (missing canonicalConcept) without ever reaching the provider", async () => {

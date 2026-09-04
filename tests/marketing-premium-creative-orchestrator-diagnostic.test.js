@@ -163,7 +163,12 @@ test("diagnostic: unsupported quality tier — reason cost_estimate_failed", asy
 
 // #7/#8 (reservation attempted; reservation fails).
 test("diagnostic: reservation attempted and fails — usage.reservation_attempted true, reservation_id null, status insert_failed, generate never entered", async () => {
-  const client = createFakeSupabaseClient([{ data: null, error: { message: "insert denied" } }]);
+  // The exact real shape of the PROVEN staging failure (trace_id
+  // 71d67575-53dc-42bc-9b67-0764847fbb8b): a check_violation from
+  // Postgres, not a generic unlabeled error.
+  const client = createFakeSupabaseClient([
+    { data: null, error: { message: "violates check constraint \"marketing_generation_usage_cost_source_check\"", code: "23514" } }
+  ]);
   const result = await attemptPremiumCreativeGeneration({
     client,
     shopId: "shop-1",
@@ -177,6 +182,7 @@ test("diagnostic: reservation attempted and fails — usage.reservation_attempte
   assert.equal(d.usage.reservation_attempted, true, "matrix item 7: a reservation attempt must be recorded even when it fails");
   assert.equal(d.usage.reservation_id, null);
   assert.equal(d.usage.reservation_status, "insert_failed");
+  assert.equal(d.usage.reservation_error_code, "check_violation", "the specific, safe DB-derived reason must be persisted — never left as just 'insert_failed'");
   assert.equal(d.execution.provider_generate_entered, false, "matrix item 17: provider.generate() must never execute without a successful reservation");
   assert.equal(d.orchestrator.reason, PREMIUM_CREATIVE_REASON_CODES.RESERVATION_FAILED);
   assertNoSecret(result);

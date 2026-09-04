@@ -4,9 +4,11 @@ import {
   reserveProviderCall,
   completeProviderCall,
   failProviderCall,
-  calculateWorstCaseBoundedCostCents
+  calculateWorstCaseBoundedCostCents,
+  classifyDatabaseErrorCode
 } from "../netlify/functions/_shared/marketing-provider-usage.js";
 import { createFakeSupabaseClient } from "./helpers/fake-supabase-client.mjs";
+import { estimateOpenAiImageCostCents } from "../netlify/functions/_shared/marketing-cost-config.js";
 
 // Batch 2 ("Marketing image quality + provider cost accounting") — the one
 // shared provider-usage ledger service every real, billable Marketing
@@ -55,6 +57,86 @@ test("reserveProviderCall: writes an 'estimated' row with the estimated cost, at
   assert.equal(insert.payload.operation_id, "op-1");
   assert.equal(insert.payload.attempt_index, 1);
   assert.ok(insert.payload.estimated_cost_cents > 0, "a real, positive estimate must be recorded up front");
+});
+
+// Batch 3 staging-acceptance fix ("FIX THE PROVEN OPENAI USAGE
+// RESERVATION FAILURE"): PROVEN root cause of the real staging failure
+// (trace_id 71d67575-53dc-42bc-9b67-0764847fbb8b) — the marketing_
+// generation_usage.cost_source COLUMN's own CHECK constraint (confirmed
+// live on staging: marketing_generation_usage_cost_source_check) only
+// ever allows ('estimated', 'provider_confirmed'), but the real OpenAI
+// Premium Creative call site passes costEstimate.cost_source straight
+// through — literally the string "openai_conservative_ceiling_estimate"
+// from marketing-cost-config.js's own estimateOpenAiImageCostCents() —
+// which always violates that constraint. This is the exact real value,
+// not a stand-in, run through the exact real function.
+test("Batch3 reservation-failure fix: reserveProviderCall normalizes OpenAI's own real cost_source label to a DB-legal value and preserves the original in metadata", async () => {
+  const client = createFakeSupabaseClient([{ data: { id: "usage-openai-1" }, error: null }]);
+  const realOpenAiCostSource = estimateOpenAiImageCostCents({ qualityTier: "medium" }).cost_source;
+  assert.equal(realOpenAiCostSource, "openai_conservative_ceiling_estimate", "pin the real value this test is guarding against regressing");
+
+  const result = await reserveProviderCall(client, {
+    shopId: "shop-1",
+    provider: "openai",
+    model: "gpt-image-2",
+    purpose: "image",
+    operation: "premium_creative_image",
+    unitType: "image",
+    units: 1,
+    estimatedCostCentsOverride: 6,
+    costSource: realOpenAiCostSource,
+    metadata: { aspectRatio: "1:1", qualityTier: "medium" }
+  });
+  assert.equal(result.ok, true, "the reservation must actually succeed — this is the fix for the proven staging failure");
+  const insert = client.calls.find((c) => c.table === "marketing_generation_usage" && c.ops.some((op) => op[0] === "insert"));
+  assert.equal(insert.payload.cost_source, "estimated", "the column must only ever receive a DB-legal value — never the provider-specific methodology label directly");
+  assert.equal(insert.payload.metadata.cost_source_detail, "openai_conservative_ceiling_estimate", "the original, more specific label must be preserved, not silently dropped");
+  // Everything else about the real payload is untouched by the fix.
+  assert.equal(insert.payload.provider, "openai");
+  assert.equal(insert.payload.model, "gpt-image-2");
+  assert.equal(insert.payload.operation, "premium_creative_image");
+  assert.equal(insert.payload.metadata.aspectRatio, "1:1", "the caller's own metadata fields must survive alongside the added detail, never be replaced");
+});
+
+test("Batch3 reservation-failure fix: an already-DB-legal costSource ('provider_confirmed') passes through unchanged, with no cost_source_detail added", async () => {
+  const client = createFakeSupabaseClient([{ data: { id: "usage-legal-1" }, error: null }]);
+  const result = await reserveProviderCall(client, { shopId: "shop-1", purpose: "image", costSource: "provider_confirmed", metadata: { note: "x" } });
+  assert.equal(result.ok, true);
+  const insert = client.calls.find((c) => c.table === "marketing_generation_usage" && c.ops.some((op) => op[0] === "insert"));
+  assert.equal(insert.payload.cost_source, "provider_confirmed");
+  assert.equal(insert.payload.metadata.cost_source_detail, undefined, "no detail field is added when the caller's own value was already DB-legal");
+  assert.equal(insert.payload.metadata.note, "x");
+});
+
+test("Batch3 reservation-failure fix: reserveProviderCall exposes a SAFE, specific errorCode derived from the real Postgres error — never raw SQL text", async () => {
+  const client = createFakeSupabaseClient([{ data: null, error: { message: "new row for relation \"marketing_generation_usage\" violates check constraint \"marketing_generation_usage_cost_source_check\"", code: "23514" } }]);
+  const result = await reserveProviderCall(client, { shopId: "shop-1", purpose: "image", costSource: "openai_conservative_ceiling_estimate" });
+  // Real defensive-depth: even if a caller somehow bypassed the
+  // normalization above, the real DB error is still classified safely.
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, "check_violation");
+});
+
+test("classifyDatabaseErrorCode maps real Postgres SQLSTATE codes to safe, specific reasons — never a raw code or message", () => {
+  assert.equal(classifyDatabaseErrorCode({ code: "23502" }), "not_null_violation");
+  assert.equal(classifyDatabaseErrorCode({ code: "23503" }), "foreign_key_violation");
+  assert.equal(classifyDatabaseErrorCode({ code: "23505" }), "duplicate");
+  assert.equal(classifyDatabaseErrorCode({ code: "23514" }), "check_violation");
+  assert.equal(classifyDatabaseErrorCode({ code: "42501" }), "rls_denied");
+  assert.equal(classifyDatabaseErrorCode({ code: "42703" }), "invalid_column");
+  assert.equal(classifyDatabaseErrorCode({ code: "99999" }), "unknown_database_error");
+  assert.equal(classifyDatabaseErrorCode(null), "unknown_database_error");
+  assert.equal(classifyDatabaseErrorCode({}), "unknown_database_error");
+});
+
+test("Batch3 reservation-failure fix: Cloudflare's own existing accounting is completely unaffected — cost_source stays 'estimated' exactly as before", async () => {
+  const client = createFakeSupabaseClient([{ data: { id: "usage-cf-1" }, error: null }]);
+  const result = await reserveProviderCall(client, { shopId: "shop-1", purpose: "image", unitType: "image", units: 1 });
+  assert.equal(result.ok, true);
+  const insert = client.calls.find((c) => c.table === "marketing_generation_usage" && c.ops.some((op) => op[0] === "insert"));
+  assert.equal(insert.payload.provider, "cloudflare");
+  assert.equal(insert.payload.cost_source, "estimated");
+  assert.deepEqual(insert.payload.metadata, {}, "no detail field is ever added to the default Cloudflare-shaped call");
 });
 
 // COST 19: actual cost replaces estimate when the provider supplies one.
