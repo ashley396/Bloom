@@ -144,3 +144,73 @@ test("end-to-end: attemptPremiumCreativeGeneration (mocked provider) sends the C
   assert.match(capturedPrompt, /bold|confident/i, "a promotional occasion treatment should reach the actual provider call, not just the unit-level brief");
   assert.doesNotMatch(capturedPrompt, /image prominence/i, "the old 4-field summary wording must no longer appear");
 });
+
+// Batch 5.3.1 ("business identifier fact-safety hardening") — the real
+// blocker this session found: the shop's own verified name mentioned in
+// ordinary narrative copy (not a discrete "call us" sentence) must never
+// reach the final OpenAI-bound prompt. Representative scenarios across
+// everyday/event-reminder/sympathy/promotion, each with the shop's real
+// name woven into narrative body copy exactly the way real copy plans do.
+const VERIFIED_SHOP = Object.freeze({ name: "Lilies in Bloom", phone: "606-506-4039", address: "123 Main Street" });
+
+function scenarioPrompt({ canonicalConcept, factSafeCopyPlan }) {
+  const cd = buildDeterministicCreativeDirection({ canonicalConcept });
+  const b = brief({ canonicalConcept, creativeDirection: cd, factSafeCopyPlan, verifiedShopBrandData: VERIFIED_SHOP });
+  return buildBackgroundPromptFromBrief(b, { canonicalConcept, creativeDirection: cd });
+}
+
+function assertNoProtectedFacts(prompt, { date = null, price = null } = {}) {
+  assert.doesNotMatch(prompt, /Lilies in Bloom/i, "verified shop name must never appear in the final prompt");
+  assert.doesNotMatch(prompt, /606-506-4039/, "verified phone must never appear in the final prompt");
+  assert.doesNotMatch(prompt, /123 Main Street/i, "verified address must never appear in the final prompt");
+  if (date) assert.doesNotMatch(prompt, new RegExp(date.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `exact date "${date}" must never appear in the final prompt`);
+  if (price) assert.doesNotMatch(prompt, new RegExp(price.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `exact price "${price}" must never appear in the final prompt`);
+  assert.match(prompt, /Do not include any readable text, numbers, logos, or signage/);
+}
+
+test("representative prompt (everyday flowers): verified name/phone/address absent", () => {
+  const prompt = scenarioPrompt({
+    canonicalConcept: concept(),
+    factSafeCopyPlan: {
+      headline: "Beautiful Blooms, Thoughtfully Arranged",
+      body: "Lilies in Bloom designs flowers for the moments that matter. Call 606-506-4039 to place an order."
+    }
+  });
+  assertNoProtectedFacts(prompt);
+});
+
+test("representative prompt (Homecoming/event reminder): verified name/phone/date absent", () => {
+  const prompt = scenarioPrompt({
+    canonicalConcept: concept({ occasionCategory: "event_reminder", ctaIntent: "order_now", factRequirements: ["event_date"] }),
+    factSafeCopyPlan: {
+      headline: "Homecoming is September 19th",
+      body: "Lilies in Bloom wants every student ready for the big night — order your corsages and boutonnieres early.",
+      cta: "Order your Homecoming flowers early. Call 606-506-4039."
+    }
+  });
+  assertNoProtectedFacts(prompt, { date: "September 19" });
+});
+
+test("representative prompt (sympathy): verified name/phone absent, still respectful", () => {
+  const prompt = scenarioPrompt({
+    canonicalConcept: concept({ occasionCategory: "sympathy" }),
+    factSafeCopyPlan: {
+      headline: "With Deepest Sympathy",
+      body: "Lilies in Bloom offers thoughtfully arranged tributes to honor a life well lived. Call 606-506-4039 for same-day delivery arrangements."
+    }
+  });
+  assertNoProtectedFacts(prompt);
+  assert.doesNotMatch(prompt, /\bbold\b/i);
+});
+
+test("representative prompt (promotion): verified name/phone/price absent", () => {
+  const prompt = scenarioPrompt({
+    canonicalConcept: concept({ objective: "promotion", ctaIntent: "order_now", promotionIntent: "real_promotion" }),
+    factSafeCopyPlan: {
+      headline: "Red Roses, Today Only — $35 a dozen",
+      body: "Lilies in Bloom has 40 fresh red roses ready right now.",
+      cta: "Order now, call 606-506-4039."
+    }
+  });
+  assertNoProtectedFacts(prompt, { price: "$35" });
+});

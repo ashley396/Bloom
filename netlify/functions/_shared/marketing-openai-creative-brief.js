@@ -44,21 +44,99 @@ import { extractFactTokens, sentencesOf, requestSignalsRealPromotion } from "./m
 
 export const CREATIVE_BRIEF_VERSION = 1;
 
+// Batch 5.3.1 ("business identifier fact-safety hardening"): a real
+// staging finding proved a verified shop name (e.g. "Lilies in Bloom")
+// mentioned in ordinary narrative copy ("Lilies in Bloom designs flowers
+// for the moments that matter") was NOT caught by extractFactTokens
+// (that function only recognizes phone/price/URL/date/time patterns —
+// see its own header comment — never a business name) and so landed
+// entirely in styleText, reaching the OpenAI-bound image prompt. The
+// fix: classifyBriefText now ALSO treats a sentence as fact-critical
+// when it contains one of the shop's own VERIFIED identifiers (name
+// and/or address, supplied by the caller — never invented, never
+// hard-coded to any specific shop, works identically for every
+// Florisyn tenant because it's parameterized entirely by whatever the
+// caller's own verifiedShopBrandData actually contains).
+
+function escapeRegExpLiteral(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Curly/straight apostrophes collapsed to one form, whitespace runs
+ * collapsed to a single space — the same class of normalization
+ * factsPreserved()/extractFactTokens() already apply elsewhere in this
+ * codebase, just scoped to identifier matching here. */
+function normalizeForIdentifierMatch(value) {
+  return String(value || "")
+    .replace(/[’‘]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Builds a real whole-phrase matcher for one verified business
+ * identifier — deliberately NOT a broad substring match (a bare
+ * substring match on, say, "Bloom" would false-positive inside an
+ * unrelated word like "Bloomington"). Word-boundary anchored on both
+ * ends; "&" and "and" are treated as interchangeable between the
+ * identifier and the prose it's matched against (a shop verified as
+ * "Lilies & Blooms" is the same identifier as "Lilies and Blooms" in
+ * ordinary narrative copy). Returns null for anything empty/unusable —
+ * never throws, never matches everything.
+ */
+function buildVerifiedIdentifierPattern(identifier) {
+  const normalized = normalizeForIdentifierMatch(identifier);
+  if (!normalized) return null;
+  const words = normalized.split(" ").filter(Boolean);
+  if (!words.length) return null;
+  const wordPatterns = words.map((word) => (word === "&" || /^and$/i.test(word) ? "(?:&|and)" : escapeRegExpLiteral(word)));
+  try {
+    return new RegExp(`\\b${wordPatterns.join("\\s+")}\\b`, "i");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True when `sentence` contains ANY of the shop's own verified business
+ * identifiers (its real name and/or address) as a genuine whole-phrase
+ * match. `verifiedIdentifiers` is always the caller's own real,
+ * authenticated data (verifiedShopBrandData below) — this function never
+ * invents, guesses, or substitutes a shop name; an empty/missing list
+ * means nothing is protected by this specific check (phone/price/date/
+ * time/URL protection via extractFactTokens is unaffected either way).
+ */
+export function sentenceContainsVerifiedBusinessIdentifier(sentence, verifiedIdentifiers = []) {
+  const list = Array.isArray(verifiedIdentifiers) ? verifiedIdentifiers : [verifiedIdentifiers];
+  const normalizedSentence = normalizeForIdentifierMatch(sentence);
+  if (!normalizedSentence) return false;
+  return list.some((identifier) => {
+    const pattern = buildVerifiedIdentifierPattern(identifier);
+    return pattern ? pattern.test(normalizedSentence) : false;
+  });
+}
+
 /**
  * Part 8: classifies one piece of copy into STYLE TEXT (no recognized
- * fact token or promotional claim — emotional headline, seasonal phrase,
- * general non-factual message) vs FACT-CRITICAL TEXT (a sentence
- * containing at least one phone/price/date/time/URL token per
- * extractFactTokens, OR a promotional/discount claim per
- * requestSignalsRealPromotion). Sentence-level, not word-level — a
- * sentence that carries a fact is kept together with the fact so
- * removing it later (for deterministic overlay handling) never leaves a
- * dangling half-sentence.
+ * fact token, promotional claim, or verified business identifier —
+ * emotional headline, seasonal phrase, general non-factual message) vs
+ * FACT-CRITICAL TEXT (a sentence containing at least one phone/price/
+ * date/time/URL token per extractFactTokens, a promotional/discount
+ * claim per requestSignalsRealPromotion, OR the shop's own verified name/
+ * address per sentenceContainsVerifiedBusinessIdentifier — Batch 5.3.1).
+ * Sentence-level, not word-level — a sentence that carries a fact is
+ * kept together with the fact so removing it later (for deterministic
+ * overlay handling) never leaves a dangling half-sentence.
  *
  * @param {string} text
+ * @param {object} [opts]
+ * @param {string[]} [opts.verifiedIdentifiers] - the shop's own real,
+ *   authenticated identifiers (name/address) — never invented here, never
+ *   hard-coded to any specific shop. Omitted/empty preserves the exact
+ *   pre-Batch-5.3.1 behavior.
  * @returns {{ factTokens: string[], styleText: string[], factCriticalText: string[] }}
  */
-export function classifyBriefText(text) {
+export function classifyBriefText(text, { verifiedIdentifiers = [] } = {}) {
   const source = String(text || "");
   const factTokens = extractFactTokens(source);
   if (!source.trim()) return { factTokens: [], styleText: [], factCriticalText: [] };
@@ -68,7 +146,10 @@ export function classifyBriefText(text) {
   for (const raw of sentences) {
     const sentence = raw.trim();
     if (!sentence) continue;
-    const hasFact = factTokens.some((token) => sentence.includes(token)) || requestSignalsRealPromotion(sentence);
+    const hasFact =
+      factTokens.some((token) => sentence.includes(token)) ||
+      requestSignalsRealPromotion(sentence) ||
+      sentenceContainsVerifiedBusinessIdentifier(sentence, verifiedIdentifiers);
     (hasFact ? factCriticalText : styleText).push(sentence);
   }
   return { factTokens, styleText, factCriticalText };
@@ -119,6 +200,13 @@ export function buildOpenAiCreativeBrief({
     return { ok: false, error: "buildOpenAiCreativeBrief requires a real creativeDirection — refusing to guess one." };
   }
 
+  // Batch 5.3.1: the shop's own verified name/address (never invented,
+  // never any other tenant's) — passed into classifyBriefText so a
+  // narrative sentence that happens to mention the shop by name is
+  // routed to deterministicText instead of silently reaching styleText
+  // (and, downstream, the OpenAI-bound image prompt).
+  const verifiedIdentifiers = [verifiedShopBrandData?.name, verifiedShopBrandData?.address].filter(Boolean).map(String);
+
   const copyFields = ["headline", "body", "cta", "caption"];
   const styleText = [];
   const deterministicText = [];
@@ -126,7 +214,7 @@ export function buildOpenAiCreativeBrief({
   for (const field of copyFields) {
     const value = factSafeCopyPlan?.[field];
     if (!value) continue;
-    const classified = classifyBriefText(value);
+    const classified = classifyBriefText(value, { verifiedIdentifiers });
     for (const token of classified.factTokens) factTokenSet.add(token);
     for (const sentence of classified.styleText) styleText.push({ field, text: sentence });
     for (const sentence of classified.factCriticalText) deterministicText.push({ field, text: sentence });

@@ -39,6 +39,65 @@ test("classifyBriefText: text with no fact tokens is entirely style text", () =>
   assert.equal(result.styleText.length, 2);
 });
 
+// Batch 5.3.1 ("business identifier fact-safety hardening"): a real
+// staging finding proved a verified shop name mentioned in ordinary
+// narrative copy (no phone/price/date/time token in that sentence) still
+// reached styleText — and, downstream, the OpenAI-bound image prompt.
+test("classifyBriefText: a sentence naming the shop's own verified name is fact-critical even with no other recognized fact token", () => {
+  const result = classifyBriefText("Lilies in Bloom designs flowers for the moments that matter.", {
+    verifiedIdentifiers: ["Lilies in Bloom"]
+  });
+  assert.equal(result.styleText.length, 0);
+  assert.equal(result.factCriticalText.length, 1);
+  assert.match(result.factCriticalText[0], /Lilies in Bloom/);
+});
+
+test("classifyBriefText: verified-name protection is case-insensitive and tolerates surrounding punctuation/apostrophes", () => {
+  const upper = classifyBriefText("LILIES IN BLOOM has your spring flowers.", { verifiedIdentifiers: ["Lilies in Bloom"] });
+  assert.equal(upper.styleText.length, 0);
+  const possessive = classifyBriefText("Come see Lilies in Bloom's newest arrangements!", { verifiedIdentifiers: ["Lilies in Bloom"] });
+  assert.equal(possessive.styleText.length, 0);
+  const curlyApostropheIdentifier = classifyBriefText("Visit Sam’s Flowers today.", { verifiedIdentifiers: ["Sam's Flowers"] });
+  assert.equal(curlyApostropheIdentifier.styleText.length, 0);
+});
+
+test("classifyBriefText: a different tenant's name is never protected unless it is the one actually supplied as verified", () => {
+  // The exact scenario the hardening must never regress into: this
+  // module must never hard-code any specific shop's name. Passing a
+  // DIFFERENT shop's name as the verified identifier must not protect
+  // "Lilies in Bloom" text, and passing no identifiers at all must not
+  // either — only the caller's own real, supplied verifiedIdentifiers.
+  const wrongTenant = classifyBriefText("Lilies in Bloom designs flowers for the moments that matter.", {
+    verifiedIdentifiers: ["Rosewood Florals"]
+  });
+  assert.equal(wrongTenant.factCriticalText.length, 0);
+  assert.equal(wrongTenant.styleText.length, 1);
+  const noIdentifiers = classifyBriefText("Lilies in Bloom designs flowers for the moments that matter.");
+  assert.equal(noIdentifiers.factCriticalText.length, 0);
+  assert.equal(noIdentifiers.styleText.length, 1);
+});
+
+test("classifyBriefText: ordinary stylistic prose with no protected identifier still reaches styleText unchanged", () => {
+  const result = classifyBriefText("Fresh spring blooms are here. Treat yourself today.", { verifiedIdentifiers: ["Lilies in Bloom"] });
+  assert.equal(result.factCriticalText.length, 0);
+  assert.equal(result.styleText.length, 2);
+});
+
+test("classifyBriefText: verified-name protection never broadens into a substring match on an unrelated word", () => {
+  // "Bloom" alone must never match inside "Bloomington" or "blooming" —
+  // whole-phrase, word-boundary matching only.
+  const result = classifyBriefText("Our Bloomington greenhouse is blooming early this year.", { verifiedIdentifiers: ["Lilies in Bloom"] });
+  assert.equal(result.factCriticalText.length, 0, "a substring/partial-word match would incorrectly flag this as fact-critical");
+});
+
+test("classifyBriefText: phone/date/price/promotion protection is unaffected by verified-identifier hardening", () => {
+  const result = classifyBriefText("Lilies in Bloom is proud to serve you. Call 606-506-4039 to order for delivery on 4/12. Get 20% off all bouquets this week.", {
+    verifiedIdentifiers: ["Lilies in Bloom"]
+  });
+  assert.equal(result.styleText.length, 0, "every sentence here carries either the shop name, a phone/date fact, or a promotion claim");
+  assert.equal(result.factCriticalText.length, 3);
+});
+
 // Independent-review finding, Batch 2: a discount/percentage claim has
 // no phone/price/date/time token (extractFactTokens has no such pattern)
 // but is still exactly the kind of fact-critical claim that must never
@@ -172,4 +231,34 @@ test("buildOpenAiCreativeBrief is pure/deterministic: identical inputs always pr
   const first = buildOpenAiCreativeBrief(input);
   const second = buildOpenAiCreativeBrief(input);
   assert.deepEqual(first, second);
+});
+
+// Batch 5.3.1: end-to-end proof at the buildOpenAiCreativeBrief level —
+// not just the lower-level classifyBriefText unit — that the shop's own
+// verified name/address never lands in styleText (and therefore never
+// reaches the OpenAI-bound image prompt built from it).
+test("buildOpenAiCreativeBrief: the shop's own verified name never appears in styleText, even mentioned only in narrative copy", () => {
+  const brief = buildOpenAiCreativeBrief({
+    canonicalConcept: CANONICAL_CONCEPT,
+    creativeDirection: CREATIVE_DIRECTION,
+    factSafeCopyPlan: {
+      headline: "Beautiful Blooms, Thoughtfully Arranged",
+      body: "Lilies in Bloom designs flowers for the moments that matter — a little something to brighten someone's day."
+    },
+    verifiedShopBrandData: { name: "Lilies in Bloom", phone: "606-506-4039" }
+  });
+  const styleJoined = brief.styleText.map((s) => s.text).join(" ");
+  assert.doesNotMatch(styleJoined, /Lilies in Bloom/);
+  assert.ok(brief.deterministicText.some((s) => s.text.includes("Lilies in Bloom")), "the shop-name sentence must be reserved for deterministic overlay instead");
+});
+
+test("buildOpenAiCreativeBrief: the shop's own verified address, when supplied, is also protected from styleText", () => {
+  const brief = buildOpenAiCreativeBrief({
+    canonicalConcept: CANONICAL_CONCEPT,
+    creativeDirection: CREATIVE_DIRECTION,
+    factSafeCopyPlan: { body: "Stop by our shop at 123 Main Street for the freshest arrangements in town." },
+    verifiedShopBrandData: { name: "Lilies in Bloom", address: "123 Main Street" }
+  });
+  const styleJoined = brief.styleText.map((s) => s.text).join(" ");
+  assert.doesNotMatch(styleJoined, /123 Main Street/);
 });
