@@ -2995,38 +2995,53 @@
       // needs is already underneath it.
       function layOutText(targetCtx, bandsSink) {
         var localDrawn = [];
-        if (typography.script && scriptPlan.mode === "full_headline" && safeForScriptTreatment) {
-          var full = drawTypographyRole(targetCtx, headlineRect, content.headline, {
-            family: typography.script, weight: "400", textStyle: headlineStyle,
-            baseSizeRatio: 0.34 * (HEADLINE_SCALE_MULTIPLIER[cd.headlineScale] || 1),
-            italic: true
-          });
-          if (full.drew) localDrawn.push("headline");
-        } else if (typography.script && scriptPlan.mode === "accent_word" && safeForScriptTreatment && scriptPlan.accentWord) {
-          var accentResult = drawHeadlineWithAccentWord(
-            targetCtx, headlineRect, content.headline, scriptPlan.accentWord,
-            headlineFamily, typography.script, typography.headlineWeight, headlineStyle,
-            headlineRect.h * 0.36 * (HEADLINE_SCALE_MULTIPLIER[cd.headlineScale] || 1)
-          );
-          localDrawn.push("headline");
-          if (!accentResult) {
-            // Doesn't fit on one line at any size — fall back to the
-            // plain wrapped render for THIS pass only (deterministic:
-            // both passes make the identical choice since nothing
-            // between them changes the measurement).
-            drawTypographyRole(targetCtx, headlineRect, content.headline, {
+        // Batch 6 renderer-gating fix (live-found defect: a
+        // photo_forward_social flyer with graphicTextSlots.headline
+        // false still rendered a full headline banner). Headline was
+        // structurally "always on" pre-Batch-6 — HIERARCHY_DEPTH_ROLES
+        // treats it as always-on, outside activeRoles entirely — so this
+        // branch never checked graphicTextSlots.headline at all. Batch 6
+        // Part 4 legally allows photo_forward_social to set it false;
+        // gate directly on slots.headline (the same simple pattern
+        // slots.phone already uses below) so a suppressed headline is
+        // never drawn — and, since this function runs during the measure
+        // pass too, never reserves a banner-rescue band for it either.
+        // The banner-rescue mechanism itself is untouched; this only
+        // stops it from ever being reached for a suppressed headline.
+        if (slots.headline) {
+          if (typography.script && scriptPlan.mode === "full_headline" && safeForScriptTreatment) {
+            var full = drawTypographyRole(targetCtx, headlineRect, content.headline, {
+              family: typography.script, weight: "400", textStyle: headlineStyle,
+              baseSizeRatio: 0.34 * (HEADLINE_SCALE_MULTIPLIER[cd.headlineScale] || 1),
+              italic: true
+            });
+            if (full.drew) localDrawn.push("headline");
+          } else if (typography.script && scriptPlan.mode === "accent_word" && safeForScriptTreatment && scriptPlan.accentWord) {
+            var accentResult = drawHeadlineWithAccentWord(
+              targetCtx, headlineRect, content.headline, scriptPlan.accentWord,
+              headlineFamily, typography.script, typography.headlineWeight, headlineStyle,
+              headlineRect.h * 0.36 * (HEADLINE_SCALE_MULTIPLIER[cd.headlineScale] || 1)
+            );
+            localDrawn.push("headline");
+            if (!accentResult) {
+              // Doesn't fit on one line at any size — fall back to the
+              // plain wrapped render for THIS pass only (deterministic:
+              // both passes make the identical choice since nothing
+              // between them changes the measurement).
+              drawTypographyRole(targetCtx, headlineRect, content.headline, {
+                family: headlineFamily, weight: typography.headlineWeight, textStyle: headlineStyle,
+                background: headlineRect === geo.banner ? null : background, bands: bandsSink,
+                baseSizeRatio: 0.36 * (HEADLINE_SCALE_MULTIPLIER[cd.headlineScale] || 1)
+              });
+            }
+          } else {
+            var hResult = drawTypographyRole(targetCtx, headlineRect, content.headline, {
               family: headlineFamily, weight: typography.headlineWeight, textStyle: headlineStyle,
               background: headlineRect === geo.banner ? null : background, bands: bandsSink,
               baseSizeRatio: 0.36 * (HEADLINE_SCALE_MULTIPLIER[cd.headlineScale] || 1)
             });
+            if (hResult.drew) localDrawn.push("headline");
           }
-        } else {
-          var hResult = drawTypographyRole(targetCtx, headlineRect, content.headline, {
-            family: headlineFamily, weight: typography.headlineWeight, textStyle: headlineStyle,
-            background: headlineRect === geo.banner ? null : background, bands: bandsSink,
-            baseSizeRatio: 0.36 * (HEADLINE_SCALE_MULTIPLIER[cd.headlineScale] || 1)
-          });
-          if (hResult.drew) localDrawn.push("headline");
         }
 
         // Supporting line — a real EXCERPT of the actual caption, never
@@ -3076,7 +3091,13 @@
       // closing the rough edge Ashley flagged in the Phase 2 review.
       var brandRect = resolveBrandingRect(cd.brandingPosition, width, height);
       var brandStyle = onPanel ? panelTextStyle : pickRegionTextStyle(ctx, brandRect, background);
-      var brandingPromise = drawBrandIdentity(ctx, brandRect, brand, cd.brandIdentifier, cd.brandingScale, brandStyle, onPanel ? null : background, ornamentColors.primary);
+      // Batch 6 renderer-gating fix: branding was likewise drawn
+      // unconditionally here — graphicTextSlots.brand === false
+      // (photo_forward_social) must truly suppress branding, not just
+      // omit it from the Creative Director's prompt text.
+      var brandingPromise = slots.brand
+        ? drawBrandIdentity(ctx, brandRect, brand, cd.brandIdentifier, cd.brandingScale, brandStyle, onPanel ? null : background, ornamentColors.primary)
+        : Promise.resolve({ drew: "none" });
 
       // Badge (Part J) — a small, restrained, purely decorative accent
       // near the branding corner, never carrying invented text.

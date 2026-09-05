@@ -576,3 +576,92 @@ test("Phase 2.3 — fixture 03's confirmed defect stays fixed: the corner_accent
   const { transparent } = await samplePixelAlphas(page, direction, content);
   expect(transparent, "corner_accent's own card should leave zero transparent gaps").toBe(0);
 });
+
+// ---------------------------------------------------------------------------
+// Batch 6 renderer-gating fix — real, live-found defect: a
+// photo_forward_social flyer (graphicTextSlots.headline: false AND
+// brand: false) still rendered a full headline banner plus branding.
+// classifyCreativeMode / buildDeterministicCreativeDirection /
+// validateCreativeDirection all correctly computed headline:false/
+// brand:false on the real deployed staging asset that surfaced this —
+// the gap was entirely inside this renderer, which drew both
+// unconditionally (headline was structurally "always on" pre-Batch-6;
+// HIERARCHY_DEPTH_ROLES never lists it at all — see this file's own
+// mirror of that schema above). These tests exercise the real,
+// unstubbed renderer exactly like every test above (no mock, no
+// reimplementation) and would have failed against the pre-fix code.
+// ---------------------------------------------------------------------------
+
+const PHOTO_FORWARD_DIRECTION = baseDirection({
+  occasionTreatment: "photo_forward_social",
+  compositionFamily: "hero_full_bleed",
+  hierarchyDepth: "headline_only",
+  bannerStyle: "none",
+  ctaProminence: "none",
+  brandingPosition: "top_center",
+  graphicTextSlots: { brand: false, headline: false, supportingLine: false, serviceDetail: false, cta: false, phone: false }
+});
+
+test("Batch 6 — photo_forward_social with graphicTextSlots.headline:false draws no headline (the exact live-diagnosed failure: 'Beautiful Blooms, Thoughtfully Arranged' must not appear)", async ({ page }) => {
+  const result = await renderWith(page, { direction: PHOTO_FORWARD_DIRECTION, content: BASE_CONTENT });
+  const roles = (result.dataset.florisynDrawnRoles || "").split(",").filter(Boolean);
+  expect(roles).not.toContain("headline");
+});
+
+test("Batch 6 — graphicTextSlots.brand:false truly suppresses branding pixels, not just the Creative Director's prompt text", async ({ page }) => {
+  // top_center brandingPosition's own real rect (the same geometry test
+  // 20 above already computes for badge placement). Summed over the
+  // whole lockup area, not a single pixel — a shop-name lockup is real
+  // text with gaps between glyphs, and a single sampled point can land
+  // between letters even when the lockup genuinely drew (the same
+  // region-sum idiom tests 21/22 already use for exactly this reason).
+  const brandRect = { x: Math.round(1080 * 0.1), y: Math.round(1080 * 0.03), w: Math.round(1080 * 0.8), h: Math.round(1080 * 0.09) };
+  const sampleRegion = async (brandSlot) =>
+    page.evaluate(
+      async ({ direction, content, brand, brandRect }) => {
+        const canvas = await window.FlorisynFlyerRenderer.renderFlyer({ creativeDirection: direction, content, brand, backgroundUrl: "/assets/atelier-floral-corner.jpg", width: 1080, height: 1080 });
+        const ctx = canvas.getContext("2d");
+        const data = ctx.getImageData(brandRect.x, brandRect.y, brandRect.w, brandRect.h).data;
+        let sum = 0;
+        for (let i = 0; i < data.length; i += 4) sum += data[i];
+        return sum;
+      },
+      {
+        direction: { ...PHOTO_FORWARD_DIRECTION, graphicTextSlots: { ...PHOTO_FORWARD_DIRECTION.graphicTextSlots, brand: brandSlot } },
+        content: BASE_CONTENT,
+        brand: BASE_BRAND,
+        brandRect
+      }
+    );
+  const withBrand = await sampleRegion(true);
+  const withoutBrand = await sampleRegion(false);
+  expect(withBrand).not.toBe(withoutBrand);
+});
+
+test("Batch 6 — no banner/ribbon treatment is painted for a suppressed headline: the headline row's real pixels differ from the same row with headline enabled", async ({ page }) => {
+  const y = Math.round(1080 * 0.6);
+  const rowAt = async (headlineSlot) =>
+    page.evaluate(
+      async ({ direction, content, brand, y }) => {
+        const canvas = await window.FlorisynFlyerRenderer.renderFlyer({ creativeDirection: direction, content, brand, backgroundUrl: "/assets/atelier-floral-corner.jpg", width: 1080, height: 1080 });
+        return Array.from(canvas.getContext("2d").getImageData(0, y, 1080, 1).data);
+      },
+      {
+        direction: { ...PHOTO_FORWARD_DIRECTION, graphicTextSlots: { ...PHOTO_FORWARD_DIRECTION.graphicTextSlots, headline: headlineSlot } },
+        content: BASE_CONTENT,
+        brand: BASE_BRAND,
+        y
+      }
+    );
+  const suppressedRow = await rowAt(false);
+  const enabledRow = await rowAt(true);
+  expect(suppressedRow.join(",")).not.toBe(enabledRow.join(","));
+});
+
+test("Batch 6 — regression guard: ordinary flyer modes (headline/brand enabled) still render both, unaffected by the gating fix", async ({ page }) => {
+  const result = await renderWith(page, {
+    direction: baseDirection({ graphicTextSlots: { brand: true, headline: true, supportingLine: true, serviceDetail: false, cta: false, phone: false } })
+  });
+  const roles = (result.dataset.florisynDrawnRoles || "").split(",").filter(Boolean);
+  expect(roles).toContain("headline");
+});
