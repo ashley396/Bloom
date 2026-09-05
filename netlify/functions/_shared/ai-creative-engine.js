@@ -523,6 +523,43 @@ function copyVoiceLine(copyVoice) {
   return `- Tone/voice for this content: ${phrases.join("; ")}. Let this shape word choice and rhythm only — it never overrides the fact-safety, sympathy, or operational rules elsewhere in these instructions.`;
 }
 
+// Live-found defect fix (self-purchase copy fell back to generic florist
+// language — "Give me a cute post about buying yourself flowers." produced
+// "Lilies in Bloom designs flowers for the moments that matter..." with no
+// trace of the actual self-gifting idea): marketing-canonical-concept.js's
+// classifyAudience() already computes WHO this post is for — this dictionary
+// is the first place that decision reaches actual copy wording, mirroring
+// COPY_VOICE_PHRASES' own fixed-phrase, additive-only pattern (never a raw
+// enum echo). null entries are deliberate: sympathy work is already fully
+// covered by this function's own sympathy rules above (a redundant audience
+// line there would only risk sounding less careful), and a generic/unknown
+// audience earns no guidance rather than an invented one. Extensible by
+// design — a future audience value just needs one more entry here, never a
+// second classification system.
+const AUDIENCE_COPY_GUIDANCE = {
+  students: "This post is for students — keep it upbeat and quick to read on a phone.",
+  parents: "This post is for parents — practical and reassuring, no throwaway hype.",
+  students_and_parents: "This post reaches both students and their parents at once — write it so it's genuinely useful to either reader.",
+  brides: "This post is for a bride planning her own wedding — warm and personal, never a generic sales pitch.",
+  wedding_clients: "This post is for wedding clients — polished and reassuring, never a discount pitch.",
+  corporate_offices: "This post is for a corporate/office audience — professional, no cutesy language.",
+  business_clients: "This post is for business clients — professional and to the point.",
+  romantic_partners: "This post is for someone shopping for a romantic partner — warm, a little romantic, never generic.",
+  self_purchase:
+    "This post is for someone buying flowers for THEMSELVES, not sending them to anyone else. Write it as a genuine treat-yourself/self-care moment, speaking directly and warmly to the person buying — never assume or imply the flowers are a gift being sent or given to another person, and never fall back on generic all-purpose florist language when the request is clearly this specific, personal act of buying for yourself.",
+  gift_buyers: "This post is for someone choosing a gift for someone else — the flowers are being given to another person, not kept.",
+  existing_customers: "This post is for the shop's own existing, returning customers — a warm thank-you tone, not a first-time pitch.",
+  funeral_families: null,
+  general_local_customers: null,
+  unknown_general: null
+};
+
+function audienceCopyLine(audience) {
+  const phrase = AUDIENCE_COPY_GUIDANCE[audience];
+  if (!phrase) return "";
+  return `- ${phrase}`;
+}
+
 function buildFlyerContentTask({ occasion, visualStyleSignal, shop, requestText, concept }) {
   const sympathy = concept ? Boolean(concept.isSympathy) : isSympathyRequest(occasion, requestText);
   return `You are writing the ACTUAL, FINISHED text content for a flyer/graphic a florist will show customers today — not a description of the flyer. Write real, ready-to-display content.
@@ -544,6 +581,7 @@ ${concept.objective === "seasonal_occasion" ? "- The objective is a SEASONAL/OCC
 Rules:
 ${shopIdentityRule(shop?.name, occasion)}
 ${copyVoiceLine(concept?.copyVoice)}
+${audienceCopyLine(concept?.audience)}
 - ANY concrete fact the florist gave you verbatim — a time, a phone number, a price, a date, a percentage — must appear in your output EXACTLY as given. Never paraphrase, round, or reformat a number or time. This is the single most important rule here.
 - headline: short, bold, the first thing read.
 - body: the supporting line(s) — can be empty string if the headline says everything.
@@ -656,5 +694,6 @@ export async function persistGeneratedAsset(client, {
 // marketing-creative-director.js.
 export const _internalsForTesting = {
   buildFlyerContentTask,
-  COPY_VOICE_PHRASES
+  COPY_VOICE_PHRASES,
+  AUDIENCE_COPY_GUIDANCE
 };

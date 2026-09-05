@@ -484,6 +484,17 @@ export function classifyCopyVoice({
     if (/\bfunny\b|\bhumor(?:ous)?\b|\bjoke\b/i.test(requestText)) voices.add("humorous");
   }
   if (creativeMode === "editorial_brand") voices.add("elegant");
+  // Live-found defect fix: a casual, photo-forward social post (e.g. "a
+  // cute post about buying yourself flowers") was falling through to the
+  // generic professional+warm default below — the same flat, business-
+  // brochure voice every unmatched request gets, with nothing casual or
+  // social about it. Generalized to the creativeMode itself (not one
+  // audience value) so it applies to any photo_forward_social request,
+  // reusing existing COPY_VOICES values only — never a new voice.
+  if (creativeMode === "photo_forward_social") {
+    voices.add("warm");
+    voices.add("conversational");
+  }
   if (!voices.size) {
     voices.add("professional");
     voices.add("warm");

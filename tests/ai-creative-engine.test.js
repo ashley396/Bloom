@@ -664,6 +664,95 @@ test("generateFlyerContent: a supplied concept.copyVoice reaches the real flyer-
   }
 });
 
+// ---------------------------------------------------------------------------
+// Self-purchase / photo-forward copy intelligence batch — live-found
+// defect fix: canonicalConcept.audience ("self_purchase") was correctly
+// classified but never reached copy generation at all, so a request like
+// "Give me a cute post about buying yourself flowers" fell back to generic
+// florist language with no self-gifting framing whatsoever. Structural
+// assertions only — never one exact sentence like "Treat yourself today."
+// ---------------------------------------------------------------------------
+
+test("buildFlyerContentTask (self-purchase batch): concept.audience 'self_purchase' reaches the prompt as explicit self-purchase guidance, additive to (never replacing) copyVoice/fact-safety rules", () => {
+  const { buildFlyerContentTask } = _internalsForTesting;
+  const task = buildFlyerContentTask({
+    occasion: "General",
+    shop: { name: "Lilies in Bloom" },
+    requestText: "cute post about buying myself flowers",
+    concept: { isSympathy: false, audience: "self_purchase", copyVoice: ["warm", "conversational"] }
+  });
+  assert.match(task, /buying flowers for THEMSELVES/);
+  assert.match(task, /never assume or imply the flowers are a gift/i);
+  // Additive, not a replacement — copyVoice and fact-safety rules both still present.
+  assert.match(task, /Tone\/voice for this content:/);
+  assert.match(task, /NEVER CLAIM A SPECIFIC BUSINESS FACT THAT ISN'T VERIFIED/);
+});
+
+test("buildFlyerContentTask (self-purchase batch): a recipient-oriented audience (gift_buyers) never receives self-purchase guidance", () => {
+  const { buildFlyerContentTask } = _internalsForTesting;
+  const task = buildFlyerContentTask({
+    occasion: "General",
+    shop: { name: "Lilies in Bloom" },
+    requestText: "surprise her with flowers",
+    concept: { isSympathy: false, audience: "gift_buyers" }
+  });
+  assert.doesNotMatch(task, /buying flowers for THEMSELVES/);
+  assert.match(task, /choosing a gift for someone else/);
+});
+
+test("buildFlyerContentTask (self-purchase batch): no concept/audience supplied, and a generic audience (general_local_customers), never inject an empty or invented audience line", () => {
+  const { buildFlyerContentTask } = _internalsForTesting;
+  const bare = buildFlyerContentTask({ occasion: "General", shop: { name: "Lilies in Bloom" }, requestText: "post about our shop" });
+  assert.doesNotMatch(bare, /buying flowers for THEMSELVES/);
+  const generic = buildFlyerContentTask({
+    occasion: "General",
+    shop: { name: "Lilies in Bloom" },
+    requestText: "post about our shop",
+    concept: { isSympathy: false, audience: "general_local_customers" }
+  });
+  assert.doesNotMatch(generic, /buying flowers for THEMSELVES/);
+});
+
+test("buildFlyerContentTask (self-purchase batch): audience guidance never touches or replaces the exact-fact-preservation rule — a stated phone number/date/price rule stays byte-identical regardless of audience", () => {
+  const { buildFlyerContentTask } = _internalsForTesting;
+  const withAudience = buildFlyerContentTask({
+    occasion: "General", shop: { name: "Lilies in Bloom" }, requestText: "buying myself flowers, call 606-506-4039",
+    concept: { isSympathy: false, audience: "self_purchase" }
+  });
+  const withoutAudience = buildFlyerContentTask({ occasion: "General", shop: { name: "Lilies in Bloom" }, requestText: "buying myself flowers, call 606-506-4039" });
+  const factRuleRe = /ANY concrete fact the florist gave you verbatim — a time, a phone number, a price, a date, a percentage — must appear in your output EXACTLY as given\. Never paraphrase, round, or reformat a number or time\. This is the single most important rule here\./;
+  assert.match(withAudience, factRuleRe);
+  assert.match(withoutAudience, factRuleRe);
+});
+
+test("buildFlyerContentTask (self-purchase batch): sympathy rules stay fully intact even when audience happens to be funeral_families", () => {
+  const { buildFlyerContentTask } = _internalsForTesting;
+  const task = buildFlyerContentTask({
+    occasion: "Sympathy", shop: { name: "Lilies in Bloom" }, requestText: "flowers for a funeral service",
+    concept: { isSympathy: true, audience: "funeral_families", copyVoice: ["compassionate", "elegant"] }
+  });
+  assert.match(task, /THIS IS SYMPATHY\/FUNERAL WORK/);
+  // funeral_families deliberately gets no separate audience line — the
+  // sympathy rules block above already covers it exhaustively.
+  assert.doesNotMatch(task, /buying flowers for THEMSELVES/);
+});
+
+test("generateFlyerContent (self-purchase batch): a supplied concept.audience 'self_purchase' reaches the real flyer-wording prompt end to end, through the live call path", async () => {
+  const mock = mockCloudflareOnce({ headline: "h", body: "b", cta: "c" });
+  try {
+    await generateFlyerContent({
+      message: "cute post about buying myself flowers",
+      occasion: "General",
+      shop: { name: "Lilies in Bloom" },
+      concept: { isSympathy: false, audience: "self_purchase", copyVoice: ["warm", "conversational"] }
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /buying flowers for THEMSELVES/);
+  } finally {
+    mock.restore();
+  }
+});
+
 test("generateVideoConcept: the same shop-identity rule reaches the video-concept prompt", async () => {
   const mock = mockCloudflareOnce({
     concept: "c", script: "s", scenes: ["0-3s: shot"], captions: ["cap"], hashtags: [], suggested_length_seconds: 15

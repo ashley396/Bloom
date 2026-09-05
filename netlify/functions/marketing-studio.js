@@ -175,6 +175,7 @@ import {
   classifyNamedCampaign,
   classifyCreativeMode,
   classifyCopyVoice,
+  classifyAudience,
   deriveFactRequirements
 } from "./_shared/marketing-canonical-concept.js";
 import { buildDeterministicCreativeDirection, inheritCreativeDirection } from "./_shared/marketing-creative-direction.js";
@@ -3066,6 +3067,23 @@ export function createMarketingStudioHandler(deps = {}) {
           promotionIntent: requestSignalsRealPromotion(currentItem.data.brief) ? "real_promotion" : "not_promotion",
           requestText: currentItem.data.brief
         });
+        // Live-found defect fix ("self-purchase / photo-forward copy
+        // intelligence" batch): the SAME classifyAudience() the richer,
+        // persisted canonicalConcept already computes — never a second,
+        // independently-derived audience classifier — applied here so
+        // this ad-hoc concept's own copy-generation prompt
+        // (buildFlyerContentTask) can know WHO the post is for, not just
+        // its tone. Real, live-diagnosed failure this closes: a request
+        // correctly classified audience "self_purchase" downstream, but
+        // that value never reached copy generation at all, so the
+        // caption/headline fell back to generic florist language with no
+        // trace of the actual self-gifting idea.
+        const conceptAudience = classifyAudience({
+          requestText: currentItem.data.brief,
+          occasionTitle: currentItem.data.title,
+          isSympathy: conceptIsSympathy,
+          occasionCategory: conceptOccasionCategory
+        });
         const concept = {
           objective: conceptObjective,
           primarySubject: copyGen.content?.creative_brief?.primary_subject || copyGen.content?.visual_brief || null,
@@ -3079,6 +3097,12 @@ export function createMarketingStudioHandler(deps = {}) {
           // to the caption's actual (possibly already-rescued) CTA text,
           // so the gate reflects what this post's CTA is really doing.
           ctaIntent: conceptCtaIntent,
+          // Live-found defect fix: WHO this post is for — see
+          // buildFlyerContentTask's own audienceCopyLine for exactly how
+          // this reaches actual copy wording. Deliberately excluded from
+          // CONCEPT_IDENTITY_FIELDS-style drift protection here since this
+          // is the ad-hoc, execution-detail concept, not the persisted one.
+          audience: conceptAudience,
           // Batch 6, Part 5: the tone decision buildFlyerContentTask now
           // reads — see that function's own doc comment for exactly how.
           copyVoice: classifyCopyVoice({

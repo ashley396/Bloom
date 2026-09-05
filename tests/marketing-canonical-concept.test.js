@@ -15,7 +15,9 @@ import {
   deriveFactRequirements,
   detectExplicitConceptChangeRequest,
   detectConceptDrift,
-  detectImageSubjectDrift
+  detectImageSubjectDrift,
+  classifyCopyVoice,
+  classifyAudience
 } from "../netlify/functions/_shared/marketing-canonical-concept.js";
 
 // Batch 4 ("Persisted canonical concept + revision enforcement") — unit
@@ -402,4 +404,65 @@ test("detectImageSubjectDrift: a prompt that shares NO real word with the canoni
 test("detectImageSubjectDrift: with no known subject yet, there is nothing to compare — never a false positive", () => {
   assert.equal(detectImageSubjectDrift({ primarySubject: null, imagePromptText: "anything" }), null);
   assert.equal(detectImageSubjectDrift({ primarySubject: "roses", imagePromptText: null }), null);
+});
+
+// ---------------------------------------------------------------------------
+// Live-found defect fix ("self-purchase / photo-forward copy intelligence"
+// batch) — classifyCopyVoice's photo_forward_social branch. Structural
+// assertions only (which voices are present/absent), never one exact
+// sentence.
+// ---------------------------------------------------------------------------
+
+test("classifyCopyVoice: photo_forward_social gets a casual, social voice (warm + conversational) rather than falling through to the generic professional/warm default", () => {
+  const voices = classifyCopyVoice({ creativeMode: "photo_forward_social", occasionCategory: "general", sympathyClassification: "not_sympathy", requestText: "cute post about buying myself flowers" });
+  assert.ok(voices.includes("warm"));
+  assert.ok(voices.includes("conversational"));
+  // The whole point of this fix — it must not be the flat default that
+  // every unmatched request used to get.
+  assert.ok(!voices.includes("professional"));
+});
+
+test("classifyCopyVoice: an unmatched everyday request still gets the generic professional/warm default — the fix is scoped to photo_forward_social, not a global change", () => {
+  const voices = classifyCopyVoice({ creativeMode: "everyday_floral", occasionCategory: "general", sympathyClassification: "not_sympathy", requestText: "Create today's Facebook post for Lilies in Bloom" });
+  assert.deepEqual(new Set(voices), new Set(["professional", "warm"]));
+});
+
+test("classifyCopyVoice regression: campaign_poster, playful_promotion, and editorial_brand voices are unchanged by the photo_forward_social fix", () => {
+  const campaignVoices = classifyCopyVoice({ creativeMode: "campaign_poster", occasionCategory: "event_reminder", sympathyClassification: "not_sympathy", factRequirements: ["event_date"], requestText: "Homecoming is September 19th, order now" });
+  assert.ok(campaignVoices.includes("celebratory"));
+  assert.ok(campaignVoices.includes("urgent"));
+
+  const playfulVoices = classifyCopyVoice({ creativeMode: "playful_promotion", occasionCategory: "general", sympathyClassification: "not_sympathy", requestText: "Forgot to order flowers?? Last chance today!" });
+  assert.ok(playfulVoices.includes("playful"));
+  assert.ok(playfulVoices.includes("conversational"));
+  assert.ok(playfulVoices.includes("urgent"));
+
+  const editorialVoices = classifyCopyVoice({ creativeMode: "editorial_brand", occasionCategory: "wedding_event", sympathyClassification: "not_sympathy", requestText: "An elegant boutique wedding bouquet feature" });
+  assert.ok(editorialVoices.includes("elegant"));
+});
+
+test("classifyCopyVoice: sympathy always wins, regardless of creativeMode — the photo_forward_social fix never reaches a sympathy request", () => {
+  const voices = classifyCopyVoice({ creativeMode: "photo_forward_social", occasionCategory: "sympathy", sympathyClassification: "sympathy", requestText: "flowers for a funeral service" });
+  assert.deepEqual(voices, ["compassionate", "elegant"]);
+});
+
+// ---------------------------------------------------------------------------
+// classifyAudience — direct coverage (previously only exercised indirectly
+// through buildCanonicalConcept).
+// ---------------------------------------------------------------------------
+
+test("classifyAudience: a self-purchase request ('buying myself flowers') classifies as self_purchase", () => {
+  const audience = classifyAudience({ requestText: "cute post about buying myself flowers", occasionTitle: "", isSympathy: false, occasionCategory: "general" });
+  assert.equal(audience, "self_purchase");
+});
+
+test("classifyAudience: an ordinary recipient-oriented request never gets self_purchase — falls back to general_local_customers", () => {
+  const audience = classifyAudience({ requestText: "Create today's Facebook post for Lilies in Bloom", occasionTitle: "", isSympathy: false, occasionCategory: "general" });
+  assert.equal(audience, "general_local_customers");
+  assert.notEqual(audience, "self_purchase");
+});
+
+test("classifyAudience: sympathy always resolves to funeral_families regardless of any self-purchase-sounding text", () => {
+  const audience = classifyAudience({ requestText: "flowers for myself to remember him by, for the funeral", occasionTitle: "", isSympathy: true, occasionCategory: "sympathy" });
+  assert.equal(audience, "funeral_families");
 });
