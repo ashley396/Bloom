@@ -495,6 +495,34 @@ Never invent products, prices, or promises Florisyn can't confirm.`,
 // standalone revision of just the flyer's own wording) still works
 // exactly as before, falling back to sympathy detection from the raw
 // occasion/requestText alone.
+// Batch 6 ("Premium Creative quality architecture", Part 5): a copy-voice/
+// tone decision computed upstream (marketing-canonical-concept.js's
+// classifyCopyVoice) as an array — multiple voices can legitimately coexist
+// (e.g. ["celebratory","warm"]). This dictionary is additive phrasing only:
+// it shapes word choice and rhythm, and must never be allowed to override
+// the fact-safety, sympathy, or operational rules below it.
+const COPY_VOICE_PHRASES = {
+  professional: "polished and businesslike, no slang",
+  warm: "warm and personable, like a trusted local shop speaking directly to a customer",
+  compassionate: "compassionate and gentle, never salesy",
+  elegant: "elegant and refined, understated rather than showy",
+  celebratory: "celebratory and upbeat, marking a real occasion",
+  playful: "playful and lighthearted, a little fun",
+  humorous: "genuinely funny or cheeky where it fits naturally, never forced",
+  conversational: "casual and conversational, like a friendly text",
+  urgent: "urgent and direct, conveying real time pressure without hype",
+  romantic: "romantic and warm, appropriate for a partner/relationship gift",
+  community_friendly: "friendly and community-minded, like a neighbor",
+  informational: "purely informational and neutral, no persuasive language at all"
+};
+
+function copyVoiceLine(copyVoice) {
+  if (!Array.isArray(copyVoice) || copyVoice.length === 0) return "";
+  const phrases = copyVoice.map((v) => COPY_VOICE_PHRASES[v]).filter(Boolean);
+  if (!phrases.length) return "";
+  return `- Tone/voice for this content: ${phrases.join("; ")}. Let this shape word choice and rhythm only — it never overrides the fact-safety, sympathy, or operational rules elsewhere in these instructions.`;
+}
+
 function buildFlyerContentTask({ occasion, visualStyleSignal, shop, requestText, concept }) {
   const sympathy = concept ? Boolean(concept.isSympathy) : isSympathyRequest(occasion, requestText);
   return `You are writing the ACTUAL, FINISHED text content for a flyer/graphic a florist will show customers today — not a description of the flyer. Write real, ready-to-display content.
@@ -515,6 +543,7 @@ ${concept.objective === "seasonal_occasion" ? "- The objective is a SEASONAL/OCC
 
 Rules:
 ${shopIdentityRule(shop?.name, occasion)}
+${copyVoiceLine(concept?.copyVoice)}
 - ANY concrete fact the florist gave you verbatim — a time, a phone number, a price, a date, a percentage — must appear in your output EXACTLY as given. Never paraphrase, round, or reformat a number or time. This is the single most important rule here.
 - headline: short, bold, the first thing read.
 - body: the supporting line(s) — can be empty string if the headline says everything.
@@ -619,3 +648,13 @@ export async function persistGeneratedAsset(client, {
   if (dbError) return { ok: false, error: dbError.message };
   return { ok: true, asset: data };
 }
+
+// Batch 6, Part 5: pure-function testing surface only — never invokes the
+// live Cloudflare call. Lets tests assert on the actual prompt text
+// buildFlyerContentTask produces (e.g. copy-voice wiring) without a
+// network mock, mirroring the _internalsForTesting pattern used in
+// marketing-creative-director.js.
+export const _internalsForTesting = {
+  buildFlyerContentTask,
+  COPY_VOICE_PHRASES
+};

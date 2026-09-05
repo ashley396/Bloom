@@ -171,7 +171,11 @@ import {
   classifyOccasionCategory,
   classifyCtaIntent,
   classifyPrimarySubjectClass,
-  deriveAssetRoute
+  deriveAssetRoute,
+  classifyNamedCampaign,
+  classifyCreativeMode,
+  classifyCopyVoice,
+  deriveFactRequirements
 } from "./_shared/marketing-canonical-concept.js";
 import { buildDeterministicCreativeDirection, inheritCreativeDirection } from "./_shared/marketing-creative-direction.js";
 import { evaluateMarketingDiversity } from "./_shared/marketing-content-diversity.js";
@@ -3030,11 +3034,43 @@ export function createMarketingStudioHandler(deps = {}) {
 
         const conceptObjective =
           copyGen.content?.objective === "promotion" && !requestSignalsRealPromotion(currentItem.data.brief) ? null : copyGen.content?.objective || null;
+        const conceptIsSympathy = BEREAVEMENT_CONTEXT_RE.test(`${currentItem.data.brief} ${copyGen.content?.body || ""}`);
+        const conceptCtaIntent = classifyCtaIntent(copyGen.content?.cta || "");
+        // Batch 6 ("Premium Creative quality architecture", Part 5): the
+        // SAME classifiers buildCanonicalConcept uses internally, applied
+        // here to the SAME real signals already available at this point
+        // (this ad-hoc concept's own objective/isSympathy/ctaIntent plus
+        // the request's own occasion/text) — never a second, competing
+        // derivation of what these fields already mean, just computed
+        // once more at the point this ad-hoc contract needs it too. This
+        // is what lets generateFlyerCopy's copy-generation prompt
+        // (buildFlyerContentTask) know the request's tone without having
+        // to wait for the richer, persisted canonicalConcept that only
+        // exists later, per-branch, once assetType/photoStrategy are known.
+        const conceptOccasionCategory = classifyOccasionCategory({
+          occasionTitle: currentItem.data.title,
+          requestText: currentItem.data.brief,
+          objective: conceptObjective,
+          isSympathy: conceptIsSympathy
+        });
+        const conceptNamedCampaign = classifyNamedCampaign({
+          occasionTitle: currentItem.data.title,
+          requestText: currentItem.data.brief,
+          isSympathy: conceptIsSympathy,
+          occasionCategory: conceptOccasionCategory
+        });
+        const conceptCreativeMode = classifyCreativeMode({
+          occasionCategory: conceptOccasionCategory,
+          namedCampaign: conceptNamedCampaign,
+          sympathyClassification: conceptIsSympathy ? "sympathy" : "not_sympathy",
+          promotionIntent: requestSignalsRealPromotion(currentItem.data.brief) ? "real_promotion" : "not_promotion",
+          requestText: currentItem.data.brief
+        });
         const concept = {
           objective: conceptObjective,
           primarySubject: copyGen.content?.creative_brief?.primary_subject || copyGen.content?.visual_brief || null,
           captionExcerpt: copyGen.content?.body || "",
-          isSympathy: BEREAVEMENT_CONTEXT_RE.test(`${currentItem.data.brief} ${copyGen.content?.body || ""}`),
+          isSympathy: conceptIsSympathy,
           // Independent-review fix: the flyer's own creative rescue
           // (generateFlyerCopy, below) gates its CTA on this field — it
           // was previously always undefined here (dead code, always
@@ -3042,7 +3078,17 @@ export function createMarketingStudioHandler(deps = {}) {
           // buildCanonicalConcept uses later at persistence time, applied
           // to the caption's actual (possibly already-rescued) CTA text,
           // so the gate reflects what this post's CTA is really doing.
-          ctaIntent: classifyCtaIntent(copyGen.content?.cta || "")
+          ctaIntent: conceptCtaIntent,
+          // Batch 6, Part 5: the tone decision buildFlyerContentTask now
+          // reads — see that function's own doc comment for exactly how.
+          copyVoice: classifyCopyVoice({
+            creativeMode: conceptCreativeMode,
+            namedCampaign: conceptNamedCampaign,
+            occasionCategory: conceptOccasionCategory,
+            sympathyClassification: conceptIsSympathy ? "sympathy" : "not_sympathy",
+            factRequirements: deriveFactRequirements({ requestText: currentItem.data.brief, objective: conceptObjective }),
+            requestText: currentItem.data.brief
+          })
         };
 
         // Batch 4 ("persisted canonical concept + revision enforcement",

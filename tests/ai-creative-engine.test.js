@@ -6,7 +6,8 @@ import {
   generateWebsiteSectionDraft,
   generateFlyerContent,
   persistGeneratedAsset,
-  sanitizedRequestForModel
+  sanitizedRequestForModel,
+  _internalsForTesting
 } from "../netlify/functions/_shared/ai-creative-engine.js";
 import { createFakeSupabaseClient } from "./helpers/fake-supabase-client.mjs";
 
@@ -591,6 +592,73 @@ test("generateFlyerContent: the same shop-identity rule reaches the flyer-wordin
     await generateFlyerContent({ message: "Make today's post for Lilies in Bloom", occasion: "Make today's post for Lilies in Bloom", shop: { name: "Lilies in Bloom" } });
     const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
     assert.match(userMessage, /This shop's own name is exactly "Lilies in Bloom"/);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("buildFlyerContentTask (Batch 6, Part 5): concept.copyVoice reaches the real prompt as an additive tone instruction, never replacing the fact-safety/sympathy rules", () => {
+  const { buildFlyerContentTask } = _internalsForTesting;
+  const task = buildFlyerContentTask({
+    occasion: "Mother's Day",
+    shop: { name: "Lilies in Bloom" },
+    requestText: "Mother's Day campaign",
+    concept: { isSympathy: false, copyVoice: ["celebratory", "warm"] }
+  });
+  assert.match(task, /Tone\/voice for this content:/);
+  assert.match(task, /celebratory and upbeat/);
+  assert.match(task, /warm and personable/);
+  // Additive only — the hard fact-safety/sympathy rules must still be present verbatim.
+  assert.match(task, /NEVER CLAIM A SPECIFIC BUSINESS FACT THAT ISN'T VERIFIED/);
+  assert.match(task, /never overrides the fact-safety, sympathy, or operational rules/);
+});
+
+test("buildFlyerContentTask (Batch 6, Part 5): sympathy voice (compassionate/elegant) reaches the prompt for a sympathy request, and the sympathy rules block is still intact", () => {
+  const { buildFlyerContentTask } = _internalsForTesting;
+  const task = buildFlyerContentTask({
+    occasion: "Sympathy",
+    shop: { name: "Lilies in Bloom" },
+    requestText: "flowers for a funeral service",
+    concept: { isSympathy: true, copyVoice: ["compassionate", "elegant"] }
+  });
+  assert.match(task, /compassionate and gentle/);
+  assert.match(task, /elegant and refined/);
+  assert.match(task, /THIS IS SYMPATHY\/FUNERAL WORK/);
+});
+
+test("buildFlyerContentTask (Batch 6, Part 5): no concept/copyVoice supplied never injects an empty or broken tone line", () => {
+  const { buildFlyerContentTask } = _internalsForTesting;
+  const task = buildFlyerContentTask({
+    occasion: "General",
+    shop: { name: "Lilies in Bloom" },
+    requestText: "post about our shop"
+  });
+  assert.doesNotMatch(task, /Tone\/voice for this content:/);
+});
+
+test("buildFlyerContentTask (Batch 6, Part 5): an unrecognized/unknown copyVoice value is silently dropped, never a literal enum leak into the prompt", () => {
+  const { buildFlyerContentTask } = _internalsForTesting;
+  const task = buildFlyerContentTask({
+    occasion: "General",
+    shop: { name: "Lilies in Bloom" },
+    requestText: "post about our shop",
+    concept: { isSympathy: false, copyVoice: ["not_a_real_voice"] }
+  });
+  assert.doesNotMatch(task, /Tone\/voice for this content:/);
+  assert.doesNotMatch(task, /not_a_real_voice/);
+});
+
+test("generateFlyerContent: a supplied concept.copyVoice reaches the real flyer-wording prompt end to end, through the live call path", async () => {
+  const mock = mockCloudflareOnce({ headline: "h", body: "b", cta: "c" });
+  try {
+    await generateFlyerContent({
+      message: "Mother's Day campaign for Lilies in Bloom",
+      occasion: "Mother's Day",
+      shop: { name: "Lilies in Bloom" },
+      concept: { isSympathy: false, copyVoice: ["celebratory", "warm"] }
+    });
+    const userMessage = mock.getSentBody().messages.find((m) => m.role === "user").content;
+    assert.match(userMessage, /Tone\/voice for this content:.*celebratory and upbeat.*warm and personable/s);
   } finally {
     mock.restore();
   }
