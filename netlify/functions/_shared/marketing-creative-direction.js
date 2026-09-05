@@ -110,7 +110,19 @@ export const OCCASION_TREATMENTS = Object.freeze([
   "seasonal_feature",
   "operational_notice",
   "promotional_feature",
-  "everyday_floral"
+  "everyday_floral",
+  // Batch 6 ("Premium Creative quality architecture", Part 3/4): the ONE
+  // family this schema previously had no way to express — a genuinely
+  // minimal, photo-forward social post. Every other family (see Part B's
+  // hard graphic-text contract below) exists to carry an advertisement's
+  // worth of text; this one exists specifically so a request like "give
+  // me a cute post about buying yourself flowers" can resolve to a real,
+  // valid Creative Direction that carries NO on-image headline and NO
+  // on-image brand mark — the photography alone carries the message,
+  // the caption (a separate field, never on the graphic) carries the
+  // words. See validateCreativeDirection's own updated headline/brand
+  // force-block for the one place this family is actually exempted.
+  "photo_forward_social"
 ]);
 
 /** The structural composition shape — occasion-agnostic. Deliberately
@@ -364,17 +376,50 @@ export function isBrandIdentifierSupported(brandIdentifier, { hasVerifiedLogo = 
 // occasionTreatment resolution — the primary, concept-driven selector.
 // ---------------------------------------------------------------------------
 
+// Batch 6 ("Premium Creative quality architecture", Part 3): maps the
+// canonical concept's higher-level creativeMode decision (marketing-
+// canonical-concept.js's classifyCreativeMode) onto this module's own
+// layout families — this is the "integrate cleanly with the existing
+// OCCASION_TREATMENTS system rather than creating a competing duplicate
+// architecture" instruction, applied literally: creativeMode never gets
+// its own parallel layout system, it just picks among the families that
+// already exist (plus the one new one, photo_forward_social). Two modes
+// (promotional_sales, playful_promotion) deliberately share ONE family
+// (promotional_feature) — they differ in COPY VOICE and mood, not
+// structure, matching Ashley's own framing that these are "creative
+// modes... that should drive composition and hierarchy while still
+// allowing variation," not seven rigid, mutually-exclusive templates.
+const CREATIVE_MODE_TO_OCCASION_TREATMENT = Object.freeze({
+  sympathy_elegance: "sympathy_elegance",
+  operational_notice: "operational_notice",
+  campaign_poster: "seasonal_feature",
+  promotional_sales: "promotional_feature",
+  playful_promotion: "promotional_feature",
+  editorial_brand: "elegant_editorial",
+  photo_forward_social: "photo_forward_social",
+  everyday_floral: "everyday_floral"
+});
+
 /**
- * Resolves which of the seven named families this concept belongs to.
- * elegant_editorial and boutique_floral are never resolved here — they
- * are real, fully valid choices reachable by an explicit override (or,
- * later, Phase 3's model choice) but never the deterministic default for
- * an ordinary request; the deterministic default for anything not
- * sympathy/operational/promotional/seasonal is `everyday_floral`.
+ * Resolves which of the named families this concept belongs to.
+ * elegant_editorial and boutique_floral are never resolved by the OLD
+ * occasionCategory-only path below — they were real, valid choices
+ * reachable only by explicit override until Batch 6 gave creativeMode
+ * real grounds to select elegant_editorial deterministically (a wedding/
+ * boutique/elegant signal). `creativeMode`, when supplied, is now the
+ * PRIMARY selector (via CREATIVE_MODE_TO_OCCASION_TREATMENT above) — this
+ * is the actual fix for the audit's central finding (an event/holiday
+ * request no longer silently resolves to everyday_floral's structure).
+ * `creativeMode` is optional and additive: every existing caller that
+ * doesn't pass it gets the EXACT original occasionCategory/promotionIntent-
+ * only behavior, unchanged.
  */
-export function resolveOccasionTreatment({ occasionCategory = null, sympathyClassification = null, promotionIntent = null } = {}) {
+export function resolveOccasionTreatment({ occasionCategory = null, sympathyClassification = null, promotionIntent = null, creativeMode = null } = {}) {
   if (sympathyClassification === "sympathy" || occasionCategory === "sympathy") return "sympathy_elegance";
   if (occasionCategory === "operational_notice") return "operational_notice";
+  if (creativeMode && CREATIVE_MODE_TO_OCCASION_TREATMENT[creativeMode]) {
+    return CREATIVE_MODE_TO_OCCASION_TREATMENT[creativeMode];
+  }
   if (promotionIntent === "real_promotion") return "promotional_feature";
   if (occasionCategory === "holiday_seasonal") return "seasonal_feature";
   return "everyday_floral";
@@ -397,8 +442,8 @@ export function resolveOccasionTreatment({ occasionCategory = null, sympathyClas
  * `ctaProminenceCeiling` (the loosest CTA prominence this family permits
  * — never a floor).
  */
-export function getCategoryConstraints({ occasionCategory = null, sympathyClassification = null, promotionIntent = null, inventoryIntent = null, ctaIntent = null } = {}) {
-  const occasionTreatment = resolveOccasionTreatment({ occasionCategory, sympathyClassification, promotionIntent });
+export function getCategoryConstraints({ occasionCategory = null, sympathyClassification = null, promotionIntent = null, inventoryIntent = null, ctaIntent = null, creativeMode = null } = {}) {
+  const occasionTreatment = resolveOccasionTreatment({ occasionCategory, sympathyClassification, promotionIntent, creativeMode });
   const hasCta = Boolean(ctaIntent) && ctaIntent !== "none";
   const isInventoryGrounded = inventoryIntent === "inventory_driven";
 
@@ -523,6 +568,27 @@ export function getCategoryConstraints({ occasionCategory = null, sympathyClassi
       ctaProminenceCeiling: "subtle"
     },
 
+    // Batch 6 ("Premium Creative quality architecture"): this is the
+    // structural family creativeMode "campaign_poster" now resolves to —
+    // the audit's central fix. A real staging finding proved a Homecoming
+    // request classified correctly as occasionCategory "event_reminder"
+    // but its CREATIVE DIRECTION still fell through to everyday_floral's
+    // structure, so the campaign only ever got one extra sentence bolted
+    // onto an otherwise-ordinary layout. Strengthened here specifically
+    // for that case: oversized headline (not merely "large"), a real CTA
+    // slot whenever the concept has one (not gated to plain
+    // headline_plus_support the way an ordinary seasonal mention would
+    // be), and — independent-review finding made while wiring this up —
+    // an ACTUAL "strong" ctaProminence, not merely the pre-existing
+    // ctaProminenceCeiling documentation, which this module defined for
+    // both this family and promotional_feature but never once actually
+    // applied anywhere: ctaProminence was hard-set to "subtle"/"none" in
+    // buildDeterministicCreativeDirection's own base object regardless of
+    // any family's ceiling, so "strong" was structurally unreachable for
+    // every request this codebase has ever generated. Fixed for both
+    // families here — see validateCreativeDirection's own updated
+    // ctaProminence-strong clamp, which now also permits "strong" for
+    // this treatment, not only for promotionIntent "real_promotion".
     seasonal_feature: {
       forced: { occasionTreatment: "seasonal_feature" },
       forbidden: {},
@@ -533,9 +599,10 @@ export function getCategoryConstraints({ occasionCategory = null, sympathyClassi
         backgroundTreatment: "full_bleed_photo",
         textRegion: "negative_space_band_lower",
         typographyPersonality: "serif_script_pairing",
-        headlineScale: "large",
+        headlineScale: "oversized",
         scriptAccentUsage: "accent_word",
-        hierarchyDepth: "headline_plus_support",
+        hierarchyDepth: hasCta ? "headline_support_cta" : "headline_plus_support",
+        ctaProminence: hasCta ? "strong" : "none",
         ornamentalDensity: "moderate",
         decorativeRestraint: "disciplined",
         dividerStyle: "floral_sprig",
@@ -546,7 +613,47 @@ export function getCategoryConstraints({ occasionCategory = null, sympathyClassi
         visualMood: "playful_energetic",
         paletteMood: "vibrant_seasonal"
       },
-      ctaProminenceCeiling: hasCta ? "standard" : "none"
+      // A campaign/event deadline earns the loudest CTA this schema
+      // allows, exactly like a verified real promotion does — see the
+      // clamp note above.
+      ctaProminenceCeiling: hasCta ? "strong" : "none"
+    },
+
+    // Batch 6, Part 3/4: the one family with no mandatory on-image text
+    // at all — see this module's own updated validateCreativeDirection
+    // headline/brand force-block for the sole exemption this treatment
+    // gets. hierarchyDepth "headline_only" combined with graphicTextSlots
+    // all false means the photography genuinely carries the entire
+    // composition; the caption (a separate field, never drawn onto the
+    // graphic) carries the actual words.
+    photo_forward_social: {
+      forced: { occasionTreatment: "photo_forward_social" },
+      forbidden: {},
+      leaning: {
+        compositionFamily: "hero_full_bleed",
+        imagePlacement: "full_bleed",
+        imageScale: "dominant",
+        backgroundTreatment: "full_bleed_photo",
+        textRegion: "negative_space_band_lower",
+        typographyPersonality: "clean_sans",
+        headlineScale: "standard",
+        scriptAccentUsage: "none",
+        hierarchyDepth: "headline_only",
+        graphicTextSlots: { brand: false, headline: false, supportingLine: false, serviceDetail: false, cta: false, phone: false },
+        ornamentalDensity: "minimal",
+        decorativeRestraint: "disciplined",
+        borderStyle: "none",
+        dividerStyle: "none",
+        badgeStyle: "none",
+        bannerStyle: "none",
+        decorativeMotif: "none",
+        brandingScale: "subtle",
+        textDensity: "sparse",
+        negativeSpaceStrategy: "minimal",
+        visualMood: "bright_joyful",
+        paletteMood: "soft_pastel"
+      },
+      ctaProminenceCeiling: "none"
     },
 
     operational_notice: {
@@ -603,6 +710,9 @@ export function getCategoryConstraints({ occasionCategory = null, sympathyClassi
         // never invent the CTA slot just because the family is
         // promotional.
         hierarchyDepth: hasCta ? "headline_support_cta" : "headline_plus_support",
+        // See seasonal_feature's own comment above — ctaProminenceCeiling
+        // "strong" was already documented here; this makes it real.
+        ctaProminence: hasCta ? "strong" : "none",
         ornamentalDensity: "moderate",
         decorativeRestraint: "disciplined",
         bannerStyle: "ribbon_banner",
@@ -624,6 +734,18 @@ export function getCategoryConstraints({ occasionCategory = null, sympathyClassi
   };
 
   const chosen = FAMILY_CONSTRAINTS[occasionTreatment];
+
+  // Batch 6, Part 3: promotional_sales and playful_promotion deliberately
+  // share the SAME structural family (promotional_feature) — they differ
+  // in tone, not composition. This is the one place that tone difference
+  // shows up in the layout itself: a playful/conversational/urgent
+  // promotion reads as energetic rather than a formal "sale" mood. Never
+  // touches ctaProminenceCeiling/hierarchyDepth/compositionFamily — those
+  // stay identical between the two modes, exactly as intended.
+  if (creativeMode === "playful_promotion" && occasionTreatment === "promotional_feature") {
+    return { ...chosen, leaning: { ...chosen.leaning, visualMood: "playful_energetic" }, occasionTreatment, inventoryGroundedGuidance: isInventoryGrounded };
+  }
+
   return { ...chosen, occasionTreatment, inventoryGroundedGuidance: isInventoryGrounded };
 }
 
@@ -658,7 +780,8 @@ export function buildDeterministicCreativeDirection({ canonicalConcept = null, s
     sympathyClassification: concept.sympathyClassification || null,
     promotionIntent: concept.promotionIntent || null,
     inventoryIntent: concept.inventoryIntent || null,
-    ctaIntent
+    ctaIntent,
+    creativeMode: concept.creativeMode || null
   });
 
   const base = {
@@ -736,12 +859,23 @@ export function validateCreativeDirection(candidate, { canonicalConcept = null, 
     phone: Boolean(rawSlots.phone ?? GRAPHIC_TEXT_SLOTS_DEFAULT.phone)
   };
 
-  if (!out.graphicTextSlots.headline) {
-    errors.push("graphicTextSlots.headline was disabled — headline is mandatory, re-enabled.");
+  // Batch 6, Part 4 ("remove the schema restriction that makes minimal
+  // social creative impossible"): headline and brand stay mandatory for
+  // every advertisement/poster/promotional treatment — that safeguard is
+  // NOT being removed globally, per Ashley's own explicit instruction.
+  // The ONE exemption is photo_forward_social, the family that exists
+  // specifically so a genuinely minimal, photo-forward social post (no
+  // on-image headline, no on-image brand mark — the photography and a
+  // separate caption carry the whole message) is a real, reachable output
+  // instead of the schema fighting the model into re-adding text it was
+  // never supposed to have. Every other family is completely unaffected.
+  const mayOmitMandatoryText = out.occasionTreatment === "photo_forward_social";
+  if (!out.graphicTextSlots.headline && !mayOmitMandatoryText) {
+    errors.push("graphicTextSlots.headline was disabled — headline is mandatory for this creative mode, re-enabled.");
     out.graphicTextSlots.headline = true;
   }
-  if (!out.graphicTextSlots.brand) {
-    errors.push("graphicTextSlots.brand was disabled — branding may never be omitted, re-enabled.");
+  if (!out.graphicTextSlots.brand && !mayOmitMandatoryText) {
+    errors.push("graphicTextSlots.brand was disabled — branding may not be omitted for this creative mode, re-enabled.");
     out.graphicTextSlots.brand = true;
   }
   if (out.graphicTextSlots.phone && !out.graphicTextSlots.cta) {
@@ -805,10 +939,19 @@ export function validateCreativeDirection(candidate, { canonicalConcept = null, 
 
   const concept = canonicalConcept || {};
   const occasionCategory = concept.occasionCategory || null;
+  // Batch 6: reads the SAME creativeMode the candidate was actually built
+  // from (buildDeterministicCreativeDirection passes it through to
+  // getCategoryConstraints) — without this, a request where BOTH
+  // promotionIntent is "real_promotion" AND occasionCategory is a major
+  // campaign could disagree with itself here (this internal re-derivation
+  // preferring promotional_feature while the candidate correctly chose
+  // the stronger campaign_poster/seasonal_feature treatment) and force a
+  // "contradiction" correction that wasn't actually a contradiction.
   const conceptOccasionTreatment = resolveOccasionTreatment({
     occasionCategory,
     sympathyClassification: concept.sympathyClassification || null,
-    promotionIntent: concept.promotionIntent || null
+    promotionIntent: concept.promotionIntent || null,
+    creativeMode: concept.creativeMode || null
   });
   const isSympathy = conceptOccasionTreatment === "sympathy_elegance";
   const isOperationalNotice = conceptOccasionTreatment === "operational_notice";
@@ -993,9 +1136,13 @@ export function validateCreativeDirection(candidate, { canonicalConcept = null, 
     for (const [key, required] of Object.entries(HIERARCHY_DEPTH_SLOTS[out.hierarchyDepth])) out.graphicTextSlots[key] = required;
   }
   // Promotional CTA prominence without real promotion intent — "strong"
-  // is reserved for a real promotion; anything else is capped.
-  if (out.ctaProminence === "strong" && concept.promotionIntent !== "real_promotion") {
-    errors.push('ctaProminence "strong" requires a real promotionIntent — capped to "standard".');
+  // is reserved for a real promotion OR a real campaign_poster deadline/
+  // event (Batch 6: "an event/deadline campaign may justify the loudest
+  // CTA this schema allows, exactly like a verified real promotion
+  // does") — anything else is capped.
+  const ctaProminenceStrongJustified = concept.promotionIntent === "real_promotion" || concept.creativeMode === "campaign_poster";
+  if (out.ctaProminence === "strong" && !ctaProminenceStrongJustified) {
+    errors.push('ctaProminence "strong" requires a real promotionIntent or a campaign_poster creative mode — capped to "standard".');
     out.ctaProminence = "standard";
   }
 

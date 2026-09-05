@@ -108,8 +108,51 @@ export const CONCEPT_IDENTITY_FIELDS = Object.freeze([
   "promotionIntent",
   "sympathyClassification",
   "inventoryIntent",
-  "assetRoute"
+  "assetRoute",
+  // Batch 6: real identity decisions (what campaign, who it's for, what
+  // structural creative mode) — not execution detail, so protected
+  // against silent drift exactly like occasionCategory/ctaIntent above.
+  // copyVoice is deliberately excluded: tone is allowed to shift with an
+  // ordinary wording tweak, the same way captionIntent/visualDirection
+  // already are.
+  "namedCampaign",
+  "audience",
+  "creativeMode"
 ]);
+
+// Batch 5.3: the three named school-dance-style event reminders. Kept as
+// its own array (not inlined into OCCASION_KEYWORD_RULES) so both the
+// coarse occasionCategory bucket below AND classifyNamedCampaign's finer
+// disambiguation reuse the exact same patterns — never two competing
+// regex sets that could disagree about what counts as "Homecoming."
+const EVENT_REMINDER_RULES = [
+  { campaign: "homecoming", re: /\bhomecoming\b/i },
+  { campaign: "prom", re: /\bproms?\b/i },
+  // "school formal" (not bare "formal", which false-positives on ordinary
+  // phrases like "a formal arrangement") keeps this narrow, per Ashley's
+  // own instruction not to build a broad "any event word" classifier.
+  { campaign: "school_dance", re: /\bschool dance\b|\bschool formal\b/i }
+];
+
+// Batch 6 ("expand campaign/occasion classification"): major recurring
+// florist holidays that previously fell through to plain "general" —
+// real staging finding (Valentine's/Mother's Day/Christmas/Admin
+// Professionals Day/National Girlfriends Day all unrecognized). Bucketed
+// into the EXISTING "holiday_seasonal" category (never a new category
+// per holiday — Ashley's own instruction: "avoid turning every named
+// holiday into a completely separate layout implementation"); the
+// specific identity is preserved separately via namedCampaign for
+// palette/mood/copy-voice purposes, never by exploding the layout
+// system itself. Alias-based, not literal-spelling-based: each pattern
+// matches the ordinary natural-language forms a florist would actually
+// type, not one exact phrase.
+const NAMED_HOLIDAY_RULES = [
+  { campaign: "valentines_day", re: /\bvalentine'?s?(?:\s*day)?\b/i },
+  { campaign: "mothers_day", re: /\bmother'?s\s*day\b/i },
+  { campaign: "christmas", re: /\bchristmas\b|\bxmas\b/i },
+  { campaign: "admin_professionals_day", re: /\badministrative professionals?(?:'?\s*(?:day|week))?\b|\badmin(?:istrative)? assistants?(?:'?\s*day)?\b|\bsecretaries?(?:'?\s*day)?\b/i },
+  { campaign: "girlfriends_day", re: /\b(?:national\s+)?girlfriends?\s*day\b/i }
+];
 
 const OCCASION_KEYWORD_RULES = [
   { category: "birthday", re: /\bbirthdays?\b/i },
@@ -118,12 +161,12 @@ const OCCASION_KEYWORD_RULES = [
   { category: "graduation", re: /\bgraduations?\b|\bgrads?\b/i },
   { category: "new_baby", re: /\bnew ?baby\b|\bbaby shower\b|\bnewborn\b/i },
   { category: "get_well", re: /\bget well\b|\bfeel better\b/i },
-  // Batch 5.3: named school-dance-style event reminders only — see
-  // OCCASION_CATEGORIES's own comment on "event_reminder" above. "school
-  // formal" (not bare "formal", which false-positives on ordinary phrases
-  // like "a formal arrangement") keeps this narrow, per Ashley's own
-  // instruction not to build a broad "any event word" classifier.
-  { category: "event_reminder", re: /\bhomecoming\b|\bproms?\b|\bschool dance\b|\bschool formal\b/i }
+  // Batch 5.3: named school-dance-style event reminders — see
+  // OCCASION_CATEGORIES's own comment on "event_reminder" above.
+  ...EVENT_REMINDER_RULES.map((rule) => ({ category: "event_reminder", re: rule.re })),
+  // Batch 6: the five newly-recognized holidays, all bucketed into the
+  // existing holiday_seasonal category.
+  ...NAMED_HOLIDAY_RULES.map((rule) => ({ category: "holiday_seasonal", re: rule.re }))
 ];
 
 /**
@@ -210,6 +253,242 @@ export function classifyCtaIntent(ctaText) {
     if (rule.re.test(text)) return rule.intent;
   }
   return "contact_general";
+}
+
+// ---------------------------------------------------------------------------
+// Batch 6 ("Premium Creative quality architecture") — namedCampaign,
+// audience, creativeMode, copyVoice. Every one of these reuses the SAME
+// already-computed occasionCategory/sympathy/promotion signals — never a
+// second, independently-derived business-fact inference, matching this
+// module's own standing rule (see file header).
+// ---------------------------------------------------------------------------
+
+export const NAMED_CAMPAIGNS = Object.freeze([
+  "valentines_day",
+  "mothers_day",
+  "christmas",
+  "admin_professionals_day",
+  "girlfriends_day",
+  "homecoming",
+  "prom",
+  "school_dance",
+  "graduation",
+  "wedding",
+  "birthday",
+  "anniversary",
+  "new_baby",
+  "get_well",
+  "sympathy",
+  "none"
+]);
+
+/**
+ * Batch 6, Part 1: the FINE-GRAINED campaign identity underneath the
+ * coarse occasionCategory bucket — e.g. occasionCategory "holiday_
+ * seasonal" might be Valentine's, Mother's Day, Christmas, Admin
+ * Professionals Day, or Girlfriends Day; occasionCategory "event_
+ * reminder" might be Homecoming, Prom, or a school dance. Reuses
+ * occasionCategory's own already-computed value rather than re-running a
+ * second, competing keyword pass for the categories it already resolves
+ * unambiguously (birthday/anniversary/wedding_event/graduation/new_baby/
+ * get_well/sympathy) — only the two ambiguous buckets get a real second
+ * look, using the exact same rule arrays occasionCategory itself used.
+ */
+export function classifyNamedCampaign({ occasionTitle = "", requestText = "", isSympathy = false, occasionCategory = null } = {}) {
+  if (isSympathy || occasionCategory === "sympathy") return "sympathy";
+  const DIRECT_MAP = {
+    birthday: "birthday",
+    anniversary: "anniversary",
+    wedding_event: "wedding",
+    graduation: "graduation",
+    new_baby: "new_baby",
+    get_well: "get_well"
+  };
+  if (occasionCategory && DIRECT_MAP[occasionCategory]) return DIRECT_MAP[occasionCategory];
+  const haystack = `${occasionTitle} ${requestText}`;
+  if (occasionCategory === "event_reminder") {
+    for (const rule of EVENT_REMINDER_RULES) {
+      if (rule.re.test(haystack)) return rule.campaign;
+    }
+  }
+  if (occasionCategory === "holiday_seasonal") {
+    for (const rule of NAMED_HOLIDAY_RULES) {
+      if (rule.re.test(haystack)) return rule.campaign;
+    }
+  }
+  return "none";
+}
+
+export const AUDIENCES = Object.freeze([
+  "students",
+  "parents",
+  "students_and_parents",
+  "brides",
+  "wedding_clients",
+  "funeral_families",
+  "corporate_offices",
+  "business_clients",
+  "romantic_partners",
+  "self_purchase",
+  "gift_buyers",
+  "general_local_customers",
+  "existing_customers",
+  "unknown_general"
+]);
+
+// Ordered most-specific-first — the first real match wins, so a request
+// naming both "students and parents" resolves to the combined audience
+// rather than just "students" (whichever rule happened to run first).
+const AUDIENCE_RULES = [
+  { audience: "students_and_parents", re: /\bstudents?\b[\s\S]*\bparents?\b|\bparents?\b[\s\S]*\bstudents?\b/i },
+  { audience: "students", re: /\bstudents?\b/i },
+  { audience: "parents", re: /\bparents?\b/i },
+  { audience: "brides", re: /\bbrides?\b/i },
+  { audience: "wedding_clients", re: /\bweddings?\b|\bbridal\b|\bengagement\b/i },
+  { audience: "corporate_offices", re: /\bcorporate\b|\boffices?\b|\bworkplace\b/i },
+  { audience: "self_purchase", re: /\bbuy(?:ing)? (?:yourself|myself)\b|\btreat (?:yourself|myself)\b|\bfor (?:yourself|myself)\b|\bself[- ]care\b/i },
+  { audience: "romantic_partners", re: /\bgirlfriends?\b|\bboyfriends?\b|\bpartners?\b|\bspouse\b|\bwife\b|\bhusband\b|\bromantic\b/i },
+  { audience: "gift_buyers", re: /\bgifts?\b|\bsurprise (?:her|him|them|someone)\b|\bfor (?:her|him|them)\b/i },
+  { audience: "existing_customers", re: /\bexisting customers?\b|\breturning customers?\b|\bloyal customers?\b/i }
+];
+
+/**
+ * Batch 6, Part 2: a deterministic, kept-as-a-plain-enum audience field
+ * (a structured value + optional free descriptor was considered — see
+ * this module's real usage pattern: every other canonicalConcept field
+ * is a plain enum, and this batch's scope doesn't yet need more than
+ * that; a future batch can add a descriptor without breaking this one).
+ * Sympathy always resolves to funeral_families regardless of any other
+ * text signal — the same "sympathy wins first" precedence occasionCategory
+ * itself already uses. Falls back to general_local_customers — never an
+ * invented specific audience nothing in the request actually supports.
+ */
+export function classifyAudience({ requestText = "", occasionTitle = "", isSympathy = false, occasionCategory = null } = {}) {
+  if (isSympathy || occasionCategory === "sympathy") return "funeral_families";
+  const haystack = `${occasionTitle} ${requestText}`;
+  for (const rule of AUDIENCE_RULES) {
+    if (rule.re.test(haystack)) return rule.audience;
+  }
+  return "general_local_customers";
+}
+
+export const CREATIVE_MODES = Object.freeze([
+  "campaign_poster",
+  "photo_forward_social",
+  "editorial_brand",
+  "sympathy_elegance",
+  "promotional_sales",
+  "playful_promotion",
+  "operational_notice",
+  "everyday_floral"
+]);
+
+// Shared across classifyCreativeMode and classifyCopyVoice — a request
+// signaling humor/urgency/conversational tone (Ashley's own "last chance
+// to order Homecoming flowers!" example) can carry BOTH a campaign_poster
+// STRUCTURE and a playful VOICE at once; these two classifiers deliberately
+// never have to choose one or the other because structure and tone are
+// resolved independently from the same underlying signal.
+const PLAYFUL_SIGNAL_RE = /\bfunny\b|\bhumor(?:ous)?\b|\bjoke\b|\bplayful\b|\bconversational\b|\blast chance\b|\bdon'?t miss\b|\bhurry\b|\bforgot\b|\bsave the day\b/i;
+const ELEGANT_SIGNAL_RE = /\belegant\b|\bboutique\b|\bpremium\b|\bluxury\b|\beditorial\b|\bsophisticated\b/i;
+const PHOTO_FORWARD_SIGNAL_RE = /\bcute post\b|\bbuy(?:ing)? (?:yourself|myself)\b|\btreat (?:yourself|myself)\b|\blifestyle\b|\bjust a (?:photo|picture)\b|\bsimple post\b|\bcasual\b|\bno (?:on-image )?text\b|\bminimal text\b/i;
+
+/**
+ * Batch 6, Part 3: the CENTRAL architectural fix the audit named — a
+ * higher-level creative-MODE decision that (unlike the old occasion-
+ * category-only path) can actually change STRUCTURE, not just append a
+ * sentence to the same everyday layout. Deliberately layered ON TOP of
+ * occasionCategory/namedCampaign/promotionIntent/sympathy — never a
+ * second, competing classification of the same underlying signals.
+ * Sympathy and operational notices keep their existing, non-negotiable
+ * precedence (checked first, unconditionally). A "major campaign" (any
+ * named holiday, event reminder, or graduation) always resolves to
+ * campaign_poster regardless of tone signals — creativeMode owns
+ * STRUCTURE; classifyCopyVoice (below) owns TONE, independently.
+ */
+export function classifyCreativeMode({
+  occasionCategory = null,
+  namedCampaign = null,
+  sympathyClassification = null,
+  promotionIntent = null,
+  requestText = ""
+} = {}) {
+  if (sympathyClassification === "sympathy" || occasionCategory === "sympathy") return "sympathy_elegance";
+  if (occasionCategory === "operational_notice") return "operational_notice";
+  const isMajorCampaign = occasionCategory === "event_reminder" || occasionCategory === "holiday_seasonal" || namedCampaign === "graduation";
+  if (isMajorCampaign) return "campaign_poster";
+  const isPlayful = PLAYFUL_SIGNAL_RE.test(requestText);
+  if (promotionIntent === "real_promotion") return isPlayful ? "playful_promotion" : "promotional_sales";
+  if (namedCampaign === "wedding" || ELEGANT_SIGNAL_RE.test(requestText)) return "editorial_brand";
+  if (PHOTO_FORWARD_SIGNAL_RE.test(requestText)) return "photo_forward_social";
+  if (isPlayful) return "playful_promotion";
+  return "everyday_floral";
+}
+
+export const COPY_VOICES = Object.freeze([
+  "professional",
+  "warm",
+  "compassionate",
+  "elegant",
+  "celebratory",
+  "playful",
+  "humorous",
+  "conversational",
+  "urgent",
+  "romantic",
+  "community_friendly",
+  "informational"
+]);
+
+/**
+ * Batch 6, Part 5: the tone decision the copy-generation prompt
+ * (buildFlyerContentTask, ai-creative-engine.js) is now wired to read —
+ * see that module for exactly how. Multiple attributes may coexist
+ * (Ashley's own explicit requirement); never a single forced value.
+ * Sympathy is non-negotiable and always wins, matching every other
+ * sympathy precedence rule already in this codebase.
+ */
+export function classifyCopyVoice({
+  creativeMode = null,
+  namedCampaign = null,
+  occasionCategory = null,
+  sympathyClassification = null,
+  factRequirements = [],
+  requestText = ""
+} = {}) {
+  if (sympathyClassification === "sympathy" || occasionCategory === "sympathy") return ["compassionate", "elegant"];
+  if (creativeMode === "operational_notice") return ["informational"];
+
+  const voices = new Set();
+  const isUrgentDeadline = Array.isArray(factRequirements) && factRequirements.includes("event_date");
+  const playfulSignal = PLAYFUL_SIGNAL_RE.test(requestText);
+
+  if (namedCampaign === "valentines_day") voices.add("romantic");
+  if (["mothers_day", "girlfriends_day", "christmas"].includes(namedCampaign)) {
+    voices.add("celebratory");
+    voices.add("warm");
+  }
+  if (namedCampaign === "admin_professionals_day") {
+    voices.add("professional");
+    voices.add("warm");
+    voices.add("community_friendly");
+  }
+  if (creativeMode === "campaign_poster") {
+    voices.add("celebratory");
+    if (isUrgentDeadline) voices.add("urgent");
+  }
+  if (creativeMode === "playful_promotion" || playfulSignal) {
+    voices.add("playful");
+    voices.add("conversational");
+    voices.add("urgent");
+    if (/\bfunny\b|\bhumor(?:ous)?\b|\bjoke\b/i.test(requestText)) voices.add("humorous");
+  }
+  if (creativeMode === "editorial_brand") voices.add("elegant");
+  if (!voices.size) {
+    voices.add("professional");
+    voices.add("warm");
+  }
+  return [...voices];
 }
 
 /** Batch 4, Part K: assetRoute — the concrete photo-sourcing route,
@@ -346,6 +625,20 @@ export function buildCanonicalConcept({
   const ctaIntent = classifyCtaIntent(ctaText);
   const assetRoute = deriveAssetRoute({ contentType, photoStrategy, styleTier, userUploadedPhoto, reusedFromAssetId });
   const creativeFamily = deriveCreativeFamily({ assetType, contentType });
+  const sympathyClassification = sympathy ? "sympathy" : "not_sympathy";
+  const promotionIntent = promotion ? "real_promotion" : "not_promotion";
+  const factRequirements = deriveFactRequirements({ requestText, ctaText: ctaText || "", bodyText, objective, invGroundedCount });
+
+  // Batch 6 ("Premium Creative quality architecture"): namedCampaign/
+  // audience/creativeMode/copyVoice — computed here, ONCE, from the
+  // signals already derived above, so every downstream consumer (the
+  // Creative Director, buildFlyerContentTask's tone line, a future
+  // creativeDirection resolver) reads the same authoritative decision
+  // rather than each re-deriving its own.
+  const namedCampaign = classifyNamedCampaign({ occasionTitle, requestText, isSympathy: sympathy, occasionCategory });
+  const audience = classifyAudience({ requestText, occasionTitle, isSympathy: sympathy, occasionCategory });
+  const creativeMode = classifyCreativeMode({ occasionCategory, namedCampaign, sympathyClassification, promotionIntent, requestText });
+  const copyVoice = classifyCopyVoice({ creativeMode, namedCampaign, occasionCategory, sympathyClassification, factRequirements, requestText });
 
   return {
     version: CANONICAL_CONCEPT_VERSION,
@@ -354,6 +647,10 @@ export function buildCanonicalConcept({
     primarySubjectClass,
     captionIntent: classifyCaptionIntent({ objective, isSympathy: sympathy }),
     ctaIntent,
+    namedCampaign,
+    audience,
+    creativeMode,
+    copyVoice,
     visualDirection: {
       mood: creativeBrief?.mood || null,
       lighting: creativeBrief?.lighting || null,
@@ -362,12 +659,12 @@ export function buildCanonicalConcept({
       photoStrategy: photoStrategy || null
     },
     creativeFamily,
-    factRequirements: deriveFactRequirements({ requestText, ctaText: ctaText || "", bodyText, objective, invGroundedCount }),
+    factRequirements,
     assetRoute,
     platform: platform || null,
-    sympathyClassification: sympathy ? "sympathy" : "not_sympathy",
+    sympathyClassification,
     inventoryIntent: inventoryDriven ? "inventory_driven" : "not_inventory_driven",
-    promotionIntent: promotion ? "real_promotion" : "not_promotion"
+    promotionIntent
   };
 }
 

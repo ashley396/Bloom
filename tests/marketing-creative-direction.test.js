@@ -100,7 +100,10 @@ test("the exact live prompt produces a polished everyday_floral Direction — no
 
 test("schema sanity: every enum field is a finite array, versioned", () => {
   assert.equal(CREATIVE_DIRECTION_VERSION, 2);
-  assert.deepEqual([...OCCASION_TREATMENTS].sort(), ["boutique_floral", "elegant_editorial", "everyday_floral", "operational_notice", "promotional_feature", "seasonal_feature", "sympathy_elegance"].sort());
+  assert.deepEqual(
+    [...OCCASION_TREATMENTS].sort(),
+    ["boutique_floral", "elegant_editorial", "everyday_floral", "operational_notice", "photo_forward_social", "promotional_feature", "seasonal_feature", "sympathy_elegance"].sort()
+  );
   assert.ok(Array.isArray(COMPOSITION_FAMILIES) && COMPOSITION_FAMILIES.length > 0);
   // The old forced "magazine split" regression must never resurface as a
   // valid structural shape under a new name.

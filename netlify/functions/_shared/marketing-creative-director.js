@@ -93,7 +93,11 @@ const OCCASION_TREATMENT_FRAMING = Object.freeze({
   seasonal_feature: "This is an energetic seasonal campaign feature — celebratory and tied to the season, never generic.",
   operational_notice: "This is a clean, legibility-first operational notice design — restrained and clear, never festive or decorative.",
   promotional_feature: "This is a bold, confident promotional advertisement — attention-grabbing, not shy.",
-  everyday_floral: "This is a polished, professional everyday florist advertisement."
+  everyday_floral: "This is a polished, professional everyday florist advertisement.",
+  // Batch 6 ("Premium Creative quality architecture"): the one family
+  // this framing sentence must actively discourage advertisement-style
+  // composition for — the photography itself is the whole point.
+  photo_forward_social: "This is a relaxed, photo-forward lifestyle social post — the photography itself is the entire message, not a backdrop for an advertisement."
 });
 
 const COMPOSITION_FAMILY_PHRASES = Object.freeze({
@@ -329,10 +333,64 @@ function negativeSpaceSentence(cd) {
 }
 
 function brandZoneSentence(cd) {
+  // Batch 6, Part 4: a creative mode that legitimately has NO on-image
+  // brand mark (photo_forward_social) must never still get a reserved
+  // brand zone described in the prompt — graphicTextSlots.brand is the
+  // real, authoritative signal (creativeDirection.brandingPosition itself
+  // stays at its schema default even when brand is disabled, since
+  // nothing clears it — checking the actual slot, not just the position
+  // field, is what makes this correct).
+  if (cd.graphicTextSlots && cd.graphicTextSlots.brand === false) return null;
   const position = lookup(BRANDING_POSITION_PHRASES, cd.brandingPosition);
   if (!position) return null;
   const scale = lookup(BRANDING_SCALE_PHRASES, cd.brandingScale) || "a small, uncluttered zone";
   return `Reserve ${scale} ${position} for a brand mark to be added afterward — leave it visually quiet, never busy.`;
+}
+
+/** Batch 6, Part 3/4: when a creative mode has genuinely suppressed BOTH
+ * the headline and brand slots (photo_forward_social today; any future
+ * family that does the same), reinforce that the photography alone
+ * should carry the whole composition — otherwise an image model given
+ * only mood/composition language, with no explicit "don't add text"
+ * framing beyond the standing literal-text rule, can still default to
+ * leaving obvious empty space "for" text that was never coming. */
+function photoForwardReinforcementSentence(cd) {
+  const slots = cd.graphicTextSlots;
+  if (!slots || slots.headline !== false || slots.brand !== false) return null;
+  return "No on-image text or branding is needed at all here — let the photography fill the frame naturally, without composing empty space as if text will be added later.";
+}
+
+const AUDIENCE_PHRASES = Object.freeze({
+  students: "an audience of students",
+  parents: "an audience of parents",
+  students_and_parents: "an audience of both students and their parents",
+  brides: "a bride planning her wedding",
+  wedding_clients: "wedding clients",
+  corporate_offices: "a corporate/office audience",
+  business_clients: "business clients",
+  romantic_partners: "someone shopping for a romantic partner",
+  self_purchase: "someone treating themselves",
+  gift_buyers: "someone choosing a gift for someone else",
+  existing_customers: "the shop's own existing, returning customers",
+  // funeral_families is deliberately handled entirely by the sympathy
+  // occasion framing above — a second, redundant audience sentence would
+  // only risk sounding less careful, not more.
+  funeral_families: null,
+  general_local_customers: null,
+  unknown_general: null
+});
+
+/** Batch 6, Part 2: the one place audience actually reaches downstream
+ * creative reasoning, per the audit's own explicit requirement — never a
+ * literal fact, purely a compositional/tonal cue built from the fixed
+ * phrase dictionary above (same non-leak guarantee as every other
+ * sentence in this module). Omitted entirely for the generic/unknown
+ * fallback values, where saying nothing is more honest than inventing a
+ * cue nothing in the request actually supports. */
+function audienceSentence(audience) {
+  const phrase = lookup(AUDIENCE_PHRASES, audience);
+  if (!phrase) return null;
+  return `This is intended for ${phrase} — let the composition's mood and framing feel genuinely relevant to them.`;
 }
 
 function decorativeSentence(cd) {
@@ -411,7 +469,9 @@ export function buildCreativeDirectorDirection({ canonicalConcept = null, creati
     brandZoneSentence(creativeDirection),
     decorativeSentence(creativeDirection),
     marketingActionSentence({ objective: canonicalConcept.objective, ctaIntent: canonicalConcept.ctaIntent }),
-    eventReminderSentence({ occasionCategory: canonicalConcept.occasionCategory, factRequirements: canonicalConcept.factRequirements })
+    eventReminderSentence({ occasionCategory: canonicalConcept.occasionCategory, factRequirements: canonicalConcept.factRequirements }),
+    audienceSentence(canonicalConcept.audience),
+    photoForwardReinforcementSentence(creativeDirection)
   ].filter(Boolean);
 
   return {
