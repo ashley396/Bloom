@@ -162,7 +162,7 @@ function mockCloudflare(textJsonQueue) {
 const CLOSING_COPY = {
   platform: "facebook",
   headline: "Closing early today!",
-  body: "Heads up — Lilies in Bloom will close at 2:30 PM today. Need to place an order? Call 606-506-4039. Back to normal hours tomorrow!",
+  body: "Heads up — Lilies in Bloom will close at 2:30 PM today. Need to place an order? Call 606-506-4039.",
   cta: "Call 606-506-4039",
   visual_brief: "A bright, professional shot of the shop's fresh flower display.",
   hashtags: [],

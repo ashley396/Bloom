@@ -179,8 +179,8 @@ function isSympathyRequest(occasion, requestText) {
   return BEREAVEMENT_CONTEXT_RE.test(`${occasion || ""} ${requestText || ""}`);
 }
 
-function buildSocialPostTask({ channel, occasion, audience, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary, recentContentSummary, requestText }) {
-  const sympathy = isSympathyRequest(occasion, requestText);
+function buildSocialPostTask({ channel, occasion, audience, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary, recentContentSummary, requestText, concept }) {
+  const sympathy = concept ? Boolean(concept.isSympathy) : isSympathyRequest(occasion, requestText);
   return `You are writing the ACTUAL, FINISHED social media post Florisyn will show a florist to publish today. Do not describe the request. Do not summarize what was asked. Do not restate the user's instruction. Write real, publish-ready copy a customer would read right now.
 
 Platform: ${channel || "facebook"}.
@@ -196,6 +196,9 @@ Rules:
 - Never restate or describe the request itself — the output must be usable as-is, with no editing.
 - Use the shop's real name/products from the input where given; never invent products, prices, or promises Florisyn can't confirm.
 ${shopIdentityRule(shop?.name, occasion)}
+${copyVoiceLine(concept?.copyVoice)}
+${audienceCopyLine(concept?.audience)}
+${TEMPORAL_FACT_SAFETY_RULE}
 - Match the platform's real voice: warm and conversational for Facebook/Instagram, concise everywhere.
 - visual_brief must describe a concrete photo concept (say what's actually in the shot — never a vague placeholder like "a beautiful arrangement") but must NEVER independently choose or name a specific flower species/variety (roses, peonies, hydrangeas, alstroemeria, lilies, tulips, etc.) — default to a generic, still-concrete scene ("a lush, professionally designed mixed-flower arrangement with varied fresh blooms and natural greenery") UNLESS the florist's own request named that flower, or the real stock list above supports it AND the request is actually about that stock.
 - brand_traits_used / visual_traits_used: only the traits from the summaries above that you actually wove into this post — [] if none were used. Never list a trait you didn't actually use.
@@ -318,12 +321,12 @@ function traitsGroundedInSummary(traits, summaryText) {
 /** Generates one finished, platform-formatted social post. Never throws —
  * returns { ok:false, error } on any failure so a caller can persist that
  * outcome and keep the rest of a multi-step job running. */
-export async function generateSocialPost({ persona = "Lily", channel, occasion, audience, shop, requestText, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary, recentContentSummary } = {}) {
+export async function generateSocialPost({ persona = "Lily", channel, occasion, audience, shop, requestText, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary, recentContentSummary, concept } = {}) {
   try {
     const result = await runCloudflareGenerate({
       mode: "generate",
       persona,
-      task: buildSocialPostTask({ channel, occasion, audience, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary, recentContentSummary, requestText }),
+      task: buildSocialPostTask({ channel, occasion, audience, shop, brandVoiceSummary, visualStyleSummary, inventorySummary, audienceSummary, recentContentSummary, requestText, concept }),
       input: { request: sanitizedRequestForModel(requestText, shop?.name), shop: shop || {} },
       schema: SOCIAL_POST_SCHEMA,
       max_tokens: 700
@@ -523,6 +526,22 @@ function copyVoiceLine(copyVoice) {
   return `- Tone/voice for this content: ${phrases.join("; ")}. Let this shape word choice and rhythm only — it never overrides the fact-safety, sympathy, or operational rules elsewhere in these instructions.`;
 }
 
+// Live-found defect fix: a self-purchase caption ("Give me a cute post
+// about buying yourself flowers.", submitted on a Saturday) invented
+// "Self-care Sunday" out of nothing — no day was ever mentioned. This is
+// a general fact-safety gap, not a one-off: a model must never invent a
+// day-of-week, date, "today/tonight/tomorrow," "this weekend," a
+// deadline, or manufactured urgency-by-timing just because it sounds
+// catchy. This prompt-level rule is the first line of defense; a
+// deterministic backstop (detectInventedTemporalClaim/
+// stripInventedTemporalClaims in marketing-content-revision.js) strips
+// an invented day-of-week/relative-day/date sentence regardless of
+// whether the model follows this rule. Reused by every task builder
+// below that produces customer-facing copy — never a per-function copy
+// of this text.
+const TEMPORAL_FACT_SAFETY_RULE =
+  "- Never invent a day-of-week (\"Sunday,\" \"Monday\"...), a date, \"today/tonight/tomorrow,\" \"this morning/afternoon/evening/weekend,\" a deadline, a sale/event timing, or urgency based on invented timing — use temporal language ONLY when the florist's own request actually supplied it. A catchy-sounding day or timing hook you made up is exactly as much a fabricated fact as an invented price or phone number.";
+
 // Live-found defect fix (self-purchase copy fell back to generic florist
 // language — "Give me a cute post about buying yourself flowers." produced
 // "Lilies in Bloom designs flowers for the moments that matter..." with no
@@ -546,7 +565,7 @@ const AUDIENCE_COPY_GUIDANCE = {
   business_clients: "This post is for business clients — professional and to the point.",
   romantic_partners: "This post is for someone shopping for a romantic partner — warm, a little romantic, never generic.",
   self_purchase:
-    "This post is for someone buying flowers for THEMSELVES, not sending them to anyone else. Write it as a genuine treat-yourself/self-care moment, speaking directly and warmly to the person buying — never assume or imply the flowers are a gift being sent or given to another person, and never fall back on generic all-purpose florist language when the request is clearly this specific, personal act of buying for yourself.",
+    "This post is for someone buying flowers for THEMSELVES, not sending them to anyone else. Write it as a genuine treat-yourself/self-care moment, speaking directly and warmly to the person buying — never assume or imply the flowers are a gift being sent or given to another person, and never fall back on generic all-purpose florist language when the request is clearly this specific, personal act of buying for yourself. Give real permission, plainly: no special occasion or someone else's surprise is needed — a beautiful bouquet can be reason enough, on its own, today. Write like an actual person talking to another person, not a marketing brochure — short, direct, a little conversational, genuinely warm rather than performed. Never manufacture an occasion, a hook, or a sense of timing (a day of the week, a countdown, a limited-time framing) that the request didn't actually give you — the moment is 'whenever you decide,' not a specific invented day.",
   gift_buyers: "This post is for someone choosing a gift for someone else — the flowers are being given to another person, not kept.",
   existing_customers: "This post is for the shop's own existing, returning customers — a warm thank-you tone, not a first-time pitch.",
   funeral_families: null,
@@ -582,6 +601,7 @@ Rules:
 ${shopIdentityRule(shop?.name, occasion)}
 ${copyVoiceLine(concept?.copyVoice)}
 ${audienceCopyLine(concept?.audience)}
+${TEMPORAL_FACT_SAFETY_RULE}
 - ANY concrete fact the florist gave you verbatim — a time, a phone number, a price, a date, a percentage — must appear in your output EXACTLY as given. Never paraphrase, round, or reformat a number or time. This is the single most important rule here.
 - headline: short, bold, the first thing read.
 - body: the supporting line(s) — can be empty string if the headline says everything.
@@ -694,6 +714,8 @@ export async function persistGeneratedAsset(client, {
 // marketing-creative-director.js.
 export const _internalsForTesting = {
   buildFlyerContentTask,
+  buildSocialPostTask,
   COPY_VOICE_PHRASES,
-  AUDIENCE_COPY_GUIDANCE
+  AUDIENCE_COPY_GUIDANCE,
+  TEMPORAL_FACT_SAFETY_RULE
 };

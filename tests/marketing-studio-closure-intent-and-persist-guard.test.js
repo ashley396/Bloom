@@ -357,7 +357,7 @@ test("revise_content (real dispatch): an ordinary instruction ('make it clear we
   const mock = mockCloudflareCopyOnce({
     platform: "facebook",
     headline: "Closing early today",
-    body: "Just a reminder — we're closing early today at 2:30 PM! Call 606-506-4039 if you still need to place an order. Open as usual tomorrow.",
+    body: "Just a reminder — we're closing early today at 2:30 PM! Call 606-506-4039 if you still need to place an order.",
     cta: "Call now",
     hashtags: [],
     brand_traits_used: [],

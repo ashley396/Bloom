@@ -4,7 +4,9 @@ import {
   evaluateMarketingOutput,
   detectVisualFictionLeakage,
   stripVisualFictionLeakage,
-  detectCtaCoherenceMismatch
+  detectCtaCoherenceMismatch,
+  detectInventedTemporalClaim,
+  stripInventedTemporalClaims
 } from "../netlify/functions/_shared/marketing-content-revision.js";
 
 /**
@@ -537,4 +539,127 @@ test("PRESERVED: hour-only times such as 3 PM remain exact", () => {
   });
   assert.equal(result.decision, "pass");
   assert.match(result.safeCandidate.body, /3 PM/i);
+});
+
+// ---------------------------------------------------------------------------
+// detectInventedTemporalClaim / stripInventedTemporalClaims — real,
+// live-found failure: a self-purchase caption for a Saturday request
+// ("Give me a cute post about buying yourself flowers.") invented
+// "Self-care Sunday" out of nothing. Deterministic, general fix — never a
+// one-off ban on the word "Sunday."
+// ---------------------------------------------------------------------------
+
+test("detectInventedTemporalClaim: an invented day-of-week with nothing in the request supporting it is flagged", () => {
+  const violations = detectInventedTemporalClaim({
+    generatedText: "Self-care Sunday just got a whole lot brighter. Take a moment to indulge in the simple pleasure of buying yourself flowers.",
+    requestText: "Give me a cute post about buying yourself flowers."
+  });
+  assert.equal(violations.length, 1);
+  assert.match(violations[0], /Self-care Sunday/);
+});
+
+test("detectInventedTemporalClaim: 'tonight'/'tomorrow' and 'this weekend' are all caught the same way when unsupported", () => {
+  for (const text of [
+    "There's no better night than tonight to buy yourself flowers.",
+    "Stop by tomorrow and pick out something beautiful.",
+    "This weekend is the perfect time to buy yourself flowers."
+  ]) {
+    const violations = detectInventedTemporalClaim({ generatedText: text, requestText: "Give me a cute post about buying yourself flowers." });
+    assert.ok(violations.length > 0, `expected a violation for: ${text}`);
+  }
+});
+
+test("detectInventedTemporalClaim: bare 'today' is deliberately NOT flagged — idiomatic CTA urgency ('order today', 'visit us today'), never a checkably-false claim the way a specific weekday is", () => {
+  const violations = detectInventedTemporalClaim({
+    generatedText: "Treat yourself today with a beautiful bouquet.",
+    requestText: "Give me a cute post about buying yourself flowers."
+  });
+  assert.equal(violations.length, 0);
+});
+
+test("detectInventedTemporalClaim: an invented calendar date is caught the same way", () => {
+  const violations = detectInventedTemporalClaim({
+    generatedText: "Mark your calendar for March 3rd and treat yourself to something beautiful.",
+    requestText: "Give me a cute post about buying yourself flowers."
+  });
+  assert.ok(violations.length > 0);
+});
+
+test("detectInventedTemporalClaim: SUPPORTED — when the florist's own request already names a day/date/relative-day, the same class of temporal language is never flagged", () => {
+  const violations = detectInventedTemporalClaim({
+    generatedText: "Closing early today — call ahead if you need anything.",
+    requestText: "Lilies in Bloom will close early today, call 606-506-4039 to place an order."
+  });
+  assert.equal(violations.length, 0);
+});
+
+test("detectInventedTemporalClaim: a request that already carries an explicit date (e.g. a real event reminder) never gets that date stripped", () => {
+  const violations = detectInventedTemporalClaim({
+    generatedText: "Homecoming is September 19th — order your flowers soon!",
+    requestText: "Remind students and parents the Homecoming Dance is September 19th, flowers need to be ordered as soon as possible."
+  });
+  assert.equal(violations.length, 0);
+});
+
+test("detectInventedTemporalClaim: an ordinary sentence with no temporal language at all is never flagged", () => {
+  const violations = detectInventedTemporalClaim({
+    generatedText: "Buy yourself the flowers. You don't need a special occasion — a beautiful bouquet is reason enough.",
+    requestText: "Give me a cute post about buying yourself flowers."
+  });
+  assert.equal(violations.length, 0);
+});
+
+test("stripInventedTemporalClaims: removes only the invented-temporal sentence, keeps the rest of the caption intact", () => {
+  const result = stripInventedTemporalClaims({
+    generatedText: "Self-care Sunday just got a whole lot brighter. Take a moment to indulge in the simple pleasure of buying yourself flowers. You deserve it!",
+    requestText: "Give me a cute post about buying yourself flowers."
+  });
+  assert.equal(result.removed.length, 1);
+  assert.doesNotMatch(result.text, /Sunday/);
+  assert.match(result.text, /buying yourself flowers/);
+  assert.match(result.text, /You deserve it/);
+});
+
+test("evaluateMarketingOutput end to end: the exact live-diagnosed 'Self-care Sunday' caption is flagged and deterministically repaired", () => {
+  const result = evaluateMarketingOutput({
+    route: "generate_content",
+    request: "Give me a cute post about buying yourself flowers.",
+    shopEvidence: { name: "Lilies in Bloom" },
+    candidate: {
+      headline: "Beautiful Blooms, Thoughtfully Arranged",
+      body: "Self-care Sunday just got a whole lot brighter. Take a moment to indulge in the simple pleasure of buying yourself flowers. You deserve it!",
+      cta: ""
+    },
+    component: "caption"
+  });
+  assert.ok(result.reasons.some((r) => /Self-care Sunday/.test(r)));
+  assert.doesNotMatch(result.safeCandidate.body, /Sunday/);
+});
+
+test("evaluateMarketingOutput: PRESERVED — an operational notice's own real day (e.g. 'closing today') survives the new temporal check untouched", () => {
+  const result = evaluateMarketingOutput({
+    route: "generate_content",
+    request: "Lilies in Bloom will close early today, call 606-506-4039 to place an order.",
+    shopEvidence: { name: "Lilies in Bloom", phone: "606-506-4039" },
+    candidate: { headline: "Closing Early Today", body: "We're closing early today — call ahead if you need anything.", cta: "Call 606-506-4039" },
+    component: "flyer_text"
+  });
+  assert.equal(result.decision, "pass");
+  assert.match(result.safeCandidate.body, /today/i);
+});
+
+test("evaluateMarketingOutput: PRESERVED — a real named-event/campaign date the request itself supplied (Homecoming, September 19th) is never stripped", () => {
+  const result = evaluateMarketingOutput({
+    route: "generate_content",
+    request: "Remind students and parents the Homecoming Dance is September 19th, flowers need to be ordered as soon as possible.",
+    shopEvidence: { name: "Lilies in Bloom" },
+    candidate: {
+      headline: "Homecoming Is Almost Here",
+      body: "Homecoming is September 19th — order your flowers soon so you're ready!",
+      cta: "Order now"
+    },
+    component: "flyer_text"
+  });
+  assert.doesNotMatch(result.safeCandidate.body, /^$/);
+  assert.match(result.safeCandidate.body, /September 19th/);
 });

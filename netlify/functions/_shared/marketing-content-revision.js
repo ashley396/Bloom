@@ -1398,6 +1398,89 @@ export function stripUnverifiedServiceAvailabilityClaims({ generatedText, reques
 }
 
 // ---------------------------------------------------------------------------
+// Invented temporal claims — real, live-found failure: a self-purchase
+// caption for a Saturday request ("Give me a cute post about buying
+// yourself flowers.") invented "Self-care Sunday" out of nothing. The
+// request named no day at all; the model added a specific weekday purely
+// because it sounded catchy. Deterministic, general fix — never a
+// one-off ban on the word "Sunday" — following the exact same
+// "supported only when the request itself supplies it" shape as
+// detectUnverifiedServiceAvailabilityClaim above.
+//
+// Deliberately narrow scope: day-of-week names, relative-day phrases
+// (tonight/tomorrow, this morning/afternoon/evening/weekend), and literal
+// calendar dates (reusing DATE_RE, the same fact token every other
+// date-sensitive check in this file already uses). Named holidays/
+// seasonal occasions and event deadlines are governed by this codebase's
+// own separate, already-correct occasion/campaign classification
+// (marketing-canonical-concept.js) and are deliberately NOT duplicated
+// here — this detector only covers the literal day/date claims a model
+// can hallucinate with no classification system behind them at all.
+//
+// Bare "today" is deliberately EXCLUDED from this deterministic check
+// (a real pre-existing test — "Visit us today" as an ordinary CTA —
+// confirmed this): unlike "Sunday" (asserts a SPECIFIC day that can be
+// objectively wrong) or "tomorrow"/"tonight" (assert a day OTHER than
+// now), "today" is self-referential to whenever the post is actually
+// read and is never a checkably false claim — it's the same idiomatic
+// urgency word as "now," used throughout this codebase's own existing
+// marketing copy ("order today," "call today"). The prompt-level
+// TEMPORAL_FACT_SAFETY_RULE (ai-creative-engine.js) still discourages a
+// model from manufacturing "today" as if it were a specific occasion;
+// this deterministic backstop is reserved for the classes of temporal
+// claim that are actually, objectively checkable and were the real
+// live-found failure mode.
+// ---------------------------------------------------------------------------
+
+const DAY_OF_WEEK_RE = /\b(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i;
+const RELATIVE_DAY_RE = /\b(?:tonight|tomorrow)\b|\bthis\s+(?:morning|afternoon|evening|weekend)\b/i;
+const INVENTED_TEMPORAL_CLAIM_RE = new RegExp(`${DAY_OF_WEEK_RE.source}|${RELATIVE_DAY_RE.source}|${DATE_RE.source}`, "i");
+
+/**
+ * Sentences in `generatedText` that name a specific day-of-week, relative
+ * day, or calendar date with nothing in `requestText` actually supplying
+ * that class of temporal claim.
+ *
+ * SUPPORTED whenever the florist's own request already carries the same
+ * class of temporal signal anywhere in it (a day name, "today," a real
+ * date, etc.) — mirrors detectUnverifiedServiceAvailabilityClaim's own
+ * "supported by the request" escape hatch exactly; this is never a
+ * blanket ban on all temporal language, only on INVENTING it from
+ * nothing the request never supplied.
+ *
+ * Pure. Never shop-specific.
+ */
+export function detectInventedTemporalClaim({ generatedText, requestText } = {}) {
+  const text = String(generatedText || "");
+  const request = String(requestText || "");
+  if (INVENTED_TEMPORAL_CLAIM_RE.test(request)) return [];
+  const violations = [];
+  for (const sentence of sentencesOf(text)) {
+    if (INVENTED_TEMPORAL_CLAIM_RE.test(sentence)) violations.push(sentence.trim());
+  }
+  return violations;
+}
+
+/**
+ * Removes every sentence flagged by detectInventedTemporalClaim from
+ * `text`, rebuilding the remainder — same "cut the sentence, no fragment
+ * survives" pattern as stripUnverifiedServiceAvailabilityClaims (there is
+ * no safe substitute for an invented day/date; only the florist's own
+ * request can supply the real one).
+ *
+ * Pure. Returns { text, removed }.
+ */
+export function stripInventedTemporalClaims({ generatedText, requestText } = {}) {
+  const original = String(generatedText || "");
+  const violations = detectInventedTemporalClaim({ generatedText: original, requestText });
+  if (!violations.length) return { text: original, removed: [] };
+  const violationSet = new Set(violations);
+  const kept = sentencesOf(original).filter((s) => !violationSet.has(s.trim()));
+  const text = kept.join(" ").replace(/[ \t]{2,}/g, " ").trim();
+  return { text, removed: violations };
+}
+
+// ---------------------------------------------------------------------------
 // One-concept coherence — does the caption and the flyer's own on-image
 // text actually describe the SAME post?
 //
@@ -2217,6 +2300,13 @@ export function evaluateMarketingOutput({
     );
   }
 
+  checksRun.push("detectInventedTemporalClaim");
+  for (const v of detectInventedTemporalClaim({ generatedText: rawJoined, requestText })) {
+    reasons.push(
+      `"${v}" names a specific day-of-week, "today/tonight/tomorrow," "this weekend," or a date that the florist's own request never supplied — never invent a day or date just because it sounds catchy. Only use temporal language the request itself actually gives you.`
+    );
+  }
+
   checksRun.push("detectVisualFictionLeakage");
   for (const v of detectVisualFictionLeakage({ generatedText: rawJoined, shopEvidence })) {
     reasons.push(
@@ -2260,6 +2350,7 @@ export function evaluateMarketingOutput({
     "stripFabricatedContactNumbers",
     "stripUnverifiedInventoryClaims",
     "stripUnverifiedServiceAvailabilityClaims",
+    "stripInventedTemporalClaims",
     "stripVisualFictionLeakage"
   );
   const fields = { ...originalFields };
@@ -2280,6 +2371,11 @@ export function evaluateMarketingOutput({
     const serviceCleaned = stripUnverifiedServiceAvailabilityClaims({ generatedText: text, requestText, verifiedServiceSignals });
     if (serviceCleaned.removed.length) {
       text = serviceCleaned.text;
+      repaired = true;
+    }
+    const temporalCleaned = stripInventedTemporalClaims({ generatedText: text, requestText });
+    if (temporalCleaned.removed.length) {
+      text = temporalCleaned.text;
       repaired = true;
     }
     const fictionCleaned = stripVisualFictionLeakage({ generatedText: text, shopEvidence });

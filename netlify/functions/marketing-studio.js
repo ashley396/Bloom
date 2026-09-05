@@ -2768,6 +2768,50 @@ export function createMarketingStudioHandler(deps = {}) {
           structuredLog("info", "marketing_generate_content_fact_safety", { traceId: genTraceId, deterministic: true });
         } else {
           await recordUsage("copy", "request", 1);
+          // Live-found defect fix ("Self-care Sunday" — an invented-
+          // temporal-claim caption that also read too generic for a
+          // self-purchase request): this social-post call, not
+          // generateFlyerContent, is what actually produces the
+          // customer-facing caption (copyGen.content.body persists as
+          // the caption below) — the SAME classifyAudience/
+          // classifyCopyVoice classifiers already used for the later
+          // flyer/canonical concept, applied here too, at the point this
+          // earlier call actually needs them. Never a second,
+          // independently-derived audience/tone signal.
+          const socialConceptIsSympathy = BEREAVEMENT_CONTEXT_RE.test(`${currentItem.data.title} ${currentItem.data.brief}`);
+          const socialConceptOccasionCategory = classifyOccasionCategory({
+            occasionTitle: currentItem.data.title,
+            requestText: currentItem.data.brief,
+            objective: null,
+            isSympathy: socialConceptIsSympathy
+          });
+          const socialConceptNamedCampaign = classifyNamedCampaign({
+            occasionTitle: currentItem.data.title,
+            requestText: currentItem.data.brief,
+            isSympathy: socialConceptIsSympathy,
+            occasionCategory: socialConceptOccasionCategory
+          });
+          const socialConceptCreativeMode = classifyCreativeMode({
+            occasionCategory: socialConceptOccasionCategory,
+            namedCampaign: socialConceptNamedCampaign,
+            sympathyClassification: socialConceptIsSympathy ? "sympathy" : "not_sympathy",
+            promotionIntent: requestSignalsRealPromotion(currentItem.data.brief) ? "real_promotion" : "not_promotion",
+            requestText: currentItem.data.brief
+          });
+          const socialConceptAudience = classifyAudience({
+            requestText: currentItem.data.brief,
+            occasionTitle: currentItem.data.title,
+            isSympathy: socialConceptIsSympathy,
+            occasionCategory: socialConceptOccasionCategory
+          });
+          const socialConceptCopyVoice = classifyCopyVoice({
+            creativeMode: socialConceptCreativeMode,
+            namedCampaign: socialConceptNamedCampaign,
+            occasionCategory: socialConceptOccasionCategory,
+            sympathyClassification: socialConceptIsSympathy ? "sympathy" : "not_sympathy",
+            factRequirements: deriveFactRequirements({ requestText: currentItem.data.brief, objective: null }),
+            requestText: currentItem.data.brief
+          });
           const socialPostArgs = {
             persona: "Lily",
             channel: primaryPlatform,
@@ -2778,7 +2822,8 @@ export function createMarketingStudioHandler(deps = {}) {
             visualStyleSummary,
             inventorySummary,
             audienceSummary,
-            recentContentSummary
+            recentContentSummary,
+            concept: { isSympathy: socialConceptIsSympathy, audience: socialConceptAudience, copyVoice: socialConceptCopyVoice }
           };
           copyGen = await generateSocialPost(socialPostArgs);
           if (!copyGen.ok) {

@@ -17,8 +17,8 @@ function mockAllCloudflareCalls() {
   const textResult = {
     platform: "facebook",
     headline: "Homecoming season is here!",
-    body: "Order your Homecoming corsage or boutonniere by Wednesday for guaranteed Friday pickup.",
-    cta: "Order by Wednesday",
+    body: "Order your Homecoming corsage or boutonniere soon — pickup is available in time for the dance.",
+    cta: "Order Now",
     visual_brief: "A red spray rose corsage on a wrist, shot in natural light.",
     hashtags: ["#homecoming"],
     asset_requirements: [],
@@ -27,7 +27,7 @@ function mockAllCloudflareCalls() {
     concept: "A quick behind-the-counter look at building a corsage.",
     script: "",
     scenes: ["0-3s: hands selecting a spray rose from the cooler"],
-    captions: ["Order by Wednesday"],
+    captions: ["Order Now"],
     suggested_length_seconds: 15
   };
   globalThis.fetch = async (url) => {
