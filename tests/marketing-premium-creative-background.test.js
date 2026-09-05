@@ -132,6 +132,118 @@ test("Part D/E success path: claims the job, marks durable pre/post markers, per
   });
 });
 
+test("Batch 6, Part 6: a shop with a real logo_url and website has both carried through to the persisted asset's content.brand (Path B) — Path A's verified_shop_brand_data stays untouched, name+phone only", async () => {
+  await withSecret(async () => {
+    const client = createFakeSupabaseClient([
+      { data: [{ ...plannedJob, status: "running" }], error: null }, // claim
+      { data: { plan: plannedJob.plan }, error: null }, // markStarting read
+      { data: { id: "job-1" }, error: null }, // markStarting update
+      { data: { plan: plannedJob.plan }, error: null }, // markFinished read
+      { data: { id: "job-1" }, error: null }, // markFinished update
+      { data: { id: "item-1", title: "Everyday" }, error: null }, // content item lookup
+      {
+        data: {
+          name: "Test Florals",
+          phone: "555-0100",
+          primary_color: "#fff",
+          accent_color: "#000",
+          city: "Springfield",
+          state: "IL",
+          logo_url: "https://fake.storage/logo.png",
+          website: "https://testflorals.example"
+        },
+        error: null
+      }, // shop row
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // variants
+      { data: null, error: null }, // variant update
+      { data: [{ id: "item-1", status: "draft" }], error: null }, // final content item update
+      { data: { plan: plannedJob.plan, result: plannedJob.result }, error: null }, // settleCompleted read
+      { data: { id: "job-1", status: "completed" }, error: null } // settleCompleted update
+    ]);
+    let persistedContent = null;
+    const handler = createMarketingPremiumCreativeBackgroundHandler({
+      getClient: () => client,
+      executeReservedPremiumCreativeGeneration: async (params) => {
+        await params.onBeforeProviderCall({ provider: { name: "openai", model: "gpt-image-2" }, execution: {} });
+        await params.onAfterProviderCall({ execution: { provider_http_status: 200, provider_result_ok: true } });
+        // Path A: the SAME narrow, name+phone-only object this batch must
+        // never expand — asserted below unchanged, distinct from Path B.
+        assert.deepEqual(params.verifiedShopBrandData, plannedJob.result.verified_shop_brand_data);
+        return {
+          ok: true,
+          state: "success",
+          diagnostic: { environment: {}, provider: {}, usage: {}, execution: { provider_result_ok: true }, orchestrator: {} },
+          result: {
+            provider: "openai",
+            model: "gpt-image-2",
+            backgroundImageUrl: "https://fake.storage/openai/bg.png",
+            creativeDirection: plannedJob.result.creative_direction,
+            overlays: { styleText: [], deterministicText: [], factsAllowed: [] }
+          }
+        };
+      },
+      persistGeneratedAsset: async (_client, args) => {
+        persistedContent = args.content;
+        return { ok: true, asset: { id: "asset-1" } };
+      }
+    });
+    const res = await handler(baseEvent({ jobId: "job-1" }));
+    assert.equal(res.statusCode, 200, res.body);
+    assert.equal(persistedContent.brand.logoUrl, "https://fake.storage/logo.png");
+    assert.equal(persistedContent.brand.website, "https://testflorals.example");
+    // Untouched pre-existing Path B fields still carry through unchanged.
+    assert.equal(persistedContent.brand.shopName, "Test Florals");
+    assert.equal(persistedContent.brand.phone, "555-0100");
+  });
+});
+
+test("Batch 6, Part 6: a shop with no logo_url/website on file persists content.brand with those fields explicitly null, never dropped or fabricated", async () => {
+  await withSecret(async () => {
+    const client = createFakeSupabaseClient([
+      { data: [{ ...plannedJob, status: "running" }], error: null }, // claim
+      { data: { plan: plannedJob.plan }, error: null }, // markStarting read
+      { data: { id: "job-1" }, error: null }, // markStarting update
+      { data: { plan: plannedJob.plan }, error: null }, // markFinished read
+      { data: { id: "job-1" }, error: null }, // markFinished update
+      { data: { id: "item-1", title: "Everyday" }, error: null }, // content item lookup
+      { data: { name: "Test Florals", phone: "555-0100", primary_color: "#fff", accent_color: "#000", city: "Springfield", state: "IL" }, error: null }, // shop row, no logo_url/website
+      { data: [{ id: "variant-1", platform: "facebook" }], error: null }, // variants
+      { data: null, error: null }, // variant update
+      { data: [{ id: "item-1", status: "draft" }], error: null }, // final content item update
+      { data: { plan: plannedJob.plan, result: plannedJob.result }, error: null }, // settleCompleted read
+      { data: { id: "job-1", status: "completed" }, error: null } // settleCompleted update
+    ]);
+    let persistedContent = null;
+    const handler = createMarketingPremiumCreativeBackgroundHandler({
+      getClient: () => client,
+      executeReservedPremiumCreativeGeneration: async (params) => {
+        await params.onBeforeProviderCall({ provider: { name: "openai", model: "gpt-image-2" }, execution: {} });
+        await params.onAfterProviderCall({ execution: { provider_http_status: 200, provider_result_ok: true } });
+        return {
+          ok: true,
+          state: "success",
+          diagnostic: { environment: {}, provider: {}, usage: {}, execution: { provider_result_ok: true }, orchestrator: {} },
+          result: {
+            provider: "openai",
+            model: "gpt-image-2",
+            backgroundImageUrl: "https://fake.storage/openai/bg.png",
+            creativeDirection: plannedJob.result.creative_direction,
+            overlays: { styleText: [], deterministicText: [], factsAllowed: [] }
+          }
+        };
+      },
+      persistGeneratedAsset: async (_client, args) => {
+        persistedContent = args.content;
+        return { ok: true, asset: { id: "asset-1" } };
+      }
+    });
+    const res = await handler(baseEvent({ jobId: "job-1" }));
+    assert.equal(res.statusCode, 200, res.body);
+    assert.equal(persistedContent.brand.logoUrl, null);
+    assert.equal(persistedContent.brand.website, null);
+  });
+});
+
 test("Part D/F failure path: a known provider failure settles the job AND usage as failed, never as completed, and marks the content item honestly 'failed'", async () => {
   await withSecret(async () => {
     const client = createFakeSupabaseClient([

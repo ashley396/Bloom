@@ -194,7 +194,7 @@ export function createMarketingPremiumCreativeBackgroundHandler(deps = {}) {
       const currentItem = await client.from("marketing_content_items").select("id,title").eq("id", contentItemId).eq("shop_id", shopId).maybeSingle();
       if (currentItem.error) throw currentItem.error;
       const occasionTitle = flyerCtx.occasion_title || currentItem.data?.title || "";
-      const shopRow = await client.from("shops").select("name,phone,primary_color,accent_color,city,state,logo_url").eq("id", shopId).maybeSingle();
+      const shopRow = await client.from("shops").select("name,phone,primary_color,accent_color,city,state,logo_url,website").eq("id", shopId).maybeSingle();
       if (shopRow.error) throw shopRow.error;
 
       const primaryPlatform = flyerCtx.primary_platform || "facebook";
@@ -230,13 +230,31 @@ export function createMarketingPremiumCreativeBackgroundHandler(deps = {}) {
           palette: template.palette,
           canvas: ASPECT_RATIOS[aspectRatioKey],
           caption: flyerCtx.caption || null,
+          // Batch 6, Part 6: Path B (verified public brand data intentionally
+          // used in the FINISHED creative — distinct from Path A's narrow
+          // OpenAI fact-safety boundary, which stays name+phone only and is
+          // untouched by this change). logoUrl/website were already queried
+          // above (logoUrl) or added just above (website) but previously
+          // discarded here — both are already-safe fields the deterministic
+          // renderer (public/flyer-renderer.js) has long known how to draw,
+          // gated by creativeDirection's own decision, never automatic:
+          // - logoUrl only renders when creativeDirection.brandIdentifier is
+          //   "logo"/"both", which itself requires a verified logo on file
+          //   (isBrandIdentifierSupported in marketing-creative-direction.js).
+          // - website only renders inside the footer contact line, and only
+          //   when graphicTextSlots.phone is true (a real call_shop CTA
+          //   context) — never printed unconditionally.
+          // - Neither renders at all when graphicTextSlots.brand/phone are
+          //   false (e.g. photo_forward_social), same as shopName/phone today.
           brand: {
             shopName: shopRow.data?.name || null,
             phone: shopRow.data?.phone || null,
             primaryColor: shopRow.data?.primary_color || null,
             accentColor: shopRow.data?.accent_color || null,
             city: shopRow.data?.city || null,
-            state: shopRow.data?.state || null
+            state: shopRow.data?.state || null,
+            logoUrl: shopRow.data?.logo_url || null,
+            website: shopRow.data?.website || null
           },
           brand_traits_used: flyerCtx.brand_traits_used || [],
           visual_traits_used: flyerCtx.visual_traits_used || [],
