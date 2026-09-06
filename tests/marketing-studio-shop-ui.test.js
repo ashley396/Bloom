@@ -38,7 +38,7 @@ test("every action this panel calls is in the real florist allowlist (no drift, 
 });
 
 test("the create-post form guards against double-submit", () => {
-  const start = uiSrc.indexOf('el.querySelector("#msCreateItemForm")?.addEventListener("submit"');
+  const start = uiSrc.indexOf('formRegion.querySelector("#msCreateItemForm")?.addEventListener("submit"');
   assert.ok(start > -1, "could not find the msCreateItemForm submit handler");
   const end = uiSrc.indexOf("\n    });", start) + "\n    });".length;
   const handler = uiSrc.slice(start, end);
@@ -48,7 +48,7 @@ test("the create-post form guards against double-submit", () => {
 });
 
 test("one message in, one finished draft out: submitting the create-post form chains straight into generate_content — no separate 'start generating' click required", () => {
-  const start = uiSrc.indexOf('el.querySelector("#msCreateItemForm")?.addEventListener("submit"');
+  const start = uiSrc.indexOf('formRegion.querySelector("#msCreateItemForm")?.addEventListener("submit"');
   const end = uiSrc.indexOf("\n    });", start) + "\n    });".length;
   const handler = uiSrc.slice(start, end);
   assert.match(handler, /studioApi\("create_content_item"/, "must still create the item first");
@@ -193,7 +193,7 @@ test("UI 25: the create-post flow never unconditionally claims a flyer is 'ready
   // mountFlyerPreviews) before there's a real, durable asset — the initial
   // toast right after generate_content resolves must gate on the
   // returned asset's real type, never say "ready" unconditionally.
-  const bindStart = uiSrc.indexOf("function bind(el) {");
+  const bindStart = uiSrc.indexOf("function bindCreateForm(formRegion) {");
   const submitEnd = uiSrc.indexOf("form.reset();", bindStart);
   assert.ok(bindStart > -1 && submitEnd > -1, "could not locate the create-post submit handler");
   const submitHandler = uiSrc.slice(bindStart, submitEnd);

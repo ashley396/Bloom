@@ -6,7 +6,10 @@ import {
   stripVisualFictionLeakage,
   detectCtaCoherenceMismatch,
   detectInventedTemporalClaim,
-  stripInventedTemporalClaims
+  stripInventedTemporalClaims,
+  findHollowSentences,
+  detectWeakMarketingCopy,
+  buildDeterministicCreativeRescueContent
 } from "../netlify/functions/_shared/marketing-content-revision.js";
 
 /**
@@ -662,4 +665,153 @@ test("evaluateMarketingOutput: PRESERVED — a real named-event/campaign date th
   });
   assert.doesNotMatch(result.safeCandidate.body, /^$/);
   assert.match(result.safeCandidate.body, /September 19th/);
+});
+
+// ---------------------------------------------------------------------------
+// Self-purchase quality-gate fix (2026-09-05 live-found defect): a
+// self_purchase request correctly reached generateSocialPost with real
+// audience/copyVoice intelligence, but the caption still got discarded by
+// findHollowSentences (called inside detectWeakMarketingCopy, called inside
+// evaluateMarketingOutput) and replaced with
+// buildDeterministicCreativeRescueContent's generic shop copy. These tests
+// prove the narrow, audience-gated fix at each layer: findHollowSentences
+// itself, detectWeakMarketingCopy, the full evaluateMarketingOutput
+// pipeline, and the deterministic rescue content.
+// ---------------------------------------------------------------------------
+
+const SELF_PURCHASE_TWO_SENTENCE_COPY =
+  "You don't need a special occasion to bring flowers home. Treat yourself to something beautiful — you deserve it just because.";
+
+test("findHollowSentences: self_purchase audience exempts a sentence that itself carries real self-purchase framing", () => {
+  const hollow = findHollowSentences(
+    "Treat yourself to a bouquet — you don't need a special occasion to bring flowers home.",
+    "Lilies in Bloom",
+    { audience: "self_purchase" }
+  );
+  assert.equal(hollow.length, 0);
+});
+
+test("findHollowSentences: self_purchase audience still flags genuinely vague filler with no self-purchase framing at all", () => {
+  const hollow = findHollowSentences(
+    "Every day is a wonderful opportunity to add a little more joy into your life.",
+    "Lilies in Bloom",
+    { audience: "self_purchase" }
+  );
+  assert.equal(hollow.length, 1);
+});
+
+test("findHollowSentences: the same self-purchase-framed sentence is NOT exempted for a different (recipient-oriented) audience", () => {
+  const hollow = findHollowSentences(
+    "Treat yourself to a bouquet — you don't need a special occasion to bring flowers home.",
+    "Lilies in Bloom",
+    { audience: "gift_buyers" }
+  );
+  assert.equal(hollow.length, 1);
+});
+
+test("findHollowSentences: no audience supplied at all behaves exactly as before this fix (self-purchase framing still flagged)", () => {
+  const hollow = findHollowSentences("Treat yourself to a bouquet — you don't need a special occasion to bring flowers home.", "Lilies in Bloom");
+  assert.equal(hollow.length, 1);
+});
+
+test("detectWeakMarketingCopy: meaningful self_purchase copy is not rejected merely for lacking a named product/recipient", () => {
+  const reasons = detectWeakMarketingCopy("Give me a cute post about buying yourself flowers.", SELF_PURCHASE_TWO_SENTENCE_COPY, {
+    shopName: "Lilies in Bloom",
+    audience: "self_purchase"
+  });
+  assert.equal(reasons.length, 0);
+});
+
+test("detectWeakMarketingCopy: the exact same generic-sounding copy is still rejected as weak/hollow for a recipient-oriented (gift_buyers) request", () => {
+  const reasons = detectWeakMarketingCopy("Surprise her with flowers for no reason.", SELF_PURCHASE_TWO_SENTENCE_COPY, {
+    shopName: "Lilies in Bloom",
+    audience: "gift_buyers"
+  });
+  assert.ok(reasons.length > 0);
+});
+
+test("detectWeakMarketingCopy: genuinely vague filler with no self-purchase framing is still rejected even for self_purchase", () => {
+  const reasons = detectWeakMarketingCopy(
+    "Give me a cute post about buying yourself flowers.",
+    "Every day is a wonderful opportunity to add a little more joy into your life. Life is full of small moments that deserve to be appreciated fully.",
+    { shopName: "Lilies in Bloom", audience: "self_purchase" }
+  );
+  assert.ok(reasons.length > 0);
+});
+
+test("evaluateMarketingOutput end to end: meaningful self_purchase copy now PASSES when canonicalConcept.audience is self_purchase (live-found fix)", () => {
+  const result = evaluateMarketingOutput({
+    route: "generate_content",
+    request: "Give me a cute post about buying yourself flowers.",
+    shopEvidence: { name: "Lilies in Bloom" },
+    canonicalConcept: { audience: "self_purchase" },
+    candidate: { headline: null, body: SELF_PURCHASE_TWO_SENTENCE_COPY, cta: "" },
+    component: "caption"
+  });
+  assert.equal(result.reasons.length, 0);
+  assert.equal(result.decision, "pass");
+});
+
+test("evaluateMarketingOutput end to end: recipient-oriented (gift_buyers) requests still use the existing quality rules — the same copy is rejected without the self_purchase audience", () => {
+  const result = evaluateMarketingOutput({
+    route: "generate_content",
+    request: "Surprise her with flowers for no reason.",
+    shopEvidence: { name: "Lilies in Bloom" },
+    canonicalConcept: { audience: "gift_buyers" },
+    candidate: { headline: null, body: SELF_PURCHASE_TWO_SENTENCE_COPY, cta: "" },
+    component: "caption"
+  });
+  assert.ok(result.reasons.length > 0);
+});
+
+test("evaluateMarketingOutput: a self_purchase caption with an invented temporal claim is still flagged and repaired — the temporal-safety fix and the audience-aware fix compose correctly", () => {
+  const result = evaluateMarketingOutput({
+    route: "generate_content",
+    request: "Give me a cute post about buying yourself flowers.",
+    shopEvidence: { name: "Lilies in Bloom" },
+    canonicalConcept: { audience: "self_purchase" },
+    candidate: { headline: null, body: "Self-care Sunday is here. Treat yourself to something beautiful — you deserve it just because.", cta: "" },
+    component: "caption"
+  });
+  assert.ok(result.reasons.some((r) => /Sunday/.test(r)));
+  assert.doesNotMatch(result.safeCandidate.body, /Sunday/);
+  // The self-purchase sentence itself must survive the repair untouched —
+  // only the invented-temporal sentence is stripped.
+  assert.match(result.safeCandidate.body, /Treat yourself/);
+});
+
+test("evaluateMarketingOutput: sympathy content is completely unaffected by the new audience-aware exemption (audience never self_purchase)", () => {
+  const result = evaluateMarketingOutput({
+    route: "generate_content",
+    request: "We need sympathy flowers for the Johnson family, their mother passed away.",
+    shopEvidence: { name: "Lilies in Bloom" },
+    canonicalConcept: { audience: "funeral_families" },
+    candidate: {
+      headline: "With Sympathy",
+      body: "With Deepest Sympathy — the Johnson family is in our thoughts during this loss. We're here to help however we can.",
+      cta: "Call to arrange delivery"
+    },
+    component: "caption"
+  });
+  assert.equal(result.reasons.filter((r) => /pictured or acted on/.test(r)).length, 0);
+});
+
+test("buildDeterministicCreativeRescueContent: self_purchase audience produces self-purchase-aware wording, never the generic gifting-adjacent rescue", () => {
+  const rescue = buildDeterministicCreativeRescueContent({ shopName: "Lilies in Bloom", shopPhone: "6065064039", audience: "self_purchase" });
+  assert.doesNotMatch(rescue.body, /brighten someone's day/);
+  assert.doesNotMatch(rescue.body, /moments that matter/);
+  assert.match(rescue.body, /Lilies in Bloom/);
+});
+
+test("buildDeterministicCreativeRescueContent: no audience (or a non-self_purchase audience) still produces the original generic rescue wording — unchanged", () => {
+  const rescueNoAudience = buildDeterministicCreativeRescueContent({ shopName: "Lilies in Bloom", shopPhone: "6065064039" });
+  assert.match(rescueNoAudience.body, /moments that matter/);
+  const rescueOtherAudience = buildDeterministicCreativeRescueContent({ shopName: "Lilies in Bloom", shopPhone: "6065064039", audience: "gift_buyers" });
+  assert.match(rescueOtherAudience.body, /moments that matter/);
+});
+
+test("buildDeterministicCreativeRescueContent: self_purchase rescue never hard-codes a specific shop — works generically with no shop name supplied", () => {
+  const rescue = buildDeterministicCreativeRescueContent({ audience: "self_purchase" });
+  assert.doesNotMatch(rescue.body, /brighten someone's day/);
+  assert.ok(rescue.body.length > 0);
 });

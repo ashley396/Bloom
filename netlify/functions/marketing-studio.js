@@ -2846,11 +2846,20 @@ export function createMarketingStudioHandler(deps = {}) {
           // was already wired at this exact call site before this refactor.
           const captionShopEvidence = { name: shopName, phone: shopRow.data?.phone };
           const captionInventoryEvidence = inventorySources || [];
+          // Self-purchase quality-gate fix (2026-09-05 live-found defect):
+          // the SAME socialConceptAudience already computed above (never a
+          // second classifier) is passed through as canonicalConcept.audience
+          // so evaluateMarketingOutput's detectWeakMarketingCopy can apply
+          // its narrow, audience-gated self-purchase exemption instead of
+          // treating deliberately universal self-purchase sentiment as
+          // hollow filler.
+          const captionConceptPreview = { audience: socialConceptAudience };
           let captionEval = evaluateMarketingOutput({
             route: "generate_content",
             request: currentItem.data.brief,
             shopEvidence: captionShopEvidence,
             inventoryEvidence: captionInventoryEvidence,
+            canonicalConcept: captionConceptPreview,
             candidate: copyGen.content,
             component: "caption"
           });
@@ -2923,6 +2932,7 @@ export function createMarketingStudioHandler(deps = {}) {
                 request: currentItem.data.brief,
                 shopEvidence: captionShopEvidence,
                 inventoryEvidence: captionInventoryEvidence,
+                canonicalConcept: captionConceptPreview,
                 candidate: retry.content,
                 component: "caption",
                 isRetryAttempt: true
@@ -2981,7 +2991,7 @@ export function createMarketingStudioHandler(deps = {}) {
             // non-operational creative case — the deterministic NOTICE
             // rescue must never be used here; it produced "Store Notice /
             // has an update for you" for an ordinary creative request.
-            const rescueFallback = buildDeterministicCreativeRescueContent({ shopName, shopPhone: shopRow.data?.phone });
+            const rescueFallback = buildDeterministicCreativeRescueContent({ shopName, shopPhone: shopRow.data?.phone, audience: socialConceptAudience });
             // Reused as `nf` by generateFlyerCopy below — this is what
             // stops the flyer's on-image wording from independently
             // re-attempting an AI call (and its own cost) for content

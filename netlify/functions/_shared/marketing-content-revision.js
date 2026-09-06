@@ -711,14 +711,29 @@ export function buildDeterministicNoticeContent({ requestText, shopName, shopPho
  * invented phrase — an empty CTA is honest; a location/open-state claim
  * with nothing behind it is not.
  */
-export function buildDeterministicCreativeRescueContent({ shopName, shopPhone, ctaIntent = null } = {}) {
+export function buildDeterministicCreativeRescueContent({ shopName, shopPhone, ctaIntent = null, audience = null } = {}) {
   const name = String(shopName || "").trim();
   const phone = shopPhone ? formatStoredPhoneForDisplay(shopPhone) : null;
 
-  const headline = "Beautiful Blooms, Thoughtfully Arranged";
-  const body = name
-    ? `${name} designs flowers for the moments that matter — a little something to brighten someone's day.`
-    : "Flowers designed for the moments that matter — a little something to brighten someone's day.";
+  // Defense-in-depth (2026-09-05 live-found defect): if self_purchase
+  // content genuinely reaches this rescue despite the primary fix above
+  // (findHollowSentences' audience-gated exemption), it must not fall back
+  // to the generic gifting-adjacent "moments that matter... brighten
+  // someone's day" wording below — that phrasing reads as flowers FOR
+  // someone else, exactly backwards for a self-purchase post. This uses
+  // only the existing audience classification (never a second signal) and
+  // a fixed, deterministic sentence — same mechanism as the generic
+  // rescue, just self-purchase-appropriate instead. Still never invents a
+  // flower species, inventory claim, promotion, occasion, or shop scenery.
+  const isSelfPurchase = audience === "self_purchase";
+  const headline = isSelfPurchase ? "Flowers, Just Because" : "Beautiful Blooms, Thoughtfully Arranged";
+  const body = isSelfPurchase
+    ? (name
+        ? `You don't need a reason to bring home flowers from ${name} — sometimes wanting them is reason enough.`
+        : "You don't need a reason to bring home flowers — sometimes wanting them is reason enough.")
+    : name
+      ? `${name} designs flowers for the moments that matter — a little something to brighten someone's day.`
+      : "Flowers designed for the moments that matter — a little something to brighten someone's day.";
 
   // A call CTA is only offered when the concept itself asked for one
   // (ctaIntent === "call_shop") or when no concept was supplied at all
@@ -1611,6 +1626,39 @@ const SPECIFIC_DETAIL_RE = new RegExp(
 // and must never be counted here.
 const SUBSTANTIVE_SENTENCE_WORDS = 9;
 
+// ---------------------------------------------------------------------------
+// Real, live-found failure (2026-09-05, "buy yourself flowers"): a
+// self_purchase request correctly reached generateSocialPost with
+// audience/copyVoice intelligence, but the caption still got discarded by
+// the checks below and replaced with buildDeterministicCreativeRescueContent's
+// generic shop copy. findHollowSentences (below) treats any long sentence
+// with no named flower/product/number/day as "hollow" — a reasonable
+// default for most copy, but exactly backwards for self_purchase, where
+// AUDIENCE_COPY_GUIDANCE (ai-creative-engine.js) deliberately asks for
+// universal, permission-giving sentiment ("you don't need a special
+// occasion") that has no named flower or recipient by design.
+//
+// This is a narrow, audience-GATED exemption, never a blanket one: it only
+// ever applies when the canonical concept's audience is actually
+// self_purchase (see findHollowSentences's own `audience` param), and even
+// then only exempts a sentence whose own wording actually carries one of
+// these general signal classes — never every long sentence for that
+// audience. Generic inspirational filler with none of these signals still
+// gets flagged as hollow for self_purchase exactly as before.
+//
+// Deliberately general signal classes, not one hard-coded example
+// sentence:
+//   - a reflexive self-purchase/treat verb ("buy yourself", "treat
+//     yourself", "spoil yourself", "gift yourself")
+//   - explicit occasion-negation ("no special occasion", "without an
+//     occasion", "don't need a reason")
+//   - explicit recipient-negation ("no one else", "someone else to
+//     surprise you")
+//   - self-care / personal-enjoyment framing ("self-care", "you deserve
+//     it", "reason enough", "just because")
+const SELF_PURCHASE_COPY_INTENT_RE =
+  /\b(?:buy|treat|spoil|gift)\s+(?:yourself|urself)\b|\b(?:no|without an?y?)\s+(?:special\s+)?occasion\b|\bdon'?t\s+need\s+(?:a|an|any)\s+(?:special\s+)?(?:reason|occasion|excuse)\b|\bno\s+one\s+else\b|\bsomeone\s+else\s+to\s+(?:surprise|buy|give)\b|\bself[- ]care\b|\byou\s+deserve\b|\breason\s+enough\b|\bjust\s+because\b/i;
+
 // Exported (Batch 1, Part 8) so marketing-openai-creative-brief.js's
 // text-token-separation classifier can reuse this exact sentence split
 // rather than re-implementing its own — one sentence-splitting rule for
@@ -1636,15 +1684,23 @@ export function sentencesOf(text) {
  *
  * Pure. Never shop-specific: the name is supplied by the caller from real shop
  * data, never hardcoded.
+ *
+ * `audience`, when supplied, narrowly exempts a self_purchase sentence that
+ * itself carries real self-purchase framing (SELF_PURCHASE_COPY_INTENT_RE
+ * above) from being counted as hollow — see that constant's own comment for
+ * why. Every other audience (including no audience supplied at all) is
+ * completely unaffected; this never loosens the check in general.
  */
-export function findHollowSentences(copyText, shopName) {
+export function findHollowSentences(copyText, shopName, { audience = null } = {}) {
   const name = String(shopName || "").trim();
   const stripName = (s) =>
     name ? s.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), " ") : s;
   return sentencesOf(copyText).filter((sentence) => {
     const bare = stripName(sentence);
     if (bare.split(/\s+/).filter(Boolean).length < SUBSTANTIVE_SENTENCE_WORDS) return false;
-    return !SPECIFIC_DETAIL_RE.test(bare);
+    if (SPECIFIC_DETAIL_RE.test(bare)) return false;
+    if (audience === "self_purchase" && SELF_PURCHASE_COPY_INTENT_RE.test(bare)) return false;
+    return true;
   });
 }
 
@@ -2005,7 +2061,7 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
     const substantive = sentencesOf(copy).filter(
       (s) => s.split(/\s+/).filter(Boolean).length >= SUBSTANTIVE_SENTENCE_WORDS
     );
-    const hollow = findHollowSentences(copy, options.shopName);
+    const hollow = findHollowSentences(copy, options.shopName, { audience: options.audience || null });
     if (hollow.length >= 2 && hollow.length >= substantive.length * 0.6) {
       reasons.push(
         `Nothing in this can be pictured or acted on — "${hollow[0]}" would read the same for any business with the nouns swapped. Name the actual flowers, what is being made, or what happens next.`
@@ -2282,7 +2338,19 @@ export function evaluateMarketingOutput({
   const reasons = [];
 
   checksRun.push("detectWeakMarketingCopy");
-  for (const w of detectWeakMarketingCopy(requestText, rawJoined, { shopPhone, shopName, headline: originalFields.headline })) {
+  // Self-purchase quality-gate fix (2026-09-05 live-found defect): the
+  // canonical concept's own audience — already computed by the caller,
+  // never a second classifier — is passed through so findHollowSentences
+  // (called inside detectWeakMarketingCopy) can apply its narrow,
+  // audience-gated self-purchase exemption. `canonicalConcept` here is the
+  // same object flyer_text's coherence checks below already accept; only
+  // its `.audience` field is used for this particular check.
+  for (const w of detectWeakMarketingCopy(requestText, rawJoined, {
+    shopPhone,
+    shopName,
+    headline: originalFields.headline,
+    audience: canonicalConcept?.audience || null
+  })) {
     reasons.push(w);
   }
 

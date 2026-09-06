@@ -116,7 +116,15 @@
     return STATUS_LABELS[item.status] || item.status;
   }
 
-  let state = { loading: true, error: null, items: [], status: null, brand: null, style: null, usage: null, busyId: null, revisingId: null, flyerRenderFailed: {}, flyerRendering: {} };
+  // Create Draft click-reliability fix (live-found 2026-09-05): tracks
+  // whether the very first load() has ever completed. Only that first
+  // load shows the full-page "Loading…" placeholder — every later
+  // load() call (nav re-activation, or the post-action refresh every
+  // create/generate/revise/approve flow triggers) is a BACKGROUND
+  // refresh of already-visible data, and must never destroy the
+  // create-item form or any other control the florist may be actively
+  // using. See render()'s own comment for the mechanism.
+  let state = { loading: true, initialLoadDone: false, error: null, items: [], status: null, brand: null, style: null, usage: null, busyId: null, revisingId: null, flyerRenderFailed: {}, flyerRendering: {} };
 
   function root() {
     return document.getElementById("marketingStudioRoot");
@@ -639,33 +647,70 @@
   function render() {
     const el = root();
     if (!el) return;
-    if (state.loading) {
+    // Render-lifecycle fix (Create Draft click-reliability, live-found
+    // 2026-09-05): the full-page "Loading…" placeholder is only ever
+    // shown for the very first load. A background refresh triggered
+    // after that point must never wipe the create-item form (or any
+    // control the florist may be actively using) out from under a click
+    // — the proven real defect was a click landing on exactly this
+    // placeholder, which has no form and no button in it at all.
+    if (state.loading && !state.initialLoadDone) {
       el.innerHTML = `<div class="panel" role="status"><p class="subtle">Loading Marketing Studio…</p></div>`;
       return;
     }
     if (state.error) {
-      el.innerHTML = `<div class="panel" role="alert"><h3>Something went wrong</h3><p class="subtle">${esc(state.error)}</p><button type="button" class="primary" id="msRetry">Try again</button></div>`;
-      el.querySelector("#msRetry")?.addEventListener("click", () => load());
-      return;
+      if (!state.initialLoadDone) {
+        el.innerHTML = `<div class="panel" role="alert"><h3>Something went wrong</h3><p class="subtle">${esc(state.error)}</p><button type="button" class="primary" id="msRetry">Try again</button></div>`;
+        el.querySelector("#msRetry")?.addEventListener("click", () => load());
+        return;
+      }
+      // A background refresh's own failure must not destroy an
+      // already-rendered, working create form either — surface it as a
+      // toast and leave the existing page exactly as it is.
+      toast(state.error);
+      state.error = null;
     }
     const list =
       state.items.length === 0
         ? `<div class="panel"><h3>No posts yet</h3><p class="subtle">Tell Lily what's in your shop and she'll draft the first one below.</p></div>`
         : state.items.map(itemHtml).join("");
-    el.innerHTML = `${statusNoteHtml()}${knownStyleHtml()}${budgetHtml()}${createFormHtml()}<div class="cards">${list}</div>`;
-    bind(el);
+    // The create-item form lives in its own region, mounted exactly once
+    // the first time this shell exists, and never rebuilt after that — a
+    // background refresh only ever updates the status/cards regions
+    // below it. This is what keeps the form (and its submit listener)
+    // intact and clickable across every later render(), not just the
+    // first one.
+    let shell = el.querySelector("#msShell");
+    if (!shell) {
+      el.innerHTML = `<div id="msShell"><div id="msStatusRegion"></div><div id="msCreateFormRegion"></div><div class="cards" id="msCardsRegion"></div></div>`;
+      shell = el.querySelector("#msShell");
+      shell.querySelector("#msCreateFormRegion").innerHTML = createFormHtml();
+      bindCreateForm(shell.querySelector("#msCreateFormRegion"));
+    }
+    shell.querySelector("#msStatusRegion").innerHTML = `${statusNoteHtml()}${knownStyleHtml()}${budgetHtml()}`;
+    const cardsRegion = shell.querySelector("#msCardsRegion");
+    cardsRegion.innerHTML = list;
+    bindCards(cardsRegion);
     mountFlyerPreviews();
     wireFlyerImageFallbacks();
   }
 
-  function bind(el) {
-    el.querySelector("#msCreateItemForm")?.addEventListener("submit", async (e) => {
+  function bindCreateForm(formRegion) {
+    formRegion.querySelector("#msCreateItemForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();
       const form = e.currentTarget;
       if (form.dataset.submitting === "1") return;
       form.dataset.submitting = "1";
       const submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn) submitBtn.disabled = true;
+      const submitBtnOriginalLabel = submitBtn?.textContent;
+      if (submitBtn) {
+        // Immediate, synchronous visible acknowledgement the instant the
+        // click is handled — never waits on the network calls below, and
+        // (per the fix above) is never destroyed mid-flight by an
+        // unrelated background refresh either.
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Creating…";
+      }
       try {
         const fd = new FormData(form);
         const brief = String(fd.get("brief") || "").trim();
@@ -724,11 +769,16 @@
         toast(err.message || "Could not create that post.");
       } finally {
         form.dataset.submitting = "";
-        if (submitBtn) submitBtn.disabled = false;
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = submitBtnOriginalLabel ?? "Create draft";
+        }
       }
     });
+  }
 
-    el.querySelectorAll("[data-ms-act]").forEach((btn) => {
+  function bindCards(cardsRegion) {
+    cardsRegion.querySelectorAll("[data-ms-act]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const id = btn.closest("[data-ms-item]")?.getAttribute("data-ms-item");
         const act = btn.getAttribute("data-ms-act");
@@ -825,12 +875,19 @@
   async function load() {
     const el = root();
     if (!el) return;
-    state.loading = true;
+    // Only the very first load shows the full-page placeholder (see
+    // render()'s own comment) — every later call is a background refresh
+    // that must leave whatever is already on screen (the create form
+    // included) untouched until real new data is ready.
+    const isFirstLoad = !state.initialLoadDone;
     state.error = null;
     state.busyId = null;
     state.revisingId = null;
     state.flyerRenderFailed = {};
-    render();
+    if (isFirstLoad) {
+      state.loading = true;
+      render();
+    }
     try {
       const [status, brand, style, usage, content] = await Promise.all([
         studioApi("status", { method: "GET" }),
@@ -845,9 +902,11 @@
       state.usage = usage;
       state.items = content.items || [];
       state.loading = false;
+      state.initialLoadDone = true;
       render();
     } catch (err) {
       state.loading = false;
+      state.initialLoadDone = true;
       state.error = err.message || "Could not load Marketing Studio.";
       render();
     }
