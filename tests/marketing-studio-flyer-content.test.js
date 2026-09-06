@@ -596,6 +596,106 @@ test("generate_content (real dispatch): an ordinary decorative request is now a 
   }
 });
 
+// Observability fix (2026-09-06 live-found gap): the real generate_content
+// social-copy decision path — a first caption attempt that fails
+// evaluateMarketingOutput, a bounded retry that fixes it, the retry being
+// kept, and NO rescue firing — now also persists a structured, no-raw-text
+// diagnostic onto each attempt's own marketing_generation_usage row, so a
+// future investigation never again has to reconstruct this decision from
+// nothing.
+test("generate_content (real dispatch): a rejected first caption, a passing retry, and no rescue persist a structured diagnostic on each attempt's own usage row", async () => {
+  // Deliberately full of FILLER_PHRASES hits — guaranteed to fail
+  // detectWeakMarketingCopy regardless of audience, forcing a real retry.
+  const weakFirstAttempt = {
+    ...CLOSING_FLYER,
+    platform: "facebook",
+    headline: "h",
+    body: "We understand the importance of celebrating every moment. Whether you're looking for something classic or bold, we've got you covered.",
+    cta: "",
+    visual_brief: "A lush arrangement of mixed fresh flowers on a marble counter.",
+    hashtags: [],
+    asset_requirements: [],
+    brand_traits_used: [],
+    visual_traits_used: []
+  };
+  // A clean, genuinely self-purchase-framed retry — passes on its own.
+  const passingRetry = {
+    ...weakFirstAttempt,
+    body: "You don't need a special occasion to bring flowers home — sometimes wanting them is reason enough.",
+    cta: ""
+  };
+  const flyerCopy = { headline: "Flowers, Just Because", body: "You don't need a special occasion to bring flowers home.", cta: "" };
+  const mock = mockCloudflare([weakFirstAttempt, passingRetry, flyerCopy]);
+  try {
+    const client = createFakeSupabaseClient(
+      [
+        { data: { id: "item-sp1", content_type: "image_post", title: "Give me a cute post about buying yourself flowers", brief: "Give me a cute post about buying yourself flowers", status: "idea" }, error: null },
+        { data: [{ id: "item-sp1", status: "generating" }], error: null }, // Batch 3: atomic claim
+        { data: [{ id: "variant-sp1", platform: "facebook" }], error: null },
+        { data: { marketing_monthly_budget_cents: null }, error: null },
+        { data: { name: "Lilies in Bloom", phone: "606-506-4039" }, error: null },
+        { data: null, error: null }, // loadBrandBrain
+        { data: null, error: null }, // loadStyleMemory
+        { data: [], error: null }, // loadGroundedInventory
+        { data: [], error: null }, // audience: customers
+        { data: [], error: null }, // audience: orders
+        { data: [], error: null }, // recent-content shortlist
+        { data: { id: "usage-copy-1" }, error: null }, // recordUsage("copy") — attempt 1
+        { data: { id: "usage-copy-2" }, error: null }, // recordUsage("copy") — attempt 2 (retry)
+        { data: null, error: null }, // diagnostic update — attempt 1's row
+        { data: null, error: null }, // diagnostic update — attempt 2's row
+        { data: null, error: null }, // recordUsage("copy") — flyer text
+        { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image)
+        { data: null, error: null }, // completeProviderCall(image)
+        { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision)
+        { data: null, error: null }, // completeProviderCall(vision)
+        { data: { id: "media-row-sp1" }, error: null }, // website_media insert
+        { data: { id: "flyer-asset-sp1" }, error: null }, // persistGeneratedAsset (flyer)
+        { data: null, error: null }, // variant update
+        { data: { id: "item-sp1", status: "draft" }, error: null } // final content_items update
+      ],
+      { storage: createFakeSupabaseStorage({}) }
+    );
+    const handler = createMarketingStudioHandler(floristDeps(client));
+    const res = await handler(event("generate_content", { content_item_id: "item-sp1", photo_choice: "generate" }));
+    assert.equal(res.statusCode, 200, `expected the retry-then-pass path to succeed: ${res.body}`);
+    const body = JSON.parse(res.body);
+    // No rescue: the retry genuinely passed, so its own real wording ships.
+    assert.equal(body.copy.creative_rescue_used, undefined);
+    assert.match(body.copy.body, /You don't need a special occasion/);
+
+    // Only the diagnostic writes carry a `metadata.attempt` field — the
+    // image/vision provider-call completions also update this same table
+    // (their own status/cost bookkeeping), so the filter must be specific
+    // to this batch's own payload shape, not just "any update on this
+    // table."
+    const diagnosticUpdates = client.calls.filter(
+      (c) => c.table === "marketing_generation_usage" && c.ops.some((op) => op[0] === "update" && op[1][0]?.metadata?.attempt !== undefined)
+    );
+    assert.equal(diagnosticUpdates.length, 2, "both attempts' usage rows must receive a diagnostic write");
+
+    const attempt1Diagnostic = diagnosticUpdates[0].payload.metadata;
+    const attempt2Diagnostic = diagnosticUpdates[1].payload.metadata;
+
+    assert.equal(attempt1Diagnostic.attempt, 1);
+    assert.ok(attempt1Diagnostic.reasonCodes.includes("weak_marketing_copy"), "attempt 1's real rejection reason must be recorded as a structured code");
+    assert.equal(attempt1Diagnostic.selected, false, "attempt 1 was NOT the one ultimately kept");
+    assert.equal(attempt1Diagnostic.rescueFired, false);
+
+    assert.equal(attempt2Diagnostic.attempt, 2);
+    assert.deepEqual(attempt2Diagnostic.reasonCodes, [], "the retry genuinely passed — no reason codes");
+    assert.equal(attempt2Diagnostic.selected, true, "the retry was the one ultimately kept");
+    assert.equal(attempt2Diagnostic.rescueFired, false, "a genuinely passing retry must never be reported as a rescue");
+
+    // Never the candidate's own generated wording — codes/counts/booleans only.
+    const serialized = JSON.stringify([attempt1Diagnostic, attempt2Diagnostic]);
+    assert.doesNotMatch(serialized, /understand the importance/);
+    assert.doesNotMatch(serialized, /special occasion/);
+  } finally {
+    mock.restore();
+  }
+});
+
 // Ashley's real live-test feedback ("still the same" — a generic AI stock
 // bouquet, never a real photo of her own shop): asked directly, her answer
 // was "ask me each time" rather than picking one fixed default. These

@@ -160,7 +160,8 @@ import {
   BEREAVEMENT_CONTEXT_RE,
   requestSignalsRealPromotion,
   requestSignalsIntentionalInventoryUse,
-  evaluateMarketingOutput
+  evaluateMarketingOutput,
+  buildCopyEvaluationDiagnostic
 } from "./_shared/marketing-content-revision.js";
 import {
   buildCanonicalConcept,
@@ -2445,17 +2446,49 @@ export function createMarketingStudioHandler(deps = {}) {
         // needed or safe to repeat here (an unconditional update at this
         // point would just be the old, race-prone pattern this batch
         // replaces).
+        // Returns the inserted usage row's id (Observability fix,
+        // 2026-09-06: the caption-evaluation diagnostic below needs it to
+        // attach reason-code/decision metadata to the SAME row after the
+        // evaluation that row's own generation call triggers completes).
+        // Every existing caller already ignored recordUsage's return
+        // value, so returning the id now is purely additive.
         async function recordUsage(purpose, unitType, units) {
-          await client.from("marketing_generation_usage").insert({
-            shop_id: shopId,
-            content_item_id: body.content_item_id,
-            provider: "cloudflare",
-            purpose,
-            unit_type: unitType,
-            units,
-            estimated_cost_cents: estimateCostCents({ purpose, unitType, units }),
-            status: "estimated"
-          });
+          const { data } = await client
+            .from("marketing_generation_usage")
+            .insert({
+              shop_id: shopId,
+              content_item_id: body.content_item_id,
+              provider: "cloudflare",
+              purpose,
+              unit_type: unitType,
+              units,
+              estimated_cost_cents: estimateCostCents({ purpose, unitType, units }),
+              status: "estimated"
+            })
+            .select("id")
+            .single();
+          return data?.id ?? null;
+        }
+
+        // Observability fix (2026-09-06 live-found gap): the latest live
+        // acceptance run proved we could not reconstruct, after the fact,
+        // why a self-purchase caption fell to deterministic rescue — no
+        // reason codes, no record of a retry having happened, nothing.
+        // This writes a small, structured diagnostic (reason CODES and
+        // booleans only — never the candidate's own generated text) onto
+        // the existing marketing_generation_usage row for that attempt, so
+        // a future live run's decision path is reconstructable from
+        // persisted data without needing live function logs. Best-effort
+        // and non-blocking: a diagnostic-write failure must never affect
+        // the real generation the florist is waiting on.
+        async function recordCopyEvaluationDiagnostic(usageId, diagnostic) {
+          if (!usageId) return;
+          try {
+            await client.from("marketing_generation_usage").update({ metadata: diagnostic }).eq("id", usageId).eq("shop_id", shopId);
+          } catch {
+            // Diagnostics are a convenience for later investigation, never
+            // a requirement for the generation itself to succeed.
+          }
         }
 
         // "name,phone" — phone is a new read here: a flyer's brand contact
@@ -2767,7 +2800,7 @@ export function createMarketingStudioHandler(deps = {}) {
           // actually happened, not an assumption from which branch ran.
           structuredLog("info", "marketing_generate_content_fact_safety", { traceId: genTraceId, deterministic: true });
         } else {
-          await recordUsage("copy", "request", 1);
+          const firstCopyUsageId = await recordUsage("copy", "request", 1);
           // Live-found defect fix ("Self-care Sunday" — an invented-
           // temporal-claim caption that also read too generic for a
           // self-purchase request): this social-post call, not
@@ -2896,8 +2929,23 @@ export function createMarketingStudioHandler(deps = {}) {
             decision: diversityEval.decision,
             repeatedSignals: diversityEval.repeatedSignals
           });
+          // Observability fix (2026-09-06 live-found gap): a structured
+          // snapshot of the FIRST attempt's own evaluation, captured now
+          // — before captionEval/diversityEval can be reassigned to the
+          // retry's own result below — reason codes and booleans only,
+          // never the candidate's generated text. `selected`/`rescueFired`
+          // aren't known yet at this point, so they're filled in (via the
+          // spread below) once the retry-selection and rescue decisions
+          // actually resolve. Tracks which usage row corresponds to which
+          // attempt, and which attempt is ultimately kept, so the
+          // diagnostic write after the rescue decision can attach the
+          // right outcome to the right row.
+          const firstEvalSnapshot = { attempt: 1, evalResult: captionEval, diversityEval };
+          let secondEvalDiagnostic = null;
+          let secondCopyUsageId = null;
+          let keptAttempt = 1;
           if (captionEval.reasons.length || diversityEval.decision === "retry") {
-            await recordUsage("copy", "request", 1);
+            secondCopyUsageId = await recordUsage("copy", "request", 1);
             // Real regression an independent review found: appending the
             // rejection reasons here used to dilute the brief enough that
             // requestIsJustShopName no longer recognized it (too many
@@ -2944,12 +2992,14 @@ export function createMarketingStudioHandler(deps = {}) {
                 platform: primaryPlatform,
                 contentItemId: body.content_item_id
               });
+              secondEvalDiagnostic = { attempt: 2, evalResult: retryEval, diversityEval: retryDiversityEval };
               const currentBadCount = captionEval.reasons.length + diversityEval.reasons.length;
               const retryBadCount = retryEval.reasons.length + retryDiversityEval.reasons.length;
               if (retryBadCount <= currentBadCount) {
                 copyGen = retry;
                 captionEval = retryEval;
                 diversityEval = retryDiversityEval;
+                keptAttempt = 2;
               }
             }
           }
@@ -3011,6 +3061,29 @@ export function createMarketingStudioHandler(deps = {}) {
             // and can edit/regenerate it like any other draft).
             copyGen.content.creative_rescue_used = true;
             rescued = true;
+          }
+          // Observability fix (2026-09-06 live-found gap): persist the
+          // full decision trail onto the SAME usage rows recordUsage
+          // already created for this generation — the one existing,
+          // already-scoped-to-this-shop location safe to write structured
+          // diagnostics into without a migration. Reason codes, decision
+          // booleans, and attempt/selection bookkeeping only — never the
+          // candidate's own generated text (`reasonCodes`/`repairedBy` are
+          // fixed code strings from evaluateMarketingOutput, never a
+          // quoted fragment of the caption itself). Best-effort: awaited
+          // so the write actually happens before the request returns, but
+          // recordCopyEvaluationDiagnostic swallows its own failures so a
+          // diagnostic-write error can never affect the real draft the
+          // florist is waiting on.
+          await recordCopyEvaluationDiagnostic(
+            firstCopyUsageId,
+            buildCopyEvaluationDiagnostic({ ...firstEvalSnapshot, selected: keptAttempt === 1, rescueFired: rescued })
+          );
+          if (secondCopyUsageId && secondEvalDiagnostic) {
+            await recordCopyEvaluationDiagnostic(
+              secondCopyUsageId,
+              buildCopyEvaluationDiagnostic({ ...secondEvalDiagnostic, selected: keptAttempt === 2, rescueFired: rescued })
+            );
           }
           structuredLog("info", "marketing_generate_content_fact_safety", {
             traceId: genTraceId,

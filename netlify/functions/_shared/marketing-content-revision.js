@@ -1648,16 +1648,29 @@ const SUBSTANTIVE_SENTENCE_WORDS = 9;
 //
 // Deliberately general signal classes, not one hard-coded example
 // sentence:
-//   - a reflexive self-purchase/treat verb ("buy yourself", "treat
-//     yourself", "spoil yourself", "gift yourself")
+//   - a reflexive self-purchase/treat/give verb ("buy yourself", "treat
+//     yourself", "spoil yourself", "gift yourself", "give yourself", "give
+//     to yourself")
 //   - explicit occasion-negation ("no special occasion", "without an
 //     occasion", "don't need a reason")
 //   - explicit recipient-negation ("no one else", "someone else to
 //     surprise you")
 //   - self-care / personal-enjoyment framing ("self-care", "you deserve
 //     it", "reason enough", "just because")
+//   - rhetorical self-purchase framing ("why wait for someone to bring
+//     you flowers", "why wait to buy yourself flowers") — live-found gap
+//     (2026-09-06): a real live run's caption still fell to rescue on a
+//     phrasing this list didn't yet cover ("Why wait for someone special
+//     to bring you flowers? Sometimes the best gift is the one you give
+//     yourself."). Deliberately narrow: "why wait" alone proves nothing —
+//     it's also ordinary urgency/promotional language for any audience —
+//     so it only counts here when paired with "someone"/"somebody" (the
+//     recipient-negation the rhetorical question is actually making) or
+//     with "flowers" nearby (the self-purchase subject itself named in
+//     the same rhetorical question). A generic "why wait, sale ends
+//     soon" never matches either shape.
 const SELF_PURCHASE_COPY_INTENT_RE =
-  /\b(?:buy|treat|spoil|gift)\s+(?:yourself|urself)\b|\b(?:no|without an?y?)\s+(?:special\s+)?occasion\b|\bdon'?t\s+need\s+(?:a|an|any)\s+(?:special\s+)?(?:reason|occasion|excuse)\b|\bno\s+one\s+else\b|\bsomeone\s+else\s+to\s+(?:surprise|buy|give)\b|\bself[- ]care\b|\byou\s+deserve\b|\breason\s+enough\b|\bjust\s+because\b/i;
+  /\b(?:buy|treat|spoil|gift|give)\s+(?:to\s+)?(?:yourself|urself)\b|\b(?:no|without an?y?)\s+(?:special\s+)?occasion\b|\bdon'?t\s+need\s+(?:a|an|any)\s+(?:special\s+)?(?:reason|occasion|excuse)\b|\bno\s+one\s+else\b|\bsomeone\s+else\s+to\s+(?:surprise|buy|give)\b|\bself[- ]care\b|\byou\s+deserve\b|\breason\s+enough\b|\bjust\s+because\b|\bwhy\s+wait\s+for\s+(?:someone|somebody)\b|\bwhy\s+wait\b[^.!?]{0,40}\bflowers?\b/i;
 
 // Exported (Batch 1, Part 8) so marketing-openai-creative-brief.js's
 // text-token-separation classifier can reuse this exact sentence split
@@ -2336,6 +2349,13 @@ export function evaluateMarketingOutput({
   const rawJoined = joinFields(originalFields);
 
   const reasons = [];
+  // Observability fix (2026-09-06 live-found gap): a parallel, structured
+  // code for each pushed reason — never the raw quoted-text reason string
+  // itself. Lets a caller persist/emit WHICH checks actually rejected a
+  // candidate (for diagnostics) without ever writing the candidate's own
+  // generated wording anywhere. One code per reason, same order as
+  // `reasons`.
+  const reasonCodes = [];
 
   checksRun.push("detectWeakMarketingCopy");
   // Self-purchase quality-gate fix (2026-09-05 live-found defect): the
@@ -2352,6 +2372,7 @@ export function evaluateMarketingOutput({
     audience: canonicalConcept?.audience || null
   })) {
     reasons.push(w);
+    reasonCodes.push("weak_marketing_copy");
   }
 
   checksRun.push("detectUnverifiedInventoryStateClaim");
@@ -2359,6 +2380,7 @@ export function evaluateMarketingOutput({
     reasons.push(
       `"${v}" claims a specific business/inventory fact ("just arrived," "we have X," etc.) with no verified evidence behind it. Only claim what the real inventory data above or the florist's own request actually supports — use generic flower language instead.`
     );
+    reasonCodes.push("unverified_inventory_state_claim");
   }
 
   checksRun.push("detectUnverifiedServiceAvailabilityClaim");
@@ -2366,6 +2388,7 @@ export function evaluateMarketingOutput({
     reasons.push(
       `"${v}" claims a specific service/availability state ("same-day delivery," "open now," "walk-ins welcome," etc.) with no verified evidence behind it. Only claim a service state the florist's own request actually states or Florisyn has verified — drop the claim or generalize it otherwise.`
     );
+    reasonCodes.push("unverified_service_availability_claim");
   }
 
   checksRun.push("detectInventedTemporalClaim");
@@ -2373,6 +2396,7 @@ export function evaluateMarketingOutput({
     reasons.push(
       `"${v}" names a specific day-of-week, "today/tonight/tomorrow," "this weekend," or a date that the florist's own request never supplied — never invent a day or date just because it sounds catchy. Only use temporal language the request itself actually gives you.`
     );
+    reasonCodes.push("invented_temporal_claim");
   }
 
   checksRun.push("detectVisualFictionLeakage");
@@ -2380,6 +2404,7 @@ export function evaluateMarketingOutput({
     reasons.push(
       `"${v}" describes a specific real-world detail (a location, an object, an event) that was never verified — only the AI-generated visual concept invented it. Never assert this as a fact about the shop; keep it purely in the visual description, or drop it from the wording.`
     );
+    reasonCodes.push("visual_fiction_leakage");
   }
 
   checksRun.push("detectPermanentClosureMismatch");
@@ -2388,6 +2413,7 @@ export function evaluateMarketingOutput({
     reasons.push(
       "This reads as a permanent closure, but the request only ever described a temporary/scheduled change — never write a temporary change as if the business itself is shutting down."
     );
+    reasonCodes.push("permanent_closure_mismatch");
   }
 
   checksRun.push("detectInventedOperationalContent");
@@ -2395,6 +2421,7 @@ export function evaluateMarketingOutput({
     reasons.push(
       "This invents urgency, a reason, gratitude, or a future plan the florist never wrote — a plain operational notice must say only what was actually asked."
     );
+    reasonCodes.push("invented_operational_content");
   }
 
   if (canonicalConcept && component === "flyer_text") {
@@ -2405,11 +2432,17 @@ export function evaluateMarketingOutput({
       flyerText: rawJoined,
       requestText
     });
-    if (mismatch) reasons.push(mismatch);
+    if (mismatch) {
+      reasons.push(mismatch);
+      reasonCodes.push("concept_coherence_mismatch");
+    }
 
     checksRun.push("detectCtaCoherenceMismatch");
     const ctaMismatch = detectCtaCoherenceMismatch({ concept: canonicalConcept, ctaText: originalFields.cta || "", requestText });
-    if (ctaMismatch) reasons.push(ctaMismatch);
+    if (ctaMismatch) {
+      reasons.push(ctaMismatch);
+      reasonCodes.push("cta_coherence_mismatch");
+    }
   }
 
   // Deterministic repair pass — always runs, per field, regardless of
@@ -2423,6 +2456,12 @@ export function evaluateMarketingOutput({
   );
   const fields = { ...originalFields };
   let repaired = false;
+  // Observability fix (2026-09-06): which strip function(s) actually
+  // changed something, by name — never the before/after text itself.
+  // Lets a caller answer "did temporal repair change this candidate?"
+  // (Part 2's diagnostic requirement) by checking membership here,
+  // without a second, separate call to any strip function.
+  const repairedBySet = new Set();
   for (const key of ["headline", "body", "cta"]) {
     if (fields[key] == null) continue;
     let text = fields[key];
@@ -2430,36 +2469,68 @@ export function evaluateMarketingOutput({
     if (numberCleaned.removed.length) {
       text = numberCleaned.text;
       repaired = true;
+      repairedBySet.add("stripFabricatedContactNumbers");
     }
     const inventoryCleaned = stripUnverifiedInventoryClaims({ generatedText: text, requestText, verifiedFlowerNames });
     if (inventoryCleaned.removed.length) {
       text = inventoryCleaned.text;
       repaired = true;
+      repairedBySet.add("stripUnverifiedInventoryClaims");
     }
     const serviceCleaned = stripUnverifiedServiceAvailabilityClaims({ generatedText: text, requestText, verifiedServiceSignals });
     if (serviceCleaned.removed.length) {
       text = serviceCleaned.text;
       repaired = true;
+      repairedBySet.add("stripUnverifiedServiceAvailabilityClaims");
     }
     const temporalCleaned = stripInventedTemporalClaims({ generatedText: text, requestText });
     if (temporalCleaned.removed.length) {
       text = temporalCleaned.text;
       repaired = true;
+      repairedBySet.add("stripInventedTemporalClaims");
     }
     const fictionCleaned = stripVisualFictionLeakage({ generatedText: text, shopEvidence });
     if (fictionCleaned.removed.length) {
       text = fictionCleaned.text;
       repaired = true;
+      repairedBySet.add("stripVisualFictionLeakage");
     }
     fields[key] = text;
   }
+  const repairedBy = [...repairedBySet];
   const safeCandidate = isObjectCandidate ? { ...candidate, ...fields } : fields.body;
 
   if (reasons.length) {
-    return { decision: isRetryAttempt ? "reject" : "retry", safeCandidate, repaired, reasons, evidenceUsed, checksRun };
+    return { decision: isRetryAttempt ? "reject" : "retry", safeCandidate, repaired, repairedBy, reasons, reasonCodes, evidenceUsed, checksRun };
   }
   if (repaired) {
-    return { decision: "repair", safeCandidate, repaired: true, reasons: [], evidenceUsed, checksRun };
+    return { decision: "repair", safeCandidate, repaired: true, repairedBy, reasons: [], reasonCodes: [], evidenceUsed, checksRun };
   }
-  return { decision: "pass", safeCandidate: candidate, repaired: false, reasons: [], evidenceUsed, checksRun };
+  return { decision: "pass", safeCandidate: candidate, repaired: false, repairedBy: [], reasons: [], reasonCodes: [], evidenceUsed, checksRun };
+}
+
+/**
+ * Observability fix (2026-09-06 live-found gap): the structured, no-raw-
+ * text diagnostic shape persisted onto a marketing_generation_usage row
+ * for one social-copy generation attempt — reconstructable evidence for
+ * "why did this caption end up in deterministic rescue" without ever
+ * needing live function logs or the candidate's own generated wording.
+ *
+ * Pure and co-located with evaluateMarketingOutput/evaluateMarketingDiversity
+ * because it only ever reshapes THEIR return values — never a second
+ * evaluation, never new detection logic. `evalResult` and `diversityEval`
+ * are the exact objects those two functions returned for this attempt;
+ * `selected`/`rescueFired` are decided by the caller (marketing-studio.js's
+ * retry-selection and rescue logic), not derived here.
+ */
+export function buildCopyEvaluationDiagnostic({ attempt, evalResult, diversityEval, selected, rescueFired }) {
+  return {
+    attempt,
+    reasonCodes: evalResult?.reasonCodes || [],
+    repairedBy: evalResult?.repairedBy || [],
+    diversityDecision: diversityEval?.decision ?? null,
+    diversityRepeatedSignals: diversityEval?.repeatedSignals || [],
+    selected: Boolean(selected),
+    rescueFired: Boolean(rescueFired)
+  };
 }

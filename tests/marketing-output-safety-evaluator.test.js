@@ -9,7 +9,8 @@ import {
   stripInventedTemporalClaims,
   findHollowSentences,
   detectWeakMarketingCopy,
-  buildDeterministicCreativeRescueContent
+  buildDeterministicCreativeRescueContent,
+  buildCopyEvaluationDiagnostic
 } from "../netlify/functions/_shared/marketing-content-revision.js";
 
 /**
@@ -814,4 +815,170 @@ test("buildDeterministicCreativeRescueContent: self_purchase rescue never hard-c
   const rescue = buildDeterministicCreativeRescueContent({ audience: "self_purchase" });
   assert.doesNotMatch(rescue.body, /brighten someone's day/);
   assert.ok(rescue.body.length > 0);
+});
+
+// ---------------------------------------------------------------------------
+// Matcher-gap fix (2026-09-06 live-found defect): a real live run's caption
+// still fell to deterministic rescue despite the self_purchase exemption
+// above — the exact live phrasing ("Why wait for someone special to bring
+// you flowers? Sometimes the best gift is the one you give yourself.") used
+// a reflexive "give yourself" verb and a rhetorical "why wait" framing that
+// SELF_PURCHASE_COPY_INTENT_RE didn't yet cover. Confirmed via a local,
+// no-provider-call reproduction against the real deployed evaluator before
+// this fix, and again after. These 4 tests are the required regression
+// coverage for that expansion, proving it stays narrow.
+// ---------------------------------------------------------------------------
+
+const LIVE_FOUND_RHETORICAL_SELF_PURCHASE_COPY =
+  "Why wait for someone special to bring you flowers? Sometimes the best gift is the one you give yourself.";
+
+test("evaluateMarketingOutput: the exact live-found rhetorical self-purchase phrasing ('Why wait for someone special...') now PASSES for audience=self_purchase", () => {
+  const result = evaluateMarketingOutput({
+    route: "generate_content",
+    request: "Give me a cute post about buying yourself flowers",
+    shopEvidence: { name: "Lilies in Bloom" },
+    canonicalConcept: { audience: "self_purchase" },
+    candidate: { headline: null, body: LIVE_FOUND_RHETORICAL_SELF_PURCHASE_COPY, cta: "" },
+    component: "caption"
+  });
+  assert.equal(result.reasons.length, 0);
+  assert.equal(result.decision, "pass");
+});
+
+test("evaluateMarketingOutput: the same rhetorical sentence does NOT receive the exemption for an unrelated (gift_buyers) audience", () => {
+  const result = evaluateMarketingOutput({
+    route: "generate_content",
+    request: "Surprise her with flowers for no reason.",
+    shopEvidence: { name: "Lilies in Bloom" },
+    canonicalConcept: { audience: "gift_buyers" },
+    candidate: { headline: null, body: LIVE_FOUND_RHETORICAL_SELF_PURCHASE_COPY, cta: "" },
+    component: "caption"
+  });
+  assert.ok(result.reasons.length > 0);
+});
+
+test("findHollowSentences: a generic 'why wait' urgency phrase with no flowers/someone nearby is NOT swept into the self-purchase exemption", () => {
+  const hollow = findHollowSentences("Why wait to visit our shop this weekend and see what's new.", "Lilies in Bloom", { audience: "self_purchase" });
+  assert.equal(hollow.length, 1);
+});
+
+test("evaluateMarketingOutput: generic hollow inspirational copy with no self-purchase framing at all still fails, even for self_purchase, after the matcher expansion", () => {
+  const result = evaluateMarketingOutput({
+    route: "generate_content",
+    request: "Give me a cute post about buying yourself flowers",
+    shopEvidence: { name: "Lilies in Bloom" },
+    canonicalConcept: { audience: "self_purchase" },
+    candidate: {
+      headline: null,
+      body: "Every day is a wonderful opportunity to add a little more joy into your life. Life is full of small moments that deserve to be appreciated fully.",
+      cta: ""
+    },
+    component: "caption"
+  });
+  assert.ok(result.reasons.length > 0);
+});
+
+test("evaluateMarketingOutput: temporal fact-safety remains intact after the matcher expansion — 'Self-care Sunday' is still flagged and repaired", () => {
+  const result = evaluateMarketingOutput({
+    route: "generate_content",
+    request: "Give me a cute post about buying yourself flowers",
+    shopEvidence: { name: "Lilies in Bloom" },
+    canonicalConcept: { audience: "self_purchase" },
+    candidate: { headline: null, body: "Self-care Sunday is here. Treat yourself to something beautiful — you deserve it just because.", cta: "" },
+    component: "caption"
+  });
+  assert.ok(result.reasons.some((r) => /Sunday/.test(r)));
+  assert.doesNotMatch(result.safeCandidate.body, /Sunday/);
+  assert.match(result.safeCandidate.body, /Treat yourself/);
+});
+
+// ---------------------------------------------------------------------------
+// Observability fix (2026-09-06 live-found gap): the latest live run proved
+// we could not reconstruct why a self-purchase caption fell to rescue — no
+// reason codes, no retry record, nothing. buildCopyEvaluationDiagnostic is
+// the structured, no-raw-text shape persisted for each attempt onto its own
+// marketing_generation_usage row.
+// ---------------------------------------------------------------------------
+
+test("buildCopyEvaluationDiagnostic: reports reason codes, repairedBy, and diversity decision straight from the evaluator's own return values", () => {
+  const evalResult = evaluateMarketingOutput({
+    route: "generate_content",
+    request: "Give me a cute post about buying yourself flowers",
+    shopEvidence: { name: "Lilies in Bloom", phone: "606-506-4039" },
+    canonicalConcept: { audience: "self_purchase" },
+    candidate: { headline: null, body: "Self-care Sunday is here. Treat yourself to something beautiful — you deserve it just because.", cta: "" },
+    component: "caption"
+  });
+  const diagnostic = buildCopyEvaluationDiagnostic({
+    attempt: 1,
+    evalResult,
+    diversityEval: { decision: "pass", repeatedSignals: [] },
+    selected: true,
+    rescueFired: false
+  });
+  assert.equal(diagnostic.attempt, 1);
+  assert.ok(diagnostic.reasonCodes.includes("invented_temporal_claim"));
+  assert.ok(diagnostic.repairedBy.includes("stripInventedTemporalClaims"));
+  assert.equal(diagnostic.diversityDecision, "pass");
+  assert.equal(diagnostic.selected, true);
+  assert.equal(diagnostic.rescueFired, false);
+});
+
+test("buildCopyEvaluationDiagnostic: never carries the candidate's own generated text — only codes, counts, and booleans", () => {
+  const rawText = "Self-care Sunday is here. Treat yourself to something beautiful — you deserve it just because.";
+  const evalResult = evaluateMarketingOutput({
+    route: "generate_content",
+    request: "Give me a cute post about buying yourself flowers",
+    shopEvidence: { name: "Lilies in Bloom" },
+    canonicalConcept: { audience: "self_purchase" },
+    candidate: { headline: null, body: rawText, cta: "" },
+    component: "caption"
+  });
+  const diagnostic = buildCopyEvaluationDiagnostic({
+    attempt: 1,
+    evalResult,
+    diversityEval: { decision: "retry", repeatedSignals: ["concept_fingerprint"] },
+    selected: false,
+    rescueFired: true
+  });
+  const serialized = JSON.stringify(diagnostic);
+  assert.doesNotMatch(serialized, /Self-care Sunday/);
+  assert.doesNotMatch(serialized, /Treat yourself/);
+  assert.deepEqual(JSON.parse(serialized), {
+    attempt: 1,
+    reasonCodes: ["invented_temporal_claim"],
+    repairedBy: ["stripInventedTemporalClaims"],
+    diversityDecision: "retry",
+    diversityRepeatedSignals: ["concept_fingerprint"],
+    selected: false,
+    rescueFired: true
+  });
+});
+
+test("buildCopyEvaluationDiagnostic: a clean, passing candidate reports empty reason codes and no repair", () => {
+  const evalResult = evaluateMarketingOutput({
+    route: "generate_content",
+    request: "Give me a cute post about buying yourself flowers",
+    shopEvidence: { name: "Lilies in Bloom" },
+    canonicalConcept: { audience: "self_purchase" },
+    candidate: { headline: null, body: "You don't need a special occasion to bring flowers home — sometimes wanting them is reason enough.", cta: "" },
+    component: "caption"
+  });
+  const diagnostic = buildCopyEvaluationDiagnostic({ attempt: 1, evalResult, diversityEval: { decision: "pass", repeatedSignals: [] }, selected: true, rescueFired: false });
+  assert.deepEqual(diagnostic.reasonCodes, []);
+  assert.deepEqual(diagnostic.repairedBy, []);
+  assert.equal(diagnostic.rescueFired, false);
+});
+
+test("buildCopyEvaluationDiagnostic: missing evalResult/diversityEval degrade to safe empty defaults rather than throwing", () => {
+  const diagnostic = buildCopyEvaluationDiagnostic({ attempt: 2, evalResult: null, diversityEval: null, selected: false, rescueFired: true });
+  assert.deepEqual(diagnostic, {
+    attempt: 2,
+    reasonCodes: [],
+    repairedBy: [],
+    diversityDecision: null,
+    diversityRepeatedSignals: [],
+    selected: false,
+    rescueFired: true
+  });
 });

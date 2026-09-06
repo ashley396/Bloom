@@ -364,6 +364,11 @@ test("generate_content: a previously-saved My Style preference ('soft luxury bac
       { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — customers (none)
       { data: [], error: null }, // Phase 9 grounding: loadCustomerAudienceSummary — orders (none)
       { data: null, error: null }, // recordUsage("copy")
+      // Observability fix (2026-09-06): a structured caption-evaluation
+      // diagnostic is now unconditionally written onto the caption's own
+      // usage row once the retry/rescue decision resolves — even here,
+      // where the first attempt passes cleanly and no retry ever runs.
+      { data: null, error: null }, // recordCopyEvaluationDiagnostic — attempt 1
       { data: { id: "copy-asset-2" }, error: null }, // persistGeneratedAsset (social_copy, text_post)
       { data: { id: "item-2", status: "draft" }, error: null }, // final content_items update
       { data: null, error: null } // audit

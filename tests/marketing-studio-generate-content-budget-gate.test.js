@@ -58,7 +58,14 @@ test("generate_content: no budget_cap_cents and no shop default -> unaffected, e
   // ran before it (i.e. the gate correctly resolved to "unlimited", not
   // that generation succeeded).
   assert.equal(res.statusCode, 400);
-  const usageSelectCall = client.calls.find((c) => c.table === "marketing_generation_usage" && c.ops.some((op) => op[0] === "select"));
+  // A genuine budget-check SUM query, not recordUsage's own `.select("id")`
+  // on its bookkeeping insert (Observability fix, 2026-09-06: recordUsage
+  // now asks for the inserted row's id back so caption-evaluation
+  // diagnostics can be attached to it later — that select is paired with
+  // an insert on the SAME call, never a standalone usage-spend query).
+  const usageSelectCall = client.calls.find(
+    (c) => c.table === "marketing_generation_usage" && c.ops.some((op) => op[0] === "select") && !c.ops.some((op) => op[0] === "insert")
+  );
   assert.equal(usageSelectCall, undefined, "neither a shop default nor a per-request cap is set — no usage-spend check should ever run");
 });
 
