@@ -1627,51 +1627,6 @@ const SPECIFIC_DETAIL_RE = new RegExp(
 const SUBSTANTIVE_SENTENCE_WORDS = 9;
 
 // ---------------------------------------------------------------------------
-// Real, live-found failure (2026-09-05, "buy yourself flowers"): a
-// self_purchase request correctly reached generateSocialPost with
-// audience/copyVoice intelligence, but the caption still got discarded by
-// the checks below and replaced with buildDeterministicCreativeRescueContent's
-// generic shop copy. findHollowSentences (below) treats any long sentence
-// with no named flower/product/number/day as "hollow" — a reasonable
-// default for most copy, but exactly backwards for self_purchase, where
-// AUDIENCE_COPY_GUIDANCE (ai-creative-engine.js) deliberately asks for
-// universal, permission-giving sentiment ("you don't need a special
-// occasion") that has no named flower or recipient by design.
-//
-// This is a narrow, audience-GATED exemption, never a blanket one: it only
-// ever applies when the canonical concept's audience is actually
-// self_purchase (see findHollowSentences's own `audience` param), and even
-// then only exempts a sentence whose own wording actually carries one of
-// these general signal classes — never every long sentence for that
-// audience. Generic inspirational filler with none of these signals still
-// gets flagged as hollow for self_purchase exactly as before.
-//
-// Deliberately general signal classes, not one hard-coded example
-// sentence:
-//   - a reflexive self-purchase/treat/give verb ("buy yourself", "treat
-//     yourself", "spoil yourself", "gift yourself", "give yourself", "give
-//     to yourself")
-//   - explicit occasion-negation ("no special occasion", "without an
-//     occasion", "don't need a reason")
-//   - explicit recipient-negation ("no one else", "someone else to
-//     surprise you")
-//   - self-care / personal-enjoyment framing ("self-care", "you deserve
-//     it", "reason enough", "just because")
-//   - rhetorical self-purchase framing ("why wait for someone to bring
-//     you flowers", "why wait to buy yourself flowers") — live-found gap
-//     (2026-09-06): a real live run's caption still fell to rescue on a
-//     phrasing this list didn't yet cover ("Why wait for someone special
-//     to bring you flowers? Sometimes the best gift is the one you give
-//     yourself."). Deliberately narrow: "why wait" alone proves nothing —
-//     it's also ordinary urgency/promotional language for any audience —
-//     so it only counts here when paired with "someone"/"somebody" (the
-//     recipient-negation the rhetorical question is actually making) or
-//     with "flowers" nearby (the self-purchase subject itself named in
-//     the same rhetorical question). A generic "why wait, sale ends
-//     soon" never matches either shape.
-const SELF_PURCHASE_COPY_INTENT_RE =
-  /\b(?:buy|treat|spoil|gift|give)\s+(?:to\s+)?(?:yourself|urself)\b|\b(?:no|without an?y?)\s+(?:special\s+)?occasion\b|\bdon'?t\s+need\s+(?:a|an|any)\s+(?:special\s+)?(?:reason|occasion|excuse)\b|\bno\s+one\s+else\b|\bsomeone\s+else\s+to\s+(?:surprise|buy|give)\b|\bself[- ]care\b|\byou\s+deserve\b|\breason\s+enough\b|\bjust\s+because\b|\bwhy\s+wait\s+for\s+(?:someone|somebody)\b|\bwhy\s+wait\b[^.!?]{0,40}\bflowers?\b/i;
-
 // Exported (Batch 1, Part 8) so marketing-openai-creative-brief.js's
 // text-token-separation classifier can reuse this exact sentence split
 // rather than re-implementing its own — one sentence-splitting rule for
@@ -1698,22 +1653,43 @@ export function sentencesOf(text) {
  * Pure. Never shop-specific: the name is supplied by the caller from real shop
  * data, never hardcoded.
  *
- * `audience`, when supplied, narrowly exempts a self_purchase sentence that
- * itself carries real self-purchase framing (SELF_PURCHASE_COPY_INTENT_RE
- * above) from being counted as hollow — see that constant's own comment for
- * why. Every other audience (including no audience supplied at all) is
- * completely unaffected; this never loosens the check in general.
+ * Policy redesign (2026-09-06, third live-found recurrence): `audience`,
+ * when it is "self_purchase", exempts EVERY sentence from this heuristic
+ * entirely — this check's whole premise ("a sentence naming no flower/
+ * product/recipient is hollow") is simply the wrong test for self_purchase
+ * copy, where AUDIENCE_COPY_GUIDANCE (ai-creative-engine.js) deliberately
+ * asks for universal, permission-giving, emotional sentiment with no named
+ * flower or recipient by design ("you don't need a special occasion").
+ *
+ * Two earlier attempts fixed this with a growing allowlist regex
+ * (SELF_PURCHASE_COPY_INTENT_RE, since removed) requiring a self-purchase
+ * sentence to positively match one of a fixed set of phrasings — three
+ * separate controlled live runs each produced genuinely valid self-purchase
+ * copy in a phrasing the list didn't happen to cover, and each attempted
+ * expansion was defeated by the next one. An allowlist of exact phrasings
+ * can never keep up with open-ended natural language; this is not a
+ * "broader matcher," it is recognizing that positive-phrase matching was
+ * the wrong tool for this specific audience's copy shape.
+ *
+ * This exemption is intentionally narrow in a different way: it only ever
+ * disables THIS ONE heuristic (specific-detail/hollow-sentence detection)
+ * for self_purchase. Every other check in detectWeakMarketingCopy — filler
+ * phrases, caption length, fabricated numbers, sympathy/funeral checks,
+ * shop-name fixation — and every other detector in evaluateMarketingOutput
+ * (inventory/service-availability/temporal/visual-fiction/closure/
+ * operational-content safety) still runs unconditionally, regardless of
+ * audience. Every other audience (including no audience supplied at all)
+ * is completely unaffected by this branch.
  */
 export function findHollowSentences(copyText, shopName, { audience = null } = {}) {
+  if (audience === "self_purchase") return [];
   const name = String(shopName || "").trim();
   const stripName = (s) =>
     name ? s.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), " ") : s;
   return sentencesOf(copyText).filter((sentence) => {
     const bare = stripName(sentence);
     if (bare.split(/\s+/).filter(Boolean).length < SUBSTANTIVE_SENTENCE_WORDS) return false;
-    if (SPECIFIC_DETAIL_RE.test(bare)) return false;
-    if (audience === "self_purchase" && SELF_PURCHASE_COPY_INTENT_RE.test(bare)) return false;
-    return true;
+    return !SPECIFIC_DETAIL_RE.test(bare);
   });
 }
 
