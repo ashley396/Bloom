@@ -1910,11 +1910,21 @@ function isFramedAsFlowerLine(copy, variants) {
   return new RegExp(`\\b(?:our|the)\\s+(?:${alt})\\b[^.!?]{0,25}\\b(collection|selection|arrangements?|varieties|variety|display)\\b`, "i").test(copy);
 }
 
-export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
+// Observability fix (2026-09-06 live-found gap): detectWeakMarketingCopy's
+// own nine internal checks all used to collapse into evaluateMarketingOutput's
+// single "weak_marketing_copy" reasonCode — a real live run proved this
+// too coarse to tell which check actually fired without reading the raw
+// candidate text. This internal helper is the ONE place that logic runs,
+// returning each hit as { text, code } so both public functions below can
+// derive their existing/new return shape from the SAME evaluation — never
+// two copies of these checks that could drift apart. Not exported: callers
+// use detectWeakMarketingCopy (unchanged, strings only) or
+// detectWeakMarketingCopyReasonCodes (new, codes only).
+function detectWeakMarketingCopyEntries(requestText, copyText, options = {}) {
   const request = String(requestText || "");
   const copy = String(copyText || "");
-  const reasons = [];
-  if (!copy.trim()) return reasons;
+  const entries = [];
+  if (!copy.trim()) return entries;
 
   // Real, live-found failure that survived shopIdentityRule's own prompt
   // instruction: "Make today's Facebook post for lilies in bloom" (shop:
@@ -1949,9 +1959,10 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
       const variants = floralWordVariants(word);
       const matches = copy.match(new RegExp(`\\b(?:${variants.join("|")})\\b`, "gi")) || [];
       if (isFramedAsFlowerLine(copy, variants) || matches.length >= 3) {
-        reasons.push(
-          `This post is framed entirely around "${word}" (mentioned ${matches.length} time${matches.length === 1 ? "" : "s"}), even though the request was nothing more than the shop's own name — there is no real occasion here. Write an ordinary "come see us today" update instead. Only mention "${word}" at all if it's genuinely in the shop's real current inventory, using the real product name exactly as given — never invent a specific variety or type that wasn't supplied.`
-        );
+        entries.push({
+          code: "weak_copy_shop_name_fixation",
+          text: `This post is framed entirely around "${word}" (mentioned ${matches.length} time${matches.length === 1 ? "" : "s"}), even though the request was nothing more than the shop's own name — there is no real occasion here. Write an ordinary "come see us today" update instead. Only mention "${word}" at all if it's genuinely in the shop's real current inventory, using the real product name exactly as given — never invent a specific variety or type that wasn't supplied.`
+        });
       }
     }
   }
@@ -1975,15 +1986,17 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
       // doesn't happen to catch must fall through to the check below
       // instead, not be wrongly told its own sympathy wording was invented.
       const invented = copy.match(BEREAVEMENT_CONTEXT_RE);
-      reasons.push(
-        `"${invented[0]}" reads as sympathy/funeral wording, but nothing about this request was about a death or a loss. Never invent bereavement framing onto an ordinary post — write about what was actually asked for.`
-      );
+      entries.push({
+        code: "weak_copy_invented_bereavement_framing",
+        text: `"${invented[0]}" reads as sympathy/funeral wording, but nothing about this request was about a death or a loss. Never invent bereavement framing onto an ordinary post — write about what was actually asked for.`
+      });
     }
     const hit = copy.match(CELEBRATORY_RE);
     if (hit) {
-      reasons.push(
-        `This is sympathy writing and it uses celebratory language ("${hit[0]}"). A death is not a milestone or an occasion to celebrate. Write plainly and gently, with no upbeat framing and no exclamation marks.`
-      );
+      entries.push({
+        code: "weak_copy_celebratory_in_sympathy",
+        text: `This is sympathy writing and it uses celebratory language ("${hit[0]}"). A death is not a milestone or an occasion to celebrate. Write plainly and gently, with no upbeat framing and no exclamation marks.`
+      });
     }
   }
 
@@ -2000,20 +2013,23 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
       // number, and the one the old check abandoned.
       detectPlaceholderContactNumbers({ requestText: request, copyText: copy });
   if (invented.length) {
-    reasons.push(
-      `"${invented[0]}" is a phone number nobody gave you. Never write a number that is not the shop's own or one the florist supplied — a family ringing it does not reach the shop.`
-    );
+    entries.push({
+      code: "weak_copy_fabricated_phone",
+      text: `"${invented[0]}" is a phone number nobody gave you. Never write a number that is not the shop's own or one the florist supplied — a family ringing it does not reach the shop.`
+    });
   }
 
   const claim = copy.match(SERVICE_CLAIM_RE);
   if (claim) {
-    reasons.push(
-      `"${claim[0]}" says this shop holds the service itself. A florist supplies the FLOWERS for a funeral — the service is held by a funeral home or a church. Say "funeral flowers", "sympathy flowers" or "flowers for the service" instead.`
-    );
+    entries.push({
+      code: "weak_copy_funeral_service_claim",
+      text: `"${claim[0]}" says this shop holds the service itself. A florist supplies the FLOWERS for a funeral — the service is held by a funeral home or a church. Say "funeral flowers", "sympathy flowers" or "flowers for the service" instead.`
+    });
   } else if (AMBIGUOUS_ARRANGEMENT_RE.test(copy) && !FLOWER_WORD_RE.test(copy)) {
-    reasons.push(
-      "\"Funeral arrangements\" reads as undertaking rather than flowers when nothing nearby says otherwise. Name the flowers."
-    );
+    entries.push({
+      code: "weak_copy_ambiguous_funeral_arrangement",
+      text: "\"Funeral arrangements\" reads as undertaking rather than flowers when nothing nearby says otherwise. Name the flowers."
+    });
   }
 
   // The headline is judged on its own: it is the largest thing on the flyer and
@@ -2022,7 +2038,7 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
   // none, and inventing one from its first sentence would be judging a thing
   // the florist never wrote.
   const headlineFault = detectSympathyProductHeadline(requestText, options.headline, copy);
-  if (headlineFault) reasons.push(headlineFault);
+  if (headlineFault) entries.push({ code: "weak_copy_sympathy_product_headline", text: headlineFault });
 
   // The same fault written out as a sentence, which is how it reaches a
   // caption. Only when the headline check has not already said it — on a flyer
@@ -2035,7 +2051,7 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
     const head = String(options.headline || "").trim();
     const withoutHeadline = head && copy.startsWith(head) ? copy.slice(head.length).replace(/^[\s.—-]+/, "") : copy;
     const openingFault = detectSympathyProductOpening(requestText, withoutHeadline);
-    if (openingFault) reasons.push(openingFault);
+    if (openingFault) entries.push({ code: "weak_copy_sympathy_product_opening", text: openingFault });
   }
 
   // The phrases the model ACTUALLY wrote, not just how many rules matched.
@@ -2060,11 +2076,13 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
     .filter(Boolean)
     .map((hit) => hit[0].trim());
   if (fillerHits.length >= 1) {
-    reasons.push(
-      "Most of this could be about any business in any industry. These exact phrases must not appear anywhere in the rewrite: " +
+    entries.push({
+      code: "weak_copy_filler_phrase",
+      text:
+        "Most of this could be about any business in any industry. These exact phrases must not appear anywhere in the rewrite: " +
         fillerHits.map((phrase) => `"${phrase}"`).join(", ") +
         ". Say something only this florist could say."
-    );
+    });
   } else {
     // The general form of the same failure, for the shapes the list above has
     // not seen yet. Only raised when the copy is MOSTLY hollow — one general
@@ -2076,19 +2094,45 @@ export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
     );
     const hollow = findHollowSentences(copy, options.shopName, { audience: options.audience || null });
     if (hollow.length >= 2 && hollow.length >= substantive.length * 0.6) {
-      reasons.push(
-        `Nothing in this can be pictured or acted on — "${hollow[0]}" would read the same for any business with the nouns swapped. Name the actual flowers, what is being made, or what happens next.`
-      );
+      entries.push({
+        code: "weak_copy_hollow_sentence",
+        text: `Nothing in this can be pictured or acted on — "${hollow[0]}" would read the same for any business with the nouns swapped. Name the actual flowers, what is being made, or what happens next.`
+      });
     }
   }
 
   // The post Ashley was shown ran to five long sentences of it.
   const sentences = copy.split(/[.!?]+\s/).filter((part) => part.trim().length > 12);
   if (sentences.length > 5 && copy.length > 420) {
-    reasons.push("Far too long for a social post. Three or four short sentences, and stop.");
+    entries.push({ code: "weak_copy_too_long", text: "Far too long for a social post. Three or four short sentences, and stop." });
   }
 
-  return reasons;
+  return entries;
+}
+
+/**
+ * Public, unchanged contract: the exact reason STRINGS this repo has
+ * always returned — every existing caller/test that iterates these as
+ * plain text keeps working exactly as before. Derived from the same
+ * single evaluation detectWeakMarketingCopyEntries performs; never a
+ * second, independently-drifting copy of these checks.
+ */
+export function detectWeakMarketingCopy(requestText, copyText, options = {}) {
+  return detectWeakMarketingCopyEntries(requestText, copyText, options).map((e) => e.text);
+}
+
+/**
+ * Observability fix (2026-09-06 live-found gap): the structured sub-code
+ * for each of the same checks, in the same order as
+ * detectWeakMarketingCopy's own return — never the raw reason text. This
+ * is what lets a persisted diagnostic distinguish "weak_copy_filler_phrase"
+ * from "weak_copy_hollow_sentence" from "weak_copy_too_long" (and the
+ * other, less common internal checks), where evaluateMarketingOutput's own
+ * top-level reasonCodes still just says "weak_marketing_copy" for
+ * backward compatibility with existing callers of that field.
+ */
+export function detectWeakMarketingCopyReasonCodes(requestText, copyText, options = {}) {
+  return detectWeakMarketingCopyEntries(requestText, copyText, options).map((e) => e.code);
 }
 
 // ===========================================================================
@@ -2365,12 +2409,20 @@ export function evaluateMarketingOutput({
   // audience-gated self-purchase exemption. `canonicalConcept` here is the
   // same object flyer_text's coherence checks below already accept; only
   // its `.audience` field is used for this particular check.
-  for (const w of detectWeakMarketingCopy(requestText, rawJoined, {
+  const weakCopyOptions = {
     shopPhone,
     shopName,
     headline: originalFields.headline,
     audience: canonicalConcept?.audience || null
-  })) {
+  };
+  // Observability fix (2026-09-06 live-found gap): the top-level
+  // reasonCodes entry stays "weak_marketing_copy" for every existing
+  // caller of that field — weakCopyReasonCodes (below, on the return
+  // object) is the new, finer-grained parallel array that actually
+  // distinguishes which of detectWeakMarketingCopy's internal checks
+  // fired (e.g. "weak_copy_hollow_sentence" vs "weak_copy_filler_phrase").
+  const weakCopyReasonCodes = detectWeakMarketingCopyReasonCodes(requestText, rawJoined, weakCopyOptions);
+  for (const w of detectWeakMarketingCopy(requestText, rawJoined, weakCopyOptions)) {
     reasons.push(w);
     reasonCodes.push("weak_marketing_copy");
   }
@@ -2501,12 +2553,12 @@ export function evaluateMarketingOutput({
   const safeCandidate = isObjectCandidate ? { ...candidate, ...fields } : fields.body;
 
   if (reasons.length) {
-    return { decision: isRetryAttempt ? "reject" : "retry", safeCandidate, repaired, repairedBy, reasons, reasonCodes, evidenceUsed, checksRun };
+    return { decision: isRetryAttempt ? "reject" : "retry", safeCandidate, repaired, repairedBy, reasons, reasonCodes, weakCopyReasonCodes, evidenceUsed, checksRun };
   }
   if (repaired) {
-    return { decision: "repair", safeCandidate, repaired: true, repairedBy, reasons: [], reasonCodes: [], evidenceUsed, checksRun };
+    return { decision: "repair", safeCandidate, repaired: true, repairedBy, reasons: [], reasonCodes: [], weakCopyReasonCodes, evidenceUsed, checksRun };
   }
-  return { decision: "pass", safeCandidate: candidate, repaired: false, repairedBy: [], reasons: [], reasonCodes: [], evidenceUsed, checksRun };
+  return { decision: "pass", safeCandidate: candidate, repaired: false, repairedBy: [], reasons: [], reasonCodes: [], weakCopyReasonCodes, evidenceUsed, checksRun };
 }
 
 /**
@@ -2527,6 +2579,13 @@ export function buildCopyEvaluationDiagnostic({ attempt, evalResult, diversityEv
   return {
     attempt,
     reasonCodes: evalResult?.reasonCodes || [],
+    // Observability fix (2026-09-06 live-found gap): the fine-grained
+    // sub-codes behind a "weak_marketing_copy" entry in reasonCodes above
+    // — e.g. "weak_copy_hollow_sentence" vs "weak_copy_filler_phrase" —
+    // proven necessary by a live run where reasonCodes alone couldn't
+    // distinguish which of detectWeakMarketingCopy's internal checks
+    // actually fired.
+    weakCopyReasonCodes: evalResult?.weakCopyReasonCodes || [],
     repairedBy: evalResult?.repairedBy || [],
     diversityDecision: diversityEval?.decision ?? null,
     diversityRepeatedSignals: diversityEval?.repeatedSignals || [],

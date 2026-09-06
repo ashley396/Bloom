@@ -9,6 +9,7 @@ import {
   stripInventedTemporalClaims,
   findHollowSentences,
   detectWeakMarketingCopy,
+  detectWeakMarketingCopyReasonCodes,
   buildDeterministicCreativeRescueContent,
   buildCopyEvaluationDiagnostic
 } from "../netlify/functions/_shared/marketing-content-revision.js";
@@ -947,6 +948,7 @@ test("buildCopyEvaluationDiagnostic: never carries the candidate's own generated
   assert.deepEqual(JSON.parse(serialized), {
     attempt: 1,
     reasonCodes: ["invented_temporal_claim"],
+    weakCopyReasonCodes: [],
     repairedBy: ["stripInventedTemporalClaims"],
     diversityDecision: "retry",
     diversityRepeatedSignals: ["concept_fingerprint"],
@@ -975,10 +977,84 @@ test("buildCopyEvaluationDiagnostic: missing evalResult/diversityEval degrade to
   assert.deepEqual(diagnostic, {
     attempt: 2,
     reasonCodes: [],
+    weakCopyReasonCodes: [],
     repairedBy: [],
     diversityDecision: null,
     diversityRepeatedSignals: [],
     selected: false,
     rescueFired: true
   });
+});
+
+// ---------------------------------------------------------------------------
+// Sub-reason-code granularity fix (2026-09-06 live-found gap, second
+// occurrence): a real live run's two rejected caption attempts both
+// reported the same coarse "weak_marketing_copy" code, and there was no
+// way to tell which of detectWeakMarketingCopy's nine internal checks
+// actually fired without reading the raw candidate text. These tests
+// prove each check now reports its own distinct, stable sub-code via
+// detectWeakMarketingCopyReasonCodes, while detectWeakMarketingCopy's own
+// existing string-reason contract is completely unchanged.
+// ---------------------------------------------------------------------------
+
+test("detectWeakMarketingCopyReasonCodes: a filler-phrase caption reports weak_copy_filler_phrase only", () => {
+  const codes = detectWeakMarketingCopyReasonCodes(
+    "Make a nice post for the shop",
+    "We understand the importance of celebrating every moment with beautiful flowers.",
+    { shopName: "Lilies in Bloom" }
+  );
+  assert.deepEqual(codes, ["weak_copy_filler_phrase"]);
+});
+
+test("detectWeakMarketingCopyReasonCodes: a hollow-sentence caption (no filler phrases) reports weak_copy_hollow_sentence only", () => {
+  const codes = detectWeakMarketingCopyReasonCodes(
+    "Make a nice post for the shop",
+    "Every day is a wonderful opportunity to add a little more joy into your life. Life is full of small moments that deserve to be appreciated fully.",
+    { shopName: "Lilies in Bloom" }
+  );
+  assert.deepEqual(codes, ["weak_copy_hollow_sentence"]);
+});
+
+test("detectWeakMarketingCopyReasonCodes: an overlong caption (specific, non-filler, non-hollow content) reports weak_copy_too_long only", () => {
+  const longSpecificCopy =
+    "Our roses are looking stunning in the shop this week. Tulips add a wonderful splash of color to any arrangement we make. " +
+    "Carnations bring a lasting pop of color that lasts for weeks on end. Daisies give a cheerful, casual touch to any bouquet you choose. " +
+    "Peonies smell absolutely incredible in person when you visit the shop. Orchids make an elegant centerpiece for any dinner table setting. " +
+    "Lilies round out our beautiful current selection of fresh, seasonal blooms perfectly this month.";
+  const codes = detectWeakMarketingCopyReasonCodes("Make a nice post for the shop", longSpecificCopy, { shopName: "Lilies in Bloom" });
+  assert.deepEqual(codes, ["weak_copy_too_long"]);
+});
+
+test("detectWeakMarketingCopyReasonCodes: a caption with multiple independent problems reports each of their distinct sub-codes", () => {
+  const fillerAndLongCopy =
+    "We understand the importance of celebrating every moment with beautiful flowers. Whether you're looking for something classic or bold, we've got you covered. " +
+    "Our experienced florists create meaningful arrangements for any occasion you can imagine. High-quality blooms make all the difference in every single bouquet. " +
+    "We're here to support you every step of the way, always. Contact us today to discuss your needs for your very next celebration.";
+  const codes = detectWeakMarketingCopyReasonCodes("Make a nice post for the shop", fillerAndLongCopy, { shopName: "Lilies in Bloom" });
+  assert.ok(codes.includes("weak_copy_filler_phrase"));
+  assert.ok(codes.includes("weak_copy_too_long"));
+});
+
+test("detectWeakMarketingCopyReasonCodes: genuinely valid self-purchase copy reports no weak-copy sub-codes at all", () => {
+  const codes = detectWeakMarketingCopyReasonCodes(
+    "Give me a cute post about buying yourself flowers",
+    "You don't need a special occasion to bring flowers home — sometimes wanting them is reason enough.",
+    { shopName: "Lilies in Bloom", audience: "self_purchase" }
+  );
+  assert.deepEqual(codes, []);
+});
+
+test("evaluateMarketingOutput: an invented temporal claim and a weak-copy filler phrase in the SAME candidate are both reported, independently, in their own reasonCodes arrays", () => {
+  const result = evaluateMarketingOutput({
+    route: "generate_content",
+    request: "Give me a cute post about buying yourself flowers",
+    shopEvidence: { name: "Lilies in Bloom" },
+    canonicalConcept: { audience: "self_purchase" },
+    candidate: { headline: null, body: "Self-care Sunday is here. We understand the importance of treating yourself well.", cta: "" },
+    component: "caption"
+  });
+  assert.ok(result.reasonCodes.includes("invented_temporal_claim"), "the top-level reasonCodes must still report the temporal-safety hit");
+  assert.ok(result.reasonCodes.includes("weak_marketing_copy"), "the top-level reasonCodes must still report the coarse weak-copy hit, unchanged");
+  assert.ok(result.weakCopyReasonCodes.includes("weak_copy_filler_phrase"), "the new fine-grained array must identify the specific weak-copy check that fired");
+  assert.doesNotMatch(result.safeCandidate.body, /Sunday/);
 });

@@ -679,11 +679,20 @@ test("generate_content (real dispatch): a rejected first caption, a passing retr
 
     assert.equal(attempt1Diagnostic.attempt, 1);
     assert.ok(attempt1Diagnostic.reasonCodes.includes("weak_marketing_copy"), "attempt 1's real rejection reason must be recorded as a structured code");
+    // Sub-reason-code granularity fix: the coarse "weak_marketing_copy"
+    // code alone can't say WHICH internal check fired — attempt 1's real
+    // mocked copy is filler-laden, so the fine-grained array must name
+    // that specific check, not just the umbrella code.
+    assert.ok(
+      attempt1Diagnostic.weakCopyReasonCodes.includes("weak_copy_filler_phrase"),
+      "attempt 1's specific weak-copy sub-reason must be recorded, not just the coarse code"
+    );
     assert.equal(attempt1Diagnostic.selected, false, "attempt 1 was NOT the one ultimately kept");
     assert.equal(attempt1Diagnostic.rescueFired, false);
 
     assert.equal(attempt2Diagnostic.attempt, 2);
     assert.deepEqual(attempt2Diagnostic.reasonCodes, [], "the retry genuinely passed — no reason codes");
+    assert.deepEqual(attempt2Diagnostic.weakCopyReasonCodes, [], "the retry genuinely passed — no weak-copy sub-reasons either");
     assert.equal(attempt2Diagnostic.selected, true, "the retry was the one ultimately kept");
     assert.equal(attempt2Diagnostic.rescueFired, false, "a genuinely passing retry must never be reported as a rescue");
 
