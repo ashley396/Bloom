@@ -259,8 +259,13 @@ export function detectPermanentClosureMismatch(requestText, generatedText) {
 // the same PHONE_RE/PRICE_RE/DATE_RE/TIME_RE fact-token detection above —
 // any of those already means "this request carries information that must
 // be exact and readable," the same bar a flyer exists to guarantee.
+// Personal-occasion concept-preservation batch, follow-up routing review:
+// "close" alone ("we close at 2 PM today") previously fell through this
+// pattern entirely — only "closing"/"closed" matched. An operational
+// hours statement is exactly what this keyword list exists to catch
+// regardless of verb tense, so the base form is added here.
 const FLYER_WORDING_KEYWORDS_RE =
-  /\b(clos(?:ing|ed)|open(?:ing)?|hours?|business hours)\b|\b(sale|%\s?off|percent off|discount|promo(?:tion)?|special offer)\b|\bevent\b|\brsvp\b|\b(deadline|order by|cutoff|last day to order)\b|\bannounc(?:e|ing|ement)\b|\b(address|located at|find us at)\b/i;
+  /\b(clos(?:e|es|ing|ed)|open(?:ing)?|hours?|business hours)\b|\b(sale|%\s?off|percent off|discount|promo(?:tion)?|special offer)\b|\bevent\b|\brsvp\b|\b(deadline|order by|cutoff|last day to order)\b|\bannounc(?:e|ing|ement)\b|\b(address|located at|find us at)\b/i;
 
 // The florist naming the thing they want made. "A flyer", "a poster", "a
 // graphic", "an ad" is a request for a designed piece, and it is not a
@@ -268,70 +273,62 @@ const FLYER_WORDING_KEYWORDS_RE =
 // flyer to get more funeral business" did not previously produce a flyer.
 const DESIGNED_ARTEFACT_RE = /\b(flyer|flier|poster|graphic|banner|signage|advert(?:isement)?|\bads?\b)\b/i;
 
-// A post whose JOB is to win work. "Generate more funeral work", "get more
-// wedding business", "bring in more orders", "advertise our sympathy
-// arrangements" — these are advertisements, and an advertisement with no
-// shop name, no message and no phone number on it is just a stock photo.
-// This is the case Ashley hit: a request to generate more funeral work came
-// back as a bare AI photograph with no design on it whatsoever.
+// A post whose JOB is to win work — "generate more funeral work," "get more
+// wedding business," "bring in more orders": a genuine ask to grow the
+// business, naming a real business-growth target, and an advertisement
+// with no shop name, no message and no phone number on it is just a stock
+// photo. This is the case Ashley hit: a request to generate more funeral
+// work came back as a bare AI photograph with no design on it whatsoever.
 const PROMOTIONAL_INTENT_RE =
   /\b(?:get|generate|bring in|drive|attract|win|boost|increase|grow|more)\b[^.!?]{0,40}\b(business|work|orders?|customers?|clients?|bookings?|enquir(?:y|ies)|inquir(?:y|ies)|sales|traffic)\b/i;
 
-// "marketing post/piece" and "let people/customers/everyone know" are
-// unconditional signals in themselves — both already unambiguously
-// describe an intentional advertisement, regardless of what else the
-// request says.
-const UNCONDITIONAL_AD_SIGNAL_RE = /\bmarket(?:ing)? (?:post|piece)\b|\blet (?:people|customers|everyone) know\b/i;
-
-// Real, live-found failure (Birthday acceptance test): "Create a fun
-// Facebook post promoting birthday flowers." — an ordinary casual social
-// request — tripped a bare, unconditional match on "promoting" and got
-// routed into the exact-layout/on-image-wording flyer path meant for
-// genuine business-development advertisements. "Promote/promoting/
-// advertise/advertising" is ordinary descriptive vocabulary far more often
-// than it signals "this must function as an advertisement" — "a post
-// promoting birthday flowers" simply means "a post about birthday
-// flowers." Fixed generally, not with a birthday exception: these verbs no
-// longer establish flyer/advertising intent on their own. They only count
-// when the SAME SENTENCE also carries either (a) a genuine business-growth
-// target — the same nouns PROMOTIONAL_INTENT_RE already requires
-// (business/work/orders/customers/clients/bookings/enquiries/sales/
-// traffic) — or (b) a possessive reference to the shop's own offering
-// ("advertise OUR sympathy arrangements," "promote MY shop") — the real
-// distinguishing signal between "a post about X" and "an ad for what we
-// sell." Sentence-scoped (reuses sentencesOf(), the same split this
-// codebase's other fact-safety checks already use) so an unrelated
-// business-noun elsewhere in the same request can never combine with a
-// wholly separate sentence's own incidental "promote"/"advertise" to
-// manufacture a false positive.
-const ADVERTISE_VERB_RE = /\b(advertise|advertising|promote|promoting|promotion)\b/i;
-const BUSINESS_GROWTH_TARGET_RE = /\b(business|work|orders?|customers?|clients?|bookings?|enquir(?:y|ies)|inquir(?:y|ies)|sales|traffic)\b/i;
-const POSSESSIVE_SHOP_OFFERING_RE = /\b(?:our|my)\s+\w+/i;
-
-function hasTargetedAdvertisingIntent(text) {
-  return sentencesOf(text).some(
-    (sentence) => ADVERTISE_VERB_RE.test(sentence) && (BUSINESS_GROWTH_TARGET_RE.test(sentence) || POSSESSIVE_SHOP_OFFERING_RE.test(sentence))
-  );
-}
+// Personal-occasion concept-preservation batch, follow-up routing review
+// (Ashley's own explicit correction after the first pass): the function
+// below must answer "does this request need MEANINGFUL INFORMATION OR
+// WORDING to appear ON THE GRAPHIC itself" — never "is this generically
+// marketing-flavored language." An earlier version of this fix let a bare
+// "promote/advertise" verb establish flyer intent whenever it co-occurred
+// with a business-growth noun OR a possessive "our/my X" — but "Create a
+// Facebook post promoting OUR birthday flowers" and "advertise OUR
+// get-well flowers" are exactly as ordinary/casual as "promoting birthday
+// flowers" with no possessive at all; the possessive was not actually the
+// real distinguishing signal it was assumed to be, and reproduced the same
+// mistake it was meant to fix. Likewise, "marketing post/piece" and "let
+// people/customers/everyone know" are ordinary vocabulary for describing
+// an ORDINARY social post, not evidence that exact wording must be drawn
+// on the graphic — "Make a marketing post about anniversary flowers" and
+// "Let customers know we have birthday flowers" carry no such requirement
+// either. All of that has been removed. Bare "promote/promoting/
+// advertise/advertising/promotion," "marketing post/piece," and "let
+// people/customers/everyone know" no longer contribute to this function at
+// all, in any combination — the only remaining positive evidence of real
+// business-development intent (a verb that names growing the business
+// PAIRED with what it's growing) is PROMOTIONAL_INTENT_RE above, which
+// this fix leaves completely untouched, and which already covers every
+// still-required real advertising case (business/work/orders/customers/
+// clients/bookings/enquiries/sales/traffic named alongside a genuine
+// growth verb) without ever needing "promote"/"advertise" as a trigger
+// word at all.
 
 /** True when a request's important information needs to be VISIBLE and
  * EXACT on the graphic itself — the deterministic flyer signal. Any real
  * fact token (phone/price/date/time) is enough on its own; so is one of
  * the plain operational/promotional keywords above; so is the florist
  * naming a designed artefact, or asking for a post whose purpose is to win
- * business. Never fires on an ordinary decorative or celebratory request
- * with no such signal — "make me an image of a jaguar holding roses" is a
- * picture, and stays a picture, per requirement 10. Nor does it fire on an
- * ordinary request that merely happens to use the word "promote"/
- * "advertise" as descriptive vocabulary rather than genuine business-
- * development intent — see hasTargetedAdvertisingIntent above. */
+ * business (a real business-growth verb + target, PROMOTIONAL_INTENT_RE).
+ * Never fires on an ordinary decorative or celebratory request with no
+ * such signal — "make me an image of a jaguar holding roses" is a
+ * picture, and stays a picture, per requirement 10 — nor on an ordinary
+ * social post that merely uses generic marketing vocabulary ("promoting,"
+ * "advertising," "marketing post," "let customers know") with no genuine
+ * on-graphic wording requirement — see this file's own comment above for
+ * the full reasoning. */
 export function requestNeedsFlyerWording(text) {
   const s = String(text || "");
   if (extractFactTokens(s).length) return true;
   if (FLYER_WORDING_KEYWORDS_RE.test(s)) return true;
   if (DESIGNED_ARTEFACT_RE.test(s)) return true;
-  if (PROMOTIONAL_INTENT_RE.test(s) || UNCONDITIONAL_AD_SIGNAL_RE.test(s)) return true;
-  return hasTargetedAdvertisingIntent(s);
+  return PROMOTIONAL_INTENT_RE.test(s);
 }
 
 // A revision instruction can ask to change the FACTS on an existing flyer

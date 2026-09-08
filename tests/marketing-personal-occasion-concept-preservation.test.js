@@ -26,34 +26,59 @@ import { routeMarketingEngine, ENGINES } from "../netlify/functions/_shared/mark
 const SHOP = { name: "Lilies in Bloom", phone: "6065064039" };
 
 // ---------------------------------------------------------------------------
-// PART 1 — routing: "promoting" alone no longer establishes flyer-wording
-// intent; every previously-legitimate signal still does.
+// PART 1 — routing. Two passes: the original Birthday-acceptance fix, then
+// Ashley's own follow-up correction after reviewing it — a bare "promote/
+// advertise" combined with a possessive "our/my X" turned out to be just
+// as ordinary/casual as the bare verb alone ("promoting OUR birthday
+// flowers" reproduced the exact mistake the first pass meant to fix), and
+// "marketing post/piece"/"let ... know" are ordinary social-post
+// vocabulary too. requestNeedsFlyerWording() now answers ONLY "does this
+// request need meaningful information or wording to appear ON THE
+// GRAPHIC" — never "is this generically marketing-flavored language."
 // ---------------------------------------------------------------------------
 
 test("requestNeedsFlyerWording: the exact Birthday acceptance-test request no longer routes to exact-layout merely because it contains \"promoting\"", () => {
   assert.equal(requestNeedsFlyerWording("Create a fun Facebook post promoting birthday flowers."), false);
 });
 
-test("requestNeedsFlyerWording: other ordinary casual requests using \"promote\"/\"promoting\"/\"advertise\" with no business-growth target and no possessive shop reference also stay a plain photo", () => {
+test("requestNeedsFlyerWording (routing review — must NOT require exact-layout): ordinary social posts using generic marketing vocabulary, including a possessive \"our/my\", stay Premium-Creative/subject-forward eligible", () => {
   for (const text of [
-    "Make a fun post promoting the new tulips.",
-    "Write something promoting spring flowers for the feed.",
-    "A cute post advertising fresh daisies."
+    "Create a Facebook post promoting birthday flowers.",
+    "Create a Facebook post promoting our birthday flowers.",
+    "Make a marketing post about anniversary flowers.",
+    "Let customers know we have birthday flowers.",
+    "Create a post advertising our get-well flowers."
   ]) {
-    assert.equal(requestNeedsFlyerWording(text), false, `"${text}" must NOT be routed to the flyer path`);
+    assert.equal(requestNeedsFlyerWording(text), false, `"${text}" must NOT be routed to the exact-layout flyer path`);
   }
 });
 
-test("requestNeedsFlyerWording: genuine business-development advertising requests are UNCHANGED — still route to the flyer path", () => {
+test("requestNeedsFlyerWording (routing review — must still require exact-layout): structured/fact-heavy requests keep their real on-graphic wording requirement", () => {
   for (const text of [
-    "Create me a facebook post to generate more funeral work.",
-    "make me a flyer to get more funeral business",
-    "I want to drive more orders this month",
+    "Make a flyer for 20% off bouquets this weekend.",
+    "Create a poster that says Homecoming Orders Due September 15.",
+    "Make an ad with our phone number and address on it.",
+    "Let customers know we close at 2 PM today.",
+    // A real explicit business-development/fact-heavy example already
+    // covered by this codebase's own existing tests (marketing-studio-
+    // closure-intent-and-persist-guard.test.js) — PROMOTIONAL_INTENT_RE,
+    // completely untouched by this routing review.
+    "make me a flyer to get more funeral business"
+  ]) {
+    assert.equal(requestNeedsFlyerWording(text), true, `"${text}" must still route to the deterministic flyer path`);
+  }
+});
+
+test("requestNeedsFlyerWording: other ordinary casual requests using \"promote\"/\"promoting\"/\"advertise\"/\"marketing post\"/\"let ... know\" all stay a plain photo", () => {
+  for (const text of [
+    "Make a fun post promoting the new tulips.",
+    "Write something promoting spring flowers for the feed.",
+    "A cute post advertising fresh daisies.",
     "advertise our sympathy arrangements",
     "promote our valentines specials",
     "let customers know about our new subscription"
   ]) {
-    assert.equal(requestNeedsFlyerWording(text), true, `"${text}" must still route to the deterministic flyer path`);
+    assert.equal(requestNeedsFlyerWording(text), false, `"${text}" must NOT be routed to the flyer path`);
   }
 });
 

@@ -1013,13 +1013,30 @@ test("a post whose job is to win business is a designed piece, not a bare photo"
     "post to bring in more wedding bookings",
     "something to attract more corporate clients",
     "I want to drive more orders this month",
-    "advertise our sympathy arrangements",
-    "promote our valentines specials",
-    "let customers know about our new subscription"
+    // Personal-occasion concept-preservation batch, routing review:
+    // "advertise our sympathy arrangements" / "promote our valentines
+    // specials" / "let customers know about our new subscription" used to
+    // live in this list, but all three relied on exactly the overmatch
+    // this batch's own follow-up review corrected — a bare "advertise/
+    // promote" (even paired with a possessive "our X") or a bare "let
+    // ... know" is ordinary social-post vocabulary, not evidence that
+    // exact wording must be drawn on the graphic (see
+    // requestNeedsFlyerWording's own updated docs). They are still
+    // exercised, now asserting the corrected `false`, in the test just
+    // below this one. This list keeps only phrasings that name a genuine
+    // business-growth verb + target (PROMOTIONAL_INTENT_RE), which this
+    // batch left completely untouched.
+    "I need more inquiries about our wedding packages"
   ];
   for (const request of asked) {
     assert.equal(requestNeedsFlyerWording(request), true,
       `"${request}" came back as a photograph with no shop name, message or phone number on it`);
+  }
+});
+
+test("personal-occasion concept-preservation batch (routing review): bare 'advertise/promote' or 'let ... know' with no genuine business-growth target or fact-heavy signal is ordinary social language, not a flyer-wording requirement", () => {
+  for (const request of ["advertise our sympathy arrangements", "promote our valentines specials", "let customers know about our new subscription"]) {
+    assert.equal(requestNeedsFlyerWording(request), false, `"${request}" must NOT be routed to the flyer path`);
   }
 });
 
