@@ -3041,7 +3041,19 @@ export function createMarketingStudioHandler(deps = {}) {
             // non-operational creative case — the deterministic NOTICE
             // rescue must never be used here; it produced "Store Notice /
             // has an update for you" for an ordinary creative request.
-            const rescueFallback = buildDeterministicCreativeRescueContent({ shopName, shopPhone: shopRow.data?.phone, audience: socialConceptAudience });
+            // Personal-occasion concept-preservation batch, Part 3: the
+            // SAME occasionCategory/namedCampaign already classified for
+            // this exact request above — never a second, independently-
+            // derived signal — so a genuine caption rescue preserves the
+            // real occasion (birthday/anniversary/new_baby/get_well)
+            // instead of falling back to fully occasion-blind wording.
+            const rescueFallback = buildDeterministicCreativeRescueContent({
+              shopName,
+              shopPhone: shopRow.data?.phone,
+              audience: socialConceptAudience,
+              occasionCategory: socialConceptOccasionCategory,
+              namedCampaign: socialConceptNamedCampaign
+            });
             // Reused as `nf` by generateFlyerCopy below — this is what
             // stops the flyer's on-image wording from independently
             // re-attempting an AI call (and its own cost) for content
@@ -3410,10 +3422,18 @@ export function createMarketingStudioHandler(deps = {}) {
           // never fire in this branch; it produced "Store Notice / has an
           // update for you" on-image for an ordinary creative flyer.
           if (flyerEval?.reasons?.length) {
+            // Personal-occasion concept-preservation batch, Part 3: the
+            // SAME conceptOccasionCategory/conceptNamedCampaign already
+            // classified for this exact request (closure-captured from the
+            // enclosing scope, never re-derived) — so a genuine on-image
+            // flyer-text rescue preserves the real occasion instead of
+            // falling back to fully occasion-blind wording.
             const flyerFallback = buildDeterministicCreativeRescueContent({
               shopName,
               shopPhone: shopRow.data?.phone,
-              ctaIntent: flyerConcept?.ctaIntent ?? null
+              ctaIntent: flyerConcept?.ctaIntent ?? null,
+              occasionCategory: conceptOccasionCategory,
+              namedCampaign: conceptNamedCampaign
             });
             flyerGen.content.headline = flyerFallback.headline;
             flyerGen.content.body = flyerFallback.body;

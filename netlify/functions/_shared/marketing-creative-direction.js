@@ -397,7 +397,19 @@ const CREATIVE_MODE_TO_OCCASION_TREATMENT = Object.freeze({
   playful_promotion: "promotional_feature",
   editorial_brand: "elegant_editorial",
   photo_forward_social: "photo_forward_social",
-  everyday_floral: "everyday_floral"
+  everyday_floral: "everyday_floral",
+  // Personal-occasion concept-preservation batch: a birthday/anniversary/
+  // new_baby/get_well request shares photo_forward_social's own family —
+  // a real photo carries the whole composition, no on-image headline/
+  // brand/phone/cta forced on (this family's own sole graphicTextSlots
+  // exemption, below) — matching Ashley's explicit "subject-forward
+  // eligible... not automatically a poster" requirement. creativeMode
+  // itself (and namedCampaign, via getCategoryConstraints' own mood
+  // override just below) still carries the real occasion identity for
+  // tone/mood/copy-voice/rescue purposes; only the STRUCTURAL family is
+  // shared, the same "two modes, one family" pattern promotional_sales/
+  // playful_promotion already use above.
+  personal_celebration: "photo_forward_social"
 });
 
 /**
@@ -442,7 +454,7 @@ export function resolveOccasionTreatment({ occasionCategory = null, sympathyClas
  * `ctaProminenceCeiling` (the loosest CTA prominence this family permits
  * — never a floor).
  */
-export function getCategoryConstraints({ occasionCategory = null, sympathyClassification = null, promotionIntent = null, inventoryIntent = null, ctaIntent = null, creativeMode = null } = {}) {
+export function getCategoryConstraints({ occasionCategory = null, sympathyClassification = null, promotionIntent = null, inventoryIntent = null, ctaIntent = null, creativeMode = null, namedCampaign = null } = {}) {
   const occasionTreatment = resolveOccasionTreatment({ occasionCategory, sympathyClassification, promotionIntent, creativeMode });
   const hasCta = Boolean(ctaIntent) && ctaIntent !== "none";
   const isInventoryGrounded = inventoryIntent === "inventory_driven";
@@ -746,6 +758,25 @@ export function getCategoryConstraints({ occasionCategory = null, sympathyClassi
     return { ...chosen, leaning: { ...chosen.leaning, visualMood: "playful_energetic" }, occasionTreatment, inventoryGroundedGuidance: isInventoryGrounded };
   }
 
+  // Personal-occasion concept-preservation batch, Part 2: the same "one
+  // shared structural family, mood differs by the finer campaign identity"
+  // pattern as playful_promotion just above — birthday/anniversary/
+  // new_baby/get_well all share photo_forward_social's structure but are
+  // not tonally interchangeable. birthday keeps the family's own default
+  // (bright_joyful/soft_pastel already fits a birthday celebration) so it
+  // is deliberately absent from this table; the other three get a gentler
+  // or warmer override — never a new VISUAL_MOODS/PALETTE_MOODS value,
+  // only ones this schema already defines.
+  if (creativeMode === "personal_celebration" && occasionTreatment === "photo_forward_social") {
+    const PERSONAL_CELEBRATION_MOOD = {
+      anniversary: { visualMood: "romantic_soft" },
+      new_baby: { visualMood: "warm_inviting" },
+      get_well: { visualMood: "warm_inviting", paletteMood: "neutral_blush_ivory" }
+    };
+    const moodOverride = PERSONAL_CELEBRATION_MOOD[namedCampaign] || {};
+    return { ...chosen, leaning: { ...chosen.leaning, ...moodOverride }, occasionTreatment, inventoryGroundedGuidance: isInventoryGrounded };
+  }
+
   return { ...chosen, occasionTreatment, inventoryGroundedGuidance: isInventoryGrounded };
 }
 
@@ -781,7 +812,8 @@ export function buildDeterministicCreativeDirection({ canonicalConcept = null, s
     promotionIntent: concept.promotionIntent || null,
     inventoryIntent: concept.inventoryIntent || null,
     ctaIntent,
-    creativeMode: concept.creativeMode || null
+    creativeMode: concept.creativeMode || null,
+    namedCampaign: concept.namedCampaign || null
   });
 
   const base = {

@@ -2726,16 +2726,23 @@ test("REGRESSION (staging re-test): verified inventory containing roses MAY be u
   const flyerCopy = { headline: "In The Shop Now", body: "Here's what we have on hand today.", cta: "Visit us today" };
   const mock = mockCloudflare([copy, flyerCopy]);
   try {
-    // Note: "Promote..." trips requestNeedsFlyerWording's own promotional-
-    // intent signal, so this specific request routes through the
-    // EXACT-FACTS flyer branch (a calm-backdrop background via
+    // Note: naming "a flyer" trips requestNeedsFlyerWording's own
+    // DESIGNED_ARTEFACT_RE signal, so this specific request routes through
+    // the EXACT-FACTS flyer branch (a calm-backdrop background via
     // buildFlyerBackgroundPrompt/generateFlyerBackgroundWithRetry), not
     // the subject-forward branch the other tests in this section use —
     // its own DB call shape has no separate recordUsage("image")/
     // website_media insert (see generateFlyerFixtureQueue above).
+    // Personal-occasion concept-preservation batch: this brief used to
+    // read "Promote something I actually have in stock." — bare
+    // "promote" with no business-growth target or possessive shop
+    // reference no longer establishes flyer-wording intent on its own
+    // (see requestNeedsFlyerWording's own updated docs), so this brief
+    // now names the artefact directly instead, preserving the exact same
+    // routing/DB-shape this test exists to exercise.
     const client = createFakeSupabaseClient(
       [
-        { data: { id: "item-p3f4", content_type: "image_post", title: "In stock", brief: "Promote something I actually have in stock.", status: "idea" }, error: null },
+        { data: { id: "item-p3f4", content_type: "image_post", title: "In stock", brief: "Make me a flyer to promote something I actually have in stock.", status: "idea" }, error: null },
         { data: [{ id: "item-p3f4", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3f4", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },

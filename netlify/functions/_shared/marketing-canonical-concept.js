@@ -380,8 +380,29 @@ export const CREATIVE_MODES = Object.freeze([
   "promotional_sales",
   "playful_promotion",
   "operational_notice",
-  "everyday_floral"
+  "everyday_floral",
+  // Personal-occasion concept-preservation batch: the structural fix for
+  // the Birthday acceptance-test defect. A well-classified, common
+  // personal-celebration occasion (see PERSONAL_CELEBRATION_OCCASIONS
+  // below) was previously invisible to classifyCreativeMode entirely and
+  // fell through to the SAME "everyday_floral" bucket as a request with no
+  // occasion at all — flattening real occasion identity before it ever
+  // reached copy tone, visual direction, or rescue. This mode exists so
+  // that identity survives.
+  "personal_celebration"
 ]);
+
+// Personal-occasion concept-preservation batch, Part 2: the bounded set of
+// OCCASION_CATEGORIES values classifyCreativeMode below gives their own
+// dedicated, occasion-aware treatment rather than the generic
+// "everyday_floral" fallthrough. Deliberately narrow and reused verbatim
+// (never re-derived) by classifyCopyVoice and by buildDeterministicCreative
+// RescueContent's own occasion table (marketing-content-revision.js) — one
+// real source of truth for which occasions this batch actually covers.
+// "congratulations" has no OCCASION_CATEGORIES entry to reuse (Ashley's own
+// instruction: never invent a category name that doesn't already exist in
+// the canonical schema), so it is not included here.
+export const PERSONAL_CELEBRATION_OCCASIONS = Object.freeze(["birthday", "anniversary", "new_baby", "get_well"]);
 
 // Shared across classifyCreativeMode and classifyCopyVoice — a request
 // signaling humor/urgency/conversational tone (Ashley's own "last chance
@@ -420,6 +441,16 @@ export function classifyCreativeMode({
   const isPlayful = PLAYFUL_SIGNAL_RE.test(requestText);
   if (promotionIntent === "real_promotion") return isPlayful ? "playful_promotion" : "promotional_sales";
   if (namedCampaign === "wedding" || ELEGANT_SIGNAL_RE.test(requestText)) return "editorial_brand";
+  // Personal-occasion concept-preservation batch, Part 2: a well-
+  // classified personal-celebration occasion (birthday/anniversary/
+  // new_baby/get_well) gets its own structural mode rather than silently
+  // collapsing into "everyday_floral" — the real, proven Birthday
+  // acceptance-test defect. Checked ahead of the text-only signals below
+  // (PHOTO_FORWARD_SIGNAL_RE/isPlayful) because occasionCategory is a
+  // structured, already-classified signal and should win over an
+  // incidental phrase match — but still after sympathy/operational/major-
+  // campaign/promotion/wedding, none of which this ever overrides.
+  if (PERSONAL_CELEBRATION_OCCASIONS.includes(occasionCategory)) return "personal_celebration";
   if (PHOTO_FORWARD_SIGNAL_RE.test(requestText)) return "photo_forward_social";
   if (isPlayful) return "playful_promotion";
   return "everyday_floral";
@@ -484,6 +515,29 @@ export function classifyCopyVoice({
     if (/\bfunny\b|\bhumor(?:ous)?\b|\bjoke\b/i.test(requestText)) voices.add("humorous");
   }
   if (creativeMode === "editorial_brand") voices.add("elegant");
+  // Personal-occasion concept-preservation batch, Part 2/4: the SAME real
+  // gap this batch's other fixes close — a birthday/anniversary/new_baby/
+  // get_well post previously earned no tone signal at all beyond the flat
+  // professional+warm default every unmatched request gets, which is
+  // exactly why the model's own generated copy had nothing celebratory (or
+  // gentle, for get_well) to work with. get_well is deliberately NOT
+  // "celebratory" — a caring, compassionate tone fits a recovery far
+  // better than an upbeat one, the same real distinction sympathy already
+  // makes elsewhere in this function. "fun" is checked directly (not
+  // folded into the shared PLAYFUL_SIGNAL_RE, which also drives OTHER
+  // creativeModes' fallback selection above) — Ashley's own explicit
+  // requirement that a "fun Facebook post" birthday request be compatible
+  // with a playful tone, scoped narrowly to this one branch.
+  if (creativeMode === "personal_celebration") {
+    voices.add("warm");
+    if (namedCampaign === "get_well") {
+      voices.add("compassionate");
+    } else {
+      voices.add("celebratory");
+    }
+    if (namedCampaign === "anniversary") voices.add("romantic");
+    if (namedCampaign === "birthday" && (playfulSignal || /\bfun\b/i.test(requestText))) voices.add("playful");
+  }
   // Live-found defect fix: a casual, photo-forward social post (e.g. "a
   // cute post about buying yourself flowers") was falling through to the
   // generic professional+warm default below — the same flat, business-

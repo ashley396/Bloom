@@ -276,7 +276,43 @@ const DESIGNED_ARTEFACT_RE = /\b(flyer|flier|poster|graphic|banner|signage|adver
 // back as a bare AI photograph with no design on it whatsoever.
 const PROMOTIONAL_INTENT_RE =
   /\b(?:get|generate|bring in|drive|attract|win|boost|increase|grow|more)\b[^.!?]{0,40}\b(business|work|orders?|customers?|clients?|bookings?|enquir(?:y|ies)|inquir(?:y|ies)|sales|traffic)\b/i;
-const PROMOTE_VERB_RE = /\b(advertise|advertising|promote|promoting|promotion|market(?:ing)? (?:post|piece)|let (?:people|customers|everyone) know)\b/i;
+
+// "marketing post/piece" and "let people/customers/everyone know" are
+// unconditional signals in themselves — both already unambiguously
+// describe an intentional advertisement, regardless of what else the
+// request says.
+const UNCONDITIONAL_AD_SIGNAL_RE = /\bmarket(?:ing)? (?:post|piece)\b|\blet (?:people|customers|everyone) know\b/i;
+
+// Real, live-found failure (Birthday acceptance test): "Create a fun
+// Facebook post promoting birthday flowers." — an ordinary casual social
+// request — tripped a bare, unconditional match on "promoting" and got
+// routed into the exact-layout/on-image-wording flyer path meant for
+// genuine business-development advertisements. "Promote/promoting/
+// advertise/advertising" is ordinary descriptive vocabulary far more often
+// than it signals "this must function as an advertisement" — "a post
+// promoting birthday flowers" simply means "a post about birthday
+// flowers." Fixed generally, not with a birthday exception: these verbs no
+// longer establish flyer/advertising intent on their own. They only count
+// when the SAME SENTENCE also carries either (a) a genuine business-growth
+// target — the same nouns PROMOTIONAL_INTENT_RE already requires
+// (business/work/orders/customers/clients/bookings/enquiries/sales/
+// traffic) — or (b) a possessive reference to the shop's own offering
+// ("advertise OUR sympathy arrangements," "promote MY shop") — the real
+// distinguishing signal between "a post about X" and "an ad for what we
+// sell." Sentence-scoped (reuses sentencesOf(), the same split this
+// codebase's other fact-safety checks already use) so an unrelated
+// business-noun elsewhere in the same request can never combine with a
+// wholly separate sentence's own incidental "promote"/"advertise" to
+// manufacture a false positive.
+const ADVERTISE_VERB_RE = /\b(advertise|advertising|promote|promoting|promotion)\b/i;
+const BUSINESS_GROWTH_TARGET_RE = /\b(business|work|orders?|customers?|clients?|bookings?|enquir(?:y|ies)|inquir(?:y|ies)|sales|traffic)\b/i;
+const POSSESSIVE_SHOP_OFFERING_RE = /\b(?:our|my)\s+\w+/i;
+
+function hasTargetedAdvertisingIntent(text) {
+  return sentencesOf(text).some(
+    (sentence) => ADVERTISE_VERB_RE.test(sentence) && (BUSINESS_GROWTH_TARGET_RE.test(sentence) || POSSESSIVE_SHOP_OFFERING_RE.test(sentence))
+  );
+}
 
 /** True when a request's important information needs to be VISIBLE and
  * EXACT on the graphic itself — the deterministic flyer signal. Any real
@@ -285,13 +321,17 @@ const PROMOTE_VERB_RE = /\b(advertise|advertising|promote|promoting|promotion|ma
  * naming a designed artefact, or asking for a post whose purpose is to win
  * business. Never fires on an ordinary decorative or celebratory request
  * with no such signal — "make me an image of a jaguar holding roses" is a
- * picture, and stays a picture, per requirement 10. */
+ * picture, and stays a picture, per requirement 10. Nor does it fire on an
+ * ordinary request that merely happens to use the word "promote"/
+ * "advertise" as descriptive vocabulary rather than genuine business-
+ * development intent — see hasTargetedAdvertisingIntent above. */
 export function requestNeedsFlyerWording(text) {
   const s = String(text || "");
   if (extractFactTokens(s).length) return true;
   if (FLYER_WORDING_KEYWORDS_RE.test(s)) return true;
   if (DESIGNED_ARTEFACT_RE.test(s)) return true;
-  return PROMOTIONAL_INTENT_RE.test(s) || PROMOTE_VERB_RE.test(s);
+  if (PROMOTIONAL_INTENT_RE.test(s) || UNCONDITIONAL_AD_SIGNAL_RE.test(s)) return true;
+  return hasTargetedAdvertisingIntent(s);
 }
 
 // A revision instruction can ask to change the FACTS on an existing flyer
@@ -711,7 +751,54 @@ export function buildDeterministicNoticeContent({ requestText, shopName, shopPho
  * invented phrase — an empty CTA is honest; a location/open-state claim
  * with nothing behind it is not.
  */
-export function buildDeterministicCreativeRescueContent({ shopName, shopPhone, ctaIntent = null, audience = null } = {}) {
+// Personal-occasion concept-preservation batch, Part 3: a small,
+// deterministic phrase-COMPONENT table, never one giant hard-coded
+// sentence per occasion. Each entry supplies only the two short fragments
+// genuinely specific to that occasion — a headline, and the body's own
+// occasion-naming clause — composed through the exact SAME name-optional/
+// CTA machinery every other branch below already uses. Real, live-found
+// defect this closes: a birthday request that genuinely needed rescue
+// (Birthday acceptance test) fell back to the fully generic, occasion-
+// blind "moments that matter... brighten someone's day" wording — the
+// same wording literally every other occasion's rescue also produced,
+// with zero trace of what was actually asked for. Keyed by namedCampaign
+// (the finer identity), matching classifyNamedCampaign's own
+// birthday/anniversary/new_baby/get_well DIRECT_MAP in
+// marketing-canonical-concept.js — deliberately bounded to these four
+// personal-celebration occasions; every other occasion (general,
+// holiday_seasonal, event_reminder, operational_notice, promotion,
+// wedding, sympathy) keeps using the existing generic fallback below,
+// unaffected — sympathy and operational notices already have their own
+// dedicated, separate deterministic content paths elsewhere in this file
+// and never reach this function's generic branch at all in practice.
+// Never invents a flower species, inventory claim, promotion, date, or
+// shop scenery — every phrase here is as safe/generic as the fallback it
+// replaces, just naming the real, already-classified occasion instead of
+// staying silent about it.
+const RESCUE_OCCASION_PHRASES = Object.freeze({
+  birthday: {
+    headline: "Birthday Blooms, Ready to Celebrate",
+    bodyWithName: (name) => `${name} has birthday flowers ready to make someone's day feel special.`,
+    bodyNoName: () => "Birthday flowers, ready to make someone's day feel special."
+  },
+  anniversary: {
+    headline: "Flowers for Your Anniversary",
+    bodyWithName: (name) => `${name} designs anniversary flowers to help you celebrate another year together.`,
+    bodyNoName: () => "Anniversary flowers, designed to help you celebrate another year together."
+  },
+  new_baby: {
+    headline: "Flowers for the New Arrival",
+    bodyWithName: (name) => `${name} has flowers ready to welcome the newest member of the family.`,
+    bodyNoName: () => "Flowers ready to welcome the newest member of the family."
+  },
+  get_well: {
+    headline: "Flowers to Brighten Their Recovery",
+    bodyWithName: (name) => `${name} has get-well flowers ready to bring a little comfort their way.`,
+    bodyNoName: () => "Get-well flowers, ready to bring a little comfort their way."
+  }
+});
+
+export function buildDeterministicCreativeRescueContent({ shopName, shopPhone, ctaIntent = null, audience = null, occasionCategory = null, namedCampaign = null } = {}) {
   const name = String(shopName || "").trim();
   const phone = shopPhone ? formatStoredPhoneForDisplay(shopPhone) : null;
 
@@ -725,15 +812,26 @@ export function buildDeterministicCreativeRescueContent({ shopName, shopPhone, c
   // a fixed, deterministic sentence — same mechanism as the generic
   // rescue, just self-purchase-appropriate instead. Still never invents a
   // flower species, inventory claim, promotion, occasion, or shop scenery.
+  // Checked first and entirely unaffected by the occasion table below —
+  // self_purchase is an AUDIENCE, not an occasion, and this exact,
+  // already-proven behavior is preserved byte-for-byte.
   const isSelfPurchase = audience === "self_purchase";
-  const headline = isSelfPurchase ? "Flowers, Just Because" : "Beautiful Blooms, Thoughtfully Arranged";
+  const occasionPhrase = !isSelfPurchase ? RESCUE_OCCASION_PHRASES[namedCampaign] || RESCUE_OCCASION_PHRASES[occasionCategory] || null : null;
+
+  const headline = isSelfPurchase
+    ? "Flowers, Just Because"
+    : occasionPhrase
+      ? occasionPhrase.headline
+      : "Beautiful Blooms, Thoughtfully Arranged";
   const body = isSelfPurchase
     ? (name
         ? `You don't need a reason to bring home flowers from ${name} — sometimes wanting them is reason enough.`
         : "You don't need a reason to bring home flowers — sometimes wanting them is reason enough.")
-    : name
-      ? `${name} designs flowers for the moments that matter — a little something to brighten someone's day.`
-      : "Flowers designed for the moments that matter — a little something to brighten someone's day.";
+    : occasionPhrase
+      ? (name ? occasionPhrase.bodyWithName(name) : occasionPhrase.bodyNoName())
+      : name
+        ? `${name} designs flowers for the moments that matter — a little something to brighten someone's day.`
+        : "Flowers designed for the moments that matter — a little something to brighten someone's day.";
 
   // A call CTA is only offered when the concept itself asked for one
   // (ctaIntent === "call_shop") or when no concept was supplied at all
