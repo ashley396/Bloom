@@ -529,6 +529,23 @@ test("the board card and piece summary both surface '2 PIECES' when a boutonnier
   assert.match(app, /needed\?`2 PIECES/, "the in-dialog piece summary must also say 2 PIECES when needed");
 });
 
+test("Boutonniere + 'Matching Boutonniere Needed' doesn't make florist sense — the checkbox is disabled and cleared when Product type is Boutonniere", () => {
+  const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(app, /function syncBoutonniereAvailability\(\)/);
+  // Disables (not just hides) the checkbox for Boutonniere...
+  assert.match(app, /isBoutonniere=String\(f\.elements\.event_product_type\?\.value\|\|""\)\.trim\(\)==="Boutonniere"/);
+  assert.match(app, /chk\.disabled=isBoutonniere/);
+  // ...and actively clears a stale checked state rather than leaving it resubmittable.
+  assert.match(app, /if\(isBoutonniere&&chk\.checked\)\{chk\.checked=false;toggleBoutonniereSection\(\)\}/);
+  // Wired to the Product type change event...
+  assert.match(app, /\$\("#orderEventProductType"\)\?\.addEventListener\("change",\(\)=>\{updateHomecomingPieceSummary\(\);syncBoutonniereAvailability\(\)\}\)/);
+  // ...and re-applied whenever an order is loaded or the builder is reset, so
+  // a saved Boutonniere order can't show a stale enabled/checked checkbox.
+  assert.match(app, /toggleBoutonniereSection\(\);syncBoutonniereAvailability\(\)\}$/m);
+  const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+  assert.match(html, /id="orderMatchingBoutonniereHint"[^>]*hidden/, "an explanatory hint must exist for when the checkbox is disabled");
+});
+
 test("event date, school, and customer are shown once and never re-collected for the boutonniere", () => {
   const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
   const boutonniereSection = html.match(/<div id="orderBoutonniereSection"[\s\S]*?<\/div><\/section>/)[0];
