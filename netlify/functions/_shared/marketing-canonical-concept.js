@@ -114,7 +114,12 @@ export const CONCEPT_IDENTITY_FIELDS = Object.freeze([
   // against silent drift exactly like occasionCategory/ctaIntent above.
   // copyVoice is deliberately excluded: tone is allowed to shift with an
   // ordinary wording tweak, the same way captionIntent/visualDirection
-  // already are.
+  // already are. messageIntent (Test C, "everyday social creative
+  // architecture" batch) is deliberately excluded for the same reason as
+  // copyVoice: it is a rescue/composition-time signal about WHAT is being
+  // said, not a protected identity fact — an ordinary wording tweak may
+  // legitimately shift it (e.g. adding "today" mid-revision) without that
+  // counting as concept drift.
   "namedCampaign",
   "audience",
   "creativeMode"
@@ -370,6 +375,91 @@ export function classifyAudience({ requestText = "", occasionTitle = "", isSympa
     if (rule.re.test(haystack)) return rule.audience;
   }
   return "general_local_customers";
+}
+
+// ---------------------------------------------------------------------------
+// Test C ("everyday social creative architecture fix") — messageIntent and
+// userTemporalIntent. Real, live-found gap the Test C forensic trace
+// proved: "Create a Facebook post encouraging people to send flowers
+// today" classified correctly (occasionCategory "general", creativeMode
+// "everyday_floral") but had NO compact representation of the actual
+// message being communicated, so once the AI-generated copy failed
+// quality evaluation, the deterministic rescue had nothing to compose
+// from beyond the fully generic, occasion-blind fallback — and the
+// separate "today" framing was silently dropped along with it. Neither
+// field is a new occasion category (occasionCategory stays "general";
+// this is deliberately NOT solved with a fake "general_today" occasion,
+// per Ashley's own explicit instruction) and neither is a hardcoded
+// sentence list — both are narrow, deterministic, reused-signal
+// classifications exactly like every other field in this module.
+// ---------------------------------------------------------------------------
+
+export const MESSAGE_INTENTS = Object.freeze(["send_flowers", "self_purchase", "brighten_day", "general_everyday"]);
+
+// Deliberately narrow, real phrasings only — never a broad "any gift word"
+// classifier. "send"/"flowers" within a short window of each other (either
+// order) covers "send flowers today," "send someone flowers," "flowers you
+// can send," etc.; "gift(ing) ... flowers" covers the equivalent phrasing
+// with "gift" instead of "send."
+const SEND_FLOWERS_INTENT_RE = /\bsend(?:ing)?\b[\s\S]{0,30}\bflowers?\b|\bflowers?\b[\s\S]{0,30}\bsend(?:ing)?\b|\bgift(?:ing)?\s+(?:someone\s+|them\s+|her\s+|him\s+)?flowers?\b/i;
+
+// Only recognizes the FLORIST'S OWN request explicitly framing the post
+// around brightening someone's day — this is an INPUT signal, never
+// license for the rescue layer to invent this phrase as generic filler
+// when the florist never said it (see MESSAGE_INTENT_PHRASES,
+// marketing-content-revision.js, which only ever echoes this back when
+// this exact intent was actually classified from the request).
+const BRIGHTEN_DAY_INTENT_RE = /\bbrighten(?:s|ing)?\s+(?:someone'?s?|somebody'?s?|their|her|his|your)\s+day\b/i;
+
+/**
+ * Test C batch, Part 2: a compact canonical representation of the
+ * ordinary MESSAGE a request communicates — deliberately independent of
+ * occasionCategory (which stays "general" for all of these). Reuses the
+ * existing audience classification for self_purchase (never a second,
+ * competing "buying for yourself" detector) and checked FIRST, matching
+ * this codebase's established self-purchase precedence elsewhere.
+ * general_everyday is the honest fallback when no narrower signal
+ * actually appears in the request — never invented, never forced.
+ */
+export function classifyMessageIntent({ requestText = "", audience = null } = {}) {
+  if (audience === "self_purchase") return "self_purchase";
+  if (SEND_FLOWERS_INTENT_RE.test(requestText)) return "send_flowers";
+  if (BRIGHTEN_DAY_INTENT_RE.test(requestText)) return "brighten_day";
+  return "general_everyday";
+}
+
+export const USER_TEMPORAL_INTENTS = Object.freeze(["today", "tonight", "tomorrow", "this_weekend"]);
+
+const USER_TEMPORAL_INTENT_RULES = [
+  { value: "today", re: /\btoday\b/i },
+  { value: "tonight", re: /\btonight\b/i },
+  { value: "tomorrow", re: /\btomorrow\b/i },
+  { value: "this_weekend", re: /\bthis\s+weekend\b/i }
+];
+
+/**
+ * Test C batch, Part 3: a safe, narrow signal meaning ONLY "the florist's
+ * own request explicitly framed this copy around a given day word" — it
+ * must never be read to imply availability, same-day delivery, inventory,
+ * an order cutoff, or a guaranteed delivery window on that day (those
+ * remain governed entirely by the existing, unmodified
+ * detectUnverifiedServiceAvailabilityClaim / detectInventedTemporalClaim
+ * detectors — this field is never itself a safety check).
+ *
+ * Deliberately mutually exclusive with hasMaterialTimingCommitment (the
+ * same detector deriveFactRequirements already uses): when the request
+ * carries a genuine business-timing COMMITMENT ("we close at 2 PM
+ * today"), that is a completely different, already-correctly-handled
+ * case (factRequirements "event_date," routed to exact_layout) — this
+ * field stays null so rescue/copy composition never mistakes a real
+ * business commitment for casual day-framing.
+ */
+export function classifyUserTemporalIntent({ requestText = "" } = {}) {
+  if (hasMaterialTimingCommitment(requestText)) return null;
+  for (const rule of USER_TEMPORAL_INTENT_RULES) {
+    if (rule.re.test(requestText)) return rule.value;
+  }
+  return null;
 }
 
 export const CREATIVE_MODES = Object.freeze([
@@ -704,6 +794,13 @@ export function buildCanonicalConcept({
   const audience = classifyAudience({ requestText, occasionTitle, isSympathy: sympathy, occasionCategory });
   const creativeMode = classifyCreativeMode({ occasionCategory, namedCampaign, sympathyClassification, promotionIntent, requestText });
   const copyVoice = classifyCopyVoice({ creativeMode, namedCampaign, occasionCategory, sympathyClassification, factRequirements, requestText });
+  // Test C ("everyday social creative architecture fix"): computed here,
+  // ONCE, from the request text and the audience already derived above —
+  // the same "one authoritative decision, every downstream consumer
+  // reuses it" pattern namedCampaign/audience/creativeMode/copyVoice
+  // already establish.
+  const messageIntent = classifyMessageIntent({ requestText, audience });
+  const userTemporalIntent = classifyUserTemporalIntent({ requestText });
 
   return {
     version: CANONICAL_CONCEPT_VERSION,
@@ -716,6 +813,8 @@ export function buildCanonicalConcept({
     audience,
     creativeMode,
     copyVoice,
+    messageIntent,
+    userTemporalIntent,
     visualDirection: {
       mood: creativeBrief?.mood || null,
       lighting: creativeBrief?.lighting || null,

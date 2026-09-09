@@ -50,7 +50,7 @@ function fullCandidate(overrides = {}) {
 // The exact live-diagnosed prompt — the acceptance standard itself.
 // ---------------------------------------------------------------------------
 
-function liveFailureConcept() {
+function liveFailureConcept(overrides = {}) {
   return buildCanonicalConcept({
     requestText: "Create today's Facebook post for Lilies in Bloom",
     occasionTitle: "Today's post",
@@ -63,12 +63,54 @@ function liveFailureConcept() {
     bodyText: "",
     isSympathy: false,
     photoStrategy: "subject_forward",
-    styleTier: "generated"
+    styleTier: "generated",
+    ...overrides
   });
 }
 
-test("the exact live prompt produces a polished everyday_floral Direction — not sparse, not the old regression shape", () => {
-  const concept = liveFailureConcept();
+// Test C ("everyday social creative architecture fix"): this test formerly
+// asserted that this EXACT live-diagnosed prompt, subject-forward, always
+// produced the full polished flyer shape (headline + supporting line +
+// border + divider). That was itself the real, live-found Test C defect
+// (an ordinary "send flowers today"-style social post inheriting a flyer
+// treatment it never asked for) — now corrected: a subject-forward
+// everyday post resolves to the text-free photo_forward_social family,
+// with warm/inviting mood preserved. The genuine calm_backdrop case (a
+// real flyer that needs exact wording) keeps the ORIGINAL polished-flyer
+// assertions below it, completely unchanged — see that test.
+test("the exact live prompt, subject-forward: resolves to the text-free photo-forward family, not the old flyer shape", () => {
+  const concept = liveFailureConcept({ photoStrategy: "subject_forward" });
+  const direction = buildDeterministicCreativeDirection({ canonicalConcept: concept, shopBrand: {} });
+
+  assert.equal(direction.occasionTreatment, "photo_forward_social");
+  assert.equal(direction.compositionFamily, "hero_full_bleed");
+  assert.equal(direction.imagePlacement, "full_bleed");
+  assert.equal(direction.imageScale, "dominant");
+  assert.equal(direction.hierarchyDepth, "headline_only");
+  assert.equal(direction.graphicTextSlots.headline, false, "no on-image headline forced onto an ordinary subject-forward social post");
+  assert.equal(direction.graphicTextSlots.brand, false);
+  assert.equal(direction.graphicTextSlots.supportingLine, false);
+  assert.equal(direction.graphicTextSlots.serviceDetail, false);
+  assert.equal(direction.graphicTextSlots.cta, false);
+  assert.equal(direction.graphicTextSlots.phone, false);
+  // Mood stays warm/inviting/tasteful-florist — Ashley's own explicit
+  // requirement — never photo_forward_social's own brighter/more playful
+  // default, and never a bare/generic mood either.
+  assert.equal(direction.visualMood, "warm_inviting");
+  assert.equal(direction.paletteMood, "classic_brand");
+  assert.notEqual(direction.occasionTreatment, "sympathy_elegance");
+  assert.notEqual(direction.occasionTreatment, "operational_notice");
+  const { valid, errors } = validateCreativeDirection(direction, { canonicalConcept: concept });
+  assert.equal(valid, true, `the generator's own output must already be fully valid: ${errors.join("; ")}`);
+});
+
+// The genuine flyer case — a real fact/exact-wording-required request —
+// keeps the ORIGINAL "corrected baseline" polished-flyer assertions,
+// completely unaffected by the subject-forward fix above. Proves exact-
+// layout/flyer behavior remains intact for a request that actually needs
+// it, using the exact same live-diagnosed prompt text.
+test("the exact live prompt, calm_backdrop: still produces a polished everyday_floral flyer Direction — not sparse, not the old regression shape, unaffected by the subject-forward fix", () => {
+  const concept = liveFailureConcept({ photoStrategy: "calm_backdrop" });
   const direction = buildDeterministicCreativeDirection({ canonicalConcept: concept, shopBrand: {} });
 
   assert.equal(direction.occasionTreatment, "everyday_floral");

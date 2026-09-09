@@ -765,15 +765,32 @@ export function buildDeterministicNoticeContent({ requestText, shopName, shopPho
 // sympathy (added in the Funeral/Sympathy creative-preservation batch,
 // once the SAME live-test process proved sympathy needed it exactly as
 // much — it had no separate dedicated rescue path after all, contrary to
-// this comment's own earlier, now-corrected assumption). Every other
-// occasion (general, holiday_seasonal, event_reminder, promotion,
-// wedding) keeps using the existing generic fallback below, unaffected —
-// operational notices have their own dedicated, separate deterministic
-// content path elsewhere in this file and never reach this function's
-// generic branch at all in practice. Never invents a flower species,
-// inventory claim, promotion, date, or shop scenery — every phrase here
-// is as safe/generic as the fallback it replaces, just naming the real,
-// already-classified occasion instead of staying silent about it.
+// this comment's own earlier, now-corrected assumption).
+//
+// Test C ("everyday social creative architecture fix"): the real,
+// live-found gap this table's own comment used to claim didn't exist —
+// occasionCategory "general" with no namedCampaign (the single largest
+// bucket of ordinary requests: "send flowers today," "brighten someone's
+// day with flowers," "create a cute everyday flower post") ALSO fell
+// through to the same fully generic wording, with the florist's own
+// message intent ("send flowers," "today") silently dropped. This table
+// deliberately stays scoped to real NAMED occasions only — the fix for
+// the "general" bucket is a separate, more general layer (MESSAGE_INTENT_
+// PHRASES + TEMPORAL_INTENT_WORDS below, reusing marketing-canonical-
+// concept.js's own messageIntent/userTemporalIntent classification) that
+// sits between this table and the fully generic fallback, at a lower
+// priority than a specific occasion match here — a request that DOES
+// match a real occasion (holiday_seasonal, event_reminder, promotion,
+// wedding — none of which have their own entry here) still falls to the
+// fully generic fallback unless it also happens to carry a recognized
+// message intent, exactly the same as before this batch. Operational
+// notices have their own dedicated, separate deterministic content path
+// elsewhere in this file and never reach this function's generic branch
+// at all in practice. Never invents a flower species, inventory claim,
+// promotion, date, or shop scenery — every phrase here (and in the
+// message-intent layer below) is as safe/generic as the fallback it
+// replaces, just naming the real, already-classified occasion/message
+// instead of staying silent about it.
 const RESCUE_OCCASION_PHRASES = Object.freeze({
   birthday: {
     headline: "Birthday Blooms, Ready to Celebrate",
@@ -815,7 +832,66 @@ const RESCUE_OCCASION_PHRASES = Object.freeze({
   }
 });
 
-export function buildDeterministicCreativeRescueContent({ shopName, shopPhone, ctaIntent = null, audience = null, occasionCategory = null, namedCampaign = null } = {}) {
+// Test C ("everyday social creative architecture fix"), Part 4: the
+// message-intent layer between RESCUE_OCCASION_PHRASES (a real, named
+// occasion — always stronger, checked first) and the fully generic
+// fallback (always last resort). Reuses marketing-canonical-concept.js's
+// own messageIntent classification — never a second, competing detector,
+// and never a fake occasion. Only send_flowers and brighten_day get their
+// own phrasing here; "self_purchase" is handled entirely by the dedicated
+// branch above (unaffected, byte-for-byte), and "general_everyday" (or
+// any unrecognized value) intentionally has no entry — it falls straight
+// through to the fully generic fallback, exactly as before this batch.
+// Every phrase names only what the request itself supplied: never a
+// death, a discount, an availability claim, or an invented flower/
+// species/scenery detail.
+const MESSAGE_INTENT_PHRASES = Object.freeze({
+  send_flowers: {
+    headline: "Flowers, Sent With Thought",
+    bodyWithName: (name, temporalWord) =>
+      temporalWord ? `${name} makes it easy to send someone flowers ${temporalWord}.` : `${name} makes it easy to send someone flowers, any day.`,
+    bodyNoName: (temporalWord) =>
+      temporalWord
+        ? `Send someone flowers ${temporalWord} — a simple way to let them know you're thinking of them.`
+        : "Send someone flowers — a simple way to let them know you're thinking of them."
+  },
+  // Only ever reached when the FLORIST'S OWN request explicitly asked for
+  // this framing (BRIGHTEN_DAY_INTENT_RE, marketing-canonical-concept.js)
+  // — honoring supplied input, never the system inventing this phrase as
+  // universal filler the way the old generic fallback did.
+  brighten_day: {
+    headline: "Flowers to Brighten Someone's Day",
+    bodyWithName: (name, temporalWord) =>
+      temporalWord ? `${name} has flowers ready to brighten someone's day ${temporalWord}.` : `${name} has flowers ready to brighten someone's day.`,
+    bodyNoName: (temporalWord) =>
+      temporalWord ? `Flowers are a simple way to brighten someone's day ${temporalWord}.` : "Flowers are a simple way to brighten someone's day."
+  }
+});
+
+// Test C batch, Part 3: renders userTemporalIntent as safe, natural prose
+// — "today"/"tonight"/"tomorrow"/"this weekend" only ever mean the
+// florist's own request framed the copy around that day; never rendered
+// anywhere near an availability/delivery/inventory/cutoff claim (those
+// remain governed entirely by the existing, unmodified
+// detectUnverifiedServiceAvailabilityClaim/detectInventedTemporalClaim
+// detectors — this table is prose formatting only, never a safety check).
+const TEMPORAL_INTENT_WORDS = Object.freeze({
+  today: "today",
+  tonight: "tonight",
+  tomorrow: "tomorrow",
+  this_weekend: "this weekend"
+});
+
+export function buildDeterministicCreativeRescueContent({
+  shopName,
+  shopPhone,
+  ctaIntent = null,
+  audience = null,
+  occasionCategory = null,
+  namedCampaign = null,
+  messageIntent = null,
+  userTemporalIntent = null
+} = {}) {
   const name = String(shopName || "").trim();
   const phone = shopPhone ? formatStoredPhoneForDisplay(shopPhone) : null;
 
@@ -834,18 +910,29 @@ export function buildDeterministicCreativeRescueContent({ shopName, shopPhone, c
   // already-proven behavior is preserved byte-for-byte.
   const isSelfPurchase = audience === "self_purchase";
   const occasionPhrase = !isSelfPurchase ? RESCUE_OCCASION_PHRASES[namedCampaign] || RESCUE_OCCASION_PHRASES[occasionCategory] || null : null;
+  // Priority 3 (Part 4): only consulted once self-purchase (priority 1)
+  // and a real named occasion (priority 2) have both been ruled out —
+  // "general_everyday" and any unrecognized messageIntent value correctly
+  // resolve to `null` here, falling through to priority 4, the fully
+  // generic fallback, unchanged.
+  const messageIntentPhrase = !isSelfPurchase && !occasionPhrase ? MESSAGE_INTENT_PHRASES[messageIntent] || null : null;
+  const temporalWord = TEMPORAL_INTENT_WORDS[userTemporalIntent] || null;
 
   const headline = isSelfPurchase
     ? "Flowers, Just Because"
     : occasionPhrase
       ? occasionPhrase.headline
-      : "Beautiful Blooms, Thoughtfully Arranged";
+      : messageIntentPhrase
+        ? messageIntentPhrase.headline
+        : "Beautiful Blooms, Thoughtfully Arranged";
   const body = isSelfPurchase
     ? (name
         ? `You don't need a reason to bring home flowers from ${name} — sometimes wanting them is reason enough.`
         : "You don't need a reason to bring home flowers — sometimes wanting them is reason enough.")
     : occasionPhrase
       ? (name ? occasionPhrase.bodyWithName(name) : occasionPhrase.bodyNoName())
+      : messageIntentPhrase
+        ? (name ? messageIntentPhrase.bodyWithName(name, temporalWord) : messageIntentPhrase.bodyNoName(temporalWord))
       : name
         ? `${name} designs flowers for the moments that matter — a little something to brighten someone's day.`
         : "Flowers designed for the moments that matter — a little something to brighten someone's day.";
@@ -1470,8 +1557,22 @@ export function sanitizeUngroundedFlowerNames({ text, requestText, verifiedFlowe
 // "pickup available today," "your order is ready today" — which still
 // catches the real service-state claims Ashley's own phrase list names
 // while leaving ordinary product-availability copy untouched.
+//
+// Test C ("everyday social creative architecture fix") gap found and
+// fixed while verifying temporal safety holds for user-supplied "send
+// flowers today"-style framing: "We can deliver today"/"We can deliver
+// flowers today" is one of Ashley's own explicitly named unsafe claims,
+// but phrases "deliver" as a VERB with a "we can/could" subject rather
+// than "delivery" as a noun, so none of the noun-anchored patterns above
+// ever matched it — a real, silent gap, not a hypothetical one. Added as
+// its own narrow alternative, still anchored to an explicit delivery verb
+// near now/today within the same sentence (sentencesOf already scopes
+// every match to one sentence) — allows up to three words in between
+// ("we can deliver flowers today," "we can deliver your order today")
+// without widening the detector to bare "deliver"/"today" anywhere near
+// each other across unrelated clauses.
 const SERVICE_AVAILABILITY_SIGNAL_RE =
-  /\bsame[\s-]?day\s+delivery\b|\bdelivery\s+(?:is\s+)?available(?:\s+today)?\b|\bdelivery\s+today\b|\border\s+today\s+for\s+(?:delivery|pickup)\s+today\b|\bopen\s+(?:now|today)\b|\b(?:delivery|pickup|orders?)\s+(?:is\s+|are\s+)?available\s+(?:now|today)\b|\bwalk-?ins?\s+welcome\b|\b(?:order|pickup|it'?s)\s+(?:is\s+)?ready\s+(?:today|now)\b/i;
+  /\bsame[\s-]?day\s+delivery\b|\bdelivery\s+(?:is\s+)?available(?:\s+today)?\b|\bdelivery\s+today\b|\border\s+today\s+for\s+(?:delivery|pickup)\s+today\b|\bopen\s+(?:now|today)\b|\b(?:delivery|pickup|orders?)\s+(?:is\s+|are\s+)?available\s+(?:now|today)\b|\bwalk-?ins?\s+welcome\b|\b(?:order|pickup|it'?s)\s+(?:is\s+)?ready\s+(?:today|now)\b|\bwe\s+(?:can|could)\s+deliver\b(?:\s+\S+){0,3}\s+(?:now|today)\b/i;
 
 /**
  * Sentences in `generatedText` that assert a specific, unverified

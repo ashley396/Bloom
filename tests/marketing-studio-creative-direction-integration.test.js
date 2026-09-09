@@ -128,13 +128,20 @@ test("16 — generate_content (flyer): a valid Creative Direction is persisted i
     assert.equal(content.creative_direction.version, 2);
     const { valid, errors } = validateCreativeDirection(content.creative_direction, { canonicalConcept: content.canonical_concept });
     assert.equal(valid, true, `persisted Creative Direction must already be fully valid: ${errors.join("; ")}`);
-    // Corrected design standard: polished, not sparse — a real headline
-    // plus a short supporting line, never a paragraph-length graphic
-    // overlay. This is the direct, corrected answer to the live-
-    // diagnosed failure (stacked text strips / body copy over the photo).
-    assert.equal(content.creative_direction.occasionTreatment, "everyday_floral");
-    assert.equal(content.creative_direction.textDensity, "standard");
-    assert.equal(content.creative_direction.graphicTextSlots.supportingLine, true, "a short supporting line is allowed, never a paragraph body");
+    // Test C ("everyday social creative architecture fix"): this request
+    // ("Post our mascot holding flowers for Facebook") is an ordinary
+    // subject-forward everyday post with no exact-wording requirement —
+    // it now resolves to the text-free photo_forward_social family (no
+    // on-image headline/brand/phone/CTA/supporting line; the real photo
+    // carries the whole composition) rather than the old everyday_floral
+    // flyer shape this test formerly asserted, which was itself the real,
+    // live-found Test C defect. The genuine calm-backdrop flyer case (16b,
+    // below) keeps the ORIGINAL polished-flyer assertions, completely
+    // unaffected by this fix.
+    assert.equal(content.creative_direction.occasionTreatment, "photo_forward_social");
+    assert.equal(content.creative_direction.textDensity, "sparse");
+    assert.equal(content.creative_direction.graphicTextSlots.headline, false, "no on-image headline forced onto an ordinary subject-forward social post");
+    assert.equal(content.creative_direction.graphicTextSlots.supportingLine, false);
     assert.ok(content.creative_direction.graphicTextLimits.supportingLineMaxChars <= 60, "the supporting line stays under the hard character ceiling");
   } finally {
     mock.restore();

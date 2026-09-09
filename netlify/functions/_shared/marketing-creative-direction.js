@@ -747,66 +747,127 @@ export function getCategoryConstraints({ occasionCategory = null, sympathyClassi
 
   const chosen = FAMILY_CONSTRAINTS[occasionTreatment];
 
-  // Funeral/Sympathy creative-preservation batch, Part 1: sympathy_elegance
-  // covers two structurally different real requests sharing one occasion
-  // treatment — a genuine sympathy flyer/ad with real facts to draw
-  // (photoStrategy "calm_backdrop", still needs its full designed-flyer
-  // treatment: shop name/phone visible, exactly what the historical "an
-  // advertisement with no shop name is a stock photo" fix requires), and
-  // an ordinary sympathy social post with no such requirement
-  // (photoStrategy "subject_forward" — a real photo carries the whole
-  // composition, same as photo_forward_social). Only the second case
-  // switches families here; photoStrategy is the exact existing signal
-  // that already distinguishes these two branches (marketing-studio.js's
-  // own calm_backdrop vs. subject_forward split, upstream of this
-  // function) — never a new, second signal, and never inferred from
-  // occasion alone. The mood/palette stay sympathy-appropriate
-  // (quiet_respectful/neutral_blush_ivory) even though the STRUCTURE
-  // (no on-image headline/brand/phone/cta/supporting text) is borrowed
-  // from photo_forward_social — the same "one family, its own mood"
-  // pattern the playful_promotion override just below already
-  // establishes for a different pair.
-  if (occasionTreatment === "sympathy_elegance" && photoStrategy === "subject_forward") {
-    const photoForward = FAMILY_CONSTRAINTS.photo_forward_social;
-    return {
-      ...photoForward,
-      leaning: { ...photoForward.leaning, visualMood: "quiet_respectful", paletteMood: "neutral_blush_ivory" },
-      occasionTreatment: photoForward.forced.occasionTreatment,
-      inventoryGroundedGuidance: isInventoryGrounded
-    };
-  }
-
   // Batch 6, Part 3: promotional_sales and playful_promotion deliberately
   // share the SAME structural family (promotional_feature) — they differ
   // in tone, not composition. This is the one place that tone difference
   // shows up in the layout itself: a playful/conversational/urgent
   // promotion reads as energetic rather than a formal "sale" mood. Never
   // touches ctaProminenceCeiling/hierarchyDepth/compositionFamily — those
-  // stay identical between the two modes, exactly as intended.
+  // stay identical between the two modes, exactly as intended. Kept as
+  // its own branch (not folded into the generalization below) because it
+  // is a genuinely different axis: promotional_feature never switches
+  // STRUCTURAL family at all here, only its mood.
   if (creativeMode === "playful_promotion" && occasionTreatment === "promotional_feature") {
     return { ...chosen, leaning: { ...chosen.leaning, visualMood: "playful_energetic" }, occasionTreatment, inventoryGroundedGuidance: isInventoryGrounded };
   }
 
-  // Personal-occasion concept-preservation batch, Part 2: the same "one
-  // shared structural family, mood differs by the finer campaign identity"
-  // pattern as playful_promotion just above — birthday/anniversary/
-  // new_baby/get_well all share photo_forward_social's structure but are
-  // not tonally interchangeable. birthday keeps the family's own default
-  // (bright_joyful/soft_pastel already fits a birthday celebration) so it
-  // is deliberately absent from this table; the other three get a gentler
-  // or warmer override — never a new VISUAL_MOODS/PALETTE_MOODS value,
-  // only ones this schema already defines.
-  if (creativeMode === "personal_celebration" && occasionTreatment === "photo_forward_social") {
+  // ---------------------------------------------------------------------
+  // Test C ("everyday social creative architecture fix"): the general
+  // principle Ashley named — STRUCTURAL PRESENTATION (hero/full-bleed
+  // photo vs. framed flyer, borders/banners, graphicTextSlots, whether
+  // headline/CTA/brand/phone render on the image) is a different question
+  // from SEMANTIC TREATMENT (mood, palette, tone, restraint/playfulness,
+  // occasion-specific visual character). Once the caller has already
+  // established that no exact graphic wording is required
+  // (requestNeedsFlyerWording, upstream) and the request's own
+  // photoStrategy is "subject_forward" (a real photo carries the whole
+  // composition — marketing-studio.js's existing calm_backdrop vs.
+  // subject_forward split, never a new signal), the structural
+  // presentation should normally be photo-forward rather than
+  // automatically inheriting a text-heavy flyer family — regardless of
+  // WHICH occasion treatment it started from.
+  //
+  // This single mechanism replaces three previously-separate, ad hoc
+  // branches that each hand-implemented the same "one family, its own
+  // mood" pattern for one occasion at a time (sympathy_elegance+
+  // subject_forward from the Funeral/Sympathy creative-preservation
+  // batch; personal_celebration+photo_forward_social from the Personal-
+  // occasion concept-preservation batch) and adds everyday_floral — the
+  // real, live-found Test C gap — as data, not a new "if everyday_floral
+  // && subject_forward" special case. A future occasion treatment can opt
+  // in by adding one entry to SUBJECT_FORWARD_ELIGIBLE_TREATMENTS below
+  // (and, if it needs its own mood, one entry to
+  // resolveSubjectForwardMood) rather than a fourth near-duplicate branch.
+  //
+  // Deliberately excludes operational_notice, promotional_feature, and
+  // seasonal_feature — those occasions are never eligible for this
+  // structural switch even if a future caller passed photoStrategy
+  // "subject_forward" for one: an operational notice, a verified
+  // promotion, and a major campaign poster all still need their real
+  // on-image facts/CTA, exactly as they do today. Nothing about
+  // requestNeedsFlyerWording()'s own exact-layout routing (fact tokens,
+  // "flyer"/"poster"/"ad" wording, a real promotional-growth verb) is
+  // touched by this at all — a genuine flyer/poster/fact-heavy request
+  // never reaches this function via the subject-forward branch in the
+  // first place.
+  const SUBJECT_FORWARD_ELIGIBLE_TREATMENTS = Object.freeze(["everyday_floral", "sympathy_elegance"]);
+
+  // photo_forward_social and personal_celebration never need to appear in
+  // SUBJECT_FORWARD_ELIGIBLE_TREATMENTS above — resolveOccasionTreatment
+  // already resolves both directly to "photo_forward_social" (via
+  // CREATIVE_MODE_TO_OCCASION_TREATMENT), unconditional on photoStrategy,
+  // exactly as before this refactor. Since occasionTreatment already
+  // equals "photo_forward_social" for those two cases, the check just
+  // below (structuralFamily === occasionTreatment when not switching)
+  // naturally routes them through the SAME unified branch and mood
+  // lookup, with byte-for-byte identical gating to their original
+  // dedicated branches.
+  const structuralFamily =
+    SUBJECT_FORWARD_ELIGIBLE_TREATMENTS.includes(occasionTreatment) && photoStrategy === "subject_forward" ? "photo_forward_social" : occasionTreatment;
+
+  if (structuralFamily === "photo_forward_social") {
+    const photoForward = FAMILY_CONSTRAINTS.photo_forward_social;
+    const moodOverride = resolveSubjectForwardMood({ occasionTreatmentBeforeSwitch: occasionTreatment, creativeMode, namedCampaign });
+    return {
+      ...photoForward,
+      leaning: { ...photoForward.leaning, ...moodOverride },
+      occasionTreatment: photoForward.forced.occasionTreatment,
+      inventoryGroundedGuidance: isInventoryGrounded
+    };
+  }
+
+  return { ...chosen, occasionTreatment, inventoryGroundedGuidance: isInventoryGrounded };
+}
+
+// One shared semantic-mood table for every occasion whose STRUCTURE ends
+// up as photo_forward_social — whether it arrived there directly via
+// resolveOccasionTreatment (personal_celebration, or an explicit
+// photo_forward_social creativeMode) or via the subject-forward switch
+// just above (sympathy_elegance, everyday_floral) — so MOOD/PALETTE stay
+// true to the real occasion instead of silently inheriting
+// photo_forward_social's own default bright_joyful/soft_pastel. Keyed by
+// the most specific signal each occasion actually needs; returns {} (no
+// override — keep photo_forward_social's own defaults) when none applies,
+// e.g. birthday (bright_joyful already fits) or a plain photo_forward_social
+// creativeMode with no more specific identity (e.g. a self-purchase "cute
+// post"). Never a new VISUAL_MOODS/PALETTE_MOODS value — only combinations
+// this schema already defines.
+function resolveSubjectForwardMood({ occasionTreatmentBeforeSwitch, creativeMode, namedCampaign }) {
+  // Funeral/Sympathy creative-preservation batch: sympathy's mood stays
+  // quiet/respectful even though its structure is borrowed from
+  // photo_forward_social.
+  if (occasionTreatmentBeforeSwitch === "sympathy_elegance") {
+    return { visualMood: "quiet_respectful", paletteMood: "neutral_blush_ivory" };
+  }
+  // Personal-occasion concept-preservation batch: birthday/anniversary/
+  // new_baby/get_well share photo_forward_social's structure but are not
+  // tonally interchangeable — birthday is deliberately absent (keeps the
+  // family's own bright_joyful/soft_pastel default).
+  if (creativeMode === "personal_celebration") {
     const PERSONAL_CELEBRATION_MOOD = {
       anniversary: { visualMood: "romantic_soft" },
       new_baby: { visualMood: "warm_inviting" },
       get_well: { visualMood: "warm_inviting", paletteMood: "neutral_blush_ivory" }
     };
-    const moodOverride = PERSONAL_CELEBRATION_MOOD[namedCampaign] || {};
-    return { ...chosen, leaning: { ...chosen.leaning, ...moodOverride }, occasionTreatment, inventoryGroundedGuidance: isInventoryGrounded };
+    return PERSONAL_CELEBRATION_MOOD[namedCampaign] || {};
   }
-
-  return { ...chosen, occasionTreatment, inventoryGroundedGuidance: isInventoryGrounded };
+  // Test C batch: an ordinary everyday request keeps a warm, inviting,
+  // tasteful-florist mood — Ashley's own explicit requirement — rather
+  // than photo_forward_social's own brighter/more playful default.
+  if (occasionTreatmentBeforeSwitch === "everyday_floral") {
+    return { visualMood: "warm_inviting", paletteMood: "classic_brand" };
+  }
+  return {};
 }
 
 // ---------------------------------------------------------------------------
@@ -819,14 +880,27 @@ export function getCategoryConstraints({ occasionCategory = null, sympathyClassi
  * valid object (runs it through validateCreativeDirection before
  * returning).
  *
- * Corrected baseline: for an ordinary thin-context request ("Create
- * today's Facebook post for Lilies in Bloom" — everyday_floral, no CTA
- * intent, no promotion, no operational facts) this resolves to a
- * polished florist-hero flyer — hero floral image, a strong headline, a
- * short supporting line, elegant serif/script pairing, a tasteful
- * hairline border and a small floral divider, one clear brand identifier
- * — never the old bare/sparse shape, and never the old stacked-strips/
- * paragraph-body-over-the-photo shape the live test actually produced.
+ * Corrected baseline, calm_backdrop: for an ordinary thin-context request
+ * that genuinely needs exact graphic wording ("Create today's Facebook
+ * post for Lilies in Bloom," photoStrategy "calm_backdrop" — everyday_
+ * floral, no CTA intent, no promotion, no operational facts) this
+ * resolves to a polished florist-hero flyer — hero floral image, a strong
+ * headline, a short supporting line, elegant serif/script pairing, a
+ * tasteful hairline border and a small floral divider, one clear brand
+ * identifier — never the old bare/sparse shape, and never the old
+ * stacked-strips/paragraph-body-over-the-photo shape the live test
+ * actually produced.
+ *
+ * Test C ("everyday social creative architecture fix"): the SAME request
+ * text with photoStrategy "subject_forward" instead (a real photo already
+ * carries the whole composition, and requestNeedsFlyerWording() has
+ * already ruled out exact-wording necessity upstream) now resolves
+ * through getCategoryConstraints' own subject-forward structural switch
+ * to the text-free photo_forward_social family instead — no on-image
+ * headline/brand/phone/CTA, warm/inviting mood preserved. This is the
+ * real, live-found Test C gap this batch closes: an ordinary "send
+ * flowers today"-style social post no longer inherits the flyer shape
+ * above merely because it classified as everyday_floral.
  */
 export function buildDeterministicCreativeDirection({ canonicalConcept = null, shopBrand = {} } = {}) {
   const concept = canonicalConcept || {};

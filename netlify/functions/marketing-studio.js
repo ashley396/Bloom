@@ -177,6 +177,8 @@ import {
   classifyCreativeMode,
   classifyCopyVoice,
   classifyAudience,
+  classifyMessageIntent,
+  classifyUserTemporalIntent,
   deriveFactRequirements
 } from "./_shared/marketing-canonical-concept.js";
 import { buildDeterministicCreativeDirection, inheritCreativeDirection } from "./_shared/marketing-creative-direction.js";
@@ -2837,6 +2839,19 @@ export function createMarketingStudioHandler(deps = {}) {
             isSympathy: socialConceptIsSympathy,
             occasionCategory: socialConceptOccasionCategory
           });
+          // Test C ("everyday social creative architecture fix"): the SAME
+          // messageIntent/userTemporalIntent classification buildCanonical
+          // Concept computes later at persistence time — never a second,
+          // independently-derived signal — applied here so THIS caption
+          // rescue (below) can preserve an ordinary "send flowers
+          // today"-style request instead of falling back to fully
+          // occasion-blind wording, exactly the same pattern socialConcept
+          // Audience/socialConceptCopyVoice already establish just above.
+          const socialConceptMessageIntent = classifyMessageIntent({
+            requestText: currentItem.data.brief,
+            audience: socialConceptAudience
+          });
+          const socialConceptUserTemporalIntent = classifyUserTemporalIntent({ requestText: currentItem.data.brief });
           const socialConceptCopyVoice = classifyCopyVoice({
             creativeMode: socialConceptCreativeMode,
             namedCampaign: socialConceptNamedCampaign,
@@ -3052,7 +3067,9 @@ export function createMarketingStudioHandler(deps = {}) {
               shopPhone: shopRow.data?.phone,
               audience: socialConceptAudience,
               occasionCategory: socialConceptOccasionCategory,
-              namedCampaign: socialConceptNamedCampaign
+              namedCampaign: socialConceptNamedCampaign,
+              messageIntent: socialConceptMessageIntent,
+              userTemporalIntent: socialConceptUserTemporalIntent
             });
             // Reused as `nf` by generateFlyerCopy below — this is what
             // stops the flyer's on-image wording from independently
@@ -3224,6 +3241,14 @@ export function createMarketingStudioHandler(deps = {}) {
           isSympathy: conceptIsSympathy,
           occasionCategory: conceptOccasionCategory
         });
+        // Test C ("everyday social creative architecture fix"): the SAME
+        // messageIntent/userTemporalIntent classification used for the
+        // caption rescue above, applied here too so the flyer's own
+        // on-image text rescue (generateFlyerCopy, below) can preserve an
+        // ordinary "send flowers today"-style request instead of falling
+        // back to fully occasion-blind wording.
+        const conceptMessageIntent = classifyMessageIntent({ requestText: currentItem.data.brief, audience: conceptAudience });
+        const conceptUserTemporalIntent = classifyUserTemporalIntent({ requestText: currentItem.data.brief });
         const concept = {
           objective: conceptObjective,
           primarySubject: copyGen.content?.creative_brief?.primary_subject || copyGen.content?.visual_brief || null,
@@ -3433,7 +3458,9 @@ export function createMarketingStudioHandler(deps = {}) {
               shopPhone: shopRow.data?.phone,
               ctaIntent: flyerConcept?.ctaIntent ?? null,
               occasionCategory: conceptOccasionCategory,
-              namedCampaign: conceptNamedCampaign
+              namedCampaign: conceptNamedCampaign,
+              messageIntent: conceptMessageIntent,
+              userTemporalIntent: conceptUserTemporalIntent
             });
             flyerGen.content.headline = flyerFallback.headline;
             flyerGen.content.body = flyerFallback.body;
