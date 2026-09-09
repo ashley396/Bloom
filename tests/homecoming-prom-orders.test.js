@@ -157,9 +157,10 @@ test("POST stores Homecoming/Prom details under metadata.homecoming_prom without
 
 // --- 5: inspiration photo belongs to the correct shop/order ---------------
 
-function fakeStorageClient({ uploadResult, signedUrlResult } = {}) {
+function fakeStorageClient({ uploadResult, signedUrlResult, removeResult } = {}) {
   const uploads = [];
   const signedUrlCalls = [];
+  const removeCalls = [];
   return {
     client: {
       storage: {
@@ -173,12 +174,17 @@ function fakeStorageClient({ uploadResult, signedUrlResult } = {}) {
               signedUrlCalls.push({ bucket, path, seconds });
               return signedUrlResult || { data: { signedUrl: `https://signed.example/${path}` }, error: null };
             },
+            async remove(paths) {
+              removeCalls.push({ bucket, paths });
+              return removeResult || { error: null };
+            },
           };
         },
       },
     },
     uploads,
     signedUrlCalls,
+    removeCalls,
   };
 }
 
@@ -236,7 +242,7 @@ test("an invalid inspiration photo upload fails the order save with a clear erro
 
 // --- 6: details survive edit — PATCH merges metadata instead of dropping it
 
-function fakePatchClient({ priorOrder, storage }) {
+function fakePatchClient({ priorOrder, storage, updateError }) {
   let updatedPayload;
   const updateFilters = [];
   const client = {
@@ -265,6 +271,10 @@ function fakePatchClient({ priorOrder, storage }) {
                 return this;
               },
               async single() {
+                // Simulates the order row's own persistence failing (e.g. a
+                // DB error) AFTER a new photo has already been uploaded —
+                // the old photo must survive this, see the tests below.
+                if (updateError) return { data: null, error: updateError };
                 return { data: { ...priorOrder, ...payload }, error: null };
               },
             };
@@ -416,6 +426,143 @@ test("PATCH can replace the inspiration photo without touching other homecoming 
   assert.equal(merged.homecoming_prom.event_student_name, "Jordan Smith");
   assert.notEqual(merged.homecoming_prom.inspiration_photo_path, `${SHOP_ID}/old.jpg`);
   assert.match(merged.homecoming_prom.inspiration_photo_path, new RegExp(`^${SHOP_ID}/`));
+});
+
+// ============================================================================
+// Storage cleanup — replacing/removing an inspiration photo must not leave
+// the superseded object behind forever, but the delete must only ever
+// happen AFTER the order row itself is confirmed persisted (never before —
+// see deleteOrderInspirationPhoto's call site in orders.js, placed right
+// after `if (error) throw error;` on the update()).
+// ============================================================================
+
+test("cleanup 1: replacing a photo removes the OLD object only after the order update succeeds", async () => {
+  const oldPath = `${SHOP_ID}/old-171000-abc.jpg`;
+  const priorOrder = {
+    id: "order-cleanup-1",
+    status: "CONFIRMED",
+    fulfillment: "PICKUP",
+    subtotal: 45, tax: 0, delivery_fee: 0, total: 45, tax_rate: 0, labor_charge: 0, addon_total: 0, discount: 0,
+    metadata: { homecoming_prom: { event_student_name: "Jordan Smith", inspiration_photo_path: oldPath } },
+  };
+  const storage = fakeStorageClient();
+  const harness = fakePatchClient({ priorOrder, storage });
+  const response = await handleOrders(
+    event("PATCH", { id: priorOrder.id, inspiration_photo_data_url: "data:image/jpeg;base64,AAAA" }),
+    { currentUser: async () => ({ client: harness.client, shopId: SHOP_ID, user: USER }), writeShopAudit: async () => {}, recordOrderStatusChange: async () => {} }
+  );
+  assert.equal(response.statusCode, 200);
+  const newPath = harness.getUpdatedPayload().metadata.homecoming_prom.inspiration_photo_path;
+  assert.notEqual(newPath, oldPath);
+  assert.equal(storage.removeCalls.length, 1, "the old object must be removed exactly once");
+  assert.equal(storage.removeCalls[0].bucket, "order-attachments");
+  assert.deepEqual(storage.removeCalls[0].paths, [oldPath], "only the OLD path is removed, never the new one");
+});
+
+test("cleanup 2: if the order update fails after a new photo was uploaded, the OLD photo is preserved (not removed)", async () => {
+  const oldPath = `${SHOP_ID}/old-171000-abc.jpg`;
+  const priorOrder = {
+    id: "order-cleanup-2",
+    status: "CONFIRMED",
+    fulfillment: "PICKUP",
+    subtotal: 45, tax: 0, delivery_fee: 0, total: 45, tax_rate: 0, labor_charge: 0, addon_total: 0, discount: 0,
+    metadata: { homecoming_prom: { event_student_name: "Jordan Smith", inspiration_photo_path: oldPath } },
+  };
+  const storage = fakeStorageClient();
+  const harness = fakePatchClient({ priorOrder, storage, updateError: { message: "simulated DB failure persisting the order" } });
+  const response = await handleOrders(
+    event("PATCH", { id: priorOrder.id, inspiration_photo_data_url: "data:image/jpeg;base64,AAAA" }),
+    { currentUser: async () => ({ client: harness.client, shopId: SHOP_ID, user: USER }), writeShopAudit: async () => {}, recordOrderStatusChange: async () => {} }
+  );
+  assert.equal(response.statusCode, 500, "the order persistence failure must surface as an error");
+  assert.equal(storage.uploads.length, 1, "the new photo WAS uploaded before the failure");
+  assert.equal(storage.removeCalls.length, 0, "the OLD photo must never be removed when persistence never succeeded");
+});
+
+test("cleanup 3: an edit that never mentions the photo (no upload, no removal) never triggers a delete", async () => {
+  const oldPath = `${SHOP_ID}/old-171000-abc.jpg`;
+  const priorOrder = {
+    id: "order-cleanup-3",
+    status: "CONFIRMED",
+    fulfillment: "PICKUP",
+    subtotal: 45, tax: 0, delivery_fee: 0, total: 45, tax_rate: 0, labor_charge: 0, addon_total: 0, discount: 0,
+    metadata: { homecoming_prom: { event_student_name: "Jordan Smith", event_outfit_color: "Emerald green", inspiration_photo_path: oldPath } },
+  };
+  const storage = fakeStorageClient();
+  const harness = fakePatchClient({ priorOrder, storage });
+  const response = await handleOrders(
+    // Real client shape: collectHomecomingMetadata() resent, no photo fields at all.
+    event("PATCH", { id: priorOrder.id, metadata: { homecoming_prom: { event_student_name: "Jordan Smith", event_outfit_color: "Sapphire blue" } } }),
+    { currentUser: async () => ({ client: harness.client, shopId: SHOP_ID, user: USER }), writeShopAudit: async () => {}, recordOrderStatusChange: async () => {} }
+  );
+  assert.equal(response.statusCode, 200);
+  assert.equal(harness.getUpdatedPayload().metadata.homecoming_prom.inspiration_photo_path, oldPath, "photo path preserved (existing behavior)");
+  assert.equal(storage.removeCalls.length, 0, "nothing was replaced or removed, so nothing should be deleted");
+});
+
+test("cleanup 4: explicitly removing the photo deletes the OLD object only after the metadata update succeeds", async () => {
+  const oldPath = `${SHOP_ID}/old-171000-abc.jpg`;
+  const priorOrder = {
+    id: "order-cleanup-4",
+    status: "CONFIRMED",
+    fulfillment: "PICKUP",
+    subtotal: 45, tax: 0, delivery_fee: 0, total: 45, tax_rate: 0, labor_charge: 0, addon_total: 0, discount: 0,
+    metadata: { homecoming_prom: { event_student_name: "Jordan Smith", inspiration_photo_path: oldPath } },
+  };
+  const storage = fakeStorageClient();
+  const harness = fakePatchClient({ priorOrder, storage });
+  const response = await handleOrders(
+    event("PATCH", { id: priorOrder.id, remove_inspiration_photo: true }),
+    { currentUser: async () => ({ client: harness.client, shopId: SHOP_ID, user: USER }), writeShopAudit: async () => {}, recordOrderStatusChange: async () => {} }
+  );
+  assert.equal(response.statusCode, 200);
+  assert.equal(harness.getUpdatedPayload().metadata.homecoming_prom.inspiration_photo_path, undefined, "path removed from the persisted metadata");
+  assert.equal(storage.removeCalls.length, 1);
+  assert.deepEqual(storage.removeCalls[0].paths, [oldPath]);
+});
+
+test("cleanup 4b: explicit removal on an order update that fails preserves the old photo (delete never runs)", async () => {
+  const oldPath = `${SHOP_ID}/old-171000-abc.jpg`;
+  const priorOrder = {
+    id: "order-cleanup-4b",
+    status: "CONFIRMED",
+    fulfillment: "PICKUP",
+    subtotal: 45, tax: 0, delivery_fee: 0, total: 45, tax_rate: 0, labor_charge: 0, addon_total: 0, discount: 0,
+    metadata: { homecoming_prom: { event_student_name: "Jordan Smith", inspiration_photo_path: oldPath } },
+  };
+  const storage = fakeStorageClient();
+  const harness = fakePatchClient({ priorOrder, storage, updateError: { message: "simulated DB failure" } });
+  const response = await handleOrders(
+    event("PATCH", { id: priorOrder.id, remove_inspiration_photo: true }),
+    { currentUser: async () => ({ client: harness.client, shopId: SHOP_ID, user: USER }), writeShopAudit: async () => {}, recordOrderStatusChange: async () => {} }
+  );
+  assert.equal(response.statusCode, 500);
+  assert.equal(storage.removeCalls.length, 0, "metadata update never succeeded, so the photo must not be deleted");
+});
+
+test("cleanup 5: a cross-shop object path is refused before any storage call is made", async () => {
+  // deleteOrderInspirationPhoto() is only ever called by orders.js with a
+  // path read back from THIS shop's own order row — this test exercises the
+  // helper directly to lock in its own independent guard (defense in depth
+  // on top of storage.objects' RLS, not a replacement for it).
+  const { deleteOrderInspirationPhoto } = await import("../netlify/functions/_shared/order-attachments.js");
+  const storage = fakeStorageClient();
+  const OTHER_SHOP_ID = "22222222-2222-2222-2222-222222222222";
+  const foreignPath = `${OTHER_SHOP_ID}/someone-elses-photo.jpg`;
+  const result = await deleteOrderInspirationPhoto(storage.client, SHOP_ID, foreignPath);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /outside the caller's shop/i);
+  assert.equal(storage.removeCalls.length, 0, "the storage API must never even be called for a cross-shop path");
+});
+
+test("cleanup 5b: deleteOrderInspirationPhoto succeeds for a path that genuinely belongs to the caller's own shop", async () => {
+  const { deleteOrderInspirationPhoto } = await import("../netlify/functions/_shared/order-attachments.js");
+  const storage = fakeStorageClient();
+  const ownPath = `${SHOP_ID}/my-photo.jpg`;
+  const result = await deleteOrderInspirationPhoto(storage.client, SHOP_ID, ownPath);
+  assert.equal(result.ok, true);
+  assert.equal(storage.removeCalls.length, 1);
+  assert.deepEqual(storage.removeCalls[0].paths, [ownPath]);
 });
 
 // --- reload: GET a signed URL scoped to the requesting shop ---------------
@@ -738,6 +885,18 @@ test("regular (non-Homecoming/Prom) orders are unaffected by the boutonniere fea
   );
   assert.equal(response.statusCode, 201);
   assert.deepEqual(rpcArgs.p_order.metadata, {});
+});
+
+test("the 'Remove photo' control exists, is wired to the submit payload, and clears a pending removal when a new file is picked instead", () => {
+  const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+  assert.match(html, /id="orderRemoveInspirationPhoto"[^>]*hidden/, "remove button must start hidden");
+  const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(app, /\$\("#orderRemoveInspirationPhoto"\)\?\.addEventListener\("click",/);
+  assert.match(app, /orderInspirationPhotoRemoved=true/);
+  // Picking a new file after clicking Remove must supersede the pending removal.
+  assert.match(app, /orderInspirationPhotoDataUrl=await new Promise[\s\S]{0,160}orderInspirationPhotoRemoved=false/);
+  // Submit handler: a new upload always wins; removal only sent when there's no new upload.
+  assert.match(app, /if\(orderInspirationPhotoDataUrl\)d\.inspiration_photo_data_url=orderInspirationPhotoDataUrl;else if\(orderInspirationPhotoRemoved\)d\.remove_inspiration_photo=true;/);
 });
 
 test("the (unapplied, pending-review) order-attachments storage migration is private and shop-scoped, matching delivery-proofs", () => {

@@ -11,6 +11,7 @@ import {
 import {
   uploadOrderInspirationPhoto,
   getOrderInspirationPhotoSignedUrl,
+  deleteOrderInspirationPhoto,
 } from "./_shared/order-attachments.js";
 
 export const ORDER_PAYMENT_LEDGER_FIELDS = Object.freeze([
@@ -236,7 +237,12 @@ export async function handleOrders(event, dependencies = {}) {
       // overwrite) so unrelated keys survive (e.g. the recipe_deducted
       // bookkeeping set later in this same handler, or a wire order's
       // wire_service/wire_cost).
-      if ("metadata" in body || body.inspiration_photo_data_url) {
+      // Set below, and only acted on AFTER the order row is successfully
+      // persisted (see the cleanup call right after the update() a few
+      // lines down) — never before, so a failed upload or a failed DB write
+      // can never leave an order pointing at a photo that no longer exists.
+      let orphanedInspirationPhotoPath = null;
+      if ("metadata" in body || body.inspiration_photo_data_url || body.remove_inspiration_photo) {
         const priorMetadata = priorOrder.metadata && typeof priorOrder.metadata === "object" ? priorOrder.metadata : {};
         let nextMetadata = { ...priorMetadata, ...sanitizeOrderMetadata(body.metadata) };
         // The client resends a fresh homecoming_prom object on every save
@@ -244,32 +250,44 @@ export async function handleOrders(event, dependencies = {}) {
         // form fields — it never re-renders inspiration_photo_path, so it
         // can't resend one. The merge above is shallow only at the top
         // level: without this, a florist editing e.g. just the outfit color
-        // (no new photo) would wholesale-replace homecoming_prom and
-        // silently drop an already-uploaded photo's path from the order.
-        // Preserve it here unless a new photo is being uploaded in this
-        // same request (in which case the block below overwrites it with
-        // the new path, as intended).
-        const priorPhotoPath = priorMetadata.homecoming_prom?.inspiration_photo_path;
+        // (no new photo, no removal) would wholesale-replace homecoming_prom
+        // and silently drop an already-uploaded photo's path from the
+        // order. Preserve it here unless a new photo is being uploaded or
+        // the photo is being explicitly removed in this same request.
+        const priorPhotoPath = priorMetadata.homecoming_prom?.inspiration_photo_path || null;
         if (
           priorPhotoPath &&
           nextMetadata.homecoming_prom &&
           !nextMetadata.homecoming_prom.inspiration_photo_path &&
-          !body.inspiration_photo_data_url
+          !body.inspiration_photo_data_url &&
+          !body.remove_inspiration_photo
         ) {
           nextMetadata = {
             ...nextMetadata,
             homecoming_prom: { ...nextMetadata.homecoming_prom, inspiration_photo_path: priorPhotoPath },
           };
         }
+        let newUploadPath = null;
         if (body.inspiration_photo_data_url) {
           const upload = await uploadOrderInspirationPhoto(client, shopId, body.inspiration_photo_data_url);
           if (!upload.ok) return json(400, { error: upload.error });
           if (upload.path) {
+            newUploadPath = upload.path;
             nextMetadata = {
               ...nextMetadata,
               homecoming_prom: { ...(nextMetadata.homecoming_prom || {}), inspiration_photo_path: upload.path },
             };
           }
+        } else if (body.remove_inspiration_photo && nextMetadata.homecoming_prom?.inspiration_photo_path) {
+          const { inspiration_photo_path, ...restHomecoming } = nextMetadata.homecoming_prom;
+          nextMetadata = { ...nextMetadata, homecoming_prom: restHomecoming };
+        }
+        // The OLD object becomes an orphan only when it's genuinely being
+        // replaced or removed (never merely because this PATCH omitted the
+        // photo field entirely — that case is exactly what the preservation
+        // block above guards against).
+        if (priorPhotoPath && priorPhotoPath !== newUploadPath && (newUploadPath || body.remove_inspiration_photo)) {
+          orphanedInspirationPhotoPath = priorPhotoPath;
         }
         payload.metadata = nextMetadata;
       }
@@ -305,6 +323,14 @@ export async function handleOrders(event, dependencies = {}) {
       }
       const { data, error } = await client.from("orders").update(payload).eq("id",body.id).eq("shop_id",shopId).select().single();
       if (error) throw error;
+      // Only now — after the order row itself is confirmed persisted — is it
+      // safe to remove the photo it no longer references. Best-effort: a
+      // storage failure here must not fail this response (the order is
+      // already correctly saved), it just leaves an orphaned object behind,
+      // same degraded-but-safe outcome as any other cleanup failure.
+      if (orphanedInspirationPhotoPath) {
+        await deleteOrderInspirationPhoto(client, shopId, orphanedInspirationPhotoPath);
+      }
       let inventoryAdjustments = [];
       let inventoryWarnings = [];
       if ("status" in payload) {
