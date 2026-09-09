@@ -8,6 +8,10 @@ import {
   applyRecipeDeductions,
   shouldDeductOnStatus,
 } from "../../lib/inventory/recipe-deduction.js";
+import {
+  uploadOrderInspirationPhoto,
+  getOrderInspirationPhotoSignedUrl,
+} from "./_shared/order-attachments.js";
 
 export const ORDER_PAYMENT_LEDGER_FIELDS = Object.freeze([
   "amount_paid",
@@ -92,6 +96,23 @@ export async function handleOrders(event, dependencies = {}) {
         return json(200, { items: data || [] });
       }
 
+      if (qs.order_id && qs.view === "inspiration_photo") {
+        const orderId = String(qs.order_id || "").trim();
+        if (!orderId) return json(400, { error: "Missing order id." });
+        const { data: orderRow, error: orderError } = await client
+          .from("orders")
+          .select("id,metadata")
+          .eq("id", orderId)
+          .eq("shop_id", shopId)
+          .maybeSingle();
+        if (orderError) throw orderError;
+        if (!orderRow) return json(404, { error: "Order not found." });
+        const path = orderRow.metadata?.homecoming_prom?.inspiration_photo_path;
+        if (!path) return json(200, { signed_url: null });
+        const signed = await getOrderInspirationPhotoSignedUrl(client, path);
+        return json(200, signed);
+      }
+
       const { data, error } = await client
         .from("orders")
         .select("*")
@@ -116,6 +137,18 @@ export async function handleOrders(event, dependencies = {}) {
       const discount = Number(body.discount || 0);
       const taxRate = Number(body.tax_rate || 0);
       const deliveryFee = Number(body.delivery_fee || 0);
+
+      let metadata = sanitizeOrderMetadata(body.metadata);
+      if (body.inspiration_photo_data_url) {
+        const upload = await uploadOrderInspirationPhoto(client, shopId, body.inspiration_photo_data_url);
+        if (!upload.ok) return json(400, { error: upload.error });
+        if (upload.path) {
+          metadata = {
+            ...metadata,
+            homecoming_prom: { ...(metadata.homecoming_prom || {}), inspiration_photo_path: upload.path },
+          };
+        }
+      }
 
       const payload = {
         customer_name: validation.sanitized.customer_name || clampText(body.customer_name, 120),
@@ -154,7 +187,7 @@ export async function handleOrders(event, dependencies = {}) {
         discount: Number(body.discount || 0),
         estimated_cost: Number(body.estimated_cost || 0),
         product_id: body.product_id || null,
-        metadata: sanitizeOrderMetadata(body.metadata),
+        metadata,
       };
 
       if (isFeatureEnabled("INVENTORY_RECIPE_DEDUCTIONS")) {
@@ -191,12 +224,55 @@ export async function handleOrders(event, dependencies = {}) {
       if ("customer_name" in payload && !String(payload.customer_name || "").trim()) return json(400, { error: "Customer name is required" });
       const { data: priorOrder, error: priorOrderError } = await client
         .from("orders")
-        .select("id,status,subtotal,tax,delivery_fee,total,tax_rate,amount_paid,balance_due,payment_status,labor_charge,addon_total,discount")
+        .select("id,status,subtotal,tax,delivery_fee,total,tax_rate,amount_paid,balance_due,payment_status,labor_charge,addon_total,discount,metadata")
         .eq("id", body.id)
         .eq("shop_id", shopId)
         .maybeSingle();
       if (priorOrderError) throw priorOrderError;
       if (!priorOrder) return json(404, { error: "Order not found." });
+      // PATCH previously had no allowlisted way to change metadata at all —
+      // an update() call from this handler that didn't mention it just left
+      // the existing row's metadata untouched. Merge shallowly (not
+      // overwrite) so unrelated keys survive (e.g. the recipe_deducted
+      // bookkeeping set later in this same handler, or a wire order's
+      // wire_service/wire_cost).
+      if ("metadata" in body || body.inspiration_photo_data_url) {
+        const priorMetadata = priorOrder.metadata && typeof priorOrder.metadata === "object" ? priorOrder.metadata : {};
+        let nextMetadata = { ...priorMetadata, ...sanitizeOrderMetadata(body.metadata) };
+        // The client resends a fresh homecoming_prom object on every save
+        // (public/app.js's collectHomecomingMetadata) but only round-trips
+        // form fields — it never re-renders inspiration_photo_path, so it
+        // can't resend one. The merge above is shallow only at the top
+        // level: without this, a florist editing e.g. just the outfit color
+        // (no new photo) would wholesale-replace homecoming_prom and
+        // silently drop an already-uploaded photo's path from the order.
+        // Preserve it here unless a new photo is being uploaded in this
+        // same request (in which case the block below overwrites it with
+        // the new path, as intended).
+        const priorPhotoPath = priorMetadata.homecoming_prom?.inspiration_photo_path;
+        if (
+          priorPhotoPath &&
+          nextMetadata.homecoming_prom &&
+          !nextMetadata.homecoming_prom.inspiration_photo_path &&
+          !body.inspiration_photo_data_url
+        ) {
+          nextMetadata = {
+            ...nextMetadata,
+            homecoming_prom: { ...nextMetadata.homecoming_prom, inspiration_photo_path: priorPhotoPath },
+          };
+        }
+        if (body.inspiration_photo_data_url) {
+          const upload = await uploadOrderInspirationPhoto(client, shopId, body.inspiration_photo_data_url);
+          if (!upload.ok) return json(400, { error: upload.error });
+          if (upload.path) {
+            nextMetadata = {
+              ...nextMetadata,
+              homecoming_prom: { ...(nextMetadata.homecoming_prom || {}), inspiration_photo_path: upload.path },
+            };
+          }
+        }
+        payload.metadata = nextMetadata;
+      }
       if ("status" in payload && payload.status) payload.status = normalizeOrderStatus(payload.status);
       const pricingFields = ["subtotal","tax","delivery_fee","tax_rate","labor_charge","addon_total","discount"];
       if (pricingFields.some((field) => Object.prototype.hasOwnProperty.call(body, field))) {
