@@ -759,19 +759,21 @@ export function buildDeterministicNoticeContent({ requestText, shopName, shopPho
 // blind "moments that matter... brighten someone's day" wording — the
 // same wording literally every other occasion's rescue also produced,
 // with zero trace of what was actually asked for. Keyed by namedCampaign
-// (the finer identity), matching classifyNamedCampaign's own
-// birthday/anniversary/new_baby/get_well DIRECT_MAP in
-// marketing-canonical-concept.js — deliberately bounded to these four
-// personal-celebration occasions; every other occasion (general,
-// holiday_seasonal, event_reminder, operational_notice, promotion,
-// wedding, sympathy) keeps using the existing generic fallback below,
-// unaffected — sympathy and operational notices already have their own
-// dedicated, separate deterministic content paths elsewhere in this file
-// and never reach this function's generic branch at all in practice.
-// Never invents a flower species, inventory claim, promotion, date, or
-// shop scenery — every phrase here is as safe/generic as the fallback it
-// replaces, just naming the real, already-classified occasion instead of
-// staying silent about it.
+// (the finer identity), matching classifyNamedCampaign's own DIRECT_MAP
+// in marketing-canonical-concept.js — covers the four personal-
+// celebration occasions (birthday/anniversary/new_baby/get_well) plus
+// sympathy (added in the Funeral/Sympathy creative-preservation batch,
+// once the SAME live-test process proved sympathy needed it exactly as
+// much — it had no separate dedicated rescue path after all, contrary to
+// this comment's own earlier, now-corrected assumption). Every other
+// occasion (general, holiday_seasonal, event_reminder, promotion,
+// wedding) keeps using the existing generic fallback below, unaffected —
+// operational notices have their own dedicated, separate deterministic
+// content path elsewhere in this file and never reach this function's
+// generic branch at all in practice. Never invents a flower species,
+// inventory claim, promotion, date, or shop scenery — every phrase here
+// is as safe/generic as the fallback it replaces, just naming the real,
+// already-classified occasion instead of staying silent about it.
 const RESCUE_OCCASION_PHRASES = Object.freeze({
   birthday: {
     headline: "Birthday Blooms, Ready to Celebrate",
@@ -792,6 +794,24 @@ const RESCUE_OCCASION_PHRASES = Object.freeze({
     headline: "Flowers to Brighten Their Recovery",
     bodyWithName: (name) => `${name} has get-well flowers ready to bring a little comfort their way.`,
     bodyNoName: () => "Get-well flowers, ready to bring a little comfort their way."
+  },
+  // Funeral/Sympathy creative-preservation batch, Part 2: the real,
+  // live-found gap — a genuine copy-quality failure on a sympathy request
+  // ("Create a comforting Facebook post letting families know we can help
+  // with funeral flowers.") rescued into the fully generic "brighten
+  // someone's day" wording, exactly as inappropriate as it sounds for a
+  // funeral. Deliberately restrained and purely SERVICE-descriptive —
+  // never addressed to "you"/"your family" as if the reader themselves is
+  // grieving (this is a fallback shown to any viewer of the post, not a
+  // message to a known bereaved customer), never celebratory, never
+  // salesy, and never inventing a death, a named person, a specific
+  // funeral/service, availability, inventory, or a price — it only ever
+  // states the one real thing the request itself supplied: this shop
+  // helps with funeral/sympathy flowers.
+  sympathy: {
+    headline: "Funeral & Sympathy Flowers",
+    bodyWithName: (name) => `${name} helps families choose funeral and sympathy flowers with care.`,
+    bodyNoName: () => "Helping families choose funeral and sympathy flowers with care."
   }
 });
 

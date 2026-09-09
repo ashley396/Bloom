@@ -454,7 +454,7 @@ export function resolveOccasionTreatment({ occasionCategory = null, sympathyClas
  * `ctaProminenceCeiling` (the loosest CTA prominence this family permits
  * — never a floor).
  */
-export function getCategoryConstraints({ occasionCategory = null, sympathyClassification = null, promotionIntent = null, inventoryIntent = null, ctaIntent = null, creativeMode = null, namedCampaign = null } = {}) {
+export function getCategoryConstraints({ occasionCategory = null, sympathyClassification = null, promotionIntent = null, inventoryIntent = null, ctaIntent = null, creativeMode = null, namedCampaign = null, photoStrategy = null } = {}) {
   const occasionTreatment = resolveOccasionTreatment({ occasionCategory, sympathyClassification, promotionIntent, creativeMode });
   const hasCta = Boolean(ctaIntent) && ctaIntent !== "none";
   const isInventoryGrounded = inventoryIntent === "inventory_driven";
@@ -747,6 +747,35 @@ export function getCategoryConstraints({ occasionCategory = null, sympathyClassi
 
   const chosen = FAMILY_CONSTRAINTS[occasionTreatment];
 
+  // Funeral/Sympathy creative-preservation batch, Part 1: sympathy_elegance
+  // covers two structurally different real requests sharing one occasion
+  // treatment — a genuine sympathy flyer/ad with real facts to draw
+  // (photoStrategy "calm_backdrop", still needs its full designed-flyer
+  // treatment: shop name/phone visible, exactly what the historical "an
+  // advertisement with no shop name is a stock photo" fix requires), and
+  // an ordinary sympathy social post with no such requirement
+  // (photoStrategy "subject_forward" — a real photo carries the whole
+  // composition, same as photo_forward_social). Only the second case
+  // switches families here; photoStrategy is the exact existing signal
+  // that already distinguishes these two branches (marketing-studio.js's
+  // own calm_backdrop vs. subject_forward split, upstream of this
+  // function) — never a new, second signal, and never inferred from
+  // occasion alone. The mood/palette stay sympathy-appropriate
+  // (quiet_respectful/neutral_blush_ivory) even though the STRUCTURE
+  // (no on-image headline/brand/phone/cta/supporting text) is borrowed
+  // from photo_forward_social — the same "one family, its own mood"
+  // pattern the playful_promotion override just below already
+  // establishes for a different pair.
+  if (occasionTreatment === "sympathy_elegance" && photoStrategy === "subject_forward") {
+    const photoForward = FAMILY_CONSTRAINTS.photo_forward_social;
+    return {
+      ...photoForward,
+      leaning: { ...photoForward.leaning, visualMood: "quiet_respectful", paletteMood: "neutral_blush_ivory" },
+      occasionTreatment: photoForward.forced.occasionTreatment,
+      inventoryGroundedGuidance: isInventoryGrounded
+    };
+  }
+
   // Batch 6, Part 3: promotional_sales and playful_promotion deliberately
   // share the SAME structural family (promotional_feature) — they differ
   // in tone, not composition. This is the one place that tone difference
@@ -813,7 +842,8 @@ export function buildDeterministicCreativeDirection({ canonicalConcept = null, s
     inventoryIntent: concept.inventoryIntent || null,
     ctaIntent,
     creativeMode: concept.creativeMode || null,
-    namedCampaign: concept.namedCampaign || null
+    namedCampaign: concept.namedCampaign || null,
+    photoStrategy: concept.visualDirection?.photoStrategy || null
   });
 
   const base = {
@@ -990,12 +1020,26 @@ export function validateCreativeDirection(candidate, { canonicalConcept = null, 
   const isPromotional = conceptOccasionTreatment === "promotional_feature";
   const ctaIntent = concept.ctaIntent || null;
 
+  // Funeral/Sympathy creative-preservation batch, Part 1: an ordinary
+  // subject-forward sympathy post legitimately resolves to
+  // photo_forward_social's own structure (see getCategoryConstraints'
+  // matching branch, gated on the exact same photoStrategy signal) — this
+  // is the one deliberate, intended exception to "occasionTreatment may
+  // only ever claim what the concept's own classification says," not a
+  // contradiction to silently correct away. isSympathy itself (and every
+  // sympathy tone/mood/ornament safeguard below, e.g. the no-celebratory-
+  // visual-treatment block) is completely unaffected — those checks key
+  // off conceptOccasionTreatment, never off out.occasionTreatment, so
+  // they stay fully active regardless of which structural family sympathy
+  // resolved to.
+  const sympathySubjectForward = isSympathy && concept.visualDirection?.photoStrategy === "subject_forward" && out.occasionTreatment === "photo_forward_social";
+
   // occasionTreatment itself: a candidate may only ever claim
   // sympathy_elegance/operational_notice/promotional_feature when the
   // concept actually says so — elegant_editorial/boutique_floral/
   // seasonal_feature/everyday_floral remain free creative choices within
   // a non-forced concept, never clamped away from each other.
-  if ((isSympathy || isOperationalNotice || isPromotional) && out.occasionTreatment !== conceptOccasionTreatment) {
+  if ((isSympathy || isOperationalNotice || isPromotional) && out.occasionTreatment !== conceptOccasionTreatment && !sympathySubjectForward) {
     errors.push(`occasionTreatment "${out.occasionTreatment}" contradicts the concept's own classification ("${conceptOccasionTreatment}") — corrected.`);
     out.occasionTreatment = conceptOccasionTreatment;
   }

@@ -80,7 +80,19 @@ function findInsertedContent(client) {
   return asset?.payload?.content;
 }
 
-test("matrix #1/#12: router chooses exact_layout on its own (sympathy) — diagnostic honestly records Premium was never attempted, with a specific fallback reason", async () => {
+// Funeral/Sympathy creative-preservation batch: this test formerly pinned
+// the OLD, now-corrected router policy where sympathy defaulted to
+// exact_layout unconditionally, regardless of what the florist actually
+// asked for ("router chooses exact_layout on its own (sympathy)"). Ashley's
+// live-test-proven fix folds sympathy into the same "ordinary creative"
+// bucket as every other occasion once requestNeedsFlyerWording() has
+// already ruled out exact-wording necessity (see marketing-engine-
+// router.js) — so an ordinary sympathy social post is now premium-eligible
+// exactly like the everyday-floral case in the matrix #2/#3/#12/#14 test
+// just above, and only falls back to exact_layout here because this test
+// process has no real service-role key (fail-closed feature flag), not
+// because the router special-cased sympathy.
+test("matrix #1/#12: sympathy is ordinary-creative premium-eligible like any other occasion; feature flag reads false (fail-closed) — diagnostic honestly records Premium was never attempted, with a specific fallback reason", async () => {
   const mock = mockCloudflareDualModel({
     copyJson: {
       platform: "facebook",
@@ -102,17 +114,17 @@ test("matrix #1/#12: router chooses exact_layout on its own (sympathy) — diagn
     const client = createFakeSupabaseClient(responses, { storage });
     const handler = createMarketingStudioHandler(floristDeps(client));
     const res = await handler(event("generate_content", { content_item_id: "item-1", photo_choice: "generate" }));
-    assert.equal(res.statusCode, 200, `expected the sympathy default path to succeed cleanly: ${res.body}`);
+    assert.equal(res.statusCode, 200, `expected the sympathy ordinary-creative path to succeed cleanly: ${res.body}`);
 
     const content = findInsertedContent(client);
     const diag = content.premium_creative_diagnostic;
-    assert.ok(diag, "a diagnostic must be persisted even when the router never picks Premium");
-    assert.equal(diag.router.engine, "exact_layout");
-    assert.equal(diag.router.reason, "sympathy_default");
-    assert.equal(diag.eligibility.feature_flag_enabled, null, "the feature flag must never be checked (or fabricated as false) when the router already chose exact_layout on its own");
+    assert.ok(diag, "a diagnostic must be persisted even when the flag gate falls back to Exact Layout");
+    assert.equal(diag.router.engine, "premium_ai_creative", "sympathy is premium-eligible, exactly like any other ordinary creative occasion");
+    assert.match(diag.router.reason, /^ordinary_creative:sympathy_elegance$/);
+    assert.equal(diag.eligibility.feature_flag_enabled, false, "the real (fail-closed, no service-role key in this test process) feature-flag value");
     assert.equal(diag.orchestrator.attempted, false);
     assert.equal(diag.execution.provider_generate_entered, false);
-    assert.deepEqual(diag.fallback, { occurred: true, final_engine: "exact_layout", reason: "router_exact_layout" });
+    assert.deepEqual(diag.fallback, { occurred: true, final_engine: "exact_layout", reason: "feature_flag_disabled" });
     assert.equal(content.creative_engine, "exact_layout");
   } finally {
     mock.restore();

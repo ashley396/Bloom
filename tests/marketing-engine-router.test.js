@@ -60,19 +60,32 @@ test("a bare phone_number fact requirement alone (present on almost every flyer)
   assert.equal(result.engine, ENGINES.PREMIUM_AI_CREATIVE);
 });
 
-// Required test #15: sympathy-defaults-exact.
-test("Batch1 #15 sympathy-defaults-exact: a sympathy concept routes to exact_layout by default, with no override", () => {
+// Funeral/Sympathy creative-preservation batch (routing review, real
+// live-found failure): sympathy used to force exact_layout unconditionally
+// here regardless of what the florist actually asked for. The real,
+// live-test-proven correction: occasion TREATMENT (sympathy's own
+// dignified, restrained, non-celebratory mood — completely unchanged,
+// still enforced by marketing-creative-direction.js's own visual
+// safeguards) is not the same question as whether EXACT graphic wording
+// is required (requestNeedsFlyerWording() — already ruled out by the only
+// caller that ever reaches this router, before this function runs at
+// all). Sympathy is therefore folded into the same "ordinary creative"
+// bucket as everyday_floral/seasonal_feature/elegant_editorial/
+// boutique_floral — see the corresponding test just below this one that
+// replaces the removed "Batch1 #15 sympathy-defaults-exact"/override-flag
+// tests, which asserted the now-corrected old policy.
+test("Funeral/Sympathy creative-preservation batch: a sympathy concept is eligible for premium_ai_creative, exactly like any other ordinary creative occasion, once exact wording has already been ruled out", () => {
   const result = routeMarketingEngine({ canonicalConcept: concept({ occasionCategory: "sympathy", sympathyClassification: "sympathy" }) });
-  assert.equal(result.engine, ENGINES.EXACT_LAYOUT);
-  assert.equal(result.reason, "sympathy_default");
+  assert.equal(result.engine, ENGINES.PREMIUM_AI_CREATIVE);
+  assert.match(result.reason, /ordinary_creative:sympathy_elegance/);
 });
 
-test("sympathy only reaches premium_ai_creative via an explicit override flag, never inferred", () => {
+test("Funeral/Sympathy creative-preservation batch: the now-obsolete sympathyOverrideRequested parameter is gone — sympathy needs no override to reach premium_ai_creative", () => {
   const sympathyConcept = concept({ occasionCategory: "sympathy", sympathyClassification: "sympathy" });
-  assert.equal(routeMarketingEngine({ canonicalConcept: sympathyConcept, sympathyOverrideRequested: false }).engine, ENGINES.EXACT_LAYOUT);
-  const overridden = routeMarketingEngine({ canonicalConcept: sympathyConcept, sympathyOverrideRequested: true });
-  assert.equal(overridden.engine, ENGINES.PREMIUM_AI_CREATIVE);
-  assert.equal(overridden.reason, "sympathy_explicit_florist_override");
+  // Passing the old (now-ignored) parameter name must not change anything —
+  // routeMarketingEngine no longer reads it at all.
+  const withStaleParam = routeMarketingEngine({ canonicalConcept: sympathyConcept, sympathyOverrideRequested: false });
+  assert.equal(withStaleParam.engine, ENGINES.PREMIUM_AI_CREATIVE);
 });
 
 // Required test #16: verified-promotion-can-route-premium.

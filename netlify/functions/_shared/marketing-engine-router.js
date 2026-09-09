@@ -54,14 +54,9 @@ export const BUSINESS_CRITICAL_FACT_KEYS = Object.freeze(["shop_hours", "event_d
  *   deterministic signal the caller computes and passes in, never
  *   inferred here. An unverified promotion must never route to Premium AI
  *   Creative, where the image model could invent the offer's specifics.
- * @param {boolean} [params.sympathyOverrideRequested] - true only when the
- *   florist has explicitly asked for Premium AI Creative on a sympathy
- *   piece. Not exposed in any UI yet (Part 9) — this parameter exists so
- *   the override path is real and testable ahead of that UI work, not so
- *   it can be silently defaulted true.
  * @returns {{ engine: "exact_layout"|"premium_ai_creative", reason: string }}
  */
-export function routeMarketingEngine({ canonicalConcept = null, verifiedOfferFactsPresent = false, sympathyOverrideRequested = false } = {}) {
+export function routeMarketingEngine({ canonicalConcept = null, verifiedOfferFactsPresent = false } = {}) {
   if (!canonicalConcept || typeof canonicalConcept !== "object") {
     return { engine: ENGINES.EXACT_LAYOUT, reason: "no_canonical_concept_fail_closed" };
   }
@@ -74,15 +69,39 @@ export function routeMarketingEngine({ canonicalConcept = null, verifiedOfferFac
     promotionIntent: canonicalConcept.promotionIntent
   });
 
-  // Sympathy defaults to exact_layout. A future florist-requested override
-  // is the ONLY way to reach Premium AI Creative for sympathy — never
-  // inferred from the request text itself.
-  if (occasionTreatment === "sympathy_elegance") {
-    if (sympathyOverrideRequested === true) {
-      return { engine: ENGINES.PREMIUM_AI_CREATIVE, reason: "sympathy_explicit_florist_override" };
-    }
-    return { engine: ENGINES.EXACT_LAYOUT, reason: "sympathy_default" };
-  }
+  // Funeral/Sympathy creative-preservation batch (routing review, real
+  // live-found failure): sympathy used to force exact_layout unconditionally
+  // here, regardless of what the florist actually asked for — an ordinary
+  // "let families know we can help with funeral flowers" social post got
+  // an unwanted on-image headline/brand/phone/CTA it never needed, and its
+  // caption/on-image text still had to survive the SAME copy-quality bar
+  // as every other occasion (this router never touched that).
+  //
+  // The real, general distinction Ashley drew: occasion TREATMENT (the
+  // dignified, restrained, non-celebratory tone/mood sympathy_elegance
+  // still owns — see marketing-creative-direction.js's own
+  // sympathy_elegance family constraints, completely unchanged by this
+  // fix) is not the same question as whether EXACT graphic wording is
+  // required. That second question already has its own real, existing
+  // answer this router's own caller computes before ever reaching this
+  // function: requestNeedsFlyerWording() (marketing-content-revision.js)
+  // — a phone number, a price, a date, an explicit "flyer"/"poster"/"ad"
+  // request, a discount, an operational notice. marketing-studio.js only
+  // ever calls this router from its subject-forward branch, which by
+  // construction never runs at all unless requestNeedsFlyerWording()
+  // already returned false for this exact request — so a genuine sympathy
+  // flyer/ad request ("make a funeral flower flyer with our phone number
+  // 606-506-4039," "create a sympathy poster that says We're Here When You
+  // Need Us") never reaches this router in the first place; it takes the
+  // deterministic exact-layout branch directly, unaffected by anything
+  // below. Sympathy is therefore now folded into the SAME "ordinary
+  // creative" bucket as everyday_floral/seasonal_feature/elegant_editorial/
+  // boutique_floral below — eligible for Premium AI Creative exactly like
+  // any other occasion once it's already established that no exact wording
+  // is required, never inferred from occasion alone. The now-obsolete
+  // `sympathyOverrideRequested` parameter (dead the moment sympathy stopped
+  // needing an override to reach premium) has been removed cleanly rather
+  // than left as unused policy code.
 
   // An operational notice (closing early, changed hours, order deadline)
   // is always exact — see .claude/rules/marketing-studio.md's own
@@ -111,18 +130,21 @@ export function routeMarketingEngine({ canonicalConcept = null, verifiedOfferFac
       : { engine: ENGINES.EXACT_LAYOUT, reason: "unverified_promotion_fails_closed" };
   }
 
-  // Ordinary everyday/seasonal/boutique/elegant creative — Ashley's own
-  // instruction: these route to Premium AI Creative. resolveOccasion
-  // Treatment() itself only ever returns "everyday_floral" or
-  // "seasonal_feature" here today (the other four values it can produce —
-  // sympathy_elegance/operational_notice/promotional_feature — are all
-  // handled by the branches above); "elegant_editorial" and
+  // Ordinary everyday/seasonal/boutique/elegant/sympathy creative — Ashley's
+  // own instruction: these route to Premium AI Creative once exact-wording
+  // necessity has already been ruled out (see this function's own comment
+  // above for exactly how that's established before this router ever
+  // runs). resolveOccasionTreatment() itself only ever returns
+  // "everyday_floral" or "seasonal_feature" here today for a request that
+  // reaches this router (operational_notice/promotional_feature are
+  // handled by the branches above, and sympathy_elegance now joins this
+  // bucket rather than being special-cased); "elegant_editorial" and
   // "boutique_floral" are included for forward compatibility with a
   // future explicit-override path (see marketing-creative-direction.js's
   // own OCCASION_TREATMENTS comment) and are currently unreachable
   // through this function alone — listed honestly, not to claim they're
   // reachable today.
-  if (["everyday_floral", "seasonal_feature", "elegant_editorial", "boutique_floral"].includes(occasionTreatment)) {
+  if (["everyday_floral", "seasonal_feature", "elegant_editorial", "boutique_floral", "sympathy_elegance"].includes(occasionTreatment)) {
     return { engine: ENGINES.PREMIUM_AI_CREATIVE, reason: `ordinary_creative:${occasionTreatment}` };
   }
 

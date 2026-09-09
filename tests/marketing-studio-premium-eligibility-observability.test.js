@@ -170,7 +170,16 @@ test("generate_content logs the real engine-route decision AND the real (fail-cl
   }
 });
 
-test("generate_content logs the engine-route decision but NEVER queries the premium feature flag when the router itself already chose exact_layout (sympathy default)", async () => {
+// Funeral/Sympathy creative-preservation batch: this test formerly pinned
+// the OLD, now-corrected router policy where sympathy defaulted to
+// exact_layout unconditionally (so eligibility was never even checked).
+// Ashley's live-test-proven fix folds sympathy into the same ordinary-
+// creative bucket as every other occasion, so an ordinary sympathy social
+// post is now premium-eligible and the feature flag IS checked (and reads
+// false here, fail-closed, since this test process has no real
+// service-role key) — see the corresponding router-eligible test just
+// above this one for the non-sympathy case this now matches exactly.
+test("generate_content logs the engine-route decision AND the real (fail-closed) premium eligibility for a sympathy request, exactly like any other ordinary creative occasion", async () => {
   const mock = mockCloudflareDualModel({
     copyJson: {
       platform: "facebook",
@@ -196,14 +205,22 @@ test("generate_content logs the engine-route decision but NEVER queries the prem
 
     const routeDecision = lines.find((l) => l.message === "marketing_generate_content_engine_route_decision");
     assert.ok(routeDecision, "the router's own real decision must still be logged");
-    assert.equal(routeDecision.engine, "exact_layout");
-    assert.equal(routeDecision.reason, "sympathy_default");
+    assert.equal(routeDecision.engine, "premium_ai_creative", "sympathy is premium-eligible, exactly like any other ordinary creative occasion");
+    assert.match(routeDecision.reason, /^ordinary_creative:sympathy_elegance$/);
 
-    // The short-circuit this codebase relies on (never spend a real DB
-    // round-trip checking a feature flag for a request the router already
-    // sent to exact_layout on its own) must be completely unchanged.
+    // Since the router marked this request premium-eligible, eligibility
+    // must be checked (and, with no real service-role key configured in
+    // this test process, fail closed to false — never fabricated true).
     const eligibility = lines.find((l) => l.message === "marketing_generate_content_premium_eligibility");
-    assert.equal(eligibility, undefined, "premium eligibility must NEVER be logged (or checked) when the router itself already chose exact_layout");
+    assert.ok(eligibility, "premium eligibility must be logged whenever the router marked the request premium-eligible");
+    assert.equal(eligibility.premiumFeatureEnabled, false, "with no real service-role key configured, isShopFeatureEnabled must fail closed to false — never fabricated true");
+
+    // The final, persisted result honestly reflects Exact Layout (the
+    // feature flag is off in this test process) — this test is about
+    // observability, not about changing what engine actually ran.
+    const asset = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
+    const insertedContent = asset?.payload?.content;
+    assert.equal(insertedContent?.creative_engine, "exact_layout");
   } finally {
     mock.restore();
   }
