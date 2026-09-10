@@ -198,6 +198,8 @@ Rules:
 ${shopIdentityRule(shop?.name, occasion)}
 ${copyVoiceLine(concept?.copyVoice)}
 ${audienceCopyLine(concept?.audience)}
+${messageIntentCopyLine(concept?.messageIntent)}
+${userTemporalIntentLine(concept?.userTemporalIntent)}
 ${TEMPORAL_FACT_SAFETY_RULE}
 - Match the platform's real voice: warm and conversational for Facebook/Instagram, concise everywhere.
 - visual_brief must describe a concrete photo concept (say what's actually in the shot — never a vague placeholder like "a beautiful arrangement") but must NEVER independently choose or name a specific flower species/variety (roses, peonies, hydrangeas, alstroemeria, lilies, tulips, etc.) — default to a generic, still-concrete scene ("a lush, professionally designed mixed-flower arrangement with varied fresh blooms and natural greenery") UNLESS the florist's own request named that flower, or the real stock list above supports it AND the request is actually about that stock.
@@ -579,6 +581,55 @@ function audienceCopyLine(audience) {
   return `- ${phrase}`;
 }
 
+// Test C copy-quality follow-up ("everyday copy intelligence fix"): the
+// SAME real gap AUDIENCE_COPY_GUIDANCE's own self_purchase entry already
+// closed for a different signal — an ordinary "send flowers"/"brighten
+// someone's day"/no-specific-occasion request earned no coaching at all
+// beyond the flat base prompt, so the model reached for generic,
+// occasion-blind sentences with nothing a customer could picture (the
+// real, corpus-proven cause of weak_copy_hollow_sentence's measured 67%
+// false-positive rate on genuinely good everyday copy — see the Test C
+// diagnostic investigation and marketing-content-revision.js's own
+// hasHumanSituationalSpecificity, the matching evaluator-side fix).
+// Additive only, exactly like COPY_VOICE_PHRASES/AUDIENCE_COPY_GUIDANCE
+// above — never overrides fact-safety, sympathy, or operational rules.
+// self_purchase is deliberately absent here: classifyMessageIntent
+// (marketing-canonical-concept.js) resolves to "self_purchase" for the
+// exact same requests AUDIENCE_COPY_GUIDANCE's own self_purchase entry
+// already fully covers, so this dictionary having no matching entry
+// means that existing guidance stays the sole source — never duplicated
+// or contradicted by a second line.
+const MESSAGE_INTENT_COPY_GUIDANCE = {
+  send_flowers:
+    "This post's core idea is SENDING flowers to someone else, with no specific occasion behind it. Ground it in a real, relatable recipient or human situation (a friend who's had a rough week, someone you haven't talked to in a while, wanting to surprise a partner) and the concrete act of giving — the emotional payoff should come from that specific situation, not from generic words like 'love,' 'joy,' or 'brighten their day' used on their own with nothing behind them. Vary the hook from post to post — don't reach for the same opening every time. Write like a real, warm Facebook post from a local shop, not an ad. Do NOT invent or imply a specific flower species, product, or discount just to sound concrete — a real human situation is what makes this specific, not a product noun.",
+  brighten_day:
+    "The florist's own request asked for a 'brighten someone's day' framing — that phrasing is fine to use, but don't stop there. Ground it in a specific, real situation (a friend who's had a hard week, a coworker who could use good news, someone who's been under the weather) and what sending flowers actually does for them in that moment — never let 'brighten their day' or 'moments that matter' alone carry the whole post with nothing concrete behind it.",
+  general_everyday:
+    "This is an ordinary, no-special-occasion post. Ground it in a specific human reason, a real recipient, a situation, a sensory/visual detail, or a concrete action — never fall back on generic florist advertising language ('quality,' 'wide selection,' 'perfect for any occasion,' 'moments that matter') with nothing behind it."
+};
+
+function messageIntentCopyLine(messageIntent) {
+  const phrase = MESSAGE_INTENT_COPY_GUIDANCE[messageIntent];
+  return phrase ? `- ${phrase}` : "";
+}
+
+// Test C copy-quality follow-up: userTemporalIntent (marketing-canonical-
+// concept.js) means ONLY "the florist's own request framed this copy
+// around a given day" — reusing that framing in the copy itself (e.g.
+// "send flowers today") is fine and natural, but it must never be read as
+// license to promise same-day delivery, current availability, inventory,
+// or an order cutoff. Deliberately distinct from TEMPORAL_FACT_SAFETY_RULE
+// below, which bans INVENTING temporal language the request never
+// supplied at all — this rule instead constrains what a temporal word
+// that WAS genuinely supplied may be turned into.
+const USER_TEMPORAL_INTENT_WORDS = { today: "today", tonight: "tonight", tomorrow: "tomorrow", this_weekend: "this weekend" };
+
+function userTemporalIntentLine(userTemporalIntent) {
+  const word = USER_TEMPORAL_INTENT_WORDS[userTemporalIntent];
+  if (!word) return "";
+  return `- The florist's own request framed this around "${word}" — you may naturally use that word (e.g. "send flowers ${word}"), but this NEVER means the shop can promise same-day delivery, current availability, inventory in stock, or an order cutoff. Never state or imply any delivery/availability/inventory/cutoff claim tied to ${word} unless the request separately and explicitly told you that fact.`;
+}
+
 function buildFlyerContentTask({ occasion, visualStyleSignal, shop, requestText, concept }) {
   const sympathy = concept ? Boolean(concept.isSympathy) : isSympathyRequest(occasion, requestText);
   return `You are writing the ACTUAL, FINISHED text content for a flyer/graphic a florist will show customers today — not a description of the flyer. Write real, ready-to-display content.
@@ -601,6 +652,8 @@ Rules:
 ${shopIdentityRule(shop?.name, occasion)}
 ${copyVoiceLine(concept?.copyVoice)}
 ${audienceCopyLine(concept?.audience)}
+${messageIntentCopyLine(concept?.messageIntent)}
+${userTemporalIntentLine(concept?.userTemporalIntent)}
 ${TEMPORAL_FACT_SAFETY_RULE}
 - ANY concrete fact the florist gave you verbatim — a time, a phone number, a price, a date, a percentage — must appear in your output EXACTLY as given. Never paraphrase, round, or reformat a number or time. This is the single most important rule here.
 - headline: short, bold, the first thing read.
@@ -717,5 +770,6 @@ export const _internalsForTesting = {
   buildSocialPostTask,
   COPY_VOICE_PHRASES,
   AUDIENCE_COPY_GUIDANCE,
+  MESSAGE_INTENT_COPY_GUIDANCE,
   TEMPORAL_FACT_SAFETY_RULE
 };

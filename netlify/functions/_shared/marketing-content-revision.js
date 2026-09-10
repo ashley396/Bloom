@@ -1897,6 +1897,80 @@ export function sentencesOf(text) {
  * audience. Every other audience (including no audience supplied at all)
  * is completely unaffected by this branch.
  */
+// ---------------------------------------------------------------------------
+// Test C copy-quality follow-up ("everyday copy intelligence fix"):
+// SPECIFIC_DETAIL_RE above measures ONE real, valid kind of concreteness —
+// a named product/number/date — but it is not the only kind, and treating
+// it as the only kind is exactly what a corpus investigation proved wrong:
+// genuinely specific, well-written everyday/gifting copy ("Your mom hasn't
+// heard from you in a week. A bouquet on her porch says more than a text
+// ever could.") was flagged hollow purely because it names no flower
+// species, at a measured 67% false-positive rate against a curated
+// good-copy corpus, while occasions with a natural product/date to name
+// (birthday, sympathy, promotion) saw zero false positives — the same
+// premise mismatch this file's own self_purchase exemption already
+// documents, now shown to also affect send_flowers/brighten_day/
+// general_everyday copy.
+//
+// A sentence can be just as concrete through WHO it is for and WHAT
+// actually happens as through a named product. This is deliberately a
+// small COMPOSITIONAL rule, not a phrase allowlist: it requires BOTH a
+// real person-reference (PERSON_REFERENCE_RE) AND a concrete relational
+// action or consequence (RELATIONAL_ACTION_RE) in the SAME sentence.
+// Neither alone is enough — a bare "someone"/"her"/"your friend" with no
+// action is exactly as vague as a bare feel-good word, and a generic
+// emotional word ("love," "joy," "special," "beautiful," "thoughtful,"
+// "brighten," "happiness") appearing alone, with no person-reference and
+// no concrete action, must never on its own let a hollow sentence pass —
+// none of those words appear in either list below for exactly that
+// reason. This never replaces SPECIFIC_DETAIL_RE; a sentence escapes
+// "hollow" by satisfying EITHER signal.
+// ---------------------------------------------------------------------------
+
+const PERSON_REFERENCE_RE =
+  /\b(?:someone'?s?|somebody'?s?|anyone'?s?|them|her|him|you|your|yours|their|(?:my|your|his|her|their|someone'?s)\s+(?:mom|mother|dad|father|sister|brother|friend|best\s+friend|partner|spouse|wife|husband|boyfriend|girlfriend|coworker|colleague|neighbor|grandma|grandmother|grandpa|grandfather|daughter|son|aunt|uncle|teacher|boss))\b/i;
+
+// Deliberately excludes bare "send"/"give" — those verbs ARE the generic
+// topic of virtually every candidate this check ever runs against (the
+// whole post is about sending flowers), so their mere presence never
+// discriminates a concrete situation from a vague one; a real candidate,
+// good or bad, always contains one of them somewhere. Every verb/phrase
+// here instead names a more specific circumstance, timing, or emotional
+// consequence around the act of giving — the part a generic sentence
+// actually tends to omit.
+//
+// Independent-review fix: "appreciat(e/es/ed/ing)", "mean(s/t) the world/
+// everything/so much/a lot", and "think(ing) of"/"thought of" were
+// originally included here and were themselves exactly the kind of
+// generic platitude this whole signal exists to exclude — a real,
+// demonstrated regression let three fully generic sentences ("It means so
+// much when someone feels appreciated. Nothing says thoughtful more than
+// knowing someone thought of you...") through as non-hollow purely
+// because a bare pronoun sat near one of these words, with zero actual
+// concrete circumstance. Removed entirely rather than narrowed further —
+// each was a paraphrase of "thoughtful"/"love"/"joy" with nothing more
+// concrete behind it, and narrowing them would only restart the same
+// allowlist-patching cycle this file's own self_purchase history already
+// warns against. "remind(s/ed/ing)" was removed for the identical
+// reason, found by the same review: "Flowers remind you that someone out
+// there is thinking of you" is exactly as generic/circular as the
+// phrases above (the reader reminding the reader), so a bare "remind"
+// near any pronoun let it straight through — every remaining verb/phrase
+// below names an actual event or circumstance, not a feeling-word by
+// another name.
+const RELATIONAL_ACTION_RE =
+  /\b(?:surpris(?:e|es|ed|ing)|deliver(?:s|ed|ing)?|drop(?:s|ped|ping)?\s+off|show(?:s|ed|ing)?\s+up|walk(?:s|ed|ing)?\s+in|hasn'?t\s+heard|haven'?t\s+(?:talked|seen|heard)|hear(?:s|d)?\s+from|miss(?:es|ed|ing)?|say(?:s)?\s+more\s+than|mak(?:e|es|ing)\s+(?:their|her|his|your|someone'?s)\s+day|turn(?:s|ed|ing)?\s+(?:\S+\s+){0,3}(?:day|afternoon|week)\s+around)\b/i;
+
+/**
+ * Real, human/situational specificity — see the block comment above.
+ * Exported alongside findHollowSentences so this second signal is
+ * directly testable on its own, never a hidden, unverifiable side effect.
+ */
+export function hasHumanSituationalSpecificity(sentence) {
+  const text = String(sentence || "");
+  return PERSON_REFERENCE_RE.test(text) && RELATIONAL_ACTION_RE.test(text);
+}
+
 export function findHollowSentences(copyText, shopName, { audience = null } = {}) {
   if (audience === "self_purchase") return [];
   const name = String(shopName || "").trim();
@@ -1905,7 +1979,9 @@ export function findHollowSentences(copyText, shopName, { audience = null } = {}
   return sentencesOf(copyText).filter((sentence) => {
     const bare = stripName(sentence);
     if (bare.split(/\s+/).filter(Boolean).length < SUBSTANTIVE_SENTENCE_WORDS) return false;
-    return !SPECIFIC_DETAIL_RE.test(bare);
+    if (SPECIFIC_DETAIL_RE.test(bare)) return false;
+    if (hasHumanSituationalSpecificity(bare)) return false;
+    return true;
   });
 }
 
@@ -2270,10 +2346,18 @@ function detectWeakMarketingCopyEntries(requestText, copyText, options = {}) {
   if (fillerHits.length >= 1) {
     entries.push({
       code: "weak_copy_filler_phrase",
+      // Test C copy-quality follow-up: this text becomes the retry's own
+      // feedback verbatim (combinedReasons, marketing-studio.js) — "don't
+      // repeat these words" alone tells a model what to avoid but not what
+      // to write instead, and it can (and did, in a real live-found
+      // recurrence) just reach for a different generic phrase. Naming the
+      // replacement — a specific human hook, not another stock phrase —
+      // gives the SAME single retry attempt an actual direction to move
+      // in, without spending a second retry or a third provider call.
       text:
         "Most of this could be about any business in any industry. These exact phrases must not appear anywhere in the rewrite: " +
         fillerHits.map((phrase) => `"${phrase}"`).join(", ") +
-        ". Say something only this florist could say."
+        ". Replace them with a specific human hook — a real recipient, situation, or moment — not another generic phrase. Say something only this florist could say."
     });
   } else {
     // The general form of the same failure, for the shapes the list above has
@@ -2288,7 +2372,16 @@ function detectWeakMarketingCopyEntries(requestText, copyText, options = {}) {
     if (hollow.length >= 2 && hollow.length >= substantive.length * 0.6) {
       entries.push({
         code: "weak_copy_hollow_sentence",
-        text: `Nothing in this can be pictured or acted on — "${hollow[0]}" would read the same for any business with the nouns swapped. Name the actual flowers, what is being made, or what happens next.`
+        // Test C copy-quality follow-up: this text becomes the retry's own
+        // feedback verbatim — "name the actual flowers" was the ONLY
+        // route offered, which is exactly the premise a corpus
+        // investigation proved too narrow (see hasHumanSituationalSpecificity's
+        // own comment above). Now names BOTH real routes to specificity —
+        // a named product/detail, or a real recipient/situation/action —
+        // so the same single retry attempt can ground the rewrite in
+        // whichever one actually fits this request, without a third
+        // provider call.
+        text: `Nothing in this can be pictured or acted on — "${hollow[0]}" would read the same for any business with the nouns swapped. Ground the rewrite in something concrete: name the actual flowers/what's being made, OR a specific recipient, situation, action, or sensory detail — not another abstract, feel-good sentence.`
       });
     }
   }

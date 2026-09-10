@@ -421,7 +421,20 @@ const BRIGHTEN_DAY_INTENT_RE = /\bbrighten(?:s|ing)?\s+(?:someone'?s?|somebody'?
  * general_everyday is the honest fallback when no narrower signal
  * actually appears in the request — never invented, never forced.
  */
-export function classifyMessageIntent({ requestText = "", audience = null } = {}) {
+export function classifyMessageIntent({ requestText = "", audience = null, isSympathy = false, occasionCategory = null } = {}) {
+  // Independent-review fix: a genuine sympathy request ("send flowers to
+  // the Johnson family for their mother's funeral") matched
+  // SEND_FLOWERS_INTENT_RE just as readily as an ordinary gifting post,
+  // classifying "send_flowers" and carrying MESSAGE_INTENT_COPY_
+  // GUIDANCE's send_flowers coaching (friend/partner/surprise framing)
+  // into the same copy-generation prompt as the sympathy writing rules —
+  // real, demonstrated, incongruous coaching for a delicate occasion, the
+  // same class of gap self_purchase's own precedence below already
+  // avoids for a different audience. Checked first, exactly like
+  // sympathy's precedence everywhere else in this module — sympathy work
+  // has its own complete, dedicated copy-voice/writing rules elsewhere
+  // and needs no separate messageIntent coaching layered on top of them.
+  if (isSympathy || occasionCategory === "sympathy") return "general_everyday";
   if (audience === "self_purchase") return "self_purchase";
   if (SEND_FLOWERS_INTENT_RE.test(requestText)) return "send_flowers";
   if (BRIGHTEN_DAY_INTENT_RE.test(requestText)) return "brighten_day";
@@ -799,7 +812,7 @@ export function buildCanonicalConcept({
   // the same "one authoritative decision, every downstream consumer
   // reuses it" pattern namedCampaign/audience/creativeMode/copyVoice
   // already establish.
-  const messageIntent = classifyMessageIntent({ requestText, audience });
+  const messageIntent = classifyMessageIntent({ requestText, audience, isSympathy: sympathy, occasionCategory });
   const userTemporalIntent = classifyUserTemporalIntent({ requestText });
 
   return {

@@ -2849,7 +2849,9 @@ export function createMarketingStudioHandler(deps = {}) {
           // Audience/socialConceptCopyVoice already establish just above.
           const socialConceptMessageIntent = classifyMessageIntent({
             requestText: currentItem.data.brief,
-            audience: socialConceptAudience
+            audience: socialConceptAudience,
+            isSympathy: socialConceptIsSympathy,
+            occasionCategory: socialConceptOccasionCategory
           });
           const socialConceptUserTemporalIntent = classifyUserTemporalIntent({ requestText: currentItem.data.brief });
           const socialConceptCopyVoice = classifyCopyVoice({
@@ -2871,7 +2873,18 @@ export function createMarketingStudioHandler(deps = {}) {
             inventorySummary,
             audienceSummary,
             recentContentSummary,
-            concept: { isSympathy: socialConceptIsSympathy, audience: socialConceptAudience, copyVoice: socialConceptCopyVoice }
+            concept: {
+              isSympathy: socialConceptIsSympathy,
+              audience: socialConceptAudience,
+              copyVoice: socialConceptCopyVoice,
+              // Everyday copy intelligence fix: the SAME messageIntent/
+              // userTemporalIntent classified above, now reaching the
+              // actual generation prompt (buildSocialPostTask) — not just
+              // the deterministic rescue that only ever runs after
+              // generation has already failed twice.
+              messageIntent: socialConceptMessageIntent,
+              userTemporalIntent: socialConceptUserTemporalIntent
+            }
           };
           copyGen = await generateSocialPost(socialPostArgs);
           if (!copyGen.ok) {
@@ -3247,7 +3260,12 @@ export function createMarketingStudioHandler(deps = {}) {
         // on-image text rescue (generateFlyerCopy, below) can preserve an
         // ordinary "send flowers today"-style request instead of falling
         // back to fully occasion-blind wording.
-        const conceptMessageIntent = classifyMessageIntent({ requestText: currentItem.data.brief, audience: conceptAudience });
+        const conceptMessageIntent = classifyMessageIntent({
+          requestText: currentItem.data.brief,
+          audience: conceptAudience,
+          isSympathy: conceptIsSympathy,
+          occasionCategory: conceptOccasionCategory
+        });
         const conceptUserTemporalIntent = classifyUserTemporalIntent({ requestText: currentItem.data.brief });
         const concept = {
           objective: conceptObjective,
@@ -3277,7 +3295,12 @@ export function createMarketingStudioHandler(deps = {}) {
             sympathyClassification: conceptIsSympathy ? "sympathy" : "not_sympathy",
             factRequirements: deriveFactRequirements({ requestText: currentItem.data.brief, objective: conceptObjective }),
             requestText: currentItem.data.brief
-          })
+          }),
+          // Everyday copy intelligence fix: the SAME messageIntent/
+          // userTemporalIntent classified above, now reaching
+          // buildFlyerContentTask's own generation prompt too.
+          messageIntent: conceptMessageIntent,
+          userTemporalIntent: conceptUserTemporalIntent
         };
 
         // Batch 4 ("persisted canonical concept + revision enforcement",
