@@ -1971,18 +1971,97 @@ export function hasHumanSituationalSpecificity(sentence) {
   return PERSON_REFERENCE_RE.test(text) && RELATIONAL_ACTION_RE.test(text);
 }
 
+function stripShopName(sentence, shopName) {
+  const name = String(shopName || "").trim();
+  return name ? sentence.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), " ") : sentence;
+}
+
+/**
+ * Test C copy-observability follow-up: the ONE per-sentence specificity
+ * decision findHollowSentences has always made, exposed as a category so
+ * a diagnostic can count it without ever storing the sentence itself.
+ *   "short"             — under SUBSTANTIVE_SENTENCE_WORDS; never judged
+ *   "commercial"        — SPECIFIC_DETAIL_RE (a flower/product/number/date)
+ *   "human_situational" — hasHumanSituationalSpecificity only
+ *   "both"              — both signals
+ *   "hollow"            — neither; the only category findHollowSentences
+ *                         reports
+ * Pure; findHollowSentences is now a thin filter over it, so the two can
+ * never drift apart.
+ */
+export function classifySentenceSpecificity(sentence, shopName) {
+  const bare = stripShopName(String(sentence || ""), shopName);
+  if (bare.split(/\s+/).filter(Boolean).length < SUBSTANTIVE_SENTENCE_WORDS) return "short";
+  const commercial = SPECIFIC_DETAIL_RE.test(bare);
+  const human = hasHumanSituationalSpecificity(bare);
+  if (commercial && human) return "both";
+  if (commercial) return "commercial";
+  if (human) return "human_situational";
+  return "hollow";
+}
+
 export function findHollowSentences(copyText, shopName, { audience = null } = {}) {
   if (audience === "self_purchase") return [];
-  const name = String(shopName || "").trim();
-  const stripName = (s) =>
-    name ? s.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), " ") : s;
-  return sentencesOf(copyText).filter((sentence) => {
-    const bare = stripName(sentence);
-    if (bare.split(/\s+/).filter(Boolean).length < SUBSTANTIVE_SENTENCE_WORDS) return false;
-    if (SPECIFIC_DETAIL_RE.test(bare)) return false;
-    if (hasHumanSituationalSpecificity(bare)) return false;
-    return true;
-  });
+  return sentencesOf(copyText).filter((sentence) => classifySentenceSpecificity(sentence, shopName) === "hollow");
+}
+
+/**
+ * Test C copy-observability follow-up (live run on e239e8c: both caption
+ * attempts rejected — filler_phrase, then hollow_sentence — and the
+ * deterministic rescue shipped, with no way to tell a writer failure from
+ * an evaluator false positive without the raw text, which is deliberately
+ * never persisted). This is the NON-SENSITIVE shape of that answer:
+ * counts, ratios and booleans about the candidate, computed by the exact
+ * same primitives the hollow-sentence check itself uses — never a
+ * sentence, a phrase, or any fragment of the candidate's wording.
+ *
+ * hollowThresholdMet mirrors detectWeakMarketingCopyEntries' own
+ * threshold (>= 2 hollow AND >= 60% of substantive sentences). It means
+ * the threshold was MET, not that the hollow check fired: that check only
+ * runs when no filler phrase matched (filler takes precedence), so read it
+ * together with weakCopyReasonCodes. substantiveSentenceCount is counted
+ * exactly the way that rule counts it (raw sentence length, shop name
+ * included); sentenceCategoryCounts.short uses the name-stripped length
+ * findHollowSentences uses, so the two can differ by design.
+ *
+ * signalCounts is the one part that is NOT a restatement of the decision:
+ * per substantive sentence, whether EACH underlying signal matched on its
+ * own (a person reference, a relational action, a commercial detail). A
+ * candidate with many person references but no relational action is a
+ * near-miss the evaluator may be wrongly rejecting; one with neither is
+ * genuinely generic. Independent review of this batch showed the
+ * category counts alone could not tell those two apart.
+ */
+export function buildCopySpecificityProfile(copyText, { shopName = null, audience = null } = {}) {
+  const copy = String(copyText || "");
+  const sentences = sentencesOf(copy);
+  const sentenceCategoryCounts = { short: 0, commercial: 0, human_situational: 0, both: 0, hollow: 0 };
+  for (const sentence of sentences) sentenceCategoryCounts[classifySentenceSpecificity(sentence, shopName)] += 1;
+  const substantiveSentenceCount = sentences.filter((s) => s.split(/\s+/).filter(Boolean).length >= SUBSTANTIVE_SENTENCE_WORDS).length;
+  const selfPurchaseExempt = audience === "self_purchase";
+  const hollowSentenceCount = selfPurchaseExempt ? 0 : sentenceCategoryCounts.hollow;
+  const signalCounts = { personReference: 0, relationalAction: 0, commercialDetail: 0 };
+  for (const sentence of sentences) {
+    const bare = stripShopName(sentence, shopName);
+    if (bare.split(/\s+/).filter(Boolean).length < SUBSTANTIVE_SENTENCE_WORDS) continue;
+    if (PERSON_REFERENCE_RE.test(bare)) signalCounts.personReference += 1;
+    if (RELATIONAL_ACTION_RE.test(bare)) signalCounts.relationalAction += 1;
+    if (SPECIFIC_DETAIL_RE.test(bare)) signalCounts.commercialDetail += 1;
+  }
+  return {
+    sentenceCount: sentences.length,
+    substantiveSentenceCount,
+    hollowSentenceCount,
+    hollowRatio: substantiveSentenceCount > 0 ? Math.round((hollowSentenceCount / substantiveSentenceCount) * 100) / 100 : null,
+    hollowThresholdMet: hollowSentenceCount >= 2 && hollowSentenceCount >= substantiveSentenceCount * 0.6,
+    commercialSpecificityMatched: sentenceCategoryCounts.commercial + sentenceCategoryCounts.both > 0,
+    humanSituationalSpecificityMatched: sentenceCategoryCounts.human_situational + sentenceCategoryCounts.both > 0,
+    sentenceCategoryCounts,
+    signalCounts,
+    fillerPhraseHitCount: FILLER_PHRASES.filter((re) => re.test(copy)).length,
+    selfPurchaseExempt,
+    wordCount: copy.split(/\s+/).filter(Boolean).length
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -2381,7 +2460,7 @@ function detectWeakMarketingCopyEntries(requestText, copyText, options = {}) {
         // so the same single retry attempt can ground the rewrite in
         // whichever one actually fits this request, without a third
         // provider call.
-        text: `Nothing in this can be pictured or acted on — "${hollow[0]}" would read the same for any business with the nouns swapped. Ground the rewrite in something concrete: name the actual flowers/what's being made, OR a specific recipient, situation, action, or sensory detail — not another abstract, feel-good sentence.`
+        text: `Nothing in this can be pictured or acted on — "${hollow[0]}" would read the same for any business with the nouns swapped. Ground the rewrite in something concrete: name the actual flowers/what's being made, OR a specific recipient, situation, action, or sensory detail — not another abstract, feel-good sentence. Concretely: pick ONE real hook — a specific recipient relationship, a specific everyday situation, a specific action, or the specific consequence for that person — and build the sentence around it. "Makes it easy", "moments that matter", "brighten someone's day", "show you care" and similar phrases do not count as the hook on their own.`
       });
     }
   }
@@ -2707,6 +2786,11 @@ export function evaluateMarketingOutput({
   // distinguishes which of detectWeakMarketingCopy's internal checks
   // fired (e.g. "weak_copy_hollow_sentence" vs "weak_copy_filler_phrase").
   const weakCopyReasonCodes = detectWeakMarketingCopyReasonCodes(requestText, rawJoined, weakCopyOptions);
+  // Test C copy-observability follow-up: the non-sensitive specificity
+  // profile of the SAME joined candidate the weak-copy check just judged —
+  // computed once here, alongside the decision it explains, never
+  // re-derived by a caller from text it shouldn't be holding.
+  const copyProfile = buildCopySpecificityProfile(rawJoined, { shopName, audience: weakCopyOptions.audience });
   for (const w of detectWeakMarketingCopy(requestText, rawJoined, weakCopyOptions)) {
     reasons.push(w);
     reasonCodes.push("weak_marketing_copy");
@@ -2838,12 +2922,12 @@ export function evaluateMarketingOutput({
   const safeCandidate = isObjectCandidate ? { ...candidate, ...fields } : fields.body;
 
   if (reasons.length) {
-    return { decision: isRetryAttempt ? "reject" : "retry", safeCandidate, repaired, repairedBy, reasons, reasonCodes, weakCopyReasonCodes, evidenceUsed, checksRun };
+    return { decision: isRetryAttempt ? "reject" : "retry", safeCandidate, repaired, repairedBy, reasons, reasonCodes, weakCopyReasonCodes, copyProfile, evidenceUsed, checksRun };
   }
   if (repaired) {
-    return { decision: "repair", safeCandidate, repaired: true, repairedBy, reasons: [], reasonCodes: [], weakCopyReasonCodes, evidenceUsed, checksRun };
+    return { decision: "repair", safeCandidate, repaired: true, repairedBy, reasons: [], reasonCodes: [], weakCopyReasonCodes, copyProfile, evidenceUsed, checksRun };
   }
-  return { decision: "pass", safeCandidate: candidate, repaired: false, repairedBy: [], reasons: [], reasonCodes: [], weakCopyReasonCodes, evidenceUsed, checksRun };
+  return { decision: "pass", safeCandidate: candidate, repaired: false, repairedBy: [], reasons: [], reasonCodes: [], weakCopyReasonCodes, copyProfile, evidenceUsed, checksRun };
 }
 
 /**
@@ -2860,8 +2944,43 @@ export function evaluateMarketingOutput({
  * `selected`/`rescueFired` are decided by the caller (marketing-studio.js's
  * retry-selection and rescue logic), not derived here.
  */
-export function buildCopyEvaluationDiagnostic({ attempt, evalResult, diversityEval, selected, rescueFired }) {
+/**
+ * Test C copy-observability follow-up: bumped whenever the retry-feedback
+ * WORDING detectWeakMarketingCopyEntries hands back to the model changes,
+ * so a persisted attempt-2 diagnostic can say which feedback text the
+ * retry actually saw. Never the feedback text itself.
+ */
+export const RETRY_FEEDBACK_VERSION = "2026-09-10.v2";
+
+/**
+ * Test C copy-observability follow-up: the ONLY fields from a prompt-
+ * construction context that may ever reach a persisted diagnostic — an
+ * explicit allow-list of short classification enums, version strings and
+ * booleans, coerced by type. Anything else on the object is dropped, and a
+ * string is kept only if it is TOKEN-shaped (PERSISTABLE_TOKEN_RE: lower-
+ * case letters, digits, "_", "-", ".", at most 40 characters — the shape
+ * of every classifier enum and version string, and never the shape of a
+ * sentence, since a sentence has spaces and capitals). Independent review
+ * of this batch pointed out a bare length cap would still persist a
+ * 40-character fragment of prose; the token shape is the real guarantee.
+ */
+const PROMPT_CONTEXT_ENUM_FIELDS = ["messageIntent", "userTemporalIntent", "audience", "occasionCategory", "copyGuidanceVersion"];
+const PROMPT_CONTEXT_BOOLEAN_FIELDS = ["messageIntentGuidanceIncluded", "userTemporalIntentLineIncluded", "audienceGuidanceIncluded"];
+const PERSISTABLE_TOKEN_RE = /^[a-z0-9][a-z0-9_.-]{0,39}$/;
+function persistableToken(value) {
+  return typeof value === "string" && PERSISTABLE_TOKEN_RE.test(value) ? value : null;
+}
+function sanitizePromptContext(promptContext) {
+  if (!promptContext || typeof promptContext !== "object") return null;
+  const out = {};
+  for (const key of PROMPT_CONTEXT_ENUM_FIELDS) out[key] = persistableToken(promptContext[key]);
+  for (const key of PROMPT_CONTEXT_BOOLEAN_FIELDS) out[key] = Boolean(promptContext[key]);
+  return out;
+}
+
+export function buildCopyEvaluationDiagnostic({ attempt, evalResult, diversityEval, selected, rescueFired, promptContext = null, retryFeedbackVersion = null }) {
   return {
+    diagnosticVersion: 2,
     attempt,
     reasonCodes: evalResult?.reasonCodes || [],
     // Observability fix (2026-09-06 live-found gap): the fine-grained
@@ -2875,6 +2994,12 @@ export function buildCopyEvaluationDiagnostic({ attempt, evalResult, diversityEv
     diversityDecision: diversityEval?.decision ?? null,
     diversityRepeatedSignals: diversityEval?.repeatedSignals || [],
     selected: Boolean(selected),
-    rescueFired: Boolean(rescueFired)
+    rescueFired: Boolean(rescueFired),
+    // Test C copy-observability follow-up: counts/ratios/booleans about the
+    // candidate (buildCopySpecificityProfile) and about the prompt that
+    // produced it — writer-vs-evaluator evidence, never the copy itself.
+    copyProfile: evalResult?.copyProfile || null,
+    prompt: sanitizePromptContext(promptContext),
+    retryFeedbackVersion: persistableToken(retryFeedbackVersion)
   };
 }

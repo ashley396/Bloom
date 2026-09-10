@@ -959,6 +959,7 @@ test("buildCopyEvaluationDiagnostic: never carries the candidate's own generated
   assert.doesNotMatch(serialized, /Self-care Sunday/);
   assert.doesNotMatch(serialized, /Treat yourself/);
   assert.deepEqual(JSON.parse(serialized), {
+    diagnosticVersion: 2,
     attempt: 1,
     reasonCodes: ["invented_temporal_claim"],
     weakCopyReasonCodes: [],
@@ -966,7 +967,28 @@ test("buildCopyEvaluationDiagnostic: never carries the candidate's own generated
     diversityDecision: "retry",
     diversityRepeatedSignals: ["concept_fingerprint"],
     selected: false,
-    rescueFired: true
+    rescueFired: true,
+    // Test C copy-observability follow-up: the profile is counts/ratios/
+    // booleans only (the raw-text assertions above still hold over it).
+    // sentenceCategoryCounts is the raw per-sentence classification;
+    // hollowSentenceCount is what the rule actually counts after the
+    // self_purchase exemption — hence hollow:1 here but count 0.
+    copyProfile: {
+      sentenceCount: 2,
+      substantiveSentenceCount: 1,
+      hollowSentenceCount: 0,
+      hollowRatio: 0,
+      hollowThresholdMet: false,
+      commercialSpecificityMatched: false,
+      humanSituationalSpecificityMatched: false,
+      sentenceCategoryCounts: { short: 1, commercial: 0, human_situational: 0, both: 0, hollow: 1 },
+      signalCounts: { personReference: 1, relationalAction: 0, commercialDetail: 0 },
+      fillerPhraseHitCount: 0,
+      selfPurchaseExempt: true,
+      wordCount: 15
+    },
+    prompt: null,
+    retryFeedbackVersion: null
   });
 });
 
@@ -988,6 +1010,7 @@ test("buildCopyEvaluationDiagnostic: a clean, passing candidate reports empty re
 test("buildCopyEvaluationDiagnostic: missing evalResult/diversityEval degrade to safe empty defaults rather than throwing", () => {
   const diagnostic = buildCopyEvaluationDiagnostic({ attempt: 2, evalResult: null, diversityEval: null, selected: false, rescueFired: true });
   assert.deepEqual(diagnostic, {
+    diagnosticVersion: 2,
     attempt: 2,
     reasonCodes: [],
     weakCopyReasonCodes: [],
@@ -995,7 +1018,12 @@ test("buildCopyEvaluationDiagnostic: missing evalResult/diversityEval degrade to
     diversityDecision: null,
     diversityRepeatedSignals: [],
     selected: false,
-    rescueFired: true
+    rescueFired: true,
+    // Test C copy-observability follow-up: absent inputs degrade to null,
+    // never to a partial or invented profile/prompt record.
+    copyProfile: null,
+    prompt: null,
+    retryFeedbackVersion: null
   });
 });
 

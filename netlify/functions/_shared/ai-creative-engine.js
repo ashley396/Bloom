@@ -357,7 +357,10 @@ export async function generateSocialPost({ persona = "Lily", channel, occasion, 
         brand_traits_used: traitsGroundedInSummary(normalizeTraitsUsed(post.brand_traits_used), brandVoiceSummary),
         visual_traits_used: traitsGroundedInSummary(normalizeTraitsUsed(post.visual_traits_used), visualStyleSummary)
       },
-      model: result.model
+      model: result.model,
+      // Test C copy-observability follow-up: booleans/enums/versions about
+      // the prompt this call was built with — never the prompt or the copy.
+      promptContext: buildSocialPostPromptContext(concept)
     };
   } catch (error) {
     return { ok: false, error: String(error?.message || error).slice(0, 300) };
@@ -599,14 +602,80 @@ function audienceCopyLine(audience) {
 // already fully covers, so this dictionary having no matching entry
 // means that existing guidance stays the sole source — never duplicated
 // or contradicted by a second line.
+// Test C copy-observability follow-up: bumped whenever any wording in
+// MESSAGE_INTENT_COPY_GUIDANCE / userTemporalIntentLine changes, so a
+// persisted attempt diagnostic can say which guidance text the model
+// actually saw. Never the guidance text itself.
+export const COPY_GUIDANCE_VERSION = "2026-09-10.v2";
+
+// Test C follow-up (live run on e239e8c still produced copy the evaluator
+// rejected twice): the shared, explicit list of constructions that read as
+// a hook but carry nothing — every everyday-copy coaching line below ends
+// with it, so a model can't satisfy "be specific" by reaching for one of
+// these. They are only ever acceptable sitting right next to a concrete
+// situation, never as a sentence's whole point.
+const GENERIC_CONSTRUCTIONS = Object.freeze([
+  "makes it easy",
+  "moments that matter",
+  "brighten someone's day",
+  "show you care",
+  "thinking of you",
+  "a little something",
+  "just because",
+  "speaks volumes"
+]);
+function genericConstructionRule({ except = null } = {}) {
+  const listed = GENERIC_CONSTRUCTIONS.filter((phrase) => phrase !== except).map((phrase) => `'${phrase}'`).join(", ");
+  return `Generic constructions never count as the hook on their own — ${listed} — use one only if it sits right next to a concrete human situation in the same sentence, never as the point of the sentence.`;
+}
+const GENERIC_CONSTRUCTION_RULE = genericConstructionRule();
+// brighten_day is the one intent where the florist's OWN request asked for
+// the 'brighten someone's day' framing, so that phrase is not listed as
+// generic there (independent review found the two lines contradicted each
+// other) — it still has to sit next to a concrete situation, which the
+// brighten_day line itself requires.
+const GENERIC_CONSTRUCTION_RULE_BRIGHTEN_DAY = genericConstructionRule({ except: "brighten someone's day" });
+
+// Test C follow-up, Part 3: the send_flowers coaching used to DESCRIBE the
+// goal (a relatable recipient or situation) and offer worked examples. The
+// live result was still generic, so this now states a hard REQUIREMENT
+// (at least one concrete human hook from four named types), says what
+// does not count, and deliberately gives no example sentences — a model
+// handed examples tends to paste them back, which is its own kind of
+// generic. Fact-safety is unchanged: nothing here permits a flower,
+// product, price, delivery, availability, or timing claim.
 const MESSAGE_INTENT_COPY_GUIDANCE = {
   send_flowers:
-    "This post's core idea is SENDING flowers to someone else, with no specific occasion behind it. Ground it in a real, relatable recipient or human situation (a friend who's had a rough week, someone you haven't talked to in a while, wanting to surprise a partner) and the concrete act of giving — the emotional payoff should come from that specific situation, not from generic words like 'love,' 'joy,' or 'brighten their day' used on their own with nothing behind them. Vary the hook from post to post — don't reach for the same opening every time. Write like a real, warm Facebook post from a local shop, not an ad. Do NOT invent or imply a specific flower species, product, or discount just to sound concrete — a real human situation is what makes this specific, not a product noun.",
+    "This post's core idea is SENDING flowers to someone else, with no specific occasion behind it. REQUIRED: the body must contain at least ONE concrete human hook the reader can actually picture — a real, relatable recipient or human situation, drawn from exactly one of these: (1) a specific recipient relationship (who, in the reader's own life, this is for), (2) a specific everyday situation that person is in right now, (3) a specific action — what the sender does, or where and how the flowers turn up, or (4) the specific consequence for that person when they arrive. Pick ONE and write the whole post around it in plain, ordinary words; do not list options, and do not reuse any wording from these instructions. " +
+    "The emotional payoff must come from that one situation, never from feel-good words on their own. " +
+    "Vary the hook from post to post — don't reach for the same opening every time. Write like a real, warm Facebook post from a local shop, not an ad. Do NOT invent or imply a specific flower species, product, price, discount, delivery method, availability, or timing just to sound concrete — a real human situation is what makes this specific, not a product noun or a promise. " +
+    GENERIC_CONSTRUCTION_RULE,
   brighten_day:
-    "The florist's own request asked for a 'brighten someone's day' framing — that phrasing is fine to use, but don't stop there. Ground it in a specific, real situation (a friend who's had a hard week, a coworker who could use good news, someone who's been under the weather) and what sending flowers actually does for them in that moment — never let 'brighten their day' or 'moments that matter' alone carry the whole post with nothing concrete behind it.",
+    "The florist's own request asked for a 'brighten someone's day' framing — that phrasing is fine to use, but don't stop there. REQUIRED: ground it in exactly one concrete human hook — a specific recipient relationship, a specific everyday situation that person is in, a specific action, or the specific consequence for them in that moment — written plainly, without reusing wording from these instructions. Never let 'brighten their day' or 'moments that matter' alone carry the post. " +
+    GENERIC_CONSTRUCTION_RULE_BRIGHTEN_DAY,
   general_everyday:
-    "This is an ordinary, no-special-occasion post. Ground it in a specific human reason, a real recipient, a situation, a sensory/visual detail, or a concrete action — never fall back on generic florist advertising language ('quality,' 'wide selection,' 'perfect for any occasion,' 'moments that matter') with nothing behind it."
+    "This is an ordinary, no-special-occasion post. Ground it in a specific human reason, a real recipient, a situation, a sensory/visual detail, or a concrete action — never fall back on generic florist advertising language ('quality,' 'wide selection,' 'perfect for any occasion,' 'moments that matter') with nothing behind it. " +
+    GENERIC_CONSTRUCTION_RULE
 };
+
+/**
+ * Test C copy-observability follow-up: what buildSocialPostTask ACTUALLY
+ * included for this concept, as booleans/enums/versions only — so a
+ * persisted attempt diagnostic can prove the intended coaching reached
+ * the prompt (or didn't) without ever storing the prompt. Computed from
+ * the same helpers the task builder itself calls; never a second opinion.
+ */
+function buildSocialPostPromptContext(concept) {
+  return {
+    copyGuidanceVersion: COPY_GUIDANCE_VERSION,
+    messageIntent: typeof concept?.messageIntent === "string" ? concept.messageIntent : null,
+    userTemporalIntent: typeof concept?.userTemporalIntent === "string" ? concept.userTemporalIntent : null,
+    audience: typeof concept?.audience === "string" ? concept.audience : null,
+    messageIntentGuidanceIncluded: Boolean(messageIntentCopyLine(concept?.messageIntent)),
+    userTemporalIntentLineIncluded: Boolean(userTemporalIntentLine(concept?.userTemporalIntent)),
+    audienceGuidanceIncluded: Boolean(audienceCopyLine(concept?.audience))
+  };
+}
 
 function messageIntentCopyLine(messageIntent) {
   const phrase = MESSAGE_INTENT_COPY_GUIDANCE[messageIntent];
@@ -768,8 +837,11 @@ export async function persistGeneratedAsset(client, {
 export const _internalsForTesting = {
   buildFlyerContentTask,
   buildSocialPostTask,
+  buildSocialPostPromptContext,
   COPY_VOICE_PHRASES,
   AUDIENCE_COPY_GUIDANCE,
   MESSAGE_INTENT_COPY_GUIDANCE,
+  GENERIC_CONSTRUCTION_RULE,
+  GENERIC_CONSTRUCTION_RULE_BRIGHTEN_DAY,
   TEMPORAL_FACT_SAFETY_RULE
 };

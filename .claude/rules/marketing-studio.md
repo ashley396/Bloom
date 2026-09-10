@@ -47,9 +47,21 @@ the root `CLAUDE.md`, not a replacement for it.
 
 ## Branding
 
-- The shop's own real name is mandatory and must be visibly identifiable
-  on every customer-facing flyer, even if the image is later downloaded
-  or shared outside its original post.
+- Designed flyers / graphic layouts (any creative direction whose graphic
+  text slots draw wording onto the image — a headline, a CTA, a phone
+  number, an operational notice): the shop's own real name is mandatory
+  and must be visibly identifiable on-image, even if the image is later
+  downloaded or shared outside its original post.
+- Photo-forward social posts (the `photo_forward_social` treatment in
+  `netlify/functions/_shared/marketing-creative-direction.js`, where every
+  graphic text slot is false and the photograph carries the whole
+  composition): on-image branding is optional and should normally be
+  omitted unless the florist explicitly asks for it or it is creatively
+  appropriate. The shop name still reaches the customer through the
+  caption, a separate field that is never drawn onto the graphic. This is
+  a standing exception Ashley approved on 2026-09-10 after the Test C live
+  trace — it is not a conflict with the designed-flyer rule above, and it
+  does not loosen that rule for any designed flyer.
 - Never brand customer-facing content as "Florisyn" unless the user
   explicitly asks for Florisyn's own marketing, not the shop's.
 

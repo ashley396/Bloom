@@ -161,7 +161,8 @@ import {
   requestSignalsRealPromotion,
   requestSignalsIntentionalInventoryUse,
   evaluateMarketingOutput,
-  buildCopyEvaluationDiagnostic
+  buildCopyEvaluationDiagnostic,
+  RETRY_FEEDBACK_VERSION
 } from "./_shared/marketing-content-revision.js";
 import {
   buildCanonicalConcept,
@@ -2968,7 +2969,18 @@ export function createMarketingStudioHandler(deps = {}) {
           // attempt, and which attempt is ultimately kept, so the
           // diagnostic write after the rescue decision can attach the
           // right outcome to the right row.
-          const firstEvalSnapshot = { attempt: 1, evalResult: captionEval, diversityEval };
+          // Test C copy-observability follow-up: the prompt-construction
+          // facts for THIS attempt (what coaching generateSocialPost
+          // actually included, plus the same occasionCategory classified
+          // above) travel with the snapshot — enums/booleans/versions only,
+          // sanitized again inside buildCopyEvaluationDiagnostic. Captured
+          // now, before `copyGen` can be reassigned to the retry below.
+          const firstEvalSnapshot = {
+            attempt: 1,
+            evalResult: captionEval,
+            diversityEval,
+            promptContext: { ...(copyGen.promptContext || {}), occasionCategory: socialConceptOccasionCategory }
+          };
           let secondEvalDiagnostic = null;
           let secondCopyUsageId = null;
           let keptAttempt = 1;
@@ -3020,7 +3032,15 @@ export function createMarketingStudioHandler(deps = {}) {
                 platform: primaryPlatform,
                 contentItemId: body.content_item_id
               });
-              secondEvalDiagnostic = { attempt: 2, evalResult: retryEval, diversityEval: retryDiversityEval };
+              secondEvalDiagnostic = {
+                attempt: 2,
+                evalResult: retryEval,
+                diversityEval: retryDiversityEval,
+                promptContext: { ...(retry.promptContext || {}), occasionCategory: socialConceptOccasionCategory },
+                // The retry is the one attempt that saw rejection feedback —
+                // record WHICH feedback wording it saw, never the wording.
+                retryFeedbackVersion: RETRY_FEEDBACK_VERSION
+              };
               const currentBadCount = captionEval.reasons.length + diversityEval.reasons.length;
               const retryBadCount = retryEval.reasons.length + retryDiversityEval.reasons.length;
               if (retryBadCount <= currentBadCount) {
