@@ -968,6 +968,7 @@ test("buildCopyEvaluationDiagnostic: never carries the candidate's own generated
     diversityRepeatedSignals: ["concept_fingerprint"],
     selected: false,
     rescueFired: true,
+    blockingReasonCount: 1,
     // Test C copy-observability follow-up: the profile is counts/ratios/
     // booleans only (the raw-text assertions above still hold over it).
     // sentenceCategoryCounts is the raw per-sentence classification;
@@ -985,7 +986,10 @@ test("buildCopyEvaluationDiagnostic: never carries the candidate's own generated
       signalCounts: { personReference: 1, relationalAction: 0, commercialDetail: 0 },
       fillerPhraseHitCount: 0,
       selfPurchaseExempt: true,
-      wordCount: 15
+      wordCount: 15,
+      // Test C writer-quality fix: shape is recorded for every attempt but
+      // only APPLICABLE to the everyday gifting intents — not self-purchase.
+      everydayShape: { applicable: false, substantiveSentenceLimit: 3, wordLimit: 80, exceeded: false }
     },
     prompt: null,
     retryFeedbackVersion: null
@@ -1019,6 +1023,7 @@ test("buildCopyEvaluationDiagnostic: missing evalResult/diversityEval degrade to
     diversityRepeatedSignals: [],
     selected: false,
     rescueFired: true,
+    blockingReasonCount: 0,
     // Test C copy-observability follow-up: absent inputs degrade to null,
     // never to a partial or invented profile/prompt record.
     copyProfile: null,

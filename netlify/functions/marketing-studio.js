@@ -162,7 +162,8 @@ import {
   requestSignalsIntentionalInventoryUse,
   evaluateMarketingOutput,
   buildCopyEvaluationDiagnostic,
-  RETRY_FEEDBACK_VERSION
+  RETRY_FEEDBACK_VERSION,
+  buildConciseRewriteInstruction
 } from "./_shared/marketing-content-revision.js";
 import {
   buildCanonicalConcept,
@@ -2915,7 +2916,11 @@ export function createMarketingStudioHandler(deps = {}) {
           // its narrow, audience-gated self-purchase exemption instead of
           // treating deliberately universal self-purchase sentiment as
           // hollow filler.
-          const captionConceptPreview = { audience: socialConceptAudience };
+          // Test C writer-quality fix: the SAME socialConceptMessageIntent
+          // classified above travels with it, so the evaluator's narrow
+          // everyday-caption shape guard can scope itself — never a second
+          // classifier, and nothing else in the preview changes.
+          const captionConceptPreview = { audience: socialConceptAudience, messageIntent: socialConceptMessageIntent };
           let captionEval = evaluateMarketingOutput({
             route: "generate_content",
             request: currentItem.data.brief,
@@ -3002,10 +3007,20 @@ export function createMarketingStudioHandler(deps = {}) {
             // retry call (Part E: "do not create recursive diversity
             // retries").
             const combinedReasons = [...captionEval.reasons, ...diversityEval.reasons];
+            // Test C writer-quality fix: for an everyday gifting caption
+            // rejected as filler/hollow/overlong, the SAME single retry is
+            // also told HOW to rewrite — cut to the hook, never expand.
+            // Empty string for every other intent or reason (pure helper).
+            const conciseRewriteInstruction = buildConciseRewriteInstruction({
+              messageIntent: socialConceptMessageIntent,
+              weakCopyReasonCodes: captionEval.weakCopyReasonCodes,
+              hadHumanHook: Boolean(captionEval.copyProfile?.humanSituationalSpecificityMatched)
+            });
             const retry = await generateSocialPost({
               ...socialPostArgs,
               requestText:
-                `${sanitizedRequestForModel(currentItem.data.brief, shopName)}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${combinedReasons.join("\n- ")}`
+                `${sanitizedRequestForModel(currentItem.data.brief, shopName)}\n\nA previous attempt was rejected for these reasons — do not repeat them:\n- ${combinedReasons.join("\n- ")}` +
+                (conciseRewriteInstruction ? `\n\n${conciseRewriteInstruction}` : "")
             });
             // The retry is not automatically the better one. Handed its own
             // faults back, a model can fix the named phrase and introduce two
@@ -3041,8 +3056,14 @@ export function createMarketingStudioHandler(deps = {}) {
                 // record WHICH feedback wording it saw, never the wording.
                 retryFeedbackVersion: RETRY_FEEDBACK_VERSION
               };
-              const currentBadCount = captionEval.reasons.length + diversityEval.reasons.length;
-              const retryBadCount = retryEval.reasons.length + retryDiversityEval.reasons.length;
+              // Test C writer-quality fix (independent-review finding): the
+              // advisory shape guard never counts here. If it did, an
+              // overlong-only first attempt would lose a tie to a retry
+              // with a REAL fault, and a caption that used to ship would
+              // end up in the rescue. blockingReasons = reasons minus
+              // ADVISORY_WEAK_COPY_CODES (marketing-content-revision.js).
+              const currentBadCount = captionEval.blockingReasons.length + diversityEval.reasons.length;
+              const retryBadCount = retryEval.blockingReasons.length + retryDiversityEval.reasons.length;
               if (retryBadCount <= currentBadCount) {
                 copyGen = retry;
                 captionEval = retryEval;
@@ -3080,7 +3101,11 @@ export function createMarketingStudioHandler(deps = {}) {
           // outcome — reason CODES and counts only, never the customer's
           // actual generated text.
           let rescued = false;
-          if (captionEval.reasons.length) {
+          // Test C writer-quality fix: the rescue is decided on BLOCKING
+          // reasons only — an overlong-only draft (advisory shape guard)
+          // ships as real AI copy rather than being replaced by the
+          // deterministic rescue; `reasons` still drove the retry above.
+          if (captionEval.blockingReasons.length) {
             // Regression repair: by construction, reaching this branch at
             // all means requestSignalsPlainOperationalNotice() already
             // said this ISN'T a plain notice (the `if (noticeFallback)`
@@ -3153,8 +3178,9 @@ export function createMarketingStudioHandler(deps = {}) {
             route: "generate_content",
             component: "caption",
             checksRun: captionEval.checksRun,
-            decision: captionEval.reasons.length ? "reject" : captionEval.repaired ? "repair" : "pass",
+            decision: captionEval.blockingReasons.length ? "reject" : captionEval.repaired ? "repair" : "pass",
             reasonCount: captionEval.reasons.length,
+            blockingReasonCount: captionEval.blockingReasons.length,
             repaired: captionEval.repaired,
             rescued
           });

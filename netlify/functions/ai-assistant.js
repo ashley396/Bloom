@@ -5,6 +5,11 @@ import { systemPromptFor, temperatureForPersona, normalizePersona, shopVoiceSuff
 const MODEL_DEFAULT="@cf/meta/llama-3.1-8b-instruct-fast";
 const MAX_PROMPT_CHARS=42000;
 const MAX_STRING_CHARS=2400;
+// Test C writer-quality fix (2026-09-11): the cap on a "generate" task's
+// text, exported so a test can pin the real assembled social-post prompt
+// under it. History + the measurement behind this value live at the one
+// call site below (search TASK_TEXT_MAX_CHARS).
+export const TASK_TEXT_MAX_CHARS=20000;
 const MAX_ARRAY_ITEMS=18;
 const MAX_OBJECT_KEYS=40;
 const BLOCKED_KEY=/^(?:logo|logo_url|image|image_url|hero_image_url|receipt_data_url|photo|photo_url|data_url|file|attachment|canvas|base64)$/i;
@@ -139,8 +144,33 @@ async function cloudflareAi(payload){
   // Llama 3.1 8B's real context window has ample room left even with the
   // schema/input JSON blocks that follow. If this trips again, the fix is
   // the same: measure the real worst case, don't just nudge the number.
+  //
+  // 2026-09-11 (Test C writer-quality fix): it tripped again, found by
+  // independent review, not by a failure — the send_flowers/brighten_day
+  // coaching added across the Test C batches (hook requirement, generic-
+  // construction rule, SHAPE rule, temporal line) grew the bare social-post
+  // task to 10,306 chars with NO summaries. Measured with a realistic
+  // full shop (all 11 Brand Brain categories and all 12 style-memory
+  // categories populated with 3 short traits each, 8 inventory lines, a
+  // full audience brief, 6 recent-caption snippets x 140 chars) it is
+  // 16,361 — past 12,000, so the TAIL rules (creative_brief, objective,
+  // "no legible on-image text") would have been silently trimmed for any
+  // shop with a populated Brand Brain. 12000 -> 20000: real margin over
+  // that realistic measurement, and tests/marketing-everyday-caption-
+  // shape.test.js builds it with the REAL summary builders and fails if
+  // it ever crosses TASK_TEXT_MAX_CHARS. Still inside the model's context
+  // with the input/schema blocks (~6-7k tokens worst case).
+  //
+  // KNOWN OPEN END (second independent review, 2026-09-11): neither
+  // marketing-brand-brain.js nor ai-style-memory.js caps the NUMBER of
+  // active traits per category — only each trait's length (160 / 120
+  // chars). A shop that dictates three maximum-length traits in every
+  // category measures ~23,400 and would still be trimmed here. The
+  // durable fix is a per-category trait cap (or a summary char cap) in
+  // those two builders — a Brand Brain behavior change that needs its
+  // own approval, deliberately NOT made in this batch.
   const user=payload.mode==="generate"
-    ?`Task: ${safeText(payload.task,12000)}\nInput: ${jsonWithinLimit(payload.input||{},30000)}\nReturn ONLY valid JSON matching this shape: ${jsonWithinLimit(payload.schema||{text:"result"},5000)}`
+    ?`Task: ${safeText(payload.task,TASK_TEXT_MAX_CHARS)}\nInput: ${jsonWithinLimit(payload.input||{},30000)}\nReturn ONLY valid JSON matching this shape: ${jsonWithinLimit(payload.schema||{text:"result"},5000)}`
     :`Question: ${safeText(payload.prompt,4000)}\nRelevant Florisyn context: ${jsonWithinLimit(payload.context||{},32000)}`;
   // Model slug (e.g. "@cf/meta/llama-3.1-8b-instruct-fast") must stay literal in the path —
   // encodeURIComponent turns its "/" into "%2F", which Cloudflare rejects as "No route for that URI".

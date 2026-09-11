@@ -166,6 +166,10 @@ test("profile: contains only numbers, booleans, null and a numeric count map —
       for (const n of Object.values(value)) assert.equal(typeof n, "number");
       continue;
     }
+    if (key === "everydayShape") {
+      for (const v of Object.values(value)) assert.ok(["number", "boolean"].includes(typeof v), "everydayShape holds only numbers and booleans");
+      continue;
+    }
     assert.ok(["number", "boolean"].includes(typeof value) || value === null, `${key} must be a number, boolean, or null`);
   }
 });
@@ -246,7 +250,9 @@ test("buildCopyEvaluationDiagnostic: carries the profile, an allow-listed prompt
     copyGuidanceVersion: COPY_GUIDANCE_VERSION,
     messageIntentGuidanceIncluded: true,
     userTemporalIntentLineIncluded: true,
-    audienceGuidanceIncluded: false
+    audienceGuidanceIncluded: false,
+    // Not supplied in this promptContext → coerced to false, never dropped.
+    everydayShapeRuleIncluded: false
   });
   assert.equal(diagnostic.retryFeedbackVersion, RETRY_FEEDBACK_VERSION);
   const serialized = JSON.stringify(diagnostic);
@@ -359,7 +365,9 @@ test("generateSocialPost: returns promptContext alongside the copy, computed fro
       audience: c.audience,
       messageIntentGuidanceIncluded: true,
       userTemporalIntentLineIncluded: true,
-      audienceGuidanceIncluded: Boolean(_internalsForTesting.AUDIENCE_COPY_GUIDANCE[c.audience])
+      audienceGuidanceIncluded: Boolean(_internalsForTesting.AUDIENCE_COPY_GUIDANCE[c.audience]),
+      // Test C writer-quality fix: send_flowers is an everyday gifting intent.
+      everydayShapeRuleIncluded: true
     });
     assertNoRawCopy(JSON.stringify(result.promptContext), "promptContext");
   } finally {
@@ -392,8 +400,11 @@ test("send_flowers guidance: REQUIRES one concrete human hook from four named ty
 test("general_everyday carries the shared generic-construction rule; brighten_day carries it WITHOUT listing the framing the florist explicitly asked for; self_purchase still has no messageIntent entry", () => {
   const { MESSAGE_INTENT_COPY_GUIDANCE, GENERIC_CONSTRUCTION_RULE, GENERIC_CONSTRUCTION_RULE_BRIGHTEN_DAY } = _internalsForTesting;
   assert.ok(MESSAGE_INTENT_COPY_GUIDANCE.general_everyday.endsWith(GENERIC_CONSTRUCTION_RULE));
-  assert.ok(MESSAGE_INTENT_COPY_GUIDANCE.send_flowers.endsWith(GENERIC_CONSTRUCTION_RULE));
-  assert.ok(MESSAGE_INTENT_COPY_GUIDANCE.brighten_day.endsWith(GENERIC_CONSTRUCTION_RULE_BRIGHTEN_DAY));
+  // Test C writer-quality fix: the two everyday gifting intents now END with
+  // the SHAPE rule (see marketing-everyday-caption-shape.test.js); the
+  // generic-construction rule still sits immediately before it.
+  assert.ok(MESSAGE_INTENT_COPY_GUIDANCE.send_flowers.includes(GENERIC_CONSTRUCTION_RULE + " " + _internalsForTesting.EVERYDAY_SOCIAL_SHAPE_RULE));
+  assert.ok(MESSAGE_INTENT_COPY_GUIDANCE.brighten_day.includes(GENERIC_CONSTRUCTION_RULE_BRIGHTEN_DAY + " " + _internalsForTesting.EVERYDAY_SOCIAL_SHAPE_RULE));
   // The brighten_day request asked for that framing — the rule must not
   // then tell the model the same phrase can never be the point.
   assert.match(GENERIC_CONSTRUCTION_RULE_BRIGHTEN_DAY, /Generic constructions never count as the hook on their own/);

@@ -2032,12 +2032,13 @@ export function findHollowSentences(copyText, shopName, { audience = null } = {}
  * genuinely generic. Independent review of this batch showed the
  * category counts alone could not tell those two apart.
  */
-export function buildCopySpecificityProfile(copyText, { shopName = null, audience = null } = {}) {
+export function buildCopySpecificityProfile(copyText, { shopName = null, audience = null, messageIntent = null, bodyText = null } = {}) {
   const copy = String(copyText || "");
   const sentences = sentencesOf(copy);
   const sentenceCategoryCounts = { short: 0, commercial: 0, human_situational: 0, both: 0, hollow: 0 };
   for (const sentence of sentences) sentenceCategoryCounts[classifySentenceSpecificity(sentence, shopName)] += 1;
   const substantiveSentenceCount = sentences.filter((s) => s.split(/\s+/).filter(Boolean).length >= SUBSTANTIVE_SENTENCE_WORDS).length;
+  const wordCount = copy.split(/\s+/).filter(Boolean).length;
   const selfPurchaseExempt = audience === "self_purchase";
   const hollowSentenceCount = selfPurchaseExempt ? 0 : sentenceCategoryCounts.hollow;
   const signalCounts = { personReference: 0, relationalAction: 0, commercialDetail: 0 };
@@ -2060,8 +2061,37 @@ export function buildCopySpecificityProfile(copyText, { shopName = null, audienc
     signalCounts,
     fillerPhraseHitCount: FILLER_PHRASES.filter((re) => re.test(copy)).length,
     selfPurchaseExempt,
-    wordCount: copy.split(/\s+/).filter(Boolean).length
+    wordCount,
+    // Test C writer-quality fix: the caption's shape against the everyday
+    // social limits — recorded on EVERY attempt (the guard itself only
+    // rejects on the first), so a persisted diagnostic can show whether
+    // the retry actually cut the copy down or just rewrote it long again.
+    everydayShape: {
+      applicable: isEverydaySocialMessageIntent(messageIntent),
+      substantiveSentenceLimit: EVERYDAY_CAPTION_MAX_SUBSTANTIVE_SENTENCES,
+      wordLimit: EVERYDAY_CAPTION_MAX_WORDS,
+      exceeded: isEverydaySocialMessageIntent(messageIntent) && isEverydayCaptionOverlong(measureCaptionBody(captionShapeText(bodyText, copy)))
+    }
   };
+}
+
+/** The text the everyday shape decision measures: the body field when it is a non-empty string, else the whole joined copy (second-review fix: null and "" used to behave differently). */
+function captionShapeText(bodyText, joinedCopy) {
+  return typeof bodyText === "string" && bodyText.trim() ? bodyText : String(joinedCopy || "");
+}
+
+/** Body-only measurements for the everyday shape decision (the cta field never counts). */
+function measureCaptionBody(bodyText) {
+  const body = String(bodyText || "");
+  return {
+    substantiveSentenceCount: sentencesOf(body).filter((s) => s.split(/\s+/).filter(Boolean).length >= SUBSTANTIVE_SENTENCE_WORDS).length,
+    wordCount: body.split(/\s+/).filter(Boolean).length
+  };
+}
+
+/** The one shape decision, shared by the profile and the guard so they can never disagree. */
+function isEverydayCaptionOverlong({ substantiveSentenceCount, wordCount }) {
+  return substantiveSentenceCount > EVERYDAY_CAPTION_MAX_SUBSTANTIVE_SENTENCES || wordCount > EVERYDAY_CAPTION_MAX_WORDS;
 }
 
 // ---------------------------------------------------------------------------
@@ -2468,7 +2498,34 @@ function detectWeakMarketingCopyEntries(requestText, copyText, options = {}) {
   // The post Ashley was shown ran to five long sentences of it.
   const sentences = copy.split(/[.!?]+\s/).filter((part) => part.trim().length > 12);
   if (sentences.length > 5 && copy.length > 420) {
-    entries.push({ code: "weak_copy_too_long", text: "Far too long for a social post. Three or four short sentences, and stop." });
+    entries.push({
+      code: "weak_copy_too_long",
+      text: `Far too long for a social post. ${isEverydaySocialMessageIntent(options.messageIntent) ? "Two or three" : "Three or four"} short sentences, and stop.`
+    });
+  }
+
+  // Test C writer-quality fix: a narrow SHAPE guard for everyday social
+  // captions only — caption component, send_flowers/brighten_day intent,
+  // FIRST attempt only, judged on the BODY field alone (never the cta).
+  // The live failure was one real hook padded out to five sentences; this
+  // turns that into a retry that carries the concise-rewrite instruction
+  // (buildConciseRewriteInstruction). It is ADVISORY (see
+  // ADVISORY_WEAK_COPY_CODES): evaluateMarketingOutput leaves it out of
+  // `blockingReasons`, and marketing-studio.js decides the rescue and the
+  // keep-which-draft choice on blockingReasons — so an overlong-only first
+  // attempt still ships if its retry ties, is worse, or fails, exactly as
+  // it did before this guard existed. On the retry attempt it does not
+  // fire at all. Informational notices, designed flyer text, promotions,
+  // sympathy, self-purchase and every other copy type never reach this
+  // branch. The hollow threshold above is untouched.
+  if (options.component === "caption" && !options.isRetryAttempt && isEverydaySocialMessageIntent(options.messageIntent)) {
+    const { substantiveSentenceCount, wordCount } = measureCaptionBody(captionShapeText(options.bodyText, copy));
+    if (isEverydayCaptionOverlong({ substantiveSentenceCount, wordCount })) {
+      entries.push({
+        code: "weak_copy_everyday_overlong",
+        text: `This is a paragraph, not a caption: ${substantiveSentenceCount} substantive sentences and ${wordCount} words for an everyday send-flowers post. Keep the one sentence that carries the real human hook, delete the rest, and return two or three short sentences.`
+      });
+    }
   }
 
   return entries;
@@ -2721,11 +2778,12 @@ export function evaluateMarketingOutput({
         safeCandidate: cleaned.text,
         repaired: true,
         reasons: cleaned.removed.map((f) => `"${f}" is not a flower the florist named or verified inventory supports for this post — replaced with generic wording.`),
+        blockingReasons: cleaned.removed.map((f) => `"${f}" is not a flower the florist named or verified inventory supports for this post — replaced with generic wording.`),
         evidenceUsed,
         checksRun
       };
     }
-    return { decision: "pass", safeCandidate: original, repaired: false, reasons: [], evidenceUsed, checksRun };
+    return { decision: "pass", safeCandidate: original, repaired: false, reasons: [], blockingReasons: [], evidenceUsed, checksRun };
   }
 
   // Text components: caption / flyer_text / video_concept. Normalized into
@@ -2777,7 +2835,22 @@ export function evaluateMarketingOutput({
     shopPhone,
     shopName,
     headline: originalFields.headline,
-    audience: canonicalConcept?.audience || null
+    audience: canonicalConcept?.audience || null,
+    // Test C writer-quality fix: the SAME messageIntent the caller already
+    // classified (never a second classifier), plus which component and
+    // attempt this is, so the narrow everyday-caption shape guard can
+    // scope itself to caption copy on the first attempt only.
+    // Second-review fix: the everyday intent is a CAPTION concern only —
+    // for flyer_text (which reuses the same concept) it must not colour the
+    // too_long wording or the profile's everydayShape.applicable flag.
+    messageIntent: component === "caption" ? canonicalConcept?.messageIntent || null : null,
+    component,
+    isRetryAttempt,
+    // Independent-review fix: the shape guard judges the BODY only. The
+    // prompt asks for a separate cta field, and a 3-sentence body plus a
+    // shop-name-and-phone CTA line is exactly what it asked for — that
+    // must never read as a 4-sentence paragraph.
+    bodyText: originalFields.body
   };
   // Observability fix (2026-09-06 live-found gap): the top-level
   // reasonCodes entry stays "weak_marketing_copy" for every existing
@@ -2790,7 +2863,14 @@ export function evaluateMarketingOutput({
   // profile of the SAME joined candidate the weak-copy check just judged —
   // computed once here, alongside the decision it explains, never
   // re-derived by a caller from text it shouldn't be holding.
-  const copyProfile = buildCopySpecificityProfile(rawJoined, { shopName, audience: weakCopyOptions.audience });
+  const copyProfile = buildCopySpecificityProfile(rawJoined, { shopName, audience: weakCopyOptions.audience, messageIntent: weakCopyOptions.messageIntent, bodyText: originalFields.body });
+  // Review fix: the reasons a caller may act on for the rescue / keep-the-
+  // worse-draft decisions — every reason EXCEPT the advisory shape guard.
+  const advisoryReasonTexts = new Set(
+    detectWeakMarketingCopyEntries(requestText, rawJoined, weakCopyOptions)
+      .filter((e) => ADVISORY_WEAK_COPY_CODES.includes(e.code))
+      .map((e) => e.text)
+  );
   for (const w of detectWeakMarketingCopy(requestText, rawJoined, weakCopyOptions)) {
     reasons.push(w);
     reasonCodes.push("weak_marketing_copy");
@@ -2920,14 +3000,15 @@ export function evaluateMarketingOutput({
   }
   const repairedBy = [...repairedBySet];
   const safeCandidate = isObjectCandidate ? { ...candidate, ...fields } : fields.body;
+  const blockingReasons = reasons.filter((r) => !advisoryReasonTexts.has(r));
 
   if (reasons.length) {
-    return { decision: isRetryAttempt ? "reject" : "retry", safeCandidate, repaired, repairedBy, reasons, reasonCodes, weakCopyReasonCodes, copyProfile, evidenceUsed, checksRun };
+    return { decision: isRetryAttempt ? "reject" : "retry", safeCandidate, repaired, repairedBy, reasons, blockingReasons, reasonCodes, weakCopyReasonCodes, copyProfile, evidenceUsed, checksRun };
   }
   if (repaired) {
-    return { decision: "repair", safeCandidate, repaired: true, repairedBy, reasons: [], reasonCodes: [], weakCopyReasonCodes, copyProfile, evidenceUsed, checksRun };
+    return { decision: "repair", safeCandidate, repaired: true, repairedBy, reasons: [], blockingReasons: [], reasonCodes: [], weakCopyReasonCodes, copyProfile, evidenceUsed, checksRun };
   }
-  return { decision: "pass", safeCandidate: candidate, repaired: false, repairedBy: [], reasons: [], reasonCodes: [], weakCopyReasonCodes, copyProfile, evidenceUsed, checksRun };
+  return { decision: "pass", safeCandidate: candidate, repaired: false, repairedBy: [], reasons: [], blockingReasons: [], reasonCodes: [], weakCopyReasonCodes, copyProfile, evidenceUsed, checksRun };
 }
 
 /**
@@ -2950,7 +3031,75 @@ export function evaluateMarketingOutput({
  * so a persisted attempt-2 diagnostic can say which feedback text the
  * retry actually saw. Never the feedback text itself.
  */
-export const RETRY_FEEDBACK_VERSION = "2026-09-10.v2";
+export const RETRY_FEEDBACK_VERSION = "2026-09-11.v3";
+
+// ---------------------------------------------------------------------------
+// Test C writer-quality fix (2026-09-11). Second live Test C run on a78e946:
+// the send_flowers guidance and retry feedback were both active, yet both
+// AI attempts came back as FIVE substantive sentences — one real human
+// hook and four generic sentences around it (copyProfile: hollow 4/5 on
+// each attempt). The evaluator was right to reject that; the WRITER was
+// padding one good sentence into a paragraph. Everything in this block is
+// about the caption's SHAPE, scoped to the two everyday gifting intents
+// where that failure actually happened, and never to notices, flyers,
+// promotions, sympathy, or self-purchase copy.
+// ---------------------------------------------------------------------------
+
+/** The everyday social message intents whose caption is meant to BE the hook. */
+export const EVERYDAY_SOCIAL_MESSAGE_INTENTS = Object.freeze(["send_flowers", "brighten_day"]);
+export function isEverydaySocialMessageIntent(messageIntent) {
+  return EVERYDAY_SOCIAL_MESSAGE_INTENTS.includes(messageIntent);
+}
+
+/**
+ * Shape limits for an everyday social caption. The prompt asks for two or
+ * three sentences and roughly 25–55 words; the GUARD sits well above that
+ * (a fourth sentence, or 80+ words) so it only ever catches copy that is
+ * plainly a paragraph, never a caption that ran one sentence long. Read
+ * together: the prompt sets the target, the guard catches the miss.
+ */
+export const EVERYDAY_CAPTION_MAX_SUBSTANTIVE_SENTENCES = 3;
+export const EVERYDAY_CAPTION_MAX_WORDS = 80;
+
+/**
+ * Weak-copy codes that are ADVISORY: they earn the one bounded retry and
+ * its feedback, but a caller must never treat them as grounds for the
+ * deterministic rescue or for preferring a worse draft. Independent review
+ * of this batch proved the alternative: an overlong-only first attempt
+ * whose retry tied, was worse, or failed used to land in the rescue —
+ * a caption that shipped before the guard existed would have been thrown
+ * away because of it. evaluateMarketingOutput exposes `blockingReasons`
+ * (reasons minus these) for exactly that decision.
+ */
+export const ADVISORY_WEAK_COPY_CODES = Object.freeze(["weak_copy_everyday_overlong"]);
+
+/**
+ * The retry-only rewrite instruction for an everyday social caption that
+ * was rejected for filler, hollow sentences, or being overlong. The
+ * existing per-reason feedback says what was wrong; this says what to DO
+ * about it — cut, don't expand — because the live retry did the opposite
+ * (it rewrote five sentences into five different sentences). Pure; returns
+ * "" for every other intent or reason so no other copy type is affected,
+ * and it never adds a provider call — it is text appended to the one
+ * bounded retry that already exists.
+ */
+const CONCISE_REWRITE_TRIGGER_CODES = new Set(["weak_copy_filler_phrase", "weak_copy_hollow_sentence", "weak_copy_everyday_overlong"]);
+export function buildConciseRewriteInstruction({ messageIntent = null, weakCopyReasonCodes = [], hadHumanHook = true } = {}) {
+  if (!isEverydaySocialMessageIntent(messageIntent)) return "";
+  if (!(weakCopyReasonCodes || []).some((code) => CONCISE_REWRITE_TRIGGER_CODES.has(code))) return "";
+  // Independent-review fix: a first attempt with NO real hook has nothing
+  // to "keep" — telling the model to keep its strongest hook sentence
+  // contradicts the hollow feedback beside it ("ground the rewrite in
+  // something concrete"). The caller passes the persisted profile's own
+  // humanSituationalSpecificityMatched, never a second judgement.
+  const keepOrWrite = hadHumanHook
+    ? "keep the single strongest human hook sentence you already had (the one real recipient, situation, action, or consequence)"
+    : "write ONE concrete human hook sentence first (a specific recipient relationship, everyday situation, action, or consequence — nothing from the previous attempt qualified)";
+  return (
+    `REWRITE BY CUTTING, NOT EXPANDING: ${keepOrWrite}, delete every generic sentence around it, and return only two or three short sentences — about 25–55 words in total. ` +
+    "Do not add a new introduction sentence before the hook, do not add a closing summary after it, do not add florist-brand filler, and do not restate the same emotional idea in different words. The hook is the caption."
+  );
+}
 
 /**
  * Test C copy-observability follow-up: the ONLY fields from a prompt-
@@ -2965,7 +3114,7 @@ export const RETRY_FEEDBACK_VERSION = "2026-09-10.v2";
  * 40-character fragment of prose; the token shape is the real guarantee.
  */
 const PROMPT_CONTEXT_ENUM_FIELDS = ["messageIntent", "userTemporalIntent", "audience", "occasionCategory", "copyGuidanceVersion"];
-const PROMPT_CONTEXT_BOOLEAN_FIELDS = ["messageIntentGuidanceIncluded", "userTemporalIntentLineIncluded", "audienceGuidanceIncluded"];
+const PROMPT_CONTEXT_BOOLEAN_FIELDS = ["messageIntentGuidanceIncluded", "userTemporalIntentLineIncluded", "audienceGuidanceIncluded", "everydayShapeRuleIncluded"];
 const PERSISTABLE_TOKEN_RE = /^[a-z0-9][a-z0-9_.-]{0,39}$/;
 function persistableToken(value) {
   return typeof value === "string" && PERSISTABLE_TOKEN_RE.test(value) ? value : null;
@@ -2999,6 +3148,9 @@ export function buildCopyEvaluationDiagnostic({ attempt, evalResult, diversityEv
     // candidate (buildCopySpecificityProfile) and about the prompt that
     // produced it — writer-vs-evaluator evidence, never the copy itself.
     copyProfile: evalResult?.copyProfile || null,
+    // Review fix: reasons minus the advisory shape guard — the number the
+    // handler's rescue / keep-which-draft decisions actually used.
+    blockingReasonCount: Array.isArray(evalResult?.blockingReasons) ? evalResult.blockingReasons.length : (evalResult?.reasonCodes || []).length,
     prompt: sanitizePromptContext(promptContext),
     retryFeedbackVersion: persistableToken(retryFeedbackVersion)
   };
