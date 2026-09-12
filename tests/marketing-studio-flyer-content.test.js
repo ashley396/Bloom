@@ -536,7 +536,14 @@ test("generate_content (real dispatch): the EXACT bare sentence from Ashley's br
 // same flyer machinery as an operational notice, just with a
 // SUBJECT-FORWARD photo (the described bouquet) instead of a calm
 // backdrop. This test now proves that shape, not the bare-photo one.
-test("generate_content (real dispatch): an ordinary decorative request is now a real designed flyer — a subject-forward photo AND real on-image headline/body/cta, not a bare photo", async () => {
+test("generate_content (real dispatch): an ordinary decorative request is a subject-forward photo post whose Direction has no text slot — the on-image wording path is skipped entirely (no call, no fallback wording), never a bare photo and never a designed flyer", async () => {
+  // Photo-forward flyer-wording elimination (2026-09-12): this test used
+  // to assert a real on-image headline/body/cta for an ordinary decorative
+  // request. Since the Test C fix that request resolves to the text-free
+  // photo_forward_social family, so that wording was generated, rejected
+  // or rescued, persisted — and never drawn. It is now skipped outright;
+  // a flyer-wording reply is still queued in the mock to prove it is
+  // never consumed.
   const decorativeCopy = { ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today.", visual_brief: "A bright, romantic bouquet of roses on a marble counter." };
   const decorativeFlyerCopy = { headline: "Fresh Roses Just In!", body: "Stop by for a fresh, romantic bouquet today.", cta: "Visit us today" };
   const mock = mockCloudflare([decorativeCopy, decorativeFlyerCopy]);
@@ -554,7 +561,6 @@ test("generate_content (real dispatch): an ordinary decorative request is now a 
       { data: [], error: null }, // audience: orders
       { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy") — the Facebook caption (generateSocialPost)
-      { data: null, error: null }, // recordUsage("copy") — the on-image flyer text (generateFlyerCopy/generateFlyerContent)
       { data: { id: "usage-img-1" }, error: null }, // Batch 2: reserveProviderCall(image) insert
       { data: null, error: null }, // Batch 2: completeProviderCall(image) update
       { data: { id: "usage-vision-1" }, error: null }, // Batch 2: reserveProviderCall(vision) insert
@@ -583,9 +589,14 @@ test("generate_content (real dispatch): an ordinary decorative request is now a 
     const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
     const insertedRow = assetInsert.ops.find((op) => op[0] === "insert")[1][0];
     assert.equal(insertedRow.asset_type, "flyer");
-    assert.equal(insertedRow.content.headline, decorativeFlyerCopy.headline, "the real on-image headline must be a genuine flyer-text generation, not the Facebook caption");
-    assert.equal(insertedRow.content.cta, decorativeFlyerCopy.cta);
-    assert.equal(insertedRow.content.caption, decorativeCopy.body, "the Facebook caption stays a SEPARATE piece of text from the on-image wording");
+    const flyerTextCalls = mock.calls.filter((c) => (c.body.messages?.find((m) => m.role === "user")?.content || "").includes("ACTUAL, FINISHED text content for a flyer"));
+    assert.equal(flyerTextCalls.length, 0, "a text-free photo-forward post must never spend a provider call on on-image wording");
+    assert.equal(insertedRow.content.headline, "", "no on-image wording is persisted for a post that can never draw it");
+    assert.equal(insertedRow.content.cta, "");
+    assert.equal(insertedRow.content.on_image_wording_skipped, "photo_forward_no_text_slots");
+    assert.equal(insertedRow.content.creative_rescue_used, undefined, "no deterministic fallback wording is manufactured either");
+    assert.equal(insertedRow.content.creative_direction.occasionTreatment, "photo_forward_social");
+    assert.equal(insertedRow.content.caption, decorativeCopy.body, "the Facebook caption stays a SEPARATE piece of text and is untouched");
     assert.equal(insertedRow.content.visual_brief, decorativeCopy.visual_brief, "the concrete subject description must survive so a later revision has something real to reference");
     assert.ok(insertedRow.content.background_url, "a real generated background url must be persisted");
     assert.equal(insertedRow.content.photo_strategy, "subject_forward", "the client-side poster renderer must know this photo is a specific subject, not a calm negative-space backdrop, so it excludes the one composition that needs calm space within the photo itself");
@@ -644,7 +655,6 @@ test("generate_content (real dispatch): a rejected first caption, a passing retr
         { data: { id: "usage-copy-2" }, error: null }, // recordUsage("copy") — attempt 2 (retry)
         { data: null, error: null }, // diagnostic update — attempt 1's row
         { data: null, error: null }, // diagnostic update — attempt 2's row
-        { data: null, error: null }, // recordUsage("copy") — flyer text
         { data: { id: "usage-img-1" }, error: null }, // reserveProviderCall(image)
         { data: null, error: null }, // completeProviderCall(image)
         { data: { id: "usage-vision-1" }, error: null }, // reserveProviderCall(vision)
@@ -783,7 +793,7 @@ test("generate_content (real dispatch): photo_choice 'upload' uses the florist's
         { data: [], error: null }, // audience orders
         { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
         { data: null, error: null }, // recordUsage("copy") — the Facebook caption
-        { data: null, error: null }, // recordUsage("copy") — the on-image flyer text
+        // (no on-image wording row: this text-free photo-forward post skips that path)
         // No recordUsage("image") row here — a real upload never spends on
         // AI image generation at all, and this fixture queue would desync
         // (proving the point) if the code ever called it.
@@ -817,7 +827,10 @@ test("generate_content (real dispatch): photo_choice 'upload' uses the florist's
     const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
     const insertedRow = assetInsert.ops.find((op) => op[0] === "insert")[1][0];
     assert.equal(insertedRow.asset_type, "flyer");
-    assert.equal(insertedRow.content.headline, uploadFlyerCopy.headline, "the real on-image headline must come from a genuine flyer-text generation");
+    // Photo-forward flyer-wording elimination (2026-09-12): this decorative
+    // post is text-free, so no on-image wording is generated or persisted.
+    assert.equal(insertedRow.content.headline, "", "a text-free photo-forward post carries no on-image wording");
+    assert.equal(insertedRow.content.on_image_wording_skipped, "photo_forward_no_text_slots");
     assert.equal(insertedRow.content.style_tier, "upload", "the persisted style_tier must honestly reflect an uploaded photo, not a generated one");
     assert.equal(insertedRow.content.caption, uploadCopy.body, "the Facebook caption is still Lily's real generated copy — only the PHOTO source changed");
     assert.equal(insertedRow.content.photo_strategy, "subject_forward");
@@ -921,7 +934,7 @@ test("generate_content (real dispatch): photo_choice 'reuse' reuses a prior real
       { data: [], error: null }, // audience orders
       { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
       { data: null, error: null }, // recordUsage("copy") — Facebook caption
-      { data: null, error: null }, // recordUsage("copy") — on-image flyer text
+      // (no on-image wording row: this text-free photo-forward post skips that path)
       // The reuse source-asset re-fetch (re-verifies shop_id itself, never
       // trusts the id round-tripped from the client) — replaces the
       // website_media insert an upload/generate would do here.
@@ -2084,7 +2097,13 @@ test("REGRESSION (Phase 3 live failure, end to end): a generic 'Create today's F
   try {
     const client = createFakeSupabaseClient(
       [
-        { data: { id: "item-p3", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        // Photo-forward flyer-wording elimination (2026-09-12): this test guards
+        // the on-image WORDING path (retry/rescue/prompt threading), which an
+        // ordinary everyday request no longer takes — its resolved Direction has
+        // no text slot, so the wording call is skipped. A Valentine's Day request
+        // is the same subject-forward branch with drawable text (seasonal_feature),
+        // so the exact mechanism under test still runs with the same fixtures.
+        { data: { id: "item-p3", content_type: "image_post", title: "Today's post", brief: "Create a Valentine's Day Facebook post.", status: "idea" }, error: null },
         { data: [{ id: "item-p3", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
@@ -2160,7 +2179,13 @@ test("REGRESSION (concept threading): the flyer generation call actually receive
         // SAFETY PATCH's own "no independent flower choice" rule doesn't
         // sanitize this test's own deliberately flower-named concept away;
         // this test is about concept-THREADING fidelity, not grounding.
-        { data: { id: "item-p3b", content_type: "image_post", title: "Spring", brief: "Create a post about our spring tulips", status: "idea" }, error: null },
+        // Photo-forward flyer-wording elimination (2026-09-12): this test guards
+        // the on-image WORDING path (retry/rescue/prompt threading), which an
+        // ordinary everyday request no longer takes — its resolved Direction has
+        // no text slot, so the wording call is skipped. A Valentine's Day request
+        // is the same subject-forward branch with drawable text (seasonal_feature),
+        // so the exact mechanism under test still runs with the same fixtures.
+        { data: { id: "item-p3b", content_type: "image_post", title: "Spring", brief: "Create a Valentine's Day post about our spring tulips.", status: "idea" }, error: null },
         { data: [{ id: "item-p3b", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3b", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
@@ -2197,7 +2222,7 @@ test("REGRESSION (concept threading): the flyer generation call actually receive
   }
 });
 
-test("REGRESSION C (handler-level): a non-sympathy generic request never produces sympathy language, even when checked end to end through the real handler", async () => {
+test("REGRESSION C (handler-level): a non-sympathy seasonal request (Valentine's Day, subject-forward with drawable text) never produces sympathy language, even when checked end to end through the real handler", async () => {
   const copy = {
     platform: "facebook",
     headline: "h",
@@ -2216,7 +2241,13 @@ test("REGRESSION C (handler-level): a non-sympathy generic request never produce
   try {
     const client = createFakeSupabaseClient(
       [
-        { data: { id: "item-p3c", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        // Photo-forward flyer-wording elimination (2026-09-12): this test guards
+        // the on-image WORDING path (retry/rescue/prompt threading), which an
+        // ordinary everyday request no longer takes — its resolved Direction has
+        // no text slot, so the wording call is skipped. A Valentine's Day request
+        // is the same subject-forward branch with drawable text (seasonal_feature),
+        // so the exact mechanism under test still runs with the same fixtures.
+        { data: { id: "item-p3c", content_type: "image_post", title: "Today's post", brief: "Create a Valentine's Day Facebook post.", status: "idea" }, error: null },
         { data: [{ id: "item-p3c", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3c", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
@@ -2303,7 +2334,19 @@ test("REGRESSION D (handler-level): a genuine sympathy request still receives th
     assert.equal(body.copy.headline, "With Sympathy");
     const assetInsert = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert"));
     const c = assetInsert.ops.find((op) => op[0] === "insert")[1][0].content;
-    assert.match(c.body, /standing sprays and casket flowers/i, "real sympathy work must still be allowed to name the actual flowers/pieces");
+    // Photo-forward flyer-wording elimination (2026-09-12): a sympathy
+    // subject-forward post resolves to the text-free photo_forward_social
+    // family, so no on-image wording is generated — the real sympathy
+    // writing rules are proven on the CAPTION prompt instead, and the
+    // wording path is proven skipped. (A sympathy DESIGNED flyer — one
+    // with exact facts — still takes the wording path, covered elsewhere.)
+    const socialCall = mock.calls.find((call) => (call.body.messages?.find((m) => m.role === "user")?.content || "").includes("ACTUAL, FINISHED social media post"));
+    assert.ok(socialCall, "the caption call must actually happen");
+    assert.match(socialCall.body.messages.find((m) => m.role === "user").content, /THIS IS SYMPATHY\/FUNERAL WORK/, "a genuine sympathy request must receive the real sympathy-writing rules");
+    const flyerTextCalls = mock.calls.filter((call) => (call.body.messages?.find((m) => m.role === "user")?.content || "").includes("ACTUAL, FINISHED text content for a flyer"));
+    assert.equal(flyerTextCalls.length, 0, "no on-image wording call for a text-free sympathy photo post");
+    assert.equal(c.on_image_wording_skipped, "photo_forward_no_text_slots");
+    assert.equal(c.body, "");
   } finally {
     mock.restore();
   }
@@ -2328,7 +2371,13 @@ test("REGRESSION E (handler-level): a current-stock claim naming a flower that I
   try {
     const client = createFakeSupabaseClient(
       [
-        { data: { id: "item-p3e", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        // Photo-forward flyer-wording elimination (2026-09-12): this test guards
+        // the on-image WORDING path (retry/rescue/prompt threading), which an
+        // ordinary everyday request no longer takes — its resolved Direction has
+        // no text slot, so the wording call is skipped. A Valentine's Day request
+        // is the same subject-forward branch with drawable text (seasonal_feature),
+        // so the exact mechanism under test still runs with the same fixtures.
+        { data: { id: "item-p3e", content_type: "image_post", title: "Today's post", brief: "Create a Valentine's Day Facebook post.", status: "idea" }, error: null },
         { data: [{ id: "item-p3e", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3e", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
@@ -2399,7 +2448,13 @@ test("REGRESSION J (retry then rescue): a flyer that mismatches the caption's co
   try {
     const client = createFakeSupabaseClient(
       [
-        { data: { id: "item-p3j", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        // Photo-forward flyer-wording elimination (2026-09-12): this test guards
+        // the on-image WORDING path (retry/rescue/prompt threading), which an
+        // ordinary everyday request no longer takes — its resolved Direction has
+        // no text slot, so the wording call is skipped. A Valentine's Day request
+        // is the same subject-forward branch with drawable text (seasonal_feature),
+        // so the exact mechanism under test still runs with the same fixtures.
+        { data: { id: "item-p3j", content_type: "image_post", title: "Today's post", brief: "Create a Valentine's Day Facebook post.", status: "idea" }, error: null },
         { data: [{ id: "item-p3j", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3j", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
@@ -2465,7 +2520,13 @@ test("REGRESSION J2 (rescue without a phone on file): the same coherence mismatc
   try {
     const client = createFakeSupabaseClient(
       [
-        { data: { id: "item-p3j2", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        // Photo-forward flyer-wording elimination (2026-09-12): this test guards
+        // the on-image WORDING path (retry/rescue/prompt threading), which an
+        // ordinary everyday request no longer takes — its resolved Direction has
+        // no text slot, so the wording call is skipped. A Valentine's Day request
+        // is the same subject-forward branch with drawable text (seasonal_feature),
+        // so the exact mechanism under test still runs with the same fixtures.
+        { data: { id: "item-p3j2", content_type: "image_post", title: "Today's post", brief: "Create a Valentine's Day Facebook post.", status: "idea" }, error: null },
         { data: [{ id: "item-p3j2", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3j2", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
@@ -2514,7 +2575,7 @@ test("REGRESSION J2 (rescue without a phone on file): the same coherence mismatc
 // image-generation prompt) — end to end through the real handler.
 // ---------------------------------------------------------------------------
 
-test("REGRESSION (staging re-test): a generic 'Create today's Facebook post' request with empty verified inventory never names a specific flower species anywhere — caption, flyer, creative_brief, or the real image-generation prompt", async () => {
+test("REGRESSION (staging re-test): a seasonal 'Valentine's Day' request (subject-forward with drawable text) with empty verified inventory never names a specific flower species anywhere — caption, flyer, creative_brief, or the real image-generation prompt", async () => {
   const badCaption = {
     platform: "facebook",
     headline: "Fresh Today",
@@ -2543,7 +2604,13 @@ test("REGRESSION (staging re-test): a generic 'Create today's Facebook post' req
   try {
     const client = createFakeSupabaseClient(
       [
-        { data: { id: "item-p3f1", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        // Photo-forward flyer-wording elimination (2026-09-12): this test guards
+        // the on-image WORDING path (retry/rescue/prompt threading), which an
+        // ordinary everyday request no longer takes — its resolved Direction has
+        // no text slot, so the wording call is skipped. A Valentine's Day request
+        // is the same subject-forward branch with drawable text (seasonal_feature),
+        // so the exact mechanism under test still runs with the same fixtures.
+        { data: { id: "item-p3f1", content_type: "image_post", title: "Today's post", brief: "Create a Valentine's Day Facebook post.", status: "idea" }, error: null },
         { data: [{ id: "item-p3f1", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3f1", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
@@ -2613,7 +2680,13 @@ test("REGRESSION (staging re-test): 'Make a post about pink roses' — the flori
   try {
     const client = createFakeSupabaseClient(
       [
-        { data: { id: "item-p3f2", content_type: "image_post", title: "Pink roses", brief: "Make a post about pink roses.", status: "idea" }, error: null },
+        // Photo-forward flyer-wording elimination (2026-09-12): this test guards
+        // the on-image WORDING path (retry/rescue/prompt threading), which an
+        // ordinary everyday request no longer takes — its resolved Direction has
+        // no text slot, so the wording call is skipped. A Valentine's Day request
+        // is the same subject-forward branch with drawable text (seasonal_feature),
+        // so the exact mechanism under test still runs with the same fixtures.
+        { data: { id: "item-p3f2", content_type: "image_post", title: "Pink roses", brief: "Create a Valentine's Day post about pink roses.", status: "idea" }, error: null },
         { data: [{ id: "item-p3f2", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3f2", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },
@@ -2669,7 +2742,13 @@ test("REGRESSION (staging re-test): verified inventory containing roses does NOT
   try {
     const client = createFakeSupabaseClient(
       [
-        { data: { id: "item-p3f3", content_type: "image_post", title: "Friday post", brief: "Create a fun post for our Facebook page", status: "idea" }, error: null },
+        // Photo-forward flyer-wording elimination (2026-09-12): this test guards
+        // the on-image WORDING path (retry/rescue/prompt threading), which an
+        // ordinary everyday request no longer takes — its resolved Direction has
+        // no text slot, so the wording call is skipped. A Valentine's Day request
+        // is the same subject-forward branch with drawable text (seasonal_feature),
+        // so the exact mechanism under test still runs with the same fixtures.
+        { data: { id: "item-p3f3", content_type: "image_post", title: "Friday post", brief: "Create a fun Valentine's Day post for our Facebook page.", status: "idea" }, error: null },
         { data: [{ id: "item-p3f3", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-p3f3", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },

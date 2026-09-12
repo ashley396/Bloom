@@ -178,10 +178,10 @@ test("generate_content for an image-bearing post (Ashley's real scenario, not te
         { data: [], error: null }, // recent-content shortlist (marketing_platform_variants)
         { data: null, error: null }, // recordUsage("copy") — the Facebook caption
         // brief:"b" carries no flyer-wording signal, so this is the
-        // subject-forward designed-flyer path (a real photo AND real
-        // on-image headline/body/cta) — a second recordUsage("copy") for
-        // the on-image flyer text, then recordUsage("image") for the photo.
-        { data: null, error: null }, // recordUsage("copy") — the on-image flyer text
+        // subject-forward photo path; its Direction has no text slot, so
+        // (photo-forward flyer-wording elimination, 2026-09-12) there is no
+        // on-image wording call and no second recordUsage("copy") — next is
+        // recordUsage("image") for the photo.
         // Batch 2 (Hybrid Marketing Studio, staging-only OpenAI routing):
         // this ordinary post's canonical concept routes the pure engine
         // router to "premium_ai_creative", so isShopFeatureEnabled() now

@@ -181,7 +181,7 @@ function mockCloudflareCtaIntent(textJsonQueue) {
   return { restore: () => (globalThis.fetch = originalFetch) };
 }
 
-test("the flyer rescue's CTA respects the post's own established CTA intent — it must never swap in a phone-call CTA for a 'visit us' post just because a phone happens to exist", async () => {
+test("the flyer rescue's CTA respects the post's own established CTA intent — it must never swap in a phone-call CTA for a 'visit us' post just because a phone happens to exist (seasonal subject-forward post, so the wording path actually runs)", async () => {
   const cleanCaption = {
     platform: "facebook",
     headline: "Come See Us",
@@ -202,7 +202,13 @@ test("the flyer rescue's CTA respects the post's own established CTA intent — 
   try {
     const client = createFakeSupabaseClient(
       [
-        { data: { id: "item-cta1", content_type: "image_post", title: "Today's post", brief: "Create today's Facebook post", status: "idea" }, error: null },
+        // Photo-forward flyer-wording elimination (2026-09-12): this test guards
+        // the on-image WORDING path (retry/rescue/prompt threading), which an
+        // ordinary everyday request no longer takes — its resolved Direction has
+        // no text slot, so the wording call is skipped. A Valentine's Day request
+        // is the same subject-forward branch with drawable text (seasonal_feature),
+        // so the exact mechanism under test still runs with the same fixtures.
+        { data: { id: "item-cta1", content_type: "image_post", title: "Today's post", brief: "Create a Valentine's Day Facebook post.", status: "idea" }, error: null },
         { data: [{ id: "item-cta1", status: "generating" }], error: null }, // Batch 3: atomic claim
         { data: [{ id: "variant-cta1", platform: "facebook" }], error: null },
         { data: { marketing_monthly_budget_cents: null }, error: null },

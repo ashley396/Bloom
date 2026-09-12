@@ -89,8 +89,9 @@ function fixedResponses() {
     { data: [], error: null }, // audience: customers
     { data: [], error: null }, // audience: orders
     { data: [], error: null }, // recent-content shortlist
-    { data: null, error: null }, // recordUsage("copy") — caption
-    { data: null, error: null } // recordUsage("copy") — on-image flyer text
+    { data: null, error: null } // recordUsage("copy") — caption (text-free
+    // photo-forward post: no on-image wording row — see the photo-forward
+    // flyer-wording elimination, 2026-09-12)
   ];
 }
 
@@ -131,11 +132,20 @@ test("Batch4 Part C: a Premium-eligible request reserves usage, creates a durabl
     assert.equal(insertedJob.job_type, PREMIUM_JOB_TYPE);
     assert.equal(insertedJob.status, "planned");
     assert.equal(insertedJob.result.content_item_id, "item-1");
+    // Photo-forward flyer-wording elimination (2026-09-12): this text-free
+    // post skipped the on-image wording path, and the skip marker travels
+    // with the durable job so the Background Function persists it.
+    const jobUpdateWithContext = client.calls.find(
+      (c) => c.table === "ai_execution_jobs" && c.ops.some((op) => op[0] === "update" && op[1][0]?.result?.flyer_asset_context)
+    );
+    assert.ok(jobUpdateWithContext, "the flyer asset context is attached to the durable job before dispatch");
+    const flyerCtx = jobUpdateWithContext.payload.result.flyer_asset_context;
+    assert.equal(flyerCtx.on_image_wording_skipped, "photo_forward_no_text_slots");
+    assert.equal(flyerCtx.on_image_headline, "");
 
-    // recordUsage("copy") writes into this same ledger table twice
-    // (caption + on-image flyer text) before the Premium reservation ever
-    // runs — find the OpenAI reservation specifically, not just the first
-    // insert into this table.
+    // recordUsage("copy") writes into this same ledger table (the caption)
+    // before the Premium reservation ever runs — find the OpenAI
+    // reservation specifically, not just the first insert into this table.
     const usageInsert = client.calls.find(
       (c) => c.table === "marketing_generation_usage" && c.ops.some((op) => op[0] === "insert" && op[1][0].provider === "openai")
     );
@@ -212,8 +222,9 @@ function imageContentBaseResponses() {
     { data: [], error: null }, // audience: customers
     { data: [], error: null }, // audience: orders
     { data: [], error: null }, // recent-content shortlist
-    { data: null, error: null }, // recordUsage("copy") — caption
-    { data: null, error: null } // recordUsage("copy") — on-image flyer text
+    { data: null, error: null } // recordUsage("copy") — caption (text-free
+    // photo-forward post: no on-image wording row — see the photo-forward
+    // flyer-wording elimination, 2026-09-12)
   ];
 }
 

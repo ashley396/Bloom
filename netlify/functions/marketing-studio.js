@@ -183,7 +183,7 @@ import {
   classifyUserTemporalIntent,
   deriveFactRequirements
 } from "./_shared/marketing-canonical-concept.js";
-import { buildDeterministicCreativeDirection, inheritCreativeDirection } from "./_shared/marketing-creative-direction.js";
+import { buildDeterministicCreativeDirection, inheritCreativeDirection, hasNoDrawableTextSlots } from "./_shared/marketing-creative-direction.js";
 import { evaluateMarketingDiversity } from "./_shared/marketing-content-diversity.js";
 import { deriveApprovalObservations, dedupeTraits } from "./_shared/marketing-approval-learning.js";
 import { defaultVisualStyle } from "./_shared/ai-visual-revisions.js";
@@ -3783,12 +3783,67 @@ export function createMarketingStudioHandler(deps = {}) {
             // photo_choice is "upload", "generate", or "reuse". Flyer text
             // is generated FIRST (cheaper, one request) so a wording
             // failure never wastes an image spend.
-            const flyerCopyResult = await generateFlyerCopy({ noticeFallback, brief: currentItem.data.brief, occasionTitle: currentItem.data.title, concept });
+            //
+            // Photo-forward flyer-wording elimination (2026-09-12, after
+            // the live Test C pass showed 2 extra Cloudflare calls spent on
+            // wording that was never drawn): resolve THIS branch's own
+            // deterministic Creative Direction up front — the exact same
+            // buildConceptForAsset + buildDeterministicCreativeDirection the
+            // branch persists further down, with this branch's fixed
+            // photoStrategy ("subject_forward") and no wording, because the
+            // wording is precisely what's being decided (occasion
+            // treatment and graphicTextSlots never depend on it; ctaText
+            // only feeds ctaIntent, which the photo_forward_social family
+            // overrides to all-off anyway). When every text slot is off,
+            // the on-image wording path is skipped entirely: no provider
+            // call, no retry, no deterministic fallback wording that could
+            // never render. Designed flyers (any slot on) keep the existing
+            // generateFlyerCopy path byte-for-byte — including the
+            // operational-notice deterministic wording (`noticeFallback`),
+            // because operational_notice always has text slots on. The
+            // probe deliberately runs even when the CAPTION was rescued:
+            // independent review found that case still manufactured
+            // deterministic on-image wording (from the same rescue) for a
+            // text-free post — wording that could never render either.
+            const preWordingDirection = buildDeterministicCreativeDirection({
+              canonicalConcept: buildConceptForAsset({
+                assetType: "flyer",
+                ctaText: null,
+                bodyText: "",
+                photoStrategy: "subject_forward",
+                styleTier: "generated",
+                userUploadedPhoto: body.photo_choice === "upload" || body.photo_choice === "reuse",
+                reusedFromAssetId: null
+              }),
+              shopBrand: { logoUrl: shopRow.data?.logo_url || null }
+            });
+            const flyerWordingSkipped = Boolean(preWordingDirection && hasNoDrawableTextSlots(preWordingDirection));
+            const flyerCopyResult = flyerWordingSkipped
+              ? {
+                  ok: true,
+                  model: "none",
+                  content: {
+                    headline: "",
+                    body: "",
+                    cta: "",
+                    // Observability: the persisted asset says WHY there is no
+                    // on-image wording, so nobody later mistakes empty fields
+                    // for a failed generation.
+                    on_image_wording_skipped: "photo_forward_no_text_slots"
+                  }
+                }
+              : await generateFlyerCopy({ noticeFallback, brief: currentItem.data.brief, occasionTitle: currentItem.data.title, concept });
             if (!flyerCopyResult.ok) {
               await revertToIdea();
               return json(400, { error: flyerCopyResult.error });
             }
             const flyerGen = { model: flyerCopyResult.model, content: flyerCopyResult.content };
+            structuredLog("info", "marketing_generate_content_flyer_wording", {
+              traceId: genTraceId,
+              skipped: flyerWordingSkipped,
+              reason: flyerWordingSkipped ? "photo_forward_no_text_slots" : null,
+              occasionTreatment: preWordingDirection?.occasionTreatment || null
+            });
 
             let imageGen;
             let reusedFromAssetId = null;
@@ -4018,6 +4073,10 @@ export function createMarketingStudioHandler(deps = {}) {
                   on_image_headline: flyerGen.content.headline,
                   on_image_body: flyerGen.content.body,
                   on_image_cta: flyerGen.content.cta,
+                  // Photo-forward flyer-wording elimination: the async
+                  // Background Function persists this asset, so the skip
+                  // marker has to travel with the job context too.
+                  on_image_wording_skipped: flyerGen.content.on_image_wording_skipped || null,
                   caption: copyGen.content.body,
                   hashtags: copyGen.content.hashtags || [],
                   brand_traits_used: copyGen.content.brand_traits_used || [],

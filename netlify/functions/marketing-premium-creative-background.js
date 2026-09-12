@@ -213,6 +213,10 @@ export function createMarketingPremiumCreativeBackgroundHandler(deps = {}) {
           headline: flyerCtx.on_image_headline || null,
           body: flyerCtx.on_image_body || null,
           cta: flyerCtx.on_image_cta || null,
+          // Photo-forward flyer-wording elimination (2026-09-12): says WHY
+          // the three fields above are empty for a text-free post, so an
+          // empty headline is never mistaken for a failed generation.
+          ...(flyerCtx.on_image_wording_skipped ? { on_image_wording_skipped: flyerCtx.on_image_wording_skipped } : {}),
           template_id: template.id,
           aspect_ratio: aspectRatioKey,
           style_tier: "generated",

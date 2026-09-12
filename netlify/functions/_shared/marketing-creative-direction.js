@@ -322,6 +322,24 @@ export const GRAPHIC_TEXT_SLOTS_DEFAULT = Object.freeze({
   phone: false
 });
 
+/**
+ * Photo-forward flyer-wording elimination (2026-09-12, after the live Test
+ * C pass): true only when a resolved Direction has EVERY graphic text slot
+ * off — the text-free photo_forward_social family. The generate_content
+ * handler uses this to skip the on-image wording provider path entirely
+ * (no AI call, no retry, no deterministic fallback wording), because the
+ * renderer gates every text role on these same slots and would never draw
+ * a word of it. Conservative on purpose: an unknown/missing slot map is
+ * "not proven text-free" and returns false; serviceDetail is counted even
+ * though no renderer draws it yet, so a future renderer that does can never
+ * find its wording silently missing.
+ */
+export function hasNoDrawableTextSlots(direction) {
+  const slots = direction?.graphicTextSlots;
+  if (!slots || typeof slots !== "object") return false;
+  return Object.keys(GRAPHIC_TEXT_SLOTS_DEFAULT).every((slot) => slots[slot] === false);
+}
+
 /** Hard character ceilings — never "shrink the font to fit," always "the
  * text doesn't belong on the graphic at this length." No future renderer
  * is permitted to solve overflow by shrinking text past legibility. */
